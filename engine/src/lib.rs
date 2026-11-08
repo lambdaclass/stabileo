@@ -700,7 +700,7 @@ pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
 pub fn combine_results_2d(input: JsValue) -> Result<JsValue, JsValue> {
     let input: postprocess::combinations::CombinationInput = from_js_value(input)?;
     match postprocess::combinations::combine_results_checked(&input).map_err(|e| JsValue::from_str(&e))? {
-        Some(result) => to_js_value(&result),
+        Some(result) => to_js_value(&result.into_typed()),
         None => Ok(JsValue::NULL),
     }
 }
@@ -710,7 +710,7 @@ pub fn combine_results_2d(input: JsValue) -> Result<JsValue, JsValue> {
 pub fn combine_results_3d(input: JsValue) -> Result<JsValue, JsValue> {
     let input: postprocess::combinations::CombinationInput3D = from_js_value(input)?;
     match postprocess::combinations::combine_results_3d(&input).map_err(|e| JsValue::from_str(&e))? {
-        Some(result) => to_js_value(&result),
+        Some(result) => to_js_value(&result.into_typed()),
         None => Ok(JsValue::NULL),
     }
 }

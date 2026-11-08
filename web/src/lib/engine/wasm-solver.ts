@@ -1461,7 +1461,7 @@ export function analyzeKinematics3D(input: SolverInput3D) {
 export function combineResults(
   factors: Array<{ caseId: number; factor: number }>,
   perCase: Map<number, AnalysisResults>,
-): AnalysisResults | null {
+): AnalysisResultsWire | null {
   if (!wasmReady || !wasmCombineResults2d) throw new Error('WASM solver not initialized.');
   const cases = factors
     .filter(f => perCase.has(f.caseId))
@@ -1471,7 +1471,8 @@ export function combineResults(
   // output — produced after the input-side guard already rejected non-finite
   // model data — so re-walking multi-MB result trees per combo was pure cost.
   assertFiniteWire(factors);
-  return wasmCombineResults2d({ factors, cases });
+  const combined = wasmCombineResults2d({ factors, cases });
+  return combined === null ? null : resultsFromWasm(combined);
 }
 
 /**
@@ -1482,7 +1483,7 @@ export function combineResults3D(
   factors: Array<{ caseId: number; factor: number }>,
   perCase: Map<number, AnalysisResults3D>,
   plates: PlateThickness,
-): AnalysisResults3D | null {
+): AnalysisResults3DWire | null {
   if (!wasmReady || !wasmCombineResults3d) throw new Error('WASM solver not initialized.');
   const cases = factors
     .filter(f => perCase.has(f.caseId))
@@ -1490,7 +1491,8 @@ export function combineResults3D(
   if (cases.length === 0) return null;
   // Same rationale as combineResults: guard factors (cheap), trust solver output.
   assertFiniteWire(factors);
-  return wasmCombineResults3d({ factors, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]) });
+  const combined = wasmCombineResults3d({ factors, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]) });
+  return combined === null ? null : results3DFromWasm(combined);
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */

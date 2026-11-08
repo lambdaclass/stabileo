@@ -3,7 +3,8 @@ import { elasticFromDisplay, elasticToDisplay, materialToWire, sectionToWire, se
 import { convertThermalQuadLoad } from '../solver-shells';
 import { unitInputCommit } from '../../utils/unit-input';
 import { fromDisplay, toDisplay, UNIT_SYSTEMS } from '../../utils/units';
-import { input2DToWireObject, input3DToWireObject, solve } from '../wasm-solver';
+import { input2DToWireObject, input3DToWireObject, solve, combineResults } from '../wasm-solver';
+import * as wasm from '../../wasm/dedaliano_engine.js';
 import type { SolverInput, SolverLoad } from '../types';
 import type { SolverInput3D, SolverLoad3D, SolverSection3D } from '../types-3d';
 const input = (): SolverInput => ({
@@ -325,6 +326,16 @@ describe('result unit boundary', () => {
     expect(results3DFromWasm(raw)).toBe(raw);
     expect(JSON.stringify(resultsFromWasm(raw))).toBe(text);
     expect(Object.is(resultsFromWasm(raw).displacements[0].ux, -0)).toBe(true);
+  });
+  it('combines through the typed admission with the same JSON text', () => {
+    const results = solve(input());
+    const combined = combineResults([{ caseId: 1, factor: 1.5 }, { caseId: 2, factor: -0 }], new Map([[1, results], [2, results]]));
+    expect(combined).not.toBeNull();
+    const raw = wasm.combine_results_2d({ factors: [{ caseId: 1, factor: 1.5 }, { caseId: 2, factor: -0 }], cases: [{ caseId: 1, results }, { caseId: 2, results }] });
+    expect(JSON.stringify(combined)).toBe(JSON.stringify(raw));
+    expect(combined).toStrictEqual(raw);
+    expect(combined!.reactions[0].rz).toBe(1.5 * results.reactions[0].rz + -0 * results.reactions[0].rz);
+    expect(combineResults([{ caseId: 9, factor: 1 }], new Map([[1, results]]))).toBeNull();
   });
   it('solves through the typed admission with the full result unchanged', () => {
     const results = solve(input());
