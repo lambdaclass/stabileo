@@ -341,7 +341,7 @@ fn rc_tension_controlled_flag_agrees_with_phi() {
 
     let forces = members
         .iter()
-        .map(|m| RCDesignForces { element_id: m.element_id, mu: 100_000.0, vu: None, nu: None })
+        .map(|m| RCDesignForces { element_id: m.element_id, mu: 100_000.0, vu: None, nu: None, tu: None })
         .collect();
 
     let results = check_rc_members(&RCCheckInput { members, forces });

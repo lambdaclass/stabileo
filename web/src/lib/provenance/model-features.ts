@@ -32,7 +32,7 @@ export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pde
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
-  'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'timberOrAluminiumMembers',
+  'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'timberOrAluminiumMembers',
   'concreteMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
@@ -50,6 +50,8 @@ interface Elem {
   releaseI?: Record<string, unknown>; releaseJ?: Record<string, unknown>;
   semiRigid?: unknown; reinforcement?: unknown;
   tensionConnection?: { i?: unknown; j?: unknown };
+  unbracedLength?: number;
+  bracing?: { top?: readonly unknown[]; bottom?: readonly unknown[] };
   /** Set on the members of a curve drawn as one (`lib/model/curved-member.ts`). */
   arc?: unknown;
   /** Insertion offsets at the two ends, global m (`model/element-3d-metadata.ts`). */
@@ -156,7 +158,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const released = new Set<number>();
   const sheared = new Set(values(s.sections).filter((x) => x.shearAreas != null).map((x) => x.id));
   if (elements.length) f.add('members');
-  let steel = 0, concrete = 0, steelWithoutConnection = 0;
+  let steel = 0, concrete = 0, steelWithoutConnection = 0, steelDeclaredLb = 0;
   for (const e of elements) {
     if (e.type === 'truss') f.add('trussMembers'); else f.add('frameMembers');
     if (hasRelease(e.releaseI) || hasRelease(e.releaseJ) || e.semiRigid) { f.add('hinges'); if (e.type !== 'truss') released.add(e.id); }
@@ -168,6 +170,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (fam === 'steel') {
       steel++;
       if (!e.tensionConnection?.i || !e.tensionConnection?.j) steelWithoutConnection++;
+      if ((e.unbracedLength ?? 0) > 0 || e.bracing?.top?.length || e.bracing?.bottom?.length) steelDeclaredLb++;
     } else if (fam === 'concrete' || e.reinforcement) {
       concrete++;
     }
@@ -178,6 +181,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (cirsoc301) {
       f.add('steelCirsoc301');
       if (steelWithoutConnection) f.add('steelTensionWithoutConnection');
+      if (steelDeclaredLb) f.add('steelDeclaredUnbracedLength');
     }
   }
   if (concrete) {

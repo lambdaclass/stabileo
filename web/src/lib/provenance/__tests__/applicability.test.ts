@@ -48,6 +48,17 @@ describe('which registered changes concern a model', () => {
     expect(ids(ec3)).toContain('ec3-aisc-ltb-and-slender');
   });
 
+  it('shows the Cb segment-ends change only for CIRSOC 301 steel with a declared unbraced length', () => {
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain('cb-segment-ends');
+    expect(ids(model({ elements: [member(1, 1, 'frame', { unbracedLength: 2 })] }))).toContain('cb-segment-ends');
+    expect(ids(model({ elements: [member(1, 1, 'frame', { bracing: { top: [1.5] } })] }))).toContain('cb-segment-ends');
+    expect(ids(model({ elements: [member(1, 2, 'frame', { unbracedLength: 2 })] }))).not.toContain('cb-segment-ends');
+    expect(ids(model({
+      elements: [member(1, 1, 'frame', { unbracedLength: 2 })],
+      regulations: { roles: { steel: { adapterId: 'eurocode3' } } },
+    }))).not.toContain('cb-segment-ends');
+  });
+
   it('shows the arc local-axes change only for models with members drawn as an arc (#418)', () => {
     const spec = { start: { x: -5, y: 0, z: 0 }, through: { x: 0, y: 0, z: 5 }, end: { x: 5, y: 0, z: 0 }, segments: 8 };
     const arch = model({ elements: [member(1, 1, 'frame', { arc: { id: 1, spec } })] });

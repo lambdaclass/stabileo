@@ -3426,6 +3426,7 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         |id| node_xz.get(&id).map(|n| [n.x, n.z, 0.0]),
         DofNumbering::dofs_per_node_2d(input) >= 3,
     )?;
+    super::assembly::refuse_connector_arm_mechanism_2d(input)?;
 
     Ok(())
 }
@@ -3904,6 +3905,7 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
 
     super::pre_solve_gates::refuse_broken_elements(&super::pre_solve_gates::check_shell_distortion_3d(input))?;
     crate::known_issues::refuse(&crate::known_issues::for_3d(input, analysis))?;
+    super::assembly::refuse_connector_arm_mechanism_3d(input)?;
 
     Ok(())
 }

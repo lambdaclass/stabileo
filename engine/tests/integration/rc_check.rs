@@ -34,6 +34,7 @@ fn rc_check_singly_reinforced_flexure() {
             mu: 200e3, // 200 kN-m
             vu: None,
             nu: None,
+            tu: None,
         }],
     };
 
@@ -120,6 +121,7 @@ fn rc_check_doubly_reinforced() {
             mu: 400e3,
             vu: None,
             nu: None,
+            tu: None,
         }],
     };
 
@@ -163,6 +165,7 @@ fn rc_check_tbeam_na_in_flange() {
             mu: 250e3,
             vu: None,
             nu: None,
+            tu: None,
         }],
     };
 
@@ -211,6 +214,7 @@ fn rc_check_tbeam_na_in_web() {
             mu: 600e3,
             vu: None,
             nu: None,
+            tu: None,
         }],
     };
 
@@ -252,6 +256,7 @@ fn rc_check_shear_with_stirrups() {
             mu: 100e3,
             vu: Some(150e3), // 150 kN shear
             nu: None,
+            tu: None,
         }],
     };
 
@@ -286,6 +291,7 @@ fn rc_check_shear_concrete_only() {
             mu: 50e3,
             vu: Some(80e3),
             nu: None,
+            tu: None,
         }],
     };
 
@@ -331,9 +337,9 @@ fn rc_check_multiple_members() {
             rectangular_beam(2, 0.25, 0.45, 0.40, 1000e-6),
         ],
         forces: vec![
-            RCDesignForces { element_id: 1, mu: 100e3, vu: Some(50e3), nu: None },
-            RCDesignForces { element_id: 2, mu: 80e3, vu: None, nu: None },
-            RCDesignForces { element_id: 3, mu: 200e3, vu: Some(100e3), nu: None },
+            RCDesignForces { element_id: 1, mu: 100e3, vu: Some(50e3), nu: None, tu: None },
+            RCDesignForces { element_id: 2, mu: 80e3, vu: None, nu: None, tu: None },
+            RCDesignForces { element_id: 3, mu: 200e3, vu: Some(100e3), nu: None, tu: None },
         ],
     };
 
@@ -380,6 +386,7 @@ fn rc_check_high_strength_concrete() {
             mu: 200e3,
             vu: None,
             nu: None,
+            tu: None,
         }],
     };
 
@@ -413,7 +420,7 @@ fn rc_check_over_reinforced_uses_steel_strain() {
     let m = rectangular_beam(1, 0.25, 0.40, 0.35, 3.5e-3);
     let r = &check_rc_members(&RCCheckInput {
         members: vec![m],
-        forces: vec![RCDesignForces { element_id: 1, mu: 100e3, vu: None, nu: None }],
+        forces: vec![RCDesignForces { element_id: 1, mu: 100e3, vu: None, nu: None, tu: None }],
     })[0];
     let expected = 0.65 * 290_642.17;
     assert!((r.phi_flexure - 0.65).abs() < 1e-12, "phi {}", r.phi_flexure);
@@ -435,7 +442,7 @@ fn rc_check_axial_overload_fails() {
     let run = |nu: f64| {
         check_rc_members(&RCCheckInput {
             members: vec![m.clone()],
-            forces: vec![RCDesignForces { element_id: 1, mu: 20e3, vu: None, nu: Some(nu) }],
+            forces: vec![RCDesignForces { element_id: 1, mu: 20e3, vu: None, nu: Some(nu), tu: None }],
         })
         .remove(0)
     };
@@ -469,7 +476,7 @@ fn rc_check_tbeam_with_axial_force_is_incomplete() {
     };
     let r = &check_rc_members(&RCCheckInput {
         members: vec![m],
-        forces: vec![RCDesignForces { element_id: 1, mu: 100e3, vu: None, nu: Some(-500e3) }],
+        forces: vec![RCDesignForces { element_id: 1, mu: 100e3, vu: None, nu: Some(-500e3), tu: None }],
     })[0];
     assert!(r.unevaluated.iter().any(|n| n.contains("Flexure")), "{r:?}");
     assert!(r.governing_check.contains("incomplete"));
@@ -482,7 +489,7 @@ fn rc_check_vc_caps_sqrt_fc() {
     m.fc = 80e6;
     let r = &check_rc_members(&RCCheckInput {
         members: vec![m],
-        forces: vec![RCDesignForces { element_id: 1, mu: 1.0, vu: Some(50e3), nu: None }],
+        forces: vec![RCDesignForces { element_id: 1, mu: 1.0, vu: Some(50e3), nu: None, tu: None }],
     })[0];
     // d = 250 mm → lambda_s = 1
     let rho: f64 = 1.5e-3 / (0.30 * 0.25);

@@ -79,6 +79,14 @@ class MeshTest(unittest.TestCase):
         d["loads"][0]["data"]["elementId"] = 3
         self.assertFalse(C._axial_span_loaded(d))
 
+    def test_refusal_reason_reaches_the_filer_without_truncation(self):
+        reason = "stabileo: " + "prescribed displacement refusal " * 12
+        with mock.patch.object(C, "stabileo", side_effect=RuntimeError(reason)), \
+                mock.patch.object(C, "opensees_isolated", return_value={"failed": "reference failed"}):
+            result = C.run_one("long-refusal", column(), "bin", 1e-6, False)
+        self.assertEqual(result["why"], [reason])
+        self.assertGreater(len(result["why"][0]), 200)
+
 
 MODES = [{1: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]}, {1: [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]}]
 

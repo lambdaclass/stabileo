@@ -25,11 +25,11 @@ Classes:
 
 | Class | Modules | Lines |
 |---|---:|---:|
-| (a) delegates to WASM | 22 | 10 120 |
+| (a) delegates to WASM | 23 | 10 175 |
 | (b) duplicates a Rust check | 61 | 27 115 |
-| (c) TypeScript-only engineering arithmetic | 102 | 32 505 |
+| (c) TypeScript-only engineering arithmetic | 101 | 32 280 |
 | (d) search/presentation | 148 | 41 796 |
-| **Total** | **333** | **111 536** |
+| **Total** | **333** | **111 366** |
 
 Of the 61 duplicates, 18 are the step-by-step teaching solvers (`steps/*`, `force-method/*`,
 `solver-detailed*.ts`). They re-derive a solve the student sees next to the engine's own and
@@ -300,7 +300,7 @@ designer anchored at 4 ‰ for the required steel and never looked at the provid
 | Flanged, circular, capacity, interaction diagram (`cirsoc201-flanged.ts`, `-circular.ts`, `-capacity.ts`, `interaction-diagram.ts`) | **Migrated.** Thin adapters: the beam check (with `bf`, `hf`) for flanged and given-steel capacity, the section engine for circular columns, rectangular columns and the diagram. |
 | Slabs (`losas.ts`) | **Migrated.** Strip requirement from `cirsoc201_design_beam` (b = 1 m, singly), capacity of the bars chosen from the beam check, As,min and spacings from `cirsoc201_slab_provisions` (2025: 7.6.1.1, 8.6.1.1, 24.4.3.2, 7.7.2.3, 8.7.2.2, 24.4.3.3). Bar/spacing choice stays in TypeScript. |
 | Station verifier columns (`station-design-forces.ts` `computeColumnCapacity`, `computeBiaxialCapacity`) | **Migrated.** `column_capacity_kernel.rs` delegates to the section engine (edition-aware); the TypeScript reference solver is an oracle; no bars → not verified. Biaxial: the load contour with the real bars, four sign quadrants, instead of Bresler with Nu·φMn/Mu estimates. |
-| CIRSOC 301 (`cirsoc301.ts`) | **Migrated.** A thin adapter over `check_cirsoc301_members` (`cirsoc301-kernel.ts`, JSON boundary): it maps `SteelDesignParams` in and the results out and renders the engine's messages as the Spanish `steps`. No engine = every check fails. Every pass is re-checked by `cirsoc301-engine-gate.ts` (step 3). Single and double angles are new (E.5, E.6). Still TypeScript (class c, inputs to the engine): `steel/tension-connection.ts` (Ae from the model's end connections), `steel/moment-gradient.ts` (Cb), `steel/section-constants.ts` (J, Cw, Z). |
+| CIRSOC 301 (`cirsoc301.ts`) | **Migrated.** A thin adapter over `check_cirsoc301_members` (`cirsoc301-kernel.ts`, JSON boundary): it maps `SteelDesignParams` in and the results out and renders the engine's messages as the Spanish `steps`. No engine = every check fails. Every pass is re-checked by `cirsoc301-engine-gate.ts` (step 3). Single and double angles are new (E.5, E.6). Still TypeScript (class c, inputs to the engine): `steel/tension-connection.ts` (Ae from the model's end connections), `steel/section-constants.ts` (J, Cw, Z); Cb is the engine's since slice 1 (`cirsoc301_inputs`). |
 | Serviceability (`checkDeflection`) | **Migrated.** The verdict (allowable deflection, ratio, pass) comes from `check_serviceability`. Only the long-term multiplier stays in TypeScript. If the engine is not loaded, the check fails. `checkCrackWidth` has no engine counterpart; it was fixed but stays in TypeScript. |
 | Footings (`foundation-check.ts`) | **Migrated.** A thin adapter over `check_isolated_footings` (`engine/src/postprocess/isolated_footing.rs`): service bearing with biaxial eccentricity and the column's plan offset, factored one-way shear in both directions and from both faces, punching with the soil inside the perimeter deducted and the unbalanced moment formed by equilibrium (refused when significant or not formable), column-face flexure along both axes. The formulas are generic over `Real`; `certify_isolated_footings` evaluates them in interval arithmetic and gates every OK (step 3). The old TypeScript is `__tests__/differential/foundation-check-oracle.ts`. `punching-shear.ts` stays for slab-column punching (`slab-punching.ts`), which the engine does not cover. |
 | Station design forces | **Engine only.** `computeStationDemands` throws `EngineUnavailableError` without the engine or the model; the TypeScript extraction is `__tests__/differential/station-oracle.ts`. |
@@ -369,8 +369,9 @@ section to a TypeScript reference, or if a design-check wrapper returns `null` a
 In rough order of safety value:
 
 1. **CIRSOC 301 inputs still computed in TypeScript.** The checker is in Rust and gated, but Ae
-   from the model's end connections (`tension-connection.ts`), Cb (`moment-gradient.ts`) and J,
-   Cw, Z (`section-constants.ts`) are TypeScript arithmetic fed to it. Not in the engine either:
+   from the model's end connections (`tension-connection.ts`), J, Cw, Z (`section-constants.ts`)
+   and the unbraced lengths (`unbraced-length.ts`) are TypeScript arithmetic fed to it. Cb is the
+   engine's (`cirsoc301_inputs`, slice 1 below). Not in the engine either:
    F.7–F.11 (boxes, tubes, tees, angles in flexure), so those members are NOT EVALUATED under
    moment, by name.
 2. **Gate coverage.** Torsion and the slenderness magnifier are not re-checked by the engine,
@@ -411,6 +412,470 @@ In rough order of safety value:
     whose result is checked by the engine; `checkTorsion`, `checkSlender` (#366); the slab support
     and corner-torsion steel of `losas.ts` (practice rules, not clauses); 2005 slab spacings,
     whose text is not in this repository (the engine keeps the app's former, stricter values).
+
+## Migration slices, ranked (#391, #392, #393)
+
+This is the order in which the TypeScript engineering math that is still in the app moves into
+the engine. A calculation ranks higher the more directly it feeds a design verdict or a load, so
+the places where a silent error is worst move first:
+
+- **A. Verdict inputs.** The TypeScript computes a number that a Rust checker multiplies into a
+  capacity. A wrong value passes or fails a member, and the engine's gate cannot see it, because
+  it re-checks with the same input.
+- **B. TypeScript verdicts.** The TypeScript itself decides pass or fail, and no engine checker
+  re-checks the result.
+- **C. Loads.** The TypeScript generates or combines the loads that every downstream result is
+  computed from.
+- **D. Model transforms.** The TypeScript changes the model that the engine solves.
+- **E. Analysis results shown or reused.** Results the engine could produce and the TypeScript
+  recomputes.
+- **F. Display only.**
+
+Within a group, a calculation ranks higher when its error is unconservative and multiplicative,
+when it feeds many members, and when it has fewer production callers, so it is cheap to move
+first.
+
+### What every slice does
+
+One PR per slice, on branch `rust/ts-migration-<slice>`:
+
+1. The module's arithmetic is written in Rust under `engine/src/` (steel inputs in
+   `postprocess/cirsoc301_inputs.rs`, loads in `loads/`, the rest next to the engine code they
+   belong with), with plain `f64` fields named as the TypeScript names them (`serde`
+   camelCase).
+2. It is exposed through WASM. A family gets one JSON dispatcher tagged by `op`: steel inputs use
+   `cirsoc301_inputs`, loads use `loads_request`. A batch kernel takes `&[f64]` where the call
+   rate matters. Each new export gets a row in `engine/tests/metamorphic/entry_points.json`
+   (`make lint.engine` fails without one), and `wasm-solver.ts` registers it.
+3. The TypeScript caller is switched to the engine. Without the engine it throws
+   `EngineUnavailableError`, and on a refusal it throws `EngineCheckError` with the engine's
+   message. It never falls back. Where the screen already handles "engine not available" for the
+   check the input feeds, the caller may skip the call when the kernel is not registered, as
+   `checkSteelMember` does for Cb.
+4. The TypeScript implementation leaves the app in the same PR. It moves verbatim to
+   `web/src/lib/engine/__tests__/differential/<name>-oracle.ts` (or next to its module's
+   `__tests__/`), where `no-silent-fallback.test.ts` forbids any app import. Its old unit
+   tests keep running, now against the engine.
+5. Engine tests against independent references: the clause's closed form on inputs with exact
+   answers, published worked examples (INTI-CIRSOC *Ejemplos de Aplicación*, AISC Design Guides),
+   and section values taken from `web/src/lib/data/steel-profiles.ts` or a cited table, never
+   from memory. The regulation texts are in `docs/codes/CIRSOC/markdown/`. Metamorphic relations
+   go in `engine/tests/metamorphic/` (scaling, sign, ordering, refinement), and proptest is used
+   where the input space is wide.
+6. **Parity sweep** before the TypeScript leaves the app:
+   `__tests__/differential/<name>-parity.test.ts` runs the oracle and the engine over a
+   representative grid (every branch of the module, the clause's boundaries, degenerate inputs,
+   and a few thousand seeded random cases). Where the two compute the same IEEE operations in
+   the same order (`+ − × ÷ √`, `abs`, `min`, `max`, stable sorts), the outputs must be
+   bit-identical (`Object.is`). Where they cannot be, the tolerance is stated and justified in
+   the test: `exp`, `ln`, `pow`, trigonometry and `hypot` differ between V8 and Rust's libm by a
+   few ulp, which allows 1e-14 relative per call, compounded by the depth of the formula. An
+   iterative solve allows its own convergence tolerance. A difference that is a bug in the
+   oracle is fixed in Rust, pinned in the parity test as the oracle's error, and given a
+   results-change entry.
+7. A results-change entry (`web/src/lib/provenance/result-changes/<id>.json`, plus a
+   `changelog.d/` fragment under `BREAKING (results)`) whenever a saved model's numbers move. The
+   PR body says whether a safety advisory is needed (`docs/SAFETY_ADVISORIES.md`): one is needed
+   when the old number was unconservative.
+8. This file is updated: the slice's row is marked moved, and the inventory row becomes class (a).
+
+### The slices
+
+| # | Group | Slice | Status |
+|--:|:-:|---|---|
+| 1 | A | Cb, CIRSOC 301 F.1(3) | **Moved** (#1718) |
+| 2 | A | Ae, net area from end connections | |
+| 3 | A | J, Cw, c, Sy section constants | |
+| 4 | A | L, Lb, cantilever free end, segment diagram | |
+| 5 | A | Steel demand assembly and concurrent tuples | |
+| 6 | A | Material family classification | |
+| 7 | B | Bolt groups and fillet welds | |
+| 8 | A | Footing actions (eccentricity, soil pressure) | |
+| 9 | B | Footing flexure and mat anchorage | |
+| 10 | B | Punching shear | |
+| 11 | B | Beam-column joint shear | |
+| 12 | B | Lap splices | |
+| 13 | B | Slab and wall design | |
+| 14 | B | Slenderness magnifier and torsion (#366) | |
+| 15 | B | Deflection limits, spans and member deflection | |
+| 16 | B | Story drift | |
+| 17 | C | Combination expansion onto cases | |
+| 18 | C | Service combinations | |
+| 19 | C | Modal story forces and accidental torsion | |
+| 20 | C | Spectral case combination (SRSS/CQC/ABS, 100/30) | |
+| 21 | C | SRSS/ABS result combinations | |
+| 22 | C | Wind: velocity pressure and gust factor | |
+| 23 | C | Wind: design cases and level forces | |
+| 24 | C | Wind: free roofs, other structures, cladding | |
+| 25 | C | Snow: ground, roof, shapes, unbalanced | |
+| 26 | C | Snow: drift and sliding | |
+| 27 | C | Dead, live and roof-live tables, live-load reduction | |
+| 28 | C | Special loads T/H/F, thermal coefficient | |
+| 29 | C | Seismic mass source | |
+| 30 | C | Member loads, self-weight, axial shares, case effects | |
+| 31 | C | Area-load distribution and shell load integration | |
+| 32 | D | Model transforms | |
+| 33 | E | Moving-load sweep and envelope | |
+| 34 | E | Plastic collapse event loop | |
+| 35 | E | P-Delta amplification B2 and direct-analysis inputs | |
+| 36 | E | Diagrams, station forces, member deflection shape | |
+| 37 | E | Kinematic degree count, statics check | |
+| 38 | F | Torsion flow, warping, shell stress display, section teaching | |
+
+The teaching solvers (`steps/*`, `force-method/*`, `solver-detailed*.ts`) are out of scope.
+They re-derive a solve the student sees next to the engine's own and never feed a design.
+
+#### 1. Cb, CIRSOC 301 F.1(3): moved
+
+`steel/moment-gradient.ts` → `engine/src/postprocess/cirsoc301_inputs.rs` (`moment_gradient`),
+WASM `cirsoc301_inputs` op `momentGradient`. Caller: `verification-service.ts`
+`checkSteelMember`. References: the closed form of Ec. F.1-1 on uniform, parabolic, triangular,
+fixed-ended, linear and reversing diagrams (`engine/tests/cirsoc301_inputs.rs`); metamorphic
+scaling, sign, reversal and refinement (`engine/tests/metamorphic/steel_inputs.rs`). Parity:
+38 760 inputs. 37 029 are bit-identical. 379 differ on purpose: the engine also reads the moment
+interpolated at both segment ends, which the TypeScript missed. A sign change there is double
+curvature, where §F.1(4) requires both flanges to be checked and the app takes Cb = 1, yet a
+channel got Cb = 2.55. Those 379 agree to 1e-12 with
+the oracle run on the stations plus the two interpolated ends. The other 1 352 have fewer than
+three stations in the window and give Cb = 1 on both sides. The fix is the results change
+`cb-segment-ends`. A non-finite diagram is now refused instead of giving Cb = NaN. Not moved, and the next slice to take:
+`stationMomentEnvelope` and `steelSegmentDiagram` (slice 4).
+
+#### 2. Ae, net area from end connections
+
+- **TypeScript:** `steel/tension-connection.ts` (`tensionGeometry`, `endNetArea`,
+  `memberNetArea`, `connectedOptions`, the presets) and `verification-service.ts`
+  `resolveTensionEnds`. `memberEndsFor` (model topology) moves too, or stays as plumbing that
+  only reads the model.
+- **Why here:** the tension rupture capacity is φ·Fu·Ae, linear in Ae. The shear-lag factor U and
+  the net width of a staggered bolt line (s²/4g) are code arithmetic that the Rust checker takes
+  on trust (`tensionConnection` in `Cirsoc301MemberData`).
+- **Rust:** `cirsoc301_inputs.rs` op `netArea` with `{ section, ends }`. Return the same
+  `EndNetArea` steps and the `Refusal` codes the TypeScript returns, so the surfaces keep their
+  messages.
+- **References:** CIRSOC 301-2018 §D.3 (U, Ae), §B.4.2.2 (net area, s²/4g) and Tabla J.3.3 (holes) (`docs/codes/CIRSOC/markdown/cirsoc-301-2018/`);
+  the tension examples of INTI-CIRSOC *Ejemplos de Aplicación del Reglamento CIRSOC 301-2018*
+  (2018), already cited in `engine/tests/cirsoc301_check.rs`; closed forms for a plate with one
+  and with staggered bolt lines; profiles from `data/steel-profiles.ts`.
+- **Parity:** every connected-element kind × bolted/welded × bolt count and rows × stagger ×
+  each section family in the catalogue. The arithmetic is products, sums and min, so the results
+  must be bit-identical. Each refusal must match in kind.
+- **Watch:** `x̄` (the connection eccentricity) is read from section data. Keep the TypeScript's
+  source of x̄, or pin the difference as a results change.
+
+#### 3. J, Cw, c, Sy section constants
+
+- **TypeScript:** `steel/section-constants.ts` `steelSectionConstants` (J thin-walled Σbt³/3 for
+  an I or H, Cw = I_weak·h₀²/4, the channel Cw, c and Sy of AISC Design Guide 9, the `jBasis`).
+  Zx and Zy already come from the engine's section geometry (`plasticModulus`), and J does too
+  when the section resolves.
+- **Why here:** J and Cw enter the elastic lateral-torsional buckling stress (F.2-4). A channel's
+  Sy was once 41–43 % high in φMn (see the comment in the module). There are four production
+  callers: `verification-service.ts`, `design/other-codes/steel-props.ts` and `cfs-code.ts`
+  (EC3, AISI), and through them the profile optimiser.
+- **Rust:** op `sectionConstants` taking the section fields the TypeScript reads (`shape`, `b`,
+  `h`, `tw`, `tf`, `iz`, `j`), plus the geometry's J and Z, which the caller passes in from the
+  section engine, as now. Keep the TypeScript cache in the caller, keyed the same way.
+- **References:** AISC Design Guide 9 eq. 3.4 and 3.5 and the channel expressions; catalogue J
+  and Cw for IPE and UPN profiles from a cited table; the closed forms on a welded plate girder.
+  Never from memory: where `steel-profiles.ts` has no J, take the value from a cited table and
+  cite it in the test.
+- **Parity:** every I, H and U profile in `data/steel-profiles.ts`, plus welded plate grids
+  (b/h, tf/h, tw/h). The arithmetic is `+ − × ÷ √`, so the results must be bit-identical.
+- **Watch:** `steel/__tests__/channel-constants.test.ts` and `section-constants.test.ts` already
+  pin values. Keep them running against the engine.
+
+#### 4. L, Lb, cantilever free end, segment diagram
+
+- **TypeScript:** `steel/unbraced-length.ts` (`memberLengths`, `flangeUnbracedLength`,
+  `constraintNodes`, `COLLINEAR_COS`), and in `verification-service.ts` `stationMomentEnvelope`,
+  `steelSegmentDiagram` and `steelMemberLengths`.
+- **Why here:** Lb enters Fe ∝ 1/Lb² and the inelastic interpolation between Lp and Lr. The chain
+  (collinear elements through pass-through nodes) decides which segment Cb is read over. A chain
+  read one element short is unconservative (1.667 against 1.316 on a midspan point load). There
+  are 12 importers.
+- **Rust:** op `memberLengths` taking nodes, elements, supports, constraints and declared
+  bracing, returning per element `{ L, Lb, chain, freeEnd, source, loadPosition }`. Op
+  `segmentDiagram` taking the chain's station envelopes. Then Cb can be asked in one call
+  (`momentGradient` with a `segment` input), removing the TypeScript stitching.
+- **References:** hand-built models: a three-element collinear beam, a beam with a framing member
+  at midspan (not a brace unless declared), a cantilever, a bent chain (not collinear), and a
+  declared Lb shorter than the chain (the window centred on the declaring element).
+  `steel-cb-unbraced-segment.test.ts` and `steel-cb-cantilever.test.ts` give the expected values.
+- **Parity:** the example corpus (`data/pro-examples.ts`, `e2e` fixtures) plus random collinear
+  chains. Lengths use `Math.hypot`, so allow 1 ulp on L and Lb, or switch both sides to
+  `sqrt(dx²+dy²+dz²)` and require bit-identity. The chain and freeEnd must be equal.
+- **Watch:** `COLLINEAR_COS` is also read by `deflection-spans.ts`, so move the constant with
+  the module and export it from the engine.
+
+#### 5. Steel demand assembly and concurrent tuples
+
+- **TypeScript:** `verification-service.ts` `steelDemandOf`, `concurrentTuples`,
+  `withConcurrentInteraction` (the axis swap from the app's `my`/`mz` to the checker's strong and
+  weak axes, Nc/Nt split, per-station tuples for H.1).
+- **Why here:** this is the demand side of every steel ratio. Past bugs here inflated or masked
+  ratios (the folded compression/tension, the swapped axes).
+- **Rust:** have `check_cirsoc301_members` take the station results and do the mapping itself
+  (a `stations` member field), so the demand never crosses the boundary pre-digested.
+- **References:** `steel-demand-axis-mapping.test.ts` cases; a beam with a known envelope; an
+  axial-flexure member whose maxima come from different combinations (the tuples must not
+  combine them).
+- **Parity:** corpus models, comparing the checker's output with the TypeScript-assembled demand
+  and with the engine-assembled demand. The results must be bit-identical, since only selection
+  and sign changes are involved.
+
+#### 6. Material family classification
+
+- **TypeScript:** `model/material-family.ts` (`materialFamilyOf`, `concreteStrengthConflict`,
+  `CONCRETE_FY_CEILING`, `CONCRETE_E_BAND_MPA`) and `model/grade-family.ts`.
+- **Why here:** it decides which checker runs. A misread steel member goes to CIRSOC 201 or to
+  none. There are about 30 importers, so the slice is wide but mechanical.
+- **Rust:** one function returning `{ family, basis }`. Export the thresholds as constants and
+  read them in TypeScript from the engine.
+- **References:** the grades in `data/structural-grades.ts`, and the thresholds' cited sources in
+  the module.
+- **Parity:** every grade in the catalogue × declared/undeclared × fy and E around each threshold
+  (± 1 ulp). The output is categorical and must be equal.
+
+#### 7. Bolt groups and fillet welds (TypeScript verdict)
+
+- **TypeScript:** `connection-design.ts` (`checkBoltGroup`, `checkFilletWeld`, `BOLT_TABLE`,
+  `MIN_FILLET_SIZE`). `detectJoints` and `getJointForces` stay as model plumbing.
+- **Why here:** it decides pass or fail with no engine re-check. `connection_check.rs`
+  (`check_bolt_groups`, `check_weld_groups`) exists and is unused by the app.
+- **Rust:** bring `connection_check.rs` to the TypeScript's clause set (CIRSOC 301 J.3, Tablas J.3.2, J.3.3 and J.2.4), or
+  the reverse where the TypeScript is wrong. Exposed through the existing exports.
+- **References:** the J examples of INTI-CIRSOC *Ejemplos* (2018); closed forms for single shear
+  and double shear, bearing at the edge distance, and fillet throat 0.707·w.
+- **Parity:** grades × diameters × planes × edge distances × plate thicknesses. The results must
+  be bit-identical once the clause sets agree, and every intended difference is pinned and
+  registered.
+
+#### 8. Footing actions
+
+- **TypeScript:** `detailing/footing-actions.ts` (reactions to the footing centroid, N·e,
+  trapezoidal/triangular soil pressure, unbalanced moment for punching).
+- **Why here:** these are the demand of the TypeScript mat design (slice 9) and of the punching
+  transfer. `isolated_footing.rs` already derives its own eccentricity (`axis_offsets`) for its
+  check, so the same quantity exists twice.
+- **Rust:** expose `isolated_footing.rs`'s actions (offsets, pressures, unbalanced moment) as an
+  op, and have the TypeScript design read them.
+- **References:** closed forms for e < B/6 (trapezoid) and e > B/6 (triangle, the reduced
+  contact length), and biaxial kern cases refused as now.
+- **Parity:** random reactions and offsets. The arithmetic is `+ − × ÷`, so the results must be
+  bit-identical.
+
+#### 9. Footing flexure and mat anchorage (TypeScript verdict, #393)
+
+- **TypeScript:** `detailing/footing-flexure.ts` (CIRSOC 201 Ch. 13, both directions, §13.3.3
+  band distribution, As req/min, bar count and spacing) and `detailing/footing-mat-anchorage.ts`
+  (§13.2.7.1 critical section against development length).
+- **Why here:** it decides the steel that is drawn, and its anchorage verdict. `isolated_footing.rs`
+  checks column-face flexure (13.2.7.1) of the mat it is given, but the required area, the
+  §13.3.3 band, the bar count, the spacing and the anchorage are TypeScript.
+- **Rust:** `postprocess/isolated_footing.rs` (`mat_design`, `mat_anchorage`), taking the
+  footing actions from slice 8.
+- **References:** CIRSOC 201-2025 Ch. 13 text; a footing worked by hand in the test (uniform and
+  trapezoidal pressure); the 2005 edition only where its text is in `docs/codes/`.
+- **Parity:** the footing corpus plus grids of B/L, column size, eccentricity and f'c. The
+  arithmetic includes √f'c, which is bit-identical. Bar selection is a search, so compare the
+  chosen bars for equality.
+
+#### 10. Punching shear
+
+`detailing/punching-shear.ts`, `detailing/slab-punching.ts` → CIRSOC 201-2025 §22.6 in the
+engine. `isolated_footing.rs` already checks footing punching, so the slab-column path is the
+main part of the slice. That means the critical perimeter by column position (interior, edge, corner), the
+demand net of the load inside the perimeter, and γv·Mu transfer, which is refused where refused
+now. References: the §22.6 closed forms for interior, edge and corner columns, and published
+examples. Parity: column position × c1/c2 × d × f'c × openings. The arithmetic involves √, so the
+results must be bit-identical.
+
+#### 11. Beam-column joint shear
+
+`detailing/joint-shear.ts` → CIRSOC 201-2025 §15.4 (free body from the beam steel, effective
+joint area, γ, φ = 0.75). The TypeScript assumes jd = 0.875·d. The Rust takes jd from the
+engine's beam section state, so expect a justified difference and a results-change entry.
+References: hand-worked interior and exterior joints. Parity: bit-identical with the oracle given
+the same jd, plus a separate pinned comparison with the engine's jd.
+
+#### 12. Lap splices
+
+`detailing/splice.ts` → CIRSOC 201-2025 §25.5 (class A/B, max(1.0·ld, 300 mm) / 1.3·ld,
+contact/non-contact spacing). Development length is already in the engine
+(`cirsoc201_check.rs`), so the splice reads it. References: the clause's closed forms. Parity:
+db × f'c × class × spacing, bit-identical.
+
+#### 13. Slab and wall design
+
+`detailing/slab-design.ts` (Wood–Armer moments, As,min 0.0018, spacing limits, one-way shear
+φVc), `codes/argentina/losas.ts` (one-way, two-way and cantilever slabs, corner steel: the
+practice rules are labelled as such and stay data), and `detailing/wall-design.ts` (Ch. 11
+minimum thickness and ratios, in-plane shear, φ = 0.65) → `cirsoc201_design.rs`, which already has
+`slab_provisions`. References: Wood–Armer closed forms on pure twist and pure bending; Ch. 7, 8
+and 11 text. Parity: moment-field grids, bit-identical except bar selection (compared by
+equality).
+
+#### 14. Slenderness magnifier and torsion (#366)
+
+`design/slenderness.ts`, `cirsoc201.ts` `checkSlender` and `checkTorsion` → the engine, so the
+gate re-checks them (they are listed in `engineRecheck.notRechecked` today). References: the §6.6.4
+non-sway magnifier closed form from the 2025 text and the Ch. 22 torsion threshold. Parity:
+grids of Pu/Pc, Cm and EI. The arithmetic is `+ − × ÷`, so the results must be bit-identical.
+
+#### 15. Deflection limits, spans and member deflection
+
+`deflection-limits.ts` (L/n, cantilever 2L/n), `deflection-spans.ts` (the measured span across
+collinear elements, stopping at supports) and `member-deflection.ts` (Hermite cubic plus the
+particular solution of the span loads, chord and tangent deflection) → the engine's
+`serviceability.rs`, which already exists. References: closed-form deflections of a simply
+supported beam and a cantilever under uniform and point loads. Parity: the corpus plus random
+spans. The particular solutions use only polynomial arithmetic, so the results must be
+bit-identical if the evaluation order is kept, and 1e-14 relative if the polynomial is
+refactored.
+
+#### 16. Story drift
+
+`story-drift.ts` (inter-story drift per column), `seismic-drift.ts` (INPRES-CIRSOC 103 §6.4
+du = Cd·de/γr, Tabla 6.4 limits) → `loads/cirsoc103_seismic.rs`. References: the clause's
+closed forms and Tabla 6.4 from `docs/codes/CIRSOC/markdown/inpres-cirsoc-103-i/`. Parity:
+random story displacements, bit-identical.
+
+#### 17. Combination expansion onto cases
+
+`loads/combination-cases.ts` (`expandCombinations`, symbols onto model cases, one per wind or
+seismic case and sense) and `loads/notional-combinations.ts` → `loads/cirsoc101_combinations.rs`,
+which already generates the symbol combinations. It ranks first among loads because every
+design load is a sum of its factors (17 importers). References: CIRSOC 101-2025 §2.3 and
+`docs/verification/LOADS.md`; the #292 clause tests. Parity: every symbol set × wind cases × seismic
+senses. The factors are copied, not computed, so the outputs must be equal.
+
+#### 18. Service combinations
+
+`codes/cirsoc101/service-combinations.ts` → `cirsoc101_combinations.rs`. These are the loads of
+every serviceability verdict. References: the CIRSOC 101 service combination clauses. Parity:
+every symbol set, equal.
+
+#### 19. Modal story forces and accidental torsion
+
+`loads/seismic-modal.ts` (its own `cqcRho` and CQC, Cm = Sam·γr/R, 90 % mass, 85 % Vo
+scaling) and `loads/seismic-cases.ts` (Mta = Fk·eak, Tabla 6.3 eccentricities) →
+`loads/cirsoc103_seismic.rs`, reusing the CQC correlation of `solver/spectral.rs` (finding 10:
+two CQCs). References: the Der Kiureghian ρij closed form at equal periods (ρ = 1) and well
+separated periods; INPRES-CIRSOC 103 Cap. 7 text. Parity: random periods, damping and level
+weights. ρ uses `pow`/`sqrt`, so allow 1e-14 relative per term. The story forces are sums
+over modes, so allow 1e-13 relative.
+
+#### 20. Spectral case combination
+
+`spectral-case.ts` (`modeCoefficients`, `modalCombine` SRSS/CQC/ABS, `directionCombine` 100/30 or
+SRSS, `combineModes`, `combineDirections`) → `solver/spectral.rs`, which already combines modes.
+The TypeScript recombines engine unit solves. References: two-mode closed forms for SRSS, ABS and
+CQC; the 100/30 rule on two directions. Parity: random modal sets. The arithmetic includes
+`sqrt`, so the results must be bit-identical when the summation order is kept, and within 1e-14
+relative otherwise.
+
+#### 21. SRSS/ABS result combinations
+
+`combination-methods.ts` (`magnitudeCombination`, `reduceRows`, `superposed`) →
+`postprocess/combinations.rs`. References: closed forms on two and three cases. Parity: random
+case results, bit-identical if the order of summation over cases is kept.
+
+#### 22. Wind: velocity pressure and gust factor
+
+`codes/cirsoc102/wind.ts`, `codes/cirsoc102/gust.ts` and `loads/wind-dynamics.ts` (Kz, Kzt,
+Kd, qz, G and Gf, frequency source) → `loads/cirsoc102_wind.rs`. It ranks
+first among wind because every wind case scales with qz. References: CIRSOC 102-2025 text in
+`docs/codes/`, the #292 clause tests, and `docs/verification/LOADS.md`. Parity: exposure ×
+height × V × topography. Kz uses `pow`, so allow 1e-14 relative.
+
+#### 23. Wind: design cases and level forces
+
+`loads/load-plan-wind.ts` and `loads/wind-cases.ts` (§2.4.6 cases 1–4, 0.75 factors, torsion
+e = ±0.15B, level forces, roof line loads) → `cirsoc102_wind.rs`. Parity: buildings × directions.
+The outputs are products of qz, so the tolerance is inherited from slice 22.
+
+#### 24. Wind: free roofs, other structures, cladding
+
+`loads/wind-other.ts`, `codes/cirsoc102/other-structures.ts` and `codes/cirsoc102/cladding.ts`
+→ `cirsoc102_wind.rs`, including the free-roof minimum of SA-2026-021. References: the CN and
+GCp tables of the 2025 text. Parity: every table row and interpolation boundary, equal on table
+values and bit-identical on interpolations.
+
+#### 25. Snow: ground, roof, shapes, unbalanced
+
+`codes/cirsoc104/snow.ts`, `codes/cirsoc104/ground-snow.ts`, `loads/snow-loads.ts`,
+`loads/snow-shapes.ts` and `loads/load-plan-snow.ts` (pf, ps, Cs by slope, unbalanced and curved
+roof profiles) → `loads/cirsoc104_snow.rs`. References: CIRSOC 104-2005 text and figures in
+`docs/codes/`. Parity: slope × exposure × thermal × roof type, bit-identical.
+
+#### 26. Snow: drift and sliding
+
+`codes/cirsoc104/drift.ts` and `loads/snow-drift-loads.ts` (Cap. 7–9) → `cirsoc104_snow.rs`.
+The drift height uses a cube root and a fourth root of the fetch, so allow 1e-14 relative.
+
+#### 27. Dead, live and roof-live tables, live-load reduction
+
+`codes/cirsoc101/dead-loads.ts`, `live-loads.ts` and `roof-live.ts`, `loads/case-reduction.ts`
+(§4.7) and `loads/plan-area-loads.ts` (R1/R2) → `loads/cirsoc101_loads.rs`, with the tables as
+data in Rust. References: every table row against the CIRSOC 101-2025 text. Parity: every row,
+equal; reduction grids, bit-identical (√ only).
+
+#### 28. Special loads and thermal coefficient
+
+`loads/special-loads.ts` (T, H, F: soil pressure K(γ(zg − z) + q), fluid pressure) and
+`thermal-alpha.ts` (the material α against the engine's assumed 12e-6). Ideally the engine reads
+α from the material and the scale factor disappears. Parity: bit-identical on pressures. Moving α
+into the engine changes thermal results only where the TypeScript scaled them, which is pinned
+and registered.
+
+#### 29. Seismic mass source
+
+`dynamics/mass-source.ts`, `mass-source-model.ts`, `mass-presets.ts`, `mass-weights.ts` and
+`section-mass.ts` (Wi = Di + f1·Li + f2·Si) → the engine's modal input. #341 (nodal masses) is
+the prerequisite. Parity: corpus models' assembled masses, bit-identical.
+
+#### 30. Member loads, self-weight, axial shares, case effects
+
+`member-loads.ts`, `member-point-loads.ts`, `self-weight.ts`, `member-weight.ts`,
+`axial-shares.ts` and `case-effects.ts` (frames, projected loads, trapezoid pieces, live-load
+reduction ratios, notional loads, composite includes) → the engine's load conversion. Parity:
+corpus models' solver loads, bit-identical except projections that use trigonometry (1e-15
+relative).
+
+#### 31. Area-load distribution and shell load integration
+
+`loads/floor-loads.ts`, `floor-tributary.ts`, `floor-skeleton.ts`, `plan-gravity.ts`,
+`shell-load-integration.ts` and `solver-shells.ts` → the engine. The straight skeleton is
+geometry and can stay in TypeScript as a search, only if the engine checks that the load totals
+balance. Parity: total load per panel to 1e-12 relative. The shares are compared to 1e-12
+because the skeleton's intersection arithmetic differs.
+
+#### 32. Model transforms
+
+`prestress.ts` (8Pe/L² equivalent loads), `direct-analysis.ts` (0.002·Yi notional loads,
+τb = 4r(1 − r), 0.8 stiffness reduction), `expand-joints-3d.ts`, `expand-semi-rigid-3d.ts`,
+`diaphragm-rotation.ts` (#342), `foundation-springs.ts` (k = ks·A), `curved-beam.ts` and
+`local-axes-3d.ts` (must equal the engine's transform). Each is one PR. Parity: the transformed
+model, bit-identical, and the solve of both models within the engine's own solve tolerance.
+
+#### 33–38. Analysis and display
+
+- **33:** `moving-loads.ts` and `moving-loads-3d.ts` sweep train positions over the engine's load
+  session. The sweep and its envelope go into the engine.
+- **34:** `plastic-collapse.ts`, the event-to-event loop. A solver error must never read as a
+  mechanism (finding 12).
+- **35:** `pdelta-amplification.ts` B2 and the C2.2b switch in `direct-analysis.ts`.
+- **36:** `diagrams.ts`, `diagrams-3d.ts`, `station-forces.ts` and the deformed shape fallback.
+  Their M/V/N feed the rotated-2D stress panel and the forces report; the engine has
+  `diagrams_3d.rs` and `beam_stations.rs`.
+- **37:** `kinematic-2d.ts` and `kinematic-3d.ts`: the static-degree count that overrides the
+  engine's is fixed in the engine. Also `statics-check.ts`.
+- **38:** display only: `torsion-flow.ts`, `warping.ts`, `shell-results.ts`, `shell-stress.ts`,
+  `section-teaching.ts`.
+
+Each is one PR with the same parity rule. Tolerances are inherited from the engine path they
+call.
 
 ## Inventory
 
@@ -692,7 +1157,7 @@ In rough order of safety value:
 | `steel/flange-local-buckling.ts` | 153 | c | - | medium | CIRSOC 301 F.6.2 minor-axis flange local buckling branch selection/report (lambda_f vs lambda_pf/lambda_rf, Mn formula) |
 | `steel/grade-family.ts` | 86 | d | - | low | Resolves declared grade to material family via catalogue lookup |
 | `steel/material-family.ts` | 200 | c | - | high | Classifies material as concrete/steel/etc from fy magnitude and E band thresholds; gates which checker runs |
-| `steel/moment-gradient.ts` | 225 | c | - (steel_check.rs takes Cb as input) | high | Cb per CIRSOC 301 F.1.1 from unbraced-segment moment diagram, applicability refusals; raises LTB capacity |
+| `steel/moment-gradient.ts` | 55 | a | engine/src/postprocess/cirsoc301_inputs.rs (moment_gradient) | high | WASM boundary for Cb per CIRSOC 301 F.1.1; the former TypeScript is the oracle `__tests__/differential/moment-gradient-oracle.ts` |
 | `steel/profile-optimise.ts` | 183 | d | - | high | Lightest catalogue profile search calling TS checkSteelMember (cirsoc301.ts); search only |
 | `steel/section-constants.ts` | 120 | c | - (section/torsion.rs FE J used when available) | high | J, Cw, Zx, Zy, c closed-form for I/H/channel sections fed to CIRSOC 301 checker |
 | `steel/steel-inventory.ts` | 297 | d | - | low | Inventory of metallic members, families, empty reasons, total length |

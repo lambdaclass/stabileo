@@ -11,6 +11,10 @@ run-name: ${{ inputs.force_failure && '[forced failure] Nightly verification' ||
 # `ci-failure` issue for this workflow (verification-alert.yml).
 #
 # Runner routing, capacity budgets and staged rollout: docs/verification/NIGHTLY.md.
+# A heavy rerun on stabileo-ci-1 between 07:00 and 24:00 UTC, outside the nightly window:
+#   gh workflow run nightly.yml --ref main -f only=opensees-diff -f pool=stabileo-heavy
+# pool picks where opensees-diff runs (.github/scripts/heavy-pool.py); inside the window it takes the
+# nightly pool, and pool=nightly keeps the scheduled routing.
 #
 # The proofs (Lean, Kani, symbolic) run in verify.yml, the other differential
 # programs (Frame3DD, PyNite, Mystran, Kratos, CalculiX) in differential.yml,
@@ -49,6 +53,11 @@ on:
         description: "Mutants: total number of shards (default 512)"
         required: false
         default: ""
+      pool:
+        description: "Where opensees-diff runs: stabileo-heavy (stabileo-ci-1 sgha7-8, from 07:00 to 24:00 UTC; the nightly pool inside the nightly window), nightly (the nightly pool from 00:00 to 07:00 UTC, GitHub otherwise) or ubuntu-24.04"
+        type: choice
+        options: [stabileo-heavy, nightly, ubuntu-24.04]
+        default: stabileo-heavy
       force_failure:
         description: "Fail at once without running anything: tests that a failure opens a ci-failure issue (verification-alert.yml)"
         type: boolean
@@ -76,6 +85,8 @@ jobs:
   plan:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    env:
+      NIGHT_END_HOUR: 7
     permissions:
       contents: read
       actions: read
@@ -90,6 +101,7 @@ jobs:
       monthly: ${{ steps.plan.outputs.monthly }}
       scale: ${{ steps.plan.outputs.scale }}
       cadence: ${{ steps.plan.outputs.cadence }}
+      heavy_runs_on: ${{ steps.heavy.outputs.runs_on }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -115,7 +127,6 @@ jobs:
           SAFETY_TOTAL: 24
           FORCE_FAILURE: ${{ inputs.force_failure }}
           EVENT: ${{ github.event_name }}
-          NIGHT_END_HOUR: 7
         run: |
           if [ "$FORCE_FAILURE" = true ]; then
             echo "::error::forced failure (dispatch input force_failure): verification-alert.yml must open 'CI failure: Nightly verification [forced failure]'"
@@ -153,7 +164,7 @@ jobs:
           fi
           night=false
           if [ "$EVENT" = schedule ] || [ "$((10#$(date -u +%H)))" -lt "$NIGHT_END_HOUR" ]; then night=true; fi
-          [ "$night" = true ] || echo "::notice title=Daytime dispatch::runs on GitHub-hosted runners; the nightly pool takes dispatches between 00:00 and 0$NIGHT_END_HOUR:00 UTC, when pull requests and the merge queue are quiet"
+          [ "$night" = true ] || echo "::notice title=Daytime dispatch::the nightly-pool jobs run on GitHub-hosted runners; the nightly pool takes dispatches between 00:00 and 0$NIGHT_END_HOUR:00 UTC, when pull requests and the merge queue are quiet"
           echo "jobs: $only"
           echo "mutants shards (of $total): $shards"
           {
@@ -168,6 +179,14 @@ jobs:
             echo "scale=$([ "$monthly" = true ] && echo 3 || echo 1)"
             echo "cadence=$cadence"
           } >> "$GITHUB_OUTPUT"
+      - id: heavy
+        name: Pool for the heavy dispatched jobs
+        env:
+          EVENT: ${{ github.event_name }}
+          POOL: ${{ inputs.pool }}
+          REF: ${{ github.ref }}
+          SELF_HOSTED: ${{ vars.STABILEO_SELF_HOSTED }}
+        run: python3 -B -I .github/scripts/heavy-pool.py
 
   # Large-model certificate runs (release, #[ignore]d in the normal suite):
   # certifies the 3D fixtures above 400 DOFs and grid frames up to 15k DOFs,
@@ -296,7 +315,7 @@ jobs:
   opensees-diff:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' opensees-diff ')
-    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ fromJSON(needs.plan.outputs.heavy_runs_on) }}
     timeout-minutes: ${{ needs.plan.outputs.monthly == 'true' && 150 || 45 }}
     strategy:
       fail-fast: false

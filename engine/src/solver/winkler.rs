@@ -40,6 +40,7 @@ pub struct FoundationSpring3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WinklerInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub foundation_springs: Vec<FoundationSpring3D>,
 }

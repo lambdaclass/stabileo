@@ -1840,7 +1840,7 @@ def run_one(name, model, binary, tol, verbose, dump_dir=None):
     try:
         sres = normalize_stabileo(stabileo(model, binary), dim)
     except RuntimeError as ex:
-        r = classify_refusal(dict(name=name, dim=dim, status="stabileo_failed", why=[str(ex)[:200]]),
+        r = classify_refusal(dict(name=name, dim=dim, status="stabileo_failed", why=[str(ex)]),
                              opensees_isolated(model))
         if r["status"] == "false_reject" and dump_dir:
             _dump(dump_dir, name, model)

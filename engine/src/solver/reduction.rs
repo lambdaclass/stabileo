@@ -31,6 +31,7 @@ pub struct GuyanInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GuyanInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub boundary_nodes: Vec<usize>,
 }
@@ -95,6 +96,7 @@ pub struct CraigBamptonInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CraigBamptonInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub boundary_nodes: Vec<usize>,
     #[serde(default = "default_n_modes")]

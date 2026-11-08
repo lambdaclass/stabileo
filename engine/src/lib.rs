@@ -115,7 +115,7 @@ pub fn solve_2d(input: JsValue) -> Result<JsValue, JsValue> {
 /// Solve 3D linear static analysis. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn solve_3d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: types::SolverInput3D = from_js_value(input)?;
+    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
     let results = solver::linear::solve_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&results)
@@ -126,7 +126,7 @@ pub fn solve_3d(input: JsValue) -> Result<JsValue, JsValue> {
 /// element and for the model. An estimate, never a bound (`certified` is always false).
 #[wasm_bindgen]
 pub fn estimate_discretization_3d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: types::SolverInput3D = from_js_value(input)?;
+    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
     let out = postprocess::discretization::solve_and_estimate_3d(&input).map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&out)
 }
@@ -136,7 +136,7 @@ pub fn estimate_discretization_3d(input: JsValue) -> Result<JsValue, JsValue> {
 /// (docs/verification/DISCRETIZATION.md). `options` may be null for the defaults.
 #[wasm_bindgen]
 pub fn convergence_study_3d(input: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
-    let input: types::SolverInput3D = from_js_value(input)?;
+    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
     let opts: postprocess::discretization::convergence::ConvergenceOptions =
         if options.is_null() || options.is_undefined() { Default::default() } else { from_js_value(options)? };
     let out = postprocess::discretization::convergence::convergence_study_3d(&input, &opts).map_err(|e| JsValue::from_str(&e))?;
@@ -156,7 +156,7 @@ pub fn certify_linear_2d(input: JsValue) -> Result<JsValue, JsValue> {
 /// (docs/verification/CERTIFY.md). JsValue in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_linear_3d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: types::SolverInput3D = from_js_value(input)?;
+    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
     let out = certify::certify_linear_3d_full(&input).map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&out)
 }
@@ -166,8 +166,9 @@ pub fn certify_linear_3d(input: JsValue) -> Result<JsValue, JsValue> {
 /// JSON in → bundle JSON out, checkable with `lake exe certcheck`.
 #[wasm_bindgen]
 pub fn export_linear_bundle_3d(json: &str) -> Result<String, JsValue> {
-    let input: types::SolverInput3D = serde_json::from_str(json)
-        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let input = serde_json::from_str::<types::units::ElasticInput3D>(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?
+        .into_legacy();
     let bundle = certify::bundle::export_linear_bundle_3d(&input).map_err(|e| JsValue::from_str(&e))?;
     to_json(&bundle)
 }
@@ -316,8 +317,9 @@ pub fn solve_spectral_2d(json: &str) -> Result<String, JsValue> {
 /// JSON in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_pdelta_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<String, JsValue> {
-    let input: types::SolverInput3D = serde_json::from_str(json)
-        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let input = serde_json::from_str::<types::units::ElasticInput3D>(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?
+        .into_legacy();
     let results = certify::pdelta::certify_pdelta_3d(&input, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
     to_json(&results)
@@ -326,8 +328,9 @@ pub fn certify_pdelta_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<
 /// Solve 3D P-Delta analysis. JSON in → JSON out.
 #[wasm_bindgen]
 pub fn solve_pdelta_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<String, JsValue> {
-    let input: types::SolverInput3D = serde_json::from_str(json)
-        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let input = serde_json::from_str::<types::units::ElasticInput3D>(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?
+        .into_legacy();
     let results = solver::pdelta::solve_pdelta_3d(&input, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
     to_json(&results)
@@ -336,8 +339,9 @@ pub fn solve_pdelta_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<St
 /// Solve 3D buckling analysis. JSON in → JSON out.
 #[wasm_bindgen]
 pub fn solve_buckling_3d(json: &str, num_modes: usize) -> Result<String, JsValue> {
-    let input: types::SolverInput3D = serde_json::from_str(json)
-        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let input = serde_json::from_str::<types::units::ElasticInput3D>(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?
+        .into_legacy();
     let results = solver::buckling::solve_buckling_3d(&input, num_modes)
         .map_err(|e| JsValue::from_str(&e))?;
     to_json(&results)
@@ -347,8 +351,9 @@ pub fn solve_buckling_3d(json: &str, num_modes: usize) -> Result<String, JsValue
 /// (docs/verification/CERTIFY.md). JSON in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_buckling_3d(json: &str, num_modes: usize) -> Result<String, JsValue> {
-    let input: types::SolverInput3D = serde_json::from_str(json)
-        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let input = serde_json::from_str::<types::units::ElasticInput3D>(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?
+        .into_legacy();
     let results = certify::buckling::certify_buckling_3d(&input, num_modes)
         .map_err(|e| JsValue::from_str(&e))?;
     to_json(&results)
@@ -479,8 +484,9 @@ pub fn solve_corotational_2d(json: &str, max_iter: usize, tolerance: f64, n_incr
 /// Solve 3D co-rotational (large displacement) analysis. JSON in → JSON out.
 #[wasm_bindgen]
 pub fn solve_corotational_3d(json: &str, max_iter: usize, tolerance: f64, n_increments: usize) -> Result<String, JsValue> {
-    let input: types::SolverInput3D = serde_json::from_str(json)
-        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let input = serde_json::from_str::<types::units::ElasticInput3D>(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?
+        .into_legacy();
     let results = solver::corotational::solve_corotational_3d(&input, max_iter, tolerance, n_increments, false)
         .map_err(|e| JsValue::from_str(&e))?;
     to_json(&results)
@@ -593,9 +599,10 @@ pub fn solve_cable_2d(json: &str, max_iter: usize, tolerance: f64) -> Result<Str
 /// unstretched length). The unstretched length is the chord, or the one a pretension given sets.
 #[wasm_bindgen]
 pub fn solve_cable_3d(json: &str, max_iter: usize, tolerance: f64) -> Result<String, JsValue> {
-    let input: types::CableInput<types::SolverInput3D> = serde_json::from_str(json)
+    let input: types::CableInput<types::units::ElasticInput3D> = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
-    let result = solver::cable::solve_cable_3d_pretensioned(&input.solver, &input.densities, &input.pretension, max_iter, tolerance)
+    let types::CableInput { solver: model, densities, pretension } = input;
+    let result = solver::cable::solve_cable_3d_pretensioned(&model.into_legacy(), &densities, &pretension, max_iter, tolerance)
         .map_err(|e| JsValue::from_str(&e))?;
     to_json(&result)
 }
@@ -614,8 +621,9 @@ pub fn analyze_kinematics_2d(json: &str) -> Result<String, JsValue> {
 /// Analyze 3D kinematic stability. JSON in → JSON out.
 #[wasm_bindgen]
 pub fn analyze_kinematics_3d(json: &str) -> Result<String, JsValue> {
-    let input: types::SolverInput3D = serde_json::from_str(json)
-        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let input = serde_json::from_str::<types::units::ElasticInput3D>(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?
+        .into_legacy();
     let result = solver::kinematic::analyze_kinematics_3d(&input);
     to_json(&result)
 }
@@ -1609,6 +1617,16 @@ pub fn check_cfs_members(json: &str) -> Result<String, JsValue> {
     to_json(&results)
 }
 
+/// CIRSOC 301 checker inputs read off the model. JSON `Cirsoc301InputsRequest` (tagged by `op`)
+/// in → JSON answer.
+#[wasm_bindgen]
+pub fn cirsoc301_inputs(json: &str) -> Result<String, JsValue> {
+    let req: postprocess::cirsoc301_inputs::Cirsoc301InputsRequest = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let v = postprocess::cirsoc301_inputs::answer(&req).map_err(|e| JsValue::from_str(&e))?;
+    to_json(&v)
+}
+
 /// Load generation (CIRSOC 101 combinations, INPRES-CIRSOC 103 seismic). JSON `LoadsRequest`
 /// (tagged by `op`) in → JSON answer.
 #[wasm_bindgen]
@@ -1721,6 +1739,7 @@ pub fn solve_with_imperfections_3d(json: &str) -> Result<String, JsValue> {
     #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct Input {
+        #[serde(deserialize_with = "types::units::deserialize_input_3d")]
         solver: types::SolverInput3D,
         imperfections: types::ImperfectionInput,
     }
