@@ -4,6 +4,7 @@ import { physicalGroups, physicalThickness } from './physical';
 import { designData, patchOwnDesignData } from './design-data';
 import { designComboIds, narrowPerCombo } from '../engine/result-scopes';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
+import { computeBeamCriticalSections } from '../engine/station-design-forces';
 import { concreteFc } from '../model/design-data';
 import { beamDemands, columnDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { beamRow, type BeamRow } from '../rc-sheets/beam-row';
@@ -57,6 +58,12 @@ export function setTorsionMode(torsion: TorsionMode): void {
   save({ ...rcSheetsData(), torsion });
 }
 
+export function setRcOption(option: 'faces' | 'flange', on: boolean): void {
+  const d = { ...rcSheetsData() };
+  if (on) d[option] = true; else delete d[option];
+  save(d);
+}
+
 function levelName(id: string | undefined): string | undefined {
   if (!id) return undefined;
   if (id.startsWith('z:')) return `z = ${Number(id.slice(2)).toFixed(2)} m`;
@@ -81,7 +88,7 @@ export function designSets(): { sets: DemandSet[]; basis: SheetRows['basis']; de
   return r && !r.magnitude ? { sets: [{ name: '—', result: r }], basis: 'single', dead: [] } : { sets: [], basis: 'none', dead: [] };
 }
 
-function demandInput(sets: DemandSet[], dead: AnalysisResults3D[]): DemandInput {
+function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces: boolean; flange: boolean }): DemandInput {
   const supportsByNode = new Map([...modelStore.supports.values()].map((s) => [s.nodeId, s]));
   const groups: DemandGroup[] = physicalGroups().map((g) => ({
     id: g.id, name: g.name, kind: g.physical.kind, level: levelName(g.physical.levelFrom),
@@ -91,7 +98,14 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[]): DemandInput 
     nodes: modelStore.nodes, elements: modelStore.elements as never, sections: modelStore.sections as never,
     supportNodes: new Set(supportsByNode.keys()),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
-    groups, sets, dead,
+    groups, sets, dead, faces: opts.faces, flange: opts.flange,
+    faceOffset: (id, end) => {
+      const e = modelStore.elements.get(id);
+      const sec = e ? modelStore.sections.get(e.sectionId) : undefined;
+      const cs = computeBeamCriticalSections(id, modelStore.nodes as never, modelStore.elements as never, modelStore.sections as never, modelStore.supports as never,
+        { b: sec?.b ?? 0.2, h: sec?.h ?? 0.4, cover: designData().covers.beam, stirrupDia: designData().stirrupDiaMm });
+      return cs ? (end === 'i' ? cs.start.halfDepth : cs.end.halfDepth) : 0;
+    },
     levelZs: (modelStore.grid?.levels ?? []).map((l) => l.z),
     levelAt: (z) => modelStore.grid?.levels.find((l) => Math.abs(l.z - z) < 0.01)?.name ?? `z = ${z.toFixed(2)} m`,
     psi: (id) => computeJointPsiFromModel(id, modelStore.nodes as never, modelStore.elements as never, modelStore.sections as never, modelStore.materials as never, supportsByNode as never),
@@ -110,7 +124,7 @@ function fcOfShells(quads: number[], plates: number[]): number {
   return concreteFc(m as never) ?? DEFAULT_FC;
 }
 
-const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; walls: ReturnType<typeof wallDemands>; groupsRev: unknown }>();
+const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; walls: ReturnType<typeof wallDemands>; groupsRev: unknown; opts: string }>();
 
 const rowCache = new WeakMap<object, Map<string, SheetRow>>();
 
@@ -134,15 +148,17 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   const data = rcSheetsData();
   const key = basis === 'combinations' ? resultsStore.perCombo3D : resultsStore.results3D!;
   const groupsRev = modelStore.model.groups;
+  const opts = { faces: data.faces === true, flange: data.flange === true };
+  const optsKey = JSON.stringify(opts);
   let dem = demandCache.get(key);
-  if (!dem || dem.groupsRev !== groupsRev) {
-    const input = demandInput(sets, dead);
+  if (!dem || dem.groupsRev !== groupsRev || dem.opts !== optsKey) {
+    const input = demandInput(sets, dead, opts);
     const byGroup = new Map(physicalGroups().map((g) => [g.id, g]));
     dem = {
       beams: beamDemands(input), columns: columnDemands(input),
       slabs: slabDemands(input, (g) => { const pg = byGroup.get(g.id); return pg ? physicalThickness(pg) : null; }),
       walls: wallDemands(input),
-      groupsRev,
+      groupsRev, opts: optsKey,
     };
     demandCache.set(key, dem);
   }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t, tp, i18n } from '../../../lib/i18n';
   import { modelStore, resultsStore } from '../../../lib/store';
-  import { buildSheetRows, downloadRcSheets, rcSheetsData, setTorsionMode, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
+  import { buildSheetRows, downloadRcSheets, rcSheetsData, setRcOption, setTorsionMode, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { recognizePhysicalElements, physicalGroups } from '../../../lib/store/physical';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { SHEET_FAMILIES, type SheetFamily, type TorsionMode } from '../../../lib/rc-sheets/types';
@@ -17,6 +17,7 @@
     return solved && hasPhysical ? buildSheetRows(makeFmt(decimalFor(i18n.locale))) : null;
   });
   const torsion = $derived.by(() => { void modelStore.designData; return rcSheetsData().torsion; });
+  const options = $derived.by(() => { void modelStore.designData; const d = rcSheetsData(); return { faces: d.faces === true, flange: d.flange === true }; });
   const stat = (list: SheetRow[]) => ({ n: list.length, ok: list.filter((r) => r.status !== 'fail').length, fail: list.filter((r) => r.status === 'fail').length });
 
   function openAt(f: SheetFamily) { family = f; open = true; }
@@ -54,6 +55,8 @@
         <option value="compatibility">{t('rcSheets.torsion.compatibility')}</option>
       </select>
     </label>
+    <label class="rcp-chk"><input type="checkbox" checked={options.faces} onchange={(e) => setRcOption('faces', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-faces" /> <span>{t('rcSheets.opt.faces')}</span></label>
+    <label class="rcp-chk"><input type="checkbox" checked={options.flange} onchange={(e) => setRcOption('flange', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-flange" /> <span>{t('rcSheets.opt.flange')}</span></label>
     <div class="rcp-actions">
       <button type="button" class="rcs-btn primary" onclick={() => openAt(family)} data-testid="rc-open">{t('rcSheets.open')}</button>
       <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)}>{t('rcSheets.export')}</button>
@@ -81,6 +84,7 @@
   .rcp-ctl { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 0.72rem; color: var(--st-text-2); }
   .rcp-ctl select { font-size: 0.72rem; background: var(--st-surface); color: var(--st-text); border: 1px solid var(--st-hair); border-radius: 4px; }
   .rcp-actions { display: flex; gap: 6px; }
+  .rcp-chk { display: flex; align-items: flex-start; gap: 6px; font-size: 0.72rem; color: var(--st-text-2); line-height: 1.35; }
   .rcs-btn { font-size: 0.74rem; border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
   .rcs-btn.primary { background: var(--st-accent, var(--st-surface-3)); color: var(--st-on-accent, var(--st-text)); }
 </style>

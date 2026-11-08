@@ -14729,6 +14729,10 @@ const es: Record<string, string> = {
   "plates.meshShort.ready": "Malla: {n} listas",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.opt.faces": "Momentos a la cara de los apoyos y corte a «d» de la cara (§9.4.3.2)",
+  "rcSheets.opt.flange": "Vigas con la losa como ala (T o L), si la losa se arma para trabajar así",
+  "rcSheets.s.atFaces": "Esfuerzos a la cara del apoyo",
+  "rcSheets.s.flange": "Ala efectiva para el momento positivo",
   "rcSheets.combo.name": "Combinación",
   "rcSheets.v.wallMesh": "Malla insuficiente para el momento en el plano: refiná el tabique (elementos a lo largo de la base)",
   "rcSheets.code": "Norma",

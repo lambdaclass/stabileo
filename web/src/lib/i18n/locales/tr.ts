@@ -14580,6 +14580,10 @@ const tr: Translations = {
   "plates.meshShort.ready": "Ağ: {n} hazır",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.opt.faces": "Momentler mesnet yüzünde, kesme yüzden d mesafede (§9.4.3.2)",
+  "rcSheets.opt.flange": "Döşeme tabla olarak (T veya L), döşeme buna göre donatılıyorsa",
+  "rcSheets.s.atFaces": "Mesnet yüzündeki kuvvetler",
+  "rcSheets.s.flange": "Pozitif moment için etkili tabla",
   "rcSheets.combo.name": "Kombinasyon",
   "rcSheets.v.wallMesh": "Düzlem içi moment için ağ yetersiz: perdeyi sıklaştırın (taban boyunca eleman)",
   "rcSheets.code": "Yönetmelik",

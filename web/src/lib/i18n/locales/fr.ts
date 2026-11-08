@@ -14580,6 +14580,10 @@ const fr: Translations = {
   "plates.meshShort.ready": "Maillage : {n} prêtes",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.opt.faces": "Moments au nu des appuis et effort tranchant à d du nu (§9.4.3.2)",
+  "rcSheets.opt.flange": "Poutres avec la dalle comme table (T ou L), si la dalle est armée pour cela",
+  "rcSheets.s.atFaces": "Efforts au nu de l'appui",
+  "rcSheets.s.flange": "Table effective pour le moment positif",
   "rcSheets.combo.name": "Combinaison",
   "rcSheets.v.wallMesh": "Maillage insuffisant pour le moment dans le plan : affinez le voile (éléments le long de la base)",
   "rcSheets.code": "Norme",

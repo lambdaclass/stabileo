@@ -38,6 +38,10 @@ export interface BeamDemand {
   vu: Signed; nAtV: number;
   tu: Signed;
   combos: BeamComboForces[];
+  /** Taken at the support faces: their distance from the axes and where shear is read, m. */
+  faces?: { start: number; end: number; shearAt: number };
+  /** The slab as a compression flange for sagging (Table 6.3.2.1), m. */
+  flange?: { bf: number; hf: number };
 }
 
 export interface BeamContext {
@@ -83,7 +87,7 @@ const paramsOf = (d: BeamDemand, c: BeamContext, stirrupDia = c.stirrupDia): Con
 
 const sectionOf = (d: BeamDemand, s: SectionName) => (s === 'start' ? d.start : s === 'span' ? d.span : d.end);
 
-function query(c: BeamContext, d: BeamDemand, tension: BarGroup[], compression: BarGroup[], stirrupDia: number, nc: number, shear?: Stirrups): BeamSectionQuery {
+function query(c: BeamContext, d: BeamDemand, tension: BarGroup[], compression: BarGroup[], stirrupDia: number, nc: number, shear?: Stirrups, sagging = false): BeamSectionQuery {
   const t = faceLayout(tension, d.b, c.cover, stirrupDia);
   const k = faceLayout(compression, d.b, c.cover, stirrupDia);
   return {
@@ -91,6 +95,7 @@ function query(c: BeamContext, d: BeamDemand, tension: BarGroup[], compression: 
     As: groupsArea(tension) * 1e-4, AsComp: groupsArea(compression) * 1e-4, dPrime: k.centroidFromFace,
     Ag: d.b * d.h, NuCompression: nc * 1e3,
     ...(shear ? { Av: shear.legs * barArea(shear.dia) * 1e-4, s: shear.spacing, fyt: c.mat.fy * 1e6 } : {}),
+    ...(sagging && d.flange ? { bf: d.flange.bf, hf: d.flange.hf } : {}),
   };
 }
 
@@ -102,7 +107,7 @@ function flexChecks(c: BeamContext, d: BeamDemand, a: BeamAdopted): FlexureCheck
     items.push({ section: s, sign: 'pos', mu: e.pos.value, nc: e.nPos }, { section: s, sign: 'neg', mu: e.neg.value, nc: e.nNeg });
   }
   if (d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6) items.push({ section: 'span', sign: 'neg', mu: d.negAny.value, nc: d.nNegAny });
-  const answers = evaluateBeamSections(items.map((i) => (i.sign === 'pos' ? query(c, d, a.bottom, a.top, sd, i.nc) : query(c, d, a.top, a.bottom, sd, i.nc)))) ?? [];
+  const answers = evaluateBeamSections(items.map((i) => (i.sign === 'pos' ? query(c, d, a.bottom, a.top, sd, i.nc, undefined, true) : query(c, d, a.top, a.bottom, sd, i.nc)))) ?? [];
   return items.map((i, k) => {
     const r = answers[k];
     const phiMn = r && r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0;
@@ -210,8 +215,8 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   const p = paramsOf(d, c);
   const fc = c.mat.fc, fy = c.mat.fy;
 
-  const flexReq = (mu: number, nc: number) => checkFlexure(p, mu, nc, { edition: EDITION });
-  const posReq = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).pos.value, sectionOf(d, s).nPos), env: sectionOf(d, s).pos, n: sectionOf(d, s).nPos }));
+  const flexReq = (mu: number, nc: number, sagging = false) => checkFlexure(p, mu, nc, { edition: EDITION, ...(sagging && d.flange ? { flange: d.flange } : {}) });
+  const posReq = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).pos.value, sectionOf(d, s).nPos, true), env: sectionOf(d, s).pos, n: sectionOf(d, s).nPos }));
   const negList = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).neg.value, sectionOf(d, s).nNeg), env: sectionOf(d, s).neg, n: sectionOf(d, s).nNeg }));
   if (d.negAny.value > Math.max(...negList.map((x) => x.env.value)) + 1e-6) negList.push({ s: 'span', r: flexReq(d.negAny.value, d.nNegAny), env: d.negAny, n: d.nNegAny });
   const heavier = <T extends { r: { AsReq: number }; env: Signed }>(a: T, b: T) => (b.r.AsReq > a.r.AsReq + 1e-9 || (Math.abs(b.r.AsReq - a.r.AsReq) <= 1e-9 && b.env.value > a.env.value) ? b : a);
@@ -288,7 +293,6 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
       title: 'rcSheets.g.proposal',
       steps: [
         adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'As(d) → φMn ≥ Mu; εt ≥ εt,min; s ≤ s,max', value: String(iterations), ok: ev.all },
-        { label: 'rcSheets.s.assumptionAxis', value: '' },
       ],
     },
   ];
@@ -305,8 +309,8 @@ function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): Co
   const sd = a.stirrups.dia;
   const qs: BeamSectionQuery[] = [];
   for (const k of d.combos) {
-    qs.push(query(c, d, a.bottom, a.top, sd, k.nSpan), query(c, d, a.top, a.bottom, sd, k.nStart), query(c, d, a.top, a.bottom, sd, k.nEnd),
-      query(c, d, a.bottom, a.top, sd, k.nStart), query(c, d, a.bottom, a.top, sd, k.nEnd), query(c, d, a.top, a.bottom, sd, k.nSpan),
+    qs.push(query(c, d, a.bottom, a.top, sd, k.nSpan, undefined, true), query(c, d, a.top, a.bottom, sd, k.nStart), query(c, d, a.top, a.bottom, sd, k.nEnd),
+      query(c, d, a.bottom, a.top, sd, k.nStart, undefined, true), query(c, d, a.bottom, a.top, sd, k.nEnd, undefined, true), query(c, d, a.top, a.bottom, sd, k.nSpan),
       query(c, d, a.bottom, a.top, sd, k.nV, a.stirrups));
   }
   const ans = evaluateBeamSections(qs) ?? [];
@@ -362,6 +366,8 @@ function dataSteps(d: BeamDemand, c: BeamContext, f: Fmt): StepGroup {
       { label: 'rcSheets.s.section', formula: 'b × h · L', value: `${f(d.b * 100, 0)} × ${f(d.h * 100, 0)} cm · ${f(d.length)} m` },
       { label: 'rcSheets.s.materials', formula: "f'c · fy", value: `${f(c.mat.fc, 0)} · ${f(c.mat.fy, 0)} MPa` },
       { label: 'rcSheets.s.cover', formula: 'r', value: `${f(c.cover * 100, 1)} cm` },
+      d.faces ? { label: 'rcSheets.s.atFaces', formula: 'Mu(x = c) · Vu, Tu(x = c + d)', value: `${f(d.faces.start * 100, 0)} · ${f(d.faces.end * 100, 0)} cm; d = ${f(d.faces.shearAt * 100, 0)} cm` } : { label: 'rcSheets.s.assumptionAxis', value: '' },
+      ...(d.flange ? [{ label: 'rcSheets.s.flange', formula: 'bf = bw + Σ min(8hf; sw/2; ln/8) (Tabla 6.3.2.1)', value: `bf = ${f(d.flange.bf * 100, 0)} cm; hf = ${f(d.flange.hf * 100, 0)} cm` }] : []),
       sec('start', d.start), sec('span', d.span), sec('end', d.end),
       ...(d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6
         ? [{ label: 'rcSheets.s.negAny', formula: `x = ${f(d.negAny.source?.x ?? 0)} m`, value: `M⁻ = ${f(d.negAny.value)} kN·m${src(d.negAny)}` }] : []),

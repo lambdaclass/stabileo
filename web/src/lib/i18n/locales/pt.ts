@@ -14381,6 +14381,10 @@ const pt: Translations = {
   "plates.meshShort.ready": "Malha: {n} prontas",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.opt.faces": "Momentos na face dos apoios e cortante a «d» da face (§9.4.3.2)",
+  "rcSheets.opt.flange": "Vigas com a laje como mesa (T ou L), se a laje for armada para isso",
+  "rcSheets.s.atFaces": "Esforços na face do apoio",
+  "rcSheets.s.flange": "Mesa efetiva para o momento positivo",
   "rcSheets.combo.name": "Combinação",
   "rcSheets.v.wallMesh": "Malha insuficiente para o momento no plano: refine a parede (elementos ao longo da base)",
   "rcSheets.code": "Norma",

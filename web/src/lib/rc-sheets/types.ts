@@ -45,6 +45,10 @@ export interface RcSheetsData {
   version: 1;
   code: SheetCode;
   torsion: TorsionMode;
+  /** Beam moments at the support faces, shear and torsion at d from them. */
+  faces?: boolean;
+  /** Beams with the slab as a compression flange. */
+  flange?: boolean;
   /** Adopted bars by row key. */
   adopted: Record<string, Adopted>;
 }

@@ -22,6 +22,7 @@ import { t as tr } from '../i18n';
 import { GENERATED_KIND } from './generated-structures';
 import { physicalGroups } from './physical';
 import { plateSurfaceOf } from '../model/physical/plate';
+import { platesFromShells } from './plates-from-shells';
 import {
   DECISION_PLACES, EXTENT_PLACES, groupReferences, remapGroupReferences,
   type DroppedValue, type GroupRefPlace, type GroupReference,
@@ -140,6 +141,10 @@ function dataOf(d: PhysicalDraft): Record<string, unknown> {
   const { name: _n, elements: _e, plates: _p, quads: _q, ...data } = d;
   return data as unknown as Record<string, unknown>;
 }
+
+const WALL_MESH_SIZE = 0.5;
+const oneShellWall = (d: PhysicalDraft) => d.kind === 'wall' && d.quads.length === 1 && d.plates.length === 0;
+const shellLoaded = (q: number) => modelStore.loads.some((l) => (l.type === 'surface3d' || l.type === 'thermalQuad3d') && (l.data as { quadId: number; on?: string }).quadId === q && (l.data as { on?: string }).on !== 'plate');
 
 const sameData = (a: unknown, b: Record<string, unknown>) => {
   const x = a as Record<string, unknown> | undefined;
@@ -332,7 +337,8 @@ export function applyRecognition(
   const analysisRefs = removals.some((r) => r.references.some((x) => x.analysis));
   // A changed element whose members move can change a floor load targeted at it: the analysis reads that.
   const changedTargeted = chosen.some((p) => p.keepId !== undefined && groupReferences(p.keepId).some((x) => x.analysis));
-  const structural = analysisRefs || changedTargeted;
+  const walls = chosen.filter((p) => oneShellWall(p.draft));
+  const structural = analysisRefs || changedTargeted || walls.length > 0;
   const run = structural ? (fn: () => void) => modelStore.batch(fn) : (fn: () => void) => modelStore.batchDesign(fn);
 
   // Only what is applied: an element whose proposal stays out keeps its members and its references.
@@ -400,6 +406,10 @@ export function applyRecognition(
       dropped.push(...r.dropped);
     }
     for (const r of removals) modelStore.removeGroup(r.id);
+    for (const p of walls) {
+      const q = p.draft.quads[0]!;
+      platesFromShells([`q${q}`], { keepMesh: shellLoaded(q), size: WALL_MESH_SIZE });
+    }
   });
 
   return {

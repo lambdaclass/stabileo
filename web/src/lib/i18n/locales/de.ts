@@ -14580,6 +14580,10 @@ const de: Translations = {
   "plates.meshShort.ready": "Netz: {n} bereit",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.opt.faces": "Momente an den Auflagerrändern, Querkraft im Abstand d davon (§9.4.3.2)",
+  "rcSheets.opt.flange": "Balken mit der Platte als Gurt (T oder L), wenn die Platte dafür bewehrt ist",
+  "rcSheets.s.atFaces": "Schnittgrößen am Auflagerrand",
+  "rcSheets.s.flange": "Mitwirkende Gurtbreite für das Feldmoment",
   "rcSheets.combo.name": "Kombination",
   "rcSheets.v.wallMesh": "Netz zu grob für das Moment in der Ebene: Wand verfeinern (Elemente entlang des Fußes)",
   "rcSheets.code": "Norm",

@@ -1,6 +1,7 @@
 import { buildCriticalStations, extractForcesAtStation, type StationForces } from '../engine/station-forces';
 import { shellCentreRows, shellLocalAxes, type ShellModel } from '../engine/shell-results';
 import { woodArmer } from '../engine/wood-armer';
+import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-flange';
 import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
 import type { BeamComboForces, BeamDemand, SectionEnv } from './beam-row';
 import type { ColumnCase, ColumnDemand } from './column-row';
@@ -39,6 +40,12 @@ export interface DemandInput {
   levelAt?: (z: number) => string;
   /** Elevations of the levels, m, where a wall is cut into storeys. */
   levelZs?: readonly number[];
+  /** Moments at the support faces and shear and torsion at d from them, instead of at the axes. */
+  faces?: boolean;
+  /** Half the support's extent along the beam at an element's end, m. */
+  faceOffset?: (elementId: number, end: 'i' | 'j') => number;
+  /** Beams designed with the slab cast on them as a compression flange (Table 6.3.2.1). */
+  flange?: boolean;
 }
 
 const zOf = (p: Pt | undefined) => p?.z ?? 0;
@@ -129,6 +136,32 @@ function take(env: SectionEnv, m: number, n: number, combo: string): void {
   if (-m > env.neg.value) { env.neg = { value: -m, source: { combo, x: env.x } }; env.nNeg = n; }
 }
 
+function flangeOf(m: DemandInput, span: Array<{ e: El; forward: boolean }>, bw: number, ln: number): { bf: number; hf: number } | null {
+  const ids = new Set(span.flatMap(({ e }) => [e.nodeI, e.nodeJ]));
+  const first = span[0]!.e, last = span[span.length - 1]!.e;
+  const p0 = m.nodes.get(span[0]!.forward ? first.nodeI : first.nodeJ), p1 = m.nodes.get(span[span.length - 1]!.forward ? last.nodeJ : last.nodeI);
+  if (!p0 || !p1) return null;
+  const ux = p1.x - p0.x, uy = p1.y - p0.y, ul = Math.hypot(ux, uy) || 1;
+  const perp = (p: Pt) => ((p.x - p0.x) * -uy + (p.y - p0.y) * ux) / ul;
+  const sides: FlangeSide[] = [];
+  for (const sign of [1, -1]) {
+    let hf = 0, reach = 0;
+    for (const g of m.groups) {
+      if (g.kind === 'wall' || (!g.quads.length && !g.plates.length)) continue;
+      const shells = [...g.quads.map((id) => m.shells.quads?.get(id)), ...g.plates.map((id) => m.shells.plates?.get(id))].filter((x): x is { id: number; nodes: readonly number[]; thickness: number } => !!x);
+      const touching = shells.filter((sh) => sh.nodes.filter((n) => ids.has(n)).length >= 2);
+      const onSide = touching.filter((sh) => { const c = sh.nodes.map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p); return c.length && Math.sign(c.reduce((a, p) => a + perp(p), 0)) === sign; });
+      if (!onSide.length) continue;
+      const pts = shells.flatMap((sh) => sh.nodes.map((n) => m.nodes.get(n))).filter((p): p is Pt => !!p && Math.sign(perp(p)) === sign && Math.abs(zOf(p) - zOf(p0)) < 0.05);
+      hf = Math.max(hf, Math.min(...onSide.map((sh) => sh.thickness)));
+      reach = Math.max(reach, ...pts.map((p) => Math.abs(perp(p))));
+    }
+    if (hf > 0 && reach > bw) sides.push({ hf, clear: reach - bw });
+  }
+  const f = effectiveFlange(bw, ln, sides);
+  return f && f.bf > bw + 1e-6 ? { bf: f.bf, hf: f.hf } : null;
+}
+
 export function beamDemands(m: DemandInput): BeamDemand[] {
   const inc = incidence(m);
   const out: BeamDemand[] = [];
@@ -153,22 +186,32 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const shear: 'vz' | 'vy' = turned ? 'vy' : 'vz';
       const L = span.reduce((s, r) => s + lengthOf(m, r.e), 0);
       const stations = m.sets.map((set) => runStations(m, span, set));
-      let xStar = L / 2, best = 0;
-      stations.forEach((list) => { for (const { x, s } of list) if (s[flex] > best) { best = s[flex]; xStar = x; } });
-      const start = emptySection(0), mid = emptySection(xStar), end = emptySection(L);
+      const faceI = m.faces && m.faceOffset ? Math.min(L / 3, m.faceOffset(first.id, span[0]!.forward ? 'i' : 'j')) : 0;
+      const lastEl = span[span.length - 1]!;
+      const faceJ = m.faces && m.faceOffset ? Math.min(L / 3, m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i')) : 0;
+      const x0 = faceI, x1 = L - faceJ;
+      const dv = 0.9 * (turned ? sec.b : sec.h);
+      const v0 = m.faces ? Math.min(x0 + dv, L / 2) : 0, v1 = m.faces ? Math.max(x1 - dv, L / 2) : L;
+      let xStar = (x0 + x1) / 2, best = 0;
+      stations.forEach((list) => { for (const { x, s } of list) if (x >= x0 - 1e-9 && x <= x1 + 1e-9 && s[flex] > best) { best = s[flex]; xStar = x; } });
+      const start = emptySection(x0), mid = emptySection(xStar), end = emptySection(x1);
       let negAny: Signed = { value: 0 }, nNegAny = 0, vu: Signed = { value: 0 }, nV = 0, tu: Signed = { value: 0 };
       const combos: BeamComboForces[] = [];
       m.sets.forEach((set, i) => {
         const list = stations[i]!;
         if (!list.length) return;
         const at = (x: number) => forcesAt(m, span, set, x) ?? list.reduce((a, b) => (Math.abs(b.x - x) < Math.abs(a.x - x) ? b : a)).s;
-        const s0 = at(0), sm = at(xStar), s1 = at(L);
+        const s0 = at(x0), sm = at(xStar), s1 = at(x1);
+        const extra = m.faces ? [{ x: v0, s: at(v0) }, { x: v1, s: at(v1) }] : [];
         take(start, s0[flex], -s0.n, set.name); take(mid, sm[flex], -sm.n, set.name); take(end, s1[flex], -s1.n, set.name);
         let mPos = 0, mNeg = 0, v = 0, nv = 0, t = 0;
-        for (const { x, s } of list) {
+        for (const { x, s } of [...list, ...extra]) {
           const mm = s[flex];
-          mPos = Math.max(mPos, mm); mNeg = Math.max(mNeg, -mm);
-          if (-mm > negAny.value) { negAny = { value: -mm, source: { combo: set.name, x } }; nNegAny = -s.n; }
+          if (x >= x0 - 1e-9 && x <= x1 + 1e-9) {
+            mPos = Math.max(mPos, mm); mNeg = Math.max(mNeg, -mm);
+            if (-mm > negAny.value) { negAny = { value: -mm, source: { combo: set.name, x } }; nNegAny = -s.n; }
+          }
+          if (x < v0 - 1e-9 || x > v1 + 1e-9) continue;
           if (Math.abs(s[shear]) > v) { v = Math.abs(s[shear]); nv = -s.n; }
           if (Math.abs(s[shear]) > vu.value) { vu = { value: Math.abs(s[shear]), source: { combo: set.name, x } }; nV = -s.n; }
           t = Math.max(t, Math.abs(s.torsion));
@@ -180,6 +223,8 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         key: `beam:${g.id}:${k}`, name: spans.length > 1 ? `${g.name}-${k + 1}` : g.name, level: g.level,
         length: L, b: turned ? sec.h : sec.b, h: turned ? sec.b : sec.h,
         start, span: mid, end, negAny, nNegAny, vu, nAtV: nV, tu, combos,
+        faces: m.faces ? { start: faceI, end: faceJ, shearAt: dv } : undefined,
+        ...((fl) => (fl ? { flange: fl } : {}))(m.flange ? flangeOf(m, span, turned ? sec.h : sec.b, x1 - x0) : null),
       });
     });
   }

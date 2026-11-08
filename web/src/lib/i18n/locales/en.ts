@@ -14740,6 +14740,10 @@ const en: Record<string, string> = {
   "plates.meshShort.ready": "Mesh: {n} ready",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.opt.faces": "Moments at the support faces and shear at d from them (§9.4.3.2)",
+  "rcSheets.opt.flange": "Beams with the slab as a flange (T or L), when the slab is reinforced to act as one",
+  "rcSheets.s.atFaces": "Forces at the support face",
+  "rcSheets.s.flange": "Effective flange for sagging",
   "rcSheets.combo.name": "Combination",
   "rcSheets.v.wallMesh": "Mesh too coarse for the in-plane moment: refine the wall (elements along the base)",
   "rcSheets.code": "Code",

@@ -78,6 +78,7 @@ const COUPLED = [
   'lib/listings/bvbs.ts',
   'lib/rc-sheets/beam-row.ts',
   'lib/rc-sheets/column-row.ts',
+  'lib/rc-sheets/demands.ts',
   'lib/sheets/details/beams.ts',
   'lib/sheets/details/columns.ts',
   'lib/sheets/details/foundations.ts',
