@@ -135,6 +135,138 @@ pub(crate) fn rotation_tied_nodes_2d(input: &SolverInput) -> std::collections::H
     tied
 }
 
+/// Refuses a 3D model whose connectors leave a combination of node rotations
+/// with no stiffness, as on two truss-only nodes joined by a finite-length
+/// connector with shear springs and no rotational springs: its rigid arms hold
+/// only the mean rotation across its axis, so the opposite rotations across it
+/// and the common twist about it cost no energy. The rotations of the nodes
+/// connectors couple (constraint nodes left out, as by the orphan guard) are
+/// checked on the assembled K, so partial member releases, rotational springs
+/// and supports count in each rotation DOF exactly: K is positive
+/// semi-definite, so a null vector of that block is one of K, and the block is
+/// factored by LDLᵀ against `SINGULAR_PIVOT_RATIO`. A rotation the orphan
+/// guard holds with artificial stiffness counts as none: otherwise a free twist
+/// about a connector along a global axis would be held, and the same twist
+/// about a skew one refused.
+pub(crate) fn refuse_connector_arm_mechanism_3d(input: &SolverInput3D) -> Result<(), String> {
+    use std::collections::{BTreeMap, BTreeSet, HashSet};
+    if input.connectors.is_empty() || DofNumbering::dofs_per_node_3d(input) < 6 {
+        return Ok(());
+    }
+    let mut tied: HashSet<usize> = HashSet::new();
+    for c in &input.constraints {
+        match c {
+            Constraint::RigidLink(r) => { tied.insert(r.master_node); tied.insert(r.slave_node); }
+            Constraint::Diaphragm(d) => { tied.insert(d.master_node); tied.extend(d.slave_nodes.iter().copied()); }
+            Constraint::LinearMPC(m) => tied.extend(m.terms.iter().map(|t| t.node_id)),
+            Constraint::EqualDOF(e) => { tied.insert(e.master_node); tied.insert(e.slave_node); }
+            Constraint::EccentricConnection(e) => { tied.insert(e.master_node); tied.insert(e.slave_node); }
+        }
+    }
+    let coords: std::collections::HashMap<usize, [f64; 3]> = crate::ordered::values(&input.nodes).map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let connectors = crate::element::connector::sorted_by_id(&input.connectors);
+    let couples = |c: &ConnectorElement| {
+        let finite = match (coords.get(&c.node_i), coords.get(&c.node_j)) {
+            (Some(a), Some(b)) => ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2) + (b[2] - a[2]).powi(2)).sqrt() > crate::element::connector::ZERO_LENGTH,
+            _ => false,
+        };
+        [c.k_moment, c.k_bend_y, c.k_bend_z].iter().any(|&k| k != 0.0) || (finite && (c.k_shear != 0.0 || c.k_shear_z != 0.0))
+    };
+    let nodes: BTreeSet<usize> = connectors
+        .iter()
+        .filter(|c| couples(c))
+        .flat_map(|c| [c.node_i, c.node_j])
+        .filter(|n| !tied.contains(n))
+        .collect();
+    if nodes.is_empty() {
+        return Ok(());
+    }
+    let dof_num = DofNumbering::build_3d(input);
+    let asm = assemble_stiffness_sparse_3d(input, &dof_num, false);
+    let artificial: HashSet<usize> = asm.artificial_dofs.iter().copied().collect();
+    let mut owner: BTreeMap<usize, usize> = BTreeMap::new();
+    for &n in &nodes {
+        for local in 3..6 {
+            if let Some(d) = dof_num.global_dof(n, local) {
+                if d < dof_num.n_free {
+                    owner.insert(d, n);
+                }
+            }
+        }
+    }
+    let k = &asm.k_ff;
+    let mut entries: Vec<(usize, usize, f64)> = Vec::new();
+    for &col in owner.keys() {
+        for p in k.col_ptr[col]..k.col_ptr[col + 1] {
+            let row = k.row_idx[p];
+            if owner.contains_key(&row) && !artificial.contains(&row) && !artificial.contains(&col) {
+                entries.push((row.max(col), row.min(col), k.values[p]));
+            }
+        }
+    }
+    let mut root: BTreeMap<usize, usize> = owner.keys().map(|&d| (d, d)).collect();
+    fn find(root: &mut BTreeMap<usize, usize>, d: usize) -> usize {
+        let p = root[&d];
+        if p == d { return d; }
+        let r = find(root, p);
+        root.insert(d, r);
+        r
+    }
+    for &(r, c, v) in &entries {
+        if r != c && v != 0.0 {
+            let (a, b) = (find(&mut root, r), find(&mut root, c));
+            root.insert(a.max(b), a.min(b));
+        }
+    }
+    let mut groups: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for &d in owner.keys() {
+        let r = find(&mut root, d);
+        groups.entry(r).or_default().push(d);
+    }
+    for dofs in groups.values() {
+        let at: BTreeMap<usize, usize> = dofs.iter().enumerate().map(|(i, &d)| (d, i)).collect();
+        let m = dofs.len();
+        let mut a = vec![0.0; m * m];
+        for &(r, c, v) in &entries {
+            if let (Some(&i), Some(&j)) = (at.get(&r), at.get(&c)) {
+                a[i * m + j] += v;
+                if i != j { a[j * m + i] += v; }
+            }
+        }
+        let diag: Vec<f64> = (0..m).map(|j| a[j * m + j]).collect();
+        for j in 0..m {
+            let d = a[j * m + j];
+            if d.abs().partial_cmp(&(super::definiteness::SINGULAR_PIVOT_RATIO * diag[j].abs())) != Some(std::cmp::Ordering::Greater) {
+                let group: BTreeSet<usize> = dofs.iter().map(|d| owner[d]).collect();
+                let ids: Vec<String> = connectors
+                    .iter()
+                    .filter(|c| group.contains(&c.node_i) || group.contains(&c.node_j))
+                    .map(|c| c.id.to_string())
+                    .collect();
+                let group: Vec<String> = group.iter().map(|n| n.to_string()).collect();
+                return Err(format!(
+                    "Connector {}: the rotations of node(s) {} that the connectors couple are left with a combination \
+                     that has no stiffness, a mechanism, so those rotations are undetermined: the rigid arms of a \
+                     finite-length shear spring hold only the mean rotation across the connector axis, not the opposite \
+                     rotations of its ends or their common twist about the axis, and nothing else (an unreleased member \
+                     end, a shell or a rotational support) holds them. Hold the rotations of one of these nodes with an \
+                     unreleased member end, a shell or a rotational support, and give the connector the rotational \
+                     springs (kMoment for twist, kBendY, kBendZ) the other node needs.",
+                    ids.join(", "),
+                    group.join(", "),
+                ));
+            }
+            for i in (j + 1)..m {
+                let l = a[i * m + j] / d;
+                for q in (j + 1)..=i {
+                    a[i * m + q] -= l * a[q * m + j];
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Data needed to reverse the 2D inclined support rotation after solving.
 pub struct InclinedTransformData2D {
     pub node_id: usize,

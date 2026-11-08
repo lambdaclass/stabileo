@@ -414,9 +414,13 @@ enum Node3Rotation {
 }
 
 fn arm_pair_3d(k_torsion: f64, node3: Node3Rotation, padded: bool, scale: f64) -> SolverInput3D {
+    arm_pair_3d_at(ARM3_N3, k_torsion, node3, padded, scale)
+}
+
+fn arm_pair_3d_at(n3: [f64; 3], k_torsion: f64, node3: Node3Rotation, padded: bool, scale: f64) -> SolverInput3D {
     let pin = vec![true, true, true, false, false, false];
     let mut nodes = vec![
-        (1, 0.0, 0.0, 0.0), (2, ARM3_N2[0], ARM3_N2[1], ARM3_N2[2]), (3, ARM3_N3[0], ARM3_N3[1], ARM3_N3[2]),
+        (1, 0.0, 0.0, 0.0), (2, ARM3_N2[0], ARM3_N2[1], ARM3_N2[2]), (3, n3[0], n3[1], n3[2]),
         (4, 4.0, 0.2, 0.1), (5, 1.7, 3.1, 0.4),
     ];
     let chain = if padded { 30 } else { 1 };
@@ -478,7 +482,6 @@ fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
 /// answered after a diagonal shift of 1.2e2 and the dense path through LU,
 /// with rotations the load does not determine. The model must be refused.
 #[test]
-#[ignore = "known wrong result: #1748"]
 fn connector_arm_mechanism_3d_is_refused() {
     for padded in [true, false] {
         for (name, node3, kt) in [
@@ -540,3 +543,18 @@ fn connector_arm_3d_with_node_3_on_a_frame_solves() {
 }
 
 
+
+/// #1748: with node 3 on an unreleased frame and no torsion spring, the twist of
+/// node 2 about the connector axis has no stiffness. Along a global axis the
+/// orphan guard used to hold it with artificial stiffness while a skew
+/// connector left it singular; both are refused.
+#[test]
+fn connector_free_twist_3d_is_refused_in_any_orientation() {
+    let aligned = [ARM3_N2[0] + 2.0, ARM3_N2[1], ARM3_N2[2]];
+    for (name, n3) in [("skew", ARM3_N3), ("along x", aligned)] {
+        let e = solve_3d(&arm_pair_3d_at(n3, 0.0, Node3Rotation::Frame { bending_released: false }, false, 1.0))
+            .err()
+            .unwrap_or_else(|| panic!("{name}: free twist at node 2 returned a result"));
+        assert!(e.contains("Connector 1") && e.contains("node(s) 2") && e.contains("mechanism"), "{name}: {e}");
+    }
+}
