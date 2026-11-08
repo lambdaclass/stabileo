@@ -222,7 +222,8 @@ describe('refusals, by name', () => {
     expect(code(endNetArea({ ...IPE200, a: undefined }, bolt))).toBe('area');
   });
   it('the geometry of a catalogue angle with only `t` is read', () => {
-    expect(tensionGeometry({ shape: 'L', h: 0.05, b: 0.05, t: 0.005 })).toMatchObject({ kind: 'L', t: 0.005 });
+    expect(tensionGeometry({ shape: 'L', h: 0.05, b: 0.05, t: 0.005 })).toEqual({ kind: 'L', options: ['legH', 'legB', 'all'] });
+    expect(code(endNetArea({ shape: 'L', h: 0.05, b: 0.05, t: 0.005, a: 4.8e-4 }, { kind: 'welded', connected: 'legH', weld: 'longitudinal', lengthMm: 100 }))).toBe('ok');
   });
 });
 

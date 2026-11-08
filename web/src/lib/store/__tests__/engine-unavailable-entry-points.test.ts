@@ -162,6 +162,7 @@ describe('the remaining entry points route the engine error to the screen', () =
   it.each([
     ['components/pro/steel/SteelResultsTable.svelte', /engineGuarded\(/, /data-testid="steel-results-engine"/],
     ['components/pro/steel/TensionRuptureTable.svelte', /engineGuarded\(/, /data-testid="tc-results-engine"/],
+    ['components/pro/steel/TensionConnectionEditor.svelte', /engineGuarded\(\(\) => tensionGeometry\(s\)\)/, /data-testid="tc-preview-engine"/],
     ['components/pro/ProResultTableModes.svelte', /engineGuarded\(/, /data-testid="tm-maxtype-engine"/],
     ['components/CirsocFlexPanel.svelte', /isEngineUnavailable\(e\)/, /engineGuarded\(\(\) => fcoSurfaceCut/],
     ['components/SectionStressPanel.svelte', /stressFailure/, /data-testid="stress-engine-failure"/],

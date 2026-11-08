@@ -51,16 +51,16 @@
  * clause needs. Nothing is defaulted: a missing pitch is not "3 d", and a missing connection is
  * not Ae = Ag.
  *
- * Pure: no store, no runes, no i18n. Reasons come back as a code plus a Spanish sentence, the
- * checker's language; surfaces translate the code.
- *
- * NOTE for the Rust migration of CIRSOC 301 (PR #298): this module is the whole of D.3/B.4.2.2
- * for the app; port it beside the checker and keep these tests as the oracle.
+ * The engine computes all of it (`engine/src/postprocess/tension_net_area.rs`, op `netArea`); this
+ * module sends the model's description, resolves the catalogue part of a built-up pair and the
+ * nominal hole of Tabla J.3.3, and words the engine's steps and refusals. Reasons come back as a
+ * code plus a Spanish sentence, the checker's language; surfaces translate the code.
  */
 
 import { nominalHoleMm, type HoleKind } from '../../connection/bolt-geometry';
 import { ALL_PROFILES, profileToSectionFull } from '../../data/steel-profiles';
 import { msg, round, type EngineMessage } from '../../codes/message';
+import { cirsoc301InputsRequest } from './cirsoc301-inputs';
 
 // ─── The stored description ──────────────────────────────────────────
 
@@ -138,10 +138,9 @@ export interface TensionSectionInput {
   drawn?: unknown;
 }
 
-type Geometry =
-  | { kind: 'I' | 'U' | 'T'; h: number; b: number; tw: number; tf: number; count: number }
-  | { kind: 'L'; h: number; b: number; t: number; count: number }
-  | { kind: 'plate'; w: number; t: number; count: 1 };
+export type GeometryKind = 'I' | 'U' | 'T' | 'L' | 'plate';
+
+export type TensionGeometry = { kind: GeometryKind; options: ConnectedElements[] };
 
 export type RefusalCode =
   | 'noShape' | 'tube' | 'coldFormed' | 'drawn' | 'builtUp' | 'builtUpPart' | 'shape'
@@ -155,6 +154,8 @@ export interface Refusal {
   message: string;
 }
 
+export type Clause = 'D.3(1)' | 'D.3.1' | 'D.3.3' | 'D.3.4' | 'D.3.5' | 'D.3(2)(a)';
+
 /** An, U, Ae at one end, with the steps that produced them. Areas m². */
 export interface EndNetArea {
   Ag: number;
@@ -162,7 +163,7 @@ export interface EndNetArea {
   U: number;
   Ae: number;
   /** Clause the Ae came from. */
-  clause: 'D.3(1)' | 'D.3.1' | 'D.3.3' | 'D.3.4' | 'D.3.5' | 'D.3(2)(a)';
+  clause: Clause;
   xBar?: number;
   L?: number;
   steps: string[];
@@ -170,127 +171,159 @@ export interface EndNetArea {
   messages: EngineMessage[];
 }
 
-const refuse = (code: RefusalCode, message: string): { refused: Refusal } => ({ refused: { code, message } });
+type EngineRefusal = { code: RefusalCode; variant?: string; n?: number; dh?: number; width?: number; L?: number; w?: number };
+
+type EngineEvent =
+  | { step: 'weldNoHoles' }
+  | { step: 'plateTable'; L: number; w: number; U: number }
+  | { step: 'aeAg'; Ag: number; U: number; Ae: number; clause: 'D.3.3' | 'D.3.5' }
+  | { step: 'all'; Ae: number }
+  | { step: 'transverse'; Aconn: number; Ae: number }
+  | { step: 'xBarWeld'; xBar: number; L: number }
+  | { step: 'u'; xBar: number; L: number; raw: number; U: number }
+  | { step: 'uFloor'; Aconn: number; Ag: number; U: number }
+  | { step: 'hole'; hole: number; dh: number }
+  | { step: 'chains'; straightHoles: number; lines: number; dh: number; t: number; straight: number; zig: number }
+  | { step: 'an'; Ag: number; deduct: number; An: number }
+  | { step: 'oneBolt'; Aconn: number; deduct: number; Ae: number }
+  | { step: 'xBarBolt'; xBar: number; n: number; pitch: number; L: number }
+  | { step: 'aeAn'; An: number; U: number; Ae: number };
+
+type EngineEnd = { Ag: number; An: number; U: number; Ae: number; clause: Clause; xBar?: number; L?: number; events: EngineEvent[] };
+
+type EngineMember =
+  | { missing: number[] }
+  | { refused: EngineRefusal; at: number }
+  | { perEnd: EngineEnd[]; governing: number };
+
 const mm = (v: number, d = 1) => (v * 1000).toFixed(d);
 const mm2 = (v: number) => (v * 1e6).toFixed(0);
 const f3 = (v: number) => v.toFixed(3);
 const r0 = (m2: number) => round(m2 * 1e6, 0);
 const r1mm = (m: number) => round(m * 1000, 1);
 const r3 = (v: number) => round(v, 3);
-const pos = (v: number | undefined): v is number => v !== undefined && Number.isFinite(v) && v > 0;
 
 const byName = new Map(ALL_PROFILES.map((p) => [p.name, p]));
 
-/** The section as elements the clause can name, or why not. */
-export function tensionGeometry(s: TensionSectionInput): Geometry | { refused: Refusal } {
-  if (s.drawn || s.polygon) return refuse('drawn', 'seccion dibujada o poligonal: sus elementos (alas, alma, alas de angulo) no se pueden identificar para D.3');
+/** The section as the engine reads it: the catalogue part of a built-up pair resolved here. */
+function sectionPayload(s: TensionSectionInput) {
   const comp = s.composition;
-  if (comp && comp.arrangement !== 'single') {
-    if (comp.arrangement !== 'doubleBack') return refuse('builtUp', `barra armada «${comp.arrangement}»: solo se describen pares espalda con espalda`);
-    const p = byName.get(comp.profileName);
-    if (!p) return refuse('builtUpPart', `perfil componente «${comp.profileName}» no encontrado en el catalogo`);
-    const part = profileToSectionFull(p);
-    const g = single({ ...part, name: p.name });
-    if ('refused' in g) return g;
-    if (g.kind !== 'L' && g.kind !== 'U') return refuse('builtUp', 'par espalda con espalda: solo angulos o canales');
-    return { ...g, count: 2 };
-  }
-  return single(s);
+  const p = comp?.arrangement === 'doubleBack' ? byName.get(comp.profileName) : undefined;
+  const part = p ? profileToSectionFull(p) : undefined;
+  return {
+    shape: s.shape, a: s.a, h: s.h, b: s.b, tw: s.tw, tf: s.tf, t: s.t,
+    drawn: !!(s.drawn || s.polygon),
+    arrangement: comp?.arrangement,
+    part: part && { shape: part.shape, h: part.h, b: part.b, tw: part.tw, tf: part.tf, t: part.t },
+  };
 }
 
-function single(s: TensionSectionInput): Geometry | { refused: Refusal } {
-  switch (s.shape) {
-    case undefined: case 'generic':
-      return refuse('noShape', 'la seccion no registra su forma: no se sabe que elementos tiene');
-    case 'RHS': case 'CHS':
-      return refuse('tube', 'tubos: D.3 remite el area neta efectiva al Reglamento CIRSOC 302');
-    case 'C': case 'Z':
-      return refuse('coldFormed', 'perfil conformado en frio: corresponde el Reglamento CIRSOC 303');
-    case 'I': case 'H': case 'U': case 'T': {
-      const { h, b, tw, tf } = s;
-      if (!pos(h) || !pos(b) || !pos(tw) || !pos(tf)) return refuse('dimensions', 'faltan h, b, tw o tf de la seccion');
-      const kind = s.shape === 'H' ? 'I' : s.shape;
-      if ((kind === 'T' ? tf : 2 * tf) >= h) return refuse('dimensions', 'tf incompatible con h');
-      return { kind, h, b, tw, tf, count: 1 };
+function endPayload(e: EndConnection) {
+  if (e.kind === 'welded') return e;
+  const hole = e.diameterMm !== undefined && Number.isFinite(e.diameterMm) && e.diameterMm > 0 ? nominalHoleMm(e.diameterMm, e.holeKind) : null;
+  return hole === null ? e : { ...e, holeMm: hole };
+}
+
+function refusalMessage(why: EngineRefusal, s: TensionSectionInput, end?: EndConnection): string {
+  const comp = s.composition;
+  switch (why.code) {
+    case 'drawn': return 'seccion dibujada o poligonal: sus elementos (alas, alma, alas de angulo) no se pueden identificar para D.3';
+    case 'builtUp': return why.variant === 'pair' ? 'par espalda con espalda: solo angulos o canales' : `barra armada «${comp?.arrangement}»: solo se describen pares espalda con espalda`;
+    case 'builtUpPart': return `perfil componente «${comp?.profileName}» no encontrado en el catalogo`;
+    case 'noShape': return 'la seccion no registra su forma: no se sabe que elementos tiene';
+    case 'tube': return 'tubos: D.3 remite el area neta efectiva al Reglamento CIRSOC 302';
+    case 'coldFormed': return 'perfil conformado en frio: corresponde el Reglamento CIRSOC 303';
+    case 'dimensions':
+      switch (why.variant) {
+        case 'flange': return 'tf incompatible con h';
+        case 'angle': return 'faltan h, b o t del angulo';
+        case 'angleThickness': return 't del angulo no menor que sus alas';
+        case 'plate': return 'faltan b o h de la chapa';
+        default: return 'faltan h, b, tw o tf de la seccion';
+      }
+    case 'shape': {
+      const p = comp && comp.arrangement !== 'single' ? byName.get(comp.profileName) : undefined;
+      return `forma «${p ? profileToSectionFull(p).shape : s.shape}» sin elementos definidos para D.3`;
     }
-    case 'L': {
-      const t = pos(s.t) ? s.t : pos(s.tw) && s.tw === s.tf ? s.tw : undefined;
-      if (!pos(s.h) || !pos(s.b) || !pos(t)) return refuse('dimensions', 'faltan h, b o t del angulo');
-      if (t >= s.h || t >= s.b) return refuse('dimensions', 't del angulo no menor que sus alas');
-      return { kind: 'L', h: s.h, b: s.b, t, count: 1 };
-    }
-    case 'rect': {
-      if (!pos(s.h) || !pos(s.b)) return refuse('dimensions', 'faltan b o h de la chapa');
-      return { kind: 'plate', w: Math.max(s.b, s.h), t: Math.min(s.b, s.h), count: 1 };
-    }
-    default:
-      return refuse('shape', `forma «${s.shape}» sin elementos definidos para D.3`);
+    case 'area': return 'la seccion no tiene area bruta';
+    case 'connectedForShape': return `«${end ? CONNECTED_ES[end.connected] : '?'}» no es un elemento de esta seccion`;
+    case 'diameter': return 'falta el diametro del bulon';
+    case 'holeNotTabulated': return `bulon de ${end?.kind === 'bolted' ? end.diameterMm : '?'} mm: la Tabla J.3.3 no da su agujero`;
+    case 'boltsPerLine': return 'falta el numero de bulones por fila (entero ≥ 1)';
+    case 'lines': return 'falta el numero de filas por elemento unido (entero ≥ 1)';
+    case 'webLines': return 'todos los elementos unidos: falta el numero de filas en el alma (o en la otra ala)';
+    case 'pitch': return 'falta el paso entre bulones a lo largo de la fuerza';
+    case 'staggerWithWebLines': return 'tresbolillo combinado con filas en el alma: cadenas no cubiertas';
+    case 'stagger': return why.variant === 'oneLine' ? 'tresbolillo con una sola fila' : 'tresbolillo sin s o g';
+    case 'holesDoNotFit': return `${why.n} agujeros de ${mm(why.dh!)} mm no caben en un elemento de ${mm(why.width!, 0)} mm`;
+    case 'netArea': return why.variant === 'connected' ? 'area neta de los elementos unidos ≤ 0' : 'An ≤ 0';
+    case 'weldLength': return `falta la longitud L de los cordones longitudinales (${why.variant})`;
+    case 'plateWeldShort': return `chapa con cordones longitudinales: L = ${mm(why.L!, 0)} mm < w = ${mm(why.w!, 0)} mm, D.3(2)(d) exige L ≥ w`;
+    case 'missing': return 'no descrita';
   }
 }
 
-/** Allowed connected elements per geometry. */
-export function connectedOptions(kind: Geometry['kind']): ConnectedElements[] {
-  switch (kind) {
-    case 'I': case 'U': return ['flanges', 'web', 'all'];
-    case 'T': return ['flange', 'web', 'all'];
-    case 'L': return ['legH', 'legB', 'all'];
-    case 'plate': return ['all'];
+function render(ev: EngineEvent): [string, EngineMessage] {
+  switch (ev.step) {
+    case 'weldNoHoles':
+      return ['  Sin agujeros en la union soldada: An = Ag  (B.4.2.2)', msg('steel.tc.calc.weldNoHoles')];
+    case 'plateTable':
+      return [`  Chapa con cordones en ambos bordes: L = ${mm(ev.L, 0)} mm, w = ${mm(ev.w, 0)} mm → U = ${ev.U.toFixed(2)}  (D.3(2)(d))`,
+        msg('steel.tc.calc.plateTable', { L: round(ev.L * 1000, 0), w: round(ev.w * 1000, 0), U: ev.U })];
+    case 'aeAg':
+      return ev.clause === 'D.3.5'
+        ? [`  Ae = Ag·U = ${mm2(ev.Ag)}·${ev.U.toFixed(2)} = ${mm2(ev.Ae)} mm²  (D.3.5)`, msg('steel.tc.calc.aeAg', { Ag: r0(ev.Ag), U: ev.U, Ae: r0(ev.Ae), clause: 'D.3.5' })]
+        : [`  Ae = Ag·U = ${mm2(ev.Ag)}·${f3(ev.U)} = ${mm2(ev.Ae)} mm²  (D.3(2)(b), D.3.3)`, msg('steel.tc.calc.aeAg', { Ag: r0(ev.Ag), U: r3(ev.U), Ae: r0(ev.Ae), clause: 'D.3.3' })];
+    case 'all':
+      return [`  Todos los elementos unidos: Ae = An = ${mm2(ev.Ae)} mm²  (D.3(1))`, msg('steel.tc.calc.all', { Ae: r0(ev.Ae) })];
+    case 'transverse':
+      return [`  Solo cordones transversales: Ae = A unida = ${mm2(ev.Aconn)} mm², U = 1  (D.3(2)(c), D.3.4)`, msg('steel.tc.calc.transverse', { Ae: r0(ev.Ae) })];
+    case 'xBarWeld':
+      return [`  x̄ = ${mm(ev.xBar)} mm (Figura D.3.1), L = ${mm(ev.L, 0)} mm`, msg('steel.tc.calc.xBarWeld', { xBar: r1mm(ev.xBar), L: round(ev.L * 1000, 0) })];
+    case 'u':
+      return [`  U = 1 − x̄/L = 1 − ${mm(ev.xBar)}/${mm(ev.L, 0)} = ${f3(ev.raw)} ≤ 0,9 → ${f3(ev.U)}  (D.3.2)`,
+        msg('steel.tc.calc.u', { xBar: r1mm(ev.xBar), L: round(ev.L * 1000, 0), raw: r3(ev.raw), U: r3(ev.U) })];
+    case 'uFloor':
+      return [`  U ≥ A unida/Ag = ${mm2(ev.Aconn)}/${mm2(ev.Ag)} = ${f3(ev.U)}  (D.3, secciones abiertas)`, msg('steel.tc.calc.uFloor', { Aconn: r0(ev.Aconn), Ag: r0(ev.Ag), U: r3(ev.U) })];
+    case 'hole':
+      return [`  Agujero: ${ev.hole} mm (Tabla J.3.3) + 2 mm = ${mm(ev.dh)} mm  (B.4.2.2)`, msg('steel.tc.calc.hole', { hole: ev.hole, dh: r1mm(ev.dh) })];
+    case 'chains':
+      return [`  Cadena recta: ${ev.straightHoles}·${mm(ev.dh)}·${mm(ev.t)} = ${mm2(ev.straight)} mm²; en zigzag: ${ev.lines}·${mm(ev.dh)}·${mm(ev.t)} − ${ev.lines - 1}·s²t/4g = ${mm2(ev.zig)} mm²  (B.4.2.2)`,
+        msg('steel.tc.calc.chains', { straight: r0(ev.straight), zig: r0(ev.zig) })];
+    case 'an':
+      return [`  An = Ag − Σ agujeros = ${mm2(ev.Ag)} − ${mm2(ev.deduct)} = ${mm2(ev.An)} mm²  (B.4.2.2)`, msg('steel.tc.calc.an', { Ag: r0(ev.Ag), deduct: r0(ev.deduct), An: r0(ev.An) })];
+    case 'oneBolt':
+      return [`  Un solo bulon por fila: Ae = A neta de los elementos unidos = ${mm2(ev.Aconn)} − ${mm2(ev.deduct)} = ${mm2(ev.Ae)} mm²  (D.3(2)(a))`,
+        msg('steel.tc.calc.oneBolt', { Aconn: r0(ev.Aconn), deduct: r0(ev.deduct), Ae: r0(ev.Ae) })];
+    case 'xBarBolt':
+      return [`  x̄ = ${mm(ev.xBar)} mm (Figura D.3.1), L = (${ev.n} − 1)·${ev.pitch} = ${mm(ev.L, 0)} mm`,
+        msg('steel.tc.calc.xBarBolt', { xBar: r1mm(ev.xBar), n: ev.n, pitch: ev.pitch, L: round(ev.L * 1000, 0) })];
+    case 'aeAn':
+      return [`  Ae = An·U = ${mm2(ev.An)}·${f3(ev.U)} = ${mm2(ev.Ae)} mm²  (D.3(2)(a), D.3.1)`, msg('steel.tc.calc.aeAn', { An: r0(ev.An), U: r3(ev.U), Ae: r0(ev.Ae) })];
   }
 }
 
-/** One element of a section: its gross area, thickness and clear width for holes. Per part (one angle of a pair). */
-interface Elem { area: number; t: number; width: number }
+function endResult(r: EngineEnd, end: EndConnection): EndNetArea {
+  const steps = [`  Union: ${describeEnd(end)}`];
+  const messages: EngineMessage[] = [msg('steel.tc.calc.connection', { what: describeEndMessage(end) })];
+  for (const ev of r.events) {
+    const [step, m] = render(ev);
+    steps.push(step);
+    messages.push(m);
+  }
+  const out: EndNetArea = { Ag: r.Ag, An: r.An, U: r.U, Ae: r.Ae, clause: r.clause, steps, messages };
+  if (r.xBar !== undefined) out.xBar = r.xBar;
+  if (r.L !== undefined) out.L = r.L;
+  return out;
+}
 
-/** The elements a connection grips, per part of the section, and x̄ (m) when not all are gripped. */
-function connectedParts(g: Geometry, c: ConnectedElements): { conn: Elem[]; other: Elem[]; xBar: number | null } | null {
-  if (!connectedOptions(g.kind).includes(c)) return null;
-  if (g.kind === 'plate') return { conn: [{ area: g.w * g.t, t: g.t, width: g.w }], other: [], xBar: null };
-  if (g.kind === 'L') {
-    const legH: Elem = { area: g.h * g.t, t: g.t, width: g.h };
-    const legBout: Elem = { area: (g.b - g.t) * g.t, t: g.t, width: g.b };
-    if (c === 'all') return { conn: [legH, legBout], other: [], xBar: null };
-    const a = c === 'legH' ? g.h : g.b, o = c === 'legH' ? g.b : g.h, t = g.t;
-    const A = t * (a + o - t);
-    const xBar = (t * (a * t + o * o - t * t)) / (2 * A);
-    return {
-      conn: [{ area: a * t, t, width: a }],
-      other: [{ area: (o - t) * t, t, width: o }],
-      xBar,
-    };
-  }
-  const { h, b, tw, tf } = g;
-  const flange: Elem = { area: b * tf, t: tf, width: b };
-  if (g.kind === 'T') {
-    const stem: Elem = { area: (h - tf) * tw, t: tw, width: h - tf };
-    if (c === 'all') return { conn: [flange, stem], other: [], xBar: null };
-    if (c === 'flange') {
-      const xBar = (b * tf * (tf / 2) + (h - tf) * tw * (tf + (h - tf) / 2)) / (b * tf + (h - tf) * tw);
-      return { conn: [flange], other: [stem], xBar };
-    }
-    // Stem: the half on each side of the stem's mid-plane, from that plane.
-    const half = (b / 2) * tf + (h - tf) * (tw / 2);
-    const xBar = ((b / 2) * tf * (b / 4) + (h - tf) * (tw / 2) * (tw / 4)) / half;
-    return { conn: [stem], other: [flange], xBar };
-  }
-  // I and channel
-  const web: Elem = { area: (h - 2 * tf) * tw, t: tw, width: h - 2 * tf };
-  if (c === 'all') return { conn: [flange, flange, web], other: [], xBar: null };
-  if (c === 'flanges') {
-    // The half-section (a tee of depth h/2), from the flange face.
-    const stemH = h / 2 - tf;
-    const xBar = (b * tf * (tf / 2) + stemH * tw * (tf + stemH / 2)) / (b * tf + stemH * tw);
-    return { conn: [flange, flange], other: [web], xBar };
-  }
-  if (g.kind === 'U') {
-    // Channel by its web: the centroid from the back of the web.
-    const A = 2 * b * tf + (h - 2 * tf) * tw;
-    const xBar = (2 * b * tf * (b / 2) + (h - 2 * tf) * tw * (tw / 2)) / A;
-    return { conn: [web], other: [flange, flange], xBar };
-  }
-  // I by its web: each half (two half-flanges and half the web), from the web's mid-plane.
-  const half = b * tf + (h - 2 * tf) * (tw / 2);
-  const xBar = (2 * (b / 2) * tf * (b / 4) + (h - 2 * tf) * (tw / 2) * (tw / 4)) / half;
-  return { conn: [web], other: [flange, flange], xBar };
+const netAreaRequest = (s: TensionSectionInput, ends: ReadonlyArray<EndConnection | undefined>) =>
+  cirsoc301InputsRequest<EngineMember>('netArea', 'effective net area', { section: sectionPayload(s), ends: ends.map((e) => (e ? endPayload(e) : null)) });
+
+/** The section's kind and the elements a connection can grip, from the engine, or why it has none. */
+export function tensionGeometry(s: TensionSectionInput): TensionGeometry | { refused: Refusal } {
+  const r = cirsoc301InputsRequest<TensionGeometry | { refused: EngineRefusal }>('tensionGeometry', 'tension geometry', sectionPayload(s));
+  return 'refused' in r ? { refused: { code: r.refused.code, message: refusalMessage(r.refused, s) } } : r;
 }
 
 const CONNECTED_ES: Record<ConnectedElements, string> = {
@@ -322,148 +355,12 @@ export function describeEndMessage(e: EndConnection): EngineMessage {
   });
 }
 
-/**
- * An, U and Ae at one end, for a section whose gross area is `section.a`.
- */
+/** An, U and Ae at one end, computed by the engine, for a section whose gross area is `section.a`. */
 export function endNetArea(section: TensionSectionInput, end: EndConnection): EndNetArea | { refused: Refusal } {
-  const g = tensionGeometry(section);
-  if ('refused' in g) return g;
-  const Ag = section.a;
-  if (!pos(Ag)) return refuse('area', 'la seccion no tiene area bruta');
-  const parts = connectedParts(g, end.connected);
-  if (!parts) return refuse('connectedForShape', `«${CONNECTED_ES[end.connected]}» no es un elemento de esta seccion`);
-  const n = g.count;
-  const steps: string[] = [];
-  steps.push(`  Union: ${describeEnd(end)}`);
-  const messages: EngineMessage[] = [msg('steel.tc.calc.connection', { what: describeEndMessage(end) })];
-  const Aconn = n * parts.conn.reduce((s, e) => s + e.area, 0);
-  const isAll = end.connected === 'all';
-  const xBarL = (L: number) => {
-    const raw = 1 - parts.xBar! / L;
-    let U = Math.min(0.9, raw);
-    steps.push(`  U = 1 − x̄/L = 1 − ${mm(parts.xBar!)}/${mm(L, 0)} = ${f3(raw)} ≤ 0,9 → ${f3(U)}  (D.3.2)`);
-    messages.push(msg('steel.tc.calc.u', { xBar: r1mm(parts.xBar!), L: round(L * 1000, 0), raw: r3(raw), U: r3(U) }));
-    const lower = Math.min(1, Aconn / Ag);
-    if (lower > U) {
-      U = lower;
-      steps.push(`  U ≥ A unida/Ag = ${mm2(Aconn)}/${mm2(Ag)} = ${f3(lower)}  (D.3, secciones abiertas)`);
-      messages.push(msg('steel.tc.calc.uFloor', { Aconn: r0(Aconn), Ag: r0(Ag), U: r3(lower) }));
-    }
-    return U;
-  };
-
-  if (end.kind === 'welded') {
-    steps.push('  Sin agujeros en la union soldada: An = Ag  (B.4.2.2)');
-    messages.push(msg('steel.tc.calc.weldNoHoles'));
-    if (g.kind === 'plate' && end.weld === 'longitudinal') {
-      const L = pos(end.lengthMm) ? end.lengthMm / 1000 : undefined;
-      if (L === undefined) return refuse('weldLength', 'falta la longitud L de los cordones longitudinales (D.3.5)');
-      const w = g.w;
-      // Compared with a 1e-9 relative tolerance: 0,3 m against 1,5·0,2 m is a boundary of the
-      // table, not a float rounding question.
-      const atLeast = (k: number) => L >= k * w * (1 - 1e-9);
-      if (!atLeast(1)) return refuse('plateWeldShort', `chapa con cordones longitudinales: L = ${mm(L, 0)} mm < w = ${mm(w, 0)} mm, D.3(2)(d) exige L ≥ w`);
-      const U = atLeast(2) ? 1 : atLeast(1.5) ? 0.87 : 0.75;
-      steps.push(`  Chapa con cordones en ambos bordes: L = ${mm(L, 0)} mm, w = ${mm(w, 0)} mm → U = ${U.toFixed(2)}  (D.3(2)(d))`);
-      messages.push(msg('steel.tc.calc.plateTable', { L: round(L * 1000, 0), w: round(w * 1000, 0), U }));
-      steps.push(`  Ae = Ag·U = ${mm2(Ag)}·${U.toFixed(2)} = ${mm2(Ag * U)} mm²  (D.3.5)`);
-      messages.push(msg('steel.tc.calc.aeAg', { Ag: r0(Ag), U, Ae: r0(Ag * U), clause: 'D.3.5' }));
-      return { Ag, An: Ag, U, Ae: Ag * U, clause: 'D.3.5', L, steps, messages };
-    }
-    if (isAll || g.kind === 'plate') {
-      steps.push(`  Todos los elementos unidos: Ae = An = ${mm2(Ag)} mm²  (D.3(1))`);
-      messages.push(msg('steel.tc.calc.all', { Ae: r0(Ag) }));
-      return { Ag, An: Ag, U: 1, Ae: Ag, clause: 'D.3(1)', steps, messages };
-    }
-    if (end.weld === 'transverse') {
-      steps.push(`  Solo cordones transversales: Ae = A unida = ${mm2(Aconn)} mm², U = 1  (D.3(2)(c), D.3.4)`);
-      messages.push(msg('steel.tc.calc.transverse', { Ae: r0(Math.min(Ag, Aconn)) }));
-      return { Ag, An: Ag, U: 1, Ae: Math.min(Ag, Aconn), clause: 'D.3.4', steps, messages };
-    }
-    const L = pos(end.lengthMm) ? end.lengthMm / 1000 : undefined;
-    if (L === undefined) return refuse('weldLength', 'falta la longitud L de los cordones longitudinales (D.3.2)');
-    steps.push(`  x̄ = ${mm(parts.xBar!)} mm (Figura D.3.1), L = ${mm(L, 0)} mm`);
-    messages.push(msg('steel.tc.calc.xBarWeld', { xBar: r1mm(parts.xBar!), L: round(L * 1000, 0) }));
-    const U = xBarL(L);
-    steps.push(`  Ae = Ag·U = ${mm2(Ag)}·${f3(U)} = ${mm2(Ag * U)} mm²  (D.3(2)(b), D.3.3)`);
-    messages.push(msg('steel.tc.calc.aeAg', { Ag: r0(Ag), U: r3(U), Ae: r0(Ag * U), clause: 'D.3.3' }));
-    return { Ag, An: Ag, U, Ae: Ag * U, clause: 'D.3.3', xBar: parts.xBar!, L, steps, messages };
-  }
-
-  // ── Bolted ──
-  const d = end.diameterMm;
-  if (!pos(d)) return refuse('diameter', 'falta el diametro del bulon');
-  const hole = nominalHoleMm(d, end.holeKind);
-  if (hole === null) return refuse('holeNotTabulated', `bulon de ${d} mm: la Tabla J.3.3 no da su agujero`);
-  const nb = end.boltsPerLine, nl = end.lines;
-  if (!(nb !== undefined && Number.isInteger(nb) && nb >= 1)) return refuse('boltsPerLine', 'falta el numero de bulones por fila (entero ≥ 1)');
-  if (!(nl !== undefined && Number.isInteger(nl) && nl >= 1)) return refuse('lines', 'falta el numero de filas por elemento unido (entero ≥ 1)');
-  const secondary = isAll && g.kind !== 'plate';
-  const nw = secondary ? end.webLines : 0;
-  if (secondary && !(nw !== undefined && Number.isInteger(nw) && nw >= 0)) return refuse('webLines', 'todos los elementos unidos: falta el numero de filas en el alma (o en la otra ala)');
-  if (nb >= 2 && !pos(end.pitchMm)) return refuse('pitch', 'falta el paso entre bulones a lo largo de la fuerza');
-  const dh = (hole + 2) / 1000;
-  steps.push(`  Agujero: ${hole} mm (Tabla J.3.3) + 2 mm = ${mm(dh)} mm  (B.4.2.2)`);
-  messages.push(msg('steel.tc.calc.hole', { hole, dh: r1mm(dh) }));
-
-  // Which elements carry the `nl` lines, and which carry the secondary ones.
-  const lineElems: Elem[] = secondary
-    ? (g.kind === 'L' ? [parts.conn[0]!] : parts.conn.filter((e) => e !== parts.conn[parts.conn.length - 1]))
-    : parts.conn;
-  const webElem: Elem | null = secondary ? parts.conn[parts.conn.length - 1]! : null;
-
-  let stagger: { s: number; g: number } | null = null;
-  if (end.stagger) {
-    if (secondary && (nw ?? 0) > 0) return refuse('staggerWithWebLines', 'tresbolillo combinado con filas en el alma: cadenas no cubiertas');
-    const { sMm, gMm } = end.stagger;
-    if (!pos(sMm) || !pos(gMm)) return refuse('stagger', 'tresbolillo sin s o g');
-    if (nl < 2) return refuse('stagger', 'tresbolillo con una sola fila');
-    stagger = { s: sMm / 1000, g: gMm / 1000 };
-  }
-
-  let deduct = 0;
-  for (const e of lineElems) {
-    if (nl * dh >= e.width) return refuse('holesDoNotFit', `${nl} agujeros de ${mm(dh)} mm no caben en un elemento de ${mm(e.width, 0)} mm`);
-    const straight = (stagger ? Math.ceil(nl / 2) : nl) * dh * e.t;
-    let worst = straight;
-    if (stagger) {
-      const zig = nl * dh * e.t - (nl - 1) * (stagger.s * stagger.s * e.t) / (4 * stagger.g);
-      steps.push(`  Cadena recta: ${Math.ceil(nl / 2)}·${mm(dh)}·${mm(e.t)} = ${mm2(straight)} mm²; en zigzag: ${nl}·${mm(dh)}·${mm(e.t)} − ${nl - 1}·s²t/4g = ${mm2(zig)} mm²  (B.4.2.2)`);
-      messages.push(msg('steel.tc.calc.chains', { straight: r0(straight), zig: r0(zig) }));
-      worst = Math.max(straight, zig);
-    }
-    deduct += worst;
-  }
-  if (webElem && (nw ?? 0) > 0) {
-    if (nw! * dh >= webElem.width) return refuse('holesDoNotFit', `${nw} agujeros de ${mm(dh)} mm no caben en un elemento de ${mm(webElem.width, 0)} mm`);
-    deduct += nw! * dh * webElem.t;
-  }
-  deduct *= n;
-  const An = Ag - deduct;
-  steps.push(`  An = Ag − Σ agujeros = ${mm2(Ag)} − ${mm2(deduct)} = ${mm2(An)} mm²  (B.4.2.2)`);
-  messages.push(msg('steel.tc.calc.an', { Ag: r0(Ag), deduct: r0(deduct), An: r0(An) }));
-  if (!(An > 0)) return refuse('netArea', 'An ≤ 0');
-
-  if (isAll || g.kind === 'plate') {
-    steps.push(`  Todos los elementos unidos: Ae = An = ${mm2(An)} mm²  (D.3(1))`);
-    messages.push(msg('steel.tc.calc.all', { Ae: r0(An) }));
-    return { Ag, An, U: 1, Ae: An, clause: 'D.3(1)', steps, messages };
-  }
-  if (nb === 1) {
-    // «Si existe sólo una fila de bulones Ae = área neta de los elementos directamente unidos».
-    const Ae = Math.min(An, Aconn - deduct);
-    if (!(Ae > 0)) return refuse('netArea', 'area neta de los elementos unidos ≤ 0');
-    steps.push(`  Un solo bulon por fila: Ae = A neta de los elementos unidos = ${mm2(Aconn)} − ${mm2(deduct)} = ${mm2(Ae)} mm²  (D.3(2)(a))`);
-    messages.push(msg('steel.tc.calc.oneBolt', { Aconn: r0(Aconn), deduct: r0(deduct), Ae: r0(Ae) }));
-    return { Ag, An, U: Ae / An, Ae, clause: 'D.3(2)(a)', steps, messages };
-  }
-  const L = (nb - 1) * end.pitchMm! / 1000;
-  steps.push(`  x̄ = ${mm(parts.xBar!)} mm (Figura D.3.1), L = (${nb} − 1)·${end.pitchMm} = ${mm(L, 0)} mm`);
-  messages.push(msg('steel.tc.calc.xBarBolt', { xBar: r1mm(parts.xBar!), n: nb, pitch: end.pitchMm!, L: round(L * 1000, 0) }));
-  const U = xBarL(L);
-  steps.push(`  Ae = An·U = ${mm2(An)}·${f3(U)} = ${mm2(An * U)} mm²  (D.3(2)(a), D.3.1)`);
-  messages.push(msg('steel.tc.calc.aeAn', { An: r0(An), U: r3(U), Ae: r0(An * U) }));
-  return { Ag, An, U, Ae: An * U, clause: 'D.3.1', xBar: parts.xBar!, L, steps, messages };
+  const r = netAreaRequest(section, [end]);
+  if ('refused' in r) return { refused: { code: r.refused.code, message: refusalMessage(r.refused, section, end) } };
+  if ('missing' in r) throw new Error('effective net area: the engine reported a described end as missing');
+  return endResult(r.perEnd[0]!, end);
 }
 
 // ─── The member: every end that must be described ───────────────────
@@ -483,22 +380,28 @@ export type MemberNetArea =
 const label = (e: MemberEnd) => `barra ${e.elementId}, extremo ${e.end.toUpperCase()}`;
 
 export function memberNetArea(section: TensionSectionInput, ends: readonly MemberEnd[]): MemberNetArea {
-  const steps: string[] = [];
   const missing = ends.filter((e) => !e.connection);
   if (missing.length > 0) {
     return { missing, steps: [`  Falta la union extrema en: ${missing.map(label).join('; ')}`] };
   }
-  const perEnd: Array<{ at: MemberEnd; result: EndNetArea }> = [];
-  const messages: EngineMessage[] = [];
-  for (const at of ends) {
-    const r = endNetArea(section, at.connection!);
-    if ('refused' in r) return { refused: r.refused, at, steps: [`  ${label(at)}: ${r.refused.message}`] };
-    steps.push(`  — ${label(at)}:`, ...r.steps);
-    messages.push(msg('steel.tc.calc.end', { id: at.elementId, end: at.end.toUpperCase() }), ...r.messages);
-    perEnd.push({ at, result: r });
+  if (ends.length === 0) return { missing: [], steps: ['  Sin extremos que describir'] };
+  const r = netAreaRequest(section, ends.map((e) => e.connection));
+  if ('missing' in r) throw new Error('effective net area: the engine reported a described end as missing');
+  if ('refused' in r) {
+    const at = ends[r.at]!;
+    const message = refusalMessage(r.refused, section, at.connection);
+    return { refused: { code: r.refused.code, message }, at, steps: [`  ${label(at)}: ${message}`] };
   }
-  if (perEnd.length === 0) return { missing: [], steps: ['  Sin extremos que describir'] };
-  const gov = perEnd.reduce((m, p) => (p.result.Ae < m.result.Ae ? p : m), perEnd[0]!);
+  const steps: string[] = [];
+  const messages: EngineMessage[] = [];
+  const perEnd = r.perEnd.map((res, k) => {
+    const at = ends[k]!;
+    const result = endResult(res, at.connection!);
+    steps.push(`  — ${label(at)}:`, ...result.steps);
+    messages.push(msg('steel.tc.calc.end', { id: at.elementId, end: at.end.toUpperCase() }), ...result.messages);
+    return { at, result };
+  });
+  const gov = perEnd[r.governing]!;
   if (perEnd.length > 1) {
     steps.push(`  Gobierna ${label(gov.at)}: Ae = ${mm2(gov.result.Ae)} mm²`);
     messages.push(msg('steel.tc.calc.governingEnd', { id: gov.at.elementId, end: gov.at.end.toUpperCase(), Ae: r0(gov.result.Ae) }));
