@@ -38,7 +38,7 @@ export const FEATURE_IDS = [
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear',
   'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
-  'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -71,7 +71,7 @@ export interface FeatureSnapshot {
   sections?: Entries<{ id: number; shearAreas?: unknown }>;
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
-  loadCases?: Array<{ id: number; type?: string; spectral?: unknown }>;
+  loadCases?: Array<{ id: number; type?: string; spectral?: unknown; alternatives?: string }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
@@ -217,6 +217,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (connectors.some((c) => positive(c.kShear) || positive(c.kShearZ))) f.add('connectorsWithShear');
 
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
+  if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';

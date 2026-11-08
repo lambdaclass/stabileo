@@ -317,6 +317,7 @@ fn diagram_range(
         let mut xs: Vec<f64> = vec![0.0, length];
         for d in axial_loads { xs.push(d.a); xs.push(d.b); }
         xs.sort_by(|a, b| a.total_cmp(b));
+        ts.extend(xs.iter().map(|x| x / length));
         let q_at = |x: f64| -> f64 {
             axial_loads.iter()
                 .filter(|d| d.b > d.a && x >= d.a && x <= d.b)

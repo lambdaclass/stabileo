@@ -728,3 +728,23 @@ fn a_frame_without_plastic_capacity_is_refused_1525() {
         refusal_names_member(&bundle.err().unwrap_or_else(|| panic!("{what}: bundle exported")), 1, 2);
     }
 }
+
+#[test]
+fn axial_point_loads_are_refused_by_the_3d_plastic_certificate() {
+    for px in [-1.0, 1.0, -f64::EPSILON, f64::EPSILON] {
+        for (py, pz) in [(0.0, 0.0), (-1.0, 0.0), (0.0, -1.0), (-1.0, -1.0)] {
+            let load = SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                element_id: 1, a: 2.0, px, py, pz,
+            });
+            let solver = make_3d_beam(1, 6.0, E, 0.3, A, IY, IZ, J, FIXED.to_vec(), None, vec![load]);
+            let input = plastic(solver, MPY, MPZ);
+            let reason = build_model_3d(&input).unwrap_err();
+            assert!(reason.contains("axial point loads"), "{reason}");
+            let certificate = certify_collapse_3d(&input, None);
+            assert!(!certificate.certified, "{certificate:?}");
+            assert!(certificate.lambda_lower.is_none(), "{certificate:?}");
+            assert!(certificate.lambda_upper.is_none(), "{certificate:?}");
+            assert!(certificate.reason.as_deref().is_some_and(|r| r.contains("axial point loads")), "{certificate:?}");
+        }
+    }
+}

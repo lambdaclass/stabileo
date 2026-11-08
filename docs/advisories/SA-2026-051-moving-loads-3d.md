@@ -5,7 +5,7 @@
 | Severity | High |
 | Status | Draft 2026-11-08; fix in this branch, not yet released |
 | Issue | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) |
-| Fix | This branch; no PR opened |
+| Fix | PR [#1783](https://github.com/lambdaclass/stabileo/pull/1783) |
 | Affected versions | 0.2.0, 0.3.0, 0.4.0 and 0.5.0, and desktop-v0.1.0-alpha.1 through alpha.3. Builds containing 3D moving loads from commit `4c4d86155` (2026-03-07) until this fix |
 | Re-check registry | results-change entry `moving-loads-3d` |
 
@@ -38,9 +38,10 @@ computed and checked by the tests, not acceptance values fitted to the corrected
 
 Re-check any 3D moving-load envelope computed by an affected build. A load lying between
 member ends can govern the moment even on a horizontal deck. An inclined member additionally
-loses the component of gravity along its axis. The re-check registry flags every 3D member
-model, a wider set than the affected moving-load runs, because the saved feature metadata does
-not reliably identify those runs.
+loses the component of gravity along its axis. The re-check registry flags 3D member models with
+saved moving-load position cases
+(load-case alternatives groups beginning with `move:`). Standalone sweeps are transient and
+leave no saved marker; re-check those runs even if opening the project shows no notice.
 
 ## Fixed in
 

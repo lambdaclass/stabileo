@@ -578,7 +578,6 @@ fn opposite_axial_patches(sign: f64) -> (MovingLoadInput, f64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_axial_patch_boundaries_govern_2d_moving_envelope() {
     use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
     for sign in [-1.0, 1.0] {
@@ -590,7 +589,6 @@ fn issue_1782_axial_patch_boundaries_govern_2d_moving_envelope() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_axial_patch_boundaries_govern_3d_moving_envelope() {
     use dedaliano_engine::metamorphic::planes::Plane;
     for sign in [-1.0, 1.0] {

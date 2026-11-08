@@ -391,3 +391,19 @@ describe('conditionHolds', () => {
     expect(conditionHolds({}, f)).toBe(true);
   });
 });
+
+it('shows moving-load changes for saved vehicle position cases and excludes ordinary frames', () => {
+  const frame = model({ elements: [member(1, 1, 'frame')] });
+  const moving = { ...frame, loadCases: [{ id: 1, type: 'Tr', alternatives: 'move:vehicle' }] };
+  expect(modelFeatures(frame).has('movingLoads')).toBe(false);
+  expect(modelFeatures(moving).has('movingLoads')).toBe(true);
+  expect(ids(frame)).not.toContain('moving-loads-3d');
+  expect(ids(moving)).toContain('moving-loads-3d');
+  expect(ids(moving)).not.toContain('moving-axial-patch-boundaries');
+  for (const analysisMode of ['2d', 'pro']) {
+    expect(ids({ ...moving, analysisMode, loads: [{ type: 'distributed', data: { a: 1.10, b: 1.15 } }] })).toContain('moving-axial-patch-boundaries');
+  }
+  expect(ids({ ...moving, analysisMode: '2d' })).not.toContain('moving-loads-3d');
+  expect(ids({ ...frame, loadCases: [{ id: 1, type: 'Tr' }] })).not.toContain('moving-loads-3d');
+  expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-loads-3d');
+});

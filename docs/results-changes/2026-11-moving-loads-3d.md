@@ -11,8 +11,9 @@ uncontained and could give unconservative results.
 
 The envelope now samples all six force diagrams along each member. The 2D and 3D diagrams
 share the regular grid and point-load station builder. The envelope range calculation is also
-shared, including the stations where the total axial distributed load changes sign. The
-2D moving-load calculation retains its existing station rule. This change does not make a
+shared, including the stations where the total axial distributed load changes sign. Both dimensions
+also evaluate every axial distributed-load start and end boundary;
+see [the boundary correction](2026-11-moving-axial-patch-boundaries.md). This change does not make a
 finite train-position step a continuous envelope; select a suitably fine travel step.
 
 A backward-compatible `px` field (default zero) was added to the 3D point-on-member load.
@@ -53,6 +54,8 @@ and run explicitly to verify failure. The fix removes both ignores.
 Re-run 3D moving-load sweeps, and review every design check or sizing decision based on their
 envelopes. Interior peaks affect horizontal and inclined members; lost axial weight affects
 members with a nonzero slope along the selected gravity direction. Permanent member loads can
-also govern an interior station. The registry conservatively flags all 3D member models,
-because saved feature metadata does not reliably record whether a moving-load sweep was run.
+also govern an interior station. The registry flags 3D member models with saved moving-load
+position cases, identified by
+load-case alternatives groups beginning with `move:`. Standalone sweeps leave no saved marker;
+re-check them even if opening the project shows no notice.
 Existing static loads that omit `px` retain a zero axial point component.
