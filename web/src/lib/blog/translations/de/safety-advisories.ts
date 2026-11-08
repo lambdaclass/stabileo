@@ -176,6 +176,12 @@ const body: PostBody = {
           "Behoben nach 0.5.0; auf stabileo.com seit dem 8. November 2026"
         ],
         [
+          "SA-2026-049",
+          "Knicken konnte eine fehlgeschlagene Schlankheitsberechnung in null umwandeln, und Lastfallkombinationen konnten nicht endliche Werte in einem erfolgreichen Ergebnis liefern",
+          "Mittel",
+          "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"
+        ],
+        [
           "SA-2026-037",
           "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
           "Mittel",

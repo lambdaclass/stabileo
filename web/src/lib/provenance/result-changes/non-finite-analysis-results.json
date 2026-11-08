@@ -1,0 +1,28 @@
+{
+  "id": "non-finite-analysis-results",
+  "date": "2026-11-08",
+  "prs": [],
+  "area": "analysis",
+  "when": { "allOf": [["analysis:buckling", "combinations"]] },
+  "quantities": ["*", "solve.ok"],
+  "title": {
+    "en": "Buckling and multi-case analysis refuse non-finite results",
+    "es": "Pandeo y análisis de casos de carga rechazan resultados no finitos",
+    "pt": "Flambagem e análise de casos de carga recusam resultados não finitos",
+    "de": "Knicken und Lastfallkombinationen weisen nicht endliche Ergebnisse zurück",
+    "fr": "Flambement et combinaisons refusent les résultats non finis",
+    "tr": "Burkulma ve yük durumu analizleri sonlu olmayan sonuçları reddediyor"
+  },
+  "explanation": {
+    "en": "Buckling could read a negative truss-section inertia, return NaN effective lengths and turn the failed slenderness calculation into zero. Multi-case analysis could also return non-finite values after finite inputs overflowed. Buckling now validates every section property it uses and refuses an invalid radius of gyration; buckling and multi-case results are withheld if any value is non-finite. Valid finite results are unchanged (SA-2026-049).",
+    "es": "Pandeo podía leer una inercia negativa de una cercha, devolver longitudes efectivas NaN y convertir en cero el cálculo fallido de esbeltez. El análisis de casos de carga también podía devolver valores no finitos tras un desbordamiento de entradas finitas. Ahora pandeo valida todas las propiedades de sección que usa y rechaza un radio de giro inválido; pandeo y los casos de carga retienen el resultado si algún valor no es finito. Los resultados válidos y finitos no cambian (SA-2026-049).",
+    "pt": "A flambagem podia ler uma inércia negativa de uma treliça, devolver comprimentos efetivos NaN e transformar em zero o cálculo falho de esbeltez. A análise de casos de carga também podia devolver valores não finitos após overflow de entradas finitas. Agora a flambagem valida todas as propriedades de seção que usa e recusa um raio de giração inválido; flambagem e casos de carga retêm o resultado se algum valor não for finito. Resultados válidos e finitos não mudam (SA-2026-049).",
+    "de": "Knicken konnte eine negative Trägheit eines Fachwerkquerschnitts lesen, NaN als effektive Länge liefern und die fehlgeschlagene Schlankheitsberechnung in null umwandeln. Auch Lastfallkombinationen konnten nach einem Überlauf endlicher Eingaben nicht endliche Werte liefern. Knicken prüft nun jede verwendete Querschnittseigenschaft und weist einen ungültigen Trägheitsradius zurück; Knick- und Kombinationsergebnisse werden zurückgehalten, wenn ein Wert nicht endlich ist. Gültige endliche Ergebnisse bleiben unverändert (SA-2026-049).",
+    "fr": "Le flambement pouvait lire une inertie négative de section de treillis, renvoyer des longueurs efficaces NaN et transformer en zéro le calcul d’élancement ayant échoué. Les combinaisons pouvaient aussi renvoyer des valeurs non finies après un dépassement de capacité d’entrées finies. Le flambement valide désormais chaque propriété de section utilisée et refuse un rayon de giration invalide ; les résultats de flambement et de combinaisons sont retenus si une valeur est non finie. Les résultats valides et finis sont inchangés (SA-2026-049).",
+    "tr": "Burkulma, kafes kesitinin negatif ataletini okuyabiliyor, etkin boyları NaN döndürebiliyor ve başarısız narinlik hesabını sıfıra dönüştürebiliyordu. Yük durumu analizi de sonlu girdilerin taşmasından sonra sonlu olmayan değerler döndürebiliyordu. Burkulma artık kullandığı her kesit özelliğini doğruluyor ve geçersiz atalet yarıçapını reddediyor; burkulma ve yük durumu sonuçları, herhangi bir değer sonlu değilse tutuluyor. Geçerli ve sonlu sonuçlar değişmiyor (SA-2026-049)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-non-finite-analysis-results.md",
+    "heading": "Buckling and multi-case analysis refuse non-finite results (2026-11-08)"
+  }
+}

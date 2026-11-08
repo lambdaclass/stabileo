@@ -11,14 +11,14 @@ spec.loader.exec_module(lint)
 DIRS = ('engine/src/postprocess',)
 
 
-def run(files, allow=''):
+def run(files, allow='', scoped_files=()):
     with tempfile.TemporaryDirectory() as d:
         root = pathlib.Path(d)
         for rel, text in files.items():
             p = root / rel
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(text)
-        return lint.check(root, allow, DIRS)
+        return lint.check(root, allow, DIRS, scoped_files)
 
 
 class FailClosedLint(unittest.TestCase):
@@ -61,8 +61,14 @@ class FailClosedLint(unittest.TestCase):
         )
         self.assertEqual(run({'engine/src/postprocess/a.rs': src}), [])
 
-    def test_only_the_three_directories_are_scanned(self):
+    def test_unscoped_solver_files_are_not_scanned(self):
         self.assertEqual(run({'engine/src/solver/a.rs': 'fn f() { let c = x.unwrap_or(0.0); }\n'}), [])
+
+    def test_buckling_zero_fallback_is_caught(self):
+        src = 'fn f(r: f64, le: f64) -> f64 { if r > 1e-12 { le / r } else { 0.0 } }\n'
+        problems = run({'engine/src/solver/buckling.rs': src}, scoped_files=lint.FILES)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn('engine/src/solver/buckling.rs:1:', problems[0])
 
     def test_an_allowed_line_passes_once_per_entry(self):
         src = 'fn f() {\n    let c = m.cap.unwrap_or(0.0);\n    let c = m.cap.unwrap_or(0.0);\n}\n'

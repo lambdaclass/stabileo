@@ -1,0 +1,4 @@
+### BREAKING (results)
+#### Buckling and multi-case analysis refuse non-finite results (2026-11-08)
+
+2D and 3D buckling could accept a truss section with negative inertia and return NaN effective lengths, with a failed slenderness calculation converted to zero (#1759). Multi-case analysis could return an `Ok` result containing non-finite values after finite inputs overflowed (#1761). Buckling now validates every section property it reads and refuses an invalid radius of gyration instead of reporting zero slenderness. Buckling and 2D/3D multi-case results are also checked for finiteness before being returned. Valid finite results are unchanged. Details: [docs/results-changes/2026-11-non-finite-analysis-results.md](../docs/results-changes/2026-11-non-finite-analysis-results.md) and [SA-2026-049](../docs/advisories/SA-2026-049-non-finite-analysis-results.md).

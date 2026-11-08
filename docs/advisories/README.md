@@ -17,7 +17,8 @@ each advisory says: re-cut models cut from 3D (SA-2026-035) and re-import models
 or IFC (SA-2026-039). SA-2026-044 is not fixed: 2D plastic collapse stays refused until
 [#758](https://github.com/lambdaclass/stabileo/issues/758) is fixed. **SA-2026-048 is published**
 (2026-11-08): it was fixed after 0.5.0, live on stabileo.com since 2026-11-08, and its re-check
-registry entry is `cb-segment-ends`.
+registry entry is `cb-segment-ends`. **SA-2026-049 is a draft** (2026-11-08): its fix is not yet
+merged or deployed, and its re-check registry entry is `non-finite-analysis-results`.
 
 | ID | Summary | Severity | Issue | Fix | Fixed in | Status |
 |---|---|---|---|---|---|---|
@@ -69,6 +70,7 @@ registry entry is `cb-segment-ends`.
 | [SA-2026-046](SA-2026-046-harmonic-modal-or-direct-per-load.md) | Harmonic analysis chose between modal superposition and the direct solve per load: superposition and reciprocity broke (107 % at a node in an example) | High | [#1537](https://github.com/lambdaclass/stabileo/issues/1537)–[#1541](https://github.com/lambdaclass/stabileo/issues/1541) | #1587 | 0.5.0 | Published 2026-11-07 |
 | [SA-2026-047](SA-2026-047-case-displacement-shell-stresses.md) | A load case that imposed a support displacement lost its shell stresses: combinations and envelopes summed only the other cases' plate and quad stresses | High | [#1673](https://github.com/lambdaclass/stabileo/issues/1673) | #1676 | 0.5.0 | Published 2026-11-07 |
 | [SA-2026-048](SA-2026-048-cb-segment-ends.md) | CIRSOC 301 Cb missed a sign change at the ends of a declared unbraced segment shorter than the member: a channel in double curvature got Cb = 2.55 instead of 1, overstating lateral-torsional capacity | High | — | #1718 | after 0.5.0 (stabileo.com since 2026-11-08) | Published 2026-11-08 |
+| [SA-2026-049](SA-2026-049-non-finite-analysis-results.md) | Buckling could turn a failed slenderness calculation into zero, and multi-case analysis could return non-finite values inside `Ok` | Medium | [#1759](https://github.com/lambdaclass/stabileo/issues/1759), [#1761](https://github.com/lambdaclass/stabileo/issues/1761) | this change | not yet merged or deployed | Draft 2026-11-08 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
