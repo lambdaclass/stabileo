@@ -456,3 +456,145 @@ fn gauss_lobatto_6_point_polynomial_quadrature_exact() {
     }
 }
 
+#[test]
+fn expand_curved_beam_planes_hinges_and_section_frame_exact() {
+    use dedaliano_engine::element::curved_beam::expand_curved_beam;
+    use dedaliano_engine::element::compute_local_axes_3d;
+
+    let c = [1.3, -2.7, 0.8];
+    let r = 4.5;
+    let t0 = 0.25_f64;
+    let tm = 0.95_f64;
+    let te = 2.15_f64;
+    let n_seg = 4usize;
+
+    let frames: [([f64; 3], [f64; 3], [f64; 3]); 4] = [
+        ([1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]),
+        ([1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]),
+        ([0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]),
+        (
+            [2.0 / 3.0, 1.0 / 3.0, 2.0 / 3.0],
+            [-2.0 / 3.0, 2.0 / 3.0, 1.0 / 3.0],
+            [-1.0 / 3.0, -2.0 / 3.0, 2.0 / 3.0],
+        ),
+    ];
+
+    let pt = |u: [f64; 3], v: [f64; 3], th: f64| -> [f64; 3] {
+        let (ct, st) = (th.cos(), th.sin());
+        [
+            c[0] + r * (ct * u[0] + st * v[0]),
+            c[1] + r * (ct * u[1] + st * v[1]),
+            c[2] + r * (ct * u[2] + st * v[2]),
+        ]
+    };
+
+    for (idx, (u, v, n_exp)) in frames.iter().copied().enumerate() {
+        let p_start = pt(u, v, t0);
+        let p_mid = pt(u, v, tm);
+        let p_end = pt(u, v, te);
+        let cb = CurvedBeamInput {
+            node_start: 2,
+            node_mid: 5,
+            node_end: 9,
+            material_id: 3,
+            section_id: 7,
+            num_segments: n_seg,
+            hinge_start: true,
+            hinge_end: true,
+        };
+        let exp = expand_curved_beam(&cb, p_start, p_mid, p_end, 100, 200);
+        assert_eq!(exp.new_nodes.len(), n_seg - 1);
+        for i in 1..n_seg {
+            let th = t0 + (i as f64 / n_seg as f64) * (te - t0);
+            let p_exp = pt(u, v, th);
+            let (nid, x, y, z) = exp.new_nodes[i - 1];
+            assert_eq!(nid, 100 + i - 1);
+            assert!((x - p_exp[0]).abs() <= 1e-12, "plane {idx} node {i} x: {x} vs {}", p_exp[0]);
+            assert!((y - p_exp[1]).abs() <= 1e-12, "plane {idx} node {i} y: {y} vs {}", p_exp[1]);
+            assert!((z - p_exp[2]).abs() <= 1e-12, "plane {idx} node {i} z: {z} vs {}", p_exp[2]);
+        }
+
+        let exp_node_chain = [2usize, 100, 101, 102, 9];
+        assert_eq!(exp.new_elements.len(), n_seg);
+        for i in 0..n_seg {
+            let (eid, ni, nj, mat, sec, hs, he) = exp.new_elements[i];
+            assert_eq!(eid, 200 + i);
+            assert_eq!(ni, exp_node_chain[i]);
+            assert_eq!(nj, exp_node_chain[i + 1]);
+            assert_eq!(mat, 3);
+            assert_eq!(sec, 7);
+            assert_eq!(hs, i == 0);
+            assert_eq!(he, i == n_seg - 1);
+        }
+
+        let sf = exp.section_frame.expect("arc must have section_frame");
+        for k in 0..3 {
+            assert!((sf.normal[k] - n_exp[k]).abs() <= 1e-13, "plane {idx} normal[{k}]");
+        }
+        let th_mid = 0.5 * (t0 + te);
+        let t_mid = [
+            -th_mid.sin() * u[0] + th_mid.cos() * v[0],
+            -th_mid.sin() * u[1] + th_mid.cos() * v[1],
+            -th_mid.sin() * u[2] + th_mid.cos() * v[2],
+        ];
+        let p_a = pt(u, v, th_mid);
+        let p_b = [p_a[0] + t_mid[0], p_a[1] + t_mid[1], p_a[2] + t_mid[2]];
+        let ly = sf.local_y(p_a, p_b);
+        let (_, ey_default, _) = compute_local_axes_3d(
+            p_a[0], p_a[1], p_a[2], p_b[0], p_b[1], p_b[2],
+            None, None, None, None, false,
+        );
+        for k in 0..3 {
+            assert!(
+                (ly[k] - ey_default[k]).abs() <= 1e-13,
+                "plane {idx} local_y[{k}]: {} vs {}",
+                ly[k],
+                ey_default[k]
+            );
+        }
+    }
+}
+
+#[test]
+fn expand_curved_beam_collinear_straight_fallback_exact() {
+    use dedaliano_engine::element::curved_beam::expand_curved_beam;
+
+    let p_start = [1.5, -2.5, 3.5];
+    let p_end = [9.5, 5.5, -4.5];
+    let p_mid = [5.5, 1.5, -0.5];
+    let cb = CurvedBeamInput {
+        node_start: 4,
+        node_mid: 6,
+        node_end: 8,
+        material_id: 2,
+        section_id: 5,
+        num_segments: 4,
+        hinge_start: true,
+        hinge_end: true,
+    };
+    let exp = expand_curved_beam(&cb, p_start, p_mid, p_end, 10, 20);
+    assert!(exp.section_frame.is_none());
+    assert_eq!(exp.new_nodes.len(), 3);
+    for i in 1..4 {
+        let t = i as f64 / 4.0;
+        let (nid, x, y, z) = exp.new_nodes[i - 1];
+        assert_eq!(nid, 10 + i - 1);
+        assert!((x - (p_start[0] + t * (p_end[0] - p_start[0]))).abs() <= 1e-14);
+        assert!((y - (p_start[1] + t * (p_end[1] - p_start[1]))).abs() <= 1e-14);
+        assert!((z - (p_start[2] + t * (p_end[2] - p_start[2]))).abs() <= 1e-14);
+    }
+    let chain = [4usize, 10, 11, 12, 8];
+    assert_eq!(exp.new_elements.len(), 4);
+    for i in 0..4 {
+        let (eid, ni, nj, mat, sec, hs, he) = exp.new_elements[i];
+        assert_eq!(eid, 20 + i);
+        assert_eq!(ni, chain[i]);
+        assert_eq!(nj, chain[i + 1]);
+        assert_eq!(mat, 2);
+        assert_eq!(sec, 5);
+        assert_eq!(hs, i == 0);
+        assert_eq!(he, i == 3);
+    }
+}
+
+
