@@ -53,18 +53,20 @@ distinct defects filed since 2026-11-01, open or closed, harness findings and du
 | F. envelope or station sampling loses the governing value | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 3 |
 | G. containment misses a field or matches message text | 5 | 0 | 1 | 1 | 0 | 3 | 0 | 7 |
 | H. a missing term, or a formula departs from its reference | 18 | 2 | 7 | 1 | 3 | 4 | 1 | 9 |
-| harness | 212 | 0 | 0 | 0 | 211 | 1 | 0 | — |
+| harness | 212 | 0 | 0 | 0 | 87 | 125 | 0 | — |
 | infra, other | 13 | 0 | 1 | 0 | 0 | 0 | 12 | — |
 
-Four things follow. Most open findings (211) are the harness's, and 124 of them are already fixed in
-the harness and wait only for a replay. C has the most volume, but 49 of its 76 are duplicates of
+Four things follow. Most open findings (212) are the harness's, and 125 of them are already fixed
+(124 in the harness itself) and wait only for a replay. C has the most volume, but 49 of its 76 are duplicates of
 [#762](https://github.com/lambdaclass/stabileo/issues/762). E has the most uncontained wrong results, and they come from one rule (row 1). A and C
 still produced the most new defects this week although fail-closed numerics
 ([#1486](https://github.com/lambdaclass/stabileo/pull/1486)) and the round-off gates landed, so neither cause is closed by what has landed.
 
 Order: uncontained wrong results removed count three, warned two, refused one, divided by effort
-(S 1, M 2, L 3). A row that only moves a result from warned to refused is containment, not a fix of
-its cause, and says so.
+(S 1, M 2, L 3); scores within one point go by the new defects of the past week. Rows 3 and 4 are
+not scored: 3 is containment, which moves results from warned to refused and fixes no cause, and 4
+removes no wrong result itself. Both are placed where they are because they need no decision, run
+alongside row 2 and make the other counts trustworthy.
 
 | # | Change | Cause | Removes on main | Top issues | State |
 |---|---|---|---|---|---|
