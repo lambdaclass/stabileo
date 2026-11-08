@@ -97,6 +97,16 @@ class Script(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("is not the merge queue's merge", out)
 
+    def test_in_the_queue_a_one_parent_commit_fails_even_when_the_api_is_down(self):
+        git = base.git
+        git(self.repo, 'checkout', '-q', '--detach', self.base)
+        git(self.repo, 'commit', '-q', '--allow-empty', '-m', 'Merge pull request #1 from lambdaclass/a')
+        gh = self.bin / 'gh'
+        gh.write_text('#!/bin/sh\nexit 1\n')
+        code, out = self.queued()
+        self.assertEqual(code, 1, out)
+        self.assertIn("is not the merge queue's merge", out)
+
     def test_in_the_queue_the_base_must_come_from_a_queue_branch_and_be_an_ancestor(self):
         self.queue()
         self.pr(1, 'a', ['reverts-ok'])
