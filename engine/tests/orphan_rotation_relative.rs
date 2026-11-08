@@ -96,6 +96,61 @@ fn rel(a: f64, b: f64) -> f64 {
     (a - b).abs() / b.abs()
 }
 
+fn torsion_release_line(second_member_released: bool, torque: f64) -> SolverInput3D {
+    let fixed = vec![true; 6];
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, L, 0.0, 0.0), (3, 2.0 * L, 0.0, 0.0)],
+        vec![(1, E_SOFT, 0.3)],
+        vec![(1, 0.01, I_SOFT, I_SOFT, I_SOFT)],
+        vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 2, 3, 1, 1)],
+        vec![(1, fixed.clone()), (3, fixed)],
+        vec![nodal_3d(2, [0.0, 0.0, 0.0, torque, 0.0, 0.0])],
+    );
+    input.elements.get_mut("1").unwrap().release_t_end = true;
+    input.elements.get_mut("2").unwrap().release_t_start = second_member_released;
+    input
+}
+
+#[test]
+fn torsion_released_by_both_members_at_a_loaded_node_is_refused() {
+    let err = solve_3d(&torsion_release_line(true, 1e-6)).unwrap_err();
+    assert!(err.contains("Nodal moment at node 2 is not supported"), "{err}");
+}
+
+#[test]
+fn torsion_released_by_one_member_leaves_the_continuous_member_exact() {
+    let torque = 1e-6;
+    let result = solve_3d(&torsion_release_line(false, torque)).unwrap();
+    let rx = result.displacements.iter().find(|d| d.node_id == 2).unwrap().rx;
+    let gj = E_SOFT * 1000.0 / (2.0 * 1.3) * I_SOFT;
+    let expected = torque * L / gj;
+    assert!(rel(rx, expected) < 1e-9, "rx {rx}, closed form T·L/(GJ) = {expected}");
+}
+
+#[test]
+fn one_member_with_one_torsion_release_has_only_a_genuine_free_rotation() {
+    let fixed = vec![true; 6];
+    for release_start in [false, true] {
+        let mut input = make_3d_input(
+            vec![(1, 0.0, 0.0, 0.0), (2, L, 0.0, 0.0)],
+            vec![(1, E_SOFT, 0.3)],
+            vec![(1, 0.01, I_SOFT, I_SOFT, I_SOFT)],
+            vec![(1, "frame", 1, 2, 1, 1)],
+            vec![(1, fixed.clone())],
+            vec![],
+        );
+        let element = input.elements.get_mut("1").unwrap();
+        element.release_t_start = release_start;
+        element.release_t_end = !release_start;
+        let result = solve_3d(&input).unwrap();
+        let rx = result.displacements.iter().find(|d| d.node_id == 2).unwrap().rx;
+        assert_eq!(rx, 0.0, "release_start {release_start}");
+        input.loads = vec![nodal_3d(2, [0.0, 0.0, 0.0, 1e-6, 0.0, 0.0])];
+        let err = solve_3d(&input).unwrap_err();
+        assert!(err.contains("Nodal moment at node 2 is not supported"), "release_start {release_start}: {err}");
+    }
+}
+
 #[test]
 fn soft_rotation_beside_a_stiff_pad_is_not_locked_3d() {
     let theta = propped_cantilever_end_rotation();
