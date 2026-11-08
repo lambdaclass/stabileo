@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { POSTS } from '..';
 
 describe('search metadata for every German, French and Turkish blog post', () => {
-  it.skip.each(['de', 'fr', 'tr'] as const)('known wrong result: localized 0.5.0 release notes; %s fits the published URL title and description limits', (locale) => {
+  it.each(['de', 'fr', 'tr'] as const)('%s fits the published URL title and description limits', (locale) => {
     const lengths = POSTS.map((post) => {
       const body = post.i18n[locale];
       expect(body, `${locale}/${post.slug}: missing translation`).toBeDefined();

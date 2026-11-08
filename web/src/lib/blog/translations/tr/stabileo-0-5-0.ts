@@ -1,7 +1,7 @@
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
-  "title": "Stabileo 0.5.0: yirmi üç güvenlik bildirimi daha ve açık kalan her yanlış sonuç hatası için uyarı veya ret",
+  "title": "Stabileo 0.5.0: 23 güvenlik bildirimi daha; açık her yanlış sonuç hatası için uyarı veya ret",
   "excerpt": "0.4.0’dan bu yana neler değişti: yanlış ya da güvensiz tarafta kalan sonuçlar verebilen yirmi üç kusur güvenlik bildirimi olarak belgelendi ve biri dışında hepsi düzeltildi; açık kalan her kusur için uyarı veya ret eklendi; Basic’e adım adım eğitim kursu geldi.",
   "blocks": [
     {
@@ -147,7 +147,7 @@ const body: PostBody = {
       "items": [
         "Reddedilenler: numaralandırmaya, çubuk yönlerine ve birimlere göre 4.6 kata kadar değişebilen 2D plastik göçme katsayısı (#758); kendi sertifikasının sınırları dışında kalan burkulma katsayısı (#741); düzlem içi eğilmenin önemli olduğu çarpık ağlardaki MITC4 kabuklar (#798); ve burulmuş geometri üzerindeki MITC4 ve MITC9 kabuklar (#1057).",
         "Uyarı verilenler: diğerlerinin yanı sıra zaman tanım alanı analizi, 3D modal süperpozisyon, tekilliğe yakın modeller, temas, malzeme bakımından doğrusal olmayan analiz ve rijitlikleri farklı bağlayıcılar.",
-        "Reddedilen sonuçlar dışında, açık hataları sınırlayan bu önlemler yalnızca bir sayısal değeri değiştirir: oturma uygulanmış ve oturma doğrultusunda yayı da bulunan bir mesnedin 2D tepkisi artık bu yayın kuvvetini içerir. Sonuç derlemindeki 145,515 değerin diğerlerinin tamamı aynıdır."
+        "Reddedilen sonuçlar dışında, açık hataları sınırlayan bu önlemler yalnızca bir sayısal değeri değiştirir: oturma uygulanmış ve oturma doğrultusunda yayı da bulunan bir mesnedin 2D tepkisi artık bu yayın kuvvetini içerir. Sonuç derlemindeki 145.515 değerin diğerlerinin tamamı aynıdır."
       ]
     },
     {
@@ -166,7 +166,7 @@ const body: PostBody = {
         "Yapay zekâ asistanı, yalnızca tarayıcınızda tutulan kendi Anthropic veya OpenAI anahtarınızla çalışır; /examples sayfasında ise bir kaydırıcı hareket ettiğinde motorun yeniden çözdüğü etkileşimli modeller bulunur.",
         "PRO: ana ve benzer katlar, asal momentler ve doğrultularla birim genişlik başına plak sonuçları, analiz sonrası rapor, «Çoğalt ve düzenle» seçeneği olan salt okunur görüntüleyici ve 3D referans olarak çizilen bağlantılı bir IFC.",
         "0.2.0, 0.3.0 ve 0.4.0 tarafından kaydedilen dosyalar her değişiklikte açılır, yeni biçime dönüştürülür ve kayıtlı bir sonuç değişikliği uygulanmadıkça aynı sonuçları verir; daha yeni bir sürümle kaydedilmiş dosya, bunu belirten bir mesajla reddedilir.",
-        "Yeniden ölçeklenen, numaralandırılan, yönü ters çevrilen veya taşınan aynı yapı aynı cevabı vermelidir; bu, her değişiklikte 17 analiz türünde ve her gece üretilen 8,192 model üzerinde kontrol edilir.",
+        "Yeniden ölçeklenen, numaralandırılan, yönü ters çevrilen veya taşınan aynı yapı aynı cevabı vermelidir; bu, her değişiklikte 17 analiz türünde ve her gece üretilen 8.192 model üzerinde kontrol edilir.",
         "Diğer düzeltmeler: zemin-yapı etkileşimi artık önceden boş döndürdüğü mesnet tepkilerini raporlar (#1675); aynı numaralandırmaya sahip iki aileye ait kabuklar, biri diğerinin yerine birleştirilmek yerine birleşimlerde ve zarflarda reddedilir (#1669); kabuk von Mises ve asal gerilmeleri artık aşırı büyüklüklerde taşma veya alt taşma yapmaz, normal aralıktaki sonuçlar ise bit düzeyinde aynı kalır (#1688).",
         "Kullandığı bir özellikte bilinen yanlış sonuç hatası bulunan bir sürümle çözülmüş proje, yeniden çözülene kadar güvenlik bildirimini belirtir (#1657). Projeler çalıştırdıkları her analizi kaydeder; böylece bir analize ilişkin bildirim, o analiz yeniden çalıştırılana kadar kalır (#1663).",
         "Daha hızlı: 30 s aralıklı otomatik kayıt, değişmemiş projeyi atlar (#1664); büyük bir 3D çalışma alanı daha az çöp toplama ihtiyacıyla yeniden açılır (#1668); yayımlanan 3D sonuçlar da dondurulur, böylece bilinen hatalara ilişkin ret kontrolü her sonuç için bir kez çalışır (#1689).",

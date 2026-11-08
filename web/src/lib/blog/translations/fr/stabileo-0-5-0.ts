@@ -1,7 +1,7 @@
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
-  "title": "Stabileo 0.5.0 : vingt-trois avis de plus, et un avertissement ou un refus pour chaque défaut de résultat encore ouvert",
+  "title": "Stabileo 0.5.0 : 23 avis de plus ; avertissement ou refus pour tout défaut de résultat ouvert",
   "excerpt": "Ce qui a changé depuis la 0.4.0 : vingt-trois défauts pouvant donner un résultat erroné ou non conservatif, documentés dans des avis et tous corrigés sauf un ; un avertissement ou un refus pour chaque défaut encore ouvert ; et le cours pas à pas dans Basic.",
   "blocks": [
     {
@@ -147,7 +147,7 @@ const body: PostBody = {
       "items": [
         "Refusés : le facteur de ruine plastique 2D, qui peut varier d’un facteur allant jusqu’à 4.6 selon la numérotation, le sens des barres et les unités (#758) ; un facteur de flambement hors des bornes de son propre certificat (#741) ; les coques MITC4 sur des maillages distordus sous flexion significative dans leur plan (#798) ; et les coques MITC4 et MITC9 sur une géométrie gauchie (#1057).",
         "Avec avertissement : entre autres, l’analyse temporelle, la superposition modale 3D, les modèles quasi singuliers, le contact, l’analyse non linéaire en matériau et les connecteurs de rigidités différentes.",
-        "En dehors des résultats refusés, ce dispositif de confinement des défauts ouverts change une seule valeur : la réaction 2D d’un appui avec tassement imposé qui comporte aussi un ressort dans la direction du tassement inclut désormais la force de ce ressort. Toutes les autres valeurs parmi les 145,515 du corpus de résultats sont identiques."
+        "En dehors des résultats refusés, ce dispositif de confinement des défauts ouverts change une seule valeur : la réaction 2D d’un appui avec tassement imposé qui comporte aussi un ressort dans la direction du tassement inclut désormais la force de ce ressort. Toutes les autres valeurs parmi les 145 515 du corpus de résultats sont identiques."
       ]
     },
     {
@@ -166,7 +166,7 @@ const body: PostBody = {
         "L’assistant IA fonctionne avec votre propre clé Anthropic ou OpenAI, conservée uniquement dans votre navigateur, et /examples propose des modèles interactifs que le moteur recalcule lorsque vous déplacez un curseur.",
         "PRO : étages maîtres et étages similaires, résultats de plaques par unité de largeur avec moments et directions principaux, rapport après l’analyse, visualiseur en lecture seule avec « Dupliquer et modifier », et fichier IFC lié dessiné comme référence 3D.",
         "Les fichiers enregistrés par les versions 0.2.0, 0.3.0 et 0.4.0 s’ouvrent, sont migrés et donnent les mêmes résultats à chaque modification, sauf lorsqu’une modification de résultats enregistrée s’applique ; un fichier enregistré par une version plus récente est refusé avec un message qui le précise.",
-        "La même structure mise à l’échelle, renumérotée, inversée ou déplacée doit donner la même réponse : cela est vérifié sur 17 types d’analyse à chaque modification et sur 8,192 modèles générés chaque nuit.",
+        "La même structure mise à l’échelle, renumérotée, inversée ou déplacée doit donner la même réponse : cela est vérifié sur 17 types d’analyse à chaque modification et sur 8 192 modèles générés chaque nuit.",
         "Également corrigés : l’interaction sol-structure fournit ses réactions d’appui, qu’elle renvoyait auparavant vides (#1675) ; les coques de deux familles ayant la même numérotation sont refusées dans les combinaisons et enveloppes, au lieu de combiner l’une à la place de l’autre (#1669) ; et les contraintes de von Mises et principales des coques ne subissent plus de dépassement de capacité ni de sous-dépassement aux ordres de grandeur extrêmes, avec des résultats identiques bit à bit dans la plage normale (#1688).",
         "Un projet calculé avec une version présentant un défaut de résultat connu dans une fonction qu’il utilise mentionne l’avis jusqu’à son recalcul (#1657), et les projets enregistrent chaque analyse effectuée : un avis concernant une analyse demeure donc tant que cette analyse n’est pas relancée (#1663).",
         "Plus rapide : la sauvegarde automatique toutes les 30 s ignore un projet inchangé (#1664), un grand espace de travail 3D se rouvre en laissant moins de mémoire à récupérer (#1668), et les résultats 3D publiés sont figés, de sorte que la vérification de refus pour défauts connus s’exécute une fois par résultat (#1689).",

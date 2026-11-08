@@ -1,8 +1,8 @@
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
-  "title": "Stabileo 0.5.0: dreiundzwanzig weitere Sicherheitshinweise und Warnung oder Verweigerung bei jedem offenen Fehler mit falschem Ergebnis",
-  "excerpt": "Was sich seit 0.4.0 geändert hat: dreiundzwanzig Fehler, die falsche Ergebnisse oder Ergebnisse auf der unsicheren Seite liefern konnten, als Sicherheitshinweise dokumentiert und bis auf einen behoben; eine Warnung oder Verweigerung bei jedem noch offenen Fehler; und der Schritt-für-Schritt-Kurs in Basic.",
+  "title": "Stabileo 0.5.0: 23 weitere Sicherheitshinweise; alle offenen Ergebnisfehler mit Warnung oder Verweigerung",
+  "excerpt": "Seit 0.4.0: dreiundzwanzig Fehler, die falsche Ergebnisse oder Ergebnisse auf der unsicheren Seite liefern konnten, als Sicherheitshinweise dokumentiert und bis auf einen behoben; eine Warnung oder Verweigerung bei jedem noch offenen Fehler; und der Schritt-für-Schritt-Kurs in Basic.",
   "blocks": [
     {
       "k": "p",
@@ -147,7 +147,7 @@ const body: PostBody = {
       "items": [
         "Verweigert: der plastische Traglastfaktor in 2D, der sich mit der Nummerierung, der Stabrichtung und den Einheiten um bis zu Faktor 4.6 ändern kann (#758); ein Knickfaktor außerhalb der Grenzen seines eigenen Zertifikats (#741); MITC4-Schalen auf verzerrten Netzen bei erheblicher Biegung in der Ebene (#798); sowie MITC4- und MITC9-Schalen auf verwundener Geometrie (#1057).",
         "Mit Warnung: unter anderem Zeitverlaufsanalyse, modale Superposition in 3D, nahezu singuläre Modelle, Kontakt, materiell nichtlineare Analyse und Verbindungselemente mit ungleichen Steifigkeiten.",
-        "Abgesehen von den verweigerten Ergebnissen verändert diese Absicherung gegen offene Fehler genau einen Zahlenwert: Die 2D-Auflagerreaktion eines Auflagers mit vorgegebener Setzung und einer Feder in Setzungsrichtung enthält jetzt die Kraft dieser Feder. Alle übrigen der 145,515 Werte im Ergebniskorpus sind identisch."
+        "Abgesehen von den verweigerten Ergebnissen verändert diese Absicherung gegen offene Fehler genau einen Zahlenwert: Die 2D-Auflagerreaktion eines Auflagers mit vorgegebener Setzung und einer Feder in Setzungsrichtung enthält jetzt die Kraft dieser Feder. Alle übrigen der 145.515 Werte im Ergebniskorpus sind identisch."
       ]
     },
     {
@@ -166,7 +166,7 @@ const body: PostBody = {
         "Der KI-Assistent arbeitet mit Ihrem eigenen Anthropic- oder OpenAI-Schlüssel, der nur in Ihrem Browser gespeichert wird. Unter /examples gibt es interaktive Modelle, die der Rechenkern beim Bewegen eines Schiebereglers erneut berechnet.",
         "PRO: Mastergeschosse und ähnliche Geschosse, Plattenergebnisse pro Breiteneinheit mit Hauptmomenten und Hauptrichtungen, der Bericht nach der Berechnung, ein schreibgeschützter Betrachter mit „Duplizieren und bearbeiten“ sowie ein verknüpftes IFC als dargestellte 3D-Referenz.",
         "Mit 0.2.0, 0.3.0 und 0.4.0 gespeicherte Dateien werden bei jeder Änderung geöffnet, migriert und mit denselben Ergebnissen berechnet, außer wenn eine registrierte Ergebnisänderung greift; eine mit einer neueren Version gespeicherte Datei wird mit einer entsprechenden Meldung verweigert.",
-        "Dasselbe Tragwerk muss nach Skalierung, Umnummerierung, Umkehrung oder Verschiebung dieselbe Antwort liefern. Das wird bei jeder Änderung für 17 Analysearten und jede Nacht an 8,192 erzeugten Modellen geprüft.",
+        "Dasselbe Tragwerk muss nach Skalierung, Umnummerierung, Umkehrung oder Verschiebung dieselbe Antwort liefern. Das wird bei jeder Änderung für 17 Analysearten und jede Nacht an 8.192 erzeugten Modellen geprüft.",
         "Ebenfalls korrigiert: Die Boden-Bauwerk-Interaktion gibt ihre Auflagerreaktionen aus, die zuvor leer zurückgegeben wurden (#1675); Schalen zweier Familien mit gleicher Nummerierung werden bei Kombinationen und Hüllkurven verweigert, statt eine anstelle der anderen zu kombinieren (#1669); und Von-Mises- und Hauptspannungen von Schalen verursachen bei extremen Größenordnungen keine Über- oder Unterläufe mehr, wobei die Ergebnisse im normalen Bereich bitidentisch bleiben (#1688).",
         "Ein Projekt, das mit einer Version berechnet wurde, die in einer von ihm genutzten Funktion einen bekannten Ergebnisfehler enthielt, nennt bis zur erneuten Berechnung den Sicherheitshinweis (#1657). Projekte protokollieren jede durchgeführte Analyse, sodass ein Hinweis zu einer Analyse bestehen bleibt, bis diese Analyse erneut ausgeführt wird (#1663).",
         "Schneller: Die automatische Speicherung alle 30 s überspringt ein unverändertes Projekt (#1664), ein großer 3D-Arbeitsbereich öffnet sich mit weniger Aufwand für die Speicherbereinigung erneut (#1668), und veröffentlichte 3D-Ergebnisse werden unveränderlich gemacht, sodass die Verweigerungsprüfung auf bekannte Fehler einmal pro Ergebnis läuft (#1689).",

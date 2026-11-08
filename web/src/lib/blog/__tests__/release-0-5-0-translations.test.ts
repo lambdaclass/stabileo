@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { findPost, type Block } from '..';
 
-function safetyData(block: Block, locale = 'en'): string[] {
-  const prose = block.k === 'table'
-    ? [block.caption, ...block.head, ...block.rows.flat()]
-    : block.k === 'ul' || block.k === 'ol'
+function safetyTokens(text: string, locale: string): (string | number)[] {
+  const grouping = new Intl.NumberFormat(locale).format(1000).charAt(1);
+  const pattern = new RegExp(`\\b\\d{1,3}(?:${grouping === '.' ? '\\.' : grouping}\\d{3})+\\b`, 'g');
+  const normalized = text.replace(pattern, (count) => count.split(grouping).join(''));
+  return (normalized.match(/SA-\d{4}-\d{3}|#\d+|\d+(?:[.,]\d+)*|\b(?:Qa|MRd|Mz|mx|Iy|Iz|MITC4|MITC9)\b|P-Δ|Y–Z|X–Y|[+≤%]/g) ?? [])
+    .map((token) => /^\d+(?:[.,]\d+)?$/.test(token) ? Number(token.replace(',', '.')) : token).sort();
+}
+
+function safetyData(block: Block, locale = 'en') {
+  if (block.k === 'table') {
+    return {
+      caption: safetyTokens(block.caption, locale),
+      head: block.head.map((cell) => safetyTokens(cell, locale)),
+      rows: block.rows.map((row) => row.map((cell) => safetyTokens(cell, locale))),
+    };
+  }
+  const prose = block.k === 'ul' || block.k === 'ol'
       ? block.items
       : block.k === 'img' || block.k === 'photo'
         ? [block.alt, block.caption]
@@ -15,7 +28,7 @@ function safetyData(block: Block, locale = 'en'): string[] {
             : block.k === 'link'
               ? [block.t, block.slug]
               : [block.t];
-  return prose.flatMap((s) => s.match(/SA-\d{4}-\d{3}|#\d+|\d+(?:[.,]\d+)*|\b(?:Qa|MRd|Mz|mx|Iy|Iz|MITC4|MITC9)\b|P-Δ|Y–Z|X–Y|[+≤%]/g) ?? []).sort();
+  return prose.flatMap((text) => safetyTokens(text, locale)).sort();
 }
 
 describe('0.5.0 release notes in the newly offered languages', () => {
@@ -34,7 +47,7 @@ describe('0.5.0 release notes in the newly offered languages', () => {
     });
   });
 
-  it.skip.each(['de', 'fr', 'tr'] as const)('known wrong result: localized 0.5.0 release notes; %s writes integer counts with local grouping and preserves their values', (locale) => {
+  it.each(['de', 'fr', 'tr'] as const)('%s writes integer counts with local grouping and preserves their values', (locale) => {
     const post = findPost('stabileo-0-5-0')!;
     const grouping = new Intl.NumberFormat(locale).format(1000).charAt(1);
     const pattern = new RegExp(`\\b\\d{1,3}(?:${grouping === '.' ? '\\.' : grouping}\\d{3})+\\b`, 'g');
@@ -45,7 +58,7 @@ describe('0.5.0 release notes in the newly offered languages', () => {
       .toEqual(sourceCounts.map((count) => Number(count.replaceAll(',', ''))));
   });
 
-  it.skip.each(['de', 'fr', 'tr'] as const)('known wrong result: localized 0.5.0 release notes; %s rejects magnitudes swapped between advisories', (locale) => {
+  it.each(['de', 'fr', 'tr'] as const)('%s rejects magnitudes swapped between advisories', (locale) => {
     const post = findPost('stabileo-0-5-0')!;
     const source = post.i18n.en.blocks.find((block) => block.k === 'table')!;
     const table = structuredClone(post.i18n[locale]!.blocks.find((block) => block.k === 'table')!);
