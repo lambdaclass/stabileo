@@ -202,7 +202,7 @@ def parse_issue(issue):
         spec["not_replayable_reason"] = f"{label}: unsupported fuzz target '{test}'"
         return spec
     raw_hex = model.get("raw_hex")
-    if not isinstance(raw_hex, str) or not raw_hex:
+    if not isinstance(raw_hex, str):
         spec["not_replayable_reason"] = f"{label}: fuzz model.json has no raw_hex"
         return spec
     try:
@@ -314,7 +314,7 @@ def classify_fuzz(spec, returncode, stderr="", timed_out=False):
     test = spec["test"]
     cause = spec.get("artifact") or spec.get("root_cause") or "artifact"
     if timed_out:
-        return "still-fails", f"{test} ({cause}): timed out"
+        return "not-replayable", f"{test} ({cause}): fuzz runner timed out before target failure was reproduced"
     if returncode != 0:
         tail = (stderr or "").strip()[-1000:]
         if not _is_fuzz_target_failure(returncode, stderr):

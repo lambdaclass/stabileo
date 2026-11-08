@@ -503,6 +503,60 @@ class ReplayAndClassificationTest(unittest.TestCase):
             "still-fails",
         )
 
+    def test_empty_fuzz_input_writes_an_empty_crash_file(self):
+        import subprocess
+
+        issue = make_issue(
+            71,
+            check="fuzz",
+            kind="json_plastic",
+            root_cause="crash-empty",
+            test="fuzz/json_plastic",
+            reduction="libFuzzer tmin (bounded to 120 seconds)",
+            model={"raw_hex": ""},
+        )
+        self.assertTrue(rf.parse_issue(issue)["replayable"])
+
+        def empty_input_runner(cmd, env=None, cwd=None, timeout=None):
+            crash_path = Path(cmd[cmd.index("json_plastic") + 1])
+            self.assertEqual(crash_path.read_bytes(), b"")
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        report = rf.replay_issues([issue], source="fuzz", runner=empty_input_runner)
+        self.assertEqual(report[0]["status"], "passes-now")
+
+    def test_fuzz_runner_timeout_before_execution_is_not_replayable(self):
+        import subprocess
+
+        issue = make_issue(
+            72,
+            check="fuzz",
+            kind="json_plastic",
+            root_cause="crash-timeout",
+            test="fuzz/json_plastic",
+            reduction="libFuzzer tmin (bounded to 120 seconds)",
+            model={"raw_hex": "7b7d"},
+        )
+
+        def timeout_runner(cmd, env=None, cwd=None, timeout=None):
+            raise subprocess.TimeoutExpired(cmd, timeout)
+
+        report = rf.replay_issues([issue], source="fuzz", runner=timeout_runner)
+        self.assertEqual(report[0]["status"], "not-replayable")
+        self.assertIn("fuzz runner timed out", report[0]["evidence"])
+        self.assertEqual(
+            rf.plan_issue_actions(report, True, "https://github.com/o/r/actions/runs/99", "abc1234"),
+            [],
+        )
+        self.assertEqual(
+            rf.classify_fuzz(
+                rf.parse_issue(issue),
+                1,
+                stderr="ALARM: working on the last unit for 60 seconds\nSUMMARY: libFuzzer: timeout",
+            )[0],
+            "still-fails",
+        )
+
     def test_report_cli_writes_merged_json_and_respects_close_passing_flag(self):
         issues = [
             make_issue(1, check="metamorphic", test="metamorphic/linear/rotation", model={"nodes": {}}),
