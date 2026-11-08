@@ -682,11 +682,8 @@ fn a_buckling_refusal_names_the_same_member_when_compressions_tie() {
     }
 }
 
-/// #982: a third mode with λ ≈ 1e10 came from the round-off axial force of the
-/// uncompressed cantilever, in some orientations only. Wherever such a mode is
-/// returned it is named as unresolved, and the two physical modes never are.
 #[test]
-fn buckling_modes_from_round_off_compression_are_named_in_every_orientation() {
+fn buckling_modes_from_round_off_compression_are_absent_in_every_orientation() {
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-982.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
     assert!(s.loads.iter().all(|l| matches!(l, SolverLoad::Distributed(_))), "only member-local transverse loads turn with the nodes");
@@ -698,16 +695,9 @@ fn buckling_modes_from_round_off_compression_are_named_in_every_orientation() {
         }
         let b = dedaliano_engine::solver::buckling::solve_buckling_2d(&r, 3).unwrap();
         let factors: Vec<f64> = b.modes.iter().map(|m| m.load_factor).collect();
-        let flagged = b.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE"));
+        assert_eq!(factors.len(), 2, "{deg}°: {factors:?}");
         assert!((factors[0] / 0.168666176385 - 1.0).abs() < 1e-9 && (factors[1] / 2.18337895643 - 1.0).abs() < 1e-9, "{deg}°: {factors:?}");
-        for (k, l) in factors.iter().enumerate() {
-            let named = flagged.is_some_and(|d| d.message.contains(&format!("mode {} (", k + 1)));
-            assert_eq!(named, *l > 1e6 * factors[0], "{deg}° mode {}: λ = {l:e}, {factors:?}", k + 1);
-        }
-        if let Some(d) = flagged {
-            assert_eq!(d.severity, Severity::Warning);
-            assert_eq!(d.element_ids, vec![2], "the uncompressed cantilever drives it");
-        }
+        assert!(!b.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")), "{deg}°: {:?}", b.structured_diagnostics);
     }
     let column = |p: f64| s2(json!({
         "nodes": {"0": {"id": 0, "x": 0.0, "z": 0.0}, "1": {"id": 1, "x": 0.0, "z": 2.0}, "2": {"id": 2, "x": 0.0, "z": 4.0}},
@@ -1174,18 +1164,13 @@ fn a_mirrored_frame_flips_what_acts_along_local_z() {
     }
 }
 
-/// #982 in 3D: the uncompressed cantilever's round-off axial force gives a third mode
-/// with λ ≈ 1e10 in some orientations. Embedded in each coordinate plane, turned in it
-/// and permuted across the axes, at any load scale, such a mode is named and the two
-/// physical modes never are.
 #[test]
-fn buckling_modes_from_round_off_compression_are_named_in_3d_in_every_plane_and_orientation() {
+fn buckling_modes_from_round_off_compression_are_absent_in_3d_in_every_plane_and_orientation() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
     use dedaliano_engine::metamorphic::transform::transform_3d;
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-982.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
-    let unresolved = |b: &dedaliano_engine::solver::buckling::BucklingResult3D| b.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")).cloned();
-    let (mut solved, mut named) = (0, 0);
+    let mut solved = 0;
     for plane in Plane::ALL {
         for deg in [0.0f64, 1.0, 13.0, 90.0, 121.0, 271.0] {
             let planar = embed_2d(&transform_2d(&s, &Iso2::rotation(deg.to_radians())).unwrap(), plane).unwrap();
@@ -1200,23 +1185,15 @@ fn buckling_modes_from_round_off_compression_are_named_in_3d_in_every_plane_and_
                     let b = dedaliano_engine::solver::buckling::solve_buckling_3d(&scaled, 3).unwrap_or_else(|e| panic!("{plane:?} {deg}° {k} ×{load}: {e}"));
                     let factors: Vec<f64> = b.modes.iter().map(|m| m.load_factor * load).collect();
                     let at = format!("{plane:?} {deg}° permutation {k} load ×{load}: {factors:?}");
+                    assert_eq!(factors.len(), 2, "{at}");
                     assert!((factors[0] / 0.168666176385 - 1.0).abs() < 1e-9 && (factors[1] / 2.18337895643 - 1.0).abs() < 1e-9, "{at}");
-                    let flagged = unresolved(&b);
-                    for (m, l) in factors.iter().enumerate() {
-                        let is_named = flagged.as_ref().is_some_and(|d| d.message.contains(&format!("mode {} (", m + 1)));
-                        assert_eq!(is_named, *l > 1e6 * factors[0], "{at}, mode {}", m + 1);
-                    }
-                    if let Some(d) = flagged {
-                        assert_eq!(d.severity, Severity::Warning, "{at}");
-                        assert_eq!(d.element_ids, vec![2], "{at}: the uncompressed cantilever drives it");
-                        named += 1;
-                    }
+                    assert!(!b.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")), "{at}");
                     solved += 1;
                 }
             }
         }
     }
-    assert!(solved >= 300 && named >= 100, "{solved} solved, {named} named");
+    assert!(solved >= 300, "{solved} solved");
 }
 
 /// The 3D mode check against what a real compression gives: a cantilever column under
