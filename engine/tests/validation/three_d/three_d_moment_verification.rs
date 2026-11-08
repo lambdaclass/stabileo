@@ -276,7 +276,7 @@ fn validation_ss_beam_midspan_moment_fz() {
     let fz = -p;
     let mid_node = n / 2 + 1;
 
-    // Pinned at start (all translations fixed, rotations free)
+    // Pinned at start (all translations and the rotation about X fixed)
     let pinned = vec![true, true, true, true, false, false];
     // Roller at end: only uy and uz fixed (free to slide in x, free rotations)
     let roller = vec![false, true, true, false, false, false];

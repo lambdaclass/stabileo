@@ -2412,7 +2412,6 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
 
 // ==================== Helper functions ====================
 
-/// Get offset vector from master to slave node.
 fn refuse_unstable(stability: &super::stability::Stability, f_reduced: &[f64]) -> Result<(), String> {
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     if let Some(node) = stability.load_on_free_rotation(f_reduced) {
@@ -2421,6 +2420,7 @@ fn refuse_unstable(stability: &super::stability::Stability, f_reduced: &[f64]) -
     Ok(())
 }
 
+/// Get offset vector from master to slave node.
 fn get_node_offset(
     master: usize,
     slave: usize,
@@ -2607,8 +2607,6 @@ impl FreeConstraintSystem {
         self.dependent[i]
     }
 
-    /// Reduce a dense symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff
-    /// (dense p×p out; the nonlinear/dynamic paths feed dense matrices).
     pub fn stability(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering) -> super::stability::Stability {
         let tags = super::stability::tags(dof_num, self.dimensions == 2);
         let reduced_tags: Vec<_> = self.independent.iter().map(|&d| tags[d]).collect();
@@ -2622,6 +2620,8 @@ impl FreeConstraintSystem {
         super::stability::analyze_constrained(k_reduced, &reduced_tags, &moves)
     }
 
+    /// Reduce a dense symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff
+    /// (dense p×p out; the nonlinear/dynamic paths feed dense matrices).
     pub fn reduce_matrix(&self, k_ff: &[f64]) -> Vec<f64> {
         self.c_ff.reduce_dense(k_ff)
     }

@@ -670,20 +670,44 @@ fn free_rotations_coupled_only_to_each_other_are_refused_even_when_nothing_else_
     }
 }
 
-fn linear_solve(issue: u32) -> Result<(), String> {
+fn linear_solves(issue: u32) -> Vec<(String, Result<(), String>)> {
+    use dedaliano_engine::metamorphic::{planes::{embed_2d, Plane}, transform::{transform_2d, transform_3d}, units::{scale_2d, scale_3d}};
+    use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
     let text = std::fs::read_to_string(corpus::root().join("metamorphic_corpus").join("stability").join(format!("issue-{}.json", fixture(issue)))).unwrap();
+    let units = [Units::froude(1e3, 1e-3), Units::froude(1e-3, 1e3), Units::froude(0.3048, 4.448)];
+    let mut out = Vec::new();
     match corpus::parse(&text).unwrap() {
-        Model::D2(s) => dedaliano_engine::solver::linear::solve_2d(&s).map(|_| ()),
-        Model::D3(s) => dedaliano_engine::solver::linear::solve_3d(&s).map(|_| ()),
+        Model::D2(s) => {
+            out.push(("as given".to_string(), solve_2d(&s).map(|_| ())));
+            for u in &units { out.push((format!("units {u:?}"), solve_2d(&scale_2d(&s, u)).map(|_| ()))); }
+            if let Ok(t) = transform_2d(&s, &Iso2::rotation(1.1).translated(40.0, -7.0)) { out.push(("rotated".to_string(), solve_2d(&t).map(|_| ()))); }
+            for plane in [Plane::XZ, Plane::XY, Plane::YZ] {
+                if let Ok(t) = embed_2d(&s, plane) { out.push((format!("in plane {plane:?}"), solve_3d(&t).map(|_| ()))); }
+            }
+        }
+        Model::D3(s) => {
+            out.push(("as given".to_string(), solve_3d(&s).map(|_| ())));
+            for u in &units { out.push((format!("units {u:?}"), solve_3d(&scale_3d(&s, u)).map(|_| ()))); }
+            for iso in [Iso3::from_euler(0.3, 1.1, -0.7).translated([1e4, -3e3, 7e3]), Iso3::axis_permutation(5)] {
+                if let Ok(t) = transform_3d(&s, &iso) { out.push((format!("moved {:?}", iso.t), solve_3d(&t).map(|_| ()))); }
+            }
+        }
     }
+    out
 }
 
 fn the_linear_solve_refuses_what_the_verdict_refuses(issue: u32) {
     let (v, cell) = replay(issue);
     let refusal = v.refusal().unwrap_or_else(|| panic!("#{issue}: the verdict is Stable"));
     assert!(cell.fails.is_empty(), "#{issue}: {cell:?}");
-    let err = linear_solve(issue).expect_err("the linear solve returned a result");
-    assert!(err.contains(&refusal), "#{issue}: {err}");
+    let solves = linear_solves(issue);
+    assert!(solves.len() > 3, "#{issue}: {} solves", solves.len());
+    for (k, (what, solved)) in solves.into_iter().enumerate() {
+        let err = solved.expect_err(&format!("#{issue} {what}: the linear solve returned a result"));
+        if k == 0 { assert!(err.contains(&refusal), "#{issue}: {err}"); }
+        let refused = ["the structure is a mechanism", "the stiffness matrix is not positive", "the structure cannot be solved reliably"].iter().any(|p| err.starts_with(p));
+        assert!(refused, "#{issue} {what}: {err}");
+    }
 }
 
 #[test]

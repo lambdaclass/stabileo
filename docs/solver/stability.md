@@ -137,9 +137,9 @@ before an uncertified estimate becomes a refusal.
   entry, so scaling a block by `1e±200` neither underflows nor overflows.
 - **Singular** if `κ_S · A > R = 1e12`, or `S` does not factor (reason: conditioning). Assembly rounds every node
   block to `ε μ_b`; scaled by `B^{-1/2}` that is `ε A` in `S`, and the smallest eigenvalue
-  moves by `ε A κ_S` relative. At `R` that is `2.2e-4`: the smallest eigenpair, and the
-  displacement it carries, keep fewer than four digits, and a stable and a singular model
-  cannot be told apart beyond that. A mechanism and a near-mechanism are one verdict on
+  moves by up to `ε A κ_S` relative. At `R` that bound is `2.2e-4`: four digits of the
+  smallest eigenpair, and of the displacement it carries, can no longer be guaranteed, and a
+  stable and a singular model cannot be told apart beyond that. A mechanism and a near-mechanism are one verdict on
   purpose: which of the two a copy is reported as depends on rounding, so separate verdicts
   were not invariant (measured on the C08 models: `κ_S` of the same model was 2.7e11 in one
   frame and a failed factorization in another).
@@ -187,8 +187,9 @@ tests that build them:
 | Cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496) | Mechanism | the weak-axis translation is below `1e-12` of the strong one at each node |
 | Beam with `A = 0.01`, `I = 1e-12` | Singular | `κ_S A` = 1.5e3 × 8.3e8 |
 
-Each is a structure whose weak direction keeps fewer than four digits in double precision;
-the old solves returned it with `HighDiagonalRatio` or `NUM-INVARIANCE`, or silently.
+For each, the bound cannot guarantee four digits for the weak direction in double precision
+(the answer may still be accurate: the bound covers every load, not the one applied); the old
+solves returned it with `HighDiagonalRatio` or `NUM-INVARIANCE`, or silently.
 
 ### 2.5 Evidence (slice 1, `engine/tests/metamorphic/stability.rs`)
 

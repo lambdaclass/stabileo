@@ -170,6 +170,34 @@ fn constrained_2d_entry_points_refuse_a_withheld_result() {
     }
 }
 
+fn unit_invariant_2d(input: &SolverInput, r: &AnalysisResults, what: &str) {
+    use dedaliano_engine::metamorphic::units::{scale_2d, Units};
+    let u = Units::froude(1000.0, 1000.0);
+    let scaled = solve_2d(&scale_2d(input, &u)).unwrap_or_else(|e| panic!("{what} in mm and N: {e}"));
+    let size = r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()));
+    let turn = r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ry.abs()));
+    for d in &r.displacements {
+        let e = scaled.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        assert!((e.ux / u.length - d.ux).abs().max((e.uz / u.length - d.uz).abs()) <= 1e-4 * size, "{what} node {}: translation changes with units", d.node_id);
+        assert!((e.ry - d.ry).abs() <= 1e-4 * turn, "{what} node {}: rotation changes with units", d.node_id);
+    }
+}
+
+fn unit_invariant_3d(input: &SolverInput3D, r: &AnalysisResults3D, what: &str) {
+    use dedaliano_engine::metamorphic::units::{scale_3d, Units};
+    let u = Units::froude(1000.0, 1000.0);
+    let scaled = dedaliano_engine::solver::linear::solve_3d(&scale_3d(input, &u)).unwrap_or_else(|e| panic!("{what} in mm and N: {e}"));
+    let size = r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()));
+    let turn = r.displacements.iter().fold(0.0f64, |m, d| m.max(d.rx.abs()).max(d.ry.abs()).max(d.rz.abs()));
+    for d in &r.displacements {
+        let e = scaled.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        let moved = [(e.ux, d.ux), (e.uy, d.uy), (e.uz, d.uz)].iter().fold(0.0f64, |m, (a, b)| m.max((a / u.length - b).abs()));
+        let turned = [(e.rx, d.rx), (e.ry, d.ry), (e.rz, d.rz)].iter().fold(0.0f64, |m, (a, b)| m.max((a - b).abs()));
+        assert!(moved <= 1e-4 * size, "{what} node {}: translation changes with units", d.node_id);
+        assert!(turned <= 1e-4 * turn, "{what} node {}: rotation changes with units", d.node_id);
+    }
+}
+
 #[test]
 fn invariance_reported_seeds_are_refused_or_stable() {
     for seed in [20800,20833,20865,20795,20756,20824,20840,20806] {
@@ -177,8 +205,8 @@ fn invariance_reported_seeds_are_refused_or_stable() {
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut input, seed); }
         match solve_2d(&input) {
             Ok(r) => {
-                eprintln!("#762 2D/{seed}: {:?}", r.structured_diagnostics);
                 assert!(dedaliano_engine::solver::stability::of_2d(&input).unwrap().is_stable(), "2D/{seed}");
+                unit_invariant_2d(&input, &r, &format!("#762 2D/{seed}"));
             }
             Err(e) => assert!(e.starts_with("the structure is a mechanism"), "#762 2D/{seed}: expected NUM-INVARIANCE warning or the stability refusal, got {e}"),
         }
@@ -188,8 +216,8 @@ fn invariance_reported_seeds_are_refused_or_stable() {
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_3d(&mut input, seed); }
         match dedaliano_engine::solver::linear::solve_3d(&input) {
             Ok(r) => {
-                eprintln!("#762 3D/{seed}: {:?}", r.structured_diagnostics);
                 assert!(dedaliano_engine::solver::stability::of_3d(&input).unwrap().is_stable(), "3D/{seed}");
+                unit_invariant_3d(&input, &r, &format!("#762 3D/{seed}"));
             }
             Err(e) => assert!(e.starts_with("the structure is a mechanism"), "#762 3D/{seed}: expected NUM-INVARIANCE warning or the stability refusal, got {e}"),
         }

@@ -1,4 +1,4 @@
-# Linear analysis refuses a mechanism or an unresolvable stiffness
+# Linear stability refusals
 
 Issues #993, #1353, #1355, #1651, #1106, #1496. Slice 2 of the stability test
 ([docs/solver/stability.md](../solver/stability.md)).
@@ -38,9 +38,9 @@ solves, 2D and 3D) was solved before (d81653aca) and after:
 
 ## Real structures now refused
 
-These are structures someone could model; each is refused because its weak direction keeps
-fewer than four digits in double precision, and each was returned before with a conditioning
-warning or none:
+These are structures someone could model. Each is refused because the stability bound cannot
+guarantee four digits for its weak direction in double precision (the answer itself may still
+be accurate), and each was returned before with a conditioning warning or none:
 
 | Model | Verdict | Why |
 |---|---|---|
@@ -93,8 +93,8 @@ refused, so its mechanism-fuzz regression no longer carries `knownIssue`.
 
 ## Random models no longer certified end to end
 
-Of the 240 random 3D models of `end_to_end_random_3d`, 19 were certified end to end before
-and 17 after. Eleven more are refused; nine of them were not certified before (a mechanism or
+Of the 240 random 3D models of `end_to_end_random_3d` (seeds 0 to 119), 19 were certified end
+to end before and 17 after. Eleven more are refused; nine of them were not certified before (a mechanism or
 a bound the certificate could not give). Two had a certified answer and are now refused:
 
 | Model | Verdict | `κ_S A` |
@@ -103,7 +103,8 @@ a bound the certificate could not give). Two had a certified answer and are now 
 | `random_3d_model(56)` | Singular | 4.0e9 × 2.0e8 |
 
 The verdict bounds the error of any answer, so it refuses where the certificate, which checks
-one answer for one load, can still certify. The test's floor is 17.
+one answer for one load, can still certify. The sweep now runs seeds 0 to 149 (22 certified)
+and keeps its floor of 18.
 
 ## In the app
 

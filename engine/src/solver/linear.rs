@@ -1010,8 +1010,6 @@ impl PreparedStatic2D<'_> {
                     format!("{} solver ({} free DOFs)", if *used_sparse { "Sparse Cholesky" } else { "Dense" }, nf),
                 ).with_phase("solve"));
 
-                // LU fallback warning
-
                 // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
                 let max_disp = dof_num.map.iter()
                     .filter(|&(&(_node, local_dof), &global)| local_dof < 2 && global < nf)
@@ -1157,8 +1155,6 @@ impl PreparedStatic2D<'_> {
                     Severity::Info,
                     format!("Sparse Cholesky solver ({} free DOFs)", nf),
                 ).with_phase("solve"));
-
-                // Diagonal regularization info
 
                 // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
                 let max_disp = dof_num.map.iter()

@@ -122,7 +122,7 @@ fn a_soft_rotation_is_solved_exactly_or_refused_whatever_masks_its_scale_1496() 
         assert!((got - theta).abs() <= 1e-6 * theta, "{name}: θ {got} instead of {theta}: {:?}", phases(&r.structured_diagnostics));
         outcomes.push(true);
     }
-    eprintln!("solved {:?}", outcomes);
+    assert!(outcomes.iter().all(|&o| o == outcomes[0]), "the verdict changes with the load, the units or the frame: {outcomes:?}");
 }
 
 fn bathe_bolourchi() -> SolverInput3D {
