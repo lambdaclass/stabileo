@@ -31,6 +31,27 @@ remains is ranked below in four groups, from the triage of the open safety issue
 issues on GitHub are the record: a group names its issues, and the containment named for each is the
 one in [`CONTAINMENT.md`](../verification/CONTAINMENT.md). Wrong results come first.
 
+### Priority order (root-cause audit, 2026-11-08)
+
+Three independent audits of the open issues against main (Codex, Kimi, agy) agree that units in
+types, the TS→Rust move, mutation testing and the reproducer gate work but are partial, and that the
+causes below still produce new wrong results. Work takes them in this order; the causes are those of
+section 3.
+
+| # | Change | Cause | Issues | State |
+|---|---|---|---|---|
+| 1 | **Every solve asks the stability verdict, and the artificial springs go.** The verdict of slice 1 has no caller on main yet. Dense, sparse, PCG, constrained and prepared linear solves first, then modal, buckling, staged, plastic and time history | C | [#762](https://github.com/lambdaclass/stabileo/issues/762), [#458](https://github.com/lambdaclass/stabileo/issues/458), [#1445](https://github.com/lambdaclass/stabileo/issues/1445), [#1496](https://github.com/lambdaclass/stabileo/issues/1496), [#1749](https://github.com/lambdaclass/stabileo/issues/1749), [#1751](https://github.com/lambdaclass/stabileo/issues/1751), [#1530](https://github.com/lambdaclass/stabileo/issues/1530)–[#1536](https://github.com/lambdaclass/stabileo/issues/1536), the near-singular nightly cluster under [#954](https://github.com/lambdaclass/stabileo/issues/954) | slice 2 in [#1753](https://github.com/lambdaclass/stabileo/pull/1753); **decision:** the κ_S·A threshold refuses seven published benchmarks that pass their references |
+| 2 | **No known-wrong number with only a warning.** Each WARN row of the containment ledger (18 on 2026-11-08, one REFUSE) is re-decided: refused, or kept only with a proved bound on the safe side | A, G | the WARN rows of [`CONTAINMENT.md`](../verification/CONTAINMENT.md) | not started |
+| 3 | **A nightly signal that can be trusted.** Fix the harness, not the engine, where the finding is the harness's: the OpenSees settlement generator and Wagner-term scope, the Code_Aster settlement and diaphragm translators, the metamorphic noise-floor and repeated-mode comparators. Then the replay of [#1705](https://github.com/lambdaclass/stabileo/pull/1705) runs on a schedule and closes the findings that pass on main | B | the `nightly-finding` issues (310 open on 2026-11-08), [#717](https://github.com/lambdaclass/stabileo/issues/717), [#1375](https://github.com/lambdaclass/stabileo/issues/1375), [#1679](https://github.com/lambdaclass/stabileo/issues/1679), [#1681](https://github.com/lambdaclass/stabileo/issues/1681), [#1682](https://github.com/lambdaclass/stabileo/issues/1682) | dedupe and replay landed; scheduled replay and harness fixes not started |
+| 4 | **The containment audit is required**, and covers every open `safety` and `wrong-result` issue, not only rows already in the ledger | G | [#1565](https://github.com/lambdaclass/stabileo/issues/1565) | not started |
+| 5 | **A demand and envelope type**: each extreme carries its combination, station, axes and the concurrent N–M–V–T tuple, interactions are checked per tuple, station extremes come from exact roots (phase 3, item 10) | F | [#1316](https://github.com/lambdaclass/stabileo/issues/1316), [#1671](https://github.com/lambdaclass/stabileo/issues/1671); the class of SA-2026-048 ([#1768](https://github.com/lambdaclass/stabileo/issues/1768)), [#1723](https://github.com/lambdaclass/stabileo/issues/1723), [#1737](https://github.com/lambdaclass/stabileo/issues/1737) | not started |
+| 6 | **Every input used or refused, and bounded work**: per analysis, every field consumed or refused, every check reports evaluated or not, limits on work and memory (phase 3, item 9) | A | [#1491](https://github.com/lambdaclass/stabileo/issues/1491), [#504](https://github.com/lambdaclass/stabileo/issues/504), [#1759](https://github.com/lambdaclass/stabileo/issues/1759)–[#1762](https://github.com/lambdaclass/stabileo/issues/1762), [#743](https://github.com/lambdaclass/stabileo/issues/743), [#417](https://github.com/lambdaclass/stabileo/issues/417), [#432](https://github.com/lambdaclass/stabileo/issues/432) | `validate_input_2d/3d` exist; coverage per analysis not done |
+| 7 | **Units and one implementation, finished**: the remaining units slices including the app's display, and the remaining TS→Rust slices | E | [#359](https://github.com/lambdaclass/stabileo/issues/359), [#391](https://github.com/lambdaclass/stabileo/issues/391)–[#393](https://github.com/lambdaclass/stabileo/issues/393) | in progress (units slice 6, TS→Rust Ae) |
+| 8 | **Validated domains per formulation**: each element and analysis has independent references, a convergence or truncation bound, and refuses outside its measured domain | B, H | [#798](https://github.com/lambdaclass/stabileo/issues/798), [#810](https://github.com/lambdaclass/stabileo/issues/810), [#1057](https://github.com/lambdaclass/stabileo/issues/1057), [#1481](https://github.com/lambdaclass/stabileo/issues/1481), [#1482](https://github.com/lambdaclass/stabileo/issues/1482), [#1489](https://github.com/lambdaclass/stabileo/issues/1489), [#1490](https://github.com/lambdaclass/stabileo/issues/1490) | not started |
+| 9 | **2D as a projection of the 3D kernel**, or one shared set of 2D/3D invariants enforced per entry point; scoped after 1 to 3 | D, E | the 2D-against-3D nightly findings ([#1636](https://github.com/lambdaclass/stabileo/issues/1636)–[#1653](https://github.com/lambdaclass/stabileo/issues/1653), [#1763](https://github.com/lambdaclass/stabileo/issues/1763), [#1764](https://github.com/lambdaclass/stabileo/issues/1764)), [#1510](https://github.com/lambdaclass/stabileo/issues/1510), [#1725](https://github.com/lambdaclass/stabileo/issues/1725), [#1731](https://github.com/lambdaclass/stabileo/issues/1731), [#1732](https://github.com/lambdaclass/stabileo/issues/1732) | not started |
+
+Items 2, 3 and 4 do not depend on the decision in item 1 and run alongside it.
+
 ### In flight
 
 The open pull requests into main, apart from Dependabot updates, rewritten by `make roadmap.inflight`.
@@ -38,15 +59,10 @@ The open pull requests into main, apart from Dependabot updates, rewritten by `m
 <!-- inflight:start -->
 | PR | What | State |
 |---|---|---|
-| [#1715](https://github.com/lambdaclass/stabileo/pull/1715) | Roadmap: in-flight table generated by make roadmap.inflight | ready |
-| [#1709](https://github.com/lambdaclass/stabileo/pull/1709) | CI: backend-only changes skip the engine and web jobs; dispatched OpenSees runs can use stabileo-ci-1 outside the nightly window | ready |
-| [#1708](https://github.com/lambdaclass/stabileo/pull/1708) | Blog: Stabileo 0.5.0 | ready |
+| [#1769](https://github.com/lambdaclass/stabileo/pull/1769) | Units slice 6: warping displacement (rad/m) and typed combination results (\#359) | ready |
 | [#1698](https://github.com/lambdaclass/stabileo/pull/1698) | Verification dashboard: regenerated metrics | ready |
-| [#1716](https://github.com/lambdaclass/stabileo/pull/1716) | Scale-invariant stability and rank test (slice 1: design and core verdict) | draft |
-| [#1712](https://github.com/lambdaclass/stabileo/pull/1712) | Cover 3D torsion-release orphan rotations | draft |
-| [#1711](https://github.com/lambdaclass/stabileo/pull/1711) | Units in types (slice 2): every 3D WASM export reads materials and sections as unit-typed records; plan for the remaining slices | draft |
-| [#1705](https://github.com/lambdaclass/stabileo/pull/1705) | Add objective replay workflow for open nightly findings | draft |
-| [#1703](https://github.com/lambdaclass/stabileo/pull/1703) | Nightly findings: deduplicate by normalized root signature | draft |
+| [#1771](https://github.com/lambdaclass/stabileo/pull/1771) | Ae of tension end connections comes from the engine (TS→Rust slice 2) | draft |
+| [#1753](https://github.com/lambdaclass/stabileo/pull/1753) | Linear solvers refuse a mechanism, an unresolvable or a negative stiffness (stability slice 2) | draft |
 | [#1577](https://github.com/lambdaclass/stabileo/pull/1577) | Examples: RC column pushover with fibre sections (held: \#1575, \#1576) | draft |
 | [#844](https://github.com/lambdaclass/stabileo/pull/844) | One file per paper in the research catalogue; union merge for de/fr/tr (merge after the open research PRs) | draft |
 | [#1407](https://github.com/lambdaclass/stabileo/pull/1407) | CLAUDE.md: decisions that need approval, new-endpoint checklist | parked |
