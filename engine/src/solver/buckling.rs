@@ -64,6 +64,8 @@ pub struct BucklingSystem2D {
     /// Each element's mean axial force at the linear solution; Kg is built from it and `span_axial`.
     pub mean_n: HashMap<usize, f64>,
     pub span_axial: Vec<(usize, Vec<usize>, Vec<f64>)>,
+    /// Per member, the round-off of `mean_n` that decides whether it contributes Kg (as `coupled_round_off`).
+    pub axial_noise: HashMap<usize, f64>,
 }
 
 #[doc(hidden)]
@@ -140,7 +142,7 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     };
     let neg_kg_csc = assemble(&[resolved]);
     let neg_kg_round_off_csc = has_round_off_member(&mean_n, &axial_noise).then(|| assemble(&[resolved, round_off]));
-    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, mean_n, span_axial })
+    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, mean_n, span_axial, axial_noise })
 }
 
 /// Per member, the axial force that is round-off: 100 ε times the magnitudes N = EA·δ/L is
@@ -333,7 +335,7 @@ pub fn solve_buckling_2d(
     let sec_by_id: HashMap<usize, &SolverSection> =
         crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
-    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, mean_n, span_axial } = buckling_system_2d(input)?;
+    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, mean_n, span_axial, axial_noise } = buckling_system_2d(input)?;
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
@@ -372,7 +374,6 @@ pub fn solve_buckling_2d(
     }
     mode_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-    let axial_noise = axial_force_round_off_2d(input, &linear);
     let kg_terms = geometric_stiffness_terms_2d(input, &dof_num);
     let mut unresolved: Vec<(usize, f64)> = Vec::new();
     let mut unresolved_members: Vec<usize> = Vec::new();
@@ -485,7 +486,7 @@ pub struct BucklingSystem3D {
     /// Each member's mean axial force at the linear solution; Kg is built from it and `span_axial`.
     pub mean_n: HashMap<usize, f64>,
     pub span_axial: Vec<(usize, Vec<usize>, Vec<f64>)>,
-    /// Per member, the round-off of `mean_n` (as `axial_force_round_off_3d`).
+    /// Per member, the round-off of `mean_n` that decides whether it contributes Kg (as `coupled_round_off`).
     pub axial_noise: HashMap<usize, f64>,
 }
 

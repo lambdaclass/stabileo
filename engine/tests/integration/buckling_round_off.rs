@@ -289,3 +289,33 @@ fn axial_forces_that_are_round_off_of_bending_or_thermal_strain_are_not_resolved
         }
     }
 }
+
+#[test]
+fn a_member_left_out_of_kg_by_its_coupled_bound_gets_no_critical_load_and_no_warning() {
+    let input: SolverInput = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 0.0, "z": 4.0}, "3": {"id": 3, "x": 3.0, "z": 4.0}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}, "2": {"id": 2, "a": 0.1, "iz": 1e-2}},
+        "elements": {
+            "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+            "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 2}
+        },
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed", "dz": 1e3}},
+        "loads": [
+            {"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -10.0, "my": 0.0}},
+            {"type": "nodal", "data": {"nodeId": 3, "fx": -1e-6, "fz": 0.0, "my": 0.0}}
+        ]
+    })).unwrap();
+    let column = (5.2 - 19.84f64.sqrt()) / 0.3 * 200000.0 * 1000.0 * 1e-4 / 16.0 / 10.0;
+    let plane = solve_buckling_2d(&input, 1).unwrap_or_else(|e| panic!("plane: {e}"));
+    let space = solve_buckling_3d(&embed_2d(&input, Plane::XZ).unwrap(), 1).unwrap_or_else(|e| panic!("space: {e}"));
+    let warned = |d: &[dedaliano_engine::types::StructuredDiagnostic]| d.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE"));
+    for (name, lambda, ids, warning) in [
+        ("plane", plane.modes[0].load_factor, plane.element_data.iter().map(|d| d.element_id).collect::<Vec<_>>(), warned(&plane.structured_diagnostics)),
+        ("space", space.modes[0].load_factor, space.element_data.iter().map(|d| d.element_id).collect::<Vec<_>>(), warned(&space.structured_diagnostics)),
+    ] {
+        assert!((lambda / column - 1.0).abs() < 1e-6, "{name}: λ = {lambda}, column root {column}");
+        assert_eq!(ids, vec![1], "{name}: critical loads reported for {ids:?}");
+        assert!(!warning, "{name}: BU-UNRESOLVED-MODE");
+    }
+}

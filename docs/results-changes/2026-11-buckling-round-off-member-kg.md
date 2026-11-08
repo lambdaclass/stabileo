@@ -45,8 +45,11 @@ Now:
 
 The two physical factors are the one-element roots (5.2 ∓ √19.84)/0.3 · EI/L² of the compressed
 member divided by its axial force (59.56 kN, L = 7.489 m): 0.1686661764 and 2.183378956, which
-the engine matches to 1e-10. The critical factor can move by at most 1 % before the analysis is
-refused, and in the documented cases moved only by round-off; higher factors are not bounded. Spurious modes
+the engine matches to 1e-10. Through the compression of members left out of Kg the critical factor
+can drop by at most 1 % before the analysis is refused, and in the documented cases it moved only by
+round-off. The check bounds only that side: a tension left out of Kg, up to N = its bound, takes away
+stabilising geometric stiffness and can lower the critical factor by more than 1 %; that change is
+conservative. Higher factors are not bounded. Spurious modes
 disappear, so a mode count or a higher mode can change, and per-member data now includes members
 whose compression is between the round-off bound and the old 1e-6 kN floor. A compression within
 the round-off of the structure it is coupled to is left out of Kg; the check at N − bound refuses the
