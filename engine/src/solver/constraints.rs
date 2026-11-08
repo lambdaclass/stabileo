@@ -1690,7 +1690,7 @@ fn solve_constrained_2d_dense_validated(
         if !cholesky_decompose(&mut k_work, n_free_indep) { return Err(linear::not_positive_definite()); }
         back_solve(&k_work, &forward_solve(&k_work, &f_reduced, n_free_indep), n_free_indep)
     };
-    stability.check_pins(&u_indep)?;
+    stability.check_pins(&u_indep, &f_reduced, &[])?;
 
     // Recover free DOF displacements: u_f = C_ff * u_indep
     let mut u_f = fcs.expand_solution(&u_indep);
@@ -1963,7 +1963,7 @@ fn solve_constrained_2d_sparse(
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
     let u_indep = sparse_cholesky_solve(&num, &f_reduced);
-    stability.check_pins(&u_indep)?;
+    stability.check_pins(&u_indep, &f_reduced, &[])?;
 
     let mut u_f = fcs.expand_solution(&u_indep);
     if has_up {
@@ -2265,7 +2265,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
     let u_indep = sparse_cholesky_solve(&num, &f_reduced);
-    stability.check_pins(&u_indep)?;
+    stability.check_pins(&u_indep, &f_reduced, &[])?;
 
     let mut u_f = fcs.expand_solution(&u_indep);
     if has_up {

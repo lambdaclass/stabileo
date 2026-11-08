@@ -50,3 +50,29 @@ warning or none:
 
 Thin quadratic shells (MITC9) of that slenderness are refused; MITC4 on the same strip is
 Stable and solved as before.
+
+## Random models no longer certified end to end
+
+Of the 240 random 3D models of `end_to_end_random_3d`, 19 were certified end to end before
+and 17 after. Eleven more are refused; nine of them were not certified before (a mechanism or
+a bound the certificate could not give). Two had a certified answer and are now refused:
+
+| Model | Verdict | `κ_S A` |
+|---|---|---|
+| `random_3d_model(11)` | Singular | 6.8e5 × 1.2e9 |
+| `random_3d_model(56)` | Singular | 4.0e9 × 2.0e8 |
+
+The verdict bounds the error of any answer, so it refuses where the certificate, which checks
+one answer for one load, can still certify. The test's floor is 17.
+
+## In the app
+
+The app gates P-Δ, buckling and modal analysis on the static solve, so a model the static solve
+refuses is refused by each of them with the same message:
+
+- A column on a pin free to spin about its own axis under beams released about the vertical
+  (the hinged-frame sweep, seed 10) is a mechanism the loads do not excite. It was solved
+  before, and modal and buckling named the spin as a discarded mode; all three refuse it now.
+- An L-frame (a fixed column with a beam on top, the default section) with every area
+  multiplied by 1e4 is Singular (`κ_S A` = 7.0e6 × 9.4e5); by 1e3 it solves as before.
+

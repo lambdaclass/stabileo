@@ -2023,5 +2023,4 @@ fn self_checks_settlement_only_sparse_3d() {
     assert_eq!(path_3d(&result), "sparse_cholesky");
     solver_diagnostics_with_self_checks(&result.structured_diagnostics);
     assert!(result.displacements.iter().any(|d| d.uz.abs() > 1e-6));
-    assert!(result.displacements.iter().any(|d| d.uz.abs() > 1e-6));
 }

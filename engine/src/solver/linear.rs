@@ -659,7 +659,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     // ── Triplet sparse path: large models (nf >= 64) ──
     if !force_dense && nf >= SPARSE_THRESHOLD {
         let stiff = super::assembly::without_artificial_stiffness(|| super::sparse_assembly::assemble_stiffness_sparse_2d_typed(input, &dof_num, &properties));
-        let stability = super::stability::analyze(&stiff.k_ff, &free_tags(&dof_num, true));
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze(&stiff.k_ff, &free_tags(&dof_num, true)) };
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         let k_ff = stability.pin_sparse(&stiff.k_ff);
 
@@ -733,7 +733,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     let k_rr = extract_submatrix(&stiff.k, n, &rest_idx, &rest_idx);
     let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
 
-    let stability = super::stability::analyze_dense(&k_ff, nf, &free_tags(&dof_num, true));
+    let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense(&k_ff, nf, &free_tags(&dof_num, true)) };
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     stability.pin_dense(&mut k_ff, nf);
 
@@ -957,7 +957,7 @@ impl PreparedStatic2D<'_> {
                 if has_nan_inf {
                     return Err("Singular stiffness matrix — structure is a mechanism".to_string());
                 }
-                self.stability.check_pins(&u_f)?;
+                self.stability.check_pins(&u_f, &f[..nf], &k_fr_ur)?;
 
                 // Compute reactions: R = K_rf · u_f + K_rr · u_r − F_r
                 let f_r: Vec<f64> = f[nf..].to_vec();
@@ -1091,8 +1091,6 @@ impl PreparedStatic2D<'_> {
                 // Triangular solve with the precomputed sparse Cholesky factor
                 let u = sparse_cholesky_solve(&p.num, &f_f);
 
-                // Iterative refinement against the ORIGINAL K_ff to correct for
-                // the regularization shift (up to 5 residual correction steps).
 
                 // Verify solution quality via residual check
                 let ku = p.k_ff.sym_mat_vec(&u);
@@ -1118,7 +1116,7 @@ impl PreparedStatic2D<'_> {
                 if has_nan_inf {
                     return Err("Singular stiffness matrix — structure is a mechanism".to_string());
                 }
-                self.stability.check_pins(&u_f)?;
+                self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
 
                 // Build full displacement vector
                 let mut u_full = vec![0.0; n];
@@ -1275,7 +1273,7 @@ impl PreparedStatic2D<'_> {
                 if has_nan_inf {
                     return Err("Singular stiffness matrix — structure is a mechanism".to_string());
                 }
-                self.stability.check_pins(&u_f)?;
+                self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
 
                 // Build full displacement vector
                 let mut u_full = vec![0.0; n];
@@ -1733,7 +1731,7 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let mut solver_diags_base: Vec<SolverDiagnostic> = Vec::new();
 
         let t0 = now_micros();
-        let stability = super::stability::analyze(&stiff.k_ff, &free_tags(&dof_num, false));
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze(&stiff.k_ff, &free_tags(&dof_num, false)) };
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         stiff.k_ff = stability.pin_sparse(&stiff.k_ff);
         let conditioning_us = now_micros().saturating_sub(t0);
@@ -1821,7 +1819,7 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let free_idx: Vec<usize> = (0..nf).collect();
         let rest_idx: Vec<usize> = (nf..n).collect();
         let mut k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
-        let stability = super::stability::analyze_dense(&k_ff, nf, &free_tags(&dof_num, false));
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense(&k_ff, nf, &free_tags(&dof_num, false)) };
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         stability.pin_dense(&mut k_ff, nf);
 
@@ -2039,7 +2037,7 @@ impl PreparedStatic3D {
         // guards solver INPUT, and `postprocess::combinations` has no finiteness handling,
         // so a NaN here would silently poison a combination or an envelope.
         assert_finite_3d(&u_f)?;
-        self.stability.check_pins(&u_f)?;
+        self.stability.check_pins(&u_f, &f[..nf], &p.k_fr_ur)?;
 
         let solver_diags = vec![SolverDiagnostic {
             category: "solver_path".into(),
@@ -2253,7 +2251,7 @@ impl PreparedStatic3D {
         // NaN/Inf guard — see `solve_loads_dense`. Placed after the branch so it covers
         // both the sparse Cholesky result and the dense LU fallback.
         assert_finite_3d(&u_f)?;
-        self.stability.check_pins(&u_f)?;
+        self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
 
         // Build full displacement vector
         let mut u_full = vec![0.0; n];
@@ -2560,7 +2558,7 @@ impl PreparedStatic3D {
         // NaN/Inf guard — see `solve_loads_dense`. Covers the PCG result and
         // both direct fallbacks.
         assert_finite_3d(&u_f)?;
-        self.stability.check_pins(&u_f)?;
+        self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
 
         // Build full displacement vector
         let mut u_full = vec![0.0; n];

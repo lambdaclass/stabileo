@@ -34,16 +34,16 @@ fn skew_mechanism(moment: [f64; 3], released: bool) -> SolverInput3D {
 fn a_rotation_held_by_nothing_about_a_skew_axis_is_eliminated_and_not_certified() {
     for (what, moment) in [("about the free axis", [-1.3, 2.0, 0.0]), ("about the torsion axis", [2.0, 1.3, 0.0]), ("none", [0.0; 3])] {
         let input = skew_mechanism(moment, true);
-        match solve_3d(&input) {
-            Err(e) if what == "about the free axis" => assert!(e.starts_with("Nodal moment at node 2 is not supported"), "{what}: {e}"),
-            outcome => {
-                let result = outcome.unwrap_or_else(|e| panic!("{what}: {e}"));
-                let codes: Vec<_> = result.structured_diagnostics.iter().map(|d| d.code).collect();
-                assert!(!codes.contains(&DiagnosticCode::StiffnessNotPositiveDefinite), "{what}: {codes:?}");
-                let r = result.displacements.iter().find(|d| d.node_id == 2).unwrap();
-                let free = (-1.3 * r.rx + 2.0 * r.ry) / (1.3f64.powi(2) + 2.0f64.powi(2)).sqrt();
-                assert!(free.abs() <= 1e-12 * (r.rx.abs() + r.ry.abs() + r.rz.abs()).max(f64::MIN_POSITIVE), "{what}: rotation about the free axis {free:e}");
-            }
+        if what == "about the free axis" {
+            let e = solve_3d(&input).expect_err("a moment about the free axis was solved");
+            assert!(e.starts_with("Nodal moment at node 2 is not supported"), "{what}: {e}");
+        } else {
+            let result = solve_3d(&input).unwrap_or_else(|e| panic!("{what}: {e}"));
+            let codes: Vec<_> = result.structured_diagnostics.iter().map(|d| d.code).collect();
+            assert!(!codes.contains(&DiagnosticCode::StiffnessNotPositiveDefinite), "{what}: {codes:?}");
+            let r = result.displacements.iter().find(|d| d.node_id == 2).unwrap();
+            let free = (-1.3 * r.rx + 2.0 * r.ry) / (1.3f64.powi(2) + 2.0f64.powi(2)).sqrt();
+            assert!(free.abs() <= 1e-12 * (r.rx.abs() + r.ry.abs() + r.rz.abs()).max(f64::MIN_POSITIVE), "{what}: rotation about the free axis {free:e}");
         }
         if let Ok(certified) = certify_linear_3d_full(&input) {
             assert!(!certified.certificate.is_certified(), "{what}: {:?}", certified.certificate);

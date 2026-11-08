@@ -78,10 +78,10 @@ has identity diagonal blocks. Under rotation, mirror and relabelling `S` is repl
 **exactly invariant** under all four transforms. Plain Jacobi scaling (`D = diag K`) is
 invariant under units but not under rotation, which is why `kinematic.rs` still moved.
 
-Up to 240 kept directions the spectrum of `S` is computed in full (cyclic Jacobi). Above,
+Up to 64 kept directions the spectrum of `S` is computed in full (cyclic Jacobi). Above,
 Lanczos with full reorthogonalization estimates `λ_max(S)` and, on a sparse Cholesky
-factor, `1/λ_min(S)`, each until its Ritz residual is below `1e-9` of it or after 200
-steps (a non-finite value is a failure). A Ritz value never exceeds the extreme eigenvalue
+factor, `1/λ_min(S)`, each until its top Ritz value changes by less than `1e-12` of itself
+over ten steps, or after 200 steps (a non-finite value is a failure). A Ritz value never exceeds the extreme eigenvalue
 it estimates, but in a cluster (the equal spans of a long continuous beam) it can stop
 short of it, so the estimates are certified by inertia: a Cholesky of `S − ℓ I` and of
 `u I − S` must both succeed, with `ℓ = 0.999 λ_min` and `u = 1.001 λ_max` first, each
@@ -253,7 +253,7 @@ take the verdict on the `K_ff` (or `CᵀK_ffC`) they factor, and then:
 4. Cholesky of the pinned matrix must succeed: a Stable verdict with a failing Cholesky is an
    indefinite system that the block test did not see (a negative spring on a coupled
    direction), and it is refused. A negative eigenvalue of a node block, or one of `S` below
-   `-64 m ε A λ_max(S)` (the rounding of `S` itself, §2.3; full spectrum only, up to 240 kept
+   `-64 m ε A λ_max(S)` (the rounding of `S` itself, §2.3; full spectrum only, up to 64 kept
    directions), is already Singular (`Indefinite`). There is no LU, no diagonal shift and no PCG past a failed Cholesky.
 
 The dense LU on a bad sparse residual (3D sparse and PCG paths) stays, as §3 allows: it runs
@@ -282,7 +282,13 @@ rigid motion) and connector/skew mechanisms are not special cases: they are null
 4. Buckling, modal and time history: the stiffness side of the pencil (#1351, #1352,
    #1362, #1635, #1648).
 5. Plastic 2D (#758: every hinge stage is a new `K`; the original-path refusal is lifted
-   only when the stage verdicts are invariant).
+   only when the stage verdicts are invariant) and plastic 3D. Until then plastic 3D solves a
+   hinge state that leaves a mechanism with soft springs (`1e-10` of the softest member) at
+   every free DOF, through the linear solve with the verdict assumed Stable and the
+   artificial springs kept (`stability::assuming_stable`), and accepts the answer only when
+   its member forces balance the loads at every free DOF; otherwise the state is a collapse.
+   With the verdict applied, those spring-held states are Singular (`κ_S A` about 1e14) and
+   every such hinge state would read as a premature collapse.
 6. Staged construction (#1445: its own spring copy; #968, #1091).
 
 Not this test: #1099 (Stable, `κ_S = 5.4`) breaks linear superposition by 12 % on the

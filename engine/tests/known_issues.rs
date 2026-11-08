@@ -1851,15 +1851,47 @@ fn a_rotation_far_softer_than_another_at_its_node_is_solved_exactly_or_refused_1
     let regular = dedaliano_engine::solver::linear::solve_3d(&input);
     let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads));
     for r in [&regular, &prepared] {
-        if let Ok(r) = r {
-            let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
-            assert!((theta - tip_rotation(1e-10)).abs() <= 1e-6 * tip_rotation(1e-10), "θ {theta}: {:?}", ids(&r.structured_diagnostics));
+        match r {
+            Ok(r) => {
+                let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+                assert!((theta - tip_rotation(1e-10)).abs() <= 1e-6 * tip_rotation(1e-10), "θ {theta}: {:?}", ids(&r.structured_diagnostics));
+            }
+            Err(e) => assert!(e.starts_with("the structure is a mechanism") || e.starts_with("the structure cannot be solved reliably"), "{e}"),
         }
     }
     assert_eq!(regular.is_ok(), prepared.is_ok(), "{:?} vs {:?}", regular.as_ref().err(), prepared.as_ref().err());
     let held = dedaliano_engine::solver::linear::solve_3d(&cantilever_soft_about_y(1e-4)).unwrap();
     let theta = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
     assert!((theta - tip_rotation(1e-4)).abs() < 1e-9 * tip_rotation(1e-4), "{theta}");
+}
+
+fn propped_tip_soft_about_y(iy: f64, dz: f64) -> SolverInput3D {
+    let mut input = cantilever_soft_about_y(iy);
+    input.loads.clear();
+    input.supports.insert("2".into(), serde_json::from_value(serde_json::json!({
+        "nodeId": 2, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": false, "rrz": false, "dz": dz
+    })).unwrap());
+    input
+}
+
+/// A tip whose translations are restrained and whose soft rotation about y is coupled only to
+/// a prescribed displacement there: the settlement turns it by 1.5 dz / L, so the pin of that
+/// rotation must not hold it at zero. With a resolvable Iy the rotation is exact; with a soft
+/// one the solve is refused, and without the settlement it solves.
+#[test]
+fn a_settlement_on_a_soft_rotation_is_not_held_by_its_pin() {
+    let dz = -0.01;
+    let held = dedaliano_engine::solver::linear::solve_3d(&propped_tip_soft_about_y(1e-4, dz)).unwrap();
+    let ry = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
+    assert!((ry.abs() - 1.5 * dz.abs()).abs() <= 1e-9 * 1.5 * dz.abs(), "ry {ry}");
+    let soft = propped_tip_soft_about_y(1e-10, dz);
+    assert!(!dedaliano_engine::solver::stability::of_3d(&soft).unwrap().free.is_empty());
+    for r in [dedaliano_engine::solver::linear::solve_3d(&soft).map(|_| ()),
+        dedaliano_engine::solver::linear::prepare_static_3d(&soft).and_then(|p| p.solve_loads(&soft.loads)).map(|_| ())] {
+        let e = r.expect_err("a settlement acting on a pinned rotation was solved");
+        assert!(e.starts_with("the structure cannot be solved reliably"), "{e}");
+    }
+    dedaliano_engine::solver::linear::solve_3d(&propped_tip_soft_about_y(1e-10, 0.0)).unwrap();
 }
 
 #[test]

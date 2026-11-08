@@ -109,7 +109,14 @@ fn a_soft_rotation_is_solved_exactly_or_refused_whatever_masks_its_scale_1496() 
     }
     let mut outcomes = Vec::new();
     for (name, input, theta) in cases {
-        let Ok(r) = dedaliano_engine::solver::linear::solve_3d(&input) else { outcomes.push(false); continue };
+        let r = match dedaliano_engine::solver::linear::solve_3d(&input) {
+            Ok(r) => r,
+            Err(e) => {
+                assert!(e.starts_with("the structure is a mechanism") || e.starts_with("the structure cannot be solved reliably"), "{name}: {e}");
+                outcomes.push(false);
+                continue;
+            }
+        };
         let tip = r.displacements.iter().find(|d| d.node_id == 2).unwrap();
         let got = (tip.rx * tip.rx + tip.ry * tip.ry + tip.rz * tip.rz).sqrt();
         assert!((got - theta).abs() <= 1e-6 * theta, "{name}: θ {got} instead of {theta}: {:?}", phases(&r.structured_diagnostics));

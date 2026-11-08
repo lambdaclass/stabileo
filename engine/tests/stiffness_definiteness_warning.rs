@@ -133,8 +133,10 @@ fn cantilever_on_a_negative_spring_3d(n: usize, k: f64, method: &str) -> SolverI
 /// A negative spring (a connector of negative axial stiffness to the ground) weaker than the
 /// stiffness of its own node but stronger than the cantilever's tip stiffness 3EI/L³ leaves
 /// every node block positive and the structure unstable; one stronger than its node's own
-/// stiffness makes that node's block indefinite. Both are refused as not positive, never
-/// solved with a warning; a negative spring weaker than the tip stiffness is solved.
+/// stiffness makes that node's block indefinite. Both are refused, never solved with a warning:
+/// as not positive where the spectrum is computed in full, and as a mechanism or an unresolvable
+/// stiffness above that size, where only the condition estimate sees it
+/// (docs/solver/stability.md §4); a negative spring weaker than the tip stiffness is solved.
 #[test]
 fn a_negative_spring_is_refused_on_every_linear_path() {
     let tip_stiffness = 3.0 * 200e6 * 1e-4 / 4.0f64.powi(3);
@@ -146,7 +148,9 @@ fn a_negative_spring_is_refused_on_every_linear_path() {
                 for (dims, result) in [("2D", solve_2d(&cantilever_on_a_negative_spring_2d(n, k, method)).map(|_| ())),
                     ("3D", solve_3d(&cantilever_on_a_negative_spring_3d(n, k, method)).map(|_| ()))] {
                     let error = result.expect_err(&format!("{dims} n {n} {method} k {k:e}: an unstable structure was solved"));
-                    assert!(error.starts_with("the stiffness matrix is not positive"), "{dims} n {n} {method} k {k:e}: {error}");
+                    let labelled = error.starts_with("the stiffness matrix is not positive")
+                        || (n > 2 && error.starts_with("the structure is a mechanism"));
+                    assert!(labelled, "{dims} n {n} {method} k {k:e}: {error}");
                 }
             }
         }

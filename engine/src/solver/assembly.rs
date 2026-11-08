@@ -43,6 +43,9 @@ fn artificial_stiffness(max_diag: f64) -> f64 {
 }
 
 pub(crate) fn without_artificial_stiffness<T>(f: impl FnOnce() -> T) -> T {
+    if super::stability::assumed() {
+        return f();
+    }
     struct Restore(bool);
     impl Drop for Restore {
         fn drop(&mut self) {

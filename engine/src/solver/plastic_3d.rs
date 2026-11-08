@@ -488,7 +488,8 @@ fn carry(input: &SolverInput3D) -> Result<Option<AnalysisResults3D>, String> {
         return crate::known_issues::optional_solve(super::super::linear::solve_3d(input));
     }
     let soft = with_soft_springs(input);
-    let Some(mut r) = crate::known_issues::optional_solve(super::super::linear::solve_3d(&soft))? else { return Ok(None); };
+    let solved = super::super::stability::assuming_stable(|| crate::known_issues::optional_solve(super::super::linear::solve_3d(&soft)))?;
+    let Some(mut r) = solved else { return Ok(None); };
     if !balanced(input, &r) {
         return Ok(None);
     }

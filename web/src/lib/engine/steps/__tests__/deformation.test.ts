@@ -438,7 +438,7 @@ describe('the axial term option', () => {
     expect(d).toBeGreaterThan(1e-7);
     expect(d).toBeLessThan(5e-2);
     expectWords(off);
-    const rigid = stiffAxially(input, 1e5);
+    const rigid = stiffAxially(input, 1e3);
     expect(worstDiff(build('castigliano', ctxFor(rigid, { axial: false }, [c])))).toBeLessThan(1e-5);
   });
 

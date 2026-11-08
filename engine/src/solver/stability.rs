@@ -13,6 +13,7 @@ use std::rc::Rc;
 
 pub const LOCAL_FREE: f64 = 1e-12;
 pub const DENSE_SPECTRUM: usize = 240;
+pub const FULL_SPECTRUM: usize = 64;
 pub const RESOLVABLE: f64 = 1e12;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -46,6 +47,24 @@ pub struct Stability {
     pub free: Vec<FreeDirection>,
     pub mode_nodes: Vec<usize>,
 }
+
+thread_local! {
+    static ASSUMED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Runs `f` with the linear solves taking every stiffness as Stable with no free direction.
+/// Only plastic 3D uses it, for its soft-spring hinge states, whose answers its own balance
+/// check accepts or rejects (docs/solver/stability.md §5).
+pub(crate) fn assuming_stable<T>(f: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) { ASSUMED.with(|a| a.set(self.0)); }
+    }
+    let _restore = Restore(ASSUMED.with(|a| a.replace(true)));
+    f()
+}
+
+pub(crate) fn assumed() -> bool { ASSUMED.with(|a| a.get()) }
 
 impl Stability {
     pub fn is_stable(&self) -> bool { self.verdict == Verdict::Stable }
@@ -94,24 +113,35 @@ impl Stability {
     }
 
     pub fn load_on_free_rotation(&self, f: &[f64]) -> Option<usize> {
-        let scale = f.iter().fold(0.0f64, |m, x| m.max(x.abs()));
         self.free_rotations().find(|d| {
-            let along: f64 = d.dofs.iter().zip(&d.direction).map(|(&i, &v)| f.get(i).copied().unwrap_or(0.0) * v).sum();
-            along.abs() > ROUNDING * d.dofs.len() as f64 * f64::EPSILON * scale
+            let (along, scale) = d.dofs.iter().zip(&d.direction).fold((0.0f64, 0.0f64), |(a, m), (&i, &v)| {
+                let x = f.get(i).copied().unwrap_or(0.0);
+                (a + x * v, m.max(x.abs()))
+            });
+            !(along.abs() <= ROUNDING * d.dofs.len() as f64 * f64::EPSILON * scale)
         }).map(|d| d.node)
     }
 
-    pub fn check_pins(&self, u: &[f64]) -> Result<(), String> {
+    pub fn check_pins(&self, u: &[f64], f: &[f64], restrained: &[f64]) -> Result<(), String> {
+        let at = |x: &[f64], i: usize| x.get(i).copied().unwrap_or(0.0);
         let held = self.free_rotations().find(|d| {
-            let (force, size) = d.coupling.iter().fold((0.0f64, 0.0f64), |(f, m), &(i, c)| {
-                let x = c * u.get(i).copied().unwrap_or(0.0);
+            let (mut force, mut size) = d.coupling.iter().fold((0.0f64, 0.0f64), |(f, m), &(i, c)| {
+                let x = c * at(u, i);
                 (f + x, m + x.abs())
             });
-            !(force.abs() <= ROUNDING * d.coupling.len() as f64 * f64::EPSILON * size)
+            let mut load = 0.0f64;
+            for (&i, &v) in d.dofs.iter().zip(&d.direction) {
+                let (applied, coupled) = (v * at(f, i), v * at(restrained, i));
+                force += coupled - applied;
+                size += coupled.abs();
+                load = load.max(at(f, i).abs());
+            }
+            size += d.dofs.len() as f64 * load;
+            !(force.abs() <= ROUNDING * (d.coupling.len() + 2 * d.dofs.len()) as f64 * f64::EPSILON * size)
         });
         match held {
             Some(d) => Err(format!(
-                "the structure cannot be solved reliably: a rotation at node {} is so much softer than the other rotations there that its stiffness cannot be resolved, and the solution loads it through its connections; stiffen that rotation or release it explicitly",
+                "the structure cannot be solved reliably: a rotation at node {} is so much softer than the other rotations there that its stiffness cannot be resolved, and the loads, a prescribed displacement or the rest of the structure act on it; stiffen that rotation or release it explicitly",
                 d.node
             )),
             None => Ok(()),
@@ -500,6 +530,7 @@ fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64) -> Optio
     let steps = m.min(200);
     let mut basis: Vec<Vec<f64>> = vec![start(m, seed)];
     let (mut alpha, mut beta): (Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new());
+    let mut previous = f64::NAN;
     loop {
         let j = basis.len() - 1;
         let mut w = apply(&basis[j]);
@@ -519,13 +550,10 @@ fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64) -> Optio
             continue;
         }
         let shifted: Vec<f64> = std::iter::once(0.0).chain(beta.iter().copied()).collect();
-        let (theta, y) = crate::linalg::lanczos::tridiag_eigen_vecs(&alpha, &shifted, k);
-        let top = theta[k - 1];
-        let last = y[(k - 1) * k + k - 1];
-        if !(b * last.abs()).is_finite() { return None; }
-        if b * last.abs() <= 1e-9 * top.abs() || exhausted {
-            let bound = b * last.abs();
-            if !top.is_finite() || !bound.is_finite() { return None; }
+        let top = crate::linalg::lanczos::tridiag_eigen(&alpha, &shifted, k)[k - 1];
+        if !top.is_finite() { return None; }
+        if exhausted || (top - previous).abs() <= 1e-12 * top.abs() {
+            let (_, y) = crate::linalg::lanczos::tridiag_eigen_vecs(&alpha, &shifted, k);
             let mut x = vec![0.0; m];
             for (i, v) in basis.iter().enumerate() {
                 let c = y[i * k + k - 1];
@@ -533,6 +561,7 @@ fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64) -> Optio
             }
             return Some((top, x));
         }
+        previous = top;
         beta.push(b);
         basis.push(w.into_iter().map(|a| a / b).collect());
     }
@@ -555,7 +584,7 @@ const WIDEN: i32 = 11;
 
 fn spectrum(s: &CscMatrix, anisotropy: f64) -> (f64, Option<Vec<f64>>, bool) {
     let m = s.n;
-    if m <= DENSE_SPECTRUM {
+    if m <= FULL_SPECTRUM {
         let (mu, vecs) = sym_eigen_small(&s.to_dense_symmetric(), m);
         let x: Vec<f64> = (0..m).map(|r| vecs[r * m]).collect();
         let indefinite = -mu[0] > ROUNDING * m as f64 * f64::EPSILON * anisotropy * mu[m - 1].abs();
