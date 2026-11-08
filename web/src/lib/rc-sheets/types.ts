@@ -23,6 +23,8 @@ export interface BeamAdopted {
   top: BarGroup[];
   stirrups: Stirrups;
   torsionLong?: BarGroup;
+  /** The bars present at each section when they change along the span (a continuous beam's cut bars). */
+  at?: Partial<Record<'start' | 'span' | 'end', { top: BarGroup[]; bottom: BarGroup[] }>>;
 }
 
 /** Four corner bars, `nx` more on each face along b and `ny` on each face along h. */
@@ -37,7 +39,7 @@ export interface SlabAdopted { bottomX: MeshBars; bottomY: MeshBars; topX: MeshB
 
 export type WallAdopted = WallReinforcement;
 
-export type Adopted = BeamAdopted | ColumnAdopted | SlabAdopted | WallAdopted;
+export type Adopted = BeamAdopted | ColumnAdopted | SlabAdopted | WallAdopted | import('./beam-line').LineAdopted;
 
 export type TorsionMode = 'equilibrium' | 'compatibility';
 

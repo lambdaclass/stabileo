@@ -197,10 +197,13 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const start = emptySection(x0), mid = emptySection(xStar), end = emptySection(x1);
       let negAny: Signed = { value: 0 }, nNegAny = 0, vu: Signed = { value: 0 }, nV = 0, tu: Signed = { value: 0 };
       const combos: BeamComboForces[] = [];
+      const xs = [...new Set([...Array.from({ length: 33 }, (_, i) => (i / 32) * L), x0, x1, xStar].map((x) => Math.round(x * 1e4) / 1e4))].sort((p, q) => p - q);
+      const env = xs.map((x) => ({ x, pos: 0, neg: 0, v: 0 }));
       m.sets.forEach((set, i) => {
         const list = stations[i]!;
         if (!list.length) return;
         const at = (x: number) => forcesAt(m, span, set, x) ?? list.reduce((a, b) => (Math.abs(b.x - x) < Math.abs(a.x - x) ? b : a)).s;
+        xs.forEach((x, k) => { const f = at(x); const e = env[k]!; e.pos = Math.max(e.pos, f[flex]); e.neg = Math.max(e.neg, -f[flex]); e.v = Math.max(e.v, Math.abs(f[shear])); });
         const s0 = at(x0), sm = at(xStar), s1 = at(x1);
         const extra = m.faces ? [{ x: v0, s: at(v0) }, { x: v1, s: at(v1) }] : [];
         take(start, s0[flex], -s0.n, set.name); take(mid, sm[flex], -sm.n, set.name); take(end, s1[flex], -s1.n, set.name);
@@ -224,6 +227,8 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         length: L, b: turned ? sec.h : sec.b, h: turned ? sec.b : sec.h,
         start, span: mid, end, negAny, nNegAny, vu, nAtV: nV, tu, combos,
         faces: m.faces ? { start: faceI, end: faceJ, shearAt: dv } : undefined,
+        line: { group: g.id, index: k, spans: spans.length, startNode: span[0]!.forward ? first.nodeI : first.nodeJ, endNode: lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, lineName: g.name },
+        env,
         ...((fl) => (fl ? { flange: fl } : {}))(m.flange ? flangeOf(m, span, turned ? sec.h : sec.b, x1 - x0) : null),
       });
     });

@@ -11,6 +11,8 @@
   import RcSteps from './RcSteps.svelte';
   import RcChecks from './RcChecks.svelte';
   import RcCombos from './RcCombos.svelte';
+  import RcLineDetail from './RcLineDetail.svelte';
+  import type { LineLayout } from '../../../lib/rc-sheets/beam-line';
   import RcRowEditor from './RcRowEditor.svelte';
 
   let { onclose, family = $bindable<SheetFamily>('beam') }: { onclose: () => void; family?: SheetFamily } = $props();
@@ -24,11 +26,14 @@
     void resultsStore.perCombo3D; void resultsStore.results3D; void modelStore.designData; void modelStore.model.groups;
     return buildSheetRows(fmt);
   });
-  const all = $derived(rows[family] as SheetRow[]);
+  const spansOf = (l: LineLayout) => rows.beam.filter((r) => r.demand.line?.group === l.group);
+  const lineStatus = (l: LineLayout) => (l.status === 'fail' || spansOf(l).some((r) => r.status === 'fail') ? 'fail' : spansOf(l).some((r) => r.status === 'warn') ? 'warn' : 'ok');
+  type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });
+  const all = $derived((family === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : rows[family]) as ListRow[]);
   const levels = $derived([...new Set(all.map((r) => r.level ?? ''))]);
   const shown = $derived(all.filter((r) => (!level || (r.level ?? '') === level) && (!failingOnly || r.status === 'fail')));
   const counts = $derived(Object.fromEntries(SHEET_FAMILIES.map((f) => {
-    const list = rows[f] as SheetRow[];
+    const list = (f === 'beam' ? rows.line.map((l) => ({ status: lineStatus(l) })) : rows[f]) as Array<{ status: string }>;
     return [f, { n: list.length, fail: list.filter((r) => r.status === 'fail').length }];
   })) as Record<SheetFamily, { n: number; fail: number }>);
   const f1 = (v: number) => fmt(v, 1);
@@ -75,8 +80,8 @@
       <table class="rcw-table" data-testid={`rc-table-${family}`}>
         <thead>
           {#if family === 'beam'}
-            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>b × h</th><th>Mu⁺</th><th>Mu⁻</th><th>Vu</th><th>Tu</th>
-              <th>{t('rcSheets.col.bottom')}</th><th>{t('rcSheets.col.top')}</th><th>{t('rcSheets.col.stirrups')}</th><th>{t('rcSheets.col.torsionLong')}</th><th>{t('rcSheets.col.status')}</th></tr>
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.line.spans')}</th><th>L</th>
+              <th>{t('rcSheets.line.runBottom')}</th><th>{t('rcSheets.line.runTop')}</th><th>{t('rcSheets.line.supports')}</th><th>{t('rcSheets.line.spans')} +</th><th>{t('rcSheets.col.stirrups')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else if family === 'column'}
             <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>b × h</th><th>Pu</th><th>ρ</th>
               <th>{t('rcSheets.col.bars')}</th><th>{t('rcSheets.col.ties')}</th><th>{t('rcSheets.col.crossties')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
@@ -93,7 +98,16 @@
             <tr class="row st-{r.status}" class:open={openKey === r.key} onclick={() => (openKey = openKey === r.key ? null : r.key)} data-testid="rc-row">
               <td class="nm">{r.name}{#if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{/if}</td>
               <td>{r.level ?? ''}</td>
-              {#if r.family === 'beam'}
+              {#if r.family === 'line'}
+                <td class="n">{r.spans.length}</td>
+                <td class="n">{f2(r.length)}</td>
+                <td>{r.adopted.bottom.count} Ø{r.adopted.bottom.dia}</td>
+                <td>{r.adopted.top.count} Ø{r.adopted.top.dia}</td>
+                <td>{r.adopted.supportTop.map((g, j) => (g.count ? `${j + 1}: ${g.count}Ø${g.dia}` : '')).filter(Boolean).join(' · ') || '—'}</td>
+                <td>{r.adopted.spanBottom.map((g, k) => (g.count ? `${k + 1}: ${g.count}Ø${g.dia}` : '')).filter(Boolean).join(' · ') || '—'}</td>
+                <td>{[...new Set((r.adopted.stirrups ?? []).map((x) => stirrupsLabel(x)))].join(' · ')}</td>
+                <td class="n">{fmt(r.utilization, 2)}</td>
+              {:else if r.family === 'beam'}
                 <td>{fmt(r.b * 100, 0)}×{fmt(r.h * 100, 0)}</td>
                 <td class="n">{f1(Math.max(r.demand.start.pos.value, r.demand.span.pos.value, r.demand.end.pos.value))}</td>
                 <td class="n">{f1(Math.max(r.demand.start.neg.value, r.demand.span.neg.value, r.demand.end.neg.value, r.demand.negAny.value))}</td>
@@ -131,6 +145,9 @@
             {#if openKey === r.key}
               <tr class="detail">
                 <td colspan="13">
+                  {#if r.family === 'line'}
+                    <RcLineDetail line={r} spans={spansOf(r)} />
+                  {:else}
                   <RcRowEditor row={r} />
                   <RcChecks lines={r.verifications} />
                   <details open={r.status === 'fail'}>
@@ -141,6 +158,7 @@
                     <summary>{t('rcSheets.steps')}</summary>
                     <RcSteps groups={r.steps} />
                   </details>
+                  {/if}
                 </td>
               </tr>
             {/if}

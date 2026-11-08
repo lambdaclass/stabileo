@@ -3,6 +3,8 @@
   import { modelStore, resultsStore } from '../../../lib/store';
   import { buildSheetRows, downloadRcSheets, rcSheetsData, setRcOption, setTorsionMode, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { recognizePhysicalElements, physicalGroups } from '../../../lib/store/physical';
+  import { physicalPlates, plateStatus } from '../../../lib/store/physical-plates';
+  import { runGlobalSolve } from '../../../lib/engine/live-calc';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { SHEET_FAMILIES, type SheetFamily, type TorsionMode } from '../../../lib/rc-sheets/types';
   import RcSheetsWorkspace from './RcSheetsWorkspace.svelte';
@@ -21,6 +23,14 @@
   const stat = (list: SheetRow[]) => ({ n: list.length, ok: list.filter((r) => r.status !== 'fail').length, fail: list.filter((r) => r.status === 'fail').length });
 
   function openAt(f: SheetFamily) { family = f; open = true; }
+  let solving = $state(false);
+  const unmeshedWalls = () => physicalPlates().filter((p) => p.physical.kind === 'wall' && plateStatus(p.id) !== 'current').length;
+  const wallsToMesh = $derived.by(() => { void modelStore.model.groups; return unmeshedWalls(); });
+  async function recognize() {
+    recognizePhysicalElements();
+    if (unmeshedWalls() > 0) await resolve();
+  }
+  async function resolve() { solving = true; try { await runGlobalSolve(); } finally { solving = false; } }
 </script>
 
 <div class="rcp" data-testid="rc-sheets-panel">
@@ -30,8 +40,12 @@
     <p class="rcp-note">{t('rcSheets.solveFirst')}</p>
   {:else if !hasPhysical}
     <p class="rcp-note">{t('rcSheets.noPhysical')}</p>
-    <button type="button" class="rcs-btn" onclick={() => recognizePhysicalElements()} data-testid="rc-recognize">{t('rcSheets.recognize')}</button>
+    <button type="button" class="rcs-btn" onclick={recognize} disabled={solving} data-testid="rc-recognize">{t('rcSheets.recognize')}</button>
   {:else if rows}
+    {#if wallsToMesh > 0}
+      <p class="rcp-basis warn">{tp('rcSheets.wallsToMesh', { n: wallsToMesh })}</p>
+      <button type="button" class="rcs-btn" onclick={resolve} disabled={solving} data-testid="rc-resolve">{t('rcSheets.resolve')}</button>
+    {/if}
     <p class="rcp-code" data-testid="rc-panel-code"><span>{t('rcSheets.code')}</span><strong>{rows.code}</strong></p>
     <p class="rcp-note">{t('rcSheets.codeHint')}</p>
     <p class="rcp-basis" class:warn={rows.basis !== 'combinations'}>
@@ -39,7 +53,7 @@
     </p>
     <ul class="rcp-fams">
       {#each SHEET_FAMILIES as f (f)}
-        {@const s = stat(rows[f] as SheetRow[])}
+        {@const s = stat(f === 'beam' ? rows.line.map((l) => ({ status: l.status === 'fail' || rows.beam.some((r) => r.demand.line?.group === l.group && r.status === 'fail') ? 'fail' : 'ok' })) as never : rows[f] as SheetRow[])}
         <li>
           <button type="button" onclick={() => openAt(f)} disabled={!s.n} data-testid={`rc-open-${f}`}>
             <span>{t(`rcSheets.family.${f}`)}</span>

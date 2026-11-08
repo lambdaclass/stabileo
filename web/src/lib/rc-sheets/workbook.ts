@@ -2,6 +2,7 @@ import type { WorkbookSheet } from '../export/workbook-cells';
 import { safeText } from '../export/workbook-cells';
 import { groupsArea, groupsLabel, meshArea, meshLabel, stirrupsLabel } from './bars';
 import type { BeamRow } from './beam-row';
+import type { LineLayout } from './beam-line';
 import { columnLabel, tieLabel, type ColumnRow } from './column-row';
 import { SLAB_FACES, type SlabRow } from './slab-row';
 import { wallLabel, type WallRow } from './wall-row';
@@ -13,7 +14,7 @@ const r3 = (v: number) => (Number.isFinite(v) ? Math.round(v * 1000) / 1000 : 'â
 const cm = (v: number) => Math.round(v * 100);
 const worst = (v: CheckLine[]) => Math.max(0, ...v.map((x) => x.ratio ?? 0));
 
-export function rcSheetsWorkbook(rows: { beam: BeamRow[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; code: string }, tr: Tr): WorkbookSheet[] {
+export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; code: string }, tr: Tr): WorkbookSheet[] {
   const head = [`${tr('rcSheets.code')}: ${rows.code}`];
   const state = (s: string) => tr(`rcSheets.status.${s}`);
   const name = tr('rcSheets.col.name'), level = tr('rcSheets.col.level'), status = tr('rcSheets.col.status'), ratio = tr('rcSheets.col.ratio'), req = tr('rcSheets.req');
@@ -57,8 +58,13 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; column: ColumnRow[]; s
       r2(Math.max(0, ...k.map((x) => x.pu))), r2(Math.max(0, ...k.map((x) => x.mu))), r2(Math.max(0, ...k.map((x) => x.vu))),
       r3(r.req.rhoL * 100), r3(r.req.rhoT * 100), wallLabel(r.adopted), r3(worst(r.verifications)), state(r.status)]);
   }
+  const schedule: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.line.mark'), tr('rcSheets.line.kind'), tr('rcSheets.col.bars'), tr('rcSheets.line.from'), tr('rcSheets.line.to'), tr('rcSheets.line.length'), 'kg']];
+  for (const l of rows.line ?? []) {
+    for (const b of l.bars) schedule.push([safeText(l.name), safeText(l.level ?? ''), b.mark, `${tr(`rcSheets.line.kind.${b.kind}`)} (${tr(b.face === 'top' ? 'rcSheets.col.top' : 'rcSheets.col.bottom')})`, `${b.bars.count} Ã˜${b.bars.dia}`, r2(b.from), r2(b.to), r2(b.length), Math.round(b.weight * 10) / 10]);
+  }
   return [
     { name: tr('rcSheets.family.beam'), rows: beams },
+    { name: tr('rcSheets.sheet.schedule'), rows: schedule },
     { name: tr('rcSheets.family.column'), rows: columns },
     { name: tr('rcSheets.family.slab'), rows: slabs },
     { name: tr('rcSheets.family.wall'), rows: walls },

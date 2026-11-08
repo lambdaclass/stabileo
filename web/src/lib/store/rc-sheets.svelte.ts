@@ -8,6 +8,7 @@ import { computeBeamCriticalSections } from '../engine/station-design-forces';
 import { concreteFc } from '../model/design-data';
 import { beamDemands, columnDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { beamRow, type BeamRow } from '../rc-sheets/beam-row';
+import { beamLine, type LineAdopted, type LineLayout } from '../rc-sheets/beam-line';
 import { columnRow, type ColumnRow } from '../rc-sheets/column-row';
 import { slabRow, type SlabRow } from '../rc-sheets/slab-row';
 import { wallRow, type WallRow } from '../rc-sheets/wall-row';
@@ -19,6 +20,8 @@ export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow;
 
 export interface SheetRows {
   beam: BeamRow[];
+  /** Each physical beam as one continuous run of bars over its spans. */
+  line: LineLayout[];
   column: ColumnRow[];
   slab: SlabRow[];
   wall: WallRow[];
@@ -47,7 +50,7 @@ export function setAdopted(key: string, value: Adopted | null): void {
   save({ ...d, adopted });
 }
 
-export function adoptAll(rows: readonly SheetRow[]): void {
+export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>): void {
   const d = rcSheetsData();
   const adopted = { ...d.adopted };
   for (const r of rows) if (!adopted[r.key]) adopted[r.key] = JSON.parse(JSON.stringify(r.proposed)) as Adopted;
@@ -127,6 +130,16 @@ function fcOfShells(quads: number[], plates: number[]): number {
 const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; walls: ReturnType<typeof wallDemands>; groupsRev: unknown; opts: string }>();
 
 const rowCache = new WeakMap<object, Map<string, SheetRow>>();
+const lineCache = new WeakMap<object, { k: string; v: LineLayout }>();
+
+function cachedLine(anchor: object, inputs: unknown, compute: () => LineLayout): LineLayout {
+  const k = JSON.stringify(inputs);
+  const hit = lineCache.get(anchor);
+  if (hit && hit.k === k) return hit.v;
+  const v = compute();
+  lineCache.set(anchor, { k, v });
+  return v;
+}
 
 function cached<D extends object, R extends SheetRow>(demand: D, inputs: unknown, compute: () => R): R {
   const k = JSON.stringify(inputs);
@@ -135,7 +148,7 @@ function cached<D extends object, R extends SheetRow>(demand: D, inputs: unknown
   const hit = m.get(k);
   if (hit) return hit as R;
   const row = compute();
-  m.clear();
+  if (m.size > 4) m.clear();
   m.set(k, row);
   return row;
 }
@@ -143,7 +156,7 @@ function cached<D extends object, R extends SheetRow>(demand: D, inputs: unknown
 export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   const { sets, basis, dead } = designSets();
   const codeName = SHEET_CODES[rcSheetsData().code]?.name ?? 'CIRSOC 201-2025';
-  if (!sets.length) return { beam: [], column: [], slab: [], wall: [], code: codeName, basis, combos: 0 };
+  if (!sets.length) return { beam: [], line: [], column: [], slab: [], wall: [], code: codeName, basis, combos: 0 };
   const dd = designData();
   const data = rcSheetsData();
   const key = basis === 'combinations' ? resultsStore.perCombo3D : resultsStore.results3D!;
@@ -166,10 +179,27 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   const groupOf = (k: string) => groupsById.get(Number(k.split(':')[1]));
   const fy = dd.rebarFy;
   const dec = fmt(1.5, 1);
+  const beamCtx = (d: (typeof dem.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion });
+  const proposals = dem.beams.map((d) => { const ctx = beamCtx(d); return cached(d, [ctx, undefined, dec, 'proposal'], () => beamRow(d, ctx, undefined, fmt)); });
+  const byLine = new Map<number, BeamRow[]>();
+  for (const r of proposals) { const g = r.demand.line?.group ?? -1; byLine.set(g, [...(byLine.get(g) ?? []), r]); }
+  const line: LineLayout[] = [];
+  const derived = new Map<string, BeamAdopted>();
+  for (const [g, rows] of byLine) {
+    const first = rows[0]!;
+    const ctx = beamCtx(first.demand);
+    const la = data.adopted[`line:${g}`] as LineAdopted | undefined;
+    const layout = cachedLine(first.demand, [ctx, la, dec, rows.map((r) => r.key)], () => beamLine(rows, ctx, la, fmt));
+    line.push(layout);
+    const sortedRows = [...rows].sort((p, q) => (p.demand.line?.index ?? 0) - (q.demand.line?.index ?? 0));
+    sortedRows.forEach((r, k) => { const sa = layout.spanAdopted[k]; if (sa) derived.set(r.key, sa); });
+  }
   const beam = dem.beams.map((d) => {
-    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion };
-    const a = data.adopted[d.key] as BeamAdopted | undefined;
-    return cached(d, [ctx, a, dec], () => beamRow(d, ctx, a, fmt));
+    const ctx = beamCtx(d);
+    const own = data.adopted[d.key] as BeamAdopted | undefined;
+    const a = own ?? derived.get(d.key);
+    const row = cached(d, [ctx, a, dec], () => beamRow(d, ctx, a, fmt));
+    return own ? row : { ...row, isAdopted: !!data.adopted[`line:${d.line?.group}`], proposed: derived.get(d.key) ?? row.proposed };
   });
   const column = dem.columns.map((d) => {
     const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm };
@@ -189,7 +219,7 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
     return cached(d, [ctx, a, dec], () => wallRow(d, ctx, a, fmt));
   });
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  return { beam: sort(beam), column: sort(column), slab: sort(slab), wall: sort(wall), code: codeName, basis, combos: sets.length };
+  return { beam: sort(beam), line: sort(line), column: sort(column), slab: sort(slab), wall: sort(wall), code: codeName, basis, combos: sets.length };
 }
 
 export const familyRows = (rows: SheetRows, f: SheetFamily): SheetRow[] => rows[f];

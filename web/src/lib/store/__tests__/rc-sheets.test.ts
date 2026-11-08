@@ -124,6 +124,28 @@ describe('reinforcement sheets from a solved model', () => {
     expect(beam.steps[0]!.steps.some((x) => x.label === 'rcSheets.s.flange')).toBe(true);
   });
 
+  it('arms the two-span beam as one run: continuous bars, an extra top bar over the middle support cut where it is no longer needed, every station verified', () => {
+    frame(); solve();
+    const rows = buildSheetRows();
+    expect(rows.line).toHaveLength(1);
+    const ln = rows.line[0]!;
+    expect(ln.length).toBeCloseTo(10, 6);
+    expect(ln.status).toBe('ok');
+    expect(ln.utilization).toBeLessThanOrEqual(1);
+    const cont = ln.bars.filter((b) => b.kind === 'continuous');
+    expect(cont.map((b) => [b.from, b.to])).toEqual([[0, 10], [0, 10]]);
+    const mid = ln.bars.find((b) => b.kind === 'support' && b.from < 5 && b.to > 5)!;
+    expect(mid).toBeDefined();
+    expect(mid.to - 5).toBeGreaterThan(0.6);
+    expect(mid.to - 5).toBeLessThan(5);
+    expect(mid.from).toBeCloseTo(10 - mid.to, 6);
+    expect(ln.bars.every((b) => b.weight > 0 && b.length >= b.to - b.from)).toBe(true);
+    const span1 = rows.beam.find((r) => r.name === 'V1-1')!;
+    expect(span1.adopted.at!.end!.top.reduce((s, g) => s + g.count, 0)).toBeGreaterThan(span1.adopted.at!.span!.top.reduce((s, g) => s + g.count, 0));
+    expect(span1.status).not.toBe('fail');
+    expect(ln.envelope.every((e) => e.pos <= e.phiPos + 1e-6 && e.neg <= e.phiNeg + 1e-6)).toBe(true);
+  });
+
   it('cuts a column per storey, with its clear height and the fixed foot\'s restraint', () => {
     frame(); solve();
     const rows = buildSheetRows();
@@ -145,27 +167,29 @@ describe('reinforcement sheets from a solved model', () => {
     expect(s.demand.m.bottomX.value).toBeLessThan(0.0479 * 14 * 16 * 1.15);
   });
 
-  it('keeps the adopted bars in the project and reads them back after a reload', () => {
+  it('keeps the adopted bars of a continuous beam in the project and reads them back after a reload', () => {
     frame(); solve();
-    const first = buildSheetRows().beam[0]!;
-    setAdopted(first.key, { ...first.proposed, bottom: [{ count: 2, dia: 12 }] });
+    const ln = buildSheetRows().line[0]!;
+    const short = { ...ln.proposed, supportTop: ln.proposed.supportTop.map((g) => ({ ...g, count: 0 })), spanBottom: ln.proposed.spanBottom.map((g) => ({ ...g, count: 0 })), bottom: { count: 2, dia: 10 }, top: { count: 2, dia: 10 } };
+    setAdopted(ln.key, short);
     const snap = JSON.parse(JSON.stringify(modelStore.snapshot()));
     modelStore.clear();
     modelStore.restore(snap);
-    expect((rcSheetsData().adopted[first.key] as { bottom: unknown }).bottom).toEqual([{ count: 2, dia: 12 }]);
+    expect((rcSheetsData().adopted[ln.key] as { bottom: unknown }).bottom).toEqual({ count: 2, dia: 10 });
     solve();
-    const again = buildSheetRows().beam.find((r) => r.key === first.key)!;
-    expect(again.isAdopted).toBe(true);
-    expect(again.status).toBe('fail');
-    setAdopted(first.key, null);
-    expect(buildSheetRows().beam.find((r) => r.key === first.key)!.isAdopted).toBe(false);
+    const again = buildSheetRows();
+    expect(again.line[0]!.isAdopted).toBe(true);
+    expect(again.line[0]!.status).toBe('fail');
+    expect(again.beam.some((r) => r.status === 'fail')).toBe(true);
+    setAdopted(ln.key, null);
+    expect(buildSheetRows().line[0]!.isAdopted).toBe(false);
   });
 
   it('adopts every proposal at once and switches the torsion mode', () => {
     frame(); solve();
     const rows = buildSheetRows();
-    adoptAll(rows.beam);
-    expect(Object.keys(rcSheetsData().adopted)).toHaveLength(2);
+    adoptAll(rows.line);
+    expect(Object.keys(rcSheetsData().adopted)).toEqual([rows.line[0]!.key]);
     setTorsionMode('compatibility');
     expect(rcSheetsData().torsion).toBe('compatibility');
   });
@@ -173,10 +197,11 @@ describe('reinforcement sheets from a solved model', () => {
   it('exports a sheet per family with a row per element', () => {
     frame(); solve();
     const sheets = rcSheetsWorkbook(buildSheetRows(), (k) => k);
-    expect(sheets.map((s) => s.name)).toEqual(['rcSheets.family.beam', 'rcSheets.family.column', 'rcSheets.family.slab', 'rcSheets.family.wall']);
+    expect(sheets.map((s) => s.name)).toEqual(['rcSheets.family.beam', 'rcSheets.sheet.schedule', 'rcSheets.family.column', 'rcSheets.family.slab', 'rcSheets.family.wall']);
+    expect(sheets[1]!.rows.length).toBeGreaterThan(3);
     expect(sheets[0]!.rows[0]![0]).toContain('CIRSOC 201-2025');
     expect(sheets[0]!.rows).toHaveLength(4);
-    expect(sheets[1]!.rows).toHaveLength(5);
+    expect(sheets[2]!.rows).toHaveLength(5);
   });
 
   it('integrates a cantilever wall\'s base: N, M and V match the statics', () => {

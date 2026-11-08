@@ -42,6 +42,10 @@ export interface BeamDemand {
   faces?: { start: number; end: number; shearAt: number };
   /** The slab as a compression flange for sagging (Table 6.3.2.1), m. */
   flange?: { bf: number; hf: number };
+  /** The physical beam this span belongs to and its place in it. */
+  line?: { group: number; index: number; spans: number; startNode: number; endNode: number; lineName: string };
+  /** Envelope along the span over all combinations: largest sagging, hogging (kN·m) and shear (kN). */
+  env?: Array<{ x: number; pos: number; neg: number; v: number }>;
 }
 
 export interface BeamContext {
@@ -67,6 +71,8 @@ export interface BeamRow {
     stirrupPerLeg: number; legs: number; sMax: number;
     al: number; torsionNeglected: boolean; tuDesign: number;
     skin: MeshBars | null;
+    /** What each section asks of its tension face, cm². */
+    bySection: Array<{ section: SectionName; sign: 'pos' | 'neg'; req: number }>;
   };
   proposed: BeamAdopted;
   adopted: BeamAdopted;
@@ -99,6 +105,8 @@ function query(c: BeamContext, d: BeamDemand, tension: BarGroup[], compression: 
   };
 }
 
+const barsAt = (a: BeamAdopted, s: SectionName) => a.at?.[s] ?? { top: a.top, bottom: a.bottom };
+
 function flexChecks(c: BeamContext, d: BeamDemand, a: BeamAdopted): FlexureCheck[] {
   const sd = a.stirrups.dia;
   const items: Array<{ section: SectionName; sign: 'pos' | 'neg'; mu: number; nc: number }> = [];
@@ -107,18 +115,18 @@ function flexChecks(c: BeamContext, d: BeamDemand, a: BeamAdopted): FlexureCheck
     items.push({ section: s, sign: 'pos', mu: e.pos.value, nc: e.nPos }, { section: s, sign: 'neg', mu: e.neg.value, nc: e.nNeg });
   }
   if (d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6) items.push({ section: 'span', sign: 'neg', mu: d.negAny.value, nc: d.nNegAny });
-  const answers = evaluateBeamSections(items.map((i) => (i.sign === 'pos' ? query(c, d, a.bottom, a.top, sd, i.nc, undefined, true) : query(c, d, a.top, a.bottom, sd, i.nc)))) ?? [];
+  const answers = evaluateBeamSections(items.map((i) => { const g = barsAt(a, i.section); return i.sign === 'pos' ? query(c, d, g.bottom, g.top, sd, i.nc, undefined, true) : query(c, d, g.top, g.bottom, sd, i.nc); })) ?? [];
   return items.map((i, k) => {
     const r = answers[k];
     const phiMn = r && r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0;
     const epsT = r?.epsilonT ?? 0, epsTMin = r?.epsilonTMin ?? 0;
     const ductile = !(i.mu > 1e-6) || epsT >= epsTMin - 1e-9;
-    const depth = d.h - faceLayout(i.sign === 'pos' ? a.bottom : a.top, d.b, c.cover, sd).centroidFromFace;
+    const depth = d.h - faceLayout(i.sign === 'pos' ? barsAt(a, i.section).bottom : barsAt(a, i.section).top, d.b, c.cover, sd).centroidFromFace;
     return { ...i, phiMn, epsT, epsTMin, d: depth, ductile, ok: !(i.mu > 1e-6) || (phiMn >= i.mu - 1e-6 && ductile) };
   });
 }
 
-interface Requirement { bottom: number; top: number; al: number; alMin: number; neglect: boolean; torSection: boolean; atOverS: number }
+interface Requirement { bottom: number; top: number; al: number; alMin: number; neglect: boolean; torSection: boolean; atOverS: number; bySection: Array<{ section: SectionName; sign: 'pos' | 'neg'; req: number }> }
 
 interface Evaluation {
   flex: FlexureCheck[];
@@ -135,7 +143,8 @@ interface Evaluation {
 function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requirement): Evaluation {
   const sd = a.stirrups.dia;
   const flex = flexChecks(c, d, a);
-  const fb = faceLayout(a.bottom, d.b, c.cover, sd), ft = faceLayout(a.top, d.b, c.cover, sd);
+  const fits = (face: 'top' | 'bottom') => SECTION_NAMES.every((s) => faceLayout(barsAt(a, s)[face], d.b, c.cover, sd).fits);
+  const fb = { fits: fits('bottom') }, ft = { fits: fits('top') };
   const crackMax = crackControlMaxSpacing(EDITION, { fy: c.mat.fy, clearCoverToTensionFace: c.cover + sd / 1000 }).maxSpacing;
   const crack = (groups: BarGroup[], used: boolean) => {
     const g = groups.find((x) => x.count > 0);
@@ -164,8 +173,10 @@ function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requiremen
     alDia: req.neglect || (!!al && al.dia >= alDiaMin - 1e-6),
     torsionSection: req.torSection,
   };
-  const crackBottom = crack(a.bottom, true), crackTop = crack(a.top, hogUsed);
-  const areaBottom = groupsArea(a.bottom) >= req.bottom - 1e-6, areaTop = groupsArea(a.top) >= req.top - 1e-6;
+  const worstCrack = (face: 'top' | 'bottom', used: boolean) => SECTION_NAMES.map((s) => crack(barsAt(a, s)[face], used)).reduce((w, x) => (x.s > w.s ? x : w));
+  const crackBottom = worstCrack('bottom', true), crackTop = worstCrack('top', hogUsed);
+  const areaOk = (sign: 'pos' | 'neg') => req.bySection.filter((x) => x.sign === sign).every((x) => groupsArea(barsAt(a, x.section)[sign === 'pos' ? 'bottom' : 'top']) >= x.req - 1e-6);
+  const areaBottom = areaOk('pos'), areaTop = areaOk('neg');
   const all = flex.every((f) => f.ok) && fb.fits && ft.fits && areaBottom && areaTop && crackBottom.ok && crackTop.ok
     && shear.status !== 'fail' && Object.values(ok).every(Boolean);
   return { flex, fitBottom: fb.fits, fitTop: ft.fits, areaBottom, areaTop, crackBottom, crackTop, shear, perLegProvided, perLegRequired, transverseMin, transverseProvided, alProvided, alSpacing, alDiaMin, ok, all };
@@ -239,7 +250,11 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   const perLeg = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + atS;
   const sMax = Math.min(sMaxShear(shear.d, d.b, fc, shear.Vs), tor.neglect ? Infinity : Math.min(ph / 8, 0.3));
   const skin = proposeSkin(EDITION, d.h, fy, c.cover, c.stirrupDia);
-  const req: Requirement = { bottom: bottomReq, top: topReq, al: alReq, alMin, neglect: tor.neglect, torSection: tor.status !== 'fail', atOverS: atS };
+  const bySection = [
+    ...posReq.filter((x) => x.env.value > 1e-6 || x.s === 'span').map((x) => ({ section: x.s, sign: 'pos' as const, req: x.r.AsReq })),
+    ...negList.filter((x) => x.env.value > 1e-6).map((x) => ({ section: x.s, sign: 'neg' as const, req: x.r.AsReq })),
+  ];
+  const req: Requirement = { bottom: bottomReq, top: topReq, al: alReq, alMin, neglect: tor.neglect, torSection: tor.status !== 'fail', atOverS: atS, bySection };
 
   const initial: BeamAdopted = {
     bottom: proposeBeamFace(bottomReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
@@ -299,7 +314,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
 
   return {
     family: 'beam', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
-    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: Math.max(alReq, alMin), torsionNeglected: tor.neglect, tuDesign, skin: skin ? { dia: skin.diameter, spacing: skin.spacing } : null },
+    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: Math.max(alReq, alMin), torsionNeglected: tor.neglect, tuDesign, skin: skin ? { dia: skin.diameter, spacing: skin.spacing } : null, bySection },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications, combos: comboTable(d, c, a, fmt),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };
@@ -309,9 +324,10 @@ function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): Co
   const sd = a.stirrups.dia;
   const qs: BeamSectionQuery[] = [];
   for (const k of d.combos) {
-    qs.push(query(c, d, a.bottom, a.top, sd, k.nSpan, undefined, true), query(c, d, a.top, a.bottom, sd, k.nStart), query(c, d, a.top, a.bottom, sd, k.nEnd),
-      query(c, d, a.bottom, a.top, sd, k.nStart, undefined, true), query(c, d, a.bottom, a.top, sd, k.nEnd, undefined, true), query(c, d, a.top, a.bottom, sd, k.nSpan),
-      query(c, d, a.bottom, a.top, sd, k.nV, a.stirrups));
+    const S = barsAt(a, 'start'), M = barsAt(a, 'span'), E = barsAt(a, 'end');
+    qs.push(query(c, d, M.bottom, M.top, sd, k.nSpan, undefined, true), query(c, d, S.top, S.bottom, sd, k.nStart), query(c, d, E.top, E.bottom, sd, k.nEnd),
+      query(c, d, S.bottom, S.top, sd, k.nStart, undefined, true), query(c, d, E.bottom, E.top, sd, k.nEnd, undefined, true), query(c, d, M.top, M.bottom, sd, k.nSpan),
+      query(c, d, S.bottom, S.top, sd, k.nV, a.stirrups));
   }
   const ans = evaluateBeamSections(qs) ?? [];
   const cap = (i: number) => { const r = ans[i]; return r && r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0; };
