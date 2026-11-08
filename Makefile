@@ -511,6 +511,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_main_tested.py
 	python3 -B -I scripts/tests/test_cancel_superseded.py
 	python3 -B -I scripts/tests/test_ci_runners.py
+	python3 -B -I scripts/tests/test_heavy_pool.py
 	python3 -B -I scripts/tests/test_ci_events.py
 	python3 -B -I scripts/tests/test_post_merge_revert.py
 	python3 -B -I scripts/tests/test_revert_check.py

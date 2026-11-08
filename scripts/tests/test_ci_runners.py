@@ -12,6 +12,7 @@ WORKFLOWS = ROOT / '.github/workflows'
 SAME_REPO = 'github.event.pull_request.head.repo.full_name == github.repository'
 NOT_DEPENDABOT = "github.event.pull_request.user.login != 'dependabot[bot]'"
 TRUSTED = "(github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule'))"
+HEAVY = '${{ fromJSON(needs.plan.outputs.heavy_runs_on) }}'
 POST_MERGE = ("${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' && fromJSON('[\"self-hosted\",\"stabileo\"]') "
               "|| (github.ref == 'refs/heads/main' && github.event_name != 'schedule') && (vars.STABILEO_PR_POOL == 'true' "
               "&& fromJSON('[\"self-hosted\",\"stabileo-pr\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))) || 'ubuntu-24.04' }}")
@@ -243,7 +244,7 @@ class CiRunners(unittest.TestCase):
     def test_nightly_self_hosted_jobs_take_only_the_nightly_pool(self):
         for name, job in jobs('nightly.yml').items():
             runs_on = job['runs-on']
-            if runs_on != 'ubuntu-24.04':
+            if runs_on not in ('ubuntu-24.04', HEAVY):
                 self.assertEqual(labels(runs_on), {'stabileo-nightly'}, name)
                 self.assertTrue(runs_on.endswith("|| 'ubuntu-24.04' }}"), name)
 
@@ -258,7 +259,7 @@ class CiRunners(unittest.TestCase):
 
     def plan_night(self, event, hour):
         text = (WORKFLOWS / 'nightly.yml').read_text()
-        script = re.search(r'\n        run: \|\n(.*?)\n\n', text.split('\n  plan:\n', 1)[1], re.S).group(1)
+        script = re.search(r'\n        run: \|\n(.*?)\n(?:\n|      - )', text.split('\n  plan:\n', 1)[1], re.S).group(1)
         script = '\n'.join(line[10:] for line in script.split('\n'))
         with tempfile.TemporaryDirectory() as directory:
             fake = pathlib.Path(directory) / 'date'
@@ -288,7 +289,7 @@ class CiRunners(unittest.TestCase):
             for event in scheduled_events(text):
                 for name, job in parse(text).items():
                     runs_on = job.get('runs-on', '')
-                    if not runs_on.startswith('${{'):
+                    if not runs_on.startswith('${{') or runs_on == HEAVY:
                         continue
                     variables = sorted(set(re.findall(r'vars\.\w+', runs_on)))
                     for values in itertools.product(['true', None], repeat=len(variables)):
