@@ -188,7 +188,10 @@ def main():
                     if check == 'codeaster' and not any('y' in n and 'z' in n for n in model['nodes'].values()):
                         summary['comparisons'][check]['skipped'].append({'seed': seed, 'status': 'unsupported_2d'})
                         continue
+                    covered = summary['comparisons'][check].get('covered_models', 0)
                     failures = evaluate(model, check, seed, record=True)
+                    if check == 'metamorphic' and summary['comparisons'][check]['covered_models'] == covered:
+                        summary['comparisons'][check].setdefault('uncovered', []).append({'seed': seed, 'model': 'given' if a.model else dim})
                     pending = []
                     # Persist every failure before reduction, so a timeout cannot
                     # erase siblings. Replace each record atomically as it shrinks.
@@ -212,7 +215,8 @@ def main():
             else:
                 raise RuntimeError('too many rejected models; requested valid-model count not reached')
             if 'metamorphic' in checks and summary['comparisons']['metamorphic'].get('covered_models', 0) < summary['valid']:
-                raise RuntimeError('insufficient metamorphic coverage: each model requires a usable invariant')
+                uncovered = summary['comparisons']['metamorphic'].get('uncovered', [])
+                raise RuntimeError(f'insufficient metamorphic coverage: {len(uncovered)} of {summary["valid"]} models had no usable invariant (seeds under comparisons.metamorphic.uncovered in summary.json), and each model requires one')
         finally:
             (a.out / 'summary.json').write_text(json.dumps(summary, indent=2))
             print(json.dumps(summary), flush=True)
