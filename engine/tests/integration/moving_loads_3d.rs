@@ -296,3 +296,83 @@ fn moving_loads_3d_step_size_effect() {
         "Finer step should have more positions: {} vs {}",
         result_fine.num_positions, result_coarse.num_positions);
 }
+
+fn planar_span(rise: f64) -> SolverInput {
+    serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 8.0, "z": rise}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.05, "iz": 0.0001}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "pinned"}, "2": {"id": 2, "nodeId": 2, "type": "rollerX"}},
+        "loads": []
+    })).unwrap()
+}
+
+fn planar_moving_input(rise: f64) -> MovingLoadInput {
+    MovingLoadInput {
+        solver: planar_span(rise),
+        train: LoadTrain { name: "planar parity".into(), axles: vec![Axle { offset: 0.0, weight: 100.0 }] },
+        path_element_ids: Some(vec![1]),
+        step: Some(8.0_f64.hypot(rise) / 2.0),
+    }
+}
+
+fn embedded_moving_input(input: &MovingLoadInput, plane: dedaliano_engine::metamorphic::planes::Plane) -> MovingLoadInput3D {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+    MovingLoadInput3D {
+        solver: embed_2d(&input.solver, plane).unwrap(),
+        train: input.train.clone(),
+        step: input.step,
+        path_element_ids: input.path_element_ids.clone(),
+        gravity_direction: Some(if plane == Plane::XY { "y" } else { "z" }.into()),
+    }
+}
+
+fn assert_planar_value(actual: f64, expected: f64) {
+    assert!((actual - expected).abs() <= 1e-9 * expected.abs().max(1.0), "actual {actual}, expected {expected}");
+}
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_midspan_moving_moment_matches_embedded_2d() {
+    use dedaliano_engine::metamorphic::planes::Plane;
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
+    let input = planar_moving_input(0.0);
+    let reference = solve_moving_loads_2d(&input).unwrap();
+    let r = &reference.elements["1"];
+    let length = input.solver.nodes["2"].x;
+    let reaction = input.train.axles[0].weight / 2.0;
+    let midspan_moment = reaction * length / 2.0;
+    assert_planar_value(r.m_max_pos.max(-r.m_max_neg), midspan_moment);
+    for plane in Plane::ALL {
+        let embedded = embedded_moving_input(&input, plane);
+        let result = solve_moving_loads_3d(&embedded).unwrap();
+        let e = &result.elements["1"];
+        let a = &embedded.solver.nodes["1"];
+        let b = &embedded.solver.nodes["2"];
+        let (_, ey, ez) = dedaliano_engine::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z, None, None, None, None, false);
+        let dot = |v: [f64; 3], w: [f64; 3]| v.iter().zip(w).map(|(x, y)| x * y).sum::<f64>();
+        for (coefficient, pos, neg) in [(dot(plane.normal(), ey), e.my_max_pos, e.my_max_neg), (dot(plane.normal(), ez), e.mz_max_pos, e.mz_max_neg)] {
+            assert_planar_value(pos, (coefficient * r.m_max_pos).max(coefficient * r.m_max_neg));
+            assert_planar_value(neg, (coefficient * r.m_max_pos).min(coefficient * r.m_max_neg));
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_inclined_moving_axial_matches_embedded_2d() {
+    use dedaliano_engine::metamorphic::planes::Plane;
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
+    let input = planar_moving_input(6.0);
+    let reference = solve_moving_loads_2d(&input).unwrap();
+    let r = &reference.elements["1"];
+    assert!(r.n_max_pos.abs().max(r.n_max_neg.abs()) > 1.0);
+    for plane in Plane::ALL {
+        let result = solve_moving_loads_3d(&embedded_moving_input(&input, plane)).unwrap();
+        let e = &result.elements["1"];
+        assert_eq!(result.num_positions, reference.num_positions);
+        assert_planar_value(e.n_max_pos, r.n_max_pos);
+        assert_planar_value(e.n_max_neg, r.n_max_neg);
+    }
+}
