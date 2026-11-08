@@ -80,13 +80,15 @@ invariant under units but not under rotation, which is why `kinematic.rs` still 
 
 Up to 240 kept directions the spectrum of `S` is computed in full (cyclic Jacobi). Above,
 Lanczos with full reorthogonalization estimates `λ_max(S)` and, on a sparse Cholesky
-factor, `1/λ_min(S)`, each to a Ritz residual bound of `1e-9` (or `1e-6` after 200
-steps; a non-finite bound is a failure); the estimates are then
-certified by inertia: a Cholesky of `S − 0.999 λ_min I` and of `1.001 λ_max I − S` must
-both succeed, which proves `λ_min > 0.999 λ_min` and `λ_max < 1.001 λ_max`, and `κ_S` is
-the ratio of those bounds. An estimate that does not converge or does not certify, and a
-Cholesky of `S` that breaks down, give Singular: the threshold is never passed on an
-unproved number.
+factor, `1/λ_min(S)`, each until its Ritz residual is below `1e-9` of it or after 200
+steps (a non-finite value is a failure). A Ritz value never exceeds the extreme eigenvalue
+it estimates, but in a cluster (the equal spans of a long continuous beam) it can stop
+short of it, so the estimates are certified by inertia: a Cholesky of `S − ℓ I` and of
+`u I − S` must both succeed, with `ℓ = 0.999 λ_min` and `u = 1.001 λ_max` first, each
+halved or doubled up to ten times until it does. The successes prove
+`λ_min(S) > ℓ` and `λ_max(S) < u`, and `κ_S = u / ℓ` is an upper bound, never an
+underestimate. An estimate that does not certify, and a Cholesky of `S` that breaks down,
+give Singular: the threshold is never passed on an unproved number.
 
 With constraints, `K` is the reduced matrix and each independent DOF takes the node and
 kind of its physical DOF. For each node, the constraint's translation rows are applied to

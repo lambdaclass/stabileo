@@ -667,7 +667,7 @@ fn make_ss_plate(nx: usize, ny: usize) -> SolverInput3D {
             sid.to_string(),
             SolverSupport3D {
                 node_id: n,
-                rx: false, ry: false, rz: true,
+                rx: false, ry: n == grid[nx][0], rz: true,
                 rrx: false, rry: false, rrz: false,
                 kx: None, ky: None, kz: None,
                 krx: None, kry: None, krz: None,

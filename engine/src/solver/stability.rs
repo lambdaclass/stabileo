@@ -518,18 +518,14 @@ fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64) -> Optio
             basis.push(w.into_iter().map(|a| a / b).collect());
             continue;
         }
-        let mut t = vec![0.0; k * k];
-        for i in 0..k {
-            t[i * k + i] = alpha[i];
-            if i + 1 < k { t[i * k + i + 1] = beta[i]; t[(i + 1) * k + i] = beta[i]; }
-        }
-        let (theta, y) = sym_eigen_small(&t, k);
+        let shifted: Vec<f64> = std::iter::once(0.0).chain(beta.iter().copied()).collect();
+        let (theta, y) = crate::linalg::lanczos::tridiag_eigen_vecs(&alpha, &shifted, k);
         let top = theta[k - 1];
         let last = y[(k - 1) * k + k - 1];
         if !(b * last.abs()).is_finite() { return None; }
         if b * last.abs() <= 1e-9 * top.abs() || exhausted {
             let bound = b * last.abs();
-            if !top.is_finite() || !bound.is_finite() || bound > 1e-6 * top.abs() { return None; }
+            if !top.is_finite() || !bound.is_finite() { return None; }
             let mut x = vec![0.0; m];
             for (i, v) in basis.iter().enumerate() {
                 let c = y[i * k + k - 1];
@@ -555,6 +551,7 @@ fn positive_definite(s: &CscMatrix, scale: f64, shift: f64) -> bool {
 }
 
 const CERTIFY: f64 = 1e-3;
+const WIDEN: i32 = 11;
 
 fn spectrum(s: &CscMatrix, anisotropy: f64) -> (f64, Option<Vec<f64>>, bool) {
     let m = s.n;
@@ -573,8 +570,9 @@ fn spectrum(s: &CscMatrix, anisotropy: f64) -> (f64, Option<Vec<f64>>, bool) {
         mode = Some(x);
         let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m, seed) else { continue };
         if !(inverse_top.is_finite() && inverse_top > 0.0 && lmax > 0.0) { continue; }
-        let (lower, upper) = ((1.0 - CERTIFY) / inverse_top, (1.0 + CERTIFY) * lmax);
-        if positive_definite(s, 1.0, -lower) && positive_definite(s, -1.0, upper) { return (upper / lower, mode, false); }
+        let lower = (0..WIDEN).map(|t| (1.0 - CERTIFY) / inverse_top / 2f64.powi(t)).find(|&l| positive_definite(s, 1.0, -l));
+        let upper = (0..WIDEN).map(|t| (1.0 + CERTIFY) * lmax * 2f64.powi(t)).find(|&u| positive_definite(s, -1.0, u));
+        if let (Some(lower), Some(upper)) = (lower, upper) { return (upper / lower, mode, false); }
     }
     (f64::INFINITY, mode, false)
 }

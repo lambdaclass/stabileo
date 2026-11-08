@@ -307,7 +307,7 @@ pub fn tridiag_eigen(alpha: &[f64], beta: &[f64], m: usize) -> Vec<f64> {
 
 /// Solve eigenvalues AND eigenvectors of symmetric tridiagonal matrix.
 /// Returns (eigenvalues sorted ascending, eigenvectors as m×m row-major).
-fn tridiag_eigen_vecs(alpha: &[f64], beta: &[f64], m: usize) -> (Vec<f64>, Vec<f64>) {
+pub(crate) fn tridiag_eigen_vecs(alpha: &[f64], beta: &[f64], m: usize) -> (Vec<f64>, Vec<f64>) {
     if m == 0 { return (vec![], vec![]); }
     if m == 1 { return (vec![alpha[0]], vec![1.0]); }
 

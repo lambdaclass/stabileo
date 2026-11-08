@@ -71,7 +71,7 @@ fn make_ss_plate(nx: usize, ny: usize) -> SolverInput3D {
             sid.to_string(),
             SolverSupport3D {
                 node_id: n,
-                rx: false, ry: false, rz: true,
+                rx: false, ry: n == grid[nx][0], rz: true,
                 rrx: false, rry: false, rrz: false,
                 kx: None, ky: None, kz: None,
                 krx: None, kry: None, krz: None,
@@ -917,11 +917,17 @@ fn fill_ratio_regression() {
     }
 }
 
+fn free_in_plane(mut plate: SolverInput3D) -> SolverInput3D {
+    let corner = plate.nodes.values().find(|n| n.x == 10.0 && n.y == 0.0).unwrap().id;
+    plate.supports.values_mut().find(|s| s.node_id == corner).unwrap().ry = false;
+    plate
+}
+
 #[test]
 fn modal_refuses_the_plate_whose_in_plane_rotation_only_drilling_stiffness_holds() {
     let mut densities = HashMap::new();
     densities.insert("1".to_string(), 7850.0);
-    let e = modal::solve_modal_3d(&make_ss_plate(8, 8), &densities, 5).unwrap_err();
+    let e = modal::solve_modal_3d(&free_in_plane(make_ss_plate(8, 8)), &densities, 5).unwrap_err();
     assert!(e.starts_with("MODAL-MECHANISM: "), "{e}");
 }
 
@@ -1010,7 +1016,7 @@ fn infinity_norm(matrix: &dedaliano_engine::linalg::CscMatrix) -> f64 {
 /// K⁻¹ rounding along it must not block locking the higher modes.
 #[test]
 fn near_mechanism_plate_modal_is_complete() {
-    let input = make_ss_plate(8, 8);
+    let input = free_in_plane(make_ss_plate(8, 8));
     let mut densities = HashMap::new();
     densities.insert("1".to_string(), 7850.0);
     let dof_num = DofNumbering::build_3d(&input);
@@ -1240,7 +1246,7 @@ fn make_ss_plate_with_grid(nx: usize, ny: usize) -> (SolverInput3D, Vec<Vec<usiz
             sid.to_string(),
             SolverSupport3D {
                 node_id: n,
-                rx: false, ry: false, rz: true,
+                rx: false, ry: n == grid[nx][0], rz: true,
                 rrx: false, rry: false, rrz: false,
                 kx: None, ky: None, kz: None,
                 krx: None, kry: None, krz: None,

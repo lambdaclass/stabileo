@@ -700,3 +700,38 @@ fn issue_1651_the_linear_solve_refuses_in_every_plane() { the_linear_solve_refus
 
 #[test]
 fn issue_1106_the_linear_solve_refuses_in_both_load_directions() { the_linear_solve_refuses_what_the_verdict_refuses(1106) }
+
+fn continuous_beam(spans: usize) -> dedaliano_engine::types::SolverInput {
+    let n = 10 * spans;
+    let nodes: serde_json::Map<String, serde_json::Value> = (0..=n).map(|i| (i.to_string(), serde_json::json!({"id": i, "x": i as f64, "z": 0.0}))).collect();
+    let elements: serde_json::Map<String, serde_json::Value> = (0..n)
+        .map(|i| (i.to_string(), serde_json::json!({"id": i, "type": "frame", "nodeI": i, "nodeJ": i + 1, "materialId": 1, "sectionId": 1})))
+        .collect();
+    let mut supports = serde_json::Map::new();
+    supports.insert("0".into(), serde_json::json!({"id": 0, "nodeId": 0, "type": "fixed"}));
+    for i in (10..=n).step_by(10) {
+        supports.insert(i.to_string(), serde_json::json!({"id": i, "nodeId": i, "type": "pinned"}));
+    }
+    serde_json::from_value(serde_json::json!({
+        "nodes": nodes, "elements": elements, "supports": supports,
+        "materials": {"1": {"id": 1, "e": 200e3, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+        "loads": [{"type": "nodal", "data": {"nodeId": n / 2 + 5, "fx": 0.0, "fz": -10.0, "my": 0.0}}]
+    }))
+    .unwrap()
+}
+
+/// The equal spans of a long continuous beam cluster the extreme eigenvalues of `S`, where a
+/// Lanczos estimate stops short of the extreme: above 240 kept directions the certified
+/// condition number must still agree with the full spectrum's, and the beam is solved.
+#[test]
+fn a_long_continuous_beam_is_stable_past_the_full_spectrum() {
+    let dense = stability::of_2d(&continuous_beam(7)).unwrap();
+    assert!(dense.is_stable(), "{:?}", dense.refusal());
+    for spans in [10, 20, 40] {
+        let input = continuous_beam(spans);
+        let s = stability::of_2d(&input).unwrap();
+        assert!(s.is_stable() && s.kappa >= dense.kappa && s.kappa < 2.0 * dense.kappa, "{spans} spans: kappa {:e} against {:e}", s.kappa, dense.kappa);
+        dedaliano_engine::solver::linear::solve_2d(&input).unwrap_or_else(|e| panic!("{spans} spans: {e}"));
+    }
+}
