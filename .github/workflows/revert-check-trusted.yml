@@ -1,0 +1,78 @@
+name: Revert Check (trusted)
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+  workflow_run:
+    workflows: [CI]
+    types: [requested]
+
+permissions: {}
+
+concurrency:
+  group: >-
+    ${{ ((github.event_name == 'pull_request_target' && github.event.pull_request.base.ref == github.event.repository.default_branch && (github.event.action != 'edited' || github.event.changes.base != null) && ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'reverts-ok')) || (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'merge_group'))
+    && format('revert-check-trusted-{0}', github.event.pull_request.number || github.event.workflow_run.head_sha)
+    || format('revert-check-trusted-ignored-{0}', github.run_id) }}
+  cancel-in-progress: true
+
+jobs:
+  start:
+    name: Mark the check pending
+    if: (github.event_name == 'pull_request_target' && github.event.pull_request.base.ref == github.event.repository.default_branch && (github.event.action != 'edited' || github.event.changes.base != null) && ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'reverts-ok')) || (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'merge_group')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      statuses: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+          URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: gh api -X POST "repos/$GH_REPO/statuses/$SHA" -f state=pending -f context='Revert Check (trusted)' -f description='Running the base branch definition' -f target_url="$URL" --silent
+
+  check:
+    name: Check with the base branch's definition
+    needs: start
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch the commits under test as data, never checked out
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+        run: git fetch --no-tags --quiet origin "$HEAD_SHA"
+      - name: The merge deletes no recent lines the branch never had
+        env:
+          MODE: ${{ github.event_name == 'workflow_run' && 'queue' || 'pr' }}
+          BASE: ${{ github.event_name == 'pull_request_target' && github.sha || '' }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+          PR: ${{ github.event.pull_request.number }}
+          QUEUE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: .github/scripts/revert-check-trusted.sh
+
+  report:
+    name: Report the result on the commit
+    needs: [start, check]
+    if: always() && needs.start.result == 'success' && needs.check.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      statuses: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+          STATE: ${{ needs.check.result == 'success' && 'success' || 'failure' }}
+          URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: gh api -X POST "repos/$GH_REPO/statuses/$SHA" -f state="$STATE" -f context='Revert Check (trusted)' -f description="Base branch definition, $STATE" -f target_url="$URL" --silent
