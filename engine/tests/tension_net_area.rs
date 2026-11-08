@@ -267,3 +267,41 @@ fn the_geometry_op_names_the_kind_and_its_connected_elements() {
     let r = geometry_answer(&NetAreaSection { shape: Some("CHS".into()), ..Default::default() }).unwrap();
     assert_eq!(serde_json::to_value(r).unwrap(), serde_json::json!({"refused": {"code": "tube"}}));
 }
+
+fn staggered_plate(lines: f64, pitch: f64, s: f64, g: f64) -> (NetAreaSection, EndConnection) {
+    let end = EndConnection::Bolted {
+        connected: Connected::All, diameter_mm: Some(20.0), hole_mm: Some(22.0), bolts_per_line: Some(3.0), lines: Some(lines),
+        web_lines: None, pitch_mm: Some(pitch), stagger: Some(Stagger { s_mm: Some(s), g_mm: Some(g) }),
+    };
+    (plate(0.3, 0.012, 0.0036), end)
+}
+
+#[test]
+fn a_partial_staggered_chain_can_govern() {
+    let (p, e) = staggered_plate(4.0, 200.0, 70.0, 70.0);
+    let straight = 2.0 * 24.0 * 12.0;
+    let full = 4.0 * 24.0 * 12.0 - 3.0 * 70.0 * 70.0 * 12.0 / (4.0 * 70.0);
+    let through_1_3_4 = 3.0 * 24.0 * 12.0 - 70.0 * 70.0 * 12.0 / (4.0 * 70.0);
+    assert!(through_1_3_4 > straight && through_1_3_4 > full);
+    close(ok(&p, &e).an * 1e6, 3600.0 - through_1_3_4, 1e-9);
+}
+
+#[test]
+fn the_diagonal_to_the_next_bolt_of_the_line_can_be_shorter_than_the_stagger() {
+    let (p, e) = staggered_plate(2.0, 80.0, 60.0, 50.0);
+    let s = 80.0_f64 - 60.0;
+    close(ok(&p, &e).an * 1e6, 3600.0 - (2.0 * 24.0 * 12.0 - s * s * 12.0 / (4.0 * 50.0)), 1e-9);
+}
+
+#[test]
+fn every_element_connected_needs_bolts_in_the_web_or_the_second_leg() {
+    let all = |web_lines: f64| EndConnection::Bolted {
+        connected: Connected::All, diameter_mm: Some(16.0), hole_mm: Some(18.0), bolts_per_line: Some(3.0), lines: Some(1.0),
+        web_lines: Some(web_lines), pitch_mm: Some(50.0), stagger: None,
+    };
+    assert_eq!(code(&ipe200(), &all(0.0)), "webLines");
+    assert_eq!(code(&l100(), &all(0.0)), "webLines");
+    assert_eq!(code(&sec("T", 0.15, 0.2, 0.008, 0.012, 0.0035), &all(0.0)), "webLines");
+    assert_eq!(ok(&ipe200(), &all(1.0)).clause, "D.3(1)");
+    assert_eq!(ok(&l100(), &all(1.0)).clause, "D.3(1)");
+}
