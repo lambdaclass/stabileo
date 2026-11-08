@@ -170,6 +170,12 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-048",
+          "Acier CIRSOC 301 : Cb manquait un changement de signe aux extrémités d’une longueur non maintenue déclarée plus courte que la barre (un profilé U en double courbure recevait Cb = 2,55 au lieu de 1, résistance au déversement surestimée) ; 0.2.0 à 0.5.0",
+          "Élevée",
+          "Corrigé après 0.5.0 ; sur stabileo.com depuis le 8 novembre 2026"
+        ],
+        [
           "SA-2026-037",
           "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
           "Moyenne",
