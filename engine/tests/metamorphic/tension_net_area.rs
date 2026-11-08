@@ -109,7 +109,8 @@ fn metamorphic_pr_net_area_staggered_plate_takes_the_worst_of_every_chain() {
     for seed in SEEDS {
         let mut rng = Rng::new(seed);
         let lines = 2 + rng.below(6);
-        let (s, g, pitch) = (rng.range(20.0, 120.0), rng.range(30.0, 90.0), rng.range(40.0, 200.0));
+        let (pitch, g) = (rng.range(40.0, 200.0), rng.range(30.0, 90.0));
+        let s = rng.range(0.05, 0.95) * pitch;
         let t = rng.range(0.006, 0.025);
         let w = (lines as f64 + 1.0) * g / 1000.0;
         let ag = w * t;
@@ -119,7 +120,7 @@ fn metamorphic_pr_net_area_staggered_plate_takes_the_worst_of_every_chain() {
             web_lines: None, pitch_mm: Some(pitch), stagger: Some(Stagger { s_mm: Some(s), g_mm: Some(g) }),
         };
         let r = end_net_area(&section, &end).unwrap_or_else(|e| panic!("seed {seed}: {e:?}"));
-        let s_eff = if pitch > s { s.min(pitch - s) } else { s };
+        let s_eff = s.min(pitch - s);
         let expected = brute_force_chain(lines, 20.0, s_eff, g) * t * 1e-3;
         assert!((ag - r.an - expected).abs() <= 1e-12 * ag, "seed {seed}: deducted {} against {expected}", ag - r.an);
     }

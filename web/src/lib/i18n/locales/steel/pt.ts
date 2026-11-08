@@ -1267,6 +1267,7 @@ const steelPt: Record<string, string> = {
   'steel.tc.refuse.pitch': 'Informe o passo na direção da força.',
   'steel.tc.refuse.stagger': 'O zigue-zague precisa de s, g e pelo menos duas linhas.',
   'steel.tc.refuse.staggerWithWebLines': 'Zigue-zague junto com linhas na alma: essas cadeias de falha não são cobertas.',
+  'steel.tc.refuse.staggerPitch': 'Zigue-zague com s não menor que o passo: indique s como o deslocamento entre linhas vizinhas, menor que o passo.',
   'steel.tc.refuse.holesDoNotFit': 'Os furos não cabem na largura do elemento.',
   'steel.tc.refuse.netArea': 'A área líquida resulta nula ou negativa.',
   'steel.tc.refuse.weldLength': 'Informe o comprimento das soldas longitudinais.',

@@ -45,7 +45,8 @@ export type FeatureId = (typeof FEATURE_IDS)[number];
 
 type Entries<T> = Array<[number, T]> | undefined;
 interface Mat { id: number; fy?: number; gradeId?: string; name?: string; e?: number }
-interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: number; stagger?: unknown }
+interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: number; stagger?: { sMm?: number; gMm?: number } }
+const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.gMm].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 interface Elem {
   id: number; type?: string; materialId: number; sectionId?: number; nodeI: number; nodeJ: number;
   releaseI?: Record<string, unknown>; releaseJ?: Record<string, unknown>;
@@ -172,7 +173,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       steel++;
       if (!e.tensionConnection?.i || !e.tensionConnection?.j) steelWithoutConnection++;
       if ((e.unbracedLength ?? 0) > 0 || e.bracing?.top?.length || e.bracing?.bottom?.length) steelDeclaredLb++;
-      if ([e.tensionConnection?.i, e.tensionConnection?.j].some((c) => c?.kind === 'bolted' && (c.stagger || (c.connected === 'all' && c.webLines === 0)))) steelChainEnd++;
+      if ([e.tensionConnection?.i, e.tensionConnection?.j].some((c) => c?.kind === 'bolted' && (staggerGiven(c.stagger) || (c.connected === 'all' && c.webLines === 0)))) steelChainEnd++;
     } else if (fam === 'concrete' || e.reinforcement) {
       concrete++;
     }

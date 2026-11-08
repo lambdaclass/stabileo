@@ -305,3 +305,18 @@ fn every_element_connected_needs_bolts_in_the_web_or_the_second_leg() {
     assert_eq!(ok(&ipe200(), &all(1.0)).clause, "D.3(1)");
     assert_eq!(ok(&l100(), &all(1.0)).clause, "D.3(1)");
 }
+
+#[test]
+fn a_stagger_not_shorter_than_the_pitch_is_refused() {
+    for s in [80.0, 100.0, 160.0] {
+        let (p, e) = staggered_plate(2.0, 80.0, s, 50.0);
+        assert_eq!(code(&p, &e), "staggerPitch", "s = {s}");
+    }
+    let (p, e) = staggered_plate(2.0, 80.0, 40.0, 50.0);
+    close(ok(&p, &e).an * 1e6, 3600.0 - (2.0 * 24.0 * 12.0 - 40.0 * 40.0 * 12.0 / 200.0), 1e-9);
+    let single = EndConnection::Bolted {
+        connected: Connected::All, diameter_mm: Some(20.0), hole_mm: Some(22.0), bolts_per_line: Some(1.0), lines: Some(2.0),
+        web_lines: None, pitch_mm: None, stagger: Some(Stagger { s_mm: Some(100.0), g_mm: Some(50.0) }),
+    };
+    assert_eq!(ok(&p, &single).clause, "D.3(1)");
+}

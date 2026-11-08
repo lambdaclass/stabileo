@@ -584,7 +584,8 @@ pub fn end_net_area(section: &NetAreaSection, end: &EndConnection) -> Result<End
                         return Err(refuse_as("stagger", "oneLine"));
                     }
                     let s = match pitch {
-                        Some(p) if nb >= 2.0 && p > s => s.min(p - s),
+                        Some(p) if nb >= 2.0 && s >= p => return Err(refuse("staggerPitch")),
+                        Some(p) if nb >= 2.0 => s.min(p - s),
                         _ => s,
                     };
                     Some((s / 1000.0, gg / 1000.0))

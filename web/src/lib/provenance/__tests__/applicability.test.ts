@@ -66,6 +66,8 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { j: bolted({ stagger: { sMm: 40, gMm: 60 } }) } })] }))).toContain(id);
     expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ connected: 'all', webLines: 0 }) } })] }))).toContain(id);
     expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ connected: 'all', webLines: 1 }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: { sMm: 40 } }) } })] }))).not.toContain(id);
     expect(ids(model({ elements: [member(1, 2, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })] }))).not.toContain(id);
     expect(ids(model({
       elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })],

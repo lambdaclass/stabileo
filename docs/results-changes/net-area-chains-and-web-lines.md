@@ -14,7 +14,9 @@ hole at its nominal dimension plus 2 mm, and each diagonal of a chain credits s�
   3·24·12 − 70²·12/(4·70) = 654 mm². Ae was 3 024 mm² instead of 2 946 mm² (2.6 % high).
 - **The shorter diagonal.** Alternate lines staggered s at a pitch p also have the diagonal
   p − s to the line's next bolt. At s = 60 mm, p = 80 mm and g = 50 mm two lines deduct
-  2·24·12 − 20²·12/(4·50) = 552 mm², not 576 − 60²·12/200 = 360 mm².
+  2·24·12 − 20²·12/(4·50) = 552 mm², not 576 − 60²·12/200 = 360 mm². A stagger s not shorter than
+  the pitch puts holes of adjacent lines in line or nearer than s; it is refused
+  (`staggerPitch`) with s to be given as the shift between adjacent lines.
 - **An all-elements bolted end with no web lines.** `connected: 'all'` with zero lines in the web
   (or in the second leg of an angle) got Ae = An and U = 1 under D.3(1), but only the flanges
   (or one leg) carry bolts, so D.3(2)(a) with U = 1 − x̄/L applies.

@@ -145,7 +145,7 @@ export type TensionGeometry = { kind: GeometryKind; options: ConnectedElements[]
 export type RefusalCode =
   | 'noShape' | 'tube' | 'coldFormed' | 'drawn' | 'builtUp' | 'builtUpPart' | 'shape'
   | 'dimensions' | 'area' | 'connectedForShape' | 'diameter' | 'holeNotTabulated'
-  | 'boltsPerLine' | 'lines' | 'webLines' | 'pitch' | 'stagger' | 'staggerWithWebLines'
+  | 'boltsPerLine' | 'lines' | 'webLines' | 'pitch' | 'stagger' | 'staggerPitch' | 'staggerWithWebLines'
   | 'holesDoNotFit' | 'netArea' | 'weldLength' | 'plateWeldShort' | 'missing';
 
 export interface Refusal {
@@ -253,6 +253,7 @@ function refusalMessage(why: EngineRefusal, s: TensionSectionInput, end?: EndCon
     case 'lines': return 'falta el numero de filas por elemento unido (entero ≥ 1)';
     case 'webLines': return 'todos los elementos unidos: falta el numero de filas en el alma (o en la otra ala)';
     case 'pitch': return 'falta el paso entre bulones a lo largo de la fuerza';
+    case 'staggerPitch': return 'tresbolillo con s no menor que el paso: s es el corrimiento entre filas vecinas';
     case 'staggerWithWebLines': return 'tresbolillo combinado con filas en el alma: cadenas no cubiertas';
     case 'stagger': return why.variant === 'oneLine' ? 'tresbolillo con una sola fila' : 'tresbolillo sin s o g';
     case 'holesDoNotFit': return `${why.n} agujeros de ${mm(why.dh!)} mm no caben en un elemento de ${mm(why.width!, 0)} mm`;
