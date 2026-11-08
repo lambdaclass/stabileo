@@ -40,8 +40,20 @@ pub struct UnconstrainedDof {
 
 /// Count support restraints for 2D.
 fn count_support_restraints_2d(sup: &SolverSupport) -> (i32, bool) {
-    let held = support_dofs_2d(sup).map(|d| d.restrained || d.spring.is_some_and(|k| k > 0.0));
-    (held.iter().filter(|&&h| h).count() as i32, held[2])
+    let dofs = support_dofs_2d(sup);
+    let held = dofs.map(|d| d.restrained || d.spring.is_some_and(|k| k > 0.0));
+    let translations = if sup.support_type == "inclinedRoller" {
+        let normal = inclined_rotation_matrix_2d(sup.angle.unwrap_or(0.0))[1];
+        let normal_scale = normal.iter().fold(0.0f64, |scale, component| scale.max(component.abs()));
+        let direction_tol = 8.0 * f64::EPSILON * normal_scale;
+        let springs: [bool; 2] = std::array::from_fn(|i| dofs[i].spring.is_some_and(|k| k > 0.0));
+        let normal_is_independent = normal.iter().zip(springs)
+            .any(|(&component, spring)| !spring && component.abs() > direction_tol);
+        springs.iter().filter(|&&spring| spring).count() as i32 + i32::from(normal_is_independent)
+    } else {
+        held[..2].iter().filter(|&&h| h).count() as i32
+    };
+    (translations + i32::from(held[2]), held[2])
 }
 
 /// Compute the static degree of indeterminacy for a 2D structure.

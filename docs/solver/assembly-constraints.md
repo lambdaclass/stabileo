@@ -187,7 +187,7 @@ a positive spring (`kx … krz`, `kw`) is contradictory input and is refused wit
 springs on free DOFs are elastic. `support.rs` is the shared rule for numbering, support readers
 and conflict validation. An inclined support
 (`isInclined` with a non-zero normal) restrains rotated slot 0 (the normal), frees slots 1, 2,
-and takes rotations and warping from the flags (`inclined_restrained_3d`).
+and takes rotations and warping from the flags (`support_dofs_3d`).
 
 Several supports on one node: plain rigid ones merge by OR; any other combination (a spring, a
 settlement, an angle or an inclined direction on one of them) is refused

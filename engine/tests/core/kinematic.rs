@@ -146,7 +146,6 @@ fn inclined_2d_spring_beam(angle: Option<f64>, springs: [Option<f64>; 3]) -> Sol
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_inclined_2d_normal_and_global_y_spring_are_independent() {
     let input = inclined_2d_spring_beam(
         Some(std::f64::consts::FRAC_PI_4), [None, Some(1.0), None],
@@ -160,7 +159,6 @@ fn issue_1780_inclined_2d_normal_and_global_y_spring_are_independent() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_inclined_2d_normal_and_global_x_spring_coincide() {
     let input = inclined_2d_spring_beam(
         Some(std::f64::consts::FRAC_PI_2), [Some(1.0), None, None],
@@ -174,7 +172,6 @@ fn issue_1780_inclined_2d_normal_and_global_x_spring_coincide() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_inclined_2d_periodic_normal_and_global_x_spring_coincide() {
     let input = inclined_2d_spring_beam(
         Some(3.0 * std::f64::consts::FRAC_PI_2), [Some(1.0), None, None],
@@ -188,7 +185,6 @@ fn issue_1780_inclined_2d_periodic_normal_and_global_x_spring_coincide() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_inclined_2d_near_quarter_turn_normal_and_global_x_spring_coincide() {
     for offset in [-4.0 * f64::EPSILON, 4.0 * f64::EPSILON] {
         let input = inclined_2d_spring_beam(
@@ -204,7 +200,6 @@ fn issue_1780_inclined_2d_near_quarter_turn_normal_and_global_x_spring_coincide(
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_inclined_2d_count_matches_direction_rank() {
     use std::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI};
     let cases = [
