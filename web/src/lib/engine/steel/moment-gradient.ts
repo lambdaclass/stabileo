@@ -3,7 +3,9 @@
  * (`engine/src/postprocess/cirsoc301_inputs.rs`). Computing Cb does not certify the bracing that
  * bounds the segment (Apéndice 6 §6.1).
  */
-import { EngineCheckError, EngineUnavailableError } from '../engine-unavailable';
+import { cirsoc301InputsRequest } from './cirsoc301-inputs';
+
+export { registerCirsoc301InputsKernel, cirsoc301InputsAvailable } from './cirsoc301-inputs';
 
 export interface StationMoment {
   t: number;
@@ -34,22 +36,8 @@ export interface MomentGradientInput {
   cantileverFreeEnd?: boolean;
 }
 
-type JsonFn = (json: string) => string;
-
-let kernel: JsonFn | null = null;
-
-export function registerCirsoc301InputsKernel(fn: JsonFn | null): void { kernel = fn; }
-
-export function cirsoc301InputsAvailable(): boolean { return kernel !== null; }
-
-const WHAT = 'the CIRSOC 301 moment gradient Cb';
-
 export function momentGradient(input: MomentGradientInput): MomentGradient {
-  if (!kernel) throw new EngineUnavailableError(WHAT);
-  let raw: string;
-  try { raw = kernel(JSON.stringify({ op: 'momentGradient', ...input })); }
-  catch (e) { throw new EngineCheckError(WHAT, e instanceof Error ? e.message : String(e)); }
-  return JSON.parse(raw) as MomentGradient;
+  return cirsoc301InputsRequest<MomentGradient>('momentGradient', 'the CIRSOC 301 moment gradient Cb', input);
 }
 
 export const cbBasisKey = (b: CbBasis): string => `steel.cb.basis.${b}`;
