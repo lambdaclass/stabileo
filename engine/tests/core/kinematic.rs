@@ -213,6 +213,92 @@ fn test_3d_cantilever_isostatic() {
 }
 
 #[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_inclined_z_normal_and_global_x_spring_are_independent_restraints() {
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
+        vec![(1, 200000.0, 0.3)],
+        vec![(1, 0.01, 0.001, 0.001, 0.002)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![
+            (1, 1, true, true, true, true, true, true),
+            (2, 2, false, false, false, false, false, false),
+        ],
+    );
+    let normal = [0.0, 0.0, 1.0];
+    let spring_direction = [1.0, 0.0, 0.0];
+    let dot: f64 = normal.iter().zip(spring_direction).map(|(a, b)| a * b).sum();
+    assert_eq!(dot, 0.0);
+    let independent_directions = [normal, spring_direction].len() as i32;
+    assert_eq!(independent_directions, 2);
+    let support = input.supports.get_mut("2").unwrap();
+    support.is_inclined = Some(true);
+    support.normal_x = Some(normal[0]);
+    support.normal_y = Some(normal[1]);
+    support.normal_z = Some(normal[2]);
+    support.kx = Some(1.0);
+    let fixed_base_directions = 6;
+    let expected_degree = 6 * input.elements.len() as i32 + fixed_base_directions
+        + independent_directions - 6 * input.nodes.len() as i32;
+    let result = analyze_kinematics_3d(&input);
+    assert_eq!(result.invalid_input, None);
+    assert!(result.is_solvable);
+    assert_eq!(result.degree, expected_degree);
+    assert_eq!(result.classification, "hyperstatic");
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_inclined_restraint_count_matches_global_direction_rank() {
+    fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+        [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+    }
+    let axes = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+    for normal in [axes[0], axes[1], axes[2], [0.0, 0.0, -2.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0]] {
+        for spring_mask in 0..8 {
+            let springs: [Option<f64>; 3] = std::array::from_fn(|i| {
+                if spring_mask & (1 << i) != 0 { Some(1.0) } else { None }
+            });
+            let mut directions = vec![normal];
+            directions.extend((0..3).filter(|&i| springs[i].is_some()).map(|i| axes[i]));
+            let mut expected_rank = 1;
+            for &a in &directions {
+                for &b in &directions {
+                    let perpendicular = cross(a, b);
+                    if perpendicular != [0.0; 3] {
+                        expected_rank = expected_rank.max(2);
+                    }
+                    for c in &directions {
+                        let determinant: f64 = perpendicular.iter().zip(c).map(|(x, y)| x * y).sum();
+                        if determinant != 0.0 {
+                            expected_rank = 3;
+                        }
+                    }
+                }
+            }
+            let mut input = make_3d_input(
+                vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
+                vec![(1, 200000.0, 0.3)],
+                vec![(1, 0.01, 0.001, 0.001, 0.002)],
+                vec![(1, "frame", 1, 2, 1, 1)],
+                vec![
+                    (1, 1, true, true, true, true, true, true),
+                    (2, 2, false, false, false, false, false, false),
+                ],
+            );
+            let support = input.supports.get_mut("2").unwrap();
+            support.is_inclined = Some(true);
+            (support.normal_x, support.normal_y, support.normal_z) = (Some(normal[0]), Some(normal[1]), Some(normal[2]));
+            (support.kx, support.ky, support.kz) = (springs[0], springs[1], springs[2]);
+            let result = analyze_kinematics_3d(&input);
+            assert_eq!(result.invalid_input, None, "{normal:?}, {spring_mask}");
+            assert!(result.is_solvable, "{normal:?}, {spring_mask}");
+            assert_eq!(result.degree, expected_rank, "{normal:?}, {spring_mask}");
+        }
+    }
+}
+
+#[test]
 fn test_3d_portal_frame() {
     // 3D portal frame: 2 columns + 1 beam, 2 fixed supports
     let input = make_3d_input(
