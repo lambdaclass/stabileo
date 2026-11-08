@@ -404,6 +404,240 @@ fn connector_assembly_paths_agree() {
     }
 }
 
+const ARM3_N2: [f64; 3] = [1.1371208653147953, 0.31, 2.0645282926496574];
+const ARM3_N3: [f64; 3] = [3.2799299386832868, 0.9134828995990915, 2.3626039462332425];
+
+enum Node3Rotation {
+    Free,
+    Restrained,
+    Frame { bending_released: bool },
+}
+
+fn arm_pair_3d(k_torsion: f64, node3: Node3Rotation, padded: bool, scale: f64) -> SolverInput3D {
+    arm_pair_3d_at(ARM3_N3, k_torsion, node3, padded, scale)
+}
+
+fn arm_pair_3d_at(n3: [f64; 3], k_torsion: f64, node3: Node3Rotation, padded: bool, scale: f64) -> SolverInput3D {
+    let pin = vec![true, true, true, false, false, false];
+    let mut nodes = vec![
+        (1, 0.0, 0.0, 0.0), (2, ARM3_N2[0], ARM3_N2[1], ARM3_N2[2]), (3, n3[0], n3[1], n3[2]),
+        (4, 4.0, 0.2, 0.1), (5, 1.7, 3.1, 0.4),
+    ];
+    let chain = if padded { 30 } else { 1 };
+    nodes.extend((0..=chain).map(|k| (100 + k, 50.0, 0.0, 6.0 * k as f64 / chain as f64)));
+    let mut elems = vec![(1, "truss", 1, 2, 1, 1), (2, "truss", 4, 2, 1, 1), (3, "truss", 5, 2, 1, 1), (4, "truss", 1, 3, 1, 1), (5, "truss", 4, 3, 1, 1), (6, "truss", 5, 3, 1, 1)];
+    elems.extend((0..chain).map(|k| (100 + k, "frame", 100 + k, 101 + k, 1, 1)));
+    let mut sups = vec![(1, pin.clone()), (4, pin.clone()), (5, pin), (100, vec![true; 6])];
+    match node3 {
+        Node3Rotation::Free => {}
+        Node3Rotation::Restrained => sups.push((3, vec![false, false, false, true, true, true])),
+        Node3Rotation::Frame { .. } => {
+            nodes.push((6, 3.9, -1.3, 4.1));
+            elems.push((7, "frame", 3, 6, 1, 1));
+            sups.push((6, vec![true; 6]));
+        }
+    }
+    let mut input = make_3d_input(
+        nodes,
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.01, 2e-4, 1e-4, 1e-4)],
+        elems,
+        sups,
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 3.0 * scale, fy: 1.0 * scale, fz: -10.0 * scale, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+    );
+    if let Node3Rotation::Frame { bending_released: true } = node3 {
+        let e = input.elements.get_mut("7").unwrap();
+        e.release_my_start = true;
+        e.release_mz_start = true;
+    }
+    input.connectors.insert("1".into(), ConnectorElement {
+        id: 1, node_i: 2, node_j: 3, k_axial: 12522.881824758246, k_shear: 1940.454941227356, k_moment: k_torsion,
+        k_shear_z: 3311.0937, k_bend_y: 0.0, k_bend_z: 0.0,
+    });
+    input
+}
+
+fn disp3_at(r: &AnalysisResults3D, node: usize) -> ([f64; 3], [f64; 3]) {
+    let d = r.displacements.iter().find(|d| d.node_id == node).unwrap();
+    ([d.ux, d.uy, d.uz], [d.rx, d.ry, d.rz])
+}
+
+fn arm3_axis() -> ([f64; 3], f64) {
+    let d = [ARM3_N3[0] - ARM3_N2[0], ARM3_N3[1] - ARM3_N2[1], ARM3_N3[2] - ARM3_N2[2]];
+    let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+    ([d[0] / l, d[1] / l, d[2] / l], l)
+}
+
+fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+    [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+}
+
+/// #1748: the 3D counterpart of #1099. Nodes 2 and 3 are reached only by
+/// trusses and by a finite-length connector with shear springs and no
+/// rotational springs. Its shear rows see e·(u_3 − u_2) + L(e × e_x)·θ̄ with
+/// θ̄ = (θ_2 + θ_3)/2, so the rotations with θ_2 + θ_3 along the axis, and
+/// θ_3 = −θ_2 across it, cost no energy: K is singular along pure rotations.
+/// With bending at node 3 released by its only frame, that frame holds only
+/// the twist about its own axis and the mechanism survives. The sparse path
+/// answered after a diagonal shift of 1.2e2 and the dense path through LU,
+/// with rotations the load does not determine. The model must be refused.
+#[test]
+fn connector_arm_mechanism_3d_is_refused() {
+    for padded in [true, false] {
+        for (name, node3, kt) in [
+            ("free", Node3Rotation::Free, 0.0),
+            ("free with torsion", Node3Rotation::Free, 900.0),
+            ("bending released", Node3Rotation::Frame { bending_released: true }, 0.0),
+        ] {
+            let e = match solve_3d(&arm_pair_3d(kt, node3, padded, 1.0)) {
+                Ok(r) => panic!("padded={padded}, {name}: undetermined rotations returned a result (θ2 = {:?}, θ3 = {:?})", disp3_at(&r, 2).1, disp3_at(&r, 3).1),
+                Err(e) => e,
+            };
+            assert!(e.contains("Connector 1") && e.contains("mechanism"), "padded={padded}, {name}: {e}");
+        }
+    }
+}
+
+/// Negative control for #1748: node 3's rotations restrained by its support
+/// and a torsion spring on the connector. Node 2's rotation rows reach only
+/// the connector, so its shear forces vanish and its twist about the axis
+/// equals node 3's: θ_2 = (2/L)·e_x × (u_3 − u_2).
+#[test]
+fn connector_arm_3d_with_node_3_restrained_solves() {
+    let (ex, l) = arm3_axis();
+    for padded in [true, false] {
+        let a = solve_3d(&arm_pair_3d(900.0, Node3Rotation::Restrained, padded, 1.0)).unwrap();
+        let ka = solve_3d(&arm_pair_3d(900.0, Node3Rotation::Restrained, padded, -2.5)).unwrap();
+        let ((u2, t2), (u3, t3)) = (disp3_at(&a, 2), disp3_at(&a, 3));
+        let c = cross(ex, [u3[0] - u2[0], u3[1] - u2[1], u3[2] - u2[2]]);
+        let scale = c.iter().fold(0.0f64, |m, v| m.max(v.abs())) * 2.0 / l;
+        assert!(scale > 1e-9, "padded={padded}: arm rotation {scale:e}");
+        for i in 0..3 {
+            assert!((t2[i] - 2.0 * c[i] / l).abs() <= 1e-9 * scale, "padded={padded}: θ2 {t2:?} vs (2/L)·ex×Δu {:?}", c.map(|v| 2.0 * v / l));
+            assert_eq!(t3[i], 0.0);
+            let k = disp3_at(&ka, 2).1[i];
+            assert!((k + 2.5 * t2[i]).abs() <= 1e-12 * scale, "padded={padded}: θ2(kA) {k:e} vs k·θ2(A) {:e}", -2.5 * t2[i]);
+        }
+    }
+}
+
+/// Negative control for #1748: node 3 held by an unreleased frame. Shear
+/// forces vanish and the torsion spring carries nothing, so
+/// θ̄_⊥ = (1/L)·e_x × (u_3 − u_2) and θ_2·e_x = θ_3·e_x:
+/// θ_2 = (2/L)·e_x × Δu − θ_3 + 2(θ_3·e_x)·e_x.
+#[test]
+fn connector_arm_3d_with_node_3_on_a_frame_solves() {
+    let (ex, l) = arm3_axis();
+    for padded in [true, false] {
+        let a = solve_3d(&arm_pair_3d(900.0, Node3Rotation::Frame { bending_released: false }, padded, 1.0)).unwrap();
+        let ((u2, t2), (u3, t3)) = (disp3_at(&a, 2), disp3_at(&a, 3));
+        let c = cross(ex, [u3[0] - u2[0], u3[1] - u2[1], u3[2] - u2[2]]);
+        let tw = t3[0] * ex[0] + t3[1] * ex[1] + t3[2] * ex[2];
+        let want: [f64; 3] = std::array::from_fn(|i| 2.0 * c[i] / l - t3[i] + 2.0 * tw * ex[i]);
+        let scale = want.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+        assert!(scale > 1e-9, "padded={padded}: arm rotation {scale:e}");
+        for i in 0..3 {
+            assert!((t2[i] - want[i]).abs() <= 1e-9 * scale, "padded={padded}: θ2 {t2:?} vs {want:?}");
+        }
+    }
+}
+
+
+
+/// #1748: with node 3 on an unreleased frame and no torsion spring, the twist of
+/// node 2 about the connector axis has no stiffness. About a skew axis K is
+/// singular and the model is refused. Along a global axis the orphan guard
+/// holds that twist with artificial stiffness, as it does a truss-only node's
+/// rotations: twist 0, and θ_2 = (2/L)·e_x × Δu − θ_3 + (θ_3·e_x)·e_x.
+#[test]
+fn connector_free_twist_3d_skew_is_refused_and_aligned_is_held() {
+    let e = solve_3d(&arm_pair_3d(0.0, Node3Rotation::Frame { bending_released: false }, false, 1.0))
+        .err()
+        .expect("free twist about a skew axis");
+    assert!(e.contains("Connector 1") && e.contains("node(s) 2") && e.contains("mechanism"), "{e}");
+    let n3 = [ARM3_N2[0] + 2.0, ARM3_N2[1], ARM3_N2[2]];
+    let a = solve_3d(&arm_pair_3d_at(n3, 0.0, Node3Rotation::Frame { bending_released: false }, false, 1.0)).unwrap();
+    let ((u2, t2), (u3, t3)) = (disp3_at(&a, 2), disp3_at(&a, 3));
+    let (ex, l) = ([1.0, 0.0, 0.0], 2.0);
+    let c = cross(ex, [u3[0] - u2[0], u3[1] - u2[1], u3[2] - u2[2]]);
+    let want = [0.0, 2.0 * c[1] / l - t3[1], 2.0 * c[2] / l - t3[2]];
+    let scale = want.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    assert!(scale > 1e-9, "arm rotation {scale:e}");
+    for i in 0..3 {
+        assert!((t2[i] - want[i]).abs() <= 1e-9 * scale, "θ2 {t2:?} vs {want:?}");
+    }
+}
+
+/// #1748 (Codex review): a zero-length connector with a torsion spring only,
+/// from a node whose rotations are restrained to a truss-only node. The
+/// connector reaches only the twist, which the spring ties to the restrained
+/// node, so it is 0; the orphan guard holds the other two rotations at 0.
+#[test]
+fn zero_length_torsion_connector_to_a_truss_node_solves() {
+    let pin = vec![true, true, true, false, false, false];
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 2.0, 0.0, 1.0), (3, 2.0, 0.0, 1.0), (4, 4.0, 0.3, 0.0), (5, 1.0, 2.5, 0.2), (10, 9.0, 0.0, 0.0), (11, 9.0, 0.0, 3.0)],
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.01, 2e-4, 1e-4, 1e-4)],
+        vec![(1, "truss", 1, 3, 1, 1), (2, "truss", 4, 3, 1, 1), (3, "truss", 5, 3, 1, 1), (10, "frame", 10, 11, 1, 1)],
+        vec![(1, pin.clone()), (4, pin.clone()), (5, pin), (2, vec![true; 6]), (10, vec![true; 6])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 2.0, fy: -1.0, fz: 4.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+    );
+    input.connectors.insert("1".into(), ConnectorElement {
+        id: 1, node_i: 2, node_j: 3, k_axial: 0.0, k_shear: 0.0, k_moment: 900.0, k_shear_z: 0.0, k_bend_y: 0.0, k_bend_z: 0.0,
+    });
+    let r = solve_3d(&input).unwrap();
+    assert_eq!(disp3_at(&r, 3).1, [0.0; 3]);
+}
+
+/// #1748 (Codex review): a constraint on translations alone leaves the
+/// rotations of its nodes to the check.
+#[test]
+fn connector_arm_mechanism_3d_with_translation_tie_is_refused() {
+    let mut input = arm_pair_3d(0.0, Node3Rotation::Free, false, 1.0);
+    input.constraints.push(Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 3, dofs: vec![0, 1, 2] }));
+    let e = solve_3d(&input).err().expect("rotations of nodes 2 and 3 stay free");
+    assert!(e.contains("Connector 1") && e.contains("mechanism"), "{e}");
+}
+
+/// #1748 (Codex review): a collinear connector A–B with shear and torsion
+/// springs followed by an unreleased frame B–C, every translation restrained
+/// and no rotation held. Twisting A, B and C together about the common axis
+/// costs no energy, though the rotation block of A and B alone is regular; the
+/// check follows the frame to C and refuses it.
+#[test]
+fn connector_mechanism_through_a_frame_3d_is_refused() {
+    let pin = vec![true, true, true, false, false, false];
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 2.0, 0.0, 0.0), (3, 5.0, 0.0, 0.0)],
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.01, 2e-4, 1e-4, 1e-4)],
+        vec![(1, "frame", 2, 3, 1, 1)],
+        vec![(1, pin.clone()), (2, pin.clone()), (3, pin)],
+        vec![],
+    );
+    input.connectors.insert("1".into(), ConnectorElement {
+        id: 1, node_i: 1, node_j: 2, k_axial: 1e4, k_shear: 2e3, k_moment: 900.0, k_shear_z: 3e3, k_bend_y: 0.0, k_bend_z: 0.0,
+    });
+    let e = solve_3d(&input).err().expect("common twist of nodes 1, 2 and 3 is free");
+    assert!(e.contains("Connector 1") && e.contains("node(s) 1, 2") && e.contains("mechanism"), "{e}");
+}
+
+/// #1748: a negative torsion spring makes the connectors' rotation block
+/// indefinite, not singular; that is an instability for the analyses' own
+/// refusals, not a free rotation for the connector check.
+#[test]
+fn negative_torsion_connector_is_not_called_a_free_rotation() {
+    let mut input = arm_pair_3d(0.0, Node3Rotation::Restrained, false, 1.0);
+    let c = input.connectors.get_mut("1").unwrap();
+    c.k_moment = -10.0;
+    c.k_bend_y = 50.0;
+    c.k_bend_z = 50.0;
+    if let Err(e) = solve_3d(&input) {
+        assert!(!e.contains("that has no stiffness"), "{e}");
+    }
+}
+
 fn arm_pair_2d(k_moment: f64, padded: bool, scale: f64) -> SolverInput {
     arm_pair_with_spring_2d(k_moment, None, padded, scale)
 }
