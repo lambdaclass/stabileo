@@ -666,6 +666,24 @@
   margin: 1.75rem 0 0;
 }
 
+.landing.blog .standing .post-table {
+  width: 100%;
+  table-layout: fixed;
+  white-space: normal;
+}
+
+.landing.blog .standing .post-table th,
+.landing.blog .standing .post-table td {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding-inline: clamp(0.35rem, 1.5vw, 0.9rem);
+}
+
+.landing.blog .standing .post-table thead th,
+.landing.blog .standing .link-arrow {
+  font-size: 0.75rem;
+}
+
 .landing.blog .standing a:not(:is(p, li, td) a),
 .landing.blog .standing button {
   display: inline-flex;
