@@ -1,4 +1,4 @@
-import { input2DToWireObject, input3DToWireObject } from '../wasm-solver';
+import { input2DToWireObject, input3DToWireObject, solve, solve3D } from '../wasm-solver';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire, lineLoadKnM, areaLoadKnM2, temperatureDeltaC, expansionPerC, springKnM, springKnMRad, angleRad, angleDeg, plateThermalToWire, pressureToWire, quadEdgeToWire, supportToWire, support3DToWire, element3DToWire, type AreaLoad, type TemperatureDifference, type TranslationalStiffness, type RotationalStiffness, type Angle, type LineLoad, type Bimoment, resultsFromWasm, results3DFromWasm } from '../unit-types';
@@ -301,3 +301,16 @@ fmtTypedQ(results3D.elementForces[0].myEnd, 'force');
 toTypedQ(results3D.elementForces[0].vzEnd, 'bimoment');
 // @ts-expect-error the point loads carried with the forces keep their brands
 results3D.elementForces[0].pointLoadsY[0].a = forceKn(1);
+const solved = solve(input);
+fmtTypedQ(solved.displacements[0].ux, 'displacement');
+fmtTypedQ(solved.reactions[0].my, 'moment');
+// @ts-expect-error the public 2D solve keeps the moment brand on reactions
+solved.reactions[0].my = forceKn(1);
+// @ts-expect-error the public 2D solve keeps the rotation brand
+fmtTypedQ(solved.displacements[0].ry, 'displacement');
+const solved3D = solve3D(input3D);
+fmtTypedQ(solved3D.elementForces[0].mzStart, 'moment');
+// @ts-expect-error the public 3D solve keeps the moment brand on element forces
+solved3D.elementForces[0].mzStart = forceKn(1);
+// @ts-expect-error the public 3D solve keeps the length brand on displacements
+solved3D.displacements[0].uz = angleRad(0.01);

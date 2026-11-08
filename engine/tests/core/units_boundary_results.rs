@@ -40,49 +40,62 @@ fn check_3d(what: &str, r: &AnalysisResults3D) {
 
 #[test]
 fn units_2d_results_serialize_to_the_legacy_text_for_every_fixture() {
-    let mut solved = 0;
+    let mut solved = vec![];
     for (what, text) in fixtures(false, "input.json") {
-        let Ok(input) = serde_json::from_str::<ElasticInput2D>(&text) else { continue };
-        let legacy_input = input.clone().into_legacy();
-        let (Ok(typed), Ok(plain)) = (solve_2d_typed(&input), solve_2d(&legacy_input)) else { continue };
-        check_2d(&what, &typed);
-        check_2d(&what, &plain);
-        solved += 1;
+        let input = serde_json::from_str::<ElasticInput2D>(&text).unwrap_or_else(|e| panic!("{what}: {e}"));
+        let plain_input: SolverInput = serde_json::from_str(&text).unwrap();
+        match (solve_2d_typed(&input), solve_2d(&plain_input)) {
+            (Ok(typed), Ok(plain)) => {
+                check_2d(&what, &typed);
+                check_2d(&what, &plain);
+                solved.push(what);
+            }
+            (Err(t), Err(p)) => assert_eq!(t, p, "{what}"),
+            (t, p) => panic!("{what}: typed ok {} legacy ok {}", t.is_ok(), p.is_ok()),
+        }
     }
-    assert!(solved >= 30, "only {solved} 2D fixtures solved");
+    let unsolved: Vec<_> = fixtures(false, "input.json").into_iter().map(|(w, _)| w).filter(|w| !solved.contains(w)).map(|w| short(&w)).collect();
+    assert_eq!(unsolved, UNSOLVED_2D, "2D fixtures that do not solve");
 }
 
 #[test]
 fn units_3d_results_serialize_to_the_legacy_text_for_every_fixture() {
-    let mut solved = 0;
+    let mut unsolved = vec![];
     for (what, text) in fixtures(true, "input.json") {
-        let Ok(input) = legacy_input::parse(&text) else { continue };
-        let Ok(r) = solve_3d(&input) else { continue };
-        check_3d(&what, &r);
-        solved += 1;
+        let input = legacy_input::parse(&text).unwrap_or_else(|e| panic!("{what}: {e}"));
+        match solve_3d(&input) {
+            Ok(r) => check_3d(&what, &r),
+            Err(_) => unsolved.push(short(&what)),
+        }
     }
-    assert!(solved >= 30, "only {solved} 3D fixtures solved");
+    assert_eq!(unsolved, UNSOLVED_3D, "3D fixtures that do not solve");
 }
+
+fn short(path: &str) -> String {
+    path.rsplit('/').next().unwrap().to_string()
+}
+
+const UNSOLVED_2D: &[&str] = &[];
+const UNSOLVED_3D: &[&str] = &[];
 
 #[test]
 fn units_stored_result_fixtures_read_back_to_the_same_text() {
     let mut read = 0;
     for (what, text) in fixtures(false, "results.json") {
-        if let Ok(r) = serde_json::from_str::<AnalysisResults>(&text) {
-            let typed: TypedResults2D = serde_json::from_str(&text).unwrap();
-            check_2d(&what, &r);
-            assert_eq!(serde_json::to_string(&typed).unwrap(), legacy::results(&r), "{what}");
-            read += 1;
-        }
+        let r = serde_json::from_str::<AnalysisResults>(&text).unwrap_or_else(|e| panic!("{what}: {e}"));
+        let typed: TypedResults2D = serde_json::from_str(&text).unwrap();
+        check_2d(&what, &r);
+        assert_eq!(serde_json::to_string(&typed).unwrap(), legacy::results(&r), "{what}");
+        read += 1;
     }
     for (what, text) in fixtures(true, "results.json") {
-        if let Ok(r) = serde_json::from_str::<AnalysisResults3D>(&text) {
-            let typed: TypedResults3D = serde_json::from_str(&text).unwrap();
-            check_3d(&what, &r);
-            assert_eq!(serde_json::to_string(&typed).unwrap(), legacy::results_3d(&r), "{what}");
-            read += 1;
-        }
+        let r = serde_json::from_str::<AnalysisResults3D>(&text).unwrap_or_else(|e| panic!("{what}: {e}"));
+        let typed: TypedResults3D = serde_json::from_str(&text).unwrap();
+        check_3d(&what, &r);
+        assert_eq!(serde_json::to_string(&typed).unwrap(), legacy::results_3d(&r), "{what}");
+        read += 1;
     }
+    assert_eq!(read, fixtures(false, "results.json").len() + fixtures(true, "results.json").len());
     assert!(read >= 30, "only {read} stored results read");
 }
 

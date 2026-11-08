@@ -348,7 +348,7 @@ through the typed records, and the conversions destructure the legacy record wit
 warping displacement stays `f64` (its unit, rad/m, belongs with slice 6). TS: branded
 `AnalysisResultsWire`/`AnalysisResults3DWire` in `unit-types.ts` (rather than in `types.ts`, so the
 stored-model interfaces and the 75 production files that build result objects stay unchanged),
-admitted by `resultsFromWasm`/`results3DFromWasm` in `solve`/`solve3D`; typed display readers
+admitted by `resultsFromWasm`/`results3DFromWasm` and returned branded by `solve`/`solve3D`; typed display readers
 `fmtTypedQ`/`toTypedQ` in `display-units.svelte.ts`, and `length`, `force`, `moment` and `bimoment`
 join the typed display quantities. Not covered: the app components still read the numeric result
 interfaces through `fmtQ`/`toQ` (moving them to `fmtTypedQ` is a follow-up, one view per PR), and the
@@ -357,7 +357,7 @@ other WASM result exports return their own result types. Proof:
 stored result fixture, the serialized text against `tests/core/units_legacy_results.rs`, an
 independent copy of the previous derived serializer, plus hand-built results with signed zeros,
 aliases and absent optionals, and the same error text for malformed records; 12 new `compile_fail`
-doctests (E0308) plus a positive control; 17 new `@ts-expect-error` checks; Vitest checks that the
+doctests (E0308) plus a positive control; 21 new `@ts-expect-error` checks (four through the public `solve`/`solve3D`); Vitest checks that the
 admission returns the same object and JSON text and that the typed display conversions give the same
 numbers.
 
