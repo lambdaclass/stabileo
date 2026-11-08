@@ -545,18 +545,59 @@ fn connector_arm_3d_with_node_3_on_a_frame_solves() {
 
 
 /// #1748: with node 3 on an unreleased frame and no torsion spring, the twist of
-/// node 2 about the connector axis has no stiffness. Along a global axis the
-/// orphan guard used to hold it with artificial stiffness while a skew
-/// connector left it singular; both are refused.
+/// node 2 about the connector axis has no stiffness. About a skew axis K is
+/// singular and the model is refused. Along a global axis the orphan guard
+/// holds that twist with artificial stiffness, as it does a truss-only node's
+/// rotations: twist 0, and θ_2 = (2/L)·e_x × Δu − θ_3 + (θ_3·e_x)·e_x.
 #[test]
-fn connector_free_twist_3d_is_refused_in_any_orientation() {
-    let aligned = [ARM3_N2[0] + 2.0, ARM3_N2[1], ARM3_N2[2]];
-    for (name, n3) in [("skew", ARM3_N3), ("along x", aligned)] {
-        let e = solve_3d(&arm_pair_3d_at(n3, 0.0, Node3Rotation::Frame { bending_released: false }, false, 1.0))
-            .err()
-            .unwrap_or_else(|| panic!("{name}: free twist at node 2 returned a result"));
-        assert!(e.contains("Connector 1") && e.contains("node(s) 2") && e.contains("mechanism"), "{name}: {e}");
+fn connector_free_twist_3d_skew_is_refused_and_aligned_is_held() {
+    let e = solve_3d(&arm_pair_3d(0.0, Node3Rotation::Frame { bending_released: false }, false, 1.0))
+        .err()
+        .expect("free twist about a skew axis");
+    assert!(e.contains("Connector 1") && e.contains("node(s) 2") && e.contains("mechanism"), "{e}");
+    let n3 = [ARM3_N2[0] + 2.0, ARM3_N2[1], ARM3_N2[2]];
+    let a = solve_3d(&arm_pair_3d_at(n3, 0.0, Node3Rotation::Frame { bending_released: false }, false, 1.0)).unwrap();
+    let ((u2, t2), (u3, t3)) = (disp3_at(&a, 2), disp3_at(&a, 3));
+    let (ex, l) = ([1.0, 0.0, 0.0], 2.0);
+    let c = cross(ex, [u3[0] - u2[0], u3[1] - u2[1], u3[2] - u2[2]]);
+    let want = [0.0, 2.0 * c[1] / l - t3[1], 2.0 * c[2] / l - t3[2]];
+    let scale = want.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    assert!(scale > 1e-9, "arm rotation {scale:e}");
+    for i in 0..3 {
+        assert!((t2[i] - want[i]).abs() <= 1e-9 * scale, "θ2 {t2:?} vs {want:?}");
     }
+}
+
+/// #1748 (Codex review): a zero-length connector with a torsion spring only,
+/// from a node whose rotations are restrained to a truss-only node. The
+/// connector reaches only the twist, which the spring ties to the restrained
+/// node, so it is 0; the orphan guard holds the other two rotations at 0.
+#[test]
+fn zero_length_torsion_connector_to_a_truss_node_solves() {
+    let pin = vec![true, true, true, false, false, false];
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 2.0, 0.0, 1.0), (3, 2.0, 0.0, 1.0), (4, 4.0, 0.3, 0.0), (5, 1.0, 2.5, 0.2), (10, 9.0, 0.0, 0.0), (11, 9.0, 0.0, 3.0)],
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.01, 2e-4, 1e-4, 1e-4)],
+        vec![(1, "truss", 1, 3, 1, 1), (2, "truss", 4, 3, 1, 1), (3, "truss", 5, 3, 1, 1), (10, "frame", 10, 11, 1, 1)],
+        vec![(1, pin.clone()), (4, pin.clone()), (5, pin), (2, vec![true; 6]), (10, vec![true; 6])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 2.0, fy: -1.0, fz: 4.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+    );
+    input.connectors.insert("1".into(), ConnectorElement {
+        id: 1, node_i: 2, node_j: 3, k_axial: 0.0, k_shear: 0.0, k_moment: 900.0, k_shear_z: 0.0, k_bend_y: 0.0, k_bend_z: 0.0,
+    });
+    let r = solve_3d(&input).unwrap();
+    assert_eq!(disp3_at(&r, 3).1, [0.0; 3]);
+}
+
+/// #1748 (Codex review): a constraint on translations alone leaves the
+/// rotations of its nodes to the check.
+#[test]
+fn connector_arm_mechanism_3d_with_translation_tie_is_refused() {
+    let mut input = arm_pair_3d(0.0, Node3Rotation::Free, false, 1.0);
+    input.constraints.push(Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 3, dofs: vec![0, 1, 2] }));
+    let e = solve_3d(&input).err().expect("rotations of nodes 2 and 3 stay free");
+    assert!(e.contains("Connector 1") && e.contains("mechanism"), "{e}");
 }
 
 /// #1748 (Codex review): a collinear connector A–B with shear and torsion

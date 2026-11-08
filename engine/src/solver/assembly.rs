@@ -140,28 +140,35 @@ pub(crate) fn rotation_tied_nodes_2d(input: &SolverInput) -> std::collections::H
 /// connector with shear springs and no rotational springs: its rigid arms hold
 /// only the mean rotation across its axis, so the opposite rotations across it
 /// and the common twist about it cost no energy. The rotations of the nodes
-/// connectors couple, with every rotation K couples to them in turn
-/// (constraint nodes left out, as by the orphan guard), are checked on the
-/// assembled K, so partial member releases, rotational springs and supports
+/// connectors couple, with every rotation K couples to them in turn, are
+/// checked on the assembled K, so partial member releases, rotational springs and supports
 /// count in each rotation DOF exactly: K is positive semi-definite, so a null
 /// vector of that block is one of K. Each connected block is factored and its
-/// pivots judged against `SINGULAR_PIVOT_RATIO`. A rotation the orphan
-/// guard holds with artificial stiffness counts as none: otherwise a free twist
-/// about a connector along a global axis would be held, and the same twist
-/// about a skew one refused.
+/// pivots judged against `SINGULAR_PIVOT_RATIO`. Only constraints that tie a
+/// rotation leave their nodes out (#1749); a rotation the orphan guard holds
+/// with artificial stiffness keeps it, as the solve does.
 pub(crate) fn refuse_connector_arm_mechanism_3d(input: &SolverInput3D) -> Result<(), String> {
     use std::collections::{BTreeMap, BTreeSet, HashSet};
     if input.connectors.is_empty() || DofNumbering::dofs_per_node_3d(input) < 6 {
         return Ok(());
     }
+    let rotation = |d: &usize| (3..6).contains(d);
     let mut tied: HashSet<usize> = HashSet::new();
     for c in &input.constraints {
         match c {
-            Constraint::RigidLink(r) => { tied.insert(r.master_node); tied.insert(r.slave_node); }
+            Constraint::RigidLink(r) => {
+                tied.insert(r.master_node);
+                if r.dofs.iter().any(rotation) { tied.insert(r.slave_node); }
+            }
             Constraint::Diaphragm(d) => { tied.insert(d.master_node); tied.extend(d.slave_nodes.iter().copied()); }
-            Constraint::LinearMPC(m) => tied.extend(m.terms.iter().map(|t| t.node_id)),
-            Constraint::EqualDOF(e) => { tied.insert(e.master_node); tied.insert(e.slave_node); }
-            Constraint::EccentricConnection(e) => { tied.insert(e.master_node); tied.insert(e.slave_node); }
+            Constraint::LinearMPC(m) => tied.extend(m.terms.iter().filter(|t| rotation(&t.dof)).map(|t| t.node_id)),
+            Constraint::EqualDOF(e) => {
+                if e.dofs.iter().any(rotation) { tied.extend([e.master_node, e.slave_node]); }
+            }
+            Constraint::EccentricConnection(e) => {
+                tied.insert(e.master_node);
+                if (3..6).any(|i| !e.releases.get(i).copied().unwrap_or(false)) { tied.insert(e.slave_node); }
+            }
         }
     }
     let coords: std::collections::HashMap<usize, [f64; 3]> = crate::ordered::values(&input.nodes).map(|n| (n.id, [n.x, n.y, n.z])).collect();
@@ -220,14 +227,11 @@ pub(crate) fn refuse_connector_arm_mechanism_3d(input: &SolverInput3D) -> Result
         let at: std::collections::HashMap<usize, usize> = group.iter().enumerate().map(|(i, &d)| (d, i)).collect();
         let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
         for &col in &group {
-            if artificial.contains(&col) { continue; }
             for p in k.col_ptr[col]..k.col_ptr[col + 1] {
                 if let Some(&r) = at.get(&k.row_idx[p]) {
-                    if !artificial.contains(&k.row_idx[p]) {
-                        rows.push(r);
-                        cols.push(at[&col]);
-                        vals.push(k.values[p]);
-                    }
+                    rows.push(r);
+                    cols.push(at[&col]);
+                    vals.push(k.values[p]);
                 }
             }
         }
