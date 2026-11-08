@@ -129,7 +129,7 @@ fn rc_degenerate_section_is_reported_as_unevaluated() {
             s_stirrup: None,
             lambda: None,
         }],
-        forces: vec![RCDesignForces { element_id: 1, mu: 200e3, vu: Some(150e3), nu: None }],
+        forces: vec![RCDesignForces { element_id: 1, mu: 200e3, vu: Some(150e3), nu: None, tu: None }],
     })
     .remove(0);
 
@@ -149,7 +149,7 @@ fn rc_nan_demand_does_not_panic() {
             section_type: RCSectionType::Rectangular,
             bf: None, hf: None, av: None, s_stirrup: None, lambda: None,
         }],
-        forces: vec![RCDesignForces { element_id: 1, mu: f64::NAN, vu: Some(150e3), nu: None }],
+        forces: vec![RCDesignForces { element_id: 1, mu: f64::NAN, vu: Some(150e3), nu: None, tu: None }],
     })
     .remove(0);
 

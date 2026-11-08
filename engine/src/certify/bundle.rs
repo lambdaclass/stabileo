@@ -89,6 +89,7 @@ pub struct BundleInfo {
     pub mu: f64,
     pub bound: f64,
     pub residual_norm: f64,
+    #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
     pub rel_bound: f64,
     pub note: String,
 }

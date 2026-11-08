@@ -264,7 +264,7 @@ fn rc_gravity_beam_alpha0_uses_strong_axis_moment_and_shear() {
     close(vu, W * L / 2.0, "Vu = wL/2");
     let forces: Vec<RCDesignForces> = demands
         .iter()
-        .map(|d| RCDesignForces { element_id: d.element_id, mu: d.mu * 1e3, vu: d.vu.map(|v| v * 1e3), nu: Some(0.0) })
+        .map(|d| RCDesignForces { element_id: d.element_id, mu: d.mu * 1e3, vu: d.vu.map(|v| v * 1e3), nu: Some(0.0), tu: d.tu.map(|t| t * 1e3) })
         .collect();
     let checks = check_rc_members(&RCCheckInput { members: vec![rc_beam(1), rc_beam(2)], forces });
     let a = 6e-4 * 420e6 / (0.85 * 25e6 * 0.3);
@@ -379,7 +379,7 @@ fn a_nan_web_shear_leaves_the_steel_check_incomplete() {
 #[test]
 fn rc_shear_capacity_does_not_read_the_axial_force_the_extraction_pairs_with_peak_shear() {
     let at = |nu: f64| {
-        let f = RCDesignForces { element_id: 1, mu: 1e4, vu: Some(1e5), nu: Some(nu) };
+        let f = RCDesignForces { element_id: 1, mu: 1e4, vu: Some(1e5), nu: Some(nu), tu: None };
         check_rc_members(&RCCheckInput { members: vec![rc_beam(1)], forces: vec![f] })[0].phi_vn
     };
     assert_eq!(at(-5e5), at(5e5));
@@ -425,7 +425,6 @@ fn two_station_3d_group(s0: (f64, f64, f64, f64, f64, f64), s1: (f64, f64, f64, 
 }
 
 #[test]
-#[ignore = "known wrong result: #1317"]
 fn non_governing_infinite_station_is_refused() {
     let bad = two_station_3d_group(
         (f64::INFINITY, 0.0, 5.0, -30.0, 0.0, 0.0),
@@ -462,7 +461,6 @@ fn non_governing_infinite_station_is_refused() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1314"]
 fn torsion_only_rc_member_cannot_pass() {
     let cantilever = |fz: f64, mx: f64| {
         make_3d_input(
@@ -477,6 +475,7 @@ fn torsion_only_rc_member_cannot_pass() {
     let torque = 20_000.0;
     let grouped = stations_3d(&cantilever(0.0, torque));
     let forces = extract_rc_demands_3d(&grouped, DemandStrategy::MaxAbsMoment).unwrap();
+    close(forces[0].tu.unwrap().abs(), torque, "Tu = T");
     close(forces[0].mu, 0.0, "Mu");
     close(forces[0].vu.unwrap(), 0.0, "Vu");
     let r = &check_rc_members(&RCCheckInput { members: vec![rc_beam(1)], forces: forces.clone() })[0];
@@ -499,4 +498,30 @@ fn torsion_only_rc_member_cannot_pass() {
     assert!(r_ctrl.unevaluated.is_empty(), "{r_ctrl:?}");
     assert!(!r_ctrl.governing_check.ends_with("(incomplete)"), "{r_ctrl:?}");
     assert!(r_ctrl.unity_ratio > 0.0 && r_ctrl.unity_ratio < 1.0, "{r_ctrl:?}");
+}
+
+#[test]
+fn torsion_loaded_certified_3d_demands_are_refused_by_the_rc_converters() {
+    let mut solver = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 3.0, 0.0, 0.0)],
+        vec![(1, 25e9, 0.2)],
+        vec![(1, 0.18, 5.4e-3, 1.35e-3, 3.1e-3)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true; 6])],
+        vec![],
+    );
+    solver.loads.clear();
+    let mc = MultiCaseInput3D {
+        solver,
+        load_cases: vec![LoadCase3D {
+            name: "T".into(),
+            loads: vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 0.0, fy: 0.0, fz: 0.0, mx: 20_000.0, my: 0.0, mz: 0.0, bw: None })],
+        }],
+        combinations: vec![CombinationDef { name: "1.0T".into(), factors: [("T".to_string(), 1.0)].into_iter().collect() }],
+    };
+    let analysis = dedaliano_engine::certify::combinations::certify_multi_case_3d(&mc).unwrap();
+    let demands = steel_demands_from_combinations_3d(&analysis, 11).unwrap();
+    assert!(rc_demands(&demands).is_err());
+    assert!(ec2_demands(&demands).is_err());
+    assert!(cirsoc201_demands(&demands).is_err());
 }

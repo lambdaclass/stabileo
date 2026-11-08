@@ -33,13 +33,9 @@ describe('catalog and contract', () => {
     expect(referenceGap(0, 0)).toEqual({ value: 0, relative: false });
   });
   it('reads an engine refusal as its code and message, never the raw JSON', () => {
-    const v = { ...defaults(beamFrame.params), load: 0, point: 50, position: 0 };
-    let error: unknown;
-    try { beamFrame.analyses(beamFrame.build(v), v, engine); } catch (e) { error = e; }
-    expect(error).toBeDefined();
-    const out = refusedOutcome(error);
+    const out = refusedOutcome(new Error('{"message":"The result was withheld: it contains NaN at displacements[0].uz","structuredDiagnostics":[{"code":"non_finite_result","message":"The result was withheld: it contains NaN at displacements[0].uz","severity":"error"}]}'));
     expect(out.code).toBe('nonFinite');
-    expect(out.reason).toMatch(/^The result was withheld: it contains inf at certificate\.relBound$/);
+    expect(out.reason).toBe('The result was withheld: it contains NaN at displacements[0].uz');
     expect(refusedOutcome(new Error('plain failure'))).toEqual({ status: 'refused', code: 'engine', reason: 'plain failure' });
     expect(refusedOutcome(new Error('{"message":"singular","structuredDiagnostics":[{"code":"singular","severity":"error"}]}'))).toEqual({ status: 'refused', code: 'engine', reason: 'singular' });
   });
@@ -91,6 +87,14 @@ describe('beam and frame playground', () => {
     const point = run(beamFrame, { load: 0, point: 40, position: 0.25 });
     expect(readout(point, 'maxMoment').value).toBeCloseTo(40 * 1.5 * 4.5 / 6, 9);
     expect(readout(point, 'maxMoment').reference!.value).toBeCloseTo(45, 12);
+  });
+  it('solves a point load on a support with a zero solution and an unbounded relative bound', () => {
+    const out = run(beamFrame, { load: 0, point: 50, position: 0 });
+    expect(readout(out, 'maxMoment').value).toBe(0);
+    expect(readout(out, 'maxMoment').reference!.value).toBe(0);
+    expect(readout(out, 'maxShear').value).toBe(0);
+    expect(readout(out, 'maxDeflection').value).toBe(0);
+    expect(out.certificate).toEqual({ status: 'certified', kind: 'linear', bound: null, measure: 'errorBound' });
   });
   it('a fixed and pinned beam has a pin, not a roller, and its fixed-end moment is wL²/8', () => {
     const v = { ...defaults(beamFrame.params), supports: 1, span: 8 };

@@ -234,7 +234,7 @@ fn rc_column() -> RCMemberData {
 fn rc_run(nu: Option<f64>) -> RCCheckResult {
     check_rc_members(&RCCheckInput {
         members: vec![rc_column()],
-        forces: vec![RCDesignForces { element_id: 1, mu: 150_000.0, vu: None, nu }],
+        forces: vec![RCDesignForces { element_id: 1, mu: 150_000.0, vu: None, nu, tu: None }],
     })
     .remove(0)
 }

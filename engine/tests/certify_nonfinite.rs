@@ -413,7 +413,6 @@ fn non_finite_reported_results_are_uncertified() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1572"]
 fn point_load_on_support_serializes_zero_solution_with_unbounded_rel_bound() {
     let beam = |a: f64| -> SolverInput {
         serde_json::from_value(json!({

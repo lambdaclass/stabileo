@@ -76,7 +76,7 @@ impl Default for RCSectionType {
 }
 
 /// Design forces for an RC element.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RCDesignForces {
     pub element_id: usize,
@@ -88,6 +88,8 @@ pub struct RCDesignForces {
     /// Factored axial force Nu (N, positive = tension)
     #[serde(default)]
     pub nu: Option<f64>,
+    #[serde(default)]
+    pub tu: Option<f64>,
 }
 
 /// Input for RC design check.
@@ -141,6 +143,7 @@ const PHI_V: f64 = 0.75; // Shear
 pub(crate) const RC_FLEXURE: &str = "Flexure ACI 318";
 pub(crate) const RC_SHEAR: &str = "Shear ACI 318";
 pub(crate) const RC_AXIAL: &str = "Axial ACI 318";
+pub(crate) const RC_TORSION: &str = "Torsion ACI 318";
 
 /// Index the force records by id so each member is a hash lookup rather than a
 /// scan of the whole list. The pairing was O(members x forces): fine at 100
@@ -218,6 +221,9 @@ fn check_single_rc_member(m: &RCMemberData, f: &RCDesignForces) -> RCCheckResult
     } else {
         ledger.ratio_if_loaded(RC_AXIAL, -pu, phi_pnt)
     };
+    if let Some(tu) = f.tu {
+        let _ = ledger.ratio_if_loaded(RC_TORSION, tu.abs(), 0.0);
+    }
 
     // ACI 318-19 Table 21.2.2 defines both phi and the tension-controlled
     // classification by the same limit, eps_ty + 0.003. A fixed 0.005 (the
