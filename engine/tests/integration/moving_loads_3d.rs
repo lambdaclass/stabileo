@@ -557,3 +557,48 @@ fn axial_point_load_geometric_stiffness_matches_embedded_2d() {
         assert_planar_value(result.modes[0].load_factor, reference.modes[0].load_factor);
     }
 }
+
+fn opposite_axial_patches(sign: f64) -> (MovingLoadInput, f64) {
+    let mut input = planar_moving_input(0.0);
+    input.train.axles.clear();
+    input.solver.supports.get_mut("1").unwrap().support_type = "fixed".into();
+    input.solver.supports.remove("2");
+    let (a, boundary, b) = (1.10, 1.15, 1.20);
+    let q = sign * 100.0;
+    input.solver.loads = vec![
+        SolverLoad::AxialDistributed(SolverAxialDistributedLoad {
+            element_id: 1, q_i: q, q_j: q, a: Some(a), b: Some(boundary),
+        }),
+        SolverLoad::AxialDistributed(SolverAxialDistributedLoad {
+            element_id: 1, q_i: -q, q_j: -q, a: Some(boundary), b: Some(b),
+        }),
+    ];
+    let right_patch_resultant = -q * (b - boundary);
+    (input, right_patch_resultant)
+}
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_axial_patch_boundaries_govern_2d_moving_envelope() {
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
+    for sign in [-1.0, 1.0] {
+        let (input, expected) = opposite_axial_patches(sign);
+        let result = solve_moving_loads_2d(&input).unwrap();
+        assert_planar_value(result.elements["1"].n_max_neg, expected.min(0.0));
+        assert_planar_value(result.elements["1"].n_max_pos, expected.max(0.0));
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_axial_patch_boundaries_govern_3d_moving_envelope() {
+    use dedaliano_engine::metamorphic::planes::Plane;
+    for sign in [-1.0, 1.0] {
+        let (input, expected) = opposite_axial_patches(sign);
+        for plane in Plane::ALL {
+            let result = solve_moving_loads_3d(&embedded_moving_input(&input, plane)).unwrap();
+            assert_planar_value(result.elements["1"].n_max_neg, expected.min(0.0));
+            assert_planar_value(result.elements["1"].n_max_pos, expected.max(0.0));
+        }
+    }
+}
