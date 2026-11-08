@@ -88,27 +88,25 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
         }
     }
 
-    // 2. Check for compression before assembling anything. There are no surface
-    //    elements on the 2D path, so the axial forces answer this on their own —
-    //    a frame in pure tension can bail here and skip both assemblies below.
-    //    The mean force Kg is built from, not the end average: under an axial
-    //    span load both end forces can be 0 with the member compressed.
+    // The mean force Kg is built from, not the end average: under an axial
+    // span load both end forces can be 0 with the member compressed.
     let mean_n = super::geometric_stiffness::mean_axial_forces_2d(input, &dof_num, &u);
-    let axial_noise = axial_force_round_off_2d(input, &linear);
+    let SparseAssemblyResult { k_ff, inclined_transforms_2d, .. } = assemble_sparse_2d(input, &dof_num);
+    let member_dofs: Vec<(usize, Vec<usize>)> = crate::ordered::values(&input.elements)
+        .map(|e| (e.id, [e.node_i, e.node_j].iter().flat_map(|&n| (0..3).map(move |i| (n, i))).filter_map(|k| dof_num.map.get(&k).copied()).collect()))
+        .collect();
+    let axial_noise = coupled_round_off(&k_ff, !input.constraints.is_empty(), &member_dofs, &axial_force_round_off_2d(input, &linear));
+    let resolvable = |id: &usize, n: f64| n < -axial_noise.get(id).copied().unwrap_or(0.0);
     if !mean_n.values().any(|&n| n < 0.0) {
         return Err(crate::refusal::no_compressed_elements());
     }
-    if !mean_n.iter().any(|(id, &n)| n < -axial_noise.get(id).copied().unwrap_or(0.0)) {
+    if !mean_n.iter().any(|(id, &n)| resolvable(id, n)) {
         let (id, n) = mean_n.iter().min_by(|a, b| a.1.total_cmp(b.1).then(a.0.cmp(b.0))).map(|(id, n)| (*id, *n)).unwrap_or((0, 0.0));
         return Err(format!(
-            "Buckling not determinable: every axial compression is within round-off of the member elongations (largest {:.3e} kN in element {id}, resolvable beyond {:.3e} kN)",
+            "Buckling not determinable: every axial compression is within round-off (largest {:.3e} kN in element {id}, resolvable beyond {:.3e} kN)",
             -n, axial_noise.get(&id).copied().unwrap_or(0.0)
         ));
     }
-
-    // 3. Sparse stiffness of the free block (the linear path's K: rotated
-    //    springs, orphan-rotation guard, inclined-roller frames)
-    let SparseAssemblyResult { k_ff, inclined_transforms_2d, .. } = assemble_sparse_2d(input, &dof_num);
 
     // 4. Build geometric stiffness at the linear solution (sparse free block;
     //    the eigensolver below is sparse, so a dense n×n Kg was pure waste), in
@@ -145,11 +143,15 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, mean_n, span_axial })
 }
 
-/// Per member, the axial force that is round-off of its elongation: N = EA·δ/L
-/// with δ = Σ (u_j − u_i)·e summed in global components, whose round-off is
-/// ε times the sum of the terms' magnitudes; 100 of those.
+/// Per member, the axial force that is round-off: 100 ε times the magnitudes N = EA·δ/L is
+/// recovered from (δ = Σ (u_j − u_i)·e over global components) plus the member's own end forces
+/// (N, V, M/L), whose round-off reaches N through the solve and the force recovery.
 fn axial_force_round_off_2d(input: &SolverInput, linear: &AnalysisResults) -> HashMap<usize, f64> {
     let u: HashMap<usize, (f64, f64)> = linear.displacements.iter().map(|d| (d.node_id, (d.ux, d.uz))).collect();
+    let end_forces: HashMap<usize, f64> = linear.element_forces.iter().map(|f| {
+        let moments = if f.length > 0.0 { f.m_start.abs().max(f.m_end.abs()) / f.length } else { 0.0 };
+        (f.element_id, f.n_start.abs().max(f.n_end.abs()).max(f.v_start.abs()).max(f.v_end.abs()).max(moments))
+    }).collect();
     let nodes: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let secs: HashMap<usize, &SolverSection> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
@@ -161,13 +163,18 @@ fn axial_force_round_off_2d(input: &SolverInput, linear: &AnalysisResults) -> Ha
         if l > 0.0 {
             let (cx, cz) = ((b.x - a.x) / l, (b.z - a.z) / l);
             let terms = |n: usize| u.get(&n).map_or(0.0, |&(ux, uz)| (ux * cx).abs() + (uz * cz).abs());
-            out.insert(e.id, 100.0 * f64::EPSILON * m.e * 1000.0 * s.a * (terms(e.node_i) + terms(e.node_j)) / l);
+            let elongation = m.e * 1000.0 * s.a * (terms(e.node_i) + terms(e.node_j)) / l;
+            out.insert(e.id, 100.0 * f64::EPSILON * (elongation + end_forces.get(&e.id).copied().unwrap_or(0.0)));
         }
     }
     out
 }
 
-fn axial_force_round_off_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[f64]) -> HashMap<usize, f64> {
+fn axial_force_round_off_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[f64], linear: &AnalysisResults3D) -> HashMap<usize, f64> {
+    let end_forces: HashMap<usize, f64> = linear.element_forces.iter().map(|f| {
+        let moments = if f.length > 0.0 { f.my_start.abs().max(f.my_end.abs()).max(f.mz_start.abs()).max(f.mz_end.abs()) / f.length } else { 0.0 };
+        (f.element_id, f.n_start.abs().max(f.n_end.abs()).max(f.vy_start.abs()).max(f.vy_end.abs()).max(f.vz_start.abs()).max(f.vz_end.abs()).max(moments))
+    }).collect();
     let nodes: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let secs: HashMap<usize, &SolverSection3D> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
@@ -180,7 +187,8 @@ fn axial_force_round_off_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[
         let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
         if l > 0.0 {
             let terms = |n: usize| (0..3).map(|i| (at(n, i) * d[i] / l).abs()).sum::<f64>();
-            out.insert(e.id, 100.0 * f64::EPSILON * m.e * 1000.0 * s.a * (terms(e.node_i) + terms(e.node_j)) / l);
+            let elongation = m.e * 1000.0 * s.a * (terms(e.node_i) + terms(e.node_j)) / l;
+            out.insert(e.id, 100.0 * f64::EPSILON * (elongation + end_forces.get(&e.id).copied().unwrap_or(0.0)));
         }
     }
     out
@@ -218,6 +226,53 @@ fn refuse_round_off_buckling(lambda_round_off: Option<f64>, lambda_cr: f64, mean
         "Buckling not determinable: the axial forces of elements {} are within round-off, and as compressions of that size they could lower the critical factor from {lambda_cr:.6e} to {lambda:.6e}",
         listed.join(", ")
     ))
+}
+
+/// Per member, the largest round-off bound among the members its free degrees of freedom are coupled
+/// to through K: the solve's residual is set by the largest forces in the coupled block and can land in
+/// any member of it. Constraints couple the whole model.
+fn coupled_round_off(k_ff: &CscMatrix, constrained: bool, member_dofs: &[(usize, Vec<usize>)], own: &HashMap<usize, f64>) -> HashMap<usize, f64> {
+    let n = k_ff.n;
+    let mut parent: Vec<usize> = (0..n).collect();
+    fn root(parent: &mut [usize], mut i: usize) -> usize {
+        while parent[i] != i {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+        }
+        i
+    }
+    let join = |parent: &mut Vec<usize>, a: usize, b: usize| {
+        let (ra, rb) = (root(parent, a), root(parent, b));
+        if ra != rb { parent[ra.max(rb)] = ra.min(rb) }
+    };
+    for j in 0..n {
+        for &i in &k_ff.row_idx[k_ff.col_ptr[j]..k_ff.col_ptr[j + 1]] {
+            if i < n { join(&mut parent, i, j) }
+        }
+    }
+    for (_, dofs) in member_dofs {
+        let free: Vec<usize> = dofs.iter().copied().filter(|&d| d < n).collect();
+        for w in free.windows(2) { join(&mut parent, w[0], w[1]) }
+    }
+    if constrained {
+        for i in 1..n { join(&mut parent, 0, i) }
+    }
+    let component = |parent: &mut Vec<usize>, dofs: &[usize]| dofs.iter().find(|&&d| d < n).map(|&d| root(parent, d));
+    let mut largest: HashMap<usize, f64> = HashMap::new();
+    for (id, dofs) in member_dofs {
+        if let Some(c) = component(&mut parent, dofs) {
+            let s = largest.entry(c).or_insert(0.0);
+            *s = s.max(own.get(id).copied().unwrap_or(0.0));
+        }
+    }
+    let mut out = own.clone();
+    for (id, dofs) in member_dofs {
+        if let Some(bound) = component(&mut parent, dofs).and_then(|c| largest.get(&c)) {
+            let e = out.entry(*id).or_insert(0.0);
+            *e = e.max(*bound);
+        }
+    }
+    out
 }
 
 const EIGENVALUE_ROUND_OFF: f64 = 100.0 * f64::EPSILON;
@@ -460,14 +515,18 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     let mean_n = super::geometric_stiffness::mean_axial_forces_3d(input, &dof_num, &u_full);
     let (span_axial, span_least) = span_axial_geometric_stiffness_3d(input, &dof_num);
     let compression = |id: &usize, n: f64| n + span_least.get(id).copied().unwrap_or(0.0).min(0.0);
-    let axial_noise = axial_force_round_off_3d(input, &dof_num, &u_full);
+    let SparseAssemblyResult3D { k_ff, inclined_transforms, .. } = assemble_sparse_3d(input, &dof_num, false);
+    let member_dofs: Vec<(usize, Vec<usize>)> = crate::ordered::values(&input.elements)
+        .map(|e| (e.id, [e.node_i, e.node_j].iter().flat_map(|&n| (0..6).map(move |i| (n, i))).filter_map(|k| dof_num.map.get(&k).copied()).collect()))
+        .collect();
+    let axial_noise = coupled_round_off(&k_ff, !input.constraints.is_empty(), &member_dofs, &axial_force_round_off_3d(input, &dof_num, &u_full, &linear));
     let resolvable = |id: &usize, n: f64| compression(id, n) < -axial_noise.get(id).copied().unwrap_or(0.0);
     let has_frame_compression = mean_n.iter().any(|(id, &n)| n < 0.0 || resolvable(id, n));
     let has_resolved_compression = mean_n.iter().any(|(id, &n)| resolvable(id, n));
     let not_determinable = || {
         let (id, n) = mean_n.iter().map(|(id, &n)| (*id, compression(id, n))).min_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0))).unwrap_or((0, 0.0));
         format!(
-            "Buckling not determinable: every axial compression is within round-off of the member elongations (largest {:.3e} kN in element {id}, resolvable beyond {:.3e} kN)",
+            "Buckling not determinable: every axial compression is within round-off (largest {:.3e} kN in element {id}, resolvable beyond {:.3e} kN)",
             -n, axial_noise.get(&id).copied().unwrap_or(0.0)
         )
     };
@@ -477,10 +536,6 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
         || !input.solid_shells.is_empty()
         || !input.curved_shells.is_empty();
 
-    // Bail before assembling anything. The full gate below also asks whether the
-    // assembled -Kg has non-trivial entries, but that question only arises when
-    // there are surfaces to assemble: with no compressed frame and no surface
-    // elements at all, no amount of assembly can change the answer.
     if !has_frame_compression && !has_surfaces {
         return Err(crate::refusal::no_compressed_elements());
     }
@@ -491,7 +546,6 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // K (the linear path's, rotated into the inclined-support frames) first:
     // Kg is collected over all DOFs when there are inclined supports and
     // rotated the same way once the surfaces are in.
-    let SparseAssemblyResult3D { k_ff, inclined_transforms, .. } = assemble_sparse_3d(input, &dof_num, false);
 
     let resolved = BucklingKg::Resolved { mean_n: &mean_n, noise: &axial_noise };
     let round_off = BucklingKg::RoundOffAtCompression { mean_n: &mean_n, noise: &axial_noise };

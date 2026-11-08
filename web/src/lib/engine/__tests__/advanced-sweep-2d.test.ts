@@ -417,8 +417,8 @@ function checkBuckling(label: string, input: SolverInput, res: AnalysisResults):
   let bk;
   try { bk = solveBuckling(input); } catch (e) {
     const m = errMsg(e);
-    if (/no compressed elements/i.test(m)) {
-      if (compressed.length) fail('buckling', `${label}: "no compressed elements" but e${compressed[0].elementId} has N=${compressed[0].nStart.toFixed(3)} → ${compressed[0].nEnd.toFixed(3)} kN`);
+    if (/no compressed elements|every axial compression is within round-off/i.test(m)) {
+      if (compressed.length) fail('buckling', `${label}: "${/round-off/.test(m) ? 'every compression within round-off' : 'no compressed elements'}" but e${compressed[0].elementId} has N=${compressed[0].nStart.toFixed(3)} → ${compressed[0].nEnd.toFixed(3)} kN`);
       return { none: 'noCompression' };
     }
     /*
@@ -447,7 +447,7 @@ function checkBasicBuckling(label: string, res: AnalysisResults, input: SolverIn
   let got;
   try { got = runBuckling2D(input, DEFAULT_SETTINGS); } catch (e) {
     const m = errMsg(e);
-    if (/no compressed elements/i.test(m) && !compressed) return null;
+    if (/no compressed elements|every axial compression is within round-off/i.test(m) && !compressed) return null;
     if (/Every degree of freedom is restrained/.test(m)) return null;
     fail('buckling-basic', `${label}: threw "${m.slice(0, 120)}"`);
     return null;

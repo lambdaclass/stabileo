@@ -272,3 +272,20 @@ fn a_compression_below_the_old_absolute_floor_on_an_ordinary_column_keeps_its_fa
         assert!((lambda / one_element - 1.0).abs() < 1e-8, "λ = {lambda}, one-element root {one_element}");
     }
 }
+
+#[test]
+fn axial_forces_that_are_round_off_of_bending_or_thermal_strain_are_not_resolved_compression() {
+    for (name, json) in [
+        ("thermal roller chain", include_str!("../fixtures/buckling-thermal-roller-chain.json")),
+        ("thermal cantilever under an end moment", include_str!("../fixtures/buckling-thermal-cantilever-moment.json")),
+        ("inclined cantilever under an end moment", include_str!("../fixtures/buckling-inclined-cantilever-moment.json")),
+    ] {
+        let input: SolverInput = serde_json::from_str(json).unwrap();
+        let plane = solve_buckling_2d(&input, 1).map(|b| b.modes[0].load_factor);
+        let space = solve_buckling_3d(&embed_2d(&input, Plane::XZ).unwrap(), 1).map(|b| b.modes[0].load_factor);
+        for result in [plane, space] {
+            let e = result.expect_err(name);
+            assert!((e.contains("Buckling not determinable") && e.contains("within round-off")) || e == dedaliano_engine::refusal::no_compressed_elements(), "{name}: {e}");
+        }
+    }
+}
