@@ -369,9 +369,9 @@ section to a TypeScript reference, or if a design-check wrapper returns `null` a
 In rough order of safety value:
 
 1. **CIRSOC 301 inputs still computed in TypeScript.** The checker is in Rust and gated, but Ae
-   from the model's end connections (`tension-connection.ts`), J, Cw, Z (`section-constants.ts`)
-   and the unbraced lengths (`unbraced-length.ts`) are TypeScript arithmetic fed to it. Cb is the
-   engine's (`cirsoc301_inputs`, slice 1 below). Not in the engine either:
+   from the model's end connections (`tension-connection.ts`) and the unbraced lengths
+   (`unbraced-length.ts`) are TypeScript arithmetic fed to it. Cb, J, Cw, c and Sy are the
+   engine's (`cirsoc301_inputs`, slices 1 and 3 below). Not in the engine either:
    F.7–F.11 (boxes, tubes, tees, angles in flexure), so those members are NOT EVALUATED under
    moment, by name.
 2. **Gate coverage.** Torsion and the slenderness magnifier are not re-checked by the engine,
@@ -485,7 +485,7 @@ One PR per slice, on branch `rust/ts-migration-<slice>`:
 |--:|:-:|---|---|
 | 1 | A | Cb, CIRSOC 301 F.1(3) | **Moved** (#1718) |
 | 2 | A | Ae, net area from end connections | |
-| 3 | A | J, Cw, c, Sy section constants | |
+| 3 | A | J, Cw, c, Sy section constants | **Moved** (#1754) |
 | 4 | A | L, Lb, cantilever free end, segment diagram | |
 | 5 | A | Steel demand assembly and concurrent tuples | |
 | 6 | A | Material family classification | |
@@ -563,7 +563,22 @@ three stations in the window and give Cb = 1 on both sides. The fix is the resul
 - **Watch:** `x̄` (the connection eccentricity) is read from section data. Keep the TypeScript's
   source of x̄, or pin the difference as a results change.
 
-#### 3. J, Cw, c, Sy section constants
+#### 3. J, Cw, c, Sy section constants: moved
+
+Moved in #1754. `steel/section-constants.ts` keeps the cache and gathers the geometry's J, Zx and
+Zy from the section engine. The closed forms (thin-walled J of an I or H, Cw of an I and of a
+channel, F.2's c, the channel's Sy) are `section_constants` in `cirsoc301_inputs.rs`, op
+`sectionConstants`. The TypeScript closed forms are deleted. Engine tests: hand values for
+IPE 300, HEB 200 and UPN 200 from `data/steel-profiles.ts`, the channel Cw in its shear-centre
+form, the basis precedence and the refusals (`engine/tests/cirsoc301_inputs.rs`); metamorphic
+size scaling (J ∝ λ⁴, Cw ∝ λ⁶, Sy ∝ λ³, c invariant). `section-constants-engine.test.ts`
+compares every plated I, H and U profile of the catalogue with the closed forms written out
+independently, to 1e-13. Parity against the deleted TypeScript, before it was deleted: 3 508
+sections (the catalogue four ways, plus 400 welded and degenerate sections), 24 556 values.
+24 485 values are bit-identical, and 71 differ by at most 4 ulp (relative 4.5e-16). The
+difference comes from `pow`, because V8's `**` and Rust's libm round differently. The plan as
+written:
+
 
 - **TypeScript:** `steel/section-constants.ts` `steelSectionConstants` (J thin-walled Σbt³/3 for
   an I or H, Cw = I_weak·h₀²/4, the channel Cw, c and Sy of AISC Design Guide 9, the `jBasis`).
@@ -1159,7 +1174,7 @@ call.
 | `steel/material-family.ts` | 200 | c | - | high | Classifies material as concrete/steel/etc from fy magnitude and E band thresholds; gates which checker runs |
 | `steel/moment-gradient.ts` | 55 | a | engine/src/postprocess/cirsoc301_inputs.rs (moment_gradient) | high | WASM boundary for Cb per CIRSOC 301 F.1.1; the former TypeScript is the oracle `__tests__/differential/moment-gradient-oracle.ts` |
 | `steel/profile-optimise.ts` | 183 | d | - | high | Lightest catalogue profile search calling TS checkSteelMember (cirsoc301.ts); search only |
-| `steel/section-constants.ts` | 120 | c | - (section/torsion.rs FE J used when available) | high | J, Cw, Zx, Zy, c closed-form for I/H/channel sections fed to CIRSOC 301 checker |
+| `steel/section-constants.ts` | 70 | a | engine/src/postprocess/cirsoc301_inputs.rs (section_constants) | high | Gathers the geometry's J/Z from the section engine and asks the engine for J, Cw, c and Sy; cached per section |
 | `steel/steel-inventory.ts` | 297 | d | - | low | Inventory of metallic members, families, empty reasons, total length |
 | `steel/steel-status.ts` | 163 | d | - | medium | Steel member status union, invariants, display tone/labels (what may be called verified) |
 | `steel/torsional-buckling.ts` | 177 | c | - | low | CIRSOC 301 E.4 applicability/gap report; computes shear modulus G only |
