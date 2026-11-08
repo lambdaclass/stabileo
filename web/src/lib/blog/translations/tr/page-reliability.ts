@@ -47,6 +47,7 @@ const body: StandingPage['i18n']['en'] = {
         "SA-2026-001 ile 004 arası 0.2.0 sürümünde düzeltildi.",
         "SA-2026-005 ile 020 arası 0.3.0 sürümünde düzeltildi.",
         "SA-2026-021 ile 024 arası 0.4.0 sürümünde düzeltildi.",
+        "SA-2026-025 ile 047 arası 0.5.0 sürümüyle yayımlandı ve bu sürümde düzeltildi; SA-2026-040 (sınırlandırıldı: kontrol eksik olarak işaretlenir) ve SA-2026-044 hariç: 2B plastik göçme #758 kapanana kadar reddedilir.",
         "Sonuçlar değişmiş olabileceğinde uygulama bunu bir kez bildirir; kendilerini ilgilendiren bir değişiklikten önce kaydedilmiş projeler açıldığında yeniden kontrol ister."
       ]
     },
@@ -97,7 +98,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "q": "Yayımlanan uyarılar düzeltildi mi?",
-      "a": "Evet. SA-2026-001 ile 004 arası 0.2.0 sürümünde, SA-2026-005 ile 020 arası 0.3.0'da ve SA-2026-021 ile 024 arası 0.4.0'da düzeltildi."
+      "a": "İkisi hariç hepsi. SA-2026-001 ile 004 arası 0.2.0 sürümünde, SA-2026-005 ile 020 arası 0.3.0'da, SA-2026-021 ile 024 arası 0.4.0'da ve SA-2026-025 ile 047 arası 0.5.0'da düzeltildi; SA-2026-040 ve SA-2026-044 hariç. SA-2026-040 sınırlandırıldı: kontrol eksik olarak işaretlenir. SA-2026-044 düzeltilmedi: 2B plastik göçme #758 kapanana kadar reddedilir."
     }
   ]
 };

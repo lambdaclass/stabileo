@@ -7616,7 +7616,7 @@ const pt: Translations = {
   'status.empty': 'vazio',
   'status.grid': 'Grade',
   'whatsNew.title': "Stabileo {version}: seus resultados podem ter mudado",
-  'whatsNew.body': "Esta versão corrige erros do solver, das combinações de carga e das verificações, e várias correções mudam resultados: a carga permanente padrão (mínimo de divisórias da CIRSOC 101), a flambagem lateral com torção (carga na mesa superior por padrão), a tração CIRSOC 301 (exige a ligação de extremidade; sem ela, fica sem avaliar), as resistências CIRSOC 201 e ACI 318, e mais. Alguns modelos agora são recusados ou sinalizados em vez de resolvidos em silêncio. Recalcule seus projetos e revise as verificações antes de usar resultados anteriores.",
+  'whatsNew.body': "Esta versão corrige resultados errados nas verificações de dimensionamento (pilares CIRSOC 201 em 3D, flexão EN 1992, compressão CIRSOC 301, pilares de concreto armado com sua menor compressão), no gerador de cargas, na flambagem, nas análises harmônica e no tempo, na passagem de 3D para 2D e nas tensões combinadas de cascas, cada um com seu aviso de segurança (SA-2026-025 a 047). Alguns modelos agora são recusados ou sinalizados em vez de resolvidos em silêncio, e o colapso plástico 2D continua recusado até que chegue sua correção. Recalcule seus projetos e revise as verificações antes de usar resultados anteriores.",
   'whatsNew.read': "Ver o que mudou",
   'whatsNew.dismiss': "Entendi",
   'whatsNew.notesLink': "Notas da versão: o que mudou",

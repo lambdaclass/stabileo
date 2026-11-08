@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | Medium |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#426](https://github.com/lambdaclass/stabileo/issues/426) |
-| Fix | #1301 |
+| Fix | PR [#1301](https://github.com/lambdaclass/stabileo/pull/1301) (merged 2026-11-05), released in v0.5.0 |
 | Affected versions | every release with 3D co-rotational analysis; not bisected |
 | Re-check registry | results version entry `corotational-3d-rotations` |
 
@@ -43,6 +43,8 @@ than one axis (out-of-plane bending of curved or skew members, combined bending 
 any co-rotational analysis, planar included, where a member turned half a turn or more.
 
 ## Fixed in
+
+0.5.0.
 
 Each end rotation is turned into a rotation matrix, the member frame is turned by the proper mean
 of the two end rotations, and the deformational rotations are the logarithms of the rotation left

@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (not fixed in 0.5.0: 2D plastic collapse is refused until #758 is fixed) |
 | Issue | [#758](https://github.com/lambdaclass/stabileo/issues/758) |
-| Fix | #1447 |
+| Fix | PR [#1447](https://github.com/lambdaclass/stabileo/pull/1447) (merged 2026-11-06), the limit analysis, in v0.5.0; 2D plastic collapse stays refused until [#758](https://github.com/lambdaclass/stabileo/issues/758) is fixed |
 | Affected versions | every release with 2D plastic collapse; not bisected |
 | Re-check registry | results version entry `plastic-2d-limit-analysis-collapse-factor` |
 
@@ -37,7 +37,7 @@ several near-simultaneous hinges are the ones to recheck.
 
 ## Fixed in
 
-The limit analysis below is fixed in the next release, but 2D plastic collapse stays withheld (`PL-2D-INVARIANCE`, since results version 31): the engine and the app refuse it until the separate pull request tracked by [#758](https://github.com/lambdaclass/stabileo/issues/758) lifts the refusal for results the limit analysis confirms. Until then this fix does not reach results.
+The limit analysis below is in 0.5.0, but 2D plastic collapse stays withheld (`PL-2D-INVARIANCE`, since results version 31): the engine and the app refuse it until the separate pull request tracked by [#758](https://github.com/lambdaclass/stabileo/issues/758) lifts the refusal for results the limit analysis confirms. Until then this fix does not reach results.
 
 The collapse factor is now computed by limit analysis: the static theorem as a linear program
 over the elastic load field plus the frame's self-stress fields (from unit thermal dislocations

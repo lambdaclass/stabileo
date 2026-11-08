@@ -8,8 +8,8 @@ answers which question, how current each one is, and where the work is tracked.
 coverage, Solver and proof depth, Release safety, Platform and architecture, Growth and
 housekeeping). Every item there links to its GitHub issue;
 the tracker is [#396](https://github.com/lambdaclass/stabileo/issues/396). What comes first right now is
-the **Priority now** section at the top of PRODUCT_ROADMAP: wrong-result bugs first, then other
-bugs, then features. Each section has
+the **Now** section at the top of PRODUCT_ROADMAP: soundness first (wrong-result bugs, the tests
+that catch them, the verification safety net and release safety), then other bugs, then features. Each section has
 measurable exit criteria, and the metrics behind them are regenerated on the
 [verification dashboard](../verification/DASHBOARD.md).
 
@@ -17,7 +17,7 @@ measurable exit criteria, and the metrics behind them are regenerated on the
 
 | Document | Answers | Status | Owner |
 |---|---|---|---|
-| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-04) | Federico Carrone |
+| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-08) | Federico Carrone |
 | [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, numerical methods, long-term solver sequence (Steps 1–14+) | Long-term sequence current; its "Where we are" and "Wave 1" sections predate v0.2.0 (see the note at its top) | Diego K (last editor) |
 | [../../research/DESIGN.md](../../research/DESIGN.md) | Stabileo Research: what it is, its rules, the engine-benchmarks track and the ordered paper queue (summary in PRODUCT_ROADMAP "Stabileo Research") | Current (2026-10-29) | Federico Carrone |
 | [AI_ROADMAP.md](AI_ROADMAP.md) | AI capabilities, their order, prerequisites and safety rules | Current as of 2026-10-07 | Diego K (last editor) |
@@ -51,7 +51,7 @@ documents yet (see [#355](https://github.com/lambdaclass/stabileo/issues/355)).
 ## Archived
 
 Superseded documents are in [../archive/](../archive/README.md), each with the reason and its
-replacement: the old Codex workflow (stacked PRs, solver off-limits), the July 2026 "current
+replacement: the old workflow (stacked PRs, solver off-limits), the July 2026 "current
 state" and PR-restructure notes, the wave-1 agent prompts, and the stub
 `ai_structural_engineering_roadmap.md`.
 

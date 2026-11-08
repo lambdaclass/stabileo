@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#1323](https://github.com/lambdaclass/stabileo/issues/1323) |
-| Fix | #1324 |
+| Fix | PR [#1324](https://github.com/lambdaclass/stabileo/pull/1324) (merged 2026-11-05), released in v0.5.0 |
 | Affected versions | every release with 2D buckling and axial span loads; not bisected |
 | Re-check registry | results version entry `buckling-2d-varying-axial-force` |
 
@@ -41,6 +41,8 @@ factor is a property of the whole model, so recheck it even when another member 
 with no load along any member's axis keep their factors.
 
 ## Fixed in
+
+0.5.0.
 
 The geometric stiffness of each member now integrates its whole axial force, ∫N(x)·φ'ᵢ·φ'ⱼ dx,
 not its mean. Tests: `engine/tests/buckling_span_axial_2d.rs`.

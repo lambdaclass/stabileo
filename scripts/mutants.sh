@@ -52,7 +52,7 @@ case $scope in
   element | all)
     files+=(-f 'engine/src/element/**')
     tests+=(element_rigid_body_modes shell_patch_tests shell_rigid_body_modes
-      local_axis_convention determinate_exact opensees_differential_regressions
+      local_axis_convention determinate_exact opensees_differential_regressions symbolic_elements
       certify_end_to_end certify_end_to_end_mutations)
     ;;
   certify | solver | safety) ;;

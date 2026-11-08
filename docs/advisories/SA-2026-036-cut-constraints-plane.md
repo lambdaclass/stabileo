@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#466](https://github.com/lambdaclass/stabileo/issues/466) |
-| Fix | PR #1297 (safety/fix-466-constraint-plane) |
+| Fix | PR [#1297](https://github.com/lambdaclass/stabileo/pull/1297) (merged through [#1409](https://github.com/lambdaclass/stabileo/pull/1409), 2026-11-05), released in v0.5.0 |
 | Affected versions | every release with constraints and the 3D-to-2D switch; not bisected |
 | Re-check registry | `constraint-cut-plane` (results version 25): a 2D model with constraints solved before it opens with a notice to re-cut it from the 3D model or solve in 3D |
 
@@ -34,6 +34,8 @@ constraint from the cut to a node left out of it. The plane model dropped the ou
 silently.
 
 ## Fixed in
+
+0.5.0.
 
 On a cut, the constraints are rewritten as if the frame stood in X–Z, and restored with the 3D
 model. The axes are renamed (horizontal → X, vertical → Z, normal → Y), and the in-plane rotation

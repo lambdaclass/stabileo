@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#534](https://github.com/lambdaclass/stabileo/issues/534) |
-| Fix | PR [#1236](https://github.com/lambdaclass/stabileo/pull/1236) (not yet merged) |
+| Fix | PR [#1236](https://github.com/lambdaclass/stabileo/pull/1236) (merged 2026-11-03), released in v0.5.0 |
 | Affected versions | the engine check from 2026-03-08 (ba0e683db, by source history; not bisected by running); in the app from 2026-09-25 (69f9f34b1, PRO other codes), certified from 2026-10-15 (f6f9ea3b7); 0.2.0, 0.3.0 and 0.4.0; `main` until the fix |
 | Re-check registry | `ec2-flexure-strain-compatibility`, results version 8 (models with concrete members) |
 
@@ -61,7 +61,7 @@ concrete members, because the other-codes run is not saved with the project.
 
 ## Fixed in
 
-Not yet released. PR #1236 solves the neutral axis as the unique root of the strain-compatible
+0.5.0. PR #1236 solves the neutral axis as the unique root of the strain-compatible
 force balance with `Real::increasing_root`, in f64 and in the certified interval check, with
 εcu3, λ and η from Table 3.1 and 3.1.7. Top bars are taken net of the concrete they displace and
 add nothing in tension. Where λx reaches d' the displaced concrete makes the force balance jump, so it is

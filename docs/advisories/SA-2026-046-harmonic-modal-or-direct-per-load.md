@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#1537](https://github.com/lambdaclass/stabileo/issues/1537), [#1538](https://github.com/lambdaclass/stabileo/issues/1538), [#1539](https://github.com/lambdaclass/stabileo/issues/1539), [#1540](https://github.com/lambdaclass/stabileo/issues/1540), [#1541](https://github.com/lambdaclass/stabileo/issues/1541) |
-| Fix | #1587 |
+| Fix | PR [#1587](https://github.com/lambdaclass/stabileo/pull/1587) (merged 2026-11-06), released in v0.5.0 |
 | Affected versions | no tagged release. stabileo.com from 2026-11-05 19:19 UTC (the deploy of #1423) until #1587 was deployed, and engine/WASM builds of `main` from a9d72cbe6 (#1423) until #1587. 0.4.0 and earlier have the modal solver without this switch (see SA-2026-043 for theirs) |
 | Re-check registry | results version entry `harmonic-modal-or-direct-per-frequency` |
 
@@ -63,6 +63,8 @@ Among those:
 A run whose certificate reports the method `direct` at every frequency is not affected.
 
 ## Fixed in
+
+0.5.0.
 
 The choice now depends on the model and the frequency only, never on the load
 ([#1587](https://github.com/lambdaclass/stabileo/pull/1587)):

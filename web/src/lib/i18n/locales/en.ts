@@ -1347,7 +1347,7 @@ const en: Record<string, string> = {
   'status.selection': 'Selection',
   'status.grid': 'Grid',
   'whatsNew.title': "Stabileo {version}: your results may have changed",
-  'whatsNew.body': "This version fixes errors in the solver, the load combinations and the design checks, and several fixes change results: the default dead load (CIRSOC 101 partition minimum), lateral-torsional buckling (load on the top flange by default), CIRSOC 301 tension (needs the end connection, otherwise not evaluated), CIRSOC 201 and ACI 318 capacities, and more. Some models are now refused or flagged instead of solved silently. Re-run your projects and review their design checks before relying on earlier results.",
+  'whatsNew.body': "This version fixes wrong results in design checks (3D CIRSOC 201 columns, EN 1992 flexure, CIRSOC 301 compression, RC columns under their least compression), the load generator, buckling, harmonic and time-history analysis, the 3D-to-2D cut and the combined shell stresses, each with a safety advisory (SA-2026-025 to 047). Some models are now refused or flagged instead of solved silently, and 2D plastic collapse stays refused until its fix lands. Re-run your projects and review their design checks before relying on earlier results.",
   'whatsNew.read': "Read what changed",
   'whatsNew.dismiss': "Got it",
   'whatsNew.notesLink': "Release notes: what changed in this version",
