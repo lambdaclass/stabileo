@@ -363,6 +363,19 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect(summary.rows.map((r) => r[0]).sort()).toEqual(ids);
   });
 
+  it.fails('known wrong result: #1782 — lists every advisory in every written language', async () => {
+    const { readdirSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const ids = readdirSync(join(__dirname, '../../../../../docs/advisories'))
+      .map((f) => /^(SA-\d{4}-\d{3})-/.exec(f)?.[1])
+      .filter((x): x is string => !!x)
+      .sort();
+    for (const locale of written(post!)) {
+      const summary = post!.i18n[locale]!.blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+      expect(summary.rows.map((r) => r[0]).sort(), `${locale}: advisory list`).toEqual(ids);
+    }
+  });
+
   it('quotes each documented case exactly as its advisory states it', () => {
     // Correct / reported, per advisory, as each advisory's documented-case table states it
     // (docs/advisories/SA-2026-*.md).
