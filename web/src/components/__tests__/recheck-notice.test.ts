@@ -3,6 +3,7 @@ import { render } from 'svelte/server';
 import RecheckNotice from '../RecheckNotice.svelte';
 import { recheckStore } from '../../lib/store/recheck.svelte';
 import { t, setLocale } from '../../lib/i18n';
+import { OFFERED_LOCALES } from '../../lib/i18n/offered';
 
 vi.mock('../../lib/store/file', () => ({ saveWorkspaceSettled: vi.fn() }));
 vi.mock('../../lib/actions/recheck', () => ({
@@ -79,7 +80,7 @@ it('offers both actions when a notice mixes generated-load and solve changes', a
   expect(html).toContain(t('recheck.staleWarning'));
 });
 
-it.each(['de', 'fr', 'tr'] as const)('shows each change in the reader\'s language (%s), not in English', async (locale) => {
+it.each(OFFERED_LOCALES.filter((l) => l !== 'en'))('shows each change in the reader\'s language (%s), not in English', async (locale) => {
   const project = {
     analysisMode: 'pro',
     materials: [[1, { id: 1, e: 200000, fy: 250 }]],

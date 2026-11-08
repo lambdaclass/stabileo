@@ -6,11 +6,9 @@ const original = publicI18n.locale;
 afterEach(() => setLocale(original));
 
 it('labels a paper in the reader’s language only where the paper is written in it', () => {
-  setLocale('de');
-  expect(paperTextLocale('shauer-2025')).toBe('de');
-  expect(paperTextLocale('grossman-2026')).toBe('de');
-  expect(paperTextLocale('ferrari-2025')).toBe('en');
   setLocale('es');
+  expect(paperTextLocale('shauer-2025')).toBe('es');
+  expect(paperTextLocale('grossman-2026')).toBe('es');
   expect(paperTextLocale('ferrari-2025')).toBe('es');
   expect(paperTextLocale('shell-obstacle-course')).toBe('en');
   expect(paperTextLocale('no-such-paper')).toBe('en');

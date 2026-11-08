@@ -34,7 +34,7 @@
     "tr": "Bir mekanizmayı reddeden kontrol, sıfır frekanslı modunun hareket ettirdiği kütleyi global eksenlerde okuyordu; oysa eğik bir mesnette çözücü mesnedin kendi eksenlerinde çalışır. Bu yüzden yalnızca eğik kayıcı mesnetler ya da eğik 3B mesnetler boyunca kayan bir mekanizma kütle hareket ettirmiyor sayılıyordu: sıfır modu atılıyor, diğer modlar eksiksizmiş gibi dönüyor ve spektral analiz bu eksik kümeyi birleştiriyordu (#1315). Modal analiz artık bu kütleyi mesnedin eksenlerinde okuyor ve böyle bir modeli mekanizmayı adlandırarak reddediyor. Mekanizması olmayan modeller aynı modları döndürür."
   },
   "changelog": {
-    "file": "changelog.d/1315-inclined-modal-mechanism.md",
+    "file": "CHANGELOG.md",
     "heading": "Modal analysis refuses a mechanism that slides along inclined supports (2026-11-03)"
   }
 }

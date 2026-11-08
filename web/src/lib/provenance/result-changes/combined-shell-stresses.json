@@ -33,7 +33,7 @@
     "tr": "Kabuklu bir modelde, yüklerinin yanında bir mesnet yer değiştirmesi zorlayan bir yük durumu tüm plak ve dörtgen gerilmelerini kaybediyordu; kombinasyonlar ve zarflar yalnızca diğer durumların kabuk gerilmelerini topluyordu (#1673). Bu durum artık kabuk gerilmelerini veriyor ve kombinasyonlar bunları içeriyor. Dörtgenli bir modelin her kombinasyonu artık dörtgenlerinin düğüm gerilmelerini de listeliyor; başka hiçbir değer değişmiyor."
   },
   "changelog": {
-    "file": "changelog.d/1673-combined-shell-stresses-results.md",
+    "file": "CHANGELOG.md",
     "heading": "A load case with an imposed displacement keeps its shell stresses (2026-11-07)"
   }
 }

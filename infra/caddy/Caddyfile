@@ -45,7 +45,7 @@ import /etc/caddy/sites.d/*.caddy
 	}
 
 	map {path} {english_twin} {
-		~^/(?:es|pt|de|fr|tr)(/[^.]*[^./])/?$ "/en${1}"
+		~^/(?:es|pt|de|fr|tr)(/[^.]*[^./])?/?$ "/en${1}"
 		default ""
 	}
 	@notInThisLanguage {

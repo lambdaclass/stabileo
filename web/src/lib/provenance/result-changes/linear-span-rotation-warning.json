@@ -21,7 +21,7 @@
     "tr": "LIN-SMALL-DISPLACEMENT yalnızca düğüm dönmelerini ve her çubuğun uçları arasındaki kirişi değerlendiriyordu; bu yüzden iki ucundan ankastre, açıklığında büyük yük taşıyan ve uçları hareket etmeyen bir çubuk, açıklık içinde 0,1 rad'dan fazla dönse de hiç uyarılmıyordu (#1506). Doğrusal statik bir çözüm, 2B veya 3B, artık her çubuğun kesit dönmesini uç yer değiştirmelerinden ve açıklık yüklerinden açıklık boyunca hesaplıyor ve 0,1 rad'ı aştığı yerde uyarıyor; 3B'de iki eğilme düzlemi ve burulma birlikte değerlendiriliyor. Bir yük kombinasyonu bunu kendi yer değiştirmeleri ve açıklık yükleriyle, her sonucun kaydettiği çubuk verileriyle değerlendiriyor (resultSummary.memberSpans). Henüz dahil değil (#1569): kayma şekil değiştirmesine açık bir çubukta kaymanın eklediği eğim ve serbest bırakma içeren bir çubukta sıcaklık gradyanının eğriliği. Sayısal değerler değişmez."
   },
   "changelog": {
-    "file": "changelog.d/1506-span-rotation-warning.md",
+    "file": "CHANGELOG.md",
     "heading": "Linear analysis warns when a member turns past 0.1 rad inside its span (2026-11-06)"
   }
 }

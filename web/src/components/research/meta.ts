@@ -2,9 +2,9 @@ import catalog from '../../../../research/papers.json';
 import { bibliography } from './catalogue';
 import { EXPERIMENTS } from './experiments';
 import { cardTitle } from './card-title';
-import { RESEARCH_GALLERY, researchLastReview, researchLocales } from './locales';
+import { RESEARCH_GALLERY, researchLastReview } from './locales';
 import { publicUrl } from '../../lib/i18n/public-routes';
-import { publishedLocale } from '../../lib/i18n/published';
+import { publishedLocale, publishedLocales } from '../../lib/i18n/published';
 import { ORGANIZATION_ID, PUBLISHER } from '../../lib/page-meta';
 import type { PublicLocale } from '../../lib/i18n/store.svelte';
 
@@ -96,7 +96,7 @@ export function paperMeta(head: { paperId: string; name: string; lead: string },
     title: paperTitle(head.name, head.paperId, own),
     description: head.lead,
     path,
-    written: researchLocales(path) as readonly PublicLocale[],
+    written: publishedLocales(path) as readonly PublicLocale[],
     graph,
   };
 }

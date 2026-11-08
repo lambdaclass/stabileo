@@ -61,6 +61,8 @@ def climbing_links(log, version, date):
 
 
 def links_fragment(entry):
+    if "changes" in entry:
+        return any(links_fragment(change) for change in entry["changes"])
     return str(entry.get("changelog", {}).get("file", "")).startswith("changelog.d/")
 
 
@@ -73,7 +75,9 @@ def repoint_registry(directory=REGISTRY):
         new = re.sub(r'"changelog\.d(?:/|\\/)[^"]*"', '"CHANGELOG.md"', text)
         if links_fragment(json.loads(new)):
             entry = json.loads(text)
-            entry["changelog"]["file"] = "CHANGELOG.md"
+            for change in entry.get("changes", [entry]):
+                if links_fragment(change):
+                    change["changelog"]["file"] = "CHANGELOG.md"
             new = json.dumps(entry, indent=2, ensure_ascii=False) + "\n"
         path.write_text(new)
         changed.append(path.name)
