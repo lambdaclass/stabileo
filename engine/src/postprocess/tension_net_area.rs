@@ -202,7 +202,9 @@ pub enum Event {
     #[serde(rename_all = "camelCase")]
     Chains {
         straight_holes: f64,
-        lines: f64,
+        holes: f64,
+        diagonals: f64,
+        s: f64,
         dh: f64,
         t: f64,
         straight: f64,
@@ -436,6 +438,36 @@ fn connected_parts(g: &Geometry, c: Connected) -> Option<Parts> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct Chain {
+    deduct: f64,
+    holes: f64,
+    diagonals: f64,
+}
+
+/// The chain deducting most, over every subset of lines taken across the width. Alternate lines
+/// are staggered, so a step over an odd number of lines is a diagonal of gauge (k − i)·g.
+fn worst_chain(lines: usize, hole: f64, diagonal_over_one_gauge: f64) -> Chain {
+    let mut best: Vec<Chain> = Vec::with_capacity(lines);
+    for k in 0..lines {
+        let alone = Chain { deduct: hole, holes: 1.0, diagonals: 0.0 };
+        let mut here = alone;
+        for (i, from) in best.iter().enumerate() {
+            let jump = k - i;
+            let next = if jump % 2 == 1 {
+                Chain { deduct: from.deduct + hole - diagonal_over_one_gauge / jump as f64, holes: from.holes + 1.0, diagonals: from.diagonals + 1.0 }
+            } else {
+                Chain { deduct: from.deduct + hole, holes: from.holes + 1.0, diagonals: from.diagonals }
+            };
+            if next.deduct > here.deduct {
+                here = next;
+            }
+        }
+        best.push(here);
+    }
+    best.into_iter().reduce(|m, c| if c.deduct > m.deduct { c } else { m }).unwrap_or(Chain { deduct: hole, holes: 1.0, diagonals: 0.0 })
+}
+
 fn u_from_x_bar(x_bar: f64, l: f64, a_conn: f64, ag: f64, events: &mut Vec<Event>) -> f64 {
     let raw = 1.0 - x_bar / l;
     let mut u = 0.9_f64.min(raw);
@@ -517,9 +549,9 @@ pub fn end_net_area(section: &NetAreaSection, end: &EndConnection) -> Result<End
                 return Err(refuse("lines"));
             };
             let secondary = is_all && !plate;
-            let web_holes = match (secondary, whole(*web_lines, 0.0)) {
+            let web_holes = match (secondary, whole(*web_lines, 1.0)) {
                 (false, _) => None,
-                (true, Some(v)) => Some(v).filter(|v| *v > 0.0),
+                (true, Some(v)) => Some(v),
                 (true, None) => return Err(refuse("webLines")),
             };
             let pitch = pos(*pitch_mm);
@@ -551,6 +583,10 @@ pub fn end_net_area(section: &NetAreaSection, end: &EndConnection) -> Result<End
                     if nl < 2.0 {
                         return Err(refuse_as("stagger", "oneLine"));
                     }
+                    let s = match pitch {
+                        Some(p) if nb >= 2.0 && p > s => s.min(p - s),
+                        _ => s,
+                    };
                     Some((s / 1000.0, gg / 1000.0))
                 }
             };
@@ -564,9 +600,9 @@ pub fn end_net_area(section: &NetAreaSection, end: &EndConnection) -> Result<End
                 let straight = straight_holes * dh * e.t;
                 let mut worst = straight;
                 if let Some((s, gg)) = stagger {
-                    let zig = nl * dh * e.t - (nl - 1.0) * (s * s * e.t) / (4.0 * gg);
-                    events.push(Event::Chains { straight_holes, lines: nl, dh, t: e.t, straight, zig });
-                    worst = straight.max(zig);
+                    let chain = worst_chain(nl as usize, dh * e.t, s * s * e.t / (4.0 * gg));
+                    events.push(Event::Chains { straight_holes, holes: chain.holes, diagonals: chain.diagonals, s, dh, t: e.t, straight, zig: chain.deduct });
+                    worst = straight.max(chain.deduct);
                 }
                 deduct += worst;
             }

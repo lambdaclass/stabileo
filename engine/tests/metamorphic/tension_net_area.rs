@@ -93,3 +93,34 @@ fn metamorphic_pr_net_area_monotone_and_bounded() {
     }
     assert!(checked > 200, "{checked} of {} seeds resolved", SEEDS.end);
 }
+
+fn brute_force_chain(lines: usize, hole: f64, s: f64, g: f64) -> f64 {
+    (1..(1u32 << lines))
+        .map(|mask| {
+            let picked: Vec<usize> = (0..lines).filter(|i| mask & (1 << i) != 0).collect();
+            let credit: f64 = picked.windows(2).filter(|w| (w[1] - w[0]) % 2 == 1).map(|w| s * s / (4.0 * (w[1] - w[0]) as f64 * g)).sum();
+            picked.len() as f64 * hole - credit
+        })
+        .fold(f64::NEG_INFINITY, f64::max)
+}
+
+#[test]
+fn metamorphic_pr_net_area_staggered_plate_takes_the_worst_of_every_chain() {
+    for seed in SEEDS {
+        let mut rng = Rng::new(seed);
+        let lines = 2 + rng.below(6);
+        let (s, g, pitch) = (rng.range(20.0, 120.0), rng.range(30.0, 90.0), rng.range(40.0, 200.0));
+        let t = rng.range(0.006, 0.025);
+        let w = (lines as f64 + 1.0) * g / 1000.0;
+        let ag = w * t;
+        let section = NetAreaSection { shape: Some("rect".into()), a: Some(ag), h: Some(t), b: Some(w), ..Default::default() };
+        let end = EndConnection::Bolted {
+            connected: Connected::All, diameter_mm: Some(16.0), hole_mm: Some(18.0), bolts_per_line: Some(3.0), lines: Some(lines as f64),
+            web_lines: None, pitch_mm: Some(pitch), stagger: Some(Stagger { s_mm: Some(s), g_mm: Some(g) }),
+        };
+        let r = end_net_area(&section, &end).unwrap_or_else(|e| panic!("seed {seed}: {e:?}"));
+        let s_eff = if pitch > s { s.min(pitch - s) } else { s };
+        let expected = brute_force_chain(lines, 20.0, s_eff, g) * t * 1e-3;
+        assert!((ag - r.an - expected).abs() <= 1e-12 * ag, "seed {seed}: deducted {} against {expected}", ag - r.an);
+    }
+}

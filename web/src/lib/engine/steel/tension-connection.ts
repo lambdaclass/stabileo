@@ -183,7 +183,7 @@ type EngineEvent =
   | { step: 'u'; xBar: number; L: number; raw: number; U: number }
   | { step: 'uFloor'; Aconn: number; Ag: number; U: number }
   | { step: 'hole'; hole: number; dh: number }
-  | { step: 'chains'; straightHoles: number; lines: number; dh: number; t: number; straight: number; zig: number }
+  | { step: 'chains'; straightHoles: number; holes: number; diagonals: number; s: number; dh: number; t: number; straight: number; zig: number }
   | { step: 'an'; Ag: number; deduct: number; An: number }
   | { step: 'oneBolt'; Aconn: number; deduct: number; Ae: number }
   | { step: 'xBarBolt'; xBar: number; n: number; pitch: number; L: number }
@@ -288,7 +288,7 @@ function render(ev: EngineEvent): [string, EngineMessage] {
     case 'hole':
       return [`  Agujero: ${ev.hole} mm (Tabla J.3.3) + 2 mm = ${mm(ev.dh)} mm  (B.4.2.2)`, msg('steel.tc.calc.hole', { hole: ev.hole, dh: r1mm(ev.dh) })];
     case 'chains':
-      return [`  Cadena recta: ${ev.straightHoles}·${mm(ev.dh)}·${mm(ev.t)} = ${mm2(ev.straight)} mm²; en zigzag: ${ev.lines}·${mm(ev.dh)}·${mm(ev.t)} − ${ev.lines - 1}·s²t/4g = ${mm2(ev.zig)} mm²  (B.4.2.2)`,
+      return [`  Cadena recta: ${ev.straightHoles}·${mm(ev.dh)}·${mm(ev.t)} = ${mm2(ev.straight)} mm²; peor cadena en zigzag: ${ev.holes} agujeros, ${ev.diagonals} diagonales con s = ${mm(ev.s)} mm: ${mm2(ev.zig)} mm²  (B.4.2.2)`,
         msg('steel.tc.calc.chains', { straight: r0(ev.straight), zig: r0(ev.zig) })];
     case 'an':
       return [`  An = Ag − Σ agujeros = ${mm2(ev.Ag)} − ${mm2(ev.deduct)} = ${mm2(ev.An)} mm²  (B.4.2.2)`, msg('steel.tc.calc.an', { Ag: r0(ev.Ag), deduct: r0(ev.deduct), An: r0(ev.An) })];

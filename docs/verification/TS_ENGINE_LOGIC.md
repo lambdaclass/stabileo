@@ -555,7 +555,10 @@ equal legs, pair doubling, monotonicity in bolts and hole size, and the bounds o
 Parity against the deleted TypeScript, before it was deleted: 946 sections, 55 295 resolved ends
 bit-identical including steps and messages, 323 105 refusals identical in code and message,
 56 760 members identical. A non-finite input, which the TypeScript refused as missing, is an
-engine error. The plan as written:
+engine error. Review then found two wrong results the sweep had carried over: partial staggered
+chains and the shorter diagonal p − s were never tried, and an all-elements bolted end with no
+web lines got U = 1. Both are fixed in the same PR, reproducer first, with the results change
+`net-area-chains-and-web-lines`. The plan as written:
 
 - **TypeScript:** `steel/tension-connection.ts` (`tensionGeometry`, `endNetArea`,
   `memberNetArea`, `connectedOptions`, the presets) and `verification-service.ts`

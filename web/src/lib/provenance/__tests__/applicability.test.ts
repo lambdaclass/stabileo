@@ -59,6 +59,20 @@ describe('which registered changes concern a model', () => {
     }))).not.toContain('cb-segment-ends');
   });
 
+  it('shows the net-area chain change only for CIRSOC 301 steel with a staggered or web-less "all" bolted end', () => {
+    const bolted = (extra: Record<string, unknown>) => ({ kind: 'bolted', connected: 'legH', holeKind: 'standard', ...extra });
+    const id = 'net-area-chains-and-web-lines';
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({}) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { j: bolted({ stagger: { sMm: 40, gMm: 60 } }) } })] }))).toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ connected: 'all', webLines: 0 }) } })] }))).toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ connected: 'all', webLines: 1 }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 2, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })] }))).not.toContain(id);
+    expect(ids(model({
+      elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })],
+      regulations: { roles: { steel: { adapterId: 'eurocode3' } } },
+    }))).not.toContain(id);
+  });
+
   it('shows the arc local-axes change only for models with members drawn as an arc (#418)', () => {
     const spec = { start: { x: -5, y: 0, z: 0 }, through: { x: 0, y: 0, z: 5 }, end: { x: 5, y: 0, z: 0 }, segments: 8 };
     const arch = model({ elements: [member(1, 1, 'frame', { arc: { id: 1, spec } })] });

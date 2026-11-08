@@ -255,7 +255,7 @@
         </label>
         {#if connected === 'all' && !isPlate}
           <label class="tc-field">{t('steel.tc.webLines')}
-            <input type="number" min="0" step="1" bind:value={webLines} data-testid="tc-web-lines" />
+            <input type="number" min="1" step="1" bind:value={webLines} data-testid="tc-web-lines" />
           </label>
         {/if}
         <label class="tc-field">{t('steel.tc.pitch')}
