@@ -35,7 +35,7 @@ spade = { version = "2.15", default-features = false }
 # Exact rational arithmetic for the plastic-collapse certificate
 # (certify::plastic): equilibrium and mechanism compatibility are checked
 # without rounding. Pure Rust, wasm32-clean, MIT OR Apache-2.0.
-num-bigint = "0.4"
+num-bigint = "0.5"
 num-rational = { version = "0.4", default-features = false, features = ["num-bigint-std", "std"] }
 num-traits = "0.2"
 num-integer = "0.1"
