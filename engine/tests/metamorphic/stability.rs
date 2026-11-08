@@ -388,6 +388,16 @@ fn a_spin_about_a_collinear_rigid_link_is_a_free_rotation_and_an_offset_one_a_me
     let s = invariant_verdict("collinear rigid link", d3(model([2.0, 0.0, 0.0])));
     assert!(s.is_stable() && s.free_rotations().filter(|f| f.node == 1).count() == 1, "{s:?}");
     assert_eq!(invariant_verdict("offset rigid link", d3(model([2.0, 1.0, 0.0]))).verdict, Verdict::Mechanism);
+    let s = invariant_verdict("rigid link offset by 9e-9 of its length", d3(model([1.0, 9e-9, 0.0])));
+    assert!(s.is_stable(), "{s:?}");
+}
+
+#[test]
+fn a_soft_rotation_coupled_into_a_translation_is_not_dropped_as_free() {
+    let a = 2f64.powi(-24);
+    let k = [1.0, 0.0, -a, 0.0, 1.0, 0.0, -a, 0.0, a * a];
+    let s = analyze_dense(&k, 3, &[t(1, DofKind::Translation), t(2, DofKind::Rotation), t(2, DofKind::Rotation)]);
+    assert!(!s.is_stable(), "{s:?}");
 }
 
 fn coupled_identity(order: &[usize]) -> Stability {
@@ -401,7 +411,7 @@ fn coupled_identity(order: &[usize]) -> Stability {
 }
 
 #[test]
-fn a_mode_a_structured_start_vector_misses_still_certifies_in_any_numbering() {
+fn a_mode_with_equal_components_on_its_two_coupled_dofs_certifies_in_any_numbering() {
     let m = stability::DENSE_SPECTRUM + 1;
     let identity: Vec<usize> = (0..m).collect();
     let reversed: Vec<usize> = (0..m).rev().collect();

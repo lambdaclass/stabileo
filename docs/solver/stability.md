@@ -75,7 +75,8 @@ invariant under units but not under rotation, which is why `kinematic.rs` still 
 
 Up to 240 kept directions the spectrum of `S` is computed in full (cyclic Jacobi). Above,
 Lanczos with full reorthogonalization estimates `λ_max(S)` and, on a sparse Cholesky
-factor, `1/λ_min(S)`, each to a Ritz residual bound of `1e-9`; the estimates are then
+factor, `1/λ_min(S)`, each to a Ritz residual bound of `1e-9` (or `1e-6` after 200
+steps; a non-finite bound is a failure); the estimates are then
 certified by inertia: a Cholesky of `S − 0.999 λ_min I` and of `1.001 λ_max I − S` must
 both succeed, which proves `λ_min > 0.999 λ_min` and `λ_max < 1.001 λ_max`, and `κ_S` is
 the ratio of those bounds. An estimate that does not converge or does not certify, and a
@@ -85,8 +86,8 @@ unproved number.
 With constraints, `K` is the reduced matrix and each independent DOF takes the node and
 kind of its physical DOF. For each node, the constraint's translation rows are applied to
 its whole free rotation subspace: if some unit direction in it moves a physical translation
-by more than `1e-8` times the node's arm (the largest translation its constraint column
-gives a unit rotation), the node is a Mechanism (a master rotation that swings an offset
+by more than `1e-8` times the node's arm (the largest translation any unit rotation of the
+node gives through the constraint, the top singular value of that map), the node is a Mechanism (a master rotation that swings an offset
 rigid-link slave); a spin about a collinear link moves nothing and stays a free rotation.
 The test is the largest singular value of that map, so it does not depend on how the free
 subspace is spanned. Lanczos starts from a pseudo-random vector and restarts from two more
@@ -97,7 +98,15 @@ before an uncertified estimate becomes a refusal.
     κ_S = λ_max(S) / λ_min(S)        A = max over nodes of μ_b / μ_min (kept directions)
 
 - **Mechanism** if a local free direction is a translation: a node can move in a direction
-  nothing stiffens. This is decided node by node and is exact.
+  nothing stiffens beyond `1e-12` of its own stiffest direction. This is decided node by
+  node, from the node's own block only.
+- A free rotation is dropped from `S` only if it is decoupled: its coupling to the kept
+  directions, `c = Wᵀ K v / √μ_b`, must satisfy `‖c‖ ≤ 1e-10`. Positive semidefiniteness
+  bounds it by `√(μ/μ_b) ≤ 1e-6`; assembly rounding of an inclined torsion-free member gives
+  about `1e-15`. A soft rotation that the model couples into a translation (Codex's
+  `a = 2⁻²⁴` example has `‖c‖ = 6e-8`) is not dropped, and the verdict is Singular.
+  Comparing `c` with the direction's own `μ` instead is rounding against rounding and was
+  measured to flip with orientation.
 - **Singular** if `κ_S · A > R = 1e12`, or `S` does not factor. Assembly rounds every node
   block to `ε μ_b`; scaled by `B^{-1/2}` that is `ε A` in `S`, and the smallest eigenvalue
   moves by `ε A κ_S` relative. At `R` that is `2.2e-4`: the smallest eigenpair, and the

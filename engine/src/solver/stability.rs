@@ -168,6 +168,7 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
     }
     let eig: Vec<(Vec<f64>, Vec<f64>)> = blocks.iter().zip(&groups).map(|(b, (_, d))| sym_eigen_small(b, d.len())).collect();
     let mut free = Vec::new();
+    let mut tops: Vec<f64> = Vec::new();
     let mut columns: Vec<Column> = Vec::new();
     let mut anisotropy = 1.0f64;
     for (g, (((node, kind), dofs), (mu, vecs))) in groups.iter().zip(&eig).enumerate() {
@@ -179,6 +180,7 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
             let v: Vec<f64> = (0..b).map(|r| vecs[r * b + c]).collect();
             if whole_free || mu[c].is_nan() || mu[c] <= LOCAL_FREE * top {
                 free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v });
+                tops.push(top.max(0.0));
             } else {
                 lowest_kept = lowest_kept.min(mu[c]);
                 let s = mu[c].sqrt();
@@ -203,7 +205,32 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
     let (kappa, mode) = spectrum(&s);
     let mode_nodes = mode.map(|x| mode_nodes(&x, &columns, &groups)).unwrap_or_default();
     let verdict = if kappa * anisotropy <= RESOLVABLE { Verdict::Stable } else { Verdict::Singular };
+    if verdict == Verdict::Stable {
+        let coupled = coupled_free(k, &free, &tops, &columns, &groups);
+        if !coupled.is_empty() {
+            return Stability { verdict: Verdict::Singular, kappa, anisotropy, free, mode_nodes: coupled };
+        }
+    }
     Stability { verdict, kappa, anisotropy, free, mode_nodes: if verdict == Verdict::Stable { Vec::new() } else { mode_nodes } }
+}
+
+pub const COUPLED: f64 = 1e-10;
+
+fn coupled_free(k: &CscMatrix, free: &[FreeDirection], tops: &[f64], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)]) -> Vec<usize> {
+    let mut out = Vec::new();
+    for (f, &top) in free.iter().zip(tops) {
+        if f.kind == DofKind::Translation { continue; }
+        let mut u = vec![0.0; k.n];
+        for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v; }
+        let ku = k.sym_mat_vec(&u);
+        let scale = if top > 0.0 { top.sqrt() } else { 1.0 };
+        let c: Vec<f64> = columns.iter().map(|col| groups[col.group].1.iter().enumerate().map(|(l, &d)| col.w[l] * ku[d]).sum::<f64>() / scale).collect();
+        let coupling = norm(&c);
+        if !coupling.is_finite() || coupling > COUPLED { out.push(f.node); }
+    }
+    out.sort_unstable();
+    out.dedup();
+    out
 }
 
 pub const SWING: f64 = 1e-8;
@@ -215,7 +242,7 @@ fn swinging(free: &[FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> 
     let mut out = Vec::new();
     for ((node, _), dirs) in by_group {
         let dofs = &dirs[0].dofs;
-        let arm = dofs.iter().map(|&d| moves_translation[d].iter().map(|(_, v)| v * v).sum::<f64>().sqrt()).fold(0.0f64, f64::max);
+        let arm = top_singular(dofs.iter().map(|&d| moves_translation[d].clone()).collect());
         if arm <= 0.0 { continue; }
         let mut rows: BTreeMap<usize, Vec<f64>> = BTreeMap::new();
         for (c, f) in dirs.iter().enumerate() {
@@ -223,15 +250,22 @@ fn swinging(free: &[FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> 
                 for &(r, x) in &moves_translation[d] { rows.entry(r).or_insert_with(|| vec![0.0; dirs.len()])[c] += x * v; }
             }
         }
-        let n = dirs.len();
-        let mut gram = vec![0.0; n * n];
-        for m in rows.values() {
-            for a in 0..n { for b in 0..n { gram[a * n + b] += m[a] * m[b]; } }
-        }
-        let (mu, _) = sym_eigen_small(&gram, n);
-        if mu[n - 1].max(0.0).sqrt() > SWING * arm { out.push(node); }
+        let motion = top_singular((0..dirs.len()).map(|c| rows.iter().map(|(&r, m)| (r, m[c])).collect()).collect());
+        if motion > SWING * arm { out.push(node); }
     }
     out
+}
+
+fn top_singular(columns: Vec<Vec<(usize, f64)>>) -> f64 {
+    let n = columns.len();
+    let mut gram = vec![0.0; n * n];
+    for a in 0..n {
+        for b in 0..n {
+            gram[a * n + b] = columns[a].iter().map(|&(r, x)| columns[b].iter().filter(|&&(q, _)| q == r).map(|&(_, y)| x * y).sum::<f64>()).sum();
+        }
+    }
+    let (mu, _) = sym_eigen_small(&gram, n);
+    mu.last().copied().unwrap_or(0.0).max(0.0).sqrt()
 }
 
 fn scaled(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> CscMatrix {
@@ -307,8 +341,10 @@ fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64) -> Optio
         let (theta, y) = sym_eigen_small(&t, k);
         let top = theta[k - 1];
         let last = y[(k - 1) * k + k - 1];
+        if !(b * last.abs()).is_finite() { return None; }
         if b * last.abs() <= 1e-9 * top.abs() || exhausted {
-            if !top.is_finite() || b * last.abs() > 1e-6 * top.abs() { return None; }
+            let bound = b * last.abs();
+            if !top.is_finite() || !bound.is_finite() || bound > 1e-6 * top.abs() { return None; }
             let mut x = vec![0.0; m];
             for (i, v) in basis.iter().enumerate() {
                 let c = y[i * k + k - 1];
