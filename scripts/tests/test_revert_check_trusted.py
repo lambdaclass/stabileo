@@ -150,8 +150,9 @@ class Workflow(unittest.TestCase):
         self.assertIn("if: always() && needs.start.result == 'success' && needs.check.result != 'cancelled'", self.jobs['report'])
         self.assertIn("STATE: ${{ needs.check.result == 'success' && 'success' || 'failure' }}", self.jobs['report'])
 
-    def test_label_events_other_than_reverts_ok_and_edits_that_keep_the_base_are_ignored(self):
+    def test_only_pull_requests_into_the_default_branch_and_reverts_ok_label_events_run_it(self):
         start = self.jobs['start']
+        self.assertIn('github.event.pull_request.base.ref == github.event.repository.default_branch', start)
         self.assertIn("(github.event.action != 'edited' || github.event.changes.base != null)", start)
         self.assertIn("((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'reverts-ok')", start)
         self.assertIn("(github.event_name == 'workflow_run' && github.event.workflow_run.event == 'merge_group')", start)

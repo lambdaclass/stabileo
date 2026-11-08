@@ -18,6 +18,7 @@ jobs:
     name: Mark the check pending
     if: >-
       (github.event_name == 'pull_request_target' &&
+       github.event.pull_request.base.ref == github.event.repository.default_branch &&
        (github.event.action != 'edited' || github.event.changes.base != null) &&
        ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'reverts-ok')) ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'merge_group')
