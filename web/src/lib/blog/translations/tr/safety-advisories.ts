@@ -171,7 +171,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-048",
-          "CIRSOC 301 çelik: Cb, çubuktan kısa beyan edilen desteksiz boyun uçlarındaki işaret değişimini görmüyordu (çift eğrilikteki bir U profil 1 yerine Cb = 2,55 aldı, yanal burulmalı burkulma kapasitesi olduğundan yüksek çıktı); 0.2.0 ile 0.5.0 arası",
+          "CIRSOC 301 çelik: Cb, çubuktan kısa beyan edilen desteksiz boyun uçlarındaki işaret değişimini görmüyordu (çift eğrilikteki bir U profil 1 yerine Cb = 2,55 aldı, yanal burulmalı burkulma kapasitesi olduğundan yüksek çıktı); 0.2.0 ile 0.5.0 arası, masaüstü alfa sürümleri ve 8 Kasım 2026'ya kadar stabileo.com",
           "Yüksek",
           "0.5.0'dan sonra düzeltildi; 8 Kasım 2026'dan beri stabileo.com'da"
         ],

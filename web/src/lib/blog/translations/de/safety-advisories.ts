@@ -171,7 +171,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-048",
-          "CIRSOC-301-Stahl: Cb übersah einen Vorzeichenwechsel an den Enden einer angegebenen nicht ausgesteiften Länge, die kürzer als der Stab ist (ein U-Profil mit doppelter Krümmung erhielt Cb = 2,55 statt 1, die Biegedrillknick-Tragfähigkeit wurde überschätzt); 0.2.0 bis 0.5.0",
+          "CIRSOC-301-Stahl: Cb übersah einen Vorzeichenwechsel an den Enden einer angegebenen nicht ausgesteiften Länge, die kürzer als der Stab ist (ein U-Profil mit doppelter Krümmung erhielt Cb = 2,55 statt 1, die Biegedrillknick-Tragfähigkeit wurde überschätzt); 0.2.0 bis 0.5.0, die Desktop-Alphas und stabileo.com bis zum 8. November 2026",
           "Hoch",
           "Behoben nach 0.5.0; auf stabileo.com seit dem 8. November 2026"
         ],

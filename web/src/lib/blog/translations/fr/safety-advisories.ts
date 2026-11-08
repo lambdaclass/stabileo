@@ -171,7 +171,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-048",
-          "Acier CIRSOC 301 : Cb manquait un changement de signe aux extrémités d’une longueur non maintenue déclarée plus courte que la barre (un profilé U en double courbure recevait Cb = 2,55 au lieu de 1, résistance au déversement surestimée) ; 0.2.0 à 0.5.0",
+          "Acier CIRSOC 301 : Cb manquait un changement de signe aux extrémités d’une longueur non maintenue déclarée plus courte que la barre (un profilé U en double courbure recevait Cb = 2,55 au lieu de 1, résistance au déversement surestimée) ; 0.2.0 à 0.5.0, les alphas de bureau et stabileo.com jusqu’au 8 novembre 2026",
           "Élevée",
           "Corrigé après 0.5.0 ; sur stabileo.com depuis le 8 novembre 2026"
         ],
