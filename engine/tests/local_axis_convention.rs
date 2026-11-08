@@ -174,3 +174,285 @@ fn curved_beam_subsegments_use_corrected_default() {
     let sum_mz: f64 = r.element_forces.iter().map(|f| f.mz_start.abs() + f.mz_end.abs()).sum();
     assert!(sum_my > sum_mz, "horizontal arc under gravity: My-dominant (corrected default): my={sum_my} mz={sum_mz}");
 }
+
+#[test]
+fn expand_fef_12_to_14_exact_mapping() {
+    use dedaliano_engine::element::expand_fef_12_to_14;
+
+    let fef12 = [2.0, -3.5, 5.0, -7.25, 11.0, -13.5, 17.0, -19.25, 23.0, -29.5, 31.0, -37.25];
+    let fef14 = expand_fef_12_to_14(&fef12);
+    let expected = [
+        2.0, -3.5, 5.0, -7.25, 11.0, -13.5, 0.0,
+        17.0, -19.25, 23.0, -29.5, 31.0, -37.25, 0.0,
+    ];
+    assert_eq!(fef14, expected);
+    assert_eq!(expand_fef_12_to_14(&[0.0; 12]), [0.0; 14]);
+}
+
+#[test]
+fn fef_partial_distributed_2d_zero_and_subthreshold_span() {
+    use dedaliano_engine::element::fef_partial_distributed_2d;
+
+    let sub = fef_partial_distributed_2d(100.0, 200.0, 2.0, 2.0 + 5e-13, 6.0, 0.0);
+    assert_eq!(sub, [0.0; 6]);
+
+    let zero = fef_partial_distributed_2d(100.0, 200.0, 2.0, 2.0, 6.0, 0.0);
+    assert_eq!(zero, [0.0; 6]);
+
+    let q = -12.0;
+    let l = 4.0;
+    let full = fef_partial_distributed_2d(q, q, 0.0, l, l, 0.0);
+    let expected = [0.0, q * l / 2.0, q * l * l / 12.0, 0.0, q * l / 2.0, -q * l * l / 12.0];
+    for k in 0..6 {
+        assert!((full[k] - expected[k]).abs() <= 1e-13, "dof {k}: {} vs {}", full[k], expected[k]);
+    }
+}
+
+#[test]
+fn fef_thermal_2d_and_3d_exact_and_degenerate_depth() {
+    use dedaliano_engine::element::{fef_thermal_2d, fef_thermal_3d};
+
+    let e = 2.0e8;
+    let a = 0.02;
+    let iy = 2.0e-4;
+    let iz = 1.0e-4;
+    let l = 4.0;
+    let dt = 25.0;
+    let dt_gy = 15.0;
+    let dt_gz = -20.0;
+    let alpha = 1.2e-5;
+    let fx = e * a * alpha * dt;
+
+    let f2_deg = fef_thermal_2d(e, a, iz, l, dt, dt_gy, alpha, 1e-12);
+    assert_eq!(f2_deg, [-fx, 0.0, 0.0, fx, 0.0, 0.0]);
+
+    let h = 0.4;
+    let mz = e * iz * alpha * dt_gy / h;
+    let f2 = fef_thermal_2d(e, a, iz, l, dt, dt_gy, alpha, h);
+    let exp2 = [-fx, 0.0, -mz, fx, 0.0, mz];
+    for k in 0..6 {
+        assert!((f2[k] - exp2[k]).abs() <= 1e-12 * (1.0 + exp2[k].abs()));
+    }
+
+    let f3_deg_y = fef_thermal_3d(e, a, iy, iz, l, dt, dt_gy, dt_gz, alpha, 1e-12, 0.5);
+    let my_valid = e * iy * alpha * dt_gz / 0.5;
+    assert_eq!(f3_deg_y[5], 0.0);
+    assert_eq!(f3_deg_y[11], 0.0);
+    assert!((f3_deg_y[4] - (-my_valid)).abs() <= 1e-12 * my_valid.abs());
+    assert!((f3_deg_y[10] - my_valid).abs() <= 1e-12 * my_valid.abs());
+
+    let f3_deg_z = fef_thermal_3d(e, a, iy, iz, l, dt, dt_gy, dt_gz, alpha, 0.4, 1e-12);
+    assert_eq!(f3_deg_z[4], 0.0);
+    assert_eq!(f3_deg_z[10], 0.0);
+    assert!((f3_deg_z[5] - (-mz)).abs() <= 1e-12 * mz.abs());
+    assert!((f3_deg_z[11] - mz).abs() <= 1e-12 * mz.abs());
+}
+
+#[test]
+fn local_axes_3d_degenerate_thresholds_and_fallback_frames() {
+    use dedaliano_engine::element::compute_local_axes_3d;
+
+    let (ex1, ey1, ez1) = compute_local_axes_3d(
+        0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+        Some(0.0), Some(0.0), Some(1e-10), None, false,
+    );
+    assert_eq!(ex1, [1.0, 0.0, 0.0]);
+    assert_eq!(ey1, [0.0, 1.0, 0.0]);
+    assert_eq!(ez1, [0.0, 0.0, 1.0]);
+
+    let (_, ey_lh, ez_lh) = compute_local_axes_3d(
+        0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+        None, None, None, Some(45.0), true,
+    );
+    let s = std::f64::consts::FRAC_1_SQRT_2;
+    assert!((ey_lh[0]).abs() <= 1e-15);
+    assert!((ey_lh[1] - (-s)).abs() <= 1e-15);
+    assert!((ey_lh[2] - (-s)).abs() <= 1e-15);
+    assert!((ez_lh[1] - (-s)).abs() <= 1e-15);
+    assert!((ez_lh[2] - s).abs() <= 1e-15);
+
+    let (ex2, ey2, ez2) = compute_local_axes_3d(
+        0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+        Some(0.0), Some(1.0), Some(1e-10), None, false,
+    );
+    assert_eq!(ex2, [0.0, 1.0, 0.0]);
+    assert_eq!(ey2, [0.0, 0.0, 1.0]);
+    assert_eq!(ez2, [1.0, 0.0, 0.0]);
+
+    let dz = 0.1_f64.sqrt();
+    let (ex3, ey3, ez3) = compute_local_axes_3d(
+        0.0, 0.0, 0.0, 0.9, 0.3, dz,
+        Some(0.9), Some(0.3), Some(dz), None, false,
+    );
+    let ez_mag = 0.91_f64.sqrt();
+    let exp_ez3 = [-dz / ez_mag, 0.0, 0.9 / ez_mag];
+    let exp_ey3 = [
+        exp_ez3[1] * ex3[2] - exp_ez3[2] * ex3[1],
+        exp_ez3[2] * ex3[0] - exp_ez3[0] * ex3[2],
+        exp_ez3[0] * ex3[1] - exp_ez3[1] * ex3[0],
+    ];
+    for k in 0..3 {
+        assert!((ez3[k] - exp_ez3[k]).abs() <= 1e-15, "ez3[{k}]: {} vs {}", ez3[k], exp_ez3[k]);
+        assert!((ey3[k] - exp_ey3[k]).abs() <= 1e-15, "ey3[{k}]: {} vs {}", ey3[k], exp_ey3[k]);
+    }
+
+    let dy4 = (1.0 - 0.999_f64 * 0.999).sqrt();
+    let (_, ey4, ez4) = compute_local_axes_3d(
+        0.0, 0.0, 0.0, 0.0, dy4, 0.999,
+        None, None, None, None, false,
+    );
+    assert!((ey4[0] - (-1.0)).abs() <= 1e-14);
+    assert!(ey4[1].abs() <= 1e-14);
+    assert!(ey4[2].abs() <= 1e-14);
+    assert!(ez4[0].abs() <= 1e-14);
+    assert!((ez4[1] - (-0.999)).abs() <= 1e-14);
+    assert!((ez4[2] - dy4).abs() <= 1e-14);
+}
+
+#[test]
+fn steel_bilinear_kinematic_hardening_and_consistent_tangent_exact() {
+    use dedaliano_engine::element::fiber_beam::{material_response, FiberMaterial, FiberMaterialState};
+
+    let e = 200_000.0;
+    let fy = 250.0;
+    let alpha = 0.02;
+    let mat = FiberMaterial::SteelBilinear { e, fy, hardening_ratio: alpha };
+    let mut state = FiberMaterialState::new();
+
+    let (s0, t0) = material_response(&mat, 0.001, &mut state);
+    assert!((s0 - 200.0).abs() <= 1e-12);
+    assert!((t0 - e).abs() <= 1e-12);
+    assert_eq!(state.back_stress, 0.0);
+
+    let (s1, t1) = material_response(&mat, 0.003, &mut state);
+    assert!((s1 - 257.0).abs() <= 1e-12);
+    assert!((t1 - alpha * e).abs() <= 1e-11);
+    assert!((state.plastic_strain - 0.001715).abs() <= 1e-15);
+    assert!((state.back_stress - 7.0).abs() <= 1e-12);
+
+    let (s2, t2) = material_response(&mat, 0.0, &mut state);
+    assert!((s2 - (-245.0)).abs() <= 1e-12);
+    assert!((t2 - alpha * e).abs() <= 1e-11);
+    assert!((state.plastic_strain - 0.001225).abs() <= 1e-15);
+    assert!((state.back_stress - 5.0).abs() <= 1e-12);
+}
+
+#[test]
+fn concrete_hognestad_compression_tension_and_cracking_exact() {
+    use dedaliano_engine::element::fiber_beam::{material_response, FiberMaterial, FiberMaterialState};
+
+    let fc = 35.0;
+    let eps_c0 = 0.002;
+    let eps_cu = 0.0045;
+    let ft = 3.5;
+    let e0 = 2.0 * fc / eps_c0;
+    let eps_cr = ft / e0;
+    let mat = FiberMaterial::ConcreteHognestad { fc, eps_c0, eps_cu, ft };
+
+    let mut st = FiberMaterialState::new();
+    let r = 0.4;
+    let (sc1, tc1) = material_response(&mat, -r * eps_c0, &mut st);
+    let exp_sc1 = -fc * (2.0 * r - r * r);
+    let exp_tc1 = fc * (2.0 - 2.0 * r) / eps_c0;
+    assert!((sc1 - exp_sc1).abs() <= 1e-12);
+    assert!((tc1 - exp_tc1).abs() <= 1e-10);
+
+    let (sc_peak, tc_peak) = material_response(&mat, -eps_c0, &mut st);
+    assert!((sc_peak - (-fc)).abs() <= 1e-12);
+    assert!(tc_peak.abs() <= 1e-12);
+
+    let eps_desc = 0.003;
+    let (sc2, tc2) = material_response(&mat, -eps_desc, &mut st);
+    let exp_sc2 = -fc * (1.0 - (eps_desc - eps_c0) / (eps_cu - eps_c0));
+    let exp_tc2 = -fc / (eps_cu - eps_c0);
+    assert!((sc2 - exp_sc2).abs() <= 1e-12);
+    assert!((tc2 - exp_tc2).abs() <= 1e-10);
+
+    let (sc_crush, tc_crush) = material_response(&mat, -eps_cu, &mut st);
+    assert_eq!(sc_crush, 0.0);
+    assert_eq!(tc_crush, 1e-6);
+
+    let mut st_t = FiberMaterialState::new();
+    let eps_t = 0.5 * eps_cr;
+    let (st1, tt1) = material_response(&mat, eps_t, &mut st_t);
+    assert!(!st_t.cracked);
+    assert!((st1 - e0 * eps_t).abs() <= 1e-12);
+    assert!((tt1 - e0).abs() <= 1e-10);
+
+    let (st_pre, _) = material_response(&mat, 0.99 * eps_cr, &mut st_t);
+    assert!(!st_t.cracked);
+    assert!((st_pre - 0.99 * ft).abs() <= 1e-12);
+
+    let (st_post, tt_post) = material_response(&mat, 1.01 * eps_cr, &mut st_t);
+    assert!(st_t.cracked);
+    assert_eq!(st_post, 0.0);
+    assert_eq!(tt_post, 1e-6);
+
+    let (st_reload, tt_reload) = material_response(&mat, 0.5 * eps_cr, &mut st_t);
+    assert!(st_t.cracked);
+    assert_eq!(st_reload, 0.0);
+    assert_eq!(tt_reload, 1e-6);
+
+    let mat_no_ft = FiberMaterial::ConcreteHognestad { fc, eps_c0, eps_cu, ft: 0.0 };
+    let mut st_no_ft = FiberMaterialState::new();
+    let (s_no_ft, t_no_ft) = material_response(&mat_no_ft, 0.5 * eps_cr, &mut st_no_ft);
+    assert!(st_no_ft.cracked);
+    assert_eq!(s_no_ft, 0.0);
+    assert_eq!(t_no_ft, 1e-6);
+}
+
+#[test]
+fn fiber_section_response_2d_asymmetric_coupling_exact() {
+    use dedaliano_engine::element::fiber_beam::{
+        section_response_2d, Fiber, FiberMaterial, FiberSectionDef, SectionState,
+    };
+
+    let e = 200_000.0;
+    let section = FiberSectionDef {
+        fibers: vec![
+            Fiber { y: 0.25, z: 0.0, area: 0.004, material_idx: 0 },
+            Fiber { y: -0.10, z: 0.0, area: 0.002, material_idx: 0 },
+        ],
+        materials: vec![FiberMaterial::Elastic { e }],
+    };
+    let mut state = SectionState::new(2);
+    let (forces, k_sec) = section_response_2d(&section, &[0.0005, 0.002], &mut state);
+
+    let exp_ea = 1.2e6;
+    let exp_es = 1.6e5;
+    let exp_ei = 5.4e4;
+    assert!((k_sec[0] - exp_ea).abs() <= 1e-8);
+    assert!((k_sec[1] - exp_es).abs() <= 1e-8);
+    assert!((k_sec[2] - exp_es).abs() <= 1e-8);
+    assert!((k_sec[3] - exp_ei).abs() <= 1e-8);
+    assert!((forces[0] - 920.0).abs() <= 1e-10);
+    assert!((forces[1] - 188.0).abs() <= 1e-10);
+}
+
+#[test]
+fn gauss_lobatto_6_point_polynomial_quadrature_exact() {
+    use dedaliano_engine::element::fiber_beam::gauss_lobatto_points;
+
+    let l = 3.5;
+    let pts = gauss_lobatto_points(6, l);
+    assert_eq!(pts.len(), 6);
+    assert_eq!(pts[0].0, 0.0);
+    assert!((pts[5].0 - l).abs() <= 1e-15);
+    for i in 0..5 {
+        assert!(pts[i].0 < pts[i + 1].0, "non-monotone abscissas at {i}: {:?}", pts);
+    }
+    for i in 1..5 {
+        let xi = 2.0 * pts[i].0 / l - 1.0;
+        let dp5 = 21.0 * xi.powi(4) - 14.0 * xi.powi(2) + 1.0;
+        assert!(dp5.abs() <= 1e-14, "interior node {i} not a root of P5': xi={xi}, dp5={dp5}");
+    }
+    for deg in 0..=9 {
+        let quad: f64 = pts.iter().map(|&(x, w)| w * x.powi(deg)).sum();
+        let exact = l.powi(deg + 1) / (deg + 1) as f64;
+        assert!(
+            (quad - exact).abs() <= 1e-13 * exact,
+            "degree {deg}: quad={quad} vs exact={exact}"
+        );
+    }
+}
+
