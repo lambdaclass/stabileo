@@ -10,18 +10,16 @@ on:
 permissions: {}
 
 concurrency:
-  group: revert-check-trusted-${{ github.event.pull_request.number || github.event.workflow_run.head_sha }}
+  group: >-
+    ${{ ((github.event_name == 'pull_request_target' && github.event.pull_request.base.ref == github.event.repository.default_branch && (github.event.action != 'edited' || github.event.changes.base != null) && ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'reverts-ok')) || (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'merge_group'))
+    && format('revert-check-trusted-{0}', github.event.pull_request.number || github.event.workflow_run.head_sha)
+    || format('revert-check-trusted-ignored-{0}', github.run_id) }}
   cancel-in-progress: true
 
 jobs:
   start:
     name: Mark the check pending
-    if: >-
-      (github.event_name == 'pull_request_target' &&
-       github.event.pull_request.base.ref == github.event.repository.default_branch &&
-       (github.event.action != 'edited' || github.event.changes.base != null) &&
-       ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'reverts-ok')) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'merge_group')
+    if: (github.event_name == 'pull_request_target' && github.event.pull_request.base.ref == github.event.repository.default_branch && (github.event.action != 'edited' || github.event.changes.base != null) && ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'reverts-ok')) || (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'merge_group')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

@@ -152,6 +152,10 @@ class Workflow(unittest.TestCase):
 
     def test_only_pull_requests_into_the_default_branch_and_reverts_ok_label_events_run_it(self):
         start = self.jobs['start']
+        eligible = re.search(r'^    if: (.+)$', start, re.M).group(1)
+        group = self.text.split('concurrency:\n', 1)[1].split('\njobs:', 1)[0]
+        self.assertIn(f'${{{{ ({eligible})\n    && format(\'revert-check-trusted-{{0}}\'', group)
+        self.assertIn("|| format('revert-check-trusted-ignored-{0}', github.run_id) }}", group)
         self.assertIn('github.event.pull_request.base.ref == github.event.repository.default_branch', start)
         self.assertIn("(github.event.action != 'edited' || github.event.changes.base != null)", start)
         self.assertIn("((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'reverts-ok')", start)
