@@ -14580,6 +14580,9 @@ const tr: Translations = {
   "plates.meshShort.ready": "Ağ: {n} hazır",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.v.colSpliceC": "Kat tabanında basınç bindirmesi",
+  "rcSheets.v.colSpliceT": "Kat tabanında çekme bindirmesi (B sınıfı)",
+  "rcSheets.v.colOffset": "Kesit yüz başına 7,5 cm'den fazla değişiyor: ayrı filiz",
   "rcSheets.wallsToMesh": "{n} perde düzlem içi momentleri için bir sonraki hesapta ağlanacak.",
   "rcSheets.resolve": "Yeniden hesapla",
   "rcSheets.line.runs": "Sürekli çubuklar",

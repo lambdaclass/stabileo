@@ -14381,6 +14381,9 @@ const pt: Translations = {
   "plates.meshShort.ready": "Malha: {n} prontas",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.v.colSpliceC": "Emenda por compressão na base do pavimento",
+  "rcSheets.v.colSpliceT": "Emenda por tração (classe B) na base do pavimento",
+  "rcSheets.v.colOffset": "A seção muda mais de 7,5 cm por face: arranques separados",
   "rcSheets.wallsToMesh": "{n} paredes serão malhadas no próximo cálculo para resolver o momento no plano.",
   "rcSheets.resolve": "Calcular de novo",
   "rcSheets.line.runs": "Barras corridas",

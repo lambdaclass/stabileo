@@ -14580,6 +14580,9 @@ const fr: Translations = {
   "plates.meshShort.ready": "Maillage : {n} prêtes",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.v.colSpliceC": "Recouvrement en compression à la base de l'étage",
+  "rcSheets.v.colSpliceT": "Recouvrement en traction (classe B) à la base de l'étage",
+  "rcSheets.v.colOffset": "La section change de plus de 7,5 cm par face : attentes séparées",
   "rcSheets.wallsToMesh": "{n} voiles seront maillés au prochain calcul pour résoudre leur moment dans le plan.",
   "rcSheets.resolve": "Recalculer",
   "rcSheets.line.runs": "Barres filantes",

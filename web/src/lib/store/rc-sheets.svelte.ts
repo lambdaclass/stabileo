@@ -201,10 +201,19 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
     const row = cached(d, [ctx, a, dec], () => beamRow(d, ctx, a, fmt));
     return own ? row : { ...row, isAdopted: !!data.adopted[`line:${d.line?.group}`], proposed: derived.get(d.key) ?? row.proposed };
   });
+  const below = new Map<number, ColumnRow>();
   const column = dem.columns.map((d) => {
     const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm };
     const a = data.adopted[d.key] as ColumnAdopted | undefined;
-    return cached(d, [ctx, a, dec], () => columnRow(d, ctx, a, fmt));
+    const g = Number(d.key.split(':')[1]);
+    const prev = below.get(g);
+    const stack = prev ? {
+      pattern: { nx: prev.adopted.nx, ny: prev.adopted.ny, maxDia: Math.max(prev.adopted.corner, prev.adopted.dx, prev.adopted.dy) },
+      fromBelow: true, offset: Math.max(prev.b - d.b, prev.h - d.h) / 2,
+    } : {};
+    const row = cached(d, [ctx, a, dec, stack], () => columnRow(d, ctx, a, fmt, stack));
+    below.set(g, row);
+    return row;
   });
   const slab = dem.slabs.map((d) => {
     const g = groupOf(d.key);

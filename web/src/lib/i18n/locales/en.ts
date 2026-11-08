@@ -14740,6 +14740,9 @@ const en: Record<string, string> = {
   "plates.meshShort.ready": "Mesh: {n} ready",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.v.colSpliceC": "Compression splice at the storey base",
+  "rcSheets.v.colSpliceT": "Tension splice (class B) at the storey base",
+  "rcSheets.v.colOffset": "The section steps more than 7.5 cm per face: separate dowels",
   "rcSheets.wallsToMesh": "{n} walls will be meshed by the next solve to resolve their in-plane moment.",
   "rcSheets.resolve": "Solve again",
   "rcSheets.line.runs": "Continuous bars",

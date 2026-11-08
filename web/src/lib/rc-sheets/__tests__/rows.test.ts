@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { beamRow, type BeamDemand, type SectionEnv } from '../beam-row';
-import { columnRow, columnArea, type ColumnDemand } from '../column-row';
+import { columnRow, columnArea, columnSplice, type ColumnDemand } from '../column-row';
 import { slabRow } from '../slab-row';
 import { wallRow, type WallDemand } from '../wall-row';
 import { makeFmt } from '../format';
@@ -141,6 +141,20 @@ describe('column row', () => {
     const open = columnRow(sheared, ctx, { ...r.proposed, tieDia: 6, tieSpacing: 0.25 }, f);
     expect(open.checks.shearX).toBeGreaterThan(1);
     expect(open.status).toBe('fail');
+  });
+
+  it('keeps the bar pattern of the storey below and only steps the diameter down', () => {
+    const below = columnRow(base, ctx, undefined, f);
+    const light = { ...base, cases: [{ combo: 'U', pu: 500, mxTop: 20, mxBot: -10, myTop: 5, myBot: -2, vx: 10, vy: 5 }] };
+    const above = columnRow(light, ctx, undefined, f, { pattern: { nx: below.adopted.nx, ny: below.adopted.ny, maxDia: below.adopted.corner }, fromBelow: true });
+    expect([above.adopted.nx, above.adopted.ny]).toEqual([below.adopted.nx, below.adopted.ny]);
+    expect(above.adopted.corner).toBeLessThanOrEqual(below.adopted.corner);
+    expect(above.verifications.some((v) => v.label === 'rcSheets.v.colSpliceC' || v.label === 'rcSheets.v.colSpliceT')).toBe(true);
+  });
+
+  it('laps column bars 0.071·fy·db in compression, and as a class B tension splice otherwise', () => {
+    expect(columnSplice(ctx, 16, false).length).toBeCloseTo(0.071 * 420 * 16 / 1000, 6);
+    expect(columnSplice(ctx, 16, true).length).toBeGreaterThan(columnSplice(ctx, 16, false).length);
   });
 
   it('refuses the approximate method past k·lu/r = 100', () => {

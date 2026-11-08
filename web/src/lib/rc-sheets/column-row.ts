@@ -5,6 +5,7 @@ import { evaluateBeamSections, type BeamSectionQuery } from '../engine/codes/arg
 import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
 import { minClearSpacingColumn } from '../codes/cirsoc201/spacing';
 import { barArea, roundDown } from './bars';
+import { deriveDevelopment } from '../codes/cirsoc201/anchorage';
 import type { Fmt } from './format';
 import { check, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup } from './types';
 
@@ -172,7 +173,18 @@ function shearRatios(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, ct: { 
   });
 }
 
-export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt): ColumnRow {
+/** Where the storey sits in its stack: the pattern the bars below keep, whether bars come up from below, and how far its faces step in, m. */
+export interface StackPlace { pattern?: { nx: number; ny: number; maxDia: number }; fromBelow?: boolean; offset?: number }
+
+/** §25.5.5.1 in compression, or a class B tension splice (§25.5.2) where the column is not compression-dominated. */
+export function columnSplice(c: ColumnContext, dia: number, tension: boolean): { length: number; tension: boolean } {
+  if (tension) return { length: Math.max(0.3, 1.3 * deriveDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, edition: EDITION }).ldM), tension };
+  const fy = c.mat.fy;
+  const per = fy <= 420 ? 0.071 * fy : 0.13 * fy - 24;
+  return { length: Math.max(0.3, per * dia / 1000), tension };
+}
+
+export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt, stack: StackPlace = {}): ColumnRow {
   const Ag = d.b * d.h;
   const results: CaseResult[] = d.cases.map((cs) => {
     const x = axis(d, c, cs, 'x'), y = axis(d, c, cs, 'y');
@@ -201,7 +213,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     }
   }
 
-  const { layout: proposed, iterations } = proposeColumn(d, c, ast, dias, all);
+  const { layout: proposed, iterations } = proposeColumn(d, c, ast, dias, all, stack.pattern);
   const a = adopted ?? proposed;
   const perTuple = withSection({ kind: 'rect', b: d.b, h: d.h }, columnBars(d, a, c), { fc: c.mat.fc, fy: c.mat.fy, edition: EDITION }, (s) =>
     results.map((r) => r.tuples.reduce((w, q) => Math.max(w, s.biaxialFast(q.pu, q.mx, q.my).ratio), 0)));
@@ -220,6 +232,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
   const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
   const generous = area > 1.2 * ast + 1e-6 && ast > lo0 + 1e-6;
+  const splice = columnSplice(c, longest, d.cases.some((cs) => (cs.puMin ?? cs.pu) < 0.1 * c.mat.fc * 1000 * Ag));
 
   const verifications: CheckLine[] = [
     check('rcSheets.v.biaxial', ratio <= 1 + 1e-6, { clause: '§22.4, §22.2', demand: gov?.c.combo ?? '', capacity: '', ratio }),
@@ -232,6 +245,8 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     check('rcSheets.v.tieDia', tieDiaOk, { clause: '§25.7.2.2', demand: `Ø${a.tieDia}`, capacity: `≥ Ø${tieDiaFor(longest)}` }),
     check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '§25.7.2.1', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(tieMax * 100, 1)} cm` }),
     check('rcSheets.v.crossties', true, { clause: '§25.7.2.3', capacity: `${ct.x} (b) · ${ct.y} (h)` }),
+    ...(stack.fromBelow ? [check(splice.tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC', true, { clause: splice.tension ? '§25.5.2' : '§25.5.5.1', capacity: `${fmt(splice.length * 100, 0)} cm (Ø${longest})` })] : []),
+    ...((stack.offset ?? 0) > 0.075 + 1e-6 ? [check('rcSheets.v.colOffset', true, { clause: '§10.7.4.1', demand: `${fmt((stack.offset ?? 0) * 100, 1)} cm`, capacity: '> 7.5 cm' })] : []),
   ];
   const ok = verifications.every((v) => v.ok) && !impossible;
 
@@ -302,9 +317,20 @@ function slenderSteps(g: CaseResult, f: Fmt): StepGroup {
   return { title: 'rcSheets.g.slenderness', steps: [{ label: 'rcSheets.s.governs', formula: '', value: g.c.combo }, ...ax('x', g.x), ...ax('y', g.y)] };
 }
 
-function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: readonly number[], tuples: Tuple[]): { layout: ColumnAdopted; iterations: number } {
+function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: readonly number[], tuples: Tuple[], pattern?: StackPlace['pattern']): { layout: ColumnAdopted; iterations: number } {
   const ok: Array<{ a: ColumnAdopted; it: number }> = [];
   const demands = governing(tuples);
+  if (pattern) {
+    for (const dia of [...dias].filter((x) => x <= pattern.maxDia).sort((p, q) => p - q)) {
+      const tie = tieDiaFor(dia);
+      const a: ColumnAdopted = { corner: dia, nx: pattern.nx, dx: dia, ny: pattern.ny, dy: dia, tieDia: tie, tieSpacing: roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing) };
+      if (columnArea(a) < ast - 1e-6 || !clearOk(d, c, a)) continue;
+      if (demands.length && utilisation(d, c, a, demands) > 1 + 1e-6) continue;
+      const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };
+      if (!shearRatios(d, c, a, ct).every((x) => x.x <= 1 + 1e-6 && x.y <= 1 + 1e-6)) continue;
+      return { layout: a, iterations: 0 };
+    }
+  }
   for (const dia of dias.length ? dias : [16]) {
     let tie = tieDiaFor(dia);
     let a = evenLayout(d, c, dia, tie, 0.3);

@@ -14580,6 +14580,9 @@ const de: Translations = {
   "plates.meshShort.ready": "Netz: {n} bereit",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.v.colSpliceC": "Druckstoß am Geschossfuß",
+  "rcSheets.v.colSpliceT": "Zugstoß (Klasse B) am Geschossfuß",
+  "rcSheets.v.colOffset": "Querschnittssprung über 7,5 cm je Seite: eigene Anschlussstäbe",
   "rcSheets.wallsToMesh": "{n} Wände werden bei der nächsten Berechnung vernetzt, um ihr Moment in der Ebene zu bestimmen.",
   "rcSheets.resolve": "Neu berechnen",
   "rcSheets.line.runs": "Durchlaufende Stäbe",

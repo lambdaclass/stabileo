@@ -14729,6 +14729,9 @@ const es: Record<string, string> = {
   "plates.meshShort.ready": "Malla: {n} listas",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.v.colSpliceC": "Empalme por compresión en la base del piso",
+  "rcSheets.v.colSpliceT": "Empalme por tracción (clase B) en la base del piso",
+  "rcSheets.v.colOffset": "La sección cambia más de 7,5 cm por cara: pasadores separados",
   "rcSheets.wallsToMesh": "{n} tabiques se van a mallar en el próximo cálculo para resolver su momento en el plano.",
   "rcSheets.resolve": "Calcular de nuevo",
   "rcSheets.line.runs": "Barras corridas",
