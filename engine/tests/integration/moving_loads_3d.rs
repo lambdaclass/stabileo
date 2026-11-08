@@ -333,7 +333,6 @@ fn assert_planar_value(actual: f64, expected: f64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_midspan_moving_moment_matches_embedded_2d() {
     use dedaliano_engine::metamorphic::planes::Plane;
     use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
@@ -360,7 +359,6 @@ fn issue_1782_midspan_moving_moment_matches_embedded_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_inclined_moving_axial_matches_embedded_2d() {
     use dedaliano_engine::metamorphic::planes::Plane;
     use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
@@ -374,5 +372,188 @@ fn issue_1782_inclined_moving_axial_matches_embedded_2d() {
         assert_eq!(result.num_positions, reference.num_positions);
         assert_planar_value(e.n_max_pos, r.n_max_pos);
         assert_planar_value(e.n_max_neg, r.n_max_neg);
+    }
+}
+
+#[test]
+fn moving_axle_between_regular_stations_matches_2d() {
+    use dedaliano_engine::metamorphic::planes::Plane;
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
+    let mut input = planar_moving_input(0.0);
+    let length = input.solver.nodes["2"].x;
+    input.step = Some(0.37 * length);
+    let reference = solve_moving_loads_2d(&input).unwrap();
+    let expected = (0..reference.num_positions).map(|i| {
+        let a = i as f64 * input.step.unwrap();
+        let left_reaction = input.train.axles[0].weight * (length - a) / length;
+        left_reaction * a
+    }).fold(0.0, f64::max);
+    assert_planar_value(reference.elements["1"].m_max_pos.max(-reference.elements["1"].m_max_neg), expected);
+    let result = solve_moving_loads_3d(&embedded_moving_input(&input, Plane::XY)).unwrap();
+    assert_planar_value(result.elements["1"].mz_max_pos.max(-result.elements["1"].mz_max_neg), expected);
+}
+
+#[test]
+fn inclined_axle_matches_2d_with_reversed_connectivity_and_downward_slope() {
+    use dedaliano_engine::metamorphic::planes::Plane;
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
+    for rise in [-6.0, 6.0] {
+        for reverse in [false, true] {
+            let mut input = planar_moving_input(rise);
+            if reverse {
+                let e = input.solver.elements.get_mut("1").unwrap();
+                std::mem::swap(&mut e.node_i, &mut e.node_j);
+            }
+            let reference = solve_moving_loads_2d(&input).unwrap();
+            for plane in Plane::ALL {
+                let result = solve_moving_loads_3d(&embedded_moving_input(&input, plane)).unwrap();
+                assert_planar_value(result.elements["1"].n_max_pos, reference.elements["1"].n_max_pos);
+                assert_planar_value(result.elements["1"].n_max_neg, reference.elements["1"].n_max_neg);
+            }
+        }
+    }
+}
+
+#[test]
+fn axial_point_loads_recover_jumps_and_balance_in_all_3d_assembly_paths() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+    use dedaliano_engine::postprocess::diagrams::compute_diagram_value_at;
+    use dedaliano_engine::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+    use dedaliano_engine::solver::assembly::{assemble_load_vector_3d_dense, assemble_load_vector_3d_sparse};
+    use dedaliano_engine::solver::dof::DofNumbering;
+    use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
+    use dedaliano_engine::solver::sparse_assembly::assemble_load_vector_sparse_3d;
+    for kind in ["frame", "warping", "mixed", "truss"] {
+        let mut input = planar_span(0.0);
+        input.supports.get_mut("2").unwrap().support_type = "pinned".into();
+        if kind == "truss" { input.elements.get_mut("1").unwrap().elem_type = "truss".into(); }
+        input.loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 1, a: 1.17, p: 0.0, px: Some(40.0), my: None,
+        }), SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 1, a: 5.77, p: 0.0, px: Some(-40.0), my: None,
+        })];
+        let reference = solve_2d(&input).unwrap();
+        let r = &reference.element_forces[0];
+        for plane in Plane::ALL {
+            let mut embedded = embed_2d(&input, plane).unwrap();
+            if kind == "warping" || kind == "mixed" {
+                embedded.sections.get_mut("1").unwrap().cw = Some(1e-6);
+                for sup in embedded.supports.values_mut() { sup.rw = Some(true); }
+            }
+            if kind == "mixed" {
+                let mut sec = embedded.sections["1"].clone();
+                sec.id = 2;
+                sec.cw = None;
+                embedded.sections.insert("2".into(), sec);
+                let mut elem = embedded.elements["1"].clone();
+                elem.id = 2;
+                elem.section_id = 2;
+                embedded.elements.insert("2".into(), elem);
+            }
+            let dofs = DofNumbering::build_3d(&embedded);
+            let dense = assemble_load_vector_3d_dense(&embedded, &embedded.loads, &dofs, &[]);
+            for sparse in [assemble_load_vector_3d_sparse(&embedded, &embedded.loads, &dofs, &[]), assemble_load_vector_sparse_3d(&embedded, &embedded.loads, &dofs, &[])] {
+                for (a, b) in dense.iter().zip(&sparse) { assert_planar_value(*a, *b); }
+            }
+            let left_force = 40.0 * ((1.0 - 1.17 / 8.0) - (1.0 - 5.77 / 8.0));
+            for (node, force) in [(1, left_force), (2, -left_force)] {
+                for (axis, coefficient) in plane.e1().into_iter().enumerate() {
+                    assert_planar_value(dense[dofs.global_dof(node, axis).unwrap()], coefficient * force);
+                }
+            }
+            let result = solve_3d(&embedded).unwrap();
+            let ef = result.element_forces.iter().find(|e| e.element_id == 1).unwrap();
+            assert_planar_value(ef.n_start, r.n_start);
+            assert_planar_value(ef.n_end, r.n_end);
+            for x in [0.0, 1.17 - 1e-5, 1.17 + 1e-5, 3.0, 5.77 - 1e-5, 5.77 + 1e-5, 8.0] {
+                let expected = r.n_start - if x > 1.17 { 40.0 } else { 0.0 } + if x > 5.77 { 40.0 } else { 0.0 };
+                assert_planar_value(evaluate_diagram_3d_at(ef, "axial", x / ef.length), expected);
+                if kind != "mixed" { assert_planar_value(evaluate_diagram_3d_at(ef, "axial", x / ef.length), compute_diagram_value_at("axial", x / r.length, r)); }
+            }
+        }
+    }
+}
+
+#[test]
+fn axial_point_loads_survive_combinations_and_moving_envelopes() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
+    let mut input = planar_moving_input(0.0);
+    input.train.axles.clear();
+    input.solver.supports.get_mut("2").unwrap().support_type = "pinned".into();
+    input.solver.loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
+        element_id: 1, a: 1.17, p: 0.0, px: Some(40.0), my: None,
+    }), SolverLoad::PointOnElement(SolverPointLoadOnElement {
+        element_id: 1, a: 5.77, p: 0.0, px: Some(-40.0), my: None,
+    })];
+    let reference = solve_moving_loads_2d(&input).unwrap();
+    let embedded = embedded_moving_input(&input, Plane::XZ);
+    let result = solve_moving_loads_3d(&embedded).unwrap();
+    assert_planar_value(result.elements["1"].n_max_pos, reference.elements["1"].n_max_pos);
+    assert_planar_value(result.elements["1"].n_max_neg, reference.elements["1"].n_max_neg);
+    let model = embed_2d(&input.solver, Plane::XZ).unwrap();
+    let static_result = dedaliano_engine::solver::linear::solve_3d(&model).unwrap();
+    let factors = vec![dedaliano_engine::postprocess::combinations::CombinationFactor { case_id: 1, factor: -2.0 }];
+    let combined = dedaliano_engine::postprocess::combinations::combine_results_3d_refs(&factors, &[(1, &static_result)]).unwrap().unwrap();
+    let ef = &combined.element_forces[0];
+    for t in [0.0, 0.1, 0.3, 0.8, 1.0] {
+        let evaluate = dedaliano_engine::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+        assert_planar_value(evaluate(ef, "axial", t), -2.0 * evaluate(&static_result.element_forces[0], "axial", t));
+    }
+}
+
+#[test]
+fn axial_point_load_is_certified_against_independent_3d_reassembly() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+    let mut input = planar_span(0.0);
+    input.supports.get_mut("1").unwrap().support_type = "fixed".into();
+    input.supports.remove("2");
+    input.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
+        element_id: 1, a: 1.17, p: 0.0, px: Some(40.0), my: None,
+    }));
+    for plane in Plane::ALL {
+        let model = embed_2d(&input, plane).unwrap();
+        let result = dedaliano_engine::certify::solver::certify_linear_3d_full(&model).unwrap();
+        assert!(result.end_to_end.is_certified(), "{:?}", result.end_to_end);
+        let expected_reaction = -40.0;
+        for (force, coefficient) in [result.results.reactions[0].fx, result.results.reactions[0].fy, result.results.reactions[0].fz].into_iter().zip(plane.e1()) {
+            assert_planar_value(force, coefficient * expected_reaction);
+        }
+    }
+}
+
+#[test]
+fn permanent_axial_span_extremum_matches_2d_off_grid() {
+    use dedaliano_engine::metamorphic::planes::Plane;
+    use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
+    let mut input = planar_moving_input(0.0);
+    input.train.axles.clear();
+    input.solver.loads.push(SolverLoad::AxialDistributed(SolverAxialDistributedLoad {
+        element_id: 1, q_i: 3.7, q_j: -6.3, a: None, b: None,
+    }));
+    let reference = solve_moving_loads_2d(&input).unwrap();
+    for plane in Plane::ALL {
+        let result = solve_moving_loads_3d(&embedded_moving_input(&input, plane)).unwrap();
+        assert_planar_value(result.elements["1"].n_max_pos, reference.elements["1"].n_max_pos);
+        assert_planar_value(result.elements["1"].n_max_neg, reference.elements["1"].n_max_neg);
+    }
+}
+
+#[test]
+fn axial_point_load_geometric_stiffness_matches_embedded_2d() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+    use dedaliano_engine::solver::buckling::{solve_buckling_2d, solve_buckling_3d};
+    let mut input = planar_span(0.0);
+    input.supports.get_mut("1").unwrap().support_type = "fixed".into();
+    input.supports.remove("2");
+    input.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
+        element_id: 1, a: 0.37 * 8.0, p: 0.0, px: Some(-40.0), my: None,
+    }));
+    let reference = solve_buckling_2d(&input, 1).unwrap();
+    assert_eq!(reference.modes.len(), 1);
+    for plane in Plane::ALL {
+        let result = solve_buckling_3d(&embed_2d(&input, plane).unwrap(), 1).unwrap();
+        assert_eq!(result.modes.len(), reference.modes.len());
+        assert_planar_value(result.modes[0].load_factor, reference.modes[0].load_factor);
     }
 }

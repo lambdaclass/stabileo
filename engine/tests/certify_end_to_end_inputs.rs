@@ -223,7 +223,7 @@ fn loads_3d_nothing_resists() {
     }
     assert_failed(e2e_3d(frame_3d(), |i| i.loads.push(nodal3(99, [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))), "load on a missing node");
     assert_failed(
-        e2e_3d(frame_3d(), |i| i.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 99, a: 1.0, py: 0.0, pz: -1.0 }))),
+        e2e_3d(frame_3d(), |i| i.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 99, a: 1.0, py: 0.0, pz: -1.0 }))),
         "point load on a missing element",
     );
     assert_failed(

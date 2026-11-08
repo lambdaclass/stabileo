@@ -1,0 +1,32 @@
+{
+  "id": "moving-loads-3d",
+  "date": "2026-11-08",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "members"
+    ]
+  },
+  "title": {
+    "en": "3D moving loads include interior peaks and axial axle weight",
+    "es": "Las cargas móviles 3D incluyen los picos interiores y la componente axial del peso de los ejes",
+    "pt": "As cargas móveis 3D incluem os picos interiores e a componente axial do peso dos eixos",
+    "de": "3D-Wanderlasten berücksichtigen innere Spitzen und den axialen Anteil der Achslast",
+    "fr": "Les charges mobiles 3D incluent les pics intérieurs et la composante axiale du poids des essieux",
+    "tr": "3B hareketli yükler iç kuvvet zirvelerini ve aks ağırlığının eksenel bileşenini içeriyor"
+  },
+  "explanation": {
+    "en": "3D moving-load envelopes used only member end forces, missing peaks under an axle inside the span. On inclined members the axial component of axle gravity was also dropped, so only part of the weight was applied. Both errors could understate demand without a warning (#1782, SA-2026-051). Interior diagram stations and all three local gravity components are now included. Re-run 3D moving-load analyses and review designs and sizing based on their envelopes. This notice flags all 3D member models because saved metadata does not reliably record moving-load runs.",
+    "es": "Las envolventes de cargas móviles 3D solo usaban fuerzas en los extremos de las barras y omitían los picos bajo un eje dentro del vano. En barras inclinadas también se perdía la componente axial del peso. Ambos errores podían subestimar la demanda sin aviso (#1782, SA-2026-051). Ahora se incluyen estaciones interiores y las tres componentes locales de gravedad. Vuelva a ejecutar los análisis de cargas móviles 3D y revise los diseños y dimensionamientos basados en sus envolventes. El aviso abarca todos los modelos 3D con barras porque los metadatos no registran esas ejecuciones de forma fiable.",
+    "pt": "As envoltórias de cargas móveis 3D usavam apenas forças nas extremidades das barras e omitiam picos sob um eixo dentro do vão. Nas barras inclinadas também se perdia a componente axial do peso. Ambos os erros podiam subestimar a demanda sem aviso (#1782, SA-2026-051). Agora são incluídas estações interiores e as três componentes locais da gravidade. Execute novamente as análises de cargas móveis 3D e reveja os projetos e dimensionamentos baseados nas envoltórias. O aviso abrange todos os modelos 3D com barras porque os metadados não registram essas execuções de modo confiável.",
+    "de": "Die Umhüllenden der 3D-Wanderlasten verwendeten nur Stabendkräfte und übersahen Spitzen unter einer Achse im Feld. Bei geneigten Stäben fehlte zudem der axiale Gewichtsanteil. Beide Fehler konnten die Beanspruchung ohne Warnung unterschätzen (#1782, SA-2026-051). Nun werden innere Diagrammstationen und alle drei lokalen Gewichtskomponenten berücksichtigt. Berechnen Sie 3D-Wanderlasten erneut und prüfen Sie darauf beruhende Nachweise und Dimensionierungen. Der Hinweis erfasst alle 3D-Stabmodelle, da gespeicherte Metadaten Wanderlastberechnungen nicht zuverlässig erkennen lassen.",
+    "fr": "Les enveloppes de charges mobiles 3D utilisaient seulement les efforts aux extrémités des barres et omettaient les pics sous un essieu dans la travée. Sur les barres inclinées, la composante axiale du poids était aussi perdue. Ces erreurs pouvaient sous-estimer la sollicitation sans avertissement (#1782, SA-2026-051). Les stations intérieures et les trois composantes locales du poids sont désormais incluses. Relancez les analyses de charges mobiles 3D et vérifiez les dimensionnements fondés sur leurs enveloppes. Cet avis couvre tous les modèles 3D à barres car les métadonnées ne recensent pas fiablement ces calculs.",
+    "tr": "3B hareketli yük zarfları yalnızca çubuk uç kuvvetlerini kullanıyor ve açıklık içindeki aks altı zirvelerini kaçırıyordu. Eğimli çubuklarda ağırlığın eksenel bileşeni de kayboluyordu. Her iki hata da uyarı vermeden talebi düşük gösterebiliyordu (#1782, SA-2026-051). Artık iç diyagram istasyonları ve ağırlığın üç yerel bileşeni de kullanılıyor. 3B hareketli yük analizlerini yeniden çalıştırın ve zarflara dayanan tasarım ve boyutlandırmaları gözden geçirin. Kayıtlı üstveriler bu analizleri güvenilir biçimde belirtmediğinden bildirim tüm 3B çubuk modellerini kapsar."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-moving-loads-3d.md",
+    "heading": "3D moving loads include interior peaks and axial axle weight (2026-11-08)"
+  }
+}

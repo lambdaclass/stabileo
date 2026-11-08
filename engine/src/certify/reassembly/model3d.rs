@@ -269,6 +269,8 @@ pub(super) fn build(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Result<Mod
                 }
                 SolverLoad3D::PointOnElement(pl) => {
                     let a = inp(pl.a);
+                    lvec_add(&mut f, 0, inp(pl.px) * (inp(1.0) - a.div(l)));
+                    lvec_add(&mut f, 6, inp(pl.px) * a.div(l));
                     if pl.py != 0.0 {
                         let v = point_enl(&shape_y.0, &shape_y.1, l, a, inp(pl.py), I::ZERO);
                         place_enl(&mut f, [1, 5, 7, 11], &v, 1.0);

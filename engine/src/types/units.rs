@@ -715,6 +715,8 @@ mod wire {
     pub struct SolverPointLoad3D {
         pub element_id: usize,
         pub a: Length,
+        #[serde(default)]
+        pub px: Force,
         pub py: Force,
         pub pz: Force,
     }
@@ -1074,6 +1076,8 @@ mod wire {
         pub distributed_loads_z: Vec<DistributedLoadInfo>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         pub distributed_loads_x: Vec<DistributedLoadInfo>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub point_loads_x: Vec<PointLoadInfo3D>,
         pub point_loads_z: Vec<PointLoadInfo3D>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub bimoment_start: Option<Bimoment>,
@@ -1286,7 +1290,7 @@ impl From<TypedNodalLoad3D> for super::SolverNodalLoad3D {
 
 impl From<TypedPointLoad3D> for super::SolverPointLoad3D {
     fn from(l: TypedPointLoad3D) -> Self {
-        Self { element_id: l.element_id, a: l.a.in_m(), py: l.py.in_kn(), pz: l.pz.in_kn() }
+        Self { element_id: l.element_id, a: l.a.in_m(), px: l.px.in_kn(), py: l.py.in_kn(), pz: l.pz.in_kn() }
     }
 }
 
@@ -1634,6 +1638,7 @@ impl From<&super::ElementForces3D> for TypedElementForces3D {
             q_zj,
             distributed_loads_z,
             distributed_loads_x,
+            point_loads_x,
             point_loads_z,
             bimoment_start,
             bimoment_end,
@@ -1667,6 +1672,7 @@ impl From<&super::ElementForces3D> for TypedElementForces3D {
             q_zj: LineLoad::from_kn_per_m(*q_zj),
             distributed_loads_z: typed_all(distributed_loads_z),
             distributed_loads_x: typed_all(distributed_loads_x),
+            point_loads_x: typed_all(point_loads_x),
             point_loads_z: typed_all(point_loads_z),
             bimoment_start: bimoment_start.map(Bimoment::from_kn_m2),
             bimoment_end: bimoment_end.map(Bimoment::from_kn_m2),

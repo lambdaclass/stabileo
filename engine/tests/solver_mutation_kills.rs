@@ -535,7 +535,7 @@ fn member_loads(element_id: usize, scale: f64) -> Vec<SolverLoad3D> {
             a: Some(0.0),
             b: Some(3.0),
         }),
-        SolverLoad3D::PointOnElement(SolverPointLoad3D {
+        SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0,
             element_id,
             a: 1.0,
             py: -8.0 * scale,

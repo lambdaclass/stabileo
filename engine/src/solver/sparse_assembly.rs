@@ -1555,7 +1555,7 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                                         for (i, &dof) in elem_dofs.iter().enumerate() { f_global[dof] += fef_global[i]; }
                                     }
                                     SolverLoad3D::PointOnElement(pl) => {
-                                        let mut fef12 = element::fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                                        let mut fef12 = element::fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                                         adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef14 = element::expand_fef_12_to_14(&fef12);
                                         let fef_global = transform_force(&fef14, &t, 14);
@@ -1598,7 +1598,7 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                                         for i in 0..12 { f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i]; }
                                     }
                                     SolverLoad3D::PointOnElement(pl) => {
-                                        let mut fef = element::fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                                        let mut fef = element::fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                                         adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef_global = transform_force(&fef, &t, 12);
                                         for i in 0..12 { f_global[elem_dofs[DOF_MAP_12_TO_14[i]]] += fef_global[i]; }
@@ -1639,7 +1639,7 @@ pub fn assemble_load_vector_3d_sparse_parallel(
                                         for (i, &dof) in elem_dofs.iter().enumerate() { f_global[dof] += fef_global[i]; }
                                     }
                                     SolverLoad3D::PointOnElement(pl) => {
-                                        let mut fef = element::fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                                        let mut fef = element::fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                                         adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                                         let fef_global = transform_force(&fef, &t, 12);
                                         for (i, &dof) in elem_dofs.iter().enumerate() { f_global[dof] += fef_global[i]; }

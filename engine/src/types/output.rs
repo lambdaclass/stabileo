@@ -766,6 +766,8 @@ pub struct ElementForces3D {
     pub distributed_loads_z: Vec<DistributedLoadInfo>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub distributed_loads_x: Vec<DistributedLoadInfo>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub point_loads_x: Vec<PointLoadInfo3D>,
     pub point_loads_z: Vec<PointLoadInfo3D>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bimoment_start: Option<f64>,

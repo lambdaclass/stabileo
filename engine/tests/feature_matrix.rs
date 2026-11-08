@@ -2310,7 +2310,7 @@ fn cases_3d() -> Vec<Case3> {
         cases.push(c);
 
         let mut w = canti();
-        w.load(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 1.5, py: 20.0, pz: -50.0 }));
+        w.load(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 1.5, py: 20.0, pz: -50.0 }));
         let wo = canti();
         let mut eq = M3::new();
         eq.node(1, 0.0, 0.0, 0.0).node(10, 1.5, 0.0, 0.0).node(2, l, 0.0, 0.0);

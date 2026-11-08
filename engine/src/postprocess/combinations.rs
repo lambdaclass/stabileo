@@ -563,7 +563,7 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
             q_yi: 0.0, q_yj: 0.0, q_zi: 0.0, q_zj: 0.0,
             distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
             distributed_loads_x: Vec::new(),
-            distributed_loads_z: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })
+            distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })
         .collect();
 
     let disp_slot = index_by_id(displacements.iter().map(|d| d.node_id));
@@ -623,6 +623,9 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
             }
             for dl in &ef.distributed_loads_z {
                 out.distributed_loads_z.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });
+            }
+            for pl in &ef.point_loads_x {
+                out.point_loads_x.push(PointLoadInfo3D { a: pl.a, p: pl.p * f });
             }
             for pl in &ef.point_loads_y {
                 out.point_loads_y.push(PointLoadInfo3D { a: pl.a, p: pl.p * f });

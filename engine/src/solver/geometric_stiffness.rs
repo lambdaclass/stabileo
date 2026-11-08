@@ -452,8 +452,12 @@ fn frame_kg_span_local_3d(w: &[[f64; 4]; 4], e: &[f64; 4], l: f64, hinge: &crate
 /// consistent Kg of the member's whole N(x), bending, Wagner and shear-centre terms alike. As in
 /// 2D, trusses and cables have none. Also each such member's least N − N̄ along it.
 pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> (Vec<(usize, Vec<usize>, Vec<f64>)>, std::collections::HashMap<usize, f64>) {
+    let mut points: std::collections::HashMap<usize, Vec<(f64, f64)>> = std::collections::HashMap::new();
     let mut spans: std::collections::HashMap<usize, Vec<&SolverDistributedLoad3D>> = std::collections::HashMap::new();
     for load in &input.loads {
+        if let SolverLoad3D::PointOnElement(pl) = load {
+            if pl.px != 0.0 { points.entry(pl.element_id).or_default().push((pl.a, pl.px)); }
+        }
         if let SolverLoad3D::Distributed(dl) = load {
             if dl.q_xi != 0.0 || dl.q_xj != 0.0 {
                 spans.entry(dl.element_id).or_default().push(dl);
@@ -469,7 +473,9 @@ pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: 
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             continue;
         }
-        let Some(raw_spans) = spans.get(&elem.id) else { continue };
+        let raw_spans = spans.get(&elem.id).map(Vec::as_slice).unwrap_or(&[]);
+        let pts = points.get(&elem.id).map(Vec::as_slice).unwrap_or(&[]);
+        if raw_spans.is_empty() && pts.is_empty() { continue; }
         let (Some(ni), Some(nj), Some(sec)) = (node_by_id.get(&elem.node_i), node_by_id.get(&elem.node_j), sec_by_id.get(&elem.section_id)) else { continue };
         let (dx, dy, dz) = (nj.x - ni.x, nj.y - ni.y, nj.z - ni.z);
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
@@ -477,10 +483,10 @@ pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: 
             continue;
         }
         let sps: Vec<[f64; 4]> = raw_spans.iter().map(|dl| [dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l)]).filter(|s| s[3] > s[2]).collect();
-        if sps.is_empty() {
+        if sps.is_empty() && pts.is_empty() {
             continue;
         }
-        let (w, e, low) = span_axial_weights(l, &[], &sps);
+        let (w, e, low) = span_axial_weights(l, pts, &sps);
         least.insert(elem.id, low);
         let (ex, ey, ez) = crate::element::compute_local_axes_3d(
             ni.x, ni.y, ni.z,

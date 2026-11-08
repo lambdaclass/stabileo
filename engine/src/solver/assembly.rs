@@ -1640,16 +1640,16 @@ pub(crate) fn truss_member_load_3d(
                 }
             }
         }
-        SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id && (pl.py != 0.0 || pl.pz != 0.0) => {
+        SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id && (pl.px != 0.0 || pl.py != 0.0 || pl.pz != 0.0) => {
             // A point load on a truss reaches its nodes by the lever rule.
-            let (_ex, ey, ez) = compute_local_axes_3d(
+            let (ex, ey, ez) = compute_local_axes_3d(
                 node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
                 elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand);
             let f_i = 1.0 - pl.a / l;
             let f_j = pl.a / l;
             for k in 0..3 {
-                let comp_i = pl.py * f_i * ey[k] + pl.pz * f_i * ez[k];
-                let comp_j = pl.py * f_j * ey[k] + pl.pz * f_j * ez[k];
+                let comp_i = pl.px * f_i * ex[k] + pl.py * f_i * ey[k] + pl.pz * f_i * ez[k];
+                let comp_j = pl.px * f_j * ex[k] + pl.py * f_j * ey[k] + pl.pz * f_j * ez[k];
                 if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += comp_i; }
                 if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += comp_j; }
             }
@@ -2163,7 +2163,7 @@ fn assemble_element_loads_3d(
                 }
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                let mut fef = fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                let mut fef = fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
 
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t, 12);
@@ -2227,7 +2227,7 @@ fn assemble_element_loads_3d_warping(
                 }
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                let mut fef12 = fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                let mut fef12 = fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
@@ -2291,7 +2291,7 @@ fn assemble_element_loads_3d_mapped(
                 }
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                let mut fef = fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                let mut fef = fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t12, 12);
                 for i in 0..12 {
