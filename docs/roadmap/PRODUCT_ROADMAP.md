@@ -192,6 +192,9 @@ The groups of section 2 (a) come first; this table lists every open wrong-result
 | [#742](https://github.com/lambdaclass/stabileo/issues/742) | fuzz `model_certify`: settlement-only 3D model fails the equilibrium oracle | — | — | likely the oracle's scale: retriage |
 | nightly | the open `nightly-finding` issues | — | — | section 2 (a) and (c) |
 
+Closed on GitHub since the last rewrite, with their merged fixes: [#1315](https://github.com/lambdaclass/stabileo/issues/1315) ([#1325](https://github.com/lambdaclass/stabileo/pull/1325)), [#1446](https://github.com/lambdaclass/stabileo/issues/1446) ([#1502](https://github.com/lambdaclass/stabileo/pull/1502)) and
+[#1506](https://github.com/lambdaclass/stabileo/issues/1506), [#1389](https://github.com/lambdaclass/stabileo/issues/1389) ([#1396](https://github.com/lambdaclass/stabileo/pull/1396)), [#456](https://github.com/lambdaclass/stabileo/issues/456) ([#1309](https://github.com/lambdaclass/stabileo/pull/1309)) and the [#532](https://github.com/lambdaclass/stabileo/issues/532) import leftover ([#1310](https://github.com/lambdaclass/stabileo/pull/1310)).
+
 **Fixed on main by a merged PR, issue still open (verify each with a test on main, then close):**
 [#534](https://github.com/lambdaclass/stabileo/issues/534) ([#1236](https://github.com/lambdaclass/stabileo/pull/1236), SA-2026-028), [#467](https://github.com/lambdaclass/stabileo/issues/467) ([#1246](https://github.com/lambdaclass/stabileo/pull/1246), SA-2026-030), [#760](https://github.com/lambdaclass/stabileo/issues/760) and [#338](https://github.com/lambdaclass/stabileo/issues/338)
 ([#1247](https://github.com/lambdaclass/stabileo/pull/1247) through [#1285](https://github.com/lambdaclass/stabileo/pull/1285), SA-2026-031 and 032), [#466](https://github.com/lambdaclass/stabileo/issues/466) ([#1297](https://github.com/lambdaclass/stabileo/pull/1297) through [#1409](https://github.com/lambdaclass/stabileo/pull/1409), SA-2026-036),
