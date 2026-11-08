@@ -4,7 +4,6 @@
   "prs": [1745],
   "area": "analysis",
   "when": { "allOf": [["members"], ["analysis:buckling"]] },
-  "quantities": ["*", "solve.ok"],
   "title": {
     "en": "Buckling no longer takes geometric stiffness from round-off axial forces",
     "es": "El pandeo ya no toma rigidez geométrica de esfuerzos axiales que son redondeo",
