@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (contained in 0.5.0) |
 | Issue | [#1314](https://github.com/lambdaclass/stabileo/issues/1314) |
-| Fix | #1319 (containment: the check is marked incomplete; torsion design itself is not added) |
+| Fix | PR [#1319](https://github.com/lambdaclass/stabileo/pull/1319) (merged 2026-11-05), released in v0.5.0 (containment: the check is marked incomplete; torsion design itself is not added) |
 | Affected versions | every release since the other-codes checks landed (2026-09-25, desktop-v0.1.0-alpha.1 to 0.4.0) and the live site until this fix |
 | Re-check registry | entry `rc-other-codes-torsion-unchecked` (models with concrete members); the numbers do not change, only whether the check counts as passed |
 
@@ -29,6 +29,8 @@ when |T| > φ·0.083·λ·√f'c·Acp²/pcp with √f'c ≤ 8.3 MPa½ and λ = 1
 for EN 1992, which has no such threshold, whenever the member carries any torsion.
 
 ## Fixed in
+
+0.5.0.
 
 Containment only: such a check is incomplete, and its certificate is refused as partial. Test:
 `web/src/lib/engine/design/other-codes/__tests__/concrete-codes.test.ts` (a 30 × 50 cantilever with

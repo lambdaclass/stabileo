@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | Medium |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | — (review of #1077) |
-| Fix | PR [#1255](https://github.com/lambdaclass/stabileo/pull/1255) |
+| Fix | PR [#1255](https://github.com/lambdaclass/stabileo/pull/1255) (merged 2026-11-05), released in v0.5.0 |
 | Affected versions | the statics panel and the PDF report since the statics check reached them, not bisected; the post-analysis report and the similar-storey scope since #1077 (2026-11-03) |
 | Re-check registry | none: no solver number changes. Re-read the equilibrium verdicts of reports exported before the fix |
 
@@ -53,6 +53,8 @@ scope on similar or all storeys, and members copied to other storeys whose end r
 from the one drawn.
 
 ## Fixed in
+
+0.5.0.
 
 PR #1255. A case balances only with every load in the sum (`staticsVerdict`): otherwise it is
 "not fully checked", with the loads left out named, in the report after the analysis, the statics

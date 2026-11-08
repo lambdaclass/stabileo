@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | Medium (engine and WASM API only; Vpl,Rd up to 57 % high on rolled I and H sections, and certified) |
-| Status | Draft |
-| Issue | — (agy review draft b1, 2026-11-02) |
-| Fix | PR [#1234](https://github.com/lambdaclass/stabileo/pull/1234) |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
+| Issue | — (internal review, 2026-11-02) |
+| Fix | PR [#1234](https://github.com/lambdaclass/stabileo/pull/1234) (merged 2026-11-03), released in v0.5.0 |
 | Affected versions | from 2026-03-08 (e1226b70e, the EC3 module) to `main` until the fix |
 | Re-check registry | not needed: the app always sends `av` |
 
@@ -38,7 +38,7 @@ has no `av` and a non-zero `vEd`.
 
 ## Fixed in
 
-`main` (PR #1234). Without `av`, Av comes from `geometry` by EN 1993-1-1 6.2.6(3) with η = 1:
+0.5.0 (PR #1234). Without `av`, Av comes from `geometry` by EN 1993-1-1 6.2.6(3) with η = 1:
 (a) for a rolled I or H (r > 0, not less than hw·tw), (d) hw·tw for a welded one (r = 0), the
 lower of (f) A·h/(b + h) and (d) 2·hw·t for a rectangular hollow section, and (g) 2A/π for a
 circular one. With neither `av` nor usable geometry, a loaded `Shear 6.2.6` is unevaluated and
