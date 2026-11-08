@@ -76,4 +76,4 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
           STATE: ${{ needs.check.result == 'success' && 'success' || 'failure' }}
           URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: gh api -X POST "repos/$GH_REPO/statuses/$SHA" -f state="$STATE" -f context='Revert Check (trusted)' -f description="The base branch definition: $STATE" -f target_url="$URL" --silent
+        run: gh api -X POST "repos/$GH_REPO/statuses/$SHA" -f state="$STATE" -f context='Revert Check (trusted)' -f description="Base branch definition, $STATE" -f target_url="$URL" --silent
