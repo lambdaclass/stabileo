@@ -116,7 +116,7 @@ export function writeValues(params: readonly Param[], values: Values): string {
 
 export function linearCertificate(certificate: Engine.LinearCertificate, endToEnd: Engine.EndToEnd | undefined): Certificate {
   if (endToEnd && endToEnd.status === 'failed') return { status: 'failed', kind: 'linear', code: 'engine', reason: endToEnd.reason };
-  if (certificate.status === 'certified') return { status: 'certified', kind: 'linear', bound: certificate.relBound, measure: 'errorBound' };
+  if (certificate.status === 'certified') return { status: 'certified', kind: 'linear', bound: certificate.relBound ?? null, measure: 'errorBound' };
   return { status: 'uncertified', kind: 'linear', code: 'engine', reason: certificate.reason };
 }
 

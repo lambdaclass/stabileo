@@ -1,5 +1,5 @@
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
-import { materialToWire, section3DToWire, sectionToWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire } from './unit-types';
+import { load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
@@ -471,16 +471,18 @@ export function assertFiniteWire(value: any, path = 'input'): void {
 /** Convert SolverInput (with Maps) to the plain JSON-ready wire object,
  *  without a string round trip. */
 export function input2DToWireObject(input: SolverInput): Record<string, any> & {
+  nodes: Record<string, NodeWire>;
   materials: Record<string, ElasticMaterialWire>;
   sections: Record<string, ElasticSectionWire>;
+  loads: LoadWire[];
 } {
   return {
-    nodes: mapToObj(input.nodes),
+    nodes: Object.fromEntries(Array.from(input.nodes, ([id, n]) => [String(id), nodeToWire(n)])),
     materials: Object.fromEntries(Array.from(input.materials, ([id, m]) => [String(id), materialToWire(plainDeepCopy(m))])),
     sections: Object.fromEntries(Array.from(input.sections, ([id, s]) => [String(id), sectionToWire(plainDeepCopy(s))])),
     elements: mapToObj(input.elements),
     supports: mapToObj(input.supports),
-    loads: input.loads,
+    loads: input.loads.map(loadToWire),
     constraints: plainDeepCopy(input.constraints ?? []),
     connectors: input.connectors ? mapToPlainObj(input.connectors) : {},
     ...(input.masses?.nodal?.length ? { masses: plainDeepCopy(input.masses) } : {}),
@@ -523,16 +525,18 @@ function wireSection3D(s: SolverSection3D): ElasticSection3DWire {
 }
 
 export function input3DToWireObject(input: SolverInput3D): Record<string, any> & {
+  nodes: Record<string, Node3DWire>;
   materials: Record<string, ElasticMaterialWire>;
   sections: Record<string, ElasticSection3DWire>;
+  loads: Load3DWire[];
 } {
   return {
-    nodes: mapToObj(input.nodes),
+    nodes: Object.fromEntries(Array.from(input.nodes, ([id, n]) => [String(id), node3DToWire(n)])),
     materials: Object.fromEntries(Array.from(input.materials, ([id, m]) => [String(id), materialToWire(m)])),
     sections: Object.fromEntries(Array.from(input.sections, ([id, s]) => [String(id), wireSection3D(s)])),
     elements: mapToObj(input.elements),
     supports: mapToObj(input.supports),
-    loads: input.loads,
+    loads: input.loads.map(load3DToWire),
     plates: input.plates ? mapToPlainObj(input.plates) : {},
     quads: input.quads ? mapToPlainObj(input.quads) : {},
     curvedShells: input.curvedShells ? mapToPlainObj(input.curvedShells) : {},
@@ -958,12 +962,18 @@ export function hasCertifyExport(): boolean {
   return wasmCertifyLinear2d !== null && wasmCertifyLinear3d !== null;
 }
 
+function normalizeLinear<T extends { certificate: LinearCertificate; endToEnd?: EndToEnd }>(out: T): T {
+  if (out.certificate.status === 'certified') out.certificate.relBound ??= null;
+  if (out.endToEnd?.status === 'certified') out.endToEnd.relBound ??= null;
+  return out;
+}
+
 /** Solve and certify a 2D linear static analysis (a few times the cost of `solve`). */
 export function certifyLinear2D(input: SolverInput): CertifiedLinear2D {
   if (!wasmReady || !wasmCertifyLinear2d) throw new Error('WASM certificate export not available.');
   const wire = input2DToWireObject(input);
   assertFiniteWire(wire);
-  return wasmCertifyLinear2d(wire);
+  return normalizeLinear(wasmCertifyLinear2d(wire));
 }
 
 /** Solve and certify a 3D linear static analysis (a few times the cost of `solve3D`). */
@@ -971,7 +981,7 @@ export function certifyLinear3D(input: SolverInput3D): CertifiedLinear3D {
   if (!wasmReady || !wasmCertifyLinear3d) throw new Error('WASM certificate export not available.');
   const wire = input3DToWireObject(input);
   assertFiniteWire(wire);
-  const out: CertifiedLinear3D = wasmCertifyLinear3d(wire);
+  const out: CertifiedLinear3D = normalizeLinear(wasmCertifyLinear3d(wire));
   finishSolve3D(out.results, input);
   return out;
 }
@@ -981,7 +991,7 @@ export function certifyLinearWire(dim: '2d' | '3d', wire: Record<string, any>): 
   const certify = { '2d': wasmCertifyLinear2d, '3d': wasmCertifyLinear3d }[dim];
   if (!wasmReady || !certify) throw new Error('WASM certificate export not available.');
   assertFiniteWire(wire);
-  return certificateOnly(certify(wire));
+  return certificateOnly(normalizeLinear(certify(wire)));
 }
 
 /** A linear certificate without the results it re-solved (3D carries the shells' bounds). */

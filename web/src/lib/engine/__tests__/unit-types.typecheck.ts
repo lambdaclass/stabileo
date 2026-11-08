@@ -1,7 +1,7 @@
 import { input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
-import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM } from '../unit-types';
+import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire } from '../unit-types';
 const material: ElasticMaterialWire = { id: 1, e: mpa(200000), nu: ratio(0.3) };
 const section: ElasticSectionWire = { id: 1, a: areaM2(0.01), iz: inertiaM4(0.0001) };
 material.e = elasticFromDisplay(29000, 'stress', 'Imperial');
@@ -68,3 +68,70 @@ wire3D.materials['1'].e = modulusInternal(material.e);
 const adapted3D = section3DToWire({ id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-5 });
 // @ts-expect-error the 3D section adapter retains the area brand
 adapted3D.a = adapted3D.iy;
+
+wire.nodes['1'].x = lengthM(3);
+wire.nodes['1'].z = lengthM(-1);
+// @ts-expect-error a node coordinate is a length, not a force
+wire.nodes['1'].x = forceKn(1);
+// @ts-expect-error raw numbers require an explicit boundary constructor
+wire.nodes['1'].z = 3;
+for (const load of wire.loads) {
+  if (load.type === 'nodal') {
+    load.data.fx = forceKn(1);
+    load.data.my = momentKnM(1);
+    // @ts-expect-error the 2D nodal fx is a force, not a moment
+    load.data.fx = momentKnM(1);
+    // @ts-expect-error the 2D nodal moment is kN·m, not kN
+    load.data.my = forceKn(1);
+  } else if (load.type === 'pointOnElement') {
+    load.data.a = lengthM(1.5);
+    load.data.p = forceKn(-4);
+    load.data.px = forceKn(1);
+    load.data.my = momentKnM(0.5);
+    // @ts-expect-error a point load position is a length, not a force
+    load.data.a = forceKn(1);
+    // @ts-expect-error a point load is a force, not a length
+    load.data.p = lengthM(1);
+  }
+}
+wire3D.nodes['1'].y = lengthM(2);
+// @ts-expect-error a 3D node coordinate is a length, not an area
+wire3D.nodes['1'].y = areaM2(0.01);
+for (const load of wire3D.loads) {
+  if (load.type === 'nodal') {
+    load.data.fy = forceKn(1);
+    load.data.mz = momentKnM(1);
+    load.data.bw = bimomentKnM2(0.1);
+    // @ts-expect-error a bimoment is kN·m², not kN·m
+    load.data.bw = momentKnM(1);
+    // @ts-expect-error kN·m is not kN
+    load.data.fy = momentKnM(1);
+    // @ts-expect-error a 3D nodal moment is kN·m, not kN
+    load.data.mx = forceKn(1);
+    // @ts-expect-error raw numbers require an explicit boundary constructor
+    load.data.fz = 2.5;
+  } else if (load.type === 'pointOnElement') {
+    load.data.pz = forceKn(2);
+    // @ts-expect-error a 3D point load is a force, not a length
+    load.data.pz = lengthM(2);
+  }
+}
+declare const moment: Moment;
+// @ts-expect-error force is not moment
+const notMoment: Moment = force;
+void notMoment;
+// @ts-expect-error moment is not force
+const notForce: Force = moment;
+void notForce;
+const adaptedNode = nodeToWire({ id: 1, x: 0, z: 0 });
+// @ts-expect-error the node adapter retains the length brand
+adaptedNode.x = moment;
+const adaptedNode3D = node3DToWire({ id: 1, x: 0, y: 0, z: 0 });
+// @ts-expect-error the 3D node adapter retains the length brand
+adaptedNode3D.z = force;
+const adaptedLoad = loadToWire({ type: 'nodal', data: { nodeId: 1, fx: 0, fz: 0, my: 0 } });
+// @ts-expect-error the load adapter retains the force brand on every variant it brands
+if (adaptedLoad.type === 'nodal') adaptedLoad.data.fz = moment;
+const adaptedLoad3D = load3DToWire({ type: 'pointOnElement', data: { elementId: 1, a: 0, py: 0, pz: 0 } });
+// @ts-expect-error the 3D load adapter retains the length brand
+if (adaptedLoad3D.type === 'pointOnElement') adaptedLoad3D.data.a = force;

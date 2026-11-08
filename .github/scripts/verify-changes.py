@@ -20,6 +20,7 @@ KANI_MODULES = (
     'engine/src/linalg/',
     'engine/src/types/',
     'engine/src/ordered.rs',
+    'engine/src/check.rs',
     'engine/src/certify/mod.rs',
     'engine/src/certify/interval.rs',
     'engine/src/certify/sparse.rs',

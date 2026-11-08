@@ -1,5 +1,7 @@
 /** Canonical wire quantities. Brands disappear at runtime and JSON stays numeric. */
 import { fromDisplay, toDisplay, type UnitSystem } from '../utils/units';
+import type { SolverLoad, SolverNodalLoad, SolverNode, SolverPointLoadOnElement } from './types';
+import type { SolverLoad3D, SolverNodalLoad3D, SolverNode3D, SolverPointLoad3D } from './types-3d';
 
 declare const unit: unique symbol;
 export type Quantity<U extends string> = number & { readonly [unit]: U };
@@ -11,6 +13,7 @@ export type WarpingConstant = Quantity<'m⁶'>;
 export type Length = Quantity<'m'>;
 export type Force = Quantity<'kN'>;
 export type Moment = Quantity<'kN·m'>;
+export type Bimoment = Quantity<'kN·m²'>;
 export type Ratio = Quantity<'ratio'>;
 
 // Explicit admission of existing canonical model values, only at the legacy DTO boundary.
@@ -19,6 +22,9 @@ export const areaM2 = (value: number): Area => value as Area;
 export const inertiaM4 = (value: number): SecondMoment => value as SecondMoment;
 export const warpingM6 = (value: number): WarpingConstant => value as WarpingConstant;
 export const lengthM = (value: number): Length => value as Length;
+export const forceKn = (value: number): Force => value as Force;
+export const momentKnM = (value: number): Moment => value as Moment;
+export const bimomentKnM2 = (value: number): Bimoment => value as Bimoment;
 export const ratio = (value: number): Ratio => value as Ratio;
 export const modulusInternal = (value: ModulusMPa): Modulus => (value * 1000) as Modulus;
 
@@ -68,4 +74,72 @@ export function section3DToWire(s: Section3DNumbers): ElasticSection3DWire {
     ...present(s, 'shearCenterY', s.shearCenterY, lengthM),
     ...present(s, 'shearCenterZ', s.shearCenterZ, lengthM),
   };
+}
+
+export interface NodeWire { id: number; x: Length; z: Length }
+export interface Node3DWire { id: number; x: Length; y: Length; z: Length }
+export interface NodalLoadWire { nodeId: number; fx: Force; fz: Force; my: Moment }
+export interface PointLoadWire { elementId: number; a: Length; p: Force; px?: Force; my?: Moment }
+export interface NodalLoad3DWire { nodeId: number; fx: Force; fy: Force; fz: Force; mx: Moment; my: Moment; mz: Moment; bw?: Bimoment }
+export interface PointLoad3DWire { elementId: number; a: Length; py: Force; pz: Force }
+type Branded<T, W> = Omit<T, keyof W> & W;
+export type LoadWire =
+  | { type: 'nodal'; data: Branded<SolverNodalLoad, NodalLoadWire> }
+  | { type: 'pointOnElement'; data: Branded<SolverPointLoadOnElement, PointLoadWire> }
+  | Exclude<SolverLoad, { type: 'nodal' | 'pointOnElement' }>;
+export type Load3DWire =
+  | { type: 'nodal'; data: Branded<SolverNodalLoad3D, NodalLoad3DWire> }
+  | { type: 'pointOnElement'; data: Branded<SolverPointLoad3D, PointLoad3DWire> }
+  | Exclude<SolverLoad3D, { type: 'nodal' | 'pointOnElement' }>;
+
+const unbranded = (load: never): never => load;
+
+/** These adapters keep the key order and presence of their input, so the wire JSON is byte-identical. */
+export function nodeToWire(n: SolverNode): Branded<SolverNode, NodeWire> {
+  return { ...n, ...present(n, 'x', n.x, lengthM), ...present(n, 'z', n.z, lengthM) } as Branded<SolverNode, NodeWire>;
+}
+export function node3DToWire(n: SolverNode3D): Branded<SolverNode3D, Node3DWire> {
+  return { ...n, ...present(n, 'x', n.x, lengthM), ...present(n, 'y', n.y, lengthM), ...present(n, 'z', n.z, lengthM) } as Branded<SolverNode3D, Node3DWire>;
+}
+export function loadToWire(load: SolverLoad): LoadWire {
+  switch (load.type) {
+    case 'nodal': {
+      const d = load.data;
+      return { ...load, data: { ...d, ...present(d, 'fx', d.fx, forceKn), ...present(d, 'fz', d.fz, forceKn), ...present(d, 'my', d.my, momentKnM) } as Branded<SolverNodalLoad, NodalLoadWire> };
+    }
+    case 'pointOnElement': {
+      const d = load.data;
+      return { ...load, data: { ...d, ...present(d, 'a', d.a, lengthM), ...present(d, 'p', d.p, forceKn), ...present(d, 'px', d.px, forceKn), ...present(d, 'my', d.my, momentKnM) } as Branded<SolverPointLoadOnElement, PointLoadWire> };
+    }
+    case 'distributed':
+    case 'thermal':
+    case 'axialDistributed':
+      return load;
+    default:
+      return unbranded(load);
+  }
+}
+export function load3DToWire(load: SolverLoad3D): Load3DWire {
+  switch (load.type) {
+    case 'nodal': {
+      const d = load.data;
+      return {
+        ...load,
+        data: {
+          ...d, ...present(d, 'fx', d.fx, forceKn), ...present(d, 'fy', d.fy, forceKn), ...present(d, 'fz', d.fz, forceKn),
+          ...present(d, 'mx', d.mx, momentKnM), ...present(d, 'my', d.my, momentKnM), ...present(d, 'mz', d.mz, momentKnM),
+          ...present(d, 'bw', d.bw, bimomentKnM2),
+        } as Branded<SolverNodalLoad3D, NodalLoad3DWire>,
+      };
+    }
+    case 'pointOnElement': {
+      const d = load.data;
+      return { ...load, data: { ...d, ...present(d, 'a', d.a, lengthM), ...present(d, 'py', d.py, forceKn), ...present(d, 'pz', d.pz, forceKn) } as Branded<SolverPointLoad3D, PointLoad3DWire> };
+    }
+    case 'distributed':
+    case 'thermal':
+      return load;
+    default:
+      return unbranded(load);
+  }
 }

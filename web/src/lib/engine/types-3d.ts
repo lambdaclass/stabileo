@@ -140,6 +140,7 @@ export interface SolverNodalLoad3D {
   mx: number;  // kN·m (about global X)
   my: number;  // kN·m (about global Y)
   mz: number;  // kN·m (about global Z)
+  bw?: number;
   /**
    * The axial part of a member load, moved to this end node because the engine takes none
    * (`member-loads.ts`): which member and end, and the force along the member's x it puts there.

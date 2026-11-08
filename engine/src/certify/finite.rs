@@ -191,7 +191,16 @@ impl Audit {
     }
     fn nested<T: Serialize + ?Sized>(&mut self, seg: String, v: &T) -> Result<(), Error> {
         self.path.push(seg);
-        let r = v.serialize(&mut *self);
+        let r = match v.serialize(&mut *self) {
+            Err(Error(s)) => match s.strip_prefix(crate::check::NON_FINITE) {
+                Some(v) => {
+                    self.float(v.parse::<f64>().unwrap_or(f64::NAN));
+                    Ok(())
+                }
+                None => Err(Error(s)),
+            },
+            ok => ok,
+        };
         self.path.pop();
         r
     }

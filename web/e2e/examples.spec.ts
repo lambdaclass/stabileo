@@ -50,14 +50,14 @@ test('@smoke examples gallery: a slider re-solves, and the share link and editor
   expect(nodes.map(([, n]) => n.x).sort((a, b) => a - b)).toEqual([0, 4, 8]);
 });
 
-test('@smoke examples show the engine withholding a load on a support by its reason, not its raw JSON', async ({ page }) => {
+test('@smoke examples solve a point load on a support with the zero closed-form solution', async ({ page }) => {
   await page.goto('/en/examples/beam-frame/?load=0&point=50&position=0&e2e=1');
-  const refusal = page.getByTestId('refusal');
-  await expect(refusal).toHaveAttribute('data-code', 'nonFinite');
-  await expect(refusal).toContainText('the solution is not finite. (The result was withheld: it contains inf at certificate.relBound)');
-  await expect(refusal).not.toContainText(/[{}"]|structuredDiagnostics|NaN/);
-  await expect(page.getByTestId('readout-maxMoment')).toHaveCount(0);
-  await expect(page.getByTestId('viewer-body')).toHaveCount(0);
+  await expect(page.getByTestId('refusal')).toHaveCount(0);
+  await expect(page.getByTestId('readout-maxMoment')).toBeVisible();
+  expect(await value(page, 'readout-maxMoment')).toBe(0);
+  expect(await value(page, 'reference-maxMoment')).toBe(0);
+  expect(await value(page, 'readout-maxDeflection')).toBe(0);
+  await expect(page.getByTestId('certificate')).toHaveAttribute('data-status', 'certified');
 });
 
 test('@smoke examples report the engine refusing a model with no load', async ({ page }) => {

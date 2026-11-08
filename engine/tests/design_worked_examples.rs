@@ -1339,7 +1339,7 @@ fn inti_cirsoc(as_comp: Option<f64>) -> Cirsoc201MemberData {
 fn rc_run(m: RCMemberData, mu: f64) -> RCCheckResult {
     check_rc_members(&RCCheckInput {
         members: vec![m],
-        forces: vec![RCDesignForces { element_id: 1, mu, vu: None, nu: None }],
+        forces: vec![RCDesignForces { element_id: 1, mu, vu: None, nu: None, tu: None }],
     })
     .remove(0)
 }

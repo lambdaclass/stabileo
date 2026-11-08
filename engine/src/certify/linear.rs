@@ -26,6 +26,7 @@ pub enum Certificate {
         abs_bound: f64,
         /// Upper bound on ‖u* − ũ‖₂ / ‖ũ‖₂ (rounded up). 0 when the bound is
         /// 0; +∞ (serialized as null) when ũ = 0 but the bound is not.
+        #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
         rel_bound: f64,
         /// The σ > 0 for which S − σI was certified positive definite
         /// (0 only for the vacuous n = 0 system).

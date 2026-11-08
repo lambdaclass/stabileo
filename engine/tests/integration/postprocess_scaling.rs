@@ -44,6 +44,7 @@ fn rc_force(id: usize) -> RCDesignForces {
         mu: 100e3 + id as f64,
         vu: Some(50e3),
         nu: None,
+        tu: None,
     }
 }
 

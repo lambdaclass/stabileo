@@ -4612,6 +4612,7 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         |id| node_xz.get(&id).map(|n| [n.x, n.z, 0.0]),
         DofNumbering::dofs_per_node_2d(input) >= 3,
     )?;
+    super::assembly::refuse_connector_arm_mechanism_2d(input)?;
 
     Ok(())
 }
