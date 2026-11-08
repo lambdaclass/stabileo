@@ -44,7 +44,7 @@ import { angleSection, type AngleCompressionInput } from './steel/angle-section'
 import { engineGateSteelCases, type SteelDemandSet, type SteelEngineRecheck } from './codes/argentina/cirsoc301-engine-gate';
 import { flangeUnbracedLength, type SteelBracing } from './steel/unbraced-length';
 import { steelCheckerFor } from './steel/member-checkers';
-import { momentGradient, type StationMoment } from './steel/moment-gradient';
+import { cirsoc301InputsAvailable, momentGradient, type StationMoment } from './steel/moment-gradient';
 import { memberNetArea, memberEndsFor, type MemberEnd, type TensionSectionInput } from './steel/tension-connection';
 import type { GoverningPerElement3D } from './governing-case';
 import type { MemberDesignResult, DesignCheckSummary } from './design-check-results';
@@ -865,33 +865,14 @@ export function checkSteelMember(
   const gaps = missingSteelInputs(section as SteelSectionData, material as SteelMaterialData);
   if (gaps.length > 0) return null;
 
-  /*
-   * ── Cb from the moment diagram, F.1.1 ────────────────────────────
-   *
-   * F.1.1 is written about the UNBRACED SEGMENT, so the diagram read is the one `segment`
-   * carries — stitched from every element of the chain by `steelSegmentDiagram` — and only the
-   * element-local envelope when there is no chain, where the element IS the segment. Reading an
-   * end element of a chain instead would pair a steep local gradient with the chain's `Lb` and
-   * overstate Cb (1,667 against 1,316 on a midspan point load), which raises the LTB capacity
-   * on the unsafe side.
-   *
-   * `momentGradient` decides whether F.1.1 applies at all — it refuses for a cantilever's free
-   * end, for a singly-symmetric section in double curvature (§F.1(4) wants both flanges checked,
-   * which this app cannot do), and for a shape with no axis of symmetry.
-   *
-   * Absent stations leave `Cb` undefined and the checker falls back to 1,0, which the clause
-   * permits. So this can only ever raise a capacity from the conservative floor, never lower it.
-   */
-  const grad = momentGradient({
+  // Cb is read over the whole unbraced segment (`segment`), never one element of a chain: an end element's steeper local gradient overstates it.
+  const grad = cirsoc301InputsAvailable() ? momentGradient({
     stations: segment?.stations ?? diagram,
     tStart: segment?.tStart,
     tEnd: segment?.tEnd,
     shape: (section as { shape?: string }).shape,
-    // A cantilever's free end, from the model's topology (`memberLengths`): F.1.1 sets Cb = 1.
-    // Left out, the diagram path computed Cb on cantilevers and raised their capacity by up to
-    // two thirds.
     cantileverFreeEnd: lengths.freeEnd === true,
-  });
+  }) : undefined;
 
   const sdp: SteelDesignParams = {
     Fy: material.fy!,
@@ -932,7 +913,7 @@ export function checkSteelMember(
     L, Lb,
     // Only when F.1.1 was actually evaluated. Every other basis means «use the permitted 1,0»,
     // and passing 1,0 explicitly would make the steps claim a computation that did not happen.
-    ...(grad.basis === 'computed' ? { Cb: grad.cb } : {}),
+    ...(grad?.basis === 'computed' ? { Cb: grad.cb } : {}),
     // J, Cw, Zx and Zy from the section's own data or geometry (`steel/section-constants.ts`):
     // the catalogue's rolled shapes carry no J, which dropped F.2-4's torsional term, and the
     // checker's own Z formula is an I-shape's applied to every shape.

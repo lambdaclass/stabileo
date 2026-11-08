@@ -281,6 +281,7 @@
     "cirsoc201_design_beam": {"scope": "design"},
     "cirsoc201_phi": {"scope": "design"},
     "cirsoc201_slab_provisions": {"scope": "design"},
+    "cirsoc301_inputs": {"scope": "design"},
     "combine_results_2d": {"scope": "postprocess"},
     "combine_results_3d": {"scope": "postprocess"},
     "combine_shell_stresses": {"scope": "postprocess"},

@@ -4,6 +4,7 @@ import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
 import { registerCirsoc301Kernel } from './codes/argentina/cirsoc301-kernel';
+import { registerCirsoc301InputsKernel } from './steel/moment-gradient';
 import type { PlateThickness } from './shell-combos';
 import { packedShellCombinationKernel, packedShellEnvelopeKernel, registerShellCombinationKernel, registerShellEnvelopeKernel } from './shell-combination-kernel';
 import { registerCirsoc201Engine } from './codes/argentina/cirsoc201-engine';
@@ -242,6 +243,7 @@ export async function initSolver(): Promise<void> {
     registerColumnCapacityKernel(wasm.solve_column_capacity_batch ?? null);
     registerCirsoc201BeamKernel(wasm.cirsoc201_beam_batch ?? null);
     registerCirsoc301Kernel({ check: wasm.check_cirsoc301_members ?? null, certify: wasm.certify_cirsoc301_members ?? null });
+    registerCirsoc301InputsKernel(wasm.cirsoc301_inputs ?? null);
     loadSession2D = wasm.LoadSession2D ?? null;
     loadSession3D = wasm.LoadSession3D ?? null;
     registerShellCombinationKernel(wasm.combine_shell_stresses ? packedShellCombinationKernel(wasm.combine_shell_stresses) : null);

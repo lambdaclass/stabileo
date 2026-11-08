@@ -10,6 +10,8 @@ mod common;
 
 #[path = "../cirsoc301_check.rs"]
 mod cirsoc301_check;
+#[path = "../cirsoc301_inputs.rs"]
+mod cirsoc301_inputs;
 #[path = "../derivation_assembly_constraints.rs"]
 mod derivation_assembly_constraints;
 #[path = "../derivation_frames.rs"]
