@@ -35,8 +35,10 @@ mod harmonic_linearity;
 mod linear_identities;
 mod completeness;
 mod response;
+mod steel_inputs;
 mod symmetry;
 mod tally;
+mod stability;
 
 use tally::Tally;
 

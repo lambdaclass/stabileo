@@ -1,0 +1,152 @@
+{
+ "_nightly_dens": {
+  "1": 1937.9051293477842,
+  "2": 1380.5566044046045
+ },
+ "_nightly_name": "fuzz_rich_2d/21634",
+ "connectors": {},
+ "constraints": [],
+ "elements": {
+  "1": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 1,
+   "materialId": 1,
+   "nodeI": 2,
+   "nodeJ": 1,
+   "sectionId": 2,
+   "type": "truss"
+  },
+  "2": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 2,
+   "materialId": 2,
+   "nodeI": 2,
+   "nodeJ": 3,
+   "sectionId": 1,
+   "type": "truss"
+  },
+  "3": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 3,
+   "materialId": 2,
+   "nodeI": 1,
+   "nodeJ": 4,
+   "sectionId": 2,
+   "type": "frame"
+  },
+  "4": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 4,
+   "materialId": 1,
+   "nodeI": 5,
+   "nodeJ": 1,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "5": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 5,
+   "materialId": 1,
+   "nodeI": 4,
+   "nodeJ": 2,
+   "sectionId": 1,
+   "type": "frame"
+  }
+ },
+ "loads": [
+  {
+   "data": {
+    "fx": 4.672386706582628,
+    "fz": -22.178222445511018,
+    "my": 4.404935168234285,
+    "nodeId": 4
+   },
+   "type": "nodal"
+  }
+ ],
+ "materials": {
+  "1": {
+   "e": 37523.47848746692,
+   "id": 1,
+   "nu": 0.3618755264220217
+  },
+  "2": {
+   "e": 192209.2351498381,
+   "id": 2,
+   "nu": 0.25003112099800906
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": -7.472545033361175,
+   "z": -6.270105019375233
+  },
+  "2": {
+   "id": 2,
+   "x": -1.1723956033205027,
+   "z": -3.69772187202555
+  },
+  "3": {
+   "id": 3,
+   "x": -0.9559008569731127,
+   "z": 7.64909153649797
+  },
+  "4": {
+   "id": 4,
+   "x": -7.081762912409975,
+   "z": 3.6475892146924025
+  },
+  "5": {
+   "id": 5,
+   "x": 3.1995667694956644,
+   "z": 6.748424372096014
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.06821595976138078,
+   "asY": 0.05293316410427744,
+   "id": 1,
+   "iz": 0.0006050951912898766
+  },
+  "2": {
+   "a": 0.0016418602590727253,
+   "asY": null,
+   "id": 2,
+   "iz": 0.0007156706660543656
+  }
+ },
+ "solverOptions": null,
+ "supports": {
+  "1": {
+   "angle": null,
+   "dry": null,
+   "dx": null,
+   "dz": null,
+   "id": 1,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "nodeId": 1,
+   "type": "fixed"
+  },
+  "2": {
+   "angle": null,
+   "dry": null,
+   "dx": null,
+   "dz": null,
+   "id": 2,
+   "kx": 81718.46949074842,
+   "ky": null,
+   "kz": null,
+   "nodeId": 5,
+   "type": "spring"
+  }
+ }
+}

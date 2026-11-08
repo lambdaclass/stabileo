@@ -209,8 +209,8 @@ are for one engineer who has read this document.
 | --- | --- | --- | --- |
 | 1 | 2D frame material/section into assembly (#864) | — | done |
 | 2 | 3D input boundary: material/section records at every 3D WASM export (#1711) | — | done |
-| 3 | Node coordinates and nodal/point loads at both boundaries (this PR) | low | 1–2 days |
-| 4 | Distributed, thermal and support-spring inputs at both boundaries | medium | 2 days |
+| 3 | Node coordinates and nodal/point loads at both boundaries (#1744) | — | done |
+| 4 | Distributed, thermal and support-spring inputs at both boundaries (#1752) | — | done |
 | 5 | Result DTOs: displacements, reactions, element end forces, both dimensions | medium | 2–3 days |
 | 6 | 3D frame kernel consumes the typed section (Iy/Iz/J/Cw, shear φ) | medium | 2–3 days |
 | 7 | Remaining 2D entry points; delete `legacy_view` | medium | 2 days |
@@ -251,7 +251,7 @@ force into moment, length into force, kN·m into kN, 2D `fx` assigned a `Moment`
 `y`→`z` alias and old-file aliases must still parse; test every 2D and 3D fixture as slice 2
 does, including error text.
 
-Done in this PR. Rust: `TypedNode`/`TypedNode3D`, `TypedNodalLoad` (`fx`, `fz` `Force`; `my`
+Done in #1744. Rust: `TypedNode`/`TypedNode3D`, `TypedNodalLoad` (`fx`, `fz` `Force`; `my`
 `Moment`), `TypedPointLoad` (`a` `Length`; `p`, `px` `Force`; `my` `Moment`), `TypedNodalLoad3D`
 (`fx…mz`, plus the warping bimoment `bw` as a new `Bimoment`, kN·m², in Rust and TS) and `TypedPointLoad3D` (`a`;
 `py`, `pz`), inside `TypedLoad`/`TypedLoad3D`, which mirror the legacy enums variant for variant
@@ -288,6 +288,41 @@ rotations and support/member rotation angles. Same mirroring rules as slice 3. T
 the same two adapters and in `unitInputCommit` for these quantities. Compile-fail: kN/m into
 kN, kN/m² into kN/m, a temperature difference added to an absolute temperature (do not define
 an absolute temperature type until a field needs it), kN/m into kN·m/rad.
+
+Done in #1752. Rust: new quantities `LineLoad` (kN/m), `AreaLoad` (kN/m²), `TemperatureDifference`
+(°C, `from_delta_c`; no absolute temperature type and no `+ f64`), `ThermalExpansion` (1/°C),
+`RotationalStiffness` (kN·m/rad), `Angle` (rad) and `AngleDeg` (degrees), with the identities
+line load × length = force, area load × length = line load, rotational stiffness × angle = moment
+and α × ΔT = strain. Typed records under the legacy names in `units::wire`: `TypedDistributedLoad`,
+`TypedAxialDistributedLoad`, `TypedThermalLoad` (2D); `TypedDistributedLoad3D` (`qX…qZ`, `a`, `b`),
+`TypedThermalLoad3D`, `TypedPressureLoad` (every plate/quad/quad9/solid-shell/curved-shell
+pressure), `TypedPlateThermalLoad` (plate/quad/quad9/curved-shell thermal) and `TypedQuadEdgeLoad`
+(`qn`, `qt` kN/m) inside `TypedLoad`/`TypedLoad3D`, still converted with exhaustive matches;
+`TypedSupport` (`kx`, `ky` kN/m, `kz` kN·m/rad, `dx`/`dz` m, `dry`/`angle` rad, keeping the `dy`/`drz`
+aliases), `TypedSupport3D` (`kx…kz`, `krx…krz`, `dx…dz`, `drx…drz`) and `TypedElement3D`. A fifth
+generic on `SolverInput` (`P`, supports) and a fifth and sixth on `SolverInput3D` (`P`, `E`, elements)
+default to the legacy records; `into_legacy` maps them, and both are `TypedWire`, so a 3D model with
+a legacy support or element record has no deserializer. **Deviation from the plan:** the 3D member
+roll angle is degrees on the wire (`compute_local_axes_3d` converts it), so it is `AngleDeg`, not
+`Angle`; typing it as radians would have been the very mislabel this program prevents. Not typed
+here: the warping spring `kw` (its unit, kN·m³, belongs with slice 6's warping work), the inclined
+support normal and member orientation vector (dimensionless directions), the self-weight loads
+(density and gravity, slice 10) and the `bimoment` load record. TS: `lineLoadKnM`, `areaLoadKnM2`,
+`temperatureDeltaC`, `expansionPerC`, `springKnM`, `springKnMRad`, `angleRad`, `angleDeg`, with
+distinct brands for same-dimension roles (a kN/m line load is not a kN/m spring; a kN/m² area load
+is not a kN/m² modulus); `loadToWire`/`load3DToWire` brand every member load variant,
+`supportToWire`, `support3DToWire`, `element3DToWire` are used by `input2DToWireObject`/
+`input3DToWireObject`, and `plateThermalToWire` by the shell thermal load builder; `pressureToWire` and `quadEdgeToWire` brand shell pressures and edge loads, which the web app does not send today (it turns surface loads into nodal forces); `unitInputCommit`
+enters line loads, area loads, temperature differences, springs, displacements and rotations through
+the typed conversion. Proof: `engine/tests/core/units_boundary_distributed_thermal_supports.rs`
+(every 2D and 3D fixture plus models with every slice-4 field, aliases, absent optionals and signed
+zeros: the same bits for every support, element and load component against the legacy derive and
+`tests/core/units_legacy_3d.rs`, byte-identical serialized records and results, the same error text
+for 23 malformed inputs at model and record level and for each record's wrong-shape input); 16 new
+`compile_fail` doctests with their error code plus a positive control; 30 new `@ts-expect-error`
+checks; Vitest checks that the support, element and load JSON text, key paths, extra web-only keys
+and signed zeros equal the previous builder's, that the stored model is not touched, and that the
+typed display entry commits the same numbers.
 
 **Slice 5 — result DTOs.** Typed `Displacement`/`Displacement3D` (`Length`, `Angle`),
 `Reaction` (`Force`, `Moment`), element end forces (`n/v/m` in 2D; `n, vy, vz, mx, my, mz` in

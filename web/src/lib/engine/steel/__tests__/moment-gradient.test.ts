@@ -22,11 +22,13 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  momentGradient, shapeSymmetry, cbBasisKey, type StationMoment,
+  momentGradient, cbBasisKey, type StationMoment,
 } from '../moment-gradient';
 import es from '../../../i18n/locales/steel/es';
 import en from '../../../i18n/locales/steel/en';
 import pt from '../../../i18n/locales/steel/pt';
+
+const shapeSymmetry = (shape: string | undefined) => momentGradient({ stations: [], shape }).symmetry;
 
 /**
  * Nine stations, so that t = 0,25 / 0,50 / 0,75 land exactly ON stations.

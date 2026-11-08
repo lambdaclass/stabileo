@@ -1,9 +1,10 @@
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
-import { load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire } from './unit-types';
+import { element3DToWire, load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, support3DToWire, supportToWire, type Element3DWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire, type Support3DWire, type SupportWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
 import { registerCirsoc301Kernel } from './codes/argentina/cirsoc301-kernel';
+import { registerCirsoc301InputsKernel } from './steel/moment-gradient';
 import type { PlateThickness } from './shell-combos';
 import { packedShellCombinationKernel, packedShellEnvelopeKernel, registerShellCombinationKernel, registerShellEnvelopeKernel } from './shell-combination-kernel';
 import { registerCirsoc201Engine } from './codes/argentina/cirsoc201-engine';
@@ -21,8 +22,8 @@ import { registerCollisionKernel } from './detailing/collision-kernel';
 import { mergeAllHingedJoints2D, restrainOrphanRotations2D } from './orphan-rotations-2d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
-import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
-import type { SolverInput3D, SolverElement3D, SolverSection3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import type { SolverInput, SolverSupport, AnalysisResults, FullEnvelope } from './types';
+import type { SolverInput3D, SolverElement3D, SolverSection3D, SolverSupport3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { bucklingWarpingInput, hasBucklingWarping, torsionGaps3D } from './buckling-warping';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
@@ -242,6 +243,7 @@ export async function initSolver(): Promise<void> {
     registerColumnCapacityKernel(wasm.solve_column_capacity_batch ?? null);
     registerCirsoc201BeamKernel(wasm.cirsoc201_beam_batch ?? null);
     registerCirsoc301Kernel({ check: wasm.check_cirsoc301_members ?? null, certify: wasm.certify_cirsoc301_members ?? null });
+    registerCirsoc301InputsKernel(wasm.cirsoc301_inputs ?? null);
     loadSession2D = wasm.LoadSession2D ?? null;
     loadSession3D = wasm.LoadSession3D ?? null;
     registerShellCombinationKernel(wasm.combine_shell_stresses ? packedShellCombinationKernel(wasm.combine_shell_stresses) : null);
@@ -474,6 +476,7 @@ export function input2DToWireObject(input: SolverInput): Record<string, any> & {
   nodes: Record<string, NodeWire>;
   materials: Record<string, ElasticMaterialWire>;
   sections: Record<string, ElasticSectionWire>;
+  supports: Record<string, Omit<SolverSupport, keyof SupportWire> & SupportWire>;
   loads: LoadWire[];
 } {
   return {
@@ -481,7 +484,7 @@ export function input2DToWireObject(input: SolverInput): Record<string, any> & {
     materials: Object.fromEntries(Array.from(input.materials, ([id, m]) => [String(id), materialToWire(plainDeepCopy(m))])),
     sections: Object.fromEntries(Array.from(input.sections, ([id, s]) => [String(id), sectionToWire(plainDeepCopy(s))])),
     elements: mapToObj(input.elements),
-    supports: mapToObj(input.supports),
+    supports: Object.fromEntries(Array.from(input.supports, ([id, s]) => [String(id), supportToWire(s)])),
     loads: input.loads.map(loadToWire),
     constraints: plainDeepCopy(input.constraints ?? []),
     connectors: input.connectors ? mapToPlainObj(input.connectors) : {},
@@ -528,14 +531,16 @@ export function input3DToWireObject(input: SolverInput3D): Record<string, any> &
   nodes: Record<string, Node3DWire>;
   materials: Record<string, ElasticMaterialWire>;
   sections: Record<string, ElasticSection3DWire>;
+  elements: Record<string, Omit<SolverElement3D, keyof Element3DWire> & Element3DWire>;
+  supports: Record<string, Omit<SolverSupport3D, keyof Support3DWire> & Support3DWire>;
   loads: Load3DWire[];
 } {
   return {
     nodes: Object.fromEntries(Array.from(input.nodes, ([id, n]) => [String(id), node3DToWire(n)])),
     materials: Object.fromEntries(Array.from(input.materials, ([id, m]) => [String(id), materialToWire(m)])),
     sections: Object.fromEntries(Array.from(input.sections, ([id, s]) => [String(id), wireSection3D(s)])),
-    elements: mapToObj(input.elements),
-    supports: mapToObj(input.supports),
+    elements: Object.fromEntries(Array.from(input.elements, ([id, e]) => [String(id), element3DToWire(e)])),
+    supports: Object.fromEntries(Array.from(input.supports, ([id, s]) => [String(id), support3DToWire(s)])),
     loads: input.loads.map(load3DToWire),
     plates: input.plates ? mapToPlainObj(input.plates) : {},
     quads: input.quads ? mapToPlainObj(input.quads) : {},

@@ -1,0 +1,134 @@
+{
+ "_nightly_dens": {
+  "1": 7022.111574850858
+ },
+ "_nightly_name": "fuzz_rich_2d/20865",
+ "connectors": {},
+ "constraints": [
+  {
+   "dofs": [
+    2
+   ],
+   "masterNode": 2,
+   "slaveNode": 4,
+   "type": "equalDOF"
+  }
+ ],
+ "elements": {
+  "1": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 1,
+   "materialId": 1,
+   "nodeI": 2,
+   "nodeJ": 1,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "3": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 3,
+   "materialId": 1,
+   "nodeI": 4,
+   "nodeJ": 3,
+   "sectionId": 1,
+   "type": "truss"
+  },
+  "4": {
+   "hingeEnd": false,
+   "hingeStart": true,
+   "id": 4,
+   "materialId": 2,
+   "nodeI": 3,
+   "nodeJ": 5,
+   "sectionId": 1,
+   "type": "frame"
+  },
+  "5": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 5,
+   "materialId": 2,
+   "nodeI": 1,
+   "nodeJ": 3,
+   "sectionId": 1,
+   "type": "truss"
+  }
+ },
+ "loads": [],
+ "materials": {
+  "1": {
+   "e": 23729.56206764861,
+   "id": 1,
+   "nu": 0.2787306075298196
+  },
+  "2": {
+   "e": 18985.05058509134,
+   "id": 2,
+   "nu": 0.3394202964434716
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": 5.493855175440764,
+   "z": 6.938530346546852
+  },
+  "2": {
+   "id": 2,
+   "x": 3.6838503715680417,
+   "z": 4.912771986720134
+  },
+  "3": {
+   "id": 3,
+   "x": 2.980536017609708,
+   "z": 6.453956883092875
+  },
+  "4": {
+   "id": 4,
+   "x": -0.03507946163391651,
+   "z": -4.471322392304906
+  },
+  "5": {
+   "id": 5,
+   "x": -5.587297716293751,
+   "z": -5.511658059855225
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.027484706364877876,
+   "asY": 0.016680181328575072,
+   "id": 1,
+   "iz": 4.163267448023844e-05
+  }
+ },
+ "solverOptions": null,
+ "supports": {
+  "1": {
+   "angle": null,
+   "dry": null,
+   "dx": null,
+   "dz": null,
+   "id": 1,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "nodeId": 1,
+   "type": "fixed"
+  },
+  "2": {
+   "angle": null,
+   "dry": null,
+   "dx": -0.002025359823506885,
+   "dz": null,
+   "id": 2,
+   "kx": 443.4449589329954,
+   "ky": null,
+   "kz": null,
+   "nodeId": 5,
+   "type": "rollerZ"
+  }
+ }
+}

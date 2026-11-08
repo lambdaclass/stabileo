@@ -13,9 +13,10 @@ web/src/lib/listings/listing.ts: if (c.failingOnly && r[statusKey] !== undefined
 ## Classifies nightly or metamorphic findings by message text: a wording change files a refusal under another kind. The classifier is to key on codes.
 engine/src/metamorphic/compare.rs: if d.labels[k].starts_with("refusal:") { rep.refusals += 1 } else { rep.values += 1 }
 .github/scripts/nightly-findings.cjs: .replace(/^.*?original solved but transformed model failed:\s*/i, '')
-.github/scripts/nightly-findings.cjs: .replace(/failed to solve case\s+['"][^'"]+['"]:\s*/gi, '')
+.github/scripts/nightly-findings.cjs: .replace(/failed to solve case\s+['"][^'"]+['"]:\s*/gi, '');
 .github/scripts/nightly-findings.cjs: const refusal = check === 'metamorphic' && /original solved but transformed model failed:/i.test(raw);
-.github/scripts/nightly-findings.cjs: const message = normalize(check === 'metamorphic' && !/^original solved but transformed model failed:/i.test(raw) ? String(raw).replace(/^[^:]+:\s*/, '') : raw);
+.github/scripts/nightly-findings.cjs: const input = check === 'metamorphic' && !/^original solved but transformed model failed:/i.test(raw) ? String(raw).replace(/^[^:]+:\s*/, '') : raw;
+.github/scripts/nightly-findings.cjs: Array.isArray(d?.why) ? d.why.filter(message => !/^(?:(?:opensees|reference) kappa=\S+|code_aster solves it \(NPREC=\d+ singularity check passed\))$/.test(message)) :
 
 ## Picks the reinforcement the design search enlarges, or the clause shown, from an engine check category label: a wording change makes the search or the clause miss; the verdict still comes from the checks.
 web/src/lib/engine/design/candidate-enumerate-beam.ts: if (cat.startsWith('Bottom Span') || cat.startsWith('Min steel')) want.add('span');
@@ -155,9 +156,11 @@ scripts/verification-metrics.py: return analysis == "static" and "linear static"
 .github/scripts/cadence-reports.cjs: if (!['success', 'failure'].includes(j.conclusion)) continue;
 .github/scripts/nightly-findings.cjs: if (!dry) for (const name of new Set(['safety', 'nightly-finding', ...[...findings.values()].map(g => g.cause.kind).filter(k => ['invariance-refusal', 'wrong-result-candidate'].includes(k))])) {
 .github/scripts/nightly-findings.cjs: const labels = ['safety', 'nightly-finding', ...(['invariance-refusal', 'wrong-result-candidate'].includes(cause.kind) ? [cause.kind] : [])];
-.github/scripts/nightly-findings.cjs: const existing = issues.find(i => !i.pull_request && i.body?.includes(marker));
+.github/scripts/nightly-findings.cjs: const exactIssue = marker => issues.find(i => !i.pull_request && i.body?.includes(marker));
+.github/scripts/nightly-findings.cjs: issues.find(i => !i.pull_request && !claimedIssues.has(i.number) && !i.body?.includes(ADOPTED) && legacyMarkers.some(m => i.body?.includes(m)));
 .github/scripts/nightly-findings.cjs: if (!existing.body.includes(occurrence) && !comments.some(c => c.body?.includes(occurrence))) {
 .github/scripts/verification-alert.cjs: `${HELD}: ${body.replace(/^Green again: /, '').replace(/ Closing\.$/, '')} The failures above may be real findings that ` +
 
 ## Redacts the user's own API key from a provider error before it is shown: nothing is decided from the wording.
 web/src/lib/ai/providers/types.ts: if (apiKey && err.message.includes(apiKey.slice(0, 12))) return new AiProviderError(err.kind, err.status);
+.github/scripts/nightly-findings.cjs: if (!existing.body.includes(marker)) {

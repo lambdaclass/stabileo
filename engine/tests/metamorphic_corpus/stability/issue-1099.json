@@ -1,0 +1,144 @@
+{
+ "_nightly_dens": {
+  "1": 6793.10325470973,
+  "2": 7874.600870882477
+ },
+ "_nightly_name": "fuzz_rich_2d/20943",
+ "connectors": {
+  "1": {
+   "id": 1,
+   "kAxial": 12522.881824758246,
+   "kBendY": 0,
+   "kBendZ": 0,
+   "kMoment": 0,
+   "kShear": 1940.454941227356,
+   "kShearZ": 0,
+   "nodeI": 3,
+   "nodeJ": 2
+  }
+ },
+ "constraints": [],
+ "elements": {
+  "1": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 1,
+   "materialId": 1,
+   "nodeI": 2,
+   "nodeJ": 1,
+   "sectionId": 1,
+   "type": "truss"
+  },
+  "2": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 2,
+   "materialId": 1,
+   "nodeI": 1,
+   "nodeJ": 3,
+   "sectionId": 1,
+   "type": "truss"
+  },
+  "3": {
+   "hingeEnd": false,
+   "hingeStart": false,
+   "id": 3,
+   "materialId": 2,
+   "nodeI": 4,
+   "nodeJ": 2,
+   "sectionId": 1,
+   "type": "truss"
+  }
+ },
+ "loads": [
+  {
+   "data": {
+    "a": 5.998634513803783,
+    "elementId": 1,
+    "my": null,
+    "p": 48.69175036660593,
+    "px": 0.0040540374072008944
+   },
+   "type": "pointOnElement"
+  },
+  {
+   "data": {
+    "a": 3.4262795798337486,
+    "b": 4.2807893048757295,
+    "elementId": 1,
+    "qI": -8.605786964606601,
+    "qJ": -8.545635562813052
+   },
+   "type": "distributed"
+  }
+ ],
+ "materials": {
+  "1": {
+   "e": 51004.201593498554,
+   "id": 1,
+   "nu": 0.25184219315743184
+  },
+  "2": {
+   "e": 16409.309139793157,
+   "id": 2,
+   "nu": 0.3213006421441422
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": -2.371208653147953,
+   "z": -7.645282926496574
+  },
+  "2": {
+   "id": 2,
+   "x": -4.7992993868328675,
+   "z": 0.13482899599091525
+  },
+  "3": {
+   "id": 3,
+   "x": -0.6291861435879511,
+   "z": 3.6260394623324252
+  },
+  "4": {
+   "id": 4,
+   "x": 0.9435927795338301,
+   "z": -4.632827807178028
+  }
+ },
+ "sections": {
+  "1": {
+   "a": 0.02088264278824532,
+   "asY": 0.013193594183073724,
+   "id": 1,
+   "iz": 0.0002930241496998176
+  }
+ },
+ "solverOptions": null,
+ "supports": {
+  "1": {
+   "angle": null,
+   "dry": null,
+   "dx": null,
+   "dz": null,
+   "id": 1,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "nodeId": 1,
+   "type": "pinned"
+  },
+  "2": {
+   "angle": null,
+   "dry": null,
+   "dx": null,
+   "dz": null,
+   "id": 2,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "nodeId": 4,
+   "type": "pinned"
+  }
+ }
+}
