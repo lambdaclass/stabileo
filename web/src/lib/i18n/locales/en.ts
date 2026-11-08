@@ -14740,6 +14740,17 @@ const en: Record<string, string> = {
   "plates.meshShort.ready": "Mesh: {n} ready",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.family.punching": "Punching",
+  "rcSheets.empty.punching": "There are no slab–column joints without beams.",
+  "rcSheets.g.punching": "Punching",
+  "rcSheets.s.punchPosition": "Position",
+  "rcSheets.s.punchSection": "Column and slab",
+  "rcSheets.s.punchPerimeter": "Critical perimeter at d/2",
+  "rcSheets.s.punchVc": "Concrete strength (Table 22.6.5.2)",
+  "rcSheets.s.punchVu": "Shear at the joint",
+  "rcSheets.s.punchScope": "Load inside the perimeter not deducted (safe side); a Ø12 top bar assumed for d.",
+  "rcSheets.v.punching": "Punching shear",
+  "rcSheets.v.punchingUnsupported": "Punching: geometry the check does not cover",
   "rcSheets.v.colSpliceC": "Compression splice at the storey base",
   "rcSheets.v.colSpliceT": "Tension splice (class B) at the storey base",
   "rcSheets.v.colOffset": "The section steps more than 7.5 cm per face: separate dowels",

@@ -14580,6 +14580,17 @@ const tr: Translations = {
   "plates.meshShort.ready": "Ağ: {n} hazır",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.family.punching": "Zımbalama",
+  "rcSheets.empty.punching": "Kirişsiz döşeme-kolon birleşimi yok.",
+  "rcSheets.g.punching": "Zımbalama",
+  "rcSheets.s.punchPosition": "Konum",
+  "rcSheets.s.punchSection": "Kolon ve döşeme",
+  "rcSheets.s.punchPerimeter": "d/2'deki kritik çevre",
+  "rcSheets.s.punchVc": "Beton dayanımı (Tablo 22.6.5.2)",
+  "rcSheets.s.punchVu": "Birleşimde kesme",
+  "rcSheets.s.punchScope": "Çevre içindeki yük düşülmedi (güvenli taraf); d için Ø12 üst çubuk varsayıldı.",
+  "rcSheets.v.punching": "Zımbalama",
+  "rcSheets.v.punchingUnsupported": "Zımbalama: kontrolün kapsamadığı geometri",
   "rcSheets.v.colSpliceC": "Kat tabanında basınç bindirmesi",
   "rcSheets.v.colSpliceT": "Kat tabanında çekme bindirmesi (B sınıfı)",
   "rcSheets.v.colOffset": "Kesit yüz başına 7,5 cm'den fazla değişiyor: ayrı filiz",

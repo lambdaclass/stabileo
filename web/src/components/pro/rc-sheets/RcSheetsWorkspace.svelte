@@ -68,8 +68,8 @@
       </select>
     </label>
     <label class="rcw-ctl"><input type="checkbox" bind:checked={failingOnly} /> {t('rcSheets.onlyFailing')}</label>
-    <button type="button" class="rcs-btn" onclick={() => adoptAll(shown)} disabled={!shown.length}>{t('rcSheets.adoptAll')}</button>
-    <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length}>{t('rcSheets.export')}</button>
+    <button type="button" class="rcs-btn" onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}>{t('rcSheets.adoptAll')}</button>
+    <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length}>{t('rcSheets.export')}</button>
     <button type="button" class="rcs-btn" onclick={onclose} aria-label={t('rcSheets.close')}>✕</button>
   </header>
 
@@ -85,6 +85,8 @@
           {:else if family === 'column'}
             <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>b × h</th><th>Pu</th><th>ρ</th>
               <th>{t('rcSheets.col.bars')}</th><th>{t('rcSheets.col.ties')}</th><th>{t('rcSheets.col.crossties')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
+          {:else if family === 'punching'}
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.s.punchPosition')}</th><th>Vu</th><th>φVc</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else if family === 'wall'}
             <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>lw × t</th><th>Pu</th><th>Mu</th><th>Vu</th>
               <th>ρl · ρt {t('rcSheets.req')}</th><th>{t('rcSheets.col.bars')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
@@ -125,6 +127,11 @@
                 <td>{tieLabel(r.adopted)}</td>
                 <td>{r.checks.crossties.x} · {r.checks.crossties.y}</td>
                 <td class="n">{fmt(r.checks.ratio, 2)}</td>
+              {:else if r.family === 'punching'}
+                <td>{r.position}</td>
+                <td class="n">{f1(r.vu)}</td>
+                <td class="n">{f1(r.phiVc)}</td>
+                <td class="n">{fmt(r.utilization, 2)}</td>
               {:else if r.family === 'wall'}
                 <td>{f2(r.length)} m × {fmt(r.thickness * 100, 0)}</td>
                 <td class="n">{f1(Math.max(0, ...r.demand.combos.map((k) => k.pu)))}</td>
@@ -148,7 +155,7 @@
                   {#if r.family === 'line'}
                     <RcLineDetail line={r} spans={spansOf(r)} />
                   {:else}
-                  <RcRowEditor row={r} />
+                  {#if r.family !== 'punching'}<RcRowEditor row={r} />{/if}
                   <RcChecks lines={r.verifications} />
                   <details open={r.status === 'fail'}>
                     <summary>{t('rcSheets.combo.title')} ({r.combos.rows.length})</summary>

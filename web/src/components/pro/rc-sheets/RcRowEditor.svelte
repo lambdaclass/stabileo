@@ -4,7 +4,7 @@
   import { SLAB_FACES } from '../../../lib/rc-sheets/slab-row';
   import type { BarGroup, BeamAdopted, ColumnAdopted, MeshBars, SlabAdopted, WallAdopted } from '../../../lib/rc-sheets/types';
 
-  let { row }: { row: SheetRow } = $props();
+  let { row }: { row: Exclude<SheetRow, { family: 'punching' }> } = $props();
 
   const LONG = [10, 12, 16, 20, 25, 32];
   const SMALL = [6, 8, 10, 12];

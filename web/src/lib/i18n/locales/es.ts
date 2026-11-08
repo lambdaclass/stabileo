@@ -14729,6 +14729,17 @@ const es: Record<string, string> = {
   "plates.meshShort.ready": "Malla: {n} listas",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.family.punching": "Punzonado",
+  "rcSheets.empty.punching": "No hay uniones losa-columna sin vigas.",
+  "rcSheets.g.punching": "Punzonado",
+  "rcSheets.s.punchPosition": "Posición",
+  "rcSheets.s.punchSection": "Columna y losa",
+  "rcSheets.s.punchPerimeter": "Perímetro crítico a d/2",
+  "rcSheets.s.punchVc": "Resistencia del hormigón (Tabla 22.6.5.2)",
+  "rcSheets.s.punchVu": "Corte en la unión",
+  "rcSheets.s.punchScope": "Sin descontar la carga dentro del perímetro (del lado seguro); barra superior Ø12 supuesta para d.",
+  "rcSheets.v.punching": "Punzonado",
+  "rcSheets.v.punchingUnsupported": "Punzonado: geometría que la verificación no cubre",
   "rcSheets.v.colSpliceC": "Empalme por compresión en la base del piso",
   "rcSheets.v.colSpliceT": "Empalme por tracción (clase B) en la base del piso",
   "rcSheets.v.colOffset": "La sección cambia más de 7,5 cm por cara: pasadores separados",

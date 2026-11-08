@@ -14580,6 +14580,17 @@ const de: Translations = {
   "plates.meshShort.ready": "Netz: {n} bereit",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.family.punching": "Durchstanzen",
+  "rcSheets.empty.punching": "Es gibt keine Platten-Stützen-Knoten ohne Balken.",
+  "rcSheets.g.punching": "Durchstanzen",
+  "rcSheets.s.punchPosition": "Lage",
+  "rcSheets.s.punchSection": "Stütze und Platte",
+  "rcSheets.s.punchPerimeter": "Rundschnitt im Abstand d/2",
+  "rcSheets.s.punchVc": "Betonwiderstand (Tabelle 22.6.5.2)",
+  "rcSheets.s.punchVu": "Querkraft am Knoten",
+  "rcSheets.s.punchScope": "Last innerhalb des Rundschnitts nicht abgezogen (sichere Seite); obere Ø12 für d angenommen.",
+  "rcSheets.v.punching": "Durchstanzen",
+  "rcSheets.v.punchingUnsupported": "Durchstanzen: Geometrie wird nicht abgedeckt",
   "rcSheets.v.colSpliceC": "Druckstoß am Geschossfuß",
   "rcSheets.v.colSpliceT": "Zugstoß (Klasse B) am Geschossfuß",
   "rcSheets.v.colOffset": "Querschnittssprung über 7,5 cm je Seite: eigene Anschlussstäbe",

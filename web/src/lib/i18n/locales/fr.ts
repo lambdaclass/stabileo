@@ -14580,6 +14580,17 @@ const fr: Translations = {
   "plates.meshShort.ready": "Maillage : {n} prêtes",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.family.punching": "Poinçonnement",
+  "rcSheets.empty.punching": "Il n'y a pas de liaisons dalle-poteau sans poutres.",
+  "rcSheets.g.punching": "Poinçonnement",
+  "rcSheets.s.punchPosition": "Position",
+  "rcSheets.s.punchSection": "Poteau et dalle",
+  "rcSheets.s.punchPerimeter": "Périmètre critique à d/2",
+  "rcSheets.s.punchVc": "Résistance du béton (Tableau 22.6.5.2)",
+  "rcSheets.s.punchVu": "Effort tranchant à la liaison",
+  "rcSheets.s.punchScope": "Charge intérieure au périmètre non déduite (côté sécurité) ; barre supérieure Ø12 supposée pour d.",
+  "rcSheets.v.punching": "Poinçonnement",
+  "rcSheets.v.punchingUnsupported": "Poinçonnement : géométrie non couverte",
   "rcSheets.v.colSpliceC": "Recouvrement en compression à la base de l'étage",
   "rcSheets.v.colSpliceT": "Recouvrement en traction (classe B) à la base de l'étage",
   "rcSheets.v.colOffset": "La section change de plus de 7,5 cm par face : attentes séparées",

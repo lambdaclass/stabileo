@@ -1,7 +1,7 @@
 import type { WallReinforcement } from '../design-contract/reinforcement';
 
-export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall';
-export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall'];
+export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching';
+export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching'];
 
 export type SheetCode = 'cirsoc201-2025';
 export const SHEET_CODES: Record<SheetCode, { name: string; edition: '2025' }> = {

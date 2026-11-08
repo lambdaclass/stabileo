@@ -14381,6 +14381,17 @@ const pt: Translations = {
   "plates.meshShort.ready": "Malha: {n} prontas",
 
   // Reinforcement sheets (rc-sheets/)
+  "rcSheets.family.punching": "Punção",
+  "rcSheets.empty.punching": "Não há ligações laje-pilar sem vigas.",
+  "rcSheets.g.punching": "Punção",
+  "rcSheets.s.punchPosition": "Posição",
+  "rcSheets.s.punchSection": "Pilar e laje",
+  "rcSheets.s.punchPerimeter": "Perímetro crítico a d/2",
+  "rcSheets.s.punchVc": "Resistência do concreto (Tabela 22.6.5.2)",
+  "rcSheets.s.punchVu": "Cortante na ligação",
+  "rcSheets.s.punchScope": "Sem descontar a carga dentro do perímetro (a favor da segurança); barra superior Ø12 suposta para d.",
+  "rcSheets.v.punching": "Punção",
+  "rcSheets.v.punchingUnsupported": "Punção: geometria que a verificação não cobre",
   "rcSheets.v.colSpliceC": "Emenda por compressão na base do pavimento",
   "rcSheets.v.colSpliceT": "Emenda por tração (classe B) na base do pavimento",
   "rcSheets.v.colOffset": "A seção muda mais de 7,5 cm por face: arranques separados",

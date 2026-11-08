@@ -6,7 +6,8 @@ import { designComboIds, narrowPerCombo } from '../engine/result-scopes';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
 import { concreteFc } from '../model/design-data';
-import { beamDemands, columnDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
+import { beamDemands, columnDemands, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
+import { punchingRow, type PunchingRow } from '../rc-sheets/punching-row';
 import { beamRow, type BeamRow } from '../rc-sheets/beam-row';
 import { beamLine, type LineAdopted, type LineLayout } from '../rc-sheets/beam-line';
 import { columnRow, type ColumnRow } from '../rc-sheets/column-row';
@@ -16,7 +17,7 @@ import { makeFmt, type Fmt } from '../rc-sheets/format';
 import { defaultRcSheetsData, SHEET_CODES, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 
-export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow;
+export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow;
 
 export interface SheetRows {
   beam: BeamRow[];
@@ -25,6 +26,7 @@ export interface SheetRows {
   column: ColumnRow[];
   slab: SlabRow[];
   wall: WallRow[];
+  punching: PunchingRow[];
   /** The regulation the rows are computed with. */
   code: string;
   /** Where the forces came from: the design combinations, or the result on screen when none is solved. */
@@ -127,7 +129,7 @@ function fcOfShells(quads: number[], plates: number[]): number {
   return concreteFc(m as never) ?? DEFAULT_FC;
 }
 
-const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; walls: ReturnType<typeof wallDemands>; groupsRev: unknown; opts: string }>();
+const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; walls: ReturnType<typeof wallDemands>; punching: ReturnType<typeof punchingDemands>; groupsRev: unknown; opts: string }>();
 
 const rowCache = new WeakMap<object, Map<string, SheetRow>>();
 const lineCache = new WeakMap<object, { k: string; v: LineLayout }>();
@@ -156,7 +158,7 @@ function cached<D extends object, R extends SheetRow>(demand: D, inputs: unknown
 export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   const { sets, basis, dead } = designSets();
   const codeName = SHEET_CODES[rcSheetsData().code]?.name ?? 'CIRSOC 201-2025';
-  if (!sets.length) return { beam: [], line: [], column: [], slab: [], wall: [], code: codeName, basis, combos: 0 };
+  if (!sets.length) return { beam: [], line: [], column: [], slab: [], wall: [], punching: [], code: codeName, basis, combos: 0 };
   const dd = designData();
   const data = rcSheetsData();
   const key = basis === 'combinations' ? resultsStore.perCombo3D : resultsStore.results3D!;
@@ -171,6 +173,7 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
       beams: beamDemands(input), columns: columnDemands(input),
       slabs: slabDemands(input, (g) => { const pg = byGroup.get(g.id); return pg ? physicalThickness(pg) : null; }),
       walls: wallDemands(input),
+      punching: punchingDemands(input),
       groupsRev, opts: optsKey,
     };
     demandCache.set(key, dem);
@@ -227,8 +230,12 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
     const a = data.adopted[d.key] as WallAdopted | undefined;
     return cached(d, [ctx, a, dec], () => wallRow(d, ctx, a, fmt));
   });
+  const punching = dem.punching.map((d) => {
+    const ctx = { fc: fcOfElement(d.joint.columnElementId), fy, cover: dd.covers.slab, topBarDia: 12 };
+    return cached(d, [ctx, dec], () => punchingRow(d, ctx, fmt));
+  });
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  return { beam: sort(beam), line: sort(line), column: sort(column), slab: sort(slab), wall: sort(wall), code: codeName, basis, combos: sets.length };
+  return { beam: sort(beam), line: sort(line), column: sort(column), slab: sort(slab), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
 }
 
 export const familyRows = (rows: SheetRows, f: SheetFamily): SheetRow[] => rows[f];

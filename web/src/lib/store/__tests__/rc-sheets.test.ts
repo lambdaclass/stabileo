@@ -48,7 +48,7 @@ function frame() {
   modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
 }
 
-/** A 4 × 4 m slab of 4 × 4 quads, 15 cm, simply supported on its edges, 10 kPa of D. */
+/** A 4 × 4 m slab of 4 × 4 quads, 15 cm, simply supported on its edges, 10 kPa of D downward. */
 function slab() {
   const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
   const N = 4, id: number[][] = [];
@@ -56,7 +56,7 @@ function slab() {
   const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
   for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
     const q = modelStore.addQuad([id[i]![j]!, id[i + 1]![j]!, id[i + 1]![j + 1]!, id[i]![j + 1]!], conc, 0.15);
-    modelStore.addSurfaceLoad3D(q, -10, D);
+    modelStore.addSurfaceLoad3D(q, 10, D);
   }
   for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) if (i === 0 || j === 0 || i === N || j === N) modelStore.addSupport(id[i]![j]!, 'pinned3d');
   modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
@@ -260,6 +260,34 @@ describe('reinforcement sheets from a solved model', () => {
     expect(wall.members.quads).toEqual([q]);
     expect(plateStatus(wall.id)).toBe('current');
     expect(modelStore.loads.filter((l) => l.type === 'surface3d')).toHaveLength(1);
+  });
+
+  it('checks punching where a flat slab sits on a column', () => {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);
+    const N = 6, id: number[][] = [];
+    for (let i = 0; i <= N; i++) { id.push([]); for (let j = 0; j <= N; j++) id[i]!.push(modelStore.addNode(-3 + i, -3 + j, 3)); }
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const q = modelStore.addQuad([id[i]![j]!, id[i + 1]![j]!, id[i + 1]![j + 1]!, id[i]![j + 1]!], conc, 0.2);
+      modelStore.addSurfaceLoad3D(q, 12, D);
+    }
+    for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) if (i === 0 || j === 0 || i === N || j === N) modelStore.addSupport(id[i]![j]!, 'pinned3d');
+    const base = modelStore.addNode(0, 0, 0);
+    const c = modelStore.addElement(base, id[3]![3]!, 'frame');
+    modelStore.updateElementSection(c, col); modelStore.updateElementMaterial(c, conc);
+    modelStore.addSupport(base, 'fixed3d');
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    solve();
+    const rows = buildSheetRows();
+    expect(rows.punching).toHaveLength(1);
+    const p = rows.punching[0]!;
+    const axial = -resultsStore.perCombo3D.values().next().value!.elementForces.find((f) => f.elementId === c)!.nEnd;
+    expect(p.position).toBe('interior');
+    expect(p.vu).toBeGreaterThan(0.5 * Math.abs(axial));
+    expect(p.vu).toBeLessThanOrEqual(Math.abs(axial) * 1.01);
+    expect(p.phiVc).toBeGreaterThan(0);
+    expect(p.verifications[0]!.label).toBe('rcSheets.v.punching');
   });
 
   it('says there is nothing to design before a solve', () => {

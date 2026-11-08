@@ -7,6 +7,8 @@ import type { BeamComboForces, BeamDemand, SectionEnv } from './beam-row';
 import type { ColumnCase, ColumnDemand } from './column-row';
 import type { SlabComboForces, SlabDemand, SlabFace } from './slab-row';
 import type { WallComboForces, WallDemand } from './wall-row';
+import type { PunchingDemand } from './punching-row';
+import type { SlabJointForce } from '../engine/detailing/slab-punching';
 import type { Signed } from './types';
 
 type Pt = { id: number; x: number; y: number; z?: number };
@@ -302,8 +304,8 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
         const ax = shellLocalAxes(kind, nodesOf(id).map((n) => m.nodes.get(n)!).filter(Boolean));
         if (!ax) continue;
         if (Math.abs(ax.ez[2]) < VERTICAL) horizontal = false;
-        // A positive engine moment pulls the face on the element's +z side, so sagging is its negative when +z is up.
-        flipOf.set(`${kind === 'quad' ? 'q' : 'p'}${id}`, ax.ez[2] >= 0 ? -1 : 1);
+        // With the element's local z up, a positive engine moment sags (checked against a downward load).
+        flipOf.set(`${kind === 'quad' ? 'q' : 'p'}${id}`, ax.ez[2] >= 0 ? 1 : -1);
       }
     }
     if (!horizontal && g.kind !== 'slab') continue;
@@ -317,7 +319,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
       for (const row of shellCentreRows(set.result, m.shells)) {
         const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
         if (!keys.has(key) || !row.global) continue;
-        const k = flipOf.get(key) ?? -1;
+        const k = flipOf.get(key) ?? 1;
         const mo = row.global.moment;
         const wa = woodArmer(k * mo.xx, k * mo.yy, k * mo.xy);
         for (const f of SLAB_FACE_KEYS) {
@@ -404,6 +406,51 @@ export function wallDemands(m: DemandInput): WallDemand[] {
         length, height: hi - lo, thickness, baseElements: base.length, combos,
       });
     }
+  }
+  return out;
+}
+
+export function punchingDemands(m: DemandInput): PunchingDemand[] {
+  const inc = incidence(m);
+  const shellsAt = new Map<number, Array<{ id: number; nodes: readonly number[]; thickness: number }>>();
+  for (const map of [m.shells.quads, m.shells.plates]) for (const sh of map?.values() ?? []) {
+    const pts = sh.nodes.map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p);
+    if (pts.length < 3) continue;
+    const ax = shellLocalAxes(pts.length === 4 ? 'quad' : 'plate', pts);
+    if (!ax || Math.abs(ax.ez[2]) < VERTICAL) continue;
+    for (const n of sh.nodes) { const l = shellsAt.get(n); if (l) l.push(sh); else shellsAt.set(n, [sh]); }
+  }
+  const out: PunchingDemand[] = [];
+  for (const g of m.groups) {
+    if (g.kind !== 'column') continue;
+    const run = chain(m, g.elements);
+    if (!run || !run.every(({ e }) => isVertical(m, e))) continue;
+    run.forEach((r, i) => {
+      const node = r.forward ? r.e.nodeJ : r.e.nodeI;
+      const shells = shellsAt.get(node);
+      if (!shells?.length) return;
+      if ((inc.get(node) ?? []).some((o) => !isVertical(m, o))) return;
+      const above = run[i + 1];
+      const sec = m.sections.get(r.e.sectionId);
+      const p = m.nodes.get(node)!;
+      const forces: SlabJointForce[] = m.sets.map((set, k) => {
+        const by = new Map(set.result.elementForces.map((f) => [f.elementId, f]));
+        const fb = by.get(r.e.id), fa = above ? by.get(above.e.id) : undefined;
+        const b = fb ? extractForcesAtStation(fb, r.forward ? 1 : 0) : undefined;
+        const a = fa && above ? extractForcesAtStation(fa, above.forward ? 0 : 1) : undefined;
+        return {
+          combinationId: k, combinationName: set.name,
+          axialBelow: b ? -b.n : null, axialAbove: a ? -a.n : above ? null : 0, directlyDelivered: 0,
+          unbalancedMomentX: (b?.my ?? 0) - (a?.my ?? 0), unbalancedMomentY: (b?.mz ?? 0) - (a?.mz ?? 0),
+        };
+      });
+      out.push({
+        key: `punching:${g.id}:${i}`, name: g.name, level: m.levelAt ? m.levelAt(zOf(p)) : g.level,
+        thickness: Math.min(...shells.map((sh) => sh.thickness)),
+        joint: { nodeId: node, at: { x: p.x, y: p.y }, columnElementId: r.e.id, b: sec?.b ?? 0.3, h: sec?.h ?? 0.3, elementBelow: r.e.id, elementAbove: above?.e.id ?? null, forces },
+        adjoining: shells.map((sh) => ({ elementId: sh.id, nodeIds: sh.nodes, points: sh.nodes.map((n) => m.nodes.get(n)!).map((q) => ({ id: q.id, x: q.x, y: q.y, z: q.z ?? 0 })) })),
+      });
+    });
   }
   return out;
 }
