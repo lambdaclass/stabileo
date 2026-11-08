@@ -253,7 +253,7 @@ does, including error text.
 
 Done in this PR. Rust: `TypedNode`/`TypedNode3D`, `TypedNodalLoad` (`fx`, `fz` `Force`; `my`
 `Moment`), `TypedPointLoad` (`a` `Length`; `p`, `px` `Force`; `my` `Moment`), `TypedNodalLoad3D`
-(`fx…mz`, plus the warping bimoment `bw` as a new `Bimoment`, kN·m²) and `TypedPointLoad3D` (`a`;
+(`fx…mz`, plus the warping bimoment `bw` as a new `Bimoment`, kN·m², in Rust and TS) and `TypedPointLoad3D` (`a`;
 `py`, `pz`), inside `TypedLoad`/`TypedLoad3D`, which mirror the legacy enums variant for variant
 and convert with exhaustive matches. The records are declared in `units::wire` under the legacy
 names and re-exported under the typed ones, so serde's error text for malformed input is the
@@ -272,10 +272,11 @@ order and presence. Not covered: 2D entry points other than `solve_2d` still par
 plastic, moving loads and similar) still pass nodes and loads unbranded (slice 7).
 Proof: `engine/tests/core/units_boundary_nodes_loads.rs` (every 2D and 3D fixture plus two
 models with every node/load field, old-file aliases and signed zeros: same bits for every node
-coordinate and load component against records parsed by the legacy derives, byte-identical
+coordinate and load component against `tests/core/units_legacy_3d.rs`, an independent copy of the
+legacy 3D derive that the slice-2 tests now use too, so a valid input the typed path rejects fails, byte-identical
 serialized results, the same error text for 13 malformed node/load inputs and for property
 records); 11 new `compile_fail` doctests with their error code (E0308 for a wrong unit, E0277 for
-a mixed-record 3D input) plus a positive control; 17 new `@ts-expect-error` checks; Vitest checks
+a mixed-record 3D input) plus a positive control; 18 new `@ts-expect-error` checks; Vitest checks
 that the node and load JSON text, key paths and signed zeros equal the previous builder's.
 
 **Slice 4 — distributed, thermal and support inputs.** `LineLoad` (kN/m) for

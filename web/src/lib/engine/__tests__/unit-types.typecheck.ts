@@ -1,7 +1,7 @@
 import { input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
-import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, nodeToWire, node3DToWire, loadToWire, load3DToWire } from '../unit-types';
+import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire } from '../unit-types';
 const material: ElasticMaterialWire = { id: 1, e: mpa(200000), nu: ratio(0.3) };
 const section: ElasticSectionWire = { id: 1, a: areaM2(0.01), iz: inertiaM4(0.0001) };
 material.e = elasticFromDisplay(29000, 'stress', 'Imperial');
@@ -101,6 +101,9 @@ for (const load of wire3D.loads) {
   if (load.type === 'nodal') {
     load.data.fy = forceKn(1);
     load.data.mz = momentKnM(1);
+    load.data.bw = bimomentKnM2(0.1);
+    // @ts-expect-error a bimoment is kN·m², not kN·m
+    load.data.bw = momentKnM(1);
     // @ts-expect-error kN·m is not kN
     load.data.fy = momentKnM(1);
     // @ts-expect-error a 3D nodal moment is kN·m, not kN

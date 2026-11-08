@@ -13,6 +13,7 @@ export type WarpingConstant = Quantity<'m⁶'>;
 export type Length = Quantity<'m'>;
 export type Force = Quantity<'kN'>;
 export type Moment = Quantity<'kN·m'>;
+export type Bimoment = Quantity<'kN·m²'>;
 export type Ratio = Quantity<'ratio'>;
 
 // Explicit admission of existing canonical model values, only at the legacy DTO boundary.
@@ -23,6 +24,7 @@ export const warpingM6 = (value: number): WarpingConstant => value as WarpingCon
 export const lengthM = (value: number): Length => value as Length;
 export const forceKn = (value: number): Force => value as Force;
 export const momentKnM = (value: number): Moment => value as Moment;
+export const bimomentKnM2 = (value: number): Bimoment => value as Bimoment;
 export const ratio = (value: number): Ratio => value as Ratio;
 export const modulusInternal = (value: ModulusMPa): Modulus => (value * 1000) as Modulus;
 
@@ -78,7 +80,7 @@ export interface NodeWire { id: number; x: Length; z: Length }
 export interface Node3DWire { id: number; x: Length; y: Length; z: Length }
 export interface NodalLoadWire { nodeId: number; fx: Force; fz: Force; my: Moment }
 export interface PointLoadWire { elementId: number; a: Length; p: Force; px?: Force; my?: Moment }
-export interface NodalLoad3DWire { nodeId: number; fx: Force; fy: Force; fz: Force; mx: Moment; my: Moment; mz: Moment }
+export interface NodalLoad3DWire { nodeId: number; fx: Force; fy: Force; fz: Force; mx: Moment; my: Moment; mz: Moment; bw?: Bimoment }
 export interface PointLoad3DWire { elementId: number; a: Length; py: Force; pz: Force }
 type Branded<T, W> = Omit<T, keyof W> & W;
 export type LoadWire =
@@ -126,6 +128,7 @@ export function load3DToWire(load: SolverLoad3D): Load3DWire {
         data: {
           ...d, ...present(d, 'fx', d.fx, forceKn), ...present(d, 'fy', d.fy, forceKn), ...present(d, 'fz', d.fz, forceKn),
           ...present(d, 'mx', d.mx, momentKnM), ...present(d, 'my', d.my, momentKnM), ...present(d, 'mz', d.mz, momentKnM),
+          ...present(d, 'bw', d.bw, bimomentKnM2),
         } as Branded<SolverNodalLoad3D, NodalLoad3DWire>,
       };
     }

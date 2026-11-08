@@ -3,6 +3,7 @@ use dedaliano_engine::types::units::{ElasticInput2D, ElasticInput3D, TypedLoad, 
 use dedaliano_engine::types::{SolverInput, SolverInput3D, SolverLoad, SolverLoad3D, SolverNode, SolverNode3D};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use crate::units_legacy_3d as legacy;
 
 fn fixtures(three_d: bool) -> Vec<(String, String)> {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures");
@@ -122,12 +123,6 @@ fn every_3d_field() -> Value {
     })
 }
 
-fn legacy_nodes_and_loads_3d(value: &Value) -> (HashMap<String, SolverNode3D>, Vec<SolverLoad3D>) {
-    (
-        serde_json::from_value(value["nodes"].clone()).unwrap(),
-        serde_json::from_value(value["loads"].clone()).unwrap(),
-    )
-}
 
 #[test]
 fn units_2d_nodes_and_loads_parse_to_the_same_bits_and_results() {
@@ -187,23 +182,24 @@ fn units_3d_nodes_and_loads_parse_to_the_same_bits_and_results() {
     let (mut parsed, mut solved) = (0, 0);
     for (what, text) in inputs {
         let value: Value = serde_json::from_str(&text).unwrap();
-        let Ok(typed) = serde_json::from_str::<ElasticInput3D>(&text) else {
-            assert!(serde_json::from_str::<SolverInput3D>(&text).is_err(), "{what}");
-            continue;
+        let typed = serde_json::from_str::<ElasticInput3D>(&text).map_err(|e| e.to_string());
+        let (legacy, typed) = match (legacy::parse(&text), typed) {
+            (Ok(l), Ok(t)) => (l, t),
+            (Err(l), Err(t)) => {
+                assert_eq!(t, l, "{what}");
+                continue;
+            }
+            (l, t) => panic!("{what}: legacy ok {} typed ok {}", l.is_ok(), t.is_ok()),
         };
-        let (nodes, loads) = legacy_nodes_and_loads_3d(&value);
         let erased = typed.into_legacy();
-        assert_eq!(node_bits_3d(&erased.nodes), node_bits_3d(&nodes), "{what}");
-        assert_eq!(load_bits_3d(&erased.loads), load_bits_3d(&loads), "{what}");
-        assert_eq!(serde_json::to_string(&erased.loads).unwrap(), serde_json::to_string(&loads).unwrap(), "{what}");
+        assert_eq!(serde_json::to_value(&erased).unwrap(), serde_json::to_value(&legacy).unwrap(), "{what}");
+        assert_eq!(node_bits_3d(&erased.nodes), node_bits_3d(&legacy.nodes), "{what}");
+        assert_eq!(load_bits_3d(&erased.loads), load_bits_3d(&legacy.loads), "{what}");
         for (k, n) in &erased.nodes {
             let raw = &value["nodes"][k];
             assert_eq!([n.x, n.y, n.z].map(bits), ["x", "y", "z"].map(|c| bits(raw[c].as_f64().unwrap())), "{what} node {k}");
         }
         parsed += 1;
-        let mut legacy = erased.clone();
-        legacy.nodes = nodes;
-        legacy.loads = loads;
         match (solve_3d(&legacy), solve_3d(&erased)) {
             (Ok(l), Ok(t)) => {
                 assert_eq!(
@@ -263,6 +259,12 @@ fn units_malformed_nodes_and_loads_give_the_same_message() {
         let typed = serde_json::from_str::<ElasticInput2D>(&text).map(|_| ()).map_err(|e| e.to_string());
         assert_eq!(typed, legacy, "2D {what}");
         compared += legacy.is_err() as usize;
+        let mut model = every_3d_field();
+        model[field] = bad.clone();
+        let text = model.to_string();
+        let typed = serde_json::from_str::<ElasticInput3D>(&text).map(|_| ()).map_err(|e| e.to_string());
+        assert_eq!(typed, legacy::parse(&text).map(|_| ()), "3D model {what}");
+        assert_eq!(serde_json::from_str::<SolverInput3D>(&text).map(|_| ()).map_err(|e| e.to_string()), typed, "3D model {what}");
         let text = bad.to_string();
         let (legacy, typed) = if field == "nodes" {
             (
@@ -310,6 +312,7 @@ fn units_an_inferred_3d_parse_goes_through_the_typed_records() {
     bad["loads"][2]["data"]["a"] = json!("1.1");
     let text = bad.to_string();
     assert_eq!(parse::<SolverInput3D>(&text).unwrap_err(), parse::<ElasticInput3D>(&text).unwrap_err());
+    assert_eq!(parse::<SolverInput3D>(&text).unwrap_err(), legacy::parse(&text).unwrap_err());
 }
 
 #[test]

@@ -102,6 +102,8 @@ describe('node and load unit boundary', () => {
   ];
   const loads3D = (): SolverLoad3D[] => [
     { type: 'nodal', data: { nodeId: 2, fx: 1, fy: -10, fz: 2.5, mx: 0.3, my: -0, mz: 0, axialOf: { elementId: 1, end: 'j', p: 3 }, tendonOf: 2 } },
+    { type: 'nodal', data: { bw: -0, nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } },
+    { type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0, bw: 0.02 } },
     { type: 'pointOnElement', data: { pz: -1e-9, elementId: 1, a: 0, py: 3 } },
     { type: 'distributed', data: { elementId: 1, qYI: -5, qYJ: -2, qZI: 0, qZJ: 1 } },
     { type: 'quadPressure', data: { elementId: 1, pressure: 2 } } as never,
@@ -148,6 +150,10 @@ describe('node and load unit boundary', () => {
     expect(Object.is(wire.nodes['2'].z, -0)).toBe(true);
     const nodal = wire.loads[0];
     expect(nodal.type === 'nodal' && Object.is(nodal.data.my, -0)).toBe(true);
+    const bimoment = wire.loads[1];
+    expect(bimoment.type === 'nodal' && Object.is(bimoment.data.bw, -0)).toBe(true);
+    expect(Object.keys(wire.loads[1].data)[0]).toBe('bw');
+    expect(wire.loads[0].data).not.toHaveProperty('bw');
   });
   it('adapts nodes and loads without converting, rounding, adding keys or touching the stored model', () => {
     const node = { id: 1, x: 0.1, z: -0 };
