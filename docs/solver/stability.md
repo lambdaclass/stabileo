@@ -104,29 +104,26 @@ before an uncertified estimate becomes a refusal.
 - **Mechanism** if a local free direction is a translation: a node can move in a direction
   nothing stiffens beyond `1e-12` of its own stiffest direction. This is decided node by
   node, from the node's own block only.
-- A node's free rotations (of one kind) are dropped from `S` only if they are decoupled from
-  the kept directions. Let `c_j = Wᵀ K v_j` be the coupling of free direction `v_j` (own
-  stiffness `μ_j`) into the kept directions, already scaled by the stiffness of what it
-  couples into. Two cases:
-  - `μ_j` above the rounding of its block, `μ_j > 64 b ε μ_b`: the coupling is measured
-    against the direction's own stiffness. With `D = [c_j / √μ_j]`, condensing the
-    directions back in changes the scaled kept system by `D Dᵀ`, so they are dropped only if
-    `σ_max(D)² · κ_S ≤ 1e-4`, i.e. they move its smallest eigenvalue by at most `1e-4`
-    (`λ_min(S) ≥ 1/κ_S` since `S` has a unit diagonal).
-  - `μ_j` at rounding: its own stiffness is unknown, and so is whether the coupling closes a
-    mechanism (Codex's `K = [[1,0,-1],[0,1e24,0],[-1,0,1]]`, tags `[T1, R2, R2]`, is singular,
-    and the `1` on the rotation is far below the `ε · 1e24` rounding of that block). The
-    directions are dropped only if their coupling `σ_max([c_j])` is itself at rounding,
-    `≤ 64 b ε √μ_b`; otherwise the verdict is Singular. This is the one place `μ_b` enters,
-    as the scale of the block's rounding, not as the measure of the coupling.
+- Free rotations are dropped from `S` only if the whole dropped set, across all nodes at
+  once, is shown decoupled from everything outside each direction's own block (`K v_j`
+  restricted to other blocks; within its block `v_j` is an exact eigenvector). Two cases:
+  - A direction whose own stiffness is at rounding, `μ_j ≤ 64 b ε μ_b`, has an unknown
+    stiffness. If it couples to anything outside its block at all (`K v_j` has any non-zero
+    entry there), the verdict is Singular. No floor is compared: any floor scaled by the
+    block can be outrun by stiffening another direction of the same block (Codex's
+    `[[1,0,-1],[0,2⁹⁶,0],[-1,0,1]]`, tags `[T1, R2, R2]`, has coupling `1` against a floor
+    of `8`, and is singular).
+  - The directions above rounding that couple are taken together: `K̃_DD` is their joint
+    stiffness (cross terms between nodes included) scaled to a unit diagonal, `C̃` their
+    coupling into the kept directions scaled by `1/√μ_j`. Condensing them back changes the
+    scaled kept system by `C̃ K̃_DD⁻¹ C̃ᵀ`; its trace, an upper bound on its largest
+    eigenvalue, must satisfy `trace · κ_S ≤ 1e-4` (`λ_min(S) ≥ 1/κ_S` since `S` has a unit
+    diagonal). A non-positive eigenvalue of `K̃_DD` that carries coupling, or more than
+    240 such directions, is Singular. Checking each node alone misses two soft rotations
+    at different nodes that close a mechanism together (Codex's two-node example: each
+    node's own check gives `2⁻²⁰`, the joint one `1`).
 
-  Both use the largest singular value over the node's free subspace, which does not depend on
-  which orthonormal basis spans it (checking each eigenvector alone does when free
-  eigenvalues are degenerate: `diag(2e-20, 2e-20, 1)` coupled by `(8e-11, 8e-11, 0)`).
-  Measured on the C08 and corpus models: no free direction above rounding couples at all, and the
-  coupling of those at rounding stays below `0.15` of the floor, against `1.8` of the floor for a cantilever whose torsion
-  only a vanishing warping constant stiffens, and `23` for Codex's matrix. Such a refusal
-  states its own reason, not the condition number.
+  A refusal of either kind has its own reason and wording, not the condition number.
 - All block eigenproblems and singular values run on the block divided by its largest
   entry, so scaling a block by `1e±200` neither underflows nor overflows.
 - **Singular** if `κ_S · A > R = 1e12`, or `S` does not factor (reason: conditioning). Assembly rounds every node
@@ -144,7 +141,31 @@ Every quantity in the verdict is a function of the spectra of `B` and `S`, so tw
 transformed copies of a model get different verdicts only if `κ_S · A` or a block ratio
 `μ/μ_b` lies within its own rounding of a threshold.
 
-### 2.4 Evidence (slice 1, `engine/tests/metamorphic/stability.rs`)
+### 2.4 Known conservative refusals
+
+A rotation whose own stiffness is at rounding and whose coupling outside its block is not
+exactly zero is refused, even when the coupling is itself only rounding. A refusal beats a
+silent number, so these are accepted. Measured (own stiffness `μ/μ_b`, largest coupling
+in units of `ε √μ_b`; verdict identical in every unit system, rotation, mirror and
+relabelling):
+
+| Model | Node | `μ/μ_b` | coupling / `ε √μ_b` | `κ_S` | `A` |
+|---|---|---|---|---|---|
+| #1090 | 2 | 4.2e-19 | 1.96 | 13.9 | 2.7e4 |
+| #1106 | 4 | 2.3e-17 | 0.082 | 7.0e3 | 3.2e4 |
+| #1193 | 2 | -1.1e-17 | 1.89 | 13.9 | 7.7e7 |
+| #1351, #1352 (one model) | 2 | 8.8e-18 | 1.97 | 13.9 | 2.5e7 |
+| #1635 | 2 | -2.2e-18 | 1.11 | 13.9 | 4.9e3 |
+
+A 3D rigid link whose master spins about the link axis (`releaseTEnd` member) is Stable with
+that free rotation in the axis-aligned frame, where the coupling is exactly zero, and
+refused in the frames where rounding leaves `μ/μ_b` between `-3.4e-17` and `2.8e-17` and a
+coupling of `0.11` to `0.91 ε √μ_b`; the same holds for a link offset by `9e-9` of its
+length. This verdict is not invariant: in every frame it is either that Stable verdict or
+this refusal, never a Mechanism. No model of the example, fixture,
+feature-matrix or differential corpus is refused by the rule.
+
+### 2.5 Evidence (slice 1, `engine/tests/metamorphic/stability.rs`)
 
 - The 47 C08 reproducers (43 distinct models: #965 and #968 report #964's model, #1041 #1029's and #1352 #1351's) under 4 unit systems, 3 general rotations, 3 quarter turns, 4
   mirrors and 4 relabellings (3D: random rotations, axis permutations, mirrors about each
@@ -156,12 +177,14 @@ transformed copies of a model get different verdicts only if `κ_S · A` or a bl
   #1028: anisotropic springs on a rigid support type; #1357: a support restraining two
   translations) and keep only quarter turns or axis permutations; six have no general mirror
   (the same reasons, #1106 constraints, #1118 a nodal bimoment).
-  25 are refused (13 Mechanism, 12 Singular), 22 are Stable.
+  25 are refused (13 Mechanism, 12 Singular) for conditioning or a free translation, 6
+  conservatively for a coupled rounding-level rotation, 16 are Stable.
 - The predicted drift `ε κ_S A` matches what the harness measures today: #993
   (`κ_S A = 1.0e12`) drifts 1.4e-4 under units and #1115 (`2.8e12`) 2.9e-4, against a
   prediction of 2.3e-4 and 6.3e-4.
 - Of the 13 Stable reproducers whose recorded analysis and relation hold today, all hold;
-  the other 9 Stable ones do not hold today for reasons the verdict does not cover (§5).
+  6 more are refused conservatively (below) and the other 3 Stable ones (#972, #1099,
+  #1647) do not hold today for reasons the verdict does not cover (§5).
 - No model of the example, fixture, feature-matrix or differential corpus is refused.
   Of the 117 refused random `fuzz_rich` models, 102 are refused by the linear solver today
   and 14 are solved with `StiffnessNotPositiveDefinite` or `NUM-INVARIANCE`; the last,

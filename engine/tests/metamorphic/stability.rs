@@ -152,7 +152,8 @@ fn the_stability_verdict_of_every_c08_reproducer_survives_units_rotation_mirror_
 
 const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 973, 993, 1008, 1028, 1029, 1041, 1083, 1091, 1095, 1103, 1112, 1115, 1353, 1355, 1357, 1359, 1362, 1648, 1651, 1653];
 const SOLVED: &[u32] = &[954, 956, 960, 994, 1086, 1097, 1101, 1102, 1116, 1117, 1118, 1216, 1265];
-const STABLE_PENDING: &[u32] = &[972, 1090, 1099, 1106, 1193, 1351, 1352, 1635, 1647];
+const STABLE_PENDING: &[u32] = &[972, 1099, 1647];
+const CONSERVATIVE: &[u32] = &[1090, 1106, 1193, 1351, 1352, 1635];
 
 const C08: &[(u32, u64, &str, &str)] = &[
     (954, 20757, "linear (PCG)", "relabel"), (956, 20757, "linear (sparse path)", "energy"), (960, 2026103105180, "harmonic", "units"),
@@ -202,21 +203,26 @@ fn replay(issue: u32) -> (Stability, crate::tally::Cell) {
 
 #[test]
 fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict() {
-    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).copied().collect();
+    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(CONSERVATIVE).copied().collect();
     assert_eq!(listed, C08.iter().map(|c| c.0).collect(), "every C08 issue is classified once");
+    let mut wrong = Vec::new();
     for &issue in REFUSED {
         let (v, _) = replay(issue);
-        assert!(!v.is_stable(), "#{issue}: {}", summary(&Ok(v.clone())));
-        assert!(v.refusal().is_some());
+        if v.is_stable() || v.refusal().is_none() { wrong.push(format!("#{issue} listed refused: {}", summary(&Ok(v)))); }
     }
     for &issue in SOLVED {
         let (v, cell) = replay(issue);
-        assert!(v.is_stable(), "#{issue}: {}", summary(&Ok(v.clone())));
-        assert!(cell.fails.is_empty() && cell.pass > 0, "#{issue}: {cell:?}");
+        if !v.is_stable() || !cell.fails.is_empty() || cell.pass == 0 { wrong.push(format!("#{issue} listed solved: {} {cell:?}", summary(&Ok(v)))); }
+    }
+    for &issue in CONSERVATIVE {
+        let (v, _) = replay(issue);
+        if v.reason != Reason::CoupledSoftDirection { wrong.push(format!("#{issue} listed conservatively refused: {} {:?}", summary(&Ok(v.clone())), v.reason)); }
     }
     for &issue in STABLE_PENDING {
-        assert!(replay(issue).0.is_stable(), "#{issue}");
+        let (v, _) = replay(issue);
+        if !v.is_stable() { wrong.push(format!("#{issue} listed stable: {} {:?}", summary(&Ok(v.clone())), v.reason)); }
     }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
 }
 
 #[test]
@@ -306,6 +312,20 @@ fn invariant_verdict(name: &str, m: Model) -> Stability {
         if let Err(e) = same(&base, &o) { panic!("{name} {what}: {e}"); }
     }
     assert_eq!(skipped > 0, listed > 0, "{name}: listed unsupported {listed}, skipped {skipped}");
+    base
+}
+
+fn invariant_or_conservatively_refused(name: &str, m: Model) -> Stability {
+    let (base, images) = verdicts(name, &m);
+    let base = base.unwrap();
+    for (what, image) in images {
+        let s = match image {
+            Err(e) if unsupported(name, &what, &e) => continue,
+            image => image.unwrap_or_else(|e| panic!("{name} {what} could not be built: {e}")).unwrap_or_else(|e| panic!("{name} {what}: {e}")),
+        };
+        let conservative = s.verdict == Verdict::Singular && s.reason == Reason::CoupledSoftDirection;
+        assert!(conservative || same(&base, &s).is_ok(), "{name} {what}: {s:?}");
+    }
     base
 }
 
@@ -424,10 +444,10 @@ fn a_spin_about_a_collinear_rigid_link_is_a_free_rotation_and_an_offset_one_a_me
         "constraints": [{"type": "rigidLink", "masterNode": 1, "slaveNode": 2, "dofs": []}],
         "loads": []
     });
-    let s = invariant_verdict("collinear rigid link", d3(model([2.0, 0.0, 0.0])));
+    let s = invariant_or_conservatively_refused("collinear rigid link", d3(model([2.0, 0.0, 0.0])));
     assert!(s.is_stable() && s.free_rotations().filter(|f| f.node == 1).count() == 1, "{s:?}");
     assert_eq!(invariant_verdict("offset rigid link", d3(model([2.0, 1.0, 0.0]))).verdict, Verdict::Mechanism);
-    let s = invariant_verdict("rigid link offset by 9e-9 of its length", d3(model([1.0, 9e-9, 0.0])));
+    let s = invariant_or_conservatively_refused("rigid link offset by 9e-9 of its length", d3(model([1.0, 9e-9, 0.0])));
     assert!(s.is_stable(), "{s:?}");
 }
 
@@ -567,4 +587,51 @@ fn each_refusal_states_its_own_reason() {
     assert_eq!(pendulum.reason, Reason::FreeTranslation, "{pendulum:?}");
     assert_eq!(analyze_dense(&[f64::NAN], 1, &[t(1, DofKind::Rotation)]).reason, Reason::NonFinite);
     assert_eq!(analyze_dense(&[2.0], 1, &[t(1, DofKind::Translation)]).reason, Reason::Resolved);
+}
+
+fn every_frame(k: &[f64], n: usize, tags: &[DofTag], blocks: &[usize]) -> Vec<(String, Stability)> {
+    let mut out = Vec::new();
+    for angle in [0.0, 0.3, std::f64::consts::FRAC_PI_4, 1.2, std::f64::consts::FRAC_PI_2] {
+        let mut turned = k.to_vec();
+        for &first in blocks { turned = rotate_rotations(&turned, n, first, angle); }
+        for scale in [1.0, 1e-6, 1e6] {
+            let ks: Vec<f64> = turned.iter().map(|x| x * scale).collect();
+            out.push((format!("angle {angle} scale {scale}"), analyze_dense(&ks, n, tags)));
+        }
+    }
+    out
+}
+
+#[test]
+fn a_rotation_stiffer_than_any_rounding_floor_does_not_hide_the_mechanism_its_soft_neighbour_closes() {
+    let big = 2f64.powi(96);
+    let k = [1.0, 0.0, -1.0, 0.0, big, 0.0, -1.0, 0.0, 1.0];
+    let tags = [t(1, DofKind::Translation), t(2, DofKind::Rotation), t(2, DofKind::Rotation)];
+    for (frame, s) in every_frame(&k, 3, &tags, &[1]) {
+        assert!(matches!(s.verdict, Verdict::Mechanism | Verdict::Singular), "{frame}: {s:?}");
+    }
+}
+
+#[test]
+fn soft_rotations_at_two_nodes_that_close_a_mechanism_together_are_not_dropped_one_node_at_a_time() {
+    let (mu, delta, c) = (2f64.powi(-44), 2f64.powi(-63), 2f64.powi(-32));
+    let mut k = vec![0.0; 25];
+    let mut set = |i: usize, j: usize, v: f64| { k[i * 5 + j] = v; k[j * 5 + i] = v; };
+    set(0, 0, 1.0);
+    set(1, 1, mu);
+    set(3, 3, mu);
+    set(1, 3, -mu + delta);
+    set(0, 1, c);
+    set(0, 3, c);
+    set(2, 2, 1.0);
+    set(4, 4, 1.0);
+    let tags = [t(1, DofKind::Translation), t(2, DofKind::Rotation), t(2, DofKind::Rotation), t(3, DofKind::Rotation), t(3, DofKind::Rotation)];
+    let null = [1.0, -2f64.powi(31), 0.0, -2f64.powi(31), 0.0];
+    for i in 0..5 {
+        let r: f64 = (0..5).map(|j| k[i * 5 + j] * null[j]).sum();
+        assert_eq!(r, 0.0, "row {i}");
+    }
+    for (frame, s) in every_frame(&k, 5, &tags, &[1, 3]) {
+        assert!(matches!(s.verdict, Verdict::Mechanism | Verdict::Singular), "{frame}: {s:?}");
+    }
 }

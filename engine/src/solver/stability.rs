@@ -224,7 +224,7 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
     let mode_nodes = mode.map(|x| mode_nodes(&x, &columns, &groups)).unwrap_or_default();
     let verdict = if kappa * anisotropy <= RESOLVABLE { Verdict::Stable } else { Verdict::Singular };
     if verdict == Verdict::Stable {
-        let coupled = coupled_free(k, &free, &own, &columns, &groups, kappa);
+        let coupled = coupled_free(k, &free, &own, &columns, &groups, &group_of, kappa);
         if !coupled.is_empty() {
             return Stability { verdict: Verdict::Singular, reason: Reason::CoupledSoftDirection, kappa, anisotropy, free, mode_nodes: coupled };
         }
@@ -240,47 +240,85 @@ fn non_finite() -> Stability {
     Stability { verdict: Verdict::Singular, reason: Reason::NonFinite, kappa: f64::NAN, anisotropy: f64::NAN, free: Vec::new(), mode_nodes: Vec::new() }
 }
 
-fn coupled_free(k: &CscMatrix, free: &[FreeDirection], own: &[(f64, f64, usize)], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)], kappa: f64) -> Vec<usize> {
-    let mut by_group: BTreeMap<(usize, DofKind), Vec<(&FreeDirection, (f64, f64, usize))>> = BTreeMap::new();
-    for (f, &o) in free.iter().zip(own) {
-        if f.kind != DofKind::Translation { by_group.entry((f.node, f.kind)).or_default().push((f, o)); }
+fn coupled_free(k: &CscMatrix, free: &[FreeDirection], own: &[(f64, f64, usize)], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], kappa: f64) -> Vec<usize> {
+    let dropped: Vec<usize> = (0..free.len()).filter(|&j| free[j].kind != DofKind::Translation).collect();
+    let mut columns_of: Vec<Vec<usize>> = vec![Vec::new(); groups.len()];
+    for (c, col) in columns.iter().enumerate() { columns_of[col.group].push(c); }
+    let mut dropped_of: Vec<Vec<usize>> = vec![Vec::new(); groups.len()];
+    for (r, &j) in dropped.iter().enumerate() { dropped_of[group_of[free[j].dofs[0]].0].push(r); }
+    let mut refused = Vec::new();
+    let mut joint = Vec::new();
+    let mut coupling: Vec<BTreeMap<usize, f64>> = Vec::new();
+    let mut cross: Vec<BTreeMap<usize, f64>> = Vec::new();
+    for &j in &dropped {
+        let f = &free[j];
+        let g = group_of[f.dofs[0]].0;
+        let mut u = vec![0.0; k.n];
+        for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v; }
+        let ku = k.sym_mat_vec(&u);
+        let (mut c, mut x) = (BTreeMap::new(), BTreeMap::new());
+        let mut outside = false;
+        for (d, &val) in ku.iter().enumerate() {
+            let (h, l) = group_of[d];
+            if val == 0.0 || h == g { continue; }
+            outside = true;
+            for &col in &columns_of[h] { *c.entry(col).or_insert(0.0) += columns[col].w[l] * val; }
+            for &r in &dropped_of[h] { *x.entry(r).or_insert(0.0) += free[dropped[r]].direction[l] * val; }
+        }
+        let (mu, top, b) = own[j];
+        if !outside { continue; }
+        if mu <= ROUNDING * b as f64 * f64::EPSILON * top {
+            refused.push(f.node);
+            continue;
+        }
+        joint.push(j);
+        coupling.push(c);
+        cross.push(x);
     }
-    let mut out = Vec::new();
-    for ((node, _), dirs) in by_group {
-        let mut resolved = Vec::new();
-        let mut unresolved = Vec::new();
-        let mut floor = 0.0f64;
-        for (f, (mu, top, b)) in dirs {
-            let mut u = vec![0.0; k.n];
-            for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v; }
-            let ku = k.sym_mat_vec(&u);
-            let c: Vec<f64> = columns.iter().map(|col| groups[col.group].1.iter().enumerate().map(|(l, &d)| col.w[l] * ku[d]).sum::<f64>()).collect();
-            let rounding = ROUNDING * b as f64 * f64::EPSILON * top;
-            floor = floor.max(ROUNDING * b as f64 * f64::EPSILON * top.sqrt());
-            if mu > rounding {
-                let s = mu.sqrt();
-                resolved.push(c.into_iter().map(|x| x / s).collect::<Vec<f64>>());
-            } else {
-                unresolved.push(c);
+    if !refused.is_empty() || joint.is_empty() {
+        refused.sort_unstable();
+        refused.dedup();
+        return refused;
+    }
+    let mut nodes: Vec<usize> = joint.iter().map(|&j| free[j].node).collect();
+    nodes.sort_unstable();
+    nodes.dedup();
+    let m = joint.len();
+    if m > DENSE_SPECTRUM { return nodes; }
+    let position: BTreeMap<usize, usize> = joint.iter().enumerate().map(|(p, &j)| (dropped.iter().position(|&d| d == j).unwrap(), p)).collect();
+    let root: Vec<f64> = joint.iter().map(|&j| own[j].0.sqrt()).collect();
+    let mut kdd = vec![0.0; m * m];
+    for p in 0..m {
+        kdd[p * m + p] = 1.0;
+        for (&r, &val) in &cross[p] {
+            match position.get(&r) {
+                Some(&q) => kdd[p * m + q] = val / (root[p] * root[q]),
+                None => return nodes,
             }
         }
-        let sigma = largest_singular(&resolved);
-        let stray = largest_singular(&unresolved);
-        if !sigma.is_finite() || !stray.is_finite() || sigma * sigma * kappa > COUPLED || stray > floor { out.push(node); }
     }
-    out.dedup();
-    out
-}
-
-fn largest_singular(columns: &[Vec<f64>]) -> f64 {
-    let scale = columns.iter().flatten().fold(0.0f64, |m, x| m.max(x.abs()));
-    if scale == 0.0 || !scale.is_finite() { return if scale == 0.0 { 0.0 } else { f64::INFINITY }; }
-    let n = columns.len();
-    let mut gram = vec![0.0; n * n];
-    for a in 0..n {
-        for b in 0..n { gram[a * n + b] = columns[a].iter().zip(&columns[b]).map(|(x, y)| (x / scale) * (y / scale)).sum(); }
+    for p in 0..m {
+        for q in (p + 1)..m {
+            let v = 0.5 * (kdd[p * m + q] + kdd[q * m + p]);
+            kdd[p * m + q] = v;
+            kdd[q * m + p] = v;
+        }
     }
-    sym_eigen_small(&gram, n).0.last().copied().unwrap_or(0.0).max(0.0).sqrt() * scale
+    let (lambda, q) = sym_eigen_small(&kdd, m);
+    let mut condensed = 0.0f64;
+    for (i, &l) in lambda.iter().enumerate() {
+        let mut y: BTreeMap<usize, f64> = BTreeMap::new();
+        for p in 0..m {
+            let w = q[p * m + i] / root[p];
+            for (&col, &val) in &coupling[p] { *y.entry(col).or_insert(0.0) += w * val; }
+        }
+        let scale = y.values().fold(0.0f64, |a, v| a.max(v.abs()));
+        if scale == 0.0 { continue; }
+        if l <= 0.0 { return nodes; }
+        let t = y.values().map(|v| (v / scale) * (v / scale)).sum::<f64>();
+        condensed += t * (scale / l.sqrt()) * (scale / l.sqrt());
+    }
+    if !condensed.is_finite() || condensed * kappa > COUPLED { nodes } else { Vec::new() }
 }
 
 pub const SWING: f64 = 1e-8;
