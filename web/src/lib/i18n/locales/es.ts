@@ -1340,7 +1340,7 @@ const es: Record<string, string> = {
   'status.selection': 'Selección',
   'status.grid': 'Grilla',
   'whatsNew.title': "Stabileo {version}: tus resultados pueden haber cambiado",
-  'whatsNew.body': "Esta versión corrige errores del solver, de las combinaciones de carga y de las verificaciones, y varias correcciones cambian resultados: la carga permanente por defecto (mínimo de tabiques del CIRSOC 101), el pandeo lateral-torsional (carga sobre el ala superior por defecto), la tracción CIRSOC 301 (necesita la unión extrema; si no, queda sin evaluar), las resistencias CIRSOC 201 y ACI 318, y más. Algunos modelos ahora se rechazan o se señalan en lugar de resolverse en silencio. Volvé a calcular tus proyectos y revisá sus verificaciones antes de usar resultados anteriores.",
+  'whatsNew.body': "Esta versión corrige resultados incorrectos en las verificaciones de diseño (columnas CIRSOC 201 en 3D, flexión EN 1992, compresión CIRSOC 301, columnas de hormigón armado con su menor compresión), el generador de cargas, el pandeo, los análisis armónico y en el tiempo, el paso de 3D a 2D y las tensiones combinadas de cáscaras, cada uno con su aviso de seguridad (SA-2026-025 a 047). Algunos modelos ahora se rechazan o se señalan en lugar de resolverse en silencio, y el colapso plástico 2D queda rechazado hasta que llegue su corrección. Volvé a calcular tus proyectos y revisá sus verificaciones antes de usar resultados anteriores.",
   'whatsNew.read': "Ver qué cambió",
   'whatsNew.dismiss': "Entendido",
   'whatsNew.notesLink': "Notas de la versión: qué cambió",

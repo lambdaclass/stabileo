@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | Medium |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#760](https://github.com/lambdaclass/stabileo/issues/760) |
-| Fix | PR [#1247](https://github.com/lambdaclass/stabileo/pull/1247) |
+| Fix | PR [#1247](https://github.com/lambdaclass/stabileo/pull/1247) (merged through [#1285](https://github.com/lambdaclass/stabileo/pull/1285), 2026-11-03), released in v0.5.0 |
 | Affected versions | every release with linear time history on a singular mass matrix; not bisected |
 | Re-check registry | entry `time-history-massless-start` (models run in time history) |
 
@@ -22,7 +22,7 @@ reported accelerations near such nodes in any history and, with damping, the res
 follows. Any time history, ground motion included, can also now refuse with `TH-MASS-SINGULAR` or
 `TH-MASSLESS-MECHANISM` where it used to give numbers (see "Fixed in"), and a damped history whose
 Rayleigh fit met an infinite eigenvalue, which used to come back not finite, now returns numbers
-(the damping fix of PR #1239, under this PR). The re-check registry flags every saved model with a
+(the damping fix of PR #1239, included in PR #1247). The re-check registry flags every saved model with a
 time history.
 
 ## What was wrong
@@ -65,6 +65,8 @@ force's direction (its members have zero density and it has no nodal mass). Re-r
 response near that node changes, most in the first steps.
 
 ## Fixed in
+
+0.5.0.
 
 PR #1247. At t = 0 the massless rows Z are met by K_ZZ·(u_Z + a1·v_Z) = r_Z: with damping
 (C_ZZ = a1·K_ZZ on those rows) the load at t = 0 makes their velocity jump and u_Z(0) stays as

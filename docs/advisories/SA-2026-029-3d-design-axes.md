@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | Critical (CIRSOC 201 columns in the app); Medium (engine/WASM 3D design bridges, API only) |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#532](https://github.com/lambdaclass/stabileo/issues/532) |
-| Fix | PR [#1233](https://github.com/lambdaclass/stabileo/pull/1233) (not yet merged) |
+| Fix | PR [#1233](https://github.com/lambdaclass/stabileo/pull/1233) (merged 2026-11-03), released in v0.5.0 |
 | Affected versions | App column check: the `MuMax = MzMax` column branch of `auto-verify.ts` is in its current form since 2026-06-09 (62dd3798b), not bisected by running. Engine: `extract_rc_demands_3d` and the steel 3D extraction since 2026-03-16 (08475eb73), `certify_steel_multi_case_3d` since 2026-10-15 (64e15063d). `main` until the fix |
 | Re-check registry | `cirsoc201-column-design-axes` in web/src/lib/provenance/result-changes.json |
 
@@ -58,6 +58,8 @@ capacity was not caught. Engine: you called one of the
 functions above with 3D results.
 
 ## Fixed in
+
+0.5.0.
 
 PR #1233. Every design check reads 3D forces through one mapping, `AxisDemand`
 (`engine/src/postprocess/design_axes.rs`): strong axis = `My` with `Vz`, weak axis = `Mz` with

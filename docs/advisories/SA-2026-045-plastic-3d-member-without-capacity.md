@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#1525](https://github.com/lambdaclass/stabileo/issues/1525) |
-| Fix | #1526 |
+| Fix | PR [#1526](https://github.com/lambdaclass/stabileo/pull/1526) (merged 2026-11-06), released in v0.5.0 |
 | Affected versions | every release with the 3D plastic solver (`solve_plastic_3d`); not bisected |
 | Re-check registry | results version entry `plastic-3d-member-without-capacity-refused` |
 
@@ -48,6 +48,8 @@ non-finite Mp override; in the app, a pushover of a model with a section whose p
 one axis is zero.
 
 ## Fixed in
+
+0.5.0.
 
 The 3D plastic solve, its certificate and its bundle now refuse a frame member without a finite,
 positive plastic moment about both axes, before any hinge is searched for. The refusal is a

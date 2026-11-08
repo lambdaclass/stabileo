@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#1371](https://github.com/lambdaclass/stabileo/issues/1371) |
-| Fix | #1423 |
+| Fix | PR [#1423](https://github.com/lambdaclass/stabileo/pull/1423) (merged 2026-11-05), released in v0.5.0 |
 | Affected versions | every release with the modal-superposition harmonic solver and its static correction; not bisected |
 | Re-check registry | results version entry `harmonic-modal-residual-checked` |
 
@@ -45,6 +45,8 @@ Other models are affected by the same mechanism to a lesser degree, whenever the
 nearly all of the static response at the response DOF.
 
 ## Fixed in
+
+0.5.0.
 
 The omitted modes' correction is now computed directly in their subspace: the load and each static
 solution are projected off the kept modes (M-orthogonally) before and after the solve, so nothing

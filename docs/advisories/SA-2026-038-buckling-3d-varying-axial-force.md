@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#456](https://github.com/lambdaclass/stabileo/issues/456) |
-| Fix | #1309; contained earlier by the BU-SPAN-COMPRESSION warning in #807 |
+| Fix | PR [#1309](https://github.com/lambdaclass/stabileo/pull/1309) (merged 2026-11-06), released in v0.5.0; contained earlier by the BU-SPAN-COMPRESSION warning in [#807](https://github.com/lambdaclass/stabileo/pull/807) |
 | Affected versions | every release with 3D buckling and axial span loads; not bisected |
 | Re-check registry | results version entry `buckling-3d-varying-axial-force` |
 
@@ -47,6 +47,8 @@ governs. Models with no load along any member's axis keep their factors; their p
 now reads each member's mean axial force from its elongation.
 
 ## Fixed in
+
+0.5.0.
 
 The geometric stiffness of each member now integrates its whole axial force, ∫N(x)·φ'ᵢ·φ'ⱼ dx,
 in both bending planes and in the Wagner and shear-centre terms, as 2D buckling does since

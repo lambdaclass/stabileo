@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#1316](https://github.com/lambdaclass/stabileo/issues/1316) |
-| Fix | #1321 |
+| Fix | PR [#1321](https://github.com/lambdaclass/stabileo/pull/1321) (merged 2026-11-05), released in v0.5.0 |
 | Affected versions | every release with the station-based CIRSOC 201 column check; not bisected |
 | Re-check registry | `rc-column-least-compression` |
 
@@ -34,6 +34,8 @@ You used the CIRSOC 201 verification of RC columns whose largest moment comes fr
 with less compression than the most compressed one (wind or seismic with gravity, 0.9D cases).
 
 ## Fixed in
+
+0.5.0.
 
 The demands carry the least compression any station of any combination puts on the member, and
 the column and biaxial checks run under it as well as under the largest compression and any
