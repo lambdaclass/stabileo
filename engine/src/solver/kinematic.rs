@@ -473,8 +473,19 @@ fn fast_solvable_2d(
 
 /// Count support restraints for 3D.
 fn count_support_restraints_3d(sup: &SolverSupport3D) -> (i32, bool) {
-    let held = support_dofs_3d(sup).map(|d| d.restrained || d.spring.is_some_and(|k| k > 0.0));
-    (held[..6].iter().filter(|&&h| h).count() as i32, held[3..6].iter().any(|&h| h))
+    let dofs = support_dofs_3d(sup);
+    let held = dofs.map(|d| d.restrained || d.spring.is_some_and(|k| k > 0.0));
+    let translations = if sup.is_inclined.unwrap_or(false) {
+        let springs: [bool; 3] = std::array::from_fn(|i| dofs[i].spring.is_some_and(|k| k > 0.0));
+        let normal = [sup.normal_x, sup.normal_y, sup.normal_z];
+        let normal_is_independent = normal.iter().zip(springs)
+            .any(|(component, spring)| !spring && component.is_some_and(|v| v != 0.0));
+        springs.iter().filter(|&&spring| spring).count() as i32 + i32::from(normal_is_independent)
+    } else {
+        held[..3].iter().filter(|&&h| h).count() as i32
+    };
+    let rotations = held[3..6].iter().filter(|&&h| h).count() as i32;
+    (translations + rotations, rotations > 0)
 }
 
 /// Compute static degree for 3D.

@@ -213,7 +213,6 @@ fn test_3d_cantilever_isostatic() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_inclined_z_normal_and_global_x_spring_are_independent_restraints() {
     let mut input = make_3d_input(
         vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
@@ -248,7 +247,6 @@ fn issue_1780_inclined_z_normal_and_global_x_spring_are_independent_restraints()
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_inclined_restraint_count_matches_global_direction_rank() {
     fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
         [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
