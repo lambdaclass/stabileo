@@ -5,6 +5,7 @@ import { crackControlMaxSpacing } from '../codes/cirsoc201/crack-control';
 import { proposeSkin } from '../codes/cirsoc201/skin';
 import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
+import { beamSeismic } from './seismic';
 import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode } from './types';
 
 const EDITION = '2025' as const;
@@ -56,6 +57,8 @@ export interface BeamContext {
   stirrupDia: number;
   diameters: readonly number[];
   torsion: TorsionMode;
+  /** Special moment frame provisions (chapter 18). */
+  seismic?: boolean;
 }
 
 export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn: number; mu: number; epsT: number; epsTMin: number; d: number; ok: boolean; ductile: boolean }
@@ -222,6 +225,20 @@ function improve(a: BeamAdopted, e: Evaluation, d: BeamDemand, c: BeamContext, p
   return next;
 }
 
+function improveSeismic(a: BeamAdopted, s: NonNullable<ReturnType<typeof beamSeismic>>, d: BeamDemand, c: BeamContext): BeamAdopted {
+  const next: BeamAdopted = JSON.parse(JSON.stringify(a));
+  const bad = (label: string) => s.checks.some((k) => k.label === label && !k.ok);
+  if (bad('rcSheets.v.seisBeamHoops') || bad('rcSheets.v.seisBeamVe')) {
+    const target = roundDown(Math.max(0.05, Math.min(next.stirrups.spacing - 0.025, s.sZone)));
+    if (target >= 0.05 && target < next.stirrups.spacing - 1e-9) next.stirrups.spacing = target;
+    else if (next.stirrups.dia < 12) next.stirrups = { ...next.stirrups, dia: next.stirrups.dia + 2 };
+    else next.stirrups.legs += 2;
+  }
+  if (bad('rcSheets.v.seisBeamHalf') || bad('rcSheets.v.seisBeamQuarter')) next.bottom = bumpFace(next.bottom, d, c, next.stirrups.dia);
+  if (bad('rcSheets.v.seisBeamQuarter') && groupsArea(next.top) < groupsArea(next.bottom)) next.top = bumpFace(next.top, d, c, next.stirrups.dia);
+  return next;
+}
+
 export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | undefined, fmt: Fmt): BeamRow {
   const p = paramsOf(d, c);
   const fc = c.mat.fc, fy = c.mat.fy;
@@ -262,15 +279,21 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
     stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), [6, 8, 10, 12], c.stirrupDia),
     ...(tor.neglect ? {} : { torsionLong: { count: Math.max(4, 2 * Math.ceil(ph / 0.3 / 2)), dia: 10 } }),
   };
+  const seisOf = (x: BeamAdopted) => (c.seismic ? beamSeismic(d, c, x, (sec) => barsAt(x, sec), fmt) : null);
   let proposed = initial, iterations = 0;
   let ev = evaluate(d, c, proposed, req);
-  while (!ev.all && iterations < MAX_ITERATIONS) {
+  let seis = seisOf(proposed);
+  const holds = () => ev.all && (!seis || seis.checks.every((k) => k.ok));
+  while (!holds() && iterations < MAX_ITERATIONS) {
     iterations++;
     proposed = improve(proposed, ev, d, c, ph);
+    if (seis) proposed = improveSeismic(proposed, seis, d, c);
     ev = evaluate(d, c, proposed, req);
+    seis = seisOf(proposed);
   }
   const a = adopted ?? proposed;
   const e = adopted ? evaluate(d, c, a, req) : ev;
+  const seisA = adopted ? seisOf(a) : seis;
   const generous = groupsArea(a.bottom) > 1.2 * bottomReq + 1e-6 || (topReq > 0 && groupsArea(a.top) > 1.2 * topReq + 1e-6);
 
   const f2 = (v: number) => fmt(v);
@@ -295,6 +318,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
       check('rcSheets.v.torsionSection', e.ok.torsionSection, { clause: '§22.7.7.1' }),
     ]),
     ...(skin ? [check('rcSheets.v.skin', true, { clause: '§9.7.2.3', capacity: `Ø${skin.diameter} c/${fmt(skin.spacing * 100, 1)} cm` })] : []),
+    ...(seisA?.checks ?? []),
   ];
   const allOk = verifications.every((v) => v.ok);
 
@@ -304,6 +328,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
     ...(topReq > 0 ? [flexureSteps('rcSheets.g.flexTop', d, c, gNeg.r, gNeg.env, gNeg.n, `rcSheets.sec.${gNeg.s}`, a.top, e.flex.filter((x) => x.sign === 'neg'), fmt)] : []),
     shearSteps(d, c, shear, e.shear, a.stirrups, sMax, fmt),
     torsionSteps(d, tor0, tor, tuDesign, e, alReq, alMin, a, fmt),
+    ...(seisA ? [{ title: 'rcSheets.g.seismic', steps: seisA.steps }] : []),
     {
       title: 'rcSheets.g.proposal',
       steps: [

@@ -6,6 +6,7 @@ import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
 import { minClearSpacingColumn } from '../codes/cirsoc201/spacing';
 import { barArea, roundDown } from './bars';
 import { deriveDevelopment } from '../codes/cirsoc201/anchorage';
+import { columnSeismic } from './seismic';
 import type { Fmt } from './format';
 import { check, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup } from './types';
 
@@ -32,6 +33,7 @@ export interface ColumnDemand {
   length: number; lu: number;
   psiTop: number; psiBot: number;
   cases: ColumnCase[];
+  nodes?: { bottom: number; top: number };
 }
 
 export interface ColumnContext {
@@ -39,6 +41,7 @@ export interface ColumnContext {
   cover: number;
   tieDia: number;
   diameters: readonly number[];
+  seismic?: boolean;
 }
 
 interface AxisResult { klr: number; lim: number; slender: boolean; m1: number; m2: number; delta: number; mc: number; k: number }
@@ -213,7 +216,21 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     }
   }
 
-  const { layout: proposed, iterations } = proposeColumn(d, c, ast, dias, all, stack.pattern);
+  const first = proposeColumn(d, c, ast, dias, all, stack.pattern);
+  let proposed = first.layout, iterations = first.iterations;
+  if (c.seismic) {
+    for (let guard = 0; guard < 12; guard++) {
+      const ct0 = { x: crossties(d.b, proposed.nx, proposed.dx, proposed.corner, c, proposed.tieDia), y: crossties(d.h, proposed.ny, proposed.dy, proposed.corner, c, proposed.tieDia) };
+      const s0 = columnSeismic(d, c, proposed, columnBars(d, proposed, c), ct0, fmt);
+      const bad = (l: string) => s0.checks.some((k) => k.label === l && !k.ok);
+      if (!bad('rcSheets.v.seisColSo') && !bad('rcSheets.v.seisColAsh') && !bad('rcSheets.v.seisColVe')) break;
+      iterations++;
+      if (proposed.tieSpacing > s0.so + 1e-6) proposed = { ...proposed, tieSpacing: roundDown(s0.so) };
+      else if (proposed.tieDia < 12) proposed = { ...proposed, tieDia: proposed.tieDia + 2 };
+      else if (proposed.tieSpacing > 0.075 + 1e-9) proposed = { ...proposed, tieSpacing: roundDown(proposed.tieSpacing - 0.025) };
+      else break;
+    }
+  }
   const a = adopted ?? proposed;
   const perTuple = withSection({ kind: 'rect', b: d.b, h: d.h }, columnBars(d, a, c), { fc: c.mat.fc, fy: c.mat.fy, edition: EDITION }, (s) =>
     results.map((r) => r.tuples.reduce((w, q) => Math.max(w, s.biaxialFast(q.pu, q.mx, q.my).ratio), 0)));
@@ -233,6 +250,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
   const generous = area > 1.2 * ast + 1e-6 && ast > lo0 + 1e-6;
   const splice = columnSplice(c, longest, d.cases.some((cs) => (cs.puMin ?? cs.pu) < 0.1 * c.mat.fc * 1000 * Ag));
+  const seis = c.seismic ? columnSeismic(d, c, a, columnBars(d, a, c), ct, fmt) : null;
 
   const verifications: CheckLine[] = [
     check('rcSheets.v.biaxial', ratio <= 1 + 1e-6, { clause: '§22.4, §22.2', demand: gov?.c.combo ?? '', capacity: '', ratio }),
@@ -247,6 +265,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     check('rcSheets.v.crossties', true, { clause: '§25.7.2.3', capacity: `${ct.x} (b) · ${ct.y} (h)` }),
     ...(stack.fromBelow ? [check(splice.tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC', true, { clause: splice.tension ? '§25.5.2' : '§25.5.5.1', capacity: `${fmt(splice.length * 100, 0)} cm (Ø${longest})` })] : []),
     ...((stack.offset ?? 0) > 0.075 + 1e-6 ? [check('rcSheets.v.colOffset', true, { clause: '§10.7.4.1', demand: `${fmt((stack.offset ?? 0) * 100, 1)} cm`, capacity: '> 7.5 cm' })] : []),
+    ...(seis?.checks ?? []),
   ];
   const ok = verifications.every((v) => v.ok) && !impossible;
 
@@ -292,9 +311,10 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
         { label: 'rcSheets.s.colShear', formula: 'φVn = φ·(Vc(Nu) + Av·fyt·d/s)', value: `${fmt(Math.max(shearX, shearY), 3)}`, ok: shearX <= 1 + 1e-6 && shearY <= 1 + 1e-6 },
       ],
     },
+    ...(seis ? [{ title: 'rcSheets.g.seismic', steps: seis.steps }] : []),
     {
       title: 'rcSheets.g.proposal',
-      steps: [adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ → barras → (Pu, Mx, My) ≤ φ; V ≤ φVn', value: String(iterations) }],
+      steps: [adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ → bars → (Pu, Mx, My) ≤ φ; V ≤ φVn', value: String(iterations) }],
     },
   ];
 

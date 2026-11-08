@@ -2,8 +2,9 @@ import { test, expect, loadModel, solveModel } from './fixtures';
 
 /**
  * Reinforcement by sheets on the seven-storey concrete example: solved, its physical members
- * recognised, every family has rows, a beam's bars adopted short fail and the row says why in its
- * step by step, and going back to the proposal makes it verify again.
+ * recognised (walls meshed by a second solve), every family has rows, a continuous beam's run
+ * adopted short fails and says why, going back to the proposal makes it verify again, and a span
+ * opens into its checks by combination.
  */
 test.use({ appLocale: 'es' });
 
@@ -16,11 +17,12 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(page.getByTestId('rc-sheets-panel')).toBeVisible();
   await page.getByTestId('rc-recognize').click();
 
-  await expect(page.getByTestId('rc-open-beam')).toBeEnabled();
+  await expect(page.getByTestId('rc-open-beam')).toBeEnabled({ timeout: 60_000 });
   await expect(page.getByTestId('rc-open-column')).toBeEnabled();
   await expect(page.getByTestId('rc-open-slab')).toBeEnabled();
-
+  await expect(page.getByTestId('rc-open-wall')).toBeEnabled();
   await expect(page.getByTestId('rc-panel-code')).toContainText('CIRSOC 201-2025');
+
   await page.getByTestId('rc-open-beam').click();
   const ws = page.getByTestId('rc-sheets-workspace');
   await expect(ws).toBeVisible();
@@ -29,18 +31,20 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(first).toContainText('Verifica');
 
   await first.click();
-  await expect(ws.getByTestId('rc-checks')).toContainText('Flexión positiva en el tramo');
-  await ws.locator('summary', { hasText: 'Por combinación' }).click();
-  await expect(ws.getByTestId('rc-combos')).toBeVisible();
-  const editor = ws.getByTestId('rc-editor');
-  await editor.getByRole('spinbutton', { name: 'Cantidad' }).first().fill('1');
-  await editor.getByRole('spinbutton', { name: 'Cantidad' }).first().press('Tab');
+  await expect(ws.getByTestId('rc-line-svg')).toBeVisible();
+  await expect(ws.getByTestId('rc-schedule')).toBeVisible();
+  const editor = ws.getByTestId('rc-line-editor');
+  await editor.getByRole('spinbutton', { name: 'Cantidad' }).first().fill('2');
+  await editor.getByRole('combobox', { name: 'Diámetro' }).first().selectOption('10');
   await expect(ws.getByTestId('rc-row').first()).toContainText('No verifica');
-  await expect(ws.getByTestId('rc-steps')).toContainText('✗');
+  await expect(ws.getByTestId('rc-checks').first()).toContainText('✗');
 
   await editor.getByRole('button', { name: 'Volver a la propuesta' }).click();
-  await expect(ws.getByTestId('rc-row').first()).toContainText('Verifica');
   await expect(ws.getByTestId('rc-row').first()).not.toContainText('No verifica');
+
+  await ws.getByTestId('rc-span-toggle').first().click();
+  await ws.locator('summary', { hasText: 'Por combinación' }).first().click();
+  await expect(ws.getByTestId('rc-combos').first()).toBeVisible();
 
   await ws.getByTestId('rc-tab-column').click();
   await expect(ws.getByTestId('rc-table-column')).toBeVisible();
@@ -48,4 +52,5 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(ws.getByTestId('rc-table-slab')).toBeVisible();
   await ws.getByTestId('rc-tab-wall').click();
   await expect(ws.getByTestId('rc-table-wall')).toBeVisible();
+  await expect(ws.getByTestId('rc-table-wall')).not.toContainText('No verifica');
 });

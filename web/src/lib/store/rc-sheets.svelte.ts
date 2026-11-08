@@ -5,6 +5,7 @@ import { designData, patchOwnDesignData } from './design-data';
 import { designComboIds, narrowPerCombo } from '../engine/result-scopes';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
+import { jointChecks } from '../rc-sheets/joints';
 import { concreteFc } from '../model/design-data';
 import { beamDemands, columnDemands, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { punchingRow, type PunchingRow } from '../rc-sheets/punching-row';
@@ -63,7 +64,7 @@ export function setTorsionMode(torsion: TorsionMode): void {
   save({ ...rcSheetsData(), torsion });
 }
 
-export function setRcOption(option: 'faces' | 'flange', on: boolean): void {
+export function setRcOption(option: 'faces' | 'flange' | 'seismic', on: boolean): void {
   const d = { ...rcSheetsData() };
   if (on) d[option] = true; else delete d[option];
   save(d);
@@ -182,7 +183,7 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   const groupOf = (k: string) => groupsById.get(Number(k.split(':')[1]));
   const fy = dd.rebarFy;
   const dec = fmt(1.5, 1);
-  const beamCtx = (d: (typeof dem.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion });
+  const beamCtx = (d: (typeof dem.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.beam, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, torsion: data.torsion, seismic: data.seismic === true });
   const proposals = dem.beams.map((d) => { const ctx = beamCtx(d); return cached(d, [ctx, undefined, dec, 'proposal'], () => beamRow(d, ctx, undefined, fmt)); });
   const byLine = new Map<number, BeamRow[]>();
   for (const r of proposals) { const g = r.demand.line?.group ?? -1; byLine.set(g, [...(byLine.get(g) ?? []), r]); }
@@ -200,13 +201,22 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   const beam = dem.beams.map((d) => {
     const ctx = beamCtx(d);
     const own = data.adopted[d.key] as BeamAdopted | undefined;
-    const a = own ?? derived.get(d.key);
-    const row = cached(d, [ctx, a, dec], () => beamRow(d, ctx, a, fmt));
+    let a = own ?? derived.get(d.key);
+    let row = cached(d, [ctx, a, dec], () => beamRow(d, ctx, a, fmt));
+    const lineAdopted = !!data.adopted[`line:${d.line?.group}`];
+    for (let guard = 0; ctx.seismic && !own && !lineAdopted && a && guard < 8; guard++) {
+      const bad = row.verifications.some((v) => (v.label === 'rcSheets.v.seisBeamVe' || v.label === 'rcSheets.v.seisBeamHoops') && !v.ok);
+      if (!bad || a.stirrups.spacing <= 0.05 + 1e-9) break;
+      a = { ...a, stirrups: { ...a.stirrups, spacing: Math.max(0.05, Math.round((a.stirrups.spacing - 0.025) * 40) / 40) } };
+      const tight = a;
+      row = cached(d, [ctx, tight, dec], () => beamRow(d, ctx, tight, fmt));
+      derived.set(d.key, tight);
+    }
     return own ? row : { ...row, isAdopted: !!data.adopted[`line:${d.line?.group}`], proposed: derived.get(d.key) ?? row.proposed };
   });
   const below = new Map<number, ColumnRow>();
   const column = dem.columns.map((d) => {
-    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm };
+    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, seismic: data.seismic === true };
     const a = data.adopted[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
@@ -234,8 +244,9 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
     const ctx = { fc: fcOfElement(d.joint.columnElementId), fy, cover: dd.covers.slab, topBarDia: 12 };
     return cached(d, [ctx, dec], () => punchingRow(d, ctx, fmt));
   });
+  const columnsFinal = data.seismic ? jointChecks(column, beam, modelStore.nodes, fmt, { fc: (r) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam }) : column;
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  return { beam: sort(beam), line: sort(line), column: sort(column), slab: sort(slab), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
+  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), wall: sort(wall), punching: sort(punching), code: codeName, basis, combos: sets.length };
 }
 
 export const familyRows = (rows: SheetRows, f: SheetFamily): SheetRow[] => rows[f];

@@ -290,6 +290,25 @@ describe('reinforcement sheets from a solved model', () => {
     expect(p.verifications[0]!.label).toBe('rcSheets.v.punching');
   });
 
+  it('checks strong column–weak beam and joint shear where a column continues above a floor, with the seismic option', () => {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);
+    const bm = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.3 * 0.6 ** 3 / 12, iz: 0.6 * 0.3 ** 3 / 12, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const n = [0, 3, 6].map((z) => [0, 5].map((x) => modelStore.addNode(x, 0, z)));
+    for (const k of [0, 1]) for (const lvl of [0, 1]) { const e = modelStore.addElement(n[lvl]![k]!, n[lvl + 1]![k]!, 'frame'); modelStore.updateElementSection(e, col); modelStore.updateElementMaterial(e, conc); }
+    for (const lvl of [1, 2]) { const e = modelStore.addElement(n[lvl]![0]!, n[lvl]![1]!, 'frame'); modelStore.updateElementSection(e, bm); modelStore.updateElementMaterial(e, conc); modelStore.addDistributedLoad3D(e, 0, 0, -30, -30, undefined, undefined, D); }
+    for (const k of [0, 1]) modelStore.addSupport(n[0]![k]!, 'fixed3d');
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    solve();
+    setRcOption('seismic', true);
+    const rows = buildSheetRows();
+    const lower = rows.column.filter((r) => r.verifications.some((v) => v.label === 'rcSheets.v.seisScwb'));
+    expect(lower.length).toBe(2);
+    expect(lower[0]!.verifications.some((v) => v.label === 'rcSheets.v.seisJoint')).toBe(true);
+    expect(rows.beam.every((r) => r.verifications.some((v) => v.label === 'rcSheets.v.seisBeamVe'))).toBe(true);
+  });
+
   it('says there is nothing to design before a solve', () => {
     frame(); recognizePhysicalElements();
     expect(buildSheetRows().basis).toBe('none');

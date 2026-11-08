@@ -51,6 +51,8 @@ export interface RcSheetsData {
   faces?: boolean;
   /** Beams with the slab as a compression flange. */
   flange?: boolean;
+  /** Special moment frame provisions (chapter 18). */
+  seismic?: boolean;
   /** Adopted bars by row key. */
   adopted: Record<string, Adopted>;
 }

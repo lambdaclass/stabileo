@@ -100,6 +100,23 @@ describe('beam row', () => {
   });
 });
 
+describe('seismic provisions', () => {
+  it('a beam proposal meets chapter 18: capacity shear, hoops in 2h, the half and quarter rules', () => {
+    const combos = [{ combo: 'U2', mStart: -309, mSpan: 216, mEnd: -100, mPos: 216, mNeg: 309, nStart: 0, nSpan: 0, nEnd: 0, v: 160, nV: 0, t: 5 }];
+    const r = beamRow({ ...v0001, combos, tu: { value: 5 } }, { ...beamCtx, seismic: true }, undefined, f);
+    const labels = r.verifications.map((v) => v.label);
+    expect(labels).toEqual(expect.arrayContaining(['rcSheets.v.seisBeamVe', 'rcSheets.v.seisBeamHoops', 'rcSheets.v.seisBeamHalf', 'rcSheets.v.seisBeamQuarter']));
+    expect(r.verifications.filter((v) => v.label.startsWith('rcSheets.v.seis')).every((v) => v.ok)).toBe(true);
+    expect(r.adopted.stirrups.spacing).toBeLessThanOrEqual(Math.min(0.759 / 4, 0.15) + 1e-9);
+  });
+
+  it('a column proposal meets chapter 18: confinement spacing and Ash', () => {
+    const col: ColumnDemand = { key: 'column:1:0', name: 'C1', b: 0.4, h: 0.4, length: 3, lu: 2.7, psiTop: 1.5, psiBot: 0.2, cases: [{ combo: 'U', pu: 1400, mxTop: 80, mxBot: -40, myTop: 25, myBot: -10, vx: 40, vy: 12 }] };
+    const r = columnRow(col, { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [12, 16, 20, 25], seismic: true }, undefined, f);
+    for (const l of ['rcSheets.v.seisColSo', 'rcSheets.v.seisColAsh', 'rcSheets.v.seisColDim', 'rcSheets.v.seisColRho']) expect(ok(r, l)).toBe(true);
+  });
+});
+
 describe('column row', () => {
   const ctx = { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [12, 16, 20, 25, 32] };
   const base: ColumnDemand = {

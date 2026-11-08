@@ -19,7 +19,7 @@
     return solved && hasPhysical ? buildSheetRows(makeFmt(decimalFor(i18n.locale))) : null;
   });
   const torsion = $derived.by(() => { void modelStore.designData; return rcSheetsData().torsion; });
-  const options = $derived.by(() => { void modelStore.designData; const d = rcSheetsData(); return { faces: d.faces === true, flange: d.flange === true }; });
+  const options = $derived.by(() => { void modelStore.designData; const d = rcSheetsData(); return { faces: d.faces === true, flange: d.flange === true, seismic: d.seismic === true }; });
   const stat = (list: SheetRow[]) => ({ n: list.length, ok: list.filter((r) => r.status !== 'fail').length, fail: list.filter((r) => r.status === 'fail').length });
 
   function openAt(f: SheetFamily) { family = f; open = true; }
@@ -71,11 +71,12 @@
     </label>
     <label class="rcp-chk"><input type="checkbox" checked={options.faces} onchange={(e) => setRcOption('faces', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-faces" /> <span>{t('rcSheets.opt.faces')}</span></label>
     <label class="rcp-chk"><input type="checkbox" checked={options.flange} onchange={(e) => setRcOption('flange', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-flange" /> <span>{t('rcSheets.opt.flange')}</span></label>
+    <label class="rcp-chk"><input type="checkbox" checked={options.seismic} onchange={(e) => setRcOption('seismic', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-seismic" /> <span>{t('rcSheets.opt.seismic')}</span></label>
     <div class="rcp-actions">
       <button type="button" class="rcs-btn primary" onclick={() => openAt(family)} data-testid="rc-open">{t('rcSheets.open')}</button>
       <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)}>{t('rcSheets.export')}</button>
     </div>
-    <p class="rcp-note">{t('rcSheets.scopeNote')}</p>
+    <p class="rcp-note">{t(options.seismic ? 'rcSheets.scopeNoteSeismic' : 'rcSheets.scopeNote')}</p>
   {/if}
 </div>
 
