@@ -1,6 +1,6 @@
 /**
  * The containment notice on a desktop: folded to one line over the model like on a phone, the
- * full text one click on its button away.
+ * full text one click on its button away, and closed for good until it says something else.
  */
 import { test, expect } from './fixtures';
 
@@ -28,4 +28,11 @@ test('@smoke on a desktop the second-order notice is one line and opens on a cli
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   expect((await notice.boundingBox())!.height).toBeLessThan(40);
+
+  await page.getByTestId('containment-dismiss').click();
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator('.containment-banner').filter({ hasText: '#1551' })).toBeVisible();
+  await page.getByTestId('rb-cmd-solve').click();
+  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false)).toBe(true);
+  await expect(notice).toHaveCount(0);
 });

@@ -15,6 +15,7 @@
   import { verdictApproves, verdictReasons } from '../../lib/store/member-verdict';
   import { toCsv } from '../../lib/engine/result-tables';
   import { tp } from '../../lib/i18n';
+  import { containmentDismissal } from '../../lib/store/containment-dismissal.svelte';
 
   // Opening Diagnostics is itself an interaction: the user has come to look, so the chip is
   // allowed to speak from here on even if nothing else has happened yet.
@@ -110,7 +111,11 @@
   });
   /** What the list below does not already show: the analysis's own checks and the design. */
   const ownLines = $derived(postAnalysisLines({ ...postInput, diagnostics: [] }, tp as never));
-  const extraAnalysis = $derived(partLines(ownLines, 'analysis'));
+  const notice = $derived(resultsStore.knownIssues3D);
+  const extraAnalysis = $derived([
+    ...notice.messages.map((text): PostAnalysisLine => ({ part: 'analysis', severity: notice.refused ? 'error' : 'warning', text })),
+    ...partLines(ownLines, 'analysis'),
+  ]);
   const designLines = $derived(partLines(ownLines, 'design'));
   const postLines = (): PostAnalysisLine[] => postAnalysisLines({ ...postInput, diagnostics: allDiagnostics }, tp as never);
 
@@ -260,6 +265,9 @@
       {/if}
     {/snippet}
     {@render part('analysis', extraAnalysis)}
+    {#if !notice.refused && containmentDismissal.isDismissed(notice.messages)}
+      <button class="pk-btn" onclick={() => containmentDismissal.restore()} data-testid="containment-restore">{t('containment.restore')}</button>
+    {/if}
     {@render part('design', designLines)}
   </section>
 
