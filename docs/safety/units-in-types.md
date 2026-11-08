@@ -211,7 +211,7 @@ are for one engineer who has read this document.
 | 2 | 3D input boundary: material/section records at every 3D WASM export (#1711) | — | done |
 | 3 | Node coordinates and nodal/point loads at both boundaries (#1744) | — | done |
 | 4 | Distributed, thermal and support-spring inputs at both boundaries (#1752) | — | done |
-| 5 | Result DTOs: displacements, reactions, element end forces, both dimensions | medium | 2–3 days |
+| 5 | Result DTOs: displacements, reactions, element end forces, both dimensions (#1755) | — | done |
 | 6 | 3D frame kernel consumes the typed section (Iy/Iz/J/Cw, shear φ) | medium | 2–3 days |
 | 7 | Remaining 2D entry points; delete `legacy_view` | medium | 2 days |
 | 8 | Steel member checks (Rust `certify::design` and TS steel codes): mm/N/MPa clause boundary | high | 3 days |
@@ -332,6 +332,34 @@ in `types.ts`/`types-3d.ts` read by `display-units.svelte.ts`, so a display conv
 moment as a force fails to compile. Gate: the full results-snapshot corpus and
 `test.web.determinism` unchanged; the serialized result text must be byte-identical (compare
 strings, not parsed numbers, so `-0.0` is checked).
+
+Done in #1755. Rust: typed records under the legacy names in `units::wire`: `TypedDisplacement`
+(`ux`, `uz` m, `ry` rad, keeping the `uy`/`rz` aliases), `TypedReaction` (`rx`, `rz` kN, `my` kN·m),
+`TypedElementForces` (`n`/`v` kN, `m` kN·m, `length` m, `qI`/`qJ` kN/m, with `TypedPointLoadInfo` and
+`TypedDistributedLoadInfo`), `TypedDisplacement3D` (`ux…uz` m, `rx…rz` rad), `TypedReaction3D` (`fx…fz`
+kN, `mx…mz` kN·m, `bimoment` kN·m²), `TypedElementForces3D` (with `TypedPointLoadInfo3D`; bimoments
+kN·m²). `AnalysisResults<D, R, F>` / `AnalysisResults3D<D, R, F>` default to the legacy records;
+`TypedResults2D`/`TypedResults3D` are the typed instances and `into_typed()` is the one named point
+where results acquire units (a destructuring of every field, so a new field fails to compile until
+it is mapped); the `solve_2d` and `solve_3d` exports serialize its output. The legacy result records
+no longer derive `Serialize`: each serializes by converting to its typed record, so every result
+serialization (certificates, combinations, envelopes, time histories and any other wrapper) goes
+through the typed records, and the conversions destructure the legacy record without `..`. The
+warping displacement stays `f64` (its unit, rad/m, belongs with slice 6). TS: branded
+`AnalysisResultsWire`/`AnalysisResults3DWire` in `unit-types.ts` (rather than in `types.ts`, so the
+stored-model interfaces and the 75 production files that build result objects stay unchanged),
+admitted by `resultsFromWasm`/`results3DFromWasm` and returned branded by `solve`/`solve3D`; typed display readers
+`fmtTypedQ`/`toTypedQ` in `display-units.svelte.ts`, and `length`, `force`, `moment` and `bimoment`
+join the typed display quantities. Not covered: the app components still read the numeric result
+interfaces through `fmtQ`/`toQ` (moving them to `fmtTypedQ` is a follow-up, one view per PR), and the
+other WASM result exports return their own result types. Proof:
+`engine/tests/core/units_boundary_results.rs` compares, for every 2D and 3D fixture solve and every
+stored result fixture, the serialized text against `tests/core/units_legacy_results.rs`, an
+independent copy of the previous derived serializer, plus hand-built results with signed zeros,
+aliases and absent optionals, and the same error text for malformed records; 12 new `compile_fail`
+doctests (E0308) plus a positive control; 21 new `@ts-expect-error` checks (four through the public `solve`/`solve3D`); Vitest checks that the
+admission returns the same object and JSON text and that the typed display conversions give the same
+numbers.
 
 **Slice 6 — 3D frame kernel.** Thread `ElasticSection3D`/`ElasticMaterial` through
 `prepare_static_3d` into `frame_local_stiffness_3d` / `_warping` and 3D force recovery, as
