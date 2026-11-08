@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#1673](https://github.com/lambdaclass/stabileo/issues/1673) |
-| Fix | #1676 |
+| Fix | PR [#1676](https://github.com/lambdaclass/stabileo/pull/1676) (merged 2026-11-07), released in v0.5.0 |
 | Affected versions | 0.2.0, 0.3.0 and 0.4.0. stabileo.com and builds of `main` from #254 (merged 2026-10-06 15:18 UTC, commits 451670e79 and 68ac49205) until #1676 (merged 2026-11-07 15:21 UTC) |
 | Re-check registry | results version entry `combined-shell-stresses` |
 
@@ -53,6 +53,8 @@ affected when the model has shells but not the other two now (it may have had th
 solved).
 
 ## Fixed in
+
+0.5.0.
 
 [#1676](https://github.com/lambdaclass/stabileo/pull/1676): the engine sums each plate and quad
 stress component with the combination's factors and recomputes von Mises and the principal

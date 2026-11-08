@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | Medium (engine and WASM API only; any shear demand passed, and the certified check certified the member) |
-| Status | Draft |
-| Issue | — (agy review draft b2, 2026-11-02) |
-| Fix | PR [#1234](https://github.com/lambdaclass/stabileo/pull/1234) |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
+| Issue | — (internal review, 2026-11-02) |
+| Fix | PR [#1234](https://github.com/lambdaclass/stabileo/pull/1234) (merged 2026-11-03), released in v0.5.0 |
 | Affected versions | from 2026-08-05 (8c26b5c42, the G2 check) to `main` until the fix; the certified check since it covered G2 |
 | Re-check registry | not needed: the app always sends the web area |
 
@@ -34,7 +34,7 @@ that has no `aw` (or `aw` ≤ 0) and a non-zero `vy`.
 
 ## Fixed in
 
-`main` (PR #1234). The G2 ratio goes through the check ledger in both paths
+0.5.0 (PR #1234). The G2 ratio goes through the check ledger in both paths
 (`ratio_if_loaded`, `loaded_ratio`): with shear and no web area, `Shear G2` is listed in
 `unevaluated`, the governing check is marked incomplete, and the certified check refuses
 the member. Zero shear is still "not applicable". Pinned by

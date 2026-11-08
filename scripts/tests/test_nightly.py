@@ -192,16 +192,17 @@ class Models(unittest.TestCase):
                         return subprocess.CompletedProcess(cmd, 1)
                     Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [], 'verdicts': [row]}))
                     return subprocess.CompletedProcess(cmd, 0, '', '')
-                with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
+                with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--seed', '7', '--check', 'metamorphic', '--out', str(out)]), \
                         patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
                         patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
                     if verdict == 'pass':
                         self.assertEqual(models.main(), 0)
                     else:
-                        with self.assertRaisesRegex(RuntimeError, 'insufficient metamorphic coverage'):
+                        with self.assertRaisesRegex(RuntimeError, 'insufficient metamorphic coverage: 1 of 1 models had no usable invariant'):
                             models.main()
                 counts = json.loads((out / 'summary.json').read_text())['comparisons']['metamorphic']
                 self.assertEqual(counts['completed'], 3 if verdict == 'pass' else 0)
+                self.assertEqual(counts.get('uncovered', []), [] if verdict == 'pass' else [{'seed': 7, 'model': 'given'}])
                 category = 'inconclusive' if verdict in ('refused', 'inconclusive') else 'skipped'
                 if verdict != 'pass':
                     self.assertEqual(counts[category][0][verdict], 3)
@@ -411,6 +412,7 @@ class OpenSeesShards(unittest.TestCase):
         self.assertEqual(sorted(flags), sorted(cases))
         self.assertIn('name: nightly-findings-opensees-${{ matrix.part }}', job)
         self.assertIn('name: opensees-report-${{ matrix.part }}', job)
+        self.assertIn('opensees-report.json.progress.jsonl', job)
         self.assertIn('fail-fast: false', job)
 
 if __name__ == '__main__':

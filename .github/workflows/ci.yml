@@ -802,6 +802,7 @@ jobs:
         env:
           BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
           EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
           PR_LABELS: ${{ needs.changes.outputs.labels }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -812,12 +813,20 @@ jobs:
           fi
           git show "$BASE:.github/scripts/revert-check.py" > "$RUNNER_TEMP/revert-check.py"
           if [ "$EVENT" != merge_group ]; then
-            LABELS=$PR_LABELS exec python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD --event ''
+            if ! LABELS=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '[.labels[].name] | join(",")') &&
+               ! { sleep 5; LABELS=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '[.labels[].name] | join(",")'); }; then
+              echo "Couldn't read the labels of #$PR live; re-run Revert Check. Until then a reverts-ok label does not count."
+              LABELS=$(tr , '\n' <<<"$PR_LABELS" | grep -vx reverts-ok | paste -sd, || true)
+            fi
+            echo "Labels: $LABELS"
+            LABELS=$LABELS exec python3 -B -I "$RUNNER_TEMP/revert-check.py" "$BASE" HEAD --event ''
           fi
           status=0
           for step in $(git rev-list --first-parent --reverse "$BASE..HEAD"); do
             pr=$(git show -s --format=%s "$step" | sed -nE 's/^Merge pull request #([0-9]+) from .*/\1/p')
-            if [ -z "$pr" ] || [ "$(gh api "repos/$GH_REPO/pulls/$pr" --jq .head.sha)" != "$(git rev-parse -q --verify "$step^2")" ]; then
+            merged=$(git rev-parse -q --verify "$step^2" || true)
+            current=$({ [ -n "$pr" ] && gh api "repos/$GH_REPO/pulls/$pr" --jq .head.sha; } || true)
+            if [ -z "$pr" ] || [ -z "$merged" ] || [ "$current" != "$merged" ]; then
               echo "$step is not the merge queue's merge of a pull request's current head, so whose acknowledgement applies is unknown."
               exit 1
             fi

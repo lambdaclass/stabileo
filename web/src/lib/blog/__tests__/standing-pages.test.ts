@@ -3,6 +3,8 @@ import { cirsocPage } from '../pages/cirsoc';
 import { STANDING_PAGES } from '../pages';
 import { STANDING_PAGE_PATHS, isStandingPagePath } from '../pages/paths';
 import { findPost } from '..';
+import { PUBLIC_LOCALES } from '../../i18n/offered';
+import { PRICING, OBSOLETE_PRICING } from '../../../../e2e/pricing-contract';
 
 const LOCALES = (Object.keys(cirsocPage.i18n) as (keyof typeof cirsocPage.i18n)[]).filter((l) => cirsocPage.i18n[l]);
 
@@ -57,6 +59,37 @@ describe('every standing page', () => {
         expect(page.i18n[l]!.description.length, `${l} description`).toBeLessThanOrEqual(160);
         for (const b of page.i18n[l]!.blocks) if (b.k === 'link') expect(findPost(b.slug), b.slug).toBeTruthy();
       }
+    });
+  }
+});
+
+// Exercise the same independent pricing contract without requiring a browser.
+describe('comparison-page pricing policy', () => {
+  for (const path of ['/sap2000-alternative', '/cirsoc']) {
+    for (const locale of PUBLIC_LOCALES) {
+      it(`${path} in ${locale} states the policy and has no obsolete exemptions`, () => {
+        const page = STANDING_PAGES.find((entry) => entry.path === path)!;
+        const body = page.i18n[locale];
+        expect(body).toBeDefined();
+        expect(body!.faq.map(({ a }) => a)).toContain(PRICING[locale].intro);
+        expect(JSON.stringify(body)).not.toMatch(OBSOLETE_PRICING[locale]);
+      });
+    }
+  }
+});
+
+describe('the obsolete-pricing patterns', () => {
+  const removed = {
+    en: ['Code design is free while it is in development.'],
+    es: ['El diseño normativo es gratis mientras esté en desarrollo.', 'gratis para las universidades públicas'],
+    pt: ['é grátis enquanto o módulo de dimensionamento estiver em desenvolvimento.'],
+    de: ['Die normgemäße Bemessung ist kostenlos, solange sie in Entwicklung ist.', 'noch in Entwicklung und bleibt so lange kostenlos.'],
+    fr: ["Le dimensionnement réglementaire est gratuit tant qu'il est en développement.", 'reste gratuit tant que le module de dimensionnement est en développement.'],
+    tr: ['geliştirilmesine katkıda bulunanlar için ücretsiz kalır.'],
+  } satisfies Partial<Record<keyof typeof OBSOLETE_PRICING, string[]>>;
+  for (const [locale, texts] of Object.entries(removed) as [keyof typeof removed, string[]][]) {
+    it(`catch the removed ${locale} copy`, () => {
+      for (const text of texts) expect(text).toMatch(OBSOLETE_PRICING[locale]);
     });
   }
 });

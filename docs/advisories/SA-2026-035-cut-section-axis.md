@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#1238](https://github.com/lambdaclass/stabileo/issues/1238) |
-| Fix | PR #1295 (safety/fix-1238-cut-section-axis) |
+| Fix | PR [#1295](https://github.com/lambdaclass/stabileo/pull/1295) (merged 2026-11-04), released in v0.5.0 |
 | Affected versions | every release with the 3D-to-2D switch (slice or projection); not bisected |
 | Re-check registry | none: a saved 2D model keeps its numbers; only a new cut changes |
 
@@ -38,6 +38,8 @@ You switched a 3D model to 2D on the Y–Z or X–Y plane with I, H or rectangul
 plane with members rolled or with sections turned, and used the 2D results.
 
 ## Fixed in
+
+0.5.0.
 
 The cut gives each member the inertia it bends with in 3D. A member whose section axes line up with
 the plane but bends about local z gets its section turned a quarter turn in the 2D model, so

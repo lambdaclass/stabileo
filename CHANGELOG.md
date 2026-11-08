@@ -1,8 +1,8 @@
 # Changelog
 
 Read next:
-- solver roadmap: [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
-- benchmark/proof status: [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md)
+- solver roadmap: [`SOLVER_ROADMAP.md`](docs/roadmap/SOLVER_ROADMAP.md)
+- benchmark/proof status: [`BENCHMARKS.md`](docs/BENCHMARKS.md)
 
 This file is the historical record.
 It should capture what changed, not what should be built next.
@@ -332,6 +332,15 @@ ssl_verify_fun are updated (#1069). Lock file only; the backend is not deployed 
 was exposed. No calculation changes.
 
 ### Added
+
+#### The load generator names edge beams whose slab load comes from one side, for a torsion check (2026-11-05)
+
+The generator puts slab load on the member axis, so the torque of a slab that loads an edge beam from
+one side is in no load. The load plan now lists those members in its assumptions and derivation, says
+that their torsion is not included and needs a check, and the report prints the list with the
+generated loads; no load changes (#1401, #1417). Two uncovered patches on opposite sides of a member
+that fell in the same 1/200 of its length read as overlapping, so that member was left off the list;
+each side is now read where the region beside it has depth (#1426, #1457).
 
 #### A project solved with a version that had a known wrong-result bug says so until it is solved again (2026-11-07)
 
@@ -821,6 +830,14 @@ Re-check the timeline filters and language links when adding an entry (#790).
 
 ### Changed
 
+#### 2D plastic collapse: the engine computes the collapse factor by limit analysis, still withheld (2026-11-06)
+
+For SA-2026-044 (#758), the engine's 2D plastic solve takes the collapse factor from a limit
+analysis, which the tests check gives the same factor under renumbering, member reversal and units,
+with one exception tracked in #1524. It is reported as the collapse factor only when an independent
+check confirms it, and as not confirmed otherwise (#1447). 2D plastic collapse stays refused in the
+engine and the app (`PL-2D-INVARIANCE`) until #758 is fixed, so it gives no result in this release.
+
 #### The engine tests check reciprocity with moments, factored combinations and shell stress superposition, and that every result has one record per node, support, element and shell (2026-11-07)
 
 - The metamorphic suite adds Maxwell–Betti reciprocity between forces and moments, every load
@@ -910,7 +927,7 @@ exported report…". The dialog and what it does are unchanged.
 #### CI runs on Stabileo's own runners, and superseded runs cancel themselves (2026-11-02)
 
 With `STABILEO_SELF_HOSTED` on, every CI job that builds or tests runs on the
-self-hosted stabileo-ci-1 runners (except Determinism, for WebKit, and Docker
+self-hosted runners (except Determinism, for WebKit, and Docker
 build smoke) for the merge queue and pushes to main, and, with
 `STABILEO_PR_POOL`, for pull requests from this repository's branches (on
 `stabileo-pr` runners, so the merge queue always keeps runners of its own). Fork
@@ -2201,6 +2218,14 @@ tier) when it touches what they cover, as pull requests already did; if the diff
 run anyway. A test requires every workflow that provides a required check to run in the merge queue.
 
 ### Performance
+
+#### Research, Tools and the app paint sooner on a phone (2026-11-06)
+
+Research and Tools pages keep the prerendered page on screen until the route renders; Tools show the
+engine's default result recorded at build time from the same WASM, used only when the parameters
+match exactly, and load the WASM on first focus; and the site serves precompressed files (#1065).
+The `/app` pages then painted nothing until the application had downloaded; they now paint the
+application's ground and the brand mark in the first frame (#1561, #1582).
 
 #### The 30 s autosave no longer copies and rewrites an unchanged project (2026-11-07)
 

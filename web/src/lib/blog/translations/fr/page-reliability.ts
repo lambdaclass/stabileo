@@ -47,6 +47,7 @@ const body: StandingPage['i18n']['en'] = {
         "SA-2026-001 à 004 ont été corrigés dans la version 0.2.0.",
         "SA-2026-005 à 020 ont été corrigés dans la version 0.3.0.",
         "SA-2026-021 à 024 ont été corrigés dans la version 0.4.0.",
+        "SA-2026-025 à 047 ont été publiés avec la version 0.5.0 et corrigés dans celle-ci, sauf SA-2026-040 (contenu : la vérification est marquée incomplète) et SA-2026-044 : l'effondrement plastique 2D reste refusé jusqu'à la fermeture de #758.",
         "L'application prévient une fois lorsque des résultats ont pu changer, et les projets enregistrés avant une modification qui les concerne demandent une revérification à l'ouverture."
       ]
     },
@@ -97,7 +98,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "q": "Les avis publiés sont-ils corrigés ?",
-      "a": "Oui. SA-2026-001 à 004 ont été corrigés dans la version 0.2.0, SA-2026-005 à 020 dans la 0.3.0 et SA-2026-021 à 024 dans la 0.4.0."
+      "a": "Tous sauf deux. SA-2026-001 à 004 ont été corrigés dans la version 0.2.0, SA-2026-005 à 020 dans la 0.3.0, SA-2026-021 à 024 dans la 0.4.0 et SA-2026-025 à 047 dans la 0.5.0, sauf SA-2026-040 et SA-2026-044. SA-2026-040 est contenu : la vérification est marquée incomplète. SA-2026-044 n'est pas corrigé : l'effondrement plastique 2D reste refusé jusqu'à la fermeture de #758."
     }
   ]
 };

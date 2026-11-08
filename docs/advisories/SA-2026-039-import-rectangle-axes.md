@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#532](https://github.com/lambdaclass/stabileo/issues/532) (leftover of SA-2026-029) |
-| Fix | #1310 |
+| Fix | PR [#1310](https://github.com/lambdaclass/stabileo/pull/1310) (merged 2026-11-06), released in v0.5.0 |
 | Affected versions | every release (desktop-v0.1.0-alpha.1 to 0.4.0) and the live site until this fix: Excel `b`/`h` sections since the importer landed (2026-09-09, 8bcd39ca3); IFC sections named `HxB` or `HxBxT` and the no-profile fallback since 2026-03-04 (b93ada5b8); IFC rectangles drawn in the file since 2026-10-18 (1f8432385) |
 | Re-check registry | none: an imported model keeps the section values it was saved with |
 
@@ -48,6 +48,8 @@ file with rectangular or tube profiles, or an IFC file whose members got the sec
 and used the results.
 
 ## Fixed in
+
+0.5.0.
 
 Both importers write b·h³/12 into `Iy` and h·b³/12 into `Iz`, as the app's own section builders
 do. Tests: `web/src/lib/excel-import/__tests__/parse.test.ts`,

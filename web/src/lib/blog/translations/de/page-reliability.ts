@@ -47,6 +47,7 @@ const body: StandingPage['i18n']['en'] = {
         "SA-2026-001 bis 004 wurden in Version 0.2.0 behoben.",
         "SA-2026-005 bis 020 wurden in Version 0.3.0 behoben.",
         "SA-2026-021 bis 024 wurden in Version 0.4.0 behoben.",
+        "SA-2026-025 bis 047 wurden mit Version 0.5.0 veröffentlicht und darin behoben, außer SA-2026-040 (eingedämmt: die Prüfung wird als unvollständig markiert) und SA-2026-044: der plastische Kollaps in 2D bleibt abgelehnt, bis #758 geschlossen ist.",
         "Die App weist einmal darauf hin, wenn sich Ergebnisse geändert haben können, und Projekte, die vor einer sie betreffenden Änderung gespeichert wurden, fordern beim Öffnen eine erneute Prüfung an."
       ]
     },
@@ -97,7 +98,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "q": "Sind die veröffentlichten Hinweise behoben?",
-      "a": "Ja. SA-2026-001 bis 004 wurden in Version 0.2.0 behoben, SA-2026-005 bis 020 in 0.3.0 und SA-2026-021 bis 024 in 0.4.0."
+      "a": "Alle außer zwei. SA-2026-001 bis 004 wurden in Version 0.2.0 behoben, SA-2026-005 bis 020 in 0.3.0, SA-2026-021 bis 024 in 0.4.0 und SA-2026-025 bis 047 in 0.5.0, außer SA-2026-040 und SA-2026-044. SA-2026-040 ist eingedämmt: die Prüfung wird als unvollständig markiert. SA-2026-044 ist nicht behoben: der plastische Kollaps in 2D bleibt abgelehnt, bis #758 geschlossen ist."
     }
   ]
 };

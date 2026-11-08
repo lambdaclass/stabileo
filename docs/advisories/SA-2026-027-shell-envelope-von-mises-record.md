@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft (fix in review) |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | — (found in the review of #786) |
-| Fix | PR [#1237](https://github.com/lambdaclass/stabileo/pull/1237) |
+| Fix | PR [#1237](https://github.com/lambdaclass/stabileo/pull/1237) (merged 2026-11-03), released in v0.5.0 |
 | Affected versions | every version with combined shell stresses in the envelope, up to `main` until the fix |
 | Re-check registry | entry `shell-envelope-per-component` (models with shells and combinations), results version 11 |
 
@@ -45,6 +45,8 @@ A PRO model with plates or quads and two or more combinations, whose envelope sh
 read, contoured, reported or exported. Values read from a single combination are not affected.
 
 ## Fixed in
+
+0.5.0.
 
 PR #1237. The engine's kernel now takes the largest and the smallest value of each component over
 the combinations, each with the combination it comes from, and the app shows the component of
