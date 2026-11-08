@@ -1,7 +1,6 @@
 ### Security
 #### Revert Check also runs from a definition the pull request cannot edit (2026-11-08)
 
-- A new workflow, Revert Check (trusted), runs on `pull_request_target` and on every merge-queue CI
   run (`workflow_run`), always from the base branch: the base's workflow, the base's checker
   (`.github/scripts/revert-check-trusted.sh`, `revert-check.py`), and the pull request's commits
   only fetched as data, never checked out or run. The job that reads them has a read-only token;
