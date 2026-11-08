@@ -21,7 +21,8 @@ wrong-result issue. Ergodic Group backs and publishes Stabileo.
 - **Pricing:** the core is free and open source for everyone; paid modules are free for universities;
   Stabileo AI and heavy compute are paid by everyone. Copy promises exactly this.
 - **This file** holds what is open. Landed work goes to `CHANGELOG.md` and the website changelog, not
-  here. Sections 2 to 4 are rewritten when an item lands; sections 5 to 7 change rarely.
+  here. Sections 2 to 4 are rewritten when an item lands; sections 5 to 7 change rarely. The
+  in-flight table in section 2 is generated: run `make roadmap.inflight` and commit the result.
 
 ## 2. Now: soundness first (from 2026-11-08)
 
@@ -29,6 +30,32 @@ Release 0.5.0 ([#1422](https://github.com/lambdaclass/stabileo/pull/1422), notes
 remains is ranked below in four groups, from the triage of the open safety issues on 2026-11-08. The
 issues on GitHub are the record: a group names its issues, and the containment named for each is the
 one in [`CONTAINMENT.md`](../verification/CONTAINMENT.md). Wrong results come first.
+
+### In flight
+
+The open pull requests, rewritten by `make roadmap.inflight`.
+
+<!-- inflight:start -->
+| PR | What | State |
+|---|---|---|
+| [#1709](https://github.com/lambdaclass/stabileo/pull/1709) | CI: backend-only changes skip the engine and web jobs; dispatched OpenSees runs can use stabileo-ci-1 outside the nightly window | ready |
+| [#1708](https://github.com/lambdaclass/stabileo/pull/1708) | Blog: Stabileo 0.5.0 | ready |
+| [#1698](https://github.com/lambdaclass/stabileo/pull/1698) | Verification dashboard: regenerated metrics | ready |
+| [#1712](https://github.com/lambdaclass/stabileo/pull/1712) | Cover 3D torsion-release orphan rotations | draft |
+| [#1711](https://github.com/lambdaclass/stabileo/pull/1711) | Units in types (slice 2): every 3D WASM export reads materials and sections as unit-typed records; plan for the remaining slices | draft |
+| [#1705](https://github.com/lambdaclass/stabileo/pull/1705) | Add objective replay workflow for open nightly findings | draft |
+| [#1703](https://github.com/lambdaclass/stabileo/pull/1703) | Nightly findings: deduplicate by normalized root signature | draft |
+| [#1577](https://github.com/lambdaclass/stabileo/pull/1577) | Examples: RC column pushover with fibre sections (held: #1575, #1576) | draft |
+| [#844](https://github.com/lambdaclass/stabileo/pull/844) | One file per paper in the research catalogue; union merge for de/fr/tr (merge after the open research PRs) | draft |
+| [#1407](https://github.com/lambdaclass/stabileo/pull/1407) | CLAUDE.md: decisions that need approval, new-endpoint checklist | parked |
+| [#1071](https://github.com/lambdaclass/stabileo/pull/1071) | Integrate #765: accounts terms, anonymous usage, cloud projects, admin site | parked |
+| [#785](https://github.com/lambdaclass/stabileo/pull/785) | Desktop app: phases 1–3 | parked |
+| [#777](https://github.com/lambdaclass/stabileo/pull/777) | Stabileo Research M2: frozen versions (/@<sha>/), Cite this, version banner, research CI replay | parked |
+| [#765](https://github.com/lambdaclass/stabileo/pull/765) | Accounts: terms, anonymous usage, cloud projects, saving behind an account, and the admin site | parked |
+| [#663](https://github.com/lambdaclass/stabileo/pull/663) | Desktop app (Tauri): Windows, macOS and Linux | parked |
+| [#609](https://github.com/lambdaclass/stabileo/pull/609) | Draft: a general nonlinear framework (large displacements, nonlinear materials, sparse solvers, 3D) | parked |
+| [#470](https://github.com/lambdaclass/stabileo/pull/470) | CODEOWNERS for solver, certificates and design checks (pending reviewer decision) | parked |
+<!-- inflight:end -->
 
 ### (a) Wrong results still on main
 
@@ -48,6 +75,8 @@ one in [`CONTAINMENT.md`](../verification/CONTAINMENT.md). Wrong results come fi
 |---|---|---|
 | 1 | **Surviving mutants in the safety-critical modules**: kill each one with an independent-reference assertion, or record why it is equivalent | [#1378](https://github.com/lambdaclass/stabileo/issues/1378) (static solver core), [#745](https://github.com/lambdaclass/stabileo/issues/745) (plastic certificates), [#746](https://github.com/lambdaclass/stabileo/issues/746) (plate kernels), [#747](https://github.com/lambdaclass/stabileo/issues/747) (cable), [#748](https://github.com/lambdaclass/stabileo/issues/748) (dynamics certificates), [#749](https://github.com/lambdaclass/stabileo/issues/749) (certificate re-assembly), [#750](https://github.com/lambdaclass/stabileo/issues/750) (design certificates), [#751](https://github.com/lambdaclass/stabileo/issues/751) (static certificate support), [#752](https://github.com/lambdaclass/stabileo/issues/752) (frame, truss and curved-beam kernels) |
 | 2 | **Benchmark gate**: see Rust changes to case-file tolerances and disabled benchmark tests; tighten or justify the loose tolerances it found | [#1489](https://github.com/lambdaclass/stabileo/issues/1489), [#1490](https://github.com/lambdaclass/stabileo/issues/1490); then [#1481](https://github.com/lambdaclass/stabileo/issues/1481) and [#1482](https://github.com/lambdaclass/stabileo/issues/1482) |
+| 3 | **Units in the type system**: lengths, forces and stresses as distinct types in Rust and TypeScript, so a unit mix-up fails to compile | [#359](https://github.com/lambdaclass/stabileo/issues/359) |
+| 4 | **Engineering math in one place**: the TypeScript copies of checks and analysis move to the Rust engine, so one tested implementation produces each number | [#391](https://github.com/lambdaclass/stabileo/issues/391), [#392](https://github.com/lambdaclass/stabileo/issues/392), [#393](https://github.com/lambdaclass/stabileo/issues/393) |
 
 ### (c) The verification safety net
 
