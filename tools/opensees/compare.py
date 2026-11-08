@@ -61,6 +61,7 @@ import math
 import os
 import subprocess
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -2167,6 +2168,40 @@ def run_ext(name, job, binary, tol, dump_dir=None):
 EXT_KINDS = ("buckling", "modal", "pdelta", "th")
 
 
+class Progress:
+    """One flushed JSON line per model start and end, so a killed run still shows what finished, in how long, and what was running."""
+
+    def __init__(self, path, total):
+        import threading
+        self.lock = threading.Lock()
+        self.f = open(path, "w") if path else None
+        self.write({"event": "begin", "total": total, "time": time.time()})
+
+    def write(self, row):
+        if self.f:
+            with self.lock:
+                self.f.write(json.dumps(row, default=str) + "\n")
+                self.f.flush()
+                os.fsync(self.f.fileno())
+
+    def run(self, name, fn):
+        start = time.monotonic()
+        self.write({"event": "start", "name": name})
+        try:
+            result = fn()
+        except BaseException as ex:
+            self.write({"event": "error", "name": name, "seconds": round(time.monotonic() - start, 3), "error": repr(ex)})
+            raise
+        result["seconds"] = round(time.monotonic() - start, 3)
+        self.write({"event": "done", "name": name, "status": result.get("status"), "seconds": result["seconds"]})
+        return result
+
+    def close(self):
+        self.write({"event": "end", "time": time.time()})
+        if self.f:
+            self.f.close()
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("files", nargs="*")
@@ -2222,8 +2257,10 @@ def main():
         jobs.append((f"shell-{s}", {"analysis": "shell", "model": gen_models.shell(s, 2)}))
 
     from concurrent.futures import ThreadPoolExecutor
+    progress = Progress(a.report + ".progress.jsonl" if a.report else None, len(jobs))
     with ThreadPoolExecutor(max_workers=max(1, a.jobs)) as pool:
-        results = list(pool.map(lambda j: run_one(j[0], j[1], a.bin, a.tol, a.verbose, a.dump_dir), jobs))
+        results = list(pool.map(lambda j: progress.run(j[0], lambda: run_one(j[0], j[1], a.bin, a.tol, a.verbose, a.dump_dir)), jobs))
+    progress.close()
     for r in results:
         name = r["name"]
         if a.verbose or r["status"] in FLAGGED:
