@@ -55,8 +55,10 @@ class RetryInfra(unittest.TestCase):
             "error: unable to download 'https://cache.nixos.org/nar/0123.nar.xz': Error in the HTTP2 framing layer (16) Send failure: Connection reset by peer",
             'error downloading wasm: HTTP 503: 503 Egress is over the account limit. (https://productionresultssa9.blob.core.windows.net/actions-results/d0f12eed/workflow-job-run-92e98ce9/artifacts/abc.zip)',
             'error downloading research-wasm: HTTP 502: Bad Gateway (https://productionresultssa9.blob.core.windows.net/x.zip)',
+            'curl: (22) The requested URL returned error: 504',
         ]
         genuine = [
+            'curl: (22) The requested URL returned error: 404',
             'error downloading wasm: HTTP 404: Not Found (https://api.github.com/repos/lambdaclass/stabileo/actions/artifacts/1/zip)',
             'AssertionError: expected HTTP 503 to equal 200',
             'error[E0308]: mismatched types',
