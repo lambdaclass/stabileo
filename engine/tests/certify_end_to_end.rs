@@ -205,7 +205,7 @@ fn e2e_one() {
 
 #[test]
 fn end_to_end_random_2d() {
-    let t = sweep_2d(0..150);
+    let t = sweep_2d(0..180);
     eprintln!("random 2D: {t:?}");
     assert!(t.failed.is_empty(), "{:#?}", t.failed);
     // The rich generator puts settlements on DOFs their support leaves free, which
@@ -328,7 +328,6 @@ fn e2e_dir() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_stable_3d_elastic_supports_explicitly_release_the_spring_dof() {
     let mut elastic = 0;
     for seed in 0..150 {

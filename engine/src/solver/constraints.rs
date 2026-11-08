@@ -2123,7 +2123,7 @@ fn solve_constrained_2d_sparse(
 pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
     let mut solver = input.solver.clone();
     solver.constraints = input.constraints.clone();
-    crate::known_issues::refuse(&crate::known_issues::model_3d(&solver))?;
+    linear::validate_input_3d(&solver)?;
     let mut r = solve_constrained_3d_inner(input, crate::known_issues::Analysis::Linear)?;
     crate::known_issues::membrane_bending_3d(&solver, &solver.loads, &r)?;
     crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&solver, crate::known_issues::Analysis::Linear));

@@ -28,7 +28,7 @@ impl LoadSession2D {
 }
 impl LoadSession2D {
     pub fn from_input(mut input: SolverInput) -> Result<LoadSession2D, String> {
-        crate::solver::support::validate_supports_2d(&input)?;
+        crate::solver::linear::validate_input_2d(&input)?;
         input.loads.clear();
         let state = if input.constraints.is_empty() {
             State2D::Prepared(Box::new(prepare_static_2d(&input)?.into_owned()))
@@ -69,7 +69,7 @@ impl LoadSession3D {
 }
 impl LoadSession3D {
     pub fn from_input(mut input: SolverInput3D) -> Result<LoadSession3D, String> {
-        crate::solver::support::validate_supports_3d(&input)?;
+        crate::solver::linear::validate_input_3d(&input)?;
         input.loads.clear();
         let state = if input.constraints.is_empty() {
             State3D::Prepared(Box::new(prepare_static_3d(&input)?))

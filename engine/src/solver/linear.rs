@@ -727,6 +727,7 @@ pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumb
 }
 
 fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: ElasticProperties2D) -> Result<PreparedStatic2D<'_>, String> {
+    validate_input_2d(input)?;
     // The prepared (factor-once) path assembles no constraints. Every caller
     // routes constrained models elsewhere today; refusing here keeps a new
     // caller from silently solving the model without them (the dense
@@ -737,9 +738,6 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     let dof_num = DofNumbering::build_2d(input);
     let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
     validate_solver_options(&input.solver_options, &mut pre_solve_diags);
-
-    // ── Input validation (before assembly) ──
-    validate_input_2d(input)?;
 
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -2040,24 +2038,17 @@ pub(crate) fn buckling_preload_3d(input: &SolverInput3D) -> Result<AnalysisResul
 }
 
 fn solve_3d_inner(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
-    // Expand curved beams BEFORE anything else: the constrained delegation below
-    // used to bypass prepare_static_3d (the only expansion site), silently
-    // analyzing models with constraints + curved beams without those members.
-    // The expansion is idempotent (clears the curved-beam list), so the call in
-    // prepare_static_3d becomes a no-op for inputs expanded here.
-    let input = &expand_curved_beams_3d(input);
-
-    // Auto-delegate to constrained solver when constraints are present
-    if !input.constraints.is_empty() {
-        let ci = super::constraints::ConstrainedInput3D {
-            solver: input.clone(),
-            constraints: input.constraints.clone(),
-        };
-        return super::constraints::solve_constrained_3d(&ci);
+    if input.constraints.is_empty() {
+        let prepared = prepare_static_3d(input)?;
+        return prepared.solve_loads(&input.loads);
     }
-
-    let prepared = prepare_static_3d(input)?;
-    prepared.solve_loads(&input.loads)
+    validate_input_3d(input)?;
+    let input = expand_curved_beams_3d(input);
+    let ci = super::constraints::ConstrainedInput3D {
+        constraints: input.constraints.clone(),
+        solver: input,
+    };
+    super::constraints::solve_constrained_3d(&ci)
 }
 
 /// 3D static analysis prepared for multiple right-hand sides: curved-beam
@@ -2271,6 +2262,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
 }
 
 fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_issues::Analysis) -> Result<PreparedStatic3D, String> {
+    validate_input_3d_for_analysis(input, analysis)?;
     // The prepared (factor-once) path assembles no constraints. Every caller
     // routes constrained models elsewhere today; refusing here keeps a new
     // caller from silently solving the model without them (the dense
@@ -4388,7 +4380,8 @@ fn reject_unimposed_settlements_3d(input: &SolverInput3D) -> Result<(), String> 
         let what = format!("Support {key} (node {})", sup.node_id);
         let d = [sup.dx, sup.dy, sup.dz, sup.drx, sup.dry, sup.drz];
         let names = ["dx", "dy", "dz", "drx", "dry", "drz"];
-        let flags = super::support::support_dofs_3d(sup).map(|d| d.restrained);
+        let support_dofs = super::support::support_dofs_3d(sup);
+        let flags = support_dofs.map(|d| d.restrained);
         let inclined = sup.is_inclined.unwrap_or(false);
         if inclined {
             if let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) {
@@ -4413,7 +4406,12 @@ fn reject_unimposed_settlements_3d(input: &SolverInput3D) -> Result<(), String> 
                 return Err(unimposed_settlement(&what, names[i], v, "a model of truss or cable members only has no rotation DOFs"));
             }
             if !flags[i] {
-                return Err(unimposed_settlement(&what, names[i], v, "that direction is not restrained (its flag is not set)"));
+                let reason = if support_dofs[i].spring.is_some_and(|k| k > 0.0) {
+                    "that direction is elastic (a spring cannot impose a prescribed displacement)"
+                } else {
+                    "that direction is not restrained (its flag is not set)"
+                };
+                return Err(unimposed_settlement(&what, names[i], v, reason));
             }
         }
     }

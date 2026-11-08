@@ -559,7 +559,6 @@ fn same_first_refusal_3d(mut input: SolverInput3D, expected: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_2d_section_fault_precedes_support_conflict_on_every_path() {
     let mut input = beam_2d();
     input.sections.get_mut("1").unwrap().as_y = Some(0.0);
@@ -568,7 +567,6 @@ fn issue_1780_2d_section_fault_precedes_support_conflict_on_every_path() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_2d_unknown_support_precedes_support_conflict_on_every_path() {
     let mut input = beam_2d();
     input.supports.get_mut("1").unwrap().kx = Some(1.0);
@@ -581,7 +579,6 @@ fn issue_1780_2d_unknown_support_precedes_support_conflict_on_every_path() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_3d_left_hand_precedes_support_conflict_on_every_path() {
     let mut input = beam_3d();
     input.left_hand = Some(true);
@@ -590,7 +587,6 @@ fn issue_1780_3d_left_hand_precedes_support_conflict_on_every_path() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_3d_missing_normal_precedes_rotation_conflict_on_every_path() {
     let mut input = beam_3d();
     let support = input.supports.get_mut("1").unwrap();
@@ -600,7 +596,6 @@ fn issue_1780_3d_missing_normal_precedes_rotation_conflict_on_every_path() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_2d_initial_load_fault_precedes_material_fault_in_sessions() {
     let mut input = beam_2d();
     input.materials.get_mut("1").unwrap().e = 0.0;
@@ -609,7 +604,6 @@ fn issue_1780_2d_initial_load_fault_precedes_material_fault_in_sessions() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_3d_initial_load_fault_precedes_material_fault_in_sessions() {
     let mut input = beam_3d();
     input.materials.get_mut("1").unwrap().e = 0.0;

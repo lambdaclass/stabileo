@@ -249,7 +249,7 @@ fn support_fields_3d_never_dropped() {
     assert_out_of_scope(set(truss_3d(), 1, |s| s.krx = Some(100.0)), "rotational spring, all-truss model");
     assert_out_of_scope(set(truss_3d(), 1, |s| s.drz = Some(0.01)), "prescribed rotation, all-truss model");
     assert_out_of_scope(set(frame_3d(), 1, |s| { s.rx = false; s.dx = Some(0.01) }), "dx on a free DOF");
-    assert_out_of_scope(set(frame_3d(), 1, |s| { s.kz = Some(1e5); s.dz = Some(0.01) }), "dz on a DOF a spring frees");
+    assert_out_of_scope(set(frame_3d(), 1, |s| { s.rz = false; s.kz = Some(1e5); s.dz = Some(0.01) }), "dz on an elastic DOF");
     assert_out_of_scope(
         set(frame_3d(), 1, |s| {
             s.is_inclined = Some(true);

@@ -1,0 +1,34 @@
+{
+  "id": "static-input-validation-order",
+  "date": "2026-11-08",
+  "prs": [
+    1780
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "plane2D",
+      "space3D"
+    ]
+  },
+  "title": {
+    "en": "Static input validation has one refusal order",
+    "es": "La validación estática usa un único orden de rechazo",
+    "pt": "A validação estática usa uma única ordem de recusa",
+    "de": "Statische Eingaben werden in einer einheitlichen Reihenfolge geprüft",
+    "fr": "La validation statique suit un ordre de refus commun",
+    "tr": "Statik girdi doğrulaması ortak bir ret sırası kullanır"
+  },
+  "explanation": {
+    "en": "Static solves, typed inputs and load sessions now use the same input validation order. Models with several faults may report a different first refusal. Sessions validate initial loads before discarding them. Rigid support and spring conflicts remain errors. Valid-model numerical results are unchanged. Both model dimensions are flagged conservatively; most projects are unaffected.",
+    "es": "Los análisis estáticos, las entradas tipadas y las sesiones de carga usan el mismo orden de validación. Un modelo con varios errores puede mostrar un primer rechazo diferente. Las sesiones validan las cargas iniciales antes de descartarlas. Los conflictos entre apoyos rígidos y resortes siguen siendo errores. Los resultados numéricos de modelos válidos no cambian. El aviso incluye ambas dimensiones de forma conservadora; la mayoría de proyectos no se ven afectados.",
+    "pt": "Análises estáticas, entradas tipadas e sessões de carga usam a mesma ordem de validação. Modelos com várias falhas podem apresentar outra primeira recusa. As sessões validam as cargas iniciais antes de descartá-las. Conflitos entre restrições rígidas e molas continuam sendo erros. Os resultados numéricos de modelos válidos não mudam. O aviso inclui ambas as dimensões de forma conservadora; a maioria dos projetos não é afetada.",
+    "de": "Statische Berechnungen, typisierte Eingaben und Lastsitzungen verwenden dieselbe Prüfungsreihenfolge. Modelle mit mehreren Fehlern können zuerst eine andere Ablehnung melden. Sitzungen prüfen die anfänglichen Lasten, bevor sie diese verwerfen. Konflikte zwischen starren Bindungen und Federn bleiben Fehler. Numerische Ergebnisse gültiger Modelle bleiben gleich. Der Hinweis umfasst vorsorglich beide Modelldimensionen; die meisten Projekte sind nicht betroffen.",
+    "fr": "Les calculs statiques, les entrées typées et les sessions de charge suivent le même ordre de validation. Un modèle comportant plusieurs erreurs peut signaler un autre premier refus. Les sessions valident les charges initiales avant de les écarter. Les conflits entre blocages rigides et ressorts restent des erreurs. Les résultats numériques des modèles valides ne changent pas. L’avis vise les deux dimensions par précaution ; la plupart des projets ne sont pas concernés.",
+    "tr": "Statik çözümler, türlendirilmiş girdiler ve yük oturumları aynı doğrulama sırasını kullanır. Birden fazla hatası olan modeller farklı bir ilk ret bildirebilir. Oturumlar başlangıç yüklerini kaldırmadan önce doğrular. Rijit mesnet ile yay çelişkileri hata olarak kalır. Geçerli modellerin sayısal sonuçları değişmez. Her iki model boyutu tedbirli biçimde işaretlenir; projelerin çoğu etkilenmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-static-validation-order.md",
+    "heading": "Static input validation has one refusal order"
+  }
+}
