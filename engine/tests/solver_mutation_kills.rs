@@ -394,12 +394,23 @@ fn support_spring_entries_match_closed_form_stiffness() {
     truss.elements.get_mut("1").unwrap().elem_type = "truss".into();
     let truss_dn = DofNumbering::build_2d(&truss);
     assert_eq!(truss_dn.dofs_per_node, 2);
-    let entries = truss_dn.entries_by_dof();
-    assert!(support_spring_entries_2d(&truss, &truss_dn)
-        .iter()
-        .all(|&(i, j, _)| [i, j]
-            .into_iter()
-            .all(|g| entries.iter().any(|&((_, local), d)| d == g && local < 2))));
+    let td = |node, local| truss_dn.map[&(node, local)];
+    let truss_expected = vec![
+        (td(1, 0), td(1, 0), 4.0 * c * c + 9.0 * s * s),
+        (td(1, 1), td(1, 1), 4.0 * s * s + 9.0 * c * c),
+        (td(1, 0), td(1, 1), (4.0 - 9.0) * s * c),
+        (td(1, 1), td(1, 0), (4.0 - 9.0) * s * c),
+        (td(2, 0), td(2, 0), 3.0),
+        (td(2, 1), td(2, 1), 5.0),
+        (td(4, 0), td(4, 0), 11.0 * s0 * s0),
+        (td(4, 1), td(4, 1), 11.0 * c0 * c0),
+        (td(4, 0), td(4, 1), -11.0 * s0 * c0),
+        (td(4, 1), td(4, 0), -11.0 * s0 * c0),
+        (td(5, 0), td(5, 0), 13.0),
+        (td(7, 0), td(7, 0), 2.0),
+        (td(7, 1), td(7, 1), 3.0),
+    ];
+    assert_eq!(support_spring_entries_2d(&truss, &truss_dn), truss_expected);
 }
 
 #[test]
@@ -612,7 +623,7 @@ fn frame_member_loads_match_hand_integrated_fixed_end_forces() {
     }
     let input = frame_load_model(true);
     let dn = DofNumbering::build_3d(&input);
-    let loads = vec![
+    let nodal = || {
         SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 2,
             fx: 0.0,
@@ -621,13 +632,28 @@ fn frame_member_loads_match_hand_integrated_fixed_end_forces() {
             mx: 0.0,
             my: 0.0,
             mz: 0.0,
-            bw: Some(1e-15),
-        }),
+            bw: Some(2e-15),
+        })
+    };
+    let bimoment = || {
         SolverLoad3D::Bimoment(SolverBimomentLoad {
             node_id: 2,
-            bimoment: -1e-15,
-        }),
-    ];
+            bimoment: -2e-15,
+        })
+    };
+    for (load, value) in [(nodal(), 2e-15), (bimoment(), -2e-15)] {
+        let loads = vec![load];
+        let dense = assemble_load_vector_3d_dense(&input, &loads, &dn, &[]);
+        let sparse = assemble_load_vector_3d_sparse(&input, &loads, &dn, &[]);
+        let mut expected = vec![0.0; dn.n_total];
+        expected[dn.map[&(2, 6)]] = value;
+        for (actual, label) in [(dense, "dense"), (sparse, "sparse")] {
+            for (i, (&a, &e)) in actual.iter().zip(&expected).enumerate() {
+                assert!((a - e).abs() <= 1e-16, "{label} entry {i}: {a:e} != {e:e}");
+            }
+        }
+    }
+    let loads = vec![nodal(), bimoment()];
     let dense = assemble_load_vector_3d_dense(&input, &loads, &dn, &[]);
     let sparse = assemble_load_vector_3d_sparse(&input, &loads, &dn, &[]);
     assert_eq!(dense, vec![0.0; dn.n_total]);
