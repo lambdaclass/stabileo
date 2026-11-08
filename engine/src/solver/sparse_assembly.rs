@@ -1,3 +1,6 @@
+use crate::solver::support::support_dofs_2d;
+#[cfg(feature = "parallel")]
+use crate::solver::support::support_dofs_3d;
 /// Sparse assembly helpers for the FEA engine.
 ///
 /// Provides a `TripletAssembly` struct for collecting COO triplets during
@@ -223,21 +226,21 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
 
     // Spring stiffness
     for sup in crate::ordered::values(&input.supports) {
-        if let Some(kx) = sup.kx {
+        if let Some(kx) = support_dofs_2d(sup)[0].spring {
             if kx > 0.0 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
                     if d < nf { triplets.add(d, d, kx); diag_vals[d] += kx; }
                 }
             }
         }
-        if let Some(ky) = sup.ky {
+        if let Some(ky) = support_dofs_2d(sup)[1].spring {
             if ky > 0.0 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
                     if d < nf { triplets.add(d, d, ky); diag_vals[d] += ky; }
                 }
             }
         }
-        if let Some(kz) = sup.kz {
+        if let Some(kz) = support_dofs_2d(sup)[2].spring {
             if kz > 0.0 && dof_num.dofs_per_node >= 3 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
                     if d < nf { triplets.add(d, d, kz); diag_vals[d] += kz; }
@@ -263,8 +266,8 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
         }
         let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
         for sup in crate::ordered::values(&input.supports) {
-            if matches!(sup.support_type.as_str(), "fixed" | "guidedX" | "guidedY" | "guidedZ") { rot_restrained.insert(sup.node_id); }
-            if sup.support_type == "spring" && sup.kz.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
+            if crate::solver::support::support_dofs_2d(sup)[2].restrained { rot_restrained.insert(sup.node_id); }
+            if sup.support_type == "spring" && support_dofs_2d(sup)[2].spring.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
         }
         rot_restrained.extend(super::assembly::rotation_tied_nodes_2d(input));
         for (&node_id, &hinges) in crate::ordered::entries(&node_hinge_count) {
@@ -403,9 +406,9 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
 
     // Add spring stiffness (with rotation support for springs with angle)
     for sup in crate::ordered::values(&input.supports) {
-        let kx_val = sup.kx.unwrap_or(0.0);
-        let ky_val = sup.ky.unwrap_or(0.0);  // ky maps to vertical (uz) in 2D
-        let kz_val = sup.kz.unwrap_or(0.0);  // rotational spring
+        let kx_val = support_dofs_2d(sup)[0].spring.unwrap_or(0.0);
+        let ky_val = support_dofs_2d(sup)[1].spring.unwrap_or(0.0);
+        let kz_val = support_dofs_2d(sup)[2].spring.unwrap_or(0.0);
 
         if sup.support_type == "spring" {
             if let Some(angle) = sup.angle {
@@ -511,10 +514,10 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
         // Nodes with rotational restraint from supports
         let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
         for sup in crate::ordered::values(&input.supports) {
-            if matches!(sup.support_type.as_str(), "fixed" | "guidedX" | "guidedY" | "guidedZ") {
+            if crate::solver::support::support_dofs_2d(sup)[2].restrained {
                 rot_restrained.insert(sup.node_id);
             }
-            if sup.support_type == "spring" && sup.kz.unwrap_or(0.0) > 0.0 {
+            if sup.support_type == "spring" && support_dofs_2d(sup)[2].spring.unwrap_or(0.0) > 0.0 {
                 rot_restrained.insert(sup.node_id);
             }
         }
@@ -823,21 +826,21 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
 
     // Spring stiffness (sequential)
     for sup in crate::ordered::values(&input.supports) {
-        if let Some(kx) = sup.kx {
+        if let Some(kx) = support_dofs_2d(sup)[0].spring {
             if kx > 0.0 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
                     if d < nf { triplets.add(d, d, kx); diag_vals[d] += kx; }
                 }
             }
         }
-        if let Some(ky) = sup.ky {
+        if let Some(ky) = support_dofs_2d(sup)[1].spring {
             if ky > 0.0 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
                     if d < nf { triplets.add(d, d, ky); diag_vals[d] += ky; }
                 }
             }
         }
-        if let Some(kz) = sup.kz {
+        if let Some(kz) = support_dofs_2d(sup)[2].spring {
             if kz > 0.0 && dof_num.dofs_per_node >= 3 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
                     if d < nf { triplets.add(d, d, kz); diag_vals[d] += kz; }
@@ -863,8 +866,8 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
         }
         let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
         for sup in crate::ordered::values(&input.supports) {
-            if matches!(sup.support_type.as_str(), "fixed" | "guidedX" | "guidedY" | "guidedZ") { rot_restrained.insert(sup.node_id); }
-            if sup.support_type == "spring" && sup.kz.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
+            if crate::solver::support::support_dofs_2d(sup)[2].restrained { rot_restrained.insert(sup.node_id); }
+            if sup.support_type == "spring" && support_dofs_2d(sup)[2].spring.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
         }
         rot_restrained.extend(super::assembly::rotation_tied_nodes_2d(input));
         for (&node_id, &hinges) in crate::ordered::entries(&node_hinge_count) {
@@ -1309,7 +1312,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
 
     // Spring stiffness
     for sup in crate::ordered::values(&input.supports) {
-        let springs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
+        let springs = [support_dofs_3d(sup)[0].spring, support_dofs_3d(sup)[1].spring, support_dofs_3d(sup)[2].spring, support_dofs_3d(sup)[3].spring, support_dofs_3d(sup)[4].spring, support_dofs_3d(sup)[5].spring];
         for (i, ks) in springs.iter().enumerate() {
             if let Some(k) = ks {
                 if *k > 0.0 && i < dof_num.dofs_per_node {
@@ -1321,7 +1324,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
             }
         }
         if dof_num.dofs_per_node >= 7 {
-            if let Some(kw) = sup.kw {
+            if let Some(kw) = support_dofs_3d(sup)[6].spring {
                 if kw > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 6)) {
                         trip_rows.push(d); trip_cols.push(d); trip_vals.push(kw);

@@ -4,6 +4,7 @@
 //! and hinge bookkeeping it shares), with the biaxial yield condition
 //! `(My/Mp_y)² + (Mz/Mp_z)² ≤ 1` (local axes) at every section.
 
+use crate::solver::support::{support_dofs_3d};
 use super::{golden_min, span_candidates, unique_key, Piece, PlasticHinge3D, PlasticResult3D, PlasticStep3D, SNAP, STATIONS, TIE};
 use crate::element;
 use crate::types::*;
@@ -649,7 +650,7 @@ fn balanced(input: &SolverInput3D, r: &AnalysisResults3D) -> bool {
     let springs: HashSet<usize> = input
         .supports
         .values()
-        .filter(|s| [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz].iter().any(|k| k.is_some_and(|k| k != 0.0)))
+        .filter(|s| support_dofs_3d(s).map(|d| d.spring).iter().any(|k| k.is_some_and(|k| k != 0.0)))
         .map(|s| s.node_id)
         .collect();
     let tol = 1e-8 * scale.max(f64::MIN_POSITIVE);
@@ -1159,13 +1160,13 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
             }
             for sup in crate::ordered::values(&current_input.supports).filter(|s| s.node_id == n) {
                 let k = |v: Option<f64>| v.unwrap_or(0.0) > 0.0;
-                if sup.rrx || k(sup.krx) {
+                if sup.rrx || k(support_dofs_3d(sup)[3].spring) {
                     axes.push([1.0, 0.0, 0.0]);
                 }
-                if sup.rry || k(sup.kry) {
+                if sup.rry || k(support_dofs_3d(sup)[4].spring) {
                     axes.push([0.0, 1.0, 0.0]);
                 }
-                if sup.rrz || k(sup.krz) {
+                if sup.rrz || k(support_dofs_3d(sup)[5].spring) {
                     axes.push([0.0, 0.0, 1.0]);
                 }
             }

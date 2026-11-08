@@ -1,3 +1,4 @@
+use crate::solver::support::{support_dofs_2d, support_dofs_3d};
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
@@ -39,23 +40,8 @@ pub struct UnconstrainedDof {
 
 /// Count support restraints for 2D.
 fn count_support_restraints_2d(sup: &SolverSupport) -> (i32, bool) {
-    let mut r = 0i32;
-    let mut has_rot = false;
-
-    match sup.support_type.as_str() {
-        "fixed" => { r = 3; has_rot = true; }
-        "pinned" => { r = 2; }
-        "rollerX" | "rollerY" | "rollerZ" | "inclinedRoller" => { r = 1; }
-        "guidedX" | "guidedY" | "guidedZ" => { r = 2; has_rot = true; }
-        "spring" => {
-            if sup.kx.unwrap_or(0.0) > 0.0 { r += 1; }
-            if sup.ky.unwrap_or(0.0) > 0.0 { r += 1; }
-            if sup.kz.unwrap_or(0.0) > 0.0 { r += 1; has_rot = true; }
-        }
-        _ => {}
-    }
-
-    (r, has_rot)
+    let held = support_dofs_2d(sup).map(|d| d.restrained || d.spring.is_some_and(|k| k > 0.0));
+    (held.iter().filter(|&&h| h).count() as i32, held[2])
 }
 
 /// Compute the static degree of indeterminacy for a 2D structure.
@@ -361,13 +347,9 @@ fn expected_zero_rotations_2d(
 
     let mut rot_restrained = std::collections::HashSet::new();
     for sup in crate::ordered::values(&input.supports) {
-        match sup.support_type.as_str() {
-            "fixed" | "guidedX" | "guidedY" | "guidedZ" => { rot_restrained.insert(sup.node_id); }
-            _ => {
-                if sup.kz.unwrap_or(0.0) > 0.0 {
-                    rot_restrained.insert(sup.node_id);
-                }
-            }
+        let rotation = support_dofs_2d(sup)[2];
+        if rotation.restrained || rotation.spring.is_some_and(|k| k > 0.0) {
+            rot_restrained.insert(sup.node_id);
         }
     }
 
@@ -491,33 +473,8 @@ fn fast_solvable_2d(
 
 /// Count support restraints for 3D.
 fn count_support_restraints_3d(sup: &SolverSupport3D) -> (i32, bool) {
-    let mut r = 0i32;
-    let mut has_rot = false;
-
-    if sup.rx { r += 1; }
-    if sup.ry { r += 1; }
-    if sup.rz { r += 1; }
-    if sup.rrx { r += 1; has_rot = true; }
-    if sup.rry { r += 1; has_rot = true; }
-    if sup.rrz { r += 1; has_rot = true; }
-
-    // Springs
-    if sup.kx.unwrap_or(0.0) > 0.0 { r += 1; }
-    if sup.ky.unwrap_or(0.0) > 0.0 { r += 1; }
-    if sup.kz.unwrap_or(0.0) > 0.0 { r += 1; }
-    if sup.krx.unwrap_or(0.0) > 0.0 { r += 1; has_rot = true; }
-    if sup.kry.unwrap_or(0.0) > 0.0 { r += 1; has_rot = true; }
-    if sup.krz.unwrap_or(0.0) > 0.0 { r += 1; has_rot = true; }
-
-    // Inclined support
-    if sup.is_inclined.unwrap_or(false) {
-        if let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) {
-            let n_len = (nx * nx + ny * ny + nz * nz).sqrt();
-            if n_len > 1e-12 { r += 1; }
-        }
-    }
-
-    (r, has_rot)
+    let held = support_dofs_3d(sup).map(|d| d.restrained || d.spring.is_some_and(|k| k > 0.0));
+    (held[..6].iter().filter(|&&h| h).count() as i32, held[3..6].iter().any(|&h| h))
 }
 
 /// Compute static degree for 3D.
@@ -732,9 +689,9 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             if sup.rrx { rot_restrained.insert(sup.node_id); }
             if sup.rry { rot_restrained.insert(sup.node_id); }
             if sup.rrz { rot_restrained.insert(sup.node_id); }
-            if sup.krx.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
-            if sup.kry.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
-            if sup.krz.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
+            if support_dofs_3d(sup)[3].spring.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
+            if support_dofs_3d(sup)[4].spring.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
+            if support_dofs_3d(sup)[5].spring.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
         }
 
         // All-hinged frame nodes
