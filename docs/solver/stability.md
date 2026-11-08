@@ -50,11 +50,10 @@ For every node and kind, `B` is the block of `K` on that node's free DOFs of tha
 
 A direction `v` of the block is a **local free direction** when
 
-    μ ≤ τ_loc · μ_b            (within the node: anisotropy beyond round-off), or
-    μ_b ≤ τ_kind · max μ_b      (the whole block is round-off of the stiffest block of
-                                 the same kind in the model)
+    μ ≤ τ_loc · μ_b   with τ_loc = 1e-12, or the whole block is zero (μ_b ≤ 0).
 
-with `τ_loc = τ_kind = 1e-12`. By positive semidefiniteness, `vᵀKv = 0` implies `Kv = 0`:
+A block is never judged against another node: a soft but restrained node next to a stiff
+one carries no rounding from it. By positive semidefiniteness, `vᵀKv = 0` implies `Kv = 0`:
 a local free direction is a null vector of `K` up to the rounding of its assembly, which is
 `O(ε)` of the largest stiffness acting on that node (an inclined member rounds its axial
 stiffness into the transverse directions). Below `τ_loc` the direction cannot be told from
@@ -74,10 +73,19 @@ has identity diagonal blocks. Under rotation, mirror and relabelling `S` is repl
 **exactly invariant** under all four transforms. Plain Jacobi scaling (`D = diag K`) is
 invariant under units but not under rotation, which is why `kinematic.rs` still moved.
 
-`λ_max(S)` comes from power iteration and `λ_min(S)` from inverse iteration on a sparse
-Cholesky factor of `S`, both with Rayleigh quotients converged to `1e-9` relative. The
-iterations start from a fixed vector, but their limits are eigenvalues and do not depend on
-it. A Cholesky that breaks down means `S` is numerically not positive definite.
+Up to 240 kept directions the spectrum of `S` is computed in full (cyclic Jacobi). Above,
+Lanczos with full reorthogonalization estimates `λ_max(S)` and, on a sparse Cholesky
+factor, `1/λ_min(S)`, each to a Ritz residual bound of `1e-9`; the estimates are then
+certified by inertia: a Cholesky of `S − 0.999 λ_min I` and of `1.001 λ_max I − S` must
+both succeed, which proves `λ_min > 0.999 λ_min` and `λ_max < 1.001 λ_max`, and `κ_S` is
+the ratio of those bounds. An estimate that does not converge or does not certify, and a
+Cholesky of `S` that breaks down, give Singular: the threshold is never passed on an
+unproved number.
+
+With constraints, `K` is the reduced matrix and each independent DOF takes the node and
+kind of its physical DOF. A free rotation whose constraint column moves a physical
+translation (a master rotation that swings an offset rigid-link slave) is a Mechanism, not
+a free rotation.
 
 ### 2.3 Verdict
 
@@ -105,6 +113,8 @@ transformed copies of a model get different verdicts only if `κ_S · A` or a bl
 - The 47 C08 reproducers under 4 unit systems, 3 general rotations, 3 quarter turns, 4
   mirrors and 4 relabellings (3D: random rotations, axis permutations, mirrors about each
   axis): every stable or refused verdict, and the number of free directions, is identical.
+  Every model gets at least one image of each kind, except that #1106 and #1118 have no
+  mirror rule (pinned); images that cannot be built are counted, not dropped.
   25 are refused (13 Mechanism, 12 Singular), 22 are Stable.
 - The predicted drift `ε κ_S A` matches what the harness measures today: #993
   (`κ_S A = 1.0e12`) drifts 1.4e-4 under units and #1115 (`2.8e12`) 2.9e-4, against a

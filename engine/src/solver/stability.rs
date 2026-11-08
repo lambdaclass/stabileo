@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 pub const LOCAL_FREE: f64 = 1e-12;
-pub const KIND_FREE: f64 = 1e-12;
+pub const DENSE_SPECTRUM: usize = 240;
 pub const RESOLVABLE: f64 = 1e12;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -122,6 +122,10 @@ fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
 struct Column { group: usize, w: Vec<f64> }
 
 pub fn analyze_dense(k: &[f64], n: usize, tags: &[DofTag]) -> Stability {
+    analyze_dense_constrained(k, n, tags, &[])
+}
+
+pub fn analyze_dense_constrained(k: &[f64], n: usize, tags: &[DofTag], moves_translation: &[bool]) -> Stability {
     let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
     for j in 0..n {
         for i in j..n {
@@ -133,10 +137,14 @@ pub fn analyze_dense(k: &[f64], n: usize, tags: &[DofTag]) -> Stability {
             }
         }
     }
-    analyze(&CscMatrix::from_triplets(n, &rows, &cols, &vals), tags)
+    analyze_constrained(&CscMatrix::from_triplets(n, &rows, &cols, &vals), tags, moves_translation)
 }
 
 pub fn analyze(k: &CscMatrix, tags: &[DofTag]) -> Stability {
+    analyze_constrained(k, tags, &[])
+}
+
+pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[bool]) -> Stability {
     let n = k.n;
     let mut groups: BTreeMap<(usize, DofKind), Vec<usize>> = BTreeMap::new();
     for (i, t) in tags.iter().enumerate().take(n) {
@@ -159,19 +167,13 @@ pub fn analyze(k: &CscMatrix, tags: &[DofTag]) -> Stability {
         }
     }
     let eig: Vec<(Vec<f64>, Vec<f64>)> = blocks.iter().zip(&groups).map(|(b, (_, d))| sym_eigen_small(b, d.len())).collect();
-    let mut kind_max: BTreeMap<DofKind, f64> = BTreeMap::new();
-    for (((_, kind), _), (mu, _)) in groups.iter().zip(&eig) {
-        let top = mu.last().copied().unwrap_or(0.0).max(0.0);
-        let e = kind_max.entry(*kind).or_insert(0.0);
-        *e = e.max(top);
-    }
     let mut free = Vec::new();
     let mut columns: Vec<Column> = Vec::new();
     let mut anisotropy = 1.0f64;
     for (g, (((node, kind), dofs), (mu, vecs))) in groups.iter().zip(&eig).enumerate() {
         let b = dofs.len();
         let top = mu.last().copied().unwrap_or(0.0);
-        let whole_free = top.is_nan() || top <= KIND_FREE * kind_max[kind];
+        let whole_free = top.is_nan() || top <= 0.0;
         let mut lowest_kept = f64::INFINITY;
         for c in 0..b {
             let v: Vec<f64> = (0..b).map(|r| vecs[r * b + c]).collect();
@@ -185,7 +187,8 @@ pub fn analyze(k: &CscMatrix, tags: &[DofTag]) -> Stability {
         }
         if lowest_kept.is_finite() { anisotropy = anisotropy.max(top / lowest_kept); }
     }
-    let translation_free: Vec<usize> = free.iter().filter(|f| f.kind == DofKind::Translation).map(|f| f.node).collect();
+    let moves = |f: &FreeDirection| f.dofs.iter().zip(&f.direction).any(|(&d, v)| v.abs() > 1e-8 && moves_translation.get(d).copied().unwrap_or(false));
+    let translation_free: Vec<usize> = free.iter().filter(|f| f.kind == DofKind::Translation || moves(f)).map(|f| f.node).collect();
     if !translation_free.is_empty() {
         let mut mode_nodes = translation_free;
         mode_nodes.sort_unstable();
@@ -240,37 +243,80 @@ fn start(m: usize) -> Vec<f64> {
     x.into_iter().map(|a| a / nx).collect()
 }
 
+fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize) -> Option<(f64, Vec<f64>)> {
+    let steps = m.min(200);
+    let mut basis: Vec<Vec<f64>> = vec![start(m)];
+    let (mut alpha, mut beta): (Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new());
+    loop {
+        let j = basis.len() - 1;
+        let mut w = apply(&basis[j]);
+        alpha.push(dot(&w, &basis[j]));
+        for _ in 0..2 {
+            for v in &basis {
+                let c = dot(&w, v);
+                w.iter_mut().zip(v).for_each(|(a, b)| *a -= c * b);
+            }
+        }
+        let b = norm(&w);
+        let k = alpha.len();
+        let exhausted = !b.is_finite() || b <= 1e-13 * alpha.iter().fold(0.0f64, |m, a| m.max(a.abs())) || k == steps;
+        if k % 10 != 0 && !exhausted {
+            beta.push(b);
+            basis.push(w.into_iter().map(|a| a / b).collect());
+            continue;
+        }
+        let mut t = vec![0.0; k * k];
+        for i in 0..k {
+            t[i * k + i] = alpha[i];
+            if i + 1 < k { t[i * k + i + 1] = beta[i]; t[(i + 1) * k + i] = beta[i]; }
+        }
+        let (theta, y) = sym_eigen_small(&t, k);
+        let top = theta[k - 1];
+        let last = y[(k - 1) * k + k - 1];
+        if b * last.abs() <= 1e-9 * top.abs() || exhausted {
+            if !top.is_finite() || b * last.abs() > 1e-6 * top.abs() { return None; }
+            let mut x = vec![0.0; m];
+            for (i, v) in basis.iter().enumerate() {
+                let c = y[i * k + k - 1];
+                x.iter_mut().zip(v).for_each(|(a, b)| *a += c * b);
+            }
+            return Some((top, x));
+        }
+        beta.push(b);
+        basis.push(w.into_iter().map(|a| a / b).collect());
+    }
+}
+
+fn positive_definite(s: &CscMatrix, scale: f64, shift: f64) -> bool {
+    let mut a = s.clone();
+    for j in 0..a.n {
+        for p in a.col_ptr[j]..a.col_ptr[j + 1] {
+            a.values[p] *= scale;
+            if a.row_idx[p] == j { a.values[p] += shift; }
+        }
+    }
+    let sym = Rc::new(symbolic_cholesky(&a));
+    numeric_cholesky(&sym, &a).is_some()
+}
+
+const CERTIFY: f64 = 1e-3;
+
 fn spectrum(s: &CscMatrix) -> (f64, Option<Vec<f64>>) {
     let m = s.n;
-    let mut x = start(m);
-    let mut lmax = 0.0f64;
-    for _ in 0..500 {
-        let y = s.sym_mat_vec(&x);
-        let est = dot(&x, &y);
-        let ny = norm(&y);
-        if !ny.is_finite() || ny <= 0.0 { break; }
-        x = y.into_iter().map(|a| a / ny).collect();
-        let done = (est - lmax).abs() <= 1e-9 * est.abs();
-        lmax = est;
-        if done { break; }
+    if m <= DENSE_SPECTRUM {
+        let (mu, vecs) = sym_eigen_small(&s.to_dense_symmetric(), m);
+        let x: Vec<f64> = (0..m).map(|r| vecs[r * m]).collect();
+        if mu[0].is_nan() || mu[0] <= 0.0 { return (f64::INFINITY, Some(x)); }
+        return (mu[m - 1] / mu[0], Some(x));
     }
     let sym = Rc::new(symbolic_cholesky(s));
     let Some(factor) = numeric_cholesky(&sym, s) else { return (f64::INFINITY, None) };
-    let mut x = start(m);
-    let mut lmin = f64::INFINITY;
-    for _ in 0..500 {
-        let y = sparse_cholesky_solve(&factor, &x);
-        let ny = norm(&y);
-        if !ny.is_finite() || ny <= 0.0 { return (f64::INFINITY, Some(x)); }
-        let z: Vec<f64> = y.into_iter().map(|a| a / ny).collect();
-        let est = dot(&z, &s.sym_mat_vec(&z));
-        let done = (est - lmin).abs() <= 1e-9 * est.abs();
-        lmin = est;
-        x = z;
-        if done { break; }
-    }
-    if lmin.is_nan() || lmin <= 0.0 { return (f64::INFINITY, Some(x)); }
-    (lmax.max(lmin) / lmin, Some(x))
+    let Some((inverse_top, x)) = lanczos_top(&|v| sparse_cholesky_solve(&factor, v), m) else { return (f64::INFINITY, None) };
+    let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m) else { return (f64::INFINITY, Some(x)) };
+    if !(inverse_top.is_finite() && inverse_top > 0.0 && lmax > 0.0) { return (f64::INFINITY, Some(x)); }
+    let (lower, upper) = ((1.0 - CERTIFY) / inverse_top, (1.0 + CERTIFY) * lmax);
+    if !positive_definite(s, 1.0, -lower) || !positive_definite(s, -1.0, upper) { return (f64::INFINITY, Some(x)); }
+    (upper / lower, Some(x))
 }
 
 fn mode_nodes(x: &[f64], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)]) -> Vec<usize> {
@@ -291,15 +337,17 @@ fn without_springs(asm: &crate::solver::assembly::AssemblyResult) -> Vec<f64> {
     k
 }
 
-fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, ct: Option<crate::solver::constraints::ConstraintTransform>) -> (Vec<f64>, usize, Vec<DofTag>) {
+fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, ct: Option<crate::solver::constraints::ConstraintTransform>) -> (Vec<f64>, usize, Vec<DofTag>, Vec<bool>) {
     let n = dof.n_total;
     let nf = dof.n_free;
-    let (k, size, idx, tag_of): (Vec<f64>, usize, Vec<usize>, Vec<usize>) = match ct {
-        None => (k.to_vec(), n, (0..nf).collect(), (0..nf).collect()),
+    let (k, size, idx, tag_of, moves): (Vec<f64>, usize, Vec<usize>, Vec<usize>, Vec<bool>) = match ct {
+        None => (k.to_vec(), n, (0..nf).collect(), (0..nf).collect(), Vec::new()),
         Some(ct) => {
             let idx: Vec<usize> = (0..ct.n_independent).filter(|&j| ct.independent_dofs[j] < nf).collect();
             let tag_of = idx.iter().map(|&j| ct.independent_dofs[j]).collect();
-            (ct.c.reduce_dense(k), ct.n_independent, idx, tag_of)
+            let c = &ct.c;
+            let moves = idx.iter().map(|&j| (c.col_ptr[j]..c.col_ptr[j + 1]).any(|p| c.csc_vals[p] != 0.0 && tags[c.row_idx[p]].kind == DofKind::Translation)).collect();
+            (c.reduce_dense(k), ct.n_independent, idx, tag_of, moves)
         }
     };
     let m = idx.len();
@@ -307,7 +355,7 @@ fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, ct: Option<crate::s
     for (a, &i) in idx.iter().enumerate() {
         for (b, &j) in idx.iter().enumerate() { out[a * m + b] = k[i * size + j]; }
     }
-    (out, m, tag_of.into_iter().map(|d| tags[d]).collect())
+    (out, m, tag_of.into_iter().map(|d| tags[d]).collect(), moves)
 }
 
 pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
@@ -317,8 +365,8 @@ pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
     let ct = if input.constraints.is_empty() { None } else {
         Some(build_constraint_transform(&input.constraints, &dof, Some(&input.nodes), None, &inclined_dofs_2d(input, &dof))?)
     };
-    let (k, m, t) = reduced(&without_springs(&asm), &dof, tags(&dof, true), ct);
-    Ok(analyze_dense(&k, m, &t))
+    let (k, m, t, moves) = reduced(&without_springs(&asm), &dof, tags(&dof, true), ct);
+    Ok(analyze_dense_constrained(&k, m, &t, &moves))
 }
 
 pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
@@ -329,6 +377,6 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
     let ct = if input.constraints.is_empty() { None } else {
         Some(build_constraint_transform(&input.constraints, &dof, None, Some(&input.nodes), &inclined_dofs_3d(input, &dof))?)
     };
-    let (k, m, t) = reduced(&without_springs(&asm), &dof, tags(&dof, false), ct);
-    Ok(analyze_dense(&k, m, &t))
+    let (k, m, t, moves) = reduced(&without_springs(&asm), &dof, tags(&dof, false), ct);
+    Ok(analyze_dense_constrained(&k, m, &t, &moves))
 }

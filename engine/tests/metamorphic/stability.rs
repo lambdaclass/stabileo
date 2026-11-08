@@ -6,51 +6,55 @@ use dedaliano_engine::metamorphic::units::Units;
 use dedaliano_engine::metamorphic::Rng;
 use dedaliano_engine::solver::stability::{self, analyze_dense, DofKind, DofTag, Stability, Verdict};
 
+const NO_MIRROR_RULE: [&str; 2] = ["issue-1106", "issue-1118"];
+
 const UNITS: [(f64, f64); 4] = [(1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448), (1e3, 1e3)];
 
 fn c08() -> Vec<(String, Model)> {
     corpus::load_dir(&corpus::root().join("metamorphic_corpus").join("stability"), |_| true)
 }
 
-fn transforms_2d(c: &Case2, seed: u64) -> Vec<(String, Case2)> {
+fn transforms_2d(c: &Case2, seed: u64) -> Vec<(String, Result<Case2, String>)> {
     let mut rng = Rng::new(seed);
-    let mut out: Vec<(String, Case2)> = UNITS.iter().map(|&(l, f)| (format!("units {l}/{f}"), c.units(&Units::froude(l, f)))).collect();
+    let mut out: Vec<(String, Result<Case2, String>)> = UNITS.iter().map(|&(l, f)| (format!("units {l}/{f}"), Ok(c.units(&Units::froude(l, f))))).collect();
     for k in 0..3 {
         let iso = Iso2::rotation(rng.range(0.1, 6.2)).translated(rng.range(-50.0, 50.0), rng.range(-50.0, 50.0));
-        if let Ok(t) = c.iso(&iso) { out.push((format!("rotation {k}"), t)); }
+        out.push((format!("rotation {k}"), c.iso(&iso)));
         let iso = Iso2::rotation(std::f64::consts::FRAC_PI_2 * (1 + k) as f64);
-        if let Ok(t) = c.iso(&iso) { out.push((format!("quarter turn {k}"), t)); }
+        out.push((format!("quarter turn {k}"), c.iso(&iso)));
         let iso = Iso2::mirror_line(rng.range(0.0, 3.1)).translated(rng.range(-50.0, 50.0), rng.range(-50.0, 50.0));
-        if let Ok(t) = c.iso(&iso) { out.push((format!("mirror {k}"), t)); }
+        out.push((format!("mirror {k}"), c.iso(&iso)));
     }
-    if let Ok(t) = c.iso(&Iso2::mirror_x()) { out.push(("mirror x".into(), t)); }
-    for k in 0..4 { out.push((format!("relabel {k}"), c.relabel(&Relabel::random_2d(&c.s, seed + k), seed + k))); }
+    out.push(("mirror x".into(), c.iso(&Iso2::mirror_x())));
+    for k in 0..4 { out.push((format!("relabel {k}"), Ok(c.relabel(&Relabel::random_2d(&c.s, seed + k), seed + k)))); }
     out
 }
 
-fn transforms_3d(c: &Case3, seed: u64) -> Vec<(String, Case3)> {
+fn transforms_3d(c: &Case3, seed: u64) -> Vec<(String, Result<Case3, String>)> {
     let mut rng = Rng::new(seed);
-    let mut out: Vec<(String, Case3)> = UNITS.iter().map(|&(l, f)| (format!("units {l}/{f}"), c.units(&Units::froude(l, f)))).collect();
+    let mut out: Vec<(String, Result<Case3, String>)> = UNITS.iter().map(|&(l, f)| (format!("units {l}/{f}"), Ok(c.units(&Units::froude(l, f))))).collect();
     for k in 0..3 {
         let iso = Iso3::random(&mut rng).translated([rng.range(-50.0, 50.0), rng.range(-50.0, 50.0), rng.range(-50.0, 50.0)]);
-        if let Ok(t) = c.iso(&iso) { out.push((format!("rotation {k}"), t)); }
-        if let Ok(t) = c.iso(&Iso3::axis_permutation(3 + 5 * k)) { out.push((format!("axis permutation {k}"), t)); }
-        if let Ok(t) = c.mirror(k, [rng.range(-50.0, 50.0), 0.0, 0.0]) { out.push((format!("mirror {k}"), t)); }
+        out.push((format!("rotation {k}"), c.iso(&iso)));
+        out.push((format!("axis permutation {k}"), c.iso(&Iso3::axis_permutation(3 + 5 * k))));
+        out.push((format!("mirror {k}"), c.mirror(k, [rng.range(-50.0, 50.0), 0.0, 0.0])));
     }
-    for k in 0..4 { out.push((format!("relabel {k}"), c.relabel(&Relabel::random_3d(&c.s, seed + k), seed + k))); }
+    for k in 0..4 { out.push((format!("relabel {k}"), Ok(c.relabel(&Relabel::random_3d(&c.s, seed + k), seed + k)))); }
     out
 }
 
-fn verdicts(name: &str, m: &Model) -> (Result<Stability, String>, Vec<(String, Result<Stability, String>)>) {
+type Image = Result<Result<Stability, String>, String>;
+
+fn verdicts(name: &str, m: &Model) -> (Result<Stability, String>, Vec<(String, Image)>) {
     let seed = name.bytes().fold(20261108u64, |h, b| h.wrapping_mul(31).wrapping_add(b as u64));
     match m {
         Model::D2(s) => {
             let c = Case2::new(name, s.clone());
-            (stability::of_2d(&c.s), transforms_2d(&c, seed).into_iter().map(|(w, t)| (w, stability::of_2d(&t.s))).collect())
+            (stability::of_2d(&c.s), transforms_2d(&c, seed).into_iter().map(|(w, t)| (w, t.map(|t| stability::of_2d(&t.s)))).collect())
         }
         Model::D3(s) => {
             let c = Case3::new(name, s.clone());
-            (stability::of_3d(&c.s), transforms_3d(&c, seed).into_iter().map(|(w, t)| (w, stability::of_3d(&t.s))).collect())
+            (stability::of_3d(&c.s), transforms_3d(&c, seed).into_iter().map(|(w, t)| (w, t.map(|t| stability::of_3d(&t.s)))).collect())
         }
     }
 }
@@ -84,17 +88,30 @@ fn the_stability_verdict_of_every_c08_reproducer_survives_units_rotation_mirror_
     let models = c08();
     assert_eq!(models.len(), 47, "the C08 reproducers");
     let mut failures = Vec::new();
+    let mut unrepresentable = Vec::new();
+    let mut compared = 0;
     for (name, m) in &models {
         let (base, others) = verdicts(name, m);
         let base = base.unwrap_or_else(|e| panic!("{name}: {e}"));
+        let mut kinds = std::collections::BTreeSet::new();
         for (what, other) in others {
             match other {
-                Ok(o) => if let Err(e) = same(&base, &o) { failures.push(format!("{name} {what}: {e}")) },
-                Err(e) => failures.push(format!("{name} {what}: {e}")),
+                Ok(Ok(o)) => {
+                    compared += 1;
+                    kinds.insert(match what.split(' ').next().unwrap() { "quarter" | "axis" => "rotation", k => k }.to_string());
+                    if let Err(e) = same(&base, &o) { failures.push(format!("{name} {what}: {e}")) }
+                }
+                Ok(Err(e)) => failures.push(format!("{name} {what}: {e}")),
+                Err(e) => unrepresentable.push(format!("{name} {what}: {e}")),
             }
         }
+        for kind in ["units", "rotation", "mirror", "relabel"] {
+            let excluded = kind == "mirror" && NO_MIRROR_RULE.contains(&name.as_str());
+            if kinds.contains(kind) == excluded { failures.push(format!("{name}: {kind} image built: {}, excluded: {excluded}", kinds.contains(kind))); }
+        }
     }
-    assert!(failures.is_empty(), "{} verdicts changed:\n{}", failures.len(), failures.join("\n"));
+    assert!(failures.is_empty(), "{} verdicts changed or missing:\n{}", failures.len(), failures.join("\n"));
+    assert!(compared >= 47 * 15, "{compared} images compared; unrepresentable: {unrepresentable:?}");
 }
 
 const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 973, 993, 1008, 1028, 1029, 1041, 1083, 1091, 1095, 1103, 1112, 1115, 1353, 1355, 1357, 1359, 1362, 1648, 1651, 1653];
@@ -244,7 +261,7 @@ fn invariant_verdict(name: &str, m: Model) -> Stability {
     let (base, others) = verdicts(name, &m);
     let base = base.unwrap();
     for (what, o) in others {
-        let o = o.unwrap_or_else(|e| panic!("{name} {what}: {e}"));
+        let o = o.unwrap_or_else(|e| panic!("{name} {what} unrepresentable: {e}")).unwrap_or_else(|e| panic!("{name} {what}: {e}"));
         if let Err(e) = same(&base, &o) { panic!("{name} {what}: {e}"); }
     }
     base
@@ -315,4 +332,41 @@ fn mechanisms_are_refused_in_every_frame() {
         "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1}
     });
     assert!(!invariant_verdict("parallel inclined rollers", d2(frame_2d(bent, rollers))).is_stable());
+}
+
+fn threshold_pair(eta: f64) -> Stability {
+    let c = 1e-3 * eta.sqrt();
+    let k = [eta, 0.0, c, 0.0, 1.0, 0.0, c, 0.0, 1.0];
+    analyze_dense(&k, 3, &[t(1, DofKind::Translation), t(1, DofKind::Translation), t(2, DofKind::Translation)])
+}
+
+#[test]
+fn a_model_just_past_the_resolvable_product_is_singular_and_one_just_short_is_stable() {
+    let kappa = 1.001 / 0.999;
+    let past = threshold_pair(kappa / (stability::RESOLVABLE * (1.0 + 1e-4)));
+    assert_eq!(past.verdict, Verdict::Singular, "{past:?}");
+    let short = threshold_pair(kappa / (stability::RESOLVABLE * (1.0 - 1e-4)));
+    assert_eq!(short.verdict, Verdict::Stable, "{short:?}");
+    assert!((short.kappa - kappa).abs() < 1e-9, "{}", short.kappa);
+}
+
+#[test]
+fn a_soft_node_is_judged_by_its_own_stiffness_not_by_a_stiffer_node_elsewhere() {
+    let s = analyze_dense(&[1.0, 0.0, 0.0, 1e-13], 2, &[t(1, DofKind::Translation), t(2, DofKind::Translation)]);
+    assert_eq!(s.verdict, Verdict::Stable, "{s:?}");
+    assert!(s.free.is_empty());
+}
+
+#[test]
+fn a_free_master_rotation_that_swings_a_rigid_link_slave_is_a_mechanism_in_every_frame() {
+    let pendulum = serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "z": 1.0}, "3": {"id": 3, "x": -3.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": true}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "pinned"}, "3": {"id": 3, "nodeId": 3, "type": "fixed"}},
+        "constraints": [{"type": "rigidLink", "masterNode": 1, "slaveNode": 2, "dofs": []}],
+        "loads": []
+    });
+    assert_eq!(invariant_verdict("rigid-link pendulum", d2(pendulum)).verdict, Verdict::Mechanism);
 }
