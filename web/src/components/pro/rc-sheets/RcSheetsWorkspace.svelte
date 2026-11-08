@@ -1,0 +1,167 @@
+<script lang="ts">
+  import { t, tp, i18n } from '../../../lib/i18n';
+  import { modelStore, resultsStore } from '../../../lib/store';
+  import { adoptAll, buildSheetRows, downloadRcSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
+  import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
+  import { groupsArea, groupsLabel, meshArea, meshLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
+  import { columnLabel, tieLabel } from '../../../lib/rc-sheets/column-row';
+  import { SLAB_FACES } from '../../../lib/rc-sheets/slab-row';
+  import { SHEET_FAMILIES, type SheetFamily } from '../../../lib/rc-sheets/types';
+  import RcSteps from './RcSteps.svelte';
+  import RcRowEditor from './RcRowEditor.svelte';
+
+  let { onclose, family = $bindable<SheetFamily>('beam') }: { onclose: () => void; family?: SheetFamily } = $props();
+
+  let level = $state('');
+  let failingOnly = $state(false);
+  let openKey = $state<string | null>(null);
+
+  const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
+  const rows = $derived.by(() => {
+    void resultsStore.perCombo3D; void resultsStore.results3D; void modelStore.designData; void modelStore.model.groups;
+    return buildSheetRows(fmt);
+  });
+  const all = $derived(rows[family] as SheetRow[]);
+  const levels = $derived([...new Set(all.map((r) => r.level ?? ''))]);
+  const shown = $derived(all.filter((r) => (!level || (r.level ?? '') === level) && (!failingOnly || r.status === 'fail')));
+  const counts = $derived(Object.fromEntries(SHEET_FAMILIES.map((f) => {
+    const list = rows[f] as SheetRow[];
+    return [f, { n: list.length, fail: list.filter((r) => r.status === 'fail').length }];
+  })) as Record<SheetFamily, { n: number; fail: number }>);
+  const f1 = (v: number) => fmt(v, 1);
+  const f2 = (v: number) => fmt(v, 2);
+
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return { destroy() { node.remove(); } };
+  }
+  function onkey(e: KeyboardEvent) { if (e.key === 'Escape') onclose(); }
+</script>
+
+<svelte:window onkeydown={onkey} />
+
+<div class="rcw" use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
+  <header class="rcw-head">
+    <strong>{t('rcSheets.title')}</strong>
+    <span class="rcw-dim">CIRSOC 201-2025 · {rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`)}</span>
+    <div class="rcw-tabs" role="tablist">
+      {#each SHEET_FAMILIES as f (f)}
+        <button type="button" role="tab" aria-selected={family === f} class:on={family === f} data-testid={`rc-tab-${f}`} onclick={() => { family = f; level = ''; openKey = null; }}>
+          {t(`rcSheets.family.${f}`)} <small>{counts[f].n}{counts[f].fail ? ` · ${counts[f].fail} ✗` : ''}</small>
+        </button>
+      {/each}
+    </div>
+    <span class="rcw-sp"></span>
+    <label class="rcw-ctl">{t('rcSheets.col.level')}
+      <select bind:value={level}>
+        <option value="">{t('rcSheets.allLevels')}</option>
+        {#each levels as l (l)}<option value={l}>{l || '—'}</option>{/each}
+      </select>
+    </label>
+    <label class="rcw-ctl"><input type="checkbox" bind:checked={failingOnly} /> {t('rcSheets.onlyFailing')}</label>
+    <button type="button" class="rcs-btn" onclick={() => adoptAll(shown)} disabled={!shown.length}>{t('rcSheets.adoptAll')}</button>
+    <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length}>{t('rcSheets.export')}</button>
+    <button type="button" class="rcs-btn" onclick={onclose} aria-label={t('rcSheets.close')}>✕</button>
+  </header>
+
+  <div class="rcw-body">
+    {#if !all.length}
+      <p class="rcw-empty" data-testid="rc-empty">{t(rows.basis === 'none' ? 'rcSheets.solveFirst' : `rcSheets.empty.${family}`)}</p>
+    {:else}
+      <table class="rcw-table" data-testid={`rc-table-${family}`}>
+        <thead>
+          {#if family === 'beam'}
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>b × h</th><th>Mu⁺</th><th>Mu⁻</th><th>Vu</th><th>Tu</th>
+              <th>{t('rcSheets.col.bottom')}</th><th>{t('rcSheets.col.top')}</th><th>{t('rcSheets.col.stirrups')}</th><th>{t('rcSheets.col.torsionLong')}</th><th>{t('rcSheets.col.status')}</th></tr>
+          {:else if family === 'column'}
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>b × h</th><th>Pu</th><th>ρ</th>
+              <th>{t('rcSheets.col.bars')}</th><th>{t('rcSheets.col.ties')}</th><th>{t('rcSheets.col.crossties')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
+          {:else}
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>h</th><th>Lx × Ly</th>
+              {#each SLAB_FACES as f (f)}<th>{t(`rcSheets.face.${f}`)}</th>{/each}<th>{t('rcSheets.col.status')}</th></tr>
+          {/if}
+        </thead>
+        <tbody>
+          {#each shown as r (r.key)}
+            <tr class="row st-{r.status}" class:open={openKey === r.key} onclick={() => (openKey = openKey === r.key ? null : r.key)} data-testid="rc-row">
+              <td class="nm">{r.name}{#if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{/if}</td>
+              <td>{r.level ?? ''}</td>
+              {#if r.family === 'beam'}
+                <td>{fmt(r.b * 100, 0)}×{fmt(r.h * 100, 0)}</td>
+                <td class="n">{f1(r.demand.mPos.value)}</td>
+                <td class="n">{f1(Math.max(r.demand.mNegStart.value, r.demand.mNegEnd.value))}</td>
+                <td class="n">{f1(r.demand.vu.value)}</td>
+                <td class="n">{f1(r.demand.tu.value)}</td>
+                <td><span class="need">{f2(r.req.bottom)}</span> {groupsLabel(r.adopted.bottom)} <span class="dim">({f2(groupsArea(r.adopted.bottom))})</span></td>
+                <td><span class="need">{f2(r.req.top)}</span> {groupsLabel(r.adopted.top)} <span class="dim">({f2(groupsArea(r.adopted.top))})</span></td>
+                <td>{stirrupsLabel(r.adopted.stirrups)}</td>
+                <td>{r.req.torsionNeglected ? '—' : `${r.adopted.torsionLong ? groupsLabel([r.adopted.torsionLong]) : '—'} (${f2(r.req.al)})`}</td>
+              {:else if r.family === 'column'}
+                <td>{fmt(r.b * 100, 0)}×{fmt(r.h * 100, 0)}</td>
+                <td class="n">{f1(Math.max(0, ...r.demand.cases.map((c) => c.pu)))}</td>
+                <td class="n">{f2(r.req.rho * 100)} %</td>
+                <td>{columnLabel(r.adopted)} <span class="dim">({f2(r.checks.area)})</span></td>
+                <td>{tieLabel(r.adopted)}</td>
+                <td>{r.checks.crossties.x} · {r.checks.crossties.y}</td>
+                <td class="n">{fmt(r.checks.ratio, 2)}</td>
+              {:else}
+                <td>{fmt(r.h * 100, 0)}</td>
+                <td>{f2(r.lx)} × {f2(r.ly)}</td>
+                {#each SLAB_FACES as f (f)}
+                  <td><span class="need">{f2(r.faces[f].asReq)}</span> {r.adopted[f].dia ? meshLabel(r.adopted[f]) : '—'} <span class="dim">({f2(meshArea(r.adopted[f]))})</span></td>
+                {/each}
+              {/if}
+              <td class="stc">{t(`rcSheets.status.${r.status}`)}</td>
+            </tr>
+            {#if openKey === r.key}
+              <tr class="detail">
+                <td colspan="13">
+                  <RcRowEditor row={r} />
+                  <RcSteps groups={r.steps} />
+                </td>
+              </tr>
+            {/if}
+          {/each}
+        </tbody>
+      </table>
+      <p class="rcw-note">{t('rcSheets.scopeNote')}</p>
+    {/if}
+  </div>
+</div>
+
+<style>
+  .rcw { position: fixed; inset: 0; z-index: 1000; background: var(--st-surface); color: var(--st-text); display: flex; flex-direction: column; }
+  .rcw-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--st-hair); }
+  .rcw-head strong { font-family: var(--st-display); font-size: 0.9rem; }
+  .rcw-dim { font-size: 0.72rem; color: var(--st-text-3); }
+  .rcw-tabs { display: flex; gap: 2px; margin-left: 8px; }
+  .rcw-tabs button { border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text-2); border-radius: 4px; padding: 3px 10px; font-size: 0.76rem; cursor: pointer; }
+  .rcw-tabs button.on { background: var(--st-accent, var(--st-surface-3)); color: var(--st-on-accent, var(--st-text)); }
+  .rcw-tabs small { opacity: 0.75; }
+  .rcw-sp { flex: 1; }
+  .rcw-ctl { display: flex; align-items: center; gap: 4px; font-size: 0.72rem; color: var(--st-text-2); }
+  .rcw-ctl select { font-size: 0.72rem; background: var(--st-surface); color: var(--st-text); border: 1px solid var(--st-hair); border-radius: 4px; }
+  .rcs-btn { font-size: 0.72rem; border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text); border-radius: 4px; padding: 3px 8px; cursor: pointer; }
+  .rcs-btn:disabled { opacity: 0.5; cursor: default; }
+  .rcw-body { flex: 1; overflow: auto; padding: 8px 12px 16px; }
+  .rcw-empty { color: var(--st-text-2); font-size: 0.8rem; max-width: 60ch; }
+  .rcw-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+  th { position: sticky; top: 0; background: var(--st-surface-2); text-align: left; font-weight: 600; color: var(--st-text-2); padding: 4px 6px; border-bottom: 1px solid var(--st-hair); white-space: nowrap; }
+  td { padding: 3px 6px; border-bottom: 1px solid var(--st-hair); white-space: nowrap; }
+  tr.row { cursor: pointer; }
+  tr.row:hover { background: var(--st-surface-2); }
+  tr.open { background: var(--st-surface-2); }
+  .n { text-align: right; font-family: var(--st-mono); }
+  .need { font-family: var(--st-mono); color: var(--st-text-3); margin-right: 4px; }
+  .need::after { content: ' →'; }
+  .dim { color: var(--st-text-3); }
+  .nm { font-weight: 600; }
+  .tag { margin-left: 4px; font-size: 0.6rem; border: 1px solid var(--st-hair); border-radius: 3px; padding: 0 3px; color: var(--st-text-3); }
+  .stc { font-weight: 600; }
+  tr.st-ok .stc { color: var(--st-ok); }
+  tr.st-warn .stc { color: var(--st-warn); }
+  tr.st-fail .stc { color: var(--st-danger); }
+  tr.detail td { white-space: normal; padding: 8px; background: var(--st-surface); }
+  tr.detail :global(.rce) { margin-bottom: 8px; }
+  .rcw-note { font-size: 0.7rem; color: var(--st-text-3); margin-top: 8px; max-width: 90ch; }
+</style>

@@ -117,6 +117,8 @@ export interface ProjectDesignData {
    * physical element, by member, and the default for the beams. Absent: nothing declared.
    */
   lateralSystem?: import('./lateral-system').LateralSystemData;
+  /** The bars adopted in the reinforcement sheets and how they treat torsion (`rc-sheets/`). */
+  rcSheets?: import('../rc-sheets/types').RcSheetsData;
   /** A predetermined slab base mat, deducted before bands are added (absent: the minimum). */
   slabBase?: Partial<Record<'topX' | 'topY' | 'bottomX' | 'bottomY', { diameter: number; spacing: number }>>;
 }
@@ -193,6 +195,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
+    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, torsion: (e.rcSheets as { torsion?: unknown }).torsion === 'compatibility' ? 'compatibility' as const : 'equilibrium' as const, adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
     // The seismic roles fixed by hand are the lateral-system declaration under its older name:
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
     ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),
