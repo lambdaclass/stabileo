@@ -513,3 +513,26 @@ fn envelope_3d_overflow_is_refused() {
     assert!(my.neg_values.iter().all(|v| v.is_finite() && *v <= 0.0));
 }
 
+#[test]
+#[ignore = "known wrong result: #1759"]
+fn issue_1759_buckling_rejects_negative_truss_inertia() {
+    use dedaliano_engine::solver::buckling::solve_buckling_3d;
+    use dedaliano_engine::types::SolverInput3D;
+    let bytes = include_bytes!("../fuzz/regressions/json_dynamics/crash-828fb1b1282a6154226085839f502cc6703cace8.min");
+    assert_eq!(bytes[0] % 20, 5);
+    let input: SolverInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let error = solve_buckling_3d(&input, 3).unwrap_err();
+    assert!(error.contains("Section 1") && error.contains("inertia"), "{error}");
+}
+
+#[test]
+#[ignore = "known wrong result: #1761"]
+fn issue_1761_multi_case_overflow_is_refused() {
+    use dedaliano_engine::solver::load_cases::{solve_multi_case_3d, MultiCaseInput3D};
+    let bytes = include_bytes!("../fuzz/regressions/json_static/crash-0e89be15b950870b2e17a3d6d7a842708a882ac7.min");
+    assert_eq!(bytes[0] % 18, 11);
+    let input: MultiCaseInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let error = solve_multi_case_3d(&input).unwrap_err();
+    assert!(error.contains("non-finite"), "{error}");
+}
+
