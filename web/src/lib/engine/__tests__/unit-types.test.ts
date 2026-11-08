@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { elasticFromDisplay, elasticToDisplay, materialToWire, sectionToWire, section3DToWire, modulusInternal, nodeToWire, node3DToWire, loadToWire, load3DToWire } from '../unit-types';
+import { elasticFromDisplay, elasticToDisplay, materialToWire, sectionToWire, section3DToWire, modulusInternal, nodeToWire, node3DToWire, loadToWire, load3DToWire, supportToWire, support3DToWire, element3DToWire, plateThermalToWire } from '../unit-types';
+import { convertThermalQuadLoad } from '../solver-shells';
+import { unitInputCommit } from '../../utils/unit-input';
 import { fromDisplay, toDisplay, UNIT_SYSTEMS } from '../../utils/units';
 import { input2DToWireObject, input3DToWireObject, solve } from '../wasm-solver';
 import type { SolverInput, SolverLoad } from '../types';
@@ -168,4 +170,128 @@ describe('node and load unit boundary', () => {
     const pointWithoutOptionals = loadToWire({ type: 'pointOnElement', data: { elementId: 1, a: 1, p: 2 } });
     expect(Object.keys(pointWithoutOptionals.data)).toStrictEqual(['elementId', 'a', 'p']);
   });
+});
+
+describe('distributed, thermal and support unit boundary', () => {
+  const loads2D = (): SolverLoad[] => [
+    { type: 'distributed', data: { elementId: 1, qI: -5.5, qJ: -2.25 } },
+    { type: 'distributed', data: { qJ: 1e-9, elementId: 1, qI: -0, a: 0.25, b: undefined, caseId: 2 } as never },
+    { type: 'axialDistributed', data: { elementId: 1, qI: 1.5, qJ: -0, a: 0 } },
+    { type: 'thermal', data: { elementId: 1, dtUniform: 20.5, dtGradient: -7.25 } },
+    { type: 'thermal', data: { dtGradient: 3, elementId: 1, dtUniform: -0, alpha: 1e-5, depth: 0.45 } },
+  ];
+  const loads3D = (): SolverLoad3D[] => [
+    { type: 'distributed', data: { elementId: 1, qYI: -5, qYJ: -2.5, qZI: 0, qZJ: 1.25 } },
+    { type: 'distributed', data: { qXI: 0.5, qXJ: -0, elementId: 1, qYI: 1e-9, qYJ: 0, qZI: -3, qZJ: -3, a: 0.5, b: 1.75 } },
+    { type: 'thermal', data: { elementId: 1, dtUniform: 15.5, dtGradientY: -4, dtGradientZ: 2.5 } },
+    { type: 'thermal', data: { depthZ: 0.2, elementId: 1, dtUniform: -0, dtGradientY: 0, dtGradientZ: 6, alpha: 1e-5, depthY: undefined } },
+    { type: 'quadThermal', data: { elementId: 8, dtUniform: -8, dtGradient: 0 } } as never,
+  ];
+  const supports2D = (): SolverInput['supports'] => new Map([
+    [1, { id: 1, nodeId: 1, type: 'fixed', dx: 0.001, dz: -0, dry: 1e-4 }],
+    [2, { kz: 321.25, id: 2, nodeId: 2, type: 'spring', kx: 1234.5, ky: 9876.5, angle: 0.3 }],
+    [3, { id: 3, nodeId: 3, type: 'pinned', dx: -0, dz: -0.002, dry: undefined }],
+  ]);
+  const supports3D = (): SolverInput3D['supports'] => new Map([
+    [1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true, dz: -0.001, dry: -0, drz: 2e-4 }],
+    [4, { krx: 89.125, nodeId: 4, rx: true, ry: true, rz: false, rrx: false, rry: true, rrz: true, kz: 4567.5, dx: 0, stabilised: 'springs', stabilisedAxes: [true, false, false] }],
+    [2, { nodeId: 2, rx: false, ry: false, rz: true, rrx: false, rry: false, rrz: false, kx: 1e4, ky: 2e4, kry: 3.5, krz: -0, drx: undefined, normalX: 0, normalY: 0, normalZ: 1, isInclined: true }],
+  ]);
+  const element3D = (id: number, extra: object) => ({
+    id, type: 'frame' as const, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1,
+    releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false, ...extra,
+  });
+  const elements3D = (): SolverInput3D['elements'] => new Map([
+    [1, element3D(1, { rollAngle: 30 })],
+    [2, element3D(2, { rollAngle: -0, localYx: 0, localYy: 0, localYz: 1 })],
+    [3, element3D(3, {})],
+  ]);
+  const model2D = (): SolverInput => ({ ...input(), supports: supports2D(), loads: loads2D() });
+  const model3D = (): SolverInput3D => ({
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 3, y: 0, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-5 }]]),
+    elements: elements3D(),
+    supports: supports3D(),
+    loads: loads3D(),
+  });
+  const before = (input: { supports: Map<number, unknown>; elements: Map<number, unknown>; loads: unknown[] }) => ({
+    supports: Object.fromEntries(Array.from(input.supports, ([id, s]) => [String(id), s])),
+    elements: Object.fromEntries(Array.from(input.elements, ([id, e]) => [String(id), e])),
+    loads: input.loads,
+  });
+  const same = (wire: unknown, legacy: unknown) => {
+    expect(JSON.stringify(wire)).toBe(JSON.stringify(legacy));
+    expect(keyPaths(wire)).toStrictEqual(keyPaths(legacy));
+    expect(wire).toStrictEqual(legacy);
+  };
+  it('sends the same 2D support, distributed and thermal JSON text, keys and signed zeros as before', () => {
+    const wire = input2DToWireObject(model2D());
+    const legacy = before(model2D());
+    same(wire.supports, legacy.supports);
+    same(wire.loads, legacy.loads);
+    same(wire.elements, legacy.elements);
+    expect(Object.is(wire.supports['1'].dz, -0)).toBe(true);
+    expect(Object.is(wire.supports['3'].dx, -0)).toBe(true);
+    expect(Object.hasOwn(wire.supports['3'], 'dry')).toBe(true);
+    expect(wire.supports['2']).not.toHaveProperty('dz');
+    expect(Object.keys(wire.supports['2'])[0]).toBe('kz');
+    const d = wire.loads[1];
+    expect(d.type === 'distributed' && Object.is(d.data.qI, -0)).toBe(true);
+    expect(Object.hasOwn(d.data, 'b')).toBe(true);
+    expect(d.data).toHaveProperty('caseId', 2);
+    const t = wire.loads[3];
+    expect(t.type === 'thermal' && !Object.hasOwn(t.data, 'alpha') && !Object.hasOwn(t.data, 'depth')).toBe(true);
+  });
+  it('sends the same 3D support, element, distributed and thermal JSON text, keys and signed zeros as before', () => {
+    const wire = input3DToWireObject(model3D());
+    const legacy = before(model3D());
+    same(wire.supports, legacy.supports);
+    same(wire.elements, legacy.elements);
+    same(wire.loads, legacy.loads);
+    expect(Object.is(wire.elements['2'].rollAngle, -0)).toBe(true);
+    expect(wire.elements['3']).not.toHaveProperty('rollAngle');
+    expect(Object.is(wire.supports['1'].dry, -0)).toBe(true);
+    expect(Object.is(wire.supports['2'].krz, -0)).toBe(true);
+    expect(wire.supports['4']).toHaveProperty('stabilised', 'springs');
+    expect(Object.keys(wire.supports)).toStrictEqual(['1', '2', '4']);
+    const d = wire.loads[0];
+    expect(d.type === 'distributed' && !Object.hasOwn(d.data, 'qXI')).toBe(true);
+    const t = wire.loads[3];
+    expect(t.type === 'thermal' && Object.is(t.data.dtUniform, -0) && Object.hasOwn(t.data, 'depthY')).toBe(true);
+    expect(Object.keys(wire.loads[3].data)[0]).toBe('depthZ');
+  });
+  it('adapts supports, elements and loads without converting, rounding, adding keys or touching the stored model', () => {
+    for (const s of supports2D().values()) expect(supportToWire(s)).toStrictEqual(s);
+    for (const s of supports3D().values()) expect(support3DToWire(s)).toStrictEqual(s);
+    for (const e of elements3D().values()) expect(element3DToWire(e)).toStrictEqual(e);
+    for (const load of loads2D()) expect(loadToWire(load)).toStrictEqual(load);
+    for (const load of loads3D()) expect(load3DToWire(load)).toStrictEqual(load);
+    const plate = { elementId: 7, dtUniform: 10, dtGradient: -0, alpha: 1.1e-5 };
+    expect(plateThermalToWire(plate)).toStrictEqual(plate);
+    expect(Object.keys(plateThermalToWire({ elementId: 7, dtUniform: 1, dtGradient: 0 }))).toStrictEqual(['elementId', 'dtUniform', 'dtGradient']);
+    const stored = model3D();
+    const wire = input3DToWireObject(stored);
+    (wire.supports['2'] as { kx?: number }).kx = 99;
+    (wire.elements['1'] as { rollAngle?: number }).rollAngle = 99;
+    expect(stored.supports.get(2)!.kx).toBe(1e4);
+    expect(stored.elements.get(1)!.rollAngle).toBe(30);
+  });
+  it('sends a quad temperature load with the same keys as before', () => {
+    const [load] = convertThermalQuadLoad({ quadId: 8, dtUniform: -0, dtGradient: 4 } as never, 1.2e-5);
+    expect(JSON.stringify(load)).toBe(JSON.stringify({ type: 'quadThermal', data: { elementId: 8, dtUniform: 0, dtGradient: 4, alpha: 1.2e-5 } }));
+    expect(Object.is((load.data as { dtUniform: number }).dtUniform, -0)).toBe(true);
+    const [plate] = convertThermalQuadLoad({ quadId: 3, on: 'plate', dtUniform: 5 } as never);
+    expect(plate).toStrictEqual({ type: 'plateThermal', data: { elementId: 3, dtUniform: 5, dtGradient: 0 } });
+  });
+  for (const system of UNIT_SYSTEMS) {
+    it(`commits the same canonical numbers for the slice 4 quantities in ${system}`, () => {
+      for (const q of ['distributedLoad', 'areaLoad', 'temperatureDelta', 'springK', 'springKr', 'displacement', 'rotation'] as const) {
+        expect(elasticFromDisplay(123.456, q, system)).toBe(fromDisplay(123.456, q, system));
+        expect(elasticToDisplay(elasticFromDisplay(7.25, q, system), q, system)).toBe(toDisplay(fromDisplay(7.25, q, system), q, system));
+        expect(unitInputCommit('123.456', 0, q, system)).toBe(fromDisplay(123.456, q, system));
+      }
+      expect(unitInputCommit('68', 0, 'temperature', system)).toBe(fromDisplay(68, 'temperature', system));
+    });
+  }
 });

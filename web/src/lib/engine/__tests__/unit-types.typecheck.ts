@@ -1,7 +1,7 @@
 import { input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
-import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire } from '../unit-types';
+import { areaM2, inertiaM4, mpa, ratio, modulusInternal, elasticFromDisplay, elasticToDisplay, type ElasticMaterialWire, type ElasticSectionWire, type Force, type Length, type Moment, materialToWire, sectionToWire, section3DToWire, warpingM6, lengthM, forceKn, momentKnM, bimomentKnM2, nodeToWire, node3DToWire, loadToWire, load3DToWire, lineLoadKnM, areaLoadKnM2, temperatureDeltaC, expansionPerC, springKnM, springKnMRad, angleRad, angleDeg, plateThermalToWire, supportToWire, support3DToWire, element3DToWire, type AreaLoad, type TemperatureDifference, type TranslationalStiffness, type RotationalStiffness, type Angle, type LineLoad } from '../unit-types';
 const material: ElasticMaterialWire = { id: 1, e: mpa(200000), nu: ratio(0.3) };
 const section: ElasticSectionWire = { id: 1, a: areaM2(0.01), iz: inertiaM4(0.0001) };
 material.e = elasticFromDisplay(29000, 'stress', 'Imperial');
@@ -135,3 +135,107 @@ if (adaptedLoad.type === 'nodal') adaptedLoad.data.fz = moment;
 const adaptedLoad3D = load3DToWire({ type: 'pointOnElement', data: { elementId: 1, a: 0, py: 0, pz: 0 } });
 // @ts-expect-error the 3D load adapter retains the length brand
 if (adaptedLoad3D.type === 'pointOnElement') adaptedLoad3D.data.a = force;
+
+for (const load of wire.loads) {
+  if (load.type === 'distributed') {
+    load.data.qI = lineLoadKnM(-5);
+    load.data.a = lengthM(0.5);
+    // @ts-expect-error a distributed load is kN/m, not kN
+    load.data.qI = forceKn(1);
+    // @ts-expect-error an area load is kN/m², not kN/m
+    load.data.qJ = areaLoadKnM2(1);
+    // @ts-expect-error raw numbers require an explicit boundary constructor
+    load.data.qJ = -2;
+  } else if (load.type === 'axialDistributed') {
+    load.data.qJ = lineLoadKnM(1);
+    // @ts-expect-error an axial line load's extent is a length, not a line load
+    load.data.b = lineLoadKnM(1);
+  } else if (load.type === 'thermal') {
+    load.data.dtUniform = temperatureDeltaC(20);
+    load.data.alpha = expansionPerC(1.2e-5);
+    load.data.depth = lengthM(0.4);
+    // @ts-expect-error α is 1/°C, not a temperature difference
+    load.data.alpha = temperatureDeltaC(12);
+    // @ts-expect-error a temperature gradient is a difference across the depth, not the depth
+    load.data.dtGradient = lengthM(0.4);
+  }
+}
+for (const load of wire3D.loads) {
+  if (load.type === 'distributed') {
+    load.data.qXI = lineLoadKnM(0.5);
+    load.data.qZJ = lineLoadKnM(-1);
+    // @ts-expect-error a 3D line load is kN/m, not a spring stiffness in kN/m
+    load.data.qYI = springKnM(1);
+    // @ts-expect-error raw numbers require an explicit boundary constructor
+    load.data.qZI = 3;
+  } else if (load.type === 'thermal') {
+    load.data.dtGradientY = temperatureDeltaC(4);
+    load.data.depthZ = lengthM(0.3);
+    // @ts-expect-error the 3D thermal depth is a length, not a temperature difference
+    load.data.depthY = temperatureDeltaC(4);
+  }
+}
+const support = wire.supports['1'];
+support.kx = springKnM(1e4);
+support.kz = springKnMRad(50);
+support.dz = lengthM(-0.01);
+support.dry = angleRad(0.001);
+support.angle = angleRad(0.5);
+// @ts-expect-error a rotational spring is kN·m/rad, not kN/m
+support.kz = springKnM(1e3);
+// @ts-expect-error a translational spring is kN/m, not a line load
+support.kx = lineLoadKnM(1e3);
+// @ts-expect-error a prescribed rotation is an angle, not a length
+support.dry = lengthM(0.01);
+// @ts-expect-error a support angle is in radians, not degrees
+support.angle = angleDeg(30);
+const support3D = wire3D.supports['1'];
+support3D.ky = springKnM(2e4);
+support3D.krx = springKnMRad(10);
+support3D.dy = lengthM(0.002);
+support3D.drz = angleRad(-0.001);
+// @ts-expect-error a 3D rotational spring is kN·m/rad, not kN/m
+support3D.krx = springKnM(1e3);
+// @ts-expect-error a 3D translational spring is kN/m, not kN·m/rad
+support3D.kx = springKnMRad(1e3);
+// @ts-expect-error a prescribed displacement is a length, not an angle
+support3D.dz = angleRad(0.01);
+// @ts-expect-error raw numbers require an explicit boundary constructor
+support3D.kz = 1e3;
+wire3D.elements['1'].rollAngle = angleDeg(90);
+// @ts-expect-error a member's roll angle is in degrees on the wire, not radians
+wire3D.elements['1'].rollAngle = angleRad(Math.PI / 2);
+const plateThermal = plateThermalToWire({ elementId: 1, dtUniform: 10, dtGradient: 5 });
+plateThermal.dtGradient = temperatureDeltaC(5);
+// @ts-expect-error a plate thermal load's α is 1/°C, not a temperature difference
+plateThermal.alpha = temperatureDeltaC(1);
+const adaptedSupport = supportToWire({ id: 1, nodeId: 1, type: 'spring', kx: 1 });
+// @ts-expect-error the support adapter retains the spring brand
+adaptedSupport.kx = springKnMRad(1);
+const adaptedSupport3D = support3DToWire({ nodeId: 1, rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false, krz: 1 });
+// @ts-expect-error the 3D support adapter retains the rotational spring brand
+adaptedSupport3D.krz = springKnM(1);
+const adaptedElement3D = element3DToWire({ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false, rollAngle: 90 });
+// @ts-expect-error the 3D element adapter retains the degree brand
+adaptedElement3D.rollAngle = angleRad(1);
+const adaptedThermal = loadToWire({ type: 'thermal', data: { elementId: 1, dtUniform: 10, dtGradient: 0 } });
+// @ts-expect-error the load adapter brands the thermal variant
+if (adaptedThermal.type === 'thermal') adaptedThermal.data.dtUniform = lengthM(1);
+const adaptedDistributed3D = load3DToWire({ type: 'distributed', data: { elementId: 1, qYI: 1, qYJ: 1, qZI: 0, qZJ: 0 } });
+// @ts-expect-error the 3D load adapter brands the distributed variant
+if (adaptedDistributed3D.type === 'distributed') adaptedDistributed3D.data.qYJ = forceKn(1);
+const pressure: AreaLoad = elasticFromDisplay(2, 'areaLoad', 'Imperial');
+const delta: TemperatureDifference = elasticFromDisplay(9, 'temperatureDelta', 'Imperial');
+const spring: TranslationalStiffness = elasticFromDisplay(10, 'springK', 'MKS');
+const springR: RotationalStiffness = elasticFromDisplay(10, 'springKr', 'MKS');
+const settlement: Length = elasticFromDisplay(10, 'displacement', 'SImm');
+const rotation: Angle = elasticFromDisplay(0.01, 'rotation', 'SI');
+const lineLoad: LineLoad = elasticFromDisplay(1, 'distributedLoad', 'Imperial');
+void [pressure, delta, spring, springR, settlement, rotation, lineLoad];
+// @ts-expect-error a display spring stiffness is not a line load
+const notLineLoad: LineLoad = elasticFromDisplay(10, 'springK', 'SI');
+void notLineLoad;
+// @ts-expect-error a temperature difference cannot be shown as a length
+elasticToDisplay(delta, 'displacement', 'SI');
+// @ts-expect-error a rotational spring cannot be shown as a translational one
+elasticToDisplay(springR, 'springK', 'SI');
