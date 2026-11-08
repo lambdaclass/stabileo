@@ -403,3 +403,95 @@ fn connector_assembly_paths_agree() {
         assert_same(&dense, &par, &format!("3D {ty} parallel"));
     }
 }
+
+fn arm_pair_2d(k_moment: f64, padded: bool, scale: f64) -> SolverInput {
+    let chain = if padded { 30 } else { 1 };
+    let mut nodes = vec![
+        (1, -2.371208653147953, -7.645282926496574),
+        (2, -4.7992993868328675, 0.13482899599091525),
+        (3, -0.6291861435879511, 3.6260394623324252),
+        (4, 0.9435927795338301, -4.632827807178028),
+    ];
+    nodes.extend((0..=chain).map(|k| (5001 + k, 100.0, 6.0 * k as f64 / chain as f64)));
+    let mut elems = vec![
+        (1, "truss", 2, 1, 1, 1, false, false),
+        (2, "truss", 1, 3, 1, 1, false, false),
+        (3, "truss", 4, 2, 2, 1, false, false),
+    ];
+    elems.extend((0..chain).map(|k| (5001 + k, "frame", 5001 + k, 5002 + k, 1, 1, false, false)));
+    let mut input = make_input(
+        nodes,
+        vec![(1, 51004.201593498554, 0.25184219315743184), (2, 16409.309139793157, 0.3213006421441422)],
+        vec![(1, 0.02088264278824532, 0.0002930241496998176)],
+        elems,
+        vec![(1, 1, "pinned"), (2, 4, "pinned"), (5001, 5001, "fixed")],
+        vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 1,
+            a: 5.998634513803783,
+            p: 48.69175036660593 * scale,
+            px: Some(0.0040540374072008944 * scale),
+            my: None,
+        })],
+    );
+    input.connectors.insert("1".into(), ConnectorElement {
+        id: 1, node_i: 3, node_j: 2, k_axial: 12522.881824758246, k_shear: 1940.454941227356, k_moment: k_moment,
+        k_shear_z: 0.0, k_bend_y: 0.0, k_bend_z: 0.0,
+    });
+    input
+}
+
+fn disp_at(r: &dedaliano_engine::types::AnalysisResults, node: usize) -> [f64; 3] {
+    let d = r.displacements.iter().find(|d| d.node_id == node).unwrap();
+    [d.ux, d.uz, d.ry]
+}
+
+/// #1099: nodes 2 and 3 are reached only by trusses and by a finite-length
+/// connector with shear but no rotational stiffness. Its shear row sees the
+/// relative transverse displacement less (L/2)(θ_3 + θ_2), so θ_3 = −θ_2 at
+/// fixed translations is a zero-energy mode (the two rigid arms turn like a
+/// three-hinge collinear mechanism) and K is singular: the node rotations are
+/// undetermined. The dense and sparse paths both returned round-off-pivot
+/// rotations with r(k·a) ≠ k·r(a). The model must be refused.
+#[test]
+#[ignore = "known wrong result: #1099"]
+fn connector_arm_mechanism_between_truss_nodes_is_refused() {
+    for padded in [false, true] {
+        let a = solve_2d(&arm_pair_2d(0.0, padded, 1.0));
+        let ka = solve_2d(&arm_pair_2d(0.0, padded, -2.5));
+        let shown = match (&a, &ka) {
+            (Ok(a), Ok(ka)) => format!("ry2(A) = {:e}, ry2(kA)/k = {:e}", disp_at(a, 2)[2], disp_at(ka, 2)[2] / -2.5),
+            _ => String::new(),
+        };
+        for r in [a, ka] {
+            let e = r.err().unwrap_or_else(|| panic!("padded={padded}: undetermined rotations returned a result ({shown})"));
+            assert!(e.contains("Connector 1") && e.contains("mechanism") && e.contains("kMoment"), "padded={padded}: {e}");
+        }
+    }
+}
+
+/// Negative control for #1099: the same model with a rotational spring on the
+/// connector. Moment equilibrium of θ_3 and θ_2 gives k_shear·L·δ = 0 and
+/// k_moment·(θ_2 − θ_3) = 0, so the shear deformation δ vanishes and
+/// θ_2 = θ_3 = (c·(uz_2 − uz_3) − s·(ux_2 − ux_3))/L (rigid-arm
+/// compatibility, c and s the direction cosines from node 3 to node 2), and
+/// the solve is homogeneous in the load.
+#[test]
+fn connector_arm_pair_with_rotational_spring_solves() {
+    let (dx, dz): (f64, f64) = (-4.7992993868328675 - -0.6291861435879511, 0.13482899599091525 - 3.6260394623324252);
+    let l = (dx * dx + dz * dz).sqrt();
+    let (c, s) = (dx / l, dz / l);
+    for padded in [true, false] {
+        let a = solve_2d(&arm_pair_2d(800.0, padded, 1.0)).unwrap();
+        let ka = solve_2d(&arm_pair_2d(800.0, padded, -2.5)).unwrap();
+        let ([ux2, uz2, ry2], [ux3, uz3, ry3]) = (disp_at(&a, 2), disp_at(&a, 3));
+        let arm = (c * (uz2 - uz3) - s * (ux2 - ux3)) / l;
+        assert!(arm.abs() > 1e-8, "padded={padded}: arm rotation {arm:e}");
+        assert!((ry2 - arm).abs() <= 1e-9 * arm.abs() && (ry3 - arm).abs() <= 1e-9 * arm.abs(), "padded={padded}: ry2 {ry2:e}, ry3 {ry3:e}, arm rotation {arm:e}");
+        for n in [2, 3] {
+            let (x, y) = (disp_at(&a, n), disp_at(&ka, n));
+            for i in 0..3 {
+                assert!((y[i] + 2.5 * x[i]).abs() <= 1e-12 * x[i].abs().max(1e-12), "padded={padded}: node {n} dof {i}: r(kA) {:e} vs k·r(A) {:e}", y[i], -2.5 * x[i]);
+            }
+        }
+    }
+}
