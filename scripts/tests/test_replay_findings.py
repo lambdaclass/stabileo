@@ -24,6 +24,7 @@ def make_issue(
     model=None,
     details=None,
     omit_model=False,
+    omit_seed=False,
 ):
     key = hashlib.sha256(f"{number}:{check}:{test}:{root_cause}".encode()).hexdigest()
     lines = [
@@ -35,12 +36,17 @@ def make_issue(
         "",
         f"Test: **{test}**",
         "",
-        f"Seed: `{seed}` · model SHA-256: `{key}`",
-        "",
+    ]
+    if not omit_seed:
+        lines.extend([
+            f"Seed: `{seed}` · model SHA-256: `{key}`",
+            "",
+        ])
+    lines.extend([
         "[Run and artifacts](https://github.com/lambdaclass/stabileo/actions/runs/41275933376) · commit `deadbeef`",
         "",
         f"Reduction: {reduction}",
-    ]
+    ])
     if omit_model:
         lines.extend([
             "",
@@ -167,6 +173,53 @@ class MappingTest(unittest.TestCase):
 
         prop = make_issue(405, check="properties", test="properties/properties_2d_equilibrium", model=None)
         self.assertFalse(rf.parse_issue(prop)["replayable"])
+
+    def test_metamorphic_missing_or_malformed_seeds_are_not_replayable(self):
+        model = {"nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}}}
+        missing_seed = make_issue(
+            410,
+            check="metamorphic",
+            test="metamorphic/linear/rotation",
+            model=model,
+            omit_seed=True,
+        )
+        parsed_missing = rf.parse_issue(missing_seed)
+        self.assertFalse(parsed_missing["replayable"])
+        self.assertIn("missing metamorphic seed", parsed_missing["not_replayable_reason"])
+
+        for num, bad_seed in [
+            (411, "not-a-seed"),
+            (412, "-1"),
+            (413, "20758_1"),
+            (414, str(1 << 64)),
+        ]:
+            malformed = make_issue(
+                num,
+                check="metamorphic",
+                test="metamorphic/linear/rotation",
+                seed=bad_seed,
+                model=model,
+            )
+            parsed_bad = rf.parse_issue(malformed)
+            self.assertFalse(parsed_bad["replayable"], bad_seed)
+            self.assertIn("invalid seed", parsed_bad["not_replayable_reason"])
+
+        def fail_if_called(cmd, env=None, cwd=None, timeout=None):
+            raise AssertionError("runner must not be called for missing or invalid metamorphic seed")
+
+        report = rf.replay_issues(
+            [missing_seed, malformed],
+            metamorphic_bin="/bin/metamorphic",
+            runner=fail_if_called,
+        )
+        self.assertEqual([r["status"] for r in report], ["not-replayable", "not-replayable"])
+        self.assertEqual(
+            rf.plan_issue_actions(report, True, "https://github.com/o/r/actions/runs/99", "abc1234"),
+            [],
+        )
+        results, err = rf._run_metamorphic_model(model, None, "/bin/metamorphic", fail_if_called)
+        self.assertIsNone(results)
+        self.assertIn("seed", err)
 
 
 class ReplayAndClassificationTest(unittest.TestCase):
@@ -349,6 +402,107 @@ class ReplayAndClassificationTest(unittest.TestCase):
         self.assertEqual(rf.classify_fuzz(oom_spec, 0)[0], "not-replayable")
         self.assertEqual(rf.classify_fuzz(oom_spec, 71, stderr="SUMMARY: libFuzzer: out-of-memory")[0], "still-fails")
 
+    def test_metamorphic_mixed_verdicts_are_not_replayable_and_never_closed(self):
+        spec = rf.parse_issue(
+            make_issue(
+                60,
+                check="metamorphic",
+                test="metamorphic/linear/symmetry",
+                seed="20758",
+                model={"nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}}},
+            )
+        )
+        for non_pass_key in ("refused", "inconclusive", "unrepresentable", "same_refusal", "not_applicable"):
+            verdict = {
+                "analysis": "linear",
+                "invariant": "symmetry",
+                "pass": 1,
+                "same_refusal": 0,
+                "fail": 0,
+                "refused": 0,
+                "inconclusive": 0,
+                "unrepresentable": 0,
+                "not_applicable": 0,
+            }
+            verdict[non_pass_key] = 1
+            status, evidence = rf.classify_metamorphic(spec, {"failures": [], "verdicts": [verdict]})
+            self.assertEqual(status, "not-replayable", non_pass_key)
+            self.assertIn("mixed metamorphic verdict", evidence)
+            actions = rf.plan_issue_actions(
+                [{"issue": 60, "source": "metamorphic", "status": status, "evidence": evidence}],
+                True,
+                "https://github.com/o/r/actions/runs/99",
+                "abc1234",
+            )
+            self.assertEqual(actions, [])
+
+        failing_mixed = {
+            "analysis": "linear",
+            "invariant": "symmetry",
+            "pass": 1,
+            "same_refusal": 0,
+            "fail": 1,
+            "refused": 0,
+            "inconclusive": 0,
+            "unrepresentable": 0,
+            "not_applicable": 0,
+        }
+        self.assertEqual(
+            rf.classify_metamorphic(spec, {"failures": [], "verdicts": [failing_mixed]})[0],
+            "still-fails",
+        )
+
+    def test_fuzz_infrastructure_and_build_errors_are_not_classified_as_still_fails(self):
+        import subprocess
+
+        crash_issue = make_issue(
+            70,
+            check="fuzz",
+            kind="json_plastic",
+            root_cause="crash-111",
+            test="fuzz/json_plastic",
+            reduction="libFuzzer tmin (bounded to 120 seconds)",
+            model={"raw_hex": "7b7d"},
+        )
+        crash_spec = rf.parse_issue(crash_issue)
+
+        for returncode, stderr in [
+            (101, "error[E0432]: unresolved import\nerror: could not compile `dedaliano-engine-fuzz`"),
+            (1, "error: toolchain 'nightly-2026-10-15-x86_64-unknown-linux-gnu' is not installed"),
+            (1, "error: no such subcommand: `fuzz`"),
+            (2, "error: unexpected argument '--bad' found\n\nUsage: cargo fuzz run"),
+            (127, "cargo: command not found"),
+            (1, ""),
+        ]:
+            status, evidence = rf.classify_fuzz(crash_spec, returncode, stderr=stderr)
+            self.assertEqual(status, "not-replayable", (returncode, stderr))
+            self.assertIn("fuzz runner failed without reproducing target failure", evidence)
+
+        def infra_error_runner(cmd, env=None, cwd=None, timeout=None):
+            return subprocess.CompletedProcess(
+                cmd,
+                101,
+                "",
+                "error: could not compile `dedaliano-engine-fuzz` due to 1 previous error",
+            )
+
+        report = rf.replay_issues([crash_issue], source="fuzz", runner=infra_error_runner)
+        self.assertEqual(len(report), 1)
+        self.assertEqual(report[0]["status"], "not-replayable")
+        self.assertEqual(
+            rf.plan_issue_actions(report, True, "https://github.com/o/r/actions/runs/99", "abc1234"),
+            [],
+        )
+
+        self.assertEqual(
+            rf.classify_fuzz(
+                crash_spec,
+                1,
+                stderr="thread '<unnamed>' panicked at src/lib.rs:10:5\n==99== ERROR: libFuzzer: deadly signal",
+            )[0],
+            "still-fails",
+        )
+
     def test_report_cli_writes_merged_json_and_respects_close_passing_flag(self):
         issues = [
             make_issue(1, check="metamorphic", test="metamorphic/linear/rotation", model={"nodes": {}}),
@@ -410,6 +564,50 @@ class ReplayAndClassificationTest(unittest.TestCase):
                 finally:
                     rf.gh = orig_gh
 
+    def test_report_cli_marks_missing_source_partials_not_replayable_without_losing_completed_sources(self):
+        issues = [
+            make_issue(1, check="metamorphic", test="metamorphic/linear/rotation", model={"nodes": {}}),
+            make_issue(2, check="opensees", kind="wrong-result-candidate", test="opensees/mismatch", model={"nodes": {}}),
+        ]
+        metamorphic_partial = [
+            {"issue": 1, "source": "metamorphic", "status": "passes-now", "evidence": "metamorphic/linear/rotation: pass=1 fail=0"},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            issues_file = tmp_path / "issues.json"
+            metamorphic_file = tmp_path / "partial-metamorphic.json"
+            missing_opensees_file = tmp_path / "partial-opensees.json"
+            out_file = tmp_path / "report.json"
+            issues_file.write_text(json.dumps(issues))
+            metamorphic_file.write_text(json.dumps(metamorphic_partial))
+
+            calls = []
+            orig_gh = rf.gh
+            rf.gh = lambda *args, data=None: calls.append((args, data))
+            with contextlib.redirect_stdout(io.StringIO()):
+                try:
+                    rc = rf.main([
+                        "report",
+                        "--issues", str(issues_file),
+                        "--partials", str(metamorphic_file), str(missing_opensees_file),
+                        "--output", str(out_file),
+                        "--repo", "o/r",
+                        "--run-url", "https://github.com/o/r/actions/runs/1",
+                        "--commit", "1234567",
+                        "--close-passing",
+                    ])
+                    self.assertEqual(rc, 0)
+                    written = json.loads(out_file.read_text())
+                    self.assertEqual(
+                        [(r["issue"], r["status"]) for r in written],
+                        [(1, "passes-now"), (2, "not-replayable")],
+                    )
+                    self.assertIn("no replay result recorded", written[1]["evidence"])
+                    self.assertEqual(len(calls), 1)
+                    self.assertEqual(calls[0][0][:4], ("issue", "close", "1", "--repo"))
+                finally:
+                    rf.gh = orig_gh
+
     def test_workflow_is_workflow_dispatch_only_and_defaults_to_report_only(self):
         workflow = (ROOT / ".github" / "workflows" / "replay-findings.yml").read_text()
         self.assertIn("workflow_dispatch:", workflow)
@@ -417,6 +615,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
         self.assertIn("default: false", workflow)
         self.assertNotIn("\n  schedule:", workflow)
         self.assertNotIn("\n  pull_request:", workflow)
+        self.assertIn("if: always() && needs.issues.result == 'success'", workflow)
         self.assertIn("name: replay-findings-report", workflow)
         self.assertIn("path: replay-findings.json", workflow)
 

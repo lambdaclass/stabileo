@@ -24,6 +24,44 @@ OPENSEES_CHECKS = frozenset({"mismatch", "converging", "false_reject", "false_wa
 CODEASTER_CHECKS = frozenset({"mismatch", "false_reject", "silent_singular", "silent_unimposed", "false_warning"})
 FUZZ_TARGETS = frozenset({"json_static", "json_dynamics", "json_plastic", "model_certify"})
 FUZZ_LIMITS = ("-rss_limit_mb=2048", "-timeout=60")
+FUZZ_EXIT_CODES = frozenset({70, 71, 77})
+FUZZ_FAILURE_MARKERS = (
+    "summary: libfuzzer:",
+    "error: libfuzzer:",
+    "addresssanitizer",
+    "undefinedbehaviorsanitizer",
+    "memorysanitizer",
+    "threadsanitizer",
+    "leaksanitizer",
+    "alarm: working on the last unit",
+    "panicked at",
+    "assertion failed",
+)
+FUZZ_INFRA_ERROR_MARKERS = (
+    "could not compile",
+    "failed to run custom build command",
+    "failed to build fuzz target",
+    "is not installed",
+    "no such subcommand",
+    "command not found",
+    "no such file or directory",
+    "permission denied",
+    "unexpected argument",
+    "usage: cargo",
+    "failed to load manifest",
+    "failed to parse manifest",
+    "internal compiler error",
+    "thread 'rustc' panicked",
+)
+NON_PASS_METAMORPHIC_KEYS = (
+    "fail",
+    "refused",
+    "same_refusal",
+    "inconclusive",
+    "unrepresentable",
+    "not_applicable",
+)
+MAX_U64 = (1 << 64) - 1
 DEFAULT_TRIPLE = "x86_64-unknown-linux-gnu"
 REPLAY_TIMEOUT_SECONDS = 90
 FUZZ_TIMEOUT_SECONDS = 180
@@ -66,11 +104,16 @@ def parse_issue(issue):
         source = check or prefix or "unknown"
 
     seed = None
+    seed_error = None
     if seed_raw:
-        try:
-            seed = int(seed_raw)
-        except ValueError:
-            seed = None
+        if seed_raw.isascii() and seed_raw.isdigit():
+            parsed_seed = int(seed_raw)
+            if 0 <= parsed_seed <= MAX_U64:
+                seed = parsed_seed
+            else:
+                seed_error = f"invalid seed '{seed_raw}' (out of u64 range)"
+        else:
+            seed_error = f"invalid seed '{seed_raw}'"
 
     model = None
     model_error = None
@@ -134,6 +177,10 @@ def parse_issue(issue):
         parts = test.split("/", 2)
         if len(parts) != 3 or parts[0] != "metamorphic" or not parts[1] or not parts[2]:
             spec["not_replayable_reason"] = f"{label}: expected metamorphic/<analysis>/<invariant> test identifier"
+            return spec
+        if seed is None:
+            reason = seed_error or "missing metamorphic seed in issue body"
+            spec["not_replayable_reason"] = f"{label}: {reason}"
             return spec
         spec["analysis"] = parts[1]
         spec["invariant"] = parts[2]
@@ -204,8 +251,25 @@ def classify_metamorphic(spec, replay_results):
         detail_text = "\n".join(failures) if failures else json.dumps(verdict, sort_keys=True)
         return "still-fails", f"{test}: {detail_text}"
 
-    if verdict and verdict.get("pass", 0) > 0 and verdict.get("fail", 0) == 0:
-        return "passes-now", f"{test}: pass={verdict['pass']} fail=0 ({json.dumps(verdict, sort_keys=True)})"
+    if verdict and isinstance(verdict.get("pass"), int) and not isinstance(verdict.get("pass"), bool) and verdict["pass"] > 0:
+        other_counts = {
+            k: v
+            for k, v in verdict.items()
+            if k not in ("analysis", "invariant", "pass")
+        }
+        has_non_passing = any(
+            not isinstance(verdict.get(k, 0), int)
+            or isinstance(verdict.get(k, 0), bool)
+            or verdict.get(k, 0) != 0
+            for k in NON_PASS_METAMORPHIC_KEYS
+        ) or any(
+            not isinstance(v, int) or isinstance(v, bool) or v != 0
+            for v in other_counts.values()
+        )
+        if not has_non_passing:
+            return "passes-now", f"{test}: pass={verdict['pass']} fail=0 ({json.dumps(verdict, sort_keys=True)})"
+        summary = json.dumps(verdict, sort_keys=True)
+        return "not-replayable", f"{test}: mixed metamorphic verdict ({summary})"
 
     summary = json.dumps(verdict, sort_keys=True) if verdict else "cell not recorded"
     return "not-replayable", f"{test}: check did not run to pass/fail ({summary})"
@@ -237,6 +301,15 @@ def classify_diff(spec, row):
     return "not-replayable", f"{test}: replay status '{row_status}' did not complete check ({serialized})"
 
 
+def _is_fuzz_target_failure(returncode, stderr):
+    lowered = (stderr or "").lower()
+    if any(marker in lowered for marker in FUZZ_INFRA_ERROR_MARKERS):
+        return False
+    if returncode in FUZZ_EXIT_CODES:
+        return True
+    return any(marker in lowered for marker in FUZZ_FAILURE_MARKERS)
+
+
 def classify_fuzz(spec, returncode, stderr="", timed_out=False):
     test = spec["test"]
     cause = spec.get("artifact") or spec.get("root_cause") or "artifact"
@@ -244,6 +317,12 @@ def classify_fuzz(spec, returncode, stderr="", timed_out=False):
         return "still-fails", f"{test} ({cause}): timed out"
     if returncode != 0:
         tail = (stderr or "").strip()[-1000:]
+        if not _is_fuzz_target_failure(returncode, stderr):
+            evidence = (
+                f"{test} ({cause}): fuzz runner failed without reproducing target failure (returncode={returncode})"
+                + (f"\n{tail}" if tail else "")
+            )
+            return "not-replayable", evidence
         evidence = f"{test} ({cause}): returncode={returncode}" + (f"\n{tail}" if tail else "")
         return "still-fails", evidence
     if not spec.get("standalone_reproducer", True):
@@ -269,13 +348,18 @@ def _default_solve_bin():
 
 
 def _run_metamorphic_model(model, seed, metamorphic_bin, runner):
+    if isinstance(seed, bool) or not isinstance(seed, int) or not (0 <= seed <= MAX_U64):
+        return None, "missing or invalid metamorphic seed"
     with tempfile.TemporaryDirectory() as tmp:
         model_path = Path(tmp) / "model.json"
         results_path = Path(tmp) / "results.json"
         model_path.write_text(json.dumps(model))
-        env = dict(os.environ, NIGHTLY_MODEL=str(model_path), NIGHTLY_RESULTS=str(results_path))
-        if seed is not None:
-            env["METAMORPHIC_SEED"] = str(seed)
+        env = dict(
+            os.environ,
+            NIGHTLY_MODEL=str(model_path),
+            NIGHTLY_RESULTS=str(results_path),
+            METAMORPHIC_SEED=str(seed),
+        )
         try:
             proc = runner(
                 [metamorphic_bin, "--ignored", "--exact", "metamorphic_replay", "--nocapture"],
@@ -284,11 +368,18 @@ def _run_metamorphic_model(model, seed, metamorphic_bin, runner):
             )
         except subprocess.TimeoutExpired:
             return None, "metamorphic_replay timed out"
+        except OSError as ex:
+            return None, f"metamorphic_replay failed to start ({ex})"
         if results_path.exists():
             try:
-                return json.loads(results_path.read_text()), None
+                data = json.loads(results_path.read_text())
             except json.JSONDecodeError as ex:
                 return None, f"invalid NIGHTLY_RESULTS JSON ({ex.msg})"
+            if proc.returncode not in (0, 101):
+                return None, f"metamorphic_replay exited with unexpected code {proc.returncode}"
+            if proc.returncode != 0 and not (isinstance(data, dict) and data.get("failures")):
+                return None, f"metamorphic_replay exited {proc.returncode} without recorded failures"
+            return data, None
         tail = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()[-500:]
         return None, f"metamorphic_replay exited {proc.returncode} without NIGHTLY_RESULTS" + (f": {tail}" if tail else "")
 
@@ -310,6 +401,11 @@ def _run_diff_model(source, model, solve_bin, python_bin, runner):
             )
         except subprocess.TimeoutExpired:
             return None, f"{source} replay timed out"
+        except OSError as ex:
+            return None, f"{source} replay failed to start ({ex})"
+        if proc.returncode not in (0, 1):
+            tail = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()[-500:]
+            return None, f"{source} replay exited with unexpected code {proc.returncode}" + (f": {tail}" if tail else "")
         if report_path.exists():
             try:
                 rows = json.loads(report_path.read_text())
@@ -341,7 +437,12 @@ def _run_fuzz_model(spec, triple, runner):
             proc = runner(cmd, cwd="engine", env=dict(os.environ), timeout=FUZZ_TIMEOUT_SECONDS)
         except subprocess.TimeoutExpired:
             return classify_fuzz(spec, 124, timed_out=True)
-        return classify_fuzz(spec, proc.returncode, stderr=proc.stderr or proc.stdout or "")
+        except OSError as ex:
+            test = spec["test"]
+            cause = spec.get("artifact") or spec.get("root_cause") or "artifact"
+            return "not-replayable", f"{test} ({cause}): fuzz runner failed to start ({ex})"
+        combined = "\n".join(part for part in (proc.stderr, proc.stdout) if part)
+        return classify_fuzz(spec, proc.returncode, stderr=combined)
 
 
 def default_runner(cmd, env=None, cwd=None, timeout=REPLAY_TIMEOUT_SECONDS):
