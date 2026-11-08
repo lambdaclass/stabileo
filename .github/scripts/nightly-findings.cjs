@@ -45,7 +45,8 @@ function signature(cause) {
 }
 function legacySignatures(cause) {
   return cause.legacyInputs.flatMap(message => [message, String(message).slice(0, 200)].flatMap(input =>
-    [true, false].map(ids => hash(canonical([cause.check, cause.kind, legacyNormalize(input, ids)])))));
+    [hash(canonical([cause.check, cause.kind, String(input)])),
+      ...[true, false].map(ids => hash(canonical([cause.check, cause.kind, legacyNormalize(input, ids)])))]));
 }
 function causes(f) {
   const [check, analysis, relation] = f.test.split('/');
@@ -68,7 +69,7 @@ function causes(f) {
     const kind = refusal ? 'invariance-refusal' : check === 'metamorphic' || analysis === 'mismatch' ? 'wrong-result-candidate' : d?.status || analysis || 'failure';
     const input = check === 'metamorphic' && !/^original solved but transformed model failed:/i.test(raw) ? String(raw).replace(/^[^:]+:\s*/, '') : raw;
     return {check, kind, code, message: normalize(input), legacyInputs: [input],
-      analysis: relation ? analysis : d?.analysis || 'unspecified', relation: relation || d?.relation || 'unspecified'};
+      analysis: relation ? analysis : d?.analysis || f.model.analysis || 'unspecified', relation: relation || d?.relation || 'unspecified'};
   });
 }
 function size(f) {

@@ -396,3 +396,26 @@ test('replay-pending placeholders do not open numerical findings', () => fixture
   assert.equal(calls.filter(c => ['createLabel', 'create', 'createComment', 'update'].includes(c.name)).length, 0);
   assert.match(logs[0], /No structured numerical findings/);
 }));
+
+test('legacy worst markers hashed verbatim still match mixed-case and decimal-step components', () => fixture(async ({args, calls, issues, save}) => {
+  const marker = parts => `<!-- nightly-finding:${require('node:crypto').createHash('sha256').update(JSON.stringify(parts)).digest('hex')} -->`;
+  issues.push(
+    {number: 81, state: 'open', body: marker(['opensees', 'wrong-result-candidate', 'static: force/nStart'])},
+    {number: 82, state: 'open', body: marker(['opensees', 'wrong-result-candidate', 'static: disp/step#.0'])}
+  );
+  save('nstart', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [['force', 1, 'nStart', 1, 2, 0.2]]}});
+  save('step', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [['disp', 1, 'step3.0', 1, 2, 0.2]]}});
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'create').length, 0);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number).sort(), [81, 82]);
+}));
+
+test('reason findings take the model analysis when the details give none', () => fixture(async ({args, calls, save}) => {
+  save('static', {...finding, test: 'opensees/false_reject', model: {...finding.model, analysis: 'static'}, details: {status: 'false_reject', why: ['refused: singular']}});
+  save('modal', {...finding, test: 'opensees/false_reject', model: {...finding.model, analysis: 'modal'}, details: {status: 'false_reject', why: ['refused: singular']}});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 2);
+  assert.ok(created.some(c => c.args.body.includes('Analyses (hits): static: 1')));
+  assert.ok(created.some(c => c.args.body.includes('Analyses (hits): modal: 1')));
+}));
