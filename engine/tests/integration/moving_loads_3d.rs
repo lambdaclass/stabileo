@@ -602,7 +602,6 @@ fn issue_1782_axial_patch_boundaries_govern_3d_moving_envelope() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_moving_3d_point_jump_limits_are_reversal_invariant() {
     use dedaliano_engine::metamorphic::reversal::reverse_3d;
     let (length, a, q, p) = (10.0, 3.37, 4.0, -60.0);

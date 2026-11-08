@@ -3118,21 +3118,69 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
     let path = c.path.clone().ok_or("no path")?;
     let m = &c.with;
     if ana == "moving loads" {
-        let segs = moving_loads::build_load_path_3d(&m.s, Some(&path))?;
-        let total: f64 = segs.iter().map(|s| s.length).sum();
-        let train = LoadTrain { name: "one axle".into(), axles: vec![Axle { offset: 0.0, weight: 50.0 }] };
+        let lens: Vec<f64> = path.iter().map(|&id| m.elem_len(id)).collect();
+        let total: f64 = lens.iter().sum();
         let mut env: BTreeMap<usize, [f64; 4]> = path.iter().map(|&id| (id, [0.0; 4])).collect();
+        let first = &m.s.elements[&path[0].to_string()];
+        let mut entry = first.node_i;
+        if path.len() > 1 {
+            let next = &m.s.elements[&path[1].to_string()];
+            if entry == next.node_i || entry == next.node_j { entry = first.node_j; }
+        }
+        let mut reversed = Vec::new();
+        for id in &path {
+            let e = &m.s.elements[&id.to_string()];
+            reversed.push(entry == e.node_j);
+            entry = if entry == e.node_i { e.node_j } else { e.node_i };
+        }
         let mut pos = 0.0;
         while pos <= total + 1e-10 {
+            let (mut acc, mut k) = (0.0, 0);
+            while k + 1 < lens.len() && pos > acc + lens[k] + 1e-10 {
+                acc += lens[k];
+                k += 1;
+            }
             let mut s = m.s.clone();
-            s.loads = moving_loads::moving_loads_at_position_3d(&m.s, &train, "z", &segs, pos, total);
+            let (ex, ey, ez) = m.axes(path[k]);
+            let a = (pos - acc).clamp(0.0, lens[k]);
+            s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                element_id: path[k], a: if reversed[k] { lens[k] - a } else { a },
+                px: -50.0 * ex[2], py: -50.0 * ey[2], pz: -50.0 * ez[2],
+            }));
             let r = linear::solve_3d(&s)?;
             for ef in &r.element_forces {
                 if let Some(e) = env.get_mut(&ef.element_id) {
-                    e[0] = e[0].max(ef.my_start.max(ef.my_end));
-                    e[1] = e[1].min(ef.my_start.min(ef.my_end));
-                    e[2] = e[2].max(ef.vz_start.max(ef.vz_end));
-                    e[3] = e[3].min(ef.vz_start.min(ef.vz_end));
+                    let mut xs: Vec<f64> = (0..=20).map(|i| ef.length * i as f64 / 20.0).collect();
+                    xs.extend(ef.point_loads_z.iter().map(|p| p.a));
+                    for dl in &ef.distributed_loads_z { xs.extend([dl.a, dl.b]); }
+                    e[0] = e[0].max(ef.my_start).max(ef.my_end);
+                    e[1] = e[1].min(ef.my_start).min(ef.my_end);
+                    e[2] = e[2].max(ef.vz_start).max(ef.vz_end);
+                    e[3] = e[3].min(ef.vz_start).min(ef.vz_end);
+                    for x in xs.into_iter().filter(|&x| x > 0.0 && x < ef.length) {
+                        let (mut moment, mut shear) = (ef.my_end - ef.vz_end * (ef.length - x), ef.vz_end);
+                        for dl in &ef.distributed_loads_z {
+                            let a = x.max(dl.a);
+                            if a >= dl.b { continue; }
+                            let slope = (dl.q_j - dl.q_i) / (dl.b - dl.a);
+                            let qa = dl.q_i + slope * (a - dl.a);
+                            let width = dl.b - a;
+                            let force = qa * width + slope * width * width / 2.0;
+                            shear -= force;
+                            moment += force * (a - x) + qa * width * width / 2.0 + slope * width.powi(3) / 3.0;
+                        }
+                        for p in &ef.point_loads_z {
+                            if p.a >= x {
+                                shear -= p.p;
+                                moment += p.p * (p.a - x);
+                            }
+                        }
+                        let jump: f64 = ef.point_loads_z.iter().filter(|p| p.a == x).map(|p| p.p).sum();
+                        e[0] = e[0].max(moment);
+                        e[1] = e[1].min(moment);
+                        e[2] = e[2].max(shear).max(shear + jump);
+                        e[3] = e[3].min(shear).min(shear + jump);
+                    }
                 }
             }
             pos += 0.5;
@@ -3263,7 +3311,6 @@ fn feature_models_exported() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_moving_3d_reference_includes_interior_forces() {
     let a = rows_3d().into_iter().find(|a| a.name == "moving loads").unwrap();
     let cases: Vec<_> = cases_3d().into_iter().filter(|c| matches!(c.feature,

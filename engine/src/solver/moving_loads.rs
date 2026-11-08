@@ -342,11 +342,34 @@ fn diagram_range(
 
 fn diagram_range_3d(ef: &ElementForces3D, kind: &str, start: f64, end: f64) -> (f64, f64) {
     use crate::postprocess::diagrams_3d::{diagram_positions_3d, evaluate_diagram_3d_at};
-    diagram_range(
+    let (mut lo, mut hi) = diagram_range(
         diagram_positions_3d(ef, kind), ef.length, &ef.distributed_loads_x,
         kind == "axial", start, end,
-        |t| evaluate_diagram_3d_at(ef, kind, t),
-    )
+        |t| if t <= 0.0 { start } else if t >= 1.0 { end } else { evaluate_diagram_3d_at(ef, kind, t) },
+    );
+    let (points, sign) = match kind {
+        "shearY" => (&ef.point_loads_y, 1.0),
+        "shearZ" => (&ef.point_loads_z, 1.0),
+        "axial" => (&ef.point_loads_x, -1.0),
+        _ => return (lo, hi),
+    };
+    if !points.is_empty() {
+        let mut smooth = ef.clone();
+        match kind {
+            "shearY" => smooth.point_loads_y.clear(),
+            "shearZ" => smooth.point_loads_z.clear(),
+            _ => { smooth.point_loads_x.clear(); smooth.n_end = smooth.n_start; },
+        }
+        for point in points {
+            let x = point.a;
+            let base = evaluate_diagram_3d_at(&smooth, kind, x / ef.length);
+            let left = base + sign * points.iter().filter(|p| p.a < x).map(|p| p.p).sum::<f64>();
+            let right = left + sign * points.iter().filter(|p| p.a == x).map(|p| p.p).sum::<f64>();
+            lo = lo.min(left).min(right);
+            hi = hi.max(left).max(right);
+        }
+    }
+    (lo, hi)
 }
 
 /// The permanent loads, all of them: every load in the input is permanent (the train's axle

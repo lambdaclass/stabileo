@@ -177,6 +177,7 @@ pub fn scale_load_3d(l: &mut SolverLoad3D, u: &Units) {
         }
         L::PointOnElement(p) => {
             p.a *= u.length;
+            p.px *= u.force;
             p.py *= u.force;
             p.pz *= u.force;
         }
