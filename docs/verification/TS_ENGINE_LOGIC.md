@@ -1174,7 +1174,7 @@ call.
 | `steel/material-family.ts` | 200 | c | - | high | Classifies material as concrete/steel/etc from fy magnitude and E band thresholds; gates which checker runs |
 | `steel/moment-gradient.ts` | 55 | a | engine/src/postprocess/cirsoc301_inputs.rs (moment_gradient) | high | WASM boundary for Cb per CIRSOC 301 F.1.1; the former TypeScript is the oracle `__tests__/differential/moment-gradient-oracle.ts` |
 | `steel/profile-optimise.ts` | 183 | d | - | high | Lightest catalogue profile search calling TS checkSteelMember (cirsoc301.ts); search only |
-| `steel/section-constants.ts` | 70 | a | engine/src/postprocess/cirsoc301_inputs.rs (section_constants) | high | Gathers the geometry's J/Z from the section engine and asks the engine for J, Cw, c and Sy; cached per section |
+| `steel/section-constants.ts` | 69 | a | engine/src/postprocess/cirsoc301_inputs.rs (section_constants) | high | Gathers the geometry's J/Z from the section engine and asks the engine for J, Cw, c and Sy; cached per section |
 | `steel/steel-inventory.ts` | 297 | d | - | low | Inventory of metallic members, families, empty reasons, total length |
 | `steel/steel-status.ts` | 163 | d | - | medium | Steel member status union, invariants, display tone/labels (what may be called verified) |
 | `steel/torsional-buckling.ts` | 177 | c | - | low | CIRSOC 301 E.4 applicability/gap report; computes shear modulus G only |
