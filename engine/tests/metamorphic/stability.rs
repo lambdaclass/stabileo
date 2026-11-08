@@ -323,7 +323,7 @@ fn invariant_or_conservatively_refused(name: &str, m: Model) -> Stability {
             Err(e) if unsupported(name, &what, &e) => continue,
             image => image.unwrap_or_else(|e| panic!("{name} {what} could not be built: {e}")).unwrap_or_else(|e| panic!("{name} {what}: {e}")),
         };
-        let conservative = s.verdict == Verdict::Singular && s.reason == Reason::CoupledSoftDirection;
+        let conservative = s.verdict == Verdict::Singular && matches!(s.reason, Reason::CoupledSoftDirection | Reason::SwingAtRounding);
         assert!(conservative || same(&base, &s).is_ok(), "{name} {what}: {s:?}");
     }
     base
@@ -434,7 +434,7 @@ fn a_free_master_rotation_that_swings_a_rigid_link_slave_is_a_mechanism_in_every
 }
 
 #[test]
-fn a_spin_about_a_collinear_rigid_link_is_a_free_rotation_and_an_offset_one_a_mechanism_in_every_frame() {
+fn a_spin_about_a_collinear_rigid_link_is_a_free_rotation_and_any_offset_one_is_refused_in_every_frame() {
     let model = |slave: [f64; 3]| serde_json::json!({
         "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": slave[0], "y": slave[1], "z": slave[2]}, "3": {"id": 3, "x": -3.0, "y": 0.0, "z": 0.0}},
         "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
@@ -447,8 +447,18 @@ fn a_spin_about_a_collinear_rigid_link_is_a_free_rotation_and_an_offset_one_a_me
     let s = invariant_or_conservatively_refused("collinear rigid link", d3(model([2.0, 0.0, 0.0])));
     assert!(s.is_stable() && s.free_rotations().filter(|f| f.node == 1).count() == 1, "{s:?}");
     assert_eq!(invariant_verdict("offset rigid link", d3(model([2.0, 1.0, 0.0]))).verdict, Verdict::Mechanism);
-    let s = invariant_or_conservatively_refused("rigid link offset by 9e-9 of its length", d3(model([1.0, 9e-9, 0.0])));
-    assert!(s.is_stable(), "{s:?}");
+    let name = "rigid link offset by 9e-9 of its length";
+    let (base, images) = verdicts(name, &d3(model([1.0, 9e-9, 0.0])));
+    let mut all = vec![("base".to_string(), base.unwrap())];
+    for (what, image) in images {
+        match image {
+            Err(e) if unsupported(name, &what, &e) => {}
+            image => all.push((what.clone(), image.unwrap_or_else(|e| panic!("{what} could not be built: {e}")).unwrap())),
+        }
+    }
+    for (what, s) in all {
+        assert!(matches!(s.verdict, Verdict::Mechanism | Verdict::Singular), "{what}: {s:?}");
+    }
 }
 
 #[test]
@@ -633,5 +643,21 @@ fn soft_rotations_at_two_nodes_that_close_a_mechanism_together_are_not_dropped_o
     }
     for (frame, s) in every_frame(&k, 5, &tags, &[1, 3]) {
         assert!(matches!(s.verdict, Verdict::Mechanism | Verdict::Singular), "{frame}: {s:?}");
+    }
+}
+
+#[test]
+fn a_free_rotation_swinging_a_constrained_translation_is_a_mechanism_at_any_arm_scale() {
+    let tags = [t(1, DofKind::Translation), t(2, DofKind::Rotation), t(2, DofKind::Rotation)];
+    for arm in [1.0, 1e-200, 1e200] {
+        for angle in [0.0, 0.3, std::f64::consts::FRAC_PI_4, 1.2] {
+            for scale in [1.0, 1e-6, 1e6] {
+                let k = [scale, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+                let (c, s) = (angle.cos(), angle.sin());
+                let moves = vec![Vec::new(), vec![(10, arm * c)], vec![(10, arm * s), (11, arm)]];
+                let r = stability::analyze_dense_constrained(&k, 3, &tags, &moves);
+                assert_eq!(r.verdict, Verdict::Mechanism, "arm {arm} angle {angle} scale {scale}: {r:?}");
+            }
+        }
     }
 }

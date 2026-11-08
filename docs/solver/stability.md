@@ -89,10 +89,13 @@ unproved number.
 
 With constraints, `K` is the reduced matrix and each independent DOF takes the node and
 kind of its physical DOF. For each node, the constraint's translation rows are applied to
-its whole free rotation subspace: if some unit direction in it moves a physical translation
-by more than `1e-8` times the node's arm (the largest translation any unit rotation of the
-node gives through the constraint, the top singular value of that map), the node is a Mechanism (a master rotation that swings an offset
-rigid-link slave); a spin about a collinear link moves nothing and stays a free rotation.
+its whole free rotation subspace, with the node's constraint map divided by its largest
+entry first (so arms of `1e±200` neither underflow nor overflow). If the largest singular
+value of the resulting motion is exactly zero, nothing moves and the rotation stays free (a
+spin about a collinear link, in a frame where rounding leaves it exactly zero). If it is
+above the rounding of the map, `64 b ε`, a physical translation moves at zero stiffness and
+the node is a Mechanism, however small the arm (a link offset by `9e-9` of its length still
+swings its slave). In between, rounding cannot settle it and the verdict is Singular.
 The test is the largest singular value of that map, so it does not depend on how the free
 subspace is spanned. Lanczos starts from a pseudo-random vector and restarts from two more
 before an uncertified estimate becomes a refusal.
@@ -157,12 +160,16 @@ relabelling):
 | #1351, #1352 (one model) | 2 | 8.8e-18 | 1.97 | 13.9 | 2.5e7 |
 | #1635 | 2 | -2.2e-18 | 1.11 | 13.9 | 4.9e3 |
 
-A 3D rigid link whose master spins about the link axis (`releaseTEnd` member) is Stable with
-that free rotation in the axis-aligned frame, where the coupling is exactly zero, and
-refused in the frames where rounding leaves `μ/μ_b` between `-3.4e-17` and `2.8e-17` and a
-coupling of `0.11` to `0.91 ε √μ_b`; the same holds for a link offset by `9e-9` of its
-length. This verdict is not invariant: in every frame it is either that Stable verdict or
-this refusal, never a Mechanism. No model of the example, fixture,
+A 3D rigid link whose master spins about the link axis (`releaseTEnd` member) is the one
+model measured whose verdict is not invariant. In the axis-aligned frame, the unit systems
+and the relabellings the spin moves the slave by exactly zero and the coupling is exactly
+zero, so it is Stable with that free rotation. In the three general rotations rounding
+leaves a slave motion of `3.2 ε`, `4.1 ε` and `11.5 ε` (below the `192 ε` the map can
+settle, so the swing is undecided) together with `μ/μ_b` between `-3.4e-17` and `2.8e-17`
+and a coupling of `0.11` to `0.91 ε √μ_b`, and it is Singular. In every frame it is either
+that Stable verdict or a Singular refusal for rounding, never a Mechanism. A link offset by
+`9e-9` of its length moves its slave by `4.1e7 ε` and is a Mechanism in every frame.
+No model of the example, fixture,
 feature-matrix or differential corpus is refused by the rule.
 
 ### 2.5 Evidence (slice 1, `engine/tests/metamorphic/stability.rs`)

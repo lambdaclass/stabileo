@@ -1,6 +1,8 @@
-//! One stability and rank verdict for a free stiffness matrix, invariant under a change of
-//! units, a rigid rotation or mirror of the model and a relabelling of its nodes
-//! (docs/solver/stability.md).
+//! One stability and rank verdict for a free stiffness matrix, from spectra that are invariant
+//! under a change of units, a rigid rotation or mirror of the model and a relabelling of its
+//! nodes. A free rotation whose coupling or constraint motion is exactly zero in one frame and
+//! rounding in another is Stable in the first and Singular in the second
+//! (docs/solver/stability.md §2.4).
 
 use crate::linalg::sparse::CscMatrix;
 use crate::linalg::sparse_chol::{numeric_cholesky, sparse_cholesky_solve, symbolic_cholesky};
@@ -23,7 +25,7 @@ pub struct DofTag { pub node: usize, pub kind: DofKind }
 pub enum Verdict { Stable, Mechanism, Singular }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Reason { Resolved, FreeTranslation, Conditioning, CoupledSoftDirection, NonFinite }
+pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, NonFinite }
 
 #[derive(Debug, Clone)]
 pub struct FreeDirection {
@@ -60,6 +62,9 @@ impl Stability {
             Reason::NonFinite => Some(
                 "the stiffness matrix has an infinite or undefined entry: check member properties, spring stiffnesses and node coordinates for zero lengths, infinities or missing values".to_string()
             ),
+            Reason::SwingAtRounding => Some(format!(
+                "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes}: a free rotation moves a constrained node by an amount at the rounding of the constraint, so whether the node can move at zero stiffness depends on rounding; add supports or members, or remove releases"
+            )),
             Reason::CoupledSoftDirection => Some(format!(
                 "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes}: a rotation or warping direction far softer than the rest of its node is coupled into the stiffness of other directions, so whether it restrains them depends on rounding; add supports or members, remove releases, or reduce extreme stiffness contrasts"
             )),
@@ -208,7 +213,11 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
         if lowest_kept.is_finite() { anisotropy = anisotropy.max(top / lowest_kept); }
     }
     let mut translation_free: Vec<usize> = free.iter().filter(|f| f.kind == DofKind::Translation).map(|f| f.node).collect();
-    translation_free.extend(swinging(&free, moves_translation));
+    let (moving, undecided) = swinging(&free, moves_translation);
+    translation_free.extend(moving);
+    if translation_free.is_empty() && !undecided.is_empty() {
+        return Stability { verdict: Verdict::Singular, reason: Reason::SwingAtRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: undecided };
+    }
     if !translation_free.is_empty() {
         let mut mode_nodes = translation_free;
         mode_nodes.sort_unstable();
@@ -321,39 +330,42 @@ fn coupled_free(k: &CscMatrix, free: &[FreeDirection], own: &[(f64, f64, usize)]
     if !condensed.is_finite() || condensed * kappa > COUPLED { nodes } else { Vec::new() }
 }
 
-pub const SWING: f64 = 1e-8;
-
-fn swinging(free: &[FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> Vec<usize> {
-    if moves_translation.is_empty() { return Vec::new(); }
+fn swinging(free: &[FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> (Vec<usize>, Vec<usize>) {
+    let (mut moving, mut undecided) = (Vec::new(), Vec::new());
+    if moves_translation.is_empty() { return (moving, undecided); }
     let mut by_group: BTreeMap<(usize, DofKind), Vec<&FreeDirection>> = BTreeMap::new();
     for f in free.iter().filter(|f| f.kind != DofKind::Translation) { by_group.entry((f.node, f.kind)).or_default().push(f); }
-    let mut out = Vec::new();
     for ((node, _), dirs) in by_group {
         let dofs = &dirs[0].dofs;
-        let arm = top_singular(dofs.iter().map(|&d| moves_translation[d].clone()).collect());
-        if arm <= 0.0 { continue; }
+        let arm = dofs.iter().flat_map(|&d| moves_translation[d].iter()).fold(0.0f64, |m, &(_, x)| m.max(x.abs()));
+        if arm == 0.0 { continue; }
+        if !arm.is_finite() {
+            undecided.push(node);
+            continue;
+        }
         let mut rows: BTreeMap<usize, Vec<f64>> = BTreeMap::new();
         for (c, f) in dirs.iter().enumerate() {
             for (&d, &v) in f.dofs.iter().zip(&f.direction) {
-                for &(r, x) in &moves_translation[d] { rows.entry(r).or_insert_with(|| vec![0.0; dirs.len()])[c] += x * v; }
+                for &(r, x) in &moves_translation[d] { rows.entry(r).or_insert_with(|| vec![0.0; dirs.len()])[c] += (x / arm) * v; }
             }
         }
-        let motion = top_singular((0..dirs.len()).map(|c| rows.iter().map(|(&r, m)| (r, m[c])).collect()).collect());
-        if motion > SWING * arm { out.push(node); }
+        let motion = top_singular((0..dirs.len()).map(|c| rows.values().map(|m| m[c]).collect()).collect());
+        if motion == 0.0 { continue; }
+        if motion > ROUNDING * dofs.len() as f64 * f64::EPSILON { moving.push(node) } else { undecided.push(node) }
     }
-    out
+    (moving, undecided)
 }
 
-fn top_singular(columns: Vec<Vec<(usize, f64)>>) -> f64 {
+fn top_singular(columns: Vec<Vec<f64>>) -> f64 {
+    let scale = columns.iter().flatten().fold(0.0f64, |m, x| m.max(x.abs()));
+    if scale == 0.0 { return 0.0; }
     let n = columns.len();
     let mut gram = vec![0.0; n * n];
     for a in 0..n {
-        for b in 0..n {
-            gram[a * n + b] = columns[a].iter().map(|&(r, x)| columns[b].iter().filter(|&&(q, _)| q == r).map(|&(_, y)| x * y).sum::<f64>()).sum();
-        }
+        for b in 0..n { gram[a * n + b] = columns[a].iter().zip(&columns[b]).map(|(x, y)| (x / scale) * (y / scale)).sum(); }
     }
     let (mu, _) = sym_eigen_small(&gram, n);
-    mu.last().copied().unwrap_or(0.0).max(0.0).sqrt()
+    mu.last().copied().unwrap_or(0.0).max(0.0).sqrt() * scale
 }
 
 fn scaled(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> CscMatrix {
