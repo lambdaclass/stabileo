@@ -155,7 +155,7 @@ scripts/verification-metrics.py: return analysis == "static" and "linear static"
 .github/scripts/cadence-reports.cjs: if (!['success', 'failure'].includes(j.conclusion)) continue;
 .github/scripts/nightly-findings.cjs: if (!dry) for (const name of new Set(['safety', 'nightly-finding', ...[...findings.values()].map(g => g.cause.kind).filter(k => ['invariance-refusal', 'wrong-result-candidate'].includes(k))])) {
 .github/scripts/nightly-findings.cjs: const labels = ['safety', 'nightly-finding', ...(['invariance-refusal', 'wrong-result-candidate'].includes(cause.kind) ? [cause.kind] : [])];
-.github/scripts/nightly-findings.cjs: const existing = issues.find(i => !i.pull_request && markers.some(m => i.body?.includes(m)));
+.github/scripts/nightly-findings.cjs: const existing = issues.find(i => !i.pull_request && !claimedIssues.has(i.number) && markers.some(m => i.body?.includes(m)));
 .github/scripts/nightly-findings.cjs: if (!existing.body.includes(occurrence) && !comments.some(c => c.body?.includes(occurrence))) {
 .github/scripts/verification-alert.cjs: `${HELD}: ${body.replace(/^Green again: /, '').replace(/ Closing\.$/, '')} The failures above may be real findings that ` +
 

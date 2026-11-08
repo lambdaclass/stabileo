@@ -140,7 +140,9 @@ test('tonight: 66 findings become 32 issues with analyses kept distinct', () => 
     assert.ok(c.args.labels.includes('invariance-refusal'));
     assert.ok(!c.args.labels.includes('wrong-result-candidate'));
     assert.equal(c.args.body.split('```json').length, 2);
-    assert.ok(JSON.parse(c.args.body.split('```json\n')[1].split('\n```')[0]).loads.length >= 1);
+    const analysis = Number(c.args.body.match(/Analyses \(hits\): analysis(\d+):/)[1]);
+    const model = JSON.parse(c.args.body.split('```json\n')[1].split('\n```')[0]);
+    assert.equal(model.loads.length, analysis + 1);
   }
   const supports = created.filter(c => c.args.body.includes('node # has several supports'));
   assert.equal(supports.length, 19);
@@ -324,6 +326,25 @@ test('recent, truncated and pre-id legacy markers match without opening duplicat
   await report(args);
   assert.equal(calls.filter(c => c.name === 'create').length, 0);
   assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number).sort(), [71, 72, 73, 74]);
+}));
+
+test('one legacy issue cannot absorb distinct analysis and diagnostic groups', () => fixture(async ({args, calls, issues, save}) => {
+  const legacy = require('node:crypto').createHash('sha256').update(JSON.stringify(['opensees', 'wrong-result-candidate', 'solver residual #'])).digest('hex');
+  issues.push({number: 75, state: 'open', body: `<!-- nightly-finding:${legacy} -->`});
+  save('static', {...finding, test: 'opensees/mismatch', details: {
+    status: 'mismatch', analysis: 'static', code: 'residual_high', message: 'solver residual 1'
+  }});
+  save('pdelta', {...finding, test: 'opensees/mismatch', details: {
+    status: 'mismatch', analysis: 'pdelta', code: 'iteration_limit', message: 'solver residual 2'
+  }});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 1);
+  const commented = calls.filter(c => c.name === 'createComment');
+  assert.deepEqual(commented.map(c => c.args.issue_number), [75]);
+  const bodies = [created[0].args.body, commented[0].args.body];
+  assert.ok(bodies.some(body => body.includes('diagnostic: **residual_high**') && body.includes('Analyses (hits): static: 1')));
+  assert.ok(bodies.some(body => body.includes('diagnostic: **iteration_limit**') && body.includes('Analyses (hits): pdelta: 1')));
 }));
 
 test('replay-pending placeholders do not open numerical findings', () => fixture(async ({args, calls, logs, save}) => {
