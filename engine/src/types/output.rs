@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 // ==================== 2D Output Types ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Displacement {
     pub node_id: usize,
@@ -13,7 +13,7 @@ pub struct Displacement {
     pub ry: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Reaction {
     pub node_id: usize,
@@ -24,7 +24,7 @@ pub struct Reaction {
     pub my: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PointLoadInfo {
     pub a: f64,
@@ -35,7 +35,7 @@ pub struct PointLoadInfo {
     pub my: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DistributedLoadInfo {
     #[serde(rename = "qI")]
@@ -46,7 +46,7 @@ pub struct DistributedLoadInfo {
     pub b: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementForces {
     pub element_id: usize,
@@ -75,10 +75,10 @@ pub struct ElementForces {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AnalysisResults {
-    pub displacements: Vec<Displacement>,
-    pub reactions: Vec<Reaction>,
-    pub element_forces: Vec<ElementForces>,
+pub struct AnalysisResults<D = Displacement, R = Reaction, F = ElementForces> {
+    pub displacements: Vec<D>,
+    pub reactions: Vec<R>,
+    pub element_forces: Vec<F>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraint_forces: Vec<ConstraintForce>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -689,7 +689,7 @@ impl SolverRunArtifact {
 
 // ==================== 3D Output Types ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Displacement3D {
     pub node_id: usize,
@@ -703,7 +703,7 @@ pub struct Displacement3D {
     pub warping: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Reaction3D {
     pub node_id: usize,
@@ -717,14 +717,14 @@ pub struct Reaction3D {
     pub bimoment: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PointLoadInfo3D {
     pub a: f64,
     pub p: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementForces3D {
     pub element_id: usize,
@@ -775,10 +775,10 @@ pub struct ElementForces3D {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AnalysisResults3D {
-    pub displacements: Vec<Displacement3D>,
-    pub reactions: Vec<Reaction3D>,
-    pub element_forces: Vec<ElementForces3D>,
+pub struct AnalysisResults3D<D = Displacement3D, R = Reaction3D, F = ElementForces3D> {
+    pub displacements: Vec<D>,
+    pub reactions: Vec<R>,
+    pub element_forces: Vec<F>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plate_stresses: Vec<PlateStress>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

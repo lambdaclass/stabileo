@@ -799,6 +799,159 @@ mod wire {
         pub roll_angle: Option<AngleDeg>,
     }
 
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Displacement {
+        pub node_id: usize,
+        pub ux: Length,
+        #[serde(rename = "uz", alias = "uy")]
+        pub uz: Length,
+        #[serde(rename = "ry", alias = "rz")]
+        pub ry: Angle,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Reaction {
+        pub node_id: usize,
+        pub rx: Force,
+        #[serde(rename = "rz", alias = "ry")]
+        pub rz: Force,
+        #[serde(rename = "my", alias = "mz")]
+        pub my: Moment,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct PointLoadInfo {
+        pub a: Length,
+        pub p: Force,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub px: Option<Force>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "my", alias = "mz")]
+        pub my: Option<Moment>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DistributedLoadInfo {
+        #[serde(rename = "qI")]
+        pub q_i: LineLoad,
+        #[serde(rename = "qJ")]
+        pub q_j: LineLoad,
+        pub a: Length,
+        pub b: Length,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ElementForces {
+        pub element_id: usize,
+        pub n_start: Force,
+        pub n_end: Force,
+        pub v_start: Force,
+        pub v_end: Force,
+        pub m_start: Moment,
+        pub m_end: Moment,
+        pub length: Length,
+        #[serde(rename = "qI")]
+        pub q_i: LineLoad,
+        #[serde(rename = "qJ")]
+        pub q_j: LineLoad,
+        pub point_loads: Vec<PointLoadInfo>,
+        pub distributed_loads: Vec<DistributedLoadInfo>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub distributed_loads_x: Vec<DistributedLoadInfo>,
+        #[serde(default)]
+        pub hinge_start: bool,
+        #[serde(default)]
+        pub hinge_end: bool,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Displacement3D {
+        pub node_id: usize,
+        pub ux: Length,
+        pub uy: Length,
+        pub uz: Length,
+        pub rx: Angle,
+        pub ry: Angle,
+        pub rz: Angle,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub warping: Option<f64>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Reaction3D {
+        pub node_id: usize,
+        pub fx: Force,
+        pub fy: Force,
+        pub fz: Force,
+        pub mx: Moment,
+        pub my: Moment,
+        pub mz: Moment,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub bimoment: Option<Bimoment>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct PointLoadInfo3D {
+        pub a: Length,
+        pub p: Force,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ElementForces3D {
+        pub element_id: usize,
+        pub length: Length,
+        pub n_start: Force,
+        pub n_end: Force,
+        pub vy_start: Force,
+        pub vy_end: Force,
+        pub vz_start: Force,
+        pub vz_end: Force,
+        pub mx_start: Moment,
+        pub mx_end: Moment,
+        pub my_start: Moment,
+        pub my_end: Moment,
+        pub mz_start: Moment,
+        pub mz_end: Moment,
+        #[serde(default)]
+        pub release_my_start: bool,
+        #[serde(default)]
+        pub release_my_end: bool,
+        #[serde(default)]
+        pub release_mz_start: bool,
+        #[serde(default)]
+        pub release_mz_end: bool,
+        #[serde(default)]
+        pub release_t_start: bool,
+        #[serde(default)]
+        pub release_t_end: bool,
+        #[serde(rename = "qYI")]
+        pub q_yi: LineLoad,
+        #[serde(rename = "qYJ")]
+        pub q_yj: LineLoad,
+        pub distributed_loads_y: Vec<DistributedLoadInfo>,
+        pub point_loads_y: Vec<PointLoadInfo3D>,
+        #[serde(rename = "qZI")]
+        pub q_zi: LineLoad,
+        #[serde(rename = "qZJ")]
+        pub q_zj: LineLoad,
+        pub distributed_loads_z: Vec<DistributedLoadInfo>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pub distributed_loads_x: Vec<DistributedLoadInfo>,
+        pub point_loads_z: Vec<PointLoadInfo3D>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub bimoment_start: Option<Bimoment>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub bimoment_end: Option<Bimoment>,
+    }
+
     /// Mirrors `SolverLoad`: same tags, same variant order.
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(tag = "type", content = "data")]
@@ -864,6 +1017,9 @@ mod wire {
     }
 }
 pub use wire::{
+    Displacement as TypedDisplacement, Displacement3D as TypedDisplacement3D, DistributedLoadInfo as TypedDistributedLoadInfo,
+    ElementForces as TypedElementForces, ElementForces3D as TypedElementForces3D, PointLoadInfo as TypedPointLoadInfo,
+    PointLoadInfo3D as TypedPointLoadInfo3D, Reaction as TypedReaction, Reaction3D as TypedReaction3D,
     SolverAxialDistributedLoad as TypedAxialDistributedLoad, SolverDistributedLoad as TypedDistributedLoad,
     SolverDistributedLoad3D as TypedDistributedLoad3D, SolverElement3D as TypedElement3D, SolverLoad as TypedLoad,
     SolverLoad3D as TypedLoad3D, SolverMaterial as ElasticMaterial, SolverNodalLoad as TypedNodalLoad,
@@ -1204,6 +1360,277 @@ impl From<TypedLoad3D> for super::SolverLoad3D {
             TypedLoad3D::CurvedShellThermal(v) => S::CurvedShellThermal(v.into()),
             TypedLoad3D::CurvedShellEdge(v) => S::CurvedShellEdge(v.into()),
             TypedLoad3D::CurvedShellSelfWeight(v) => S::CurvedShellSelfWeight(v),
+        }
+    }
+}
+
+impl From<&super::Displacement> for TypedDisplacement {
+    fn from(d: &super::Displacement) -> Self {
+        let super::Displacement { node_id, ux, uz, ry } = *d;
+        Self { node_id, ux: Length::from_m(ux), uz: Length::from_m(uz), ry: Angle::from_rad(ry) }
+    }
+}
+
+impl From<&super::Reaction> for TypedReaction {
+    fn from(r: &super::Reaction) -> Self {
+        let super::Reaction { node_id, rx, rz, my } = *r;
+        Self { node_id, rx: Force::from_kn(rx), rz: Force::from_kn(rz), my: Moment::from_kn_m(my) }
+    }
+}
+
+impl From<&super::PointLoadInfo> for TypedPointLoadInfo {
+    fn from(p: &super::PointLoadInfo) -> Self {
+        let super::PointLoadInfo { a, p, px, my } = *p;
+        Self { a: Length::from_m(a), p: Force::from_kn(p), px: px.map(Force::from_kn), my: my.map(Moment::from_kn_m) }
+    }
+}
+
+impl From<&super::DistributedLoadInfo> for TypedDistributedLoadInfo {
+    fn from(d: &super::DistributedLoadInfo) -> Self {
+        let super::DistributedLoadInfo { q_i, q_j, a, b } = *d;
+        Self { q_i: LineLoad::from_kn_per_m(q_i), q_j: LineLoad::from_kn_per_m(q_j), a: Length::from_m(a), b: Length::from_m(b) }
+    }
+}
+
+fn typed_all<'a, L: 'a, T: From<&'a L>>(v: &'a [L]) -> Vec<T> {
+    v.iter().map(T::from).collect()
+}
+
+impl From<&super::ElementForces> for TypedElementForces {
+    fn from(f: &super::ElementForces) -> Self {
+        let super::ElementForces {
+            element_id,
+            n_start,
+            n_end,
+            v_start,
+            v_end,
+            m_start,
+            m_end,
+            length,
+            q_i,
+            q_j,
+            point_loads,
+            distributed_loads,
+            distributed_loads_x,
+            hinge_start,
+            hinge_end,
+        } = f;
+        Self {
+            element_id: *element_id,
+            n_start: Force::from_kn(*n_start),
+            n_end: Force::from_kn(*n_end),
+            v_start: Force::from_kn(*v_start),
+            v_end: Force::from_kn(*v_end),
+            m_start: Moment::from_kn_m(*m_start),
+            m_end: Moment::from_kn_m(*m_end),
+            length: Length::from_m(*length),
+            q_i: LineLoad::from_kn_per_m(*q_i),
+            q_j: LineLoad::from_kn_per_m(*q_j),
+            point_loads: typed_all(point_loads),
+            distributed_loads: typed_all(distributed_loads),
+            distributed_loads_x: typed_all(distributed_loads_x),
+            hinge_start: *hinge_start,
+            hinge_end: *hinge_end,
+        }
+    }
+}
+
+impl From<&super::Displacement3D> for TypedDisplacement3D {
+    fn from(d: &super::Displacement3D) -> Self {
+        let super::Displacement3D { node_id, ux, uy, uz, rx, ry, rz, warping } = *d;
+        Self {
+            node_id,
+            ux: Length::from_m(ux),
+            uy: Length::from_m(uy),
+            uz: Length::from_m(uz),
+            rx: Angle::from_rad(rx),
+            ry: Angle::from_rad(ry),
+            rz: Angle::from_rad(rz),
+            warping,
+        }
+    }
+}
+
+impl From<&super::Reaction3D> for TypedReaction3D {
+    fn from(r: &super::Reaction3D) -> Self {
+        let super::Reaction3D { node_id, fx, fy, fz, mx, my, mz, bimoment } = *r;
+        Self {
+            node_id,
+            fx: Force::from_kn(fx),
+            fy: Force::from_kn(fy),
+            fz: Force::from_kn(fz),
+            mx: Moment::from_kn_m(mx),
+            my: Moment::from_kn_m(my),
+            mz: Moment::from_kn_m(mz),
+            bimoment: bimoment.map(Bimoment::from_kn_m2),
+        }
+    }
+}
+
+impl From<&super::PointLoadInfo3D> for TypedPointLoadInfo3D {
+    fn from(p: &super::PointLoadInfo3D) -> Self {
+        let super::PointLoadInfo3D { a, p } = *p;
+        Self { a: Length::from_m(a), p: Force::from_kn(p) }
+    }
+}
+
+impl From<&super::ElementForces3D> for TypedElementForces3D {
+    fn from(f: &super::ElementForces3D) -> Self {
+        let super::ElementForces3D {
+            element_id,
+            length,
+            n_start,
+            n_end,
+            vy_start,
+            vy_end,
+            vz_start,
+            vz_end,
+            mx_start,
+            mx_end,
+            my_start,
+            my_end,
+            mz_start,
+            mz_end,
+            release_my_start,
+            release_my_end,
+            release_mz_start,
+            release_mz_end,
+            release_t_start,
+            release_t_end,
+            q_yi,
+            q_yj,
+            distributed_loads_y,
+            point_loads_y,
+            q_zi,
+            q_zj,
+            distributed_loads_z,
+            distributed_loads_x,
+            point_loads_z,
+            bimoment_start,
+            bimoment_end,
+        } = f;
+        Self {
+            element_id: *element_id,
+            length: Length::from_m(*length),
+            n_start: Force::from_kn(*n_start),
+            n_end: Force::from_kn(*n_end),
+            vy_start: Force::from_kn(*vy_start),
+            vy_end: Force::from_kn(*vy_end),
+            vz_start: Force::from_kn(*vz_start),
+            vz_end: Force::from_kn(*vz_end),
+            mx_start: Moment::from_kn_m(*mx_start),
+            mx_end: Moment::from_kn_m(*mx_end),
+            my_start: Moment::from_kn_m(*my_start),
+            my_end: Moment::from_kn_m(*my_end),
+            mz_start: Moment::from_kn_m(*mz_start),
+            mz_end: Moment::from_kn_m(*mz_end),
+            release_my_start: *release_my_start,
+            release_my_end: *release_my_end,
+            release_mz_start: *release_mz_start,
+            release_mz_end: *release_mz_end,
+            release_t_start: *release_t_start,
+            release_t_end: *release_t_end,
+            q_yi: LineLoad::from_kn_per_m(*q_yi),
+            q_yj: LineLoad::from_kn_per_m(*q_yj),
+            distributed_loads_y: typed_all(distributed_loads_y),
+            point_loads_y: typed_all(point_loads_y),
+            q_zi: LineLoad::from_kn_per_m(*q_zi),
+            q_zj: LineLoad::from_kn_per_m(*q_zj),
+            distributed_loads_z: typed_all(distributed_loads_z),
+            distributed_loads_x: typed_all(distributed_loads_x),
+            point_loads_z: typed_all(point_loads_z),
+            bimoment_start: bimoment_start.map(Bimoment::from_kn_m2),
+            bimoment_end: bimoment_end.map(Bimoment::from_kn_m2),
+        }
+    }
+}
+
+macro_rules! serialize_as_typed {
+    ($($legacy:ident => $typed:ident),* $(,)?) => {
+        $(impl Serialize for super::$legacy {
+            fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+                $typed::from(self).serialize(s)
+            }
+        })*
+    };
+}
+serialize_as_typed!(
+    Displacement => TypedDisplacement,
+    Reaction => TypedReaction,
+    PointLoadInfo => TypedPointLoadInfo,
+    DistributedLoadInfo => TypedDistributedLoadInfo,
+    ElementForces => TypedElementForces,
+    Displacement3D => TypedDisplacement3D,
+    Reaction3D => TypedReaction3D,
+    PointLoadInfo3D => TypedPointLoadInfo3D,
+    ElementForces3D => TypedElementForces3D,
+);
+
+/// What the 2D and 3D solve exports serialize. `into_typed` is the only place solver results
+/// acquire units; every other serialization of a result record goes through the same typed records.
+pub type TypedResults2D = super::AnalysisResults<TypedDisplacement, TypedReaction, TypedElementForces>;
+pub type TypedResults3D = super::AnalysisResults3D<TypedDisplacement3D, TypedReaction3D, TypedElementForces3D>;
+impl super::AnalysisResults {
+    pub fn into_typed(self) -> TypedResults2D {
+        let super::AnalysisResults {
+            displacements,
+            reactions,
+            element_forces,
+            constraint_forces,
+            diagnostics,
+            solver_diagnostics,
+            structured_diagnostics,
+            equilibrium,
+            result_summary,
+            solver_run_meta,
+        } = self;
+        super::AnalysisResults {
+            displacements: typed_all(&displacements),
+            reactions: typed_all(&reactions),
+            element_forces: typed_all(&element_forces),
+            constraint_forces,
+            diagnostics,
+            solver_diagnostics,
+            structured_diagnostics,
+            equilibrium,
+            result_summary,
+            solver_run_meta,
+        }
+    }
+}
+impl super::AnalysisResults3D {
+    pub fn into_typed(self) -> TypedResults3D {
+        let super::AnalysisResults3D {
+            displacements,
+            reactions,
+            element_forces,
+            plate_stresses,
+            quad_stresses,
+            quad_nodal_stresses,
+            constraint_forces,
+            diagnostics,
+            solver_diagnostics,
+            timings,
+            structured_diagnostics,
+            equilibrium,
+            result_summary,
+            solver_run_meta,
+        } = self;
+        super::AnalysisResults3D {
+            displacements: typed_all(&displacements),
+            reactions: typed_all(&reactions),
+            element_forces: typed_all(&element_forces),
+            plate_stresses,
+            quad_stresses,
+            quad_nodal_stresses,
+            constraint_forces,
+            diagnostics,
+            solver_diagnostics,
+            timings,
+            structured_diagnostics,
+            equilibrium,
+            result_summary,
+            solver_run_meta,
         }
     }
 }
