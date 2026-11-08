@@ -367,6 +367,7 @@
 //!     r.fz = Force::from_kn(1.0);
 //!     r.mx = Moment::from_kn_m(0.5);
 //!     r.bimoment = Some(Bimoment::from_kn_m2(0.01));
+//!     r3.displacements[0].warping = Some(TwistRate::from_rad_per_m(-1e-4));
 //!     let f = &mut r3.element_forces[0];
 //!     f.vz_end = Force::from_kn(-1.0);
 //!     f.mz_start = Moment::from_kn_m(4.0);
@@ -420,6 +421,25 @@
 //! use dedaliano_engine::types::units::{Angle, TypedResults3D};
 //! fn wrong(r: &mut TypedResults3D) {
 //!     r.displacements[0].uy = Angle::from_rad(0.01);
+//! }
+//! ```
+//! The warping displacement is a rate of twist, rad/m, not a rotation:
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Angle, TypedResults3D};
+//! fn wrong(r: &mut TypedResults3D) {
+//!     r.displacements[0].warping = Some(Angle::from_rad(0.01));
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::TypedResults3D;
+//! fn wrong(r: &mut TypedResults3D) {
+//!     r.displacements[0].warping = Some(1e-4);
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{TwistRate, TypedResults3D};
+//! fn wrong(r: &mut TypedResults3D) {
+//!     r.displacements[0].rx = TwistRate::from_rad_per_m(1e-4);
 //! }
 //! ```
 //! ```compile_fail,E0308
@@ -545,6 +565,7 @@ quantity!(ThermalExpansion, from_per_c, in_per_c);
 quantity!(RotationalStiffness, from_kn_m_per_rad, in_kn_m_per_rad);
 quantity!(Angle, from_rad, in_rad);
 quantity!(AngleDeg, from_deg, in_deg);
+quantity!(TwistRate, from_rad_per_m, in_rad_per_m);
 
 impl ModulusMPa {
     #[inline]
@@ -987,7 +1008,7 @@ mod wire {
         pub ry: Angle,
         pub rz: Angle,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub warping: Option<f64>,
+        pub warping: Option<TwistRate>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1554,7 +1575,7 @@ impl From<&super::Displacement3D> for TypedDisplacement3D {
             rx: Angle::from_rad(rx),
             ry: Angle::from_rad(ry),
             rz: Angle::from_rad(rz),
-            warping,
+            warping: warping.map(TwistRate::from_rad_per_m),
         }
     }
 }

@@ -214,9 +214,62 @@ fn units_malformed_result_records_give_the_same_message() {
 #[test]
 fn units_the_solve_exports_serialize_the_typed_results() {
     let source = include_str!("../../src/lib.rs");
-    for export in ["pub fn solve_2d(", "pub fn solve_3d("] {
+    for export in ["pub fn solve_2d(", "pub fn solve_3d(", "pub fn combine_results_2d(", "pub fn combine_results_3d("] {
         let body = &source[source.find(export).unwrap()..];
         let body = &body[..body.find("\n}\n").unwrap()];
-        assert!(body.contains("to_js_value(&results.into_typed())"), "{export} does not serialize the typed results");
+        assert!(body.contains(".into_typed())"), "{export} does not serialize the typed results");
+        assert!(!body.contains("to_js_value(&result)") && !body.contains("to_js_value(&results)"), "{export} also serializes untyped results");
     }
+}
+
+fn warping_cantilever() -> Value {
+    json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 3.0, "y": 0.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.00538, "iy": 8.36e-5, "iz": 6.04e-6, "j": 1.2e-7, "cw": 1.25e-7}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true, "rw": true}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fy": 0, "fz": -1.0, "mx": 0.75, "my": 0, "mz": 0, "bw": -0.0}}]
+    })
+}
+
+#[test]
+fn units_the_warping_displacement_is_a_twist_rate_with_the_same_text() {
+    let input = legacy_input::parse(&warping_cantilever().to_string()).unwrap();
+    let r = solve_3d(&input).unwrap();
+    check_3d("warping cantilever", &r);
+    let free = r.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    let w = free.warping.expect("a section with cw solves with a warping DOF");
+    assert!(w != 0.0 && w.is_finite());
+    let typed = r.clone().into_typed();
+    let t = typed.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    assert_eq!(t.warping.map(|w| w.in_rad_per_m().to_bits()), Some(w.to_bits()));
+    let r: AnalysisResults3D = serde_json::from_value(every_3d_field()).unwrap();
+    let typed = r.into_typed();
+    assert_eq!(typed.displacements[1].warping.map(|w| w.in_rad_per_m().to_bits()), Some((-0.0f64).to_bits()));
+    assert_eq!(typed.displacements[0].warping, None);
+}
+
+#[test]
+fn units_combined_results_serialize_to_the_legacy_text() {
+    use dedaliano_engine::postprocess::combinations::*;
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-3d-portal-frame-input.json")).unwrap();
+    let a = solve_3d(&legacy_input::parse(&text).unwrap()).unwrap();
+    let b = solve_3d(&legacy_input::parse(&warping_cantilever().to_string()).unwrap()).unwrap();
+    for (case, other) in [(&a, &a), (&b, &b)] {
+        let input = CombinationInput3D {
+            factors: vec![CombinationFactor { case_id: 1, factor: 1.2 }, CombinationFactor { case_id: 2, factor: -0.5 }],
+            cases: vec![CaseEntry3D { case_id: 1, results: case.clone() }, CaseEntry3D { case_id: 2, results: other.clone() }],
+            plate_thicknesses: vec![],
+        };
+        let combined = combine_results_3d(&input).unwrap().unwrap();
+        check_3d("combined 3D", &combined);
+    }
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-portal-frame-input.json")).unwrap();
+    let r = solve_2d(&serde_json::from_str(&text).unwrap()).unwrap();
+    let input = CombinationInput {
+        factors: vec![CombinationFactor { case_id: 1, factor: 1.4 }, CombinationFactor { case_id: 2, factor: -0.0 }],
+        cases: vec![CaseEntry { case_id: 1, results: r.clone() }, CaseEntry { case_id: 2, results: r }],
+    };
+    check_2d("combined 2D", &combine_results_checked(&input).unwrap().unwrap());
 }
