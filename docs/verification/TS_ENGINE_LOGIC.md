@@ -650,8 +650,11 @@ is refused instead of giving Cb = NaN. No results change. Not moved, and the nex
 
 - **TypeScript:** `detailing/footing-actions.ts` (reactions to the footing centroid, N·e,
   trapezoidal/triangular soil pressure, unbalanced moment for punching).
-- **Why here:** these are the demand of every footing check, including the engine's.
-- **Rust:** `isolated_footing.rs` takes the reactions and offsets directly.
+- **Why here:** these are the demand of the TypeScript mat design (slice 9) and of the punching
+  transfer. `isolated_footing.rs` already derives its own eccentricity (`axis_offsets`) for its
+  check, so the same quantity exists twice.
+- **Rust:** expose `isolated_footing.rs`'s actions (offsets, pressures, unbalanced moment) as an
+  op, and have the TypeScript design read them.
 - **References:** closed forms for e < B/6 (trapezoid) and e > B/6 (triangle, the reduced
   contact length), and biaxial kern cases refused as now.
 - **Parity:** random reactions and offsets. The arithmetic is `+ − × ÷`, so the results must be
@@ -662,9 +665,10 @@ is refused instead of giving Cb = NaN. No results change. Not moved, and the nex
 - **TypeScript:** `detailing/footing-flexure.ts` (CIRSOC 201 Ch. 13, both directions, §13.3.3
   band distribution, As req/min, bar count and spacing) and `detailing/footing-mat-anchorage.ts`
   (§13.2.7.1 critical section against development length).
-- **Why here:** it is a verdict, and the steel is drawn from it. `isolated_footing.rs` checks
-  bearing, shear and punching, but not the mat.
-- **Rust:** `postprocess/isolated_footing.rs` (`mat_flexure`, `mat_anchorage`), taking the
+- **Why here:** it decides the steel that is drawn, and its anchorage verdict. `isolated_footing.rs`
+  checks column-face flexure (13.2.7.1) of the mat it is given, but the required area, the
+  §13.3.3 band, the bar count, the spacing and the anchorage are TypeScript.
+- **Rust:** `postprocess/isolated_footing.rs` (`mat_design`, `mat_anchorage`), taking the
   footing actions from slice 8.
 - **References:** CIRSOC 201-2025 Ch. 13 text; a footing worked by hand in the test (uniform and
   trapezoidal pressure); the 2005 edition only where its text is in `docs/codes/`.
@@ -675,7 +679,8 @@ is refused instead of giving Cb = NaN. No results change. Not moved, and the nex
 #### 10. Punching shear
 
 `detailing/punching-shear.ts`, `detailing/slab-punching.ts` → CIRSOC 201-2025 §22.6 in the
-engine. That means the critical perimeter by column position (interior, edge, corner), the
+engine. `isolated_footing.rs` already checks footing punching, so the slab-column path is the
+main part of the slice. That means the critical perimeter by column position (interior, edge, corner), the
 demand net of the load inside the perimeter, and γv·Mu transfer, which is refused where refused
 now. References: the §22.6 closed forms for interior, edge and corner columns, and published
 examples. Parity: column position × c1/c2 × d × f'c × openings. The arithmetic involves √, so the
