@@ -4,7 +4,7 @@ use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::{Iso2, Iso3};
 use dedaliano_engine::metamorphic::units::Units;
 use dedaliano_engine::metamorphic::Rng;
-use dedaliano_engine::solver::stability::{self, analyze_dense, DofKind, DofTag, Stability, Verdict};
+use dedaliano_engine::solver::stability::{self, analyze_dense, DofKind, DofTag, Reason, Stability, Verdict};
 
 const CONSTRAINTS_UNMIRRORED: &str = "connectors and constraints have no mirror rule yet";
 const SINGLE_TRANSLATION_CONSTRAINT: &str = "constraint on a single translation that leaves the axes";
@@ -39,6 +39,12 @@ fn unsupported(name: &str, what: &str, error: &str) -> bool {
 }
 
 const UNITS: [(f64, f64); 4] = [(1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448), (1e3, 1e3)];
+
+const SAME_MODEL: &[(u32, u32)] = &[(965, 964), (968, 964), (1041, 1029), (1352, 1351)];
+
+fn fixture(issue: u32) -> u32 {
+    SAME_MODEL.iter().find(|&&(i, _)| i == issue).map_or(issue, |&(_, f)| f)
+}
 
 fn c08() -> Vec<(String, Model)> {
     corpus::load_dir(&corpus::root().join("metamorphic_corpus").join("stability"), |_| true)
@@ -116,7 +122,7 @@ fn same(a: &Stability, b: &Stability) -> Result<(), String> {
 #[test]
 fn the_stability_verdict_of_every_c08_reproducer_survives_units_rotation_mirror_and_relabelling() {
     let models = c08();
-    assert_eq!(models.len(), 47, "the C08 reproducers");
+    assert_eq!(models.len() + SAME_MODEL.len(), C08.len(), "the C08 reproducers");
     let mut failures = Vec::new();
     let mut skipped = std::collections::BTreeSet::new();
     let mut compared = 0;
@@ -141,7 +147,7 @@ fn the_stability_verdict_of_every_c08_reproducer_survives_units_rotation_mirror_
         }
     }
     assert!(failures.is_empty(), "{} verdicts changed or missing:\n{}", failures.len(), failures.join("\n"));
-    assert!(compared >= 47 * 15, "{compared} images compared");
+    assert!(compared >= models.len() * 15, "{compared} images compared");
 }
 
 const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 973, 993, 1008, 1028, 1029, 1041, 1083, 1091, 1095, 1103, 1112, 1115, 1353, 1355, 1357, 1359, 1362, 1648, 1651, 1653];
@@ -169,7 +175,7 @@ const C08: &[(u32, u64, &str, &str)] = &[
 
 fn replay(issue: u32) -> (Stability, crate::tally::Cell) {
     let &(_, seed, analysis, relation) = C08.iter().find(|c| c.0 == issue).unwrap();
-    let text = std::fs::read_to_string(corpus::root().join("metamorphic_corpus").join("stability").join(format!("issue-{issue}.json"))).unwrap();
+    let text = std::fs::read_to_string(corpus::root().join("metamorphic_corpus").join("stability").join(format!("issue-{}.json", fixture(issue)))).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&text).unwrap();
     let dens: Option<std::collections::HashMap<String, f64>> = meta.get("_nightly_dens").map(|d| serde_json::from_value(d.clone()).unwrap());
     let t = crate::tally::Tally::default();
@@ -501,5 +507,64 @@ fn a_warping_stiffness_below_the_artificial_spring_gets_one_verdict_in_every_uni
         "loads": []
     });
     let s = invariant_verdict("cantilever whose torsion only a vanishing warping constant stiffens", d3(cantilever));
-    assert!(s.is_stable() && s.free.len() == 1 && s.free[0].node == 2, "{s:?}");
+    assert_eq!((s.verdict, s.reason), (Verdict::Singular, Reason::CoupledSoftDirection), "{s:?}");
+}
+
+fn rotate_rotations(k: &[f64], n: usize, first: usize, angle: f64) -> Vec<f64> {
+    let mut r = vec![0.0; n * n];
+    for i in 0..n { r[i * n + i] = 1.0; }
+    let (c, s) = (angle.cos(), angle.sin());
+    let (a, b) = (first, first + 1);
+    r[a * n + a] = c;
+    r[a * n + b] = -s;
+    r[b * n + a] = s;
+    r[b * n + b] = c;
+    let mut out = vec![0.0; n * n];
+    for i in 0..n {
+        for j in 0..n {
+            out[i * n + j] = (0..n).flat_map(|p| (0..n).map(move |q| (p, q))).map(|(p, q)| r[p * n + i] * k[p * n + q] * r[q * n + j]).sum();
+        }
+    }
+    out
+}
+
+#[test]
+fn a_soft_rotation_that_closes_a_mechanism_with_a_translation_is_never_dropped_as_free() {
+    let k = [1.0, 0.0, -1.0, 0.0, 1e24, 0.0, -1.0, 0.0, 1.0];
+    let tags = [t(1, DofKind::Translation), t(2, DofKind::Rotation), t(2, DofKind::Rotation)];
+    for angle in [0.0, 0.3, std::f64::consts::FRAC_PI_4, 1.2, std::f64::consts::FRAC_PI_2] {
+        for scale in [1.0, 1e-6, 1e6] {
+            let ks: Vec<f64> = rotate_rotations(&k, 3, 1, angle).into_iter().map(|x| x * scale).collect();
+            let s = analyze_dense(&ks, 3, &tags);
+            assert!(matches!(s.verdict, Verdict::Mechanism | Verdict::Singular), "{angle} {scale}: {s:?}");
+        }
+    }
+}
+
+#[test]
+fn a_rotation_block_scaled_to_the_edge_of_the_exponent_range_keeps_its_verdict() {
+    let tags = [t(1, DofKind::Translation), t(2, DofKind::Rotation), t(2, DofKind::Rotation)];
+    let base = analyze_dense(&[1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0], 3, &tags);
+    assert!(base.is_stable() && base.free_rotations().count() == 1, "{base:?}");
+    for scale in [1e-200, 1e200] {
+        let k = [1.0, 0.0, 0.0, 0.0, scale, scale, 0.0, scale, scale];
+        let s = analyze_dense(&k, 3, &tags);
+        assert_eq!(s.verdict, base.verdict, "{scale}: {s:?}");
+        assert_eq!(s.free_rotations().count(), 1, "{scale}: {s:?}");
+    }
+}
+
+#[test]
+fn each_refusal_states_its_own_reason() {
+    let coupled = degenerate_free_rotations_coupled(0.0);
+    assert_eq!(coupled.reason, Reason::CoupledSoftDirection, "{coupled:?}");
+    let text = coupled.refusal().unwrap();
+    assert!(text.contains("coupled") && !text.contains("exceeds"), "{text}");
+    let pair = analyze_dense(&[1.0, -1.0, -1.0, 1.0], 2, &[t(1, DofKind::Translation), t(2, DofKind::Translation)]);
+    assert_eq!(pair.reason, Reason::Conditioning, "{pair:?}");
+    assert!(pair.refusal().unwrap().contains("exceeds"));
+    let pendulum = analyze_dense(&[1.0, 0.0, 0.0, 0.0], 2, &[t(1, DofKind::Translation), t(1, DofKind::Translation)]);
+    assert_eq!(pendulum.reason, Reason::FreeTranslation, "{pendulum:?}");
+    assert_eq!(analyze_dense(&[f64::NAN], 1, &[t(1, DofKind::Rotation)]).reason, Reason::NonFinite);
+    assert_eq!(analyze_dense(&[2.0], 1, &[t(1, DofKind::Translation)]).reason, Reason::Resolved);
 }

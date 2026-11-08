@@ -22,6 +22,9 @@ pub struct DofTag { pub node: usize, pub kind: DofKind }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict { Stable, Mechanism, Singular }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reason { Resolved, FreeTranslation, Conditioning, CoupledSoftDirection, NonFinite }
+
 #[derive(Debug, Clone)]
 pub struct FreeDirection {
     pub node: usize,
@@ -33,6 +36,7 @@ pub struct FreeDirection {
 #[derive(Debug, Clone)]
 pub struct Stability {
     pub verdict: Verdict,
+    pub reason: Reason,
     pub kappa: f64,
     pub anisotropy: f64,
     pub free: Vec<FreeDirection>,
@@ -48,15 +52,18 @@ impl Stability {
 
     pub fn refusal(&self) -> Option<String> {
         let nodes = if self.mode_nodes.is_empty() { String::new() } else { format!(" at nodes {:?}", self.mode_nodes) };
-        match self.verdict {
-            Verdict::Stable => None,
-            Verdict::Mechanism => Some(format!(
+        match self.reason {
+            Reason::Resolved => None,
+            Reason::FreeTranslation => Some(format!(
                 "the structure is a mechanism{nodes}: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases"
             )),
-            Verdict::Singular if self.kappa.is_nan() => Some(
+            Reason::NonFinite => Some(
                 "the stiffness matrix has an infinite or undefined entry: check member properties, spring stiffnesses and node coordinates for zero lengths, infinities or missing values".to_string()
             ),
-            Verdict::Singular => Some(format!(
+            Reason::CoupledSoftDirection => Some(format!(
+                "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes}: a rotation or warping direction far softer than the rest of its node is coupled into the stiffness of other directions, so whether it restrains them depends on rounding; add supports or members, remove releases, or reduce extreme stiffness contrasts"
+            )),
+            Reason::Conditioning => Some(format!(
                 "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes} (scaled condition number {:.1e} times node anisotropy {:.1e} exceeds {RESOLVABLE:.0e}): results would change with units, orientation or numbering; add supports or members, remove releases, or reduce extreme stiffness contrasts",
                 self.kappa, self.anisotropy
             )),
@@ -78,7 +85,9 @@ pub fn tags(dof_num: &DofNumbering, two_d: bool) -> Vec<DofTag> {
 }
 
 fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
-    let mut m = a.to_vec();
+    let scale = a.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+    let scale = if scale > 0.0 && scale.is_finite() { scale } else { 1.0 };
+    let mut m: Vec<f64> = a.iter().map(|x| x / scale).collect();
     let mut v = vec![0.0; n * n];
     for i in 0..n { v[i * n + i] = 1.0; }
     for _ in 0..64 {
@@ -90,7 +99,7 @@ fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
                 let apq = m[p * n + q];
                 if apq == 0.0 { continue; }
                 let theta = (m[q * n + q] - m[p * n + p]) / (2.0 * apq);
-                let t = theta.signum() / (theta.abs() + (theta * theta + 1.0).sqrt());
+                let t = theta.signum() / (theta.abs() + theta.hypot(1.0));
                 let t = if theta == 0.0 { 1.0 } else { t };
                 let c = 1.0 / (t * t + 1.0).sqrt();
                 let s = t * c;
@@ -114,7 +123,7 @@ fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
     }
     let mut order: Vec<usize> = (0..n).collect();
     order.sort_by(|&a, &b| m[a * n + a].total_cmp(&m[b * n + b]));
-    let values = order.iter().map(|&i| m[i * n + i]).collect();
+    let values = order.iter().map(|&i| m[i * n + i] * scale).collect();
     let mut vectors = vec![0.0; n * n];
     for (c, &i) in order.iter().enumerate() {
         for r in 0..n { vectors[r * n + c] = v[r * n + i]; }
@@ -177,7 +186,7 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
         return non_finite();
     }
     let mut free = Vec::new();
-    let mut tops: Vec<f64> = Vec::new();
+    let mut own: Vec<(f64, f64, usize)> = Vec::new();
     let mut columns: Vec<Column> = Vec::new();
     let mut anisotropy = 1.0f64;
     for (g, (((node, kind), dofs), (mu, vecs))) in groups.iter().zip(&eig).enumerate() {
@@ -189,7 +198,7 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
             let v: Vec<f64> = (0..b).map(|r| vecs[r * b + c]).collect();
             if whole_free || mu[c] <= LOCAL_FREE * top {
                 free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v });
-                tops.push(top.max(0.0));
+                own.push((mu[c], top.max(0.0), b));
             } else {
                 lowest_kept = lowest_kept.min(mu[c]);
                 let s = mu[c].sqrt();
@@ -204,56 +213,74 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
         let mut mode_nodes = translation_free;
         mode_nodes.sort_unstable();
         mode_nodes.dedup();
-        return Stability { verdict: Verdict::Mechanism, kappa: f64::INFINITY, anisotropy, free, mode_nodes };
+        return Stability { verdict: Verdict::Mechanism, reason: Reason::FreeTranslation, kappa: f64::INFINITY, anisotropy, free, mode_nodes };
     }
     let m = columns.len();
     if m == 0 {
-        return Stability { verdict: Verdict::Stable, kappa: 1.0, anisotropy, free, mode_nodes: Vec::new() };
+        return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa: 1.0, anisotropy, free, mode_nodes: Vec::new() };
     }
     let s = scaled(k, &groups, &group_of, &columns);
     let (kappa, mode) = spectrum(&s);
     let mode_nodes = mode.map(|x| mode_nodes(&x, &columns, &groups)).unwrap_or_default();
     let verdict = if kappa * anisotropy <= RESOLVABLE { Verdict::Stable } else { Verdict::Singular };
     if verdict == Verdict::Stable {
-        let coupled = coupled_free(k, &free, &tops, &columns, &groups);
+        let coupled = coupled_free(k, &free, &own, &columns, &groups, kappa);
         if !coupled.is_empty() {
-            return Stability { verdict: Verdict::Singular, kappa, anisotropy, free, mode_nodes: coupled };
+            return Stability { verdict: Verdict::Singular, reason: Reason::CoupledSoftDirection, kappa, anisotropy, free, mode_nodes: coupled };
         }
     }
-    Stability { verdict, kappa, anisotropy, free, mode_nodes: if verdict == Verdict::Stable { Vec::new() } else { mode_nodes } }
+    let reason = if verdict == Verdict::Stable { Reason::Resolved } else { Reason::Conditioning };
+    Stability { verdict, reason, kappa, anisotropy, free, mode_nodes: if verdict == Verdict::Stable { Vec::new() } else { mode_nodes } }
 }
 
-pub const COUPLED: f64 = 1e-10;
+pub const COUPLED: f64 = 1e-4;
+const ROUNDING: f64 = 64.0;
 
 fn non_finite() -> Stability {
-    Stability { verdict: Verdict::Singular, kappa: f64::NAN, anisotropy: f64::NAN, free: Vec::new(), mode_nodes: Vec::new() }
+    Stability { verdict: Verdict::Singular, reason: Reason::NonFinite, kappa: f64::NAN, anisotropy: f64::NAN, free: Vec::new(), mode_nodes: Vec::new() }
 }
 
-fn coupled_free(k: &CscMatrix, free: &[FreeDirection], tops: &[f64], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)]) -> Vec<usize> {
-    let mut by_group: BTreeMap<(usize, DofKind), (f64, Vec<&FreeDirection>)> = BTreeMap::new();
-    for (f, &top) in free.iter().zip(tops) {
-        if f.kind == DofKind::Translation { continue; }
-        by_group.entry((f.node, f.kind)).or_insert((top, Vec::new())).1.push(f);
+fn coupled_free(k: &CscMatrix, free: &[FreeDirection], own: &[(f64, f64, usize)], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)], kappa: f64) -> Vec<usize> {
+    let mut by_group: BTreeMap<(usize, DofKind), Vec<(&FreeDirection, (f64, f64, usize))>> = BTreeMap::new();
+    for (f, &o) in free.iter().zip(own) {
+        if f.kind != DofKind::Translation { by_group.entry((f.node, f.kind)).or_default().push((f, o)); }
     }
     let mut out = Vec::new();
-    for ((node, _), (top, dirs)) in by_group {
-        let scale = if top > 0.0 { top.sqrt() } else { 1.0 };
-        let couplings: Vec<Vec<f64>> = dirs.iter().map(|f| {
+    for ((node, _), dirs) in by_group {
+        let mut resolved = Vec::new();
+        let mut unresolved = Vec::new();
+        let mut floor = 0.0f64;
+        for (f, (mu, top, b)) in dirs {
             let mut u = vec![0.0; k.n];
             for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v; }
             let ku = k.sym_mat_vec(&u);
-            columns.iter().map(|col| groups[col.group].1.iter().enumerate().map(|(l, &d)| col.w[l] * ku[d]).sum::<f64>() / scale).collect()
-        }).collect();
-        let n = couplings.len();
-        let mut gram = vec![0.0; n * n];
-        for a in 0..n {
-            for b in 0..n { gram[a * n + b] = couplings[a].iter().zip(&couplings[b]).map(|(x, y)| x * y).sum(); }
+            let c: Vec<f64> = columns.iter().map(|col| groups[col.group].1.iter().enumerate().map(|(l, &d)| col.w[l] * ku[d]).sum::<f64>()).collect();
+            let rounding = ROUNDING * b as f64 * f64::EPSILON * top;
+            floor = floor.max(ROUNDING * b as f64 * f64::EPSILON * top.sqrt());
+            if mu > rounding {
+                let s = mu.sqrt();
+                resolved.push(c.into_iter().map(|x| x / s).collect::<Vec<f64>>());
+            } else {
+                unresolved.push(c);
+            }
         }
-        let largest = sym_eigen_small(&gram, n).0.last().copied().unwrap_or(0.0);
-        if !largest.is_finite() || largest.max(0.0).sqrt() > COUPLED { out.push(node); }
+        let sigma = largest_singular(&resolved);
+        let stray = largest_singular(&unresolved);
+        if !sigma.is_finite() || !stray.is_finite() || sigma * sigma * kappa > COUPLED || stray > floor { out.push(node); }
     }
     out.dedup();
     out
+}
+
+fn largest_singular(columns: &[Vec<f64>]) -> f64 {
+    let scale = columns.iter().flatten().fold(0.0f64, |m, x| m.max(x.abs()));
+    if scale == 0.0 || !scale.is_finite() { return if scale == 0.0 { 0.0 } else { f64::INFINITY }; }
+    let n = columns.len();
+    let mut gram = vec![0.0; n * n];
+    for a in 0..n {
+        for b in 0..n { gram[a * n + b] = columns[a].iter().zip(&columns[b]).map(|(x, y)| (x / scale) * (y / scale)).sum(); }
+    }
+    sym_eigen_small(&gram, n).0.last().copied().unwrap_or(0.0).max(0.0).sqrt() * scale
 }
 
 pub const SWING: f64 = 1e-8;

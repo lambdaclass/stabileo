@@ -104,18 +104,32 @@ before an uncertified estimate becomes a refusal.
 - **Mechanism** if a local free direction is a translation: a node can move in a direction
   nothing stiffens beyond `1e-12` of its own stiffest direction. This is decided node by
   node, from the node's own block only.
-- A node's free rotations are dropped from `S` only if they are decoupled: the coupling map
-  `C = Wᵀ K V / √μ_b` from the node's free subspace `V` (of one kind) to the kept directions
-  must satisfy `σ_max(C) ≤ 1e-10`. The largest singular value does not depend on which
-  orthonormal basis spans `V`; checking each eigenvector alone does when free eigenvalues
-  are degenerate (`diag(2e-20, 2e-20, 1)` coupled by `(8e-11, 8e-11, 0)` passes per vector,
-  the same block turned 45° does not). Positive semidefiniteness
-  bounds it by `√(μ/μ_b) ≤ 1e-6`; assembly rounding of an inclined torsion-free member gives
-  about `1e-15`. A soft rotation that the model couples into a translation (Codex's
-  `a = 2⁻²⁴` example has `σ_max = 6e-8`) is not dropped, and the verdict is Singular.
-  Comparing the coupling with the direction's own `μ` instead is rounding against rounding and was
-  measured to flip with orientation.
-- **Singular** if `κ_S · A > R = 1e12`, or `S` does not factor. Assembly rounds every node
+- A node's free rotations (of one kind) are dropped from `S` only if they are decoupled from
+  the kept directions. Let `c_j = Wᵀ K v_j` be the coupling of free direction `v_j` (own
+  stiffness `μ_j`) into the kept directions, already scaled by the stiffness of what it
+  couples into. Two cases:
+  - `μ_j` above the rounding of its block, `μ_j > 64 b ε μ_b`: the coupling is measured
+    against the direction's own stiffness. With `D = [c_j / √μ_j]`, condensing the
+    directions back in changes the scaled kept system by `D Dᵀ`, so they are dropped only if
+    `σ_max(D)² · κ_S ≤ 1e-4`, i.e. they move its smallest eigenvalue by at most `1e-4`
+    (`λ_min(S) ≥ 1/κ_S` since `S` has a unit diagonal).
+  - `μ_j` at rounding: its own stiffness is unknown, and so is whether the coupling closes a
+    mechanism (Codex's `K = [[1,0,-1],[0,1e24,0],[-1,0,1]]`, tags `[T1, R2, R2]`, is singular,
+    and the `1` on the rotation is far below the `ε · 1e24` rounding of that block). The
+    directions are dropped only if their coupling `σ_max([c_j])` is itself at rounding,
+    `≤ 64 b ε √μ_b`; otherwise the verdict is Singular. This is the one place `μ_b` enters,
+    as the scale of the block's rounding, not as the measure of the coupling.
+
+  Both use the largest singular value over the node's free subspace, which does not depend on
+  which orthonormal basis spans it (checking each eigenvector alone does when free
+  eigenvalues are degenerate: `diag(2e-20, 2e-20, 1)` coupled by `(8e-11, 8e-11, 0)`).
+  Measured on the C08 and corpus models: no free direction above rounding couples at all, and the
+  coupling of those at rounding stays below `0.15` of the floor, against `1.8` of the floor for a cantilever whose torsion
+  only a vanishing warping constant stiffens, and `23` for Codex's matrix. Such a refusal
+  states its own reason, not the condition number.
+- All block eigenproblems and singular values run on the block divided by its largest
+  entry, so scaling a block by `1e±200` neither underflows nor overflows.
+- **Singular** if `κ_S · A > R = 1e12`, or `S` does not factor (reason: conditioning). Assembly rounds every node
   block to `ε μ_b`; scaled by `B^{-1/2}` that is `ε A` in `S`, and the smallest eigenvalue
   moves by `ε A κ_S` relative. At `R` that is `2.2e-4`: the smallest eigenpair, and the
   displacement it carries, keep fewer than four digits, and a stable and a singular model
@@ -132,7 +146,7 @@ transformed copies of a model get different verdicts only if `κ_S · A` or a bl
 
 ### 2.4 Evidence (slice 1, `engine/tests/metamorphic/stability.rs`)
 
-- The 47 C08 reproducers under 4 unit systems, 3 general rotations, 3 quarter turns, 4
+- The 47 C08 reproducers (43 distinct models: #965 and #968 report #964's model, #1041 #1029's and #1352 #1351's) under 4 unit systems, 3 general rotations, 3 quarter turns, 4
   mirrors and 4 relabellings (3D: random rotations, axis permutations, mirrors about each
   axis): every stable or refused verdict, and the number of free directions, is identical.
   Every requested image must build. The only exceptions are listed by model, transform and
