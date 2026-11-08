@@ -1609,6 +1609,16 @@ pub fn check_cfs_members(json: &str) -> Result<String, JsValue> {
     to_json(&results)
 }
 
+/// CIRSOC 301 checker inputs read off the model. JSON `Cirsoc301InputsRequest` (tagged by `op`)
+/// in → JSON answer.
+#[wasm_bindgen]
+pub fn cirsoc301_inputs(json: &str) -> Result<String, JsValue> {
+    let req: postprocess::cirsoc301_inputs::Cirsoc301InputsRequest = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let v = postprocess::cirsoc301_inputs::answer(&req).map_err(|e| JsValue::from_str(&e))?;
+    to_json(&v)
+}
+
 /// Load generation (CIRSOC 101 combinations, INPRES-CIRSOC 103 seismic). JSON `LoadsRequest`
 /// (tagged by `op`) in → JSON answer.
 #[wasm_bindgen]
