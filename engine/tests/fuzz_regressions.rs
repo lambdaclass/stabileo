@@ -653,3 +653,127 @@ fn issue_1761_multi_case_overflow_is_refused() {
     assert!(error.contains("non_finite_result"), "{error}");
 }
 
+fn combination_only_overflow_input(per_case: bool, load: f64) -> serde_json::Value {
+    let mut input = json!({
+        "solver": {
+            "nodes": {
+                "1": { "id": 1, "x": 0.0, "y": 0.0, "z": 0.0 },
+                "2": { "id": 2, "x": 1.0, "y": 0.0, "z": 0.0 },
+                "3": { "id": 3, "x": 2.0, "y": 0.0, "z": 0.0 }
+            },
+            "materials": { "1": { "id": 1, "e": 200000.0, "nu": 0.3 } },
+            "sections": { "1": { "id": 1, "a": 0.00538, "iy": 1e-10, "iz": 1e-10, "j": 2.01e-7 } },
+            "elements": {
+                "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 },
+                "2": { "id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1 }
+            },
+            "supports": { "1": { "id": 1, "nodeId": 1, "type": "fixed", "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true } },
+            "loads": []
+        },
+        "loadCases": [
+            { "name": "A", "loads": [{ "type": "nodal", "data": { "nodeId": 3, "fx": -load, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": 0.0 } }] },
+            { "name": "B", "loads": [{ "type": "nodal", "data": { "nodeId": 3, "fx": -load, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": 0.0 } }] }
+        ],
+        "combinations": [{ "name": "A+B", "factors": { "A": f64::MAX / 4.0, "B": f64::MAX / 4.0 } }]
+    });
+    if per_case {
+        input["solver"]["supports"]["1"]["dx"] = json!(1e-4);
+        input["solver"]["constraints"] = json!([{ "type": "equalDOF", "masterNode": 2, "slaveNode": 3, "dofs": [1] }]);
+    }
+    input
+}
+
+fn assert_combination_only_overflow_2d(per_case: bool, load: f64) {
+    use dedaliano_engine::solver::linear::solve_2d;
+    use dedaliano_engine::solver::load_cases::{solve_multi_case_2d, MultiCaseInput};
+    let mut value = combination_only_overflow_input(per_case, load);
+    for node in value["solver"]["nodes"].as_object_mut().unwrap().values_mut() {
+        node.as_object_mut().unwrap().remove("y");
+    }
+    for case in value["loadCases"].as_array_mut().unwrap() {
+        let data = case["loads"][0]["data"].as_object_mut().unwrap();
+        data.remove("fy");
+        data.remove("mz");
+    }
+    let input: MultiCaseInput = serde_json::from_value(value).unwrap();
+    for case in &input.load_cases {
+        let mut solver = input.solver.clone();
+        solver.loads = case.loads.clone();
+        let result = solve_2d(&solver).unwrap();
+        dedaliano_engine::boundary::require_finite(&result).unwrap();
+    }
+    let mut control = input.clone();
+    for factor in control.combinations[0].factors.values_mut() {
+        *factor = 1.0;
+    }
+    let finite = solve_multi_case_2d(&control).unwrap();
+    dedaliano_engine::boundary::require_finite(&finite).unwrap();
+    if load >= 1.0 {
+        let contributions: Vec<f64> = finite.case_results.iter().map(|case| {
+            case.results.reactions[0].rx * input.combinations[0].factors[&case.name]
+        }).collect();
+        assert!(contributions.iter().all(|value| value.is_finite()));
+        assert!(contributions.iter().sum::<f64>().is_infinite());
+    }
+    let error = solve_multi_case_2d(&input).unwrap_err();
+    if load < 1.0 {
+        assert!(error.contains("non_finite_result"), "{error}");
+        assert!(error.contains("combinationResults[0].results.resultSummary.secondOrderRatio"), "{error}");
+    } else {
+        assert!(error.contains("non-finite number"), "{error}");
+    }
+}
+
+fn assert_combination_only_overflow_3d(per_case: bool, load: f64) {
+    use dedaliano_engine::solver::linear::solve_3d;
+    use dedaliano_engine::solver::load_cases::{solve_multi_case_3d, MultiCaseInput3D};
+    let input: MultiCaseInput3D = serde_json::from_value(combination_only_overflow_input(per_case, load)).unwrap();
+    for case in &input.load_cases {
+        let mut solver = input.solver.clone();
+        solver.loads = case.loads.clone();
+        let result = solve_3d(&solver).unwrap();
+        dedaliano_engine::boundary::require_finite(&result).unwrap();
+    }
+    let mut control = input.clone();
+    for factor in control.combinations[0].factors.values_mut() {
+        *factor = 1.0;
+    }
+    let finite = solve_multi_case_3d(&control).unwrap();
+    dedaliano_engine::boundary::require_finite(&finite).unwrap();
+    if load >= 1.0 {
+        let contributions: Vec<f64> = finite.case_results.iter().map(|case| {
+            case.results.reactions[0].fx * input.combinations[0].factors[&case.name]
+        }).collect();
+        assert!(contributions.iter().all(|value| value.is_finite()));
+        assert!(contributions.iter().sum::<f64>().is_infinite());
+    }
+    let error = solve_multi_case_3d(&input).unwrap_err();
+    if load < 1.0 {
+        assert!(error.contains("non_finite_result"), "{error}");
+        assert!(error.contains("combinationResults[0].results.resultSummary.secondOrderRatio"), "{error}");
+    } else {
+        assert!(error.contains("non-finite number"), "{error}");
+    }
+}
+
+#[test]
+fn issue_1761_combination_only_overflow_prepared_2d_is_refused() {
+    assert_combination_only_overflow_2d(false, 3.0);
+    assert_combination_only_overflow_2d(false, 0.125);
+}
+
+#[test]
+fn issue_1761_combination_only_overflow_settlement_per_case_2d_is_refused() {
+    assert_combination_only_overflow_2d(true, 3.0);
+}
+
+#[test]
+fn issue_1761_combination_only_overflow_prepared_3d_is_refused() {
+    assert_combination_only_overflow_3d(false, 3.0);
+    assert_combination_only_overflow_3d(false, 0.125);
+}
+
+#[test]
+fn issue_1761_combination_only_overflow_settlement_per_case_3d_is_refused() {
+    assert_combination_only_overflow_3d(true, 3.0);
+}
