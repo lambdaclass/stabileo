@@ -212,17 +212,25 @@ pub(crate) fn refuse_connector_arm_mechanism_2d(input: &SolverInput) -> Result<(
         for j in 0..m {
             let d = k[j * m + j];
             if d.abs().partial_cmp(&(super::definiteness::SINGULAR_PIVOT_RATIO * diag[j].abs())) != Some(std::cmp::Ordering::Greater) {
+                let arms = connectors.iter().any(|c| {
+                    ids.contains(&c.id) && c.k_moment == 0.0 && c.k_shear != 0.0
+                        && matches!((nodes.get(&c.node_i), nodes.get(&c.node_j)), (Some(a), Some(b)) if (b.x - a.x).hypot(b.z - a.z) > crate::element::connector::ZERO_LENGTH)
+                });
+                let remedy = if arms {
+                    "Hold one of the rotations with an unhinged frame end or a rotational support, give the connector kMoment, or make its nodes coincide."
+                } else {
+                    "Hold one of the rotations with an unhinged frame end or a rotational support."
+                };
                 let ids: Vec<String> = ids.iter().map(|i| i.to_string()).collect();
-                let nodes: Vec<String> = members.iter().map(|n| n.to_string()).collect();
+                let members: Vec<String> = members.iter().map(|n| n.to_string()).collect();
                 return Err(format!(
                     "Connector {}: the rotations of node(s) {} are reached only by connectors (no unhinged frame end, \
                      rotational support, rotational spring or constraint holds them), and those connectors leave a \
                      combination of them with no stiffness, a mechanism, so the rotations are undetermined: a rotational \
                      spring between two such rotations, or the rigid arms of a finite-length shear spring without kMoment, \
-                     turns freely. Hold one of the rotations with an unhinged frame end or a rotational support, give the \
-                     connector kMoment, or make its nodes coincide.",
+                     turns freely. {remedy}",
                     ids.join(", "),
-                    nodes.join(", "),
+                    members.join(", "),
                 ));
             }
             for i in (j + 1)..m {

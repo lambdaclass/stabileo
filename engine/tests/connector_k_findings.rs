@@ -523,3 +523,22 @@ fn connector_arm_with_one_rotation_held_solves() {
         assert!((ry2 - twice).abs() <= 1e-9 * twice.abs() && ry3.abs() <= 1e-9 * twice.abs(), "padded={padded}: ry2 {ry2:e} (expected {twice:e}), ry3 {ry3:e} (expected 0)");
     }
 }
+
+/// #1414 through the #1099 check: a zero-length rotational spring between the
+/// hinged end of a cantilever and a node nothing else reaches leaves their
+/// common rotation free; `kMoment` cannot remove that mode.
+#[test]
+fn connector_moment_only_mechanism_is_refused_with_its_remedy() {
+    let mut input = make_input(
+        vec![(1, 0.0, 0.0), (2, 3.0, 0.0), (3, 3.0, 0.0)],
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, true)],
+        vec![(1, 1, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 1.0, fz: -2.0, my: 0.0 })],
+    );
+    input.connectors.insert("1".into(), connector(1, 2, 3, 1e9, 1e9, 1e9));
+    let e = solve_2d(&input).err().expect("common rotation of nodes 2 and 3 is free");
+    assert!(e.contains("Connector 1") && e.contains("node(s) 2, 3") && e.contains("mechanism"), "{e}");
+    assert!(e.ends_with("Hold one of the rotations with an unhinged frame end or a rotational support."), "{e}");
+}
