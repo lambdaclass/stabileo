@@ -34,7 +34,7 @@
       },
       "/app/basic": {
         "performance": 46,
-        "accessibility": 73,
+        "accessibility": 74,
         "best-practices": 100,
         "seo": 66,
         "margin": {
@@ -43,7 +43,7 @@
       },
       "/app/pro": {
         "performance": 46,
-        "accessibility": 73,
+        "accessibility": 74,
         "best-practices": 100,
         "seo": 66,
         "margin": {
@@ -65,20 +65,20 @@
         "seo": 100
       },
       "/en/blog/how-stabileo-checks-its-results/": {
-        "performance": 94,
-        "accessibility": 93,
+        "performance": 97,
+        "accessibility": 94,
         "best-practices": 100,
         "seo": 100
       },
       "/app/basic": {
-        "performance": 38,
-        "accessibility": 75,
+        "performance": 43,
+        "accessibility": 76,
         "best-practices": 100,
         "seo": 66
       },
       "/app/pro": {
-        "performance": 38,
-        "accessibility": 77,
+        "performance": 40,
+        "accessibility": 78,
         "best-practices": 100,
         "seo": 66
       }
