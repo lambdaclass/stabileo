@@ -53,6 +53,9 @@ impl Stability {
             Verdict::Mechanism => Some(format!(
                 "the structure is a mechanism{nodes}: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases"
             )),
+            Verdict::Singular if self.kappa.is_nan() => Some(
+                "the stiffness matrix has an infinite or undefined entry: check member properties, spring stiffnesses and node coordinates for zero lengths, infinities or missing values".to_string()
+            ),
             Verdict::Singular => Some(format!(
                 "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes} (scaled condition number {:.1e} times node anisotropy {:.1e} exceeds {RESOLVABLE:.0e}): results would change with units, orientation or numbering; add supports or members, remove releases, or reduce extreme stiffness contrasts",
                 self.kappa, self.anisotropy
@@ -146,6 +149,9 @@ pub fn analyze(k: &CscMatrix, tags: &[DofTag]) -> Stability {
 
 pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>]) -> Stability {
     let n = k.n;
+    if k.values.iter().any(|v| !v.is_finite()) {
+        return non_finite();
+    }
     let mut groups: BTreeMap<(usize, DofKind), Vec<usize>> = BTreeMap::new();
     for (i, t) in tags.iter().enumerate().take(n) {
         groups.entry((t.node, t.kind)).or_default().push(i);
@@ -167,6 +173,9 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
         }
     }
     let eig: Vec<(Vec<f64>, Vec<f64>)> = blocks.iter().zip(&groups).map(|(b, (_, d))| sym_eigen_small(b, d.len())).collect();
+    if eig.iter().any(|(mu, v)| mu.iter().chain(v).any(|x| !x.is_finite())) {
+        return non_finite();
+    }
     let mut free = Vec::new();
     let mut tops: Vec<f64> = Vec::new();
     let mut columns: Vec<Column> = Vec::new();
@@ -174,11 +183,11 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
     for (g, (((node, kind), dofs), (mu, vecs))) in groups.iter().zip(&eig).enumerate() {
         let b = dofs.len();
         let top = mu.last().copied().unwrap_or(0.0);
-        let whole_free = top.is_nan() || top <= 0.0;
+        let whole_free = top <= 0.0;
         let mut lowest_kept = f64::INFINITY;
         for c in 0..b {
             let v: Vec<f64> = (0..b).map(|r| vecs[r * b + c]).collect();
-            if whole_free || mu[c].is_nan() || mu[c] <= LOCAL_FREE * top {
+            if whole_free || mu[c] <= LOCAL_FREE * top {
                 free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v });
                 tops.push(top.max(0.0));
             } else {
@@ -216,19 +225,33 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
 
 pub const COUPLED: f64 = 1e-10;
 
+fn non_finite() -> Stability {
+    Stability { verdict: Verdict::Singular, kappa: f64::NAN, anisotropy: f64::NAN, free: Vec::new(), mode_nodes: Vec::new() }
+}
+
 fn coupled_free(k: &CscMatrix, free: &[FreeDirection], tops: &[f64], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)]) -> Vec<usize> {
-    let mut out = Vec::new();
+    let mut by_group: BTreeMap<(usize, DofKind), (f64, Vec<&FreeDirection>)> = BTreeMap::new();
     for (f, &top) in free.iter().zip(tops) {
         if f.kind == DofKind::Translation { continue; }
-        let mut u = vec![0.0; k.n];
-        for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v; }
-        let ku = k.sym_mat_vec(&u);
-        let scale = if top > 0.0 { top.sqrt() } else { 1.0 };
-        let c: Vec<f64> = columns.iter().map(|col| groups[col.group].1.iter().enumerate().map(|(l, &d)| col.w[l] * ku[d]).sum::<f64>() / scale).collect();
-        let coupling = norm(&c);
-        if !coupling.is_finite() || coupling > COUPLED { out.push(f.node); }
+        by_group.entry((f.node, f.kind)).or_insert((top, Vec::new())).1.push(f);
     }
-    out.sort_unstable();
+    let mut out = Vec::new();
+    for ((node, _), (top, dirs)) in by_group {
+        let scale = if top > 0.0 { top.sqrt() } else { 1.0 };
+        let couplings: Vec<Vec<f64>> = dirs.iter().map(|f| {
+            let mut u = vec![0.0; k.n];
+            for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v; }
+            let ku = k.sym_mat_vec(&u);
+            columns.iter().map(|col| groups[col.group].1.iter().enumerate().map(|(l, &d)| col.w[l] * ku[d]).sum::<f64>() / scale).collect()
+        }).collect();
+        let n = couplings.len();
+        let mut gram = vec![0.0; n * n];
+        for a in 0..n {
+            for b in 0..n { gram[a * n + b] = couplings[a].iter().zip(&couplings[b]).map(|(x, y)| x * y).sum(); }
+        }
+        let largest = sym_eigen_small(&gram, n).0.last().copied().unwrap_or(0.0);
+        if !largest.is_finite() || largest.max(0.0).sqrt() > COUPLED { out.push(node); }
+    }
     out.dedup();
     out
 }
@@ -402,15 +425,6 @@ fn mode_nodes(x: &[f64], columns: &[Column], groups: &[((usize, DofKind), Vec<us
     by_node.into_iter().filter(|&(_, v)| v >= 0.01 * top).map(|(n, _)| n).collect()
 }
 
-fn without_springs(asm: &crate::solver::assembly::AssemblyResult) -> Vec<f64> {
-    let n = (asm.k.len() as f64).sqrt().round() as usize;
-    let mut k = asm.k.clone();
-    for (d, s) in crate::solver::assembly::artificial_stiffness_entries(asm) {
-        k[d * n + d] -= s;
-    }
-    k
-}
-
 fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, ct: Option<crate::solver::constraints::ConstraintTransform>) -> (Vec<f64>, usize, Vec<DofTag>, Vec<Vec<(usize, f64)>>) {
     let n = dof.n_total;
     let nf = dof.n_free;
@@ -435,11 +449,11 @@ fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, ct: Option<crate::s
 pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
     use crate::solver::constraints::{build_constraint_transform, inclined_dofs_2d};
     let dof = DofNumbering::build_2d(input);
-    let asm = crate::solver::assembly::assemble_2d(input, &dof);
+    let asm = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_2d(input, &dof));
     let ct = if input.constraints.is_empty() { None } else {
         Some(build_constraint_transform(&input.constraints, &dof, Some(&input.nodes), None, &inclined_dofs_2d(input, &dof))?)
     };
-    let (k, m, t, moves) = reduced(&without_springs(&asm), &dof, tags(&dof, true), ct);
+    let (k, m, t, moves) = reduced(&asm.k, &dof, tags(&dof, true), ct);
     Ok(analyze_dense_constrained(&k, m, &t, &moves))
 }
 
@@ -447,10 +461,10 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
     use crate::solver::constraints::{build_constraint_transform, inclined_dofs_3d};
     let input = &crate::solver::linear::expand_curved_beams_3d(input);
     let dof = DofNumbering::build_3d(input);
-    let asm = crate::solver::assembly::assemble_3d(input, &dof);
+    let asm = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_3d(input, &dof));
     let ct = if input.constraints.is_empty() { None } else {
         Some(build_constraint_transform(&input.constraints, &dof, None, Some(&input.nodes), &inclined_dofs_3d(input, &dof))?)
     };
-    let (k, m, t, moves) = reduced(&without_springs(&asm), &dof, tags(&dof, false), ct);
+    let (k, m, t, moves) = reduced(&asm.k, &dof, tags(&dof, false), ct);
     Ok(analyze_dense_constrained(&k, m, &t, &moves))
 }

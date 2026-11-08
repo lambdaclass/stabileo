@@ -33,8 +33,12 @@ by up to 4.6× (#758).
 
 The free (and, with constraints, independent) stiffness `K` is symmetric positive
 semidefinite: a sum of element, spring and connector contributions, each positive
-semidefinite. It is assembled **without** any artificial stiffness. The test only reads `K`
-and, for each free DOF, its node and kind (translation, rotation, warping).
+semidefinite. It is assembled **without** any artificial stiffness: the assemblers run with
+their springs set to zero (`assembly::without_artificial_stiffness`), so a physical diagonal
+smaller than the spring's rounding (`1e-20 + 1 − 1 = 0`) survives in every unit system.
+Subtracting the springs afterwards does not. The test only reads `K` and, for each free DOF,
+its node and kind (translation, rotation, warping). A non-finite entry of `K`, or a block
+eigenpair that is not finite, is Singular before anything is classified or dropped.
 
 ### 2.1 Node blocks and local free directions
 
@@ -100,12 +104,16 @@ before an uncertified estimate becomes a refusal.
 - **Mechanism** if a local free direction is a translation: a node can move in a direction
   nothing stiffens beyond `1e-12` of its own stiffest direction. This is decided node by
   node, from the node's own block only.
-- A free rotation is dropped from `S` only if it is decoupled: its coupling to the kept
-  directions, `c = Wᵀ K v / √μ_b`, must satisfy `‖c‖ ≤ 1e-10`. Positive semidefiniteness
+- A node's free rotations are dropped from `S` only if they are decoupled: the coupling map
+  `C = Wᵀ K V / √μ_b` from the node's free subspace `V` (of one kind) to the kept directions
+  must satisfy `σ_max(C) ≤ 1e-10`. The largest singular value does not depend on which
+  orthonormal basis spans `V`; checking each eigenvector alone does when free eigenvalues
+  are degenerate (`diag(2e-20, 2e-20, 1)` coupled by `(8e-11, 8e-11, 0)` passes per vector,
+  the same block turned 45° does not). Positive semidefiniteness
   bounds it by `√(μ/μ_b) ≤ 1e-6`; assembly rounding of an inclined torsion-free member gives
   about `1e-15`. A soft rotation that the model couples into a translation (Codex's
-  `a = 2⁻²⁴` example has `‖c‖ = 6e-8`) is not dropped, and the verdict is Singular.
-  Comparing `c` with the direction's own `μ` instead is rounding against rounding and was
+  `a = 2⁻²⁴` example has `σ_max = 6e-8`) is not dropped, and the verdict is Singular.
+  Comparing the coupling with the direction's own `μ` instead is rounding against rounding and was
   measured to flip with orientation.
 - **Singular** if `κ_S · A > R = 1e12`, or `S` does not factor. Assembly rounds every node
   block to `ε μ_b`; scaled by `B^{-1/2}` that is `ε A` in `S`, and the smallest eigenvalue
@@ -127,8 +135,13 @@ transformed copies of a model get different verdicts only if `κ_S · A` or a bl
 - The 47 C08 reproducers under 4 unit systems, 3 general rotations, 3 quarter turns, 4
   mirrors and 4 relabellings (3D: random rotations, axis permutations, mirrors about each
   axis): every stable or refused verdict, and the number of free directions, is identical.
-  Every model gets at least one image of each kind, except that #1106 and #1118 have no
-  mirror rule (pinned); images that cannot be built are counted, not dropped.
+  Every requested image must build. The only exceptions are listed by model, transform and
+  the reason the builder gives; a listed exception that builds, or any other image that does
+  not, fails the test. Eight models have no general-angle rotation (#993, #994, #1265: a
+  constraint on one translation; #1106, #1118, #1355: a support restraining some rotations;
+  #1028: anisotropic springs on a rigid support type; #1357: a support restraining two
+  translations) and keep only quarter turns or axis permutations; six have no general mirror
+  (the same reasons, #1106 constraints, #1118 a nodal bimoment).
   25 are refused (13 Mechanism, 12 Singular), 22 are Stable.
 - The predicted drift `ε κ_S A` matches what the harness measures today: #993
   (`κ_S A = 1.0e12`) drifts 1.4e-4 under units and #1115 (`2.8e12`) 2.9e-4, against a

@@ -6,7 +6,37 @@ use dedaliano_engine::metamorphic::units::Units;
 use dedaliano_engine::metamorphic::Rng;
 use dedaliano_engine::solver::stability::{self, analyze_dense, DofKind, DofTag, Stability, Verdict};
 
-const NO_MIRROR_RULE: [&str; 2] = ["issue-1106", "issue-1118"];
+const CONSTRAINTS_UNMIRRORED: &str = "connectors and constraints have no mirror rule yet";
+const SINGLE_TRANSLATION_CONSTRAINT: &str = "constraint on a single translation that leaves the axes";
+const PARTIAL_ROTATION_SUPPORT: &str = "support restraining some rotations, rotated off the axes";
+
+const UNSUPPORTED: &[(&str, &str, &str)] = &[
+    ("issue-993", "rotation", SINGLE_TRANSLATION_CONSTRAINT),
+    ("issue-993", "mirror", SINGLE_TRANSLATION_CONSTRAINT),
+    ("issue-994", "rotation", SINGLE_TRANSLATION_CONSTRAINT),
+    ("issue-994", "mirror", SINGLE_TRANSLATION_CONSTRAINT),
+    ("issue-1028", "rotation", "anisotropic translational springs on a rigid support type"),
+    ("issue-1028", "mirror", "anisotropic translational springs on a rigid support type"),
+    ("issue-1106", "rotation", PARTIAL_ROTATION_SUPPORT),
+    ("issue-1106", "mirror", CONSTRAINTS_UNMIRRORED),
+    ("issue-1118", "rotation", PARTIAL_ROTATION_SUPPORT),
+    ("issue-1118", "mirror", "nodal bimoment"),
+    ("issue-1265", "rotation", SINGLE_TRANSLATION_CONSTRAINT),
+    ("issue-1265", "mirror", SINGLE_TRANSLATION_CONSTRAINT),
+    ("issue-1355", "rotation", PARTIAL_ROTATION_SUPPORT),
+    ("issue-1357", "rotation", "support restraining two translations, rotated off the axes"),
+    ("collinear rigid link", "mirror", CONSTRAINTS_UNMIRRORED),
+    ("offset rigid link", "mirror", CONSTRAINTS_UNMIRRORED),
+    ("rigid link offset by 9e-9 of its length", "mirror", CONSTRAINTS_UNMIRRORED),
+];
+
+fn kind(what: &str) -> &str {
+    what.trim_end_matches(|c: char| c.is_ascii_digit()).trim_end()
+}
+
+fn unsupported(name: &str, what: &str, error: &str) -> bool {
+    UNSUPPORTED.iter().any(|&(n, k, reason)| n == name && k == kind(what) && error.contains(reason))
+}
 
 const UNITS: [(f64, f64); 4] = [(1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448), (1e3, 1e3)];
 
@@ -88,7 +118,7 @@ fn the_stability_verdict_of_every_c08_reproducer_survives_units_rotation_mirror_
     let models = c08();
     assert_eq!(models.len(), 47, "the C08 reproducers");
     let mut failures = Vec::new();
-    let mut unrepresentable = Vec::new();
+    let mut skipped = std::collections::BTreeSet::new();
     let mut compared = 0;
     for (name, m) in &models {
         let (base, others) = verdicts(name, m);
@@ -98,20 +128,20 @@ fn the_stability_verdict_of_every_c08_reproducer_survives_units_rotation_mirror_
             match other {
                 Ok(Ok(o)) => {
                     compared += 1;
-                    kinds.insert(match what.split(' ').next().unwrap() { "quarter" | "axis" => "rotation", k => k }.to_string());
+                    kinds.insert(kind(&what).to_string());
                     if let Err(e) = same(&base, &o) { failures.push(format!("{name} {what}: {e}")) }
                 }
                 Ok(Err(e)) => failures.push(format!("{name} {what}: {e}")),
-                Err(e) => unrepresentable.push(format!("{name} {what}: {e}")),
+                Err(e) if unsupported(name, &what, &e) => { skipped.insert((name.clone(), kind(&what).to_string())); }
+                Err(e) => failures.push(format!("{name} {what} could not be built: {e}")),
             }
         }
-        for kind in ["units", "rotation", "mirror", "relabel"] {
-            let excluded = kind == "mirror" && NO_MIRROR_RULE.contains(&name.as_str());
-            if kinds.contains(kind) == excluded { failures.push(format!("{name}: {kind} image built: {}, excluded: {excluded}", kinds.contains(kind))); }
+        for &(_, k, _) in UNSUPPORTED.iter().filter(|&&(n, _, _)| n == name) {
+            if kinds.contains(k) || !skipped.contains(&(name.clone(), k.to_string())) { failures.push(format!("{name} {k} is listed unsupported but was built or never refused as such")); }
         }
     }
     assert!(failures.is_empty(), "{} verdicts changed or missing:\n{}", failures.len(), failures.join("\n"));
-    assert!(compared >= 47 * 15, "{compared} images compared; unrepresentable: {unrepresentable:?}");
+    assert!(compared >= 47 * 15, "{compared} images compared");
 }
 
 const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 973, 993, 1008, 1028, 1029, 1041, 1083, 1091, 1095, 1103, 1112, 1115, 1353, 1355, 1357, 1359, 1362, 1648, 1651, 1653];
@@ -260,13 +290,16 @@ fn a_node_stiff_along_one_axis_only_is_a_mechanism_across_it_in_every_orientatio
 fn invariant_verdict(name: &str, m: Model) -> Stability {
     let (base, others) = verdicts(name, &m);
     let base = base.unwrap();
+    let listed = UNSUPPORTED.iter().filter(|&&(n, _, _)| n == name).count();
+    let mut skipped = 0;
     for (what, o) in others {
         let o = match o {
-            Err(e) if what.starts_with("mirror") && e.contains("no mirror rule") => continue,
-            o => o.unwrap_or_else(|e| panic!("{name} {what} unrepresentable: {e}")).unwrap_or_else(|e| panic!("{name} {what}: {e}")),
+            Err(e) if unsupported(name, &what, &e) => { skipped += 1; continue }
+            o => o.unwrap_or_else(|e| panic!("{name} {what} could not be built: {e}")).unwrap_or_else(|e| panic!("{name} {what}: {e}")),
         };
         if let Err(e) = same(&base, &o) { panic!("{name} {what}: {e}"); }
     }
+    assert_eq!(skipped > 0, listed > 0, "{name}: listed unsupported {listed}, skipped {skipped}");
     base
 }
 
@@ -421,4 +454,52 @@ fn a_mode_with_equal_components_on_its_two_coupled_dofs_certifies_in_any_numberi
         assert_eq!(s.verdict, Verdict::Stable, "{s:?}");
         assert!(s.kappa >= 3.0 && s.kappa <= 3.0 * (1.0 + 3e-3), "{}", s.kappa);
     }
+}
+
+fn degenerate_free_rotations_coupled(angle: f64) -> Stability {
+    let (c, s) = (angle.cos(), angle.sin());
+    let coupling = [8e-11 * (c + s), 8e-11 * (c - s), 0.0];
+    let mut k = vec![0.0; 16];
+    k[0] = 1.0;
+    for (r, d) in [2e-20, 2e-20, 1.0].into_iter().enumerate() { k[(r + 1) * 4 + r + 1] = d; }
+    for r in 0..3 {
+        k[r + 1] = coupling[r];
+        k[(r + 1) * 4] = coupling[r];
+    }
+    analyze_dense(&k, 4, &[t(1, DofKind::Translation), t(2, DofKind::Rotation), t(2, DofKind::Rotation), t(2, DofKind::Rotation)])
+}
+
+#[test]
+fn soft_rotations_coupled_into_a_translation_get_one_verdict_whatever_basis_spans_them() {
+    let axes = degenerate_free_rotations_coupled(0.0);
+    let diagonal = degenerate_free_rotations_coupled(std::f64::consts::FRAC_PI_4);
+    assert_eq!(axes.verdict, diagonal.verdict, "{axes:?}\n{diagonal:?}");
+    assert_eq!(axes.verdict, Verdict::Singular);
+}
+
+#[test]
+fn a_non_finite_stiffness_is_singular_never_stable() {
+    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let rotation = analyze_dense(&[bad], 1, &[t(1, DofKind::Rotation)]);
+        assert_eq!(rotation.verdict, Verdict::Singular, "{bad}: {rotation:?}");
+        assert!(rotation.refusal().unwrap().contains("infinite or undefined"), "{bad}");
+        let beside = analyze_dense(&[2.0, 0.0, 0.0, bad], 2, &[t(1, DofKind::Translation), t(2, DofKind::Rotation)]);
+        assert_eq!(beside.verdict, Verdict::Singular, "{bad}: {beside:?}");
+        let coupled = analyze_dense(&[2.0, bad, bad, 1.0], 2, &[t(1, DofKind::Translation), t(1, DofKind::Rotation)]);
+        assert_eq!(coupled.verdict, Verdict::Singular, "{bad}: {coupled:?}");
+    }
+}
+
+#[test]
+fn a_warping_stiffness_below_the_artificial_spring_gets_one_verdict_in_every_unit_system() {
+    let cantilever = serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 3.0, "y": 0.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 2e8, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-4, "iz": 1e-4, "j": 1e-29, "cw": 1e-30}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+        "loads": []
+    });
+    let s = invariant_verdict("cantilever whose torsion only a vanishing warping constant stiffens", d3(cantilever));
+    assert!(s.is_stable() && s.free.len() == 1 && s.free[0].node == 2, "{s:?}");
 }
