@@ -57,7 +57,6 @@ fn assert_same_factors(actual: &[f64], expected: &[f64]) {
 }
 
 #[test]
-#[ignore = "known wrong result: #982"]
 fn round_off_member_kg_adds_no_mode_to_the_two_euler_modes_2d() {
     let reference = solve_buckling_2d(&issue_982(), 3).unwrap();
     let reference: Vec<f64> = reference.modes.iter().map(|m| m.load_factor).collect();
@@ -72,7 +71,6 @@ fn round_off_member_kg_adds_no_mode_to_the_two_euler_modes_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #982"]
 fn round_off_member_kg_adds_no_mode_to_the_two_euler_modes_3d() {
     let reference = solve_buckling_3d(&embed_2d(&issue_982(), Plane::XZ).unwrap(), 3).unwrap();
     let reference: Vec<f64> = reference.modes.iter().map(|m| m.load_factor).collect();
@@ -88,7 +86,6 @@ fn round_off_member_kg_adds_no_mode_to_the_two_euler_modes_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #982"]
 fn round_off_member_kg_is_invariant_under_units_and_load_scaling_2d() {
     let input = rotated_issue_982();
     let base = solve_buckling_2d(&input, 3).unwrap();
@@ -103,7 +100,6 @@ fn round_off_member_kg_is_invariant_under_units_and_load_scaling_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #982"]
 fn round_off_member_kg_is_invariant_under_units_and_load_scaling_3d() {
     let input = embed_2d(&rotated_issue_982(), Plane::XZ).unwrap();
     let base = solve_buckling_3d(&input, 3).unwrap();

@@ -3,6 +3,8 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::{rotate_inclined_free_block, InclinedFrame, InclinedTransformData, InclinedTransformData2D};
 
+type ResolvedAxialForces<'a> = Option<(&'a std::collections::HashMap<usize, f64>, &'a std::collections::HashMap<usize, f64>)>;
+
 /// The (α, ΔT) of each element's uniform thermal loads, so its free thermal strain is α·ΔT.
 ///
 /// The P-Delta iteration reads a member's axial force back from its
@@ -673,12 +675,39 @@ pub(crate) fn emit_geometric_stiffness_2d(
     u: &[f64],
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
+    emit_geometric_stiffness_2d_filtered(input, dof_num, u, None, emit);
+}
+
+pub(crate) fn emit_buckling_geometric_stiffness_2d(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    mean_n: &std::collections::HashMap<usize, f64>,
+    noise: &std::collections::HashMap<usize, f64>,
+    emit: &mut dyn FnMut(usize, usize, f64),
+) {
+    emit_geometric_stiffness_2d_filtered(input, dof_num, u, Some((mean_n, noise)), emit);
+}
+
+fn emit_geometric_stiffness_2d_filtered(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    resolved: ResolvedAxialForces<'_>,
+    emit: &mut dyn FnMut(usize, usize, f64),
+) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
     let dt_by_elem = uniform_dt_2d(input);
 
     for elem in crate::ordered::values(&input.elements) {
+        if let Some((mean_n, noise)) = resolved {
+            let n = mean_n.get(&elem.id).copied().unwrap_or(0.0);
+            if n.abs() <= noise.get(&elem.id).copied().unwrap_or(0.0) {
+                continue;
+            }
+        }
         let (alpha, dt) = dt_by_elem.get(&elem.id).copied().unwrap_or((DEFAULT_FRAME_THERMAL_ALPHA, 0.0));
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // Truss geometric stiffness
@@ -1351,6 +1380,27 @@ pub(crate) fn emit_geometric_stiffness_3d(
     u: &[f64],
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
+    emit_geometric_stiffness_3d_filtered(input, dof_num, u, None, emit);
+}
+
+pub(crate) fn emit_buckling_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    mean_n: &std::collections::HashMap<usize, f64>,
+    noise: &std::collections::HashMap<usize, f64>,
+    emit: &mut dyn FnMut(usize, usize, f64),
+) {
+    emit_geometric_stiffness_3d_filtered(input, dof_num, u, Some((mean_n, noise)), emit);
+}
+
+fn emit_geometric_stiffness_3d_filtered(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    resolved: ResolvedAxialForces<'_>,
+    emit: &mut dyn FnMut(usize, usize, f64),
+) {
     let left_hand = input.left_hand.unwrap_or(false);
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
@@ -1358,6 +1408,12 @@ pub(crate) fn emit_geometric_stiffness_3d(
     let dt_by_elem = uniform_dt_3d(input);
 
     for elem in crate::ordered::values(&input.elements) {
+        if let Some((mean_n, noise)) = resolved {
+            let n = mean_n.get(&elem.id).copied().unwrap_or(0.0);
+            if n.abs() <= noise.get(&elem.id).copied().unwrap_or(0.0) {
+                continue;
+            }
+        }
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
