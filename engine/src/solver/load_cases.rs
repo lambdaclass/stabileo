@@ -39,6 +39,7 @@ pub struct MultiCaseInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MultiCaseInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub load_cases: Vec<LoadCase3D>,
     pub combinations: Vec<CombinationDef>,

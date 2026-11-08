@@ -1,5 +1,5 @@
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
-import { materialToWire, sectionToWire, type ElasticMaterialWire, type ElasticSectionWire } from './unit-types';
+import { materialToWire, section3DToWire, sectionToWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
@@ -517,17 +517,19 @@ function serializeInput2D(input: SolverInput): string {
  * future.
  */
 /** A section as the engine takes it: the web-only fields (`bucklingCw`, `torsionGap`) left out. */
-function wireSection3D(s: SolverSection3D): SolverSection3D {
-  if (!('bucklingCw' in s) && !('torsionGap' in s)) return s;
+function wireSection3D(s: SolverSection3D): ElasticSection3DWire {
   const { bucklingCw: _cw, torsionGap: _gap, ...wire } = s;
-  return wire;
+  return section3DToWire(wire);
 }
 
-export function input3DToWireObject(input: SolverInput3D): Record<string, any> {
+export function input3DToWireObject(input: SolverInput3D): Record<string, any> & {
+  materials: Record<string, ElasticMaterialWire>;
+  sections: Record<string, ElasticSection3DWire>;
+} {
   return {
     nodes: mapToObj(input.nodes),
-    materials: mapToObj(input.materials),
-    sections: mapToObj(new Map(Array.from(input.sections, ([id, s]) => [id, wireSection3D(s)]))),
+    materials: Object.fromEntries(Array.from(input.materials, ([id, m]) => [String(id), materialToWire(m)])),
+    sections: Object.fromEntries(Array.from(input.sections, ([id, s]) => [String(id), wireSection3D(s)])),
     elements: mapToObj(input.elements),
     supports: mapToObj(input.supports),
     loads: input.loads,

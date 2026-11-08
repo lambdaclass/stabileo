@@ -33,7 +33,7 @@ original typed properties; a legacy view supplies
 validation and still-unmigrated load/constraint algorithms. Legacy Rust callers and
 other WASM exports enter through explicit adapters.
 Wrong-unit assignments in the typed records/kernel fail compilation; raw legacy field
-assignments are not yet prevented. Removing these bridges is the first remaining slice.
+assignments are not yet prevented. The plan below removes these bridges in order.
 Do not describe this PR as making every solver input or result dimension-safe.
 
 ## Flow today
@@ -146,31 +146,166 @@ only approved places for assertions. `NoInfer` prevents a display function from 
 a requested quantity to accept a different dimension. Runtime finiteness/physical-range
 validation stays at the existing boundaries; this slice adds no refusals.
 
-## Remaining reviewable slices
+## Plan from slice 2 on
 
-1. **Extend the retained typed 2D input to every entry point.** Migrate constrained,
-   multi-case, staged and legacy native entry points; remove the temporary legacy
-   validation/load view. Migrate truss/cable axial stiffness, thermal
-   FEF and shear FEF alongside frame material/section properties. Give model-to-wire
-   producers branded fields, rather than rebranding raw stored numbers. Gate all release
-   patterns, shear, thermal, constraints, dense/sparse/parallel and full result snapshots.
-2. **2D loads and outputs.** Length, force, moment, line load, displacement, rotation,
-   spring stiffness and section stress in input/output DTOs; typed matrix insertion and
-   extraction helpers. Keep JSON names/numbers and old-file aliases. Require compile-fail
-   force/moment and m/mm examples plus unchanged native/WASM snapshots.
-3. **3D members and shells.** Iy/Iz/J/Cw, torsion/warping/bimoment, offsets and shell
-   thickness/resultants. Distinguish force/length resultants from stress and moment/length
-   resultants from moment. Re-run only affected 3D/shell snapshots and invariance filters.
-4. **Mass, dynamics, thermal.** kg/m³ versus kN/m³, tonnes, seconds, Hz/rad/s, gravity,
-   absolute versus difference temperature and α. Gate historical density/thermal fixes,
-   modal mass, self-weight and time-history cases; preserve #762 reproductions.
-5. **Nonlinear and certification.** Plastic capacities, fiber stress/strain, residual
-   stress, creep and staged properties; exact/certified arithmetic must retain units too.
-   Numerical fixes for #758/#762 remain separate PRs with their own result-change review.
-6. **Design checks and remaining UI/import/export.** Migrate one clause family at a time,
-   including its mm/N/MPa formula boundary and result/report conversion. Then retire raw
-   DTO adapters/constructors outside serialization and audited model import. Audit all
-   inventory sites again; add a CI rule forbidding new ad-hoc conversions in migrated paths.
+### Type design
+
+- **Rust.** Keep the handwritten `quantity!` newtypes in `engine/src/types/units.rs`: one
+  `#[repr(transparent)]` `f64`, `#[serde(transparent)]`, a unit-named constructor and
+  accessor (`Area::from_m2`/`in_m2`), same-unit `+`/`-`, scaling by `f64`, and `*`/`/` only
+  for the identities listed in `product!`/`quotient!`. A new dimension is one `quantity!`
+  line plus its reviewed identities. Do not switch to a dimension-generic `Quantity<L, M, T>`
+  (or `uom`) until the shell/continuum slices need dozens of derived dimensions; the
+  newtypes also separate same-dimension units the wire mixes on purpose (MPa versus kN/m²).
+- **Zero cost, bit-identical.** Each type is one `f64` with every method `#[inline]` and no
+  extra operation: `in_m2()` returns the stored bits and `a * b` performs the single `f64`
+  multiplication the untyped code performed. A migration must keep the original operation
+  order (no regrouping `E·I/L³` as `E·(I/L³)`) and the original constants; any change of
+  order is a result change and does not belong in a units PR. WASM has no extra code or
+  copies: the types erase at compile time, and serde reads the same JSON number.
+- **Wire records.** Each typed record mirrors its legacy DTO field for field, with the same
+  serde attributes, so the same JSON parses to the same bits and malformed JSON gives the
+  same error text. The legacy DTOs become `SolverInput<M, S>` / `SolverInput3D<M, S>`
+  generics whose defaults keep every existing Rust caller unchanged.
+- **Erasure points.** A typed value becomes a bare `f64` only at a named, reviewed point:
+  `into_legacy()` / `legacy_view()` for not-yet-migrated algorithms, and stiffness-matrix
+  insertion, where rows of different dimensions share one matrix. Each slice moves an
+  erasure point further in; none adds an unnamed one.
+- **TypeScript.** Branded numbers in `web/src/lib/engine/unit-types.ts`
+  (`Quantity<'m⁴'>`), admitted only by named constructors (`areaM2`, `inertiaM4`,
+  `warpingM6`, `lengthM`, `mpa`, ...) at the model-to-wire adapters, and by the typed
+  display conversions. The brands are erased at runtime; the adapters must keep key order
+  and key presence so `JSON.stringify` of the wire (also a cache key and a reproduction
+  hash input) is byte-identical.
+
+### Boundary contract
+
+The units that cross WASM, in both directions, are the engine's: lengths and coordinates m,
+areas m², second moments and the torsion constant m⁴, warping constant m⁶, forces kN,
+moments kN·m, line loads kN/m, area loads kN/m², **E in MPa**, densities kg/m³,
+added masses t, rotations rad, temperature differences °C (= K), α 1/°C, time s, frequency
+Hz for inputs that say so. Results come back in the same units; shell resultants are kN/m and
+kN·m/m; stresses that a result names as MPa are MPa. Conversion between display units and
+these happens in the web app only (`utils/units.ts`, `unit-types.ts`); conversion from MPa
+to kN/m² happens in the engine only (`ModulusMPa::to_internal`). Neither side converts the
+other's values, and no JSON field changes name, unit or presence in this program.
+
+### Ordered slices
+
+Ranked by risk: the boundary first, because every number crosses it, then the code that
+feeds design verdicts. Each slice is one PR, a branch `units/slice-N-<name>`. Every slice
+must (a) leave every result bit-identical, proven by CI's `test.web.determinism`, the
+results-snapshot gate and its own `to_bits` test against the legacy path, never by updating
+a snapshot or a tolerance; (b) add Rust `compile_fail` doctests in `types::units` (run by
+`make test.engine.units-types`, part of `test.engine.gates`), each with a positive control
+that compiles, so a broken import cannot pass as a compile failure; (c) add TypeScript
+`@ts-expect-error` checks in `web/src/lib/engine/__tests__/unit-types.typecheck.ts` (run by
+`npm run test:units:types` inside `make typecheck.web`; an unused directive fails). Estimates
+are for one engineer who has read this document.
+
+| # | Slice | Risk | Estimate |
+| --- | --- | --- | --- |
+| 1 | 2D frame material/section into assembly (#864) | — | done |
+| 2 | 3D input boundary: material/section records at every 3D WASM export (this PR) | low | 1 day |
+| 3 | Node coordinates and nodal/point loads at both boundaries | low | 1–2 days |
+| 4 | Distributed, thermal and support-spring inputs at both boundaries | medium | 2 days |
+| 5 | Result DTOs: displacements, reactions, element end forces, both dimensions | medium | 2–3 days |
+| 6 | 3D frame kernel consumes the typed section (Iy/Iz/J/Cw, shear φ) | medium | 2–3 days |
+| 7 | Remaining 2D entry points; delete `legacy_view` | medium | 2 days |
+| 8 | Steel member checks (Rust `certify::design` and TS steel codes): mm/N/MPa clause boundary | high | 3 days |
+| 9 | RC flexure/shear checks: the same, one clause family per PR | high | 3 days per family |
+| 10 | Mass, dynamics, self-weight: `MassDensity`/`WeightDensity`, t, s, Hz/rad/s, g | high | 3 days |
+| 11 | Shells and continuum: thickness, resultants per length, drilling stiffness | high | 4 days |
+| 12 | Nonlinear/plastic/fiber/certificates; then a CI rule forbidding raw conversions in migrated paths | high | 4 days |
+
+**Slice 2 — 3D input boundary (this PR).** `SolverInput3D` becomes
+`SolverInput3D<M = SolverMaterial, S = SolverSection3D>`. `ElasticSection3D` mirrors
+`SolverSection3D`: `a`, `as_y`, `as_z` are `Area`; `iy`, `iz`, `j` `SecondMoment`; `cw`
+`WarpingConstant` (m⁶, new); `shear_center_y/z` `Length`. `ElasticInput3D =
+SolverInput3D<ElasticMaterial, ElasticSection3D>` and its `into_legacy()` (moves every
+field; the struct literal is exhaustive, so a new field fails to compile until it is mapped)
+is the only erasure point. Every 3D WASM export parses `ElasticInput3D`: the direct ones in
+`lib.rs`, `reproduce::linear_hashes`, `LoadSession3D`, the cable input, and every wrapper's
+`solver` field through `#[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]`.
+TypeScript: `input3DToWireObject` returns `ElasticMaterialWire` and `ElasticSection3DWire`
+records via `materialToWire` and `section3DToWire`. Not covered: `StagedInput3D` (its own
+struct, slice 7) and 3D internals, which still read `f64` after `into_legacy()` (slice 6).
+Proof: `engine/tests/core/units_boundary_3d.rs` (every 3D fixture parses to the same bits,
+results equal apart from wall-clock timings, malformed sections give the same error text,
+wrappers route through the typed path); 5 new `compile_fail` doctests plus a positive
+control; 8 new `@ts-expect-error` checks; a Vitest check that the 3D wire JSON text, key
+order and absent keys equal the previous builder's.
+
+**Slice 3 — node coordinates and nodal/point loads.** Add `Length`-typed `x/y/z` node
+records (`TypedNode`, `TypedNode3D`, keeping 2D's `z` with `alias = "y"`), and `Force`/
+`Moment` typed nodal loads (`fx/fz/my` in 2D; `fx/fy/fz/mx/my/mz` in 3D) and point-on-member
+loads (`p: Force`, `a: Length`). Add a third and fourth generic parameter to
+`SolverInput`/`SolverInput3D` (`N`, `L`) with legacy defaults, mapped in `into_legacy()` /
+`legacy_view()`. The load enums are `#[serde(tag = "type", content = "data")]`: mirror the
+enum exactly (same tags, same variant order) and map variant by variant; any variant left
+unmapped must be a compile error, not a `_ =>` arm. TS: brand `fx…mz` and node coordinates in
+`input2DToWireObject`/`input3DToWireObject` with `forceKn`, `momentKnM`, `lengthM`. Compile-fail:
+force into moment, length into force, kN·m into kN, 2D `fx` assigned a `Moment`. Risk: the 2D
+`y`→`z` alias and old-file aliases must still parse; test every 2D and 3D fixture as slice 2
+does, including error text.
+
+**Slice 4 — distributed, thermal and support inputs.** `LineLoad` (kN/m) for
+`qI/qJ/qY…/qZ…`, `AreaLoad` (kN/m²) for plate/quad pressures, `TemperatureDifference` (°C,
+no affine conversion offered) and `ThermalExpansion` (1/°C) for thermal loads,
+`TranslationalStiffness` (kN/m) and `RotationalStiffness` (kN·m/rad, new) for support
+springs `kx…krz`, `Length` for prescribed displacements and `Angle` (rad, new) for prescribed
+rotations and support/member rotation angles. Same mirroring rules as slice 3. TS brands in
+the same two adapters and in `unitInputCommit` for these quantities. Compile-fail: kN/m into
+kN, kN/m² into kN/m, a temperature difference added to an absolute temperature (do not define
+an absolute temperature type until a field needs it), kN/m into kN·m/rad.
+
+**Slice 5 — result DTOs.** Typed `Displacement`/`Displacement3D` (`Length`, `Angle`),
+`Reaction` (`Force`, `Moment`), element end forces (`n/v/m` in 2D; `n, vy, vz, mx, my, mz` in
+3D) on the output side, via the same generic-with-defaults pattern on `AnalysisResults` /
+`AnalysisResults3D`, built at one named point after recovery. TS: branded result interfaces
+in `types.ts`/`types-3d.ts` read by `display-units.svelte.ts`, so a display conversion of a
+moment as a force fails to compile. Gate: the full results-snapshot corpus and
+`test.web.determinism` unchanged; the serialized result text must be byte-identical (compare
+strings, not parsed numbers, so `-0.0` is checked).
+
+**Slice 6 — 3D frame kernel.** Thread `ElasticSection3D`/`ElasticMaterial` through
+`prepare_static_3d` into `frame_local_stiffness_3d` / `_warping` and 3D force recovery, as
+#864 did for 2D: typed `E·A/L`, `E·I/L³`, `G·J/L`, `E·Cw/L³`, shear `φy`/`φz`, erasing only
+at matrix insertion. Capture the pre-migration 12×12 and 14×14 local matrices for several
+property sets (with and without shear areas, warping, releases) into
+`engine/tests/fixtures/units-frame3d-stiffness.json` at the base commit and compare every
+entry with `to_bits`. This is the first slice that touches arithmetic; it is ranked after the
+boundary slices so their tests already pin the inputs.
+
+**Slice 7 — remaining 2D entry points.** Constrained, multi-case, staged (2D and
+`StagedInput3D`) and the native entry points take the typed input; truss/cable axial and
+thermal/shear fixed-end forces consume typed properties; delete
+`ElasticInput2D::legacy_view` and the temporary property maps. Gate all release patterns,
+shear, thermal, constraints, dense/sparse/parallel and full result snapshots.
+
+**Slices 8–9 — design checks.** One clause family per PR, highest-consequence first: steel
+member resistance (axial, flexure, interaction, lateral-torsional buckling), then RC flexure,
+RC shear, columns, punching, footings, connections. Each check's inputs arrive in kN/kN·m/m
+and its formulas use N/mm/MPa: add `ForceN`, `LengthMm`, `MomentNmm`, `StressMPa` types and
+named conversions (`Force::in_n()` etc.), so the clause body cannot read a kN value as N.
+The verdict (utilization ratio) is a `Ratio`. TS equivalents in `web/src/lib/engine/codes/`.
+Gate: worked-example tests (`design_worked_examples*.rs`) unchanged to the bit, plus the
+web code-check tests. Compile-fail: kN into an N parameter, kN·m into N·mm, MPa into kN/m².
+
+**Slice 10 — mass and dynamics.** `MassDensity` (kg/m³) versus `WeightDensity` (kN/m³) with
+gravity explicit in the only conversion, `Mass` (t), `Time`, `Frequency` (Hz) versus
+`AngularFrequency` (rad/s), spectral accelerations as fractions of g versus m/s². Gate the
+historical self-weight fix (`4fb92f162`), modal mass, time history and spectra.
+
+**Slice 11 — shells and continuum.** Thickness, membrane resultants (kN/m) versus stress,
+bending resultants (kN·m/m) versus moment, drilling stiffness (the `G·h²/1000` versus
+`G·h/1000` defect noted above becomes a type error to fix in its own result-change PR).
+Re-evaluate a dimension-generic representation here, measured on WASM size and build time.
+
+**Slice 12 — nonlinear, plastic, certificates, and the lock.** Plastic capacities, fiber
+stress/strain, residual stress, creep, certificate reassembly; then a CI check (extend
+`scripts/inventory-unit-conversions.py`) that fails on a new raw `* 1000.0`, `/ 1000.0` or
+`1e-3` in a migrated module.
 
 ## Validation
 

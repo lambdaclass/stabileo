@@ -59,7 +59,7 @@ pub struct LoadSession3D {
 impl LoadSession3D {
     #[wasm_bindgen(constructor)]
     pub fn new(input: JsValue) -> Result<LoadSession3D, JsValue> {
-        LoadSession3D::from_input(crate::from_js_value(input)?).map_err(|e| JsValue::from_str(&e))
+        LoadSession3D::from_input(crate::from_js_value::<crate::types::units::ElasticInput3D>(input)?.into_legacy()).map_err(|e| JsValue::from_str(&e))
     }
     pub fn solve(&self, loads: JsValue) -> Result<JsValue, JsValue> {
         let result = self.solve_loads(&crate::from_js_value::<Vec<SolverLoad3D>>(loads)?).map_err(|e| JsValue::from_str(&e))?;

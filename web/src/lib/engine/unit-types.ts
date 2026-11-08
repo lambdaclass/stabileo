@@ -7,6 +7,7 @@ export type ModulusMPa = Quantity<'MPa'>;
 export type Modulus = Quantity<'kN/m²'>;
 export type Area = Quantity<'m²'>;
 export type SecondMoment = Quantity<'m⁴'>;
+export type WarpingConstant = Quantity<'m⁶'>;
 export type Length = Quantity<'m'>;
 export type Force = Quantity<'kN'>;
 export type Moment = Quantity<'kN·m'>;
@@ -16,6 +17,8 @@ export type Ratio = Quantity<'ratio'>;
 export const mpa = (value: number): ModulusMPa => value as ModulusMPa;
 export const areaM2 = (value: number): Area => value as Area;
 export const inertiaM4 = (value: number): SecondMoment => value as SecondMoment;
+export const warpingM6 = (value: number): WarpingConstant => value as WarpingConstant;
+export const lengthM = (value: number): Length => value as Length;
 export const ratio = (value: number): Ratio => value as Ratio;
 export const modulusInternal = (value: ModulusMPa): Modulus => (value * 1000) as Modulus;
 
@@ -45,4 +48,24 @@ export function sectionToWire(s: { id: number; name?: string; a: number; iz: num
   // Keep absent asY absent, including for the non-JSON JsValue route.
   if (!Object.hasOwn(s, 'asY')) delete result.asY;
   return result;
+}
+
+export interface ElasticSection3DWire {
+  id: number; name?: string; a: Area; iy: SecondMoment; iz: SecondMoment; j: SecondMoment;
+  cw?: WarpingConstant; asY?: Area; asZ?: Area; shearCenterY?: Length; shearCenterZ?: Length;
+}
+type OptionalSection3DKey = 'cw' | 'asY' | 'asZ' | 'shearCenterY' | 'shearCenterZ';
+type Section3DNumbers = { id: number; name?: string; a: number; iy: number; iz: number; j: number; cw?: number; asY?: number; asZ?: number; shearCenterY?: number; shearCenterZ?: number };
+const present = <K extends string, B>(s: object, key: K, value: number | undefined, brand: (v: number) => B): { [P in K]?: B } =>
+  (Object.hasOwn(s, key) ? { [key]: value === undefined ? undefined : brand(value) } : {}) as { [P in K]?: B };
+/** Keeps the key order and presence of `s`, so the wire JSON is byte-identical. */
+export function section3DToWire(s: Section3DNumbers): ElasticSection3DWire {
+  return {
+    ...(s as Omit<Section3DNumbers, OptionalSection3DKey>), a: areaM2(s.a), iy: inertiaM4(s.iy), iz: inertiaM4(s.iz), j: inertiaM4(s.j),
+    ...present(s, 'cw', s.cw, warpingM6),
+    ...present(s, 'asY', s.asY, areaM2),
+    ...present(s, 'asZ', s.asZ, areaM2),
+    ...present(s, 'shearCenterY', s.shearCenterY, lengthM),
+    ...present(s, 'shearCenterZ', s.shearCenterZ, lengthM),
+  };
 }

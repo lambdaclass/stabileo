@@ -910,6 +910,7 @@ fn add_springs(
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FiberNonlinearInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub fiber_sections: HashMap<String, FiberSectionDef>,
     #[serde(default = "default_n_ip")]
