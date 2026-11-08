@@ -675,3 +675,39 @@ fn free_rotations_coupled_only_to_each_other_are_refused_even_when_nothing_else_
         }
     }
 }
+
+fn linear_solve(issue: u32) -> Result<(), String> {
+    let text = std::fs::read_to_string(corpus::root().join("metamorphic_corpus").join("stability").join(format!("issue-{}.json", fixture(issue)))).unwrap();
+    match corpus::parse(&text).unwrap() {
+        Model::D2(s) => dedaliano_engine::solver::linear::solve_2d(&s).map(|_| ()),
+        Model::D3(s) => dedaliano_engine::solver::linear::solve_3d(&s).map(|_| ()),
+    }
+}
+
+fn the_linear_solve_refuses_what_the_verdict_refuses(issue: u32) {
+    let (v, cell) = replay(issue);
+    let refusal = v.refusal().unwrap_or_else(|| panic!("#{issue}: the verdict is Stable"));
+    assert!(cell.fails.is_empty(), "#{issue}: {cell:?}");
+    let err = linear_solve(issue).expect_err("the linear solve returned a result");
+    assert!(err.contains(&refusal), "#{issue}: {err}");
+}
+
+#[test]
+#[ignore = "known wrong result: #993"]
+fn issue_993_the_sparse_linear_solve_refuses_in_every_unit_system() { the_linear_solve_refuses_what_the_verdict_refuses(993) }
+
+#[test]
+#[ignore = "known wrong result: #1353"]
+fn issue_1353_the_linear_solve_refuses_in_every_orientation() { the_linear_solve_refuses_what_the_verdict_refuses(1353) }
+
+#[test]
+#[ignore = "known wrong result: #1355"]
+fn issue_1355_the_pcg_linear_solve_refuses_in_every_unit_system() { the_linear_solve_refuses_what_the_verdict_refuses(1355) }
+
+#[test]
+#[ignore = "known wrong result: #1651"]
+fn issue_1651_the_linear_solve_refuses_in_every_plane() { the_linear_solve_refuses_what_the_verdict_refuses(1651) }
+
+#[test]
+#[ignore = "known wrong result: #1106"]
+fn issue_1106_the_linear_solve_refuses_in_both_load_directions() { the_linear_solve_refuses_what_the_verdict_refuses(1106) }
