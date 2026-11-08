@@ -62,18 +62,37 @@ function slab() {
 }
 
 describe('reinforcement sheets from a solved model', () => {
-  it('cuts the continuous beam into its two spans at the middle column and envelopes each whole', () => {
+  it('cuts the continuous beam into its two spans at the middle column and envelopes each section whole', () => {
     frame(); solve();
     const rows = buildSheetRows();
     expect(rows.basis).toBe('combinations');
+    expect(rows.code).toBe('CIRSOC 201-2025');
     expect(rows.beam.map((r) => r.name)).toEqual(['V1-1', 'V1-2']);
     const [a, b] = rows.beam;
-    expect(a!.demand.mNegEnd.value).toBeGreaterThan(a!.demand.mPos.value);
-    expect(a!.demand.mNegEnd.value).toBeCloseTo(b!.demand.mNegStart.value, 6);
-    expect(a!.demand.mPos.value).toBeCloseTo(b!.demand.mPos.value, 6);
-    expect(a!.demand.mPos.source?.combo).toBe('1.2D + 1.6L');
-    // 52 kN/m over 5 m: the sagging and the interior hogging bracket qL²/8 between a fixed and a pinned end.
-    expect(a!.demand.mPos.value + a!.demand.mNegEnd.value / 2).toBeGreaterThan(52 * 25 / 8 * 0.8);
+    expect(a!.demand.end.neg.value).toBeGreaterThan(a!.demand.span.pos.value);
+    expect(a!.demand.end.neg.value).toBeCloseTo(b!.demand.start.neg.value, 6);
+    expect(a!.demand.span.pos.value).toBeCloseTo(b!.demand.span.pos.value, 6);
+    expect(a!.demand.span.pos.source?.combo).toBe('1.2D + 1.6L');
+    expect(a!.demand.span.x).toBeGreaterThan(0.3 * 5);
+    expect(a!.demand.span.x).toBeLessThan(0.5 * 5);
+    expect(a!.demand.span.pos.value + a!.demand.end.neg.value / 2).toBeGreaterThan(52 * 25 / 8 * 0.8);
+    expect(a!.demand.combos).toHaveLength(2);
+  });
+
+  it('takes the sagging and the hogging at a beam end from different combinations under lateral load', () => {
+    frame();
+    const W = modelStore.model.loadCases.find((c) => c.type === 'W')!.id;
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const top = [...modelStore.nodes.values()].filter((n) => (n.z ?? 0) > 2.9).sort((p, q) => p.x - q.x)[0]!;
+    modelStore.addNodalLoad3D(top.id, 400, 0, 0, 0, 0, 0, W);
+    modelStore.addCombination('0.9D + 1.6W', [{ caseId: D, factor: 0.9 }, { caseId: W, factor: 1.6 }]);
+    solve();
+    const beam = buildSheetRows().beam[0]!;
+    const sections = [beam.demand.start, beam.demand.end];
+    const both = sections.find((e) => e.pos.value > 1 && e.neg.value > 1)!;
+    expect(both).toBeDefined();
+    expect(both.pos.source!.combo).not.toBe(both.neg.source!.combo);
+    expect(beam.verifications.some((v) => v.label.startsWith('rcSheets.v.flexPos.') && v.label !== 'rcSheets.v.flexPos.span')).toBe(true);
   });
 
   it('cuts a column per storey, with its clear height and the fixed foot\'s restraint', () => {
@@ -125,9 +144,32 @@ describe('reinforcement sheets from a solved model', () => {
   it('exports a sheet per family with a row per element', () => {
     frame(); solve();
     const sheets = rcSheetsWorkbook(buildSheetRows(), (k) => k);
-    expect(sheets.map((s) => s.name)).toEqual(['rcSheets.family.beam', 'rcSheets.family.column', 'rcSheets.family.slab']);
-    expect(sheets[0]!.rows).toHaveLength(3);
-    expect(sheets[1]!.rows).toHaveLength(4);
+    expect(sheets.map((s) => s.name)).toEqual(['rcSheets.family.beam', 'rcSheets.family.column', 'rcSheets.family.slab', 'rcSheets.family.wall']);
+    expect(sheets[0]!.rows[0]![0]).toContain('CIRSOC 201-2025');
+    expect(sheets[0]!.rows).toHaveLength(4);
+    expect(sheets[1]!.rows).toHaveLength(5);
+  });
+
+  it('integrates a cantilever wall\'s base: N, M and V match the statics', () => {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    const nx = 8, nz = 6, L = 4, H = 6, id: number[][] = [];
+    for (let i = 0; i <= nx; i++) { id.push([]); for (let k = 0; k <= nz; k++) id[i]!.push(modelStore.addNode(i * L / nx, 0, k * H / nz)); }
+    for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) modelStore.addQuad([id[i]![k]!, id[i + 1]![k]!, id[i + 1]![k + 1]!, id[i]![k + 1]!], conc, 0.2);
+    for (let i = 0; i <= nx; i++) modelStore.addSupport(id[i]![0]!, 'fixed3d');
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    for (let i = 0; i <= nx; i++) modelStore.addNodalLoad3D(id[i]![nz]!, 100 / (nx + 1), 0, -900 / (nx + 1), 0, 0, 0, D);
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    recognizePhysicalElements();
+    for (const g of [...modelStore.model.groups.values()]) if ((g.members.quads ?? []).length) modelStore.setGroupData(g.id, { ...g.data, kind: 'wall' });
+    solve();
+    const rows = buildSheetRows();
+    expect(rows.wall).toHaveLength(1);
+    const k = rows.wall[0]!.demand.combos[0]!;
+    expect(rows.wall[0]!.length).toBeCloseTo(4, 6);
+    expect(k.pu).toBeCloseTo(1.4 * 900, -1);
+    expect(k.vu).toBeCloseTo(1.4 * 100, -1);
+    expect(k.mu / (1.4 * 100 * (H - 0.5 * H / nz))).toBeGreaterThan(0.85);
+    expect(k.mu / (1.4 * 100 * H)).toBeLessThan(1.05);
   });
 
   it('says there is nothing to design before a solve', () => {

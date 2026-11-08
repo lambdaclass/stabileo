@@ -76,6 +76,7 @@ const COUPLED = [
   'lib/export/rc-cad-handoff-v2.ts',
   'lib/export/rc-cad-handoff.ts',
   'lib/listings/bvbs.ts',
+  'lib/rc-sheets/beam-row.ts',
   'lib/rc-sheets/column-row.ts',
   'lib/sheets/details/beams.ts',
   'lib/sheets/details/columns.ts',

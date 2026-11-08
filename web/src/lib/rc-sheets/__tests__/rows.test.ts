@@ -1,16 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { beamRow, type BeamDemand } from '../beam-row';
+import { beamRow, type BeamDemand, type SectionEnv } from '../beam-row';
 import { columnRow, columnArea, type ColumnDemand } from '../column-row';
 import { slabRow } from '../slab-row';
+import { wallRow, type WallDemand } from '../wall-row';
 import { makeFmt } from '../format';
 
 const f = makeFmt('.');
+const env = (x: number, pos: number, neg: number, n = 0, combo = 'U'): SectionEnv => ({ x, pos: { value: pos, source: { combo, x } }, neg: { value: neg, source: { combo, x } }, nPos: n, nNeg: n });
 const beamCtx = { mat: { fc: 30, fy: 420 }, cover: 0.025, stirrupDia: 8, diameters: [10, 12, 16, 20, 25], torsion: 'equilibrium' as const };
 const v0001: BeamDemand = {
   key: 'beam:1:0', name: 'V0001', length: 9.8, b: 0.3, h: 0.8,
-  mPos: { value: 216.265 }, mNegStart: { value: 309.248 }, mNegEnd: { value: 100 },
-  nAtPos: 21.752, nAtNegStart: 21.752, nAtNegEnd: 0, vu: { value: 162.874 }, nAtV: 21.752, tu: { value: 50.707 },
+  start: env(0, 0, 309.248, 21.752), span: env(4.9, 216.265, 0, 21.752), end: env(9.8, 0, 100),
+  negAny: { value: 0 }, nNegAny: 0, vu: { value: 162.874 }, nAtV: 21.752, tu: { value: 50.707 }, combos: [],
 };
+const ok = (r: { verifications: Array<{ label: string; ok: boolean }> }, label: string) => r.verifications.find((v) => v.label === label)?.ok;
 
 describe('beam row', () => {
   it('reduces the moment to the tension steel and floors it at 1.4/fy·bw·d', () => {
@@ -19,11 +22,12 @@ describe('beam row', () => {
     expect(Number(mus.value!.split(' ')[0])).toBeCloseTo(216.265 + 21.752 * (0.759 - 0.4), 1);
     expect(r.req.bottom).toBeCloseTo((1.4 / 420) * 30 * 75.9, 1);
     expect(r.req.top).toBeGreaterThan(r.req.bottom);
+    expect(r.req.topAt).toBe('start');
   });
 
   it('takes the torsion threshold with √f\'c in MPa, so 50.7 kN·m on a 30×80 needs torsion steel', () => {
     const r = beamRow(v0001, beamCtx, undefined, f);
-    const th = r.steps[4]!.steps[0]!;
+    const th = r.steps.find((g) => g.title === 'rcSheets.g.torsion')!.steps[0]!;
     const expected = 0.75 * 0.33 / 4 * Math.sqrt(30) * 1000 * (0.24 ** 2) / 2.2;
     expect(Number(th.value!.split(' ')[0])).toBeCloseTo(expected, 1);
     expect(expected).toBeLessThan(10);
@@ -34,33 +38,65 @@ describe('beam row', () => {
   it('reduces compatibility torsion to φ·Tcr', () => {
     const r = beamRow(v0001, { ...beamCtx, torsion: 'compatibility' }, undefined, f);
     expect(r.req.tuDesign).toBeCloseTo(0.75 * 0.33 * Math.sqrt(30) * 1000 * (0.24 ** 2) / 2.2, 1);
-    expect(r.req.tuDesign).toBeLessThan(50.707);
   });
 
-  it('proposes bars that verify, and fails the bars a person adopts short', () => {
-    const ok = beamRow(v0001, beamCtx, undefined, f);
-    expect(ok.status).not.toBe('fail');
-    expect(ok.checks.sag.phiMn).toBeGreaterThanOrEqual(216.265);
-    const short = beamRow(v0001, beamCtx, { ...ok.proposed, top: [{ count: 2, dia: 16 }] }, f);
-    expect(short.checks.hogStart.ok).toBe(false);
+  it('designs the bottom steel for a sagging moment at a support, not only at midspan', () => {
+    const lateral: BeamDemand = { ...v0001, start: env(0, 280, 309.248, 0, 'W'), tu: { value: 1 } };
+    const r = beamRow(lateral, beamCtx, undefined, f);
+    expect(r.req.bottomAt).toBe('start');
+    expect(r.flexure.find((x) => x.section === 'start' && x.sign === 'pos')!.phiMn).toBeGreaterThanOrEqual(280);
+    expect(r.verifications.map((v) => v.label)).toEqual(expect.arrayContaining(['rcSheets.v.flexPos.start', 'rcSheets.v.flexNeg.start', 'rcSheets.v.flexPos.span']));
+  });
+
+  it('proposes bars that verify every check, and fails bars a person adopts short', () => {
+    const good = beamRow(v0001, beamCtx, undefined, f);
+    expect(good.status).not.toBe('fail');
+    expect(good.verifications.every((v) => v.ok)).toBe(true);
+    const short = beamRow(v0001, beamCtx, { ...good.proposed, top: [{ count: 2, dia: 16 }] }, f);
+    expect(ok(short, 'rcSheets.v.flexNeg.start')).toBe(false);
     expect(short.status).toBe('fail');
-    expect(short.isAdopted).toBe(true);
   });
 
   it('fails bars under the minimum steel even where they carry the moment', () => {
-    const light: BeamDemand = { ...v0001, mPos: { value: 40 }, mNegStart: { value: 30 }, mNegEnd: { value: 30 }, tu: { value: 1 } };
-    const ok = beamRow(light, beamCtx, undefined, f);
-    const under = beamRow(light, beamCtx, { ...ok.proposed, bottom: [{ count: 1, dia: 16 }] }, f);
-    expect(under.checks.sag.phiMn).toBeGreaterThan(40);
-    expect(under.checks.areaBottom).toBe(false);
+    const light: BeamDemand = { ...v0001, start: env(0, 0, 30), span: env(4.9, 40, 0), end: env(9.8, 0, 30), tu: { value: 1 } };
+    const good = beamRow(light, beamCtx, undefined, f);
+    const under = beamRow(light, beamCtx, { ...good.proposed, bottom: [{ count: 1, dia: 16 }] }, f);
+    expect(under.flexure.find((x) => x.section === 'span' && x.sign === 'pos')!.phiMn).toBeGreaterThan(40);
+    expect(ok(under, 'rcSheets.v.minBottom')).toBe(false);
     expect(under.status).toBe('fail');
   });
 
-  it('refuses bars that do not fit across the web', () => {
-    const ok = beamRow(v0001, beamCtx, undefined, f);
-    const crammed = beamRow(v0001, beamCtx, { ...ok.proposed, bottom: [{ count: 8, dia: 25 }] }, f);
-    expect(crammed.checks.fitBottom).toBe(false);
-    expect(crammed.status).toBe('fail');
+  it('iterates the proposal until it verifies: a wide beam gets finer bars for crack control', () => {
+    const wide: BeamDemand = { ...v0001, b: 0.8, h: 0.5, start: env(0, 0, 150), span: env(4.9, 180, 0), end: env(9.8, 0, 150), tu: { value: 1 } };
+    const r = beamRow(wide, beamCtx, undefined, f);
+    expect(ok(r, 'rcSheets.v.crack')).toBe(true);
+    expect(r.status).not.toBe('fail');
+    const coarse = beamRow(wide, beamCtx, { ...r.proposed, bottom: [{ count: 2, dia: 25 }, { count: 2, dia: 25 }] }, f);
+    expect(ok(coarse, 'rcSheets.v.crack')).toBe(false);
+  });
+
+  it('checks the longitudinal torsion bars for spacing and diameter', () => {
+    const r = beamRow(v0001, beamCtx, undefined, f);
+    expect(ok(r, 'rcSheets.v.alSpacing')).toBe(true);
+    const few = beamRow(v0001, beamCtx, { ...r.proposed, torsionLong: { count: 4, dia: 20 } }, f);
+    expect(ok(few, 'rcSheets.v.alSpacing')).toBe(false);
+  });
+
+  it('asks skin reinforcement past 90 cm of depth', () => {
+    const deep = beamRow({ ...v0001, h: 1.0 }, beamCtx, undefined, f);
+    expect(deep.req.skin).not.toBeNull();
+    expect(beamRow(v0001, beamCtx, undefined, f).req.skin).toBeNull();
+  });
+
+  it('breaks the adopted bars down by combination', () => {
+    const combos = [
+      { combo: 'A', mStart: -309, mSpan: 216, mEnd: -100, mPos: 216, mNeg: 309, nStart: 0, nSpan: 0, nEnd: 0, v: 160, nV: 0, t: 50 },
+      { combo: 'B', mStart: -10, mSpan: 20, mEnd: -10, mPos: 20, mNeg: 10, nStart: 0, nSpan: 0, nEnd: 0, v: 20, nV: 0, t: 1 },
+    ];
+    const r = beamRow({ ...v0001, combos }, beamCtx, undefined, f);
+    expect(r.combos.rows).toHaveLength(2);
+    expect(r.combos.rows[0]!.ratio).toBeGreaterThan(r.combos.rows[1]!.ratio);
+    expect(r.combos.rows.every((x) => x.ok)).toBe(true);
   });
 });
 
@@ -68,7 +104,7 @@ describe('column row', () => {
   const ctx = { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [12, 16, 20, 25, 32] };
   const base: ColumnDemand = {
     key: 'column:1:0', name: 'C1', b: 0.3, h: 0.3, length: 3, lu: 2.7, psiTop: 1.5, psiBot: 0.2,
-    cases: [{ combo: 'U', pu: 1400, mxTop: 80, mxBot: -40, myTop: 25, myBot: -10 }],
+    cases: [{ combo: 'U', pu: 1400, mxTop: 80, mxBot: -40, myTop: 25, myBot: -10, vx: 40, vy: 12 }],
   };
 
   it('finds the steel ratio on the interaction surface instead of a chart, between 1 % and 8 %', () => {
@@ -77,6 +113,7 @@ describe('column row', () => {
     expect(r.req.rho).toBeLessThan(0.08);
     expect(r.checks.ratio).toBeLessThanOrEqual(1);
     expect(columnArea(r.proposed)).toBeGreaterThanOrEqual(r.req.ast - 1e-6);
+    expect(r.status).not.toBe('fail');
   });
 
   it('floors a lightly loaded column at 1 %', () => {
@@ -85,11 +122,9 @@ describe('column row', () => {
   });
 
   it('fails an adopted layout under the demand', () => {
-    const r = columnRow(base, ctx, undefined, f);
     const thin = columnRow(base, ctx, { corner: 12, nx: 0, dx: 12, ny: 0, dy: 12, tieDia: 6, tieSpacing: 0.15 }, f);
     expect(thin.checks.ratio).toBeGreaterThan(1);
     expect(thin.status).toBe('fail');
-    expect(r.status).not.toBe('fail');
   });
 
   it('magnifies the moment of a slender column, in single curvature more than in double', () => {
@@ -97,6 +132,20 @@ describe('column row', () => {
     const single = columnRow({ ...slender, cases: [{ combo: 'U', pu: 600, mxTop: 40, mxBot: 40, myTop: 0, myBot: 0 }] }, ctx, undefined, f);
     const double = columnRow({ ...slender, cases: [{ combo: 'U', pu: 600, mxTop: 40, mxBot: -40, myTop: 0, myBot: 0 }] }, ctx, undefined, f);
     expect(single.req.ast).toBeGreaterThan(double.req.ast);
+  });
+
+  it('checks shear, and tightens the ties of the proposal for it', () => {
+    const sheared = { ...base, cases: [{ ...base.cases[0]!, vx: 260 }] };
+    const r = columnRow(sheared, ctx, undefined, f);
+    expect(r.checks.shearX).toBeLessThanOrEqual(1);
+    const open = columnRow(sheared, ctx, { ...r.proposed, tieDia: 6, tieSpacing: 0.25 }, f);
+    expect(open.checks.shearX).toBeGreaterThan(1);
+    expect(open.status).toBe('fail');
+  });
+
+  it('refuses the approximate method past k·lu/r = 100', () => {
+    const r = columnRow({ ...base, lu: 12, length: 12.3, psiTop: 10, psiBot: 10 }, ctx, undefined, f);
+    expect(ok(r, 'rcSheets.v.slenderMax')).toBe(false);
   });
 });
 
@@ -123,5 +172,40 @@ describe('slab row', () => {
     const open = slabRow({ key: 'slab:1', name: 'L1', lx: 4, ly: 4, h: 0.12, m: m(6, 6, 0, 0) }, ctx, { ...r.proposed, bottomX: { dia: 12, spacing: 0.35 } }, f);
     expect(r.oneWay).toBe(false);
     expect(open.faces.bottomX.ok).toBe(false);
+  });
+
+  it('checks one-way shear per metre against φ·Vc', () => {
+    const q = (v: number) => ({ x: { value: v }, y: { value: 10 } });
+    const r = slabRow({ key: 'slab:1', name: 'L1', lx: 4, ly: 4, h: 0.12, m: m(6, 6, 0, 0), q: q(30) }, ctx, undefined, f);
+    expect(ok(r, 'rcSheets.v.slabShearX')).toBe(true);
+    const high = slabRow({ key: 'slab:1', name: 'L1', lx: 4, ly: 4, h: 0.12, m: m(6, 6, 0, 0), q: q(200) }, ctx, undefined, f);
+    expect(ok(high, 'rcSheets.v.slabShearX')).toBe(false);
+  });
+});
+
+describe('wall row', () => {
+  const ctx = { mat: { fc: 30, fy: 420 }, cover: 0.025, barDia: 12, diameters: [10, 12, 16, 20, 25] };
+  const wall: WallDemand = { key: 'wall:1:0', name: 'M1', length: 4, height: 3, thickness: 0.2, combos: [{ combo: 'U', pu: 1200, mu: 5000, vu: 450, muV: 4, muH: 2 }] };
+
+  it('proposes web steel at the minimum ratios and boundary bars for the in-plane moment, and it verifies', () => {
+    const r = wallRow(wall, ctx, undefined, f);
+    expect(r.status).not.toBe('fail');
+    expect(r.adopted.boundary?.count ?? 0).toBeGreaterThan(0);
+    expect(ok(r, 'rcSheets.v.wallShear')).toBe(true);
+    expect(ok(r, 'rcSheets.v.wallRhoL')).toBe(true);
+    expect(r.adopted.curtains).toBe(1);
+  });
+
+  it('fails a wall without boundary bars under that moment', () => {
+    const r = wallRow(wall, ctx, undefined, f);
+    const bare = wallRow(wall, ctx, { ...r.proposed, boundary: { count: 0, diameter: 16 } }, f);
+    expect(ok(bare, 'rcSheets.v.wallPM')).toBe(false);
+  });
+
+  it('asks two curtains past 25 cm and horizontal steel for a large in-plane shear', () => {
+    const thick = wallRow({ ...wall, thickness: 0.3, combos: [{ ...wall.combos[0]!, vu: 2500 }] }, ctx, undefined, f);
+    expect(thick.adopted.curtains).toBe(2);
+    expect(thick.req.rhoT).toBeGreaterThan(0.0025);
+    expect(ok(thick, 'rcSheets.v.wallShear')).toBe(true);
   });
 });

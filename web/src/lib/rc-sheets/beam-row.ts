@@ -1,12 +1,30 @@
 import { checkFlexure, checkShear, checkTorsion, type ConcreteDesignParams } from '../engine/codes/argentina/cirsoc201';
-import { evaluateBeamSection } from '../engine/codes/argentina/cirsoc201-beam-kernel';
-import { beta1, ductilityStrain, phiFromStrain, shearSqrtFc, tensionControlledStrain } from '../engine/codes/argentina/cirsoc201-basis';
+import { evaluateBeamSections, type BeamSectionQuery } from '../engine/codes/argentina/cirsoc201-beam-kernel';
+import { beta1, ductilityStrain, phiFromStrain, shearFy, shearSqrtFc, tensionControlledStrain } from '../engine/codes/argentina/cirsoc201-basis';
+import { crackControlMaxSpacing } from '../codes/cirsoc201/crack-control';
+import { proposeSkin } from '../codes/cirsoc201/skin';
 import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
-import type { BarGroup, BeamAdopted, Materials, RowStatus, Signed, Step, StepGroup, Stirrups, TorsionMode } from './types';
+import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode } from './types';
 
 const EDITION = '2025' as const;
 const PHI_V = 0.75;
+const MAX_ITERATIONS = 12;
+
+export type SectionName = 'start' | 'span' | 'end';
+export const SECTION_NAMES: readonly SectionName[] = ['start', 'span', 'end'];
+
+/** The envelope at one section: the largest sagging and hogging moment, kN·m, each with its combination and its axial force (kN, + compression). */
+export interface SectionEnv { x: number; pos: Signed; neg: Signed; nPos: number; nNeg: number }
+
+/** One combination on a span: signed moments at the three sections, its own peaks anywhere, and V and T peaks. */
+export interface BeamComboForces {
+  combo: string;
+  mStart: number; mSpan: number; mEnd: number;
+  mPos: number; mNeg: number;
+  nStart: number; nSpan: number; nEnd: number;
+  v: number; nV: number; t: number;
+}
 
 export interface BeamDemand {
   key: string;
@@ -14,12 +32,12 @@ export interface BeamDemand {
   level?: string;
   /** m. */
   length: number; b: number; h: number;
-  /** kN·m, magnitudes. */
-  mPos: Signed; mNegStart: Signed; mNegEnd: Signed;
-  /** kN, positive in compression, at each governing moment and at the governing shear. */
-  nAtPos: number; nAtNegStart: number; nAtNegEnd: number;
+  start: SectionEnv; span: SectionEnv; end: SectionEnv;
+  /** The largest hogging moment anywhere along the span. */
+  negAny: Signed; nNegAny: number;
   vu: Signed; nAtV: number;
   tu: Signed;
+  combos: BeamComboForces[];
 }
 
 export interface BeamContext {
@@ -32,7 +50,7 @@ export interface BeamContext {
   torsion: TorsionMode;
 }
 
-export interface FlexureCheck { phiMn: number; mu: number; epsT: number; epsTMin: number; d: number; ok: boolean }
+export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn: number; mu: number; epsT: number; epsTMin: number; d: number; ok: boolean; ductile: boolean }
 
 export interface BeamRow {
   family: 'beam';
@@ -40,23 +58,20 @@ export interface BeamRow {
   b: number; h: number; length: number;
   demand: BeamDemand;
   req: {
-    bottom: number; top: number; topSide: 'start' | 'end';
+    bottom: number; top: number; bottomAt: SectionName; topAt: SectionName;
     /** cm²/m per stirrup leg, shear and torsion together. */
     stirrupPerLeg: number; legs: number; sMax: number;
     al: number; torsionNeglected: boolean; tuDesign: number;
+    skin: MeshBars | null;
   };
   proposed: BeamAdopted;
   adopted: BeamAdopted;
   isAdopted: boolean;
-  checks: {
-    sag: FlexureCheck; hogStart: FlexureCheck; hogEnd: FlexureCheck;
-    fitBottom: boolean; fitTop: boolean;
-    areaBottom: boolean; areaTop: boolean;
-    shear: { phiVn: number; vu: number; ok: boolean };
-    stirrups: { provided: number; required: number; ok: boolean };
-    al: { provided: number; required: number; ok: boolean };
-    torsionSection: boolean;
-  };
+  /** Rounds the proposal took to verify, 0 for bars a person adopted. */
+  iterations: number;
+  flexure: FlexureCheck[];
+  verifications: CheckLine[];
+  combos: ComboTable;
   status: RowStatus;
   /** Adopted steel more than 1,2 times what is needed somewhere: the sheets' «VER». */
   generous: boolean;
@@ -66,19 +81,256 @@ export interface BeamRow {
 const paramsOf = (d: BeamDemand, c: BeamContext, stirrupDia = c.stirrupDia): ConcreteDesignParams =>
   ({ fc: c.mat.fc, fy: c.mat.fy, cover: c.cover, b: d.b, h: d.h, stirrupDia });
 
-function flexCheck(c: BeamContext, d: BeamDemand, tension: BarGroup[], compression: BarGroup[], stirrupDia: number, mu: number, nc: number): FlexureCheck {
+const sectionOf = (d: BeamDemand, s: SectionName) => (s === 'start' ? d.start : s === 'span' ? d.span : d.end);
+
+function query(c: BeamContext, d: BeamDemand, tension: BarGroup[], compression: BarGroup[], stirrupDia: number, nc: number, shear?: Stirrups): BeamSectionQuery {
   const t = faceLayout(tension, d.b, c.cover, stirrupDia);
   const k = faceLayout(compression, d.b, c.cover, stirrupDia);
-  const depth = d.h - t.centroidFromFace;
-  const r = evaluateBeamSection({
-    edition: EDITION, fc: c.mat.fc * 1e6, fy: c.mat.fy * 1e6, b: d.b, h: d.h, d: depth,
+  return {
+    edition: EDITION, fc: c.mat.fc * 1e6, fy: c.mat.fy * 1e6, b: d.b, h: d.h, d: d.h - t.centroidFromFace,
     As: groupsArea(tension) * 1e-4, AsComp: groupsArea(compression) * 1e-4, dPrime: k.centroidFromFace,
     Ag: d.b * d.h, NuCompression: nc * 1e3,
+    ...(shear ? { Av: shear.legs * barArea(shear.dia) * 1e-4, s: shear.spacing, fyt: c.mat.fy * 1e6 } : {}),
+  };
+}
+
+function flexChecks(c: BeamContext, d: BeamDemand, a: BeamAdopted): FlexureCheck[] {
+  const sd = a.stirrups.dia;
+  const items: Array<{ section: SectionName; sign: 'pos' | 'neg'; mu: number; nc: number }> = [];
+  for (const s of SECTION_NAMES) {
+    const e = sectionOf(d, s);
+    items.push({ section: s, sign: 'pos', mu: e.pos.value, nc: e.nPos }, { section: s, sign: 'neg', mu: e.neg.value, nc: e.nNeg });
+  }
+  if (d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6) items.push({ section: 'span', sign: 'neg', mu: d.negAny.value, nc: d.nNegAny });
+  const answers = evaluateBeamSections(items.map((i) => (i.sign === 'pos' ? query(c, d, a.bottom, a.top, sd, i.nc) : query(c, d, a.top, a.bottom, sd, i.nc)))) ?? [];
+  return items.map((i, k) => {
+    const r = answers[k];
+    const phiMn = r && r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0;
+    const epsT = r?.epsilonT ?? 0, epsTMin = r?.epsilonTMin ?? 0;
+    const ductile = !(i.mu > 1e-6) || epsT >= epsTMin - 1e-9;
+    const depth = d.h - faceLayout(i.sign === 'pos' ? a.bottom : a.top, d.b, c.cover, sd).centroidFromFace;
+    return { ...i, phiMn, epsT, epsTMin, d: depth, ductile, ok: !(i.mu > 1e-6) || (phiMn >= i.mu - 1e-6 && ductile) };
   });
-  const phiMn = r && r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0;
-  const epsT = r?.epsilonT ?? 0, epsTMin = r?.epsilonTMin ?? 0;
-  const ductile = !(mu > 1e-6) || epsT >= epsTMin - 1e-9;
-  return { phiMn, mu, epsT, epsTMin, d: depth, ok: phiMn >= mu - 1e-6 && ductile };
+}
+
+interface Requirement { bottom: number; top: number; al: number; alMin: number; neglect: boolean; torSection: boolean; atOverS: number }
+
+interface Evaluation {
+  flex: FlexureCheck[];
+  fitBottom: boolean; fitTop: boolean;
+  areaBottom: boolean; areaTop: boolean;
+  crackBottom: { s: number; max: number; ok: boolean }; crackTop: { s: number; max: number; ok: boolean };
+  shear: ReturnType<typeof checkShear>;
+  perLegProvided: number; perLegRequired: number; transverseMin: number; transverseProvided: number;
+  alProvided: number; alSpacing: number; alDiaMin: number;
+  ok: { stirrups: boolean; transverseMin: boolean; al: boolean; alSpacing: boolean; alDia: boolean; torsionSection: boolean };
+  all: boolean;
+}
+
+function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requirement): Evaluation {
+  const sd = a.stirrups.dia;
+  const flex = flexChecks(c, d, a);
+  const fb = faceLayout(a.bottom, d.b, c.cover, sd), ft = faceLayout(a.top, d.b, c.cover, sd);
+  const crackMax = crackControlMaxSpacing(EDITION, { fy: c.mat.fy, clearCoverToTensionFace: c.cover + sd / 1000 }).maxSpacing;
+  const crack = (groups: BarGroup[], used: boolean) => {
+    const g = groups.find((x) => x.count > 0);
+    const s = g && g.count > 1 ? (d.b - 2 * (c.cover + sd / 1000) - g.dia / 1000) / (g.count - 1) : d.b - 2 * (c.cover + sd / 1000);
+    return { s, max: crackMax, ok: !used || s <= crackMax + 1e-6 };
+  };
+  const hogUsed = req.top > 0;
+  const shear = checkShear(paramsOf(d, c, sd), d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: groupsArea(a.bottom), spacing: a.stirrups.spacing, legs: a.stirrups.legs });
+  const ab = barArea(sd);
+  const perLegProvided = a.stirrups.spacing > 0 ? ab / a.stirrups.spacing : 0;
+  const legs = Math.max(1, a.stirrups.legs);
+  const perLegRequired = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + (req.neglect ? 0 : req.atOverS);
+  const fyt = shearFy(c.mat.fy);
+  const transverseMin = req.neglect ? 0 : Math.max(0.062 * shearSqrtFc(c.mat.fc), 0.35) * d.b / fyt * 1e4;
+  const transverseProvided = a.stirrups.spacing > 0 ? legs * ab / a.stirrups.spacing : 0;
+  const al = a.torsionLong;
+  const alProvided = al ? al.count * barArea(al.dia) : 0;
+  const ph = 2 * ((d.b - 2 * c.cover - sd / 1000) + (d.h - 2 * c.cover - sd / 1000));
+  const alSpacing = al && al.count > 0 ? ph / al.count : Infinity;
+  const alDiaMin = Math.max(0.042 * a.stirrups.spacing * 1000, 10);
+  const ok = {
+    stirrups: perLegProvided >= perLegRequired - 1e-6,
+    transverseMin: req.neglect || transverseProvided >= transverseMin - 1e-6,
+    al: req.neglect || alProvided >= Math.max(req.al, req.alMin) - 1e-6,
+    alSpacing: req.neglect || alSpacing <= 0.3 + 1e-6,
+    alDia: req.neglect || (!!al && al.dia >= alDiaMin - 1e-6),
+    torsionSection: req.torSection,
+  };
+  const crackBottom = crack(a.bottom, true), crackTop = crack(a.top, hogUsed);
+  const areaBottom = groupsArea(a.bottom) >= req.bottom - 1e-6, areaTop = groupsArea(a.top) >= req.top - 1e-6;
+  const all = flex.every((f) => f.ok) && fb.fits && ft.fits && areaBottom && areaTop && crackBottom.ok && crackTop.ok
+    && shear.status !== 'fail' && Object.values(ok).every(Boolean);
+  return { flex, fitBottom: fb.fits, fitTop: ft.fits, areaBottom, areaTop, crackBottom, crackTop, shear, perLegProvided, perLegRequired, transverseMin, transverseProvided, alProvided, alSpacing, alDiaMin, ok, all };
+}
+
+const LONG = (c: BeamContext) => c.diameters.filter((x) => x >= 10 && x <= 25);
+
+function bumpFace(groups: BarGroup[], d: BeamDemand, c: BeamContext, sd: number): BarGroup[] {
+  const cur = groups.find((g) => g.count > 0)?.dia ?? 16;
+  return proposeBeamFace(groupsArea(groups) + barArea(cur) * 0.999, d.b, d.h, c.cover, sd, LONG(c));
+}
+
+function finerFace(groups: BarGroup[], d: BeamDemand, c: BeamContext, sd: number): BarGroup[] {
+  const cur = groups.find((g) => g.count > 0)?.dia ?? 16;
+  const pool = LONG(c).filter((x) => x < cur);
+  return proposeBeamFace(groupsArea(groups), d.b, d.h, c.cover, sd, pool.length ? pool : LONG(c));
+}
+
+function improve(a: BeamAdopted, e: Evaluation, d: BeamDemand, c: BeamContext, ph: number): BeamAdopted {
+  const sd = a.stirrups.dia;
+  const next: BeamAdopted = JSON.parse(JSON.stringify(a));
+  const pos = e.flex.filter((f) => f.sign === 'pos' && !f.ok), neg = e.flex.filter((f) => f.sign === 'neg' && !f.ok);
+  if (pos.some((f) => !f.ductile)) next.top = bumpFace(next.top, d, c, sd);
+  else if (pos.length || !e.areaBottom) next.bottom = bumpFace(next.bottom, d, c, sd);
+  if (neg.some((f) => !f.ductile)) next.bottom = bumpFace(next.bottom, d, c, sd);
+  else if (neg.length || !e.areaTop) next.top = bumpFace(next.top, d, c, sd);
+  if (!e.crackBottom.ok) next.bottom = finerFace(next.bottom, d, c, sd);
+  else if (!e.fitBottom) next.bottom = proposeBeamFace(groupsArea(next.bottom), d.b, d.h, c.cover, sd, LONG(c));
+  if (!e.crackTop.ok) next.top = finerFace(next.top, d, c, sd);
+  else if (!e.fitTop) next.top = proposeBeamFace(groupsArea(next.top), d.b, d.h, c.cover, sd, LONG(c));
+  if (e.shear.status === 'fail' || !e.ok.stirrups || !e.ok.transverseMin) {
+    if (next.stirrups.spacing > 0.075 + 1e-9) next.stirrups.spacing = roundDown(next.stirrups.spacing - 0.025);
+    else if (next.stirrups.dia < 12) next.stirrups = { ...next.stirrups, dia: next.stirrups.dia + 2, spacing: 0.15 };
+    else next.stirrups.legs += 2;
+  }
+  if (!e.ok.al || !e.ok.alSpacing || !e.ok.alDia) {
+    const al = next.torsionLong ?? { count: 4, dia: 10 };
+    const count = Math.max(4, al.count, 2 * Math.ceil(ph / 0.3 / 2));
+    let dia = Math.max(al.dia, e.alDiaMin);
+    if (!e.ok.al && count === al.count && dia <= al.dia) dia = al.dia + 1;
+    next.torsionLong = { count, dia: [10, 12, 16, 20, 25].find((x) => x >= dia - 1e-9) ?? 25 };
+  }
+  return next;
+}
+
+export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | undefined, fmt: Fmt): BeamRow {
+  const p = paramsOf(d, c);
+  const fc = c.mat.fc, fy = c.mat.fy;
+
+  const flexReq = (mu: number, nc: number) => checkFlexure(p, mu, nc, { edition: EDITION });
+  const posReq = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).pos.value, sectionOf(d, s).nPos), env: sectionOf(d, s).pos, n: sectionOf(d, s).nPos }));
+  const negList = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).neg.value, sectionOf(d, s).nNeg), env: sectionOf(d, s).neg, n: sectionOf(d, s).nNeg }));
+  if (d.negAny.value > Math.max(...negList.map((x) => x.env.value)) + 1e-6) negList.push({ s: 'span', r: flexReq(d.negAny.value, d.nNegAny), env: d.negAny, n: d.nNegAny });
+  const heavier = <T extends { r: { AsReq: number }; env: Signed }>(a: T, b: T) => (b.r.AsReq > a.r.AsReq + 1e-9 || (Math.abs(b.r.AsReq - a.r.AsReq) <= 1e-9 && b.env.value > a.env.value) ? b : a);
+  const gPos = posReq.reduce(heavier);
+  const hogging = negList.filter((x) => x.env.value > 1e-6);
+  const gNeg = (hogging.length ? hogging : negList).reduce(heavier);
+  const bottomReq = gPos.r.AsReq;
+  const topReq = hogging.length ? gNeg.r.AsReq : 0;
+
+  const shear = checkShear(p, d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: bottomReq });
+  const tor0 = checkTorsion(p, d.tu.value, d.vu.value, EDITION);
+  const tuDesign = !tor0.neglect && c.torsion === 'compatibility' ? Math.min(d.tu.value, PHI_V * tor0.Tcr) : d.tu.value;
+  const tor = tuDesign === d.tu.value ? tor0 : checkTorsion(p, tuDesign, d.vu.value, EDITION);
+  const legs = Math.max(2, shear.stirrupLegs);
+  const ph = 2 * ((d.b - 2 * c.cover - c.stirrupDia / 1000) + (d.h - 2 * c.cover - c.stirrupDia / 1000));
+  const fyt = shearFy(fy);
+  const atS = tor.neglect ? 0 : tor.AtOverS;
+  const alMin = tor.neglect ? 0 : Math.max(0, 0.42 * Math.sqrt(fc) * d.b * d.h / fy * 1e4 - Math.max(atS, 0.175 * d.b / fyt * 1e4) * ph * (fyt / fy));
+  const alReq = tor.neglect ? 0 : tor.AlReq;
+  const perLeg = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + atS;
+  const sMax = Math.min(sMaxShear(shear.d, d.b, fc, shear.Vs), tor.neglect ? Infinity : Math.min(ph / 8, 0.3));
+  const skin = proposeSkin(EDITION, d.h, fy, c.cover, c.stirrupDia);
+  const req: Requirement = { bottom: bottomReq, top: topReq, al: alReq, alMin, neglect: tor.neglect, torSection: tor.status !== 'fail', atOverS: atS };
+
+  const initial: BeamAdopted = {
+    bottom: proposeBeamFace(bottomReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
+    top: topReq > 0 ? proposeBeamFace(topReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: c.diameters.includes(10) ? 10 : 12 }],
+    stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), [6, 8, 10, 12], c.stirrupDia),
+    ...(tor.neglect ? {} : { torsionLong: { count: Math.max(4, 2 * Math.ceil(ph / 0.3 / 2)), dia: 10 } }),
+  };
+  let proposed = initial, iterations = 0;
+  let ev = evaluate(d, c, proposed, req);
+  while (!ev.all && iterations < MAX_ITERATIONS) {
+    iterations++;
+    proposed = improve(proposed, ev, d, c, ph);
+    ev = evaluate(d, c, proposed, req);
+  }
+  const a = adopted ?? proposed;
+  const e = adopted ? evaluate(d, c, a, req) : ev;
+  const generous = groupsArea(a.bottom) > 1.2 * bottomReq + 1e-6 || (topReq > 0 && groupsArea(a.top) > 1.2 * topReq + 1e-6);
+
+  const f2 = (v: number) => fmt(v);
+  const verifications: CheckLine[] = [
+    ...e.flex.filter((x) => x.mu > 1e-6).map((x) => check(x.sign === 'pos' ? `rcSheets.v.flexPos.${x.section}` : `rcSheets.v.flexNeg.${x.section}`, x.ok, {
+      clause: '§22.2, §21.2', demand: `${f2(x.mu)} kN·m`, capacity: `${f2(x.phiMn)} kN·m`, ratio: ratioOf(x.mu, x.phiMn),
+    })),
+    ...e.flex.filter((x) => x.mu > 1e-6 && !x.ductile).map((x) => check('rcSheets.v.ductility', false, { clause: '§9.3.3.1', demand: `εt = ${fmt(x.epsT * 1000)} ‰`, capacity: `≥ ${fmt(x.epsTMin * 1000)} ‰` })),
+    check('rcSheets.v.minBottom', e.areaBottom, { clause: '§9.6.1.2', demand: `${f2(bottomReq)} cm²`, capacity: `${f2(groupsArea(a.bottom))} cm²`, ratio: ratioOf(bottomReq, groupsArea(a.bottom)) }),
+    ...(topReq > 0 ? [check('rcSheets.v.minTop', e.areaTop, { clause: '§9.6.1.2', demand: `${f2(topReq)} cm²`, capacity: `${f2(groupsArea(a.top))} cm²`, ratio: ratioOf(topReq, groupsArea(a.top)) })] : []),
+    check('rcSheets.v.fitBottom', e.fitBottom, { clause: '§25.2.1' }),
+    check('rcSheets.v.fitTop', e.fitTop, { clause: '§25.2.1' }),
+    check('rcSheets.v.crack', e.crackBottom.ok && e.crackTop.ok, { clause: '§24.3.2', demand: `s = ${fmt(Math.max(e.crackBottom.s, topReq > 0 ? e.crackTop.s : 0) * 100, 1)} cm`, capacity: `≤ ${fmt(e.crackBottom.max * 100, 1)} cm` }),
+    check('rcSheets.v.shear', e.shear.status !== 'fail', { clause: '§22.5', demand: `${f2(d.vu.value)} kN`, capacity: `${f2(e.shear.phiVn)} kN`, ratio: ratioOf(d.vu.value, e.shear.phiVn) }),
+    check('rcSheets.v.stirrupSpacing', a.stirrups.spacing <= sMax + 1e-6, { clause: tor.neglect ? '§9.7.6.2.2' : '§9.7.6.2.2, §9.7.6.3.3', demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(sMax * 100, 1)} cm` }),
+    ...(tor.neglect ? [check('rcSheets.v.torsionNeglect', true, { clause: '§22.7.1', demand: `${f2(d.tu.value)} kN·m`, capacity: `< ${f2(PHI_V * tor0.Tcr / 4)} kN·m` })] : [
+      check('rcSheets.v.stirrupsVT', e.ok.stirrups, { clause: '§22.5.8, §22.7.6', demand: `${f2(e.perLegRequired)} cm²/m`, capacity: `${f2(e.perLegProvided)} cm²/m`, ratio: ratioOf(e.perLegRequired, e.perLegProvided) }),
+      check('rcSheets.v.transverseMin', e.ok.transverseMin, { clause: '§9.6.4.2', demand: `${f2(e.transverseMin)} cm²/m`, capacity: `${f2(e.transverseProvided)} cm²/m`, ratio: ratioOf(e.transverseMin, e.transverseProvided) }),
+      check('rcSheets.v.al', e.ok.al, { clause: '§22.7.6.1, §9.6.4.3', demand: `${f2(Math.max(alReq, alMin))} cm²`, capacity: `${f2(e.alProvided)} cm²`, ratio: ratioOf(Math.max(alReq, alMin), e.alProvided) }),
+      check('rcSheets.v.alSpacing', e.ok.alSpacing, { clause: '§9.7.5.1', demand: `${fmt(Number.isFinite(e.alSpacing) ? e.alSpacing * 100 : 0, 1)} cm`, capacity: '≤ 30 cm' }),
+      check('rcSheets.v.alDia', e.ok.alDia, { clause: '§9.7.5.2', demand: a.torsionLong ? `Ø${a.torsionLong.dia}` : '—', capacity: `≥ Ø${fmt(e.alDiaMin, 1)}` }),
+      check('rcSheets.v.torsionSection', e.ok.torsionSection, { clause: '§22.7.7.1' }),
+    ]),
+    ...(skin ? [check('rcSheets.v.skin', true, { clause: '§9.7.2.3', capacity: `Ø${skin.diameter} c/${fmt(skin.spacing * 100, 1)} cm` })] : []),
+  ];
+  const allOk = verifications.every((v) => v.ok);
+
+  const steps: StepGroup[] = [
+    dataSteps(d, c, fmt),
+    flexureSteps('rcSheets.g.flexBottom', d, c, gPos.r, gPos.env, gPos.n, `rcSheets.sec.${gPos.s}`, a.bottom, e.flex.filter((x) => x.sign === 'pos'), fmt),
+    ...(topReq > 0 ? [flexureSteps('rcSheets.g.flexTop', d, c, gNeg.r, gNeg.env, gNeg.n, `rcSheets.sec.${gNeg.s}`, a.top, e.flex.filter((x) => x.sign === 'neg'), fmt)] : []),
+    shearSteps(d, c, shear, e.shear, a.stirrups, sMax, fmt),
+    torsionSteps(d, tor0, tor, tuDesign, e, alReq, alMin, a, fmt),
+    {
+      title: 'rcSheets.g.proposal',
+      steps: [
+        adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'As(d) → φMn ≥ Mu; εt ≥ εt,min; s ≤ s,max', value: String(iterations), ok: ev.all },
+        { label: 'rcSheets.s.assumptionAxis', value: '' },
+      ],
+    },
+  ];
+
+  return {
+    family: 'beam', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
+    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: Math.max(alReq, alMin), torsionNeglected: tor.neglect, tuDesign, skin: skin ? { dia: skin.diameter, spacing: skin.spacing } : null },
+    proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications, combos: comboTable(d, c, a, fmt),
+    status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
+  };
+}
+
+function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): ComboTable {
+  const sd = a.stirrups.dia;
+  const qs: BeamSectionQuery[] = [];
+  for (const k of d.combos) {
+    qs.push(query(c, d, a.bottom, a.top, sd, k.nSpan), query(c, d, a.top, a.bottom, sd, k.nStart), query(c, d, a.top, a.bottom, sd, k.nEnd),
+      query(c, d, a.bottom, a.top, sd, k.nStart), query(c, d, a.bottom, a.top, sd, k.nEnd), query(c, d, a.top, a.bottom, sd, k.nSpan),
+      query(c, d, a.bottom, a.top, sd, k.nV, a.stirrups));
+  }
+  const ans = evaluateBeamSections(qs) ?? [];
+  const cap = (i: number) => { const r = ans[i]; return r && r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0; };
+  const ab = barArea(sd), legs = Math.max(1, a.stirrups.legs);
+  const fyt = shearFy(c.mat.fy);
+  const a0 = 0.85 * (d.b - 2 * c.cover - sd / 1000) * (d.h - 2 * c.cover - sd / 1000);
+  const dEff = d.h - faceLayout(a.bottom, d.b, c.cover, sd).centroidFromFace;
+  const th = PHI_V * 0.33 * shearSqrtFc(c.mat.fc) * (d.b * d.h) ** 2 / (2 * (d.b + d.h)) * 1000 / 4;
+  const rows = d.combos.map((k, i) => {
+    const o = i * 7;
+    const mRatio = (m: number, iPos: number, iNeg: number) => (m >= 0 ? ratioOf(m, cap(iPos)) : ratioOf(-m, cap(iNeg)));
+    const flex = Math.max(mRatio(k.mStart, o + 3, o + 1), mRatio(k.mSpan, o, o + 5), mRatio(k.mEnd, o + 4, o + 2), ratioOf(k.mPos, cap(o)),
+      ratioOf(k.mNeg, Math.min(cap(o + 1), cap(o + 2), cap(o + 5))));
+    const sh = ans[o + 6];
+    const vc = sh && sh.shearValid ? sh.Vc / 1e3 : 0;
+    const avs = Math.max(0, k.v / PHI_V - vc) / (fyt * 1000 * dEff) * 1e4;
+    const ats = k.t > th ? k.t / (PHI_V * 2 * a0 * fyt * 1000) * 1e4 : 0;
+    const stir = ratioOf(avs / legs + ats, a.stirrups.spacing > 0 ? ab / a.stirrups.spacing : 0);
+    const shearRatio = sh && sh.shearValid ? ratioOf(k.v, sh.phiVn / 1e3) : 0;
+    const ratio = Math.max(flex, stir, shearRatio);
+    return { combo: k.combo, values: [fmt(k.mStart, 1), fmt(k.mSpan, 1), fmt(k.mEnd, 1), fmt(k.v, 1), fmt(k.t, 1), fmt(k.nSpan, 1)], ratio, ok: ratio <= 1 + 1e-6 };
+  });
+  return { headers: ['M i', 'M x*', 'M j', 'V', 'T', 'N'], rows };
 }
 
 function proposeStirrups(perLeg: number, legs: number, sMax: number, dias: readonly number[], prefer: number): Stirrups {
@@ -93,105 +345,35 @@ function proposeStirrups(perLeg: number, legs: number, sMax: number, dias: reado
   return { dia, legs, spacing: roundDown(Math.max(0.05, Math.min(sMax, barArea(dia) / Math.max(perLeg, 1e-9)))) };
 }
 
-export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | undefined, fmt: Fmt): BeamRow {
-  const p = paramsOf(d, c);
-  const fc = c.mat.fc;
-
-  const sag = checkFlexure(p, d.mPos.value, d.nAtPos, { edition: EDITION });
-  const hs = checkFlexure(p, d.mNegStart.value, d.nAtNegStart, { edition: EDITION });
-  const he = checkFlexure(p, d.mNegEnd.value, d.nAtNegEnd, { edition: EDITION });
-  const topSide: 'start' | 'end' = he.AsReq > hs.AsReq ? 'end' : 'start';
-  const hog = topSide === 'end' ? he : hs;
-  const mHog = topSide === 'end' ? d.mNegEnd : d.mNegStart;
-  const nHog = topSide === 'end' ? d.nAtNegEnd : d.nAtNegStart;
-
-  const shear = checkShear(p, d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: sag.AsReq });
-  const tor0 = checkTorsion(p, d.tu.value, d.vu.value, EDITION);
-  const tuDesign = !tor0.neglect && c.torsion === 'compatibility' ? Math.min(d.tu.value, PHI_V * tor0.Tcr) : d.tu.value;
-  const tor = tuDesign === d.tu.value ? tor0 : checkTorsion(p, tuDesign, d.vu.value, EDITION);
-  const legs = Math.max(2, shear.stirrupLegs);
-  const ph = 2 * ((d.b - 2 * c.cover - c.stirrupDia / 1000) + (d.h - 2 * c.cover - c.stirrupDia / 1000));
-  const shearPerLeg = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs;
-  const perLeg = shearPerLeg + (tor.neglect ? 0 : tor.AtOverS);
-  const sMax = Math.min(sMaxShear(shear.d, d.b, fc, shear.Vs), tor.neglect ? Infinity : Math.min(ph / 8, 0.3));
-
-  const proposed: BeamAdopted = {
-    bottom: proposeBeamFace(sag.AsReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
-    top: proposeBeamFace(hog.AsReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
-    stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), [6, 8, 10, 12], c.stirrupDia),
-    ...(tor.neglect ? {} : { torsionLong: { count: 4, dia: alDia(tor.AlReq) } }),
-  };
-  const a = adopted ?? proposed;
-  const sd = a.stirrups.dia;
-
-  const sagC = flexCheck(c, d, a.bottom, a.top, sd, d.mPos.value, d.nAtPos);
-  const hsC = flexCheck(c, d, a.top, a.bottom, sd, d.mNegStart.value, d.nAtNegStart);
-  const heC = flexCheck(c, d, a.top, a.bottom, sd, d.mNegEnd.value, d.nAtNegEnd);
-  const fitBottom = faceLayout(a.bottom, d.b, c.cover, sd).fits;
-  const fitTop = faceLayout(a.top, d.b, c.cover, sd).fits;
-  const shearA = checkShear(paramsOf(d, c, sd), d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: groupsArea(a.bottom), spacing: a.stirrups.spacing, legs: a.stirrups.legs });
-  const providedPerLeg = a.stirrups.spacing > 0 ? barArea(sd) / a.stirrups.spacing : 0;
-  const reqPerLegA = Math.max(shearA.AvOverSReq ?? 0, shearA.AvOverSMin) / Math.max(1, a.stirrups.legs) + (tor.neglect ? 0 : tor.AtOverS);
-  const alProv = a.torsionLong ? a.torsionLong.count * barArea(a.torsionLong.dia) : 0;
-  const alReq = tor.neglect ? 0 : tor.AlReq;
-
-  const checks: BeamRow['checks'] = {
-    sag: sagC, hogStart: hsC, hogEnd: heC, fitBottom, fitTop,
-    areaBottom: groupsArea(a.bottom) >= sag.AsReq - 1e-6, areaTop: groupsArea(a.top) >= hog.AsReq - 1e-6,
-    shear: { phiVn: shearA.phiVn, vu: d.vu.value, ok: shearA.status !== 'fail' },
-    stirrups: { provided: providedPerLeg, required: reqPerLegA, ok: providedPerLeg >= reqPerLegA - 1e-6 },
-    al: { provided: alProv, required: alReq, ok: alProv >= alReq - 1e-6 },
-    torsionSection: tor.status !== 'fail',
-  };
-  const allOk = sagC.ok && hsC.ok && heC.ok && fitBottom && fitTop && checks.areaBottom && checks.areaTop && checks.shear.ok && checks.stirrups.ok && checks.al.ok && checks.torsionSection;
-  const generous = groupsArea(a.bottom) > 1.2 * sag.AsReq + 1e-6 || groupsArea(a.top) > 1.2 * hog.AsReq + 1e-6;
-
-  const steps: StepGroup[] = [
-    dataSteps(d, c, fmt),
-    flexureSteps('rcSheets.g.flexSpan', d, c, sag, d.mPos, d.nAtPos, a.bottom, sagC, fitBottom, fmt),
-    flexureSteps('rcSheets.g.flexSupport', d, c, hog, mHog, nHog, a.top, topSide === 'end' ? heC : hsC, fitTop, fmt),
-    shearSteps(d, c, shear, shearA, a.stirrups, fmt),
-    torsionSteps(d, tor0, tor, tuDesign, perLeg, providedPerLeg, alReq, alProv, a, fmt),
-  ];
-
-  return {
-    family: 'beam', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
-    req: { bottom: sag.AsReq, top: hog.AsReq, topSide, stirrupPerLeg: perLeg, legs, sMax, al: alReq, torsionNeglected: tor.neglect, tuDesign },
-    proposed, adopted: a, isAdopted: !!adopted, checks,
-    status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
-  };
-}
-
 function sMaxShear(dEff: number, bw: number, fc: number, vs: number): number {
   const lim = 0.33 * shearSqrtFc(fc) * bw * dEff * 1000;
   return vs > lim ? Math.min(dEff / 4, 0.3) : Math.min(dEff / 2, 0.6);
 }
 
-function alDia(al: number): number {
-  for (const dia of [10, 12, 16, 20, 25]) if (4 * barArea(dia) >= al) return dia;
-  return 25;
-}
-
 function dataSteps(d: BeamDemand, c: BeamContext, f: Fmt): StepGroup {
   const src = (s: Signed) => (s.source ? ` (${s.source.combo})` : '');
+  const sec = (name: SectionName, e: SectionEnv): Step => ({
+    label: `rcSheets.sec.${name}`, formula: `x = ${f(e.x)} m`,
+    value: `M⁺ = ${f(e.pos.value)}${src(e.pos)} · M⁻ = ${f(e.neg.value)}${src(e.neg)} kN·m`,
+  });
   return {
     title: 'rcSheets.g.data',
     steps: [
-      { label: 'rcSheets.s.section', formula: 'b × h', value: `${f(d.b * 100, 0)} × ${f(d.h * 100, 0)} cm` },
+      { label: 'rcSheets.s.section', formula: 'b × h · L', value: `${f(d.b * 100, 0)} × ${f(d.h * 100, 0)} cm · ${f(d.length)} m` },
       { label: 'rcSheets.s.materials', formula: "f'c · fy", value: `${f(c.mat.fc, 0)} · ${f(c.mat.fy, 0)} MPa` },
       { label: 'rcSheets.s.cover', formula: 'r', value: `${f(c.cover * 100, 1)} cm` },
-      { label: 'rcSheets.s.muSpan', formula: 'Mu⁺', value: `${f(d.mPos.value)} kN·m${src(d.mPos)}` },
-      { label: 'rcSheets.s.muSupport', formula: 'Mu⁻ (i · j)', value: `${f(d.mNegStart.value)} · ${f(d.mNegEnd.value)} kN·m` },
+      sec('start', d.start), sec('span', d.span), sec('end', d.end),
+      ...(d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6
+        ? [{ label: 'rcSheets.s.negAny', formula: `x = ${f(d.negAny.source?.x ?? 0)} m`, value: `M⁻ = ${f(d.negAny.value)} kN·m${src(d.negAny)}` }] : []),
       { label: 'rcSheets.s.vu', formula: 'Vu', value: `${f(d.vu.value)} kN${src(d.vu)}` },
       { label: 'rcSheets.s.tu', formula: 'Tu', value: `${f(d.tu.value)} kN·m${src(d.tu)}` },
-      { label: 'rcSheets.s.nu', formula: 'Nu', value: `${f(d.nAtPos)} kN` },
     ],
   };
 }
 
 function flexureSteps(
-  title: string, d: BeamDemand, c: BeamContext, r: ReturnType<typeof checkFlexure>, mu: Signed, nc: number,
-  bars: BarGroup[], chk: FlexureCheck, fits: boolean, f: Fmt,
+  title: string, d: BeamDemand, c: BeamContext, r: ReturnType<typeof checkFlexure>, mu: Signed, nc: number, where: string,
+  bars: BarGroup[], checks: FlexureCheck[], f: Fmt,
 ): StepGroup {
   const fy = c.mat.fy, fc = c.mat.fc;
   const b1 = beta1(fc);
@@ -201,6 +383,7 @@ function flexureSteps(
   const a = r.aReq, cc = 0.85 * fc * 1000 * a * d.b;
   const phi = r.epsilonT > 0 ? phiFromStrain(r.epsilonT, fy, 'ties', EDITION) : 0.9;
   const steps: Step[] = [
+    { label: where, formula: `Mu = ${f(mu.value)} kN·m; Nu = ${f(nc)} kN`, value: mu.source?.combo ?? '' },
     { label: 'rcSheets.s.d', formula: 'd = h − r − Øe − Øl/2', value: `${f(r.d * 100, 1)} cm` },
     { label: 'rcSheets.s.mus', formula: 'Mus = Mu + Nu·(d − h/2)', value: `${f(mus)} kN·m` },
     { label: 'rcSheets.s.hypA', formula: `εc = 3 ‰, εt ≥ εty + 3 ‰ = ${f(etc * 1000, 2)} ‰ → φ = 0.90`, value: '' },
@@ -214,22 +397,21 @@ function flexureSteps(
       { label: 'rcSheets.s.cc', formula: "Cc = α1·f'c·a·b; jdc = d − a/2", value: `${f(cc, 1)} kN; ${f((r.d - a / 2) * 100, 1)} cm` },
       { label: 'rcSheets.s.epsT', formula: 'εt = εc·(d − c)/c', value: `${f(r.epsilonT * 1000, 2)} ‰ → φ = ${f(phi, 3)}`, ok: r.epsilonT >= epsMin - 1e-9 },
     );
-    if (r.isDoublyReinforced && r.AsComp) {
-      steps.push({ label: 'rcSheets.s.compression', formula: "A's (Cs = ΔM/jds)", value: `${f(r.AsComp)} cm²` });
-    }
+    if (r.isDoublyReinforced && r.AsComp) steps.push({ label: 'rcSheets.s.compression', formula: "A's (Cs = ΔM/jds)", value: `${f(r.AsComp)} cm²` });
     steps.push({ label: 'rcSheets.s.asStrength', formula: 'T = Mus/(φ·jdc) − Nu/φ; As = T/fy', value: `${f(r.AsFlexural)} cm²` });
   }
   steps.push(
     { label: 'rcSheets.s.asMin', formula: "As,min = max(√f'c/(4·fy); 1.4/fy)·bw·d", value: `${f(r.AsMin)} cm²` },
     { label: 'rcSheets.s.asReq', formula: 'As,nec', value: `${f(r.AsReq)} cm²` },
     { label: 'rcSheets.s.adopted', formula: groupsLabel(bars), value: `${f(groupsArea(bars))} cm²`, ok: groupsArea(bars) >= r.AsReq - 1e-6 },
-    { label: 'rcSheets.s.fits', formula: 'b − 2r − 2Øe − n·Ø − (n − 1)·max(Ø; 25 mm) ≥ 0', value: '', ok: fits },
-    { label: 'rcSheets.s.verify', formula: `d = ${f(chk.d * 100, 1)} cm; εt = ${f(chk.epsT * 1000, 2)} ‰ ≥ ${f(chk.epsTMin * 1000, 2)} ‰`, value: `φMn = ${f(chk.phiMn)} ≥ Mu = ${f(chk.mu)} kN·m`, ok: chk.ok },
   );
+  for (const k of checks.filter((x) => x.mu > 1e-6)) {
+    steps.push({ label: `rcSheets.sec.${k.section}`, formula: `d = ${f(k.d * 100, 1)} cm; εt = ${f(k.epsT * 1000, 2)} ‰ ≥ ${f(k.epsTMin * 1000, 2)} ‰`, value: `φMn = ${f(k.phiMn)} ≥ ${f(k.mu)} kN·m`, ok: k.ok });
+  }
   return { title, steps };
 }
 
-function shearSteps(d: BeamDemand, c: BeamContext, s: ReturnType<typeof checkShear>, sa: ReturnType<typeof checkShear>, st: Stirrups, f: Fmt): StepGroup {
+function shearSteps(d: BeamDemand, c: BeamContext, s: ReturnType<typeof checkShear>, sa: ReturnType<typeof checkShear>, st: Stirrups, sMax: number, f: Fmt): StepGroup {
   const sq = shearSqrtFc(c.mat.fc);
   const vc = s.phiVc / PHI_V;
   const l1 = 0.33 * sq * d.b * s.d * 1000, l2 = 0.66 * sq * d.b * s.d * 1000;
@@ -237,9 +419,10 @@ function shearSteps(d: BeamDemand, c: BeamContext, s: ReturnType<typeof checkShe
   return {
     title: 'rcSheets.g.shear',
     steps: [
+      { label: 'rcSheets.s.vu', formula: 'Vu', value: `${f(d.vu.value)} kN${d.vu.source ? ` (${d.vu.source.combo})` : ''}` },
       { label: 'rcSheets.s.vc', formula: 'Vc (Tabla 22.5.5.1)', value: `${f(vc)} kN` },
       { label: 'rcSheets.s.vs', formula: 'Vs = Vu/φ − Vc', value: `${f(s.Vs)} kN` },
-      { label: zone, formula: `0.33·√f'c·bw·d = ${f(l1, 1)} kN; 0.66·√f'c·bw·d = ${f(l2, 1)} kN`, value: '', ok: s.Vs <= l2 + 1e-6 },
+      { label: zone, formula: `0.33·√f'c·bw·d = ${f(l1, 1)} kN; 0.66·√f'c·bw·d = ${f(l2, 1)} kN`, value: `s,max = ${f(sMax * 100, 1)} cm`, ok: s.Vs <= l2 + 1e-6 },
       { label: 'rcSheets.s.avMin', formula: 'Av,min/s (§9.6.3.4)', value: `${f(s.AvOverSMin)} cm²/m` },
       { label: 'rcSheets.s.avReq', formula: 'Av/s = Vs/(fyt·d)', value: `${f(s.AvOverSReq ?? 0)} cm²/m` },
       { label: 'rcSheets.s.stirrups', formula: stirrupsLabel(st), value: '' },
@@ -250,7 +433,7 @@ function shearSteps(d: BeamDemand, c: BeamContext, s: ReturnType<typeof checkShe
 
 function torsionSteps(
   d: BeamDemand, t0: ReturnType<typeof checkTorsion>, t: ReturnType<typeof checkTorsion>, tuDesign: number,
-  perLeg: number, provided: number, alReq: number, alProv: number, a: BeamAdopted, f: Fmt,
+  e: Evaluation, alReq: number, alMin: number, a: BeamAdopted, f: Fmt,
 ): StepGroup {
   const th = PHI_V * t0.Tcr / 4;
   const steps: Step[] = [
@@ -262,11 +445,13 @@ function torsionSteps(
     if (tuDesign < d.tu.value) steps.push({ label: 'rcSheets.s.compatibility', formula: "Tu ≤ φ·0.33·√f'c·Acp²/pcp (§22.7.3.2)", value: `${f(tuDesign)} kN·m` });
     steps.push(
       { label: 'rcSheets.s.atReq', formula: 'At/s = Tu/(φ·2·A0·fyt·cotθ), A0 = 0.85·Aoh', value: `${f(t.AtOverS)} cm²/m` },
-      { label: 'rcSheets.s.legReq', formula: 'Av/(n·s) + At/s', value: `${f(perLeg)} cm²/m` },
-      { label: 'rcSheets.s.legProv', formula: `${stirrupsLabel(a.stirrups)}: Ab/s`, value: `${f(provided)} cm²/m`, ok: provided >= perLeg - 1e-6 },
-      { label: 'rcSheets.s.alReq', formula: 'Al = (At/s)·ph', value: `${f(alReq)} cm²` },
-      { label: 'rcSheets.s.alProv', formula: a.torsionLong ? groupsLabel([a.torsionLong]) : '—', value: `${f(alProv)} cm²`, ok: alProv >= alReq - 1e-6 },
-      { label: 'rcSheets.s.torsionSection', formula: "√((Vu/bw·d)² + (Tu·ph/1.7·Aoh²)²) ≤ φ·(Vc/bw·d + 0.66·√f'c)", value: '', ok: t.status !== 'fail' },
+      { label: 'rcSheets.s.legReq', formula: 'Av/(n·s) + At/s', value: `${f(e.perLegRequired)} cm²/m` },
+      { label: 'rcSheets.s.legProv', formula: `${stirrupsLabel(a.stirrups)}: Ab/s`, value: `${f(e.perLegProvided)} cm²/m`, ok: e.ok.stirrups },
+      { label: 'rcSheets.s.transverseMin', formula: "(Av + 2At)/s ≥ max(0.062·√f'c; 0.35)·bw/fyt", value: `${f(e.transverseMin)} ≤ ${f(e.transverseProvided)} cm²/m`, ok: e.ok.transverseMin },
+      { label: 'rcSheets.s.alReq', formula: 'Al = (At/s)·ph·(fyt/fy)', value: `${f(alReq)} cm²` },
+      { label: 'rcSheets.s.alMin', formula: "Al,min = 0.42·√f'c·Acp/fy − (At/s)·ph·fyt/fy", value: `${f(alMin)} cm²` },
+      { label: 'rcSheets.s.alProv', formula: a.torsionLong ? groupsLabel([a.torsionLong]) : '—', value: `${f(e.alProvided)} cm²`, ok: e.ok.al && e.ok.alSpacing && e.ok.alDia },
+      { label: 'rcSheets.s.torsionSection', formula: "√((Vu/bw·d)² + (Tu·ph/1.7·Aoh²)²) ≤ φ·(Vc/bw·d + 0.66·√f'c)", value: '', ok: e.ok.torsionSection },
     );
   }
   return { title: 'rcSheets.g.torsion', steps };

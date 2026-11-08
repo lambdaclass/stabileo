@@ -2,7 +2,7 @@
   import { t } from '../../../lib/i18n';
   import { setAdopted, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { SLAB_FACES } from '../../../lib/rc-sheets/slab-row';
-  import type { BarGroup, BeamAdopted, ColumnAdopted, MeshBars, SlabAdopted } from '../../../lib/rc-sheets/types';
+  import type { BarGroup, BeamAdopted, ColumnAdopted, MeshBars, SlabAdopted, WallAdopted } from '../../../lib/rc-sheets/types';
 
   let { row }: { row: SheetRow } = $props();
 
@@ -11,7 +11,11 @@
   const MESH = [6, 8, 10, 12, 16];
 
   const num = (e: Event) => Number((e.currentTarget as HTMLInputElement | HTMLSelectElement).value);
-  const save = (a: BeamAdopted | ColumnAdopted | SlabAdopted) => setAdopted(row.key, a);
+  const save = (a: BeamAdopted | ColumnAdopted | SlabAdopted | WallAdopted) => setAdopted(row.key, a);
+  function wallPatch(patch: Partial<WallAdopted>) {
+    if (row.family !== 'wall') return;
+    save({ ...JSON.parse(JSON.stringify(row.adopted)), ...patch });
+  }
 
   function beamGroup(face: 'bottom' | 'top', i: number, patch: Partial<BarGroup>) {
     if (row.family !== 'beam') return;
@@ -100,6 +104,37 @@
         <span>c/</span>
         <input type="number" min="5" max="40" step="2.5" value={Math.round(row.adopted.tieSpacing * 1000) / 10} onchange={(e) => columnPatch({ tieSpacing: num(e) / 100 })} />
         <span>cm</span>
+      </label>
+    </fieldset>
+  {:else if row.family === 'wall'}
+    {#each ['vertical', 'horizontal'] as const as k (k)}
+      <fieldset>
+        <legend>{t(k === 'vertical' ? 'rcSheets.ed.vertical' : 'rcSheets.ed.horizontal')}</legend>
+        <label>
+          <select value={row.adopted[k].diameter} aria-label={t('rcSheets.ed.dia')} onchange={(e) => wallPatch({ [k]: { ...row.adopted[k], diameter: num(e) } })}>
+            {#each MESH as d (d)}<option value={d}>Ø{d}</option>{/each}
+          </select>
+          <span>c/</span>
+          <input type="number" min="5" max="45" step="2.5" value={Math.round(row.adopted[k].spacing * 1000) / 10} aria-label={t('rcSheets.ed.spacing')} onchange={(e) => wallPatch({ [k]: { ...row.adopted[k], spacing: num(e) / 100 } })} />
+          <span>cm</span>
+        </label>
+      </fieldset>
+    {/each}
+    <fieldset>
+      <legend>{t('rcSheets.ed.curtains')}</legend>
+      <label>
+        <select value={row.adopted.curtains} onchange={(e) => wallPatch({ curtains: num(e) === 1 ? 1 : 2 })}>
+          <option value={1}>1</option><option value={2}>2</option>
+        </select>
+      </label>
+    </fieldset>
+    <fieldset>
+      <legend>{t('rcSheets.ed.boundary')}</legend>
+      <label>
+        <input type="number" min="0" max="24" step="2" value={row.adopted.boundary?.count ?? 0} aria-label={t('rcSheets.ed.count')} onchange={(e) => wallPatch({ boundary: { diameter: row.adopted.boundary?.diameter ?? 16, count: num(e) } })} />
+        <select value={row.adopted.boundary?.diameter ?? 16} aria-label={t('rcSheets.ed.dia')} onchange={(e) => wallPatch({ boundary: { count: row.adopted.boundary?.count ?? 4, diameter: num(e) } })}>
+          {#each LONG.filter((d) => d >= 12) as d (d)}<option value={d}>Ø{d}</option>{/each}
+        </select>
       </label>
     </fieldset>
   {:else}

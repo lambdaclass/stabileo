@@ -1,5 +1,12 @@
-export type SheetFamily = 'beam' | 'column' | 'slab';
-export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab'];
+import type { WallReinforcement } from '../design-contract/reinforcement';
+
+export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall';
+export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall'];
+
+export type SheetCode = 'cirsoc201-2025';
+export const SHEET_CODES: Record<SheetCode, { name: string; edition: '2025' }> = {
+  'cirsoc201-2025': { name: 'CIRSOC 201-2025', edition: '2025' },
+};
 
 export type RowStatus = 'ok' | 'warn' | 'fail' | 'none';
 
@@ -28,18 +35,21 @@ export interface ColumnAdopted {
 
 export interface SlabAdopted { bottomX: MeshBars; bottomY: MeshBars; topX: MeshBars; topY: MeshBars }
 
-export type Adopted = BeamAdopted | ColumnAdopted | SlabAdopted;
+export type WallAdopted = WallReinforcement;
+
+export type Adopted = BeamAdopted | ColumnAdopted | SlabAdopted | WallAdopted;
 
 export type TorsionMode = 'equilibrium' | 'compatibility';
 
 export interface RcSheetsData {
   version: 1;
+  code: SheetCode;
   torsion: TorsionMode;
   /** Adopted bars by row key. */
   adopted: Record<string, Adopted>;
 }
 
-export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
+export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, code: 'cirsoc201-2025', torsion: 'equilibrium', adopted: {} });
 
 export interface Step {
   label: string;
@@ -50,8 +60,29 @@ export interface Step {
 
 export interface StepGroup { title: string; steps: Step[] }
 
+/** One verification of the adopted bars: `label` is an i18n key; demand and capacity are formatted. */
+export interface CheckLine {
+  label: string;
+  clause?: string;
+  demand?: string;
+  capacity?: string;
+  ratio?: number;
+  ok: boolean;
+}
+
+/** The forces of one combination on a row and how the adopted bars carry them. `headers` are i18n keys or symbols. */
+export interface ComboTable {
+  headers: string[];
+  rows: Array<{ combo: string; values: string[]; ratio: number; ok: boolean }>;
+}
+
 export interface DemandSource { combo: string; x?: number }
 
 export interface Signed { value: number; source?: DemandSource }
 
 export interface Materials { fc: number; fy: number }
+
+export const check = (label: string, ok: boolean, o: Omit<CheckLine, 'label' | 'ok'> = {}): CheckLine => ({ label, ok, ...o });
+
+export const ratioOf = (demand: number, capacity: number): number =>
+  capacity > 1e-9 ? Math.abs(demand) / capacity : Math.abs(demand) > 1e-9 ? Number.POSITIVE_INFINITY : 0;

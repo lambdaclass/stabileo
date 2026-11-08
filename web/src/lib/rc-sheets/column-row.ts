@@ -1,11 +1,12 @@
 import { checkSlender, type ConcreteDesignParams } from '../engine/codes/argentina/cirsoc201';
 import { COLUMN_STEEL_RATIO } from '../engine/codes/argentina/cirsoc201-basis';
 import { withSection, type Bar } from '../engine/codes/argentina/cirsoc201-section';
+import { evaluateBeamSections, type BeamSectionQuery } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
 import { minClearSpacingColumn } from '../codes/cirsoc201/spacing';
 import { barArea, roundDown } from './bars';
 import type { Fmt } from './format';
-import type { ColumnAdopted, Materials, RowStatus, Step, StepGroup } from './types';
+import { check, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup } from './types';
 
 const EDITION = '2025' as const;
 const MAX_UNSUPPORTED_CLEAR = 0.15;
@@ -13,11 +14,13 @@ const MAX_UNSUPPORTED_CLEAR = 0.15;
 /** Moments about the section's x axis bend it over its depth h; about y, over its width b. */
 export interface ColumnCase {
   combo: string;
-  /** kN, positive in compression. */
-  pu: number;
+  /** kN, positive in compression: the larger at the two ends, and the smaller (at the top). */
+  pu: number; puMin?: number;
   /** The part of `pu` the dead load gives, factored as in the combination, kN. */
   puD?: number;
   mxTop: number; mxBot: number; myTop: number; myBot: number;
+  /** Largest shear along the storey that pairs with Mx (acting along h) and with My (along b), kN. */
+  vx?: number; vy?: number;
 }
 
 export interface ColumnDemand {
@@ -38,7 +41,8 @@ export interface ColumnContext {
 }
 
 interface AxisResult { klr: number; lim: number; slender: boolean; m1: number; m2: number; delta: number; mc: number; k: number }
-interface CaseResult { c: ColumnCase; x: AxisResult; y: AxisResult; ratio: number }
+interface CaseResult { c: ColumnCase; x: AxisResult; y: AxisResult; tuples: Tuple[]; ratio: number }
+interface Tuple { pu: number; mx: number; my: number }
 
 export interface ColumnRow {
   family: 'column';
@@ -49,7 +53,10 @@ export interface ColumnRow {
   proposed: ColumnAdopted;
   adopted: ColumnAdopted;
   isAdopted: boolean;
-  checks: { ratio: number; ok: boolean; area: number; spacingOk: boolean; tieOk: boolean; tieMax: number; crossties: { x: number; y: number }; rhoOk: boolean };
+  checks: { ratio: number; ok: boolean; area: number; spacingOk: boolean; tieOk: boolean; tieMax: number; crossties: { x: number; y: number }; rhoOk: boolean; shearX: number; shearY: number };
+  verifications: CheckLine[];
+  combos: ComboTable;
+  iterations: number;
   status: RowStatus;
   generous: boolean;
   steps: StepGroup[];
@@ -130,12 +137,52 @@ function crossties(side: number, n: number, dia: number, cornerDia: number, c: C
 
 const tieDiaFor = (longDia: number): number => (longDia <= 16 ? 6 : longDia <= 25 ? 8 : 10);
 
+
+
+/** The demands a case puts on the section: each end as it is, or the magnified moments where a direction is slender. */
+function tuplesOf(cs: ColumnCase, x: AxisResult, y: AxisResult): Tuple[] {
+  if (x.slender || y.slender) return [{ pu: cs.pu, mx: x.mc, my: y.mc }];
+  return [{ pu: cs.puMin ?? cs.pu, mx: cs.mxTop, my: cs.myTop }, { pu: cs.pu, mx: cs.mxBot, my: cs.myBot }];
+}
+
+/** At most eight tuples that bound the others: the most and least compression, each moment and their sum, the largest eccentricity. */
+function governing(tuples: Tuple[]): Tuple[] {
+  if (tuples.length <= 8) return tuples;
+  const by = (f: (t: Tuple) => number) => tuples.reduce((a, t) => (f(t) > f(a) ? t : a));
+  return [...new Set([by((t) => t.pu), by((t) => -t.pu), by((t) => Math.abs(t.mx)), by((t) => Math.abs(t.my)), by((t) => Math.abs(t.mx) + Math.abs(t.my)),
+    by((t) => (Math.abs(t.mx) + Math.abs(t.my)) / Math.max(Math.abs(t.pu), 1)), by((t) => Math.abs(t.mx) - t.pu * 1e-3), by((t) => Math.abs(t.my) - t.pu * 1e-3)])];
+}
+
+function shearQueries(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, ct: { x: number; y: number }, pu: number): BeamSectionQuery[] {
+  const ab = barArea(a.tieDia) * 1e-4;
+  const base = { edition: EDITION, fc: c.mat.fc * 1e6, fy: c.mat.fy * 1e6, s: a.tieSpacing, fyt: c.mat.fy * 1e6, Ag: d.b * d.h, NuCompression: Math.max(0, pu) * 1e3 };
+  return [
+    { ...base, b: d.b, h: d.h, d: d.h - coverToBar(c, a.tieDia, a.corner), As: (2 * barArea(a.corner) + a.nx * barArea(a.dx)) * 1e-4, Av: (2 + ct.x) * ab },
+    { ...base, b: d.h, h: d.b, d: d.b - coverToBar(c, a.tieDia, a.corner), As: (2 * barArea(a.corner) + a.ny * barArea(a.dy)) * 1e-4, Av: (2 + ct.y) * ab },
+  ];
+}
+
+function shearRatios(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, ct: { x: number; y: number }): Array<{ x: number; y: number; px: number; py: number }> {
+  const qs = d.cases.flatMap((cs) => shearQueries(d, c, a, ct, cs.puMin ?? cs.pu));
+  const ans = evaluateBeamSections(qs) ?? [];
+  return d.cases.map((cs, i) => {
+    const rx = ans[2 * i], ry = ans[2 * i + 1];
+    const px = rx && rx.shearValid ? rx.phiVn / 1e3 : 0, py = ry && ry.shearValid ? ry.phiVn / 1e3 : 0;
+    return { x: ratioOf(cs.vx ?? 0, px), y: ratioOf(cs.vy ?? 0, py), px, py };
+  });
+}
+
 export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt): ColumnRow {
   const Ag = d.b * d.h;
-  const results: CaseResult[] = d.cases.map((cs) => ({ c: cs, x: axis(d, c, cs, 'x'), y: axis(d, c, cs, 'y'), ratio: 0 }));
-  const demands = results.map((r) => ({ pu: r.c.pu, mx: r.x.mc, my: r.y.mc }));
+  const results: CaseResult[] = d.cases.map((cs) => {
+    const x = axis(d, c, cs, 'x'), y = axis(d, c, cs, 'y');
+    return { c: cs, x, y, tuples: tuplesOf(cs, x, y), ratio: 0 };
+  });
+  const all = results.flatMap((r) => r.tuples);
+  const demands = governing(all);
   const puMax = Math.max(0, ...d.cases.map((cs) => cs.pu));
   const compressionDominated = puMax > 0.1 * c.mat.fc * 1000 * Ag;
+  const klrMax = Math.max(0, ...results.flatMap((r) => [r.x.klr, r.y.klr]));
 
   const dias = c.diameters.filter((x) => x >= 12 && x <= 32);
   const refDia = dias.includes(16) ? 16 : dias[0] ?? 16;
@@ -154,20 +201,48 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     }
   }
 
-  const proposed = proposeColumn(d, c, ast, dias, demands);
+  const { layout: proposed, iterations } = proposeColumn(d, c, ast, dias, all);
   const a = adopted ?? proposed;
-  const ratio = demands.length ? utilisation(d, c, a, demands) : 0;
-  results.forEach((r) => { r.ratio = utilisation(d, c, a, [{ pu: r.c.pu, mx: r.x.mc, my: r.y.mc }]); });
+  const perTuple = withSection({ kind: 'rect', b: d.b, h: d.h }, columnBars(d, a, c), { fc: c.mat.fc, fy: c.mat.fy, edition: EDITION }, (s) =>
+    results.map((r) => r.tuples.reduce((w, q) => Math.max(w, s.biaxialFast(q.pu, q.mx, q.my).ratio), 0)));
+  results.forEach((r, i) => { r.ratio = perTuple[i] ?? 0; });
+  const ratio = Math.max(0, ...perTuple);
   const gov = results.reduce<CaseResult | undefined>((w, r) => (!w || r.ratio > w.ratio ? r : w), undefined);
   const area = columnArea(a);
   const rhoOk = area >= lo0 - 1e-6 && area <= hi0 + 1e-6;
   const spacingOk = clearOk(d, c, a);
   const longest = Math.max(a.corner, a.dx, a.dy), thinnest = Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
   const tieMax = columnTieSpacing(EDITION, thinnest, a.tieDia, Math.min(d.b, d.h)).spacing;
-  const tieOk = a.tieSpacing <= tieMax + 1e-6 && a.tieDia >= tieDiaFor(longest);
+  const tieDiaOk = a.tieDia >= tieDiaFor(longest);
+  const tieOk = a.tieSpacing <= tieMax + 1e-6 && tieDiaOk;
   const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };
-  const ok = ratio <= 1 + 1e-6 && rhoOk && spacingOk && tieOk;
+  const sh = shearRatios(d, c, a, ct);
+  const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
+  const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
   const generous = area > 1.2 * ast + 1e-6 && ast > lo0 + 1e-6;
+
+  const verifications: CheckLine[] = [
+    check('rcSheets.v.biaxial', ratio <= 1 + 1e-6, { clause: '§22.4, §22.2', demand: gov?.c.combo ?? '', capacity: '', ratio }),
+    check('rcSheets.v.rhoMin', area >= Math.max(ast, lo0) - 1e-6, { clause: '§10.6.1.1', demand: `${fmt(Math.max(ast, lo0))} cm²`, capacity: `${fmt(area)} cm²`, ratio: ratioOf(Math.max(ast, lo0), area) }),
+    check('rcSheets.v.rhoMax', area <= hi0 + 1e-6, { clause: '§10.6.1.1', demand: `${fmt(area / (Ag * 1e4) * 100)} %`, capacity: '≤ 8 %' }),
+    check('rcSheets.v.colSpacing', spacingOk, { clause: '§25.2.3' }),
+    check('rcSheets.v.slenderMax', klrMax <= 100 + 1e-9, { clause: '§6.2.6', demand: `k·lu/r = ${fmt(klrMax, 1)}`, capacity: '≤ 100' }),
+    check('rcSheets.v.shearX', shearX <= 1 + 1e-6, { clause: '§22.5', demand: `${fmt(vxMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.px)))} kN`, ratio: shearX }),
+    check('rcSheets.v.shearY', shearY <= 1 + 1e-6, { clause: '§22.5', demand: `${fmt(vyMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.py)))} kN`, ratio: shearY }),
+    check('rcSheets.v.tieDia', tieDiaOk, { clause: '§25.7.2.2', demand: `Ø${a.tieDia}`, capacity: `≥ Ø${tieDiaFor(longest)}` }),
+    check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '§25.7.2.1', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(tieMax * 100, 1)} cm` }),
+    check('rcSheets.v.crossties', true, { clause: '§25.7.2.3', capacity: `${ct.x} (b) · ${ct.y} (h)` }),
+  ];
+  const ok = verifications.every((v) => v.ok) && !impossible;
+
+  const combos: ComboTable = {
+    headers: ['Pu', 'Mx', 'My', 'Vx', 'Vy'],
+    rows: results.map((r, i) => {
+      const t = r.tuples.reduce((w, q) => (Math.abs(q.mx) + Math.abs(q.my) > Math.abs(w.mx) + Math.abs(w.my) ? q : w));
+      const rr = Math.max(r.ratio, sh[i]?.x ?? 0, sh[i]?.y ?? 0);
+      return { combo: r.c.combo, values: [fmt(r.c.pu, 1), fmt(t.mx, 1), fmt(t.my, 1), fmt(r.c.vx ?? 0, 1), fmt(r.c.vy ?? 0, 1)], ratio: rr, ok: rr <= 1 + 1e-6 };
+    }),
+  };
 
   const steps: StepGroup[] = [
     {
@@ -178,34 +253,42 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
         { label: 'rcSheets.s.height', formula: 'L · lu', value: `${fmt(d.length)} · ${fmt(d.lu)} m` },
         { label: 'rcSheets.s.psi', formula: 'ΨA · ΨB', value: `${fmt(d.psiTop)} · ${fmt(d.psiBot)}` },
         { label: 'rcSheets.s.compressionDominated', formula: "Pu > 0.10·f'c·Ag", value: `${fmt(puMax, 1)} kN`, ok: compressionDominated },
+        { label: 'rcSheets.s.nonSway', value: '' },
       ],
     },
     ...(gov ? [slenderSteps(gov, fmt)] : []),
     {
       title: 'rcSheets.g.interaction',
       steps: [
+        { label: 'rcSheets.s.tuples', formula: (gov?.x.slender || gov?.y.slender) ? '(Pu, δ·Mx, δ·My)' : '(Pu, Mx, My) i · j', value: String(all.length) },
         { label: 'rcSheets.s.rhoReq', formula: 'ρ = Ast/Ag (Pu, Mcx, Mcy)', value: `${fmt(ast / (Ag * 1e4) * 100, 2)} % → ${fmt(ast)} cm²`, ok: !impossible },
         { label: 'rcSheets.s.rhoLimits', formula: '0.01 ≤ ρ ≤ 0.08', value: `${fmt(area / (Ag * 1e4) * 100, 2)} %`, ok: rhoOk },
         { label: 'rcSheets.s.adopted', formula: columnLabel(a), value: `${fmt(area)} cm²`, ok: area >= ast - 1e-6 },
         { label: 'rcSheets.s.colSpacing', formula: 'max(1.5·db; 40 mm) (§25.2.3)', value: '', ok: spacingOk },
-        { label: 'rcSheets.s.biaxial', formula: gov ? `Pu = ${fmt(gov.c.pu, 1)} kN; Mcx = ${fmt(gov.x.mc)}; Mcy = ${fmt(gov.y.mc)} kN·m (${gov.c.combo})` : '—', value: `${fmt(ratio, 3)}`, ok: ratio <= 1 + 1e-6 },
+        { label: 'rcSheets.s.biaxial', formula: gov ? `${gov.c.combo}: Pu = ${fmt(gov.c.pu, 1)} kN` : '—', value: `${fmt(ratio, 3)}`, ok: ratio <= 1 + 1e-6 },
       ],
     },
     {
       title: 'rcSheets.g.ties',
       steps: [
-        { label: 'rcSheets.s.tieDia', formula: 'db ≤ 16 → Ø6; ≤ 25 → Ø8; > 25 → Ø10', value: `Ø${a.tieDia}`, ok: a.tieDia >= tieDiaFor(longest) },
-        { label: 'rcSheets.s.tieSpacing', formula: 's ≤ min(16·db; 48·de; b) (§25.7.2.1)', value: `${tieLabel(a)} ≤ ${fmt(tieMax * 100, 0)} cm`, ok: tieOk },
+        { label: 'rcSheets.s.tieDia', formula: 'db ≤ 16 → Ø6; ≤ 25 → Ø8; > 25 → Ø10', value: `Ø${a.tieDia}`, ok: tieDiaOk },
+        { label: 'rcSheets.s.tieSpacing', formula: 's ≤ min(16·db; 48·de; b) (§25.7.2.1)', value: `${tieLabel(a)} ≤ ${fmt(tieMax * 100, 0)} cm`, ok: a.tieSpacing <= tieMax + 1e-6 },
         { label: 'rcSheets.s.crossties', formula: '≤ 150 mm (§25.7.2.3)', value: `${ct.x} (b) · ${ct.y} (h)` },
+        { label: 'rcSheets.s.colShear', formula: 'φVn = φ·(Vc(Nu) + Av·fyt·d/s)', value: `${fmt(Math.max(shearX, shearY), 3)}`, ok: shearX <= 1 + 1e-6 && shearY <= 1 + 1e-6 },
       ],
+    },
+    {
+      title: 'rcSheets.g.proposal',
+      steps: [adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ → barras → (Pu, Mx, My) ≤ φ; V ≤ φVn', value: String(iterations) }],
     },
   ];
 
   return {
     family: 'column', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
     req: { rho: ast / (Ag * 1e4), ast, impossible, governing: gov?.c.combo ?? '', compressionDominated },
-    proposed, adopted: a, isAdopted: !!adopted,
-    checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: ct, rhoOk },
+    proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations,
+    checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: ct, rhoOk, shearX, shearY },
+    verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };
 }
@@ -216,28 +299,45 @@ function slenderSteps(g: CaseResult, f: Fmt): StepGroup {
     { label: 'rcSheets.s.limit', formula: 'λlim = 34 + 12·M1/M2 ≤ 40', value: `M1 = ${f(-r.m1)} · M2 = ${f(r.m2)} kN·m` },
     ...(r.slender ? [{ label: 'rcSheets.s.magnifier', formula: 'δns = Cm/(1 − Pu/(0.75·Pc)); Mc = δns·max(M2; M2,min)', value: `${f(r.delta, 3)} → ${f(r.mc)} kN·m` }] : []),
   ];
-  return { title: 'rcSheets.g.slenderness', steps: [...ax('x', g.x), ...ax('y', g.y)] };
+  return { title: 'rcSheets.g.slenderness', steps: [{ label: 'rcSheets.s.governs', formula: '', value: g.c.combo }, ...ax('x', g.x), ...ax('y', g.y)] };
 }
 
-function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: readonly number[], demands: Array<{ pu: number; mx: number; my: number }>): ColumnAdopted {
-  const ok: ColumnAdopted[] = [];
+function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: readonly number[], tuples: Tuple[]): { layout: ColumnAdopted; iterations: number } {
+  const ok: Array<{ a: ColumnAdopted; it: number }> = [];
+  const demands = governing(tuples);
   for (const dia of dias.length ? dias : [16]) {
-    const tie = tieDiaFor(dia);
+    let tie = tieDiaFor(dia);
     let a = evenLayout(d, c, dia, tie, 0.3);
+    let it = 0;
     for (let guard = 0; guard < 20 && columnArea(a) < ast - 1e-6; guard++) {
       a = d.h >= d.b ? (a.ny <= a.nx ? { ...a, ny: a.ny + 1 } : { ...a, nx: a.nx + 1 }) : (a.nx <= a.ny ? { ...a, nx: a.nx + 1 } : { ...a, ny: a.ny + 1 });
     }
     if (!clearOk(d, c, a)) continue;
-    const spacing = roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing);
-    a = { ...a, tieSpacing: spacing };
+    a = { ...a, tieSpacing: roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing) };
+    while (demands.length && utilisation(d, c, a, demands) > 1 + 1e-6 && it < 8) {
+      it++;
+      const grown = d.h >= d.b ? (a.ny <= a.nx ? { ...a, ny: a.ny + 1 } : { ...a, nx: a.nx + 1 }) : (a.nx <= a.ny ? { ...a, nx: a.nx + 1 } : { ...a, ny: a.ny + 1 });
+      if (!clearOk(d, c, grown)) break;
+      a = grown;
+    }
     if (demands.length && utilisation(d, c, a, demands) > 1 + 1e-6) continue;
-    ok.push(a);
+    for (let guard = 0; guard < 40; guard++) {
+      const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };
+      const sh = shearRatios(d, c, a, ct);
+      if (sh.every((x) => x.x <= 1 + 1e-6 && x.y <= 1 + 1e-6)) break;
+      it++;
+      if (a.tieSpacing > 0.075 + 1e-9) a = { ...a, tieSpacing: roundDown(a.tieSpacing - 0.025) };
+      else if (tie < 12) { tie += 2; a = { ...a, tieDia: tie, tieSpacing: Math.min(0.15, roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing)) }; }
+      else break;
+    }
+    ok.push({ a, it });
   }
   if (ok.length) {
-    const least = Math.min(...ok.map(columnArea));
-    return ok.filter((a) => columnArea(a) <= 1.1 * least + 1e-6).sort((p, q) => p.nx + p.ny - (q.nx + q.ny) || columnArea(p) - columnArea(q))[0]!;
+    const least = Math.min(...ok.map((x) => columnArea(x.a)));
+    const pick = ok.filter((x) => columnArea(x.a) <= 1.1 * least + 1e-6).sort((p, q) => p.a.nx + p.a.ny - (q.a.nx + q.a.ny) || columnArea(p.a) - columnArea(q.a))[0]!;
+    return { layout: pick.a, iterations: pick.it };
   }
   const dia = dias[dias.length - 1] ?? 25;
   const tie = tieDiaFor(dia);
-  return { ...evenLayout(d, c, dia, tie, 0.15), tieSpacing: roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing) };
+  return { layout: { ...evenLayout(d, c, dia, tie, 0.15), tieSpacing: roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing) }, iterations: 0 };
 }

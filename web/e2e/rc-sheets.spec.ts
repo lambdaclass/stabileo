@@ -7,7 +7,7 @@ import { test, expect, loadModel, solveModel } from './fixtures';
  */
 test.use({ appLocale: 'es' });
 
-test('@slow the reinforcement sheets design beams, columns and slabs of a solved building', async ({ pro: page }) => {
+test('@slow the reinforcement sheets design beams, columns, slabs and walls of a solved building', async ({ pro: page }) => {
   await loadModel(page, 'pro-edificio-7p');
   await solveModel(page);
 
@@ -20,13 +20,18 @@ test('@slow the reinforcement sheets design beams, columns and slabs of a solved
   await expect(page.getByTestId('rc-open-column')).toBeEnabled();
   await expect(page.getByTestId('rc-open-slab')).toBeEnabled();
 
+  await expect(page.getByTestId('rc-panel-code')).toContainText('CIRSOC 201-2025');
   await page.getByTestId('rc-open-beam').click();
   const ws = page.getByTestId('rc-sheets-workspace');
   await expect(ws).toBeVisible();
+  await expect(ws.getByTestId('rc-code')).toContainText('CIRSOC 201-2025');
   const first = ws.getByTestId('rc-row').first();
   await expect(first).toContainText('Verifica');
 
   await first.click();
+  await expect(ws.getByTestId('rc-checks')).toContainText('Flexión positiva en el tramo');
+  await ws.locator('summary', { hasText: 'Por combinación' }).click();
+  await expect(ws.getByTestId('rc-combos')).toBeVisible();
   const editor = ws.getByTestId('rc-editor');
   await editor.getByRole('spinbutton', { name: 'Cantidad' }).first().fill('1');
   await editor.getByRole('spinbutton', { name: 'Cantidad' }).first().press('Tab');
@@ -41,4 +46,6 @@ test('@slow the reinforcement sheets design beams, columns and slabs of a solved
   await expect(ws.getByTestId('rc-table-column')).toBeVisible();
   await ws.getByTestId('rc-tab-slab').click();
   await expect(ws.getByTestId('rc-table-slab')).toBeVisible();
+  await ws.getByTestId('rc-tab-wall').click();
+  await expect(ws.getByTestId('rc-table-wall')).toBeVisible();
 });

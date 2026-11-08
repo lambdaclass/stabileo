@@ -31,6 +31,8 @@
     <p class="rcp-note">{t('rcSheets.noPhysical')}</p>
     <button type="button" class="rcs-btn" onclick={() => recognizePhysicalElements()} data-testid="rc-recognize">{t('rcSheets.recognize')}</button>
   {:else if rows}
+    <p class="rcp-code" data-testid="rc-panel-code"><span>{t('rcSheets.code')}</span><strong>{rows.code}</strong></p>
+    <p class="rcp-note">{t('rcSheets.codeHint')}</p>
     <p class="rcp-basis" class:warn={rows.basis !== 'combinations'}>
       {rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`)}
     </p>
@@ -68,6 +70,8 @@
   .rcp { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; }
   .rcp-intro { margin: 0; font-size: 0.76rem; line-height: 1.45; color: var(--st-text-2); }
   .rcp-note { margin: 0; font-size: 0.7rem; line-height: 1.45; color: var(--st-text-3); }
+  .rcp-code { margin: 0; display: flex; justify-content: space-between; font-size: 0.76rem; color: var(--st-text-2); }
+  .rcp-code strong { color: var(--st-text); }
   .rcp-basis { margin: 0; font-size: 0.72rem; color: var(--st-text-2); }
   .rcp-basis.warn { color: var(--st-warn); }
   .rcp-fams { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }

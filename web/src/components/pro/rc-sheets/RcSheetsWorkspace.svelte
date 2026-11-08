@@ -6,8 +6,11 @@
   import { groupsArea, groupsLabel, meshArea, meshLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import { columnLabel, tieLabel } from '../../../lib/rc-sheets/column-row';
   import { SLAB_FACES } from '../../../lib/rc-sheets/slab-row';
+  import { wallLabel } from '../../../lib/rc-sheets/wall-row';
   import { SHEET_FAMILIES, type SheetFamily } from '../../../lib/rc-sheets/types';
   import RcSteps from './RcSteps.svelte';
+  import RcChecks from './RcChecks.svelte';
+  import RcCombos from './RcCombos.svelte';
   import RcRowEditor from './RcRowEditor.svelte';
 
   let { onclose, family = $bindable<SheetFamily>('beam') }: { onclose: () => void; family?: SheetFamily } = $props();
@@ -43,7 +46,8 @@
 <div class="rcw" use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
   <header class="rcw-head">
     <strong>{t('rcSheets.title')}</strong>
-    <span class="rcw-dim">CIRSOC 201-2025 · {rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`)}</span>
+    <span class="rcw-code" data-testid="rc-code" title={t('rcSheets.codeHint')}>{t('rcSheets.code')}: {rows.code}</span>
+    <span class="rcw-dim">{rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`)}</span>
     <div class="rcw-tabs" role="tablist">
       {#each SHEET_FAMILIES as f (f)}
         <button type="button" role="tab" aria-selected={family === f} class:on={family === f} data-testid={`rc-tab-${f}`} onclick={() => { family = f; level = ''; openKey = null; }}>
@@ -60,7 +64,7 @@
     </label>
     <label class="rcw-ctl"><input type="checkbox" bind:checked={failingOnly} /> {t('rcSheets.onlyFailing')}</label>
     <button type="button" class="rcs-btn" onclick={() => adoptAll(shown)} disabled={!shown.length}>{t('rcSheets.adoptAll')}</button>
-    <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length}>{t('rcSheets.export')}</button>
+    <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length}>{t('rcSheets.export')}</button>
     <button type="button" class="rcs-btn" onclick={onclose} aria-label={t('rcSheets.close')}>✕</button>
   </header>
 
@@ -76,6 +80,9 @@
           {:else if family === 'column'}
             <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>b × h</th><th>Pu</th><th>ρ</th>
               <th>{t('rcSheets.col.bars')}</th><th>{t('rcSheets.col.ties')}</th><th>{t('rcSheets.col.crossties')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
+          {:else if family === 'wall'}
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>lw × t</th><th>Pu</th><th>Mu</th><th>Vu</th>
+              <th>ρl · ρt {t('rcSheets.req')}</th><th>{t('rcSheets.col.bars')}</th><th>{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else}
             <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>h</th><th>Lx × Ly</th>
               {#each SLAB_FACES as f (f)}<th>{t(`rcSheets.face.${f}`)}</th>{/each}<th>{t('rcSheets.col.status')}</th></tr>
@@ -88,8 +95,8 @@
               <td>{r.level ?? ''}</td>
               {#if r.family === 'beam'}
                 <td>{fmt(r.b * 100, 0)}×{fmt(r.h * 100, 0)}</td>
-                <td class="n">{f1(r.demand.mPos.value)}</td>
-                <td class="n">{f1(Math.max(r.demand.mNegStart.value, r.demand.mNegEnd.value))}</td>
+                <td class="n">{f1(Math.max(r.demand.start.pos.value, r.demand.span.pos.value, r.demand.end.pos.value))}</td>
+                <td class="n">{f1(Math.max(r.demand.start.neg.value, r.demand.span.neg.value, r.demand.end.neg.value, r.demand.negAny.value))}</td>
                 <td class="n">{f1(r.demand.vu.value)}</td>
                 <td class="n">{f1(r.demand.tu.value)}</td>
                 <td><span class="need">{f2(r.req.bottom)}</span> {groupsLabel(r.adopted.bottom)} <span class="dim">({f2(groupsArea(r.adopted.bottom))})</span></td>
@@ -104,6 +111,14 @@
                 <td>{tieLabel(r.adopted)}</td>
                 <td>{r.checks.crossties.x} · {r.checks.crossties.y}</td>
                 <td class="n">{fmt(r.checks.ratio, 2)}</td>
+              {:else if r.family === 'wall'}
+                <td>{f2(r.length)} m × {fmt(r.thickness * 100, 0)}</td>
+                <td class="n">{f1(Math.max(0, ...r.demand.combos.map((k) => k.pu)))}</td>
+                <td class="n">{f1(Math.max(0, ...r.demand.combos.map((k) => k.mu)))}</td>
+                <td class="n">{f1(Math.max(0, ...r.demand.combos.map((k) => k.vu)))}</td>
+                <td class="n">{fmt(r.req.rhoL * 100, 3)} · {fmt(r.req.rhoT * 100, 3)} %</td>
+                <td>{wallLabel(r.adopted)}</td>
+                <td class="n">{fmt(r.utilization, 2)}</td>
               {:else}
                 <td>{fmt(r.h * 100, 0)}</td>
                 <td>{f2(r.lx)} × {f2(r.ly)}</td>
@@ -117,7 +132,15 @@
               <tr class="detail">
                 <td colspan="13">
                   <RcRowEditor row={r} />
-                  <RcSteps groups={r.steps} />
+                  <RcChecks lines={r.verifications} />
+                  <details open={r.status === 'fail'}>
+                    <summary>{t('rcSheets.combo.title')} ({r.combos.rows.length})</summary>
+                    <RcCombos table={r.combos} />
+                  </details>
+                  <details open>
+                    <summary>{t('rcSheets.steps')}</summary>
+                    <RcSteps groups={r.steps} />
+                  </details>
                 </td>
               </tr>
             {/if}
@@ -134,6 +157,9 @@
   .rcw-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--st-hair); }
   .rcw-head strong { font-family: var(--st-display); font-size: 0.9rem; }
   .rcw-dim { font-size: 0.72rem; color: var(--st-text-3); }
+  .rcw-code { font-size: 0.72rem; font-weight: 600; border: 1px solid var(--st-hair); border-radius: 4px; padding: 1px 6px; color: var(--st-text); }
+  details { margin: 4px 0 8px; }
+  summary { cursor: pointer; font-size: 0.72rem; font-weight: 600; color: var(--st-text-2); margin-bottom: 4px; }
   .rcw-tabs { display: flex; gap: 2px; margin-left: 8px; }
   .rcw-tabs button { border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text-2); border-radius: 4px; padding: 3px 10px; font-size: 0.76rem; cursor: pointer; }
   .rcw-tabs button.on { background: var(--st-accent, var(--st-surface-3)); color: var(--st-on-accent, var(--st-text)); }

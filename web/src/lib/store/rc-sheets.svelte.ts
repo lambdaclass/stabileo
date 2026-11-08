@@ -5,20 +5,24 @@ import { designData, patchOwnDesignData } from './design-data';
 import { designComboIds, narrowPerCombo } from '../engine/result-scopes';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { concreteFc } from '../model/design-data';
-import { beamDemands, columnDemands, slabDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
+import { beamDemands, columnDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { beamRow, type BeamRow } from '../rc-sheets/beam-row';
 import { columnRow, type ColumnRow } from '../rc-sheets/column-row';
 import { slabRow, type SlabRow } from '../rc-sheets/slab-row';
+import { wallRow, type WallRow } from '../rc-sheets/wall-row';
 import { makeFmt, type Fmt } from '../rc-sheets/format';
-import { defaultRcSheetsData, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type SheetFamily, type SlabAdopted, type TorsionMode } from '../rc-sheets/types';
+import { defaultRcSheetsData, SHEET_CODES, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 
-export type SheetRow = BeamRow | ColumnRow | SlabRow;
+export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow;
 
 export interface SheetRows {
   beam: BeamRow[];
   column: ColumnRow[];
   slab: SlabRow[];
+  wall: WallRow[];
+  /** The regulation the rows are computed with. */
+  code: string;
   /** Where the forces came from: the design combinations, or the result on screen when none is solved. */
   basis: 'combinations' | 'single' | 'none';
   combos: number;
@@ -27,7 +31,8 @@ export interface SheetRows {
 const DEFAULT_FC = 25;
 
 export function rcSheetsData(): RcSheetsData {
-  return designData().rcSheets ?? defaultRcSheetsData();
+  const d = designData().rcSheets;
+  return d ? { ...defaultRcSheetsData(), ...d } : defaultRcSheetsData();
 }
 
 function save(next: RcSheetsData): void {
@@ -87,6 +92,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[]): DemandInput 
     supportNodes: new Set(supportsByNode.keys()),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
     groups, sets, dead,
+    levelZs: (modelStore.grid?.levels ?? []).map((l) => l.z),
     levelAt: (z) => modelStore.grid?.levels.find((l) => Math.abs(l.z - z) < 0.01)?.name ?? `z = ${z.toFixed(2)} m`,
     psi: (id) => computeJointPsiFromModel(id, modelStore.nodes as never, modelStore.elements as never, modelStore.sections as never, modelStore.materials as never, supportsByNode as never),
   };
@@ -104,7 +110,7 @@ function fcOfShells(quads: number[], plates: number[]): number {
   return concreteFc(m as never) ?? DEFAULT_FC;
 }
 
-const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; groupsRev: unknown }>();
+const demandCache = new WeakMap<object, { beams: ReturnType<typeof beamDemands>; columns: ReturnType<typeof columnDemands>; slabs: ReturnType<typeof slabDemands>; walls: ReturnType<typeof wallDemands>; groupsRev: unknown }>();
 
 const rowCache = new WeakMap<object, Map<string, SheetRow>>();
 
@@ -122,9 +128,10 @@ function cached<D extends object, R extends SheetRow>(demand: D, inputs: unknown
 
 export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   const { sets, basis, dead } = designSets();
-  if (!sets.length) return { beam: [], column: [], slab: [], basis, combos: 0 };
+  const codeName = SHEET_CODES[rcSheetsData().code]?.name ?? 'CIRSOC 201-2025';
+  if (!sets.length) return { beam: [], column: [], slab: [], wall: [], code: codeName, basis, combos: 0 };
   const dd = designData();
-  const data = dd.rcSheets ?? defaultRcSheetsData();
+  const data = rcSheetsData();
   const key = basis === 'combinations' ? resultsStore.perCombo3D : resultsStore.results3D!;
   const groupsRev = modelStore.model.groups;
   let dem = demandCache.get(key);
@@ -134,6 +141,7 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
     dem = {
       beams: beamDemands(input), columns: columnDemands(input),
       slabs: slabDemands(input, (g) => { const pg = byGroup.get(g.id); return pg ? physicalThickness(pg) : null; }),
+      walls: wallDemands(input),
       groupsRev,
     };
     demandCache.set(key, dem);
@@ -158,8 +166,14 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
     const a = data.adopted[d.key] as SlabAdopted | undefined;
     return cached(d, [ctx, a, dec], () => slabRow(d, ctx, a, fmt));
   });
+  const wall = dem.walls.map((d) => {
+    const g = groupOf(d.key);
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm };
+    const a = data.adopted[d.key] as WallAdopted | undefined;
+    return cached(d, [ctx, a, dec], () => wallRow(d, ctx, a, fmt));
+  });
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  return { beam: sort(beam), column: sort(column), slab: sort(slab), basis, combos: sets.length };
+  return { beam: sort(beam), column: sort(column), slab: sort(slab), wall: sort(wall), code: codeName, basis, combos: sets.length };
 }
 
 export const familyRows = (rows: SheetRows, f: SheetFamily): SheetRow[] => rows[f];
