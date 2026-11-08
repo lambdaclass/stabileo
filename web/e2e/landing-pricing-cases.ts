@@ -1,5 +1,5 @@
 import { test as base, expect, type Page } from '@playwright/test';
-import { type Locale } from '../src/lib/i18n/offered';
+import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 import { bootLanding } from './landing-helpers';
 import { PRICING, OBSOLETE_PRICING } from './pricing-contract';
 
@@ -41,6 +41,7 @@ async function expectResponsiveNavigation(page: Page, width: number) {
 
 export function landingPricingTests(locale: Locale) {
   test.describe('@smoke landing pricing and responsive layout', () => {
+    test.skip(!PUBLIC_LOCALES.includes(locale), `${locale} is not published; its landing redirects to English`);
     for (const width of [360, 390, 810]) {
       test(`pricing for both audiences in ${locale} at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
