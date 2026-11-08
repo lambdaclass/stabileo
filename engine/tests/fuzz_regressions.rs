@@ -542,29 +542,114 @@ fn issue_1759_buckling_rejects_negative_truss_inertia() {
     use dedaliano_engine::types::{SolverInput, SolverInput3D};
     let bytes = include_bytes!("../fuzz/regressions/json_dynamics/crash-828fb1b1282a6154226085839f502cc6703cace8.min");
     assert_eq!(bytes[0] % 20, 5);
-    let input: SolverInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
-    let error = solve_buckling_3d(&input, 3).unwrap_err();
+    let input_3d: SolverInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let error = solve_buckling_3d(&input_3d, 3).unwrap_err();
     assert!(error.contains("Section 1") && error.contains("inertia"), "{error}");
 
-    let input: SolverInput = serde_json::from_value(json!({
-        "nodes": { "1": { "id": 1, "x": 0, "z": 0 }, "2": { "id": 2, "x": 0, "z": 3 } },
-        "materials": { "1": { "id": 1, "e": 200000, "nu": 0.3 } },
-        "sections": { "1": { "id": 1, "a": 0.01, "iz": -0.0001 } },
-        "elements": { "1": { "id": 1, "type": "truss", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 } },
-        "supports": { "1": { "id": 1, "nodeId": 1, "type": "fixed" } },
-        "loads": [{ "type": "nodal", "data": { "nodeId": 2, "fx": 0, "fz": -10, "my": 0 } }]
-    })).unwrap();
-    let error = solve_buckling_2d(&input, 1).unwrap_err();
+    for (iy, iz) in [(1e-28, 1e-4), (1e-4, 1e-28)] {
+        let mut tiny_radius_3d = input_3d.clone();
+        let sec = tiny_radius_3d.sections.get_mut("1").unwrap();
+        sec.iy = iy;
+        sec.iz = iz;
+        let error = solve_buckling_3d(&tiny_radius_3d, 3).unwrap_err();
+        assert!(error.contains("Section 1") && error.contains("radii of gyration"), "{error}");
+    }
+
+    let mut overflow_3d = input_3d.clone();
+    let sec = overflow_3d.sections.get_mut("1").unwrap();
+    sec.iy = 1e305;
+    sec.iz = 1e305;
+    let error = solve_buckling_3d(&overflow_3d, 3).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
+
+    let truss_2d = |iz: f64| -> SolverInput {
+        serde_json::from_value(json!({
+            "nodes": { "1": { "id": 1, "x": 0.0, "z": 0.0 }, "2": { "id": 2, "x": 0.0, "z": 4.0 } },
+            "materials": { "1": { "id": 1, "e": 200000.0, "nu": 0.3 } },
+            "sections": { "1": { "id": 1, "a": 0.01, "iz": iz } },
+            "elements": { "1": { "id": 1, "type": "truss", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 } },
+            "supports": {
+                "1": { "id": 1, "nodeId": 1, "type": "spring", "kx": 1000.0, "ky": 5e5 },
+                "2": { "id": 2, "nodeId": 2, "type": "pinned" }
+            },
+            "loads": [{ "type": "pointOnElement", "data": { "elementId": 1, "a": 1.0, "p": 0.0, "px": 100.0 } }]
+        })).unwrap()
+    };
+
+    let error = solve_buckling_2d(&truss_2d(-0.0001), 1).unwrap_err();
     assert!(error.contains("Section 1") && error.contains("inertia"), "{error}");
+
+    let error = solve_buckling_2d(&truss_2d(1e-28), 1).unwrap_err();
+    assert!(error.contains("Section 1") && error.contains("radius of gyration"), "{error}");
+
+    let error = solve_buckling_2d(&truss_2d(1e305), 1).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
 }
 
 #[test]
 fn issue_1761_multi_case_overflow_is_refused() {
-    use dedaliano_engine::solver::load_cases::{solve_multi_case_3d, MultiCaseInput3D};
+    use dedaliano_engine::solver::load_cases::{
+        solve_multi_case_2d, solve_multi_case_3d, MultiCaseInput, MultiCaseInput3D,
+    };
+    use dedaliano_engine::types::{Constraint, EqualDOFConstraint};
     let bytes = include_bytes!("../fuzz/regressions/json_static/crash-0e89be15b950870b2e17a3d6d7a842708a882ac7.min");
     assert_eq!(bytes[0] % 18, 11);
-    let input: MultiCaseInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
-    let error = solve_multi_case_3d(&input).unwrap_err();
+    let input_3d: MultiCaseInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let error = solve_multi_case_3d(&input_3d).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
+
+    let mut per_case_3d = input_3d.clone();
+    per_case_3d.solver.supports.get_mut("1").unwrap().dz = Some(-1e-4);
+    per_case_3d.solver.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {
+        master_node: 3,
+        slave_node: 4,
+        dofs: vec![0],
+    }));
+    let error = solve_multi_case_3d(&per_case_3d).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
+
+    let input_2d: MultiCaseInput = serde_json::from_value(json!({
+        "combinations": [{ "name": "1.2D+1.6L", "factors": { "D": 1.2, "L": 1.6 } }],
+        "loadCases": [
+            {
+                "name": "D",
+                "loads": [{ "type": "distributed", "data": { "elementId": 2, "qI": -10.0, "qJ": -10.0 } }]
+            },
+            {
+                "name": "L",
+                "loads": [{ "type": "distributed", "data": { "elementId": 2, "qI": -8.166543330997e229, "qJ": -18.0 } }]
+            }
+        ],
+        "solver": {
+            "nodes": {
+                "1": { "id": 1, "x": 0.0, "z": 0.0 },
+                "2": { "id": 2, "x": 3.0, "z": 0.0 },
+                "3": { "id": 3, "x": 6.0, "z": 0.0 }
+            },
+            "materials": { "1": { "id": 1, "e": 200000.0, "nu": 0.3 } },
+            "sections": { "1": { "id": 1, "a": 0.00538, "iz": 6.04e-6 } },
+            "elements": {
+                "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 },
+                "2": { "id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1 }
+            },
+            "supports": {
+                "1": { "id": 1, "nodeId": 1, "type": "fixed" },
+                "2": { "id": 2, "nodeId": 2, "type": "pinned" }
+            },
+            "loads": []
+        }
+    })).unwrap();
+    let error = solve_multi_case_2d(&input_2d).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
+
+    let mut per_case_2d = input_2d.clone();
+    per_case_2d.solver.supports.get_mut("1").unwrap().dz = Some(-1e-4);
+    per_case_2d.solver.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {
+        master_node: 2,
+        slave_node: 3,
+        dofs: vec![0],
+    }));
+    let error = solve_multi_case_2d(&per_case_2d).unwrap_err();
     assert!(error.contains("non_finite_result"), "{error}");
 }
 
