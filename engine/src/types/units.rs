@@ -177,6 +177,173 @@
 //! use dedaliano_engine::types::{SolverInput3D, SolverNode3D};
 //! let _ = serde_json::from_str::<SolverInput3D<ElasticMaterial, ElasticSection3D, SolverNode3D, TypedLoad3D>>("{}");
 //! ```
+//! Distributed, thermal and support inputs, 2D and 3D, are typed at the same boundaries:
+//! ```
+//! use dedaliano_engine::types::units::*;
+//! fn right(input2: &mut ElasticInput2D, input3: &mut ElasticInput3D) {
+//!     let s = input2.supports.get_mut("1").unwrap();
+//!     s.kx = Some(TranslationalStiffness::from_kn_per_m(1e4));
+//!     s.kz = Some(RotationalStiffness::from_kn_m_per_rad(50.0));
+//!     s.dz = Some(Length::from_m(-0.01));
+//!     s.dry = Some(Angle::from_rad(0.001));
+//!     s.angle = Some(Angle::from_rad(0.5));
+//!     if let TypedLoad::Distributed(l) = &mut input2.loads[0] {
+//!         l.q_i = LineLoad::from_kn_per_m(-5.0);
+//!         l.a = Some(Length::from_m(1.0));
+//!     }
+//!     if let TypedLoad::AxialDistributed(l) = &mut input2.loads[1] {
+//!         l.q_j = LineLoad::from_kn_per_m(2.0);
+//!     }
+//!     if let TypedLoad::Thermal(l) = &mut input2.loads[2] {
+//!         l.dt_uniform = TemperatureDifference::from_delta_c(20.0);
+//!         l.dt_gradient = TemperatureDifference::from_delta_c(-5.0);
+//!         l.alpha = Some(ThermalExpansion::from_per_c(1.2e-5));
+//!         l.depth = Some(Length::from_m(0.4));
+//!     }
+//!     let s = input3.supports.get_mut("1").unwrap();
+//!     s.ky = Some(TranslationalStiffness::from_kn_per_m(2e4));
+//!     s.krx = Some(RotationalStiffness::from_kn_m_per_rad(10.0));
+//!     s.dy = Some(Length::from_m(0.002));
+//!     s.drz = Some(Angle::from_rad(-0.001));
+//!     input3.elements.get_mut("1").unwrap().roll_angle = Some(AngleDeg::from_deg(90.0));
+//!     if let TypedLoad3D::Distributed(l) = &mut input3.loads[0] {
+//!         l.q_zj = LineLoad::from_kn_per_m(-1.5);
+//!         l.b = Some(Length::from_m(2.0));
+//!     }
+//!     if let TypedLoad3D::Thermal(l) = &mut input3.loads[1] {
+//!         l.dt_gradient_y = TemperatureDifference::from_delta_c(4.0);
+//!         l.depth_z = Some(Length::from_m(0.3));
+//!     }
+//!     if let TypedLoad3D::QuadPressure(l) = &mut input3.loads[2] {
+//!         l.pressure = AreaLoad::from_kn_per_m2(2.0);
+//!     }
+//!     if let TypedLoad3D::PlateThermal(l) = &mut input3.loads[3] {
+//!         l.dt_gradient = TemperatureDifference::from_delta_c(5.0);
+//!     }
+//!     if let TypedLoad3D::QuadEdge(l) = &mut input3.loads[4] {
+//!         l.qn = LineLoad::from_kn_per_m(3.0);
+//!     }
+//! }
+//! let strain: Ratio = ThermalExpansion::from_per_c(1.2e-5) * TemperatureDifference::from_delta_c(10.0);
+//! let resultant: Force = LineLoad::from_kn_per_m(2.0) * Length::from_m(3.0);
+//! let line: LineLoad = AreaLoad::from_kn_per_m2(4.0) * Length::from_m(0.5);
+//! let reaction: Moment = RotationalStiffness::from_kn_m_per_rad(10.0) * Angle::from_rad(0.1);
+//! let warmer = TemperatureDifference::from_delta_c(5.0) + TemperatureDifference::from_delta_c(2.5);
+//! assert_eq!((strain.in_ratio(), resultant.in_kn(), line.in_kn_per_m()), (1.2e-5 * 10.0, 6.0, 2.0));
+//! assert_eq!((reaction.in_kn_m(), warmer.in_delta_c()), (10.0 * 0.1, 7.5));
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Force, LineLoad};
+//! let force: Force = LineLoad::from_kn_per_m(1.0);
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{AreaLoad, ElasticInput2D, TypedLoad};
+//! fn wrong(input: &mut ElasticInput2D) {
+//!     if let TypedLoad::Distributed(l) = &mut input.loads[0] {
+//!         l.q_i = AreaLoad::from_kn_per_m2(1.0);
+//!     }
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{ElasticInput3D, LineLoad, TypedLoad3D};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     if let TypedLoad3D::QuadPressure(l) = &mut input.loads[0] {
+//!         l.pressure = LineLoad::from_kn_per_m(1.0);
+//!     }
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{ElasticInput3D, Force, TypedLoad3D};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     if let TypedLoad3D::Distributed(l) = &mut input.loads[0] {
+//!         l.q_yi = Force::from_kn(1.0);
+//!     }
+//! }
+//! ```
+//! A temperature difference has no absolute temperature to add to:
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::TemperatureDifference;
+//! let ambient_c: f64 = 20.0;
+//! let _ = TemperatureDifference::from_delta_c(5.0) + ambient_c;
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{ElasticInput2D, TemperatureDifference, TypedLoad};
+//! fn wrong(input: &mut ElasticInput2D) {
+//!     if let TypedLoad::Thermal(l) = &mut input.loads[0] {
+//!         l.alpha = Some(TemperatureDifference::from_delta_c(12.0));
+//!     }
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{ElasticInput3D, Length, TypedLoad3D};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     if let TypedLoad3D::Thermal(l) = &mut input.loads[0] {
+//!         l.dt_gradient_y = Length::from_m(0.3);
+//!     }
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{ElasticInput3D, TypedLoad3D};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     if let TypedLoad3D::PlateThermal(l) = &mut input.loads[0] {
+//!         l.dt_uniform = 10.0;
+//!     }
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{ElasticInput2D, LineLoad};
+//! fn wrong(input: &mut ElasticInput2D) {
+//!     input.supports.get_mut("1").unwrap().kz = Some(LineLoad::from_kn_per_m(1e3));
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{ElasticInput3D, TranslationalStiffness};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     input.supports.get_mut("1").unwrap().krx = Some(TranslationalStiffness::from_kn_per_m(1e3));
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{ElasticInput3D, RotationalStiffness};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     input.supports.get_mut("1").unwrap().kx = Some(RotationalStiffness::from_kn_m_per_rad(1e3));
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{ElasticInput2D, Length};
+//! fn wrong(input: &mut ElasticInput2D) {
+//!     input.supports.get_mut("1").unwrap().dry = Some(Length::from_m(0.01));
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Angle, ElasticInput3D};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     input.supports.get_mut("1").unwrap().dz = Some(Angle::from_rad(0.01));
+//! }
+//! ```
+//! A member's roll angle is in degrees on the wire and a support's angle in radians:
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Angle, ElasticInput3D};
+//! fn wrong(input: &mut ElasticInput3D) {
+//!     input.elements.get_mut("1").unwrap().roll_angle = Some(Angle::from_rad(1.5707963267948966));
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{AngleDeg, ElasticInput2D};
+//! fn wrong(input: &mut ElasticInput2D) {
+//!     input.supports.get_mut("1").unwrap().angle = Some(AngleDeg::from_deg(30.0));
+//! }
+//! ```
+//! A 3D model with legacy support or element records has no deserializer:
+//! ```compile_fail,E0277
+//! use dedaliano_engine::types::units::*;
+//! use dedaliano_engine::types::{SolverInput3D, SolverSupport3D};
+//! let _ = serde_json::from_str::<SolverInput3D<ElasticMaterial, ElasticSection3D, TypedNode3D, TypedLoad3D, SolverSupport3D, TypedElement3D>>("{}");
+//! ```
+//! ```compile_fail,E0277
+//! use dedaliano_engine::types::units::*;
+//! use dedaliano_engine::types::{SolverElement3D, SolverInput3D};
+//! let _ = serde_json::from_str::<SolverInput3D<ElasticMaterial, ElasticSection3D, TypedNode3D, TypedLoad3D, TypedSupport3D, SolverElement3D>>("{}");
+//! ```
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
