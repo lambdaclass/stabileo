@@ -15,11 +15,11 @@ function safetyData(block: Block): string[] {
             : block.k === 'link'
               ? [block.t, block.slug]
               : [block.t];
-  return prose.flatMap((s) => s.match(/SA-\d{4}-\d{3}|#\d+|\d+(?:[.,]\d+)*|\b(?:Qa|MRd|Mz|mx|Iy|Iz|MITC4|MITC9)\b|P-Δ|Y–Z|X–Y/g) ?? []).sort();
+  return prose.flatMap((s) => s.match(/SA-\d{4}-\d{3}|#\d+|\d+(?:[.,]\d+)*|\b(?:Qa|MRd|Mz|mx|Iy|Iz|MITC4|MITC9)\b|P-Δ|Y–Z|X–Y|[+≤%]/g) ?? []).sort();
 }
 
 describe('0.5.0 release notes in the newly offered languages', () => {
-  it.skip.each(['de', 'fr', 'tr'] as const)('%s preserves every block and its safety data (known missing translation: stabileo-0-5-0)', (locale) => {
+  it.each(['de', 'fr', 'tr'] as const)('%s preserves every block and its safety data', (locale) => {
     const post = findPost('stabileo-0-5-0')!;
     const body = post.i18n[locale];
     expect(body, `${locale}: missing release notes`).toBeDefined();
