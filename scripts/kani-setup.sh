@@ -8,11 +8,18 @@ if [ "$(cargo kani --version 2>/dev/null | awk 'NR==1{print $4}')" != "$version"
 fi
 # The bundle stays in .tools so a cache hit never downloads it; Kani's toolchain is a
 # symlink into ~/.rustup, which a restored .tools cache does not carry.
-bundle="$root/.tools/bundles/kani-$version-x86_64-unknown-linux-gnu.tar.gz"
+case "$(uname -sm)" in
+"Linux x86_64") target=x86_64-unknown-linux-gnu ;;
+"Linux aarch64") target=aarch64-unknown-linux-gnu ;;
+"Darwin x86_64") target=x86_64-apple-darwin ;;
+"Darwin arm64") target=aarch64-apple-darwin ;;
+*) echo "kani-setup: no Kani $version release for $(uname -sm)" >&2; exit 1 ;;
+esac
+bundle="$root/.tools/bundles/kani-$version-$target.tar.gz"
 if [ ! -s "$bundle" ]; then
 	mkdir -p "$(dirname "$bundle")"
 	curl -sSLf --retry 6 --retry-all-errors --retry-delay 30 -o "$bundle.part" \
-		"https://github.com/model-checking/kani/releases/download/kani-$version/kani-$version-x86_64-unknown-linux-gnu.tar.gz"
+		"https://github.com/model-checking/kani/releases/download/kani-$version/kani-$version-$target.tar.gz"
 	mv "$bundle.part" "$bundle"
 fi
 if [ ! -x "${KANI_HOME:-$HOME/.kani}/kani-$version/toolchain/bin/cargo" ]; then
