@@ -1,10 +1,10 @@
 import type { StandingPage } from '../../pages';
 
 const body: StandingPage['i18n']['en'] = {
-  "title": "Eine kostenlose Open-Source-Alternative zu SAP2000, im Browser",
-  "description": "Stabileo: kostenlose Open-Source-Statik im Browser. 2D/3D-Rahmen, Schalen, P-Delta, Modal- und Spektrenanalyse, Nachweise nach AISC, ACI, Eurocode und CIRSOC.",
+  "title": "Eine kostenlose Open-Source-Alternative zu SAP2000 für die Berechnung, im Browser",
+  "description": "Stabileo: kostenlose Open-Source-Statik im Browser. 2D/3D-Rahmen, Schalen, P-Delta, Modal- und Spektrenanalyse; Bemessung in kostenpflichtigen Modulen.",
   "eyebrow": "Alternative zu SAP2000",
-  "lead": "Stabileo ist kostenlose Open-Source-Software (AGPL-3.0) für die Tragwerksberechnung, die im Browser läuft, ohne Installation, Lizenzschlüssel oder Konto. Der Rechenkern ist in Rust geschrieben und nach WebAssembly kompiliert, sodass das Modell auf Ihrem eigenen Computer berechnet wird. Im Basis-Modus modellieren, belasten und berechnen Sie Rahmen und Fachwerke in 2D und 3D und lesen die Ergebnisse ab; der PRO-Modus, für alle offen, ergänzt Decken und Wände, DXF- und IFC-Import, Lasten nach Norm und Stabnachweise.",
+  "lead": "Stabileo ist kostenlose Open-Source-Software (AGPL-3.0) für die Tragwerksberechnung, die im Browser läuft, ohne Installation, Lizenzschlüssel oder Konto. Der Rechenkern ist in Rust geschrieben und nach WebAssembly kompiliert, sodass das Modell auf Ihrem eigenen Computer berechnet wird. Im Basis-Modus modellieren, belasten und berechnen Sie Rahmen und Fachwerke in 2D und 3D und lesen die Ergebnisse ab; der PRO-Modus ergänzt Decken und Wände, DXF- und IFC-Import, Lasten nach Norm und Stabnachweise. Die Berechnung ist für alle kostenlos; die Bemessungsmodule sind kostenpflichtig und für Universitäten kostenlos.",
   "blocks": [
     {
       "k": "h",
@@ -44,11 +44,11 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "q": "Kann ich Stabileo verwenden, statt für eine SAP2000- oder ETABS-Lizenz zu bezahlen?",
-      "a": "Für die Berechnung von Rahmen, Fachwerken und vielen Gebäuden und für Stabnachweise nach AISC 360, ACI 318, den Eurocodes und CIRSOC ja, und zwar kostenlos. Für die volle Bandbreite an Bemessungsnormen und eine lange Bewährung in der Praxis bieten kommerzielle Programme noch mehr; die normgemäße Bemessung in Stabileo ist noch in Entwicklung."
+      "a": "Für die Berechnung von Rahmen, Fachwerken und vielen Gebäuden und für Stabnachweise nach AISC 360, ACI 318, den Eurocodes und CIRSOC ja. Die Berechnung ist kostenlos; spezialisierte Bemessungsmodule sind kostenpflichtig und für Universitäten kostenlos. Für die volle Bandbreite an Bemessungsnormen und eine lange Bewährung in der Praxis bieten kommerzielle Programme noch mehr; die normgemäße Bemessung in Stabileo ist noch in Entwicklung."
     },
     {
       "q": "Ist Stabileo wirklich kostenlos?",
-      "a": "Die Berechnung (Basis und PRO) ist für alle kostenlos. Die normgemäße Bemessung ist kostenlos, solange sie in Entwicklung ist, und bleibt danach kostenlos für öffentliche Universitäten und für alle, die sich an ihrer Entwicklung beteiligen. Der KI-Assistent wird kostenpflichtig sein. Der Code steht unter AGPL-3.0."
+      "a": "Das Kernprogramm für die Tragwerksberechnung im Browser ist Open Source und für alle kostenlos. Einige spezialisierte Module sind kostenpflichtig; Universitäten erhalten diese Module kostenlos. Stabileo AI und rechenintensive Cloud-Berechnungen sind für alle kostenpflichtig, auch für Universitäten. Der Preis deckt die anfallenden Kosten."
     },
     {
       "q": "Läuft es auf Mac oder Linux?",
