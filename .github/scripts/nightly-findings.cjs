@@ -27,9 +27,9 @@ function normalize(message) {
     .replace(/\b(pinned|fixed|roller[xyz]|guided[xyz]|inclinedroller|spring)\b/gi, 'support#')
     .replace(/\b(?:anti|c2-)?symmetric\b/gi, 'symmetric')
     .replace(/[+-]?\b(?:nan|inf(?:inity)?)\b/gi, '#nonfinite')
-    .replace(/[-+]?\b(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?\b/gi, '#')
+    .replace(/(?<![\w.+-])[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?\b/gi, '#')
     .replace(/#(?:\s*,\s*#)+/g, '#')
-    .replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 200);
+    .replace(/\s+/g, ' ').trim().toLowerCase();
 }
 function legacyNormalize(message, ids = true) {
   let result = stripWrappers(message)
@@ -61,7 +61,8 @@ function causes(f) {
     }));
   }
   const messages = Array.isArray(d) ? d : typeof d === 'string' ? [d] :
-    Array.isArray(d?.why) ? d.why.slice(0, 1) : d?.why ? [d.why] : [d?.message || d?.status || analysis || 'failure'];
+    Array.isArray(d?.why) ? d.why.filter(message => !/^(?:(?:opensees|reference) kappa=\S+|code_aster solves it \(NPREC=\d+ singularity check passed\))$/.test(message)) :
+      d?.why ? [d.why] : [d?.message || d?.status || analysis || 'failure'];
   return messages.map(raw => {
     const refusal = check === 'metamorphic' && /original solved but transformed model failed:/i.test(raw);
     const kind = refusal ? 'invariance-refusal' : check === 'metamorphic' || analysis === 'mismatch' ? 'wrong-result-candidate' : d?.status || analysis || 'failure';
@@ -120,7 +121,7 @@ module.exports = async ({github, context, core}) => {
     const labels = ['safety', 'nightly-finding', ...(['invariance-refusal', 'wrong-result-candidate'].includes(cause.kind) ? [cause.kind] : [])];
     const counts = values => [...values].sort().map(([name, count]) => `${name}: ${count}`).join(', ');
     const diagnostic = cause.code === 'unspecified' ? '' : ` · diagnostic: **${cause.code}**`;
-    const summary = `Check: **${cause.check}** · kind: **${cause.kind}**${diagnostic}\n\nRoot cause: ${cause.message}\n\nThis run: **${group.hits} findings**, **${group.analyses.size} analyses**, **${group.relations.size} relations**, **${group.models.size} models**.\n\nAnalyses (hits): ${counts(group.analyses)}\n\nRelations (hits): ${counts(group.relations)}\n\nOne smallest available reproducer (reduction status below):`;
+    const summary = `Check: **${cause.check}** · kind: **${cause.kind}**${diagnostic}\n\nRoot cause: ${cause.message.slice(0, 200)}\n\nThis run: **${group.hits} findings**, **${group.analyses.size} analyses**, **${group.relations.size} relations**, **${group.models.size} models**.\n\nAnalyses (hits): ${counts(group.analyses)}\n\nRelations (hits): ${counts(group.relations)}\n\nOne smallest available reproducer (reduction status below):`;
     const marker = `<!-- nightly-finding:${key} -->`;
     const occurrence = `<!-- nightly-run:${context.runId}:${process.env.GITHUB_RUN_ATTEMPT || '1'} -->`;
     const model = JSON.stringify(f.model, null, 2);

@@ -241,7 +241,7 @@ test('analysis stays distinct when quantity labels contain node and element ids'
   assert.ok(created.every(c => c.args.body.includes('**1 findings**')));
 }));
 
-test('support, DOF, number and secondary solver variants share one truncated signature', () => fixture(async ({args, calls, save}) => {
+test('support, DOF, number and secondary solver variants share one signature with bounded display', () => fixture(async ({args, calls, save}) => {
   const refusal = (support, node, type, dof, value, kappa) => ({...finding, test: 'opensees/false_reject', details: {
     status: 'false_reject', why: [
       `stabileo: Support ${support} (node ${node}, ${type}): the prescribed ${dof} = ${value} would not be applied, because that direction is not restrained (its flag is not set). Restrain that direction to impose it, or remove the prescribed value.`,
@@ -256,6 +256,49 @@ test('support, DOF, number and secondary solver variants share one truncated sig
   assert.equal(created.length, 1);
   assert.match(created[0].args.body, /\*\*4 findings\*\*/);
   assert.equal(created[0].args.body.match(/^Root cause: (.*)$/m)[1].length, 200);
+}));
+
+test('reasons that differ after the display limit keep distinct signatures', () => fixture(async ({args, calls, save}) => {
+  const prefix = `solver failed: ${'x'.repeat(220)}`;
+  const refusal = reason => ({...finding, test: 'opensees/false_reject', details: {
+    status: 'false_reject', why: [`${prefix} ${reason}`]
+  }});
+  save('a', refusal('constraint alpha'));
+  save('b', refusal('constraint beta'));
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 2);
+  assert.ok(created.every(c => c.args.body.match(/^Root cause: (.*)$/m)[1].length === 200));
+}));
+
+test('leading-decimal and zero-padded numbers share one signature', () => fixture(async ({args, calls, save}) => {
+  const refusal = (value, tolerance) => ({...finding, test: 'opensees/false_reject', details: {
+    status: 'false_reject', why: [`displacement error ${value} exceeds tolerance ${tolerance}`]
+  }});
+  save('leading', refusal('.5', '.000001'));
+  save('padded', refusal('0.5', '0.000001'));
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 1);
+  assert.match(created[0].args.body, /\*\*2 findings\*\*/);
+}));
+
+test('independent why reasons survive while solver metadata stays secondary', () => fixture(async ({args, calls, save}) => {
+  save('independent', {...finding, test: 'opensees/false_reject', details: {
+    status: 'false_reject', why: [
+      'stabileo: support constraint failed',
+      'stabileo: element formulation failed',
+      'opensees kappa=6.7e+01',
+      'code_aster solves it (NPREC=10 singularity check passed)'
+    ]
+  }});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 2);
+  assert.deepEqual(created.map(c => c.args.body.match(/^Root cause: (.*)$/m)[1]).sort(), [
+    'stabileo: element formulation failed',
+    'stabileo: support constraint failed'
+  ]);
 }));
 
 test('symmetry, timestep, mode, plane and non-finite variants collapse within each finding', () => fixture(async ({args, calls, save}) => {
