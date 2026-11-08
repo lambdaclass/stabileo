@@ -19,8 +19,13 @@ Now:
   what is left out is round-off itself.
 - An eigenvalue 1/λ below 100 ε of the largest one is dropped as round-off of the eigensolve. That
   can only drop modes with λ above 4.5e13 times the critical factor, never the critical mode.
+- Leaving a member out must not hide a mode it could govern: whenever a member is left out, the
+  critical factor is solved again with every left-out member compressed by its whole round-off
+  bound. If that lowers the critical factor by more than 1 %, the analysis is refused as not
+  determinable, naming those members.
 - A model whose only compression is within the bound is refused as not determinable, as before; a
-  compression below 1e-6 kN that is above its round-off is now analysed instead of refused.
+  compression below 1e-6 kN that is above its round-off is now analysed instead of refused, while
+  factors above 1e12 are still not reported.
 - The `BU-UNRESOLVED-MODE` warning still names any returned mode that the round-off of the axial
   forces can change by more than 1 % of its geometric work, counting the members left out of Kg in
   the uncertainty, and names those members.

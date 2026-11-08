@@ -226,3 +226,49 @@ fn a_large_force_in_a_separate_member_leaves_a_small_resolved_compression_in_kg(
         }
     }
 }
+
+#[test]
+fn a_slender_member_whose_compression_is_within_round_off_cannot_be_left_out_of_the_critical_factor() {
+    let input: SolverInput = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 0.0, "z": 4.0}, "3": {"id": 3, "x": 10.0, "z": 0.0}, "4": {"id": 4, "x": 10.0, "z": 10.0}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}, "2": {"id": 2, "a": 1e-4, "iz": 1e-12}},
+        "elements": {
+            "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+            "2": {"id": 2, "type": "frame", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 2}
+        },
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}, "3": {"id": 3, "nodeId": 3, "type": "fixed", "dz": 1e9}},
+        "loads": [
+            {"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -10.0, "my": 0.0}},
+            {"type": "nodal", "data": {"nodeId": 4, "fx": 0.0, "fz": -1e-3, "my": 0.0}}
+        ]
+    })).unwrap();
+    let root = (5.2 - 19.84f64.sqrt()) / 0.3;
+    let column = root * 200000.0 * 1000.0 * 1e-4 / 16.0 / 10.0;
+    let slender = root * 200000.0 * 1000.0 * 1e-12 / 100.0 / 1e-3;
+    assert!(slender < 1e-4 * column, "the slender member governs: {slender} vs {column}");
+    let plane = solve_buckling_2d(&input, 1).map(|b| b.modes[0].load_factor);
+    let space = solve_buckling_3d(&embed_2d(&input, Plane::XZ).unwrap(), 1).map(|b| b.modes[0].load_factor);
+    for result in [plane, space] {
+        let e = result.expect_err("a factor that leaves out a member which could govern");
+        assert!(e.contains("Buckling not determinable") && e.contains("elements 2"), "{e}");
+    }
+}
+
+#[test]
+fn a_compression_below_the_old_absolute_floor_on_an_ordinary_column_keeps_its_factor() {
+    let input: SolverInput = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 0.0, "z": 4.0}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -1e-7, "my": 0.0}}]
+    })).unwrap();
+    let one_element = (5.2 - 19.84f64.sqrt()) / 0.3 * 200000.0 * 1000.0 * 1e-4 / 16.0 / 1e-7;
+    let plane = solve_buckling_2d(&input, 1).unwrap().modes[0].load_factor;
+    let space = solve_buckling_3d(&embed_2d(&input, Plane::XZ).unwrap(), 1).unwrap().modes[0].load_factor;
+    for lambda in [plane, space] {
+        assert!((lambda / one_element - 1.0).abs() < 1e-8, "λ = {lambda}, one-element root {one_element}");
+    }
+}

@@ -5,7 +5,7 @@ use super::dof::DofNumbering;
 use super::assembly::*;
 use super::geometric_stiffness::{
     emit_buckling_geometric_stiffness_2d, emit_buckling_geometric_stiffness_3d, geometric_stiffness_terms_2d, geometric_stiffness_terms_3d,
-    span_axial_geometric_stiffness_2d, span_axial_geometric_stiffness_3d, KgTriplets,
+    span_axial_geometric_stiffness_2d, span_axial_geometric_stiffness_3d, BucklingKg, KgTriplets,
 };
 use super::constraints::FreeConstraintSystem;
 
@@ -59,6 +59,7 @@ pub struct BucklingSystem2D {
     pub dof_num: DofNumbering,
     pub k_ff: CscMatrix,
     pub neg_kg_csc: CscMatrix,
+    pub neg_kg_round_off_csc: Option<CscMatrix>,
     pub inclined_transforms_2d: Vec<InclinedTransformData2D>,
     /// Each element's mean axial force at the linear solution; Kg is built from it and `span_axial`.
     pub mean_n: HashMap<usize, f64>,
@@ -116,9 +117,13 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     //    place — we solve K·φ = λ·(-Kg)·φ for positive eigenvalues, and nothing
     //    reads the un-negated Kg.
     let span_axial = span_axial_geometric_stiffness_2d(input, &dof_num);
-    let neg_kg_csc = {
+    let resolved = BucklingKg::Resolved { mean_n: &mean_n, noise: &axial_noise };
+    let round_off = BucklingKg::RoundOffAtCompression { mean_n: &mean_n, noise: &axial_noise };
+    let assemble = |parts: &[BucklingKg<'_>]| {
         let mut kg = KgTriplets::new(if inclined_transforms_2d.is_empty() { nf } else { dof_num.n_total });
-        emit_buckling_geometric_stiffness_2d(input, &dof_num, &u, &mean_n, &axial_noise, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
+        for &which in parts {
+            emit_buckling_geometric_stiffness_2d(input, &dof_num, &u, which, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
+        }
         for (_, dofs, g) in &span_axial {
             for (a, &i) in dofs.iter().enumerate() {
                 for (b, &j) in dofs.iter().enumerate() {
@@ -135,7 +140,9 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
         }
         kg_csc
     };
-    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n, span_axial })
+    let neg_kg_csc = assemble(&[resolved]);
+    let neg_kg_round_off_csc = has_round_off_member(&mean_n, &axial_noise).then(|| assemble(&[resolved, round_off]));
+    Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, mean_n, span_axial })
 }
 
 /// Per member, the axial force that is round-off of its elongation: N = EA·δ/L
@@ -177,6 +184,40 @@ fn axial_force_round_off_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[
         }
     }
     out
+}
+
+fn has_round_off_member(mean_n: &HashMap<usize, f64>, noise: &HashMap<usize, f64>) -> bool {
+    mean_n.iter().any(|(id, n)| noise.get(id).is_some_and(|&e| e > 0.0 && n.abs() <= e))
+}
+
+fn critical_factor_bound(k: &CscMatrix, neg_kg: &CscMatrix, cs: Option<&FreeConstraintSystem>) -> Result<Option<f64>, String> {
+    let reduced;
+    let (k, neg_kg) = match cs {
+        Some(cs) => {
+            reduced = (cs.reduce_matrix_sparse(k), cs.reduce_matrix_sparse(neg_kg));
+            (&reduced.0, &reduced.1)
+        }
+        None => (k, neg_kg),
+    };
+    let result = crate::linalg::lanczos::lanczos_buckling_eigen_sparse(k, neg_kg, 1).ok_or_else(|| {
+        "Buckling not determinable: the effect of the members whose axial force is within round-off could not be bounded".to_string()
+    })?;
+    let mu = result.values.iter().fold(0.0f64, |a, &mu| a.max(mu));
+    Ok((mu > 0.0).then(|| 1.0 / mu))
+}
+
+fn refuse_round_off_buckling(lambda_round_off: Option<f64>, lambda_cr: f64, mean_n: &HashMap<usize, f64>, noise: &HashMap<usize, f64>) -> Result<(), String> {
+    let Some(lambda) = lambda_round_off else { return Ok(()) };
+    if lambda >= (1.0 - MODE_RESOLUTION) * lambda_cr {
+        return Ok(());
+    }
+    let mut members: Vec<usize> = mean_n.iter().filter(|(id, n)| noise.get(id).is_some_and(|&e| e > 0.0 && n.abs() <= e)).map(|(id, _)| *id).collect();
+    members.sort_unstable();
+    let listed: Vec<String> = members.iter().map(|id| id.to_string()).collect();
+    Err(format!(
+        "Buckling not determinable: the axial forces of elements {} are within round-off, and as compressions of that size they could lower the critical factor from {lambda_cr:.6e} to {lambda:.6e}",
+        listed.join(", ")
+    ))
 }
 
 const EIGENVALUE_ROUND_OFF: f64 = 100.0 * f64::EPSILON;
@@ -234,7 +275,7 @@ pub fn solve_buckling_2d(
     let sec_by_id: HashMap<usize, &SolverSection> =
         crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
-    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n, span_axial } = buckling_system_2d(input)?;
+    let BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, mean_n, span_axial } = buckling_system_2d(input)?;
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
@@ -316,6 +357,9 @@ pub fn solve_buckling_2d(
     if modes.is_empty() {
         return Err("No positive buckling load factors found".into());
     }
+    if let Some(bound) = &neg_kg_round_off_csc {
+        refuse_round_off_buckling(critical_factor_bound(&k_ff, bound, cs.as_ref())?, modes[0].load_factor, &mean_n, &axial_noise)?;
+    }
 
     if !unresolved.is_empty() {
         unresolved_members.sort_unstable();
@@ -332,7 +376,7 @@ pub fn solve_buckling_2d(
     for ef in &linear.element_forces {
         let n_avg = mean_n.get(&ef.element_id).copied().unwrap_or((ef.n_start + ef.n_end) / 2.0);
         if n_avg >= -axial_noise.get(&ef.element_id).copied().unwrap_or(0.0) {
-            continue; // Skip tension elements
+            continue;
         }
         let elem = elem_by_id[&ef.element_id];
         let sec = sec_by_id[&elem.section_id];
@@ -377,6 +421,7 @@ pub struct BucklingSystem3D {
     pub dof_num: DofNumbering,
     pub k_ff: CscMatrix,
     pub neg_kg_csc: CscMatrix,
+    pub neg_kg_round_off_csc: Option<CscMatrix>,
     /// Inclined supports: K and −Kg are in each one's (normal, tangent) frame.
     pub inclined_transforms: Vec<InclinedTransformData>,
     /// Each member's mean axial force at the linear solution; Kg is built from it and `span_axial`.
@@ -445,35 +490,41 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // rotated the same way once the surfaces are in.
     let SparseAssemblyResult3D { k_ff, inclined_transforms, .. } = assemble_sparse_3d(input, &dof_num, false);
 
-    let mut kg = KgTriplets::new(if inclined_transforms.is_empty() { nf } else { n });
-    emit_buckling_geometric_stiffness_3d(input, &dof_num, &u_full, &mean_n, &axial_noise, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
-    for (_, dofs, g) in &span_axial {
-        for (a, &i) in dofs.iter().enumerate() {
-            for (b, &j) in dofs.iter().enumerate() {
-                if i >= j { kg.add(i, j, g[a * dofs.len() + b]) }
+    let resolved = BucklingKg::Resolved { mean_n: &mean_n, noise: &axial_noise };
+    let round_off = BucklingKg::RoundOffAtCompression { mean_n: &mean_n, noise: &axial_noise };
+    let assemble = |parts: &[BucklingKg<'_>]| {
+        let mut kg = KgTriplets::new(if inclined_transforms.is_empty() { nf } else { n });
+        for &which in parts {
+            emit_buckling_geometric_stiffness_3d(input, &dof_num, &u_full, which, &mut |i, j, v| if i >= j { kg.add(i, j, v) });
+        }
+        for (_, dofs, g) in &span_axial {
+            for (a, &i) in dofs.iter().enumerate() {
+                for (b, &j) in dofs.iter().enumerate() {
+                    if i >= j { kg.add(i, j, g[a * dofs.len() + b]) }
+                }
             }
         }
-    }
 
-    // `emit_geometric_stiffness_3d` includes every shell family's Kg (plates,
-    // MITC4/9, solid and curved shells) off the same u_full since the feature
-    // matrix PR made P-Delta use it; adding them here again doubled the shell
-    // Kg and halved shell buckling factors.
+        // `emit_geometric_stiffness_3d` includes every shell family's Kg (plates,
+        // MITC4/9, solid and curved shells) off the same u_full since the feature
+        // matrix PR made P-Delta use it; adding them here again doubled the shell
+        // Kg and halved shell buckling factors.
 
-    if !inclined_transforms.is_empty() {
-        kg = kg.rotate_inclined(&inclined_transforms, nf);
-    }
+        if !inclined_transforms.is_empty() {
+            kg = kg.rotate_inclined(&inclined_transforms, nf);
+        }
 
-    // Negate Kg (we solve K·φ = λ·(-Kg)·φ for positive eigenvalues), in place:
-    // Kg is not read again, and on a large shell model its values vector is the
-    // single biggest allocation in this function.
-    let neg_kg_csc = {
+        // Negate Kg (we solve K·φ = λ·(-Kg)·φ for positive eigenvalues), in place:
+        // Kg is not read again, and on a large shell model its values vector is the
+        // single biggest allocation in this function.
         let mut kg_csc = kg.into_csc();
         for v in kg_csc.values.iter_mut() {
             *v = -*v;
         }
         kg_csc
     };
+    let neg_kg_csc = assemble(&[resolved]);
+    let neg_kg_round_off_csc = has_round_off_member(&mean_n, &axial_noise).then(|| assemble(&[resolved, round_off]));
 
     // The rest of the gate, now that -Kg exists: surfaces carry no axial force
     // to test, so the only way to know they contribute is to look at what they
@@ -488,7 +539,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     if !has_resolved_compression && !has_shell_kg {
         return Err(not_determinable());
     }
-    Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms, mean_n, span_axial, axial_noise })
+    Ok(BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms, mean_n, span_axial, axial_noise })
 }
 
 /// 3D buckling analysis result.
@@ -539,7 +590,7 @@ pub fn solve_buckling_3d(
     let sec_by_id: HashMap<usize, &SolverSection3D> =
         crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
-    let BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms, mean_n, axial_noise, .. } = buckling_system_3d(input)?;
+    let BucklingSystem3D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms, mean_n, axial_noise, .. } = buckling_system_3d(input)?;
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
@@ -607,6 +658,9 @@ pub fn solve_buckling_3d(
 
     if modes.is_empty() {
         return Err("No positive buckling load factors found".into());
+    }
+    if let Some(bound) = &neg_kg_round_off_csc {
+        refuse_round_off_buckling(critical_factor_bound(&k_ff, bound, cs.as_ref())?, modes[0].load_factor, &mean_n, &axial_noise)?;
     }
 
     if !unresolved.is_empty() {

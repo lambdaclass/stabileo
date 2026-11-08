@@ -3,7 +3,29 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::{rotate_inclined_free_block, InclinedFrame, InclinedTransformData, InclinedTransformData2D};
 
-type ResolvedAxialForces<'a> = Option<(&'a std::collections::HashMap<usize, f64>, &'a std::collections::HashMap<usize, f64>)>;
+#[derive(Clone, Copy)]
+pub(crate) enum BucklingKg<'a> {
+    All,
+    Resolved { mean_n: &'a std::collections::HashMap<usize, f64>, noise: &'a std::collections::HashMap<usize, f64> },
+    RoundOffAtCompression { mean_n: &'a std::collections::HashMap<usize, f64>, noise: &'a std::collections::HashMap<usize, f64> },
+}
+
+impl BucklingKg<'_> {
+    fn axial_force(&self, id: usize) -> Option<Option<f64>> {
+        match *self {
+            BucklingKg::All => Some(None),
+            BucklingKg::Resolved { mean_n, noise } | BucklingKg::RoundOffAtCompression { mean_n, noise } => {
+                let e = noise.get(&id).copied().unwrap_or(0.0);
+                let round_off = mean_n.get(&id).copied().unwrap_or(0.0).abs() <= e;
+                match (self, round_off) {
+                    (BucklingKg::Resolved { .. }, false) => Some(None),
+                    (BucklingKg::RoundOffAtCompression { .. }, true) if e > 0.0 => Some(Some(-e)),
+                    _ => None,
+                }
+            }
+        }
+    }
+}
 
 /// The (α, ΔT) of each element's uniform thermal loads, so its free thermal strain is α·ΔT.
 ///
@@ -675,25 +697,24 @@ pub(crate) fn emit_geometric_stiffness_2d(
     u: &[f64],
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
-    emit_geometric_stiffness_2d_filtered(input, dof_num, u, None, emit);
+    emit_geometric_stiffness_2d_filtered(input, dof_num, u, BucklingKg::All, emit);
 }
 
 pub(crate) fn emit_buckling_geometric_stiffness_2d(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u: &[f64],
-    mean_n: &std::collections::HashMap<usize, f64>,
-    noise: &std::collections::HashMap<usize, f64>,
+    which: BucklingKg<'_>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
-    emit_geometric_stiffness_2d_filtered(input, dof_num, u, Some((mean_n, noise)), emit);
+    emit_geometric_stiffness_2d_filtered(input, dof_num, u, which, emit);
 }
 
 fn emit_geometric_stiffness_2d_filtered(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u: &[f64],
-    resolved: ResolvedAxialForces<'_>,
+    which: BucklingKg<'_>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
@@ -702,16 +723,11 @@ fn emit_geometric_stiffness_2d_filtered(
     let dt_by_elem = uniform_dt_2d(input);
 
     for elem in crate::ordered::values(&input.elements) {
-        if let Some((mean_n, noise)) = resolved {
-            let n = mean_n.get(&elem.id).copied().unwrap_or(0.0);
-            if n.abs() <= noise.get(&elem.id).copied().unwrap_or(0.0) {
-                continue;
-            }
-        }
+        let Some(forced) = which.axial_force(elem.id) else { continue };
         let (alpha, dt) = dt_by_elem.get(&elem.id).copied().unwrap_or((DEFAULT_FRAME_THERMAL_ALPHA, 0.0));
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // Truss geometric stiffness
-            add_truss_kg_2d(&node_by_id, &mat_by_id, &sec_by_id, dof_num, elem, u, (alpha, dt), emit);
+            add_truss_kg_2d(&node_by_id, &mat_by_id, &sec_by_id, dof_num, elem, u, (alpha, dt), forced, emit);
             continue;
         }
 
@@ -734,7 +750,7 @@ fn emit_geometric_stiffness_2d_filtered(
         let u_local = transform_displacement(&u_global, &t, 6);
 
         // Axial deformation, less the free thermal strain → axial force
-        let axial_force = e * sec.a * ((u_local[3] - u_local[0]) / l - alpha * dt);
+        let axial_force = forced.unwrap_or(e * sec.a * ((u_local[3] - u_local[0]) / l - alpha * dt));
 
         let k_g_global = frame_kg_global_2d(axial_force, l, &t, elem);
 
@@ -890,6 +906,7 @@ fn add_truss_kg_2d(
     elem: &SolverElement,
     u: &[f64],
     (alpha, dt): (f64, f64),
+    forced: Option<f64>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
     let node_i = node_by_id[&elem.node_i];
@@ -913,7 +930,7 @@ fn add_truss_kg_2d(
         dof_num.global_dof(elem.node_j, 1).map(|d| u[d]).unwrap_or(0.0),
     ];
     let delta = (uj[0] - ui[0]) * cos + (uj[1] - ui[1]) * sin;
-    let axial_force = e * sec.a * (delta / l - alpha * dt);
+    let axial_force = forced.unwrap_or(e * sec.a * (delta / l - alpha * dt));
 
     let k_g = truss_kg_2d(axial_force / l, cos, sin);
 
@@ -1380,25 +1397,24 @@ pub(crate) fn emit_geometric_stiffness_3d(
     u: &[f64],
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
-    emit_geometric_stiffness_3d_filtered(input, dof_num, u, None, emit);
+    emit_geometric_stiffness_3d_filtered(input, dof_num, u, BucklingKg::All, emit);
 }
 
 pub(crate) fn emit_buckling_geometric_stiffness_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
-    mean_n: &std::collections::HashMap<usize, f64>,
-    noise: &std::collections::HashMap<usize, f64>,
+    which: BucklingKg<'_>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
-    emit_geometric_stiffness_3d_filtered(input, dof_num, u, Some((mean_n, noise)), emit);
+    emit_geometric_stiffness_3d_filtered(input, dof_num, u, which, emit);
 }
 
 fn emit_geometric_stiffness_3d_filtered(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],
-    resolved: ResolvedAxialForces<'_>,
+    which: BucklingKg<'_>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
     let left_hand = input.left_hand.unwrap_or(false);
@@ -1408,12 +1424,7 @@ fn emit_geometric_stiffness_3d_filtered(
     let dt_by_elem = uniform_dt_3d(input);
 
     for elem in crate::ordered::values(&input.elements) {
-        if let Some((mean_n, noise)) = resolved {
-            let n = mean_n.get(&elem.id).copied().unwrap_or(0.0);
-            if n.abs() <= noise.get(&elem.id).copied().unwrap_or(0.0) {
-                continue;
-            }
-        }
+        let Some(forced) = which.axial_force(elem.id) else { continue };
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
@@ -1431,7 +1442,7 @@ fn emit_geometric_stiffness_3d_filtered(
             let ui: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).map(|d| u[d]).unwrap_or(0.0)).collect();
             let uj: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_j, i).map(|d| u[d]).unwrap_or(0.0)).collect();
             let delta: f64 = (0..3).map(|i| (uj[i] - ui[i]) * dir[i]).sum();
-            let axial_force = e * sec.a * (delta / l - alpha * dt);
+            let axial_force = forced.unwrap_or(e * sec.a * (delta / l - alpha * dt));
             let kg_local = truss_kg_3d(axial_force / l, &dir);
             let truss_dofs: Vec<usize> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).unwrap())
                 .chain((0..3).map(|i| dof_num.global_dof(elem.node_j, i).unwrap()))
@@ -1460,7 +1471,7 @@ fn emit_geometric_stiffness_3d_filtered(
             let u_local = transform_displacement(&u_12, &t, 12);
 
             // Axial force from local displacements, less the free thermal strain
-            let axial_force = e * sec.a * ((u_local[6] - u_local[0]) / l - alpha * dt);
+            let axial_force = forced.unwrap_or(e * sec.a * ((u_local[6] - u_local[0]) / l - alpha * dt));
 
             // Bending, Wagner and shear-centre terms (14×14 on warping members).
             let (dofs, kg_global) = frame_kg_global_3d(axial_force, l, elem, sec, (&ex, &ey, &ez), dof_num);
@@ -1477,7 +1488,9 @@ fn emit_geometric_stiffness_3d_filtered(
     // P-Delta on a model with slabs or walls left their membrane forces out
     // of the tangent, so a compressed wall strip came back as its linear
     // solution (13% short of the amplified one at P = 0.13·P_cr).
-    emit_shell_geometric_stiffness_3d(input, dof_num, u, emit);
+    if !matches!(which, BucklingKg::RoundOffAtCompression { .. }) {
+        emit_shell_geometric_stiffness_3d(input, dof_num, u, emit);
+    }
 }
 
 /// One element's share of the P-Delta geometric stiffness in the affine form the
