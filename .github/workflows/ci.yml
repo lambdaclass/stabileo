@@ -816,7 +816,9 @@ jobs:
           status=0
           for step in $(git rev-list --first-parent --reverse "$BASE..HEAD"); do
             pr=$(git show -s --format=%s "$step" | sed -nE 's/^Merge pull request #([0-9]+) from .*/\1/p')
-            if [ -z "$pr" ] || [ "$(gh api "repos/$GH_REPO/pulls/$pr" --jq .head.sha)" != "$(git rev-parse -q --verify "$step^2")" ]; then
+            merged=$(git rev-parse -q --verify "$step^2" || true)
+            current=$({ [ -n "$pr" ] && gh api "repos/$GH_REPO/pulls/$pr" --jq .head.sha; } || true)
+            if [ -z "$pr" ] || [ -z "$merged" ] || [ "$current" != "$merged" ]; then
               echo "$step is not the merge queue's merge of a pull request's current head, so whose acknowledgement applies is unknown."
               exit 1
             fi
