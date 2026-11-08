@@ -5,10 +5,11 @@ import { BATCH_IDS } from '../batch';
 import { TOOL_IDS } from '../calculators';
 import { batchTranslations } from '../batch-i18n';
 import { setPublicLocale } from '../../../lib/i18n/store.svelte';
+import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 
 afterEach(() => setPublicLocale('en'));
 
-for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+for (const locale of PUBLIC_LOCALES) {
   for (const id of BATCH_IDS) {
     it(`renders ${id} in ${locale}`, async () => {
       setPublicLocale(locale);
@@ -24,7 +25,7 @@ for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
   }
 }
 
-for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+for (const locale of PUBLIC_LOCALES) {
   for (const id of TOOL_IDS) {
     it(`renders the ${id} calculator with its viewer in ${locale}`, async () => {
       setPublicLocale(locale);
@@ -37,7 +38,7 @@ for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
   }
 }
 
-for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) it(`shows no first-version or review-round note in ${locale}`, async () => {
+for (const locale of PUBLIC_LOCALES) it(`shows no first-version or review-round note in ${locale}`, async () => {
   setPublicLocale(locale);
   for (const path of ['/tools', '/tools/simply-supported-beam', '/tools/column-buckling', ...BATCH_IDS.map(id => `/tools/${id}`)]) {
     const ToolsPage = await loadToolsPage(path);

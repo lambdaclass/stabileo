@@ -22,7 +22,7 @@
     "tr": "3B malzeme doğrusal olmayan analizi, bir kesitin çarpılma sabiti varken başka bir çubuğun kesitinde yokken çöküyordu (#1578) ve hiçbir çubuğun tutmadığı bir serbestlik derecesi olan modeli, örneğin yalnızca kafes çubuklarının ulaştığı bir düğümün dönmesini, tekil diye reddediyordu. İkisi de artık çözülüyor ve elastik bölgede doğrusal çözücünün yerdeğiştirmelerini veriyor. Daha önce çözülen modeller aynı sayıları veriyor."
   },
   "changelog": {
-    "file": "changelog.d/1578-material-nonlinear-3d-orphan-dofs.md",
+    "file": "CHANGELOG.md",
     "heading": "3D material-nonlinear analysis solves a frame without warping beside one with it, and a truss-only node (2026-11-06)"
   }
 }

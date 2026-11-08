@@ -21,7 +21,7 @@
     "tr": "Doğrusal bir çözüm, bir çubuğun basıncı kritik yükünün büyük bir kısmı olduğunda uyarı vermiyordu; örneğin Euler yükünün %40'ındaki 3 m'lik IPN 300 konsol, zayıf eksen momentleri ikinci mertebe analizde yaklaşık %68 daha büyük (#1551). Statik bir çözüm artık bir ucundan ankastre ya da iki ucundan mesnetlerle ötelenmeye karşı tutulan bir çubuk N/Ncr = 0,0748'i aşabildiğinde uyarıyor (LIN-SECOND-ORDER); bu değerde en kötü moment büyütmesi 1,1'e ulaşır (CIRSOC 301 Ek 7). 0,0748/1,6'nın üzerinde LIN-SECOND-ORDER-NEAR, kritik yükü yalnızca çubuktan sınırlandırılamayan diğer her basınç çubuğu için, basıncı kendi Euler yükünün 1e-9'undan küçük olmadıkça, LIN-SECOND-ORDER-UNBOUNDED veriliyor. Bir kombinasyon, katsayılı yüklemelerinin oranlarının toplamıyla sınırlandırılıyor. Herhangi bir sonuç LIN-SECOND-ORDER veya LIN-SECOND-ORDER-UNBOUNDED verdiği sürece H.1 momentleri ikinci mertebe kabul ettiğinden her CIRSOC 301 kontrolü bekletiliyor: P-Delta veya ikinci mertebe analizi yapın. Sayısal değerler değişmez."
   },
   "changelog": {
-    "file": "changelog.d/1551-second-order-warning.md",
+    "file": "CHANGELOG.md",
     "heading": "Linear analysis warns when compression may amplify its moments past 10 % (2026-11-06)"
   }
 }

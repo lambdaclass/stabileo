@@ -11,6 +11,2297 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+## 0.5.0 (2026-11-07)
+
+Release notes: [`docs/releases/v0.5.0.md`](docs/releases/v0.5.0.md) (also in [Spanish](docs/releases/v0.5.0.es.md) and [Portuguese](docs/releases/v0.5.0.pt.md)).
+Safety advisories SA-2026-025…047 are published in this release, and all but SA-2026-044 are fixed:
+2D plastic collapse stays refused until #758 is fixed. German, French and
+Turkish are not offered in this release: they return once a native speaker has checked them, and
+their pages redirect to English until then.
+
+### BREAKING (results)
+
+#### A load case with an imposed displacement keeps its shell stresses (2026-11-07)
+
+- Fix #1673: in a model with shells, a load case that imposes a support displacement along with its loads lost all of its plate and quad stresses, and every combination and envelope summed the shell stresses of the other cases only, without a word. That case now reports its shell stresses, and the combinations and envelopes include them. Re-check the shell stresses and slab design of any model with imposed displacements in a load case. Every combination of a model with quads now also lists the nodal stresses of its quads (`quadNodalStresses`), summed from the cases'; no other value changes.
+
+#### The load generator keeps a floor's area loads when low roof structure stands over only part of it (2026-11-03)
+
+- SA-2026-033: since #1076, "Generate loads from the code" left out a whole panel's dead, live
+  and roof live area load when the only members found over it were less than 2.2 m above, even
+  with open sky over the rest: a 6 × 6 m floor with one low beam over one edge lost all 36 m². A
+  panel is now left out only when roof structure covers all of it under 2.2 m and a deck or
+  beam under 2.2 m stands over its center, and the panels, members and shells loaded above carry
+  all of it; otherwise the part they do not carry stays on it as roof load. Trusses count as roof
+  structure. Panels and members only partly under low structure keep all their load, as floor
+  load when a floor or roof stands over their center and as roof load otherwise; where a low
+  member over them also carries its strip, that strip is loaded twice, and the derivation names
+  them and asks for a check. Generate the loads again for models whose loads came from the generator.
+- SA-2026-033 (#1311): the generator sized a panel by its bounding box in the plan's X and Y, so a
+  3 × 20 m deck turned 45° lost all 60 m² of its floor load as "too wide for a slab". A panel is
+  now too wide only when its narrowest width across any direction passes 12 m.
+- SA-2026-033 (#1312): by width, the floor beams under low eaves keep their floor load.
+- SA-2026-033: the part of a panel or member strip that the low structure above does not carry is
+  now found exactly, not by a grid that counted any partly carried cell as uncarried (a 0.05 m gap
+  between two beam strips kept 1.8 m² instead of 0.3 m²).
+- SA-2026-033: whether roof structure lies over a panel is now probed along the panel's own sides,
+  not the plan's X and Y, so a shallow trussed roof turned 45° is no longer loaded as a floor.
+- The re-check notice for this change stays until the loads are generated again. Solving again no
+  longer clears it, because saved loads do not change. Applying a load plan now records the results
+  version it was generated with.
+
+#### Shell figures paint the field the screen shows (2026-11-03)
+
+- Exported shell result figures painted each element with its own centre value, over the range
+  those values occupied, while the screen paints the contour field: nodal averages within the
+  chosen domain, the chosen face, a typed range and bands. They now paint the screen's field,
+  cut along its band edges (or 24 steps of a smooth scale) where it crosses them inside each face,
+  with its range and peak, so the figure and its scale agree with the screen and its legend. Re-export shell figures (results version 21).
+- Shell direction marks and the largest and smallest values on screen leave out hidden shells.
+
+#### Cutting a 3D model to 2D bends each member about the axis it bends about in 3D (2026-11-03)
+
+A 3D-to-2D cut used the section's strong-axis inertia for every member, so columns in a Y–Z cut, beams in an X–Y cut and members rolled 90° bent about the wrong axis: an IPN 300 portal standing in Y–Z swayed 0.96 mm in 2D against 13.0 mm in 3D (#1238, SA-2026-035). Such cuts now give each such member its section turned a quarter turn in the 2D model, and agree with 3D. Cuts of members whose section axes are skew to the plane (even with equal inertias, such as a square rolled 45°, whose corner lies farther out; a round tube excepted), or that would need a section that is not doubly symmetric turned or flipped (a T rolled half a turn, or on a member drawn the other way, would hang its flange on the other side of the 2D member), are refused, because a 2D model cannot represent them. A cut whose constraints the 2D solver would read with another meaning on that plane (#466) is refused too. Re-cut, or solve in 3D, any 2D model taken from such a cut.
+
+#### ACI 318 and EN 1992 checks no longer pass a concrete member whose torsion they did not check (2026-11-03)
+
+The other-codes ACI 318 and EN 1992-1-1 checks of reinforced concrete members read flexure, shear and axial force only, so a member carrying large torsion could pass (#1314, SA-2026-040). The check is now marked "torsion not checked" and does not pass: for ACI 318 above the 22.7.1.1 threshold below which torsion may be neglected, φ·0.083·λ·√f'c·Acp²/pcp with √f'c ≤ 8.3 MPa½ and λ = 0.75 below a unit weight of 23 kN/m³ (any torsion under axial tension, which lowers that threshold), and for EN 1992, which has no such threshold, whenever the member carries torsion, and its certificate is refused as partial. Torsion design itself is not added; the CIRSOC 201 design already checks torsion.
+
+#### Modal analysis refuses a mechanism that slides along inclined supports (2026-11-03)
+
+- Fix #1315 (follows SA-2026-032): the check that refuses a mechanism read the mass it moves in global axes, but at an inclined support the solver works in the support's own axes, so a mechanism that slides only along inclined rollers or inclined 3D supports was taken as massless: its zero mode was dropped and the other modes came back as complete. The mass is now read in the support's axes, so modal analysis, and the spectral and seismic analyses that use it, refuse such a model and name the mechanism. Models without inclined supports are unchanged.
+
+#### RC columns are also checked under their least compression (2026-11-03)
+
+The CIRSOC 201 column check took the largest moment of any combination and checked it under the largest compression only. Below the balance point a column is weaker with less compression, so a wind or 0.9D moment was checked where the column is stronger: in the design QA frame the 40 × 40 columns' utilization was 0.727 and is 0.832 (#1316, SA-2026-041). The column and biaxial checks now also run under the least compression any combination puts on the member; columns may now need more bars or fail.
+
+#### 2D buckling integrates each member's varying axial force (2026-11-03)
+
+2D buckling built each member's geometric stiffness from its mean axial force. Under a load along a member (gravity on a rafter, an axial point load) the force varies along it, and where compression grows toward the end that rotates most the factor came out too high, with no warning: 4.97 instead of 3.48 (+43 %) for a one-member cantilever whose compression rises to its tip, 4.97 instead of 2.96 (+68 %) for that cantilever under a thrust at its tip and an equal, opposite axial point load at mid-span, so that only the half toward the tip is compressed (#1323, SA-2026-042). The geometric stiffness now integrates the whole axial force along the member; one member gives 3.54 and 3.06, and a finer mesh converges to the exact values. The factor is a property of the whole model, so any 2D buckling model with a load along a member's axis may change, whichever member governs; models with no such load keep their factors.
+
+#### A soft but real node rotation is no longer locked by the orphan-rotation spring (2026-11-05)
+
+A node rotation that nothing stiffens (every member released there, or only trusses and solid shells reach it) gets a small artificial spring so the stiffness matrix stays nonsingular. The 2D and 3D assemblers judged a rotation unstiffened when its diagonal stiffness was below 1e-12 of the largest rotational diagonal in the whole model, so in a model with a stiffness contrast above about 10¹² a real but soft rotation was taken for an orphan and locked: under a force load it solved silently wrong (a soft propped cantilever beside a stiff member: end rotation 1.04e-7 rad instead of the closed-form P·L²/(32·EI) = 0.05 rad), and a nodal moment on it was refused (#1367). The threshold is now 1e-12 of the largest rotational diagonal of the same node, so a soft part of the model is no longer judged against a stiff part elsewhere. A rotation 1e12 softer than another rotation of the same node is still taken for an orphan. Rotations every member releases, and the refusal of a nodal moment on them, are unchanged.
+
+#### Harmonic analysis checks the residual of its modal response and computes the omitted modes' correction in their own subspace (2026-11-05)
+
+The static correction of the omitted modes was the static response minus the kept modes' share of it. With one kept mode much softer than the rest that difference was all round-off, multiplied by ω²: on the C2-symmetric frame of #1371 the antisymmetric response at 2.3 Hz came out 3.14 instead of 0.0396 (79×), 0.520 instead of 0.434 at 0.7 Hz, and a displacement that is zero by symmetry 7.3·10⁻³ (SA-2026-043). The correction is now projected off the kept modes before and after each solve, and every frequency's response is checked against the full dynamic system: a relative residual ‖(K + iωC − ω²M)u − f‖ above 10⁻² in the energy norm is solved directly instead, listed in `directFrequencies` with a warning (refused when the direct solve is over the dense ceiling). `maxModalResidual` reports the largest modal residual of the sweep.
+
+#### A member's governing value and the 2D envelope read the diagram's true peak (2026-11-04)
+
+- #1389: in plane models with combinations and loads along members, the governing moment, shear
+  or axial force of a member and the 2D envelope were read at fixed stations, so a peak between
+  two stations was read low: 0.23 % under a triangular load, 1.05 % under a short partial load,
+  and a combination peaking between stations could lose the governing title. Both now take the
+  true peak (both sides of each point load, the stationary points between load discontinuities).
+  Governing values and envelope peaks can rise; they never fall. Results version 26.
+
+#### 2D: a mechanism hidden behind a connector is refused, not solved (2026-11-05)
+
+A 2D node whose frame members are all hinged got an artificial rotational spring to keep the stiffness matrix nonsingular. That spring is inert only while nothing else touches the node's rotation; a connector with a rotational spring (or a finite-length connector with a shear spring) ties it to the other end, so the artificial spring became a real spring to ground on everything the connector reaches. A hinged cantilever tip tied by a connector to a coincident node carrying a moment is a mechanism, yet every 2D path and the end-to-end certificate returned a rotation of about 10 rad with a zero reaction moment (#1414). Such a model is now singular and refused on every 2D path, including chains of connectors. Where something real holds the rotation (a rotational spring support, an unhinged member, a connector chain to a fixed node), the model still solves, without the artificial spring's share of the moment (0.01 % of the rotation in the test case).
+
+#### The 3D biaxial cantilever example stays within small rotations (2026-11-05)
+
+Only the bundled example changed; a saved model gives the same numbers as before. The biaxial cantilever twisted 0.42 rad and its 3 m tip moved 103 mm in all (span/29), outside linear analysis (#1446). Its torque is now 0.5 kN·m (10 kN at 50 mm eccentricity) and its tip loads Fy 1 kN and Fz 10 kN, so it twists 0.042 rad and its tip moves 11 mm in all (span/272). Its axial compression is now 10 kN, 4% of the weak-axis Euler load of the 3 m cantilever (247 kN; it was 100 kN, 40%), so second-order effects add about 4% instead of about 70%.
+
+#### The 3D torsion beam example uses a closed section and stays within small rotations (2026-11-05)
+
+Only the bundled example changed; a saved model gives the same numbers as before. The torsion beam twisted 0.45 rad under its 8 kN·m torque on an open IPN 300, outside linear analysis (#1446). It now uses a closed SHS 140×140×8 (IRAM-IAS table: J 1813.95 cm⁴), the usual answer to torsion, and twists 0.011 rad.
+
+#### Linear analysis warns when a rotation passes 0.1 rad (2026-11-05)
+
+Linear analysis assumes small displacements, yet it returned rotations of many radians without notice, for example 75 rad at a nearly free node (#1446). A linear static solve, 2D or 3D, now warns with `LIN-SMALL-DISPLACEMENT` when a node rotation (in 3D the rotation vector's norm), or a frame member's relative end displacement over its length, exceeds 0.1 rad. A load combination warns when its own rotations do or a member of one of its cases did: 0.1 rad is a screening limit: past it the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible, and the change of geometry should be checked. Numerical values are unchanged. The 3D torsion beam example twisted 0.45 rad, past the threshold, before it took a closed section; it now twists 0.011 rad and shows no warning.
+
+#### A design check that cannot be evaluated is refused, not passed with a ratio of 0 (2026-11-05)
+
+A demand over a capacity that was zero, negative, NaN or infinite could come out as a ratio of 0, which reads as a pass: a CIRSOC 301 limit state whose slenderness or demand was NaN, a loaded bolt group without bolts or a weld without throat, a footing shear or punching check without a usable resistance, a non-positive allowable bearing pressure, or a CIRSOC 201 ductility ratio. The same holds for every steel, timber, masonry and concrete check that forms a ratio. Each such check is now listed as not evaluated (the member or footing is not marked OK), and any result holding NaN or infinity is withheld with a message naming the value, except an intermediate value (such as a reduction factor) whose check is already listed as not evaluated, which is shown as unknown. Models whose checks all had usable capacities give the same numbers. Every design, certify and postprocess ratio now goes through `engine/src/check.rs`, which returns a ratio or the reason it could not be formed, and `engine/src/boundary.rs` refuses any result with a non-finite number before it leaves the engine, naming its path (SA-2026-025, SA-2026-026, SA-2026-030, SA-2026-010, #1317, #1350).
+
+#### A load combination judges its members' relative displacement on its own displacements (2026-11-06)
+
+A load combination warned `LIN-SMALL-DISPLACEMENT` for a member only when one of its cases did. A member whose relative end displacement over its length, ‖Δu‖/L, was 0.06 in a case and 0.12 in a combination with factor 2 was not warned, and a member warned in a case stayed warned where the combination reduced or cancelled it (#1506). Each linear static result, 2D or 3D, now records every two-node member's Δu/L vector as `resultSummary.memberChords`, and a combination sums them with its factors and warns where the norm of its own sum exceeds 0.1, recording the sum in its own summary. When a contributing case lacks that record, the sum would be incomplete, so the combination carries the member warnings of all its cases as before and records no chords. Numerical values are unchanged.
+
+#### Linear analysis warns when a member turns past 0.1 rad inside its span (2026-11-06)
+
+`LIN-SMALL-DISPLACEMENT` judged node rotations and each member's end chord only, so a member fixed at both ends under a large span load, which moves nothing at its ends, was never warned though it turned past 0.1 rad inside the span (#1506). A linear static solve, 2D or 3D, now recovers each frame member's section rotation along its span from the engine's exact Euler–Bernoulli / Timoshenko member deflection, the one the 2D deformed shape is drawn from, here with 2D span couples included (end displacements and rotations in the member's axes, releases, distributed and point span loads, and 2D span couples), on each interval between 64 stations and the load positions, where each plane's moment is a cubic whose zeros, the rotation's extremes, are found exactly, and warns where it exceeds 0.1 rad; in 3D the two bending planes and the twist are judged together, the norm of the rotation vector bounded on each interval by the norm of each part's largest magnitude there. With every section rotation within 0.1 rad, an Euler–Bernoulli member's deflection from its chord stays within L/20. Each result records the member data the check needs (`resultSummary.memberSpans`), and a load combination recomputes the rotations from its own displacements and span loads; when a contributing case lacks the record, the combination carries the member warnings of its cases as before. Not covered yet, tracked in #1569: the slope a Timoshenko member adds by shear deformation, and curvature from a thermal gradient in a member with a release. Numerical values are unchanged.
+
+#### 3D plastic collapse refuses a frame member without a usable plastic moment (2026-11-05)
+
+- SA-2026-045, fix #1525 (#1526): the 3D plastic solve (`solve_plastic_3d`, the PRO pushover), its certificate and its bundle treated a frame member whose plastic moment about either axis was missing, infinite or zero as one that never yields: a section missing from `sections`, a section without dimensions and with an inertia at or below 10⁻²⁰, or a zero Mp override. On the 3D portal sample (`verify/samples/plastic-3d-portal.input.json`), a column on such a section moved the collapse factor from 31.865 to 192.816 (6.05×), still reported as a mechanism and certified. A negative override was used as its absolute value. Both are now refused, naming the element and its section (`plastic_capacity_missing`), and the app says so in the reader's language. Models whose members all have positive plastic moments give the same numbers.
+
+#### Harmonic analysis chooses between modal superposition and the direct solve per model and frequency, never per load (2026-11-06)
+
+- Fix #1537, #1538, #1539, #1540 and #1541: since #1423 a frequency was solved directly when the residual of its modal response, which depends on the load, exceeded 10⁻², and the modal response was accepted below that. So a sum of loads could be solved one way and each load the other, which broke superposition and reciprocity, and accepted modal responses were off from the direct solve by up to 107 % at a node (a one-member 3D cantilever at 0.7 Hz: −9.14 instead of 139.4) with imaginary parts off by up to 8.6×. A 2D frame showed only the rotary-inertia warning. Now a model with fewer than 64 free DOFs is solved directly at every frequency (exact), and a larger one keeps the modal response only where the omitted modes are bounded (`q = |ω² − i a₀ω| / (λ_omit |1 + i a₁ω|)` at most 1/16, error under q² of their share) and solves the other frequencies directly, the same frequencies for every load. A modal response kept that way whose residual still exceeds 10⁻² is refused, never replaced for that load alone. Past the dense ceiling (more than 3000 DOFs) frequencies are not re-solved and HARM-TRUNCATION (#1434) still warns where the omitted modes are not corrected.
+
+#### 3D buckling refuses a model whose only compression is round-off (2026-11-06)
+
+3D buckling took the round-off axial force of an uncompressed member for compression, as 2D did before #959. On a cantilever loaded only across its length, that force moved with the model's orientation and load scale, and the analysis returned load factors from 1.49e-3 to 3.1e7, or refused, depending on the rotation (#1548). When every member's compression is within the round-off of its own elongation, 3D buckling and its certificate now refuse as not determinable, naming the largest compression, as 2D does. A model with a resolved compression anywhere gives the same factors.
+
+#### Linear analysis warns when compression may amplify its moments past 10 % (2026-11-06)
+
+A linear solve gave no warning when a member's compression was a large fraction of its critical load, for example a 3 m IPN 300 cantilever at 40 % of its Euler load, whose weak-axis moments are about 68 % larger in a second-order analysis (#1551). A linear static solve, 2D or 3D, now warns with `LIN-SECOND-ORDER` when N/Ncr may exceed 0.0748, where the worst elastic moment amplification, sec((π/2)·√(N/Ncr)), reaches 1.1, the limit CIRSOC 301 Appendix 7 takes for small second-order effects. The check uses member bounds only: a member clamped to a support at one end is judged against π²·E·I_min/(2L)², and one whose two ends sit on supports holding every translation against π²·E·I_min/L², each over its whole length and counting its axial span loads. A member over 0.0748/1.6, the largest CIRSOC 301 load factor, is named by `LIN-SECOND-ORDER-NEAR`. Any other compressed member warns `LIN-SECOND-ORDER-UNBOUNDED`, since its critical load cannot be bounded from the member alone. A load combination is bounded by the sum of its factored case ratios (each result records its largest N/Ncr as `resultSummary.secondOrderRatio`), keeps the members its cases name, and is unbounded when a case is unbounded or a factor is negative. Every CIRSOC 301 check is held, not passed, when any result warns `LIN-SECOND-ORDER` or `LIN-SECOND-ORDER-UNBOUNDED`, since H.1 takes the moments as second-order. Numerical values are unchanged.
+
+#### 3D material-nonlinear analysis solves a frame without warping beside one with it, and a truss-only node (2026-11-06)
+
+3D material-nonlinear analysis crashed with an out-of-bounds index when one section had a warping constant and another frame's section had none (#1578): that frame was assembled as 12 DOFs over the 14 a warping model gives each member. Its internal forces read the wrong 12 of those 14 as well. Each such frame now uses its own 12 DOFs, as the linear solver does. The tangent stiffness also lacked the small artificial stiffness the linear solver puts on DOFs no member holds (the rotation of a node reached only by trusses, or the warping of a node no warping member reaches), so those models were refused as singular. They now solve, and in the elastic range they give the linear solver's displacements. Models that solved before give the same numbers.
+
+#### Modal analysis refuses a mechanism instead of dropping its zero mode (2026-11-03)
+
+- Fix #338 (SA-2026-032): modes with ω² ≤ 1e-10 rad²/s² were skipped silently, so a mechanism
+  (a member with a moment release and a free end) returned its other modes as complete: 3 of 12
+  on the MYSTRAN differential model, with no diagnostic. Modal analysis, and the spectral and
+  seismic analyses that use it, now refuse and name the mechanism when its zero modes move mass;
+  a zero mode that moves none (a column free to spin) is reported in `nullModes` and listed by
+  the app with the discarded modes.
+
+#### 3D co-rotational analysis composes rotations instead of subtracting rotation vectors (2026-11-03)
+
+The 3D co-rotational element formed each member's deformational end rotations by subtracting rotation vectors, which is exact only for rotations about one axis. With large rotations about several axes it misread bending and torsion: the Bathe–Bolourchi 45° bend converged 1.3 % away from Simo and Vu-Quoc's solution and refining the mesh did not help (#426, SA-2026-037). The element now works with rotation matrices and takes the deformational rotations as logarithms after removing the member's rigid rotation; the bend lies within 0.4 % of both Simo–Vu-Quoc and Cardona–Géradin, and an NL-3 warning appears where a member end turns more than 0.02 rad against its chord, since end forces still omit a finite-rotation term of about half that rotation. Planar frames and rotations about one axis below half a turn give the same numbers as before; a planar member turned a whole turn or more did not, and is worth re-checking. In addition, a solve ending with one member's ends turned more than 0.9π (about 160°) relative to each other is now refused, naming the member, because whole turns are ambiguous there: split such a member into shorter ones.
+
+#### 3D buckling integrates each member's varying axial force (2026-11-05)
+
+3D buckling built each member's geometric stiffness from its mean axial force, and judged whether a member was compressed from the average of its end forces. Under a load along a member's axis the force varies along it: where compression grows toward the end that rotates most the factor came out too high, 4.97 instead of 3.48 (+43 %) for a one-member cantilever whose compression rises to its tip, and a cantilever under q = 10 − 5x, with zero end forces and compression between them, was refused as having no compressed members (#456, SA-2026-038). The geometric stiffness now integrates the whole axial force along the member, as in 2D (SA-2026-042); one member gives 3.54 and 460.1 against the exact 3.48 and 455.7, and a finer mesh converges to them. The BU-SPAN-COMPRESSION warning is removed. Any 3D buckling model with a load along a member's axis may change, whichever member governs; models with no such load keep their factors, and their per-member table reads each member's mean axial force.
+
+#### 2D: a mechanism hidden behind a rigid link or diaphragm is refused, not solved and certified (2026-11-03)
+
+A 2D rigid link with no DOFs listed (which ties rotation) or a diaphragm, from a node whose members are all hinged to a node that only the constraint holds in rotation (a truss end), is a mechanism: the linked pair turns about the hinge. The 2D solver gave the slave's rotation the all-hinged artificial spring, the constraint turned it into a real spring on the mechanism, and the model solved to meaningless displacements (3.99e5 m in the test case, flagged as excessive) that the assembled-level certificate certified (#458). Such a model is now singular and refused on every 2D path. Models where something real holds the pair are unchanged. The 3D case of #458 (a rotation unstiffened about a skew axis) is not part of this fix.
+
+#### Cutting a 3D model to 2D on Y–Z or X–Y keeps the meaning of its constraints (2026-11-03)
+
+The 2D solver read every constraint as if the model stood in X–Z, so a Y–Z cut dropped a sway tie on uy and applied a tie on ux, out of the plane, as an in-plane one; diaphragms, rigid links, MPCs and eccentric connections were misread the same way on Y–Z and X–Y (#466, SA-2026-036). A cut now rewrites the constraints as if the frame stood in X–Z (axes renamed, the in-plane rotation's sign reversed in MPCs) and restores them with the 3D model, and the 2D results agree with 3D. A constraint that ties a movement in the plane to one out of it (a linear MPC with terms on both, or an eccentric connection offset out of the plane) is now refused on every plane, X–Z included, where it used to be dropped without a word. So is a cut that merges a constrained node into another, since the 2D model would keep a link to a node it no longer has. Re-cut, or solve in 3D, any 2D model with constraints taken from a Y–Z or X–Y cut before this version.
+
+A project with constraints solved in 2D before this version opens with a re-check notice that asks for it to be re-cut from the 3D model or solved in 3D, since the file does not record the plane it was cut from.
+
+#### CIRSOC 301 refuses a compression capacity with Qa ≤ 0 or above the squash load (2026-11-02)
+
+- Fix #467 (SA-2026-030): a box or tube whose area is smaller than the plates its compression
+  elements describe got a negative Qa in §E.7, a NaN slenderness and the elastic branch, and so a
+  compression capacity above A·Fy (1 098 908 kN on a 976 kN section), and passed. The check now
+  refuses Q ≤ 0 and any Fcr above Fy: the member is held with the reason. Re-check custom steel sections whose area was typed by hand.
+  A round tube just past D/t = 0.11·E/Fy got Q up to 1.012 from E.7.2(c), and so a compression
+  capacity up to 1.2 % high; Q is now capped at 1. Re-check such tubes that pass with little margin.
+
+#### Design checks read 3D forces about the section's own axes (2026-11-02)
+
+- Fix #532 (SA-2026-029): the CIRSOC 201 column check took Mz as a column's moment and checked it
+  over depth h, though Mz bends the section over its width b. It now takes the larger of My and Mz
+  over its own depth, turns the section when Mz governs, reads slenderness end moments from that
+  axis and checks the other shear too. Rectangular columns bent mainly about Mz may need more bars:
+  re-run the design.
+- Engine/WASM: 3D design demands go through one mapping (`AxisDemand`: strong axis My with Vz, weak
+  axis Mz with Vy). `certify_steel_multi_case_3d` checked web shear with the lateral Vy (zero under
+  gravity) and now uses Vz; weak-axis shear is a separate check, "Shear G6", against the new `awWeak`, or left not
+  evaluated. `extract_rc_demands_3d` used Mz as Mu; it now uses My and refuses members with
+  weak-axis demand. The extraction functions take the peak shear, not the shear at the station of
+  the largest moment. The single-plane certified converters return `Result` and refuse demands
+  with a weak-axis component.
+
+#### Aluminium checks shear along the weak axis (2026-11-03)
+
+The EN 1999-1-1 aluminium check carried the weak-axis shear of each member but had no row for it: a member under lateral shear (a rail or purlin under wind, a column swaying about its weak axis) passed with no shear check (#532). A `Shear, weak axis` row now checks it (6.2.6) with the shear area of the parts parallel to it: the flanges of an I, the walls along the width of a rectangular tube. A circular tube, and a section checked with the 2A/3 fallback shear area (a solid rectangle), checks the resultant of its two shears.
+
+#### Steel joints with a weak-axis moment are left unresolved (2026-11-03)
+
+The joint typologies (shear tab, end plate, splice, gusset, base plate) read only each member's strong-axis end moment. A beam carrying a moment about its weak axis into a joint (pushed sideways, or under plan torsion) had it dropped, and the joint was designed and passed without it (#532). Such a joint is now left unresolved with the reason: release the moment if the joint is pinned about that axis, or design it by hand. A column continuing through the joint does not count; at a knee or a splice the column does.
+
+#### EN 1992-1-1 flexure solves the neutral axis by strain compatibility (2026-11-02)
+
+The EN 1992-1-1 check (PRO other codes, `check_ec2_members`, `certify_ec2_members`) assumed the
+tension steel yields and took the compression-steel strain from the singly reinforced neutral
+axis without iterating, so MRd was up to about 20 % high on over-reinforced beams and beams with
+top bars, and a failing beam could be certified OK. The neutral axis is now the root of the
+strain-compatible force balance (3.1.7 block, εcu3 from Table 3.1, steel 3.2.7 horizontal top
+branch), in the f64 and the certified interval checks. Top bars inside the stress block are
+taken net of the concrete they displace, and add nothing when in tension. Re-run the EN 1992-1-1 check on concrete
+beams. Issue #534; PR #1236; results version 8; advisory
+[SA-2026-028](docs/advisories/SA-2026-028-ec2-flexure-strain-compatibility.md).
+
+#### Solid-shell stresses use local shell axes (2026-10-29)
+
+- Fix #757: SHB8 solid-shell centroid stresses now use local shell axes, correcting
+  sigmaXx, sigmaYy, tauXy and in-plane von Mises for vertical, inclined and curved
+  panels. Re-run solid-shell models. Stiffness, displacements, reactions and full
+  3D integration-point von Mises are unchanged. See
+  [the frame definition and affected results](docs/results-changes/2026-10-solid-shell-stress-axes.md).
+
+#### Time history: a load at t = 0 on a massless DOF starts from equilibrium (2026-11-03)
+
+- Fix #760 (SA-2026-031): with a singular mass matrix, a force already on at t = 0 on a massless
+  direction was left out of the initial state, so the first step started out of equilibrium:
+  Maxwell–Betti reciprocity failed by up to 33× on fuzz models, and a two-DOF chain with a
+  massless tip was 24 % of P/k2 off its discrete closed form. The load at t = 0 on massless
+  rows now makes their velocity jump when damped (their displacement, when undamped), and the
+  massive rows take the rest. A singular mass
+  mixing several DOFs, or a massless part with no stiffness, now refuses instead of dividing by
+  the diagonal of M or integrating a mechanism. Re-run time histories with step forces at 0 s on
+  nodes without mass.
+
+#### Safety containment diagnostics (2026-10-29)
+
+- Register safety containment diagnostics (#807, #447): known-issue warnings added; numerical values of retained results are unchanged except the 2D reactions corrected for #1113. Unsafe affected results are withheld with structured refusals. See [Safety containment diagnostics](docs/results-changes/2026-10-containment.md).
+- Preserve warnings across influence and moving-load sweeps and standalone spectral certification; warn on all 3D buckling factors pending #818. Run the read-only containment audit as an advisory check. Numerical values are unchanged.
+- Preserve the model viewport during containment, retire failed advanced reruns, and carry localized refusals and warnings through tables and exports. Warn on MITC4 shell convergence uncertainty (#810); non-static rotated-shell operations remain available.
+- Correct 2D reactions of a settled rigid support that also carries a spring on the settled DOF (#1113): the spring force −k·u is now included, so the reactions balance the loads. Fiber analyses now warn on near-singular tangents like the other nonlinear solvers (#1093).
+- Warn on CIRSOC 201 column and biaxial checks whose axial force and moment come from different combinations (#1316): the check names both combinations and a passing member becomes a warning. Ratios are unchanged.
+- Refuse 3D buckling, Guyan and Craig–Bampton reductions of models with distorted MITC4 elements, as 3D harmonic analysis already does (#798): their mode shapes and reduced matrices carry the locked membrane stiffness that the static field check cannot see.
+- Warn on 2D and 3D P-Delta when members carry axial span loads (#1329): the geometric stiffness uses each member's mean axial force, which can understate the second-order amplification. Values are unchanged.
+
+#### 3D buckling names the modes that round-off in the axial forces can move (2026-11-06)
+
+3D buckling had no counterpart of 2D's BU-UNRESOLVED-MODE check (#982). A model with a real compression beside a member whose axial force is only round-off could return a mode driven by that member, with λ ≈ 1e10, and no warning saying it was not resolved: the #982 model placed in 3D did so in most orientations. 3D buckling now names, as 2D does, every mode whose geometric work round-off in the axial forces can change by more than 1 %, and the members that drive it. Load factors are unchanged; re-check any 3D buckling result that now carries this warning.
+
+#### Basic: the course units return with their review fixes, and three result changes with them (2026-11-05)
+
+- The course stack #1302–#1307 brings back the units #871 landed without review and #1372
+  withdrew (results version 15). Each result change of results version 14 returns with the pull
+  request that carries it, under its own results version:
+  - Results version 27 (#1304): the influence line of M at a section takes M positive when it puts
+    the bottom fibre in tension, as every other moment in Basic. Ordinates change sign; their
+    magnitudes do not.
+  - Results version 28 (#1305): Basic's P-Δ and critical load solve each member as 4 elements by
+    default (1, 2, 4 or 8 can be chosen), and B₂ is 1/(1 − 1/λ₁) from the first buckling factor.
+    Displacements, forces, B₂ and λcr move toward the converged values, most for slender members
+    and members loaded along their length.
+  - Results version 29 (#1306): the step-by-step plastic collapse closes hinges that unload and
+    goes on to the true collapse (the portal example gives 71.30 instead of 64.06); a hinge that
+    drifts along a member counts once, and a run that reaches no admissible mechanism within its
+    step limit is reported as not confirmed.
+
+Re-run moment influence lines, P-Δ, critical load and plastic collapse on plane models; the app
+flags them. See [the affected results](docs/results-changes/2026-11-basic-course-returns.md).
+
+#### Basic: the course units of #871 are withdrawn (2026-11-04)
+
+- #871 reached main without its review fixes and is reverted. Plane plastic collapse, Basic P-Δ
+  and critical load, and moment influence lines give the numbers of results version 13 again.
+
+Re-run those analyses on plane models solved with results version 14. See
+[the affected results](docs/results-changes/2026-11-basic-course-withdrawn.md).
+
+#### Buckling factors outside their enclosure are refused (2026-10-29)
+
+Buckling certification now refuses a reported factor above the independently certified
+upper bound, in 2D and 3D, including constrained models. It does not widen the bound or
+change the raw solver estimate. Re-run certification before relying on an earlier
+buckling certificate. Issue #741; PR #817; results version 6. See
+[the numerical evidence](docs/results-changes/2026-10-buckling-certificate.md).
+
+#### Repeated eigenvalues retain their multiplicity (2026-10-29)
+
+Lanczos now verifies completeness with a sparse Sturm (Sylvester inertia) count
+of K − σM just above the requested eigenvalue boundary. Missing directions are
+recovered with independent random starts and mass-orthogonal deflation, including
+the full multiplicity of boundary clusters. There is no sparse-path DOF cap.
+Failure to establish completeness within the iteration limit returns an explicit
+refusal. Re-run modal and dependent dynamic analyses; frequencies, effective
+masses and response combinations can change. The shared buckling path also checks
+completeness in its positive stiffness metric.
+Exactly massless DOFs are statically condensed before dense modal fallback, so
+a near-zero mode cannot make the reciprocal cutoff discard higher physical modes.
+Results version 9; issue #759; PR #827. See
+[the results change](docs/results-changes/2026-10-modal-completeness.md).
+
+The reported warping-mode orthogonality failures were separately traced to the
+nightly checker omitting the returned seventh DOF. Its reconstruction now includes
+warping. MD-ORTHOGONALITY containment is untouched and must be removed when both
+branches land.
+
+Modal postprocessing also refuses partial results if computed modes fail its
+existing positive-frequency threshold, instead of silently returning fewer modes.
+
+#### Static and modal runtime self-checks
+
+Linear static and modal analyses in 2D and 3D now check equilibrium/residuals and modal mass orthogonality before returning results. Failed checks warn visibly; non-finite or severely failed checks refuse publication. Passing checks do not alter numerical results. See [Runtime self-checks](docs/safety/self-checks.md).
+
+Residuals use dimensionally consistent diagonal energy scaling and no absolute RHS floor. Three-DOF 3D MPC reactions include Z and use 3D force labels. PRO warnings precede results, persist with displayed mode shapes, and appear in printable modal reports; recording controls meet 44 px target and 12 px text minimums.
+
+#### The shell envelope holds each component's own extremes (2026-11-02)
+
+The envelope of plates and quads kept each element's whole result from the combination with the
+largest Von Mises, so every other component could be lower than another combination's: mx 77.94
+where 90.93 governs on the mat foundation example (14 % low). Each component now has its own
+largest and smallest value with its combination; principal stresses and required steel are the
+extremes over the combinations. Slab and wall design are unchanged. See
+[SA-2026-027](docs/advisories/SA-2026-027-shell-envelope-von-mises-record.md).
+
+### Security
+
+#### Backend dependencies updated, including assent's sign-in fix (2026-11-02)
+
+The backend's assent (0.3.2, a fix in how Apple sign-in claims are checked), bandit, phoenix and
+ssl_verify_fun are updated (#1069). Lock file only; the backend is not deployed yet, so no user
+was exposed. No calculation changes.
+
+### Added
+
+#### A project solved with a version that had a known wrong-result bug says so until it is solved again (2026-11-07)
+
+Projects record which build solved them. A project whose results came from a version affected by
+a known wrong-result bug, in a feature the model uses, now names the advisory when it opens, and
+after the notice is read a warning stays on screen until the model is solved again. The list
+starts with SA-2026-046 (harmonic analysis, between #1423 and #1587) and #1569 (the span check
+missed a member's shear slope and the thermal curvature at a released end, before #1593) (#1622).
+
+#### SA-2026-047: a project with shells solved before #1676 names the imposed-displacement shell stress advisory (2026-11-07)
+
+From #254 (2026-10-06, so 0.2.0, 0.3.0 and 0.4.0) until #1676, a load case that imposed a support
+displacement in a model with plates or quads lost all of its shell stresses, and combinations and
+envelopes summed only the other cases' shell stresses, without a warning (#1673); the combined
+stresses could be unconservative. A project with shells solved with those versions now opens
+with advisory SA-2026-047 until it is solved again (#1691): as affected when the model has shells, a
+load case that imposes a displacement and load combinations, and as possibly affected when it has
+shells but not the other two now, since a saved project cannot show it never had them when it was
+solved. A model without shells is not warned. Re-solve and compare the shell stresses of the
+combinations that include that case.
+
+#### Revert Check: a pull request cannot silently undo newer work on main (2026-11-06)
+
+- A new pull-request job, Revert Check, runs the base branch's copy of the checker (`make check.reverts`
+  locally), simulates the merge into the base branch and blames every line it deletes. It fails, listing file, line count, commit, date and
+  subject, when the merge deletes lines written in the last 21 days that the branch never started
+  from and did not write: lines that reached it only by merging the base, then went missing, as a
+  stale conflict resolution does. Edits to lines the branch started from, its own lines and older
+  lines pass. The `reverts-ok` label acknowledges an intended removal (push, or re-run all jobs,
+  after adding it).
+  A merge that conflicts fails and names the files. The merge queue runs it too, on each
+  pull request in the queued group against the group before it, with that pull request's own labels;
+  a group commit that is not GitHub's merge of a pull request's current head fails.
+
+#### A scheduled job that stays red opens an issue (2026-11-06)
+
+- A daily workflow, Red nightlies (`.github/workflows/red-nightlies.yml`), reads the last scheduled
+  runs on main of every scheduled workflow, job by job (matrix shards together). A job whose last
+  two scheduled runs failed, timed out, or were cancelled by GitHub for exceeding their timeout
+  opens one issue titled `Stays red: <workflow> / <job>`, labelled `nightly-red` and assigned to
+  unbalancedparentheses and Batuis; later red runs comment on it, and the first green run closes
+  it. The OpenSees comparison had been timing out every night since 21 October unnoticed: the
+  workflow-level alert only said that Nightly verification as a whole was red.
+
+#### The AI assistant works with your own Anthropic or OpenAI key (2026-11-01)
+
+The AI panel was switched off while its server was being built. It now works with an API key you
+paste in the panel: pick Anthropic (Claude) or OpenAI, paste the key, and the assistant builds and
+edits models, and reviews results, as it was designed to. The key is kept only in this browser and
+sent only to that provider (api.anthropic.com or api.openai.com), never to Stabileo; usage is
+billed to your account with the provider. "Forget key" removes it. A proposal from the model is
+still a draft: it is checked against the model's rules before it reaches the canvas, and the model
+is solved only when you press Apply. Without a key the panel asks for one instead of showing
+greyed-out controls. This is interim: when Stabileo's own AI service opens, the panel will use it
+and a key will no longer be needed.
+
+#### Trustworthy benchmarks, slice 1: check the model before trusting the comparison (2026-10-30)
+
+Benchmark specifications now state the elements, geometry, restraints, loads, measured quantity,
+units and tolerance, with two independent non-provisional references that must agree before a
+solve (#862). A shared test-only generator checks applied loads, reactions, rigid motions,
+support contracts, full versus reduced shell symmetry, and mesh convergence for Mattiasson,
+the shallow-toggle truss and frame, Scordelis–Lo and the pinched cylinder.
+
+Wrong variants from #845, #846 and #810 are kept as negative tests: the old elastica number,
+a frame compared with a truss formula, and incorrect shell supports or loads must be rejected.
+Convergence checks use every admitted reference, the finest mesh and extrapolation; a plateau,
+growing error or oscillation reports a suspect model or reference. The two-element toggle gate
+is a discrete comparison, not proof of continuum convergence.
+
+Re-check the model and reference behind a failed benchmark before calling it an engine defect.
+This slice changes tests and their evidence, not the production solver or existing accuracy
+tolerances; previously solved user projects need no recalculation for it.
+
+#### Benchmark gate: every benchmark has a spec, two references or a listed exemption, and a justified tolerance (2026-11-05)
+
+`engine/tests/benchmarks/registry.json` records, for every benchmark, the quantity checked, its
+references with citation, location and units, a justified tolerance and whether the references
+are independent of the implementation's derivation. `make lint.engine` fails when a benchmark has
+no spec, a quantity has fewer than two references without a reviewed exemption, a tolerance has
+no justification, a test asserts a looser tolerance than its spec, or a pull request loosens a
+spec tolerance without the `tolerance-change` label. Single-reference benchmarks (#1481) and the
+unaudited legacy validation files (#1482) are listed as explicit exemptions. Tests and CI only;
+no solver change, and no project needs recalculation.
+
+#### Two blog posts on the 2026 talks, with photos (2026-11-03)
+
+The blog now has one post on the JAIE 2026 talk in Córdoba (18 September) and one on the
+Experiencia TIIC 2026 (20 October), each dated the day of its event and with two photos.
+Posts gain a photo block, served like the screenshots: AVIF with a WebP fallback at two widths.
+
+#### `make check.quick` runs CI's first checks for what a branch changed, before it is pushed (2026-11-05)
+
+It runs the changelog, pin and test-target checks, and, for the areas a branch touches, the engine's
+clippy, the backend's format and credo, the CI-script tests and the web typecheck, then the unit and
+engine tests related to the changed files. docs/WORKFLOW.md makes it the step before each push.
+`make test-changed` now runs the AI backend's tests for `ai-backend/` changes, and points to
+`make test.backend` for `backend/` changes instead of running the AI backend's tests for them. A
+change to the root `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `engine/Cargo.toml` or
+`engine/build.rs` now runs the engine's library tests.
+
+#### Basic explains statics, the force method and the displacement method as a course unit (2026-11-03)
+
+The force method lets you choose the primary structure, with axial stiffness on or off, bars and
+springs written out term by term and the degree of indeterminacy explained. Virtual work computes
+rotations and relative movements with springs, settlements and temperature. The classroom
+displacement method counts and explains its kinematic unknowns, and the stiffness wizard can hold
+members axially rigid.
+
+#### Influence lines of N, displacements and rotations, with loading and envelopes (2026-11-03)
+
+Influence lines cover the axial force, displacements and rotations at any section, member ends
+included, explained step by step. A panel loads the line with permanent, live and point loads for
+its extremes, draws the envelope along the member, and a load-cases panel finds the largest and
+smallest effects. The influence line of a moment now reads positive where it tensions the bottom
+fibre, as the static diagram's sagging side; re-check signs you read off earlier moment lines.
+
+#### Plastic analysis explained step by step, with the static and kinematic methods (2026-11-03)
+
+Plastic analysis shows each load step, the λ-displacement curve, plastic rotations and the
+mechanism, checks a mechanism you place, and adds the static and kinematic methods. A collapse the
+step-by-step analysis cannot resolve is reported as unresolved instead of as a collapse factor.
+
+#### Structural dynamics in Basic: one and many degrees of freedom, mass models and point masses (2026-11-03)
+
+Basic's dynamic panel adds one- and many-degree-of-freedom systems with modal superposition, mass
+models with condensation, and point masses at nodes (with their rotary inertia), which the modal
+analysis also uses. Point masses and the mass source travel in share links and in the project
+workbook. An unstable or coupled system is refused instead of given a frequency.
+
+#### SRSS versus CQC for closely spaced building modes
+
+A research benchmark at `/research/benchmarks/cqc-1981`: one four-column
+shear-building idealization, production modal and response-spectrum WASM solvers,
+Stabileo's viewer and closed-form frequency, roof displacement and base-shear
+comparisons. The verification block counts the nine closed-form checks and says
+plainly that the paper's building and tables are not used; the citation reads
+"method illustration based on". The engine's own ρ, recovered from the CQC and SRSS
+base shears, is shown beside the closed form and tested at 1e-8 in the replay and in
+live WASM. Six languages, a roof-displacement table and 44 px controls. Published
+paper-example and time-history comparisons remain not yet done; this is research,
+not a design tool.
+
+#### An ETABS alternative page, and research pages share their own picture (2026-11-06)
+
+A new page at /etabs-alternative, in six languages, says what Stabileo covers today, what it does
+not (ETABS and SAP2000 models cannot be imported yet) and how its results are checked. The footer
+links it next to the SAP2000 alternative. A research page whose thumbnail is a WebP image now uses
+it, at its real size, as the picture a link preview shows. Footer links and social buttons, and the
+standalone links on the comparison pages, are at least 44 px tall, so they are easier to tap on a
+phone, and the footer's legal line is a little larger.
+
+#### Three more live examples: RC column, outrigger and steel tower (2026-11-03)
+
+/examples adds a reinforced concrete column section (CIRSOC 201 interaction diagram with the demand point, squash load and balanced point checked by hand), an outrigger on a tall core (top drift and column force against the Smith & Coull closed form, and a sweep over every storey that finds the best level) and a steel tower (first three frequencies against the cantilever frequency equation with a tip mass, and buckling against Euler with the engine's certified bracket). In six languages.
+
+#### Live structural examples at /examples (2026-11-02)
+
+A gallery of parametric models the engine solves again in the browser as a slider moves: a beam and portal frame playground (moment, shear and deflection, with closed forms beside single-load cases), a slab on columns in MITC4 shells (Navier's series on walls), and an earthquake time history of a concrete frame (Newmark average acceleration). Each result shows its certificate or the engine's refusal, links the check that verifies it, opens in the editor and keeps its settings in a share link. In six languages, linked from the landing hero and the site navigation. Published by Ergodic Group.
+
+#### Five-node gridshell reproduction after Fairclough et al. (2026)
+
+Adds one Table 1 square example at normalized unit weight 1.65, an isolated Rust/Clarabel solver,
+an externally executed and hash-pinned author reference, numerical evidence, and a six-language
+research page with live recomputation and editor export. The exported frame surrogate is checked
+with the production engine, and the page now says what that check is (reaction and load bookkeeping,
+not N ≈ σA or small bending). All 132 section areas are checked against πr², live results against
+the committed layout, and every number on the page is read from the evidence; an author/Stabileo
+toggle drives volume, height and the viewer. General catenary optimization and stability
+verification remain out of scope. No engine numerical behavior changes.
+
+#### Ferrari & Sigmund (2025): Roorda-frame research, first version (2026-10-29)
+
+The page at /research/stability/ferrari-sigmund-2025 compares the Roorda frame's critical load
+with production buckling and offers an imperfect arc-length path as replay or live computation
+(#836). An isolated research crate checks beam-energy derivatives. The Koiter coefficient and
+near-bifurcation comparisons remain unfinished, and the catalogue says implementation in
+progress: this is groundwork for reproducing the paper, not a completed post-buckling validation.
+Check those limits before relying on the example. Production solver results are unchanged.
+
+#### Mechanism fuzzing of the linear certificate (2026-11-05)
+
+A seeded generator builds 2D and 3D models that are mechanisms or near-mechanisms by construction (all-hinged or all-released nodes, connectors without moment stiffness, missing or partial supports, concurrent or parallel inclined supports, rigid links and diaphragms that carry a free rotation, a skew rotation left by a torsion release, and tiny rotational springs with a closed-form answer), each with its zero-energy modes known. The certified linear solve must refuse them, leave them uncertified, or be right: a certified result whose loads do work on a zero-energy mode, that moves along one, or that misses the closed-form answer fails. `make test.engine.mechanism-fuzz.quick` runs a checked-in seed corpus (for the per-PR tier) and `make test.engine.mechanism-fuzz.long DURATION=30m` runs fresh seeds and writes minimised reproducers (for the nightly and weekly tiers); the testing-cadence framework schedules them. The open issue they still hit, #458, is listed seeds and a regression file that fail once it is fixed. #1414, fixed by #1415, keeps a regression file that must be refused. #1437, which the fuzzer found (a soft rotational spring at a hinged 2D node replaced by the artificial stiffness) and #1428 fixed, keeps a regression file that must be solved exactly.
+
+#### Metamorphic invariance checks across every analysis (2026-10-29)
+
+The engine is checked to give the same answer for the same structure rescaled in units, renumbered, with members reversed and rigidly moved, plus superposition and reciprocity for linear analyses, across 17 analysis types: a fast set in every pull request and 8,192 generated models nightly. The known invariance bugs (#758–#762) keep explicit reproductions, ignored until fixed.
+
+#### Invariance checks, slice 1: priority analyses and stiffness scaling (2026-10-31)
+
+The metamorphic suite now runs strict geometric and superposition checks on the six priority analyses (linear, plastic collapse, time history, kinematic check, modal, buckling), with exact counts of the comparisons run so a dropped analysis fails, every comparison required to pass (no refusal, unreproduced or inconclusive result accepted), and stricter validation of modal and spectral results. Four of them also check uniform stiffness scaling (every E times k): linear displacements and rotations scale by 1/k with reactions and forces unchanged, modal frequencies by √k, buckling factors by k, and plastic collapse factors stay unchanged. Test-only: no solver results change.
+
+#### Navier plate mesh convergence
+
+A research page at `/research/benchmarks/navier-plate`. One uniformly loaded, simply supported rectangular plate, DKT and MITC4 mesh refinement through the production WASM wrapper, the shared Stabileo viewer, and centre displacement compared with the Navier series and a published worked example. DKT converges to the thin-plate series at second order; MITC4 with hard simple support converges at second order to the Reissner–Mindlin series (−0.142% at 16×16), and its soft-support results are labelled as a different problem rather than an accuracy ranking. Live, partial, cancelled and failed runs are distinguished; text in six languages; the viewer has keyboard pan, zoom and orbit. MITC9 is not exposed by the current web wrapper. This is research, not a design tool.
+
+#### Newmark (1959): one SDOF step response
+
+A research page at `/research/benchmarks/newmark-1959` runs the production WASM
+time-history solver with Newmark average acceleration and compares an undamped
+axial SDOF step response with its exact solution. Includes a shared JSON engine
+benchmark, precomputed replay, Stabileo viewer, live recomputation, four time steps
+showing period elongation, and English, Spanish and Portuguese text. The page says
+what it is compared with (exact closed-form solutions and the native engine; no
+printed figure is reproduced) and cites the paper as a benchmark, not a reproduction.
+The engine test checks every model number and writes 13 checks (discrete error below
+1e-10 m, period against Tₙ within 0.5 %, continuous error within the phase-lag bound),
+which the page recomputes from the histories it shows. Playback runs at physical speed
+with the viewer above the fold, 44 px controls and an accessible slider. Published
+figures, damping, harmonic loads, nonlinear and multi-DOF examples are not yet covered.
+
+#### An end-to-end check that no raw translation key is ever shown, in Spanish, English and Portuguese (2026-10-28)
+
+The main screens (Basic empty, its settings and project panels, a solved model and its results,
+the switch-to-2D dialog; PRO with design off, its settings, a solved model and the automatic loads
+dialog; PRO with design on and the design desk) are opened in each offered language, and the test
+fails if any visible text, tooltip, label or the window title is a translation key such as
+`tabBar.newStructure`, the key the desktop app showed as its project name (#719). Nothing an
+engineer sees changes.
+
+#### Files saved by every release open, migrate and give the same results, and a newer file is refused by name (2026-11-03)
+
+Every bundled example, saved and solved by v0.2.0, v0.3.0 and v0.4.0 with that release's own code,
+is now opened, migrated and solved on every change, and its results must match what that release
+showed unless the app's own re-check lists a registered result change that applies (#718, #770).
+v0.3.0 and v0.4.0 files give exactly today's results. A project file saved by a newer Stabileo
+used to be refused only as "invalid format", and a newer session file was not checked at all, so
+its tabs opened anyway; both are now refused with a message saying a newer version saved them.
+No calculation changes.
+
+#### Stabileo Research: form-finding of a cable net (Pastrana et al. 2026) (2026-10-29)
+
+Adds a scoped Pastrana et al. (2026) forward FDM experiment, a research Rust crate using the engine’s sparse solver, pinned jax_fdm reference results, localized replay/live controls and a 3D truss editor handoff. The page distinguishes its explicit demonstration inputs from published numerical results and excludes adjoints and inverse design. Restart returns to the first frame, the experiment sits above the introduction, input hints and units are translated, live recomputations are announced, and a failed recomputation keeps the replay; the questions for the authors moved from the page to the README.
+
+#### PRO: a visible command search that reaches everything, and a split view with the plan (2026-11-02)
+
+The ribbon has a search button ("Find a command", Ctrl/⌘ K, or "/") that finds every command by
+name, now including what lives outside the ribbon: saving, the examples, the calculation report,
+the results workbook, the drawings, checking an exported report, the project's regulations, the
+view presets, the split and plan views, "show everything" and the settings.
+
+"Split view", in the view menu and the View panel, puts beside the view the plan of the working
+level (with the columns of the storey below it) or, when the view is in plan, the model in 3D. A
+drag moves that half only, a click there selects as in the view, and its list of levels sets the
+working level, which the plan view follows.
+
+#### PRO's help under each option is one line you can turn off (2026-11-02)
+
+The short line under PRO's options saying what each one does is now the same everywhere, and
+"Help under each option" in PRO's settings turns it off; the browser remembers it. It is on to
+begin with. Warnings and states (an empty list, a result that changed) stay with it off. The
+analyses, the load cases and the report dialog gained their lines, in the six languages.
+
+#### A linked IFC is drawn in 3D as a reference, in halftone, with what it could not draw (2026-11-02)
+
+Grid and levels has "Linked models (IFC)": an architecture file, or another discipline's, is
+linked and drawn in 3D over the model, in halftone by default, as context to model over. It is
+not part of the analysis. The card says how many objects it draws with their shape, how many have
+no 3D shape and are drawn as a point, and how many could not be placed, by IFC type. The project
+keeps the link and the counts; the 3D shape stays in the browser, and a project opened on another
+computer asks for the file again. "Update" takes a new version of the file. The same links feed
+the coordination in the design desk, which compares versions object by object.
+
+#### Master and similar storeys, and a scope for edits: this storey, the similar ones, or all (2026-11-02)
+
+In Grid and levels, each level can be similar to a master level, marked as a column splice and given
+a colour. On the view, "Scope" chooses where an edit reaches: this storey, the similar storeys or
+all. With a wider scope, selecting a member, node or slab on one storey selects the same object on
+the others, so editing, assigning and deleting the selection reaches them all in one undo step,
+and a member drawn on a storey is drawn on its similar ones. "The same object" is the one of the
+same kind at the same place in plan and the same heights above its level, within a centimetre; a
+column of a taller similar storey is still the same column. The bar says how many objects the
+selection took and how many had no counterpart. The plan view steps a storey up or down with ▲ ▼
+or Page Up and Page Down.
+
+#### Plate results: forces per unit width, faces, principal moments and directions, averaged per plate (2026-11-02)
+
+The shell contour offers the membrane forces Nx, Ny and Nxy per unit width, the transverse shears
+Vx, Vy and Vmax (where the elements give them) and the principal moments Mmax and Mmin. Stresses
+can be read on the mid-surface, on the top or bottom face, or on the more stressed face; by default
+Von Mises is read on the more stressed face, as before, and the other stresses on the mid-surface,
+where Von Mises is that of the membrane stresses alone. At the nodes, values (Von Mises too) average over the
+whole model, within each physical plate, or within each group, so a wall and the slab it meets keep
+their own values at their common edge. The principal directions can be drawn on each element, in red
+where they pull and blue where they push, and the largest and smallest values written on the
+model. Hovering a shell reads its value and the span its corners are painted with. The legend, the
+results along a line and the exported figures read the same field.
+
+#### A read-only viewer for a PRO model, with "Duplicate and edit" (2026-11-02)
+
+"Copy read-only link" in Project shares a model that opens in a viewer: its name, who signs it
+and its size, the model in 3D, in plan level by level or both side by side, and a gallery of the
+examples, without the editor. Nothing of it is saved in the reader's browser until they press
+"Duplicate and edit", which turns it into an ordinary PRO tab with their own copy.
+
+#### The report after the analysis: model, analysis and design in one list you can export (2026-11-02)
+
+PRO's Diagnostics opens with the report after the analysis. Beside the model's checks and the
+solver's findings it lists the analysis's own: each load case whose loads and reactions do not
+balance, by how much and what the check could not add up, or that they all balance; whether the
+P-Delta iteration converged, in how many iterations and with which B2, or found the structure
+unstable; and a mechanism, with its nodes. With the design on, it lists the members the design does
+not approve and why, or says they all verify. A line selects what it names. The whole report
+downloads as CSV, PDF or Word.
+
+#### PRO says in its header whether the project is saved (2026-11-02)
+
+Beside the settings, PRO shows where the project stands against its autosave: "Saving…",
+"Saved 2 minutes ago", "Unsaved changes", "Saved to limited storage" when the browser only offers
+its small fallback storage, or "Could not save". With unsaved changes a click saves now; otherwise
+it opens the autosave in Project. It used to be visible only in the Project tab. The autosave
+itself works as before, in this browser; saving to an account comes with sign-in.
+
+#### PRO's videos beside the examples (2026-11-02)
+
+The Project tab lists PRO's two upcoming videos beside the examples, each marked "Coming soon" until
+it is published: how a building is modelled in PRO, and the full walkthrough of a three-storey
+building from the grid to the report, each with what it shows and how long it is. Once published,
+each opens on YouTube in the interface's language where there is a version in it, and the first
+time PRO opens in a browser a card recommends the short one; dismissed or followed, it does not come
+back. The videos take the place of a long guided tutorial inside the app.
+
+#### PRO's view shows each kind of object, in halftone or not at all, and named views remember it (2026-11-02)
+
+The View panel has a row per category (members, nodes, slabs and walls, supports, loads, labels,
+background drawings and linked models) with three states: shown, halftone, or hidden. Halftone
+keeps a category as faint context; hidden takes it out of the drawing, of picking and of "select
+all", while it is still analysed and saved. While something is hidden the viewport names it, with
+a button to show everything. The drawing style (lines, thick bars, sections, physical geometry)
+is also chosen there. A named view now keeps the categories and the style with the camera, and
+"Update" makes a view take what is on screen, so it opens that way next time.
+
+#### The deployed site is checked after a deploy and every hour (2026-10-28)
+
+Production and staging now get a browser health check after successful deploys or rollbacks and
+hourly (#738, #720). It checks the landing page, a blog page and backend health, opens Basic,
+loads the deployed WASM engine with the right content type and solves a reference cantilever
+against its closed-form result. A failing site opens one issue, updates it while the failure
+persists and closes it on recovery. This catches a broken deployed build even when the build
+itself passed. Re-check the site's health run and reference solve after a deployment failure.
+
+#### German, French and Turkish throughout the app and public site (2026-10-29)
+
+The language chooser offers German, French and Turkish alongside Spanish, English and Portuguese
+(#780–#783). The new dictionaries cover the editor, steel checks and step-by-step explanations;
+the public site, standing pages, release notes and translated blog articles use the same locale.
+Only articles available in a language appear in its sitemap and feeds. Full app dictionaries load
+for the chosen language, and a coverage gate catches missing keys and undeclared English text.
+Re-check saved language preferences, public links and exported labels in the newly offered
+languages. Model data and calculation results are unchanged. This release then withdraws the
+three languages until a native speaker has checked them (see the top of this section).
+
+#### Stabileo Research catalogue: 19 more verified papers (2026-10-29)
+
+The research catalogue lists 19 more papers, each verified against Crossref: the origins of the finite element method, Newmark, the CQC rule, Riks and Crisfield, Bathe–Dvorkin MITC shells, MacNeal–Harder, Zienkiewicz–Zhu and others, as catalogue records (#788, integrated in #857). A catalogue record alone does not mean an experiment is runnable or validated; the gallery and each paper's status distinguish the live implementations from proposed work. Check those statuses and the stated evidence before relying on a reproduction.
+
+#### Curvature-patterned snapping arches in Stabileo Research
+
+Adds the centered shallow-arch experiment after Zmyślony, Khan and Biggins (2026),
+with production frame buckling modes, a research modal-equilibrium layer, replay,
+live WASM recomputation and translated controls. Checks the published 70% threshold
+(now to 0.005, half the last printed digit, with an error budget) and a regenerated
+Zenodo software curve, plus independent equilibrium invariants and the critical
+pre/post-snap frame pair; evidence files must equal fresh output exactly. The chart
+has a legend and a data table, the viewer sits near the top, and the page is in six
+languages. The equilibrium jump is not a transient snap simulation or experimental
+validation. Production engine code is unchanged.
+
+#### DaDeppo–Schmidt deep arch benchmark
+
+Research page at `/research/benchmarks/dadeppo-arch-1975`: one 215° clamped–hinged arch traced with the production corotational arc-length solver, shared native/WASM case, Stabileo viewer, precomputed replay and live recomputation. Compares the limit load (PR²/EI = 8.97) and the crown state at the limit point (u/R, v/R, rotation) with Table 1 of the 1975 paper as quoted by Schmidt (2000), with tolerances derived from a 20/40/80-element mesh study. Text in all six site languages.
+
+#### Research benchmarks in engine CI (2026-10-29)
+
+Check research-page reference quantities directly through production solvers in the engine validation suite, including MacNeal–Harder, Riks/Crisfield, shell obstacles, Mattiasson, Roorda buckling, arch modes and the exported gridshell frame. Document source provenance and existing coverage. Keep known inaccurate results and newly exposed reference mismatches as explicitly ignored tests with their original tolerances; no engine numerics changed.
+
+#### Lee frame (1968) research benchmark
+
+A pinned 120 × 120 cm Lee frame at
+`/research/benchmarks/lee-frame-1968`, traced with the production corotational
+arc-length solver and displayed in Stabileo’s viewer. Includes a shared engine
+case, first-peak regression test, a mesh (20/40/80 elements) and arc-length step
+study, replay, live WASM recomputation, text in six locales, and a first-peak
+comparison, to the nearest percent, with a by-eye reading of the pinned curve in
+de Souza, Vanalli & de Luz (2020), Figure 10.
+
+#### Stabileo Research: MacNeal–Harder benchmark page (2026-10-29)
+
+The 1985 MacNeal–Harder element tests run on the production engine in the browser, sharing one case file with the engine tests: 8 of 12 pass at 2%; two distorted out-of-plane cases fail the accuracy target, and the two distorted in-plane cases are shown as withheld by the engine (known issue #798). Native and WASM checks require those containment refusals; they do not count as accuracy passes. (PR #797)
+
+#### Stabileo Research: Mattiasson elastica page (2026-10-29)
+
+A cantilever traced by the production co-rotational solver until it curls, compared with the exact elliptic-integral values. Corrected area and stepping, five analytical checks below 0.1%, complete translations and responsive playback controls. The mesh error ceilings and the axial-extension bound now live in the shared case file read by the Rust test, the SciPy reference and the page; all 21 cases must reach full load with no failures; the slider label follows the shown case and the evidence link is pinned to the build commit.
+
+#### Classic plastic collapse benchmark
+
+One fixed-base portal at `/research/benchmarks/plastic-collapse`, using the
+production 3D plastic-collapse WASM solver and Stabileo viewer, compared with beam,
+sway and combined virtual-work bounds. The native test asserts every hinge event
+(element, end, order, sign, |My| = Mp, λ within 1e-6), equilibrium, the corner moment
+and that no other member end yields; the live WASM run is compared with the replay
+event by event. The bounds are our own hand derivations (Horne as background), the
+header counts the six hand-calculation checks, and the page adds hinge-event and
+displacement tables, a status region and six languages. No production numerics or
+tolerances changed.
+
+#### Stabileo Research: shell obstacle course page (2026-10-29)
+
+The Scordelis–Lo roof, pinched cylinder and pinched hemisphere run on the production engine with mesh refinement: the hemisphere passes; the roof plateaus about 15% stiff and the cylinder error grows with refinement, shown as failures and under triage (#810).
+
+#### Research and calculators link to each other (2026-11-02)
+
+Each calculator page links to the research benchmarks that check the same mechanics, each of those research pages links back to its calculators, and both link to the research gallery, the calculators and the blog, in the reader's language. Research links go to the language the paper page is published in.
+
+#### Runnable MBB topology optimization research experiment (2026-10-29)
+
+Add an isolated Andreassen et al. experiment: SIMP/OC on the engine's sparse Cholesky, both original filters, full-precision Octave reference capture, and a shared-viewer research page with replay and live worker computation. Numerical agreement is distinct from experimental validation; no published-figure agreement is claimed. Round 2 reviewed by Kimi, Codex and Claude (2026-10-31): the page names its comparison source (the unmodified top88.m in GNU Octave) instead of a not-compared placeholder, with measured iteration counts, 44 px controls and 12 px text, the viewer near the top, keyboard pan and zoom with a data table, and Escape closing the viewer menu.
+
+The filter selector also has its own accessible label, so assistive technology reads the control
+name without appending all its options (#857). Re-check the density and sensitivity filter
+choices when replaying or recomputing the example.
+
+#### Results snapshot gate: envelopes, newly produced results and removed cases count (2026-10-28)
+
+The results snapshot gate (#716) now also records the combinations' envelopes and the combination
+that governs each member, counts a result the app starts producing (another combination, mode or
+limit state) as a change to register, and fails when a corpus case is removed without deleting
+its snapshot, so the deletion is registered too. A spectral mode's participation is compared by
+magnitude, since its sign is the eigenvector's. Nothing an engineer sees changes.
+
+#### Results snapshot gate: a pull request that changes a result must say so (2026-10-28)
+
+A reference corpus of 39 projects (the bundled examples in Basic 2D, Basic 3D and PRO; shells,
+combinations, P-Δ, modal, spectral and buckling; the CIRSOC 201, CIRSOC 301 and footing checks with
+PRO's design on) is solved through the app's own solve and design path on every pull request and
+in the merge queue, and compared with committed snapshots (`web/results-snapshots/`) to one part
+per million. A pull request whose snapshots move must add an entry to the registry of result
+changes and a `BREAKING (results)` changelog fragment, so the engineers whose projects it affects
+are told when they open them; `make snapshots-update` regenerates the snapshots. Nothing an
+engineer sees changes (#716).
+
+#### Arc-length benchmarks: Riks and Crisfield (2026-10-29)
+
+Added a Riks–Crisfield research page that runs Stabileo’s production arc-length solver on shared two-bar cases, compares native and browser WASM results and opens the models in the editor. A limit point now counts only when the load drops between converged frames; an unreached limit is shown as not evaluated. The page says the run passes the upper limit point and does not reach the lower limit, and that it is a method benchmark against analytical equilibrium and native results, not a reproduction of the papers' examples. Per-metric tolerances were tightened from 5 % (peak load 1e-3, peak displacement 5e-3, path residual 5e-5) with a finer step and parabolic peak interpolation; the page is in six languages.
+
+#### Stabileo Research (2026-10-28)
+
+Browse computational-mechanics papers and run the Shauer phase-field fracture experiment with replay, live computation and reference comparisons. Explore Grossman & Boudaoud (2026) spring networks, auxetic response and elastic moduli with published comparisons. Research, not a design tool.
+
+#### The JAIE 2026 paper, in full (2026-10-29)
+
+The paper "Developing a structural calculation agent on top of a verified solver", presented in
+Spanish at the 29th JAIE, can be read whole at /paper in English, set like its LaTeX article with
+its equations, tables, figures and references. It downloads as the LaTeX-typeset PDF, and the
+Spanish original is offered beside it. It sits between Blog and Research in the site header.
+
+#### Continuous beams, portals, trusses, influence lines and beam frequencies (2026-10-29)
+
+Stage: first version. Reviews: 0.
+
+Five localized Stabileo Tools use the production engine for continuous beams, single-bay portals, editable planar trusses, moving-load influence lines and beam bending frequencies. Includes independent classical comparisons, engine diagrams and mode shapes, validated input limits, editor handoff, and responsive viewer-first layouts. Assumptions and sampling limits are explicit; portal references neglect axial deformation, and modal results exclude axial modes. Tool dictionaries and analysis stay behind the tools route boundary.
+
+#### Every batch-two Tool is render-tested in all six languages (2026-10-30)
+
+The continuous beam, portal, truss, influence-line and beam-frequency pages now have server-render
+tests in English, Spanish, Portuguese, German, French and Turkish (#877): 30 cases check the
+translated title, viewer container, input form, localized gallery link and absence of raw Tools
+keys. This catches missing page content or translations before publication; it does not replace
+browser interaction or numerical tests. Re-check these cases when changing a Tool's page or
+locale. Calculator results are unchanged.
+
+#### Free beam and elastic column calculators (2026-10-29)
+
+Stage: first version. Reviews: 0.
+
+Stabileo Tools adds localized public calculators for simply supported beams, cantilevers and elastic column buckling, with production-engine results, independent formulas, worked examples and an editor handoff. Assumes linear elasticity, small deflection and prismatic Euler–Bernoulli members; this is not a code design check. Buckling comparisons expose finite-element error and the rounded fixed–pinned K = 0.7 approximation.
+
+#### A public changelog at /changelog, linked from the landing nav (2026-10-29)
+
+What reached stabileo.com since the first version in February 2026: a month at a time until April,
+then one entry per weekly report, in Spanish, English, Portuguese, German, French and Turkish. The page draws the history on
+a timeline by month, groups each entry's changes by area (Basic, PRO, Education, App, Engine,
+Website), filters by area and shows screenshots of what changed. It sits beside "Blog" in the site header
+of every public page and in the footer. Nothing in the editor changes.
+
+Re-check the timeline filters and language links when adding an entry (#790).
+
+### Changed
+
+#### The engine tests check reciprocity with moments, factored combinations and shell stress superposition, and that every result has one record per node, support, element and shell (2026-11-07)
+
+- The metamorphic suite adds Maxwell–Betti reciprocity between forces and moments, every load
+  combination compared with a linear solve of its factored loads, and superposition of each shell
+  stress component (σxx, σyy, τxy, mx, my, mxy, qx, qy) for plates and every quad family (#1665).
+  No identity failed.
+- A completeness check compares each result with its model: one displacement per node, one
+  reaction per support node, one force record per element, one stress record per plate and quad,
+  for the linear, multi-case, staged, nonlinear, SSI and modal analyses in 2D and 3D (#1674). It
+  found that SSI returned no reactions (#1672) and that 3D combinations had no shell stresses
+  (#1673), both fixed in this release. Test-only: no result changes.
+
+#### Research links the paper and Examples (2026-11-07)
+
+- The research gallery links the JAIE 2026 paper above its first section, now that the paper sits
+  under Research in the site header. Related links on research and tools pages include Examples.
+
+#### The landing heading says what Stabileo is for: structural analysis you can check (2026-11-07)
+
+- The heading was "Open-source structural engineering software, with AI on the way." It now reads
+  "Structural analysis you can check.", in every language. The paragraph below still says the
+  results are checked against seven other finite-element programs and that the AI assistant is in
+  development.
+
+#### The public footer is a sitemap (2026-11-06)
+
+- Every public page's footer lists the site in three groups: Product (open the editor, Examples, Tools, Pricing), Verification (Reliability, Research, the paper, CIRSOC, the SAP2000 and ETABS alternative pages) and Project (Blog, Changelog, Documentation, GitHub). Examples, Tools, Research and the paper were missing from it.
+- The landing's sections link to the pages that extend them: Basic to Tools, PRO analysis to Examples, Verification to Reliability and Research.
+
+#### The site's top bar has six items instead of eleven (2026-11-06)
+
+- The header on every public page now holds Product, Examples, Tools, Research, Pricing and Blog, beside the Open the editor button, with more room around each link. PRO, AI and Education stay on the landing; the changelog is linked from the blog's header and the footer, and the paper from the footer. The paper's page marks Research as current, and the changelog's marks Blog.
+- On a phone the menu ends with the Open the editor button, which the bar hides at that width.
+
+#### The merge queue runs the `@slow` E2E specs (2026-11-06)
+
+The merge queue (`merge_group`) now runs every `@slow` Playwright spec whenever the queued entry changes
+anything that can reach the app, sharded across the 14 E2E runners by measured duration (#1519). A spec
+counts as slow when it, or a helper it imports directly or transitively, carries the `@slow` tag. Only
+these select nothing: docs, changelog fragments, the backend and AI backend, engine tests and benches,
+script tests, web unit-test files and web script tests, the paper, admin, account and Tools pages.
+Research-only paths select the research specs, and a changed spec file selects itself when it is slow.
+A missing diff, a script error, or a spec list with any invalid or unmatched entry runs the full suite.
+
+#### Engine wall-clock budgets report on pull requests instead of failing (2026-11-06)
+
+Engine wall-clock budgets (the perf regression gates and the timed tests Engine Gates runs alone) now report an overrun on pull requests and in the merge queue instead of failing Engine Gates. Main and the nightly run still fail on one. Every performance budget goes through `wall_clock::budget`, and the wall-clock lint rejects a bare `assert!` on elapsed time, except in the fuzz watchdog test, whose timeout is the contract under test.
+
+#### Timing budgets report on pull requests and fail on main (2026-11-06)
+
+The Timing Budgets job (the scale budgets and the `@slow` wall-clock E2E budgets) failed CI OK on pull requests and in the merge queue whenever a shared runner stalled, which threw a merge group out of the queue and cancelled the runs behind it (#1562). Over 134 recent runs it failed twice, both times on the physical-view frame of the model-fluidity check (691 ms against a 275 ms budget in the merge queue, with a 600 s timeout on the retry), while the median run used 58 % of that budget and the scale budgets never came within 2.6× of theirs. On pull requests and in the merge queue only the time comparisons are soft now: an overrun is recorded and shown as a warning in the run summary without failing CI OK, while a crash or any other failed check in those tests still fails; pushes to main, the nightly run and manual runs on main still fail on it, and open (or comment on) a `CI failure: Timing Budgets on main` issue, closed again by the next green run of main's head.
+
+#### Pull requests get automatic AI reviews (2026-11-03)
+
+- Pull requests that are ready for review, other than Dependabot's, get one review comment each
+  from six AI reviewers, and owners, members and collaborators can re-run one or all of them with a
+  slash command (#1245). The reviews are advisory; the merge rules in `docs/WORKFLOW.md` still
+  apply.
+
+#### Basic 3D: a grid 100 m across, and examples without node IDs (2026-10-29)
+
+Basic 3D's grid is 100 m across by default (it was 50 m). A 3D example now opens with node IDs off,
+as in PRO, where they crowd the larger models; the setting stays at hand, and a model built from
+scratch keeps them on.
+
+#### Copy and paste in Basic work as in PRO: what is selected, placed with a ghost (2026-10-29)
+
+In Basic 2D and 3D, Ctrl+V pasted at once, one metre over (or three metres up in 3D), on top of the
+original, and Ctrl+C took the members between copied nodes too. Copy now takes what is selected:
+nodes alone come without members, a member brings its two nodes. Ctrl+V shows the copy as a ghost
+that follows the pointer, snapping to nodes and the grid, with the placement bar of PRO above the
+model: a click places it, Shift+click places and keeps going, R turns it, F mirrors it, Tab changes
+the anchor, the bar takes exact coordinates (X and Z in 2D) and Esc cancels. Ctrl+Shift+V pastes in
+place. Ctrl+X removes the selection and the nodes nothing else uses, as in PRO.
+
+Beside the delete button there are now copy and paste buttons, in the options bar on a desktop and
+over the model on a phone: copy shows while something is selected, paste once something was copied.
+On a phone the ghost follows the finger and lifting it places the copy.
+
+#### "Check an exported report…" moves under the report, as a link (2026-10-28)
+
+The button that re-solves a project and compares it with an exported report's provenance stood in
+the File row beside Save and Open, in PRO and in Basic, under the name "Reproduce from
+provenance…". It is now a quiet link under the report button, in the report group, named "Check an
+exported report…". The dialog and what it does are unchanged.
+
+#### CI runs on Stabileo's own runners, and superseded runs cancel themselves (2026-11-02)
+
+With `STABILEO_SELF_HOSTED` on, every CI job that builds or tests runs on the
+self-hosted stabileo-ci-1 runners (except Determinism, for WebKit, and Docker
+build smoke) for the merge queue and pushes to main, and, with
+`STABILEO_PR_POOL`, for pull requests from this repository's branches (on
+`stabileo-pr` runners, so the merge queue always keeps runners of its own). Fork
+and Dependabot pull requests stay on GitHub. The timing-sensitive jobs (Engine
+Gates, Web Unit, research engine benchmarks) move only to pinned `stabileo-timing`
+runners (`STABILEO_TIMING_POOL`), and nightly fuzzing only to `stabileo-nightly`
+runners (`STABILEO_NIGHTLY_POOL`). A merge-group run whose PR left or was rebuilt
+in the queue is cancelled. Main and nightly runs are never cancelled. Every job has
+a timeout. Engine Suite and Web Unit now run in four shards each. CI's `rust` and
+`npm` jobs, which mirrored CI OK under the names of the required dependency
+audits, are gone, so those required checks are the audits again.
+
+#### CI retries an artifact download that GitHub's storage refuses with a 5xx (2026-11-03)
+
+`gh run download` failing with HTTP 500, 502, 503 or 504 from GitHub's artifact storage (for
+example "503 Egress is over the account limit") is now retried as an infrastructure failure
+instead of failing the job. A 404 or any other error still fails at once.
+
+#### Browser system packages come from the Actions cache on hosted runners (2026-11-04)
+
+Every hosted job that installs Playwright's system packages (E2E shards, E2E Site, Web Build, Determinism,
+Timing Budgets, the flaky suite) now goes through one action. That action keeps apt's downloaded
+packages in the Actions cache, keyed by runner image, browsers and lockfile, so apt no longer fetches
+them from Ubuntu's mirror on each run. The mirror sometimes serves at about 50 kB/s: 21 MB took
+6.5 minutes and was the slowest step of an E2E shard. The action also has apt wait up to 5 minutes
+for the dpkg lock.
+
+#### E2E shards balance from times measured on recent main and merge-queue runs (2026-11-05)
+
+Each main and merge-queue run that passes the full E2E smoke suite now saves how long every spec file
+took. The next runs split the smoke specs across their shards from that measured table instead of the
+committed one, so the shards finish closer together as specs grow or get faster. A run that cannot
+find a recent table uses the committed one, and every shard always reads the same table, so each spec
+still runs exactly once.
+
+#### E2E shards run on GitHub's runners again (2026-11-03)
+
+The E2E shards (and quarantined E2E) always run on GitHub-hosted runners: all ten start at
+once and take about 11 minutes, against about 18 minutes and a queue on the shared self-hosted
+host. The site they test is still built once on the self-hosted runners.
+
+#### A pull request's lint, typecheck and unit failures turn red sooner and stop the rest of the run (2026-11-05)
+
+Web typechecking is now its own Web Typecheck job. It needs only the engine WASM, so it no longer waits
+for the research assets and the site build's setup. Web Unit runs in eight shards instead of four. On
+pull requests from this repository's branches, Web Unit stops at its first failing test. When Lint
+Repo, Test CI Scripts, Lint Engine, Lint Backend, Web Typecheck or Web Unit fails on such a pull
+request, the run is cancelled once that job has ended as a failure, so the failed check stays red
+and the long E2E and build jobs stop. A small workflow, Stop a failed pull request run, does the
+cancelling. CI OK still reports the failure. Pull requests from forks get a read-only token, so
+their runs are not cancelled; they run to the end as before. The merge queue and main still run every
+test.
+
+#### Pull request CI reruns infrastructure failures once by itself (2026-11-04)
+
+When every failed job of a pull request's CI, Research or Supply chain run shows infrastructure
+evidence (a job timeout or exit 137 outside a test step, a lost runner, or a cache, artifact or
+network error in a download step), its failed jobs are rerun once automatically, and the summary of
+the Infrastructure retry run records why. Test, build and lint failures are never retried, nor is
+anything unrecognised.
+
+#### A lighter merge queue, with a revert when main fails (2026-11-02)
+
+The merge queue now runs what combining PRs can break and skips the heavy jobs that
+it rarely breaks: slow E2E, visual baselines, Docker build smoke, Determinism,
+quarantined E2E and research validation beyond route budgets. Pushes to main and a
+new nightly CI run (03:30 UTC) still run everything. When a push to main fails twice,
+a post-merge workflow opens a signed revert PR of the merges since the last green
+push and notifies the ntfy topic. Once approved and green, it jumps the merge queue.
+
+Browser jobs (E2E, E2E Site and the quarantined E2E) can be limited to a smaller set of runners
+labelled `stabileo-e2e` once the repository variable `STABILEO_E2E_POOL` is `true`, so a host no
+longer runs a dozen headless Chromes at once; without it they stay on the `stabileo` pool.
+
+Outside the PR pool (same-repository pull requests, when `STABILEO_PR_POOL` is on), the
+self-hosted runners take only the merge queue and runs on `main` (pushes, the nightly run and
+manual runs of `main`); a manual run of any other branch goes to GitHub-hosted runners.
+
+#### Only the newest main commit runs post-merge CI and proofs (2026-11-04)
+
+When merges land close together, each push to main ran the whole post-merge CI and Verify
+workflows, even though the next push contains the same commits. Between 06:00 and 18:15 UTC on
+2026-11-04, 598 CI job-minutes and 430 Verify job-minutes ran after a newer main push had already
+started. These runs held the self-hosted runners while the merge queue waited. A push to main now
+cancels the main run still in progress in each of the two workflows. Merge-queue, scheduled and
+dispatched runs are never cancelled this way. Deploy runs in its own workflow and is unaffected.
+The post-merge revert ignores cancelled runs and blames every merge since the last green one.
+
+#### A mutation-testing shard that does not finish no longer waits 16 nights for its turn (2026-11-05)
+
+The nightly mutation run picks the 32 shards that went longest without running to their verdict,
+instead of a fixed block by day. A shard lost to a runner failure or to its time budget used to
+wait for the next full pass, 16 nights later; it is now retried once ahead of shards with a newer
+report, and a shard that misses twice waits its turn like one that just ran.
+
+#### The nightly verification runs at night (2026-11-04)
+
+The nightly verification run takes about seven hours on the self-hosted runners. It started at
+05:00 UTC, so it competed with pull requests and the merge queue until about noon. A dispatch at 14:01
+held the nightly pool all afternoon: dispatched nightly runs took 23% of all self-hosted runner time
+between 06:00 and 18:15. The scheduled run now starts at 00:00 UTC. A dispatch takes the nightly
+pool only between 00:00 and 07:00 UTC; the rest of the day it runs on GitHub-hosted runners and
+says so in a notice.
+
+#### Docs, research prose and site-only changes run a smaller CI (2026-11-04)
+
+A pull request that changes only docs, the changelog or research papers' prose (Markdown outside
+`research/tools/`) now runs no build: repository lint, plus the research checks for research prose.
+One that changes only the site (components, blog, locale strings, end-to-end tests, route budgets,
+outside the package manifests and the compiled WASM) runs everything except the engine, AI-backend
+and backend jobs and the full research validation (only its route checks run): WASM, the site build, the E2E site and every E2E shard still run.
+
+The merge queue scopes each entry the same way, by its diff against the entry ahead of it: an entry of
+docs only runs no build, and one touching only the site, research or tools skips the engine jobs. Any entry that
+touches the engine, the toolchain or anything unrecognised runs the full queue set; pushes to main
+and the nightly run still run everything.
+
+#### Pull requests take the self-hosted runners only for their critical-path builds (2026-11-03)
+
+A pull request's WASM, Research WASM and e2e site builds run on the self-hosted pull request
+runners, where their caches are warm; every other pull request job runs on GitHub, where thirty
+start at once, instead of queueing for four runners. Checks that take a minute or less run on
+GitHub for the merge queue too, leaving the self-hosted runners to the builds and test suites.
+
+#### The merge queue's longest chain is shorter (2026-11-04)
+
+The end-to-end smoke suite runs in fourteen shards instead of ten, balanced from fresh timings (the
+old table predicted 41.5 min of tests where the queue ran 69.8, so one shard took 11.7 min and
+another 3.0). GitHub-hosted jobs free their disk space in the background instead of waiting about
+2.5 minutes for it. With `STABILEO_ENGINE_POOL` set, the engine suite and metamorphic tests run on
+their own runners, so WASM, research WASM and the end-to-end site start without waiting.
+
+#### Each merge-queue entry is scoped by its own change (2026-11-04)
+
+A merge-queue run now picks its scope (full, site, docs) from the diff against
+the entry ahead of it, not against main, so a docs or site change queued behind
+an engine change no longer runs the whole engine pipeline again. The entry ahead
+tests everything it brings and must pass before this one merges. A run whose
+history can't be read still falls back to the full pipeline.
+
+#### Pull requests reuse research WASM bundles that the merge queue and main built (2026-11-04)
+
+Research WASM takes 28% of the self-hosted runners' time. Pull requests rebuilt every bundle,
+because main's Actions caches had been evicted and a pull request can't read another pull
+request's cache. Now the queue-only runners, which never take a pull request, keep each bundle they
+build in a directory on the host, keyed like the Actions cache and checked against a SHA-256
+manifest. A pull request whose research inputs match reuses that bundle. Only those runners can
+write the directory, and merge-queue and main runs never read it.
+
+#### Research validation runs once per merged commit and leaves the merge queue's runners free (2026-11-05)
+
+A commit merged to main used to run every research validation twice: once from CI and once from the
+standalone Research workflow. The standalone workflow now runs only its online catalog check on push
+(and everything on its weekly schedule). CI's run covers the rest, and the research filter in CI
+selects every path that used to trigger the standalone run. While the pull request runner pool is
+on, these post-merge research jobs also run on that pool instead of the runners kept for the merge
+queue, so queued pull requests wait less for a runner. The engine benchmarks keep the timing runners
+they share with the queue.
+
+#### Research WASM builds its bundles in parallel (2026-11-03)
+
+The research WASM bundles that missed their cache build at the same time, each in its own
+target directory, instead of one after another: about 6 minutes instead of 15 when the engine
+changes. Every bundle's log is printed, and any failed bundle fails the job by name.
+
+#### Research WASM rebuilds only the bundles whose inputs changed (2026-11-03)
+
+Each of the six research WASM bundles has its own build cache, keyed on its crate, the engine
+(every bundle links it), the shared toolchain and research tooling. A change to one research
+crate rebuilds only that bundle instead of all six.
+
+#### CI tools use a GitHub runner's thread counts on every runner (2026-11-03)
+
+Cargo, the Rust test harnesses, rayon, vitest, binaryen and esbuild get the thread counts they
+already pick on GitHub's four-vCPU runners, in CI and Research, so each tool on the shared
+self-hosted runner no longer sizes itself to every core of the machine. These are per-tool
+limits, not a cap on a whole job; nothing changes on GitHub's runners.
+
+#### Web Build's production-build tests reuse the build CI just made (2026-11-04)
+
+`make test.web.build` builds the site once and builds a second copy with a Vite manifest. It stamps
+both with a hash of the files each holds and of the sources it was built from: the commit, web/ and research/, the engine and
+research WASM, the Vite env files, and the build variables (`VITE_*`, `BASE_PATH`, `GITHUB_SHA`, `NODE_ENV`), recorded before Vitest starts. The production-build tests then read those two builds instead
+of making four more. A test refuses a shared build whose sources or files differ from its stamp, so a
+stale build fails and is never tested in place of the current one. The VITE_E2E build in the
+hook-gating test is still its own, and run on their own, outside `make test.web.build`, the tests still
+build what they need.
+
+#### The degree of indeterminacy is counted one way everywhere, and plane governing combinations look along the whole member (2026-11-03)
+
+The kinematic panel, the stiffness wizard and the force method now share one count of the degree
+of indeterminacy, GH = 3·m + r − 3·n − c, with the internal hinges (c) written out, and split it
+into its external and internal parts. In the plane workspace the governing combination of a member
+is chosen by the largest moment, shear and axial force anywhere along it, not only at its ends: a
+span load whose peak is at midspan now picks the combination that governs there. Re-check governing
+combinations of plane members with span loads.
+
+#### Basic's P-Delta and buckling run with a chosen method and discretization, explained step by step (2026-11-03)
+
+P-Delta offers the geometric or the chord matrix and the stability functions, at a chosen number
+of elements per member, with its iterations step by step. B₂ is now 1/(1 − 1/λ₁) from Basic's own
+buckling at the same discretization, shown beside the largest displacement amplification. Buckling
+is computed with 4 elements per member by default and refuses a factor the discretization cannot
+represent instead of reporting it. Re-check B₂ and buckling factors from Basic's 2D panel.
+
+#### The step-by-step course loads when it is opened (2026-11-03)
+
+The explained step-by-step catalog, the stiffness and flexibility wizards, and their texts in every
+language are now a separate download that the app fetches the first time the Advanced panel opens.
+Opening the app without it is about 1.1 MB lighter.
+
+#### The deformed shape writes its displacements only when asked (2026-10-29)
+
+The deformed shape wrote every node's displacement on the drawing, under the same "show values"
+switch as the diagrams. It now has its own switch, off by default: in Basic 2D and 3D a "Show
+displacements" check beside Animate, under the scale slider (on a phone too); in PRO's deformed
+view it takes the place of "Show loads". The other results keep their values on.
+
+#### Pull requests build the Docker image from source only when its recipe changes (2026-11-04)
+
+The Docker check built the whole image from source on every pull request: the backend, the engine
+and research WASM, and the site. That took 18–27 min and was the PR's longest check. A pull request
+now builds the image around its already-tested site. It builds from source only when the Dockerfile,
+`.dockerignore`, or a toolchain or dependency pin the build reads changes. Pushes to main still
+build both.
+
+#### Exporting an empty model, and choosing which drawings come out (2026-10-28)
+
+PRO's export buttons were greyed out until the model had a node; they are offered at once, as in
+Basic. Every export dialog of both modes says when the model is still empty, the file still comes
+out, and one notice says it came out with no data, in place of the solver's errors about a model
+with nothing to solve. PRO's report now opens on an empty model too.
+
+Drawings opens on what to include, with three quick sets (model only, model and diagrams,
+everything) above the checks, and, when more than one drawing is chosen, whether they come out
+on one sheet or one file each in a .zip. PRO's DXF offers the same: one drawing with a layer per
+content, or a .zip with the model's drawing and one per result with the model underneath.
+
+#### Invariance checks on every engine pull request (2026-11-05)
+
+Pull requests that change the solver now check that the analyses they touch give the same answer when a curated set of models is rotated, mirrored, renumbered, has members reversed, changes units or lists its loads in another order. Known open wrong results (#758, #971) are tracked as expected failures, so a fix that removes one is noticed.
+
+#### The landing says more about Stabileo AI, and loads that section after the page (2026-11-06)
+
+The AI section lists what the assistant does: it drafts a model from a description, edits it on
+screen and shows each change before it is applied, reviews a solved model, and explains solver
+warnings and results. It says the engineer decides, and that the panel is in the editor and works with your own
+Anthropic (Claude) or OpenAI key, kept only in the browser. Pricing says Stabileo AI is paid by everyone, universities included. The section, its
+copy in six languages and its screenshot now load once the rest of the landing is up, so the first
+load of the landing is lighter.
+
+#### The landing opens by saying Stabileo is open-source structural engineering software, with AI in development (2026-11-03)
+
+The hero, page title and description in all six languages now say it plainly: open-source
+structural engineering software whose solver runs on your machine and is checked against seven
+other finite-element programs, with an AI assistant that is still in development and will work on
+the same model and solver. The description and README no longer lead with the assistant's own-key mode, which stays the
+interim way to use it until Stabileo's own AI service opens.
+
+#### The landing says where Stabileo fits and what each design code check covers today (2026-11-02)
+
+A short block after the hero places Stabileo against commercial desktop packages, script-driven
+open-source solvers and classroom freeware, with links to the reliability and SAP2000 pages.
+Basic mode names what it shows: live recalculation, the stiffness method step by step, mechanism
+detection, which torsion theory applies, and P-Δ, buckling, modal, plastic collapse and influence
+lines. PRO Design lists every code it checks with its maturity, and says that open issue #532
+(3D design demands may use the wrong axis) affects the 3D checks.
+
+#### The landing and the editor load the blog only when it is shown (2026-11-03)
+
+The blog page and its posts load on demand: on a blog address, when the editor opens the blog,
+and for the latest-post card at the foot of the landing. The landing entry is about 724 KB
+smaller (uncompressed) and every `/app/*` mode about 215 KB smaller. The card appears once the
+posts arrive, without moving the link to the index.
+
+#### Every Rust mutant is tested at least every 16 days (2026-11-02)
+
+The nightly mutation run now tests 32 of its 512 shards a night instead of 4, on the nightly
+runner pool, so a full pass takes 16 nights, as the roadmap promises, instead of 128. A shard
+that runs to its verdict leaves a marker, and the weekly verification dashboard fails and lists
+the stale shards when any shard has gone more than 16 days without one. The dashboard's Rust
+mutation score now reads the nightly workflow, where the mutants job runs.
+
+#### Nightly and differential runs: infrastructure failures fixed, one alert issue per workflow (2026-11-03)
+
+A failed scheduled verification run (nightly, differential, mutation testing) now opens or
+comments on one `ci-failure` issue per workflow instead of one per job (#739, #717). The OpenSees,
+Code_Aster and Frame3DD harnesses and the mutants filter and exit code that made those runs fail
+for reasons other than the engine are fixed, and the dashboard commit is signed. No calculation
+changes.
+
+#### One nightly finding per root cause, not one per node or element (2026-11-01)
+
+The nightly bug hunt grouped its findings by a fingerprint that kept node and element ids, so one
+root cause opened many issues (30 for one shell stress label). Ids are now normalised before
+fingerprinting (#1062); distinct quantities stay distinct. No calculation changes.
+
+#### Adding a label no longer restarts CI (2026-11-03)
+
+Pull request CI ran again from scratch whenever any label was added. Now only opening, pushing and
+reopening start a run. The `run-e2e` label is read when a run starts, so after adding it, push or
+re-run CI to get the full pipeline.
+
+#### Engine tests that time themselves no longer run on a shared CI machine (2026-11-03)
+
+The solid-shell centroid-stress performance check failed on a busy CI runner although nothing was
+wrong: it compared two wall-clock timings measured back to back. It now counts how often the
+expensive enhanced-strain blocks are built (never for the centroid stress, once per stiffness);
+its timing budget runs single-threaded in the Engine Gates job.
+Four other engine checks of how cost grows with model size (Poisson section solve, constraint
+validation, area-mass validation, RC member check) keep their timings and now run single-threaded
+in the Engine Gates job only. No check of a computed result changed.
+
+#### Exports by what comes out, with the format chosen in the dialog, in PRO and Basic (2026-10-28)
+
+Project → Export had a button per format (Excel, CSV, PDF report, DXF, IFC, SVG, PNG, JPG). It now
+has one per content: Results… (Excel or CSV), Calculation report… (PDF, Word or HTML), Drawings…
+(DXF, SVG, PNG or JPG, one row of formats across the DXF and the picture dialogs, each keeping its
+own options) and BIM model (IFC). Each dialog shows its format first. The calculation report no
+longer offers a workbook or CSV of its tables: the results as data are the Results export. The
+dialogs, their contents and the files they write are otherwise unchanged.
+
+Basic does the same: Results… (Excel or CSV, in a small dialog where it used to download at once),
+Calculation report… (PDF, Word or HTML; Word and HTML were not offered before) and Drawings… (SVG,
+PNG or JPG; JPG is new). In both modes the export buttons sit one per row, one line high, and the
+spreadsheet import is a wide button with its template beside it.
+
+#### PRO is presented as available, not in development (2026-11-02)
+
+The landing (its PRO lead and captions), the standing pages, two blog posts, the app's header and
+its tour stop calling PRO a module in development or in beta: its analysis is what the site offers today. What is still in development is
+said of code design inside PRO (reinforcement, detailing and connections), which stays off by
+default, and of Stabileo AI. The PRO mode loses its "Beta" mark, and its advanced analyses lose the
+"work in progress" banner.
+
+#### A results change is one file, numbered by main's merge order (2026-11-05)
+
+Changes that move results are registered one per file in `web/src/lib/provenance/result-changes/`,
+without a version number. Each merge to main that adds one takes the next results version, so two
+pull requests that change results no longer conflict, and the merge queue can land them together.
+The versions numbered by hand keep their entries and their meaning (`numbered.json`), and every saved project
+gets the same re-check notices as before. A build now needs the git history back to this change,
+and fails without it.
+
+#### The release step is one make target (2026-11-06)
+
+`make release.step VERSION=… DATE=…` (`scripts/release-step.py`) moves the changelog fragments into CHANGELOG.md, adds the release-notes line, rebases the moved text's `../` links to the repository root, points result-change entries at CHANGELOG.md, and relocks `dedaliano-engine` in every tracked Cargo.lock, research crates included. It fails if a moved link still climbs out of the root, a registry entry still names changelog.d/, or a lock pins another engine version. The 0.5.0 release hit the last two by hand.
+
+#### The calculation report prints a chosen result set, the envelope by default (2026-11-02)
+
+The PRO report's reactions, forces and displacements were those on screen, which after a solve is
+every load case added at factor 1, labelled only "the result on screen". The report dialog now has
+"Results of": the envelope of the combinations (the default when there are combinations), any
+combination or case, or the screen. The sum of every case at factor 1 is named for what it is,
+on screen, in tables and in figures, with a note that it is not a code load state.
+
+#### Research bundles build faster from scratch, with their checked outputs pinned bit for bit (2026-11-05)
+
+The phase-field, spring-network and four-cable research bundles now compile the engine in parallel
+pieces, and keep whole-program optimisation for the final bundle. A cold build of those bundles takes
+about 20 to 30% less time, and each shipped bundle is 1.1 to 1.5% larger. Every value those bundles
+return in their reference checks is bit-identical to before. CI now checks that bit for bit: it
+hashes every value the phase-field, spring-network, four-cable and gridshell bundles return in their
+reference checks and compares the hash with research/tools/wasm-output-hashes.json, so a later build
+change that moves one of those results by one bit fails CI.
+
+#### Grossman (2026) spring networks: direct comparison with the paper and corrected protocol
+
+The spring-network page chooses clamped rows before adding disorder, uses directional Poisson ratios in ensembles and states its vertex count and seeds. It compares all ten strip markers with Fig. 5 directly (failures shown), splits combined checks into 31 named ones and replaces unbacked tolerances with recorded values; WASM output is checked against native results. The replay autoplays from a native replay file, live solves run in a terminable worker, the plots have data tables, and the page is in German, French and Turkish. No tolerance changed and no production engine source changed.
+
+#### Stabileo Research works on phones and tablets (2026-10-29)
+
+On phones the experiment comes right after the title, the viewer is sized to the model, controls are at least 44 px and text at least 12 px; a permanent check renders every research page at phone and tablet sizes in CI (PR #831).
+
+#### Shauer (2025) phase-field fracture page: corrected energies, loads and wording
+
+The fracture page colours its energies correctly, shows the true final load of each time step, checks its load coordinates and the numbers quoted in the narrative, describes tension and the history field accurately, and integrates the energies independently. It now states exactly what it is compared with instead of a "full text not accessible" placeholder, puts the viewer above the introduction, has keyboard and touch charts, and is available in German, French and Turkish. The production engine is unchanged.
+
+#### Research and Tools: the runnable catalogue is together (2026-10-30)
+
+The research and Tools wave (#857) brings the experiments into one gallery, with thumbnails,
+first-version badges and links to replay or recompute each example. Alongside Shauer (2025)
+phase-field fracture and Grossman & Boudaoud (2026) spring networks, 15 further entries are live
+(17 runnable entries in all):
+
+- Ferrari & Sigmund (2025): Roorda-frame buckling and an imperfect nonlinear path.
+- Andreassen et al. (2011): MBB-beam topology optimization.
+- Pastrana et al. (2026): cable-net form-finding by force density.
+- Fairclough et al. (2026): a five-node gridshell under its own weight.
+- Zmyślony, Khan & Biggins (2026): curvature-patterned snapping arches.
+- Mattiasson (1981): cantilever elastica.
+- MacNeal–Harder (1985): element accuracy tests.
+- The shell obstacle course: Scordelis–Lo roof, pinched cylinder and pinched hemisphere.
+- Lee frame (1968): large deflections and stability.
+- DaDeppo–Schmidt (1975): a deep arch through its limit load.
+- Riks–Crisfield: arc-length snap-through of two-bar models.
+- Newmark (1959): an SDOF step response.
+- CQC (1981): closely spaced modes compared with SRSS.
+- Classic plastic collapse: a portal compared with virtual-work bounds.
+- Navier plate: mesh convergence against the series solution.
+
+The eight Tools are the simply supported beam, cantilever, elastic column buckling, continuous
+beam, single-bay portal, planar truss, moving-load influence lines and beam bending frequencies.
+Their individual entries describe the assumptions and comparisons. Research pages state what
+has been reproduced and what remains provisional or fails; a live page is not a completed
+validation or a code design check. Re-check the stated model and reference before using a
+comparison as evidence. Riks and shell article text stays in route-local dictionaries with
+English fallback where a translation is absent.
+
+#### The certificate and the discretization error fold under the results (2026-10-29)
+
+The certificate, the end-to-end check and the discretization error opened the results panel, above
+the diagrams and the tables, in Basic and in PRO. They now sit at the foot of the panel, under the
+results tables, in a "Result checks" fold that says in one line what is inside (certified, not
+certified, high discretization error). It stays closed while nothing warns and opens by itself when
+something does, so a warning is never folded away unseen.
+
+#### Refusals are found wherever a result type can hold them, from one generated list (2026-11-05)
+
+Which fields of a result can carry a known-issue warning or refusal is now generated from the
+engine's result types and the web app's result types (`make gen.result-sites`), and both the engine
+and the web read that list. Every result leaving the engine lists any refusal held deeper inside it
+at its top level as well, and combinations and envelopes gather their load cases' known issues the
+same way. No number, warning or refusal changes; a result type that gains a field holding
+diagnostics is covered without a hand edit, and a stale list fails CI.
+
+#### Roadmap: the safety batch, the course and the open wrong results as of 2026-11-05
+
+- The product roadmap marks the safety batch (#1409, results versions 16 to 26), #1295, #1296,
+  #1299, #1379, #1396 and the Basic course (#1302–#1307, results versions 27 to 29) as landed,
+  lists the wrong-result issue #1414, fixed by #1415 (results version 30), and puts #1401 (#1417) and #1402
+  (#1416) in their current state (#1405 had added them); #1402 is fixed by #1416.
+
+#### The roadmap lists every open safety issue with its state, every workstream and every deferred follow-up (2026-11-03)
+
+The product roadmap opens with the work order (wrong-result bugs, then other bugs, then features).
+Each open safety issue in the containment ledger has a row saying whether main can give the wrong result today, whether the
+containment PR (#807) warns or refuses, and where its fix is. A table lists every pull request in
+flight with its state and the decisions it waits on, and a new "Later: deferred follow-ups" section
+lists what was decided for later. About 140 nightly safety findings still await triage and are
+counted there, not listed one by one. The CI table records the CI wave and wave A as landed. This
+records plans, not fixes; no calculation or saved project changes.
+
+#### The roadmap puts gaps in result checks before new features (2026-10-28)
+
+The product roadmap now puts result snapshots, nightly failure alerts, old-project compatibility,
+independent worked examples, visible translation keys and production health first (#723). Platform
+work and growth have their own sections, with links to the tracked gaps and completion criteria.
+This records the priorities, not completed safeguards; read each item's linked issue for its
+implementation status. No calculation or saved project changes.
+
+#### Route budgets: wave B's acceptance ended, one more for the safety batch (2026-11-04)
+
+- #1322 put the landing and app route budgets back to 128 B after wave B landed, and #1388 then
+  accepted the safety batch's app growth once, up to 20,480 B per pull request, because each
+  result change adds its registry text in every language. #1390 later replaced the per-PR budget
+  with a size report and a weekly ceiling check.
+
+#### The app route budget treats the blog page as its own route (2026-11-03)
+
+"Landing and app route byte budgets" leaves the lazily loaded blog page out of `/app/*`, as it
+already does for research and tools, so loading the blog on demand is not counted as app
+growth. Modules the blog shares with the app still count. The budgets are unchanged.
+
+#### The route byte budget says which limit a route broke (2026-11-03)
+
+When "Landing and app route byte budgets" fails, the message now names the limit: research
+isolation, for a change that touches research code shipped to the browser, or the product
+budget in `web/scripts/product-route-growth-budgets.json`. Both were reported as the same
+"128 byte tolerance". The limits themselves are unchanged.
+
+#### Page size is watched weekly instead of gated per change (2026-11-04)
+
+A pull request no longer fails because the landing or the app grew: CI reports each route's
+growth against main on the PR. A weekly check measures main against the ceilings in
+`web/scripts/route-size-ceilings.json` and opens or updates a `route-size` issue when a route is
+over. Research isolation still blocks: a change to research code shipped to the browser may grow
+a route by 128 bytes at most, and research modules in a product chunk always fail.
+
+#### CI alerts when the self-hosted runner pools drift (2026-11-03)
+
+A daily "Runner pools" workflow fails, and opens a `ci-failure` issue through the verification
+alert, when STABILEO_SELF_HOSTED, STABILEO_PR_POOL or STABILEO_E2E_POOL is not `true`, or when
+fewer than 6 online runners carry `stabileo`, 4 carry `stabileo-pr` or 4 carry `stabileo-e2e`.
+The WASM job warns when a same-repository pull request still runs on a GitHub-hosted runner while
+the pull request pool is on.
+
+#### Trusted merge-queue checks use Stabileo runners and Nix browsers (2026-10-30)
+
+With #854, the jobs eligible for Stabileo runners are Lint Repo, Lint Engine, both Engine Suite
+shards, Engine Metamorphic, WASM, Research WASM, Results Snapshot, Web Build, E2E Site,
+all ten Chromium E2E shards and quarantined Chromium E2E tests. They self-host when
+`STABILEO_SELF_HOSTED` is enabled, only for the merge queue and pushes to main.
+Pull requests still use GitHub runners. Self-hosted jobs explicitly clean checkout
+workspaces and use the installed Nix toolchain without running the Nix installer
+or GitHub-only disk cleanup and build-cache actions. The browser jobs use the Nix
+shell's Playwright 1.60.0 browsers, libraries and fallback fonts; Web Build also gets pinned
+Rust for its third-party notices checks.
+
+All other jobs stay on GitHub. Engine Gates and Web Unit retain isolated timing
+budgets, and Docker smoke needs Docker, which is not guaranteed on the host.
+Determinism keeps Chromium, Firefox and WebKit on GitHub: Chromium and Firefox
+passed the Nix Linux host preflight, but Nix WebKit did not start.
+
+Pull requests that change the tooling check the merge queue's browser shell on a GitHub runner
+before it reaches the trusted queue. Research WASM bypasses sccache because the host cache could
+not start its toolchain. Re-check the browser-shell preflight after changing Nix or Playwright;
+Chromium and Firefox are covered there, not WebKit. This changes where checks run, not solver
+results or which projects need recalculation.
+
+#### Search results describe Stabileo, its calculators and its paper more accurately (2026-11-01)
+
+The site now presents Stabileo as open-source structural engineering software in all six
+languages, with its AI assistant described as in development (bring your own Claude or OpenAI
+key). Every public page states who publishes Stabileo (Ergodic Group) and who builds it
+(LambdaClass) to search engines, with a breadcrumb trail. Each calculator's title names the
+calculator and the textbook case it solves, calculator pages link to each other, and the paper is
+marked up as a scholarly article. The sitemap dates the blog index by its newest post and the
+calculators by their latest review, not by the day the site was built.
+
+#### Shared site header, fonts and button contrast (2026-10-28)
+
+Public pages share the site header and IBM Plex fonts, with improved button contrast.
+
+#### A merge to main is not tested twice (2026-11-03)
+
+Every push to main ran the whole CI pipeline again, although the merge queue had just tested the
+same tree. When the pushed tree is the tree of a merge-queue commit whose CI run succeeded,
+checked through the GitHub API, a push to main now runs only what the queue leaves out (slow
+E2E, Docker, determinism, quarantined E2E and full research validation) and the builds they need.
+Direct pushes, admin merges and anything that cannot be matched still run everything.
+
+#### The calculation report in Word carries its figures, cover, header and page numbers (2026-10-28)
+
+The Word version of PRO's calculation report is written from the same HTML as the PDF, with the
+same choices of the report dialog. It used to keep only headings, paragraphs and tables. It now
+also carries every figure as an image drawn at 300 dpi of its printed size, the logo and the
+letterhead on a cover page without header or footer, the page breaks, the notes and the warnings
+(stale or incomplete results among them) as styled paragraphs, a header with the program and
+version, and a footer with the report, its date and "page n of m". Symbols and expressions keep
+their meaning as text in headings, paragraphs and every table cell: sub- and superscripts at any
+depth, fractions as num/den with parentheses around compound parts (and around the fraction
+itself when a factor follows it or a division precedes it: (1/2)qL², x/(a/b)), roots as √(…); a
+construct with no unambiguous plain form (an accent, a matrix) is written as its TeX. They are
+text, not editable equations. Number columns are right-aligned and narrow tables take only the width they need. The provenance table is no longer
+written twice. The same improvements reach every report exported to Word through the shared
+writer (the design report and the detailing report when design is on). The calculation report's
+cover no longer says "Verification per CIRSOC 201": it carries no code check.
+
+#### Tools follows the Research layout (2026-10-29)
+
+Tools now uses the site's ink palette, parameter rows, diagram tabs, charts and viewer. Calculations update after input changes; key results and the formula comparison sit beside the viewer on desktop and below it on phones. The gallery has structure previews. Columns show the buckling mode and effective length without exposing internal reference-load reactions. Copy is translated into all six public locales; worked examples remain in the prerendered page.
+
+#### Typed elastic frame properties (#359)
+
+The direct 2D linear WASM path now retains typed material and section properties through
+frame stiffness assembly and force recovery. Rust distinguishes MPa from kN/m² and area
+from second moment; TypeScript brands the matching wire fields and display conversions.
+Wire numbers, existing validation and numerical tolerances are unchanged. The migration
+survey, conversion audit and remaining slices are in `docs/safety/units-in-types.md`.
+
+#### A new engine test cannot time itself in the shared suite (2026-11-03)
+
+Lint Engine now fails on an engine test that asserts on elapsed wall-clock time and would run in
+the shared engine suite, where a busy CI machine makes such a test fail with nothing wrong. Such a
+test must count the work instead, or be marked ignored and listed to run alone in Engine Gates.
+
+#### Web dependencies updated (2026-11-03)
+
+- KaTeX 0.19, three.js 0.186, three-mesh-bvh 0.9.17, web-ifc 0.0.78, Svelte 5.57.3 and
+  Playwright 1.64, among the minor updates of #985. No calculation changes.
+
+#### The merge rules are written in the workflow document (2026-11-04)
+
+- `docs/WORKFLOW.md` states when a pull request merges (CI green on its head, `main` really merged
+  in, an LLM review of that head with no unresolved blockers), the review-round limit, bugs before
+  features, results versions in the order PRs become ready, the Merge status issue and labels, and
+  that `git stash` is never used (#1393).
+- It also says not to stack PRs that go through the merge queue, to re-arm auto-merge after a
+  dequeue, to run the quick local checks before pushing, to close an issue only after every listed
+  reproducer passes, and to triage nightly wrong-result candidates daily with a recorded decision.
+
+### Fixed
+
+#### The workspace save keeps a designed building and says so when the browser refuses it (2026-11-07)
+
+Every 30 s the open tabs are saved to the browser for the next visit. On a designed and detailed
+building that save produced about 46 MB of text, more than browsers allow, so it failed without a
+word and the tabs were not kept. The detailing's bars now go to the browser's database beside the
+tabs, written once per version of them, and the saved text holds the rest: about 160 kB on the
+7-storey example instead of 46 MB, written in a few milliseconds instead of 0.3 s (Node) and 1.4 to
+3.4 s (browser). Pinned bars and the title block come back with the project. When a save is
+refused anyway, a notice stays on screen saying the work is not being autosaved, with a button to
+save the session to a file, and a tab whose bars could not be read back is named when it opens
+(#1621).
+
+#### Work started while the saved workspace loads is kept (2026-11-07)
+
+At start-up the saved workspace's bars are read from the browser's database, which can take a
+moment on a detailed building. Anything started in that moment, such as a node drawn or an example
+opened from a link, used to be replaced by the saved tabs when the read finished. The saved tabs
+now open beside it, with a notice. Bars that could not be read keep their place in the workspace
+across tab switches until the detailing changes, and restored bars are checked field by field, so
+a damaged record is reported as lost bars instead of loaded (#1633).
+
+#### A harmonic advisory stays up until harmonic analysis is run again, and projects record every analysis they ran (2026-11-07)
+
+The results stamp now records the time history, nonlinear, harmonic, SSI and spectral runs of the
+PRO advanced panel, not only the analyses of the main solve. An advisory about one analysis, such
+as SA-2026-046 (harmonic), is no longer cleared by a static solve: it stays on screen until that
+analysis is run again. For a project solved after this change, an advisory says its results are
+affected when the stamp shows the analysis ran, and does not apply when it shows it did not;
+older projects keep saying they may be affected if the analysis was used (#1658).
+
+#### Shells of two families with the same id are refused by the combinations and envelopes (2026-11-07)
+
+MITC4, MITC9, solid and curved shells number their ids independently, and the shell stresses of a combination, of the "All loads" view, of an SRSS or ABS combination, of a spectral case, of the envelope and of the slab service deflection were matched by id alone. A model with, say, a MITC4 and a MITC9 both numbered 7 had one of them silently combined in place of the other. Such a result set is now refused with the id named. Models built in the app number all their shells in one sequence and are unaffected; no result changes.
+
+#### Soil-structure interaction reports support reactions (2026-11-07)
+
+The soil-structure interaction analysis (2D and 3D, the SSI run in the Pro Advanced tab) returned no support reactions at all, for every model, so its results showed an empty reaction list as if the supports carried nothing (#1672). It now computes them as the linear solve does, including support springs, inclined supports, constraints and the soil springs at an inclined support, on small and large models. Without soil springs they equal the linear solve's reactions; with them, the reactions and the soil spring forces together balance the applied loads. A constraint force carried into a supported master node now joins that support's reaction, and the constraint force on a constrained node that also has a soil spring now includes that spring, which it used to leave out. Re-run SSI to see the reactions.
+
+#### Load combinations of a model with shells report their shell stresses (2026-11-07)
+
+`solve_multi_case_3d` and `combine_results_3d` returned every combination without plate stresses, quad stresses or quad nodal stresses, and said nothing about it (#1673). They now sum each component (σxx, σyy, τxy, mx, my, mxy, qx, qy, and the nodal stresses) with the combination's factors and recompute the von Mises and principal stresses from the sums, never by combining them. A plate's face stresses need its thickness: `combine_results_3d` takes `plateThicknesses` and refuses a plate without one. A combination is refused when its cases list their shells differently, or when two quads of different families (MITC4, MITC9, solid, curved) share an id (#1666), and when a combined value overflows. The nodal von Mises lists are not recomputed, since the cases do not carry what they are made from; they are left out of a combination, as before. The envelope's maximum-magnitude result still carries no shell stresses; the app takes them from the shell combination kernel.
+
+#### Shell von Mises and principal stresses no longer overflow or underflow at extreme magnitudes (2026-11-07)
+
+A combination's quad von Mises, and every plate's principal and von Mises stresses (per case and combined), squared the unscaled components (#1678). Above about 1e154 kN/m² the squares overflowed, so a representable result was refused as beyond the range of f64; below about 1e-160 they underflowed, so a stress of 1e-200 gave a von Mises of 0. The components are now scaled by a power of two near the largest before squaring and the result is scaled back, which is exact: results in the normal range are bit-identical, and only a result that is itself beyond f64 is refused. The same holds for a plate's bending stress 6M/t², which overflowed when 6M did and came out as 0 when t² overflowed, and for a combined shell component whose running factored sum overflowed although the total fits, including a small residual left after large terms cancel. A plate whose one face overflowed reported the other, finite face; it is now refused. The multi-case parity test now builds its reference combination with the plates' thicknesses and checks a plate model, which it could not before.
+
+#### Example drawings say which shape is which, under one title (2026-11-07)
+
+- The outrigger, earthquake frame and beam deflection views drew the undeformed and the deformed
+  shape on top of each other with no legend, so they read as two structures. They now label
+  both, with the deformed shape's magnification, in all six languages; the tower's mode shapes
+  are labelled as normalised.
+- Each example viewer had two headers and an editor toolbar. It now has one title: the
+  "Stabileo viewer" mark, camera buttons, axis triad and position and zoom readout are gone from
+  the example pages. Dragging and the wheel still pan and zoom.
+- The reinforced concrete column's width slider ran to 0.8 m, so with the default three bars per
+  face every width from 0.5 m was refused for a missing crosstie. It now runs from 0.25 to
+  0.45 m, where the defaults always solve. The crosstie check is unchanged.
+- The slab example on walls compared a soft-supported plate with the hard-support Navier solution
+  and showed up to a 6.4% "difference" that came from the reference, not the engine. The walls
+  now hold the edge rotations, and the reference includes the plate's transverse shear.
+
+#### An example the engine refuses says why where the drawing was (2026-11-07)
+
+- Moving a slider to a model an example refuses, such as a 0.5 m wide column with three bars per
+  face, replaced the drawing with the gallery thumbnail and printed the reason only far below, in
+  Results. The page looked broken. The viewer now shows the reason in place of the drawing.
+
+#### The landing says the AI assistant works with your own key (2026-11-07)
+
+The landing said the AI panel was switched off while it was tested, and that the assistant would
+work later, although the editor's panel already works with your own Anthropic (Claude) or OpenAI
+key, kept only in the browser and sent only to that provider. The AI section and the hero now say
+so, in every language.
+
+#### The span check includes a member's shear slope and the thermal curvature at a release (2026-11-06)
+
+`LIN-SMALL-DISPLACEMENT`'s in-span check (#1506) read only the section rotation ψ, so it missed two cases (#1569).
+- A shear-flexible (Timoshenko) member whose axis turned past 0.1 rad by shear deformation was not warned. An example is a member rigid in bending with G·As = 77 kN under a 20 kN midspan load: its axis turns 0.13 rad while ψ stays near 1e-7.
+- A thermal gradient's free curvature was dropped at a member release, so the rotation at a hinged end read as zero instead of κL/4.
+
+The check now judges the larger of ψ and the axis slope ψ − V/(G·As), on both sides of each point load, and includes each member's thermal curvature α·ΔT/h. Each result records that curvature in `resultSummary.memberSpans[].curvature`. A load combination sums its cases' curvatures with their factors. Numerical values are unchanged; some results gain the warning.
+
+#### The route-size check measures a pull request with main's script and budgets (2026-11-06)
+
+- The Landing and app route byte budgets job copied the pull request's measurement script over
+  main's before measuring main, so a branch carrying an old copy measured main's newer code with
+  old rules and failed for reasons it did not cause (#1593 and #1600). The job now measures both
+  main and the pull request with main's (or the merge queue base's) `web/scripts`, placed in
+  `web/.route-base` by `.github/scripts/route-size-from-base.sh`; the pull request's own
+  `research-route-allowances.json` is used only when the pull request changes it. No budget changed.
+
+#### "Check an exported report…" fails closed (2026-11-03)
+
+- The printed tables are now printed again for the result the report's fingerprint records, not
+  for the result-set key in the report's editable script: a report whose key and numbers were both
+  swapped to another case or combination no longer checks as reproduced. A report whose embedded
+  choices were removed, or whose result is not on hand, is incomplete instead of reproduced.
+- A report of a case, combination or envelope that is not in the results is refused instead of
+  printing what is on screen under that name.
+- The report dialog keeps the result set you chose when the model is solved again while it is open.
+- The seismic weight puts the whole weight of a member or shell with a node on no level on the
+  levels its other nodes are on, instead of leaving out that node's share, and reports it as
+  skipped only when no node is on a level. Every node is on a level today, so no result changes.
+
+#### Equilibrium is never reported as verified over loads the check left out; similar storeys respect member types (2026-11-03)
+
+- SA-2026-034: a case whose statics check could not add up every load (a surface load it cannot
+  spread to nodes, a load type it does not read) was reported as "loads and reactions agree" in
+  the report after the analysis, "balances" in the statics panel and with a tick in the project
+  report when the residual over the rest was small. Such a case is now "not fully checked", with
+  the loads left out named, and the cases that balance are listed even when another does not.
+- The similar-storey scope no longer takes a truss for a frame member at the same place or the
+  reverse; a member drawn on one storey is copied to the others with its releases, joints,
+  offsets, local axes and the rest of its properties, and the storeys it could not reach are
+  named. Narrowing the scope back to one storey returns to the selection made there.
+
+#### PRO's split view, linked models, diagnostics and storey scope bar (2026-11-03)
+
+- A click in the split view's plan picks only what the plan draws, not an object above its cut,
+  and its level list sets the working level as the plan chip does. Phones no longer offer a split
+  view they cannot show.
+- Linked models leave the 3D scene when PRO's layer is closed, instead of staying drawn in Basic.
+- Diagnostics are filed under Model on screen and in the CSV, PDF and Word export alike, with the
+  solver's source named.
+- The storey scope bar wraps on a phone, with buttons a finger can take.
+
+#### The public viewer on phones, and its Duplicate (2026-11-03)
+
+- The viewer's bar no longer covers the model or the examples list when it wraps onto two rows on a
+  phone or a narrow tablet: the space below it follows its real height, safe areas included. Its
+  buttons are large enough to tap, and "3D and plan" is offered only where it can be shown.
+- "Duplicate and edit" says the copy is saved only once it is written to this browser, and says so
+  when it could not be.
+
+#### Load-combination envelopes refuse instead of returning infinite or NaN values (2026-11-04)
+
+- Fix #1350: the 2D and 3D envelopes (`compute_envelope`, `compute_envelope_3d`, and the multi-case
+  solves that use them) evaluated each member's diagrams without checking the result, so end forces
+  near the f64 limit overflowed to ±∞ along the member and were returned as envelope values, and a
+  NaN in any result after the first was dropped by the max/min comparisons. They now refuse, naming
+  the result and the field, or the member, diagram and station that left the range of f64. Envelopes
+  of finite, in-range results are unchanged.
+
+#### "Check an exported report…" catches a report with sections removed (2026-11-05)
+
+- Fix #1402 (#1416): the check printed a report's tables again from its embedded settings, which
+  nothing bound, so a report with a section switched off and its marker removed still checked as
+  reproduced. The fingerprint now records the report's choices and every table it printed, the
+  check prints from that record, and a missing, extra or reordered table fails it. A report exported
+  before this change checks as incomplete; export it again. No result changes.
+
+#### The re-check notice explains each result change in German, French and Turkish (2026-11-04)
+
+- Fix #1404: the notice that lists the result changes since a project was last solved showed each
+  change's title and explanation in English to German, French and Turkish readers, because the
+  registry (`result-changes.json`) held only English, Spanish and Portuguese and the notice chose
+  among those three. Every entry now carries all six of the app's languages, the notice follows the
+  app's language, and the registry is refused if an entry lacks any of them.
+
+#### A coded refusal no longer hides a containment refusal carried by the same error (2026-11-06)
+
+When an engine error carried both a containment refusal (a known wrong result) and a coded refusal such as "no compressed elements" or "no free degrees of freedom", the app took the coded one and dropped the containment refusal (#1558). Some of those coded refusals are benign answers: the P-Δ comparison read "no compressed elements" as λ₁ = ∞ and B₂ = 1, the advanced toolbar showed it as information, P-Δ with nothing free returned the linear result, and a failed space eigen decomposition was retried with the mechanism held. An error that is a containment refusal is now always shown as one, and is never treated as a coded refusal.
+
+#### The industrial shed example's tie rods are tension-only, and the containment notice no longer blocks the model (2026-11-06)
+
+- The 116 Ø16 tie rods of the industrial shed example (`3d-nave-industrial`) are now tension-only. Loading an example used to drop a member's behaviour, so the rods were solved as plain truss bars, and 66 of them carried up to 22.7 kN of compression at about 80 times their buckling load.
+- Compact share links now keep a member's behaviour. A link with a behaviour the app does not know is refused instead of loading the member as a plain bar.
+- The containment notice over the viewport no longer takes the clicks and taps meant for the members under it. On a phone it is one line, with More to read it all.
+
+#### A combination no longer trusts a load case without a second-order screen whose ends read no compression (2026-11-06)
+
+- #1607: combining load-case results that arrived without the engine's second-order screen (from outside the engine, through `combine_results_checked` or the WASM combination calls) counted a case as compressed only when a member's end force read compression. A member compressed inside its span by an axial span load or an axial point load, with both ends at zero or in tension, was missed. The combination could then come out bounded, and its steel checks were not held. Such a case now counts as compressed whenever any member carries an axial force or an axial load, so the combination is `LIN-SECOND-ORDER-UNBOUNDED` and holds the checks. Results the engine solves itself always carry the screen and are unchanged.
+
+#### Diagrams keep a member's load at any magnitude (2026-11-06)
+
+- A 2D member whose results carry only the legacy start/end load values lost that load from its
+  moment and shear diagrams, and from the diagram gaps the certificate checks, when both values
+  were at or below 1e-10. Any nonzero value now counts, so a model scaled as a whole draws the same
+  diagrams. The results snapshot corpus is unchanged (#1614).
+
+#### The 30 s workspace save no longer freezes a designed project after a few edits (2026-11-06)
+
+Every 30 s the open tabs are saved to the browser for the next visit, without their undo history.
+The save still copied that history before dropping it: on a designed and detailed building every
+undo step holds the detailing, and after a handful of edits the copy took the page's main thread
+for minutes until the tab ran out of memory. The history is now left out before anything is
+copied. On the 7-storey example after 16 edits the save takes 0.34 s instead of 1.9 s in Node,
+and in the browser it no longer freezes the page (#1618).
+
+#### Excel and IFC imports no longer swap Iy and Iz of rectangles and tubes (2026-11-03)
+
+A section given to the Excel importer by `b` and `h`, and a rectangular or tube profile in an IFC file (drawn, or named like `500x200` or `200x100x5`), came in with b·h³/12 in `Iz` and h·b³/12 in `Iy`. The app's sections, solves and checks read `Iy` for bending in the depth, so such members bent about the wrong axis: a 20 × 40 cantilever deflected four times too much and a 40 × 20 one four times too little (#532, SA-2026-039). Affected since each path landed and in every release up to 0.4.0: Excel sections given by `b` and `h` (since 2026-09-09), IFC sections named `HxB`/`HxBxT` and the no-profile fallback (since 2026-03-04), and IFC rectangles drawn in the file (since 2026-10-18); catalogue profiles and explicit `Iy`/`Iz` were not affected. Both importers now follow the app's convention. Models imported before keep their values; check their rectangular and tube sections.
+
+#### PRO design names the concrete with no f′c instead of calling every member steel (2026-11-02)
+
+- Fix #766: a concrete material with no strength (no f′c or fy) was counted as steel, so the
+  CIRSOC 201 check said "all 105 of its members are steel" on the 3d-building example, whose H-30
+  had no strength, and checked none of them. Such a material is now named in the message ("material
+  H-30, used by 105 members, has no f′c"), and the 3d-building example's H-30 carries f′c = 30 MPa,
+  so PRO designs all of its members.
+
+#### A copy made in 2D no longer lands turned onto the floor when pasted in 3D (2026-10-29)
+
+A 2D model opened in 3D keeps its vertical as Y until the first edit rewrites it with Z up. A copy
+taken in 2D, or in 3D before any edit, kept the old axes, and pasting it rewrote the model but not
+the copy: it landed rotated 90°, in the X–Y plane, in Basic 3D and in PRO. The copy is now rewritten
+the same way as the model. A copy from a 3D model is not pasted into a 2D one, and says why.
+
+#### The production-build test pass runs its builds one at a time, as designed (2026-11-04)
+
+The build Vitest project set `fileParallelism: false` and `maxWorkers: 1`, which Vitest 3 reads
+only from the root config, so its four to five production builds and a prerender ran at once
+(21.5 GB peak, measured). The project now runs in a single fork (7.6 GB peak), which removes the
+out-of-memory kills of those builds that failed Web Build on the shared CI host.
+
+#### The production-build tests no longer time out on hosted runners (2026-11-04)
+
+Every test in the build pass spawns a process, such as a `vite build` or `npm ls --all`. The
+notices check had no timeout of its own, so it got Vitest's 5 s default. `npm ls` took 64 s on a
+GitHub-hosted runner and failed Web Build there. The build pass now gives each test 120 s unless the
+test sets its own.
+
+Prerendering the site gave each page navigation Playwright's 30 s default, so on a heavily loaded
+build host a page that was still loading failed the whole E2E Site job. Each prerender page now
+allows 120 s per navigation.
+
+#### The changelog's area filters count changes, as its total does (2026-11-02)
+
+The changelog page said "98 changes" while its area filters added up to 56: each filter counted
+the weekly entries that touched the area, not the changes in it. Every filter now shows the number
+of changes in its area, the same number the total shows once that filter is on, so the filters add
+up to the total. Every change already has an area, so no "Other" filter is needed.
+
+#### A pull request run cancelled by a newer one no longer shows a red CI OK (2026-11-04)
+
+When a newer pull-request run cancelled an older one, the older run's CI OK still ran and failed
+on the cancelled jobs, so the pull request looked red while the real run was still queued. This
+happened to every course pull request at 18:30 UTC on 2026-11-04 (for example #1303, run
+41887856500). A cancelled pull-request run now checks for a newer run of the workflow on the same head. When one
+exists, CI OK is skipped and the newer run reports instead. A run cancelled any other way still
+fails CI OK, because a skipped required check would pass.
+
+#### CI runs on Ubuntu 24.04 (2026-11-02)
+
+GitHub moved `ubuntu-latest` to Ubuntu 26.04, where Playwright 1.60 cannot install
+its browsers, so every pull request failed Web Build, E2E Site and Determinism.
+Hosted jobs now name `ubuntu-24.04`, so the Ubuntu release changes only when we change it.
+
+#### A stalled dependency download no longer leaves a lock that fails its retry (2026-11-04)
+
+The CI retry wrapper used to kill an attempt after 15 minutes in total. It now does so only after 15
+minutes with no output, so a slow mirror that is still downloading (Playwright's browser system
+packages took over 15 minutes on hosted runners) finishes instead of being killed; an attempt is still stopped after 40 minutes in total. When an attempt
+does stall, every process of the attempt is stopped. The retry also waits for the dpkg locks to clear,
+because apt-get under sudo runs outside the attempt and kept holding the dpkg lock, so the retry failed
+at once with "Could not get lock /var/lib/dpkg/lock-frontend". If the lock is still held after
+10 minutes, the step fails without retrying.
+
+#### The nightly Code_Aster comparison no longer fails on a reused runner (2026-11-04)
+
+The Code_Aster comparison installed micromamba into the runner user's home directory, where it
+stayed after the job. On a self-hosted runner the next nightly then refused to install over it and
+the comparison never ran. Micromamba and its environments now go into the job's temporary
+directory, which the runner empties before every job.
+
+#### Ctrl+S no longer sends the 3D view sliding away (2026-10-29)
+
+In Basic 3D and in PRO, W, A, S, D, Q and E move the 3D view while held. Ctrl+S (Cmd+S on a Mac)
+pressed the S as well: the save dialog took the key's release, and on a Mac no release reaches
+the page while Cmd is down, so the view kept panning until S was pressed again. Cmd+A did the same
+with A. A letter pressed with Ctrl, Cmd or Alt no longer moves the view, and held navigation keys
+are let go when the window loses focus or Cmd is released. Basic 2D has no key navigation and was
+not affected.
+
+#### Catch invalid E2E JSON imports and bound smoke failures (2026-10-30)
+
+Fast source-only Vitest guards reject static JSON imports without Node's `with { type: 'json' }`
+attribute and unexplained smoke timeouts above 45 seconds. A dedicated smoke project limits each
+test to 45 seconds; slow and quarantined tests retain their longer budgets. Ordinary waits now
+fit the smoke budget, long journeys and computations move to the slow suite, and shared-helper
+exceptions explain their purpose. Run `npm run test:e2e:guards` without a browser or WASM build.
+
+<details>
+<summary>Spec migration audit</summary>
+
+**Long cases moved to `@slow`.** These cases already requested long test budgets or long computation/export waits. Short cases in mixed groups keep their smoke tags. In design-off-journey, the global override was moved into the existing slow tests.
+
+[basic-demos.spec.ts](web/e2e/basic-demos.spec.ts), [basic-draw-members.spec.ts](web/e2e/basic-draw-members.spec.ts), [basic-mobile-delete.spec.ts](web/e2e/basic-mobile-delete.spec.ts), [basic-mobile-modelling.spec.ts](web/e2e/basic-mobile-modelling.spec.ts), [basic-whatif.spec.ts](web/e2e/basic-whatif.spec.ts), [batch-copy.spec.ts](web/e2e/batch-copy.spec.ts), [blog.spec.ts](web/e2e/blog.spec.ts), [cirsoc-flex.spec.ts](web/e2e/cirsoc-flex.spec.ts), [design-desk.spec.ts](web/e2e/design-desk.spec.ts), [design-off-journey.spec.ts](web/e2e/design-off-journey.spec.ts), [detailing-convergence.spec.ts](web/e2e/detailing-convergence.spec.ts), [everyday-path.spec.ts](web/e2e/everyday-path.spec.ts), [excel-import.spec.ts](web/e2e/excel-import.spec.ts), [explained-steps.spec.ts](web/e2e/explained-steps.spec.ts), [export-empty-and-drawings.spec.ts](web/e2e/export-empty-and-drawings.spec.ts), [force-method-wizard.spec.ts](web/e2e/force-method-wizard.spec.ts), [interaction-contracts.spec.ts](web/e2e/interaction-contracts.spec.ts), [pro-analysis-rules.spec.ts](web/e2e/pro-analysis-rules.spec.ts), [pro-design-gates.spec.ts](web/e2e/pro-design-gates.spec.ts), [pro-design-workflow.spec.ts](web/e2e/pro-design-workflow.spec.ts), [pro-example-gallery.spec.ts](web/e2e/pro-example-gallery.spec.ts), [pro-large-model-tables.spec.ts](web/e2e/pro-large-model-tables.spec.ts), [pro-modelling-flow.spec.ts](web/e2e/pro-modelling-flow.spec.ts), [pro-panel-consistency.spec.ts](web/e2e/pro-panel-consistency.spec.ts), [pro-project-workbook.spec.ts](web/e2e/pro-project-workbook.spec.ts), [pro-report-docx.spec.ts](web/e2e/pro-report-docx.spec.ts), [pro-workflow-shell.spec.ts](web/e2e/pro-workflow-shell.spec.ts), [recheck-provenance.spec.ts](web/e2e/recheck-provenance.spec.ts), [research-ferrari.spec.ts](web/e2e/research-ferrari.spec.ts), [share-link-fidelity.spec.ts](web/e2e/share-link-fidelity.spec.ts).
+
+**Shared helpers with documented long waits.** These helpers wait for live design/detailing, 3-D scene construction, or a large-project download. Project-restore helpers serve only its slow journey. The smoke test budget still bounds shared-helper callers.
+
+[ded-roundtrip.spec.ts](web/e2e/ded-roundtrip.spec.ts), [f4-document-scope.spec.ts](web/e2e/f4-document-scope.spec.ts), [f6-viewer.spec.ts](web/e2e/f6-viewer.spec.ts), [frame-editor-detail.spec.ts](web/e2e/frame-editor-detail.spec.ts), [project-restore.spec.ts](web/e2e/project-restore.spec.ts), [rebar-workspace-focus.spec.ts](web/e2e/rebar-workspace-focus.spec.ts).
+
+**Ordinary waits capped at 45 seconds.** Startup, solver-readiness and ordinary UI waits now fit the smoke budget instead of waiting 60 seconds or more.
+
+[basic-3d-defaults.spec.ts](web/e2e/basic-3d-defaults.spec.ts), [basic-connections.spec.ts](web/e2e/basic-connections.spec.ts), [basic-copy-paste-buttons.spec.ts](web/e2e/basic-copy-paste-buttons.spec.ts), [basic-copy-paste.spec.ts](web/e2e/basic-copy-paste.spec.ts), [basic-demos.spec.ts](web/e2e/basic-demos.spec.ts), [basic-draw-members.spec.ts](web/e2e/basic-draw-members.spec.ts), [basic-dynamic.spec.ts](web/e2e/basic-dynamic.spec.ts), [basic-interaction-view.spec.ts](web/e2e/basic-interaction-view.spec.ts), [basic-move-nodes.spec.ts](web/e2e/basic-move-nodes.spec.ts), [basic-pdelta.spec.ts](web/e2e/basic-pdelta.spec.ts), [basic-point-load-axes.spec.ts](web/e2e/basic-point-load-axes.spec.ts), [basic-selection.spec.ts](web/e2e/basic-selection.spec.ts), [blog.spec.ts](web/e2e/blog.spec.ts), [certificate-end-to-end.spec.ts](web/e2e/certificate-end-to-end.spec.ts), [cirsoc-flex.spec.ts](web/e2e/cirsoc-flex.spec.ts), [commercial-grade.spec.ts](web/e2e/commercial-grade.spec.ts), [copy-text.spec.ts](web/e2e/copy-text.spec.ts), [ded-roundtrip.spec.ts](web/e2e/ded-roundtrip.spec.ts), [deformed-displacements-toggle.spec.ts](web/e2e/deformed-displacements-toggle.spec.ts), [design-desk.spec.ts](web/e2e/design-desk.spec.ts), [design-off-journey.spec.ts](web/e2e/design-off-journey.spec.ts), [design-optional.spec.ts](web/e2e/design-optional.spec.ts), [design-workspace-a.spec.ts](web/e2e/design-workspace-a.spec.ts), [double-click-editors.spec.ts](web/e2e/double-click-editors.spec.ts), [education.spec.ts](web/e2e/education.spec.ts), [engine-i18n.spec.ts](web/e2e/engine-i18n.spec.ts), [explained-steps.spec.ts](web/e2e/explained-steps.spec.ts), [flex-loads-from-model.spec.ts](web/e2e/flex-loads-from-model.spec.ts), [floor-families-document.spec.ts](web/e2e/floor-families-document.spec.ts), [i18n-languages.spec.ts](web/e2e/i18n-languages.spec.ts), [interaction-contracts.spec.ts](web/e2e/interaction-contracts.spec.ts), [m1-generators-joints.spec.ts](web/e2e/m1-generators-joints.spec.ts), [m1-states-and-languages.spec.ts](web/e2e/m1-states-and-languages.spec.ts), [m1-steel-i18n-fallback.spec.ts](web/e2e/m1-steel-i18n-fallback.spec.ts), [m1-steel-selectors.spec.ts](web/e2e/m1-steel-selectors.spec.ts), [move-and-view-controls.spec.ts](web/e2e/move-and-view-controls.spec.ts), [no-raw-i18n-keys.spec.ts](web/e2e/no-raw-i18n-keys.spec.ts), [pro-code-loads.spec.ts](web/e2e/pro-code-loads.spec.ts), [pro-export-by-content.spec.ts](web/e2e/pro-export-by-content.spec.ts), [pro-load-generator-areas.spec.ts](web/e2e/pro-load-generator-areas.spec.ts), [pro-moving-loads.spec.ts](web/e2e/pro-moving-loads.spec.ts), [pro-workflow-shell.spec.ts](web/e2e/pro-workflow-shell.spec.ts), [project-restore.spec.ts](web/e2e/project-restore.spec.ts), [rebar-workspace-focus.spec.ts](web/e2e/rebar-workspace-focus.spec.ts), [recheck-provenance.spec.ts](web/e2e/recheck-provenance.spec.ts), [regulations.spec.ts](web/e2e/regulations.spec.ts), [research-springs.spec.ts](web/e2e/research-springs.spec.ts), [research.spec.ts](web/e2e/research.spec.ts), [result-checks-folded.spec.ts](web/e2e/result-checks-folded.spec.ts), [section-analysis.spec.ts](web/e2e/section-analysis.spec.ts), [viewport-keys-after-shortcuts.spec.ts](web/e2e/viewport-keys-after-shortcuts.spec.ts).
+
+</details>
+
+#### An embedded or viewed link no longer overwrites the reader's autosave (2026-11-02)
+
+Opening a model through an embed link autosaved it into the reader's single autosave slot and
+workspace, over their own project. An embedded or viewed model is now never autosaved.
+
+#### A project saved under the name `tabBar.newStructure` takes its language's name (2026-10-28)
+
+Projects saved while a new project was named with the raw key (see the tab-name fix) kept that
+name, and their exports came out as `tabBarnewStructure.xlsx` and the like. The raw key is now
+recognised as the default name, so it gives way to «Nueva estructura» / «New structure» when the
+language is changed, as the default name of any language does.
+
+#### Excel, the report and drawings no longer stall on a real building, and "Check an exported report" compares the printed numbers (2026-11-02)
+
+Exporting a six-storey building's results to Excel built every sheet of every case and
+combination in memory before it measured them, and the tab ran out of memory. The large sheets
+(stations, stresses, shell centres, nodes and corners) are now written row by row straight into
+the zip of CSV files, the size is counted beforehand without producing a row, and the dialog says
+how many cells the file will have and whether it comes as .xlsx or as a zip.
+
+The report, PNG and SVG froze the browser for minutes (19 on an industrial shed) placing load
+labels: every label tried each spot against every label and member placed before it. Labels now
+look only at their neighbours, large obstacles in a coarser grid, and a spot that cannot beat the
+best one found is not measured, with the same placement as before. On the audited six-storey
+building the report went from about four minutes to ten seconds, and the PNG drawing from two
+minutes to about fifteen seconds. The report draws the loads one
+figure per load case (twelve at most; the table lists them all) instead of every case on one
+unreadable figure, and a drawing of the model takes the cases shown on screen or one chosen case.
+
+"Check an exported report" compared fingerprints only: a number edited in the HTML still read as
+reproduced. A report now embeds its own choices and marks the tables it printed from the results;
+the check prints them again from the fresh solve and compares every value, naming each one that
+differs by table, row and column. It also stopped failing for every project with a seismic code
+bound (an empty settings block and a pending binding read back differently after saving) and when
+the load generator had run again at another time.
+
+#### Ferrari–Sigmund research page corrections (2026-10-30)
+
+- Correct Ferrari–Sigmund research reference provenance, model regression checks, live playback selection, locale formatting and short-landscape layout. Replace pending Koiter badges with the actual buckling and native/WASM comparison scope; retain author questions in the research README.
+
+#### Ferrari & Sigmund 2025 research page shows the frame in the viewer (2026-10-30)
+
+Fix the Ferrari–Sigmund research frame display during replay and live computation with an explicit uncoloured viewer mode. Bring its experiment into the initial mobile/tablet viewport, enforce readable viewer status text and 44px controls, and add rendering, displacement and responsive regressions. Record the post-launch review without changing the paper’s first-version stage.
+
+The frame could disappear because its members have no scalar values to colour (#848). Re-check
+both replay and live computation, including on phones and tablets: the geometry and displacement
+must remain visible, with viewer text at least 12 px. This repairs the display, not the solver or
+the unfinished Koiter comparisons.
+
+#### Fiber-nonlinear analysis stops at its last converged load step (2026-11-03)
+
+Fix #433: when a load increment did not converge, or its tangent was singular (at a plastic
+collapse), `solve_fiber_nonlinear_2d/3d` returned the last unconverged iterate, or an error for
+the whole run. They now return the state at the last converged increment with
+`status: "stopped"`, `lastConvergedLoadFactor` and `stopReason`, plus the history of every
+converged increment. The reactions (empty before) and an equilibrium summary are filled for the
+returned state, and a state whose residual or global force and moment balance is out of
+tolerance is refused. Models with constraints (rigid links, diaphragms, equal DOFs) are now
+refused, because their global balance cannot be checked without the constraint forces; before,
+they ran unchecked. The web app does not call these solvers yet; direct engine callers should read
+`status` before using the result.
+
+#### Verify and enable the Mattiasson elastica benchmarks (2026-10-29)
+
+Replace provisional cantilever references with independently evaluated elliptic
+integrals and enable all four load cases, including PL²/EI=10. Separate axial
+extension from the inextensible comparison, retain the original finite-area
+model against an independent extensible-rod solution, and check mesh refinement
+and load-step independence with tighter tolerances. The engine implementation
+and results for existing user models are unchanged (#845).
+
+#### Verify shallow-toggle snap-through against the matching structural model (2026-10-30)
+
+The shallow-toggle benchmark compared rigid-jointed frame elements against an axial-only truss formula and demanded a limit point that the frame does not have over apex inversion. Use true truss elements for the exact snap-through reference, trace both limit points, and check every equilibrium point and forward displacement increment. Preserve the original frame geometry and stiffness in a separate test against its independently derived energy reference. Tighten the limit-point validation so an incomplete positive-load path cannot pass. This corrects tests and references only; production solver results are unchanged. Resolves #846 in #852.
+
+Re-check any claim based on the old failing benchmark against the correct element type and its
+matching reference. Previously solved user models need no recalculation for this test-model fix.
+
+#### The combination governing a member counts the forces inside it, not only at its ends (2026-11-02)
+
+The combination named as governing a member's moment, shear, axial force or torsion was the one
+with the largest value at either end. A beam whose largest moment is at midspan under one
+combination and at its ends under another was credited to the wrong one, with an understated
+value. The governing combination is now taken over the whole diagram, its interior stations
+included, in 2D and in 3D. Design checks that already read station demands are unchanged; the
+combination they name where no station demand exists is now the right one.
+
+#### The German landing headline no longer makes the page wider than a phone (2026-11-03)
+
+At 390 px the German hero heading ("Tragwerksberechnung") made the landing 424 px wide, so the
+page scrolled sideways on phones (#878). Landing headings now break inside long words when they
+must. No calculation changes.
+
+#### The landing shows every section without scrolling to it (2026-11-02)
+
+Every section below the hero started transparent and was painted only once it scrolled into view,
+so a reader, a crawler that renders the page, or a capture of it saw blank space under the hero.
+The fade-in is gone: the sections are painted from the first frame, with or without JavaScript,
+and the prerendered HTML no longer needs a scroll to carry them visible.
+
+#### Load combinations add their cases in the same order on every solve (2026-11-04)
+
+The engine summed a combination's load cases in hash-map order, which differs between builds and
+between the browser and native runs, so a combined force could move in its last digit and flip a
+marginal detailing decision (#1341). Cases are now summed in their names' order, every time. The
+results snapshot corpus is unchanged and #1341 registered no results version, so the app shows no
+re-check notice; a member right at a detailing limit may still come out on the other side of it.
+
+#### The load generator no longer loads a shed's eaves as a floor, and weighs slabs and walls in the seismic weight (2026-11-02)
+
+In PRO, "Generate loads from the code" took the panel closed by a trussed shed's bottom chords and
+eave beams for a covered floor: it put the occupancy live load and the floor finishes (screed and
+tile) at the eaves, with their four pattern cases, and loaded rings of wall girts 20 m across the
+same way. Panels within the roof's structure (less than 2.2 m under its trusses, rafters or
+purlins everywhere the roof is over them) and panels more than 12 m both ways with no beam or slab
+inside now take no area load; a floor with storey height under part of a sloped roof keeps its load;
+the derivation lists them, and "Load every panel" in Applying keeps the old behaviour for a real
+mezzanine or loft. A pitched roof (5° or more) with no slab, whose dead load is "the floors'" in a model with no
+floors, now stops the plan with a message, instead of carrying the floors' screed and tile; a flat
+roof still takes it.
+
+The seismic weight of each level now includes the slabs, walls and roof decks drawn as shells
+(thickness × density × surface, a wall half to each level it joins); it counted only the members,
+so a concrete building's base shear came out about half of what it is.
+
+When the generator writes its combinations, the four example cases and combinations a new project
+starts with ("Dead Load", "Live Load", "Wind", "Earthquake", "1.4D", …) are removed if nobody
+touched them, instead of staying empty beside the generated ones. The preview says so.
+
+Re-check: generated loads of sheds and halls, and the seismic cases of buildings with shell slabs
+or walls, after generating again. Saved loads do not change until they are regenerated.
+
+#### A rebuilt merge-queue entry cancels its own superseded run (2026-11-02)
+
+When the merge queue rebuilds, GitHub starts a new run for each entry on its new base but
+leaves the old runs going, and they held the CI runners. Every merge-queue run now first
+cancels the unfinished merge-queue runs of CI, supply chain and verification whose head is no
+longer in the queue. A run whose head is still a queue entry or a queue branch, such as another
+pull request's entry, is never cancelled, and nothing is cancelled unless three snapshots of the
+queue agree.
+
+#### Modal analysis says so when it returns fewer modes than you asked for (2026-11-03)
+
+Asking for more modes than the model has free degrees of freedom (10 modes of a 3-DOF model)
+returned the modes there are with no diagnostic, because the request was trimmed before the
+short-spectrum check saw it (#1287). The diagnostic now compares with what you asked for, in 2D
+and 3D. The modes themselves do not change.
+
+#### Fewer false wrong-result reports from the nightly verification run (2026-11-03)
+
+The nightly metamorphic checks no longer report a wrong result when a quantity that is zero in exact arithmetic is compared against rounding noise, when a time history or modal result carries the accuracy of its eigensolve, when two modes are nearly repeated, or when a plastic analysis stops short of a mechanism and reports only a lower bound. Each tolerance scales with the model, and deliberately wrong results on the same models are still caught.
+
+#### Scheduled runs no longer hold the merge queue's runners (2026-11-04)
+
+Nightly mutation testing, random models and the other nightly jobs ran on the runners the merge
+queue uses, so every morning queued PRs waited for them for hours. The nightly now runs only on its
+own runners (or GitHub's when the self-hosted host is off), and the daily CI, research and
+supply-chain schedules run on GitHub's runners. A test evaluates every scheduled job's runner
+choice and fails if any can reach the merge queue's runners.
+
+#### Pull requests no longer flood the shared CI cache (2026-11-04)
+
+Every pull request saved about 1,850 Nix store paths (2.9 GB) to the repository's 10 GB Actions
+cache, so the cache stayed full and evicted, within an hour, the compiled research bundles and
+toolchains that other runs reuse. Pull requests now skip that Nix cache. Their Nix setup was no
+slower without it (6.4 min summed over the hosted jobs, against 8.6 min with it); main and the
+merge queue keep writing it.
+
+#### Wall-clock budgets no longer fail the merge queue on loaded runners (2026-11-02)
+
+In the merge queue, where the runners are shared and the host was at a load of 90 to 110 on 30
+CPUs, the wall-clock assertions of the slow E2E suite (the 3-D rebar workspace opening and the
+model fluidity edit) and of the scale-budget unit test are skipped; every functional assertion
+of those tests still runs there. Pull requests run every budget unchanged.
+
+#### Steel shear checks with no shear area are not evaluated instead of passing (2026-11-02)
+
+AISC 360 G2 with no `aw` reported a shear ratio of 0 and passed, certified, under any shear
+(SA-2026-025). EN 1993-1-1 6.2.6 with no `av` took Av = 0.5·A, 57 % above the shear area of an
+HEB 300 (SA-2026-026); it now derives Av from the section geometry by 6.2.6(3), and without
+geometry the shear check is not evaluated. Both concern the engine and WASM API only: the app
+always sends the area. Re-check API results for members sent without it (#1234).
+
+#### Plastic collapse no longer stops early under distributed loads (2026-10-30)
+
+When a hinge would unload as the structure turned into a false mechanism, the step-by-step collapse
+stopped there and reported a low collapse factor: the portal frame example gave 64.06 instead of
+71.30. Those hinges now close and the analysis continues. Re-check plastic collapse factors of frames
+with distributed loads.
+
+#### Installing Playwright browsers never writes into the Nix store (2026-11-06)
+
+- Every `make` target that installs browsers goes through `web/scripts/playwright-install.sh`, which
+  installs nothing when `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` or when `PLAYWRIGHT_BROWSERS_PATH` is a
+  Nix store path. Before, `make` decided from its own environment, so `make test.web.build
+  NIX_RUN="nix develop .#e2e --command"` run as root overwrote the Nix Playwright browsers with an
+  unpatched download and broke every Web Build and E2E Site job on the self-hosted runners.
+
+#### Two prerenders of the same build with the same star count are byte-identical (2026-11-04)
+
+Research charts took a random clip-path id on every render, every prerendered page asked GitHub
+for the star count (in parallel some were rate-limited and printed "GitHub" instead), and animated
+research pages were captured mid-animation. Chart ids now come from the component, the prerender
+fetches the star count once per run and hands it to every page (`PRERENDER_GITHUB_STARS` pins
+it, and two runs differ only if the live count differs), and pages are captured under reduced motion, which shows each animation's final frame. A build
+test prerenders twice and compares every file (#875).
+
+#### The prerender waits for each page to render before capturing it (2026-11-04)
+
+The prerender captured a page as soon as the network had been quiet for half a second. A page
+whose code chunk is requested only after a long main-thread task looked quiet in between, so on a
+loaded CI host it was captured before rendering and the build failed with "came back nearly
+empty (14 chars)". Capture now also waits until the page holds the 500 characters the existing
+check requires.
+
+#### What a first hour in PRO runs into (2026-11-02)
+
+- The default load cases are named in the interface's language ("Cargas permanentes",
+  "Sobrecarga de uso", "Viento" and "Sismo" in Spanish) instead of always in English. Projects
+  saved before keep their names.
+- The report's node and member columns, and its slab and wall rows, follow the report's language.
+- The report numbers its sections in the order printed, with no gap when a section is absent
+  (2.3 was followed by 2.5 in a model without slabs), and its index lists them in that order with
+  links that land.
+- Exported figures and the report's figures leave out a label that has no room instead of writing
+  it over another, and say under the figure how many they left out; the tables carry every value.
+- Story drift is called "Deriva" in Spanish throughout.
+- The Building, Foundations and Physical panels show their titles.
+- The project's regulations list each code once.
+- The load generator binds a wind or seismic code from its own form, where it used to send the
+  user to the regulations panel and lose the form.
+- "Combinations used by design" is titled for the analysis when design is off.
+- A view export that draws nothing says so instead of closing without a file.
+- The unstated basis of application is one warning for the whole stack, not one per regulation.
+
+#### A new project's tab is named in the reader's language, not `tabBar.newStructure` (2026-10-28)
+
+The stores name the first project before the application registers its full dictionaries, so a
+fresh Basic or PRO session showed the translation key `tabBar.newStructure` as the project's name in
+its tab, in every language. The tab bar's entries now ship with the dictionary subset loaded first,
+and the end-to-end check of raw keys reads the tab's name field (#719).
+
+#### A public page opens at its top (2026-11-05)
+
+- Opening a paper from the Research gallery, or going back to the gallery, kept the scroll position
+  of the page before it: the gallery and every paper share one scrolling container, so the paper
+  opened scrolled down, by as much as the gallery had been. Every navigation between public pages
+  now starts at the top (or at the section its link names), in the browser's back and forward too.
+
+#### Unknown addresses on stabileo.com answer 404 instead of the landing page (2026-10-31)
+
+Any address that was not a page (`/en/research/nonexistent-paper/`) used to answer 200 with the
+landing page and its canonical, so search engines saw a site-wide soft 404. Caddy now answers
+those with a real 404 and a short, noindexed page in the address's language that links to the
+home page, Research, Tools and the Blog. The application's addresses (`/app/…`, `/demo`), the
+prerendered pages, the old unprefixed links (`/blog/<slug>`), assets and the slash redirects are
+unchanged; `make test.infra.caddy` checks each of them.
+
+#### The re-check notice no longer flashes open and shut on opening an older project (2026-11-05)
+
+Opening a project saved with an older results version, from a file, a tab, an autosave restore or
+a link, showed the notice headed "Results have changed since this project was last solved" while
+the list of changes was still loading. When none of the changes since concerned the model, it then
+closed on its own before it could be read. Nothing was hidden: every notice that lists changes
+still holds until it is acknowledged. Now nothing is shown for the first 800 ms of the check. If
+the check takes longer, the notice opens saying the project is being checked, and it only says
+results have changed once the changes that apply are on screen (#1418).
+
+#### Riks–Crisfield evidence matches the CI platform (2026-10-30)
+
+The exact Riks–Crisfield evidence is refreshed on Linux, with the rounding-only difference from
+macOS ARM documented (#857). The reference tolerances and reported validation failures are kept;
+a platform difference is not treated as a solver correction. Re-check comparisons against the
+recorded platform when regenerating the evidence.
+
+#### Research gallery and pages: no clipped badges or captions, and no review-round note (2026-11-03)
+
+- Badge rows and thumbnail captions wrap instead of being clipped, the viewer controls get their
+  own row instead of sitting under the legend, the plastic collapse card names Horne (1979)
+  properly, and Research is described as structural engineering research you can run and check, in
+  six languages (#883).
+- The "First version · N review rounds" note no longer shows on any research page or gallery card
+  (#1320). The review records themselves are kept.
+
+#### Stabileo Research: MacNeal–Harder page corrections (2026-10-30)
+
+Results are now compared with signed references, so a deflection or rotation in the wrong direction fails. The headline reports shell cases (2/6) and frame adaptations (6/6) separately, rows distinguish documented limitations, unexpected mismatches and engine errors, and the regular out-of-plane pass is marked marginal against the reference's printed precision. Native CI pins every case's outcome and the four distorted-mesh values. The page states units, quantities, the project-chosen 2% limit and where the references come from (checked against Timoshenko beam theory), is translated into six languages, and works by keyboard and on phones and tablets.
+
+#### Research papers are published only in the languages they are written in, and every other-language URL redirects to the English page (2026-11-01)
+
+Search engines saw research pages under six languages while the sitemap listed three, 51
+mixed-language de/fr/tr copies, Spanish and Portuguese pages with English titles, no structured
+data and a build-day lastmod everywhere. Each research page, /paper, post and standing page is now
+built, listed and linked only in the languages it is written in; the sitemap and every page's
+hreflang agree; titles name the original work; pages carry ScholarlyArticle and breadcrumb data
+citing the paper's DOI; lastmod is the latest review. A URL in a language a page lacks answers 301
+to its English page (Caddy). The build now fails when a non-English page repeats the English page's
+text, title or description, or when the sitemap, hreflang and built files disagree; the Spanish and
+Portuguese validation check names, catalogue summaries and gallery cards that were still English
+are translated. After deploy: resubmit the sitemap in Search Console.
+
+#### A research WASM build that runs out of time keeps the bundles it finished (2026-11-04)
+
+The research WASM job saved its cached bundles only when the whole job succeeded, so a job that hit
+its time limit on a loaded runner threw away every bundle it had built, and the rerun built them
+all again. The bundles build in parallel and each one is marked for saving the moment it finishes;
+the build step stops at 75 minutes so the finished bundles are still saved within the job's 90
+(was 60). A cache lookup that GitHub rate-limits is tried a second time instead of counting as a miss.
+
+#### Route budgets in the merge queue compare against the group's real base (2026-11-03)
+
+In a merge-queue group stacked on another pending group, the "Landing and app route byte budgets"
+job measured its baseline on main, which lacked the group ahead. The pull requests ahead then
+counted as this group's change, and a research file among them forced research isolation. The
+baseline now comes from the commit the group was built on.
+
+#### Merge-queue WASM builds no longer fail on another runner's compiler cache (2026-11-02)
+
+The self-hosted CI runners are separate users on one host, and all of them talked to a single
+sccache server on its default port. A job then compiled through a server owned by another runner
+user, which could not read its files ("failed to spawn ... Permission denied"), and the PR left the
+merge queue. Inside CI, the Nix shell now gives each runner user its own sccache server on a Unix
+socket in a private cache directory, and builds without sccache when its server cannot start. Local shells are unchanged.
+
+#### The 3D shed example no longer lists an earthquake combination it has no earthquake for (2026-11-03)
+
+The industrial shed brings its own load cases (dead, roof live and wind) and no combinations, so
+opening it in Basic 3D kept Basic's four defaults. The fourth, "1.2D + L + E", took a load case the
+shed does not have: the solver skipped that factor and showed 1.2 D + 1.0 Lr under an earthquake
+name. Its numbers were those of 1.2 D + 1.0 Lr, which never gave the largest magnitude of any member
+force, reaction or displacement, but the name said the shed had been checked for an earthquake. The
+shed now opens with the seven CIRSOC 101-2025 §2.3.2 combinations for its dead, roof live and wind
+cases, and the stadium canopy, which had Basic's "L" combinations applied to its roof live case,
+with the three for its dead and roof live loads. The biaxial cantilever, whose only load sits in its
+own "Tip load" case, had every combination at zero; it now has one combination of that case. An
+example, workbook or generated model that brings its own load cases and no combinations keeps
+Basic's four only when each of their cases is there with the type it was written for and every case
+it loads is in one of them; otherwise it gets the CIRSOC 101-2025 strength combinations of its own
+cases, and is refused if a case it loads is in none of them (a workbook says so on its LoadCases
+sheet and leaves the open model as it was). One with a load in a case it does not have, or whose own
+combination names such a case or a factor that is not a number, is refused (a workbook without a
+LoadCases sheet reports a load beyond Basic's four cases as a problem), and a share link whose loads
+omit their case is read as case 1 and refused when there is no such case. Projects saved with the
+old combinations solve as before; open the example again for the new ones.
+
+#### A page served by the fallback no longer states the landing's structured data (2026-11-04)
+
+A blog post, standing page, tool or research page reached through the fallback page used to keep
+the landing's Schema.org data (an application at the English home page) until its own code had
+loaded, and for good if that code failed to load. It now drops data written for another address
+on arrival, so the page states only its own. Prerendered pages keep theirs.
+
+#### A restored session's deferred re-solve no longer fails unrelated unit tests (2026-11-04)
+
+Opening a saved session that had results schedules a re-solve 50 ms later. Without a browser
+window (the unit tests), that timer threw after its test had finished. On a slow CI runner this
+failed a whole Web Unit shard even though every test had passed. The re-solve now does nothing when
+there is no window.
+
+#### Time history refuses a response that is not finite (2026-11-02)
+
+A linear time history could return NaN or infinite displacements with no refusal: with damping,
+a model with fewer than two modes that carry mass (a single member whose rotations have no mass)
+anchored its Rayleigh damping on an infinite frequency, and the run blew up. The damping is now
+anchored on the finite modes only, and any response that is still not finite is refused with
+`TH-NONFINITE`, translated in the app, instead of being shown (nightly #1196, #1205, #1207,
+#1208, #1210, #1212).
+
+#### Wall-clock budgets run only on a dedicated hosted VM, never on the shared runners (2026-11-03)
+
+The merge queue already skipped the wall-clock assertions on the shared self-hosted runners and
+checked them in the Timing Budgets job on a GitHub-hosted VM. Pushes to main and pull requests
+on the self-hosted pool now do the same: every self-hosted Web Build and slow E2E step skips the
+wall-clock assertions, and Timing Budgets runs for those events too, so a loaded runner can no
+longer fail main and trigger a revert. Pull requests on GitHub-hosted runners check the budgets
+in Web Build as before. The fixtures and the budgets are unchanged.
+
+#### Tools warn when their result is outside what they check, and refuse a near-zero stiffness (2026-11-01)
+
+Fixes from the second review of the eight Stabileo Tools (#900). Every tool now warns when the
+largest displacement exceeds span/50, when the engine and the classical formula differ by more than
+1%, and, for beam frequencies, when the member is stocky (L/r < 20); a bending stiffness below
+1e-6 is refused, because below it the deflected shape silently dropped member loads. The influence
+line snapped its section to the mesh, which fixes a shear about 200% off just past a support; the
+frequency tool asks for more modes until it has three bending modes; the pilot merges
+near-coincident mesh points and states its moment sign convention. The "First version · N review
+rounds" note is gone from every tool; the review record stays in
+`research/tools/batches/VALIDATION.json`. Re-check any influence-line shear read from a tool before
+2026-11-01.
+
+#### Undo and redo no longer lay a 2D model flat in 3D (2026-10-29)
+
+A model drawn in Basic 2D stands in the X–Z plane when the view turns 3D. Each undo step also
+recorded the space view of the moment, and in 2D that was the "as stored" one: undoing in 3D a
+step taken in 2D restored it, and the model, still stored with its vertical as Y, lay flat on X–Y,
+again with every further undo. A step taken in 2D now records no space view, and restoring it in 3D
+chooses the view as switching to 3D does.
+
+#### The Lean, symbolic and Kani proofs run in the merge queue (2026-11-02)
+
+The verification workflow had no merge-queue trigger, so its proof checks never reported for
+queued PRs. Each queue entry now diffs its base against its head and runs the proofs (Kani's fast
+tier) when it touches what they cover, as pull requests already did; if the diff fails, the proofs
+run anyway. A test requires every workflow that provides a required check to run in the merge queue.
+
+### Performance
+
+#### The 30 s autosave no longer copies and rewrites an unchanged project (2026-11-07)
+
+Every 30 s the project autosave deep-copied the whole model, the detailing bars included, and
+wrote it to IndexedDB as a new revision, even when nothing had changed: about 46 MB and 440 ms
+(Node, `fake-indexeddb`) per tick on the designed and detailed 7-storey building, and the three
+kept revisions were all the same project. The detailing, already a plain frozen copy per version,
+is no longer copied again, and a project unchanged since this page's last write is not written
+again while that write is still the newest (another window's write or a discard makes it write
+again). On the same building a tick now takes about 2 ms. The workspace save (every open tab) no
+longer rewrites unchanged text, and when a newer workspace cannot be written the previous one is
+moved to the workspace backups instead of being deleted; the save notice still shows (#1662).
+
+#### Published 3D results are frozen, and the known-issue refusal check runs once per result (2026-11-07)
+
+Every read of the 3D results, cases and combinations ran the known-issue refusal check over the
+whole solve again, and the member verdicts read them once per member: about 550 ms per open of a
+large 3D workspace. Published 3D results, cases, combinations and envelopes are now frozen, so
+editing one in place throws (typed arrays inside stay writable, and a Map or Set inside is locked
+but can still be reached through `Map.prototype`). The check keeps its verdict only for a result
+whose scanned part is frozen plain data; anything else is checked on every read, as before. A new
+result is always a new object and is checked again. Nothing that was withheld is shown (#1686).
+
+#### The 3-D reinforcement view opens with less garbage to collect (2026-11-07)
+
+Opening the 3-D reinforcement view on the 7-storey example made the garbage collector pause for
+about a second, at a different point on each open (#1667). The issued document was wrapped in a
+reactive proxy, so building the 3-D scene from it created a tracked value for every field it read.
+The tube geometry was built through growing JavaScript arrays and about half a million temporary
+vectors. The document is now stored as built, and the tubes are written into buffers sized up
+front with their frame vectors reused. The geometry is bit-identical to before.
+
+#### Focus pull-request CI on the changed area (2026-10-29)
+
+Documentation-only PRs run repository lint and changelog checks. Research PRs
+run research validation, focused unit and browser tests, and route budgets;
+engine PRs keep engine suites and determinism with focused engine-facing smoke
+flows. Unknown paths or mixed areas retain full coverage. Tools have a reserved
+focused mapping that falls back to full CI until its tests exist. Pushes to main
+and the nightly run always run the full pipeline; the merge queue runs the
+gating subset described in the lighter merge queue entry. CI OK resolves
+intentional skips while propagating failures and cancellations.
+
+#### Kani runs on a pull request only when its inputs change (2026-11-06)
+
+The Kani job took about 50 minutes on every pull request and merge-queue entry that touched any engine source. It now runs only when the change touches what the harnesses prove (the harnesses, the element, linear-algebra and type modules they call, the interval and sparse certificate arithmetic), the Cargo configuration, build script or Rust toolchain pins, the flake, the Kani scripts or the Verify workflow, and is skipped otherwise. When the changed files cannot be listed, it runs. Pushes to main and the nightly schedule always run it.
+
+#### Kani proofs run in five CI shards (2026-11-06)
+
+The Verify workflow now assigns the Kani harnesses deterministically across five runners, with each runner still checking one harness at a time under the existing watchdog, tier, unwind and solver settings. The required `kani` check passes only after every shard reports success; a failed, cancelled, skipped or missing shard fails the check.
+
+#### Public pages prerender in parallel (2026-10-30)
+
+The site build renders public routes through a pool of browser pages instead of one at a time
+(#857). It defaults to at most six workers, bounded by the available CPUs; PRERENDER_CONCURRENCY
+sets another positive count. Feeds and the sitemap retain their input order, and a render failure
+names the route, stops assigning new work and closes the workers. This shortens the growing
+multilingual site's build without changing its published content. Re-check generated pages,
+feed order and the sitemap when changing the pool or route list.
+
+#### A Lighthouse score that moves past its margin opens an issue (2026-11-01)
+
+A daily workflow runs Lighthouse against stabileo.com (median of five, mobile and desktop) and opens
+an issue when a score moves beyond its margin from `web/perf-lighthouse.json`: down is a
+regression, up is an improvement to record. Measured baselines, margins and the audit are in
+`docs/performance/`.
+
+#### Adding a research paper no longer grows the landing page or the app (2026-10-29)
+
+- Research catalogue entries, experiments, gallery text and research translations load only on
+  research pages (#840). The landing and the app no longer list them for preloading, so a new paper
+  changes their size by 0 bytes.
+
+#### Research and Tools load only when opened (2026-10-29)
+
+Research pages load through their own loader (#840); the integration wave (#857) keeps both
+Research and Tools behind the public-page boundary. Adding an experiment no longer brings its
+catalogue, calculator translations or analysis into the landing page or editor's initial load.
+Route-size checks guard that boundary. Re-check direct links to experiments and calculators as
+well as navigation from the galleries when adding a route.
+
+#### Reuse CI builds and tolerate transient infrastructure outages (2026-10-29)
+
+CI retries known dependency-download infrastructure failures twice while keeping
+code and test failures immediate. A download that stalls is killed after 15
+minutes and retried as an infrastructure failure, cargo fetches without HTTP/2
+multiplexing, and the retry wrapper no longer waits for daemons a command starts
+(sccache held its output pipe, so Research WASM hung for an hour after the fetch). Self-hosted runners use their local Nix store;
+hosted cache outages are non-fatal. Research WASM reuses a source-keyed cache
+while validating and publishing the current viewer. Docker smoke tests both the
+default source build (including engine WASM, research WASM and frontend compilation)
+and a prebuilt-site build consuming the tested `site-production` artifact. A full
+cold PR runs 5 engine WASM builds (the shared WASM job, Docker's source build and
+three research validation jobs), 2 research WASM sets and 6 site builds, excluding
+builds spawned by tests; a research source-cache hit reduces the research WASM
+sets to 1 while leaving the other counts unchanged.
+
+Every hosted job that fetches the Nix shell now does it first through the same retry, including
+the hosted Timing Budgets job, the Andreassen and Fairclough research validations and the Lean
+and Kani proofs, and a test fails if a job reaches `nix develop` or `make` before it.
+
 ## 0.4.0 (2026-10-28)
 
 Release notes: [`docs/releases/v0.4.0.md`](docs/releases/v0.4.0.md) (also in

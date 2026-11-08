@@ -1,4 +1,0 @@
-### Fixed
-#### A combination no longer trusts a load case without a second-order screen whose ends read no compression (2026-11-06)
-
-- #1607: combining load-case results that arrived without the engine's second-order screen (from outside the engine, through `combine_results_checked` or the WASM combination calls) counted a case as compressed only when a member's end force read compression. A member compressed inside its span by an axial span load or an axial point load, with both ends at zero or in tension, was missed. The combination could then come out bounded, and its steel checks were not held. Such a case now counts as compressed whenever any member carries an axial force or an axial load, so the combination is `LIN-SECOND-ORDER-UNBOUNDED` and holds the checks. Results the engine solves itself always carry the screen and are unchanged.

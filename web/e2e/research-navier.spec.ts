@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import replay from '../../research/benchmarks/navier-plate/results/stabileo_results.json' with { type: 'json' };
+import { isComplete } from '../src/lib/i18n/offered';
 
 const reference = replay.parameters.reference_mm;
 const mindlin = replay.parameters.mindlin_reference_mm;
@@ -119,6 +120,7 @@ const LOCALES = [
 
 for (const [locale, title, replayLabel] of LOCALES) {
   test(`@smoke Navier plate in ${locale}`, async ({ page }) => {
+    test.skip(!isComplete(locale), 'not offered until a native speaker checks it (#1628)');
     await open(page, locale, 390, 844);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
     await expect(page).toHaveTitle(`${title} (Ventsel ${({ en: '&', es: 'y', pt: 'e', de: 'und', fr: 'et', tr: 've' } as Record<string, string>)[locale]} Krauthammer 2001) — Stabileo Research`);
