@@ -52,6 +52,8 @@ export interface ColumnRow {
   family: 'column';
   key: string; name: string; level?: string;
   b: number; h: number; length: number;
+  /** Clear cover to the ties, m. */
+  cover: number;
   demand: ColumnDemand;
   req: { rho: number; ast: number; impossible: boolean; governing: string; compressionDominated: boolean };
   proposed: ColumnAdopted;
@@ -126,18 +128,22 @@ function clearOk(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): boolean {
   return gap(d.b, a.nx, Math.max(a.corner, a.dx)) >= minX - 1e-4 && gap(d.h, a.ny, Math.max(a.corner, a.dy)) >= minY - 1e-4;
 }
 
-function crossties(side: number, n: number, dia: number, cornerDia: number, c: ColumnContext, tie: number): number {
-  if (n <= 0) return 0;
-  const span = side - 2 * coverToBar(c, tie, cornerDia);
+/** The face bars (1 … n, between the corners) a crosstie must hold so none is more than min(15·dbe; 150 mm) clear from a held bar (§25.7.2.3). */
+export function bracedFaceBars(side: number, n: number, dia: number, cornerDia: number, c: { cover: number }, tie: number): number[] {
+  if (n <= 0) return [];
+  const span = side - 2 * (c.cover + tie / 1000 + cornerDia / 2000);
   const pitch = span / (n + 1), limit = unbracedClearLimit(tie);
-  let lastSupported = 0, count = 0;
+  const out: number[] = [];
+  let lastSupported = 0;
   for (let i = 1; i <= n; i++) {
     const back = (i - lastSupported) * pitch - dia / 1000;
     const ahead = (n + 1 - i) * pitch - dia / 1000;
-    if (back > limit + 1e-9 && ahead > limit + 1e-9) { count++; lastSupported = i; }
+    if (back > limit + 1e-9 && ahead > limit + 1e-9) { out.push(i); lastSupported = i; }
   }
-  return count;
+  return out;
 }
+
+const crossties = (side: number, n: number, dia: number, cornerDia: number, c: ColumnContext, tie: number): number => bracedFaceBars(side, n, dia, cornerDia, c, tie).length;
 
 const tieDiaFor = (longDia: number): number => (longDia <= 16 ? 6 : longDia <= 25 ? 8 : 10);
 
@@ -317,7 +323,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
   ];
 
   return {
-    family: 'column', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
+    family: 'column', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, cover: c.cover, demand: d,
     req: { rho: ast / (Ag * 1e4), ast, impossible, governing: gov?.c.combo ?? '', compressionDominated },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations,
     checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: ct, rhoOk, shearX, shearY },

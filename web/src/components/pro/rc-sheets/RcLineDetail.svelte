@@ -8,15 +8,42 @@
   import RcChecks from './RcChecks.svelte';
   import RcCombos from './RcCombos.svelte';
   import RcSteps from './RcSteps.svelte';
+  import RcSectionSvg from './RcSectionSvg.svelte';
+  import { beamSection } from '../../../lib/rc-sheets/drawing';
+  import { groupsLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
 
   let { line, spans }: { line: LineLayout; spans: BeamRow[] } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   let open = $state<string | null>(null);
   const kind = (k: string) => t(`rcSheets.line.kind.${k}`);
+  /** The sections of every span, the identical ones drawn once with every place they stand. */
+  const sections = $derived.by(() => {
+    const out: Array<{ key: string; drawing: ReturnType<typeof beamSection>; notes: string[]; tags: string[]; title: string }> = [];
+    line.spanAdopted.forEach((sa, k) => {
+      const sp = line.spans[k]!;
+      const places: Array<['start' | 'span' | 'end', string]> = [['start', 'i'], ['span', `x* = ${fmt(spans[k]?.demand.span.x ?? (sp.x1 - sp.x0) / 2)} m`], ['end', 'j']];
+      for (const [sec, tag] of places) {
+        const g = sa.at?.[sec] ?? { top: sa.top, bottom: sa.bottom };
+        const notes = [`↑ ${groupsLabel(g.top)}`, `↓ ${groupsLabel(g.bottom)}`, stirrupsLabel(sa.stirrups)];
+        const key = `${sp.b}×${sp.h}|${notes.join('|')}|${sa.stirrups.legs}`;
+        const same = out.find((x) => x.key === key);
+        if (same) same.tags.push(`${sp.name} · ${tag}`);
+        else out.push({ key, drawing: beamSection(sp.b, sp.h, line.cover, g.top, g.bottom, sa.stirrups), notes, tags: [`${sp.name} · ${tag}`], title: '' });
+      }
+    });
+    for (const x of out) x.title = x.tags.length <= 2 ? x.tags.join(', ') : `${x.tags[0]} … ${x.tags[x.tags.length - 1]} (${x.tags.length})`;
+    return out;
+  });
 </script>
 
 <RcLineEditor {line} />
 <RcLineSvg {line} />
+<h5 class="rcd-h">{t('rcSheets.sections')}</h5>
+<div class="rcd-secs">
+  {#each sections as g (g.key)}
+    <RcSectionSvg drawing={g.drawing} title={g.title} notes={g.notes} />
+  {/each}
+</div>
 <table class="rcd" data-testid="rc-schedule">
   <thead><tr><th>{t('rcSheets.line.mark')}</th><th>{t('rcSheets.line.kind')}</th><th>{t('rcSheets.col.bars')}</th><th class="n">{t('rcSheets.line.from')}</th><th class="n">{t('rcSheets.line.to')}</th><th class="n">{t('rcSheets.line.length')}</th><th class="n">kg</th></tr></thead>
   <tbody>
@@ -64,4 +91,5 @@
   .st-ok .rcd-toggle span { color: var(--st-ok); }
   .st-warn .rcd-toggle span { color: var(--st-warn); }
   .st-fail .rcd-toggle span { color: var(--st-danger); }
+  .rcd-secs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 </style>

@@ -4,7 +4,7 @@ import { physicalGroups, physicalThickness } from './physical';
 import { designData, patchOwnDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
-import { levelNamer } from './takeoff';
+import { defaultLevelName } from '../model/grid';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
 import { beamFlangeSides } from '../engine/design/beam-flange';
@@ -73,9 +73,18 @@ export function setRcOption(option: 'faces' | 'flange' | 'seismic', on: boolean)
   save(d);
 }
 
-function levelName(id: string | undefined): string | undefined {
+/** Storey names from the grid's levels, else from the elevations the physical members span; never from mesh nodes. */
+function storeyNamer(): (z: number) => string {
+  const grid = modelStore.grid?.levels ?? [];
+  if (grid.length) return (z) => grid.find((l) => Math.abs(l.z - z) < 0.05)?.name ?? `+${z.toFixed(2)}`;
+  const zs = [...new Set(physicalGroups().flatMap((g) => [g.physical.levelFrom, g.physical.levelTo])
+    .filter((id): id is string => !!id?.startsWith('z:')).map((id) => Math.round(Number(id.slice(2)) * 1000) / 1000))].sort((p, q) => p - q);
+  return (z) => { const i = zs.findIndex((v) => Math.abs(v - z) < 0.05); return i >= 0 ? defaultLevelName(i) : `+${z.toFixed(2)}`; };
+}
+
+function levelName(id: string | undefined, namer: (z: number) => string): string | undefined {
   if (!id) return undefined;
-  if (id.startsWith('z:')) return `z = ${Number(id.slice(2)).toFixed(2)} m`;
+  if (id.startsWith('z:')) return namer(Number(id.slice(2)));
   return modelStore.grid?.levels.find((l) => l.id === id)?.name ?? id;
 }
 
@@ -101,8 +110,9 @@ export function designSets(): { sets: DemandSet[]; basis: SheetRows['basis']; de
 
 function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces: boolean; flange: boolean }): DemandInput {
   const supportsByNode = new Map([...modelStore.supports.values()].map((s) => [s.nodeId, s]));
+  const namer = storeyNamer();
   const groups: DemandGroup[] = physicalGroups().map((g) => ({
-    id: g.id, name: g.name, kind: g.physical.kind, level: levelName(g.physical.levelFrom),
+    id: g.id, name: g.name, kind: g.physical.kind, level: levelName(g.physical.levelFrom, namer),
     elements: g.members.elements ?? [], quads: g.members.quads ?? [], plates: g.members.plates ?? [],
   }));
   return {
@@ -119,7 +129,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
       return cs ? (end === 'i' ? cs.start.halfDepth : cs.end.halfDepth) : 0;
     },
     levelZs: (modelStore.grid?.levels ?? []).map((l) => l.z),
-    levelAt: levelNamer().name,
+    levelAt: namer,
     psi: (id) => computeJointPsiFromModel(id, modelStore.nodes as never, modelStore.elements as never, modelStore.sections as never, modelStore.materials as never, supportsByNode as never),
   };
 }

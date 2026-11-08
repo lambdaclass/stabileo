@@ -14,6 +14,8 @@
   import RcLineDetail from './RcLineDetail.svelte';
   import type { LineLayout } from '../../../lib/rc-sheets/beam-line';
   import RcRowEditor from './RcRowEditor.svelte';
+  import RcSectionSvg from './RcSectionSvg.svelte';
+  import { columnSection } from '../../../lib/rc-sheets/drawing';
 
   let { onclose, family = $bindable<SheetFamily>('beam') }: { onclose: () => void; family?: SheetFamily } = $props();
 
@@ -156,6 +158,12 @@
                     <RcLineDetail line={r} spans={spansOf(r)} />
                   {:else}
                   {#if r.family !== 'punching'}<RcRowEditor row={r} />{/if}
+                  {#if r.family === 'column'}
+                    <div class="rcw-secs">
+                      <RcSectionSvg drawing={columnSection(r.b, r.h, r.cover, r.adopted)} title="{r.name} · {fmt(r.b * 100, 0)}×{fmt(r.h * 100, 0)}"
+                        notes={[columnLabel(r.adopted), `${tieLabel(r.adopted)} · ${t('rcSheets.col.crossties')} ${r.checks.crossties.x} · ${r.checks.crossties.y}`]} />
+                    </div>
+                  {/if}
                   <RcChecks lines={r.verifications} />
                   <details open={r.status === 'fail'}>
                     <summary>{t('rcSheets.combo.title')} ({r.combos.rows.length})</summary>
@@ -215,4 +223,5 @@
   tr.detail td { white-space: normal; padding: 8px; background: var(--st-surface); }
   tr.detail :global(.rce) { margin-bottom: 8px; }
   .rcw-note { font-size: 0.7rem; color: var(--st-text-3); margin-top: 8px; max-width: 90ch; }
+  .rcw-secs { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 8px; }
 </style>

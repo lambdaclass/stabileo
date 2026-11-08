@@ -2,7 +2,8 @@ import { test, expect, loadModel, solveModel } from './fixtures';
 
 /**
  * Reinforcement by sheets on the seven-storey concrete example: solved, its physical members
- * recognised (walls meshed by a second solve), every family has rows, a continuous beam's run
+ * recognised (walls meshed by a second solve), every family has rows and the beams and columns their
+ * sections, the core's ground-floor walls are failed for resting on one node, a continuous beam's run
  * adopted short fails and says why, going back to the proposal makes it verify again, and a span
  * opens into its checks by combination.
  */
@@ -33,6 +34,8 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await first.click();
   await expect(ws.getByTestId('rc-line-svg')).toBeVisible();
   await expect(ws.getByTestId('rc-schedule')).toBeVisible();
+  await expect(ws.getByTestId('rc-section').first()).toContainText('V1-1 · i');
+  await expect(ws.getByTestId('rc-section').first().locator('circle').first()).toBeVisible();
   const editor = ws.getByTestId('rc-line-editor');
   await editor.getByRole('spinbutton', { name: 'Cantidad' }).first().fill('2');
   await editor.getByRole('combobox', { name: 'Diámetro' }).first().selectOption('10');
@@ -48,9 +51,18 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
 
   await ws.getByTestId('rc-tab-column').click();
   await expect(ws.getByTestId('rc-table-column')).toBeVisible();
+  await ws.getByTestId('rc-row').first().click();
+  await expect(ws.getByTestId('rc-section')).toHaveCount(1);
+  await expect(ws.getByTestId('rc-section').locator('circle').first()).toBeVisible();
   await ws.getByTestId('rc-tab-slab').click();
   await expect(ws.getByTestId('rc-table-slab')).toBeVisible();
   await ws.getByTestId('rc-tab-wall').click();
   await expect(ws.getByTestId('rc-table-wall')).toBeVisible();
-  await expect(ws.getByTestId('rc-table-wall')).not.toContainText('No verifica');
+  // The example's core stands on the corner column alone: its ground-floor walls rest on one node each.
+  const ground = ws.getByTestId('rc-row').filter({ hasText: 'N0' });
+  await expect(ground).toHaveCount(3);
+  await expect(ground.first()).toContainText('No verifica');
+  await ground.first().click();
+  await expect(ws.getByTestId('rc-checks').first()).toContainText('La base del tabique apoya en toda su longitud');
+  await expect(ws.getByTestId('rc-row').filter({ hasText: 'N1' }).first()).toContainText('Verifica');
 });

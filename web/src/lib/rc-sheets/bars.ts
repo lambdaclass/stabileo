@@ -18,23 +18,28 @@ export const meshArea = (m: MeshBars): number => (m.spacing > 0 ? barArea(m.dia)
 
 export const minClearSpacing = (dia: number): number => minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: 0 }).minClear;
 
+/** Each bar of a face, layer by layer (one group per layer, the first at the face): across from the left side and in from the face, m. */
+export function faceBars(groups: readonly BarGroup[], b: number, cover: number, stirrupDia: number): Array<{ x: number; depth: number; dia: number }> {
+  const out: Array<{ x: number; depth: number; dia: number }> = [];
+  let y = cover + stirrupDia / 1000;
+  const used = groups.filter((g) => g.count > 0);
+  used.forEach((g, i) => {
+    if (i > 0) y += used[i - 1]!.dia / 1000 + layerClearBetween('2025', used[i - 1]!.dia, g.dia);
+    const edge = cover + stirrupDia / 1000 + g.dia / 2000;
+    for (let k = 0; k < g.count; k++) out.push({ x: g.count > 1 ? edge + (k * (b - 2 * edge)) / (g.count - 1) : b / 2, depth: y + g.dia / 2000, dia: g.dia });
+  });
+  return out;
+}
+
 export function faceLayout(groups: readonly BarGroup[], b: number, cover: number, stirrupDia: number): {
   centroidFromFace: number; fits: boolean; clear: number[];
 } {
   const inner = b - 2 * cover - 2 * stirrupDia / 1000;
-  let y = cover + stirrupDia / 1000;
-  let moment = 0, area = 0, fits = true;
-  const clear: number[] = [];
-  const used = groups.filter((g) => g.count > 0);
-  used.forEach((g, i) => {
-    if (i > 0) y += used[i - 1]!.dia / 1000 + layerClearBetween('2025', used[i - 1]!.dia, g.dia);
-    const yc = y + g.dia / 2000;
-    const a = g.count * barArea(g.dia);
-    moment += a * yc; area += a;
-    const gap = g.count > 1 ? (inner - g.count * g.dia / 1000) / (g.count - 1) : inner - g.dia / 1000;
-    clear.push(gap);
-    if (gap < minClearSpacing(g.dia) - 1e-4) fits = false;
-  });
+  const bars = faceBars(groups, b, cover, stirrupDia);
+  const area = bars.reduce((s, x) => s + barArea(x.dia), 0);
+  const moment = bars.reduce((s, x) => s + barArea(x.dia) * x.depth, 0);
+  const clear = groups.filter((g) => g.count > 0).map((g) => (g.count > 1 ? (inner - g.count * g.dia / 1000) / (g.count - 1) : inner - g.dia / 1000));
+  const fits = groups.filter((g) => g.count > 0).every((g, i) => clear[i]! >= minClearSpacing(g.dia) - 1e-4);
   return { centroidFromFace: area > 0 ? moment / area : cover + stirrupDia / 1000 + 0.008, fits, clear };
 }
 

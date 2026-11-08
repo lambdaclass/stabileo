@@ -41,6 +41,10 @@ export interface LineLayout {
   key: string; group: number; name: string; level?: string;
   length: number;
   spans: Array<{ name: string; x0: number; x1: number; b: number; h: number }>;
+  /** Each support's extent along the line, m (0 where unknown). */
+  supportWidths: number[];
+  /** Clear cover to the stirrups, m. */
+  cover: number;
   proposed: LineAdopted; adopted: LineAdopted; isAdopted: boolean; iterations: number;
   bars: LineBar[];
   zones: Array<{ span: number; from: number; to: number; stirrups: Stirrups }>;
@@ -316,6 +320,8 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     key: `line:${sorted[0]?.demand.line?.group ?? sorted[0]?.key}`, group: sorted[0]?.demand.line?.group ?? 0,
     name: sorted[0]?.demand.line?.lineName ?? sorted[0]?.name ?? '', level: sorted[0]?.level, length: total,
     spans: spans.map((s) => ({ name: s.row.name, x0: s.x0, x1: s.x0 + s.L, b: s.b, h: s.h })),
+    cover: c.cover,
+    supportWidths: supports.map((_, j) => 2 * Math.max(spans[j - 1]?.row.demand.supportHalf?.end ?? 0, spans[j]?.row.demand.supportHalf?.start ?? 0)),
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, bars, zones, splices, cutoffs: lastCuts, anchorage,
     envelope: env.map((e) => ({ x: e.xl, pos: e.pos, neg: e.neg, phiPos: e.phiPos, phiNeg: e.phiNeg })),
     spanAdopted, verifications, utilization: worst, status: ok ? 'ok' : 'fail', steps,

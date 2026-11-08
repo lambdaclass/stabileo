@@ -16,6 +16,8 @@ export interface WallDemand {
   length: number; height: number; thickness: number;
   /** Elements along the base cut: one cannot resolve an in-plane moment from its centre stress. */
   baseElements?: number;
+  /** Nodes along the base cut, and how many rest on something: a support, a bar, a slab or a shell below. */
+  base?: { nodes: number; held: number };
   combos: WallComboForces[];
 }
 
@@ -115,6 +117,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
 
   const verifications: CheckLine[] = [
     ...((d.baseElements ?? 2) < 2 ? [check('rcSheets.v.wallMesh', false, { clause: '', demand: String(d.baseElements ?? 0), capacity: '≥ 2' })] : []),
+    ...(d.base && d.base.held < d.base.nodes ? [check('rcSheets.v.wallBase', false, { clause: '', demand: `${d.base.held} / ${d.base.nodes}`, capacity: `${d.base.nodes} / ${d.base.nodes}` })] : []),
     check('rcSheets.v.wallPM', ev.pm.every(ok1), { clause: '§11.5.2, §22.4', demand: d.combos[ipm]?.combo ?? '', ratio: Math.max(0, ...ev.pm) }),
     check('rcSheets.v.wallShear', ev.shear.every(ok1), { clause: '§11.5.4', demand: `${fmt(vuMax)} kN`, capacity: `${fmt(ev.phiVnMin)} kN`, ratio: Math.max(0, ...ev.shear) }),
     check('rcSheets.v.wallOut', ev.out.every(ok1), { clause: '§11.5.1, §22.2', demand: d.combos[iout]?.combo ?? '', ratio: Math.max(0, ...ev.out) }),

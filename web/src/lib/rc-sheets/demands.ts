@@ -212,6 +212,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         length: L, b: turned ? sec.h : sec.b, h: turned ? sec.b : sec.h,
         start, span: mid, end, negAny, nNegAny, vu, nAtV: nV, tu, combos,
         faces: m.faces ? { start: faceI, end: faceJ, shearAt: dv } : undefined,
+        ...(m.faceOffset ? { supportHalf: { start: m.faceOffset(first.id, span[0]!.forward ? 'i' : 'j'), end: m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i') } } : {}),
         line: { group: g.id, index: k, spans: spans.length, startNode: span[0]!.forward ? first.nodeI : first.nodeJ, endNode: lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, lineName: g.name },
         env,
         ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
@@ -334,8 +335,16 @@ export function wallDemands(m: DemandInput): WallDemand[] {
   const out: WallDemand[] = [];
   const nodesOf = (kind: 'quad' | 'plate', id: number) => (kind === 'quad' ? m.shells.quads?.get(id) : m.shells.plates?.get(id))?.nodes ?? [];
   const thicknessOf = (kind: 'quad' | 'plate', id: number) => (kind === 'quad' ? m.shells.quads?.get(id) : m.shells.plates?.get(id))?.thickness ?? 0;
+  const framed = new Set([...m.elements.values()].flatMap((e) => [e.nodeI, e.nodeJ]));
+  const shellsAt = new Map<number, Array<{ key: string; minZ: number; flat: boolean }>>();
+  for (const [kind, map] of [['q', m.shells.quads], ['p', m.shells.plates]] as const) for (const sh of map?.values() ?? []) {
+    const z = sh.nodes.map((n) => zOf(m.nodes.get(n)));
+    const info = { key: `${kind}${sh.id}`, minZ: Math.min(...z), flat: Math.max(...z) - Math.min(...z) < 1e-3 };
+    for (const n of sh.nodes) shellsAt.set(n, [...(shellsAt.get(n) ?? []), info]);
+  }
   for (const g of m.groups) {
     if (!g.quads.length && !g.plates.length) continue;
+    const own = new Set([...g.quads.map((id) => `q${id}`), ...g.plates.map((id) => `p${id}`)]);
     const shells = [...g.quads.map((id) => ({ kind: 'quad' as const, id })), ...g.plates.map((id) => ({ kind: 'plate' as const, id }))];
     const geo = shells.map((sh) => {
       const pts = nodesOf(sh.kind, sh.id).map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p);
@@ -363,6 +372,8 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       const thickness = Math.min(...inside.map((x) => x.t).filter((t) => t > 0));
       if (!(length > 0) || !(thickness > 0)) continue;
       const keys = new Set(inside.map((x) => x.key));
+      const baseNodes = [...new Set(base.flatMap((x) => nodesOf(x.kind, x.id)))].filter((nd) => Math.abs(zOf(m.nodes.get(nd)) - lo) < 1e-3);
+      const held = baseNodes.filter((nd) => m.supportNodes.has(nd) || framed.has(nd) || (shellsAt.get(nd) ?? []).some((x) => !own.has(x.key) && (x.flat || x.minZ < lo - 1e-3)));
       const baseBy = new Map(base.map((x) => [x.key, x]));
       const combos: WallComboForces[] = [];
       for (const set of m.sets) {
@@ -383,7 +394,7 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       }
       out.push({
         key: `wall:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(lo) : g.level,
-        length, height: hi - lo, thickness, baseElements: base.length, combos,
+        length, height: hi - lo, thickness, baseElements: base.length, base: { nodes: baseNodes.length, held: held.length }, combos,
       });
     }
   }

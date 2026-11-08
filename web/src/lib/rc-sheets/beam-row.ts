@@ -50,6 +50,8 @@ export interface BeamDemand {
   line?: { group: number; index: number; spans: number; startNode: number; endNode: number; lineName: string };
   /** Envelope along the span over all combinations: largest sagging, hogging (kN·m) and shear (kN). */
   env?: Array<{ x: number; pos: number; neg: number; v: number }>;
+  /** Half the support's extent along the beam at each end, m. */
+  supportHalf?: { start: number; end: number };
 }
 
 export interface BeamContext {

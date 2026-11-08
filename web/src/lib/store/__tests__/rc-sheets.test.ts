@@ -7,7 +7,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements, physicalGroups } from '../physical';
-import { plateStatus, preparePlatesForAnalysis } from '../physical-plates';
+import { clearPlateMesh, plateStatus, preparePlatesForAnalysis } from '../physical-plates';
 import { buildSheetRows, rcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption } from '../rc-sheets.svelte';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
 
@@ -280,6 +280,9 @@ describe('reinforcement sheets from a solved model', () => {
     expect(plateStatus(wall.id)).toBe('unmeshed');
     expect(preparePlatesForAnalysis()).toMatchObject({ ok: true, meshed: 1 });
     expect((physicalGroups().find((g) => g.id === wall.id)!.members.quads ?? []).length).toBeGreaterThan(4);
+    const bottom = [...modelStore.nodes.values()].filter((p) => Math.abs(p.z ?? 0) < 1e-9);
+    expect(bottom.length).toBeGreaterThan(2);
+    expect(bottom.every((p) => [...modelStore.supports.values()].some((sp) => sp.nodeId === p.id && sp.type === 'fixed3d'))).toBe(true);
     const all = modelStore.solve3D(false, false, true); if (!all || typeof all === 'string') throw new Error(String(all));
     resultsStore.setResults3D(all);
     const bb = modelStore.solveCombinations3D(false, false, true); if (!bb || typeof bb === 'string') throw new Error(String(bb));
@@ -288,6 +291,28 @@ describe('reinforcement sheets from a solved model', () => {
     expect(row.demand.baseElements).toBeGreaterThan(1);
     expect(row.verifications.find((v) => v.label === 'rcSheets.v.wallMesh')).toBeUndefined();
     expect(row.demand.combos[0]!.mu).toBeGreaterThan(0.6 * 1.4 * 100 * 3);
+    expect(row.demand.combos[0]!.pu).toBeCloseTo(1.4 * 600, -1);
+    expect(row.verifications.find((v) => v.label === 'rcSheets.v.wallBase')).toBeUndefined();
+    clearPlateMesh(wall.id);
+    expect([...modelStore.supports.values()].map((sp) => sp.nodeId).sort()).toEqual([a, b].sort());
+  });
+
+  it('fails a wall whose base rests on nothing but one corner', () => {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(4, 0, 3), d = modelStore.addNode(0, 0, 3);
+    modelStore.addQuad([a, b, c, d], conc, 0.2);
+    modelStore.addSupport(a, 'fixed3d');
+    const D = modelStore.model.loadCases.find((x) => x.type === 'D')!.id;
+    modelStore.addNodalLoad3D(c, 0, 0, -100, 0, 0, 0, D);
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    recognizePhysicalElements();
+    expect(preparePlatesForAnalysis()).toMatchObject({ ok: true, meshed: 1 });
+    solve();
+    const row = buildSheetRows().wall[0]!;
+    const base = row.verifications.find((v) => v.label === 'rcSheets.v.wallBase')!;
+    expect(base.ok).toBe(false);
+    expect(row.demand.base).toEqual({ nodes: row.demand.baseElements! + 1, held: 1 });
+    expect(row.status).toBe('fail');
   });
 
   it('keeps a loaded one-shell wall\'s shell and its load as the plate\'s mesh', () => {
