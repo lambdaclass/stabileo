@@ -1,4 +1,4 @@
-# SA-2026-049: Buckling could turn a failed slenderness calculation into zero, and multi-case analysis could return non-finite values in a successful result
+# SA-2026-050: Buckling could turn a failed slenderness calculation into zero, and multi-case analysis could return non-finite values in a successful result
 
 | | |
 |---|---|

@@ -176,7 +176,7 @@ const body: PostBody = {
           "0.5.0'dan sonra düzeltildi; 8 Kasım 2026'dan beri stabileo.com'da"
         ],
         [
-          "SA-2026-049",
+          "SA-2026-050",
           "Burkulma başarısız narinlik hesabını sıfıra dönüştürebiliyor ve yük durumu analizleri başarılı sonuç içinde sonlu olmayan değerler döndürebiliyordu",
           "Orta",
           "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"

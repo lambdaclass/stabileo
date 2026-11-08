@@ -19,4 +19,4 @@ error instead of NaN, infinity or zero slenderness. A positive radius at or belo
 
 **What to re-check:** buckling per-member effective lengths and slenderness for models with custom
 section properties, and any multi-case result produced before this change that contains a
-non-finite value. See SA-2026-049.
+non-finite value. See SA-2026-050.

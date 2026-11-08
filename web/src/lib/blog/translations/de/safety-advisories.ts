@@ -176,7 +176,7 @@ const body: PostBody = {
           "Behoben nach 0.5.0; auf stabileo.com seit dem 8. November 2026"
         ],
         [
-          "SA-2026-049",
+          "SA-2026-050",
           "Knicken konnte eine fehlgeschlagene Schlankheitsberechnung in null umwandeln, und Lastfallkombinationen konnten nicht endliche Werte in einem erfolgreichen Ergebnis liefern",
           "Mittel",
           "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"
