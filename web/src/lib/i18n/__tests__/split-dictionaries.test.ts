@@ -16,20 +16,29 @@ import browserFr from '../locales/browser/fr';
 import fullFr from '../locales/full/fr';
 import browserTr from '../locales/browser/tr';
 import fullTr from '../locales/full/tr';
+import { isComplete } from '../offered';
 
-it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)('%s dictionary split preserves every translation exactly once', locale => {
+const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
+const LAZY = ['de', 'fr', 'tr'] as const;
+
+it.each(LOCALES.filter(isComplete))('%s dictionary split preserves every translation exactly once', locale => {
   expect(Object.keys(appEntries[locale]).filter(key => key in publicEntries[locale])).toEqual([]);
   expect({ ...publicEntries[locale], ...appEntries[locale] }).toEqual({ en, es, pt, de, fr, tr }[locale]);
 });
 
-it.each(['de', 'fr', 'tr'] as const)('%s lazy app dictionary shares public strings without dropping app translations', locale => {
+it.each(LOCALES.filter((l) => !isComplete(l)))('%s, not offered, ships no public or app entries', locale => {
+  expect(publicEntries[locale]).toEqual({});
+  expect(appEntries[locale]).toEqual({});
+});
+
+it.each(LAZY.filter(isComplete))('%s lazy app dictionary shares public strings without dropping app translations', locale => {
   expect({ de: lazyDe, fr: lazyFr, tr: lazyTr }[locale]).toEqual(appEntries[locale]);
 });
 
-it.each([
+it.each(([
   ['de', browserDe, fullDe],
   ['fr', browserFr, fullFr],
   ['tr', browserTr, fullTr],
-])('%s browser dictionary matches the Node-compatible full dictionary', (_locale, browser, full) => {
+] as const).filter(([locale]) => isComplete(locale)))('%s browser dictionary matches the Node-compatible full dictionary', (_locale, browser, full) => {
   expect(browser).toEqual(full);
 });

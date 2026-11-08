@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { EXAMPLE_IDS } from '../src/components/examples/ids';
+import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 
 const value = async (page: Page, testId: string) => Number(await page.getByTestId(testId).getAttribute('data-value'));
 const slide = (page: Page, key: string, to: number) => page.getByTestId(`param-${key}`).evaluate((el: HTMLInputElement, v) => { el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true })); }, to);
@@ -185,7 +186,7 @@ for (const [width, height] of [[360, 800], [390, 844], [844, 390], [820, 1180], 
   });
 }
 
-for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) test(`@smoke examples index in ${locale}`, async ({ page }) => {
+for (const locale of PUBLIC_LOCALES) test(`@smoke examples index in ${locale}`, async ({ page }) => {
   await page.goto(`/${locale}/examples/`);
   await expect(page.locator('h1')).toBeVisible();
   await expect(page.locator('.ex-card')).toHaveCount(EXAMPLE_IDS.length);

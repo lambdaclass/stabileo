@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isComplete } from '../src/lib/i18n/offered';
 
 const route = (locale: string) => `/${locale}/research/benchmarks/cqc-1981/`;
 
@@ -64,6 +65,7 @@ test.describe('@smoke CQC first version', () => {
     ['fr', 'Modes rapprochés : SRSS et CQC', 'SRSS et CQC (1981)', 'Recalculer en direct', '17,549732'],
     ['tr', 'Birbirine yakın modlar: SRSS ve CQC', 'SRSS ve CQC (1981)', 'Canlı yeniden hesapla', '17,549732'],
   ]) test(`translated page, metadata and layout: ${locale}`, async ({ page }) => {
+    test.skip(!isComplete(locale), 'not offered until a native speaker checks it (#1628)');
     const viewport = { width: 390, height: 844 };
     await page.setViewportSize(viewport);
     await page.emulateMedia({ reducedMotion: 'reduce' });

@@ -40,7 +40,7 @@
         "tr": "3B pushover, herhangi bir eksendeki plastik momenti sıfır ya da eksik olan bir çubuğu hiç akmayan bir çubuk gibi ele alıyor ve fazla yüksek bir göçme katsayısı veriyordu: bir 3B çerçevede 31,9 yerine 192,8, yine mekanizma olarak (#1525, SA-2026-045). Uygulama Mp'yi her kesitten iki eksende hesaplar; bu yüzden bu durum bir eksendeki plastik mukavemet momenti sıfır çıkan bir kesite sahip modelleri ilgilendirir. Böyle bir çubuk artık çubuk ve kesiti belirtilerek reddediliyor; mutlak değeri kullanılan negatif bir Mp de artık reddediliyor. Bütün çubukları pozitif plastik momentlere sahip modeller aynı sayıları verir."
       },
       "changelog": {
-        "file": "changelog.d/1525-plastic-3d-member-without-capacity.md",
+        "file": "CHANGELOG.md",
         "heading": "3D plastic collapse refuses a frame member without a usable plastic moment (2026-11-05)"
       }
     },
@@ -73,7 +73,7 @@
         "tr": "Yalnızca uygulamayla gelen örnek değişti; kaydedilmiş bir model öncekiyle aynı sayıları verir. İki eksenli konsol 0,42 rad dönüyor ve 3 m'lik ucu toplamda 103 mm (açıklık/29) yer değiştiriyordu, doğrusal analizin dışında (#1446): burulma momenti artık 0,5 kN·m (50 mm eksantrisiteyle 10 kN), uç yükleri Fy 1 kN ve Fz 10 kN, böylece 0,042 rad dönüyor ve ucu toplamda 11 mm (açıklık/272) yer değiştiriyor. Eksenel basıncı artık 10 kN; 3 m'lik konsolun zayıf eksendeki Euler yükünün (247 kN) %4'ü (önceden 100 kN, %40), bu yüzden ikinci mertebe etkileri yaklaşık %70 yerine yaklaşık %4 ekliyor."
       },
       "changelog": {
-        "file": "changelog.d/1446-example-cantilever.md",
+        "file": "CHANGELOG.md",
         "heading": "The 3D biaxial cantilever example stays within small rotations (2026-11-05)"
       }
     },
@@ -106,7 +106,7 @@
         "tr": "Yalnızca uygulamayla gelen örnek değişti; kaydedilmiş bir model öncekiyle aynı sayıları verir. Burulma kirişi, açık bir IPN 300 üzerindeki 8 kN·m burulma momenti altında 0,45 rad dönüyordu, doğrusal analizin dışında (#1446): artık burulmaya karşı olağan çözüm olan kapalı bir SHS 140×140×8 kesiti kullanıyor (IRAM-IAS tablosu: J 1813,95 cm⁴) ve 0,011 rad dönüyor."
       },
       "changelog": {
-        "file": "changelog.d/1446-example-torsion-beam.md",
+        "file": "CHANGELOG.md",
         "heading": "The 3D torsion beam example uses a closed section and stays within small rotations (2026-11-05)"
       }
     },
@@ -143,7 +143,7 @@
         "tr": "Doğrusal analiz küçük yer değiştirmeler varsayar, ancak birçok radyanlık dönmeleri uyarı vermeden döndürüyordu; örneğin neredeyse serbest bir düğümde 75 rad (#1446). Statik bir çözüm artık bir düğüm dönmesi ya da bir çubuğun uçlarının göreli yer değiştirmesinin boyuna oranı 0,1 rad'ı aştığında uyarıyor (LIN-SMALL-DISPLACEMENT); bir yük kombinasyonu ise kendi dönmeleri bunu aştığında veya yüklemelerinden birinde bir çubuk aştığında uyarıyor: 0,1 rad bir kontrol sınırıdır: bunun ötesinde birinci mertebe teorinin ihmal ettiği terimler, örneğin kiriş kısalması 1 − cos θ ≈ %0,5, artık ihmal edilebilir olmayabilir ve geometri değişimi kontrol edilmelidir. Sayısal değerler değişmez. 3B burulma kirişi örneği 0,45 rad döner ve artık uyarıyı gösteriyor."
       },
       "changelog": {
-        "file": "changelog.d/1446-small-displacement-warning.md",
+        "file": "CHANGELOG.md",
         "heading": "Linear analysis warns when a rotation passes 0.1 rad (2026-11-05)"
       }
     },
@@ -206,7 +206,7 @@
         "tr": "Sıfır, negatif, NaN veya sonsuz bir kapasiteye bölünen bir talep 0 oranı verebiliyor ve bu, kontrolün geçtiği şeklinde okunuyordu: narinliği veya talebi NaN olan bir CIRSOC 301 sınır durumu, bulonu olmayan yüklü bir bulon grubu veya boğazı olmayan bir kaynak, kullanılabilir dayanımı olmayan bir temel kesme veya zımbalama kontrolü, pozitif olmayan bir zemin emniyet gerilmesi ya da bir CIRSOC 201 süneklik oranı. Aynısı oran oluşturan her çelik, ahşap, yığma ve betonarme kontrolü için de geçerli. Bu kontrollerin her biri artık değerlendirilmedi olarak listeleniyor (çubuk veya temel uygun olarak işaretlenmiyor) ve NaN veya sonsuz içeren bir sonuç, değeri adlandıran bir mesajla tutuluyor; kontrolü zaten değerlendirilmedi olarak listelenen bir ara değer (örneğin bir azaltma katsayısı) ise bilinmiyor olarak gösteriliyor. Tüm kontrollerinde kullanılabilir kapasite bulunan modeller aynı sayıları veriyor."
       },
       "changelog": {
-        "file": "changelog.d/1486-fail-closed-ratios.md",
+        "file": "CHANGELOG.md",
         "heading": "A design check that cannot be evaluated is refused, not passed with a ratio of 0 (2026-11-05)"
       }
     },
@@ -245,7 +245,7 @@
         "tr": "Hiçbir şeyin rijitleştirmediği bir düğüm dönmesine küçük yapay bir yay verilir. Rijitliği tüm modeldeki en büyük dönme rijitliğinin 1e-12'sinden küçük olduğunda rijitliksiz sayılıyordu; bu yüzden rijitlik farkı yaklaşık 10¹²'yi aşan bir modelde gerçek ama yumuşak bir dönme bu yayla kilitleniyordu: kuvvet yükü altında hiçbir hata vermeden binlerce kat küçük çıkıyor, üzerine gelen düğüm momenti ise reddediliyordu (#1367). Artık her dönme kendi düğümünün dönme rijitliğiyle karşılaştırılıyor. Böyle bir farkı olmayan modeller değişmez; çok yumuşak ve çok rijit elemanları karıştıran modelleri yeniden çözün."
       },
       "changelog": {
-        "file": "changelog.d/1367-soft-rotation-not-orphan.md",
+        "file": "CHANGELOG.md",
         "heading": "A soft but real node rotation is no longer locked by the orphan-rotation spring (2026-11-05)"
       }
     },
@@ -357,7 +357,7 @@
         "tr": "Dönme yaylı bir bağlayıcının tüm çubukları mafsallı bir düğümü başka düğümlere bağladığı düzlem model, dönmeyi başka hiçbir şey tutmuyorsa bir mekanizmadır; çözücü onu yapay bir yayla tutup tepki momenti olmadan yaklaşık 10 rad dönmeler veriyordu ve sertifika bunları kabul ediyordu (#1414). Böyle bir model artık mekanizma olarak reddediliyor. Dönmeyi bir mesnet, mafsalsız bir çubuk veya başka bir bağlayıcı tutuyorsa çözülmeye devam ediyor; yapay yayın aldığı küçük moment payı artık yok. Mafsallı düğümlerde bağlayıcı bulunan düzlem modelleri yeniden çözün."
       },
       "changelog": {
-        "file": "changelog.d/1414-connector-mechanism-2d.md",
+        "file": "CHANGELOG.md",
         "heading": "2D: a mechanism hidden behind a connector is refused, not solved (2026-11-05)"
       }
     },
@@ -680,7 +680,7 @@
         "tr": "Rijit bağ veya diyaframın bir kafes çubuğu ucunu tüm çubukları mafsallı bir düğüme bağladığı düzlem model, çiftin dönmesini başka hiçbir şey tutmuyorsa bir mekanizmadır; çözücü onu yapay bir yayla tutup anlamsız yer değiştirmeler veriyordu ve sertifika bunları onaylayabiliyordu (#458). Böyle bir model artık mekanizma olarak reddediliyor; çift tutuluyorsa çözülmeye devam ediyor. Rijit bağlı veya diyaframlı düzlem modelleri yeniden çözün."
       },
       "changelog": {
-        "file": "changelog.d/458-hidden-mechanism-2d.md",
+        "file": "CHANGELOG.md",
         "heading": "2D: a mechanism hidden behind a rigid link or diaphragm is refused, not solved and certified (2026-11-03)"
       }
     },
@@ -816,7 +816,7 @@
         "tr": "PRO diğer yönetmeliklerdeki ACI 318 ve EN 1992-1-1 kontrolleri yalnızca eğilme, kesme ve eksenel kuvveti okuyordu; bu yüzden büyük burulmalı bir betonarme çubuk geçebiliyordu (SA-2026-040). Böyle bir çubuk artık burulma kontrol edilmedi olarak işaretleniyor ve geçmiyor: ACI 318'de 22.7.1.1 eşiği φ·0,083·λ·√f'c·Acp²/pcp üzerinde, EN 1992'de burulma taşıdığı her durumda. Burulmalı beton çubuklarda bu kontrolleri yeniden çalıştırın."
       },
       "changelog": {
-        "file": "changelog.d/1314-rc-other-codes-torsion.md",
+        "file": "CHANGELOG.md",
         "heading": "ACI 318 and EN 1992 checks no longer pass a concrete member whose torsion they did not check (2026-11-03)"
       }
     },
@@ -850,7 +850,7 @@
         "tr": "Birleşim tipolojileri her çubuğun yalnızca güçlü eksen uç momentini okuyordu: zayıf ekseni etrafında moment taşıyan bir kirişin momenti düşüyordu ve birleşim onsuz boyutlandırılıyordu. Böyle bir birleşim artık nedeniyle birlikte çözümsüz bırakılıyor. Çubukları zayıf eksende eğilen çelik birleşimleri etkiler."
       },
       "changelog": {
-        "file": "changelog.d/532-joint-weak-axis-moment.md",
+        "file": "CHANGELOG.md",
         "heading": "Steel joints with a weak-axis moment are left unresolved (2026-11-03)"
       }
     },
@@ -884,7 +884,7 @@
         "tr": "EN 1999 alüminyum kontrolünde zayıf eksen kesmesi için satır yoktu: yanal kesme altındaki bir çubuk kesme kontrolü olmadan geçiyordu. Yeni bir satır kesmeye paralel parçalarla bunu kontrol ediyor. Yanal kesmeli alüminyum çubukları etkiler."
       },
       "changelog": {
-        "file": "changelog.d/532-aluminium-weak-axis-shear.md",
+        "file": "CHANGELOG.md",
         "heading": "Aluminium checks shear along the weak axis (2026-11-03)"
       }
     },

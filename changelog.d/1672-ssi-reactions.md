@@ -1,4 +1,0 @@
-### Fixed
-#### Soil-structure interaction reports support reactions (2026-11-07)
-
-The soil-structure interaction analysis (2D and 3D, the SSI run in the Pro Advanced tab) returned no support reactions at all, for every model, so its results showed an empty reaction list as if the supports carried nothing (#1672). It now computes them as the linear solve does, including support springs, inclined supports, constraints and the soil springs at an inclined support, on small and large models. Without soil springs they equal the linear solve's reactions; with them, the reactions and the soil spring forces together balance the applied loads. A constraint force carried into a supported master node now joins that support's reaction, and the constraint force on a constrained node that also has a soil spring now includes that spring, which it used to leave out. Re-run SSI to see the reactions.

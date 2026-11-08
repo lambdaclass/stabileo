@@ -21,7 +21,7 @@
     "tr": "Bir çubuğun açıklığı içindeki LIN-SMALL-DISPLACEMENT denetimi yalnızca kesitin dönmesini okuyordu. Kayma şekil değiştirmesine açık bir çubuğun eksenine kaymanın eklediği eğimi görmüyordu: eğilmeye rijit bir çubuk ekseni 0,13 rad döndüğü halde uyarılmayabiliyordu. Ayrıca bir çubuk serbest bırakmasında sıcaklık gradyanının eğriliğini düşürüyordu (#1569). Artık kesit dönmesi ile eksen eğiminden büyük olanı değerlendiriyor ve her çubuğun sıcaklık eğriliğini 2B, 3B ve yük kombinasyonlarında hesaba katıyor. Sayısal değerler değişmez; bazı sonuçlar uyarı alır."
   },
   "changelog": {
-    "file": "changelog.d/1569-span-shear-thermal.md",
+    "file": "CHANGELOG.md",
     "heading": "The span check includes a member's shear slope and the thermal curvature at a release (2026-11-06)"
   }
 }
