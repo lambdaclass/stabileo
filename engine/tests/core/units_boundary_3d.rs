@@ -3,6 +3,7 @@ use dedaliano_engine::solver::load_cases::MultiCaseInput3D;
 use dedaliano_engine::types::units::ElasticInput3D;
 use dedaliano_engine::types::{ModalInput3D, SolverInput3D};
 use serde_json::{json, Value};
+use crate::units_legacy_3d as legacy;
 
 fn fixtures() -> Vec<(String, String)> {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures");
@@ -74,14 +75,14 @@ fn assert_same_input(typed: &SolverInput3D, legacy: &SolverInput3D, what: &str) 
 fn units_3d_boundary_preserves_every_fixture_bit_for_bit() {
     let mut parsed = 0;
     for (path, text) in fixtures() {
-        let legacy = serde_json::from_str::<SolverInput3D>(&text);
-        let typed = serde_json::from_str::<ElasticInput3D>(&text);
+        let legacy = legacy::parse(&text);
+        let typed = serde_json::from_str::<ElasticInput3D>(&text).map_err(|e| e.to_string());
         match (legacy, typed) {
             (Ok(legacy), Ok(typed)) => {
                 assert_same_input(&typed.into_legacy(), &legacy, &path);
                 parsed += 1;
             }
-            (Err(l), Err(t)) => assert_eq!(l.to_string(), t.to_string(), "{path}"),
+            (Err(l), Err(t)) => assert_eq!(l, t, "{path}"),
             (l, t) => panic!("{path}: legacy ok {} typed ok {}", l.is_ok(), t.is_ok()),
         }
     }
@@ -91,7 +92,7 @@ fn units_3d_boundary_preserves_every_fixture_bit_for_bit() {
 #[test]
 fn units_3d_boundary_keeps_optional_fields_and_signed_zeros() {
     let value = every_section_field();
-    let legacy: SolverInput3D = serde_json::from_value(value.clone()).unwrap();
+    let legacy = legacy::parse(&value.to_string()).unwrap();
     let typed = serde_json::from_value::<ElasticInput3D>(value).unwrap().into_legacy();
     assert_same_input(&typed, &legacy, "every section field");
     assert_eq!(typed.sections["2"].as_y, None);
@@ -124,7 +125,7 @@ fn units_3d_boundary_results_are_bit_identical() {
     inputs.push(("every section field".into(), every_section_field().to_string()));
     let mut solved = 0;
     for (what, text) in inputs {
-        let Ok(legacy) = serde_json::from_str::<SolverInput3D>(&text) else { continue };
+        let Ok(legacy) = legacy::parse(&text) else { continue };
         let typed = serde_json::from_str::<ElasticInput3D>(&text).unwrap().into_legacy();
         match (solve_3d(&legacy), solve_3d(&typed)) {
             (Ok(l), Ok(t)) => {
@@ -144,7 +145,7 @@ fn units_3d_wrappers_route_through_the_typed_boundary() {
     let model = every_section_field();
     let multi = json!({"solver": model, "loadCases": [], "combinations": []});
     let wrapped: MultiCaseInput3D = serde_json::from_value(multi).unwrap();
-    let legacy: SolverInput3D = serde_json::from_value(model.clone()).unwrap();
+    let legacy = legacy::parse(&model.to_string()).unwrap();
     assert_same_input(&wrapped.solver, &legacy, "multi-case wrapper");
     let modal = json!({"solver": model, "densities": {"1": 7850.0}});
     let wrapped: ModalInput3D = serde_json::from_value(modal).unwrap();
@@ -166,8 +167,8 @@ fn units_3d_boundary_rejects_malformed_sections_with_the_same_message() {
         if what == "string e" {
             model["materials"]["1"]["e"] = json!("200000");
         }
-        let legacy = serde_json::from_value::<SolverInput3D>(model.clone()).unwrap_err().to_string();
-        let typed = serde_json::from_value::<ElasticInput3D>(model).unwrap_err().to_string();
+        let legacy = legacy::parse(&model.to_string()).err().unwrap();
+        let typed = serde_json::from_str::<ElasticInput3D>(&model.to_string()).unwrap_err().to_string();
         assert_eq!(typed, legacy, "{what}");
     }
 }

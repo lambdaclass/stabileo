@@ -115,6 +115,12 @@ pub(crate) fn connector_rotation_nodes_2d(input: &SolverInput) -> std::collectio
 /// out (`orphan_rotation_dofs_3d`).
 pub(crate) fn rotation_tied_nodes_2d(input: &SolverInput) -> std::collections::HashSet<usize> {
     let mut tied = connector_rotation_nodes_2d(input);
+    tied.extend(constraint_rotation_nodes_2d(input));
+    tied
+}
+
+fn constraint_rotation_nodes_2d(input: &SolverInput) -> std::collections::HashSet<usize> {
+    let mut tied = std::collections::HashSet::new();
     for c in &input.constraints {
         match c {
             Constraint::RigidLink(r) => {
@@ -133,6 +139,109 @@ pub(crate) fn rotation_tied_nodes_2d(input: &SolverInput) -> std::collections::H
         }
     }
     tied
+}
+
+/// Refuses a 2D model whose connectors leave a combination of node rotations
+/// with no stiffness: rotations that only connectors reach (no unhinged frame
+/// end, rotational support, rotational spring or constraint), coupled only
+/// through the rigid arms of finite-length shear springs, as on two truss-only
+/// nodes joined by a connector with shear and no `kMoment`. K is then singular
+/// along a pure rotation, and the factorization returns whatever round-off
+/// puts there. Only connectors stiffen these rotations, so their block of K is
+/// the connectors' rotation block alone, and it is checked by pivots of its
+/// LDLᵀ against `SINGULAR_PIVOT_RATIO`.
+pub(crate) fn refuse_connector_arm_mechanism_2d(input: &SolverInput) -> Result<(), String> {
+    use std::collections::{BTreeMap, BTreeSet};
+    if input.connectors.is_empty() || DofNumbering::dofs_per_node_2d(input) < 3 {
+        return Ok(());
+    }
+    let mut held = constraint_rotation_nodes_2d(input);
+    for e in crate::ordered::values(&input.elements) {
+        if e.elem_type != "frame" { continue; }
+        if !e.hinge_start { held.insert(e.node_i); }
+        if !e.hinge_end { held.insert(e.node_j); }
+    }
+    for s in crate::ordered::values(&input.supports) {
+        if super::dof::is_dof_restrained_2d(s, 2) || (s.support_type == "spring" && s.kz.unwrap_or(0.0) != 0.0) {
+            held.insert(s.node_id);
+        }
+    }
+    let free: BTreeSet<usize> = connector_rotation_nodes_2d(input).into_iter().filter(|n| !held.contains(n)).collect();
+    if free.is_empty() {
+        return Ok(());
+    }
+    let nodes: std::collections::HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mut root: BTreeMap<usize, usize> = free.iter().map(|&n| (n, n)).collect();
+    fn find(root: &mut BTreeMap<usize, usize>, n: usize) -> usize {
+        let p = root[&n];
+        if p == n { return n; }
+        let r = find(root, p);
+        root.insert(n, r);
+        r
+    }
+    let connectors = crate::element::connector::sorted_by_id(&input.connectors);
+    for c in &connectors {
+        if free.contains(&c.node_i) && free.contains(&c.node_j) {
+            let (a, b) = (find(&mut root, c.node_i), find(&mut root, c.node_j));
+            root.insert(a.max(b), a.min(b));
+        }
+    }
+    let mut groups: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for &n in &free {
+        let r = find(&mut root, n);
+        groups.entry(r).or_default().push(n);
+    }
+    for members in groups.values() {
+        let at: BTreeMap<usize, usize> = members.iter().enumerate().map(|(k, &n)| (n, k)).collect();
+        let m = members.len();
+        let mut k = vec![0.0; m * m];
+        let mut ids = Vec::new();
+        for c in &connectors {
+            let (Some(ni), Some(nj)) = (nodes.get(&c.node_i), nodes.get(&c.node_j)) else { continue };
+            let ends = [(at.get(&c.node_i).copied(), 2), (at.get(&c.node_j).copied(), 5)];
+            if ends.iter().all(|e| e.0.is_none()) { continue; }
+            ids.push(c.id);
+            let ke = crate::element::connector::connector_element_2d(c, ni, nj);
+            for &(r, kr) in &ends {
+                for &(q, kq) in &ends {
+                    if let (Some(r), Some(q)) = (r, q) { k[r * m + q] += ke[kr * 6 + kq]; }
+                }
+            }
+        }
+        let diag: Vec<f64> = (0..m).map(|j| k[j * m + j]).collect();
+        for j in 0..m {
+            let d = k[j * m + j];
+            if d.abs().partial_cmp(&(super::definiteness::SINGULAR_PIVOT_RATIO * diag[j].abs())) != Some(std::cmp::Ordering::Greater) {
+                let arms = connectors.iter().any(|c| {
+                    ids.contains(&c.id) && c.k_moment == 0.0 && c.k_shear != 0.0
+                        && matches!((nodes.get(&c.node_i), nodes.get(&c.node_j)), (Some(a), Some(b)) if (b.x - a.x).hypot(b.z - a.z) > crate::element::connector::ZERO_LENGTH)
+                });
+                let remedy = if arms {
+                    "Hold one of the rotations with an unhinged frame end or a rotational support, give the connector kMoment, or make its nodes coincide."
+                } else {
+                    "Hold one of the rotations with an unhinged frame end or a rotational support."
+                };
+                let ids: Vec<String> = ids.iter().map(|i| i.to_string()).collect();
+                let members: Vec<String> = members.iter().map(|n| n.to_string()).collect();
+                return Err(format!(
+                    "Connector {}: the rotations of node(s) {} are reached only by connectors (no unhinged frame end, \
+                     rotational support, rotational spring or constraint holds them), and those connectors leave a \
+                     combination of them with no stiffness, a mechanism, so the rotations are undetermined: a rotational \
+                     spring between two such rotations, or the rigid arms of a finite-length shear spring without kMoment, \
+                     turns freely. {remedy}",
+                    ids.join(", "),
+                    members.join(", "),
+                ));
+            }
+            for i in (j + 1)..m {
+                let l = k[i * m + j] / d;
+                for q in (j + 1)..=i {
+                    k[i * m + q] -= l * k[q * m + j];
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Data needed to reverse the 2D inclined support rotation after solving.

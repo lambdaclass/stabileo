@@ -69,9 +69,11 @@ pub enum PDeltaCertificate {
         /// `‖u*_F − ũ_F‖₂ ≤ abs_bound` for the exact solution `u*` of the model.
         abs_bound: f64,
         /// `abs_bound / ‖ũ_F‖₂` rounded up (+∞ when ũ_F = 0 and the bound is not 0).
+        #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
         rel_bound: f64,
         /// `u*` is the only solution of the model with `‖u_F − ũ_F‖₂ <` this
         /// (+∞ when the model is linear, β = 0).
+        #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
         uniqueness_radius: f64,
         /// Certified `λ_min(sym J(ũ)) ≥ mu > 0` (J the exact Jacobian at ũ).
         mu: f64,

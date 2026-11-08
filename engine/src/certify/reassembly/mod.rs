@@ -70,6 +70,7 @@ pub enum EndToEnd {
     /// model as written, and the engine's assembly agrees with it.
     Certified {
         abs_bound: f64,
+        #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
         rel_bound: f64,
         /// Certified λ_min(CᵀKC) ≥ mu > 0 for the model's exact K.
         mu: f64,

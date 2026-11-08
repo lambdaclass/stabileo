@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { elasticFromDisplay, elasticToDisplay, materialToWire, sectionToWire, section3DToWire, modulusInternal } from '../unit-types';
+import { elasticFromDisplay, elasticToDisplay, materialToWire, sectionToWire, section3DToWire, modulusInternal, nodeToWire, node3DToWire, loadToWire, load3DToWire } from '../unit-types';
 import { fromDisplay, toDisplay, UNIT_SYSTEMS } from '../../utils/units';
 import { input2DToWireObject, input3DToWireObject, solve } from '../wasm-solver';
-import type { SolverInput } from '../types';
-import type { SolverInput3D, SolverSection3D } from '../types-3d';
+import type { SolverInput, SolverLoad } from '../types';
+import type { SolverInput3D, SolverLoad3D, SolverSection3D } from '../types-3d';
 const input = (): SolverInput => ({
   nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 3, z: 0 }]]),
   materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
@@ -82,5 +82,90 @@ describe('3D elastic unit boundary', () => {
     const s = { id: 1, a: 0.01, iy: 1e-4, iz: 2e-4, j: 1e-5 };
     expect(section3DToWire(s)).toStrictEqual(s);
     expect(Object.keys(section3DToWire(s))).toStrictEqual(Object.keys(s));
+  });
+});
+
+const keyPaths = (value: unknown, path = ''): string[] =>
+  value !== null && typeof value === 'object'
+    ? Object.keys(value).flatMap((k) => [`${path}.${k}`, ...keyPaths((value as Record<string, unknown>)[k], `${path}.${k}`)])
+    : [];
+
+describe('node and load unit boundary', () => {
+  const loads2D = (): SolverLoad[] => [
+    { type: 'nodal', data: { nodeId: 2, fx: 1.25, fz: -10, my: 0.3 } },
+    { type: 'nodal', data: { my: -0, nodeId: 3, fx: -0, fz: 7.1, caseId: 4 } as never },
+    { type: 'pointOnElement', data: { elementId: 1, a: 1.1, p: -4.4, px: 0.7, my: 1.9 } },
+    { type: 'pointOnElement', data: { elementId: 1, a: 0.4, p: 3, px: undefined } },
+    { type: 'distributed', data: { elementId: 1, qI: -5, qJ: -2 } },
+    { type: 'thermal', data: { elementId: 1, dtUniform: 10, dtGradient: 0 } },
+    { type: 'gravity', data: { g: 9.81 } } as never,
+  ];
+  const loads3D = (): SolverLoad3D[] => [
+    { type: 'nodal', data: { nodeId: 2, fx: 1, fy: -10, fz: 2.5, mx: 0.3, my: -0, mz: 0, axialOf: { elementId: 1, end: 'j', p: 3 }, tendonOf: 2 } },
+    { type: 'nodal', data: { bw: -0, nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } },
+    { type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0, bw: 0.02 } },
+    { type: 'pointOnElement', data: { pz: -1e-9, elementId: 1, a: 0, py: 3 } },
+    { type: 'distributed', data: { elementId: 1, qYI: -5, qYJ: -2, qZI: 0, qZJ: 1 } },
+    { type: 'quadPressure', data: { elementId: 1, pressure: 2 } } as never,
+  ];
+  const model2D = (): SolverInput => ({
+    ...input(),
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { z: -0, id: 2, x: 3.14159 }], [10, { id: 10, x: 1e-17, z: 6 }]]),
+    loads: loads2D(),
+  });
+  const model3D = (): SolverInput3D => ({
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { z: -0, id: 2, x: 3.14159, y: 0.1 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-5 }]]),
+    elements: new Map(),
+    supports: new Map(),
+    loads: loads3D(),
+  });
+  const legacy = (input: { nodes: Map<number, unknown>; loads: unknown[] }) => ({
+    nodes: Object.fromEntries(Array.from(input.nodes, ([id, n]) => [String(id), n])),
+    loads: input.loads,
+  });
+  it('sends the same 2D node and load JSON text, keys and signed zeros as before', () => {
+    const wire = input2DToWireObject(model2D());
+    const before = legacy(model2D());
+    expect(JSON.stringify(wire.nodes)).toBe(JSON.stringify(before.nodes));
+    expect(JSON.stringify(wire.loads)).toBe(JSON.stringify(before.loads));
+    expect(keyPaths(wire.nodes)).toStrictEqual(keyPaths(before.nodes));
+    expect(keyPaths(wire.loads)).toStrictEqual(keyPaths(before.loads));
+    expect(wire.nodes).toStrictEqual(before.nodes);
+    expect(wire.loads).toStrictEqual(before.loads);
+    expect(Object.is(wire.nodes['2'].z, -0)).toBe(true);
+    expect(Object.hasOwn(wire.loads[3].data, 'px')).toBe(true);
+    expect(wire.loads[1].data).toHaveProperty('caseId', 4);
+  });
+  it('sends the same 3D node and load JSON text, keys and signed zeros as before', () => {
+    const wire = input3DToWireObject(model3D());
+    const before = legacy(model3D());
+    expect(JSON.stringify(wire.nodes)).toBe(JSON.stringify(before.nodes));
+    expect(JSON.stringify(wire.loads)).toBe(JSON.stringify(before.loads));
+    expect(keyPaths(wire.nodes)).toStrictEqual(keyPaths(before.nodes));
+    expect(keyPaths(wire.loads)).toStrictEqual(keyPaths(before.loads));
+    expect(wire.nodes).toStrictEqual(before.nodes);
+    expect(wire.loads).toStrictEqual(before.loads);
+    expect(Object.is(wire.nodes['2'].z, -0)).toBe(true);
+    const nodal = wire.loads[0];
+    expect(nodal.type === 'nodal' && Object.is(nodal.data.my, -0)).toBe(true);
+    const bimoment = wire.loads[1];
+    expect(bimoment.type === 'nodal' && Object.is(bimoment.data.bw, -0)).toBe(true);
+    expect(Object.keys(wire.loads[1].data)[0]).toBe('bw');
+    expect(wire.loads[0].data).not.toHaveProperty('bw');
+  });
+  it('adapts nodes and loads without converting, rounding, adding keys or touching the stored model', () => {
+    const node = { id: 1, x: 0.1, z: -0 };
+    expect(nodeToWire(node)).toStrictEqual(node);
+    expect(Object.keys(node3DToWire({ z: 1, id: 1, x: 2, y: 3 }))).toStrictEqual(['z', 'id', 'x', 'y']);
+    for (const load of loads2D()) expect(loadToWire(load)).toStrictEqual(load);
+    for (const load of loads3D()) expect(load3DToWire(load)).toStrictEqual(load);
+    const stored = model2D();
+    const wire = input2DToWireObject(stored);
+    (wire.loads[0].data as { fx: number }).fx = 99;
+    expect((stored.loads[0].data as { fx: number }).fx).toBe(1.25);
+    const pointWithoutOptionals = loadToWire({ type: 'pointOnElement', data: { elementId: 1, a: 1, p: 2 } });
+    expect(Object.keys(pointWithoutOptionals.data)).toStrictEqual(['elementId', 'a', 'p']);
   });
 });

@@ -208,8 +208,8 @@ are for one engineer who has read this document.
 | # | Slice | Risk | Estimate |
 | --- | --- | --- | --- |
 | 1 | 2D frame material/section into assembly (#864) | — | done |
-| 2 | 3D input boundary: material/section records at every 3D WASM export (this PR) | low | 1 day |
-| 3 | Node coordinates and nodal/point loads at both boundaries | low | 1–2 days |
+| 2 | 3D input boundary: material/section records at every 3D WASM export (#1711) | — | done |
+| 3 | Node coordinates and nodal/point loads at both boundaries (this PR) | low | 1–2 days |
 | 4 | Distributed, thermal and support-spring inputs at both boundaries | medium | 2 days |
 | 5 | Result DTOs: displacements, reactions, element end forces, both dimensions | medium | 2–3 days |
 | 6 | 3D frame kernel consumes the typed section (Iy/Iz/J/Cw, shear φ) | medium | 2–3 days |
@@ -220,7 +220,7 @@ are for one engineer who has read this document.
 | 11 | Shells and continuum: thickness, resultants per length, drilling stiffness | high | 4 days |
 | 12 | Nonlinear/plastic/fiber/certificates; then a CI rule forbidding raw conversions in migrated paths | high | 4 days |
 
-**Slice 2 — 3D input boundary (this PR).** `SolverInput3D` becomes
+**Slice 2 — 3D input boundary (#1711).** `SolverInput3D` becomes
 `SolverInput3D<M = SolverMaterial, S = SolverSection3D>`. `ElasticSection3D` mirrors
 `SolverSection3D`: `a`, `as_y`, `as_z` are `Area`; `iy`, `iz`, `j` `SecondMoment`; `cw`
 `WarpingConstant` (m⁶, new); `shear_center_y/z` `Length`. `ElasticInput3D =
@@ -250,6 +250,34 @@ unmapped must be a compile error, not a `_ =>` arm. TS: brand `fx…mz` and node
 force into moment, length into force, kN·m into kN, 2D `fx` assigned a `Moment`. Risk: the 2D
 `y`→`z` alias and old-file aliases must still parse; test every 2D and 3D fixture as slice 2
 does, including error text.
+
+Done in this PR. Rust: `TypedNode`/`TypedNode3D`, `TypedNodalLoad` (`fx`, `fz` `Force`; `my`
+`Moment`), `TypedPointLoad` (`a` `Length`; `p`, `px` `Force`; `my` `Moment`), `TypedNodalLoad3D`
+(`fx…mz`, plus the warping bimoment `bw` as a new `Bimoment`, kN·m², in Rust and TS) and `TypedPointLoad3D` (`a`;
+`py`, `pz`), inside `TypedLoad`/`TypedLoad3D`, which mirror the legacy enums variant for variant
+and convert with exhaustive matches. The records are declared in `units::wire` under the legacy
+names and re-exported under the typed ones, so serde's error text for malformed input is the
+legacy text, including the struct name. `ElasticInput2D::into_legacy` is the 2D erasure point
+(`legacy_view` now clones and calls it); `ElasticInput3D::into_legacy` maps nodes and loads too.
+Scan gap from #1711 (a parse with no type at the call site): closed in the type system rather
+than by a stricter scan. `SolverInput3D`'s derived `Deserialize` is bounded on `units::TypedWire`,
+implemented only by the typed records, and the legacy `SolverInput3D` implements `Deserialize`
+by parsing `ElasticInput3D` and calling `into_legacy`. Every parse of a 3D model, inferred,
+generic or nested, therefore goes through the typed records; a mixed instantiation has no
+deserializer at all. TS: `nodeToWire`, `node3DToWire`, `loadToWire`, `load3DToWire` in
+`unit-types.ts` (with `forceKn`, `momentKnM`, `lengthM`), used by `input2DToWireObject` and
+`input3DToWireObject`; they copy only the nodal and point-on-member loads and keep every key's
+order and presence. Not covered: 2D entry points other than `solve_2d` still parse the legacy
+`SolverInput` (slice 7), and the hand-built wire objects in `wasm-solver.ts` (2D spectral,
+plastic, moving loads and similar) still pass nodes and loads unbranded (slice 7).
+Proof: `engine/tests/core/units_boundary_nodes_loads.rs` (every 2D and 3D fixture plus two
+models with every node/load field, old-file aliases and signed zeros: same bits for every node
+coordinate and load component against `tests/core/units_legacy_3d.rs`, an independent copy of the
+legacy 3D derive that the slice-2 tests now use too, so a valid input the typed path rejects fails, byte-identical
+serialized results, the same error text for 13 malformed node/load inputs and for property
+records); 11 new `compile_fail` doctests with their error code (E0308 for a wrong unit, E0277 for
+a mixed-record 3D input) plus a positive control; 18 new `@ts-expect-error` checks; Vitest checks
+that the node and load JSON text, key paths and signed zeros equal the previous builder's.
 
 **Slice 4 — distributed, thermal and support inputs.** `LineLoad` (kN/m) for
 `qI/qJ/qY…/qZ…`, `AreaLoad` (kN/m²) for plate/quad pressures, `TemperatureDifference` (°C,

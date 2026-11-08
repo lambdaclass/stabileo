@@ -448,6 +448,12 @@ deps.audit:
 check-pins:
 	scripts/check-pins.sh
 
+## The roadmap's in-flight table, rewritten from the open pull requests (scripts/roadmap-inflight.py)
+.PHONY: roadmap.inflight
+roadmap.inflight:
+	gh pr list -R lambdaclass/stabileo --state open --limit 1000 --json number,title,isDraft,baseRefName,author,labels \
+	  | $(NIX_RUN) python3 -I scripts/roadmap-inflight.py docs/roadmap/PRODUCT_ROADMAP.md 1000
+
 ## Unreleased changes are one file each in changelog.d/ (scripts/changelog.py)
 check.changelog:
 	$(NIX_RUN) python3 -I scripts/changelog.py --check
@@ -500,6 +506,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_kani_shards.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_release_step.py
+	python3 -B -I scripts/tests/test_roadmap_inflight.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_full_history_checkouts.py
