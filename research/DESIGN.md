@@ -241,7 +241,8 @@ browser cannot do (long runs, 3D meshes, GPUs, authors' Python reference codes),
 disposable **micro-VM (Firecracker) or gVisor-sandboxed container** — plain containers share the
 host kernel and are not enough for untrusted code: no secrets, no network by default, CPU/memory/
 time limits, destroyed after the run, results returned as pure data. On dedicated machines only
-(never on hosts shared with other projects or on CI runners); GPUs as a paid or sponsored tier.
+(never on hosts shared with other projects or on CI runners). Heavy cloud compute is paid by
+everyone, universities included, priced to cover what it costs.
 Heavy results are cached with permanent links, so a run is computed once and replayed for every
 visitor.
 
