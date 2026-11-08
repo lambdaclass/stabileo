@@ -2,7 +2,7 @@
  * What `UnitInput.svelte` shows for a value kept in SI, and what a typed text commits: pure, so
  * the field's rules are tested without a DOM.
  */
-import { elasticFromDisplay } from '../engine/unit-types';
+import { elasticFromDisplay, isTypedDisplayQuantity } from '../engine/unit-types';
 import { toDisplay, fromDisplay, type Quantity, type UnitSystem } from './units';
 
 /** The quantities that are lengths, whose field must keep a millimetre however large they are. */
@@ -38,9 +38,7 @@ export function unitInputCommit(raw: string, value: number, qty: Quantity, syste
   const n = parseFloat(text);
   if (!Number.isFinite(n)) return null;
   if (shown !== '' && n === Number(shown)) return null;
-  return qty === 'stress' || qty === 'sectionArea' || qty === 'sectionInertia'
-    ? elasticFromDisplay(n, qty, system)
-    : fromDisplay(n, qty, system);
+  return isTypedDisplayQuantity(qty) ? elasticFromDisplay(n, qty, system) : fromDisplay(n, qty, system);
 }
 
 /**

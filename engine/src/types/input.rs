@@ -224,12 +224,12 @@ pub struct SolverOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L = SolverLoad> {
+pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L = SolverLoad, P = SolverSupport> {
     pub nodes: HashMap<String, N>,
     pub materials: HashMap<String, M>,
     pub sections: HashMap<String, S>,
     pub elements: HashMap<String, SolverElement>,
-    pub supports: HashMap<String, SolverSupport>,
+    pub supports: HashMap<String, P>,
     pub loads: Vec<L>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
@@ -604,13 +604,13 @@ pub struct SolverPlateThermalLoad {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", bound(deserialize = "M: super::units::TypedWire + Deserialize<'de>, S: super::units::TypedWire + Deserialize<'de>, N: super::units::TypedWire + Deserialize<'de>, L: super::units::TypedWire + Deserialize<'de>"))]
-pub struct SolverInput3D<M = SolverMaterial, S = SolverSection3D, N = SolverNode3D, L = SolverLoad3D> {
+#[serde(rename_all = "camelCase", bound(deserialize = "M: super::units::TypedWire + Deserialize<'de>, S: super::units::TypedWire + Deserialize<'de>, N: super::units::TypedWire + Deserialize<'de>, L: super::units::TypedWire + Deserialize<'de>, P: super::units::TypedWire + Deserialize<'de>, E: super::units::TypedWire + Deserialize<'de>"))]
+pub struct SolverInput3D<M = SolverMaterial, S = SolverSection3D, N = SolverNode3D, L = SolverLoad3D, P = SolverSupport3D, E = SolverElement3D> {
     pub nodes: HashMap<String, N>,
     pub materials: HashMap<String, M>,
     pub sections: HashMap<String, S>,
-    pub elements: HashMap<String, SolverElement3D>,
-    pub supports: HashMap<String, SolverSupport3D>,
+    pub elements: HashMap<String, E>,
+    pub supports: HashMap<String, P>,
     pub loads: Vec<L>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
