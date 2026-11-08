@@ -777,6 +777,13 @@ mod tests {
         assert!((fef[2] - (-7.5)).abs() < 1e-6);
         assert!((fef[5] - 7.5).abs() < 1e-6);
     }
+
+    #[test]
+    fn test_expand_fef_12_to_14_follows_the_warping_dof_layout() {
+        let fef12 = [1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0, 11.0, -12.0];
+        let want = [1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 0.0, 7.0, -8.0, 9.0, -10.0, 11.0, -12.0, 0.0];
+        assert_eq!(expand_fef_12_to_14(&fef12), want);
+    }
 }
 
 /// Consistent axial nodal forces of a trapezoid on [a,b], per unit member length.
