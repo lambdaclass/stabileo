@@ -230,7 +230,7 @@ is the only erasure point. Every 3D WASM export parses `ElasticInput3D`: the dir
 TypeScript: `input3DToWireObject` returns `ElasticMaterialWire` and `ElasticSection3DWire`
 records via `materialToWire` and `section3DToWire`. Not covered: `StagedInput3D` (its own
 struct, slice 7) and 3D internals, which still read `f64` after `into_legacy()` (slice 6).
-Proof: `engine/tests/core/units_boundary_3d.rs` (every 3D fixture parses to the same bits,
+Proof: `engine/tests/core/units_boundary_3d.rs` (a source scan fails if a 3D wrapper field or WASM parse skips the typed records; every 3D fixture parses to the same bits,
 results equal apart from wall-clock timings, malformed sections give the same error text,
 wrappers route through the typed path); 5 new `compile_fail` doctests plus a positive
 control; 8 new `@ts-expect-error` checks; a Vitest check that the 3D wire JSON text, key

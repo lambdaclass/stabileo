@@ -171,3 +171,44 @@ fn units_3d_boundary_rejects_malformed_sections_with_the_same_message() {
         assert_eq!(typed, legacy, "{what}");
     }
 }
+
+#[test]
+fn units_3d_every_deserialized_model_goes_through_the_typed_boundary() {
+    fn rust_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                rust_files(&path, out);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                out.push(path);
+            }
+        }
+    }
+    let mut files = Vec::new();
+    rust_files(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src")), &mut files);
+    let mut wrappers = 0;
+    let mut unrouted = Vec::new();
+    for path in files {
+        let text = std::fs::read_to_string(&path).unwrap();
+        let production_lines = text.split("#[cfg(test)]\nmod ").next().unwrap().lines().count();
+        let lines: Vec<&str> = text.lines().collect();
+        for (i, line) in lines.iter().enumerate() {
+            let t = line.trim();
+            let field = t.starts_with("pub solver: SolverInput3D") || t.starts_with("solver: types::SolverInput3D");
+            if field {
+                if lines[i - 1].contains("deserialize_input_3d") {
+                    wrappers += 1;
+                } else {
+                    unrouted.push(format!("{}:{}", path.display(), i + 1));
+                }
+            }
+            let raw_parse = (t.contains(": SolverInput3D =") || t.contains(": types::SolverInput3D ="))
+                && (t.contains("from_js_value") || t.contains("serde_json::from_"));
+            if raw_parse && i < production_lines {
+                unrouted.push(format!("{}:{}", path.display(), i + 1));
+            }
+        }
+    }
+    assert!(unrouted.is_empty(), "3D models parsed without the typed boundary: {unrouted:?}");
+    assert_eq!(wrappers, 18, "routed wrapper fields");
+}
