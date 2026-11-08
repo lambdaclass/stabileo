@@ -182,7 +182,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 macro_rules! quantity {
     ($name:ident, $new:ident, $get:ident) => {
-        #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Copy, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
         #[repr(transparent)]
         #[serde(transparent)]
         pub struct $name(f64);
@@ -263,6 +263,13 @@ quantity!(MassDensity, from_kg_per_m3, in_kg_per_m3);
 quantity!(WeightDensity, from_kn_per_m3, in_kn_per_m3);
 quantity!(Time, from_s, in_s);
 quantity!(Bimoment, from_kn_m2, in_kn_m2);
+quantity!(LineLoad, from_kn_per_m, in_kn_per_m);
+quantity!(AreaLoad, from_kn_per_m2, in_kn_per_m2);
+quantity!(TemperatureDifference, from_delta_c, in_delta_c);
+quantity!(ThermalExpansion, from_per_c, in_per_c);
+quantity!(RotationalStiffness, from_kn_m_per_rad, in_kn_m_per_rad);
+quantity!(Angle, from_rad, in_rad);
+quantity!(AngleDeg, from_deg, in_deg);
 
 impl ModulusMPa {
     #[inline]
@@ -299,6 +306,10 @@ product!(Modulus, SecondMoment => FlexuralRigidity);
 product!(Force, Length => Moment);
 product!(Moment, Length => FlexuralRigidity);
 product!(TranslationalStiffness, Length => Force);
+product!(RotationalStiffness, Angle => Moment);
+product!(LineLoad, Length => Force);
+product!(AreaLoad, Length => LineLoad);
+product!(ThermalExpansion, TemperatureDifference => Ratio);
 quotient!(Force, Length => TranslationalStiffness);
 quotient!(FlexuralRigidity, Volume => TranslationalStiffness);
 quotient!(FlexuralRigidity, Area => Force);
@@ -412,6 +423,215 @@ mod wire {
         pub pz: Force,
     }
 
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverDistributedLoad {
+        pub element_id: usize,
+        #[serde(rename = "qI")]
+        pub q_i: LineLoad,
+        #[serde(rename = "qJ")]
+        pub q_j: LineLoad,
+        #[serde(default)]
+        pub a: Option<Length>,
+        #[serde(default)]
+        pub b: Option<Length>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverAxialDistributedLoad {
+        pub element_id: usize,
+        #[serde(rename = "qI")]
+        pub q_i: LineLoad,
+        #[serde(rename = "qJ")]
+        pub q_j: LineLoad,
+        #[serde(default)]
+        pub a: Option<Length>,
+        #[serde(default)]
+        pub b: Option<Length>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverThermalLoad {
+        pub element_id: usize,
+        pub dt_uniform: TemperatureDifference,
+        pub dt_gradient: TemperatureDifference,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub alpha: Option<ThermalExpansion>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub depth: Option<Length>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverDistributedLoad3D {
+        #[serde(default, rename = "qXI")]
+        pub q_xi: LineLoad,
+        #[serde(default, rename = "qXJ")]
+        pub q_xj: LineLoad,
+        pub element_id: usize,
+        #[serde(rename = "qYI")]
+        pub q_yi: LineLoad,
+        #[serde(rename = "qYJ")]
+        pub q_yj: LineLoad,
+        #[serde(rename = "qZI")]
+        pub q_zi: LineLoad,
+        #[serde(rename = "qZJ")]
+        pub q_zj: LineLoad,
+        #[serde(default)]
+        pub a: Option<Length>,
+        #[serde(default)]
+        pub b: Option<Length>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverThermalLoad3D {
+        pub element_id: usize,
+        pub dt_uniform: TemperatureDifference,
+        pub dt_gradient_y: TemperatureDifference,
+        pub dt_gradient_z: TemperatureDifference,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub alpha: Option<ThermalExpansion>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub depth_y: Option<Length>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub depth_z: Option<Length>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverPressureLoad {
+        pub element_id: usize,
+        pub pressure: AreaLoad,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverPlateThermalLoad {
+        pub element_id: usize,
+        pub dt_uniform: TemperatureDifference,
+        #[serde(default)]
+        pub dt_gradient: TemperatureDifference,
+        #[serde(default)]
+        pub alpha: Option<ThermalExpansion>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverQuadEdgeLoad {
+        pub element_id: usize,
+        pub edge: usize,
+        #[serde(default)]
+        pub qn: LineLoad,
+        #[serde(default)]
+        pub qt: LineLoad,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverSupport {
+        pub id: usize,
+        pub node_id: usize,
+        #[serde(rename = "type")]
+        pub support_type: String,
+        #[serde(default)]
+        pub kx: Option<TranslationalStiffness>,
+        #[serde(default)]
+        pub ky: Option<TranslationalStiffness>,
+        #[serde(default)]
+        pub kz: Option<RotationalStiffness>,
+        #[serde(default)]
+        pub dx: Option<Length>,
+        #[serde(default, rename = "dz", alias = "dy")]
+        pub dz: Option<Length>,
+        #[serde(default, rename = "dry", alias = "drz")]
+        pub dry: Option<Angle>,
+        #[serde(default)]
+        pub angle: Option<Angle>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverSupport3D {
+        pub node_id: usize,
+        pub rx: bool,
+        pub ry: bool,
+        pub rz: bool,
+        pub rrx: bool,
+        pub rry: bool,
+        pub rrz: bool,
+        #[serde(default)]
+        pub kx: Option<TranslationalStiffness>,
+        #[serde(default)]
+        pub ky: Option<TranslationalStiffness>,
+        #[serde(default)]
+        pub kz: Option<TranslationalStiffness>,
+        #[serde(default)]
+        pub krx: Option<RotationalStiffness>,
+        #[serde(default)]
+        pub kry: Option<RotationalStiffness>,
+        #[serde(default)]
+        pub krz: Option<RotationalStiffness>,
+        #[serde(default)]
+        pub dx: Option<Length>,
+        #[serde(default)]
+        pub dy: Option<Length>,
+        #[serde(default)]
+        pub dz: Option<Length>,
+        #[serde(default)]
+        pub drx: Option<Angle>,
+        #[serde(default)]
+        pub dry: Option<Angle>,
+        #[serde(default)]
+        pub drz: Option<Angle>,
+        #[serde(default)]
+        pub rw: Option<bool>,
+        #[serde(default)]
+        pub kw: Option<f64>,
+        #[serde(default)]
+        pub normal_x: Option<f64>,
+        #[serde(default)]
+        pub normal_y: Option<f64>,
+        #[serde(default)]
+        pub normal_z: Option<f64>,
+        #[serde(default)]
+        pub is_inclined: Option<bool>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    pub struct SolverElement3D {
+        pub id: usize,
+        #[serde(rename = "type")]
+        pub elem_type: String,
+        pub node_i: usize,
+        pub node_j: usize,
+        pub material_id: usize,
+        pub section_id: usize,
+        #[serde(default)]
+        pub release_my_start: bool,
+        #[serde(default)]
+        pub release_my_end: bool,
+        #[serde(default)]
+        pub release_mz_start: bool,
+        #[serde(default)]
+        pub release_mz_end: bool,
+        #[serde(default)]
+        pub release_t_start: bool,
+        #[serde(default)]
+        pub release_t_end: bool,
+        #[serde(default)]
+        pub local_yx: Option<f64>,
+        #[serde(default)]
+        pub local_yy: Option<f64>,
+        #[serde(default)]
+        pub local_yz: Option<f64>,
+        #[serde(default)]
+        pub roll_angle: Option<AngleDeg>,
+    }
+
     /// Mirrors `SolverLoad`: same tags, same variant order.
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(tag = "type", content = "data")]
@@ -419,13 +639,13 @@ mod wire {
         #[serde(rename = "nodal")]
         Nodal(SolverNodalLoad),
         #[serde(rename = "distributed")]
-        Distributed(crate::types::SolverDistributedLoad),
+        Distributed(SolverDistributedLoad),
         #[serde(rename = "pointOnElement")]
         PointOnElement(SolverPointLoadOnElement),
         #[serde(rename = "thermal")]
-        Thermal(crate::types::SolverThermalLoad),
+        Thermal(SolverThermalLoad),
         #[serde(rename = "axialDistributed")]
-        AxialDistributed(crate::types::SolverAxialDistributedLoad),
+        AxialDistributed(SolverAxialDistributedLoad),
     }
 
     /// Mirrors `SolverLoad3D`: same tags, same variant order.
@@ -435,52 +655,56 @@ mod wire {
         #[serde(rename = "nodal")]
         Nodal(SolverNodalLoad3D),
         #[serde(rename = "distributed")]
-        Distributed(crate::types::SolverDistributedLoad3D),
+        Distributed(SolverDistributedLoad3D),
         #[serde(rename = "pointOnElement")]
         PointOnElement(SolverPointLoad3D),
         #[serde(rename = "thermal")]
-        Thermal(crate::types::SolverThermalLoad3D),
+        Thermal(SolverThermalLoad3D),
         #[serde(rename = "pressure")]
-        Pressure(crate::types::SolverPressureLoad),
+        Pressure(SolverPressureLoad),
         #[serde(rename = "plateThermal")]
-        PlateThermal(crate::types::SolverPlateThermalLoad),
+        PlateThermal(SolverPlateThermalLoad),
         #[serde(rename = "bimoment")]
         Bimoment(crate::types::SolverBimomentLoad),
         #[serde(rename = "quadPressure")]
-        QuadPressure(crate::types::SolverPressureLoad),
+        QuadPressure(SolverPressureLoad),
         #[serde(rename = "quadThermal")]
-        QuadThermal(crate::types::SolverPlateThermalLoad),
+        QuadThermal(SolverPlateThermalLoad),
         #[serde(rename = "quadEdge")]
-        QuadEdge(crate::types::SolverQuadEdgeLoad),
+        QuadEdge(SolverQuadEdgeLoad),
         #[serde(rename = "quadSelfWeight")]
         QuadSelfWeight(crate::types::SolverQuadSelfWeightLoad),
         #[serde(rename = "quad9Pressure")]
-        Quad9Pressure(crate::types::SolverPressureLoad),
+        Quad9Pressure(SolverPressureLoad),
         #[serde(rename = "quad9Thermal")]
-        Quad9Thermal(crate::types::SolverPlateThermalLoad),
+        Quad9Thermal(SolverPlateThermalLoad),
         #[serde(rename = "quad9Edge")]
-        Quad9Edge(crate::types::SolverQuadEdgeLoad),
+        Quad9Edge(SolverQuadEdgeLoad),
         #[serde(rename = "quad9SelfWeight")]
         Quad9SelfWeight(crate::types::SolverQuadSelfWeightLoad),
         #[serde(rename = "solidShellPressure")]
-        SolidShellPressure(crate::types::SolverPressureLoad),
+        SolidShellPressure(SolverPressureLoad),
         #[serde(rename = "solidShellSelfWeight")]
         SolidShellSelfWeight(crate::types::SolverSolidShellSelfWeightLoad),
         #[serde(rename = "curvedShellPressure")]
-        CurvedShellPressure(crate::types::SolverPressureLoad),
+        CurvedShellPressure(SolverPressureLoad),
         #[serde(rename = "curvedShellThermal")]
-        CurvedShellThermal(crate::types::SolverPlateThermalLoad),
+        CurvedShellThermal(SolverPlateThermalLoad),
         #[serde(rename = "curvedShellEdge")]
-        CurvedShellEdge(crate::types::SolverQuadEdgeLoad),
+        CurvedShellEdge(SolverQuadEdgeLoad),
         #[serde(rename = "curvedShellSelfWeight")]
         CurvedShellSelfWeight(crate::types::SolverQuadSelfWeightLoad),
     }
 }
 pub use wire::{
-    SolverLoad as TypedLoad, SolverLoad3D as TypedLoad3D, SolverMaterial as ElasticMaterial, SolverNodalLoad as TypedNodalLoad,
+    SolverAxialDistributedLoad as TypedAxialDistributedLoad, SolverDistributedLoad as TypedDistributedLoad,
+    SolverDistributedLoad3D as TypedDistributedLoad3D, SolverElement3D as TypedElement3D, SolverLoad as TypedLoad,
+    SolverLoad3D as TypedLoad3D, SolverMaterial as ElasticMaterial, SolverNodalLoad as TypedNodalLoad,
     SolverNodalLoad3D as TypedNodalLoad3D, SolverNode as TypedNode, SolverNode3D as TypedNode3D,
-    SolverPointLoad3D as TypedPointLoad3D, SolverPointLoadOnElement as TypedPointLoad, SolverSection as ElasticSection2D,
-    SolverSection3D as ElasticSection3D,
+    SolverPlateThermalLoad as TypedPlateThermalLoad, SolverPointLoad3D as TypedPointLoad3D,
+    SolverPointLoadOnElement as TypedPointLoad, SolverPressureLoad as TypedPressureLoad, SolverQuadEdgeLoad as TypedQuadEdgeLoad,
+    SolverSection as ElasticSection2D, SolverSection3D as ElasticSection3D, SolverSupport as TypedSupport,
+    SolverSupport3D as TypedSupport3D, SolverThermalLoad as TypedThermalLoad, SolverThermalLoad3D as TypedThermalLoad3D,
 };
 impl ElasticSection2D {
     /// Preserve the legacy operation order, including the two successive L products.
@@ -614,15 +838,176 @@ impl From<TypedPointLoad3D> for super::SolverPointLoad3D {
     }
 }
 
+impl From<TypedDistributedLoad> for super::SolverDistributedLoad {
+    fn from(l: TypedDistributedLoad) -> Self {
+        Self {
+            element_id: l.element_id,
+            q_i: l.q_i.in_kn_per_m(),
+            q_j: l.q_j.in_kn_per_m(),
+            a: l.a.map(Length::in_m),
+            b: l.b.map(Length::in_m),
+        }
+    }
+}
+
+impl From<TypedAxialDistributedLoad> for super::SolverAxialDistributedLoad {
+    fn from(l: TypedAxialDistributedLoad) -> Self {
+        Self {
+            element_id: l.element_id,
+            q_i: l.q_i.in_kn_per_m(),
+            q_j: l.q_j.in_kn_per_m(),
+            a: l.a.map(Length::in_m),
+            b: l.b.map(Length::in_m),
+        }
+    }
+}
+
+impl From<TypedThermalLoad> for super::SolverThermalLoad {
+    fn from(l: TypedThermalLoad) -> Self {
+        Self {
+            element_id: l.element_id,
+            dt_uniform: l.dt_uniform.in_delta_c(),
+            dt_gradient: l.dt_gradient.in_delta_c(),
+            alpha: l.alpha.map(ThermalExpansion::in_per_c),
+            depth: l.depth.map(Length::in_m),
+        }
+    }
+}
+
+impl From<TypedDistributedLoad3D> for super::SolverDistributedLoad3D {
+    fn from(l: TypedDistributedLoad3D) -> Self {
+        Self {
+            q_xi: l.q_xi.in_kn_per_m(),
+            q_xj: l.q_xj.in_kn_per_m(),
+            element_id: l.element_id,
+            q_yi: l.q_yi.in_kn_per_m(),
+            q_yj: l.q_yj.in_kn_per_m(),
+            q_zi: l.q_zi.in_kn_per_m(),
+            q_zj: l.q_zj.in_kn_per_m(),
+            a: l.a.map(Length::in_m),
+            b: l.b.map(Length::in_m),
+        }
+    }
+}
+
+impl From<TypedThermalLoad3D> for super::SolverThermalLoad3D {
+    fn from(l: TypedThermalLoad3D) -> Self {
+        Self {
+            element_id: l.element_id,
+            dt_uniform: l.dt_uniform.in_delta_c(),
+            dt_gradient_y: l.dt_gradient_y.in_delta_c(),
+            dt_gradient_z: l.dt_gradient_z.in_delta_c(),
+            alpha: l.alpha.map(ThermalExpansion::in_per_c),
+            depth_y: l.depth_y.map(Length::in_m),
+            depth_z: l.depth_z.map(Length::in_m),
+        }
+    }
+}
+
+impl From<TypedPressureLoad> for super::SolverPressureLoad {
+    fn from(l: TypedPressureLoad) -> Self {
+        Self { element_id: l.element_id, pressure: l.pressure.in_kn_per_m2() }
+    }
+}
+
+impl From<TypedPlateThermalLoad> for super::SolverPlateThermalLoad {
+    fn from(l: TypedPlateThermalLoad) -> Self {
+        Self {
+            element_id: l.element_id,
+            dt_uniform: l.dt_uniform.in_delta_c(),
+            dt_gradient: l.dt_gradient.in_delta_c(),
+            alpha: l.alpha.map(ThermalExpansion::in_per_c),
+        }
+    }
+}
+
+impl From<TypedQuadEdgeLoad> for super::SolverQuadEdgeLoad {
+    fn from(l: TypedQuadEdgeLoad) -> Self {
+        Self { element_id: l.element_id, edge: l.edge, qn: l.qn.in_kn_per_m(), qt: l.qt.in_kn_per_m() }
+    }
+}
+
+impl From<TypedSupport> for super::SolverSupport {
+    fn from(s: TypedSupport) -> Self {
+        Self {
+            id: s.id,
+            node_id: s.node_id,
+            support_type: s.support_type,
+            kx: s.kx.map(TranslationalStiffness::in_kn_per_m),
+            ky: s.ky.map(TranslationalStiffness::in_kn_per_m),
+            kz: s.kz.map(RotationalStiffness::in_kn_m_per_rad),
+            dx: s.dx.map(Length::in_m),
+            dz: s.dz.map(Length::in_m),
+            dry: s.dry.map(Angle::in_rad),
+            angle: s.angle.map(Angle::in_rad),
+        }
+    }
+}
+
+impl From<TypedSupport3D> for super::SolverSupport3D {
+    fn from(s: TypedSupport3D) -> Self {
+        Self {
+            node_id: s.node_id,
+            rx: s.rx,
+            ry: s.ry,
+            rz: s.rz,
+            rrx: s.rrx,
+            rry: s.rry,
+            rrz: s.rrz,
+            kx: s.kx.map(TranslationalStiffness::in_kn_per_m),
+            ky: s.ky.map(TranslationalStiffness::in_kn_per_m),
+            kz: s.kz.map(TranslationalStiffness::in_kn_per_m),
+            krx: s.krx.map(RotationalStiffness::in_kn_m_per_rad),
+            kry: s.kry.map(RotationalStiffness::in_kn_m_per_rad),
+            krz: s.krz.map(RotationalStiffness::in_kn_m_per_rad),
+            dx: s.dx.map(Length::in_m),
+            dy: s.dy.map(Length::in_m),
+            dz: s.dz.map(Length::in_m),
+            drx: s.drx.map(Angle::in_rad),
+            dry: s.dry.map(Angle::in_rad),
+            drz: s.drz.map(Angle::in_rad),
+            rw: s.rw,
+            kw: s.kw,
+            normal_x: s.normal_x,
+            normal_y: s.normal_y,
+            normal_z: s.normal_z,
+            is_inclined: s.is_inclined,
+        }
+    }
+}
+
+impl From<TypedElement3D> for super::SolverElement3D {
+    fn from(e: TypedElement3D) -> Self {
+        Self {
+            id: e.id,
+            elem_type: e.elem_type,
+            node_i: e.node_i,
+            node_j: e.node_j,
+            material_id: e.material_id,
+            section_id: e.section_id,
+            release_my_start: e.release_my_start,
+            release_my_end: e.release_my_end,
+            release_mz_start: e.release_mz_start,
+            release_mz_end: e.release_mz_end,
+            release_t_start: e.release_t_start,
+            release_t_end: e.release_t_end,
+            local_yx: e.local_yx,
+            local_yy: e.local_yy,
+            local_yz: e.local_yz,
+            roll_angle: e.roll_angle.map(AngleDeg::in_deg),
+        }
+    }
+}
+
 impl From<TypedLoad> for super::SolverLoad {
     fn from(l: TypedLoad) -> Self {
         use super::SolverLoad as S;
         match l {
             TypedLoad::Nodal(v) => S::Nodal(v.into()),
-            TypedLoad::Distributed(v) => S::Distributed(v),
+            TypedLoad::Distributed(v) => S::Distributed(v.into()),
             TypedLoad::PointOnElement(v) => S::PointOnElement(v.into()),
-            TypedLoad::Thermal(v) => S::Thermal(v),
-            TypedLoad::AxialDistributed(v) => S::AxialDistributed(v),
+            TypedLoad::Thermal(v) => S::Thermal(v.into()),
+            TypedLoad::AxialDistributed(v) => S::AxialDistributed(v.into()),
         }
     }
 }
@@ -632,25 +1017,25 @@ impl From<TypedLoad3D> for super::SolverLoad3D {
         use super::SolverLoad3D as S;
         match l {
             TypedLoad3D::Nodal(v) => S::Nodal(v.into()),
-            TypedLoad3D::Distributed(v) => S::Distributed(v),
+            TypedLoad3D::Distributed(v) => S::Distributed(v.into()),
             TypedLoad3D::PointOnElement(v) => S::PointOnElement(v.into()),
-            TypedLoad3D::Thermal(v) => S::Thermal(v),
-            TypedLoad3D::Pressure(v) => S::Pressure(v),
-            TypedLoad3D::PlateThermal(v) => S::PlateThermal(v),
+            TypedLoad3D::Thermal(v) => S::Thermal(v.into()),
+            TypedLoad3D::Pressure(v) => S::Pressure(v.into()),
+            TypedLoad3D::PlateThermal(v) => S::PlateThermal(v.into()),
             TypedLoad3D::Bimoment(v) => S::Bimoment(v),
-            TypedLoad3D::QuadPressure(v) => S::QuadPressure(v),
-            TypedLoad3D::QuadThermal(v) => S::QuadThermal(v),
-            TypedLoad3D::QuadEdge(v) => S::QuadEdge(v),
+            TypedLoad3D::QuadPressure(v) => S::QuadPressure(v.into()),
+            TypedLoad3D::QuadThermal(v) => S::QuadThermal(v.into()),
+            TypedLoad3D::QuadEdge(v) => S::QuadEdge(v.into()),
             TypedLoad3D::QuadSelfWeight(v) => S::QuadSelfWeight(v),
-            TypedLoad3D::Quad9Pressure(v) => S::Quad9Pressure(v),
-            TypedLoad3D::Quad9Thermal(v) => S::Quad9Thermal(v),
-            TypedLoad3D::Quad9Edge(v) => S::Quad9Edge(v),
+            TypedLoad3D::Quad9Pressure(v) => S::Quad9Pressure(v.into()),
+            TypedLoad3D::Quad9Thermal(v) => S::Quad9Thermal(v.into()),
+            TypedLoad3D::Quad9Edge(v) => S::Quad9Edge(v.into()),
             TypedLoad3D::Quad9SelfWeight(v) => S::Quad9SelfWeight(v),
-            TypedLoad3D::SolidShellPressure(v) => S::SolidShellPressure(v),
+            TypedLoad3D::SolidShellPressure(v) => S::SolidShellPressure(v.into()),
             TypedLoad3D::SolidShellSelfWeight(v) => S::SolidShellSelfWeight(v),
-            TypedLoad3D::CurvedShellPressure(v) => S::CurvedShellPressure(v),
-            TypedLoad3D::CurvedShellThermal(v) => S::CurvedShellThermal(v),
-            TypedLoad3D::CurvedShellEdge(v) => S::CurvedShellEdge(v),
+            TypedLoad3D::CurvedShellPressure(v) => S::CurvedShellPressure(v.into()),
+            TypedLoad3D::CurvedShellThermal(v) => S::CurvedShellThermal(v.into()),
+            TypedLoad3D::CurvedShellEdge(v) => S::CurvedShellEdge(v.into()),
             TypedLoad3D::CurvedShellSelfWeight(v) => S::CurvedShellSelfWeight(v),
         }
     }
@@ -663,6 +1048,8 @@ impl TypedWire for ElasticMaterial {}
 impl TypedWire for ElasticSection3D {}
 impl TypedWire for TypedNode3D {}
 impl TypedWire for TypedLoad3D {}
+impl TypedWire for TypedSupport3D {}
+impl TypedWire for TypedElement3D {}
 impl<'de> Deserialize<'de> for super::SolverInput3D {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         ElasticInput3D::deserialize(d).map(ElasticInput3D::into_legacy)
@@ -670,15 +1057,15 @@ impl<'de> Deserialize<'de> for super::SolverInput3D {
 }
 
 /// What every 3D WASM export deserializes. `into_legacy` is the only place its units are erased.
-pub type ElasticInput3D = super::SolverInput3D<ElasticMaterial, ElasticSection3D, TypedNode3D, TypedLoad3D>;
+pub type ElasticInput3D = super::SolverInput3D<ElasticMaterial, ElasticSection3D, TypedNode3D, TypedLoad3D, TypedSupport3D, TypedElement3D>;
 impl ElasticInput3D {
     pub fn into_legacy(self) -> super::SolverInput3D {
         super::SolverInput3D {
             nodes: self.nodes.into_iter().map(|(k, v)| (k, v.into())).collect(),
             materials: self.materials.into_iter().map(|(k, v)| (k, v.into())).collect(),
             sections: self.sections.into_iter().map(|(k, v)| (k, v.into())).collect(),
-            elements: self.elements,
-            supports: self.supports,
+            elements: self.elements.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            supports: self.supports.into_iter().map(|(k, v)| (k, v.into())).collect(),
             loads: self.loads.into_iter().map(Into::into).collect(),
             constraints: self.constraints,
             left_hand: self.left_hand,
@@ -699,7 +1086,7 @@ pub fn deserialize_input_3d<'de, D: serde::Deserializer<'de>>(d: D) -> Result<su
 }
 
 /// The direct linear WASM boundary retains these types through frame assembly/recovery.
-pub type ElasticInput2D = super::SolverInput<ElasticMaterial, ElasticSection2D, TypedNode, TypedLoad>;
+pub type ElasticInput2D = super::SolverInput<ElasticMaterial, ElasticSection2D, TypedNode, TypedLoad, TypedSupport>;
 
 #[derive(Clone)]
 pub(crate) struct ElasticProperties2D {
@@ -736,7 +1123,7 @@ impl ElasticInput2D {
             materials: self.materials.into_iter().map(|(k, v)| (k, v.into())).collect(),
             sections: self.sections.into_iter().map(|(k, v)| (k, v.into())).collect(),
             elements: self.elements,
-            supports: self.supports,
+            supports: self.supports.into_iter().map(|(k, v)| (k, v.into())).collect(),
             loads: self.loads.into_iter().map(Into::into).collect(),
             constraints: self.constraints,
             connectors: self.connectors,
