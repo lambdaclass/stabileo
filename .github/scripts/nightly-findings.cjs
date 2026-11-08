@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const ASSIGNEES = require('./issue-assignees.cjs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const ADOPTED = '<!-- nightly-finding-adopted -->';
 const hash = x => crypto.createHash('sha256').update(x).digest('hex');
 const canonical = x => Array.isArray(x) ? `[${x.map(canonical).join(',')}]` :
   x !== null && typeof x === 'object' ? `{${Object.keys(x).sort().map(k => `${JSON.stringify(k)}:${canonical(x[k])}`).join(',')}}` : JSON.stringify(x);
@@ -134,7 +135,7 @@ module.exports = async ({github, context, core}) => {
     const body = `${marker}\n${occurrence}\n${summary}\n\nTest: **${f.test}**\n\nSeed: \`${f.seed}\` · model SHA-256: \`${f.modelHash}\`\n\n[Run and artifacts](${run}) · commit \`${context.sha}\`\n\nReduction: ${f.reduction}\n\nBuild/replay setup: [NIGHTLY.md](${context.serverUrl}/${owner}/${repo}/blob/${context.sha}/docs/verification/NIGHTLY.md).\n\n\`\`\`sh\n${f.command}\n\`\`\`\n\n${inline}\n\nDetails:\n\n\`\`\`text\n${JSON.stringify(f.details).slice(0, 4000)}\n\`\`\``;
     const legacyMarkers = [...group.legacyKeys].map(k => `<!-- nightly-finding:${k} -->`);
     const existing = exactIssue(marker) ||
-      issues.find(i => !i.pull_request && !claimedIssues.has(i.number) && legacyMarkers.some(m => i.body?.includes(m)));
+      issues.find(i => !i.pull_request && !claimedIssues.has(i.number) && !i.body?.includes(ADOPTED) && legacyMarkers.some(m => i.body?.includes(m)));
     if (existing) claimedIssues.add(existing.number);
     if (dry) { core.info(`[dry run] ${existing ? `update #${existing.number}` : 'create'} ${f.test}\n${body}`); continue; }
     if (existing) {
@@ -143,7 +144,7 @@ module.exports = async ({github, context, core}) => {
         await github.rest.issues.createComment({owner, repo, issue_number: existing.number, body});
       }
       if (!existing.body.includes(marker)) {
-        existing.body = `${marker}\n${existing.body}`;
+        existing.body = `${marker}\n${ADOPTED}\n${existing.body}`;
         await github.rest.issues.update({owner, repo, issue_number: existing.number, body: existing.body});
       }
       if (existing.state === 'closed') await github.rest.issues.update({owner, repo, issue_number: existing.number, state: 'open'});

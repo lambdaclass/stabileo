@@ -447,3 +447,19 @@ test('an adopted legacy issue keeps the new marker, so a later variant finds it'
   assert.equal(calls.filter(c => c.name === 'create').length, 0);
   assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [95]);
 }));
+
+test('a legacy issue adopted by one group cannot be adopted by another in a later run', () => fixture(async ({args, calls, issues, save}) => {
+  const sha = parts => require('node:crypto').createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+  const old = sha(['opensees', 'wrong-result-candidate', 'solver residual #']);
+  issues.push({number: 97, state: 'open', body: `<!-- nightly-finding:${old} -->`});
+  save('static', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', code: 'residual_high', message: 'solver residual 1'}});
+  await report(args);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [97]);
+  calls.length = 0;
+  require('node:fs').rmSync('nightly-findings/static.finding.json');
+  save('pdelta', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'pdelta', code: 'iteration_limit', message: 'solver residual 2'}});
+  args.context.runId = 124;
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
+  assert.equal(calls.filter(c => c.name === 'create').length, 1);
+}));
