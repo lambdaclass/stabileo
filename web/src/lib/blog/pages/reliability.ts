@@ -71,7 +71,7 @@ export const reliabilityPage: StandingPage = {
       faq: [
         { q: '¿Stabileo es confiable para un cálculo estructural real?', a: 'Sus resultados se verifican de cinco maneras independientes, entre ellas la comparación con otros siete programas de elementos finitos y cotas de error demostradas en Lean, y los errores que pudieron afectar resultados ya usados se publican; los que siguen en evaluación son públicos en GitHub. Todavía no tuvo una revisión independiente de un ingeniero matriculado y el diseño normativo sigue en desarrollo, así que, como con cualquier programa, quien calcula revisa el modelo y los resultados que gobiernan.' },
         { q: '¿Por qué Stabileo publica avisos de seguridad?', a: 'Porque su programa de verificación encontró errores reales, muchos del lado inseguro, y un error que no se informa sigue en los cálculos ya entregados. Cada aviso dice cómo reconocer un modelo afectado y qué revisar.' },
-        { q: '¿Los avisos publicados están corregidos?', a: 'Todos menos uno. SA-2026-001 a 004 se corrigieron en la versión 0.2.0, SA-2026-005 a 020 en la 0.3.0, SA-2026-021 a 024 en la 0.4.0 y SA-2026-025 a 047 en la 0.5.0 (SA-2026-040 quedó contenido). SA-2026-044 no está corregido: el colapso plástico 2D queda rechazado hasta que se cierre #758.' },
+        { q: '¿Los avisos publicados están corregidos?', a: 'Todos menos dos. SA-2026-001 a 004 se corrigieron en la versión 0.2.0, SA-2026-005 a 020 en la 0.3.0, SA-2026-021 a 024 en la 0.4.0 y SA-2026-025 a 047 en la 0.5.0, salvo SA-2026-040 y SA-2026-044. SA-2026-040 quedó contenido: la verificación se marca como incompleta. SA-2026-044 no está corregido: el colapso plástico 2D queda rechazado hasta que se cierre #758.' },
       ],
     },
     en: {
@@ -127,7 +127,7 @@ export const reliabilityPage: StandingPage = {
       faq: [
         { q: 'Is Stabileo reliable for real structural design work?', a: 'Its results are checked in five independent ways, including comparison with seven other finite-element programs and error bounds proved in Lean, and defects that could have affected results already in use are published; those still being triaged are public on GitHub. It has not yet had an independent review by a licensed engineer and code design is still in development, so, as with any program, the engineer reviews the model and the governing results.' },
         { q: 'Why does Stabileo publish safety advisories?', a: 'Because its verification found real defects, many of them unconservative, and a defect nobody reports stays in calculations already delivered. Each advisory says how to recognise an affected model and what to re-check.' },
-        { q: 'Are the published advisories fixed?', a: 'All but one. SA-2026-001 to 004 were fixed in version 0.2.0, SA-2026-005 to 020 in 0.3.0, SA-2026-021 to 024 in 0.4.0 and SA-2026-025 to 047 in 0.5.0 (SA-2026-040 is contained). SA-2026-044 is not fixed: 2D plastic collapse stays refused until #758 closes.' },
+        { q: 'Are the published advisories fixed?', a: 'All but two. SA-2026-001 to 004 were fixed in version 0.2.0, SA-2026-005 to 020 in 0.3.0, SA-2026-021 to 024 in 0.4.0 and SA-2026-025 to 047 in 0.5.0, except SA-2026-040 and SA-2026-044. SA-2026-040 is contained: the check is marked incomplete. SA-2026-044 is not fixed: 2D plastic collapse stays refused until #758 closes.' },
       ],
     },
     pt: {
@@ -183,7 +183,7 @@ export const reliabilityPage: StandingPage = {
       faq: [
         { q: 'O Stabileo é confiável para um cálculo estrutural real?', a: 'Seus resultados são verificados de cinco maneiras independentes, entre elas a comparação com outros sete programas de elementos finitos e cotas de erro provadas em Lean, e os erros que podem ter afetado resultados já usados são publicados; os que seguem em avaliação são públicos no GitHub. Ainda não teve uma revisão independente de um engenheiro habilitado e o dimensionamento normativo segue em desenvolvimento, então, como com qualquer programa, quem calcula revisa o modelo e os resultados que governam.' },
         { q: 'Por que o Stabileo publica avisos de segurança?', a: 'Porque sua verificação encontrou erros reais, muitos contra a segurança, e um erro que não é informado continua nos cálculos já entregues. Cada aviso diz como reconhecer um modelo afetado e o que revisar.' },
-        { q: 'Os avisos publicados estão corrigidos?', a: 'Todos menos um. SA-2026-001 a 004 foram corrigidos na versão 0.2.0, SA-2026-005 a 020 na 0.3.0, SA-2026-021 a 024 na 0.4.0 e SA-2026-025 a 047 na 0.5.0 (SA-2026-040 foi contido). SA-2026-044 não está corrigido: o colapso plástico 2D continua recusado até que #758 seja fechado.' },
+        { q: 'Os avisos publicados estão corrigidos?', a: 'Todos menos dois. SA-2026-001 a 004 foram corrigidos na versão 0.2.0, SA-2026-005 a 020 na 0.3.0, SA-2026-021 a 024 na 0.4.0 e SA-2026-025 a 047 na 0.5.0, exceto SA-2026-040 e SA-2026-044. SA-2026-040 foi contido: a verificação fica marcada como incompleta. SA-2026-044 não está corrigido: o colapso plástico 2D continua recusado até que #758 seja fechado.' },
       ],
     },
   },

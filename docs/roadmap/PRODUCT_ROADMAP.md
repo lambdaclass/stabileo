@@ -280,7 +280,7 @@ proxy and HTML edge caching with purge on deploy).
   0.03% unconservative; found by the [#534](https://github.com/lambdaclass/stabileo/issues/534) work). Issue to file, then fix.
 - **MITC9 too stiff on twisted coarse meshes** (noted on [#1074](https://github.com/lambdaclass/stabileo/pull/1074)): no warning yet; add containment.
 - **[#532](https://github.com/lambdaclass/stabileo/issues/532) leftovers** (outside [#1233](https://github.com/lambdaclass/stabileo/pull/1233)): the Excel import and the IFC mapper treat iz as the strong
-  axis (fix in [#1310](https://github.com/lambdaclass/stabileo/pull/1310), draft, stacked on #1233; live on main, SA-2026-039, also in the safety table); aluminium weak-axis shear unchecked (fixed by [#1326](https://github.com/lambdaclass/stabileo/pull/1326), results version 16); the joint-typology check dropped Mz (fixed by [#1328](https://github.com/lambdaclass/stabileo/pull/1328), results version 17: weak-axis moments left unresolved); Muy not amplified
+  axis (fixed by [#1310](https://github.com/lambdaclass/stabileo/pull/1310), SA-2026-039, released in 0.5.0); aluminium weak-axis shear unchecked (fixed by [#1326](https://github.com/lambdaclass/stabileo/pull/1326), results version 16); the joint-typology check dropped Mz (fixed by [#1328](https://github.com/lambdaclass/stabileo/pull/1328), results version 17: weak-axis moments left unresolved); Muy not amplified
   for column slenderness. Review nits: the secondary-shear row lacks its combination name,
   `v_strong` serializes as "vy", "Shear G6" used for RHS (AISC G4), the registry's `when` also
   flags beam-only CIRSOC 201 models.

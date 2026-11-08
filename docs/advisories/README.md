@@ -11,8 +11,10 @@ re-check registry where the app could produce the result. **SA-2026-021…024 ar
 (2026-10-28, with release 0.4.0): they were fixed in 0.4.0, and each has its issue, release-notes
 section and re-check registry entry in the same way. **SA-2026-025…047 are published**
 (2026-11-07, with release 0.5.0): all but SA-2026-044 were fixed in 0.5.0 (SA-2026-040 is a
-containment), and each has a section in the release notes and an entry in the in-app re-check
-registry. SA-2026-044 is not fixed: 2D plastic collapse stays refused until
+containment), and each has a section in the release notes and, where a saved project's results
+change, an entry in the in-app re-check registry. SA-2026-025, 026, 034, 035 and 039 have none, as
+each advisory says: re-cut models cut from 3D (SA-2026-035) and re-import models imported from Excel
+or IFC (SA-2026-039). SA-2026-044 is not fixed: 2D plastic collapse stays refused until
 [#758](https://github.com/lambdaclass/stabileo/issues/758) is fixed.
 
 | ID | Summary | Severity | Issue | Fix | Fixed in | Status |
