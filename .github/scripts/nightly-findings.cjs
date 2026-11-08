@@ -142,6 +142,10 @@ module.exports = async ({github, context, core}) => {
       if (!existing.body.includes(occurrence) && !comments.some(c => c.body?.includes(occurrence))) {
         await github.rest.issues.createComment({owner, repo, issue_number: existing.number, body});
       }
+      if (!existing.body.includes(marker)) {
+        existing.body = `${marker}\n${existing.body}`;
+        await github.rest.issues.update({owner, repo, issue_number: existing.number, body: existing.body});
+      }
       if (existing.state === 'closed') await github.rest.issues.update({owner, repo, issue_number: existing.number, state: 'open'});
     } else {
       const result = await github.rest.issues.create({owner, repo, title: `Nightly finding: ${cause.check}/${cause.kind}: ${cause.message} [${key.slice(0, 12)}]`.slice(0, 250), body, labels, assignees: [...ASSIGNEES]});

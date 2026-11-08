@@ -431,3 +431,19 @@ test('an exact-signature issue wins over a legacy alias listed before it', () =>
   assert.equal(calls.filter(c => c.name === 'create').length, 0);
   assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [92]);
 }));
+
+test('an adopted legacy issue keeps the new marker, so a later variant finds it', () => fixture(async ({args, calls, issues, save}) => {
+  const sha = parts => require('node:crypto').createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+  issues.push({number: 95, state: 'open', body: `<!-- nightly-finding:${sha(['opensees', 'wrong-result-candidate', 'static: disp/ux'])} -->`});
+  save('first', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [['disp', 1, 'ux', 1, 2, 0.2]]}});
+  await report(args);
+  const adopt = calls.find(c => c.name === 'update' && c.args.body);
+  assert.equal(adopt.args.issue_number, 95);
+  calls.length = 0;
+  require('node:fs').rmSync('nightly-findings/first.finding.json');
+  save('second', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [['disp', 1, 'uy', 1, 2, 0.2]]}});
+  args.context.runId = 124;
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'create').length, 0);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [95]);
+}));

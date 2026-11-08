@@ -163,3 +163,4 @@ scripts/verification-metrics.py: return analysis == "static" and "linear static"
 
 ## Redacts the user's own API key from a provider error before it is shown: nothing is decided from the wording.
 web/src/lib/ai/providers/types.ts: if (apiKey && err.message.includes(apiKey.slice(0, 12))) return new AiProviderError(err.kind, err.status);
+.github/scripts/nightly-findings.cjs: if (!existing.body.includes(marker)) {
