@@ -10,9 +10,11 @@ const runner = (name, labels, status = 'online') => ({name, status, labels: labe
 
 const LIVE = [
   ...[1, 2, 3, 4, 5, 6].map((n) => runner(`sgha${n}`, ['self-hosted', 'stabileo', 'stabileo-e2e'])),
-  ...[7, 8].map((n) => runner(`sgha${n}`, ['self-hosted', 'stabileo', 'stabileo-pr'])),
-  ...[9, 10].map((n) => runner(`sgha${n}`, ['self-hosted', 'stabileo', 'stabileo-timing'])),
-  ...[11, 12, 13, 14].map((n) => runner(`sgha${n}`, ['self-hosted', 'stabileo-nightly', 'stabileo-pr'])),
+  ...[7, 8].map((n) => runner(`sgha${n}`, ['self-hosted', 'stabileo', 'stabileo-pr', 'stabileo-heavy'])),
+  ...[9, 10].map((n) => runner(`sgha${n}`, ['self-hosted', 'stabileo', 'stabileo-timing', 'stabileo-pr'])),
+  ...[11, 12, 13, 14].map((n) => runner(`sgha${n}`, ['self-hosted', 'stabileo', 'stabileo-pr', 'stabileo-engine'])),
+  ...[1, 2, 3].map((n) => runner(`concrete-ci-3-sgha${n}`, ['self-hosted', 'stabileo', 'stabileo-engine'])),
+  ...[4, 5, 6, 7].map((n) => runner(`concrete-ci-3-sgha${n}`, ['self-hosted', 'stabileo-nightly'])),
 ];
 
 function harness({variables = ON, runners = LIVE, token = true} = {}) {
@@ -68,10 +70,28 @@ test('each pool variable that is not "true" is named', async () => {
 });
 
 test('too few online runners for a label fails and names the ones left', async () => {
-  const runners = LIVE.map((r) => (['sgha11', 'sgha12', 'sgha13'].includes(r.name) ? {...r, status: 'offline'} : r));
+  const runners = LIVE.map((r) => (['sgha7', 'sgha8', 'sgha9', 'sgha10', 'sgha11', 'sgha12', 'sgha13'].includes(r.name)
+    ? {...r, status: 'offline'} : r));
   const {errors, failed} = await harness({runners})();
-  assert.deepEqual(errors, ['3 online runners carry stabileo-pr, fewer than 4: sgha7, sgha8, sgha14']);
-  assert.match(failed[0], /^Runner pools drifted \(1\): 3 online runners carry stabileo-pr/);
+  assert.deepEqual(errors, [
+    '1 online runners carry stabileo-pr, fewer than 4: sgha14',
+    '4 online runners carry stabileo-engine, fewer than 6: sgha14, concrete-ci-3-sgha1, concrete-ci-3-sgha2, concrete-ci-3-sgha3',
+    '0 online runners carry stabileo-heavy, fewer than 2: none',
+  ]);
+  assert.match(failed[0], /^Runner pools drifted \(3\): 1 online runners carry stabileo-pr/);
+});
+
+test('the engine pool of concrete-ci-3 alone, as on the night of 2026-11-08, fails', async () => {
+  const runners = LIVE.map((r) => (/^sgha1[1-4]$/.test(r.name)
+    ? runner(r.name, ['self-hosted', 'stabileo', 'stabileo-pr']) : r));
+  const {errors} = await harness({runners})();
+  assert.deepEqual(errors, ['3 online runners carry stabileo-engine, fewer than 6: concrete-ci-3-sgha1, concrete-ci-3-sgha2, concrete-ci-3-sgha3']);
+});
+
+test('heavy dispatches lose their runners when sgha7-8 are re-registered without stabileo-heavy', async () => {
+  const runners = LIVE.map((r) => (r.name === 'sgha7' ? runner(r.name, ['self-hosted', 'stabileo', 'stabileo-pr']) : r));
+  const {errors} = await harness({runners})();
+  assert.deepEqual(errors, ['1 online runners carry stabileo-heavy, fewer than 2: sgha8']);
 });
 
 test('a label lost on re-registration is caught', async () => {
@@ -97,6 +117,8 @@ test('no runners at all reports every pool', async () => {
     '0 online runners carry stabileo, fewer than 6: none',
     '0 online runners carry stabileo-pr, fewer than 4: none',
     '0 online runners carry stabileo-e2e, fewer than 4: none',
+    '0 online runners carry stabileo-engine, fewer than 6: none',
+    '0 online runners carry stabileo-heavy, fewer than 2: none',
   ]);
 });
 

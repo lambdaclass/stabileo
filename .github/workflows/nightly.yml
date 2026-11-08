@@ -12,7 +12,7 @@ run-name: ${{ inputs.force_failure && '[forced failure] Nightly verification' ||
 #
 # Runner routing, capacity budgets and staged rollout: docs/verification/NIGHTLY.md.
 # A heavy rerun on stabileo-ci-1 between 07:00 and 24:00 UTC, outside the nightly window:
-#   gh workflow run nightly.yml --ref main -f only=opensees-diff -f pool=stabileo-pr
+#   gh workflow run nightly.yml --ref main -f only=opensees-diff -f pool=stabileo-heavy
 # pool picks where opensees-diff runs (.github/scripts/heavy-pool.py); inside the window it takes the
 # nightly pool, and pool=nightly keeps the scheduled routing.
 #
@@ -54,10 +54,10 @@ on:
         required: false
         default: ""
       pool:
-        description: "Where opensees-diff runs: stabileo-pr (stabileo-ci-1, from 07:00 to 24:00 UTC; the nightly pool inside the nightly window), nightly (the nightly pool from 00:00 to 07:00 UTC, GitHub otherwise) or ubuntu-24.04"
+        description: "Where opensees-diff runs: stabileo-heavy (stabileo-ci-1 sgha7-8, from 07:00 to 24:00 UTC; the nightly pool inside the nightly window), nightly (the nightly pool from 00:00 to 07:00 UTC, GitHub otherwise) or ubuntu-24.04"
         type: choice
-        options: [stabileo-pr, nightly, ubuntu-24.04]
-        default: stabileo-pr
+        options: [stabileo-heavy, nightly, ubuntu-24.04]
+        default: stabileo-heavy
       force_failure:
         description: "Fail at once without running anything: tests that a failure opens a ci-failure issue (verification-alert.yml)"
         type: boolean
@@ -186,7 +186,6 @@ jobs:
           POOL: ${{ inputs.pool }}
           REF: ${{ github.ref }}
           SELF_HOSTED: ${{ vars.STABILEO_SELF_HOSTED }}
-          PR_POOL: ${{ vars.STABILEO_PR_POOL }}
         run: python3 -B -I .github/scripts/heavy-pool.py
 
   # Large-model certificate runs (release, #[ignore]d in the normal suite):
