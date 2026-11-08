@@ -23,6 +23,8 @@ mod constrained_sparse;
 mod units_boundary_3d;
 mod units_boundary_distributed_thermal_supports;
 mod units_boundary_nodes_loads;
+mod units_boundary_results;
 mod units_legacy_3d;
+mod units_legacy_results;
 
 mod modal_orthogonality;

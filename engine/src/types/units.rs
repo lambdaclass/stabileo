@@ -344,6 +344,114 @@
 //! use dedaliano_engine::types::{SolverElement3D, SolverInput3D};
 //! let _ = serde_json::from_str::<SolverInput3D<ElasticMaterial, ElasticSection3D, TypedNode3D, TypedLoad3D, TypedSupport3D, SolverElement3D>>("{}");
 //! ```
+//! Solver results, 2D and 3D, are typed where the solve exports serialize them:
+//! ```
+//! use dedaliano_engine::types::units::*;
+//! fn right(r2: &mut TypedResults2D, r3: &mut TypedResults3D) {
+//!     let d = &mut r2.displacements[0];
+//!     d.ux = Length::from_m(0.001);
+//!     d.ry = Angle::from_rad(1e-4);
+//!     let r = &mut r2.reactions[0];
+//!     r.rz = Force::from_kn(10.0);
+//!     r.my = Moment::from_kn_m(-2.0);
+//!     let f = &mut r2.element_forces[0];
+//!     f.n_start = Force::from_kn(5.0);
+//!     f.m_end = Moment::from_kn_m(1.5);
+//!     f.length = Length::from_m(3.0);
+//!     f.q_i = LineLoad::from_kn_per_m(-5.0);
+//!     f.point_loads[0].my = Some(Moment::from_kn_m(0.2));
+//!     let d = &mut r3.displacements[0];
+//!     d.uy = Length::from_m(-0.002);
+//!     d.rz = Angle::from_rad(0.01);
+//!     let r = &mut r3.reactions[0];
+//!     r.fz = Force::from_kn(1.0);
+//!     r.mx = Moment::from_kn_m(0.5);
+//!     r.bimoment = Some(Bimoment::from_kn_m2(0.01));
+//!     let f = &mut r3.element_forces[0];
+//!     f.vz_end = Force::from_kn(-1.0);
+//!     f.mz_start = Moment::from_kn_m(4.0);
+//!     f.bimoment_end = Some(Bimoment::from_kn_m2(0.0));
+//!     f.distributed_loads_y[0].b = Length::from_m(2.0);
+//! }
+//! let legacy: dedaliano_engine::types::AnalysisResults = serde_json::from_str(
+//!     r#"{"displacements":[{"nodeId":1,"ux":-0.0,"uz":0.5,"ry":0.0}],"reactions":[],"elementForces":[]}"#,
+//! ).unwrap();
+//! assert_eq!(legacy.clone().into_typed().displacements[0].uz.in_m(), 0.5);
+//! assert_eq!(serde_json::to_string(&legacy.into_typed()).unwrap(),
+//!     r#"{"displacements":[{"nodeId":1,"ux":-0.0,"uz":0.5,"ry":0.0}],"reactions":[],"elementForces":[]}"#);
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Force, TypedResults2D};
+//! fn wrong(r: &mut TypedResults2D) {
+//!     r.displacements[0].ux = Force::from_kn(1.0);
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Length, TypedResults2D};
+//! fn wrong(r: &mut TypedResults2D) {
+//!     r.displacements[0].ry = Length::from_m(0.001);
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::TypedResults2D;
+//! fn wrong(r: &mut TypedResults2D) {
+//!     r.displacements[0].uz = 0.001;
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Force, TypedResults2D};
+//! fn wrong(r: &mut TypedResults2D) {
+//!     r.reactions[0].my = Force::from_kn(1.0);
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Moment, TypedResults2D};
+//! fn wrong(r: &mut TypedResults2D) {
+//!     r.element_forces[0].v_start = Moment::from_kn_m(1.0);
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Force, TypedResults2D};
+//! fn wrong(r: &mut TypedResults2D) {
+//!     r.element_forces[0].q_j = Force::from_kn(1.0);
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Angle, TypedResults3D};
+//! fn wrong(r: &mut TypedResults3D) {
+//!     r.displacements[0].uy = Angle::from_rad(0.01);
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Force, TypedResults3D};
+//! fn wrong(r: &mut TypedResults3D) {
+//!     r.reactions[0].mz = Force::from_kn(1.0);
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Moment, TypedResults3D};
+//! fn wrong(r: &mut TypedResults3D) {
+//!     r.reactions[0].bimoment = Some(Moment::from_kn_m(1.0));
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Force, TypedResults3D};
+//! fn wrong(r: &mut TypedResults3D) {
+//!     r.element_forces[0].my_end = Force::from_kn(1.0);
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Moment, TypedResults3D};
+//! fn wrong(r: &mut TypedResults3D) {
+//!     r.element_forces[0].n_end = Moment::from_kn_m(1.0);
+//! }
+//! ```
+//! ```compile_fail,E0308
+//! use dedaliano_engine::types::units::{Force, TypedResults3D};
+//! fn wrong(r: &mut TypedResults3D) {
+//!     r.element_forces[0].length = Force::from_kn(3.0);
+//! }
+//! ```
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
