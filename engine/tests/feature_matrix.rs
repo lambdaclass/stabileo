@@ -3261,3 +3261,30 @@ fn feature_models_exported() {
     let on_disk = std::fs::read_dir(&dir).map(|d| d.count()).unwrap_or(0);
     assert!(stale.is_empty() && on_disk == files.len(), "metamorphic_corpus/feature_matrix is out of date ({} stale): rerun with UPDATE_METAMORPHIC_CORPUS=1", stale.len());
 }
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_moving_3d_reference_includes_interior_forces() {
+    let a = rows_3d().into_iter().find(|a| a.name == "moving loads").unwrap();
+    let cases: Vec<_> = cases_3d().into_iter().filter(|c| matches!(c.feature,
+        "baseline frame" | "truss element" | "Timoshenko shear area" |
+        "local axes (roll angle)" | "spring support (rotational)"
+    )).collect();
+    assert_eq!(cases.len(), 5);
+    for c in cases {
+        let cell = run_3d(&c, &a);
+        assert_eq!(cell.verdict, Verdict::Supported, "{} / {}: {}", c.feature, c.variant, cell.note);
+    }
+    let length = 3.7;
+    let mut m = beam3(1, length, 1);
+    m.sup(1, [true, true, true, true, false, false]);
+    m.sup(2, [false, true, true, true, false, false]);
+    let mut c = Case3::base("baseline frame", "single span", &[], m.clone(), m, vec![1, 2]);
+    c.path = Some(vec![1]);
+    let Out::S(reference, _) = moving_reference_3d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
+    let expected = (0..=7).map(|i| {
+        let x = 0.5 * i as f64;
+        50.0 * x * (length - x) / length
+    }).fold(0.0, f64::max);
+    assert!((reference[0] - expected).abs() < 1e-9, "interior reference: {} vs {expected}", reference[0]);
+}

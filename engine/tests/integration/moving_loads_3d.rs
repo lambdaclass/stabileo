@@ -600,3 +600,65 @@ fn issue_1782_axial_patch_boundaries_govern_3d_moving_envelope() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_moving_3d_point_jump_limits_are_reversal_invariant() {
+    use dedaliano_engine::metamorphic::reversal::reverse_3d;
+    let (length, a, q, p) = (10.0, 3.37, 4.0, -60.0);
+    let expected = -(q * length / 2.0 + p * (length - a) / length) + q * a;
+    let mut solver = make_ss_beam_3d();
+    solver.loads = vec![
+        SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            element_id: 1, q_xi: 0.0, q_xj: 0.0, q_yi: 0.0, q_yj: 0.0,
+            q_zi: q, q_zj: q, a: None, b: None,
+        }),
+        SolverLoad3D::PointOnElement(SolverPointLoad3D {
+            element_id: 1, a, px: 0.0, py: 0.0, pz: p,
+        }),
+    ];
+    for s in [solver.clone(), reverse_3d(&solver, &|_| true).unwrap()] {
+        let r = solve_moving_loads_3d(&MovingLoadInput3D {
+            solver: s, train: LoadTrain { name: "permanent loads".into(), axles: vec![] },
+            step: Some(0.7), path_element_ids: Some(vec![1]), gravity_direction: None,
+        }).unwrap();
+        let actual = r.elements["1"].vz_max_pos;
+        assert!((actual - expected).abs() < 1e-9, "jump shear: {actual} vs {expected}");
+    }
+    for axial in [false, true] {
+        for sign in [-1.0, 1.0] {
+            let mut s = make_ss_beam_3d();
+            s.loads = vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                element_id: 1, q_xi: if axial { sign * q } else { 0.0 },
+                q_xj: if axial { sign * q } else { 0.0 },
+                q_yi: if axial { 0.0 } else { sign * q },
+                q_yj: if axial { 0.0 } else { sign * q },
+                q_zi: 0.0, q_zj: 0.0, a: None, b: None,
+            })];
+            for fraction in [0.25, 0.75] {
+                s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                    element_id: 1, a, px: if axial { sign * p * fraction } else { 0.0 },
+                    py: if axial { 0.0 } else { sign * p * fraction }, pz: 0.0,
+                }));
+            }
+            let (lo, hi) = if axial {
+                (q * (length - a) + p, q * (length - a))
+            } else { (expected + p, expected) };
+            for reverse in [false, true] {
+                let solver = if reverse { reverse_3d(&s, &|_| true).unwrap() } else { s.clone() };
+                let units = dedaliano_engine::metamorphic::units::Units::froude(0.3048, 4.448);
+                let solver = dedaliano_engine::metamorphic::units::scale_3d(&solver, &units);
+                let r = solve_moving_loads_3d(&MovingLoadInput3D {
+                    solver, train: LoadTrain { name: "coincident loads".into(), axles: vec![] },
+                    step: Some(0.7 * units.length), path_element_ids: Some(vec![1]), gravity_direction: None,
+                }).unwrap();
+                let e = &r.elements["1"];
+                let (actual_lo, actual_hi) = if axial { (e.n_max_neg, e.n_max_pos) } else { (e.vy_max_neg, e.vy_max_pos) };
+                let multiplier = units.force * if reverse && !axial { -sign } else { sign };
+                let (want_lo, want_hi) = ((multiplier * lo).min(multiplier * hi), (multiplier * lo).max(multiplier * hi));
+                assert!((actual_lo - want_lo).abs() < 1e-9, "axial={axial} sign={sign} reverse={reverse}: lower limit: {actual_lo} vs {want_lo}");
+                assert!((actual_hi - want_hi).abs() < 1e-9, "axial={axial} sign={sign} reverse={reverse}: upper limit: {actual_hi} vs {want_hi}");
+            }
+        }
+    }
+}
