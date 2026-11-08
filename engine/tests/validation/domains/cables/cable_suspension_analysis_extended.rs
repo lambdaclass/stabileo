@@ -90,7 +90,7 @@ const IZ_TRUSS: f64 = 1e-10; // near-zero for truss elements
 // Reference: Hibbeler, "Structural Analysis" 10th Ed., §5.2
 
 #[test]
-fn validation_cable_multi_point_loaded() {
+fn validation_cable_multi_point_loaded_is_refused_as_a_mechanism() {
     let span: f64 = 12.0;
     let d: f64 = 2.0; // sag at loaded nodes
     let p: f64 = 10.0; // load at each intermediate node
@@ -118,40 +118,8 @@ fn validation_cable_multi_point_loaded() {
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A_CABLE, IZ_TRUSS)],
         elems, sups, loads);
-    let results = linear::solve_2d(&input).unwrap();
-
-    // Analytical: H = P*L/(3*d) = 10*12/(3*2) = 20 kN
-    let h_expected: f64 = p * span / (3.0 * d);
-    crate::common::assert_close(h_expected, 20.0, 0.001, "H analytical = 20 kN");
-
-    // Vertical reactions: symmetric loading, V1 = V2 = P each
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    crate::common::assert_close(r1.rz, p, 0.02, "V_left = P");
-    crate::common::assert_close(r4.rz, p, 0.02, "V_right = P");
-
-    // Horizontal reactions should equal H
-    crate::common::assert_close(r1.rx.abs(), h_expected, 0.02, "H_left");
-    crate::common::assert_close(r4.rx.abs(), h_expected, 0.02, "H_right");
-
-    // Middle segment (bar 2) should carry pure horizontal tension = H
-    let ef2 = results.element_forces.iter().find(|e| e.element_id == 2).unwrap();
-    crate::common::assert_close(ef2.n_start, h_expected, 0.02, "Middle segment tension = H");
-
-    // Inclined segments: T = sqrt(H^2 + V^2) where V = P
-    let l1: f64 = ((span / 3.0).powi(2) + d.powi(2)).sqrt();
-    let t_inclined: f64 = (h_expected.powi(2) + p.powi(2)).sqrt();
-    let _ = l1;
-    let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
-    let ef3 = results.element_forces.iter().find(|e| e.element_id == 3).unwrap();
-
-    crate::common::assert_close(ef1.n_start.abs(), t_inclined, 0.02, "T1 inclined segment");
-    crate::common::assert_close(ef3.n_start.abs(), t_inclined, 0.02, "T3 inclined segment");
-
-    // All segments in tension
-    assert!(ef1.n_start > 0.0, "Segment 1 tension");
-    assert!(ef2.n_start > 0.0, "Segment 2 tension");
-    assert!(ef3.n_start > 0.0, "Segment 3 tension");
+    let refused = linear::solve_2d(&input).map(|_| ()).expect_err("a chain of pin-ended bars is a mechanism");
+    assert!(refused.starts_with("the structure is a mechanism"), "{refused}");
 }
 
 // ================================================================

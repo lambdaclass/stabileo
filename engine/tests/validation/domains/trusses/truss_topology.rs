@@ -142,6 +142,7 @@ fn validation_truss_pratt_pattern() {
         // Pratt diagonals (slope toward midspan)
         (11, "truss", 1, 6, 1, 1, false, false), // left panel
         (12, "truss", 7, 4, 1, 1, false, false), // right panel (mirror)
+        (13, "truss", 2, 7, 1, 1, false, false),
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "rollerX")];
     // Loads at top chord joints
@@ -205,6 +206,7 @@ fn validation_truss_howe_pattern() {
         // Howe diagonals (slope away from midspan)
         (11, "truss", 5, 2, 1, 1, false, false), // left panel
         (12, "truss", 3, 8, 1, 1, false, false), // right panel
+        (13, "truss", 6, 3, 1, 1, false, false),
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "rollerX")];
     let loads = vec![

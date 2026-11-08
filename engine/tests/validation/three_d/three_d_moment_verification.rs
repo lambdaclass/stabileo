@@ -277,7 +277,7 @@ fn validation_ss_beam_midspan_moment_fz() {
     let mid_node = n / 2 + 1;
 
     // Pinned at start (all translations fixed, rotations free)
-    let pinned = vec![true, true, true, false, false, false];
+    let pinned = vec![true, true, true, true, false, false];
     // Roller at end: only uy and uz fixed (free to slide in x, free rotations)
     let roller = vec![false, true, true, false, false, false];
 
@@ -438,7 +438,7 @@ fn validation_zero_moment_axis() {
     let mid_node = n / 2 + 1;
 
     // Pinned at start, roller at end
-    let pinned = vec![true, true, true, false, false, false];
+    let pinned = vec![true, true, true, true, false, false];
     let roller = vec![false, true, true, false, false, false];
 
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {

@@ -47,9 +47,49 @@ warning or none:
 | MITC9 twisted strip, 24×8 mesh, `t = 0.0254` and `0.047` (`t/L` about 0.002 to 0.004) | Singular | `κ_S A` = 3.8e10 × 8.4e2 and 1.1e10 × 1.2e3 |
 | Cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496) | Mechanism | weak-axis translation below `1e-12` of the strong one |
 | Beam with `A = 0.01`, `I = 1e-12` | Singular | `κ_S A` = 1.5e3 × 8.3e8 |
+| One-layer solid-shell strip in pure bending, `t/L = 1e-3` | Singular | `κ_S A` = 5.9e12 × 4.3; its test allowed an error of 1e-3 there (its comment measured about 2e-4), against 1e-6 at `t/L = 0.01` |
 
 Thin quadratic shells (MITC9) of that slenderness are refused; MITC4 on the same strip is
 Stable and solved as before.
+
+### Benchmarks refused, pending a decision
+
+The full engine suite (8839 tests, run without fail-fast) also refuses these, all on
+`κ_S A > 1e12`. Each passed its reference before, so the verdict is conservative here. Their
+tests still expect a solve and fail; they are not changed until the threshold is decided:
+
+| Test | Model | `κ_S A` |
+|---|---|---|
+| `benchmark_raasch_hook` | Raasch hook, MITC4, finer meshes (`t/R` about 1.4e-3) | 2.5e9 × 6.3e2 |
+| `benchmark_q9_raasch_hook` | Raasch hook, MITC9 | 3.4e9 × 7.6e2 |
+| `benchmark_q9_spherical_cap` | spherical cap, MITC9 | 8.7e5 × 1.5e7 |
+| `benchmark_spherical_cap_self_convergence` | spherical cap, MITC4, 32×32 (refused before the SH-MITC4-DISTORTION containment) | above 1e12 |
+| `sh_thin_cantilever_strip_does_not_shear_lock` | cantilever strip, `t/L = 1e-3` | 1.9e9 × 6.9e2 |
+| `validation_ssi_foundation_flexibility_ratio`, `validation_winkler_stiffness_ratio_limits` | beam with `Iz = 1` on Winkler springs of 1000 | 3.3e9 × 1.9e4 |
+
+### Test models that were mechanisms
+
+These tests solved a mechanism through the artificial springs; their models now hold the
+unloaded rigid or racking motion, and their checks pass against the same references:
+
+- 3D beams pinned with the rotation about their own axis free (`validation_ss_beam_midspan_moment_fz`,
+  `validation_zero_moment_axis`, `validation_fixed_vs_pinned_deflection_ratio`): the pin holds it.
+- Planar arches and rings whose two supports leave the rotation about the line through them free
+  (`validation_curved_parabolic_arch`, `validation_curved_roark_ring_diametral_loads`,
+  `capability_vm44_roark_circular_ring`): one support holds it.
+- Pratt and Howe trusses with no diagonal in the middle panel: one is added; it carries nothing
+  under the symmetric load.
+- The 3D truss bridge: unbraced floor, top and cross frames, and supports that left the turn in
+  plan free; braced, and the second support at `x = 0` pinned.
+- MITC4 plates held out of plane and at one corner (`sparse_3d_parity`, `sparse_3d_benchmark`,
+  `sparse_3d_drilling_regression`, `pcg_solver_tests`, `constrained_shell_stress`): a second
+  corner is held in `y`.
+- The 3D three-hinge arch released its out-of-plane axis (`mz`; local `z` is the global `Z`
+  projected off the member), which with pinned supports is a mechanism; it now releases `my`.
+
+Two are mechanisms by nature and now assert the refusal: a parabolic arch of pin-ended bars and a
+three-bar cable, both chains whose load is funicular. `#458` (concurrent inclined rollers) is
+refused, so its mechanism-fuzz regression no longer carries `knownIssue`.
 
 ## Random models no longer certified end to end
 

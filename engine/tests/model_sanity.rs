@@ -467,8 +467,8 @@ fn geometry_in_millimetres_is_caught() {
 
 #[test]
 fn a_structure_that_only_just_stands_is_caught() {
-    // One storey on pins along y = 0, the rest held up by springs of 1 N/m: it solves, and the
-    // answer is a rigid-body tilt.
+    // One storey on pins along y = 0, the rest held up by springs of 1 N/m: the linear solve
+    // refuses it, and the review without a solve still names the soft springs.
     let s = Spec { ns: 1, ..Spec::steel() };
     let mut b = building(&s);
     for iy in 0..=s.ny {
@@ -486,17 +486,19 @@ fn a_structure_that_only_just_stands_is_caught() {
     }
     let mut dead = floor_loads(&s, &b, s.dead);
     dead.extend(self_weight_loads(&s, &b));
+    let mut loaded = b.input.clone();
+    loaded.loads = dead.clone();
+    let refused = linear::solve_3d(&loaded).map(|_| ()).expect_err("a structure that only just stands is refused");
+    assert!(refused.starts_with("the structure is a mechanism or so close to one"), "{refused}");
     let input = sanity_input(
         &b.input,
         s.rho,
         s.fy,
         vec![CaseDef { id: 1, name: "D", kind: CaseKind::Dead, loads: dead, self_weight: true }],
-        true,
+        false,
     );
     let r = review(&input);
     assert!(r.has(SanityCode::SpringSoft), "{:?}", codes(&r));
-    let f = find(&r, SanityCode::DisplacementAbsurd);
-    assert_eq!(f.severity, Severity::Error);
 }
 
 #[test]

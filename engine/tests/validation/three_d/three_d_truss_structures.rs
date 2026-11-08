@@ -298,12 +298,19 @@ fn validation_3d_truss_bridge_symmetric_forces() {
     for i in 0..4 { elems.push((eid, "truss", i + 1, i + 5, 1, 1)); eid += 1; }
     // Portal braces top (connecting left/right top)
     for i in 0..4 { elems.push((eid, "truss", i + 9, i + 13, 1, 1)); eid += 1; }
+    for (a, b) in [(1, 6), (5, 2), (9, 14), (13, 10)] {
+        for i in 0..3 { elems.push((eid, "truss", i + a, i + b, 1, 1)); eid += 1; }
+    }
+    for i in 0..4 {
+        elems.push((eid, "truss", i + 1, i + 13, 1, 1)); eid += 1;
+        elems.push((eid, "truss", i + 5, i + 9, 1, 1)); eid += 1;
+    }
 
     // Supports at bottom corners: nodes 1, 4 (left) and 5, 8 (right)
     let sups = vec![
         (1,  vec![true, true, true, false, false, false]),  // node 1 pinned
         (4,  vec![false, false, true, false, false, false]), // node 4 roller z
-        (5,  vec![false, true, true, false, false, false]),  // node 5 roller yz
+        (5,  vec![true, true, true, false, false, false]),
         (8,  vec![false, false, true, false, false, false]), // node 8 roller z
     ];
 

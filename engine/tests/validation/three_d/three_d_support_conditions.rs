@@ -180,7 +180,7 @@ fn validation_fixed_vs_pinned_deflection_ratio() {
     assert_close(delta_cantilever, delta_cantilever_analytical, 0.02, "cantilever PL^3/(3EI)");
 
     // Simply-supported: pinned at both ends, midspan load
-    let pinned = vec![true, true, true, false, false, false];
+    let pinned = vec![true, true, true, true, false, false];
     let roller = vec![false, true, true, false, false, false];
     let mid_node = n / 2 + 1;
     let loads_mid = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {

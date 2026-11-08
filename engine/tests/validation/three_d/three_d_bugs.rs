@@ -415,12 +415,10 @@ fn bug_3d_hinge_over_release_three_hinge_arch() {
             mx: 0.0, my: 0.0, mz: 0.0, bw: None,
         })],
     );
-    // Hinge at crown (node 2) for both elements.
-    // NOTE: Per the new schema, only the in-plane bending rotation needs release.
-    // Using release_mz here (one release per hinge end). The test will still fail
-    // at runtime ("Singular stiffness matrix") until per-axis condensation lands.
-    input.elements.get_mut("1").unwrap().release_mz_end = true;
-    input.elements.get_mut("2").unwrap().release_mz_start = true;
+    // Hinge at crown (node 2) for both elements, about the in-plane bending axis:
+    // local y, since local z is the global Z projected off the member.
+    input.elements.get_mut("1").unwrap().release_my_end = true;
+    input.elements.get_mut("2").unwrap().release_my_start = true;
 
     let result = linear::solve_3d(&input);
     assert!(
