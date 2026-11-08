@@ -4,7 +4,7 @@ import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
 import { registerCirsoc301Kernel } from './codes/argentina/cirsoc301-kernel';
-import { registerCirsoc301InputsKernel } from './steel/moment-gradient';
+import { registerCirsoc301InputsKernel } from './steel/cirsoc301-inputs';
 import type { PlateThickness } from './shell-combos';
 import { packedShellCombinationKernel, packedShellEnvelopeKernel, registerShellCombinationKernel, registerShellEnvelopeKernel } from './shell-combination-kernel';
 import { registerCirsoc201Engine } from './codes/argentina/cirsoc201-engine';

@@ -205,3 +205,106 @@ fn the_maximum_includes_an_interpolated_segment_end() {
     close(g.m_max, 125.0);
     close(g.cb, f11(125.0, g.m_a, g.m_b, g.m_c));
 }
+
+fn section(shape: &str, b: f64, h: f64, tw: f64, tf: f64, iz: f64) -> SectionConstantsInput {
+    SectionConstantsInput { shape: Some(shape.into()), b: Some(b), h: Some(h), tw: Some(tw), tf: Some(tf), iz: Some(iz), ..Default::default() }
+}
+
+fn plate_sum_j(plates: &[(f64, f64)]) -> f64 {
+    plates.iter().map(|&(len, t)| len * t * t * t / 3.0).sum()
+}
+
+fn rel(actual: f64, expected: f64, tol: f64) {
+    assert!(((actual - expected) / expected).abs() <= tol, "{actual} against {expected}");
+}
+
+#[test]
+fn ipe_300_thin_walled_j_and_warping_constant() {
+    let (b, h, tw, tf, iz) = (0.150, 0.300, 0.0071, 0.0107, 604e-8);
+    let k = section_constants(&section("I", b, h, tw, tf, iz)).unwrap();
+    assert_eq!(k.j_basis, JBasis::ThinWalled);
+    rel(k.j, plate_sum_j(&[(b, tf), (b, tf), (h - 2.0 * tf, tw)]), 1e-14);
+    rel(k.cw.unwrap(), iz * (h - tf) * (h - tf) / 4.0, 1e-15);
+    assert_eq!((k.c, k.sy, k.zx, k.zy), (None, None, None, None));
+}
+
+#[test]
+fn heb_200_is_an_i_for_the_closed_forms() {
+    let (b, h, tw, tf, iz) = (0.200, 0.200, 0.009, 0.015, 2003e-8);
+    let k = section_constants(&section("H", b, h, tw, tf, iz)).unwrap();
+    rel(k.j, plate_sum_j(&[(b, tf), (b, tf), (h - 2.0 * tf, tw)]), 1e-14);
+    rel(k.cw.unwrap(), iz * (h - tf).powi(2) / 4.0, 1e-15);
+}
+
+#[test]
+fn upn_200_channel_by_hand() {
+    let (b, h, tw, tf, iz) = (0.075, 0.200, 0.0085, 0.0115, 148e-8);
+    let k = section_constants(&section("U", b, h, tw, tf, iz)).unwrap();
+    let (h0, bp) = (h - tf, b - tw / 2.0);
+    let e0 = 3.0 * bp * bp * tf / (6.0 * bp * tf + h0 * tw);
+    let cw = tf * bp.powi(3) * h0 * h0 / 12.0 * (2.0 - 3.0 * e0 / bp);
+    rel(k.cw.unwrap(), cw, 1e-13);
+    rel(k.cw.unwrap() * 1e18, 1.050e10, 5e-3);
+    rel(k.c.unwrap(), 1.119, 1e-3);
+    let parts = [(b * tf, b / 2.0), (b * tf, b / 2.0), ((h - 2.0 * tf) * tw, tw / 2.0)];
+    let x_bar = parts.iter().map(|p| p.0 * p.1).sum::<f64>() / parts.iter().map(|p| p.0).sum::<f64>();
+    rel(k.sy.unwrap(), iz / (b - x_bar), 1e-14);
+    rel(k.sy.unwrap() * 1e9, 27925.0, 2e-3);
+    assert_eq!(k.j_basis, JBasis::None);
+}
+
+#[test]
+fn a_stated_j_wins_then_the_geometry_then_the_plates() {
+    let base = section("I", 0.150, 0.300, 0.0071, 0.0107, 604e-8);
+    let declared = SectionConstantsInput { j: Some(20.1e-8), geometry_j: Some(19e-8), ..base.clone() };
+    let k = section_constants(&declared).unwrap();
+    assert_eq!((k.j, k.j_basis), (20.1e-8, JBasis::Declared));
+    let geometry = SectionConstantsInput { j: Some(0.0), geometry_j: Some(19e-8), ..base.clone() };
+    let k = section_constants(&geometry).unwrap();
+    assert_eq!((k.j, k.j_basis), (19e-8, JBasis::Geometry));
+    let neither = SectionConstantsInput { geometry_j: Some(-1.0), ..base };
+    assert_eq!(section_constants(&neither).unwrap().j_basis, JBasis::ThinWalled);
+}
+
+#[test]
+fn geometry_moduli_pass_through() {
+    let s = SectionConstantsInput { geometry_zx: Some(628e-6), geometry_zy: Some(125e-6), ..section("I", 0.15, 0.3, 0.0071, 0.0107, 604e-8) };
+    let k = section_constants(&s).unwrap();
+    assert_eq!((k.zx, k.zy), (Some(628e-6), Some(125e-6)));
+}
+
+#[test]
+fn shapes_and_plates_outside_the_closed_forms_get_none() {
+    for shape in ["RHS", "CHS", "T", "L", "rect", "generic"] {
+        let k = section_constants(&section(shape, 0.1, 0.1, 0.005, 0.005, 1e-6)).unwrap();
+        assert_eq!((k.j, k.j_basis, k.cw, k.c, k.sy), (0.0, JBasis::None, None, None, None), "{shape}");
+    }
+    let thick = section("I", 0.1, 0.02, 0.005, 0.01, 1e-6);
+    assert_eq!(section_constants(&thick).unwrap().j_basis, JBasis::None);
+    let negative = section("I", -0.1, 0.3, 0.007, 0.01, 1e-6);
+    assert_eq!(section_constants(&negative).unwrap().j_basis, JBasis::None);
+    let no_iz = SectionConstantsInput { iz: None, ..section("U", 0.075, 0.2, 0.0085, 0.0115, 1.0) };
+    let k = section_constants(&no_iz).unwrap();
+    assert_eq!((k.cw, k.c, k.sy), (None, None, None));
+}
+
+#[test]
+fn non_finite_section_data_is_refused() {
+    let s = SectionConstantsInput { tw: Some(f64::NAN), ..section("I", 0.15, 0.3, 0.0071, 0.0107, 604e-8) };
+    assert!(section_constants(&s).is_err());
+    let s = SectionConstantsInput { geometry_zx: Some(f64::INFINITY), ..section("I", 0.15, 0.3, 0.0071, 0.0107, 604e-8) };
+    assert!(section_constants(&s).is_err());
+}
+
+#[test]
+fn the_section_constants_request_answers_in_the_app_field_names() {
+    let req: Cirsoc301InputsRequest = serde_json::from_str(
+        r#"{"op":"sectionConstants","shape":"U","b":0.075,"h":0.2,"tw":0.0085,"tf":0.0115,"iz":1.48e-6,"geometryZx":1e-4}"#,
+    ).unwrap();
+    let v = answer(&req).unwrap();
+    assert_eq!(v["jBasis"], "none");
+    assert_eq!(v["J"], 0.0);
+    assert!(v["Cw"].is_f64() && v["c"].is_f64() && v["Sy"].is_f64());
+    assert_eq!(v["Zx"], 1e-4);
+    assert!(v.get("Zy").is_none());
+}
