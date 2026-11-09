@@ -628,3 +628,18 @@ fn an_inclined_support_defers_the_sparse_proof_to_the_dense_path() {
     assert!(!result.is_solvable, "the frame rotates about the pin along the rollers' tangents: {}", result.diagnosis);
     assert!(result.mechanism_modes > 0, "the rotation about the pin is one mode");
 }
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_inclined_2d_ten_turn_normal_and_global_y_spring_coincide() {
+    for angle in [20.0 * std::f64::consts::PI, -20.0 * std::f64::consts::PI] {
+        let result = analyze_kinematics_2d(&inclined_2d_spring_beam(
+            Some(angle), [None, Some(1.0), None],
+        ));
+        assert_eq!(result.invalid_input, None);
+        assert!(result.is_solvable);
+        assert_eq!(result.mechanism_modes, 0);
+        assert_eq!(result.degree, 0, "angle={angle}");
+        assert_eq!(result.classification, "isostatic", "angle={angle}");
+    }
+}

@@ -610,3 +610,103 @@ fn issue_1780_3d_initial_load_fault_precedes_material_fault_in_sessions() {
     if let SolverLoad3D::Nodal(load) = &mut input.loads[0] { load.node_id = 99; }
     same_first_refusal_3d(input, "node 99 does not exist");
 }
+
+fn loaded_curved_arch() -> SolverInput3D {
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 5.0, 0.0, 3.0), (3, 10.0, 0.0, 0.0)],
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![],
+        vec![(1, vec![true; 6]), (3, vec![true; 6])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 2, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    input.curved_beams.push(CurvedBeamInput {
+        node_start: 1, node_mid: 2, node_end: 3, material_id: 1, section_id: 1,
+        num_segments: 8, hinge_start: false, hinge_end: false,
+    });
+    input
+}
+
+fn assert_same_3d_response(actual: &AnalysisResults3D, expected: &AnalysisResults3D) {
+    assert_eq!(serde_json::to_value(&actual.displacements).unwrap(), serde_json::to_value(&expected.displacements).unwrap());
+    assert_eq!(serde_json::to_value(&actual.element_forces).unwrap(), serde_json::to_value(&expected.element_forces).unwrap());
+    assert_eq!(serde_json::to_value(&actual.reactions).unwrap(), serde_json::to_value(&expected.reactions).unwrap());
+}
+
+#[test]
+fn issue_1780_loaded_curved_arch_matches_segments_direct_session_and_typed() {
+    use dedaliano_engine::load_session::LoadSession3D;
+    use dedaliano_engine::solver::linear::{expand_curved_beams_3d, prepare_static_3d, solve_3d};
+    use dedaliano_engine::types::units::ElasticInput3D;
+
+    let arch = loaded_curved_arch();
+    let segmented = expand_curved_beams_3d(&arch);
+    assert!(segmented.curved_beams.is_empty());
+    assert_eq!(segmented.elements.len(), 8);
+    assert_eq!(serde_json::to_value(&segmented.loads).unwrap(), serde_json::to_value(&arch.loads).unwrap());
+    let session = LoadSession3D::from_input(arch.clone()).unwrap();
+    let segmented_session = LoadSession3D::from_input(segmented.clone()).unwrap();
+    let prepared = prepare_static_3d(&arch).unwrap();
+    for factor in [1.0, 2.0, 0.0] {
+        let mut input = arch.clone();
+        let SolverLoad3D::Nodal(load) = &mut input.loads[0] else { panic!("nodal load") };
+        load.fz *= factor;
+        let mut explicit = segmented.clone();
+        explicit.loads = input.loads.clone();
+        let expected = solve_3d(&explicit).unwrap();
+        if factor != 0.0 {
+            assert!(expected.displacements.iter().any(|d| d.uz != 0.0));
+            assert!(expected.reactions.iter().any(|r| r.fz != 0.0));
+        }
+        assert_same_3d_response(&solve_3d(&input).unwrap(), &expected);
+        assert_same_3d_response(&session.solve_loads(&input.loads).unwrap(), &expected);
+        assert_same_3d_response(&segmented_session.solve_loads(&input.loads).unwrap(), &expected);
+        assert_same_3d_response(&prepared.solve_loads(&input.loads).unwrap(), &expected);
+        let typed: ElasticInput3D = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+        assert_same_3d_response(&solve_3d(&typed.into_legacy()).unwrap(), &expected);
+    }
+}
+
+#[test]
+fn issue_1780_curved_arch_generated_segment_load_is_refused_before_expansion() {
+    use dedaliano_engine::load_session::LoadSession3D;
+    use dedaliano_engine::solver::linear::{expand_curved_beams_3d, solve_3d};
+    use dedaliano_engine::types::units::ElasticInput3D;
+
+    let mut input = loaded_curved_arch();
+    let session = LoadSession3D::from_input(input.clone()).unwrap();
+    input.loads = vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        element_id: 1, q_xi: 0.0, q_xj: 0.0, q_yi: 0.0, q_yj: 0.0,
+        q_zi: -2.0, q_zj: -2.0, a: None, b: None,
+    })];
+    let expanded = expand_curved_beams_3d(&input);
+    assert!(expanded.elements.contains_key("1"));
+    let expected = solve_3d(&expanded).unwrap();
+    assert!(expected.displacements.iter().any(|d| d.uz != 0.0));
+    assert_same_3d_response(&session.solve_loads(&input.loads).unwrap(), &expected);
+    let error = "Distributed load: element 1 does not exist";
+    assert_eq!(solve_3d(&input).unwrap_err(), error);
+    let typed: ElasticInput3D = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+    assert_eq!(solve_3d(&typed.into_legacy()).unwrap_err(), error);
+    assert_eq!(LoadSession3D::from_input(input).err().unwrap(), error);
+}
+
+#[test]
+fn issue_1780_2d_loads_match_direct_session_and_typed() {
+    use dedaliano_engine::load_session::LoadSession2D;
+    use dedaliano_engine::solver::linear::{solve_2d, solve_2d_typed};
+    use dedaliano_engine::types::units::ElasticInput2D;
+
+    let mut input = beam_2d();
+    let session = LoadSession2D::from_input(input.clone()).unwrap();
+    for factor in [1.0, 2.0, 0.0] {
+        let SolverLoad::Nodal(load) = &mut input.loads[0] else { panic!("nodal load") };
+        load.fz = -10.0 * factor;
+        let expected = serde_json::to_value(solve_2d(&input).unwrap()).unwrap();
+        assert_eq!(serde_json::to_value(session.solve_loads(&input.loads).unwrap()).unwrap(), expected);
+        let typed: ElasticInput2D = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+        assert_eq!(serde_json::to_value(solve_2d_typed(&typed).unwrap()).unwrap(), expected);
+    }
+}
