@@ -314,3 +314,26 @@ engine/src/postprocess/section_stress_3d.rs: (n_over_a + if rs.iz > 1e-15 { mz *
 engine/src/postprocess/section_stress_3d.rs: } else { 0.0 };
 engine/src/postprocess/section_stress_3d.rs: let n_over_a = if rs.a > 1e-15 { n / rs.a } else { 0.0 };
 engine/src/postprocess/section_stress_3d.rs: } else { 0.0 };
+
+## Buckling round-off bookkeeping: a member without an entry has no axial-force error bound or span-axial contribution, so its bound is zero.
+engine/src/solver/buckling.rs: let resolvable = |id: &usize, n: f64| n < -axial_noise.get(id).copied().unwrap_or(0.0);
+engine/src/solver/buckling.rs: -n, axial_noise.get(&id).copied().unwrap_or(0.0)
+engine/src/solver/buckling.rs: out.insert(e.id, 100.0 * f64::EPSILON * (elongation + end_forces.get(&e.id).copied().unwrap_or(0.0)));
+engine/src/solver/buckling.rs: out.insert(e.id, 100.0 * f64::EPSILON * (elongation + end_forces.get(&e.id).copied().unwrap_or(0.0)));
+engine/src/solver/buckling.rs: *s = s.max(own.get(id).copied().unwrap_or(0.0));
+engine/src/solver/buckling.rs: let e = noise.get(&t.element_id).copied().unwrap_or(0.0);
+engine/src/solver/buckling.rs: if n_avg >= -axial_noise.get(&ef.element_id).copied().unwrap_or(0.0) {
+engine/src/solver/buckling.rs: let compression = |id: &usize, n: f64| n + span_least.get(id).copied().unwrap_or(0.0).min(0.0);
+engine/src/solver/buckling.rs: let resolvable = |id: &usize, n: f64| compression(id, n) < -axial_noise.get(id).copied().unwrap_or(0.0);
+engine/src/solver/buckling.rs: -n, axial_noise.get(&id).copied().unwrap_or(0.0)
+engine/src/solver/buckling.rs: if n_avg >= -axial_noise.get(&ef.element_id).copied().unwrap_or(0.0) { continue; }
+
+## Buckling end-force scales omit M/L only for a zero-length result, which input validation refuses before these functions run.
+engine/src/solver/buckling.rs: let moments = if f.length > 0.0 { f.m_start.abs().max(f.m_end.abs()) / f.length } else { 0.0 };
+engine/src/solver/buckling.rs: let moments = if f.length > 0.0 { f.my_start.abs().max(f.my_end.abs()).max(f.mz_start.abs()).max(f.mz_end.abs()) / f.length } else { 0.0 };
+
+## A constrained node absent from the free global DOF map has no free displacement in the buckling preload vector.
+engine/src/solver/buckling.rs: let at = |node: usize, i: usize| dof_num.global_dof(node, i).map(|d| u[d]).unwrap_or(0.0);
+
+## A geometric-stiffness term without a mean axial-force entry contributes no axial work.
+engine/src/solver/buckling.rs: let n = mean_n.get(&t.element_id).copied().unwrap_or(0.0);

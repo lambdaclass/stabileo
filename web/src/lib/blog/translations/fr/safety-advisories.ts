@@ -176,6 +176,12 @@ const body: PostBody = {
           "Corrigé après 0.5.0 ; sur stabileo.com depuis le 8 novembre 2026"
         ],
         [
+          "SA-2026-050",
+          "Le flambement pouvait transformer en zéro un calcul d’élancement ayant échoué, et les combinaisons pouvaient renvoyer des valeurs non finies dans un résultat réussi",
+          "Moyenne",
+          "Brouillon : correction pas encore fusionnée ni publiée"
+        ],
+        [
           "SA-2026-037",
           "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
           "Moyenne",
