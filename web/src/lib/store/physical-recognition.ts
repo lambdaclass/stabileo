@@ -23,6 +23,7 @@ import { GENERATED_KIND } from './generated-structures';
 import { physicalGroups } from './physical';
 import { plateSurfaceOf } from '../model/physical/plate';
 import { platesFromShells } from './plates-from-shells';
+import { adoptCurrentMesh, clearPlateMesh, plateOfShell, plateShellKeys, setPlateMeshSpec } from './physical-plates';
 import {
   DECISION_PLACES, EXTENT_PLACES, groupReferences, remapGroupReferences,
   type DroppedValue, type GroupRefPlace, type GroupReference,
@@ -408,7 +409,11 @@ export function applyRecognition(
     for (const r of removals) modelStore.removeGroup(r.id);
     for (const p of walls) {
       const q = p.draft.quads[0]!;
-      platesFromShells([`q${q}`], { keepMesh: shellLoaded(q), size: WALL_MESH_SIZE });
+      const plate = plateOfShell(`q${q}`);
+      if (plate === null) { platesFromShells([`q${q}`], { keepMesh: shellLoaded(q), size: WALL_MESH_SIZE }); continue; }
+      if (plateShellKeys(plate).length !== 1) continue;
+      setPlateMeshSpec([plate], { size: WALL_MESH_SIZE });
+      if (shellLoaded(q)) adoptCurrentMesh(plate); else clearPlateMesh(plate);
     }
   });
 

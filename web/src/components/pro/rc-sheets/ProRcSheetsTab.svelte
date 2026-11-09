@@ -4,6 +4,7 @@
   import { buildSheetRows, downloadRcSheets, rcSheetsData, setRcOption, setTorsionMode, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { recognizePhysicalElements, physicalGroups } from '../../../lib/store/physical';
   import { physicalPlates, plateStatus } from '../../../lib/store/physical-plates';
+  import { plateSurfaceOf } from '../../../lib/model/physical/plate';
   import { runGlobalSolve } from '../../../lib/engine/live-calc';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { SHEET_FAMILIES, type SheetFamily, type TorsionMode } from '../../../lib/rc-sheets/types';
@@ -13,7 +14,7 @@
   let family = $state<SheetFamily>('beam');
 
   const solved = $derived(!!resultsStore.results3D);
-  const hasPhysical = $derived.by(() => { void modelStore.model.groups; return physicalGroups().length > 0; });
+  const hasPhysical = $derived.by(() => { void modelStore.model.groups; return modelStore.elements.size === 0 ? physicalGroups().length > 0 : physicalGroups().some((g) => !plateSurfaceOf(g)); });
   const rows = $derived.by(() => {
     void resultsStore.perCombo3D; void resultsStore.results3D; void modelStore.designData; void modelStore.model.groups;
     return solved && hasPhysical ? buildSheetRows(makeFmt(decimalFor(i18n.locale))) : null;
