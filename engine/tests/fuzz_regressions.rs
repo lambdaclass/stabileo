@@ -796,3 +796,26 @@ fn issue_1870_subprocess_limits_reserve_the_runner() {
         assert!(isolated, "{name} must reserve every nextest thread in the engine config");
     }
 }
+
+
+fn opensees_support_tests(class: &str) {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let out = std::process::Command::new("python3")
+        .args(["-B", "-I", "tools/opensees/test_compare.py", class])
+        .current_dir(root)
+        .output()
+        .expect("run the OpenSees harness self-tests");
+    assert!(out.status.success(), "{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+}
+
+#[test]
+#[ignore = "known wrong result: #1120"]
+fn issue_1120_opensees_must_accept_correct_support_refusals() {
+    opensees_support_tests("SupportContractTest");
+}
+
+#[test]
+#[ignore = "known wrong result: #1191"]
+fn issue_1191_opensees_support_check_must_flag_seeded_wrong_results() {
+    opensees_support_tests("SupportContractSelfTest");
+}

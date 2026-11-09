@@ -1,4 +1,8 @@
+import copy
+import json
 import math
+import subprocess
+from pathlib import Path
 import os
 import sys
 import unittest
@@ -355,6 +359,121 @@ class IsolationTest(unittest.TestCase):
         self.assertEqual({k: seen[k] for k in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")},
                          {"OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"})
         self.assertEqual(seen["PATH"], os.environ.get("PATH", ""))
+
+
+def support_fixture(issue):
+    return json.loads((Path(__file__).parent / "fixtures" / f"issue-{issue}.json").read_text())
+
+
+def support_run(model, accepts=False, bad=None, dump_dir=None, output=None):
+    answer = output if output is not None else json.dumps({} if accepts else {"error": "independent engine refusal"})
+    result = dict(disp={}, reac={}, forces={}, diags=[], issues=[], converged=True, stable=True)
+    with mock.patch.object(C.subprocess, "run", return_value=subprocess.CompletedProcess(["engine"], 0, answer, "")), \
+            mock.patch.object(C, "normalize_stabileo", return_value=result), \
+            mock.patch.object(C, "stabileo_job", return_value=result), \
+            mock.patch.object(C, "normalize_ext", return_value=result), \
+            mock.patch.object(C, "opensees_isolated", return_value=dict(result, kappa=1.0)), \
+            mock.patch.object(C, "compare", return_value=(bad or [], {})):
+        return C.run_one("support-contract", model, "engine", 1e-6, False, dump_dir)
+
+
+class SupportContractTest(unittest.TestCase):
+    def test_published_invalid_support_models_are_correct_refusals(self):
+        for issue in (1120, 1121, 1191):
+            job = support_fixture(issue)
+            model = job.get("model", job)
+            for case in (model, dict(analysis="pdelta", model=model)):
+                with self.subTest(issue=issue, extended="analysis" in case):
+                    before = copy.deepcopy(case)
+                    r = support_run(case)
+                    self.assertEqual(r["status"], "refused")
+                    self.assertIn("independent engine refusal", r["why"][0])
+                    self.assertGreater(len(r["why"]), 1)
+                    self.assertEqual(case, before)
+
+    def test_2d_support_directions_and_aliases(self):
+        rigid = {"fixed": (0, 1, 2), "pinned": (0, 1), "rollerX": (1,),
+                 "rollerY": (0,), "rollerZ": (0,), "guidedX": (1, 2),
+                 "guidedY": (0, 2), "guidedZ": (0, 2), "spring": ()}
+        for typ, fixed in rigid.items():
+            for dof, keys in enumerate((("dx",), ("dz", "dy"), ("dry", "drz"))):
+                for key in keys:
+                    with self.subTest(typ=typ, key=key):
+                        d = support_fixture(1120)["model"]
+                        d["supports"] = {"1": dict(id=1, nodeId=1, type=typ, **{key: 1.0})}
+                        self.assertEqual(support_run(d)["status"], "false_reject" if dof in fixed else "refused")
+
+    def test_3d_free_and_spring_directions(self):
+        flags = ("rx", "ry", "rz", "rrx", "rry", "rrz")
+        springs = ("kx", "ky", "kz", "krx", "kry", "krz")
+        moves = ("dx", "dy", "dz", "drx", "dry", "drz")
+        for flag, spring, key in zip(flags, springs, moves):
+            for restrained, elastic in ((False, False), (False, True), (True, False), (True, True)):
+                with self.subTest(key=key, restrained=restrained, elastic=elastic):
+                    d = support_fixture(1121)["model"]
+                    s = dict.fromkeys(flags, True)
+                    s.update(nodeId=1, **{flag: restrained, spring: 1.0 if elastic else 0.0, key: 1.0})
+                    d["supports"] = {"1": s}
+                    self.assertEqual(support_run(d)["status"], "false_reject" if restrained and not elastic else "refused")
+
+    def test_rotations_require_rotational_dofs(self):
+        for issue, key in ((1120, "dry"), (1121, "drx")):
+            d = support_fixture(issue)["model"]
+            for e in d["elements"].values():
+                e["type"] = "truss"
+            s = copy.deepcopy(d["supports"]["1"])
+            s[key] = 1.0
+            d["supports"] = {"1": s}
+            self.assertEqual(support_run(d)["status"], "refused")
+
+    def test_zero_absent_and_non_imposed_values_are_not_invalid_settlements(self):
+        for value in (None, 0.0, 1e-15, -1e-15):
+            d = support_fixture(1120)["model"]
+            d["supports"] = {"1": dict(id=1, nodeId=1, type="rollerX", dx=value)}
+            self.assertEqual(support_run(d)["status"], "false_reject")
+
+
+class SupportContractSelfTest(unittest.TestCase):
+    def test_silently_accepted_invalid_supports_are_flagged_and_dumped(self):
+        import tempfile
+        for issue in (1120, 1121, 1191):
+            job = support_fixture(issue)
+            model = job.get("model", job)
+            for case in (model, dict(analysis="pdelta", model=model)):
+                with self.subTest(issue=issue, extended="analysis" in case), tempfile.TemporaryDirectory() as tmp:
+                    r = support_run(case, accepts=True, dump_dir=tmp)
+                    self.assertEqual(r["status"], "mismatch")
+                    self.assertIn(r["status"], C.FLAGGED)
+                    self.assertTrue(any("accepted" in why for why in r["why"]))
+                    self.assertEqual(json.loads((Path(tmp) / "support-contract.json").read_text()), case)
+
+    def test_valid_settlement_refusals_are_still_flagged(self):
+        for issue in (1120, 1121):
+            d = support_fixture(issue)["model"]
+            s = copy.deepcopy(d["supports"]["1"])
+            s["dx"] = 1.0
+            d["supports"] = {"1": s}
+            for case in (d, dict(analysis="pdelta", model=d)):
+                self.assertEqual(support_run(case)["status"], "false_reject")
+
+    def test_valid_settlement_results_are_still_compared(self):
+        wrong = [("disp", 1, "ux", 1.0, 0.0, 1.0)]
+        for issue in (1120, 1121):
+            d = support_fixture(issue)["model"]
+            s = copy.deepcopy(d["supports"]["1"])
+            s["dx"] = 1.0
+            d["supports"] = {"1": s}
+            for case in (d, dict(analysis="pdelta", model=d)):
+                r = support_run(case, accepts=True, bad=wrong)
+                self.assertEqual(r["status"], "mismatch")
+                self.assertEqual(r["worst"], wrong)
+                self.assertEqual(r["tol"], 1e-6)
+                self.assertEqual(support_run(case, accepts=True)["status"], "ok")
+
+    def test_a_crashed_engine_is_not_a_correct_input_refusal(self):
+        for issue in (1120, 1121, 1191):
+            with self.subTest(issue=issue), self.assertRaises(RuntimeError):
+                support_run(support_fixture(issue), output="not JSON")
 
 
 if __name__ == "__main__":
