@@ -13,7 +13,6 @@ use libfuzzer_sys::fuzz_target;
 /// grid slab template runs for over 25 minutes natively (reported in
 /// docs/verification/FUZZ_MUTANTS.md), so the fuzzer keeps 3D models small.
 const MAX_3D_SOLVE: usize = 40;
-const MAX_3D_CERTIFY: usize = 10;
 
 fuzz_target!(|data: &[u8]| {
     let Some((sel, _, json)) = split(data) else { return };
@@ -32,7 +31,7 @@ fuzz_target!(|data: &[u8]| {
         }
         _ => {
             run("certify_plastic_3d", json, |i: &PlasticInput3D| {
-                small(i, MAX_3D_CERTIFY)?;
+                dedaliano_engine_fuzz::plastic::certificate_budget_3d(i)?;
                 cplastic3::certify_plastic_3d(i)
             });
         }

@@ -807,3 +807,16 @@ evidence.research.biggins:
 
 wasm.research.biggins:
 	$(NIX_RUN) research/mechanics/biggins-2026/build.sh
+
+.PHONY: test.engine.plastic-budget replay.engine.plastic-budget test.engine.plastic-budget-watchdog
+
+test.engine.plastic-budget:
+	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --lib plastic::tests $(if $(IGNORED),-- --ignored)
+
+replay.engine.plastic-budget:
+	$(NIX_RUN) cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay -j 2
+	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
+
+test.engine.plastic-budget-watchdog:
+	$(NIX_RUN) cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay -j 2
+	$(NIX_RUN) python3 -B -I scripts/tests/test_plastic_budget_replay.py
