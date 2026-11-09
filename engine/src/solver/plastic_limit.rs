@@ -1,3 +1,4 @@
+use crate::solver::support::support_dofs_2d;
 use crate::postprocess::diagrams::compute_diagram_value_at;
 use crate::types::*;
 use std::collections::HashMap;
@@ -161,6 +162,7 @@ pub fn confirm_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<us
 }
 
 fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<Confirmation, String> {
+    super::support::validate_supports_2d(input)?;
     use crate::certify::exact::{q, to_f64_up, Q};
     if input.elements.len() > MAX_CERTIFIED_ELEMENTS {
         return Err(format!("more than {MAX_CERTIFIED_ELEMENTS} members: too large for the exact certificate"));
@@ -168,17 +170,8 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
     use crate::certify::plastic::{build_model, check_static, plastic_candidates, ElemLoad};
     let mut solver = mechanical(input);
     for sup in solver.supports.values_mut() {
-        let base = match sup.support_type.as_str() {
-            "fixed" => [true, true, true],
-            "pinned" => [true, true, false],
-            "rollerX" => [false, true, false],
-            "rollerY" | "rollerZ" => [true, false, false],
-            "guidedX" => [false, true, true],
-            "guidedY" | "guidedZ" => [true, false, true],
-            "spring" => [false, false, false],
-            _ => continue,
-        };
-        let sprung = [sup.kx, sup.ky, sup.kz].map(|k| k.is_some_and(|k| k > 0.0));
+        let base = support_dofs_2d(sup).map(|d| d.restrained);
+        let sprung = support_dofs_2d(sup).map(|d| d.spring).map(|k| k.is_some_and(|k| k > 0.0));
         sup.support_type = match [0, 1, 2].map(|i| base[i] || sprung[i]) {
             [true, true, true] => "fixed",
             [true, true, false] => "pinned",
@@ -382,6 +375,7 @@ fn extent(input: &SolverInput) -> f64 {
 /// left out. The linear program runs on sampled sections and adds the exact peak of every
 /// member's moment diagram until the field is admissible everywhere.
 pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>) -> Result<LimitResult, String> {
+    super::support::validate_supports_2d(input)?;
     if input.elements.len() > MAX_LIMIT_ELEMENTS {
         return Err(format!("more than {MAX_LIMIT_ELEMENTS} members: too large for the limit analysis"));
     }

@@ -1,0 +1,122 @@
+{
+  "_nightly_dens": {
+    "1": 3950.8746047747386
+  },
+  "_nightly_name": "fuzz_rich_2d/21236",
+  "connectors": {},
+  "constraints": [],
+  "elements": {
+    "1": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 1,
+      "materialId": 1,
+      "nodeI": 1,
+      "nodeJ": 2,
+      "sectionId": 2,
+      "type": "truss"
+    },
+    "2": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 2,
+      "materialId": 1,
+      "nodeI": 1,
+      "nodeJ": 3,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "3": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 3,
+      "materialId": 1,
+      "nodeI": 2,
+      "nodeJ": 4,
+      "sectionId": 2,
+      "type": "frame"
+    }
+  },
+  "loads": [
+    {
+      "data": {
+        "a": 6.0783915149318535,
+        "b": 9.061590047538456,
+        "elementId": 3,
+        "qI": -13.193258813483508,
+        "qJ": 3.9185933577701064
+      },
+      "type": "distributed"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 222337.53165609128,
+      "id": 1,
+      "nu": 0.21504236201826557
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 4.6956352013699565,
+      "z": -2.4814802906572098
+    },
+    "2": {
+      "id": 2,
+      "x": 1.92639675254539,
+      "z": 6.835536073724935
+    },
+    "3": {
+      "id": 3,
+      "x": -6.502702412841298,
+      "z": -7.658258164782151
+    },
+    "4": {
+      "id": 4,
+      "x": -5.190119326601,
+      "z": -1.404316602576504
+    }
+  },
+  "sections": {
+    "1": {
+      "a": 0.004183850061869581,
+      "asY": 0.003065365478747742,
+      "id": 1,
+      "iz": 2.285534265619946e-06
+    },
+    "2": {
+      "a": 0.009542892427022182,
+      "asY": null,
+      "id": 2,
+      "iz": 0.00022515018837092105
+    }
+  },
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 1,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "type": "fixed"
+    },
+    "2": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": -0.004521645939323986,
+      "id": 2,
+      "kx": 1896.5468743531942,
+      "ky": null,
+      "kz": null,
+      "nodeId": 4,
+      "type": "pinned"
+    }
+  }
+}

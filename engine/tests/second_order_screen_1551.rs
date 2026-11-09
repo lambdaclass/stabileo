@@ -380,6 +380,7 @@ fn compression_let_off_as_round_off_still_counts_once_a_combination_scales_it_up
     assert_eq!(second_order(&combined.structured_diagnostics), vec![]);
 
     let mut value = serde_json::to_value(cantilever_3d(1, -1.0, E, 1e-9, IDENTITY, [0.0; 3])).unwrap();
+    value["supports"]["1"]["rx"] = json!(false);
     value["supports"]["1"]["kx"] = json!(1e12);
     let tiny = solve_3d(&serde_json::from_value(value).unwrap()).unwrap();
     assert_eq!(second_order(&tiny.structured_diagnostics), vec![], "3D: a spring support bounds nothing, and 1e-9 kN is round-off");

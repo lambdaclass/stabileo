@@ -42,6 +42,10 @@ restrained.
 `main` (#491, merged and deployed to stabileo.com on 2026-10-20); released in 0.3.0. Every restrained DOF is solved as restrained, including in projects saved before the fix,
 and a spring is dropped when its DOF becomes restrained.
 
+That correction clears and filters springs at the web app boundary. The raw engine retained
+spring precedence in 3D input through v0.5.0; see the engine-level correction in
+[SA-2026-049](SA-2026-049-support-spring-conflicts.md), currently a local, unreleased fix.
+
 ## Workaround
 
 Check that restrained supports show zero displacement in the results. Where one does not, delete

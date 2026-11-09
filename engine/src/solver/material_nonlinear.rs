@@ -1,3 +1,4 @@
+use crate::solver::support::{support_dofs_3d};
 use crate::types::*;
 use crate::linalg::*;
 use crate::element::*;
@@ -1463,8 +1464,8 @@ fn assemble_tangent_stiffness_3d_scatter(
     // Add spring stiffness contributions.
     for sup in crate::ordered::values(&solver.supports) {
         let spring_dofs: [(usize, Option<f64>); 6] = [
-            (0, sup.kx), (1, sup.ky), (2, sup.kz),
-            (3, sup.krx), (4, sup.kry), (5, sup.krz),
+            (0, support_dofs_3d(sup)[0].spring), (1, support_dofs_3d(sup)[1].spring), (2, support_dofs_3d(sup)[2].spring),
+            (3, support_dofs_3d(sup)[3].spring), (4, support_dofs_3d(sup)[4].spring), (5, support_dofs_3d(sup)[5].spring),
         ];
         for &(local_dof, k_val) in &spring_dofs {
             if let Some(k) = k_val {
@@ -1617,8 +1618,8 @@ fn compute_global_internal_forces_3d(
     // Add spring force contributions.
     for sup in crate::ordered::values(&solver.supports) {
         let spring_dofs: [(usize, Option<f64>); 6] = [
-            (0, sup.kx), (1, sup.ky), (2, sup.kz),
-            (3, sup.krx), (4, sup.kry), (5, sup.krz),
+            (0, support_dofs_3d(sup)[0].spring), (1, support_dofs_3d(sup)[1].spring), (2, support_dofs_3d(sup)[2].spring),
+            (3, support_dofs_3d(sup)[3].spring), (4, support_dofs_3d(sup)[4].spring), (5, support_dofs_3d(sup)[5].spring),
         ];
         for &(local_dof, k_val) in &spring_dofs {
             if let Some(k) = k_val {

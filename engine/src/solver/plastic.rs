@@ -673,7 +673,7 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
     let mut rot_restrained: std::collections::HashSet<usize> = current_input
         .supports
         .values()
-        .filter(|s| matches!(s.support_type.as_str(), "fixed" | "guidedX" | "guidedY" | "guidedZ") || s.kz.unwrap_or(0.0) > 0.0)
+        .filter(|s| crate::solver::support::support_dofs_2d(s)[2].restrained || crate::solver::support::support_dofs_2d(s)[2].spring.unwrap_or(0.0) > 0.0)
         .map(|s| s.node_id)
         .collect();
     for c in &current_input.constraints {

@@ -14,6 +14,7 @@
 //! +α·Δt/h_y, `dtGradientZ` θy-curvature +α·Δt/h_z. Member loads in local
 //! axes. Inclined supports restrain the translation along their normal.
 
+use crate::solver::support::{support_dofs_3d, validate_supports_3d};
 use std::collections::HashMap;
 
 use super::element::*;
@@ -358,7 +359,7 @@ fn plain_3d(s: &SolverSupport3D) -> bool {
     !s.is_inclined.unwrap_or(false)
         && !s.rw.unwrap_or(false)
         && [s.normal_x, s.normal_y, s.normal_z].into_iter().all(|v| v.unwrap_or(0.0) == 0.0)
-        && [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz, s.kw, s.dx, s.dy, s.dz, s.drx, s.dry, s.drz]
+        && [support_dofs_3d(s)[0].spring, support_dofs_3d(s)[1].spring, support_dofs_3d(s)[2].spring, support_dofs_3d(s)[3].spring, support_dofs_3d(s)[4].spring, support_dofs_3d(s)[5].spring, support_dofs_3d(s)[6].spring, s.dx, s.dy, s.dz, s.drx, s.dry, s.drz]
             .into_iter()
             .all(|v| v.unwrap_or(0.0) == 0.0)
 }
@@ -367,25 +368,24 @@ fn plain_3d(s: &SolverSupport3D) -> bool {
 fn ignored_support_fields_3d(s: &SolverSupport3D, dpn: usize) -> Result<(), String> {
     let nz = |v: Option<f64>| v.unwrap_or(0.0) != 0.0;
     let node = s.node_id;
-    if s.rw.unwrap_or(false) || nz(s.kw) {
+    if s.rw.unwrap_or(false) || nz(support_dofs_3d(s)[6].spring) {
         return Err(format!("out of scope: warping restraint at node {node}"));
     }
     let inclined = s.is_inclined.unwrap_or(false);
     if !inclined && [s.normal_x, s.normal_y, s.normal_z].into_iter().any(nz) {
         return Err(format!("unsupported: a normal on the support at node {node}, which is not inclined"));
     }
-    if dpn < 6 && ([s.krx, s.kry, s.krz].into_iter().any(|k| k.unwrap_or(0.0) > 0.0) || [s.drx, s.dry, s.drz].into_iter().any(nz)) {
+    if dpn < 6 && ([support_dofs_3d(s)[3].spring, support_dofs_3d(s)[4].spring, support_dofs_3d(s)[5].spring].into_iter().any(|k| k.unwrap_or(0.0) > 0.0) || [s.drx, s.dry, s.drz].into_iter().any(nz)) {
         return Err(format!("unsupported: a rotational spring or prescribed rotation at node {node} of a model without rotations"));
     }
-    let flags = [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz];
-    let springs = [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz];
+    let flags = support_dofs_3d(s).map(|d| d.restrained);
     let pres = [s.dx, s.dy, s.dz, s.drx, s.dry, s.drz];
     for d in 0..6 {
         let used = if inclined {
             // translations: projected on the normal; rotations: by their flags
             d < 3 || flags[d]
         } else {
-            flags[d] && springs[d].unwrap_or(0.0) <= 0.0
+            support_dofs_3d(s)[d].restrained
         };
         if nz(pres[d]) && !used {
             return Err(format!("unsupported: a prescribed displacement on DOF {d} at node {node}, which its support leaves free"));
@@ -395,6 +395,7 @@ fn ignored_support_fields_3d(s: &SolverSupport3D, dpn: usize) -> Result<(), Stri
 }
 
 fn supports(input: &SolverInput3D, model: &mut Model, kin: &mut Kinematics, dpn: usize) -> Result<(), String> {
+    validate_supports_3d(input)?;
     let mut at: HashMap<usize, Vec<&SolverSupport3D>> = HashMap::new();
     for s in input.supports.values() {
         at.entry(s.node_id).or_default().push(s);
@@ -413,7 +414,7 @@ fn supports(input: &SolverInput3D, model: &mut Model, kin: &mut Kinematics, dpn:
                 return Err(format!("unsupported: several supports on node {node}"));
             }
             for d in 0..dpn {
-                if sups.iter().any(|s| [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz][d]) {
+                if sups.iter().any(|s| support_dofs_3d(s).map(|d| d.restrained)[d]) {
                     kin.fix(dof(d).unwrap(), I::ZERO);
                 }
             }
@@ -421,7 +422,7 @@ fn supports(input: &SolverInput3D, model: &mut Model, kin: &mut Kinematics, dpn:
         }
         let s = sups[0];
         ignored_support_fields_3d(s, dpn)?;
-        let springs = [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz];
+        let springs = [support_dofs_3d(s)[0].spring, support_dofs_3d(s)[1].spring, support_dofs_3d(s)[2].spring, support_dofs_3d(s)[3].spring, support_dofs_3d(s)[4].spring, support_dofs_3d(s)[5].spring];
         for (d, k) in springs.iter().enumerate() {
             if let Some(k) = *k {
                 if k < 0.0 {
@@ -433,7 +434,7 @@ fn supports(input: &SolverInput3D, model: &mut Model, kin: &mut Kinematics, dpn:
                 }
             }
         }
-        let flags = [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz];
+        let flags = support_dofs_3d(s).map(|d| d.restrained);
         let pres = [s.dx, s.dy, s.dz, s.drx, s.dry, s.drz];
         if s.is_inclined.unwrap_or(false) {
             let (Some(nx), Some(ny), Some(nz)) = (s.normal_x, s.normal_y, s.normal_z) else {
@@ -472,8 +473,7 @@ fn supports(input: &SolverInput3D, model: &mut Model, kin: &mut Kinematics, dpn:
             continue;
         }
         for d in 0..dpn {
-            let spring = springs[d].unwrap_or(0.0) > 0.0;
-            if flags[d] && !spring {
+            if support_dofs_3d(s)[d].restrained {
                 kin.fix(dof(d).unwrap(), pres[d].map(inp).unwrap_or(I::ZERO));
             }
         }

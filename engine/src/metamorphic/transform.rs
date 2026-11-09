@@ -185,19 +185,19 @@ enum Restraint2 {
 }
 
 fn restraint_2d(s: &SolverSupport) -> TResult<Restraint2> {
-    Ok(match s.support_type.as_str() {
-        "fixed" => Restraint2::Both { rot: true },
-        "pinned" => Restraint2::Both { rot: false },
-        "rollerX" => Restraint2::One { n: [0.0, 1.0], rot: false },
-        "rollerY" | "rollerZ" => Restraint2::One { n: [1.0, 0.0], rot: false },
-        "guidedX" => Restraint2::One { n: [0.0, 1.0], rot: true },
-        "guidedY" | "guidedZ" => Restraint2::One { n: [1.0, 0.0], rot: true },
-        "inclinedRoller" => match s.angle {
-            Some(th) => Restraint2::One { n: [th.sin(), th.cos()], rot: false },
-            None => Restraint2::One { n: [0.0, 1.0], rot: false },
-        },
-        "spring" => Restraint2::None,
-        other => return unrep(format!("support type {other:?}")),
+    if s.support_type == "inclinedRoller" {
+        let th = s.angle.unwrap_or(0.0);
+        return Ok(Restraint2::One { n: [th.sin(), th.cos()], rot: false });
+    }
+    if !matches!(s.support_type.as_str(), "spring" | "fixed" | "pinned" | "rollerX" | "rollerY" | "rollerZ" | "guidedX" | "guidedY" | "guidedZ") {
+        return unrep(format!("support type {:?}", s.support_type));
+    }
+    let [x, z, rot] = crate::solver::support::support_dofs_2d(s).map(|d| d.restrained);
+    Ok(match (x, z) {
+        (true, true) => Restraint2::Both { rot },
+        (true, false) => Restraint2::One { n: [1.0, 0.0], rot },
+        (false, true) => Restraint2::One { n: [0.0, 1.0], rot },
+        (false, false) => Restraint2::None,
     })
 }
 
