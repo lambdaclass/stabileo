@@ -1555,8 +1555,7 @@ fn solve_constrained_2d_dense_validated(
             // restrained inclined DOF (local_dof 1) is the normal direction.
             // Rotate into the inclined frame, mirroring prepare_static_2d.
             if let Some(theta) = sup.angle {
-                let c = theta.cos();
-                let s = theta.sin();
+                let [s, c] = super::assembly::inclined_rotation_matrix_2d(theta)[1];
                 let u_normal = sup.dx.unwrap_or(0.0) * s + sup.dz.unwrap_or(0.0) * c;
                 if u_normal.abs() > 1e-15 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
@@ -1888,8 +1887,7 @@ fn solve_constrained_2d_sparse(
         if sup.support_type == "spring" { continue; }
         if sup.support_type == "inclinedRoller" {
             if let Some(theta) = sup.angle {
-                let c = theta.cos();
-                let sn = theta.sin();
+                let [sn, c] = super::assembly::inclined_rotation_matrix_2d(theta)[1];
                 let u_normal = sup.dx.unwrap_or(0.0) * sn + sup.dz.unwrap_or(0.0) * c;
                 if u_normal.abs() > 1e-15 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {

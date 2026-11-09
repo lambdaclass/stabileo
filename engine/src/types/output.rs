@@ -241,6 +241,7 @@ pub enum DiagnosticCode {
     /// Same DOF is constrained by multiple constraints.
     ConflictingConstraints,
     ConflictingSupportSpring,
+    InvalidSupportAngle,
     /// Circular dependency in constraint chain (A→B→A).
     CircularConstraint,
     /// DOF is both constrained and restrained by a support.
@@ -387,7 +388,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk | DiagnosticCode::ShellDistortion | DiagnosticCode::SuspiciousLocalAxis | DiagnosticCode::ExcessiveDisplacement | DiagnosticCode::StiffnessNotPositiveDefinite => "model_quality",
             DiagnosticCode::NoCompressedElements => "model_quality",
             DiagnosticCode::EigenDecompositionFailed => "solver_path",
-            DiagnosticCode::ConflictingSupportSpring | DiagnosticCode::ConflictingConstraints | DiagnosticCode::CircularConstraint | DiagnosticCode::OverConstrainedDof => "constraints",
+            DiagnosticCode::InvalidSupportAngle | DiagnosticCode::ConflictingSupportSpring | DiagnosticCode::ConflictingConstraints | DiagnosticCode::CircularConstraint | DiagnosticCode::OverConstrainedDof => "constraints",
             DiagnosticCode::KnownIssue => "known_issue",
             DiagnosticCode::ThermalDefaultAssumed => "assumption",
             DiagnosticCode::CableSelfWeightTension => "assumption",

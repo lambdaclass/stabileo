@@ -454,7 +454,7 @@ fn rotated_candidate_2d(
             // Mirrors prepare_static_2d / solve_constrained_2d: only the normal
             // (local 1) gets a prescribed value.
             let v = if a == 1 {
-                let (c, s) = (theta.cos(), theta.sin());
+                let [s, c] = crate::solver::assembly::inclined_rotation_matrix_2d(theta)[1];
                 let u_normal = sup.dx.unwrap_or(0.0) * s + sup.dz.unwrap_or(0.0) * c;
                 if u_normal.abs() > 1e-15 { u_normal } else { 0.0 }
             } else {

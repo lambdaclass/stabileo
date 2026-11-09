@@ -321,7 +321,7 @@ fn supports(input: &SolverInput, model: &mut Model, kin: &mut Kinematics, dpn: u
         let kz = support_dofs_2d(s)[2].spring.unwrap_or(0.0);
         let rotated = t == "spring" && s.angle.is_some_and(|a| a != 0.0) && (kx > 0.0 || ky > 0.0);
         if rotated {
-            let (sn, cs) = sin_cos(inp(s.angle.unwrap())).ok_or("spring angle out of range")?;
+            let (sn, cs) = sin_cos(inp(crate::solver::support::prepare_support_angle(s.angle.unwrap()))).ok_or("spring angle out of range")?;
             let (kxi, kyi) = (inp(kx), inp(ky));
             let kxx = kxi * cs.square() + kyi * sn.square();
             let kzz = kxi * sn.square() + kyi * cs.square();
@@ -348,7 +348,7 @@ fn supports(input: &SolverInput, model: &mut Model, kin: &mut Kinematics, dpn: u
         if t == "inclinedRoller" && s.angle.is_some() {
             // Normal n = (sin θ, cos θ) restrained, tangent t = (−cos θ, sin θ)
             // free; prescribed normal displacement n·(dx, dz).
-            let (sn, cs) = sin_cos(inp(s.angle.unwrap())).ok_or("support angle out of range")?;
+            let (sn, cs) = sin_cos(inp(crate::solver::support::prepare_support_angle(s.angle.unwrap()))).ok_or("support angle out of range")?;
             let un = inp(s.dx.unwrap_or(0.0)) * sn + inp(s.dz.unwrap_or(0.0)) * cs;
             let p = vec![sn * un, cs * un];
             kin.incline(vec![dof(0).unwrap(), dof(1).unwrap()], vec![vec![-cs, sn]], p);
