@@ -815,3 +815,30 @@ fn truss_only_support_conflict_is_refused_in_both_dimensions() {
     assert_eq!(DofNumbering::build_3d(&s3).dofs_per_node, 3);
     assert_eq!(refused(linear::solve_2d(&s).map(|_| ())), refused(linear::solve_3d(&s3).map(|_| ())));
 }
+
+fn inclined_positive_ky(angle: Option<f64>) -> SolverInput {
+    let mut s: SolverInput = serde_json::from_str(include_str!("support_rule_models/issue_1637.json")).unwrap();
+    let support = s.supports.get_mut("2").unwrap();
+    support.support_type = "inclinedRoller".into();
+    support.ky = support.kx.take();
+    support.angle = angle;
+    s
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_inclined_positive_ky_without_angle_matches_zero_linear() {
+    let explicit = linear::solve_2d(&inclined_positive_ky(Some(0.0))).unwrap();
+    let implicit = linear::solve_2d(&inclined_positive_ky(None)).unwrap();
+    assert_eq!(serde_json::to_value(implicit).unwrap(), serde_json::to_value(explicit).unwrap());
+}
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_inclined_positive_ky_without_angle_matches_zero_pdelta() {
+    let explicit = pdelta::solve_pdelta_2d(&inclined_positive_ky(Some(0.0)), 100, 1e-12).unwrap();
+    assert!(explicit.converged);
+    let implicit = pdelta::solve_pdelta_2d(&inclined_positive_ky(None), 100, 1e-12).unwrap();
+    assert!(implicit.converged);
+    assert_eq!(serde_json::to_value(implicit).unwrap(), serde_json::to_value(explicit).unwrap());
+}

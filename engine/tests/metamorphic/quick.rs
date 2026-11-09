@@ -475,3 +475,15 @@ fn judge_holds_expected_refusals_to_their_refusal() {
     let p = judge(&sel, &out, &exp);
     assert!(p[0].starts_with("EXPECTED REFUSAL NOW FAIL") && !p.iter().any(|x| x.starts_with("NEW FAILURE")), "{p:?}");
 }
+
+#[test]
+#[ignore = "known wrong result: #1780"]
+fn issue_1780_pdelta_units_expectations_match_current_outcomes() {
+    let sel = Selection::Some(["P-Delta"].into());
+    let out = run(&sel);
+    let problems = judge(&sel, &out, EXPECTED);
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+    for seed in SEEDS {
+        assert!(EXPECTED.iter().any(|e| e.seed == *seed && e.case == "fuzz_rich_2d/20772-rigid-control" && e.analysis == "P-Delta" && e.invariant == "units" && e.issue == 971 && !e.refused));
+    }
+}
