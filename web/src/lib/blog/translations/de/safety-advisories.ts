@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Stand 8. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 (online auf stabileo.com, SA-2026-021 und 022 seit dem 22. Oktober, SA-2026-023 und 024 seit dem 25. und 26. Oktober). SA-2026-050, SA-2026-051 und SA-2026-052 sind Entwürfe: Ihre Korrekturen sind noch nicht zusammengeführt oder veröffentlicht. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben."
+      "t": "Stand 9. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 (online auf stabileo.com, SA-2026-021 und 022 seit dem 22. Oktober, SA-2026-023 und 024 seit dem 25. und 26. Oktober). SA-2026-050, SA-2026-051, SA-2026-052 und SA-2026-053 sind Entwürfe: Ihre Korrekturen sind noch nicht zusammengeführt oder veröffentlicht. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
@@ -191,6 +191,12 @@ const body: PostBody = {
           "SA-2026-052",
           "2D- und 3D-Wanderlasten im Rechenkern: Normalkrafthüllkurven mit ständigen axialen Teilstreckenlasten übersahen Extrema an Lastabschnittsgrenzen zwischen Auswertestellen, wodurch die Beanspruchung ohne Warnung unterschätzt werden konnte; keine Grenze veröffentlichter Versionen wird behauptet",
           "Hoch",
+          "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"
+        ],
+        [
+          "SA-2026-053",
+          "2D- und 3D-Wanderlasten: Punktlasten an Stabenden nahmen Kräfte außerhalb des Stabs in die Hüllkurven auf, erzeugten dadurch falsche Normal- und Querkraftextrema und überschätzten die Beanspruchung; keine Grenze veröffentlichter Versionen wird behauptet",
+          "Niedrig",
           "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"
         ],
         [

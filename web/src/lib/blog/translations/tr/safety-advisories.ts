@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "8 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde düzeltildi (stabileo.com'da yayında; SA-2026-021 ve 022 22 Ekim'den, SA-2026-023 ve 024 ise 25 ve 26 Ekim'den beri). SA-2026-050, SA-2026-051 ve SA-2026-052 taslaktır: düzeltmeleri henüz birleştirilmedi veya yayınlanmadı. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin."
+      "t": "9 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde düzeltildi (stabileo.com'da yayında; SA-2026-021 ve 022 22 Ekim'den, SA-2026-023 ve 024 ise 25 ve 26 Ekim'den beri). SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053 taslaktır: düzeltmeleri henüz birleştirilmedi veya yayınlanmadı. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
@@ -191,6 +191,12 @@ const body: PostBody = {
           "SA-2026-052",
           "Motorun 2D ve 3D hareketli yükleri: kalıcı kısmi eksenel yayılı yükler içeren eksenel kuvvet zarfları, örnekleme noktaları arasındaki yük bölgesi sınırlarında uç değerleri atlayabiliyordu; talep uyarı verilmeden düşük hesaplanabiliyordu; yayımlanmış sürümler için bir sınır ileri sürülmüyor",
           "Yüksek",
+          "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"
+        ],
+        [
+          "SA-2026-053",
+          "2D ve 3D hareketli yükler: çubuk uçlarındaki tekil yükler, çubuk dışındaki kuvvetleri zarflara dahil ederek yapay eksenel kuvvet ve kesme kuvveti uç değerleri ekliyor ve talebi yüksek hesaplıyordu; yayımlanmış sürümler için bir sınır ileri sürülmüyor",
+          "Düşük",
           "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"
         ],
         [

@@ -376,7 +376,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     }
   });
 
-  it.skip.each<[PublicLocale, string]>([
+  it.each<[PublicLocale, string]>([
     ['en', 'Low'],
     ['es', 'Baja'],
     ['pt', 'Baixa'],
