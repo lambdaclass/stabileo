@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Stand 8. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 (online auf stabileo.com, SA-2026-021 und 022 seit dem 22. Oktober, SA-2026-023 und 024 seit dem 25. und 26. Oktober). SA-2026-051 und SA-2026-052 sind Entwürfe: Ihre Korrekturen in PR #1783 sind noch nicht veröffentlicht oder bereitgestellt. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben."
+      "t": "Stand 8. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 (online auf stabileo.com, SA-2026-021 und 022 seit dem 22. Oktober, SA-2026-023 und 024 seit dem 25. und 26. Oktober). SA-2026-050, SA-2026-051 und SA-2026-052 sind Entwürfe: Ihre Korrekturen sind noch nicht zusammengeführt oder veröffentlicht. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
@@ -176,16 +176,22 @@ const body: PostBody = {
           "Behoben nach 0.5.0; auf stabileo.com seit dem 8. November 2026"
         ],
         [
+          "SA-2026-050",
+          "Knicken konnte eine fehlgeschlagene Schlankheitsberechnung in null umwandeln, und Lastfallkombinationen konnten nicht endliche Werte in einem erfolgreichen Ergebnis liefern",
+          "Mittel",
+          "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"
+        ],
+        [
           "SA-2026-051",
           "3D-Wanderlasten: Hüllkurven übersahen innere Schnittgrößenextrema und verloren die axiale Komponente des Achsgewichts bei geneigten Stäben, wodurch die Beanspruchung ohne Warnung unterschätzt werden konnte; 0.2.0 bis 0.5.0 und desktop-v0.1.0-alpha.1 bis alpha.3",
           "Hoch",
-          "Entwurf: Korrektur in diesem Branch, nach 0.5.0; noch nicht veröffentlicht oder bereitgestellt"
+          "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"
         ],
         [
           "SA-2026-052",
           "2D- und 3D-Wanderlasten im Rechenkern: Normalkrafthüllkurven mit ständigen axialen Teilstreckenlasten übersahen Extrema an Lastabschnittsgrenzen zwischen Auswertestellen, wodurch die Beanspruchung ohne Warnung unterschätzt werden konnte; keine Grenze veröffentlichter Versionen wird behauptet",
           "Hoch",
-          "Entwurf: Korrektur in PR #1783, nach 0.5.0; noch nicht veröffentlicht oder bereitgestellt"
+          "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"
         ],
         [
           "SA-2026-037",

@@ -1247,6 +1247,7 @@ const steelDe: Translations = {
   'steel.tc.refuse.pitch': 'Geben Sie den Lochabstand in Kraftrichtung ein.',
   'steel.tc.refuse.stagger': 'Eine versetzte Anordnung benötigt s, g und mindestens zwei Reihen.',
   'steel.tc.refuse.staggerWithWebLines': 'Versetzte Anordnung zusammen mit Stegreihen: Diese Risslinien sind nicht abgedeckt.',
+  'steel.tc.refuse.staggerPitch': 'Versatz s nicht kleiner als der Lochabstand: geben Sie s als Versatz zwischen benachbarten Reihen an, kleiner als der Lochabstand.',
   'steel.tc.refuse.holesDoNotFit': 'Die Löcher passen nicht in die Breite des Teils.',
   'steel.tc.refuse.netArea': 'Die Nettofläche ergibt sich zu null oder negativ.',
   'steel.tc.refuse.weldLength': 'Geben Sie die Länge der Längsnähte ein.',

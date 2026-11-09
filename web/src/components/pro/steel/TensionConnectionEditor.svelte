@@ -21,11 +21,12 @@
   import { t, tp } from '../../../lib/i18n';
   import { jointDesignStore } from '../../../lib/store/joint-design.svelte';
   import {
-    endNetArea, tensionGeometry, connectedOptions, presetConnection, TENSION_PRESETS,
+    endNetArea, tensionGeometry, presetConnection, TENSION_PRESETS,
     type EndConnection, type ConnectedElements, type WeldLayout, type TensionPreset, type MemberTensionConnection,
   } from '../../../lib/engine/steel/tension-connection';
   import type { HoleKind } from '../../../lib/connection/bolt-geometry';
   import { HOLE_TABLE_DIAMETERS_MM } from '../../../lib/connection/bolt-geometry';
+  import { engineGuarded } from '../../../lib/store/engine-action';
 
   let { ids, bare = false }: { ids: readonly number[]; bare?: boolean } = $props();
 
@@ -74,9 +75,9 @@
   }
 
   function load(c: EndConnection | undefined) {
-    const firstShape = shapeOfFirst();
+    const firstOptions = optionsOfFirst();
     if (!c) {
-      kind = 'bolted'; connected = firstShape ? connectedOptionsFor(firstShape)[0]! : 'all';
+      kind = 'bolted'; connected = firstOptions ? firstOptions[0]! : 'all';
       diameterMm = null; holeKind = 'standard'; boltsPerLine = null; lines = null; webLines = null;
       pitchMm = null; staggered = false; sMm = null; gMm = null; weld = 'longitudinal'; lengthMm = null;
       return;
@@ -89,14 +90,13 @@
   }
 
   const sectionOf = (id: number) => modelStore.sections.get(modelStore.elements.get(id)?.sectionId ?? -1);
-  function shapeOfFirst(): string | undefined {
-    const s = steelIds[0] !== undefined ? sectionOf(steelIds[0]) : undefined;
-    if (!s) return undefined;
-    const g = tensionGeometry(s);
-    return 'refused' in g ? undefined : g.kind;
+  function geometryOf(id: number | undefined) {
+    const s = id !== undefined ? sectionOf(id) : undefined;
+    return s ? engineGuarded(() => tensionGeometry(s)).value : null;
   }
-  function connectedOptionsFor(kindOfGeometry: string): ConnectedElements[] {
-    return connectedOptions(kindOfGeometry as never);
+  function optionsOfFirst(): ConnectedElements[] | undefined {
+    const g = geometryOf(steelIds[0]);
+    return g && !('refused' in g) ? g.options : undefined;
   }
 
   /** The stored connection at the chosen end(s), one value or "mixed" across the selection. */
@@ -115,13 +115,10 @@
     });
   });
 
-  const geometryOfFirst = $derived.by(() => {
-    const s = steelIds[0] !== undefined ? sectionOf(steelIds[0]) : undefined;
-    return s ? tensionGeometry(s) : null;
-  });
+  const geometryOfFirst = $derived(geometryOf(steelIds[0]));
   const options = $derived<ConnectedElements[]>(
     geometryOfFirst && !('refused' in geometryOfFirst)
-      ? connectedOptions(geometryOfFirst.kind)
+      ? geometryOfFirst.options
       : ['all', 'flanges', 'web', 'flange', 'legH', 'legB'],
   );
   const isPlate = $derived(!!geometryOfFirst && !('refused' in geometryOfFirst) && geometryOfFirst.kind === 'plate');
@@ -131,13 +128,14 @@
   }
 
   /** Per selected member: what the draft gives on its own section. */
-  const preview = $derived.by(() => {
+  const previewGuard = $derived(engineGuarded(() => {
     const d = draft();
     return steelIds.slice(0, 12).map((id) => {
       const sec = sectionOf(id);
       return { id, name: sec?.name ?? '—', r: sec ? endNetArea(sec, d) : null };
     });
-  });
+  }));
+  const preview = $derived(previewGuard.value ?? []);
 
   function write(next: (cur: MemberTensionConnection) => MemberTensionConnection) {
     modelStore.batch(() => {
@@ -257,7 +255,7 @@
         </label>
         {#if connected === 'all' && !isPlate}
           <label class="tc-field">{t('steel.tc.webLines')}
-            <input type="number" min="0" step="1" bind:value={webLines} data-testid="tc-web-lines" />
+            <input type="number" min="1" step="1" bind:value={webLines} data-testid="tc-web-lines" />
           </label>
         {/if}
         <label class="tc-field">{t('steel.tc.pitch')}
@@ -300,6 +298,7 @@
     </div>
 
     <p class="tc-sub">{t('steel.tc.preview')}</p>
+    {#if previewGuard.error}<p class="tc-refused" data-testid="tc-preview-engine">{previewGuard.error}</p>{/if}
     <table class="tc-table" data-testid="tc-preview">
       <thead><tr><th>{t('steel.tc.col.member')}</th><th>{t('steel.tc.col.section')}</th><th>An</th><th>U</th><th>Ae</th></tr></thead>
       <tbody>

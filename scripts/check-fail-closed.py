@@ -8,6 +8,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DIRS = ('engine/src/design', 'engine/src/certify', 'engine/src/postprocess')
+FILES = ('engine/src/solver/buckling.rs',)
 ALLOW = ROOT / 'scripts/fail-closed-allow.txt'
 ZERO = r'0(?:\.0*)?(?:_?(?:f64|f32|usize|u32|u64|i32|i64|isize))?'
 PATTERNS = (
@@ -120,18 +121,19 @@ def parse_allow(text):
     return entries, problems
 
 
-def check(root, allow_text, dirs=DIRS):
+def check(root, allow_text, dirs=DIRS, files=FILES):
     allowed, problems = parse_allow(allow_text)
     seen = {}
-    for d in dirs:
-        for p in sorted((root / d).rglob('*.rs')):
-            rel = p.relative_to(root).as_posix()
-            for number, name, source in hits_in(p.read_text()):
-                key = (rel, source)
-                seen[key] = seen.get(key, 0) + 1
-                if seen[key] > allowed.get(key, 0):
-                    problems.append(f'{rel}:{number}: `{name}` fallback: route a ratio through crate::check, '
-                                    f'or list the line in {ALLOW.relative_to(ROOT)} with a reason')
+    paths = [p for d in dirs for p in sorted((root / d).rglob('*.rs'))]
+    paths += [root / f for f in files if (root / f).is_file()]
+    for p in paths:
+        rel = p.relative_to(root).as_posix()
+        for number, name, source in hits_in(p.read_text()):
+            key = (rel, source)
+            seen[key] = seen.get(key, 0) + 1
+            if seen[key] > allowed.get(key, 0):
+                problems.append(f'{rel}:{number}: `{name}` fallback: route a ratio through crate::check, '
+                                f'or list the line in {ALLOW.relative_to(ROOT)} with a reason')
     for key, count in sorted(allowed.items()):
         if seen.get(key, 0) < count:
             problems.append(f'allow-list entry no longer matches: {key[0]}: {key[1]}')

@@ -1247,6 +1247,7 @@ const steelFr: Translations = {
   'steel.tc.refuse.pitch': 'Saisissez l\'entraxe dans le sens de l\'effort.',
   'steel.tc.refuse.stagger': 'Un quinconce nécessite s, g et au moins deux files.',
   'steel.tc.refuse.staggerWithWebLines': 'Quinconce combiné à des files dans l\'âme : ces lignes de rupture ne sont pas couvertes.',
+  'steel.tc.refuse.staggerPitch': 'Quinconce avec s au moins égal au pas : donnez s comme le décalage entre files voisines, inférieur au pas.',
   'steel.tc.refuse.holesDoNotFit': 'Les trous ne tiennent pas dans la largeur de l\'élément.',
   'steel.tc.refuse.netArea': 'L\'aire nette est nulle ou négative.',
   'steel.tc.refuse.weldLength': 'Saisissez la longueur des cordons longitudinaux.',
