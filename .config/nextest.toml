@@ -7,3 +7,19 @@ failure-output = "immediate"
 retries = 0
 slow-timeout = { period = "120s" }
 failure-output = "immediate"
+
+[[profile.default.overrides]]
+filter = 'binary(robustness) & test(=fuzz_regressions::plastic_3d_certificate_nightly_inputs_finish)'
+threads-required = "num-test-threads"
+
+[[profile.default.overrides]]
+filter = 'binary(robustness) & test(=fuzz_regressions::issue_1760_plastic_input_finishes_in_a_fresh_process)'
+threads-required = "num-test-threads"
+
+[[profile.default.overrides]]
+filter = 'binary(robustness) & test(=fuzz_regressions::a_fixture_past_its_limits_fails)'
+threads-required = "num-test-threads"
+
+[[profile.default.overrides]]
+filter = 'binary(robustness) & test(=fuzz_regressions::a_blocking_child_is_killed_at_its_timeout)'
+threads-required = "num-test-threads"

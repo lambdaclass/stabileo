@@ -779,9 +779,8 @@ fn issue_1761_combination_only_overflow_settlement_per_case_3d_is_refused() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1870"]
 fn issue_1870_subprocess_limits_reserve_the_runner() {
-    let config = include_str!("../.config/nextest.toml");
+    let config = include_str!("../../.config/nextest.toml");
     for name in [
         "plastic_3d_certificate_nightly_inputs_finish",
         "issue_1760_plastic_input_finishes_in_a_fresh_process",
