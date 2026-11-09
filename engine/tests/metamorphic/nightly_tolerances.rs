@@ -387,7 +387,6 @@ fn issue_1201_published_near_zero_response() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1206"]
 fn issue_1206_published_near_zero_response() {
     holds(1206, 2026110203439, &[("time history (ground motion)", "symmetry")]);
 }
@@ -412,6 +411,7 @@ fn issue_1206_seeded_ground_motion_errors_are_caught() {
     let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
     let mass = dedaliano_engine::solver::mass_matrix::total_mass_by_direction_3d(&c.s, &c.dens);
     let force: f64 = mass.iter().zip(c.p.ground).map(|(m, g)| m * g.abs()).sum();
+    assert_eq!(crate::checks3::action_floor_3d(c, a.name, cond.lchar), force);
     let natural = force * crate::checks2::compliance(a.name, &cond)[0];
     assert!(natural.is_finite() && natural > 0.0);
     let got = (a.run)(c).unwrap();
@@ -469,4 +469,31 @@ fn issue_1088_pdelta_plane_convergence() {
 #[ignore = "known wrong result: #1100"]
 fn issue_1100_nonlinear_mirror_convergence() {
     holds(1100, 20759, &[("P-Delta", "mirror"), ("fiber nonlinear", "mirror")]);
+}
+
+#[test]
+fn ground_action_scale_follows_units_and_excitation() {
+    let Model::D3(c) = model(1206) else { panic!("3D") };
+    let name = "time history (ground motion)";
+    let cond = conditioning::of_3d(&c.s).unwrap();
+    let force = crate::checks3::action_floor_3d(&c, name, cond.lchar);
+    assert!(force > 0.0);
+    for u in [Units::froude(10.0, 3.0), Units::froude(0.1, 0.5)] {
+        let tc = c.units(&u);
+        let other = conditioning::of_3d(&tc.s).unwrap();
+        let scaled_force = crate::checks3::action_floor_3d(&tc, name, other.lchar);
+        assert!((scaled_force / force - u.force).abs() < 64.0 * f64::EPSILON * u.force);
+        let translation = force * cond.compliance()[0];
+        let scaled_translation = scaled_force * other.compliance()[0];
+        assert!((scaled_translation / translation - u.length).abs() < 64.0 * f64::EPSILON * u.length);
+    }
+    for row in ["linear", "time history", "spectral"] {
+        assert_eq!(crate::checks3::action_floor_3d(&c, row, cond.lchar), crate::checks3::load_floor_3d(&c.s, cond.lchar));
+    }
+    let mut zero = c.clone();
+    zero.p.ground = [0.0; 3];
+    assert_eq!(crate::checks3::action_floor_3d(&zero, name, cond.lchar), 0.0);
+    let mut heavier = c.clone();
+    heavier.dens.values_mut().for_each(|d| *d *= 4.0);
+    assert_eq!(crate::checks3::action_floor_3d(&heavier, name, cond.lchar), 4.0 * force);
 }
