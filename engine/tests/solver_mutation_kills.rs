@@ -31,11 +31,6 @@ fn warping_cantilever(root: serde_json::Value) -> SolverInput3D {
     .unwrap()
 }
 
-/// A warping spring (kw) on a support makes the warping DOF elastic, as kx–krz
-/// do for theirs, even when the support also flags it restrained (rw): the root
-/// warps, and the tip twist lies strictly between the warping-free and the
-/// warping-fixed root. (Mutant: `delete match arm 6` in DofNumbering::build_3d
-/// left the DOF rigidly restrained.)
 #[test]
 fn warping_spring_makes_the_warping_dof_elastic() {
     let twist = |root: serde_json::Value| {
@@ -51,7 +46,10 @@ fn warping_spring_makes_the_warping_dof_elastic() {
     };
     let (free, _) = twist(json!({ "rw": false }));
     let (fixed, w_fixed) = twist(json!({ "rw": true }));
-    let (spring, w_spring) = twist(json!({ "rw": true, "kw": 1e-3 }));
+    let conflict = solve_3d(&warping_cantilever(json!({ "rw": true, "kw": 1e-3 }))).unwrap_err();
+    let refusal: serde_json::Value = serde_json::from_str(&conflict).unwrap();
+    assert_eq!(refusal["structuredDiagnostics"][0]["code"], "conflicting_support_spring");
+    let (spring, w_spring) = twist(json!({ "rw": false, "kw": 1e-3 }));
     assert!(
         free > 0.0 && fixed > 0.0 && fixed < free,
         "free {free}, fixed {fixed}"

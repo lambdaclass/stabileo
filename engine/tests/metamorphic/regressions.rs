@@ -567,13 +567,13 @@ fn nightly_harness_findings_hold() {
         let invariants: Vec<&str> = cells.iter().map(|c| c.1).collect();
         match crate::corpus::parse(&text).unwrap() {
             crate::corpus::Model::D2(s) => {
-                let mut c = crate::case::Case2::new(name, s);
+                let mut c = crate::case::Case2::new(name, crate::common::explicit_rigid_support_control(&s));
                 if let Some(d) = dens { c.dens = d; }
                 let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| wanted(a.name)).collect();
                 crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: seed }, &c, &anas, &invariants);
             }
             crate::corpus::Model::D3(s) => {
-                let mut c = crate::case::Case3::new(name, s);
+                let mut c = crate::case::Case3::new(name, crate::common::explicit_elastic_support_control(&s));
                 if let Some(d) = dens { c.dens = d; }
                 let anas: Vec<_> = crate::ana3::rows().into_iter().filter(|a| wanted(a.name)).collect();
                 crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &anas, &invariants);
@@ -914,6 +914,11 @@ fn issue_758_invariance(transform: &str, limit: Limit758) {
             let Some(&(_, _, expected)) = ISSUE_758_CASES.iter().find(|(k, n, _)| *k == corpus && *n == c.name) else { continue };
             seen += 1;
             issue_758_public_entry_is_withheld(&c);
+            let control = crate::common::explicit_rigid_support_control(&c.s);
+            if serde_json::to_value(&control.supports).unwrap() != serde_json::to_value(&c.s.supports).unwrap() {
+                crate::common::assert_support_conflict(&issue_758_limit(&c, limit).unwrap_err());
+            }
+            let c = Case2 { s: control, ..c };
             let check = |what: String, r: Result<f64, String>, refusal: Option<&str>, failures: &mut Vec<String>| match (expected, r, refusal) {
                 (Some(want), Ok(got), None) if (got - want).abs() <= 1e-9 * want.abs() => {}
                 (Some(_), Err(e), Some(reason)) if e.contains(reason) => {}

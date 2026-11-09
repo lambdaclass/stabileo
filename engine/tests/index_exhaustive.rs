@@ -266,8 +266,6 @@ fn dof_numbering_2d_exhaustive() {
     }
 }
 
-/// 3D: every restraint pattern on each of 2 nodes (64 × 64), with frames
-/// (6 DOFs/node) and trusses only (3), plus springs that free a restrained DOF.
 #[test]
 fn dof_numbering_3d_exhaustive() {
     for elem_type in ["frame", "truss"] {
@@ -288,12 +286,12 @@ fn dof_numbering_3d_exhaustive() {
                         for s in input.supports.values_mut() {
                             let k = Some(1e3);
                             match d {
-                                0 => s.kx = k,
-                                1 => s.ky = k,
-                                2 => s.kz = k,
-                                3 => s.krx = k,
-                                4 => s.kry = k,
-                                _ => s.krz = k,
+                                0 => { s.kx = k; s.rx = false; },
+                                1 => { s.ky = k; s.ry = false; },
+                                2 => { s.kz = k; s.rz = false; },
+                                3 => { s.krx = k; s.rrx = false; },
+                                4 => { s.kry = k; s.rry = false; },
+                                _ => { s.krz = k; s.rrz = false; },
                             }
                         }
                     }

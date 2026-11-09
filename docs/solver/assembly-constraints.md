@@ -18,7 +18,7 @@ Discrepancies are tagged AC-n and listed at the end.
 
 | Topic | File | Functions |
 |---|---|---|
-| DOF numbering | `engine/src/solver/dof.rs` | `DofNumbering::build_2d`, `build_3d`, `dofs_per_node_2d/3d`, `is_dof_restrained_2d`, `inclined_restrained_3d` |
+| DOF numbering | `engine/src/solver/dof.rs` | `DofNumbering::build_2d`, `build_3d`, `dofs_per_node_2d/3d`, `is_dof_restrained_2d`, `support::support_dofs_2d/3d` |
 | Dense assembly | `engine/src/solver/assembly.rs` | `assemble_stiffness_2d/3d`, `assemble_load_vector_2d`, `assemble_load_vector_3d_dense`, `assemble_element_loads_2d/3d(_warping,_mapped)`, `truss_member_load_2d/3d`, `orphan_rotation_dofs_3d`, `artificial_stiffness_entries` |
 | Inclined frames | `assembly.rs` | `inclined_rotation_matrix_2d`, `inclined_rotation_matrix`, `rotate_inclined_k_2d/3d`, `rotate_inclined_f_2d/3d`, `reverse_inclined_transform(_2d)` |
 | Sparse assembly | `engine/src/solver/sparse_assembly.rs` | `assemble_stiffness_sparse_2d/3d`, `apply_inclined_transform_triplets*`, `to_global`, `to_inclined_free` |
@@ -182,9 +182,12 @@ analyses, which assemble from the members alone ([nonlinear](nonlinear.md)).
 | `spring` | none | all (stiffness added) |
 
 **3D**: flags `rx, ry, rz, rrx, rry, rrz` (and `rw` for warping). A flagged DOF that also has
-a positive spring (`kx … krz`, `kw`) is **free**: the spring wins. An inclined support
+a positive spring (`kx … krz`, `kw`) is contradictory input and is refused with the structured
+`conflicting_support_spring` code. A rigid DOF remains rigid in numbering in both dimensions;
+springs on free DOFs are elastic. `support.rs` is the shared rule for numbering, support readers
+and conflict validation. An inclined support
 (`isInclined` with a non-zero normal) restrains rotated slot 0 (the normal), frees slots 1, 2,
-and takes rotations and warping from the flags (`inclined_restrained_3d`).
+and takes rotations and warping from the flags (`support_dofs_3d`).
 
 Several supports on one node: plain rigid ones merge by OR; any other combination (a spring, a
 settlement, an angle or an inclined direction on one of them) is refused
@@ -237,9 +240,12 @@ every path), `constraints_inclined_supports.rs`.
   $s=\sin\beta$; the local $x$ spring axis is at $\beta$ from $+X$ toward $+Z$. Note this angle
   convention differs from the inclined roller's (from $+Z$ toward $+X$). `kz` is the rotational
   spring. Without an angle the springs are diagonal.
-- **2D non-spring types** also add `kx`, `ky`, `kz` on the diagonal. On a free DOF (e.g.
-  `rollerX` with `kx`) that is a real spring and its force is reported (§4.5). On a restrained
-  DOF it only enters $K_{rr}$ (see AC-10).
+- **2D non-spring types** may add `kx`, `ky`, `kz` on a free DOF (e.g.
+  `rollerX` with `kx`); that is a real spring and its force is reported (§4.5). A positive spring
+  on a rigidly restrained DOF is refused before assembly (AC-10).
+- Inclined translations use the normal/tangent frame for restraints and global axes for springs,
+  so their translational springs retain the existing behavior. Rotation and warping use the same
+  axes and reject a positive spring on a rigid DOF.
 
 ### 4.4 Prescribed displacements (settlements)
 
@@ -250,8 +256,9 @@ $$
 K_{ff}\,u_f = f_f - K_{fr}\,u_r .
 $$
 
-A prescribed value on a DOF that is not restrained (a `pinned` support with `dry`, or a 3D
-flagged DOF made free by a spring) is ignored without a message (AC-10).
+A prescribed value on a DOF that is not restrained (for example, a `pinned` support with `dry`)
+is refused. A flagged DOF with a positive spring is also refused as contradictory input in both
+dimensions, before any settlement is imposed (AC-10).
 
 ### 4.5 Reaction recovery
 
@@ -596,7 +603,7 @@ Tests are in `engine/tests/derivation_assembly_constraints.rs`.
 | AC-7 | **Winkler member-end forces omit $K_f u$.** At a free end of a beam on a bed the reported shear is −(K_f u) (4.15 kN for a 20 kN load in the test) instead of 0. The bed is part of the member; recovery should use $(K_e+K_f)u-\text{fef}$, or report the bed reaction separately. | OPEN | `winkler_member_end_forces_include_foundation` (ignored) |
 | AC-8 | **Thermal α = 12e-6 /°C** for frame and truss thermal loads whatever the material, and the gradient depth $h=\sqrt{12I/A}$. The web rescales ΔT and the gradient to the material α and the real depth before the call ([frames §7.4](frames.md#74-thermal-loads-alpha-and-depth-are-fixed-in-the-engine)); direct API users must do the same. | DOCUMENTED-CHOICE | `thermal_load_uses_fixed_alpha` |
 | AC-9 | **The 2D inclined-roller matrix is a reflection** ($\det R=-1$). Only orthogonality matters for $GKG^{\mathsf T}$ and the back-rotation, and rotated-frame components are never reported, so results are unaffected. | DOCUMENTED-CHOICE | `inclined_frames_are_orthogonal` |
-| AC-10 | **Settlements silently ignored, springs on restrained DOFs.** A prescribed displacement on a DOF that is not restrained is dropped without a message: 3D flag + positive spring (the spring frees the DOF), or a 2D `pinned` with `dry`. A 2D rigid type with `kx/ky/kz` on a restrained DOF adds $k$ to $K_{rr}$ only; with a settlement the reported reaction then includes $k\,d$ that is not a force of the rigid support. Proposed: refuse a settlement on a free DOF and a spring on a restrained one. | OPEN | `settlement_on_spring_dof_is_not_silently_dropped` (ignored) |
+| AC-10 | **Settlements silently ignored, springs on restrained DOFs.** Settlements on free DOFs are refused. A positive spring on a rigid DOF is now refused with `conflicting_support_spring` in both dimensions, including warping. Inclined translational springs remain global-axis springs, distinct from the normal-frame restraint. | FIXED | `support_rule.rs`: #1636–#1646, twelve entry paths each; `silent_errors_settlement_winkler_imperfections.rs` |
 | AC-11 | **API sand $C_1, C_2, C_3$** were $\tan^2\varphi\tan\beta$, $\tan^2\varphi$, $\tan\varphi\tan^2\beta$ (0.58, 0.33, 1.73 at 30° against 1.91, 2.67, 28.7): $p_u$ 5× low near the surface, 16× deep. Now the Reese–Cox–Koop closed forms. | FIXED | `py_sand_ultimate_matches_api_coefficients` |
 | AC-12 | **Other p-y deviations from the cited references.** Soft clay omitted Matlock's $J\,c\,z/D$ term (p_u 84 vs 124 kN/m in the test). Sand used $A=0.9$ (the cyclic value; the doc comment called it static) and a step table for $k$ in integer degrees. Now: J required (0.25–0.5), the API static table; sand `loading` required (static $A=\max(3-0.8z/D,0.9)$, cyclic 0.9), $k$ interpolated in API RP 2GEO Table 5, $\varphi$ outside 25–40° refused (SA-2026-017). | FIXED | `py_soft_clay_ultimate_includes_j_term`, `soil_curves_references.rs` |
 | AC-13 | **"Stiff clay" p-y curve was discontinuous** at $y=y_{50}$ ($0.5p_u\to p_u$) and was not Reese's stiff-clay curve. Now Welch & Reese (1972) stiff clay without free water, continuous, $p_u$ at $16y_{50}$; with free water refused (SA-2026-017). | FIXED | `py_stiff_clay_is_continuous`, `stiff_clay_is_welch_reese_quarter_power_to_16_y50` |

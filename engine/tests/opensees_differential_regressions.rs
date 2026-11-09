@@ -276,7 +276,7 @@ fn roller_with_spring_reaction_balances_load() {
 fn settled_roller_with_its_own_spring_keeps_reactions_in_balance() {
     use dedaliano_engine::certify::reactions::reaction_bounds_2d;
     for p in [0.0, 30.0] {
-        let input = input_2d(json!({
+        let mut input = input_2d(json!({
             "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "z": 0.0},
                       "3": {"id": 3, "x": 4.0, "z": 0.0}},
             "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
@@ -287,6 +287,10 @@ fn settled_roller_with_its_own_spring_keeps_reactions_in_balance() {
                          "2": {"id": 2, "nodeId": 3, "type": "rollerX", "ky": 1000.0, "kz": 500.0, "dz": -0.01}},
             "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -p, "my": 0.0}}]
         }));
+        let error = solve_2d(&input).unwrap_err();
+        let refusal: serde_json::Value = serde_json::from_str(&error).unwrap();
+        assert_eq!(refusal["structuredDiagnostics"][0]["code"], "conflicting_support_spring");
+        input.supports.get_mut("2").unwrap().ky = None;
         let res = solve_2d(&input).unwrap();
         let tip = res.displacements.iter().find(|d| d.node_id == 3).unwrap();
         assert!(close(tip.uz, -0.01, 1e-12), "settlement {}", tip.uz);

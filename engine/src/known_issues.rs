@@ -310,7 +310,7 @@ impl RotationDemand2D {
             }
         }
         for s in input.supports.values() {
-            if crate::solver::dof::is_dof_restrained_2d(s, 2) || s.kz.unwrap_or(0.0) > 0.0 {
+            if crate::solver::dof::is_dof_restrained_2d(s, 2) || crate::solver::support::support_dofs_2d(s)[2].spring.unwrap_or(0.0) > 0.0 {
                 stiff.insert(s.node_id);
             }
         }

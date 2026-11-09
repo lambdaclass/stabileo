@@ -1,0 +1,104 @@
+{
+  "_nightly_dens": {
+    "1": 6566.769895067367
+  },
+  "_nightly_name": "fuzz_rich_2d/21736",
+  "connectors": {},
+  "constraints": [],
+  "elements": {
+    "1": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 1,
+      "materialId": 2,
+      "nodeI": 1,
+      "nodeJ": 2,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "2": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 2,
+      "materialId": 1,
+      "nodeI": 3,
+      "nodeJ": 2,
+      "sectionId": 1,
+      "type": "frame"
+    }
+  },
+  "loads": [
+    {
+      "data": {
+        "dtGradient": -2.95858498195523,
+        "dtUniform": 38.88883963984472,
+        "elementId": 1
+      },
+      "type": "thermal"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 109031.244485923,
+      "id": 1,
+      "nu": 0.2053239073864089
+    },
+    "2": {
+      "e": 35940.494689448,
+      "id": 2,
+      "nu": 0.2565650312141995
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": -2.0271313438753396,
+      "z": -5.91320778989633
+    },
+    "2": {
+      "id": 2,
+      "x": -4.182756431405515,
+      "z": 2.1702367182415117
+    },
+    "3": {
+      "id": 3,
+      "x": -4.802856331717486,
+      "z": -3.926347535973278
+    }
+  },
+  "sections": {
+    "1": {
+      "a": 0.009370214467563755,
+      "asY": 0.007791901510666826,
+      "id": 1,
+      "iz": 5.148457835488698e-06
+    }
+  },
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": -0.0082927429930818,
+      "id": 1,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "type": "fixed"
+    },
+    "2": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 2,
+      "kx": 9393.243969749723,
+      "ky": null,
+      "kz": null,
+      "nodeId": 2,
+      "type": "pinned"
+    }
+  }
+}

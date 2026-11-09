@@ -308,7 +308,8 @@ pub fn stable_3d(seed: u64) -> SolverInput3D {
                     s.kry = Some(rng.gen_range(1e2..1e4));
                 }
                 2 => {
-                    s.kz = Some(rng.gen_range(1e4..1e6)); // spring makes uz free
+                    s.rz = false;
+                    s.kz = Some(rng.gen_range(1e4..1e6));
                 }
                 3 if !inclined_done => {
                     inclined_done = true;

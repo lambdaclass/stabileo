@@ -205,7 +205,7 @@ fn e2e_one() {
 
 #[test]
 fn end_to_end_random_2d() {
-    let t = sweep_2d(0..150);
+    let t = sweep_2d(0..180);
     eprintln!("random 2D: {t:?}");
     assert!(t.failed.is_empty(), "{:#?}", t.failed);
     // The rich generator puts settlements on DOFs their support leaves free, which
@@ -325,4 +325,19 @@ fn e2e_dir() {
         failed += t.failed.len();
     }
     assert_eq!(failed, 0);
+}
+
+#[test]
+fn issue_1780_stable_3d_elastic_supports_explicitly_release_the_spring_dof() {
+    let mut elastic = 0;
+    for seed in 0..150 {
+        let input = e2e_models::stable_3d(seed);
+        for support in input.supports.values() {
+            if support.kz.is_some_and(|k| k > 0.0) && !support.is_inclined.unwrap_or(false) {
+                elastic += 1;
+                assert!(!support.rz, "seed {seed}, node {}: an elastic Z support must release rz", support.node_id);
+            }
+        }
+    }
+    assert!(elastic > 0);
 }

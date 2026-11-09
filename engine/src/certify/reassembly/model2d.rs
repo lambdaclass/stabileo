@@ -14,6 +14,7 @@
 //! `my` a counter-clockwise couple. Trusses and cables carry axial force only; their member loads reach
 //! the nodes as simply supported reactions.
 
+use crate::solver::support::{support_dofs_2d, validate_supports_2d};
 use std::collections::HashMap;
 
 use super::element::*;
@@ -244,22 +245,9 @@ pub(super) fn thermal_moment(e: I, i: I, a: I, alpha: I, dt: I, depth: Option<I>
 
 const RIGID_2D: [&str; 8] = ["fixed", "pinned", "rollerX", "rollerY", "rollerZ", "guidedX", "guidedY", "guidedZ"];
 
-fn restrained_2d(t: &str, d: usize) -> bool {
-    match t {
-        "fixed" => true,
-        "pinned" => d < 2,
-        "rollerX" => d == 1,
-        "rollerY" | "rollerZ" => d == 0,
-        "guidedX" => d == 1 || d == 2,
-        "guidedY" | "guidedZ" => d == 0 || d == 2,
-        "inclinedRoller" => d == 1,
-        _ => false,
-    }
-}
-
 fn plain_2d(s: &SolverSupport) -> bool {
     RIGID_2D.contains(&s.support_type.as_str())
-        && [s.kx, s.ky, s.kz, s.dx, s.dz, s.dry, s.angle].into_iter().all(|v| v.unwrap_or(0.0) == 0.0)
+        && [support_dofs_2d(s)[0].spring, support_dofs_2d(s)[1].spring, support_dofs_2d(s)[2].spring, s.dx, s.dz, s.dry, s.angle].into_iter().all(|v| v.unwrap_or(0.0) == 0.0)
 }
 
 /// Support fields the model would not use: refused, never dropped.
@@ -267,7 +255,7 @@ fn ignored_support_fields_2d(s: &SolverSupport, dpn: usize) -> Result<(), String
     let nz = |v: Option<f64>| v.unwrap_or(0.0) != 0.0;
     let t = s.support_type.as_str();
     let node = s.node_id;
-    if dpn < 3 && (s.kz.unwrap_or(0.0) > 0.0 || nz(s.dry)) {
+    if dpn < 3 && (support_dofs_2d(s)[2].spring.unwrap_or(0.0) > 0.0 || nz(s.dry)) {
         return Err(format!("unsupported: a rotational spring or prescribed rotation at node {node} of a model without rotations"));
     }
     if nz(s.angle) && t != "spring" && t != "inclinedRoller" {
@@ -277,7 +265,7 @@ fn ignored_support_fields_2d(s: &SolverSupport, dpn: usize) -> Result<(), String
     let used = |d: usize| match t {
         "spring" | "free" => false,
         "inclinedRoller" if s.angle.is_some() => d < 2,
-        _ => restrained_2d(t, d) && d < dpn,
+        _ => support_dofs_2d(s)[d].restrained && d < dpn,
     };
     for (d, v) in [s.dx, s.dz, s.dry].into_iter().enumerate() {
         if nz(v) && !used(d) {
@@ -288,6 +276,7 @@ fn ignored_support_fields_2d(s: &SolverSupport, dpn: usize) -> Result<(), String
 }
 
 fn supports(input: &SolverInput, model: &mut Model, kin: &mut Kinematics, dpn: usize) -> Result<(), String> {
+    validate_supports_2d(input)?;
     let mut at: HashMap<usize, Vec<&SolverSupport>> = HashMap::new();
     for s in input.supports.values() {
         at.entry(s.node_id).or_default().push(s);
@@ -304,7 +293,7 @@ fn supports(input: &SolverInput, model: &mut Model, kin: &mut Kinematics, dpn: u
             if !known(&s.support_type) {
                 return Err(format!("unknown support type '{}'", s.support_type));
             }
-            for v in [s.kx, s.ky, s.kz].into_iter().flatten() {
+            for v in [support_dofs_2d(s)[0].spring, support_dofs_2d(s)[1].spring, support_dofs_2d(s)[2].spring].into_iter().flatten() {
                 if v < 0.0 {
                     return Err(format!("unsupported: negative spring at node {node}"));
                 }
@@ -315,7 +304,7 @@ fn supports(input: &SolverInput, model: &mut Model, kin: &mut Kinematics, dpn: u
                 return Err(format!("unsupported: several supports on node {node}"));
             }
             for d in 0..dpn {
-                if sups.iter().any(|s| restrained_2d(&s.support_type, d)) {
+                if sups.iter().any(|s| support_dofs_2d(s)[d].restrained) {
                     kin.fix(model.dof(node, d).unwrap(), I::ZERO);
                 }
             }
@@ -327,9 +316,9 @@ fn supports(input: &SolverInput, model: &mut Model, kin: &mut Kinematics, dpn: u
         let node_dofs: Vec<Option<usize>> = (0..3).map(|d| model.dof(node, d)).collect();
         let dof = |d: usize| node_dofs[d];
         // Springs.
-        let kx = s.kx.unwrap_or(0.0);
-        let ky = s.ky.unwrap_or(0.0);
-        let kz = s.kz.unwrap_or(0.0);
+        let kx = support_dofs_2d(s)[0].spring.unwrap_or(0.0);
+        let ky = support_dofs_2d(s)[1].spring.unwrap_or(0.0);
+        let kz = support_dofs_2d(s)[2].spring.unwrap_or(0.0);
         let rotated = t == "spring" && s.angle.is_some_and(|a| a != 0.0) && (kx > 0.0 || ky > 0.0);
         if rotated {
             let (sn, cs) = sin_cos(inp(s.angle.unwrap())).ok_or("spring angle out of range")?;
@@ -367,7 +356,7 @@ fn supports(input: &SolverInput, model: &mut Model, kin: &mut Kinematics, dpn: u
         }
         let pres = [s.dx, s.dz, s.dry];
         for d in 0..dpn {
-            if restrained_2d(t, d) {
+            if support_dofs_2d(s)[d].restrained {
                 kin.fix(dof(d).unwrap(), pres[d].map(inp).unwrap_or(I::ZERO));
             }
         }

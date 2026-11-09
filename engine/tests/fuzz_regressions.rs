@@ -777,3 +777,22 @@ fn issue_1761_combination_only_overflow_prepared_3d_is_refused() {
 fn issue_1761_combination_only_overflow_settlement_per_case_3d_is_refused() {
     assert_combination_only_overflow_3d(true, 3.0);
 }
+
+#[test]
+fn issue_1870_subprocess_limits_reserve_the_runner() {
+    let config = include_str!("../../.config/nextest.toml");
+    for name in [
+        "plastic_3d_certificate_nightly_inputs_finish",
+        "issue_1760_plastic_input_finishes_in_a_fresh_process",
+        "a_fixture_past_its_limits_fails",
+        "a_blocking_child_is_killed_at_its_timeout",
+    ] {
+        let filter = format!("filter = 'binary(robustness) & test(=fuzz_regressions::{name})'");
+        let isolated = config.split("[[profile.default.overrides]]").skip(1).any(|block| {
+            let block = block.split("\n[").next().unwrap();
+            block.lines().any(|line| line.trim() == filter)
+                && block.lines().any(|line| line.trim() == "threads-required = \"num-test-threads\"")
+        });
+        assert!(isolated, "{name} must reserve every nextest thread in the engine config");
+    }
+}

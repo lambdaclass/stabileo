@@ -60,3 +60,5 @@ mod unknown_enum_strings;
 mod unknown_enum_strings_postprocess;
 #[path = "../time_history_nonfinite.rs"]
 mod time_history_nonfinite;
+#[path = "../support_rule.rs"]
+mod support_rule;

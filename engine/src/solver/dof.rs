@@ -100,30 +100,9 @@ impl DofNumbering {
         let mut node_ids: Vec<usize> = crate::ordered::values(&input.nodes).map(|n| n.id).collect();
         node_ids.sort();
 
-        // Merge supports: when multiple supports target the same node,
-        // OR their constraint flags together (any support restraining a DOF
-        // makes that DOF restrained). Sort supports by ID for determinism.
-        let mut sorted_supports: Vec<&SolverSupport3D> = crate::ordered::values(&input.supports).collect();
-        sorted_supports.sort_by_key(|s| {
-            // Sort by node_id (primary), then by number of restrained DOFs ascending
-            // so the most-restrained support is last (wins on overwrite)
-            let n_restrained = [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz]
-                .iter().filter(|&&b| b).count();
-            (s.node_id, n_restrained)
-        });
-        let mut support_map: HashMap<usize, &SolverSupport3D> = HashMap::new();
-        for s in &sorted_supports {
-            support_map.insert(s.node_id, s);
-        }
-
-        // Build per-node restrained DOF set, merging all supports for the same node
-        let mut node_restrained: HashMap<usize, [bool; 7]> = HashMap::new();
-        for s in &sorted_supports {
-            let entry = node_restrained.entry(s.node_id).or_insert([false; 7]);
-            let flags = [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz, s.rw.unwrap_or(false)];
-            for i in 0..7 {
-                entry[i] = entry[i] || flags[i];
-            }
+        let mut supports_at: HashMap<usize, Vec<&SolverSupport3D>> = HashMap::new();
+        for s in crate::ordered::values(&input.supports) {
+            supports_at.entry(s.node_id).or_default().push(s);
         }
 
         let mut free_dofs = Vec::new();
@@ -131,16 +110,9 @@ impl DofNumbering {
 
         for &node_id in &node_ids {
             for local_dof in 0..dofs_per_node {
-                let is_fixed = match (support_map.get(&node_id), node_restrained.get(&node_id)) {
-                    (Some(sup), Some(flags)) => inclined_restrained_3d(sup, local_dof).unwrap_or_else(|| {
-                        // Springs make a DOF free (their stiffness is added to K).
-                        let k = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz, sup.kw];
-                        // local_dof < dofs_per_node ≤ 7 = flags.len() = k.len().
-                        let has_spring = k[local_dof].unwrap_or(0.0) > 0.0;
-                        !has_spring && flags[local_dof]
-                    }),
-                    _ => false,
-                };
+                let is_fixed = supports_at.get(&node_id).is_some_and(|sups| {
+                    sups.iter().any(|sup| super::support::support_dofs_3d(sup)[local_dof].restrained)
+                });
 
                 if is_fixed {
                     fixed_dofs.push((node_id, local_dof));
@@ -242,41 +214,5 @@ impl DofNumbering {
 }
 
 pub(crate) fn is_dof_restrained_2d(sup: &SolverSupport, local_dof: usize) -> bool {
-    // A "spring" support leaves every DOF free (its stiffness is added to K);
-    // the rigid types restrain theirs whatever spring values they carry.
-    match sup.support_type.as_str() {
-        "fixed" => true,
-        "pinned" => local_dof == 0 || local_dof == 1, // ux, uz fixed; ry free
-        "rollerX" => local_dof == 1,  // uz fixed (free to slide in X)
-        "rollerY" | "rollerZ" => local_dof == 0,  // ux fixed (free to slide in Z)
-        "guidedX" => local_dof == 1 || local_dof == 2, // uz+ry fixed, ux free
-        "guidedY" | "guidedZ" => local_dof == 0 || local_dof == 2, // ux+ry fixed
-        "inclinedRoller" => local_dof == 1, // Constrained normal to surface
-        // "spring" (every DOF free, its stiffness added to K) and "free".
-        // validate_input_2d rejects any other type.
-        _ => false,
-    }
-}
-
-/// Restraint of `local_dof` at an inclined support (validate_input_3d rejects
-/// `isInclined` without a non-zero normal; assembly rotates only those with
-/// one): in the rotated frame DOF 0 is the normal (restrained), 1 and 2 are
-/// tangential (free), rotations and warping follow the flags. `None` when the
-/// support is not inclined.
-fn inclined_restrained_3d(sup: &SolverSupport3D, local_dof: usize) -> Option<bool> {
-    if !sup.is_inclined.unwrap_or(false) {
-        return None;
-    }
-    let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) else { return None };
-    if (nx * nx + ny * ny + nz * nz).sqrt() <= 1e-12 {
-        return None;
-    }
-    Some(match local_dof {
-        0 => true,
-        3 => sup.rrx,
-        4 => sup.rry,
-        5 => sup.rrz,
-        6 => sup.rw.unwrap_or(false),
-        _ => false,
-    })
+    super::support::support_dofs_2d(sup)[local_dof].restrained
 }
