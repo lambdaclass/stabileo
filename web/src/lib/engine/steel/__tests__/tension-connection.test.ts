@@ -189,6 +189,27 @@ describe('staggered holes — B.4.2.2 s²/4g', () => {
   });
 });
 
+describe('staggered chains through some of the lines, and the diagonal to the next bolt', () => {
+  const plate: TensionSectionInput = { shape: 'rect', b: 0.3, h: 0.012, a: 0.0036 };
+  const end = (lines: number, pitchMm: number, sMm: number, gMm: number): EndConnection => ({ kind: 'bolted', connected: 'all', diameterMm: 20, holeKind: 'standard', boltsPerLine: 3, lines, pitchMm, stagger: { sMm, gMm } });
+  it('four lines at s = g = 70: the chain through lines 1, 3 and 4 governs', () => {
+    // straight 2·24·12 = 576; all four 1152 − 3·70²·12/280 = 522; lines 1, 3, 4: 864 − 70²·12/280 = 654
+    const r = ok(endNetArea(plate, end(4, 200, 70, 70)));
+    expect(r.An * 1e6).toBeCloseTo(3600 - 654, 6);
+    expect(r.steps.join('\n')).toMatch(/3 agujeros, 1 diagonales/);
+  });
+  it('a stagger of 60 at a pitch of 80 takes the 20 mm diagonal to the next bolt', () => {
+    // 2·24·12 − 20²·12/(4·50) = 576 − 24 = 552
+    expect(ok(endNetArea(plate, end(2, 80, 60, 50))).An * 1e6).toBeCloseTo(3600 - 552, 6);
+  });
+  it('every element connected needs at least one line in the web or the second leg', () => {
+    const all: EndConnection = { kind: 'bolted', connected: 'all', diameterMm: 16, holeKind: 'standard', boltsPerLine: 3, lines: 1, webLines: 0, pitchMm: 50 };
+    expect(code(endNetArea(IPE200, all))).toBe('webLines');
+    expect(code(endNetArea(L100, all))).toBe('webLines');
+    expect(ok(endNetArea(L100, { ...all, webLines: 1 })).clause).toBe('D.3(1)');
+  });
+});
+
 describe('channel', () => {
   // UPN-like: h 200, b 75, tw 8,5, tf 11,5, Ag 32,2 cm²
   const U200: TensionSectionInput = { shape: 'U', h: 0.2, b: 0.075, tw: 0.0085, tf: 0.0115, a: 32.2e-4 };
@@ -222,7 +243,8 @@ describe('refusals, by name', () => {
     expect(code(endNetArea({ ...IPE200, a: undefined }, bolt))).toBe('area');
   });
   it('the geometry of a catalogue angle with only `t` is read', () => {
-    expect(tensionGeometry({ shape: 'L', h: 0.05, b: 0.05, t: 0.005 })).toMatchObject({ kind: 'L', t: 0.005 });
+    expect(tensionGeometry({ shape: 'L', h: 0.05, b: 0.05, t: 0.005 })).toEqual({ kind: 'L', options: ['legH', 'legB', 'all'] });
+    expect(code(endNetArea({ shape: 'L', h: 0.05, b: 0.05, t: 0.005, a: 4.8e-4 }, { kind: 'welded', connected: 'legH', weld: 'longitudinal', lengthMm: 100 }))).toBe('ok');
   });
 });
 

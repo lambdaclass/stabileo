@@ -70,6 +70,7 @@ pub struct BucklingSystem2D {
 
 #[doc(hidden)]
 pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, String> {
+    super::linear::validate_input_2d_for_analysis(input, crate::known_issues::Analysis::Buckling)?;
     // 1. Linear solve to get axial forces
     let linear = super::linear::solve_2d(input)?;
     let dof_num = DofNumbering::build_2d(input);
@@ -441,8 +442,11 @@ pub fn solve_buckling_2d(
         let sec = sec_by_id[&elem.section_id];
         let l = ef.length;
         let pcr = lambda_cr * n_avg.abs();
-        let r = if sec.a > 1e-20 { (sec.iz / sec.a).sqrt() } else { 0.0 };
-        let k_eff = if pcr > 0.0 && r > 1e-12 {
+        let r = (sec.iz / sec.a).sqrt();
+        if !(r.is_finite() && r > 1e-12) {
+            return Err(format!("Section {}: buckling radius of gyration must be finite and > 1e-12", sec.id));
+        }
+        let k_eff = if pcr > 0.0 {
             let le = std::f64::consts::PI
                 * (mat_by_id[&elem.material_id].e * 1000.0 * sec.iz / pcr).sqrt();
             le / l
@@ -450,7 +454,7 @@ pub fn solve_buckling_2d(
             1.0
         };
         let le = k_eff * l;
-        let slenderness = if r > 1e-12 { le / r } else { 0.0 };
+        let slenderness = le / r;
 
         element_data.push(ElementBucklingData {
             element_id: ef.element_id,
@@ -463,12 +467,14 @@ pub fn solve_buckling_2d(
         });
     }
 
-    Ok(BucklingResult {
+    let result = BucklingResult {
         structured_diagnostics,
         modes,
         n_dof: nf,
         element_data,
-    })
+    };
+    crate::boundary::require_finite(&result)?;
+    Ok(result)
 }
 
 /// The matrices of the 3D linear buckling problem (see `BucklingSystem2D`),
@@ -742,15 +748,18 @@ pub fn solve_buckling_3d(
         let pcr = lambda_cr * n_avg.abs();
         let e = mat.e * 1000.0;
 
-        let ry = if sec.a > 1e-20 { (sec.iy / sec.a).sqrt() } else { 0.0 };
-        let rz = if sec.a > 1e-20 { (sec.iz / sec.a).sqrt() } else { 0.0 };
+        let ry = (sec.iy / sec.a).sqrt();
+        let rz = (sec.iz / sec.a).sqrt();
+        if !(ry.is_finite() && ry > 1e-12 && rz.is_finite() && rz > 1e-12) {
+            return Err(format!("Section {}: buckling radii of gyration must be finite and > 1e-12", sec.id));
+        }
         let k_eff = if pcr > 0.0 {
             let le = std::f64::consts::PI * (e * sec.iy.min(sec.iz) / pcr).sqrt();
             le / l
         } else { 1.0 };
         let le = k_eff * l;
-        let slenderness_y = if ry > 1e-12 { le / ry } else { 0.0 };
-        let slenderness_z = if rz > 1e-12 { le / rz } else { 0.0 };
+        let slenderness_y = le / ry;
+        let slenderness_z = le / rz;
 
         element_data.push(ElementBucklingData3D {
             element_id: ef.element_id,
@@ -764,7 +773,9 @@ pub fn solve_buckling_3d(
         });
     }
 
-    Ok(BucklingResult3D { structured_diagnostics, modes, n_dof: nf, element_data })
+    let result = BucklingResult3D { structured_diagnostics, modes, n_dof: nf, element_data };
+    crate::boundary::require_finite(&result)?;
+    Ok(result)
 }
 
 #[cfg(test)]

@@ -4419,6 +4419,10 @@ fn reject_unimposed_settlements_3d(input: &SolverInput3D) -> Result<(), String> 
 }
 
 pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
+    validate_input_2d_for_analysis(input, crate::known_issues::Analysis::Linear)
+}
+
+pub(crate) fn validate_input_2d_for_analysis(input: &SolverInput, analysis: crate::known_issues::Analysis) -> Result<(), String> {
     // 0. Non-finite input rejection (NaN/Inf). Note: JSON cannot carry NaN, so
     // this primarily protects native/Rust API callers and internally-built inputs.
     for n in crate::ordered::values(&input.nodes) {
@@ -4573,9 +4577,9 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         }
     }
 
-    // 7. Section inertia <= 0 (only for sections used by bending elements)
+    // 7. Section inertia <= 0 where the analysis reads it.
     let bending_section_ids: std::collections::HashSet<usize> = crate::ordered::values(&input.elements)
-        .filter(|e| e.elem_type == "frame" && !(e.hinge_start && e.hinge_end))
+        .filter(|e| analysis == crate::known_issues::Analysis::Buckling || (e.elem_type == "frame" && !(e.hinge_start && e.hinge_end)))
         .map(|e| e.section_id)
         .collect();
     for sec in crate::ordered::values(&input.sections) {
@@ -5021,10 +5025,11 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
         }
     }
 
-    // 7. Section inertia <= 0 (only for sections used by bending elements)
-    // A frame with all bending+torsion released at both ends is axial-only.
+    // 7. Section inertia <= 0 where the analysis reads it. A frame with all
+    // bending+torsion released at both ends is axial-only outside buckling.
     let bending_section_ids: std::collections::HashSet<usize> = crate::ordered::values(&input.elements)
         .filter(|e| {
+            if analysis == crate::known_issues::Analysis::Buckling { return true; }
             if e.elem_type != "frame" { return false; }
             let all_released = e.release_my_start && e.release_my_end
                 && e.release_mz_start && e.release_mz_end

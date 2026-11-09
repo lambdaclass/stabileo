@@ -1247,6 +1247,7 @@ const steelTr: Translations = {
   'steel.tc.refuse.pitch': 'Kuvvet doğrultusundaki adımı girin.',
   'steel.tc.refuse.stagger': 'Şaşırtmalı düzen s, g ve en az iki sıra gerektirir.',
   'steel.tc.refuse.staggerWithWebLines': 'Gövde sıralarıyla birlikte şaşırtmalı düzen: bu kırılma zincirleri kapsanmıyor.',
+  'steel.tc.refuse.staggerPitch': 'Aralıktan küçük olmayan şaşırtma s: s\'yi komşu sıralar arasındaki kayma olarak, aralıktan küçük verin.',
   'steel.tc.refuse.holesDoNotFit': 'Delikler elemanın genişliğine sığmıyor.',
   'steel.tc.refuse.netArea': 'Net alan sıfır veya negatif çıkıyor.',
   'steel.tc.refuse.weldLength': 'Boyuna kaynakların boyunu girin.',

@@ -5,7 +5,7 @@
   const KEYS: Record<string, string> = { tools: 'landing.navTools', blog: 'landing.navBlog', paper: 'landing.navPaper' };
 </script>
 
-<div class="landing blog" aria-busy={!failed}>
+<div class="landing blog" aria-busy={!failed} data-public-pending>
   <main class="sec sec--ink"><div class="wrap" style="padding-top: 7rem">
     <h1>Stabileo{kind === 'landing' ? '' : ` ${t(KEYS[kind] ?? 'landing.navResearch')}`}</h1>
     {#if failed}

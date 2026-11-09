@@ -1263,6 +1263,7 @@ const steelEn: Record<string, string> = {
   'steel.tc.refuse.pitch': 'Enter the pitch along the force.',
   'steel.tc.refuse.stagger': 'A stagger needs s, g and at least two lines.',
   'steel.tc.refuse.staggerWithWebLines': 'Stagger together with web lines: those failure chains are not covered.',
+  'steel.tc.refuse.staggerPitch': 'A stagger s at least the pitch: give s as the shift between adjacent lines, shorter than the pitch.',
   'steel.tc.refuse.holesDoNotFit': 'The holes do not fit across the element.',
   'steel.tc.refuse.netArea': 'The net area comes out zero or negative.',
   'steel.tc.refuse.weldLength': 'Enter the length of the longitudinal welds.',

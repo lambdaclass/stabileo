@@ -92,3 +92,4 @@ __pycache__/
 .stabileo-inst
 .env.prod
 web/.result-change-order.json
+.handoff.md

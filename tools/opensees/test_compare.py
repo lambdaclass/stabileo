@@ -341,5 +341,21 @@ sys.exit(C.main())
             self.assertEqual(events, ["begin", "start", "done", "end"])
 
 
+class IsolationTest(unittest.TestCase):
+    def test_the_opensees_worker_runs_with_single_threaded_blas(self):
+        import subprocess
+        seen = {}
+
+        def run(cmd, **kwargs):
+            seen.update(kwargs["env"])
+            return subprocess.CompletedProcess(cmd, 0, '\n{"ok": {"values": [1.0]}}', "")
+        with mock.patch.dict(os.environ, {"OPENBLAS_NUM_THREADS": "30", "PATH": os.environ.get("PATH", "")}), \
+                mock.patch.object(C.subprocess, "run", side_effect=run):
+            self.assertEqual(C.opensees_isolated({"nodes": {}})["values"], [1.0])
+        self.assertEqual({k: seen[k] for k in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")},
+                         {"OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"})
+        self.assertEqual(seen["PATH"], os.environ.get("PATH", ""))
+
+
 if __name__ == "__main__":
     unittest.main()
