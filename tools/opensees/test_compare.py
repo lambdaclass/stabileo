@@ -365,8 +365,8 @@ def support_fixture(issue):
     return json.loads((Path(__file__).parent / "fixtures" / f"issue-{issue}.json").read_text())
 
 
-def support_run(model, accepts=False, bad=None, dump_dir=None, output=None):
-    answer = output if output is not None else json.dumps({} if accepts else {"error": "independent engine refusal"})
+def support_run(model, accepts=False, bad=None, dump_dir=None, output=None, error="independent engine refusal"):
+    answer = output if output is not None else json.dumps({} if accepts else {"error": error})
     result = dict(disp={}, reac={}, forces={}, diags=[], issues=[], converged=True, stable=True)
     with mock.patch.object(C.subprocess, "run", return_value=subprocess.CompletedProcess(["engine"], 0, answer, "")), \
             mock.patch.object(C, "normalize_stabileo", return_value=result), \
@@ -385,9 +385,14 @@ class SupportContractTest(unittest.TestCase):
             for case in (model, dict(analysis="pdelta", model=model)):
                 with self.subTest(issue=issue, extended="analysis" in case):
                     before = copy.deepcopy(case)
-                    r = support_run(case)
+                    errors = {
+                        1120: settlement_refusal("Support 2 (node 3, rollerX)", "dx", "0.0072504954813476675", "this support type leaves that DOF free"),
+                        1121: settlement_refusal("Support 2 (node 3)", "dy", "-0.008127580844053031", "that direction is not restrained (its flag is not set)"),
+                        1191: json.dumps(conflict_refusal("3", 2, "kz", "rz", 2)),
+                    }
+                    r = support_run(case, error=errors[issue])
                     self.assertEqual(r["status"], "refused")
-                    self.assertIn("independent engine refusal", r["why"][0])
+                    self.assertEqual(r["why"][0], "stabileo: " + errors[issue])
                     self.assertGreater(len(r["why"]), 1)
                     self.assertEqual(case, before)
 
@@ -401,7 +406,10 @@ class SupportContractTest(unittest.TestCase):
                     with self.subTest(typ=typ, key=key):
                         d = support_fixture(1120)["model"]
                         d["supports"] = {"1": dict(id=1, nodeId=1, type=typ, **{key: 1.0})}
-                        self.assertEqual(support_run(d)["status"], "false_reject" if dof in fixed else "refused")
+                        reason = ("a spring support restrains nothing rigidly (its stiffness is added to the structure) and a settlement of the spring's base is not modelled"
+                                  if typ == "spring" else "this support type leaves that DOF free")
+                        error = settlement_refusal(f"Support 1 (node 1, {typ})", ("dx", "dz", "dry")[dof], "1", reason)
+                        self.assertEqual(support_run(d, error=error)["status"], "false_reject" if dof in fixed else "refused")
 
     def test_3d_free_and_spring_directions(self):
         flags = ("rx", "ry", "rz", "rrx", "rry", "rrz")
@@ -414,7 +422,11 @@ class SupportContractTest(unittest.TestCase):
                     s = dict.fromkeys(flags, True)
                     s.update(nodeId=1, **{flag: restrained, spring: 1.0 if elastic else 0.0, key: 1.0})
                     d["supports"] = {"1": s}
-                    self.assertEqual(support_run(d)["status"], "false_reject" if restrained and not elastic else "refused")
+                    reason = ("that direction is elastic (a spring cannot impose a prescribed displacement)" if elastic else
+                              "that direction is not restrained (its flag is not set)")
+                    error = (json.dumps(conflict_refusal("1", 1, spring, flag, flags.index(flag))) if restrained and elastic else
+                             settlement_refusal("Support 1 (node 1)", key, "1", reason))
+                    self.assertEqual(support_run(d, error=error)["status"], "false_reject" if restrained and not elastic else "refused")
 
     def test_rotations_require_rotational_dofs(self):
         for issue, key in ((1120, "dry"), (1121, "drx")):
@@ -424,7 +436,10 @@ class SupportContractTest(unittest.TestCase):
             s = copy.deepcopy(d["supports"]["1"])
             s[key] = 1.0
             d["supports"] = {"1": s}
-            self.assertEqual(support_run(d)["status"], "refused")
+            what = f"Support {s['id']} (node {s['nodeId']}, {s['type']})" if issue == 1120 else f"Support 1 (node {s['nodeId']})"
+            reason = ("a model of truss members only has no rotation DOFs" if issue == 1120 else
+                      "a model of truss or cable members only has no rotation DOFs")
+            self.assertEqual(support_run(d, error=settlement_refusal(what, key, "1", reason))["status"], "refused")
 
     def test_zero_absent_and_non_imposed_values_are_not_invalid_settlements(self):
         for value in (None, 0.0, 1e-15, -1e-15):

@@ -819,7 +819,6 @@ fn issue_1191_opensees_support_check_must_flag_seeded_wrong_results() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1882"]
 fn issue_1882_opensees_support_refusals_must_match_the_defect() {
     opensees_support_tests("SupportContractReviewTest");
 }
