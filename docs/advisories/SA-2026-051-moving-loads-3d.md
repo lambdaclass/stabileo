@@ -31,8 +31,13 @@ affect the whole structure, not just the loaded member, and can understate desig
 In the midpoint regression, one 100 kN axle on an 8 m simply supported span gives equal
 50 kN reactions by equilibrium and an absolute midpoint moment of 50 × 4 = 200 kN·m. The old
 3D envelope gave zero up to round-off. In the inclined regression (8 m horizontally, 6 m rise),
-the independently computed 2D axial envelope reaches −60 kN; 3D gave zero. These values are
-computed and checked by the tests, not acceptance values fitted to the corrected implementation.
+the member length is √(8² + 6²) = 10 m and the axle positions are 0, 5 and 10 m. Loads at
+0 and 10 m go directly to the supports and produce no internal axial force. At 5 m, vertical
+reactions are 100/2 = 50 kN, giving axial extrema ±50 × (6/10) = ±30 kN on the two sides of
+the axle. The endpoint-corrected 2D envelope and all three 3D plane embeddings give these
+extrema; the old 3D implementation that dropped axial axle weight gave zero. The tests check
+these analytical values as well as 2D/3D agreement. See also the
+[endpoint correction](SA-2026-053-moving-load-endpoint-forces.md).
 
 ## How to tell if your results are affected
 

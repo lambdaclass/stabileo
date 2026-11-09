@@ -36,8 +36,14 @@ with `metamorphic::planes::embed_2d`. This covers both gravity directions and bo
   Before the fix, 3D gave zero (up to round-off); after it, the envelope equals the 2D result
   projected into each embedding's local axes, including its signs.
 - `issue_1782_inclined_moving_axial_matches_embedded_2d`: the span rises 6 m over 8 m horizontally.
-  The expected axial envelope is computed by 2D in the test. Its minimum is −60 kN;
-  the old 3D result was zero. The corrected 3D result agrees in all three embeddings.
+  Its length is √(8² + 6²) = 10 m, with axle positions 0, 5 and 10 m. Endpoint loads go
+  directly to the supports, giving zero internal axial force. At the midpoint, the vertical
+  reactions are 100/2 = 50 kN and the axial extrema are ±50 × (6/10) = ±30 kN. The test
+  asserts both extrema independently for 2D and each 3D embedding, checks three sampled
+  positions and verifies zero axial demand in an endpoint-only sweep. Test output gives
+  [−30, +30] kN in 2D, XZ, XY and YZ. The old 3D implementation that dropped axial axle
+  weight gave zero. These are the envelopes after the
+  [endpoint correction](2026-11-moving-load-endpoint-forces.md).
 - Additional tests check an axle away from regular diagram stations, descending and reversed
   members, interior axial jumps, load balance and dense/sparse assembly for frame, warping,
   mixed and truss models, permanent axial point-load envelopes, off-grid axial span extrema,

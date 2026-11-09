@@ -402,7 +402,6 @@ fn issue_1782_inclined_moving_axial_matches_embedded_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_inclined_documented_axial_extrema_match_equilibrium() {
     let expected = inclined_midpoint_axial_extremum(&planar_moving_input(6.0));
     for (name, document) in [
