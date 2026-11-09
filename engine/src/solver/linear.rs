@@ -4023,7 +4023,7 @@ pub(crate) fn build_reactions_2d(
             // holds only the rigid part and each spring's −k·u is added here;
             // build_reactions_2d_inclined adds them for rotated rollers.
             let springs = [support_dofs_2d(sup)[0].spring, support_dofs_2d(sup)[1].spring, support_dofs_2d(sup)[2].spring];
-            let rotated = sup.support_type == "inclinedRoller" && sup.angle.is_some();
+            let rotated = sup.support_type == "inclinedRoller";
             let mut vals = [0.0f64; 3];
             for (i, val) in vals.iter_mut().enumerate().take(dof_num.dofs_per_node.min(3)) {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {

@@ -510,7 +510,6 @@ pub fn explicit_rigid_support_control(input: &SolverInput) -> SolverInput {
             "rollerY" | "rollerZ" => [true, false, false],
             "guidedX" => [false, true, true],
             "guidedY" | "guidedZ" => [true, false, true],
-            "inclinedRoller" if s.angle.is_none() => [false, true, false],
             _ => [false; 3],
         };
         for (k, rigid) in [&mut s.kx, &mut s.ky, &mut s.kz].into_iter().zip(rigid) {

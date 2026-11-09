@@ -541,23 +541,22 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
     let mut inclined_transforms_2d = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.support_type == "inclinedRoller" {
-            if let Some(theta) = sup.angle {
-                let r = super::assembly::inclined_rotation_matrix_2d(theta);
-                if let (Some(&d0), Some(&d1)) = (
-                    dof_num.map.get(&(sup.node_id, 0)),
-                    dof_num.map.get(&(sup.node_id, 1)),
-                ) {
-                    let dofs = [d0, d1];
-                    super::assembly::apply_inclined_transform_triplets_2d(
-                        &mut trip_rows, &mut trip_cols, &mut trip_vals,
-                        &dofs, &r,
-                    );
-                    inclined_transforms_2d.push(InclinedTransformData2D {
-                        node_id: sup.node_id,
-                        dofs,
-                        r,
-                    });
-                }
+            let theta = sup.angle.unwrap_or(0.0);
+            let r = super::assembly::inclined_rotation_matrix_2d(theta);
+            if let (Some(&d0), Some(&d1)) = (
+                dof_num.map.get(&(sup.node_id, 0)),
+                dof_num.map.get(&(sup.node_id, 1)),
+            ) {
+                let dofs = [d0, d1];
+                super::assembly::apply_inclined_transform_triplets_2d(
+                    &mut trip_rows, &mut trip_cols, &mut trip_vals,
+                    &dofs, &r,
+                );
+                inclined_transforms_2d.push(InclinedTransformData2D {
+                    node_id: sup.node_id,
+                    dofs,
+                    r,
+                });
             }
         }
     }

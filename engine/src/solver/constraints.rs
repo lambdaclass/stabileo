@@ -337,14 +337,11 @@ pub struct InclinedDofs {
     pub r: Vec<Vec<f64>>,
 }
 
-/// The 2D inclined-support frames, mirroring the stiffness assemblers
-/// (`assembly::assemble_stiffness_2d`, `sparse_assembly`): an
-/// `inclinedRoller` with an angle.
 pub fn inclined_dofs_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<InclinedDofs> {
     let mut out = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.support_type != "inclinedRoller" { continue; }
-        let Some(theta) = sup.angle else { continue; };
+        let theta = sup.angle.unwrap_or(0.0);
         if let (Some(&d0), Some(&d1)) = (dof_num.map.get(&(sup.node_id, 0)), dof_num.map.get(&(sup.node_id, 1))) {
             let r = assembly::inclined_rotation_matrix_2d(theta);
             out.push(InclinedDofs {

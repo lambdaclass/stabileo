@@ -826,7 +826,6 @@ fn inclined_positive_ky(angle: Option<f64>) -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_inclined_positive_ky_without_angle_matches_zero_linear() {
     let explicit = linear::solve_2d(&inclined_positive_ky(Some(0.0))).unwrap();
     let implicit = linear::solve_2d(&inclined_positive_ky(None)).unwrap();
@@ -834,11 +833,38 @@ fn issue_1780_inclined_positive_ky_without_angle_matches_zero_linear() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_inclined_positive_ky_without_angle_matches_zero_pdelta() {
     let explicit = pdelta::solve_pdelta_2d(&inclined_positive_ky(Some(0.0)), 100, 1e-12).unwrap();
     assert!(explicit.converged);
     let implicit = pdelta::solve_pdelta_2d(&inclined_positive_ky(None), 100, 1e-12).unwrap();
     assert!(implicit.converged);
     assert_eq!(serde_json::to_value(implicit).unwrap(), serde_json::to_value(explicit).unwrap());
+}
+
+#[test]
+fn inclined_positive_ky_without_angle_matches_zero_sparse_pdelta_with_settlement() {
+    let solve = |angle| {
+        let mut s = inclined_positive_ky(angle);
+        s.supports.get_mut("2").unwrap().dz = s.supports["1"].dz;
+        let dofs = DofNumbering::build_2d(&s);
+        let cs = constraints::FreeConstraintSystem::build_2d(&s, &dofs).unwrap();
+        let r = pdelta::solve_pdelta_2d_on(&s, &dofs, cs, true, 100, 1e-12).unwrap();
+        assert!(r.converged);
+        serde_json::to_value(r).unwrap()
+    };
+    assert_eq!(solve(None), solve(Some(0.0)));
+}
+
+#[test]
+fn inclined_positive_ky_without_angle_matches_zero_constrained_with_settlement() {
+    let solve = |angle| {
+        let mut s = inclined_positive_ky(angle);
+        s.supports.get_mut("2").unwrap().dz = s.supports["1"].dz;
+        let constraint = serde_json::from_value(serde_json::json!({
+            "type": "equalDOF", "masterNode": 1, "slaveNode": 2, "dofs": [0]
+        })).unwrap();
+        let c = constraints::ConstrainedInput { solver: s, constraints: vec![constraint] };
+        serde_json::to_value(constraints::solve_constrained_2d(&c).unwrap()).unwrap()
+    };
+    assert_eq!(solve(None), solve(Some(0.0)));
 }

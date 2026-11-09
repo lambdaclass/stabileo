@@ -1,0 +1,40 @@
+{
+  "id": "inclined-2d-default-angle",
+  "date": "2026-11-09",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "plane2D"
+      ],
+      [
+        "inclinedSupports"
+      ]
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Omitted 2D inclined-support angles use zero consistently",
+    "es": "Los ángulos omitidos de apoyos inclinados 2D equivalen a cero",
+    "pt": "Ângulos omitidos de apoios inclinados 2D equivalem a zero",
+    "de": "Fehlende Winkel geneigter 2D-Lager entsprechen null",
+    "fr": "Les angles omis des appuis inclinés 2D valent zéro",
+    "tr": "2D eğik mesnetlerde atlanan açılar sıfıra eşittir"
+  },
+  "explanation": {
+    "en": "A 2D inclined roller with an omitted angle and a positive global Y spring was refused while explicit zero solved. Both now use the same zero-angle frame through assembly, constraints and reaction recovery. Previously solved omitted-angle inputs can change final floating-point digits. Re-run affected analyses. This notice includes all 2D inclined supports; explicit angles may be unaffected.",
+    "es": "Se rechazaba un rodillo inclinado 2D con ángulo omitido y resorte global Y positivo, aunque con cero explícito se resolvía. Ahora ambos usan el mismo sistema de ejes en el ensamblaje, las restricciones y las reacciones. Los resultados previos con ángulo omitido pueden cambiar en sus últimos dígitos. Repita los análisis afectados. El aviso incluye todos los apoyos inclinados 2D; los ángulos explícitos pueden no verse afectados.",
+    "pt": "Um rolete inclinado 2D com ângulo omitido e mola global Y positiva era recusado, embora zero explícito permitisse resolver. Agora ambos usam os mesmos eixos na montagem, nas restrições e nas reações. Resultados anteriores com ângulo omitido podem mudar nos últimos dígitos. Execute novamente as análises afetadas. O aviso inclui todos os apoios inclinados 2D; ângulos explícitos podem não ser afetados.",
+    "de": "Ein geneigtes 2D-Rollenlager mit fehlendem Winkel und positiver globaler Y-Feder wurde abgelehnt, während explizit null lösbar war. Beide verwenden nun denselben Rahmen für Aufbau, Zwangsbedingungen und Auflagerkräfte. Frühere Ergebnisse mit fehlendem Winkel können sich in den letzten Ziffern ändern. Berechnen Sie betroffene Modelle neu. Der Hinweis umfasst alle geneigten 2D-Lager; explizite Winkel können unverändert bleiben.",
+    "fr": "Un appui roulant incliné 2D sans angle et avec un ressort global Y positif était refusé, alors que zéro explicite permettait le calcul. Les deux utilisent désormais le même repère pour assemblage, contraintes et réactions. Les résultats antérieurs sans angle peuvent changer dans leurs derniers chiffres. Relancez les analyses concernées. Cet avis couvre tous les appuis inclinés 2D ; les angles explicites peuvent être sans effet.",
+    "tr": "Açısı belirtilmeyen ve pozitif global Y yayı olan 2D eğik makaralı mesnet reddedilirken açık sıfır açı çözülebiliyordu. Artık ikisi de montaj, kısıtlar ve mesnet kuvvetleri için aynı eksenleri kullanır. Açısı belirtilmeden çözülen önceki sonuçların son basamakları değişebilir. Etkilenen analizleri yeniden çalıştırın. Bildirim tüm 2D eğik mesnetleri kapsar; açık açılar etkilenmeyebilir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-inclined-2d-default-angle.md",
+    "heading": "Omitted 2D inclined-support angles use zero consistently"
+  }
+}

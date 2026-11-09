@@ -152,14 +152,14 @@ pub const EXPECTED: &[Expected] = &[
     xrefused(20754, "fuzz_rich_2d/20843", "plastic collapse", "rotation", 758),
     xrefused(20754, "fuzz_rich_2d/20843", "plastic collapse", "units", 758),
     xfail(20754, "feature_matrix/3d-curved-beam-arch-with", "plastic collapse", "rotation", 758),
-    xfail(20754, "fuzz_rich_2d/20772", "P-Delta", "units", 971),
+    xfail(20754, "fuzz_rich_2d/20772-rigid-control", "P-Delta", "units", 971),
     xrefused(20261105, "fuzz_rich_2d/20832", "plastic collapse", "reversal", 758),
     xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "relabel", 758),
     xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "reversal", 758),
     xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "rotation", 758),
     xrefused(20261105, "fuzz_rich_2d/20843", "plastic collapse", "units", 758),
     xfail(20261105, "feature_matrix/3d-curved-beam-arch-with", "plastic collapse", "rotation", 758),
-    xfail(20261105, "fuzz_rich_2d/20772", "P-Delta", "units", 971),
+    xfail(20261105, "fuzz_rich_2d/20772-rigid-control", "P-Delta", "units", 971),
     xfail(20261105, "feature_matrix/3d-local-axes--roll-angle--rolled-90--with", "corotational", "rotation", 971),
 ];
 
@@ -261,6 +261,16 @@ pub fn run(sel: &Selection) -> Outcome {
                 checks2::check_case(&checks2::Ctx { tally: &t, rng_seed: seed }, &c, &anas2, INVARIANTS_2D);
                 collect(&mut out, &format!("{seed}:{}", c.name), &t);
             }
+        }
+    }
+    let pdelta: Vec<_> = ana2::rows().into_iter().filter(|a| a.name == "P-Delta" && sel.has(a.name)).collect();
+    if !pdelta.is_empty() {
+        let c = pdelta_units_rigid_control();
+        for &seed in SEEDS {
+            let t = Tally::default();
+            let rng_seed = seed ^ checks2::hash(&c.name) ^ checks2::hash("fuzz_rich_2d/20772");
+            checks2::check_case(&checks2::Ctx { tally: &t, rng_seed }, &c, &pdelta, INVARIANTS_2D);
+            collect(&mut out, &format!("{seed}:{}", c.name), &t);
         }
     }
     let anas3: Vec<_> = ana3::rows().into_iter().filter(|a| sel.has(a.name)).collect();
@@ -477,7 +487,6 @@ fn judge_holds_expected_refusals_to_their_refusal() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_pdelta_units_expectations_match_current_outcomes() {
     let sel = Selection::Some(["P-Delta"].into());
     let out = run(&sel);
@@ -486,4 +495,33 @@ fn issue_1780_pdelta_units_expectations_match_current_outcomes() {
     for seed in SEEDS {
         assert!(EXPECTED.iter().any(|e| e.seed == *seed && e.case == "fuzz_rich_2d/20772-rigid-control" && e.analysis == "P-Delta" && e.invariant == "units" && e.issue == 971 && !e.refused));
     }
+}
+
+fn pdelta_units_rigid_control() -> Case2 {
+    let mut c = corpus::fuzz_case_2d(20754, 18);
+    let support = c.s.supports.get_mut("3").unwrap();
+    assert_eq!(support.support_type, "guidedZ");
+    assert!(support.kx.is_some_and(|k| k > 0.0));
+    support.kx = None;
+    c.name.push_str("-rigid-control");
+    c
+}
+
+#[test]
+fn pdelta_units_conflict_is_refused_and_rigid_control_solves() {
+    use dedaliano_engine::solver::{linear, pdelta};
+    let original = corpus::fuzz_case_2d(20754, 18);
+    let error = pdelta::solve_pdelta_2d(&original.s, 100, 1e-12).unwrap_err();
+    crate::common::assert_support_conflict(&error);
+    let refusal: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostic = &refusal["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["nodeIds"], serde_json::json!([6]));
+    assert_eq!(diagnostic["dofIndices"], serde_json::json!([0]));
+    assert!(refusal["message"].as_str().unwrap().contains("kx"));
+    let control = pdelta_units_rigid_control();
+    let mut expected = serde_json::to_value(&original.s).unwrap();
+    expected["supports"]["3"]["kx"] = serde_json::Value::Null;
+    assert_eq!(serde_json::to_value(&control.s).unwrap(), expected);
+    linear::solve_2d(&control.s).unwrap();
+    assert!(pdelta::solve_pdelta_2d(&control.s, 100, 1e-12).unwrap().converged);
 }

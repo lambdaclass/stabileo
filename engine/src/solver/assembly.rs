@@ -824,25 +824,19 @@ pub(crate) fn assemble_stiffness_2d_typed(
     let mut inclined_transforms_2d = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.support_type == "inclinedRoller" {
-            if let Some(theta) = sup.angle {
-                // Only apply transform for non-trivial angles
-                // At angle=0, inclinedRoller already behaves as rollerX (restrain uz)
-                // because the DOF numbering restrains local_dof=1 (uz).
-                // But we still need the transform for any angle, including 0,
-                // to ensure the "restrained uz" is in the rotated frame.
-                let r = inclined_rotation_matrix_2d(theta);
-                if let (Some(&d0), Some(&d1)) = (
-                    dof_num.map.get(&(sup.node_id, 0)),
-                    dof_num.map.get(&(sup.node_id, 1)),
-                ) {
-                    let dofs = [d0, d1];
-                    rotate_inclined_k_2d(&mut k_global, n, &dofs, &r);
-                    inclined_transforms_2d.push(InclinedTransformData2D {
-                        node_id: sup.node_id,
-                        dofs,
-                        r,
-                    });
-                }
+            let theta = sup.angle.unwrap_or(0.0);
+            let r = inclined_rotation_matrix_2d(theta);
+            if let (Some(&d0), Some(&d1)) = (
+                dof_num.map.get(&(sup.node_id, 0)),
+                dof_num.map.get(&(sup.node_id, 1)),
+            ) {
+                let dofs = [d0, d1];
+                rotate_inclined_k_2d(&mut k_global, n, &dofs, &r);
+                inclined_transforms_2d.push(InclinedTransformData2D {
+                    node_id: sup.node_id,
+                    dofs,
+                    r,
+                });
             }
         }
     }

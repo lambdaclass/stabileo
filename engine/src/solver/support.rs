@@ -26,7 +26,7 @@ pub(crate) fn support_dofs_2d(s: &SolverSupport) -> [SupportDof; 3] {
         _ => [false; 3],
     };
     let springs = [s.kx, s.ky, s.kz];
-    let inclined = s.support_type == "inclinedRoller" && s.angle.is_some();
+    let inclined = s.support_type == "inclinedRoller";
     std::array::from_fn(|i| support_dof(restrained[i], springs[i], !inclined || i == 2))
 }
 
