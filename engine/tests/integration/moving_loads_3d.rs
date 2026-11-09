@@ -358,20 +358,59 @@ fn issue_1782_midspan_moving_moment_matches_embedded_2d() {
     }
 }
 
+fn inclined_midpoint_axial_extremum(input: &MovingLoadInput) -> f64 {
+    let a = &input.solver.nodes["1"];
+    let b = &input.solver.nodes["2"];
+    let length = (b.x - a.x).hypot(b.z - a.z);
+    let vertical_reaction = input.train.axles[0].weight / 2.0;
+    vertical_reaction * (b.z - a.z) / length
+}
+
 #[test]
 fn issue_1782_inclined_moving_axial_matches_embedded_2d() {
     use dedaliano_engine::metamorphic::planes::Plane;
     use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
     let input = planar_moving_input(6.0);
+    let expected = inclined_midpoint_axial_extremum(&input);
     let reference = solve_moving_loads_2d(&input).unwrap();
     let r = &reference.elements["1"];
     assert!(r.n_max_pos.abs().max(r.n_max_neg.abs()) > 1.0);
+    assert_eq!(reference.num_positions, 3);
+    assert_planar_value(r.n_max_pos, expected);
+    assert_planar_value(r.n_max_neg, -expected);
+    println!("inclined 2D axial envelope: [{}, {}] kN; equilibrium: ±{expected} kN", r.n_max_neg, r.n_max_pos);
+    let mut endpoints = input.clone();
+    endpoints.step = Some(2.0 * input.step.unwrap());
+    let endpoint_reference = solve_moving_loads_2d(&endpoints).unwrap();
+    assert_eq!(endpoint_reference.num_positions, 2);
+    assert_planar_value(endpoint_reference.elements["1"].n_max_pos, 0.0);
+    assert_planar_value(endpoint_reference.elements["1"].n_max_neg, 0.0);
     for plane in Plane::ALL {
         let result = solve_moving_loads_3d(&embedded_moving_input(&input, plane)).unwrap();
         let e = &result.elements["1"];
         assert_eq!(result.num_positions, reference.num_positions);
         assert_planar_value(e.n_max_pos, r.n_max_pos);
         assert_planar_value(e.n_max_neg, r.n_max_neg);
+        assert_planar_value(e.n_max_pos, expected);
+        assert_planar_value(e.n_max_neg, -expected);
+        println!("inclined {plane:?} axial envelope: [{}, {}] kN; equilibrium: ±{expected} kN", e.n_max_neg, e.n_max_pos);
+        let endpoint_result = solve_moving_loads_3d(&embedded_moving_input(&endpoints, plane)).unwrap();
+        assert_eq!(endpoint_result.num_positions, 2);
+        assert_planar_value(endpoint_result.elements["1"].n_max_pos, 0.0);
+        assert_planar_value(endpoint_result.elements["1"].n_max_neg, 0.0);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_inclined_documented_axial_extrema_match_equilibrium() {
+    let expected = inclined_midpoint_axial_extremum(&planar_moving_input(6.0));
+    for (name, document) in [
+        ("SA-2026-051", include_str!("../../../docs/advisories/SA-2026-051-moving-loads-3d.md")),
+        ("moving-loads-3d results change", include_str!("../../../docs/results-changes/2026-11-moving-loads-3d.md")),
+    ] {
+        let extrema = document.split('±').filter_map(|part| part.split_once(" kN")).filter_map(|(value, _)| value.parse::<f64>().ok()).collect::<Vec<_>>();
+        assert!(extrema.iter().any(|value| (*value - expected).abs() <= 1e-9), "{name} must document axial extrema ±{expected} kN from equilibrium; found {extrema:?}");
     }
 }
 
