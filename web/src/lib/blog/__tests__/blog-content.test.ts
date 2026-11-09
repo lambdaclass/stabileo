@@ -376,6 +376,24 @@ describe('the safety-advisories post quotes the advisories', () => {
     }
   });
 
+  it.skip.each<[PublicLocale, string]>([
+    ['en', 'Low'],
+    ['es', 'Baja'],
+    ['pt', 'Baixa'],
+    ['de', 'Niedrig'],
+    ['fr', 'Faible'],
+    ['tr', 'Düşük'],
+  ])('known wrong result: #1782 — %s: lists SA-2026-053 as a low-severity draft in the summary and status note', (locale, severity) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const row = summary.rows.find((r) => r[0] === 'SA-2026-053');
+    const precedingDraft = summary.rows.find((r) => r[0] === 'SA-2026-052')!;
+    expect(row, `${locale}: endpoint-force advisory missing`).toBeDefined();
+    expect(row!.slice(2)).toEqual([severity, precedingDraft[3]]);
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    expect(status.t).toContain('SA-2026-053');
+  });
+
   it('quotes each documented case exactly as its advisory states it', () => {
     // Correct / reported, per advisory, as each advisory's documented-case table states it
     // (docs/advisories/SA-2026-*.md).
