@@ -163,37 +163,31 @@ fn issue_982() -> SolverInput {
 }
 
 #[test]
-fn a_buckling_mode_driven_by_round_off_is_named_at_any_load_scale_or_units_982() {
-    let unresolved = |input: &SolverInput| {
-        let b = dedaliano_engine::solver::buckling::solve_buckling_2d(input, 3).unwrap();
-        let flagged = b.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")).cloned();
-        let first = b.modes[0].load_factor;
-        let spurious: Vec<usize> = b.modes.iter().enumerate().filter(|(_, m)| m.load_factor > 1e6 * first).map(|(k, _)| k + 1).collect();
-        (flagged, spurious)
-    };
+fn no_buckling_mode_driven_by_round_off_survives_load_scaling_units_or_translation_982() {
     let base = issue_982();
     let rotated = transform_2d(&base, &Iso2::rotation(1f64.to_radians())).unwrap();
-    let (flagged, spurious) = unresolved(&rotated);
-    assert!(!spurious.is_empty() && flagged.is_some(), "the reported orientation no longer returns the round-off mode: {spurious:?}");
-    let mut variants: Vec<(String, SolverInput)> = Vec::new();
+    let reference = dedaliano_engine::solver::buckling::solve_buckling_2d(&rotated, 3).unwrap();
+    let expected: Vec<f64> = reference.modes.iter().map(|m| m.load_factor).collect();
+    assert_eq!(expected.len(), 2, "{expected:?}");
+    let mut variants: Vec<(String, SolverInput, f64)> = Vec::new();
     for scale in [1e-6, 1e6] {
         let mut input = rotated.clone();
         for load in &mut input.loads {
             if let SolverLoad::Distributed(q) = load { q.q_i *= scale; q.q_j *= scale; }
         }
-        variants.push((format!("load ×{scale:e}"), input));
+        variants.push((format!("load ×{scale:e}"), input, scale));
     }
-    variants.extend(units().iter().map(|u| (format!("units {} {}", u.length, u.force), scale_2d(&rotated, u))));
-    variants.push(("moved far".into(), transform_2d(&base, &Iso2::rotation(1f64.to_radians()).translated(1e4, -3e3)).unwrap()));
-    let mut named = 0;
-    for (name, input) in variants {
-        let (flagged, spurious) = unresolved(&input);
-        for k in spurious {
-            assert!(flagged.as_ref().is_some_and(|d| d.message.contains(&format!("mode {k} ("))), "{name}: mode {k} unnamed: {flagged:?}");
-            named += 1;
+    variants.extend(units().iter().map(|u| (format!("units {} {}", u.length, u.force), scale_2d(&rotated, u), 1.0)));
+    variants.push(("moved far".into(), transform_2d(&base, &Iso2::rotation(1f64.to_radians()).translated(1e4, -3e3)).unwrap(), 1.0));
+    for (name, input, load_scale) in variants {
+        let b = dedaliano_engine::solver::buckling::solve_buckling_2d(&input, 3).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let actual: Vec<f64> = b.modes.iter().map(|m| m.load_factor * load_scale).collect();
+        assert_eq!(actual.len(), expected.len(), "{name}: {actual:?}");
+        for (a, e) in actual.iter().zip(&expected) {
+            assert!((a / e - 1.0).abs() < 1e-6, "{name}: {actual:?} vs {expected:?}");
         }
+        assert!(!b.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")), "{name}: {:?}", b.structured_diagnostics);
     }
-    assert!(named > 0, "no variant returned the round-off mode");
 }
 
 fn harmonic_beam(frequencies: Vec<f64>, load: f64, u: Option<&Units>) -> dedaliano_engine::solver::harmonic::HarmonicResult {

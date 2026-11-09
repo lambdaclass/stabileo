@@ -486,6 +486,7 @@ check.issue-reproducers:
 
 test.nightly-scripts:
 	python3 -B -I scripts/tests/test_nightly.py
+	python3 -B -I scripts/tests/test_replay_findings.py
 	python3 -B -I scripts/tests/test_mutants_plan.py
 	python3 -B -I tools/opensees/test_gen_models.py
 	python3 -B -I tools/opensees/test_compare.py
@@ -539,7 +540,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_timing_budgets_gate.py
 	python3 -B -I scripts/tests/test_verify_changes.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
-	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml .github/workflows/issue-reproducers.yml .github/workflows/verify.yml .github/workflows/red-nightlies.yml .github/workflows/revert-check-label.yml .github/workflows/revert-check-trusted.yml
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml .github/workflows/stop-failed-run.yml .github/workflows/nightly.yml .github/workflows/route-size.yml .github/workflows/issue-reproducers.yml .github/workflows/verify.yml .github/workflows/red-nightlies.yml .github/workflows/revert-check-label.yml .github/workflows/revert-check-trusted.yml .github/workflows/replay-findings.yml
 
 # DIST=web/dist checks a real build instead of the fixture site.
 test.infra.caddy:

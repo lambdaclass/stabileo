@@ -300,7 +300,7 @@ designer anchored at 4 ‰ for the required steel and never looked at the provid
 | Flanged, circular, capacity, interaction diagram (`cirsoc201-flanged.ts`, `-circular.ts`, `-capacity.ts`, `interaction-diagram.ts`) | **Migrated.** Thin adapters: the beam check (with `bf`, `hf`) for flanged and given-steel capacity, the section engine for circular columns, rectangular columns and the diagram. |
 | Slabs (`losas.ts`) | **Migrated.** Strip requirement from `cirsoc201_design_beam` (b = 1 m, singly), capacity of the bars chosen from the beam check, As,min and spacings from `cirsoc201_slab_provisions` (2025: 7.6.1.1, 8.6.1.1, 24.4.3.2, 7.7.2.3, 8.7.2.2, 24.4.3.3). Bar/spacing choice stays in TypeScript. |
 | Station verifier columns (`station-design-forces.ts` `computeColumnCapacity`, `computeBiaxialCapacity`) | **Migrated.** `column_capacity_kernel.rs` delegates to the section engine (edition-aware); the TypeScript reference solver is an oracle; no bars → not verified. Biaxial: the load contour with the real bars, four sign quadrants, instead of Bresler with Nu·φMn/Mu estimates. |
-| CIRSOC 301 (`cirsoc301.ts`) | **Migrated.** A thin adapter over `check_cirsoc301_members` (`cirsoc301-kernel.ts`, JSON boundary): it maps `SteelDesignParams` in and the results out and renders the engine's messages as the Spanish `steps`. No engine = every check fails. Every pass is re-checked by `cirsoc301-engine-gate.ts` (step 3). Single and double angles are new (E.5, E.6). Still TypeScript (class c, inputs to the engine): `steel/tension-connection.ts` (Ae from the model's end connections), `steel/section-constants.ts` (J, Cw, Z); Cb is the engine's since slice 1 (`cirsoc301_inputs`). |
+| CIRSOC 301 (`cirsoc301.ts`) | **Migrated.** A thin adapter over `check_cirsoc301_members` (`cirsoc301-kernel.ts`, JSON boundary): it maps `SteelDesignParams` in and the results out and renders the engine's messages as the Spanish `steps`. No engine = every check fails. Every pass is re-checked by `cirsoc301-engine-gate.ts` (step 3). Single and double angles are new (E.5, E.6). Still TypeScript (class c, inputs to the engine): `steel/section-constants.ts` (J, Cw, Z); Cb is the engine's since slice 1 and Ae since slice 2 (`cirsoc301_inputs`). |
 | Serviceability (`checkDeflection`) | **Migrated.** The verdict (allowable deflection, ratio, pass) comes from `check_serviceability`. Only the long-term multiplier stays in TypeScript. If the engine is not loaded, the check fails. `checkCrackWidth` has no engine counterpart; it was fixed but stays in TypeScript. |
 | Footings (`foundation-check.ts`) | **Migrated.** A thin adapter over `check_isolated_footings` (`engine/src/postprocess/isolated_footing.rs`): service bearing with biaxial eccentricity and the column's plan offset, factored one-way shear in both directions and from both faces, punching with the soil inside the perimeter deducted and the unbalanced moment formed by equilibrium (refused when significant or not formable), column-face flexure along both axes. The formulas are generic over `Real`; `certify_isolated_footings` evaluates them in interval arithmetic and gates every OK (step 3). The old TypeScript is `__tests__/differential/foundation-check-oracle.ts`. `punching-shear.ts` stays for slab-column punching (`slab-punching.ts`), which the engine does not cover. |
 | Station design forces | **Engine only.** `computeStationDemands` throws `EngineUnavailableError` without the engine or the model; the TypeScript extraction is `__tests__/differential/station-oracle.ts`. |
@@ -368,10 +368,9 @@ section to a TypeScript reference, or if a design-check wrapper returns `null` a
 
 In rough order of safety value:
 
-1. **CIRSOC 301 inputs still computed in TypeScript.** The checker is in Rust and gated, but Ae
-   from the model's end connections (`tension-connection.ts`), J, Cw, Z (`section-constants.ts`)
-   and the unbraced lengths (`unbraced-length.ts`) are TypeScript arithmetic fed to it. Cb is the
-   engine's (`cirsoc301_inputs`, slice 1 below). Not in the engine either:
+1. **CIRSOC 301 inputs still computed in TypeScript.** The checker is in Rust and gated, but the
+   unbraced lengths (`unbraced-length.ts`) are TypeScript arithmetic fed to it. Cb, Ae, J, Cw, c
+   and Sy are the engine's (`cirsoc301_inputs`, slices 1 to 3 below). Not in the engine either:
    F.7–F.11 (boxes, tubes, tees, angles in flexure), so those members are NOT EVALUATED under
    moment, by name.
 2. **Gate coverage.** Torsion and the slenderness magnifier are not re-checked by the engine,
@@ -484,8 +483,8 @@ One PR per slice, on branch `rust/ts-migration-<slice>`:
 | # | Group | Slice | Status |
 |--:|:-:|---|---|
 | 1 | A | Cb, CIRSOC 301 F.1(3) | **Moved** (#1718) |
-| 2 | A | Ae, net area from end connections | |
-| 3 | A | J, Cw, c, Sy section constants | |
+| 2 | A | Ae, net area from end connections | **Moved** (#1771) |
+| 3 | A | J, Cw, c, Sy section constants | **Moved** (#1754) |
 | 4 | A | L, Lb, cantilever free end, segment diagram | |
 | 5 | A | Steel demand assembly and concurrent tuples | |
 | 6 | A | Material family classification | |
@@ -541,7 +540,25 @@ three stations in the window and give Cb = 1 on both sides. The fix is the resul
 `cb-segment-ends`. A non-finite diagram is now refused instead of giving Cb = NaN. Not moved, and the next slice to take:
 `stationMomentEnvelope` and `steelSegmentDiagram` (slice 4).
 
-#### 2. Ae, net area from end connections
+#### 2. Ae, net area from end connections: moved
+
+Moved in #1771. The section's elements, x̄, the hole chains, An, U, Ae, the clause, the refusal
+codes and the governing end are `tension_net_area.rs`, ops `netArea` and `tensionGeometry` of
+`cirsoc301_inputs`. `steel/tension-connection.ts` resolves the catalogue part of a built-up pair
+and the Tabla J.3.3 hole, and words the engine's ordered events as the same Spanish steps and
+`steel.tc.calc.*` messages; its arithmetic and `connectedOptions` are deleted. `memberEndsFor`
+and the presets stay (topology and topology defaults). x̄ keeps the TypeScript's source: the
+sharp-cornered outline of the section's own dimensions. Engine tests: hand values in mm for
+angles, a back-to-back pair, IPE 200 by flanges, web and all elements, tees, channels, the plate
+table and staggered chains, and every refusal (`engine/tests/tension_net_area.rs`); metamorphic
+equal legs, pair doubling, monotonicity in bolts and hole size, and the bounds of Ae and U.
+Parity against the deleted TypeScript, before it was deleted: 946 sections, 55 295 resolved ends
+bit-identical including steps and messages, 323 105 refusals identical in code and message,
+56 760 members identical. A non-finite input, which the TypeScript refused as missing, is an
+engine error. Review then found two wrong results the sweep had carried over: partial staggered
+chains and the shorter diagonal p − s were never tried, and an all-elements bolted end with no
+web lines got U = 1. Both are fixed in the same PR, reproducer first, with the results change
+`net-area-chains-and-web-lines`. The plan as written:
 
 - **TypeScript:** `steel/tension-connection.ts` (`tensionGeometry`, `endNetArea`,
   `memberNetArea`, `connectedOptions`, the presets) and `verification-service.ts`
@@ -563,7 +580,22 @@ three stations in the window and give Cb = 1 on both sides. The fix is the resul
 - **Watch:** `x̄` (the connection eccentricity) is read from section data. Keep the TypeScript's
   source of x̄, or pin the difference as a results change.
 
-#### 3. J, Cw, c, Sy section constants
+#### 3. J, Cw, c, Sy section constants: moved
+
+Moved in #1754. `steel/section-constants.ts` keeps the cache and gathers the geometry's J, Zx and
+Zy from the section engine. The closed forms (thin-walled J of an I or H, Cw of an I and of a
+channel, F.2's c, the channel's Sy) are `section_constants` in `cirsoc301_inputs.rs`, op
+`sectionConstants`. The TypeScript closed forms are deleted. Engine tests: hand values for
+IPE 300, HEB 200 and UPN 200 from `data/steel-profiles.ts`, the channel Cw in its shear-centre
+form, the basis precedence and the refusals (`engine/tests/cirsoc301_inputs.rs`); metamorphic
+size scaling (J ∝ λ⁴, Cw ∝ λ⁶, Sy ∝ λ³, c invariant). `section-constants-engine.test.ts`
+compares every plated I, H and U profile of the catalogue with the closed forms written out
+independently, to 1e-13. Parity against the deleted TypeScript, before it was deleted: 3 508
+sections (the catalogue four ways, plus 400 welded and degenerate sections), 24 556 values.
+24 485 values are bit-identical, and 71 differ by at most 4 ulp (relative 4.5e-16). The
+difference comes from `pow`, because V8's `**` and Rust's libm round differently. The plan as
+written:
+
 
 - **TypeScript:** `steel/section-constants.ts` `steelSectionConstants` (J thin-walled Σbt³/3 for
   an I or H, Cw = I_weak·h₀²/4, the channel Cw, c and Sy of AISC Design Guide 9, the `jBasis`).
@@ -1159,9 +1191,10 @@ call.
 | `steel/material-family.ts` | 200 | c | - | high | Classifies material as concrete/steel/etc from fy magnitude and E band thresholds; gates which checker runs |
 | `steel/moment-gradient.ts` | 55 | a | engine/src/postprocess/cirsoc301_inputs.rs (moment_gradient) | high | WASM boundary for Cb per CIRSOC 301 F.1.1; the former TypeScript is the oracle `__tests__/differential/moment-gradient-oracle.ts` |
 | `steel/profile-optimise.ts` | 183 | d | - | high | Lightest catalogue profile search calling TS checkSteelMember (cirsoc301.ts); search only |
-| `steel/section-constants.ts` | 120 | c | - (section/torsion.rs FE J used when available) | high | J, Cw, Zx, Zy, c closed-form for I/H/channel sections fed to CIRSOC 301 checker |
+| `steel/section-constants.ts` | 69 | a | engine/src/postprocess/cirsoc301_inputs.rs (section_constants) | high | Gathers the geometry's J/Z from the section engine and asks the engine for J, Cw, c and Sy; cached per section |
 | `steel/steel-inventory.ts` | 297 | d | - | low | Inventory of metallic members, families, empty reasons, total length |
 | `steel/steel-status.ts` | 163 | d | - | medium | Steel member status union, invariants, display tone/labels (what may be called verified) |
+| `steel/tension-connection.ts` | 497 | a | engine/src/postprocess/tension_net_area.rs (member_net_area) | high | WASM boundary for Ae per CIRSOC 301 D.3 and B.4.2.2: resolves the catalogue part and the Tabla J.3.3 hole, words the engine's steps; keeps `memberEndsFor` (topology) and the presets |
 | `steel/torsional-buckling.ts` | 177 | c | - | low | CIRSOC 301 E.4 applicability/gap report; computes shear modulus G only |
 | `steel/unbraced-length.ts` | 163 | c | - | high | Member chain length L and unbraced length Lb from collinear elements/constraint nodes; feeds LTB/compression checks |
 | `steel/workflow-assumptions.ts` | 189 | d | - | low | Per-member assumption rows with provenance |

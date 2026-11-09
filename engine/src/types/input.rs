@@ -463,6 +463,8 @@ pub struct SolverDistributedLoad3D {
 pub struct SolverPointLoad3D {
     pub element_id: usize,
     pub a: f64,
+    #[serde(default)]
+    pub px: f64,
     pub py: f64,
     pub pz: f64,
 }

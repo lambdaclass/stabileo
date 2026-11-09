@@ -75,3 +75,29 @@ fn metamorphic_pr_cb_linear_diagram_refined() {
         assert!((fine.cb - coarse.cb).abs() <= 1e-9 * coarse.cb, "seed {seed}: {} against {}", fine.cb, coarse.cb);
     }
 }
+
+#[test]
+fn metamorphic_pr_section_constants_scale_with_size() {
+    for seed in SEEDS {
+        let mut rng = Rng::new(seed);
+        let h = rng.range(0.08, 1.0);
+        let b = h * rng.range(0.25, 1.0);
+        let tf = h * rng.range(0.01, 0.08);
+        let tw = tf * rng.range(0.4, 1.0);
+        let iz = b.powi(3) * tf / 6.0;
+        let shape = ["I", "H", "U"][rng.below(3)];
+        let at = |l: f64| section_constants(&SectionConstantsInput {
+            shape: Some(shape.into()), b: Some(l * b), h: Some(l * h), tw: Some(l * tw), tf: Some(l * tf), iz: Some(l.powi(4) * iz),
+            ..Default::default()
+        }).unwrap();
+        let (one, l) = (at(1.0), [0.5, 2.0, 1000.0 / 1024.0][rng.below(3)]);
+        let k = at(l);
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-14 * b.abs();
+        assert!(close(k.j, l.powi(4) * one.j), "seed {seed}: J");
+        assert!(close(k.cw.unwrap(), l.powi(6) * one.cw.unwrap()), "seed {seed}: Cw");
+        if shape == "U" {
+            assert!(close(k.c.unwrap(), one.c.unwrap()), "seed {seed}: c");
+            assert!(close(k.sy.unwrap(), l.powi(3) * one.sy.unwrap()), "seed {seed}: Sy");
+        }
+    }
+}

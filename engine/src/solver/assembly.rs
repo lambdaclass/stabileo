@@ -1,3 +1,4 @@
+use crate::solver::support::{support_dofs_2d, support_dofs_3d};
 use crate::types::*;
 use crate::element::*;
 use crate::linalg::*;
@@ -319,7 +320,7 @@ pub(crate) fn refuse_connector_arm_mechanism_2d(input: &SolverInput) -> Result<(
         if !e.hinge_end { held.insert(e.node_j); }
     }
     for s in crate::ordered::values(&input.supports) {
-        if super::dof::is_dof_restrained_2d(s, 2) || (s.support_type == "spring" && s.kz.unwrap_or(0.0) != 0.0) {
+        if super::dof::is_dof_restrained_2d(s, 2) || (s.support_type == "spring" && support_dofs_2d(s)[2].spring.unwrap_or(0.0) != 0.0) {
             held.insert(s.node_id);
         }
     }
@@ -425,6 +426,7 @@ pub struct InclinedTransformData2D {
 /// R = [[-cos θ,  sin θ],
 ///      [ sin θ,  cos θ]]
 pub fn inclined_rotation_matrix_2d(theta: f64) -> [[f64; 2]; 2] {
+    let theta = super::support::prepare_support_angle(theta);
     let c = theta.cos();
     let s = theta.sin();
     [[-c, s], [s, c]]
@@ -688,12 +690,12 @@ pub(crate) fn assemble_stiffness_2d_typed(
 
     // Add spring stiffness (with rotation support for springs with angle)
     for sup in crate::ordered::values(&input.supports) {
-        let kx_val = sup.kx.unwrap_or(0.0);
-        let ky_val = sup.ky.unwrap_or(0.0);  // ky maps to vertical (uz) in 2D
-        let kz_val = sup.kz.unwrap_or(0.0);  // rotational spring
+        let kx_val = support_dofs_2d(sup)[0].spring.unwrap_or(0.0);
+        let ky_val = support_dofs_2d(sup)[1].spring.unwrap_or(0.0);
+        let kz_val = support_dofs_2d(sup)[2].spring.unwrap_or(0.0);
 
         if sup.support_type == "spring" {
-            if let Some(angle) = sup.angle {
+            if let Some(angle) = sup.angle.map(super::support::prepare_support_angle) {
                 if angle.abs() > 1e-15 && (kx_val > 0.0 || ky_val > 0.0) {
                     // Rotated spring: K_global = R^T * diag(kx, ky) * R
                     let c = angle.cos();
@@ -787,11 +789,11 @@ pub(crate) fn assemble_stiffness_2d_typed(
         // Nodes with rotational restraint from supports
         let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
         for sup in crate::ordered::values(&input.supports) {
-            if matches!(sup.support_type.as_str(), "fixed" | "guidedX" | "guidedY" | "guidedZ") {
+            if crate::solver::support::support_dofs_2d(sup)[2].restrained {
                 rot_restrained.insert(sup.node_id);
             }
             if sup.support_type == "spring" {
-                if sup.kz.unwrap_or(0.0) > 0.0 {
+                if support_dofs_2d(sup)[2].spring.unwrap_or(0.0) > 0.0 {
                     rot_restrained.insert(sup.node_id);
                 }
             }
@@ -826,25 +828,19 @@ pub(crate) fn assemble_stiffness_2d_typed(
     let mut inclined_transforms_2d = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.support_type == "inclinedRoller" {
-            if let Some(theta) = sup.angle {
-                // Only apply transform for non-trivial angles
-                // At angle=0, inclinedRoller already behaves as rollerX (restrain uz)
-                // because the DOF numbering restrains local_dof=1 (uz).
-                // But we still need the transform for any angle, including 0,
-                // to ensure the "restrained uz" is in the rotated frame.
-                let r = inclined_rotation_matrix_2d(theta);
-                if let (Some(&d0), Some(&d1)) = (
-                    dof_num.map.get(&(sup.node_id, 0)),
-                    dof_num.map.get(&(sup.node_id, 1)),
-                ) {
-                    let dofs = [d0, d1];
-                    rotate_inclined_k_2d(&mut k_global, n, &dofs, &r);
-                    inclined_transforms_2d.push(InclinedTransformData2D {
-                        node_id: sup.node_id,
-                        dofs,
-                        r,
-                    });
-                }
+            let theta = sup.angle.unwrap_or(0.0);
+            let r = inclined_rotation_matrix_2d(theta);
+            if let (Some(&d0), Some(&d1)) = (
+                dof_num.map.get(&(sup.node_id, 0)),
+                dof_num.map.get(&(sup.node_id, 1)),
+            ) {
+                let dofs = [d0, d1];
+                rotate_inclined_k_2d(&mut k_global, n, &dofs, &r);
+                inclined_transforms_2d.push(InclinedTransformData2D {
+                    node_id: sup.node_id,
+                    dofs,
+                    r,
+                });
             }
         }
     }
@@ -1386,7 +1382,7 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
 
     // Add 3D spring stiffness
     for sup in crate::ordered::values(&input.supports) {
-        let springs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
+        let springs = [support_dofs_3d(sup)[0].spring, support_dofs_3d(sup)[1].spring, support_dofs_3d(sup)[2].spring, support_dofs_3d(sup)[3].spring, support_dofs_3d(sup)[4].spring, support_dofs_3d(sup)[5].spring];
         for (i, ks) in springs.iter().enumerate() {
             if let Some(k) = ks {
                 if *k > 0.0 && i < dof_num.dofs_per_node {
@@ -1398,7 +1394,7 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
         }
         // Warping spring (DOF 6)
         if dof_num.dofs_per_node >= 7 {
-            if let Some(kw) = sup.kw {
+            if let Some(kw) = support_dofs_3d(sup)[6].spring {
                 if kw > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 6)) {
                         k_global[d * n + d] += kw;
@@ -1643,16 +1639,16 @@ pub(crate) fn truss_member_load_3d(
                 }
             }
         }
-        SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id && (pl.py != 0.0 || pl.pz != 0.0) => {
+        SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id && (pl.px != 0.0 || pl.py != 0.0 || pl.pz != 0.0) => {
             // A point load on a truss reaches its nodes by the lever rule.
-            let (_ex, ey, ez) = compute_local_axes_3d(
+            let (ex, ey, ez) = compute_local_axes_3d(
                 node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
                 elem.local_yx, elem.local_yy, elem.local_yz, elem.roll_angle, left_hand);
             let f_i = 1.0 - pl.a / l;
             let f_j = pl.a / l;
             for k in 0..3 {
-                let comp_i = pl.py * f_i * ey[k] + pl.pz * f_i * ez[k];
-                let comp_j = pl.py * f_j * ey[k] + pl.pz * f_j * ez[k];
+                let comp_i = pl.px * f_i * ex[k] + pl.py * f_i * ey[k] + pl.pz * f_i * ez[k];
+                let comp_j = pl.px * f_j * ex[k] + pl.py * f_j * ey[k] + pl.pz * f_j * ez[k];
                 if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) { f_global[d] += comp_i; }
                 if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) { f_global[d] += comp_j; }
             }
@@ -2166,7 +2162,7 @@ fn assemble_element_loads_3d(
                 }
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                let mut fef = fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                let mut fef = fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
 
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t, 12);
@@ -2230,7 +2226,7 @@ fn assemble_element_loads_3d_warping(
                 }
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                let mut fef12 = fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                let mut fef12 = fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef12, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
@@ -2294,7 +2290,7 @@ fn assemble_element_loads_3d_mapped(
                 }
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                let mut fef = fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                let mut fef = fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                 adjust_fef_for_hinges_3d(&mut fef, l, Hinge3D::from_elem(elem), phi_y, phi_z);
                 let fef_global = transform_force(&fef, t12, 12);
                 for i in 0..12 {
@@ -2852,7 +2848,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
 
     // Spring stiffness
     for sup in crate::ordered::values(&input.supports) {
-        let springs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
+        let springs = [support_dofs_3d(sup)[0].spring, support_dofs_3d(sup)[1].spring, support_dofs_3d(sup)[2].spring, support_dofs_3d(sup)[3].spring, support_dofs_3d(sup)[4].spring, support_dofs_3d(sup)[5].spring];
         for (i, ks) in springs.iter().enumerate() {
             if let Some(k) = ks {
                 if *k > 0.0 && i < dof_num.dofs_per_node {
@@ -2864,7 +2860,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
             }
         }
         if dof_num.dofs_per_node >= 7 {
-            if let Some(kw) = sup.kw {
+            if let Some(kw) = support_dofs_3d(sup)[6].spring {
                 if kw > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 6)) {
                         trip_rows.push(d); trip_cols.push(d); trip_vals.push(kw);
@@ -3470,12 +3466,12 @@ pub fn support_spring_entries_2d(input: &SolverInput, dof_num: &DofNumbering) ->
     let mut sups: Vec<&SolverSupport> = crate::ordered::values(&input.supports).collect();
     sups.sort_by_key(|s| s.id);
     for sup in sups {
-        let kx = sup.kx.unwrap_or(0.0);
-        let ky = sup.ky.unwrap_or(0.0);
-        let kz = sup.kz.unwrap_or(0.0);
+        let kx = support_dofs_2d(sup)[0].spring.unwrap_or(0.0);
+        let ky = support_dofs_2d(sup)[1].spring.unwrap_or(0.0);
+        let kz = support_dofs_2d(sup)[2].spring.unwrap_or(0.0);
         let dx = dof_num.map.get(&(sup.node_id, 0)).copied();
         let dz = dof_num.map.get(&(sup.node_id, 1)).copied();
-        let angle = sup.angle.filter(|a| sup.support_type == "spring" && a.abs() > 1e-15 && (kx > 0.0 || ky > 0.0));
+        let angle = sup.angle.map(super::support::prepare_support_angle).filter(|a| sup.support_type == "spring" && a.abs() > 1e-15 && (kx > 0.0 || ky > 0.0));
         match (angle, dx, dz) {
             (Some(angle), Some(dx), Some(dz)) => {
                 let (s, c) = angle.sin_cos();
@@ -3513,7 +3509,7 @@ pub fn support_spring_entries_3d(input: &SolverInput3D, dof_num: &DofNumbering) 
     let mut sups: Vec<&SolverSupport3D> = crate::ordered::values(&input.supports).collect();
     sups.sort_by_key(|s| s.node_id);
     for sup in sups {
-        let ks = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz, sup.kw];
+        let ks = support_dofs_3d(sup).map(|d| d.spring);
         for (local, k) in ks.into_iter().enumerate() {
             let k = k.unwrap_or(0.0);
             if k > 0.0 && local < dof_num.dofs_per_node {

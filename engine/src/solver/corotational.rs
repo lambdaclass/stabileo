@@ -1,3 +1,4 @@
+use crate::solver::support::{support_dofs_3d};
 use crate::types::*;
 use crate::linalg::*;
 use crate::element::*;
@@ -2106,8 +2107,8 @@ fn add_spring_contributions_3d(
 ) {
     for sup in crate::ordered::values(&input.supports) {
         let springs: [(usize, Option<f64>); 6] = [
-            (0, sup.kx), (1, sup.ky), (2, sup.kz),
-            (3, sup.krx), (4, sup.kry), (5, sup.krz),
+            (0, support_dofs_3d(sup)[0].spring), (1, support_dofs_3d(sup)[1].spring), (2, support_dofs_3d(sup)[2].spring),
+            (3, support_dofs_3d(sup)[3].spring), (4, support_dofs_3d(sup)[4].spring), (5, support_dofs_3d(sup)[5].spring),
         ];
         for &(local_dof, k_val) in &springs {
             if let Some(k) = k_val {
@@ -2371,7 +2372,7 @@ fn elastic_corotational_forces_3d(
                 distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
                 q_zi: 0.0, q_zj: 0.0,
                 distributed_loads_x: Vec::new(),
-                distributed_loads_z: Vec::new(), point_loads_z: Vec::new(),
+                distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(),
                 bimoment_start: None, bimoment_end: None,
             });
             continue;
@@ -2485,7 +2486,7 @@ fn elastic_corotational_forces_3d(
             distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
             q_zi: 0.0, q_zj: 0.0,
             distributed_loads_x: Vec::new(),
-            distributed_loads_z: Vec::new(), point_loads_z: Vec::new(),
+            distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(),
             bimoment_start: None, bimoment_end: None,
         });
     }

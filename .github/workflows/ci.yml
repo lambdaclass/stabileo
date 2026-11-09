@@ -205,6 +205,7 @@ jobs:
               - 'scripts/invariance-gate.py'
               - '.github/workflows/research.yml'
               - 'scripts/nightly-*.py'
+              - 'scripts/replay-findings.py'
               - '.github/workflows/nightly.yml'
               - '.github/workflows/supply-chain.yml'
               - '.github/workflows/merge-queue-supersede.yml'

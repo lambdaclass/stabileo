@@ -1758,12 +1758,16 @@ def opensees_worker(model):
     return {"ok": r}
 
 
+# Without this each worker's OpenBLAS starts a thread per core, and parallel workers slow each other ~100x.
+SINGLE_THREAD_BLAS = {"OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+
+
 def opensees_isolated(model):
     """Run OpenSees in a fresh interpreter. openseespy keeps global state that
     survives ops.wipe() (a 3D ndf=3 truss model corrupts later 2D truss
     models in the same process), and some failures abort the process."""
     p = subprocess.run([sys.executable, os.path.abspath(__file__), "--opensees-worker"],
-                       input=json.dumps(model), capture_output=True, text=True)
+                       input=json.dumps(model), capture_output=True, text=True, env=dict(os.environ, **SINGLE_THREAD_BLAS))
     try:
         out = json.loads(p.stdout.strip().splitlines()[-1])
     except (json.JSONDecodeError, IndexError):

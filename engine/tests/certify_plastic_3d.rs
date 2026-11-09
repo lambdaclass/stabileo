@@ -152,7 +152,7 @@ fn point_loads_on_members() {
     // in local y at a = 2 of L = 6: λ_c = Mp_z L / (P a b)
     let pinned = [true, true, true, true, false, false];
     let roller = [false, true, true, false, false, false];
-    let pl = SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 2.0, py: -1.0, pz: 0.0 });
+    let pl = SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 2.0, py: -1.0, pz: 0.0 });
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 6.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, pinned), (2, roller)], vec![pl]);
     let (c, res) = certify(&plastic(s, MPY, MPZ));
     assert_encloses("SS point load y", &c, MPZ * 6.0 / 8.0, 1e-12);
@@ -160,7 +160,7 @@ fn point_loads_on_members() {
     // same in local z with a UDL on top: fixed-fixed, central P and q:
     // mechanism hinges at both ends and midspan, λ (P L/2 + q L²/4)... = 4 Mp·2/L·... :
     // D = 4 Mp θ, W = λ (P θL/2 + q θL²/4) ⇒ λ = 16 Mp / (2 P L + q L²)
-    let pl = SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 3.0, py: 0.0, pz: -2.0 });
+    let pl = SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 3.0, py: 0.0, pz: -2.0 });
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 6.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, FIXED), (2, FIXED)], vec![pl, udl(1, 0.0, -1.0)]);
     let (c, _) = certify(&plastic(s, MPY, MPZ));
     assert_encloses("fixed beam P + q in z", &c, 16.0 * MPY / (2.0 * 2.0 * 6.0 + 36.0), 1e-9);
@@ -202,7 +202,7 @@ fn space_portal_sway() {
     // In-plane sway plus a vertical load at midspan of the beam (a point load
     // on the member): combined mechanism 6 Mp_y / (H h + V a), a = 2.
     let mut s = portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-    s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 2, a: 2.0, py: 0.0, pz: -1.0 }));
+    s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 2, a: 2.0, py: 0.0, pz: -1.0 }));
     let (c, _) = certify(&plastic(s, MPY, MPZ));
     let exact = [4.0 * MPY / 3.0, 4.0 * MPY / 2.0, 6.0 * MPY / (3.0 + 2.0)].into_iter().fold(f64::INFINITY, f64::min);
     assert_encloses("portal sway + beam load", &c, exact, 1e-9);
@@ -266,7 +266,7 @@ fn point_load_beside_a_hinged_end_still_forms_its_hinge() {
         vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
         vec![(1, 1, 2)],
         vec![(1, FIXED), (2, [true, true, true, true, false, false])],
-        vec![SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 0.002, py: 0.0, pz: -1.0 })],
+        vec![SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 0.002, py: 0.0, pz: -1.0 })],
     );
     let e = s.elements.get_mut("1").unwrap();
     (e.release_my_start, e.release_mz_start) = (true, true);
@@ -502,7 +502,7 @@ fn random_plane_frames_in_space_agree_with_solver() {
                     loads.push(udl(elems.len(), 0.0, -(1.0 + (g.next() * 3.0).round())));
                 } else {
                     let a = w * (1.0 + (g.next() * 3.0).round()) / 5.0;
-                    loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: elems.len(), a, py: 0.0, pz: -(2.0 + (g.next() * 6.0).round()) }));
+                    loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: elems.len(), a, py: 0.0, pz: -(2.0 + (g.next() * 6.0).round()) }));
                 }
                 if g.next() < 0.2 {
                     released.push(elems.len());
@@ -726,5 +726,25 @@ fn a_frame_without_plastic_capacity_is_refused_1525() {
         assert!(c.reason.as_deref().is_some_and(|r| r.contains("element 1")), "{what}: {:?}", c.reason);
         let bundle = dedaliano_engine::certify::plastic_bundle::export_plastic_bundle_3d(&input);
         refusal_names_member(&bundle.err().unwrap_or_else(|| panic!("{what}: bundle exported")), 1, 2);
+    }
+}
+
+#[test]
+fn axial_point_loads_are_refused_by_the_3d_plastic_certificate() {
+    for px in [-1.0, 1.0, -f64::EPSILON, f64::EPSILON] {
+        for (py, pz) in [(0.0, 0.0), (-1.0, 0.0), (0.0, -1.0), (-1.0, -1.0)] {
+            let load = SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                element_id: 1, a: 2.0, px, py, pz,
+            });
+            let solver = make_3d_beam(1, 6.0, E, 0.3, A, IY, IZ, J, FIXED.to_vec(), None, vec![load]);
+            let input = plastic(solver, MPY, MPZ);
+            let reason = build_model_3d(&input).unwrap_err();
+            assert!(reason.contains("axial point loads"), "{reason}");
+            let certificate = certify_collapse_3d(&input, None);
+            assert!(!certificate.certified, "{certificate:?}");
+            assert!(certificate.lambda_lower.is_none(), "{certificate:?}");
+            assert!(certificate.lambda_upper.is_none(), "{certificate:?}");
+            assert!(certificate.reason.as_deref().is_some_and(|r| r.contains("axial point loads")), "{certificate:?}");
+        }
     }
 }

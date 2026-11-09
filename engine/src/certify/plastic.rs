@@ -144,19 +144,13 @@ pub(super) fn approx_mp(fyk: &Q, i: f64, a: f64) -> Result<(Q, Q), String> {
     Ok((&k / q(hi).unwrap(), &k / q(lo).unwrap()))
 }
 
-/// Restrained DOFs of a support, as the 2D DOF numbering defines them.
-fn support_restrains(t: &str) -> Result<[bool; 3], String> {
-    Ok(match t {
-        "fixed" => [true, true, true],
-        "pinned" => [true, true, false],
-        "rollerX" => [false, true, false],
-        "rollerY" | "rollerZ" => [true, false, false],
-        "guidedX" => [false, true, true],
-        "guidedY" | "guidedZ" => [true, false, true],
+fn support_restrains(s: &SolverSupport) -> Result<[bool; 3], String> {
+    match s.support_type.as_str() {
         "spring" => return Err("spring supports are not part of the rigid-plastic model".into()),
         "inclinedRoller" => return Err("inclined supports are not supported".into()),
-        _ => [false, false, false],
-    })
+        _ => {}
+    }
+    Ok(crate::solver::support::support_dofs_2d(s).map(|d| d.restrained))
 }
 
 fn build_pieces(e: &PElem) -> Result<Vec<Piece>, String> {
@@ -236,6 +230,7 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
     // inside this range; outside it the certificate is refused, not slow.
     super::finite::check_magnitudes(input, EXACT_MIN_ABS, EXACT_MAX_ABS)?;
     let s = &input.solver;
+    crate::solver::support::validate_supports_2d(s)?;
     if !s.constraints.is_empty() {
         return Err("constraints are not supported by the plastic certificate".into());
     }
@@ -259,7 +254,7 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
     sups.sort_by_key(|x| x.id);
     for sup in sups {
         let n = *idx.get(&sup.node_id).ok_or("support on unknown node")?;
-        let r = support_restrains(&sup.support_type)?;
+        let r = support_restrains(sup)?;
         if sup.angle.is_some_and(|a| a != 0.0) {
             return Err("inclined supports are not supported".into());
         }

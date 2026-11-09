@@ -3,6 +3,30 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::{rotate_inclined_free_block, InclinedFrame, InclinedTransformData, InclinedTransformData2D};
 
+#[derive(Clone, Copy)]
+pub(crate) enum BucklingKg<'a> {
+    All,
+    Resolved { mean_n: &'a std::collections::HashMap<usize, f64>, noise: &'a std::collections::HashMap<usize, f64> },
+    RoundOffAtCompression { mean_n: &'a std::collections::HashMap<usize, f64>, noise: &'a std::collections::HashMap<usize, f64> },
+}
+
+impl BucklingKg<'_> {
+    pub(crate) fn axial_force(&self, id: usize) -> Option<Option<f64>> {
+        match *self {
+            BucklingKg::All => Some(None),
+            BucklingKg::Resolved { mean_n, noise } | BucklingKg::RoundOffAtCompression { mean_n, noise } => {
+                let e = noise.get(&id).copied().unwrap_or(0.0);
+                let n = mean_n.get(&id).copied().unwrap_or(0.0);
+                match (self, n.abs() <= e) {
+                    (BucklingKg::Resolved { .. }, false) => Some(None),
+                    (BucklingKg::RoundOffAtCompression { .. }, true) if e > 0.0 => Some(Some(n - e)),
+                    _ => None,
+                }
+            }
+        }
+    }
+}
+
 /// The (α, ΔT) of each element's uniform thermal loads, so its free thermal strain is α·ΔT.
 ///
 /// The P-Delta iteration reads a member's axial force back from its
@@ -428,8 +452,12 @@ fn frame_kg_span_local_3d(w: &[[f64; 4]; 4], e: &[f64; 4], l: f64, hinge: &crate
 /// consistent Kg of the member's whole N(x), bending, Wagner and shear-centre terms alike. As in
 /// 2D, trusses and cables have none. Also each such member's least N − N̄ along it.
 pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> (Vec<(usize, Vec<usize>, Vec<f64>)>, std::collections::HashMap<usize, f64>) {
+    let mut points: std::collections::HashMap<usize, Vec<(f64, f64)>> = std::collections::HashMap::new();
     let mut spans: std::collections::HashMap<usize, Vec<&SolverDistributedLoad3D>> = std::collections::HashMap::new();
     for load in &input.loads {
+        if let SolverLoad3D::PointOnElement(pl) = load {
+            if pl.px != 0.0 { points.entry(pl.element_id).or_default().push((pl.a, pl.px)); }
+        }
         if let SolverLoad3D::Distributed(dl) = load {
             if dl.q_xi != 0.0 || dl.q_xj != 0.0 {
                 spans.entry(dl.element_id).or_default().push(dl);
@@ -445,7 +473,9 @@ pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: 
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             continue;
         }
-        let Some(raw_spans) = spans.get(&elem.id) else { continue };
+        let raw_spans = spans.get(&elem.id).map(Vec::as_slice).unwrap_or(&[]);
+        let pts = points.get(&elem.id).map(Vec::as_slice).unwrap_or(&[]);
+        if raw_spans.is_empty() && pts.is_empty() { continue; }
         let (Some(ni), Some(nj), Some(sec)) = (node_by_id.get(&elem.node_i), node_by_id.get(&elem.node_j), sec_by_id.get(&elem.section_id)) else { continue };
         let (dx, dy, dz) = (nj.x - ni.x, nj.y - ni.y, nj.z - ni.z);
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
@@ -453,10 +483,10 @@ pub(crate) fn span_axial_geometric_stiffness_3d(input: &SolverInput3D, dof_num: 
             continue;
         }
         let sps: Vec<[f64; 4]> = raw_spans.iter().map(|dl| [dl.q_xi, dl.q_xj, dl.a.unwrap_or(0.0), dl.b.unwrap_or(l)]).filter(|s| s[3] > s[2]).collect();
-        if sps.is_empty() {
+        if sps.is_empty() && pts.is_empty() {
             continue;
         }
-        let (w, e, low) = span_axial_weights(l, &[], &sps);
+        let (w, e, low) = span_axial_weights(l, pts, &sps);
         least.insert(elem.id, low);
         let (ex, ey, ez) = crate::element::compute_local_axes_3d(
             ni.x, ni.y, ni.z,
@@ -673,16 +703,37 @@ pub(crate) fn emit_geometric_stiffness_2d(
     u: &[f64],
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
+    emit_geometric_stiffness_2d_filtered(input, dof_num, u, BucklingKg::All, emit);
+}
+
+pub(crate) fn emit_buckling_geometric_stiffness_2d(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    which: BucklingKg<'_>,
+    emit: &mut dyn FnMut(usize, usize, f64),
+) {
+    emit_geometric_stiffness_2d_filtered(input, dof_num, u, which, emit);
+}
+
+fn emit_geometric_stiffness_2d_filtered(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    which: BucklingKg<'_>,
+    emit: &mut dyn FnMut(usize, usize, f64),
+) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let sec_by_id: std::collections::HashMap<usize, &SolverSection> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
     let dt_by_elem = uniform_dt_2d(input);
 
     for elem in crate::ordered::values(&input.elements) {
+        let Some(forced) = which.axial_force(elem.id) else { continue };
         let (alpha, dt) = dt_by_elem.get(&elem.id).copied().unwrap_or((DEFAULT_FRAME_THERMAL_ALPHA, 0.0));
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             // Truss geometric stiffness
-            add_truss_kg_2d(&node_by_id, &mat_by_id, &sec_by_id, dof_num, elem, u, (alpha, dt), emit);
+            add_truss_kg_2d(&node_by_id, &mat_by_id, &sec_by_id, dof_num, elem, u, (alpha, dt), forced, emit);
             continue;
         }
 
@@ -705,7 +756,7 @@ pub(crate) fn emit_geometric_stiffness_2d(
         let u_local = transform_displacement(&u_global, &t, 6);
 
         // Axial deformation, less the free thermal strain → axial force
-        let axial_force = e * sec.a * ((u_local[3] - u_local[0]) / l - alpha * dt);
+        let axial_force = forced.unwrap_or(e * sec.a * ((u_local[3] - u_local[0]) / l - alpha * dt));
 
         let k_g_global = frame_kg_global_2d(axial_force, l, &t, elem);
 
@@ -861,6 +912,7 @@ fn add_truss_kg_2d(
     elem: &SolverElement,
     u: &[f64],
     (alpha, dt): (f64, f64),
+    forced: Option<f64>,
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
     let node_i = node_by_id[&elem.node_i];
@@ -884,7 +936,7 @@ fn add_truss_kg_2d(
         dof_num.global_dof(elem.node_j, 1).map(|d| u[d]).unwrap_or(0.0),
     ];
     let delta = (uj[0] - ui[0]) * cos + (uj[1] - ui[1]) * sin;
-    let axial_force = e * sec.a * (delta / l - alpha * dt);
+    let axial_force = forced.unwrap_or(e * sec.a * (delta / l - alpha * dt));
 
     let k_g = truss_kg_2d(axial_force / l, cos, sin);
 
@@ -1351,6 +1403,26 @@ pub(crate) fn emit_geometric_stiffness_3d(
     u: &[f64],
     emit: &mut dyn FnMut(usize, usize, f64),
 ) {
+    emit_geometric_stiffness_3d_filtered(input, dof_num, u, BucklingKg::All, emit);
+}
+
+pub(crate) fn emit_buckling_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    which: BucklingKg<'_>,
+    emit: &mut dyn FnMut(usize, usize, f64),
+) {
+    emit_geometric_stiffness_3d_filtered(input, dof_num, u, which, emit);
+}
+
+fn emit_geometric_stiffness_3d_filtered(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    which: BucklingKg<'_>,
+    emit: &mut dyn FnMut(usize, usize, f64),
+) {
     let left_hand = input.left_hand.unwrap_or(false);
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
@@ -1358,6 +1430,7 @@ pub(crate) fn emit_geometric_stiffness_3d(
     let dt_by_elem = uniform_dt_3d(input);
 
     for elem in crate::ordered::values(&input.elements) {
+        let Some(forced) = which.axial_force(elem.id) else { continue };
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
@@ -1375,7 +1448,7 @@ pub(crate) fn emit_geometric_stiffness_3d(
             let ui: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).map(|d| u[d]).unwrap_or(0.0)).collect();
             let uj: Vec<f64> = (0..3).map(|i| dof_num.global_dof(elem.node_j, i).map(|d| u[d]).unwrap_or(0.0)).collect();
             let delta: f64 = (0..3).map(|i| (uj[i] - ui[i]) * dir[i]).sum();
-            let axial_force = e * sec.a * (delta / l - alpha * dt);
+            let axial_force = forced.unwrap_or(e * sec.a * (delta / l - alpha * dt));
             let kg_local = truss_kg_3d(axial_force / l, &dir);
             let truss_dofs: Vec<usize> = (0..3).map(|i| dof_num.global_dof(elem.node_i, i).unwrap())
                 .chain((0..3).map(|i| dof_num.global_dof(elem.node_j, i).unwrap()))
@@ -1404,7 +1477,7 @@ pub(crate) fn emit_geometric_stiffness_3d(
             let u_local = transform_displacement(&u_12, &t, 12);
 
             // Axial force from local displacements, less the free thermal strain
-            let axial_force = e * sec.a * ((u_local[6] - u_local[0]) / l - alpha * dt);
+            let axial_force = forced.unwrap_or(e * sec.a * ((u_local[6] - u_local[0]) / l - alpha * dt));
 
             // Bending, Wagner and shear-centre terms (14×14 on warping members).
             let (dofs, kg_global) = frame_kg_global_3d(axial_force, l, elem, sec, (&ex, &ey, &ez), dof_num);
@@ -1421,7 +1494,9 @@ pub(crate) fn emit_geometric_stiffness_3d(
     // P-Delta on a model with slabs or walls left their membrane forces out
     // of the tangent, so a compressed wall strip came back as its linear
     // solution (13% short of the amplified one at P = 0.13·P_cr).
-    emit_shell_geometric_stiffness_3d(input, dof_num, u, emit);
+    if !matches!(which, BucklingKg::RoundOffAtCompression { .. }) {
+        emit_shell_geometric_stiffness_3d(input, dof_num, u, emit);
+    }
 }
 
 /// One element's share of the P-Delta geometric stiffness in the affine form the

@@ -98,7 +98,7 @@ enum Outcome { Solved, Refused, Failed }
 #[test]
 fn linear_2d_is_bit_identical_across_hash_orders() {
     let (mut solved, mut refused) = (0, 0);
-    for seed in 0..60 {
+    for seed in 0..120 {
         let (m, _) = fuzz_models::random_2d_model_rich(seed);
         let json = serde_json::to_string(&m).unwrap();
         match same_every_time::<SolverInput, _>(&json, &format!("2D seed {seed}"), solve_2d) {

@@ -223,7 +223,7 @@ fn loads_3d_nothing_resists() {
     }
     assert_failed(e2e_3d(frame_3d(), |i| i.loads.push(nodal3(99, [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]))), "load on a missing node");
     assert_failed(
-        e2e_3d(frame_3d(), |i| i.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 99, a: 1.0, py: 0.0, pz: -1.0 }))),
+        e2e_3d(frame_3d(), |i| i.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 99, a: 1.0, py: 0.0, pz: -1.0 }))),
         "point load on a missing element",
     );
     assert_failed(
@@ -249,7 +249,7 @@ fn support_fields_3d_never_dropped() {
     assert_out_of_scope(set(truss_3d(), 1, |s| s.krx = Some(100.0)), "rotational spring, all-truss model");
     assert_out_of_scope(set(truss_3d(), 1, |s| s.drz = Some(0.01)), "prescribed rotation, all-truss model");
     assert_out_of_scope(set(frame_3d(), 1, |s| { s.rx = false; s.dx = Some(0.01) }), "dx on a free DOF");
-    assert_out_of_scope(set(frame_3d(), 1, |s| { s.kz = Some(1e5); s.dz = Some(0.01) }), "dz on a DOF a spring frees");
+    assert_out_of_scope(set(frame_3d(), 1, |s| { s.rz = false; s.kz = Some(1e5); s.dz = Some(0.01) }), "dz on an elastic DOF");
     assert_out_of_scope(
         set(frame_3d(), 1, |s| {
             s.is_inclined = Some(true);

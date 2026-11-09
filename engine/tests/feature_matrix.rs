@@ -1325,6 +1325,20 @@ fn moving_reference_2d(ana: &str, c: &Case2) -> Result<Out, String> {
             // Along the member, as the envelope reads it since #437: the ends and every
             // station the diagram samples (the point load among them).
             let range = |ef: &ElementForces, kind: &str, a0: f64, a1: f64| -> (f64, f64) {
+                let mut interior = None;
+                let (a0, a1) = if kind == "shear" {
+                    let jump0: f64 = ef.point_loads.iter().filter(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum();
+                    let jump1: f64 = ef.point_loads.iter().filter(|p| (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum();
+                    if jump0 != 0.0 || jump1 != 0.0 {
+                        let mut member = ef.clone();
+                        member.v_start = a0 + jump0;
+                        member.v_end = a1 - jump1;
+                        member.point_loads.retain(|p| p.a.abs() > 8.0 * f64::EPSILON * ef.length && (p.a - ef.length).abs() > 8.0 * f64::EPSILON * ef.length);
+                        interior = Some(member);
+                    }
+                    (a0 + jump0, a1 - jump1)
+                } else { (a0, a1) };
+                let ef = interior.as_ref().unwrap_or(ef);
                 let (mut lo, mut hi) = (a0.min(a1), a0.max(a1));
                 for t in dedaliano_engine::postprocess::diagrams::diagram_positions_2d(ef, kind) {
                     let v = dedaliano_engine::postprocess::diagrams::compute_diagram_value_at(kind, t.clamp(0.0, 1.0), ef);
@@ -2310,7 +2324,7 @@ fn cases_3d() -> Vec<Case3> {
         cases.push(c);
 
         let mut w = canti();
-        w.load(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 1.5, py: 20.0, pz: -50.0 }));
+        w.load(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 1.5, py: 20.0, pz: -50.0 }));
         let wo = canti();
         let mut eq = M3::new();
         eq.node(1, 0.0, 0.0, 0.0).node(10, 1.5, 0.0, 0.0).node(2, l, 0.0, 0.0);
@@ -3117,22 +3131,82 @@ fn translation_invariants(k: &[f64], n: usize) -> Vec<f64> {
 fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
     let path = c.path.clone().ok_or("no path")?;
     let m = &c.with;
+    let mut base = m.s.clone();
+    if ana != "moving loads" { base.loads.clear(); }
+    let prepared = if base.constraints.is_empty() { Some(linear::prepare_static_3d(&base)?) } else { None };
+    let solve = |loads: &[SolverLoad3D]| {
+        if let Some(p) = &prepared { p.solve_loads(loads) } else {
+            let mut s = base.clone();
+            s.loads = loads.to_vec();
+            linear::solve_3d(&s)
+        }
+    };
     if ana == "moving loads" {
-        let segs = moving_loads::build_load_path_3d(&m.s, Some(&path))?;
-        let total: f64 = segs.iter().map(|s| s.length).sum();
-        let train = LoadTrain { name: "one axle".into(), axles: vec![Axle { offset: 0.0, weight: 50.0 }] };
+        let lens: Vec<f64> = path.iter().map(|&id| m.elem_len(id)).collect();
+        let total: f64 = lens.iter().sum();
         let mut env: BTreeMap<usize, [f64; 4]> = path.iter().map(|&id| (id, [0.0; 4])).collect();
+        let first = &m.s.elements[&path[0].to_string()];
+        let mut entry = first.node_i;
+        if path.len() > 1 {
+            let next = &m.s.elements[&path[1].to_string()];
+            if entry == next.node_i || entry == next.node_j { entry = first.node_j; }
+        }
+        let mut reversed = Vec::new();
+        for id in &path {
+            let e = &m.s.elements[&id.to_string()];
+            reversed.push(entry == e.node_j);
+            entry = if entry == e.node_i { e.node_j } else { e.node_i };
+        }
         let mut pos = 0.0;
         while pos <= total + 1e-10 {
-            let mut s = m.s.clone();
-            s.loads = moving_loads::moving_loads_at_position_3d(&m.s, &train, "z", &segs, pos, total);
-            let r = linear::solve_3d(&s)?;
+            let (mut acc, mut k) = (0.0, 0);
+            while k + 1 < lens.len() && pos > acc + lens[k] + 1e-10 {
+                acc += lens[k];
+                k += 1;
+            }
+            let mut loads = m.s.loads.clone();
+            let (ex, ey, ez) = m.axes(path[k]);
+            let a = (pos - acc).clamp(0.0, lens[k]);
+            loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                element_id: path[k], a: if reversed[k] { lens[k] - a } else { a },
+                px: -50.0 * ex[2], py: -50.0 * ey[2], pz: -50.0 * ez[2],
+            }));
+            let r = solve(&loads)?;
             for ef in &r.element_forces {
                 if let Some(e) = env.get_mut(&ef.element_id) {
-                    e[0] = e[0].max(ef.my_start.max(ef.my_end));
-                    e[1] = e[1].min(ef.my_start.min(ef.my_end));
-                    e[2] = e[2].max(ef.vz_start.max(ef.vz_end));
-                    e[3] = e[3].min(ef.vz_start.min(ef.vz_end));
+                    let mut xs: Vec<f64> = (0..=20).map(|i| ef.length * i as f64 / 20.0).collect();
+                    xs.extend(ef.point_loads_z.iter().map(|p| p.a));
+                    for dl in &ef.distributed_loads_z { xs.extend([dl.a, dl.b]); }
+                    e[0] = e[0].max(ef.my_start).max(ef.my_end);
+                    e[1] = e[1].min(ef.my_start).min(ef.my_end);
+                    let start = ef.vz_start + ef.point_loads_z.iter().filter(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>();
+                    let end = ef.vz_end - ef.point_loads_z.iter().filter(|p| (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>();
+                    e[2] = e[2].max(start).max(end);
+                    e[3] = e[3].min(start).min(end);
+                    for x in xs.into_iter().filter(|&x| x > 8.0 * f64::EPSILON * ef.length && ef.length - x > 8.0 * f64::EPSILON * ef.length) {
+                        let (mut moment, mut shear) = (ef.my_end - ef.vz_end * (ef.length - x), ef.vz_end);
+                        for dl in &ef.distributed_loads_z {
+                            let a = x.max(dl.a);
+                            if a >= dl.b { continue; }
+                            let slope = (dl.q_j - dl.q_i) / (dl.b - dl.a);
+                            let qa = dl.q_i + slope * (a - dl.a);
+                            let width = dl.b - a;
+                            let force = qa * width + slope * width * width / 2.0;
+                            shear -= force;
+                            moment += force * (a - x) + qa * width * width / 2.0 + slope * width.powi(3) / 3.0;
+                        }
+                        for p in &ef.point_loads_z {
+                            if p.a >= x {
+                                shear -= p.p;
+                                moment += p.p * (p.a - x);
+                            }
+                        }
+                        let jump: f64 = ef.point_loads_z.iter().filter(|p| p.a == x).map(|p| p.p).sum();
+                        e[0] = e[0].max(moment);
+                        e[1] = e[1].min(moment);
+                        e[2] = e[2].max(shear).max(shear + jump);
+                        e[3] = e[3].min(shear).min(shear + jump);
+                    }
                 }
             }
             pos += 0.5;
@@ -3146,9 +3220,8 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
             let (_, ey, ez) = m.axes(eid);
             for k in 0..=4 {
                 let t = k as f64 / 4.0;
-                let mut s = m.s.clone();
-                s.loads = influence::influence_unit_loads_3d(eid, t * l, -ey[2], -ez[2]);
-                let r = linear::solve_3d(&s)?;
+                let loads = influence::influence_unit_loads_3d(eid, t * l, -ey[2], -ez[2]);
+                let r = solve(&loads)?;
                 vals.push(influence::extract_value_3d("Fz", Some(target), None, 0.5, &r));
             }
         }
@@ -3260,4 +3333,60 @@ fn feature_models_exported() {
     }
     let on_disk = std::fs::read_dir(&dir).map(|d| d.count()).unwrap_or(0);
     assert!(stale.is_empty() && on_disk == files.len(), "metamorphic_corpus/feature_matrix is out of date ({} stale): rerun with UPDATE_METAMORPHIC_CORPUS=1", stale.len());
+}
+
+#[test]
+fn issue_1782_moving_3d_reference_includes_interior_forces() {
+    let a = rows_3d().into_iter().find(|a| a.name == "moving loads").unwrap();
+    let cases: Vec<_> = cases_3d().into_iter().filter(|c| matches!(c.feature,
+        "baseline frame" | "truss element" | "Timoshenko shear area" |
+        "local axes (roll angle)" | "spring support (rotational)"
+    )).collect();
+    assert_eq!(cases.len(), 5);
+    for c in cases {
+        let cell = run_3d(&c, &a);
+        assert_eq!(cell.verdict, Verdict::Supported, "{} / {}: {}", c.feature, c.variant, cell.note);
+    }
+    let length = 3.7;
+    let mut m = beam3(1, length, 1);
+    m.sup(1, [true, true, true, true, false, false]);
+    m.sup(2, [false, true, true, true, false, false]);
+    let mut c = Case3::base("baseline frame", "single span", &[], m.clone(), m, vec![1, 2]);
+    c.path = Some(vec![1]);
+    let Out::S(reference, _) = moving_reference_3d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
+    let expected = (0..=7).map(|i| {
+        let x = 0.5 * i as f64;
+        50.0 * x * (length - x) / length
+    }).fold(0.0, f64::max);
+    assert!((reference[0] - expected).abs() < 1e-9, "interior reference: {} vs {expected}", reference[0]);
+}
+
+#[test]
+fn issue_1782_endpoint_2d_reference_obeys_equilibrium() {
+    for a in [0.0, 0.25] {
+        let mut m = beam(1, 0.25);
+        m.sup(1, 1, "fixed").sup(2, 2, "fixed");
+        m.s.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 1, a, p: -40.0, px: None, my: None,
+        }));
+        let mut c = Case2::base("baseline frame", "endpoint loads", &[], m.clone(), m, vec![1, 2]);
+        c.path = Some(vec![1]);
+        let Out::S(values, _) = moving_reference_2d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
+        for value in values { assert!(value.abs() < 1e-9, "support carries endpoint loads: {value}"); }
+    }
+}
+
+#[test]
+fn issue_1782_endpoint_3d_reference_obeys_equilibrium() {
+    for a in [0.0, 0.25] {
+        let mut m = beam3(1, 0.25, 1);
+        m.sup(1, [true; 6]).sup(2, [true; 6]);
+        m.s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+            element_id: 1, a, px: 0.0, py: 0.0, pz: -40.0,
+        }));
+        let mut c = Case3::base("baseline frame", "endpoint loads", &[], m.clone(), m, vec![1, 2]);
+        c.path = Some(vec![1]);
+        let Out::S(values, _) = moving_reference_3d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
+        for value in values { assert!(value.abs() < 1e-9, "support carries endpoint loads: {value}"); }
+    }
 }

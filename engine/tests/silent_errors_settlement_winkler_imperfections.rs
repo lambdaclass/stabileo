@@ -88,15 +88,14 @@ fn settlement_on_a_restrained_dof_is_applied() {
     close("3D uz = dz", r.displacements.iter().find(|d| d.node_id == 2).unwrap().uz, -0.01, 1e-12);
 }
 
-/// AC-10: 3D flag + positive spring frees the DOF; the settlement used to vanish (the node
-/// did not move). Same model as derivation_assembly_constraints.rs's ignored
-/// `settlement_on_spring_dof_is_not_silently_dropped`.
 #[test]
 fn settlement_on_a_3d_spring_dof_is_refused() {
     let mut s = sup3(2, [false, false, true, false, false, false]);
     let o = s.as_object_mut().unwrap();
     o.insert("kz".into(), json!(1000.0));
     o.insert("dz".into(), json!(-0.01));
+    crate::common::assert_support_conflict(&solve_3d(&cantilever_3d(s.clone())).unwrap_err());
+    s["rz"] = json!(false);
     let e = refused(solve_3d(&cantilever_3d(s)), "would not be applied");
     assert!(e.contains("dz") && e.contains("spring"), "{e}");
 }

@@ -1,0 +1,135 @@
+{
+  "_nightly_dens": {
+    "1": 5309.601136381689
+  },
+  "_nightly_name": "fuzz_rich_2d/21384",
+  "connectors": {},
+  "constraints": [],
+  "elements": {
+    "2": {
+      "hingeEnd": false,
+      "hingeStart": true,
+      "id": 2,
+      "materialId": 1,
+      "nodeI": 3,
+      "nodeJ": 2,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "3": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 3,
+      "materialId": 1,
+      "nodeI": 3,
+      "nodeJ": 4,
+      "sectionId": 1,
+      "type": "frame"
+    }
+  },
+  "loads": [
+    {
+      "data": {
+        "fx": 24.601901406759396,
+        "fz": 43.95327053680175,
+        "my": 13.02151232586472,
+        "nodeId": 4
+      },
+      "type": "nodal"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 15982.932549628702,
+      "id": 1,
+      "nu": 0.39655589419633974
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 4.947374635486895,
+      "z": -7.241532373396833
+    },
+    "2": {
+      "id": 2,
+      "x": 3.50052810038542,
+      "z": -3.2948567311414045
+    },
+    "3": {
+      "id": 3,
+      "x": -4.154027926129402,
+      "z": 1.3321941796271055
+    },
+    "4": {
+      "id": 4,
+      "x": -6.062226410531881,
+      "z": 7.264361002946476
+    }
+  },
+  "sections": {
+    "1": {
+      "a": 0.021042812239423055,
+      "asY": 0.011392268872875158,
+      "id": 1,
+      "iz": 0.00032956932991789453
+    },
+    "2": {
+      "a": 0.015530956212847741,
+      "asY": null,
+      "id": 2,
+      "iz": 2.6779001934061176e-05
+    }
+  },
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": -0.0012006297873406527,
+      "id": 1,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "type": "fixed"
+    },
+    "2": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 2,
+      "kx": 26204.9710261231,
+      "ky": 37702.59016949775,
+      "kz": null,
+      "nodeId": 2,
+      "type": "guidedX"
+    },
+    "3": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 3,
+      "kx": null,
+      "ky": 1329.8671020994293,
+      "kz": 95455.3584121671,
+      "nodeId": 3,
+      "type": "spring"
+    },
+    "4": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 4,
+      "kx": 5963.540618993207,
+      "ky": 315.6524383922252,
+      "kz": null,
+      "nodeId": 4,
+      "type": "spring"
+    }
+  }
+}

@@ -4,6 +4,7 @@
 //! and hinge bookkeeping it shares), with the biaxial yield condition
 //! `(My/Mp_y)² + (Mz/Mp_z)² ≤ 1` (local axes) at every section.
 
+use crate::solver::support::{support_dofs_3d};
 use super::{golden_min, span_candidates, unique_key, Piece, PlasticHinge3D, PlasticResult3D, PlasticStep3D, SNAP, STATIONS, TIE};
 use crate::element;
 use crate::types::*;
@@ -132,6 +133,7 @@ impl Member3 {
             q_zj: t.map_or(0.0, |t| t.q_zj * scale),
             distributed_loads_z: t.map(|t| dl(&t.distributed_loads_z)).unwrap_or_default(),
             distributed_loads_x: t.map(|t| dl(&t.distributed_loads_x)).unwrap_or_default(),
+            point_loads_x: t.map(|t| pl(&t.point_loads_x)).unwrap_or_default(),
             point_loads_z: t.map(|t| pl(&t.point_loads_z)).unwrap_or_default(),
             bimoment_start: None,
             bimoment_end: None,
@@ -285,8 +287,8 @@ fn split_member(input: &mut SolverInput3D, m: &mut Member3, t: f64, next_node: &
                     loads.push(SolverLoad3D::PointOnElement(pl));
                 } else if pl.a > s + tol {
                     loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: eid, a: pl.a - s, ..pl }));
-                } else if let Some((_, ey, ez)) = axes {
-                    let f: Vec<f64> = (0..3).map(|k| pl.py * ey[k] + pl.pz * ez[k]).collect();
+                } else if let Some((ex, ey, ez)) = axes {
+                    let f: Vec<f64> = (0..3).map(|k| pl.px * ex[k] + pl.py * ey[k] + pl.pz * ez[k]).collect();
                     loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
                         node_id,
                         fx: f[0],
@@ -400,7 +402,7 @@ fn local_fef(
                 f
             }
             SolverLoad3D::PointOnElement(pl) if pl.element_id == el.id => {
-                element::fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z)
+                element::fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z)
             }
             SolverLoad3D::Thermal(tl) if tl.element_id == el.id => {
                 let (hy, hz) = (tl.depth_y(sec.a, sec.iz), tl.depth_z(sec.a, sec.iy));
@@ -650,7 +652,7 @@ fn balanced(input: &SolverInput3D, r: &AnalysisResults3D) -> bool {
     let springs: HashSet<usize> = input
         .supports
         .values()
-        .filter(|s| [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz].iter().any(|k| k.is_some_and(|k| k != 0.0)))
+        .filter(|s| support_dofs_3d(s).map(|d| d.spring).iter().any(|k| k.is_some_and(|k| k != 0.0)))
         .map(|s| s.node_id)
         .collect();
     let tol = 1e-8 * scale.max(f64::MIN_POSITIVE);
@@ -1160,13 +1162,13 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
             }
             for sup in crate::ordered::values(&current_input.supports).filter(|s| s.node_id == n) {
                 let k = |v: Option<f64>| v.unwrap_or(0.0) > 0.0;
-                if sup.rrx || k(sup.krx) {
+                if sup.rrx || k(support_dofs_3d(sup)[3].spring) {
                     axes.push([1.0, 0.0, 0.0]);
                 }
-                if sup.rry || k(sup.kry) {
+                if sup.rry || k(support_dofs_3d(sup)[4].spring) {
                     axes.push([0.0, 1.0, 0.0]);
                 }
-                if sup.rrz || k(sup.krz) {
+                if sup.rrz || k(support_dofs_3d(sup)[5].spring) {
                     axes.push([0.0, 0.0, 1.0]);
                 }
             }

@@ -337,14 +337,11 @@ pub struct InclinedDofs {
     pub r: Vec<Vec<f64>>,
 }
 
-/// The 2D inclined-support frames, mirroring the stiffness assemblers
-/// (`assembly::assemble_stiffness_2d`, `sparse_assembly`): an
-/// `inclinedRoller` with an angle.
 pub fn inclined_dofs_2d(input: &SolverInput, dof_num: &DofNumbering) -> Vec<InclinedDofs> {
     let mut out = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.support_type != "inclinedRoller" { continue; }
-        let Some(theta) = sup.angle else { continue; };
+        let theta = sup.angle.unwrap_or(0.0);
         if let (Some(&d0), Some(&d1)) = (dof_num.map.get(&(sup.node_id, 0)), dof_num.map.get(&(sup.node_id, 1))) {
             let r = assembly::inclined_rotation_matrix_2d(theta);
             out.push(InclinedDofs {
@@ -1558,8 +1555,7 @@ fn solve_constrained_2d_dense_validated(
             // restrained inclined DOF (local_dof 1) is the normal direction.
             // Rotate into the inclined frame, mirroring prepare_static_2d.
             if let Some(theta) = sup.angle {
-                let c = theta.cos();
-                let s = theta.sin();
+                let [s, c] = super::assembly::inclined_rotation_matrix_2d(theta)[1];
                 let u_normal = sup.dx.unwrap_or(0.0) * s + sup.dz.unwrap_or(0.0) * c;
                 if u_normal.abs() > 1e-15 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
@@ -1866,8 +1862,7 @@ fn solve_constrained_2d_sparse(
         if sup.support_type == "spring" { continue; }
         if sup.support_type == "inclinedRoller" {
             if let Some(theta) = sup.angle {
-                let c = theta.cos();
-                let sn = theta.sin();
+                let [sn, c] = super::assembly::inclined_rotation_matrix_2d(theta)[1];
                 let u_normal = sup.dx.unwrap_or(0.0) * sn + sup.dz.unwrap_or(0.0) * c;
                 if u_normal.abs() > 1e-15 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
@@ -2091,7 +2086,7 @@ fn solve_constrained_2d_sparse(
 pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
     let mut solver = input.solver.clone();
     solver.constraints = input.constraints.clone();
-    crate::known_issues::refuse(&crate::known_issues::model_3d(&solver))?;
+    linear::validate_input_3d(&solver)?;
     let mut r = solve_constrained_3d_inner(input, crate::known_issues::Analysis::Linear)?;
     crate::known_issues::membrane_bending_3d(&solver, &solver.loads, &r)?;
     crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&solver, crate::known_issues::Analysis::Linear));

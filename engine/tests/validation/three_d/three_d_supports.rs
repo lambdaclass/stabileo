@@ -509,18 +509,9 @@ fn validation_3d_combined_springs() {
 }
 
 // ================================================================
-// 8. Flag + spring on the same DOF: reaction must report the spring force
-// ================================================================
-//
-// DofNumbering gives springs precedence over restraint flags (a DOF with
-// k > 0 is free with added stiffness). build_reactions_3d used to consult
-// the flag on free DOFs, reporting 0 for a real spring force.
 
 #[test]
-fn validation_3d_flag_plus_spring_reaction() {
-    // Beam 1→2 along X. Node 1: all DOFs restrained by flags, but ux ALSO
-    // has a translational spring kx — so ux is an elastic (free) DOF.
-    // Axial load at node 2: the spring force must appear as the reaction.
+fn validation_3d_restrained_spring_is_refused_and_free_spring_reaction_balances() {
     let k_spring = 1.0e4; // kN/m
     let f_axial = 100.0;  // kN
 
@@ -540,14 +531,15 @@ fn validation_3d_flag_plus_spring_reaction() {
         sup.kx = Some(k_spring);
     }
 
+    let error = linear::solve_3d(&input).unwrap_err();
+    let refusal: serde_json::Value = serde_json::from_str(&error).unwrap();
+    assert_eq!(refusal["structuredDiagnostics"][0]["code"], "conflicting_support_spring");
+    for sup in input.supports.values_mut() { sup.rx = false; }
     let res = linear::solve_3d(&input).unwrap();
 
-    // Sanity: node 1 ux is the spring deflection F/k (series: spring carries
-    // the full axial load), node 2 adds the beam elongation.
     let ux1 = res.displacements.iter().find(|d| d.node_id == 1).unwrap().ux;
     assert_close(ux1, f_axial / k_spring, 1e-6, "spring deflection at node 1");
 
-    // The reaction must be the spring force -k·u (≈ -F), not zero.
     let r1 = res.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert!(
         r1.fx.abs() > 1.0,

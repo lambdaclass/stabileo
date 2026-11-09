@@ -109,7 +109,7 @@ pub fn solve_2d(input: JsValue) -> Result<JsValue, JsValue> {
     let input: types::units::ElasticInput2D = from_js_value(input)?;
     let results = solver::linear::solve_2d_typed(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    to_js_value(&results)
+    to_js_value(&results.into_typed())
 }
 
 /// Solve 3D linear static analysis. JsValue in → JsValue out (hot path).
@@ -118,7 +118,7 @@ pub fn solve_3d(input: JsValue) -> Result<JsValue, JsValue> {
     let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
     let results = solver::linear::solve_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
-    to_js_value(&results)
+    to_js_value(&results.into_typed())
 }
 
 /// Solve a 3D linear static model and estimate its discretization (mesh) error
@@ -700,7 +700,7 @@ pub fn compute_deformed_shape(json: &str) -> Result<String, JsValue> {
 pub fn combine_results_2d(input: JsValue) -> Result<JsValue, JsValue> {
     let input: postprocess::combinations::CombinationInput = from_js_value(input)?;
     match postprocess::combinations::combine_results_checked(&input).map_err(|e| JsValue::from_str(&e))? {
-        Some(result) => to_js_value(&result),
+        Some(result) => to_js_value(&result.into_typed()),
         None => Ok(JsValue::NULL),
     }
 }
@@ -710,7 +710,7 @@ pub fn combine_results_2d(input: JsValue) -> Result<JsValue, JsValue> {
 pub fn combine_results_3d(input: JsValue) -> Result<JsValue, JsValue> {
     let input: postprocess::combinations::CombinationInput3D = from_js_value(input)?;
     match postprocess::combinations::combine_results_3d(&input).map_err(|e| JsValue::from_str(&e))? {
-        Some(result) => to_js_value(&result),
+        Some(result) => to_js_value(&result.into_typed()),
         None => Ok(JsValue::NULL),
     }
 }

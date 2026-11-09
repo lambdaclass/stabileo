@@ -43,7 +43,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newPrerenderPage, prerenderConcurrency, routePool, waitForRenderedApp, MIN_CAPTURE_CHARS } from './prerender-pool';
+import { captureProblem, newPrerenderPage, prerenderConcurrency, routePool, waitForRenderedApp } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { notFoundPage } from './not-found-page';
 import { buildStarCount, serveStarCount } from './build-stars';
@@ -326,7 +326,8 @@ async function main() {
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
         const { head, body, lang, href } = result;
-        if (body.length < MIN_CAPTURE_CHARS) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
+        const problem = captureProblem(result, locale);
+        if (problem) throw new Error(`prerender: ${href} ${problem}`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
         await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : withResearchCard(head, path, DIST), body, lang));
@@ -354,7 +355,12 @@ async function main() {
     const [{ head, body, lang }] = await routePool(
       [{ href: '/', locale: DEFAULT_LOCALE, path: '/' }], 1,
       () => newCapturePage(browser, stars), p => p.close(),
-      (p) => capture(p, base, DEFAULT_LOCALE, '/'),
+      async (p) => {
+        const result = await capture(p, base, DEFAULT_LOCALE, '/');
+        const problem = captureProblem(result, DEFAULT_LOCALE);
+        if (problem) throw new Error(`prerender: / ${problem}`);
+        return result;
+      },
     );
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
     written.push('/');

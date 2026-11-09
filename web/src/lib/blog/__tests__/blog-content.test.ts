@@ -363,6 +363,40 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect(summary.rows.map((r) => r[0]).sort()).toEqual(ids);
   });
 
+  it('known wrong result: #1782 — lists every advisory in every written language', async () => {
+    const { readdirSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const ids = readdirSync(join(__dirname, '../../../../../docs/advisories'))
+      .map((f) => /^(SA-\d{4}-\d{3})-/.exec(f)?.[1])
+      .filter((x): x is string => !!x)
+      .sort();
+    for (const locale of written(post!)) {
+      const summary = post!.i18n[locale]!.blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+      expect(summary.rows.map((r) => r[0]).sort(), `${locale}: advisory list`).toEqual(ids);
+    }
+  });
+
+  it.each<[PublicLocale, string, string]>([
+    ['en', 'Low', 'Fixed after 0.5.0; on stabileo.com since 9 November 2026'],
+    ['es', 'Baja', 'Corregido después de 0.5.0; en stabileo.com desde el 9 de noviembre de 2026'],
+    ['pt', 'Baixa', 'Corrigido depois da 0.5.0; em stabileo.com desde 9 de novembro de 2026'],
+    ['de', 'Niedrig', 'Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026'],
+    ['fr', 'Faible', 'Corrigé après 0.5.0 ; sur stabileo.com depuis le 9 novembre 2026'],
+    ['tr', 'Düşük', "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"],
+  ])('%s: publishes SA-2026-049 through 053 as fixed and retains 053’s low severity', (locale, severity, fixedStatus) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    for (const number of ['049', '050', '051', '052', '053']) {
+      const id = `SA-2026-${number}`;
+      const row = summary.rows.find((r) => r[0] === id);
+      expect(row, `${locale}: ${id} missing`).toBeDefined();
+      expect(row![3], `${locale}: ${id} status`).toBe(fixedStatus);
+      expect(status.t).toContain(id);
+    }
+    expect(summary.rows.find((r) => r[0] === 'SA-2026-053')![2]).toBe(severity);
+  });
+
   it('quotes each documented case exactly as its advisory states it', () => {
     // Correct / reported, per advisory, as each advisory's documented-case table states it
     // (docs/advisories/SA-2026-*.md).

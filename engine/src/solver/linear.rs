@@ -1,3 +1,4 @@
+use crate::solver::support::{support_dofs_2d, support_dofs_3d};
 use crate::types::units::{ElasticInput2D, ElasticProperties2D};
 use std::borrow::Cow;
 use crate::types::*;
@@ -539,8 +540,7 @@ pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumb
             // in global coords. We need to rotate them to the local frame
             // (where local_dof=1 is the restrained normal direction).
             if let Some(theta) = sup.angle {
-                let c = theta.cos();
-                let s = theta.sin();
+                let [s, c] = super::assembly::inclined_rotation_matrix_2d(theta)[1];
                 let glob_dx = sup.dx.unwrap_or(0.0);
                 let glob_dz = sup.dz.unwrap_or(0.0);
                 // The restrained direction is (sin θ, cos θ).
@@ -601,6 +601,7 @@ pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumb
 }
 
 fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: ElasticProperties2D) -> Result<PreparedStatic2D<'_>, String> {
+    validate_input_2d(input)?;
     // The prepared (factor-once) path assembles no constraints. Every caller
     // routes constrained models elsewhere today; refusing here keeps a new
     // caller from silently solving the model without them (the dense
@@ -611,9 +612,6 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     let dof_num = DofNumbering::build_2d(input);
     let mut pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
     validate_solver_options(&input.solver_options, &mut pre_solve_diags);
-
-    // ── Input validation (before assembly) ──
-    validate_input_2d(input)?;
 
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -1442,7 +1440,8 @@ pub(crate) fn buckling_preload_3d(input: &SolverInput3D) -> Result<AnalysisResul
     let analysis = crate::known_issues::Analysis::Buckling;
     crate::known_issues::refuse_distorted(&crate::known_issues::for_3d(input, analysis))?;
     if input.constraints.is_empty() {
-        return prepare_static_3d_for_analysis(input, analysis)?.solve_loads(&input.loads);
+        let prepared = prepare_static_3d_for_analysis(input, analysis)?;
+        return prepared.solve_loads(&prepared.input.loads);
     }
     let ci = super::constraints::ConstrainedInput3D { solver: input.clone(), constraints: input.constraints.clone() };
     let mut result = super::constraints::solve_constrained_3d_inner(&ci, analysis)?;
@@ -1452,24 +1451,17 @@ pub(crate) fn buckling_preload_3d(input: &SolverInput3D) -> Result<AnalysisResul
 }
 
 fn solve_3d_inner(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
-    // Expand curved beams BEFORE anything else: the constrained delegation below
-    // used to bypass prepare_static_3d (the only expansion site), silently
-    // analyzing models with constraints + curved beams without those members.
-    // The expansion is idempotent (clears the curved-beam list), so the call in
-    // prepare_static_3d becomes a no-op for inputs expanded here.
-    let input = &expand_curved_beams_3d(input);
-
-    // Auto-delegate to constrained solver when constraints are present
-    if !input.constraints.is_empty() {
-        let ci = super::constraints::ConstrainedInput3D {
-            solver: input.clone(),
-            constraints: input.constraints.clone(),
-        };
-        return super::constraints::solve_constrained_3d(&ci);
+    if input.constraints.is_empty() {
+        let prepared = prepare_static_3d(input)?;
+        return prepared.solve_loads(&prepared.input.loads);
     }
-
-    let prepared = prepare_static_3d(input)?;
-    prepared.solve_loads(&input.loads)
+    validate_input_3d(input)?;
+    let input = expand_curved_beams_3d(input);
+    let ci = super::constraints::ConstrainedInput3D {
+        constraints: input.constraints.clone(),
+        solver: input,
+    };
+    super::constraints::solve_constrained_3d(&ci)
 }
 
 /// 3D static analysis prepared for multiple right-hand sides: curved-beam
@@ -1640,6 +1632,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
 }
 
 fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_issues::Analysis) -> Result<PreparedStatic3D, String> {
+    validate_input_3d_for_analysis(input, analysis)?;
     // The prepared (factor-once) path assembles no constraints. Every caller
     // routes constrained models elsewhere today; refusing here keeps a new
     // caller from silently solving the model without them (the dense
@@ -2810,11 +2803,11 @@ pub(crate) fn build_reactions_2d(
                 dof_num.global_dof(sup.node_id, 2).map(|d| u_full[d]).unwrap_or(0.0)
             } else { 0.0 };
 
-            let kx = sup.kx.unwrap_or(0.0);
-            let ky = sup.ky.unwrap_or(0.0);
-            let kz = sup.kz.unwrap_or(0.0);
+            let kx = support_dofs_2d(sup)[0].spring.unwrap_or(0.0);
+            let ky = support_dofs_2d(sup)[1].spring.unwrap_or(0.0);
+            let kz = support_dofs_2d(sup)[2].spring.unwrap_or(0.0);
 
-            if let Some(angle) = sup.angle {
+            if let Some(angle) = sup.angle.map(super::support::prepare_support_angle) {
                 if angle.abs() > 1e-15 && (kx > 0.0 || ky > 0.0) {
                     let s = angle.sin();
                     let c = angle.cos();
@@ -2837,8 +2830,8 @@ pub(crate) fn build_reactions_2d(
             // free and restrained DOFs alike, so the restrained partition
             // holds only the rigid part and each spring's −k·u is added here;
             // build_reactions_2d_inclined adds them for rotated rollers.
-            let springs = [sup.kx, sup.ky, sup.kz];
-            let rotated = sup.support_type == "inclinedRoller" && sup.angle.is_some();
+            let springs = [support_dofs_2d(sup)[0].spring, support_dofs_2d(sup)[1].spring, support_dofs_2d(sup)[2].spring];
+            let rotated = sup.support_type == "inclinedRoller";
             let mut vals = [0.0f64; 3];
             for (i, val) in vals.iter_mut().enumerate().take(dof_num.dofs_per_node.min(3)) {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
@@ -2902,8 +2895,8 @@ pub(crate) fn build_reactions_2d_inclined(
             r.rz = it.r[0][1] * rotated[0] + it.r[1][1] * rotated[1];
             for sup in crate::ordered::values(&input.supports).filter(|s| s.node_id == it.node_id && s.support_type == "inclinedRoller") {
                 let (ux, uz) = (u_full[it.dofs[0]], u_full[it.dofs[1]]);
-                r.rx -= sup.kx.unwrap_or(0.0).max(0.0) * ux;
-                r.rz -= sup.ky.unwrap_or(0.0).max(0.0) * uz;
+                r.rx -= support_dofs_2d(sup)[0].spring.unwrap_or(0.0).max(0.0) * ux;
+                r.rz -= support_dofs_2d(sup)[1].spring.unwrap_or(0.0).max(0.0) * uz;
             }
         }
     }
@@ -2928,13 +2921,7 @@ pub(crate) fn build_reactions_3d(
     for sup in sups {
         let mut vals = [0.0f64; 6];
 
-        // Handle each DOF individually: restrained DOFs from reactions_vec,
-        // spring DOFs (free with stiffness) from R = -k * u. A spring DOF is
-        // free regardless of the restraint flags (DofNumbering gives springs
-        // precedence), so the flag is not consulted on the free branch —
-        // otherwise a support with both a flag and a stiffness would report
-        // zero reaction while the spring force is real.
-        let spring_stiffs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
+        let spring_stiffs = [support_dofs_3d(sup)[0].spring, support_dofs_3d(sup)[1].spring, support_dofs_3d(sup)[2].spring, support_dofs_3d(sup)[3].spring, support_dofs_3d(sup)[4].spring, support_dofs_3d(sup)[5].spring];
         for i in 0..6.min(dof_num.dofs_per_node) {
             if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
                 if d >= nf {
@@ -2958,7 +2945,7 @@ pub(crate) fn build_reactions_3d(
                 if d >= nf {
                     reported.insert(d).then(|| reactions_vec[d - nf])
                 } else {
-                    let kw = sup.kw.unwrap_or(0.0);
+                    let kw = support_dofs_3d(sup)[6].spring.unwrap_or(0.0);
                     if kw > 0.0 {
                         Some(-kw * u_full[d])
                     } else {
@@ -3016,7 +3003,7 @@ pub(crate) fn build_reactions_3d_inclined(
             let rn = r.fx;
             let mut f = [it.r[0][0] * rn, it.r[0][1] * rn, it.r[0][2] * rn];
             if let Some(sup) = crate::ordered::values(&input.supports).find(|s| s.node_id == it.node_id && s.is_inclined.unwrap_or(false)) {
-                let k = [sup.kx, sup.ky, sup.kz].map(|v| v.unwrap_or(0.0).max(0.0));
+                let k = [support_dofs_3d(sup)[0].spring, support_dofs_3d(sup)[1].spring, support_dofs_3d(sup)[2].spring].map(|v| v.unwrap_or(0.0).max(0.0));
                 for c in 0..3 {
                     f[c] -= k[c] * u_full[it.dofs[c]];
                 }
@@ -3127,7 +3114,7 @@ fn plain_rigid_2d(s: &SolverSupport) -> bool {
     matches!(
         s.support_type.as_str(),
         "fixed" | "pinned" | "rollerX" | "rollerY" | "rollerZ" | "guidedX" | "guidedY" | "guidedZ"
-    ) && [s.kx, s.ky, s.kz, s.dx, s.dz, s.dry, s.angle].into_iter().all(zero_or_none)
+    ) && [support_dofs_2d(s)[0].spring, support_dofs_2d(s)[1].spring, support_dofs_2d(s)[2].spring, s.dx, s.dz, s.dry, s.angle].into_iter().all(zero_or_none)
 }
 
 /// A 3D support that only restrains DOFs rigidly (no spring, settlement or
@@ -3135,7 +3122,7 @@ fn plain_rigid_2d(s: &SolverSupport) -> bool {
 fn plain_rigid_3d(s: &SolverSupport3D) -> bool {
     !s.is_inclined.unwrap_or(false)
         && [s.normal_x, s.normal_y, s.normal_z].iter().all(Option::is_none)
-        && [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz, s.kw, s.dx, s.dy, s.dz, s.drx, s.dry, s.drz]
+        && [support_dofs_3d(s)[0].spring, support_dofs_3d(s)[1].spring, support_dofs_3d(s)[2].spring, support_dofs_3d(s)[3].spring, support_dofs_3d(s)[4].spring, support_dofs_3d(s)[5].spring, support_dofs_3d(s)[6].spring, s.dx, s.dy, s.dz, s.drx, s.dry, s.drz]
             .into_iter()
             .all(zero_or_none)
 }
@@ -3145,12 +3132,6 @@ fn imposed(v: Option<f64>) -> Option<f64> {
     v.filter(|x| x.abs() > 1e-15)
 }
 
-/// A settlement the solve would not impose. Only restrained DOFs carry a prescribed
-/// displacement (`u_r`); a value on a DOF the support leaves free was dropped without a
-/// message: a 2D `pinned` with `dry`, a `spring` support with any settlement, a 3D DOF
-/// that is not flagged or whose flag a spring overrides. docs/solver/assembly-constraints.md,
-/// AC-10. At an inclined support a settlement is the ground's movement in global axes and
-/// only its normal part acts, as documented; that projection is not a refusal.
 fn unimposed_settlement(what: &str, name: &str, v: f64, why: &str) -> String {
     format!(
         "{what}: the prescribed {name} = {v} would not be applied, because {why}. \
@@ -3196,10 +3177,6 @@ fn reject_unimposed_settlements_2d(input: &SolverInput) -> Result<(), String> {
     Ok(())
 }
 
-/// AC-10, 3D: refuse a prescribed displacement on a DOF the support leaves free
-/// (`DofNumbering::build_3d`: a DOF is restrained when its flag is set and no positive
-/// spring frees it; at an inclined support only the normal translation and the flagged
-/// rotations are).
 fn reject_unimposed_settlements_3d(input: &SolverInput3D) -> Result<(), String> {
     // Curved beams are expanded into frame members after validation in several entry points
     // (Winkler, co-rotational, …): counted here as the frames they become, or a curved-beam-only
@@ -3211,8 +3188,8 @@ fn reject_unimposed_settlements_3d(input: &SolverInput3D) -> Result<(), String> 
         let what = format!("Support {key} (node {})", sup.node_id);
         let d = [sup.dx, sup.dy, sup.dz, sup.drx, sup.dry, sup.drz];
         let names = ["dx", "dy", "dz", "drx", "dry", "drz"];
-        let flags = [sup.rx, sup.ry, sup.rz, sup.rrx, sup.rry, sup.rrz];
-        let springs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
+        let support_dofs = super::support::support_dofs_3d(sup);
+        let flags = support_dofs.map(|d| d.restrained);
         let inclined = sup.is_inclined.unwrap_or(false);
         if inclined {
             if let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) {
@@ -3237,11 +3214,12 @@ fn reject_unimposed_settlements_3d(input: &SolverInput3D) -> Result<(), String> 
                 return Err(unimposed_settlement(&what, names[i], v, "a model of truss or cable members only has no rotation DOFs"));
             }
             if !flags[i] {
-                return Err(unimposed_settlement(&what, names[i], v, "that direction is not restrained (its flag is not set)"));
-            }
-            if springs[i].unwrap_or(0.0) > 0.0 {
-                return Err(unimposed_settlement(&what, names[i], v,
-                    "a spring on that direction makes it free (its stiffness is added to the structure) and a settlement of the spring's base is not modelled"));
+                let reason = if support_dofs[i].spring.is_some_and(|k| k > 0.0) {
+                    "that direction is elastic (a spring cannot impose a prescribed displacement)"
+                } else {
+                    "that direction is not restrained (its flag is not set)"
+                };
+                return Err(unimposed_settlement(&what, names[i], v, reason));
             }
         }
     }
@@ -3249,6 +3227,10 @@ fn reject_unimposed_settlements_3d(input: &SolverInput3D) -> Result<(), String> 
 }
 
 pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
+    validate_input_2d_for_analysis(input, crate::known_issues::Analysis::Linear)
+}
+
+pub(crate) fn validate_input_2d_for_analysis(input: &SolverInput, analysis: crate::known_issues::Analysis) -> Result<(), String> {
     // 0. Non-finite input rejection (NaN/Inf). Note: JSON cannot carry NaN, so
     // this primarily protects native/Rust API callers and internally-built inputs.
     for n in crate::ordered::values(&input.nodes) {
@@ -3272,7 +3254,7 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         }
     }
     for sup in crate::ordered::values(&input.supports) {
-        for v in [sup.kx, sup.ky, sup.kz, sup.dx, sup.dz, sup.dry, sup.angle].into_iter().flatten() {
+        for v in [support_dofs_2d(sup)[0].spring, support_dofs_2d(sup)[1].spring, support_dofs_2d(sup)[2].spring, sup.dx, sup.dz, sup.dry].into_iter().flatten() {
             if !v.is_finite() {
                 return Err(format!("Support {}: numeric fields must be finite", sup.id));
             }
@@ -3291,6 +3273,7 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         }
     }
     reject_ambiguous_shared_supports(input.supports.iter().map(|(k, s)| (s.node_id, k.as_str(), plain_rigid_2d(s))))?;
+    super::support::validate_supports_2d(input)?;
     reject_unimposed_settlements_2d(input)?;
     // In 2D the model plane is the only diaphragm plane: the model lies in
     // X–Z, and "XY" is its historical name. Both map to the 2D DOFs (ux, uz,
@@ -3402,9 +3385,9 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         }
     }
 
-    // 7. Section inertia <= 0 (only for sections used by bending elements)
+    // 7. Section inertia <= 0 where the analysis reads it.
     let bending_section_ids: std::collections::HashSet<usize> = crate::ordered::values(&input.elements)
-        .filter(|e| e.elem_type == "frame" && !(e.hinge_start && e.hinge_end))
+        .filter(|e| analysis == crate::known_issues::Analysis::Buckling || (e.elem_type == "frame" && !(e.hinge_start && e.hinge_end)))
         .map(|e| e.section_id)
         .collect();
     for sec in crate::ordered::values(&input.sections) {
@@ -3554,8 +3537,8 @@ pub(crate) fn refuse_moments_without_rotation_2d(input: &SolverInput, loads: &[S
         }
     }
     for s in crate::ordered::values(&input.supports) {
-        let rigid = matches!(s.support_type.as_str(), "fixed" | "guidedX" | "guidedY" | "guidedZ");
-        let spring = s.support_type == "spring" && s.kz.unwrap_or(0.0) > 0.0;
+        let rigid = crate::solver::support::support_dofs_2d(s)[2].restrained;
+        let spring = s.support_type == "spring" && support_dofs_2d(s)[2].spring.unwrap_or(0.0) > 0.0;
         if rigid || spring {
             carried.insert(s.node_id);
         }
@@ -3619,9 +3602,9 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
         }
     }
     for sup in crate::ordered::values(&input.supports) {
-        let vals = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz,
+        let vals = [support_dofs_3d(sup)[0].spring, support_dofs_3d(sup)[1].spring, support_dofs_3d(sup)[2].spring, support_dofs_3d(sup)[3].spring, support_dofs_3d(sup)[4].spring, support_dofs_3d(sup)[5].spring,
                     sup.dx, sup.dy, sup.dz, sup.drx, sup.dry, sup.drz,
-                    sup.kw, sup.normal_x, sup.normal_y, sup.normal_z];
+                    support_dofs_3d(sup)[6].spring, sup.normal_x, sup.normal_y, sup.normal_z];
         if vals.into_iter().flatten().any(|v| !v.is_finite()) {
             return Err(format!("Support on node {}: numeric fields must be finite", sup.node_id));
         }
@@ -3639,6 +3622,7 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
             }
         }
     }
+    super::support::validate_supports_3d(input)?;
     reject_unimposed_settlements_3d(input)?;
     for load in &input.loads {
         let finite = match load {
@@ -3648,7 +3632,7 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
             SolverLoad3D::Distributed(l) => l.q_xi.is_finite() && l.q_xj.is_finite() && l.q_yi.is_finite() && l.q_yj.is_finite()
                 && l.q_zi.is_finite() && l.q_zj.is_finite()
                 && l.a.is_none_or(|v| v.is_finite()) && l.b.is_none_or(|v| v.is_finite()),
-            SolverLoad3D::PointOnElement(l) => l.a.is_finite() && l.py.is_finite() && l.pz.is_finite(),
+            SolverLoad3D::PointOnElement(l) => l.a.is_finite() && l.px.is_finite() && l.py.is_finite() && l.pz.is_finite(),
             SolverLoad3D::Thermal(l) => l.dt_uniform.is_finite()
                 && l.dt_gradient_y.is_finite() && l.dt_gradient_z.is_finite(),
             // Shell/plate load variants keep their existing referential checks;
@@ -3849,10 +3833,11 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
         }
     }
 
-    // 7. Section inertia <= 0 (only for sections used by bending elements)
-    // A frame with all bending+torsion released at both ends is axial-only.
+    // 7. Section inertia <= 0 where the analysis reads it. A frame with all
+    // bending+torsion released at both ends is axial-only outside buckling.
     let bending_section_ids: std::collections::HashSet<usize> = crate::ordered::values(&input.elements)
         .filter(|e| {
+            if analysis == crate::known_issues::Analysis::Buckling { return true; }
             if e.elem_type != "frame" { return false; }
             let all_released = e.release_my_start && e.release_my_end
                 && e.release_mz_start && e.release_mz_end
@@ -4067,7 +4052,7 @@ pub(crate) fn refuse_moments_without_rotation_3d(input: &SolverInput3D, loads: &
     }
     for s in crate::ordered::values(&input.supports) {
         let c = carried.entry(s.node_id).or_insert([false; 3]);
-        let k = [s.krx, s.kry, s.krz];
+        let k = [support_dofs_3d(s)[3].spring, support_dofs_3d(s)[4].spring, support_dofs_3d(s)[5].spring];
         for (i, r) in [s.rrx, s.rry, s.rrz].into_iter().enumerate() {
             c[i] |= r || k[i].unwrap_or(0.0) > 0.0;
         }
@@ -4450,6 +4435,7 @@ pub fn compute_internal_forces_3d_with_loads(
 
             let mut axial_fef = [0.0, 0.0];
             let mut axial_loads = Vec::new();
+            let mut axial_points = Vec::new();
             for load in loads_by_elem.get(&elem.id).unwrap_or(&empty_loads) {
                 if let SolverLoad3D::Distributed(dl) = load {
                     let a = dl.a.unwrap_or(0.0); let b = dl.b.unwrap_or(l);
@@ -4458,6 +4444,14 @@ pub fn compute_internal_forces_3d_with_loads(
                     if dl.q_xi != 0.0 || dl.q_xj != 0.0 {
                         axial_loads.push(DistributedLoadInfo { q_i: dl.q_xi, q_j: dl.q_xj, a, b });
                     }
+                }
+            }
+            for load in loads_by_elem.get(&elem.id).unwrap_or(&empty_loads) {
+                if let SolverLoad3D::PointOnElement(pl) = load {
+                    let f = element::fef_point_load_2d(0.0, pl.px, 0.0, pl.a, l, 0.0);
+                    axial_fef[0] += f[0];
+                    axial_fef[1] += f[3];
+                    if pl.px != 0.0 { axial_points.push(PointLoadInfo3D { a: pl.a, p: pl.px }); }
                 }
             }
             forces.push(ElementForces3D {
@@ -4473,7 +4467,7 @@ pub fn compute_internal_forces_3d_with_loads(
                 distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
                 q_zi: 0.0, q_zj: 0.0,
                 distributed_loads_x: axial_loads,
-                distributed_loads_z: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None });
+                distributed_loads_z: Vec::new(), point_loads_x: axial_points, point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None });
             continue;
         }
 
@@ -4567,6 +4561,7 @@ pub fn compute_internal_forces_3d_with_loads(
         let mut dist_loads_y = Vec::new();
         let mut dist_loads_z = Vec::new();
         let mut dist_loads_x = Vec::new();
+        let mut pt_loads_x = Vec::new();
         let mut pt_loads_y = Vec::new();
         let mut pt_loads_z = Vec::new();
 
@@ -4611,7 +4606,7 @@ pub fn compute_internal_forces_3d_with_loads(
                     }
                 }
                 SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                    let mut fef12 = element::fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                    let mut fef12 = element::fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                     element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
@@ -4622,6 +4617,7 @@ pub fn compute_internal_forces_3d_with_loads(
                         }
                     }
 
+                    if pl.px != 0.0 { pt_loads_x.push(PointLoadInfo3D { a: pl.a, p: pl.px }); }
                     pt_loads_y.push(PointLoadInfo3D { a: pl.a, p: pl.py });
                     pt_loads_z.push(PointLoadInfo3D { a: pl.a, p: pl.pz });
                 }
@@ -4682,6 +4678,7 @@ pub fn compute_internal_forces_3d_with_loads(
             q_zj: q_zj_total,
             distributed_loads_x: dist_loads_x,
             distributed_loads_z: dist_loads_z,
+            point_loads_x: pt_loads_x,
             point_loads_z: pt_loads_z,
             bimoment_start,
             bimoment_end,

@@ -6,6 +6,7 @@
 import { uiStore } from './ui.svelte';
 import { formatValue, formatCoordinate, unitLabel, toDisplay, setDisplayDecimals, type Quantity } from '../utils/units';
 import { significantNumber } from '../utils/unit-format';
+import { elasticToDisplay, type DisplayQuantities } from '../engine/unit-types';
 
 const KEY = 'stabileo-decimals';
 
@@ -41,6 +42,12 @@ export function fmtCoord(v: number): string {
 
 /** The unit a quantity is shown in. */
 export const unitQ = (q: Quantity) => unitLabel(q, uiStore.unitSystem);
+
+/** `fmtQ` and `toQ` for a typed engine value: the quantity must be the value's own unit. */
+export function fmtTypedQ<Q extends keyof DisplayQuantities>(v: DisplayQuantities[NoInfer<Q>], q: Q): string {
+  return fmtQ(v, q);
+}
+export const toTypedQ = <Q extends keyof DisplayQuantities>(v: DisplayQuantities[NoInfer<Q>], q: Q): number => elasticToDisplay(v, q, uiStore.unitSystem);
 
 /** A value converted to the chosen units, full precision, for exports. */
 export const toQ = (v: number, q: Quantity) => toDisplay(v, q, uiStore.unitSystem);

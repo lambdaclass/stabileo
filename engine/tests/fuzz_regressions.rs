@@ -146,7 +146,11 @@ fn plastic_3d_certificate_nightly_inputs_finish() {
 /// killed at `timeout`, so a hang or a runaway allocation fails the test instead of stalling or
 /// killing the whole run. True only when the copy ran that one test and it passed in time.
 fn within_limits(fixture: &std::path::Path, timeout: std::time::Duration, kib: u64) -> bool {
-    let test = format!("{}::plastic_3d_certificate_of_one_nightly_input", module_path!().split_once("::").map_or("", |m| m.1));
+    within_limits_test(fixture, timeout, kib, "plastic_3d_certificate_of_one_nightly_input")
+}
+
+fn within_limits_test(fixture: &std::path::Path, timeout: std::time::Duration, kib: u64, name: &str) -> bool {
+    let test = format!("{}::{name}", module_path!().split_once("::").map_or("", |m| m.1));
     let exe = std::env::current_exe().unwrap();
     let mut command = std::process::Command::new("sh");
     command.args(["-c", &format!("ulimit -v {kib} && exec \"$0\" \"$@\""), exe.to_str().unwrap(), "--exact", &test, "--ignored", "--test-threads=1"])
@@ -199,6 +203,25 @@ fn plastic_3d_certificate_of_one_nightly_input() {
     if !name.starts_with("991-") {
         assert!(lo <= 10.125 && 10.125 <= hi && hi - lo < 1e-9, "{name}: [{lo}, {hi}]");
     }
+}
+
+#[test]
+fn issue_1760_plastic_input_finishes_in_a_fresh_process() {
+    let fixture = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/fuzz/regressions/json_plastic/oom-1d283e64888730445219207f88a5a98edb5ade90"));
+    assert!(within_limits_test(fixture, std::time::Duration::from_secs(60), 2 << 20, "issue_1760_plastic_input_in_a_fresh_process"));
+}
+
+#[test]
+#[ignore = "run by issue_1760_plastic_input_finishes_in_a_fresh_process in a limited subprocess"]
+fn issue_1760_plastic_input_in_a_fresh_process() {
+    use dedaliano_engine::certify::plastic_3d::certify_plastic_3d;
+    use dedaliano_engine::types::PlasticInput3D;
+    let f = std::path::PathBuf::from(std::env::var_os("FUZZ_PLASTIC_FIXTURE").expect("FUZZ_PLASTIC_FIXTURE names the fixture"));
+    let bytes = std::fs::read(&f).unwrap();
+    let input: PlasticInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let c = certify_plastic_3d(&input).unwrap().certificate;
+    let (lo, hi) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
+    assert!(c.certified && lo <= hi && hi - lo < 1e-4 * hi, "{c:?}");
 }
 
 #[test]
@@ -513,3 +536,263 @@ fn envelope_3d_overflow_is_refused() {
     assert!(my.neg_values.iter().all(|v| v.is_finite() && *v <= 0.0));
 }
 
+#[test]
+fn issue_1759_buckling_rejects_negative_truss_inertia() {
+    use dedaliano_engine::solver::buckling::{solve_buckling_2d, solve_buckling_3d};
+    use dedaliano_engine::types::{SolverInput, SolverInput3D};
+    let bytes = include_bytes!("../fuzz/regressions/json_dynamics/crash-828fb1b1282a6154226085839f502cc6703cace8.min");
+    assert_eq!(bytes[0] % 20, 5);
+    let input_3d: SolverInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let error = solve_buckling_3d(&input_3d, 3).unwrap_err();
+    assert!(error.contains("Section 1") && error.contains("inertia"), "{error}");
+
+    for (iy, iz) in [(1e-28, 1e-4), (1e-4, 1e-28)] {
+        let mut tiny_radius_3d = input_3d.clone();
+        let sec = tiny_radius_3d.sections.get_mut("1").unwrap();
+        sec.iy = iy;
+        sec.iz = iz;
+        let error = solve_buckling_3d(&tiny_radius_3d, 3).unwrap_err();
+        assert!(error.contains("Section 1") && error.contains("radii of gyration"), "{error}");
+    }
+
+    let mut overflow_3d = input_3d.clone();
+    let sec = overflow_3d.sections.get_mut("1").unwrap();
+    sec.iy = 1e305;
+    sec.iz = 1e305;
+    let error = solve_buckling_3d(&overflow_3d, 3).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
+
+    let truss_2d = |iz: f64| -> SolverInput {
+        serde_json::from_value(json!({
+            "nodes": { "1": { "id": 1, "x": 0.0, "z": 0.0 }, "2": { "id": 2, "x": 0.0, "z": 4.0 } },
+            "materials": { "1": { "id": 1, "e": 200000.0, "nu": 0.3 } },
+            "sections": { "1": { "id": 1, "a": 0.01, "iz": iz } },
+            "elements": { "1": { "id": 1, "type": "truss", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 } },
+            "supports": {
+                "1": { "id": 1, "nodeId": 1, "type": "spring", "kx": 1000.0, "ky": 5e5 },
+                "2": { "id": 2, "nodeId": 2, "type": "pinned" }
+            },
+            "loads": [{ "type": "pointOnElement", "data": { "elementId": 1, "a": 1.0, "p": 0.0, "px": 100.0 } }]
+        })).unwrap()
+    };
+
+    let error = solve_buckling_2d(&truss_2d(-0.0001), 1).unwrap_err();
+    assert!(error.contains("Section 1") && error.contains("inertia"), "{error}");
+
+    let error = solve_buckling_2d(&truss_2d(1e-28), 1).unwrap_err();
+    assert!(error.contains("Section 1") && error.contains("radius of gyration"), "{error}");
+
+    let error = solve_buckling_2d(&truss_2d(1e305), 1).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
+}
+
+#[test]
+fn issue_1761_multi_case_overflow_is_refused() {
+    use dedaliano_engine::solver::load_cases::{
+        solve_multi_case_2d, solve_multi_case_3d, MultiCaseInput, MultiCaseInput3D,
+    };
+    use dedaliano_engine::types::{Constraint, EqualDOFConstraint};
+    let bytes = include_bytes!("../fuzz/regressions/json_static/crash-0e89be15b950870b2e17a3d6d7a842708a882ac7.min");
+    assert_eq!(bytes[0] % 18, 11);
+    let input_3d: MultiCaseInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let error = solve_multi_case_3d(&input_3d).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
+
+    let mut per_case_3d = input_3d.clone();
+    per_case_3d.solver.supports.get_mut("1").unwrap().dz = Some(-1e-4);
+    per_case_3d.solver.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {
+        master_node: 3,
+        slave_node: 4,
+        dofs: vec![0],
+    }));
+    let error = solve_multi_case_3d(&per_case_3d).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
+
+    let input_2d: MultiCaseInput = serde_json::from_value(json!({
+        "combinations": [{ "name": "1.2D+1.6L", "factors": { "D": 1.2, "L": 1.6 } }],
+        "loadCases": [
+            {
+                "name": "D",
+                "loads": [{ "type": "distributed", "data": { "elementId": 2, "qI": -10.0, "qJ": -10.0 } }]
+            },
+            {
+                "name": "L",
+                "loads": [{ "type": "distributed", "data": { "elementId": 2, "qI": -8.166543330997e229, "qJ": -18.0 } }]
+            }
+        ],
+        "solver": {
+            "nodes": {
+                "1": { "id": 1, "x": 0.0, "z": 0.0 },
+                "2": { "id": 2, "x": 3.0, "z": 0.0 },
+                "3": { "id": 3, "x": 6.0, "z": 0.0 }
+            },
+            "materials": { "1": { "id": 1, "e": 200000.0, "nu": 0.3 } },
+            "sections": { "1": { "id": 1, "a": 0.00538, "iz": 6.04e-6 } },
+            "elements": {
+                "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 },
+                "2": { "id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1 }
+            },
+            "supports": {
+                "1": { "id": 1, "nodeId": 1, "type": "fixed" },
+                "2": { "id": 2, "nodeId": 2, "type": "pinned" }
+            },
+            "loads": []
+        }
+    })).unwrap();
+    let error = solve_multi_case_2d(&input_2d).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
+
+    let mut per_case_2d = input_2d.clone();
+    per_case_2d.solver.supports.get_mut("1").unwrap().dz = Some(-1e-4);
+    per_case_2d.solver.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {
+        master_node: 2,
+        slave_node: 3,
+        dofs: vec![0],
+    }));
+    let error = solve_multi_case_2d(&per_case_2d).unwrap_err();
+    assert!(error.contains("non_finite_result"), "{error}");
+}
+
+fn combination_only_overflow_input(per_case: bool, load: f64) -> serde_json::Value {
+    let mut input = json!({
+        "solver": {
+            "nodes": {
+                "1": { "id": 1, "x": 0.0, "y": 0.0, "z": 0.0 },
+                "2": { "id": 2, "x": 1.0, "y": 0.0, "z": 0.0 },
+                "3": { "id": 3, "x": 2.0, "y": 0.0, "z": 0.0 }
+            },
+            "materials": { "1": { "id": 1, "e": 200000.0, "nu": 0.3 } },
+            "sections": { "1": { "id": 1, "a": 0.00538, "iy": 1e-10, "iz": 1e-10, "j": 2.01e-7 } },
+            "elements": {
+                "1": { "id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1 },
+                "2": { "id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1 }
+            },
+            "supports": { "1": { "id": 1, "nodeId": 1, "type": "fixed", "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true } },
+            "loads": []
+        },
+        "loadCases": [
+            { "name": "A", "loads": [{ "type": "nodal", "data": { "nodeId": 3, "fx": -load, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": 0.0 } }] },
+            { "name": "B", "loads": [{ "type": "nodal", "data": { "nodeId": 3, "fx": -load, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": 0.0 } }] }
+        ],
+        "combinations": [{ "name": "A+B", "factors": { "A": f64::MAX / 4.0, "B": f64::MAX / 4.0 } }]
+    });
+    if per_case {
+        input["solver"]["supports"]["1"]["dx"] = json!(1e-4);
+        input["solver"]["constraints"] = json!([{ "type": "equalDOF", "masterNode": 2, "slaveNode": 3, "dofs": [1] }]);
+    }
+    input
+}
+
+fn assert_combination_only_overflow_2d(per_case: bool, load: f64) {
+    use dedaliano_engine::solver::linear::solve_2d;
+    use dedaliano_engine::solver::load_cases::{solve_multi_case_2d, MultiCaseInput};
+    let mut value = combination_only_overflow_input(per_case, load);
+    for node in value["solver"]["nodes"].as_object_mut().unwrap().values_mut() {
+        node.as_object_mut().unwrap().remove("y");
+    }
+    for case in value["loadCases"].as_array_mut().unwrap() {
+        let data = case["loads"][0]["data"].as_object_mut().unwrap();
+        data.remove("fy");
+        data.remove("mz");
+    }
+    let input: MultiCaseInput = serde_json::from_value(value).unwrap();
+    for case in &input.load_cases {
+        let mut solver = input.solver.clone();
+        solver.loads = case.loads.clone();
+        let result = solve_2d(&solver).unwrap();
+        dedaliano_engine::boundary::require_finite(&result).unwrap();
+    }
+    let mut control = input.clone();
+    for factor in control.combinations[0].factors.values_mut() {
+        *factor = 1.0;
+    }
+    let finite = solve_multi_case_2d(&control).unwrap();
+    dedaliano_engine::boundary::require_finite(&finite).unwrap();
+    if load >= 1.0 {
+        let contributions: Vec<f64> = finite.case_results.iter().map(|case| {
+            case.results.reactions[0].rx * input.combinations[0].factors[&case.name]
+        }).collect();
+        assert!(contributions.iter().all(|value| value.is_finite()));
+        assert!(contributions.iter().sum::<f64>().is_infinite());
+    }
+    let error = solve_multi_case_2d(&input).unwrap_err();
+    if load < 1.0 {
+        assert!(error.contains("non_finite_result"), "{error}");
+        assert!(error.contains("combinationResults[0].results.resultSummary.secondOrderRatio"), "{error}");
+    } else {
+        assert!(error.contains("non-finite number"), "{error}");
+    }
+}
+
+fn assert_combination_only_overflow_3d(per_case: bool, load: f64) {
+    use dedaliano_engine::solver::linear::solve_3d;
+    use dedaliano_engine::solver::load_cases::{solve_multi_case_3d, MultiCaseInput3D};
+    let input: MultiCaseInput3D = serde_json::from_value(combination_only_overflow_input(per_case, load)).unwrap();
+    for case in &input.load_cases {
+        let mut solver = input.solver.clone();
+        solver.loads = case.loads.clone();
+        let result = solve_3d(&solver).unwrap();
+        dedaliano_engine::boundary::require_finite(&result).unwrap();
+    }
+    let mut control = input.clone();
+    for factor in control.combinations[0].factors.values_mut() {
+        *factor = 1.0;
+    }
+    let finite = solve_multi_case_3d(&control).unwrap();
+    dedaliano_engine::boundary::require_finite(&finite).unwrap();
+    if load >= 1.0 {
+        let contributions: Vec<f64> = finite.case_results.iter().map(|case| {
+            case.results.reactions[0].fx * input.combinations[0].factors[&case.name]
+        }).collect();
+        assert!(contributions.iter().all(|value| value.is_finite()));
+        assert!(contributions.iter().sum::<f64>().is_infinite());
+    }
+    let error = solve_multi_case_3d(&input).unwrap_err();
+    if load < 1.0 {
+        assert!(error.contains("non_finite_result"), "{error}");
+        assert!(error.contains("combinationResults[0].results.resultSummary.secondOrderRatio"), "{error}");
+    } else {
+        assert!(error.contains("non-finite number"), "{error}");
+    }
+}
+
+#[test]
+fn issue_1761_combination_only_overflow_prepared_2d_is_refused() {
+    assert_combination_only_overflow_2d(false, 3.0);
+    assert_combination_only_overflow_2d(false, 0.125);
+}
+
+#[test]
+fn issue_1761_combination_only_overflow_settlement_per_case_2d_is_refused() {
+    assert_combination_only_overflow_2d(true, 3.0);
+}
+
+#[test]
+fn issue_1761_combination_only_overflow_prepared_3d_is_refused() {
+    assert_combination_only_overflow_3d(false, 3.0);
+    assert_combination_only_overflow_3d(false, 0.125);
+}
+
+#[test]
+fn issue_1761_combination_only_overflow_settlement_per_case_3d_is_refused() {
+    assert_combination_only_overflow_3d(true, 3.0);
+}
+
+#[test]
+fn issue_1870_subprocess_limits_reserve_the_runner() {
+    let config = include_str!("../../.config/nextest.toml");
+    for name in [
+        "plastic_3d_certificate_nightly_inputs_finish",
+        "issue_1760_plastic_input_finishes_in_a_fresh_process",
+        "a_fixture_past_its_limits_fails",
+        "a_blocking_child_is_killed_at_its_timeout",
+    ] {
+        let filter = format!("filter = 'binary(robustness) & test(=fuzz_regressions::{name})'");
+        let isolated = config.split("[[profile.default.overrides]]").skip(1).any(|block| {
+            let block = block.split("\n[").next().unwrap();
+            block.lines().any(|line| line.trim() == filter)
+                && block.lines().any(|line| line.trim() == "threads-required = \"num-test-threads\"")
+        });
+        assert!(isolated, "{name} must reserve every nextest thread in the engine config");
+    }
+}

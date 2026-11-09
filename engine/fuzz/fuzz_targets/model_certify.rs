@@ -322,7 +322,7 @@ fn build_3d(m: &Model) -> Option<SolverInput3D> {
                 a: None,
                 b: None,
             }),
-            Load::Point { elem, a, p } => SolverLoad3D::PointOnElement(SolverPointLoad3D {
+            Load::Point { elem, a, p } => SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0,
                 element_id: pick(elem, ne),
                 a: a as f64 / 255.0,
                 py: 0.0,

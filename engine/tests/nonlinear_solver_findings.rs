@@ -730,7 +730,7 @@ fn corotational_3d_member_forces_include_member_loads() {
         vec![
             SolverLoad3D::Distributed(SolverDistributedLoad3D { q_xi: 0.0, q_xj: 0.0, element_id: 2, q_yi: 0.2, q_yj: 0.4, q_zi: -1.0, q_zj: -1.5, a: None, b: None }),
             SolverLoad3D::Distributed(SolverDistributedLoad3D { q_xi: 0.3, q_xj: 0.3, element_id: 1, q_yi: 0.5, q_yj: 0.5, q_zi: 0.0, q_zj: 0.0, a: Some(0.5), b: Some(2.0) }),
-            SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 2, a: 1.5, py: 0.3, pz: -2.0 }),
+            SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 2, a: 1.5, py: 0.3, pz: -2.0 }),
             SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 0.5, fy: 0.2, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }),
         ],
     );

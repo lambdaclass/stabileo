@@ -1269,6 +1269,7 @@ const steelEs: Record<string, string> = {
   'steel.tc.refuse.pitch': 'Ingresá el paso en la dirección de la fuerza.',
   'steel.tc.refuse.stagger': 'El tresbolillo necesita s, g y al menos dos filas.',
   'steel.tc.refuse.staggerWithWebLines': 'Tresbolillo junto con filas en el alma: esas cadenas de falla no están cubiertas.',
+  'steel.tc.refuse.staggerPitch': 'Tresbolillo con s no menor que el paso: indique s como el corrimiento entre filas vecinas, menor que el paso.',
   'steel.tc.refuse.holesDoNotFit': 'Los agujeros no caben en el ancho del elemento.',
   'steel.tc.refuse.netArea': 'El área neta resulta nula o negativa.',
   'steel.tc.refuse.weldLength': 'Ingresá la longitud de los cordones longitudinales.',

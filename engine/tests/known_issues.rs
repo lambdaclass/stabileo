@@ -203,6 +203,7 @@ fn invariance_reported_seeds_are_refused_or_stable() {
     for seed in [20800,20833,20865,20795,20756,20824,20840,20806] {
         let (mut input, _) = crate::fuzz_models::random_2d_model_rich(seed);
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut input, seed); }
+        input = crate::common::explicit_rigid_support_control(&input);
         match solve_2d(&input) {
             Ok(r) => {
                 assert!(dedaliano_engine::solver::stability::of_2d(&input).unwrap().is_stable(), "2D/{seed}");
@@ -214,6 +215,7 @@ fn invariance_reported_seeds_are_refused_or_stable() {
     for seed in [20761,20788] {
         let (mut input, _) = crate::fuzz_models::random_3d_model_rich(seed);
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_3d(&mut input, seed); }
+        input = crate::common::explicit_elastic_support_control(&input);
         match dedaliano_engine::solver::linear::solve_3d(&input) {
             Ok(r) => {
                 assert!(dedaliano_engine::solver::stability::of_3d(&input).unwrap().is_stable(), "3D/{seed}");
@@ -497,6 +499,15 @@ fn reported_seeds_advanced_modal_and_time_history_are_contained() {
         let (mut solver, mut densities) = crate::fuzz_models::random_2d_model_rich(seed);
         for id in solver.materials.keys() { densities.insert(id.clone(), 7850.0); }
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut solver, seed); }
+        let control = crate::common::explicit_rigid_support_control(&solver);
+        if serde_json::to_value(&control.supports).unwrap() != serde_json::to_value(&solver.supports).unwrap() {
+            crate::common::assert_support_conflict(&solve_modal_2d(&solver, &densities, 2).unwrap_err());
+            let th: TimeHistoryInput = serde_json::from_value(serde_json::json!({
+                "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
+            })).unwrap();
+            crate::common::assert_support_conflict(&solve_time_history_2d(&th).unwrap_err());
+        }
+        solver = control;
         match solve_modal_2d(&solver, &densities, 2) {
             Ok(r) => assert_warning(&r.structured_diagnostics, "NUM-INVARIANCE", 762.0),
             Err(error) => assert!(error.starts_with("MODAL-MECHANISM:") || error.starts_with(if seed == 20824 { "Eigenvalue decomposition failed" } else { "No valid modes found" }), "seed {seed}: {error}"),

@@ -26,6 +26,7 @@
 //! the LP's dual (hinge locations and rotations), turned into an exact
 //! mechanism through the exact compatibility null space.
 
+use crate::solver::support::{support_dofs_3d};
 use super::exact::*;
 use super::plastic_bundle::{sparse_rows, CubicF, LimitProblem, LinF, YieldComp, YieldMember, YieldPiece};
 use super::plastic::{approx_mp, least_squares, lm_end, lm_pieces, push_breakpoints, simplex_min_sum, ElemLoad, Piece};
@@ -267,6 +268,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
     // inside this range; outside it the certificate is refused, not slow.
     super::finite::check_magnitudes(input, super::plastic::EXACT_MIN_ABS, super::plastic::EXACT_MAX_ABS)?;
     let s = &input.solver;
+    crate::solver::support::validate_supports_3d(s)?;
     if !s.constraints.is_empty() {
         return Err("constraints are not supported by the plastic certificate".into());
     }
@@ -300,7 +302,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
     sups.sort_by(|a, b| a.0.cmp(b.0));
     for (_, sup) in sups {
         let n = *idx.get(&sup.node_id).ok_or("support on unknown node")?;
-        for k in [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz, sup.kw].into_iter().flatten() {
+        for k in [support_dofs_3d(sup)[0].spring, support_dofs_3d(sup)[1].spring, support_dofs_3d(sup)[2].spring, support_dofs_3d(sup)[3].spring, support_dofs_3d(sup)[4].spring, support_dofs_3d(sup)[5].spring, support_dofs_3d(sup)[6].spring].into_iter().flatten() {
             if k != 0.0 {
                 return Err("spring supports are not part of the rigid-plastic model".into());
             }
@@ -313,7 +315,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
                 return Err("prescribed support displacements are not supported".into());
             }
         }
-        let r = [sup.rx, sup.ry, sup.rz, sup.rrx, sup.rry, sup.rrz];
+        let r = support_dofs_3d(sup).map(|d| d.restrained);
         for k in 0..6 {
             restrained[n][k] |= r[k];
         }
@@ -463,6 +465,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
                 }
             }
             SolverLoad3D::PointOnElement(pl) => {
+                if pl.px != 0.0 { return Err("axial point loads are not supported by the 3D plastic certificate".into()); }
                 let ei = *eidx.get(&pl.element_id).ok_or("load on unknown element")?;
                 let (py, pz) = (q(pl.py).ok_or("non-finite load")?, q(pl.pz).ok_or("non-finite load")?);
                 if py.is_zero() && pz.is_zero() {

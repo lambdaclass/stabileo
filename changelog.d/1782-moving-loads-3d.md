@@ -1,0 +1,4 @@
+### BREAKING (results)
+#### 3D moving loads include interior peaks and axial axle weight (2026-11-08)
+
+3D moving-load envelopes now evaluate interior diagram stations, including each axle position and both sides of point loads, using the same sampling and range rules as 2D. Axle gravity is projected onto all three local member axes; the axial component reaches fixed-end forces, assembly, recovered member forces and diagrams. Previously a simply supported member could report a zero bending envelope and an inclined path lost part of every axle's weight, without a warning (#1782). Re-run affected 3D moving-load analyses and any checks or sizing based on their envelopes. See [the results change](../docs/results-changes/2026-11-moving-loads-3d.md) and [SA-2026-051](../docs/advisories/SA-2026-051-moving-loads-3d.md).

@@ -29,6 +29,18 @@ fn assert_f64_eq(a: f64, b: f64, what: &str) {
 /// evaluation, not the moving-load code.
 fn legacy_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> (f64, f64) {
     use dedaliano_engine::postprocess::diagrams::{compute_diagram_value_at, diagram_positions_2d};
+    let jump = |x: f64| -> f64 { ef.point_loads.iter().filter(|p| (p.a - x).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| match kind {
+        "axial" => -p.px.unwrap_or(0.0), "shear" => p.p, _ => 0.0,
+    }).sum() };
+    let (start_jump, end_jump) = (jump(0.0), jump(ef.length));
+    if start_jump != 0.0 || end_jump != 0.0 {
+        let (start, end) = (start + start_jump, end - end_jump);
+        let mut interior = ef.clone();
+        if kind == "axial" { interior.n_start = start; interior.n_end = end; }
+        else { interior.v_start = start; interior.v_end = end; }
+        interior.point_loads.retain(|p| p.a.abs() > 8.0 * f64::EPSILON * ef.length && (p.a - ef.length).abs() > 8.0 * f64::EPSILON * ef.length);
+        return legacy_range_2d(&interior, kind, start, end);
+    }
     let mut ts = diagram_positions_2d(ef, kind);
     if kind == "axial" && ef.length > 0.0 {
         let mut xs = vec![0.0, ef.length];
@@ -368,14 +380,14 @@ fn legacy_loads_at_position_3d(
                 let ni = node_by_id[&elem.node_i];
                 let nj = node_by_id[&elem.node_j];
                 let left_hand = solver_input.left_hand.unwrap_or(false);
-                let (_lex, ley, lez) = dedaliano_engine::element::compute_local_axes_3d(
+                let (lex, ley, lez) = dedaliano_engine::element::compute_local_axes_3d(
                     ni.x, ni.y, ni.z, nj.x, nj.y, nj.z,
                     elem.local_yx, elem.local_yy, elem.local_yz,
                     elem.roll_angle, left_hand,
                 );
                 let py = gx * ley[0] + gy * ley[1] + gz * ley[2];
                 let pz = gx * lez[0] + gy * lez[1] + gz * lez[2];
-                loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: gx * lex[0] + gy * lex[1] + gz * lex[2],
                     element_id: seg.element_id,
                     a: local_pos,
                     py,
@@ -424,7 +436,7 @@ fn legacy_unit_loads_2d(elem: &SolverElement, a: f64, t: f64, cos_theta: f64, si
 fn legacy_unit_loads_3d(elem_id: usize, a: f64, g_local_y: f64, g_local_z: f64) -> Vec<SolverLoad3D> {
     let mut loads: Vec<SolverLoad3D> = Vec::new();
     if g_local_y.abs() > 1e-10 || g_local_z.abs() > 1e-10 {
-        loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+        loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0,
             element_id: elem_id,
             a,
             py: g_local_y,
@@ -577,6 +589,34 @@ fn legacy_moving_2d(input: &MovingLoadInput) -> MovingLoadEnvelope {
     MovingLoadEnvelope { structured_diagnostics: vec![], elements: envelopes, train: train.clone(), path, num_positions }
 }
 
+fn reference_range_3d(ef: &ElementForces3D, kind: &str, start: f64, end: f64) -> (f64, f64) {
+    use dedaliano_engine::postprocess::diagrams_3d::{diagram_positions_3d, evaluate_diagram_3d_at};
+    let points = match kind {
+        "axial" => Some((&ef.point_loads_x, -1.0)),
+        "shearY" => Some((&ef.point_loads_y, 1.0)),
+        "shearZ" => Some((&ef.point_loads_z, 1.0)),
+        _ => None,
+    };
+    let (start_jump, end_jump) = points.map(|(ps, sign)| (
+        sign * ps.iter().filter(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>(),
+        sign * ps.iter().filter(|p| (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>(),
+    )).unwrap_or((0.0, 0.0));
+    if start_jump != 0.0 || end_jump != 0.0 {
+        let (start, end) = (start + start_jump, end - end_jump);
+        let mut interior = ef.clone();
+        let ps = match kind {
+            "axial" => { interior.n_start = start; interior.n_end = end; &mut interior.point_loads_x },
+            "shearY" => { interior.vy_start = start; interior.vy_end = end; &mut interior.point_loads_y },
+            "shearZ" => { interior.vz_start = start; interior.vz_end = end; &mut interior.point_loads_z },
+            _ => unreachable!(),
+        };
+        ps.retain(|p| p.a.abs() > 8.0 * f64::EPSILON * ef.length && (p.a - ef.length).abs() > 8.0 * f64::EPSILON * ef.length);
+        return reference_range_3d(&interior, kind, start, end);
+    }
+    diagram_positions_3d(ef, kind).into_iter().map(|t| evaluate_diagram_3d_at(ef, kind, t))
+        .fold((start.min(end), start.max(end)), |(lo, hi), value| (lo.min(value), hi.max(value)))
+}
+
 fn legacy_moving_3d(input: &MovingLoadInput3D) -> MovingLoadEnvelope3D {
     let solver_input = &input.solver;
     let train = &input.train;
@@ -608,18 +648,24 @@ fn legacy_moving_3d(input: &MovingLoadInput3D) -> MovingLoadEnvelope3D {
         if let Ok(results) = solve_3d(&modified_input) {
             for ef in &results.element_forces {
                 if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                    env.n_max_pos = env.n_max_pos.max(ef.n_start.max(ef.n_end));
-                    env.n_max_neg = env.n_max_neg.min(ef.n_start.min(ef.n_end));
-                    env.vy_max_pos = env.vy_max_pos.max(ef.vy_start.max(ef.vy_end));
-                    env.vy_max_neg = env.vy_max_neg.min(ef.vy_start.min(ef.vy_end));
-                    env.vz_max_pos = env.vz_max_pos.max(ef.vz_start.max(ef.vz_end));
-                    env.vz_max_neg = env.vz_max_neg.min(ef.vz_start.min(ef.vz_end));
-                    env.my_max_pos = env.my_max_pos.max(ef.my_start.max(ef.my_end));
-                    env.my_max_neg = env.my_max_neg.min(ef.my_start.min(ef.my_end));
-                    env.mz_max_pos = env.mz_max_pos.max(ef.mz_start.max(ef.mz_end));
-                    env.mz_max_neg = env.mz_max_neg.min(ef.mz_start.min(ef.mz_end));
-                    env.mx_max_pos = env.mx_max_pos.max(ef.mx_start.max(ef.mx_end));
-                    env.mx_max_neg = env.mx_max_neg.min(ef.mx_start.min(ef.mx_end));
+                    let (lo, hi) = reference_range_3d(ef, "axial", ef.n_start, ef.n_end);
+                    env.n_max_pos = env.n_max_pos.max(hi);
+                    env.n_max_neg = env.n_max_neg.min(lo);
+                    let (lo, hi) = reference_range_3d(ef, "shearY", ef.vy_start, ef.vy_end);
+                    env.vy_max_pos = env.vy_max_pos.max(hi);
+                    env.vy_max_neg = env.vy_max_neg.min(lo);
+                    let (lo, hi) = reference_range_3d(ef, "shearZ", ef.vz_start, ef.vz_end);
+                    env.vz_max_pos = env.vz_max_pos.max(hi);
+                    env.vz_max_neg = env.vz_max_neg.min(lo);
+                    let (lo, hi) = reference_range_3d(ef, "momentY", ef.my_start, ef.my_end);
+                    env.my_max_pos = env.my_max_pos.max(hi);
+                    env.my_max_neg = env.my_max_neg.min(lo);
+                    let (lo, hi) = reference_range_3d(ef, "momentZ", ef.mz_start, ef.mz_end);
+                    env.mz_max_pos = env.mz_max_pos.max(hi);
+                    env.mz_max_neg = env.mz_max_neg.min(lo);
+                    let (lo, hi) = reference_range_3d(ef, "torsion", ef.mx_start, ef.mx_end);
+                    env.mx_max_pos = env.mx_max_pos.max(hi);
+                    env.mx_max_neg = env.mx_max_neg.min(lo);
                 }
             }
         }

@@ -203,7 +203,7 @@ fn plastic_portal_3d() -> PlasticInput3D {
         vec![(1, FIXED6), (4, FIXED6)],
         vec![nodal_3d(2, [1.0, 1.0, 0.0, 0.0, 0.0, 0.0])],
     );
-    s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 2, a: 2.0, py: 0.0, pz: -1.0 }));
+    s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 2, a: 2.0, py: 0.0, pz: -1.0 }));
     plastic_3d(s, 100.0, 50.0)
 }
 
