@@ -795,7 +795,7 @@ fn parity_3d_sparse_multi_case() {
                         node_id: 5, fx: 12.0, fy: 0.0, fz: 0.0,
                         mx: 0.0, my: 0.0, mz: 0.0, bw: None,
                     }),
-                    SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                    SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0,
                         element_id: 4, a: 1.5, py: 8.0, pz: 0.0,
                     }),
                 ],

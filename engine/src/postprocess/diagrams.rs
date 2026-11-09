@@ -42,9 +42,9 @@ const NUM_POINTS: usize = 21;
 
 // ==================== Sampling ====================
 
-fn build_sampling_positions(
+pub(crate) fn build_sampling_positions(
     length: f64,
-    point_loads: &[PointLoadInfo],
+    point_positions: impl Iterator<Item = f64>,
 ) -> Vec<f64> {
     let mut positions = std::collections::BTreeSet::new();
 
@@ -57,8 +57,8 @@ fn build_sampling_positions(
 
     // Around point loads
     let eps = 1e-6;
-    for pl in point_loads {
-        let t_pl = pl.a / length;
+    for a in point_positions {
+        let t_pl = a / length;
         if t_pl > eps {
             positions.insert(((t_pl - eps) * 1e12) as i64);
         }
@@ -80,7 +80,7 @@ pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {
     if kind == "axial" && !has_axial_pl {
         (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
     } else {
-        build_sampling_positions(ef.length, &ef.point_loads)
+        build_sampling_positions(ef.length, ef.point_loads.iter().map(|p| p.a))
     }
 }
 

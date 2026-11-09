@@ -542,7 +542,7 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
 pub fn influence_unit_loads_3d(elem_id: usize, a: f64, g_local_y: f64, g_local_z: f64) -> Vec<SolverLoad3D> {
     let mut loads: Vec<SolverLoad3D> = Vec::new();
     if g_local_y.abs() > 1e-10 || g_local_z.abs() > 1e-10 {
-        loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+        loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0,
             element_id: elem_id,
             a,
             py: g_local_y,

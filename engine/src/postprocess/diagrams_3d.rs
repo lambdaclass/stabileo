@@ -1,6 +1,6 @@
 use crate::types::*;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use super::diagrams::build_sampling_positions;
 
 // ==================== Types ====================
 
@@ -32,29 +32,6 @@ pub struct DiagramResults3D {
     pub torsion: Vec<ElementDiagram3D>,
 }
 
-const NUM_POINTS: usize = 21;
-
-// ==================== Sampling ====================
-
-fn build_sampling_positions_3d(
-    length: f64,
-    point_loads: &[PointLoadInfo3D],
-) -> Vec<f64> {
-    let mut positions = BTreeSet::new();
-    for i in 0..NUM_POINTS {
-        let t = i as f64 / (NUM_POINTS - 1) as f64;
-        positions.insert((t * 1e12) as i64);
-    }
-    let eps = 1e-6;
-    for pl in point_loads {
-        let t_pl = pl.a / length;
-        if t_pl > eps { positions.insert(((t_pl - eps) * 1e12) as i64); }
-        positions.insert((t_pl * 1e12) as i64);
-        if t_pl < 1.0 - eps { positions.insert(((t_pl + eps) * 1e12) as i64); }
-    }
-    positions.into_iter().map(|k| k as f64 / 1e12).collect()
-}
-
 /// The stations (t ∈ [0, 1]) at which `compute_diagrams_3d` samples diagram
 /// `kind` of one member: a regular grid of 21, plus the position and ±1e-6
 /// neighbours of each point load acting in that diagram's plane.
@@ -62,13 +39,10 @@ pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
     let relevant_pl: &[PointLoadInfo3D] = match kind {
         "momentZ" | "shearY" => &ef.point_loads_y,
         "momentY" | "shearZ" => &ef.point_loads_z,
+        "axial" => &ef.point_loads_x,
         _ => &[],
     };
-    if relevant_pl.is_empty() {
-        (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
-    } else {
-        build_sampling_positions_3d(ef.length, relevant_pl)
-    }
+    build_sampling_positions(ef.length, relevant_pl.iter().map(|p| p.a))
 }
 
 // ==================== Evaluate at t ====================
@@ -174,13 +148,16 @@ pub fn evaluate_diagram_3d_at(
             value
         }
         "axial" => {
-            if ef.distributed_loads_x.is_empty() { return ef.n_start + t * (ef.n_end - ef.n_start); }
+            if ef.distributed_loads_x.is_empty() && ef.point_loads_x.is_empty() { return ef.n_start + t * (ef.n_end - ef.n_start); }
             let mut value = ef.n_start;
             for dl in &ef.distributed_loads_x {
                 let span = dl.b - dl.a;
                 if span <= 0.0 { continue; }
                 let s = (x - dl.a).clamp(0.0, span);
                 value -= dl.q_i * s + (dl.q_j - dl.q_i) * s * s / (2.0 * span);
+            }
+            for pl in &ef.point_loads_x {
+                if pl.a < x - 1e-10 { value -= pl.p; }
             }
             value
         },

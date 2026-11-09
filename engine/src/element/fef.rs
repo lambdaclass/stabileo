@@ -393,6 +393,14 @@ pub fn fef_point_load_3d(py: f64, pz: f64, a: f64, l: f64, phi_y: f64, phi_z: f6
     )
 }
 
+pub fn fef_point_load_with_axial_3d(px: f64, py: f64, pz: f64, a: f64, l: f64, phi_y: f64, phi_z: f64) -> [f64; 12] {
+    let mut fef = fef_point_load_3d(py, pz, a, l, phi_y, phi_z);
+    let axial = fef_point_load_2d(0.0, px, 0.0, a, l, 0.0);
+    fef[0] = axial[0];
+    fef[6] = axial[3];
+    fef
+}
+
 /// Fixed-end forces for 3D thermal load.
 /// dt_uniform: uniform temperature change (°C)
 /// dt_gradient_y: gradient in Y direction (°C) — produces bending about Z

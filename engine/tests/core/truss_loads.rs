@@ -139,7 +139,7 @@ fn a_transverse_distributed_load_on_a_3d_truss_reaches_the_nodes() {
 
 #[test]
 fn a_point_load_on_a_3d_truss_reaches_the_nodes() {
-    let load = SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 1.0, py: -8.0, pz: 0.0 });
+    let load = SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 1.0, py: -8.0, pz: 0.0 });
     let r = linear::solve_3d(&bar_3d(vec![load])).unwrap();
     let ri = r.reactions.iter().find(|x| x.node_id == 1).unwrap();
     let rj = r.reactions.iter().find(|x| x.node_id == 2).unwrap();
@@ -182,7 +182,7 @@ fn the_parallel_3d_load_vector_carries_the_same_truss_member_loads() {
             element_id: 1, q_xi: 1.0, q_xj: 3.0, q_yi: -12.0, q_yj: -4.0, q_zi: 2.0, q_zj: 2.0,
             a: Some(0.5), b: Some(3.0),
         }),
-        SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 1.0, py: -8.0, pz: 5.0 }),
+        SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 1.0, py: -8.0, pz: 5.0 }),
         SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: 1, dt_uniform: 15.0, dt_gradient_y: 0.0, dt_gradient_z: 0.0, alpha: None, depth_y: None, depth_z: None }),
     ]);
     let dof = DofNumbering::build_3d(&input);

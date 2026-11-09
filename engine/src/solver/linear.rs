@@ -4825,7 +4825,7 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
             SolverLoad3D::Distributed(l) => l.q_xi.is_finite() && l.q_xj.is_finite() && l.q_yi.is_finite() && l.q_yj.is_finite()
                 && l.q_zi.is_finite() && l.q_zj.is_finite()
                 && l.a.is_none_or(|v| v.is_finite()) && l.b.is_none_or(|v| v.is_finite()),
-            SolverLoad3D::PointOnElement(l) => l.a.is_finite() && l.py.is_finite() && l.pz.is_finite(),
+            SolverLoad3D::PointOnElement(l) => l.a.is_finite() && l.px.is_finite() && l.py.is_finite() && l.pz.is_finite(),
             SolverLoad3D::Thermal(l) => l.dt_uniform.is_finite()
                 && l.dt_gradient_y.is_finite() && l.dt_gradient_z.is_finite(),
             // Shell/plate load variants keep their existing referential checks;
@@ -5628,6 +5628,7 @@ pub fn compute_internal_forces_3d_with_loads(
 
             let mut axial_fef = [0.0, 0.0];
             let mut axial_loads = Vec::new();
+            let mut axial_points = Vec::new();
             for load in loads_by_elem.get(&elem.id).unwrap_or(&empty_loads) {
                 if let SolverLoad3D::Distributed(dl) = load {
                     let a = dl.a.unwrap_or(0.0); let b = dl.b.unwrap_or(l);
@@ -5636,6 +5637,14 @@ pub fn compute_internal_forces_3d_with_loads(
                     if dl.q_xi != 0.0 || dl.q_xj != 0.0 {
                         axial_loads.push(DistributedLoadInfo { q_i: dl.q_xi, q_j: dl.q_xj, a, b });
                     }
+                }
+            }
+            for load in loads_by_elem.get(&elem.id).unwrap_or(&empty_loads) {
+                if let SolverLoad3D::PointOnElement(pl) = load {
+                    let f = element::fef_point_load_2d(0.0, pl.px, 0.0, pl.a, l, 0.0);
+                    axial_fef[0] += f[0];
+                    axial_fef[1] += f[3];
+                    if pl.px != 0.0 { axial_points.push(PointLoadInfo3D { a: pl.a, p: pl.px }); }
                 }
             }
             forces.push(ElementForces3D {
@@ -5651,7 +5660,7 @@ pub fn compute_internal_forces_3d_with_loads(
                 distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
                 q_zi: 0.0, q_zj: 0.0,
                 distributed_loads_x: axial_loads,
-                distributed_loads_z: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None });
+                distributed_loads_z: Vec::new(), point_loads_x: axial_points, point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None });
             continue;
         }
 
@@ -5745,6 +5754,7 @@ pub fn compute_internal_forces_3d_with_loads(
         let mut dist_loads_y = Vec::new();
         let mut dist_loads_z = Vec::new();
         let mut dist_loads_x = Vec::new();
+        let mut pt_loads_x = Vec::new();
         let mut pt_loads_y = Vec::new();
         let mut pt_loads_z = Vec::new();
 
@@ -5789,7 +5799,7 @@ pub fn compute_internal_forces_3d_with_loads(
                     }
                 }
                 SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
-                    let mut fef12 = element::fef_point_load_3d(pl.py, pl.pz, pl.a, l, phi_y, phi_z);
+                    let mut fef12 = element::fef_point_load_with_axial_3d(pl.px, pl.py, pl.pz, pl.a, l, phi_y, phi_z);
                     element::adjust_fef_for_hinges_3d(&mut fef12, l, element::Hinge3D::from_elem(elem), phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
@@ -5800,6 +5810,7 @@ pub fn compute_internal_forces_3d_with_loads(
                         }
                     }
 
+                    if pl.px != 0.0 { pt_loads_x.push(PointLoadInfo3D { a: pl.a, p: pl.px }); }
                     pt_loads_y.push(PointLoadInfo3D { a: pl.a, p: pl.py });
                     pt_loads_z.push(PointLoadInfo3D { a: pl.a, p: pl.pz });
                 }
@@ -5860,6 +5871,7 @@ pub fn compute_internal_forces_3d_with_loads(
             q_zj: q_zj_total,
             distributed_loads_x: dist_loads_x,
             distributed_loads_z: dist_loads_z,
+            point_loads_x: pt_loads_x,
             point_loads_z: pt_loads_z,
             bimoment_start,
             bimoment_end,

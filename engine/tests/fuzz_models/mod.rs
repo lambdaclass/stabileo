@@ -464,6 +464,7 @@ pub fn random_3d_model(seed: u64) -> SolverInput3D {
             2 if !elem_ids.is_empty() => {
                 let elem_id = elem_ids[rng.gen_range(0..elem_ids.len())];
                 loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                    px: 0.0,
                     element_id: elem_id,
                     a: rng.gen_range(0.1..0.9),
                     py: rng.gen_range(-500.0..500.0),
@@ -1008,6 +1009,7 @@ pub fn random_3d_model_rich(seed: u64) -> (SolverInput3D, HashMap<String, f64>) 
                 }));
             }
             2 => loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                px: 0.0,
                 element_id: eid, a: rng.gen_range(0.0..1.0) * l, py: q(&mut rng), pz: q(&mut rng),
             })),
             3 => loads.push(SolverLoad3D::Thermal(SolverThermalLoad3D {

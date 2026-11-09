@@ -25,7 +25,7 @@ fn propped_cantilever_end_rotation() -> f64 {
 }
 
 fn point_3d(element_id: usize, a: f64, py: f64, pz: f64) -> SolverLoad3D {
-    SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id, a, py, pz })
+    SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id, a, py, pz })
 }
 
 fn nodal_3d(node_id: usize, f: [f64; 6]) -> SolverLoad3D {

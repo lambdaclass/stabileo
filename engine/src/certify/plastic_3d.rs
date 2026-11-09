@@ -465,6 +465,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
                 }
             }
             SolverLoad3D::PointOnElement(pl) => {
+                if pl.px != 0.0 { return Err("axial point loads are not supported by the 3D plastic certificate".into()); }
                 let ei = *eidx.get(&pl.element_id).ok_or("load on unknown element")?;
                 let (py, pz) = (q(pl.py).ok_or("non-finite load")?, q(pl.pz).ok_or("non-finite load")?);
                 if py.is_zero() && pz.is_zero() {

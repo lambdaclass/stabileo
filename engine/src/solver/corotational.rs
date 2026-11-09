@@ -2372,7 +2372,7 @@ fn elastic_corotational_forces_3d(
                 distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
                 q_zi: 0.0, q_zj: 0.0,
                 distributed_loads_x: Vec::new(),
-                distributed_loads_z: Vec::new(), point_loads_z: Vec::new(),
+                distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(),
                 bimoment_start: None, bimoment_end: None,
             });
             continue;
@@ -2486,7 +2486,7 @@ fn elastic_corotational_forces_3d(
             distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
             q_zi: 0.0, q_zj: 0.0,
             distributed_loads_x: Vec::new(),
-            distributed_loads_z: Vec::new(), point_loads_z: Vec::new(),
+            distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(),
             bimoment_start: None, bimoment_end: None,
         });
     }

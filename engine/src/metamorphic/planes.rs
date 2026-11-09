@@ -198,11 +198,11 @@ pub fn embed_2d(s: &SolverInput, plane: Plane) -> TResult<SolverInput3D> {
                 })
             }
             SolverLoad::PointOnElement(p) => {
-                if p.px.is_some_and(|v| v != 0.0) || p.my.is_some_and(|v| v != 0.0) {
-                    return unrep("a point load with an axial part or a moment has no 3D equivalent");
+                if p.my.is_some_and(|v| v != 0.0) {
+                    return unrep("a point load with a moment has no 3D equivalent");
                 }
                 let m = member(s, plane, p.element_id)?;
-                SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: p.element_id, a: p.a, py: m.cy * p.p, pz: m.cz * p.p })
+                SolverLoad3D::PointOnElement(SolverPointLoad3D { px: p.px.unwrap_or(0.0), element_id: p.element_id, a: p.a, py: m.cy * p.p, pz: m.cz * p.p })
             }
             SolverLoad::AxialDistributed(q) => SolverLoad3D::Distributed(SolverDistributedLoad3D {
                 element_id: q.element_id, q_xi: q.q_i, q_xj: q.q_j, q_yi: 0.0, q_yj: 0.0, q_zi: 0.0, q_zj: 0.0, a: q.a, b: q.b,
