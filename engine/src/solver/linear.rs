@@ -2028,7 +2028,8 @@ pub(crate) fn buckling_preload_3d(input: &SolverInput3D) -> Result<AnalysisResul
     let analysis = crate::known_issues::Analysis::Buckling;
     crate::known_issues::refuse_distorted(&crate::known_issues::for_3d(input, analysis))?;
     if input.constraints.is_empty() {
-        return prepare_static_3d_for_analysis(input, analysis)?.solve_loads(&input.loads);
+        let prepared = prepare_static_3d_for_analysis(input, analysis)?;
+        return prepared.solve_loads(&prepared.input.loads);
     }
     let ci = super::constraints::ConstrainedInput3D { solver: input.clone(), constraints: input.constraints.clone() };
     let mut result = super::constraints::solve_constrained_3d_inner(&ci, analysis)?;
@@ -2040,7 +2041,7 @@ pub(crate) fn buckling_preload_3d(input: &SolverInput3D) -> Result<AnalysisResul
 fn solve_3d_inner(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     if input.constraints.is_empty() {
         let prepared = prepare_static_3d(input)?;
-        return prepared.solve_loads(&input.loads);
+        return prepared.solve_loads(&prepared.input.loads);
     }
     validate_input_3d(input)?;
     let input = expand_curved_beams_3d(input);

@@ -630,7 +630,6 @@ fn an_inclined_support_defers_the_sparse_proof_to_the_dense_path() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_inclined_2d_ten_turn_normal_and_global_y_spring_coincide() {
     for angle in [20.0 * std::f64::consts::PI, -20.0 * std::f64::consts::PI] {
         let result = analyze_kinematics_2d(&inclined_2d_spring_beam(
