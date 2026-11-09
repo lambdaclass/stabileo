@@ -423,6 +423,7 @@ pub struct InclinedTransformData2D {
 /// R = [[-cos θ,  sin θ],
 ///      [ sin θ,  cos θ]]
 pub fn inclined_rotation_matrix_2d(theta: f64) -> [[f64; 2]; 2] {
+    let theta = super::support::prepare_support_angle(theta);
     let c = theta.cos();
     let s = theta.sin();
     [[-c, s], [s, c]]
@@ -691,7 +692,7 @@ pub(crate) fn assemble_stiffness_2d_typed(
         let kz_val = support_dofs_2d(sup)[2].spring.unwrap_or(0.0);
 
         if sup.support_type == "spring" {
-            if let Some(angle) = sup.angle {
+            if let Some(angle) = sup.angle.map(super::support::prepare_support_angle) {
                 if angle.abs() > 1e-15 && (kx_val > 0.0 || ky_val > 0.0) {
                     // Rotated spring: K_global = R^T * diag(kx, ky) * R
                     let c = angle.cos();
@@ -3467,7 +3468,7 @@ pub fn support_spring_entries_2d(input: &SolverInput, dof_num: &DofNumbering) ->
         let kz = support_dofs_2d(sup)[2].spring.unwrap_or(0.0);
         let dx = dof_num.map.get(&(sup.node_id, 0)).copied();
         let dz = dof_num.map.get(&(sup.node_id, 1)).copied();
-        let angle = sup.angle.filter(|a| sup.support_type == "spring" && a.abs() > 1e-15 && (kx > 0.0 || ky > 0.0));
+        let angle = sup.angle.map(super::support::prepare_support_angle).filter(|a| sup.support_type == "spring" && a.abs() > 1e-15 && (kx > 0.0 || ky > 0.0));
         match (angle, dx, dz) {
             (Some(angle), Some(dx), Some(dz)) => {
                 let (s, c) = angle.sin_cos();

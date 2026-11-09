@@ -1,5 +1,22 @@
 use crate::types::*;
 
+pub(crate) const MAX_SUPPORT_ANGLE: f64 = 1_000_000.0;
+
+pub(crate) fn prepare_support_angle(angle: f64) -> f64 {
+    let reduced = angle.rem_euclid(std::f64::consts::TAU);
+    if reduced == 0.0 || reduced == std::f64::consts::TAU { 0.0 } else { reduced }
+}
+
+fn validate_angle(key: &str, node: usize, angle: Option<f64>) -> Result<(), String> {
+    if angle.is_some_and(|a| !a.is_finite() || a.abs() > MAX_SUPPORT_ANGLE) {
+        let message = format!("Support {key} (node {node}): the support angle must be finite and its magnitude must not exceed {MAX_SUPPORT_ANGLE} radians. Give the angle within one turn (0 to 2π radians).");
+        let diagnostic = StructuredDiagnostic::global(DiagnosticCode::InvalidSupportAngle, Severity::Error, &message)
+            .with_nodes(vec![node]).with_phase("input");
+        return Err(serde_json::json!({"message": message, "structuredDiagnostics": [diagnostic]}).to_string());
+    }
+    Ok(())
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct SupportDof {
     pub restrained: bool,
@@ -58,6 +75,7 @@ fn validate<const N: usize>(key: &str, node: usize, dofs: [SupportDof; N], names
 
 pub(crate) fn validate_supports_2d(input: &SolverInput) -> Result<(), String> {
     for (key, s) in crate::ordered::entries(&input.supports) {
+        validate_angle(key, s.node_id, s.angle)?;
         let restraint = ["ux", "uz", "ry"].map(|d| format!("type={} ({d})", s.support_type));
         validate(key, s.node_id, support_dofs_2d(s), ["kx", "ky", "kz"], restraint.each_ref().map(String::as_str))?;
     }

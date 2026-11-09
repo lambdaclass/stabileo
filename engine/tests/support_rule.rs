@@ -870,7 +870,6 @@ fn inclined_positive_ky_without_angle_matches_zero_constrained_with_settlement()
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_absurd_angle_with_ky_refuses_counter_assembly_rank_disagreement() {
     use dedaliano_engine::solver::{assembly::inclined_rotation_matrix_2d, kinematic::analyze_kinematics_2d};
     let angle = std::f64::consts::TAU * 2.0_f64.powi(52);
@@ -881,7 +880,7 @@ fn issue_1780_absurd_angle_with_ky_refuses_counter_assembly_rank_disagreement() 
     let assembly_rank = 1 + i32::from(determinant.abs() > 8.0 * f64::EPSILON);
     let kin = analyze_kinematics_2d(&s);
     let base = analyze_kinematics_2d(&inclined_positive_ky(Some(0.0)));
-    eprintln!("raw normal={normal:?}, assembly support rank={assembly_rank}, diagnostic added restraints={}", kin.degree - base.degree);
+    eprintln!("prepared normal={normal:?}, assembly support rank={assembly_rank}, diagnostic added restraints={}", kin.degree - base.degree);
     assert!(kin.invalid_input.is_some(), "absurd angle was accepted with degree {} and assembly support rank {assembly_rank}", kin.degree);
     assert!(!kin.is_solvable);
     let error = linear::solve_2d(&s).unwrap_err();
@@ -893,13 +892,15 @@ fn issue_1780_absurd_angle_with_ky_refuses_counter_assembly_rank_disagreement() 
 }
 
 #[test]
-#[ignore = "known wrong result: #1780"]
 fn issue_1780_multi_turn_support_matches_reduced_angle_exactly() {
     use dedaliano_engine::solver::kinematic::analyze_kinematics_2d;
     for kind in ["inclinedRoller", "spring"] {
-        for angle in [20.0 * std::f64::consts::PI, -20.0 * std::f64::consts::PI, 20.0 * std::f64::consts::PI + 0.3] {
+        for angle in [20.0 * std::f64::consts::PI, -20.0 * std::f64::consts::PI, 20.0 * std::f64::consts::PI + 0.3, -0.3, -f64::EPSILON / 4.0] {
             let mut multi = inclined_positive_ky(Some(angle));
             multi.supports.get_mut("2").unwrap().support_type = kind.into();
+            if kind == "inclinedRoller" {
+                multi.supports.get_mut("2").unwrap().dz = multi.supports["1"].dz;
+            }
             let mut reduced = multi.clone();
             reduced.supports.get_mut("2").unwrap().angle = Some(angle.rem_euclid(std::f64::consts::TAU));
             assert_eq!(serde_json::to_value(analyze_kinematics_2d(&multi)).unwrap(), serde_json::to_value(analyze_kinematics_2d(&reduced)).unwrap());
@@ -909,6 +910,86 @@ fn issue_1780_multi_turn_support_matches_reduced_angle_exactly() {
                 serde_json::to_value(p.solve_loads(&s.loads).unwrap()).unwrap()
             };
             assert_eq!(dense(&multi), dense(&reduced), "dense {kind}, {angle}");
+            let sparse = |s: &SolverInput| {
+                let dofs = DofNumbering::build_2d(s);
+                dedaliano_engine::solver::assembly::assemble_sparse_2d(s, &dofs).k_ff.to_dense_symmetric()
+            };
+            assert_eq!(sparse(&multi), sparse(&reduced), "sparse {kind}, {angle}");
+            assert_eq!(serde_json::to_value(pdelta::solve_pdelta_2d(&multi, 100, 1e-12).unwrap()).unwrap(), serde_json::to_value(pdelta::solve_pdelta_2d(&reduced, 100, 1e-12).unwrap()).unwrap(), "pdelta {kind}, {angle}");
+            let constrained = |s: &SolverInput, sparse| {
+                let constraint = serde_json::from_value(serde_json::json!({
+                    "type": "equalDOF", "masterNode": 1, "slaveNode": 2, "dofs": [0]
+                })).unwrap();
+                let mut solver = s.clone();
+                if sparse {
+                    for id in 4..26 {
+                        solver.nodes.insert(id.to_string(), SolverNode { id, x: solver.nodes["1"].x + id as f64, z: solver.nodes["1"].z });
+                        let mut element = solver.elements["1"].clone();
+                        element.id = id;
+                        element.node_i = 1;
+                        element.node_j = id;
+                        solver.elements.insert(id.to_string(), element);
+                    }
+                }
+                let dofs = DofNumbering::build_2d(&solver);
+                if sparse { assert!(dofs.n_free >= 64); }
+                let c = constraints::ConstrainedInput { solver, constraints: vec![constraint] };
+                let result = if sparse { constraints::solve_constrained_2d(&c) } else { constraints::solve_constrained_2d_dense(&c, &dofs) };
+                serde_json::to_value(result.unwrap()).unwrap()
+            };
+            for sparse in [false, true] {
+                assert_eq!(constrained(&multi, sparse), constrained(&reduced, sparse), "constrained {kind}, {angle}, sparse={sparse}");
+            }
+        }
+    }
+}
+
+#[test]
+fn support_orientation_angle_bound_and_non_finite_refusals() {
+    use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
+    for kind in ["inclinedRoller", "spring", "rollerX"] {
+        for angle in [1_000_000.0_f64.next_up(), -1_000_000.0_f64.next_up(), f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let mut s = inclined_positive_ky(Some(angle));
+            let support = s.supports.get_mut("2").unwrap();
+            support.support_type = kind.into();
+            if kind == "rollerX" { support.ky = None; }
+            let kin = analyze_kinematics_2d(&s);
+            assert!(!kin.is_solvable);
+            let error = linear::solve_2d(&s).unwrap_err();
+            assert_eq!(kin.invalid_input.as_deref(), Some(error.as_str()));
+            let value: Value = serde_json::from_str(&error).unwrap();
+            assert_eq!(value["structuredDiagnostics"][0]["code"], "invalid_support_angle");
+            assert_eq!(value["structuredDiagnostics"][0]["severity"], "error");
+            assert!(value["message"].as_str().unwrap().contains("within one turn"));
+        }
+    }
+    for angle in [-1_000_000.0, 1_000_000.0] {
+        let mut s = inclined_positive_ky(Some(angle));
+        let mut reduced = s.clone();
+        reduced.supports.get_mut("2").unwrap().angle = Some(angle.rem_euclid(std::f64::consts::TAU));
+        assert_eq!(serde_json::to_value(linear::solve_2d(&s).unwrap()).unwrap(), serde_json::to_value(linear::solve_2d(&reduced).unwrap()).unwrap());
+        s.supports.get_mut("2").unwrap().angle = None;
+        s.supports.get_mut("2").unwrap().ky = None;
+        s.supports.get_mut("2").unwrap().support_type = "rollerX".into();
+        for normal in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            for component in ["normalX", "normalY", "normalZ"] {
+                let mut s3 = embed_2d(&s, Plane::XZ).unwrap();
+                let support = s3.supports.get_mut("2").unwrap();
+                support.is_inclined = Some(true);
+                support.normal_x = Some(0.0);
+                support.normal_y = Some(0.0);
+                support.normal_z = Some(1.0);
+                match component {
+                    "normalX" => support.normal_x = Some(normal),
+                    "normalY" => support.normal_y = Some(normal),
+                    _ => support.normal_z = Some(normal),
+                }
+                let error = linear::solve_3d(&s3).unwrap_err();
+                assert!(error.contains("must be finite"), "{error}");
+                let kin = analyze_kinematics_3d(&s3);
+                assert!(!kin.is_solvable);
+                assert_eq!(kin.invalid_input.as_deref(), Some(error.as_str()));
+            }
         }
     }
 }

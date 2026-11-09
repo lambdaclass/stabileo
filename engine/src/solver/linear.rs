@@ -665,8 +665,7 @@ pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumb
             // in global coords. We need to rotate them to the local frame
             // (where local_dof=1 is the restrained normal direction).
             if let Some(theta) = sup.angle {
-                let c = theta.cos();
-                let s = theta.sin();
+                let [s, c] = super::assembly::inclined_rotation_matrix_2d(theta)[1];
                 let glob_dx = sup.dx.unwrap_or(0.0);
                 let glob_dz = sup.dz.unwrap_or(0.0);
                 // The restrained direction is (sin θ, cos θ).
@@ -4000,7 +3999,7 @@ pub(crate) fn build_reactions_2d(
             let ky = support_dofs_2d(sup)[1].spring.unwrap_or(0.0);
             let kz = support_dofs_2d(sup)[2].spring.unwrap_or(0.0);
 
-            if let Some(angle) = sup.angle {
+            if let Some(angle) = sup.angle.map(super::support::prepare_support_angle) {
                 if angle.abs() > 1e-15 && (kx > 0.0 || ky > 0.0) {
                     let s = angle.sin();
                     let c = angle.cos();
@@ -4447,7 +4446,7 @@ pub(crate) fn validate_input_2d_for_analysis(input: &SolverInput, analysis: crat
         }
     }
     for sup in crate::ordered::values(&input.supports) {
-        for v in [support_dofs_2d(sup)[0].spring, support_dofs_2d(sup)[1].spring, support_dofs_2d(sup)[2].spring, sup.dx, sup.dz, sup.dry, sup.angle].into_iter().flatten() {
+        for v in [support_dofs_2d(sup)[0].spring, support_dofs_2d(sup)[1].spring, support_dofs_2d(sup)[2].spring, sup.dx, sup.dz, sup.dry].into_iter().flatten() {
             if !v.is_finite() {
                 return Err(format!("Support {}: numeric fields must be finite", sup.id));
             }

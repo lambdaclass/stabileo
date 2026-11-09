@@ -411,7 +411,7 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
         let kz_val = support_dofs_2d(sup)[2].spring.unwrap_or(0.0);
 
         if sup.support_type == "spring" {
-            if let Some(angle) = sup.angle {
+            if let Some(angle) = sup.angle.map(super::support::prepare_support_angle) {
                 if angle.abs() > 1e-15 && (kx_val > 0.0 || ky_val > 0.0) {
                     // Rotated spring: K_global = R^T * diag(kx, ky) * R
                     let c = angle.cos();

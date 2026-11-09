@@ -43,7 +43,7 @@ fn count_support_restraints_2d(sup: &SolverSupport) -> (i32, bool) {
     let dofs = support_dofs_2d(sup);
     let held = dofs.map(|d| d.restrained || d.spring.is_some_and(|k| k > 0.0));
     let translations = if sup.support_type == "inclinedRoller" {
-        let angle = sup.angle.unwrap_or(0.0).rem_euclid(std::f64::consts::TAU);
+        let angle = sup.angle.unwrap_or(0.0);
         let normal = inclined_rotation_matrix_2d(angle)[1];
         let normal_scale = normal.iter().fold(0.0f64, |scale, component| scale.max(component.abs()));
         let direction_tol = 8.0 * f64::EPSILON * normal_scale;
