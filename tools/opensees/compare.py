@@ -73,6 +73,10 @@ class Unsupported(Exception):
     """Model uses a feature without a clean OpenSees equivalent."""
 
 
+class EngineRefusal(RuntimeError):
+    pass
+
+
 # ---------------------------------------------------------------- geometry
 
 def _cross(a, b):
@@ -1427,7 +1431,7 @@ def stabileo(path_or_json, binary):
     except json.JSONDecodeError:
         raise RuntimeError(f"stabileo: bad output (exit {p.returncode}): {p.stderr[-400:]}")
     if "error" in out:
-        raise RuntimeError("stabileo: " + out["error"])
+        raise EngineRefusal("stabileo: " + out["error"])
     return out
 
 
@@ -1834,6 +1838,49 @@ def classify_refusal(r, ores):
     return dict(r, why=r["why"] + [f"opensees kappa={kappa:.1e}"], kappa=kappa)
 
 
+def support_contract_errors(d, dim):
+    rotational = any(e["type"] == "frame" for e in d["elements"].values())
+    if dim == 3:
+        rotational = rotational or any(d.get(k) for k in ("plates", "quads", "quad9s", "curvedShells", "curvedBeams"))
+    errors = []
+    for key, s in sorted(d["supports"].items()):
+        if dim == 2:
+            flags = SUPPORT_FLAGS_2D.get(s["type"], (False, False, False))
+            names = ("dx", "dz", "dry")
+            values = (s.get("dx"), _get(s, "dz", "dy", default=None), _get(s, "dry", "drz", default=None))
+            springs = ("kx", "ky", "kz")
+        else:
+            flags = tuple(s.get(k, False) for k in ("rx", "ry", "rz", "rrx", "rry", "rrz"))
+            names = ("dx", "dy", "dz", "drx", "dry", "drz")
+            values = tuple(s.get(k) for k in names)
+            springs = ("kx", "ky", "kz", "krx", "kry", "krz")
+        for i, (fixed, spring, name, value) in enumerate(zip(flags, springs, names, values)):
+            where = f"support {key} (node {s['nodeId']})"
+            elastic = (s.get(spring) or 0.0) > 0.0
+            if fixed and elastic:
+                errors.append(f"{where}: {spring} conflicts with a rigid restraint")
+            if value is None or abs(value) <= 1e-15:
+                continue
+            if i >= dim and not rotational:
+                errors.append(f"{where}: prescribed {name} has no rotational DOF")
+            elif not fixed or elastic:
+                errors.append(f"{where}: prescribed {name} has no rigid restraint without a spring")
+    return errors
+
+
+def check_support_contract(base, model, binary, dump_dir, original):
+    errors = support_contract_errors(model, base["dim"])
+    if not errors:
+        return None
+    try:
+        stabileo(model, binary)
+    except EngineRefusal as ex:
+        return dict(base, status="refused", why=[str(ex), *errors])
+    if dump_dir:
+        _dump(dump_dir, base["name"], original)
+    return dict(base, status="mismatch", why=["stabileo accepted invalid support input", *errors], max_err={}, n_bad=len(errors))
+
+
 def run_one(name, model, binary, tol, verbose, dump_dir=None):
     if "analysis" in model:
         return run_ext(name, model, binary, tol, dump_dir)
@@ -1841,6 +1888,9 @@ def run_one(name, model, binary, tol, verbose, dump_dir=None):
     why = check_supported_3d(model) if dim == 3 else check_supported_2d(model)
     if why:
         return dict(name=name, dim=dim, status="unsupported", why=why)
+    contract = check_support_contract(dict(name=name, dim=dim), model, binary, dump_dir, model)
+    if contract is not None:
+        return contract
     try:
         sres = normalize_stabileo(stabileo(model, binary), dim)
     except RuntimeError as ex:
@@ -2076,6 +2126,9 @@ def run_ext(name, job, binary, tol, dump_dir=None):
     why = check_supported_3d(d) if dim == 3 else check_supported_2d(d)
     if why:
         return dict(base, status="unsupported", why=why)
+    contract = check_support_contract(base, d, binary, dump_dir, job)
+    if contract is not None:
+        return contract
     try:
         lin = normalize_stabileo(stabileo(_probe_loads(d) if kind in MASS_MODES else d, binary), dim)
     except RuntimeError as ex:

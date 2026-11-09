@@ -809,13 +809,11 @@ fn opensees_support_tests(class: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1120"]
 fn issue_1120_opensees_must_accept_correct_support_refusals() {
     opensees_support_tests("SupportContractTest");
 }
 
 #[test]
-#[ignore = "known wrong result: #1191"]
 fn issue_1191_opensees_support_check_must_flag_seeded_wrong_results() {
     opensees_support_tests("SupportContractSelfTest");
 }
