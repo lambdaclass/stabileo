@@ -3117,6 +3117,16 @@ fn translation_invariants(k: &[f64], n: usize) -> Vec<f64> {
 fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
     let path = c.path.clone().ok_or("no path")?;
     let m = &c.with;
+    let mut base = m.s.clone();
+    if ana != "moving loads" { base.loads.clear(); }
+    let prepared = if base.constraints.is_empty() { Some(linear::prepare_static_3d(&base)?) } else { None };
+    let solve = |loads: &[SolverLoad3D]| {
+        if let Some(p) = &prepared { p.solve_loads(loads) } else {
+            let mut s = base.clone();
+            s.loads = loads.to_vec();
+            linear::solve_3d(&s)
+        }
+    };
     if ana == "moving loads" {
         let lens: Vec<f64> = path.iter().map(|&id| m.elem_len(id)).collect();
         let total: f64 = lens.iter().sum();
@@ -3140,14 +3150,14 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
                 acc += lens[k];
                 k += 1;
             }
-            let mut s = m.s.clone();
+            let mut loads = m.s.loads.clone();
             let (ex, ey, ez) = m.axes(path[k]);
             let a = (pos - acc).clamp(0.0, lens[k]);
-            s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+            loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
                 element_id: path[k], a: if reversed[k] { lens[k] - a } else { a },
                 px: -50.0 * ex[2], py: -50.0 * ey[2], pz: -50.0 * ez[2],
             }));
-            let r = linear::solve_3d(&s)?;
+            let r = solve(&loads)?;
             for ef in &r.element_forces {
                 if let Some(e) = env.get_mut(&ef.element_id) {
                     let mut xs: Vec<f64> = (0..=20).map(|i| ef.length * i as f64 / 20.0).collect();
@@ -3194,9 +3204,8 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
             let (_, ey, ez) = m.axes(eid);
             for k in 0..=4 {
                 let t = k as f64 / 4.0;
-                let mut s = m.s.clone();
-                s.loads = influence::influence_unit_loads_3d(eid, t * l, -ey[2], -ez[2]);
-                let r = linear::solve_3d(&s)?;
+                let loads = influence::influence_unit_loads_3d(eid, t * l, -ey[2], -ez[2]);
+                let r = solve(&loads)?;
                 vals.push(influence::extract_value_3d("Fz", Some(target), None, 0.5, &r));
             }
         }
