@@ -149,3 +149,33 @@ describe('plates meshed together', () => {
     expect(edge(a)).toEqual(edge(b));
   });
 });
+
+describe('plates and the recognition of physical elements', () => {
+  it('a recognised slab made a plate and meshed again stays that plate when the model is read again', async () => {
+    const { recognizeAndApply } = await import('../physical-recognition');
+    grid(3, 2);
+    recognizeAndApply();
+    const host = [...modelStore.model.groups.values()].find((g) => (g.data as { kind?: string } | undefined)?.kind === 'slab');
+    expect(host).toBeDefined();
+    const [p] = platesFromShells(looseShells());
+    expect(p).toBe(host!.id);
+    applyPlateMeshes([planPlateMesh(p!, { size: 0.5 })!]);
+    const surface = (modelStore.model.groups.get(p!)!.data as { surface?: unknown }).surface;
+    const quads = modelStore.model.groups.get(p!)!.members.quads;
+    recognizeAndApply();
+    expect(modelStore.model.groups.get(p!)?.members.quads).toEqual(quads);
+    expect((modelStore.model.groups.get(p!)?.data as { surface?: unknown } | undefined)?.surface).toEqual(surface);
+    expect(plateStatus(p!)).toBe('current');
+    expect(physicalPlates()).toHaveLength(1);
+  });
+
+  it('a recognised slab made a plate waiting for its mesh is not dropped when the model is read again', async () => {
+    const { recognizeAndApply } = await import('../physical-recognition');
+    grid(3, 2);
+    recognizeAndApply();
+    const [p] = platesFromShells(looseShells(), { keepMesh: false });
+    expect(plateStatus(p!)).toBe('unmeshed');
+    recognizeAndApply();
+    expect(modelStore.model.groups.get(p!)).toBeDefined();
+  });
+});
