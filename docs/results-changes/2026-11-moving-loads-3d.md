@@ -41,9 +41,18 @@ with `metamorphic::planes::embed_2d`. This covers both gravity directions and bo
   reactions are 100/2 = 50 kN and the axial extrema are ±50 × (6/10) = ±30 kN. The test
   asserts both extrema independently for 2D and each 3D embedding, checks three sampled
   positions and verifies zero axial demand in an endpoint-only sweep. Test output gives
-  [−30, +30] kN in 2D, XZ, XY and YZ. The old 3D implementation that dropped axial axle
-  weight gave zero. These are the envelopes after the
+  [−30, +30] kN in 2D, XZ, XY and YZ after the
   [endpoint correction](2026-11-moving-load-endpoint-forces.md).
+  A fresh run on `12edbde0bb886e58567e230871a4122455d2c4e9`, the parent of PR #1783's
+  merge commit on main, gives the pre-fix 3D envelope [0, +60] kN over axle positions
+  0, 5 and 10 m in all three embeddings. The old axial force is constant along the
+  member for each position: 0, +30 and +60 kN tension, respectively (measured as
+  0, 29.999999999999996 and 59.999999999999993 kN). An endpoint-only sweep also gives
+  [0, +60] kN before the fix and zero after it. The missing axial gravity component
+  changed the applied load vector, but the remaining transverse load and support
+  constraints still induced axial force. The old envelope was not zero; +30 kN
+  describes the midpoint position only. This corrects the pre-fix evidence in
+  [#1874](https://github.com/lambdaclass/stabileo/issues/1874).
 - Additional tests check an axle away from regular diagram stations, descending and reversed
   members, interior axial jumps, load balance and dense/sparse assembly for frame, warping,
   mixed and truss models, permanent axial point-load envelopes, off-grid axial span extrema,

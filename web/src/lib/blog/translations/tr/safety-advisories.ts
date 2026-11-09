@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "9 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, düzeltmeleri henüz birleştirilmemiş veya yayınlanmamış taslaklardır. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin."
+      "t": "9 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, 0.5.0 sürümünden sonra düzeltildi ve 9 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
@@ -179,31 +179,31 @@ const body: PostBody = {
           "SA-2026-049",
           "Aynı serbestlik derecesinde pozitif yay ve rijit kısıt bulunan mesnetler: 3D’de yay kısıtı kaldırıyor ve sınır koşulunu değiştiriyordu; 0.2.0 ile 0.5.0 arasındaki motor kodu",
           "Yüksek",
-          "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"
+          "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
         ],
         [
           "SA-2026-050",
           "Burkulma başarısız narinlik hesabını sıfıra dönüştürebiliyor ve yük durumu analizleri başarılı sonuç içinde sonlu olmayan değerler döndürebiliyordu",
           "Orta",
-          "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"
+          "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
         ],
         [
           "SA-2026-051",
           "3D hareketli yükler: zarflar, çubuk içindeki kesit tesiri tepe değerlerini atlıyor ve eğimli çubuklarda dingil ağırlığının eksenel bileşenini kaybediyordu; talep uyarı verilmeden düşük hesaplanabiliyordu; 0.2.0 ile 0.5.0 arası ve desktop-v0.1.0-alpha.1 ile alpha.3 arası",
           "Yüksek",
-          "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"
+          "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
         ],
         [
           "SA-2026-052",
           "Motorun 2D ve 3D hareketli yükleri: kalıcı kısmi eksenel yayılı yükler içeren eksenel kuvvet zarfları, örnekleme noktaları arasındaki yük bölgesi sınırlarında uç değerleri atlayabiliyordu; talep uyarı verilmeden düşük hesaplanabiliyordu; yayımlanmış sürümler için bir sınır ileri sürülmüyor",
           "Yüksek",
-          "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"
+          "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
         ],
         [
           "SA-2026-053",
           "2D ve 3D hareketli yükler: çubuk uçlarındaki tekil yükler, çubuk dışındaki kuvvetleri zarflara dahil ederek yapay eksenel kuvvet ve kesme kuvveti uç değerleri ekliyor ve talebi yüksek hesaplıyordu; yayımlanmış sürümler için bir sınır ileri sürülmüyor",
           "Düşük",
-          "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"
+          "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
         ],
         [
           "SA-2026-037",
