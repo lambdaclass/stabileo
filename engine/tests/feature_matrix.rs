@@ -3344,3 +3344,35 @@ fn issue_1782_moving_3d_reference_includes_interior_forces() {
     }).fold(0.0, f64::max);
     assert!((reference[0] - expected).abs() < 1e-9, "interior reference: {} vs {expected}", reference[0]);
 }
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_endpoint_2d_reference_obeys_equilibrium() {
+    for a in [0.0, 0.25] {
+        let mut m = beam(1, 0.25);
+        m.sup(1, 1, "fixed").sup(2, 2, "fixed");
+        m.s.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 1, a, p: -40.0, px: None, my: None,
+        }));
+        let mut c = Case2::base("baseline frame", "endpoint loads", &[], m.clone(), m, vec![1, 2]);
+        c.path = Some(vec![1]);
+        let Out::S(values, _) = moving_reference_2d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
+        for value in values { assert!(value.abs() < 1e-9, "support carries endpoint loads: {value}"); }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_endpoint_3d_reference_obeys_equilibrium() {
+    for a in [0.0, 0.25] {
+        let mut m = beam3(1, 0.25, 1);
+        m.sup(1, [true; 6]).sup(2, [true; 6]);
+        m.s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+            element_id: 1, a, px: 0.0, py: 0.0, pz: -40.0,
+        }));
+        let mut c = Case3::base("baseline frame", "endpoint loads", &[], m.clone(), m, vec![1, 2]);
+        c.path = Some(vec![1]);
+        let Out::S(values, _) = moving_reference_3d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
+        for value in values { assert!(value.abs() < 1e-9, "support carries endpoint loads: {value}"); }
+    }
+}
