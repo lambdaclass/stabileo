@@ -77,13 +77,13 @@ const body: PostBody = {
         [
           "SA-2026-043",
           "32",
-          "L’analyse harmonique perdait la correction des modes omis lorsqu’un mode était bien plus souple que les autres : résultat erroné d’un facteur 79 à 2.3 Hz dans un exemple",
+          "L’analyse harmonique perdait la correction des modes omis lorsqu’un mode était bien plus souple que les autres : résultat erroné d’un facteur 79 à 2,3 Hz dans un exemple",
           "Élevée"
         ],
         [
           "SA-2026-035",
           "—",
-          "Une coupe de 3D vers 2D faisait fléchir les barres autour du mauvais axe de section : un portique Y–Z était 13.5 fois trop rigide",
+          "Une coupe de 3D vers 2D faisait fléchir les barres autour du mauvais axe de section : un portique Y–Z était 13,5 fois trop rigide",
           "Élevée"
         ],
         [
@@ -125,13 +125,13 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "La valeur déterminante d’une barre et l’enveloppe 2D lisent l’extrême réel du diagramme des efforts internes, et non le point le plus proche parmi 21 stations : elles peuvent augmenter, de 0.23 % sous une charge triangulaire et de 1.05 % sous une courte charge partielle dans les cas documentés, et ne diminuent jamais.",
+        "La valeur déterminante d’une barre et l’enveloppe 2D lisent l’extrême réel du diagramme des efforts internes, et non le point le plus proche parmi 21 stations : elles peuvent augmenter, de 0,23 % sous une charge triangulaire et de 1,05 % sous une courte charge partielle dans les cas documentés, et ne diminuent jamais.",
         "Les mécanismes sont refusés au lieu d’être calculés : derrière une liaison rigide ou un diaphragme en 2D, derrière un connecteur en 2D (#1415), et en analyse modale, qui supprimait auparavant le mode nul et présentait les autres comme un ensemble complet, y compris pour un mécanisme glissant sur des appuis inclinés.",
         "L’analyse 3D non linéaire en matériau calcule des ossatures mêlant des barres avec et sans constante de gauchissement, ainsi que des nœuds reliés uniquement à des barres de treillis, au lieu de planter ou de les refuser ; les modèles déjà calculables donnent les mêmes valeurs.",
         "Les valeurs propres multiples conservent leur multiplicité, et les résultats statiques et modaux vérifient leur propre équilibre et leur orthogonalité avant d’être affichés.",
         "Dans Basic, P-Δ et la charge critique subdivisent chaque barre en éléments, le calcul de ruine plastique referme les rotules qui se déchargent, et la ligne d’influence du moment fléchissant prend comme positif le moment qui tend la fibre inférieure, comme tous les autres moments dans Basic.",
         "Une vérification de dimensionnement impossible à évaluer est refusée au lieu d’être déclarée satisfaite, et une rotation nodale souple mais réelle n’est plus bloquée lorsque le modèle possède une partie beaucoup plus rigide.",
-        "L’analyse linéaire avertit lorsqu’une rotation dépasse 0.1 rad, y compris à l’intérieur d’une barre (en tenant compte de la pente ajoutée à son axe par la déformation de cisaillement et de la courbure due à un gradient thermique à une extrémité libérée, #1569), ainsi que sur les déplacements propres à une combinaison, et lorsque la compression peut amplifier ses moments de plus de 10 % ; tant que ce second avertissement est affiché, les vérifications CIRSOC 301 sont suspendues. En cas d’avertissement de rotation, lancez une analyse géométriquement non linéaire à grandes rotations ; en cas d’avertissement d’amplification, une analyse P-Δ ou une autre analyse du second ordre."
+        "L’analyse linéaire avertit lorsqu’une rotation dépasse 0,1 rad, y compris à l’intérieur d’une barre (en tenant compte de la pente ajoutée à son axe par la déformation de cisaillement et de la courbure due à un gradient thermique à une extrémité libérée, #1569), ainsi que sur les déplacements propres à une combinaison, et lorsque la compression peut amplifier ses moments de plus de 10 % ; tant que ce second avertissement est affiché, les vérifications CIRSOC 301 sont suspendues. En cas d’avertissement de rotation, lancez une analyse géométriquement non linéaire à grandes rotations ; en cas d’avertissement d’amplification, une analyse P-Δ ou une autre analyse du second ordre."
       ]
     },
     {
@@ -145,7 +145,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Refusés : le facteur de ruine plastique 2D, qui peut varier d’un facteur allant jusqu’à 4.6 selon la numérotation, le sens des barres et les unités (#758) ; un facteur de flambement hors des bornes de son propre certificat (#741) ; les coques MITC4 sur des maillages distordus sous flexion significative dans leur plan (#798) ; et les coques MITC4 et MITC9 sur une géométrie gauchie (#1057).",
+        "Refusés : le facteur de ruine plastique 2D, qui peut varier d’un facteur allant jusqu’à 4,6 selon la numérotation, le sens des barres et les unités (#758) ; un facteur de flambement hors des bornes de son propre certificat (#741) ; les coques MITC4 sur des maillages distordus sous flexion significative dans leur plan (#798) ; et les coques MITC4 et MITC9 sur une géométrie gauchie (#1057).",
         "Avec avertissement : entre autres, l’analyse temporelle, la superposition modale 3D, les modèles quasi singuliers, le contact, l’analyse non linéaire en matériau et les connecteurs de rigidités différentes.",
         "En dehors des résultats refusés, ce dispositif de confinement des défauts ouverts change une seule valeur : la réaction 2D d’un appui avec tassement imposé qui comporte aussi un ressort dans la direction du tassement inclut désormais la force de ce ressort. Toutes les autres valeurs parmi les 145 515 du corpus de résultats sont identiques."
       ]
@@ -162,7 +162,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Basic enseigne l’analyse des structures pas à pas : statique, méthodes des forces et des déplacements, lignes d’influence, second ordre et flambement, analyse plastique et dynamique, chaque sujet étant expliqué pas à pas dans l’application. Son module de ruine plastique reste retenu avec le reste du calcul de ruine plastique 2D tant que #758 n’est pas corrigé.",
-        "L’allemand, le français et le turc ne sont pas proposés dans la 0.5.0 : ils reviendront une fois vérifiés par un locuteur natif ; d’ici là, leurs pages s’ouvrent en anglais.",
+        "L’allemand, le français et le turc sont à nouveau proposés.",
         "L’assistant IA fonctionne avec votre propre clé Anthropic ou OpenAI, conservée uniquement dans votre navigateur, et /examples propose des modèles interactifs que le moteur recalcule lorsque vous déplacez un curseur.",
         "PRO : étages maîtres et étages similaires, résultats de plaques par unité de largeur avec moments et directions principaux, rapport après l’analyse, visualiseur en lecture seule avec « Dupliquer et modifier », et fichier IFC lié dessiné comme référence 3D.",
         "Les fichiers enregistrés par les versions 0.2.0, 0.3.0 et 0.4.0 s’ouvrent, sont migrés et donnent les mêmes résultats à chaque modification, sauf lorsqu’une modification de résultats enregistrée s’applique ; un fichier enregistré par une version plus récente est refusé avec un message qui le précise.",
