@@ -117,7 +117,7 @@ fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, load_floor_3d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
+        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, action_floor_3d(tc, a.name, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
         Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e, expected.2),
     }
@@ -162,6 +162,19 @@ pub fn load_floor_3d(s: &SolverInput3D, lchar: f64) -> f64 {
         _ => 0.0,
     }).sum();
     imposed + other + applied_3d(s, lchar)
+}
+
+pub fn action_floor_3d(c: &Case3, ana_name: &str, lchar: f64) -> f64 {
+    let ground = if ana_name == "time history (ground motion)" {
+        dedaliano_engine::solver::mass_matrix::total_mass_by_direction_3d(&c.s, &c.dens)
+            .iter()
+            .zip(c.p.ground)
+            .map(|(mass, acceleration)| mass * acceleration.abs())
+            .sum()
+    } else {
+        0.0
+    };
+    load_floor_3d(&c.s, lchar) + ground
 }
 
 fn applied_3d(s: &SolverInput3D, lchar: f64) -> f64 {
