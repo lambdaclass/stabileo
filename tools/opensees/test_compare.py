@@ -365,10 +365,11 @@ def support_fixture(issue):
     return json.loads((Path(__file__).parent / "fixtures" / f"issue-{issue}.json").read_text())
 
 
-def support_run(model, accepts=False, bad=None, dump_dir=None, output=None, error="independent engine refusal"):
+def support_run(model, accepts=False, bad=None, dump_dir=None, output=None, error="independent engine refusal",
+                returncode=0, stderr=""):
     answer = output if output is not None else json.dumps({} if accepts else {"error": error})
     result = dict(disp={}, reac={}, forces={}, diags=[], issues=[], converged=True, stable=True)
-    with mock.patch.object(C.subprocess, "run", return_value=subprocess.CompletedProcess(["engine"], 0, answer, "")), \
+    with mock.patch.object(C.subprocess, "run", return_value=subprocess.CompletedProcess(["engine"], returncode, answer, stderr)), \
             mock.patch.object(C, "normalize_stabileo", return_value=result), \
             mock.patch.object(C, "stabileo_job", return_value=result), \
             mock.patch.object(C, "normalize_ext", return_value=result), \
@@ -485,10 +486,23 @@ class SupportContractSelfTest(unittest.TestCase):
                 self.assertEqual(r["tol"], 1e-6)
                 self.assertEqual(support_run(case, accepts=True)["status"], "ok")
 
+
+
+class SupportContractCrashTest(unittest.TestCase):
     def test_a_crashed_engine_is_not_a_correct_input_refusal(self):
         for issue in (1120, 1121, 1191):
-            with self.subTest(issue=issue), self.assertRaises(RuntimeError):
-                support_run(support_fixture(issue), output="not JSON")
+            job = support_fixture(issue)
+            model = job.get("model", job)
+            for case in (model, dict(analysis="pdelta", model=model)):
+                for output, returncode, stderr in (("not JSON", 0, "malformed response"),
+                                                    ("", -11, "solver crashed")):
+                    with self.subTest(issue=issue, extended="analysis" in case, returncode=returncode):
+                        r = support_run(case, output=output, returncode=returncode, stderr=stderr)
+                        self.assertEqual(r["name"], "support-contract")
+                        self.assertEqual(r["status"], "false_reject")
+                        self.assertIn(r["status"], C.FLAGGED)
+                        self.assertIn(f"bad output (exit {returncode})", r["why"][0])
+                        self.assertIn(stderr, r["why"][0])
 
 
 
