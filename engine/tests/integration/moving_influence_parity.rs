@@ -29,6 +29,18 @@ fn assert_f64_eq(a: f64, b: f64, what: &str) {
 /// evaluation, not the moving-load code.
 fn legacy_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> (f64, f64) {
     use dedaliano_engine::postprocess::diagrams::{compute_diagram_value_at, diagram_positions_2d};
+    let jump = |x: f64| -> f64 { ef.point_loads.iter().filter(|p| (p.a - x).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| match kind {
+        "axial" => -p.px.unwrap_or(0.0), "shear" => p.p, _ => 0.0,
+    }).sum() };
+    let (start_jump, end_jump) = (jump(0.0), jump(ef.length));
+    if start_jump != 0.0 || end_jump != 0.0 {
+        let (start, end) = (start + start_jump, end - end_jump);
+        let mut interior = ef.clone();
+        if kind == "axial" { interior.n_start = start; interior.n_end = end; }
+        else { interior.v_start = start; interior.v_end = end; }
+        interior.point_loads.retain(|p| p.a.abs() > 8.0 * f64::EPSILON * ef.length && (p.a - ef.length).abs() > 8.0 * f64::EPSILON * ef.length);
+        return legacy_range_2d(&interior, kind, start, end);
+    }
     let mut ts = diagram_positions_2d(ef, kind);
     if kind == "axial" && ef.length > 0.0 {
         let mut xs = vec![0.0, ef.length];
@@ -579,6 +591,28 @@ fn legacy_moving_2d(input: &MovingLoadInput) -> MovingLoadEnvelope {
 
 fn reference_range_3d(ef: &ElementForces3D, kind: &str, start: f64, end: f64) -> (f64, f64) {
     use dedaliano_engine::postprocess::diagrams_3d::{diagram_positions_3d, evaluate_diagram_3d_at};
+    let points = match kind {
+        "axial" => Some((&ef.point_loads_x, -1.0)),
+        "shearY" => Some((&ef.point_loads_y, 1.0)),
+        "shearZ" => Some((&ef.point_loads_z, 1.0)),
+        _ => None,
+    };
+    let (start_jump, end_jump) = points.map(|(ps, sign)| (
+        sign * ps.iter().filter(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>(),
+        sign * ps.iter().filter(|p| (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>(),
+    )).unwrap_or((0.0, 0.0));
+    if start_jump != 0.0 || end_jump != 0.0 {
+        let (start, end) = (start + start_jump, end - end_jump);
+        let mut interior = ef.clone();
+        let ps = match kind {
+            "axial" => { interior.n_start = start; interior.n_end = end; &mut interior.point_loads_x },
+            "shearY" => { interior.vy_start = start; interior.vy_end = end; &mut interior.point_loads_y },
+            "shearZ" => { interior.vz_start = start; interior.vz_end = end; &mut interior.point_loads_z },
+            _ => unreachable!(),
+        };
+        ps.retain(|p| p.a.abs() > 8.0 * f64::EPSILON * ef.length && (p.a - ef.length).abs() > 8.0 * f64::EPSILON * ef.length);
+        return reference_range_3d(&interior, kind, start, end);
+    }
     diagram_positions_3d(ef, kind).into_iter().map(|t| evaluate_diagram_3d_at(ef, kind, t))
         .fold((start.min(end), start.max(end)), |(lo, hi), value| (lo.min(value), hi.max(value)))
 }

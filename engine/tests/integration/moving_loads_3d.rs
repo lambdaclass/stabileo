@@ -696,6 +696,7 @@ fn check_endpoint_3d(at_end: bool, axis: usize) {
         for force in [-40.0, 40.0] {
             let (input, expected) = endpoint_cantilever_2d(at_end, load_at_fixed, axis == 0, force);
             let mut input = embedded_moving_input(&input, Plane::XZ);
+            input.solver.supports.retain(|_, s| s.rx && s.ry && s.rz && s.rrx && s.rry && s.rrz);
             input.solver.loads = vec![SolverLoad3D::PointOnElement(SolverPointLoad3D {
                 element_id: 1, a: if at_end { 8.0 } else { 0.0 },
                 px: if axis == 0 { force } else { 0.0 },
@@ -712,85 +713,77 @@ fn check_endpoint_3d(at_end: bool, axis: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_2d_axial_start_obeys_equilibrium() {
     check_endpoint_2d(false, true);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_2d_axial_end_obeys_equilibrium() {
     check_endpoint_2d(true, true);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_2d_shear_start_obeys_equilibrium() {
     check_endpoint_2d(false, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_2d_shear_end_obeys_equilibrium() {
     check_endpoint_2d(true, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_axial_start_obeys_equilibrium() {
     check_endpoint_3d(false, 0);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_axial_end_obeys_equilibrium() {
     check_endpoint_3d(true, 0);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_shear_y_start_obeys_equilibrium() {
     check_endpoint_3d(false, 1);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_shear_y_end_obeys_equilibrium() {
     check_endpoint_3d(true, 1);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_shear_z_start_obeys_equilibrium() {
     check_endpoint_3d(false, 2);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_shear_z_end_obeys_equilibrium() {
     check_endpoint_3d(true, 2);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_axles_are_carried_by_supports() {
     use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
     use dedaliano_engine::metamorphic::planes::Plane;
-    let mut input = planar_moving_input(0.0);
-    for s in input.solver.supports.values_mut() { s.support_type = "fixed".into(); }
-    input.step = Some(8.0);
-    let r = solve_moving_loads_2d(&input).unwrap();
-    assert_eq!(r.num_positions, 2);
-    let e = &r.elements["1"];
-    for value in [e.n_max_neg, e.n_max_pos, e.v_max_neg, e.v_max_pos, e.m_max_neg, e.m_max_pos] {
-        assert_planar_value(value, 0.0);
-    }
-    for plane in Plane::ALL {
-        let r = solve_moving_loads_3d(&embedded_moving_input(&input, plane)).unwrap();
+    for length in [8.0, 1e-6] {
+        let mut input = planar_moving_input(0.0);
+        input.solver.nodes.get_mut("2").unwrap().x = length;
+        for s in input.solver.supports.values_mut() { s.support_type = "fixed".into(); }
+        input.step = Some(length);
+        let r = solve_moving_loads_2d(&input).unwrap();
         assert_eq!(r.num_positions, 2);
         let e = &r.elements["1"];
-        for value in [e.n_max_neg, e.n_max_pos, e.vy_max_neg, e.vy_max_pos, e.vz_max_neg, e.vz_max_pos, e.my_max_neg, e.my_max_pos, e.mz_max_neg, e.mz_max_pos] {
+        for value in [e.n_max_neg, e.n_max_pos, e.v_max_neg, e.v_max_pos, e.m_max_neg, e.m_max_pos] {
             assert_planar_value(value, 0.0);
+        }
+        for plane in Plane::ALL {
+            let r = solve_moving_loads_3d(&embedded_moving_input(&input, plane)).unwrap();
+            assert_eq!(r.num_positions, 2);
+            let e = &r.elements["1"];
+            for value in [e.n_max_neg, e.n_max_pos, e.vy_max_neg, e.vy_max_pos, e.vz_max_neg, e.vz_max_pos, e.my_max_neg, e.my_max_pos, e.mz_max_neg, e.mz_max_pos] {
+                assert_planar_value(value, 0.0);
+            }
         }
     }
 }

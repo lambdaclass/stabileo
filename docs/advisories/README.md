@@ -19,7 +19,8 @@ or IFC (SA-2026-039). SA-2026-044 is not fixed: 2D plastic collapse stays refuse
 (2026-11-08): it was fixed after 0.5.0, live on stabileo.com since 2026-11-08, and its re-check
 registry entry is `cb-segment-ends`. **SA-2026-050, SA-2026-051 and SA-2026-052 are drafts**
 (2026-11-08): their fixes are not yet merged or deployed. Their re-check registry entries are `non-finite-analysis-results`,
-`moving-loads-3d` and `moving-axial-patch-boundaries`, respectively.
+`moving-loads-3d` and `moving-axial-patch-boundaries`, respectively. **SA-2026-053 is a draft**
+(2026-11-09), with a local fix and registry entry `moving-load-endpoint-forces`.
 
 | ID | Summary | Severity | Issue | Fix | Fixed in | Status |
 |---|---|---|---|---|---|---|
@@ -74,6 +75,8 @@ registry entry is `cb-segment-ends`. **SA-2026-050, SA-2026-051 and SA-2026-052 
 | [SA-2026-050](SA-2026-050-non-finite-analysis-results.md) | Buckling could turn a failed slenderness calculation into zero, and multi-case analysis could return non-finite values inside `Ok` | Medium | [#1759](https://github.com/lambdaclass/stabileo/issues/1759), [#1761](https://github.com/lambdaclass/stabileo/issues/1761) | #1784 | not yet merged or deployed | Draft 2026-11-08 |
 | [SA-2026-051](SA-2026-051-moving-loads-3d.md) | 3D moving-load envelopes missed interior peaks and lost the axial component of axle weight | High | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0, unreleased | Draft 2026-11-08 |
 | [SA-2026-052](SA-2026-052-moving-axial-patch-boundaries.md) | 2D/3D moving-load axial envelopes missed peaks at distributed-load boundaries | High | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0, unreleased | Draft 2026-11-08 |
+
+| [SA-2026-053](SA-2026-053-moving-load-endpoint-forces.md) | Moving-load envelopes included exterior force limits at endpoint point loads | Low | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | Local fix, unreleased | Draft 2026-11-09 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

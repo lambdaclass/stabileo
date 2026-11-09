@@ -1325,6 +1325,20 @@ fn moving_reference_2d(ana: &str, c: &Case2) -> Result<Out, String> {
             // Along the member, as the envelope reads it since #437: the ends and every
             // station the diagram samples (the point load among them).
             let range = |ef: &ElementForces, kind: &str, a0: f64, a1: f64| -> (f64, f64) {
+                let mut interior = None;
+                let (a0, a1) = if kind == "shear" {
+                    let jump0: f64 = ef.point_loads.iter().filter(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum();
+                    let jump1: f64 = ef.point_loads.iter().filter(|p| (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum();
+                    if jump0 != 0.0 || jump1 != 0.0 {
+                        let mut member = ef.clone();
+                        member.v_start = a0 + jump0;
+                        member.v_end = a1 - jump1;
+                        member.point_loads.retain(|p| p.a.abs() > 8.0 * f64::EPSILON * ef.length && (p.a - ef.length).abs() > 8.0 * f64::EPSILON * ef.length);
+                        interior = Some(member);
+                    }
+                    (a0 + jump0, a1 - jump1)
+                } else { (a0, a1) };
+                let ef = interior.as_ref().unwrap_or(ef);
                 let (mut lo, mut hi) = (a0.min(a1), a0.max(a1));
                 for t in dedaliano_engine::postprocess::diagrams::diagram_positions_2d(ef, kind) {
                     let v = dedaliano_engine::postprocess::diagrams::compute_diagram_value_at(kind, t.clamp(0.0, 1.0), ef);
@@ -3165,9 +3179,11 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
                     for dl in &ef.distributed_loads_z { xs.extend([dl.a, dl.b]); }
                     e[0] = e[0].max(ef.my_start).max(ef.my_end);
                     e[1] = e[1].min(ef.my_start).min(ef.my_end);
-                    e[2] = e[2].max(ef.vz_start).max(ef.vz_end);
-                    e[3] = e[3].min(ef.vz_start).min(ef.vz_end);
-                    for x in xs.into_iter().filter(|&x| x > 0.0 && x < ef.length) {
+                    let start = ef.vz_start + ef.point_loads_z.iter().filter(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>();
+                    let end = ef.vz_end - ef.point_loads_z.iter().filter(|p| (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>();
+                    e[2] = e[2].max(start).max(end);
+                    e[3] = e[3].min(start).min(end);
+                    for x in xs.into_iter().filter(|&x| x > 8.0 * f64::EPSILON * ef.length && ef.length - x > 8.0 * f64::EPSILON * ef.length) {
                         let (mut moment, mut shear) = (ef.my_end - ef.vz_end * (ef.length - x), ef.vz_end);
                         for dl in &ef.distributed_loads_z {
                             let a = x.max(dl.a);
@@ -3346,7 +3362,6 @@ fn issue_1782_moving_3d_reference_includes_interior_forces() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_2d_reference_obeys_equilibrium() {
     for a in [0.0, 0.25] {
         let mut m = beam(1, 0.25);
@@ -3362,7 +3377,6 @@ fn issue_1782_endpoint_2d_reference_obeys_equilibrium() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_reference_obeys_equilibrium() {
     for a in [0.0, 0.25] {
         let mut m = beam3(1, 0.25, 1);

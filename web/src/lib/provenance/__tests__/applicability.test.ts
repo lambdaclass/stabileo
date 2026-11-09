@@ -414,7 +414,12 @@ it('shows moving-load changes for saved vehicle position cases and excludes ordi
   expect(modelFeatures(frame).has('movingLoads')).toBe(false);
   expect(modelFeatures(moving).has('movingLoads')).toBe(true);
   expect(ids(frame)).not.toContain('moving-loads-3d');
+  expect(ids(frame)).not.toContain('moving-load-endpoint-forces');
   expect(ids(moving)).toContain('moving-loads-3d');
+  for (const analysisMode of ['2d', 'pro']) {
+    expect(ids({ ...moving, analysisMode })).toContain('moving-load-endpoint-forces');
+  }
+  expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-load-endpoint-forces');
   expect(ids(moving)).not.toContain('moving-axial-patch-boundaries');
   for (const analysisMode of ['2d', 'pro']) {
     expect(ids({ ...moving, analysisMode, loads: [{ type: 'distributed', data: { a: 1.10, b: 1.15 } }] })).toContain('moving-axial-patch-boundaries');

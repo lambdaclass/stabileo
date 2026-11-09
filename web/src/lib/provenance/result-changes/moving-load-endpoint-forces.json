@@ -1,0 +1,34 @@
+{
+  "id": "moving-load-endpoint-forces",
+  "date": "2026-11-09",
+  "prs": [
+    1783
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members",
+      "movingLoads"
+    ]
+  },
+  "title": {
+    "en": "Moving-load envelopes use interior force limits at member ends",
+    "es": "Las envolventes de cargas móviles usan los límites interiores en los extremos",
+    "pt": "As envoltórias de cargas móveis usam os limites internos nas extremidades",
+    "de": "Wanderlastumhüllende verwenden innere Kraftgrenzen an Stabenden",
+    "fr": "Les enveloppes de charges mobiles utilisent les limites intérieures aux extrémités",
+    "tr": "Hareketli yük zarfları çubuk uçlarında iç kuvvet sınırlarını kullanır"
+  },
+  "explanation": {
+    "en": "A point load exactly at either member end could put an exterior force limit into 2D/3D moving-load axial/shear envelopes, including force carried entirely by a support (#1782, SA-2026-053). Only the interior limit now counts at an end. Re-run affected envelopes and review sizing based on their force extrema. This notice identifies saved moving-load position cases; transient sweeps leave no saved marker.",
+    "es": "Una carga puntual en un extremo podía introducir un límite exterior en las envolventes axiales y de cortante de cargas móviles 2D/3D, incluso una fuerza soportada por completo por un apoyo (#1782, SA-2026-053). Ahora solo cuenta el límite interior. Vuelva a calcular las envolventes afectadas y revise los dimensionamientos basados en sus extremos. El aviso identifica posiciones guardadas; los barridos transitorios no dejan una marca guardada.",
+    "pt": "Uma carga pontual na extremidade podia incluir um limite externo nas envoltórias axiais e de cortante de cargas móveis 2D/3D, mesmo quando o apoio suporta toda a força (#1782, SA-2026-053). Agora conta apenas o limite interno. Recalcule as envoltórias afetadas e reveja os dimensionamentos baseados nos seus extremos. O aviso identifica posições salvas; varreduras transitórias não deixam marca salva.",
+    "de": "Eine Punktlast am Stabende konnte einen äußeren Kraftgrenzwert in die Axialkraft- und Querkraftumhüllenden für Wanderlasten in 2D/3D einbringen, auch wenn ein Auflager die gesamte Last trägt (#1782, SA-2026-053). Nun zählt am Ende nur der innere Grenzwert. Berechnen Sie betroffene Umhüllende erneut und prüfen Sie darauf beruhende Dimensionierungen. Der Hinweis erkennt gespeicherte Wanderlastpositionen; vorübergehende Durchläufe hinterlassen keine gespeicherte Markierung.",
+    "fr": "Une charge ponctuelle à une extrémité pouvait ajouter une limite extérieure aux enveloppes axiales et de cisaillement de charges mobiles 2D/3D, même si un appui porte toute la force (#1782, SA-2026-053). Seule la limite intérieure compte désormais. Recalculez les enveloppes concernées et vérifiez les dimensionnements fondés sur leurs extrêmes. Cet avis identifie les positions enregistrées ; les balayages transitoires ne laissent aucune marque enregistrée.",
+    "tr": "Çubuk ucundaki tekil yük, yükün tamamı mesnet tarafından taşınsa bile 2B/3B hareketli yük eksenel ve kesme zarflarına dış kuvvet sınırı ekleyebiliyordu (#1782, SA-2026-053). Artık uçta yalnızca iç sınır sayılır. Etkilenen zarfları yeniden hesaplayın ve uç değerlere dayanan boyutlandırmaları inceleyin. Bildirim kayıtlı hareketli yük konumlarını tanır; geçici taramalar kayıtlı işaret bırakmaz."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-moving-load-endpoint-forces.md",
+    "heading": "Moving-load envelopes use interior force limits at member ends (2026-11-09)"
+  }
+}

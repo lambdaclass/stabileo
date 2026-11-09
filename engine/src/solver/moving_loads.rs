@@ -297,11 +297,35 @@ fn find_segment<'a>(path: &'a [PathSegment], global_pos: f64) -> Option<(&'a Pat
     None
 }
 
+fn point_at_member_end(a: f64, end: f64, length: f64) -> bool {
+    (a - end).abs() <= 8.0 * f64::EPSILON * length
+}
+
 /// The least and greatest value of a 2D diagram along a member: its ends and the stations
 /// the diagrams sample (`diagram_positions_2d`, which include every point load), plus, for N,
 /// where the total axial span load changes sign (N' = −q_x, so N peaks there).
 fn diagram_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> (f64, f64) {
     use crate::postprocess::diagrams::{compute_diagram_value_at, diagram_positions_2d};
+    let endpoint_jump = |x: f64| -> f64 {
+        ef.point_loads.iter().filter(|p| point_at_member_end(p.a, x, ef.length)).map(|p| match kind {
+            "axial" => -p.px.unwrap_or(0.0),
+            "shear" => p.p,
+            _ => 0.0,
+        }).sum()
+    };
+    let start_jump = endpoint_jump(0.0);
+    let end_jump = endpoint_jump(ef.length);
+    if start_jump != 0.0 || end_jump != 0.0 {
+        let (start, end) = (start + start_jump, end - end_jump);
+        let mut interior = ef.clone();
+        match kind {
+            "axial" => { interior.n_start = start; interior.n_end = end; },
+            "shear" => { interior.v_start = start; interior.v_end = end; },
+            _ => unreachable!(),
+        }
+        interior.point_loads.retain(|p| !point_at_member_end(p.a, 0.0, ef.length) && !point_at_member_end(p.a, ef.length, ef.length));
+        return diagram_range_2d(&interior, kind, start, end);
+    }
     diagram_range(
         diagram_positions_2d(ef, kind), ef.length, &ef.distributed_loads_x,
         kind == "axial", start, end,
@@ -342,17 +366,34 @@ fn diagram_range(
 
 fn diagram_range_3d(ef: &ElementForces3D, kind: &str, start: f64, end: f64) -> (f64, f64) {
     use crate::postprocess::diagrams_3d::{diagram_positions_3d, evaluate_diagram_3d_at};
+    let points_and_sign = match kind {
+        "shearY" => Some((&ef.point_loads_y, 1.0)),
+        "shearZ" => Some((&ef.point_loads_z, 1.0)),
+        "axial" => Some((&ef.point_loads_x, -1.0)),
+        _ => None,
+    };
+    if let Some((points, sign)) = points_and_sign {
+        let start_jump = sign * points.iter().filter(|p| point_at_member_end(p.a, 0.0, ef.length)).map(|p| p.p).sum::<f64>();
+        let end_jump = sign * points.iter().filter(|p| point_at_member_end(p.a, ef.length, ef.length)).map(|p| p.p).sum::<f64>();
+        if start_jump != 0.0 || end_jump != 0.0 {
+            let (start, end) = (start + start_jump, end - end_jump);
+            let mut interior = ef.clone();
+            let points = match kind {
+                "axial" => { interior.n_start = start; interior.n_end = end; &mut interior.point_loads_x },
+                "shearY" => { interior.vy_start = start; interior.vy_end = end; &mut interior.point_loads_y },
+                "shearZ" => { interior.vz_start = start; interior.vz_end = end; &mut interior.point_loads_z },
+                _ => unreachable!(),
+            };
+            points.retain(|p| !point_at_member_end(p.a, 0.0, ef.length) && !point_at_member_end(p.a, ef.length, ef.length));
+            return diagram_range_3d(&interior, kind, start, end);
+        }
+    }
     let (mut lo, mut hi) = diagram_range(
         diagram_positions_3d(ef, kind), ef.length, &ef.distributed_loads_x,
         kind == "axial", start, end,
         |t| if t <= 0.0 { start } else if t >= 1.0 { end } else { evaluate_diagram_3d_at(ef, kind, t) },
     );
-    let (points, sign) = match kind {
-        "shearY" => (&ef.point_loads_y, 1.0),
-        "shearZ" => (&ef.point_loads_z, 1.0),
-        "axial" => (&ef.point_loads_x, -1.0),
-        _ => return (lo, hi),
-    };
+    let Some((points, sign)) = points_and_sign else { return (lo, hi) };
     if !points.is_empty() {
         let mut smooth = ef.clone();
         match kind {
@@ -365,8 +406,8 @@ fn diagram_range_3d(ef: &ElementForces3D, kind: &str, start: f64, end: f64) -> (
             let base = evaluate_diagram_3d_at(&smooth, kind, x / ef.length);
             let left = base + sign * points.iter().filter(|p| p.a < x).map(|p| p.p).sum::<f64>();
             let right = left + sign * points.iter().filter(|p| p.a == x).map(|p| p.p).sum::<f64>();
-            lo = lo.min(left).min(right);
-            hi = hi.max(left).max(right);
+            if x > 0.0 { lo = lo.min(left); hi = hi.max(left); }
+            if x < ef.length { lo = lo.min(right); hi = hi.max(right); }
         }
     }
     (lo, hi)
