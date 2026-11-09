@@ -22,7 +22,7 @@ import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { physicalDataOf, type PhysicalData } from '../model/physical';
 import {
-  arcInterior, circleThrough, DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, meshQuality, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
+  arcInterior, circleThrough, DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, memberChains, meshQuality, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
   plateSignature, plateSurfaceOf, type ArcSampler, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
 } from '../model/physical/plate';
 import { pieceOf } from '../model/curve-entity';
@@ -124,19 +124,35 @@ function meshSampler(size: number): ArcSampler {
  * shells on its outline are points the mesh passes through, so neighbouring meshes meet node to
  * node.
  */
+let sharedMemo: { key: unknown[]; owned: Set<number>; shellNodes: Map<number, number>; chains: Array<[number, number]> } | null = null;
+
+/** What every plate's features read from the whole model, computed once per state of it. */
+function sharedFeatures() {
+  const m = modelStore.model;
+  // Keyed on the maps' identities and sizes: a change made in place, without a new map, must bump modelVersion.
+  const key = [modelStore.modelVersion, m.groups, m.groups.size, modelStore.quads, modelStore.quads.size, modelStore.plates, modelStore.plates.size, modelStore.nodes, modelStore.nodes.size, modelStore.elements, modelStore.elements.size];
+  if (sharedMemo && sharedMemo.key.every((k, i) => k === key[i])) return sharedMemo;
+  const owned = new Set<number>();
+  for (const g of m.groups.values()) if (plateSurfaceOf(g)) for (const n of plateLoops(g).owned) owned.add(n);
+  const shellNodes = new Map<number, number>();
+  for (const sh of [...modelStore.quads.values(), ...modelStore.plates.values()]) for (const n of sh.nodes) shellNodes.set(n, (shellNodes.get(n) ?? 0) + 1);
+  sharedMemo = { key, owned, shellNodes, chains: memberChains(plateModel(), owned) };
+  return sharedMemo;
+}
+
 function featuresOf(e: PlateEntry, spec: PlateMeshSpec = e.surface.mesh) {
   const geo = plateGeometry(plateModel(), e.group, meshSampler(spec.size));
   if (!geo) return null;
   const loops = plateLoops(e.group);
   const mine = new Set(loops.owned);
-  const owned = new Set<number>();
-  for (const g of modelStore.model.groups.values()) if (plateSurfaceOf(g)) for (const n of plateLoops(g).owned) owned.add(n);
-  const myShells = new Set([...(e.group.members.quads ?? []).map((q) => `q${q}`), ...(e.group.members.plates ?? []).map((p) => `p${p}`)]);
+  const { owned, shellNodes, chains } = sharedFeatures();
+  const inMine = new Map<number, number>();
+  for (const q of e.group.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) inMine.set(n, (inMine.get(n) ?? 0) + 1);
+  for (const p of e.group.members.plates ?? []) for (const n of modelStore.plates.get(p)?.nodes ?? []) inMine.set(n, (inMine.get(n) ?? 0) + 1);
   const neighbours = new Set<number>();
-  for (const q of modelStore.quads.values()) if (!myShells.has(`q${q.id}`)) q.nodes.forEach((n) => neighbours.add(n));
-  for (const p of modelStore.plates.values()) if (!myShells.has(`p${p.id}`)) p.nodes.forEach((n) => neighbours.add(n));
+  for (const [n, c] of shellNodes) if (c > (inMine.get(n) ?? 0)) neighbours.add(n);
   const loopNodes = new Set([...loops.outer, ...loops.holes.flat()]);
-  return { geo, features: externalFeatures(plateModel(), geo, owned, loopNodes, { mine, neighbours }) };
+  return { geo, features: externalFeatures(plateModel(), geo, owned, loopNodes, { mine, neighbours, chains }) };
 }
 
 /** A plate's mesh settings as meshed: a waffle slab no coarser than its rib spacing, so each rib has its row of elements. */
@@ -413,11 +429,14 @@ export function plateSides(id: number): Array<{ from: number; to: number; mid: n
 }
 
 /** An area load on the whole plate, kept as a definition so that it follows every mesh. */
+export function plateLoadDef(id: number, caseId: number, q: number): FloorLoadDef {
+  return { caseId, q, target: { by: 'group', groupId: id }, distribution: 'slab' };
+}
+
 export function addPlateLoad(id: number, caseId: number, q: number, name?: string): number | null {
   const e = plateEntry(id);
   if (!e || !Number.isFinite(q)) return null;
-  const def: FloorLoadDef = { caseId, q, target: { by: 'group', groupId: id }, distribution: 'slab' };
-  return addFloorLoadDef(name ?? `${e.name} · q`, def);
+  return addFloorLoadDef(name ?? `${e.name} · q`, plateLoadDef(id, caseId, q));
 }
 
 /** The area-load definitions that target a plate. */

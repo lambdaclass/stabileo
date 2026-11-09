@@ -60,18 +60,19 @@ test.describe('@smoke PRO plates and dynamics', () => {
     expect(s1.kz).toBeGreaterThan(0);
   });
 
-  test('a circular plate with a hole is meshed from its panel, and a cylinder is placed with the ghost', async ({ pro: page }) => {
+  test('a circular plate with a hole is drawn, meshed from the card its selection shows, and a cylinder is placed with the ghost', async ({ pro: page }) => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
-    await page.getByTestId('plate-circle-toggle').click();
+    await page.getByTestId('write-plate').click();
+    await page.getByTestId('write-corners-circle').click();
     await page.getByTestId('plate-circle-center').fill('0; 0; 0');
     await page.getByTestId('plate-circle-radius').fill('3');
     await page.getByTestId('plate-circle-hole').check();
     await page.getByTestId('plate-circle-hole-center').fill('1; 0; 0');
     await page.getByTestId('plate-circle-hole-radius').fill('0.5');
-    await page.getByTestId('plate-circle-create').click();
-    await expect(page.getByTestId('plate-panel')).toBeVisible();
-    await page.getByTestId('plate-mesh-open').click();
+    await page.getByTestId('write-plate-card-submit').click();
+    await expect(page.getByTestId('plate-selection-card')).toBeVisible();
+    await page.getByTestId('plate-selection-mesh').click();
     await expect(page.getByTestId('plate-mesh-plan')).toBeVisible();
     await page.getByTestId('plate-mesh-size').fill('0.5');
     await page.getByTestId('plate-mesh-size').press('Tab');

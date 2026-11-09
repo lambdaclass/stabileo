@@ -3648,6 +3648,16 @@ function createModelStore() {
       return true;
     },
 
+    /** Remove several loads in one pass, under the same rule as `removeLoad`. How many went. */
+    removeLoads(loadIds: Iterable<number>): number {
+      const ids = new Set(loadIds);
+      const gone = model.loads.filter(l => ids.has(l.data.id) && !isDefinedLoadData(l)).length;
+      if (!gone) return 0;
+      if (!_undoBatching) _pushUndo?.();
+      model.loads = model.loads.filter(l => !ids.has(l.data.id) || isDefinedLoadData(l));
+      return gone;
+    },
+
     removeSupport(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.supports.delete(id);

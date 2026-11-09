@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Hint from './Hint.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
    * PRO's double-click editor: what Basic's node and member cards offer, in PRO's terms, and a
@@ -19,8 +18,8 @@
   import EditorCard from '../EditorCard.svelte';
   import { quickEdit } from '../../lib/store/pro-quick-edit.svelte';
   import { plateOfShell, setShellProperties } from '../../lib/store/physical-plates';
+  import PlateMeshDialog from './plates/PlateMeshDialog.svelte';
   import { AXIAL_CHOICES, axialOf, setAxial, type Axial } from '../../lib/pro/member-axial';
-  import { platesFromShells } from '../../lib/store/plates-from-shells';
   import { parseIdList } from '../../lib/model/select-ops';
   import QuantityInput from './loads/QuantityInput.svelte';
 
@@ -122,16 +121,11 @@
     if (plates.length) uiStore.toast(tp('plates.editedWhole', { names: plates.map((id) => modelStore.model.groups.get(id)?.name ?? `#${id}`).join(', '), n: plates.length }), 'info');
   }
 
-  /** A loose shell made a plate, or a plate's shell, opened as the plate in the Plates panel, where it is meshed. */
-  function toPlate() {
-    if (!shell || !target) return;
-    const key = `${target.kind === 'plate' ? 'p' : 'q'}${shell.id}`;
-    const ids = plateOfShell(key) !== null ? [plateOfShell(key)!] : platesFromShells([key]);
-    if (!ids.length) { uiStore.toast(t('plates.convertFailed'), 'error'); return; }
-    uiStore.shellPickScope = 'plate';
-    uiStore.selectPlates(ids);
-    uiStore.proActiveTab = 'shells';
-    quickEdit.close();
+  const ownerPlate = $derived(shell && target && (target.kind === 'plate' || target.kind === 'quad') ? plateOfShell(`${target.kind === 'plate' ? 'p' : 'q'}${shell.id}`) : null);
+  let meshing = $state<number[] | null>(null);
+  function meshPlate() {
+    if (ownerPlate === null) return;
+    meshing = uiStore.selectedPlates.has(ownerPlate) ? [...uiStore.selectedPlates] : [ownerPlate];
   }
 </script>
 
@@ -196,11 +190,13 @@
           </label>
         </div>
         <button class="qe-btn" onclick={flip} title={t('quickEdit.flipHint')} data-testid="qe-flip">{t('quickEdit.flip')}</button>
-        <button class="qe-btn" onclick={toPlate} data-testid="qe-to-plate">{t(plateOfShell(`${target.kind === 'plate' ? 'p' : 'q'}${shell.id}`) !== null ? 'quickEdit.meshPlate' : 'quickEdit.toPlate')}</button>
-        <Hint text={t('quickEdit.toPlateHint')} />
+        {#if ownerPlate !== null}
+          <button class="qe-btn" onclick={meshPlate} data-testid="qe-mesh-plate">{t('quickEdit.meshPlate')}…</button>
+        {/if}
       {/if}
     </div>
   </EditorCard>
+{#if meshing}<PlateMeshDialog ids={meshing} onclose={() => { meshing = null; quickEdit.close(); }} />{/if}
 {/if}
 
 <style>

@@ -34,7 +34,7 @@ import { syncDefinedLoadsForAnalysis } from './defined-loads';
 import { spectralCaseResults } from './spectral-cases';
 import { physicalGroups } from './physical';
 import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
-import { platesFromMeshAtSolve } from './plates-from-shells';
+import { ensurePlates } from './plates-from-shells';
 import { preparePlatesForAnalysis } from './physical-plates';
 
 export const RESIZE_STEP_M = 0.05;
@@ -70,7 +70,7 @@ const JOINT_LIMITS = new Set(['anchorage', 'congestion']);
 
 /** Solve the model as the «Calculate» button does, without the toasts: the plates meshed, the defined loads, the combinations. */
 export function solveForDesign(): boolean {
-  platesFromMeshAtSolve();
+  ensurePlates();
   preparePlatesForAnalysis();
   syncDefinedLoadsForAnalysis();
   const isPro = uiStore.analysisMode === 'pro';

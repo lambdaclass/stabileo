@@ -7,11 +7,10 @@
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
   import { drawState, addShellOnCorners } from '../../lib/store/draw-state.svelte';
-  import { createPlate, plateOfShell } from '../../lib/store/physical-plates';
+  import { createCircularPlate, createPlate, plateOfShell } from '../../lib/store/physical-plates';
+  import { platesFromShells } from '../../lib/store/plates-from-shells';
   import PlatePanel from './plates/PlatePanel.svelte';
   import PlateList from './plates/PlateList.svelte';
-  import LooseShells from './plates/LooseShells.svelte';
-  import CirclePlateForm from './plates/CirclePlateForm.svelte';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import Icon from '../ribbon/Icon.svelte';
@@ -167,8 +166,25 @@
     newNodeIds = next;
   });
 
+  let circle = $state(false);
+  let circleCenter = $state('0; 0; 0'), circleRadius = $state(3);
+  let circleHole = $state(false), holeCenter = $state('0; 0; 0'), holeRadius = $state(0.5);
+  const point = (s: string): [number, number, number] | null => {
+    const v = s.split(/[;\s]+/).filter(Boolean).map(Number);
+    return v.length === 3 && v.every(Number.isFinite) ? [v[0]!, v[1]!, v[2]!] : null;
+  };
+  function cornersAs(v: 3 | 4 | 'outline') { circle = false; drawState.plateCorners = v; }
+
   function addShell() {
     newError = null;
+    if (circle) {
+      const c = point(circleCenter), h = point(holeCenter);
+      const r = c && (!circleHole || h) ? createCircularPlate({ center: c, radius: circleRadius, ...(circleHole ? { hole: { center: h!, radius: holeRadius } } : {}), materialId: drawState.plateMaterialId, thickness: drawState.plateThickness }) : null;
+      if (!r || 'problem' in r) { newError = t('plates.circle.invalid'); return; }
+      uiStore.selectMode = 'shells';
+      uiStore.selectPlates([r.id]);
+      return;
+    }
     if (drawState.plateCorners === 'outline') {
       // A physical plate on the outline typed, meshed later (`store/physical-plates.ts`).
       const ids = outlineIds;
@@ -184,14 +200,14 @@
     if (ids.length < cornerBoxes) { newError = t('pro.shellNeedNodes'); return; }
     const r = addShellOnCorners(ids, drawState.plateMaterialId, drawState.plateThickness, newCurved);
     if ('error' in r) { newError = t(r.error); return; }
-    uiStore.selectShell(r.key, false);
+    const [plate] = platesFromShells([r.key]);
+    if (plate !== undefined) { uiStore.selectMode = 'shells'; uiStore.selectPlates([plate]); } else uiStore.selectShell(r.key, false);
     /* The recommendation follows the corners, so clearing them clears it. */
     newNodeIds = ['', '', '', ''];
     newCurved = false;
   }
 
-  let showCircle = $state(false);
-  let showSurfaces = $state(false);
+  let showMeshGen = $state(false);
 
 
 
@@ -226,7 +242,6 @@
   </div>
 
   <div class="pro-shells-scroll">
-    <LooseShells />
     <PlatePanel />
     {#if uiStore.selectedPlates.size === 0 && uiStore.selectedShells.size > 0}
       {@const owner = plateOfShell([...uiStore.selectedShells][0]!)}
@@ -266,15 +281,24 @@
         submitLabel={capitalized(tp('pro.addWhat', { what: t('pro.onePlate') }))}
         onsubmit={addShell}
         error={newError}
-        disabled={drawState.plateCorners === 'outline' ? outlineIds.length < 3 : newCount < cornerBoxes}
+        disabled={circle ? !(circleRadius > 0) : drawState.plateCorners === 'outline' ? outlineIds.length < 3 : newCount < cornerBoxes}
         testid="write-plate-card"
       >
         <div class="corner-seg" role="group" aria-label={t('drawBar.corners')}>
-          <button type="button" class:on={drawState.plateCorners === 'outline'} aria-pressed={drawState.plateCorners === 'outline'} onclick={() => (drawState.plateCorners = 'outline')} title={t('drawBar.outlineHint')} data-testid="write-corners-outline">{t('drawBar.outline')}</button>
-          <button type="button" class:on={drawState.plateCorners === 3} aria-pressed={drawState.plateCorners === 3} onclick={() => (drawState.plateCorners = 3)} data-testid="write-corners-3">{t('drawBar.triangle')}</button>
-          <button type="button" class:on={drawState.plateCorners === 4} aria-pressed={drawState.plateCorners === 4} onclick={() => (drawState.plateCorners = 4)} data-testid="write-corners-4">{t('drawBar.quad')}</button>
+          <button type="button" class:on={!circle && drawState.plateCorners === 'outline'} aria-pressed={!circle && drawState.plateCorners === 'outline'} onclick={() => cornersAs('outline')} title={t('drawBar.outlineHint')} data-testid="write-corners-outline">{t('drawBar.outline')}</button>
+          <button type="button" class:on={!circle && drawState.plateCorners === 3} aria-pressed={!circle && drawState.plateCorners === 3} onclick={() => cornersAs(3)} data-testid="write-corners-3">{t('drawBar.triangle')}</button>
+          <button type="button" class:on={!circle && drawState.plateCorners === 4} aria-pressed={!circle && drawState.plateCorners === 4} onclick={() => cornersAs(4)} data-testid="write-corners-4">{t('drawBar.quad')}</button>
+          <button type="button" class:on={circle} aria-pressed={circle} onclick={() => (circle = true)} data-testid="write-corners-circle">{t('drawBar.circle')}</button>
         </div>
-        {#if drawState.plateCorners === 'outline'}
+        {#if circle}
+          <label>{t('plates.circle.center')} <input type="text" class="node-input outline-input" placeholder="x; y; z" bind:value={circleCenter} data-testid="plate-circle-center" /></label>
+          <label>{t('plates.circle.radius')} <QuantityInput min={0.01} bind:value={circleRadius} quantity="length" cls="node-input" testid="plate-circle-radius" /></label>
+          <label><input type="checkbox" bind:checked={circleHole} data-testid="plate-circle-hole" /> {t('plates.circle.hole')}</label>
+          {#if circleHole}
+            <label>{t('plates.circle.holeCenter')} <input type="text" class="node-input outline-input" placeholder="x; y; z" bind:value={holeCenter} data-testid="plate-circle-hole-center" /></label>
+            <label>{t('plates.circle.holeRadius')} <QuantityInput min={0.01} bind:value={holeRadius} quantity="length" cls="node-input" testid="plate-circle-hole-radius" /></label>
+          {/if}
+        {:else if drawState.plateCorners === 'outline'}
           <label>{t('plates.outlineNodes')}
             <input type="text" class="node-input outline-input" placeholder="1, 2, 3, 4" bind:value={outlineText} data-testid="plate-outline-nodes" />
           </label>
@@ -352,21 +376,16 @@
     -->
 
     <div class="section">
-      <button class="section-toggle" onclick={() => showCircle = !showCircle} data-testid="plate-circle-toggle">
-        <span class="toggle-arrow">{showCircle ? '\u25BE' : '\u25B8'}</span>
-        {t('plates.circle.title')}
-      </button>
-      {#if showCircle}<div class="section-body"><CirclePlateForm /></div>{/if}
-    </div>
-
-    <div class="section">
-      <button class="section-toggle" onclick={() => showSurfaces = !showSurfaces} data-testid="surfaces-toggle">
-        <span class="toggle-arrow">{showSurfaces ? '\u25BE' : '\u25B8'}</span>
+      <button class="section-toggle" onclick={() => showMeshGen = !showMeshGen} data-testid="surfaces-toggle">
+        <span class="toggle-arrow">{showMeshGen ? '\u25BE' : '\u25B8'}</span>
         {t('surface.title')}
       </button>
-      {#if showSurfaces}
+      {#if showMeshGen}
         <div class="section-body">
           <ProSurfaces />
+
+          <!-- How shells connect & transfer load (lives with the mesh tool, the
+               place where node-sharing actually matters) -->
           <div class="shell-info">
             <button class="shell-info-toggle" onclick={() => showShellInfo = !showShellInfo}>
               <span>{showShellInfo ? '▾' : '▸'}</span> {t('pro.shellInfoTitle')}
@@ -383,6 +402,7 @@
         </div>
       {/if}
     </div>
+
 
     <!--
       ── Tools above, the shared table below ────────────────────────────

@@ -2,7 +2,9 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
 import { applyPlateMeshes, physicalPlates, planPlateMesh, plateLoadDefs, plateStatus } from '../physical-plates';
-import { looseShells, platesFromMeshAtSolve, platesFromShells } from '../plates-from-shells';
+import { ensurePlates, looseShells, platesFromMeshAtSolve, platesFromShells } from '../plates-from-shells';
+import { planRecognition } from '../physical-recognition';
+import { recognizePhysicalElements } from '../physical';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { plateLoops } from '../../model/physical/plate';
 import type { AnalysisResults3D } from '../../engine/types-3d';
@@ -177,5 +179,94 @@ describe('plates and the recognition of physical elements', () => {
     expect(plateStatus(p!)).toBe('unmeshed');
     recognizeAndApply();
     expect(modelStore.model.groups.get(p!)).toBeDefined();
+  });
+});
+
+describe('loads lifted from many panels at once', () => {
+  it('gives each panel its own uniform load, keeps a load on only some shells, and the answer does not move', () => {
+    const { id, quads } = grid(3, 2);
+    modelStore.addElement(id[1]![0]!, id[1]![2]!);
+    const partial = modelStore.addSurfaceLoad3D(quads[0]!, 2, 2);
+    const before = solve();
+    const plates = platesFromShells(looseShells());
+    expect(plates).toHaveLength(2);
+    expect(plates.map((p) => plateLoadDefs(p).length)).toEqual([1, 1]);
+    const shellLoads = modelStore.loads.filter((l) => l.type === 'surface3d' && (l.data as { fromDef?: number }).fromDef === undefined);
+    expect(shellLoads.map((l) => l.data.id)).toEqual([partial]);
+    const after = solve();
+    expect(fz(after)).toBeCloseTo(fz(before), 6);
+    expect(after.displacements.find((x) => x.nodeId === id[2]![1])!.uz).toBeCloseTo(before.displacements.find((x) => x.nodeId === id[2]![1])!.uz, 9);
+  });
+});
+
+describe('removeLoads', () => {
+  it('takes the loads given out in one undo step, never one a definition wrote, and says how many went', () => {
+    const { quads } = grid(2, 2);
+    modelStore.addSurfaceLoad3D(quads[0]!, 1, 2);
+    platesFromShells(looseShells());
+    const defined = modelStore.loads.find((l) => (l.data as { fromDef?: number }).fromDef !== undefined)!.data.id;
+    const kept = modelStore.loads.length;
+    const plain = modelStore.loads.filter((l) => (l.data as { fromDef?: number }).fromDef === undefined).map((l) => l.data.id);
+    expect(plain).toHaveLength(1);
+    const undo = historyStore.undoCount;
+    expect(modelStore.removeLoads([...plain, defined, 99_999])).toBe(plain.length);
+    expect(modelStore.loads.map((l) => l.data.id)).not.toContain(plain[0]);
+    expect(modelStore.loads.some((l) => l.data.id === defined)).toBe(true);
+    expect(modelStore.loads).toHaveLength(kept - plain.length);
+    expect(historyStore.undoCount).toBe(undo + 1);
+    expect(modelStore.removeLoads([defined])).toBe(0);
+    expect(historyStore.undoCount).toBe(undo + 1);
+  });
+});
+
+describe('every shell a plate in PRO', () => {
+  it('makes the shells no plate holds plates as they are, in no undo step, and leaves the answer where it was', () => {
+    const { id } = grid(3, 2);
+    const before = solve();
+    const undo = historyStore.undoCount;
+    expect(ensurePlates()).toBe(1);
+    expect(looseShells()).toHaveLength(0);
+    expect(physicalPlates().map((p) => plateStatus(p.id))).toEqual(['current']);
+    expect(historyStore.undoCount).toBe(undo);
+    const after = solve();
+    expect(after.displacements.find((x) => x.nodeId === id[1]![1])!.uz).toBeCloseTo(before.displacements.find((x) => x.nodeId === id[1]![1])!.uz, 9);
+    expect(ensurePlates()).toBe(0);
+  });
+
+  it('makes them as read off the model, so recognising the physical elements still sees them and keeps them plates', async () => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    await modelStore.loadExample('pro-edificio-7p');
+    const before = solve();
+    ensurePlates();
+    expect(physicalPlates().every((p) => p.physical.provenance === 'inferred')).toBe(true);
+    const plan = planRecognition();
+    expect(plan.declared).toBe(0);
+    expect(plan.proposals.filter((p) => p.draft.kind === 'wall').length).toBeGreaterThan(0);
+    recognizePhysicalElements();
+    ensurePlates();
+    expect(looseShells()).toHaveLength(0);
+    expect(physicalPlates().every((p) => plateStatus(p.id) === 'current')).toBe(true);
+    expect(fz(solve())).toBeCloseTo(fz(before), 4);
+  });
+
+  it('leaves the shells alone outside PRO', () => {
+    grid(2, 2);
+    uiStore.analysisMode = '3d';
+    expect(ensurePlates()).toBe(0);
+    expect(looseShells()).toHaveLength(4);
+    uiStore.analysisMode = 'pro';
+  });
+
+  it('makes a shell drawn on its corners a plate of one element, meshed again later at any size', () => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    const n = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    for (const k of n) modelStore.addSupport(k, 'pinned3d');
+    modelStore.addQuad(n as [number, number, number, number], 1, 0.15);
+    ensurePlates();
+    const [p] = physicalPlates();
+    expect(p!.group.members.quads).toHaveLength(1);
+    applyPlateMeshes([planPlateMesh(p!.id, { size: 1, pattern: 'square' })!]);
+    expect(modelStore.model.groups.get(p!.id)!.members.quads).toHaveLength(12);
+    expect(plateStatus(p!.id)).toBe('current');
   });
 });

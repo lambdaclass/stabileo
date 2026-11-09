@@ -644,7 +644,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
 
   // Meshed plates drawn as pieces: their elements' edges hidden and their outline drawn over them.
   // Only the drawing changes: the faces stay, so picking and contours are as with the mesh shown.
-  const pieceView = !uiStore.platesShowMesh;
+  const pieceView = !(uiStore.platesShowMesh ?? resultsStore.results3D != null);
   for (const pl of physicalPlates()) {
     const keys = [...(pl.group.members.quads ?? []).map((q) => `q${q}`), ...(pl.group.members.plates ?? []).map((q) => `p${q}`)];
     if (!keys.length) continue;

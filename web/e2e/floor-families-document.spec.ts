@@ -185,7 +185,7 @@ test.describe('@smoke the floor-family deliverable, end to end', () => {
     // a utilisation, "not verified", or "no joint". Three distinct states, never collapsed:
     // a dash for the second would read as the first, which is how a flat plate came to look
     // like a beam-supported floor.
-    const cells = page.locator('[data-testid^="slab-punching-P"]');
+    const cells = page.locator('[data-testid^="slab-punching-L"]');
     await expect(cells.first()).toBeVisible();
     const texts = await cells.allInnerTexts();
     expect(texts.length).toBeGreaterThan(0);
@@ -193,7 +193,7 @@ test.describe('@smoke the floor-family deliverable, end to end', () => {
 
     // And the joint-by-joint table, so the number above can be traced to a node. A
     // utilisation with no joint behind it is a figure a reviewer cannot check.
-    const joints = page.locator('[data-testid^="slab-punching-joints-P"]').first();
+    const joints = page.locator('[data-testid^="slab-punching-joints-L"]').first();
     await expect(joints).toBeVisible();
     await expect(joints).toContainText('#');
   });
@@ -320,7 +320,7 @@ test.describe('@smoke the floor-family deliverable, end to end', () => {
       // slab and punching work, so every slab-column joint on this fixture reads as evaluated.
       await openFloorFamilies(page);
       await page.getByTestId('floor-family-slabs').click();
-      const cells = await page.locator('[data-testid^="slab-punching-P"]').allInnerTexts();
+      const cells = await page.locator('[data-testid^="slab-punching-L"]').allInnerTexts();
       expect(cells.length).toBeGreaterThan(0);
       expect(cells.some((t) => /not verified/i.test(t))).toBe(false);
     });
@@ -374,7 +374,7 @@ test.describe('@smoke the same deliverable in Spanish', () => {
       const table = page.getByTestId('floor-slabs-table');
       await expect(table).toBeVisible();
       await expect(table).toContainText('Utiliz. punzonado');
-      const joints = page.locator('[data-testid^="slab-punching-joints-P"]').first();
+      const joints = page.locator('[data-testid^="slab-punching-joints-L"]').first();
       await expect(joints).toBeVisible();
       await expect(joints).toContainText('Nudo');
       await expect(joints).toContainText('Columna');

@@ -7,11 +7,14 @@
  * analysis reads changes until the plate is meshed again; a uniform area load on every shell of a
  * slab becomes the plate's load, which follows any mesh.
  */
+import { untrack } from 'svelte';
 import { modelStore } from './model.svelte';
+import { uiStore } from './ui.svelte';
 import { physicalDataOf, type PhysicalData } from '../model/physical';
 import { DEFAULT_PLATE_MESH, frameOfLoop, plateGeometry, plateKindOf, type PlateSurface } from '../model/physical/plate';
 import type { Vec3 } from '../model/edit/affine';
-import { addPlateLoad, adoptCurrentMesh, physicalPlates, plateOfShell, plateStatus } from './physical-plates';
+import { adoptCurrentMesh, physicalPlates, plateLoadDef, plateOfShell, plateStatus } from './physical-plates';
+import { syncDefinedLoads } from './defined-loads';
 import type { SurfaceLoad3D } from './model.svelte';
 
 const TOL = 1e-6;
@@ -118,39 +121,59 @@ export function panelLoops(panel: readonly Shell[]): number[][] | null {
   return loops.sort((p, q) => area(q) - area(p)).map(corners).filter((l) => l.length >= 3);
 }
 
-/** Plain uniform area loads on every shell of a slab, case by case, made the plate's own load. */
-function liftUniformLoads(plate: number, panel: readonly Shell[]): void {
-  const keys = new Set(panel.map((s) => s.key));
-  const plain = (d: SurfaceLoad3D) => Object.keys(d).every((k) => ['id', 'quadId', 'on', 'q', 'caseId'].includes(k));
+/** Plain uniform area loads on every shell of a slab, case by case, made the plate's own load: the shell loads it takes the place of, and the cases and values it is given. */
+function uniformLoads(panel: readonly Shell[], byShell: ReadonlyMap<string, Array<{ id: number; caseId: number; q: number }>>): { gone: number[]; cases: Array<{ caseId: number; q: number }> } {
   const byCase = new Map<number, Array<{ id: number; key: string; q: number }>>();
+  for (const s of panel) for (const l of byShell.get(s.key) ?? []) (byCase.get(l.caseId) ?? byCase.set(l.caseId, []).get(l.caseId)!).push({ ...l, key: s.key });
+  const gone: number[] = [], cases: Array<{ caseId: number; q: number }> = [];
+  for (const [caseId, list] of byCase) {
+    if (caseId < 0 || list.length !== panel.length || new Set(list.map((x) => x.key)).size !== panel.length) continue;
+    const q = list[0]!.q;
+    if (!Number.isFinite(q) || list.some((x) => Math.abs(x.q - q) > 1e-12)) continue;
+    gone.push(...list.map((x) => x.id));
+    cases.push({ caseId, q });
+  }
+  return { gone, cases };
+}
+
+function shellAreaLoads(): Map<string, Array<{ id: number; caseId: number; q: number }>> {
+  const plain = (d: SurfaceLoad3D) => Object.keys(d).every((k) => ['id', 'quadId', 'on', 'q', 'caseId'].includes(k));
+  const out = new Map<string, Array<{ id: number; caseId: number; q: number }>>();
   for (const l of modelStore.loads) {
     if (l.type !== 'surface3d') continue;
     const d = l.data as SurfaceLoad3D;
     const key = `${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`;
-    if (!keys.has(key)) continue;
-    const c = d.caseId ?? -1;
-    (byCase.get(c) ?? byCase.set(c, []).get(c)!).push({ id: d.id, key, q: plain(d) ? d.q : NaN });
+    (out.get(key) ?? out.set(key, []).get(key)!).push({ id: d.id, caseId: d.caseId ?? -1, q: plain(d) ? d.q : NaN });
   }
-  for (const [caseId, list] of byCase) {
-    if (caseId < 0 || list.length !== keys.size || new Set(list.map((x) => x.key)).size !== keys.size) continue;
-    const q = list[0]!.q;
-    if (!Number.isFinite(q) || list.some((x) => Math.abs(x.q - q) > 1e-12)) continue;
-    for (const x of list) modelStore.removeLoad(x.id);
-    addPlateLoad(plate, caseId, q);
-  }
+  return out;
 }
 
 /**
  * Make each panel of the shells given a physical plate, keeping its shells as its mesh (`keepMesh`,
  * the default) or taking them out so the plate waits for its own (a slab the solve was to mesh).
+ * `inferred` plates are read off the model, not declared, so recognising the physical elements
+ * may still take them over.
  * A panel whose shells are one physical member's (a slab or wall recognised or placed) becomes that
  * member's plate, with its kind, levels and typology; others become new plates. One undo step.
  */
-export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boolean; size?: number } = {}): number[] {
+export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boolean; size?: number; inferred?: boolean } = {}): number[] {
   const out: number[] = [];
   const current = physicalPlates().filter((p) => plateStatus(p.id) === 'current').map((p) => p.id);
   modelStore.batch(() => {
-    for (const panel of shellPanels(keys)) {
+    const panels = shellPanels(keys);
+    if (!panels.length) return;
+    const areaLoads = shellAreaLoads();
+    const hostOf = new Map<string, number>();
+    for (const g of modelStore.model.groups.values()) {
+      if (!physicalDataOf(g)) continue;
+      for (const q of g.members.quads ?? []) hostOf.set(`q${q}`, g.id);
+      for (const p of g.members.plates ?? []) hostOf.set(`p${p}`, g.id);
+    }
+    const names = new Set(physicalPlates().map((e) => e.name));
+    let next = names.size + 1;
+    const gone: number[] = [];
+    const loadDefs: Array<{ plate: number; caseId: number; q: number }> = [];
+    for (const panel of panels) {
       const loops = panelLoops(panel);
       if (!loops) continue;
       const [outer, ...holes] = loops as [number[], ...number[][]];
@@ -162,10 +185,11 @@ export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boo
       const members = { nodes: [...outer, ...holes.flat(), ...owned], quads: opts.keepMesh === false ? [] : panel.filter((s) => s.kind === 'quad').map((s) => s.id), plates: opts.keepMesh === false ? [] : panel.filter((s) => s.kind === 'plate').map((s) => s.id) };
       const geo = plateGeometry({ nodes: modelStore.nodes, elements: modelStore.elements }, { id: 0, members, data: { surface } });
       if (!geo) continue;
-      const host = modelStore.model.groups.get([...modelStore.model.groups.values()].find((g) => physicalDataOf(g) && panel.every((s) => (s.kind === 'quad' ? g.members.quads : g.members.plates)?.includes(s.id)))?.id ?? -1);
+      const hostId = hostOf.get(panel[0]!.key);
+      const host = hostId !== undefined && panel.every((s) => hostOf.get(s.key) === hostId) ? modelStore.model.groups.get(hostId) : undefined;
       const own = host ? physicalDataOf(host) : null;
       const { meshAtSolve: _m, ...kept } = (own ?? {}) as PhysicalData;
-      const physical = { ...(own ? kept : { kind: plateKindOf(geo), provenance: 'declared' as const }), surface };
+      const physical = { ...(own ? kept : { kind: plateKindOf(geo), provenance: opts.inferred ? 'inferred' as const : 'declared' as const }), surface };
       let id: number;
       if (host && own && (host.members.quads?.length ?? 0) + (host.members.plates?.length ?? 0) === panel.length) {
         id = host.id;
@@ -176,12 +200,15 @@ export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boo
           const qs = new Set(members.quads), ps = new Set(members.plates);
           modelStore.setGroupMembers(host.id, { ...host.members, quads: (host.members.quads ?? []).filter((q) => !qs.has(q)), plates: (host.members.plates ?? []).filter((q) => !ps.has(q)) });
         }
-        const taken = new Set(physicalPlates().map((e) => e.name));
-        let k = physicalPlates().length + 1;
-        while (taken.has(`P${k}`)) k++;
-        id = modelStore.addGroup(`P${k}`, 'physicalMember', members, { data: physical as unknown as Record<string, unknown> });
+        while (names.has(`P${next}`)) next++;
+        names.add(`P${next}`);
+        id = modelStore.addGroup(`P${next}`, 'physicalMember', members, { data: physical as unknown as Record<string, unknown> });
       }
-      if (physical.kind === 'slab') liftUniformLoads(id, panel);
+      if (physical.kind === 'slab') {
+        const u = uniformLoads(panel, areaLoads);
+        gone.push(...u.gone);
+        for (const c of u.cases) loadDefs.push({ plate: id, ...c });
+      }
       if (opts.keepMesh === false) {
         for (const s of panel) {
           for (const l of [...modelStore.loads]) if (l.type === 'surface3d' || l.type === 'thermalQuad3d') {
@@ -192,6 +219,11 @@ export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boo
         }
       }
       out.push(id);
+    }
+    if (gone.length) modelStore.removeLoads(gone);
+    if (loadDefs.length) {
+      for (const d of loadDefs) modelStore.addGroup(`${modelStore.model.groups.get(d.plate)!.name} · q`, 'floorLoad', {}, { data: plateLoadDef(d.plate, d.caseId, d.q) as unknown as Record<string, unknown> });
+      syncDefinedLoads();
     }
     // A plate's signature reads the nodes every plate's mesh owns, so each conversion can put the others out of date: settled once all are in.
     if (opts.keepMesh !== false) for (const id of out) adoptCurrentMesh(id);
@@ -223,4 +255,23 @@ export function platesFromMeshAtSolve(): number {
     }
   });
   return n;
+}
+
+/**
+ * In PRO every shell is in a plate, however it came in (drawn, placed, loaded, imported): those no
+ * plate holds are made plates with their shells as their mesh, so nothing in the analysis moves.
+ * Projects that kept slabs waiting for the solve are brought in too. Part of no undo step.
+ */
+export function ensurePlates(): number {
+  let n = platesFromMeshAtSolve();
+  if (uiStore.analysisMode !== 'pro') return n;
+  const loose = looseShells();
+  if (loose.length) modelStore.withoutUndo(() => { n += platesFromShells(loose, { inferred: true }).length; });
+  return n;
+}
+
+export function ensurePlatesEffect(): void {
+  void modelStore.modelVersion;
+  void modelStore.loadEpoch;
+  untrack(ensurePlates);
 }

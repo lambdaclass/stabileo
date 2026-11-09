@@ -3,7 +3,7 @@
    * The model's physical plates and the state of each one's mesh, one line each. A click selects
    * the plate whole; the ones that need a mesh can be meshed together from here.
    */
-  import { modelStore, uiStore } from '../../../lib/store';
+  import { modelStore, resultsStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { physicalPlates, plateStatus, platesNeedingMesh } from '../../../lib/store/physical-plates';
   import PlateMeshDialog from './PlateMeshDialog.svelte';
@@ -21,7 +21,7 @@
   <section class="pl" data-testid="plate-list">
     <header class="pl-head">
       <span>{tp('plates.listTitle', { n: rows.length })}</span>
-      <label class="pl-mesh" title={t('plates.showMeshHint')}><input type="checkbox" checked={uiStore.platesShowMesh} onchange={(e) => (uiStore.platesShowMesh = e.currentTarget.checked)} data-testid="plates-show-mesh" /> {t('plates.showMesh')}</label>
+      <label class="pl-mesh" title={t('plates.showMeshHint')}><input type="checkbox" checked={uiStore.platesShowMesh ?? resultsStore.results3D != null} onchange={(e) => (uiStore.platesShowMesh = e.currentTarget.checked)} data-testid="plates-show-mesh" /> {t('plates.showMesh')}</label>
       {#if pending.length}
         <button class="pl-btn" onclick={() => { meshIds = pending; open = true; }} data-testid="plate-list-mesh-pending">{tp('plates.meshPending', { n: pending.length })}</button>
       {/if}

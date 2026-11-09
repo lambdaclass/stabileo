@@ -13,7 +13,7 @@ import { knownIssueRefusal } from './known-issues';
  * stays thin.
  */
 
-import { platesFromMeshAtSolve } from '../store/plates-from-shells';
+import { ensurePlates } from '../store/plates-from-shells';
 import { platesNeedingMesh, preparePlatesForAnalysis } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
 import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
@@ -265,8 +265,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   // is put back below. Every entry point, not only the re-check's re-run.
   const stampBefore = recheckStore.capture();
   if (uiStore.is3DWorkspace) {
-    // A project saved before slabs were plates keeps them as shells waiting for the solve: made plates first.
-    platesFromMeshAtSolve();
+    ensurePlates();
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
     const p = preparePlatesForAnalysis();
