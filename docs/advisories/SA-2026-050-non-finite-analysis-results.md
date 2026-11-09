@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | Medium |
-| Status | Draft 2026-11-08 (fix not yet merged or deployed) |
+| Status | Published 2026-11-09 (fixed after 0.5.0; live on stabileo.com since 2026-11-09) |
 | Issue | [#1759](https://github.com/lambdaclass/stabileo/issues/1759), [#1761](https://github.com/lambdaclass/stabileo/issues/1761) |
-| Fix | This change; PR [#1784](https://github.com/lambdaclass/stabileo/pull/1784) |
+| Fix | PR [#1784](https://github.com/lambdaclass/stabileo/pull/1784) (merged 2026-11-09 01:53:37 UTC) |
 | Affected versions | Current main before this change (engine version 0.5.0); the first affected version has not been bisected |
 | Re-check registry | results-change entry `non-finite-analysis-results` |
 
@@ -44,7 +44,7 @@ the invalid inputs above; most flagged projects produce identical finite results
 
 ## Fixed in
 
-This change, after 0.5.0; not yet merged or deployed.
+After 0.5.0; live on stabileo.com since 2026-11-09.
 
 Buckling validates every member section whose inertia it reads, including trusses. The
 radius-of-gyration and slenderness path returns an error when it cannot produce a finite resolved

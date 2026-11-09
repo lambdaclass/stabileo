@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | Low (spurious force extrema; conservative demand error) |
-| Status | Draft 2026-11-09; local fix, not released or deployed |
+| Status | Published 2026-11-09 (fixed after 0.5.0; live on stabileo.com since 2026-11-09) |
 | Issue | [#1782](https://github.com/lambdaclass/stabileo/issues/1782), blocker found in review of head `3bbedb2b5` |
-| Fix | Local follow-up to PR [#1783](https://github.com/lambdaclass/stabileo/pull/1783); not yet merged |
-| Affected versions | Present on `origin/main` at `4f9b69cad`: 2D axial/shear and both 3D shears. First affected version not yet bisected. The additional 3D axial point-load path on this branch is also affected before this fix |
+| Fix | PR [#1783](https://github.com/lambdaclass/stabileo/pull/1783) (merged 2026-11-09 09:27:10 UTC) |
+| Affected versions | Present on `origin/main` at `4f9b69cad`: 2D axial/shear and both 3D shears. First affected version not yet bisected. The 3D axial point-load path introduced in PR #1783 is corrected in the same PR |
 | Re-check registry | results-change entry `moving-load-endpoint-forces` |
 
 ## Affected features
@@ -18,7 +18,7 @@ are affected. This includes loads at supports and joints between path members.
 ## What was wrong
 
 A recovered member-end force can include the equivalent force of an applied endpoint
-point load. The moving-load range calculation included that raw value, and the branch's
+point load. The moving-load range calculation included that raw value, and the pre-correction
 3D jump calculation included both sides of endpoint jumps. One side is outside the
 member. An endpoint point load acts as a nodal load for that member's internal forces:
 only the limit approached from inside the member belongs in its envelope.
@@ -32,8 +32,7 @@ requires the force to be carried through the member; the correction preserves it
 
 The old range was enlarged by spurious values. This overstates demand and can change
 sizing or engineering decisions. No understated demand or capacity error is established
-by this finding. It is a live wrong result on main under the advisory process, despite
-the correction being prepared on an unmerged branch.
+by this finding. It affected main before PR #1783 and is now corrected on stabileo.com.
 
 ## How to tell if your results are affected
 
@@ -47,7 +46,9 @@ Transient sweeps leave no saved moving-load marker; review them even without a n
 
 ## Fixed in
 
-Not yet released or deployed. The local follow-up to PR #1783 uses the interior limits
+After 0.5.0; live on stabileo.com since 2026-11-09.
+
+PR #1783 uses the interior limits
 at member ends in both dimensions and updates independent full-solve references.
 Endpoint forces are normalized in private diagram copies so near-end sampling
 also uses the interior force on short members, without changing any tolerance.

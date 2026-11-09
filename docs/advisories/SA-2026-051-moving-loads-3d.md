@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-08; fix in this branch, not yet released |
+| Status | Published 2026-11-09 (fixed after 0.5.0; live on stabileo.com since 2026-11-09) |
 | Issue | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) |
-| Fix | PR [#1783](https://github.com/lambdaclass/stabileo/pull/1783) |
+| Fix | PR [#1783](https://github.com/lambdaclass/stabileo/pull/1783) (merged 2026-11-09 09:27:10 UTC) |
 | Affected versions | 0.2.0, 0.3.0, 0.4.0 and 0.5.0, and desktop-v0.1.0-alpha.1 through alpha.3. Builds containing 3D moving loads from commit `4c4d86155` (2026-03-07) until this fix |
 | Re-check registry | results-change entry `moving-loads-3d` |
 
@@ -35,9 +35,20 @@ the member length is √(8² + 6²) = 10 m and the axle positions are 0, 5 and 1
 0 and 10 m go directly to the supports and produce no internal axial force. At 5 m, vertical
 reactions are 100/2 = 50 kN, giving axial extrema ±50 × (6/10) = ±30 kN on the two sides of
 the axle. The endpoint-corrected 2D envelope and all three 3D plane embeddings give these
-extrema; the old 3D implementation that dropped axial axle weight gave zero. The tests check
-these analytical values as well as 2D/3D agreement. See also the
+extrema. The tests check these analytical values as well as 2D/3D agreement. See also the
 [endpoint correction](SA-2026-053-moving-load-endpoint-forces.md).
+
+Re-running the inclined fixture on `12edbde0bb886e58567e230871a4122455d2c4e9`,
+the parent of PR #1783's merge commit on main, gives a pre-fix 3D axial envelope of
+[0, +60] kN over all three axle positions, in XZ, XY and YZ. The old recovered axial
+force is constant along the member at each position: 0 kN at 0 m, +30 kN tension
+at 5 m and +60 kN tension at 10 m (the last two measured as 29.999999999999996
+and 59.999999999999993 kN). Thus the old envelope was not zero, and the midpoint's
++30 kN was not the whole sweep's maximum. Dropping the axial gravity component
+changed the applied load vector; the remaining transverse load and the support
+constraints still generated axial force. With the full gravity vector and corrected
+envelope extraction, the sweep gives [−30, +30] kN and endpoint-only positions give zero.
+This corrects the pre-fix evidence in [#1874](https://github.com/lambdaclass/stabileo/issues/1874).
 
 ## How to tell if your results are affected
 
@@ -50,7 +61,7 @@ leave no saved marker; re-check those runs even if opening the project shows no 
 
 ## Fixed in
 
-This branch, after 0.5.0; not yet released or deployed by this work.
+After 0.5.0; live on stabileo.com since 2026-11-09.
 
 The envelope now includes interior diagram stations and shares its sampling and range logic
 with 2D. Axle gravity is projected onto all three local axes. The new axial point-load field
