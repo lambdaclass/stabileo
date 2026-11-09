@@ -824,7 +824,6 @@ fn issue_1882_opensees_support_refusals_must_match_the_defect() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1882"]
 fn issue_1882_opensees_support_crashes_are_recorded_as_failures() {
     opensees_support_tests("SupportContractCrashTest");
 }

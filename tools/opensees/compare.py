@@ -1942,10 +1942,10 @@ def run_one(name, model, binary, tol, verbose, dump_dir=None):
     why = check_supported_3d(model) if dim == 3 else check_supported_2d(model)
     if why:
         return dict(name=name, dim=dim, status="unsupported", why=why)
-    contract = check_support_contract(dict(name=name, dim=dim), model, binary, dump_dir, model)
-    if contract is not None:
-        return contract
     try:
+        contract = check_support_contract(dict(name=name, dim=dim), model, binary, dump_dir, model)
+        if contract is not None:
+            return contract
         sres = normalize_stabileo(stabileo(model, binary), dim)
     except RuntimeError as ex:
         r = classify_refusal(dict(name=name, dim=dim, status="stabileo_failed", why=[str(ex)]),
@@ -2180,10 +2180,10 @@ def run_ext(name, job, binary, tol, dump_dir=None):
     why = check_supported_3d(d) if dim == 3 else check_supported_2d(d)
     if why:
         return dict(base, status="unsupported", why=why)
-    contract = check_support_contract(base, d, binary, dump_dir, job)
-    if contract is not None:
-        return contract
     try:
+        contract = check_support_contract(base, d, binary, dump_dir, job)
+        if contract is not None:
+            return contract
         lin = normalize_stabileo(stabileo(_probe_loads(d) if kind in MASS_MODES else d, binary), dim)
     except RuntimeError as ex:
         r = classify_refusal(dict(base, status="stabileo_failed", why=[str(ex)[:200]]),

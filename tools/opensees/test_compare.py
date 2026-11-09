@@ -486,8 +486,6 @@ class SupportContractSelfTest(unittest.TestCase):
                 self.assertEqual(r["tol"], 1e-6)
                 self.assertEqual(support_run(case, accepts=True)["status"], "ok")
 
-
-
 class SupportContractCrashTest(unittest.TestCase):
     def test_a_crashed_engine_is_not_a_correct_input_refusal(self):
         for issue in (1120, 1121, 1191):
@@ -495,7 +493,7 @@ class SupportContractCrashTest(unittest.TestCase):
             model = job.get("model", job)
             for case in (model, dict(analysis="pdelta", model=model)):
                 for output, returncode, stderr in (("not JSON", 0, "malformed response"),
-                                                    ("", -11, "solver crashed")):
+                                                 ("", -11, "solver crashed")):
                     with self.subTest(issue=issue, extended="analysis" in case, returncode=returncode):
                         r = support_run(case, output=output, returncode=returncode, stderr=stderr)
                         self.assertEqual(r["name"], "support-contract")
