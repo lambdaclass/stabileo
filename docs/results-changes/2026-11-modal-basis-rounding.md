@@ -62,8 +62,13 @@ seismic workflows that request modes and time-history workflows whose stamp
 records the modal basis. A seismic load case alone does not imply a modal
 analysis. Direct time integration without a modal analysis does not use this
 basis check. The entry declares solve availability and structured diagnostic
-changes. The #759 containment row is CORRECTED, matching
-the earlier shipped eigensolver fixes and the new guard regressions.
+changes. The #759 containment row remains WARN with the runtime registry's
+`MD-ORTHOGONALITY` entry. The earlier shipped eigensolver fixes and the new
+standalone modal guard regressions do not establish a complete fix across all
+modal consumers. Harmonic modal superposition and Craig–Bampton reduction call
+the eigensolver directly without `ModalChecks`; this PR does not extend the
+new guard to those paths. Existing warning assertions remain active. Restoring
+the ledger's warning disposition changes no engine result or runtime diagnostic.
 
 This correction is local and has not been released or deployed. No wrong
 numerical result returned to a public caller was reproduced in this round:

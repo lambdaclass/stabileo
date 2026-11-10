@@ -1346,7 +1346,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #759"]
     fn known_issues_759_remains_warned_pending_all_modal_consumers() {
         let entry = ENTRIES.iter().find(|entry| entry.issue == 759).unwrap();
         assert_eq!(entry.id, "MD-ORTHOGONALITY");

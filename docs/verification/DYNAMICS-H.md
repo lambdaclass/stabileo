@@ -93,3 +93,21 @@ use O(nk) stored vectors and O(nk squared) pairwise work, plus one absolute
 mass-matrix product per mode; matrices are not densified. Published shapes retain
 their existing display normalization; the Gram check uses mass-normalized vectors
 internally.
+
+## Containment decision after the CI registry mismatch
+
+Keep #759 as WARN under `MD-ORTHOGONALITY`. The strengthened `ModalChecks`
+checks bases returned through `solve_modal_2d/3d`. The dense and sparse harmonic
+modal paths in `solver/harmonic.rs` and the Craig–Bampton paths in
+`solver/reduction.rs` invoke the eigensolver directly without this guard. Passing
+the original modal reproductions and tightening the standalone modal guard do
+not establish that every consumer covered by the existing warning is corrected.
+No new wrong public numerical result was reproduced in this follow-up, and the
+runtime warning is unchanged. The ledger's earlier CORRECTED claim was premature.
+
+`known_issues_759_remains_warned_pending_all_modal_consumers` pins the active
+registry entry, modal warning predicate and WARN ledger disposition. It fails
+against the premature CORRECTED row and passes with the restored WARN row.
+The existing harmonic method and arch-only modal/reduction warning tests remain
+unchanged. No existing ignored #759 test was found; the earlier guard reproducers
+are already active. No issue flips to fixed in this follow-up.
