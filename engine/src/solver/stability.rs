@@ -1049,6 +1049,64 @@ mod tests {
         assert!(result.pins().is_empty());
     }
 
+    fn negative_rotation_with_unrelated_release(n: usize) -> Stability {
+        let mut k = vec![0.0; n * n];
+        for i in 0..n { k[i * n + i] = 1.0; }
+        k[1] = 1.0 + f64::EPSILON;
+        k[n] = 1.0 + f64::EPSILON;
+        let tags = vec![DofTag { node: 7, kind: DofKind::Rotation }; n];
+        let releases = ReleasedRotations {
+            rows: (1..n).map(|i| vec![(i, 1.0)]).collect(),
+            nodes: [7].into_iter().collect(),
+            directions: vec![(7, vec![(0, 1.0)])],
+        };
+        assert!(releases.permits(7, &(0..n).collect::<Vec<_>>(), &{
+            let mut axis = vec![0.0; n];
+            axis[0] = 1.0;
+            axis
+        }));
+        analyze_dense_with_coupling(&k, n, &tags, &[], &releases)
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_negative_rotation_not_spanned_by_release_2d() {
+        let result = negative_rotation_with_unrelated_release(2);
+        assert_eq!(result.verdict, Verdict::Singular, "{result:?}");
+        assert!(result.refusal().is_some());
+        assert!(result.pins().is_empty());
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_negative_rotation_not_spanned_by_release_3d() {
+        let result = negative_rotation_with_unrelated_release(3);
+        assert_eq!(result.verdict, Verdict::Singular, "{result:?}");
+        assert!(result.refusal().is_some());
+        assert!(result.pins().is_empty());
+    }
+
+    #[test]
+    fn issue_1753_release_spanning_negative_mode_within_rounding_remains_permitted() {
+        for n in [2, 3] {
+            let mut k = vec![0.0; n * n];
+            for i in 1..n { k[i * n + i] = 1.0; }
+            k[1] = f64::EPSILON;
+            k[n] = f64::EPSILON;
+            let releases = ReleasedRotations {
+                rows: (1..n).map(|i| vec![(i, 1.0)]).collect(),
+                nodes: [7].into_iter().collect(),
+                directions: vec![(7, vec![(0, 1.0)])],
+            };
+            let tags = vec![DofTag { node: 7, kind: DofKind::Rotation }; n];
+            let result = analyze_dense_with_coupling(&k, n, &tags, &[], &releases);
+            assert_eq!(result.verdict, Verdict::Stable, "{n}: {result:?}");
+            assert_eq!(result.free.len(), 1);
+            assert_eq!(result.free[0].direction[0].abs(), 1.0);
+            assert!(result.free[0].direction[1..].iter().all(|&v| v == 0.0));
+        }
+    }
+
     #[test]
     fn issue_1753_stalled_ritz_values_do_not_underestimate_the_top_eigenvalue() {
         for m in [2, 80] {

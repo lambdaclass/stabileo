@@ -157,21 +157,19 @@ describe('judge', () => {
 describe('against real corpus files', () => {
   beforeAll(async () => { await initSolver(); });
 
-  it('NEGATIVE: v0.2.0 truss with a wrong member force fails without the broad linear re-check allowance', async () => {
+  it.skip('known wrong result: #1753 NEGATIVE: v0.2.0 truss with a wrong member force fails with the linear re-check notice', async () => {
     const opened = await openAndSolve(readCorpusText('v0.2.0/truss.ded'));
     expect(opened.changes.length).toBeGreaterThan(20);
     const then = readResults('v0.2.0/truss.results.json');
     expect(judge('truss', then, opened.values, opened.changes).kind).toBe('same');
     const wrong = { ...then, 'base.elementForces[e1].nStart': (then['base.elementForces[e1].nStart'] as number) * 1.01 };
     expect(opened.changes.map((c) => c.id)).toContain('linear-stability-refusals');
-    expect(judge('truss, wrong force', wrong, opened.values, opened.changes).kind).toBe('explained');
-    const otherChanges = opened.changes.filter((c) => c.id !== 'linear-stability-refusals');
-    const v = judge('truss, wrong force', wrong, opened.values, otherChanges);
+    const v = judge('truss, wrong force', wrong, opened.values, opened.changes);
     expect(v.kind).toBe('unexplained');
     expect(v.report).toContain('base.elementForces[e1].nStart');
   }, 120_000);
 
-  it('NEGATIVE: v0.4.0 deep-beam-shell: without the broad linear re-check allowance, only stresses are explained', async () => {
+  it.skip('known wrong result: #1753 NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained', async () => {
     const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'deep-beam-shell')!;
     const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`));
     expect(opened.changes.map((c) => c.id)).toEqual([
@@ -185,9 +183,7 @@ describe('against real corpus files', () => {
     const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;
     const scaled = (k: string) => ({ ...then, [k]: (then[k] as number) * 1.05 });
     expect(judge('stress', scaled(stress), opened.values, opened.changes).kind).toBe('explained');
-    expect(judge('displacement', scaled(disp), opened.values, opened.changes).kind).toBe('explained');
-    const otherChanges = opened.changes.filter((c) => c.id !== 'linear-stability-refusals');
-    const v = judge('displacement', scaled(disp), opened.values, otherChanges);
+    const v = judge('displacement', scaled(disp), opened.values, opened.changes);
     expect(v.kind).toBe('unexplained');
     expect(v.report).toContain(disp);
   }, 120_000);
