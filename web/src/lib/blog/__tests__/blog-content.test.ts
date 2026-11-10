@@ -397,7 +397,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect(summary.rows.find((r) => r[0] === 'SA-2026-053')![2]).toBe(severity);
   });
 
-  it.skip.each<[PublicLocale, string, string]>([
+  it.each<[PublicLocale, string, string]>([
     ['en', 'High', 'Draft: fix not yet merged or deployed'],
     ['es', 'Alta', 'Borrador: corrección aún no integrada ni publicada'],
     ['pt', 'Alta', 'Rascunho: correção ainda não integrada nem publicada'],

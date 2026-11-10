@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Published 2026-11-09; fix prepared locally, pending merge and deployment |
+| Status | Draft; fix prepared locally, pending merge and deployment |
 | Issues | [#762](https://github.com/lambdaclass/stabileo/issues/762), [#1496](https://github.com/lambdaclass/stabileo/issues/1496); stability review of PR #1753 |
 | Fix | PR [#1753](https://github.com/lambdaclass/stabileo/pull/1753); not yet merged or deployed |
 | Affected versions | Builds of main before #1753, including the main merged into this branch; first affected deployment not yet bisected |

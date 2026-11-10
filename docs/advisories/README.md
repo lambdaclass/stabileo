@@ -25,6 +25,8 @@ merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
 `support-spring-conflicts-refused`, `non-finite-analysis-results`, `moving-loads-3d`,
 `moving-axial-patch-boundaries` and `moving-load-endpoint-forces`, respectively.
 
+**SA-2026-054 is a draft**: its fix (#1753) is prepared locally and has not been merged or deployed.
+
 | ID | Summary | Severity | Issue | Fix | Fixed in | Status |
 |---|---|---|---|---|---|---|
 | [SA-2026-001](SA-2026-001-loads-combinations.md) | Load combinations and generated loads (CIRSOC 101/102/103) unconservative | High | — | #292 | 0.2.0 | Published 2026-10-21 |
@@ -80,7 +82,7 @@ merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
 | [SA-2026-051](SA-2026-051-moving-loads-3d.md) | 3D moving-load envelopes missed interior peaks and lost the axial component of axle weight | High | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
 | [SA-2026-052](SA-2026-052-moving-axial-patch-boundaries.md) | 2D/3D moving-load axial envelopes missed peaks at distributed-load boundaries | High | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
 | [SA-2026-053](SA-2026-053-moving-load-endpoint-forces.md) | Moving-load envelopes included exterior force limits at endpoint point loads | Low | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
-| [SA-2026-054](SA-2026-054-unresolved-linear-stiffness.md) | Linear analysis could silently return results beyond its stiffness bound or miss a PCG load component | High | #762, #1496 | #1753 | Pending merge and deployment; prepared locally after 0.5.0 | Published 2026-11-09 |
+| [SA-2026-054](SA-2026-054-unresolved-linear-stiffness.md) | Linear analysis could silently return results beyond its stiffness bound or miss a PCG load component | High | #762, #1496 | #1753 | Pending merge and deployment; prepared locally after 0.5.0 | Draft |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
