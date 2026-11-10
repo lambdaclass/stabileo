@@ -187,3 +187,12 @@ fn a_non_finite_value_or_tolerance_never_agrees() {
         assert!(r.into_result().is_err(), "{a} vs {b} (tol {tol}) agreed");
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_dropped_comparison_field() {
+    let mut r = Report::new();
+    r.close("rotation", Rotation::from_rad(1.0), Rotation::from_rad(1.0), Rotation::from_rad(0.0));
+    r.field::<Length>("dropped displacements", &[], 1e-9);
+    assert!(r.into_result().is_err(), "an empty displacement field agreed");
+}

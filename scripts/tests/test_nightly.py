@@ -208,6 +208,27 @@ class Models(unittest.TestCase):
                     self.assertEqual(counts[category][0][verdict], 3)
 
 
+    @unittest.skip('known wrong result: #1919')
+    def test_seeded_failure_dropped_failure_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source = base / 'model.json'
+            source.write_text('{}')
+            out = base / 'out'
+            row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
+            row.update(analysis='linear', invariant='rotation', fail=1)
+            def replay(cmd, **kwargs):
+                if '-c' in cmd:
+                    return subprocess.CompletedProcess(cmd, 1)
+                Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [], 'verdicts': [row]}))
+                return subprocess.CompletedProcess(cmd, 0, '', '')
+            with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
+                    patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
+                    patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(RuntimeError, 'invariance harness'):
+                    models.main()
+
+
 class Artifacts(unittest.TestCase):
     def test_fuzz_bytes_and_replay_survive_json_whitespace_selectors(self):
         for raw in (b'\t\t{"nodes":{}}', b'\xff\x00bad'):

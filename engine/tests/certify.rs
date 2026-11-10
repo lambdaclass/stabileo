@@ -1473,3 +1473,21 @@ fn certified_inclined_settlement_2d_is_tight() {
         assert!((un - dn).abs() < 1e-9, "{n} elements: normal displacement {un}, prescribed {dn}");
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_generalized_relative_certificate() {
+    let input = tied_columns_2d();
+    let (res, mut cert) = certify_linear_2d(&input).unwrap();
+    let mut system = gen_2d("seeded relative certificate", &input, &res);
+    assert_honest_gen(&cert, &system);
+    system.u_glob.iter_mut().for_each(|u| *u *= -1.0);
+    let err = gen_true_error(&system);
+    assert!(err > 0.0);
+    if let Certificate::Certified { abs_bound, rel_bound, .. } = &mut cert {
+        *abs_bound = err * 2.0;
+        *rel_bound = 0.0;
+    }
+    let rejected = std::panic::catch_unwind(|| assert_honest_gen(&cert, &system));
+    assert!(rejected.is_err(), "the oracle accepted a zero relative bound for a sign-flipped solution");
+}
