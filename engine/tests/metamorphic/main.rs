@@ -20,6 +20,7 @@ mod betti;
 mod stiffness;
 mod generated;
 mod safety_cases;
+mod analysis_accuracy;
 mod ana2;
 mod ana3;
 mod case;
