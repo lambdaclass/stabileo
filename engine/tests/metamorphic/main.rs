@@ -213,6 +213,10 @@ fn metamorphic_replay() {
             }
         }
     }
+    finish_replay(&t);
+}
+
+fn finish_replay(t: &Tally) {
     let results = t.replay_results();
     std::fs::write(std::env::var("NIGHTLY_RESULTS").unwrap(), serde_json::to_vec(&results).unwrap()).unwrap();
     assert!(t.failures().is_empty(), "metamorphic violations: {results}");

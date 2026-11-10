@@ -2,7 +2,7 @@ use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
 pub const E_STEEL_MPA: f64 = 210_000.0;
-pub const STEEL_DENSITY_KG_M3: f64 = 7850.0;
+pub use crate::common::STEEL_DENSITY_KG_M3;
 
 pub fn steel_densities() -> HashMap<String, f64> {
     HashMap::from([("1".to_string(), STEEL_DENSITY_KG_M3)])

@@ -1566,18 +1566,15 @@ fn assert_modal_enclosure(name: &str, lower: f64, upper: f64, omega2: f64) {
 }
 
 fn assert_modal_result_enclosures(out: &dedaliano_engine::certify::modal::CertifiedModal2D) {
-    use dedaliano_engine::certify::modal::ModalCertificate;
-    let ModalCertificate::Certified { modes, .. } = &out.certificate else { panic!("control not certified") };
-    assert!(!modes.is_empty(), "no modal certificate values were compared");
-    assert_eq!(modes.len(), out.results.modes.len(), "modal result and certificate mode counts differ");
-    for (e, m) in modes.iter().zip(&out.results.modes) {
-        assert_modal_enclosure("control", e.omega2_lower, e.omega2_upper, m.omega * m.omega);
-    }
+    assert_modal_fixture_enclosures("control", &out.certificate, &out.results.modes.iter().map(|m| m.omega).collect::<Vec<_>>());
 }
 
 fn assert_modal_fixture_enclosures(name: &str, c: &dedaliano_engine::certify::modal::ModalCertificate, omegas: &[f64]) {
     use dedaliano_engine::certify::modal::ModalCertificate;
     let ModalCertificate::Certified { modes, .. } = c else { panic!("{name}: {c:?}") };
+    assert!(!modes.is_empty(), "{name}: no modal certificate values were compared");
+    assert!(!omegas.is_empty(), "{name}: no modal result values were compared");
+    assert_eq!(modes.len(), omegas.len(), "{name}: modal result and certificate mode counts differ");
     for (e, w) in modes.iter().zip(omegas) {
         assert_modal_enclosure(name, e.omega2_lower, e.omega2_upper, w * w);
     }
@@ -1597,7 +1594,7 @@ fn assert_modal_constrained(name: &str, c: &dedaliano_engine::certify::modal::Mo
 
 fn modal_certificate_control() -> dedaliano_engine::certify::modal::CertifiedModal2D {
     let input = tied_columns_2d();
-    let densities = input.materials.keys().map(|id| (id.clone(), 7.85)).collect();
+    let densities = input.materials.keys().map(|id| (id.clone(), STEEL_DENSITY_KG_M3)).collect();
     dedaliano_engine::certify::modal::certify_modal_2d(&input, &densities, 3).unwrap()
 }
 
@@ -1617,7 +1614,8 @@ fn modal_certificate_dropped_results(keep: usize) {
     assert_modal_result_enclosures(&out);
     assert!(out.results.modes.len() > keep);
     out.results.modes.truncate(keep);
-    rejects_seeded_oracle(|| assert_modal_result_enclosures(&out), "modal result and certificate mode counts differ");
+    let expected = if keep == 0 { "no modal result values were compared" } else { "modal result and certificate mode counts differ" };
+    rejects_seeded_oracle(|| assert_modal_result_enclosures(&out), expected);
 }
 
 #[test]
@@ -1666,28 +1664,25 @@ fn seeded_failure_generalized_relative_certificate_just_below_error() {
 
 fn modal_3d_certificate_control() -> dedaliano_engine::certify::modal::CertifiedModal3D {
     let input: SolverInput3D = serde_json::from_str(include_str!("fixtures/ex-3d-cantilever-load-input.json")).unwrap();
-    let densities = input.materials.keys().map(|id| (id.clone(), 7.85)).collect();
+    let densities = input.materials.keys().map(|id| (id.clone(), STEEL_DENSITY_KG_M3)).collect();
     dedaliano_engine::certify::modal::certify_modal_3d(&input, &densities, 6).unwrap()
 }
 
 fn modal_fixture_missing_results(keep: usize) {
-    let out = modal_3d_certificate_control();
-    let mut omegas: Vec<_> = out.results.modes.iter().map(|m| m.omega).collect();
-    assert_modal_fixture_enclosures("3D fixture control", &out.certificate, &omegas);
-    assert!(omegas.len() > keep);
-    omegas.truncate(keep);
+    let mut out = modal_3d_certificate_control();
+    assert_modal_fixture_enclosures("3D fixture control", &out.certificate, &out.results.modes.iter().map(|m| m.omega).collect::<Vec<_>>());
+    assert!(out.results.modes.len() > keep);
+    out.results.modes.truncate(keep);
     let expected = if keep == 0 { "no modal result values were compared" } else { "modal result and certificate mode counts differ" };
-    rejects_seeded_oracle(|| assert_modal_fixture_enclosures("3D fixture seed", &out.certificate, &omegas), expected);
+    rejects_seeded_oracle(|| assert_modal_fixture_enclosures("3D fixture seed", &out.certificate, &out.results.modes.iter().map(|m| m.omega).collect::<Vec<_>>()), expected);
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_modal_3d_fixture_empty_results() {
     modal_fixture_missing_results(0);
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_modal_3d_fixture_truncated_results() {
     modal_fixture_missing_results(1);
 }
@@ -1708,19 +1703,16 @@ fn modal_constrained_missing_results(keep: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_modal_constrained_empty_results() {
     modal_constrained_missing_results(0);
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_modal_constrained_truncated_results() {
     modal_constrained_missing_results(1);
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_modal_fixture_missing_certificates() {
     use dedaliano_engine::certify::modal::ModalCertificate;
     let out2 = modal_certificate_control();

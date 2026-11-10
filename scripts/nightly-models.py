@@ -102,7 +102,7 @@ def main():
                 failed = sorted(f"metamorphic/{row['analysis']}/{row['invariant']}" for row in verdicts if row['fail'])
                 reported = sorted(failure['test'] for failure in result['failures'])
                 if failed != reported:
-                    raise RuntimeError('invariance harness failure counts disagree with outcomes')
+                    raise RuntimeError('invariance harness failure test identities disagree with outcomes')
                 completed = sum(row['pass'] + row['fail'] for row in verdicts)
                 if record:
                     counts = summary['comparisons'][check]

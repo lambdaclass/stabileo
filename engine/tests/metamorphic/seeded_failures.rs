@@ -323,22 +323,14 @@ pub fn replay() -> bool {
             &[a],
             &["rotation"],
         );
-        t.replay_results()
+        t
     };
-    let result = match fault.as_str() {
+    let tally = match fault.as_str() {
         "control" => run(),
         "sign" => seeded(1, Fault::Sign, run),
         _ => panic!("unknown self-test fault"),
     };
-    std::fs::write(
-        std::env::var("NIGHTLY_RESULTS").unwrap(),
-        serde_json::to_vec(&result).unwrap(),
-    )
-    .unwrap();
-    assert!(
-        result["failures"].as_array().unwrap().is_empty(),
-        "{result}"
-    );
+    crate::finish_replay(&tally);
     true
 }
 
@@ -482,7 +474,6 @@ fn seeded_failure_inverse_load_scaling() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_replay_reaches_numerical_assertion() {
     let destination = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent().unwrap().join("target")
