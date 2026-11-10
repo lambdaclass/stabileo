@@ -369,6 +369,25 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect(status.t).toContain(`SA-2026-057 — ${draftStatus}.`);
   });
 
+  it.each<[PublicLocale, string, string]>([
+    ["en", "High", "Fixed in PR #1921, pending release"],
+    ["es", "Alta", "Corregido en PR #1921, pendiente de publicación"],
+    ["pt", "Alta", "Corrigido no PR #1921, aguardando lançamento"],
+    ["de", "Hoch", "In PR #1921 behoben, Veröffentlichung ausstehend"],
+    ["fr", "Élevée", "Corrigé dans PR #1921, en attente de publication"],
+    ["tr", "Yüksek", "PR #1921 ile düzeltildi, sürüm yayını bekleniyor"],
+  ])('%s: lists the measured cable advisory with its pending-release status', (locale, severity, pendingStatus) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    const rows = summary.rows.filter((r) => r[0] === 'SA-2026-059');
+    expect(rows).toHaveLength(1);
+    expect(rows[0][2]).toBe(severity);
+    expect(rows[0][3]).toBe(pendingStatus);
+    expect(rows[0][1].replace(',', '.')).toContain('−4.599884347090908 kN');
+    expect(status.t).toContain(`SA-2026-059 — ${pendingStatus}.`);
+  });
+
   it('exists, and lists every advisory in docs/advisories', async () => {
     expect(post).toBeTruthy();
     const { readdirSync } = await import('node:fs');

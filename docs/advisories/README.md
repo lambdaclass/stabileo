@@ -82,6 +82,7 @@ merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
 | [SA-2026-053](SA-2026-053-moving-load-endpoint-forces.md) | Moving-load envelopes included exterior force limits at endpoint point loads | Low | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
 | [SA-2026-056](SA-2026-056-constrained-shell-dynamic-invariance.md) | Constrained frame and shell dynamic results change under equivalent descriptions | High | Sweep seed 2026110200131 | — | Unfixed | Recorded 2026-11-10 |
 | [SA-2026-057](SA-2026-057-plastic-interval-and-resource-refusals.md) | Plastic interval displays admitted outside factors; exact mechanism extraction discarded resource refusals in pre-fix PR #1888 builds | Medium | — (review of #1888) | [#1888](https://github.com/lambdaclass/stabileo/pull/1888) | Fix not yet merged or deployed | Draft 2026-11-10 |
+| [SA-2026-059](SA-2026-059-web-cable-compression.md) | Web advanced analyses silently gave cables compressive resistance (−4.599884347090908 kN in the P-Delta replay) | High | [#417](https://github.com/lambdaclass/stabileo/issues/417) | [#1921](https://github.com/lambdaclass/stabileo/pull/1921) | Pending release | Draft 2026-11-10; fixed in PR #1921, pending release |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

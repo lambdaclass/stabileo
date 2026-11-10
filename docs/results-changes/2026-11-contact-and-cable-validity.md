@@ -36,6 +36,10 @@ Both errors have structured codes and translations in all six locales. Previousl
 models now return errors instead of results. No tolerance, baseline or assertion was loosened.
 
 **What to re-check:** results from frozen contact states, and cable models previously solved or
-designed using an analysis other than cable analysis. No advisory is added here. The native base reproducers carry warnings. However, origin/main's
-web 3D input builder converts cable behaviour to `truss`, so advanced-analysis requests can bypass
-the SP-14 predicate. The coordinator must review that web exposure when deciding on an advisory.
+designed using an analysis other than cable analysis. The native base reproducers carry warnings,
+but a real-WASM replay on origin/main `52619652e` confirms silent web compression: the advanced
+P-Delta support-shortening fixture returns cable force −4.599884347090908 kN, converged and stable,
+with no displayed warning. Co-rotational, Winkler, SSI, staged and direct-analysis paths also
+return compressed cables without containment messages. The dedicated cable route returns zero
+cable force for the load-driven control. See [SA-2026-059](../advisories/SA-2026-059-web-cable-compression.md)
+and its [replay evidence](../advisories/replays/SA-2026-059.md). Fixed in PR #1921, pending release.
