@@ -80,8 +80,8 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "A MacNeal–Harder abszolút értékeket vetett össze, így egy rossz előjelű eredmény is megfelelt volna. A referenciák most előjelesek, és egy teszt minden esetre elutasítja a megfordított választ.",
-        "A Riks/Crisfield a teher csökkenése nélkül is jelezhetett határpontot. A határponthoz most a konvergált lépések közötti csökkenés kell; az oldal azt mondja, hogy a futtatás túljut a felső határponton, nem azt, hogy „követi az átpattanást”, a tűrései pedig 5%-ról 5e-3 és 1e-5 közé szigorodtak.",
-        "A Navier-oldal elmagyarázta az MITC4 hibáját ahelyett, hogy megmérte volna. Most egy független Reissner–Mindlin-sorral vetjük össze, és az MITC4 hibája merev megtámasztásnál 4×4-es hálón −1,951%-ról 32×32-es hálón −0,036%-ra csökken, másodrendben.",
+        "A Riks/Crisfield a teher csökkenése nélkül is jelezhetett határpontot. A határponthoz most a konvergált lépések közötti csökkenés kell; az oldal azt mondja, hogy a futtatás túljut a felső határponton, nem azt, hogy „követi az átpattanást”, a tűrései pedig 5 %-ról 5e-3 és 1e-5 közé szigorodtak.",
+        "A Navier-oldal elmagyarázta az MITC4 hibáját ahelyett, hogy megmérte volna. Most egy független Reissner–Mindlin-sorral vetjük össze, és az MITC4 hibája merev megtámasztásnál 4×4-es hálón −1,951 %-ról 32×32-es hálón −0,036 %-ra csökken, másodrendben.",
         "Az oldalak megmondják, mivel vetjük össze őket. A Newmarkot pontos, zárt alakú megoldásokkal ellenőrizzük, nem „a szerző kódjával”; az SRSS/CQC módszerbemutató, nem a cikkbeli épület reprodukciója; a képlékeny tönkremeneteli korlátok a saját kézi levezetéseink, nem idézetek; a Lee-keret 1,83 kN-os referenciája egy publikált ábráról leolvasott érték, ezért csak egész százalékos eltéréseket állítunk."
       ]
     },

@@ -49,7 +49,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('names the member and section of a 3D plastic refusal for missing capacity, in every offered language (#1525)', async () => {
-    await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
+    await Promise.all(['de', 'fr', 'tr', 'hu'].map(ensureLocale));
     const d = { code: 'plastic_capacity_missing', severity: 'error', elementIds: [7], value: 12, message: 'ENGINE' };
     const error = JSON.stringify({ message: 'ENGINE', structuredDiagnostics: [d] });
     for (const loc of OFFERED_LOCALES) {
@@ -67,7 +67,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('has a sentence for every finding the engine contains, in every offered language', async () => {
-    await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
+    await Promise.all(['de', 'fr', 'tr', 'hu'].map(ensureLocale));
     expect(OFFERED_LOCALES.every(isOfferedLocale)).toBe(true);
     const registry = readFileSync('../engine/src/known_issues.rs', 'utf8');
     const ids = [...registry.matchAll(/Entry \{ id: "([^"]+)"/g)].map(match => match[1]);
@@ -109,7 +109,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('says a warped MITC4 or MITC9 shell is withheld above the refusal band and only warned below it (#1057)', async () => {
-    await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
+    await Promise.all(['de', 'fr', 'tr', 'hu'].map(ensureLocale));
     for (const element of ['MITC4', 'MITC9']) {
       const phase = `SH-WARPED-${element}`;
       for (const loc of OFFERED_LOCALES) {

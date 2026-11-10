@@ -195,7 +195,7 @@ const body: PostBody = {
       "k": "ol",
       "items": [
         "Típusos műveletek szabad kódgenerálás helyett. Több korábbi rendszerben a modell Python-szkripteket ír, amelyeket aztán egy külső megoldón futtatnak. Itt az ágens kimenete hívások zárt halmazára korlátozódik, explicit bemeneti és kimeneti szerződésekkel, és mindegyiket futtatás előtt egy séma alapján validáljuk. Ez a határ szűkebb, mint a tetszőleges kód, és könnyebb auditálni.",
-        "Saját megoldó, nem egy réteg valaki más megoldója fölött. A motort a nulláról írtuk Rustban, külső lineáris algebrai függőségek nélkül, és saját ellenőrző tesztsora van analitikus megoldásokkal és referencia-benchmarkokkal szemben: mintegy 6800 sikeres teszt, valamint ugyanazokon a modelleken egy kereskedelmi programmal végzett összevetés, 0,1% alatti eltérésekkel.",
+        "Saját megoldó, nem egy réteg valaki más megoldója fölött. A motort a nulláról írtuk Rustban, külső lineáris algebrai függőségek nélkül, és saját ellenőrző tesztsora van analitikus megoldásokkal és referencia-benchmarkokkal szemben: mintegy 6800 sikeres teszt, valamint ugyanazokon a modelleken egy kereskedelmi programmal végzett összevetés, 0,1 % alatti eltérésekkel.",
         "Natív szabványmegfelelés. Ellenőrzések a CIRSOC 201 és 301 szerint, amelyeket egyetlen nyílt forráskódú szoftverben sem találtunk natívan implementálva. A betonmodul implementált és tesztelt; az acélmodul még csak a frontendben él, és nincs külön tesztsora. Ezt azért mondjuk ki, hogy ne túlozzuk el, mennyire érett.",
         "Böngészőben fut. A motor WebAssemblyre fordul, és helyben, a felhasználó gépén fut, számítási szerver és telepítés nélkül."
       ]

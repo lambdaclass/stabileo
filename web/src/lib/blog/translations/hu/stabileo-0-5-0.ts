@@ -41,13 +41,13 @@ const body: PostBody = {
         [
           "SA-2026-029",
           "7",
-          "A 3D méretezési ellenőrzések az oldalirányú nyomatékot vagy nyíróerőt olvasták: egy Mz körül hajlított CIRSOC 201 szerinti oszlopot a magassága mentén ellenőriztek, egy példában 36%-kal kevesebb acéllal",
+          "A 3D méretezési ellenőrzések az oldalirányú nyomatékot vagy nyíróerőt olvasták: egy Mz körül hajlított CIRSOC 201 szerinti oszlopot a magassága mentén ellenőriztek, egy példában 36 %-kal kevesebb acéllal",
           "Kritikus"
         ],
         [
           "SA-2026-028",
           "8",
-          "Az EN 1992-1-1 szerinti hajlítás feltételezte, hogy a húzott acél megfolyik: az MRd akár 22%-kal túl magas",
+          "Az EN 1992-1-1 szerinti hajlítás feltételezte, hogy a húzott acél megfolyik: az MRd akár 22 %-kal túl magas",
           "Magas"
         ],
         [
@@ -59,19 +59,19 @@ const body: PostBody = {
         [
           "SA-2026-041",
           "19",
-          "A vasbeton oszlop ellenőrzése a legnagyobb nyomatékot csak a legnagyobb nyomóerővel párosította: egy példában akár 15%-kal a biztonság kárára",
+          "A vasbeton oszlop ellenőrzése a legnagyobb nyomatékot csak a legnagyobb nyomóerővel párosította: egy példában akár 15 %-kal a biztonság kárára",
           "Magas"
         ],
         [
           "SA-2026-042",
           "23",
-          "A 2D kihajlás túlbecsülte azoknak a rudaknak a tényezőjét, amelyekben a nyomóerő a hosszuk mentén nő: egy rúdnál +43%-tól +68%-ig",
+          "A 2D kihajlás túlbecsülte azoknak a rudaknak a tényezőjét, amelyekben a nyomóerő a hosszuk mentén nő: egy rúdnál +43 %-tól +68 %-ig",
           "Magas"
         ],
         [
           "SA-2026-038",
           "35",
-          "A 3D kihajlás minden rúd átlagos normálerejét használta: +43% egy hossza mentén terhelt rúd tényezőjén",
+          "A 3D kihajlás minden rúd átlagos normálerejét használta: +43 % egy hossza mentén terhelt rúd tényezőjén",
           "Magas"
         ],
         [
@@ -95,7 +95,7 @@ const body: PostBody = {
         [
           "SA-2026-027",
           "11",
-          "A héjburkoló a legnagyobb Von Mises-feszültségű kombinációt tartotta meg, nem az egyes komponensek szélsőértékét: egy példában az mx 14%-kal alacsonyabb",
+          "A héjburkoló a legnagyobb Von Mises-feszültségű kombinációt tartotta meg, nem az egyes komponensek szélsőértékét: egy példában az mx 14 %-kal alacsonyabb",
           "Magas"
         ],
         [
@@ -125,13 +125,13 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Egy rúd mértékadó értéke és a 2D burkoló az ábra valódi csúcsértékét olvassa le, nem a 21 metszet közül a legközelebbit: a dokumentált esetekben háromszög alakú teher alatt 0,23%-kal, rövid részleges teher alatt 1,05%-kal nőhetnek, és soha nem csökkennek.",
+        "Egy rúd mértékadó értéke és a 2D burkoló az ábra valódi csúcsértékét olvassa le, nem a 21 metszet közül a legközelebbit: a dokumentált esetekben háromszög alakú teher alatt 0,23 %-kal, rövid részleges teher alatt 1,05 %-kal nőhetnek, és soha nem csökkennek.",
         "A mechanizmusokat megoldás helyett elutasítja: 2D-ben merev kapcsolat vagy tárcsa mögött, 2D-ben kapcsolóelem mögött (#1415), valamint a modális analízisben, amely korábban elhagyta a zérus módust, és a többit teljesként adta vissza, beleértve egy ferde támaszokon elcsúszó mechanizmust is.",
         "A 3D anyagi nemlinearitású analízis egymás mellett számítja ki a gátolt csavarási állandóval rendelkező és anélküli kereteket, valamint a csak rácsrudakkal elért csomópontokat, ahelyett hogy összeomlana vagy elutasítaná őket; a korábban is számítható modellek ugyanazokat a számokat adják.",
         "Az ismétlődő sajátértékek megtartják a multiplicitásukat, a statikai és modális eredmények pedig megjelenítés előtt ellenőrzik a saját egyensúlyukat és ortogonalitásukat.",
         "Az Alap módban a P-Δ és a kritikus teher minden rudat elemekre bont, a képlékeny tönkremenetel bezárja a tehermentesülő csuklókat, és a hajlítónyomaték hatásvonala az alul húzott nyomatékot veszi pozitívnak, mint az Alap mód minden más nyomatéka.",
         "A ki nem értékelhető méretezési ellenőrzést elutasítja, ahelyett hogy megfelelőnek venné, és egy lágy, de valós csomóponti elfordulás már nem rögzül, ha a modellnek van egy sokkal merevebb része.",
-        "A lineáris analízis figyelmeztet, ha egy elfordulás meghaladja a 0,1 rad-ot, a rúd fesztávján belül is (beleértve a nyírási alakváltozás által a tengely hajlásához adott részt és a hőmérsékleti gradiens görbületét egy felszabadított végen, #1569) és egy kombináció saját elmozdulásain is, továbbá ha a nyomás 10%-nál jobban felnagyíthatja a nyomatékait; amíg ez a második figyelmeztetés látható, a CIRSOC 301 szerinti ellenőrzések szünetelnek. Ahol elfordulásra figyelmeztet, futtasson geometriailag nemlineáris (nagy elfordulású) analízist; ahol a nagyításra, P-Δ vagy más másodrendű analízist."
+        "A lineáris analízis figyelmeztet, ha egy elfordulás meghaladja a 0,1 rad-ot, a rúd fesztávján belül is (beleértve a nyírási alakváltozás által a tengely hajlásához adott részt és a hőmérsékleti gradiens görbületét egy felszabadított végen, #1569) és egy kombináció saját elmozdulásain is, továbbá ha a nyomás 10 %-nál jobban felnagyíthatja a nyomatékait; amíg ez a második figyelmeztetés látható, a CIRSOC 301 szerinti ellenőrzések szünetelnek. Ahol elfordulásra figyelmeztet, futtasson geometriailag nemlineáris (nagy elfordulású) analízist; ahol a nagyításra, P-Δ vagy más másodrendű analízist."
       ]
     },
     {
@@ -152,7 +152,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Két elutasítás olyan eredményeket vesz el, amelyeket egyes olvasók használnak. A síkbeli keretek képlékeny tönkremeneteli tényezőit a #758 javításáig visszatartjuk. Néhány torzult héjháló eredményeit is visszatartjuk, amelyek 2%-on belül voltak a referenciájukhoz képest: inkább választottunk egy fölösleges elutasítást, mint egy figyelmeztetés nélkül megjelenített hibás merevséget, és ennek szűkítése szerepel az ütemtervben."
+      "t": "Két elutasítás olyan eredményeket vesz el, amelyeket egyes olvasók használnak. A síkbeli keretek képlékeny tönkremeneteli tényezőit a #758 javításáig visszatartjuk. Néhány torzult héjháló eredményeit is visszatartjuk, amelyek 2 %-on belül voltak a referenciájukhoz képest: inkább választottunk egy fölösleges elutasítást, mint egy figyelmeztetés nélkül megjelenített hibás merevséget, és ennek szűkítése szerepel az ütemtervben."
     },
     {
       "k": "h",
@@ -166,7 +166,7 @@ const body: PostBody = {
         "Az MI-asszisztens a saját Anthropic- vagy OpenAI-kulcsával működik, amelyet csak a böngészője tárol, a /examples oldalon pedig élő modellek vannak, amelyeket a motor egy csúszka mozgatásakor újra kiszámít.",
         "PRO: mester- és hasonló szintek, egységnyi szélességre vonatkozó lemezeredmények főnyomatékokkal és főirányokkal, a jelentés az analízis után, csak olvasható megjelenítő a „Másolat és szerkesztés” funkcióval, valamint 3D referenciaként megrajzolt csatolt IFC.",
         "A 0.2.0, 0.3.0 és 0.4.0 által mentett fájlok minden változtatásnál megnyílnak, migrálódnak és ugyanazokat az eredményeket adják, kivéve, ahol egy nyilvántartott eredményváltozás érvényes; egy újabb verzióval mentett fájlt egy ezt közlő üzenettel elutasít.",
-        "Ugyanannak az átskálázott, átszámozott, megfordított vagy elmozdított szerkezetnek ugyanazt a választ kell adnia; ezt 17 analízistípuson minden változtatásnál, és minden éjjel 8192 generált modellen ellenőrizzük.",
+        "Ugyanannak az átskálázott, átszámozott, megfordított vagy elmozdított szerkezetnek ugyanazt a választ kell adnia; ezt 17 analízistípuson minden változtatásnál, és minden éjjel 8 192 generált modellen ellenőrizzük.",
         "Szintén javítva: a talaj–szerkezet kölcsönhatás közli a támaszerőit, amelyeket korábban üresen adott vissza (#1675); a két családba tartozó, azonos számozású héjakat a kombinációk és a burkolók elutasítják, ahelyett hogy az egyiket a másik helyett kombinálnák (#1669); a héjak Von Mises- és főfeszültségei pedig szélsőséges nagyságrendeknél már nem csordulnak túl vagy alul, a normál tartományba eső eredmények bitre azonosak (#1688).",
         "Az a projekt, amelyet olyan verzióval számítottak ki, amelynek egy általa használt funkciójában ismert, hibás eredményt adó hiba volt, az újraszámításig megnevezi a figyelmeztetést (#1657), a projektek pedig rögzítik az összes lefuttatott analízisüket, így egy analízisről szóló figyelmeztetés addig marad, amíg az az analízis újra le nem fut (#1663).",
         "Gyorsabb: a 30 s-onkénti automatikus mentés kihagyja a változatlan projektet (#1664), egy nagy 3D munkaterület kevesebb összegyűjtendő szeméttel nyílik meg újra (#1668), a közzétett 3D eredmények pedig befagyasztottak, így az ismert hibák miatti elutasítás ellenőrzése eredményenként egyszer fut le (#1689).",
