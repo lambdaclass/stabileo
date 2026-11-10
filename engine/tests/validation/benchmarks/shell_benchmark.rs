@@ -1481,15 +1481,16 @@ fn benchmark_shell_thermal_free_expansion() {
         d.ux, d.uy, d.uz, expected_disp
     );
 
-    // In-plane displacements should match α·ΔT·L within 15%
     assert!(
-        (d.ux - expected_disp).abs() / expected_disp < 0.15,
+        (d.ux - expected_disp).abs() / expected_disp < 1e-8,
         "ux={:.6e} vs expected {:.6e}", d.ux, expected_disp
     );
     assert!(
-        (d.uy - expected_disp).abs() / expected_disp < 0.15,
+        (d.uy - expected_disp).abs() / expected_disp < 1e-8,
         "uy={:.6e} vs expected {:.6e}", d.uy, expected_disp
     );
+
+    eprintln!("Thermal relative errors: ux={:.12e}, uy={:.12e}", (d.ux / expected_disp - 1.0).abs(), (d.uy / expected_disp - 1.0).abs());
 
     // Out-of-plane displacement should be negligible
     assert!(
@@ -1920,15 +1921,16 @@ fn benchmark_mixed_frame_shell_building() {
     // Vertical equilibrium: reactions + applied = 0 → Σrz = -total_fz_applied
     let fz_err = (sum_rz + total_fz_applied).abs() / total_fz_applied.abs().max(1e-10);
     assert!(
-        fz_err < 0.15,
+        fz_err < 1e-8,
         "Vertical equilibrium error {:.1}% (Σrz={:.4}, applied={:.4})",
         fz_err * 100.0, sum_rz, total_fz_applied
     );
 
     // Horizontal equilibrium: Σrx + lateral = 0
     let fx_err = (sum_rx + total_fx_applied).abs() / total_fx_applied.abs().max(1e-10);
+    eprintln!("Building relative errors: fx={fx_err:.12e}, fz={fz_err:.12e}");
     assert!(
-        fx_err < 0.15,
+        fx_err < 1e-8,
         "Horizontal equilibrium error {:.1}% (Σrx={:.4}, applied={:.4})",
         fx_err * 100.0, sum_rx, total_fx_applied
     );

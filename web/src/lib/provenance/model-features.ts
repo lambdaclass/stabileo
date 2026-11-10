@@ -49,7 +49,7 @@ interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: num
 const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.gMm].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 interface Elem {
   id: number; type?: string; materialId: number; sectionId?: number; nodeI: number; nodeJ: number;
-  releaseI?: Record<string, unknown>; releaseJ?: Record<string, unknown>;
+  releaseI?: object; releaseJ?: object;
   semiRigid?: unknown; reinforcement?: unknown;
   tensionConnection?: { i?: TensionEndSnapshot; j?: TensionEndSnapshot };
   unbracedLength?: number;
@@ -62,7 +62,8 @@ interface Elem {
 interface Sup {
   nodeId: number; type?: string; angle?: number; isGlobal?: boolean; isInclined?: boolean; dofFrame?: string;
   normalX?: number; normalY?: number; normalZ?: number; curves?: unknown;
-  [k: string]: unknown;
+  kx?: unknown; ky?: unknown; kz?: unknown; krx?: unknown; kry?: unknown; krz?: unknown;
+  dx?: unknown; dy?: unknown; dz?: unknown; dry?: unknown; drz?: unknown; drx?: unknown;
 }
 
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
@@ -77,8 +78,8 @@ export interface FeatureSnapshot {
   combinations?: unknown[];
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
-  plates?: Entries<{ offset?: Offset3 }>;
-  quads?: Entries<{ curved?: boolean; offset?: Offset3 }>;
+  plates?: Entries<{ id?: number; offset?: Offset3 }>;
+  quads?: Entries<{ id?: number; curved?: boolean; offset?: Offset3 }>;
   constraints?: Array<Record<string, unknown>>;
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
@@ -104,8 +105,8 @@ interface Offset3 { x?: number; y?: number; z?: number }
 const values = <T>(e: Entries<T>): T[] => (Array.isArray(e) ? e.map((x) => x?.[1]).filter((x): x is T => !!x) : []);
 const nonZero = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v !== 0;
 const positive = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
-const SPRING_KEYS = ['kx', 'ky', 'kz', 'krx', 'kry', 'krz'];
-const SETTLEMENT_KEYS = ['dx', 'dy', 'dz', 'dry', 'drz', 'drx'];
+const SPRING_KEYS = ['kx', 'ky', 'kz', 'krx', 'kry', 'krz'] as const;
+const SETTLEMENT_KEYS = ['dx', 'dy', 'dz', 'dry', 'drz', 'drx'] as const;
 
 function isInclined(s: Sup): boolean {
   if (s.isInclined) return true;
@@ -119,7 +120,7 @@ function offsetMoves(o: Offset3 | undefined): boolean {
   return !!o && [o.x, o.y, o.z].some(nonZero);
 }
 
-function hasRelease(r: Record<string, unknown> | undefined): boolean {
+function hasRelease(r: object | undefined): boolean {
   return !!r && Object.values(r).some((v) => v === true);
 }
 

@@ -435,18 +435,20 @@ fn mh_cantilever(shape: &str, out_of_plane: bool) -> f64 {
 /// membrane EAS-4 modes. The trapezoidal in-plane case stays locked: MacNeal (1987) showed no
 /// 4-node (per layer) element that passes the patch test can be free of trapezoidal locking,
 /// and every patch-test-passing 8-node hex in the MacNeal–Harder tables reports 0.02–0.07
-/// there. It is asserted as a floor so it is visible, and solid shells for in-plane bending
-/// need near-rectangular elements (the pre-solve Jacobian-ratio gate flags strong distortion).
 #[test]
 fn macneal_harder_straight_cantilever() {
-    // (shape, out-of-plane floor, in-plane floor)
     for row in mh::DATA["solidCantilever"]["shapes"].as_array().unwrap() {
         let (shape, f_out, f_in) = (row[0].as_str().unwrap(), row[1].as_f64().unwrap(), row[2].as_f64().unwrap());
         let out = mh_cantilever(shape, true) / mh::DATA["solidCantilever"]["references"][0].as_f64().unwrap();
         let inp = mh_cantilever(shape, false) / mh::DATA["solidCantilever"]["references"][1].as_f64().unwrap();
-        eprintln!("MH straight cantilever {shape}: out-of-plane {out:.4}, in-plane {inp:.4}");
+        eprintln!("MH straight cantilever {shape}: out-of-plane {out:.12}, in-plane {inp:.12}");
         assert!(out > f_out && out < 1.01, "{shape} out-of-plane: {out:.4}");
         assert!(inp > f_in && inp < 1.01, "{shape} in-plane: {inp:.4}");
+        let regression = &mh::DATA["solidCantilever"]["regression"];
+        let pinned = &regression["normalized"][shape];
+        let tolerance = regression["relativeTolerance"].as_f64().unwrap();
+        assert!((out / pinned[0].as_f64().unwrap() - 1.0).abs() < tolerance);
+        assert!((inp / pinned[1].as_f64().unwrap() - 1.0).abs() < tolerance);
     }
 }
 
