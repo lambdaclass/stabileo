@@ -16,6 +16,7 @@ import type { Txt } from '../steps/doc';
 import { tx } from '../steps/doc';
 import { memberStiffness, rotation, type GeomMethod, type MemberStiffness } from './member-matrices';
 import { beamColumnEndLoads } from './beam-column-loads';
+import { spanAxialGeometric } from './span-axial';
 import { matMul, transpose, zeros, type Mat } from './dense';
 
 export interface SecondOrderOptions {
@@ -41,6 +42,7 @@ export interface SoSystem {
   Fnodal: number[];
   /** Each member's equivalent end loads in its own axes, uncondensed (−fixed-end reactions). */
   memberLoads: Map<number, number[]>;
+  spanAxial: Map<number, Mat>;
   /** The free DOFs no member or spring stiffens (a rotation where only hinges meet): held at 0. */
   idle: number[];
   axialRigid: boolean;
@@ -124,7 +126,12 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions, allowN
     memberLoads.set(m.id, p);
   }
 
-  const sys: SoSystem = { pm, members, dof, nTotal, free: [], prescribed, springs, F, Fnodal: F.slice(), memberLoads, idle: [], axialRigid: opts.axialRigid };
+  const spanAxial = new Map<number, Mat>();
+  for (const m of members) {
+    const correction = spanAxialGeometric(m, input.loads);
+    if (correction) spanAxial.set(m.id, correction);
+  }
+  const sys: SoSystem = { spanAxial, pm, members, dof, nTotal, free: [], prescribed, springs, F, Fnodal: F.slice(), memberLoads, idle: [], axialRigid: opts.axialRigid };
   addEquivalentLoads(sys);
 
   const stiff = stiffenedDofs(sys);
@@ -247,11 +254,11 @@ export interface Assembled {
   local: Map<number, MemberStiffness>;
 }
 
-export function memberLocals(sys: Pick<SoSystem, 'members' | 'axialRigid'>, N: Map<number, number>, method: GeomMethod, withAxial = !sys.axialRigid): Map<number, MemberStiffness> {
-  return new Map(sys.members.map((m) => [m.id, memberStiffness(m, N.get(m.id) ?? 0, method, withAxial)]));
+export function memberLocals(sys: Pick<SoSystem, 'members' | 'axialRigid' | 'spanAxial'>, N: Map<number, number>, method: GeomMethod, withAxial = !sys.axialRigid): Map<number, MemberStiffness> {
+  return new Map(sys.members.map((m) => [m.id, memberStiffness(m, N.get(m.id) ?? 0, method, withAxial, sys.spanAxial.get(m.id))]));
 }
 
-export function assemble(sys: Pick<SoSystem, 'members' | 'dof' | 'springs' | 'axialRigid'>, N: Map<number, number>, method: GeomMethod, rows: readonly number[], cols: readonly number[] = rows, withAxial = !sys.axialRigid): Assembled {
+export function assemble(sys: Pick<SoSystem, 'members' | 'dof' | 'springs' | 'axialRigid' | 'spanAxial'>, N: Map<number, number>, method: GeomMethod, rows: readonly number[], cols: readonly number[] = rows, withAxial = !sys.axialRigid): Assembled {
   const ri = new Map(rows.map((d, k) => [d, k]));
   const ci = new Map(cols.map((d, k) => [d, k]));
   const K = zeros(rows.length, cols.length);
@@ -285,7 +292,6 @@ export function localDisplacements(sys: SoSystem, m: PMember, D: number[]): numb
   return R.map((r) => r.reduce((s, v, j) => s + v * g[j], 0));
 }
 
-/** Mean axial force from the elongation, EA·δ/L, the force the engine builds K_G from. */
 export function elasticAxial(sys: SoSystem, D: number[]): Map<number, number> {
   const out = new Map<number, number>();
   for (const m of sys.members) {

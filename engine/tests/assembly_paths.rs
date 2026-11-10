@@ -245,7 +245,15 @@ fn kg_from_terms(terms: &[KgAffineTerm], u: &[f64], n: usize) -> (Vec<f64>, Hash
     (k, axial)
 }
 
-fn forces_2d(axial: &HashMap<usize, f64>) -> Vec<ElementForces> {
+fn independent_axial_end_loads(l: f64, qi: f64, qj: f64, a: f64, b: f64) -> [f64; 2] {
+    let h = b - a;
+    if h <= 0.0 { return [0.0; 2]; }
+    let total = h * (qi + qj) / 2.0;
+    let moment = a * total + h * h * (qi + 2.0 * qj) / 6.0;
+    [total - moment / l, moment / l]
+}
+
+fn forces_2d(input: &SolverInput, axial: &HashMap<usize, f64>) -> Vec<ElementForces> {
     let mut v: Vec<ElementForces> = axial
         .iter()
         .map(|(&id, &n)| ElementForces {
@@ -254,11 +262,31 @@ fn forces_2d(axial: &HashMap<usize, f64>) -> Vec<ElementForces> {
             hinge_start: false, hinge_end: false,
         })
         .collect();
+    for f in &mut v {
+        let elem = input.elements.values().find(|e| e.id == f.element_id).unwrap();
+        let ni = input.nodes.values().find(|n| n.id == elem.node_i).unwrap();
+        let nj = input.nodes.values().find(|n| n.id == elem.node_j).unwrap();
+        let l = ((nj.x - ni.x).powi(2) + (nj.z - ni.z).powi(2)).sqrt();
+        for load in &input.loads {
+            let ends = match load {
+                SolverLoad::PointOnElement(p) if p.element_id == f.element_id => {
+                    let px = p.px.unwrap_or(0.0);
+                    [px * (1.0 - p.a / l), px * p.a / l]
+                }
+                SolverLoad::AxialDistributed(q) if q.element_id == f.element_id => {
+                    independent_axial_end_loads(l, q.q_i, q.q_j, q.a.unwrap_or(0.0), q.b.unwrap_or(l))
+                }
+                _ => continue,
+            };
+            f.n_start += ends[0];
+            f.n_end -= ends[1];
+        }
+    }
     v.sort_by_key(|f| f.element_id);
     v
 }
 
-fn forces_3d(axial: &HashMap<usize, f64>) -> Vec<ElementForces3D> {
+fn forces_3d(input: &SolverInput3D, axial: &HashMap<usize, f64>) -> Vec<ElementForces3D> {
     let mut v: Vec<ElementForces3D> = axial
         .iter()
         .map(|(&id, &n)| ElementForces3D {
@@ -270,6 +298,23 @@ fn forces_3d(axial: &HashMap<usize, f64>) -> Vec<ElementForces3D> {
             point_loads_x: Vec::new(), point_loads_z: vec![], bimoment_start: None, bimoment_end: None,
         })
         .collect();
+    for f in &mut v {
+        let elem = input.elements.values().find(|e| e.id == f.element_id).unwrap();
+        let ni = input.nodes.values().find(|n| n.id == elem.node_i).unwrap();
+        let nj = input.nodes.values().find(|n| n.id == elem.node_j).unwrap();
+        let l = ((nj.x - ni.x).powi(2) + (nj.y - ni.y).powi(2) + (nj.z - ni.z).powi(2)).sqrt();
+        for load in &input.loads {
+            let ends = match load {
+                SolverLoad3D::PointOnElement(p) if p.element_id == f.element_id => [p.px * (1.0 - p.a / l), p.px * p.a / l],
+                SolverLoad3D::Distributed(q) if q.element_id == f.element_id => {
+                    independent_axial_end_loads(l, q.q_xi, q.q_xj, q.a.unwrap_or(0.0), q.b.unwrap_or(l))
+                }
+                _ => continue,
+            };
+            f.n_start += ends[0];
+            f.n_end -= ends[1];
+        }
+    }
     v.sort_by_key(|f| f.element_id);
     v
 }
@@ -392,9 +437,14 @@ fn check_2d(input: &SolverInput, densities: &HashMap<String, f64>, seed: u64) ->
     let mut kg = vec![0.0; n * n];
     add_geometric_stiffness_2d(input, &dn, &u, &mut kg);
     c.symmetric("2d.kg.symmetric", &kg, n);
-    let (kg_terms, axial) = kg_from_terms(&geometric_stiffness_terms_2d(input, &dn), &u, n);
+    let (mut kg_terms, axial) = kg_from_terms(&geometric_stiffness_terms_2d(input, &dn), &u, n);
+    let zero_axial = axial.keys().map(|&id| (id, 0.0)).collect();
+    let kg_span = dense(&build_kg_from_forces_2d(input, &all_free(&dn), &forces_2d(input, &zero_axial), &[]).into_csc());
+    for (entry, span) in kg_terms.iter_mut().zip(kg_span) {
+        *entry += span;
+    }
     c.mat("2d.kg.terms", &kg_terms, &kg, n);
-    let kg_forces = build_kg_from_forces_2d(input, &dn, &forces_2d(&axial), &[]).into_csc();
+    let kg_forces = build_kg_from_forces_2d(input, &dn, &forces_2d(input, &axial), &[]).into_csc();
     c.mat("2d.kg.forces", &dense(&kg_forces), &block(&kg, n, &free), nf);
 
     // Constrained reductions, dense vs sparse.
@@ -714,9 +764,14 @@ fn check_3d(input: &SolverInput3D, densities: &HashMap<String, f64>, seed: u64) 
     members_only.curved_shells.clear();
     let mut kg = vec![0.0; n * n];
     add_geometric_stiffness_3d(&members_only, &dn, &u, &mut kg);
-    let (kg_terms, axial) = kg_from_terms(&geometric_stiffness_terms_3d(input, &dn), &u, n);
+    let (mut kg_terms, axial) = kg_from_terms(&geometric_stiffness_terms_3d(input, &dn), &u, n);
+    let zero_axial = axial.keys().map(|&id| (id, 0.0)).collect();
+    let kg_span = dense(&build_kg_from_forces_3d(input, &all_free(&dn), &forces_3d(input, &zero_axial)).into_csc());
+    for (entry, span) in kg_terms.iter_mut().zip(kg_span) {
+        *entry += span;
+    }
     c.mat("3d.kg.terms", &kg_terms, &kg, n);
-    let kg_forces = build_kg_from_forces_3d(input, &dn, &forces_3d(&axial)).into_csc();
+    let kg_forces = build_kg_from_forces_3d(input, &dn, &forces_3d(input, &axial)).into_csc();
     c.mat("3d.kg.forces", &dense(&kg_forces), &block(&kg, n, &free), nf);
 
     let mut ci = input.clone();
@@ -745,13 +800,6 @@ fn check_3d(input: &SolverInput3D, densities: &HashMap<String, f64>, seed: u64) 
             let uu = u_of_3d(&sys.dof_num, &sys.linear);
             let mut kgl = vec![0.0; n * n];
             add_geometric_stiffness_3d(input, &sys.dof_num, &uu, &mut kgl);
-            for (_, dofs, g) in &sys.span_axial {
-                for (a, &i) in dofs.iter().enumerate() {
-                    for (b, &j) in dofs.iter().enumerate() {
-                        kgl[i * n + j] += g[a * dofs.len() + b];
-                    }
-                }
-            }
             rotate_all_3d(&mut kgl, n, &st.inclined_transforms);
             let neg: Vec<f64> = block(&kgl, n, &free).iter().map(|v| -v).collect();
             c.mat("3d.buckling.kg", &dense(&sys.neg_kg_csc), &neg, nf);
@@ -1575,4 +1623,110 @@ fn parallel_load_vector_self_weight_in_global_axes() {
     let dn = DofNumbering::build_3d(&m);
     let f = assemble_load_vector_3d_dense(&m, &m.loads, &dn, &[]);
     assert_agree("sparse_3d (parallel) vs dense load vector", &assemble_load_vector_sparse_3d(&m, &m.loads, &dn, &[]), &f, 1);
+}
+
+
+fn assert_path_matches(checks: Checks, tag: &'static str) {
+    assert!(checks.ran.contains(tag), "comparison not reached: {tag}");
+    assert!(!checks.fails.contains_key(tag), "{tag}: {:?}", checks.fails.get(tag));
+}
+
+#[test]
+fn span_reference_2d_affine_includes_constant_once() {
+    let (input, densities, _) = model_2d(1);
+    assert_path_matches(check_2d(&input, &densities, 1), "2d.kg.terms");
+}
+
+#[test]
+fn span_reference_3d_affine_includes_constant_once() {
+    let (input, densities, _) = model_3d(1);
+    assert_path_matches(check_3d(&input, &densities, 1), "3d.kg.terms");
+}
+
+#[test]
+fn span_reference_3d_buckling_includes_constant_once() {
+    let (input, densities, _) = model_3d(71);
+    assert_path_matches(check_3d(&input, &densities, 71), "3d.buckling.kg");
+}
+
+fn simpson_span_plane(l: f64, p: f64, point: bool) -> [[f64; 4]; 4] {
+    let steps = 8192;
+    let mut out = [[0.0; 4]; 4];
+    for j in 0..=steps {
+        let t = j as f64 / steps as f64;
+        let weight = if j == 0 || j == steps { 1.0 } else if j % 2 == 0 { 2.0 } else { 4.0 };
+        let centered_n = if point {
+            if t < 0.5 { p / 2.0 } else if t == 0.5 { 0.0 } else { -p / 2.0 }
+        } else {
+            p * (0.5 - t)
+        };
+        let d = [
+            (6.0 * t * t - 6.0 * t) / l,
+            1.0 - 4.0 * t + 3.0 * t * t,
+            (6.0 * t - 6.0 * t * t) / l,
+            3.0 * t * t - 2.0 * t,
+        ];
+        for a in 0..4 {
+            for b in 0..4 {
+                out[a][b] += weight * l / (3.0 * steps as f64) * centered_n * d[a] * d[b];
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn span_reference_constant_matches_independent_simpson_quadrature() {
+    let l = 4.0;
+    let p = 3_000.0;
+    let axial = HashMap::from([(1, 0.0)]);
+    for point in [false, true] {
+        let plane = simpson_span_plane(l, p, point);
+        let load_2d = if point {
+            SolverLoad::PointOnElement(SolverPointLoadOnElement {
+                element_id: 1, a: l / 2.0, p: 0.0, px: Some(p), my: None,
+            })
+        } else {
+            SolverLoad::AxialDistributed(SolverAxialDistributedLoad {
+                element_id: 1, q_i: p / l, q_j: p / l, a: None, b: None,
+            })
+        };
+        let input = model_2d_from(
+            &[(1, 0.0, 0.0), (2, l, 0.0)], &[(1, "frame", 1, 2, false, false)],
+            vec![sup_2d(1, 1, "fixed")], vec![load_2d],
+        );
+        let dn = all_free(&DofNumbering::build_2d(&input));
+        let mut expected = vec![0.0; dn.n_total * dn.n_total];
+        let dofs = [dn.global_dof(1, 1).unwrap(), dn.global_dof(1, 2).unwrap(), dn.global_dof(2, 1).unwrap(), dn.global_dof(2, 2).unwrap()];
+        for a in 0..4 {
+            for b in 0..4 {
+                expected[dofs[a] * dn.n_total + dofs[b]] = plane[a][b];
+            }
+        }
+        let got = dense(&build_kg_from_forces_2d(&input, &dn, &forces_2d(&input, &axial), &[]).into_csc());
+        assert_agree("2D constant span vs Simpson", &got, &expected, dn.n_total);
+
+        let load_3d = if point {
+            serde_json::json!({"type": "pointOnElement", "data": {"elementId": 1, "a": l / 2.0, "px": p, "py": 0.0, "pz": 0.0}})
+        } else {
+            serde_json::json!({"type": "distributed", "data": {"elementId": 1, "qXI": p / l, "qXJ": p / l, "qYI": 0.0, "qYJ": 0.0, "qZI": 0.0, "qZJ": 0.0}})
+        };
+        let input = model_3d_from(
+            &[(1, [0.0; 3]), (2, [l, 0.0, 0.0])], &[(1, "frame", 1, 2, 1)],
+            vec![sup_3d(1, [true; 6])], vec![serde_json::from_value(load_3d).unwrap()],
+        );
+        let dn = all_free(&DofNumbering::build_3d(&input));
+        let mut expected = vec![0.0; dn.n_total * dn.n_total];
+        for (trans, rot, sign) in [(1, 5, 1.0), (2, 4, -1.0)] {
+            let dofs = [dn.global_dof(1, trans).unwrap(), dn.global_dof(1, rot).unwrap(), dn.global_dof(2, trans).unwrap(), dn.global_dof(2, rot).unwrap()];
+            let signs = [1.0, sign, 1.0, sign];
+            for a in 0..4 {
+                for b in 0..4 {
+                    expected[dofs[a] * dn.n_total + dofs[b]] = signs[a] * signs[b] * plane[a][b];
+                }
+            }
+        }
+        let got = dense(&build_kg_from_forces_3d(&input, &dn, &forces_3d(&input, &axial)).into_csc());
+        assert_agree("3D constant span vs Simpson", &got, &expected, dn.n_total);
+    }
 }

@@ -118,14 +118,18 @@ torsion term). Tests: `dmgd::kg_2d_closed_form_symmetry_and_string_limit`;
   integrates; for a truss, whose linear interpolation sees only the mean, it is right also with
   axial point or partial loads
   (`opensees_differential_regressions.rs::buckling_uses_mean_axial_force_of_truss_with_axial_point_load`).
-  Buckling adds to each frame member under axial span loads the term
+  Buckling and P-Delta add to each frame member under axial span loads the term
   $\int (N(x)-\bar N)\,\varphi_i'\varphi_j'\,dx$ (`span_axial_geometric_stiffness_2d/3d`; in 3D
   in both bending planes and the Wagner and shear-centre terms), so its $K_G$ integrates the whole
   $N(x)$ (`buckling_span_axial_2d.rs`, `buckling_span_axial_3d.rs`,
-  `buckling_3d_integrates_the_axial_force_of_frame_with_partial_axial_load`). P-Delta still uses
-  the mean and warns (PD-SPAN-AXIAL).
-- **`build_kg_from_forces_2d/3d`** (public helpers, no solver path uses them now): $P=(N_\text{start}+N_\text{end})/2$.
-  Equal to the mean only when $N$ is linear.
+  `buckling_3d_integrates_the_axial_force_of_frame_with_partial_axial_load`,
+  `pdelta_span_axial.rs`). P-Delta uses the correction in geometric end forces and
+  the constant part of its certified residual model as well.
+- **`build_kg_from_forces_2d/3d`** (public helpers, no solver path uses them now): assemble the full
+  $\int N(x)\,\varphi_i'\varphi_j'\,dx$ from the supplied end forces and the input axial span loads.
+  The constant part uses the length-average force, and the span correction is already included
+  in 2D and both 3D bending planes, with release condensation. Callers must not add the span term
+  again. Trusses and cables use the length-average force with their constant transverse slopes.
 - The per-element "critical force" in the buckling report uses the mean force $EA\,(\delta/L-\alpha\,\Delta T)$, and
   $k_\text{eff}=\pi\sqrt{EI/P_{cr}}/L$ with $I=I_z$ (2D) or $\min(I_y,I_z)$ (3D). These are
   derived quantities of the first mode only, meaningful for members that take part in it.

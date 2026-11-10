@@ -365,7 +365,7 @@ pub fn solve_pdelta_2d_on(
             // model's, though: see `model_structured_diagnostics`.
             diagnostics: linear_results.diagnostics.clone(),
             solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
-            structured_diagnostics: { let mut d = model_structured_diagnostics(&linear_results.structured_diagnostics); crate::known_issues::attach(&mut d, crate::known_issues::pdelta_span_axial_2d(&input.loads)); d },
+            structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
             // Still not computed for the second-order state: the residual would
             // have to be formed against (K + K_G) and the P-Delta reactions.
             equilibrium: None,
@@ -619,7 +619,7 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
             quad_stresses: compute_quad_stresses(input, dof_num, &u_global, None), quad_nodal_stresses: vec![], constraint_forces,
             diagnostics: linear_results.diagnostics.clone(),
             solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
-            structured_diagnostics: { let mut d = model_structured_diagnostics(&linear_results.structured_diagnostics); crate::known_issues::attach(&mut d, crate::known_issues::pdelta_span_axial_3d(&input.loads)); d },
+            structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
             equilibrium: None, timings: None, result_summary: None, solver_run_meta: None,
         },
         iterations: state.iterations, converged: state.converged,
