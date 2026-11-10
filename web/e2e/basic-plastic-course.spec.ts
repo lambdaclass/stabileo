@@ -76,11 +76,10 @@ test.describe('@slow plastic collapse, explained', () => {
     await tapAt(page, 4, 3, 0.95);
     await expect(page.getByTestId('plastic-user-verdict')).toContainText(/GH \+ 1 = 4/);
 
-    await page.getByTestId('adv-steps').click();
-    for (const id of ['plasticKinematic', 'plasticStatic']) {
-      await expect(page.getByTestId(`steps-withheld-${id}`)).toHaveCount(0);
-      await expect(page.getByTestId(`steps-open-${id}`)).toBeEnabled();
-    }
+    await page.getByTestId('plastic-open-kinematic').click();
+    await expect(page.getByTestId('steps-doc')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('steps-error')).toHaveCount(0);
+    await expect(page.getByTestId('steps-tab').first()).toBeVisible();
     expect(errors).toEqual([]);
   });
 });
