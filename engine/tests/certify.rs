@@ -733,8 +733,6 @@ fn certify_modal_constrained() {
 
 // ───────────────────────── fuzz with an oracle ─────────────────────────
 
-/// When the certificate's own f64 Cholesky shows K is not positive definite,
-/// the solver's results must carry the matching warning.
 fn assert_not_pd_warned(seed: u64, reason: &str, diags: &[StructuredDiagnostic]) {
     if reason.contains("not positive definite (f64 Cholesky") || reason.contains("sparse Cholesky failed") {
         assert!(
@@ -1472,16 +1470,76 @@ fn certified_inclined_settlement_2d_is_tight() {
     }
 }
 
-fn assert_uncertified_3d(seed: u64, _input: &SolverInput3D, result: &AnalysisResults3D, reason: &str) {
-    assert_not_pd_warned(seed, reason, &result.structured_diagnostics);
+fn assert_uncertified_3d(seed: u64, input: &SolverInput3D, result: &AnalysisResults3D, reason: &str) {
+    let (member_id, node, local_y) = match seed {
+        100249 => ("2", 5, true),
+        100280 => ("3", 2, false),
+        100300 => ("1", 2, true),
+        100309 => ("6", 2, true),
+        100325 => ("4", 4, false),
+        _ => {
+            assert_not_pd_warned(seed, reason, &result.structured_diagnostics);
+            return;
+        }
+    };
+    assert!(reason.contains("not positive definite (f64 Cholesky"), "{reason}");
+    let member = &input.elements[member_id];
+    let start = node == member.node_i;
+    assert!(start || node == member.node_j);
+    let released = match (start, local_y) {
+        (true, true) => member.release_my_start,
+        (false, true) => member.release_my_end,
+        (true, false) => member.release_mz_start,
+        (false, false) => member.release_mz_end,
+    };
+    assert!(released);
+    assert_eq!(input.elements.values().filter(|e| e.node_i == node || e.node_j == node).count(), 1);
+    let (a, b) = (&input.nodes[&member.node_i.to_string()], &input.nodes[&member.node_j.to_string()]);
+    let (_, ey, ez) = dedaliano_engine::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z,
+        member.local_yx, member.local_yy, member.local_yz, member.roll_angle, input.left_hand.unwrap_or(false));
+    let axis = if local_y { ey } else { ez };
+    let dof = DofNumbering::build_3d(input);
+    let mut mode = vec![0.0; dof.n_total];
+    for (i, v) in axis.into_iter().enumerate() { mode[dof.global_dof(node, 3 + i).unwrap()] = v; }
+    assert!(mode[dof.n_free..].iter().all(|&v| v == 0.0));
+    let asm = dedaliano_engine::solver::assembly::assemble_3d(input, &dof);
+    assert!(asm.artificial_dofs.is_empty());
+    let max = |v: &[f64]| v.iter().fold(0.0f64, |a, b| a.max(b.abs()));
+    let residual: Vec<f64> = asm.k.chunks(dof.n_total).map(|row| row.iter().zip(&mode).map(|(k, v)| k * v).sum()).collect();
+    assert!(max(&residual) / (max(&asm.k) * max(&mode)) < 1e-14);
+    assert!(asm.f.iter().zip(&mode).map(|(f, v)| f * v).sum::<f64>().abs() <= 1e-14 * norm(&asm.f) * norm(&mode));
+    let mut reduced = reduced_3d(input, result);
+    let scale = (0..reduced.n).filter(|&i| mode[i] != 0.0).map(|i| reduced.k[i * reduced.n + i]).fold(0.0f64, f64::max);
+    for i in 0..reduced.n {
+        for j in 0..reduced.n { reduced.k[i * reduced.n + j] += scale * mode[i] * mode[j]; }
+    }
+    let rhs: Vec<f64> = reduced.f_hi.iter().zip(&reduced.f_lo).map(|(h, l)| h + l).collect();
+    let cert = dedaliano_engine::certify::certify_linear_system_auto(&reduced.k, reduced.n, &rhs, &reduced.u);
+    let (_, _, error) = assert_honest(&format!("{seed} with its unloaded release fixed"), &cert, &reduced);
+    assert!(error / norm(&reduced.u) <= dedaliano_engine::solver::stability::CONDITIONAL_ACCURACY);
+    eprintln!("{seed}: null residual {:e}, relative reference error {:e}", max(&residual) / (max(&asm.k) * max(&mode)), error / norm(&reduced.u));
+    let mut loaded = input.clone();
+    loaded.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+        node_id: node, fx: 0.0, fy: 0.0, fz: 0.0, mx: axis[0], my: axis[1], mz: axis[2], bw: None,
+    }));
+    assert!(solve_3d(&loaded).is_err(), "{seed}: a moment on the free release must be refused");
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_certificate_oracle_seed_100249() {
     let seed = 100249;
     let input = fuzz_models::random_3d_model(seed);
     let result = solve_3d(&input).unwrap();
     let Certificate::Uncertified { reason } = dedaliano_engine::certify::certify_results_3d(&input, &result) else { panic!("the unreduced released rotation must not be certified") };
     assert_uncertified_3d(seed, &input, &result, &reason);
+}
+
+#[test]
+fn issue_1753_certificate_oracle_other_unloaded_releases() {
+    for seed in [100280, 100300, 100309, 100325] {
+        let input = fuzz_models::random_3d_model(seed);
+        let result = solve_3d(&input).unwrap();
+        let Certificate::Uncertified { reason } = dedaliano_engine::certify::certify_results_3d(&input, &result) else { panic!("{seed}: the unreduced released rotation must not be certified") };
+        assert_uncertified_3d(seed, &input, &result, &reason);
+    }
 }

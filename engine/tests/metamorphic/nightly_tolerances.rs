@@ -750,7 +750,17 @@ fn retained_analysis_failures(seed: u64, dim: &str) -> Vec<(&'static str, &'stat
 }
 
 fn assert_retained_analysis_failures(seed: u64, dim: &str, t: &Tally) {
-    assert_analysis_failures(seed, dim, t, retained_analysis_failures(seed, dim));
+    let corrected = |a: &str, i: &str| seed == 2026110200115 && dim == "d3" && a == "linear (PCG)" && i == "units";
+    let retained = retained_analysis_failures(seed, dim);
+    let failures = retained.iter().copied().filter(|(a, i)| !corrected(a, i)).collect();
+    assert_analysis_failures(seed, dim, t, failures);
+    let cells = t.cells.lock().unwrap();
+    for (a, i) in retained.into_iter().filter(|(a, i)| corrected(a, i)) {
+        let c = cell(&cells, 1753, a, i);
+        assert_eq!(c.pass, 1, "{seed} {dim}: corrected {a} / {i} did not compare: {c:?}");
+        assert!(c.fails.is_empty(), "{seed} {dim}: corrected {a} / {i} regressed: {c:?}");
+        assert_eq!(c.same_refusal + c.refused + c.inconclusive + c.unrep + c.not_applicable, 0, "{seed} {dim}: corrected {a} / {i} lost its numerical comparison: {c:?}");
+    }
 }
 
 fn assert_analysis_failures(seed: u64, dim: &str, t: &Tally, expected: Vec<(&str, &str)>) {
@@ -1606,7 +1616,6 @@ fn issue_1892_final_round_moving_moments_use_each_members_distance() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_retained_pcg_units_inventory_accepts_verified_comparisons() {
     let seed = 2026110200115;
     let c = crate::corpus::fuzz_case_3d(2026110200000, seed - 2026110200000);

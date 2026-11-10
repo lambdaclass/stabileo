@@ -720,3 +720,47 @@ The unmerged `linear-stability-refusals` entry now declares `diagnosticCodes`,
 so the snapshot applicability gate can account for this change. Regenerating
 with `make snapshots-update` leaves the committed snapshot unchanged. No
 numerical baseline, accuracy threshold or warning assertion is relaxed.
+
+
+## CI follow-up: certificate oracle and admitted MITC9 strips
+
+PR #1753 CI at `6d2ba890a` retained expectations from the earlier product-only
+refusal policy. This follow-up changes tests and test-only parsing, not production
+engine outputs. The existing `linear-stability-refusals` registry entry continues
+to describe the branch's result changes; no additional numerical allowance is added.
+
+The certificate oracle's 3D seeds `100249`, `100280`, `100300`, `100309` and
+`100325` each have one unloaded local bending release at a leaf node. The physical
+linear solver eliminates that rotation exactly. The certificate's unreduced
+stiffness remains singular and correctly returns `Uncertified`; expecting the
+old `StiffnessNotPositiveDefinite` fallback warning for these solves is stale.
+The exception is limited to those five seeds and the recorded member, node and
+release axis. Every other uncertified seed retains the original warning check.
+
+Before admitting an exception, the oracle independently constructs the released
+rotation from the member axes, verifies that it moves no restrained DOF, that no
+artificial stiffness was assembled, that the full stiffness annihilates it within
+the existing explicit-null-mode criterion, and that the applied load does no work
+in that direction. Fixing only that free rotation must then yield an interval
+certificate whose bound encloses the double-double reference error, and the
+returned response must agree with that reference within the existing
+`CONDITIONAL_ACCURACY`. Adding a nodal moment along the release must be refused.
+The production certificate remains `Uncertified`; this test does not relabel it.
+
+The largest measured normalized null residual is `3.2116247071503022e-18`, and
+the largest measured relative reference error is `2.398103254664951e-9`.
+The original 400-pair fuzz oracle is still run; the known seed does not replace it.
+
+The 24 by 8 MITC9 strips at `0.95 * warn` and `0.95 * refuse` now solve under the
+conditional-admission policy already described above. The earlier refusal-only
+expectation had bypassed their numerical checks. Both element families now run
+the original assertions: the flat reference within `0.01` of theory, excess below
+`0.015` without a warped-MITC warning, and increasing excess below `0.05` with
+exactly the warped-MITC warning at the upper thickness. Neither band, mesh,
+engineering input nor assertion is widened. The superseded product-only refusal
+paragraph above is not a statement of the current loaded solve outcome.
+
+The retained PCG units cell is kept as a required numerical pass as documented
+in [the verification transition](../verification/ANALYSIS_INVARIANCE_ACCURACY.md#pr-1753-retained-cell-transition).
+The generated-model native tests deserialize through `ElasticInput3D` before
+obtaining the legacy solver input, preserving the typed-boundary inventory.

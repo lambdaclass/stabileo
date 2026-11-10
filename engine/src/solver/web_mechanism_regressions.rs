@@ -1,13 +1,13 @@
 use super::assembly::*;
 use super::dof::DofNumbering;
-use crate::types::SolverInput3D;
+use crate::types::units::ElasticInput3D;
 
 #[test]
 fn issue_1753_web_refusals_have_explicit_physical_null_modes() {
     let cases: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/1753-web-mechanisms.json")).unwrap();
     assert_eq!(cases.as_array().unwrap().len(), 32);
     for case in cases.as_array().unwrap() {
-        let input: SolverInput3D = serde_json::from_value(case["input"].clone()).unwrap();
+        let input = serde_json::from_value::<ElasticInput3D>(case["input"].clone()).unwrap().into_legacy();
         let dof = DofNumbering::build_3d(&input);
         let asm = without_artificial_stiffness(|| assemble_sparse_3d(&input, &dof, true));
         let k = asm.k_full.unwrap();
@@ -30,7 +30,7 @@ fn issue_1753_generated_models_solve_with_balanced_nodal_loads() {
     let cases: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/1753-generated-stable.json")).unwrap();
     assert_eq!(cases.as_array().unwrap().len(), 28);
     for case in cases.as_array().unwrap() {
-        let input: SolverInput3D = serde_json::from_value(case["input"].clone()).unwrap();
+        let input = serde_json::from_value::<ElasticInput3D>(case["input"].clone()).unwrap().into_legacy();
         let result = super::linear::solve_3d(&input).unwrap_or_else(|e| panic!("{}: {e}", case["test"]));
         let mut applied = [0.0; 3];
         for load in &input.loads {

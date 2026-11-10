@@ -1799,13 +1799,6 @@ fn warped_mitc_bands_bound_the_measured_twisted_beam_error() {
             }
             Ok((worst, diagnostics))
         };
-        if quad9 {
-            for kt in [0.95 * warn, 0.95 * refuse] {
-                let e = excess(kt).expect_err("the thin MITC9 strip is a known conservative refusal of the stability test");
-                assert!(e.contains("cannot be decided in double precision"), "κt {kt}: {e}");
-            }
-            continue;
-        }
         let (below_warn, ds) = excess(0.95 * warn).unwrap_or_else(|e| panic!("{quad9}: {e}"));
         assert!(warped_findings(&ds).is_empty(), "{quad9}");
         assert!(below_warn < 0.015, "{quad9}: {below_warn} unflagged, over the 1.5 % warning band");
