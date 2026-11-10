@@ -2661,3 +2661,128 @@ fn unequal_shear_areas_are_paired_with_their_bending_plane_as_the_solver_pairs_t
         assert_eq!(flexible, 1, "exactly one shear area turns the cut model for py {py} pz {pz}");
     }
 }
+
+fn tied_axial_rounding_3d(member_stiffness: f64) -> SolverInput3D {
+    serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 1.0, "y": 0.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": member_stiffness / 1000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 1.0, "iy": 1.0, "iz": 1.0, "j": 1.0}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {
+            "1": {"nodeId": 1, "rx": false, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true, "kx": 3.0},
+            "2": {"nodeId": 2, "rx": false, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}
+        },
+        "constraints": [{"type": "equalDOF", "masterNode": 1, "slaveNode": 2, "dofs": [0]}],
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 1.0, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": 0.0}}]
+    })).unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_constraint_cancellation_keeps_the_original_rounding_scale() {
+    for stiffness in [1e16, 1e8] {
+        let input = tied_axial_rounding_3d(stiffness);
+        let result = dedaliano_engine::solver::linear::solve_3d(&input);
+        if stiffness == 1e16 {
+            let stability = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
+            assert!(!stability.is_stable(), "{stability:?}");
+            let err = result.expect_err("constraint cancellation returned F/4 instead of F/3");
+            assert!(err.starts_with("the structure is a mechanism"), "{err}");
+        } else {
+            let result = result.unwrap();
+            for d in &result.displacements { assert!((d.ux - 1.0 / 3.0).abs() < 1e-9, "{d:?}"); }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_a_loaded_uncoupled_rotational_spring_keeps_its_own_scale() {
+    let mut input = common::make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0), (3, 2.0, 0.0, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, 1.0, 1.0, 1.0, 1.0)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true; 6]), (2, vec![true; 6]), (3, vec![true, true, true, false, false, true])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 2.0, mz: 0.0, bw: None })],
+    );
+    let support = input.supports.values_mut().find(|s| s.node_id == 3).unwrap();
+    support.krx = Some(1e13);
+    support.kry = Some(1.0);
+    for result in [dedaliano_engine::solver::linear::solve_3d(&input),
+        dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads))] {
+        let result = result.unwrap();
+        let d = result.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        assert!((d.ry - 2.0).abs() < 1e-12, "{d:?}");
+        assert_eq!(d.rx, 0.0);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_an_oblique_release_solves_unloaded_and_refuses_a_torsional_load() {
+    for end in [(1.0, 2.0, 3.0), (2.0, -3.0, 1.0)] {
+        let (x, y, z): (f64, f64, f64) = end;
+        let length = (x*x + y*y + z*z).sqrt();
+        let mut input = common::make_3d_input(
+            vec![(1, 0.0, 0.0, 0.0), (2, x, y, z)],
+            vec![(1, E, 0.3)], vec![(1, 1.0, 1.0, 1.0, 1.0)],
+            vec![(1, "frame", 1, 2, 1, 1)], vec![(1, vec![true; 6])],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: x/length, fy: y/length, fz: z/length, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+        );
+        input.elements.get_mut("1").unwrap().release_t_end = true;
+        for loaded in [false, true] {
+            if loaded {
+                if let SolverLoad3D::Nodal(n) = &mut input.loads[0] { n.mx = x/length; n.my = y/length; n.mz = z/length; }
+            }
+            for result in [dedaliano_engine::solver::linear::solve_3d(&input),
+                dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads))] {
+                if loaded {
+                    let err = result.expect_err("a released torsion carried a moment");
+                    assert!(err.contains("node 2") && err.contains("rotation"), "{err}");
+                } else {
+                    let result = result.unwrap();
+                    let d = result.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                    for (got, want) in [(d.ux, x/(E*1000.0)), (d.uy, y/(E*1000.0)), (d.uz, z/(E*1000.0))] {
+                        assert!((got-want).abs() < 1e-12 * want.abs(), "{d:?}");
+                    }
+                    assert!((d.rx*x + d.ry*y + d.rz*z).abs() < 1e-12);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_constraint_cancellation_is_refused_by_both_2d_reductions() {
+    let input: SolverInput = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 1.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 1e13, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 1.0, "iz": 1.0}},
+        "elements": {"1": {"id": 1, "type": "truss", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {
+            "1": {"id": 1, "nodeId": 1, "type": "spring", "kx": 3.0, "ky": 1.0},
+            "2": {"id": 2, "nodeId": 2, "type": "spring", "ky": 1.0}
+        },
+        "constraints": [{"type": "equalDOF", "masterNode": 1, "slaveNode": 2, "dofs": [0]}],
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 1.0, "fz": 0.0, "my": 0.0}}]
+    })).unwrap();
+    let ci = ConstrainedInput { solver: input.clone(), constraints: input.constraints.clone() };
+    let dof = dedaliano_engine::solver::dof::DofNumbering::build_2d(&input);
+    for result in [solve_2d(&input), dedaliano_engine::solver::constraints::solve_constrained_2d_dense(&ci, &dof)] {
+        let err = result.expect_err("constraint cancellation returned F/4 instead of F/3");
+        assert!(err.starts_with("the structure is a mechanism"), "{err}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_an_independent_load_cannot_mask_constraint_cancellation() {
+    let mut input = tied_axial_rounding_3d(1e16);
+    input.nodes.insert("3".into(), serde_json::from_value(serde_json::json!({"id": 3, "x": 0.0, "y": 0.0, "z": 0.0})).unwrap());
+    input.supports.insert("3".into(), serde_json::from_value(serde_json::json!({"nodeId": 3, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true})).unwrap());
+    input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: 1e6, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+    let result = dedaliano_engine::solver::linear::solve_3d(&input);
+    let err = result.expect_err("an independent load masked F/4 instead of F/3");
+    assert!(err.starts_with("the structure is a mechanism"), "{err}");
+}
