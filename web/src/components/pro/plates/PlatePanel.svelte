@@ -18,6 +18,7 @@
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
   import PlateMeshDialog from './PlateMeshDialog.svelte';
+  import { plateMeshState } from './plate-state';
 
   const ids = $derived([...uiStore.selectedPlates].filter((id) => { void modelStore.model.groups; return !!plateEntry(id); }));
   const entries = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return ids.map((id) => plateEntry(id)!); });
@@ -77,25 +78,31 @@
     const keys = ids.flatMap(plateShellKeys);
     if (uiStore.shellPickScope !== 'element') uiStore.toast(t('plates.scopeNowElement'), 'info');
     uiStore.shellPickScope = 'element';
+    uiStore.selectPlates([]);
     uiStore.setSelection(new Set(), new Set(), false, new Set(keys));
   }
   function remove() {
     modelStore.batch(() => { for (const id of ids) deletePlate(id); });
     uiStore.clearSelection();
   }
-  const statusLabel = (s: PlateStatus) => t(`plates.status.${s}`);
+  const meshSummary = $derived.by(() => {
+    const by = new Map<string, number>();
+    for (const e of entries) { const k = plateMeshState(e, status(e.id)).tone; by.set(k, (by.get(k) ?? 0) + 1); }
+    return [...by].map(([k, n]) => tp(`plates.summary.${k}`, { n })).join(' · ');
+  });
 </script>
 
 {#if entries.length}
   <section class="pp" data-testid="plate-panel">
     <header class="pp-head">
-      <strong>{one ? one.name : tp('plates.nSelected', { n: entries.length })}</strong>
-      {#if one}<span class="pp-kind">{t(`plates.kind.${one.physical.kind === 'wall' ? 'wall' : 'slab'}`)} · {fmtQ(area, 'planArea')} {unitQ('planArea')}</span>{/if}
+      <strong data-testid="plate-panel-title">{one ? one.name : tp('plates.nSelected', { n: entries.length })}</strong>
+      {#if one}<span class="pp-kind">{t(`plates.kind.${one.physical.kind === 'wall' ? 'wall' : 'slab'}`)} · {fmtQ(area, 'planArea')} {unitQ('planArea')}</span>
+      {:else}<span class="pp-kind">{entries.slice(0, 8).map((e) => e.name).join(', ')}{entries.length > 8 ? '…' : ''}</span>{/if}
     </header>
 
     <div class="pp-row">
       <label>{t('pro.thMaterial')}
-        <select value={sharedMaterial ?? ''} onchange={(e) => { const v = Number(e.currentTarget.value); for (const id of ids) setPlateProperties(id, { materialId: v }); }} data-testid="plate-material">
+        <select value={sharedMaterial ?? ''} onchange={(e) => { const v = Number(e.currentTarget.value); modelStore.batch(() => { for (const id of ids) setPlateProperties(id, { materialId: v }); }); }} data-testid="plate-material">
           {#if sharedMaterial === null}<option value="" disabled>{t('plates.mixed')}</option>{/if}
           {#each materials as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
         </select>
@@ -107,23 +114,22 @@
     </div>
 
     <div class="pp-mesh" data-testid="plate-mesh-status">
-      {#each entries as e (e.id)}
-        {@const s = status(e.id)}
-        <div class="pp-mesh-line">
-          {#if !one}<span class="pp-name">{e.name}</span>{/if}
-          <span class="chip chip-{s}" data-testid="plate-status-{e.id}">{statusLabel(s)}</span>
-          {#if e.surface.meshed && s !== 'unmeshed'}
-            <span class="pp-dim">{tp(e.surface.meshed.cells === 1 ? 'plates.meshSummaryOne' : 'plates.meshSummary', { cells: e.surface.meshed.cells, size: fmtQ(e.surface.mesh.size, 'length'), unit: unitQ('length') })}</span>
-            {#if e.surface.meshed.quality.poor > 0}<span class="pp-warn">{tp('plates.poorCells', { n: e.surface.meshed.quality.poor })}</span>{/if}
-          {/if}
-        </div>
-      {/each}
+      <span class="pp-label">{t('plates.meshHeading')}</span>
+      {#if one}
+        {@const st = plateMeshState(one, status(one.id))}
+        <span class="tone-{st.tone}" data-testid="plate-status-{one.id}">{st.text}</span>
+        {#if one.surface.meshed && !one.surface.meshed.original && one.surface.meshed.quality.poor > 0 && status(one.id) === 'current'}<span class="pp-warn">{tp('plates.poorCells', { n: one.surface.meshed.quality.poor })}</span>{/if}
+      {:else}
+        <span data-testid="plate-mesh-summary">{meshSummary}</span>
+      {/if}
       <div class="pp-actions">
-        <button class="pp-btn primary" onclick={() => (meshOpen = true)} data-testid="plate-mesh-open">{entries.some((e) => e.surface.meshed) ? t('plates.remesh') : t('plates.mesh')}…</button>
+        <button class="pp-btn primary" onclick={() => (meshOpen = true)} data-testid="plate-mesh-open">{entries.some((e) => e.surface.meshed && !e.surface.meshed.original) ? t('plates.remesh') : t('plates.mesh')}…</button>
         <button class="pp-btn" disabled={!entries.some((e) => e.surface.meshed)} onclick={clearMeshes} data-testid="plate-mesh-clear">{t('plates.clearMesh')}</button>
         <button class="pp-btn" disabled={!entries.some((e) => e.surface.meshed)} onclick={showElements} data-testid="plate-show-elements">{t('plates.showElements')}</button>
       </div>
     </div>
+
+    <button class="pp-link" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">{one ? tp('plates.openSpec', { name: one.name }) : tp('plates.openSpecMany', { n: entries.length })} ›</button>
 
     {#if one && loops}
       <details class="pp-block" data-testid="plate-sides" open={sides.some((x) => x.mid !== null)}>
@@ -193,11 +199,16 @@
   .pp-head { display: flex; flex-direction: column; gap: 2px; }
   .pp-head strong { color: var(--st-text); font-size: 0.8rem; }
   .pp-kind, .pp-dim { color: var(--st-text-3); }
-  .pp-row, .pp-line, .pp-actions, .pp-mesh-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pp-row, .pp-line, .pp-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .pp-row label { display: inline-flex; align-items: center; gap: 4px; }
   .pp-block, .pp-mesh { display: flex; flex-direction: column; gap: 4px; }
   .pp-label { font-weight: 600; color: var(--st-text-2); cursor: pointer; }
-  .pp-name { min-width: 36px; color: var(--st-text); }
+  .pp-link { align-self: flex-start; padding: 0; background: none; border: none; color: var(--st-accent); font: inherit; cursor: pointer; }
+  .pp-link:hover { text-decoration: underline; }
+  .tone-none, .tone-raw { color: var(--st-text-3); }
+  .tone-ok { color: var(--st-ok, #5cb85c); }
+  .tone-warn { color: var(--st-warn, #d9a441); }
+  .tone-bad { color: var(--st-danger, #e06c6c); }
   .pp-warn { color: var(--st-warn, #d9a441); }
   .pp-msg { margin: 0; color: var(--st-text-3); font-size: 0.7rem; }
   .pp-msg { color: var(--st-text-2); }
@@ -211,9 +222,4 @@
   .pp-btn.primary { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }
   .pp-btn.danger { color: var(--st-danger, #e06c6c); }
   .pp-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; font-size: 0.9rem; }
-  .chip { padding: 1px 6px; border-radius: 9px; font-size: 0.68rem; border: 1px solid var(--st-hair-strong); }
-  .chip-current { color: var(--st-ok, #5cb85c); border-color: currentColor; }
-  .chip-stale { color: var(--st-warn, #d9a441); border-color: currentColor; }
-  .chip-unmeshed { color: var(--st-text-3); }
-  .chip-invalid { color: var(--st-danger, #e06c6c); border-color: currentColor; }
 </style>

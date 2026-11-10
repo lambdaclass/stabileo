@@ -203,7 +203,7 @@ export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boo
       syncDefinedLoads();
     }
     // A plate's signature reads the nodes every plate's mesh owns, so each conversion can put the others out of date: settled once all are in.
-    if (opts.keepMesh !== false) for (const id of out) adoptCurrentMesh(id);
+    if (opts.keepMesh !== false) for (const id of out) adoptCurrentMesh(id, { original: opts.size === undefined });
     for (const id of current) if (plateStatus(id) === 'stale') adoptCurrentMesh(id);
   });
   return out;

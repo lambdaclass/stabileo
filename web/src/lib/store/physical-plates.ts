@@ -192,7 +192,8 @@ function signatureOf(e: PlateEntry, f: NonNullable<ReturnType<typeof featuresOf>
  * The plate's shells as they are, taken as its current mesh: what a plate made from shells already in
  * the model keeps, so its answer does not change until its definition does.
  */
-export function adoptCurrentMesh(id: number): void {
+/** Take a plate's shells as its current mesh. `original`: they came with the model, no mesher made them (kept when the plate already had a mesh). */
+export function adoptCurrentMesh(id: number, opts: { original?: boolean } = {}): void {
   const e = plateEntry(id);
   const f = e ? featuresOf(e) : null;
   if (!e || !f) return;
@@ -201,7 +202,10 @@ export function adoptCurrentMesh(id: number): void {
   for (const q of e.group.members.quads ?? []) { const sh = modelStore.quads.get(q); if (sh) cells.push(sh.nodes.map(at)); }
   for (const q of e.group.members.plates ?? []) { const sh = modelStore.plates.get(q); if (sh) cells.push(sh.nodes.map(at)); }
   if (!cells.length) return;
-  writeSurface(id, (s) => ({ ...s, meshed: { ...(s.meshed ?? {}), signature: signatureOf(e, f, specOf(e)), cells: cells.length, quality: meshQuality({ points, cells }) } }));
+  writeSurface(id, (s) => {
+    const original = s.meshed ? s.meshed.original : opts.original;
+    return { ...s, meshed: { ...(s.meshed ?? {}), signature: signatureOf(e, f, specOf(e)), cells: cells.length, quality: meshQuality({ points, cells }), ...(original ? { original: true } : {}) } };
+  });
 }
 
 /** A plain support (a type and nothing else) at both ends of an outline side holds the whole side: the mesh's nodes on it get it too. */

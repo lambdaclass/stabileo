@@ -152,6 +152,19 @@ describe('plates side by side', () => {
   });
 });
 
+describe('what made a plate\'s mesh', () => {
+  it('says a mesh came with the model until a mesher makes one, and a mesh made at a size is the mesher\'s', () => {
+    grid(3, 2);
+    const [p] = platesFromShells(looseShells());
+    expect(physicalPlates()[0]!.surface.meshed?.original).toBe(true);
+    applyPlateMeshes([planPlateMesh(p!, { size: 0.5 })!]);
+    expect(physicalPlates()[0]!.surface.meshed?.original).toBeUndefined();
+    grid(2, 2);
+    platesFromShells(looseShells(), { size: 1 });
+    expect(physicalPlates()[0]!.surface.meshed?.original).toBeUndefined();
+  });
+});
+
 describe('a circular plate', () => {
   it('has four curved sides and a circular hole, and meshes to its circle', async () => {
     const { createCircularPlate } = await import('../physical-plates');

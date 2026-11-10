@@ -75,6 +75,8 @@ export interface PlateSurface {
     signature: string; cells: number; quality: MeshQuality;
     /** Mesh nodes given the plain support both ends of their outline side carry, taken away with the mesh. */
     supported?: number[];
+    /** The shells the plate came with, as the model had them: no mesher made them. */
+    original?: boolean;
   };
 }
 

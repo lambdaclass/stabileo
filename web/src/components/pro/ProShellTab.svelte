@@ -9,7 +9,7 @@
   import { createCircularPlate, createPlate, physicalPlates, plateOfShell } from '../../lib/store/physical-plates';
   import { platesFromShells } from '../../lib/store/plates-from-shells';
   import PlatePanel from './plates/PlatePanel.svelte';
-  import PlateList from './plates/PlateList.svelte';
+  import PlateBrowser from './plates/PlateBrowser.svelte';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import Icon from '../ribbon/Icon.svelte';
@@ -35,9 +35,21 @@
   const plateCount = $derived(plates.length);
   const quadCount = $derived(quads.length);
 
-  /* The mesh's elements are listed on demand, and open by themselves when elements are picked one by one. */
-  let showElements = $state(false);
-  const elementsOpen = $derived(showElements || (uiStore.selectedShells.size > 0 && uiStore.selectedPlates.size === 0));
+  /** The panel lists what a click in the model picks: whole plates, or their mesh's elements. */
+  function toScope(scope: 'plate' | 'element') {
+    if (scope === uiStore.shellPickScope) return;
+    uiStore.selectMode = 'shells';
+    if (scope === 'plate') {
+      const owners = [...new Set([...uiStore.selectedShells].map((k) => plateOfShell(k)).filter((x): x is number => x !== null))];
+      uiStore.shellPickScope = 'plate';
+      uiStore.selectPlates(owners);
+    } else {
+      const keys = new Set(uiStore.selectedShells);
+      uiStore.shellPickScope = 'element';
+      uiStore.selectPlates([]);
+      uiStore.setSelection(new Set(), new Set(), false, keys);
+    }
+  }
   const physicalCount = $derived.by(() => { void modelStore.model.groups; return physicalPlates().length; });
 
 
@@ -221,36 +233,6 @@
   </div>
 
   <div class="pro-shells-scroll">
-    <PlatePanel />
-    {#if uiStore.selectedPlates.size === 0 && uiStore.selectedShells.size > 0}
-      {@const owner = plateOfShell([...uiStore.selectedShells][0]!)}
-      {#if owner !== null}
-        <!-- An element of a plate's mesh: back to the plate it was made from. -->
-        <button class="pro-btn" onclick={() => { uiStore.shellPickScope = 'plate'; uiStore.selectPlates([owner]); }} data-testid="shell-select-owner">{tp('plates.selectOwner', { name: modelStore.model.groups.get(owner)?.name ?? '' })}</button>
-      {/if}
-    {/if}
-    <PlateList />
-
-
-    <!--
-      ── ONE creator: three nodes make a triangle, four make a quad ─────
-      There were two, side by side, near-identical and each with its own
-      node boxes, material, thickness and family: "Plate (DKT triangle)" and
-      "Quad (MITC4)". Those are ELEMENT FORMULATIONS, and a reader drawing a
-      slab does not start from one — they start from the corners. How many
-      corners there are already decides which formulation applies, so asking
-      is asking the reader to answer a question the geometry has answered.
-
-      Pick the nodes; three or four; the panel says what it is about to make
-      and makes it.
-
-      The formulation is still SHOWN — the recommendation below names it and
-      says why — but it is no longer chooseable, and the `auto` choice the two
-      creators used to write onto the element is not written either. That is
-      worth knowing rather than glossing: the engine chooses the formulation by
-      the shell's node count, and the `shellFamily` field that stood for a choice
-      was read by nothing and has been removed.
-    -->
     {#if drawState.writing === 'plate'}
       <WriteCard
         title={capitalized(tp('pro.writeWhat', { what: t('pro.onePlate') }))}
@@ -322,39 +304,29 @@
       </WriteCard>
     {/if}
 
-    <!-- Curvature, offset and foundation springs of the selected shell are specified in
-         Specifications › Surfaces; like Members, offered for one shell. Two or more get the
-         group editing bar of the table, which opens it too. -->
-    {#if uiStore.selectedPlates.size > 0 || uiStore.selectedShells.size === 1}
-      {@const whole = [...uiStore.selectedPlates]}
-      <button class="pro-btn shell-open-spec" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">
-        {whole.length === 1 ? tp('plates.openSpec', { name: modelStore.model.groups.get(whole[0]!)?.name ?? '' }) : whole.length > 1 ? tp('plates.openSpecMany', { n: whole.length }) : t('plates.openSpecElement')}
-      </button>
-    {/if}
-
-    <!--
-      Stairs are not modelled here: they belong to the design desk, where a stair is stated by its
-      flight, landings and supports and designed (roadmap, review at the close of stage 1).
-    -->
-
-    <!--
-      ── Tools above, the shared table below ────────────────────────────
-      The panel used to draw its own two tables — one of triangles, one of
-      quads — which is a third place shells are listed and a third set of
-      columns to keep in step with the other two. This is the table Basic
-      uses, pinned to shells because the ribbon has already chosen which
-      entity you are working on.
-
-      The shape is the same in every modelling panel: what you can DO to this
-      kind of thing at the top, and what the model currently holds underneath.
-    -->
-    <div class="section shell-table">
-      <button class="section-toggle" onclick={() => (showElements = !showElements)} aria-expanded={elementsOpen} data-testid="shell-elements-toggle">
-        <span class="toggle-arrow">{elementsOpen ? '\u25BE' : '\u25B8'}</span>
-        {tp('plates.meshElements', { n: quadCount + plateCount })}
-      </button>
-      {#if elementsOpen}<DataTable pinned="plates" />{/if}
+    <div class="pro-shells-scope" role="radiogroup" aria-label={t('plates.pickScope')} data-testid="plates-scope">
+      <button role="radio" aria-checked={uiStore.shellPickScope === 'plate'} class:on={uiStore.shellPickScope === 'plate'} onclick={() => toScope('plate')} data-testid="plates-scope-plate">{tp('plates.scopePlates', { n: physicalCount })}</button>
+      <button role="radio" aria-checked={uiStore.shellPickScope === 'element'} class:on={uiStore.shellPickScope === 'element'} onclick={() => toScope('element')} data-testid="plates-scope-element">{tp('plates.scopeElements', { n: quadCount + plateCount })}</button>
     </div>
+
+    {#if uiStore.shellPickScope === 'plate'}
+      <PlateBrowser />
+      <PlatePanel />
+    {:else}
+      <p class="mesh-hint pro-shells-note">{t('plates.elementsNote')}</p>
+      {#if uiStore.selectedShells.size > 0}
+        {@const owner = plateOfShell([...uiStore.selectedShells][0]!)}
+        <div class="pro-shells-actions-row">
+          {#if owner !== null}
+            <button class="pk-btn" onclick={() => toScope('plate')} data-testid="shell-select-owner">{tp('plates.selectOwner', { name: modelStore.model.groups.get(owner)?.name ?? '' })}</button>
+          {/if}
+          {#if uiStore.selectedShells.size === 1}
+            <button class="pk-btn" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">{t('plates.openSpecElement')}</button>
+          {/if}
+        </div>
+      {/if}
+      <div class="shell-table"><DataTable pinned="plates" /></div>
+    {/if}
   </div>
 </div>
 
@@ -406,6 +378,12 @@
     font-weight: 600;
   }
 
+.pro-shells-scope { position: sticky; top: 0; z-index: 2; background: var(--st-surface, var(--st-ink)); display: flex; margin: 6px 8px; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); overflow: hidden; }
+  .pro-shells-scope button { flex: 1; padding: 4px 8px; background: none; border: none; color: var(--st-text-2); font: inherit; font-size: 0.74rem; cursor: pointer; }
+  .pro-shells-scope button + button { border-left: 1px solid var(--st-hair-strong); }
+  .pro-shells-scope button.on { background: var(--st-selected-bg, var(--st-surface-3)); color: var(--st-text); font-weight: 600; }
+  .pro-shells-note { margin: 0 8px 6px; }
+  .pro-shells-actions-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 8px 6px; }
   .pro-shells-scroll {
     flex: 1;
     overflow-y: auto;

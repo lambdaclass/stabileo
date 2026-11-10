@@ -15,6 +15,8 @@
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import { DEFAULT_PLATE_MESH, POOR_MIN_ANGLE } from '../../../lib/model/physical/plate';
   import QuantityInput from '../loads/QuantityInput.svelte';
+  import { portal } from '../../../lib/utils/portal';
+  import { meshSizeText } from './plate-state';
 
   let { ids, onclose }: { ids: number[]; onclose: () => void } = $props();
 
@@ -93,7 +95,8 @@
 
 <svelte:window onkeydown={(e) => { if (e.key === 'Escape') onclose(); }} />
 
-<div class="pmd-overlay" onclick={onclose} role="presentation">
+<div class="pmd-host">
+<div class="pmd-overlay" use:portal onclick={onclose} role="presentation">
   <div class="pmd" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t('plates.meshTitle')} data-testid="plate-mesh-dialog" tabindex="-1">
     <h3>{ids.length > 1 ? tp('plates.meshTitleMany', { n: ids.length }) : tp('plates.meshTitleOne', { name: plateEntry(ids[0]!)?.name ?? '' })}</h3>
 
@@ -162,7 +165,7 @@
           {/each}
         </tbody>
       </table>
-      <p class="pmd-hint">{tp('plates.planTotalOnly', { cells: totals.cells, size: fmtQ(size, 'length'), unit: unitQ('length') })}</p>
+      <p class="pmd-hint">{tp('plates.planTotalOnly', { cells: totals.cells, size: meshSizeText(size) })}</p>
       {#if ok.some((p) => (p.quality?.poor ?? 0) > 0)}<Hint text={tp('plates.qualityHint', { angle: POOR_MIN_ANGLE })} />{/if}
       {#if drawing}
         <svg class="pmd-svg" viewBox="0 0 {W} {H}" width={W} height={H} aria-hidden="true">
@@ -180,8 +183,10 @@
     </div>
   </div>
 </div>
+</div>
 
 <style>
+  .pmd-host { display: contents; }
   .pmd-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
   .pmd { width: min(520px, 100%); max-height: 90vh; overflow: auto; background: var(--st-surface); color: var(--st-text-2); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 0.76rem; }
   h3 { margin: 0; font-size: 0.9rem; color: var(--st-text); }

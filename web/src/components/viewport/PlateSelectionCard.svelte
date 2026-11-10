@@ -16,7 +16,7 @@
 {#if entries.length}
   <div class="psc" onmousedown={keep} onpointerdown={keep} role="toolbar" tabindex="-1" data-testid="plate-selection-card">
     <span class="psc-names">{names}</span>
-    <button type="button" class="psc-btn" onclick={() => (meshing = entries.map((e) => e.id))} data-testid="plate-selection-mesh">{entries.some((e) => e.surface.meshed) ? t('plates.remesh') : t('plates.mesh')}…</button>
+    <button type="button" class="psc-btn" onclick={() => (meshing = entries.map((e) => e.id))} data-testid="plate-selection-mesh">{entries.some((e) => e.surface.meshed && !e.surface.meshed.original) ? t('plates.remesh') : t('plates.mesh')}…</button>
   </div>
 {/if}
 {#if meshing}

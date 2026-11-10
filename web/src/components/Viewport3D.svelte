@@ -1500,7 +1500,7 @@
   // Meshed plates as pieces or with their mesh: only the drawing changes.
   $effect(() => {
     void uiStore.platesShowMesh; void resultsStore.results3D;
-    syncShells();
+    untrack(() => { syncShells(); syncNodes(); syncLoads(); syncLabels3D(); });
     invalidate();
   });
 

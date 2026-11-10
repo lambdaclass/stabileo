@@ -4,7 +4,7 @@
 // These functions reconcile the Three.js scene graph with the model store:
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
-import { meshHidden, meshOnlyNodes, syncShellMembers } from './shell-members';
+import { meshHidden, meshOnlyNodes, plateMeshNodes, platesAsPieces, syncShellMembers } from './shell-members';
 import { shellLoadExtent, shellLoadSamples } from '../engine/shell-load-integration';
 import { distributedGlobalEnds } from '../engine/member-loads';
 import { pointGlobal } from '../engine/member-point-loads';
@@ -156,7 +156,7 @@ export function syncNodes(ctx: SceneSyncContext): void {
   // Hidden in the view (store/view-state): not drawn, not picked. The model is untouched.
   const visible = visibleNodes();
   // While the slabs and walls are drawn as members, the nodes only their mesh has are not drawn.
-  const meshOnly = meshHidden() ? meshOnlyNodes() : null;
+  const meshOnly = meshHidden() ? meshOnlyNodes() : platesAsPieces() ? plateMeshNodes() : null;
   const storeNodes = meshOnly?.size ? new Map([...visible].filter(([id]) => !meshOnly.has(id))) : visible;
   const project2D = projectFlag();
   const ni = ctx.nodesInstanced;
@@ -644,7 +644,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
 
   // Meshed plates drawn as pieces: their elements' edges hidden and their outline drawn over them.
   // Only the drawing changes: the faces stay, so picking and contours are as with the mesh shown.
-  const pieceView = !(uiStore.platesShowMesh ?? resultsStore.results3D != null);
+  const pieceView = platesAsPieces();
   for (const pl of physicalPlates()) {
     const keys = [...(pl.group.members.quads ?? []).map((q) => `q${q}`), ...(pl.group.members.plates ?? []).map((q) => `p${q}`)];
     if (!keys.length) continue;
@@ -759,6 +759,7 @@ export function loadsSignature(project2D: boolean): string {
     [...uiStore.selectedLoads].sort((x, y) => x - y).join(','),
     // The labels' units and decimals, and the reader's arrow scale.
     uiStore.unitSystem, JSON.stringify(displayUnits.decimals), uiStore.loadArrowScale,
+    platesAsPieces() ? 1 : 0, modelStore.modelVersion,
   ];
   const np = (id: number | undefined): string => {
     const n = id != null ? modelStore.nodes.get(id) : undefined;
@@ -871,9 +872,30 @@ export function syncLoads(ctx: SceneSyncContext): void {
     return parseInt(hex.replace('#', ''), 16);
   }
 
+  // A plate drawn as its piece shows a plain area load once, over its outline, not once per mesh element.
+  const pieceOf = new Map<string, number>();
+  const pieceLoads = new Map<string, { plate: number; q: number; color: number; ids: number[] }>();
+  if (platesAsPieces()) {
+    for (const p of physicalPlates()) {
+      if (plateLoops(p.group).outer.length !== 4) continue;
+      const keys = [...(p.group.members.quads ?? []).map((q) => `q${q}`), ...(p.group.members.plates ?? []).map((q) => `p${q}`)];
+      if (keys.length > 1) for (const k of keys) pieceOf.set(k, p.id);
+    }
+  }
+
   for (let i = 0; i < loads.length; i++) {
     const load = loads[i];
     const caseId: number | undefined = load.data.caseId;
+    if (pieceOf.size && load.type === 'surface3d') {
+      const d = load.data;
+      const plate = pieceOf.get(`${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`);
+      if (plate !== undefined && !d.frame && !d.qNodes && !d.vary && !d.region && isLoadDrawn(load as never, drawView)) {
+        const k = `${plate}:${caseId ?? 0}:${d.q}`;
+        const e = pieceLoads.get(k) ?? pieceLoads.set(k, { plate, q: d.q, color: getCaseColor(caseId), ids: [] }).get(k)!;
+        e.ids.push(d.id);
+        continue;
+      }
+    }
 
     // Not a load case left unticked, nor one on what the view hides.
     if (!isLoadDrawn(load as never, drawView)) continue;
@@ -1153,6 +1175,13 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // Build the merged renderables (shafts, envelopes, cones, fills, labels) and
   // attach. Flags (renderOrder 3, depthTest/Write off, no frustum culling) are
   // stamped per object inside build() — no traverse needed.
+  for (const e of pieceLoads.values()) {
+    const g = modelStore.model.groups.get(e.plate);
+    const corners = g ? plateLoops(g).outer.map((n) => modelStore.nodes.get(n)) : [];
+    if (corners.length !== 4 || corners.some((n) => !n)) continue;
+    batch.own(e.ids[0]!, selected.size === 0 ? null : e.ids.some((id) => selected.has(id)) ? COLORS.nodeSelected : LOAD_DIMMED);
+    batch.addSurfaceLoad(corners.map((n) => projectNodeToScene(n as never, project2D)) as Array<{ x: number; y: number; z: number }>, e.q, maxQ, e.color);
+  }
   loadGrp.add(batch.build());
   ctx.loadFootprints = batch.footprints;
   ctx.loadAreas = batch.areas;
