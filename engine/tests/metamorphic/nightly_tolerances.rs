@@ -497,3 +497,81 @@ fn ground_action_scale_follows_units_and_excitation() {
     heavier.dens.values_mut().for_each(|d| *d *= 4.0);
     assert_eq!(crate::checks3::action_floor_3d(&heavier, name, cond.lchar), 4.0 * force);
 }
+
+#[test]
+fn issue_1094_analysis_accuracy() {
+    holds(1094, 2026110203181, &[("linear (PCG)", "units")]);
+}
+
+#[test]
+fn issue_1211_analysis_accuracy() {
+    holds(1211, 2026110205346, &[("linear (PCG)", "symmetry")]);
+}
+
+#[test]
+fn issue_1369_analysis_accuracy() {
+    holds(1369, 2026110406225, &[("time history", "symmetry")]);
+}
+
+#[test]
+fn issue_1370_analysis_accuracy() {
+    holds(1370, 2026110406225, &[("time history", "symmetry")]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1650"]
+fn issue_1650_analysis_accuracy() {
+    holds(1650, 2026110706031, &[("harmonic", "reciprocity")]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1652"]
+fn issue_1652_analysis_accuracy() {
+    holds(1652, 2026110702242, &[("moving loads", "reversal")]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1763"]
+fn issue_1763_analysis_accuracy() {
+    holds(1763, 2026110805292, &[("buckling", "planes")]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1765"]
+fn issue_1765_analysis_accuracy() {
+    holds(1765, 2026110801842, &[("linear (PCG)", "reciprocity")]);
+}
+
+#[test]
+#[ignore]
+fn analysis_accuracy_200_seed_sweep() {
+    let names = ["linear (PCG)", "time history", "harmonic", "moving loads", "buckling"];
+    let a2: Vec<_> = crate::ana2::rows().into_iter().filter(|a| names.contains(&a.name)).collect();
+    let a3: Vec<_> = crate::ana3::rows().into_iter().filter(|a| names.contains(&a.name)).collect();
+    let mut output = Vec::new();
+    for k in 0..200 {
+        let seed = 2026110200000 + k;
+        let t2 = Tally::default();
+        let t3 = Tally::default();
+        let c2 = crate::corpus::fuzz_case_2d(2026110200000, k);
+        let c3 = crate::corpus::fuzz_case_3d(2026110200000, k);
+        crate::checks2::check_case(&crate::checks2::Ctx { tally: &t2, rng_seed: seed }, &c2, &a2, crate::INV_2D);
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &t3, rng_seed: seed }, &c3, &a3, crate::INV_3D);
+        for anti in [false, true] {
+            if let Some(sym) = crate::symmetry::symmetrize_2d(&c2.name, &c2.s, anti) {
+                crate::symmetry::check_2d(&t2, &sym, anti, &a2);
+            }
+            if let Some(sym) = crate::symmetry::symmetrize_3d(&c3.name, &c3.s, anti) {
+                crate::symmetry::check_3d(&t3, &sym, anti, &a3);
+            }
+        }
+        output.push(serde_json::json!({"seed": seed, "d2": t2.replay_results(), "d3": t3.replay_results()}));
+    }
+    if let Ok(path) = std::env::var("ANALYSIS_ACCURACY_SWEEP") {
+        std::fs::write(path, serde_json::to_vec_pretty(&output).unwrap()).unwrap();
+    }
+    for dim in ["d2", "d3"] {
+        let sum = |key: &str| output.iter().flat_map(|v| v[dim]["verdicts"].as_array().unwrap()).map(|c| c[key].as_u64().unwrap()).sum::<u64>();
+        eprintln!("{dim}: pass={} fail={} refused={} inconclusive={}", sum("pass"), sum("fail"), sum("refused"), sum("inconclusive"));
+    }
+}
