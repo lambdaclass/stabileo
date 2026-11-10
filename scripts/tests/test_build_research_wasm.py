@@ -37,7 +37,6 @@ echo "built $1"
             self.outputs = outputs.read_text().splitlines() if outputs.exists() else []
             return result, time.monotonic() - start, record.read_text().splitlines() if record.exists() else []
 
-    @unittest.skip("known wrong result: #1885")
     def test_ci_registers_every_research_bundle_built_by_make(self):
         makefile = (ROOT / 'Makefile').read_text().split('\nresearch.wasm:', 1)[1].split('\n\n', 1)[0]
         expected = set(re.findall(r'\$\(NIX_RUN\) (research/\S+/build.sh)', makefile))
@@ -45,7 +44,6 @@ echo "built $1"
         self.assertTrue(expected)
         self.assertEqual({line.split()[1] for line in listed.stdout.splitlines()}, expected)
 
-    @unittest.skip("known wrong result: #1885")
     def test_ci_restores_and_publishes_every_research_bundle_built_by_make(self):
         makefile = (ROOT / 'Makefile').read_text().split('\nresearch.wasm:', 1)[1].split('\n\n', 1)[0]
         scripts = re.findall(r'\$\(NIX_RUN\) (research/\S+/build.sh)', makefile)
