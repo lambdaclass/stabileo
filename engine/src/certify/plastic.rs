@@ -1745,10 +1745,23 @@ fn collapse_2d(input: &PlasticInput, solver: Option<&PlasticResult>) -> PlasticC
 }
 
 /// Run the incremental plastic solver and certify its collapse load factor.
+/// Released from PL-2D-INVARIANCE (#758) only where its exact bounds meet to 1e-6 at the solver's factor.
 pub fn certify_plastic_2d(input: &PlasticInput) -> Result<CertifiedPlastic2D, String> {
     super::finite::check_input(input)?;
-    crate::known_issues::refuse(&crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic))?;
-    certify_plastic_2d_body(input)
+    let out = certify_plastic_2d_body(input);
+    let mut diagnostics = crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic);
+    if out.as_ref().is_ok_and(collapse_is_certified) {
+        diagnostics.retain(|d| d.phase.as_deref() != Some("PL-2D-INVARIANCE"));
+    }
+    crate::known_issues::refuse(&diagnostics)?;
+    out
+}
+
+fn collapse_is_certified(out: &CertifiedPlastic2D) -> bool {
+    let (r, c) = (&out.results, &out.certificate);
+    let (Some(lo), Some(up)) = (c.lambda_lower, c.lambda_upper) else { return false };
+    let lambda = r.collapse_factor;
+    r.is_mechanism && c.certified && c.solver_deviation.is_some_and(|d| d <= 1e-9) && lambda.is_finite() && lambda > 0.0 && up - lo <= 1e-6 * lambda
 }
 
 /// `certify_plastic_2d` without the #758 refusal; it exists only in the engine's unit-test build.

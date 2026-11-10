@@ -168,7 +168,9 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
         return Err(format!("more than {MAX_CERTIFIED_ELEMENTS} members: too large for the exact certificate"));
     }
     use crate::certify::plastic::{build_model, check_static, plastic_candidates, ElemLoad};
+    use num_traits::Signed;
     let mut solver = mechanical(input);
+    let axial_spans = axial_spans_to_nodes(&mut solver)?;
     for sup in solver.supports.values_mut() {
         let base = support_dofs_2d(sup).map(|d| d.restrained);
         let sprung = support_dofs_2d(sup).map(|d| d.spring).map(|k| k.is_some_and(|k| k > 0.0));
@@ -231,6 +233,13 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
             n += &field.lambda * px * e.l.as_ref().ok_or("point load on a member of irrational length")?;
             values.push(n.clone());
         }
+        // `n` carries N·L; the axial span loads moved to the nodes can shift N by up to 2∫|q|.
+        if let Some(&total) = axial_spans.get(&e.id) {
+            let spread = q(2.0 * total * (1.0 + 1e-9) * crate::certify::exact::to_f64(&lsq).sqrt() * (1.0 + 1e-9)).ok_or("non-finite axial span load")? * &field.lambda;
+            for v in values.iter_mut() {
+                *v = v.abs() + &spread;
+            }
+        }
         admissible &= values.iter().all(|v| &lower * &lower * v * v <= &npl * &npl * &lsq);
         let lsq = crate::certify::exact::to_f64(&lsq);
         for v in &values {
@@ -249,6 +258,37 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
     } else {
         Confirmation::Bracketed { reason: format!("{bounds}, too far apart to confirm {lambda}"), lower, upper: up }
     })
+}
+
+/// Moves every axial span load to its member's end nodes, which leaves the bending collapse factor
+/// as it was but not the member's axial force: returns per member the ∫|q| that bounds the change.
+fn axial_spans_to_nodes(solver: &mut SolverInput) -> Result<HashMap<usize, f64>, String> {
+    let mut totals: HashMap<usize, f64> = HashMap::new();
+    let mut nodal = Vec::new();
+    for load in &solver.loads {
+        let SolverLoad::AxialDistributed(al) = load else { continue };
+        if al.q_i == 0.0 && al.q_j == 0.0 {
+            continue;
+        }
+        let e = crate::ordered::values(&solver.elements).find(|e| e.id == al.element_id).ok_or("axial span load on unknown element")?;
+        let node = |id: usize| crate::ordered::values(&solver.nodes).find(|n| n.id == id).ok_or("element on unknown node");
+        let (ni, nj) = (node(e.node_i)?, node(e.node_j)?);
+        let (dx, dz) = (nj.x - ni.x, nj.z - ni.z);
+        let len = (dx * dx + dz * dz).sqrt();
+        let (a, b) = (al.a.unwrap_or(0.0), al.b.unwrap_or(len));
+        if !(len > 0.0 && 0.0 <= a && a <= b && b <= len * (1.0 + 1e-12)) {
+            return Err(format!("element {}: axial span load outside the member", e.id));
+        }
+        let [fi, fj] = crate::element::axial_distributed_fef(al.q_i, al.q_j, a, b, len);
+        let (c, s) = (dx / len, dz / len);
+        nodal.push(SolverLoad::Nodal(SolverNodalLoad { node_id: e.node_i, fx: fi * c, fz: fi * s, my: 0.0 }));
+        nodal.push(SolverLoad::Nodal(SolverNodalLoad { node_id: e.node_j, fx: fj * c, fz: fj * s, my: 0.0 }));
+        let abs = if al.q_i * al.q_j >= 0.0 { 0.5 * (al.q_i.abs() + al.q_j.abs()) * (b - a) } else { 0.5 * al.q_i.abs().max(al.q_j.abs()) * (b - a) };
+        *totals.entry(e.id).or_default() += abs;
+    }
+    solver.loads.retain(|l| !matches!(l, SolverLoad::AxialDistributed(_)));
+    solver.loads.extend(nodal);
+    Ok(totals)
 }
 
 fn uniform_stiffness(input: &SolverInput) -> SolverInput {
@@ -643,6 +683,19 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
         samples.extend(added);
     }
     Err("the limit analysis did not settle the moment peaks".into())
+}
+
+/// `limit_analysis_2d_input`, released from PL-2D-INVARIANCE (#758) only where `confirm_2d` is
+/// `Exact`; every other outcome, errors included, is that refusal.
+pub fn certified_limit_2d(input: &LimitInput) -> Result<LimitResult, String> {
+    use crate::known_issues::{for_2d, refuse, Analysis};
+    let mut diagnostics = for_2d(&input.solver, Analysis::Plastic);
+    let result = limit_analysis_2d_input(input);
+    if matches!(&result, Ok(r) if r.confirmation == Confirmation::Exact && r.lambda.is_finite() && r.lambda > 0.0) {
+        diagnostics.retain(|d| d.phase.as_deref() != Some("PL-2D-INVARIANCE"));
+    }
+    refuse(&diagnostics)?;
+    result
 }
 
 /// `limit_analysis_2d` from its JSON input.

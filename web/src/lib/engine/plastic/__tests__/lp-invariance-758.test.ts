@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { solveLimit } from '../solve-limit';
-import { plasticCollapse2D } from '../../plastic-collapse';
+import { plasticHistory2D } from '../../plastic-collapse';
 import type { SolverInput, SolverLoad } from '../../types';
 import { model, fixedBeam, proppedUdl, portal, twoSpanUdl, MP, P, pOn, q } from './helpers';
 
@@ -51,7 +51,7 @@ function units(m: SolverInput): SolverInput {
 const T: Array<[string, (m: SolverInput) => SolverInput, number]> = [['relabel', relabel, MP], ['reverse', reverse, MP], ['units', units, MP * F * L], ['all', (m) => units(reverse(relabel(m))), MP * F * L]];
 
 const lp = (m: SolverInput, mp: number) => solveLimit(m, () => mp)?.best.lambda ?? NaN;
-const inc = (m: SolverInput, mp: number) => { try { const r = plasticCollapse2D(m, { mp: () => mp, np: () => Infinity }); return r.isMechanism && !r.unresolved ? r.collapseFactor : NaN; } catch { return NaN; } };
+const inc = (m: SolverInput, mp: number) => { try { const r = plasticHistory2D(m, { mp: () => mp, np: () => Infinity }); return r.isMechanism && !r.unresolved ? r.collapseFactor : NaN; } catch { return NaN; } };
 
 const LP_VARIES = new Set(['two-span UDL reverse', 'two-span UDL units', 'two-span UDL all', 'two storey units', 'two storey all']);
 

@@ -180,18 +180,20 @@ describe('collapse loads: kinematic minimum = static check = step by step', () =
     expect(s.best.lambda).toBeCloseTo(incremental(m), 5);
     expect(s.moments.ratio).toBeLessThan(1 + 1e-6);
   });
-  it('portal with a uniform beam load: the hinge drifting under the load does not end the analysis early', () => {
+  it('portal with a uniform beam load: one span hinge, at the peak of the collapse state, and the history ends at the limit load', () => {
     // Columns Mp 1687.5, beam 3125, q = 15 kN/m on 6 m, H = 10 kN at 4 m: the beam mechanism,
-    // λ = (2·1687.5 + 2·3125)/(15·6²/4) = 9625/135. A second hinge a sampling step from the first
-    // used to stop the step-by-step analysis at 64.06 as a false mechanism.
+    // λ = (2·1687.5 + 2·3125)/(15·6²/4) = 9625/135.
     const m = model([[1, 0, 0], [2, 0, 4], [3, 6, 4], [4, 6, 0]], [[1, 1, 2], [2, 2, 3], [3, 4, 3]],
       [[1, 'fixed'], [4, 'fixed']], [P(2, 10, 0), q(2, -15)]);
     const mp = (id: number) => (id === 2 ? 3125 : 1687.5);
     const s = solveLimit(m, mp)!;
     expect(s.best.lambda).toBeCloseTo(9625 / 135, 9);
     const r = plasticCollapse2D(m, { mp, np: () => Infinity });
-    expect(Math.abs(verified(r) / (9625 / 135) - 1)).toBeLessThan(1e-4);
-    expect(r.hinges.some((h) => h.unloadedAt !== undefined)).toBe(true);
+    expect(verified(r)).toBeCloseTo(9625 / 135, 9);
+    expect(r.hinges.every((h) => h.unloadedAt === undefined)).toBe(true);
+    expect(r.hinges.length).toBeLessThanOrEqual(r.degree + 1);
+    expect(r.hinges.filter((h) => h.elementId === 2).map((h) => h.x)).toEqual([expect.closeTo(3, 9)]);
+    expect(r.steps.at(-1)!.loadFactor).toBeCloseTo(9625 / 135, 9);
   });
 
   it('columns weaker than the beam: the corner hinges go in the columns', () => {

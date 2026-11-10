@@ -3,8 +3,7 @@
  * catalog of methods by group, each saying what it does and what the
  * structure must be, and an example that opens straight into the method.
  * Every method's document is walked to its last step without an error, and
- * each one ends comparing itself with the matrix solve, except 2D plastic
- * collapse, which is withheld (#758) and says so.
+ * each one ends comparing itself with the matrix solve.
  */
 import { test, expect, type Page } from './fixtures';
 
@@ -37,9 +36,8 @@ test.describe('explained step by step', () => {
     await expect(first).toContainText(/draw one|dibujá una|desenhe uma/);
   });
 
-  test('@slow every method opens from its example and walks to the end, comparing with the matrix method, except 2D plastic collapse, which says it is withheld (#758)', async ({ page }) => {
+  test('@slow every method opens from its example and walks to the end, comparing with the matrix method', async ({ page }) => {
     test.setTimeout(600_000);
-    const withheld = ['plasticKinematic', 'plasticStatic'];
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await boot(page);
@@ -47,27 +45,22 @@ test.describe('explained step by step', () => {
     const ids = await page.locator('[data-testid^=steps-method-]').evaluateAll((els) =>
       els.map((e) => e.getAttribute('data-testid')!.replace('steps-method-', '')));
     const documented = ids.filter((id) => id !== 'dsm' && id !== 'fm');
-    expect(documented).toEqual(expect.arrayContaining(withheld));
+    expect(documented.length).toBeGreaterThan(0);
     for (const id of documented) {
       await test.step(id, async () => {
         await page.getByTestId(`steps-example-${id}`).click();
         const doc = page.getByTestId('steps-doc');
         await expect(doc).toBeVisible({ timeout: 30_000 });
-        if (withheld.includes(id)) {
-          await expect(page.getByTestId('steps-error')).toContainText(/4[.,]6/);
-          await expect(page.getByTestId('steps-tab')).toHaveCount(0);
-        } else {
-          await expect(page.getByTestId('steps-error')).toHaveCount(0);
-          const n = await page.getByTestId('steps-tab').count();
-          expect(n).toBeGreaterThan(1);
-          let compared = false;
-          for (let k = 0; k < n; k++) {
-            await page.getByTestId('steps-next').click();
-            if (await doc.locator('.sb-compare').count()) compared = true;
-          }
-          await expect(page.getByTestId('steps-next')).toBeDisabled();
-          expect(compared, `${id} compares with the matrix method`).toBe(true);
+        await expect(page.getByTestId('steps-error')).toHaveCount(0);
+        const n = await page.getByTestId('steps-tab').count();
+        expect(n).toBeGreaterThan(1);
+        let compared = false;
+        for (let k = 0; k < n; k++) {
+          await page.getByTestId('steps-next').click();
+          if (await doc.locator('.sb-compare').count()) compared = true;
         }
+        await expect(page.getByTestId('steps-next')).toBeDisabled();
+        expect(compared, `${id} compares with the matrix method`).toBe(true);
         await page.getByTestId('steps-back').click();
         await expect(page.getByTestId('steps-catalog')).toBeVisible();
       });
