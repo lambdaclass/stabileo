@@ -284,7 +284,7 @@ mod tests {
     use crate::solver::damping::rayleigh_damping_matrix;
     use crate::solver::harmonic::solve_complex_system;
 
-    fn singular_arrowhead(sparse: bool, independent_load: Option<f64>) {
+    fn singular_arrowhead_case(sparse: bool, independent_load: Option<f64>, connected: bool) {
         let count = 1024;
         let n = count + 1 + usize::from(independent_load.is_some());
         let t = 1.0 - 383.0 / (1_u64 << 26) as f64;
@@ -302,6 +302,14 @@ mod tests {
         if let Some(load) = independent_load {
             k[(n - 1) * n + n - 1] = 2.0;
             f[n - 1] = load;
+            if connected {
+                let link = 1.0 / (1_u64 << 20) as f64;
+                for (i, value) in [(0, link), (1, -link)] {
+                    k[i * n + n - 1] = value;
+                    k[(n - 1) * n + i] = value;
+                }
+                assert_eq!(k[(n - 1) * n] * t + k[(n - 1) * n + 1] * t, 0.0);
+            }
         }
         assert_eq!(k[count * n + count] - 1.0, count as f64 * t * t);
         let result = if sparse {
@@ -310,10 +318,29 @@ mod tests {
             solve_complex_system(&k, &m, &vec![0.0; n * n], &f, n, 1.0)
         };
         assert!(result.is_err(), "singular inconsistent system returned a response: sparse={sparse}, last={:?}", result.as_ref().map(|(re, im)| (re[count], im[count])));
-        if independent_load.is_some() {
+        if connected {
+            let error = result.unwrap_err();
+            assert!(error.contains("numerically singular dynamic stiffness"), "{error}");
+        } else if independent_load.is_some() {
             let error = result.unwrap_err();
             assert!(error.contains("component relative residual"), "{error}");
         }
+    }
+
+    fn singular_arrowhead(sparse: bool, independent_load: Option<f64>) {
+        singular_arrowhead_case(sparse, independent_load, false);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1922"]
+    fn dense_singular_arrowhead_with_connected_large_load_is_refused() {
+        singular_arrowhead_case(false, Some(1e12), true);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1922"]
+    fn sparse_singular_arrowhead_with_connected_large_load_is_refused() {
+        singular_arrowhead_case(true, Some(1e12), true);
     }
 
     #[test]
