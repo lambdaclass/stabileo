@@ -208,7 +208,6 @@ class Models(unittest.TestCase):
                     self.assertEqual(counts[category][0][verdict], 3)
 
 
-    @unittest.skip('known wrong result: #1919')
     def test_seeded_failure_dropped_failure_records(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

@@ -2,7 +2,7 @@ use crate::models::*;
 use crate::support::*;
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
 use dedaliano_engine::solver::modal::solve_modal_2d;
-use dedaliano_engine::solver::reduction::{guyan_reduce_2d, GuyanInput};
+use dedaliano_engine::solver::reduction::{guyan_reduce_2d, GuyanInput, GuyanResult};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 use std::f64::consts::PI;
@@ -82,7 +82,12 @@ fn same_part_3d(what: &str, part: &AnalysisResults3D, whole: &AnalysisResults3D,
 }
 
 pub fn parts_2d(a: &SolverInput, b: &SolverInput) -> Result<Report, String> {
-    let whole = solve_2d(&union_2d(a, b))?;
+    parts_2d_with(a, b, |_| {})
+}
+
+fn parts_2d_with(a: &SolverInput, b: &SolverInput, perturb: impl FnOnce(&mut AnalysisResults)) -> Result<Report, String> {
+    let mut whole = solve_2d(&union_2d(a, b))?;
+    perturb(&mut whole);
     let mut r = Report::new();
     same_part_2d("part A", &solve_2d(a)?, &whole, &mut r);
     same_part_2d("part B", &solve_2d(b)?, &whole, &mut r);
@@ -90,7 +95,12 @@ pub fn parts_2d(a: &SolverInput, b: &SolverInput) -> Result<Report, String> {
 }
 
 pub fn parts_3d(a: &SolverInput3D, b: &SolverInput3D) -> Result<Report, String> {
-    let whole = solve_3d(&union_3d(a, b))?;
+    parts_3d_with(a, b, |_| {})
+}
+
+fn parts_3d_with(a: &SolverInput3D, b: &SolverInput3D, perturb: impl FnOnce(&mut AnalysisResults3D)) -> Result<Report, String> {
+    let mut whole = solve_3d(&union_3d(a, b))?;
+    perturb(&mut whole);
     let mut r = Report::new();
     same_part_3d("part A", &solve_3d(a)?, &whole, &mut r);
     same_part_3d("part B", &solve_3d(b)?, &whole, &mut r);
@@ -203,6 +213,10 @@ fn moderately_soft_rotation_beside_a_stiff_member_is_unaffected() {
 /// are carried to the boundary as `K_bi K_ii⁻¹ f_i` and recovered afterwards.
 #[test]
 fn guyan_condensation_recovers_the_full_static_solution() {
+    guyan_check(|_| {});
+}
+
+fn guyan_check(perturb: impl FnOnce(&mut GuyanResult)) {
     let spec = FrameSpec::two_storey();
     let mut s = frame_2d(&spec);
     let beam = first_beam(&s);
@@ -211,7 +225,8 @@ fn guyan_condensation_recovers_the_full_static_solution() {
     let full = solve_2d(&s).unwrap();
     let mut boundary: Vec<usize> = p.floors.concat();
     boundary.sort_unstable();
-    let g = guyan_reduce_2d(&GuyanInput { solver: s.clone(), boundary_nodes: boundary }).unwrap();
+    let mut g = guyan_reduce_2d(&GuyanInput { solver: s.clone(), boundary_nodes: boundary }).unwrap();
+    perturb(&mut g);
     let mut r = Report::new();
     let ids = |v: Vec<usize>| -> Vec<usize> {
         let mut v = v;
@@ -257,10 +272,16 @@ fn with_beam_udl(mut s: SolverInput, q: f64) -> SolverInput {
 /// Cubic Hermite frame elements are exact at the nodes for nodal and uniform span
 /// loads, so splitting every member changes no shared nodal value (round-off only).
 pub fn refinement_pair(spec: &FrameSpec, splits: usize) -> Result<Report, String> {
+    refinement_pair_with(spec, splits, |_| {})
+}
+
+fn refinement_pair_with(spec: &FrameSpec, splits: usize, perturb: impl FnOnce(&mut AnalysisResults)) -> Result<Report, String> {
     let coarse = with_beam_udl(frame_2d(&FrameSpec { subdivisions: 1, ..*spec }), -9.0);
     let fine = with_beam_udl(frame_2d(&FrameSpec { subdivisions: splits, ..*spec }), -9.0);
     let mut r = Report::new();
-    same_part_2d("coarse vs fine", &solve_2d(&coarse)?, &solve_2d(&fine)?, &mut r);
+    let mut result = solve_2d(&fine)?;
+    perturb(&mut result);
+    same_part_2d("coarse vs fine", &solve_2d(&coarse)?, &result, &mut r);
     Ok(r)
 }
 
@@ -287,6 +308,10 @@ fn substructures_on_frame_family() {
 /// error by ~16; the first check is the exact formula, the second the rate.
 #[test]
 fn modal_mesh_refinement_converges_at_fourth_order() {
+    modal_refinement_check(|_| {});
+}
+
+fn modal_refinement_check(perturb: impl Fn(&mut dedaliano_engine::solver::modal::ModalResult)) {
     let (l, a, iz) = (8.0, 6.26e-3, 1.17e-4);
     let ei = E_STEEL_MPA * 1000.0 * iz;
     let mbar = STEEL_DENSITY_KG_M3 * a / 1000.0;
@@ -295,7 +320,8 @@ fn modal_mesh_refinement_converges_at_fourth_order() {
     let mut prev: Option<Vec<f64>> = None;
     for n_el in [4usize, 8, 16] {
         let s = crate::common::make_ss_beam_udl(n_el, l, E_STEEL_MPA, a, iz, 0.0);
-        let modal = solve_modal_2d(&s, &steel_densities(), 4).unwrap();
+        let mut modal = solve_modal_2d(&s, &steel_densities(), 4).unwrap();
+        perturb(&mut modal);
         let bending: Vec<f64> = modal.modes.iter().map(|m| m.frequency).filter(|f| exact.iter().any(|e| (f / e - 1.0).abs() < 0.05)).take(2).collect();
         if bending.len() < 2 {
             r.fail(format!("{n_el} elements: bending modes not found among {:?}", modal.modes.iter().map(|m| m.frequency).collect::<Vec<_>>()));
@@ -318,4 +344,55 @@ fn modal_mesh_refinement_converges_at_fourth_order() {
         prev = Some(err);
     }
     agree("modal mesh refinement", Ok(r));
+}
+
+#[test]
+fn seeded_failure_disjoint_parts_and_refinement() {
+    let a = soft_cantilever_2d(1e-4);
+    let b = stiff_member_2d();
+    parts_2d(&a, &b).unwrap().into_result().unwrap();
+    for rotation in [false, true] {
+        let result = parts_2d_with(&a, &b, |r| {
+            for d in &mut r.displacements {
+                if rotation { d.ry *= -1.0; } else { d.uz *= -1.0; }
+            }
+        });
+        assert!(result.unwrap().into_result().is_err());
+    }
+    let a = soft_cantilever_3d(1e-4);
+    let b = stiff_member_3d();
+    parts_3d(&a, &b).unwrap().into_result().unwrap();
+    for rotation in [false, true] {
+        let result = parts_3d_with(&a, &b, |r| {
+            for d in &mut r.displacements {
+                if rotation { d.ry *= -1.0; } else { d.uz *= -1.0; }
+            }
+        });
+        assert!(result.unwrap().into_result().is_err());
+    }
+    let spec = FrameSpec::two_storey();
+    refinement_pair(&spec, 2).unwrap().into_result().unwrap();
+    let result = refinement_pair_with(&spec, 2, |r| r.displacements.iter_mut().for_each(|d| d.ux *= -1.0));
+    assert!(result.unwrap().into_result().is_err());
+}
+
+#[test]
+fn seeded_failure_guyan_recovery() {
+    guyan_condensation_recovers_the_full_static_solution();
+    for field in 0..4 {
+        rejects_seeded(|| guyan_check(|g| {
+            for d in &mut g.displacements {
+                if field == 0 { d.ux *= -1.0; }
+                if field == 1 { d.ry *= -1.0; }
+            }
+            if field == 2 { g.reactions.iter_mut().for_each(|d| { d.rx *= -1.0; d.rz *= -1.0; }); }
+            if field == 3 { g.element_forces.iter_mut().for_each(|d| { d.m_start *= -1.0; d.m_end *= -1.0; }); }
+        }));
+    }
+}
+
+#[test]
+fn seeded_failure_modal_mesh_refinement() {
+    modal_mesh_refinement_converges_at_fourth_order();
+    rejects_seeded(|| modal_refinement_check(|r| r.modes.iter_mut().for_each(|m| m.frequency *= 1.01)));
 }

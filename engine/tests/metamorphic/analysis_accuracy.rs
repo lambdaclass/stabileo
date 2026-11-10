@@ -64,7 +64,7 @@ pub fn compare_scaled(
     for (s, e) in scale.x.scales.iter_mut().zip(&error.x.scales) {
         *s = s.max(e / rel);
     }
-    compare_compliant(
+    let report = compare_compliant(
         &got.flat(),
         &expected.flat(),
         &scale,
@@ -72,7 +72,11 @@ pub fn compare_scaled(
         rel,
         floor,
         compliance,
-    )
+    )?;
+    if report.values == 0 && report.refusals == 0 {
+        return Err("no result values were compared".into());
+    }
+    Ok(report)
 }
 
 pub fn projected_error(r: &Resp, node: usize, tag: &str, dir: &[f64]) -> f64 {

@@ -178,6 +178,7 @@ fn metamorphic_nightly_3d() {
 #[test]
 #[ignore]
 fn metamorphic_replay() {
+    if seeded_failures::replay() { return; }
     let Ok(path) = std::env::var("NIGHTLY_MODEL") else { return };
     let text = std::fs::read_to_string(path).unwrap();
     let metadata: serde_json::Value = serde_json::from_str(&text).unwrap();

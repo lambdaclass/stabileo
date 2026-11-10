@@ -99,6 +99,10 @@ def main():
                 if proc.returncode != (101 if result['failures'] else 0):
                     raise RuntimeError('invariance harness exit disagrees with outcomes')
                 verdicts = result['verdicts']
+                failed = sum(row['fail'] for row in verdicts)
+                reported = sum(len(failure['details']) for failure in result['failures'])
+                if failed != reported:
+                    raise RuntimeError('invariance harness failure counts disagree with outcomes')
                 completed = sum(row['pass'] + row['fail'] for row in verdicts)
                 if record:
                     counts = summary['comparisons'][check]
