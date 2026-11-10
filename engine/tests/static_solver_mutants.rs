@@ -117,6 +117,9 @@ fn check_cantilever_3d(count: usize, method: &str) {
             }
         }
         let result = prepared.solve_loads(&loads).unwrap();
+        assert_eq!(result.displacements.len(), input.nodes.len());
+        assert_eq!(result.element_forces.len(), input.elements.len());
+        assert_eq!(result.reactions.len(), input.supports.len());
         let e = E * 1000.0;
         let g = e / (2.0 * (1.0 + NU));
         for d in &result.displacements {
@@ -209,19 +212,16 @@ fn check_cantilever_3d(count: usize, method: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1920"]
 fn cantilever_3d_dense_closed_form() {
     check_cantilever_3d(1, "direct");
 }
 
 #[test]
-#[ignore = "known wrong result: #1920"]
 fn cantilever_3d_sparse_closed_form() {
     check_cantilever_3d(12, "direct");
 }
 
 #[test]
-#[ignore = "known wrong result: #1920"]
 fn cantilever_3d_pcg_closed_form() {
     check_cantilever_3d(12, "pcg");
 }
@@ -292,6 +292,9 @@ fn check_cantilever_2d(count: usize, method: &str, dense_reference: bool) {
     }
     .unwrap();
     let result = prepared.solve_loads(&input.loads).unwrap();
+    assert_eq!(result.displacements.len(), input.nodes.len());
+    assert_eq!(result.element_forces.len(), input.elements.len());
+    assert_eq!(result.reactions.len(), input.supports.len());
     let e = E * 1000.0;
     for d in &result.displacements {
         let x = input.nodes[&d.node_id.to_string()].x;
@@ -348,25 +351,21 @@ fn check_cantilever_2d(count: usize, method: &str, dense_reference: bool) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1920"]
 fn cantilever_2d_dense_closed_form() {
     check_cantilever_2d(1, "direct", false);
 }
 
 #[test]
-#[ignore = "known wrong result: #1920"]
 fn cantilever_2d_dense_reference_closed_form() {
     check_cantilever_2d(22, "direct", true);
 }
 
 #[test]
-#[ignore = "known wrong result: #1920"]
 fn cantilever_2d_sparse_closed_form() {
     check_cantilever_2d(22, "direct", false);
 }
 
 #[test]
-#[ignore = "known wrong result: #1920"]
 fn cantilever_2d_pcg_closed_form() {
     check_cantilever_2d(22, "pcg", false);
 }
@@ -442,6 +441,9 @@ fn check_fixed_member_loads(case: &str, warping: bool) {
         });
     }
     let result = prepared.solve_loads(&loads).unwrap();
+    assert_eq!(result.displacements.len(), input.nodes.len());
+    assert_eq!(result.element_forces.len(), input.elements.len());
+    assert_eq!(result.reactions.len(), input.supports.len());
     for r in &result.reactions {
         let factor = if r.node_id <= 2 { 1.0 } else { -0.7 };
         let start = r.node_id % 2 == 1;
@@ -509,19 +511,16 @@ fn check_fixed_member_loads(case: &str, warping: bool) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1920"]
 fn fixed_warping_and_mapped_distributed_reactions() {
     check_fixed_member_loads("distributed", true);
 }
 
 #[test]
-#[ignore = "known wrong result: #1920"]
 fn fixed_warping_and_mapped_point_reactions() {
     check_fixed_member_loads("point", true);
 }
 
 #[test]
-#[ignore = "known wrong result: #1920"]
 fn fixed_warping_and_mapped_thermal_reactions() {
     check_fixed_member_loads("thermal", true);
     check_fixed_member_loads("thermal", false);
