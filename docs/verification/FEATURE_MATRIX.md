@@ -38,7 +38,7 @@ analytical value, or the linear solver in the linear limit).
 | material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | material nonlinear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | fiber nonlinear | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ |
-| arc length | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| arc length | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | displacement control | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R |
 | Winkler (no foundation) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -79,7 +79,7 @@ Features:
 - **F16** constraint (rigid link)
 - **F17** connector
 
-Totals: · 91, ✓ 415, R 30, ~ 8
+Totals: · 91, ✓ 416, R 29, ~ 8
 
 Notes on every cell that is not ✓ or ·:
 
@@ -103,7 +103,6 @@ Notes on every cell that is not ✓ or ·:
 - spectral × inclined support: roller at 30°: ~ changes the answer by 1.2e6; no independent reference
 - plastic collapse × inclined support: roller at 30°: R Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)
 - fiber nonlinear × prescribed displacement: support settlement: R Fiber-nonlinear analysis does not support prescribed support displacements (support 2 (node 7)); it would solv…
-- arc length × prescribed displacement: support settlement: R Arc-length analysis does not support prescribed support displacements (support 2 (node 7)); it would solve the…
 - displacement control × prescribed displacement: support settlement: R Displacement-control analysis does not support prescribed support displacements (support 2 (node 7)); it would…
 - SSI (no soil springs) × prescribed displacement: support settlement: R Soil-structure interaction analysis does not support prescribed support displacements (support 2 (node 7)); it…
 - harmonic × prescribed displacement: support settlement: R Harmonic analysis does not support prescribed support displacements (support 2 (node 7)); it would solve the m…

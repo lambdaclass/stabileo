@@ -451,7 +451,7 @@ fn blended_loads_2d(from: &SolverInput, to: &SolverInput, factor: f64) -> Solver
     m
 }
 
-fn refuse_inclined_motion_2d(input: &SolverInput, from_start: bool) -> Result<(), String> {
+pub(crate) fn refuse_inclined_motion_2d(input: &SolverInput, from_start: bool) -> Result<(), String> {
     let mut inclined: Vec<&SolverSupport> = crate::ordered::values(&input.supports)
         .filter(|s| s.support_type == "inclinedRoller")
         .filter(|s| from_start || [s.dx, s.dz, s.dry].iter().any(|v| v.is_some_and(|x| x != 0.0)))
@@ -466,7 +466,7 @@ fn refuse_inclined_motion_2d(input: &SolverInput, from_start: bool) -> Result<()
     }
 }
 
-fn start_state_2d(input: &SolverInput, start: &CorotationalStart2D, dof_num: &DofNumbering) -> Result<(Vec<f64>, Vec<f64>), String> {
+pub(crate) fn start_state_2d(input: &SolverInput, start: &CorotationalStart2D, dof_num: &DofNumbering) -> Result<(Vec<f64>, Vec<f64>), String> {
     super::linear::validate_input_2d(start.input)?;
     refuse_inclined_motion_2d(start.input, true)?;
     let same_nodes = start.input.nodes.len() == input.nodes.len()
