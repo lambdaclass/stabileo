@@ -574,7 +574,7 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "Section 3 on the production co-rotational frame, which gained prescribed rotations and continued analyses for it. The five shapes of Figure 9(c), digitized from the open preprint (arXiv:2509.12916v1), lie on our computed actuator path within 0.005; the symmetric limit loads and curvature of Section 3.2 agree within 3%. The half-span-load limit and three Table 1 entries at large Δ are not reproduced; the equilibrium surface of Figure 9(a) needs arc-length with prescribed rotations.",
+   "relevance": "Section 3 on the production co-rotational frame, which gained prescribed rotations and continued analyses for it. The five shapes of Figure 9(c), digitized from the open preprint (arXiv:2509.12916v1), lie on our computed actuator path within 0.005, at the points Figure 9(b) labels; the symmetric limit loads and curvature of Section 3.2 agree within 2%. The half-span-load values and the two Table 1 entries reached after a snap are open; the latter and the equilibrium surface of Figure 9(a) need arc-length with prescribed rotations.",
    "status": "interactive",
    "reproduced_published_results": false,
    "benchmarks": [],

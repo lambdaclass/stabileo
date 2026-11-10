@@ -1,6 +1,5 @@
 <script lang="ts">
   import { citation } from './catalogue';
-  import { shapeCard } from './feher2026/card';
   import { shellCardTitle } from './shell1985/card';
   import { archStrings } from './biggins2026/strings';
   /**
@@ -22,6 +21,7 @@
   import ResearchLink from './ResearchLink.svelte';
   import { isHttpUrl } from './urls';
   import { cardTitle } from './card-title';
+  import { shapeCard } from './feher2026/card';
   import { englishOnlyCard } from './english-only-cards';
   import { articleStrings as riksStrings } from './riksCrisfield/article';
   import { summaryIn } from './catalogue-summaries';

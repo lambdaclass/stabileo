@@ -157,8 +157,8 @@ fn refusals_name_the_feature() {
         vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: -10.0, fz: 0.0, my: 0.0 })],
     );
     input.supports.get_mut("2").unwrap().dz = Some(-0.01);
-    let al = arc_length::ArcLengthInput { solver: input, max_steps: 5, max_iter: 30, tolerance: 1e-8, initial_ds: 0.1, min_ds: 1e-6, max_ds: 0.2, target_iter: 5 };
-    let e = arc_length::solve_arc_length(&al).unwrap_err();
+    let dc = arc_length::DisplacementControlInput { solver: input, control_node: 2, control_dof: 0, target_displacement: -0.01, n_steps: 4, max_iter: 30, tolerance: 1e-8 };
+    let e = arc_length::solve_displacement_control(&dc).unwrap_err();
     assert!(e.contains("prescribed support displacements") && e.contains("support 2"), "{e}");
     let _ = HashMap::<String, f64>::new();
 }
