@@ -433,12 +433,12 @@ fn check_fixed_member_loads(case: &str, warping: bool) {
             }),
             "thermal" => SolverLoad3D::Thermal(SolverThermalLoad3D {
                 element_id: id,
-                dt_uniform: factor * 7.0,
-                dt_gradient_y: factor * 3.0,
-                dt_gradient_z: factor * -5.0,
-                alpha: Some(0.000013),
-                depth_y: Some(0.3),
-                depth_z: Some(0.2),
+                dt_uniform: factor * THERMAL_DT[0],
+                dt_gradient_y: factor * THERMAL_DT[1],
+                dt_gradient_z: factor * THERMAL_DT[2],
+                alpha: Some(THERMAL_ALPHA),
+                depth_y: Some(THERMAL_DEPTH[0]),
+                depth_z: Some(THERMAL_DEPTH[1]),
             }),
             _ => unreachable!(),
         });
@@ -491,14 +491,14 @@ fn check_fixed_member_loads(case: &str, warping: bool) {
             }
             "thermal" => {
                 let sign = if start { 1.0 } else { -1.0 };
-                let e_alpha = E * 1000.0 * 0.000013;
+                let e_alpha = E * 1000.0 * THERMAL_ALPHA;
                 [
-                    sign * e_alpha * A * 7.0,
+                    sign * e_alpha * A * THERMAL_DT[0],
                     0.0,
                     0.0,
                     0.0,
-                    sign * e_alpha * IY * -5.0 / 0.2,
-                    sign * e_alpha * IZ * 3.0 / 0.3,
+                    sign * e_alpha * IY * THERMAL_DT[2] / THERMAL_DEPTH[1],
+                    sign * e_alpha * IZ * THERMAL_DT[1] / THERMAL_DEPTH[0],
                 ]
             }
             _ => unreachable!(),
@@ -509,7 +509,16 @@ fn check_fixed_member_loads(case: &str, warping: bool) {
         {
             close(actual, factor * reference, 100.0);
         }
-        close(r.bimoment.unwrap_or(0.0), 0.0, 1.0);
+        if warping && r.node_id <= 2 {
+            close(
+                r.bimoment
+                    .expect("warping-member reaction requires a bimoment"),
+                0.0,
+                1.0,
+            );
+        } else if let Some(bimoment) = r.bimoment {
+            close(bimoment, 0.0, 1.0);
+        }
     }
 }
 
@@ -530,7 +539,6 @@ fn fixed_warping_and_mapped_thermal_reactions() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1925"]
 fn restrained_y_gradient_matches_mechanical_curvature_and_2d() {
     for warping in [true, false] {
         let mut thermal = fixed_members();

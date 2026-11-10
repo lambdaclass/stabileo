@@ -91,7 +91,7 @@ mutation replay and were not increased to pass a test.
 
 The positive start `Mz` oracle is correct. The review assumes that positive
 `dtGradientY` heats the +y face, whereas the engine's documented convention is
-`dtGradientY = T(-y) - T(+y)` ([frames §6.2](../solver/frames.md#62-equivalent-nodal-loads)).
+`dtGradientY = T(-y) - T(+y)` ([frames §6.2](../solver/frames.md)).
 The 2D `dtGradient` has the same definition. The 3D z gradient instead uses
 `dtGradientZ = T(+z) - T(-z)`. These definitions must precede any sign argument.
 
@@ -162,6 +162,23 @@ entirely ordinary model. The horizontal 2D plane maps its transverse DOF to
 No thermal helper supplies the expected values. The existing elements test
 `frame_thermal_inputs::a_positive_y_gradient_heats_the_minus_y_face_and_a_positive_z_gradient_the_plus_z_face`
 independently pins the free-cantilever hot-face convention.
+
+### Review verification outcome
+
+All eleven static-mutant tests pass on the unmodified engine, including the
+new cross-check explicitly enabled in commit A. To verify sensitivity, a
+transient mutation reversed only the two Mz entries of `fef_thermal_3d`.
+The new test then failed with actual -0.048126 versus expected +0.048126 kN·m
+at the unchanged absolute tolerance of 1e-7. The production file was restored
+byte for byte. This is a deliberately introduced wrong result, not a defect
+on main. Commit A marks the cross-check `known wrong result: #1925` for that
+sign mutant; commit B enables it without changing the production engine or
+the existing thermal oracle's sign.
+
+The fixed-member tests now require `Some` bimoment on reactions belonging to
+the warping member. Any returned bimoment, including one on an ordinary
+member, must still be zero at the original tolerance. The load and oracle
+share the same synthetic thermal constants. No baseline or tolerance changes.
 
 ## Verification method
 
@@ -280,8 +297,9 @@ and a passing restored run.
 
 ## Final checks
 
-With the ignores removed, `make test.engine.targeted TEST=solver
-FILTER=static_solver_mutants` passes all ten tests. `make lint.engine` and
+After the PR #1925 review, with the ignores removed,
+`make test.engine.targeted TEST=solver FILTER=static_solver_mutants` passes
+all eleven tests. `make lint.engine` and
 `make test.engine.gates` pass; the latter runs 230 nextest tests across its
 14 filtered groups and 57 unit-boundary doctests. Test discovery and changelog
 validation pass. The existing focused mutation-runner checks pass all 18 tests.
