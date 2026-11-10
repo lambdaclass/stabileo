@@ -229,6 +229,7 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
     return null;
   }),
   degreeRaised: (ctx) => {
+    if (ctx.kind === 'D') return null;
     const ref = peak(sampleDiagram(ctx.correct));
     return perSegment(ctx.correct, (tr, [a, b], s, e) => {
       if (s.curved) return null;
@@ -305,17 +306,19 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
   supportDisplaced: (ctx) => {
     if (ctx.kind !== 'D') return null;
     const m = ctx.solved.model;
-    const node = pick(m.supports.filter((s) => s.type !== 'rollerY').map((s) => s.node), ctx.next);
-    if (node === undefined) return null;
+    const support = pick(m.supports, ctx.next);
+    if (!support) return null;
+    const node = support.node;
+    const along: Vec = support.type === 'rollerX' ? [0, 1] : support.type === 'rollerY' ? [1, 0] : memberAxis(m, membersAt(m, node)[0]!).normal;
     const ref = peak(sampleDiagram(ctx.correct));
-    const meanZ = ctx.correct.traces.reduce((s, tr) => s + tr.at(0.5)[1], 0);
-    const h = 0.9 * ref * (meanZ < 0 ? -1 : 1);
+    const mean = ctx.correct.traces.reduce((s, tr) => { const p = tr.at(0.5); return s + p[0] * along[0] + p[1] * along[1]; }, 0);
+    const h = 0.9 * ref * (mean < 0 ? -1 : 1);
     return {
       kind: 'D',
       traces: ctx.correct.traces.map((tr, e) => {
         const [i, j] = m.elements[e]!;
         if (i !== node && j !== node) return tr;
-        return { breaks: tr.breaks, at: (t) => add(tr.at(t), [0, 1], h * (i === node ? 1 - t : t)) };
+        return { breaks: tr.breaks, at: (t) => add(tr.at(t), along, h * (i === node ? 1 - t : t)) };
       }),
     };
   },
