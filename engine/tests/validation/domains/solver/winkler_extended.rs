@@ -802,3 +802,58 @@ fn validation_winkler_superposition_multiple_loads() {
         );
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_winkler_rotated_copy_agrees_or_refuses_coupled_rounding() {
+    use dedaliano_engine::metamorphic::transform::{transform_2d, map_results_2d, Iso2};
+    let input = make_winkler_beam(40, 10.0, 1_000.0, E, A, 1.0, vec![SolverLoad::Nodal(SolverNodalLoad {
+        node_id: 21, fx: 0.0, fz: -50.0, my: 0.0,
+    })]);
+    let base = linear::solve_2d(&input).expect("axis-aligned Winkler beam must solve");
+    for angle in [0.37, 0.81, 1.19] {
+        let iso = Iso2::rotation(angle);
+        let rotated = transform_2d(&input, &iso).unwrap();
+        let expected = map_results_2d(&base, &iso);
+        match linear::solve_2d(&rotated) {
+            Ok(actual) => {
+                for d in &expected.displacements {
+                    let a = actual.displacements.iter().find(|a| a.node_id == d.node_id).unwrap();
+                    let scale = d.ux.hypot(d.uz);
+                    assert!((a.ux - d.ux).hypot(a.uz - d.uz) <= 1e-6 * scale, "rotation {angle}, node {}: silently different displacement", d.node_id);
+                    assert!((a.ry - d.ry).abs() <= 1e-6 * d.ry.abs().max(scale / 10.0), "rotation {angle}, node {}: silently different rotation", d.node_id);
+                }
+            }
+            Err(e) => assert!(e.starts_with("the structure is a mechanism or so close to one"), "rotation {angle}: unexpected refusal: {e}"),
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn incident_transform_coupling_survives_cancelled_node_off_diagonals() {
+    use dedaliano_engine::solver::{assembly, dof::DofNumbering, stability};
+    let mut input = make_winkler_beam(2, 2.0, 1_000.0, E, A, 1e-12, vec![]);
+    input.nodes.get_mut("1").unwrap().x = -1.0;
+    input.nodes.get_mut("1").unwrap().z = 0.001;
+    input.nodes.get_mut("2").unwrap().x = 0.0;
+    input.nodes.get_mut("3").unwrap().x = -1.0;
+    input.nodes.get_mut("3").unwrap().z = -0.001;
+    input.supports.remove("2");
+    for support in input.supports.values_mut() {
+        support.support_type = "fixed".into();
+        support.kx = None;
+        support.ky = None;
+    }
+    let dof = DofNumbering::build_2d(&input);
+    let assembled = assembly::assemble_2d(&input, &dof);
+    let n = dof.n_total;
+    let nf = dof.n_free;
+    let k: Vec<f64> = (0..nf).flat_map(|i| (0..nf).map(move |j| (i, j))).map(|(i,j)| assembled.k[i*n+j]).collect();
+    let mut tags = stability::tags(&dof, true);
+    tags.truncate(nf);
+    let matrix_only = stability::analyze_dense(&k, nf, &tags);
+    assert_eq!(matrix_only.anisotropy, 1.0, "the mirrored elements cancel their translation off-diagonal entries");
+    let physical = stability::of_2d(&input).unwrap();
+    assert!(physical.anisotropy > 1e4, "incident transformations must retain the coupled stiffness contrast: {physical:?}");
+}

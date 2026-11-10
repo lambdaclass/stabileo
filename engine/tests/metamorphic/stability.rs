@@ -759,3 +759,27 @@ fn a_long_continuous_beam_is_stable_past_the_full_spectrum() {
         dedaliano_engine::solver::linear::solve_2d(&input).unwrap_or_else(|e| panic!("{spans} spans: {e}"));
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_uncoupled_node_directions_do_not_amplify_each_others_rounding() {
+    let tags = [DofTag { node: 1, kind: DofKind::Translation }; 3];
+    let diagonal = [1.0, 0.0, 0.0, 0.0, 1e4, 0.0, 0.0, 0.0, 1e8];
+    let result = analyze_dense(&diagonal, 3, &tags);
+    assert!(result.is_stable(), "{result:?}");
+    assert_eq!(result.anisotropy, 1.0);
+    let coupled = [2.0, 1.0, 0.0, 1.0, 2.0, 0.0, 0.0, 0.0, 1e8];
+    let result = analyze_dense(&coupled, 3, &tags);
+    assert!(result.is_stable(), "{result:?}");
+    assert!((result.anisotropy - 3.0).abs() < 1e-12, "{result:?}");
+}
+
+#[test]
+fn node_coupling_components_include_transitive_edges() {
+    let tags = [DofTag { node: 1, kind: DofKind::Translation }; 3];
+    let k = [2.0, 1.0, 0.0, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0];
+    let result = analyze_dense(&k, 3, &tags);
+    let root = 2.0_f64.sqrt();
+    let expected = (2.0 + root) / (2.0 - root);
+    assert!((result.anisotropy / expected - 1.0).abs() < 1e-12, "{result:?}");
+}
