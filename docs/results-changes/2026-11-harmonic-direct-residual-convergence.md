@@ -18,10 +18,13 @@ response. Both refusal assertions failed. These are synthetic numerical data,
 not recommended engineering inputs.
 
 Both paths retain two refinement steps, then recompute the compensated residual
-against the original unscaled dynamic matrix. They now require its Euclidean norm,
-divided by the load norm, to meet the existing harmonic MODAL_RESIDUAL_TOL = 1e-2.
-The norm calculation scales by the largest load component before accumulation to
-avoid squaring tiny or huge loads. Zero load requires exactly zero residual.
+against the original unscaled dynamic matrix. They require its Euclidean norm,
+divided by the load norm within each connected dynamic component, to meet the
+existing harmonic MODAL_RESIDUAL_TOL = 1e-2. The norm calculation scales by the
+largest load component within that connected component before accumulation to
+avoid squaring tiny or huge loads. A component with zero load requires exactly
+zero residual. The [independent-load follow-up](2026-11-harmonic-independent-load-convergence.md)
+replaces the initial global norm, which allowed unrelated loads to dilute refusal.
 Non-finite residuals or loads refuse. The response magnitude is not part of the
 normalization: a huge response cannot hide an inconsistent load. An unconverged
 solve returns an error, without returning the modal approximation.
@@ -43,8 +46,10 @@ reference assertions on both dimensional paths, instead of reporting a print-onl
 probe as a passing accuracy test.
 
 **What to re-check:** direct harmonic responses calculated with earlier versions
-of PR #1922, including finite responses near singularity. The residual defect was
-reproduced on the unmerged branch; no separate public-main silence claim or new
-advisory is assigned. The existing main omitted-mode evidence and SA-2026-058
+of PR #1922, including finite responses near singularity. The residual defect was initially
+reproduced on the unmerged branch. The independent-load follow-up also replays
+the dense direct helper from origin/main and records its finite inconsistent
+response in the worktree handoff for coordinator assessment. No new advisory
+is assigned here. The existing main omitted-mode evidence and SA-2026-058
 remain separate. The shared registry notice includes this added refusal in all six
 locales without adding another notice for the same PR.

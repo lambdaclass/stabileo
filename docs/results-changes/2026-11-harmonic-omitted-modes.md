@@ -80,3 +80,8 @@ possible earlier harmonic run or changing any engine result.
 Direct solves also require their final compensated load residual to converge after
 refinement. See the [residual-convergence evidence](2026-11-harmonic-direct-residual-convergence.md).
 This correction shares the same harmonic registration and re-check scope.
+
+The final review also found that a large independent load could dilute the direct
+residual check. Dense and sparse direct paths now require convergence separately
+within each connected dynamic component. See the
+[independent-load correction](2026-11-harmonic-independent-load-convergence.md).

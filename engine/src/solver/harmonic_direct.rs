@@ -104,6 +104,8 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
     }
     let mut system = System::new(2 * n, STORAGE_BUDGET)?;
     let mut scales = vec![1.0_f64; 2 * n];
+    let mut components = ResidualComponents::new(2 * n);
+    for i in 0..n { components.connect(2 * i, 2 * i + 1); }
     if k.nnz().saturating_add(m.nnz()) > system.limit / 8 {
         return Err("Harmonic sparse direct storage budget exceeded before assembly".into());
     }
@@ -118,6 +120,7 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
     dynamic_entries(k, m, (a0, a1), omega, |i, j, real, imag, scale| {
         for (i, j) in [(i, j), (j, i)].into_iter().take(if i == j { 1 } else { 2 }) {
             let (r, c) = (2 * inverse[i], 2 * inverse[j]);
+            if real != 0.0 || imag != 0.0 { components.connect(r, c); }
             scales[c] = scales[c].max(scale);
             scales[c + 1] = scales[c + 1].max(scale);
             system.add(r, c, real)?;
@@ -153,7 +156,7 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
         })?;
         let residual: Vec<f64> = residual.into_iter().map(Residual::value).collect();
         if step == 2 {
-            require_residual_convergence(&residual, &rhs)?;
+            components.require_convergence(&residual, &rhs)?;
             break;
         }
         let correction = system.apply(&pivots, &residual)?;
@@ -184,23 +187,66 @@ fn dynamic_entries(k: &CscMatrix, m: &CscMatrix, (a0, a1): (f64, f64), omega: f6
     Ok(())
 }
 
-pub(super) fn require_residual_convergence(residual: &[f64], rhs: &[f64]) -> Result<(), String> {
-    if residual.iter().chain(rhs).any(|v| !v.is_finite()) {
-        return Err("Harmonic direct refinement produced a non-finite residual or load".into());
+pub(super) struct ResidualComponents {
+    parent: Vec<usize>,
+    size: Vec<usize>,
+}
+
+impl ResidualComponents {
+    pub(super) fn new(n: usize) -> Self {
+        Self { parent: (0..n).collect(), size: vec![1; n] }
     }
-    let scale = rhs.iter().fold(0.0_f64, |s, v| s.max(v.abs()));
-    let relative = if scale == 0.0 {
-        if residual.iter().all(|&v| v == 0.0) { 0.0 } else { f64::INFINITY }
-    } else {
-        let r_norm = residual.iter().fold(0.0_f64, |s, v| s.hypot(v / scale));
-        let f_norm = rhs.iter().fold(0.0_f64, |s, v| s.hypot(v / scale));
-        r_norm / f_norm
-    };
-    let tolerance = super::harmonic::MODAL_RESIDUAL_TOL;
-    if !(relative <= tolerance) {
-        return Err(format!("Harmonic direct refinement did not converge: relative residual {relative:.3e} exceeds {tolerance:.0e}"));
+
+    fn root(&mut self, mut i: usize) -> usize {
+        while self.parent[i] != i {
+            self.parent[i] = self.parent[self.parent[i]];
+            i = self.parent[i];
+        }
+        i
     }
-    Ok(())
+
+    pub(super) fn connect(&mut self, i: usize, j: usize) {
+        let (mut a, mut b) = (self.root(i), self.root(j));
+        if a == b { return; }
+        if self.size[a] < self.size[b] { std::mem::swap(&mut a, &mut b); }
+        self.parent[b] = a;
+        self.size[a] += self.size[b];
+    }
+
+    pub(super) fn require_convergence(&mut self, residual: &[f64], rhs: &[f64]) -> Result<(), String> {
+        if residual.len() != self.parent.len() || rhs.len() != self.parent.len() {
+            return Err("Harmonic direct residual dimension mismatch".into());
+        }
+        if residual.iter().chain(rhs).any(|v| !v.is_finite()) {
+            return Err("Harmonic direct refinement produced a non-finite residual or load".into());
+        }
+        let n = self.parent.len();
+        let mut scales = vec![0.0_f64; n];
+        for (i, &load) in rhs.iter().enumerate() {
+            let root = self.root(i);
+            scales[root] = scales[root].max(load.abs());
+        }
+        let mut r_norms = vec![0.0_f64; n];
+        let mut f_norms = vec![0.0_f64; n];
+        for (i, (&r, &f)) in residual.iter().zip(rhs).enumerate() {
+            let root = self.root(i);
+            let scale = scales[root];
+            if scale == 0.0 {
+                if r != 0.0 { r_norms[root] = f64::INFINITY; }
+            } else {
+                r_norms[root] = r_norms[root].hypot(r / scale);
+                f_norms[root] = f_norms[root].hypot(f / scale);
+            }
+        }
+        let tolerance = super::harmonic::MODAL_RESIDUAL_TOL;
+        for i in 0..n {
+            let relative = if scales[i] == 0.0 { r_norms[i] } else { r_norms[i] / f_norms[i] };
+            if !(relative <= tolerance) {
+                return Err(format!("Harmonic direct refinement did not converge: component relative residual {relative:.3e} exceeds {tolerance:.0e}"));
+            }
+        }
+        Ok(())
+    }
 }
 
 pub(super) fn column_scale(value: f64) -> Result<f64, String> {
@@ -264,6 +310,10 @@ mod tests {
             solve_complex_system(&k, &m, &vec![0.0; n * n], &f, n, 1.0)
         };
         assert!(result.is_err(), "singular inconsistent system returned a response: sparse={sparse}, last={:?}", result.as_ref().map(|(re, im)| (re[count], im[count])));
+        if independent_load.is_some() {
+            let error = result.unwrap_err();
+            assert!(error.contains("component relative residual"), "{error}");
+        }
     }
 
     #[test]
@@ -277,15 +327,32 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1922"]
     fn dense_singular_arrowhead_with_independent_load_is_refused() {
         singular_arrowhead(false, Some(1e12));
     }
 
     #[test]
-    #[ignore = "known wrong result: #1922"]
     fn sparse_singular_arrowhead_with_independent_load_is_refused() {
         singular_arrowhead(true, Some(1e12));
+    }
+
+    #[test]
+    fn independent_damped_responses_preserve_tiny_zero_and_large_loads() {
+        let k = [3.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 2.0];
+        let m = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        let c = rayleigh_damping_matrix(&m, &k, 3, 0.25, 0.0);
+        let f = [1e-300, 0.0, 1e150];
+        for (re, im) in [
+            solve_complex_system(&k, &m, &c, &f, 3, 1.0).unwrap(),
+            solve(&CscMatrix::from_dense_symmetric(&k, 3), &CscMatrix::from_dense_symmetric(&m, 3), &f, (0.25, 0.0), 1.0).unwrap(),
+        ] {
+            for i in 0..3 {
+                let real = k[i * 3 + i] - 1.0;
+                let denom = real * real + 0.25 * 0.25;
+                let expected = (f[i] * (real / denom), f[i] * (-0.25 / denom));
+                assert!((re[i] - expected.0).hypot(im[i] - expected.1) <= 1e-12 * expected.0.hypot(expected.1), "dof={i}: {re:?} {im:?} vs {expected:?}");
+            }
+        }
     }
 
     fn structural_resonance(sparse: bool) {

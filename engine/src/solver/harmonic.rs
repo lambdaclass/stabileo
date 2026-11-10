@@ -884,6 +884,8 @@ pub fn solve_complex_system(
     }
     let mut a = vec![0.0; n2 * n2];
     let mut rhs = vec![0.0; n2];
+    let mut components = super::harmonic_direct::ResidualComponents::new(n2);
+    for i in 0..n { components.connect(i, n + i); }
 
     // K_d = K - omega^2 * M
     let mut scales = vec![1.0_f64; n2];
@@ -893,6 +895,7 @@ pub fn solve_complex_system(
         for j in 0..n {
             let kd = k[i * n + j] - omega2 * m[i * n + j];
             let wc = omega * c[i * n + j];
+            if kd != 0.0 || wc != 0.0 { components.connect(i, j); }
             let scale = k[i * n + j].abs().max((omega2 * m[i * n + j]).abs()).max(wc.abs()).max(kd.abs());
             scales[j] = scales[j].max(scale);
             scales[n + j] = scales[n + j].max(scale);
@@ -935,7 +938,7 @@ pub fn solve_complex_system(
             residual[n + i] = im.value();
         }
         if step == 2 {
-            super::harmonic_direct::require_residual_convergence(&residual, &rhs)?;
+            components.require_convergence(&residual, &rhs)?;
             break;
         }
         let correction = lu_apply(&a, &pivots, &residual, n2).ok_or_else(|| "Complex system refinement failed".to_string())?;
