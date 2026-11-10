@@ -415,6 +415,23 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect(summary.rows.find((r) => r[0] === 'SA-2026-053')![2]).toBe(severity);
   });
 
+  it.each<[PublicLocale, string]>([
+    ['en', 'Draft: unresolved; no fix merged or deployed'],
+    ['es', 'Borrador: sin resolver; ninguna corrección integrada ni publicada'],
+    ['pt', 'Rascunho: não resolvido; nenhuma correção integrada nem publicada'],
+    ['de', 'Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht'],
+    ['fr', 'Brouillon : non résolu ; aucun correctif intégré ni déployé'],
+    ['tr', 'Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı'],
+  ])('%s: lists SA-2026-056 as a pending draft', (locale, draftStatus) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    const row = summary.rows.find((r) => r[0] === 'SA-2026-056');
+    expect(row, `${locale}: SA-2026-056 missing`).toBeDefined();
+    expect(row![3]).toBe(draftStatus);
+    expect(status.t).toContain(`SA-2026-056 — ${draftStatus}.`);
+  });
+
   it('quotes each documented case exactly as its advisory states it', () => {
     // Correct / reported, per advisory, as each advisory's documented-case table states it
     // (docs/advisories/SA-2026-*.md).
