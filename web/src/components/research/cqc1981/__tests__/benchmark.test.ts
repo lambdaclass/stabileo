@@ -63,7 +63,7 @@ it('dispatches both combinations through production WASM wrappers with the modal
 
 it('supplies complete keys with the same numbers in all six locales', () => {
   const numbers = (v: unknown) => JSON.stringify(v).match(/\d+(?:\.\d+)*/g) ?? [];
-  for (const locale of ['es', 'pt', 'de', 'fr', 'tr'] as const) {
+  for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu'] as const) {
     expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
     expect(translations[locale].limitations).toHaveLength(3);
     expect(translations[locale].title).not.toEqual(translations.en.title);
