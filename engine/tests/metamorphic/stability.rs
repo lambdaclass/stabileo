@@ -884,3 +884,33 @@ fn issue_1753_pin_verification_uses_only_contributing_terms() {
     assert!(s.check_pins(&[1.0, 0.0, 0.0], &[1e20, 0.0, 1.0], &[0.0, 0.0, 1.0]).is_ok());
     assert!(s.check_pins(&[1.0, 0.0, 0.0], &[1e20, 0.0, 0.0], &[0.0, 0.0, 1.0]).is_err());
 }
+
+fn conditioning_boundary(kappa: f64, anisotropy: f64) -> Stability {
+    let eta = 1.0 / anisotropy;
+    let cross = (kappa - 1.0) / (kappa + 1.0) * eta.sqrt();
+    let local = 1e-3 * eta.sqrt();
+    let other = 1e-3 * (kappa - 1.0) / (kappa + 1.0);
+    analyze_dense(&[eta, local, cross, local, 1.0, other, cross, other, 1.0], 3,
+        &[t(1, DofKind::Translation), t(1, DofKind::Translation), t(2, DofKind::Translation)])
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_product_boundary_admits_both_sides_within_separate_limits() {
+    for factor in [1.0 - 1e-4, 1.0 + 1e-4] {
+        let s = conditioning_boundary(1e6, 1e6 * factor);
+        assert!(s.is_stable(), "{factor}: {s:?}");
+        assert_eq!(s.kappa * s.anisotropy > stability::RESOLVABLE, factor > 1.0, "{s:?}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_separate_condition_and_anisotropy_boundaries() {
+    for factor in [1.0 - 1e-3, 1.0 + 1e-3] {
+        let s = conditioning_boundary(1e12 * factor, 2.0);
+        assert_eq!(s.is_stable(), factor < 1.0, "kappa {factor}: {s:?}");
+        let s = conditioning_boundary(1e6, 1e8 * factor);
+        assert_eq!(s.is_stable(), factor < 1.0, "anisotropy {factor}: {s:?}");
+    }
+}
