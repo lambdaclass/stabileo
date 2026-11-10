@@ -693,7 +693,6 @@ fn cable_density_is_not_a_load() {
 }
 
 #[test]
-#[ignore = "known wrong result: #417"]
 fn linear_solver_does_not_report_cable_compression_silently() {
     let input = common::make_input(
         vec![(1, 0.0, 0.0), (2, 10.0, -2.0), (3, 20.0, 0.0)],
@@ -1167,7 +1166,6 @@ fn cable_on_an_inclined_roller_follows_the_chord_law() {
 }
 
 #[test]
-#[ignore = "known wrong result: #417"]
 fn linear_solver_does_not_report_cable_compression_silently_3d() {
     let input = make_3d_input(
         vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0)],

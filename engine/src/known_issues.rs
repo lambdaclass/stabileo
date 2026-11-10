@@ -59,8 +59,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "BU-BOUND", issue: 741, mode: Mode::Refuse, message: "Results withheld: the computed buckling factor lies outside its certified bounds. Neither the displayed factor nor the certificate may be used for design" },
     Entry { id: "SP-17", issue: 419, mode: Mode::Warn, message: "Anisotropic connector transverse axes are not user-orientable and can change abruptly with direction. Independently verify the spring directions before using these results" },
     Entry { id: "FR-5", issue: 408, mode: Mode::Warn, message: "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently" },
-    Entry { id: "SP-14", issue: 417, mode: Mode::Warn, message: "Outside the cable analysis, cable elements can carry compression as truss bars. Verify cable tensions and use a tension-only cable analysis for slackening" },
-    Entry { id: "NL-13", issue: 432, mode: Mode::Warn, message: "Contact analysis can freeze a chattering gap while reporting convergence. Verify the contact state and equilibrium independently" },
     Entry { id: "HARM-TRUNCATION", issue: 1434, mode: Mode::Warn, message: "Harmonic response by modal superposition at frequencies near or above the first omitted mode: the omitted modes are not corrected there, and amplitude and phase can be wrong by large factors. Do not use these frequencies for design; independently verify them with a direct solve" },
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
@@ -187,7 +185,6 @@ pub fn for_analysis(analysis: Analysis) -> Vec<StructuredDiagnostic> {
     match analysis {
         Analysis::MaterialNonlinear => vec![diagnostic("NL-5")],
         Analysis::TimeHistory => vec![diagnostic("TH-RECIPROCITY")],
-        Analysis::Contact => vec![diagnostic("NL-13")],
         _ => vec![],
     }
 }
@@ -503,9 +500,6 @@ pub fn for_2d_loads(input: &SolverInput, loads: &[SolverLoad], analysis: Analysi
         out.push(diagnostic("NL-DYNAMIC-GAPS"));
     }
     if analysis == Analysis::Plastic { out.push(diagnostic("PL-2D-INVARIANCE")); }
-    if analysis != Analysis::Cable && input.elements.values().any(|e| e.elem_type == "cable") {
-        out.push(diagnostic("SP-14"));
-    }
     out.extend(loads_2d(loads));
     out
 }
@@ -521,9 +515,6 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
     }
     if analysis == Analysis::Plastic && !input.curved_beams.is_empty() { out.push(diagnostic("PL-3D-INVARIANCE")); }
     if analysis == Analysis::Modal { out.push(diagnostic("MD-ORTHOGONALITY")); }
-    if analysis != Analysis::Cable && input.elements.values().any(|e| e.elem_type == "cable") {
-        out.push(diagnostic("SP-14"));
-    }
     out.extend(model_3d(input));
     out.extend(loads_3d(&input.loads));
     out
@@ -1233,7 +1224,6 @@ mod tests {
             ("NL-5", Analysis::MaterialNonlinear, false),
             ("NL-DYNAMIC-GAPS", Analysis::MaterialNonlinear, false),
             ("PL-2D-INVARIANCE", Analysis::Plastic, false),
-            ("NL-13", Analysis::Contact, false),
             ("TH-RECIPROCITY", Analysis::TimeHistory, false),
             ("MD-ORTHOGONALITY", Analysis::Modal, true),
             ("BU-ACCURACY", Analysis::Buckling, true),
@@ -1304,10 +1294,13 @@ mod tests {
         assert!(has(&for_2d(&unloaded, Analysis::Linear), "CERT-MECHANISM"), "an all-hinged node with a rigid arm is covered without nodal moment");
         unloaded.supports.get_mut("1").unwrap().kz = Some(1.0);
         assert!(!has(&for_2d(&unloaded, Analysis::Linear), "CERT-MECHANISM"), "a real rotational spring supplies stiffness");
-        assert!(!has(&for_2d(&plane, Analysis::Linear), "SP-14"));
         plane.elements.get_mut("1").unwrap().elem_type = "cable".into();
-        assert!(has(&for_2d(&plane, Analysis::Linear), "SP-14"));
-        assert!(!has(&for_2d(&plane, Analysis::Cable), "SP-14"));
+        let error = crate::solver::linear::solve_2d(&plane).unwrap_err();
+        let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+        assert_eq!(error["structuredDiagnostics"][0]["code"], "cable_analysis_required");
+        assert!(crate::solver::linear::validate_input_2d_for_analysis(&plane, Analysis::Cable).is_err());
+        plane.loads.clear();
+        assert!(crate::solver::linear::validate_input_2d_for_analysis(&plane, Analysis::Cable).is_ok());
         let mut space = input3();
         let connector: ConnectorElement = serde_json::from_value(serde_json::json!({"id":5,"nodeI":1,"nodeJ":2,"kShear":10,"kShearZ":10})).unwrap();
         space.connectors.insert("5".into(), connector);

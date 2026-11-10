@@ -719,13 +719,122 @@ fn assert_contact_refusal<T: std::fmt::Debug>(result: Result<T, String>) {
 }
 
 #[test]
-#[ignore = "known wrong result: #432"]
 fn nl_contact_chattering_gap_is_refused_2d() {
     assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&chattering_contact_2d()));
 }
 
 #[test]
-#[ignore = "known wrong result: #432"]
 fn nl_contact_chattering_gap_is_refused_3d() {
     assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&chattering_contact_3d()));
+}
+
+
+#[test]
+fn nl_contact_frozen_gap_within_tolerance_can_converge_2d() {
+    let mut input = chattering_contact_2d();
+    input.gap_elements[0].initial_gap *= 1e-9;
+    for load in &mut input.solver.loads {
+        if let SolverLoad::Nodal(load) = load { load.fx *= 1e-9; load.fz *= 1e-9; }
+    }
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen")));
+    let gap = &result.gap_status[0];
+    assert!(gap.displacement + input.gap_elements[0].initial_gap >= -input.tolerance.unwrap());
+    assert!(gap.force <= input.gap_elements[0].stiffness * input.tolerance.unwrap());
+    input.tolerance = Some(1e-15);
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&input));
+}
+
+#[test]
+fn nl_contact_frozen_gap_within_tolerance_can_converge_3d() {
+    let mut input = chattering_contact_3d();
+    input.gap_elements[0].initial_gap *= 1e-9;
+    for load in &mut input.solver.loads {
+        if let SolverLoad3D::Nodal(load) = load { load.fx *= 1e-9; load.fz *= 1e-9; }
+    }
+    let result = dedaliano_engine::solver::contact::solve_contact_3d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen")));
+    let gap = &result.gap_status[0];
+    assert!(gap.displacement + input.gap_elements[0].initial_gap >= -input.tolerance.unwrap());
+    assert!(gap.force <= input.gap_elements[0].stiffness * input.tolerance.unwrap());
+    input.tolerance = Some(1e-15);
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&input));
+}
+
+#[test]
+fn nl_contact_frozen_open_gap_cannot_penetrate() {
+    let mut plane = chattering_contact_2d();
+    plane.max_flips = Some(0);
+    plane.element_behaviors.clear();
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&plane));
+    let mut space = chattering_contact_3d();
+    space.max_flips = Some(0);
+    space.element_behaviors.clear();
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&space));
+}
+
+#[test]
+fn nl_contact_frozen_surface_pair_cannot_penetrate() {
+    use dedaliano_engine::solver::contact::*;
+    let mut input = chattering_contact_2d();
+    input.max_flips = Some(0);
+    input.gap_elements.clear();
+    input.element_behaviors.clear();
+    input.solver.nodes.insert("5".into(), SolverNode { id: 5, x: 2.001, z: -1.0 });
+    let mut support = input.solver.supports["3"].clone();
+    support.id = 4;
+    support.node_id = 5;
+    input.solver.supports.insert("4".into(), support);
+    input.contact_type = ContactType::NodeToSurface;
+    input.node_to_surface_pairs.push(NodeToSurfacePair {
+        slave_node: 2, master_segment: MasterSegment { id: 1, node_a: 5, node_b: 4 },
+        stiffness: 100_000.0, friction_coefficient: None,
+    });
+    let error = solve_contact_2d(&input).unwrap_err();
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let d = &error["structuredDiagnostics"][0];
+    assert_eq!(d["code"], "contact_state_invalid");
+    assert_eq!(d["phase"], "node_to_surface");
+    assert_eq!(d["nodeIds"], serde_json::json!([2]));
+    assert!(d.get("elementIds").is_none());
+}
+
+fn assert_cable_refusal<T>(result: Result<T, String>) {
+    let error = match result { Err(error) => error, Ok(_) => panic!("cables require tension-only analysis") };
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    assert_eq!(error["structuredDiagnostics"][0]["code"], "cable_analysis_required");
+    assert_eq!(error["structuredDiagnostics"][0]["severity"], "error");
+    assert_eq!(error["structuredDiagnostics"][0]["elementIds"], serde_json::json!([2]));
+}
+
+#[test]
+fn nl_cable_validity_is_enforced_across_analysis_paths() {
+    use dedaliano_engine::solver::{contact, modal, time_integration, buckling};
+    let mut plane = chattering_contact_2d();
+    let mut space = chattering_contact_3d();
+    plane.solver.elements.get_mut("2").unwrap().elem_type = "cable".into();
+    space.solver.elements.get_mut("2").unwrap().elem_type = "cable".into();
+    let densities = HashMap::from([("1".into(), 1.0)]);
+    assert_cable_refusal(linear::prepare_static_2d(&plane.solver));
+    assert_cable_refusal(linear::prepare_static_3d(&space.solver));
+    assert_cable_refusal(modal::solve_modal_2d(&plane.solver, &densities, 1));
+    assert_cable_refusal(modal::solve_modal_3d(&space.solver, &densities, 1));
+    assert_cable_refusal(pdelta::solve_pdelta_2d(&plane.solver, 30, 1e-10));
+    assert_cable_refusal(pdelta::solve_pdelta_3d(&space.solver, 30, 1e-10));
+    assert_cable_refusal(buckling::solve_buckling_2d(&plane.solver, 1));
+    assert_cable_refusal(buckling::solve_buckling_3d(&space.solver, 1));
+    assert_cable_refusal(corotational::solve_corotational_2d(&plane.solver, 30, 1e-10, 1, false));
+    assert_cable_refusal(corotational::solve_corotational_3d(&space.solver, 30, 1e-10, 1, false));
+    let time2: TimeHistoryInput = serde_json::from_value(serde_json::json!({
+        "solver": plane.solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
+    })).unwrap();
+    let time3: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
+        "solver": space.solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
+    })).unwrap();
+    assert_cable_refusal(time_integration::solve_time_history_2d(&time2));
+    assert_cable_refusal(time_integration::solve_time_history_3d(&time3));
+    assert_cable_refusal(contact::solve_contact_2d(&plane));
+    assert_cable_refusal(contact::solve_contact_3d(&space));
 }

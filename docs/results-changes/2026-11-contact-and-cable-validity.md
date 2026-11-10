@@ -1,0 +1,41 @@
+# Frozen contact states and cable bar analyses are withheld (2026-11-10)
+
+Issues #432 (NL-13) and #417 (SP-14). Results-change entry `contact-and-cable-validity`.
+
+The contact iteration stopped counting a gap or surface pair as changed once its flip count
+exceeded `max_flips`. It could then report convergence while the frozen contact carried tension
+or penetrated. The 2D and 3D reproducer returns a closed gap carrying 47.08417852038051 kN of
+unphysical tension and `converged = true` at the base revision. The base already attaches a
+translated NL-13 warning; these native reproducers therefore did not return silently wrong results.
+
+Both dimensions now check frozen contacts after the final solve without damping, remembering
+freezing across augmented-Lagrangian passes. Penetration and tensile force divided by the penalty
+stiffness must be within the contact tolerance, default 1e-10 m, and a separated contact must not
+carry compression above the same scaled tolerance. Invalid states return a structured
+`contact_state_invalid` refusal. A frozen state that satisfies these conditions may converge.
+Ordinary unfrozen penalty contact keeps its existing treatment of penetration. Frozen uplift supports
+whose status still needs to change are refused rather than returned with an unsettled state.
+
+Outside the cable solver, cable elements were assembled as two-way truss bars. The 2D pinning
+model returns compression at the base; the 3D reproducer returns -10 kN. The base attaches a
+translated SP-14 warning. Shared input validation now refuses cable elements in analyses that
+cannot enforce slackening, including static, prepared, modal, P-Delta, buckling, time history,
+harmonic, constrained, staged, co-rotational, material, fiber and contact paths. Analysis-based
+design workflows receive the same refusal. The dedicated cable solver is explicitly exempt.
+
+This is a deliberate restriction on tensile and unloaded cable cases as well as compressed ones:
+the unsupported analysis does not prove the cable stays taut in combinations or dynamics. Use
+cable analysis; use an explicit truss only for a member intended to resist both force signs. Contact
+analysis can represent a tension-only truss with explicit `tension_only` behaviour.
+
+The web input builders preserve cable identity, including advanced-analysis and design requests,
+instead of converting cables to trusses before they reach validation. The automatic cable-analysis
+route remains available.
+
+Both errors have structured codes and translations in all six locales. Previously accepted affected
+models now return errors instead of results. No tolerance, baseline or assertion was loosened.
+
+**What to re-check:** results from frozen contact states, and cable models previously solved or
+designed using an analysis other than cable analysis. No advisory is added here. The native base reproducers carry warnings. However, origin/main's
+web 3D input builder converts cable behaviour to `truss`, so advanced-analysis requests can bypass
+the SP-14 predicate. The coordinator must review that web exposure when deciding on an advisory.

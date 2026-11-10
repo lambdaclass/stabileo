@@ -8,7 +8,9 @@ import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import '../../store';
 import * as wasmSolver from '../wasm-solver';
-import { buildSolverInput3D, validateAndSolve3D, solveCombinations3D, scaleSolverLoad } from '../solver-service';
+import { solveDetailed } from '../solver-detailed';
+import { solveDetailed3D } from '../solver-detailed-3d';
+import { buildSolverInput2D, buildSolverInput3D, validateAndSolve3D, solveCombinations3D, scaleSolverLoad } from '../solver-service';
 import { SETTLEMENT_CASE_ID } from '../settlement-case';
 import { presetModifiers, CIRSOC201_STIFFNESS, solveNonlinear3D } from '../member-behaviour';
 import { modelHasJoints3D } from '../expand-joints-3d';
@@ -447,4 +449,25 @@ describe('a settlement in a model that is not linear', () => {
       for (const key of ['ux', 'uy', 'uz'] as const) expect(c[key]).toBeCloseTo(d[key], 9);
     }
   });
+});
+
+
+it('preserves cable identity so bar analyses refuse it and cable analysis remains available (#417)', () => {
+  const { d5 } = bracedBay();
+  modelStore.updateElement(d5, { behaviour: 'cable' });
+  const input = buildSolverInput3D(md())!;
+  expect(input.elements.get(d5)?.type).toBe('cable');
+  const plane = buildSolverInput2D(md())!;
+  expect(plane.elements.get(d5)?.type).toBe('cable');
+  expect(() => solveDetailed(plane)).toThrow('cable_analysis_required');
+  expect(() => solveDetailed3D(input)).toThrow('cable_analysis_required');
+  let refusal: unknown;
+  try { wasmSolver.solve3D(input); } catch (error) { refusal = error; }
+  expect(refusal).toBeDefined();
+  const data = JSON.parse((refusal as Error).message);
+  expect(data.structuredDiagnostics[0].code).toBe('cable_analysis_required');
+  expect(data.structuredDiagnostics[0].elementIds).toEqual([d5]);
+  const result = solve();
+  expect(result.nonlinear?.cables).toBeDefined();
+  expect(result.elementForces.find(f => f.elementId === d5)!.nStart).toBeGreaterThanOrEqual(0);
 });

@@ -248,3 +248,23 @@ describe('the result walker finds a refusal wherever a bundle keeps it', () => {
     expect(d.messages.join()).toContain('#741');
   });
 });
+
+
+it('translates cable and frozen-contact refusals in all six languages', async () => {
+  for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+    setLocale(loc);
+    await ensureLocale(loc);
+    for (const [code, key] of [['cable_analysis_required', 'cable'], ['contact_state_invalid', 'contact']] as const) {
+      const d = { code, severity: 'error', elementIds: [7, 9], message: 'ENGINE' };
+      const error = JSON.stringify({ message: 'ENGINE', structuredDiagnostics: [d] });
+      const translated = dictFor(loc)[`analysisValidity.${key}`].replace('{elements}', '7, 9');
+      expect(knownIssueRefusal(error), `${code} ${loc}`).toBe(translated);
+      expect(errorText(error, 'fallback'), `${code} ${loc}`).toBe(translated);
+      if (code === 'contact_state_invalid') {
+        expect(errorText(JSON.stringify({ structuredDiagnostics: [{ ...d, elementIds: [], nodeIds: [7, 9] }] }), 'fallback')).toBe(translated);
+      }
+      expect(knownIssueRefusal(JSON.stringify({ structuredDiagnostics: [{ ...d, severity: 'warning' }] }))).toBeNull();
+    }
+  }
+  setLocale('en');
+});

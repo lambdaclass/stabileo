@@ -64,7 +64,7 @@ Newton for that increment.
 | Fiber 2D/3D | as co-rotational | $10^{-6}$ | stops, reports the **unconverged iterate** (NL-17) |
 | Arc-length | $\lVert C^{\mathsf T}R\rVert_2 / (\lvert\lambda\rvert\lVert F\rVert_2) < \text{tol}$ | $10^{-6}$ | halves $\Delta s$, restores the last converged state |
 | Displacement control | force test as arc-length, with $\lVert\lambda F\rVert$ floored at 1, **and** $\lvert u_c - u_c^\ast\rvert \le \text{tol}\cdot\lvert\Delta d\rvert$ | $10^{-6}$ | stops |
-| Contact | no status change in one full pass (after the first) | — | `converged=false` after `max_iter` |
+| Contact | no status change in one full pass (after the first); frozen states must satisfy contact conditions after the final solve | `tolerance`, default $10^{-10}$ m for frozen-state validation | invalid frozen states refused; `converged=false` after `max_iter` |
 
 If $\lVert F\rVert = 0$, the co-rotational 2D and fiber solvers test $\lVert R\rVert$ in absolute
 terms, and the 3D co-rotational solver divides by 1. Every force norm is an unweighted $\ell_2$
@@ -179,8 +179,7 @@ $10^{-6}\max\lvert K\rvert$, and $K_T$ is symmetric. The check covers a fixed me
 an end hinge, and a Timoshenko member.
 
 Trusses and cables use $f = N r$ and $K_T = (EA/L_0)rr^{\mathsf T} + (N/l)(Z - rr^{\mathsf T})$ with
-$N = EA\bar u/L_0$. In 2D and 3D this is exact for any rotation. In the co-rotational solvers a
-cable is a bar that also takes compression. The cable solver is in
+$N = EA\bar u/L_0$. In 2D and 3D this is exact for any rotation. Co-rotational analyses refuse cable members; use the cable solver to enforce tension-only behaviour. The cable solver is in
 [special-elements.md](special-elements.md#1-cables).
 
 ### 3.3 Releases
@@ -453,11 +452,13 @@ from that solution, and the passes repeat until no status changes.
 - **Uplift supports (2D).** This is an outer loop that swaps the support type: a support with a
   tensile reaction lifts off, and a lifted node that comes back below its seat bears again. In 3D
   uplift supports are refused.
-- **Chattering.** After `max_flips` changes the status of a gap or pair is frozen. A frozen status
-  no longer counts as a change, so the loop can return `converged = true` with a state that does
-  not match its own solution (a closed gap in tension, an open gap that penetrates). The only sign
-  is a text diagnostic (NL-13). Optional damping adds $c(u-u_\text{prev})$ to oscillating gaps
-  during iteration only.
+- **Chattering.** After `max_flips` changes the status of a gap or pair is frozen. Both dimensions
+  validate every frozen gap, and 2D every frozen surface pair, after the final solve without damping.
+  Penetration and tensile force divided by penalty stiffness must be within `tolerance` (default
+  $10^{-10}$ m); a separated contact cannot carry compression above the same scaled tolerance.
+  Invalid states are refused with `contact_state_invalid`. Freezing is remembered across
+  augmented-Lagrangian passes. Valid frozen states may converge and retain oscillation diagnostics.
+  Optional damping adds $c(u-u_\text{prev})$ to oscillating gaps during iteration only.
 
 ---
 
@@ -678,11 +679,15 @@ Neither is called by any solver. They are library utilities, tested only in
   `control_displacement` is `u_full[0]`, and no reactions are reported.
 - *Test.* None quantitative (gap, §13).
 
-**NL-13. Contact status frozen after `max_flips` still counts as converged. OPEN.**
+**NL-13. Contact status frozen after `max_flips` still counts as converged. FIXED (#432).**
 
-- *Evidence.* Code path, `solve_contact_2d`: a frozen gap sets no `any_change`, so the inner loop
-  ends with `converged = true` and only a diagnostic string.
-- *Test.* None (a chattering model is needed).
+- *Evidence.* The 2D and 3D reproducer froze a closed gap carrying tension and returned
+  `converged = true`. Main already attached a translated `NL-13` warning.
+- *Fix.* Validate frozen states after the final solve without damping and refuse invalid states
+  with a structured, translated error. A state within the contact tolerance may converge.
+- *Tests.* `nl_contact_chattering_gap_is_refused_2d/3d`,
+  `nl_contact_frozen_gap_within_tolerance_can_converge_2d/3d`,
+  `nl_contact_frozen_open_gap_cannot_penetrate`, `nl_contact_frozen_surface_pair_cannot_penetrate`.
 
 **NL-14. Co-rotational member loads are dead loads in the initial frame. DOCUMENTED-CHOICE.**
 

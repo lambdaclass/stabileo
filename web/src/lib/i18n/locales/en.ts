@@ -3996,6 +3996,8 @@ const en: Record<string, string> = {
   "knownIssue.BU-BOUND": "Results withheld: the computed buckling factor lies outside its certified bounds. Neither the displayed factor nor the certificate may be used for design",
   "knownIssue.SP-17": "Anisotropic connector transverse axes are not user-orientable and can change abruptly with direction. Independently verify the spring directions before using these results",
   "knownIssue.FR-5": "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently",
+  "analysisValidity.cable": "Results withheld: cable elements {elements} require cable analysis to enforce tension-only behaviour. This analysis treats cables as bars that can carry compression.",
+  "analysisValidity.contact": "Results withheld: frozen contact {elements} does not satisfy the no-penetration and no-tension conditions within the contact tolerance. Revise the contact model or iteration settings and solve again.",
   "knownIssue.SP-14": "Outside the cable analysis, cable elements can carry compression as truss bars. Verify cable tensions and use a tension-only cable analysis for slackening",
   "knownIssue.NL-13": "Contact analysis can freeze a chattering gap while reporting convergence. Verify the contact state and equilibrium independently",
   "knownIssue.HARM-TRUNCATION": "Harmonic response by modal superposition at frequencies near or above the first omitted mode: the omitted modes are not corrected there, and amplitude and phase can be wrong by large factors. Do not use these frequencies for design; independently verify them with a direct solve",

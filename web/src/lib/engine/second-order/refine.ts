@@ -131,7 +131,7 @@ export function collapseResults(r: Refined, original: SolverInput, res: Analysis
 }
 
 /** The refined geometry in the model's plane coordinates (x, y), for drawing a mode on it. */
-export function refinedGeometry(r: Refined): { nodes: Array<{ id: number; x: number; y: number }>; elements: Array<{ id: number; nodeI: number; nodeJ: number; type: 'frame' | 'truss'; hingeStart: boolean; hingeEnd: boolean }> } {
+export function refinedGeometry(r: Refined): { nodes: Array<{ id: number; x: number; y: number }>; elements: Array<{ id: number; nodeI: number; nodeJ: number; type: 'frame' | 'truss' | 'cable'; hingeStart: boolean; hingeEnd: boolean }> } {
   return {
     nodes: [...r.input.nodes.values()].map((nd) => ({ id: nd.id, x: nd.x, y: nd.z })),
     elements: [...r.input.elements.values()].map((e) => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, type: e.type, hingeStart: e.hingeStart, hingeEnd: e.hingeEnd })),

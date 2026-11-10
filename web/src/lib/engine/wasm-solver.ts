@@ -1973,11 +1973,7 @@ export interface CableForce3D {
   unstretchedLength: number;
 }
 
-/** A 3D input whose members may also be typed `cable`: a truss that only `solveCable3D` treats as
- *  one, with its sag and tension-only stiffness. The other analyses take it as a truss. */
-export type SolverInputCable3D = Omit<SolverInput3D, 'elements'> & {
-  elements: Map<number, Omit<SolverElement3D, 'type'> & { type: SolverElement3D['type'] | 'cable' }>;
-};
+export type SolverInputCable3D = SolverInput3D;
 
 export interface CableAnalysis3D {
   results: AnalysisResults3D;

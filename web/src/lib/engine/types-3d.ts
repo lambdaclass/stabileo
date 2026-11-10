@@ -57,7 +57,7 @@ export interface SolverSection3D {
 
 export interface SolverElement3D {
   id: number;
-  type: 'frame' | 'truss';
+  type: 'frame' | 'truss' | 'cable';
   nodeI: number;
   nodeJ: number;
   materialId: number;
