@@ -169,6 +169,19 @@ fn a_wrong_time_history_is_caught() {
     assert!(cmp(&got).is_err(), "a displacement history wrong by 1e-6 of scale passed");
 }
 
+#[test]
+#[ignore = "known wrong result: #1890"]
+fn issue_1267_symmetric_full_spectrum_remains_available_for_conditioning() {
+    let Model::D2(c) = model(1267) else { panic!("2D") };
+    let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap();
+    let c = &sym.case;
+    let cond = conditioning::of_2d(&c.s).unwrap();
+    let result = dedaliano_engine::solver::modal::solve_modal_2d(&c.s, &c.dens, cond.n).unwrap();
+    assert!(!result.modes.is_empty());
+    let cond = crate::checks2::with_eigen_2d(cond, c);
+    assert!(cond.eig > 0.0);
+}
+
 /// #1282; #1267 and #1278 are near-mechanisms whose pencils span 1e12.
 #[test]
 fn eigen_based_rows_account_for_spread_and_gaps() {

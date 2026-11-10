@@ -290,6 +290,27 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #1890"]
+    fn modal_basis_accepts_diagonal_mass_contrast_with_identity_stiffness() {
+        let k = [1.0, 0.0, 0.0, 1.0];
+        let m = [1.0, 0.0, 0.0, 1e12];
+        for reversed in [false, true] {
+            let mut checks = ModalChecks { scales: vec![1.0, 1.0], ..Default::default() };
+            checks.stiffness = ProductBound::dense(&k, 2, &checks.scales);
+            checks.mass = ProductBound::dense(&m, 2, &checks.scales);
+            let mut modes = [([1.0, 0.0], 1.0), ([0.0, 1e-6], 1e-12)];
+            if reversed { modes.reverse(); }
+            for (phi, lambda) in modes {
+                let mp = [m[0] * phi[0], m[3] * phi[1]];
+                checks.check(&phi, lambda, &phi, &mp).unwrap();
+            }
+            assert_eq!(checks.diagnostics.len(), 4);
+            assert!(checks.diagnostics.iter().all(|d| d.severity == Severity::Info));
+            assert_eq!(checks.diagnostics.last().unwrap().value, Some(0.0));
+        }
+    }
+
+    #[test]
     fn modal_basis_check_uses_mass_metric_under_coordinate_rescaling() {
         for scale in [1e-12_f64, 1.0, 1e12] {
             let diagonal = [scale * scale, 1.0 / (scale * scale)];
