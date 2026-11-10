@@ -14,6 +14,7 @@ import { expectPlasticRefusal } from './containment-helper';
  */
 import { describe, it, expect } from 'vitest';
 import { solve, solve3D, solvePDelta, solvePDelta3D, solvePlastic } from '../wasm-solver';
+import { plasticCollapse2D } from '../plastic-collapse';
 import type { SolverInput, SolverLoad } from '../types';
 import type { SolverInput3D, SolverLoad3D } from '../types-3d';
 
@@ -71,15 +72,16 @@ describe('P-Delta reads the compression a temperature causes', () => {
 
 describe('plastic collapse is not moved by a temperature', () => {
   const MP = 250e3 * 0.1 * 0.3464 ** 2 / 4;
+  const solverOf = (extra: SolverLoad[]) => ({
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 3, z: 0 }], [3, { id: 3, x: 6, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: E, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: A, iz: I }]]),
+    elements: new Map([1, 2].map((id) => [id, { id, type: 'frame', nodeI: id, nodeJ: id + 1, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }])),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 3, type: 'fixed' }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -50, my: 0 } }, ...extra],
+  } as unknown as SolverInput);
   const beam = (extra: SolverLoad[]) => solvePlastic({
-    solver: {
-      nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 3, z: 0 }], [3, { id: 3, x: 6, z: 0 }]]),
-      materials: new Map([[1, { id: 1, e: E, nu: 0.3 }]]),
-      sections: new Map([[1, { id: 1, a: A, iz: I }]]),
-      elements: new Map([1, 2].map((id) => [id, { id, type: 'frame', nodeI: id, nodeJ: id + 1, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }])),
-      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 3, type: 'fixed' }]]),
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -50, my: 0 } }, ...extra],
-    } as unknown as SolverInput,
+    solver: solverOf(extra),
     sections: new Map([[1, { a: A, iz: I, materialId: 1, b: 0.1, h: 0.3464 }]]),
     materials: new Map([[1, { fy: 250 }]]),
   });
@@ -95,10 +97,10 @@ describe('plastic collapse is not moved by a temperature', () => {
     it(`fixed-fixed beam, central load, ${label}: withheld while PL-2D-INVARIANCE (#758) is open`, () => {
       expectPlasticRefusal(() => beam(extra));
     });
-    it.skip(`fixed-fixed beam, central load, ${label}: λ = 8Mp/(PL) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)`, () => {
-      const r = beam(extra);
-      expect(r.isMechanism).toBe(true);
-      expect(r.collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
+    it(`fixed-fixed beam, central load, ${label}: λ = 8Mp/(PL) in the Basic panel`, () => {
+      const r = plasticCollapse2D(solverOf(extra), { mp: () => MP, np: () => Infinity });
+      expect(r.isMechanism && !r.withheld).toBe(true);
+      expect(r.collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 9);
     });
   }
 });
