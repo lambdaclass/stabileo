@@ -21,9 +21,10 @@
   import ResearchLink from './ResearchLink.svelte';
   import { isHttpUrl } from './urls';
   import { cardTitle } from './card-title';
+  import { shapeCard } from './feher2026/card';
   import { englishOnlyCard } from './english-only-cards';
   import { articleStrings as riksStrings } from './riksCrisfield/article';
-  import { summaryIn } from './summaries';
+  import { summaryIn } from './catalogue-summaries';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
   import { rs, fieldName, statusName } from './i18n';
@@ -58,6 +59,7 @@
       const dictionary = e.paperId === 'mattiasson-elastica' ? mattiassonStrings : macnealCard;
       return dictionary[publicI18n.locale as keyof typeof dictionary] ?? dictionary.en;
     }
+    if (e.paperId === 'feher-sipos-varkonyi-2026') return shapeCard[publicI18n.locale as keyof typeof shapeCard] ?? shapeCard.en;
     if (e.paperId === 'shell-obstacle-course') return { title: shellCardTitle, hook: e.hook };
     if (e.paperId === 'riks-1979') {
       const riks = riksStrings(publicI18n.locale);

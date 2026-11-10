@@ -64,6 +64,29 @@ pub fn solve_corotational_2d(
     n_increments: usize,
     modified_nr: bool,
 ) -> Result<CorotationalResult, String> {
+    solve_corotational_2d_from(input, None, max_iter, tolerance, n_increments, modified_nr)
+}
+
+/// A converged co-rotational state to continue from: the model it was solved
+/// for (same nodes; its supports may differ) and its nodal displacements.
+pub struct CorotationalStart2D<'a> {
+    pub input: &'a SolverInput,
+    pub displacements: &'a [Displacement],
+}
+
+/// Co-rotational analysis that continues from `start` instead of the
+/// undeformed state. The external loads and the restrained DOFs ramp linearly
+/// from the start model's to `input`'s, so every restrained DOF ends at the
+/// value its support prescribes (zero when it prescribes none). Without a
+/// start this is [`solve_corotational_2d`].
+pub fn solve_corotational_2d_from(
+    input: &SolverInput,
+    start: Option<&CorotationalStart2D>,
+    max_iter: usize,
+    tolerance: f64,
+    n_increments: usize,
+    modified_nr: bool,
+) -> Result<CorotationalResult, String> {
     // Degenerate parameters, rejected before any work. These arrive from the
     // public WASM entry point exactly as the caller sent them, and the UI's
     // `min` attribute constrains the spinner, not the value that is bound.
@@ -87,15 +110,14 @@ pub fn solve_corotational_2d(
     // naming a node that does not exist panicked instead of returning an
     // error. In WASM that ends the module, not the call.
     super::linear::validate_input_2d(input)?;
-    // The tangent has no prescribed-displacement term.
     // Temperature enters as fixed-end forces held in the global frame, so a
     // heated member that rotates is pushed by its own (fictitious) thermal
     // axial force: 12% on the tip rotation of a heated, bent cantilever.
     super::feature_gates::refuse_2d(input, "Corotational analysis", &[
-        super::feature_gates::Feature::PrescribedDisplacements,
         super::feature_gates::Feature::ThermalLoads,
     ])?;
     crate::element::connector::refuse_for_corotational_2d(input, "Corotational analysis")?;
+    refuse_inclined_motion_2d(input, start.is_some())?;
 
     let dof_num = DofNumbering::build_2d(input);
 
@@ -115,8 +137,13 @@ pub fn solve_corotational_2d(
     let f_total = asm.f.clone();
     let art = assembly::artificial_stiffness_entries(&asm);
 
-    // Global displacement vector (starts at zero)
-    let mut u_full = vec![0.0; n];
+    let (mut u_full, f_base) = match start {
+        Some(start) => start_state_2d(input, start, &dof_num)?,
+        None => (vec![0.0; n], vec![0.0; n]),
+    };
+    let u_r_base: Vec<f64> = u_full[nf..].to_vec();
+    let u_r_target = super::linear::prescribed_displacements_2d(input, &dof_num);
+    let moves_supports = start.is_some() || u_r_target.iter().any(|&v| v != 0.0);
 
     let mut total_iterations = 0;
     let mut converged = true;
@@ -135,8 +162,13 @@ pub fn solve_corotational_2d(
     for increment in 1..=n_increments {
         let load_factor = increment as f64 / n_increments as f64;
 
-        // Scaled external forces for this increment
-        let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
+        let f_ext: Vec<f64> = (0..n).map(|i| f_base[i] + load_factor * (f_total[i] - f_base[i])).collect();
+        let mut support_step: Option<Vec<f64>> = Some(
+            u_r_base.iter().zip(&u_r_target).enumerate()
+                .map(|(i, (base, target))| base + load_factor * (target - base) - u_full[nf + i])
+                .collect::<Vec<f64>>(),
+        )
+        .filter(|du| du.iter().any(|&v| v != 0.0));
 
         // Newton-Raphson inner loop
         let mut nr_converged = false;
@@ -228,7 +260,12 @@ pub fn solve_corotational_2d(
             };
 
             let r_norm: f64 = r_check.iter().map(|v| v * v).sum::<f64>().sqrt();
-            let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let mut f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+            // A model driven only by its supports carries no external load:
+            // its residual is measured against the support reactions instead.
+            if moves_supports {
+                f_norm = f_norm.max(f_int[nf..].iter().map(|v| v * v).sum::<f64>().sqrt());
+            }
 
             let rel_error = if f_norm > 1e-30 {
                 r_norm / f_norm
@@ -236,9 +273,29 @@ pub fn solve_corotational_2d(
                 r_norm
             };
 
-            if rel_error < tolerance {
+            if rel_error < tolerance && support_step.is_none() {
                 nr_converged = true;
                 break;
+            }
+
+            // The supports' step enters the first iteration as the tangent
+            // predictor's load −K_fr·Δu_r: moving only the support nodes
+            // would crush the elements next to them.
+            let mut r_f = r_f;
+            if let Some(ref du_r) = support_step {
+                if sparse_tangent {
+                    for ((&i, &j), &v) in trip_rows.iter().zip(&trip_cols).zip(&trip_vals) {
+                        if i >= nf && j < nf {
+                            r_f[j] -= v * du_r[i - nf];
+                        } else if j >= nf && i < nf {
+                            r_f[i] -= v * du_r[j - nf];
+                        }
+                    }
+                } else {
+                    for i in 0..nf {
+                        r_f[i] -= (0..n - nf).map(|r| k_t[i * n + nf + r] * du_r[r]).sum::<f64>();
+                    }
+                }
             }
 
             // Solve K_T * delta_u = R for free DOFs
@@ -321,6 +378,11 @@ pub fn solve_corotational_2d(
             for i in 0..nf {
                 u_full[i] += delta_u_f[i];
             }
+            if let Some(du_r) = support_step.take() {
+                for (r, du) in du_r.iter().enumerate() {
+                    u_full[nf + r] += du;
+                }
+            }
         }
 
         if !nr_converged {
@@ -338,7 +400,10 @@ pub fn solve_corotational_2d(
 
     // Results of the last converged state, under the loads it carries.
     let scaled;
-    let at_state = if converged_factor < 1.0 {
+    let at_state = if let Some(start) = start {
+        scaled = blended_loads_2d(start.input, input, converged_factor);
+        &scaled
+    } else if converged_factor < 1.0 {
         scaled = scaled_loads_2d(input, converged_factor);
         &scaled
     } else {
@@ -378,6 +443,57 @@ fn scaled_loads_2d(input: &SolverInput, factor: f64) -> SolverInput {
         }
     }
     m
+}
+
+fn blended_loads_2d(from: &SolverInput, to: &SolverInput, factor: f64) -> SolverInput {
+    let mut m = scaled_loads_2d(to, factor);
+    m.loads.extend(scaled_loads_2d(from, 1.0 - factor).loads);
+    m
+}
+
+pub(crate) fn refuse_inclined_motion_2d(input: &SolverInput, from_start: bool) -> Result<(), String> {
+    let mut inclined: Vec<&SolverSupport> = crate::ordered::values(&input.supports)
+        .filter(|s| s.support_type == "inclinedRoller")
+        .filter(|s| from_start || [s.dx, s.dz, s.dry].iter().any(|v| v.is_some_and(|x| x != 0.0)))
+        .collect();
+    inclined.sort_by_key(|s| s.id);
+    match inclined.first() {
+        Some(s) => Err(format!(
+            "Corotational analysis does not support prescribed displacements or a start state on inclined supports (support {}, node {})",
+            s.id, s.node_id
+        )),
+        None => Ok(()),
+    }
+}
+
+pub(crate) fn start_state_2d(input: &SolverInput, start: &CorotationalStart2D, dof_num: &DofNumbering) -> Result<(Vec<f64>, Vec<f64>), String> {
+    super::linear::validate_input_2d(start.input)?;
+    refuse_inclined_motion_2d(start.input, true)?;
+    let same_nodes = start.input.nodes.len() == input.nodes.len()
+        && crate::ordered::values(&input.nodes).all(|n| {
+            crate::ordered::values(&start.input.nodes).any(|m| m.id == n.id && m.x == n.x && m.z == n.z)
+        });
+    let start_dofs = DofNumbering::build_2d(start.input);
+    if !same_nodes || start_dofs.dofs_per_node != dof_num.dofs_per_node {
+        return Err("The start state belongs to a model with other nodes".into());
+    }
+    let mut u = vec![0.0; dof_num.n_total];
+    for (&(node_id, local), &index) in &dof_num.map {
+        let d = start
+            .displacements
+            .iter()
+            .find(|d| d.node_id == node_id)
+            .ok_or_else(|| format!("The start state has no displacement for node {node_id}"))?;
+        u[index] = [d.ux, d.uz, d.ry][local];
+    }
+    let f_start = assembly::assemble_2d(start.input, &start_dofs).f;
+    let mut f = vec![0.0; dof_num.n_total];
+    for (key, &i) in &start_dofs.map {
+        if let Some(&j) = dof_num.map.get(key) {
+            f[j] = f_start[i];
+        }
+    }
+    Ok((u, f))
 }
 
 /// 3D twin of [`scaled_loads_2d`] (shell, thermal and bimoment loads are

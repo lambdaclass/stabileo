@@ -1,6 +1,7 @@
 mod advanced_corotational;
 mod advanced_corotational_extended;
 mod corotational;
+mod corotational_prescribed;
 mod corotational_extended;
 mod equilibrium_path;
 mod equilibrium_path_extended;
