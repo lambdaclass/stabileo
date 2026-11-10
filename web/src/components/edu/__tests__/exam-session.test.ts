@@ -137,6 +137,17 @@ describe('during the attempt', () => {
     return { s, api };
   }
 
+  it('does not save answers that did not change', async () => {
+    const { s, api } = await running();
+    s.update(answer('1'));
+    await vi.advanceTimersByTimeAsync(1_500);
+    expect(api.saveAnswers).toHaveBeenCalledTimes(1);
+    s.update(answer('1'));
+    await vi.advanceTimersByTimeAsync(1_500);
+    expect(api.saveAnswers).toHaveBeenCalledTimes(1);
+    expect(s.saveState).toBe('saved');
+  });
+
   it('autosaves once after a pause, as a submission against the server seed', async () => {
     const { s, api } = await running();
     s.update(answer('1'));
@@ -184,6 +195,24 @@ describe('during the attempt', () => {
     expect(s.phase).toBe('closed');
     expect(examLock.locked).toBe(false);
     expect(examLock.releaseReason).toBe('submitted');
+  });
+
+  it('a hand-in still on its way when the deadline fires is sent once, and stays on time', async () => {
+    let finish!: () => void;
+    const { s, api } = await running({
+      submit: vi.fn((_id: string, body: { answers?: Record<string, unknown> }) => new Promise<Attempt>((resolve) => {
+        finish = () => resolve(attempt({ answers: body.answers ?? {}, submitted_at: iso(T0 + 3_599_000), closed: true, reveal_allowed: true }));
+      })),
+    });
+    await vi.advanceTimersByTimeAsync(3_599_000);
+    const manual = s.submit();
+    await vi.advanceTimersByTimeAsync(2_000);
+    finish();
+    await manual;
+    await vi.runOnlyPendingTimersAsync();
+    expect(api.submit).toHaveBeenCalledTimes(1);
+    expect(s.note).toBeNull();
+    expect(s.phase).toBe('closed');
   });
 
   it('hands itself in at the deadline', async () => {

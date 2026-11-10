@@ -279,8 +279,10 @@
     };
   }
 
+  let answersSeen = false;
   $effect(() => {
     const answers = collectAnswers();
+    if (!answersSeen) { answersSeen = true; return; }
     if (onanswers) untrack(() => onanswers(answers));
   });
 

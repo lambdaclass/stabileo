@@ -39,20 +39,38 @@ defmodule StabileoAssignments.Assignments do
   end
 
   @doc "Counts under an advisory lock on the account, so two creates at once cannot pass the limit."
-  def create(%Account{id: account_id}, params, now \\ now()) do
+  def create(%Account{id: account_id}, params, now \\ now(), codes \\ &unused_code/0) do
     with :ok <- enabled() do
       attrs =
         params
         |> attrs()
-        |> Map.put_new(:opens_at, now)
-        |> Map.merge(%{account_id: account_id, code: unused_code()})
+        |> Map.update(:opens_at, now, &(&1 || now))
+        |> Map.put(:account_id, account_id)
 
-      Repo.transaction(fn -> insert_locked(account_id, attrs) end)
-      |> case do
-        {:ok, assignment} -> {:ok, {assignment, %{attempts: 0, submitted: 0}}}
-        error -> error
-      end
+      insert_with_code(account_id, attrs, codes, 3)
     end
+  end
+
+  # The free-code check runs outside the lock, so a code taken in between is drawn again.
+  defp insert_with_code(account_id, attrs, codes, tries) do
+    case Repo.transaction(fn -> insert_locked(account_id, Map.put(attrs, :code, codes.())) end) do
+      {:ok, assignment} ->
+        {:ok, {assignment, %{attempts: 0, submitted: 0}}}
+
+      {:error, %Ecto.Changeset{} = changeset} = error ->
+        if tries > 1 and code_taken?(changeset),
+          do: insert_with_code(account_id, attrs, codes, tries - 1),
+          else: error
+
+      error ->
+        error
+    end
+  end
+
+  defp code_taken?(changeset) do
+    Enum.any?(changeset.errors, fn {field, {_, opts}} ->
+      field == :code and opts[:constraint] == :unique
+    end)
   end
 
   defp insert_locked(account_id, attrs) do

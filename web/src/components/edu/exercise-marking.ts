@@ -113,8 +113,8 @@ export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark
 
   let changed = 0;
   const answers = sub.answers.map((a): RemarkedAnswer => {
-    const m = a.revealed ? null : mark(a);
-    if (!m) return { ...a, recorded: a.outcome };
+    // A submission is the student's own file or request: an outcome the solver did not mark again earns nothing.
+    const m = a.revealed ? { outcome: 'incorrect' as const } : mark(a) ?? { outcome: 'pending' as const };
     if (m.outcome !== a.outcome) changed++;
     return { ...a, outcome: m.outcome, expected: m.expected, recorded: a.outcome };
   });

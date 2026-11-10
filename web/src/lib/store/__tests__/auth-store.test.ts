@@ -128,6 +128,20 @@ describe('the auth store', () => {
     expect(storage.get('stabileo-refresh-token')).toBe('refresh-1');
   });
 
+  it('a second init while the first is still restoring the session waits for that same restore', async () => {
+    storage.set('stabileo-refresh-token', 'refresh-0');
+    const { authStore } = await load();
+    on('GET /config', () => json(200, { user_login_enabled: true }));
+    on('POST /refresh', () => json(200, session(1)));
+
+    const first = authStore.ready();
+    const second = authStore.init();
+    await second;
+    expect(authStore.status).toBe('authenticated');
+    await first;
+    expect(seen.map((s) => s.route)).toEqual(['GET /config', 'POST /refresh']);
+  });
+
   it('init without a stored token only reads /config', async () => {
     const { authStore } = await load();
     on('GET /config', () => json(200, { user_login_enabled: true }));
