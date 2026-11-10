@@ -1,5 +1,6 @@
 import os
 import pathlib
+import re
 import subprocess
 import tempfile
 import time
@@ -35,6 +36,29 @@ echo "built $1"
             result = subprocess.run([str(SCRIPT), *bundles], cwd=ROOT, env=env, capture_output=True, text=True)
             self.outputs = outputs.read_text().splitlines() if outputs.exists() else []
             return result, time.monotonic() - start, record.read_text().splitlines() if record.exists() else []
+
+    @unittest.skip("known wrong result: #1885")
+    def test_ci_registers_every_research_bundle_built_by_make(self):
+        makefile = (ROOT / 'Makefile').read_text().split('\nresearch.wasm:', 1)[1].split('\n\n', 1)[0]
+        expected = set(re.findall(r'\$\(NIX_RUN\) (research/\S+/build.sh)', makefile))
+        listed = subprocess.run([str(SCRIPT), '--list'], cwd=ROOT, capture_output=True, text=True, check=True)
+        self.assertTrue(expected)
+        self.assertEqual({line.split()[1] for line in listed.stdout.splitlines()}, expected)
+
+    @unittest.skip("known wrong result: #1885")
+    def test_ci_restores_and_publishes_every_research_bundle_built_by_make(self):
+        makefile = (ROOT / 'Makefile').read_text().split('\nresearch.wasm:', 1)[1].split('\n\n', 1)[0]
+        scripts = re.findall(r'\$\(NIX_RUN\) (research/\S+/build.sh)', makefile)
+        expected = {next(part for part in reversed(pathlib.Path(script).parts[:-1]) if part != 'wasm') for script in scripts}
+        job = (ROOT / '.github/workflows/ci.yml').read_text().split('\n  research-wasm:', 1)[1].split('\n  site-e2e:', 1)[0]
+        self.assertTrue(expected)
+        self.assertEqual(set(re.findall(r'id: research-([a-z0-9-]+)', job)), expected)
+        restore = job.split('id: host-cache', 1)[1].split('run:', 1)[0]
+        save = job.split("Save research compiled assets (this host's cache)", 1)[1].split('run:', 1)[0]
+        for name in expected:
+            self.assertIn(f'{name}=${{{{ (steps.research-{name}.outputs.cache-hit', restore)
+            self.assertIn(f'{name}=${{{{ steps.build-research.outputs.{name}', save)
+            self.assertIn(f'Save research compiled assets ({name})', job)
 
     def test_every_bundle_builds_at_once(self):
         result, seconds, record = self.run_script(ALL)
