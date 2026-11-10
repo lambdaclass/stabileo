@@ -6,7 +6,7 @@ use crate::common;
 
 use common::{make_3d_input, make_input};
 use dedaliano_engine::postprocess::influence;
-use dedaliano_engine::solver::{buckling, corotational, linear, material_nonlinear, plastic, staged};
+use dedaliano_engine::solver::{arc_length, buckling, corotational, linear, material_nonlinear, plastic, staged};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -157,7 +157,8 @@ fn refusals_name_the_feature() {
         vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: -10.0, fz: 0.0, my: 0.0 })],
     );
     input.supports.get_mut("2").unwrap().dz = Some(-0.01);
-    let e = corotational::solve_corotational_2d(&input, 50, 1e-6, 4, false).unwrap_err();
+    let dc = arc_length::DisplacementControlInput { solver: input, control_node: 2, control_dof: 0, target_displacement: -0.01, n_steps: 4, max_iter: 30, tolerance: 1e-8 };
+    let e = arc_length::solve_displacement_control(&dc).unwrap_err();
     assert!(e.contains("prescribed support displacements") && e.contains("support 2"), "{e}");
     let _ = HashMap::<String, f64>::new();
 }
