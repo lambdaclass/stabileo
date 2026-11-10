@@ -727,3 +727,179 @@ fn force_and_displacement_kg_3d_off_centre_point_matches_independent_integral() 
 fn force_and_displacement_kg_3d_trapezoidal_matches_independent_integral() {
     check_force_and_displacement_kg_3d(false, true);
 }
+
+fn closed_form_axial_work(case: usize, truss: bool) -> [[f64; 2]; 2] {
+    let segments: Vec<(f64, f64, [f64; 3])> = match case {
+        0 => vec![(0.0, 0.25, [0.0, 0.0, 0.0]), (0.25, 1.0, [-P, 0.0, 0.0])],
+        1 => vec![(0.0, 0.5, [P, 0.0, 0.0]), (0.5, 1.0, [0.0, 0.0, 0.0])],
+        2 => vec![
+            (0.0, 0.25, [P, -P / 2.0, -P / 2.0]),
+            (0.25, 1.0, [0.0, -P / 2.0, -P / 2.0]),
+        ],
+        _ => unreachable!(),
+    };
+    let d = if truss {
+        [[1.0 / L, 0.0, 0.0], [0.0; 3]]
+    } else {
+        [[0.0, 6.0 / L, -6.0 / L], [0.0, -2.0, 3.0]]
+    };
+    std::array::from_fn(|a| {
+        std::array::from_fn(|b| {
+            let mut work = 0.0;
+            for &(lo, hi, n) in &segments {
+                for (i, ni) in n.iter().enumerate() {
+                    for (j, dj) in d[a].iter().enumerate() {
+                        for (k, dk) in d[b].iter().enumerate() {
+                            let power = (i + j + k + 1) as i32;
+                            work +=
+                                L * ni * dj * dk * (hi.powi(power) - lo.powi(power)) / power as f64;
+                        }
+                    }
+                }
+            }
+            work
+        })
+    })
+}
+
+fn closed_form_point_kg_2d(case: usize) {
+    use dedaliano_engine::solver::{
+        dof::DofNumbering, geometric_stiffness::build_kg_from_forces_2d, linear::solve_2d,
+    };
+    let mut input = input_2d(1, true, 0.0);
+    for load in &mut input.loads {
+        match load {
+            SolverLoad::PointOnElement(p) => p.a = if case == 1 { L / 2.0 } else { L / 4.0 },
+            SolverLoad::Nodal(n) => {
+                n.fx = if case == 1 { 0.0 } else { -P };
+                n.fz = 0.0;
+            }
+            _ => {}
+        }
+    }
+    if case == 2 {
+        input
+            .loads
+            .push(SolverLoad::AxialDistributed(SolverAxialDistributedLoad {
+                element_id: 1,
+                q_i: P / (2.0 * L),
+                q_j: 3.0 * P / (2.0 * L),
+                a: None,
+                b: None,
+            }));
+    }
+    let forces = solve_2d(&input).unwrap().element_forces;
+    let (start, end) = [(0.0, -P), (P, 0.0), (P, -P)][case];
+    assert!((forces[0].n_start - start).abs() <= 1e-10 * P);
+    assert!((forces[0].n_end - end).abs() <= 1e-10 * P);
+    for kind in ["frame", "truss", "cable"] {
+        input.elements.get_mut("1").unwrap().elem_type = kind.into();
+        let dofs = DofNumbering::build_2d(&input);
+        let kg = build_kg_from_forces_2d(&input, &dofs, &forces, &[])
+            .into_csc()
+            .to_dense_symmetric();
+        let expected = closed_form_axial_work(case, kind != "frame");
+        let components: &[usize] = if kind == "frame" { &[1, 2] } else { &[1] };
+        for (a, &ca) in components.iter().enumerate() {
+            for (b, &cb) in components.iter().enumerate() {
+                let (i, j) = (
+                    dofs.global_dof(2, ca).unwrap(),
+                    dofs.global_dof(2, cb).unwrap(),
+                );
+                let got = kg[i * dofs.n_free + j];
+                println!(
+                    "2D case {case}, {kind}, ({ca},{cb}): {got}, closed form {}",
+                    expected[a][b]
+                );
+                assert!((got - expected[a][b]).abs() <= 1e-10 * P * L);
+            }
+        }
+    }
+}
+
+fn closed_form_point_kg_3d(case: usize) {
+    use dedaliano_engine::solver::{
+        dof::DofNumbering, geometric_stiffness::build_kg_from_forces_3d, linear::solve_3d,
+    };
+    let mut input = input_3d(1, 1, true);
+    for load in &mut input.loads {
+        match load {
+            SolverLoad3D::PointOnElement(p) => p.a = if case == 1 { L / 2.0 } else { L / 4.0 },
+            SolverLoad3D::Nodal(n) => {
+                n.fx = if case == 1 { 0.0 } else { -P };
+                n.fy = 0.0;
+            }
+            _ => {}
+        }
+    }
+    if case == 2 {
+        input.loads.push(
+            serde_json::from_value(json!({"type": "distributed", "data": {
+                "elementId": 1, "qXI": P / (2.0 * L), "qXJ": 3.0 * P / (2.0 * L),
+                "qYI": 0, "qYJ": 0, "qZI": 0, "qZJ": 0
+            }}))
+            .unwrap(),
+        );
+    }
+    let forces = solve_3d(&input).unwrap().element_forces;
+    let (start, end) = [(0.0, -P), (P, 0.0), (P, -P)][case];
+    assert!((forces[0].n_start - start).abs() <= 1e-10 * P);
+    assert!((forces[0].n_end - end).abs() <= 1e-10 * P);
+    for kind in ["frame", "truss", "cable"] {
+        input.elements.get_mut("1").unwrap().elem_type = kind.into();
+        let dofs = DofNumbering::build_3d(&input);
+        let kg = build_kg_from_forces_3d(&input, &dofs, &forces)
+            .into_csc()
+            .to_dense_symmetric();
+        let expected = closed_form_axial_work(case, kind != "frame");
+        for (trans, rot, sign) in [(1, 5, 1.0), (2, 4, -1.0)] {
+            let components: &[usize] = if kind == "frame" {
+                &[trans, rot]
+            } else {
+                &[trans]
+            };
+            for (a, &ca) in components.iter().enumerate() {
+                for (b, &cb) in components.iter().enumerate() {
+                    let (i, j) = (
+                        dofs.global_dof(2, ca).unwrap(),
+                        dofs.global_dof(2, cb).unwrap(),
+                    );
+                    let want = expected[a][b] * if a == b { 1.0 } else { sign };
+                    let got = kg[i * dofs.n_free + j];
+                    println!("3D case {case}, {kind}, ({ca},{cb}): {got}, closed form {want}");
+                    assert!((got - want).abs() <= 1e-10 * P * L);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn issue_1329_closed_form_opposed_quarter_point_2d() {
+    closed_form_point_kg_2d(0);
+}
+
+#[test]
+fn issue_1329_closed_form_opposed_quarter_point_3d() {
+    closed_form_point_kg_3d(0);
+}
+
+#[test]
+fn issue_1329_closed_form_pure_midpoint_2d() {
+    closed_form_point_kg_2d(1);
+}
+
+#[test]
+fn issue_1329_closed_form_pure_midpoint_3d() {
+    closed_form_point_kg_3d(1);
+}
+
+#[test]
+fn issue_1329_closed_form_mixed_point_trapezoid_2d() {
+    closed_form_point_kg_2d(2);
+}
+
+#[test]
+fn issue_1329_closed_form_mixed_point_trapezoid_3d() {
+    closed_form_point_kg_3d(2);
+}
