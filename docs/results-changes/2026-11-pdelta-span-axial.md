@@ -179,3 +179,46 @@ formulations. Tests cover the independent uniform-load calculation, trapezoidal
 and partial axial loads at one and four subdivisions, and direct point loads plus point loads split into
 nodes by the existing refinement path. The pre-existing force comparison retains
 its 5e-7 absolute tolerance.
+
+
+## PR #1895: force-based geometric-stiffness assembly
+
+The public Rust helpers `build_kg_from_forces_2d` and
+`build_kg_from_forces_3d` still omitted the axial span correction after the
+P-Delta displacement builders were corrected. Their matrices disagreed with the
+span-integrated matrices, including after constraint reduction. Both helpers now
+use `span_axial_geometric_stiffness_2d` or
+`span_axial_geometric_stiffness_3d`, the same integration used by dense and sparse
+P-Delta assembly, geometric end-force recovery, buckling and the P-Delta
+certificate. The 2D inclined-support rotation and the 3D retained-DOF path receive
+the correction before rotation or reduction. A force list selecting only some
+members receives span contributions only for those members.
+
+The affine decomposition is
+
+    Kg(u) = Σ N̄_e(u) G_e + G_span.
+
+`geometric_stiffness_terms_2d` and `geometric_stiffness_terms_3d` describe the
+first sum. The span contribution is constant with respect to displacement and
+must be included separately. The certificate already adds it to the constant
+stiffness before constructing its residual and Jacobian. Buckling adds it once
+to its geometric matrix and retains it separately for geometric-work
+uncertainty. Treating the first sum as the complete matrix drops span work;
+adding `G_span` to the complete displacement-based matrix counts it twice.
+
+The added `force_kg_2d_integrates_span_loads_like_displacement_assembly` and
+`force_kg_3d_integrates_span_loads_in_both_bending_planes` regressions use the
+existing one-element cantilever fixture. An independent Simpson integration of
+−∫ C(x) φ′ᵢφ′ⱼ dx supplies the reference for uniform axial distributed loads and
+an axial point load, in 2D and both 3D planes. Both tests were committed first as
+`known wrong result: #1329` and failed when explicitly enabled. They pass with
+the shared correction, as do the existing span-load displacement, reaction,
+end-force, stability and certificate regressions.
+
+The repository's application solvers do not call either force-based builder;
+they use the displacement emitters that were already corrected in this PR.
+Consequently this follow-up does not require additional application snapshot
+changes or extend the affected saved-model conditions. Downstream Rust callers
+of the force-based builders do receive changed matrices under axial span loads.
+Their scope is included in SA-2026-055 and the existing `pdelta-span-axial`
+registry explanation; no additional release boundary is claimed.

@@ -583,7 +583,6 @@ fn independent_span_plane(point: bool) -> [[f64; 2]; 2] {
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn force_kg_2d_integrates_span_loads_like_displacement_assembly() {
     use dedaliano_engine::solver::{dof::DofNumbering, geometric_stiffness::*, linear::solve_2d};
     for point in [false, true] {
@@ -626,7 +625,6 @@ fn force_kg_2d_integrates_span_loads_like_displacement_assembly() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn force_kg_3d_integrates_span_loads_in_both_bending_planes() {
     use dedaliano_engine::solver::{dof::DofNumbering, geometric_stiffness::*, linear::solve_3d};
     for point in [false, true] {

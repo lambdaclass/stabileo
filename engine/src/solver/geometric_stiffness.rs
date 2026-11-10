@@ -705,6 +705,18 @@ fn emit_span_geometric_stiffness(terms: Vec<(usize, Vec<usize>, Vec<f64>)>, emit
     }
 }
 
+fn add_span_geometric_stiffness_triplets(
+    terms: Vec<(usize, Vec<usize>, Vec<f64>)>,
+    elements: impl Iterator<Item = usize>,
+    kg: &mut KgTriplets,
+) {
+    let selected: std::collections::HashSet<_> = elements.collect();
+    emit_span_geometric_stiffness(
+        terms.into_iter().filter(|(id, _, _)| selected.contains(id)).collect(),
+        &mut |i, j, v| if i >= j { kg.add(i, j, v) },
+    );
+}
+
 /// The 2D geometric stiffness of every element, emitted entry by entry: the
 /// sparse P-Delta tangent collects it as triplets instead of a dense matrix.
 /// Mirrors `emit_geometric_stiffness_3d`.
@@ -1040,6 +1052,7 @@ pub fn build_kg_from_forces_2d(
             }
         }
     }
+    add_span_geometric_stiffness_triplets(span_axial_geometric_stiffness_2d(input, dof_num), element_forces.iter().map(|ef| ef.element_id), &mut kg);
     if inclined.is_empty() { kg } else { kg.rotate_inclined(inclined, nf) }
 }
 
@@ -1112,6 +1125,7 @@ pub(crate) fn build_kg_from_forces_3d_keep(
             }
         }
     }
+    add_span_geometric_stiffness_triplets(span_axial_geometric_stiffness_3d(input, dof_num).0, element_forces.iter().map(|ef| ef.element_id), &mut kg);
     // Note: shell geometric stiffness (quads, plates, quad9s, solid shells,
     // curved shells) is NOT built here — it needs the displacement vector to
     // compute membrane stresses. Callers add it separately via

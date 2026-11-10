@@ -104,3 +104,21 @@ vertical frame columns. Their refreshed snapshots change only P-Delta
 displacements, member end forces, reactions, amplification and the removed
 span-load diagnostic. All non-P-Delta outputs are byte-identical between current
 main and the corrected engine.
+
+
+## Force-based Rust matrix builders (PR #1895 review)
+
+The public Rust APIs `build_kg_from_forces_2d` and
+`build_kg_from_forces_3d` also returned mean-force geometric stiffness without
+the axial span correction. Downstream callers using these matrices, including
+after inclined-support rotation or constraint reduction, must recalculate
+results under axial span loads. Both builders now use the shared span
+integration, including both 3D bending planes and release condensation.
+
+The application solvers in this repository use the corrected displacement-based
+builders, so this follow-up does not identify an additional application result
+change beyond the P-Delta scope above. The term-wise certificate already
+includes the constant span matrix separately from its mean-force affine terms;
+linear buckling also includes the correction once. Independent matrix
+integration regressions in `engine/tests/pdelta_span_axial.rs` fail before this
+follow-up and pass afterward.
