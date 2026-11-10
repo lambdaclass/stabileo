@@ -7,6 +7,7 @@
   import { resultsStore } from '../../lib/store';
   import { DEFAULT_FY, type SectionMp } from '../../lib/engine/plastic-moments';
   import type { PlasticCollapseResult } from '../../lib/engine/plastic-collapse';
+  import { hingePlaceAt } from '../../lib/engine/plastic/hinge-place';
   import { fmtQ, fmtCoord, unitQ, toQ, sigQ } from '../../lib/store/display-units.svelte';
   import { plainNumber } from '../../lib/utils/units';
   import PlasticCertificate from './PlasticCertificate.svelte';
@@ -68,7 +69,7 @@
         <tr class:now={h.step === step} class:later={h.step > step}>
           <td>{i + 1}</td>
           <td>{h.elementId}{h.kind === 'axial' ? ` (${t('plastic.axial')})` : ''}{#if h.unloadedAt !== undefined && h.unloadedAt <= (r.steps[step]?.loadFactor ?? 0)}<span class="pl-closed" title={tp('course.plastic.closedTitle', { lambda: h.unloadedAt.toFixed(3) })}> · {t('course.plastic.closed')}</span>{/if}</td>
-          <td>{fmtCoord(h.x)}</td>
+          <td>{fmtCoord(hingePlaceAt(h, Math.max(step, h.step)).x)}</td>
           <td>{h.kind === 'axial' ? `N = ${fmtQ(h.moment, 'force')} ${unitQ('force')}` : `M = ${fmtQ(h.moment, 'moment')} ${unitQ('moment')}`}</td>
           <td>{h.loadFactor.toFixed(3)}</td>
           <td data-testid="plastic-rotation">{h.kind === 'axial' || h.step > step || rotation(i) === undefined ? '—' : fmtQ(Math.abs(rotation(i)!), 'rotation')}</td>

@@ -193,7 +193,7 @@ describe('a span load: its hinge is one section, at the peak of the moment, and 
     return plasticHistory2D(m, { mp: mpPortal, np: () => Infinity });
   };
 
-  it('the Basic "Portal Frame" (H = 10 kN): right column head, the beam at midspan, right base, left column head at 1925/27', () => {
+  it('the Basic "Portal Frame" (H = 10 kN): right column head, the beam where its moment first peaks (it then moves to midspan), right base, left column head at 1925/27', () => {
     const r = portalUdl(10);
     expect(r.isMechanism && !r.unresolved).toBe(true);
     expect(r.degree).toBe(3);
@@ -202,12 +202,12 @@ describe('a span load: its hinge is one section, at the peak of the moment, and 
     expect(r.steps).toHaveLength(4);
     expect(r.hinges.map(hinge)).toEqual([
       { m: 3, x: expect.closeTo(4, 9), lambda: expect.closeTo(53.7855, 3) },
-      { m: 2, x: expect.closeTo(3, 9), lambda: expect.closeTo(64.0201, 3) },
-      { m: 3, x: expect.closeTo(0, 9), lambda: expect.closeTo(66.5213, 3) },
+      { m: 2, x: expect.closeTo(3, 9), lambda: expect.closeTo(63.8108, 3) },
+      { m: 3, x: expect.closeTo(0, 9), lambda: expect.closeTo(66.4501, 3) },
       { m: 1, x: expect.closeTo(4, 9), lambda: expect.closeTo(1925 / 27, 9) },
     ]);
     expect(r.collapseFactor).toBeCloseTo(1925 / 27, 9);
-    expect(peakRatio(r, mpPortal, 3)).toBeLessThanOrEqual(1 + 1e-9);
+    for (let k = 0; k < r.steps.length; k++) expect(peakRatio(r, mpPortal, k)).toBeLessThanOrEqual(1 + 1e-9);
   });
 
   it('a lateral load that makes the combined mechanism govern: both bases, the right head and the beam where the mechanism puts it', () => {
@@ -222,7 +222,7 @@ describe('a span load: its hinge is one section, at the peak of the moment, and 
     expect(r.collapseFactor).toBeLessThan(Math.min((4 * MPC) / (30 * 4), (8 * (MPC + MPB)) / (15 * 36)));
     const at = r.hinges.map(hinge).sort((p, s) => p.m - s.m || p.x - s.x);
     expect(at.map((h) => [h.m, h.x])).toEqual([[1, expect.closeTo(0, 9)], [2, expect.closeTo(x, 6)], [3, expect.closeTo(0, 9)], [3, expect.closeTo(4, 9)]]);
-    expect(peakRatio(r, mpPortal, r.steps.length - 1)).toBeLessThanOrEqual(1 + 1e-9);
+    for (let k = 0; k < r.steps.length; k++) expect(peakRatio(r, mpPortal, k)).toBeLessThanOrEqual(1 + 1e-9);
   });
 
   it('a lateral load that makes the sway mechanism govern: the four column ends, 4Mp/(Hh)', () => {
