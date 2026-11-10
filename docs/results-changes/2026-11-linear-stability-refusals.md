@@ -21,7 +21,7 @@ What changes for a model:
 | Solved with `HighDiagonalRatio`, `NearZeroDiagonal` or `NUM-INVARIANCE`, `κ_S A > 1e12` | Refused as Singular, naming the nodes |
 | Solved with `HighDiagonalRatio` and `κ_S A ≤ 1e12` | Same displacements; accepted 3D solves retain conservative raw-diagonal warnings |
 | Solved with `ORPHAN-SOFT-ROTATION` (#1496) | Solved exactly, or refused |
-| A stable model | The recorded corpus retains its displacements and reactions; corrected PCG components and sparse direct residual refinement can change other stable responses |
+| A stable model | Corrected PCG components and sparse direct residual refinement can change stable responses; the legacy bridge has the exact small-component differences recorded below |
 
 `NUM-INVARIANCE` remains attached for an excessive displacement. Accepted 3D solves retain conservative conditioning warnings and original/reduced constrained-stiffness containment.
 
@@ -574,3 +574,77 @@ The existing `linear-stability-refusals` registry entry retains its all-linear
 scope and now requires any of `members`, `shells`, `connectors` or `springs`.
 Supports and nodal loads alone establish no stiffness elements and no linear
 result to re-check. The reported 3D steel-truss applicability test is unchanged.
+
+
+### Final two fixes: release alignment and exact numerical explanations
+
+A single negative rotational eigenmode could fail the physical release proof and
+then be replaced by any permitted release direction at that node. The replacement
+was never projected against the eigenvector. The mode was recorded as free and
+omitted from `unresolved_negative`, allowing `Stable / Resolved` and a pin even
+when the release did not span it.
+
+The replacement now uses its normalized direction `r`, computes `a = v·r`, and
+checks the residual `||v - a r||`. Its rounding bound includes dot-product rounding
+and eigenvector uncertainty: the existing block spectral rounding bound divided
+by the separation from the other eigenvalues, with twice the spectral rounding
+subtracted from that separation. An unresolved separation or a bound of at least
+one cannot certify the projection. The physical `permits` proof is still required.
+A failed projection leaves the mode in `unresolved_negative`, so it refuses with
+no pin. Existing tolerances are unchanged.
+
+The two new `issue_1753_negative_rotation_not_spanned_by_release_{2d,3d}` tests
+use two- and three-coordinate rotational blocks. These are local block dimensions,
+not a claim that a planar node has two rotations: the production 2D path has one
+rotation per node and no canonical release fallback. The upper-left block is
+`[[1, 1 + EPSILON], [1 + EPSILON, 1]]`; the three-coordinate case adds an independent
+positive unit entry. Only the first coordinate is released. The negative mode
+mixes the first two coordinates, so both cases must refuse. Both returned Stable
+with a pin before the fix; both now return Singular with a refusal and no pin.
+The companion test keeps a release aligned within rounding accepted in both block
+dimensions. The existing #1193 oblique release and all its tested transformed
+copies remain stable under the eigenvalue-separation projection bound.
+
+The registry's unscoped quantity is now only `solve.ok`. Its applicability still
+covers every linear result with stiffness elements. Neither forces, reactions nor
+displacements of an arbitrary successful solve are explained by this notice.
+The original real-corpus negative judge tests use the complete assessment without
+filtering entries: the fabricated truss force and shell displacement now give
+`unexplained`, while the independently registered shell stress correction remains
+explained.
+
+Removing `*` also exposed historical bridge round-off changes in all three legacy
+versions. The [measured evidence](1753-refinement-corpus-evidence.json) records
+372 changed `displacements.rz` components and 24 changed `reactions.mz` components
+across the response sets. The maximum absolute recorded rotation changes from
+`3.146652157e-15` to `5.264728212e-16`, and the maximum absolute recorded reaction
+moment from `3.082446808e-14` to `3.215494178e-15`. These are the sparse direct
+response's small-component changes, consistent with the documented refinement;
+this measurement does not isolate refinement from every other change in #1753.
+The earlier bit-identical corpus report above describes the earlier comparison,
+not these historical-release captures.
+
+Only these two fields receive scoped quantity declarations, each requiring the
+exact SHA-256 fingerprints of both complete gated responses. The evidence names
+the source corpus files; v0.3.0 and v0.4.0 share a fingerprint. Altering any gated
+value on either side invalidates the numerical scope. Thus even another change
+in a bridge rotation or reaction moment is not automatically explained. The
+fingerprint checks retain all current numerical tolerances and historical files.
+The synthetic judge test also alters a declared field, an unrelated force and a
+displacement on each side, and requires an unexplained verdict in every case.
+The real bridge test repeats this on recorded rotations, displacement, reaction
+moments and member force, changing the history and current response separately.
+A separate test verifies every historical source fingerprint against the untouched
+corpus file named in the evidence.
+PCG's documented independent-component correction remains verified by
+`known_issues::issue_1753_pcg_resolves_each_independent_moment_with_disparate_loads`;
+it receives no blanket numerical allowance for other saved models.
+
+Reproduce the local checks with `make test.engine.targeted TEST=metamorphic
+FILTER=stability::`, `make test.engine.targeted TEST=robustness FILTER=issue_1753`
+and `make test.web.unit UNIT_AREA=legacy-projects`. The library-level regressions
+run through `make shell` with `cargo test -p dedaliano-engine --lib
+solver::stability::tests -- --nocapture`.
+
+This canonical-release substitution belongs to the unmerged #1753 branch. No new
+advisory is introduced by this follow-up.

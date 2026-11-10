@@ -612,7 +612,13 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
                                 let norm = candidate.iter().map(|x| x * x).sum::<f64>().sqrt();
                                 if norm == 0.0 || !norm.is_finite() { return None; }
                                 for x in &mut candidate { *x /= norm; }
-                                releases.permits(*node, dofs, &candidate).then_some(candidate)
+                                let projection = v.iter().zip(&candidate).map(|(x, y)| x * y).sum::<f64>();
+                                let residual = v.iter().zip(&candidate).map(|(x, y)| (x - projection * y).powi(2)).sum::<f64>().sqrt();
+                                let magnitude = v.iter().map(|x| x * x).sum::<f64>().sqrt() + projection.abs();
+                                let rounding = ROUNDING * size as f64 * f64::EPSILON * top;
+                                let separation = mu.iter().enumerate().filter(|(i, _)| *i != c).map(|(_, x)| (x - mu[c]).abs()).fold(f64::INFINITY, f64::min) - 2.0 * rounding;
+                                let bound = ROUNDING * b as f64 * f64::EPSILON + rounding / separation;
+                                (separation > 0.0 && bound < 1.0 && residual <= bound * magnitude && releases.permits(*node, dofs, &candidate)).then_some(candidate)
                             })
                         }).flatten();
                         match canonical {
@@ -1069,7 +1075,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn issue_1753_negative_rotation_not_spanned_by_release_2d() {
         let result = negative_rotation_with_unrelated_release(2);
         assert_eq!(result.verdict, Verdict::Singular, "{result:?}");
@@ -1078,7 +1083,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn issue_1753_negative_rotation_not_spanned_by_release_3d() {
         let result = negative_rotation_with_unrelated_release(3);
         assert_eq!(result.verdict, Verdict::Singular, "{result:?}");
