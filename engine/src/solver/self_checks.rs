@@ -152,6 +152,8 @@ fn scaled_entry(v: f64, scales: &[f64], i: usize, j: usize) -> f64 {
 #[derive(Default)]
 pub(super) struct ModalChecks {
     normalized: Vec<Vec<f64>>,
+    gram_norm: f64,
+    gram_bound: f64,
     pub diagnostics: Vec<StructuredDiagnostic>,
     pub scales: Vec<f64>,
     pub stiffness: ProductBound,
@@ -189,14 +191,38 @@ impl ModalChecks {
         if phi.iter().chain(&m_phi).any(|v| !v.is_finite()) {
             return Err("REFUSE: self-check modal_orthogonality: non-finite normalized mode".into());
         }
-        let mut orthogonality = (dot(&phi, &m_phi)-1.0).abs();
-        if !orthogonality.is_finite() { return Err("REFUSE: self-check modal_orthogonality: non-finite Gram diagonal".into()); }
-        for previous in &self.normalized {
-            let entry = dot(previous, &m_phi).abs();
-            if !entry.is_finite() { return Err("REFUSE: self-check modal_orthogonality: non-finite Gram entry".into()); }
-            orthogonality = orthogonality.max(entry);
+        let tau = crate::linalg::lanczos::LanczosParams::default().tol;
+        let basis_bound = 2.0 * tau + tau * tau;
+        let nu = (phi.len() + 4) as f64 * f64::EPSILON;
+        let gamma = nu / (1.0 - nu);
+        let energy_norm = |p: &[f64]| norm(&p.iter().enumerate()
+            .map(|(i, p)| p * self.scales.get(i).copied().unwrap_or(1.0)).collect::<Vec<_>>());
+        let current_norm = energy_norm(&phi);
+        let bound = |previous: &[f64]| {
+            let product = previous.iter().zip(&m_phi).map(|(p, m)| (p*m).abs()).sum::<f64>();
+            let rounding = gamma * product
+                + (self.mass.gamma() + gamma) * self.mass.norm * energy_norm(previous) * current_norm;
+            basis_bound + rounding
+        };
+        let mut gram_norm = self.gram_norm;
+        let mut gram_bound = self.gram_bound;
+        for (previous, diagonal) in std::iter::once((&phi, true))
+            .chain(self.normalized.iter().map(|p| (p, false))) {
+            let entry = (dot(previous, &m_phi) - if diagonal { 1.0 } else { 0.0 }).abs();
+            let entry_bound = bound(previous);
+            if !entry_bound.is_finite() || entry_bound >= REFUSE {
+                return Err("REFUSE: self-check modal_orthogonality: rounding bound cannot establish an independent modal basis".into());
+            }
+            if !entry.is_finite() || entry >= entry_bound {
+                return Err(format!("REFUSE: self-check modal_orthogonality: normalized Gram entry error {entry:.3e} exceeds derived bound {entry_bound:.3e}; no modes are returned"));
+            }
+            let weight = if diagonal { 1.0 } else { 2.0_f64.sqrt() };
+            gram_norm = gram_norm.hypot(weight * entry);
+            gram_bound = gram_bound.hypot(weight * entry_bound);
         }
-        self.diagnostics.push(diagnostic(&format!("modal_orthogonality:{}", self.normalized.len()+1), orthogonality, WARN, REFUSE)?);
+        self.diagnostics.push(diagnostic(&format!("modal_orthogonality:{}", self.normalized.len()+1), gram_norm, (gram_bound/2.0).min(WARN), gram_bound)?);
+        self.gram_norm = gram_norm;
+        self.gram_bound = gram_bound;
         self.normalized.push(phi);
         Ok(())
     }
@@ -240,7 +266,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #759"]
     fn issue_759_repeated_eigenvectors_need_a_basis_accuracy_check() {
         let mut checks = ModalChecks::default();
         let first = [1.0, 0.0];
@@ -251,7 +276,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #759"]
     fn issue_759_orthogonality_diagnostic_measures_the_whole_gram_matrix() {
         let mut checks = ModalChecks::default();
         let first = [1.0, 0.0, 0.0];
@@ -263,6 +287,29 @@ mod tests {
         let measured = checks.diagnostics.last().unwrap().value.unwrap();
         let expected = (6.0_f64).sqrt() * 1e-12;
         assert!((measured / expected - 1.0).abs() < 1e-10, "Gram Frobenius norm {measured:e}, expected {expected:e}");
+    }
+
+    #[test]
+    fn modal_basis_check_uses_mass_metric_under_coordinate_rescaling() {
+        for scale in [1e-12_f64, 1.0, 1e12] {
+            let diagonal = [scale * scale, 1.0 / (scale * scale)];
+            let mut checks = ModalChecks { scales: energy_scale(&diagonal), ..Default::default() };
+            checks.mass = ProductBound::dense(&[diagonal[0], 0.0, 0.0, diagonal[1]], 2, &checks.scales);
+            checks.stiffness = checks.mass;
+            let r = 2.0_f64.sqrt();
+            let first = [1.0 / (r * scale), scale / r];
+            let second = [-1.0 / (r * scale), scale / r];
+            for phi in [first, second] {
+                let mp = [diagonal[0] * phi[0], diagonal[1] * phi[1]];
+                checks.check(&phi, 1.0, &mp, &mp).unwrap();
+            }
+            let mixed = [second[0] + 1e-5 * first[0], second[1] + 1e-5 * first[1]];
+            let mp = [diagonal[0] * mixed[0], diagonal[1] * mixed[1]];
+            let mut rejected = ModalChecks { scales: checks.scales.clone(), mass: checks.mass, stiffness: checks.stiffness, ..Default::default() };
+            let mp_first = [diagonal[0] * first[0], diagonal[1] * first[1]];
+            rejected.check(&first, 1.0, &mp_first, &mp_first).unwrap();
+            assert!(rejected.check(&mixed, 1.0, &mp, &mp).unwrap_err().contains("modal_orthogonality"));
+        }
     }
 
     #[test]
