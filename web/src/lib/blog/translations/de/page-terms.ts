@@ -61,7 +61,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Die Modelle und Projekte, die Sie erstellen, gehören Ihnen. Wenn Sie sie in der Cloud speichern, bewahren wir sie auf, damit Sie sie über Ihr Konto öffnen können, und Sie können sie jederzeit löschen. Mit der Kontoerstellung ist aktiviert, dass wir sie anonymisiert zur Verbesserung von Stabileo verwenden. Sie können das jederzeit in Ihrem Profil abschalten, und sie umfasst niemals unternehmenseigene Module."
+      "t": "Die Modelle und Projekte, die Sie erstellen, gehören Ihnen. Wenn Sie sie in der Cloud speichern, bewahren wir sie auf, damit Sie sie über Ihr Konto öffnen können, und Sie können sie jederzeit löschen. Mit der Annahme dieser Bedingungen stimmen Sie zu, dass wir Ihre gespeicherten Projekte anonymisiert zur Verbesserung von Stabileo verwenden. Das ist aktiviert; wenn Sie es nicht möchten, schalten Sie es jederzeit in Ihrem Profil unter Datenschutz ab. Ist ein Projekt vertraulich oder gehört es einem Kunden, liegt es bei Ihnen, es vor dem Speichern abzuschalten. Unternehmenseigene Module sind nie erfasst."
     },
     {
       "k": "h",
@@ -69,7 +69,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Stabileo sendet anonyme Nutzungsdaten: welche Werkzeuge verwendet werden, wie Berechnungen enden und welche Version der App läuft. Der Inhalt Ihrer Modelle wird nie gesendet. Mit der Kontoerstellung ist das Senden aktiviert; ohne Konto werden die Daten nur gesendet, wenn Sie sie teilen möchten. Sie können das jederzeit in Ihrem Profil unter Datenschutz ändern. Die vollständige Liste finden Sie unter „Welche anonymen Nutzungsdaten Stabileo sendet“, und der Umgang damit ist in der Datenschutzerklärung beschrieben."
+      "t": "Stabileo sendet anonyme Nutzungsdaten: welche Werkzeuge verwendet werden, wie Berechnungen enden und welche Version der App läuft. Der Inhalt Ihrer Modelle wird nie gesendet. Mit der Annahme dieser Bedingungen stimmen Sie dem Senden zu: Es ist aktiviert, und wenn Sie es nicht möchten, schalten Sie es jederzeit in Ihrem Profil unter Datenschutz ab. Ohne Konto werden die Daten nur gesendet, wenn Sie sie teilen möchten. Die vollständige Liste finden Sie unter „Welche anonymen Nutzungsdaten Stabileo sendet“, und der Umgang damit ist in der Datenschutzerklärung beschrieben."
     },
     {
       "k": "h",
@@ -85,7 +85,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Soweit gesetzlich zulässig, haftet Stabileo SAS nicht für Schäden, die entstehen, wenn Ergebnisse ohne die erforderliche fachliche Prüfung verwendet werden, oder für den Verlust von Daten, die Sie nicht gesichert haben. Nichts hiervon schränkt die Rechte ein, die Ihnen das argentinische Verbraucherschutzgesetz 24.240 gewährt, soweit es Anwendung findet."
+      "t": "Stabileo ist kostenlose Open-Source-Software (AGPL-3.0) und wird ohne Mängelgewähr und ohne jegliche Garantie bereitgestellt. Soweit gesetzlich zulässig, haftet Stabileo SAS nicht für Schäden, die entstehen, wenn Ergebnisse ohne die erforderliche fachliche Prüfung verwendet werden, oder für den Verlust von Daten, die Sie nicht gesichert haben. Nichts hiervon schränkt die Rechte ein, die Ihnen das argentinische Verbraucherschutzgesetz 24.240 gewährt, soweit es Anwendung findet."
     },
     {
       "k": "h",

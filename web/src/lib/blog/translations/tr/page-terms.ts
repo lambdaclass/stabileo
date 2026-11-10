@@ -61,7 +61,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Oluşturduğunuz modeller ve projeler size aittir. Bunları buluta kaydederseniz, hesabınızdan açabilmeniz için saklarız ve istediğiniz zaman silebilirsiniz. Hesabınızı oluşturduğunuzda bunları anonimleştirilmiş olarak Stabileo'yu geliştirmek için kullanmamız açık gelir. Bunu istediğiniz zaman profilinizden kapatabilirsiniz ve bu, şirkete özel modülleri hiçbir zaman kapsamaz."
+      "t": "Oluşturduğunuz modeller ve projeler size aittir. Bunları buluta kaydederseniz, hesabınızdan açabilmeniz için saklarız ve istediğiniz zaman silebilirsiniz. Bu Koşulları kabul ederek kaydettiğiniz projeleri anonimleştirilmiş olarak Stabileo'yu geliştirmek için kullanmamızı kabul edersiniz. Bu açık gelir; istemezseniz istediğiniz zaman profilinizde Gizlilik bölümünden kapatırsınız. Bir proje gizliyse veya bir müşteriye aitse, kaydetmeden önce kapatmak sizin sorumluluğunuzdadır. Bu, şirkete özel modülleri hiçbir zaman kapsamaz."
     },
     {
       "k": "h",
@@ -69,7 +69,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Stabileo anonim kullanım verisi gönderir: hangi araçların kullanıldığı, analizlerin nasıl sonuçlandığı ve uygulama sürümü. Modellerinizin içeriğini asla göndermez. Hesabınızı oluşturduğunuzda gönderim açık gelir; hesabınız yoksa yalnızca paylaşmayı seçerseniz gönderilir. Bunu istediğiniz zaman profilinizde Gizlilik bölümünden değiştirebilirsiniz. Tam liste “Stabileo hangi anonim kullanım verisini gönderir” sayfasındadır; verilerin nasıl işlendiği ise Gizlilik Politikası'nda yer alır."
+      "t": "Stabileo anonim kullanım verisi gönderir: hangi araçların kullanıldığı, analizlerin nasıl sonuçlandığı ve uygulama sürümü. Modellerinizin içeriğini asla göndermez. Bu Koşulları kabul ederek gönderilmesini kabul edersiniz: açık gelir; istemezseniz istediğiniz zaman profilinizde Gizlilik bölümünden kapatırsınız. Hesabınız yoksa yalnızca paylaşmayı seçerseniz gönderilir. Tam liste “Stabileo hangi anonim kullanım verisini gönderir” sayfasındadır; verilerin nasıl işlendiği ise Gizlilik Politikası'nda yer alır."
     },
     {
       "k": "h",
@@ -85,7 +85,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Yasaların izin verdiği ölçüde Stabileo SAS, sonuçların uygun mesleki inceleme yapılmadan kullanılmasından veya yedeklemediğiniz verilerin kaybından doğan zararlardan sorumlu değildir. Burada yer alan hiçbir hüküm, uygulanabildiği durumlarda Arjantin Tüketicinin Korunması Hakkında 24.240 sayılı Kanun'un size tanıdığı hakları sınırlamaz."
+      "t": "Stabileo ücretsiz ve açık kaynaklı bir yazılımdır (AGPL-3.0) ve hiçbir garanti verilmeksizin olduğu gibi sunulur. Yasaların izin verdiği ölçüde Stabileo SAS, sonuçların uygun mesleki inceleme yapılmadan kullanılmasından veya yedeklemediğiniz verilerin kaybından doğan zararlardan sorumlu değildir. Burada yer alan hiçbir hüküm, uygulanabildiği durumlarda Arjantin Tüketicinin Korunması Hakkında 24.240 sayılı Kanun'un size tanıdığı hakları sınırlamaz."
     },
     {
       "k": "h",

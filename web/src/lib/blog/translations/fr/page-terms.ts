@@ -61,7 +61,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Les modèles et projets que vous créez vous appartiennent. Si vous les enregistrez dans le cloud, nous les conservons pour que vous puissiez les ouvrir depuis votre compte, et vous pouvez les supprimer à tout moment. À la création de votre compte, leur utilisation, anonymisés, pour améliorer Stabileo est activée. Vous pouvez la désactiver à tout moment depuis votre profil, et cela ne couvre jamais les modules personnalisés d'entreprise."
+      "t": "Les modèles et projets que vous créez vous appartiennent. Si vous les enregistrez dans le cloud, nous les conservons pour que vous puissiez les ouvrir depuis votre compte, et vous pouvez les supprimer à tout moment. En acceptant les présentes Conditions, vous acceptez que nous utilisions vos projets enregistrés, anonymisés, pour améliorer Stabileo. C'est activé et, si vous ne le souhaitez pas, vous le désactivez à tout moment dans votre profil, sous Confidentialité. Si un projet est confidentiel ou appartient à un client, il vous revient de le désactiver avant de l'enregistrer. Cela ne couvre jamais les modules personnalisés d'entreprise."
     },
     {
       "k": "h",
@@ -69,7 +69,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Stabileo envoie des données d'usage anonymes : quels outils sont utilisés, comment les analyses se terminent et la version de l'application. Il n'envoie jamais le contenu de vos modèles. À la création de votre compte, l'envoi est activé ; sans compte, elles ne sont envoyées que si vous choisissez de les partager. Vous pouvez changer d'avis à tout moment dans votre profil, sous Confidentialité. La liste complète figure dans “Les données d'usage anonymes que Stabileo envoie”, et leur traitement est décrit dans la Politique de confidentialité."
+      "t": "Stabileo envoie des données d'usage anonymes : quels outils sont utilisés, comment les analyses se terminent et la version de l'application. Il n'envoie jamais le contenu de vos modèles. En acceptant les présentes Conditions, vous acceptez leur envoi : il est activé et, si vous ne le souhaitez pas, vous le désactivez à tout moment dans votre profil, sous Confidentialité. Sans compte, elles ne sont envoyées que si vous choisissez de les partager. La liste complète figure dans “Les données d'usage anonymes que Stabileo envoie”, et leur traitement est décrit dans la Politique de confidentialité."
     },
     {
       "k": "h",
@@ -85,7 +85,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Dans la mesure permise par la loi, Stabileo SAS n'est pas responsable des dommages résultant de l'utilisation des résultats sans la vérification professionnelle appropriée, ni de la perte de données que vous n'avez pas sauvegardées. Rien dans le présent texte ne limite les droits que vous reconnaît la loi argentine 24.240 sur la protection des consommateurs, lorsqu'elle est applicable."
+      "t": "Stabileo est un logiciel gratuit et open source (AGPL-3.0), fourni tel quel, sans garantie d'aucune sorte. Dans la mesure permise par la loi, Stabileo SAS n'est pas responsable des dommages résultant de l'utilisation des résultats sans la vérification professionnelle appropriée, ni de la perte de données que vous n'avez pas sauvegardées. Rien dans le présent texte ne limite les droits que vous reconnaît la loi argentine 24.240 sur la protection des consommateurs, lorsqu'elle est applicable."
     },
     {
       "k": "h",
