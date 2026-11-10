@@ -1,7 +1,9 @@
 {
   "id": "dynamics-rotary-inertia-advisory-deep-members",
   "date": "2026-11-10",
-  "prs": [],
+  "prs": [
+    1927
+  ],
   "area": "analysis",
   "when": {
     "allOf": [
