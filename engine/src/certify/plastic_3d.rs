@@ -2149,6 +2149,22 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #1888"]
+    fn mechanism_resource_refusal_is_preserved() {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        let mut model = build_model_3d(&input).unwrap();
+        model.elems[0].d[0] = Q::from_integer(num_bigint::BigInt::one() << (super::super::plastic_budget::MAX_EXACT_BITS as usize + 1));
+        let ends = vec![[false; 2]; model.elems.len()];
+        let interior = vec![Vec::new(); model.elems.len()];
+        let result = best_mechanism(&model, &ends, &interior, &[]);
+        let refusal = format!("{result:?}");
+        assert!(refusal.starts_with("Err("), "{refusal}");
+        assert!(refusal.contains("exact plastic LP resource budget exceeded: rational limb bits"), "{refusal}");
+    }
+
+
+    #[test]
     fn lp_work_matches_initial_samples() {
         let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
         let input = serde_json::from_slice(&bytes[2..]).unwrap();

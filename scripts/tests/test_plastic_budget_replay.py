@@ -4,6 +4,8 @@ from pathlib import Path
 import unittest
 import tempfile
 import sys
+import subprocess
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("plastic_replay", Path(__file__).parents[1] / "replay-plastic-budget.py")
 module = importlib.util.module_from_spec(spec)
@@ -60,6 +62,22 @@ class SeededReplay(unittest.TestCase):
         result = module.replay(self.binary, self.seed, mode="leak", repeats=3, seconds=10)
         self.assertEqual(result["failure"], "retained allocation", result)
         self.assertTrue(all(row["live_after"] - row["live_before"] >= 1 << 20 for row in result["iterations"]), result)
+
+
+class ReplayBuild(unittest.TestCase):
+    @unittest.skip("known wrong result: #1888")
+    def test_replay_tests_build_the_example_before_running(self):
+        with patch.object(subprocess, "run") as build:
+            SeededReplay.setUpClass()
+        build.assert_called_once_with(["make", "build.engine.plastic-budget"], check=True)
+
+    @unittest.skip("known wrong result: #1888")
+    def test_replay_build_uses_the_directory_consumed_by_tests(self):
+        result = subprocess.run(["make", "-n", "build.engine.plastic-budget", "NIX_RUN="],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--target-dir engine/fuzz/target", result.stdout)
+        self.assertIn("--example plastic_replay", result.stdout)
 
 
 if __name__ == "__main__":
