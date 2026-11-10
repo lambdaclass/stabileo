@@ -1,5 +1,5 @@
 use crate::linalg::sparse::CscMatrix;
-use crate::linalg::sparse_chol::{numeric_cholesky, sparse_cholesky_solve, symbolic_cholesky};
+use crate::linalg::sparse_chol::{numeric_cholesky, sparse_cholesky_solve, symbolic_cholesky, SymbolicCholesky};
 use crate::solver::dof::DofNumbering;
 use crate::types::*;
 use std::collections::BTreeMap;
@@ -689,7 +689,14 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
         return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa: 1.0, anisotropy, free, mode_nodes: Vec::new() };
     }
     let s = scaled(k, &groups, &group_of, &columns);
-    let (kappa, mode, indefinite) = spectrum(&s, anisotropy, amplification);
+    let symbolic = (m > FULL_SPECTRUM).then(|| Rc::new(symbolic_cholesky(&s)));
+    if let Some(kappa) = symbolic.as_ref().and_then(|sym| fast_sparse_bound(&s, sym, anisotropy, amplification)) {
+        let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, kappa);
+        if coupled.is_empty() && free.iter().all(|direction| direction.coupling.is_empty()) {
+            return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa, anisotropy, free, mode_nodes: Vec::new() };
+        }
+    }
+    let (kappa, mode, indefinite) = spectrum(&s, anisotropy, amplification, symbolic.as_ref());
     let mode_nodes = mode.map(|x| mode_nodes(&x, &columns, &groups)).unwrap_or_default();
     if indefinite {
         return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa, anisotropy, free, mode_nodes };
@@ -931,7 +938,7 @@ fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64, certify:
     }
 }
 
-fn positive_definite(s: &CscMatrix, scale: f64, shift: f64) -> bool {
+fn positive_definite(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, scale: f64, shift: f64) -> bool {
     let mut a = s.clone();
     for j in 0..a.n {
         for p in a.col_ptr[j]..a.col_ptr[j + 1] {
@@ -939,19 +946,37 @@ fn positive_definite(s: &CscMatrix, scale: f64, shift: f64) -> bool {
             if a.row_idx[p] == j { a.values[p] += shift; }
         }
     }
-    let sym = Rc::new(symbolic_cholesky(&a));
-    numeric_cholesky(&sym, &a).is_some()
+    numeric_cholesky(sym, &a).is_some()
 }
 
 const CERTIFY: f64 = 1e-3;
 const WIDEN: i32 = 11;
 
-fn certified_top(s: &CscMatrix, estimate: f64) -> Option<f64> {
+fn certified_top(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, estimate: f64) -> Option<f64> {
     (0..WIDEN).map(|t| (1.0 + CERTIFY) * estimate * 2f64.powi(t))
-        .find(|&upper| upper.is_finite() && upper > 0.0 && positive_definite(s, -1.0, upper))
+        .find(|&upper| upper.is_finite() && upper > 0.0 && positive_definite(s, sym, -1.0, upper))
 }
 
-fn spectrum(s: &CscMatrix, anisotropy: f64, amplification: f64) -> (f64, Option<Vec<f64>>, bool) {
+fn fast_sparse_bound(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, anisotropy: f64, amplification: f64) -> Option<f64> {
+    let mut rows = vec![0.0; s.n];
+    for j in 0..s.n {
+        for p in s.col_ptr[j]..s.col_ptr[j + 1] {
+            let i = s.row_idx[p];
+            rows[i] += s.values[p].abs();
+            if i != j { rows[j] += s.values[p].abs(); }
+        }
+    }
+    let upper = (1.0 + CERTIFY) * rows.into_iter().fold(0.0f64, f64::max);
+    let lower = upper / RESOLVABLE.sqrt();
+    let kappa = upper / lower;
+    if !upper.is_finite() || lower <= 0.0 || !kappa.is_finite()
+        || kappa * anisotropy > RESOLVABLE || kappa * amplification > RESOLVABLE {
+        return None;
+    }
+    (positive_definite(s, sym, -1.0, upper) && positive_definite(s, sym, 1.0, -lower)).then_some(kappa)
+}
+
+fn spectrum(s: &CscMatrix, anisotropy: f64, amplification: f64, symbolic: Option<&Rc<SymbolicCholesky>>) -> (f64, Option<Vec<f64>>, bool) {
     let m = s.n;
     if m <= FULL_SPECTRUM {
         let dense = s.to_dense_symmetric();
@@ -966,16 +991,16 @@ fn spectrum(s: &CscMatrix, anisotropy: f64, amplification: f64) -> (f64, Option<
         let x: Vec<f64> = (0..m).map(|r| vecs[r * m]).collect();
         return (kappa, Some(x), indefinite);
     }
-    let sym = Rc::new(symbolic_cholesky(s));
+    let sym = symbolic.cloned().unwrap_or_else(|| Rc::new(symbolic_cholesky(s)));
     let Some(factor) = numeric_cholesky(&sym, s) else { return (f64::INFINITY, None, false) };
     let mut mode = None;
     for seed in 1..=3 {
         let Some((inverse_top, x)) = lanczos_top(&|v| sparse_cholesky_solve(&factor, v), m, seed, &|top| {
             (0..WIDEN).map(|t| (1.0 - CERTIFY) / top / 2f64.powi(t))
-                .find(|&lower| lower > 0.0 && positive_definite(s, 1.0, -lower)).map(|lower| 1.0 / lower)
+                .find(|&lower| lower > 0.0 && positive_definite(s, &sym, 1.0, -lower)).map(|lower| 1.0 / lower)
         }) else { continue };
         mode = Some(x);
-        let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m, seed, &|top| certified_top(s, top)) else { continue };
+        let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m, seed, &|top| certified_top(s, &sym, top)) else { continue };
         if !(inverse_top.is_finite() && inverse_top > 0.0 && lmax > 0.0) { continue; }
         return (lmax * inverse_top, mode, false);
     }
@@ -1164,7 +1189,7 @@ mod tests {
             let exact_top = 2.001;
             let calls = std::cell::Cell::new(0);
             let apply = |x: &[f64]| { calls.set(calls.get() + 1); matrix.sym_mat_vec(x) };
-            let (upper, _) = lanczos_top(&apply, m, seed, &|top| certified_top(&matrix, top)).expect("a finite upper bound");
+            let (upper, _) = lanczos_top(&apply, m, seed, &|top| certified_top(&matrix, &Rc::new(symbolic_cholesky(&matrix)), top)).expect("a finite upper bound");
             assert_eq!(calls.get(), if m == 2 { 1 } else { 20 }, "exercise both breakdown and successive stalled estimates");
             assert!(upper >= exact_top, "stalled Ritz estimate {upper} is below the exact eigenvalue {exact_top}");
         }
@@ -1174,7 +1199,7 @@ mod tests {
     fn issue_1753_an_exhausted_estimate_without_an_upper_certificate_is_refused() {
         let matrix = CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1], &[2049.0, -2047.0, 2049.0]);
         let seed = 15_233_338_564_176_581_173;
-        assert!(lanczos_top(&|x| matrix.sym_mat_vec(x), 2, seed, &|top| certified_top(&matrix, top)).is_none());
+        assert!(lanczos_top(&|x| matrix.sym_mat_vec(x), 2, seed, &|top| certified_top(&matrix, &Rc::new(symbolic_cholesky(&matrix)), top)).is_none());
     }
     #[test]
     fn issue_1753_fast_accepted_spectrum_avoids_unused_eigenvector_rotations() {
@@ -1202,7 +1227,7 @@ mod tests {
                 assert_eq!(values.iter().map(|v| v.to_bits()).collect::<Vec<_>>(), expected_values.iter().map(|v| v.to_bits()).collect::<Vec<_>>());
                 for (anisotropy, amplification) in [(1.0, 1.0), (RESOLVABLE, 1.0), (1.0, RESOLVABLE)] {
                     let matrix = CscMatrix { n: 3, col_ptr: vec![0, 3, 5, 6], row_idx: vec![0, 1, 2, 1, 2, 2], values: vec![dense[0], dense[3], dense[6], dense[4], dense[7], dense[8]] };
-                    let (kappa, mode, indefinite) = spectrum(&matrix, anisotropy, amplification);
+                    let (kappa, mode, indefinite) = spectrum(&matrix, anisotropy, amplification, None);
                     let expected_kappa = if expected_values[0] <= 0.0 { f64::INFINITY } else { expected_values[2] / expected_values[0] };
                     assert_eq!(kappa.to_bits(), expected_kappa.to_bits());
                     let expected_indefinite = -expected_values[0] > ROUNDING * 3.0 * f64::EPSILON * anisotropy * expected_values[2].abs();
@@ -1216,7 +1241,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn issue_1753_fast_accepted_sparse_stability_avoids_lanczos() {
         let n = FULL_SPECTRUM + 17;
         for scale in [1e-100, 1.0, 1e100] {
@@ -1244,6 +1268,53 @@ mod tests {
             assert!(result.kappa >= exact_kappa);
             assert_eq!(LANCZOS_RUNS.with(|count| count.get()), 0);
         }
+    }
+
+    #[test]
+    fn issue_1753_sparse_fast_bound_preserves_difficult_spectrum_checks() {
+        let n = FULL_SPECTRUM + 17;
+        for tail in [0.0, -1.0, 1.0 / RESOLVABLE, 1.0] {
+            let mut diagonal = vec![1.0; n];
+            diagonal[n - 1] = tail;
+            let indices: Vec<_> = (0..n).collect();
+            let matrix = CscMatrix::from_triplets(n, &indices, &indices, &diagonal);
+            let symbolic = Rc::new(symbolic_cholesky(&matrix));
+            for (anisotropy, amplification) in [(1.0, 1.0), (RESOLVABLE, 1.0), (1.0, RESOLVABLE)] {
+                let fast = fast_sparse_bound(&matrix, &symbolic, anisotropy, amplification);
+                assert_eq!(fast.is_some(), tail == 1.0 && anisotropy == 1.0 && amplification == 1.0);
+                if let Some(kappa) = fast {
+                    assert!(kappa >= 1.0);
+                    assert!(kappa * anisotropy <= RESOLVABLE);
+                    assert!(kappa * amplification <= RESOLVABLE);
+                } else {
+                    let fresh = spectrum(&matrix, anisotropy, amplification, None);
+                    let reused = spectrum(&matrix, anisotropy, amplification, Some(&symbolic));
+                    assert_eq!(fresh, reused);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn issue_1753_sparse_dropped_direction_coupling_keeps_full_spectrum() {
+        let n = FULL_SPECTRUM + 17;
+        let mut rows: Vec<_> = (0..n).collect();
+        let mut cols = rows.clone();
+        let mut values = vec![1.0; n];
+        values[0] = LOCAL_FREE / 2.0;
+        rows.push(2);
+        cols.push(0);
+        values.push(LOCAL_FREE * LOCAL_FREE);
+        let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+        let tags: Vec<_> = (0..n).map(|i| DofTag {
+            node: if i < 2 { 0 } else { i },
+            kind: if i < 2 { DofKind::Rotation } else { DofKind::Translation },
+        }).collect();
+        LANCZOS_RUNS.with(|count| count.set(0));
+        let result = analyze_with_coupling(&matrix, &tags, &[(0, 1)], &ReleasedRotations::default());
+        assert_eq!(result.verdict, Verdict::Stable);
+        assert!(result.free.iter().any(|direction| !direction.coupling.is_empty()));
+        assert!(LANCZOS_RUNS.with(|count| count.get()) > 0);
     }
 
 }
