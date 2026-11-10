@@ -838,3 +838,30 @@ fn node_coupling_components_include_transitive_edges() {
     let expected = (2.0 + root) / (2.0 - root);
     assert!((result.anisotropy / expected - 1.0).abs() < 1e-12, "{result:?}");
 }
+
+fn independent_rotational_stability() -> Stability {
+    let s = analyze_dense(&[1e20, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], 3, &[t(3, DofKind::Rotation); 3]);
+    assert!(s.is_stable(), "{s:?}");
+    assert_eq!(s.free_rotations().count(), 1);
+    s
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_free_rotation_load_projection_uses_only_contributing_terms() {
+    let s = independent_rotational_stability();
+    assert_eq!(s.load_on_free_rotation(&[1e20, 0.0, 1.0]), Some(3));
+    assert_eq!(s.load_on_free_rotation(&[1e20, 0.0, 0.0]), None);
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_pin_verification_uses_only_contributing_terms() {
+    let s = independent_rotational_stability();
+    let err = s.check_pins(&[1.0, 0.0, 1.0], &[1e20, 0.0, 1.0], &[0.0; 3])
+        .expect_err("the artificial pin carried a unit moment masked by an independent axis");
+    assert!(err.contains("node 3") && err.contains("rotation"), "{err}");
+    assert!(s.check_pins(&[1.0, 0.0, 0.0], &[1e20, 0.0, 0.0], &[0.0; 3]).is_ok());
+    assert!(s.check_pins(&[1.0, 0.0, 0.0], &[1e20, 0.0, 1.0], &[0.0, 0.0, 1.0]).is_ok());
+    assert!(s.check_pins(&[1.0, 0.0, 0.0], &[1e20, 0.0, 0.0], &[0.0, 0.0, 1.0]).is_err());
+}

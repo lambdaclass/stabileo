@@ -2779,3 +2779,156 @@ fn issue_1753_an_independent_load_cannot_mask_constraint_cancellation() {
     let err = result.expect_err("an independent load masked F/4 instead of F/3");
     assert!(err.starts_with("the structure is a mechanism"), "{err}");
 }
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_three_hinge_arch_snapshot_preserves_exact_statics_and_current_warnings() {
+    let mut fixture: serde_json::Value = serde_json::from_str(include_str!("../../web/src/lib/templates/fixtures/three-hinge-arch.json")).unwrap();
+    for node in fixture["nodes"].as_array_mut().unwrap() {
+        node["z"] = node["y"].take();
+        node.as_object_mut().unwrap().remove("y");
+    }
+    for field in ["nodes", "materials", "sections", "elements", "supports"] {
+        fixture[field] = fixture[field].as_array().unwrap().iter()
+            .map(|entry| (entry["id"].to_string(), entry.clone()))
+            .collect::<serde_json::Map<_, _>>().into();
+    }
+    let input: SolverInput = serde_json::from_value(fixture).unwrap();
+    let result = solve_2d(&input).unwrap();
+    let total: f64 = input.loads.iter().map(|load| match load {
+        SolverLoad::Nodal(load) => -load.fz,
+        _ => panic!("the arch reference requires nodal forces"),
+    }).sum();
+    let left = &input.nodes["1"];
+    let crown = &input.nodes["5"];
+    let right = &input.nodes["9"];
+    let vertical = total / 2.0;
+    let moment: f64 = input.loads.iter().map(|load| match load {
+        SolverLoad::Nodal(load) => {
+            let node = &input.nodes[&load.node_id.to_string()];
+            if node.x < crown.x { -load.fz * (crown.x - node.x) } else { 0.0 }
+        }
+        _ => unreachable!(),
+    }).sum();
+    let horizontal = (vertical * (crown.x - left.x) - moment) / (crown.z - left.z);
+    assert_eq!(crown.x - left.x, right.x - crown.x);
+    for (node, sign) in [(1, 1.0), (9, -1.0)] {
+        let reaction = result.reactions.iter().find(|r| r.node_id == node).unwrap();
+        assert!((reaction.rx - sign * horizontal).abs() < 1e-9);
+        assert!((reaction.rz - vertical).abs() < 1e-9);
+        assert_eq!(reaction.my, 0.0);
+    }
+    for force in &result.element_forces {
+        assert!(force.m_start.abs() < 1e-9);
+        assert!(force.m_end.abs() < 1e-9);
+        assert!(force.v_start.abs() < 1e-9);
+        assert!(force.v_end.abs() < 1e-9);
+    }
+    let mut codes: Vec<String> = result.structured_diagnostics.iter()
+        .filter(|d| matches!(d.severity, Severity::Warning | Severity::Error))
+        .map(|d| format!("{}:{}", serde_json::to_value(d.severity).unwrap().as_str().unwrap(),
+            serde_json::to_value(d.code).unwrap().as_str().unwrap()))
+        .collect();
+    codes.sort();
+    let snapshot: serde_json::Value = serde_json::from_str(include_str!("../../web/results-snapshots/2d-three-hinge-arch.json")).unwrap();
+    assert_eq!(snapshot["values"]["base.diagnosticCodes"], codes.join(" "));
+}
+
+fn independent_rotations_with_a_free_axis(nodes: usize, pcg: bool) -> SolverInput3D {
+    let mut input = common::make_3d_input(
+        (1..=nodes).map(|i| (i, i as f64, 0.0, 0.0)).collect(),
+        vec![(1, E, 0.3)], vec![(1, 1.0, 1.0, 1.0, 1.0)],
+        vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 2, 3, 1, 1)],
+        (1..=nodes).map(|i| (i, if i == 3 { vec![true, true, true, false, false, false] } else { vec![true; 6] })).collect(),
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: 0.0, mx: 1e20, my: 0.0, mz: 1.0, bw: None })],
+    );
+    let released = input.elements.get_mut("2").unwrap();
+    released.release_my_end = true;
+    released.release_mz_end = true;
+    let support = input.supports.values_mut().find(|s| s.node_id == 3).unwrap();
+    support.krx = Some(1e20);
+    support.kry = Some(1.0);
+    if pcg {
+        input.solver_options = Some(serde_json::from_value(serde_json::json!({"method": "pcg"})).unwrap());
+    }
+    input
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_an_independent_large_moment_cannot_mask_a_loaded_free_rotation() {
+    for (nodes, pcg) in [(3, false), (12, false), (12, true)] {
+        let input = independent_rotations_with_a_free_axis(nodes, pcg);
+        for result in [dedaliano_engine::solver::linear::solve_3d(&input),
+            dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads))] {
+            let err = result.expect_err("an independent stiff-axis moment masked a loaded free rotation");
+            assert!(err.contains("node 3") && err.contains("rotation"), "{nodes} nodes, pcg {pcg}: {err}");
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_preparation_ignores_default_loads_and_validates_each_supplied_case() {
+    for (nodes, pcg) in [(3, false), (12, false), (12, true)] {
+        let mut input = independent_rotations_with_a_free_axis(nodes, pcg);
+        if let SolverLoad3D::Nodal(n) = &mut input.loads[0] { n.mx = 0.0; }
+        let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input)
+            .unwrap_or_else(|e| panic!("{nodes} nodes, pcg {pcg}: preparation inspected the default case: {e}"));
+        let valid = [SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: 0.0, mx: 1e20, my: 2.0, mz: 0.0, bw: None })];
+        let result = prepared.solve_loads(&valid).unwrap();
+        let d = result.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        assert!((d.rx - 1.0).abs() < 1e-12, "{d:?}");
+        assert!((d.ry - 2.0).abs() < 1e-12, "{d:?}");
+        assert_eq!(d.rz, 0.0);
+        let err = prepared.solve_loads(&input.loads).expect_err("the default case still loads the free axis");
+        assert!(err.contains("node 3") && err.contains("rotation"), "{err}");
+        let unloaded = prepared.solve_loads(&[]).unwrap();
+        assert!(unloaded.displacements.iter().all(|d| d.rx == 0.0 && d.ry == 0.0 && d.rz == 0.0));
+        let repeated = prepared.solve_loads(&valid).unwrap();
+        let again = repeated.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        assert_eq!((again.rx, again.ry, again.rz), (d.rx, d.ry, d.rz));
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_pcg_resolves_each_independent_moment_with_disparate_loads() {
+    for stiffness_ratio in [1.0, 1e3] {
+        for load_ratio in [1e3, 1e6, 1e7, 1e8, 1e9] {
+            for preconditioner in [None, Some("none")] {
+                let mut input = independent_rotations_with_a_free_axis(12, true);
+                for i in 3..12 {
+                    let mut element = input.elements["1"].clone();
+                    element.id = i;
+                    element.node_i = i;
+                    element.node_j = i + 1;
+                    element.release_my_start = i == 3;
+                    element.release_mz_start = i == 3;
+                    element.release_t_start = i == 3;
+                    input.elements.insert(i.to_string(), element);
+                }
+                let support = input.supports.values_mut().find(|s| s.node_id == 3).unwrap();
+                support.krx = Some(1e6);
+                support.kry = Some(1e6 / stiffness_ratio);
+                support.krz = Some(1e6);
+                input.solver_options = Some(serde_json::from_value(serde_json::json!({
+                    "method": "pcg", "preconditioner": preconditioner,
+                })).unwrap());
+                input.loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                    node_id: 3, fx: 0.0, fy: 0.0, fz: 0.0,
+                    mx: 1e3, my: 1e3 / load_ratio, mz: 0.0, bw: None,
+                })];
+                let expected = (1e3 / load_ratio) / (1e6 / stiffness_ratio);
+                for result in [dedaliano_engine::solver::linear::solve_3d(&input),
+                    dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads))] {
+                    let result = result.unwrap();
+                    let d = result.displacements.iter().find(|d| d.node_id == 3).unwrap();
+                    assert!((d.ry - expected).abs() <= 1e-12 * expected.abs(),
+                        "load ratio {load_ratio}, stiffness ratio {stiffness_ratio}, preconditioner {preconditioner:?}: {d:?}, expected ry {expected}");
+                    assert_eq!(d.rz, 0.0);
+                }
+            }
+        }
+    }
+}
