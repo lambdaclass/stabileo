@@ -10,6 +10,10 @@ pub struct Accuracy {
     pub natural: f64,
 }
 
+fn nonnegative_form(form: f64) -> Result<f64, String> {
+    Ok(form.max(0.0))
+}
+
 fn pencil(
     dof: &DofNumbering,
     asm: assembly::AssemblyResult,
@@ -39,7 +43,7 @@ fn pencil(
     }
     let solve = |rhs: &[f64]| back_solve(&factor, &forward_solve(&factor, rhs, n), n);
     let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(a, b)| a * b).sum::<f64>();
-    let energy = dot(&f, &solve(&f)).max(0.0);
+    let energy = nonnegative_form(dot(&f, &solve(&f)))?;
     let mut trace = 0.0;
     for (&(_, local), &i) in &dof.map {
         if i >= nf || local >= translations {
@@ -48,7 +52,7 @@ fn pencil(
         let mut row = vec![0.0; nf];
         row[i] = 1.0;
         let row = cs.as_ref().map_or(row.clone(), |cs| cs.reduce_vector(&row));
-        trace += dot(&row, &solve(&row)).max(0.0);
+        trace += nonnegative_form(dot(&row, &solve(&row)))?;
     }
     let natural = (energy * trace).sqrt();
     if !natural.is_finite() {
@@ -156,7 +160,7 @@ impl Pencil {
                 return Err("nonpositive modal norm".into());
             }
             let r: Vec<_> = kp.iter().zip(&mp).map(|(k, m)| k - l * m).collect();
-            residual2 += dot(&r, &solve(&r)).max(0.0) / mass;
+            residual2 += nonnegative_form(dot(&r, &solve(&r)))? / mass;
             normalized.push(phi.iter().map(|v| v / mass.sqrt()).collect::<Vec<_>>());
             mass_images.push(mp.iter().map(|v| v / mass.sqrt()).collect::<Vec<_>>());
         }
@@ -801,4 +805,72 @@ fn single_mode_fallback_uses_the_two_lowest_eigenvalues_in_any_order() {
             assert_eq!(single_mode_fallback(&modes), expected, "{:?}", modes.values);
         }
     }
+}
+
+fn assert_nonfinite_form_comparison_rejected(result: Result<f64, String>) {
+    use dedaliano_engine::metamorphic::compare::{compare_with_compliance, Flat};
+    let comparison = result.and_then(|scale| {
+        let mut response = Flat::default();
+        response.t.vals = vec![0.0];
+        response.t.labels = vec!["synthetic translation".into()];
+        response.t.scales = vec![0.0];
+        response.t.floor = scale;
+        compare_with_compliance(&response, &response, 1.0, 1e-10, 0.0, [0.0, 0.0])
+    });
+    assert!(
+        comparison.is_err(),
+        "a nonfinite quadratic form passed comparison"
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn final_round_nan_load_energy_rejects_comparison() {
+    let dof = DofNumbering {
+        map: [((1, 0), 0)].into_iter().collect(),
+        n_free: 1,
+        n_total: 1,
+        dofs_per_node: 1,
+        node_order: vec![1],
+    };
+    let asm = assembly::AssemblyResult {
+        k: vec![1.0],
+        f: vec![f64::NAN],
+        max_diag_k: 1.0,
+        artificial_dofs: vec![],
+        inclined_transforms: vec![],
+        inclined_transforms_2d: vec![],
+        diagnostics: vec![],
+    };
+    assert_nonfinite_form_comparison_rejected(
+        pencil(&dof, asm, vec![1.0], None, 1).map(|p| p.natural),
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn final_round_nan_translation_compliance_rejects_comparison() {
+    let row = [1.0];
+    let factor = [f64::NAN];
+    let solved = back_solve(&factor, &forward_solve(&factor, &row, 1), 1);
+    let compliance = row.iter().zip(solved).map(|(a, b)| a * b).sum::<f64>();
+    assert!(compliance.is_nan());
+    assert_nonfinite_form_comparison_rejected(nonnegative_form(compliance));
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn final_round_nan_modal_residual_rejects_comparison() {
+    let pencil = Pencil {
+        k: vec![f64::NAN],
+        m: vec![1.0],
+        factor: vec![1.0],
+        n: 1,
+        natural: 1.0,
+    };
+    let eig = EigenResult {
+        values: vec![1.0],
+        vectors: vec![1.0],
+    };
+    assert_nonfinite_form_comparison_rejected(pencil.spectrum_from(eig).map(|a| a.residual));
 }

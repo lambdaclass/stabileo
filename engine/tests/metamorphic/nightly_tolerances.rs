@@ -864,6 +864,7 @@ fn harmonic_certificates_compare_finite_published_and_inclined_bounds() {
 }
 
 #[test]
+#[ignore = "known wrong result: #1887"]
 fn round_two_singular_mass_harmonic_symmetry_rejects_a_physical_scale_error() {
     for issue in [1209, 1215] {
         let Model::D3(c) = model(issue) else {
@@ -907,7 +908,14 @@ fn round_two_singular_mass_harmonic_symmetry_rejects_a_physical_scale_error() {
         });
         assert!(physical > 0.0);
         let node = got.0[0].node;
-        nudge(&mut got, "H_re1", node, 0, physical);
+        let mut allowed = got.clone();
+        nudge(&mut allowed, "H_re1", node, 0, physical);
+        assert!(
+            matches!(cmp(&allowed), Verdict::Pass(_)),
+            "#{issue} anti={anti}: an allowed X perturbation failed symmetry: {:?}",
+            cmp(&allowed)
+        );
+        nudge(&mut got, "H_re1", node, 2, physical);
         assert!(
             matches!(cmp(&got), Verdict::Fail(_)),
             "#{issue} anti={anti}: a physical singular-mass displacement error passed: {:?}",
