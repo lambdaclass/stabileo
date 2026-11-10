@@ -1,7 +1,7 @@
 use crate::common::*;
 use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
 use dedaliano_engine::solver::fiber_nonlinear::{
-    solve_fiber_nonlinear_2d, solve_fiber_nonlinear_3d, FiberNonlinearInput, FiberNonlinearInput3D, FiberRunStatus,
+    solve_fiber_nonlinear_2d, solve_fiber_nonlinear_3d, FiberNonlinearInput, FiberNonlinearInput3D, FiberNonlinearResult, FiberRunStatus,
 };
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
@@ -335,7 +335,7 @@ fn issue_1576_mesh(increments: usize, elements: usize) -> FiberNonlinearInput {
         FiberMaterial::ConcreteHognestad { fc: 20.0, eps_c0: 0.002, eps_cu: 0.004, ft: 0.0 },
         FiberMaterial::SteelBilinear { e: 200_000.0, fy: 420.0, hardening_ratio: 0.01 },
     ] };
-    FiberNonlinearInput { solver, fiber_sections: HashMap::from([("1".into(), section)]), n_integration_points: 5, max_iter: if increments == 320 { 100 } else { 40 }, tolerance: 1e-8, n_increments: increments, modified_nr: false }
+    FiberNonlinearInput { solver, fiber_sections: HashMap::from([("1".into(), section)]), n_integration_points: 5, max_iter: 40, tolerance: 1e-8, n_increments: increments, modified_nr: false }
 }
 
 fn issue_1576_section_moment(top: f64) -> f64 {
@@ -377,13 +377,14 @@ fn rc_load_limit_is_refined_independently_of_the_requested_step_count() {
     for increments in [80, 160, 320] {
         let input = issue_1576_input(increments);
         let run = solve_fiber_nonlinear_2d(&input).unwrap();
-        eprintln!("#1576 increments={increments}: lambda={} stop={:?}", run.last_converged_load_factor, run.stop_reason);
         assert_eq!(run.status, FiberRunStatus::Stopped);
         assert!(run.results.equilibrium.as_ref().unwrap().residual_ok);
         let bracket = run.load_limit.as_ref().unwrap();
         assert_eq!(bracket.lower_load_factor, run.last_converged_load_factor);
         assert!(bracket.upper_load_factor > bracket.lower_load_factor);
-        assert!(bracket.upper_load_factor - bracket.lower_load_factor <= input.tolerance);
+        assert!(bracket.upper_load_factor - bracket.lower_load_factor <= input.tolerance * 0.25);
+        assert!((run.last_converged_load_factor - 0.7171933591365814).abs() <= input.tolerance * 0.25);
+        assert_issue_1576_base_equilibrium(&run, 443.6342961611152);
         assert_eq!(bracket.tolerance, input.tolerance);
         assert!(!bracket.capacity_certified);
         let last = run.history.last().unwrap();
@@ -397,16 +398,20 @@ fn rc_load_limit_is_refined_independently_of_the_requested_step_count() {
     }
     let at_crushing = issue_1576_section_moment(0.004);
     let true_peak = (1..=400).map(|i| issue_1576_section_moment(0.02 * i as f64 / 400.0)).fold(0.0_f64, f64::max);
-    eprintln!("#1576 independent M-phi: at epsCu={at_crushing}, peak through 0.02={true_peak}");
+    assert_close(at_crushing, 400.19685653874325, 1e-12, "published first-crushing section moment");
+    assert_close(true_peak, 435.869831150142, 1e-12, "published section scan maximum through strain 0.02");
     assert!((at_crushing / 3.0 - 133.399).abs() < 0.001);
     assert!(true_peak > at_crushing);
     let coarse_moment = limits[0] * 206.190 * 3.0;
     assert!(coarse_moment >= true_peak);
-    let fine = solve_fiber_nonlinear_2d(&issue_1576_mesh(80, 40)).unwrap();
+    let fine_input = issue_1576_mesh(80, 40);
+    let fine = solve_fiber_nonlinear_2d(&fine_input).unwrap();
     assert_eq!(fine.status, FiberRunStatus::Stopped);
     assert!(!fine.load_limit.as_ref().unwrap().capacity_certified);
     let fine_moment = fine.last_converged_load_factor * 206.190 * 3.0;
-    eprintln!("#1576 mesh convergence: 20 elements={coarse_moment}, 40 elements={fine_moment}, section={true_peak}, stop={:?}", fine.stop_reason);
+    assert_issue_1576_base_equilibrium(&fine, 440.9855661079287);
+    let bracket = fine.load_limit.as_ref().unwrap();
+    assert!(bracket.upper_load_factor - bracket.lower_load_factor <= fine_input.tolerance * 0.25);
     assert!((fine_moment - true_peak).abs() < (coarse_moment - true_peak).abs());
 }
 
@@ -420,7 +425,7 @@ fn rc_load_refinement_does_not_claim_capacity_when_iterations_are_inadequate() {
     assert!(run.history.is_empty());
     let limit = run.load_limit.unwrap();
     assert!(!limit.capacity_certified);
-    assert!(limit.upper_load_factor <= input.tolerance);
+    assert!(limit.upper_load_factor <= input.tolerance * 0.25);
     assert!(run.results.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0 && d.ry == 0.0));
 }
 
@@ -436,4 +441,51 @@ fn rc_load_refinement_refuses_invalid_or_unrepresentable_controls() {
     input.n_increments = 80;
     input.max_iter = 0;
     assert!(solve_fiber_nonlinear_2d(&input).is_err());
+}
+
+fn assert_issue_1576_base_equilibrium(run: &FiberNonlinearResult, published_moment: f64) {
+    let carried = run.last_converged_load_factor * 206.190;
+    let expected_moment = carried * 3.0;
+    let reaction = root(&run.results);
+    assert_close(reaction.rx, -carried, 1e-8, "base reaction balances carried tip load");
+    assert_close(reaction.my, expected_moment, 1e-8, "base reaction moment equals lambda P L");
+    assert_close(reaction.my, published_moment, 1e-8, "published base reaction moment");
+    let member = run.results.element_forces.iter().find(|force| force.element_id == 1).unwrap();
+    assert_close(member.m_start, expected_moment, 1e-8, "base member moment equals lambda P L");
+    assert_close(member.m_start, published_moment, 1e-8, "published base member moment");
+}
+
+#[test]
+#[ignore = "known wrong result: #1923"]
+fn unused_hognestad_sections_leave_steel_only_results_bit_identical() {
+    for elements in [N_EL, 40] {
+        for increments in [1, 48] {
+            let mut input = cantilever_2d_mesh(steel(), tip_load_at(1.2 * plastic_moment() / L, elements + 1), increments, elements);
+            let before = solve_fiber_nonlinear_2d(&input).unwrap();
+            assert_eq!(before.status, FiberRunStatus::Stopped);
+            assert!(before.load_limit.is_none());
+            input.fiber_sections.insert("unused".into(), issue_1576_input(80).fiber_sections.remove("1").unwrap());
+            let after = solve_fiber_nonlinear_2d(&input).unwrap();
+            assert_eq!(after.last_converged_load_factor.to_bits(), before.last_converged_load_factor.to_bits(), "unused concrete changed stopping load for {elements} elements, {increments} increments");
+            assert!(serde_json::to_vec(&before).unwrap() == serde_json::to_vec(&after).unwrap(), "unused concrete changed steel results for {elements} elements, {increments} increments");
+        }
+    }
+}
+
+#[test]
+fn hognestad_run_that_completes_has_no_load_limit() {
+    let mut input = issue_1576_input(4);
+    let SolverLoad::Nodal(load) = &mut input.solver.loads[0] else { panic!("expected tip load") };
+    load.fx *= 0.1;
+    let run = solve_fiber_nonlinear_2d(&input).unwrap();
+    assert!(run.converged);
+    assert_eq!(run.status, FiberRunStatus::Complete);
+    assert_eq!(run.last_converged_load_factor, 1.0);
+    assert!(run.load_limit.is_none());
+    assert!(run.stop_reason.is_none());
+    assert_eq!(run.history.len(), input.n_increments);
+    assert_eq!(run.history.last().unwrap().load_factor, 1.0);
+    let reaction = root(&run.results);
+    assert_close(reaction.rx, -206.190 * 0.1, input.tolerance, "completed concrete base reaction");
+    assert_close(reaction.my, 206.190 * 0.1 * 3.0, input.tolerance, "completed concrete base moment");
 }
