@@ -85,3 +85,7 @@ The final review also found that a large independent load could dilute the direc
 residual check. Dense and sparse direct paths now require convergence separately
 within each connected dynamic component. See the
 [independent-load correction](2026-11-harmonic-independent-load-convergence.md).
+
+Both direct paths now also apply a load-independent numerical singularity refusal
+after factorization, while retaining component residual convergence. See the
+[scaled-pivot limit and connected-arrowhead evidence](2026-11-harmonic-load-independent-singularity.md).

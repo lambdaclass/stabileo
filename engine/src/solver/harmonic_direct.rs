@@ -4,6 +4,7 @@ use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
 
 const STORAGE_BUDGET: usize = 8 * MAX_DENSE_FALLBACK_DOFS * MAX_DENSE_FALLBACK_DOFS;
 const ENTRY_BYTES: usize = 256;
+const MIN_RELATIVE_PIVOT: f64 = 1e-12;
 
 type Rows = Vec<BTreeMap<usize, f64>>;
 
@@ -139,7 +140,9 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
     for row in &mut system.rows {
         for (&col, value) in row { *value /= scales[col]; }
     }
+    let matrix_norm = system.rows.iter().map(|row| row.values().map(|v| v.abs()).sum::<f64>()).fold(0.0_f64, f64::max);
     let pivots = system.factor()?;
+    require_nonsingular(matrix_norm, pivots.iter().enumerate().map(|(col, &row)| system.rows[row][&col]))?;
     let mut x = system.apply(&pivots, &rhs)?;
     for (value, scale) in x.iter_mut().zip(&scales) { *value /= scale; }
     for step in 0..=2 {
@@ -182,6 +185,19 @@ fn dynamic_entries(k: &CscMatrix, m: &CscMatrix, (a0, a1): (f64, f64), omega: f6
             let inertia = omega * omega * mv;
             let (kc, mc) = (omega * a1 * kv, omega * a0 * mv);
             visit(i, j, kv - inertia, kc + mc, kv.abs().max(inertia.abs()).max(kc.abs()).max(mc.abs()))?;
+        }
+    }
+    Ok(())
+}
+
+pub(super) fn require_nonsingular(matrix_norm: f64, pivots: impl Iterator<Item = f64>) -> Result<(), String> {
+    if !matrix_norm.is_finite() || matrix_norm <= 0.0 {
+        return Err("Harmonic direct solve: invalid scaled dynamic matrix norm".into());
+    }
+    for pivot in pivots {
+        let relative = pivot.abs() / matrix_norm;
+        if !relative.is_finite() || relative < MIN_RELATIVE_PIVOT {
+            return Err(format!("Harmonic direct solve: numerically singular dynamic stiffness (scaled pivot / matrix infinity norm {relative:.3e} is below {MIN_RELATIVE_PIVOT:.0e} or non-finite)"));
         }
     }
     Ok(())
@@ -323,7 +339,7 @@ mod tests {
             assert!(error.contains("numerically singular dynamic stiffness"), "{error}");
         } else if independent_load.is_some() {
             let error = result.unwrap_err();
-            assert!(error.contains("component relative residual"), "{error}");
+            assert!(error.contains("numerically singular dynamic stiffness"), "{error}");
         }
     }
 
@@ -332,13 +348,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1922"]
     fn dense_singular_arrowhead_with_connected_large_load_is_refused() {
         singular_arrowhead_case(false, Some(1e12), true);
     }
 
     #[test]
-    #[ignore = "known wrong result: #1922"]
     fn sparse_singular_arrowhead_with_connected_large_load_is_refused() {
         singular_arrowhead_case(true, Some(1e12), true);
     }

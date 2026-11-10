@@ -918,7 +918,9 @@ pub fn solve_complex_system(
     for i in 0..n2 {
         for j in 0..n2 { a[i * n2 + j] /= scales[j]; }
     }
+    let matrix_norm = a.chunks(n2.max(1)).map(|row| row.iter().map(|v| v.abs()).sum::<f64>()).fold(0.0_f64, f64::max);
     let pivots = lu_factor(&mut a, n2).ok_or_else(|| "Complex system solve failed".to_string())?;
+    super::harmonic_direct::require_nonsingular(matrix_norm, pivots.iter().enumerate().map(|(col, &row)| a[row * n2 + col]))?;
     let mut result = lu_apply(&a, &pivots, &rhs, n2).ok_or_else(|| "Complex system solve failed".to_string())?;
     for (value, scale) in result.iter_mut().zip(&scales) { *value /= scale; }
     for step in 0..=2 {
