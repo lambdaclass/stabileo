@@ -328,10 +328,15 @@ describe('edited projects with older provenance', () => {
 
   it('clears an acknowledged linear notice before adding shells, saving and reopening without a solve', async () => {
     const store = createRecheckStore();
-    const snapshot = { ...frame(), elements: [], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
+    const snapshot = { ...frame(), elements: [], connectors: [[1, { kShear: 0 }]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
-    expect(store.assessment?.changes.map(c => c.id)).toEqual(['linear-stability-refusals']);
+    expect(store.assessment?.changes.map(c => c.id)).toEqual([
+      'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
+      'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
+      'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
+      'linear-stability-refusals', 'connector-arm-mechanism-3d-refused',
+    ]);
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
     store.acknowledge();

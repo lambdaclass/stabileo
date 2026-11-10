@@ -523,3 +523,54 @@ by Euler angles `(0.3, 1.1, -0.7)` is refused as a Mechanism; an axis permutatio
 still solves. Stable does not imply bit-identical historical responses: the PCG
 component correction measured above and sparse direct residual refinement can
 change displacements. The recorded corpus comparison has that narrower scope.
+
+### Final capped review: negative node stiffness and empty-model notices
+
+The rotational block `[[1e20, 1], [1, -1]]` has negative energy for the
+second coordinate direction. The component-wide negative-eigenvalue tolerance
+could nevertheless accept its negative eigenvalue as rounding, drop it as a free
+rotation, and pin it. Coupling checks considered only directions outside the
+node group, so they did not reject this block.
+
+Each diagonal is now checked before decomposition using only that entry's
+magnitude, or its own constraint-reduction magnitude bound. A resolvably negative
+diagonal gives `Singular / Indefinite`, with no pin. A remaining negative
+rotational eigenvalue is refused unless explicit member releases establish zero
+physical stiffness along that direction. The proof checks the unreleased local
+rotational axes of every incident frame and rotational support springs, and
+follows the constraint transform. Nodes with connectors or shells do not receive
+this release exemption. Translation mechanisms still report `Mechanism`; a
+negative rotational mode cannot be accepted merely because its off-node coupling
+is absent. The matrix and load tolerances are unchanged.
+
+The three new `solver::stability::tests::issue_1753_*` regressions failed before
+this fix and pass after it. The block is embedded using actual 2D and 3D DOF tags:
+2D has two translations per node and one rotation, so its two-coordinate block is
+translational and previously reported `Mechanism / FreeTranslation`. The 3D
+rotational embedding previously reported `Stable / Resolved` with a pin. A
+positive-diagonal block `[[1, 1 + EPSILON], [1 + EPSILON, 1]]` separately proves that
+an unresolved negative rotational eigenvalue cannot be assumed to be a release.
+
+An archived copy of `origin/main` at `87e1c9a1b` was built inside this worktree and
+run on the same matrix and two public-solver models. The matrix analyzer reported
+`Mechanism` in 2D and `Stable` in 3D. Both public linear solvers returned `Ok` on
+models with negative connector stiffness. The 2D solve warned about indefinite
+stiffness and LU fallback. The 3D solve added artificial rotational stiffness and
+warned `HighDiagonalRatio`, `NUM-INVARIANCE` and `ORPHAN-SOFT-ROTATION`. Its node-2
+y rotation was `-1.0000000000999999e-30`; the unmodified physical rotational block
+requires `+1e-20` under the supplied unit x moment. Both fixed solves refuse the
+negative diagonal at node 2. This is a warned main failure, not evidence of a
+silent deployment failure.
+
+[The evidence](1753-negative-stiffness-probe.json) records both full inputs and
+main/fixed outcomes. [The probe](1753-negative-stiffness-probe.rs) takes paths to
+the 2D and 3D inputs extracted from the evidence. To repeat inside `make shell`,
+copy it temporarily to `engine/examples/final_negative_probe.rs` and run
+`cargo run -p dedaliano-engine --example final_negative_probe -- <2d.json> <3d.json>`.
+Run the same probe against an archived copy of main inside this worktree for the
+comparison. Temporary probe source is not part of the engine build.
+
+The existing `linear-stability-refusals` registry entry retains its all-linear
+scope and now requires any of `members`, `shells`, `connectors` or `springs`.
+Supports and nodal loads alone establish no stiffness elements and no linear
+result to re-check. The reported 3D steel-truss applicability test is unchanged.

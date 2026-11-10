@@ -19,10 +19,10 @@ it('#1753: ordinary legacy shell results receive the linear re-check notice', ()
   expect(changes.map((change) => change.id)).toContain(entry.id);
 });
 
-it('#1753: every linear result matches without requiring special model features', () => {
-  expect(conditionHolds(entry.when!, new Set(['analysis:linear']))).toBe(true);
+it('#1753: every linear result with stiffness elements matches without requiring special model features', () => {
+  expect(conditionHolds(entry.when!, new Set(['analysis:linear', 'members']))).toBe(true);
   for (const feature of ['hinges', 'springs', 'constraints', 'connectors', 'inclinedSupports', 'eccentricities', 'curvedShells']) {
-    expect(conditionHolds(entry.when!, new Set(['analysis:linear', feature])), feature).toBe(true);
+    expect(conditionHolds(entry.when!, new Set(['analysis:linear', 'members', feature])), feature).toBe(true);
     expect(conditionHolds(entry.when!, new Set([feature])), feature).toBe(false);
   }
   const features = modelFeatures({ analysisMode: '2d', elements: [[1, {

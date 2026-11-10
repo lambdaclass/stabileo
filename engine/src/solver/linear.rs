@@ -666,7 +666,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     // ── Triplet sparse path: large models (nf >= 64) ──
     if !force_dense && nf >= SPARSE_THRESHOLD {
         let stiff = super::assembly::without_artificial_stiffness(|| super::sparse_assembly::assemble_stiffness_sparse_2d_typed(input, &dof_num, &properties));
-        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_with_coupling(&stiff.k_ff, &free_tags(&dof_num, true), &super::stability::coupling_2d(input, &dof_num)) };
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_with_coupling(&stiff.k_ff, &free_tags(&dof_num, true), &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default()) };
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         let k_ff = stability.pin_sparse(&stiff.k_ff);
 
@@ -740,7 +740,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     let k_rr = extract_submatrix(&stiff.k, n, &rest_idx, &rest_idx);
     let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
 
-    let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense_with_coupling(&k_ff, nf, &free_tags(&dof_num, true), &super::stability::coupling_2d(input, &dof_num)) };
+    let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense_with_coupling(&k_ff, nf, &free_tags(&dof_num, true), &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default()) };
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     stability.pin_dense(&mut k_ff, nf);
 
@@ -1766,7 +1766,7 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let mut solver_diags_base: Vec<SolverDiagnostic> = Vec::new();
 
         let t0 = now_micros();
-        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_with_coupling(&stiff.k_ff, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num)) };
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_with_coupling(&stiff.k_ff, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num), &super::stability::released_rotations_3d(&input, &dof_num)) };
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         stiff.k_ff = stability.pin_sparse(&stiff.k_ff);
         let conditioning = super::conditioning::check_sparse_conditioning(&stiff.k_ff);
@@ -1857,7 +1857,7 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let free_idx: Vec<usize> = (0..nf).collect();
         let rest_idx: Vec<usize> = (nf..n).collect();
         let mut k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
-        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense_with_coupling(&k_ff, nf, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num)) };
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense_with_coupling(&k_ff, nf, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num), &super::stability::released_rotations_3d(&input, &dof_num)) };
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         stability.pin_dense(&mut k_ff, nf);
         let conditioning = super::conditioning::check_conditioning(&k_ff, nf);

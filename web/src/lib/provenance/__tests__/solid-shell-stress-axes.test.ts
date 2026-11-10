@@ -10,5 +10,5 @@ it('asks older shell models to recheck local stresses, including explicit solid 
     expect(changes(4)).toContain('solid-shell-local-stress-axes');
     expect(changes(5)).not.toContain('solid-shell-local-stress-axes');
   }
-  expect(assessProject({ analysisMode: 'pro' }, { resultsVersion: 4, analyses: ['linear'] } as SolveStamp, 'pro').changes.map((c) => c.id)).toEqual(['linear-stability-refusals']);
+  expect(assessProject({ analysisMode: 'pro' }, { resultsVersion: 4, analyses: ['linear'] } as SolveStamp, 'pro').changes.map((c) => c.id)).toEqual([]);
 });

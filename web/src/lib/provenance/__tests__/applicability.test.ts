@@ -294,8 +294,8 @@ describe('which registered changes concern a model', () => {
     }
   });
 
-  it('unknown analysis history receives the linear re-check notice even without model features', () => {
-    expect(ids(model({ supports: [], loadCases: [] }))).toEqual(['linear-stability-refusals']);
+  it('unknown analysis history without stiffness elements has no linear result to re-check', () => {
+    expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
 
   it('concerns a 3D steel truss solved before the containment diagnostics, and not the same supports and nodal load without members one version old (the re-check e2e relies on it)', () => {
