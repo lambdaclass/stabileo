@@ -238,9 +238,9 @@ mod tests {
     use crate::solver::damping::rayleigh_damping_matrix;
     use crate::solver::harmonic::solve_complex_system;
 
-    fn singular_arrowhead(sparse: bool) {
+    fn singular_arrowhead(sparse: bool, independent_load: Option<f64>) {
         let count = 1024;
-        let n = count + 1;
+        let n = count + 1 + usize::from(independent_load.is_some());
         let t = 1.0 - 383.0 / (1_u64 << 26) as f64;
         let mut k = vec![0.0; n * n];
         let mut m = vec![0.0; n * n];
@@ -253,6 +253,10 @@ mod tests {
         k[count * n + count] = 1.0 + count as f64 * t * t;
         for i in 0..n { m[i * n + i] = 1.0; }
         f[count] = 1.0;
+        if let Some(load) = independent_load {
+            k[(n - 1) * n + n - 1] = 2.0;
+            f[n - 1] = load;
+        }
         assert_eq!(k[count * n + count] - 1.0, count as f64 * t * t);
         let result = if sparse {
             solve(&CscMatrix::from_dense_symmetric(&k, n), &CscMatrix::from_dense_symmetric(&m, n), &f, (0.0, 0.0), 1.0)
@@ -264,12 +268,24 @@ mod tests {
 
     #[test]
     fn dense_singular_arrowhead_with_roundoff_pivot_is_refused() {
-        singular_arrowhead(false);
+        singular_arrowhead(false, None);
     }
 
     #[test]
     fn sparse_singular_arrowhead_with_roundoff_pivot_is_refused() {
-        singular_arrowhead(true);
+        singular_arrowhead(true, None);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1922"]
+    fn dense_singular_arrowhead_with_independent_load_is_refused() {
+        singular_arrowhead(false, Some(1e12));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1922"]
+    fn sparse_singular_arrowhead_with_independent_load_is_refused() {
+        singular_arrowhead(true, Some(1e12));
     }
 
     fn structural_resonance(sparse: bool) {
