@@ -413,12 +413,14 @@ material histories to the last committed equilibrium; a failed increment restore
 both those histories and the displacements. Returned reactions, member forces and
 history correspond to `lastConvergedLoadFactor`, including when `status` is `stopped`.
 
-In 2D runs containing Hognestad concrete, failed or non-positive-tangent trials cause
-load-increment bisection. A successful cutback retries the original target before
-advancing, so a crushing kink is not automatically treated as a limit point. The
-remaining numerical load-control interval is refined within the requested tolerance
-and reported in `loadLimit`, with `capacityCertified: false`. Iteration failure is
-not proof of a structural limit, and the last converged equilibrium is not capacity.
+In 2D runs with Hognestad concrete in fibre sections assigned to analysed frame
+elements, failed or non-positive-tangent trials cause load-increment bisection.
+A successful cutback retries the original target before advancing, so a crushing
+kink is not automatically treated as a limit point. The
+remaining numerical load-control interval is refined to at most a quarter of the
+requested load-factor tolerance and reported in `loadLimit`, with
+`capacityCertified: false`. Iteration failure is not proof of a structural limit,
+and the last converged equilibrium is not capacity.
 See [the refinement contract and evidence](../results-changes/2026-11-fibre-load-control-refinement.md).
 
 Other 2D material models and the 3D solver retain fixed load increments. Arc-length

@@ -33,7 +33,7 @@ export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pde
 export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
-  'concreteMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
+  'concreteMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear',
@@ -72,6 +72,7 @@ export interface FeatureSnapshot {
   materials?: Entries<Mat>;
   elements?: Entries<Elem>;
   sections?: Entries<{ id: number; shearAreas?: unknown }>;
+  fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
   loadCases?: Array<{ id: number; type?: string; spectral?: unknown; alternatives?: string }>;
@@ -160,12 +161,16 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const released = new Set<number>();
   const sheared = new Set(values(s.sections).filter((x) => x.shearAreas != null).map((x) => x.id));
+  const hognestadSections = new Set(Object.entries(s.fiberSections ?? {})
+    .filter(([, section]) => section.materials?.some((material) => material.type === 'concrete_hognestad'))
+    .map(([id]) => id));
   if (elements.length) f.add('members');
   let steel = 0, concrete = 0, steelWithoutConnection = 0, steelDeclaredLb = 0, steelChainEnd = 0;
   for (const e of elements) {
     if (e.type === 'truss') f.add('trussMembers'); else f.add('frameMembers');
     if (hasRelease(e.releaseI) || hasRelease(e.releaseJ) || e.semiRigid) { f.add('hinges'); if (e.type !== 'truss') released.add(e.id); }
     if (e.type !== 'truss' && e.sectionId !== undefined && sheared.has(e.sectionId)) f.add('shearAreas');
+    if (e.type !== 'truss' && e.type !== 'cable' && e.sectionId !== undefined && hognestadSections.has(String(e.sectionId))) f.add('hognestadFiberMembers');
     if (e.arc) f.add('arcMembers');
     if (offsetMoves(e.offset?.i) || offsetMoves(e.offset?.j)) f.add('eccentricities');
     const fam = familyOf(e.materialId);

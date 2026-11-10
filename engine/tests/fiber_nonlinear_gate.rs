@@ -456,7 +456,6 @@ fn assert_issue_1576_base_equilibrium(run: &FiberNonlinearResult, published_mome
 }
 
 #[test]
-#[ignore = "known wrong result: #1923"]
 fn unused_hognestad_sections_leave_steel_only_results_bit_identical() {
     for elements in [N_EL, 40] {
         for increments in [1, 48] {

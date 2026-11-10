@@ -21,7 +21,7 @@ const concerns = (snapshot: FeatureSnapshot, analyses: SolveStamp['analyses'] = 
   assessProject(snapshot, stamp(analyses)).changes.some((entry) => entry.id === changeId);
 
 describe('concrete fibre load-control refinement applicability (#1923)', () => {
-  it.skip('known wrong result: #1923: excludes nonlinear frames without assigned Hognestad fibre sections', () => {
+  it('excludes nonlinear frames without assigned Hognestad fibre sections', () => {
     const { fiberSections, ...ordinary } = model();
     expect(concerns(ordinary)).toBe(false);
     expect(concerns(model('steel_bilinear'))).toBe(false);
@@ -39,7 +39,7 @@ describe('concrete fibre load-control refinement applicability (#1923)', () => {
     expect(assessProject(model(), { ...stamp(['nonlinear']), resultsVersion: change.resultsVersion }).changes.map((entry) => entry.id)).not.toContain(changeId);
   });
 
-  it.skip('known wrong result: #1923: requires every declared feature and records PR 1923', () => {
+  it('requires every declared feature and records PR 1923', () => {
     const features = ['plane2D', 'frameMembers', 'hognestadFiberMembers', 'analysis:nonlinear'];
     expect(conditionHolds(change.when ?? {}, new Set(features))).toBe(true);
     for (const omitted of features) {

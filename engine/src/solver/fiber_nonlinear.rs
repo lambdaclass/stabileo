@@ -132,7 +132,10 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
     if input.n_increments == 0 || input.max_iter == 0 || !input.tolerance.is_finite() || input.tolerance <= 0.0 {
         return Err("Fiber-nonlinear analysis requires positive increments, iterations and finite positive tolerance".into());
     }
-    let refine_load = input.fiber_sections.values().any(|s| s.materials.iter().any(|m| matches!(m, FiberMaterial::ConcreteHognestad { .. })));
+    let refine_load = crate::ordered::values(&input.solver.elements)
+        .filter(|e| e.elem_type != "truss" && e.elem_type != "cable")
+        .filter_map(|e| input.fiber_sections.get(&e.section_id.to_string()))
+        .any(|s| s.materials.iter().any(|m| matches!(m, FiberMaterial::ConcreteHognestad { .. })));
     if refine_load && input.tolerance * 0.25 == 0.0 {
         return Err("Fiber-nonlinear tolerance is too small to represent the load refinement tolerance".into());
     }

@@ -1,7 +1,9 @@
 {
   "id": "fibre-load-control-refinement",
   "date": "2026-11-10",
-  "prs": [],
+  "prs": [
+    1923
+  ],
   "area": "analysis",
   "when": {
     "allOf": [
@@ -10,6 +12,9 @@
       ],
       [
         "frameMembers"
+      ],
+      [
+        "hognestadFiberMembers"
       ],
       [
         "analysis:nonlinear"
