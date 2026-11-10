@@ -484,7 +484,6 @@ fn coupled_identity(order: &[usize]) -> Stability {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn a_mode_with_equal_components_on_its_two_coupled_dofs_certifies_in_any_numbering() {
     let m = stability::DENSE_SPECTRUM + 1;
     let identity: Vec<usize> = (0..m).collect();
@@ -493,7 +492,9 @@ fn a_mode_with_equal_components_on_its_two_coupled_dofs_certifies_in_any_numberi
     for order in [identity, reversed, shuffled] {
         let s = coupled_identity(&order);
         assert_eq!(s.verdict, Verdict::Stable, "{s:?}");
-        assert!(s.kappa >= 3.0 && s.kappa <= 3.0 * (1.0 + 3e-3), "{}", s.kappa);
+        assert!(s.kappa.is_finite() && s.kappa >= 3.0, "{}", s.kappa);
+        assert!(!s.needs_accuracy_check(), "{s:?}");
+        assert!(s.kappa * s.anisotropy <= stability::RESOLVABLE, "{s:?}");
     }
 }
 
@@ -827,18 +828,57 @@ fn continuous_beam(spans: usize) -> dedaliano_engine::types::SolverInput {
     .unwrap()
 }
 
-/// The equal spans of a long continuous beam cluster the extreme eigenvalues of `S`, where a
-/// Lanczos estimate stops short of the extreme: above the full-spectrum size the certified
-/// condition number must stay within a factor of two of a short beam's, and the beam is solved.
+fn assert_beam_condition_bound(input: &dedaliano_engine::types::SolverInput, kappa: f64) {
+    use dedaliano_engine::linalg::sparse_chol::{numeric_cholesky, symbolic_cholesky};
+    use dedaliano_engine::solver::dof::DofNumbering;
+    use dedaliano_engine::solver::sparse_assembly::assemble_stiffness_sparse_2d;
+    use std::rc::Rc;
+
+    assert!(kappa.is_finite() && kappa >= 1.0, "{kappa}");
+    let dof = DofNumbering::build_2d(input);
+    let assembly = assemble_stiffness_sparse_2d(input, &dof);
+    assert!(assembly.artificial_dofs.is_empty());
+    let mut matrix = assembly.k_ff;
+    let tags = stability::tags(&dof, true);
+    let diagonal = matrix.diagonal();
+    assert!(diagonal.iter().all(|&d| d.is_finite() && d > 0.0));
+    let mut rows = vec![0.0; matrix.n];
+    for j in 0..matrix.n {
+        for p in matrix.col_ptr[j]..matrix.col_ptr[j + 1] {
+            let i = matrix.row_idx[p];
+            assert!(i == j || tags[i] != tags[j] || matrix.values[p] == 0.0);
+            matrix.values[p] /= diagonal[i].sqrt() * diagonal[j].sqrt();
+            rows[i] += matrix.values[p].abs();
+            if i != j { rows[j] += matrix.values[p].abs(); }
+        }
+    }
+    let upper = 2.0 * rows.into_iter().fold(0.0f64, f64::max);
+    let lower = upper / kappa;
+    assert!(upper.is_finite() && lower > 0.0);
+    let symbolic = Rc::new(symbolic_cholesky(&matrix));
+    for (scale, shift) in [(-1.0, upper), (1.0, -lower)] {
+        let mut shifted = matrix.clone();
+        for j in 0..shifted.n {
+            for p in shifted.col_ptr[j]..shifted.col_ptr[j + 1] {
+                shifted.values[p] *= scale;
+                if shifted.row_idx[p] == j { shifted.values[p] += shift; }
+            }
+        }
+        assert!(numeric_cholesky(&symbolic, &shifted).is_some(), "uncertified condition bound {kappa}");
+    }
+}
+
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn a_long_continuous_beam_is_stable_past_the_full_spectrum() {
     let dense = stability::of_2d(&continuous_beam(2)).unwrap();
     assert!(dense.is_stable(), "{:?}", dense.refusal());
     for spans in [10, 20, 40] {
         let input = continuous_beam(spans);
         let s = stability::of_2d(&input).unwrap();
-        assert!(s.is_stable() && s.kappa >= dense.kappa && s.kappa < 2.0 * dense.kappa, "{spans} spans: kappa {:e} against {:e}", s.kappa, dense.kappa);
+        assert!(s.is_stable(), "{spans} spans: {s:?}");
+        assert_beam_condition_bound(&input, s.kappa);
+        assert!(!s.needs_accuracy_check(), "{spans} spans: {s:?}");
+        assert!(s.kappa * s.anisotropy <= stability::RESOLVABLE, "{spans} spans: {s:?}");
         dedaliano_engine::solver::linear::solve_2d(&input).unwrap_or_else(|e| panic!("{spans} spans: {e}"));
     }
 }

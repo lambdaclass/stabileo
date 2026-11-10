@@ -112,6 +112,26 @@ halved or doubled up to ten times until it does. The successes prove
 underestimate. An estimate that does not certify, and a Cholesky of `S` that breaks down,
 give Singular: the threshold is never passed on an unproved number.
 
+Before Lanczos, the sparse path may certify a wider interval directly. It takes a
+row-sum upper bound, widened by the same certification margin, and a lower endpoint
+whose ratio to that upper endpoint is `sqrt(RESOLVABLE)`. Both shifted Cholesky
+factorizations must succeed. This path returns Stable only when the certified ratio
+passes both the anisotropy product and constraint-rounding product limits, and every
+dropped rotation has empty off-node coupling. Otherwise the full spectrum path runs.
+`Stability.kappa` is a condition-number upper bound on either sparse path; its
+contract does not require the interval to be tight. Up to `FULL_SPECTRUM`, it is the
+full eigenvalue ratio.
+
+The wider bound cannot activate conditional accuracy checks: its product with
+anisotropy is already at or below `RESOLVABLE`, and any tighter certified ratio would
+also pass. The fast-accepted value does not reach the conditioning refusal message,
+result diagnostics, certificates, results JSON or the web. Conditional refinement
+measures a correction relative to the response; it does not multiply backward error
+by this bound. The metamorphic harness has its own independent conditioning estimate
+for comparison tolerances. Tests of fast acceptance therefore check certification and
+the verdict, while tests that explicitly run the full spectrum retain their existing
+tightness assertions.
+
 With constraints, `K` is the reduced matrix and each independent DOF takes the node and
 kind of its physical DOF. For each node, the constraint's translation rows are applied to
 its whole free rotation subspace, with the node's constraint map divided by its largest

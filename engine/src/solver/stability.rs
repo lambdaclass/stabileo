@@ -1267,6 +1267,36 @@ mod tests {
             let exact_kappa = (1.0 + cosine) / (1.0 - cosine);
             assert!(result.kappa >= exact_kappa);
             assert_eq!(LANCZOS_RUNS.with(|count| count.get()), 0);
+            let mut equilibrated = matrix.clone();
+            for value in &mut equilibrated.values { *value /= 2.0 * scale; }
+            let (tight, _, indefinite) = spectrum(&equilibrated, 1.0, 1.0, None);
+            assert!(!indefinite);
+            assert!(tight >= exact_kappa && tight <= exact_kappa * (1.0 + 3e-3), "{tight} vs {exact_kappa}");
+            assert!(result.kappa >= tight);
+            assert!(LANCZOS_RUNS.with(|count| count.get()) > 0);
+        }
+    }
+
+    #[test]
+    fn issue_1753_full_sparse_spectrum_keeps_clustered_extremes_tight_in_any_numbering() {
+        let n = DENSE_SPECTRUM + 1;
+        for order in [
+            (0..n).collect::<Vec<_>>(),
+            (0..n).rev().collect(),
+            (0..n).map(|i| (i * 37 + 11) % n).collect(),
+        ] {
+            let mut rows: Vec<_> = (0..n).collect();
+            let mut cols = rows.clone();
+            let mut values = vec![1.0; n];
+            rows.push(order[0].max(order[101]));
+            cols.push(order[0].min(order[101]));
+            values.push(-0.5);
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            LANCZOS_RUNS.with(|count| count.set(0));
+            let (kappa, _, indefinite) = spectrum(&matrix, 1.0, 1.0, None);
+            assert!(!indefinite);
+            assert!(kappa >= 3.0 && kappa <= 3.0 * (1.0 + 3e-3), "{kappa}");
+            assert!(LANCZOS_RUNS.with(|count| count.get()) > 0);
         }
     }
 
