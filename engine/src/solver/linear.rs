@@ -338,6 +338,15 @@ fn try_pcg_solve(
         // Recompute the true relative residual — never trust the iteration's
         // internal estimate.
         let ku = k_ff.sym_mat_vec(&res.x);
+        let mut row_scale: Vec<f64> = f_f.iter().map(|v| v.abs()).collect();
+        for j in 0..k_ff.n {
+            for p in k_ff.col_ptr[j]..k_ff.col_ptr[j + 1] {
+                let (i, value) = (k_ff.row_idx[p], k_ff.values[p]);
+                row_scale[i] += (value * res.x[j]).abs();
+                if i != j { row_scale[j] += (value * res.x[i]).abs(); }
+            }
+        }
+        let row_resolved = (0..k_ff.n).all(|i| (ku[i] - f_f[i]).abs() <= 1e-6 * row_scale[i]);
         let mut res2 = 0.0f64;
         let mut f2 = 0.0f64;
         for i in 0..k_ff.n {
@@ -347,7 +356,7 @@ fn try_pcg_solve(
         }
         let rel = res2.sqrt() / f2.sqrt().max(1e-30);
 
-        if res.converged && rel <= 1e-6 {
+        if res.converged && rel <= 1e-6 && row_resolved {
             let precond_name: &'static str = match pre.name() {
                 "identity" => "none",
                 other => other,
@@ -361,8 +370,8 @@ fn try_pcg_solve(
         }
 
         last_failure = format!(
-            "PCG with '{}' preconditioner did not converge (converged={}, true rel residual {:.2e} after {} iterations)",
-            pre.name(), res.converged, rel, res.iterations
+            "PCG with '{}' preconditioner did not converge (converged={}, true rel residual {:.2e}, row residuals resolved={} after {} iterations)",
+            pre.name(), res.converged, rel, row_resolved, res.iterations
         );
         if idx + 1 < chain.len() {
             diags.push(SolverDiagnostic {
@@ -1757,10 +1766,6 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
 
         let t0 = now_micros();
         let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_with_coupling(&stiff.k_ff, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num)) };
-        if stability.free_rotations().next().is_some() {
-            let f = super::sparse_assembly::assemble_load_vector_sparse_3d(&input, &input.loads, &dof_num, &stiff.inclined_transforms);
-            refuse_loaded_free_rotation_3d(&stability, &dof_num, &f[..nf])?;
-        }
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         stiff.k_ff = stability.pin_sparse(&stiff.k_ff);
         let conditioning_us = now_micros().saturating_sub(t0);
@@ -1849,10 +1854,6 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let rest_idx: Vec<usize> = (nf..n).collect();
         let mut k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
         let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense_with_coupling(&k_ff, nf, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num)) };
-        if stability.free_rotations().next().is_some() {
-            let f = super::sparse_assembly::assemble_load_vector_sparse_3d(&input, &input.loads, &dof_num, &stiff.inclined_transforms);
-            refuse_loaded_free_rotation_3d(&stability, &dof_num, &f[..nf])?;
-        }
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         stability.pin_dense(&mut k_ff, nf);
 

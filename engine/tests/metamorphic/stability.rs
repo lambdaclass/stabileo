@@ -722,23 +722,46 @@ fn linear_solves(issue: u32) -> Vec<(String, Result<(), String>)> {
     let text = std::fs::read_to_string(corpus::root().join("metamorphic_corpus").join("stability").join(format!("issue-{}.json", fixture(issue)))).unwrap();
     let units = [Units::froude(1e3, 1e-3), Units::froude(1e-3, 1e3), Units::froude(0.3048, 4.448)];
     let mut out = Vec::new();
-    match corpus::parse(&text).unwrap() {
+    let expected: &[&str] = match corpus::parse(&text).unwrap() {
         Model::D2(s) => {
             out.push(("as given".to_string(), solve_2d(&s).map(|_| ())));
-            for u in &units { out.push((format!("units {u:?}"), solve_2d(&scale_2d(&s, u)).map(|_| ()))); }
-            if let Ok(t) = transform_2d(&s, &Iso2::rotation(1.1).translated(40.0, -7.0)) { out.push(("rotated".to_string(), solve_2d(&t).map(|_| ()))); }
-            for plane in [Plane::XZ, Plane::XY, Plane::YZ] {
-                if let Ok(t) = embed_2d(&s, plane) { out.push((format!("in plane {plane:?}"), solve_3d(&t).map(|_| ()))); }
+            for (i, u) in units.iter().enumerate() { out.push((format!("units {i}"), solve_2d(&scale_2d(&s, u)).map(|_| ()))); }
+            let (name, angle) = if issue == 993 { ("quarter turn", std::f64::consts::FRAC_PI_2) } else { ("rotated", 1.1) };
+            let t = transform_2d(&s, &Iso2::rotation(angle).translated(40.0, -7.0))
+                .unwrap_or_else(|e| panic!("#{issue} {name}: required transformation failed: {e}"));
+            out.push((name.to_string(), solve_2d(&t).map(|_| ())));
+            if issue == 993 {
+                for plane in [Plane::XZ, Plane::XY, Plane::YZ] {
+                    let err = embed_2d(&s, plane).expect_err("#993 constraints have no plane embedding");
+                    assert!(err.to_string().contains("constraints have no plane-frame embedding"), "#{issue} {plane:?}: {err}");
+                }
+                &["as given", "units 0", "units 1", "units 2", "quarter turn"]
+            } else {
+                for plane in [Plane::XZ, Plane::XY, Plane::YZ] {
+                    let t = embed_2d(&s, plane).unwrap_or_else(|e| panic!("#{issue} {plane:?}: required embedding failed: {e}"));
+                    out.push((format!("in plane {plane:?}"), solve_3d(&t).map(|_| ())));
+                }
+                &["as given", "units 0", "units 1", "units 2", "rotated", "in plane XZ", "in plane XY", "in plane YZ"]
             }
         }
         Model::D3(s) => {
             out.push(("as given".to_string(), solve_3d(&s).map(|_| ())));
-            for u in &units { out.push((format!("units {u:?}"), solve_3d(&scale_3d(&s, u)).map(|_| ()))); }
-            for iso in [Iso3::from_euler(0.3, 1.1, -0.7).translated([1e4, -3e3, 7e3]), Iso3::axis_permutation(5)] {
-                if let Ok(t) = transform_3d(&s, &iso) { out.push((format!("moved {:?}", iso.t), solve_3d(&t).map(|_| ()))); }
+            for (i, u) in units.iter().enumerate() { out.push((format!("units {i}"), solve_3d(&scale_3d(&s, u)).map(|_| ()))); }
+            let first = match issue {
+                1106 | 1355 => ("axis permutation 2", Iso3::axis_permutation(2).translated([1e4, -3e3, 7e3])),
+                _ => ("rotated", Iso3::from_euler(0.3, 1.1, -0.7).translated([1e4, -3e3, 7e3])),
+            };
+            for (name, iso) in [first, ("axis permutation 5", Iso3::axis_permutation(5))] {
+                let t = transform_3d(&s, &iso).unwrap_or_else(|e| panic!("#{issue} {name}: required transformation failed: {e}"));
+                out.push((name.to_string(), solve_3d(&t).map(|_| ())));
+            }
+            match issue {
+                1106 | 1355 => &["as given", "units 0", "units 1", "units 2", "axis permutation 2", "axis permutation 5"],
+                _ => &["as given", "units 0", "units 1", "units 2", "rotated", "axis permutation 5"],
             }
         }
-    }
+    };
+    assert_eq!(out.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), expected, "#{issue}: required linear solve variants");
     out
 }
 
@@ -747,7 +770,6 @@ fn the_linear_solve_refuses_what_the_verdict_refuses(issue: u32) {
     let refusal = v.refusal().unwrap_or_else(|| panic!("#{issue}: the verdict is Stable"));
     assert!(cell.fails.is_empty(), "#{issue}: {cell:?}");
     let solves = linear_solves(issue);
-    assert!(solves.len() > 3, "#{issue}: {} solves", solves.len());
     for (k, (what, solved)) in solves.into_iter().enumerate() {
         let err = solved.expect_err(&format!("#{issue} {what}: the linear solve returned a result"));
         if k == 0 { assert!(err.contains(&refusal), "#{issue}: {err}"); }
@@ -774,7 +796,6 @@ fn issue_1106_the_linear_solve_refuses_in_both_load_directions() {
     assert!(v.is_stable() && !v.free.is_empty(), "{v:?}");
     assert!(cell.fails.is_empty() && cell.refused > 0, "{cell:?}");
     let solves = linear_solves(1106);
-    assert!(solves.len() > 3);
     for (what, result) in solves {
         let err = result.expect_err(&format!("#1106 {what}: a loaded release returned a result"));
         assert!(err.contains("rotation") && err.contains("node 4"), "{what}: {err}");
@@ -847,7 +868,6 @@ fn independent_rotational_stability() -> Stability {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_free_rotation_load_projection_uses_only_contributing_terms() {
     let s = independent_rotational_stability();
     assert_eq!(s.load_on_free_rotation(&[1e20, 0.0, 1.0]), Some(3));
@@ -855,7 +875,6 @@ fn issue_1753_free_rotation_load_projection_uses_only_contributing_terms() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_pin_verification_uses_only_contributing_terms() {
     let s = independent_rotational_stability();
     let err = s.check_pins(&[1.0, 0.0, 1.0], &[1e20, 0.0, 1.0], &[0.0; 3])

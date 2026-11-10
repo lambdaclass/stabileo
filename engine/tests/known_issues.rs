@@ -2781,7 +2781,6 @@ fn issue_1753_an_independent_load_cannot_mask_constraint_cancellation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_three_hinge_arch_snapshot_preserves_exact_statics_and_current_warnings() {
     let mut fixture: serde_json::Value = serde_json::from_str(include_str!("../../web/src/lib/templates/fixtures/three-hinge-arch.json")).unwrap();
     for node in fixture["nodes"].as_array_mut().unwrap() {
@@ -2855,7 +2854,6 @@ fn independent_rotations_with_a_free_axis(nodes: usize, pcg: bool) -> SolverInpu
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_an_independent_large_moment_cannot_mask_a_loaded_free_rotation() {
     for (nodes, pcg) in [(3, false), (12, false), (12, true)] {
         let input = independent_rotations_with_a_free_axis(nodes, pcg);
@@ -2868,7 +2866,6 @@ fn issue_1753_an_independent_large_moment_cannot_mask_a_loaded_free_rotation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_preparation_ignores_default_loads_and_validates_each_supplied_case() {
     for (nodes, pcg) in [(3, false), (12, false), (12, true)] {
         let mut input = independent_rotations_with_a_free_axis(nodes, pcg);
@@ -2878,8 +2875,8 @@ fn issue_1753_preparation_ignores_default_loads_and_validates_each_supplied_case
         let valid = [SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: 0.0, mx: 1e20, my: 2.0, mz: 0.0, bw: None })];
         let result = prepared.solve_loads(&valid).unwrap();
         let d = result.displacements.iter().find(|d| d.node_id == 3).unwrap();
-        assert!((d.rx - 1.0).abs() < 1e-12, "{d:?}");
-        assert!((d.ry - 2.0).abs() < 1e-12, "{d:?}");
+        assert!((d.rx - 1.0).abs() < 1e-12, "{nodes} nodes, pcg {pcg}: {d:?}");
+        assert!((d.ry - 2.0).abs() < 1e-12, "{nodes} nodes, pcg {pcg}: {d:?}");
         assert_eq!(d.rz, 0.0);
         let err = prepared.solve_loads(&input.loads).expect_err("the default case still loads the free axis");
         assert!(err.contains("node 3") && err.contains("rotation"), "{err}");
@@ -2892,7 +2889,6 @@ fn issue_1753_preparation_ignores_default_loads_and_validates_each_supplied_case
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_pcg_resolves_each_independent_moment_with_disparate_loads() {
     for stiffness_ratio in [1.0, 1e3] {
         for load_ratio in [1e3, 1e6, 1e7, 1e8, 1e9] {

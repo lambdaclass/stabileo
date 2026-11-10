@@ -235,3 +235,182 @@ returned result. It additionally requires every axis-aligned load/unit variant t
 every refusal to have an unloaded stiffness refusal. Its previous all-frames-equal boolean
 expectation is replaced by the actual precision contract: coupled oblique copies may refuse,
 while every returned copy must satisfy the same numerical reference.
+
+## CI follow-up: arch warnings and registry applicability
+
+The `2d-three-hinge-arch` snapshot had one changed leaf, a diagnostic string:
+
+```text
+base.diagnosticCodes
+before: warning:high_diagonal_ratio warning:instability_risk warning:known_issue warning:known_issue
+after:  warning:instability_risk warning:known_issue
+```
+
+There is no numerical snapshot delta. The removed `known_issue` is the conditioning
+`NUM-INVARIANCE` warning. `bb0c9d158` removed the old conditioning warnings from the
+linear paths and eliminated the crown's unloaded free rotation exactly; the arch is Stable.
+The retained warnings still identify the unloaded rotation and the arch's other known issue.
+This small 2D model uses dense Cholesky, so the sparse 3D compensated residual refinement
+in `31036c961` does not run here. The component changes in `31036c961` and `0d3a5d892`
+are not the source of these removed warnings.
+
+Independent equilibrium gives `V_A = V_B = 70 / 2 = 35 kN`. Taking moments of the left
+half about the crown gives `H = (35 × 5 − 10 × (3.75 + 2.5 + 1.25)) / 4 = 25 kN`.
+The seven nodal loads are funicular for the eight straight segments: their transverse
+forces and end moments are zero, as the new engine regression checks within `1e-9`.
+It reads the fixture rather than copying its engineering inputs and checks both reactions
+before checking the snapshot's warnings.
+
+The independent 90-digit Decimal audit in [1753-arch-audit.py](1753-arch-audit.py) also
+computes the signed displacements from member axial shortening and compatibility at the
+crown, without assembling or solving an engine stiffness matrix. The app loads its default
+IPN 300 as a canonical section; `solverProperties(modelStore.sections.get(1))` reports
+`A = 0.0068998265206363625 m²` (digest `2e2ce7e8b642417c`). Using the fixture's rounded
+`0.0069 m²` instead would compare a different section. With the actual area:
+
+```text
+make shell
+python3 docs/results-changes/1753-arch-audit.py --area 0.0068998265206363625 web/results-snapshots/2d-three-hinge-arch.json
+```
+
+The crown reference is `uz = -0.0002576464407492406375… m`; the left-half rotation is
+`ry = -0.000030122320385270117386… rad`. The stored snapshot's largest absolute errors
+are `2.385e-15 m` in `ux`, `4.925e-14 m` in `uz` and `4.730e-15 rad` in `ry`; its stored
+reaction error is zero. The fresh capture has the same stored numerical values. The audit
+keeps its `1e-9` absolute checks. No numerical baseline, tolerance or assertion is loosened.
+
+Only this snapshot was regenerated, through the documented npm regeneration path:
+
+```text
+make shell
+cd web
+npm run snapshots:update -- src/lib/results-snapshot/__tests__/snapshot-basic.test.ts -t '^2d-three-hinge-arch$'
+```
+
+The existing `linear-stability-refusals` fragment now requires `analysis:linear` and at
+least one of `hinges`, `springs`, `constraints`, `connectors`,
+`inclinedSupports`, `eccentricities` or `curvedShells`. Its broad numerical allowance
+therefore no longer explains an invented force change in the ordinary legacy truss or an
+invented displacement in the ordinary deep-beam shell. The legacy judge expectations are
+unchanged. This feature predicate is a re-check and explanation scope, not a guarantee
+that an arbitrary model is well-conditioned; the engine still checks every linear stiffness,
+including ordinary frame, shell-only and truss-only models, and can refuse them. The shell precision refusals
+and SA-2026-054 documented above remain in force. This follow-up changes no solver code
+and discovers no additional wrong engineering result requiring another advisory.
+
+## Review round 2: unrelated moments and alternate load cases
+
+The free-rotation load projection and pin verification now bound rounding using only
+terms that contribute to the projected direction. A moment on an independent stiff axis
+cannot enlarge the allowance on a free axis. The load projection keeps its existing
+`64 n ε` multiplier and uses `max |v_i F_i|`; pin verification sums the absolute applied,
+restrained and coupling products, with its existing multiplier. Both bounds tighten;
+no tolerance increases. The load refusal runs before a pinned solve, and the pin check
+still independently rejects an artificial pin carrying a load. Verification of the pinned
+matrix alone cannot establish equilibrium in the original unsupported direction.
+
+Four ignored regressions were committed before the implementation fix, each marked
+`known wrong result: #1753`, and all four failed when forced to run. The matrix fixture
+has rotational stiffness `diag(1e20, 1, 0)` at one node and loads `[1e20, 0, 1]`.
+Before the fix, `load_on_free_rotation` returned `None`, and `check_pins` accepted the
+unit moment in the free direction. After the fix, both reject it. The zero projection
+and an exactly balanced applied/restrained projection remain accepted.
+
+The end-to-end fixture grounds two nodes and connects the third by a unit-length frame
+whose end bending rotations are released. Its independent rotational support springs
+are `krx = 1e20` and `kry = 1`, with no `krz`. The applied moments are
+`[1e20, 0, 1]`. At the pre-fix head the dense solve returned `rz = 1`, with no physical
+z-axis moment reaction, and informational diagnostics only. Its static residual and balance
+checks reported PASS. There is no finite static equilibrium for the unsupported unit
+moment; the correct result is refusal. Regular and prepared dense, sparse direct and PCG
+paths now require that refusal, naming node 3 and its rotation.
+
+Preparation no longer assembles or checks `input.loads` against free directions. It
+prepares the load-independent stiffness; `solve_loads(loads)` checks the actual supplied
+case on every call. A default unsupported moment no longer prevents preparing a valid
+alternate case. The regression prepares that model, solves an alternate case, refuses
+the default case, solves an empty case, and repeats the alternate case. It checks signed
+rotations against the spring/member equilibrium without relaxing its `1e-12` checks.
+The dense fixture has three nodes; adding fully restrained nodes brings the total to
+twelve and selects sparse direct or explicitly requested PCG with the same free DOFs.
+
+The PCG alternate-case assertion also exposed a second masking problem: with alternate
+moments `[1e20, 2, 0]`, the default shifted-IC attempt returned
+`ry = 1.999999999998461e-14` instead of the spring equilibrium `ry = 2`.
+The aggregate relative residual could accept the missing independent moment. PCG now
+also requires each row residual to be within the existing `1e-6` threshold times
+`|F_i| + Σ_j |K_ij u_j|`. A failed row check uses the existing preconditioner/direct
+fallback chain. The aggregate check remains required. This additional check applies to
+both 2D and 3D callers of the shared PCG helper.
+
+The existing `linear-stability-refusals` registry entry records these changes, within its
+unchanged feature applicability. The extreme-ratio branch regressions above establish the
+need for the tighter checks; they do not establish an affected main deployment. The main
+probe below supplies the separate evidence for extending SA-2026-054. The change is local
+and is not a deployment claim.
+
+The linear refusal metamorphic helper now requires every selected transformation to
+succeed and asserts its exact named variants. #1651 must exercise rotation and all three
+plane embeddings. #1353 must exercise an arbitrary 3D rotation and an axis permutation.
+#993 has a single-axis constraint, so its required rotation is a quarter turn; all three
+unsupported plane embeddings are explicitly required to fail with the constraint-embedding
+reason. #1106 and #1355 have partial rotational supports, so their two required rotations
+are representable axis permutations. These restrictions already appear in the corpus
+transformation exclusions. No failed required transformation can disappear from the test.
+The differential rigid-body helper now panics on any solver error except its expected
+mechanism refusal, so a negative warning assertion cannot pass on an unexpected error.
+
+
+### Advisory review: realistic load ratios on main
+
+A detached, test-only worktree of `origin/main` at `8f4c3ee6c07c661c090865f7390d10b78162786f`
+was probed and removed. The [probe source](1753-main-load-ratios-probe.rs) appends to main's
+`known_issues.rs` and uses its existing imports and `common::make_3d_input`. Run only
+`known_issues::issue_1753_main_realistic_load_ratio_probe` in the `robustness` binary through
+`make shell`; it writes `probe.json`. The [recorded evidence](1753-main-load-ratios-probe.json)
+retains representative full inputs, every outcome, the signed rotations, aggregate checks,
+warning diagnostics, and full diagnostics for the silent failures described below.
+
+The main probe uses moments of `1000` and `1000 / R`, where `R` is `1e3`, `1e6`, `1e7`,
+`1e8` or `1e9`. Independent rotational springs are `krx = 1e6` and `kry = 1e6 / S`,
+with `S` equal to `1`, `1e3`, `1e6` or `1e9`. A connected chain of twelve nodes selects
+sparse/PCG; every node except node 3 is fully restrained. Adjacent member bending releases
+leave node 3's y rotation supported only by its spring. The PCG case also supplies
+`krz = 1e6`; the free-rotation case supplies no z spring and loads that unsupported rotation.
+The latter was also tested with three nodes for dense analysis. Both regular and prepared
+paths were probed, for 200 small solves total.
+
+Every loaded free-rotation case refused on main at all five load ratios, identifying the
+unsupported moment at node 3. The `1e20` branch masking example therefore does not establish
+a realistic silent main failure, and warrants no separate advisory.
+
+For PCG, the default shifted-IC preconditioner preserved the small component with `S = 1`
+and `S = 1e3` at every tested ratio. Explicit `preconditioner = "none"`, with the unchanged
+default iteration tolerance `1e-8`, did not. The y-axis equilibrium is independently
+`ry = My / kry`; adjacent member releases supply no y-axis moment stiffness.
+
+| Load ratio `R` | Spring ratio `S` | Expected `ry` | Returned `ry` on main, PCG `none` | Warning/error diagnostics |
+|---|---|---|---|---|
+| `1e3` | `1` | `1e-6` | `1e-6` | None |
+| `1e6` | `1` | `1e-9` | `1e-9` | None |
+| `1e7` | `1` | `1e-10` | `9.999999999999999e-11` | None |
+| `1e8` | `1` | `1e-11` | `1.2833168805528135e-13` | None |
+| `1e9` | `1e3` | `1e-9` | `1.283316880552813e-14` | None |
+
+`1e8` is the smallest probed load ratio with a wrong component and no warning, not a
+universal onset threshold. No silent failure was found at `1e3`, `1e6` or `1e7`. At `1e8`,
+`S = 1`, the returned rotation is about 98.72% below equilibrium. Main reports solver path
+`pcg_none`, one iteration, aggregate relative residual `9.871668311944719e-9`, a PASS static
+residual of `8.714121303486764e-8`, and zero aggregate balance error. All four structured
+diagnostics and the solver diagnostic are informational. Regular and prepared results agree.
+The `1e9`, `S = 1e3` case is about 99.9987% below equilibrium, also without a warning.
+The larger spring contrasts sometimes warn or refuse; those are recorded but do not support
+the silent-result claim. Default shifted-IC is not claimed to fail in either silent example.
+
+The regression `issue_1753_pcg_resolves_each_independent_moment_with_disparate_loads` uses
+these five load ratios, both `S = 1` and `S = 1e3`, regular/prepared paths and default/none
+preconditioners. It fails on main at `R = 1e8`, `S = 1`, `none`, and passes with the accepted
+row-residual verification. Its signed spring-equilibrium check uses relative tolerance
+`1e-12`, so a small absolute response cannot hide a missing component. No tolerance or
+assertion was relaxed. This measured main failure extends
+[SA-2026-054](../advisories/SA-2026-054-unresolved-linear-stiffness.md); SA-2026-055 is removed.

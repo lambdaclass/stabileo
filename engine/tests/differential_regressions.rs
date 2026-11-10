@@ -56,7 +56,8 @@ fn dangling_hinged_member_is_flagged_singular() {
 
 fn rigid_body_warning(input: &SolverInput3D) -> bool {
     match solve_3d(input) {
-        Err(e) => e.starts_with("the structure is a mechanism"),
+        Err(e) if e.starts_with("the structure is a mechanism") => true,
+        Err(e) => panic!("unexpected solver refusal while checking rigid-body motion: {e}"),
         Ok(r) => r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::StiffnessNotPositiveDefinite && d.message.contains("rigid-body motion")),
     }
 }

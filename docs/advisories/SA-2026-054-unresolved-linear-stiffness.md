@@ -1,4 +1,4 @@
-# SA-2026-054: Linear analysis could silently return a result whose stiffness cannot be resolved in double precision
+# SA-2026-054: Linear analysis could silently return inaccurate results from unresolved stiffness or missed PCG load components
 
 | | |
 |---|---|
@@ -13,6 +13,8 @@
 
 Linear static analysis in 2D and 3D, including dense, sparse, PCG, constrained and prepared
 multi-case paths, with mechanisms, near-mechanisms or extreme coupled stiffness contrasts.
+It also covers PCG with `preconditioner = "none"` and independent moment components of
+very different magnitudes, even with resolvable stiffness.
 The app also uses the static solve before P-Delta, modal and buckling workflows. This fix
 certifies their static entry, not their later tangent or eigenvalue calculations.
 
@@ -57,6 +59,31 @@ cancelled contributions, and refuses both versions before factorization. Regress
 The [main probe evidence](../results-changes/1753-main-constraint-cancellation-probe.json)
 retains the returned values and diagnostics.
 
+Review round 2 established a separate **98.72% component error with no warning** on main
+`8f4c3ee6c`, using PCG with the supported setting `preconditioner = "none"` and its unchanged
+default iteration tolerance `1e-8`. A released node has independent rotational springs
+`krx = kry = krz = 1e6`, and applied moments `Mx = 1000`, `My = 1e-5`, `Mz = 0`.
+Adjacent member bending releases leave the y rotation supported only by its spring;
+its signed equilibrium rotation is `My / kry = 1e-11`. At this load ratio of `1e8`, main
+returned `ry = 1.2833168805528135e-13` after one iteration. It reported aggregate relative
+residual `9.871668311944719e-9`, a PASS static residual `8.714121303486764e-8` and zero
+aggregate balance error. All four structured diagnostics and its solver diagnostic were
+informational. Regular and prepared solves agreed. A second case at load ratio `1e9`,
+with `kry = 1e3` and `My = 1e-6`, returned `ry = 1.283316880552813e-14` instead of `1e-9`,
+also without a warning. The independent large moment masks the small component's error
+in the aggregate checks. The absolute rotations in these examples are small; the percentages
+describe the component error, not an established error in a design capacity or safety factor.
+
+`1e8` was the smallest tested ratio with a silent wrong component; probes at `1e3`, `1e6`
+and `1e7` solved correctly. Default shifted-IC preconditioning solved these two cases
+correctly. Loaded free rotations were refused at every tested ratio through `1e9`, so
+this finding does not establish a silent unsupported-rotation failure on main. The
+[main probe inputs, values and diagnostics](../results-changes/1753-main-load-ratios-probe.json)
+and [reproduction details](../results-changes/2026-11-linear-stability-refusals.md#advisory-review-realistic-load-ratios-on-main)
+record the scope. The fix requires each PCG row to satisfy its existing residual threshold
+as well as the aggregate check, and uses the existing fallback chain if any row fails.
+Regression: `issue_1753_pcg_resolves_each_independent_moment_with_disparate_loads`.
+
 For a component with anisotropy `A`, the first-order relative shift bound for the smallest
 scaled eigenvalue is `ε κ_S A`. Separate uncoupled directions cannot exchange assembly
 rounding; directions mixed by an element transformation can. The fix retains that coupling
@@ -73,12 +100,16 @@ extreme member or spring stiffness contrasts, constraints that cancel large memb
 very thin shells, or responses that change
 when equivalent units, orientation or node numbering are used. An absence of a conditioning
 warning in the old result does not establish accuracy. A large contrast between independent,
-axis-aligned directions alone does not establish that the model is affected.
+axis-aligned directions alone does not establish that the model is affected. For PCG
+with preconditioning disabled, also review cases with disparate independent loads; an
+aggregate PASS check does not establish each component's accuracy.
 
-The `linear-stability-refusals` re-check entry flags all projects using linear analysis. This
-is deliberately broader than the unresolved matrices: the saved feature set cannot evaluate
-`κ_S A`. Most ordinary models keep their results. Run the fixed solver to determine whether
-the assembled model is refused.
+The `linear-stability-refusals` re-check entry flags linear models with hinges, springs,
+constraints, connectors, inclined supports, eccentricities or curved shells. These features
+include the measured PCG fixtures. The saved feature set cannot evaluate `κ_S A` or detect
+every affected PCG model; an unflagged project is not an accuracy certificate. Most ordinary
+models keep their results. Run the fixed solver to determine whether a model is refused or
+a PCG component changes.
 
 ## Fixed in
 
@@ -102,7 +133,9 @@ Until the fix is deployed, do not rely on the absence of warnings for the models
 above. Independently verify their numerical accuracy using a solver and precision appropriate
 to the stiffness contrast, or revise the structural restraints and releases with engineering
 justification. Changing only units or numbering is not a repair. Do not add arbitrary springs
-to force a solve or use an answer from a transformed copy to bypass a refusal.
+to force a solve or use an answer from a transformed copy to bypass a refusal. For a
+resolvable model with disparate loads, use the direct solver and independently check each
+loaded direction's equilibrium until the PCG fix is available.
 
 ## What to do with results you already have
 

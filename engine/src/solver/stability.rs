@@ -109,8 +109,8 @@ impl Stability {
     pub fn load_on_free_rotation(&self, f: &[f64]) -> Option<usize> {
         self.free_rotations().find(|d| {
             let (along, scale) = d.dofs.iter().zip(&d.direction).fold((0.0f64, 0.0f64), |(a, m), (&i, &v)| {
-                let x = f.get(i).copied().unwrap_or(0.0);
-                (a + x * v, m.max(x.abs()))
+                let x = f.get(i).copied().unwrap_or(0.0) * v;
+                (a + x, m.max(x.abs()))
             });
             !(along.abs() <= ROUNDING * d.dofs.len() as f64 * f64::EPSILON * scale)
         }).map(|d| d.node)
@@ -123,14 +123,11 @@ impl Stability {
                 let x = c * at(u, i);
                 (f + x, m + x.abs())
             });
-            let mut load = 0.0f64;
             for (&i, &v) in d.dofs.iter().zip(&d.direction) {
                 let (applied, coupled) = (v * at(f, i), v * at(restrained, i));
                 force += coupled - applied;
-                size += coupled.abs();
-                load = load.max(at(f, i).abs());
+                size += coupled.abs() + applied.abs();
             }
-            size += d.dofs.len() as f64 * load;
             !(force.abs() <= ROUNDING * (d.coupling.len() + 2 * d.dofs.len()) as f64 * f64::EPSILON * size)
         });
         match held {
