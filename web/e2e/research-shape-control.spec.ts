@@ -9,10 +9,10 @@ test('@smoke research shape control: the path takes the arch to the inverted sha
   await expect(app).toHaveAttribute('data-source', 'replay');
   await expect(page.locator('.sfv canvas').first()).toBeVisible();
   await expect(app).toHaveAttribute('data-step', '162');
-  await app.getByRole('button', { name: 'shape 1', exact: true }).click();
+  await app.getByRole('button', { name: 'Shape 1', exact: true }).click();
   await expect(app).toHaveAttribute('data-step', '0');
   expect(Number(await app.getAttribute('data-ymid'))).toBeCloseTo(0.2258, 3);
-  await app.getByRole('button', { name: 'shape 5', exact: true }).click();
+  await app.getByRole('button', { name: 'Shape 5', exact: true }).click();
   await expect(app).toHaveAttribute('data-theta', '1');
   await expect(app).toHaveAttribute('data-delta', '0');
   await expect(app).toHaveAttribute('data-stable', 'true');
