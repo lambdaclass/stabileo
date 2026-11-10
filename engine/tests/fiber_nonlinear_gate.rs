@@ -318,7 +318,11 @@ fn a_stopped_3d_run_under_a_distributed_load_reports_member_forces_at_the_carrie
 }
 
 fn issue_1576_input(increments: usize) -> FiberNonlinearInput {
-    let (b, h, height, elements) = (0.4_f64, 0.5_f64, 3.0_f64, 20);
+    issue_1576_mesh(increments, 20)
+}
+
+fn issue_1576_mesh(increments: usize, elements: usize) -> FiberNonlinearInput {
+    let (b, h, height) = (0.4_f64, 0.5_f64, 3.0_f64);
     let nodes = (0..=elements).map(|i| (i + 1, 0.0, height * i as f64 / elements as f64)).collect();
     let elems = (0..elements).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
     let solver = make_input(nodes, vec![(1, 20_000.0, 0.2)], vec![(1, b * h, b * h.powi(3) / 12.0)], elems, vec![(1, 1, "fixed")], vec![SolverLoad::Nodal(SolverNodalLoad { node_id: elements + 1, fx: 206.190, fz: 0.0, my: 0.0 })]);
@@ -368,7 +372,6 @@ fn issue_1576_section_moment(top: f64) -> f64 {
 }
 
 #[test]
-#[ignore = "known wrong result: #1576"]
 fn rc_load_limit_is_refined_independently_of_the_requested_step_count() {
     let mut limits = Vec::new();
     for increments in [80, 160, 320] {
@@ -377,6 +380,16 @@ fn rc_load_limit_is_refined_independently_of_the_requested_step_count() {
         eprintln!("#1576 increments={increments}: lambda={} stop={:?}", run.last_converged_load_factor, run.stop_reason);
         assert_eq!(run.status, FiberRunStatus::Stopped);
         assert!(run.results.equilibrium.as_ref().unwrap().residual_ok);
+        let bracket = run.load_limit.as_ref().unwrap();
+        assert_eq!(bracket.lower_load_factor, run.last_converged_load_factor);
+        assert!(bracket.upper_load_factor > bracket.lower_load_factor);
+        assert!(bracket.upper_load_factor - bracket.lower_load_factor <= input.tolerance);
+        assert_eq!(bracket.tolerance, input.tolerance);
+        assert!(!bracket.capacity_certified);
+        let last = run.history.last().unwrap();
+        assert_eq!(last.load_factor, run.last_converged_load_factor);
+        assert!(last.relative_residual < input.tolerance);
+        assert_eq!(serde_json::to_value(&last.displacements).unwrap(), serde_json::to_value(&run.results.displacements).unwrap());
         limits.push(run.last_converged_load_factor);
     }
     for limit in &limits[1..] {
@@ -387,5 +400,40 @@ fn rc_load_limit_is_refined_independently_of_the_requested_step_count() {
     eprintln!("#1576 independent M-phi: at epsCu={at_crushing}, peak through 0.02={true_peak}");
     assert!((at_crushing / 3.0 - 133.399).abs() < 0.001);
     assert!(true_peak > at_crushing);
-    assert!(limits[0] * 206.190 * 3.0 >= true_peak);
+    let coarse_moment = limits[0] * 206.190 * 3.0;
+    assert!(coarse_moment >= true_peak);
+    let fine = solve_fiber_nonlinear_2d(&issue_1576_mesh(80, 40)).unwrap();
+    assert_eq!(fine.status, FiberRunStatus::Stopped);
+    assert!(!fine.load_limit.as_ref().unwrap().capacity_certified);
+    let fine_moment = fine.last_converged_load_factor * 206.190 * 3.0;
+    eprintln!("#1576 mesh convergence: 20 elements={coarse_moment}, 40 elements={fine_moment}, section={true_peak}, stop={:?}", fine.stop_reason);
+    assert!((fine_moment - true_peak).abs() < (coarse_moment - true_peak).abs());
+}
+
+#[test]
+fn rc_load_refinement_does_not_claim_capacity_when_iterations_are_inadequate() {
+    let mut input = issue_1576_input(80);
+    input.max_iter = 1;
+    let run = solve_fiber_nonlinear_2d(&input).unwrap();
+    assert_eq!(run.status, FiberRunStatus::Stopped);
+    assert_eq!(run.last_converged_load_factor, 0.0);
+    assert!(run.history.is_empty());
+    let limit = run.load_limit.unwrap();
+    assert!(!limit.capacity_certified);
+    assert!(limit.upper_load_factor <= input.tolerance);
+    assert!(run.results.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0 && d.ry == 0.0));
+}
+
+#[test]
+fn rc_load_refinement_refuses_invalid_or_unrepresentable_controls() {
+    for tolerance in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::from_bits(1)] {
+        let mut input = issue_1576_input(80);
+        input.tolerance = tolerance;
+        assert!(solve_fiber_nonlinear_2d(&input).is_err());
+    }
+    let mut input = issue_1576_input(0);
+    assert!(solve_fiber_nonlinear_2d(&input).is_err());
+    input.n_increments = 80;
+    input.max_iter = 0;
+    assert!(solve_fiber_nonlinear_2d(&input).is_err());
 }
