@@ -228,7 +228,9 @@ describe('the Basic "Portal Frame" example through the Plastic collapse action',
     close(r.collapseFactor, 1925 / 27, 'Portal Frame');
     expect(r.collapseFactor.toFixed(3)).toBe('71.296');
     expect(r.isMechanism && !r.unresolved && !r.limit && !r.withheld).toBe(true);
-    expect(Math.abs(r.steps.at(-1)!.loadFactor / r.collapseFactor - 1)).toBeLessThan(1e-3);
+    expect(Math.abs(r.steps.at(-1)!.loadFactor / r.collapseFactor - 1)).toBeLessThan(1e-9);
+    expect(r.hinges.map((h) => `${h.elementId}@${(h.position ?? 0).toFixed(3)}`)).toEqual(['3@1.000', '2@0.500', '3@0.000', '1@1.000']);
+    expect(r.hinges.every((h) => h.unloadedAt === undefined) && r.hinges.length <= r.degree + 1).toBe(true);
     resultsStore.setPlasticResult(r);
     const view = plasticCourse.collapse!;
     const turning = view.hinges.filter((h) => h.theta !== 0).map((h) => `${h.member}@${h.t.toFixed(3)}`).sort();
