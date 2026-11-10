@@ -1162,3 +1162,50 @@ fn negative_buckling_allowance_uses_the_absolute_reciprocal_radius() {
     };
     assert_eq!(bound(-1.0).to_bits(), bound(1.0).to_bits());
 }
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_wrong_buckling_factor_cannot_buy_its_allowance() {
+    let mut r = Resp::default();
+    r.scalar("lambda0", Dim::NONE, 3.9);
+    assert!(buckling_errors(vec![1.0], vec![1.0], vec![0.25], 1, 0.0, &mut r).is_err());
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_buckling_modes_must_match_their_intervals() {
+    let mut r = Resp::default();
+    r.scalar("lambda0", Dim::NONE, 1.0);
+    r.scalar("lambda1", Dim::NONE, 0.25);
+    assert!(buckling_errors(vec![1.0, 0.0, 0.0, 1.0], vec![1.0, 0.0, 0.0, 4.0], vec![0.0; 4], 2, 0.0, &mut r).is_err());
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_buckling_interval_crossing_is_independent_of_returned_factor() {
+    let mut r = Resp::default();
+    r.scalar("lambda0", Dim::NONE, 0.1);
+    assert!(buckling_errors(vec![1.0], vec![1.0], vec![2.0], 1, 0.0, &mut r).is_err());
+}
+
+fn unit_trajectory(u: f64, v: f64) -> dedaliano_engine::solver::time_integration::DynamicTrace {
+    dedaliano_engine::solver::time_integration::DynamicTrace {
+        k: CscMatrix::from_dense_symmetric(&[1.0], 1),
+        m: CscMatrix::from_dense_symmetric(&[1.0], 1),
+        a0: 0.1, a1: 0.0, beta: 0.25, gamma: 0.5, alpha: None, dt: 1.0,
+        f: vec![vec![1.0]; 2], u: vec![vec![0.0], vec![u]], v: vec![vec![0.0], vec![v]],
+        a: vec![vec![1.0], vec![2.0 * v - 1.0]],
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_zero_trajectory_cannot_certify_a_missing_response() {
+    assert!(trajectory_error(&unit_trajectory(0.0, 0.0), 0.0).is_err());
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_absent_zero_load_projection_has_zero_error() {
+    assert_eq!(projected_error(&Resp::default(), 1, "u", &[1.0]), 0.0);
+}

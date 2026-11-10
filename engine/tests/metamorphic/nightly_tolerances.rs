@@ -807,3 +807,18 @@ fn analysis_accuracy_moving_3d_compares_transforms_and_rejects_a_plant() {
     it.v[0] += 1e-6 * natural;
     assert!(cmp(&got).is_err());
 }
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_dynamic_3d_mirrors_must_compare() {
+    let Model::D3(c) = model(1369) else { panic!("3D") };
+    for name in ["harmonic", "time history"] {
+        let t = Tally::default();
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: 2026110406225 }, &c, &[ana3(name)], &["relabel", "mirror"]);
+        let cells = t.cells.lock().unwrap();
+        for inv in ["relabel", "mirror"] {
+            let c = cell(&cells, 1892, name, inv);
+            assert!(c.pass > 0 && c.fails.is_empty(), "{name} / {inv}: {c:?}");
+        }
+    }
+}
