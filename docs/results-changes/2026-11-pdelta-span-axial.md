@@ -344,3 +344,52 @@ are `pro-plane-frame-seismic`, `pro-rc-frame-area-loads` and `validation-04`.
 Only validation-04's baseline is updated here. The other six retain their exact
 stored bytes and pass their existing comparisons. No tolerance, assertion or
 other baseline is changed.
+
+## PR #1895: endpoint axial point loads in force-based geometric stiffness
+
+The last review found an endpoint inconsistency in the unmerged force-builder
+correction introduced by `95b3dec78`. Its force offset was integrated as
+`n_of(x) = -(sum of point forces strictly before x + integrated span loads)`.
+The length mean was integrated correctly, but the conversion from the end-force
+average used half of every stored applied force. A point force at x = L never
+enters that integral and still shifted the centre by +P/2. At x = 0 it is
+constant throughout the interior and shifted the centre by -P/2. Both should
+leave the end-average matrix unchanged, with zero varying-span contribution.
+
+The conversion now uses the integral's length mean minus the average of the
+same function's interior endpoint limits. The right limit at zero includes a
+point load at zero; the left limit at L excludes a point load at L. No epsilon
+station or load-position tolerance is introduced. Interior point loads and
+span loads retain their previous centring, apart from possible floating-point
+summation differences. The correction matrix still subtracts that same length
+mean from its weighted integrals.
+
+Eight closed-form regressions in `engine/tests/pdelta_span_axial.rs` cover each
+endpoint, frame and truss, in 2D and 3D. They recover end forces independently
+with the linear solver and check the complete free matrix against the same
+end-force matrix without span loads. They also check the analytic transverse
+blocks: for a frame, Nbar [[6/(5L), -1/10], [-1/10, 2L/15]], and for a truss,
+Nbar/L. Both 3D bending planes are checked with their rotation signs.
+The fixture uses the existing L = 4 m and P = 3,000 kN. Recovered end forces are
+approximately 0 and -3,000 kN for either endpoint, so Nbar = -1,500 kN.
+
+| Endpoint | Frame translation entry before (kN/m) | After and closed form (kN/m) | Truss entry before (kN/m) | After and closed form (kN/m) |
+|---|---:|---:|---:|---:|
+| x = 0, 2D and both 3D planes | -900 | -450 | -750 | -375 |
+| x = L, 2D and both 3D planes | 0 | -450 | 0 | -375 |
+
+All eight tests fail at the matrix assertions on the pre-fix engine. Commit A
+records them ignored as `known wrong result: #1329`; commit B fixes the centre
+and removes the ignores. This endpoint regression was introduced on this PR's
+unmerged branch: `origin/main` (`87e1c9a1b`) uses the end-force average directly
+in these public Rust force builders. The application uses displacement-based
+builders. No new released endpoint defect or separate advisory is asserted;
+the original user-visible P-Delta defect remains covered by draft SA-2026-055.
+
+Verification of the endpoint correction: 27 span axial tests, 29 core P-Delta
+tests and 90 validation P-Delta tests pass. The assembly-path area passes 20
+with three existing ignores. After rebuilding WASM, all 152 template tests
+pass against the existing baselines; no baseline or result snapshot is updated
+in this round. The results area passes 121 with one existing skip. The blog
+area passes all 446 tests after adding the missing SA-2026-055 rows and dating
+the six status notes 10 November 2026. The registry applicability tests pass.

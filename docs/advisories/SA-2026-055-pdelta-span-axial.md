@@ -175,3 +175,14 @@ bit-identical across all seven baselines audited in this review. Last-bit drift
 against older stored linear baselines therefore predates this PR. Only the
 validation-04 baseline is refreshed. The full changed-cell breakdown and audit
 scope are in the results-change write-up.
+
+## Endpoint review before merge (PR #1895)
+
+The last review also corrected endpoint handling in this PR's unmerged public
+Rust force-based geometric-stiffness builders. Point loads at x = 0 and x = L
+now leave the end-average matrix unchanged, with no varying-span term. Eight
+closed-form frame/truss regressions cover both endpoints in 2D and 3D; all fail
+before this correction and pass after it. The measured matrices and derivation
+are in the results-change write-up. This endpoint regression was introduced by
+this PR's local correction, not established in any released build. It adds no
+release range to this advisory and does not change its draft status.
