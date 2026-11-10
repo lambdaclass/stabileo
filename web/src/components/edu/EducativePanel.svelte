@@ -439,7 +439,7 @@
         </button>
         <span class="edu-exercise-name">{eduStore.exercise!.title}</span>
         {#if currentSpec && eduStore.exercise?.variant && !eduStore.exercise.legajo}
-          <button class="edu-back-btn edu-other" onclick={() => currentSpec && startVariant(currentSpec, randomSeed())} data-testid="edu-other-data">
+          <button class="edu-other" onclick={() => currentSpec && startVariant(currentSpec, randomSeed())} data-testid="edu-other-data">
             {t('edu.params.otherData')}
           </button>
         {/if}
@@ -683,7 +683,20 @@
     border-color: var(--st-text-2);
   }
 
-  .edu-other { margin-left: auto; flex-shrink: 0; }
+  .edu-other {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid var(--st-hair);
+    color: var(--st-text-3);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .edu-other:hover { color: var(--st-text-2); border-color: var(--st-text-2); }
 
   .edu-gate {
     padding: 16px 20px;
