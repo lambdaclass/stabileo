@@ -26,13 +26,14 @@ orientation and numbering, and did not reliably identify every unresolved stiffn
 
 The recorded `fuzz_rich_3d/74` reproducer returned a result on main **without a conditioning
 warning**, although its scaled condition number times node anisotropy was `7.9e13`, beyond
-the new load-independent `1e12` gate. The metamorphic harness rated every transformed copy
-inconclusive. Other recorded cases moved under equivalent units: #993 drifted `1.4e-4` and
-#1115 `2.9e-4` in the stability investigation. These are measured numerical discrepancies,
+the new load-independent `1e12` product fast-accept threshold. The metamorphic harness
+rated every transformed copy inconclusive. Other recorded cases moved under equivalent units:
+#993 drifted `1.4e-4` and #1115 `2.9e-4` in the stability investigation. These are measured numerical discrepancies,
 not comparisons to a published engineering reference. The direction and size of error depend
 on the model and load; this advisory does not claim a known correct displacement for seed 74
-or a measured percentage of unconservatism for it. Its correct outcome is to withhold the
-answer because its numerical accuracy cannot be established.
+or a measured percentage of unconservatism for it. The fixed solver withholds an answer
+when its numerical accuracy cannot be established. Under the final acceptance policy below,
+the product value alone does not determine the loaded model's solve/refuse outcome.
 
 A test-only probe in a detached worktree of main `34987d390` also returned `Ok` for both
 linear and buckling on the original `buckling-1465.json`, which applies a moment to a
@@ -87,9 +88,18 @@ Regression: `issue_1753_pcg_resolves_each_independent_moment_with_disparate_load
 For a component with anisotropy `A`, the first-order relative shift bound for the smallest
 scaled eigenvalue is `ε κ_S A`. Separate uncoupled directions cannot exchange assembly
 rounding; directions mixed by an element transformation can. The fix retains that coupling
-even if assembled off-diagonal entries cancel, and refuses when the product exceeds the gate.
-Constraint reduction additionally retains an entrywise absolute contribution envelope; judging
-only the small reduced stiffness would lose the rounding scale of cancelled contributions.
+even if assembled off-diagonal entries cancel. The product `κ_S A ≤ 1e12` is the
+fast-accept threshold. Above it, conditional admission requires both `κ_S ≤ 1e12` and
+`A ≤ 1e8`; exceeding either separate limit refuses. Each conditionally admitted load case
+must pass compensated residual refinement and recovered member-force equilibrium at the
+shared accuracy limit `1e-4`. A nonfinite correction or balance, or failure of either
+accuracy check, refuses. Refinement measures the correction in diagonal energy coordinates;
+force equilibrium includes support springs, connectors, shell nodal forces and constraint
+transfers. These checks do not constitute a rigorous bound on assembly error or every
+possible load. See [conditional response accuracy](../solver/stability.md#24-conditional-response-accuracy).
+Constraint reduction additionally retains an entrywise absolute contribution envelope;
+its independent bound remains required on both acceptance paths. Judging only the small
+reduced stiffness would lose the rounding scale of cancelled contributions.
 See [the numerical argument and evidence](../solver/stability.md), and the regression tests
 in `engine/tests/metamorphic/stability.rs` and `engine/tests/known_issues.rs`.
 
@@ -117,7 +127,9 @@ been pushed, merged or deployed. Re-run only in a build that includes the fix.
 
 The linear solve checks the physical stiffness before factorization, without artificial
 springs. It refuses mechanisms, unresolved condition bounds and non-positive-definite systems;
-a factorization fallback cannot override that decision. The product gate has not been relaxed.
+a factorization fallback cannot override that decision. The product fast-accept threshold
+is unchanged; exceeding it alone does not establish refusal. Conditional admission requires
+the separate limits and both per-load accuracy checks described above.
 The axis-aligned Winkler/SSI tests solve again using coupling components, and three rotated
 copies must agree or refuse. The thin strip retains its unchanged closed-form reference check.
 

@@ -46,7 +46,7 @@ def affine(rows,rhs,n):
     return p,c
 
 def linear(a,b):
-    p,c=affine(a,b,len(b))
+    p,c=affine(a,b,len(a[0]) if a else 0)
     if c and c[0]:
         ct=transpose(c); z=linear(mm(ct,c),[-dot(v,p) for v in ct])
         p=[v+dot(row,z) for v,row in zip(p,c)]
@@ -244,7 +244,7 @@ def reference(s,dim):
     for e,indices,kl,fl,t in records:
         ue=[u[i] if i is not None else D(0) for i in indices]; local=[a-b for a,b in zip(mv(kl,mv(t,ue)),fl)]
         forces.append({'id':e['id'],'values':local})
-    return {'u':u,'index':index,'forces':forces,'k':k,'f':f,'springs':spring_matrix,'fixed':fixed_rows}
+    return {'u':u,'index':index,'forces':forces,'k':k,'f':f,'springs':spring_matrix,'fixed':fixed_rows,'equations':equations}
 
 def atan(x):
     result=D(0); power=x
@@ -262,8 +262,8 @@ def refs(rec):
   push(node,None,'u',u[:dim]);push(node,None,'ry' if dim==2 else 'r',u[dim:3 if dim==2 else 6])
   if dpn==7:push(node,None,'warping',[u[6]])
  residual=[v-f for v,f in zip(mv(r['k'],r['u']),r['f'])];spring=mv(r['springs'],r['u']);reaction=[-v for v in spring]
- for row in r['fixed']:
-  value=dot(row,residual)/dot(row,row)
+ multipliers=linear(transpose(r['equations']),residual) if r['equations'] else []
+ for row,value in zip(r['fixed'],multipliers):
   for i,v in enumerate(row):reaction[i]+=v*value
  for node in sorted(set(sup['nodeId'] for sup in s['supports'].values())):
   vals=[reaction[r['index'][node,d]] for d in range(dpn)]

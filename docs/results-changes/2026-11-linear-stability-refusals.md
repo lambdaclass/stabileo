@@ -155,7 +155,10 @@ nodes and restraint limitations.
 
 [SA-2026-054](../advisories/SA-2026-054-unresolved-linear-stiffness.md) covers results silently
 returned on main beyond the matrix precision bound, including `fuzz_rich_3d/74` (recorded
-`κ_S A = 7.9e13`). The correct outcome is a refusal, not a replacement numerical answer.
+`κ_S A = 7.9e13`). That historical product measurement alone does not establish the final
+loaded solve/refuse outcome: above the product fast accept, the separate limits and both
+per-load accuracy checks remain required. Failure of those checks supplies no replacement
+numerical answer.
 The `linear-stability-refusals` registry entry flags linear analyses for re-checking.
 
 ### Test models that were mechanisms
@@ -764,3 +767,28 @@ The retained PCG units cell is kept as a required numerical pass as documented
 in [the verification transition](../verification/ANALYSIS_INVARIANCE_ACCURACY.md#pr-1753-retained-cell-transition).
 The generated-model native tests deserialize through `ElasticInput3D` before
 obtaining the legacy solver input, preserving the typed-boundary inventory.
+
+### Final review: recover C08 support and constraint multipliers together
+
+The independent [C08 reference generator](1753-c08-reference.py) previously projected
+`K u - f` onto each support equation separately. This omitted loads transferred through
+`equalDOF` and `rigidLink`: a slave tied to a fixed master could carry a load while the
+reference reported zero reaction at the master.
+
+The generator now retains the full support-and-constraint equation matrix `B` and solves
+`Bᵀ λ = K u - f` at the existing 90-digit precision. Support reactions use the support
+multipliers, together with the existing spring contribution `-K_spring u`; constraint
+multipliers recover the slave-to-master transfers without reporting them as additional
+support forces. The affine solver accepts rectangular systems and retains its minimum-norm
+choice when multipliers are nonunique.
+
+Four independently checked slave-load regressions cover `equalDOF` and `rigidLink` in
+2D and 3D. The fixed master must balance the applied slave force; rigid links also transfer
+the moment of that force about the master. The expected values come from signed force
+and moment equilibrium, and every displacement must be zero. Before the fix all four
+reported zero master force and failed; after the fix all four pass with exact assertions.
+
+Regeneration checks all 23 canonical references. Only five reaction items change their
+serialized zero exponents, in #1265 and #1653; every stored numerical value is unchanged.
+This correction changes reference tooling and advisory wording, with no engine result or
+results-change registry change. No tolerance, engineering reference or assertion is widened.

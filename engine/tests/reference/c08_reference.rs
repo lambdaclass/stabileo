@@ -94,7 +94,6 @@ fn check_reaction(reference: &Value, tag: &str, expected: &[f64]) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_c08_reference_equal_dof_transfers_slave_axial_load_to_fixed_master() {
     let reference = slave_load_reference(2, "equalDOF", &[7.0, 0.0], &[0.0]);
     check_reaction(&reference, "R", &[-7.0, 0.0]);
@@ -102,7 +101,6 @@ fn issue_1753_c08_reference_equal_dof_transfers_slave_axial_load_to_fixed_master
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_c08_reference_rigid_link_transfers_slave_force_and_lever_moment_2d() {
     let (fx, fz, my) = (5.0, -7.0, 11.0);
     let reference = slave_load_reference(2, "rigidLink", &[fx, fz], &[my]);
@@ -111,7 +109,6 @@ fn issue_1753_c08_reference_rigid_link_transfers_slave_force_and_lever_moment_2d
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_c08_reference_equal_dof_transfers_slave_forces_and_moments_3d() {
     let reference = slave_load_reference(3, "equalDOF", &[5.0, -7.0, 11.0], &[13.0, 17.0, -19.0]);
     check_reaction(&reference, "R", &[-5.0, 7.0, -11.0]);
@@ -119,7 +116,6 @@ fn issue_1753_c08_reference_equal_dof_transfers_slave_forces_and_moments_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_c08_reference_rigid_link_transfers_slave_force_and_lever_moment_3d() {
     let force = [5.0, -7.0, 11.0];
     let moment = [13.0, 17.0, -19.0];
