@@ -652,3 +652,114 @@ fn round_two_harmonic_pencil_obeys_the_dense_size_limit() {
         matches!(pencil.harmonic(), Err(e) if e == "dynamic accuracy requires a bounded dense pencil")
     );
 }
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn final_review_resonant_zero_perturbation_is_inconclusive_never_passes() {
+    use crate::tally::Verdict;
+    use dedaliano_engine::metamorphic::compare::{compare, Flat};
+
+    let forward = Accuracy {
+        lambda: vec![1.0],
+        residual: 0.0,
+        natural: 1.0,
+    };
+    let inverse = HarmonicAccuracy {
+        forward: None,
+        single_mode_fallback: true,
+        mu: vec![1.0],
+        residual: 0.0,
+        natural: 1.0,
+    };
+    for bound in [
+        forward.harmonic_error(1.0, (0.0, 0.0), 0.0),
+        forward.harmonic_error(1.0, (0.0, 1e-200), 0.0),
+        inverse.harmonic_error(1.0, (0.0, 0.0), 0.0),
+    ] {
+        let expected = Flat::scalar("H_re1", 1.0);
+        for value in [1.0, 2.0] {
+            let got = Flat::scalar("H_re1", value);
+            let verdict = crate::checks2::judge(compare(&got, &expected, 1.0, bound), bound);
+            assert!(!matches!(verdict, Verdict::Pass(_)), "{verdict:?}");
+            assert!(matches!(verdict, Verdict::Inconclusive(_)), "{verdict:?}");
+        }
+        assert_eq!(bound, f64::INFINITY);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn final_review_negative_rayleigh_coefficients_are_unbounded() {
+    let forward = Accuracy {
+        lambda: vec![1.0],
+        residual: 0.0,
+        natural: 1.0,
+    };
+    let mut inverse = HarmonicAccuracy {
+        forward: None,
+        single_mode_fallback: true,
+        mu: vec![1.0],
+        residual: 0.0,
+        natural: 1.0,
+    };
+    for damping in [(-0.1, 0.1), (0.1, -0.1), (-0.1, -0.1)] {
+        assert_eq!(forward.harmonic_error(0.5, damping, 0.0), f64::INFINITY);
+        assert_eq!(inverse.harmonic_error(0.5, damping, 0.0), f64::INFINITY);
+    }
+    inverse.forward = Some(forward);
+    assert_eq!(inverse.harmonic_error(0.5, (-0.1, 0.1), 0.0), f64::INFINITY);
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn final_review_nonfinite_harmonic_inputs_are_unbounded() {
+    let forward = Accuracy {
+        lambda: vec![1.0],
+        residual: 0.0,
+        natural: 1.0,
+    };
+    let inverse = HarmonicAccuracy {
+        forward: None,
+        single_mode_fallback: true,
+        mu: vec![1.0],
+        residual: 0.0,
+        natural: 1.0,
+    };
+    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        for (omega, damping, assembly_error) in [
+            (bad, (0.1, 0.1), 0.0),
+            (0.5, (bad, 0.1), 0.0),
+            (0.5, (0.1, bad), 0.0),
+            (0.5, (0.1, 0.1), bad),
+        ] {
+            assert_eq!(
+                forward.harmonic_error(omega, damping, assembly_error),
+                f64::INFINITY
+            );
+            assert_eq!(
+                inverse.harmonic_error(omega, damping, assembly_error),
+                f64::INFINITY
+            );
+        }
+    }
+    assert_eq!(forward.harmonic_error(0.5, (0.1, 0.1), -0.1), f64::INFINITY);
+    assert_eq!(inverse.harmonic_error(0.5, (0.1, 0.1), -0.1), f64::INFINITY);
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn final_review_nonfinite_scaled_harmonic_floors_are_unbounded() {
+    for (natural, rel, assembly_error) in [(0.0, 0.0, 0.0), (f64::MAX, f64::MIN_POSITIVE, 0.125)] {
+        let accuracy = HarmonicAccuracy {
+            forward: None,
+            single_mode_fallback: true,
+            mu: vec![1.0],
+            residual: 0.0,
+            natural,
+        };
+        assert_eq!(
+            harmonic_floor(Some(&accuracy), 0.0, (0.1, 0.1), assembly_error, rel, 0.0),
+            f64::INFINITY
+        );
+    }
+}
