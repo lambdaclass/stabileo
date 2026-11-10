@@ -16,7 +16,7 @@ There is no tenancy yet. Every account sees only itself, so there are no organiz
 - Refresh-token rotation, logout
 - Without a Google client in development, `StabileoAuth.DevGoogle` plays Google with a local page (`/google/dev`) that asks for an email and a name; it is selected only by `config/dev.exs` and answers 404 elsewhere
 - Read and edit one's own profile
-- Optional consents (`usage_analytics`, `model_research`) are opt-in: granted only by the JSON boolean `true`; the sign-up shows them unchecked
+- Optional consents (`usage_analytics`, `model_research`) start granted when the account is created: the sign-up asks only for the terms, and only `false` (or the string `"false"`) records one refused. The browser sends `usage_analytics: false` when the person had already declined usage sharing there. Both are turned off from the profile
 
 ## Data Model
 
@@ -107,7 +107,7 @@ Seeds create `demo@stabileo.com` (`StabileoRepo.DemoPassword` keeps a password o
 |----------|-----------------|
 | Google sign-in while `user_login_enabled` is off | `error=user_login_disabled`, nothing written |
 | `/register`, `/login` or `/password` | No such route |
-| `/google/register` with only `accept_terms` | Both optional consents recorded refused; `"true"` as a string is refused too |
+| `/google/register` with only `accept_terms` | Both optional consents recorded granted; `false` or `"false"` records one refused |
 | Google callback for someone new | code → exchange answers `signup_required` with the email and name; nothing written until `/google/register` with `accept_terms: true` creates a verified account with `google_subject`, no password, and the consents |
 | Google callback for a known subject, or a known email | code → exchange answers a session; the code works once; an unverified account found by email loses its password and sessions |
 | A code never traded | Its session expires with the code (60 s) and no sign-in is recorded |

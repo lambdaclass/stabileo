@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "Les données d'usage anonymes que Stabileo envoie",
   "description": "La liste complète des données d'usage anonymes que Stabileo envoie, ce qu'il n'envoie jamais et comment les désactiver.",
   "eyebrow": "Confidentialité",
-  "lead": "Stabileo ne partage des données d'usage anonymes que si vous le choisissez, et vous pouvez changer d'avis à tout moment dans les Paramètres ou dans votre profil. Elles nous indiquent quels outils sont utilisés et lesquels échouent, afin que nous décidions quoi améliorer en priorité. Voici la liste complète de ce qui est envoyé.",
+  "lead": "Avec un compte, Stabileo partage des données d'usage anonymes dès sa création ; sans compte, seulement si vous le choisissez. Vous pouvez changer d'avis à tout moment dans les Paramètres ou dans votre profil. Elles nous indiquent quels outils sont utilisés et lesquels échouent, afin que nous décidions quoi améliorer en priorité. Voici la liste complète de ce qui est envoyé.",
   "blocks": [
     {
       "k": "h",

@@ -58,7 +58,7 @@ defmodule StabileoAuth.UserOAuthTest do
       assert payload.account.id == account.id
       assert payload.account.consents.terms_current == true
       assert payload.account.consents.usage_analytics == true
-      assert payload.account.consents.model_research == false
+      assert payload.account.consents.model_research == true
       assert account.google_subject == "g-person"
       assert account.password_hash == nil
       assert account.locale == "en"
@@ -68,27 +68,27 @@ defmodule StabileoAuth.UserOAuthTest do
       assert is_binary(payload.access_token) and is_binary(payload.refresh_token)
     end
 
-    test "the terms alone leave usage and project research off, recorded at sign-up" do
+    test "the terms alone turn usage and project research on, recorded at sign-up" do
       {:ok, payload} = UserOAuth.register(signup_token(), %{"accept_terms" => true})
       account = Repo.get_by!(Account, email: "person@gmail.com")
 
-      assert payload.account.consents.usage_analytics == false
-      assert payload.account.consents.model_research == false
+      assert payload.account.consents.usage_analytics == true
+      assert payload.account.consents.model_research == true
 
       kinds =
         from(c in Consent, where: c.account_id == ^account.id, select: {c.kind, c.granted})
         |> Repo.all()
         |> Enum.sort()
 
-      assert kinds == [{"model_research", false}, {"terms", true}, {"usage_analytics", false}]
+      assert kinds == [{"model_research", true}, {"terms", true}, {"usage_analytics", true}]
     end
 
-    test "only the boolean true grants an optional consent" do
+    test "only an explicit false turns an optional consent off at sign-up" do
       {:ok, payload} =
         UserOAuth.register(signup_token(), %{
           "accept_terms" => true,
           "usage_analytics" => "false",
-          "model_research" => "true"
+          "model_research" => false
         })
 
       assert payload.account.consents.usage_analytics == false
@@ -104,7 +104,7 @@ defmodule StabileoAuth.UserOAuthTest do
         )
 
       assert payload.account.consents.model_research == true
-      assert payload.account.consents.usage_analytics == false
+      assert payload.account.consents.usage_analytics == true
     end
 
     test "without the terms nothing is created" do

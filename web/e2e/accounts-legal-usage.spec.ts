@@ -184,50 +184,36 @@ async function solvePortal(page: Page) {
 }
 
 test.describe('accounts, legal and anonymous usage', () => {
-  test('sign-up is with Google only, waits for the terms and sends them with the optional choices unticked', async ({ page }) => {
+  test('sign-up is with Google only, asks only for the terms, and starts usage and research use on', async ({ page }) => {
     const backend = await boot(page);
     await page.getByTestId('account-button').click();
     await continueWithGoogle(page);
     await expect(page.getByTestId('auth-submit')).toBeDisabled();
 
-    await expect(page.getByTestId('auth-share-usage')).not.toBeChecked();
-    await expect(page.getByTestId('auth-allow-research')).not.toBeChecked();
+    await expect(page.getByTestId('auth-usage-note')).toBeVisible();
+    await expect(page.getByTestId('auth-dialog').getByRole('checkbox')).toHaveCount(1);
     await page.getByTestId('auth-accept-terms').check();
     await page.getByTestId('auth-submit').click();
 
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
     expect(backend.googleOpened).toBe(1);
     expect(backend.register).toEqual([
-      { signup_token: 'signup-1', accept_terms: true, usage_analytics: false, model_research: false, locale: 'es' },
+      { signup_token: 'signup-1', accept_terms: true, usage_analytics: true, model_research: true, locale: 'es' },
     ]);
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('stabileo-usage-consent') ?? '{}').choice)).toBe('denied');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('stabileo-usage-consent') ?? '{}').choice)).toBe('granted');
     await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
   });
 
-  test('usage and research use are asked at sign-up and sent only when ticked', async ({ page }) => {
-    const backend = await boot(page);
-    await page.getByTestId('account-button').click();
-    await continueWithGoogle(page);
-    await page.getByTestId('auth-accept-terms').check();
-    await page.getByTestId('auth-share-usage').check();
-    await page.getByTestId('auth-allow-research').check();
-    await page.getByTestId('auth-submit').click();
-
-    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
-    expect(backend.register).toEqual([expect.objectContaining({ accept_terms: true, usage_analytics: true, model_research: true })]);
-  });
-
-  test('a usage answer already given in the notice is carried into the sign-up, without asking again', async ({ page }) => {
+  test('a "no" to usage given in the notice before sign-up is kept, and research use still starts on', async ({ page }) => {
     const backend = await boot(page);
     await page.getByTestId('usage-notice-decline').click();
     await page.getByTestId('account-button').click();
     await continueWithGoogle(page);
-    await expect(page.getByTestId('auth-share-usage')).toHaveCount(0);
     await page.getByTestId('auth-accept-terms').check();
     await page.getByTestId('auth-submit').click();
 
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
-    expect(backend.register).toEqual([expect.objectContaining({ usage_analytics: false, model_research: false })]);
+    expect(backend.register).toEqual([expect.objectContaining({ usage_analytics: false, model_research: true })]);
   });
 
   test('nothing is sent before the notice is answered, and sharing sends what was held under a stable id', async ({ page }) => {

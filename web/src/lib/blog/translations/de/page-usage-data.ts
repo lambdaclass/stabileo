@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "Welche anonymen Nutzungsdaten Stabileo sendet",
   "description": "Die vollständige Liste der anonymen Nutzungsdaten, die Stabileo sendet, was nie gesendet wird und wie Sie die Übermittlung ausschalten.",
   "eyebrow": "Datenschutz",
-  "lead": "Stabileo teilt anonyme Nutzungsdaten nur, wenn Sie das möchten, und Sie können es jederzeit in den Einstellungen oder in Ihrem Profil ändern. Die Daten zeigen uns, welche Werkzeuge genutzt werden und welche fehlschlagen, damit wir entscheiden können, was wir zuerst verbessern. Dies ist die vollständige Liste dessen, was gesendet wird.",
+  "lead": "Mit Konto teilt Stabileo anonyme Nutzungsdaten ab der Kontoerstellung, ohne Konto nur, wenn Sie das möchten. Sie können es jederzeit in den Einstellungen oder in Ihrem Profil ändern. Die Daten zeigen uns, welche Werkzeuge genutzt werden und welche fehlschlagen, damit wir entscheiden können, was wir zuerst verbessern. Dies ist die vollständige Liste dessen, was gesendet wird.",
   "blocks": [
     {
       "k": "h",

@@ -37,11 +37,12 @@ let refreshing: Promise<RefreshOutcome> | null = null;
 /**
  * A "no" to anonymous usage holds from either side once someone signs in: the account's turns this
  * browser off, and this browser's is recorded on the account, so the profile, what is sent and the
- * admin site agree. A "yes" changes nothing here, so the usage notice still shows once.
+ * admin site agree. An account's "yes" settles a browser that has not answered yet.
  */
 function adoptUsageChoice(a: Account): void {
   const recorded = a.consents?.usage_analytics;
   if (recorded === false && usageConsent.choice !== 'denied') usageConsent.set('denied');
+  else if (recorded === true && usageConsent.choice === 'undecided') usageConsent.set('granted');
   else if (recorded === true && usageConsent.choice === 'denied') {
     void authApi.recordConsent('usage_analytics', false).then((next) => { if (account?.id === next.id) account = next; }, () => {});
   }

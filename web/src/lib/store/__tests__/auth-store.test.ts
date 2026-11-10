@@ -544,13 +544,13 @@ describe('consents and server switches', () => {
       expect(usageConsent.choice).toBe('denied');
     });
 
-    it('an account that said yes leaves the browser as it was, and /me with a no turns it off', async () => {
+    it('an account that said yes settles a browser that had not answered, and /me with a no turns it off', async () => {
       const { authStore } = await load();
       const { usageConsent } = await import('../../telemetry/consent.svelte');
       on('POST /google/exchange', () => json(200, withUsage(true)));
       await signIn(authStore);
-      expect(usageConsent.choice).toBe('undecided');
-      expect(usageConsent.granted).toBe(false);
+      expect(usageConsent.choice).toBe('granted');
+      expect(stored()).toBe('granted');
       expect(seen.some((r) => r.route === 'POST /consents')).toBe(false);
 
       on('GET /me', () => json(200, { data: withUsage(false).account }));

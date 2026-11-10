@@ -25,7 +25,7 @@ defmodule StabileoAuth.Consents do
     %Consent{} |> Consent.changeset(attrs) |> Repo.insert()
   end
 
-  @doc "An optional consent is granted only by the boolean `true`; anything else records it refused."
+  @doc "Both optional consents start granted: only `false` (or the string \"false\") records one refused."
   def record_sign_up(%Account{} = account, optional, metadata) do
     Repo.transaction(fn ->
       with {:ok, _} <- record(account, "terms", true, metadata),
@@ -39,7 +39,7 @@ defmodule StabileoAuth.Consents do
 
   defp record_optional(account, optional, metadata) do
     Enum.reduce_while(@optional, :ok, fn kind, :ok ->
-      record_step(account, kind, Map.get(optional, kind) == true, metadata)
+      record_step(account, kind, Map.get(optional, kind) not in [false, "false"], metadata)
     end)
   end
 
