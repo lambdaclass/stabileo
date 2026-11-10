@@ -9,6 +9,7 @@
   import { fmtQ, fmtCoord, unitQ } from '../../../lib/store/display-units.svelte';
   import PlasticSection from './PlasticSection.svelte';
   import { verifiedCollapse } from './user-compare';
+  import { hingePlaceAt } from '../../../lib/engine/plastic/hinge-place';
 
   let { r, step }: { r: PlasticCollapseResult; step: number } = $props();
 
@@ -35,8 +36,9 @@
     const f = Math.sign(h.moment) * Math.sign(reached) || 1;
     const m = f * ev.perUnit, M = f * ev.before;
     const s = Math.sign(m) || 1;
-    return { h, i: ev.hinge + 1, m, M, sM: s * M, absm: Math.abs(m), limit: ev.limit, axial: h.kind === 'axial' };
+    return { h, x: hingePlaceAt(h, step).x, i: ev.hinge + 1, m, M, sM: s * M, absm: Math.abs(m), limit: ev.limit, axial: h.kind === 'axial' };
   }));
+  const moved = $derived((st?.trace.moved ?? []).map((mv) => ({ ...mv, member: r.hinges[mv.hinge].elementId, i: mv.hinge + 1 })));
 </script>
 
 {#if st}
@@ -50,15 +52,18 @@
           {#if e.axial}
             {tp('course.plastic.trace.eventAxial', { member: e.h.elementId, n: force(e.m), N: force(e.M), np: force(e.limit) })}
           {:else}
-            {tp('course.plastic.trace.event', { member: e.h.elementId, x: at(e.h.x), m: mom(e.m), M: mom(e.M), mp: mom(e.limit) })}
+            {tp('course.plastic.trace.event', { member: e.h.elementId, x: at(e.x), m: mom(e.m), M: mom(e.M), mp: mom(e.limit) })}
           {/if}
           <div class="tr-eq" data-testid="plastic-trace-formula">{formula(e)}</div>
         </li>
       {/each}
       <li>{t('course.plastic.trace.min')}</li>
       <li>{tp('course.plastic.trace.update', { before: f3(st.trace.lambdaBefore), dl: f3(st.trace.dLambda), after: f3(st.loadFactor) })}</li>
+      {#each moved as mv (mv.i)}
+        <li data-testid="plastic-trace-moved">{tp('course.plastic.trace.moved', { member: mv.member, i: mv.i, from: at(mv.from), to: at(mv.to) })}</li>
+      {/each}
       {#each events as e (e.i)}
-        <li>{e.axial ? tp('course.plastic.trace.yield', { member: e.h.elementId, i: e.i }) : tp('course.plastic.trace.hinge', { member: e.h.elementId, x: at(e.h.x), i: e.i })}</li>
+        <li>{e.axial ? tp('course.plastic.trace.yield', { member: e.h.elementId, i: e.i }) : tp('course.plastic.trace.hinge', { member: e.h.elementId, x: at(e.x), i: e.i })}</li>
       {/each}
       <li class="tr-end">{last && verifiedCollapse(r) ? tp('course.plastic.trace.collapse', { lambda: f3(r.collapseFactor) }) : last && (r.unresolved || r.isMechanism) ? t('course.plastic.unresolved') : last ? t('course.plastic.trace.noMechanism') : t('course.plastic.trace.next')}</li>
     </ol>

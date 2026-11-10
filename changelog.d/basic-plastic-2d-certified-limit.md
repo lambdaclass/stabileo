@@ -1,0 +1,4 @@
+### BREAKING (results)
+#### Basic 2D plastic collapse is released at the certified limit-analysis factor (2026-11-10)
+
+2D plastic collapse was withheld (`PL-2D-INVARIANCE`, SA-2026-044, #758). Basic now shows the collapse factor of the engine's limit analysis, released only where the exact plastic certificate's static and kinematic bounds meet at it, and withheld anywhere else. The step-by-step history forms at most GH + 1 hinges, never two side by side, and ends at that factor; a hinge under a distributed load moves with the peak of the moment, so no section passes Mp at any step (it passed it by up to 12.8 % in the "Spring Support" example). The kinematic and static step-by-step methods apply again where the factor is released. "Portal Frame": 1925/27 = 71.296. See [the results change](../docs/results-changes/2026-11-basic-advisories-and-plastic.md).

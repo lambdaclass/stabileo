@@ -120,6 +120,7 @@ const words: Translations = {
   'course.plastic.trace.eventAxial': 'La barre {member} est la première à atteindre Np : n = {n} par unité de λ, N cumulé = {N}, Np = {np}.',
   'course.plastic.trace.min': 'C\'est le plus petit Δλ de toutes les sections : les autres ne l\'atteignent pas encore.',
   'course.plastic.trace.update': 'λ = {before} + {dl} = {after}. Efforts et déplacements se cumulent en ajoutant Δλ fois ceux de cette solution.',
+  'course.plastic.trace.moved': 'La rotule {i} de la barre {member} se déplace de x = {from} à x = {to}, là où le moment est désormais maximal : il y vaut Mp avec un effort tranchant nul, et la section qu’elle quitte garde la rotation plastique déjà acquise.',
   'course.plastic.trace.hinge': 'On place la rotule {i} dans la barre {member}, x = {x} : le moment y reste à Mp et la section tourne librement.',
   'course.plastic.trace.yield': 'La barre {member} se plastifie (rotule {i}) : elle garde Np et n\'apporte plus de rigidité.',
   'course.plastic.trace.collapse': 'Avec cette rotule, la structure est un mécanisme : λc = {lambda}.',

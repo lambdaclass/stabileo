@@ -1,0 +1,41 @@
+{
+  "id": "basic-plastic-2d-certified-limit",
+  "date": "2026-11-10",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "plane2D"
+      ],
+      [
+        "analysis:plastic"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "collapseFactor",
+    "hinges"
+  ],
+  "title": {
+    "en": "Basic 2D plastic collapse is released at the certified limit-analysis factor",
+    "es": "El colapso plástico 2D del modo Básico se libera con el factor certificado del análisis límite",
+    "pt": "O colapso plástico 2D do modo Básico é liberado com o fator certificado da análise limite",
+    "de": "Der plastische 2D-Kollaps im Basic-Modus wird mit dem zertifizierten Faktor der Traglastanalyse freigegeben",
+    "fr": "L’effondrement plastique 2D du mode Basic est publié au facteur certifié de l’analyse limite",
+    "tr": "Basic modundaki 2B plastik göçme, limit analizinin sertifikalı katsayısıyla yayınlanıyor"
+  },
+  "explanation": {
+    "en": "2D plastic collapse was withheld (PL-2D-INVARIANCE) because its collapse factor could change with node numbering, member direction or units (SA-2026-044, #758). Basic now reports the collapse factor of the engine's limit analysis, released only where the exact plastic certificate's static and kinematic bounds meet at it; anywhere else it stays withheld. The step-by-step hinge history forms at most GH + 1 hinges, never two side by side, and ends at that factor. A hinge under a distributed load moves with the peak of the moment, so no section passes Mp at any step. The kinematic and static step-by-step methods apply where the factor is released. The Basic \"Portal Frame\" collapses at 1925/27 = 71.296.",
+    "es": "El colapso plástico 2D estaba retenido (PL-2D-INVARIANCE) porque su factor de colapso podía cambiar con la numeración de nudos, el sentido de las barras o las unidades (SA-2026-044, #758). El modo Básico ahora informa el factor de colapso del análisis límite del motor, que se libera solo donde las cotas estática y cinemática del certificado plástico exacto coinciden en él; en cualquier otro caso sigue retenido. La historia de rótulas paso a paso forma a lo sumo GH + 1 rótulas, nunca dos contiguas, y termina en ese factor. Una rótula bajo una carga distribuida se corre con el máximo del momento, así que ninguna sección supera Mp en ningún paso. Los métodos paso a paso cinemático y estático se aplican donde el factor se libera. El ejemplo «Pórtico simple» del modo Básico colapsa en 1925/27 = 71,296.",
+    "pt": "O colapso plástico 2D estava retido (PL-2D-INVARIANCE) porque seu fator de colapso podia mudar com a numeração dos nós, o sentido das barras ou as unidades (SA-2026-044, #758). O modo Básico agora informa o fator de colapso da análise limite do motor, liberado só onde os limites estático e cinemático do certificado plástico exato coincidem nele; em qualquer outro caso continua retido. O histórico de rótulas passo a passo forma no máximo GH + 1 rótulas, nunca duas vizinhas, e termina nesse fator. Uma rótula sob carga distribuída se desloca com o máximo do momento, de modo que nenhuma seção passa de Mp em nenhum passo. Os métodos passo a passo cinemático e estático se aplicam onde o fator é liberado. O exemplo «Pórtico Simples» do modo Básico colapsa em 1925/27 = 71,296.",
+    "de": "Der plastische 2D-Kollaps war zurückgehalten (PL-2D-INVARIANCE), weil sich sein Kollapsfaktor mit Knotennummerierung, Stabrichtung oder Einheiten ändern konnte (SA-2026-044, #758). Basic gibt jetzt den Kollapsfaktor der Traglastanalyse des Rechenkerns aus, freigegeben nur, wo die statische und die kinematische Schranke des exakten plastischen Zertifikats bei ihm zusammenfallen; sonst bleibt er zurückgehalten. Die schrittweise Gelenkfolge bildet höchstens GH + 1 Gelenke, nie zwei nebeneinander, und endet bei diesem Faktor. Ein Gelenk unter einer verteilten Last wandert mit dem Momentenmaximum, sodass kein Querschnitt in irgendeinem Schritt Mp überschreitet. Die schrittweisen kinematischen und statischen Verfahren gelten, wo der Faktor freigegeben ist. Das Basic-Beispiel „Portalrahmen“ versagt bei 1925/27 = 71,296.",
+    "fr": "L’effondrement plastique 2D était retenu (PL-2D-INVARIANCE) car son facteur d’effondrement pouvait changer avec la numérotation des nœuds, le sens des barres ou les unités (SA-2026-044, #758). Basic indique désormais le facteur d’effondrement de l’analyse limite du moteur, publié seulement là où les bornes statique et cinématique du certificat plastique exact se rejoignent en lui ; ailleurs il reste retenu. L’historique des rotules pas à pas forme au plus GH + 1 rotules, jamais deux côte à côte, et s’achève à ce facteur. Une rotule sous une charge répartie se déplace avec le maximum du moment, si bien qu’aucune section ne dépasse Mp à aucun pas. Les méthodes pas à pas cinématique et statique s’appliquent là où le facteur est publié. L’exemple « Portique simple » du mode Basic s’effondre à 1925/27 = 71,296.",
+    "tr": "2B plastik göçme bekletiliyordu (PL-2D-INVARIANCE), çünkü göçme katsayısı düğüm numaralandırması, çubuk yönü veya birimlerle değişebiliyordu (SA-2026-044, #758). Basic artık motorun limit analizinin göçme katsayısını veriyor; bu katsayı yalnızca kesin plastik sertifikanın statik ve kinematik sınırları onda buluştuğunda yayınlanıyor, aksi halde bekletiliyor. Adım adım mafsal geçmişi en fazla GH + 1 mafsal oluşturuyor, hiçbir zaman yan yana iki mafsal oluşturmuyor ve bu katsayıda bitiyor. Yayılı yük altındaki bir mafsal momentin tepe noktasıyla birlikte kayıyor, bu yüzden hiçbir adımda hiçbir kesit Mp'yi aşmıyor. Adım adım kinematik ve statik yöntemler katsayının yayınlandığı yerde uygulanıyor. Basic'teki «Portal çerçeve» örneği 1925/27 = 71,296'da göçüyor."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-basic-advisories-and-plastic.md",
+    "heading": "Basic 2D plastic collapse at the certified limit-analysis factor"
+  }
+}
