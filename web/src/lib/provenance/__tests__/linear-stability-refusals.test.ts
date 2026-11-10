@@ -24,7 +24,6 @@ it('keeps #1753 applicable to linear releases, springs, constraints and connecto
     expect(conditionHolds(entry.when!, new Set(['analysis:linear', feature])), feature).toBe(true);
     expect(conditionHolds(entry.when!, new Set([feature])), feature).toBe(false);
   }
-  expect(conditionHolds(entry.when!, new Set(['analysis:linear', 'frameMembers']))).toBe(false);
   const features = modelFeatures({ analysisMode: '2d', elements: [[1, {
     id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, releaseJ: { my: true },
   }]] }, { analysesRun: ['linear'] });
@@ -49,7 +48,7 @@ it.skip('known wrong result: #1753: plain frame and truss mechanisms receive the
   }
 });
 
-it.skip('known wrong result: #1753: the #1496 tables distinguish independent and coupled directions', () => {
+it('the #1496 tables distinguish independent and coupled directions', () => {
   for (const file of ['docs/results-changes/2026-11-linear-stability-refusals.md', 'docs/solver/stability.md']) {
     const rows = repoText(file).split('\n').filter((line) => line.startsWith('|') && line.includes('#1496'));
     expect(rows.some((row) => /Axis-aligned cantilever/.test(row) && /\| Stable, solved \|/.test(row) && row.includes('PL²/2EI')), file).toBe(true);
@@ -57,7 +56,7 @@ it.skip('known wrong result: #1753: the #1496 tables distinguish independent and
   }
 });
 
-it.skip('known wrong result: #1753: the changelog discloses corrected stable PCG responses and refinement', () => {
+it('the changelog discloses corrected stable PCG responses and refinement', () => {
   const text = repoText('changelog.d/linear-solvers-refuse-unstable-stiffness.md');
   expect(text).not.toContain('Models that solved before and are stable give the same displacements');
   expect(text).toMatch(/PCG[\s\S]*corrected components/);

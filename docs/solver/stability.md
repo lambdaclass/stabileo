@@ -224,15 +224,16 @@ fixture also has a Stable unloaded axis-aligned spectrum and may refuse oblique 
 its solve additionally retains the independent Cholesky check. These outcomes are covered
 by the transformed-copy tests, including exact zero for every returned unloaded response.
 
-Since slice 2 the linear solves refuse these real, if extreme, structures, measured on the
-tests that build them:
+Since slice 2 the linear solves give these outcomes for real, if extreme, structures,
+measured on the tests that build them:
 
 | Model | Verdict | Why |
 |---|---|---|
 | MITC9 twisted strip, 24×8 mesh, `t = 0.0254` and `0.047` (`t/L` about 0.002 to 0.004) | Singular | `κ_S A` = 3.8e10 × 8.4e2 and 1.1e10 × 1.2e3, above `1e12`: thin quadratic shells of this slenderness are refused (MITC4 on the same strip is Stable) |
-| Cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496) | Mechanism | the weak-axis translation is below `1e-12` of the strong one at each node |
+| Axis-aligned cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496) | Stable, solved | independent coupling components; tip rotation agrees with `PL²/2EI` |
+| Coupled oblique cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496), rotated by Euler angles `(0.3, 1.1, -0.7)` | Mechanism | weak translation in a coupled node block is unresolved |
 
-For each, the bound cannot guarantee four digits for the weak direction in double precision
+For each refused case, the bound cannot guarantee four digits for the weak direction in double precision
 (the answer may still be accurate: the bound covers every load, not the one applied); the old
 solves returned it with `HighDiagonalRatio` or `NUM-INVARIANCE`, or silently.
 

@@ -79,7 +79,7 @@ impl LoadSession3D {
                 Ok(prepared) => prepared,
                 Err(original) => {
                     input.loads = initial_loads;
-                    return Err(prepare(&input).err().unwrap_or(original));
+                    prepare(&input).map_err(|_| original)?
                 },
             };
             State3D::Prepared(Box::new(prepared))
@@ -109,7 +109,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn issue_1753_loaded_prepare_success_is_retained_after_unloaded_failure() {
         let input = loaded_beam();
         assert!(!input.loads.is_empty());
@@ -133,7 +132,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn issue_1753_failed_loaded_retry_preserves_original_error() {
         let input = loaded_beam();
         let mut attempts = 0;

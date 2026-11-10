@@ -21,7 +21,7 @@ What changes for a model:
 | Solved with `HighDiagonalRatio`, `NearZeroDiagonal` or `NUM-INVARIANCE`, `κ_S A > 1e12` | Refused as Singular, naming the nodes |
 | Solved with `HighDiagonalRatio` and `κ_S A ≤ 1e12` | Same displacements, without the warning |
 | Solved with `ORPHAN-SOFT-ROTATION` (#1496) | Solved exactly, or refused |
-| A stable model | Same displacements and reactions |
+| A stable model | The recorded corpus retains its displacements and reactions; corrected PCG components and sparse direct residual refinement can change other stable responses |
 
 `NUM-INVARIANCE` is attached by the linear solves only for an excessive displacement.
 
@@ -36,16 +36,18 @@ solves, 2D and 3D) was solved before (d81653aca) and after:
   and `NUM-INVARIANCE`: its hinge rotations are free directions the stability test eliminates,
   and its verdict is Stable.
 
-## Real structures now refused
+## Real structures: solved and refused orientations
 
-These are structures someone could model. Each is refused because the stability bound cannot
-guarantee four digits for its weak direction in double precision (the answer itself may still
-be accurate), and each was returned before with a conditioning warning or none:
+These are structures someone could model. Refused cases fail the stability bound for their
+weak direction in double precision (the answer itself may still be accurate), and were
+returned before with a conditioning warning or none. The axis-aligned #1496 cantilever
+solves because its independent directions have separate coupling components:
 
 | Model | Verdict | Why |
 |---|---|---|
 | MITC9 twisted strip, 24×8 mesh, `t = 0.0254` and `0.047` (`t/L` about 0.002 to 0.004) | Singular | `κ_S A` = 3.8e10 × 8.4e2 and 1.1e10 × 1.2e3 |
-| Cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496) | Mechanism | weak-axis translation below `1e-12` of the strong one |
+| Axis-aligned cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496) | Stable, solved | independent coupling components; tip rotation agrees with `PL²/2EI` |
+| Coupled oblique cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496), rotated by Euler angles `(0.3, 1.1, -0.7)` | Mechanism | weak translation in a coupled node block is unresolved |
 | One-layer solid-shell strip in pure bending, `t/L = 1e-3` | Singular | `κ_S A` = 5.9e12 × 4.3; its test allowed an error of 1e-3 there (its comment measured about 2e-4), against 1e-6 at `t/L = 0.01` |
 
 Thin quadratic shells (MITC9) of that slenderness are refused; MITC4 on the same strip is
@@ -501,3 +503,24 @@ engine output. Reproduce with `make shell` and run
 All other findings from the final review are tracked in
 [#1891](https://github.com/lambdaclass/stabileo/issues/1891), assigned to
 unbalancedparentheses and Batuis with label `cause:C`.
+
+### Load-session retry and final wording corrections
+
+A 3D load session first prepares with the initial loads removed. Its fallback used
+`Result::err().unwrap_or(original)`, which discarded a successful loaded retry and
+returned an error in either case. The fallback now retains the loaded preparation
+on success and returns the original error if that retry also fails. No numerical
+result is replaced by this correction: a previously discarded preparation is retained.
+The two `load_session::tests::issue_1753_*` regressions inject the initial failure;
+the success case then prepares the real `cantilever-3d-input.json` fixture and checks
+its displacements, reactions and member forces against the ordinary loaded solve.
+No natural model whose unloaded preparation fails and loaded preparation succeeds
+was identified: stiffness preparation is load-independent after validation.
+
+The #1496 table above records the actual component-based outcomes. The masking
+regression returns tip rotation `0.024999999999999988` against `PL²/2EI = 0.025`
+for the axis-aligned cantilever, including a separate stiff part. Its copy rotated
+by Euler angles `(0.3, 1.1, -0.7)` is refused as a Mechanism; an axis permutation
+still solves. Stable does not imply bit-identical historical responses: the PCG
+component correction measured above and sparse direct residual refinement can
+change displacements. The recorded corpus comparison has that narrower scope.
