@@ -14417,6 +14417,8 @@ const tr: Translations = {
   "knownIssue.TH-RECIPROCITY": "Doğrusal zaman tanım alanı analizi, karşılıklılık kontrollerinde 33 kata varan sapmalar göstermiştir. Etkilenen girdi sınıfı henüz belirlenmemiştir; tasarımdan önce bu tepkiyi bağımsız olarak doğrulayın",
   "knownIssue.RC-NM-PAIRING": "Bu kolon kontrolü bir kombinasyonun eksenel kuvvetini başka bir kombinasyonun momentiyle eşleştirir; bu, denge noktasının altında güvensiz olabilir. Kolonu belirtilen her kombinasyon altında kontrol edin.",
   "knownIssue.NL-DYNAMIC-GAPS": "Malzeme bakımından doğrusal olmayan analiz, yakınsamamış bir artımdan sonra devam edebilir; kiriş dinamiği, eğilmedeki dönme ataletini ihmal eder. Yakınsamayı ve yüksek kesitli elemanların tepkisini bağımsız olarak doğrulayın.",
+  "knownIssue.PL-3D-CERTIFICATE-MISMATCH": "Ham artımlı 3B plastik göçme yük katsayısı sertifikalı aralığın dışındadır. Döndürülen göçme yük katsayısı sertifikalı alt sınırdır. Artımlı adımlar ve mafsallar ham çözücü değerlerini korur ve bu aralık tarafından sertifikalandırılmamıştır.",
+  "plasticDiag.resourceBudget": "Kaynak bütçesi aşıldığı için plastik sertifikasyonu reddedildi",
   "knownIssue.PL-3D-INVARIANCE": "Eğri kirişlerin 3B plastik göçme yük katsayıları numaralandırmaya bağlı olabilir. Göçmeyi bağımsız olarak doğrulayın.",
   'clipboard.spaceInPlane': 'Kopya bir 3B modelden geliyor: buraya yapıştırmak için 2B\'de yeniden kopyalayın.',
   'sel.copyTitle': 'Seçimi kopyala (Ctrl+C)',

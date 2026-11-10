@@ -67,7 +67,7 @@ describe('known-issue warnings in the reader’s language', () => {
     expect(knownIssueMessage({ ...d, elementIds: [] })).toBe('ENGINE');
   });
 
-  it.skip('known wrong result: #1760 — describes the certified lower bound and uncertified raw steps in every offered language', async () => {
+  it('describes the certified lower bound and uncertified raw steps in every offered language', async () => {
     await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
     const warning = { code: 'known_issue', severity: 'warning', phase: 'PL-3D-CERTIFICATE-MISMATCH', value: 1760, message: 'ENGINE' };
     const clauses = {
@@ -82,13 +82,13 @@ describe('known-issue warnings in the reader’s language', () => {
       setLocale(loc);
       const disposition = knownIssueDisposition([warning]);
       expect(disposition.refused, loc).toBe(false);
-      expect(disposition.messages, loc).toEqual([`${dictFor(loc)['knownIssue.PL-3D-CERTIFICATE-MISMATCH']} (#1760)`]);
+      expect(disposition.messages, loc).toEqual([`${dictFor(loc)['knownIssue.PL-3D-CERTIFICATE-MISMATCH']} (#1760)\n${warning.message}`]);
       for (const clause of clauses[loc]) expect(disposition.messages[0], loc).toMatch(clause);
       expect(knownIssueRefusal(JSON.stringify({ structuredDiagnostics: [warning] })), loc).toBeNull();
     }
   });
 
-  it.skip('known wrong result: #1888 — translates the plastic resource-budget refusal and preserves its limit details', async () => {
+  it('translates the plastic resource-budget refusal and preserves its limit details', async () => {
     await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
     const prefix = 'exact plastic LP resource budget exceeded';
     const engine = readFileSync('../engine/src/certify/plastic_budget.rs', 'utf8');
@@ -98,7 +98,7 @@ describe('known-issue warnings in the reader’s language', () => {
       const sentence = dictFor(loc)['plasticDiag.resourceBudget'];
       expect(sentence, loc).toBeTruthy();
       if (loc !== 'en') expect(sentence, loc).not.toBe(dictFor('en')['plasticDiag.resourceBudget']);
-      for (const detail of ['dense storage bytes 2 > 1', 'exact workspace bytes 2 > 1', 'simplex workspace bytes 2 > 1 after reserving 1 retained bytes']) {
+      for (const detail of ['dense storage bytes 2 > 1', 'exact workspace bytes 2 > 1', 'rational limb bits 2 > 1', 'simplex workspace bytes 2 > 1 after reserving 1 retained bytes']) {
         expect(localizeEngineText(`${prefix}: ${detail}`), loc).toBe(`${sentence}: ${detail}`);
       }
     }
