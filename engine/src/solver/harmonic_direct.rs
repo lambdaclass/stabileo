@@ -198,6 +198,33 @@ mod tests {
         }
     }
 
+    fn coupled_static_closed_form(sparse: bool) {
+        let scale = 1e7;
+        let k = [scale + 1.0, scale, scale, scale + 1.0];
+        let m = [1.0, 0.0, 0.0, 1.0];
+        let expected = [(scale + 1.0) / (2.0 * scale + 1.0), -scale / (2.0 * scale + 1.0)];
+        let (re, im) = if sparse {
+            solve(&CscMatrix::from_dense_symmetric(&k, 2), &CscMatrix::from_dense_symmetric(&m, 2), &[1.0, 0.0], (0.0, 0.0), 0.0).unwrap()
+        } else {
+            solve_complex_system(&k, &m, &[0.0; 4], &[1.0, 0.0], 2, 0.0).unwrap()
+        };
+        for i in 0..2 {
+            assert!((re[i] - expected[i]).hypot(im[i]) <= 1e-10 * expected[i].abs(), "sparse={sparse}: {re:?} {im:?} vs {expected:?}");
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1539"]
+    fn dense_coupled_static_response_matches_closed_form() {
+        coupled_static_closed_form(false);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1539"]
+    fn sparse_coupled_static_response_matches_closed_form() {
+        coupled_static_closed_form(true);
+    }
+
     #[test]
     fn sparse_full_system_matches_dense_with_coupling_pivoting_and_resonance() {
         let k = [2.0, -1.0, 0.0, -1.0, 2.0, -1.0, 0.0, -1.0, 2.0];

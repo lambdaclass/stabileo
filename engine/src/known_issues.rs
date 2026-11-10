@@ -1343,6 +1343,12 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #1434"]
+    fn corrected_harmonic_truncation_is_retired_from_registry() {
+        assert!(!ENTRIES.iter().any(|entry| entry.issue == 1434));
+    }
+
+    #[test]
     fn known_issues_registry_and_ledger_agree() {
         let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
         let mut contained = std::collections::BTreeSet::new();
