@@ -68,15 +68,18 @@ impl LoadSession3D {
     }
 }
 impl LoadSession3D {
-    pub fn from_input(mut input: SolverInput3D) -> Result<LoadSession3D, String> {
+    pub fn from_input(input: SolverInput3D) -> Result<LoadSession3D, String> {
+        Self::from_input_with_prepare(input, prepare_static_3d)
+    }
+    fn from_input_with_prepare(mut input: SolverInput3D, mut prepare: impl FnMut(&SolverInput3D) -> Result<PreparedStatic3D, String>) -> Result<LoadSession3D, String> {
         crate::solver::linear::validate_input_3d(&input)?;
         let initial_loads = std::mem::take(&mut input.loads);
         let state = if input.constraints.is_empty() {
-            let prepared = match prepare_static_3d(&input) {
+            let prepared = match prepare(&input) {
                 Ok(prepared) => prepared,
                 Err(original) => {
                     input.loads = initial_loads;
-                    return Err(prepare_static_3d(&input).err().unwrap_or(original));
+                    return Err(prepare(&input).err().unwrap_or(original));
                 },
             };
             State3D::Prepared(Box::new(prepared))
@@ -94,5 +97,51 @@ impl LoadSession3D {
                 solve_3d(&input)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn loaded_beam() -> SolverInput3D {
+        serde_json::from_str(include_str!("../tests/fixtures/cantilever-3d-input.json")).unwrap()
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_loaded_prepare_success_is_retained_after_unloaded_failure() {
+        let input = loaded_beam();
+        assert!(!input.loads.is_empty());
+        let expected = prepare_static_3d(&input).unwrap().solve_loads(&input.loads).unwrap();
+        let mut attempts = 0;
+        let session = LoadSession3D::from_input_with_prepare(input.clone(), |candidate| {
+            attempts += 1;
+            if attempts == 1 {
+                assert!(candidate.loads.is_empty());
+                Err("unloaded preparation failed".into())
+            } else {
+                assert_eq!(serde_json::to_value(&candidate.loads).unwrap(), serde_json::to_value(&input.loads).unwrap());
+                prepare_static_3d(candidate)
+            }
+        }).unwrap();
+        assert_eq!(attempts, 2);
+        let actual = session.solve_loads(&input.loads).unwrap();
+        assert_eq!(serde_json::to_value(&actual.displacements).unwrap(), serde_json::to_value(&expected.displacements).unwrap());
+        assert_eq!(serde_json::to_value(&actual.reactions).unwrap(), serde_json::to_value(&expected.reactions).unwrap());
+        assert_eq!(serde_json::to_value(&actual.element_forces).unwrap(), serde_json::to_value(&expected.element_forces).unwrap());
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_failed_loaded_retry_preserves_original_error() {
+        let input = loaded_beam();
+        let mut attempts = 0;
+        let error = LoadSession3D::from_input_with_prepare(input, |candidate| {
+            attempts += 1;
+            Err(if candidate.loads.is_empty() { "original failure" } else { "retry failure" }.into())
+        }).err().unwrap();
+        assert_eq!(attempts, 2);
+        assert_eq!(error, "original failure");
     }
 }

@@ -30,3 +30,36 @@ it('keeps #1753 applicable to linear releases, springs, constraints and connecto
   }]] }, { analysesRun: ['linear'] });
   expect(conditionHolds(entry.when!, features)).toBe(true);
 });
+
+const repoText = (file: string) => readFileSync(new URL(`../../../../../${file}`, import.meta.url), 'utf8');
+
+it.skip('known wrong result: #1753: plain frame and truss mechanisms receive the linear re-check notice', () => {
+  for (const [name, mode, type] of [
+    ['spinning beam', '3d', 'frame'],
+    ['pin-jointed arch chain', '2d', 'truss'],
+    ['pin-jointed cable chain', '2d', 'cable'],
+  ]) {
+    const snapshot = {
+      analysisMode: mode,
+      elements: [[1, { id: 1, type, nodeI: 1, nodeJ: 2, materialId: 1 }],
+        [2, { id: 2, type, nodeI: 2, nodeJ: 3, materialId: 1 }]],
+      supports: [[1, { nodeId: 1, type: 'pinned' }], [3, { nodeId: 3, type: 'pinned' }]],
+    } as Parameters<typeof modelFeatures>[0];
+    expect(assessProject(snapshot, null, mode).changes.map((change) => change.id), name).toContain(entry.id);
+  }
+});
+
+it.skip('known wrong result: #1753: the #1496 tables distinguish independent and coupled directions', () => {
+  for (const file of ['docs/results-changes/2026-11-linear-stability-refusals.md', 'docs/solver/stability.md']) {
+    const rows = repoText(file).split('\n').filter((line) => line.startsWith('|') && line.includes('#1496'));
+    expect(rows.some((row) => /Axis-aligned cantilever/.test(row) && /\| Stable, solved \|/.test(row) && row.includes('PL²/2EI')), file).toBe(true);
+    expect(rows.some((row) => /Coupled oblique cantilever/.test(row) && /\| Mechanism \|/.test(row)), file).toBe(true);
+  }
+});
+
+it.skip('known wrong result: #1753: the changelog discloses corrected stable PCG responses and refinement', () => {
+  const text = repoText('changelog.d/linear-solvers-refuse-unstable-stiffness.md');
+  expect(text).not.toContain('Models that solved before and are stable give the same displacements');
+  expect(text).toMatch(/PCG[\s\S]*corrected components/);
+  expect(text).toContain('residual refinement');
+});
