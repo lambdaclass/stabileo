@@ -548,8 +548,7 @@ fn trapezoidal_and_partial_axial_span_loads_match_independent_ritz() {
     }
 }
 
-
-fn independent_span_plane(point: bool) -> [[f64; 2]; 2] {
+fn independent_span_plane(point: bool, asymmetric: bool) -> [[f64; 2]; 2] {
     let steps = 8192;
     let mut out = [[0.0; 2]; 2];
     for j in 0..=steps {
@@ -561,14 +560,17 @@ fn independent_span_plane(point: bool) -> [[f64; 2]; 2] {
         } else {
             4.0
         };
+        let location = if asymmetric { 0.25 } else { 0.5 };
         let compression = if point {
-            if t < 0.5 {
+            if t < location {
                 0.0
-            } else if t == 0.5 {
+            } else if t == location {
                 P / 2.0
             } else {
                 P
             }
+        } else if asymmetric {
+            P * (t + t * t) / 2.0
         } else {
             P * t
         };
@@ -582,11 +584,22 @@ fn independent_span_plane(point: bool) -> [[f64; 2]; 2] {
     out
 }
 
-#[test]
-fn force_kg_2d_integrates_span_loads_like_displacement_assembly() {
+fn check_force_and_displacement_kg_2d(point: bool, asymmetric: bool) {
     use dedaliano_engine::solver::{dof::DofNumbering, geometric_stiffness::*, linear::solve_2d};
-    for point in [false, true] {
-        let input = input_2d(1, point, 0.0);
+    {
+        let mut input = input_2d(1, point, 0.0);
+        if asymmetric {
+            for load in &mut input.loads {
+                match load {
+                    SolverLoad::PointOnElement(p) => p.a = L / 4.0,
+                    SolverLoad::AxialDistributed(q) => {
+                        q.q_i = P / (2.0 * L);
+                        q.q_j = 3.0 * P / (2.0 * L);
+                    }
+                    _ => {}
+                }
+            }
+        }
         let dofs = DofNumbering::build_2d(&input);
         let linear = solve_2d(&input).unwrap();
         let mut u = vec![0.0; dofs.n_total];
@@ -602,7 +615,7 @@ fn force_kg_2d_integrates_span_loads_like_displacement_assembly() {
         let force = build_kg_from_forces_2d(&input, &dofs, &linear.element_forces, &[])
             .into_csc()
             .to_dense_symmetric();
-        let want = independent_span_plane(point);
+        let want = independent_span_plane(point, asymmetric);
         let plane = [
             dofs.global_dof(2, 1).unwrap(),
             dofs.global_dof(2, 2).unwrap(),
@@ -611,7 +624,9 @@ fn force_kg_2d_integrates_span_loads_like_displacement_assembly() {
             for b in 0..2 {
                 let scale = P * L;
                 assert!(
-                    (dense[plane[a] * dofs.n_total + plane[b]] - want[a][b]).abs() <= 1e-10 * scale
+                    (dense[plane[a] * dofs.n_total + plane[b]] - want[a][b]).abs() <= 1e-10 * scale,
+                    "point {point}, asymmetric {asymmetric}, ({a},{b}): displacement {}, independent {}",
+                    dense[plane[a] * dofs.n_total + plane[b]], want[a][b]
                 );
                 assert!(
                     (force[plane[a] * dofs.n_free + plane[b]] - want[a][b]).abs() <= 1e-10 * scale,
@@ -624,17 +639,38 @@ fn force_kg_2d_integrates_span_loads_like_displacement_assembly() {
     }
 }
 
-#[test]
-fn force_kg_3d_integrates_span_loads_in_both_bending_planes() {
+fn check_force_and_displacement_kg_3d(point: bool, asymmetric: bool) {
     use dedaliano_engine::solver::{dof::DofNumbering, geometric_stiffness::*, linear::solve_3d};
-    for point in [false, true] {
-        let input = input_3d(1, 1, point);
+    {
+        let mut input = input_3d(1, 1, point);
+        if asymmetric {
+            for load in &mut input.loads {
+                match load {
+                    SolverLoad3D::PointOnElement(p) => p.a = L / 4.0,
+                    SolverLoad3D::Distributed(q) => {
+                        q.q_xi = P / (2.0 * L);
+                        q.q_xj = 3.0 * P / (2.0 * L);
+                    }
+                    _ => {}
+                }
+            }
+        }
         let dofs = DofNumbering::build_3d(&input);
         let linear = solve_3d(&input).unwrap();
+        let mut u = vec![0.0; dofs.n_total];
+        for d in &linear.displacements {
+            for (i, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].into_iter().enumerate() {
+                if let Some(k) = dofs.global_dof(d.node_id, i) {
+                    u[k] = value;
+                }
+            }
+        }
+        let mut dense = vec![0.0; dofs.n_total * dofs.n_total];
+        add_geometric_stiffness_3d(&input, &dofs, &u, &mut dense);
         let force = build_kg_from_forces_3d(&input, &dofs, &linear.element_forces)
             .into_csc()
             .to_dense_symmetric();
-        let want = independent_span_plane(point);
+        let want = independent_span_plane(point, asymmetric);
         for (trans, rot, sign) in [(1, 5, 1.0), (2, 4, -1.0)] {
             let plane = [
                 dofs.global_dof(2, trans).unwrap(),
@@ -643,6 +679,11 @@ fn force_kg_3d_integrates_span_loads_in_both_bending_planes() {
             for a in 0..2 {
                 for b in 0..2 {
                     let expected = want[a][b] * if a == b { 1.0 } else { sign };
+                    assert!(
+                        (dense[plane[a] * dofs.n_total + plane[b]] - expected).abs() <= 1e-10 * P * L,
+                        "point {point}, asymmetric {asymmetric}, plane {trans}, ({a},{b}): displacement {}, independent {expected}",
+                        dense[plane[a] * dofs.n_total + plane[b]]
+                    );
                     assert!(
                         (force[plane[a] * dofs.n_free + plane[b]] - expected).abs()
                             <= 1e-10 * P * L,
@@ -653,4 +694,42 @@ fn force_kg_3d_integrates_span_loads_in_both_bending_planes() {
             }
         }
     }
+}
+
+#[test]
+fn force_kg_2d_integrates_span_loads_like_displacement_assembly() {
+    for point in [false, true] {
+        check_force_and_displacement_kg_2d(point, false);
+    }
+}
+
+#[test]
+fn force_kg_3d_integrates_span_loads_in_both_bending_planes() {
+    for point in [false, true] {
+        check_force_and_displacement_kg_3d(point, false);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn force_and_displacement_kg_2d_off_centre_point_matches_independent_integral() {
+    check_force_and_displacement_kg_2d(true, true);
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn force_and_displacement_kg_2d_trapezoidal_matches_independent_integral() {
+    check_force_and_displacement_kg_2d(false, true);
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn force_and_displacement_kg_3d_off_centre_point_matches_independent_integral() {
+    check_force_and_displacement_kg_3d(true, true);
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn force_and_displacement_kg_3d_trapezoidal_matches_independent_integral() {
+    check_force_and_displacement_kg_3d(false, true);
 }
