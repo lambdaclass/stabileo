@@ -54,7 +54,7 @@ pub struct Setting {
 
 impl Setting {
     pub fn end_angles(&self) -> (f64, f64) {
-        (self.delta + self.theta, self.delta - self.theta)
+        (0.5 * self.delta + self.theta, 0.5 * self.delta - self.theta)
     }
 }
 

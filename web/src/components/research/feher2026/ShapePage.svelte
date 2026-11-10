@@ -20,6 +20,7 @@
 
   const s = $derived(shapeStrings());
   const shared = $derived(rs());
+  const fill = (template: string, values: Record<string, string>) => Object.entries(values).reduce((t, [k, v]) => t.replaceAll(`{${k}}`, v), template);
   const playback = new Playback(90);
   const replayRun = decodeRun(replay);
   let run = $state.raw<ShapeRun>(replayRun);
@@ -44,9 +45,14 @@
   const cells = $derived(Array.from({ length: run.elements }, (_, i) => [i, i + 1]).flat());
   const displacement = $derived(frame.ux.flatMap((u, i) => [u, frame.uz[i]]));
   const heightSeries = $derived([{ name: s.height, color: 'var(--rs-plot-ours)', points: run.frames.map((f, i) => [i, f.y_mid] as [number, number]) }]);
-  const ending = $derived(run.lost
-    ? s.lost.replace('{t}', num(run.lost.theta, { dp: 2 })).replace('{d}', num(run.lost.delta, { dp: 2 }))
-    : run.frames[run.frames.length - 1].y_mid < 0 ? s.inverted : s.back);
+  const ending = $derived.by(() => {
+    if (run.lost) return fill(s.lost, { t: num(run.lost.theta, { dp: 2 }), d: num(run.lost.delta, { dp: 2 }) });
+    if (run.snaps.length) {
+      const f = run.frames[run.snaps[0]];
+      return fill(s.jumped, { t: num(f.theta, { dp: 2 }), d: num(f.delta, { dp: 2 }) });
+    }
+    return run.frames[run.frames.length - 1].y_mid < 0 ? s.inverted : s.back;
+  });
 
   const thetaMax = $derived(Math.max(1.6, run.corner[0] + 0.1));
   const px = (theta: number) => 50 + ((theta - 0.9) / (thetaMax - 0.9)) * 236;
@@ -60,7 +66,6 @@
   }, []));
   const thetaTicks = $derived([1, 1.2, 1.4, 1.6].filter(t => t <= thetaMax));
 
-  const fill = (template: string, values: Record<string, string>) => Object.entries(values).reduce((t, [k, v]) => t.replaceAll(`{${k}}`, v), template);
   const scientific = (v: number) => {
     const exponent = Math.floor(Math.log10(Math.abs(v)));
     const sup = String(exponent).replace('-', '⁻').replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(c)]);
@@ -152,7 +157,7 @@
     <h2>{s.runHeading}</h2>
     <p>{fill(s.runText, { start: num(replayRun.frames[0].y_mid, { dp: 3 }), end: num(replayRun.frames[replayRun.frames.length - 1].y_mid, { dp: 3 }) })}</p>
     <p>{s.cusp}</p>
-    <p><ExperimentLink params={{ theta: 1.3, delta: 0.4 }}>{s.tryBelow}</ExperimentLink> · <ExperimentLink params={{ theta: 1.1, delta: 1.3 }}>{s.tryFold}</ExperimentLink></p>
+    <p><ExperimentLink params={{ theta: 1.3, delta: 0.6 }}>{s.tryBelow}</ExperimentLink> · <ExperimentLink params={{ theta: 1.05, delta: 1.3 }}>{s.tryFold}</ExperimentLink></p>
     <h2>{s.limitsHeading}</h2>
     <p>{s.limits}</p>
     <h2 id="checks">{s.checksHeading}</h2>
