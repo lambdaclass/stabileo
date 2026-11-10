@@ -443,7 +443,11 @@ fn omitted_spring_frequencies() -> Vec<f64> {
 }
 
 fn compare_omitted_spring(result: &HarmonicResult, damping: (f64, f64)) {
+    let requested = omitted_spring_frequencies();
+    assert_eq!(result.response_points.len(), requested.len());
+    assert_eq!(result.response_points.iter().map(|p| p.frequency).collect::<Vec<_>>(), requested);
     assert_eq!(result.method, HarmonicMethod::Direct);
+    assert!(result.warnings.is_empty(), "{:?}", result.warnings);
     let mut peak = (0.0f64, 0.0f64);
     let d = Dense { k: vec![1.0, 0.0, 0.0, 10000.0], m: vec![1.0, 0.0, 0.0, 1.0], f: vec![1.0, 1e-4], n: 2, target: 1 };
     for pt in &result.response_points {
@@ -501,7 +505,6 @@ fn harmonic_3d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form()
 }
 
 #[test]
-#[ignore = "known wrong result: #1922"]
 fn omitted_spring_comparison_rejects_incomplete_direct_responses() {
     let damping = (0.0, 1.0);
     let d = Dense { k: vec![1.0, 0.0, 0.0, 10000.0], m: vec![1.0, 0.0, 0.0, 1.0], f: vec![1.0, 1e-4], n: 2, target: 1 };

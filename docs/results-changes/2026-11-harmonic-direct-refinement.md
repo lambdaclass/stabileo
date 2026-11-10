@@ -48,7 +48,9 @@ is floored at one, and retains the existing pivot cutoff. Rounding upward can
 only make that cutoff more conservative. A non-finite scale refuses the solve.
 Two refinement steps use compensated residuals, including fused-multiply-add
 product remainders, evaluated against the unscaled dynamic matrix. Each correction
-reuses the same factors; non-finite corrections or final responses refuse. Generic
+reuses the same factors; non-finite corrections or final responses refuse. The
+final compensated residual must also satisfy the harmonic residual tolerance;
+see the [convergence correction](2026-11-harmonic-direct-residual-convergence.md). Generic
 LU callers outside harmonic analysis are unchanged.
 
 The sparse factorization retains its lower factors for correction solves. Its

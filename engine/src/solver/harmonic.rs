@@ -791,6 +791,10 @@ fn resolve_unbounded_frequencies(
     }
     result.peak_frequency = peak_freq;
     result.peak_amplitude = peak_amp;
+    result.direct_frequencies = direct.iter().map(|&i| result.response_points[i].frequency).collect();
+    if uncorrected.iter().all(|f| result.direct_frequencies.contains(f)) {
+        result.warnings.retain(|w| !w.starts_with(UNCORRECTED_WARNING));
+    }
     if direct.len() == result.response_points.len() {
         return Ok((HarmonicResult {
             method: HarmonicMethod::Direct,
@@ -801,10 +805,6 @@ fn resolve_unbounded_frequencies(
             warnings: Vec::new(),
             ..result
         }, (a0, a1)));
-    }
-    result.direct_frequencies = direct.iter().map(|&i| result.response_points[i].frequency).collect();
-    if uncorrected.iter().all(|f| result.direct_frequencies.contains(f)) {
-        result.warnings.retain(|w| !w.starts_with(UNCORRECTED_WARNING));
     }
     result.warnings.push(format!(
         "{} frequenc{} where the modes do not bound the truncation error (q over {MODAL_TRUNCATION_Q}) {} solved directly",
@@ -918,7 +918,7 @@ pub fn solve_complex_system(
     let pivots = lu_factor(&mut a, n2).ok_or_else(|| "Complex system solve failed".to_string())?;
     let mut result = lu_apply(&a, &pivots, &rhs, n2).ok_or_else(|| "Complex system solve failed".to_string())?;
     for (value, scale) in result.iter_mut().zip(&scales) { *value /= scale; }
-    for _ in 0..2 {
+    for step in 0..=2 {
         let mut residual = vec![0.0; n2];
         for i in 0..n {
             let mut re = super::harmonic_direct::Residual::new(f[i]);
@@ -933,6 +933,10 @@ pub fn solve_complex_system(
             }
             residual[i] = re.value();
             residual[n + i] = im.value();
+        }
+        if step == 2 {
+            super::harmonic_direct::require_residual_convergence(&residual, &rhs)?;
+            break;
         }
         let correction = lu_apply(&a, &pivots, &residual, n2).ok_or_else(|| "Complex system refinement failed".to_string())?;
         for i in 0..n2 { result[i] += correction[i] / scales[i]; }

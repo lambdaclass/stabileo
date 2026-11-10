@@ -139,7 +139,7 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
     let pivots = system.factor()?;
     let mut x = system.apply(&pivots, &rhs)?;
     for (value, scale) in x.iter_mut().zip(&scales) { *value /= scale; }
-    for _ in 0..2 {
+    for step in 0..=2 {
         let mut residual: Vec<Residual> = rhs.iter().copied().map(Residual::new).collect();
         dynamic_entries(k, m, (a0, a1), omega, |i, j, real, imag, _| {
             for (i, j) in [(i, j), (j, i)].into_iter().take(if i == j { 1 } else { 2 }) {
@@ -152,6 +152,10 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
             Ok(())
         })?;
         let residual: Vec<f64> = residual.into_iter().map(Residual::value).collect();
+        if step == 2 {
+            require_residual_convergence(&residual, &rhs)?;
+            break;
+        }
         let correction = system.apply(&pivots, &residual)?;
         for i in 0..2 * n { x[i] += correction[i] / scales[i]; }
     }
@@ -176,6 +180,25 @@ fn dynamic_entries(k: &CscMatrix, m: &CscMatrix, (a0, a1): (f64, f64), omega: f6
             let (kc, mc) = (omega * a1 * kv, omega * a0 * mv);
             visit(i, j, kv - inertia, kc + mc, kv.abs().max(inertia.abs()).max(kc.abs()).max(mc.abs()))?;
         }
+    }
+    Ok(())
+}
+
+pub(super) fn require_residual_convergence(residual: &[f64], rhs: &[f64]) -> Result<(), String> {
+    if residual.iter().chain(rhs).any(|v| !v.is_finite()) {
+        return Err("Harmonic direct refinement produced a non-finite residual or load".into());
+    }
+    let scale = rhs.iter().fold(0.0_f64, |s, v| s.max(v.abs()));
+    let relative = if scale == 0.0 {
+        if residual.iter().all(|&v| v == 0.0) { 0.0 } else { f64::INFINITY }
+    } else {
+        let r_norm = residual.iter().fold(0.0_f64, |s, v| s.hypot(v / scale));
+        let f_norm = rhs.iter().fold(0.0_f64, |s, v| s.hypot(v / scale));
+        r_norm / f_norm
+    };
+    let tolerance = super::harmonic::MODAL_RESIDUAL_TOL;
+    if !(relative <= tolerance) {
+        return Err(format!("Harmonic direct refinement did not converge: relative residual {relative:.3e} exceeds {tolerance:.0e}"));
     }
     Ok(())
 }
@@ -240,13 +263,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1922"]
     fn dense_singular_arrowhead_with_roundoff_pivot_is_refused() {
         singular_arrowhead(false);
     }
 
     #[test]
-    #[ignore = "known wrong result: #1922"]
     fn sparse_singular_arrowhead_with_roundoff_pivot_is_refused() {
         singular_arrowhead(true);
     }

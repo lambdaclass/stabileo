@@ -35,8 +35,8 @@ residual refusal and truncation threshold remain unchanged.
 Both full harmonic paths now scale each block column by the maximum of its
 stiffness, inertia and damping contributions before elimination. This retains
 the existing 1e-14 pivot cutoff on dimensionless columns, with scale floored at
-1 so the former absolute refusal is never relaxed. The dense path still uses
-`lu_solve`; other callers of that generic LU routine are unchanged. Scaling
+1 so the former absolute refusal is never relaxed. The dense path uses
+`lu_factor` and `lu_apply`; callers of the generic `lu_solve` routine are unchanged. Scaling
 before LU makes its pivot criterion relative to the physical contributions,
 including when K and omega² M nearly cancel. The sparse path applies the same
 policy. A structural-scale undamped resonance previously returned huge finite
@@ -74,3 +74,9 @@ An unknown legacy stamp still receives this notice because harmonic runs were no
 recorded; a stamp that records all analysis kinds and only ran linear analysis
 does not. This consolidates two entries from the unmerged PR without hiding a
 possible earlier harmonic run or changing any engine result.
+
+## Refusal when direct refinement does not converge
+
+Direct solves also require their final compensated load residual to converge after
+refinement. See the [residual-convergence evidence](2026-11-harmonic-direct-residual-convergence.md).
+This correction shares the same harmonic registration and re-check scope.
