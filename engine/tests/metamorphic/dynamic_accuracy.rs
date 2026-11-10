@@ -101,8 +101,9 @@ struct Pencil {
 }
 
 fn single_mode_fallback(modes: &EigenResult) -> bool {
-    modes
-        .values
+    let mut values = modes.values.clone();
+    values.sort_by(f64::total_cmp);
+    values
         .iter()
         .take(2)
         .filter(|l| l.is_finite() && **l > 1e-10)
@@ -576,7 +577,6 @@ fn singular_mass_excludes_resolved_subcutoff_modes_only_from_anchors() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn round_two_uncertain_second_inverse_anchor_is_unbounded() {
     let mut accuracy = HarmonicAccuracy {
         forward: None,
@@ -780,7 +780,6 @@ fn final_review_nonfinite_scaled_harmonic_floors_are_unbounded() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn single_mode_fallback_uses_the_two_lowest_eigenvalues_in_any_order() {
     for (values, expected) in [
         ([5e-11, 1.0, 4.0], true),
