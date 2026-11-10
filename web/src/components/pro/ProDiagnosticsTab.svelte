@@ -112,12 +112,14 @@
   /** What the list below does not already show: the analysis's own checks and the design. */
   const ownLines = $derived(postAnalysisLines({ ...postInput, diagnostics: [] }, tp as never));
   const notice = $derived(resultsStore.knownIssues3D);
-  const extraAnalysis = $derived([
-    ...notice.messages.map((text): PostAnalysisLine => ({ part: 'analysis', severity: notice.refused ? 'error' : 'warning', text })),
-    ...partLines(ownLines, 'analysis'),
-  ]);
+  const noticeLines = $derived(notice.messages.map((text): PostAnalysisLine => ({ part: 'analysis', severity: notice.refused ? 'error' : 'warning', text })));
+  const extraAnalysis = $derived([...noticeLines, ...partLines(ownLines, 'analysis')]);
   const designLines = $derived(partLines(ownLines, 'design'));
-  const postLines = (): PostAnalysisLine[] => postAnalysisLines({ ...postInput, diagnostics: allDiagnostics }, tp as never);
+  const postLines = (): PostAnalysisLine[] => {
+    const lines = postAnalysisLines({ ...postInput, diagnostics: allDiagnostics }, tp as never);
+    const at = lines.findIndex((l) => l.part === 'analysis');
+    return at < 0 ? [...lines, ...noticeLines] : [...lines.slice(0, at), ...noticeLines, ...lines.slice(at)];
+  };
 
   function selectLine(l: PostAnalysisLine) {
     if (!l.selection) return;

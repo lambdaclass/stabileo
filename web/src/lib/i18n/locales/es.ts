@@ -14769,8 +14769,7 @@ const es: Record<string, string> = {
   "rcSheets.v.colSpliceC": "Empalme por compresión en la base del piso",
   "rcSheets.v.colSpliceT": "Empalme por tracción (clase B) en la base del piso",
   "rcSheets.v.colOffset": "La sección cambia más de 7,5 cm por cara: pasadores separados",
-  "rcSheets.wallsToMesh": "{n} tabiques se van a mallar en el próximo cálculo para resolver su momento en el plano.",
-  "rcSheets.resolve": "Calcular de nuevo",
+  "rcSheets.wallsToMesh": "{n} tabiques no tienen malla o son un solo elemento: la planilla de tabiques necesita su malla de 0,5 m para resolver el momento en el plano.",
   "rcSheets.line.runs": "Barras corridas",
   "rcSheets.line.runBottom": "Corrida inferior",
   "rcSheets.line.runTop": "Corrida superior",
@@ -14927,7 +14926,6 @@ const es: Record<string, string> = {
   "rcSheets.basis.none": "No hay resultados para diseñar.",
   "rcSheets.solveFirst": "Calculá el modelo para ver las planillas.",
   "rcSheets.noPhysical": "Las planillas se arman por elemento físico (viga continua, columna, losa) y el modelo todavía no los tiene.",
-  "rcSheets.recognize": "Reconocer los elementos físicos",
   "rcSheets.empty.beam": "No hay vigas de hormigón con sección rectangular.",
   "rcSheets.empty.column": "No hay columnas de hormigón con sección rectangular.",
   "rcSheets.empty.slab": "No hay losas con placas y espesor definido.",
@@ -15026,5 +15024,6 @@ const es: Record<string, string> = {
   "rcSheets.s.muSlab": "Momento de diseño",
   "rcSheets.s.sMax": "Separación máxima",
   "rcSheets.s.verifySlab": "Verificación con lo adoptado",
+  "rcSheets.meshWalls": "Mallar los tabiques y calcular",
 };
 export default es;

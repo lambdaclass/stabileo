@@ -14619,8 +14619,7 @@ const de: Translations = {
   "rcSheets.v.colSpliceC": "Druckstoß am Geschossfuß",
   "rcSheets.v.colSpliceT": "Zugstoß (Klasse B) am Geschossfuß",
   "rcSheets.v.colOffset": "Querschnittssprung über 7,5 cm je Seite: eigene Anschlussstäbe",
-  "rcSheets.wallsToMesh": "{n} Wände werden bei der nächsten Berechnung vernetzt, um ihr Moment in der Ebene zu bestimmen.",
-  "rcSheets.resolve": "Neu berechnen",
+  "rcSheets.wallsToMesh": "{n} Wände haben kein Netz oder bestehen aus einem einzigen Element: Die Wandtabellen brauchen ein Netz von 0,5 m, um das Moment in der Ebene zu bestimmen.",
   "rcSheets.line.runs": "Durchlaufende Stäbe",
   "rcSheets.line.runBottom": "Unten durchlaufend",
   "rcSheets.line.runTop": "Oben durchlaufend",
@@ -14777,7 +14776,6 @@ const de: Translations = {
   "rcSheets.basis.none": "Es gibt keine Ergebnisse für die Bemessung.",
   "rcSheets.solveFirst": "Berechnen Sie das Modell, um die Tabellen zu sehen.",
   "rcSheets.noPhysical": "Die Tabellen werden pro physischem Bauteil aufgebaut (Durchlaufträger, Stütze, Platte), und das Modell hat noch keine.",
-  "rcSheets.recognize": "Physische Bauteile erkennen",
   "rcSheets.empty.beam": "Es gibt keine Betonbalken mit Rechteckquerschnitt.",
   "rcSheets.empty.column": "Es gibt keine Betonstützen mit Rechteckquerschnitt.",
   "rcSheets.empty.slab": "Es gibt keine Platten mit Schalenelementen und festgelegter Dicke.",
@@ -14876,6 +14874,7 @@ const de: Translations = {
   "rcSheets.s.muSlab": "Bemessungsmoment",
   "rcSheets.s.sMax": "Größter Abstand",
   "rcSheets.s.verifySlab": "Nachweis mit der gewählten Bewehrung",
+  "rcSheets.meshWalls": "Wände vernetzen und berechnen",
 };
 
 export default de;

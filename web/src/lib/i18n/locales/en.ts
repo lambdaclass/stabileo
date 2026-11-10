@@ -14780,8 +14780,7 @@ const en: Record<string, string> = {
   "rcSheets.v.colSpliceC": "Compression splice at the storey base",
   "rcSheets.v.colSpliceT": "Tension splice (class B) at the storey base",
   "rcSheets.v.colOffset": "The section steps more than 7.5 cm per face: separate dowels",
-  "rcSheets.wallsToMesh": "{n} walls will be meshed by the next solve to resolve their in-plane moment.",
-  "rcSheets.resolve": "Solve again",
+  "rcSheets.wallsToMesh": "{n} walls have no mesh or are a single element: the wall sheets need them meshed at 0.5 m to resolve the in-plane moment.",
   "rcSheets.line.runs": "Continuous bars",
   "rcSheets.line.runBottom": "Bottom run",
   "rcSheets.line.runTop": "Top run",
@@ -14938,7 +14937,6 @@ const en: Record<string, string> = {
   "rcSheets.basis.none": "There are no results to design with.",
   "rcSheets.solveFirst": "Solve the model to see the sheets.",
   "rcSheets.noPhysical": "The sheets are built per physical member (continuous beam, column, slab), and the model has none yet.",
-  "rcSheets.recognize": "Recognize physical members",
   "rcSheets.empty.beam": "There are no concrete beams with a rectangular section.",
   "rcSheets.empty.column": "There are no concrete columns with a rectangular section.",
   "rcSheets.empty.slab": "There are no slabs with shells and a set thickness.",
@@ -15037,5 +15035,6 @@ const en: Record<string, string> = {
   "rcSheets.s.muSlab": "Design moment",
   "rcSheets.s.sMax": "Maximum spacing",
   "rcSheets.s.verifySlab": "Check with the adopted bars",
+  "rcSheets.meshWalls": "Mesh the walls and solve",
 };
 export default en;

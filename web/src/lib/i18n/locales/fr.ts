@@ -14619,8 +14619,7 @@ const fr: Translations = {
   "rcSheets.v.colSpliceC": "Recouvrement en compression à la base de l'étage",
   "rcSheets.v.colSpliceT": "Recouvrement en traction (classe B) à la base de l'étage",
   "rcSheets.v.colOffset": "La section change de plus de 7,5 cm par face : attentes séparées",
-  "rcSheets.wallsToMesh": "{n} voiles seront maillés au prochain calcul pour résoudre leur moment dans le plan.",
-  "rcSheets.resolve": "Recalculer",
+  "rcSheets.wallsToMesh": "{n} voiles n'ont pas de maillage ou sont un seul élément : les feuilles de voiles ont besoin d'un maillage de 0,5 m pour résoudre le moment dans le plan.",
   "rcSheets.line.runs": "Barres filantes",
   "rcSheets.line.runBottom": "Filante inférieure",
   "rcSheets.line.runTop": "Filante supérieure",
@@ -14777,7 +14776,6 @@ const fr: Translations = {
   "rcSheets.basis.none": "Il n'y a pas de résultats pour dimensionner.",
   "rcSheets.solveFirst": "Calculez le modèle pour voir les feuilles.",
   "rcSheets.noPhysical": "Les feuilles se construisent par élément physique (poutre continue, poteau, dalle), et le modèle n'en a pas encore.",
-  "rcSheets.recognize": "Reconnaître les éléments physiques",
   "rcSheets.empty.beam": "Il n'y a pas de poutres en béton à section rectangulaire.",
   "rcSheets.empty.column": "Il n'y a pas de poteaux en béton à section rectangulaire.",
   "rcSheets.empty.slab": "Il n'y a pas de dalles avec coques et épaisseur définie.",
@@ -14876,6 +14874,7 @@ const fr: Translations = {
   "rcSheets.s.muSlab": "Moment de calcul",
   "rcSheets.s.sMax": "Espacement maximal",
   "rcSheets.s.verifySlab": "Vérification avec l'adopté",
+  "rcSheets.meshWalls": "Mailler les voiles et calculer",
 };
 
 export default fr;

@@ -1,6 +1,7 @@
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
+import { clearPlateMesh, physicalPlates, plateShellKeys, plateStatus, setPlateMeshSpec } from './physical-plates';
 import { designData, patchOwnDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
@@ -170,6 +171,40 @@ function cached<D extends object, R extends SheetRow>(demand: D, inputs: unknown
   if (m.size > 4) m.clear();
   m.set(k, row);
   return row;
+}
+
+/** The element size the wall sheets read a wall's in-plane moment at, m. */
+export const WALL_MESH_SIZE = 0.5;
+
+const loadedByHand = (key: string) => modelStore.loads.some((l) => (l.type === 'surface3d' || l.type === 'thermalQuad3d')
+  && `${(l.data as { on?: string }).on === 'plate' ? 'p' : 'q'}${(l.data as { quadId: number }).quadId}` === key && (l.data as { fromDef?: number }).fromDef === undefined);
+
+/**
+ * The walls the sheets cannot read yet: with no mesh or an out-of-date one, or whole as one element
+ * (a storey-high quad has no in-plane moment to speak of), unless a load put on that element by hand
+ * would be lost with it.
+ */
+export function wallsToMeshForSheets(): number[] {
+  return physicalPlates().filter((p) => {
+    if (p.physical.kind !== 'wall') return false;
+    if (plateStatus(p.id) !== 'current') return true;
+    const keys = plateShellKeys(p.id);
+    return keys.length === 1 && !loadedByHand(keys[0]!);
+  }).map((p) => p.id);
+}
+
+/** Those walls given a mesh of `WALL_MESH_SIZE` at most, which the next solve puts in. One undo step; how many. */
+export function meshWallsForSheets(): number {
+  const ids = wallsToMeshForSheets();
+  if (!ids.length) return 0;
+  modelStore.batch(() => {
+    for (const id of ids) {
+      const e = physicalPlates().find((p) => p.id === id);
+      if (e && e.surface.mesh.size > WALL_MESH_SIZE) setPlateMeshSpec([id], { size: WALL_MESH_SIZE });
+      if (plateShellKeys(id).length === 1) clearPlateMesh(id);
+    }
+  });
+  return ids.length;
 }
 
 export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {

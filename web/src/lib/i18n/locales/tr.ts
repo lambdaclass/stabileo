@@ -14619,8 +14619,7 @@ const tr: Translations = {
   "rcSheets.v.colSpliceC": "Kat tabanında basınç bindirmesi",
   "rcSheets.v.colSpliceT": "Kat tabanında çekme bindirmesi (B sınıfı)",
   "rcSheets.v.colOffset": "Kesit yüz başına 7,5 cm'den fazla değişiyor: ayrı filiz",
-  "rcSheets.wallsToMesh": "{n} perde düzlem içi momentleri için bir sonraki hesapta ağlanacak.",
-  "rcSheets.resolve": "Yeniden hesapla",
+  "rcSheets.wallsToMesh": "{n} perdenin ağı yok veya tek bir elemandan oluşuyor: perde tabloları düzlem içi momenti çözmek için 0,5 m ağa ihtiyaç duyar.",
   "rcSheets.line.runs": "Sürekli çubuklar",
   "rcSheets.line.runBottom": "Alt sürekli",
   "rcSheets.line.runTop": "Üst sürekli",
@@ -14777,7 +14776,6 @@ const tr: Translations = {
   "rcSheets.basis.none": "Tasarım için sonuç yok.",
   "rcSheets.solveFirst": "Tabloları görmek için modeli çözün.",
   "rcSheets.noPhysical": "Tablolar fiziksel eleman başına kurulur (sürekli kiriş, kolon, döşeme) ve modelde henüz yok.",
-  "rcSheets.recognize": "Fiziksel elemanları tanı",
   "rcSheets.empty.beam": "Dikdörtgen kesitli betonarme kiriş yok.",
   "rcSheets.empty.column": "Dikdörtgen kesitli betonarme kolon yok.",
   "rcSheets.empty.slab": "Kabuk elemanlı ve kalınlığı tanımlı döşeme yok.",
@@ -14876,6 +14874,7 @@ const tr: Translations = {
   "rcSheets.s.muSlab": "Tasarım momenti",
   "rcSheets.s.sMax": "Maksimum aralık",
   "rcSheets.s.verifySlab": "Seçilenle kontrol",
+  "rcSheets.meshWalls": "Perdeleri ağla ve hesapla",
 };
 
 export default tr;

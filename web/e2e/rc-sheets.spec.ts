@@ -16,7 +16,10 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await page.getByTestId('pr-stage-analyse').click();
   await page.getByTestId('pr-cmd-rcSheets').click();
   await expect(page.getByTestId('rc-sheets-panel')).toBeVisible();
-  await page.getByTestId('rc-recognize').click();
+  // The physical elements are already read; the walls, one element a storey, are meshed for the sheets.
+  await expect(page.getByTestId('rc-recognize')).toHaveCount(0);
+  await page.getByTestId('rc-mesh-walls').click();
+  await expect(page.getByTestId('rc-mesh-walls')).toHaveCount(0, { timeout: 120_000 });
 
   await expect(page.getByTestId('rc-open-beam')).toBeEnabled({ timeout: 60_000 });
   await expect(page.getByTestId('rc-open-column')).toBeEnabled();

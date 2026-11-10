@@ -14421,8 +14421,7 @@ const pt: Translations = {
   "rcSheets.v.colSpliceC": "Emenda por compressão na base do pavimento",
   "rcSheets.v.colSpliceT": "Emenda por tração (classe B) na base do pavimento",
   "rcSheets.v.colOffset": "A seção muda mais de 7,5 cm por face: arranques separados",
-  "rcSheets.wallsToMesh": "{n} paredes serão malhadas no próximo cálculo para resolver o momento no plano.",
-  "rcSheets.resolve": "Calcular de novo",
+  "rcSheets.wallsToMesh": "{n} paredes não têm malha ou são um único elemento: a planilha de paredes precisa da malha de 0,5 m para resolver o momento no plano.",
   "rcSheets.line.runs": "Barras corridas",
   "rcSheets.line.runBottom": "Corrida inferior",
   "rcSheets.line.runTop": "Corrida superior",
@@ -14579,7 +14578,6 @@ const pt: Translations = {
   "rcSheets.basis.none": "Não há resultados para dimensionar.",
   "rcSheets.solveFirst": "Calcule o modelo para ver as planilhas.",
   "rcSheets.noPhysical": "As planilhas são montadas por elemento físico (viga contínua, pilar, laje), e o modelo ainda não os tem.",
-  "rcSheets.recognize": "Reconhecer os elementos físicos",
   "rcSheets.empty.beam": "Não há vigas de concreto com seção retangular.",
   "rcSheets.empty.column": "Não há pilares de concreto com seção retangular.",
   "rcSheets.empty.slab": "Não há lajes com placas e espessura definida.",
@@ -14678,5 +14676,6 @@ const pt: Translations = {
   "rcSheets.s.muSlab": "Momento de cálculo",
   "rcSheets.s.sMax": "Espaçamento máximo",
   "rcSheets.s.verifySlab": "Verificação com o adotado",
+  "rcSheets.meshWalls": "Malhar as paredes e calcular",
 };
 export default pt;
