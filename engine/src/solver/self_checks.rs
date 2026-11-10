@@ -240,6 +240,32 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #759"]
+    fn issue_759_repeated_eigenvectors_need_a_basis_accuracy_check() {
+        let mut checks = ModalChecks::default();
+        let first = [1.0, 0.0];
+        let second = [1e-5, 1.0];
+        checks.check(&first, 1.0, &first, &first).unwrap();
+        let result = checks.check(&second, 1.0, &second, &second);
+        assert!(matches!(result, Err(ref e) if e.contains("modal_orthogonality")), "non-orthogonal exact eigenvectors accepted: {result:?}");
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #759"]
+    fn issue_759_orthogonality_diagnostic_measures_the_whole_gram_matrix() {
+        let mut checks = ModalChecks::default();
+        let first = [1.0, 0.0, 0.0];
+        let second = [1e-12, 1.0, 0.0];
+        let third = [1e-12, 1e-12, 1.0];
+        for phi in [&first, &second, &third] {
+            checks.check(phi, 1.0, phi, phi).unwrap();
+        }
+        let measured = checks.diagnostics.last().unwrap().value.unwrap();
+        let expected = (6.0_f64).sqrt() * 1e-12;
+        assert!((measured / expected - 1.0).abs() < 1e-10, "Gram Frobenius norm {measured:e}, expected {expected:e}");
+    }
+
+    #[test]
     fn self_checks_corrupted_mode_and_duplicate_mode() {
         let mut c = ModalChecks::default();
         c.check(&[1.0,0.0], 2.0, &[2.0,0.0], &[1.0,0.0]).unwrap();
