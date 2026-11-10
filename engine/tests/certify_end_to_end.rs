@@ -343,7 +343,6 @@ fn issue_1780_stable_3d_elastic_supports_explicitly_release_the_spring_dof() {
 }
 
 #[test]
-#[ignore = "known wrong result: #417"]
 fn linear_certificate_generators_preserve_linear_member_scope() {
     for seed in 0..16 {
         let plane = e2e_models::stable_2d(seed);

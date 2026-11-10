@@ -31,7 +31,7 @@ These are measured outputs of the retained fixtures, not a maximum error or a co
 
 Check for members set to **Cable**, then identify how the results were produced. Review results from advanced analyses, direct analysis and teaching wizards rather than assuming a regular Solve result and an advanced result enforce the same cable behaviour. A negative axial force on a cable with no pretension is a direct symptom. Pretensioned, tensile and unloaded cases also need review: a positive force in one state does not establish correct slackening in other states or dynamics.
 
-The re-check registry conservatively flags all projects: its feature taxonomy has no cable/contact selector. The advisory applies to the cable paths described here; the registry also covers the separate contact correction in PR #1921.
+The re-check registry flags models with cable members or contact features, including one-way members, gap/surface pairs and uplift supports. Ordinary frame, truss and shell models without those features are excluded. This advisory applies to the cable paths described here; the registry also covers the separate contact correction in PR #1921.
 
 ## Fixed in
 

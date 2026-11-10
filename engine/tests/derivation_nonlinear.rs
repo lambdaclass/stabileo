@@ -989,7 +989,6 @@ fn nl_contact_review_frozen_bearing_obeys_penalty_hand_formula_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #432"]
 fn nl_contact_review_frozen_surface_uses_final_normal() {
     let mut input = bearing_surface_2d();
     input.solver.supports.remove("3");
@@ -1014,5 +1013,8 @@ fn nl_contact_review_frozen_surface_uses_final_normal() {
     assert_eq!(pair.status, "closed");
     assert!(gap < 0.0);
     close(pair.gap, gap, 1e-10, "gap on the final rotated master");
+    let reaction = result.results.reactions.iter().find(|r| r.node_id == 3).unwrap();
+    let tangent_force = (reaction.rx * dx + reaction.rz * dz) / length;
+    assert!((tangent_force.abs() - pair.friction_force.abs()).abs() > input.node_to_surface_pairs[0].stiffness * input.tolerance.unwrap());
     assert!(pair.normal_force >= -input.node_to_surface_pairs[0].stiffness * gap);
 }

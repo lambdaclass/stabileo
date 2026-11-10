@@ -169,7 +169,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     || s.gapElements?.length || s.nodeToSurfacePairs?.length || s.upliftSupports?.length) f.add('contactElements');
   let steel = 0, concrete = 0, steelWithoutConnection = 0, steelDeclaredLb = 0, steelChainEnd = 0;
   for (const e of elements) {
-    if (e.type === 'truss') f.add('trussMembers'); else f.add('frameMembers');
+    if (e.type === 'truss' || e.type === 'cable') f.add('trussMembers');
+    else if (e.type === 'frame') f.add('frameMembers');
     if (hasRelease(e.releaseI) || hasRelease(e.releaseJ) || e.semiRigid) { f.add('hinges'); if (e.type !== 'truss') released.add(e.id); }
     if (e.type !== 'truss' && e.sectionId !== undefined && sheared.has(e.sectionId)) f.add('shearAreas');
     if (e.arc) f.add('arcMembers');

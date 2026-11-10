@@ -1281,7 +1281,8 @@ mod tests {
         let error = crate::solver::linear::solve_2d(&plane).unwrap_err();
         let error: serde_json::Value = serde_json::from_str(&error).unwrap();
         assert_eq!(error["structuredDiagnostics"][0]["code"], "cable_analysis_required");
-        assert!(crate::solver::linear::validate_input_2d_for_analysis(&plane, Analysis::Cable).is_err());
+        let error = crate::solver::linear::validate_input_2d_for_analysis(&plane, Analysis::Cable).unwrap_err();
+        assert_eq!(error, crate::solver::linear::refuse_moments_without_rotation_2d(&plane, &plane.loads).unwrap_err());
         plane.loads.clear();
         assert!(crate::solver::linear::validate_input_2d_for_analysis(&plane, Analysis::Cable).is_ok());
         let mut space = input3();

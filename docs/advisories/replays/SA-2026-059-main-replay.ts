@@ -1,3 +1,4 @@
+import oracle from '../../../../../docs/advisories/replays/SA-2026-059.json';
 import { beforeEach, expect, it } from 'vitest';
 import { modelStore, uiStore } from '../../store';
 import { historyStore } from '../../store/history.svelte';
@@ -36,7 +37,14 @@ function record(path: string, r: any, cable: number) {
     }
   }
   scan(r);
-  console.log(JSON.stringify({ path, forceRows, diagnostics, disposition: knownIssueResultDisposition(r), converged: r?.converged, isStable: r?.isStable, keys: Object.keys(r ?? {}) }));
+  const expected = oracle.records.find(row => row.path === path) as any;
+  expect(expected, path).toBeDefined();
+  const numeric = (v: any): any => typeof v === 'number' ? expect.closeTo(v, 9)
+    : Array.isArray(v) ? v.map(numeric)
+    : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, numeric(x)])) : v;
+  expect(forceRows, path).toEqual(numeric(expected.forceRows));
+  expect(diagnostics, path).toEqual(numeric(expected.diagnostics));
+  expect(knownIssueResultDisposition(r), path).toEqual(expected.disposition);
   return r;
 }
 it('replays advanced P-Delta through the actual store builder and WASM entry', () => {
@@ -44,7 +52,6 @@ it('replays advanced P-Delta through the actual store builder and WASM entry', (
   const input = centerlineInput({ caseDisplacements: true });
   expect(input.elements.get(cable)?.type).toBe('truss');
   const r = record('PRO advanced P-Delta', wasm.solvePDelta3D(input), cable);
-  console.log(JSON.stringify({ amplification: amplification(r), displacements: r.results.displacements }));
   expect(r.results.elementForces.find((f: any) => f.elementId === cable)!.nStart).toBeLessThan(0);
   expect(knownIssueResultDisposition(r).messages).toEqual([]);
   expect(r.converged).toBe(true);
@@ -52,7 +59,8 @@ it('replays advanced P-Delta through the actual store builder and WASM entry', (
 });
 it('replays the automatic dedicated cable route as a control', () => {
   const { cable } = fixture();
-  record('Solve automatic cable', validateAndSolve3D(modelStore.model as never, false, false), cable);
+  const result = record('Solve automatic cable', validateAndSolve3D(modelStore.model as never, false, false), cable);
+  expect(result.elementForces.find((f: any) => f.elementId === cable)!.nStart).toBe(0);
   record('Combinations automatic cable', solveCombinations3D(modelStore.model as never, modelStore.model.loadCases, [{ id: 1, name: 'D', factors: [{ caseId: 1, factor: 1 }] }]), cable);
 });
 it('replays the other advanced static entries', async () => {
@@ -79,10 +87,8 @@ it('replays the other advanced static entries', async () => {
     ['P-Delta per combination cable route', () => { modelStore.model.analysis = { ...modelStore.model.analysis, perCombination: 'pdelta' }; return solveCombinations3D(modelStore.model as never, modelStore.model.loadCases, cases); }],
   ];
   for (const [path, run] of attempts) {
-    try { record(path, await run(), cable); }
-    catch (e) { console.log(JSON.stringify({ path, error: String(e) })); }
+    record(path, await run(), cable);
   }
-  console.log(JSON.stringify({ path: 'advanced imperfections on braced fixture', refusal: notionalLoadsRefusal(input, 0.005, 'X') }));
   modelStore.removeSupport([...modelStore.supports.values()].find(s => s.nodeId === b)!.id);
   const unbraced = centerlineInput({ caseDisplacements: true });
   record('advanced imperfections unbraced', wasm.solve3D(withNotionalLoads(unbraced, 0.005, 'X').input), cable);
@@ -103,7 +109,6 @@ it('no-warning P-Delta under imposed shortening', () => {
   modelStore.updateSupport(support.id, { dofRestraints: { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false }, dz: -0.00001 });
   const input = centerlineInput({ caseDisplacements: true });
   const r = record('PRO advanced P-Delta imposed shortening', wasm.solvePDelta3D(input), cable);
-  console.log(JSON.stringify({ path: 'shortening detail', input: { supports: [...input.supports], sections: [...input.sections], materials: [...input.materials] }, result: r }));
   expect(r.results.elementForces.find((f: any) => f.elementId === cable)!.nStart).toBeLessThan(0);
   expect(knownIssueResultDisposition(r).messages).toEqual([]);
   expect(r.converged).toBe(true);
@@ -115,13 +120,14 @@ it('remaining paths: moving sweep, force recovery, modal plan and spectral stati
   const base = movingLoadBase3D(modelStore.model as never)!;
   const moving = await sweepMovingLoad3D(base, buildPath3D(base, [frame])!, { name: 'one', axles: [{ offset: 0, weight: 10 }] }, { step: 3 });
   record('moving sweep', moving, cable);
-  console.log(JSON.stringify({ path: 'moving detail', result: { ...moving, elements: [...moving.elements] } }));
+  expect(moving.elements.get(cable)!.n.min.value).toBeCloseTo(-5, 9);
   const { solveDetailed3D } = await import('../solver-detailed-3d');
   const { solveForceMethod3D } = await import('../force-method/solve-3d');
   const input = centerlineInput();
   const detailed = solveDetailed3D(input);
   const flexibility = solveForceMethod3D(input);
-  console.log(JSON.stringify({ path: 'explained detail', stiffness: detailed.elementForces, flexibility: { keys: Object.keys(flexibility), final: flexibility.final, result: flexibility.results } }));
+  expect(detailed.elementForces.find(f => f.elementId === cable)!.fLocalFinal[0]).toBe(5);
+  expect(flexibility.final.bars.find(f => f.elementId === cable)!.ends.nStart).toBeCloseTo(-5, 9);
   const { planModalResult } = await import('../../store/seismic-modes');
   record('seismic/wind plan modal', planModalResult({ distributed: [], surface: [] } as never, 0.25), cable);
   const { imposedInput } = await import('../../store/spectral-cases');
@@ -155,7 +161,6 @@ it('actual P-Delta panel handler with no-warning shortened cable', async () => {
   expect(scope.pdeltaResult.stable).toBe(true);
   expect(knownIssueResultDisposition(scope.pdeltaResult).messages).toEqual([]);
   expect(resultsStore.pdeltaResult3D!.results.elementForces.find(f => f.elementId === cable)!.nStart).toBeLessThan(0);
-  console.log(JSON.stringify({ path: 'actual P-Delta handler UI', solveError: scope.solveError, pdeltaRefused: scope.pdeltaRefused, converged: scope.pdeltaResult.converged, stable: scope.pdeltaResult.stable, b2: scope.pdeltaResult.b2, disposition: knownIssueResultDisposition(scope.pdeltaResult), force: resultsStore.pdeltaResult3D!.results.elementForces.find(f => f.elementId === cable) }));
 });
 it('additional paths: toolbar modal, horizontal spectra, pushover and saved spectral cases', async () => {
   const { cable, b } = fixture();
@@ -189,14 +194,14 @@ it('concrete creep through the panel material filter and automatic cable forces'
   modelStore.clear();
   const control = fixture(true);
   const solved: any = validateAndSolve3D(modelStore.model as never, false, false);
-  console.log(JSON.stringify({ path: 'automatic cable force control', elementForces: solved.elementForces, nonlinear: solved.nonlinear }));
   expect(solved.elementForces.find((f: any) => f.elementId === control.cable)!.nStart).toBe(0);
   expect(solved.elementForces.find((f: any) => f.elementId === control.frame)!.nStart).toBe(-10);
 });
 it('influence coefficients and basic toolbar share the cable substitution', async () => {
   const { cable } = fixture(true);
   const influence = wasm.computeInfluenceLine3D({ solver: centerlineInput({ uncut: true }), quantity: 'N', targetElementId: cable, targetPosition: 0.5, gravityDirection: 'z' });
-  console.log(JSON.stringify({ path: 'influence detail', result: influence }));
+  expect(influence.points.length).toBeGreaterThan(0);
+  expect(influence.points.every(p => p.value === 0)).toBe(true);
   const { withFirstModeB2 } = await import('../../actions/second-order');
   const basic = modelStore.buildSolverInput3D(false, false, { basic: true, expandMemberOffsets: false, caseDisplacements: true })!;
   expect(basic.elements.get(cable)!.type).toBe('truss');

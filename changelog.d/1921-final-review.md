@@ -1,0 +1,4 @@
+### BREAKING (results)
+#### Frozen surface contacts validate the final geometry (2026-11-10)
+
+Frozen surface checks now use the final undamped displacement for both the gap and the signed normal force (#432, PR #1921). Cable refusals retain their structured code in both flexibility wizards, direct analysis refuses unloaded cable models, and moving envelopes propagate the cable refusal instead of returning an empty envelope (#417). The SA-2026-059 replays now run in the web engine unit area and assert refusal or cable equilibrium for every documented path. Linear certificate generators use linear truss braces with their original certification thresholds; cable variants explicitly assert refusal. Details: [results-change write-up](../docs/results-changes/2026-11-frozen-surface-final-state.md).

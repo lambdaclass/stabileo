@@ -79,7 +79,7 @@ pub fn stable_2d(seed: u64) -> SolverInput {
     for s in 0..storeys {
         for b in 0..bays {
             if rng.gen_bool(0.4) {
-                let t = pick(&mut rng, &["truss", "cable", "truss"]);
+                let t = pick(&mut rng, &["truss", "truss", "truss"]);
                 add(&mut elements, &mut rng, id_of[&(s, b)], id_of[&(s + 1, b + 1)], t, false, false);
             }
         }
@@ -283,7 +283,7 @@ pub fn stable_3d(seed: u64) -> SolverInput3D {
     }
     for k in 0..nz {
         if rng.gen_bool(0.5) {
-            let t = pick(&mut rng, &["truss", "cable"]);
+            let t = pick(&mut rng, &["truss", "truss"]);
             add(&mut elements, &mut rng, id_of[&(0, 0, k)], id_of[&(1, 0, k + 1)], t, false);
         }
     }

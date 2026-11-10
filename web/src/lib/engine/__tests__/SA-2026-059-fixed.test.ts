@@ -5,9 +5,12 @@ import { centerlineInput } from '../../store/dynamic-input';
 import * as wasm from '../wasm-solver';
 import { validateAndSolve3D } from '../solver-service';
 import { solveDetailed3D } from '../solver-detailed-3d';
+import { solveDetailed } from '../solver-detailed';
+import { solveForceMethod } from '../force-method/solve';
+import { buildSolverInput2D } from '../solver-service';
 import { solveForceMethod3D } from '../force-method/solve-3d';
 import { runDirectAnalysis } from '../direct-analysis';
-import { cableRefusal } from './sa-059-replay';
+import { cableRefusal, recordFixedReplay } from './sa-059-replay';
 
 beforeEach(() => { modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro'; uiStore.includeSelfWeight = false; uiStore.axisConvention3D = 'rightHand'; });
 function fixture(state: 'compression' | 'shortening' | 'unloaded' | 'tension' = 'compression') {
@@ -19,11 +22,14 @@ function fixture(state: 'compression' | 'shortening' | 'unloaded' | 'tension' = 
   if (state === 'compression' || state === 'tension') modelStore.addNodalLoad3D(b, 0, 0, state === 'tension' ? 10 : -10, 0, 0, 0, 1);
   return { a, b, frame, cable };
 }
-it.skip.each(['compression', 'shortening', 'unloaded', 'tension'] as const)('preserves cable identity and refuses unsupported paths for %s', async (state) => {
+it.each(['compression', 'shortening', 'unloaded', 'tension'] as const)('preserves cable identity and refuses unsupported paths for %s', async (state) => {
   const { a, b, frame, cable } = fixture(state);
   const input = centerlineInput({ caseDisplacements: true });
   expect(input.elements.get(cable)!.type).toBe('cable');
+  const plane = buildSolverInput2D(modelStore.model as never)!;
   const paths: Array<[string, () => unknown]> = [
+    ['2D stiffness teaching wizard', () => solveDetailed(plane)],
+    ['2D flexibility teaching wizard', () => solveForceMethod(plane)],
     ['P-Delta', () => wasm.solvePDelta3D(input)],
     ['corotational', () => wasm.solveCorotational3D(input, 50, 1e-6, 10)],
     ['Winkler', () => wasm.solveWinkler3D({ solver: input, foundationSprings: [{ elementId: frame, ky: 10000, kz: 10000 }] })],
@@ -33,7 +39,7 @@ it.skip.each(['compression', 'shortening', 'unloaded', 'tension'] as const)('pre
     ['stiffness teaching wizard', () => solveDetailed3D(input)],
     ['flexibility teaching wizard', () => solveForceMethod3D(input)],
   ];
-  for (const [path, run] of paths) await cableRefusal(path, run, cable);
+  for (const [path, run] of paths) await cableRefusal(`${state}: ${path}`, run, cable);
 });
 it.each(['compression', 'tension', 'unloaded'] as const)('automatic cable solve enforces the force split for %s', (state) => {
   const { frame, cable } = fixture(state);
@@ -52,10 +58,13 @@ it.each(['compression', 'tension', 'unloaded'] as const)('automatic cable solve 
     expect(cableForce.nStart).toBe(0);
     expect(Math.abs(frameForce.nStart - load)).toBe(0);
   }
+  recordFixedReplay({ path: `automatic cable: ${state}`, refused: false, elementForces: [frameForce, cableForce] });
 });
 it('rethrows a non-JSON error without replacing it with a parse failure', async () => {
   const original = new Error('unexpected solver error');
   await expect(cableRefusal('unexpected', () => { throw original; }, 2)).rejects.toBe(original);
   const malformed = new Error('unexpected {broken JSON');
   await expect(cableRefusal('unexpected', () => { throw malformed; }, 2)).rejects.toBe(malformed);
+  const unrelated = new Error(JSON.stringify({ structuredDiagnostics: [{ code: 'unrelated_error', severity: 'error' }] }));
+  await expect(cableRefusal('unexpected', () => { throw unrelated; }, 2)).rejects.toBe(unrelated);
 });

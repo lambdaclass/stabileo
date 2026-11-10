@@ -1,3 +1,4 @@
+import { requireCableAnalysis } from './analysis-validity';
 import { isContainmentRefusal } from './containment-error';
 import type { StructuredDiagnostic } from './types';
 /**
@@ -191,6 +192,7 @@ export function movingLoadBase3D(model: ModelData, leftHand = false): SolverInpu
 export async function sweepMovingLoad3D(
   base: SolverInput3D, path: PathSegment3D[], train: LoadTrain, opts: MovingLoad3DOptions = {},
 ): Promise<MovingEnvelope3D> {
+  requireCableAnalysis(base.elements.values());
   // At least `MIN_STEP`: a step of a few micrometres ran for ever.
   const step = usableStep(opts.step ?? 0, 0.25);
   const total = path.reduce((s, p) => s + p.length, 0);

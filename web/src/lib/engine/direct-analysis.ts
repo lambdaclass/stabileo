@@ -31,6 +31,7 @@
  * Pure of stores: the model and its combinations come in, results go out.
  */
 import type { ModelData } from './solver-service';
+import { requireCableAnalysis } from './analysis-validity';
 import { materialFamilyOf } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
 import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, imposedRefusal, loadRefusal, orphanLoadRefusal } from './solver-service';
@@ -259,6 +260,7 @@ export async function runDirectAnalysis(
     throw err;
   }
   if (!base) return 'empty';
+  requireCableAnalysis(base.elements.values());
   // A case's imposed displacements go on the supports, times the case's factor in each combination
   // (`case-displacements.ts`), as P-Delta per combination puts them.
   const imposedCases = casesWithDisplacements(model.loads);

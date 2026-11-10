@@ -4293,8 +4293,9 @@
   ],
   "fixedRecords": [
     {
-      "path": "P-Delta",
-      "shorten": false,
+      "path": "buckling",
+      "refused": true,
+      "elementForces": [],
       "diagnostics": [
         {
           "code": "cable_analysis_required",
@@ -4308,8 +4309,9 @@
       ]
     },
     {
-      "path": "corotational",
-      "shorten": false,
+      "path": "influence axial",
+      "refused": true,
+      "elementForces": [],
       "diagnostics": [
         {
           "code": "cable_analysis_required",
@@ -4323,8 +4325,9 @@
       ]
     },
     {
-      "path": "Winkler",
-      "shorten": false,
+      "path": "concrete creep",
+      "refused": true,
+      "elementForces": [],
       "diagnostics": [
         {
           "code": "cable_analysis_required",
@@ -4338,8 +4341,9 @@
       ]
     },
     {
-      "path": "SSI",
-      "shorten": false,
+      "path": "imperfections",
+      "refused": true,
+      "elementForces": [],
       "diagnostics": [
         {
           "code": "cable_analysis_required",
@@ -4353,8 +4357,39 @@
       ]
     },
     {
-      "path": "staged",
-      "shorten": false,
+      "path": "compression: 2D stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "compression: 2D flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "compression: P-Delta",
+      "refused": true,
+      "elementForces": [],
       "diagnostics": [
         {
           "code": "cable_analysis_required",
@@ -4368,8 +4403,9 @@
       ]
     },
     {
-      "path": "P-Delta",
-      "shorten": true,
+      "path": "compression: corotational",
+      "refused": true,
+      "elementForces": [],
       "diagnostics": [
         {
           "code": "cable_analysis_required",
@@ -4383,8 +4419,9 @@
       ]
     },
     {
-      "path": "corotational",
-      "shorten": true,
+      "path": "compression: Winkler",
+      "refused": true,
+      "elementForces": [],
       "diagnostics": [
         {
           "code": "cable_analysis_required",
@@ -4398,8 +4435,9 @@
       ]
     },
     {
-      "path": "Winkler",
-      "shorten": true,
+      "path": "compression: SSI",
+      "refused": true,
+      "elementForces": [],
       "diagnostics": [
         {
           "code": "cable_analysis_required",
@@ -4413,8 +4451,9 @@
       ]
     },
     {
-      "path": "SSI",
-      "shorten": true,
+      "path": "compression: staged",
+      "refused": true,
+      "elementForces": [],
       "diagnostics": [
         {
           "code": "cable_analysis_required",
@@ -4428,8 +4467,84 @@
       ]
     },
     {
-      "path": "staged",
-      "shorten": true,
+      "path": "compression: direct analysis",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "compression: stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "compression: flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "shortening: 2D stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "shortening: 2D flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "shortening: P-Delta",
+      "refused": true,
+      "elementForces": [],
       "diagnostics": [
         {
           "code": "cable_analysis_required",
@@ -4443,7 +4558,523 @@
       ]
     },
     {
-      "path": "fixed automatic cable control",
+      "path": "shortening: corotational",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "shortening: Winkler",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "shortening: SSI",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "shortening: staged",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "shortening: direct analysis",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "shortening: stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "shortening: flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "unloaded: 2D stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "unloaded: 2D flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "unloaded: P-Delta",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "unloaded: corotational",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "unloaded: Winkler",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "unloaded: SSI",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "unloaded: staged",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "unloaded: direct analysis",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "unloaded: stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "unloaded: flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "tension: 2D stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "tension: 2D flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "tension: P-Delta",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "tension: corotational",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "tension: Winkler",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "tension: SSI",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "tension: staged",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "tension: direct analysis",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "tension: stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "tension: flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "pushover",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "modal",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "spectral X",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "spectral Y",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "spectral Z",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "harmonic",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "automatic cable: compression",
+      "refused": false,
       "elementForces": [
         {
           "elementId": 1,
@@ -4506,6 +5137,498 @@
           "pointLoadsZ": []
         }
       ]
+    },
+    {
+      "path": "time history",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "toolbar modal",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "seismic/wind plan modal",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "moving envelope",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "Basic toolbar P-Delta",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "automatic cable: tension",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": 5.000000000001326,
+          "nEnd": 5.000000000001326,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 4.999999999997348,
+          "nEnd": 4.999999999997348,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "saved spectral case",
+      "refused": true,
+      "elementForces": [],
+      "error": "Results withheld: cable elements 2 require cable analysis to enforce tension-only behavior. This analysis treats cables as bars that can carry compression."
+    },
+    {
+      "path": "automatic cable: unloaded",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "combinations cable (perCombination=undefined)",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": -10,
+          "nEnd": -10,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "combinations cable (perCombination=undefined)",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": -10,
+          "nEnd": -10,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "combinations cable (perCombination=pdelta)",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": -10,
+          "nEnd": -10,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "combinations cable (perCombination=pdelta)",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": -10,
+          "nEnd": -10,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "actual P-Delta handler UI",
+      "refused": true,
+      "elementForces": [],
+      "error": "P-Delta: Results withheld: cable elements 2 require cable analysis to enforce tension-only behavior. This analysis treats cables as bars that can carry compression."
     }
-  ]
+  ],
+  "fixedReplaySources": [
+    "web/src/lib/engine/__tests__/SA-2026-059.test.ts",
+    "web/src/lib/engine/__tests__/SA-2026-059-fixed.test.ts"
+  ],
+  "fixedReplayBuild": "make wasm in cause-a with PR #1921 round-2 final surface validation and cable refusal corrections; parent a4fe98eda"
 }

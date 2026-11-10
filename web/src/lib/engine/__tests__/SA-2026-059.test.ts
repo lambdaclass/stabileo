@@ -15,7 +15,7 @@ import { knownIssueResultDisposition } from '../known-issues';
 import { amplification } from '../pdelta-amplification';
 import { errorText } from '../../utils/error-text';
 import { t, tp } from '../../i18n';
-import { cableRefusal } from './sa-059-replay';
+import { cableRefusal, recordFixedReplay } from './sa-059-replay';
 
 beforeEach(() => {
   modelStore.clear(); historyStore.clear();
@@ -67,7 +67,7 @@ it('refuses modal, spectral, harmonic, time history and the toolbar modal path',
   ];
   for (const [path, run] of paths) await cableRefusal(path, run, cable);
 });
-it.skip('refuses moving envelopes and Basic toolbar P-Delta', async () => {
+it('refuses moving envelopes and Basic toolbar P-Delta', async () => {
   const { frame, cable } = fixture();
   await cableRefusal('moving envelope', async () => {
     const base = movingLoadBase3D(modelStore.model as never)!;
@@ -84,6 +84,7 @@ it('saved spectral cases return a translated refusal without any force payload',
   const r = spectralCaseResults();
   expect(typeof r).toBe('string');
   expect(r).toBe(tp('analysisValidity.cable', { elements: '2' }));
+  recordFixedReplay({ path: 'saved spectral case', refused: true, elementForces: [], error: r });
 });
 it.each([undefined, 'pdelta'] as const)('load combinations retain tension-only cable analysis (perCombination=%s)', (perCombination) => {
   const { frame, cable } = fixture();
@@ -96,6 +97,7 @@ it.each([undefined, 'pdelta'] as const)('load combinations retain tension-only c
     expect(result.elementForces.find(f => f.elementId === cable)!.nStart).toBe(0);
     expect(result.elementForces.find(f => f.elementId === frame)!.nStart).toBe(-10);
     expect(knownIssueResultDisposition(result).refused).toBe(false);
+    recordFixedReplay({ path: `combinations cable (perCombination=${perCombination})`, refused: false, elementForces: result.elementForces });
   }
 });
 it('the actual P-Delta panel handler with shortening withholds the result and displays the refusal', async () => {
@@ -118,4 +120,5 @@ it('the actual P-Delta panel handler with shortening withholds the result and di
   expect(scope.solveError).toBe(`P-Delta: ${tp('analysisValidity.cable', { elements: String(cable) })}`);
   expect(scope.pdeltaResult).toBeNull();
   expect(resultsStore.pdeltaResult3D).toBeNull();
+  recordFixedReplay({ path: 'actual P-Delta handler UI', refused: true, elementForces: [], error: scope.solveError });
 });
