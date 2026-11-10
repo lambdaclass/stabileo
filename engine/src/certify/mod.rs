@@ -19,6 +19,7 @@ pub mod pdelta;
 pub mod plastic;
 pub mod plastic_3d;
 pub mod plastic_bundle;
+pub mod plastic_budget;
 pub mod provenance;
 pub mod reactions;
 pub mod real;

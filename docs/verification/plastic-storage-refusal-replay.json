@@ -1,0 +1,21 @@
+{
+  "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin",
+  "exit_code": 0,
+  "failure": null,
+  "iterations": [
+    {
+      "allocated_bytes": 405188,
+      "iteration": 0,
+      "live_after": 7127,
+      "live_before": 7127,
+      "outcome": "error: exact plastic LP resource budget exceeded: dense storage bytes 13737987672 > 1073741824",
+      "peak_bytes": 273254,
+      "peak_rss_bytes": 5951488,
+      "seconds": 0.000983144
+    }
+  ],
+  "mode": "engine",
+  "peak_rss_bytes": 10575872,
+  "seconds": 0.006005401024594903,
+  "stderr": ""
+}

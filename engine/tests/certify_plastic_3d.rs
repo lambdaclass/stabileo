@@ -441,10 +441,26 @@ fn unsupported_models_are_refused() {
 }
 
 #[test]
-fn certify_plastic_3d_reports_solver_value() {
-    let out = certify_plastic_3d(&plastic(portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ)).unwrap();
+fn issue_1760_portal_above_certificate_returns_certified_lower() {
+    let input = plastic(portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ);
+    let results = solve_plastic_3d(&input).unwrap();
+    let certificate = certify_collapse_3d(&input, Some(&results));
+    assert_eq!(certificate.solver_within_bounds, Some(false));
+    assert!(results.collapse_factor > certificate.lambda_upper.unwrap());
+    let out = certify_plastic_3d(&input).unwrap();
     assert!(out.certificate.certified);
-    assert_eq!(out.certificate.solver_collapse_factor, Some(out.results.collapse_factor));
+    let lower = certificate.lambda_lower.unwrap();
+    let upper = certificate.lambda_upper.unwrap();
+    assert_eq!(out.results.collapse_factor.to_bits(), lower.to_bits());
+    assert_eq!(out.certificate.solver_collapse_factor, Some(results.collapse_factor));
+    assert_eq!(out.certificate.solver_within_bounds, Some(false));
+    let warning = out.results.structured_diagnostics.iter().find(|d|
+        d.phase.as_deref() == Some("PL-3D-CERTIFICATE-MISMATCH")).unwrap();
+    assert_eq!(warning.severity, Severity::Warning);
+    assert!(warning.message.contains("outside the certified interval"));
+    assert!(warning.message.contains(&results.collapse_factor.to_string()));
+    assert!(warning.message.contains(&format!("[{lower}, {upper}]")));
+    assert!(out.results.warnings.contains(&warning.message));
     assert!(!out.certificate.mechanism.is_empty());
     let json = serde_json::to_string(&out).unwrap();
     assert!(json.contains("lambdaLower") && json.contains("rotationY") && json.contains("position"));
@@ -692,8 +708,18 @@ fn the_portal_sample_collapses_with_hinges_on_both_columns_1525() {
     let s = solve_plastic_3d(&same).unwrap();
     assert_eq!(s.collapse_factor.to_bits(), r.collapse_factor.to_bits());
     assert_eq!(hinged_members(&s), vec![1, 3]);
-    let c = certify_plastic_3d(&same).unwrap();
-    assert_eq!(c.results.collapse_factor.to_bits(), r.collapse_factor.to_bits());
+    let checked = certify_plastic_3d(&same).unwrap();
+    assert_eq!(Some(checked.results.collapse_factor), checked.certificate.lambda_lower);
+    assert_eq!(checked.certificate.solver_collapse_factor, Some(r.collapse_factor));
+    assert!(checked.certificate.certified);
+    assert_eq!(checked.certificate.solver_within_bounds, Some(false));
+    assert!(checked.results.collapse_factor <= checked.certificate.lambda_upper.unwrap());
+    let raw = solve_plastic_3d(&same).unwrap();
+    let independent = certify_collapse_3d(&same, Some(&raw));
+    assert!(independent.certified);
+    assert_eq!(checked.certificate.lambda_lower, independent.lambda_lower);
+    assert_eq!(checked.certificate.lambda_upper, independent.lambda_upper);
+    assert!(independent.solver_collapse_factor.unwrap() < independent.lambda_lower.unwrap());
 }
 
 #[test]
