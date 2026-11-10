@@ -11,6 +11,7 @@ const project = JSON.parse(readFileSync(new URL('../../../../legacy-projects/v0.
   snapshot: FeatureSnapshot & { solvedWith: unknown };
   analysisMode: string;
 };
+const modalModel: FeatureSnapshot = { ...project.snapshot, loadCases: [] };
 const changes = (snapshot: FeatureSnapshot, stamp: SolveStamp | undefined) =>
   assessProject(snapshot, stamp, project.analysisMode).changes.map((entry) => entry.id);
 const stamp = (analyses: AnalysisKind[]): SolveStamp => ({
@@ -22,16 +23,16 @@ const stamp = (analyses: AnalysisKind[]): SolveStamp => ({
 
 describe('modal-basis rounding change applicability (#1890)', () => {
   it.each<AnalysisKind[]>([['modal'], ['spectral'], ['timeHistory', 'modal']])('concerns a recorded modal-basis workflow %j', (...analyses) => {
-    expect(changes({}, stamp(analyses))).toContain(changeId);
-    expect(changes({}, { ...stamp(analyses), resultsVersion: change.resultsVersion })).not.toContain(changeId);
+    expect(changes(modalModel, stamp(analyses))).toContain(changeId);
+    expect(changes(modalModel, { ...stamp(analyses), resultsVersion: change.resultsVersion })).not.toContain(changeId);
   });
 
   it('concerns a configured spectrum even before its modal run is recorded', () => {
-    const snapshot = { loadCases: [{ id: 1, type: 'E', spectral: {} }] };
+    const snapshot = { ...modalModel, loadCases: [{ id: 1, type: 'E', spectral: {} }] };
     expect(changes(snapshot, stamp(['linear']))).toContain(changeId);
   });
 
-  it.skip('#[ignore = "known wrong result: #1890"] excludes the static deep-beam-shell fixture despite its earthquake load case (#1890)', () => {
+  it('excludes the static deep-beam-shell fixture despite its earthquake load case (#1890)', () => {
     const saved = readStamp(project.snapshot.solvedWith)!;
     expect(saved.analyses).toEqual(['linear']);
     expect(project.snapshot.dynamics).toBeUndefined();
@@ -42,7 +43,7 @@ describe('modal-basis rounding change applicability (#1890)', () => {
     expect(changes(project.snapshot, saved)).not.toContain(changeId);
   });
 
-  it.skip('#[ignore = "known wrong result: #1890"] excludes a direct time-history run without a modal basis (#1890)', () => {
+  it('excludes a direct time-history run without a modal basis (#1890)', () => {
     expect(changes(project.snapshot, stamp(['timeHistory']))).not.toContain(changeId);
   });
 });

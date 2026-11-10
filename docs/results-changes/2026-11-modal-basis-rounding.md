@@ -58,8 +58,11 @@ tolerance; its expected inconclusive comparisons are restored.
 The eigensolver, eigenvectors, frequencies and participation calculations are
 unchanged. Calls previously refused can now return results. The registry entry
 `modal-basis-entrywise-rounding` flags modal and spectral analyses, including
-seismic workflows that request modes. It declares solve availability and
-structured diagnostic changes. The #759 containment row is CORRECTED, matching
+seismic workflows that request modes and time-history workflows whose stamp
+records the modal basis. A seismic load case alone does not imply a modal
+analysis. Direct time integration without a modal analysis does not use this
+basis check. The entry declares solve availability and structured diagnostic
+changes. The #759 containment row is CORRECTED, matching
 the earlier shipped eigensolver fixes and the new guard regressions.
 
 This correction is local and has not been released or deployed. No wrong
@@ -67,3 +70,18 @@ numerical result returned to a public caller was reproduced in this round:
 the defect withheld valid results. No new safety advisory is added. Historical
 #759 mode-completeness changes remain documented in
 [the earlier results change](2026-10-modal-completeness.md).
+
+## Applicability correction
+
+The initial entry also matched the generic `seismic` feature. The v0.4.0
+`deep-beam-shell.ded` fixture has an earthquake load case but records only
+`linear`, with no dynamics settings or spectral load cases. It therefore
+received an unrelated modal-basis notice. The gate now requires
+`analysis:modal` or `analysis:spectral` and structural members, shells,
+connectors or springs, so an empty model receives no notice. The existing
+conservative treatment of unknown analysis history is unchanged. Applicability regressions cover
+recorded modal and spectral runs, a time-history workflow with recorded modes,
+a configured spectrum, and exclusion of both the static fixture and a direct
+time-history run without modes. The legacy judge retains its original list
+and assertions. The existing modal-frame version test now explicitly expects
+this entry until the frame is re-solved with the current results version. This metadata correction changes no engine result.

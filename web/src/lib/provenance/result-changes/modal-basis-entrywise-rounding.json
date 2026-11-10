@@ -6,10 +6,17 @@
   ],
   "area": "analysis",
   "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "connectors",
+        "springs"
+      ]
+    ],
     "any": [
       "analysis:modal",
-      "analysis:spectral",
-      "seismic"
+      "analysis:spectral"
     ]
   },
   "quantities": [
