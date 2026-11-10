@@ -252,7 +252,6 @@ class TestTolerance(unittest.TestCase):
 
 
 class ConsumerGaps(unittest.TestCase):
-    @unittest.skip('#[ignore = "known wrong result: #1893"]')
     def test_module_disabled_cqc_consumer_requires_acknowledgement(self):
         path = 'engine/tests/benchmarks/cqc_1981.rs'
         reg = json.loads((ROOT / gate.REGISTRY).read_text())
@@ -265,7 +264,6 @@ class ConsumerGaps(unittest.TestCase):
                 errors, _ = gate.label_check(reg, read, reg, head, set())
                 self.assertTrue(any('close_modes_against_closed_form removed or disabled' in e for e in errors), errors)
 
-    @unittest.skip('#[ignore = "known wrong result: #1893"]')
     def test_file_disabled_cqc_consumer_requires_acknowledgement(self):
         path = 'engine/tests/benchmarks/cqc_1981.rs'
         reg = json.loads((ROOT / gate.REGISTRY).read_text())
@@ -275,7 +273,6 @@ class ConsumerGaps(unittest.TestCase):
         errors, _ = gate.label_check(reg, read, reg, head, set())
         self.assertTrue(any('close_modes_against_closed_form removed or disabled' in e for e in errors), errors)
 
-    @unittest.skip('#[ignore = "known wrong result: #1893"]')
     def test_storing_a_case_verdict_is_not_an_asserting_consumer(self):
         statement = 'let row = json!({"pass": error < case["tolerance"].as_f64().unwrap()});'
         loc = dict(file='case.json', pointer='/tolerance', consumers=[dict(file='x.rs', statements=[statement])])
@@ -283,7 +280,6 @@ class ConsumerGaps(unittest.TestCase):
         files = dict(FILES, **{'x.rs': '#[test] fn t() { ' + statement + ' }'})
         self.assertTrue(gate.check(reg, reader(files), []))
 
-    @unittest.skip('#[ignore = "known wrong result: #1893"]')
     def test_asserting_an_unrelated_field_is_not_a_consumer(self):
         for consumer in (dict(statements=['assert_close(actual, expected, case["other"].as_f64().unwrap());']),
                          dict(assertions=['error < case["other"].as_f64().unwrap()']),
@@ -294,6 +290,24 @@ class ConsumerGaps(unittest.TestCase):
                 code += 'assert!(error < case["other"].as_f64().unwrap()); '
                 code += 'assert_close(actual, expected, case["other"].as_f64().unwrap());'
                 self.assertTrue(gate.check(registry(quantity(test_tolerances=[loc])), reader(dict(FILES, **{'x.rs': code})), []))
+
+    def test_assertion_calls_follow_tracked_case_bindings(self):
+        bindings = {'tol': 'case["tolerance"].as_f64().unwrap()', 'limit': 'tol'}
+        for statement in ('assert!(error < limit);', 'assert_eq!(limit, error);',
+                          'assert_close(actual, expected, limit);', 'crate::common::assert_close(actual, expected, limit);'):
+            with self.subTest(statement=statement):
+                consumer = dict(file='x.rs', bindings=bindings, statements=[statement])
+                loc = dict(file='case.json', pointer='/tolerance', consumers=[consumer])
+                code = 'let tol = case["tolerance"].as_f64().unwrap(); let limit = tol; ' + statement
+                self.assertEqual(gate.check(registry(quantity(test_tolerances=[loc])), reader(dict(FILES, **{'x.rs': code})), []), [])
+
+    def test_disabled_sibling_modules_do_not_disable_a_live_test(self):
+        source = '#[cfg(any())] mod disabled { #[test] fn gone() {} } mod live { #[test] fn active() {} }'
+        functions = gate.rust_functions(source)
+        self.assertEqual({name for name, _, enabled in functions if enabled}, {'active'})
+        source = 'mod disabled { #![cfg(any())] #[test] fn gone() {} } #[test] fn active() {}'
+        functions = gate.rust_functions(source)
+        self.assertEqual({name for name, _, enabled in functions if enabled}, {'active'})
 
     def test_case_file_rust_mutations(self):
         path = 'engine/tests/benchmarks/cqc_1981.rs'

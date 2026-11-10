@@ -136,15 +136,45 @@ def keyed(code, found):
 
 def rust_functions(text):
     code = strip_rust(text)
-    functions = []
-    for match in re.finditer(r'((?:#\[[^\]]*\]\s*)*)(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)[^{;]*\{', code):
+    braces, stack = {}, []
+    for position, char in enumerate(code):
+        if char == '{':
+            stack.append(position)
+        elif char == '}' and stack:
+            braces[stack.pop()] = position
+    attributes = []
+    for match in re.finditer(r'#!?\s*\[', code):
         depth, end = 1, match.end()
         while end < len(code) and depth:
-            depth += (code[end] == '{') - (code[end] == '}')
+            depth += (code[end] == '[') - (code[end] == ']')
             end += 1
-        attrs, name = match.group(1), match.group(2)
-        enabled = bool(re.search(r'#\[\s*test\s*\]', attrs)) and not re.search(r'\b(?:ignore|cfg|cfg_attr)\b', attrs)
-        functions.append((name, code[match.end():end - 1], enabled))
+        attributes.append((match.start(), end, code[match.start():end]))
+
+    def outer_attributes(position):
+        found = []
+        for start, end, attr in reversed(attributes):
+            if end <= position and not code[end:position].strip():
+                found.append(attr)
+                position = start
+        return ''.join(found)
+
+    inherited = []
+    for match in re.finditer(r'(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{', code):
+        opening = match.end() - 1
+        inherited.append((opening, braces.get(opening, len(code)), outer_attributes(match.start())))
+    for start, _, attr in attributes:
+        if re.match(r'#!\s*\[', attr):
+            opening = max((b for b, end in braces.items() if b < start < end), default=-1)
+            inherited.append((opening, braces.get(opening, len(code)), attr))
+    functions = []
+    for match in re.finditer(r'(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)[^{;]*\{', code):
+        attrs = outer_attributes(match.start())
+        enclosing_attrs = ''.join(attr for start, end, attr in inherited if start < match.start() < end)
+        if re.search(r'\b(?:ignore|cfg|cfg_attr)\b', attrs + enclosing_attrs):
+            continue
+        enabled = bool(re.search(r'#\[\s*test\s*\]', attrs))
+        end = braces.get(match.end() - 1, len(code))
+        functions.append((match.group(1), code[match.end():end], enabled))
     return functions
 
 
@@ -169,6 +199,60 @@ def enabled_coverage(registry, read):
                 active = reached
             out.update((entry['id'], file, name) for name in active)
     return out
+
+
+def consumer_references_field(locator, consumer):
+    dependencies = dict(consumer.get('bindings', {}))
+    for statement in consumer.get('statements', []):
+        binding = re.fullmatch(r'\s*(?:let|const)\s+(?:mut\s+)?(\w+)\s*(?::[^=]+)?=\s*(.*);\s*', statement, re.DOTALL)
+        optional = re.fullmatch(r'\s*if\s+let\s+Some\((\w+)\)\s*=\s*(.*)', statement, re.DOTALL)
+        if binding or optional:
+            match = binding or optional
+            dependencies[match.group(1)] = match.group(2)
+        unpacked = re.fullmatch(r'\s*let\s*\(([^)]+)\)\s*=\s*\((.*)\);\s*', statement, re.DOTALL)
+        if unpacked:
+            names = [name.strip() for name in unpacked.group(1).split(',')]
+            args = call_arguments('unpack(' + unpacked.group(2) + ')', 'unpack')[0][1]
+            if len(names) == len(args):
+                dependencies.update(zip(names, args))
+        loop = re.fullmatch(r'\s*for\s*\(([^)]+)\)\s+in\s+(.*)', statement, re.DOTALL)
+        if loop:
+            dependencies.update((name.strip(), loop.group(2)) for name in loop.group(1).split(','))
+    expressions = list(consumer.get('assertions', []))
+    for statement in consumer.get('statements', []):
+        match = re.match(r'\s*(?:\w+::)*(assert(?:_eq|_ne)?!|assert_close(?:_abs)?)\s*\(', statement)
+        if not match:
+            continue
+        name = match.group(1)
+        calls = call_arguments(statement[match.start(1):], name)
+        if calls:
+            count = 1 if name == 'assert!' else 2 if name in ('assert_eq!', 'assert_ne!') else 3
+            expressions.append(' '.join(calls[0][1][:count]))
+    parts = [part.replace('~1', '/').replace('~0', '~') for part in locator['pointer'].strip('/').split('/')]
+    field = parts[-1]
+
+    def expand(expression):
+        reached = set()
+        while True:
+            names = {name for name in dependencies if re.search(rf'\b{re.escape(name)}\b', strip_rust(expression))} - reached
+            if not names:
+                return expression
+            reached.update(names)
+            expression += ' ' + ' '.join(dependencies[name] for name in sorted(names))
+
+    quoted = re.escape(json.dumps(field))
+    pattern = (rf'\[\s*{field}\s*\]' if field.isdigit() else
+               rf'\[\s*{quoted}\s*\]|\.get\(\s*{quoted}\s*\)|\b(?:num|param)\([^,;]+,\s*{quoted}\s*\)')
+    for expression in expressions:
+        expression = expand(expression)
+        if re.search(pattern, expression):
+            return True
+        if len(parts) > 1 and parts[-2] != '*':
+            parent = re.escape(json.dumps(parts[-2]))
+            for key in re.findall(rf'\[\s*{parent}\s*\]\s*\[\s*(\w+)\s*\]', expression):
+                if key in dependencies and re.search(quoted, expand(dependencies[key])):
+                    return True
+    return False
 
 
 def check_consumers(locator, read):
@@ -197,6 +281,8 @@ def check_consumers(locator, read):
         for statement in consumer.get('statements', []):
             if compact(code).count(compact(statement)) != 1:
                 raise Gate(f"{consumer['file']}: case-file consumer must remain {statement}")
+        if not consumer_references_field(locator, consumer):
+            raise Gate(f"{consumer['file']}: case-file consumer must assert the pointer field {locator['pointer']}")
         for expression in consumer.get('assertions', []):
             expected_count = consumer['assertions'][expression] if isinstance(consumer['assertions'], dict) else 1
             if actual.count(compact(expression)) != expected_count:

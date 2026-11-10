@@ -188,7 +188,8 @@
                   },
                   "statements": [
                     "let tolerance = case[\"crownRelativeTolerance\"][key].as_f64().unwrap();",
-                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];"
+                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];",
+                    "for (i, key) in CROWN_KEYS.iter().enumerate() { let published = case[\"crownReference\"][key].as_f64().unwrap();"
                   ]
                 }
               ]
@@ -233,7 +234,8 @@
                   },
                   "statements": [
                     "let tolerance = case[\"crownRelativeTolerance\"][key].as_f64().unwrap();",
-                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];"
+                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];",
+                    "for (i, key) in CROWN_KEYS.iter().enumerate() { let published = case[\"crownReference\"][key].as_f64().unwrap();"
                   ]
                 }
               ]
@@ -278,7 +280,8 @@
                   },
                   "statements": [
                     "let tolerance = case[\"crownRelativeTolerance\"][key].as_f64().unwrap();",
-                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];"
+                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];",
+                    "for (i, key) in CROWN_KEYS.iter().enumerate() { let published = case[\"crownReference\"][key].as_f64().unwrap();"
                   ]
                 }
               ]
@@ -323,7 +326,8 @@
                   },
                   "statements": [
                     "let tolerance = case[\"crownRelativeTolerance\"][key].as_f64().unwrap();",
-                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];"
+                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];",
+                    "for (i, key) in CROWN_KEYS.iter().enumerate() { let published = case[\"crownReference\"][key].as_f64().unwrap();"
                   ]
                 }
               ]
@@ -455,16 +459,8 @@
                     "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
                     "let pass = error < tolerance;",
                     "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
-                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()"
-                  ]
-                },
-                {
-                  "file": "engine/tests/validation/benchmarks/patch_tests.rs",
-                  "assertions": {},
-                  "statements": [
-                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), &format!(\"MacNeal-Harder straight beam (n={n}): tip deflection\"))",
-                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: deflection\")",
-                    "assert_close(d_tip.ry, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: rotation\")"
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
                   ]
                 }
               ]
@@ -482,7 +478,8 @@
                     "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
                     "let pass = error < tolerance;",
                     "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
-                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()"
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
                   ]
                 },
                 {
@@ -536,16 +533,8 @@
                     "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
                     "let pass = error < tolerance;",
                     "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
-                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()"
-                  ]
-                },
-                {
-                  "file": "engine/tests/validation/benchmarks/patch_tests.rs",
-                  "assertions": {},
-                  "statements": [
-                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), &format!(\"MacNeal-Harder straight beam (n={n}): tip deflection\"))",
-                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: deflection\")",
-                    "assert_close(d_tip.ry, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: rotation\")"
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
                   ]
                 }
               ]
@@ -563,7 +552,8 @@
                     "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
                     "let pass = error < tolerance;",
                     "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
-                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()"
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
                   ]
                 },
                 {
@@ -741,7 +731,8 @@
                     "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
                     "let pass = error < tolerance;",
                     "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
-                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()"
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
                   ]
                 },
                 {
@@ -795,7 +786,8 @@
                     "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
                     "let pass = error < tolerance;",
                     "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
-                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()"
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
                   ]
                 },
                 {
@@ -849,7 +841,8 @@
                     "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
                     "let pass = error < tolerance;",
                     "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
-                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()"
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
                   ]
                 },
                 {
@@ -919,7 +912,8 @@
                   "statements": [
                     "relative(actual.0, u, tolerance);",
                     "relative(actual.1, w, tolerance);",
-                    ".map(|c| (c[\"elements\"].as_u64().unwrap() as usize, c[\"relativeError\"].as_f64().unwrap()))"
+                    ".map(|c| (c[\"elements\"].as_u64().unwrap() as usize, c[\"relativeError\"].as_f64().unwrap()))",
+                    "let ceilings: Vec<(usize, f64)> = data[\"meshErrorCeilings\"]\n        .as_array()\n        .unwrap()\n        .iter()\n        .map(|c| (c[\"elements\"].as_u64().unwrap() as usize, c[\"relativeError\"].as_f64().unwrap()))\n        .collect();"
                   ]
                 }
               ]
@@ -937,7 +931,8 @@
                   "statements": [
                     "relative(actual.0, u, tolerance);",
                     "relative(actual.1, w, tolerance);",
-                    ".map(|c| (c[\"elements\"].as_u64().unwrap() as usize, c[\"relativeError\"].as_f64().unwrap()))"
+                    ".map(|c| (c[\"elements\"].as_u64().unwrap() as usize, c[\"relativeError\"].as_f64().unwrap()))",
+                    "let ceilings: Vec<(usize, f64)> = data[\"meshErrorCeilings\"]\n        .as_array()\n        .unwrap()\n        .iter()\n        .map(|c| (c[\"elements\"].as_u64().unwrap() as usize, c[\"relativeError\"].as_f64().unwrap()))\n        .collect();"
                   ]
                 }
               ]
@@ -1239,10 +1234,10 @@
               "consumers": [
                 {
                   "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
-                  "assertions": {},
                   "statements": [
-                    "let row = json!({\"id\": c[\"id\"], \"value\": value, \"reference\": c[\"reference\"], \"error\": error, \"pass\": error < c[\"tolerance\"].as_f64().unwrap()});"
-                  ]
+                    "assert_eq!(DATA[\"accuracyTolerance\"].as_f64().unwrap(), 0.02);"
+                  ],
+                  "assertions": []
                 }
               ]
             },
@@ -1252,9 +1247,9 @@
               "consumers": [
                 {
                   "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
-                  "assertions": {},
-                  "statements": [
-                    "let row = json!({\"id\": c[\"id\"], \"value\": value, \"reference\": c[\"reference\"], \"error\": error, \"pass\": error < c[\"tolerance\"].as_f64().unwrap()});"
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
                   ]
                 }
               ]
@@ -1265,9 +1260,9 @@
               "consumers": [
                 {
                   "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
-                  "assertions": {},
-                  "statements": [
-                    "let row = json!({\"id\": c[\"id\"], \"value\": value, \"reference\": c[\"reference\"], \"error\": error, \"pass\": error < c[\"tolerance\"].as_f64().unwrap()});"
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
                   ]
                 }
               ]
@@ -1309,10 +1304,10 @@
               "consumers": [
                 {
                   "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
-                  "assertions": {},
                   "statements": [
-                    "let row = json!({\"id\": c[\"id\"], \"value\": value, \"reference\": c[\"reference\"], \"error\": error, \"pass\": error < c[\"tolerance\"].as_f64().unwrap()});"
-                  ]
+                    "assert_eq!(DATA[\"accuracyTolerance\"].as_f64().unwrap(), 0.02);"
+                  ],
+                  "assertions": []
                 }
               ]
             },
@@ -1322,9 +1317,9 @@
               "consumers": [
                 {
                   "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
-                  "assertions": {},
-                  "statements": [
-                    "let row = json!({\"id\": c[\"id\"], \"value\": value, \"reference\": c[\"reference\"], \"error\": error, \"pass\": error < c[\"tolerance\"].as_f64().unwrap()});"
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
                   ]
                 }
               ]
@@ -1335,9 +1330,9 @@
               "consumers": [
                 {
                   "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
-                  "assertions": {},
-                  "statements": [
-                    "let row = json!({\"id\": c[\"id\"], \"value\": value, \"reference\": c[\"reference\"], \"error\": error, \"pass\": error < c[\"tolerance\"].as_f64().unwrap()});"
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
                   ]
                 }
               ]
@@ -1373,10 +1368,10 @@
               "consumers": [
                 {
                   "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
-                  "assertions": {},
                   "statements": [
-                    "let row = json!({\"id\": c[\"id\"], \"value\": value, \"reference\": c[\"reference\"], \"error\": error, \"pass\": error < c[\"tolerance\"].as_f64().unwrap()});"
-                  ]
+                    "assert_eq!(DATA[\"accuracyTolerance\"].as_f64().unwrap(), 0.02);"
+                  ],
+                  "assertions": []
                 }
               ]
             },
@@ -1386,9 +1381,9 @@
               "consumers": [
                 {
                   "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
-                  "assertions": {},
-                  "statements": [
-                    "let row = json!({\"id\": c[\"id\"], \"value\": value, \"reference\": c[\"reference\"], \"error\": error, \"pass\": error < c[\"tolerance\"].as_f64().unwrap()});"
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
                   ]
                 }
               ]
@@ -1399,9 +1394,9 @@
               "consumers": [
                 {
                   "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
-                  "assertions": {},
-                  "statements": [
-                    "let row = json!({\"id\": c[\"id\"], \"value\": value, \"reference\": c[\"reference\"], \"error\": error, \"pass\": error < c[\"tolerance\"].as_f64().unwrap()});"
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
                   ]
                 }
               ]
