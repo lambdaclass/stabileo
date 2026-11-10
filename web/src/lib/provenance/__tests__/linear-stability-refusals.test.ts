@@ -7,19 +7,20 @@ import { modelFeatures } from '../model-features';
 const entry = RESULT_CHANGES.changes.find((change) => change.id === 'linear-stability-refusals')!;
 const legacy = (file: string) => JSON.parse(readFileSync(new URL(`../../../../legacy-projects/${file}`, import.meta.url), 'utf8'));
 
-it('#1753: ordinary truss forces are not changed by linear stability', () => {
+it('#1753: ordinary legacy truss results receive the linear re-check notice', () => {
   const file = legacy('v0.2.0/truss.ded');
   const changes = assessProject(file.snapshot, null, file.analysisMode).changes;
-  expect(changes.map((change) => change.id)).not.toContain(entry.id);
+  expect(changes.map((change) => change.id)).toContain(entry.id);
 });
 
-it('#1753: ordinary shell displacements are not changed by linear stability', () => {
+it('#1753: ordinary legacy shell results receive the linear re-check notice', () => {
   const file = legacy('v0.4.0/deep-beam-shell.ded');
   const changes = assessProject(file.snapshot, null, file.analysisMode).changes;
-  expect(changes.map((change) => change.id)).not.toContain(entry.id);
+  expect(changes.map((change) => change.id)).toContain(entry.id);
 });
 
-it('keeps #1753 applicable to linear releases, springs, constraints and connectors', () => {
+it('#1753: every linear result matches without requiring special model features', () => {
+  expect(conditionHolds(entry.when!, new Set(['analysis:linear']))).toBe(true);
   for (const feature of ['hinges', 'springs', 'constraints', 'connectors', 'inclinedSupports', 'eccentricities', 'curvedShells']) {
     expect(conditionHolds(entry.when!, new Set(['analysis:linear', feature])), feature).toBe(true);
     expect(conditionHolds(entry.when!, new Set([feature])), feature).toBe(false);
@@ -30,9 +31,22 @@ it('keeps #1753 applicable to linear releases, springs, constraints and connecto
   expect(conditionHolds(entry.when!, features)).toBe(true);
 });
 
+it.each([
+  ['none', []],
+  ['modal', ['analysis:modal']],
+  ['buckling', ['analysis:buckling']],
+  ['modal and buckling', ['analysis:modal', 'analysis:buckling']],
+] as const)(
+  '#1753: no linear analysis result remains a non-match (%s)', (_name, features) => {
+    expect(conditionHolds(entry.when!, new Set(features))).toBe(false);
+    expect(assessProject({}, null, undefined, RESULT_CHANGES, new Set(features)).changes.map((change) => change.id))
+      .not.toContain(entry.id);
+  },
+);
+
 const repoText = (file: string) => readFileSync(new URL(`../../../../../${file}`, import.meta.url), 'utf8');
 
-it.skip('known wrong result: #1753: plain frame and truss mechanisms receive the linear re-check notice', () => {
+it('#1753: plain frame and truss mechanisms receive the linear re-check notice', () => {
   for (const [name, mode, type] of [
     ['spinning beam', '3d', 'frame'],
     ['pin-jointed arch chain', '2d', 'truss'],

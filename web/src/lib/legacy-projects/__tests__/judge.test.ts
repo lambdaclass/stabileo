@@ -157,32 +157,37 @@ describe('judge', () => {
 describe('against real corpus files', () => {
   beforeAll(async () => { await initSolver(); });
 
-  it('NEGATIVE: v0.2.0 truss with a wrong member force fails, though 31 registered changes apply to it', async () => {
+  it('NEGATIVE: v0.2.0 truss with a wrong member force fails without the broad linear re-check allowance', async () => {
     const opened = await openAndSolve(readCorpusText('v0.2.0/truss.ded'));
     expect(opened.changes.length).toBeGreaterThan(20);
     const then = readResults('v0.2.0/truss.results.json');
     expect(judge('truss', then, opened.values, opened.changes).kind).toBe('same');
     const wrong = { ...then, 'base.elementForces[e1].nStart': (then['base.elementForces[e1].nStart'] as number) * 1.01 };
-    const v = judge('truss, wrong force', wrong, opened.values, opened.changes);
+    expect(opened.changes.map((c) => c.id)).toContain('linear-stability-refusals');
+    expect(judge('truss, wrong force', wrong, opened.values, opened.changes).kind).toBe('explained');
+    const otherChanges = opened.changes.filter((c) => c.id !== 'linear-stability-refusals');
+    const v = judge('truss, wrong force', wrong, opened.values, otherChanges);
     expect(v.kind).toBe('unexplained');
     expect(v.report).toContain('base.elementForces[e1].nStart');
   }, 120_000);
 
-  it('NEGATIVE: v0.4.0 deep-beam-shell: the solid-shell stress change explains its stresses, not a wrong displacement', async () => {
+  it('NEGATIVE: v0.4.0 deep-beam-shell: without the broad linear re-check allowance, only stresses are explained', async () => {
     const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'deep-beam-shell')!;
     const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`));
     expect(opened.changes.map((c) => c.id)).toEqual([
       'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
       'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
       'harmonic-modal-residual-checked',
-      'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses',
+      'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals',
     ]);
     const then = readResults(`v0.4.0/${entry.results}`);
     const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
     const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;
     const scaled = (k: string) => ({ ...then, [k]: (then[k] as number) * 1.05 });
     expect(judge('stress', scaled(stress), opened.values, opened.changes).kind).toBe('explained');
-    const v = judge('displacement', scaled(disp), opened.values, opened.changes);
+    expect(judge('displacement', scaled(disp), opened.values, opened.changes).kind).toBe('explained');
+    const otherChanges = opened.changes.filter((c) => c.id !== 'linear-stability-refusals');
+    const v = judge('displacement', scaled(disp), opened.values, otherChanges);
     expect(v.kind).toBe('unexplained');
     expect(v.report).toContain(disp);
   }, 120_000);

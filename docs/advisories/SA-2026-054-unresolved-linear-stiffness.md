@@ -104,12 +104,11 @@ axis-aligned directions alone does not establish that the model is affected. For
 with preconditioning disabled, also review cases with disparate independent loads; an
 aggregate PASS check does not establish each component's accuracy.
 
-The `linear-stability-refusals` re-check entry flags linear models with hinges, springs,
-constraints, connectors, inclined supports, eccentricities or curved shells. These features
-include the measured PCG fixtures. The saved feature set cannot evaluate `κ_S A` or detect
-every affected PCG model; an unflagged project is not an accuracy certificate. Most ordinary
-models keep their results. Run the fixed solver to determine whether a model is refused or
-a PCG component changes.
+The `linear-stability-refusals` re-check entry flags every saved project with a linear
+analysis result. The saved feature set cannot evaluate `κ_S A` or detect plain mechanisms,
+so special model features cannot safely limit this notice. Most ordinary models keep their
+results. Run the fixed solver to determine whether a model is refused or a PCG component
+changes.
 
 ## Fixed in
 

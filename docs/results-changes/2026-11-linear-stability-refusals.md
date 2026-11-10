@@ -289,16 +289,15 @@ cd web
 npm run snapshots:update -- src/lib/results-snapshot/__tests__/snapshot-basic.test.ts -t '^2d-three-hinge-arch$'
 ```
 
-The existing `linear-stability-refusals` fragment now requires `analysis:linear` and at
-least one of `hinges`, `springs`, `constraints`, `connectors`,
-`inclinedSupports`, `eccentricities` or `curvedShells`. Its broad numerical allowance
-therefore no longer explains an invented force change in the ordinary legacy truss or an
-invented displacement in the ordinary deep-beam shell. The legacy judge expectations are
-unchanged. This feature predicate is a re-check and explanation scope, not a guarantee
-that an arbitrary model is well-conditioned; the engine still checks every linear stiffness,
-including ordinary frame, shell-only and truss-only models, and can refuse them. The shell precision refusals
-and SA-2026-054 documented above remain in force. This follow-up changes no solver code
-and discovers no additional wrong engineering result requiring another advisory.
+The `linear-stability-refusals` fragment requires only `analysis:linear`. Every saved
+project with a previously accepted linear result receives the re-check notice, including
+ordinary legacy truss and shell models. Model features cannot establish stability or detect
+plain frame, truss and cable mechanisms. A feature set without a linear analysis remains a
+non-match. This conservative notice does not assert that every flagged result is wrong;
+re-run the fixed solver to establish whether a result is accepted or refused. The engine
+checks every linear stiffness. The shell precision refusals and SA-2026-054 documented
+above remain in force. This follow-up changes no solver code and discovers no additional
+wrong engineering result requiring another advisory.
 
 ## Review round 2: unrelated moments and alternate load cases
 

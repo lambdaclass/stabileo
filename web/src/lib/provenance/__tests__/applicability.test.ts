@@ -274,8 +274,8 @@ describe('which registered changes concern a model', () => {
     }
   });
 
-  it('an empty model is concerned by nothing', () => {
-    expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
+  it('unknown analysis history receives the linear re-check notice even without model features', () => {
+    expect(ids(model({ supports: [], loadCases: [] }))).toEqual(['linear-stability-refusals']);
   });
 
   it('concerns a 3D steel truss solved before the containment diagnostics, and not the same supports and nodal load without members one version old (the re-check e2e relies on it)', () => {
