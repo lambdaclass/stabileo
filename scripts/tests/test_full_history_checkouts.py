@@ -119,7 +119,6 @@ console.log(JSON.stringify({{ base: landingsAt(git, process.env.BASE), head: lan
         self.assertEqual(json.loads(result.stdout), self.expected)
         self.assertEqual(self.git(self.clone, 'rev-parse', '--is-shallow-repository').strip(), 'false')
 
-    @unittest.skip('known wrong result: #1895')
     def test_queue_base_fetch_preserves_registry_landings(self):
         self.run_gate(self.queue_base)
 
