@@ -56,7 +56,7 @@ it('refuses modal, spectral, harmonic, time history and the toolbar modal path',
   const { input, densities } = dynamicInput();
   const paths: Array<[string, () => unknown]> = [
     ['modal', () => wasm.solveModal3D(input, densities, 6)],
-    ...(['X', 'Y', 'Z'] as const).map(direction => [`spectral ${direction}`, () => wasm.solveSpectral3D({ solver: input, modes: [], densities, spectrum: { name: 'test', points: [[0, 1], [10, 1]], inG: true }, direction, rule: 'CQC', importanceFactor: 1, reductionFactor: 1, xi: 0.05 })] as [string, () => unknown]),
+    ...(['X', 'Y', 'Z'] as const).map(direction => [`spectral ${direction}`, () => wasm.solveSpectral3D({ solver: input, modes: [], densities, spectrum: { name: 'test', points: [{ period: 0, sa: 1 }, { period: 10, sa: 1 }], inG: true }, direction, rule: 'CQC', importanceFactor: 1, reductionFactor: 1, xi: 0.05 })] as [string, () => unknown]),
     ['harmonic', () => wasm.solveHarmonic3D({ solver: input, densities: densityRecord(densities), frequencies: [0.1, 1], dampingRatio: 0.05, responseNodeId: b, responseDof: 'z' })],
     ['time history', () => wasm.solveTimeHistory3D({ solver: input, densities: densityRecord(densities), timeStep: 0.02, nSteps: 10, method: 'newmark', beta: 0.25, gamma: 0.5, dampingXi: 0.05 })],
     ['toolbar modal', () => {
