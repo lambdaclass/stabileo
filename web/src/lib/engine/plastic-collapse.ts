@@ -32,8 +32,10 @@
  *      the rank check of the stiffness says the structure is a mechanism.
  *
  * Member ends and point loads are sections of their own; inside a stretch under a span load the
- * critical section is where the moment function peaks, found from it, not on a mesh. A hinge is
- * one section: once a span hinge forms it stays where it is.
+ * critical section is where the moment function peaks, found from it, not on a mesh. A stretch
+ * takes one span hinge. As the load grows the peak of the moment moves, and the hinge moves with
+ * it: each increment puts it where the moment peaks at the increment's end, so the moment there
+ * is Mp with zero shear, and the section it leaves keeps the plastic rotation it took.
  *
  * What is not modelled: interaction of M with N or V (a section yields in
  * bending at Mp or axially at Np, each on its own), hinge unloading, and
@@ -57,6 +59,7 @@ import { buildKinematics } from './plastic/kinematics';
 import { nullspace } from './steps/sway-modes';
 import { solveLp } from './plastic/lp';
 import { bendingStretches, interiorMinimum, type BendingStretch } from './plastic/span-peaks';
+import type { HingeTrack } from './plastic/hinge-place';
 
 export interface PlasticCollapseOptions {
   /** Plastic moment of an original frame member, kN·m. */
@@ -74,6 +77,8 @@ export interface PlasticCollapseHinge extends PlasticHinge {
   kind: 'bending' | 'axial';
   /** Distance from the member's start node, m. */
   x: number;
+  /** A span hinge that moved with the peak of the moment: where it sat from each step on, the first entry where it formed. `x` and `position` are its last place. */
+  track?: HingeTrack;
 }
 
 /** What one event of the step-by-step analysis did, for explaining it. */
@@ -83,6 +88,8 @@ export interface PlasticStepTrace {
   dLambda: number;
   /** Per hinge formed (index into `hinges`): its moment (or axial force) per unit λ in the structure of this step, and what it had before. */
   events: Array<{ hinge: number; perUnit: number; before: number; limit: number }>;
+  /** Span hinges this increment moved with the peak of the moment, from and to (m from the member start). */
+  moved?: Array<{ hinge: number; from: number; to: number }>;
 }
 
 export interface PlasticCollapseResult extends PlasticResult {
@@ -125,6 +132,8 @@ export interface PlasticCollapseResult extends PlasticResult {
 interface Piece { id: number; t0: number; t1: number }
 
 const EPS_EVENT = 1e-6;
+const MAX_MOVES = 60;
+const MOVE_TOL = 1e-11;
 /** Relative distance within which the history's end confirms the certified collapse load. */
 const HISTORY_TOL = 1e-3;
 
@@ -189,6 +198,27 @@ function splitAt(input: SolverInput, id: number, s: number, ids: { node: number;
   }
   input.loads = out;
   return { node: nodeId, right: rightId };
+}
+
+function memberLoadsOn(loads: readonly SolverLoad[], id: number, L: number, from: number, to: number, pieceId: number): SolverLoad[] {
+  const out: SolverLoad[] = [];
+  for (const l of loads) {
+    if (!('elementId' in l.data) || (l.data as { elementId: number }).elementId !== id) continue;
+    if (l.type === 'distributed' || l.type === 'axialDistributed') {
+      const d = l.data, type = l.type;
+      const la = d.a ?? 0, lb = d.b ?? L;
+      const qAt = (x: number) => (lb - la < 1e-12 ? d.qI : d.qI + ((d.qJ - d.qI) * (x - la)) / (lb - la));
+      const s0 = Math.max(la, from), s1 = Math.min(lb, to);
+      if (s1 - s0 > 1e-12) out.push({ type, data: { elementId: pieceId, qI: qAt(s0), qJ: qAt(s1), a: s0 - from, b: s1 - from } });
+    } else if (l.type === 'pointOnElement') {
+      if ((l.data.a > from + 1e-12 || from <= 1e-12) && l.data.a <= to + 1e-12) {
+        out.push({ type: 'pointOnElement', data: { ...l.data, elementId: pieceId, a: Math.min(l.data.a, to) - from } });
+      }
+    } else if (l.type === 'thermal') {
+      out.push({ type: 'thermal', data: { ...l.data, elementId: pieceId } });
+    }
+  }
+  return out;
 }
 
 /** Whether a member load bends the member: a transverse force or a couple on it. */
@@ -270,10 +300,7 @@ function axialPeakStations(loads: readonly SolverLoad[], id: number, L: number):
   return [...out].filter((x) => x >= 0 && x <= L);
 }
 
-/** Span hinge positions held fixed for a run: member id → stretch index → t. */
-type SpanPlaces = Map<number, Map<number, number>>;
-
-interface Stretch extends BendingStretch { hinge: number | null; at?: number }
+interface Stretch extends BendingStretch { hinge: number | null }
 
 interface Member {
   id: number; L: number; truss: boolean; mp: number; np: number;
@@ -296,24 +323,8 @@ function valueAt(kind: 'moment' | 'shear', pieces: readonly Piece[], efOf: Map<n
   return computeDiagramValueAt(kind, tl, ef);
 }
 
-/**
- * The step-by-step history. A span hinge sits at the peak of the moment in the collapse state (the
- * run is repeated with it moved there until it stays), so the history ends at the collapse load of
- * its mechanism; at an earlier step, the moment next to that hinge can be slightly above Mp.
- */
+/** The step-by-step history. */
 export function plasticHistory2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
-  let places: SpanPlaces = new Map();
-  let run = historyRun(original, opts, places);
-  for (let round = 0; round < 12 && run.moved.size; round++) {
-    const next: SpanPlaces = new Map([...places].map(([id, m]) => [id, new Map(m)]));
-    for (const [id, m] of run.moved) for (const [i, t] of m) next.set(id, (next.get(id) ?? new Map()).set(i, t));
-    places = next;
-    run = historyRun(original, opts, places);
-  }
-  return run.result;
-}
-
-function historyRun(original: SolverInput, opts: PlasticCollapseOptions, places: SpanPlaces): { result: PlasticCollapseResult; moved: SpanPlaces } {
   const S = opts.samples ?? 64;
   const maxEvents = opts.maxEvents ?? 200;
   const MAX_CLOSINGS = maxEvents;
@@ -332,8 +343,7 @@ function historyRun(original: SolverInput, opts: PlasticCollapseOptions, places:
   for (const e of original.elements.values()) {
     const L = len(original, e);
     const truss = e.type === 'truss';
-    const stretches: Stretch[] = truss ? [] : bendingStretches(original.loads, e.id, L)
-      .map((s, i) => ({ ...s, hinge: null, at: places.get(e.id)?.get(i) }));
+    const stretches: Stretch[] = truss ? [] : bendingStretches(original.loads, e.id, L).map((s) => ({ ...s, hinge: null }));
     const bendTs = truss ? [] : [0, 1, ...stretches.flatMap((s) => [s.t0, s.t1])];
     if (!truss) {
       // A couple jumps the moment: its right side is a section of its own.
@@ -502,6 +512,198 @@ function historyRun(original: SolverInput, opts: PlasticCollapseOptions, places:
     return rot ? nodeRot(e.nodeJ) - rot.tj : 0;
   };
 
+  type Candidate =
+    | { kind: 'station'; m: Member; k: number; d: number; axial: boolean }
+    | { kind: 'span'; m: Member; stretch: Stretch; t: number; d: number; perUnit: number; before: number };
+
+  const stationValues = (efOf: Map<number, ElementForces>) => members.map((mb) => {
+    const u = mb.t.map(() => 0), un = mb.t.map(() => 0);
+    if (mb.yielded) return { u, un };
+    if (mb.truss) {
+      const ef = efOf.get(mb.pieces[0].id);
+      if (ef) for (let k = 0; k < mb.t.length; k++) un[k] = computeDiagramValueAt('axial', mb.t[k], ef);
+      return { u, un };
+    }
+    for (let k = 0; k < mb.t.length; k++) {
+      const t = mb.t[k];
+      const piece = mb.pieces.find((p) => t >= p.t0 - 1e-12 && t <= p.t1 + 1e-12)!;
+      const ef = efOf.get(piece.id);
+      if (!ef) continue;
+      const tl = Math.min(1, Math.max(0, piece.t1 - piece.t0 < 1e-12 ? 0 : (t - piece.t0) / (piece.t1 - piece.t0)));
+      u[k] = computeDiagramValueAt('moment', tl, ef);
+      un[k] = computeDiagramValueAt('axial', tl, ef);
+    }
+    return { u, un };
+  });
+
+  const addIncrement = (coef: number, r: AnalysisResults, efOf: Map<number, ElementForces>) => {
+    hingeAt.forEach((ref, h) => { if (ref) rotations[h] += coef * jumpAt(ref, r, efOf); });
+    stationValues(efOf).forEach(({ u, un }, i) => {
+      const mb = members[i];
+      for (let k = 0; k < mb.t.length; k++) { mb.acc[k] += coef * u[k]; mb.accN[k] += coef * un[k]; }
+    });
+    stages.push({ d: coef, efOf, pieces: new Map(members.map((mb) => [mb.id, mb.pieces.slice()])) });
+    for (const d of r.displacements) {
+      if (!original.nodes.has(d.nodeId)) continue;
+      const c = cumDisp.get(d.nodeId) ?? { ux: 0, uz: 0, ry: 0 };
+      cumDisp.set(d.nodeId, { ux: c.ux + coef * d.ux, uz: c.uz + coef * d.uz, ry: c.ry + coef * d.ry });
+    }
+    for (const x of r.reactions) {
+      const c = cumReac.get(x.nodeId) ?? { rx: 0, rz: 0, my: 0 };
+      cumReac.set(x.nodeId, { rx: c.rx + coef * x.rx, rz: c.rz + coef * x.rz, my: c.my + coef * x.my });
+    }
+    for (const mb of members) {
+      const first = efOf.get(mb.pieces[0].id), last = efOf.get(mb.pieces[mb.pieces.length - 1].id);
+      const c = cumEnd.get(mb.id)!;
+      if (first) { c.nStart += coef * first.nStart; c.vStart += coef * first.vStart; c.mStart += coef * first.mStart; }
+      if (last) { c.nEnd += coef * last.nEnd; c.vEnd += coef * last.vEnd; c.mEnd += coef * last.mEnd; }
+    }
+  };
+
+  const saveState = () => ({
+    stages: stages.length,
+    acc: members.map((mb) => mb.acc.slice()), accN: members.map((mb) => mb.accN.slice()),
+    disp: new Map([...cumDisp].map(([k, v]) => [k, { ...v }])), reac: new Map([...cumReac].map(([k, v]) => [k, { ...v }])),
+    end: new Map([...cumEnd].map(([k, v]) => [k, { ...v }])), rotations: rotations.slice(),
+  });
+  const restoreState = (s: ReturnType<typeof saveState>) => {
+    stages.length = s.stages;
+    members.forEach((mb, i) => { mb.acc = s.acc[i].slice(); mb.accN = s.accN[i].slice(); });
+    cumDisp.clear(); for (const [k, v] of s.disp) cumDisp.set(k, { ...v });
+    cumReac.clear(); for (const [k, v] of s.reac) cumReac.set(k, { ...v });
+    cumEnd.clear(); for (const [k, v] of s.end) cumEnd.set(k, { ...v });
+    rotations.length = 0; rotations.push(...s.rotations);
+  };
+
+  const movingHinges = () => hingeAt.flatMap((ref, h) => (ref?.stretch && !ref.locked && !ref.mb.yielded ? [{ ref, h }] : []));
+
+  /**
+   * A span hinge put at a section below Mp: the self-stress that takes that section to Mp, as
+   * `coef` times (the solve with that section rigid − the solve with it released). It leaves the
+   * moment at every other released hinge unchanged.
+   */
+  const toMp = (r: AnalysisResults, efOf: Map<number, ElementForces>, arrived: ReadonlySet<number>) => {
+    const parts: Array<{ coef: number; r: AnalysisResults; efOf: Map<number, ElementForces> }> = [];
+    const open = [...movingHinges(), ...[...arrived].flatMap((h) => (hingeAt[h] ? [{ ref: hingeAt[h]!, h }] : []))];
+    for (const { ref, h } of open) {
+      const { mb, t } = ref;
+      const gap = Math.sign(hinges[h].moment) * mb.mp - accAt('moment', mb, t);
+      if (Math.abs(gap) <= 1e-13 * mb.mp) continue;
+      unrelease(mb, t);
+      let rigid: AnalysisResults;
+      try { rigid = solve(work); } finally { release(mb, t); }
+      const efRigid = new Map(rigid.elementForces.map((ef) => [ef.elementId, ef]));
+      const m = valueAt('moment', mb.pieces, efRigid, t);
+      if (Math.abs(m) < 1e-12 * mb.mp) continue;
+      parts.push({ coef: gap / m, r: rigid, efOf: efRigid }, { coef: -gap / m, r, efOf });
+    }
+    return parts;
+  };
+
+  const peakAfter = (ref: HingeRef, h: number, d: number, efOf: Map<number, ElementForces>) => {
+    const { mb, stretch } = ref;
+    const sg = Math.sign(hinges[h].moment);
+    return interiorMinimum(
+      (t) => -sg * (accAt('moment', mb, t) + d * valueAt('moment', mb.pieces, efOf, t)),
+      (t) => accAt('shear', mb, t) + d * valueAt('shear', mb.pieces, efOf, t),
+      stretch!.t0, stretch!.t1, S);
+  };
+
+  const startTrack = (ref: HingeRef, h: number) => {
+    const hinge = hinges[h];
+    if (!hinge.track) hinge.track = [{ step: hinge.step, position: ref.t, x: ref.t * ref.mb.L }];
+  };
+  const placeHinge = (ref: HingeRef, h: number, t: number) => {
+    ref.t = t;
+    Object.assign(hinges[h], { position: t, x: t * ref.mb.L, end: t < 0.5 ? 'start' : 'end' });
+  };
+
+  /** Span hinge h reaches the end of its stretch, station k: the member is whole there again and the hinge is that station's. */
+  const arrive = (ref: HingeRef, h: number, k: number) => {
+    const { mb } = ref;
+    startTrack(ref, h);
+    const li = mb.pieces.findIndex((p) => Math.abs(p.t1 - ref.t) < 1e-9);
+    const left = mb.pieces[li], right = mb.pieces[li + 1];
+    const eLeft = work.elements.get(left.id)!, eRight = work.elements.get(right.id)!;
+    const node = eLeft.nodeJ;
+    work.elements.set(left.id, { ...eLeft, nodeJ: eRight.nodeJ, hingeEnd: eRight.hingeEnd });
+    work.elements.delete(right.id);
+    work.nodes.delete(node);
+    mb.splitNodes = mb.splitNodes.filter((n) => n !== node);
+    const onPieces = (l: SolverLoad) => 'elementId' in l.data && [left.id, right.id].includes((l.data as { elementId: number }).elementId);
+    work.loads = [...work.loads.filter((l) => !onPieces(l)), ...memberLoadsOn(original.loads, mb.id, mb.L, left.t0 * mb.L, right.t1 * mb.L, left.id)];
+    mb.pieces.splice(li, 2, { id: left.id, t0: left.t0, t1: right.t1 });
+    ref.stretch!.hinge = null;
+    ref.stretch = undefined;
+    ref.run = [k];
+    mb.hinged[k] = true;
+    release(mb, mb.t[k]);
+    placeHinge(ref, h, mb.t[k]);
+  };
+
+  /** Moves the split of span hinge h to `t`; the loads of the two pieces are cut from the member's own again. */
+  const moveHinge = (ref: HingeRef, h: number, t: number) => {
+    const { mb } = ref;
+    const li = mb.pieces.findIndex((p) => Math.abs(p.t1 - ref.t) < 1e-9);
+    const left = mb.pieces[li], right = mb.pieces[li + 1];
+    const e = original.elements.get(mb.id)!;
+    const a = original.nodes.get(e.nodeI)!, b = original.nodes.get(e.nodeJ)!;
+    const node = work.elements.get(left.id)!.nodeJ;
+    work.nodes.set(node, { id: node, x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t });
+    const onPieces = (l: SolverLoad) => 'elementId' in l.data && [left.id, right.id].includes((l.data as { elementId: number }).elementId);
+    work.loads = [
+      ...work.loads.filter((l) => !onPieces(l)),
+      ...memberLoadsOn(original.loads, mb.id, mb.L, left.t0 * mb.L, t * mb.L, left.id),
+      ...memberLoadsOn(original.loads, mb.id, mb.L, t * mb.L, right.t1 * mb.L, right.id),
+    ];
+    mb.pieces.splice(li, 2, { id: left.id, t0: left.t0, t1: t }, { id: right.id, t0: t, t1: right.t1 });
+    startTrack(ref, h);
+    ref.stretch!.hinge = t;
+    placeHinge(ref, h, t);
+  };
+
+  const evaluate = (efOf: Map<number, ElementForces>) => {
+    const values = stationValues(efOf);
+    const unit = values.map((v) => v.u), unitN = values.map((v) => v.un);
+    let dMin = Infinity;
+    let stressed = false;
+    const cand: Candidate[] = [];
+    const axialCandidate = (mb: Member, k: number, n: number) => {
+      if (Math.abs(n) < 1e-10 * Math.max(1, mb.np) || !Number.isFinite(mb.np)) return;
+      const d = (Math.sign(n) * mb.np - mb.accN[k]) / n;
+      if (d > 1e-12) { cand.push({ kind: 'station', m: mb, k, d, axial: true }); dMin = Math.min(dMin, d); }
+    };
+    members.forEach((mb, i) => {
+      if (mb.yielded) return;
+      for (let k = 0; k < mb.t.length; k++) axialCandidate(mb, k, unitN[i][k]);
+      if (mb.truss) return;
+      for (let k = 0; k < mb.t.length; k++) {
+        const m = unit[i][k];
+        if (!mb.bend[k] || mb.hinged[k] || Math.abs(m) < 1e-10 * Math.max(1, mb.mp)) continue;
+        const d = (Math.sign(m) * mb.mp - mb.acc[k]) / m;
+        if (d > 1e-12) { cand.push({ kind: 'station', m: mb, k, d, axial: false }); dMin = Math.min(dMin, d); }
+      }
+      const unitAt = (t: number) => valueAt('moment', mb.pieces, efOf, t);
+      const tiny = 1e-10 * Math.max(1, Number.isFinite(mb.mp) ? mb.mp : 1);
+      const increment = (t: number) => {
+        const m = unitAt(t);
+        if (Math.abs(m) < tiny) return Infinity;
+        const d = (Math.sign(m) * mb.mp - accAt('moment', mb, t)) / m;
+        return d > 1e-12 ? d : Infinity;
+      };
+      for (const st of mb.stretches) {
+        if (!st.loaded) continue;
+        if (Math.abs(unitAt((st.t0 + st.t1) / 2)) > 1e-12) stressed = true;
+        if (st.hinge !== null || !Number.isFinite(mb.mp)) continue;
+        const peak = interiorMinimum(increment, (t, d) => accAt('shear', mb, t) + d * valueAt('shear', mb.pieces, efOf, t), st.t0, st.t1, S);
+        if (!peak || !Number.isFinite(peak.value)) continue;
+        cand.push({ kind: 'span', m: mb, stretch: st, t: peak.t, d: peak.value, perUnit: unitAt(peak.t), before: accAt('moment', mb, peak.t) });
+        dMin = Math.min(dMin, peak.value);
+      }
+    });
+    return { unit, unitN, cand, dMin, stressed };
+  };
+
   let event = 0;
   for (; event < maxEvents; event++) {
     /*
@@ -519,74 +721,39 @@ function historyRun(original: SolverInput, opts: PlasticCollapseOptions, places:
       throw new Error(`Plastic collapse: the solve after ${hinges.length} hinge(s) failed although the `
         + `structure is not a mechanism — ${msg}`);
     }
-    const efOf = new Map(r.elementForces.map((ef) => [ef.elementId, ef]));
+    let efOf = new Map(r.elementForces.map((ef) => [ef.elementId, ef]));
 
-    const unit: number[][] = [];
-    const unitN: number[][] = [];
-    let dMin = Infinity;
-    let stressed = false;
-    type Candidate =
-      | { kind: 'station'; m: Member; k: number; d: number; axial: boolean }
-      | { kind: 'span'; m: Member; stretch: Stretch; t: number; d: number; perUnit: number; before: number };
-    const cand: Candidate[] = [];
-    const axialCandidate = (mb: Member, k: number, n: number) => {
-      if (Math.abs(n) < 1e-10 * Math.max(1, mb.np) || !Number.isFinite(mb.np)) return;
-      const d = (Math.sign(n) * mb.np - mb.accN[k]) / n;
-      if (d > 1e-12) { cand.push({ kind: 'station', m: mb, k, d, axial: true }); dMin = Math.min(dMin, d); }
-    };
-    for (const mb of members) {
-      const u = mb.t.map(() => 0);
-      const un = mb.t.map(() => 0);
-      unit.push(u);
-      unitN.push(un);
-      if (mb.yielded) continue;
-      if (mb.truss) {
-        const ef = efOf.get(mb.pieces[0].id);
-        if (!ef) continue;
-        for (let k = 0; k < mb.t.length; k++) {
-          un[k] = computeDiagramValueAt('axial', mb.t[k], ef);
-          axialCandidate(mb, k, un[k]);
+    const saved = saveState();
+    const from = new Map(movingHinges().map(({ ref, h }) => [h, ref.t]));
+    const arrived = new Set<number>();
+    let ev = evaluate(efOf);
+    for (let it = 0; it < MAX_MOVES; it++) {
+      for (const p of toMp(r, efOf, arrived)) addIncrement(p.coef, p.r, p.efOf);
+      ev = evaluate(efOf);
+      if (!Number.isFinite(ev.dMin)) break;
+      const dMin = ev.dMin;
+      const atMpNow = new Set(ev.cand.flatMap((c) => (c.kind === 'station' && !c.axial && c.d <= dMin * (1 + EPS_EVENT) + 1e-12 ? [`${c.m.id}:${c.k}`] : [])));
+      const moves = movingHinges().flatMap(({ ref, h }) => {
+        const { mb, stretch } = ref;
+        const i = members.indexOf(mb);
+        const peak = peakAfter(ref, h, dMin, efOf);
+        /* The peak runs into the end of the stretch just as that section reaches Mp of the hinge's sign: the hinge gets there. */
+        for (const end of [stretch!.t0, stretch!.t1]) {
+          const k = mb.t.findIndex((tk) => Math.abs(tk - end) < 1e-12);
+          const sameSign = k >= 0 && Math.sign(mb.acc[k] + dMin * ev.unit[i][k]) === Math.sign(hinges[h].moment);
+          if (sameSign && atMpNow.has(`${mb.id}:${k}`) && (!peak || Math.abs(peak.t - end) < Math.abs(ref.t - end))) return [{ ref, h, t: end, k }];
         }
-        continue;
+        return peak && Math.abs(peak.t - ref.t) > MOVE_TOL ? [{ ref, h, t: peak.t, k: -1 }] : [];
+      });
+      if (!moves.length) break;
+      restoreState(saved);
+      for (const m of moves) {
+        if (m.k >= 0) { arrive(m.ref, m.h, m.k); arrived.add(m.h); } else moveHinge(m.ref, m.h, m.t);
       }
-      for (let k = 0; k < mb.t.length; k++) {
-        const t = mb.t[k];
-        const piece = mb.pieces.find((p) => t >= p.t0 - 1e-12 && t <= p.t1 + 1e-12)!;
-        const ef = efOf.get(piece.id);
-        if (!ef) continue;
-        const tl = Math.min(1, Math.max(0, piece.t1 - piece.t0 < 1e-12 ? 0 : (t - piece.t0) / (piece.t1 - piece.t0)));
-        const m = computeDiagramValueAt('moment', tl, ef);
-        u[k] = m;
-        un[k] = computeDiagramValueAt('axial', tl, ef);
-        axialCandidate(mb, k, un[k]);
-        if (!mb.bend[k] || mb.hinged[k] || Math.abs(m) < 1e-10 * Math.max(1, mb.mp)) continue;
-        const d = (Math.sign(m) * mb.mp - mb.acc[k]) / m;
-        if (d > 1e-12) { cand.push({ kind: 'station', m: mb, k, d, axial: false }); dMin = Math.min(dMin, d); }
-      }
-      const unitAt = (t: number) => valueAt('moment', mb.pieces, efOf, t);
-      const tiny = 1e-10 * Math.max(1, Number.isFinite(mb.mp) ? mb.mp : 1);
-      const increment = (t: number) => {
-        const m = unitAt(t);
-        if (Math.abs(m) < tiny) return Infinity;
-        const d = (Math.sign(m) * mb.mp - accAt('moment', mb, t)) / m;
-        return d > 1e-12 ? d : Infinity;
-      };
-      for (const st of mb.stretches) {
-        if (!st.loaded) continue;
-        if (Math.abs(unitAt((st.t0 + st.t1) / 2)) > 1e-12) stressed = true;
-        if (st.hinge !== null || !Number.isFinite(mb.mp)) continue;
-        let peak: { t: number; value: number } | null;
-        if (st.at !== undefined) {
-          const inside = st.at > st.t0 + 1e-9 * (st.t1 - st.t0) && st.at < st.t1 - 1e-9 * (st.t1 - st.t0);
-          peak = inside ? { t: st.at, value: increment(st.at) } : null;
-        } else {
-          peak = interiorMinimum(increment, (t, d) => accAt('shear', mb, t) + d * valueAt('shear', mb.pieces, efOf, t), st.t0, st.t1, S);
-        }
-        if (!peak || !Number.isFinite(peak.value)) continue;
-        cand.push({ kind: 'span', m: mb, stretch: st, t: peak.t, d: peak.value, perUnit: unitAt(peak.t), before: accAt('moment', mb, peak.t) });
-        dMin = Math.min(dMin, peak.value);
-      }
+      r = solve(work);
+      efOf = new Map(r.elementForces.map((ef) => [ef.elementId, ef]));
     }
+    const { unit, unitN, cand, dMin, stressed } = ev;
     /*
      * A locked hinge is at Mp with the section kept rigid: released when this increment would
      * take it past Mp, open again when it turns away from it.
@@ -604,37 +771,22 @@ function historyRun(original: SolverInput, opts: PlasticCollapseOptions, places:
         hingeAt[h] = null;
       }
     });
-    if (unlocked) continue;
+    if (unlocked) { restoreState(saved); continue; }
     if (!Number.isFinite(dMin)) { // nothing left that can yield
+      restoreState(saved);
       if (steps.length === 0 && !stressed && ![...unit, ...unitN].some((row) => row.some((v) => Math.abs(v) > 1e-12))) unloaded = true;
       break;
     }
 
     const lambdaBefore = lambda;
-    hingeAt.forEach((ref, h) => { if (ref) rotations[h] += dMin * jumpAt(ref, r, efOf); });
+    addIncrement(dMin, r, efOf);
     lambda += dMin;
-    members.forEach((mb, i) => {
-      for (let k = 0; k < mb.t.length; k++) {
-        mb.acc[k] += dMin * unit[i][k];
-        mb.accN[k] += dMin * unitN[i][k];
-      }
+    const moved = [...from].flatMap(([h, t0]) => {
+      const ref = hingeAt[h];
+      if (!ref || Math.abs(ref.t - t0) <= MOVE_TOL) return [];
+      hinges[h].track!.push({ step: steps.length, position: ref.t, x: ref.t * ref.mb.L });
+      return [{ hinge: h, from: t0 * ref.mb.L, to: ref.t * ref.mb.L }];
     });
-    stages.push({ d: dMin, efOf, pieces: new Map(members.map((mb) => [mb.id, mb.pieces.slice()])) });
-    for (const d of r.displacements) {
-      if (!original.nodes.has(d.nodeId)) continue;
-      const c = cumDisp.get(d.nodeId) ?? { ux: 0, uz: 0, ry: 0 };
-      cumDisp.set(d.nodeId, { ux: c.ux + dMin * d.ux, uz: c.uz + dMin * d.uz, ry: c.ry + dMin * d.ry });
-    }
-    for (const x of r.reactions) {
-      const c = cumReac.get(x.nodeId) ?? { rx: 0, rz: 0, my: 0 };
-      cumReac.set(x.nodeId, { rx: c.rx + dMin * x.rx, rz: c.rz + dMin * x.rz, my: c.my + dMin * x.my });
-    }
-    for (const mb of members) {
-      const first = efOf.get(mb.pieces[0].id), last = efOf.get(mb.pieces[mb.pieces.length - 1].id);
-      const c = cumEnd.get(mb.id)!;
-      if (first) { c.nStart += dMin * first.nStart; c.vStart += dMin * first.vStart; c.mStart += dMin * first.mStart; }
-      if (last) { c.nEnd += dMin * last.nEnd; c.vEnd += dMin * last.vEnd; c.mEnd += dMin * last.mEnd; }
-    }
 
     const events = cand.filter((c) => c.d <= dMin * (1 + EPS_EVENT) + 1e-12);
     const formed: PlasticCollapseHinge[] = [];
@@ -700,7 +852,12 @@ function historyRun(original: SolverInput, opts: PlasticCollapseOptions, places:
     /* A fixed support or a rotational spring holds the joint: each member end there is its own hinge. */
     const rotationHeld = (nodeId: number) => [...work.supports.values()]
       .some((s) => s.nodeId === nodeId && (s.type === 'fixed' || (s.type === 'spring' && (s.kz ?? 0) > 0)));
-    const claimed = new Set<number>();
+    const claimed = new Set<number>([...arrived].flatMap((h) => {
+      const ref = hingeAt[h];
+      const k = ref?.run[0];
+      const node = ref && k !== undefined ? endNode(ref.mb, k) : null;
+      return node !== null ? [node] : [];
+    }));
     for (const [mb, ks] of byMember) {
       const keep: number[] = [];
       for (const k of ks) {
@@ -769,7 +926,7 @@ function historyRun(original: SolverInput, opts: PlasticCollapseOptions, places:
     }
     steps.push({
       loadFactor: lambda, hingesFormed: formed, results: snapshot(lambda),
-      trace: { lambdaBefore, dLambda: dMin, events: traced }, rotations: rotations.slice(),
+      trace: { lambdaBefore, dLambda: dMin, events: traced, ...(moved.length ? { moved } : {}) }, rotations: rotations.slice(),
     });
     if (crushed) { isMechanism = true; break; }
   }
@@ -780,31 +937,15 @@ function historyRun(original: SolverInput, opts: PlasticCollapseOptions, places:
   }
   if (event === maxEvents && !isMechanism) unresolved = true;
 
-  const moved: SpanPlaces = new Map();
-  if (isMechanism && !unresolved) {
-    hingeAt.forEach((ref, h) => {
-      if (!ref?.stretch || ref.mb.yielded) return;
-      const { mb, stretch } = ref;
-      const sg = Math.sign(hinges[h].moment);
-      const peak = interiorMinimum((t) => -sg * accAt('moment', mb, t), (t) => accAt('shear', mb, t), stretch.t0, stretch.t1, S);
-      if (!peak || Math.abs(peak.t - ref.t) <= 1e-7) return;
-      const i = mb.stretches.indexOf(stretch);
-      moved.set(mb.id, (moved.get(mb.id) ?? new Map()).set(i, peak.t));
-    });
-  }
-
   return {
-    moved,
-    result: {
-      collapseFactor: lambda,
-      steps,
-      hinges,
-      isMechanism: isMechanism && !unresolved,
-      redundancy: Math.max(0, kin0.degree),
-      degree: kin0.degree,
-      unloaded,
-      ...(unresolved ? { unresolved: true } : {}),
-    },
+    collapseFactor: lambda,
+    steps,
+    hinges,
+    isMechanism: isMechanism && !unresolved,
+    redundancy: Math.max(0, kin0.degree),
+    degree: kin0.degree,
+    unloaded,
+    ...(unresolved ? { unresolved: true } : {}),
   };
 }
 
