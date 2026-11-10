@@ -333,6 +333,8 @@ fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
                     m[p * n + k] = c * mpk - s * mqk;
                     m[q * n + k] = s * mpk + c * mqk;
                 }
+                #[cfg(test)]
+                tests::EIGENVECTOR_ROTATIONS.with(|count| count.set(count.get() + 1));
                 for k in 0..n {
                     let (vkp, vkq) = (v[k * n + p], v[k * n + q]);
                     v[k * n + p] = c * vkp - s * vkq;
@@ -1022,6 +1024,9 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
 
 #[cfg(test)]
 mod tests {
+    thread_local! {
+        pub(super) static EIGENVECTOR_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
     use super::*;
 
     fn negative_node_block(two_d: bool, diagonal: f64, off_diagonal: f64) -> Stability {
@@ -1153,4 +1158,16 @@ mod tests {
         let seed = 15_233_338_564_176_581_173;
         assert!(lanczos_top(&|x| matrix.sym_mat_vec(x), 2, seed, &|top| certified_top(&matrix, top)).is_none());
     }
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_fast_accepted_spectrum_avoids_unused_eigenvector_rotations() {
+        let matrix = CscMatrix::from_dense_symmetric(&[2.0, 1.0, 0.0, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0], 3);
+        let tags: Vec<_> = (0..3).map(|node| DofTag { node, kind: DofKind::Translation }).collect();
+        EIGENVECTOR_ROTATIONS.with(|count| count.set(0));
+        let result = analyze(&matrix, &tags);
+        assert_eq!(result.verdict, Verdict::Stable);
+        assert!(!result.needs_accuracy_check());
+        assert_eq!(EIGENVECTOR_ROTATIONS.with(|count| count.get()), 0);
+    }
+
 }
