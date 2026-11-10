@@ -418,7 +418,7 @@ pub fn rows() -> Vec<Ana3> {
                     let n = md.modes.len();
                     (md, n)
                 } else {
-                    crate::ana2::cluster_complete(|k| modal::solve_modal_3d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 6, 12)?
+                    crate::ana2::cluster_complete(|k| modal::solve_modal_3d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 6, 12, crate::dynamic_accuracy::of_3d(c).map_or(0.0, |a| a.residual))?
                 };
                 let modes = md.modes[..n]
                     .iter()
@@ -462,17 +462,32 @@ pub fn rows() -> Vec<Ana3> {
                         solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05,
                         response_node_id: node, response_dof: dof.into(),
                     };
-                    comps.push(harmonic::solve_harmonic_3d(&inp)?);
+                    let result = if c.p.symmetry {
+                        harmonic::solve_harmonic_3d_with_damping(&inp).map(|(r, damping)| (r, Some(damping)))?
+                    } else {
+                        (harmonic::solve_harmonic_3d(&inp)?, None)
+                    };
+                    comps.push(result);
                 }
                 let mut o = Resp::default();
                 let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.y, n.z]));
                 let us = linear::solve_3d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()).max(d.rx.abs().max(d.ry.abs()).max(d.rz.abs()) * l))).unwrap_or(0.0);
+                let cond = if c.p.symmetry { Some(dedaliano_engine::metamorphic::conditioning::of_3d(&c.s)?) } else { None };
+                let rel = cond.as_ref().map_or(0.0, |cond| crate::checks2::rel_for("harmonic", 1e-10, cond));
+                let accuracy = if c.p.symmetry { crate::dynamic_accuracy::harmonic_3d(c).ok() } else { None };
                 for k in 0..c.p.freqs.len() {
-                    let p = |i: usize| &comps[i].response_points[k];
+                    let floor = if !c.p.symmetry || crate::generated::strict() { us } else {
+                        let residual = comps.iter().map(|(r, _)| {
+                            if r.method == harmonic::HarmonicMethod::Direct || r.direct_frequencies.contains(&c.p.freqs[k]) { 0.0 }
+                            else { r.max_modal_residual.filter(|v| *v >= 0.0 && *v < f64::MAX).unwrap_or(f64::INFINITY) }
+                        }).fold(0.0f64, f64::max);
+                        us.max(crate::dynamic_accuracy::harmonic_floor(accuracy.as_ref(), c.p.freqs[k], comps[0].1.unwrap(), cond.as_ref().unwrap().rel(), rel, residual))
+                    };
+                    let p = |i: usize| &comps[i].0.response_points[k];
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V3(Dim::LEN), vec![p(0).real, p(1).real, p(2).real]);
                     o.push(Some(node), None, &format!("H_im{k}"), Kind::V3(Dim::LEN), vec![p(0).imag, p(1).imag, p(2).imag]);
-                    o.set_floor(&format!("H_re{k}"), us);
-                    o.set_floor(&format!("H_im{k}"), us);
+                    o.set_floor(&format!("H_re{k}"), floor);
+                    o.set_floor(&format!("H_im{k}"), floor);
                 }
                 Ok(o)
             },
