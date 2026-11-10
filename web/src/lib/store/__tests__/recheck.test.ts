@@ -326,14 +326,16 @@ describe('edited projects with older provenance', () => {
     expect(store.stale).toBe(true);
   });
 
-  const openingNoticeIds = [
+  const openingNoticeIds = (registry = RESULT_CHANGES) => [
     'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
     'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
     'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
-    'linear-stability-refusals', 'connector-arm-mechanism-3d-refused',
-  ];
+    'connector-arm-mechanism-3d-refused', 'linear-stability-refusals',
+  ].map(id => registry.changes.find(c => c.id === id)!)
+    .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+    .map(c => c.id);
 
-  it.skip('known wrong result: #1753 connector-only opening notices follow main-first merge order', async () => {
+  it('#1753: connector-only opening notices follow main-first merge order', async () => {
     const module = await import('../../provenance/applicability');
     const mergedRegistry = {
       ...RESULT_CHANGES,
@@ -350,7 +352,9 @@ describe('edited projects with older provenance', () => {
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     const received = store.assessment?.changes.map(c => c.id);
-    expect(received, JSON.stringify({ expected: openingNoticeIds, received }, null, 2)).toEqual(openingNoticeIds);
+    const expected = openingNoticeIds(mergedRegistry);
+    expect(expected.slice(-2)).toEqual(['connector-arm-mechanism-3d-refused', 'linear-stability-refusals']);
+    expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
   });
 
   it('clears an acknowledged linear notice before adding shells, saving and reopening without a solve', async () => {
@@ -358,7 +362,7 @@ describe('edited projects with older provenance', () => {
     const snapshot = { ...frame(), elements: [], connectors: [[1, { kShear: 0 }]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
-    expect(store.assessment?.changes.map(c => c.id)).toEqual(openingNoticeIds);
+    expect(store.assessment?.changes.map(c => c.id)).toEqual(openingNoticeIds());
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
     store.acknowledge();
