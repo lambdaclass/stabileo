@@ -5,7 +5,7 @@
 | Severity | High |
 | Status | Draft 2026-11-10; fix prepared locally, not released |
 | Issue | [#1329](https://github.com/lambdaclass/stabileo/issues/1329) |
-| Fix | Local fix; no PR or published release yet |
+| Fix | PR [#1895](https://github.com/lambdaclass/stabileo/pull/1895), prepared locally; not merged or released |
 | Affected versions | Confirmed on main `8f4c3ee6c`; release boundaries not bisected |
 | Re-check registry | results-change entry `pdelta-span-axial` |
 
@@ -14,6 +14,7 @@
 - **App: 2D and 3D P-Delta analysis** when a frame member carries a distributed
   load or point load with a component along its axis, and checks derived from
   that analysis.
+- **Course:** the consistent second-order teaching solver under the same axial span loads.
 - **Engine/WASM:** `solve_pdelta_2d`, `solve_pdelta_3d`, and their certified
   wrappers.
 
@@ -62,8 +63,9 @@ loads along their axes. Include gravity components on inclined members when
 those components are passed as axial span loads. The model can be affected even
 if a different member governs a design check.
 
-The registry flags projects with frame members, member loads and P-Delta analysis.
-That is broader than this defect: transverse-only member loads do not trigger
+The registry flags frame P-Delta projects, including projects without saved member
+loads, because generated self-weight can create axial span loads. This is broader
+than the defect: constant axial force or transverse-only span loads do not trigger
 the missing axial-force term.
 
 ## Fixed in
@@ -86,3 +88,19 @@ Re-run affected P-Delta analyses on a corrected build and reassess checks based
 on their displacements, forces, amplification or stability. Compare refined
 meshes where the result is sensitive to amplification. Previously reported
 stable results can become unstable.
+
+## Teaching solver and bundled examples (PR #1895)
+
+The consistent teaching solver also used mean axial force. For its existing
+5 m cantilever fixture with tip compression 100 kN, transverse tip force 2 kN,
+axial span load −6 kN/m and EI = 20,000 kN·m², its base moment changes from
+10.508408979997858 to 10.490333626707253 kN·m. Independent polynomial integration
+of cubic geometric work confirms the corrected engine and teaching result; this
+is the one-element discrete reference, not the exact continuum solution. The
+derivation and source citation are in the results-change write-up.
+
+The PRO examples `3d-portal-frame` and `3d-tower` carry axial self-weight on
+vertical frame columns. Their refreshed snapshots change only P-Delta
+displacements, member end forces, reactions, amplification and the removed
+span-load diagnostic. All non-P-Delta outputs are byte-identical between current
+main and the corrected engine.

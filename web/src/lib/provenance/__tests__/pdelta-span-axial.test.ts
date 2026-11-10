@@ -18,7 +18,7 @@ const changes = (model: FeatureSnapshot, analyses: string[], v = version - 1) =>
   assessProject(model, { resultsVersion: v, analyses } as unknown as SolveStamp, 'pro').changes.map((c) => c.id);
 
 describe('P-Delta span axial recheck #1329', () => {
-  it.skip('known wrong result: #1329: both changed PRO examples receive the recheck notice, including generated self-weight', () => {
+  it('#1329: both changed PRO examples receive the recheck notice, including generated self-weight', () => {
     for (const fixture of [portal, tower]) expect(changes(snapshot(fixture), ['linear', 'pdelta'])).toContain(id);
   });
 

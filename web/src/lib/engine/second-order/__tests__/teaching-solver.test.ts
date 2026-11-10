@@ -233,7 +233,7 @@ describe('iterations', () => {
 });
 
 describe('span axial integration #1329', () => {
-  it.skip('known wrong result: #1329: the teaching cantilever matches independently integrated cubic work', () => {
+  it('#1329: the teaching cantilever matches independently integrated cubic work', () => {
     const L = 5, P = 100, W = 30, H = 2;
     const input = column('fixed', null, L, P, H);
     input.loads.push({ type: 'axialDistributed', data: { elementId: 1, qI: -W / L, qJ: -W / L } });
@@ -259,7 +259,7 @@ describe('span axial integration #1329', () => {
 describe('span load shapes #1329', () => {
   for (const shape of ['trapezoidal', 'partial', 'point'] as const) {
     for (const n of [1, 4]) {
-      it.skip(`known wrong result: #1329: ${shape} axial load matches engine stiffness and end forces (n = ${n})`, () => {
+      it(`#1329: ${shape} axial load matches engine stiffness and end forces (n = ${n})`, () => {
         const L = 5, P = 100, H = 2, angle = 0.4;
         const c = Math.cos(angle), s = Math.sin(angle);
         const input = column('fixed', null, L, P, H);
@@ -267,7 +267,7 @@ describe('span load shapes #1329', () => {
         input.loads = [{ type: 'nodal', data: { nodeId: 2, fx: -P * c - H * s, fz: -P * s + H * c, my: 0 } }];
         if (shape === 'point') input.loads.push({ type: 'pointOnElement', data: { elementId: 1, a: 0.3 * L, p: 0, px: -30 } });
         else input.loads.push({ type: 'axialDistributed', data: { elementId: 1, qI: shape === 'partial' ? -6 : 0, qJ: -6, ...(shape === 'partial' ? { a: 0.2 * L, b: 0.7 * L } : {}) } });
-        const refined = refineInput(input, n).input;
+        const refined = n === 1 ? input : refineInput(input, n).input;
         const t = teachingPDelta(refined, { method: 'consistent', axialRigid: false });
         if (!t.ok) throw new Error(t.reason.key);
         const mine = toAnalysisResults(t.run.sys, refined, t.run.final, 'consistent', t.run.finalSolvedWith);

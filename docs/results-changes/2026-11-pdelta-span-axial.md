@@ -94,3 +94,88 @@ Regression coverage includes the independent references, one-element and refined
 meshes across the dense/sparse transition, 2D rotation, both 3D bending planes,
 axial point loads, near-critical stability, free-end moment equilibrium,
 certification of the corrected model, and reversal/load-splitting invariance.
+
+## PR #1895: snapshot audit and consistent teaching solver
+
+The snapshot audit compares `origin/main` (`cfd541d17`) and the PR engine using
+identical app inputs and the existing results capture. All non-P-Delta captured
+values are byte-identical between those engines, including the linear base,
+cases, combinations and envelopes, buckling, modal and spectral results. The
+portal's tiny modal/spectral differences against the older committed snapshot
+also occur on current main; the existing snapshot merge preserves those baseline
+bytes. No tolerance or assertion changed.
+
+Only `pro-3d-portal-frame` (144 leaves) and `pro-3d-tower` (246 leaves) change under
+the snapshot comparison rule. Every changed path starts with `pdelta.`:
+
+- `pdelta.b2`;
+- `pdelta.results.displacements`: ux, uy, uz, rx, ry, rz;
+- `pdelta.results.elementForces`: nStart/nEnd, vyStart/vyEnd, vzStart/vzEnd,
+  mxStart/mxEnd, myStart/myEnd, mzStart/mzEnd;
+- `pdelta.results.reactions`: fx, fy, fz, mx, my, mz;
+- `pdelta.results.diagnosticCodes`: the obsolete span-load warning disappears.
+
+There are no added or removed leaves, stability or convergence changes in these
+examples. Both PRO examples include generated gravity self-weight as member span
+loads (`selfWeightSolverLoads`), with an axial component on their vertical frame
+columns: portal members 1–4 and tower members 1–8. Redistributed end forces can
+also change in other members. The tower's inclined braces are trusses and retain
+their mean-force matrix. The largest relative numeric change is 0.0857031% in
+portal torsional end moments and 0.497939% in tower transverse end shears, measured
+as |new − old| / |old| over changed nonzero leaves.
+
+The registry lists the affected displacement, force and reaction fields,
+amplification, diagnostics and possible stability/refusal outcomes explicitly,
+without a wildcard. Its condition includes frame P-Delta projects even without
+saved member loads: generated self-weight is not necessarily stored there. In
+particular, requiring `memberLoads` suppressed the notice for `3d-tower`.
+The registry's `examples` scope is deliberately not used: it means only example
+inputs changed and excludes saved models, whereas this is an engine correction.
+The two affected example ids and quantity families are stated in all six registry
+explanations.
+
+### Independent check of the teaching cantilever
+
+The existing teaching fixture has L = 5 m, E = 200,000 MPa, I = 10⁻⁴ m⁴,
+EI = 20,000 kN·m², tip compression P = 100 kN, lateral tip force H = 2 kN,
+and axial distributed load −6 kN/m. Its compression is
+C(x) = P + W(1 − x/L), W = 30 kN. These parameters are read from the fixture,
+not inferred from either solver's answer.
+
+Independently integrate the cubic trial field
+v(t) = (3t² − 2t³)v_tip + L(t³ − t²)θ_tip, t = x/L, with its base fixed.
+Stationarity of
+
+    Π = ½∫ EI(v″)² dx − ½∫ C(x)(v′)² dx − H v_tip
+
+gives a free stiffness [[a,b],[b,c]], where
+
+    a = 12EI/L³ − (6P + 3W)/(5L)
+    b = −6EI/L² + (P + W)/10
+    c = 4EI/L − (2P/15 + W/30)L
+    v_tip = Hc/(ac − b²), θ_tip = −Hb/(ac − b²).
+
+Including the base-rotation trial function before setting its DOF to zero gives
+
+    M_base = −[(−6EI/L² + P/10)v_tip
+               + (2EI/L + (P/30 + W/60)L)θ_tip].
+
+This independent polynomial integration gives v_tip = 0.004407757561066027 m,
+θ_tip = 0.0013246794252269375 and M_base = 10.490333626707253 kN·m.
+The engine gives M_base = 10.490333626707246 kN·m. The previous teaching result,
+10.508408979997858 kN·m, used the mean-force matrix and is wrong for the same
+one-element cubic model. These are discrete values, not an exact continuum
+solution. The reference test computes the formula directly, without calling
+production stiffness, span integration or quadrature helpers. The governing
+virtual-work basis is described in the University of Alberta's
+[Principle of Virtual Work](https://engcourses-uofa.ca/books/introduction-to-solid-mechanics/variational-principles/the-principle-of-virtual-work/the-principle-of-virtual-work/);
+the polynomial integrals and fixture-specific expressions above are derived here.
+
+The consistent teaching method now adds ∫(N(x) − N̄)φ′ᵢφ′ⱼ dx before its existing
+elastic release condensation, in assembly, geometric end forces and reactions.
+Four-point Gauss integration splits at point and partial-load boundaries.
+The chord and constant-force stability-function methods keep their existing
+formulations. Tests cover the independent uniform-load calculation, trapezoidal
+and partial axial loads at one and four subdivisions, and direct point loads plus point loads split into
+nodes by the existing refinement path. The pre-existing force comparison retains
+its 5e-7 absolute tolerance.
