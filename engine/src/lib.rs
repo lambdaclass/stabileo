@@ -414,9 +414,8 @@ pub fn solve_plastic_2d(json: &str) -> Result<String, JsValue> {
     to_json(&results)
 }
 
-/// Collapse load factor of a 2D frame by limit analysis (`solver::plastic_limit`), released only
-/// where the exact plastic certificate confirms it (`certified_limit_2d`); anything else is the
-/// PL-2D-INVARIANCE refusal (#758). JSON (`LimitInput`) in → JSON `LimitResult` out.
+/// Collapse load factor of a 2D frame by limit analysis, where the exact certificate confirms it
+/// (`certified_limit_2d`). JSON (`LimitInput`) in → JSON `LimitResult` out.
 #[wasm_bindgen]
 pub fn plastic_limit_2d(json: &str) -> Result<String, JsValue> {
     let input: solver::plastic_limit::LimitInput = serde_json::from_str(json)

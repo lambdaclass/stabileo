@@ -49,6 +49,15 @@ fn nodal(n: usize, fx: f64, fz: f64) -> SolverLoad {
     SolverLoad::Nodal(SolverNodalLoad { node_id: n, fx, fz, my: 0.0 })
 }
 
+/// `certify_plastic_2d` is released from PL-2D-INVARIANCE where its exact bounds meet at the
+/// solver's factor, and that factor is `exact`.
+fn assert_released(inp: &PlasticInput, exact: f64) {
+    let out = certify_plastic_2d(inp).expect("an exactly certified collapse factor is released");
+    let (lo, up) = (out.certificate.lambda_lower.unwrap(), out.certificate.lambda_upper.unwrap());
+    assert!(out.results.is_mechanism && (out.results.collapse_factor - exact).abs() <= 1e-9 * exact, "{} vs {exact}", out.results.collapse_factor);
+    assert!(up - lo <= 1e-6 * exact && lo <= exact * (1.0 + 1e-12) && exact <= up * (1.0 + 1e-12), "[{lo}, {up}] vs {exact}");
+}
+
 /// The certified enclosure contains `exact` and is tight to `rel`.
 fn assert_encloses(label: &str, c: &PlasticCertificate, exact: f64, rel: f64) {
     assert!(c.certified, "{label}: not certified: {:?}", c.reason);
@@ -184,7 +193,7 @@ fn portal_frame_mechanisms() {
         assert_encloses(&format!("portal H={hl} V={v}"), &c, exact, 1e-12);
         // the incremental solver agrees up to its own f64 round-off
         assert!(c.solver_deviation.unwrap() < 1e-10, "solver value outside: {c:?}");
-        assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
+        assert_released(&inp, exact);
     }
 }
 
@@ -363,7 +372,7 @@ fn unsupported_models_are_refused() {
 #[test]
 fn certify_plastic_2d_reports_solver_value() {
     let inp = plastic(portal(4.0, 6.0, 1.0, 1.0));
-    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
+    assert_released(&inp, 6.0 * MP / 7.0);
     let out = certify_plastic_2d_unrefused(&inp).unwrap();
     assert!(out.certificate.certified);
     assert_eq!(out.certificate.solver_collapse_factor, Some(out.results.collapse_factor));
@@ -470,7 +479,7 @@ fn moment_sign_conventions_match_solver() {
     let c = certify(&inp);
     assert_encloses("tip force + nodal couple", &c, MP / 5.0, 1e-12);
     assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
-    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
+    assert_released(&inp, MP / 5.0);
 
     let loads = vec![
         nodal(2, 0.0, 1.0),
@@ -480,7 +489,7 @@ fn moment_sign_conventions_match_solver() {
     let c = certify(&inp);
     assert_encloses("tip force + member couple", &c, MP / 5.0, 1e-12);
     assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
-    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
+    assert_released(&inp, MP / 5.0);
 
     // transverse member load q > 0 acts along local y = (−sin, cos): on a beam
     // along +x it pushes up, like a tip force fz > 0, so they add: M_base = qL²/2 + F L
@@ -749,12 +758,32 @@ fn issue_758_certified_entry_releases_only_what_the_exact_certificate_confirms()
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![udl(2, -15.0), nodal(2, 10.0, 0.0)],
     );
-    let r = certified_limit_2d(&LimitInput { solver: portal, mp: mp(&[(1, 1687.5), (2, 3125.0), (3, 1687.5)]), np: HashMap::new() }).unwrap();
+    let portal_mp = mp(&[(1, 1687.5), (2, 3125.0), (3, 1687.5)]);
+    let r = certified_limit_2d(&LimitInput { solver: portal.clone(), mp: portal_mp.clone(), np: HashMap::new() }).unwrap();
     assert_eq!(r.confirmation, Confirmation::Exact);
     assert!((r.lambda - 1925.0 / 27.0).abs() <= 1e-9 * r.lambda, "{}", r.lambda);
     let mut hinges: Vec<(usize, f64)> = r.hinges.iter().map(|h| (h.element_id, (h.position * 1e6).round() / 1e6)).collect();
     hinges.sort_by(|a, b| a.partial_cmp(b).unwrap());
     assert_eq!(hinges, vec![(1, 1.0), (2, 0.5), (3, 1.0)], "{:?}", r.hinges);
+
+    // With the app's self-weight (25 kN/m³): 2.25 kN/m along each column, 2.5 kN/m more on the
+    // beam, and Np = fy·A. The beam mechanism still governs, at 8 (Mp,col + Mp,beam) / (17.5 L²).
+    let mut weighted = portal.clone();
+    for e in [1, 3] {
+        weighted.loads.push(SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: e, q_i: -2.25, q_j: -2.25, a: None, b: None }));
+    }
+    weighted.loads.push(udl(2, -2.5));
+    let np = mp(&[(1, 250e3 * 0.09), (2, 250e3 * 0.1), (3, 250e3 * 0.09)]);
+    let beam = 8.0 * (1687.5 + 3125.0) / (17.5 * 36.0);
+    let combined = (1..6000).map(|k| 6.0 * k as f64 / 6000.0).map(|x| (2.0 * 1687.5 + 4812.5 * 6.0 / (6.0 - x)) / (40.0 + 52.5 * x)).fold(f64::INFINITY, f64::min);
+    assert!(beam < combined && beam < 168.75, "{beam} {combined}");
+    let r = certified_limit_2d(&LimitInput { solver: weighted.clone(), mp: portal_mp.clone(), np: np.clone() }).unwrap();
+    assert!((r.lambda - beam).abs() <= 1e-9 * beam, "{} vs {beam}", r.lambda);
+    // Where axial yield of a column governs, the certificate's bending mechanism cannot meet its
+    // static bound: refused, never the bending factor.
+    let weak = mp(&[(1, 100.0), (2, 250e3 * 0.1), (3, 250e3 * 0.09)]);
+    let r = certified_limit_2d(&LimitInput { solver: weighted, mp: portal_mp, np: weak });
+    assert!(r.as_ref().is_err_and(|e| e.contains("PL-2D-INVARIANCE")), "{:?}", r.map(|r| r.lambda));
 
     // #1475: two fixed–fixed beams on a shared fixed node, one unloaded with Mp = 1e-12, the other
     // of unit length with Mp = q = 1. The collapse factor is 16; the limit analysis's rank cutoff
@@ -773,6 +802,18 @@ fn issue_758_certified_entry_releases_only_what_the_exact_certificate_confirms()
     eprintln!("#1475 two beams: limit analysis {raw:?}, public entry {:?}", released.as_ref().map(|r| r.lambda));
     match released {
         Ok(r) => assert!((r.lambda - 16.0).abs() <= 1e-9 * 16.0, "released {} (limit analysis {raw:?})", r.lambda),
+        Err(e) => assert!(e.contains("PL-2D-INVARIANCE"), "{e}"),
+    }
+    let mut sections = HashMap::new();
+    sections.insert("1".to_string(), PlasticSectionData { a: A_SEC, iz: IZ_SEC, material_id: 1, b: Some(B), h: Some(H) });
+    let materials = HashMap::from([("1".to_string(), PlasticMaterialData { fy: Some(FY) })]);
+    let mut two = PlasticInput { solver: input.solver.clone(), sections, materials, max_hinges: None, mp_overrides: None };
+    two.solver.elements.get_mut("1").unwrap().section_id = 2;
+    two.solver.sections.insert("2".into(), SolverSection { id: 2, ..two.solver.sections["1"].clone() });
+    two.sections.insert("2".into(), PlasticSectionData { a: A_SEC, iz: IZ_SEC, material_id: 1, b: Some(B), h: Some(H) });
+    two.mp_overrides = Some(HashMap::from([("1".to_string(), 1.0), ("2".to_string(), 1e-12)]));
+    match certify_plastic_2d(&two) {
+        Ok(out) => assert!((out.results.collapse_factor - 16.0).abs() <= 1e-9 * 16.0, "released {}", out.results.collapse_factor),
         Err(e) => assert!(e.contains("PL-2D-INVARIANCE"), "{e}"),
     }
 
