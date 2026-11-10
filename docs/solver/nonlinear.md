@@ -61,7 +61,7 @@ Newton for that increment.
 | P-Delta | $\lVert u_{k+1}-u_k\rVert_2 / \lVert u_{k+1}\rVert_2 < \text{tol}$ (displacement, free DOFs) | caller | returns last iterate, `converged=false` |
 | Co-rotational 2D/3D | $\lVert C^{\mathsf T}R\rVert_2 / \lVert C^{\mathsf T}\lambda F\rVert_2 < \text{tol}$ (force) | caller | reports **last converged increment**, its load factor and loads |
 | Material nonlinear 2D/3D | $\lVert C^{\mathsf T}R\rVert_2 < \text{tol}\cdot\lVert \lambda F_f\rVert_2$ | $10^{-6}$ | marks `converged=false` and **continues** with the next increment (NL-17) |
-| Fiber 2D/3D | as co-rotational | $10^{-6}$ | stops, reports the **unconverged iterate** (NL-17) |
+| Fiber 2D/3D | as co-rotational | $10^{-6}$ | returns the last committed equilibrium; 2D Hognestad runs refine their numerical stopping interval (§8) |
 | Arc-length | $\lVert C^{\mathsf T}R\rVert_2 / (\lvert\lambda\rvert\lVert F\rVert_2) < \text{tol}$ | $10^{-6}$ | halves $\Delta s$, restores the last converged state |
 | Displacement control | force test as arc-length, with $\lVert\lambda F\rVert$ floored at 1, **and** $\lvert u_c - u_c^\ast\rvert \le \text{tol}\cdot\lvert\Delta d\rvert$ | $10^{-6}$ | stops |
 | Contact | no status change in one full pass (after the first); frozen states must satisfy contact conditions after the final solve | `tolerance`, default $10^{-10}$ m for frozen-state validation | invalid frozen states refused; `converged=false` after `max_iter` |
@@ -405,26 +405,32 @@ is raised.
 
 ## 8. Fiber solver, global loop (`fiber_nonlinear.rs`)
 
-The element, its section integration and its material laws are in
-[special-elements.md §4](special-elements.md#4-fiber-beam-column-element). The global loop is §1.1
-with small displacements: $u_\ell = Tu$ uses the initial $T$, so there is no geometric
-nonlinearity. Each Newton iteration resets the fiber histories to the state committed at the last
-converged increment. The trial state of the converged iterate is then committed (SP-6). Member
-forces are the element resisting forces $q$ at the converged state plus the member-load FEF
-(`fiber_member_forces_2d/3d`, SP-7). Reactions are not returned (SP-18). Hinges, shear deformation
-and prescribed displacements are refused.
+The displacement-based fibre element and its material laws are described in
+[special-elements.md §4](special-elements.md#4-fiber-beam-column-element). The solver
+uses small displacements and material nonlinearity. Each Newton iteration resets
+material histories to the last committed equilibrium; a failed increment restores
+both those histories and the displacements. Returned reactions, member forces and
+history correspond to `lastConvergedLoadFactor`, including when `status` is `stopped`.
 
-Checks:
+In 2D runs with Hognestad concrete in fibre sections assigned to analysed frame
+elements, failed or non-positive-tangent trials cause load-increment bisection.
+A successful cutback retries the original target before advancing, so a crushing
+kink is not automatically treated as a limit point. The
+remaining numerical load-control interval is refined to at most a quarter of the
+requested load-factor tolerance and reported in `loadLimit`, with
+`capacityCertified: false`. Iteration failure is not proof of a structural limit,
+and the last converged equilibrium is not capacity.
+See [the refinement contract and evidence](../results-changes/2026-11-fibre-load-control-refinement.md).
 
-- `nl_fiber_end_moment_matches_section_law`: the EPP rectangle law
-  $\kappa/\kappa_y = (3-2M/M_y)^{-1/2}$ under an end moment holds to $2\times10^{-3}$ in 1 or 20
-  increments, with full or modified Newton. Modified Newton contracts by about 0.9 per iteration
-  here.
-- `nl_fiber_one_increment_matches_many`: a propped cantilever at $0.95P_c$ gives the same answer
-  in 1 and in 40 increments.
-- `nl_fiber_member_forces_are_section_resultants`: member $M$ equals the applied moment past yield.
+Other 2D material models and the 3D solver retain fixed load increments. Arc-length
+and displacement control currently assemble corotational elastic elements rather
+than these fibre sections. Hinges, shear deformation and prescribed displacements
+are refused by the fibre solver.
 
----
+Targeted regressions: `fiber_nonlinear_gate` in the `solver` test binary checks elastic
+and plastic cantilevers, reactions, equilibrium, stopped-state recovery, the exact
+RC step-count reproducer, and the distinction between a numerical boundary and a
+certified capacity.
 
 ## 9. Contact, gaps, tension/compression-only (`contact.rs`)
 
@@ -717,7 +723,7 @@ Neither is called by any solver. They are library utilities, tested only in
 - *Material nonlinear.* After an unconverged increment it carries on to the full load. It reports
   `load_factor` = last converged increment, but displacements and forces from the final,
   unconverged iterate at full load.
-- *Fiber.* It stops and reports the unconverged iterate, without a load factor.
+- *Fiber.* Resolved: a stopped run returns the last committed equilibrium and its load factor. The 2D Hognestad path also refines and reports its numerical stopping interval (§8); it does not certify capacity.
 - *Comparison.* The co-rotational solvers report the last converged state together with its
   loads.
 - *Evidence.* Code path only.
