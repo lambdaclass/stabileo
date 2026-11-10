@@ -1,0 +1,3830 @@
+{
+  "date": "2026-11-10",
+  "native_rustc": "1.99.0",
+  "asan_rustc": "1.99.1",
+  "native_address_space_mib": 512,
+  "native_rss_mib": 512,
+  "asan_rss_mib": 2048,
+  "wall_seconds": 60,
+  "native_repetitions": 5,
+  "asan_repetitions": 3,
+  "cases": [
+    {
+      "issue": 951,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/951",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-951.bin",
+      "raw_sha1": "137c0dc8daa15f8d7cb171378046650a516b2060",
+      "raw_sha256": "2fd5dfb85302004d4d7c60fe054c6514e79ef4a4a05f8aa26b24a1db78148971",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.168554460047744,
+        "peak_rss_bytes": 10473472,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 10.124999999772044,
+          "lambdaUpper": 10.125,
+          "solverCollapseFactor": 9.860394114366954,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 493871575,
+            "iteration": 0,
+            "live_after": 2621,
+            "live_before": 2621,
+            "peak_bytes": 2400234,
+            "seconds": 1.02222621,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493871729,
+            "iteration": 1,
+            "live_after": 3645,
+            "live_before": 3645,
+            "peak_bytes": 2401258,
+            "seconds": 1.056610866,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493871611,
+            "iteration": 2,
+            "live_after": 3645,
+            "live_before": 3645,
+            "peak_bytes": 2401258,
+            "seconds": 1.01948563,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493871511,
+            "iteration": 3,
+            "live_after": 3645,
+            "live_before": 3645,
+            "peak_bytes": 2401258,
+            "seconds": 1.046931354,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493871435,
+            "iteration": 4,
+            "live_after": 3645,
+            "live_before": 3645,
+            "peak_bytes": 2401258,
+            "seconds": 1.020142986,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.005883548059500754,
+        "peak_rss_bytes": 10461184,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 162901,
+            "iteration": 0,
+            "live_after": 2625,
+            "live_before": 2625,
+            "peak_bytes": 71122,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000418547,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162901,
+            "iteration": 1,
+            "live_after": 3649,
+            "live_before": 3649,
+            "peak_bytes": 72146,
+            "peak_rss_bytes": 5545984,
+            "seconds": 0.000200186,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162901,
+            "iteration": 2,
+            "live_after": 3649,
+            "live_before": 3649,
+            "peak_bytes": 72146,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000187653,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162901,
+            "iteration": 3,
+            "live_after": 3649,
+            "live_before": 3649,
+            "peak_bytes": 72146,
+            "peak_rss_bytes": 5562368,
+            "seconds": 0.000178977,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162901,
+            "iteration": 4,
+            "live_after": 3649,
+            "live_before": 3649,
+            "peak_bytes": 72146,
+            "peak_rss_bytes": 5562368,
+            "seconds": 0.000175189,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.392041671904735,
+        "peak_rss_bytes": 10469376,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492689204,
+            "iteration": 0,
+            "live_after": 2627,
+            "live_before": 2627,
+            "peak_bytes": 2400240,
+            "peak_rss_bytes": 8429568,
+            "seconds": 1.080578015,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492689584,
+            "iteration": 1,
+            "live_after": 3651,
+            "live_before": 3651,
+            "peak_bytes": 2401264,
+            "peak_rss_bytes": 8429568,
+            "seconds": 1.077593525,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492689588,
+            "iteration": 2,
+            "live_after": 3651,
+            "live_before": 3651,
+            "peak_bytes": 2401264,
+            "peak_rss_bytes": 8601600,
+            "seconds": 1.073274598,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492689458,
+            "iteration": 3,
+            "live_after": 3651,
+            "live_before": 3651,
+            "peak_bytes": 2401264,
+            "peak_rss_bytes": 8601600,
+            "seconds": 1.075679939,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492689471,
+            "iteration": 4,
+            "live_after": 3651,
+            "live_before": 3651,
+            "peak_bytes": 2401264,
+            "peak_rss_bytes": 8601600,
+            "seconds": 1.076748066,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 7.548690964002162,
+        "peak_rss_bytes": 637464576,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492689970,
+            "iteration": 0,
+            "live_after": 2109,
+            "live_before": 2109,
+            "peak_bytes": 2399722,
+            "peak_rss_bytes": 621027328,
+            "seconds": 2.549004138,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492689958,
+            "iteration": 1,
+            "live_after": 3133,
+            "live_before": 3133,
+            "peak_bytes": 2400746,
+            "peak_rss_bytes": 637157376,
+            "seconds": 2.434016423,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492689910,
+            "iteration": 2,
+            "live_after": 3133,
+            "live_before": 3133,
+            "peak_bytes": 2400746,
+            "peak_rss_bytes": 636485632,
+            "seconds": 2.5016011970000003,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 952,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/952",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-952.bin",
+      "raw_sha1": "158a48faf3993f5a9f6efd296446b24ecfe374b2",
+      "raw_sha256": "9bd35744a7003b7506809de1fc144374c10dace4a8739fe3fe342e3af9a258b9",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.210644160048105,
+        "peak_rss_bytes": 10776576,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 10.124999999756442,
+          "lambdaUpper": 10.125,
+          "solverCollapseFactor": 9.929964812938806,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492458090,
+            "iteration": 0,
+            "live_after": 2507,
+            "live_before": 2507,
+            "peak_bytes": 2262627,
+            "seconds": 1.036785837,
+            "outcome_sha256": "5a34d29c3fbe6fb1a57ee344488c89b04ed05deba47e15a0e064d7740d7a1c10"
+          },
+          {
+            "allocated_bytes": 492457932,
+            "iteration": 1,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2263651,
+            "seconds": 1.040328366,
+            "outcome_sha256": "5a34d29c3fbe6fb1a57ee344488c89b04ed05deba47e15a0e064d7740d7a1c10"
+          },
+          {
+            "allocated_bytes": 492458058,
+            "iteration": 2,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2263651,
+            "seconds": 1.060176079,
+            "outcome_sha256": "5a34d29c3fbe6fb1a57ee344488c89b04ed05deba47e15a0e064d7740d7a1c10"
+          },
+          {
+            "allocated_bytes": 492457838,
+            "iteration": 3,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2263651,
+            "seconds": 1.021877007,
+            "outcome_sha256": "5a34d29c3fbe6fb1a57ee344488c89b04ed05deba47e15a0e064d7740d7a1c10"
+          },
+          {
+            "allocated_bytes": 492458082,
+            "iteration": 4,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2263651,
+            "seconds": 1.048389237,
+            "outcome_sha256": "5a34d29c3fbe6fb1a57ee344488c89b04ed05deba47e15a0e064d7740d7a1c10"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.0059502029325813055,
+        "peak_rss_bytes": 10498048,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 162105,
+            "iteration": 0,
+            "live_after": 2511,
+            "live_before": 2511,
+            "peak_bytes": 70894,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000429737,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 1,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5541888,
+            "seconds": 0.000200748,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 2,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.00018649,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 3,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.00018095,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 4,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.00018096,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.557387711014599,
+        "peak_rss_bytes": 10498048,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 491275419,
+            "iteration": 0,
+            "live_after": 2513,
+            "live_before": 2513,
+            "peak_bytes": 2262633,
+            "peak_rss_bytes": 8704000,
+            "seconds": 1.089964276,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 491275325,
+            "iteration": 1,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2263657,
+            "peak_rss_bytes": 8839168,
+            "seconds": 1.0974523999999999,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 491275583,
+            "iteration": 2,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2263657,
+            "peak_rss_bytes": 8847360,
+            "seconds": 1.117934025,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 491275631,
+            "iteration": 3,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2263657,
+            "peak_rss_bytes": 8847360,
+            "seconds": 1.116747034,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 491275583,
+            "iteration": 4,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2263657,
+            "peak_rss_bytes": 8847360,
+            "seconds": 1.129377824,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 7.8938380860490724,
+        "peak_rss_bytes": 641724416,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 491275969,
+            "iteration": 0,
+            "live_after": 1995,
+            "live_before": 1995,
+            "peak_bytes": 2262115,
+            "peak_rss_bytes": 625700864,
+            "seconds": 2.573854687,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 491275835,
+            "iteration": 1,
+            "live_after": 3019,
+            "live_before": 3019,
+            "peak_bytes": 2263139,
+            "peak_rss_bytes": 641404928,
+            "seconds": 2.481051306,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 491276015,
+            "iteration": 2,
+            "live_after": 3019,
+            "live_before": 3019,
+            "peak_bytes": 2263139,
+            "peak_rss_bytes": 640954368,
+            "seconds": 2.742419862,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 953,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/953",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-953.bin",
+      "raw_sha1": "d886d7f3d43878f1c4f3a6b5771ebed044d32d99",
+      "raw_sha256": "f71975bf8815ab8c513f30f1a68fc4486a93bdba0bb22f63b0f5543c69b674b1",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.128467270056717,
+        "peak_rss_bytes": 10780672,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 10.124999999772044,
+          "lambdaUpper": 10.125,
+          "solverCollapseFactor": 9.860394114366954,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 493865218,
+            "iteration": 0,
+            "live_after": 2507,
+            "live_before": 2507,
+            "peak_bytes": 2400006,
+            "seconds": 1.030424574,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493864926,
+            "iteration": 1,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2401030,
+            "seconds": 1.035919682,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865030,
+            "iteration": 2,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2401030,
+            "seconds": 1.004187632,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865132,
+            "iteration": 3,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2401030,
+            "seconds": 1.044783362,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865030,
+            "iteration": 4,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2401030,
+            "seconds": 1.008601428,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006558386026881635,
+        "peak_rss_bytes": 10506240,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 162105,
+            "iteration": 0,
+            "live_after": 2511,
+            "live_before": 2511,
+            "peak_bytes": 70894,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000499549,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 1,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5541888,
+            "seconds": 0.000206548,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 2,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5545984,
+            "seconds": 0.000187893,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 3,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000184768,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 4,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000180249,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.821312415995635,
+        "peak_rss_bytes": 10506240,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492682599,
+            "iteration": 0,
+            "live_after": 2513,
+            "live_before": 2513,
+            "peak_bytes": 2400012,
+            "peak_rss_bytes": 8867840,
+            "seconds": 1.131829692,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682497,
+            "iteration": 1,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "peak_rss_bytes": 8982528,
+            "seconds": 1.153603907,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682419,
+            "iteration": 2,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "peak_rss_bytes": 8994816,
+            "seconds": 1.135150955,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682591,
+            "iteration": 3,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "peak_rss_bytes": 8994816,
+            "seconds": 1.147982992,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682591,
+            "iteration": 4,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "peak_rss_bytes": 8994816,
+            "seconds": 1.248408449,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 7.572218508925289,
+        "peak_rss_bytes": 637448192,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492682709,
+            "iteration": 0,
+            "live_after": 1995,
+            "live_before": 1995,
+            "peak_bytes": 2399494,
+            "peak_rss_bytes": 620949504,
+            "seconds": 2.577710377,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682991,
+            "iteration": 1,
+            "live_after": 3019,
+            "live_before": 3019,
+            "peak_bytes": 2400518,
+            "peak_rss_bytes": 637140992,
+            "seconds": 2.438187257,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682897,
+            "iteration": 2,
+            "live_after": 3019,
+            "live_before": 3019,
+            "peak_bytes": 2400518,
+            "peak_rss_bytes": 636485632,
+            "seconds": 2.485373763,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 989,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/989",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-989.bin",
+      "raw_sha1": "c507ca7aa2dadaaa15bd1f0561a6286d4f5c4abb",
+      "raw_sha256": "1189dcf8403f7891d4fceb4506828dd4cdfc588d556c81e85b3d2cec4cedbb48",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.587805388960987,
+        "peak_rss_bytes": 10526720,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 10.124999999772044,
+          "lambdaUpper": 10.125,
+          "solverCollapseFactor": 9.860394114366954,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 493864998,
+            "iteration": 0,
+            "live_after": 2507,
+            "live_before": 2507,
+            "peak_bytes": 2400006,
+            "seconds": 1.100268438,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865194,
+            "iteration": 1,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2401030,
+            "seconds": 1.089825801,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865100,
+            "iteration": 2,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2401030,
+            "seconds": 1.093968547,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865148,
+            "iteration": 3,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2401030,
+            "seconds": 1.148263274,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865108,
+            "iteration": 4,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2401030,
+            "seconds": 1.152657203,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006257660919800401,
+        "peak_rss_bytes": 10510336,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 162105,
+            "iteration": 0,
+            "live_after": 2511,
+            "live_before": 2511,
+            "peak_bytes": 70894,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000437272,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 1,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5541888,
+            "seconds": 0.000200026,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 2,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5545984,
+            "seconds": 0.000182002,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 3,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000178816,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 4,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5558272,
+            "seconds": 0.000183966,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.4867277280427516,
+        "peak_rss_bytes": 10510336,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492682347,
+            "iteration": 0,
+            "live_after": 2513,
+            "live_before": 2513,
+            "peak_bytes": 2400012,
+            "peak_rss_bytes": 8327168,
+            "seconds": 1.089714179,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682465,
+            "iteration": 1,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "peak_rss_bytes": 8327168,
+            "seconds": 1.085274094,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682245,
+            "iteration": 2,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "peak_rss_bytes": 8327168,
+            "seconds": 1.107420517,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682623,
+            "iteration": 3,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "peak_rss_bytes": 8327168,
+            "seconds": 1.106435376,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682427,
+            "iteration": 4,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "peak_rss_bytes": 8347648,
+            "seconds": 1.092817502,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 7.44223399402108,
+        "peak_rss_bytes": 637509632,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492682953,
+            "iteration": 0,
+            "live_after": 1995,
+            "live_before": 1995,
+            "peak_bytes": 2399494,
+            "peak_rss_bytes": 621023232,
+            "seconds": 2.49694389,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682819,
+            "iteration": 1,
+            "live_after": 3019,
+            "live_before": 3019,
+            "peak_bytes": 2400518,
+            "peak_rss_bytes": 637136896,
+            "seconds": 2.42460948,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682867,
+            "iteration": 2,
+            "live_after": 3019,
+            "live_before": 3019,
+            "peak_bytes": 2400518,
+            "peak_rss_bytes": 637009920,
+            "seconds": 2.450751994,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 990,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/990",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-990.bin",
+      "raw_sha1": "c7f1ef441d8ec105f49d584f07bfb981dc219431",
+      "raw_sha256": "b09604388da6c05740c863cce5bd77e81a3b7ec3737a066ddb27a5294f8191dc",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.09455307002645,
+        "peak_rss_bytes": 10792960,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 10.124999999772044,
+          "lambdaUpper": 10.125,
+          "solverCollapseFactor": 9.860394114366954,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 493865274,
+            "iteration": 0,
+            "live_after": 2513,
+            "live_before": 2513,
+            "peak_bytes": 2400012,
+            "seconds": 1.042984094,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865194,
+            "iteration": 1,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "seconds": 1.017259966,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493864998,
+            "iteration": 2,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "seconds": 1.020095225,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865218,
+            "iteration": 3,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "seconds": 1.020299488,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493864982,
+            "iteration": 4,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2401036,
+            "seconds": 0.989793222,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006012029014527798,
+        "peak_rss_bytes": 10510336,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 162105,
+            "iteration": 0,
+            "live_after": 2517,
+            "live_before": 2517,
+            "peak_bytes": 70900,
+            "peak_rss_bytes": 5529600,
+            "seconds": 0.000417013,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 1,
+            "live_after": 3541,
+            "live_before": 3541,
+            "peak_bytes": 71924,
+            "peak_rss_bytes": 5541888,
+            "seconds": 0.0002077,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 2,
+            "live_after": 3541,
+            "live_before": 3541,
+            "peak_bytes": 71924,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.00018642,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 3,
+            "live_after": 3541,
+            "live_before": 3541,
+            "peak_bytes": 71924,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000181431,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 4,
+            "live_after": 3541,
+            "live_before": 3541,
+            "peak_bytes": 71924,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000180389,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.469463896006346,
+        "peak_rss_bytes": 10510336,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492682607,
+            "iteration": 0,
+            "live_after": 2519,
+            "live_before": 2519,
+            "peak_bytes": 2400018,
+            "peak_rss_bytes": 7852032,
+            "seconds": 1.098870048,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682411,
+            "iteration": 1,
+            "live_after": 3543,
+            "live_before": 3543,
+            "peak_bytes": 2401042,
+            "peak_rss_bytes": 7852032,
+            "seconds": 1.092658183,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682387,
+            "iteration": 2,
+            "live_after": 3543,
+            "live_before": 3543,
+            "peak_bytes": 2401042,
+            "peak_rss_bytes": 7852032,
+            "seconds": 1.089750417,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682647,
+            "iteration": 3,
+            "live_after": 3543,
+            "live_before": 3543,
+            "peak_bytes": 2401042,
+            "peak_rss_bytes": 7852032,
+            "seconds": 1.0985035,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682403,
+            "iteration": 4,
+            "live_after": 3543,
+            "live_before": 3543,
+            "peak_bytes": 2401042,
+            "peak_rss_bytes": 7852032,
+            "seconds": 1.088188854,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 7.474417809047736,
+        "peak_rss_bytes": 637517824,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492682883,
+            "iteration": 0,
+            "live_after": 2001,
+            "live_before": 2001,
+            "peak_bytes": 2399500,
+            "peak_rss_bytes": 621023232,
+            "seconds": 2.529128342,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682921,
+            "iteration": 1,
+            "live_after": 3025,
+            "live_before": 3025,
+            "peak_bytes": 2400524,
+            "peak_rss_bytes": 637140992,
+            "seconds": 2.425574466,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492683055,
+            "iteration": 2,
+            "live_after": 3025,
+            "live_before": 3025,
+            "peak_bytes": 2400524,
+            "peak_rss_bytes": 636645376,
+            "seconds": 2.455857022,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 991,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/991",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-991.bin",
+      "raw_sha1": "5ab3e57be542f3dbd4fd086e72051a1c95ce5dba",
+      "raw_sha256": "e43c9182d0d88041f84162734d38456210a225700370ef907f3b3df657305623",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 4.553618530044332,
+        "peak_rss_bytes": 10801152,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 9.373026491385673,
+          "lambdaUpper": 9.373556581130075,
+          "solverCollapseFactor": 9.087181273204067,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 459908990,
+            "iteration": 0,
+            "live_after": 2507,
+            "live_before": 2507,
+            "peak_bytes": 2406971,
+            "seconds": 0.92278409,
+            "outcome_sha256": "8551265fbe716328daa1e402e96401e8b708645861e7754ba087efc6956f17ff"
+          },
+          {
+            "allocated_bytes": 459908982,
+            "iteration": 1,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2407995,
+            "seconds": 0.908244382,
+            "outcome_sha256": "8551265fbe716328daa1e402e96401e8b708645861e7754ba087efc6956f17ff"
+          },
+          {
+            "allocated_bytes": 459908864,
+            "iteration": 2,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2407995,
+            "seconds": 0.899301724,
+            "outcome_sha256": "8551265fbe716328daa1e402e96401e8b708645861e7754ba087efc6956f17ff"
+          },
+          {
+            "allocated_bytes": 459908714,
+            "iteration": 3,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2407995,
+            "seconds": 0.925600783,
+            "outcome_sha256": "8551265fbe716328daa1e402e96401e8b708645861e7754ba087efc6956f17ff"
+          },
+          {
+            "allocated_bytes": 459909052,
+            "iteration": 4,
+            "live_after": 3531,
+            "live_before": 3531,
+            "peak_bytes": 2407995,
+            "seconds": 0.891980003,
+            "outcome_sha256": "8551265fbe716328daa1e402e96401e8b708645861e7754ba087efc6956f17ff"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006061542080715299,
+        "peak_rss_bytes": 10514432,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 162105,
+            "iteration": 0,
+            "live_after": 2511,
+            "live_before": 2511,
+            "peak_bytes": 70894,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000421422,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 1,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5541888,
+            "seconds": 0.000221807,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 2,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000187312,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 3,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000187773,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 4,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 71918,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000180208,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 4.946893853950314,
+        "peak_rss_bytes": 10514432,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 458686584,
+            "iteration": 0,
+            "live_after": 2513,
+            "live_before": 2513,
+            "peak_bytes": 2406977,
+            "peak_rss_bytes": 8331264,
+            "seconds": 0.988480114,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 458686718,
+            "iteration": 1,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2408001,
+            "peak_rss_bytes": 8331264,
+            "seconds": 1.015200645,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 458686592,
+            "iteration": 2,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2408001,
+            "peak_rss_bytes": 8331264,
+            "seconds": 0.99375614,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 458686914,
+            "iteration": 3,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2408001,
+            "peak_rss_bytes": 8331264,
+            "seconds": 0.974013234,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 458686748,
+            "iteration": 4,
+            "live_after": 3537,
+            "live_before": 3537,
+            "peak_bytes": 2408001,
+            "peak_rss_bytes": 8331264,
+            "seconds": 0.97013786,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 6.944500187993981,
+        "peak_rss_bytes": 601870336,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 458687134,
+            "iteration": 0,
+            "live_after": 1995,
+            "live_before": 1995,
+            "peak_bytes": 2406459,
+            "peak_rss_bytes": 583847936,
+            "seconds": 2.324428696,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 458687000,
+            "iteration": 1,
+            "live_after": 3019,
+            "live_before": 3019,
+            "peak_bytes": 2407483,
+            "peak_rss_bytes": 601202688,
+            "seconds": 2.264219264,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 458687126,
+            "iteration": 2,
+            "live_after": 3019,
+            "live_before": 3019,
+            "peak_bytes": 2407483,
+            "peak_rss_bytes": 600047616,
+            "seconds": 2.288708111,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 1081,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/1081",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1081.bin",
+      "raw_sha1": "d905f6d561e4606218e5ceaf9bbe229f76ba9278",
+      "raw_sha256": "22a074a3e3bb5092d5edc7b994412a04962191a47b58a48abe318eb6ec6739f9",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.157749598030932,
+        "peak_rss_bytes": 10805248,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 10.124999999772044,
+          "lambdaUpper": 10.125,
+          "solverCollapseFactor": 9.860394114366954,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 493865076,
+            "iteration": 0,
+            "live_after": 2508,
+            "live_before": 2508,
+            "peak_bytes": 2400007,
+            "seconds": 1.006367808,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865124,
+            "iteration": 1,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2401031,
+            "seconds": 1.002616577,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865076,
+            "iteration": 2,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2401031,
+            "seconds": 1.024727024,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865170,
+            "iteration": 3,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2401031,
+            "seconds": 1.073918349,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          },
+          {
+            "allocated_bytes": 493865084,
+            "iteration": 4,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2401031,
+            "seconds": 1.046068856,
+            "outcome_sha256": "f3c010bd66c7c1619079f7e2a72e2f474b76f01d544c1e8b506d35858f02d8b3"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006031626020558178,
+        "peak_rss_bytes": 10522624,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 162105,
+            "iteration": 0,
+            "live_after": 2512,
+            "live_before": 2512,
+            "peak_bytes": 70895,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000416843,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 1,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5545984,
+            "seconds": 0.000215585,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 2,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5545984,
+            "seconds": 0.000192491,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 3,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000180329,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 4,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000184176,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.455505541991442,
+        "peak_rss_bytes": 10522624,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492682545,
+            "iteration": 0,
+            "live_after": 2514,
+            "live_before": 2514,
+            "peak_bytes": 2400013,
+            "peak_rss_bytes": 8937472,
+            "seconds": 1.08454687,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682505,
+            "iteration": 1,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2401037,
+            "peak_rss_bytes": 8937472,
+            "seconds": 1.094243645,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682505,
+            "iteration": 2,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2401037,
+            "peak_rss_bytes": 8937472,
+            "seconds": 1.099762097,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682403,
+            "iteration": 3,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2401037,
+            "peak_rss_bytes": 8937472,
+            "seconds": 1.089449083,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492682607,
+            "iteration": 4,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2401037,
+            "peak_rss_bytes": 8937472,
+            "seconds": 1.082815937,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 7.461443517007865,
+        "peak_rss_bytes": 637517824,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492682669,
+            "iteration": 0,
+            "live_after": 1996,
+            "live_before": 1996,
+            "peak_bytes": 2399495,
+            "peak_rss_bytes": 620949504,
+            "seconds": 2.4941292170000002,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492683023,
+            "iteration": 1,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 2400519,
+            "peak_rss_bytes": 637140992,
+            "seconds": 2.403008618,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492683055,
+            "iteration": 2,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 2400519,
+            "peak_rss_bytes": 636645376,
+            "seconds": 2.485973569,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 1082,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/1082",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1082.bin",
+      "raw_sha1": "4f033b1e11c83fdae1b76b6982134b7dc42dd22a",
+      "raw_sha256": "d7dae7ef6b3b604009d537610904f82ab78a8cccc10e4fb1cc07143f3e9cbae3",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.089506734046154,
+        "peak_rss_bytes": 10813440,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 11.425837747862877,
+          "lambdaUpper": 11.42583776029747,
+          "solverCollapseFactor": 10.797718180433233,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 493653061,
+            "iteration": 0,
+            "live_after": 2508,
+            "live_before": 2508,
+            "peak_bytes": 2430003,
+            "seconds": 0.995925362,
+            "outcome_sha256": "a8508b2852c75ef5694cf02c88de16bd7dc7248ad6ef15c3e4d1028d58beb4ae"
+          },
+          {
+            "allocated_bytes": 493653011,
+            "iteration": 1,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2431027,
+            "seconds": 1.013834063,
+            "outcome_sha256": "a8508b2852c75ef5694cf02c88de16bd7dc7248ad6ef15c3e4d1028d58beb4ae"
+          },
+          {
+            "allocated_bytes": 493652901,
+            "iteration": 2,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2431027,
+            "seconds": 1.00629352,
+            "outcome_sha256": "a8508b2852c75ef5694cf02c88de16bd7dc7248ad6ef15c3e4d1028d58beb4ae"
+          },
+          {
+            "allocated_bytes": 493652877,
+            "iteration": 3,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2431027,
+            "seconds": 1.025328546,
+            "outcome_sha256": "a8508b2852c75ef5694cf02c88de16bd7dc7248ad6ef15c3e4d1028d58beb4ae"
+          },
+          {
+            "allocated_bytes": 493653097,
+            "iteration": 4,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2431027,
+            "seconds": 1.04289853,
+            "outcome_sha256": "a8508b2852c75ef5694cf02c88de16bd7dc7248ad6ef15c3e4d1028d58beb4ae"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006359101971611381,
+        "peak_rss_bytes": 10526720,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 161961,
+            "iteration": 0,
+            "live_after": 2512,
+            "live_before": 2512,
+            "peak_bytes": 70895,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000449174,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 1,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5541888,
+            "seconds": 0.000221116,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 2,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000186451,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 3,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000176261,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 4,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000174858,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.461053813924082,
+        "peak_rss_bytes": 10526720,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492423746,
+            "iteration": 0,
+            "live_after": 2514,
+            "live_before": 2514,
+            "peak_bytes": 2430009,
+            "peak_rss_bytes": 8998912,
+            "seconds": 1.113456155,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492423794,
+            "iteration": 1,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2431033,
+            "peak_rss_bytes": 9003008,
+            "seconds": 1.091333206,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492423636,
+            "iteration": 2,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2431033,
+            "peak_rss_bytes": 9064448,
+            "seconds": 1.078204761,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492423830,
+            "iteration": 3,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2431033,
+            "peak_rss_bytes": 9064448,
+            "seconds": 1.089142618,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492423696,
+            "iteration": 4,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2431033,
+            "peak_rss_bytes": 9064448,
+            "seconds": 1.085954206,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 7.5257121049799025,
+        "peak_rss_bytes": 638746624,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 492424202,
+            "iteration": 0,
+            "live_after": 1996,
+            "live_before": 1996,
+            "peak_bytes": 2429491,
+            "peak_rss_bytes": 620253184,
+            "seconds": 2.5073570800000002,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492423848,
+            "iteration": 1,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 2430515,
+            "peak_rss_bytes": 638377984,
+            "seconds": 2.422684109,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 492424056,
+            "iteration": 2,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 2430515,
+            "peak_rss_bytes": 638013440,
+            "seconds": 2.52717596,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 1261,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/1261",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin",
+      "raw_sha1": "56705b73f94746d1372044e8e0177f57f253e824",
+      "raw_sha256": "c347e36ace7d52b9926730f64aaf4e05e9eb684dd34c66063f5376943f1b01ff",
+      "resource_classification": "existing 2D safety refusal; historical OOM not reproduced",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006057504913769662,
+        "peak_rss_bytes": 10821632,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-2D-INVARIANCE"
+          ],
+          "message": "Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 25505,
+            "iteration": 0,
+            "live_after": 1617,
+            "live_before": 1617,
+            "peak_bytes": 19903,
+            "seconds": 0.000169248,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 25505,
+            "iteration": 1,
+            "live_after": 2641,
+            "live_before": 2641,
+            "peak_bytes": 20927,
+            "seconds": 1.9347e-05,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 25505,
+            "iteration": 2,
+            "live_after": 2641,
+            "live_before": 2641,
+            "peak_bytes": 20927,
+            "seconds": 1.583e-05,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 25505,
+            "iteration": 3,
+            "live_after": 2641,
+            "live_before": 2641,
+            "peak_bytes": 20927,
+            "seconds": 1.5128e-05,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 25505,
+            "iteration": 4,
+            "live_after": 2641,
+            "live_before": 2641,
+            "peak_bytes": 20927,
+            "seconds": 1.575e-05,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006174425012432039,
+        "peak_rss_bytes": 10526720,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-2D-INVARIANCE"
+          ],
+          "message": "Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 44012,
+            "iteration": 0,
+            "live_after": 1621,
+            "live_before": 1621,
+            "peak_bytes": 19907,
+            "peak_rss_bytes": 5455872,
+            "seconds": 0.000326975,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 44012,
+            "iteration": 1,
+            "live_after": 2645,
+            "live_before": 2645,
+            "peak_bytes": 20931,
+            "peak_rss_bytes": 5464064,
+            "seconds": 0.000126778,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 44012,
+            "iteration": 2,
+            "live_after": 2645,
+            "live_before": 2645,
+            "peak_bytes": 20931,
+            "peak_rss_bytes": 5472256,
+            "seconds": 0.000112972,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 44012,
+            "iteration": 3,
+            "live_after": 2645,
+            "live_before": 2645,
+            "peak_bytes": 20931,
+            "peak_rss_bytes": 5476352,
+            "seconds": 0.000108384,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 44012,
+            "iteration": 4,
+            "live_after": 2645,
+            "live_before": 2645,
+            "peak_bytes": 20931,
+            "peak_rss_bytes": 5484544,
+            "seconds": 0.000107722,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006037798011675477,
+        "peak_rss_bytes": 10526720,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-2D-INVARIANCE"
+          ],
+          "message": "Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 9850,
+            "iteration": 0,
+            "live_after": 1623,
+            "live_before": 1623,
+            "peak_bytes": 7917,
+            "peak_rss_bytes": 4915200,
+            "seconds": 8.7915e-05,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 9850,
+            "iteration": 1,
+            "live_after": 2647,
+            "live_before": 2647,
+            "peak_bytes": 8941,
+            "peak_rss_bytes": 4915200,
+            "seconds": 1.4297e-05,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 9850,
+            "iteration": 2,
+            "live_after": 2647,
+            "live_before": 2647,
+            "peak_bytes": 8941,
+            "peak_rss_bytes": 4919296,
+            "seconds": 1.1401e-05,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 9850,
+            "iteration": 3,
+            "live_after": 2647,
+            "live_before": 2647,
+            "peak_bytes": 8941,
+            "peak_rss_bytes": 4919296,
+            "seconds": 1.0529e-05,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 9850,
+            "iteration": 4,
+            "live_after": 2647,
+            "live_before": 2647,
+            "peak_bytes": 8941,
+            "peak_rss_bytes": 4923392,
+            "seconds": 1.0329e-05,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.011026924010366201,
+        "peak_rss_bytes": 16023552,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-2D-INVARIANCE"
+          ],
+          "message": "Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 9850,
+            "iteration": 0,
+            "live_after": 1105,
+            "live_before": 1105,
+            "peak_bytes": 7399,
+            "peak_rss_bytes": 14999552,
+            "seconds": 0.000732487,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 9850,
+            "iteration": 1,
+            "live_after": 2129,
+            "live_before": 2129,
+            "peak_bytes": 8423,
+            "peak_rss_bytes": 15564800,
+            "seconds": 0.000161414,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          },
+          {
+            "allocated_bytes": 9850,
+            "iteration": 2,
+            "live_after": 2129,
+            "live_before": 2129,
+            "peak_bytes": 8423,
+            "peak_rss_bytes": 16023552,
+            "seconds": 0.000120446,
+            "outcome_sha256": "bb819f1ec862cdc7de3a9b24d7cc383e13d41624b48fb8f360fa5019299504b4"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 1349,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/1349",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1349.bin",
+      "raw_sha1": "a3094cc39131a2b3dee2bf144c6e6ce128eaa264",
+      "raw_sha256": "0e2a8cd67cb113265a91e1c0155cd88dac46e03fdbb91d974dc717e2ea06da10",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 10.367862493963912,
+        "peak_rss_bytes": 11374592,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 14143.368200531211,
+          "lambdaUpper": 14143.455083249362,
+          "solverCollapseFactor": 12277.390122640474,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 844037115,
+            "iteration": 0,
+            "live_after": 2511,
+            "live_before": 2511,
+            "peak_bytes": 4019945,
+            "seconds": 2.085229295,
+            "outcome_sha256": "1e73dc3cc1d21d1480e3c0411a17fe88589eb07f0d0eaa4a102a559bdb1f02de"
+          },
+          {
+            "allocated_bytes": 844036701,
+            "iteration": 1,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 4020969,
+            "seconds": 2.061721783,
+            "outcome_sha256": "1e73dc3cc1d21d1480e3c0411a17fe88589eb07f0d0eaa4a102a559bdb1f02de"
+          },
+          {
+            "allocated_bytes": 844037123,
+            "iteration": 2,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 4020969,
+            "seconds": 2.055738648,
+            "outcome_sha256": "1e73dc3cc1d21d1480e3c0411a17fe88589eb07f0d0eaa4a102a559bdb1f02de"
+          },
+          {
+            "allocated_bytes": 844037091,
+            "iteration": 3,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 4020969,
+            "seconds": 2.080754937,
+            "outcome_sha256": "1e73dc3cc1d21d1480e3c0411a17fe88589eb07f0d0eaa4a102a559bdb1f02de"
+          },
+          {
+            "allocated_bytes": 844036921,
+            "iteration": 4,
+            "live_after": 3535,
+            "live_before": 3535,
+            "peak_bytes": 4020969,
+            "seconds": 2.078674837,
+            "outcome_sha256": "1e73dc3cc1d21d1480e3c0411a17fe88589eb07f0d0eaa4a102a559bdb1f02de"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.00597682292573154,
+        "peak_rss_bytes": 10539008,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 162169,
+            "iteration": 0,
+            "live_after": 2515,
+            "live_before": 2515,
+            "peak_bytes": 70898,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000337414,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162169,
+            "iteration": 1,
+            "live_after": 3539,
+            "live_before": 3539,
+            "peak_bytes": 71922,
+            "peak_rss_bytes": 5541888,
+            "seconds": 0.000189085,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162169,
+            "iteration": 2,
+            "live_after": 3539,
+            "live_before": 3539,
+            "peak_bytes": 71922,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000176572,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162169,
+            "iteration": 3,
+            "live_after": 3539,
+            "live_before": 3539,
+            "peak_bytes": 71922,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000177714,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162169,
+            "iteration": 4,
+            "live_after": 3539,
+            "live_before": 3539,
+            "peak_bytes": 71922,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000171402,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 10.87848105293233,
+        "peak_rss_bytes": 11255808,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 842327561,
+            "iteration": 0,
+            "live_after": 2517,
+            "live_before": 2517,
+            "peak_bytes": 4019951,
+            "peak_rss_bytes": 10956800,
+            "seconds": 2.199143671,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 842327577,
+            "iteration": 1,
+            "live_after": 3541,
+            "live_before": 3541,
+            "peak_bytes": 4020975,
+            "peak_rss_bytes": 11018240,
+            "seconds": 2.16472945,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 842327739,
+            "iteration": 2,
+            "live_after": 3541,
+            "live_before": 3541,
+            "peak_bytes": 4020975,
+            "peak_rss_bytes": 11104256,
+            "seconds": 2.1535347910000002,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 842327447,
+            "iteration": 3,
+            "live_after": 3541,
+            "live_before": 3541,
+            "peak_bytes": 4020975,
+            "peak_rss_bytes": 11124736,
+            "seconds": 2.162484171,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 842327415,
+            "iteration": 4,
+            "live_after": 3541,
+            "live_before": 3541,
+            "peak_bytes": 4020975,
+            "peak_rss_bytes": 11128832,
+            "seconds": 2.19435942,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 18.672104232944548,
+        "peak_rss_bytes": 978440192,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 842327951,
+            "iteration": 0,
+            "live_after": 1999,
+            "live_before": 1999,
+            "peak_bytes": 4019433,
+            "peak_rss_bytes": 818151424,
+            "seconds": 6.219046703,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 842328145,
+            "iteration": 1,
+            "live_after": 3023,
+            "live_before": 3023,
+            "peak_bytes": 4020457,
+            "peak_rss_bytes": 973336576,
+            "seconds": 6.175207151,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 842328137,
+            "iteration": 2,
+            "live_after": 3023,
+            "live_before": 3023,
+            "peak_bytes": 4020457,
+            "peak_rss_bytes": 975872000,
+            "seconds": 6.169715081,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 1458,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/1458",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1458.bin",
+      "raw_sha1": "74716f471f915500c1ad5e8820f9cfdf4fd36953",
+      "raw_sha256": "11311f7c65dce9ff544d0574edb67c5cbb1d36c353bb70263371d1ccf835dffd",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 5.940988619113341,
+        "peak_rss_bytes": 10842112,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 10.193756380662544,
+          "lambdaUpper": 10.193756381077973,
+          "solverCollapseFactor": 9.67052503927348,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 530241295,
+            "iteration": 0,
+            "live_after": 2508,
+            "live_before": 2508,
+            "peak_bytes": 2104425,
+            "seconds": 1.17186008,
+            "outcome_sha256": "51c606f84eed30cf0affb62fe9b4da67f4bc0359a49de0013b369bb37b9bb114"
+          },
+          {
+            "allocated_bytes": 530241233,
+            "iteration": 1,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2105449,
+            "seconds": 1.176075714,
+            "outcome_sha256": "51c606f84eed30cf0affb62fe9b4da67f4bc0359a49de0013b369bb37b9bb114"
+          },
+          {
+            "allocated_bytes": 530241193,
+            "iteration": 2,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2105449,
+            "seconds": 1.194463774,
+            "outcome_sha256": "51c606f84eed30cf0affb62fe9b4da67f4bc0359a49de0013b369bb37b9bb114"
+          },
+          {
+            "allocated_bytes": 530241533,
+            "iteration": 3,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2105449,
+            "seconds": 1.181576744,
+            "outcome_sha256": "51c606f84eed30cf0affb62fe9b4da67f4bc0359a49de0013b369bb37b9bb114"
+          },
+          {
+            "allocated_bytes": 530241327,
+            "iteration": 4,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2105449,
+            "seconds": 1.209938951,
+            "outcome_sha256": "51c606f84eed30cf0affb62fe9b4da67f4bc0359a49de0013b369bb37b9bb114"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006229828926734626,
+        "peak_rss_bytes": 10539008,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 161961,
+            "iteration": 0,
+            "live_after": 2512,
+            "live_before": 2512,
+            "peak_bytes": 70895,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000415771,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 1,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5541888,
+            "seconds": 0.000196038,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 2,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000178625,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 3,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000174969,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 4,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000177454,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 6.198876410955563,
+        "peak_rss_bytes": 10539008,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 528615400,
+            "iteration": 0,
+            "live_after": 2514,
+            "live_before": 2514,
+            "peak_bytes": 2104431,
+            "peak_rss_bytes": 8761344,
+            "seconds": 1.226689768,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 528615558,
+            "iteration": 1,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2105455,
+            "peak_rss_bytes": 8761344,
+            "seconds": 1.234715523,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 528615826,
+            "iteration": 2,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2105455,
+            "peak_rss_bytes": 8765440,
+            "seconds": 1.240558053,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 528615826,
+            "iteration": 3,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2105455,
+            "peak_rss_bytes": 8765440,
+            "seconds": 1.236460092,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 528615550,
+            "iteration": 4,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2105455,
+            "peak_rss_bytes": 8765440,
+            "seconds": 1.254390101,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 8.565570968086831,
+        "peak_rss_bytes": 682143744,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 528616322,
+            "iteration": 0,
+            "live_after": 1996,
+            "live_before": 1996,
+            "peak_bytes": 2103913,
+            "peak_rss_bytes": 663326720,
+            "seconds": 2.889577813,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 528616306,
+            "iteration": 1,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 2104937,
+            "peak_rss_bytes": 678166528,
+            "seconds": 2.803984743,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 528616094,
+            "iteration": 2,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 2104937,
+            "peak_rss_bytes": 682119168,
+            "seconds": 2.7934001200000003,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 1459,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/1459",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1459.bin",
+      "raw_sha1": "65c46ab04bc7187fb9c4e1a9fb98fac072361e14",
+      "raw_sha256": "75c229ba464e0108cc96ed0396fc1a798634ea82960aa53b712f611b9688c934",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 18.4455021279864,
+        "peak_rss_bytes": 12718080,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 12.494156840876736,
+          "lambdaUpper": 12.500837246035235,
+          "solverCollapseFactor": 11.756945421452436,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 1207761121,
+            "iteration": 0,
+            "live_after": 2508,
+            "live_before": 2508,
+            "peak_bytes": 4942638,
+            "seconds": 3.83084769,
+            "outcome_sha256": "95039a0c4e70647572f91e70fe4cef5cd6179b8b78e25065f304746f9ae35eb7"
+          },
+          {
+            "allocated_bytes": 1207761081,
+            "iteration": 1,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 4943662,
+            "seconds": 3.751115984,
+            "outcome_sha256": "95039a0c4e70647572f91e70fe4cef5cd6179b8b78e25065f304746f9ae35eb7"
+          },
+          {
+            "allocated_bytes": 1207761235,
+            "iteration": 2,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 4943662,
+            "seconds": 3.596132361,
+            "outcome_sha256": "95039a0c4e70647572f91e70fe4cef5cd6179b8b78e25065f304746f9ae35eb7"
+          },
+          {
+            "allocated_bytes": 1207761105,
+            "iteration": 3,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 4943662,
+            "seconds": 3.68206802,
+            "outcome_sha256": "95039a0c4e70647572f91e70fe4cef5cd6179b8b78e25065f304746f9ae35eb7"
+          },
+          {
+            "allocated_bytes": 1207761363,
+            "iteration": 4,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 4943662,
+            "seconds": 3.578942985,
+            "outcome_sha256": "95039a0c4e70647572f91e70fe4cef5cd6179b8b78e25065f304746f9ae35eb7"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.005978166009299457,
+        "peak_rss_bytes": 10543104,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 162105,
+            "iteration": 0,
+            "live_after": 2512,
+            "live_before": 2512,
+            "peak_bytes": 70895,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000412255,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 1,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5545984,
+            "seconds": 0.00020202,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 2,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000182633,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 3,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000174188,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 4,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5558272,
+            "seconds": 0.000185669,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 18.87949832295999,
+        "peak_rss_bytes": 12431360,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 1205977371,
+            "iteration": 0,
+            "live_after": 2514,
+            "live_before": 2514,
+            "peak_bytes": 4942644,
+            "peak_rss_bytes": 12013568,
+            "seconds": 3.771560964,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 1205977209,
+            "iteration": 1,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 4943668,
+            "peak_rss_bytes": 12046336,
+            "seconds": 3.683706485,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 1205977395,
+            "iteration": 2,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 4943668,
+            "peak_rss_bytes": 12042240,
+            "seconds": 3.709451693,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 1205977347,
+            "iteration": 3,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 4943668,
+            "peak_rss_bytes": 12042240,
+            "seconds": 3.750347256,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 1205977371,
+            "iteration": 4,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 4943668,
+            "peak_rss_bytes": 12042240,
+            "seconds": 3.957976842,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 42.5749859190546,
+        "peak_rss_bytes": 1231024128,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 1205977591,
+            "iteration": 0,
+            "live_after": 1996,
+            "live_before": 1996,
+            "peak_bytes": 4942126,
+            "peak_rss_bytes": 1122643968,
+            "seconds": 14.327978163,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 1205977761,
+            "iteration": 1,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 4943150,
+            "peak_rss_bytes": 1122443264,
+            "seconds": 14.019331127,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 1205977899,
+            "iteration": 2,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 4943150,
+            "peak_rss_bytes": 1227124736,
+            "seconds": 14.017639498,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 1460,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/1460",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1460.bin",
+      "raw_sha1": "bc2032107b52c694b435146e26a9ae5c6adf6a4f",
+      "raw_sha256": "82a85755406e95c360a979cfba896bbd335f3044c91847bf9b5aad8ca152b80b",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 8.487455841968767,
+        "peak_rss_bytes": 10911744,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 14.004848209205182,
+          "lambdaUpper": 14.00484821010675,
+          "solverCollapseFactor": 12.741035931542857,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 705427160,
+            "iteration": 0,
+            "live_after": 2508,
+            "live_before": 2508,
+            "peak_bytes": 2342190,
+            "seconds": 1.690943662,
+            "outcome_sha256": "bbe463b9e1844c782098f75d9a9434dab514979af7382e060ba346dd18202d22"
+          },
+          {
+            "allocated_bytes": 705427224,
+            "iteration": 1,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2343214,
+            "seconds": 1.724221849,
+            "outcome_sha256": "bbe463b9e1844c782098f75d9a9434dab514979af7382e060ba346dd18202d22"
+          },
+          {
+            "allocated_bytes": 705427290,
+            "iteration": 2,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2343214,
+            "seconds": 1.646090149,
+            "outcome_sha256": "bbe463b9e1844c782098f75d9a9434dab514979af7382e060ba346dd18202d22"
+          },
+          {
+            "allocated_bytes": 705427226,
+            "iteration": 3,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2343214,
+            "seconds": 1.69524154,
+            "outcome_sha256": "bbe463b9e1844c782098f75d9a9434dab514979af7382e060ba346dd18202d22"
+          },
+          {
+            "allocated_bytes": 705427324,
+            "iteration": 4,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 2343214,
+            "seconds": 1.726110189,
+            "outcome_sha256": "bbe463b9e1844c782098f75d9a9434dab514979af7382e060ba346dd18202d22"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.006175876944325864,
+        "peak_rss_bytes": 10543104,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 161961,
+            "iteration": 0,
+            "live_after": 2512,
+            "live_before": 2512,
+            "peak_bytes": 70767,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000441119,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 1,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71791,
+            "peak_rss_bytes": 5541888,
+            "seconds": 0.000212559,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 2,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71791,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000183245,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 3,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71791,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000175049,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 161961,
+            "iteration": 4,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71791,
+            "peak_rss_bytes": 5554176,
+            "seconds": 0.000174528,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 8.825558194075711,
+        "peak_rss_bytes": 10543104,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 703684572,
+            "iteration": 0,
+            "live_after": 2514,
+            "live_before": 2514,
+            "peak_bytes": 2342196,
+            "peak_rss_bytes": 8822784,
+            "seconds": 1.7818083,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 703684654,
+            "iteration": 1,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2343220,
+            "peak_rss_bytes": 9228288,
+            "seconds": 1.756427086,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 703684590,
+            "iteration": 2,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2343220,
+            "peak_rss_bytes": 9228288,
+            "seconds": 1.760614006,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 703684572,
+            "iteration": 3,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2343220,
+            "peak_rss_bytes": 9228288,
+            "seconds": 1.7605285450000001,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 703684686,
+            "iteration": 4,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 2343220,
+            "peak_rss_bytes": 9228288,
+            "seconds": 1.761199136,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 11.957058334955946,
+        "peak_rss_bytes": 885149696,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 703685262,
+            "iteration": 0,
+            "live_after": 1996,
+            "live_before": 1996,
+            "peak_bytes": 2341678,
+            "peak_rss_bytes": 870637568,
+            "seconds": 3.980542868,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 703685102,
+            "iteration": 1,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 2342702,
+            "peak_rss_bytes": 881852416,
+            "seconds": 3.998109043,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 703685262,
+            "iteration": 2,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 2342702,
+            "peak_rss_bytes": 882176000,
+            "seconds": 3.893112425,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    },
+    {
+      "issue": 1760,
+      "issue_url": "https://github.com/lambdaclass/stabileo/issues/1760",
+      "artifact": "engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin",
+      "raw_sha1": "1d283e64888730445219207f88a5a98edb5ade90",
+      "raw_sha256": "e3b694b7080419e2c849a5f035ae75e1014376165dc4064fa28a07d8990adc2b",
+      "resource_classification": "bounded certificate/LP work with large ASan overhead; harness budget finding",
+      "before": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 7.052292940905318,
+        "peak_rss_bytes": 10911744,
+        "first_outcome": {
+          "certified": true,
+          "lambdaLower": 11.574222305948126,
+          "lambdaUpper": 11.57476297081718,
+          "solverCollapseFactor": 9.345131066713956,
+          "solverWithinBounds": false
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 638067091,
+            "iteration": 0,
+            "live_after": 2508,
+            "live_before": 2508,
+            "peak_bytes": 3410103,
+            "seconds": 1.433061348,
+            "outcome_sha256": "9552585d4fa0641fff4cea9d87b7fbe82150fa6c72d33a0c108e237632b5b33f"
+          },
+          {
+            "allocated_bytes": 638066971,
+            "iteration": 1,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 3411127,
+            "seconds": 1.375537481,
+            "outcome_sha256": "9552585d4fa0641fff4cea9d87b7fbe82150fa6c72d33a0c108e237632b5b33f"
+          },
+          {
+            "allocated_bytes": 638067525,
+            "iteration": 2,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 3411127,
+            "seconds": 1.422605286,
+            "outcome_sha256": "9552585d4fa0641fff4cea9d87b7fbe82150fa6c72d33a0c108e237632b5b33f"
+          },
+          {
+            "allocated_bytes": 638066809,
+            "iteration": 3,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 3411127,
+            "seconds": 1.420986724,
+            "outcome_sha256": "9552585d4fa0641fff4cea9d87b7fbe82150fa6c72d33a0c108e237632b5b33f"
+          },
+          {
+            "allocated_bytes": 638067365,
+            "iteration": 4,
+            "live_after": 3532,
+            "live_before": 3532,
+            "peak_bytes": 3411127,
+            "seconds": 1.395792261,
+            "outcome_sha256": "9552585d4fa0641fff4cea9d87b7fbe82150fa6c72d33a0c108e237632b5b33f"
+          }
+        ]
+      },
+      "after-gate": {
+        "mode": "gate",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 0.0059217800153419375,
+        "peak_rss_bytes": 10543104,
+        "first_outcome": {
+          "kind": "fuzz budget skip",
+          "work": {
+            "equilibrium_equations": 24,
+            "force_variables": 48,
+            "initial_halfspaces": 368,
+            "max_halfspaces": 981128,
+            "max_solves": 61
+          }
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 162105,
+            "iteration": 0,
+            "live_after": 2512,
+            "live_before": 2512,
+            "peak_bytes": 70895,
+            "peak_rss_bytes": 5533696,
+            "seconds": 0.000421061,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 1,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5541888,
+            "seconds": 0.000204925,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 2,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000180529,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 3,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000176672,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          },
+          {
+            "allocated_bytes": 162105,
+            "iteration": 4,
+            "live_after": 3536,
+            "live_before": 3536,
+            "peak_bytes": 71919,
+            "peak_rss_bytes": 5550080,
+            "seconds": 0.000175129,
+            "outcome_sha256": "b2d8705d265b9da631d0ae946d21c845ee5af9c788b35a7768f5d4ee29a0587c"
+          }
+        ]
+      },
+      "after-engine": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 7.345937667996623,
+        "peak_rss_bytes": 10543104,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 636227175,
+            "iteration": 0,
+            "live_after": 2514,
+            "live_before": 2514,
+            "peak_bytes": 3410109,
+            "peak_rss_bytes": 8638464,
+            "seconds": 1.461445304,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 636227095,
+            "iteration": 1,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 3411133,
+            "peak_rss_bytes": 8638464,
+            "seconds": 1.448460369,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 636226817,
+            "iteration": 2,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 3411133,
+            "peak_rss_bytes": 8638464,
+            "seconds": 1.491134736,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 636227053,
+            "iteration": 3,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 3411133,
+            "peak_rss_bytes": 9396224,
+            "seconds": 1.470570435,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 636227213,
+            "iteration": 4,
+            "live_after": 3538,
+            "live_before": 3538,
+            "peak_bytes": 3411133,
+            "peak_rss_bytes": 9396224,
+            "seconds": 1.470858957,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      },
+      "asan": {
+        "mode": "engine",
+        "failure": null,
+        "exit_code": 0,
+        "process_seconds": 10.75718300708104,
+        "peak_rss_bytes": 806375424,
+        "first_outcome": {
+          "kind": "engine refusal",
+          "phases": [
+            "PL-3D-CERTIFICATE-MISMATCH"
+          ],
+          "message": "Results withheld: the incremental 3D plastic collapse factor lies outside the exact collapse bounds. A biaxial hinge approximation can give a conservative lower bound instead of the collapse load. Use an independently verified collapse analysis (known issue #1760, PL-3D-CERTIFICATE-MISMATCH)"
+        },
+        "iterations": [
+          {
+            "allocated_bytes": 636227799,
+            "iteration": 0,
+            "live_after": 1996,
+            "live_before": 1996,
+            "peak_bytes": 3409591,
+            "peak_rss_bytes": 784044032,
+            "seconds": 3.558811784,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 636227403,
+            "iteration": 1,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 3410615,
+            "peak_rss_bytes": 803209216,
+            "seconds": 3.551389995,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          },
+          {
+            "allocated_bytes": 636227517,
+            "iteration": 2,
+            "live_after": 3020,
+            "live_before": 3020,
+            "peak_bytes": 3410615,
+            "peak_rss_bytes": 803209216,
+            "seconds": 3.562795622,
+            "outcome_sha256": "ad93740ebbd20cb1aacec8d44788b36abd28e11ceb089aa8024053d0227fd25c"
+          }
+        ]
+      }
+    }
+  ],
+  "plans": {
+    "issue-951": {
+      "initial_pivot_cells": 855103018,
+      "max_dense_bytes": 384621776,
+      "max_tableau_cells": 48077722,
+      "q_size_bytes": 64,
+      "work": {
+        "equilibrium_equations": 24,
+        "force_variables": 48,
+        "initial_halfspaces": 368,
+        "max_halfspaces": 981128,
+        "max_solves": 61
+      }
+    },
+    "engine-grid-slab": {
+      "initial_pivot_cells": 4076508250,
+      "max_dense_bytes": 7296400,
+      "max_tableau_cells": 912050,
+      "q_size_bytes": 64,
+      "work": {
+        "equilibrium_equations": 84,
+        "force_variables": 144,
+        "initial_halfspaces": 384,
+        "max_halfspaces": 6144,
+        "max_solves": 61
+      }
+    },
+    "good-cantilever": {
+      "initial_pivot_cells": 387576,
+      "max_dense_bytes": 14784,
+      "max_tableau_cells": 1848,
+      "q_size_bytes": 64,
+      "work": {
+        "equilibrium_equations": 6,
+        "force_variables": 6,
+        "initial_halfspaces": 16,
+        "max_halfspaces": 256,
+        "max_solves": 61
+      }
+    },
+    "good-loaded-beam": {
+      "initial_pivot_cells": 14421456,
+      "max_dense_bytes": 27429024,
+      "max_tableau_cells": 3428628,
+      "q_size_bytes": 64,
+      "work": {
+        "equilibrium_equations": 0,
+        "force_variables": 6,
+        "initial_halfspaces": 136,
+        "max_halfspaces": 489796,
+        "max_solves": 61
+      }
+    }
+  },
+  "separate_engine_case": {
+    "before-grid": {
+      "mode": "engine",
+      "failure": "timeout",
+      "exit_code": -9,
+      "process_seconds": 1.004237403976731,
+      "peak_rss_bytes": 10907648,
+      "first_outcome": null,
+      "iterations": []
+    },
+    "after-grid": {
+      "mode": "engine",
+      "failure": null,
+      "exit_code": 0,
+      "process_seconds": 0.006318706087768078,
+      "peak_rss_bytes": 10543104,
+      "first_outcome": {
+        "kind": "error: exact plastic LP resource budget exceeded (144 force variables, 6144 possible yield halfspaces); reduce members or load intervals"
+      },
+      "iterations": [
+        {
+          "allocated_bytes": 236188,
+          "iteration": 0,
+          "live_after": 4167,
+          "live_before": 4167,
+          "peak_bytes": 160310,
+          "peak_rss_bytes": 5738496,
+          "seconds": 0.000565492,
+          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
+        },
+        {
+          "allocated_bytes": 236188,
+          "iteration": 1,
+          "live_after": 5191,
+          "live_before": 5191,
+          "peak_bytes": 161334,
+          "peak_rss_bytes": 5746688,
+          "seconds": 0.000342123,
+          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
+        },
+        {
+          "allocated_bytes": 236188,
+          "iteration": 2,
+          "live_after": 5191,
+          "live_before": 5191,
+          "peak_bytes": 161334,
+          "peak_rss_bytes": 5750784,
+          "seconds": 0.0003139,
+          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
+        },
+        {
+          "allocated_bytes": 236188,
+          "iteration": 3,
+          "live_after": 5191,
+          "live_before": 5191,
+          "peak_bytes": 161334,
+          "peak_rss_bytes": 5754880,
+          "seconds": 0.00030821,
+          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
+        },
+        {
+          "allocated_bytes": 236188,
+          "iteration": 4,
+          "live_after": 5191,
+          "live_before": 5191,
+          "peak_bytes": 161334,
+          "peak_rss_bytes": 5754880,
+          "seconds": 0.000305685,
+          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
+        }
+      ]
+    },
+    "gate-grid": {
+      "mode": "gate",
+      "failure": null,
+      "exit_code": 0,
+      "process_seconds": 0.005895059090107679,
+      "peak_rss_bytes": 10543104,
+      "first_outcome": {
+        "kind": "fuzz budget skip",
+        "work": {
+          "equilibrium_equations": 84,
+          "force_variables": 144,
+          "initial_halfspaces": 384,
+          "max_halfspaces": 6144,
+          "max_solves": 61
+        }
+      },
+      "iterations": [
+        {
+          "allocated_bytes": 319519,
+          "iteration": 0,
+          "live_after": 4165,
+          "live_before": 4165,
+          "peak_bytes": 160308,
+          "peak_rss_bytes": 5885952,
+          "seconds": 0.000439816,
+          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
+        },
+        {
+          "allocated_bytes": 319519,
+          "iteration": 1,
+          "live_after": 5189,
+          "live_before": 5189,
+          "peak_bytes": 161332,
+          "peak_rss_bytes": 5898240,
+          "seconds": 0.000323648,
+          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
+        },
+        {
+          "allocated_bytes": 319519,
+          "iteration": 2,
+          "live_after": 5189,
+          "live_before": 5189,
+          "peak_bytes": 161332,
+          "peak_rss_bytes": 5898240,
+          "seconds": 0.000309121,
+          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
+        },
+        {
+          "allocated_bytes": 319519,
+          "iteration": 3,
+          "live_after": 5189,
+          "live_before": 5189,
+          "peak_bytes": 161332,
+          "peak_rss_bytes": 5910528,
+          "seconds": 0.000310834,
+          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
+        },
+        {
+          "allocated_bytes": 319519,
+          "iteration": 4,
+          "live_after": 5189,
+          "live_before": 5189,
+          "peak_bytes": 161332,
+          "peak_rss_bytes": 5910528,
+          "seconds": 0.000304732,
+          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
+        }
+      ]
+    }
+  },
+  "seeded_controls": {
+    "gate": {
+      "mode": "gate",
+      "failure": null,
+      "exit_code": 0,
+      "process_seconds": 0.11802495596930385,
+      "peak_rss_bytes": 10543104,
+      "first_outcome": {
+        "certified": true,
+        "lambdaLower": 5.3333333333329636,
+        "lambdaUpper": 5.333333333333334,
+        "solverCollapseFactor": 5.333333333333333,
+        "solverWithinBounds": true
+      },
+      "iterations": [
+        {
+          "allocated_bytes": 29388484,
+          "iteration": 0,
+          "live_after": 2562,
+          "live_before": 2562,
+          "peak_bytes": 220617,
+          "peak_rss_bytes": 7106560,
+          "seconds": 0.038836523,
+          "outcome_sha256": "1909e081c7dee08d52d9848bc7f2bae596dcb794486f3eb8c4888ca9649137f2"
+        },
+        {
+          "allocated_bytes": 29388484,
+          "iteration": 1,
+          "live_after": 3586,
+          "live_before": 3586,
+          "peak_bytes": 221641,
+          "peak_rss_bytes": 7139328,
+          "seconds": 0.037732087,
+          "outcome_sha256": "1909e081c7dee08d52d9848bc7f2bae596dcb794486f3eb8c4888ca9649137f2"
+        },
+        {
+          "allocated_bytes": 29388484,
+          "iteration": 2,
+          "live_after": 3586,
+          "live_before": 3586,
+          "peak_bytes": 221641,
+          "peak_rss_bytes": 7155712,
+          "seconds": 0.037963172,
+          "outcome_sha256": "1909e081c7dee08d52d9848bc7f2bae596dcb794486f3eb8c4888ca9649137f2"
+        }
+      ]
+    },
+    "hang": {
+      "mode": "hang",
+      "failure": "timeout",
+      "exit_code": -9,
+      "process_seconds": 0.5052682349923998,
+      "peak_rss_bytes": 10543104,
+      "first_outcome": null,
+      "iterations": []
+    },
+    "leak": {
+      "mode": "leak",
+      "failure": "retained allocation",
+      "exit_code": 0,
+      "process_seconds": 0.11848402896430343,
+      "peak_rss_bytes": 10543104,
+      "first_outcome": {
+        "certified": true,
+        "lambdaLower": 5.3333333333329636,
+        "lambdaUpper": 5.333333333333334,
+        "solverCollapseFactor": 5.333333333333333,
+        "solverWithinBounds": true
+      },
+      "iterations": [
+        {
+          "allocated_bytes": 30437068,
+          "iteration": 0,
+          "live_after": 1051138,
+          "live_before": 2562,
+          "peak_bytes": 1053186,
+          "peak_rss_bytes": 7106560,
+          "seconds": 0.038176041,
+          "outcome_sha256": "1909e081c7dee08d52d9848bc7f2bae596dcb794486f3eb8c4888ca9649137f2"
+        },
+        {
+          "allocated_bytes": 30437068,
+          "iteration": 1,
+          "live_after": 2100738,
+          "live_before": 1052162,
+          "peak_bytes": 2102786,
+          "peak_rss_bytes": 7139328,
+          "seconds": 0.037607913,
+          "outcome_sha256": "1909e081c7dee08d52d9848bc7f2bae596dcb794486f3eb8c4888ca9649137f2"
+        },
+        {
+          "allocated_bytes": 30437060,
+          "iteration": 2,
+          "live_after": 3149314,
+          "live_before": 2100738,
+          "peak_bytes": 3151362,
+          "peak_rss_bytes": 7159808,
+          "seconds": 0.038348395,
+          "outcome_sha256": "1909e081c7dee08d52d9848bc7f2bae596dcb794486f3eb8c4888ca9649137f2"
+        }
+      ]
+    }
+  },
+  "schema": 1,
+  "engine_nominal_dense_storage_budget_bytes": 1073741824,
+  "engine_initial_pivot_cell_budget": 2147483648,
+  "fuzz_nominal_dense_storage_budget_bytes": 134217728,
+  "final_pinned_validation": {
+    "rustc": "1.99.1",
+    "native_repetitions_per_issue": 3,
+    "all_expected_refusals": true,
+    "retained_bytes_per_call": 0,
+    "wasm_cases": [
+      "issue-1760",
+      "engine-grid-slab"
+    ]
+  },
+  "initial_asan_probe": {
+    "issue": 1760,
+    "rss_mib": 512,
+    "failure": "RSS budget exceeded",
+    "completed_iterations": 0,
+    "reported_corpus_rss_mib": 2048
+  }
+}

@@ -855,6 +855,12 @@ fn equilibrium_system(model: &PlasticModel3) -> Result<Equilibrium, String> {
     Ok(Equilibrium { xp, null: r.null_basis })
 }
 
+fn equilibrium_equation_count(model: &PlasticModel3) -> usize {
+    model.restrained.iter().flatten().filter(|r| !**r).count().saturating_add(
+        model.elems.iter().map(|e| e.rel.iter().flatten().filter(|r| **r).count()).fold(0usize, usize::saturating_add),
+    )
+}
+
 /// The equilibrium equations `A x = λ b` (dense rows of `A`, and `b`): every free
 /// nodal DOF, then every release.
 fn equilibrium_rows(model: &PlasticModel3) -> (Vec<Vec<Q>>, Vec<Q>) {
@@ -1105,6 +1111,28 @@ fn lm_at(f: &ElemF, t: f64) -> (f64, f64) {
 }
 
 const DIRS0: usize = 8;
+const INITIAL_INTERVALS: usize = 16;
+const REFINEMENT_PASSES: usize = 60;
+const REFINEMENT_INTERVALS: usize = 64;
+
+pub fn lp_work(model: &PlasticModel3) -> super::plastic_budget::PlasticLpWork {
+    let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
+    let samples = initial_samples(model, &ef);
+    let initial_halfspaces = samples.iter().map(|s| s.dirs.len()).fold(0usize, usize::saturating_add);
+    let loaded_pieces = model.elems.iter().zip(&ef)
+        .filter(|(e, f)| e.mp.is_some() && f.loaded)
+        .map(|(_, f)| f.pieces.len()).fold(0usize, usize::saturating_add);
+    let extra_samples = REFINEMENT_PASSES.saturating_mul(REFINEMENT_INTERVALS - 1).saturating_mul(loaded_pieces);
+    let max_halfspaces = initial_halfspaces.saturating_add(REFINEMENT_PASSES.saturating_mul(2).saturating_mul(samples.len()))
+        .saturating_add(extra_samples.saturating_mul(DIRS0 + 1 + 2 * REFINEMENT_PASSES));
+    super::plastic_budget::PlasticLpWork {
+        equilibrium_equations: equilibrium_equation_count(model),
+        force_variables: model.elems.len().saturating_mul(6),
+        initial_halfspaces,
+        max_halfspaces,
+        max_solves: 1 + REFINEMENT_PASSES,
+    }
+}
 
 fn initial_samples(model: &PlasticModel3, ef: &[ElemF]) -> Vec<Sample> {
     let dirs = base_dirs();
@@ -1117,7 +1145,7 @@ fn initial_samples(model: &PlasticModel3, ef: &[ElemF]) -> Vec<Sample> {
         let mut ts: Vec<Q> = Vec::new();
         for pc in &e.pieces_y {
             let curved = f.loaded;
-            let n = if curved { 16 } else { 1 };
+            let n = if curved { INITIAL_INTERVALS } else { 1 };
             for j in 0..=n {
                 ts.push(&pc.a + (&pc.b - &pc.a) * qr(j as i64, n as i64));
             }
@@ -1318,7 +1346,7 @@ fn refine(model: &PlasticModel3, ef: &[ElemF], x: &[f64], lam: f64, samples: &mu
             (my * my + mz * mz).sqrt()
         };
         for &(pa, pb, _, _) in &f.pieces {
-            let n = 64;
+            let n = REFINEMENT_INTERVALS;
             let ts: Vec<f64> = (0..=n).map(|i| pa + (pb - pa) * i as f64 / n as f64).collect();
             let vs: Vec<f64> = ts.iter().map(|&t| ratio(t)).collect();
             for i in 1..n {
@@ -1750,12 +1778,13 @@ pub fn plastic_candidates_3d(
     model: &PlasticModel3,
     solver: Option<(&PlasticInput3D, &PlasticResult3D)>,
 ) -> Result<PlasticCandidates3, String> {
+    lp_work(model).check_engine_budget()?;
     let eq = equilibrium_system(model)?;
     let eqf = EqF { xp: eq.xp.iter().map(to_f64).collect(), null: eq.null.iter().map(|v| v.iter().map(to_f64).collect()).collect() };
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
     let mut samples = initial_samples(model, &ef);
     let mut lp = solve_lp(&samples, &ef, &eqf).ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
-    for _ in 0..60 {
+    for _ in 0..REFINEMENT_PASSES {
         let x = field_f64(&eqf, lp.lambda, &lp.z);
         let (added, _) = refine(model, &ef, &x, lp.lambda, &mut samples);
         if !added {
@@ -2077,9 +2106,15 @@ fn collapse_3d(input: &PlasticInput3D, solver: Option<&PlasticResult3D>) -> Plas
 /// Run the incremental 3D plastic solver and certify its collapse load factor.
 pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, String> {
     super::finite::check_input(input)?;
+    if let Ok(model) = build_model_3d(input) {
+        lp_work(&model).check_engine_budget()?;
+    }
     let results = solve_plastic_3d(input)?;
     super::finite::check_results(&results)?;
     let certificate = certify_collapse_3d(input, Some(&results));
+    if certificate.solver_within_bounds == Some(false) {
+        crate::known_issues::refuse(&[crate::known_issues::diagnostic("PL-3D-CERTIFICATE-MISMATCH")])?;
+    }
     Ok(CertifiedPlastic3D { results, certificate })
 }
 

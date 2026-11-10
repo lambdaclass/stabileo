@@ -398,3 +398,17 @@ follow-up); changed components introduce no new errors. Changelog validation and
 checks pass. The live GitHub containment audit passes after the #846 ledger correction.
 No numerical tolerances, numerical baselines or existing tests were removed or weakened;
 no full suites, Playwright, git writes or WASM rebuild were run.
+
+
+## Exact plastic LP budget follow-up (2026-11-10)
+
+[The bounded replay report](PLASTIC_LP_BUDGET.md) records all fourteen plastic
+resource artifacts, repeated calls in one process, ASan footprints, and the
+seeded hang/leak controls. The thirteen 3D cases show bounded certificate cost
+and zero retained Rust allocation; #1261 already returns the 2D safety refusal.
+Its historical OOM attribution remains unverified. The separate grid-slab
+performance seed now receives an engine resource preflight refusal, and the
+combined checked 3D API refuses a factor outside its exact interval with
+`PL-3D-CERTIFICATE-MISMATCH`. This checked-API policy and its round-off consequence
+are documented in [SA-2026-057](../advisories/SA-2026-057-plastic-3d-checked-factor.md).
+The raw incremental solver retains its conservative biaxial warning.

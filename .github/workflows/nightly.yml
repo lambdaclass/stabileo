@@ -509,6 +509,12 @@ jobs:
       - name: Seed corpus
         working-directory: engine
         run: cargo run --release --example fuzz_seeds
+      - name: Plastic LP budgets and seeded resource watchdog
+        if: matrix.target == 'json_plastic'
+        run: |
+          RUSTUP_TOOLCHAIN=nightly-2026-10-15 make test.engine.plastic-budget test.engine.plastic-budget-watchdog test.engine.plastic-resource test.engine.plastic-budget-corpus NIX_RUN=
+          mkdir -p engine/fuzz/corpus/json_plastic
+          cp engine/fuzz/corpus-regressions/plastic-lp-budget/*.bin engine/fuzz/corpus/json_plastic/
       - name: Build target
         working-directory: engine
         run: cargo +nightly-2026-10-15 fuzz build --target "$FUZZ_TARGET_TRIPLE" ${{ matrix.target }}

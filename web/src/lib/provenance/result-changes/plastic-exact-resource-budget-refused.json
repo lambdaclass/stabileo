@@ -1,0 +1,39 @@
+{
+  "id": "plastic-exact-resource-budget-refused",
+  "date": "2026-11-10",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "frameMembers"
+      ],
+      [
+        "analysis:plastic"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Exact plastic certification refuses excessive LP construction work",
+    "es": "La certificación plástica exacta rechaza trabajo excesivo del programa lineal",
+    "pt": "A certificação plástica exata recusa trabalho excessivo do programa linear",
+    "de": "Exakte plastische Zertifizierung lehnt übermäßigen LP-Aufwand ab",
+    "fr": "La certification plastique exacte refuse un travail excessif du programme linéaire",
+    "tr": "Kesin plastik sertifikalama aşırı doğrusal program işini reddediyor"
+  },
+  "explanation": {
+    "en": "Exact plastic certification now refuses models whose conservative LP storage or initial pivot-work forecast exceeds its resource budget, before exact equilibrium elimination and LP construction. This includes the grid-slab performance reproducer (#743). The forecast follows the engine sampling and refinement rules. No numerical tolerance changes; some previously accepted large certificate requests are now refused. Reduce members or load intervals, or use an independently verified collapse analysis.",
+    "es": "La certificación plástica exacta ahora rechaza modelos cuya previsión conservadora de almacenamiento o trabajo inicial del programa lineal supera el presupuesto de recursos, antes de la eliminación exacta y la construcción del programa. Incluye el caso de rendimiento de la parrilla (#743). La previsión sigue el muestreo y refinamiento del motor. No cambian tolerancias numéricas; algunas solicitudes grandes antes aceptadas se rechazan. Reduzca miembros o intervalos de carga, o use un análisis de colapso independiente.",
+    "pt": "A certificação plástica exata agora recusa modelos cuja previsão conservadora de armazenamento ou trabalho inicial do programa linear excede o orçamento de recursos, antes da eliminação exata e da construção do programa. Inclui o caso de desempenho da grelha (#743). A previsão segue as regras de amostragem e refinamento do motor. Nenhuma tolerância numérica muda; algumas solicitações grandes antes aceitas são recusadas. Reduza membros ou intervalos de carga ou use uma análise de colapso independente.",
+    "de": "Die exakte plastische Zertifizierung lehnt Modelle jetzt vor der exakten Elimination und LP-Erstellung ab, wenn die konservative Speicher- oder anfängliche Pivot-Arbeitsprognose das Ressourcenbudget überschreitet. Dies umfasst den Gitterrost-Leistungsfall (#743). Die Prognose folgt den Abtastungs- und Verfeinerungsregeln des Lösers. Numerische Toleranzen bleiben unverändert; einige bisher akzeptierte große Zertifizierungsanfragen werden abgelehnt. Reduzieren Sie Stäbe oder Lastintervalle oder verwenden Sie eine unabhängig geprüfte Traglastanalyse.",
+    "fr": "La certification plastique exacte refuse désormais les modèles dont la prévision conservative de stockage ou de travail initial du programme linéaire dépasse le budget, avant l’élimination exacte et la construction du programme. Cela inclut le cas de performance du grillage (#743). La prévision suit les règles d’échantillonnage et de raffinement du moteur. Aucune tolérance numérique ne change ; certaines grandes demandes auparavant acceptées sont refusées. Réduisez les barres ou les intervalles de charge, ou utilisez une analyse de ruine vérifiée indépendamment.",
+    "tr": "Kesin plastik sertifikalama, doğrusal programın güvenli taraftaki depolama veya ilk pivot işi öngörüsü kaynak bütçesini aşarsa modeli kesin eliminasyon ve program kurulumundan önce reddediyor. Izgara döşeme performans örneği de buna dahildir (#743). Öngörü, motorun örnekleme ve iyileştirme kurallarını izler. Sayısal toleranslar değişmez; önceden kabul edilen bazı büyük sertifika istekleri artık reddedilir. Çubuk veya yük aralığı sayısını azaltın ya da bağımsız olarak doğrulanmış bir göçme analizi kullanın."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plastic-exact-resource-budget.md",
+    "heading": "Exact plastic certification refuses excessive LP construction work (2026-11-10)"
+  }
+}

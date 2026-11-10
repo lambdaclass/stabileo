@@ -1,0 +1,42 @@
+{
+  "id": "plastic-3d-certificate-mismatch-refused",
+  "date": "2026-11-10",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "space3D"
+      ],
+      [
+        "frameMembers"
+      ],
+      [
+        "analysis:plastic"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Checked 3D plastic analysis refuses factors outside its certificate",
+    "es": "El análisis plástico 3D verificado rechaza factores fuera de su certificado",
+    "pt": "A análise plástica 3D verificada recusa fatores fora do certificado",
+    "de": "Geprüfte plastische 3D-Analyse lehnt Faktoren außerhalb des Zertifikats ab",
+    "fr": "L’analyse plastique 3D vérifiée refuse les facteurs hors du certificat",
+    "tr": "Doğrulanan 3D plastik analiz sertifika dışındaki katsayıları reddediyor"
+  },
+  "explanation": {
+    "en": "The combined 3D plastic API could return an incremental collapse factor outside its exact certified interval. The incremental solver warned that biaxial hinge analysis can give a conservative lower bound. The checked API now refuses that mismatch with PL-3D-CERTIFICATE-MISMATCH. The exact bounds and the raw solver warning are preserved. Independently verify earlier incremental factors before using them as collapse loads (SA-2026-057).",
+    "es": "La API combinada de plasticidad 3D podía devolver un factor incremental fuera del intervalo certificado exacto. El solver advertía que las rótulas biaxiales pueden dar una cota inferior conservadora. La API verificada ahora rechaza esa discrepancia con PL-3D-CERTIFICATE-MISMATCH. Se conservan las cotas exactas y la advertencia del solver. Verifique de forma independiente los factores anteriores antes de usarlos como cargas de colapso (SA-2026-057).",
+    "pt": "A API combinada de plasticidade 3D podia retornar um fator incremental fora do intervalo certificado exato. O solver alertava que rótulas biaxiais podem fornecer um limite inferior conservador. A API verificada agora recusa essa diferença com PL-3D-CERTIFICATE-MISMATCH. Os limites exatos e o aviso do solver são preservados. Verifique independentemente os fatores anteriores antes de usá-los como cargas de colapso (SA-2026-057).",
+    "de": "Die kombinierte plastische 3D-API konnte einen inkrementellen Lastfaktor außerhalb des exakt zertifizierten Intervalls zurückgeben. Der Löser warnte, dass zweiachsige Gelenke eine konservative untere Schranke liefern können. Die geprüfte API lehnt diese Abweichung jetzt mit PL-3D-CERTIFICATE-MISMATCH ab. Die exakten Grenzen und die Warnung bleiben erhalten. Prüfen Sie frühere inkrementelle Faktoren unabhängig, bevor Sie sie als Traglasten verwenden (SA-2026-057).",
+    "fr": "L’API combinée de plasticité 3D pouvait renvoyer un facteur incrémental hors de l’intervalle certifié exact. Le solveur avertissait que les rotules biaxiales peuvent fournir une borne inférieure conservative. L’API vérifiée refuse désormais cet écart avec PL-3D-CERTIFICATE-MISMATCH. Les bornes exactes et l’avertissement sont conservés. Vérifiez indépendamment les facteurs antérieurs avant de les utiliser comme charges de ruine (SA-2026-057).",
+    "tr": "Birleşik 3D plastik API, kesin olarak sertifikalanan aralığın dışında bir artımlı yük katsayısı döndürebiliyordu. Çözücü, iki eksenli mafsalların güvenli tarafta bir alt sınır verebileceğini bildiriyordu. Doğrulanan API artık bu uyuşmazlığı PL-3D-CERTIFICATE-MISMATCH ile reddediyor. Kesin sınırlar ve çözücü uyarısı korunuyor. Önceki artımlı katsayıları göçme yükü olarak kullanmadan önce bağımsız olarak doğrulayın (SA-2026-057)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plastic-3d-certificate-mismatch.md",
+    "heading": "Checked 3D plastic analysis refuses a factor outside its certificate (2026-11-10)"
+  }
+}

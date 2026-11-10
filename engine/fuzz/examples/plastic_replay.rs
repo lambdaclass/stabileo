@@ -48,7 +48,9 @@ fn main() {
         let outcome = dedaliano_engine_fuzz::plastic::replay(&bytes, mode != "engine");
         if outcome.starts_with("ok:") {
             match mode {
-                "hang" => loop { std::thread::park_timeout(std::time::Duration::from_secs(60)); },
+                "hang" => loop {
+                    std::thread::park_timeout(std::time::Duration::from_secs(60));
+                },
                 "leak" => std::mem::forget(vec![0_u8; 1 << 20]),
                 _ => {}
             }
@@ -57,6 +59,19 @@ fn main() {
         let peak = PEAK.load(Relaxed);
         let total = TOTAL.load(Relaxed);
         let live = LIVE.load(Relaxed) - outcome.capacity();
-        println!("{}", serde_json::json!({"iteration": iteration, "seconds": elapsed.as_secs_f64(), "live_before": before, "live_after": live, "peak_bytes": peak, "allocated_bytes": total, "outcome": outcome}));
+        let peak_rss = std::fs::read_to_string("/proc/self/status")
+            .ok()
+            .and_then(|status| {
+                status
+                    .lines()
+                    .find(|line| line.starts_with("VmHWM:"))
+                    .and_then(|line| line.split_whitespace().nth(1))
+                    .and_then(|value| value.parse::<usize>().ok())
+                    .map(|kib| kib * 1024)
+            });
+        println!(
+            "{}",
+            serde_json::json!({"peak_rss_bytes": peak_rss,"iteration": iteration, "seconds": elapsed.as_secs_f64(), "live_before": before, "live_after": live, "peak_bytes": peak, "allocated_bytes": total, "outcome": outcome})
+        );
     }
 }

@@ -717,6 +717,12 @@ fn equilibrium_system(model: &PlasticModel) -> Result<Equilibrium, String> {
     Ok(Equilibrium { xp, null: r.null_basis })
 }
 
+fn equilibrium_equation_count(model: &PlasticModel) -> usize {
+    model.restrained.iter().flatten().filter(|r| !**r).count().saturating_add(
+        model.elems.iter().map(|e| usize::from(e.rel_i) + usize::from(e.rel_j)).fold(0usize, usize::saturating_add),
+    )
+}
+
 /// The equilibrium equations `A x = λ b` (dense rows of `A`, and `b`): every free
 /// nodal DOF, then every moment release.
 fn equilibrium_rows(model: &PlasticModel) -> (Vec<Vec<Q>>, Vec<Q>) {
@@ -870,6 +876,25 @@ fn has_moment_at(e: &PElem, t: &Q) -> bool {
     e.loads.iter().any(|l| matches!(l, ElemLoad::Point { ta, my, .. } if ta == t && !my.is_zero()))
 }
 
+const INITIAL_INTERVALS: usize = 16;
+const REFINEMENT_PASSES: usize = 6;
+
+pub fn lp_work(model: &PlasticModel) -> super::plastic_budget::PlasticLpWork {
+    let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
+    let initial = initial_samples(model, &ef, INITIAL_INTERVALS).len();
+    let curved_pieces = model.elems.iter().zip(&ef)
+        .filter(|(e, _)| e.mp.is_some())
+        .map(|(_, f)| f.pieces.iter().filter(|p| p.2[2] != 0.0 || p.2[3] != 0.0).count())
+        .fold(0usize, usize::saturating_add);
+    super::plastic_budget::PlasticLpWork {
+        equilibrium_equations: equilibrium_equation_count(model),
+        force_variables: model.elems.len().saturating_mul(3),
+        initial_halfspaces: initial.saturating_mul(2),
+        max_halfspaces: initial.saturating_add(REFINEMENT_PASSES.saturating_mul(2).saturating_mul(curved_pieces)).saturating_mul(2),
+        max_solves: 1 + REFINEMENT_PASSES,
+    }
+}
+
 fn initial_samples(model: &PlasticModel, ef: &[ElemF], per_piece: usize) -> Vec<Sample> {
     let mut out = Vec::new();
     for (ei, e) in model.elems.iter().enumerate() {
@@ -998,7 +1023,7 @@ pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Ve
         }
     };
     let run = |tab: &mut Vec<Vec<f64>>, basis: &mut Vec<usize>, cost: &dyn Fn(usize) -> f64, allow: &dyn Fn(usize) -> bool| -> bool {
-        let max_iter = 50 * (n + p);
+        let max_iter = super::plastic_budget::SIMPLEX_PIVOTS_PER_COLUMN * (n + p);
         let mut degenerate = 0;
         let mut since = 0;
         for _ in 0..max_iter {
@@ -1482,15 +1507,16 @@ pub struct PlasticCandidates {
 /// Find and check a static field and a mechanism for the model. `solver` (if
 /// given) contributes its final state as a second static candidate.
 pub fn plastic_candidates(model: &PlasticModel, solver: Option<&PlasticResult>) -> Result<PlasticCandidates, String> {
+    lp_work(model).check_engine_budget()?;
     let eq = equilibrium_system(model)?;
     let eqf = EqF {
         xp: eq.xp.iter().map(to_f64).collect(),
         null: eq.null.iter().map(|v| v.iter().map(to_f64).collect()).collect(),
     };
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
-    let mut samples = initial_samples(model, &ef, 16);
+    let mut samples = initial_samples(model, &ef, INITIAL_INTERVALS);
     let mut lp = solve_lp(&samples, &ef, &eqf).ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
-    for _ in 0..6 {
+    for _ in 0..REFINEMENT_PASSES {
         let x = field_f64(&eqf, lp.lambda, &lp.z);
         let extra = cutting_samples(model, &ef, &x, lp.lambda, &samples);
         if extra.is_empty() {

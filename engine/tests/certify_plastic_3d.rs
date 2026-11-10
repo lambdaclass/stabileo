@@ -441,8 +441,14 @@ fn unsupported_models_are_refused() {
 }
 
 #[test]
-fn certify_plastic_3d_reports_solver_value() {
-    let out = certify_plastic_3d(&plastic(portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ)).unwrap();
+fn independent_3d_certificate_reports_refused_solver_value() {
+    let input = plastic(portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ);
+    let error = certify_plastic_3d(&input).unwrap_err();
+    assert!(error.contains("PL-3D-CERTIFICATE-MISMATCH"), "{error}");
+    let results = solve_plastic_3d(&input).unwrap();
+    let certificate = certify_collapse_3d(&input, Some(&results));
+    assert_eq!(certificate.solver_within_bounds, Some(false));
+    let out = CertifiedPlastic3D { results, certificate };
     assert!(out.certificate.certified);
     assert_eq!(out.certificate.solver_collapse_factor, Some(out.results.collapse_factor));
     assert!(!out.certificate.mechanism.is_empty());
@@ -692,7 +698,13 @@ fn the_portal_sample_collapses_with_hinges_on_both_columns_1525() {
     let s = solve_plastic_3d(&same).unwrap();
     assert_eq!(s.collapse_factor.to_bits(), r.collapse_factor.to_bits());
     assert_eq!(hinged_members(&s), vec![1, 3]);
-    let c = certify_plastic_3d(&same).unwrap();
+    let error = certify_plastic_3d(&same).unwrap_err();
+    assert!(error.contains("PL-3D-CERTIFICATE-MISMATCH"), "{error}");
+    let results = solve_plastic_3d(&same).unwrap();
+    let certificate = certify_collapse_3d(&same, Some(&results));
+    assert!(certificate.certified);
+    assert_eq!(certificate.solver_within_bounds, Some(false));
+    let c = CertifiedPlastic3D { results, certificate };
     assert_eq!(c.results.collapse_factor.to_bits(), r.collapse_factor.to_bits());
 }
 

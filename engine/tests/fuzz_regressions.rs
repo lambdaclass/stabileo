@@ -192,12 +192,14 @@ fn run_limited(mut command: std::process::Command, timeout: std::time::Duration)
 #[test]
 #[ignore = "run by plastic_3d_certificate_nightly_inputs_finish in a limited subprocess"]
 fn plastic_3d_certificate_of_one_nightly_input() {
-    use dedaliano_engine::certify::plastic_3d::certify_plastic_3d;
+    use dedaliano_engine::certify::plastic_3d::certify_collapse_3d;
+    use dedaliano_engine::solver::plastic::solve_plastic_3d;
     use dedaliano_engine::types::PlasticInput3D;
     let f = std::path::PathBuf::from(std::env::var_os("FUZZ_PLASTIC_FIXTURE").expect("FUZZ_PLASTIC_FIXTURE names the fixture"));
     let name = f.file_name().unwrap().to_string_lossy().into_owned();
     let input: PlasticInput3D = serde_json::from_slice(&std::fs::read(&f).unwrap()).unwrap();
-    let c = certify_plastic_3d(&input).unwrap().certificate;
+    let results = solve_plastic_3d(&input).unwrap();
+    let c = certify_collapse_3d(&input, Some(&results));
     let (lo, hi) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
     assert!(c.certified && lo <= hi && hi - lo < 1e-4 * hi, "{name}: {c:?}");
     if !name.starts_with("991-") {
@@ -214,12 +216,14 @@ fn issue_1760_plastic_input_finishes_in_a_fresh_process() {
 #[test]
 #[ignore = "run by issue_1760_plastic_input_finishes_in_a_fresh_process in a limited subprocess"]
 fn issue_1760_plastic_input_in_a_fresh_process() {
-    use dedaliano_engine::certify::plastic_3d::certify_plastic_3d;
+    use dedaliano_engine::certify::plastic_3d::certify_collapse_3d;
+    use dedaliano_engine::solver::plastic::solve_plastic_3d;
     use dedaliano_engine::types::PlasticInput3D;
     let f = std::path::PathBuf::from(std::env::var_os("FUZZ_PLASTIC_FIXTURE").expect("FUZZ_PLASTIC_FIXTURE names the fixture"));
     let bytes = std::fs::read(&f).unwrap();
     let input: PlasticInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
-    let c = certify_plastic_3d(&input).unwrap().certificate;
+    let results = solve_plastic_3d(&input).unwrap();
+    let c = certify_collapse_3d(&input, Some(&results));
     let (lo, hi) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
     assert!(c.certified && lo <= hi && hi - lo < 1e-4 * hi, "{c:?}");
 }
