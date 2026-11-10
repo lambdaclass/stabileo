@@ -14667,6 +14667,8 @@ const fr: Translations = {
   "admin.settings.cloudProjectsHelp": "Toute personne ayant un compte enregistre ses projets dans “Mes projets” et les ouvre depuis n'importe quel ordinateur. Lorsque l'option est désactivée, ce qui est enregistré est conservé mais ne peut pas être ouvert, et rien de nouveau ne peut être enregistré.",
   "admin.settings.saveRequiresAccount": "Fichiers avec un compte",
   "admin.settings.saveRequiresAccountHelp": "Pour enregistrer, ouvrir, importer ou exporter des fichiers (le projet, Excel, CSV, rapports, dessins, DXF, IFC et le reste) et pour copier le lien ou le code du modèle, l'application demande de se connecter ou de créer un compte gratuit, puis poursuit l'action. Les exemples restent accessibles. Le nombre de tentatives et d'inscriptions s'affiche dans les Métriques.",
+  "admin.settings.assignments": "Devoirs et examens",
+  "admin.settings.assignmentsHelp": "Toute personne ayant un compte partage un exercice du mode Enseignement avec un code ; chaque étudiant se connecte, reçoit sa propre variante et le résout en temps limité. Lorsque l'option est désactivée, ce qui a été créé est conservé mais ne peut être ni ouvert ni passé, et rien de nouveau ne peut être créé.",
   "admin.settings.termsVersion": "Version des Conditions en vigueur",
   "admin.settings.termsVersionHelp": "Définie dans le code lors de la publication d'une nouvelle version des textes. Lorsqu'elle change, chaque compte doit accepter de nouveau les Conditions à sa prochaine connexion.",
   "admin.col.terms": "Conditions",

@@ -15,6 +15,7 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
         "usage_telemetry_enabled" => false,
         "cloud_projects_enabled" => false,
         "save_requires_account" => false,
+        "assignments_enabled" => false,
         "cloud_projects_limit" => 1,
         "terms_version" => StabileoAuth.Consents.terms_version()
       },
@@ -112,6 +113,17 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
 
     assert body["details"] == %{"cloud_projects_enabled" => ["must be true or false"]}
     refute StabileoRepo.Features.usage_telemetry_enabled?()
+  end
+
+  test "turns assignments on, reported to the app's config, and records it", %{token: token} do
+    body =
+      admin_request(:put, "/settings", %{"assignments_enabled" => true}, token) |> json_body(200)
+
+    assert body["data"] == settings(%{"assignments_enabled" => true})
+    assert StabileoRepo.Features.assignments_enabled?()
+    assert request(:get, "/config") |> json_body(200) |> Map.get("assignments_enabled") == true
+    assert [audit] = Repo.all(StabileoRepo.Schemas.AdminAction)
+    assert audit.details == %{"assignments_enabled" => true}
   end
 
   test "sets how many cloud projects an account may keep", %{token: token} do

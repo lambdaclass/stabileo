@@ -402,6 +402,8 @@ const es: Record<string, string> = {
   'admin.settings.cloudProjectsHelp': 'Quien tiene cuenta guarda sus proyectos en «Mis proyectos» y los abre desde cualquier computadora. Apagado, lo guardado se conserva pero no se puede abrir ni guardar nada nuevo.',
   'admin.settings.saveRequiresAccount': 'Archivos con cuenta',
   'admin.settings.saveRequiresAccountHelp': 'Para guardar, abrir, importar o exportar archivos (el proyecto, Excel, CSV, informes, dibujos, DXF, IFC y el resto) y para copiar el enlace o el código del modelo, la app pide entrar o crear una cuenta gratuita, y después sigue con lo pedido. Los ejemplos siguen libres. Cuántos lo intentan y cuántos se registran se ve en Métricas.',
+  'admin.settings.assignments': 'Tareas y exámenes',
+  'admin.settings.assignmentsHelp': 'Quien tiene cuenta comparte un ejercicio del modo educativo con un código; cada estudiante entra con su cuenta, recibe su propia variante y lo resuelve con tiempo. Apagado, lo creado se conserva pero no se puede abrir, rendir ni crear nada nuevo.',
   'admin.settings.termsVersion': 'Versión vigente de los Términos',
   'admin.settings.termsVersionHelp': 'La fija el código al publicar una versión nueva de los textos. Cuando cambia, cada cuenta tiene que aceptar los Términos de nuevo la próxima vez que entra.',
   'admin.col.terms': 'Términos',

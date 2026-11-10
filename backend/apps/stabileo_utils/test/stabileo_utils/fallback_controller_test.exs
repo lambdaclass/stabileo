@@ -38,6 +38,18 @@ defmodule StabileoUtils.FallbackControllerTest do
              call({:error, :invalid_credentials})
   end
 
+  test "assignments_disabled is a 403 and the assignment conflicts are 409s, each with its code" do
+    assert {403, %{"error" => "assignments_disabled"}} = call({:error, :assignments_disabled})
+
+    for code <-
+          ~w(assignment_limit_reached assignment_started assignment_not_open assignment_closed attempt_closed attempt_submitted) do
+      assert {409, %{"error" => ^code, "message" => message}} =
+               call({:error, String.to_existing_atom(code)})
+
+      assert message != ""
+    end
+  end
+
   test "project_conflict is a 409" do
     assert {409, %{"error" => "project_conflict"}} = call({:error, :project_conflict})
   end
