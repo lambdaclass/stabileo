@@ -27,6 +27,9 @@ test.describe('@slow plastic collapse, explained', () => {
     await expect(page.getByTestId('plastic-withheld')).toHaveCount(0);
     await expect(page.getByTestId('plastic-certificate')).toHaveClass(/\bok\b/, { timeout: 30_000 });
     await expect(page.getByTestId('plastic-certificate')).toContainText('71.29');
+    await expect(page.getByTestId('plastic-step')).toContainText('/4');
+    await expect(page.getByTestId('plastic-hinges').locator('tbody tr')).toHaveCount(4);
+    await expect(page.getByTestId('plastic-hinges').locator('.pl-closed')).toHaveCount(0);
 
     const trace = page.getByTestId('plastic-trace');
     await trace.locator('summary').click();
