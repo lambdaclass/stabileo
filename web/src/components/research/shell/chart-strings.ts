@@ -6,5 +6,6 @@ const strings: Record<string, { axes: string; table: string }> = {
   de: { axes: '{y} über {x}', table: 'Diagrammdaten anzeigen' },
   fr: { axes: '{y} en fonction de {x}', table: 'Afficher les données du graphique' },
   tr: { axes: '{x} ile {y}', table: 'Grafik verilerini göster' },
+  hu: { axes: '{y} a(z) {x} függvényében', table: 'Diagramadatok megjelenítése' },
 };
 export const chartStrings = () => strings[publicI18n.locale] ?? strings.en;

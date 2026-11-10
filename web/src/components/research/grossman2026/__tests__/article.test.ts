@@ -6,7 +6,7 @@ import { springTranslations } from '../translations';
 import { checkLabel } from '../check-labels';
 import { evidence, stripComparison } from '../evidence';
 
-it.each(['en','es','pt','de','fr','tr'] as const)('provides localized evidence prose and check labels in %s', (locale) => {
+it.each(['en','es','pt','de','fr','tr','hu'] as const)('provides localized evidence prose and check labels in %s', (locale) => {
   const dictionary = RESEARCH_DICTIONARIES[locale];
   const strings = articleStrings(dictionary, locale);
   expect(strings.springsFoamComparison).toContain(new Intl.NumberFormat(locale).format(-0.146));
