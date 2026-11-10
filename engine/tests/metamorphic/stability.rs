@@ -919,3 +919,35 @@ fn issue_1753_separate_condition_and_anisotropy_boundaries() {
 
 #[path = "conditioning_accuracy.rs"]
 mod accuracy;
+
+#[test]
+fn issue_1753_two_internal_hinge_arch_solves_with_balanced_released_ends() {
+    let input: dedaliano_engine::types::SolverInput3D = serde_json::from_str(include_str!("../fixtures/1753-two-internal-hinge-arch.json")).unwrap();
+    let stability = stability::of_3d(&input).unwrap();
+    println!("arch stability: {stability:?}");
+    let result = dedaliano_engine::solver::linear::solve_3d(&input).expect("the stable arch with two internal hinges must solve");
+    assert!(stability.is_stable());
+    assert!(stability.kappa.is_finite());
+    assert_eq!(stability.free.len(), 2);
+    for f in &result.element_forces {
+        if f.release_my_start { assert_eq!(f.my_start, 0.0); }
+        if f.release_my_end { assert_eq!(f.my_end, 0.0); }
+    }
+    let mut applied = [0.0; 3];
+    for load in &input.loads {
+        let dedaliano_engine::types::SolverLoad3D::Distributed(load) = load else { unreachable!() };
+        let e = &input.elements[&load.element_id.to_string()];
+        let a = &input.nodes[&e.node_i.to_string()];
+        let b = &input.nodes[&e.node_j.to_string()];
+        let length = (b.x-a.x).hypot(b.z-a.z);
+        let (_, ey, ez) = dedaliano_engine::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z, None, None, None, None, false);
+        for axis in 0..3 {
+            applied[axis] += 0.5 * length * ((load.q_yi+load.q_yj)*ey[axis] + (load.q_zi+load.q_zj)*ez[axis]);
+        }
+    }
+    let scale = applied.iter().fold(0.0f64, |a, b| a.max(b.abs()));
+    for axis in 0..3 {
+        let reaction: f64 = result.reactions.iter().map(|r| [r.fx, r.fy, r.fz][axis]).sum();
+        assert!((reaction + applied[axis]).abs() <= stability::CONDITIONAL_ACCURACY * scale);
+    }
+}
