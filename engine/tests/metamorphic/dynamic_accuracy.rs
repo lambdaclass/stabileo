@@ -513,3 +513,101 @@ fn singular_mass_excludes_resolved_subcutoff_modes_only_from_anchors() {
     accuracy.mu[3] = 1e10 - accuracy.residual;
     assert_eq!(accuracy.harmonic_error(0.5, damping, 0.0), f64::INFINITY);
 }
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn round_two_uncertain_second_inverse_anchor_is_unbounded() {
+    let mut accuracy = HarmonicAccuracy {
+        forward: None,
+        mu: vec![1e-16, 1.0],
+        residual: 2e-14,
+        natural: 1.0,
+    };
+    let damping = dedaliano_engine::solver::damping::rayleigh_coefficients(1.0, 1e8, 0.05);
+    assert_eq!(accuracy.harmonic_error(1.0, damping, 0.0), f64::INFINITY);
+    accuracy.mu.reverse();
+    assert_eq!(accuracy.harmonic_error(1.0, damping, 0.0), f64::INFINITY);
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn round_two_inverse_anchor_budget_is_independent_of_eigenvalue_order() {
+    let mut accuracy = HarmonicAccuracy {
+        forward: None,
+        mu: vec![0.0, 0.125, 0.5, 1.0],
+        residual: 1e-4,
+        natural: 1.0,
+    };
+    let damping =
+        dedaliano_engine::solver::damping::rayleigh_coefficients(1.0, 2.0f64.sqrt(), 0.05);
+    for omega in [0.5, 1.0, 2.0f64.sqrt()] {
+        accuracy.mu = vec![0.0, 0.125, 0.5, 1.0];
+        let expected = accuracy.harmonic_error(omega, damping, 1e-7);
+        assert!(expected.is_finite() && expected > 0.0);
+        for mu in [vec![0.0, 0.125, 1.0, 0.5], vec![1.0, 0.5, 0.125, 0.0]] {
+            accuracy.mu = mu;
+            assert_eq!(accuracy.harmonic_error(omega, damping, 1e-7), expected);
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn round_two_forward_budget_uses_the_minimum_eigenvalue() {
+    let mut accuracy = Accuracy {
+        lambda: vec![1.0, 4.0, 9.0],
+        residual: 1e-5,
+        natural: 1.0,
+    };
+    let damping = dedaliano_engine::solver::damping::rayleigh_coefficients(1.0, 2.0, 0.05);
+    let expected = accuracy.harmonic_error(1.0, damping, 1e-7);
+    assert!(expected.is_finite() && expected > 0.0);
+    accuracy.lambda = vec![4.0, 9.0, 1.0];
+    assert_eq!(accuracy.harmonic_error(1.0, damping, 1e-7), expected);
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn round_two_forward_budget_is_even_in_frequency() {
+    let accuracy = Accuracy {
+        lambda: vec![1.0, 4.0],
+        residual: 1e-5,
+        natural: 1.0,
+    };
+    let damping = dedaliano_engine::solver::damping::rayleigh_coefficients(1.0, 2.0, 0.05);
+    let expected = accuracy.harmonic_error(1.0, damping, 1e-7);
+    assert!(expected.is_finite() && expected > 0.0);
+    assert_eq!(accuracy.harmonic_error(-1.0, damping, 1e-7), expected);
+}
+
+#[test]
+fn round_two_inverse_cutoff_matches_the_solver_reciprocal() {
+    let accuracy = HarmonicAccuracy {
+        forward: None,
+        mu: vec![1.0, 1.0 / 1e-10],
+        residual: 0.0,
+        natural: 1.0,
+    };
+    assert_eq!(accuracy.harmonic_error(0.5, (0.1, 0.1), 0.0), f64::INFINITY);
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn round_two_harmonic_pencil_obeys_the_dense_size_limit() {
+    let n = dedaliano_engine::metamorphic::conditioning::DENSE_EIGEN_MAX + 1;
+    let mut identity = vec![0.0; n * n];
+    for i in 0..n {
+        identity[i * n + i] = 1.0;
+    }
+    let pencil = Pencil {
+        k: identity.clone(),
+        m: identity.clone(),
+        factor: identity,
+        n,
+        natural: 1.0,
+    };
+    assert!(pencil.spectrum().is_err());
+    assert!(
+        matches!(pencil.harmonic(), Err(e) if e == "dynamic accuracy requires a bounded dense pencil")
+    );
+}

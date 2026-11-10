@@ -862,3 +862,73 @@ fn harmonic_certificates_compare_finite_published_and_inclined_bounds() {
         }
     }
 }
+
+#[test]
+fn round_two_singular_mass_harmonic_symmetry_rejects_a_physical_scale_error() {
+    for issue in [1209, 1215] {
+        let Model::D3(c) = model(issue) else {
+            panic!("3D")
+        };
+        for anti in [true] {
+            let sym = crate::symmetry::symmetrize_3d(&c.name, &c.s, anti).unwrap();
+            let c = &sym.case;
+            assert_eq!(
+                crate::dynamic_accuracy::of_3d(c).err().unwrap(),
+                "dynamic accuracy requires a positive finite spectrum"
+            );
+            let a = ana3("harmonic");
+            let cond = crate::checks3::with_eigen_3d(conditioning::of_3d(&c.s).unwrap(), c);
+            let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
+            let mut got = (a.run)(c).unwrap();
+            assert!(got.0.iter().all(|i| i.floor.is_finite()));
+            let mut expected = got.iso3(&sym.iso).unwrap().relabel(&sym.pair).common(&got);
+            if anti {
+                expected
+                    .0
+                    .iter_mut()
+                    .for_each(|i| i.v.iter_mut().for_each(|v| *v = -*v));
+            }
+            let cmp = |g: &Resp| {
+                crate::checks2::judge_split(g, &expected, rel, rel, |g, e, rel| {
+                    compare_with_compliance(
+                        &g.flat(),
+                        &e.flat(),
+                        cond.lchar,
+                        rel,
+                        crate::checks3::load_floor_3d(&c.s, cond.lchar),
+                        crate::checks2::compliance(a.name, &cond),
+                    )
+                })
+            };
+            assert!(matches!(cmp(&got), Verdict::Pass(_)), "{:?}", cmp(&got));
+            let statics = dedaliano_engine::solver::linear::solve_3d(&c.s).unwrap();
+            let physical = statics.displacements.iter().fold(0.0f64, |m, d| {
+                m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs())
+            });
+            assert!(physical > 0.0);
+            let node = got.0[0].node;
+            nudge(&mut got, "H_re1", node, 0, physical);
+            assert!(matches!(cmp(&got), Verdict::Fail(_)), "#{issue} anti={anti}: a physical singular-mass displacement error passed: {:?}", cmp(&got));
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn round_two_spectral_clusters_ignore_unavailable_residuals() {
+    for uncertainty in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+        let solve =
+            |k: usize| -> Result<Vec<f64>, String> { Ok((1..=k).map(|i| i as f64).collect()) };
+        let (_, kept) =
+            crate::ana2::cluster_complete(solve, Clone::clone, 4, 8, uncertainty).unwrap();
+        assert_eq!(kept, 4);
+        let near = |k: usize| -> Result<Vec<f64>, String> {
+            let mut w: Vec<_> = (1..=k).map(|i| i as f64).collect();
+            w[4] = 4.001;
+            Ok(w)
+        };
+        let (_, kept) =
+            crate::ana2::cluster_complete(near, Clone::clone, 4, 8, uncertainty).unwrap();
+        assert_eq!(kept, 5);
+    }
+}
