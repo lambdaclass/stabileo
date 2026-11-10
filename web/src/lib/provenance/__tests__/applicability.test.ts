@@ -26,6 +26,22 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it.skip('known wrong result: #1922: shows one complete harmonic correction notice for this PR', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!;
+    const snapshot = model({ elements: [member(1, 1, 'frame')] });
+    const before = entry.resultsVersion - 1;
+    for (const stamp of [null, { ...stampSolve('harmonic', null), resultsVersion: before }]) {
+      const notices = assessProject(snapshot, stamp).changes.filter((change) => change.prs.includes(1922));
+      expect(notices.map((change) => change.id)).toEqual(['harmonic-omitted-modes']);
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+        expect(notices[0].explanation[locale]).toContain('#1434');
+        expect(notices[0].explanation[locale]).toContain('PR #1922');
+      }
+    }
+    const linear = { ...stampSolve('linear', null), resultsVersion: before };
+    expect(assessProject(snapshot, linear).changes.filter((change) => change.prs.includes(1922))).toEqual([]);
+  });
+
   it('scopes the omitted harmonic mode correction to harmonic structural models, including spring-only models', () => {
     const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes');
     expect(entry).toBeDefined();
