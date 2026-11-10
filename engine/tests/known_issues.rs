@@ -2956,3 +2956,42 @@ fn issue_1753_unit_invariance_rejects_nan_displacement_components() {
             "component {component}: the invariance helper accepted NaN");
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #762"]
+fn offset_cantilever_retains_original_stiffness_containment() {
+    use dedaliano_engine::solver::constraints::{solve_constrained_3d, ConstrainedInput3D};
+    let value: serde_json::Value = serde_json::from_str(include_str!("fixtures/findings-offset-762.json")).unwrap();
+    let input = ConstrainedInput3D {
+        solver: serde_json::from_value(value.clone()).unwrap(),
+        constraints: serde_json::from_value(value["constraints"].clone()).unwrap(),
+    };
+    let result = solve_constrained_3d(&input).unwrap();
+    assert_warning(&result.structured_diagnostics, "NUM-INVARIANCE", 762.0);
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn accepted_3d_cantilever_retains_conditioning_in_both_diagnostic_lists() {
+    use dedaliano_engine::solver::linear::prepare_static_3d;
+    let base: SolverInput3D = serde_json::from_str(include_str!("fixtures/findings-conditioning-1753.json")).unwrap();
+    for (padded, pcg) in [(false, false), (true, false), (true, true)] {
+        let mut input = base.clone();
+        if padded {
+            for id in 3..12 {
+                input.nodes.insert(id.to_string(), SolverNode3D { id, x: id as f64, y: 0.0, z: 0.0 });
+                let mut support = input.supports["1"].clone();
+                support.node_id = id;
+                input.supports.insert(id.to_string(), support);
+            }
+        }
+        if pcg {
+            input.solver_options = Some(SolverOptions { method: Some("pcg".into()), preconditioner: None, tolerance: None, max_iterations: None });
+        }
+        let prepared = prepare_static_3d(&input).unwrap();
+        for result in [dedaliano_engine::solver::linear::solve_3d(&input).unwrap(), prepared.solve_loads(&input.loads).unwrap()] {
+            assert!(result.solver_diagnostics.iter().any(|d| d.category == "conditioning" && d.severity == "warning"), "padded={padded} pcg={pcg}: {:?}", result.solver_diagnostics);
+            assert!(result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::NearZeroDiagonal && d.phase.as_deref() == Some("conditioning") && d.severity == Severity::Warning), "padded={padded} pcg={pcg}: {:?}", result.structured_diagnostics);
+        }
+    }
+}
