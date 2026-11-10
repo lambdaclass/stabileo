@@ -17,6 +17,7 @@ const LANGUAGE: Record<Locale, string> = {
   de: 'Deutsch',
   fr: 'Français',
   tr: 'Türkçe',
+  hu: 'Magyar',
 };
 
 const COPY: Record<Locale, Copy> = {
@@ -73,6 +74,15 @@ const COPY: Record<Locale, Copy> = {
     tools: 'Araçlar',
     blog: 'Blog',
     app: 'Uygulamayı aç',
+  },
+  hu: {
+    title: 'Az oldal nem található',
+    lead: 'Ezen a címen nincs oldal. Lehet, hogy áthelyezték, vagy a hivatkozás el van írva.',
+    home: 'Kezdőlap',
+    research: 'Kutatás',
+    tools: 'Eszközök',
+    blog: 'Blog',
+    app: 'Az alkalmazás megnyitása',
   },
 };
 

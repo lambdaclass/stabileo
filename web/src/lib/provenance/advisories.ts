@@ -43,6 +43,7 @@ export const ADVISORIES: readonly Advisory[] = [
       de: 'die harmonische Analyse',
       fr: 'l\'analyse harmonique',
       tr: 'harmonik analiz',
+      hu: 'harmonikus analízis',
     },
     title: {
       en: 'Harmonic analysis chose between modal superposition and the direct solve per load: superposition and reciprocity failed, and responses were off by up to 107 % at a node.',
@@ -51,6 +52,7 @@ export const ADVISORIES: readonly Advisory[] = [
       de: 'Die harmonische Analyse wählte je Last zwischen Modalsuperposition und direkter Lösung: Superposition und Reziprozität versagten, und Antworten wichen an einem Knoten um bis zu 107 % ab.',
       fr: 'L\'analyse harmonique choisissait entre superposition modale et résolution directe selon la charge : la superposition et la réciprocité échouaient, et les réponses s\'écartaient jusqu\'à 107 % en un nœud.',
       tr: 'Harmonik analiz modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu: süperpozisyon ve karşılıklılık bozuluyor, yanıtlar bir düğümde %107\'ye kadar sapıyordu.',
+      hu: 'A harmonikus analízis terhenként választott a modális szuperpozíció és a közvetlen megoldás között: a szuperpozíció és a reciprocitás nem teljesült, és a válaszok egy csomópontban akár 107%-kal is eltértek.',
     },
   },
   {
@@ -68,6 +70,7 @@ export const ADVISORIES: readonly Advisory[] = [
       de: 'einen Lastfall mit eingeprägter Auflagerverschiebung',
       fr: 'un cas de charge imposant un déplacement d\'appui',
       tr: 'mesnet yer değiştirmesi zorlayan bir yük durumu',
+      hu: 'egy támaszelmozdulást előíró tehereset',
     },
     title: {
       en: 'In a model with shells, a load case that imposed a support displacement lost all of its shell stresses, and its combinations and envelopes summed only the other cases\' shell stresses: the combined shell stresses could be unconservative, without a warning.',
@@ -76,6 +79,7 @@ export const ADVISORIES: readonly Advisory[] = [
       de: 'In einem Modell mit Schalen verlor ein Lastfall mit eingeprägter Auflagerverschiebung alle Schalenspannungen, und seine Kombinationen und Umhüllenden summierten nur die der anderen Lastfälle: die kombinierten Schalenspannungen konnten ohne Warnung auf der unsicheren Seite liegen.',
       fr: 'Dans un modèle avec coques, un cas de charge imposant un déplacement d\'appui perdait toutes ses contraintes de coque, et ses combinaisons et enveloppes ne sommaient que celles des autres cas : les contraintes de coque combinées pouvaient être du côté de l\'insécurité, sans avertissement.',
       tr: 'Kabuklu bir modelde mesnet yer değiştirmesi zorlayan bir yük durumu tüm kabuk gerilmelerini kaybediyor, kombinasyonları ve zarfları yalnızca diğer durumların kabuk gerilmelerini topluyordu: birleşik kabuk gerilmeleri uyarı vermeden güvensiz tarafta kalabiliyordu.',
+      hu: 'Héjakat tartalmazó modellben a támaszelmozdulást előíró tehereset elvesztette összes héjfeszültségét, kombinációi és burkolói pedig csak a többi tehereset héjfeszültségeit összegezték: a kombinált héjfeszültségek figyelmeztetés nélkül a biztonság kárára tévedhettek.',
     },
   },
   {
@@ -95,6 +99,7 @@ export const ADVISORIES: readonly Advisory[] = [
       de: 'Die Prüfung auf kleine Verschiebungen übersah die Schubneigung eines Stabs und die Temperaturkrümmung an einem gelösten Ende: ein Feld, das sich um mehr als 0,1 rad drehte, wurde nicht gewarnt.',
       fr: 'La vérification des petits déplacements ignorait la pente due à l\'effort tranchant d\'une barre et la courbure thermique à une extrémité libérée : une travée tournant de plus de 0,1 rad n\'était pas signalée.',
       tr: 'Küçük yer değiştirme kontrolü bir çubuğun kayma eğimini ve serbest bırakılmış bir uçtaki ısıl eğriliği atlıyordu: 0,1 rad\'dan fazla dönen bir açıklık için uyarı verilmiyordu.',
+      hu: 'A kis elmozdulások ellenőrzése figyelmen kívül hagyta a rúd nyírásból adódó hajlásszögét és a felszabadított végnél fellépő hőmérsékleti görbületet: a 0,1 rad-nál jobban elforduló támaszközre nem érkezett figyelmeztetés.',
     },
   },
 ];
