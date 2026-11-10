@@ -1457,3 +1457,31 @@ fn small_cluster_ordinary_ratios_and_planted_errors() {
         assert!(matches!(crate::checks2::judge_split(&got, &expected, rel, rel, cmp), Verdict::Fail(_)), "planted error in {tag} passed");
     }
 }
+
+#[test]
+fn issue_1892_round_four_correct_dynamic_mirrors_keep_coverage() {
+    let _strict = crate::generated::Strict::enter();
+    let seed = 20261018;
+    for spatial in [false, true] {
+        let t = Tally::default();
+        let text = serde_json::to_string(&crate::generated::model(seed, spatial)).unwrap();
+        if spatial {
+            let crate::corpus::Model::D3(s) = crate::corpus::parse(&text).unwrap() else { panic!("3D") };
+            let c = Case3::new(format!("generated/{seed}/3d"), s);
+            let response = (ana3("time history").run)(&c).unwrap();
+            assert!(response.0.iter().any(|i| i.error > 0.0 && i.error.is_finite()), "3D correct trajectory lost its certificate");
+            crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &[ana3("time history")], crate::INV_3D);
+        } else {
+            let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D") };
+            let c = Case2::new(format!("generated/{seed}/2d"), s);
+            let response = (ana2("time history").run)(&c).unwrap();
+            assert!(response.0.iter().any(|i| i.error > 0.0 && i.error.is_finite()), "2D correct trajectory lost its certificate");
+            crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: seed }, &c, &[ana2("time history")], crate::INV_2D);
+        }
+        let cells = t.cells.lock().unwrap();
+        for inv in ["mirror", "relabel", "units"] {
+            let c = cell(&cells, 1892, "time history", inv);
+            assert_eq!((c.pass, c.inconclusive, c.refused, c.same_refusal, c.fails.len()), (1, 0, 0, 0, 0), "spatial={spatial} {inv}: {c:?}");
+        }
+    }
+}

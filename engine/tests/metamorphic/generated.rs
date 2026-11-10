@@ -2006,3 +2006,13 @@ fn strict_validator_rejects_bad_spectral_shear_and_modal_tensors() {
             .starts_with("modal: response shape mismatch"));
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_round_four_generated_dynamic_mirrors_are_required() {
+    let mirror = crate::INV_3D.iter().position(|inv| *inv == "mirror").unwrap();
+    for name in ["time history", "harmonic"] {
+        let mask = MATRIX_3D.iter().find(|row| row.0 == name).unwrap().1;
+        assert_eq!(mask.as_bytes()[mirror], b'P', "{name} mirrors must retain all 128 comparisons");
+    }
+}

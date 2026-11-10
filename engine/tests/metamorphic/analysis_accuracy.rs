@@ -1303,3 +1303,14 @@ fn issue_1892_scaled_trajectory_above_comparison_tolerance_is_rejected() {
         assert!(result.is_err(), "amplitude error {eps:e} certified: {result:?}");
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_round_four_correct_recurrence_survives_damping_uncertainty() {
+    let displacement = 2.0 / (1.0 + 4.0 + 0.2);
+    let trace = unit_trajectory(displacement, 2.0 * displacement);
+    for damping_error in [1e-8, 1e-6, 1e-4] {
+        let result = trajectory_error(&trace, damping_error, 1e-10);
+        assert!(result.is_ok(), "correct discrete response rejected: {result:?}");
+    }
+}
