@@ -8,6 +8,7 @@ import { setLocale } from '../../i18n';
 import { dictFor, ensureLocale, isOfferedLocale } from '../../i18n/store.svelte';
 import { errorText } from '../../utils/error-text';
 import { OFFERED_LOCALES } from '../../i18n/offered';
+import { localizeEngineText } from '../../i18n/engine-text';
 
 afterEach(() => setLocale('en'));
 
@@ -64,6 +65,43 @@ describe('known-issue warnings in the reader’s language', () => {
     expect(knownIssueRefusal(error)).not.toMatch(/never form a hinge/);
     expect(knownIssueRefusal(JSON.stringify({ message: 'ENGINE', structuredDiagnostics: [{ ...d, severity: 'warning' }] }))).toBeNull();
     expect(knownIssueMessage({ ...d, elementIds: [] })).toBe('ENGINE');
+  });
+
+  it.skip('known wrong result: #1760 — describes the certified lower bound and uncertified raw steps in every offered language', async () => {
+    await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
+    const warning = { code: 'known_issue', severity: 'warning', phase: 'PL-3D-CERTIFICATE-MISMATCH', value: 1760, message: 'ENGINE' };
+    const clauses = {
+      en: [/certified lower bound/, /steps and hinges/, /not certified/],
+      es: [/cota inferior certificada/, /pasos y las rótulas/, /no están certificados/],
+      pt: [/limite inferior certificado/, /passos e as rótulas/, /não são certificados/],
+      de: [/zertifizierte untere Schranke/, /Schritte und Gelenke/, /nicht zertifiziert/],
+      fr: [/borne inférieure certifiée/, /étapes et les rotules/, /ne sont pas certifiées/],
+      tr: [/sertifikalı alt sınır/, /adımlar ve mafsallar/, /sertifikalandırılmamıştır/],
+    };
+    for (const loc of OFFERED_LOCALES) {
+      setLocale(loc);
+      const disposition = knownIssueDisposition([warning]);
+      expect(disposition.refused, loc).toBe(false);
+      expect(disposition.messages, loc).toEqual([`${dictFor(loc)['knownIssue.PL-3D-CERTIFICATE-MISMATCH']} (#1760)`]);
+      for (const clause of clauses[loc]) expect(disposition.messages[0], loc).toMatch(clause);
+      expect(knownIssueRefusal(JSON.stringify({ structuredDiagnostics: [warning] })), loc).toBeNull();
+    }
+  });
+
+  it.skip('known wrong result: #1888 — translates the plastic resource-budget refusal and preserves its limit details', async () => {
+    await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
+    const prefix = 'exact plastic LP resource budget exceeded';
+    const engine = readFileSync('../engine/src/certify/plastic_budget.rs', 'utf8');
+    expect(engine).toContain(prefix);
+    for (const loc of OFFERED_LOCALES) {
+      setLocale(loc);
+      const sentence = dictFor(loc)['plasticDiag.resourceBudget'];
+      expect(sentence, loc).toBeTruthy();
+      if (loc !== 'en') expect(sentence, loc).not.toBe(dictFor('en')['plasticDiag.resourceBudget']);
+      for (const detail of ['dense storage bytes 2 > 1', 'exact workspace bytes 2 > 1', 'simplex workspace bytes 2 > 1 after reserving 1 retained bytes']) {
+        expect(localizeEngineText(`${prefix}: ${detail}`), loc).toBe(`${sentence}: ${detail}`);
+      }
+    }
   });
 
   it('has a sentence for every finding the engine contains, in every offered language', async () => {
