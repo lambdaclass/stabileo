@@ -37,7 +37,7 @@ export const galleryStrings: Record<string, { researchTitle: string; galleryLead
   },
   "hu": {
     "researchTitle": "Kutatás a tartószerkezet-tervezésben",
-    "galleryLead": "Klasszikus és friss cikkek, referenciafeladatok és módszerek, amelyeket a Stabileóban, a mesterséges intelligenciával támogatott tartószerkezeti szoftverben futtathat és ellenőrizhet. Minden oldal leírja, mit reprodukáltunk és hogyan ellenőriztük.",
+    "galleryLead": "Klasszikus és friss cikkek, referenciafeladatok és módszerek, amelyeket a Stabileo nevű, mesterséges intelligenciával támogatott tartószerkezeti szoftverben futtathat és ellenőrizhet. Minden oldal leírja, mit reprodukáltunk és hogyan ellenőriztük.",
     "reviewOne": "{count} felülvizsgálati kör",
     "reviewMany": "{count} felülvizsgálati kör"
   }
