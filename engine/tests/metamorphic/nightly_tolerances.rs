@@ -1604,3 +1604,22 @@ fn issue_1892_final_round_moving_moments_use_each_members_distance() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_retained_pcg_units_inventory_accepts_verified_comparisons() {
+    let seed = 2026110200115;
+    let c = crate::corpus::fuzz_case_3d(2026110200000, seed - 2026110200000);
+    let t = Tally::default();
+    crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &[ana3("linear (PCG)")], crate::INV_3D);
+    {
+        let cells = t.cells.lock().unwrap();
+        for invariant in ["relabel", "units"] {
+            let c = cell(&cells, 1753, "linear (PCG)", invariant);
+            assert_eq!(c.pass, 1, "{invariant}: {c:?}");
+            assert!(c.fails.is_empty(), "{invariant}: {c:?}");
+            assert_eq!(c.same_refusal + c.refused + c.inconclusive + c.unrep + c.not_applicable, 0, "{invariant}: {c:?}");
+        }
+    }
+    assert_retained_analysis_failures(seed, "d3", &t);
+}

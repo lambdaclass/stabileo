@@ -735,11 +735,11 @@ fn certify_modal_constrained() {
 
 /// When the certificate's own f64 Cholesky shows K is not positive definite,
 /// the solver's results must carry the matching warning.
-fn assert_not_pd_warned(reason: &str, diags: &[StructuredDiagnostic]) {
+fn assert_not_pd_warned(seed: u64, reason: &str, diags: &[StructuredDiagnostic]) {
     if reason.contains("not positive definite (f64 Cholesky") || reason.contains("sparse Cholesky failed") {
         assert!(
             diags.iter().any(|d| d.code == DiagnosticCode::StiffnessNotPositiveDefinite),
-            "non-positive-definite K returned without a warning ({reason})"
+            "non-positive-definite K returned without a warning (seed {seed}: {reason})"
         );
     }
 }
@@ -763,7 +763,7 @@ fn certify_fuzz_oracle() {
                 }
                 Certificate::Uncertified { reason } => {
                     assert!(!reason.is_empty());
-                    assert_not_pd_warned(&reason, &res.structured_diagnostics);
+                    assert_not_pd_warned(seed, &reason, &res.structured_diagnostics);
                     *reasons.entry(reason.chars().take(40).collect()).or_default() += 1;
                     unc += 1;
                 }
@@ -779,7 +779,7 @@ fn certify_fuzz_oracle() {
                 }
                 Certificate::Uncertified { reason } => {
                     assert!(!reason.is_empty());
-                    assert_not_pd_warned(&reason, &res.structured_diagnostics);
+                    assert_uncertified_3d(100_000 + seed, &input, &res, &reason);
                     *reasons.entry(reason.chars().take(40).collect()).or_default() += 1;
                     unc += 1;
                 }
@@ -1470,4 +1470,18 @@ fn certified_inclined_settlement_2d_is_tight() {
         let (un, dn) = (tip.ux * s + tip.uz * c, 0.002 * s - 0.003 * c);
         assert!((un - dn).abs() < 1e-9, "{n} elements: normal displacement {un}, prescribed {dn}");
     }
+}
+
+fn assert_uncertified_3d(seed: u64, _input: &SolverInput3D, result: &AnalysisResults3D, reason: &str) {
+    assert_not_pd_warned(seed, reason, &result.structured_diagnostics);
+}
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_certificate_oracle_seed_100249() {
+    let seed = 100249;
+    let input = fuzz_models::random_3d_model(seed);
+    let result = solve_3d(&input).unwrap();
+    let Certificate::Uncertified { reason } = dedaliano_engine::certify::certify_results_3d(&input, &result) else { panic!("the unreduced released rotation must not be certified") };
+    assert_uncertified_3d(seed, &input, &result, &reason);
 }
