@@ -4641,6 +4641,8 @@ const fr: Translations = {
   'edu.author.untitled': 'Exercice sans titre',
   'edu.author.diagramQuestion': 'Question sur un diagramme',
   'edu.moreExercises': 'D\'autres exercices bientôt.',
+  'edu.game.open': 'Diagrammes : choisis le bon',
+  'edu.game.hint': 'Un jeu : une structure, trois diagrammes et un seul juste.',
   'edu.solverInsight': 'Ce système a {dofs} degrés de liberté libres ({total} au total). Résolu par factorisation {solver} en {time} ms.',
   'edu.dq.shearAtSupport': 'V à l\'appui',
   'edu.dq.momentAtCenter': 'M au centre',

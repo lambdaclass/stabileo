@@ -4747,6 +4747,8 @@ const en: Record<string, string> = {
   'edu.author.untitled': 'Untitled exercise',
   'edu.author.diagramQuestion': 'Diagram question',
   'edu.moreExercises': 'More exercises coming soon.',
+  'edu.game.open': 'Pick the right diagram',
+  'edu.game.hint': 'A game: one structure, three diagrams and only one of them right.',
   'edu.solverInsight': 'This system has {dofs} free degrees of freedom ({total} total). Solved via {solver} factorization in {time} ms.',
   // Diagram questions
   'edu.dq.shearAtSupport': 'V at the support',

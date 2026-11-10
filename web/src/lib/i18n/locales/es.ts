@@ -4740,6 +4740,8 @@ const es: Record<string, string> = {
   'edu.author.untitled': 'Ejercicio sin título',
   'edu.author.diagramQuestion': 'Pregunta de diagrama',
   'edu.moreExercises': 'Más ejercicios próximamente.',
+  'edu.game.open': 'Diagramas: elegí el correcto',
+  'edu.game.hint': 'Un juego: una estructura, tres diagramas y uno solo correcto.',
   'edu.solverInsight': 'Este sistema tiene {dofs} grados de libertad libres ({total} totales). Se resolvió por factorización {solver} en {time} ms.',
   // Diagram questions
   'edu.dq.shearAtSupport': 'V en el apoyo',

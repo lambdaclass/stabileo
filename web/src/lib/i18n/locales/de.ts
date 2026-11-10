@@ -4641,6 +4641,8 @@ const de: Translations = {
   'edu.author.untitled': 'Übung ohne Titel',
   'edu.author.diagramQuestion': 'Frage zum Verlauf',
   'edu.moreExercises': 'Weitere Übungen folgen in Kürze.',
+  'edu.game.open': 'Diagramme: Wähle das richtige',
+  'edu.game.hint': 'Ein Spiel: ein Tragwerk, drei Diagramme und nur eines richtig.',
   'edu.solverInsight': 'Dieses System hat {dofs} freie Freiheitsgrade (insgesamt {total}). Gelöst mit {solver}-Faktorisierung in {time} ms.',
   'edu.dq.shearAtSupport': 'V am Auflager',
   'edu.dq.momentAtCenter': 'M in der Mitte',

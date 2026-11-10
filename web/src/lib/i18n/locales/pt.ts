@@ -2970,6 +2970,8 @@ const pt: Translations = {
   'edu.kinematicQuestion': 'Como esta estrutura é classificada?',
   'edu.medium': 'Médio',
   'edu.moreExercises': 'Mais exercícios em breve.',
+  'edu.game.open': 'Diagramas: escolha o correto',
+  'edu.game.hint': 'Um jogo: uma estrutura, três diagramas e só um correto.',
   'edu.noDiagramQuestions': 'Sem perguntas de diagramas para este exercício — prossiga para o Passo 3.',
   'edu.reactions': 'Reações',
   'edu.reveal': 'Mostrar',
