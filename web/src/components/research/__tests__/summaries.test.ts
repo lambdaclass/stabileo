@@ -14,10 +14,10 @@ it('shows the English summary rather than a stale translation once the English t
   expect(summaryIn({ id: 'cqc-1981', summary: 'A rewritten summary.' }, 'es')).toBe('A rewritten summary.');
 });
 
-it.skip.each([
+it.each([
   { locale: 'es', stiffness: 'rigidez a flexión variable' },
   { locale: 'pt', stiffness: 'rigidez à flexão variável' },
-])('known wrong result: #1886: translates the Fehér cut-strip summary into $locale', ({ locale, stiffness }) => {
+])('translates the Fehér cut-strip summary into $locale', ({ locale, stiffness }) => {
   const paper = catalog.papers.find((p) => p.id === 'feher-2026');
   expect(paper).toBeDefined();
   const summary = summaryIn(paper!, locale);

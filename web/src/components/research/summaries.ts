@@ -22,6 +22,11 @@ export const SUMMARIES: Record<string, Summary> = {
     es: 'Usa la expansión asintótica de pospandeo de Koiter en la optimización de dimensiones y de topología de reticulados y pórticos. Restringir los dos primeros coeficientes asintóticos (pendiente y curvatura iniciales del pospandeo) da forma a la respuesta de pospandeo y reduce la sensibilidad a las imperfecciones, y la misma expansión aproxima la respuesta no lineal para poder optimizar medidas como la flexibilidad al final de la carga.',
     pt: 'Usa a expansão assintótica de pós-flambagem de Koiter na otimização de dimensões e de topologia de treliças e pórticos. Restringir os dois primeiros coeficientes assintóticos (inclinação e curvatura iniciais da pós-flambagem) molda a resposta de pós-flambagem e reduz a sensibilidade a imperfeições, e a mesma expansão aproxima a resposta não linear para que medidas como a flexibilidade ao final do carregamento possam ser otimizadas.',
   },
+  'feher-2026': {
+    en: 'Studies how symmetric cuts change the stability of an initially flat strip bent between vertical clamps and loaded at its midpoint, using a variable-stiffness elastica model.',
+    es: 'Estudia cómo los cortes simétricos modifican la estabilidad de una lámina inicialmente plana, curvada entre mordazas verticales y cargada en su punto medio, mediante un modelo de elástica con rigidez a flexión variable.',
+    pt: 'Estuda como os cortes simétricos alteram a estabilidade de uma lâmina inicialmente plana, curvada entre garras verticais e carregada em seu ponto médio, por meio de um modelo de elástica com rigidez à flexão variável.',
+  },
   'feher-sipos-varkonyi-2026': {
     en: 'Proposes quasi-static shape control of structures whose equilibrium sets have a complex topology, and applies it to a strip bent into two rotary clamps under a fixed load, choosing actuator paths that stay on stable equilibria, including a path between two stable shapes without snap-through.',
     es: 'Propone el control cuasiestático de la forma de estructuras cuyos conjuntos de equilibrio tienen una topología compleja, y lo aplica a una lámina curvada entre dos mordazas rotativas bajo una carga fija, eligiendo caminos de los actuadores que se mantienen sobre equilibrios estables, entre ellos un camino entre dos formas estables sin salto.',
