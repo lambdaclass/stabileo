@@ -1,0 +1,12 @@
+[package]
+name = "cut-strip-feher-2026"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "AGPL-3.0-only"
+[workspace]
+[dependencies]
+dedaliano-engine = { path = "../../../engine", default-features = false }
+serde_json = "1.0"
+[profile.release]
+opt-level = 3
