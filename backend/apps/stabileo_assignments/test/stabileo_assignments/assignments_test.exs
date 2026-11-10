@@ -49,6 +49,22 @@ defmodule StabileoAssignments.AssignmentsTest do
       assert saved.title == "TP 3: vigas"
     end
 
+    test "an explicit null opens_at opens now", %{owner: owner} do
+      assert {:ok, {assignment, _}} =
+               Assignments.create(owner, params(%{"opens_at" => nil}), @now)
+
+      assert Repo.get!(Assignment, assignment.id).opens_at == @now
+    end
+
+    test "a code taken between the check and the insert is drawn again", %{owner: owner} do
+      taken = create!(owner).code
+      {:ok, draws} = Agent.start_link(fn -> [taken, "ZZZZZZZZZZ"] end)
+      next = fn -> Agent.get_and_update(draws, fn [c | rest] -> {c, rest} end) end
+
+      assert {:ok, {assignment, _}} = Assignments.create(owner, params(), @now, next)
+      assert Repo.get!(Assignment, assignment.id).code == "ZZZZZZZZZZ"
+    end
+
     test "codes differ between assignments", %{owner: owner} do
       codes = for _ <- 1..20, do: create!(owner).code
       assert length(Enum.uniq(codes)) == 20

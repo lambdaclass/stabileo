@@ -52,6 +52,7 @@ export function createExamSession(deps: ExamSessionDeps) {
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
   let inFlight: Promise<void> | null = null;
+  let submitting: Promise<void> | null = null;
 
   function stopTimers(): void {
     if (saveTimer !== null) clearTimeout(saveTimer);
@@ -152,6 +153,41 @@ export function createExamSession(deps: ExamSessionDeps) {
     }
   }
 
+  async function submitOnce(auto: boolean): Promise<void> {
+    if (phase !== 'running' || !attempt || !spec) return;
+    if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
+    await inFlight;
+    if (phase !== 'running' || !attempt || !spec) return;
+    busy = true;
+    const body = payload();
+    let clientScore: number | null = null;
+    try { clientScore = score(spec, attempt.seed, body); } catch { clientScore = null; }
+    try {
+      const a = await api.submit(attempt.id, clientScore === null ? { answers: body } : { answers: body, client_score: clientScore });
+      stopTimers();
+      dirty = false;
+      lock.release('submitted');
+      attempt = a;
+      saveState = 'saved';
+      note = auto ? 'autoSubmitted' : null;
+      phase = 'closed';
+    } catch (e) {
+      if (closedByServer(e)) {
+        note = 'lateSubmit';
+        await closeFromServer();
+      } else if (e instanceof ApiError && e.status === 403) {
+        fail(e);
+      } else {
+        dirty = true;
+        saveState = 'failed';
+        note = 'submitFailed';
+        lock.release('error');
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
   const session = {
     get phase() { return phase; },
     get unavailable() { return unavailable; },
@@ -204,6 +240,7 @@ export function createExamSession(deps: ExamSessionDeps) {
 
     update(next: SubmittedAnswer[]): void {
       if (phase !== 'running') return;
+      if (JSON.stringify(next) === JSON.stringify(answers)) return;
       answers = next;
       dirty = true;
       saveState = 'pending';
@@ -219,41 +256,11 @@ export function createExamSession(deps: ExamSessionDeps) {
       return run;
     },
 
-    async submit(auto = false): Promise<void> {
-      if (phase !== 'running' || !attempt || !spec) return;
-      if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
-      await inFlight;
-      if (phase !== 'running') return;
-      busy = true;
-      const body = payload();
-      let clientScore: number | null = null;
-      try { clientScore = score(spec, attempt.seed, body); } catch { clientScore = null; }
-      try {
-        const a = await api.submit(attempt.id, clientScore === null ? { answers: body } : { answers: body, client_score: clientScore });
-        stopTimers();
-        dirty = false;
-        lock.release('submitted');
-        attempt = a;
-        saveState = 'saved';
-        note = auto ? 'autoSubmitted' : null;
-        phase = 'closed';
-      } catch (e) {
-        if (closedByServer(e)) {
-          note = 'lateSubmit';
-          await closeFromServer();
-        } else if (e instanceof ApiError && e.status === 403) {
-          fail(e);
-        } else {
-          dirty = true;
-          saveState = 'failed';
-          note = 'submitFailed';
-          lock.release('error');
-        }
-      } finally {
-        busy = false;
-      }
+    submit(auto = false): Promise<void> {
+      if (submitting) return submitting;
+      submitting = submitOnce(auto).finally(() => { submitting = null; });
+      return submitting;
     },
-
     /** Reads the attempt again: results open up later for `after_close`. */
     async refresh(): Promise<void> {
       if (!attempt) return;
