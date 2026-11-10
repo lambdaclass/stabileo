@@ -252,6 +252,49 @@ class TestTolerance(unittest.TestCase):
 
 
 class ConsumerGaps(unittest.TestCase):
+    @unittest.skip('#[ignore = "known wrong result: #1893"]')
+    def test_module_disabled_cqc_consumer_requires_acknowledgement(self):
+        path = 'engine/tests/benchmarks/cqc_1981.rs'
+        reg = json.loads((ROOT / gate.REGISTRY).read_text())
+        read = gate.disk_reader
+        original = read(path)
+        for attribute in ('#[cfg(any())]', '#[cfg_attr(all(), ignore)]', '#[ignore]'):
+            changed = attribute + '\nmod outer { mod inner {\n' + original + '\n} }'
+            with self.subTest(attribute=attribute):
+                head = lambda name: changed if name == path else read(name)
+                errors, _ = gate.label_check(reg, read, reg, head, set())
+                self.assertTrue(any('close_modes_against_closed_form removed or disabled' in e for e in errors), errors)
+
+    @unittest.skip('#[ignore = "known wrong result: #1893"]')
+    def test_file_disabled_cqc_consumer_requires_acknowledgement(self):
+        path = 'engine/tests/benchmarks/cqc_1981.rs'
+        reg = json.loads((ROOT / gate.REGISTRY).read_text())
+        read = gate.disk_reader
+        changed = '#![cfg(any())]\n' + read(path)
+        head = lambda name: changed if name == path else read(name)
+        errors, _ = gate.label_check(reg, read, reg, head, set())
+        self.assertTrue(any('close_modes_against_closed_form removed or disabled' in e for e in errors), errors)
+
+    @unittest.skip('#[ignore = "known wrong result: #1893"]')
+    def test_storing_a_case_verdict_is_not_an_asserting_consumer(self):
+        statement = 'let row = json!({"pass": error < case["tolerance"].as_f64().unwrap()});'
+        loc = dict(file='case.json', pointer='/tolerance', consumers=[dict(file='x.rs', statements=[statement])])
+        reg = registry(quantity(test_tolerances=[loc]))
+        files = dict(FILES, **{'x.rs': '#[test] fn t() { ' + statement + ' }'})
+        self.assertTrue(gate.check(reg, reader(files), []))
+
+    @unittest.skip('#[ignore = "known wrong result: #1893"]')
+    def test_asserting_an_unrelated_field_is_not_a_consumer(self):
+        for consumer in (dict(statements=['assert_close(actual, expected, case["other"].as_f64().unwrap());']),
+                         dict(assertions=['error < case["other"].as_f64().unwrap()']),
+                         dict(bindings={'tol': 'case["other"].as_f64().unwrap()'}, assertions=['error < tol'])):
+            with self.subTest(consumer=consumer):
+                loc = dict(file='case.json', pointer='/tolerance', consumers=[dict(file='x.rs', **consumer)])
+                code = 'let tol = case["other"].as_f64().unwrap(); assert!(error < tol); '
+                code += 'assert!(error < case["other"].as_f64().unwrap()); '
+                code += 'assert_close(actual, expected, case["other"].as_f64().unwrap());'
+                self.assertTrue(gate.check(registry(quantity(test_tolerances=[loc])), reader(dict(FILES, **{'x.rs': code})), []))
+
     def test_case_file_rust_mutations(self):
         path = 'engine/tests/benchmarks/cqc_1981.rs'
         reg = json.loads((ROOT / gate.REGISTRY).read_text())
