@@ -327,12 +327,12 @@ the first commit (February 2026) to April, marked `period: 'month'`, then one pe
 `/<locale>/changelog`, linked from the landing nav beside Blog and from the footer, draws them on a
 timeline by month with a filter by area (`src/components/blog/ChangelogView.svelte`).
 `src/lib/blog/pages/changelog.ts` only gives that page its address, date and metadata (es, en and pt;
-de, fr and tr in `src/lib/blog/translations/<code>/page-changelog.ts`). Items are
+de, fr, tr and hu in `src/lib/blog/translations/<code>/page-changelog.ts`). Items are
 grouped by area on screen, so their order within an area is the order they are read in.
 
 Every Friday, with the weekly report, add one entry dated that Friday:
-- only what was merged to `main` that week, in the six languages (es, en, pt, de, fr, tr; the type
-  requires all six, and so does the alt of a screenshot), one item per area in `areas`, translated
+- only what was merged to `main` that week, in the seven languages (es, en, pt, de, fr, tr, hu; the type
+  requires all seven, and so does the alt of a screenshot), one item per area in `areas`, translated
   with the glossary the dictionaries use;
 - optionally one screenshot under `public/screenshots/` at 800 and 1600 px, AVIF and WebP
   (see `scripts/take-screenshots.ts` for the conversion);
