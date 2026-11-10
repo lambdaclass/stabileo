@@ -365,7 +365,9 @@ pub fn rows() -> Vec<Ana3> {
                     beta: 0.25, gamma: 0.5, alpha: None, damping_xi: Some(0.05), ground_accel_x: None, ground_accel_y: None, ground_accel_z: None,
                     force_history: Some(vec![TimeForceRecord3D { time: 0.0, loads: loads.clone() }, TimeForceRecord3D { time: 1000.0 * c.p.dt, loads }]),
                 };
-                let (r, trace) = time_integration::solve_time_history_3d_traced(&inp)?;
+                let r = time_integration::solve_time_history_3d(&inp)?;
+                let (diagnostic, trace) = time_integration::solve_time_history_3d_traced(&inp)?;
+                crate::ana2::diagnostic_matches(&r, &diagnostic)?;
                 let mut o = Resp::default();
                 o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for h in &r.node_histories {
@@ -393,7 +395,9 @@ pub fn rows() -> Vec<Ana3> {
                     beta: 0.25, gamma: 0.5, alpha: None, damping_xi: Some(0.05),
                     ground_accel_x: Some(rec(0)), ground_accel_y: Some(rec(1)), ground_accel_z: Some(rec(2)), force_history: None,
                 };
-                let (r, trace) = time_integration::solve_time_history_3d_traced(&inp)?;
+                let r = time_integration::solve_time_history_3d(&inp)?;
+                let (diagnostic, trace) = time_integration::solve_time_history_3d_traced(&inp)?;
+                crate::ana2::diagnostic_matches(&r, &diagnostic)?;
                 let mut o = Resp::default();
                 o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for h in &r.node_histories {
@@ -468,7 +472,10 @@ pub fn rows() -> Vec<Ana3> {
                         solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05,
                         response_node_id: node, response_dof: dof.into(),
                     };
-                    comps.push(harmonic::solve_harmonic_3d_with_damping(&inp)?);
+                    let r = harmonic::solve_harmonic_3d(&inp)?;
+                    let (diagnostic, damping) = harmonic::solve_harmonic_3d_with_damping(&inp)?;
+                    crate::ana2::diagnostic_matches(&r, &diagnostic)?;
+                    comps.push((r, damping));
                 }
                 let mut o = Resp::default();
                 let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.y, n.z]));

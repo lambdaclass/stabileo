@@ -713,7 +713,6 @@ fn unit_stiffness_case(three: bool) -> serde_json::Value {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn analysis_accuracy_zeroed_pcg_2d_before_certification_is_rejected() {
     let c = Case2::new("unit stiffness", serde_json::from_value(unit_stiffness_case(false)).unwrap());
     let expected = crate::response::static_2d(&dedaliano_engine::solver::linear::solve_2d(&c.s).unwrap());
@@ -724,7 +723,6 @@ fn analysis_accuracy_zeroed_pcg_2d_before_certification_is_rejected() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn analysis_accuracy_zeroed_pcg_3d_before_certification_is_rejected() {
     let c = Case3::new("unit stiffness", serde_json::from_value(unit_stiffness_case(true)).unwrap());
     let expected = crate::response::static_3d(&dedaliano_engine::solver::linear::solve_3d(&c.s).unwrap());

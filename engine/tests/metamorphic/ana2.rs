@@ -486,7 +486,9 @@ pub fn rows() -> Vec<Ana2> {
                     beta: 0.25, gamma: 0.5, alpha: None, damping_xi: Some(0.05), ground_accel: None, ground_direction: None,
                     force_history: Some(vec![TimeForceRecord { time: 0.0, loads: loads.clone() }, TimeForceRecord { time: 1000.0 * c.p.dt, loads }]),
                 };
-                let (r, trace) = time_integration::solve_time_history_2d_traced(&inp)?;
+                let r = time_integration::solve_time_history_2d(&inp)?;
+                let (diagnostic, trace) = time_integration::solve_time_history_2d_traced(&inp)?;
+                crate::ana2::diagnostic_matches(&r, &diagnostic)?;
                 let mut o = Resp::default();
                 o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for h in &r.node_histories {
@@ -565,7 +567,10 @@ pub fn rows() -> Vec<Ana2> {
                         solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05,
                         response_node_id: node, response_dof: dof.into(),
                     };
-                    comps.push(harmonic::solve_harmonic_2d_with_damping(&inp)?);
+                    let r = harmonic::solve_harmonic_2d(&inp)?;
+                    let (diagnostic, damping) = harmonic::solve_harmonic_2d_with_damping(&inp)?;
+                    crate::ana2::diagnostic_matches(&r, &diagnostic)?;
+                    comps.push((r, damping));
                 }
                 let mut o = Resp::default();
                 // Natural size: the largest static displacement (the ω = 0 response), a rotation as rotation × model size.
@@ -770,4 +775,13 @@ fn a_non_finite_member_force_is_not_finite() {
     let mut warped = dedaliano_engine::solver::linear::solve_3d(&s3).unwrap();
     warped.displacements[0].warping = Some(f64::NAN);
     assert!(!finite_3d(&warped));
+}
+
+pub(crate) fn diagnostic_matches<T: serde::Serialize>(actual: &T, diagnostic: &T) -> Result<(), String> {
+    let actual = serde_json::to_value(actual).map_err(|e| e.to_string())?;
+    let diagnostic = serde_json::to_value(diagnostic).map_err(|e| e.to_string())?;
+    if actual != diagnostic {
+        return Err("diagnostic solve differs from the public entry point".into());
+    }
+    Ok(())
 }

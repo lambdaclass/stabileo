@@ -21,7 +21,7 @@ Commit A records four ignored failing tests and four already-passing regressions
 
 ## Comparison contract
 
-`Item.error` is a finite absolute bound in the item's own physical units. It is computed before comparison or error injection. Rigid transformations preserve a vector's Euclidean error bound; unit transformations scale it by the item's dimension. Linear combinations propagate absolute coefficient-weighted bounds, including the zero-load baseline. A load-factor inverse law also divides the bound by its load multiplier.
+`Item.error` is a finite absolute bound in the item's own physical units. It is computed before comparison. PCG plants are also injected before certification, so the tests exercise the accuracy ceiling rather than only changing an already-certified value. Rigid transformations preserve a vector's Euclidean error bound; unit transformations scale it by the item's dimension. Linear combinations propagate absolute coefficient-weighted bounds, including the zero-load baseline. A load-factor inverse law also divides the bound by its load multiplier.
 
 For each physical family, or each individual scalar, the comparator uses
 
@@ -56,7 +56,9 @@ For a reported functional `l^T x`, the estimator uses an approximate dual `q` an
 l^T K^-1 r = q^T r + (K^-T d)^T r.
 ```
 
-The first term is retained with its sign; the verified inverse bounds the remainder. This preserves the cancellation of a force or moment functional instead of replacing every displacement by an unrelated worst component. Component bounds form a Euclidean bound for each reported vector. The ordinary relative budget is retained; the residual budget supplies the missing absolute scale for #1765's small reciprocal rotation.
+The first term is retained with its sign; the verified inverse bounds the remainder. This preserves the cancellation of a force or moment functional instead of replacing every displacement by an unrelated worst component. Component bounds form a Euclidean bound for each reported vector. Before a PCG residual can enlarge an allowance, the harness independently computes a reference displacement from the verified inverse and the applied right-hand side. It bounds that reference's own residual error, then subtracts the bound from its diagonally scaled displacement norm to obtain a lower bound on the reference scale. The returned displacement's certified error norm must fit within that independent scale times the existing `rel_for("linear (PCG)", 1e-10, conditioning)` budget, capped by the existing `INCONCLUSIVE` limit. Neither the reference scale nor the relative ceiling uses the returned displacement. An unavailable, nonfinite or inadequate reference grants no extra allowance. This ceiling is only for granting a residual allowance; the original comparison and its reliability checks still apply.
+
+The ordinary relative budget is retained; the residual budget supplies the missing absolute scale for #1765's small reciprocal rotation.
 
 ## Harmonic analysis
 
@@ -68,7 +70,7 @@ For `C = a0 M + a1 K`, the modal energy-coordinate gain is
 g(lambda) = 1 / |1 - omega^2/lambda + i omega (a0/lambda + a1)|.
 ```
 
-The resolvent identity gives `gain^2 * perturbation / (1 - gain * perturbation)` for the response error relative to the natural static scale. The perturbation includes stiffness/mass assembly and the Rayleigh coefficient uncertainty from the anchor frequencies. The coefficients returned by the actual harmonic solve are used.
+The resolvent identity gives `gain^2 * perturbation / (1 - gain * perturbation)` for the response error relative to the natural static scale. The perturbation includes stiffness/mass assembly and the Rayleigh coefficient uncertainty from the anchor frequencies. The adapter calls the registered `solve_harmonic_2d/3d` entry point for every response component. A second diagnostic solve supplies the damping coefficients; its entire serialized result must equal the public entry point result before those coefficients can be used. A mismatch refuses the adapter result. The compared response always comes from the public entry point.
 
 Massless directions are handled by the inverse pencil `H = L^-1 M L^-T`, `K = L L^T`. Its eigenvalue intervals bound the maximum resolvent gain, including the zero-mass limit. An interval that overlaps the solver's damping-anchor cutoff cannot justify an additional finite estimate.
 
@@ -82,7 +84,7 @@ Summing translational compliance diagonals bounds all reported translations; unr
 
 ## Average-acceleration time history
 
-The adapter obtains the existing solver's `DynamicTrace`; it does not integrate another trajectory or change the returned results. The estimate applies to the adapter's average-acceleration Newmark parameters and zero initial displacement and velocity. Its damping uncertainty uses the largest eligible inverse-pencil eigenvalues, with the stiffness assembly perturbation included; these are the low-frequency Rayleigh anchors. This avoids transferring a high-frequency vibration eigenvalue's absolute error to an unrelated damping anchor.
+The adapter calls the registered `solve_time_history_2d/3d` entry point for the compared result. A diagnostic solve obtains the existing solver's `DynamicTrace`; its entire serialized result must equal the public entry point result before the trace can supply an allowance. A mismatch refuses the adapter result. This runs the solver twice without changing the returned engine result. The estimate applies to the adapter's average-acceleration Newmark parameters and zero initial displacement and velocity. Its damping uncertainty uses the largest eligible inverse-pencil eigenvalues, with the stiffness assembly perturbation included; these are the low-frequency Rayleigh anchors. This avoids transferring a high-frequency vibration eigenvalue's absolute error to an unrelated damping anchor.
 
 Write `h = dt/2`. At each step the two trapezoidal state defects are
 
@@ -118,10 +120,10 @@ Stiffness uncertainty perturbs the metric. If `|delta K|_K <= eta < 1`, the gene
 Finally, a reciprocal interval of radius `delta` gives the absolute load-factor error
 
 ```
-error_lambda <= lambda^2 * delta / (1 - lambda * delta).
+error_lambda <= lambda^2 * delta / (1 - |lambda| * delta).
 ```
 
-A nonpositive denominator justifies no additional finite allowance. Planar embeddings obtain the estimate from their actual 3D pencil as well as the original 2D pencil.
+The crossing check also uses `|lambda| * delta`. A reciprocal interval containing zero justifies no additional finite allowance, including for negative factors. Regressions require equal radii for opposite signs, reject crossing intervals, and reject sign changes and different negative factors. Planar embeddings obtain the estimate from their actual 3D pencil as well as the original 2D pencil.
 
 ## Moving-load envelopes
 
@@ -139,12 +141,16 @@ Thus per-position budgets are maximized, not added over the train positions. No 
 
 ## Coverage and separate engine findings
 
-The sweep uses 200 rich seeds per dimension, starting at `2026110200000`, over PCG, forced time history, harmonic, moving loads and buckling, including symmetry. It is a targeted diagnostic, not a full engine suite. The checked-in coverage JSON comes from commit A and asserts, for every analysis/relation cell, identical counts of comparisons, inconclusives, refusals, matching refusals, unrepresentable transforms and non-applicable checks.
+The sweep uses 200 rich seeds per dimension, starting at `2026110200000`, over PCG, forced time history, harmonic, moving loads and buckling, including symmetry. It is a targeted diagnostic, not a full engine suite. The checked-in coverage JSON comes from the original commit A and asserts, for every analysis/relation cell, identical counts of comparisons, inconclusives, refusals, matching refusals, unrepresentable transforms and non-applicable checks.
 
 | Dimension | Numerical comparisons | Inconclusive before | Inconclusive after |
 |---|---:|---:|---:|
 | 2D | 1338 | 157 | 157 |
 | 3D | 258 | 66 | 66 |
+
+Rich random models supplied no successful moving-load comparisons. The sweep now additionally checks a two-member 3D deck fixture, both in its original units and in a Froude-scaled copy. Each relabel, reversal and units cell must have nonzero passes and no failures. These supplemental cells do not replace or loosen the original rich-seed coverage snapshot. `ANALYSIS_ACCURACY_MOVING_COVERAGE` optionally writes their verdicts. A separate transformed-response regression requires finite nonzero budgets and rejects a planted moment error.
+
+The sweep explicitly asserts that every cell in the retained-failure table below still has a failure and zero passes, independently of total coverage. A fast targeted test replays just those six seeds with the sweep's original invariant order, which is necessary to preserve the random transformations.
 
 The 3D PCG units cell at seed `2026110200115` remains an unresolved numerical discrepancy. It is retained rather than being widened into a pass. The eight published-model regressions and the sweep do not require an engine refusal to become a numerical pass.
 
@@ -181,3 +187,11 @@ cargo test --release -p dedaliano-engine --test metamorphic \
 ```
 
 Planted-error, finite-budget, exact-residual and ordinary-ratio checks are selected by the `analysis_accuracy` filter. Existing planted-error tests in `nightly_tolerances` and `betti` remain in force.
+
+## Review round 1 verification
+
+Commit `c00aae239` adds ignored failing reproducers for 2D and 3D displacements zeroed before PCG certification, a negative reciprocal interval crossing zero, and the signed-denominator defect. All four fail before the fix. The resolved-interval factor-change checks already pass, as do the added retained-failure, 3D moving-load and expanded #1763 locks. The subsequent fix removes these four ignores. No relative tolerance, existing baseline or assertion is relaxed.
+
+Issue #1370 was retrieved again with `gh issue view 1370 -R lambdaclass/stabileo --json body`. Its fenced minimized JSON, with one trailing newline, is byte-for-byte identical to the existing `issue-1370.json`, which also equals `issue-1369.json`. No replacement with different engineering data is justified by the published issue. All six retained seed JSON files now end in a newline.
+
+Engine sources and returned engine results are unchanged, so this review fix needs no results-change registry entry or new user advisory. The separately documented wrong engine results in SA-2026-058 remain failures. Validation is targeted: the analysis-accuracy and negative-buckling tests, the nightly-tolerance module, and `make lint.engine`; the 200-seed sweep is not run as part of this review fix.

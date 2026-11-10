@@ -222,6 +222,46 @@ fn static_errors(
         .collect())
 }
 
+fn pcg_errors(
+    dof: &DofNumbering,
+    asm: &assembly::AssemblyResult,
+    cs: Option<&FreeConstraintSystem>,
+    u: Vec<f64>,
+    cond: &dedaliano_engine::metamorphic::conditioning::Conditioning,
+) -> Result<Vec<f64>, String> {
+    if dof.n_free == 0 {
+        return Ok(vec![0.0; dof.n_total]);
+    }
+    let (inverse, x, f) = static_system(dof, asm, cs, u)?;
+    let n = inverse.n;
+    let reference: Vec<_> = (0..n)
+        .map(|i| (0..n).map(|j| inverse.inverse[i * n + j] * f[j] / inverse.diagonal[j]).sum::<f64>() / inverse.diagonal[i])
+        .collect();
+    let residual = inverse.residual(&x, &f);
+    let reference_residual = inverse.residual(&reference, &f);
+    let mut error = Vec::with_capacity(n);
+    let mut reference_error = Vec::with_capacity(n);
+    for j in 0..n {
+        let mut row = vec![0.0; n];
+        row[j] = 1.0;
+        error.push(inverse.functional_error(&residual, &row) * inverse.diagonal[j]);
+        reference_error.push(inverse.functional_error(&reference_residual, &row) * inverse.diagonal[j]);
+    }
+    let reference: Vec<_> = reference.iter().zip(&inverse.diagonal).map(|(v, d)| v * d).collect();
+    let lower = (norm(&reference) * (1.0 - gamma(2 * n + 2))
+        - norm(&reference_error) * (1.0 + gamma(2 * n + 2))).max(0.0);
+    let limit = crate::checks2::rel_for("linear (PCG)", 1e-10, cond)
+        .min(dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE);
+    let upper = norm(&error) * (1.0 + gamma(2 * n + 2));
+    if !(upper.is_finite() && lower.is_finite() && upper <= limit * lower) {
+        return Err("PCG result exceeds the independent accuracy ceiling".into());
+    }
+    Ok(physical_rows(dof, asm, cs)
+        .iter()
+        .map(|row| inverse.functional_error(&residual, row))
+        .collect())
+}
+
 fn attach_displacements(r: &mut Resp, dof: &DofNumbering, err: &[f64], translations: usize) {
     for i in &mut r.0 {
         let Some(node) = i.node else { continue };
@@ -261,7 +301,7 @@ pub fn pcg_2d(c: &crate::case::Case2, r: &mut Resp) -> Result<(), String> {
         }
     }
     let cs = FreeConstraintSystem::build_2d(&c.s, &dof)?;
-    attach_displacements(r, &dof, &static_errors(&dof, &asm, cs.as_ref(), u)?, 2);
+    attach_displacements(r, &dof, &pcg_errors(&dof, &asm, cs.as_ref(), u, &dedaliano_engine::metamorphic::conditioning::of_2d(&c.s)?)?, 2);
     Ok(())
 }
 
@@ -286,7 +326,7 @@ pub fn pcg_3d(c: &crate::case::Case3, r: &mut Resp) -> Result<(), String> {
         }
     }
     let cs = FreeConstraintSystem::build_3d(&c.s, &dof)?;
-    attach_displacements(r, &dof, &static_errors(&dof, &asm, cs.as_ref(), u)?, 3);
+    attach_displacements(r, &dof, &pcg_errors(&dof, &asm, cs.as_ref(), u, &dedaliano_engine::metamorphic::conditioning::of_3d(&c.s)?)?, 3);
     Ok(())
 }
 
@@ -423,10 +463,10 @@ fn buckling_errors(
         let metric_error = eta * intervals[j].0.abs().max(intervals[j].1.abs()) / (1.0 - eta);
         let delta = (mu - intervals[j].0).max(intervals[j].1 - mu) + metric_error;
         let lambda = i.v[0];
-        if !(lambda * delta < 1.0) {
+        if !(lambda.abs() * delta < 1.0) {
             return Err("buckling eigenvalue crosses zero under its rounding budget".into());
         }
-        i.error = lambda * lambda * delta / (1.0 - lambda * delta);
+        i.error = lambda * lambda * delta / (1.0 - lambda.abs() * delta);
     }
     Ok(())
 }
@@ -1091,7 +1131,6 @@ fn expanded_residual_encloses_exact_binary_arithmetic() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn negative_buckling_reciprocal_crossing_has_no_allowance() {
     for factor in [-1.0, -2.0] {
         let mut r = Resp::default();
@@ -1114,7 +1153,6 @@ fn negative_buckling_factor_changes_fail_with_a_resolved_interval() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn negative_buckling_allowance_uses_the_absolute_reciprocal_radius() {
     let bound = |factor: f64| {
         let mut r = Resp::default();
