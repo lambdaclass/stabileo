@@ -115,7 +115,13 @@ The admin site shows nothing from these tables.
 { "answers": { … }, "client_score": 0.75 }
 ```
 
+The app stores the exercise as an exercise file's envelope (`{"stabileoExercise": 1, "exercise": {…}}`) and the answers as a submission (`{"stabileoSubmission": 1, "exerciseId", "exerciseTitle", "student": "", "submittedAt", "seed", "answers": [{"key", "label", "answer", "unit"?, "outcome", "sketch"?}]}`), the same shape a downloaded hand-in has, so the owner's browser marks it again with the attempt's `seed`. The server keeps both as opaque objects.
+
 `now` is the server's clock, so the app can count down without trusting the computer's. `closed` is `submitted_at` set or `now` past `deadline_at` plus the grace. `reveal_allowed` is `closed` for `on_submit`, and `now` past `closes_at` plus the grace for `after_close`. `status` is `upcoming` before `opens_at`, `closed` after `closes_at`, else `open`.
+
+### In the app
+
+The exam opens at `/app/exam/<code>`, an application address that survives a reload and the sign-in. That page is the exam room: it never restores, autosaves or overwrites the reader's own workspace, and shows only the exercise with its answer fields (no verification, hints, reveals or hand-in), the countdown and Hand in. While an attempt runs, `examLock` (`web/src/lib/store/exam-lock.svelte.ts`) also takes the header's own controls and the keyboard layer away; it lifts on submit, at the deadline plus the grace, on any error reaching the backend (and comes back on the next save that reaches it), and when the flag is off. Answers autosave 1.5 s after the last change and when the page is hidden; the attempt hands itself in at the deadline. Owners assign from Educational mode's own exercises and grade in "My homework and exams", with a CSV of the grades.
 
 ## Permissions
 
@@ -151,7 +157,6 @@ None: seeds create accounts only.
 
 ## Pending
 
-- The exam UI and the lock in the app
 - A teacher role, and letting an owner reset or extend one student's attempt
 - Rotating a share code
 - Letting a student delete their own attempt before the purge
