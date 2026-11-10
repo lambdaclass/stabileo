@@ -1,0 +1,7 @@
+{
+  "source": "`cargo run --release --bin curves > reference-results/curves.json` (this crate, production co-rotational engine)",
+  "platform": "rustc 1.99.1, Darwin arm64, 2026-11-09",
+  "files_sha256": {
+    "curves.json": "f1413d6e38bf83228f068bf901d948600954c8a36447aedf93477a78c73efe1f"
+  }
+}

@@ -535,11 +535,11 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "Open preprint https://arxiv.org/html/2601.20793v2 verified on 2026-10-29. Production arc-length supports variable stiffness but cannot initialize the bending stress of the flat strip forced into vertical clamps; see research/metamaterials/feher-2026/README.md. Reproduction requires initial-state support or explicit agreement to a different surrogate model.",
-   "status": "proposed",
+   "relevance": "The production co-rotational solver now takes prescribed end rotations and continues from a converged state (pull request 1885), which lifts the blocker below. A first load-controlled prototype on the production engine reaches the paper's unloaded heights and limit loads of Figures 10 and 11 within a few percent (read from the figures); branch selection after the snap and B = 0.25L are open, and the measured points are not compared yet. See research/metamaterials/feher-2026/README.md.",
+   "status": "implementation-in-progress",
    "reproduced_published_results": false,
    "benchmarks": [],
-   "implementation": null,
+   "implementation": "metamaterials/feher-2026",
    "contacts": []
   },
   {
