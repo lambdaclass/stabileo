@@ -7,7 +7,7 @@ import { knownIssueResultDisposition } from '../known-issues';
 import { dictFor } from '../../i18n/store.svelte';
 import { setLocale } from '../../i18n';
 
-it.skip.each(['issue-1760.bin', 'unconservative-cantilever.bin'])('known wrong result: #1888 reads the certified factor and raw mismatch warning for %s #1760', (file) => {
+it.each(['issue-1760.bin', 'unconservative-cantilever.bin'])('reads the certified factor and raw mismatch warning for %s #1760', (file) => {
   setLocale('en');
   const artifact = readFileSync(resolve(__dirname, '../../../../../engine/fuzz/corpus-regressions/plastic-lp-budget', file));
   const output = JSON.parse(certify_plastic_3d(artifact.subarray(2).toString('utf8')));

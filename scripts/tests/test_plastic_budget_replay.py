@@ -16,6 +16,10 @@ class SeededReplay(unittest.TestCase):
     binary = Path("engine/fuzz/target/release/examples/plastic_replay")
     seed = Path("engine/fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin")
 
+    @classmethod
+    def setUpClass(cls):
+        subprocess.run(["make", "build.engine.plastic-budget"], check=True)
+
     def test_slow_grid_runs_only_under_the_replay_watchdog(self):
         seed = self.seed.with_name("engine-grid-slab.bin")
         result = module.replay(self.binary, seed, mode="engine", repeats=1, seconds=0.5)
@@ -65,13 +69,11 @@ class SeededReplay(unittest.TestCase):
 
 
 class ReplayBuild(unittest.TestCase):
-    @unittest.skip("known wrong result: #1888")
     def test_replay_tests_build_the_example_before_running(self):
         with patch.object(subprocess, "run") as build:
             SeededReplay.setUpClass()
         build.assert_called_once_with(["make", "build.engine.plastic-budget"], check=True)
 
-    @unittest.skip("known wrong result: #1888")
     def test_replay_build_uses_the_directory_consumed_by_tests(self):
         result = subprocess.run(["make", "-n", "build.engine.plastic-budget", "NIX_RUN="],
                                 capture_output=True, text=True)

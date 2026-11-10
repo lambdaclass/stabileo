@@ -387,6 +387,9 @@ mod tests {
         let out = cplastic3::certify_plastic_3d(&input).unwrap();
         assert!(out.certificate.certified);
         assert_eq!(out.certificate.solver_within_bounds, Some(true));
+        assert!(!out.results.structured_diagnostics.iter().any(|d|
+            d.phase.as_deref() == Some("PL-3D-CERTIFICATE-MISMATCH")));
+        assert!(!out.results.warnings.iter().any(|w| w.contains("PL-3D-CERTIFICATE-MISMATCH")));
         assert_eq!(
             out.certificate.solver_collapse_factor,
             Some(raw_result.collapse_factor)
@@ -460,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    fn issue_1760_checked_result_requires_a_sound_certificate() {
+    fn rotated_cantilever_checked_result_requires_a_sound_certificate() {
         let raw = include_bytes!("../corpus-regressions/plastic-lp-budget/good-cantilever.bin");
         let mut input: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
         input

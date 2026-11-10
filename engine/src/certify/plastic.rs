@@ -1361,7 +1361,7 @@ fn best_mechanism(
     end_j: &[bool],
     interior: &[Vec<Q>],
     target: &[(usize, Q, f64)],
-) -> Option<(Mechanism, MechanismCheck)> {
+) -> Result<Option<(Mechanism, MechanismCheck)>, String> {
     let nn = model.node_ids.len();
     let mut col = vec![[usize::MAX; 3]; nn];
     let mut n = 0;
@@ -1424,9 +1424,9 @@ fn best_mechanism(
             rows.push(r);
         }
     }
-    let basis = rref_solve(&rows, None, n).ok()?.null_basis;
+    let basis = rref_solve(&rows, None, n)?.null_basis;
     if basis.is_empty() {
-        return None;
+        return Ok(None);
     }
     let to_mech = |v: &[Q]| -> Mechanism {
         let nodes = (0..nn)
@@ -1494,7 +1494,7 @@ fn best_mechanism(
             }
         }
     }
-    best
+    Ok(best)
 }
 
 /// Exact candidates found for a model (exposed for tests that tamper with them).
@@ -1590,7 +1590,7 @@ pub fn plastic_candidates(model: &PlasticModel, solver: Option<&PlasticResult>) 
             h.sort();
             h.dedup();
         }
-        if let Some((m, c)) = best_mechanism(model, &end_i, &end_j, &interior, &target) {
+        if let Some((m, c)) = best_mechanism(model, &end_i, &end_j, &interior, &target)? {
             if best_mech.as_ref().is_none_or(|(_, b)| c.lambda_upper < b.lambda_upper) {
                 best_mech = Some((m, c));
             }
@@ -1770,7 +1770,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #1888"]
     fn mechanism_resource_refusal_is_preserved() {
         let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin");
         let input = serde_json::from_slice(&bytes[2..]).unwrap();

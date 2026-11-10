@@ -1478,7 +1478,7 @@ fn best_mechanism(
     end_hinge: &[[bool; 2]],
     interior: &[Vec<Q>],
     target: &[(usize, Q, [f64; 2])],
-) -> Option<(Mechanism3, MechanismCheck3)> {
+) -> Result<Option<(Mechanism3, MechanismCheck3)>, String> {
     let nn = model.node_ids.len();
     let mut col = vec![[usize::MAX; 6]; nn];
     let mut n = 0;
@@ -1556,9 +1556,9 @@ fn best_mechanism(
             rows.push(r);
         }
     }
-    let basis = rref_solve(&rows, None, n).ok()?.null_basis;
+    let basis = rref_solve(&rows, None, n)?.null_basis;
     if basis.is_empty() {
-        return None;
+        return Ok(None);
     }
     let to_mech = |v: &[Q]| -> Mechanism3 {
         let nodes = (0..nn)
@@ -1630,7 +1630,7 @@ fn best_mechanism(
             }
         }
     }
-    best
+    Ok(best)
 }
 
 /// The mechanism of least `D/W` in the span of the compatibility basis:
@@ -1888,7 +1888,7 @@ pub fn plastic_candidates_3d(
                 h.sort();
                 h.dedup();
             }
-            let cand = best_mechanism(model, &end_hinge, &interior, &target);
+            let cand = best_mechanism(model, &end_hinge, &interior, &target)?;
             let found = cand.is_some();
             keep(cand, &mut best_mech);
             if found {
@@ -1920,7 +1920,7 @@ pub fn plastic_candidates_3d(
             target.push((ei, t.clone(), [ry * to_f64(&e.ny).sqrt(), rz * to_f64(&e.nz).sqrt()]));
         }
         let before = c.lambda_upper.clone();
-        keep(best_mechanism(model, &end_hinge, &interior, &target), &mut best_mech);
+        keep(best_mechanism(model, &end_hinge, &interior, &target)?, &mut best_mech);
         if best_mech.as_ref().is_some_and(|(_, c)| c.lambda_upper >= before) {
             break;
         }
@@ -2149,7 +2149,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #1888"]
     fn mechanism_resource_refusal_is_preserved() {
         let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
         let input = serde_json::from_slice(&bytes[2..]).unwrap();

@@ -714,6 +714,12 @@ fn the_portal_sample_collapses_with_hinges_on_both_columns_1525() {
     assert!(checked.certificate.certified);
     assert_eq!(checked.certificate.solver_within_bounds, Some(false));
     assert!(checked.results.collapse_factor <= checked.certificate.lambda_upper.unwrap());
+    let raw = solve_plastic_3d(&same).unwrap();
+    let independent = certify_collapse_3d(&same, Some(&raw));
+    assert!(independent.certified);
+    assert_eq!(checked.certificate.lambda_lower, independent.lambda_lower);
+    assert_eq!(checked.certificate.lambda_upper, independent.lambda_upper);
+    assert!(independent.solver_collapse_factor.unwrap() < independent.lambda_lower.unwrap());
 }
 
 #[test]
