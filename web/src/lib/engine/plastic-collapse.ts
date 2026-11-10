@@ -38,13 +38,18 @@
  *
  * What is not modelled: interaction of M with N or V (a section yields in
  * bending at Mp or axially at Np, each on its own), hinge unloading, and
- * buckling of compressed members. The collapse load this gives is the one
- * the uniqueness theorem names: the largest statically admissible load, which
- * equals the smallest kinematic one.
+ * buckling of compressed members.
+ *
+ * The collapse factor reported is the limit analysis's (engine `plastic_limit_2d`): the largest
+ * statically admissible load, which equals the smallest kinematic one. The engine releases it only
+ * where the exact plastic certificate's static and kinematic bounds meet at it (#758); anywhere
+ * else the result is `withheld`. The history above places hinges at sampled sections and keeps
+ * them there, so where it ends elsewhere it is shown as approximate (`limit`), never as the
+ * collapse load.
  */
 import type { SolverInput, SolverLoad, SolverElement, AnalysisResults, ElementForces } from './types';
 import type { PlasticHinge, PlasticResult, PlasticStep } from './result-types';
-import { solve } from './wasm-solver';
+import { solve, plasticLimit2D, type PlasticLimitResult } from './wasm-solver';
 // The normalized reading: the diagnosis in the active language and the app's axis names.
 import { analyzeKinematics } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
@@ -103,11 +108,26 @@ export interface PlasticCollapseResult extends PlasticResult {
    * is then where it stopped, not a verified collapse load.
    */
   unresolved?: boolean;
+  /**
+   * The step-by-step history does not end at the certified collapse load: `collapseFactor` is the
+   * limit analysis's (`lambda`), and `historyLambda` is where the history ended. Its hinges are
+   * then approximate.
+   */
+  limit?: { lambda: number; historyLambda: number };
+  /**
+   * The limit analysis's factor was not certified (the engine's PL-2D-INVARIANCE refusal, #758):
+   * the collapse factor is withheld, and `collapseFactor` is only where the history stopped.
+   */
+  withheld?: boolean;
+  /** The limit analysis's collapse mechanism, where its factor is certified. */
+  limitHinges?: PlasticLimitResult['hinges'];
 }
 
 interface Piece { id: number; t0: number; t1: number }
 
 const EPS_EVENT = 1e-6;
+/** Relative distance within which the history's end confirms the certified collapse load. */
+const HISTORY_TOL = 1e-3;
 
 function cloneInput(input: SolverInput): SolverInput {
   const copy = <T>(m: Map<number, T>) => new Map([...m].map(([k, v]) => [k, { ...(v as object) } as T]));
@@ -251,7 +271,8 @@ function axialPeakStations(loads: readonly SolverLoad[], id: number, L: number):
   return [...out].filter((x) => x >= 0 && x <= L);
 }
 
-export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
+/** The step-by-step history alone: where it ends is not a released collapse factor (#758). */
+export function plasticHistory2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
   const S = opts.samples ?? 200;
   const maxEvents = opts.maxEvents ?? 200;
   const MAX_CLOSINGS = maxEvents;
@@ -656,5 +677,42 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     degree: kin0.degree,
     unloaded,
     ...(unresolved ? { unresolved: true } : {}),
+  };
+}
+
+export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
+  const { unresolved: historyUnresolved, ...history } = plasticHistory2D(original, opts);
+  const lambda = history.collapseFactor;
+  const settled = history.isMechanism;
+  let collapseFactor = lambda;
+  let limit: PlasticCollapseResult['limit'];
+  let withheld = false;
+  let lp: PlasticLimitResult | null = null;
+  let isMechanism = history.isMechanism;
+  let unresolved = !!historyUnresolved;
+  if (!history.unloaded) {
+    const elements = [...original.elements.values()];
+    const mpOf = new Map(elements.map((e) => [e.id, e.type === 'truss' ? Infinity : opts.mp(e.id)]));
+    const npOf = new Map(elements.map((e) => [e.id, opts.np(e.id)]));
+    try { lp = plasticLimit2D(original, mpOf, npOf); } catch { lp = null; }
+    if (!lp || lp.confirmation.kind !== 'exact' || !(Number.isFinite(lp.lambda) && lp.lambda > 0)) {
+      lp = null;
+      withheld = true;
+      unresolved = true;
+    } else {
+      collapseFactor = lp.lambda;
+      if (!(settled && Math.abs(lambda - lp.lambda) <= HISTORY_TOL * lp.lambda)) limit = { lambda: lp.lambda, historyLambda: lambda };
+      isMechanism = true;
+      unresolved = false;
+    }
+  }
+  return {
+    ...history,
+    collapseFactor,
+    isMechanism: isMechanism && !unresolved,
+    ...(unresolved ? { unresolved: true } : {}),
+    ...(limit ? { limit } : {}),
+    ...(withheld ? { withheld: true } : {}),
+    ...(lp ? { limitHinges: lp.hinges } : {}),
   };
 }

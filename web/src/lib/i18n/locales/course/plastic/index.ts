@@ -3,6 +3,7 @@ import type { Translations } from '../../../types';
 export const es: Translations = {
   'course.plastic.closed': 'se cerró',
   'course.plastic.closedTitle': 'La rótula se descargó en λ = {lambda} y volvió a ser rígida.',
+  'course.plastic.limitOnly': 'El paso a paso no llega a la carga de colapso (termina en λ = {history}). La carga de colapso del análisis límite (teoremas estático y cinemático) es λc = {lambda}; las rótulas del paso a paso son aproximadas.',
   'course.plastic.unresolved': 'El análisis se detuvo en un mecanismo que no pudo distinguir de uno falso (rótulas que se descargarían): este λ es donde se detuvo, no una carga de colapso verificada.',
   'steps.group.plastic': 'Cálculo plástico',
   'steps.m.plasticKinematic.title': 'Método cinemático',
@@ -186,6 +187,7 @@ export const es: Translations = {
 export const en: Translations = {
   'course.plastic.closed': 'closed',
   'course.plastic.closedTitle': 'The hinge unloaded at λ = {lambda} and became rigid again.',
+  'course.plastic.limitOnly': 'The step-by-step history does not reach the collapse load (it ends at λ = {history}). The collapse load by limit analysis (static and kinematic theorems) is λc = {lambda}; the hinges of the history are approximate.',
   'course.plastic.unresolved': 'The analysis stopped at a mechanism it could not tell from a false one (hinges that would unload): this λ is where it stopped, not a verified collapse load.',
   'steps.group.plastic': 'Plastic analysis',
   'steps.m.plasticKinematic.title': 'Kinematic method',
@@ -369,6 +371,7 @@ export const en: Translations = {
 export const pt: Translations = {
   'course.plastic.closed': 'fechou',
   'course.plastic.closedTitle': 'A rótula descarregou em λ = {lambda} e voltou a ser rígida.',
+  'course.plastic.limitOnly': 'O passo a passo não chega à carga de colapso (termina em λ = {history}). A carga de colapso da análise limite (teoremas estático e cinemático) é λc = {lambda}; as rótulas do passo a passo são aproximadas.',
   'course.plastic.unresolved': 'A análise parou num mecanismo que não conseguiu distinguir de um falso (rótulas que descarregariam): este λ é onde parou, não uma carga de colapso verificada.',
   'steps.group.plastic': 'Análise plástica',
   'steps.m.plasticKinematic.title': 'Método cinemático',
