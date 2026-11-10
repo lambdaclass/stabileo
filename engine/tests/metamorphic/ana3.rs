@@ -462,7 +462,12 @@ pub fn rows() -> Vec<Ana3> {
                         solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05,
                         response_node_id: node, response_dof: dof.into(),
                     };
-                    comps.push(harmonic::solve_harmonic_3d_with_damping(&inp)?);
+                    let result = if c.p.symmetry {
+                        harmonic::solve_harmonic_3d_with_damping(&inp).map(|(r, damping)| (r, Some(damping)))?
+                    } else {
+                        (harmonic::solve_harmonic_3d(&inp)?, None)
+                    };
+                    comps.push(result);
                 }
                 let mut o = Resp::default();
                 let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.y, n.z]));
@@ -476,7 +481,7 @@ pub fn rows() -> Vec<Ana3> {
                             if r.method == harmonic::HarmonicMethod::Direct || r.direct_frequencies.contains(&c.p.freqs[k]) { 0.0 }
                             else { r.max_modal_residual.filter(|v| *v >= 0.0 && *v < f64::MAX).unwrap_or(f64::INFINITY) }
                         }).fold(0.0f64, f64::max);
-                        us.max(crate::dynamic_accuracy::harmonic_floor(accuracy.as_ref(), c.p.freqs[k], comps[0].1, cond.as_ref().unwrap().rel(), rel, residual))
+                        us.max(crate::dynamic_accuracy::harmonic_floor(accuracy.as_ref(), c.p.freqs[k], comps[0].1.unwrap(), cond.as_ref().unwrap().rel(), rel, residual))
                     };
                     let p = |i: usize| &comps[i].0.response_points[k];
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V3(Dim::LEN), vec![p(0).real, p(1).real, p(2).real]);

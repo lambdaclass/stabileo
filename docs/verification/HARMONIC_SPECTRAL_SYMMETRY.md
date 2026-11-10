@@ -171,9 +171,12 @@ Its squared modulus is a quadratic. The minimizer is the interval-clamped
 value `(1-a0 a1)/(omega^2+a0^2)`. This gives `g >= ||D(H)^-1||` and, using each
 interval's upper endpoint divided by its minimum modulus,
 `h >= ||H |D(H)|^-1||`. The massless candidate is included explicitly in `g`.
-The two largest certified positive inverse eigenvalues identify the damping
-anchors. Intervals crossing the solver's positive-mode cutoff remain
-uncertifiable; the cutoff is unchanged. The inverse-frequency relative error
+The two largest certified positive inverse eigenvalues inside the solver's
+anchor-selection range identify the damping anchors. The solver selects squared
+frequencies strictly above `1e-10` (`solver/damping.rs`), so inverse intervals
+wholly above `1e10` cannot be anchors. These intervals remain in both resolvent
+gains. Intervals touching or crossing that boundary remain uncertifiable; the
+cutoff is unchanged. The inverse-frequency relative error
 is bounded by `r = eta/[sqrt(1-eta)(1+sqrt(1-eta))]`, where `eta` uses the smaller
 anchor, and the coefficient allowance is `b = r/(1-r)`.
 
@@ -323,3 +326,37 @@ because its former #1278 fixture has become certifiable; both its unchanged
 inconclusive assertions remain. A manufactured modal-residual error is bounded,
 while an undamped resonance and an uncertain inverse damping anchor remain
 unbounded. Existing tolerances, baselines, and pass assertions are retained.
+
+## PR #1887 review regressions
+
+The zero-forcing natural scale is zero. Previously an infinite numerical or
+modal-truncation estimate produced NaN when multiplied by that scale, and the
+caller's `max` discarded the NaN in favor of its finite static floor. The
+combined estimate must now be finite before multiplication; otherwise the floor
+is explicitly positive infinity, including for zero forcing. A manufactured
+zero-load regression covers an undamped resonance and overflowing modal
+truncation, and retains a finite, certifiable zero-load case.
+
+The inverse certificate also previously rejected every spectrum with an inverse
+eigenvalue above the damping-anchor cutoff. A manufactured singular-mass pencil
+now checks finite bounds with two resolved eligible anchors and a third mode
+wholly below the positive squared-frequency cutoff. That third mode still
+makes its undamped resonance unbounded. Intervals crossing or touching either
+side of the anchor cutoff remain unbounded.
+
+Both new regressions failed before the fix when explicitly run with their
+`known wrong result: #1887` ignores overridden. The seeded resonance sweep now
+requires one symmetry pass per issue and load parity, zero inconclusive
+outcomes, and the resonance-budget test requires a finite budget in addition to
+its original lower bound. Those strengthened checks already passed before this
+review fix. Ordinary invariance checks use the public harmonic solver wrappers;
+symmetry checks obtain the damping metadata from the same underlying solve.
+This restores the entry-point coverage checked by `make lint.engine` without
+changing solver outputs or weakening the registry.
+
+After the review fix, both new regressions pass without ignores. Targeted release
+validation passed all five dynamic-accuracy tests and 18 harmonic regressions,
+including both wrapper paths and the planted-error rejection checks. The
+resonance sweep recorded 14 passes, zero failures, zero refusals, and zero
+inconclusive outcomes. `make lint.engine`, `make check.changelog`, and
+`make check.test-targets` passed. No full suite or extended seeded sweep was run.

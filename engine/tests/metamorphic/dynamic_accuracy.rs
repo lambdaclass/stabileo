@@ -274,21 +274,24 @@ impl HarmonicAccuracy {
                 return error;
             }
         }
-        let top = self.mu.last().copied().unwrap_or(0.0);
+        if self
+            .mu
+            .iter()
+            .any(|m| m - self.residual <= 1e10 && m + self.residual >= 1e10)
+        {
+            return f64::INFINITY;
+        }
         let anchors: Vec<_> = self
             .mu
             .iter()
             .rev()
             .copied()
-            .filter(|m| *m > self.residual)
+            .filter(|m| *m > self.residual && *m + self.residual < 1e10)
             .take(2)
             .collect();
         let Some(&anchor) = anchors.last() else {
             return f64::INFINITY;
         };
-        if self.mu.iter().any(|m| (m - 1e10).abs() <= self.residual) || top > 1e10 {
-            return f64::INFINITY;
-        }
         let eta = self.residual / anchor;
         if !(eta < 1.0) {
             return f64::INFINITY;
@@ -378,7 +381,11 @@ pub fn harmonic_floor(
     } else {
         accuracy.gains(omega, damping).0 * modal_residual
     };
-    accuracy.natural * (error + truncation) / rel
+    let estimate = error + truncation;
+    if !estimate.is_finite() {
+        return f64::INFINITY;
+    }
+    accuracy.natural * estimate / rel
 }
 
 #[test]
@@ -440,7 +447,6 @@ fn undamped_resonance_and_uncertain_inverse_anchors_are_unbounded() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn zero_load_keeps_uncertifiable_harmonic_floors_infinite() {
     let accuracy = HarmonicAccuracy {
         forward: None,
@@ -472,7 +478,6 @@ fn zero_load_keeps_uncertifiable_harmonic_floors_infinite() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn singular_mass_excludes_resolved_subcutoff_modes_only_from_anchors() {
     let pencil = Pencil {
         k: vec![

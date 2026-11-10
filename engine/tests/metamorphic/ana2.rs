@@ -552,7 +552,12 @@ pub fn rows() -> Vec<Ana2> {
                         solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05,
                         response_node_id: node, response_dof: dof.into(),
                     };
-                    comps.push(harmonic::solve_harmonic_2d_with_damping(&inp)?);
+                    let result = if c.p.symmetry {
+                        harmonic::solve_harmonic_2d_with_damping(&inp).map(|(r, damping)| (r, Some(damping)))?
+                    } else {
+                        (harmonic::solve_harmonic_2d(&inp)?, None)
+                    };
+                    comps.push(result);
                 }
                 let mut o = Resp::default();
                 // Natural size: the largest static displacement (the ω = 0 response), a rotation as rotation × model size.
@@ -567,7 +572,7 @@ pub fn rows() -> Vec<Ana2> {
                             if r.method == harmonic::HarmonicMethod::Direct || r.direct_frequencies.contains(&c.p.freqs[k]) { 0.0 }
                             else { r.max_modal_residual.filter(|v| *v >= 0.0 && *v < f64::MAX).unwrap_or(f64::INFINITY) }
                         }).fold(0.0f64, f64::max);
-                        us.max(crate::dynamic_accuracy::harmonic_floor(accuracy.as_ref(), c.p.freqs[k], comps[0].1, cond.as_ref().unwrap().rel(), rel, residual))
+                        us.max(crate::dynamic_accuracy::harmonic_floor(accuracy.as_ref(), c.p.freqs[k], comps[0].1.unwrap(), cond.as_ref().unwrap().rel(), rel, residual))
                     };
                     let (a, b) = (&comps[0].0.response_points[k], &comps[1].0.response_points[k]);
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V2(Dim::LEN), vec![a.real, b.real]);
