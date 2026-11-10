@@ -509,6 +509,8 @@ jobs:
         env:
           WALL_CLOCK_REPORT: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && format('{0}/engine-wall-clock-overruns.jsonl', runner.temp) || '' }}
         run: make test.engine.gates
+      - name: Plastic replay with the built engine
+        run: make test.engine.plastic-replay
       - name: Report wall-clock overruns without failing
         if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}
         env:

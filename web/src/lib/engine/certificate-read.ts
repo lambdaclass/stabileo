@@ -44,10 +44,6 @@ export function modalCutoffHz(cert: ModalCertificate | null | undefined): number
   return down(Math.sqrt(cert.cutoffOmega2) / TWO_PI);
 }
 
-/**
- * The collapse factor shown against the certified enclosure: `within` false when it lies outside
- * (by more than f64 round-off of the incremental analysis), with how far outside, relative.
- */
 export function plasticReading(cert: PlasticCertificate, lambda: number): { lo: number | null; up: number | null; within: boolean | null; deviation: number } {
   const lo = cert.lambdaLower, hi = cert.lambdaUpper;
   if (lo === null && hi === null) return { lo, up: hi, within: null, deviation: 0 };
@@ -55,7 +51,7 @@ export function plasticReading(cert: PlasticCertificate, lambda: number): { lo: 
   const below = lo !== null && lambda < lo ? (lo - lambda) / scale : 0;
   const above = hi !== null && lambda > hi ? (lambda - hi) / scale : 0;
   const deviation = Math.max(below, above);
-  return { lo, up: hi, within: deviation <= 1e-9, deviation };
+  return { lo, up: hi, within: (lo === null || lambda >= lo) && (hi === null || lambda <= hi), deviation };
 }
 
 /**

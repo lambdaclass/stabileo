@@ -96,6 +96,7 @@ export function formatCombinationLabel(
  * they appear in a message; anything else is left as it is.
  */
 const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
+  ['exact plastic LP resource budget exceeded', 'plasticDiag.resourceBudget'],
   ['Singular stiffness matrix — structure is a mechanism', 'svc.engine.mechanism'],
   ['All diagonal entries are zero — singular matrix', 'svc.engine.zeroDiagonal'],
   ['Singular stiffness matrix', 'svc.engine.singular'],

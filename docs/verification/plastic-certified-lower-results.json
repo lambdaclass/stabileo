@@ -1,0 +1,138 @@
+[
+  {
+    "issue": 1081,
+    "rawFactor": 9.860394114366954,
+    "lambdaLower": 10.124999999772044,
+    "lambdaUpper": 10.125,
+    "returnedFactor": 10.124999999772044,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 1082,
+    "rawFactor": 10.797718180433233,
+    "lambdaLower": 11.425837747862877,
+    "lambdaUpper": 11.42583776029747,
+    "returnedFactor": 11.425837747862877,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 1261,
+    "outcome": "PL-2D-INVARIANCE",
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 1349,
+    "rawFactor": 12277.390122640474,
+    "lambdaLower": 14143.368200531211,
+    "lambdaUpper": 14143.455083249362,
+    "returnedFactor": 14143.368200531211,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 1458,
+    "rawFactor": 9.67052503927348,
+    "lambdaLower": 10.193756380662544,
+    "lambdaUpper": 10.193756381077973,
+    "returnedFactor": 10.193756380662544,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 1459,
+    "rawFactor": 11.756945421452436,
+    "lambdaLower": 12.494156840876736,
+    "lambdaUpper": 12.500837246035235,
+    "returnedFactor": 12.494156840876736,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 1460,
+    "rawFactor": 12.741035931542857,
+    "lambdaLower": 14.004848209205182,
+    "lambdaUpper": 14.00484821010675,
+    "returnedFactor": 14.004848209205182,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 1760,
+    "rawFactor": 9.345131066713956,
+    "lambdaLower": 11.574222305948126,
+    "lambdaUpper": 11.57476297081718,
+    "returnedFactor": 11.574222305948126,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 951,
+    "rawFactor": 9.860394114366954,
+    "lambdaLower": 10.124999999772044,
+    "lambdaUpper": 10.125,
+    "returnedFactor": 10.124999999772044,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 952,
+    "rawFactor": 9.929964812938806,
+    "lambdaLower": 10.124999999756442,
+    "lambdaUpper": 10.125,
+    "returnedFactor": 10.124999999756442,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 953,
+    "rawFactor": 9.860394114366954,
+    "lambdaLower": 10.124999999772044,
+    "lambdaUpper": 10.125,
+    "returnedFactor": 10.124999999772044,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 989,
+    "rawFactor": 9.860394114366954,
+    "lambdaLower": 10.124999999772044,
+    "lambdaUpper": 10.125,
+    "returnedFactor": 10.124999999772044,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 990,
+    "rawFactor": 9.860394114366954,
+    "lambdaLower": 10.124999999772044,
+    "lambdaUpper": 10.125,
+    "returnedFactor": 10.124999999772044,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  },
+  {
+    "issue": 991,
+    "rawFactor": 9.087181273204067,
+    "lambdaLower": 9.373026491385673,
+    "lambdaUpper": 9.373556581130075,
+    "returnedFactor": 9.373026491385673,
+    "solverWithinBounds": false,
+    "calls": 3,
+    "retainedBytes": 0
+  }
+]

@@ -26,6 +26,26 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('scopes exact plastic resource refusals to frame projects after plastic analysis', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-exact-resource-budget-refused');
+    expect(entry).toBeDefined();
+    for (const dimension of ['space3D', 'plane2D']) {
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'frameMembers', 'analysis:plastic']))).toBe(true);
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'frameMembers', 'analysis:modal']))).toBe(false);
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'trussMembers', 'analysis:plastic']))).toBe(false);
+    }
+  });
+
+  it('scopes the checked 3D certified lower bound to space frames after plastic analysis', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-3d-certified-lower-bound');
+    expect(entry).toBeDefined();
+    const features = ['space3D', 'frameMembers', 'analysis:plastic'];
+    expect(conditionHolds(entry!.when ?? {}, new Set(features))).toBe(true);
+    for (const omitted of features) {
+      expect(conditionHolds(entry!.when ?? {}, new Set(features.filter((feature) => feature !== omitted)))).toBe(false);
+    }
+  });
+
   it('shows the CIRSOC 301 tension note only for steel members without connection data under CIRSOC 301', () => {
     const steelTruss = model({ elements: [member(1, 1, 'truss')] });
     expect(ids(steelTruss)).toContain('cirsoc301-tension-needs-connection');

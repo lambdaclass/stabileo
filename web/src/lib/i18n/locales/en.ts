@@ -4002,6 +4002,8 @@ const en: Record<string, string> = {
   "knownIssue.TH-RECIPROCITY": "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design",
   "knownIssue.RC-NM-PAIRING": "This column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination.",
   "knownIssue.NL-DYNAMIC-GAPS": "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response.",
+  "knownIssue.PL-3D-CERTIFICATE-MISMATCH": "The raw incremental 3D plastic collapse factor lies outside the certified interval. The returned collapse factor is the certified lower bound. Incremental steps and hinges retain raw solver values and are not certified by this interval.",
+  "plasticDiag.resourceBudget": "Plastic certification was refused because its resource budget was exceeded",
   "knownIssue.PL-3D-INVARIANCE": "Curved-beam 3D plastic collapse factors can depend on numbering. Verify collapse independently.",
   'knownIssue.NL-5': 'Material-nonlinear results are approximate: the model is a whole-member secant rather than plasticity, so the response jumps at first yield. Check the collapse load factor with plastic collapse',
   "knownIssue.NL-3": "A member's end turns more than 0.02 rad against its chord in this 3D co-rotational analysis. Its end forces omit a finite-rotation term whose error grows about as half that rotation times the end moments; split the most deformed members into shorter ones until this warning clears",

@@ -354,10 +354,13 @@ describe('analyses certified from the job their solve noted', () => {
     }
   });
 
-  it('reads a λ outside the enclosure as outside, and round-off as inside', () => {
+  it('reads every λ outside the enclosure as outside', () => {
     const c = { certified: true, lambdaLower: 2, lambdaUpper: 2.000001, lowerSource: null, mechanism: [], solverCollapseFactor: null, solverWithinBounds: null, solverDeviation: null, reason: null };
     expect(plasticReading(c, 2.0000005).within).toBe(true);
-    expect(plasticReading(c, 2 * (1 - 1e-14)).within).toBe(true);
+    expect(plasticReading(c, 2 * (1 - 1e-14)).within).toBe(false);
+    expect(plasticReading(c, c.lambdaLower).within).toBe(true);
+    expect(plasticReading(c, c.lambdaUpper).within).toBe(true);
+    expect(plasticReading(c, c.lambdaUpper + Number.EPSILON * c.lambdaUpper).within).toBe(false);
     const out = plasticReading(c, 2.2);
     expect(out.within).toBe(false);
     expect(out.deviation).toBeCloseTo(0.2 / 2.2, 6);
