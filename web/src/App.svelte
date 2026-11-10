@@ -1483,7 +1483,7 @@
         so the window disagreed with itself about what was open.
       -->
       {#if eduStore.isHandout}
-        <span class="handout-title" data-testid="edu-handout-title">{eduStore.exercise?.title}</span>
+        <span class="handout-title" data-testid="edu-handout-title">{eduStore.exercise?.title ?? eduStore.pending?.title}</span>
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
           <option value="basico">{t('app.modeBasic')}</option>

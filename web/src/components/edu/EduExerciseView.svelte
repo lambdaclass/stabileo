@@ -2,7 +2,7 @@
   import { saveFile } from '../../lib/export/save-file';
   import { resultsStore } from '../../lib/store';
   import type { EduExercise, DiagramShape } from './exercises';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import { eduStore } from './edu-store.svelte';
   import { readSupportReaction, type ReactionDof } from './edu-reactions';
   import type { SolveTimings } from '../../lib/engine/types';
@@ -20,6 +20,7 @@
   import { modelStore } from '../../lib/store';
   import { effectiveBendingInertia } from '../../lib/engine/solver-service';
   import { get2DDisplayDisplacementVertical } from '../../lib/geometry/coordinate-system';
+  import { TOLERANCE, withinTolerance } from './exercise-marking';
 
   // Cubic included: a linearly varying load makes the moment cubic, and the
   // answer has to be on the list for the question to be answerable.
@@ -79,7 +80,6 @@
   let revealedChars = $state<boolean[]>(exercise.characteristics.map(() => false));
   let revealedDiagrams = $state<boolean[]>(exercise.diagramQuestions.map(() => false));
 
-  const TOLERANCE = 0.05;
 
   // ─── Drawn diagrams ────────────────────────────────────────
   //
@@ -232,6 +232,7 @@
     exercise.supports.forEach((sup, i) => {
       for (const dof of sup.dofs) {
         out.push({
+          key: `r:${i}:${dof}`,
           label: `${sup.label} — ${dof}`,
           answer: reactionAnswers[i][dof] ?? '',
           unit: dof === 'M' ? 'kN·m' : 'kN',
@@ -242,13 +243,23 @@
     });
     if (exercise.kinematicQuestion) {
       out.push({
+        key: 'k',
         label: t('edu.kinematicQuestion'),
         answer: kinematicAnswer,
         outcome: kinematicVerif,
       });
+      if (kinematicAnswer === 'hyperstatic') {
+        out.push({
+          key: 'kd',
+          label: t('edu.hyperstaticDegree'),
+          answer: kinematicDegreeAnswer,
+          outcome: kinematicDegreeVerif,
+        });
+      }
     }
     (exercise.diagramShapeQuestions ?? []).forEach((q, i) => {
       out.push({
+        key: `s:${i}`,
         label: `${t('edu.shapeQuestion')} — ${q.diagram}`,
         answer: shapeAnswers[i] ?? '',
         outcome: shapeVerif[i],
@@ -256,6 +267,7 @@
     });
     exercise.diagramQuestions.forEach((q, i) => {
       out.push({
+        key: `d:${i}`,
         label: q.question,
         answer: diagramAnswers[i] ?? '',
         unit: q.unit,
@@ -266,6 +278,7 @@
     sketchQuestions.forEach((q, i) => {
       const v = sketchVerdicts[i];
       out.push({
+        key: `sk:${i}`,
         label: `${t('edu.sketch.span')} ${q.diagram}`,
         // The drawing itself, as the ordinates and powers that produced it —
         // a teacher reading the record can see what was drawn, not only
@@ -281,6 +294,7 @@
     });
     exercise.characteristics.forEach((c, i) => {
       out.push({
+        key: `c:${i}`,
         label: c.label,
         answer: charAnswers[i] ?? '',
         unit: c.unit,
@@ -299,6 +313,9 @@
       student: studentName.trim(),
       submittedAt: new Date().toISOString(),
       answers: collectAnswers(),
+      ...(exercise.legajo ? { legajo: exercise.legajo } : {}),
+      ...(exercise.seed !== undefined ? { seed: exercise.seed } : {}),
+      ...(exercise.variant ? { variant: exercise.variant } : {}),
     };
   }
 
@@ -307,7 +324,7 @@
 
   function downloadSubmission() {
     const sub = buildSubmission();
-    const who = sub.student ? sub.student.replace(/[^\w\-]+/g, '-').toLowerCase() : 'entrega';
+    const who = sub.student || sub.legajo ? (sub.student || sub.legajo!).replace(/[^\w\-]+/g, '-').toLowerCase() : 'entrega';
     saveFile(`${who}-${sub.exerciseId}.stabileo-entrega.json`, new Blob([toSubmissionFile(sub)], { type: 'application/json' }));
     handinNote = t('edu.handin.downloaded');
   }
@@ -341,9 +358,7 @@
   }
 
   function checkTolerance(student: number, correct: number): VerifState {
-    const abs = Math.abs(correct);
-    const tol = abs > 0.01 ? abs * TOLERANCE : 0.1;
-    return Math.abs(student - correct) <= tol ? 'correct' : 'incorrect';
+    return withinTolerance(student, correct) ? 'correct' : 'incorrect';
   }
 
   function generateHint(student: number, correct: number, label: string, dof: string): string | null {
@@ -403,8 +418,13 @@
 
   function verifyShapes() {
     const qs = exercise.diagramShapeQuestions;
-    if (!qs) return;
-    shapeVerif = qs.map((q, i) => shapeAnswers[i] === q.correct ? 'correct' : (shapeAnswers[i] ? 'incorrect' : 'pending'));
+    const forces = eduStore.results?.elementForces;
+    if (!qs || !forces) return;
+    shapeVerif = qs.map((q, i) => {
+      const correct = q.getCorrect(forces);
+      if (!shapeAnswers[i] || !correct) return 'pending';
+      return shapeAnswers[i] === correct ? 'correct' : 'incorrect';
+    });
   }
 
   function revealReaction(supIdx: number, dof: string) {
@@ -559,6 +579,12 @@
     <div class="exercise-description">
       <p>{exercise.description}</p>
     </div>
+  {/if}
+
+  {#if exercise.variant}
+    <p class="variant-who" data-testid="edu-variant-who">
+      {exercise.legajo ? tp('edu.params.yourVariant', { legajo: exercise.legajo }) : t('edu.params.practiceVariant')}
+    </p>
   {/if}
 
   <!-- Section data (given info for strength/advanced exercises) -->
@@ -1012,6 +1038,14 @@
     color: var(--st-text-2);
     margin: 0;
     line-height: 1.5;
+  }
+
+  .variant-who {
+    font-family: var(--st-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    color: var(--st-value);
+    margin: 0 0 12px;
   }
 
   /* ─── Solver insight ─── */
