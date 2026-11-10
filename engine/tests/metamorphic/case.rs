@@ -25,11 +25,12 @@ pub struct Params {
     pub ground: [f64; 3],
     /// Excitation axis of a spectral analysis (0 = X, 1 = Y, 2 = Z).
     pub axis: usize,
+    pub symmetry: bool,
 }
 
 impl Default for Params {
     fn default() -> Self {
-        Params { fy: 250.0, dt: 0.002, freqs: vec![0.0, 0.7, 2.3], axle: 50.0, step: 0.5, ground: [1.0, 0.6, 0.3], axis: 0 }
+        Params { fy: 250.0, dt: 0.002, freqs: vec![0.0, 0.7, 2.3], axle: 50.0, step: 0.5, ground: [1.0, 0.6, 0.3], axis: 0, symmetry: false }
     }
 }
 
@@ -43,6 +44,7 @@ impl Params {
             step: self.step * u.length,
             ground: self.ground.map(|g| g * u.accel()),
             axis: self.axis,
+            symmetry: self.symmetry,
         }
     }
 }

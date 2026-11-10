@@ -551,7 +551,7 @@ pub fn gap_amplification(r: &Resp, tag: &str) -> f64 {
 }
 
 pub fn widened_past(r: &Resp, rel: f64, limit: f64) -> std::collections::HashSet<String> {
-    r.0.iter().filter(|i| rel * gap_amplification(r, &i.tag) > limit).map(|i| i.tag.clone()).collect()
+    r.0.iter().filter(|i| !i.floor.is_finite() || rel * gap_amplification(r, &i.tag) > limit).map(|i| i.tag.clone()).collect()
 }
 
 impl Resp {

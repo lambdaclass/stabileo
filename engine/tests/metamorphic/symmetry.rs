@@ -129,6 +129,7 @@ pub fn symmetrize_2d(name: &str, half: &SolverInput, anti: bool) -> Option<Sym2>
     }
     let mut case = Case2::new(format!("{name}/{}", if anti { "anti" } else { "sym" }), full);
     case.path = None;
+    case.p.symmetry = true;
     // Single-node responses (harmonic) are read on the symmetry line.
     case.probes = axis.clone();
     Some(Sym2 { case, iso, pair })
@@ -312,6 +313,7 @@ pub fn symmetrize_3d(name: &str, half: &SolverInput3D, anti: bool) -> Option<Sym
     }
     let mut case = Case3::new(format!("{name}/{}", if anti { "anti" } else { "sym" }), full);
     case.path = None;
+    case.p.symmetry = true;
     case.probes = axis.clone();
     // Excitations given in global axes must share the symmetry: a vertical
     // ground motion and spectrum direction are invariant under Rz(π).

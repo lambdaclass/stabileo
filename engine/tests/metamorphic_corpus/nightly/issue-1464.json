@@ -1,0 +1,126 @@
+{
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 26.481425299173907,
+      "z": 79.4390465092905
+    },
+    "2": {
+      "id": 2,
+      "x": 0.8718753020634722,
+      "z": 8.606824586581794
+    },
+    "3": {
+      "id": 3,
+      "x": 60.89556932429255,
+      "z": -3.687646144077263
+    },
+    "4": {
+      "id": 4,
+      "x": -7.227576510235821,
+      "z": 46.559074233378624
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 11429.476455020153,
+      "nu": 0.1781764525235403
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "a": 0.01732311962455219,
+      "iz": 4.987467190168003e-07,
+      "asY": null
+    },
+    "2": {
+      "id": 2,
+      "a": 0.06804258661114426,
+      "iz": 1.337768462263101e-05,
+      "asY": null
+    },
+    "3": {
+      "id": 3,
+      "a": 0.009547418928016685,
+      "iz": 6.979010991136683e-05,
+      "asY": null
+    }
+  },
+  "elements": {
+    "2": {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    "3": {
+      "id": 3,
+      "type": "frame",
+      "nodeI": 4,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 3,
+      "hingeStart": false,
+      "hingeEnd": true
+    }
+  },
+  "supports": {
+    "1": {
+      "id": 1,
+      "nodeId": 1,
+      "type": "fixed",
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "dx": null,
+      "dz": null,
+      "dry": null,
+      "angle": null
+    },
+    "2": {
+      "id": 2,
+      "nodeId": 4,
+      "type": "fixed",
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "dx": null,
+      "dz": null,
+      "dry": null,
+      "angle": null
+    },
+    "3": {
+      "id": 3,
+      "nodeId": 2,
+      "type": "fixed",
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "dx": null,
+      "dz": null,
+      "dry": null,
+      "angle": null
+    }
+  },
+  "loads": [
+    {
+      "type": "distributed",
+      "data": {
+        "elementId": 2,
+        "qI": 97.51616115822964,
+        "qJ": 44.021927478453335,
+        "a": null,
+        "b": null
+      }
+    }
+  ],
+  "constraints": [],
+  "connectors": {},
+  "solverOptions": null
+}
