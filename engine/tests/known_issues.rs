@@ -2928,3 +2928,24 @@ fn issue_1753_pcg_resolves_each_independent_moment_with_disparate_loads() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1753"]
+fn issue_1753_unit_invariance_rejects_nan_displacement_components() {
+    let input = crate::common::make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true; 6])], vec![],
+    );
+    for component in 0..6 {
+        let mut result = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+        let d = result.displacements.iter_mut().find(|d| d.node_id == 2).unwrap();
+        match component {
+            0 => d.ux = f64::NAN, 1 => d.uy = f64::NAN, 2 => d.uz = f64::NAN,
+            3 => d.rx = f64::NAN, 4 => d.ry = f64::NAN, _ => d.rz = f64::NAN,
+        }
+        assert!(std::panic::catch_unwind(|| unit_invariant_3d(&input, &result, "NaN probe")).is_err(),
+            "component {component}: the invariance helper accepted NaN");
+    }
+}

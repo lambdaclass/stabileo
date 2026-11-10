@@ -881,3 +881,32 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_3d(input, &dof)?;
     Ok(of_assembled(&asm.k, &dof, false, fcs, &coupling_3d(input, &dof)))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_stalled_ritz_values_do_not_underestimate_the_top_eigenvalue() {
+        let m = 80;
+        let seed = 15_233_338_564_176_581_173;
+        let initial = start(m, seed);
+        assert_eq!(initial[0], initial[1]);
+        let mut diagonal: Vec<f64> = (0..m).map(|i| 1.0 + i as f64 / m as f64 / 10.0).collect();
+        diagonal[0] = 2.0005;
+        diagonal[1] = 2.0005;
+        let mut rows: Vec<usize> = (0..m).collect();
+        let mut cols = rows.clone();
+        rows.push(1);
+        cols.push(0);
+        diagonal.push(-0.0005);
+        let matrix = CscMatrix::from_triplets(m, &rows, &cols, &diagonal);
+        let exact_top = 2.001;
+        let calls = std::cell::Cell::new(0);
+        let apply = |x: &[f64]| { calls.set(calls.get() + 1); matrix.sym_mat_vec(x) };
+        let (upper, _) = lanczos_top(&apply, m, seed).expect("a finite upper bound");
+        assert_eq!(calls.get(), 20, "exercise successive stalled estimates before exhaustion");
+        assert!(upper >= exact_top, "stalled Ritz estimate {upper} is below the exact eigenvalue {exact_top}");
+    }
+}
