@@ -14129,6 +14129,8 @@ const hu: Translations = {
   "knownIssue.TH-RECIPROCITY": "A lineáris időtörténeti analízis legfeljebb 33-szoros tényezővel megbukott a reciprocitási ellenőrzéseken. Az érintett bemeneti osztályt még nem különítették el; méretezés előtt ellenőrizze függetlenül ezt a választ",
   "knownIssue.RC-NM-PAIRING": "Ez az oszlopellenőrzés az egyik kombináció normálerejét egy másik nyomatékával párosítja, ami az egyensúlyi pont alatt a biztonság rovására lehet. Ellenőrizze az oszlopot az egyes megnevezett kombinációk szerint.",
   "knownIssue.NL-DYNAMIC-GAPS": "Az anyagi nemlineáris analízis egy nem konvergált növekmény után is folytatódhat; a gerendadinamika elhagyja a hajlítási forgási tehetetlenséget. Ellenőrizze függetlenül a konvergenciát és a magas rudak viselkedését.",
+  "knownIssue.PL-3D-CERTIFICATE-MISMATCH": "A növekményes 3D képlékeny tönkremeneteli tényező nyers értéke a tanúsított intervallumon kívül esik. A visszaadott tönkremeneteli tényező a tanúsított alsó korlát. A növekményes lépések és a csuklók a megoldó nyers értékeit tartják meg, ezeket ez az intervallum nem tanúsítja.",
+  "plasticDiag.resourceBudget": "A képlékeny tanúsítást a program elutasította, mert túllépte az erőforráskeretét",
   "knownIssue.PL-3D-INVARIANCE": "Az íves gerendák 3D képlékeny tönkremeneteli tényezői a számozástól függhetnek. A tönkremenetelt ellenőrizze függetlenül.",
   "clipboard.spaceInPlane": "A másolat 3D modellből származik: másolja újra 2D-ben, hogy beillesszék ide.",
   "sel.copyTitle": "A kijelölés másolása (Ctrl+C)",

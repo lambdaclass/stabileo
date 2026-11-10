@@ -5,6 +5,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     en: 'Studies how symmetric cuts change the stability of an initially flat strip bent between vertical clamps and loaded at its midpoint, using a variable-stiffness elastica model.',
     es: 'Estudia cómo los cortes simétricos modifican la estabilidad de una lámina inicialmente plana, curvada entre mordazas verticales y cargada en su punto medio, mediante un modelo de elástica con rigidez a flexión variable.',
     pt: 'Estuda como os cortes simétricos alteram a estabilidade de uma lâmina inicialmente plana, curvada entre garras verticais e carregada em seu ponto médio, por meio de um modelo de elástica com rigidez à flexão variável.',
+    hu: 'Azt vizsgálja, hogyan változtatják meg a szimmetrikus bevágások egy kezdetben sík, függőleges befogások között meghajlított és a közepén terhelt csík stabilitását, változó hajlítási merevségű elasztikamodell segítségével.',
   },
   'gilbert-2003': {
     en: 'Ground-structure layout optimization of trusses is limited by the number of potential members. The paper presents an iterative member-adding method, built on linear-programming column generation, that starts from a sparsely connected ground structure and adds members as needed until the provably optimal layout is reached, handling problems with very large numbers of potential members.',

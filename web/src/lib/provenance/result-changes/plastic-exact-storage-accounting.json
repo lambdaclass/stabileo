@@ -24,7 +24,8 @@
     "pt": "A certificação plástica exata limita o armazenamento simultâneo e o crescimento racional",
     "de": "Exakte plastische Zertifizierung begrenzt gleichzeitigen Speicher und rationales Wachstum",
     "fr": "La certification plastique exacte limite le stockage simultané et la croissance rationnelle",
-    "tr": "Kesin plastik sertifikalama eşzamanlı depolamayı ve rasyonel büyümeyi sınırlar"
+    "tr": "Kesin plastik sertifikalama eşzamanlı depolamayı ve rasyonel büyümeyi sınırlar",
+    "hu": "A pontos képlékeny tanúsítás keretbe foglalja az átfedő tárolást és a racionális számok növekedését"
   },
   "explanation": {
     "en": "Plastic certificates now sum overlapping exact and floating storage and check rational limb growth before elimination operations. The pivot-work counter no longer rejects small-storage models such as the 24-member grid. Resource refusals name the exceeded quantity and limit. Re-run previously refused certificates; no numerical tolerance changes.",
@@ -32,7 +33,8 @@
     "pt": "Os certificados plásticos agora somam o armazenamento exato e flutuante simultâneo e controlam o crescimento racional antes da eliminação. O contador de pivôs não rejeita mais modelos pequenos como a grelha de 24 membros. As recusas indicam a quantidade excedida e o limite. Execute novamente certificados recusados; nenhuma tolerância numérica muda.",
     "de": "Plastische Zertifikate summieren nun gleichzeitig belegten exakten und Gleitkommaspeicher und prüfen rationales Wachstum vor Eliminationsoperationen. Der Pivot-Zähler lehnt kleine Modelle wie den Gitterrost mit 24 Stäben nicht mehr ab. Ablehnungen nennen Größe und Limit. Wiederholen Sie bisher abgelehnte Zertifizierungen; numerische Toleranzen bleiben gleich.",
     "fr": "Les certificats plastiques cumulent désormais le stockage exact et flottant simultané et contrôlent la croissance rationnelle avant l’élimination. Le compteur de pivots ne rejette plus les petits modèles comme le grillage de 24 barres. Les refus nomment la quantité et la limite dépassées. Relancez les certificats refusés ; aucune tolérance numérique ne change.",
-    "tr": "Plastik sertifikalar artık eşzamanlı kesin ve kayan noktalı depolamayı toplar ve eliminasyon işlemlerinden önce rasyonel büyümeyi denetler. Pivot sayacı 24 çubuklu ızgara gibi küçük modelleri artık reddetmez. Retler aşılan miktarı ve sınırı belirtir. Önceden reddedilen sertifikaları yeniden çalıştırın; sayısal toleranslar değişmez."
+    "tr": "Plastik sertifikalar artık eşzamanlı kesin ve kayan noktalı depolamayı toplar ve eliminasyon işlemlerinden önce rasyonel büyümeyi denetler. Pivot sayacı 24 çubuklu ızgara gibi küçük modelleri artık reddetmez. Retler aşılan miktarı ve sınırı belirtir. Önceden reddedilen sertifikaları yeniden çalıştırın; sayısal toleranslar değişmez.",
+    "hu": "A képlékeny tanúsítványok mostantól összeadják az átfedő pontos és lebegőpontos tárolást, és az eliminációs műveletek előtt ellenőrzik a racionális limbek növekedését. A pivotmunka-számláló már nem utasítja el a kis tárolásigényű modelleket, például a 24 rudas rácsot. Az erőforrás miatti elutasítások megnevezik a túllépett mennyiséget és a határt. Futtassa újra a korábban elutasított tanúsítványokat; numerikus tűrés nem változik."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-plastic-exact-storage-accounting.md",
