@@ -257,11 +257,19 @@ it('translates cable and frozen-contact refusals in all six languages', async ()
     for (const [code, key] of [['cable_analysis_required', 'cable'], ['contact_state_invalid', 'contact']] as const) {
       const d = { code, severity: 'error', elementIds: [7, 9], message: 'ENGINE' };
       const error = JSON.stringify({ message: 'ENGINE', structuredDiagnostics: [d] });
-      const translated = dictFor(loc)[`analysisValidity.${key}`].replace('{elements}', '7, 9');
+      const template = dictFor(loc)[`analysisValidity.${key}`];
+      expect(template, `${code} ${loc}`).toContain('{elements}');
+      const translated = template.replace('{elements}', '7, 9');
       expect(knownIssueRefusal(error), `${code} ${loc}`).toBe(translated);
       expect(errorText(error, 'fallback'), `${code} ${loc}`).toBe(translated);
+      expect(knownIssueRefusal(error)).toContain('7, 9');
+      expect(errorText(error, 'fallback')).toContain('7, 9');
       if (code === 'contact_state_invalid') {
-        expect(errorText(JSON.stringify({ structuredDiagnostics: [{ ...d, elementIds: [], nodeIds: [7, 9] }] }), 'fallback')).toBe(translated);
+        const nodeError = JSON.stringify({ structuredDiagnostics: [{ ...d, elementIds: [], nodeIds: [7, 9] }] });
+        expect(knownIssueRefusal(nodeError)).toBe(translated);
+        expect(knownIssueRefusal(nodeError)).toContain('7, 9');
+        expect(errorText(nodeError, 'fallback')).toBe(translated);
+        expect(errorText(nodeError, 'fallback')).toContain('7, 9');
       }
       expect(knownIssueRefusal(JSON.stringify({ structuredDiagnostics: [{ ...d, severity: 'warning' }] }))).toBeNull();
     }
@@ -278,6 +286,7 @@ it('translates invalid contact tolerance in six locales', async () => {
     expect(translated).toBeTruthy();
     expect(knownIssueRefusal(error)).toBe(translated);
     expect(errorText(error, 'fallback')).toBe(translated);
+    expect(knownIssueRefusal(JSON.stringify({ structuredDiagnostics: [{ code: 'contact_tolerance_invalid', severity: 'warning', message: 'ENGINE' }] }))).toBeNull();
   }
   setLocale('en');
 });

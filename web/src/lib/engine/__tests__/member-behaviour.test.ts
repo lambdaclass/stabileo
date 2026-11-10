@@ -459,8 +459,13 @@ it('preserves cable identity so bar analyses refuse it and cable analysis remain
   expect(input.elements.get(d5)?.type).toBe('cable');
   const plane = buildSolverInput2D(md())!;
   expect(plane.elements.get(d5)?.type).toBe('cable');
-  expect(() => solveDetailed(plane)).toThrow('cable_analysis_required');
-  expect(() => solveDetailed3D(input)).toThrow('cable_analysis_required');
+  for (const run of [() => solveDetailed(plane), () => solveDetailed3D(input)]) {
+    let caught: unknown;
+    try { run(); } catch (error) { caught = error; }
+    expect(caught).toBeDefined();
+    const data = JSON.parse((caught as Error).message);
+    expect(data.structuredDiagnostics).toContainEqual(expect.objectContaining({ code: 'cable_analysis_required', severity: 'error', elementIds: [d5] }));
+  }
   let refusal: unknown;
   try { wasmSolver.solve3D(input); } catch (error) { refusal = error; }
   expect(refusal).toBeDefined();
@@ -470,4 +475,20 @@ it('preserves cable identity so bar analyses refuse it and cable analysis remain
   const result = solve();
   expect(result.nonlinear?.cables).toBeDefined();
   expect(result.elementForces.find(f => f.elementId === d5)!.nStart).toBeGreaterThanOrEqual(0);
+});
+
+it('a cable diagonal that a bar solve compresses goes slack and leaves the frame in equilibrium (#417)', () => {
+  const { n3, d5 } = bracedBay();
+  modelStore.model.loads = [];
+  modelStore.addNodalLoad3D(n3, -50, 0, 0, 0, 0, 0, 1);
+  const bar = solve();
+  expect(bar.elementForces.find(f => f.elementId === d5)!.nStart).toBeLessThan(0);
+  for (const id of modelStore.materials.keys()) modelStore.updateMaterial(id, { rho: 0 });
+  modelStore.updateElement(d5, { behaviour: 'cable' });
+  const cable = solve();
+  expect(cable.nonlinear?.cables?.find(c => c.elementId === d5)?.tension).toBeCloseTo(0, 9);
+  expect(cable.elementForces.find(f => f.elementId === d5)!.nStart).toBeCloseTo(0, 9);
+  expect(cable.reactions.reduce((sum, r) => sum + r.fx, 0)).toBeCloseTo(50, 6);
+  modelStore.removeElement(d5);
+  expect(disp(cable, n3).ux).toBeCloseTo(disp(solve(), n3).ux, 9);
 });

@@ -987,3 +987,32 @@ fn nl_contact_review_frozen_bearing_obeys_penalty_hand_formula_3d() {
     close(result.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux, displacement, 1e-10, "3D bearing displacement");
     close(result.results.reactions.iter().find(|r| r.node_id == 3).unwrap().fx, -1e5 * displacement, 1e-10, "3D bearing reaction");
 }
+
+#[test]
+#[ignore = "known wrong result: #432"]
+fn nl_contact_review_frozen_surface_uses_final_normal() {
+    let mut input = bearing_surface_2d();
+    input.solver.supports.remove("3");
+    let mut master = input.solver.elements["1"].clone();
+    master.id = 2;
+    master.node_i = 3;
+    master.node_j = 4;
+    input.solver.elements.insert("2".into(), master);
+    if let SolverLoad::Nodal(load) = &mut input.solver.loads[0] { load.fz *= 4.0; }
+    input.al_max_iter = Some(2);
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
+    assert!(!result.converged);
+    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen")));
+    let master = disp2(&result.results, 4);
+    let slave = disp2(&result.results, 2);
+    let dx = master.ux;
+    let dz = 2.0 + master.uz;
+    let length = dx.hypot(dz);
+    let gap = (-dz * slave.ux + dx * (1.0 + slave.uz)) / length;
+    let pair = &result.node_to_surface_status[0];
+    assert!(dx.abs() > input.tolerance.unwrap());
+    assert_eq!(pair.status, "closed");
+    assert!(gap < 0.0);
+    close(pair.gap, gap, 1e-10, "gap on the final rotated master");
+    assert!(pair.normal_force >= -input.node_to_surface_pairs[0].stiffness * gap);
+}

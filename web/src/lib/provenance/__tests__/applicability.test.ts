@@ -467,3 +467,11 @@ it('scopes contact and cable validity to affected models', () => {
     expect(ids(model({ analysisMode, upliftSupports: [1] }))).toContain(id);
   }
 });
+
+it.skip('classifies native cables as axial members and contacts without frame claims (#1921)', () => {
+  for (const type of ['cable', 'gap', 'contact']) {
+    const features = modelFeatures(model({ elements: [member(1, 1, 'truss', { type })] }));
+    expect(features.has('frameMembers'), type).toBe(false);
+    expect(features.has('trussMembers'), type).toBe(type === 'cable');
+  }
+});

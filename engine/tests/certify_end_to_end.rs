@@ -341,3 +341,33 @@ fn issue_1780_stable_3d_elastic_supports_explicitly_release_the_spring_dof() {
     }
     assert!(elastic > 0);
 }
+
+#[test]
+#[ignore = "known wrong result: #417"]
+fn linear_certificate_generators_preserve_linear_member_scope() {
+    for seed in 0..16 {
+        let plane = e2e_models::stable_2d(seed);
+        let space = e2e_models::stable_3d(seed);
+        assert!(plane.elements.values().all(|e| e.elem_type != "cable"), "2d seed {seed}");
+        assert!(space.elements.values().all(|e| e.elem_type != "cable"), "3d seed {seed}");
+    }
+}
+
+#[test]
+fn linear_certificates_refuse_cable_models_with_their_ids() {
+    let mut plane = e2e_models::stable_2d(0);
+    let mut space = e2e_models::stable_3d(0);
+    for e in plane.elements.values_mut() { e.elem_type = "truss".into(); }
+    for e in space.elements.values_mut() { e.elem_type = "truss".into(); }
+    let id2 = plane.elements.keys().min().unwrap().clone();
+    let id3 = space.elements.keys().min().unwrap().clone();
+    plane.elements.get_mut(&id2).unwrap().elem_type = "cable".into();
+    space.elements.get_mut(&id3).unwrap().elem_type = "cable".into();
+    let errors = [certify_linear_2d_full(&plane).err().unwrap(), certify_linear_3d_full(&space).err().unwrap()];
+    for (error, id) in errors.into_iter().zip([id2, id3]) {
+        let data: serde_json::Value = serde_json::from_str(&error).unwrap();
+        assert_eq!(data["structuredDiagnostics"][0]["code"], "cable_analysis_required");
+        assert_eq!(data["structuredDiagnostics"][0]["severity"], "error");
+        assert_eq!(data["structuredDiagnostics"][0]["elementIds"], serde_json::json!([id.parse::<usize>().unwrap()]));
+    }
+}
