@@ -1346,6 +1346,19 @@ mod tests {
     }
 
     #[test]
+    fn known_issues_759_remains_warned_pending_all_modal_consumers() {
+        let entry = ENTRIES.iter().find(|entry| entry.issue == 759).unwrap();
+        assert_eq!(entry.id, "MD-ORTHOGONALITY");
+        assert_eq!(entry.mode, Mode::Warn);
+        assert!(has(&for_3d(&input3(), Analysis::Modal), entry.id));
+        let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
+        let row = ledger.lines().find(|line| line.starts_with("| #759 |")).unwrap();
+        let cells: Vec<_> = row.split('|').map(str::trim).collect();
+        assert_eq!(cells[2], "`MD-ORTHOGONALITY`");
+        assert_eq!(cells[3], "WARN");
+    }
+
+    #[test]
     fn known_issues_registry_and_ledger_agree() {
         let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
         let mut contained = std::collections::BTreeSet::new();
