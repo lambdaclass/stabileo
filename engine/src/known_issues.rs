@@ -46,7 +46,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "ORPHAN-SOFT-ROTATION", issue: 1496, mode: Mode::Warn, message: "A node rotation with real but very small stiffness, compared with another rotation at the same node, was held by an artificial spring, so that rotation and the forces it carries can be far too small. Do not use this result for design until this warning clears" },
     Entry { id: "NUM-INVARIANCE", issue: 762, mode: Mode::Warn, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design" },
     Entry { id: "CERT-MECHANISM", issue: 458, mode: Mode::Warn, message: "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability" },
-    Entry { id: "PD-SPAN-AXIAL", issue: 1329, mode: Mode::Warn, message: "P-Delta builds each member's geometric stiffness from its mean axial force, so compression that varies along a member under axial span loads can understate the second-order amplification. Subdivide the loaded members and check that the results converge" },
     Entry { id: "NL-3", issue: 426, mode: Mode::Warn, message: "A member's end turns more than 0.02 rad against its chord in this 3D co-rotational analysis. Its end forces omit a finite-rotation term whose error grows about as half that rotation times the end moments; split the most deformed members into shorter ones until this warning clears" },
     Entry { id: "NL-5", issue: 428, mode: Mode::Warn, message: NL_MATERIAL },
     Entry { id: "SH-MITC4-DISTORTION", issue: 798, mode: Mode::Refuse, message: "Results withheld: distorted MITC4 quadrilaterals can be about ten times too stiff in membrane bending. Remesh with rectangular elements and check mesh convergence" },
@@ -269,22 +268,6 @@ pub fn dense_conditioning(k: &[f64], n: usize) -> Option<StructuredDiagnostic> {
 
 pub fn conditioning(report: &crate::solver::conditioning::ConditioningReport) -> Option<StructuredDiagnostic> {
     (report.diagonal_ratio > 1e8 || !report.near_zero_dofs.is_empty()).then(|| diagnostic("NUM-INVARIANCE"))
-}
-
-fn axial_span_loads_2d(loads: &[SolverLoad]) -> bool {
-    loads.iter().any(|l| match l {
-        SolverLoad::AxialDistributed(q) => q.q_i != 0.0 || q.q_j != 0.0,
-        SolverLoad::PointOnElement(p) => p.px.is_some_and(|px| px != 0.0),
-        _ => false,
-    })
-}
-
-pub fn pdelta_span_axial_2d(loads: &[SolverLoad]) -> Vec<StructuredDiagnostic> {
-    if axial_span_loads_2d(loads) { vec![diagnostic("PD-SPAN-AXIAL")] } else { vec![] }
-}
-
-pub fn pdelta_span_axial_3d(loads: &[SolverLoad3D]) -> Vec<StructuredDiagnostic> {
-    if loads.iter().any(|l| matches!(l, SolverLoad3D::Distributed(q) if q.q_xi != 0.0 || q.q_xj != 0.0)) { vec![diagnostic("PD-SPAN-AXIAL")] } else { vec![] }
 }
 
 pub fn refuse_distorted(known_model: &[StructuredDiagnostic]) -> Result<(), String> {

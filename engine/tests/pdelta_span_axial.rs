@@ -11,7 +11,11 @@ const P: f64 = 3_000.0;
 const F: f64 = 1.0;
 
 fn close(got: f64, want: f64, relative: f64) {
-    assert!((got - want).abs() <= relative * want.abs().max(1e-8), "got {got:.12}, reference {want:.12}, relative error {}", (got / want - 1.0).abs());
+    assert!(
+        (got - want).abs() <= relative * want.abs().max(1e-8),
+        "got {got:.12}, reference {want:.12}, relative error {}",
+        (got / want - 1.0).abs()
+    );
 }
 
 fn shoot(alpha: f64, force: f64, initial: f64, steps: usize) -> [f64; 3] {
@@ -39,9 +43,17 @@ fn continuum(steps: usize) -> (f64, f64, f64) {
     let mut hi = 5.0;
     for _ in 0..50 {
         let mid = (lo + hi) / 2.0;
-        if shoot(mid, 0.0, 1.0, steps)[1] > 0.0 { lo = mid; } else { hi = mid; }
+        if shoot(mid, 0.0, 1.0, steps)[1] > 0.0 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
     }
-    ((a[2] + initial * b[2]) * F * L.powi(3) / EI, initial * F * L, (lo + hi) / 2.0)
+    (
+        (a[2] + initial * b[2]) * F * L.powi(3) / EI,
+        initial * F * L,
+        (lo + hi) / 2.0,
+    )
 }
 
 fn ritz(compression: impl Fn(f64) -> f64) -> (f64, f64, f64) {
@@ -55,8 +67,19 @@ fn ritz(compression: impl Fn(f64) -> f64) -> (f64, f64, f64) {
     let steps = 8192;
     for j in 0..=steps {
         let t = j as f64 / steps as f64;
-        let weight = if j == 0 || j == steps { 1.0 } else if j % 2 == 0 { 2.0 } else { 4.0 };
-        let d = [(6.0 * t * t - 6.0 * t) / L, 1.0 - 4.0 * t + 3.0 * t * t, (6.0 * t - 6.0 * t * t) / L, 3.0 * t * t - 2.0 * t];
+        let weight = if j == 0 || j == steps {
+            1.0
+        } else if j % 2 == 0 {
+            2.0
+        } else {
+            4.0
+        };
+        let d = [
+            (6.0 * t * t - 6.0 * t) / L,
+            1.0 - 4.0 * t + 3.0 * t * t,
+            (6.0 * t - 6.0 * t * t) / L,
+            3.0 * t * t - 2.0 * t,
+        ];
         for a in 0..4 {
             for b in 0..4 {
                 k[a][b] -= weight * L / (3.0 * steps as f64) * compression(t) * d[a] * d[b];
@@ -70,27 +93,63 @@ fn ritz(compression: impl Fn(f64) -> f64) -> (f64, f64, f64) {
 }
 
 fn input_2d(n: usize, point: bool, angle: f64) -> SolverInput {
+    assert!(!point || n == 1);
     let (c, s) = (angle.cos(), angle.sin());
     let h = L / n as f64;
-    let mut loads: Vec<_> = (1..=n).filter_map(|id| {
-        if point {
-            (id == 1).then(|| SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: id, a: L / 2.0, p: 0.0, px: Some(P), my: None }))
-        } else {
-            Some(SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: id, q_i: P / L, q_j: P / L, a: None, b: None }))
-        }
-    }).collect();
-    loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: -P * c - F * s, fz: -P * s + F * c, my: 0.0 }));
+    let mut loads: Vec<_> = (1..=n)
+        .filter_map(|id| {
+            if point {
+                (id == 1).then(|| {
+                    SolverLoad::PointOnElement(SolverPointLoadOnElement {
+                        element_id: id,
+                        a: L / 2.0,
+                        p: 0.0,
+                        px: Some(P),
+                        my: None,
+                    })
+                })
+            } else {
+                Some(SolverLoad::AxialDistributed(SolverAxialDistributedLoad {
+                    element_id: id,
+                    q_i: P / L,
+                    q_j: P / L,
+                    a: None,
+                    b: None,
+                }))
+            }
+        })
+        .collect();
+    loads.push(SolverLoad::Nodal(SolverNodalLoad {
+        node_id: n + 1,
+        fx: -P * c - F * s,
+        fz: -P * s + F * c,
+        my: 0.0,
+    }));
     make_input(
-        (0..=n).map(|i| (i + 1, i as f64 * h * c, i as f64 * h * s)).collect(),
-        vec![(1, E, 0.3)], vec![(1, 0.01, I)],
-        (1..=n).map(|i| (i, "frame", i, i + 1, 1, 1, false, false)).collect(),
-        vec![(1, 1, "fixed")], loads,
+        (0..=n)
+            .map(|i| (i + 1, i as f64 * h * c, i as f64 * h * s))
+            .collect(),
+        vec![(1, E, 0.3)],
+        vec![(1, 0.01, I)],
+        (1..=n)
+            .map(|i| (i, "frame", i, i + 1, 1, 1, false, false))
+            .collect(),
+        vec![(1, 1, "fixed")],
+        loads,
     )
 }
 
 fn input_3d(n: usize, plane: usize, point: bool) -> SolverInput3D {
+    assert!(!point || n == 1);
     let h = L / n as f64;
-    let nodes: serde_json::Map<String, _> = (0..=n).map(|i| ((i + 1).to_string(), json!({"id": i + 1, "x": i as f64 * h, "y": 0, "z": 0}))).collect();
+    let nodes: serde_json::Map<String, _> = (0..=n)
+        .map(|i| {
+            (
+                (i + 1).to_string(),
+                json!({"id": i + 1, "x": i as f64 * h, "y": 0, "z": 0}),
+            )
+        })
+        .collect();
     let elements: serde_json::Map<String, _> = (1..=n).map(|i| (i.to_string(), json!({"id": i, "type": "frame", "nodeI": i, "nodeJ": i + 1, "materialId": 1, "sectionId": 1}))).collect();
     let mut loads: Vec<_> = (1..=n).filter_map(|id| {
         if point {
@@ -109,7 +168,6 @@ fn input_3d(n: usize, plane: usize, point: bool) -> SolverInput3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn varying_compression_2d_matches_independent_ritz_and_shooting() {
     let exact = continuum(1024);
     let finer = continuum(2048);
@@ -123,25 +181,54 @@ fn varying_compression_2d_matches_independent_ritz_and_shooting() {
         for n in [1, 8, 32] {
             let pd = solve_pdelta_2d(&input_2d(n, false, angle), 30, 1e-10).unwrap();
             assert!(pd.converged && pd.is_stable);
-            let d = pd.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
+            let d = pd
+                .results
+                .displacements
+                .iter()
+                .find(|d| d.node_id == n + 1)
+                .unwrap();
             let v = -angle.sin() * d.ux + angle.cos() * d.uz;
-            let moment = pd.results.element_forces.iter().find(|f| f.element_id == 1).unwrap().m_start.abs();
-            println!("2D n={n} angle={angle}: displacement {v}, moment {moment}, B2 {}", pd.b2_factor);
+            let moment = pd
+                .results
+                .element_forces
+                .iter()
+                .find(|f| f.element_id == 1)
+                .unwrap()
+                .m_start
+                .abs();
+            println!(
+                "2D n={n} angle={angle}: displacement {v}, moment {moment}, B2 {}",
+                pd.b2_factor
+            );
             rows.push((n, v, moment));
 
-            if angle == 0.0 { close(pd.b2_factor, v / (F * L.powi(3) / (3.0 * EI)), 1e-8); }
-            let tip = pd.results.element_forces.iter().find(|f| f.element_id == n).unwrap();
+            if angle == 0.0 {
+                close(pd.b2_factor, v / (F * L.powi(3) / (3.0 * EI)), 1e-8);
+            }
+            let tip = pd
+                .results
+                .element_forces
+                .iter()
+                .find(|f| f.element_id == n)
+                .unwrap();
             assert!(tip.m_end.abs() < 1e-8, "free end moment {}", tip.m_end);
         }
     }
     for (n, v, moment) in rows {
-        close(v, if n == 1 { one.0 } else { exact.0 }, if n == 1 { 1e-9 } else { 1e-4 });
-        close(moment, if n == 1 { one.2 } else { exact.1 }, if n == 1 { 1e-9 } else { 0.015 });
+        close(
+            v,
+            if n == 1 { one.0 } else { exact.0 },
+            if n == 1 { 1e-9 } else { 1e-4 },
+        );
+        close(
+            moment,
+            if n == 1 { one.2 } else { exact.1 },
+            if n == 1 { 1e-9 } else { 1e-4 },
+        );
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn varying_compression_3d_matches_independent_ritz_and_shooting_in_both_planes() {
     let exact = continuum(1024);
     let one = ritz(|t| P * t);
@@ -150,41 +237,93 @@ fn varying_compression_3d_matches_independent_ritz_and_shooting_in_both_planes()
         for n in [1, 8, 16] {
             let pd = solve_pdelta_3d(&input_3d(n, plane, false), 30, 1e-10).unwrap();
             assert!(pd.converged && pd.is_stable);
-            let d = pd.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
+            let d = pd
+                .results
+                .displacements
+                .iter()
+                .find(|d| d.node_id == n + 1)
+                .unwrap();
             let v = if plane == 1 { d.uy } else { d.uz };
-            let base = pd.results.element_forces.iter().find(|f| f.element_id == 1).unwrap();
-            let moment = if plane == 1 { base.mz_start } else { base.my_start }.abs();
-            println!("3D n={n} plane={plane}: displacement {v}, moment {moment}, B2 {}", pd.b2_factor);
+            let base = pd
+                .results
+                .element_forces
+                .iter()
+                .find(|f| f.element_id == 1)
+                .unwrap();
+            let moment = if plane == 1 {
+                base.mz_start
+            } else {
+                base.my_start
+            }
+            .abs();
+            println!(
+                "3D n={n} plane={plane}: displacement {v}, moment {moment}, B2 {}",
+                pd.b2_factor
+            );
             rows.push((n, v, moment));
 
             close(pd.b2_factor, v / (F * L.powi(3) / (3.0 * EI)), 1e-8);
-            let tip = pd.results.element_forces.iter().find(|f| f.element_id == n).unwrap();
-            assert!(tip.my_end.abs() < 1e-8 && tip.mz_end.abs() < 1e-8, "free end moments {}, {}", tip.my_end, tip.mz_end);
+            let tip = pd
+                .results
+                .element_forces
+                .iter()
+                .find(|f| f.element_id == n)
+                .unwrap();
+            assert!(
+                tip.my_end.abs() < 1e-8 && tip.mz_end.abs() < 1e-8,
+                "free end moments {}, {}",
+                tip.my_end,
+                tip.mz_end
+            );
         }
     }
     for (n, v, moment) in rows {
-        close(v, if n == 1 { one.0 } else { exact.0 }, if n == 1 { 1e-9 } else { 1e-4 });
-        close(moment, if n == 1 { one.2 } else { exact.1 }, if n == 1 { 1e-9 } else { 0.015 });
+        close(
+            v,
+            if n == 1 { one.0 } else { exact.0 },
+            if n == 1 { 1e-9 } else { 1e-4 },
+        );
+        close(
+            moment,
+            if n == 1 { one.2 } else { exact.1 },
+            if n == 1 { 1e-9 } else { 1e-4 },
+        );
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn axial_point_load_2d_and_3d_use_the_piecewise_force() {
-    let one = ritz(|t| if t > 0.5 { P } else if t == 0.5 { P / 2.0 } else { 0.0 });
+    let one = ritz(|t| {
+        if t > 0.5 {
+            P
+        } else if t == 0.5 {
+            P / 2.0
+        } else {
+            0.0
+        }
+    });
     let pd = solve_pdelta_2d(&input_2d(1, true, 0.0), 30, 1e-10).unwrap();
-    let d = pd.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    let d = pd
+        .results
+        .displacements
+        .iter()
+        .find(|d| d.node_id == 2)
+        .unwrap();
     close(d.uz, one.0, 1e-9);
     close(pd.results.element_forces[0].m_end.abs(), 0.0, 1.0);
     for plane in [1, 2] {
         let pd = solve_pdelta_3d(&input_3d(1, plane, true), 30, 1e-10).unwrap();
-        let d = pd.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+        let d = pd
+            .results
+            .displacements
+            .iter()
+            .find(|d| d.node_id == 2)
+            .unwrap();
         close(if plane == 1 { d.uy } else { d.uz }, one.0, 1e-9);
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn varying_compression_near_critical_matches_shooting_stability() {
     let critical = continuum(1024).2 * EI / L.powi(2);
     for ratio in [0.98, 1.02] {
@@ -192,22 +331,219 @@ fn varying_compression_near_critical_matches_shooting_stability() {
         let mut input = input_2d(1, false, 0.0);
         for load in &mut input.loads {
             match load {
-                SolverLoad::AxialDistributed(q) => { q.q_i *= scale; q.q_j *= scale; }
+                SolverLoad::AxialDistributed(q) => {
+                    q.q_i *= scale;
+                    q.q_j *= scale;
+                }
                 SolverLoad::Nodal(p) => p.fx *= scale,
                 _ => {}
             }
         }
         let pd = solve_pdelta_2d(&input, 30, 1e-10).unwrap();
-        assert_eq!(pd.is_stable, ratio < 1.0, "2D at {ratio} of the shooting critical load");
+        assert_eq!(
+            pd.is_stable,
+            ratio < 1.0,
+            "2D at {ratio} of the shooting critical load"
+        );
         let mut input = input_3d(1, 1, false);
         for load in &mut input.loads {
             match load {
-                SolverLoad3D::Distributed(q) => { q.q_xi *= scale; q.q_xj *= scale; }
+                SolverLoad3D::Distributed(q) => {
+                    q.q_xi *= scale;
+                    q.q_xj *= scale;
+                }
                 SolverLoad3D::Nodal(p) => p.fx *= scale,
                 _ => {}
             }
         }
         let pd = solve_pdelta_3d(&input, 30, 1e-10).unwrap();
-        assert_eq!(pd.is_stable, ratio < 1.0, "3D at {ratio} of the shooting critical load");
+        assert_eq!(
+            pd.is_stable,
+            ratio < 1.0,
+            "3D at {ratio} of the shooting critical load"
+        );
+    }
+}
+
+#[test]
+fn certificates_bound_the_corrected_span_force_model() {
+    use dedaliano_engine::certify::pdelta::{certify_pdelta_2d, certify_pdelta_3d};
+    let want = ritz(|t| P * t).0;
+    let pd = certify_pdelta_2d(&input_2d(1, false, 0.0), 30, 1e-10).unwrap();
+    let bound = pd
+        .certificate
+        .abs_bound()
+        .expect("the corrected model is certified");
+    assert!(bound < 1e-8, "{:#?}", pd.certificate);
+    let d = pd
+        .results
+        .results
+        .displacements
+        .iter()
+        .find(|d| d.node_id == 2)
+        .unwrap();
+    assert!((d.uz - want).abs() <= bound + 1e-14);
+    for plane in [1, 2] {
+        let pd = certify_pdelta_3d(&input_3d(1, plane, false), 30, 1e-10).unwrap();
+        let bound = pd
+            .certificate
+            .abs_bound()
+            .expect("the corrected model is certified");
+        assert!(bound < 1e-8, "{:#?}", pd.certificate);
+        let d = pd
+            .results
+            .results
+            .displacements
+            .iter()
+            .find(|d| d.node_id == 2)
+            .unwrap();
+        assert!((if plane == 1 { d.uy } else { d.uz } - want).abs() <= bound + 1e-14);
+    }
+}
+
+#[test]
+fn span_force_response_is_invariant_under_reversal_and_load_splitting() {
+    for n in [1, 32] {
+        let input = input_2d(n, false, 0.4);
+        let reference = solve_pdelta_2d(&input, 30, 1e-10).unwrap();
+        let mut changed = input.clone();
+        for elem in changed.elements.values_mut() {
+            std::mem::swap(&mut elem.node_i, &mut elem.node_j);
+        }
+        let mut split = Vec::new();
+        for load in &mut changed.loads {
+            if let SolverLoad::AxialDistributed(q) = load {
+                q.q_i *= -0.5;
+                q.q_j *= -0.5;
+                split.push(load.clone());
+            }
+        }
+        changed.loads.extend(split);
+        let got = solve_pdelta_2d(&changed, 30, 1e-10).unwrap();
+        assert!(reference.converged && got.converged && got.is_stable);
+        for a in &reference.results.displacements {
+            let b = got
+                .results
+                .displacements
+                .iter()
+                .find(|b| b.node_id == a.node_id)
+                .unwrap();
+            for (x, y) in [(a.ux, b.ux), (a.uz, b.uz), (a.ry, b.ry)] {
+                close(x, y, 1e-7);
+            }
+        }
+    }
+    for n in [1, 16] {
+        let input = input_3d(n, 1, false);
+        let reference = solve_pdelta_3d(&input, 30, 1e-10).unwrap();
+        let mut changed = input.clone();
+        for elem in changed.elements.values_mut() {
+            std::mem::swap(&mut elem.node_i, &mut elem.node_j);
+        }
+        let mut split = Vec::new();
+        for load in &mut changed.loads {
+            if let SolverLoad3D::Distributed(q) = load {
+                q.q_xi *= -0.5;
+                q.q_xj *= -0.5;
+                split.push(load.clone());
+            }
+        }
+        changed.loads.extend(split);
+        let got = solve_pdelta_3d(&changed, 30, 1e-10).unwrap();
+        assert!(reference.converged && got.converged && got.is_stable);
+        for a in &reference.results.displacements {
+            let b = got
+                .results
+                .displacements
+                .iter()
+                .find(|b| b.node_id == a.node_id)
+                .unwrap();
+            for (x, y) in [
+                (a.ux, b.ux),
+                (a.uy, b.uy),
+                (a.uz, b.uz),
+                (a.rx, b.rx),
+                (a.ry, b.ry),
+                (a.rz, b.rz),
+            ] {
+                close(x, y, 1e-7);
+            }
+        }
+    }
+}
+
+#[test]
+fn trapezoidal_and_partial_axial_span_loads_match_independent_ritz() {
+    for partial in [false, true] {
+        let want = ritz(|t| {
+            if partial {
+                P * (t - 0.25).clamp(0.0, 0.5)
+            } else {
+                P * t * t
+            }
+        });
+        let mut input = input_2d(1, false, 0.0);
+        for load in &mut input.loads {
+            match load {
+                SolverLoad::AxialDistributed(q) => {
+                    if partial {
+                        q.a = Some(L / 4.0);
+                        q.b = Some(3.0 * L / 4.0);
+                    } else {
+                        q.q_i = 0.0;
+                        q.q_j = 2.0 * P / L;
+                    }
+                }
+                SolverLoad::Nodal(p) if partial => p.fx = -P / 2.0,
+                _ => {}
+            }
+        }
+        let pd = solve_pdelta_2d(&input, 30, 1e-10).unwrap();
+        assert!(pd.converged && pd.is_stable);
+        close(
+            pd.results
+                .displacements
+                .iter()
+                .find(|d| d.node_id == 2)
+                .unwrap()
+                .uz,
+            want.0,
+            1e-9,
+        );
+        close(pd.results.element_forces[0].m_start.abs(), want.2, 1e-9);
+        close(pd.results.reactions[0].my.abs(), want.2, 1e-9);
+        for plane in [1, 2] {
+            let mut input = input_3d(1, plane, false);
+            for load in &mut input.loads {
+                match load {
+                    SolverLoad3D::Distributed(q) => {
+                        if partial {
+                            q.a = Some(L / 4.0);
+                            q.b = Some(3.0 * L / 4.0);
+                        } else {
+                            q.q_xi = 0.0;
+                            q.q_xj = 2.0 * P / L;
+                        }
+                    }
+                    SolverLoad3D::Nodal(p) if partial => p.fx = -P / 2.0,
+                    _ => {}
+                }
+            }
+            let pd = solve_pdelta_3d(&input, 30, 1e-10).unwrap();
+            assert!(pd.converged && pd.is_stable);
+            let d = pd
+                .results
+                .displacements
+                .iter()
+                .find(|d| d.node_id == 2)
+                .unwrap();
+            close(if plane == 1 { d.uy } else { d.uz }, want.0, 1e-9);
+            let f = &pd.results.element_forces[0];
+            close(
+                if plane == 1 { f.mz_start } else { f.my_start }.abs(),
+                want.2,
+                1e-9,
+            );
+        }
     }
 }

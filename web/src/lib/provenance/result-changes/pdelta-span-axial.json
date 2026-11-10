@@ -1,0 +1,45 @@
+{
+  "id": "pdelta-span-axial",
+  "date": "2026-11-10",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "frameMembers"
+      ],
+      [
+        "memberLoads"
+      ],
+      [
+        "analysis:pdelta"
+      ]
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok",
+    "errorCodes",
+    "unstableCombinations"
+  ],
+  "title": {
+    "en": "P-Delta integrates varying axial force under member span loads",
+    "es": "P-Delta integra el esfuerzo axial variable bajo cargas en el tramo de las barras",
+    "pt": "P-Delta integra a força axial variável sob cargas no vão das barras",
+    "de": "P-Delta integriert die veränderliche Normalkraft unter Stablasten",
+    "fr": "P-Delta intègre l’effort normal variable sous les charges en travée",
+    "tr": "P-Delta, çubuk açıklık yükleri altında değişen eksenel kuvveti entegre ediyor"
+  },
+  "explanation": {
+    "en": "P-Delta used each frame member’s mean axial force. Axial distributed or point loads make that force vary along the span, which could understate amplification and report a stable result above the corrected discrete critical load (#1329, SA-2026-055). The solver, geometric end forces and certificate now integrate the force distribution in 2D and 3D; PD-SPAN-AXIAL is removed. Re-run affected P-Delta analyses and derived checks, and verify mesh convergence.",
+    "es": "P-Delta usaba el esfuerzo axial medio de cada barra de pórtico. Las cargas axiales distribuidas o puntuales hacen variar ese esfuerzo en el tramo, lo que podía subestimar la amplificación e indicar estabilidad por encima de la carga crítica discreta corregida (#1329, SA-2026-055). El solver, las fuerzas geométricas de extremo y el certificado ahora integran la distribución en 2D y 3D; se elimina PD-SPAN-AXIAL. Reejecute los análisis P-Delta afectados y las verificaciones derivadas, y compruebe la convergencia de la malla.",
+    "pt": "P-Delta usava a força axial média de cada barra de pórtico. Cargas axiais distribuídas ou pontuais fazem essa força variar no vão, podendo subestimar a amplificação e indicar estabilidade acima da carga crítica discreta corrigida (#1329, SA-2026-055). O solver, as forças geométricas de extremidade e o certificado agora integram a distribuição em 2D e 3D; PD-SPAN-AXIAL foi removido. Execute novamente as análises P-Delta afetadas e as verificações derivadas, e confira a convergência da malha.",
+    "de": "P-Delta verwendete die mittlere Normalkraft jedes Rahmenstabs. Axiale Strecken- oder Einzellasten lassen diese Kraft entlang des Stabs variieren. Dadurch konnten Vergrößerungen unterschätzt und oberhalb der korrigierten diskreten kritischen Last stabile Ergebnisse gemeldet werden (#1329, SA-2026-055). Solver, geometrische Endkräfte und Zertifikat integrieren jetzt die Kraftverteilung in 2D und 3D; PD-SPAN-AXIAL entfällt. Betroffene P-Delta-Analysen und abgeleitete Nachweise erneut berechnen und die Netzkonvergenz prüfen.",
+    "fr": "P-Delta utilisait l’effort normal moyen de chaque barre de portique. Les charges axiales réparties ou ponctuelles font varier cet effort en travée, ce qui pouvait sous-estimer l’amplification et indiquer un résultat stable au-delà de la charge critique discrète corrigée (#1329, SA-2026-055). Le solveur, les forces géométriques d’extrémité et le certificat intègrent désormais la distribution en 2D et 3D ; PD-SPAN-AXIAL est supprimé. Relancez les analyses P-Delta concernées et les vérifications dérivées, puis vérifiez la convergence du maillage.",
+    "tr": "P-Delta, her çerçeve çubuğunun ortalama eksenel kuvvetini kullanıyordu. Eksenel yayılı veya tekil yükler bu kuvveti açıklık boyunca değiştirir; bu durum büyütmeyi düşük gösterebilir ve düzeltilmiş ayrık kritik yükün üzerinde kararlı sonuç bildirebilirdi (#1329, SA-2026-055). Çözücü, geometrik uç kuvvetleri ve sertifika artık kuvvet dağılımını 2B ve 3B olarak entegre ediyor; PD-SPAN-AXIAL kaldırıldı. Etkilenen P-Delta analizlerini ve bunlardan türetilen kontrolleri yeniden çalıştırın ve ağ yakınsamasını doğrulayın."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-pdelta-span-axial.md",
+    "heading": "P-Delta integrates the axial force distribution under span loads"
+  }
+}
