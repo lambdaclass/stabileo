@@ -26,8 +26,12 @@
  * Nothing here should be read as authentication, and the review screen says so.
  */
 
+import type { Variant } from './exercise-params';
+
 /** One answered field, as the student left it. */
 export interface SubmittedAnswer {
+  /** Which question, so a teacher's app can mark it again: `r:<support>:<dof>`, `k`, `kd`, `s:<i>`, `d:<i>`, `sk:<i>`, `c:<i>`. */
+  key?: string;
   /** What was asked — a support DOF, a characteristic, a diagram question. */
   label: string;
   /** Exactly what the student typed, before any parsing. */
@@ -51,6 +55,9 @@ export interface Submission {
   /** ISO instant, stamped by the browser that produced it. */
   submittedAt: string;
   answers: SubmittedAnswer[];
+  legajo?: string;
+  seed?: number;
+  variant?: Variant;
 }
 
 export interface SubmissionScore {
@@ -74,6 +81,13 @@ export function scoreOf(sub: Submission): SubmissionScore {
 export type SubmissionParse =
   | { ok: true; submission: Submission }
   | { ok: false; error: string };
+
+function isVariant(v: unknown): v is Variant {
+  if (!v || typeof v !== 'object') return false;
+  const { values, supports } = v as Variant;
+  return !!values && typeof values === 'object' && Object.values(values).every((x) => Number.isFinite(x))
+    && !!supports && typeof supports === 'object' && Object.values(supports).every((x) => typeof x === 'string');
+}
 
 export function toSubmissionFile(sub: Submission): string {
   return JSON.stringify(sub, null, 2);
@@ -107,6 +121,7 @@ export function fromSubmissionFile(text: string): SubmissionParse {
   for (const a of o.answers as SubmittedAnswer[]) {
     if (!a || typeof a.label !== 'string') return { ok: false, error: 'incomplete' };
     answers.push({
+      ...(typeof a.key === 'string' ? { key: a.key } : {}),
       label: a.label,
       answer: typeof a.answer === 'string' ? a.answer : '',
       unit: typeof a.unit === 'string' ? a.unit : undefined,
@@ -123,6 +138,9 @@ export function fromSubmissionFile(text: string): SubmissionParse {
       student: typeof o.student === 'string' ? o.student : '',
       submittedAt: typeof o.submittedAt === 'string' ? o.submittedAt : '',
       answers,
+      ...(typeof o.legajo === 'string' && o.legajo ? { legajo: o.legajo } : {}),
+      ...(Number.isInteger(o.seed) && o.seed! >= 0 ? { seed: o.seed } : {}),
+      ...(isVariant(o.variant) ? { variant: o.variant } : {}),
     },
   };
 }
