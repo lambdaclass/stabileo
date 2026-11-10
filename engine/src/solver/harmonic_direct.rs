@@ -215,6 +215,42 @@ mod tests {
     use crate::solver::damping::rayleigh_damping_matrix;
     use crate::solver::harmonic::solve_complex_system;
 
+    fn singular_arrowhead(sparse: bool) {
+        let count = 1024;
+        let n = count + 1;
+        let t = 1.0 - 383.0 / (1_u64 << 26) as f64;
+        let mut k = vec![0.0; n * n];
+        let mut m = vec![0.0; n * n];
+        let mut f = vec![0.0; n];
+        for i in 0..count {
+            k[i * n + i] = 2.0;
+            k[i * n + count] = -t;
+            k[count * n + i] = -t;
+        }
+        k[count * n + count] = 1.0 + count as f64 * t * t;
+        for i in 0..n { m[i * n + i] = 1.0; }
+        f[count] = 1.0;
+        assert_eq!(k[count * n + count] - 1.0, count as f64 * t * t);
+        let result = if sparse {
+            solve(&CscMatrix::from_dense_symmetric(&k, n), &CscMatrix::from_dense_symmetric(&m, n), &f, (0.0, 0.0), 1.0)
+        } else {
+            solve_complex_system(&k, &m, &vec![0.0; n * n], &f, n, 1.0)
+        };
+        assert!(result.is_err(), "singular inconsistent system returned a response: sparse={sparse}, last={:?}", result.as_ref().map(|(re, im)| (re[count], im[count])));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1922"]
+    fn dense_singular_arrowhead_with_roundoff_pivot_is_refused() {
+        singular_arrowhead(false);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1922"]
+    fn sparse_singular_arrowhead_with_roundoff_pivot_is_refused() {
+        singular_arrowhead(true);
+    }
+
     fn structural_resonance(sparse: bool) {
         for scale in [1e7_f64, 1e9, 1e12] {
             let k = [2.0 * scale, -scale, -scale, 2.0 * scale];

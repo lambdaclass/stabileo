@@ -499,3 +499,34 @@ fn harmonic_3d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form()
     assert_eq!(result.n_dof, n);
     compare_omitted_spring(&result, damping);
 }
+
+#[test]
+#[ignore = "known wrong result: #1922"]
+fn omitted_spring_comparison_rejects_incomplete_direct_responses() {
+    let damping = (0.0, 1.0);
+    let d = Dense { k: vec![1.0, 0.0, 0.0, 10000.0], m: vec![1.0, 0.0, 0.0, 1.0], f: vec![1.0, 1e-4], n: 2, target: 1 };
+    let points: Vec<HarmonicResponsePoint> = omitted_spring_frequencies().into_iter().map(|frequency| {
+        let omega = 2.0 * PI * frequency;
+        let (re, im, _) = direct(&d, damping, omega).unwrap();
+        HarmonicResponsePoint { frequency, omega, real: re.in_m(), imag: im.in_m(), amplitude: re.in_m().hypot(im.in_m()), phase: im.in_m().atan2(re.in_m()) }
+    }).collect();
+    let peak = points.iter().max_by(|a, b| a.amplitude.total_cmp(&b.amplitude)).unwrap();
+    let result = HarmonicResult {
+        structured_diagnostics: Vec::new(), response_points: points.clone(),
+        peak_frequency: peak.frequency, peak_amplitude: peak.amplitude, method: HarmonicMethod::Direct,
+        modes_used: 0, n_dof: 3001, truncation_ratio: None, max_modal_residual: None,
+        direct_frequencies: Vec::new(), warnings: Vec::new(),
+    };
+    compare_omitted_spring(&result, damping);
+    let mut empty = result.clone();
+    empty.response_points.clear();
+    empty.peak_frequency = 0.0;
+    empty.peak_amplitude = 0.0;
+    let mut missing = result.clone();
+    missing.response_points.pop();
+    let mut reordered = result.clone();
+    reordered.response_points.reverse();
+    for invalid in [empty, missing, reordered] {
+        assert!(std::panic::catch_unwind(|| compare_omitted_spring(&invalid, damping)).is_err());
+    }
+}
