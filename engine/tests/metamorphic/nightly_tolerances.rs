@@ -864,7 +864,6 @@ fn harmonic_certificates_compare_finite_published_and_inclined_bounds() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn round_two_singular_mass_harmonic_symmetry_rejects_a_physical_scale_error() {
     for issue in [1209, 1215] {
         let Model::D3(c) = model(issue) else {
@@ -882,14 +881,14 @@ fn round_two_singular_mass_harmonic_symmetry_rejects_a_physical_scale_error() {
         let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
         let mut got = (a.run)(c).unwrap();
         assert!(got.0.iter().all(|i| i.floor.is_finite()));
-        let mut expected = got.iso3(&sym.iso).unwrap().relabel(&sym.pair).common(&got);
-        if anti {
-            expected
-                .0
-                .iter_mut()
-                .for_each(|i| i.v.iter_mut().for_each(|v| *v = -*v));
-        }
         let cmp = |g: &Resp| {
+            let mut expected = g.iso3(&sym.iso).unwrap().relabel(&sym.pair).common(g);
+            if anti {
+                expected
+                    .0
+                    .iter_mut()
+                    .for_each(|i| i.v.iter_mut().for_each(|v| *v = -*v));
+            }
             crate::checks2::judge_split(g, &expected, rel, rel, |g, e, rel| {
                 compare_with_compliance(
                     &g.flat(),

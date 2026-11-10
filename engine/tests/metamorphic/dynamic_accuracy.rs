@@ -11,6 +11,9 @@ pub struct Accuracy {
 }
 
 fn nonnegative_form(form: f64) -> Result<f64, String> {
+    if !form.is_finite() {
+        return Err("nonfinite dynamic quadratic form".into());
+    }
     Ok(form.max(0.0))
 }
 
@@ -824,7 +827,6 @@ fn assert_nonfinite_form_comparison_rejected(result: Result<f64, String>) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn final_round_nan_load_energy_rejects_comparison() {
     let dof = DofNumbering {
         map: [((1, 0), 0)].into_iter().collect(),
@@ -848,7 +850,6 @@ fn final_round_nan_load_energy_rejects_comparison() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn final_round_nan_translation_compliance_rejects_comparison() {
     let row = [1.0];
     let factor = [f64::NAN];
@@ -859,7 +860,6 @@ fn final_round_nan_translation_compliance_rejects_comparison() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn final_round_nan_modal_residual_rejects_comparison() {
     let pencil = Pencil {
         k: vec![f64::NAN],
