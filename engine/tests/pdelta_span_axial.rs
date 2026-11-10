@@ -903,3 +903,165 @@ fn issue_1329_closed_form_mixed_point_trapezoid_2d() {
 fn issue_1329_closed_form_mixed_point_trapezoid_3d() {
     closed_form_point_kg_3d(2);
 }
+
+fn endpoint_point_kg_2d(at_end: bool, kind: &str) {
+    use dedaliano_engine::solver::{
+        dof::DofNumbering, geometric_stiffness::build_kg_from_forces_2d, linear::solve_2d,
+    };
+    let mut input = input_2d(1, true, 0.0);
+    for load in &mut input.loads {
+        match load {
+            SolverLoad::PointOnElement(p) => p.a = if at_end { L } else { 0.0 },
+            SolverLoad::Nodal(n) => n.fz = 0.0,
+            _ => {}
+        }
+    }
+    let forces = solve_2d(&input).unwrap().element_forces;
+    assert!(forces[0].n_start.abs() <= 1e-10 * P);
+    assert!((forces[0].n_end + P).abs() <= 1e-10 * P);
+    let mean = (forces[0].n_start + forces[0].n_end) / 2.0;
+    println!(
+        "end={at_end}, recovered start={}, end={}, average={mean}",
+        forces[0].n_start, forces[0].n_end
+    );
+    input.elements.get_mut("1").unwrap().elem_type = kind.into();
+    let dofs = DofNumbering::build_2d(&input);
+    let kg = build_kg_from_forces_2d(&input, &dofs, &forces, &[])
+        .into_csc()
+        .to_dense_symmetric();
+    input.loads.clear();
+    let without_span = build_kg_from_forces_2d(&input, &dofs, &forces, &[])
+        .into_csc()
+        .to_dense_symmetric();
+    let expected = if kind == "frame" {
+        [
+            [6.0 * mean / (5.0 * L), -mean / 10.0],
+            [-mean / 10.0, 2.0 * mean * L / 15.0],
+        ]
+    } else {
+        [[mean / L, 0.0], [0.0; 2]]
+    };
+    let components: &[usize] = if kind == "frame" { &[1, 2] } else { &[1] };
+    for (a, &ca) in components.iter().enumerate() {
+        for (b, &cb) in components.iter().enumerate() {
+            let i = dofs.global_dof(2, ca).unwrap();
+            let j = dofs.global_dof(2, cb).unwrap();
+            let got = kg[i * dofs.n_free + j];
+            println!(
+                "2D {kind}, end={at_end}, ({ca},{cb}): {got}, closed form {}",
+                expected[a][b]
+            );
+            assert!((got - expected[a][b]).abs() <= 1e-10 * P * L);
+        }
+    }
+    for (got, want) in kg.iter().zip(without_span) {
+        assert!((got - want).abs() <= 1e-10 * P * L);
+    }
+}
+
+fn endpoint_point_kg_3d(at_end: bool, kind: &str) {
+    use dedaliano_engine::solver::{
+        dof::DofNumbering, geometric_stiffness::build_kg_from_forces_3d, linear::solve_3d,
+    };
+    let mut input = input_3d(1, 1, true);
+    for load in &mut input.loads {
+        match load {
+            SolverLoad3D::PointOnElement(p) => p.a = if at_end { L } else { 0.0 },
+            SolverLoad3D::Nodal(n) => n.fy = 0.0,
+            _ => {}
+        }
+    }
+    let forces = solve_3d(&input).unwrap().element_forces;
+    assert!(forces[0].n_start.abs() <= 1e-10 * P);
+    assert!((forces[0].n_end + P).abs() <= 1e-10 * P);
+    let mean = (forces[0].n_start + forces[0].n_end) / 2.0;
+    println!(
+        "end={at_end}, recovered start={}, end={}, average={mean}",
+        forces[0].n_start, forces[0].n_end
+    );
+    input.elements.get_mut("1").unwrap().elem_type = kind.into();
+    let dofs = DofNumbering::build_3d(&input);
+    let kg = build_kg_from_forces_3d(&input, &dofs, &forces)
+        .into_csc()
+        .to_dense_symmetric();
+    input.loads.clear();
+    let without_span = build_kg_from_forces_3d(&input, &dofs, &forces)
+        .into_csc()
+        .to_dense_symmetric();
+    let expected = if kind == "frame" {
+        [
+            [6.0 * mean / (5.0 * L), -mean / 10.0],
+            [-mean / 10.0, 2.0 * mean * L / 15.0],
+        ]
+    } else {
+        [[mean / L, 0.0], [0.0; 2]]
+    };
+    for (trans, rot, sign) in [(1, 5, 1.0), (2, 4, -1.0)] {
+        let components: &[usize] = if kind == "frame" {
+            &[trans, rot]
+        } else {
+            &[trans]
+        };
+        for (a, &ca) in components.iter().enumerate() {
+            for (b, &cb) in components.iter().enumerate() {
+                let i = dofs.global_dof(2, ca).unwrap();
+                let j = dofs.global_dof(2, cb).unwrap();
+                let want = expected[a][b] * if a == b { 1.0 } else { sign };
+                let got = kg[i * dofs.n_free + j];
+                println!("3D {kind}, end={at_end}, ({ca},{cb}): {got}, closed form {want}");
+                assert!((got - want).abs() <= 1e-10 * P * L);
+            }
+        }
+    }
+    for (got, want) in kg.iter().zip(without_span) {
+        assert!((got - want).abs() <= 1e-10 * P * L);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn issue_1329_endpoint_point_start_frame_2d() {
+    endpoint_point_kg_2d(false, "frame");
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn issue_1329_endpoint_point_start_truss_2d() {
+    endpoint_point_kg_2d(false, "truss");
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn issue_1329_endpoint_point_end_frame_2d() {
+    endpoint_point_kg_2d(true, "frame");
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn issue_1329_endpoint_point_end_truss_2d() {
+    endpoint_point_kg_2d(true, "truss");
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn issue_1329_endpoint_point_start_frame_3d() {
+    endpoint_point_kg_3d(false, "frame");
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn issue_1329_endpoint_point_start_truss_3d() {
+    endpoint_point_kg_3d(false, "truss");
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn issue_1329_endpoint_point_end_frame_3d() {
+    endpoint_point_kg_3d(true, "frame");
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn issue_1329_endpoint_point_end_truss_3d() {
+    endpoint_point_kg_3d(true, "truss");
+}
