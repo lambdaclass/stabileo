@@ -107,3 +107,14 @@ describe('third-party notices', () => {
     }
   });
 });
+
+it.skip('known wrong result: #1886: notices include the versions locked by the Fehér browser runtime', () => {
+  const lock = fs.readFileSync(path.join(REPO, 'research/stability/feher-sipos-varkonyi-2026/Cargo.lock'), 'utf8');
+  const notices = fs.readFileSync(NOTICES, 'utf8');
+  const packages = [...lock.matchAll(/\[\[package\]\]\nname = "([^"]+)"\nversion = "([^"]+)"\nsource = "registry\+[^"\n]+"/g)];
+  for (const name of ['serde_json', 'wasm-bindgen', 'web-sys']) {
+    const pkg = packages.find(([, lockedName]) => lockedName === name);
+    expect(pkg, `${name} must be present in the Fehér lockfile`).toBeDefined();
+    expect(notices).toContain(`## Cargo: ${name} ${pkg![2]}`);
+  }
+});

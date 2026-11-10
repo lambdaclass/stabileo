@@ -102,3 +102,15 @@ it('names each thumbnail link by its localized card title and keeps the image de
     }
   }
 });
+
+it.skip('known wrong result: #1886: the Fehér card shows its own localized lead', async () => {
+  const { translations } = await import('../feher2026/strings');
+  for (const locale of ['en', 'es', 'pt']) {
+    setLocale(locale);
+    const { body } = render(Gallery);
+    const cards = [...body.matchAll(/<li class="rs-g-runcard[^>]*>([\s\S]*?)<\/li>/g)];
+    const card = cards.find(([html]) => html.includes('/research/stability/feher-sipos-varkonyi-2026'))![0];
+    const lead = card.match(/<p class="rs-g-hook[^>]*>([\s\S]*?)<\/p>/)![1].replace(/<[^>]*>/g, '');
+    expect(lead).toBe(translations[locale].lead);
+  }
+});
