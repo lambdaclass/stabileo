@@ -19,6 +19,7 @@ import { axialSpanToNodal2D } from '../engine/axial-span-2d';
 import { tagCertifyJob } from '../engine/certify-tags';
 import type { SolverInput } from '../engine/types';
 import { knownIssueMessage } from '../engine/known-issue-message';
+import { plasticCourse } from '../store/plastic-course.svelte';
 
 export interface PlasticRun {
   result: PlasticCollapseResult;
@@ -70,6 +71,7 @@ export function runPlasticCollapse(): PlasticRun | null {
   if (result.unloaded) throw new Error(t('advanced.plasticNoLoads'));
   if (result.withheld) throw withheld();
   tagPlasticCertificate(result, input, mpOfSection);
+  plasticCourse.remember(input, memberPlasticMoments(input, mpOfSection), result);
   return { result, mps };
 }
 

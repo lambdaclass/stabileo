@@ -9,7 +9,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initSolver, callCertify } from '../wasm-solver';
 import { certifyJobOf } from '../certify-tags';
-import { historyStore, modelStore, uiStore } from '../../store';
+import { historyStore, modelStore, uiStore, resultsStore } from '../../store';
+import { plasticCourse } from '../../store/plastic-course.svelte';
+import { dot } from '../plastic/kinematics';
 import { runPlasticCollapse, PlasticWithheld } from '../../actions/plastic';
 import { plasticCollapse2D } from '../plastic-collapse';
 import type { SolverInput, SolverLoad } from '../types';
@@ -227,6 +229,13 @@ describe('the Basic "Portal Frame" example through the Plastic collapse action',
     expect(r.collapseFactor.toFixed(3)).toBe('71.296');
     expect(r.isMechanism && !r.unresolved && !r.limit && !r.withheld).toBe(true);
     expect(Math.abs(r.steps.at(-1)!.loadFactor / r.collapseFactor - 1)).toBeLessThan(1e-3);
+    resultsStore.setPlasticResult(r);
+    const view = plasticCourse.collapse!;
+    const turning = view.hinges.filter((h) => h.theta !== 0).map((h) => `${h.member}@${h.t.toFixed(3)}`).sort();
+    expect(turning).toEqual(['1@1.000', '2@0.500', '3@1.000']);
+    const internal = view.hinges.reduce((sum, h) => sum + plasticCourse.mpOf(h.member) * Math.abs(h.theta), 0);
+    close(internal / dot(view.km.work, view.d), 1925 / 27, 'virtual work of the drawn mechanism');
+    resultsStore.clearPlastic();
   });
 
   it('its certificate job is released and encloses λc', async () => {
