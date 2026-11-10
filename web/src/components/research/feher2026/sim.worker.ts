@@ -11,7 +11,7 @@ self.onmessage = async (event: MessageEvent<ShapeSettings>) => {
     await wasm.default({ module_or_path: `${bundle}shape_bg.wasm` });
     const { theta, delta, q, half, elements } = event.data;
     const out = JSON.parse(wasm.simulation_run(theta, delta, q, half, elements));
-    if (typeof out.error === 'string' && out.error.startsWith('start:')) {
+    if (out.code === 'start_snaps') {
       self.postMessage({ error: 'start' });
       return;
     }

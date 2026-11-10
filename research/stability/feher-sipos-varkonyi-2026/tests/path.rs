@@ -36,7 +36,7 @@ fn the_half_span_load_runs_and_reports_its_distribution() {
 #[test]
 fn an_arch_that_snaps_while_loaded_is_reported_before_the_path() {
     let e = run::path_with(1.3, 1.3, 2.5, Distribution::Asymmetric, 60).unwrap_err();
-    assert!(e.starts_with("start:"), "{e}");
+    assert_eq!(e, run::PathError::StartSnaps);
 }
 
 #[test]

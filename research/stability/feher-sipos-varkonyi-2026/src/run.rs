@@ -36,29 +36,56 @@ fn frame(s: &State) -> Value {
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PathError {
+    CornerOutOfRange,
+    LoadOrMeshOutOfRange,
+    /// The arch at (1, 0) does not carry the load: it snaps while being loaded.
+    StartSnaps,
+}
+
+impl PathError {
+    pub fn code(self) -> &'static str {
+        match self {
+            PathError::CornerOutOfRange => "corner_out_of_range",
+            PathError::LoadOrMeshOutOfRange => "load_or_mesh_out_of_range",
+            PathError::StartSnaps => "start_snaps",
+        }
+    }
+}
+
+impl std::fmt::Display for PathError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            PathError::CornerOutOfRange => "corner out of range",
+            PathError::LoadOrMeshOutOfRange => "load or mesh out of range",
+            PathError::StartSnaps => "the arch at (1, 0) snaps under this load",
+        })
+    }
+}
+
 /// The path of Section 3.4 with the far corner of the rectangle at
 /// `(theta, delta)`: (1,0) → (Θ,0) → (Θ,Δ) → (1,Δ) → (1,0) under the paper's
 /// uniform load 2.5, on 60 members.
-pub fn path(theta: f64, delta: f64) -> Result<Value, String> {
+pub fn path(theta: f64, delta: f64) -> Result<Value, PathError> {
     path_with(theta, delta, LOAD, Distribution::Uniform, ELEMENTS)
 }
 
 /// The same rectangle under the load `q` with the given distribution, on
 /// `elements` members. Where no equilibrium is found near the previous state
 /// (a fold: the strip would snap), the path stops and `lost` names the
-/// actuator setting. An error starting with "start:" means the arch at
-/// (1, 0) does not carry the load: it snaps while being loaded.
-pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, elements: usize) -> Result<Value, String> {
+/// actuator setting.
+pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, elements: usize) -> Result<Value, PathError> {
     if !(1.0..=1.6).contains(&theta) || !(0.0..=1.8).contains(&delta) {
-        return Err("corner out of range".into());
+        return Err(PathError::CornerOutOfRange);
     }
     if !(0.0..=4.0).contains(&q) || !(20..=120).contains(&elements) {
-        return Err("load or mesh out of range".into());
+        return Err(PathError::LoadOrMeshOutOfRange);
     }
     let mut s = bend(elements, Setting { theta: 1.0, delta: 0.0, q }, distribution, 2)
         .ok()
         .filter(|s| s.snapshot().y_mid > 0.0)
-        .ok_or("start: the arch at (1, 0) snaps under this load")?;
+        .ok_or(PathError::StartSnaps)?;
     let mut frames = vec![frame(&s)];
     let mut corners = vec![0];
     let mut snaps = vec![];
