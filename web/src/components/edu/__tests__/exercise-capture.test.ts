@@ -126,3 +126,27 @@ describe('saving and reopening', () => {
     if (!r.ok) expect(r.error).toMatch(/newer Stabileo/);
   });
 });
+
+describe('capturing what a parametric exercise needs', () => {
+  it('reads a nodal load the way the store writes it (fz, my)', () => {
+    const { spec } = captureModel(model({
+      loads: [{ type: 'nodal', data: { id: 1, nodeId: 11, fx: 0, fz: -12, my: 3 } }],
+    } as never));
+    expect(spec!.nodalLoads).toEqual([{ node: 1, fy: -12, mz: 3 }]);
+  });
+
+  it('keeps hinges and truss bars', () => {
+    const { spec, warnings } = captureModel(model({
+      nodes: new Map([[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 4, y: 0 }], [3, { id: 3, x: 8, y: 0 }]]),
+      elements: new Map([
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseI: { my: false, mz: false, t: false }, releaseJ: { my: false, mz: true, t: false } }],
+        [2, { id: 2, type: 'truss', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1 }],
+      ]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+      loads: [],
+    } as never));
+    expect(warnings).toEqual([]);
+    expect(spec!.hinges).toEqual([{ element: 0, end: 'end' }]);
+    expect(spec!.truss).toEqual([1]);
+  });
+});
