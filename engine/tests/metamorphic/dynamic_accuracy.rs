@@ -438,7 +438,7 @@ pub fn harmonic_floor(
     modal_residual: f64,
 ) -> f64 {
     let Some(accuracy) = accuracy else {
-        return f64::INFINITY;
+        return 0.0;
     };
     if !(modal_residual >= 0.0 && modal_residual < f64::MAX) {
         return f64::INFINITY;
@@ -882,7 +882,6 @@ fn final_round_nan_modal_residual_rejects_comparison() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_final_round_missing_harmonic_estimate_adds_no_allowance() {
     assert_eq!(harmonic_floor(None, 1.0, (0.1, 0.1), 1e-10, 1e-10, 0.0), 0.0);
 }

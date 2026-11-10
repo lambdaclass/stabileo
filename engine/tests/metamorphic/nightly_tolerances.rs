@@ -596,7 +596,7 @@ fn analysis_accuracy_200_seed_sweep() {
             let key = format!("{} / {}", row["analysis"].as_str().unwrap(), row["invariant"].as_str().unwrap());
             let c = counts.entry(key).or_default();
             *c.entry("compared".into()).or_default() += row["pass"].as_u64().unwrap() + row["fail"].as_u64().unwrap() + row["inconclusive"].as_u64().unwrap();
-            for field in ["inconclusive", "refused", "same_refusal", "unrepresentable", "not_applicable"] {
+            for field in ["pass", "fail", "inconclusive", "refused", "same_refusal", "unrepresentable", "not_applicable"] {
                 *c.entry(field.into()).or_default() += row[field].as_u64().unwrap();
             }
         }
@@ -750,8 +750,14 @@ fn retained_analysis_failures(seed: u64, dim: &str) -> Vec<(&'static str, &'stat
 }
 
 fn assert_retained_analysis_failures(seed: u64, dim: &str, t: &Tally) {
+    assert_analysis_failures(seed, dim, t, retained_analysis_failures(seed, dim));
+}
+
+fn assert_analysis_failures(seed: u64, dim: &str, t: &Tally, expected: Vec<(&str, &str)>) {
     let cells = t.cells.lock().unwrap();
-    for (a, i) in retained_analysis_failures(seed, dim) {
+    let actual: std::collections::BTreeSet<_> = cells.iter().filter(|(_, c)| !c.fails.is_empty()).map(|((a, i), _)| (a.as_str(), i.as_str())).collect();
+    assert_eq!(actual, expected.iter().copied().collect(), "{seed} {dim}: failing cells differ from the retained failures");
+    for (a, i) in expected {
         let c = cell(&cells, 1892, a, i);
         assert!(!c.fails.is_empty(), "{seed} {dim}: {a} / {i} stopped flagging the retained failure: {c:?}");
         assert_eq!(c.pass, 0, "{seed} {dim}: {a} / {i} silently passed");
@@ -835,8 +841,22 @@ fn analysis_accuracy_dynamic_3d_mirror_coverage() {
     let t = Tally::default();
     let anas = [ana3("harmonic"), ana3("time history")];
     for k in 0..200 {
+        let seed = 2026110200000 + k;
         let c = crate::corpus::fuzz_case_3d(2026110200000, k);
-        crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: 2026110200000 + k }, &c, &anas, &["mirror"]);
+        let per_seed = Tally::default();
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &per_seed, rng_seed: seed }, &c, &anas, &["mirror"]);
+        assert_analysis_failures(seed, "d3 mirror", &per_seed, retained_analysis_failures(seed, "d3").into_iter().filter(|(_, i)| *i == "mirror").collect());
+        for ((a, i), c) in per_seed.cells.into_inner().unwrap() {
+            let mut cells = t.cells.lock().unwrap();
+            let total = cells.entry((a, i)).or_default();
+            total.pass += c.pass;
+            total.refused += c.refused;
+            total.same_refusal += c.same_refusal;
+            total.unrep += c.unrep;
+            total.not_applicable += c.not_applicable;
+            total.inconclusive += c.inconclusive;
+            total.fails.extend(c.fails);
+        }
     }
     let result = t.replay_results();
     if let Ok(path) = std::env::var("ANALYSIS_ACCURACY_MIRROR_COVERAGE") {
@@ -851,7 +871,7 @@ fn analysis_accuracy_dynamic_3d_mirror_coverage() {
         assert_eq!(compared + row["refused"].as_u64().unwrap() + row["same_refusal"].as_u64().unwrap() + row["unrepresentable"].as_u64().unwrap(), 200, "{name}: a seed was not recorded");
         assert_eq!(row["not_applicable"], 0, "{name}: applicable mirrors were skipped");
         let mut counts = serde_json::json!({"compared": compared});
-        for field in ["inconclusive", "refused", "same_refusal", "unrepresentable", "not_applicable"] {
+        for field in ["pass", "fail", "inconclusive", "refused", "same_refusal", "unrepresentable", "not_applicable"] {
             counts[field] = row[field].clone();
         }
         assert_eq!(counts, baseline["d3"][format!("{name} / mirror")], "{name} mirror coverage changed");
@@ -1145,8 +1165,9 @@ fn unresolved_harmonic_accuracy_is_inconclusive() {
     let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap();
     let a = ana2("harmonic");
     let mut got = (a.run)(&sym.case).unwrap();
+    let accuracy = crate::dynamic_accuracy::harmonic_2d(&sym.case).unwrap();
     for item in &mut got.0 {
-        item.floor = crate::dynamic_accuracy::harmonic_floor(None, 0.0, (0.0, 0.0), 0.0, 1.0, 0.0);
+        item.floor = crate::dynamic_accuracy::harmonic_floor(Some(&accuracy), f64::NAN, (0.0, 0.0), 0.0, 1.0, 0.0);
     }
     let cond = conditioning::of_2d(&sym.case.s).unwrap();
     let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
@@ -1499,7 +1520,6 @@ fn issue_1892_round_four_correct_dynamic_mirrors_keep_coverage() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_final_round_unexpected_failure_turns_the_seed_red() {
     for invariant in ["units", "mirror"] {
         let t = Tally::default();
@@ -1516,7 +1536,6 @@ fn issue_1892_final_round_unexpected_failure_turns_the_seed_red() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_final_round_baseline_records_pass_and_fail() {
     let baseline: serde_json::Value = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/analysis-accuracy-coverage.json")).unwrap();
     for dim in ["d2", "d3"] {
@@ -1544,7 +1563,6 @@ fn harmonic_limit_model(spatial: bool) -> serde_json::Value {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_final_round_missing_harmonic_estimate_keeps_2d_response() {
     let mut c = Case2::new("accuracy limit", serde_json::from_value(harmonic_limit_model(false)).unwrap());
     c.p.symmetry = true;
@@ -1555,7 +1573,6 @@ fn issue_1892_final_round_missing_harmonic_estimate_keeps_2d_response() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_final_round_missing_harmonic_estimate_keeps_3d_response() {
     let mut c = Case3::new("accuracy limit", serde_json::from_value(harmonic_limit_model(true)).unwrap());
     c.p.symmetry = true;
@@ -1566,7 +1583,6 @@ fn issue_1892_final_round_missing_harmonic_estimate_keeps_3d_response() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_final_round_moving_moments_use_each_members_distance() {
     let mut v = unit_stiffness_case(true);
     v["supports"].as_object_mut().unwrap().remove("2");

@@ -147,7 +147,7 @@ Both the returned factor and the exact factor lie in that reciprocal interval, s
 
 The estimator replays the actual train positions and load sets, using the solver's existing position-to-load adapter. At each position it bounds the static residual and the recovery arithmetic. Positive-semidefinite member stiffness gives `|K_element,ij| <= sqrt(K_global,ii K_global,jj)`; diagonal trace bounds cover local force and moment rows. Frame transformation, recovery and diagram operation counts give the explicit gamma terms. Permanent loads are included.
 
-A moment diagram contains `M_start - x V_start` and its applied-load terms. Therefore its absolute budget includes **member length times shear error**, in addition to end-moment error. This term was missing from the old static comparison used by #1652.
+A moment diagram contains `M_start - x V_start` and its applied-load terms. The shear-error contribution at a station is `x` times the shear error, with `x` measured from that member's start. The response adapter stores extrema over the member rather than station coordinates, so its uniform envelope budget uses the maximum local distance, the member length, rather than the full train-route length. Therefore its absolute budget includes **member length times shear error**, in addition to end-moment error. This term was missing from the old static comparison used by #1652.
 
 Envelope selection is nonexpansive:
 
@@ -239,3 +239,13 @@ The fix replaces the load-energy ceiling with the independent recurrence check a
 The scaled and zero trajectory regressions remain active and must reject the wrong response. The existing rich-seed coverage JSON and all comparison tolerances remain unchanged. Engine sources and returned results are unchanged; this harness fix adds no results-change registry entry or advisory and flips no engine wrong-result issue.
 
 Validation: `make test.engine.metamorphic` (with nextest's `--no-fail-fast`) passed all 280 active tests, including `generated_fast`, `metamorphic_pr_3d`, the new correct-response controls and all retained wrong-result checks; 22 pre-existing ignored tests were skipped. `make lint.engine` passed with the existing library warnings. The scaled and zero trajectory tests additionally require rejection with nonzero damping uncertainty, so that uncertainty cannot purchase a certificate for either plant. `make check.changelog` validates the fragment. No full engine suite or heavy seed sweep was run.
+
+## Final review of PR #1892
+
+The recurrence gate certifies the trace. Before attaching its propagated allowance, the harness also checks every reported displacement or rotation sample against the corresponding trace state. The sample tag selects the time index; independent coordinates are expanded through the constraint transform and rotated out of inclined-support coordinates. Each reported component must match that mapped state within operation-count rounding. Invalid sample indices, component counts, mapping dimensions and nonfinite values cannot certify. The negative control changes only the reported response while leaving the correct trace intact; the positive controls include constrained and inclined mappings in both dimensions.
+
+The coverage snapshot now records `pass` and `fail` separately in every cell, alongside the existing counts. For every seed, the observed failing-cell set must equal the retained failure set exactly. The separate dynamic-mirror snapshot applies the same per-seed rule to mirror cells. A pass-to-fail change therefore fails the gate even when the total number of comparisons is unchanged. The final targeted replay preserves all existing per-seed verdict counts and all twelve retained failing cells across the two dimensions; it adds the previously missing accounting fields without changing a count.
+
+Harmonic conditioning is computed independently of the optional accuracy estimate. When the estimate is absent, `harmonic_floor(None, ...)` supplies zero additional allowance and does not refuse the harmonic adapter. A present but uncertifiable estimate still produces an inconclusive comparison. The existing inconclusive regression retains both assertions and now supplies an explicitly uncertifiable present estimate. Separate models beyond the dense accuracy limit retain finite harmonic responses in both dimensions.
+
+These changes affect verification only. Engine outputs and the results-change registry are unchanged. The harmonic planted-error clean-pair check remains deferred after the review cap.

@@ -561,7 +561,7 @@ pub fn rows() -> Vec<Ana2> {
                 let node = *c.probes.first().ok_or("no probe node")?;
                 let mut comps = Vec::new();
                 let accuracy = crate::dynamic_accuracy::harmonic_2d(c).ok();
-                let cond = accuracy.as_ref().and_then(|_| dedaliano_engine::metamorphic::conditioning::of_2d(&c.s).ok());
+                let cond = dedaliano_engine::metamorphic::conditioning::of_2d(&c.s).ok();
                 for dof in ["x", "y"] {
                     let inp = harmonic::HarmonicInput {
                         solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05,

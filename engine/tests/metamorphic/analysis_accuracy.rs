@@ -639,7 +639,13 @@ pub fn moving_2d(
     let weight: f64 = env.train.axles.iter().map(|a| a.weight.abs()).sum();
     for i in &mut r.0 {
         i.error = match i.tag.as_str() {
-            "M" => bounds[1] + span * bounds[0] + gamma(2 * 6 * 6) * weight * span,
+            "M" => {
+                let element = c.s.elements.values().find(|e| Some(e.id) == i.elem).ok_or("missing moving-load member")?;
+                let start = c.s.nodes.values().find(|n| n.id == element.node_i).ok_or("missing member start")?;
+                let end = c.s.nodes.values().find(|n| n.id == element.node_j).ok_or("missing member end")?;
+                let x = (end.x - start.x).hypot(end.z - start.z);
+                bounds[1] + x * bounds[0] + gamma(2 * 6 * 6) * weight * x
+            },
             "V" | "N" => bounds[0] + gamma(2 * 6 * 6) * weight,
             _ => continue,
         };
@@ -693,7 +699,13 @@ pub fn moving_3d(
     let weight: f64 = env.train.axles.iter().map(|a| a.weight.abs()).sum();
     for i in &mut r.0 {
         i.error = match i.tag.as_str() {
-            "Mx" | "My" | "Mz" => bounds[1] + span * bounds[0] + gamma(2 * 12 * 12) * weight * span,
+            "Mx" | "My" | "Mz" => {
+                let element = c.s.elements.values().find(|e| Some(e.id) == i.elem).ok_or("missing moving-load member")?;
+                let start = c.s.nodes.values().find(|n| n.id == element.node_i).ok_or("missing member start")?;
+                let end = c.s.nodes.values().find(|n| n.id == element.node_j).ok_or("missing member end")?;
+                let x = (end.x - start.x).hypot(end.y - start.y).hypot(end.z - start.z);
+                bounds[1] + x * bounds[0] + gamma(2 * 12 * 12) * weight * x
+            },
             "Vy" | "Vz" | "N" => bounds[0] + gamma(2 * 12 * 12) * weight,
             _ => continue,
         };
@@ -949,6 +961,9 @@ fn time_errors(
         .map(|e| 0.5 * trace.dt * (e[0] + e[1]))
         .sum();
     let rows = physical_rows(dof, asm, cs);
+    if rows.iter().any(|row| row.len() != trace.k.n) {
+        return Err("trajectory trace and physical mapping have different dimensions".into());
+    }
     let ki = Inverse::new(trace.k.to_dense_symmetric(), trace.k.n)?;
     let mass = trace.m.to_dense_symmetric();
     let mut mass_factor = mass.clone();
@@ -959,13 +974,29 @@ fn time_errors(
     };
     for i in &mut r.0 {
         let Some(node) = i.node else { continue };
-        let locals = if i.tag.starts_with("u_t") {
-            0..translations
-        } else if i.tag.starts_with("r_t") || i.tag.starts_with("ry_t") {
-            translations..2 * translations
+        let (sample, locals) = if let Some(sample) = i.tag.strip_prefix("u_t") {
+            (sample, 0..translations)
+        } else if let Some(sample) = i.tag.strip_prefix("ry_t") {
+            (sample, translations..translations + 1)
+        } else if let Some(sample) = i.tag.strip_prefix("r_t") {
+            (sample, translations..2 * translations)
         } else {
             continue;
         };
+        let sample: usize = sample.parse().map_err(|_| "invalid trajectory sample")?;
+        let state = trace.u.get(sample).ok_or("trajectory sample outside the trace")?;
+        if i.v.len() != locals.len() {
+            return Err("trajectory sample has the wrong component count".into());
+        }
+        for (component, local) in locals.clone().enumerate() {
+            let row = dof.map.get(&(node, local)).map(|&j| &rows[j]);
+            let mapped = row.map_or(0.0, |row| dot(row, state));
+            let magnitude = row.map_or(0.0, |row| row.iter().zip(state).map(|(a, b)| (a * b).abs()).sum::<f64>());
+            let ceiling = gamma(4 * dof.n_total + 16) * magnitude;
+            if !i.v[component].is_finite() || !mapped.is_finite() || !ceiling.is_finite() || (i.v[component] - mapped).abs() > ceiling {
+                return Err("reported trajectory sample differs from the mapped trace".into());
+            }
+        }
         let mut bound2 = 0.0;
         for local in locals {
             let Some(&j) = dof.map.get(&(node, local)) else {
@@ -1385,7 +1416,6 @@ fn issue_1892_round_four_correct_recurrence_survives_damping_uncertainty() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_final_round_reported_sample_must_match_the_trace() {
     let c = crate::case::Case2::new("unit beam", serde_json::from_str(r#"{
         "nodes":{"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":1.0,"z":0.0}},
@@ -1398,14 +1428,46 @@ fn issue_1892_final_round_reported_sample_must_match_the_trace() {
     let displacement = 2.0 / (1.0 + 4.0 + 0.2);
     let trace = unit_trajectory(displacement, 2.0 * displacement);
     for translations in [2, 3] {
-        let (dof, asm, _) = unit_static_system(translations);
+        for rotation in [false, true] {
+            let (mut dof, asm, _) = unit_static_system(translations);
+            if rotation { dof.map = [((1, translations), 0)].into(); }
+            let mut response = Resp::default();
+            let mut values = vec![0.0; if rotation && translations == 2 { 1 } else { translations }];
+            values[0] = displacement;
+            let (tag, kind) = match (translations, rotation) {
+                (2, false) => ("u_t001", Kind::V2(Dim::LEN)),
+                (2, true) => ("ry_t001", Kind::P2(Dim::NONE)),
+                (3, false) => ("u_t001", Kind::V3(Dim::LEN)),
+                _ => ("r_t001", Kind::V3(Dim::NONE)),
+            };
+            response.push(Some(1), None, tag, kind, values);
+            time_errors(&dof, &asm, None, &trace, &eigen, &unit_conditioning(), &mut response, translations).unwrap();
+            for component in 0..response.0[0].v.len() {
+                let mut wrong = response.clone();
+                wrong.0[0].v[component] += 1e-6 * displacement;
+                let result = time_errors(&dof, &asm, None, &trace, &eigen, &unit_conditioning(), &mut wrong, translations);
+                assert!(result.is_err(), "{translations}D {tag} component {component} changed without changing the trace: {result:?}");
+            }
+        }
+        let mut constrained = c.s.clone();
+        constrained.constraints = vec![dedaliano_engine::types::Constraint::EqualDOF(dedaliano_engine::types::EqualDOFConstraint { master_node: 2, slave_node: 1, dofs: vec![0] })];
+        let (mut dof, mut asm, _) = unit_static_system(translations);
+        dof.n_free = 2;
+        dof.n_total = translations + 1;
+        dof.map = (0..translations).map(|j| ((1, j), j + 1)).chain([((2, 0), 0)]).collect();
+        let cs = FreeConstraintSystem::build_2d(&constrained, &dof).unwrap().unwrap();
+        assert_eq!(cs.n_free_indep, 1);
+        if translations == 2 {
+            asm.inclined_transforms_2d.push(assembly::InclinedTransformData2D { node_id: 1, dofs: [1, 2], r: [[0.0, 1.0], [-1.0, 0.0]] });
+        } else {
+            asm.inclined_transforms.push(assembly::InclinedTransformData { node_id: 1, dofs: [1, 2, 3], r: [[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]] });
+        }
         let mut response = Resp::default();
-        let mut values = vec![0.0; translations];
-        values[0] = displacement;
+        let mut values = vec![0.0, displacement];
+        if translations == 3 { values.push(0.0); }
         response.push(Some(1), None, "u_t001", if translations == 2 { Kind::V2(Dim::LEN) } else { Kind::V3(Dim::LEN) }, values);
-        time_errors(&dof, &asm, None, &trace, &eigen, &unit_conditioning(), &mut response, translations).unwrap();
-        response.0[0].v[0] *= 1.0 + 1e-6;
-        let result = time_errors(&dof, &asm, None, &trace, &eigen, &unit_conditioning(), &mut response, translations);
-        assert!(result.is_err(), "{translations}D response changed without changing the trace: {result:?}");
+        time_errors(&dof, &asm, Some(&cs), &trace, &eigen, &unit_conditioning(), &mut response, translations).unwrap();
+        response.0[0].v[0] += 1e-6 * displacement;
+        assert!(time_errors(&dof, &asm, Some(&cs), &trace, &eigen, &unit_conditioning(), &mut response, translations).is_err());
     }
 }

@@ -2,424 +2,530 @@
   "d2": {
     "buckling / energy": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 35,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / linear agreement": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 35,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / mirror": {
       "compared": 35,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 35,
       "refused": 165,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / modal orthogonality": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 35,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / planes": {
       "compared": 9,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 9,
       "refused": 165,
       "same_refusal": 0,
       "unrepresentable": 26
     },
     "buckling / reciprocity": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 35,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / relabel": {
       "compared": 35,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 35,
       "refused": 165,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / reversal": {
       "compared": 35,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 35,
       "refused": 165,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / rotation": {
       "compared": 35,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 35,
       "refused": 165,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / superposition": {
       "compared": 35,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 35,
       "refused": 165,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / symmetry": {
       "compared": 24,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 35,
+      "pass": 24,
       "refused": 305,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / units": {
       "compared": 35,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 35,
       "refused": 165,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / energy": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 28,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / linear agreement": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 28,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / mirror": {
       "compared": 28,
+      "fail": 0,
       "inconclusive": 4,
       "not_applicable": 0,
+      "pass": 24,
       "refused": 172,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / modal orthogonality": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 28,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / planes": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 28,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / reciprocity": {
       "compared": 27,
+      "fail": 0,
       "inconclusive": 4,
       "not_applicable": 0,
+      "pass": 23,
       "refused": 173,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / relabel": {
       "compared": 28,
+      "fail": 1,
       "inconclusive": 3,
       "not_applicable": 0,
+      "pass": 24,
       "refused": 172,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / reversal": {
       "compared": 28,
+      "fail": 0,
       "inconclusive": 4,
       "not_applicable": 0,
+      "pass": 24,
       "refused": 172,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / rotation": {
       "compared": 28,
+      "fail": 0,
       "inconclusive": 4,
       "not_applicable": 0,
+      "pass": 24,
       "refused": 172,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / superposition": {
       "compared": 28,
+      "fail": 0,
       "inconclusive": 4,
       "not_applicable": 0,
+      "pass": 24,
       "refused": 172,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / symmetry": {
       "compared": 32,
+      "fail": 0,
       "inconclusive": 4,
       "not_applicable": 28,
+      "pass": 28,
       "refused": 372,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / units": {
       "compared": 28,
+      "fail": 3,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 24,
       "refused": 172,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / energy": {
       "compared": 27,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 27,
       "refused": 158,
       "same_refusal": 0,
       "unrepresentable": 15
     },
     "linear (PCG) / linear agreement": {
       "compared": 48,
+      "fail": 0,
       "inconclusive": 7,
       "not_applicable": 0,
+      "pass": 41,
       "refused": 152,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / mirror": {
       "compared": 49,
+      "fail": 0,
       "inconclusive": 7,
       "not_applicable": 0,
+      "pass": 42,
       "refused": 151,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / modal orthogonality": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 49,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / planes": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 49,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / reciprocity": {
       "compared": 47,
+      "fail": 0,
       "inconclusive": 5,
       "not_applicable": 0,
+      "pass": 42,
       "refused": 153,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / relabel": {
       "compared": 49,
+      "fail": 0,
       "inconclusive": 7,
       "not_applicable": 0,
+      "pass": 42,
       "refused": 151,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / reversal": {
       "compared": 49,
+      "fail": 0,
       "inconclusive": 7,
       "not_applicable": 0,
+      "pass": 42,
       "refused": 151,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / rotation": {
       "compared": 49,
+      "fail": 0,
       "inconclusive": 7,
       "not_applicable": 0,
+      "pass": 42,
       "refused": 151,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / superposition": {
       "compared": 48,
+      "fail": 0,
       "inconclusive": 6,
       "not_applicable": 0,
+      "pass": 42,
       "refused": 152,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / symmetry": {
       "compared": 59,
+      "fail": 0,
       "inconclusive": 6,
       "not_applicable": 49,
+      "pass": 53,
       "refused": 324,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / units": {
       "compared": 46,
+      "fail": 0,
       "inconclusive": 4,
       "not_applicable": 0,
+      "pass": 42,
       "refused": 154,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "moving loads / mirror": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 0,
       "refused": 200,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "moving loads / relabel": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 0,
       "refused": 200,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "moving loads / reversal": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 0,
       "refused": 200,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "moving loads / symmetry": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 0,
       "refused": 292,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "moving loads / units": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 0,
       "refused": 200,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / energy": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 48,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / linear agreement": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 48,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / mirror": {
       "compared": 48,
+      "fail": 0,
       "inconclusive": 9,
       "not_applicable": 0,
+      "pass": 39,
       "refused": 152,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / modal orthogonality": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 48,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / planes": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 48,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / reciprocity": {
       "compared": 48,
+      "fail": 0,
       "inconclusive": 9,
       "not_applicable": 0,
+      "pass": 39,
       "refused": 152,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / relabel": {
       "compared": 48,
+      "fail": 0,
       "inconclusive": 9,
       "not_applicable": 0,
+      "pass": 39,
       "refused": 152,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / reversal": {
       "compared": 48,
+      "fail": 0,
       "inconclusive": 9,
       "not_applicable": 0,
+      "pass": 39,
       "refused": 152,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / rotation": {
       "compared": 48,
+      "fail": 0,
       "inconclusive": 9,
       "not_applicable": 0,
+      "pass": 39,
       "refused": 152,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / superposition": {
       "compared": 48,
+      "fail": 0,
       "inconclusive": 9,
       "not_applicable": 0,
+      "pass": 39,
       "refused": 152,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / symmetry": {
       "compared": 61,
+      "fail": 0,
       "inconclusive": 10,
       "not_applicable": 48,
+      "pass": 51,
       "refused": 323,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / units": {
       "compared": 48,
+      "fail": 0,
       "inconclusive": 9,
       "not_applicable": 0,
+      "pass": 39,
       "refused": 152,
       "same_refusal": 0,
       "unrepresentable": 0
@@ -428,392 +534,490 @@
   "d3": {
     "buckling / energy": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 5,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / linear agreement": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 5,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / mirror": {
       "compared": 2,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 2,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 3
     },
     "buckling / modal orthogonality": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 5,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / reciprocity": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 5,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / relabel": {
       "compared": 5,
+      "fail": 0,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 4,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / reversal": {
       "compared": 4,
+      "fail": 0,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 3,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 1
     },
     "buckling / rotation": {
       "compared": 4,
+      "fail": 0,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 3,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 1
     },
     "buckling / superposition": {
       "compared": 5,
+      "fail": 0,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 4,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / symmetry": {
       "compared": 2,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 5,
+      "pass": 2,
       "refused": 215,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "buckling / units": {
       "compared": 4,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 4,
       "refused": 196,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / energy": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 5,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / linear agreement": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 5,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / mirror": {
       "compared": 3,
+      "fail": 0,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 2,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 2
     },
     "harmonic / modal orthogonality": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 5,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / reciprocity": {
       "compared": 5,
+      "fail": 0,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 4,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / relabel": {
       "compared": 5,
+      "fail": 1,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 3,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / reversal": {
       "compared": 5,
+      "fail": 0,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 4,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / rotation": {
       "compared": 5,
+      "fail": 1,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 3,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / superposition": {
       "compared": 5,
+      "fail": 0,
       "inconclusive": 1,
       "not_applicable": 0,
+      "pass": 4,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / symmetry": {
       "compared": 2,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 5,
+      "pass": 2,
       "refused": 220,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "harmonic / units": {
       "compared": 5,
+      "fail": 2,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 3,
       "refused": 195,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / energy": {
       "compared": 3,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 2,
+      "pass": 3,
       "refused": 186,
       "same_refusal": 0,
       "unrepresentable": 9
     },
     "linear (PCG) / linear agreement": {
       "compared": 15,
+      "fail": 0,
       "inconclusive": 4,
       "not_applicable": 0,
+      "pass": 11,
       "refused": 185,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / mirror": {
       "compared": 7,
+      "fail": 0,
       "inconclusive": 2,
       "not_applicable": 0,
+      "pass": 5,
       "refused": 184,
       "same_refusal": 0,
       "unrepresentable": 9
     },
     "linear (PCG) / modal orthogonality": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 16,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / reciprocity": {
       "compared": 13,
+      "fail": 0,
       "inconclusive": 3,
       "not_applicable": 2,
+      "pass": 10,
       "refused": 185,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / relabel": {
       "compared": 16,
+      "fail": 0,
       "inconclusive": 3,
       "not_applicable": 0,
+      "pass": 13,
       "refused": 184,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / reversal": {
       "compared": 10,
+      "fail": 0,
       "inconclusive": 2,
       "not_applicable": 0,
+      "pass": 8,
       "refused": 184,
       "same_refusal": 0,
       "unrepresentable": 6
     },
     "linear (PCG) / rotation": {
       "compared": 14,
+      "fail": 0,
       "inconclusive": 5,
       "not_applicable": 0,
+      "pass": 9,
       "refused": 184,
       "same_refusal": 0,
       "unrepresentable": 2
     },
     "linear (PCG) / superposition": {
       "compared": 15,
+      "fail": 0,
       "inconclusive": 3,
       "not_applicable": 1,
+      "pass": 12,
       "refused": 184,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / symmetry": {
       "compared": 9,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 16,
+      "pass": 9,
       "refused": 202,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "linear (PCG) / units": {
       "compared": 16,
+      "fail": 1,
       "inconclusive": 3,
       "not_applicable": 0,
+      "pass": 12,
       "refused": 184,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "moving loads / relabel": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 0,
       "refused": 200,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "moving loads / reversal": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 0,
       "refused": 200,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "moving loads / rotation": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 0,
       "refused": 200,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "moving loads / symmetry": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 0,
       "refused": 216,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "moving loads / units": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 0,
+      "pass": 0,
       "refused": 200,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / energy": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 13,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / linear agreement": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 13,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / mirror": {
       "compared": 5,
+      "fail": 0,
       "inconclusive": 2,
       "not_applicable": 0,
+      "pass": 3,
       "refused": 187,
       "same_refusal": 0,
       "unrepresentable": 8
     },
     "time history / modal orthogonality": {
       "compared": 0,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 13,
+      "pass": 0,
       "refused": 0,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / reciprocity": {
       "compared": 12,
+      "fail": 0,
       "inconclusive": 6,
       "not_applicable": 1,
+      "pass": 6,
       "refused": 187,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / relabel": {
       "compared": 13,
+      "fail": 1,
       "inconclusive": 5,
       "not_applicable": 0,
+      "pass": 7,
       "refused": 187,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / reversal": {
       "compared": 12,
+      "fail": 0,
       "inconclusive": 5,
       "not_applicable": 0,
+      "pass": 7,
       "refused": 187,
       "same_refusal": 0,
       "unrepresentable": 1
     },
     "time history / rotation": {
       "compared": 12,
+      "fail": 1,
       "inconclusive": 6,
       "not_applicable": 0,
+      "pass": 5,
       "refused": 187,
       "same_refusal": 0,
       "unrepresentable": 1
     },
     "time history / superposition": {
       "compared": 12,
+      "fail": 0,
       "inconclusive": 5,
       "not_applicable": 1,
+      "pass": 7,
       "refused": 187,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / symmetry": {
       "compared": 8,
+      "fail": 0,
       "inconclusive": 0,
       "not_applicable": 13,
+      "pass": 8,
       "refused": 206,
       "same_refusal": 0,
       "unrepresentable": 0
     },
     "time history / units": {
       "compared": 13,
+      "fail": 1,
       "inconclusive": 5,
       "not_applicable": 0,
+      "pass": 7,
       "refused": 187,
       "same_refusal": 0,
       "unrepresentable": 0
