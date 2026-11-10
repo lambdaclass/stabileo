@@ -402,6 +402,8 @@ const pt: Translations = {
   'admin.settings.cloudProjectsHelp': 'Quem tem conta salva seus projetos em “Meus projetos” e os abre de qualquer computador. Desativado, o que foi salvo se mantém, mas não abre nem se salva nada novo.',
   'admin.settings.saveRequiresAccount': 'Arquivos com conta',
   'admin.settings.saveRequiresAccountHelp': 'Para salvar, abrir, importar ou exportar arquivos (o projeto, Excel, CSV, relatórios, desenhos, DXF, IFC e o resto) e para copiar o link ou o código do modelo, o app pede para entrar ou criar uma conta gratuita e depois segue com o pedido. Os exemplos continuam livres. Quantos tentam e quantos se cadastram aparece em Métricas.',
+  'admin.settings.assignments': 'Tarefas e provas',
+  'admin.settings.assignmentsHelp': 'Quem tem conta compartilha um exercício do modo Educativo com um código; cada estudante entra com sua conta, recebe sua própria variante e o resolve com tempo. Desativado, o que foi criado se mantém, mas não abre, não se pode fazer a prova nem criar nada novo.',
   'admin.settings.termsVersion': 'Versão vigente dos Termos',
   'admin.settings.termsVersionHelp': 'É definida no código ao publicar uma nova versão dos textos. Quando muda, cada conta precisa aceitar os Termos de novo na próxima vez que entra.',
   'admin.col.terms': 'Termos',

@@ -402,6 +402,8 @@ const en: Record<string, string> = {
   'admin.settings.cloudProjectsHelp': 'Anyone with an account saves projects in “My projects” and opens them from any computer. When off, what is saved is kept but cannot be opened, and nothing new can be saved.',
   'admin.settings.saveRequiresAccount': 'Files need an account',
   'admin.settings.saveRequiresAccountHelp': 'To save, open, import or export files (the project, Excel, CSV, reports, drawings, DXF, IFC and the rest) and to copy the model link or code, the app asks to sign in or create a free account, then carries on. The examples stay open. How many try and how many sign up shows in Metrics.',
+  'admin.settings.assignments': 'Homework and exams',
+  'admin.settings.assignmentsHelp': 'Anyone with an account shares an Education mode exercise with a code; each student signs in, gets their own variant and solves it against the clock. When off, what was created is kept but cannot be opened or taken, and nothing new can be created.',
   'admin.settings.termsVersion': 'Terms version in force',
   'admin.settings.termsVersionHelp': 'Set in the code when a new version of the texts is released. When it changes, every account has to accept the Terms again the next time it signs in.',
   'admin.col.terms': 'Terms',

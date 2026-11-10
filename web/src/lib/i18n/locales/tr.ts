@@ -14667,6 +14667,8 @@ const tr: Translations = {
   "admin.settings.cloudProjectsHelp": "Hesabı olan herkes projelerini “Projelerim” altına kaydeder ve herhangi bir bilgisayardan açar. Kapatıldığında kayıtlı olanlar saklanır ama açılamaz ve yeni bir şey kaydedilemez.",
   "admin.settings.saveRequiresAccount": "Dosyalar için hesap gerekir",
   "admin.settings.saveRequiresAccountHelp": "Dosyaları kaydetmek, açmak, içe aktarmak veya dışa aktarmak (proje, Excel, CSV, raporlar, çizimler, DXF, IFC ve diğerleri) ve model bağlantısını veya kodunu kopyalamak için uygulama giriş yapmanızı veya ücretsiz bir hesap oluşturmanızı ister, ardından devam eder. Örnekler açık kalır. Kaç kişinin denediği ve kaçının kaydolduğu Metrikler'de görünür.",
+  "admin.settings.assignments": "Ödevler ve sınavlar",
+  "admin.settings.assignmentsHelp": "Hesabı olan herkes Eğitim modundaki bir alıştırmayı bir kodla paylaşır; her öğrenci kendi hesabıyla girer, kendi varyantını alır ve süreyle çözer. Kapatıldığında oluşturulanlar saklanır ama açılamaz, çözülemez ve yeni bir şey oluşturulamaz.",
   "admin.settings.termsVersion": "Yürürlükteki koşullar sürümü",
   "admin.settings.termsVersionHelp": "Metinlerin yeni bir sürümü yayımlandığında kodda belirlenir. Değiştiğinde her hesabın bir sonraki girişinde Koşulları yeniden kabul etmesi gerekir.",
   "admin.col.terms": "Koşullar",

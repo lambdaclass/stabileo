@@ -32,7 +32,7 @@ Prefix `/api/v1/auth`, router `StabileoAuth.Router`. Public routes run the `:api
 
 | Method | Path | Auth | Success | Errors |
 |--------|------|------|---------|--------|
-| `GET` | `/config` | public | `200 {user_login_enabled, terms_version, usage_telemetry_enabled, cloud_projects_enabled, save_requires_account, google_login}` | — |
+| `GET` | `/config` | public | `200 {user_login_enabled, terms_version, usage_telemetry_enabled, cloud_projects_enabled, save_requires_account, assignments_enabled, google_login}` | — |
 | `GET` | `/google?attempt=` | public, session cookie | `302` to Google | `302 /oauth-callback.html?error=` `invalid_state` (no well-formed attempt), `oauth_unavailable` |
 | `GET` | `/google/callback` | public, session cookie | `302 /oauth-callback.html?code=…&attempt=…` | `302 /oauth-callback.html?error=…&attempt=…` `provider_error`, `invalid_state`, `email_not_verified`, `email_in_use`, `account_disabled`, `user_login_disabled`, `callback_failed` |
 | `POST` | `/google/exchange` | public | `200 <session>` or `200 {signup_required: true, signup_token, email, name}` | 401 `invalid_or_expired_code` |

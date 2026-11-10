@@ -14667,6 +14667,8 @@ const de: Translations = {
   "admin.settings.cloudProjectsHelp": "Wer ein Konto hat, speichert Projekte unter „Meine Projekte“ und öffnet sie von jedem Computer aus. Ist die Option ausgeschaltet, bleibt das Gespeicherte erhalten, lässt sich aber nicht öffnen, und es kann nichts Neues gespeichert werden.",
   "admin.settings.saveRequiresAccount": "Dateien erfordern ein Konto",
   "admin.settings.saveRequiresAccountHelp": "Zum Speichern, Öffnen, Importieren oder Exportieren von Dateien (Projekt, Excel, CSV, Berichte, Zeichnungen, DXF, IFC und alles Weitere) und zum Kopieren des Modelllinks oder -codes fordert die App zur Anmeldung oder zum Erstellen eines kostenlosen Kontos auf und macht danach weiter. Die Beispiele bleiben offen. Wie viele es versuchen und wie viele sich registrieren, zeigen die Metriken.",
+  "admin.settings.assignments": "Hausaufgaben und Prüfungen",
+  "admin.settings.assignmentsHelp": "Wer ein Konto hat, teilt eine Übung aus dem Modus Lehre mit einem Code; alle Studierenden melden sich an, erhalten ihre eigene Variante und lösen sie auf Zeit. Ist die Option ausgeschaltet, bleibt das Erstellte erhalten, lässt sich aber weder öffnen noch bearbeiten, und es kann nichts Neues erstellt werden.",
   "admin.settings.termsVersion": "Gültige Fassung der Bedingungen",
   "admin.settings.termsVersionHelp": "Wird im Code festgelegt, wenn eine neue Fassung der Texte erscheint. Ändert sie sich, muss jedes Konto den Bedingungen bei der nächsten Anmeldung erneut zustimmen.",
   "admin.col.terms": "Bedingungen",
