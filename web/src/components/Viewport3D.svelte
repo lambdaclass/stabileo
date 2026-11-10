@@ -277,7 +277,7 @@
     resultsParent.rotation.set(0, 0, 0);
   }
   const diagramLegend = $derived.by(() => {
-    const dt = resultsStore.diagramType;
+    const dt = resultsStore.screen.diagram;
     if (dt === 'none' || dt === 'axialColor' || dt === 'colorMap' || dt === 'verification') return null;
     const color = DIAGRAM_COLORS[dt];
     const key = DIAGRAM_LABEL_KEYS[dt];
@@ -772,8 +772,8 @@
 
     /** Check if any animation is currently active that requires continuous rendering */
     function isAnimating(): boolean {
-      const dt = resultsStore.diagramType;
-      const animDeformed = resultsStore.animateDeformed && dt === 'deformed' && !!resultsStore.results3D;
+      const dt = resultsStore.screen.diagram;
+      const animDeformed = resultsStore.animateDeformed && dt === 'deformed' && !!resultsStore.screen.results3D;
       const animMode = dt === 'modeShape' && !!resultsStore.modalResult3D;
       const animBuckling = dt === 'bucklingMode' && !!resultsStore.bucklingResult3D;
       // Despiece is a one-shot pull-apart; keep rendering only while it plays.
@@ -938,8 +938,8 @@
       }
 
       // Animate deformed shape (oscillating scale like 2D viewport)
-      const _dt = resultsStore.diagramType;
-      const _animDeformed = resultsStore.animateDeformed && _dt === 'deformed' && resultsStore.results3D;
+      const _dt = resultsStore.screen.diagram;
+      const _animDeformed = resultsStore.animateDeformed && _dt === 'deformed' && resultsStore.screen.results3D;
       const _animMode = _dt === 'modeShape' && resultsStore.modalResult3D;
       const _animBuckling = _dt === 'bucklingMode' && resultsStore.bucklingResult3D;
       if (_animDeformed || _animMode || _animBuckling) {
@@ -1050,14 +1050,14 @@
     // decorative parents + per-element solids and forcing the single batched
     // LineSegments2 draw call on as the stand-in.
     function setLowDetail(on: boolean): void {
-      const dt = resultsStore.diagramType;
+      const dt = resultsStore.screen.diagram;
       // Despiece manages element visibility itself (the original members are hidden
       // and the separated free-body overlay is drawn instead). The heavy-model LOD
       // fallback would force the batched wireframe visible during camera motion,
       // flashing the un-separated model over the free-body view — so skip LOD
       // entirely while Despiece is active. applyElementVisibility stays the authority.
       if (dt === 'despiece') return;
-      const resultsColoringActive = !!resultsStore.results3D
+      const resultsColoringActive = !!resultsStore.screen.results3D
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
       // Opt-in "smooth orbit" forces the heavy-model low-detail path for any
       // model during camera motion (collapse to the single batched wireframe).
@@ -1372,8 +1372,8 @@
     // Drawn as members, a shell shows its offset while selected (`shell-members.ts`).
     if (meshHidden()) syncShellOffsets();
     // Re-apply color map if active (syncSelection overwrites element colors)
-    const dt = resultsStore.diagramType;
-    if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
+    const dt = resultsStore.screen.diagram;
+    if (resultsStore.screen.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
       syncColorMap3D();
     }
   }
@@ -1582,14 +1582,14 @@
     uiStore.showLoads3D;
     uiStore.hideLoadsWithDiagram;
     uiStore.momentStyle3D;
-    resultsStore.diagramType;
+    resultsStore.screen.diagram;
     syncLoads();
     invalidate();
   });
 
   $effect(() => {
-    resultsStore.results3D;
-    resultsStore.diagramType;
+    resultsStore.screen.results3D;
+    resultsStore.screen.diagram;
     resultsStore.deformedScale;
     uiStore.unitSystem;
     resultsStore.modalResult3D;
@@ -1604,7 +1604,7 @@
     resultsStore.bucklingResult3D;
     resultsStore.activeBucklingMode;
     const animating = resultsStore.animateDeformed;
-    const dt = resultsStore.diagramType;
+    const dt = resultsStore.screen.diagram;
     if (resultsCtx) resultsCtx.lastDeformedAnimScale = null;
     // Mode shapes and buckling modes always animate from the render loop
     if (dt === 'modeShape' || dt === 'bucklingMode') { invalidate(); return; }
@@ -1794,14 +1794,14 @@
   });
 
   $effect(() => {
-    resultsStore.results3D;
-    resultsStore.diagramType;
+    resultsStore.screen.results3D;
+    resultsStore.screen.diagram;
     resultsStore.diagramScale;
     resultsStore.showDiagramValues;
     resultsStore.drawPositiveTowardLocalAxes; // rebuild diagrams immediately on toggle (no re-solve)
     resultsStore.overlayResults3D;
-    resultsStore.isEnvelopeActive;
-    resultsStore.fullEnvelope3D;
+    resultsStore.screen.envelopeActive;
+    resultsStore.screen.fullEnvelope3D;
     uiStore.unitSystem; // value labels are in the chosen units
     displayUnits.decimals; // and with the decimals the reader set
     syncDiagrams3D();
@@ -1809,8 +1809,8 @@
   });
 
   $effect(() => {
-    resultsStore.results3D;
-    resultsStore.diagramType;
+    resultsStore.screen.results3D;
+    resultsStore.screen.diagram;
     resultsStore.colorMapKind;
     resultsStore.shellContourComponent;
     contourOptions.signature;
@@ -1842,9 +1842,9 @@
   });
 
   $effect(() => {
-    resultsStore.results3D;
+    resultsStore.screen.results3D;
     uiStore.unitSystem;
-    resultsStore.showReactions;
+    resultsStore.screen.showReactions;
     syncReactions();
     invalidate();
   });
@@ -4584,9 +4584,9 @@
   {/if}
 
   <!-- Diagram legend -->
-  {#if diagramLegend && resultsStore.results3D}
+  {#if diagramLegend && resultsStore.screen.results3D}
     <div class="diagram-legend">
-      {#if resultsStore.isEnvelopeActive && resultsStore.fullEnvelope3D}
+      {#if resultsStore.screen.envelopeActive && resultsStore.screen.fullEnvelope3D}
         <span class="legend-color" style="background: #4169E1;"></span>
         <span class="legend-text">{t('viewport3d.envPlus')}</span>
         <span class="legend-color" style="background: #E15041; margin-left: 8px;"></span>
@@ -4611,7 +4611,7 @@
     nothing until somebody says which is which. The same pair of strings the 2D
     viewport paints, so the two modes read identically.
   -->
-  {#if resultsStore.diagramType === 'axialColor' && resultsStore.results3D}
+  {#if resultsStore.screen.diagram === 'axialColor' && resultsStore.screen.results3D}
     <div class="diagram-legend">
       <span class="legend-color" style="background: #e5482a;"></span>
       <span class="legend-text">{t('viewport.tension')}</span>
