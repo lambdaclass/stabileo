@@ -503,7 +503,8 @@ fn issue_1203_harmonic_symmetry() {
     let cells = replay(1203, 2026110201350, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1203, "harmonic", "symmetry");
     assert!(c.fails.is_empty(), "#1203: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1203: no numerical comparison: {c:?}");
+    assert_eq!(c.inconclusive, 2, "#1203: {c:?}");
+    assert_eq!(c.pass, 0, "#1203: uncertified symmetry passed: {c:?}");
 }
 
 #[test]
@@ -511,7 +512,8 @@ fn issue_1204_harmonic_symmetry() {
     let cells = replay(1204, 2026110201350, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1204, "harmonic", "symmetry");
     assert!(c.fails.is_empty(), "#1204: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1204: no numerical comparison: {c:?}");
+    assert_eq!(c.inconclusive, 2, "#1204: {c:?}");
+    assert_eq!(c.pass, 0, "#1204: uncertified symmetry passed: {c:?}");
 }
 
 #[test]
@@ -519,7 +521,8 @@ fn issue_1209_harmonic_symmetry() {
     let cells = replay(1209, 2026110205053, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1209, "harmonic", "symmetry");
     assert!(c.fails.is_empty(), "#1209: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1209: no numerical comparison: {c:?}");
+    assert_eq!(c.inconclusive, 2, "#1209: {c:?}");
+    assert_eq!(c.pass, 0, "#1209: uncertified symmetry passed: {c:?}");
 }
 
 #[test]
@@ -527,7 +530,8 @@ fn issue_1215_harmonic_symmetry() {
     let cells = replay(1215, 2026110201737, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1215, "harmonic", "symmetry");
     assert!(c.fails.is_empty(), "#1215: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1215: no numerical comparison: {c:?}");
+    assert_eq!(c.inconclusive, 2, "#1215: {c:?}");
+    assert_eq!(c.pass, 0, "#1215: uncertified symmetry passed: {c:?}");
 }
 
 #[test]
@@ -535,7 +539,8 @@ fn issue_1218_harmonic_symmetry() {
     let cells = replay(1218, 2026110200823, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1218, "harmonic", "symmetry");
     assert!(c.fails.is_empty(), "#1218: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1218: no numerical comparison: {c:?}");
+    assert_eq!(c.pass, 2, "#1218: {c:?}");
+    assert_eq!(c.inconclusive, 0, "#1218: {c:?}");
 }
 
 #[test]
@@ -543,7 +548,8 @@ fn issue_1278_harmonic_symmetry() {
     let cells = replay(1278, 2026110303012, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1278, "harmonic", "symmetry");
     assert!(c.fails.is_empty(), "#1278: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1278: no numerical comparison: {c:?}");
+    assert_eq!(c.inconclusive, 2, "#1278: {c:?}");
+    assert_eq!(c.pass, 0, "#1278: uncertified symmetry passed: {c:?}");
 }
 
 #[test]
@@ -551,7 +557,8 @@ fn issue_1281_harmonic_symmetry() {
     let cells = replay(1281, 2026110301259, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1281, "harmonic", "symmetry");
     assert!(c.fails.is_empty(), "#1281: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1281: no numerical comparison: {c:?}");
+    assert_eq!(c.pass, 2, "#1281: {c:?}");
+    assert_eq!(c.inconclusive, 0, "#1281: {c:?}");
 }
 
 #[test]
@@ -559,7 +566,8 @@ fn issue_1464_harmonic_symmetry() {
     let cells = replay(1464, 2026110500040, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1464, "harmonic", "symmetry");
     assert!(c.fails.is_empty(), "#1464: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1464: no numerical comparison: {c:?}");
+    assert_eq!(c.pass, 2, "#1464: {c:?}");
+    assert_eq!(c.inconclusive, 0, "#1464: {c:?}");
 }
 
 #[test]
@@ -567,7 +575,8 @@ fn issue_1030_spectral_symmetry() {
     let cells = replay(1030, 20758, &[("spectral", "symmetry")]);
     let c = cell(&cells, 1030, "spectral", "symmetry");
     assert!(c.fails.is_empty(), "#1030: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1030: no numerical comparison: {c:?}");
+    assert_eq!(c.pass, 1, "#1030: {c:?}");
+    assert_eq!(c.inconclusive, 0, "#1030: {c:?}");
 }
 
 #[test]
@@ -575,7 +584,8 @@ fn issue_1096_spectral_symmetry() {
     let cells = replay(1096, 20759, &[("spectral", "symmetry")]);
     let c = cell(&cells, 1096, "spectral", "symmetry");
     assert!(c.fails.is_empty(), "#1096: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1096: no numerical comparison: {c:?}");
+    assert_eq!(c.pass, 1, "#1096: {c:?}");
+    assert_eq!(c.inconclusive, 0, "#1096: {c:?}");
 }
 
 #[test]
@@ -583,7 +593,8 @@ fn issue_1214_spectral_symmetry() {
     let cells = replay(1214, 2026110200168, &[("spectral", "symmetry")]);
     let c = cell(&cells, 1214, "spectral", "symmetry");
     assert!(c.fails.is_empty(), "#1214: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1214: no numerical comparison: {c:?}");
+    assert_eq!(c.pass, 1, "#1214: {c:?}");
+    assert_eq!(c.inconclusive, 0, "#1214: {c:?}");
 }
 
 #[test]
@@ -591,7 +602,8 @@ fn issue_1220_spectral_symmetry() {
     let cells = replay(1220, 2026110201350, &[("spectral", "symmetry")]);
     let c = cell(&cells, 1220, "spectral", "symmetry");
     assert!(c.fails.is_empty(), "#1220: {c:?}");
-    assert!(c.pass + c.inconclusive > 0, "#1220: no numerical comparison: {c:?}");
+    assert_eq!(c.pass, 1, "#1220: {c:?}");
+    assert_eq!(c.inconclusive, 0, "#1220: {c:?}");
 }
 
 #[test]
@@ -620,7 +632,6 @@ fn harmonic_symmetry_at_seeded_resonances() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1464"]
 fn harmonic_roundoff_floor_accounts_for_resonant_eigen_error() {
     let Model::D2(c) = model(1464) else { panic!("2D") };
     let mut c = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap().case;
@@ -636,4 +647,170 @@ fn harmonic_roundoff_floor_accounts_for_resonant_eigen_error() {
     let minimum = us * cond.eig * gain * gain;
     let budget = r.flat().t.floor * crate::checks2::rel_for(a.name, a.iter_tol, &cond);
     assert!(budget >= minimum, "eigen-resolvent error {minimum:e} exceeds harmonic budget {budget:e}");
+}
+
+#[test]
+fn harmonic_symmetry_rejects_a_seeded_physical_scale_error() {
+    let Model::D2(c) = model(1464) else { panic!("2D") };
+    for anti in [false, true] {
+        let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, anti).unwrap();
+        let c = &sym.case;
+        let a = ana2("harmonic");
+        let cond = crate::checks2::with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), c);
+        let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
+        let mut got = (a.run)(c).unwrap();
+        let mut expected = got.iso2(&sym.iso).unwrap().relabel(&sym.pair).common(&got);
+        if anti {
+            expected.0.iter_mut().for_each(|i| i.v.iter_mut().for_each(|v| *v = -*v));
+        }
+        let cmp = |g: &Resp, e: &Resp| crate::checks2::judge_split(g, e, rel, rel, |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel, crate::checks2::load_floor_2d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)));
+        assert!(matches!(cmp(&got, &expected), Verdict::Pass(_)), "{:?}", cmp(&got, &expected));
+        let statics = dedaliano_engine::solver::linear::solve_2d(&c.s).unwrap();
+        let physical = statics.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()));
+        assert!(physical > 0.0);
+        let node = got.0[0].node;
+        nudge(&mut got, "H_re1", node, usize::from(anti), physical);
+        assert!(matches!(cmp(&got, &expected), Verdict::Fail(_)), "a physical displacement error passed: {:?}", cmp(&got, &expected));
+    }
+}
+
+#[test]
+fn harmonic_accuracy_floors_preserve_ordinary_response_ratios() {
+    let Model::D2(c) = model(1464) else { panic!("2D") };
+    let c = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap().case;
+    let a = ana2("harmonic");
+    let cond = conditioning::of_2d(&c.s).unwrap();
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
+    let mut expected = (a.run)(&c).unwrap();
+    let scale = expected.flat().t.floor * 16.0;
+    assert!(scale.is_finite() && scale > 0.0);
+    expected.0[0].v[1] = scale;
+    let mut got = expected.clone();
+    got.0[0].v[0] += rel * scale * 0.5;
+    let without_floors = |r: &Resp| {
+        let mut r = r.clone();
+        r.0.iter_mut().for_each(|i| i.floor = 0.0);
+        r
+    };
+    let cmp = |g: &Resp, e: &Resp| compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel, 0.0, [0.0, 0.0]);
+    let ordinary = cmp(&without_floors(&got), &without_floors(&expected)).unwrap();
+    assert_eq!(cmp(&got, &expected).unwrap().worst, ordinary.worst);
+    got.0[0].v[0] += rel * scale * 2.0;
+    assert!(cmp(&got, &expected).is_err());
+    assert!(cmp(&without_floors(&got), &without_floors(&expected)).is_err());
+}
+
+#[test]
+fn spectral_seeded_pair_magnitudes_reject_a_physical_scale_error() {
+    let Model::D2(c) = model(1096) else { panic!("2D") };
+    let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap();
+    let c = &sym.case;
+    let a = ana2("spectral");
+    let cond = crate::checks2::with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), c);
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
+    let mut got = (a.run)(c).unwrap();
+    let expected = got.iso2(&sym.iso).unwrap().relabel(&sym.pair).common(&got);
+    let cmp = |g: &Resp| compare_with_compliance(&g.flat(), &expected.flat(), cond.lchar, rel, 0.0, [0.0, 0.0]);
+    cmp(&got).unwrap();
+    assert!(got.0.iter().filter(|i| i.tag == "u").flat_map(|i| &i.v).all(|v| *v >= 0.0));
+    let physical = got.flat().t.maxabs();
+    assert!(physical > 0.0);
+    let node = got.0.iter().find(|i| i.tag == "u" && i.node != Some(1)).unwrap().node;
+    nudge(&mut got, "u", node, 0, physical);
+    assert!(cmp(&got).is_err(), "a peak magnitude wrong by the physical scale passed");
+}
+
+#[test]
+fn spectral_truncation_keeps_overlapping_eigenvalue_error_intervals() {
+    let w = vec![1.0, 2.0, 3.0, 4.0, 4.01, 6.0];
+    let solve = |k: usize| -> Result<Vec<f64>, String> { Ok(w[..k.min(w.len())].to_vec()) };
+    let (_, ordinary) = crate::ana2::cluster_complete(solve, Clone::clone, 4, 8, 0.0).unwrap();
+    assert_eq!(ordinary, 4);
+    let (_, bounded) = crate::ana2::cluster_complete(solve, Clone::clone, 4, 8, 0.05).unwrap();
+    assert_eq!(bounded, 5);
+    let accuracy = crate::dynamic_accuracy::Accuracy { lambda: w.iter().map(|w| w * w).collect(), residual: 0.05, natural: 1.0 };
+    assert!(!accuracy.gap_error(4).is_finite());
+    assert!(accuracy.gap_error(5).is_finite());
+    assert_eq!(accuracy.gap_error(w.len()), 0.0);
+}
+
+#[test]
+fn harmonic_3d_seeded_symmetry_rejects_a_physical_scale_error() {
+    let Model::D3(c) = model(1218) else { panic!("3D") };
+    let sym = crate::symmetry::symmetrize_3d(&c.name, &c.s, false).unwrap();
+    let c = &sym.case;
+    let a = ana3("harmonic");
+    let cond = crate::checks3::with_eigen_3d(conditioning::of_3d(&c.s).unwrap(), c);
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
+    let mut got = (a.run)(c).unwrap();
+    let expected = got.iso3(&sym.iso).unwrap().relabel(&sym.pair).common(&got);
+    let cmp = |g: &Resp| crate::checks2::judge_split(g, &expected, rel, rel, |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel, crate::checks3::load_floor_3d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)));
+    assert!(matches!(cmp(&got), Verdict::Pass(_)), "{:?}", cmp(&got));
+    let statics = dedaliano_engine::solver::linear::solve_3d(&c.s).unwrap();
+    let physical = statics.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()));
+    assert!(physical > 0.0);
+    let node = got.0[0].node;
+    nudge(&mut got, "H_re1", node, 0, physical);
+    assert!(matches!(cmp(&got), Verdict::Fail(_)), "a physical 3D displacement error passed: {:?}", cmp(&got));
+}
+
+#[test]
+fn unresolved_harmonic_accuracy_is_inconclusive() {
+    let Model::D2(c) = model(1278) else { panic!("2D") };
+    let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap();
+    let a = ana2("harmonic");
+    let got = (a.run)(&sym.case).unwrap();
+    let cond = conditioning::of_2d(&sym.case.s).unwrap();
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
+    let judge = |g: &Resp| crate::checks2::judge_split(g, &got, rel, rel, |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel, 0.0, [0.0, 0.0]));
+    assert!(matches!(judge(&got), Verdict::Inconclusive(_)));
+    let mut wrong = got.clone();
+    wrong.0[0].v[0] += 1.0;
+    assert!(matches!(judge(&wrong), Verdict::Inconclusive(_)), "an uncertified response must never pass");
+}
+
+#[test]
+fn spectral_peak_symmetry_uses_magnitudes_for_both_combination_rules() {
+    use crate::response::{Dim, Kind};
+    use dedaliano_engine::types::*;
+    let Model::D2(c) = model(1096) else { panic!("2D") };
+    let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap();
+    let c = &sym.case;
+    let md = dedaliano_engine::solver::modal::solve_modal_2d(&c.s, &c.dens, 12).unwrap();
+    let cond = crate::checks2::with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), c);
+    let rel = crate::checks2::rel_for("spectral", 1e-10, &cond) * 2.0;
+    for rule in ["SRSS", "CQC"] {
+        let input = SpectralInput {
+            solver: c.s.clone(), densities: c.dens.clone(),
+            modes: md.modes.iter().map(|m| SpectralModeInput {
+                frequency: m.frequency, period: m.period, omega: m.omega,
+                displacements: m.displacements.iter().map(|d| SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }).collect(),
+                participation_x: m.participation_x, participation_y: m.participation_y,
+                effective_mass_x: m.effective_mass_x, effective_mass_y: m.effective_mass_y,
+            }).collect(),
+            spectrum: DesignSpectrum { name: "seeded".into(), points: vec![SpectrumPoint { period: 0.0, sa: 0.2 }, SpectrumPoint { period: 4.0, sa: 0.12 }], in_g: Some(true) },
+            direction: "X".into(), rule: Some(rule.into()), xi: Some(0.05), importance_factor: None, reduction_factor: None, total_mass: None,
+        };
+        let r = dedaliano_engine::solver::spectral::solve_spectral_2d(&input).unwrap();
+        let mut got = Resp::default();
+        for d in r.displacements {
+            assert!(d.ux >= 0.0 && d.uz >= 0.0, "{rule}: a peak was signed");
+            got.push(Some(d.node_id), None, "u", Kind::Abs2(Dim::LEN), vec![d.ux, d.uz]);
+        }
+        let expected = got.iso2(&sym.iso).unwrap().relabel(&sym.pair).common(&got);
+        let cmp = |g: &Resp| compare_with_compliance(&g.flat(), &expected.flat(), cond.lchar, rel, 0.0, [0.0, 0.0]);
+        cmp(&got).unwrap();
+        let physical = got.flat().t.maxabs();
+        assert!(physical > 0.0);
+        let node = got.0.iter().find(|i| i.node != Some(1)).unwrap().node;
+        nudge(&mut got, "u", node, 0, physical);
+        assert!(cmp(&got).is_err(), "{rule}: a wrong peak magnitude passed");
+    }
+}
+
+#[test]
+fn harmonic_error_does_not_certify_an_uncertain_damping_anchor_selection() {
+    let accuracy = crate::dynamic_accuracy::Accuracy { lambda: vec![1e-10, 1.0, 2.0], residual: 1e-15, natural: 1.0 };
+    let damping = dedaliano_engine::solver::damping::rayleigh_coefficients(1.0, 2.0f64.sqrt(), 0.05);
+    assert!(!accuracy.harmonic_error(1.0, damping, 0.0).is_finite());
 }

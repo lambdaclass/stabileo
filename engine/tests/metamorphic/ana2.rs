@@ -497,7 +497,7 @@ pub fn rows() -> Vec<Ana2> {
             planar: None,
             run: |c| {
                 // Never cut a repeated pair: a symmetric model's response would not be symmetric (#1030).
-                let (md, n) = cluster_complete(|k| modal::solve_modal_2d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 4, 8)?;
+                let (md, n) = cluster_complete(|k| modal::solve_modal_2d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 4, 8, crate::dynamic_accuracy::of_2d(c).map_or(f64::INFINITY, |a| a.residual))?;
                 let modes = md.modes[..n]
                     .iter()
                     .map(|x| SpectralModeInput {
@@ -552,18 +552,25 @@ pub fn rows() -> Vec<Ana2> {
                         solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05,
                         response_node_id: node, response_dof: dof.into(),
                     };
-                    comps.push(harmonic::solve_harmonic_2d(&inp)?);
+                    comps.push(harmonic::solve_harmonic_2d_with_damping(&inp)?);
                 }
                 let mut o = Resp::default();
                 // Natural size: the largest static displacement (the ω = 0 response), a rotation as rotation × model size.
                 let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.z, 0.0]));
                 let us = linear::solve_2d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()).max(d.ry.abs() * l))).unwrap_or(0.0);
+                let cond = if c.p.symmetry { Some(dedaliano_engine::metamorphic::conditioning::of_2d(&c.s)?) } else { None };
+                let rel = cond.as_ref().map_or(0.0, |cond| crate::checks2::rel_for("harmonic", 1e-10, cond));
+                let accuracy = if c.p.symmetry { crate::dynamic_accuracy::of_2d(c).ok() } else { None };
                 for k in 0..c.p.freqs.len() {
-                    let (a, b) = (&comps[0].response_points[k], &comps[1].response_points[k]);
+                    let floor = if !c.p.symmetry || crate::generated::strict() { us } else {
+                        let direct = comps.iter().all(|r| r.0.method == harmonic::HarmonicMethod::Direct);
+                        us.max(crate::dynamic_accuracy::harmonic_floor(if direct { accuracy.as_ref() } else { None }, c.p.freqs[k], comps[0].1, cond.as_ref().unwrap().rel(), rel))
+                    };
+                    let (a, b) = (&comps[0].0.response_points[k], &comps[1].0.response_points[k]);
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V2(Dim::LEN), vec![a.real, b.real]);
                     o.push(Some(node), None, &format!("H_im{k}"), Kind::V2(Dim::LEN), vec![a.imag, b.imag]);
-                    o.set_floor(&format!("H_re{k}"), us);
-                    o.set_floor(&format!("H_im{k}"), us);
+                    o.set_floor(&format!("H_re{k}"), floor);
+                    o.set_floor(&format!("H_im{k}"), floor);
                 }
                 Ok(o)
             },
@@ -674,12 +681,12 @@ pub fn rows() -> Vec<Ana2> {
 
 /// The first `first` modes, extended to the end of a nearly repeated cluster, asking the solver for
 /// more modes until the cluster's end is seen; an unresolved cluster is an error, never a cut.
-pub(crate) fn cluster_complete<M>(solve: impl Fn(usize) -> Result<M, String>, omegas: impl Fn(&M) -> Vec<f64>, first: usize, mut requested: usize) -> Result<(M, usize), String> {
+pub(crate) fn cluster_complete<M>(solve: impl Fn(usize) -> Result<M, String>, omegas: impl Fn(&M) -> Vec<f64>, first: usize, mut requested: usize, uncertainty: f64) -> Result<(M, usize), String> {
     loop {
         let md = solve(requested)?;
         let w = omegas(&md);
         let mut n = w.len().min(first);
-        while n > 0 && n < w.len() && w[n] - w[n - 1] <= 1e-3 * w[n] {
+        while n > 0 && n < w.len() && (w[n] - w[n - 1] <= 1e-3 * w[n] || w[n] * w[n] - w[n - 1] * w[n - 1] <= 2.0 * uncertainty) {
             n += 1;
         }
         if n < w.len() || w.len() < requested {
@@ -697,12 +704,12 @@ fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
     let spectrum: Vec<f64> = [1.0, 2.0, 3.0].into_iter().chain([4.0; 9]).chain((0..10).map(|k| 10.0 + k as f64)).collect();
     let asked = std::cell::RefCell::new(Vec::new());
     let solve = |k: usize| -> Result<Vec<f64>, String> { asked.borrow_mut().push(k); Ok(spectrum[..k.min(spectrum.len())].to_vec()) };
-    let (modes, n) = cluster_complete(solve, |m: &Vec<f64>| m.clone(), 4, 8).unwrap();
+    let (modes, n) = cluster_complete(solve, |m: &Vec<f64>| m.clone(), 4, 8, 0.0).unwrap();
     assert_eq!(n, 12);
     assert_eq!(modes.len(), 16);
     assert_eq!(*asked.borrow(), vec![8, 16]);
     let flat = |k: usize| -> Result<Vec<f64>, String> { Ok(vec![1.0; k]) };
-    assert!(cluster_complete(flat, |m: &Vec<f64>| m.clone(), 4, 8).unwrap_err().contains("not resolved"));
+    assert!(cluster_complete(flat, |m: &Vec<f64>| m.clone(), 4, 8, 0.0).unwrap_err().contains("not resolved"));
 }
 
 /// A P-Delta result converged to 1e-12 within 100 steps, and finite in every reported number.

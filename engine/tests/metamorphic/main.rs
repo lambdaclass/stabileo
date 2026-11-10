@@ -29,6 +29,7 @@ mod corpus;
 mod modal_checks;
 mod parity;
 mod nightly_tolerances;
+mod dynamic_accuracy;
 mod quick;
 mod regressions;
 mod harmonic_linearity;
