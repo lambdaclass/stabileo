@@ -701,3 +701,22 @@ solver::stability::tests -- --nocapture`.
 
 This canonical-release substitution belongs to the unmerged #1753 branch. No new
 advisory is introduced by this follow-up.
+
+
+### PR #1753 CI: declare the arch diagnostic quantity
+
+The rebuilt WASM preserves every committed numerical value of
+`web/results-snapshots/2d-three-hinge-arch.json`. Against `origin/main`, the only
+changed field is `base.diagnosticCodes`: `warning:high_diagonal_ratio
+warning:instability_risk warning:known_issue warning:known_issue` becomes
+`warning:instability_risk warning:known_issue`. The removed diagnostics are the
+raw diagonal ratio of the former artificial crown-rotation stiffness and its
+conditioning NUM-INVARIANCE warning. Exact elimination of that unloaded free
+rotation makes those two warnings obsolete; the instability-risk and other
+known-issue warnings remain. This is the diagnostic change already described
+above, independent of the separate 3D hinge test refusal.
+
+The unmerged `linear-stability-refusals` entry now declares `diagnosticCodes`,
+so the snapshot applicability gate can account for this change. Regenerating
+with `make snapshots-update` leaves the committed snapshot unchanged. No
+numerical baseline, accuracy threshold or warning assertion is relaxed.

@@ -39,12 +39,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { generateShed, DEFAULT_SHED_PARAMS, BRACING_BAYS } from '../shed';
+import { generateShed, DEFAULT_SHED_PARAMS as BRACED_DEFAULTS, BRACING_BAYS } from '../shed';
 import { emitModel, defaultProfileSpec, type EmitOptions } from '../emit';
 import { modelFromFixture, assertRealSolver } from '../../design/__tests__/helpers';
 import { validateAndSolve3D, buildSolverInput3D } from '../../solver-service';
 import { input3DToWireObject } from '../../wasm-solver';
 import { solve_3d } from '../../../wasm/dedaliano_engine.js';
+
+const DEFAULT_SHED_PARAMS = { ...BRACED_DEFAULTS, wallBracing: false, roofBracing: false, trussBracing: false };
 
 const PROFILES: EmitOptions['profiles'] = {
   chord: defaultProfileSpec('IPE 100'),
@@ -322,14 +324,15 @@ describe('the bracing is placed on steel that is already there', () => {
     expect(solid.nodes.length).toBe(base.nodes.length);
   });
 
-  it('leaves the default shed exactly as PR21 pinned it', () => {
-    // The regression guard for the whole change: bracing is off by default, so the model a user
-    // gets by pressing Generate is byte-for-byte the one that was measured.
-    const shed = generateShed({ ...DEFAULT_SHED_PARAMS });
-    expect(shed.counts.bracing).toBe(0);
-    expect(DEFAULT_SHED_PARAMS.wallBracing).toBe(false);
-    expect(DEFAULT_SHED_PARAMS.roofBracing).toBe(false);
-    expect(DEFAULT_SHED_PARAMS.trussBracing).toBe(false);
+  it('braces the default shed in the wall, roof and vertical truss planes', () => {
+    const shed = generateShed();
+    const explicitlyBraced = generateShed({ ...DEFAULT_SHED_PARAMS, wallBracing: true, roofBracing: true, trussBracing: true });
+    expect(shed.members).toEqual(explicitlyBraced.members);
+    expect(shed.counts.bracing).toBe(explicitlyBraced.counts.bracing);
+    expect(shed.counts.bracing).toBeGreaterThan(0);
+    expect(BRACED_DEFAULTS.wallBracing).toBe(true);
+    expect(BRACED_DEFAULTS.roofBracing).toBe(true);
+    expect(BRACED_DEFAULTS.trussBracing).toBe(true);
   });
 });
 

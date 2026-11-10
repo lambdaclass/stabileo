@@ -26,7 +26,6 @@ fn issue_1753_web_refusals_have_explicit_physical_null_modes() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_generated_models_solve_with_balanced_nodal_loads() {
     let cases: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/1753-generated-stable.json")).unwrap();
     assert_eq!(cases.as_array().unwrap().len(), 28);

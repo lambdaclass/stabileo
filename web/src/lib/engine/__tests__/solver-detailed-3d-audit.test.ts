@@ -145,35 +145,14 @@ describe('rotations nothing resists: the analysis solver and the wizard agree', 
 });
 
 describe('an infinitesimal mechanism the loads do not excite', () => {
-  it('is solved, named, and its reactions are the analysis solver\'s', async () => {
+  it('is refused independently of whether the current loads excite its null mode', async () => {
     historyStore.clear(); uiStore.analysisMode = '3d'; modelStore.clear();
     await modelStore.loadExample('3d-space-truss');
-    /*
-     * The example as it was before its webs across the two rows (54–61) were
-     * added: without them the top chord sways, and that is the case here.
-     */
     for (let id = 54; id <= 61; id++) modelStore.removeElement(id);
     const input = modelStore.buildSolverInput3D(false, false, { expandMemberOffsets: false })!;
     const d = expectEquilibrium(input);
-    /* The top chord can sway in y without straining a bar: v11 … v18. */
     expect(d.nullModes).toEqual(expect.arrayContaining(['v11', 'v18']));
-    /*
-     * Displacements are NOT compared: the analysis solver returns a sway of
-     * −0,43 mm along the mode with no lateral load at all — round-off,
-     * amplified through a pivot of 7e-17. Reactions carry no mode, and those
-     * must agree.
-     */
-    const r = solve3D(input) as never as { reactions: Array<Record<string, number>> };
-    const keys = ['fx', 'fy', 'fz'];
-    const scale = Math.max(...r.reactions.flatMap((x) => keys.map((k) => Math.abs(x[k]))));
-    for (const x of r.reactions) {
-      keys.forEach((k, ld) => {
-        const q = d.dofNumbering.dofs.find((y) => y.nodeId === x.nodeId && y.localDof === ld && !y.isFree);
-        if (!q) return;
-        const got = d.reactionsRaw[q.globalIndex - d.dofNumbering.nFree];
-        expect(Math.abs(got - x[k]) / scale, `${k}@${x.nodeId}`).toBeLessThan(1e-6);
-      });
-    }
+    expect(() => solve3D(input)).toThrow(/mechanism/);
   });
 });
 

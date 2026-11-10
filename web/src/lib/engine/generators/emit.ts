@@ -317,6 +317,9 @@ function support(id: number, s: GenSupport): JSONModel['supports'][number] {
   const nodeId = s.node + 1;
   if (s.type === 'fixed') return { id, nodeId, type: 'fixed3d' };
   if (s.type === 'pinned') return { id, nodeId, type: 'pinned3d' };
+  if (s.type === 'outOfPlane') {
+    return { id, nodeId, type: 'custom3d', dofRestraints: { tx: false, ty: true, tz: false, rx: true, ry: false, rz: true }, dofFrame: 'global' };
+  }
   if (s.type === 'forkPinned' || s.type === 'forkRollerX') {
     return {
       id, nodeId, type: 'custom3d',

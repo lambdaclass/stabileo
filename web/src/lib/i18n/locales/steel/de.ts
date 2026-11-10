@@ -135,6 +135,7 @@ const steelDe: Translations = {
   'generator.assume.webPinned': 'Pfosten und Diagonalen beidseitig gelenkig.',
   'generator.assume.webContinuous': 'Pfosten und Diagonalen durchlaufend.',
   'generator.assume.raftersContinuous': 'Riegel durchlaufend über den First.',
+  'generator.assume.planarRestraints': 'Ebenes Modell: Knoten sind aus der Ebene gehalten; Auflager halten auch die Verdrehung.',
   'generator.assume.supportsSimple': 'Einfach gelagert: ein festes und ein verschiebliches Auflager.',
   'generator.assume.baseFixed': 'Eingespannte Fußpunkte.',
   'generator.assume.baseChordsPinned': 'Jeder Gurt ist gelenkig an seiner eigenen Verankerung gelagert.',

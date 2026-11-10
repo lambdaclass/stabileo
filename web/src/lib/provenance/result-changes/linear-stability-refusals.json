@@ -18,6 +18,7 @@
   },
   "quantities": [
     "solve.ok",
+    "diagnosticCodes",
     {
       "quantity": "displacements.rz",
       "before": "24e63275a3345aeddfc2ad71b82681632ba27dbff47949a92a7535c82791a772",
