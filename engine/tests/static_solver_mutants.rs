@@ -12,6 +12,9 @@ const NU: f64 = 0.25;
 const L: f64 = 6.0;
 const P: [f64; 6] = [2.0, -3.0, 5.0, 0.7, -0.9, 1.1];
 const Q: [f64; 3] = [0.4, -0.6, 0.8];
+const THERMAL_DT: [f64; 3] = [7.0, 3.0, -5.0];
+const THERMAL_ALPHA: f64 = 0.000013;
+const THERMAL_DEPTH: [f64; 2] = [0.3, 0.2];
 const BASE: [f64; 6] = [0.002, -0.003, 0.004, -0.0005, 0.0006, -0.0007];
 
 fn close(actual: f64, expected: f64, scale: f64) {
@@ -524,4 +527,119 @@ fn fixed_warping_and_mapped_point_reactions() {
 fn fixed_warping_and_mapped_thermal_reactions() {
     check_fixed_member_loads("thermal", true);
     check_fixed_member_loads("thermal", false);
+}
+
+#[test]
+#[ignore = "known wrong result: #1925"]
+fn restrained_y_gradient_matches_mechanical_curvature_and_2d() {
+    for warping in [true, false] {
+        let mut thermal = fixed_members();
+        if !warping {
+            thermal.sections.get_mut("2").unwrap().cw = None;
+        }
+        let mut mechanical = thermal.clone();
+        for id in 1..=2 {
+            let factor = if id == 1 { 1.0 } else { -0.7 };
+            thermal
+                .loads
+                .push(SolverLoad3D::Thermal(SolverThermalLoad3D {
+                    element_id: id,
+                    dt_uniform: 0.0,
+                    dt_gradient_y: factor * THERMAL_DT[1],
+                    dt_gradient_z: 0.0,
+                    alpha: Some(THERMAL_ALPHA),
+                    depth_y: Some(THERMAL_DEPTH[0]),
+                    depth_z: Some(THERMAL_DEPTH[1]),
+                }));
+            let curvature = -factor * THERMAL_ALPHA * THERMAL_DT[1] / THERMAL_DEPTH[0];
+            let end = mechanical.supports.get_mut(&(2 * id).to_string()).unwrap();
+            end.dy = Some(curvature * L * L / 2.0);
+            end.drz = Some(curvature * L);
+        }
+        let thermal_result = prepare_static_3d(&thermal)
+            .unwrap()
+            .solve_loads(&thermal.loads)
+            .unwrap();
+        let mechanical_result = prepare_static_3d(&mechanical)
+            .unwrap()
+            .solve_loads(&[])
+            .unwrap();
+        assert_eq!(thermal_result.reactions.len(), 4);
+        assert_eq!(mechanical_result.reactions.len(), 4);
+        assert_eq!(thermal_result.element_forces.len(), 2);
+        assert_eq!(mechanical_result.element_forces.len(), 2);
+        for id in 1..=2 {
+            let factor = if id == 1 { 1.0 } else { -0.7 };
+            let mut plane = cantilever_2d(1, "direct");
+            plane.loads = vec![SolverLoad::Thermal(SolverThermalLoad {
+                element_id: 1,
+                dt_uniform: 0.0,
+                dt_gradient: factor * THERMAL_DT[1],
+                alpha: Some(THERMAL_ALPHA),
+                depth: Some(THERMAL_DEPTH[0]),
+            })];
+            plane.supports.clear();
+            for node_id in 1..=2 {
+                plane.supports.insert(
+                    node_id.to_string(),
+                    serde_json::from_value(serde_json::json!({
+                        "id": node_id, "nodeId": node_id, "type": "fixed"
+                    }))
+                    .unwrap(),
+                );
+            }
+            let plane_result = prepare_static_2d(&plane)
+                .unwrap()
+                .solve_loads(&plane.loads)
+                .unwrap();
+            assert_eq!(plane_result.reactions.len(), 2);
+            assert_eq!(plane_result.element_forces.len(), 1);
+            let moment =
+                factor * E * 1000.0 * IZ * THERMAL_ALPHA * THERMAL_DT[1] / THERMAL_DEPTH[0];
+            for node in 1..=2 {
+                let node_id = 2 * (id - 1) + node;
+                let t = thermal_result
+                    .reactions
+                    .iter()
+                    .find(|r| r.node_id == node_id)
+                    .unwrap();
+                let m = mechanical_result
+                    .reactions
+                    .iter()
+                    .find(|r| r.node_id == node_id)
+                    .unwrap();
+                let p = plane_result
+                    .reactions
+                    .iter()
+                    .find(|r| r.node_id == node)
+                    .unwrap();
+                close(t.mz, if node == 1 { moment } else { -moment }, 100.0);
+                for (actual, expected) in [t.fx, t.fy, t.fz, t.mx, t.my, t.mz]
+                    .into_iter()
+                    .zip([m.fx, m.fy, m.fz, m.mx, m.my, m.mz])
+                {
+                    close(actual, expected, 100.0);
+                }
+                close(t.fx, p.rx, 100.0);
+                close(t.fy, p.rz, 100.0);
+                close(t.mz, p.my, 100.0);
+            }
+            let t = thermal_result
+                .element_forces
+                .iter()
+                .find(|f| f.element_id == id)
+                .unwrap();
+            let m = mechanical_result
+                .element_forces
+                .iter()
+                .find(|f| f.element_id == id)
+                .unwrap();
+            let p = &plane_result.element_forces[0];
+            for actual in [
+                t.mz_start, t.mz_end, m.mz_start, m.mz_end, p.m_start, p.m_end,
+            ] {
+                close(actual, moment, 100.0);
+            }
+        }
+    }
 }

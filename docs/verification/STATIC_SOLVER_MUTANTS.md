@@ -87,6 +87,82 @@ recovery while remaining far below the nonzero load and settlement effects.
 Zero bimoments use an absolute bound of 1e-9. Tolerances were fixed before
 mutation replay and were not increased to pass a test.
 
+## PR #1925 review: restrained thermal moment sign
+
+The positive start `Mz` oracle is correct. The review assumes that positive
+`dtGradientY` heats the +y face, whereas the engine's documented convention is
+`dtGradientY = T(-y) - T(+y)` ([frames §6.2](../solver/frames.md#62-equivalent-nodal-loads)).
+The 2D `dtGradient` has the same definition. The 3D z gradient instead uses
+`dtGradientZ = T(+z) - T(-z)`. These definitions must precede any sign argument.
+
+### First-principles derivation
+
+Let v = uy, w = uz, gy = dtGradientY, gz = dtGradientZ and let hy, hz be the
+stated depths. From [frames §2.4](../solver/frames.md#24-local-dof-ordering-and-rotation-conventions),
+θz = v′, θy = -w′ and the total fibre strain is
+
+    epsilon = u′ - y*v″ - z*w″.
+
+For the specified linear temperature distribution,
+
+    deltaT(y,z) = dtUniform - gy*y/hy + gz*z/hz
+    epsilon_thermal = alpha*deltaT(y,z).
+
+A fully restrained straight member has zero total strain, so
+
+    sigma_x = E*(epsilon - epsilon_thermal)
+            = -E*alpha*dtUniform + E*alpha*gy*y/hy - E*alpha*gz*z/hz.
+
+The fixture uses centroidal principal axes. The reported moments act on the
+negative-x face ([frames §7.1](../solver/frames.md#71-end-forces)). Its axial
+traction is -sigma_x, so r × traction gives
+
+    Mz = integral(y*sigma_x dA) = +E*Iz*alpha*gy/hy
+    My = -integral(z*sigma_x dA) = +E*Iy*alpha*gz/hz.
+
+These are the start support couples. End support couples have the opposite
+sign; reported section moments have the same sign at both ends because
+recovery negates the end nodal couple. The axial start reaction is
++E*A*alpha*dtUniform, with the opposite end reaction. Using the synthetic
+fixture inputs, E converted to kN/m², the first member's start reactions are
+Fx = 3.36882 kN, My = -0.08021 kN·m and Mz = +0.048126 kN·m.
+The second member multiplies all three by -0.7.
+
+For mechanical bending alone, sigma_x = -E*y*v″ gives Mz = -E*Iz*v″.
+That agrees with this file's cantilever: positive tip Fy gives v″ > 0 and
+negative Mz. For restrained thermal loading with gy > 0, the mechanical strain
+is +alpha*gy*y/hy, equivalent to v″ = -alpha*gy/hy, so Mz is positive.
+If the +y face were hotter, gy would be negative and the review's negative
+start couple would follow. Applying that negative couple to positive gy would
+reverse the documented input convention.
+
+### Second method and 2D cross-check
+
+`restrained_y_gradient_matches_mechanical_curvature_and_2d` compares the
+fixed-fixed member's pure y-gradient response with an unheated member held at
+prescribed end movements. With κ = -alpha*gy/hy, impose
+
+    v(0) = θz(0) = 0
+    v(L) = κ*L²/2
+    θz(L) = κ*L.
+
+The cubic interpolation reduces exactly to v(x) = κ*x²/2, giving constant
+mechanical curvature and zero shear. Its end couples are -E*Iz*κ at I and
++E*Iz*κ at J. This calculation uses stiffness and prescribed-displacement
+reaction recovery, bypassing every thermal fixed-end-force helper. Both
+ends remain restrained; the support movements impose the mechanical stress
+state of the straight, thermally restrained member. Thus equal reactions and
+section moments are an independent check of the thermal load sign.
+
+The test compares all six 3D reaction components, both section moments, and
+the corresponding 2D reactions and section moments for positive and negative
+gradients. It covers warping and ordinary members in a mixed model, then an
+entirely ordinary model. The horizontal 2D plane maps its transverse DOF to
+3D uy and its rotational DOF to θz, as in this file's cantilever fixtures.
+No thermal helper supplies the expected values. The existing elements test
+`frame_thermal_inputs::a_positive_y_gradient_heats_the_minus_y_face_and_a_positive_z_gradient_the_plus_z_face`
+independently pins the free-cantilever hot-face convention.
+
 ## Verification method
 
 Following `~/projects/stabileo-wt/mutant-rules.md`, each selected historical
