@@ -127,7 +127,7 @@ function diagramShapes(m: GameModel, d: Diagram, S: number): { shapes: Shape[]; 
       shapes.push({ d: polyline([start, base(1)]), ink: 'ghost' }, { d: polyline(curve), ink: 'curve' });
       return;
     }
-    if (m.truss) {
+    if (m.allTruss) {
       const n = drawnOrdinate(m, e, tr.at(0.5), 'N');
       const zero = Math.abs(n) < 1e-6 * top;
       shapes.push({ d: polyline([start, base(1)]), ink: zero ? 'zero' : n > 0 ? 'tension' : 'compression', width: zero ? 1 : 2 + 6 * Math.abs(n) / top });
@@ -169,9 +169,9 @@ export function figure(m: GameModel, d: Diagram | null): Figure {
   const drawn = d ? diagramShapes(m, d, S) : { shapes: [], labels: [] };
   const labels = drawn.labels;
   shapes.push(...drawn.shapes);
-  if (!(d && m.truss)) m.elements.forEach(([i, j]) => shapes.push({ d: polyline([m.nodes[i] as Vec, m.nodes[j] as Vec]), ink: 'member' }));
+  if (!(d && m.allTruss)) m.elements.forEach(([i, j]) => shapes.push({ d: polyline([m.nodes[i] as Vec, m.nodes[j] as Vec]), ink: 'member' }));
   for (const s of m.supports) shapes.push({ d: supportShape(m, s.node, s.type, sym), ink: 'support' });
-  for (const n of m.truss ? m.nodes.map((_, k) => k) : m.hinges ?? []) {
+  for (const n of m.allTruss ? m.nodes.map((_, k) => k) : m.nodeHinges ?? []) {
     const [x, y] = m.nodes[n]!, r = 0.022 * S;
     shapes.push({ d: `M${fmt(x - r)} ${fmt(-y)} a${fmt(r)} ${fmt(r)} 0 1 0 ${fmt(2 * r)} 0 a${fmt(r)} ${fmt(r)} 0 1 0 ${fmt(-2 * r)} 0`, ink: 'hinge' });
   }

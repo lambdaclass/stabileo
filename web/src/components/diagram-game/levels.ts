@@ -105,7 +105,7 @@ const gerber: Template = {
   id: 'gerber',
   params: { values: { L: span, b: { min: 2, max: 4, step: 0.5 }, q: line } },
   model: {
-    nodes: [[0, 0], ['L', 0], ['L+b', 0]], elements: [[0, 1], [1, 2]], hinges: [1],
+    nodes: [[0, 0], ['L', 0], ['L+b', 0]], elements: [[0, 1], [1, 2]], nodeHinges: [1],
     supports: [{ node: 0, type: 'fixed' }, { node: 2, type: 'rollerX' }],
     distributedLoads: [{ element: 0, qI: '-q' }, { element: 1, qI: '-q' }],
   },
@@ -115,7 +115,7 @@ const gerberOverhang: Template = {
   id: 'gerber-overhang',
   params: { values: { L: span, c: { min: 1, max: 2, step: 0.5 }, b: { min: 3, max: 5, step: 1 }, q: line } },
   model: {
-    nodes: [[0, 0], ['L', 0], ['L+c', 0], ['L+c+b', 0]], elements: [[0, 1], [1, 2], [2, 3]], hinges: [2],
+    nodes: [[0, 0], ['L', 0], ['L+c', 0], ['L+c+b', 0]], elements: [[0, 1], [1, 2], [2, 3]], nodeHinges: [2],
     supports: [{ node: 0, type: 'pinned' }, { node: 1, type: 'rollerX' }, { node: 3, type: 'rollerX' }],
     distributedLoads: [{ element: 0, qI: '-q' }, { element: 1, qI: '-q' }, { element: 2, qI: '-q' }],
   },
@@ -179,7 +179,7 @@ const triangleTruss: Template = {
   id: 'truss-triangle',
   params: { values: { B: span, H: { min: 2, max: 4, step: 0.5 }, P: force, F: { min: 0, max: 20, step: 10 } } },
   model: {
-    truss: true, nodes: [[0, 0], ['B', 0], ['B/2', 'H']], elements: [[0, 1], [1, 2], [0, 2]],
+    allTruss: true, nodes: [[0, 0], ['B', 0], ['B/2', 'H']], elements: [[0, 1], [1, 2], [0, 2]],
     supports: [{ node: 0, type: 'pinned' }, { node: 1, type: 'rollerX' }], nodalLoads: [{ node: 2, fy: '-P', fx: 'F' }],
   },
   kinds: ['N'],
@@ -189,7 +189,7 @@ const pratt: Template = {
   id: 'truss-pratt',
   params: { values: { p: panel, H: { min: 2, max: 3, step: 0.5 }, A: { min: 0, max: 20, step: 10 }, C: { min: 10, max: 30, step: 10 }, D: { min: 0, max: 20, step: 10 } } },
   model: {
-    truss: true,
+    allTruss: true,
     nodes: [[0, 0], ['p', 0], ['2*p', 0], ['3*p', 0], ['4*p', 0], ['p', 'H'], ['2*p', 'H'], ['3*p', 'H']],
     elements: [[0, 1], [1, 2], [2, 3], [3, 4], [5, 6], [6, 7], [1, 5], [2, 6], [3, 7], [0, 5], [7, 4], [5, 2], [2, 7]],
     supports: [{ node: 0, type: 'pinned' }, { node: 4, type: 'rollerX' }],
@@ -201,7 +201,7 @@ const bracket: Template = {
   id: 'truss-bracket',
   params: { values: { p: panel, H: { min: 2, max: 3, step: 0.5 }, P: force, Q: { min: 0, max: 20, step: 10 } } },
   model: {
-    truss: true,
+    allTruss: true,
     nodes: [[0, 0], [0, 'H'], ['p', 0], ['p', 'H'], ['2*p', 0]],
     elements: [[0, 2], [2, 4], [1, 3], [3, 4], [2, 3], [1, 2]],
     supports: [{ node: 0, type: 'pinned' }, { node: 1, type: 'pinned' }],

@@ -51,7 +51,7 @@ export function diagramOf(s: Solved, kind: DiagramKind): Diagram {
     }
     const [i, j] = m.elements[e]!;
     const di = s.displacements[i]!, dj = s.displacements[j]!;
-    if (m.truss) return { at: (t) => [di.ux + t * (dj.ux - di.ux), di.uz + t * (dj.uz - di.uz)], breaks: [] };
+    if (m.allTruss) return { at: (t) => [di.ux + t * (dj.ux - di.ux), di.uz + t * (dj.uz - di.uz)], breaks: [] };
     const points = ef.pointLoads.map((p) => ({ a: p.a, p: p.p }));
     return {
       at: (t) => {

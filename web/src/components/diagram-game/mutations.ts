@@ -148,14 +148,14 @@ const MUTATORS: Record<PhysicalTag, (m: GameModel, next: () => number) => GameMo
     return m;
   },
   hingeToggled(m, next) {
-    if (m.truss) return null;
-    if (m.hinges?.length) {
-      m.hinges.splice(Math.floor(next() * m.hinges.length), 1);
+    if (m.allTruss) return null;
+    if (m.nodeHinges?.length) {
+      m.nodeHinges.splice(Math.floor(next() * m.nodeHinges.length), 1);
       return m;
     }
     const k = pick(m.nodes.map((_, k) => k).filter((k) => membersAt(m, k).length >= 2), next);
     if (k === undefined) return null;
-    m.hinges = [k];
+    m.nodeHinges = [k];
     return m;
   },
   rollerTurned(m, next) {
@@ -197,7 +197,7 @@ function releasedEnds(ctx: MutationContext): Array<{ e: number; end: 0 | 1 }> {
     for (const [end, node] of [[0, i], [1, j]] as const) {
       if (norm(ctx.correct.traces[e]!.at(end)) > 1e-6 * ref) continue;
       const s = supportAt(m, node);
-      const hinge = m.hinges?.includes(node);
+      const hinge = m.nodeHinges?.includes(node);
       const free = !s && membersAt(m, node).length === 1;
       const pin = s && s.type !== 'fixed' && membersAt(m, node).length === 1;
       if (hinge || free || pin) out.push({ e, end });
@@ -293,7 +293,7 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
     };
   },
   inflectionMisplaced: (ctx) => {
-    if (ctx.kind !== 'D' || ctx.solved.model.truss) return null;
+    if (ctx.kind !== 'D' || ctx.solved.model.allTruss) return null;
     const changes = ctx.solved.forces.some((ef) => {
       const vs = Array.from({ length: 21 }, (_, k) => forceValue('M', ef, k / 20));
       const big = Math.max(...vs.map(Math.abs));
@@ -323,7 +323,7 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
     };
   },
   memberSignFlipped: (ctx) => {
-    if (!ctx.solved.model.truss) return null;
+    if (!ctx.solved.model.allTruss) return null;
     const ref = peak(sampleDiagram(ctx.correct));
     const loaded = ctx.correct.traces.map((tr, e) => ({ e, v: norm(tr.at(0.5)) })).filter((x) => x.v > 0.1 * ref).map((x) => x.e);
     if (loaded.length < 2) return null;
@@ -333,7 +333,7 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
     return { kind: 'N', traces: ctx.correct.traces.map((tr, e) => flipped.has(e) ? { breaks: [], at: (t) => scale(tr.at(t), -1) } : tr) };
   },
   zeroForceLoaded: (ctx) => {
-    if (!ctx.solved.model.truss) return null;
+    if (!ctx.solved.model.allTruss) return null;
     const ref = peak(sampleDiagram(ctx.correct));
     const zero = ctx.correct.traces.map((tr, e) => ({ e, v: norm(tr.at(0.5)) })).filter((x) => x.v < 1e-6 * ref).map((x) => x.e);
     if (!zero.length) return null;
@@ -349,7 +349,7 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
     };
   },
   loadedShownZero: (ctx) => {
-    if (!ctx.solved.model.truss) return null;
+    if (!ctx.solved.model.allTruss) return null;
     const ref = peak(sampleDiagram(ctx.correct));
     const loaded = ctx.correct.traces.map((tr, e) => ({ e, v: norm(tr.at(0.5)) })).filter((x) => x.v > 0.2 * ref && x.v < 0.999 * ref).map((x) => x.e);
     const chosen = new Set([pick(loaded, ctx.next), pick(loaded, ctx.next)].filter((e): e is number => e !== undefined));

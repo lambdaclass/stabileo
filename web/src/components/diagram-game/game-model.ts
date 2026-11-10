@@ -18,14 +18,14 @@ export interface PointLoad {
 export interface GameModel extends ModelSpec {
   pointLoads?: PointLoad[];
   /** Node indices with an internal hinge. */
-  hinges?: number[];
-  truss?: boolean;
+  nodeHinges?: number[];
+  allTruss?: boolean;
 }
 
 export interface GameTemplateModel extends ParametricModelSpec {
   pointLoads?: Array<{ element: number; a: Expr; p?: Expr; m?: Expr }>;
-  hinges?: number[];
-  truss?: boolean;
+  nodeHinges?: number[];
+  allTruss?: boolean;
 }
 
 export function resolveGameModel(model: GameTemplateModel, v: Variant): GameModel {
@@ -38,8 +38,8 @@ export function resolveGameModel(model: GameTemplateModel, v: Variant): GameMode
       return r;
     });
   }
-  if (model.hinges) out.hinges = [...model.hinges];
-  if (model.truss) out.truss = true;
+  if (model.nodeHinges) out.nodeHinges = [...model.nodeHinges];
+  if (model.allTruss) out.allTruss = true;
   return out;
 }
 
@@ -62,7 +62,7 @@ export function memberSign(m: GameModel, e: number): 1 | -1 {
 /** Ends released by a hinge: at each hinged node every frame end but the first is freed. */
 function hingeFlags(m: GameModel): Array<[boolean, boolean]> {
   const flags = m.elements.map((): [boolean, boolean] => [false, false]);
-  for (const node of m.hinges ?? []) {
+  for (const node of m.nodeHinges ?? []) {
     let kept = false;
     m.elements.forEach(([i, j], e) => {
       for (const [end, n] of [[0, i], [1, j]] as const) {
@@ -79,8 +79,8 @@ export function toSolverInput(m: GameModel): SolverInput {
   const flags = hingeFlags(m);
   const nodes: SolverInput['nodes'] = new Map(m.nodes.map(([x, y], k) => [k + 1, { id: k + 1, x, z: y }]));
   const elements: SolverInput['elements'] = new Map(m.elements.map(([i, j], e) => [e + 1, {
-    id: e + 1, type: m.truss ? 'truss' : 'frame', nodeI: i + 1, nodeJ: j + 1, materialId: 1, sectionId: 1,
-    hingeStart: !m.truss && flags[e]![0], hingeEnd: !m.truss && flags[e]![1],
+    id: e + 1, type: m.allTruss ? 'truss' : 'frame', nodeI: i + 1, nodeJ: j + 1, materialId: 1, sectionId: 1,
+    hingeStart: !m.allTruss && flags[e]![0], hingeEnd: !m.allTruss && flags[e]![1],
   }]));
   const supports: SolverInput['supports'] = new Map(m.supports.map((s, k) => [k + 1, {
     id: k + 1, nodeId: s.node + 1, type: s.type === 'rollerY' ? 'rollerZ' : s.type === 'rollerZ' ? 'rollerZ' : s.type === 'spring' ? 'pinned' : s.type,
