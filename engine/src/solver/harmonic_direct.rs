@@ -132,6 +132,57 @@ mod tests {
     use crate::solver::damping::rayleigh_damping_matrix;
     use crate::solver::harmonic::solve_complex_system;
 
+    fn structural_resonance(sparse: bool) {
+        for scale in [1e7_f64, 1e9, 1e12] {
+            let k = [2.0 * scale, -scale, -scale, 2.0 * scale];
+            let m = [1.0, 0.0, 0.0, 1.0];
+            let f = [1.0, 1.0];
+            let omega = scale.sqrt();
+            let result = if sparse {
+                solve(&CscMatrix::from_dense_symmetric(&k, 2), &CscMatrix::from_dense_symmetric(&m, 2), &f, (0.0, 0.0), omega)
+            } else {
+                solve_complex_system(&k, &m, &[0.0; 4], &f, 2, omega)
+            };
+            assert!(result.is_err(), "scale={scale:e}, sparse={sparse}: {result:?}");
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1434"]
+    fn dense_structural_scale_undamped_resonance_is_refused() {
+        structural_resonance(false);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1434"]
+    fn sparse_structural_scale_undamped_resonance_is_refused() {
+        structural_resonance(true);
+    }
+
+    #[test]
+    fn structural_scale_damped_near_resonance_matches_closed_form() {
+        for scale in [1e7_f64, 1e9, 1e12] {
+            let k = [2.0 * scale, -scale, -scale, 2.0 * scale];
+            let m = [1.0, 0.0, 0.0, 1.0];
+            let f = [1.0, 1.0];
+            let omega = scale.sqrt() * (1.0 + 1e-6);
+            let damping = (0.2, 0.0);
+            let c = rayleigh_damping_matrix(&m, &k, 2, damping.0, damping.1);
+            let real = scale - omega * omega;
+            let imag = omega * damping.0;
+            let denom = real * real + imag * imag;
+            let expected = (real / denom, -imag / denom);
+            for (re, im) in [
+                solve_complex_system(&k, &m, &c, &f, 2, omega).unwrap(),
+                solve(&CscMatrix::from_dense_symmetric(&k, 2), &CscMatrix::from_dense_symmetric(&m, 2), &f, damping, omega).unwrap(),
+            ] {
+                for i in 0..2 {
+                    assert!((re[i] - expected.0).hypot(im[i] - expected.1) <= 1e-10 * expected.0.hypot(expected.1), "scale={scale:e}: {re:?} {im:?} vs {expected:?}");
+                }
+            }
+        }
+    }
+
     #[test]
     fn sparse_full_system_matches_dense_with_coupling_pivoting_and_resonance() {
         let k = [2.0, -1.0, 0.0, -1.0, 2.0, -1.0, 0.0, -1.0, 2.0];
