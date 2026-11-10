@@ -5,12 +5,16 @@
   import { explainAnswer } from './exam-explain';
   import { formatWhen } from './exam-time';
   import { handOffSteps } from './exam-steps-handoff';
+  import { initSolver, isSolverReady } from '../../lib/engine/wasm-solver';
 
   interface Props { session: ExamSession; onleave: () => void }
   let { session, onleave }: Props = $props();
 
+  let engineReady = $state(isSolverReady());
+  $effect(() => { if (!engineReady) void initSolver().then(() => { engineReady = true; }); });
+
   const attempt = $derived(session.attempt);
-  const grade = $derived(attempt?.reveal_allowed && session.spec ? gradeAttempt(session.spec, attempt.seed, attempt.answers) : null);
+  const grade = $derived(engineReady && attempt?.reveal_allowed && session.spec ? gradeAttempt(session.spec, attempt.seed, attempt.answers) : null);
   const pct = $derived(grade ? Math.round(grade.fraction * 100) : 0);
 
   $effect(() => {
@@ -34,6 +38,8 @@
   {#if !attempt?.reveal_allowed}
     <p data-testid="exam-results-later">{attempt?.closes_at ? tp('exam.resultsLater', { when: formatWhen(attempt.closes_at) }) : t('exam.resultsLaterNoDate')}</p>
     <button class="ghost" onclick={() => session.refresh()} disabled={session.busy}>{t('exam.refresh')}</button>
+  {:else if !engineReady}
+    <p role="status">{t('exam.loading')}</p>
   {:else if grade}
     <p class="score" data-testid="exam-score" data-correct={grade.correct} data-total={grade.total}>
       {tp('exam.score', { correct: grade.correct, total: grade.total, pct })}

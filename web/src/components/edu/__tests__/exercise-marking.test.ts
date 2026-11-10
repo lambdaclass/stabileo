@@ -94,10 +94,16 @@ describe('the teacher marks against the student\'s own variant', () => {
     }
   });
 
-  it('an answer the old file carried without a key keeps its recorded verdict', () => {
+  it('an answer that cannot be marked again earns nothing, whatever the file says, and keeps what it said', () => {
     const sub = rightAnswersFor('4004');
-    sub.answers = [{ label: 'old', answer: '1', outcome: 'incorrect' }];
-    expect(remarkSubmission(spec(), sub)!.answers[0]).toMatchObject({ outcome: 'incorrect', recorded: 'incorrect' });
+    sub.answers = [
+      { label: 'old', answer: '1', outcome: 'correct' },
+      { key: 'sk:0', label: 'sketch', answer: '', outcome: 'correct' },
+      { key: 'c:0', label: 'revealed', answer: '', outcome: 'correct', revealed: true },
+    ];
+    expect(remarkSubmission(spec(), sub)!.answers.map((a) => [a.outcome, a.recorded])).toEqual([
+      ['pending', 'correct'], ['pending', 'correct'], ['incorrect', 'correct'],
+    ]);
   });
 
   it('cannot rebuild a parametric variant from nothing', () => {

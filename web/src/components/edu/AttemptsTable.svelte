@@ -8,6 +8,7 @@
   import type { EduExerciseSpec } from './exercise-spec';
   import { exerciseFromEnvelope, gradeAttempt, gradesCsv, type Grade } from './exam-grading';
   import { formatWhen } from './exam-time';
+  import { initSolver } from '../../lib/engine/wasm-solver';
   import SubmissionReview from './SubmissionReview.svelte';
 
   interface Props { assignment: Assignment }
@@ -38,6 +39,7 @@
         all.push(...page.data);
         if (page.data.length === 0 || all.length >= page.meta.total) break;
       }
+      await initSolver();
       rows = all.map((a) => ({
         attempt: a,
         status: statusOf(a),

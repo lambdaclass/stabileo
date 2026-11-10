@@ -81,7 +81,14 @@ export function buildFromSpec(model: ModelSpec, api: EduExerciseAPI): void {
   const truss = new Set(model.truss ?? []);
   const elementIds = model.elements.map(([i, j], k) =>
     truss.has(k) ? api.addElement(nodeIds[i], nodeIds[j], 'truss') : api.addElement(nodeIds[i], nodeIds[j]));
-  for (const h of model.hinges ?? []) api.addHinge?.(elementIds[h.element], h.end);
+  // addHinge toggles, so each element end is applied once, and never on a truss bar (already pinned at both ends).
+  const hinged = new Set<string>();
+  for (const h of model.hinges ?? []) {
+    const key = `${h.element}:${h.end}`;
+    if (truss.has(h.element) || hinged.has(key)) continue;
+    hinged.add(key);
+    api.addHinge?.(elementIds[h.element], h.end);
+  }
   for (const s of model.supports) api.addSupport(nodeIds[s.node], s.type);
   for (const l of model.nodalLoads ?? []) {
     api.addNodalLoad(nodeIds[l.node], l.fx ?? 0, l.fy ?? 0, l.mz);
