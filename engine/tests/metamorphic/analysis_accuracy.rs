@@ -1471,3 +1471,33 @@ fn issue_1892_final_round_reported_sample_must_match_the_trace() {
         assert!(time_errors(&dof, &asm, Some(&cs), &trace, &eigen, &unit_conditioning(), &mut response, translations).is_err());
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_last_round_axial_recovery_cannot_buy_a_buckling_allowance() {
+    use dedaliano_engine::solver::geometric_stiffness::KgAffineTerm;
+    for translations in [2, 3] {
+        let (dof, asm, mut linear) = unit_static_system(translations);
+        linear.0[0].v.fill(0.0);
+        linear.0[0].v[0] = 1.0;
+        let terms = [KgAffineTerm {
+            element_id: 1, dofs: vec![0], g: vec![1.0], elongation: vec![(0, 1.0)],
+            e: 1.0, a: 1.0, l: 1.0, alpha: 0.0, dt: 0.0,
+        }];
+        let cond = unit_conditioning();
+        let certify = |mean| {
+            let mean_n = [(1, mean)].into();
+            let b_error = geometric_error(&dof, &asm, None, &linear, &terms, &mean_n, translations, &cond, 0.0)?;
+            let mut r = Resp::default();
+            r.scalar("lambda0", Dim::NONE, 1.0 / mean);
+            buckling_errors(vec![1.0], vec![mean], b_error, 1, cond.rel(), &mut r)?;
+            Ok::<_, String>(r)
+        };
+        let correct = certify(1.0).unwrap();
+        assert!(correct.0[0].error.is_finite());
+        for mean in [2.0, 1.0 + 1e-6] {
+            let result = certify(mean);
+            assert!(result.is_err(), "{translations}D wrong axial recovery {mean:e} certified: {result:?}");
+        }
+    }
+}

@@ -885,3 +885,13 @@ fn final_round_nan_modal_residual_rejects_comparison() {
 fn issue_1892_final_round_missing_harmonic_estimate_adds_no_allowance() {
     assert_eq!(harmonic_floor(None, 1.0, (0.1, 0.1), 1e-10, 1e-10, 0.0), 0.0);
 }
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_last_round_missing_accuracy_still_validates_modal_residual() {
+    for residual in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0, f64::MAX] {
+        assert_eq!(harmonic_floor(None, 1.0, (0.1, 0.1), 1e-10, 1e-10, residual), f64::INFINITY,
+            "invalid modal residual {residual:?} bypassed integrity validation");
+    }
+    assert_eq!(harmonic_floor(None, 1.0, (0.1, 0.1), 1e-10, 1e-10, 0.0), 0.0);
+}
