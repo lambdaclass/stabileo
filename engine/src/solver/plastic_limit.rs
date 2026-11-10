@@ -645,6 +645,24 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
     Err("the limit analysis did not settle the moment peaks".into())
 }
 
+/// The public 2D limit analysis (WASM `plastic_limit_2d`): `limit_analysis_2d_input`, released only
+/// where the exact plastic certificate's static and kinematic bounds meet at its factor
+/// (`Confirmation::Exact`: both within 1e-6 of it, in rational arithmetic, sharing nothing with
+/// the linear program). Anything else keeps the PL-2D-INVARIANCE refusal (#758): a factor the
+/// certificate contradicts, brackets loosely or cannot judge (constraints, connectors, a support
+/// that restrains only the rotation, more than 100 members), and every input the limit analysis
+/// refuses. The other known issues of a 2D plastic result apply as they are.
+pub fn certified_limit_2d(input: &LimitInput) -> Result<LimitResult, String> {
+    use crate::known_issues::{for_2d, refuse, Analysis};
+    let mut diagnostics = for_2d(&input.solver, Analysis::Plastic);
+    let result = limit_analysis_2d_input(input);
+    if matches!(&result, Ok(r) if r.confirmation == Confirmation::Exact && r.lambda.is_finite() && r.lambda > 0.0) {
+        diagnostics.retain(|d| d.phase.as_deref() != Some("PL-2D-INVARIANCE"));
+    }
+    refuse(&diagnostics)?;
+    result
+}
+
 /// `limit_analysis_2d` from its JSON input.
 pub fn limit_analysis_2d_input(input: &LimitInput) -> Result<LimitResult, String> {
     let parse = |m: &HashMap<String, f64>| -> Result<HashMap<usize, f64>, String> {
