@@ -55,8 +55,10 @@ export const SUMMARIES: Record<string, Summary> = {
     es: 'Propone la combinación cuadrática completa para reducir los errores de combinación modal en el análisis por espectro de respuesta; el método se aproxima a SRSS cuando las frecuencias naturales están bien separadas.',
     pt: 'Propõe a combinação quadrática completa para reduzir os erros de combinação modal na análise por espectro de resposta; o método se aproxima da SRSS quando as frequências naturais estão bem separadas.',
   },
+
 };
 
+/** A catalogue summary in `locale`, or the papers.yaml text when it has no translation there. */
 export function summaryIn(paper: { id: string; summary?: string | null }, locale: string): string {
   const own = SUMMARIES[paper.id];
   if (own && own.en === paper.summary && (locale === 'es' || locale === 'pt')) return own[locale];

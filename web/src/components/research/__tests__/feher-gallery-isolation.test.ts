@@ -7,12 +7,9 @@ afterEach(() => {
   vi.doUnmock('../summaries');
 });
 
-it.each([
-  '#1886: the gallery renders without loading the Fehér article dictionaries',
-  'the gallery renders without loading the bent-strip article dictionaries',
-])('%s', async () => {
+it('the gallery renders without loading the bent-strip article dictionaries', async () => {
   vi.doMock(detailStrings, () => {
-    throw new Error('The gallery loaded the Fehér article dictionaries');
+    throw new Error('The gallery loaded the bent-strip article dictionaries');
   });
   vi.doMock('../summaries', () => {
     throw new Error('The gallery loaded summaries for runnable papers');

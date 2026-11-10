@@ -103,10 +103,7 @@ it('names each thumbnail link by its localized card title and keeps the image de
   }
 });
 
-it.each([
-  '#1886: the Fehér card shows its own localized lead',
-  'the bent-strip card shows its own localized lead',
-])('%s', async () => {
+it('the bent-strip card shows its own localized lead', async () => {
   const { translations } = await import('../feher2026/strings');
   for (const locale of ['en', 'es', 'pt']) {
     setLocale(locale);

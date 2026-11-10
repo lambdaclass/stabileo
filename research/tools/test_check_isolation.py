@@ -10,7 +10,6 @@ spec.loader.exec_module(isolation)
 
 
 class Isolation(unittest.TestCase):
-    @unittest.skip("known wrong result: #1886")
     def test_issue_1886_product_sources_obey_research_isolation(self):
         root = pathlib.Path(__file__).resolve().parents[2]
         self.assertEqual(isolation.check(root), [])
