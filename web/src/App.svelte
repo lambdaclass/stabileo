@@ -576,7 +576,7 @@
   const initialPublicRoute = routeKind();
   const initialShell = publicShell();
   let showLanding = $state(initialShell.kind === 'landing');
-  let showExperiment = $state(['research', 'tools', 'examples'].includes(initialPublicRoute.kind));
+  let showExperiment = $state(['research', 'tools', 'examples', 'game'].includes(initialPublicRoute.kind));
   let showPaper = $state(initialPublicRoute.kind === 'paper');
   let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
   let publicRevision = 0;
@@ -627,7 +627,7 @@
       if (token === publicRevision) location.reload();
       return;
     }
-    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples';
+    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples' || next.kind === 'game';
     showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
     showBlog = shell.kind === 'blog';
