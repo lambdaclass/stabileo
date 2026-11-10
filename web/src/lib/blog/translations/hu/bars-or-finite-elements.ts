@@ -2,7 +2,7 @@ import type { PostBody } from '../../types';
 
 const body: PostBody = {
   "title": "Rúdelemek vagy végeselemek? Két modell, nem két módszer",
-  "excerpt": "Prizmatikus rúdra a merevségi módszer a végeselem-módszer pontos különleges esete. Ami változik, az a modell, és magas gerendánál a rúdmodell 19–34%-kal kisebb lehajlást ad.",
+  "excerpt": "Prizmatikus rúdra a merevségi módszer a végeselem-módszer pontos különleges esete. Ami változik, az a modell, és magas gerendánál a rúdmodell 19–34 %-kal kisebb lehajlást ad.",
   "blocks": [
     {
       "k": "p",
@@ -94,41 +94,41 @@ const body: PostBody = {
           "0,30",
           "12,500",
           "12,567",
-          "0,5%"
+          "0,5 %"
         ],
         [
           "10",
           "0,60",
           "1,5625",
           "1,5961",
-          "2,1%"
+          "2,1 %"
         ],
         [
           "5",
           "1,20",
           "0,19531",
           "0,21206",
-          "7,9%"
+          "7,9 %"
         ],
         [
           "3",
           "2,00",
           "0,042188",
           "0,052145",
-          "19,1%"
+          "19,1 %"
         ],
         [
           "2",
           "3,00",
           "0,012500",
           "0,019017",
-          "34,3%"
+          "34,3 %"
         ]
       ]
     },
     {
       "k": "p",
-      "t": "L/h = 10-nél, egy szokványos gerendánál az eltérés 2%. L/h = 5-nél majdnem 8%. L/h = 3-nál a rúdmodell 19%-kal kisebb lehajlást ad, L/h = 2-nél pedig egyharmadával kisebbet."
+      "t": "L/h = 10-nél, egy szokványos gerendánál az eltérés 2 %. L/h = 5-nél majdnem 8 %. L/h = 3-nál a rúdmodell 19 %-kal kisebb lehajlást ad, L/h = 2-nél pedig egyharmadával kisebbet."
     },
     {
       "k": "quote",
@@ -170,7 +170,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "L/h = 3-nál ez a tag 0,0108 mm; az Euler–Bernoulli-féle 0,0422 mm-hez hozzáadva 0,0530 mm-t ad. A héj 0,0521 mm-t ad, Timoshenko és Goodier zárt alakú síkbeli rugalmasságtani megoldása pedig 0,0523 mm-t. A nyírást figyelembe vevő három válasz 2%-on belül egyezik. Az, amelyik elhanyagolja, 19%-kal alulbecsül."
+      "t": "L/h = 3-nál ez a tag 0,0108 mm; az Euler–Bernoulli-féle 0,0422 mm-hez hozzáadva 0,0530 mm-t ad. A héj 0,0521 mm-t ad, Timoshenko és Goodier zárt alakú síkbeli rugalmasságtani megoldása pedig 0,0523 mm-t. A nyírást figyelembe vevő három válasz 2 %-on belül egyezik. Az, amelyik elhanyagolja, 19 %-kal alulbecsül."
     },
     {
       "k": "note",
@@ -238,11 +238,11 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Egy 4 m hosszú és 3 m magas, egyszintes fal rúdelemmel modellezve 2,2-szer merevebbnek adódik. Egy 3 m hosszú és 9 m magas, háromszintes fal csak 8%-kal merevebb. Az eltérés a zömök falaknál számít a legtöbbet."
+      "t": "Egy 4 m hosszú és 3 m magas, egyszintes fal rúdelemmel modellezve 2,2-szer merevebbnek adódik. Egy 3 m hosszú és 9 m magas, háromszintes fal csak 8 %-kal merevebb. Az eltérés a zömök falaknál számít a legtöbbet."
     },
     {
       "k": "p",
-      "t": "Ez pedig megváltoztatja a nyíróerő megoszlását. Vegyünk két falat ugyanabban a vonalban, az egyik 4 m, a másik 2 m hosszú, mindkettő 3 m magas, és a födém köti össze őket. Rúdelemekkel a rövid fal a nyíróerő 11,1%-át kapja. Héjakkal 17,6%-át, 58%-kal többet, mint amit a rúdmodell előre jelez. Azt a többletterhet, amelyet a rúdmodell a hosszú falra rak, a rövidtől veszi el, így azt kisebb nyíróerőre méretezik, mint amit valójában viselni fog."
+      "t": "Ez pedig megváltoztatja a nyíróerő megoszlását. Vegyünk két falat ugyanabban a vonalban, az egyik 4 m, a másik 2 m hosszú, mindkettő 3 m magas, és a födém köti össze őket. Rúdelemekkel a rövid fal a nyíróerő 11,1 %-át kapja. Héjakkal 17,6 %-át, 58 %-kal többet, mint amit a rúdmodell előre jelez. Azt a többletterhet, amelyet a rúdmodell a hosszú falra rak, a rövidtől veszi el, így azt kisebb nyíróerőre méretezik, mint amit valójában viselni fog."
     },
     {
       "k": "h",
@@ -267,7 +267,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Az érvelés másik fele ugyanilyen fontos. Az első sor karcsú gerendájánál, L/h = 20-nál a rúdelemek és a héjak 0,5%-kal térnek el. Ez nem nulla, mert a nyírás mindig jelen van, de elhanyagolható. És így is kell lennie: ha a két modell egy karcsú rúdnál nem egyezik, először a végeselemes modellt ellenőrizze, különösen a hálót."
+      "t": "Az érvelés másik fele ugyanilyen fontos. Az első sor karcsú gerendájánál, L/h = 20-nál a rúdelemek és a héjak 0,5 %-kal térnek el. Ez nem nulla, mert a nyírás mindig jelen van, de elhanyagolható. És így is kell lennie: ha a két modell egy karcsú rúdnál nem egyezik, először a végeselemes modellt ellenőrizze, különösen a hálót."
     },
     {
       "k": "note",
@@ -295,7 +295,7 @@ const body: PostBody = {
       "base": "blog/deep-beam-shell",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo PRO, Analízis munkaterület, a 6 m-es, 2 m magas gerenda héjelemekből álló falként modellezve és kiszámítva. Az eredménypanel 225 elmozdulást és 192 héjfeszültséget sorol fel; az Eredményellenőrzések alatt energianormában körülbelül 11%-ra becsüli a diszkretizációs hibát, és kéri a háló finomítását vagy a konvergenciavizsgálat futtatását, mielőtt az eredményeket felhasználnák.",
+      "alt": "Stabileo PRO, Analízis munkaterület, a 6 m-es, 2 m magas gerenda héjelemekből álló falként modellezve és kiszámítva. Az eredménypanel 225 elmozdulást és 192 héjfeszültséget sorol fel; az Eredményellenőrzések alatt energianormában körülbelül 11 %-ra becsüli a diszkretizációs hibát, és kéri a háló finomítását vagy a konvergenciavizsgálat futtatását, mielőtt az eredményeket felhasználnák.",
       "caption": "A lenti héjmodell kiszámítva: az alkalmazás megbecsüli a saját hálóhibáját, és jelzi, ha a háló túl durva ahhoz, hogy megbízzunk benne."
     },
     {
@@ -323,7 +323,7 @@ const body: PostBody = {
       "items": [
         "Prizmatikus rúdra a merevségi módszer a végeselemek pontos különleges esete. Amit választ, az a modell.",
         "Egy egyenes rúdnak nem kell háló. Ha a felosztása megváltoztatja az eredményt, valami más a hiba.",
-        "L/h ≈ 5 alatt a rúdmodell több mint 8%-kal alulbecsüli a lehajlást, 3 alatt több mint 19%-kal. A gerendát mindig merevebbnek veszi.",
+        "L/h ≈ 5 alatt a rúdmodell több mint 8 %-kal alulbecsüli a lehajlást, 3 alatt több mint 19 %-kal. A gerendát mindig merevebbnek veszi.",
         "Határozatlan szerkezetben ez a hiba megváltoztatja a terhek megoszlását. A zömök falakat a gerendák előtt ellenőrizze.",
         "A gombafödémek, az áttöréses falak és a támaszok közelében működő terhek olyan kérdéseket vetnek fel, amelyekre egy rúdmodell nem tud válaszolni.",
         "Ahol a rúd karcsú, a két modellnek egyeznie kell. Ha nem egyezik, ellenőrizze a hálót."

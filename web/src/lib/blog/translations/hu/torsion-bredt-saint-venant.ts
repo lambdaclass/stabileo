@@ -2,7 +2,7 @@ import type { PostBody } from '../../types';
 
 const body: PostBody = {
   "title": "Bredt vagy Saint-Venant: melyik csavaráselmélet érvényes, és mibe kerül a rossz választás",
-  "excerpt": "Három képlet, egy keresztmetszet, három különböző szám. Hogy melyik érvényes, az a faltól függ; ahol egyszerre kettő is érvényes, ott Bredt 2–15%-kal alulbecsül.",
+  "excerpt": "Három képlet, egy keresztmetszet, három különböző szám. Hogy melyik érvényes, az a faltól függ; ahol egyszerre kettő is érvényes, ott Bredt 2–15 %-kal alulbecsül.",
   "blocks": [
     {
       "k": "p",
@@ -50,31 +50,31 @@ const body: PostBody = {
           "0,05",
           "2,5 mm-es fal",
           "0,976",
-          "2,4%"
+          "2,4 %"
         ],
         [
           "0,10",
           "5,0 mm-es fal",
           "0,955",
-          "4,5%"
+          "4,5 %"
         ],
         [
           "0,20",
           "10,0 mm-es fal",
           "0,918",
-          "8,2%"
+          "8,2 %"
         ],
         [
           "0,50",
           "25,0 mm-es fal",
           "0,850",
-          "15,0%"
+          "15,0 %"
         ]
       ]
     },
     {
       "k": "p",
-      "t": "Bredt mind a négy esetben alulbecsül. Egy 5 mm-es falú, 50 mm közepes sugarú csőnél, amely a szokásos ökölszabály szerint még vékony falúnak számít, a tényleges feszültség 4,5%-kal nagyobb a számítottnál. 10 mm-es falnál 8,2%-kal."
+      "t": "Bredt mind a négy esetben alulbecsül. Egy 5 mm-es falú, 50 mm közepes sugarú csőnél, amely a szokásos ökölszabály szerint még vékony falúnak számít, a tényleges feszültség 4,5 %-kal nagyobb a számítottnál. 10 mm-es falnál 8,2 %-kal."
     },
     {
       "k": "quote",
@@ -82,7 +82,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Egy 4,5%-os eltérés nem tűnik fel egy méretezési ellenőrzésben, így egy meg nem felelő rúd megfelelőnek látszhat."
+      "t": "Egy 4,5 %-os eltérés nem tűnik fel egy méretezési ellenőrzésben, így egy meg nem felelő rúd megfelelőnek látszhat."
     },
     {
       "k": "img",
@@ -95,7 +95,7 @@ const body: PostBody = {
     {
       "k": "embed",
       "query": "example=torsion-tube&inspect=1&open=torsion",
-      "label": "Ugyanez a cső a Stabileóban: egy CHS 105×5 konzol 1 kN·m csavarónyomaték alatt. A panel a Csavarás résznél nyílik meg, és Cauchyra 13,34 MPa-t, Bredtre 12,73 MPa-t mutat, a fenti táblázat 95%-át. Mozgassa a pontot vagy változtassa meg a keresztmetszetet, és mindhárom érték frissül."
+      "label": "Ugyanez a cső a Stabileóban: egy CHS 105×5 konzol 1 kN·m csavarónyomaték alatt. A panel a Csavarás résznél nyílik meg, és Cauchyra 13,34 MPa-t, Bredtre 12,73 MPa-t mutat, a fenti táblázat 95 %-át. Mozgassa a pontot vagy változtassa meg a keresztmetszetet, és mindhárom érték frissül."
     },
     {
       "k": "h",

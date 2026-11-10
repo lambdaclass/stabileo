@@ -3693,6 +3693,7 @@ const hu: Translations = {
   "lang.fr": "Français",
   "lang.it": "Italiano",
   "lang.tr": "Türkçe",
+  "lang.hu": "Magyar",
   "lang.hi": "हिन्दी",
   "lang.zh": "中文",
   "lang.ja": "日本語",

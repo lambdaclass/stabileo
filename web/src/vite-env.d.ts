@@ -30,6 +30,8 @@ declare module 'virtual:app-i18n/fr' {
 }
 declare module 'virtual:app-i18n/tr' {
   export const tr: Record<string, string>;
+}
+declare module 'virtual:app-i18n/hu' {
   export const hu: Record<string, string>;
 }
 

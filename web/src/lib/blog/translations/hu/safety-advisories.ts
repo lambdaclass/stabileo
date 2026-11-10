@@ -33,13 +33,13 @@ const body: PostBody = {
       "rows": [
         [
           "SA-2026-021",
-          "Szabadon álló tetők: gerincirányú szél nem volt, keresztirányban pedig kevesebb a §2.1.5 szerinti minimumnál (20 m/s-nál annak 17%-a)",
+          "Szabadon álló tetők: gerincirányú szél nem volt, keresztirányban pedig kevesebb a §2.1.5 szerinti minimumnál (20 m/s-nál annak 17 %-a)",
           "Magas",
           "Javítva: 0.4.0"
         ],
         [
           "SA-2026-022",
-          "H földnyomás esetén hiányzott az a kombináció, amelyben az állandó teher ellenáll neki (egy példában 27–45%-kal kevesebb)",
+          "H földnyomás esetén hiányzott az a kombináció, amelyben az állandó teher ellenáll neki (egy példában 27–45 %-kal kevesebb)",
           "Magas",
           "Javítva: 0.4.0"
         ],
@@ -63,19 +63,19 @@ const body: PostBody = {
         ],
         [
           "SA-2026-027",
-          "Héjak burkolója: a legnagyobb von Mises-feszültségű kombinációt tartotta meg, nem az egyes komponensek szélsőértékét (egy példában mx 14%-kal kevesebb)",
+          "Héjak burkolója: a legnagyobb von Mises-feszültségű kombinációt tartotta meg, nem az egyes komponensek szélsőértékét (egy példában mx 14 %-kal kevesebb)",
           "Magas",
           "Javítva: 0.5.0"
         ],
         [
           "SA-2026-028",
-          "EN 1992-1-1 hajlítás (PRO, egyéb szabványok, tanúsított): feltételezte, hogy a húzott vasalás megfolyik, és nem iterált a felső betonacélokra; MRd akár 22%-kal több",
+          "EN 1992-1-1 hajlítás (PRO, egyéb szabványok, tanúsított): feltételezte, hogy a húzott vasalás megfolyik, és nem iterált a felső betonacélokra; MRd akár 22 %-kal több",
           "Magas",
           "Javítva: 0.5.0"
         ],
         [
           "SA-2026-029",
-          "3D: az alkalmazás a CIRSOC 201 szerinti oszlopokat Mz-re a keresztmetszet magassága mentén méretezte (egy példában 36%-kal kevesebb vasalás); a motor tanúsított 3D ellenőrzései az oldalirányú Vy nyíróerőt gerincnyírásként olvasták",
+          "3D: az alkalmazás a CIRSOC 201 szerinti oszlopokat Mz-re a keresztmetszet magassága mentén méretezte (egy példában 36 %-kal kevesebb vasalás); a motor tanúsított 3D ellenőrzései az oldalirányú Vy nyíróerőt gerincnyírásként olvasták",
           "Kritikus",
           "Javítva: 0.5.0"
         ],
@@ -87,7 +87,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-031",
-          "Időtörténeti analízis: a t = 0-kor tömeg nélküli szabadságfokra működtetett teher az első lépésben elveszett (a reciprocitás akár 33-szoros eltéréssel, egy kétszabadságfokú lánc 24%-kal eltért a zárt alakú megoldástól)",
+          "Időtörténeti analízis: a t = 0-kor tömeg nélküli szabadságfokra működtetett teher az első lépésben elveszett (a reciprocitás akár 33-szoros eltéréssel, egy kétszabadságfokú lánc 24 %-kal eltért a zárt alakú megoldástól)",
           "Közepes",
           "Javítva: 0.5.0"
         ],
@@ -129,13 +129,13 @@ const body: PostBody = {
         ],
         [
           "SA-2026-038",
-          "3D kihajlás: azoknál a rudaknál, amelyekben a tengelyirányú terhek miatt a nyomóerő a rúd mentén nő, a tényező túl nagy lett (egy rúdnál +43%), a csak a végei között nyomott rudat pedig elutasította",
+          "3D kihajlás: azoknál a rudaknál, amelyekben a tengelyirányú terhek miatt a nyomóerő a rúd mentén nő, a tényező túl nagy lett (egy rúdnál +43 %), a csak a végei között nyomott rudat pedig elutasította",
           "Magas",
           "Javítva: 0.5.0"
         ],
         [
           "SA-2026-042",
-          "2D kihajlás: azoknál a rudaknál, amelyekben a tengelyirányú terhek miatt a nyomóerő a rúd mentén nő, a tényező túl nagy lett (egy rúdnál +43% és +68% között)",
+          "2D kihajlás: azoknál a rudaknál, amelyekben a tengelyirányú terhek miatt a nyomóerő a rúd mentén nő, a tényező túl nagy lett (egy rúdnál +43 % és +68 % között)",
           "Magas",
           "Javítva: 0.5.0"
         ],
@@ -159,7 +159,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-046",
-          "Harmonikus analízis: terhenként választott a modális szuperpozíció és a közvetlen megoldás között, így a szuperpozíció és a reciprocitás sérült (egy példában 107% egy csomópontban); a stabileo.com és a main ág motor/WASM buildjei 2026. november 5-től a javításig",
+          "Harmonikus analízis: terhenként választott a modális szuperpozíció és a közvetlen megoldás között, így a szuperpozíció és a reciprocitás sérült (egy példában 107 % egy csomópontban); a stabileo.com és a main ág motor/WASM buildjei 2026. november 5-től a javításig",
           "Magas",
           "Javítva: 0.5.0"
         ],
@@ -207,7 +207,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-037",
-          "3D korotációs analízis: az elfordulásvektorokat kivonta egymásból (a Bathe–Bolourchi-féle ív 1,3%-kal eltért, és sűrítéssel sem csökkent)",
+          "3D korotációs analízis: az elfordulásvektorokat kivonta egymásból (a Bathe–Bolourchi-féle ív 1,3 %-kal eltért, és sűrítéssel sem csökkent)",
           "Közepes",
           "Javítva: 0.5.0"
         ],
@@ -309,7 +309,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-026",
-          "EC3 6.2.6 nyírás (csak motor és WASM): nyírt terület nélkül Av = 0,5·A-t vett fel, HEB 300-nál Vpl,Rd 57%-kal nagyobb, és tanúsított",
+          "EC3 6.2.6 nyírás (csak motor és WASM): nyírt terület nélkül Av = 0,5·A-t vett fel, HEB 300-nál Vpl,Rd 57 %-kal nagyobb, és tanúsított",
           "Közepes",
           "Javítva: 0.5.0"
         ],
@@ -321,7 +321,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-009",
-          "Az SHB8 tömör héjelem vékonylemez-hajlításban 22%-kal túl merev (a lehajlások 18%-kal kisebbek)",
+          "Az SHB8 tömör héjelem vékonylemez-hajlításban 22 %-kal túl merev (a lehajlások 18 %-kal kisebbek)",
           "Közepes (statikailag határozatlan szerkezetekben magasabb)",
           "Javítva: 2026. október 19."
         ],
@@ -539,7 +539,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Ha voltak definiált kombinációk, de egyiket sem számították ki, az alapok és a csomópontok a képernyőn látható eredményt olvasták, ami ilyenkor az összes teher 1-es tényezővel: a használati terhekre méreteztek a tényezős kombinációk helyett. Ez történt bekapcsolt élő számításnál (szerkesztés után csak az „Összes teher” esetet számítja újra, amíg az egyedi nézet látszik), vagy ha a kombinációk számítása sikertelen volt, és az egyedi számítás lépett a helyébe. Egy portálkeretben 1,2D + 1,6W mellett egy alap támaszereje 15%-kal kisebbre jött ki; állandó és hasznos teherrel 29–38%-kal. Ugyanez történt a födémekkel és a falakkal, az acél-optimalizálóval és üres aktív kombinációlista esetén. Most minden méretezés megtagadja a futást, és megmondja, miért, amíg a kombinációk nincsenek kiszámítva."
+      "t": "Ha voltak definiált kombinációk, de egyiket sem számították ki, az alapok és a csomópontok a képernyőn látható eredményt olvasták, ami ilyenkor az összes teher 1-es tényezővel: a használati terhekre méreteztek a tényezős kombinációk helyett. Ez történt bekapcsolt élő számításnál (szerkesztés után csak az „Összes teher” esetet számítja újra, amíg az egyedi nézet látszik), vagy ha a kombinációk számítása sikertelen volt, és az egyedi számítás lépett a helyébe. Egy portálkeretben 1,2D + 1,6W mellett egy alap támaszereje 15 %-kal kisebbre jött ki; állandó és hasznos teherrel 29–38 %-kal. Ugyanez történt a födémekkel és a falakkal, az acél-optimalizálóval és üres aktív kombinációlista esetén. Most minden méretezés megtagadja a futást, és megmondja, miért, amíg a kombinációk nincsenek kiszámítva."
     },
     {
       "k": "ext",
@@ -611,7 +611,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "A talajgörbék nem követték a hivatkozott forrásokat. A puha agyagnál hiányzott Matlock J tagja (a határellenállás a felszín közelében harmadával-felével kisebb); a homok mindig a ciklikus A = 0,9 tényezőt és lépcsős k-táblázatot használt; a merev agyag y50-nél ugrott a fél ellenállásról a teljesre, azon túl pedig 70%-ra esett. A t-z és q-z görbékből (csak motor és WASM) hiányzott a cölöpköpeny kerülete és a csúcs területe. A PRO → Haladó → Talaj–szerkezet kölcsönhatás funkciót érinti. A panel most bekéri a J-t és a homok terhelési módját, a motor pedig elutasítja a hiányzó bemenetű görbét ahelyett, hogy feltételezne valamit. Mi a teendő: futtassa újra ezeket a modelleket, és ellenőrizze újra a cölöpök elmozdulásait és nyomatékait."
+      "t": "A talajgörbék nem követték a hivatkozott forrásokat. A puha agyagnál hiányzott Matlock J tagja (a határellenállás a felszín közelében harmadával-felével kisebb); a homok mindig a ciklikus A = 0,9 tényezőt és lépcsős k-táblázatot használt; a merev agyag y50-nél ugrott a fél ellenállásról a teljesre, azon túl pedig 70 %-ra esett. A t-z és q-z görbékből (csak motor és WASM) hiányzott a cölöpköpeny kerülete és a csúcs területe. A PRO → Haladó → Talaj–szerkezet kölcsönhatás funkciót érinti. A panel most bekéri a J-t és a homok terhelési módját, a motor pedig elutasítja a hiányzó bemenetű görbét ahelyett, hogy feltételezne valamit. Mi a teendő: futtassa újra ezeket a modelleket, és ellenőrizze újra a cölöpök elmozdulásait és nyomatékait."
     },
     {
       "k": "ext",
@@ -625,7 +625,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "A motor minden rúd hőmérsékleti terhét α = 12·10⁻⁶ /°C-kal (az acélé) és az egyenértékű tömör téglalap √(12·I/A) magasságával számította. Egy IPE-szelvényen a hőmérséklet-különbségből eredő nyomaték 30%-kal kisebbre jött ki, alumíniumon pedig a hőmérsékletből eredő normálerő majdnem a felére. Az alkalmazás 2026. október 7. óta mindkettőt kompenzálta, így ez a motor vagy a WASM API közvetlen használatát érinti, valamint az alkalmazásban e dátum előtt számított hőmérsékleti modelleket."
+      "t": "A motor minden rúd hőmérsékleti terhét α = 12·10⁻⁶ /°C-kal (az acélé) és az egyenértékű tömör téglalap √(12·I/A) magasságával számította. Egy IPE-szelvényen a hőmérséklet-különbségből eredő nyomaték 30 %-kal kisebbre jött ki, alumíniumon pedig a hőmérsékletből eredő normálerő majdnem a felére. Az alkalmazás 2026. október 7. óta mindkettőt kompenzálta, így ez a motor vagy a WASM API közvetlen használatát érinti, valamint az alkalmazásban e dátum előtt számított hőmérsékleti modelleket."
     },
     {
       "k": "ext",
@@ -653,7 +653,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Egy ív egyenes szakaszai az egyenes rúd alapértelmezett helyi tengelyeit kapták, amelyek a függőlegestől 2,56°-on belüli rúdnál a globális X tengelyt veszik referenciának. Az X–Z síkon kívüli ívnél ez a vállaknál lévő, közel függőleges szakaszok keresztmetszetét 90°-kal elforgatta: ott Iy és Iz felcserélődött. Egy 40 szakaszos, Y–Z síkú félkörívnél a tetőpont lehajlása 15%-kal kisebbre jött ki. A motor görbe rúdjait és a Rudak lap (PRO) ív eszközével rajzolt íveket érinti, ha egy szakasz közel függőleges; az alaprajzi görbéket nem. A korábban mentett ívek a projekt megnyitásakor megkapják a javított tengelyeket."
+      "t": "Egy ív egyenes szakaszai az egyenes rúd alapértelmezett helyi tengelyeit kapták, amelyek a függőlegestől 2,56°-on belüli rúdnál a globális X tengelyt veszik referenciának. Az X–Z síkon kívüli ívnél ez a vállaknál lévő, közel függőleges szakaszok keresztmetszetét 90°-kal elforgatta: ott Iy és Iz felcserélődött. Egy 40 szakaszos, Y–Z síkú félkörívnél a tetőpont lehajlása 15 %-kal kisebbre jött ki. A motor görbe rúdjait és a Rudak lap (PRO) ív eszközével rajzolt íveket érinti, ha egy szakasz közel függőleges; az alaprajzi görbéket nem. A korábban mentett ívek a projekt megnyitásakor megkapják a javított tengelyeket."
     },
     {
       "k": "ext",
@@ -703,7 +703,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "2D-ben egy rúd akkor folyik meg, ha (N/Np)² + |M|/Mp meghaladja az 1-et. 3D-ben a megoldó az (N/Np)² + (My/Mpy)² + (Mz/Mpz)² kifejezést használta, a nyomatéki arányok négyzetével, így normálerő vagy kéttengelyű hajlítás esetén egy 3D rúd később folyt meg, mint ugyanaz a rúd 2D-ben, és a közölt kihasználtság alacsony volt: N = 0,5·Np mellett az első megfolyás terhe 15%-kal nagyobbra jött ki. A 3D most az (N/Np)² + |My|/Mpy + |Mz|/Mpz kifejezést használja, amely egytengelyű hajlításra a 2D-s felület. Ez a megoldó csak a motorból vagy a WASM API-ból érhető el: az alkalmazás egyik képernyője sem hívja, így a stabileo.com-on kapott eredményeket nem érinti."
+      "t": "2D-ben egy rúd akkor folyik meg, ha (N/Np)² + |M|/Mp meghaladja az 1-et. 3D-ben a megoldó az (N/Np)² + (My/Mpy)² + (Mz/Mpz)² kifejezést használta, a nyomatéki arányok négyzetével, így normálerő vagy kéttengelyű hajlítás esetén egy 3D rúd később folyt meg, mint ugyanaz a rúd 2D-ben, és a közölt kihasználtság alacsony volt: N = 0,5·Np mellett az első megfolyás terhe 15 %-kal nagyobbra jött ki. A 3D most az (N/Np)² + |My|/Mpy + |Mz|/Mpz kifejezést használja, amely egytengelyű hajlításra a 2D-s felület. Ez a megoldó csak a motorból vagy a WASM API-ból érhető el: az alkalmazás egyik képernyője sem hívja, így a stabileo.com-on kapott eredményeket nem érinti."
     },
     {
       "k": "ext",
@@ -717,7 +717,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "CQC szabály mellett a közölt talpnyíróerőt továbbra is SRSS szerint kombinálta. Az egy irányba eső modális talpnyíróerők azonos előjelűek, így a CQC többet ad, mint az SRSS: két közeli rezgésalaknál a közölt érték 19%-kal kisebb volt. A részvételi tényezőkből ráadásul kimaradt az a tömeg, amelyet a konzisztens tömegmátrix a támaszokhoz kapcsol, ami alábecsülte a választ azokban a modellekben, ahol oszloponként kevés elem van."
+      "t": "CQC szabály mellett a közölt talpnyíróerőt továbbra is SRSS szerint kombinálta. Az egy irányba eső modális talpnyíróerők azonos előjelűek, így a CQC többet ad, mint az SRSS: két közeli rezgésalaknál a közölt érték 19 %-kal kisebb volt. A részvételi tényezőkből ráadásul kimaradt az a tömeg, amelyet a konzisztens tömegmátrix a támaszokhoz kapcsol, ami alábecsülte a választ azokban a modellekben, ahol oszloponként kevés elem van."
     },
     {
       "k": "ul",
@@ -739,7 +739,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "A 3D rudak geometriai merevségében csak a hajlítási tagok szerepeltek: sem Wagner-tag, sem nyírási középponti csatolás nem volt. Csavarási és hajlító-csavaró kihajlás sosem jelent meg, helyette az Euler-féle teher jelent meg. Egy kereszt szelvényű oszlopnál a közölt teher 96%-kal nagyobb volt a mértékadónál."
+      "t": "A 3D rudak geometriai merevségében csak a hajlítási tagok szerepeltek: sem Wagner-tag, sem nyírási középponti csatolás nem volt. Csavarási és hajlító-csavaró kihajlás sosem jelent meg, helyette az Euler-féle teher jelent meg. Egy kereszt szelvényű oszlopnál a közölt teher 96 %-kal nagyobb volt a mértékadónál."
     },
     {
       "k": "ul",
@@ -783,7 +783,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "A 2D teherösszeállító a ferde rúdra ható teher rúdirányú összetevőjét a rúd végcsomópontjaira helyezte át. A támaszerők és az elmozdulások helyesek voltak, de a rúd a fesztávolságán nem érzékelte ezt a terhet, így a normálereje állandó maradt, a valódi végértékeinek átlagán: egy szarufa talpánál 26%-kal kisebb. Ezt az értéket használta az ábra, az ellenőrző panel, a jelentés, az Excel-export és a méretezés is. Ráadásul egy rúdra működtetett erőpár elveszett, ha egy síkbeli modellt 3D-ben számítottak."
+      "t": "A 2D teherösszeállító a ferde rúdra ható teher rúdirányú összetevőjét a rúd végcsomópontjaira helyezte át. A támaszerők és az elmozdulások helyesek voltak, de a rúd a fesztávolságán nem érzékelte ezt a terhet, így a normálereje állandó maradt, a valódi végértékeinek átlagán: egy szarufa talpánál 26 %-kal kisebb. Ezt az értéket használta az ábra, az ellenőrző panel, a jelentés, az Excel-export és a méretezés is. Ráadásul egy rúdra működtetett erőpár elveszett, ha egy síkbeli modellt 3D-ben számítottak."
     },
     {
       "k": "ul",
@@ -806,7 +806,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "SA-2026-009: az SHB8 tömör héjelem vékonylemez-hajlításban 22%-kal túl merev volt (Poisson-féle vastagsági reteszelődés), így mintegy 18%-kal alábecsülte a lehajlásokat. Ellenőrizze újra a lehajlásra és a rezgésekre vonatkozó következtetéseket az e dátum előtt számított, tömör héjelemes lemezeket tartalmazó modelleknél; az MITC4, az MITC9, a DKT és a görbült héj nem érintett.",
+        "SA-2026-009: az SHB8 tömör héjelem vékonylemez-hajlításban 22 %-kal túl merev volt (Poisson-féle vastagsági reteszelődés), így mintegy 18 %-kal alábecsülte a lehajlásokat. Ellenőrizze újra a lehajlásra és a rezgésekre vonatkozó következtetéseket az e dátum előtt számított, tömör héjelemes lemezeket tartalmazó modelleknél; az MITC4, az MITC9, a DKT és a görbült héj nem érintett.",
         "SA-2026-010: a spektrális analízis tanúsítványa nem véges (NaN) eredményeket is elfogadhatott. A számok láthatóan érvénytelenek voltak; az ellenőrzésről tett állítás volt hibás. Semmit sem kell újraellenőrizni, hacsak egy leadott eredményben nem szerepeltek nem véges értékek."
       ]
     },
@@ -821,9 +821,9 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "SA-2026-001: a CIRSOC 101, 102 és 103 szerint generált kombinációk és terhek a biztonság kárára tévedtek (egy példában egy oszlop normálereje 29%-kal kisebb volt).",
-        "SA-2026-002: a CIRSOC 201 és ACI 318 szerinti betonellenőrzések túlbecsülték a teherbírást (φMn akár 18%-kal nagyobb).",
-        "SA-2026-003: az acél-, hidegen alakított szelvényű és kapcsolati ellenőrzések túlbecsülték a teherbírást (gerincnyírás akár 60%-kal nagyobb).",
+        "SA-2026-001: a CIRSOC 101, 102 és 103 szerint generált kombinációk és terhek a biztonság kárára tévedtek (egy példában egy oszlop normálereje 29 %-kal kisebb volt).",
+        "SA-2026-002: a CIRSOC 201 és ACI 318 szerinti betonellenőrzések túlbecsülték a teherbírást (φMn akár 18 %-kal nagyobb).",
+        "SA-2026-003: az acél-, hidegen alakított szelvényű és kapcsolati ellenőrzések túlbecsülték a teherbírást (gerincnyírás akár 60 %-kal nagyobb).",
         "SA-2026-004: a modell egy részét figyelmen kívül hagyó számítások (a gyorsulási időtörténettel végzett analízis a földrengési tehernek akár a felét elvesztette; a 3D képlékeny tönkremenetel akár 2,3-szor a biztonság kárára tévedett)."
       ]
     },

@@ -192,20 +192,20 @@ const body: PostBody = {
         [
           "Konzol, a nyomóerő a támasznál 0-ról a végen P-re nő",
           "3,477",
-          "4,972 (+43%)",
-          "3,542 (+1,9%)"
+          "4,972 (+43 %)",
+          "3,542 (+1,9 %)"
         ],
         [
           "Konzol, P nyomóerő a végen és vele ellentétes P tengelyirányú teher a fesztáv közepén: P nyomóerő csak a fesztáv közepétől a végig",
           "2,961",
-          "4,972 (+68%)",
-          "3,056 (+3,2%)"
+          "4,972 (+68 %)",
+          "3,056 (+3,2 %)"
         ],
         [
           "Euler nehéz oszlopa, a nyomóerő a támasznál a legnagyobb",
           "7,837",
-          "4,972 (−37%)",
-          "7,889 (+0,7%)"
+          "4,972 (−37 %)",
+          "7,889 (+0,7 %)"
         ]
       ]
     },
@@ -215,7 +215,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "3D korotációs analízis (#1301, 24-es verzió). A rúdvégek elfordulásait elfordulásvektorokként vonta ki, ami csak akkor pontos, ha minden elfordulás közös tengely körül történik. A Bathe–Bolourchi-féle 45°-os ív 1,3%-kal eltért a publikált megoldásától, és a háló sűrítése eltávolította a referenciáktól ahelyett, hogy közelítette volna. Az elfordulásokat most elfordulási mátrixokként komponálja: ugyanaz az ív két független publikált megoldástól 0,4%-on belül van, és a kettő között konvergál. Azt a rudat, amelynek végei egymáshoz képest 0,9π-nél többet fordulnak el, elutasítja, mert az eredményből nem derül ki, melyik teljes fordulatról van szó."
+      "t": "3D korotációs analízis (#1301, 24-es verzió). A rúdvégek elfordulásait elfordulásvektorokként vonta ki, ami csak akkor pontos, ha minden elfordulás közös tengely körül történik. A Bathe–Bolourchi-féle 45°-os ív 1,3 %-kal eltért a publikált megoldásától, és a háló sűrítése eltávolította a referenciáktól ahelyett, hogy közelítette volna. Az elfordulásokat most elfordulási mátrixokként komponálja: ugyanaz az ív két független publikált megoldástól 0,4 %-on belül van, és a kettő között konvergál. Azt a rudat, amelynek végei egymáshoz képest 0,9π-nél többet fordulnak el, elutasítja, mert az eredményből nem derül ki, melyik teljes fordulatról van szó."
     },
     {
       "k": "p",
