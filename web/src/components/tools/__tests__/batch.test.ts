@@ -40,9 +40,9 @@ it('influence curves agree with statics and compatibility, including shear disco
 it('three bending modes match all boundary conditions',async()=>{
  for(const boundary of ['simple','cantilever','fixed'] as const) {const r=await calculateBatch('beam-natural-frequency',{...P,boundary});expect(r.modes).toHaveLength(3);expect(r.difference).toBeLessThan(2e-5);}
 });
-it('covers every key and every tool SEO title and description in six locales',()=>{
+it('covers every key and every tool SEO title and description in seven locales',()=>{
  const keys=Object.keys(batchTranslations.en).sort();
- for(const locale of ['en','es','pt','de','fr','tr']) {
+ for(const locale of ['en','es','pt','de','fr','tr','hu']) {
   expect(Object.keys(batchTranslations[locale]).sort()).toEqual(keys);
   for(const id of BATCH_IDS) for(const suffix of ['', '.subtitle']) expect(batchTranslations[locale][`tools.${id}${suffix}`].length).toBeGreaterThan(5);
  }

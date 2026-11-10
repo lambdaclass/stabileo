@@ -14,7 +14,7 @@
  */
 import metadata from 'virtual:result-change-metadata';
 
-export const REGISTRY_LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
+export const REGISTRY_LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'] as const;
 export type RegistryLocale = (typeof REGISTRY_LOCALES)[number];
 export type Localised = Record<RegistryLocale, string>;
 

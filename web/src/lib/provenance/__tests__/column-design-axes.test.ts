@@ -26,7 +26,7 @@ it('tells CIRSOC 201 concrete projects solved before the fix, and no others', ()
 
 it('words the re-check notice in every locale the app ships', () => {
   const entry = RESULT_CHANGES.changes.find((c) => c.id === ID) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
     expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
     expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
   }

@@ -27,7 +27,7 @@ describe('result-change registry', () => {
     expect(RESULT_CHANGES).toEqual({ ...registry, changes: registry.changes.map(({ quantities: _, ...c }) => c) });
   });
 
-  it('is well formed: ids, versions, six languages, known features, quantities', () => {
+  it('is well formed: ids, versions, seven languages, known features, quantities', () => {
     expect(validateRegistry(RESULT_CHANGES, new Set(FEATURE_IDS))).toEqual([]);
     expect(validateRegistry(source(), new Set(FEATURE_IDS))).toEqual([]);
   });
@@ -61,7 +61,7 @@ describe('result-change registry', () => {
     expect(problems.some((p) => p.includes('resultsVersion 99'))).toBe(true);
   });
 
-  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)('refuses an entry without its %s title or explanation', (locale) => {
+  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'] as const)('refuses an entry without its %s title or explanation', (locale) => {
     const entry = RESULT_CHANGES.changes[0];
     const title = { ...entry.title, [locale]: ' ' };
     const explanation: Partial<typeof entry.explanation> = { ...entry.explanation };
