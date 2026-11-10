@@ -1018,3 +1018,30 @@ fn nl_contact_review_frozen_surface_uses_final_normal() {
     assert!((tangent_force.abs() - pair.friction_force.abs()).abs() > input.node_to_surface_pairs[0].stiffness * input.tolerance.unwrap());
     assert!(pair.normal_force >= -input.node_to_surface_pairs[0].stiffness * gap);
 }
+
+#[test]
+#[ignore = "known wrong result: #432"]
+fn nl_contact_review_rotating_master_cannot_hide_assembled_tension() {
+    let mut input = bearing_surface_2d();
+    input.solver.supports.remove("3");
+    let mut master = input.solver.elements["1"].clone();
+    master.id = 2;
+    master.node_i = 3;
+    master.node_j = 4;
+    input.solver.elements.insert("2".into(), master);
+    if let SolverLoad::Nodal(load) = &mut input.solver.loads[0] { load.fz *= 4.0; }
+    input.al_max_iter = Some(2);
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input);
+    if let Ok(result) = &result {
+        let master = disp2(&result.results, 4);
+        let dx = master.ux;
+        let dz = 2.0 + master.uz;
+        let length = dx.hypot(dz);
+        let reaction = result.results.reactions.iter().find(|r| r.node_id == 3).unwrap();
+        let assembled = (reaction.rx * dz - reaction.rz * dx) / length;
+        assert!(master.ux.abs() > input.tolerance.unwrap());
+        assert!(result.node_to_surface_status[0].gap < 0.0);
+        assert_eq!(result.node_to_surface_status[0].status, "closed");
+        assert!(assembled <= input.node_to_surface_pairs[0].stiffness * input.tolerance.unwrap());
+    }
+}
