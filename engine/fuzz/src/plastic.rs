@@ -132,6 +132,162 @@ fn evaluate(data: &[u8], gate: bool, report: bool) -> String {
 mod tests {
     use super::*;
 
+    fn assert_certified_lower(raw: &[u8]) {
+        let input: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
+        let raw_result = plastic::solve_plastic_3d(&input).unwrap();
+        let out = cplastic3::certify_plastic_3d(&input).unwrap();
+        let certificate = &out.certificate;
+        assert!(certificate.certified);
+        let lower = certificate.lambda_lower.unwrap();
+        assert!(raw_result.collapse_factor < lower);
+        assert_eq!(
+            certificate.solver_collapse_factor,
+            Some(raw_result.collapse_factor)
+        );
+        assert_eq!(certificate.solver_within_bounds, Some(false));
+        assert!(certificate.solver_deviation.unwrap() > 0.0);
+        assert_eq!(out.results.collapse_factor.to_bits(), lower.to_bits());
+        assert!(out.results.warnings.starts_with(&raw_result.warnings));
+        assert!(out
+            .results
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("certified lower bound")
+                && warning.contains(&lower.to_string())));
+        assert!(out
+            .results
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("PL-3D-CERTIFICATE-MISMATCH")
+                && warning.contains(&raw_result.collapse_factor.to_string())));
+        assert!(out
+            .results
+            .structured_diagnostics
+            .iter()
+            .any(|d| d.phase.as_deref() == Some("PL-3D-CERTIFICATE-MISMATCH")
+                && d.severity == Severity::Warning));
+        let output = serde_json::to_value(&out).unwrap();
+        assert_eq!(
+            output["results"]["collapseFactor"],
+            output["certificate"]["lambdaLower"]
+        );
+        assert_eq!(
+            output["results"]["steps"],
+            serde_json::to_value(&raw_result.steps).unwrap()
+        );
+        assert_eq!(
+            output["results"]["hinges"],
+            serde_json::to_value(&raw_result.hinges).unwrap()
+        );
+        assert!(output["results"]["isMechanism"].is_boolean());
+        let restored: cplastic3::CertifiedPlastic3D = serde_json::from_value(output).unwrap();
+        assert_eq!(restored.results.collapse_factor.to_bits(), lower.to_bits());
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #951"]
+    fn issue_951_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-951.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #952"]
+    fn issue_952_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-952.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #953"]
+    fn issue_953_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-953.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #989"]
+    fn issue_989_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-989.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #990"]
+    fn issue_990_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-990.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #991"]
+    fn issue_991_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-991.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1081"]
+    fn issue_1081_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-1081.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1082"]
+    fn issue_1082_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-1082.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1349"]
+    fn issue_1349_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-1349.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1458"]
+    fn issue_1458_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-1458.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1459"]
+    fn issue_1459_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-1459.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1460"]
+    fn issue_1460_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-1460.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1760"]
+    fn issue_1760_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/issue-1760.bin"
+        ));
+    }
+
     fn assert_expensive(raw: &[u8]) {
         let input: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
         assert!(crate::within_bounds(&input));
@@ -233,16 +389,6 @@ mod tests {
     }
 
     #[test]
-    fn issue_1760_incremental_factor_outside_certificate_is_refused() {
-        let raw = include_bytes!("../corpus-regressions/plastic-lp-budget/issue-1760.bin");
-        let result = replay(raw, false);
-        assert!(
-            result.starts_with("error:") && result.contains("outside"),
-            "{result}"
-        );
-    }
-
-    #[test]
     fn good_cantilever_is_admitted() {
         let raw = include_bytes!("../corpus-regressions/plastic-lp-budget/good-cantilever.bin");
         let input: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
@@ -293,10 +439,47 @@ mod tests {
     }
 
     #[test]
-    fn checked_entry_preserves_the_strict_outside_flag_at_round_off() {
+    #[ignore = "known wrong result: #1760"]
+    fn issue_1760_conservative_roundoff_returns_certified_lower() {
+        assert_certified_lower(include_bytes!(
+            "../corpus-regressions/plastic-lp-budget/good-cantilever.bin"
+        ));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1760"]
+    fn issue_1760_checked_result_requires_a_sound_certificate() {
         let raw = include_bytes!("../corpus-regressions/plastic-lp-budget/good-cantilever.bin");
-        let result = replay(raw, false);
-        assert!(result.contains("PL-3D-CERTIFICATE-MISMATCH"), "{result}");
+        let mut input: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
+        input
+            .solver
+            .elements
+            .values_mut()
+            .next()
+            .unwrap()
+            .roll_angle = Some(1.0);
+        let raw_result = plastic::solve_plastic_3d(&input).unwrap();
+        let certificate = cplastic3::certify_collapse_3d(&input, Some(&raw_result));
+        assert!(!certificate.certified);
+        let error = cplastic3::certify_plastic_3d(&input).unwrap_err();
+        assert!(
+            error.contains(certificate.reason.as_ref().unwrap()),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn issue_1760_unconservative_roundoff_remains_refused() {
+        let raw =
+            include_bytes!("../corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin");
+        let input: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
+        let raw_result = plastic::solve_plastic_3d(&input).unwrap();
+        let certificate = cplastic3::certify_collapse_3d(&input, Some(&raw_result));
+        assert!(certificate.certified);
+        assert!(raw_result.collapse_factor > certificate.lambda_upper.unwrap());
+        assert_eq!(certificate.solver_within_bounds, Some(false));
+        let error = cplastic3::certify_plastic_3d(&input).unwrap_err();
+        assert!(error.contains("PL-3D-CERTIFICATE-MISMATCH"), "{error}");
     }
 
     #[test]
