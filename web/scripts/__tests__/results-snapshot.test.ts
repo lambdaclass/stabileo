@@ -3,6 +3,8 @@
  * the committed format, and when a pull request must register a result change.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import spanAxial from '../../src/lib/provenance/result-changes/pdelta-span-axial.json';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
@@ -90,6 +92,24 @@ describe('the gate', () => {
   const caseFeatures = { 'web/results-snapshots/c.json': ['space3D', 'analysis:linear'], 'web/results-snapshots/d.json': ['space3D', 'analysis:linear'] };
   const breaking = { file: 'changelog.d/a.md', text: '### BREAKING (results)\n#### A (2026-10-28)\n' };
   const moved = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1.01 }) }];
+
+  it.skip.each([
+    ['pro-3d-portal-frame', 1.006424741],
+    ['pro-3d-tower', 1.000275385],
+  ])('known wrong result: #1329: registers %s displacement amplification', (name, before) => {
+    const file = `web/results-snapshots/${name}.json`;
+    const head = parseSnapshot(readFileSync(new URL(`../../results-snapshots/${name}.json`, import.meta.url), 'utf8'));
+    const base = { ...head, values: { ...head.values, 'pdelta.b2': before } };
+    const r = decide({
+      snapshots: [{ file, base, head }],
+      baseRegistry: registry,
+      headRegistry: { ...registry, unnumbered: [spanAxial] },
+      fragments: [breaking],
+      caseFeatures: { [file]: ['space3D', 'frameMembers', 'analysis:linear', 'analysis:pdelta'] },
+    });
+    expect(r.changed).toHaveLength(1);
+    expect(r.ok, r.report).toBe(true);
+  });
 
   it('passes a pull request whose snapshots did not move', () => {
     const same = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1 + 1e-12 }) }];
