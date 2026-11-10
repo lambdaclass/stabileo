@@ -437,3 +437,61 @@ fn harmonic_2d_beam_above_the_kept_modes_matches_direct() {
         vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -10.0, my: 0.0 })]);
     agree("2D beam harmonic above the kept modes vs direct", harmonic_2d(solver, 4, "y", (1..=40).map(|i| i as f64 * 250.0).collect()));
 }
+
+fn omitted_spring_frequencies() -> Vec<f64> {
+    [0.99, 1.0, 1.01, 1.5].map(|r| r * 100.0 / (2.0 * PI)).to_vec()
+}
+
+fn compare_omitted_spring(result: &HarmonicResult, damping: (f64, f64)) {
+    let d = Dense { k: vec![1.0, 0.0, 0.0, 10000.0], m: vec![1.0, 0.0, 0.0, 1.0], f: vec![1.0, 1e-4], n: 2, target: 1 };
+    for pt in &result.response_points {
+        let (re, im, _) = direct(&d, damping, pt.omega).unwrap();
+        let ar = 10000.0 - pt.omega.powi(2);
+        let ai = pt.omega * (damping.0 + damping.1 * 10000.0);
+        let closed = (1e-4 * ar / (ar * ar + ai * ai), -1e-4 * ai / (ar * ar + ai * ai));
+        let tol = 1e-12 * re.in_m().hypot(im.in_m());
+        assert!((re.in_m() - closed.0).hypot(im.in_m() - closed.1) <= tol);
+        assert!((pt.real - re.in_m()).hypot(pt.imag - im.in_m()) <= tol,
+            "{} Hz: engine ({:e}, {:e}), direct/closed ({:e}, {:e}), method {:?}, warnings {:?}",
+            pt.frequency, pt.real, pt.imag, re.in_m(), im.in_m(), result.method, result.warnings);
+    }
+    assert!(!result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("HARM-TRUNCATION")));
+}
+
+#[test]
+#[ignore = "known wrong result: #1434"]
+fn harmonic_2d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form() {
+    let n = 3001;
+    let mut solver = crate::common::make_input(
+        (1..=n).map(|i| (i, i as f64, 0.0)).collect(), vec![], vec![], vec![],
+        (1..=n).map(|i| (i, i, "guidedX")).collect(),
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 1.0, fz: 0.0, my: 0.0 }),
+             SolverLoad::Nodal(SolverNodalLoad { node_id: 100, fx: 1e-4, fz: 0.0, my: 0.0 })]);
+    for i in 1..=n {
+        solver.supports.get_mut(&i.to_string()).unwrap().kx = Some((i * i) as f64);
+        solver.masses.nodal.push(NodalMass { node_id: i, mass: 1.0, mass_x: None, mass_z: None, rotary_inertia: 0.0 });
+    }
+    let h = HarmonicInput { solver, densities: HashMap::new(), frequencies: omitted_spring_frequencies(), damping_ratio: 0.05, response_node_id: 100, response_dof: "x".into() };
+    let (result, damping) = solve_harmonic_2d_with_damping(&h).unwrap();
+    assert_eq!(result.n_dof, n);
+    compare_omitted_spring(&result, damping);
+}
+
+#[test]
+#[ignore = "known wrong result: #1434"]
+fn harmonic_3d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form() {
+    let n = 3001;
+    let mut solver = crate::common::make_3d_input(
+        (1..=n).map(|i| (i, i as f64, 0.0, 0.0)).collect(), vec![], vec![], vec![],
+        (1..=n).map(|i| (i, vec![false, true, true, true, true, true])).collect(),
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 1, fx: 1.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }),
+             SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 100, fx: 1e-4, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
+    for i in 1..=n {
+        solver.supports.get_mut(&i.to_string()).unwrap().kx = Some((i * i) as f64);
+        solver.masses.nodal.push(NodalMass3D { node_id: i, mass: 1.0, mass_x: None, mass_y: None, mass_z: None, ixx: 0.0, iyy: 0.0, izz: 0.0 });
+    }
+    let h = HarmonicInput3D { solver, densities: HashMap::new(), frequencies: omitted_spring_frequencies(), damping_ratio: 0.05, response_node_id: 100, response_dof: "x".into() };
+    let (result, damping) = solve_harmonic_3d_with_damping(&h).unwrap();
+    assert_eq!(result.n_dof, n);
+    compare_omitted_spring(&result, damping);
+}
