@@ -4,6 +4,8 @@ vi.mock('../../store/file', async orig => ({ ...(await orig<typeof import('../..
   downloadText: (content: string) => output.texts.push(content),
   downloadBlob: (blob: Blob) => output.blobs.push(blob),
 }));
+// The browser download behind the account gate: the tests read what reached the object URL.
+vi.mock('../save-file', () => ({ saveFile: (_name: string, data: Blob) => { URL.createObjectURL(data); } }));
 vi.mock('xlsx', async orig => ({ ...(await orig<typeof import('xlsx')>()), writeFile: vi.fn() }));
 import * as XLSX from 'xlsx';
 import { unzipSync, strFromU8 } from 'fflate';
