@@ -14,6 +14,12 @@ class SeededReplay(unittest.TestCase):
     binary = Path("engine/fuzz/target/release/examples/plastic_replay")
     seed = Path("engine/fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin")
 
+    def test_slow_grid_runs_only_under_the_replay_watchdog(self):
+        seed = self.seed.with_name("engine-grid-slab.bin")
+        result = module.replay(self.binary, seed, mode="engine", repeats=1, seconds=0.5)
+        self.assertEqual(result["failure"], "timeout", result)
+        self.assertEqual(result["iterations"], [], result)
+
     def test_first_call_only_leak_is_detected_even_with_one_repeat(self):
         with tempfile.TemporaryDirectory(dir=".") as directory:
             binary = Path(directory).resolve() / "first-leak"

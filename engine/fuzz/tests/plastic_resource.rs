@@ -75,7 +75,6 @@ fn subdivide(piece: &p2::Piece, count: i64) -> Vec<p2::Piece> {
 }
 
 #[test]
-#[ignore = "known wrong result: #1888"]
 fn many_3d_load_pieces_refuse_without_constructing_samples() {
     let bytes = include_bytes!("../corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
     let input = serde_json::from_slice(&bytes[2..]).unwrap();
@@ -91,13 +90,12 @@ fn many_3d_load_pieces_refuse_without_constructing_samples() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1888"]
 fn many_2d_load_pieces_refuse_without_constructing_samples() {
     let bytes = include_bytes!("../corpus-regressions/plastic-lp-budget/issue-1261.bin");
     let input = serde_json::from_slice(&bytes[2..]).unwrap();
     let mut model = p2::build_model(&input).unwrap();
     let template = model.elems[0].clone();
-    model.elems = (0..256)
+    model.elems = (0..p2::MAX_PLASTIC_ELEMENTS)
         .map(|i| {
             let mut e = template.clone();
             e.id = i + 1;

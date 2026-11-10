@@ -1116,14 +1116,22 @@ const REFINEMENT_PASSES: usize = 60;
 const REFINEMENT_INTERVALS: usize = 64;
 
 pub fn lp_work(model: &PlasticModel3) -> super::plastic_budget::PlasticLpWork {
-    let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
-    let samples = initial_samples(model, &ef);
-    let initial_halfspaces = samples.iter().map(|s| s.dirs.len()).fold(0usize, usize::saturating_add);
-    let loaded_pieces = model.elems.iter().zip(&ef)
-        .filter(|(e, f)| e.mp.is_some() && f.loaded)
-        .map(|(_, f)| f.pieces.len()).fold(0usize, usize::saturating_add);
+    let mut initial_samples = 0usize;
+    let mut loaded_pieces = 0usize;
+    for e in model.elems.iter().filter(|e| e.mp.is_some()) {
+        let loaded = e.frame.is_some() && e.loaded();
+        let intervals = if loaded { INITIAL_INTERVALS } else { 1 };
+        let pieces = e.pieces_y.len();
+        initial_samples = initial_samples.saturating_add(
+            pieces.saturating_mul(intervals).saturating_add(usize::from(pieces != 0)),
+        );
+        if loaded {
+            loaded_pieces = loaded_pieces.saturating_add(pieces);
+        }
+    }
+    let initial_halfspaces = initial_samples.saturating_mul(DIRS0);
     let extra_samples = REFINEMENT_PASSES.saturating_mul(REFINEMENT_INTERVALS - 1).saturating_mul(loaded_pieces);
-    let max_halfspaces = initial_halfspaces.saturating_add(REFINEMENT_PASSES.saturating_mul(2).saturating_mul(samples.len()))
+    let max_halfspaces = initial_halfspaces.saturating_add(REFINEMENT_PASSES.saturating_mul(2).saturating_mul(initial_samples))
         .saturating_add(extra_samples.saturating_mul(DIRS0 + 1 + 2 * REFINEMENT_PASSES));
     super::plastic_budget::PlasticLpWork {
         equilibrium_equations: equilibrium_equation_count(model),
@@ -2139,6 +2147,36 @@ pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lp_work_matches_initial_samples() {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        let original = build_model_3d(&input).unwrap();
+        for count in [1, 2, 7] {
+            for loaded in [true, false] {
+                let mut model = original.clone();
+                let e = &mut model.elems[0];
+                for pieces in [&mut e.pieces_y, &mut e.pieces_z] {
+                    let template = pieces[0].clone();
+                    *pieces = (0..count).map(|i| Piece {
+                        a: qr(i, count), b: qr(i + 1, count), c: template.c.clone(),
+                    }).collect();
+                }
+                if !loaded {
+                    e.loads_x.clear();
+                    e.loads_y.clear();
+                    e.loads_z.clear();
+                }
+                for capacity in [true, false] {
+                    if !capacity { model.elems[0].mp = None; }
+                    let ef: Vec<_> = model.elems.iter().map(elem_f64).collect();
+                    assert_eq!(lp_work(&model).initial_halfspaces,
+                        initial_samples(&model, &ef).iter().map(|s| s.dirs.len()).sum::<usize>());
+                }
+            }
+        }
+    }
 
     #[test]
     fn bernstein_max_bounds_a_sextic() {

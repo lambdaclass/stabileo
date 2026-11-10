@@ -408,10 +408,16 @@ resource artifacts, repeated calls in one process, ASan footprints, and the
 seeded hang/leak controls. The thirteen 3D cases show bounded certificate cost
 and zero retained Rust allocation; #1261 already returns the 2D safety refusal.
 Its historical OOM attribution remains unverified. The separate grid-slab
-performance seed now passes both engine and fuzz storage admission; the old
+performance seed passes both engine and fuzz storage admission; the old
 pivot-counter refusal is superseded by summed storage and bounded exact
-elimination (PR #1888). The one-second historical timeout demonstrates neither
-a memory overrun nor a 60-second overrun. The
+elimination (PR #1888). Its recorded certification time exceeds 25 minutes, so
+nightly excludes `engine-grid-slab.bin` and both generated plastic seeds
+(`ex-3d-grid-slab-1` and `ex-3d-grid-slab-3`) from the live `json_plastic` corpus and keeps the case in timed
+replay coverage, including a 0.5-second watchdog regression.
+The one-second historical timeout demonstrates neither a memory overrun nor a
+60-second overrun. Admission now counts load-piece samples arithmetically before
+constructing floating elements or samples; oversized models refuse with bounded
+additional memory. The
 combined checked 3D API returns the certified lower bound with a warning for a
 raw mismatch in either direction under `PL-3D-CERTIFICATE-MISMATCH`. It refuses
 when no sound certificate is available. See the

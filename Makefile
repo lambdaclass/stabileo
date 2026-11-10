@@ -851,3 +851,7 @@ test.engine.plastic-wasm: wasm
 check.engine.plastic-workflow:
 	$(NIX_RUN) actionlint .github/workflows/nightly.yml
 	$(NIX_RUN) python3 -B -I scripts/tests/test_nightly.py Workflow.test_raw_artifact_upload_and_immutable_action
+
+.PHONY: test.engine.plastic-samples
+test.engine.plastic-samples:
+	$(NIX_RUN) cargo test --locked -p dedaliano-engine --lib lp_work_matches_initial_samples

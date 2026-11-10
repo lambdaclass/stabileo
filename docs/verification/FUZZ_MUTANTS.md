@@ -88,8 +88,11 @@ Slow but correct (not bugs, recorded so nobody re-triages them):
 
 - The exact 3D plastic collapse certificate runs for over 25 minutes on the 24-member
   grid-slab template in the earlier investigation. Exact LP construction now has
-  engine storage/work preflights and the harness adds a stricter storage budget,
-  derived from the same engine construction. The raw 3D solver retains its
+  engine storage preflights and the harness adds a stricter storage budget,
+  derived from the same engine construction. The grid passes those storage checks
+  but its regression artifact and both generated plastic seeds are excluded from
+  the live `json_plastic` corpus and kept in timed replay
+  coverage, including a short watchdog probe. The raw 3D solver retains its
   40-member fuzz cap. See [the bounded replay report](PLASTIC_LP_BUDGET.md); the
   historical long run was not repeated.
 - On the 232-node industrial-hall template (`ex-3d-nave-industrial`), natively in

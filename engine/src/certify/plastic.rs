@@ -880,12 +880,17 @@ const INITIAL_INTERVALS: usize = 16;
 const REFINEMENT_PASSES: usize = 6;
 
 pub fn lp_work(model: &PlasticModel) -> super::plastic_budget::PlasticLpWork {
-    let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
-    let initial = initial_samples(model, &ef, INITIAL_INTERVALS).len();
-    let curved_pieces = model.elems.iter().zip(&ef)
-        .filter(|(e, _)| e.mp.is_some())
-        .map(|(_, f)| f.pieces.iter().filter(|p| p.2[2] != 0.0 || p.2[3] != 0.0).count())
-        .fold(0usize, usize::saturating_add);
+    let mut initial = 0usize;
+    let mut curved_pieces = 0usize;
+    for e in model.elems.iter().filter(|e| e.mp.is_some()) {
+        initial = initial.saturating_add(2);
+        for piece in &e.pieces {
+            let curved = to_f64(&piece.c[2]) != 0.0 || to_f64(&piece.c[3]) != 0.0;
+            let intervals = if curved { INITIAL_INTERVALS } else { 1 };
+            initial = initial.saturating_add(intervals + 1);
+            curved_pieces = curved_pieces.saturating_add(usize::from(curved));
+        }
+    }
     super::plastic_budget::PlasticLpWork {
         equilibrium_equations: equilibrium_equation_count(model),
         force_variables: model.elems.len().saturating_mul(3),
@@ -1763,6 +1768,30 @@ fn certify_plastic_2d_body(input: &PlasticInput) -> Result<CertifiedPlastic2D, S
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lp_work_matches_initial_samples() {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        let original = build_model(&input).unwrap();
+        for degree in 0..4 {
+            for count in [1, 2, 7] {
+                let mut model = original.clone();
+                let e = &mut model.elems[0];
+                e.pieces = (0..count).map(|i| {
+                    let mut c = std::array::from_fn(|_| qi(0));
+                    c[degree] = qi(1);
+                    Piece { a: qr(i, count), b: qr(i + 1, count), c }
+                }).collect();
+                for capacity in [true, false] {
+                    if !capacity { model.elems[0].mp = None; }
+                    let ef: Vec<_> = model.elems.iter().map(elem_f64).collect();
+                    assert_eq!(lp_work(&model).initial_halfspaces,
+                        initial_samples(&model, &ef, INITIAL_INTERVALS).len() * 2);
+                }
+            }
+        }
+    }
 
     #[test]
     fn bernstein_bound_is_an_upper_bound_and_tight() {
