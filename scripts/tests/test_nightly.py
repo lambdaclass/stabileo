@@ -224,8 +224,63 @@ class Models(unittest.TestCase):
             with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
                     patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
                     patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
-                with self.assertRaisesRegex(RuntimeError, 'invariance harness'):
+                with self.assertRaisesRegex(RuntimeError, 'failure counts disagree'):
                     models.main()
+
+    @unittest.skip('known wrong result: #1919')
+    def test_one_metamorphic_failure_with_several_details_is_persisted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source = base / 'model.json'
+            source.write_text('{}')
+            out = base / 'out'
+            row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
+            row.update(analysis='linear', invariant='rotation', fail=1)
+            failure = {'test': 'metamorphic/linear/rotation', 'details': ['displacement sign differs', 'rotation sign differs']}
+            def replay(cmd, **kwargs):
+                if cmd == [sys.executable, '-c', 'import openseespy.opensees']:
+                    return subprocess.CompletedProcess(cmd, 1)
+                self.assertEqual(cmd, ['replay', '--ignored', '--exact', 'metamorphic_replay', '--nocapture'])
+                Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [failure], 'verdicts': [row]}))
+                return subprocess.CompletedProcess(cmd, 101, '', '')
+            with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--seed', '1919', '--reduce-seconds', '0', '--out', str(out)]), \
+                    patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
+                    patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(models.main(), 1)
+            findings = list(out.glob('*.finding.json'))
+            self.assertEqual(len(findings), 1)
+            finding = json.loads(findings[0].read_text())
+            self.assertEqual(finding['test'], failure['test'])
+            self.assertEqual(finding['details'], failure['details'])
+            self.assertEqual(finding['seed'], 1919)
+            summary = json.loads((out / 'summary.json').read_text())
+            self.assertEqual(summary['findings'], 1)
+            self.assertEqual(summary['comparisons']['metamorphic']['completed'], 1)
+
+    @unittest.skip('known wrong result: #1919')
+    def test_same_refusal_is_recorded_as_inconclusive_coverage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source = base / 'model.json'
+            source.write_text('{}')
+            out = base / 'out'
+            row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
+            row.update(analysis='linear', invariant='rotation', same_refusal=1)
+            def replay(cmd, **kwargs):
+                if cmd == [sys.executable, '-c', 'import openseespy.opensees']:
+                    return subprocess.CompletedProcess(cmd, 1)
+                self.assertEqual(cmd, ['replay', '--ignored', '--exact', 'metamorphic_replay', '--nocapture'])
+                Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [], 'verdicts': [row]}))
+                return subprocess.CompletedProcess(cmd, 0, '', '')
+            with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
+                    patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
+                    patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(RuntimeError, 'insufficient metamorphic coverage'):
+                    models.main()
+            counts = json.loads((out / 'summary.json').read_text())['comparisons']['metamorphic']
+            self.assertEqual(counts['completed'], 0)
+            self.assertEqual(len(counts['inconclusive']), 1)
+            self.assertEqual(counts['inconclusive'][0]['same_refusal'], 1)
 
 
 class Artifacts(unittest.TestCase):

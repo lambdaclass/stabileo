@@ -196,7 +196,8 @@ fn seeded_failure_dropped_comparison_field() {
     let mut r = Report::new();
     r.close("rotation", Rotation::from_rad(1.0), Rotation::from_rad(1.0), Rotation::from_rad(0.0));
     r.field::<Length>("dropped displacements", &[], 1e-9);
-    assert!(r.into_result().is_err(), "an empty displacement field agreed");
+    let error = r.into_result().expect_err("an empty displacement field agreed");
+    assert!(error.contains("no result values were compared"), "{error}");
 }
 
 pub fn rejects_seeded(check: impl FnOnce()) {

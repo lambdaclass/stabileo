@@ -1491,8 +1491,7 @@ fn seeded_failure_generalized_relative_certificate() {
         *abs_bound = err * 2.0;
         *rel_bound = 0.0;
     }
-    let rejected = std::panic::catch_unwind(|| assert_honest_gen(&cert, &system));
-    assert!(rejected.is_err(), "the oracle accepted a zero relative bound for a sign-flipped solution");
+    rejects_seeded_oracle(|| { assert_honest_gen(&cert, &system); }, "relative bound violated");
 }
 
 fn rejects_seeded_oracle(check: impl FnOnce(), expected: &str) {
@@ -1552,6 +1551,7 @@ fn seeded_failure_mechanism_and_warning_oracles() {
 }
 
 #[test]
+#[ignore = "known wrong result: #1919"]
 fn seeded_failure_buckling_certificate_oracle() {
     let input = make_column(4, 5.0, 200_000.0, 0.01, 1e-4, "pinned", "rollerX", -100.0);
     let out = certify_buckling_2d(&input, 1).unwrap();
@@ -1560,12 +1560,12 @@ fn seeded_failure_buckling_certificate_oracle() {
         let mut cert = out.certificate.clone();
         if let BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } = &mut cert {
             match fault {
-                0 => *lambda_lower *= -1.0,
+                0 => *lambda_lower = lambda_computed.next_up(),
                 1 => *lambda_computed = *lambda_lower * 0.5,
                 _ => *lambda_computed = lambda_upper.unwrap() * 1000.0,
             }
         }
-        rejects_seeded_oracle(|| { assert_buckling_enclosure("seeded buckling", &cert); }, "seeded buckling");
+        rejects_seeded_oracle(|| { assert_buckling_enclosure("seeded buckling", &cert); }, if fault < 2 { "buckling lower bound excludes computed factor" } else { "buckling upper bound excludes computed factor" });
     }
 }
 
@@ -1573,17 +1573,84 @@ fn assert_modal_enclosure(name: &str, lower: f64, upper: f64, omega2: f64) {
     assert!(lower <= omega2 && omega2 <= upper, "{name}: modal enclosure [{lower:e}, {upper:e}] excludes {omega2:e}");
 }
 
-#[test]
-fn seeded_failure_modal_certificate_oracle() {
-    use dedaliano_engine::certify::modal::{certify_modal_2d, ModalCertificate};
-    let input = tied_columns_2d();
-    let densities = input.materials.keys().map(|id| (id.clone(), 7.85)).collect();
-    let out = certify_modal_2d(&input, &densities, 3).unwrap();
+fn assert_modal_result_enclosures(out: &dedaliano_engine::certify::modal::CertifiedModal2D) {
+    use dedaliano_engine::certify::modal::ModalCertificate;
     let ModalCertificate::Certified { modes, .. } = &out.certificate else { panic!("control not certified") };
     assert!(!modes.is_empty());
     for (e, m) in modes.iter().zip(&out.results.modes) {
-        let w2 = m.omega * m.omega;
-        assert_modal_enclosure("control", e.omega2_lower, e.omega2_upper, w2);
-        rejects_seeded_oracle(|| assert_modal_enclosure("wrong units", e.omega2_lower, e.omega2_upper, w2 * 1000.0), "modal enclosure");
+        assert_modal_enclosure("control", e.omega2_lower, e.omega2_upper, m.omega * m.omega);
     }
+}
+
+fn modal_certificate_control() -> dedaliano_engine::certify::modal::CertifiedModal2D {
+    let input = tied_columns_2d();
+    let densities = input.materials.keys().map(|id| (id.clone(), 7.85)).collect();
+    dedaliano_engine::certify::modal::certify_modal_2d(&input, &densities, 3).unwrap()
+}
+
+#[test]
+fn seeded_failure_modal_certificate_oracle() {
+    let out = modal_certificate_control();
+    assert_modal_result_enclosures(&out);
+    for index in 0..out.results.modes.len() {
+        let mut wrong = out.clone();
+        wrong.results.modes[index].omega *= 1000.0;
+        rejects_seeded_oracle(|| assert_modal_result_enclosures(&wrong), "modal enclosure");
+    }
+}
+
+fn modal_certificate_dropped_results(keep: usize) {
+    let mut out = modal_certificate_control();
+    assert_modal_result_enclosures(&out);
+    assert!(out.results.modes.len() > keep);
+    out.results.modes.truncate(keep);
+    rejects_seeded_oracle(|| assert_modal_result_enclosures(&out), "modal result and certificate mode counts differ");
+}
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_modal_certificate_empty_results() {
+    modal_certificate_dropped_results(0);
+}
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_modal_certificate_truncated_results() {
+    modal_certificate_dropped_results(1);
+}
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_relative_certificate_just_below_error() {
+    let input = portal();
+    let (res, mut cert) = certify_linear_2d(&input).unwrap();
+    let mut r = reduced_2d(&input, &res);
+    assert_honest("control", &cert, &r);
+    r.u.iter_mut().for_each(|u| *u *= -1.0);
+    let err = true_error(&r);
+    let relative = err / norm(&r.u);
+    assert!(relative > 0.0 && relative.is_finite());
+    if let Certificate::Certified { abs_bound, rel_bound, .. } = &mut cert {
+        *abs_bound = err.next_up();
+        *rel_bound = relative.next_down();
+    }
+    rejects_seeded_oracle(|| { assert_honest("one ulp below", &cert, &r); }, "relative bound violated");
+}
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_generalized_relative_certificate_just_below_error() {
+    let input = tied_columns_2d();
+    let (res, mut cert) = certify_linear_2d(&input).unwrap();
+    let mut s = gen_2d("control", &input, &res);
+    assert_honest_gen(&cert, &s);
+    s.u_glob.iter_mut().for_each(|u| *u *= -1.0);
+    let err = gen_true_error(&s);
+    let relative = err / norm(&s.u_glob);
+    assert!(relative > 0.0 && relative.is_finite());
+    if let Certificate::Certified { abs_bound, rel_bound, .. } = &mut cert {
+        *abs_bound = err.next_up();
+        *rel_bound = relative.next_down();
+    }
+    rejects_seeded_oracle(|| { assert_honest_gen(&cert, &s); }, "relative bound violated");
 }

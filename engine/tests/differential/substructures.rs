@@ -394,5 +394,9 @@ fn seeded_failure_guyan_recovery() {
 #[test]
 fn seeded_failure_modal_mesh_refinement() {
     modal_mesh_refinement_converges_at_fourth_order();
-    rejects_seeded(|| modal_refinement_check(|r| r.modes.iter_mut().for_each(|m| m.frequency *= 1.01)));
+    let error = std::panic::catch_unwind(|| modal_refinement_check(|r| r.modes.iter_mut().for_each(|m| m.frequency *= 1.01)))
+        .expect_err("uniform frequency error passed the check");
+    let message = error.downcast_ref::<String>().map(String::as_str)
+        .or_else(|| error.downcast_ref::<&str>().copied()).unwrap_or("");
+    assert!(message.contains("checks disagree") && message.contains("4 elements f1"), "absolute frequency check did not catch the fault: {message}");
 }
