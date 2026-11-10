@@ -438,3 +438,73 @@ fn undamped_resonance_and_uncertain_inverse_anchors_are_unbounded() {
     accuracy.residual = 1.0;
     assert!(!accuracy.harmonic_error(1.0, (0.1, 0.1), 0.0).is_finite());
 }
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn zero_load_keeps_uncertifiable_harmonic_floors_infinite() {
+    let accuracy = HarmonicAccuracy {
+        forward: None,
+        mu: vec![1.0],
+        residual: 0.0,
+        natural: 0.0,
+    };
+    let frequency = 1.0 / (2.0 * std::f64::consts::PI);
+    for (damping, modal_residual) in [((0.0, 0.0), 0.0), ((0.0, 1e-200), 1e200)] {
+        let floor = harmonic_floor(
+            Some(&accuracy),
+            frequency,
+            damping,
+            0.0,
+            1.0,
+            modal_residual,
+        );
+        assert_eq!(
+            floor,
+            f64::INFINITY,
+            "damping={damping:?}, residual={modal_residual:e}"
+        );
+        assert_eq!(0.0f64.max(floor), f64::INFINITY);
+    }
+    assert_eq!(
+        harmonic_floor(Some(&accuracy), frequency, (0.0, 0.1), 0.0, 1.0, 0.0),
+        0.0
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #1887"]
+fn singular_mass_excludes_resolved_subcutoff_modes_only_from_anchors() {
+    let pencil = Pencil {
+        k: vec![
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ],
+        m: vec![
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 2e10,
+        ],
+        factor: vec![
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ],
+        n: 4,
+        natural: 1.0,
+    };
+    assert!(pencil.spectrum().is_err());
+    let mut accuracy = pencil.harmonic().unwrap();
+    let damping = dedaliano_engine::solver::damping::rayleigh_coefficients(1.0, 2.0, 0.05);
+    for omega in [0.0, 0.5, 1.0, 2.0] {
+        assert!(
+            accuracy.harmonic_error(omega, damping, 0.0).is_finite(),
+            "omega={omega}"
+        );
+    }
+    let slow_resonance = (1.0 / accuracy.mu[3]).sqrt();
+    assert_eq!(
+        accuracy.harmonic_error(slow_resonance, (0.0, 0.0), 0.0),
+        f64::INFINITY
+    );
+    accuracy.mu[3] = 1e10;
+    assert_eq!(accuracy.harmonic_error(0.5, damping, 0.0), f64::INFINITY);
+    accuracy.mu[3] = 1e10 + accuracy.residual;
+    assert_eq!(accuracy.harmonic_error(0.5, damping, 0.0), f64::INFINITY);
+    accuracy.mu[3] = 1e10 - accuracy.residual;
+    assert_eq!(accuracy.harmonic_error(0.5, damping, 0.0), f64::INFINITY);
+}

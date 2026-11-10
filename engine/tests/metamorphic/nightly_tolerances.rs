@@ -627,6 +627,10 @@ fn harmonic_symmetry_at_seeded_resonances() {
             }
             eprintln!("#{issue} anti={anti}: {}", t.report());
             assert!(t.failures().is_empty(), "#{issue}: {:?}", t.failures());
+            let cells = t.cells.lock().unwrap();
+            let c = &cells[&("harmonic".into(), "symmetry".into())];
+            assert_eq!(c.pass, 1, "#{issue} anti={anti}: {c:?}");
+            assert_eq!(c.inconclusive, 0, "#{issue} anti={anti}: {c:?}");
         }
     }
 }
@@ -646,6 +650,7 @@ fn harmonic_roundoff_floor_accounts_for_resonant_eigen_error() {
     let gain = 1.0 / (2.0 * 0.05);
     let minimum = us * cond.eig * gain * gain;
     let budget = r.flat().t.floor * crate::checks2::rel_for(a.name, a.iter_tol, &cond);
+    assert!(budget.is_finite());
     assert!(budget >= minimum, "eigen-resolvent error {minimum:e} exceeds harmonic budget {budget:e}");
 }
 
