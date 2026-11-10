@@ -392,7 +392,12 @@ fn check_2d(input: &SolverInput, densities: &HashMap<String, f64>, seed: u64) ->
     let mut kg = vec![0.0; n * n];
     add_geometric_stiffness_2d(input, &dn, &u, &mut kg);
     c.symmetric("2d.kg.symmetric", &kg, n);
-    let (kg_terms, axial) = kg_from_terms(&geometric_stiffness_terms_2d(input, &dn), &u, n);
+    let (mut kg_terms, axial) = kg_from_terms(&geometric_stiffness_terms_2d(input, &dn), &u, n);
+    let zero_axial = axial.keys().map(|&id| (id, 0.0)).collect();
+    let kg_span = dense(&build_kg_from_forces_2d(input, &all_free(&dn), &forces_2d(&zero_axial), &[]).into_csc());
+    for (entry, span) in kg_terms.iter_mut().zip(kg_span) {
+        *entry += span;
+    }
     c.mat("2d.kg.terms", &kg_terms, &kg, n);
     let kg_forces = build_kg_from_forces_2d(input, &dn, &forces_2d(&axial), &[]).into_csc();
     c.mat("2d.kg.forces", &dense(&kg_forces), &block(&kg, n, &free), nf);
@@ -714,7 +719,12 @@ fn check_3d(input: &SolverInput3D, densities: &HashMap<String, f64>, seed: u64) 
     members_only.curved_shells.clear();
     let mut kg = vec![0.0; n * n];
     add_geometric_stiffness_3d(&members_only, &dn, &u, &mut kg);
-    let (kg_terms, axial) = kg_from_terms(&geometric_stiffness_terms_3d(input, &dn), &u, n);
+    let (mut kg_terms, axial) = kg_from_terms(&geometric_stiffness_terms_3d(input, &dn), &u, n);
+    let zero_axial = axial.keys().map(|&id| (id, 0.0)).collect();
+    let kg_span = dense(&build_kg_from_forces_3d(input, &all_free(&dn), &forces_3d(&zero_axial)).into_csc());
+    for (entry, span) in kg_terms.iter_mut().zip(kg_span) {
+        *entry += span;
+    }
     c.mat("3d.kg.terms", &kg_terms, &kg, n);
     let kg_forces = build_kg_from_forces_3d(input, &dn, &forces_3d(&axial)).into_csc();
     c.mat("3d.kg.forces", &dense(&kg_forces), &block(&kg, n, &free), nf);
@@ -745,13 +755,6 @@ fn check_3d(input: &SolverInput3D, densities: &HashMap<String, f64>, seed: u64) 
             let uu = u_of_3d(&sys.dof_num, &sys.linear);
             let mut kgl = vec![0.0; n * n];
             add_geometric_stiffness_3d(input, &sys.dof_num, &uu, &mut kgl);
-            for (_, dofs, g) in &sys.span_axial {
-                for (a, &i) in dofs.iter().enumerate() {
-                    for (b, &j) in dofs.iter().enumerate() {
-                        kgl[i * n + j] += g[a * dofs.len() + b];
-                    }
-                }
-            }
             rotate_all_3d(&mut kgl, n, &st.inclined_transforms);
             let neg: Vec<f64> = block(&kgl, n, &free).iter().map(|v| -v).collect();
             c.mat("3d.buckling.kg", &dense(&sys.neg_kg_csc), &neg, nf);
@@ -1584,21 +1587,18 @@ fn assert_path_matches(checks: Checks, tag: &'static str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn span_reference_2d_affine_includes_constant_once() {
     let (input, densities, _) = model_2d(1);
     assert_path_matches(check_2d(&input, &densities, 1), "2d.kg.terms");
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn span_reference_3d_affine_includes_constant_once() {
     let (input, densities, _) = model_3d(1);
     assert_path_matches(check_3d(&input, &densities, 1), "3d.kg.terms");
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn span_reference_3d_buckling_includes_constant_once() {
     let (input, densities, _) = model_3d(71);
     assert_path_matches(check_3d(&input, &densities, 71), "3d.buckling.kg");
