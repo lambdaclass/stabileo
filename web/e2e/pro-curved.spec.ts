@@ -61,18 +61,13 @@ test.describe('@smoke PRO — curved geometry', () => {
       'three picked, six made, and the crown reused rather than doubled').toBe(9);
   });
 
-  test('the curved option appears once there are four corners to curve', async ({ pro: page }) => {
-    /* Three points are coplanar by definition, so a triangle is never a
-       cáscara — the control is offered where it can mean something. */
+  test('a quad is curved by its corners, with nothing to tick: the card only says so when they leave one plane', async ({ pro: page }) => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
     await page.getByTestId('write-plate').click();
-    await page.getByTestId('write-corners-3').click();
-    for (let i = 0; i < 3; i++) await page.getByTestId(`shell-node-${i}`).fill(String(i + 1));
-    await expect(page.getByTestId('quad-curved')).toHaveCount(0);
     await page.getByTestId('write-corners-4').click();
     for (let i = 0; i < 4; i++) await page.getByTestId(`shell-node-${i}`).fill(String(i + 1));
-    await expect(page.getByTestId('quad-curved')).toHaveCount(1);
+    await expect(page.getByTestId('quad-curved')).toHaveCount(0);
   });
 
   test('an arc picked whole shows one local-axis triad, a segment picked alone its own', async ({ pro: page }) => {

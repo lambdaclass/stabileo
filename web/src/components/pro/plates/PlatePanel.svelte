@@ -10,7 +10,7 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import {
-    addPlateLoad, arcEdgeBetween, clearPlateMesh, deletePlate, plateEntry, plateLoadDefs, plateShellKeys, plateSides, plateStatus, setPlateHoles,
+    addPlateLoad, arcEdgeBetween, clearPlateMesh, deletePlate, liftableLoads, plateEntry, plateLoadDefs, plateShellKeys, plateSides, plateStatus, setPlateHoles,
     setPlateProperties, setPlateSideArc, type PlateStatus,
   } from '../../../lib/store/physical-plates';
   import { plateArea, plateGeometry, plateLoops } from '../../../lib/model/physical/plate';
@@ -34,6 +34,7 @@
   });
   const loops = $derived(one ? plateLoops(one.group) : null);
   const loads = $derived.by(() => { void modelStore.model.groups; return one ? plateLoadDefs(one.id) : []; });
+  const elementLoads = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return one ? liftableLoads(one).cases : []; });
   const sharedThickness = $derived(entries.length && entries.every((e) => e.surface.thickness === entries[0]!.surface.thickness) ? entries[0]!.surface.thickness : null);
   const sharedMaterial = $derived(entries.length && entries.every((e) => e.surface.materialId === entries[0]!.surface.materialId) ? entries[0]!.surface.materialId : null);
 
@@ -112,7 +113,7 @@
           {#if !one}<span class="pp-name">{e.name}</span>{/if}
           <span class="chip chip-{s}" data-testid="plate-status-{e.id}">{statusLabel(s)}</span>
           {#if e.surface.meshed && s !== 'unmeshed'}
-            <span class="pp-dim">{tp('plates.meshSummary', { cells: e.surface.meshed.cells, size: fmtQ(e.surface.mesh.size, 'length'), unit: unitQ('length') })}</span>
+            <span class="pp-dim">{tp(e.surface.meshed.cells === 1 ? 'plates.meshSummaryOne' : 'plates.meshSummary', { cells: e.surface.meshed.cells, size: fmtQ(e.surface.mesh.size, 'length'), unit: unitQ('length') })}</span>
             {#if e.surface.meshed.quality.poor > 0}<span class="pp-warn">{tp('plates.poorCells', { n: e.surface.meshed.quality.poor })}</span>{/if}
           {/if}
         </div>
@@ -153,8 +154,14 @@
         </div>
       </details>
 
-      <details class="pp-block" open={loads.length > 0}>
-        <summary class="pp-label" data-testid="plate-loads-toggle">{t('plates.areaLoads')} ({loads.length})</summary>
+      <details class="pp-block" open={loads.length + elementLoads.length > 0}>
+        <summary class="pp-label" data-testid="plate-loads-toggle">{t('plates.areaLoads')} ({loads.length + elementLoads.length})</summary>
+        {#each elementLoads as l (l.caseId)}
+          <div class="pp-line" data-testid="plate-element-load-{l.caseId}">
+            <span>{cases.find((c) => c.id === l.caseId)?.name ?? `#${l.caseId}`}: {fmtQ(l.q, 'areaLoad')} {unitQ('areaLoad')} <span class="pp-dim">{t('plates.onItsElements')}</span></span>
+            <button class="pp-x" onclick={() => modelStore.removeLoads(l.ids)} title={t('plates.removeLoad')}>×</button>
+          </div>
+        {/each}
         {#each loads as d (d.id)}
           {@const def = d.data as { caseId: number; q: number }}
           <div class="pp-line">

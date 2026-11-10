@@ -13,19 +13,21 @@
   import { t, tp } from '../../../lib/i18n';
   import { applyPlateMeshes, planPlateMeshes, plateEntry, type PlateMeshPlan } from '../../../lib/store/physical-plates';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
-  import { POOR_MIN_ANGLE } from '../../../lib/model/physical/plate';
+  import { DEFAULT_PLATE_MESH, POOR_MIN_ANGLE } from '../../../lib/model/physical/plate';
   import QuantityInput from '../loads/QuantityInput.svelte';
 
   let { ids, onclose }: { ids: number[]; onclose: () => void } = $props();
 
   // The settings it opens with: the first plate's own. Later changes to `ids` do not reset them.
   const first = untrack(() => plateEntry(ids[0]!)?.surface.mesh);
-  let size = $state(first?.size ?? 0.5);
+  // A plate made from shells keeps their size as its own, which for a whole bay is far coarser than any mesh one would ask for.
+  const opening = first && first.size <= 1 ? first.size : DEFAULT_PLATE_MESH.size;
+  let size = $state(opening);
   let element = $state<'quad' | 'tri'>(first?.element ?? 'quad');
   let followMembers = $state(first?.followMembers ?? true);
   // A grid of rectangles or squares of the sides given, along the plate's first side or global X.
   let pattern = $state<'free' | 'rect' | 'square'>(first?.pattern ?? 'free');
-  let sizeV = $state(first?.sizeV ?? first?.size ?? 0.5);
+  let sizeV = $state(first?.sizeV && first.sizeV <= 1 ? first.sizeV : opening);
   let orient = $state<'plate' | 'globalX'>(first?.orient ?? 'plate');
   const gridOn = $derived(element === 'quad' && pattern !== 'free');
   let plans = $state<PlateMeshPlan[] | null>(null);
@@ -146,21 +148,22 @@
               {#if p.mesh}
                 <td>{p.cells}</td>
                 <td>{kindOf(p)}</td>
-                <td class:warn={!!p.quality && p.quality.poor > 0}>{p.quality ? tp('plates.qualityCell', { angle: p.quality.minAngle.toFixed(0), poor: p.quality.poor }) : ''}</td>
+                <td class:warn={!!p.quality && p.quality.poor > 0}>{p.quality ? (p.quality.poor > 0 ? tp('plates.qualityPoor', { poor: p.quality.poor, cells: p.cells }) : tp('plates.qualityGood', { angle: p.quality.minAngle.toFixed(0) })) : ''}</td>
               {:else}
                 <td colspan="3">{t(`plates.refused.${p.refused}`)}{p.refused === 'tooManyCells' ? ` (${p.cells})` : ''}</td>
               {/if}
             </tr>
             {#if p.localLoads || p.keptNodes}
               <tr class="pmd-note"><td colspan="4">
-                {#if p.localLoads}{tp('plates.localLoadsWarn', { n: p.localLoads })}{/if}
-                {#if p.keptNodes} {tp('plates.keptNodesNote', { n: p.keptNodes })}{/if}
+                {#if p.localLoads}{p.localLoads === 1 ? t('plates.localLoadsWarnOne') : tp('plates.localLoadsWarn', { n: p.localLoads })}{/if}
+                {#if p.keptNodes} {p.keptNodes === 1 ? t('plates.keptNodesNoteOne') : tp('plates.keptNodesNote', { n: p.keptNodes })}{/if}
               </td></tr>
             {/if}
           {/each}
         </tbody>
       </table>
-      <p class="pmd-hint">{tp('plates.planTotal', { cells: totals.cells, size: fmtQ(size, 'length'), unit: unitQ('length'), angle: POOR_MIN_ANGLE })}</p>
+      <p class="pmd-hint">{tp('plates.planTotalOnly', { cells: totals.cells, size: fmtQ(size, 'length'), unit: unitQ('length') })}</p>
+      {#if ok.some((p) => (p.quality?.poor ?? 0) > 0)}<Hint text={tp('plates.qualityHint', { angle: POOR_MIN_ANGLE })} />{/if}
       {#if drawing}
         <svg class="pmd-svg" viewBox="0 0 {W} {H}" width={W} height={H} aria-hidden="true">
           {#each drawing as pts, i (i)}<polygon points={pts} />{/each}

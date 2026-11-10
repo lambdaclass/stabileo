@@ -81,7 +81,9 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await expect.poll(() => page.evaluate(() => window.__stabileo.quadIds().length)).toBeGreaterThan(20);
     const plate = await page.evaluate(() => window.__stabileo.quadIds().length);
 
-    await page.getByTestId('surfaces-toggle').click();
+    await page.getByTestId('pr-more-moreTools').click();
+    await page.getByTestId('pr-cmd-generators').click();
+    await page.getByTestId('gen-sec-surfaces').locator('summary').click();
     await page.getByTestId('sf-kind').selectOption('cylinder');
     await expect(page.getByTestId('sf-summary')).toBeVisible();
     await page.getByTestId('sf-place').click();

@@ -64,6 +64,12 @@ export interface PlateSurface {
    * so the plate keeps its curved side whatever its mesh does with it (`arcSampler`).
    */
   arcMids?: number[];
+  /** Its mesh's quads are solved as curved shells, whatever the mesh. */
+  curved?: boolean;
+  /** The mid-surface offset every element of its mesh is given, whatever the mesh. */
+  offset?: import('../element-3d-metadata').ShellOffset;
+  /** Foundation springs k = ks · A at the nodes of its mesh, made again with every mesh. */
+  springs?: { ks: number; uplift: boolean; holdHorizontal: boolean };
   /** Set when the current mesh was made: what it was made from, and what it is. */
   meshed?: {
     signature: string; cells: number; quality: MeshQuality;

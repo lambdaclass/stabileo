@@ -2748,7 +2748,6 @@ const id: Translations = {
   'pro.unknown': 'Tidak diketahui',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} pelat, {quads} quad',
   'pro.plateTriDKT': 'Pelat segitiga (DKT)',
   'pro.quadMITC4': 'Quad MITC4',
   'pro.meshHint': 'Definisikan 4 titik sudut (berlawanan arah jarum jam) dan subdivisi NxM. Titik simpul dan quad antara dibuat otomatis.',

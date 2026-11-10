@@ -7,12 +7,34 @@ import { physicalPlates, plateStatus } from './physical-plates';
 import { meshBeforeAnalysis } from './mesh-policy.svelte';
 import type { SolverDiagnostic } from '../engine/types';
 import { modelStore } from './model.svelte';
+import { planRecognition } from './physical-recognition';
 import { useZones, zoneLoadPlan } from './use-zones';
 import { zoneHasShells, zoneOverUnmeshedPlate, zoneOverlap, zoneStatus, zoneUnsupported, zoneUseOf } from '../model/use-zones';
 import type { DefinitionModel } from '../model/loads/floor-definitions';
 
+/** Nodes through which a shell takes or gives load: a member's end, a support, or a node two shells share. */
+function connectingNodes(): Set<number> {
+  const s = new Set<number>();
+  for (const el of modelStore.elements.values()) { s.add(el.nodeI); s.add(el.nodeJ); }
+  for (const sup of modelStore.supports.values()) s.add(sup.nodeId);
+  const count = new Map<number, number>();
+  for (const q of modelStore.quads.values()) for (const n of q.nodes) count.set(n, (count.get(n) ?? 0) + 1);
+  for (const q of modelStore.plates.values()) for (const n of q.nodes) count.set(n, (count.get(n) ?? 0) + 1);
+  for (const [n, c] of count) if (c >= 2) s.add(n);
+  return s;
+}
+
 export function plateDiagnostics(t: (key: string) => string): SolverDiagnostic[] {
   const out: SolverDiagnostic[] = [];
+  const connecting = connectingNodes();
+  for (const p of physicalPlates()) {
+    const loose = new Set<number>();
+    for (const q of p.group.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) if (!connecting.has(n)) loose.add(n);
+    for (const q of p.group.members.plates ?? []) for (const n of modelStore.plates.get(q)?.nodes ?? []) if (!connecting.has(n)) loose.add(n);
+    if (loose.size) out.push({ source: 'model', objects: [{ kind: 'plate', id: p.id }], severity: 'warning', code: 'PLATE_LOOSE_CORNER', message: t('plates.diag.looseCorner'), details: { plate: p.name, nodes: [...loose].sort((a, b) => a - b).join(', ') } });
+  }
+  const review = planRecognition().proposals.filter((x) => x.status !== 'same').length;
+  if (review) out.push({ source: 'model', severity: 'info', code: 'PHYSICAL_REVIEW', message: t('physical.diag.review'), details: { n: review } });
   for (const p of physicalPlates()) {
     const s = plateStatus(p.id);
     const base = { source: 'model' as const, objects: [{ kind: 'plate' as const, id: p.id }], details: { plate: p.name } };

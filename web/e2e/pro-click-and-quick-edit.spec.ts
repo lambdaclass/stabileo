@@ -92,6 +92,7 @@ test.describe('@smoke PRO click selection and the quick editor', () => {
     await loadModel(page, 'mat-foundation');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
+    await page.getByTestId('shell-elements-toggle').click();
     const q = (await page.evaluate(() => window.__stabileo.entityData('setting', 'quads') as Array<[number, { nodes: number[] }]>))[0]!;
     const input = page.getByTestId(`plate-nodes-q${q[0]}`);
     const [a, b, c, d] = q[1].nodes;

@@ -21,6 +21,7 @@ import { modelStore } from './model.svelte';
 import { t as tr } from '../i18n';
 import { GENERATED_KIND } from './generated-structures';
 import { physicalGroups } from './physical';
+import { plateSurfaceOf } from '../model/physical/plate';
 import {
   DECISION_PLACES, EXTENT_PLACES, groupReferences, remapGroupReferences,
   type DroppedValue, type GroupRefPlace, type GroupReference,
@@ -172,12 +173,15 @@ function flagsOf(d: PhysicalDraft, levelCount: (from?: string, to?: string) => n
 /** Read the physical elements off the model, as a proposal against what is there. Writes nothing. */
 export function planRecognition(): RecognitionPlan {
   const all = physicalGroups();
-  const declared = all.filter((g) => g.physical.provenance === 'declared');
-  const existing = all.filter((g) => g.physical.provenance !== 'declared');
+  // A physical plate is its shells' element already, whatever its provenance: its outline and mesh are not read again from them.
+  const plates = all.filter((g) => !!plateSurfaceOf(g));
+  const declared = all.filter((g) => g.physical.provenance === 'declared' && !plateSurfaceOf(g));
+  const existing = all.filter((g) => g.physical.provenance !== 'declared' && !plateSurfaceOf(g));
+  const holding = [...declared, ...plates];
   const taken = {
     elements: new Set(declared.flatMap((g) => g.members.elements ?? [])),
-    plates: new Set(declared.flatMap((g) => g.members.plates ?? [])),
-    quads: new Set(declared.flatMap((g) => g.members.quads ?? [])),
+    plates: new Set(holding.flatMap((g) => g.members.plates ?? [])),
+    quads: new Set(holding.flatMap((g) => g.members.quads ?? [])),
   };
   const levels = modelStore.grid?.levels ?? [];
   const drafts = recognizePhysical({
@@ -201,11 +205,19 @@ export function planRecognition(): RecognitionPlan {
   const dKeys = drafts.map((d) => keysOf(d));
   const eKeys = existing.map((g) => keysOf(g.members));
   const pairs: Array<{ d: number; e: number; shared: number; sameKind: boolean }> = [];
-  drafts.forEach((d, di) => existing.forEach((g, ei) => {
-    let shared = 0;
-    for (const k of dKeys[di]!) if (eKeys[ei]!.has(k)) shared++;
-    if (shared > 0) pairs.push({ d: di, e: ei, shared, sameKind: g.physical.kind === d.kind });
-  }));
+  const ownerOf = new Map<string, number[]>();
+  eKeys.forEach((keys, ei) => { for (const k of keys) (ownerOf.get(k) ?? ownerOf.set(k, []).get(k)!).push(ei); });
+  drafts.forEach((d, di) => {
+    const shared = new Map<number, number>();
+    for (const k of dKeys[di]!) for (const ei of ownerOf.get(k) ?? []) shared.set(ei, (shared.get(ei) ?? 0) + 1);
+    for (const [ei, n] of shared) pairs.push({ d: di, e: ei, shared: n, sameKind: existing[ei]!.physical.kind === d.kind });
+  });
+  const pairsOfE = new Map<number, typeof pairs>();
+  const pairsOfD = new Map<number, typeof pairs>();
+  for (const p of pairs) {
+    (pairsOfE.get(p.e) ?? pairsOfE.set(p.e, []).get(p.e)!).push(p);
+    (pairsOfD.get(p.d) ?? pairsOfD.set(p.d, []).get(p.d)!).push(p);
+  }
   pairs.sort((a, b) => Number(b.sameKind) - Number(a.sameKind) || b.shared - a.shared || a.e - b.e);
   const dMatch = new Map<number, number>(), eMatch = new Map<number, number>();
   for (const p of pairs) {
@@ -217,23 +229,27 @@ export function planRecognition(): RecognitionPlan {
    * Where each existing element goes, and whether its member set changes on the way: a match
    * with other members, or a successor that is not exactly it. Only then do references need care.
    */
-  const destOf = (ei: number): number | null => eMatch.get(ei) ?? pairs.filter((p) => p.e === ei).sort((a, b) => b.shared - a.shared)[0]?.d ?? null;
+  const destOf = (ei: number): number | null => eMatch.get(ei) ?? [...(pairsOfE.get(ei) ?? [])].sort((a, b) => b.shared - a.shared)[0]?.d ?? null;
   const extentChanges = (ei: number): boolean => {
     const d = destOf(ei);
     return d !== null && !sameSet(dKeys[d]!, eKeys[ei]!);
   };
-  const refsOf = existing.map((g) => groupReferences(g.id));
+  const refCache = new Map<number, GroupReference[]>();
+  const refsOf = (ei: number): GroupReference[] => refCache.get(ei) ?? refCache.set(ei, groupReferences(existing[ei]!.id)).get(ei)!;
+  const intoOf = new Map<number, number[]>();
+  existing.forEach((_, ei) => { const d = destOf(ei); if (d !== null) (intoOf.get(d) ?? intoOf.set(d, []).get(d)!).push(ei); });
   const conflictsOf = (di: number): RecognitionConflict[] => {
-    const into = existing.map((_, ei) => ei).filter((ei) => destOf(ei) === di && extentChanges(ei));
-    const merging = existing.map((_, ei) => ei).filter((ei) => destOf(ei) === di).length > 1;
-    return into.flatMap((ei) => refsOf[ei]!.filter((r) => DECISION_PLACES.has(r.place)).map((r) => ({
+    const all = intoOf.get(di) ?? [];
+    const into = all.filter((ei) => extentChanges(ei));
+    const merging = all.length > 1;
+    return into.flatMap((ei) => refsOf(ei).filter((r) => DECISION_PLACES.has(r.place)).map((r) => ({
       place: r.place, fromId: existing[ei]!.id, fromName: existing[ei]!.name,
-      kind: merging ? 'merge' as const : pairs.filter((p) => p.e === ei).length > 1 ? 'split' as const : 'extent' as const,
+      kind: merging ? 'merge' as const : (pairsOfE.get(ei)?.length ?? 0) > 1 ? 'split' as const : 'extent' as const,
     })));
   };
   const freezes: RecognitionFreeze[] = existing.flatMap((g, ei) => {
     if (!extentChanges(ei)) return [];
-    const places = [...new Set(refsOf[ei]!.filter((r) => EXTENT_PLACES.has(r.place)).map((r) => r.place))];
+    const places = [...new Set(refsOf(ei).filter((r) => EXTENT_PLACES.has(r.place)).map((r) => r.place))];
     return places.length ? [{ fromId: g.id, fromName: g.name, places }] : [];
   });
 
@@ -243,10 +259,10 @@ export function planRecognition(): RecognitionPlan {
     const ei = dMatch.get(di);
     const g = ei !== undefined ? existing[ei]! : undefined;
     const data = dataOf(d);
-    const touches = new Set(pairs.filter((p) => p.d === di).map((p) => p.e));
+    const touches = new Set((pairsOfD.get(di) ?? []).map((p) => p.e));
     const flags = flagsOf(d, levelCount);
     if (touches.size > 1) flags.push('merges');
-    if (g && pairs.filter((p) => p.e === ei).length > 1) flags.push('splits');
+    if (g && (pairsOfE.get(ei!)?.length ?? 0) > 1) flags.push('splits');
     let status: ProposalStatus = 'new';
     if (g) status = sameSet(dKeys[di]!, eKeys[ei!]!) && sameData(g.data, data) ? 'same' : 'changed';
     let name = g?.name ?? d.name;
@@ -265,7 +281,7 @@ export function planRecognition(): RecognitionPlan {
   // Existing elements no proposal keeps: their successor is the proposal holding most of their members.
   const removals: RecognitionRemoval[] = existing.flatMap((g, ei) => {
     if (eMatch.has(ei)) return [];
-    const best = pairs.filter((p) => p.e === ei).sort((a, b) => b.shared - a.shared)[0];
+    const best = [...(pairsOfE.get(ei) ?? [])].sort((a, b) => b.shared - a.shared)[0];
     let successorId: number | undefined;
     if (!best) {
       let most = 0;
@@ -280,7 +296,7 @@ export function planRecognition(): RecognitionPlan {
       id: g.id, name: g.name, kind: g.physical.kind,
       ...(best ? { successorKey: `p${best.d}` } : {}),
       ...(successorId !== undefined ? { successorId } : {}),
-      references: refsOf[ei]!,
+      references: refsOf(ei),
     }];
   });
 

@@ -21,6 +21,7 @@
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { physicalDataOf, type PhysicalData } from '../model/physical';
+import { levelAt } from '../model/physical/recognize';
 import {
   arcInterior, circleThrough, DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, memberChains, meshQuality, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
   plateSignature, plateSurfaceOf, type ArcSampler, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
@@ -31,14 +32,15 @@ import { generateMesh, MAX_MESH_CELLS, type MeshOutput } from '../model/edit/mes
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
 import { applyMesh } from '../model/edit/mesh-apply';
 import { mergeCollinear } from '../model/edit/merge-collinear';
-import { addFloorLoadDef } from './defined-loads';
+import { addFloorLoadDef, syncDefinedLoads } from './defined-loads';
 import { constraintNodes } from '../engine/steel/unbraced-length';
 import { meshBeforeAnalysis } from './mesh-policy.svelte';
 export { meshBeforeAnalysis };
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
 import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes, type ColumnFootprint } from '../model/building/column-footprints';
 import { designData } from './design-data';
-import type { ModelGroup } from './model.svelte';
+import { tributaryAreas } from '../engine/foundation-springs';
+import type { ModelGroup, SurfaceLoad3D } from './model.svelte';
 
 export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
 
@@ -284,6 +286,26 @@ function withMemberArcs(outline: number[], arcMids: number[]): { outline: number
   return { outline: out, arcMids: mids };
 }
 
+/** Names for new plates, L for a slab and M for a wall, each the next number no group of the model has. */
+export function plateNamer(): (kind: string) => string {
+  const used = new Set([...modelStore.model.groups.values()].map((g) => g.name));
+  return (kind) => {
+    const prefix = kind === 'wall' ? 'M' : 'L';
+    let n = 1;
+    while (used.has(`${prefix}${n}`)) n++;
+    used.add(`${prefix}${n}`);
+    return `${prefix}${n}`;
+  };
+}
+
+/** The levels a plate's nodes span, as the physical elements read them. */
+export function plateLevels(nodes: readonly number[]): { levelFrom?: string; levelTo?: string } {
+  const zs = nodes.map((n) => modelStore.nodes.get(n)?.z ?? 0);
+  if (!zs.length) return {};
+  const levels = modelStore.grid?.levels ?? [];
+  return { levelFrom: levelAt(Math.min(...zs), levels), levelTo: levelAt(Math.max(...zs), levels) };
+}
+
 /** A plate from an outline of nodes; one undo step. The problem when the nodes make none. */
 export function createPlate(p: NewPlate): { id: number } | { problem: PlateProblem } {
   const holes = p.holes ?? [];
@@ -295,11 +317,9 @@ export function createPlate(p: NewPlate): { id: number } | { problem: PlateProbl
   const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, ...(mids.length ? { arcMids: mids } : {}) };
   const temp = { id: 0, members: { nodes: [...p.outline, ...holes.flat()] }, data: { surface } };
   const geo = plateGeometry(plateModel(), temp)!;
-  const physical: PhysicalData & { surface: PlateSurface } = { kind: plateKindOf(geo), provenance: 'declared', surface };
-  const taken = new Set(physicalPlates().map((e) => e.name));
-  let n = physicalPlates().length + 1;
-  while (taken.has(`P${n}`)) n++;
-  const id = modelStore.addGroup(p.name ?? `P${n}`, 'physicalMember', temp.members, { data: physical as unknown as Record<string, unknown> });
+  const kind = plateKindOf(geo);
+  const physical: PhysicalData & { surface: PlateSurface } = { kind, provenance: 'declared', ...plateLevels(p.outline), surface };
+  const id = modelStore.addGroup(p.name ?? plateNamer()(kind), 'physicalMember', temp.members, { data: physical as unknown as Record<string, unknown> });
   return { id };
 }
 
@@ -486,12 +506,45 @@ const held = (except?: number): Set<number> => {
   return s;
 };
 
+/** Plain uniform area loads on every shell given, case by case, that a plate's own load can take the place of: those loads, and the cases and values it is given. */
+export function uniformLoads(keys: readonly string[], byShell: ReadonlyMap<string, Array<{ id: number; caseId: number; q: number }>>): { gone: number[]; cases: Array<{ caseId: number; q: number; ids: number[] }> } {
+  const byCase = new Map<number, Array<{ id: number; key: string; q: number }>>();
+  for (const key of keys) for (const l of byShell.get(key) ?? []) (byCase.get(l.caseId) ?? byCase.set(l.caseId, []).get(l.caseId)!).push({ ...l, key });
+  const gone: number[] = [], cases: Array<{ caseId: number; q: number; ids: number[] }> = [];
+  for (const [caseId, list] of byCase) {
+    if (caseId < 0 || list.length !== keys.length || new Set(list.map((x) => x.key)).size !== keys.length) continue;
+    const q = list[0]!.q;
+    if (!Number.isFinite(q) || list.some((x) => Math.abs(x.q - q) > 1e-12)) continue;
+    gone.push(...list.map((x) => x.id));
+    cases.push({ caseId, q, ids: list.map((x) => x.id) });
+  }
+  return { gone, cases };
+}
+
+export function shellAreaLoads(): Map<string, Array<{ id: number; caseId: number; q: number }>> {
+  const plain = (d: SurfaceLoad3D) => Object.keys(d).every((k) => ['id', 'quadId', 'on', 'q', 'caseId'].includes(k));
+  const out = new Map<string, Array<{ id: number; caseId: number; q: number }>>();
+  for (const l of modelStore.loads) {
+    if (l.type !== 'surface3d') continue;
+    const d = l.data as SurfaceLoad3D;
+    const key = `${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`;
+    (out.get(key) ?? out.set(key, []).get(key)!).push({ id: d.id, caseId: d.caseId ?? -1, q: plain(d) ? d.q : NaN });
+  }
+  return out;
+}
+
+/** The uniform area loads on every shell of a slab plate's mesh, which become the plate's own when it is meshed again. */
+export function liftableLoads(e: PlateEntry, byShell = shellAreaLoads()): ReturnType<typeof uniformLoads> {
+  return e.physical.kind === 'slab' ? uniformLoads(plateShellKeys(e.id), byShell) : { gone: [], cases: [] };
+}
+
 function localLoadsOn(e: PlateEntry): number {
+  const liftable = new Set(liftableLoads(e).gone);
   const quads = new Set(e.group.members.quads ?? []), plates = new Set(e.group.members.plates ?? []);
   return modelStore.loads.filter((l) => {
     if (l.type !== 'surface3d' && l.type !== 'thermalQuad3d') return false;
-    const d = l.data as { quadId: number; on?: string; fromDef?: number };
-    if (d.fromDef !== undefined) return false;
+    const d = l.data as { id: number; quadId: number; on?: string; fromDef?: number };
+    if (d.fromDef !== undefined || liftable.has(d.id)) return false;
     return d.on === 'plate' ? plates.has(d.quadId) : quads.has(d.quadId);
   }).length;
 }
@@ -581,6 +634,7 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
   const loops = plateLoops(e.group);
   const owned = new Set(loops.owned);
   let removedNodes = 0, keptNodes = 0;
+  const current = physicalPlates().filter((x) => x.id !== id && plateStatus(x.id) === 'current').map((x) => x.id);
   modelStore.batch(() => {
     untieNodes(owned);
     const spread = new Set(e.surface.meshed?.supported ?? []);
@@ -599,6 +653,8 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
     const g = modelStore.model.groups.get(id)!;
     modelStore.setGroupMembers(id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat()], quads: [], plates: [] });
     writeSurface(id, (s) => { const { meshed: _m, ...rest } = s; return rest; });
+    // A neighbour reads its mesh's nodes against this one's, so taking this one out would put it out of date.
+    for (const x of current) if (plateStatus(x) === 'stale') adoptCurrentMesh(x);
   });
   return { removedNodes, keptNodes };
 }
@@ -614,6 +670,16 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
   const current = physicalPlates().filter((e) => plateStatus(e.id) === 'current').map((e) => e.id);
   const meshed: number[] = [];
   modelStore.batch(() => {
+    const byShell = shellAreaLoads();
+    let lifted = 0;
+    for (const p of ok) {
+      const e = plateEntry(p.id);
+      const u = e ? liftableLoads(e, byShell) : null;
+      if (!e || !u?.gone.length) continue;
+      modelStore.removeLoads(u.gone);
+      for (const c of u.cases) modelStore.addGroup(`${e.name} · q`, 'floorLoad', {}, { data: plateLoadDef(e.id, c.caseId, c.q) as unknown as Record<string, unknown> });
+      lifted++;
+    }
     for (const [k, planned] of ok.entries()) {
       // After the first, each plate is planned again on the model as it now is, so it meets the
       // meshes just put in beside it.
@@ -622,6 +688,10 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
       const e = plateEntry(p.id);
       if (!e) continue;
       report.droppedLocalLoads += p.localLoads;
+      if (e.surface.springs) {
+        const owned = new Set(plateLoops(e.group).owned);
+        for (const sp of [...modelStore.supports.values()]) if (owned.has(sp.nodeId) && isSpring(sp as never)) modelStore.removeSupport(sp.id);
+      }
       report.keptNodes += clearPlateMesh(p.id).keptNodes;
       const before = new Set(modelStore.nodes.keys());
       const fp = p.footprints;
@@ -633,6 +703,11 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
       const loops = plateLoops(g);
       const supported = supportSides(loops.outer, created);
       modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
+      if (e.surface.curved) for (const q of r.quads) modelStore.setQuadCurved(q, true);
+      if (e.surface.offset) {
+        for (const q of r.quads) modelStore.setShellOffset('quad', q, e.surface.offset);
+        for (const t of r.plates) modelStore.setShellOffset('plate', t, e.surface.offset);
+      }
       writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supported.length ? { supported } : {}) } }));
       report.plates++;
       report.cells += r.quads.length + r.plates.length;
@@ -640,8 +715,66 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
     }
     // Each mesh after the first met the ones put in before it, which reads them out of date by their neighbours' nodes alone.
     for (const id of new Set([...meshed, ...current])) if (plateStatus(id) === 'stale') adoptCurrentMesh(id);
+    if (lifted) syncDefinedLoads();
+    const springy = meshed.filter((id) => plateEntry(id)?.surface.springs);
+    if (springy.length) respring(springy);
   });
   return report;
+}
+
+/** The plates every shell of which is among `keys`. */
+export function platesWholeIn(keys: ReadonlySet<string>): number[] {
+  return physicalPlates().filter((p) => { const k = plateShellKeys(p.id); return k.length > 0 && k.every((x) => keys.has(x)); }).map((p) => p.id);
+}
+
+/** What the plates' meshes are given beyond material and thickness, kept on the plates so every mesh gets it; `null` takes it away. */
+export function setPlateShellSpec(ids: readonly number[], patch: { curved?: boolean | null; offset?: PlateSurface['offset'] | null; springs?: PlateSurface['springs'] | null }): void {
+  for (const id of ids) writeSurface(id, (s) => {
+    const next = { ...s };
+    for (const k of ['curved', 'offset', 'springs'] as const) {
+      if (!(k in patch)) continue;
+      const v = patch[k];
+      if (v === null || v === undefined || v === false) delete next[k]; else (next as Record<string, unknown>)[k] = v;
+    }
+    return next;
+  });
+}
+
+const isSpring = (sp: { type?: string; kz?: number }) => sp.type === 'custom3d' && (sp.kz ?? 0) > 0;
+
+/** The foundation springs of the plates given, from their meshes as they are now: one per node, k summed over every spring plate that node belongs to. */
+function respring(ids: readonly number[]): void {
+  const springy = physicalPlates().filter((p) => p.surface.springs);
+  const affected = new Set<number>();
+  for (const id of ids) for (const k of plateShellKeys(id)) shellNodes(k).forEach((n) => affected.add(n));
+  if (!affected.size) return;
+  const kz = new Map<number, number>();
+  const spec = new Map<number, NonNullable<PlateSurface['springs']>>();
+  for (const p of springy) {
+    const shells = plateShellKeys(p.id).map((k) => ({ nodes: shellNodes(k) })).filter((s) => s.nodes.some((n) => affected.has(n)));
+    if (!shells.length) continue;
+    for (const [n, a] of tributaryAreas(modelStore.nodes, shells)) {
+      if (!affected.has(n) || !(a > 0)) continue;
+      kz.set(n, (kz.get(n) ?? 0) + p.surface.springs!.ks * a);
+      if (!spec.has(n)) spec.set(n, p.surface.springs!);
+    }
+  }
+  for (const [n, k] of kz) {
+    const old = [...modelStore.supports.values()].find((sp) => sp.nodeId === n);
+    if (old && !isSpring(old as never)) continue;
+    if (old) modelStore.removeSupport(old.id);
+    const sp = spec.get(n)!;
+    modelStore.addSupportEntry({
+      nodeId: n, type: 'custom3d',
+      dofRestraints: { tx: sp.holdHorizontal, ty: sp.holdHorizontal, tz: false, rx: false, ry: false, rz: false },
+      dofFrame: 'global', kz: k, ...(sp.uplift ? { uplift: true } : {}),
+    } as never);
+  }
+}
+
+function shellNodes(key: string): number[] {
+  const id = Number(key.slice(1));
+  return [...((key[0] === 'q' ? modelStore.quads.get(id) : modelStore.plates.get(id))?.nodes ?? [])];
 }
 
 /** Remove a plate with its mesh and its area loads; one undo step. */

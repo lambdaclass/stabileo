@@ -17,6 +17,7 @@ test.describe('@smoke PRO — one table, under the tools', () => {
   test('the shells panel lists plates and quads in the shared table', async ({ pro: page }) => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
+    await page.getByTestId('shell-elements-toggle').click();
 
     const table = page.locator('.data-table');
     await expect(table, 'the shared table is here').toHaveCount(1);
@@ -50,6 +51,7 @@ test.describe('@smoke PRO — one table, under the tools', () => {
     await page.getByTestId('write-corners-3').click();
     for (let i = 0; i < 3; i++) await page.getByTestId(`shell-node-${i}`).fill(String(i + 1));
     await page.getByTestId('write-plate-card-submit').click();
+    await page.getByTestId('shell-elements-toggle').click();
 
     /* Three corners made a triangle — the table says so in its own row. */
     await expect(page.locator('.data-table tbody tr')).toHaveCount(1);

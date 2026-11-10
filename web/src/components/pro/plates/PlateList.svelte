@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * The model's physical plates and the state of each one's mesh, one line each. A click selects
-   * the plate whole; the ones that need a mesh can be meshed together from here.
+   * The model's plates, one line each, saying only when a mesh is missing, out of date or invalid.
+   * A click selects the plate whole; the ones that need a mesh can be meshed together from here.
    */
   import { modelStore, resultsStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
@@ -31,8 +31,8 @@
         <li>
           <button class="pl-row" class:sel={uiStore.selectedPlates.has(r.id)} onclick={(e) => { uiStore.selectMode = 'shells'; uiStore.selectPlates([r.id], e.shiftKey); }} data-testid="plate-row-{r.id}">
             <span class="pl-name">{r.name}</span>
-            <span class="chip chip-{r.status}">{t(`plates.status.${r.status}`)}</span>
-            {#if r.cells}<span class="pl-dim">{tp('plates.nElements', { n: r.cells })}</span>{/if}
+            {#if r.status !== 'current'}<span class="chip chip-{r.status}" data-testid="plate-status-chip-{r.id}">{t(`plates.status.${r.status}`)}</span>{/if}
+            {#if r.cells}<span class="pl-dim">{r.cells === 1 ? t('plates.nElementsOne') : tp('plates.nElements', { n: r.cells })}</span>{/if}
           </button>
         </li>
       {/each}

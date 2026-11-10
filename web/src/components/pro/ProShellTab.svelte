@@ -3,11 +3,10 @@
   import DataTable from '../DataTable.svelte';
   import { t, tp, capitalized } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
-  import ProSurfaces from './ProSurfaces.svelte';
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
-  import { drawState, addShellOnCorners } from '../../lib/store/draw-state.svelte';
-  import { createCircularPlate, createPlate, plateOfShell } from '../../lib/store/physical-plates';
+  import { drawState, addShellOnCorners, CURVED_QUAD_TOL } from '../../lib/store/draw-state.svelte';
+  import { createCircularPlate, createPlate, physicalPlates, plateOfShell } from '../../lib/store/physical-plates';
   import { platesFromShells } from '../../lib/store/plates-from-shells';
   import PlatePanel from './plates/PlatePanel.svelte';
   import PlateList from './plates/PlateList.svelte';
@@ -36,27 +35,10 @@
   const plateCount = $derived(plates.length);
   const quadCount = $derived(quads.length);
 
-  // Nodes that connect a shell to the rest of the structure: any frame/truss
-  // endpoint, any support, or a node shared by ≥2 shells. (Stabileo shells
-  // couple to beams ONLY through shared nodes — there is no continuous edge
-  // coupling — so a corner attached to none of these transfers no load.)
-  const structureNodes = $derived.by(() => {
-    const s = new Set<number>();
-    for (const el of modelStore.elements.values()) { s.add(el.nodeI); s.add(el.nodeJ); }
-    for (const sup of modelStore.supports.values()) s.add(sup.nodeId);
-    const shellCount = new Map<number, number>();
-    for (const q of quads) for (const n of q.nodes) shellCount.set(n, (shellCount.get(n) ?? 0) + 1);
-    for (const p of plates) for (const n of p.nodes) shellCount.set(n, (shellCount.get(n) ?? 0) + 1);
-    for (const [n, c] of shellCount) if (c >= 2) s.add(n);
-    return s;
-  });
-  // Shells with a corner attached to nothing else (floating / no load path there).
-  const disconnectedShells = $derived(
-    quads.filter(q => q.nodes.some(n => !structureNodes.has(n))).length
-    + plates.filter(p => p.nodes.some(n => !structureNodes.has(n))).length,
-  );
-
-  let showShellInfo = $state(true);
+  /* The mesh's elements are listed on demand, and open by themselves when elements are picked one by one. */
+  let showElements = $state(false);
+  const elementsOpen = $derived(showElements || (uiStore.selectedShells.size > 0 && uiStore.selectedPlates.size === 0));
+  const physicalCount = $derived.by(() => { void modelStore.model.groups; return physicalPlates().length; });
 
 
 
@@ -76,7 +58,6 @@
   let newNodeIds = $state<[string, string, string, string]>(['', '', '', '']);
   /* Material, thickness and corner count are the drawing's too (`drawState`): a plate written
      here and one drawn in the model come out the same. */
-  let newCurved = $state(false);
   let newError = $state<string | null>(null);
 
   /**
@@ -198,16 +179,14 @@
     }
     const ids = newGiven.map((v) => Number(v));
     if (ids.length < cornerBoxes) { newError = t('pro.shellNeedNodes'); return; }
-    const r = addShellOnCorners(ids, drawState.plateMaterialId, drawState.plateThickness, newCurved);
+    const r = addShellOnCorners(ids, drawState.plateMaterialId, drawState.plateThickness);
     if ('error' in r) { newError = t(r.error); return; }
     const [plate] = platesFromShells([r.key]);
     if (plate !== undefined) { uiStore.selectMode = 'shells'; uiStore.selectPlates([plate]); } else uiStore.selectShell(r.key, false);
     /* The recommendation follows the corners, so clearing them clears it. */
     newNodeIds = ['', '', '', ''];
-    newCurved = false;
   }
 
-  let showMeshGen = $state(false);
 
 
 
@@ -225,7 +204,7 @@
     boxes hold.
   -->
   <div class="pro-shells-header">
-    <span class="pro-shells-count">{t('pro.nPlatesQuads').replace('{plates}', String(plateCount)).replace('{quads}', String(quadCount))}</span>
+    <span class="pro-shells-count" data-testid="plates-count">{tp('plates.header', { plates: physicalCount, elements: quadCount + plateCount })}</span>
     <span class="pro-shells-actions">
     <button
       class="dim-like"
@@ -251,10 +230,7 @@
       {/if}
     {/if}
     <PlateList />
-    <!-- Model-wide warning: shells with a corner attached to nothing else -->
-    {#if disconnectedShells > 0}
-      <div class="shell-warn">⚠ {t('pro.shellWarnDisconnected').replace('{n}', String(disconnectedShells))}</div>
-    {/if}
+
 
     <!--
       ── ONE creator: three nodes make a triangle, four make a quad ─────
@@ -330,23 +306,8 @@
                  onchange={(v) => { if (v > 0) drawState.plateThickness = v; }} testid="shell-thickness" />
         </label>
 
-        <!--
-          A cáscara, offered only where it can mean anything: three points
-          are coplanar by definition, so a triangle is never curved. Whether
-          FOUR are is arithmetic, and the panel measures it rather than
-          leaving a dome to be solved as facets.
-        -->
-        {#if newCount === 4}
-          <label class="curved-check">
-            <input type="checkbox" bind:checked={newCurved} data-testid="quad-curved" />
-            <span>{t('pro.curvedShell')}</span>
-          </label>
-          {#if newOutOfPlane != null && newOutOfPlane > 1e-6 && !newCurved}
-            <div class="recommendation warn" data-testid="quad-curved-hint">
-              <span class="rec-icon">⚠</span>
-              <span class="rec-text">{tp('pro.curvedShellHint', { mm: (newOutOfPlane * 1000).toFixed(1) })}</span>
-            </div>
-          {/if}
+        {#if newCount === 4 && newOutOfPlane != null && newOutOfPlane > CURVED_QUAD_TOL}
+          <p class="mesh-hint" data-testid="quad-curved-hint">{tp('pro.curvedShellAuto', { mm: (newOutOfPlane * 1000).toFixed(1) })}</p>
         {/if}
 
         {#if newRecommendation}
@@ -364,9 +325,10 @@
     <!-- Curvature, offset and foundation springs of the selected shell are specified in
          Specifications › Surfaces; like Members, offered for one shell. Two or more get the
          group editing bar of the table, which opens it too. -->
-    {#if uiStore.selectedShells.size === 1}
+    {#if uiStore.selectedPlates.size > 0 || uiStore.selectedShells.size === 1}
+      {@const whole = [...uiStore.selectedPlates]}
       <button class="pro-btn shell-open-spec" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">
-        {t('spec.surfaces.open').replace('{n}', String(uiStore.selectedShells.size))}
+        {whole.length === 1 ? tp('plates.openSpec', { name: modelStore.model.groups.get(whole[0]!)?.name ?? '' }) : whole.length > 1 ? tp('plates.openSpecMany', { n: whole.length }) : t('plates.openSpecElement')}
       </button>
     {/if}
 
@@ -374,35 +336,6 @@
       Stairs are not modelled here: they belong to the design desk, where a stair is stated by its
       flight, landings and supports and designed (roadmap, review at the close of stage 1).
     -->
-
-    <div class="section">
-      <button class="section-toggle" onclick={() => showMeshGen = !showMeshGen} data-testid="surfaces-toggle">
-        <span class="toggle-arrow">{showMeshGen ? '\u25BE' : '\u25B8'}</span>
-        {t('surface.title')}
-      </button>
-      {#if showMeshGen}
-        <div class="section-body">
-          <ProSurfaces />
-
-          <!-- How shells connect & transfer load (lives with the mesh tool, the
-               place where node-sharing actually matters) -->
-          <div class="shell-info">
-            <button class="shell-info-toggle" onclick={() => showShellInfo = !showShellInfo}>
-              <span>{showShellInfo ? '▾' : '▸'}</span> {t('pro.shellInfoTitle')}
-            </button>
-            {#if showShellInfo}
-              <div class="shell-info-body">
-                <p>{t('pro.shellInfoTransfer')}</p>
-                <p>{t('pro.shellInfoMesh')}</p>
-                <p>{t('pro.shellInfoSplit')}</p>
-                <p>{t('pro.shellInfoSlab')}</p>
-              </div>
-            {/if}
-          </div>
-        </div>
-      {/if}
-    </div>
-
 
     <!--
       ── Tools above, the shared table below ────────────────────────────
@@ -416,7 +349,11 @@
       kind of thing at the top, and what the model currently holds underneath.
     -->
     <div class="section shell-table">
-      <DataTable pinned="plates" />
+      <button class="section-toggle" onclick={() => (showElements = !showElements)} aria-expanded={elementsOpen} data-testid="shell-elements-toggle">
+        <span class="toggle-arrow">{elementsOpen ? '\u25BE' : '\u25B8'}</span>
+        {tp('plates.meshElements', { n: quadCount + plateCount })}
+      </button>
+      {#if elementsOpen}<DataTable pinned="plates" />{/if}
     </div>
   </div>
 </div>
@@ -584,23 +521,6 @@
 
 
 
-  .shell-info {
-    margin: 6px 8px 10px;
-    border: 1px solid var(--st-surface-3);
-    border-radius: 4px;
-    background: rgba(20, 40, 60, 0.4);
-  }
-  .shell-info-toggle {
-    width: 100%; text-align: left; background: none; border:  1px solid var(--st-hair); cursor: pointer;
-    color: var(--st-text-2); font-size: 0.72rem; font-weight: 600; padding: 7px 9px;
-  }
-  .shell-info-body { padding: 0 10px 8px; }
-  .shell-info-body p { margin: 4px 0; font-size: 0.68rem; line-height: 1.4; color: var(--st-text-2); }
-  .shell-warn {
-    margin: 0 8px 8px; padding: 6px 9px; border-radius: 4px;
-    background: rgba(120, 80, 0, 0.25); border: 1px solid var(--st-warn);
-    color: var(--st-warn); font-size: 0.68rem; line-height: 1.35;
-  }
   @keyframes pickPulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.4); }
     50% { box-shadow: 0 0 0 4px rgba(0, 255, 255, 0); }
@@ -616,8 +536,6 @@
   }
 
   /* Recommendation display */
-  .curved-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .curved-check input { cursor: pointer; }
 
   .recommendation {
     display: flex;
