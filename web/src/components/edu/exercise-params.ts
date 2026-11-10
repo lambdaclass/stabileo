@@ -109,7 +109,7 @@ export function evalExpr(e: Expr, values: Record<string, number>): number {
     const name = /^[A-Za-z_][A-Za-z0-9_]*/.exec(src.slice(i));
     if (name) {
       i += name[0].length;
-      if (!(name[0] in values)) fail(`unknown parameter ${name[0]}`);
+      if (!Object.hasOwn(values, name[0])) fail(`unknown parameter ${name[0]}`);
       return values[name[0]]!;
     }
     return fail('unexpected input');
@@ -202,7 +202,7 @@ export function lintParams(model: ParametricModelSpec, p: ExerciseParams): strin
     if (rangeValues(r).length === 0) problems.push(`parameter ${k} has no values (min ${r.min}, max ${r.max}, step ${r.step})`);
   }
   for (const { where, expr } of modelExprs(model)) {
-    for (const n of exprNames(expr)) if (!(n in p.values)) problems.push(`${where} uses unknown parameter ${n}`);
+    for (const n of exprNames(expr)) if (!Object.hasOwn(p.values, n)) problems.push(`${where} uses unknown parameter ${n}`);
     try { evalExpr(expr, defaultVariant(p).values); } catch (e) { problems.push(`${where}: ${(e as Error).message}`); }
   }
   for (const c of p.supportChoices ?? []) {

@@ -62,6 +62,11 @@ describe('exercise params', () => {
     }
   });
 
+  it('does not take what every object inherits for a parameter', () => {
+    expect(() => evalExpr('2*constructor', { L: 1 })).toThrow(/unknown parameter constructor/);
+    expect(lintParams({ ...beam, nodes: [[0, 0], ['toString', 0]] }, params).some((p) => p.includes('unknown parameter toString'))).toBe(true);
+  });
+
   it('lints unknown names, empty ranges and missing supports', () => {
     const problems = lintParams(
       { ...beam, nodes: [[0, 0], ['Lx', 0]] },
