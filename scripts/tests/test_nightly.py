@@ -344,6 +344,24 @@ class Artifacts(unittest.TestCase):
 
 
 class Workflow(unittest.TestCase):
+    @unittest.skip("known wrong result: #1888")
+    def test_expensive_plastic_grid_stays_out_of_the_live_corpus(self):
+        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
+        step = workflow.split('- name: Plastic LP budgets and seeded resource watchdog', 1)[1].split('- name:', 1)[0]
+        commands = textwrap.dedent(step.split('run: |', 1)[1])
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            base = Path(tmp)
+            source = base / 'engine/fuzz/corpus-regressions/plastic-lp-budget'
+            source.mkdir(parents=True)
+            names = {p.name for p in (ROOT / 'engine/fuzz/corpus-regressions/plastic-lp-budget').glob('*.bin')}
+            for name in names:
+                (source / name).write_bytes(name.encode())
+            subprocess.run(['bash', '-e', '-c', 'make() { :; }\n' + commands], cwd=base, check=True)
+            copied = {p.name for p in (base / 'engine/fuzz/corpus/json_plastic').glob('*.bin')}
+            self.assertEqual(copied, names - {'engine-grid-slab.bin'})
+            self.assertEqual((source / 'engine-grid-slab.bin').read_bytes(), b'engine-grid-slab.bin')
+
+
     def test_property_pipeline_propagates_failure_and_timeout(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
         step = workflow.split('      - name: Property soak', 1)[1].split('      - uses:', 1)[0]

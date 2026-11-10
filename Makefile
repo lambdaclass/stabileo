@@ -828,7 +828,7 @@ build.engine.plastic-budget-asan:
 .PHONY: test.engine.plastic-resource replay.engine.plastic-budget-asan
 test.engine.plastic-resource:
 	$(NIX_RUN) cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay -j 2
-	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --test plastic_resource -j 2
+	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --test plastic_resource -j 2 -- $(if $(IGNORED),--ignored)
 
 replay.engine.plastic-budget-asan: build.engine.plastic-budget-asan
 	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --binary engine/fuzz/target/asan/x86_64-unknown-linux-gnu/release/examples/plastic_replay --asan --memory-mib 2048 --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
