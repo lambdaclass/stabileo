@@ -36,6 +36,7 @@ export interface AuthConfig {
   usage_telemetry_enabled?: boolean;
   cloud_projects_enabled?: boolean;
   save_requires_account?: boolean;
+  assignments_enabled?: boolean;
   google_login?: boolean;
 }
 

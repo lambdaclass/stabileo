@@ -19,6 +19,7 @@ defmodule StabileoAuth do
       usage_telemetry_enabled: Features.usage_telemetry_enabled?(),
       cloud_projects_enabled: Features.cloud_projects_enabled?(),
       save_requires_account: Features.save_requires_account?(),
+      assignments_enabled: Features.assignments_enabled?(),
       google_login: StabileoAuth.GoogleOAuth.app_configured?()
     }
   end
