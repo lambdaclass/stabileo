@@ -347,49 +347,66 @@ other baseline is changed.
 
 ## PR #1895: endpoint axial point loads in force-based geometric stiffness
 
-The last review found an endpoint inconsistency in the unmerged force-builder
-correction introduced by `95b3dec78`. Its force offset was integrated as
-`n_of(x) = -(sum of point forces strictly before x + integrated span loads)`.
-The length mean was integrated correctly, but the conversion from the end-force
-average used half of every stored applied force. A point force at x = L never
-enters that integral and still shifted the centre by +P/2. At x = 0 it is
-constant throughout the interior and shifted the centre by -P/2. Both should
-leave the end-average matrix unchanged, with zero varying-span contribution.
+Review of `aca7eb07a` found that its solver change and endpoint expectations
+were wrong. It treated recovered end forces as interior limits and replaced
+the previous correct centring. Endpoint point loads have zero varying-span
+contribution, but they still enter the equivalent nodal axial forces. They
+therefore change the conversion from recovered end average to length mean.
 
-The conversion now uses the integral's length mean minus the average of the
-same function's interior endpoint limits. The right limit at zero includes a
-point load at zero; the left limit at L excludes a point load at L. No epsilon
-station or load-position tolerance is introduced. Interior point loads and
-span loads retain their previous centring, apart from possible floating-point
-summation differences. The correction matrix still subtracts that same length
-mean from its weighted integrals.
+Let F_i and F_j sum the equivalent nodal axial forces of every span and
+point load, including points at a = 0 and a = L. The solver recovers
 
-Eight closed-form regressions in `engine/tests/pdelta_span_axial.rs` cover each
-endpoint, frame and truss, in 2D and 3D. They recover end forces independently
-with the linear solver and check the complete free matrix against the same
-end-force matrix without span loads. They also check the analytic transverse
-blocks: for a frame, Nbar [[6/(5L), -1/10], [-1/10, 2L/15]], and for a truss,
-Nbar/L. Both 3D bending planes are checked with their rotation signs.
-The fixture uses the existing L = 4 m and P = 3,000 kN. Recovered end forces are
-approximately 0 and -3,000 kN for either endpoint, so Nbar = -1,500 kN.
+    n_start = N_delta + F_i
+    n_end = N_delta - F_j
+    N_delta = (n_start + n_end)/2 - (F_i - F_j)/2.
 
-| Endpoint | Frame translation entry before (kN/m) | After and closed form (kN/m) | Truss entry before (kN/m) | After and closed form (kN/m) |
+For a point force +P at a, F_i = P(1 - a/L) and F_j = Pa/L. The integrated
+offset is n_of(x) = -sum of point forces strictly before x minus integrated
+span loads. Its length mean is -F_i, so the original shift
+`mean(n_of) + total_applied_force/2` equals -(F_i - F_j)/2. The fix restores
+that expression, including every endpoint load. Subtracting the offset's
+interior endpoint average instead loses the endpoint contributions in the
+recovered forces. The varying-span matrix retains its existing length-mean
+subtraction and quadrature.
+
+The existing cantilever has L = 4 m, P = 3,000 kN, and tip thrust -P. With
++P applied at the base the interior force is constant N = -P. With +P at the
+tip it cancels the tip thrust and N = 0. Both cases recover approximately
+n_start = 0 and n_end = -P; their end average -P/2 is not the interior force.
+
+Eight corrected closed-form regressions in `engine/tests/pdelta_span_axial.rs`
+cover both endpoints, frames and trusses, in 2D and 3D. Each uses the linear
+solver's recovered forces and axial displacement, checks both assemblies
+against the closed form, and compares the complete free matrix from force
+assembly with the independent displacement-based assembly. For a frame the
+free bending block is N [[6/(5L), -1/10], [-1/10, 2L/15]]; for a truss its
+transverse entry is N/L. Both 3D bending planes and their rotation signs are
+checked. The axial-only frame solution also supplies the truss assembly's
+elongation; both use the same EA/L axial law.
+
+| Endpoint | Frame entry at aca7eb07a (kN/m) | Restored and closed form (kN/m) | Truss entry at aca7eb07a (kN/m) | Restored and closed form (kN/m) |
 |---|---:|---:|---:|---:|
-| x = 0, 2D and both 3D planes | -900 | -450 | -750 | -375 |
-| x = L, 2D and both 3D planes | 0 | -450 | 0 | -375 |
+| a = 0, 2D and both 3D planes | -450 | -900 | -375 | -750 |
+| a = L, 2D and both 3D planes | -450 | 0 | -375 | 0 |
 
-All eight tests fail at the matrix assertions on the pre-fix engine. Commit A
-records them ignored as `known wrong result: #1329`; commit B fixes the centre
-and removes the ignores. This endpoint regression was introduced on this PR's
-unmerged branch: `origin/main` (`87e1c9a1b`) uses the end-force average directly
-in these public Rust force builders. The application uses displacement-based
-builders. No new released endpoint defect or separate advisory is asserted;
-the original user-visible P-Delta defect remains covered by draft SA-2026-055.
+Commit A records the corrected tests ignored as `known wrong result: #1329`.
+Explicitly running them on the unchanged `aca7eb07a` solver gives eight
+failures at the force-matrix closed-form assertions; the displacement assembly
+passes the same closed-form checks. Commit B restores the previous solver
+centring and removes the ignores. The advisory-table additions and six status
+dates from `aca7eb07a` are retained.
 
-Verification of the endpoint correction: 27 span axial tests, 29 core P-Delta
-tests and 90 validation P-Delta tests pass. The assembly-path area passes 20
-with three existing ignores. After rebuilding WASM, all 152 template tests
-pass against the existing baselines; no baseline or result snapshot is updated
-in this round. The results area passes 121 with one existing skip. The blog
-area passes all 446 tests after adding the missing SA-2026-055 rows and dating
-the six status notes 10 November 2026. The registry applicability tests pass.
+The endpoint-centring regression in `aca7eb07a` existed only on this unmerged
+PR branch, never on main or in a release, so it requires no separate advisory.
+The application uses displacement-based assembly, so this endpoint restoration
+adds no application result change beyond draft SA-2026-055. The existing `pdelta-span-axial` registry
+entry has corrected endpoint explanations in all six languages. No baseline,
+tolerance or assertion is loosened.
+
+Verification after restoring the solver: 27 span-axial tests (including all eight
+endpoint regressions), 29 core P-Delta tests, five solver P-Delta diagnostic
+tests, 90 validation P-Delta tests and eight P-Delta library tests pass.
+Assembly paths pass 20 with three existing ignores. `make wasm` succeeds;
+all 152 template tests and 123 results tests pass, with one existing results
+skip. All 112 provenance unit tests pass. No result snapshot or baseline was
+updated in this round.

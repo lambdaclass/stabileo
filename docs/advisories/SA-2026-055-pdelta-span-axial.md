@@ -178,11 +178,21 @@ scope are in the results-change write-up.
 
 ## Endpoint review before merge (PR #1895)
 
-The last review also corrected endpoint handling in this PR's unmerged public
-Rust force-based geometric-stiffness builders. Point loads at x = 0 and x = L
-now leave the end-average matrix unchanged, with no varying-span term. Eight
-closed-form frame/truss regressions cover both endpoints in 2D and 3D; all fail
-before this correction and pass after it. The measured matrices and derivation
-are in the results-change write-up. This endpoint regression was introduced by
-this PR's local correction, not established in any released build. It adds no
-release range to this advisory and does not change its draft status.
+The endpoint change in unmerged commit `aca7eb07a` was incorrect: the recovered
+end-force average still includes the equivalent nodal forces of endpoint
+point loads. Both public Rust force builders restore
+N_delta = (n_start + n_end)/2 - (F_i - F_j)/2, including every span and point
+load at a = 0 and a = L. An endpoint load has no varying-span contribution,
+but its end average need not equal its constant interior force.
+
+With the existing 4 m cantilever and 3,000 kN tip thrust, an opposing +P at the
+base leaves N = -P throughout: the frame translation entry is -900 kN/m and
+the truss entry -750 kN/m. An opposing +P at the tip cancels the thrust and
+both entries are zero. The rejected change gave -450 and -375 kN/m for either
+endpoint. Eight corrected frame/truss regressions cover 2D and both 3D planes,
+checking the closed forms and independent displacement assembly in each test.
+All eight fail on `aca7eb07a` and pass after restoring the previous centring.
+The derivation is in the results-change write-up. The `aca7eb07a` regression
+existed only on this unmerged branch, never on main or in a release. The application
+uses displacement assembly, so no additional application result change is
+established here. This advisory retains its draft status.

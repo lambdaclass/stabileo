@@ -1055,49 +1055,41 @@ fn endpoint_point_kg_3d(at_end: bool, kind: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_start_frame_2d() {
     endpoint_point_kg_2d(false, "frame");
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_start_truss_2d() {
     endpoint_point_kg_2d(false, "truss");
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_end_frame_2d() {
     endpoint_point_kg_2d(true, "frame");
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_end_truss_2d() {
     endpoint_point_kg_2d(true, "truss");
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_start_frame_3d() {
     endpoint_point_kg_3d(false, "frame");
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_start_truss_3d() {
     endpoint_point_kg_3d(false, "truss");
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_end_frame_3d() {
     endpoint_point_kg_3d(true, "frame");
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_end_truss_3d() {
     endpoint_point_kg_3d(true, "truss");
 }

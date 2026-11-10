@@ -693,9 +693,8 @@ fn span_axial_weights(l: f64, pts: &[(f64, f64)], sps: &[[f64; 4]]) -> ([[f64; 4
             least = least.min(n_of(x)).min(n_of((x - 1e-12 * l).max(0.0)));
         }
     }
-    let start = n_of(0.0) - pts.iter().filter(|p| p.0 == 0.0).map(|p| p.1).sum::<f64>();
-    let end = n_of(l);
-    (w, e, least - mean, mean - (start + end) / 2.0)
+    let total: f64 = pts.iter().map(|p| p.1).sum::<f64>() + sps.iter().map(|&[qi, qj, a, b]| (qi + qj) * (b - a) / 2.0).sum::<f64>();
+    (w, e, least - mean, mean + total / 2.0)
 }
 
 const GAUSS_4: [(f64, f64); 4] = [
