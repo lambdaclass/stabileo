@@ -33,6 +33,7 @@ import { rebarWorkspace } from './rebar-workspace.svelte';
 import { pruneDeletedMembers } from './selection-prune';
 import { recheckStore } from './recheck.svelte';
 import { noteBaseSolve } from './result-provenance';
+import { liveCalcFollowsEdits } from '../engine/live-calc-state';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -52,6 +53,7 @@ modelStore._setOnReplaced(() => connectionPrompt.clear());
  * Not on every restore: undo, a what-if slider and an applied edit keep them.
  */
 modelStore._setOnNewProject(() => {
+  resultsStore.releaseScreen();
   viewVisibility.showAll();
   uiStore.selfWeightCaseId = null;
   // The last floor and footing runs were the previous project's; its own are in its file.
@@ -91,7 +93,7 @@ modelStore._setBeforeAnalysisInput(flushDefinedLoadsSync);
 modelStore._setOnMutation(() => {
   // A deleted member leaves every selection, once the edit that deletes it has run.
   queueMicrotask(pruneDeletedMembers);
-  resultsStore.clear();
+  resultsStore.clear({ keepScreen: liveCalcFollowsEdits(uiStore.liveCalc, uiStore.analysisMode) });
   verificationStore.invalidateAnalysis();
   // The other materials' checks read the results just cleared.
   clearMaterialChecks();
@@ -174,6 +176,15 @@ resultsStore._setTransverseSignProvider((elementId) => {
   if (!a || !b) return 1;
   const pa = projectNode(uiStore.drawPlane2D, a), pb = projectNode(uiStore.drawPlane2D, b);
   return transverseSign(pb.x - pa.x, pb.y - pa.y);
+});
+
+let screenFit: { r: unknown; nodes: unknown; elements: unknown; ok: boolean } | null = null;
+resultsStore._setScreenTopology((r) => {
+  const nodes = modelStore.nodes, elements = modelStore.elements;
+  if (screenFit && screenFit.r === r && screenFit.nodes === nodes && screenFit.elements === elements) return screenFit.ok;
+  const ok = r.elementForces.every((f) => elements.has(f.elementId)) && r.displacements.every((d) => nodes.has(d.nodeId));
+  screenFit = { r, nodes, elements, ok };
+  return ok;
 });
 
 // Members of variable section are published as one member each, from any analysis that solved

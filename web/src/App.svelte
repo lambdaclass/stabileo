@@ -398,6 +398,7 @@
   import { whatIf } from './lib/store/whatif.svelte';
   import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
+  import { liveCalcFollowsEdits } from './lib/engine/live-calc-state';
   import SiteHeader from './components/site/SiteHeader.svelte';
   import PublicPending from './components/site/PublicPending.svelte';
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
@@ -1228,24 +1229,25 @@
 
       const prevDiagram = resultsStore.diagramType;
       uiStore.liveCalcError = null;
+      const solveFollows = liveCalcFollowsEdits(_lc, _mode);
 
-      // Only clear stale results when model or mode actually changed
       if (modelChanged) {
         if (resultsStore.results || resultsStore.results3D) {
-          resultsStore.clear();
+          resultsStore.clear({ keepScreen: solveFollows });
         }
       }
 
-      // If live calc is ON, debounce the auto-solve to avoid firing on every
-      // tiny model mutation while the user is dragging or typing.
       // Manual solve (runGlobalSolve) remains immediate and cancels any pending debounce.
-      if (_lc && _mode !== 'pro' && _mode !== 'edu') {
+      if (solveFollows) {
         cancelPendingLiveCalc();
-        const delay = !is3DWorkspace(_mode) ? 120 : 200;
+        // Explore paces its own edits to the solves (whatif.svelte.ts), so its re-solve starts at once.
+        const delay = whatIf.active ? 0 : !is3DWorkspace(_mode) ? 120 : 200;
         liveCalcTimer = setTimeout(() => {
           liveCalcTimer = null;
           runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
         }, delay);
+      } else {
+        resultsStore.releaseScreen();
       }
     });
 

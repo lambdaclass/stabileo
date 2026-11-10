@@ -37,6 +37,7 @@ import { singleSolveFactors } from './case-effects';
 import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
+import { trackLiveSolve } from './live-calc-state';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -111,9 +112,13 @@ export function lastSolveFailure(): string | null {
  * @param axisConvention3D  Current 3D axis convention string
  * @param prevDiagram  Diagram type the user was viewing before clear() — restored after solve
  */
-export async function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): Promise<void> {
+export function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): Promise<void> {
+  return trackLiveSolve(() => liveCalc(analysisMode, axisConvention3D, prevDiagram));
+}
+
+async function liveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): Promise<void> {
   // Skip if model is incomplete (e.g., mid-example-load after clear but before fixture applied)
-  if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
+  if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) { resultsStore.releaseScreen(); return; }
   // Floor loads kept as definitions, current before the guard is taken: the edit that started this
   // solve may not have been rewritten yet (`store/defined-loads.ts`).
   if (is3DWorkspace(analysisMode)) syncDefinedLoadsForAnalysis();
@@ -126,6 +131,7 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
     }
     if (isStale()) return;
     const is3DMode = is3DWorkspace(analysisMode);
+    if (!(is3DMode ? resultsStore.results3D : resultsStore.results)) resultsStore.releaseScreen();
     // What was on screen before the edit cleared it: diagram, case, combination.
     // Only onto results: a solve that published none (WASM not ready, an error,
     // NaN displacements) leaves the view waiting for the next one.
@@ -321,6 +327,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   }
   if (!isStale()) {
     lastFailure = outcome.ok ? null : { input, error: outcome.error };
+    if (!outcome.ok) resultsStore.releaseScreen();
     resultsStore.restoreView(uiStore.is3DWorkspace);
   }
   if (!isStale() && (!outcome.ok || outcome.combinationsLeftOut !== null)) recheckStore.restoreStamp(stampBefore);

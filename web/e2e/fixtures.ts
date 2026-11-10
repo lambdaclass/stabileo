@@ -95,6 +95,8 @@ export interface TestHooks {
   isBaselineStale(): boolean;
   solveCount(): number;
   modelVersion(): number;
+  screenFrame(): { drawn: boolean; held: boolean; diagram: string; maxMoment: number | null };
+  freshMaxMoment(): number | null;
   designRunId(): string | null;
   displayStatus(id: number): string;
   displayRatio(id: number): number | null;
