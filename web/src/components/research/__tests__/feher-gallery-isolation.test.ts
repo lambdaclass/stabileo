@@ -7,7 +7,7 @@ afterEach(() => {
   vi.doUnmock('../summaries');
 });
 
-it.skip('known wrong result: #1886: the gallery renders without loading the Fehér article dictionaries', async () => {
+it('#1886: the gallery renders without loading the Fehér article dictionaries', async () => {
   vi.doMock(detailStrings, () => {
     throw new Error('The gallery loaded the Fehér article dictionaries');
   });

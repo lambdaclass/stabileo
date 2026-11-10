@@ -1,9 +1,10 @@
+import { shapeCard } from './card';
 import { publicI18n } from '../../../lib/i18n/store.svelte';
 
 const en = {
-  title: 'Steering a bent strip between two shapes',
+  title: shapeCard.en.title,
   referenceLabel: 'Against the exact arc and our own runs',
-  lead: 'Turn the two clamps of an actively bent strip under a fixed load and take it from an arch to its inverted shape without a snap.',
+  lead: shapeCard.en.hook,
   model: 'The strip and its two actuators',
   theory: 'A flat strip of length 1 is bent into two clamps placed sin 1 apart. Each clamp is a rotary actuator. The end tangents are θ(A) = Θ + Δ and θ(B) = Δ − Θ: Θ sets how much the strip arches and Δ how much it tilts. A dead load q·Q(s) pushes down. Section 3 of the paper treats the strip as a planar, inextensible elastica, θ″/(4π²) + qρ cos θ + λ sin θ − μ cos θ = 0, where ρ(s) is the load carried between A and s and λ, μ are the reactions at A. With a bending stiffness of 1/(4π²), λ = 1 is the Euler load of the clamped strip.',
   targets: 'At Θ = 1, Δ = 0 and q = 2.5 the strip has two stable shapes: an arch that carries the load in compression (shape 1) and an inverted shape in tension (shape 5). Section 3.4 moves from one to the other along (Θ, Δ) = (1, 0) → (1.3, 0) → (1.3, 1.3) → (1, 1.3) → (1, 0). The rectangle goes around the cusp of the region where both shapes exist, so the strip changes shape without losing stability on the way.',
@@ -40,9 +41,9 @@ const en = {
 type Strings = typeof en;
 
 const es: Strings = {
-  title: 'Guiar una lámina curvada entre dos formas',
+  title: shapeCard.es.title,
   referenceLabel: 'Frente al arco exacto y a nuestras corridas',
-  lead: 'Girá las dos mordazas de una lámina curvada activamente bajo una carga fija y llevala de arco a su forma invertida sin que salte.',
+  lead: shapeCard.es.hook,
   model: 'La lámina y sus dos actuadores',
   theory: 'Una lámina plana de largo 1 se curva entre dos mordazas separadas sin 1. Cada mordaza es un actuador rotativo. Las tangentes extremas son θ(A) = Θ + Δ y θ(B) = Δ − Θ: Θ fija cuánto se arquea la lámina y Δ cuánto se inclina. Una carga muerta q·Q(s) empuja hacia abajo. La sección 3 del artículo trata la lámina como una elástica plana e inextensible, θ″/(4π²) + qρ cos θ + λ sin θ − μ cos θ = 0, donde ρ(s) es la carga entre A y s, y λ, μ son las reacciones en A. Con rigidez a flexión 1/(4π²), λ = 1 es la carga de Euler de la lámina empotrada.',
   targets: 'Con Θ = 1, Δ = 0 y q = 2,5 la lámina tiene dos formas estables: un arco que lleva la carga en compresión (forma 1) y una forma invertida en tracción (forma 5). La sección 3.4 pasa de una a otra por (Θ, Δ) = (1, 0) → (1,3, 0) → (1,3, 1,3) → (1, 1,3) → (1, 0). El rectángulo rodea la cúspide de la región donde coexisten las dos formas, así que la lámina cambia de forma sin perder estabilidad en el camino.',
@@ -78,9 +79,9 @@ const es: Strings = {
 };
 
 const pt: Strings = {
-  title: 'Guiar uma lâmina curvada entre duas formas',
+  title: shapeCard.pt.title,
   referenceLabel: 'Em relação ao arco exato e às nossas execuções',
-  lead: 'Gire as duas garras de uma lâmina curvada ativamente sob uma carga fixa e leve-a de arco à forma invertida sem salto.',
+  lead: shapeCard.pt.hook,
   model: 'A lâmina e seus dois atuadores',
   theory: 'Uma lâmina plana de comprimento 1 é curvada entre duas garras afastadas sin 1. Cada garra é um atuador rotativo. As tangentes nas extremidades são θ(A) = Θ + Δ e θ(B) = Δ − Θ: Θ define quanto a lâmina se arqueia e Δ quanto ela se inclina. Uma carga permanente q·Q(s) empurra para baixo. A seção 3 do artigo trata a lâmina como uma elástica plana e inextensível, θ″/(4π²) + qρ cos θ + λ sin θ − μ cos θ = 0, onde ρ(s) é a carga entre A e s, e λ, μ são as reações em A. Com rigidez à flexão 1/(4π²), λ = 1 é a carga de Euler da lâmina engastada.',
   targets: 'Com Θ = 1, Δ = 0 e q = 2,5 a lâmina tem duas formas estáveis: um arco que leva a carga em compressão (forma 1) e uma forma invertida em tração (forma 5). A seção 3.4 vai de uma à outra por (Θ, Δ) = (1, 0) → (1,3, 0) → (1,3, 1,3) → (1, 1,3) → (1, 0). O retângulo contorna a cúspide da região onde as duas formas coexistem, então a lâmina muda de forma sem perder estabilidade no caminho.',
@@ -117,4 +118,3 @@ const pt: Strings = {
 
 export const translations: Record<string, Strings> = { en, es, pt };
 export const shapeStrings = (): Strings => translations[publicI18n.locale] ?? en;
-export const shapeTitle = { en: en.title, es: es.title, pt: pt.title };

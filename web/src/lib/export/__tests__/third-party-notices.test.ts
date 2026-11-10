@@ -108,7 +108,7 @@ describe('third-party notices', () => {
   });
 });
 
-it.skip('known wrong result: #1886: notices include the versions locked by the Fehér browser runtime', () => {
+it('#1886: notices include the versions locked by the Fehér browser runtime', () => {
   const lock = fs.readFileSync(path.join(REPO, 'research/stability/feher-sipos-varkonyi-2026/Cargo.lock'), 'utf8');
   const notices = fs.readFileSync(NOTICES, 'utf8');
   const packages = [...lock.matchAll(/\[\[package\]\]\nname = "([^"]+)"\nversion = "([^"]+)"\nsource = "registry\+[^"\n]+"/g)];
