@@ -326,17 +326,39 @@ describe('edited projects with older provenance', () => {
     expect(store.stale).toBe(true);
   });
 
+  const openingNoticeIds = [
+    'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
+    'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
+    'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
+    'linear-stability-refusals', 'connector-arm-mechanism-3d-refused',
+  ];
+
+  it.skip('known wrong result: #1753 connector-only opening notices follow main-first merge order', async () => {
+    const module = await import('../../provenance/applicability');
+    const mergedRegistry = {
+      ...RESULT_CHANGES,
+      currentResultsVersion: RESULT_CHANGES.currentResultsVersion + 1,
+      changes: RESULT_CHANGES.changes.map(c => c.id === 'linear-stability-refusals'
+        ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 1 } : c),
+    };
+    const store = createRecheckStore(async () => ({
+      ...module,
+      assessProject: (...args: Parameters<typeof module.assessProject>) =>
+        module.assessProject(args[0], args[1], args[2], mergedRegistry, args[4], args[5]),
+    }));
+    const snapshot = { ...frame(), elements: [], connectors: [[1, { kShear: 0 }]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
+    store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
+    await vi.waitFor(() => expect(store.pending).toBe(false));
+    const received = store.assessment?.changes.map(c => c.id);
+    expect(received, JSON.stringify({ expected: openingNoticeIds, received }, null, 2)).toEqual(openingNoticeIds);
+  });
+
   it('clears an acknowledged linear notice before adding shells, saving and reopening without a solve', async () => {
     const store = createRecheckStore();
     const snapshot = { ...frame(), elements: [], connectors: [[1, { kShear: 0 }]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
-    expect(store.assessment?.changes.map(c => c.id)).toEqual([
-      'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
-      'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
-      'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
-      'linear-stability-refusals', 'connector-arm-mechanism-3d-refused',
-    ]);
+    expect(store.assessment?.changes.map(c => c.id)).toEqual(openingNoticeIds);
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
     store.acknowledge();
