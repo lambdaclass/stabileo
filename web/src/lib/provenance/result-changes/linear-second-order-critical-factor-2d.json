@@ -1,7 +1,9 @@
 {
   "id": "linear-second-order-critical-factor-2d",
   "date": "2026-11-10",
-  "prs": [],
+  "prs": [
+    1927
+  ],
   "area": "analysis",
   "when": {
     "allOf": [
