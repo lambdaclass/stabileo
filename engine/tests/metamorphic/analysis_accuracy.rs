@@ -64,7 +64,7 @@ pub fn compare_scaled(
     for (s, e) in scale.x.scales.iter_mut().zip(&error.x.scales) {
         *s = s.max(e / rel);
     }
-    compare_compliant(
+    let report = compare_compliant(
         &got.flat(),
         &expected.flat(),
         &scale,
@@ -72,7 +72,11 @@ pub fn compare_scaled(
         rel,
         floor,
         compliance,
-    )
+    )?;
+    if report.values == 0 && report.refusals == 0 {
+        return Err("no result values were compared".into());
+    }
+    Ok(report)
 }
 
 pub fn projected_error(r: &Resp, node: usize, tag: &str, dir: &[f64]) -> f64 {
@@ -1660,4 +1664,19 @@ fn issue_1892_random_candidate_amplification_cannot_widen_the_ceiling() {
             }
         }
     }
+}
+
+#[test]
+fn refusal_only_accuracy_comparison_is_not_a_pass() {
+    let response = Resp(Vec::new(), vec![("refusal witness".into(), 1919)], Default::default());
+    let report = compare(&response, &response, 1.0, 1e-9, 0.0, [0.0; 2]).unwrap();
+    assert_eq!(report.values, 0);
+    assert_eq!(report.refusals, 1);
+    let t = crate::tally::Tally::default();
+    t.record("witness", "accuracy", "refusal", crate::checks2::judge(Ok(report), 1e-9));
+    let results = t.replay_results();
+    assert_eq!(results["verdicts"][0]["pass"], 0);
+    assert_eq!(results["verdicts"][0]["same_refusal"], 1);
+    assert_eq!(t.status("witness", "accuracy"), "refused");
+    assert!(results["failures"].as_array().unwrap().is_empty());
 }
