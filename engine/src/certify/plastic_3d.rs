@@ -2109,12 +2109,31 @@ pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, 
     if let Ok(model) = build_model_3d(input) {
         lp_work(&model).check_engine_budget()?;
     }
-    let results = solve_plastic_3d(input)?;
+    let mut results = solve_plastic_3d(input)?;
     super::finite::check_results(&results)?;
     let certificate = certify_collapse_3d(input, Some(&results));
-    if certificate.solver_within_bounds == Some(false) {
+    let (lower, upper) = match (certificate.certified, certificate.lambda_lower, certificate.lambda_upper) {
+        (true, Some(lower), Some(upper)) if lower.is_finite() && upper.is_finite() && lower <= upper => (lower, upper),
+        _ => return Err(format!("3D plastic collapse certificate unavailable: {}", certificate.reason.as_deref().unwrap_or("no sound finite ordered interval"))),
+    };
+    let raw = results.collapse_factor;
+    if raw > upper {
         crate::known_issues::refuse(&[crate::known_issues::diagnostic("PL-3D-CERTIFICATE-MISMATCH")])?;
     }
+    let comparison = if raw < lower {
+        format!("PL-3D-CERTIFICATE-MISMATCH: raw incremental factor {raw} lies below the certified interval [{lower}, {upper}]")
+    } else {
+        format!("Raw incremental factor {raw} lies within the certified interval [{lower}, {upper}]")
+    };
+    let warning = format!("collapseFactor is the certified lower bound {lower}. {comparison}. Incremental steps and hinges retain raw solver values and are not certified by this interval.");
+    if raw < lower {
+        let mut diagnostic = crate::known_issues::diagnostic("PL-3D-CERTIFICATE-MISMATCH");
+        diagnostic.severity = Severity::Warning;
+        diagnostic.message = warning.clone();
+        results.structured_diagnostics.push(diagnostic);
+    }
+    results.warnings.push(warning);
+    results.collapse_factor = lower;
     Ok(CertifiedPlastic3D { results, certificate })
 }
 

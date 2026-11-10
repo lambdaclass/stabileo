@@ -1,0 +1,43 @@
+{
+  "id": "plastic-3d-certified-lower-bound",
+  "date": "2026-11-10",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "space3D"
+      ],
+      [
+        "frameMembers"
+      ],
+      [
+        "analysis:plastic"
+      ]
+    ]
+  },
+  "quantities": [
+    "collapseFactor",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Checked 3D plastic analysis returns the certified lower bound",
+    "es": "El análisis plástico 3D verificado devuelve la cota inferior certificada",
+    "pt": "A análise plástica 3D verificada retorna o limite inferior certificado",
+    "de": "Geprüfte plastische 3D-Analyse liefert die zertifizierte Untergrenze",
+    "fr": "L’analyse plastique 3D vérifiée renvoie la borne inférieure certifiée",
+    "tr": "Doğrulanan 3D plastik analiz sertifikalı alt sınırı döndürüyor"
+  },
+  "explanation": {
+    "en": "The combined certify_plastic_3d API returns the exact certified lower bound as collapseFactor when a sound interval exists and the raw incremental factor is at or below its upper bound. A conservative raw factor below the interval is retained in solverCollapseFactor and reported as a warning. Missing certificates and raw factors above the interval are refused strictly, including roundoff. Incremental steps and hinges keep their raw values. The result shape and the separate raw solver are unchanged.",
+    "es": "La API combinada certify_plastic_3d devuelve la cota inferior certificada exacta como collapseFactor si existe un intervalo válido y el factor incremental no supera su cota superior. Un factor conservador por debajo del intervalo se conserva en solverCollapseFactor y se informa con una advertencia. Se rechazan estrictamente los casos sin certificado y los factores por encima del intervalo, incluso por redondeo. Los pasos y las rótulas conservan sus valores originales. La forma del resultado y el solver independiente no cambian.",
+    "pt": "A API combinada certify_plastic_3d retorna o limite inferior certificado exato como collapseFactor quando existe um intervalo válido e o fator incremental não supera seu limite superior. Um fator conservador abaixo do intervalo é preservado em solverCollapseFactor e informado como aviso. A ausência de certificado e fatores acima do intervalo são recusados estritamente, inclusive por arredondamento. Os passos e as rótulas mantêm seus valores originais. O formato do resultado e o solver independente não mudam.",
+    "de": "Die kombinierte API certify_plastic_3d gibt die exakt zertifizierte Untergrenze als collapseFactor zurück, wenn ein gültiges Intervall vorliegt und der inkrementelle Faktor dessen Obergrenze nicht überschreitet. Ein konservativer Faktor unterhalb des Intervalls bleibt in solverCollapseFactor erhalten und wird als Warnung gemeldet. Fehlende Zertifikate und Faktoren oberhalb des Intervalls werden strikt abgelehnt, auch bei Rundungsfehlern. Schritte und Gelenke behalten ihre Rohwerte. Ergebnisstruktur und separater Löser bleiben unverändert.",
+    "fr": "L’API combinée certify_plastic_3d renvoie la borne inférieure certifiée exacte comme collapseFactor si un intervalle valide existe et si le facteur incrémental ne dépasse pas sa borne supérieure. Un facteur conservatif sous l’intervalle reste dans solverCollapseFactor et fait l’objet d’un avertissement. L’absence de certificat et les facteurs au-dessus de l’intervalle sont strictement refusés, même pour un écart d’arrondi. Les étapes et rotules gardent leurs valeurs brutes. La structure du résultat et le solveur séparé restent inchangés.",
+    "tr": "Birleşik certify_plastic_3d API, geçerli bir aralık varsa ve artımlı katsayı üst sınırı aşmıyorsa kesin sertifikalı alt sınırı collapseFactor olarak döndürür. Aralığın altındaki güvenli tarafta kalan ham katsayı solverCollapseFactor içinde korunur ve uyarı olarak bildirilir. Sertifika yoksa veya ham katsayı aralığın üstündeyse, yuvarlama farkı olsa bile sonuç kesin olarak reddedilir. Adımlar ve mafsallar ham değerlerini korur. Sonuç yapısı ve ayrı ham çözücü değişmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plastic-3d-certified-lower-bound.md",
+    "heading": "Checked 3D plastic analysis returns the certified lower bound (2026-11-10)"
+  }
+}

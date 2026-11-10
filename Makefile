@@ -811,7 +811,7 @@ wasm.research.biggins:
 .PHONY: test.engine.plastic-budget replay.engine.plastic-budget test.engine.plastic-budget-watchdog
 
 test.engine.plastic-budget:
-	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --lib plastic::tests $(if $(IGNORED),-- --ignored)
+	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --lib plastic::tests -- --test-threads=1 $(if $(IGNORED),--ignored)
 
 replay.engine.plastic-budget:
 	$(NIX_RUN) cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay -j 2
@@ -844,7 +844,8 @@ check.engine.plastic-fuzz:
 .PHONY: test.engine.plastic-wasm
 test.engine.plastic-wasm: wasm
 	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/engine-grid-slab.bin 'resource budget'
-	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin PL-3D-CERTIFICATE-MISMATCH
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin certified-lower
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin PL-3D-CERTIFICATE-MISMATCH
 
 .PHONY: check.engine.plastic-workflow
 check.engine.plastic-workflow:

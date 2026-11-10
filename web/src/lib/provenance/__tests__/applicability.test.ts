@@ -36,8 +36,8 @@ describe('which registered changes concern a model', () => {
     }
   });
 
-  it('scopes checked 3D plastic refusal to space frames after plastic analysis', () => {
-    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-3d-certificate-mismatch-refused');
+  it('scopes the checked 3D certified lower bound to space frames after plastic analysis', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-3d-certified-lower-bound');
     expect(entry).toBeDefined();
     const features = ['space3D', 'frameMembers', 'analysis:plastic'];
     expect(conditionHolds(entry!.when ?? {}, new Set(features))).toBe(true);

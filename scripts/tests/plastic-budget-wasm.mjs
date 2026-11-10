@@ -7,12 +7,29 @@ initSync({ module: wasm });
 const artifact = readFileSync(process.argv[2]);
 const expected = process.argv[3];
 assert.equal(artifact[0] % 4, 3);
+let output;
 let refusal;
 try {
-  certify_plastic_3d(artifact.subarray(2).toString('utf8'));
+  output = JSON.parse(certify_plastic_3d(artifact.subarray(2).toString('utf8')));
 } catch (error) {
   refusal = String(error);
 }
-assert.ok(refusal, 'the checked WASM entry point must refuse this model');
-assert.ok(refusal.includes(expected), refusal);
-console.log(`${process.argv[2]}: WASM refused ${expected}`);
+if (expected === 'certified-lower') {
+  assert.equal(refusal, undefined);
+  assert.equal(output.certificate.certified, true);
+  assert.equal(output.results.collapseFactor, output.certificate.lambdaLower);
+  assert.equal(output.certificate.solverWithinBounds, false);
+  assert.ok(output.certificate.solverCollapseFactor < output.certificate.lambdaLower);
+  assert.ok(output.results.warnings.some((warning) => warning.includes('certified lower bound')));
+  assert.ok(output.results.warnings.some((warning) => warning.includes('PL-3D-CERTIFICATE-MISMATCH')
+    && warning.includes(String(output.certificate.solverCollapseFactor))));
+  assert.ok(output.results.structuredDiagnostics.some((diagnostic) =>
+    diagnostic.phase === 'PL-3D-CERTIFICATE-MISMATCH' && diagnostic.severity === 'warning'));
+  assert.ok(Array.isArray(output.results.steps) && Array.isArray(output.results.hinges));
+  assert.equal(typeof output.results.isMechanism, 'boolean');
+  console.log(`${process.argv[2]}: WASM returned certified lower bound and raw mismatch warning`);
+} else {
+  assert.ok(refusal, 'the checked WASM entry point must refuse this model');
+  assert.ok(refusal.includes(expected), refusal);
+  console.log(`${process.argv[2]}: WASM refused ${expected}`);
+}
