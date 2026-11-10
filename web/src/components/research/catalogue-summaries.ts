@@ -1,6 +1,11 @@
 type Summary = { en: string; es: string; pt: string };
 
 export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
+  'feher-2026': {
+    en: 'Studies how symmetric cuts change the stability of an initially flat strip bent between vertical clamps and loaded at its midpoint, using a variable-stiffness elastica model.',
+    es: 'Estudia cómo los cortes simétricos modifican la estabilidad de una lámina inicialmente plana, curvada entre mordazas verticales y cargada en su punto medio, mediante un modelo de elástica con rigidez a flexión variable.',
+    pt: 'Estuda como os cortes simétricos alteram a estabilidade de uma lâmina inicialmente plana, curvada entre garras verticais e carregada em seu ponto médio, por meio de um modelo de elástica com rigidez à flexão variável.',
+  },
   'gilbert-2003': {
     en: 'Ground-structure layout optimization of trusses is limited by the number of potential members. The paper presents an iterative member-adding method, built on linear-programming column generation, that starts from a sparsely connected ground structure and adds members as needed until the provably optimal layout is reached, handling problems with very large numbers of potential members.',
     es: 'La optimización de la disposición de reticulados por estructura base está limitada por la cantidad de barras potenciales. El artículo presenta un método iterativo que agrega barras, basado en la generación de columnas de la programación lineal, que parte de una estructura base poco conectada y agrega barras según hace falta hasta alcanzar la disposición demostrablemente óptima, lo que permite resolver problemas con cantidades muy grandes de barras potenciales.',

@@ -524,8 +524,8 @@
     "cut sheets",
     "bifurcation"
    ],
-   "summary": "",
-   "summary_source": null,
+   "summary": "Studies how symmetric cuts change the stability of an initially flat strip bent between vertical clamps and loaded at its midpoint, using a variable-stiffness elastica model.",
+   "summary_source": "full-text",
    "code": [],
    "data": [],
    "methods": [
@@ -535,11 +535,11 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "Queue item 6, sharing the 2D stability tooling of item 5 (a 2D frame with varying stiffness on the arc-length solver). No abstract in Crossref and the publisher page was not readable, so no summary; no code; published values are in figures only.",
-   "status": "proposed",
+   "relevance": "The production co-rotational solver now takes prescribed end rotations and continues from a converged state (pull request 1885), which lifts the blocker below. A first load-controlled prototype on the production engine reaches the paper's unloaded heights and limit loads of Figures 10 and 11 within a few percent (read from the figures); branch selection after the snap and B = 0.25L are open, and the measured points are not compared yet. See research/metamaterials/feher-2026/README.md.",
+   "status": "implementation-in-progress",
    "reproduced_published_results": false,
    "benchmarks": [],
-   "implementation": null,
+   "implementation": "metamaterials/feher-2026",
    "contacts": []
   },
   {
