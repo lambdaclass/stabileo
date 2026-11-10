@@ -326,8 +326,8 @@
 
   function downloadSubmission() {
     const sub = buildSubmission();
-          key: `r:${i}:${dof}`,
-          label: `${sup.label} — ${reactionDofLabel(dof)}`,
+    const who = sub.student || sub.legajo ? (sub.student || sub.legajo!).replace(/[^\w\-]+/g, '-').toLowerCase() : 'entrega';
+    saveFile(`${who}-${sub.exerciseId}.stabileo-entrega.json`, () => new Blob([toSubmissionFile(sub)], { type: 'application/json' }));
     handinNote = t('edu.handin.downloaded');
   }
 
