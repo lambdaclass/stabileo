@@ -155,3 +155,23 @@ inputs. Changed outputs belong to P-Delta combinations and their derived
 member forces, reactions, displacements and envelopes. The force-centering
 follow-up does not introduce a further application result change. The existing
 `pdelta-span-axial` registry notice includes this example and these quantities.
+
+
+## Validation-04 workbook baseline
+
+The validation-04 model also requests P-Delta per combination and includes axial
+self-weight on frame members. Its maximum Fx reaction at node 6007 in combination
+319 changes from the stored 514.3256888047089 to 514.3288411696504 kN after the
+original span correction. Independently built main `87e1c9a1b` gives
+514.3256888047104 kN, agreeing with the stored baseline within its unchanged
+tolerance. All 72 changed workbook cells belong to P-Delta combinations 319,
+321 or 322: displacement and rotation extrema, member forces, reactions, and
+derived statics residuals and summaries. All 22 linear cases retain their stored
+values. The existing `pdelta-span-axial` notice covers this model and these
+quantities; no additional defect or release boundary is claimed.
+
+Freshly regenerated linear-case statics from main and the corrected engine are
+bit-identical across all seven baselines audited in this review. Last-bit drift
+against older stored linear baselines therefore predates this PR. Only the
+validation-04 baseline is refreshed. The full changed-cell breakdown and audit
+scope are in the results-change write-up.

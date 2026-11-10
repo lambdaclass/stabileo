@@ -299,3 +299,48 @@ reactions, amplification and the removed span-load diagnostic, already within
 the registry's explicit scope. The existing `make test.web.unit` target, filtered
 to the crane example with `STABILEO_UPDATE_BASELINES=1`, regenerates its baseline.
 No tolerance or assertion is relaxed.
+
+
+### Validation-04 workbook baseline and linear-drift attribution
+
+The validation-04 model explicitly sets `analysis.perCombination` to `pdelta`;
+its individual cases remain linear. The original span correction also changes
+this model's second-order workbook results. With independently built WASM from
+`origin/main` (`87e1c9a1b`), maximum reaction Fx is 514.3256888047104 kN,
+agreeing with the stored 514.3256888047089 kN within the unchanged baseline
+tolerance. The corrected engine gives 514.3288411696504 kN, at node 6007 in
+combination 319. The force-builder centering follow-up adds no application
+result change.
+
+A cell-by-cell comparison of the stored and regenerated validation-04 baseline
+finds exactly 72 changes. Every changed cell has `source = combination` and
+belongs to P-Delta combination 319, 321 or 322:
+
+| Workbook table | Changed column | Changed cells | Quantities |
+|---|---|---:|---|
+| Maxima | value | 30 | Reaction Fx/Fy/Fz; displacement ux/uy/uz and rotations θx/θy/θz; member N/Vy/Vz/T/My/Mz, each maximum and minimum |
+| Statics | reactions | 18 | Summed fx/fy/fz/mx/my/mz for each of the three combinations |
+| Statics | residual | 18 | Derived force and moment equilibrium residuals for those combinations |
+| Statics | worstRelative | 6 | The derived equilibrium summary repeated on the six component rows of combination 321 |
+
+All maxima entities, stations, source identities and governing combinations
+remain unchanged. Applied loads and every cell in the 132 statics rows from
+22 linear cases are byte-identical to the stored baseline. The registry already
+lists these displacement, member-force and reaction quantities explicitly;
+its explanations now include validation-04 and the derived statics summaries.
+The statics moments are measured in the undeformed geometry and need not close
+for second-order results.
+
+For attribution of last-bit drift against other stored baselines, the same seven
+baseline tests were regenerated with `STABILEO_UPDATE_BASELINES=1` on a clean
+`origin/main` worktree and this branch, each using its own WASM build and the same
+inputs. All 2,268 cells in the 252 linear-case statics rows are bit-identical
+between main and this branch, with numeric cells compared by their IEEE-754
+binary representation. The older stored baselines differ from both engines in
+36 linear-case cells for `pro-concrete-wall-storehouse`, 24 for `validation-02`,
+36 for `validation-05` and 4 for `validation-06`. That drift therefore predates
+this PR; its originating commit was not bisected. The other three audited models
+are `pro-plane-frame-seismic`, `pro-rc-frame-area-loads` and `validation-04`.
+Only validation-04's baseline is updated here. The other six retain their exact
+stored bytes and pass their existing comparisons. No tolerance, assertion or
+other baseline is changed.
