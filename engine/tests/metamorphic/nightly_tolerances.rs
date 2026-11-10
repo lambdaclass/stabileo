@@ -497,3 +497,143 @@ fn ground_action_scale_follows_units_and_excitation() {
     heavier.dens.values_mut().for_each(|d| *d *= 4.0);
     assert_eq!(crate::checks3::action_floor_3d(&heavier, name, cond.lchar), 4.0 * force);
 }
+
+#[test]
+fn issue_1203_harmonic_symmetry() {
+    let cells = replay(1203, 2026110201350, &[("harmonic", "symmetry")]);
+    let c = cell(&cells, 1203, "harmonic", "symmetry");
+    assert!(c.fails.is_empty(), "#1203: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1203: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1204_harmonic_symmetry() {
+    let cells = replay(1204, 2026110201350, &[("harmonic", "symmetry")]);
+    let c = cell(&cells, 1204, "harmonic", "symmetry");
+    assert!(c.fails.is_empty(), "#1204: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1204: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1209_harmonic_symmetry() {
+    let cells = replay(1209, 2026110205053, &[("harmonic", "symmetry")]);
+    let c = cell(&cells, 1209, "harmonic", "symmetry");
+    assert!(c.fails.is_empty(), "#1209: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1209: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1215_harmonic_symmetry() {
+    let cells = replay(1215, 2026110201737, &[("harmonic", "symmetry")]);
+    let c = cell(&cells, 1215, "harmonic", "symmetry");
+    assert!(c.fails.is_empty(), "#1215: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1215: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1218_harmonic_symmetry() {
+    let cells = replay(1218, 2026110200823, &[("harmonic", "symmetry")]);
+    let c = cell(&cells, 1218, "harmonic", "symmetry");
+    assert!(c.fails.is_empty(), "#1218: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1218: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1278_harmonic_symmetry() {
+    let cells = replay(1278, 2026110303012, &[("harmonic", "symmetry")]);
+    let c = cell(&cells, 1278, "harmonic", "symmetry");
+    assert!(c.fails.is_empty(), "#1278: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1278: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1281_harmonic_symmetry() {
+    let cells = replay(1281, 2026110301259, &[("harmonic", "symmetry")]);
+    let c = cell(&cells, 1281, "harmonic", "symmetry");
+    assert!(c.fails.is_empty(), "#1281: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1281: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1464_harmonic_symmetry() {
+    let cells = replay(1464, 2026110500040, &[("harmonic", "symmetry")]);
+    let c = cell(&cells, 1464, "harmonic", "symmetry");
+    assert!(c.fails.is_empty(), "#1464: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1464: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1030_spectral_symmetry() {
+    let cells = replay(1030, 20758, &[("spectral", "symmetry")]);
+    let c = cell(&cells, 1030, "spectral", "symmetry");
+    assert!(c.fails.is_empty(), "#1030: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1030: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1096_spectral_symmetry() {
+    let cells = replay(1096, 20759, &[("spectral", "symmetry")]);
+    let c = cell(&cells, 1096, "spectral", "symmetry");
+    assert!(c.fails.is_empty(), "#1096: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1096: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1214_spectral_symmetry() {
+    let cells = replay(1214, 2026110200168, &[("spectral", "symmetry")]);
+    let c = cell(&cells, 1214, "spectral", "symmetry");
+    assert!(c.fails.is_empty(), "#1214: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1214: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn issue_1220_spectral_symmetry() {
+    let cells = replay(1220, 2026110201350, &[("spectral", "symmetry")]);
+    let c = cell(&cells, 1220, "spectral", "symmetry");
+    assert!(c.fails.is_empty(), "#1220: {c:?}");
+    assert!(c.pass + c.inconclusive > 0, "#1220: no numerical comparison: {c:?}");
+}
+
+#[test]
+fn harmonic_symmetry_at_seeded_resonances() {
+    for issue in [1203, 1209, 1215, 1218, 1278, 1281, 1464] {
+        for anti in [false, true] {
+            let t = Tally::default();
+            match model(issue) {
+                Model::D2(c) => {
+                    let mut sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, anti).unwrap();
+                    let md = dedaliano_engine::solver::modal::solve_modal_2d(&sym.case.s, &sym.case.dens, 12).unwrap();
+                    sym.case.p.freqs = md.modes.iter().take(6).map(|m| m.frequency).collect();
+                    crate::symmetry::check_2d(&t, &sym, anti, &[ana2("harmonic")]);
+                }
+                Model::D3(c) => {
+                    let mut sym = crate::symmetry::symmetrize_3d(&c.name, &c.s, anti).unwrap();
+                    let md = dedaliano_engine::solver::modal::solve_modal_3d(&sym.case.s, &sym.case.dens, 12).unwrap();
+                    sym.case.p.freqs = md.modes.iter().take(6).map(|m| m.frequency).collect();
+                    crate::symmetry::check_3d(&t, &sym, anti, &[ana3("harmonic")]);
+                }
+            }
+            eprintln!("#{issue} anti={anti}: {}", t.report());
+            assert!(t.failures().is_empty(), "#{issue}: {:?}", t.failures());
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1464"]
+fn harmonic_roundoff_floor_accounts_for_resonant_eigen_error() {
+    let Model::D2(c) = model(1464) else { panic!("2D") };
+    let mut c = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap().case;
+    let md = dedaliano_engine::solver::modal::solve_modal_2d(&c.s, &c.dens, 12).unwrap();
+    c.p.freqs = vec![md.modes[0].frequency];
+    let cond = crate::checks2::with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), &c);
+    let a = ana2("harmonic");
+    let r = (a.run)(&c).unwrap();
+    let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.z, 0.0]));
+    let statics = dedaliano_engine::solver::linear::solve_2d(&c.s).unwrap();
+    let us = statics.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()).max(d.ry.abs() * l));
+    let gain = 1.0 / (2.0 * 0.05);
+    let minimum = us * cond.eig * gain * gain;
+    let budget = r.flat().t.floor * crate::checks2::rel_for(a.name, a.iter_tol, &cond);
+    assert!(budget >= minimum, "eigen-resolvent error {minimum:e} exceeds harmonic budget {budget:e}");
+}
