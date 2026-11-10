@@ -63,10 +63,10 @@
   const caseKeys = $derived([...resultsStore.perCase.keys()]);
 </script>
 
-{#each containment.messages as message}
-  <div role="alert" class="containment-banner">{message}</div>
-{/each}
-{#if !containment.refused}
+<!-- Warnings are on the canvas banner (ContainmentBanner); only a refusal is repeated, where its table would be. -->
+{#if containment.refused}
+  {#each containment.messages as message}<div role="alert" class="containment-refusal">{message}</div>{/each}
+{:else}
 <!--
   Which load state the table describes.
   
@@ -281,7 +281,7 @@
 {/if}
 
 <style>
-  .containment-banner { padding: 12px; border: 2px solid currentColor; margin-bottom: 8px; }
+  .containment-refusal { margin: 6px 8px; padding: 6px 8px; border-left: 3px solid var(--st-danger); background: var(--st-danger-bg); color: var(--st-text); font-size: 0.72rem; line-height: 1.4; }
   .results-case-bar {
     display: flex;
     align-items: center;
