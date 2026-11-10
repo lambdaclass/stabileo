@@ -1089,3 +1089,38 @@ fn expanded_residual_encloses_exact_binary_arithmetic() {
     let (r, error) = dot_residual(&[tiny], &[0.5], 0.0);
     assert!(rational(error) >= rational(tiny) / rational(2.0) - rational(r));
 }
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn negative_buckling_reciprocal_crossing_has_no_allowance() {
+    for factor in [-1.0, -2.0] {
+        let mut r = Resp::default();
+        r.scalar("lambda0", Dim::NONE, factor);
+        assert!(buckling_errors(vec![1.0], vec![-1.0], vec![2.0], 1, 0.0, &mut r).is_err());
+    }
+}
+
+#[test]
+fn negative_buckling_factor_changes_fail_with_a_resolved_interval() {
+    let mut expected = Resp::default();
+    expected.scalar("lambda0", Dim::NONE, -1.0);
+    buckling_errors(vec![1.0], vec![-1.0], vec![0.0], 1, 0.0, &mut expected).unwrap();
+    for factor in [1.0, -2.0] {
+        let mut got = expected.clone();
+        got.0[0].v[0] = factor;
+        buckling_errors(vec![1.0], vec![-1.0], vec![0.0], 1, 0.0, &mut got).unwrap();
+        assert!(compare(&got, &expected, 1.0, 1e-10, 0.0, [0.0; 2]).is_err());
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn negative_buckling_allowance_uses_the_absolute_reciprocal_radius() {
+    let bound = |factor: f64| {
+        let mut r = Resp::default();
+        r.scalar("lambda0", Dim::NONE, factor);
+        buckling_errors(vec![1.0], vec![factor], vec![0.25], 1, 0.0, &mut r).unwrap();
+        r.0[0].error
+    };
+    assert_eq!(bound(-1.0).to_bits(), bound(1.0).to_bits());
+}

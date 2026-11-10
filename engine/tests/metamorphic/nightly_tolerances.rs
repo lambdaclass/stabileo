@@ -530,7 +530,7 @@ fn issue_1652_analysis_accuracy() {
 
 #[test]
 fn issue_1763_analysis_accuracy() {
-    holds(1763, 2026110805292, &[("buckling", "planes")]);
+    holds(1763, 2026110805292, &[("buckling", "planes"), ("buckling", "mirror"), ("buckling", "relabel"), ("buckling", "rotation"), ("buckling", "units")]);
 }
 
 #[test]
@@ -571,10 +571,16 @@ fn analysis_accuracy_200_seed_sweep() {
                 std::fs::write(format!("{dir}/seed-{seed}-{dim}.json"), serde_json::to_vec_pretty(&model).unwrap()).unwrap();
             }
         }
+        assert_retained_analysis_failures(seed, "d2", &t2);
+        assert_retained_analysis_failures(seed, "d3", &t3);
         output.push(serde_json::json!({"seed": seed, "d2": t2.replay_results(), "d3": t3.replay_results()}));
     }
     if let Ok(path) = std::env::var("ANALYSIS_ACCURACY_SWEEP") {
         std::fs::write(path, serde_json::to_vec_pretty(&output).unwrap()).unwrap();
+    }
+    let moving_3d = analysis_accuracy_moving_3d_coverage();
+    if let Ok(path) = std::env::var("ANALYSIS_ACCURACY_MOVING_COVERAGE") {
+        std::fs::write(path, serde_json::to_vec_pretty(&moving_3d).unwrap()).unwrap();
     }
     let baseline: serde_json::Value = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/analysis-accuracy-coverage.json")).unwrap();
     for dim in ["d2", "d3"] {
@@ -681,4 +687,125 @@ fn analysis_accuracy_time_history_plant_is_rejected() {
     nudge(&mut got, "r_t060", node, 0, 1e-6 * natural);
     let verdict = crate::analysis_accuracy::compare(&got, &expected, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond));
     assert!(verdict.is_err(), "rel={rel:e}, natural={natural:e}, largest bound={:e}, report={verdict:?}, legacy={:?}", expected.0.iter().map(|i| i.error).fold(0.0, f64::max), compare_with_compliance(&got.flat(), &expected.flat(), cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)));
+}
+
+fn unit_stiffness_case(three: bool) -> serde_json::Value {
+    let mut v = serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 1.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 1.0, "nu": 0.0}},
+        "sections": {"1": {"id": 1, "a": 1.0, "iz": 1.0}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}, "2": {"id": 2, "nodeId": 2, "type": "roller_x"}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 1.0, "fz": 0.0, "my": 0.0}}]
+    });
+    if three {
+        for n in v["nodes"].as_object_mut().unwrap().values_mut() { n["y"] = 0.0.into(); }
+        v["sections"]["1"]["iy"] = 1.0.into();
+        v["sections"]["1"]["j"] = 1.0.into();
+        for id in ["1", "2"] {
+            v["supports"][id] = serde_json::json!({"nodeId": id.parse::<usize>().unwrap(), "rx": id == "1", "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true});
+        }
+        for key in ["fy", "mx", "mz"] { v["loads"][0]["data"][key] = 0.0.into(); }
+    } else {
+        v["supports"]["2"] = serde_json::json!({"id": 2, "nodeId": 2, "type": "spring", "kz": 1.0, "ky": 1.0});
+    }
+    v
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn analysis_accuracy_zeroed_pcg_2d_before_certification_is_rejected() {
+    let c = Case2::new("unit stiffness", serde_json::from_value(unit_stiffness_case(false)).unwrap());
+    let expected = crate::response::static_2d(&dedaliano_engine::solver::linear::solve_2d(&c.s).unwrap());
+    let mut got = expected.clone();
+    for i in got.0.iter_mut().filter(|i| i.tag == "u" || i.tag == "ry") { i.v.fill(0.0); }
+    crate::analysis_accuracy::attach(&mut got, |r| crate::analysis_accuracy::pcg_2d(&c, r));
+    assert!(crate::analysis_accuracy::compare(&got, &expected, 1.0, 1e-10, 0.0, [0.0; 2]).is_err());
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn analysis_accuracy_zeroed_pcg_3d_before_certification_is_rejected() {
+    let c = Case3::new("unit stiffness", serde_json::from_value(unit_stiffness_case(true)).unwrap());
+    let expected = crate::response::static_3d(&dedaliano_engine::solver::linear::solve_3d(&c.s).unwrap());
+    let mut got = expected.clone();
+    for i in got.0.iter_mut().filter(|i| i.tag == "u" || i.tag == "r") { i.v.fill(0.0); }
+    crate::analysis_accuracy::attach(&mut got, |r| crate::analysis_accuracy::pcg_3d(&c, r));
+    assert!(crate::analysis_accuracy::compare(&got, &expected, 1.0, 1e-10, 0.0, [0.0; 2]).is_err());
+}
+
+fn retained_analysis_failures(seed: u64, dim: &str) -> Vec<(&'static str, &'static str)> {
+    match (seed, dim) {
+        (2026110200030, "d2") => vec![("harmonic", "relabel"), ("harmonic", "units")],
+        (2026110200045, "d3") | (2026110200167 | 2026110200176, "d2") => vec![("harmonic", "units")],
+        (2026110200115, "d3") => vec![("linear (PCG)", "units")],
+        (2026110200131, "d3") => ["harmonic", "time history"].into_iter().flat_map(|a| ["relabel", "rotation", "units"].map(|i| (a, i))).collect(),
+        _ => vec![],
+    }
+}
+
+fn assert_retained_analysis_failures(seed: u64, dim: &str, t: &Tally) {
+    let cells = t.cells.lock().unwrap();
+    for (a, i) in retained_analysis_failures(seed, dim) {
+        let c = cell(&cells, 1892, a, i);
+        assert!(!c.fails.is_empty(), "{seed} {dim}: {a} / {i} stopped flagging the retained failure: {c:?}");
+        assert_eq!(c.pass, 0, "{seed} {dim}: {a} / {i} silently passed");
+    }
+}
+
+#[test]
+fn analysis_accuracy_retained_wrong_result_cells_stay_failures() {
+    for (seed, dim) in [(2026110200030, "d2"), (2026110200045, "d3"), (2026110200115, "d3"), (2026110200131, "d3"), (2026110200167, "d2"), (2026110200176, "d2")] {
+        let t = Tally::default();
+        let cells = retained_analysis_failures(seed, dim);
+        let names: Vec<_> = cells.iter().map(|c| c.0).collect();
+        if dim == "d2" {
+            let c = crate::corpus::fuzz_case_2d(2026110200000, seed - 2026110200000);
+            let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| names.contains(&a.name)).collect();
+            crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: seed }, &c, &anas, crate::INV_2D);
+        } else {
+            let c = crate::corpus::fuzz_case_3d(2026110200000, seed - 2026110200000);
+            let anas: Vec<_> = crate::ana3::rows().into_iter().filter(|a| names.contains(&a.name)).collect();
+            crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &anas, crate::INV_3D);
+        }
+        assert_retained_analysis_failures(seed, dim, &t);
+    }
+}
+
+fn moving_deck_3d() -> Case3 {
+    Case3::new("moving deck", serde_json::from_str(include_str!("../fixtures/ex-3d-torsion-beam-input.json")).unwrap())
+}
+
+fn analysis_accuracy_moving_3d_coverage() -> serde_json::Value {
+    let t = Tally::default();
+    let c = moving_deck_3d();
+    for u in [Units::froude(1.0, 1.0), Units::froude(0.3048, 4.448)] {
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: 2026110200000 }, &c.units(&u), &[ana3("moving loads")], &["relabel", "units", "reversal"]);
+    }
+    for inv in ["relabel", "units", "reversal"] {
+        let cells = t.cells.lock().unwrap();
+        let c = cell(&cells, 1892, "moving loads", inv);
+        assert!(c.pass > 0 && c.fails.is_empty(), "3D moving loads / {inv}: {c:?}");
+    }
+    t.replay_results()
+}
+
+#[test]
+fn analysis_accuracy_moving_3d_compares_transforms_and_rejects_a_plant() {
+    analysis_accuracy_moving_3d_coverage();
+    let c = moving_deck_3d();
+    let a = ana3("moving loads");
+    let u = Units::froude(0.3048, 4.448);
+    let tc = c.units(&u);
+    let cond = conditioning::of_3d(&c.s).unwrap().worst(&conditioning::of_3d(&tc.s).unwrap());
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond);
+    let expected = (a.run)(&c).unwrap().units(&u);
+    let mut got = (a.run)(&tc).unwrap();
+    assert!(got.0.iter().any(|i| i.error > 0.0 && i.error.is_finite()));
+    let cmp = |r: &Resp| crate::analysis_accuracy::compare(r, &expected, cond.lchar, rel, crate::checks3::load_floor_3d(&tc.s, cond.lchar), cond.compliance());
+    cmp(&got).unwrap();
+    let it = got.0.iter_mut().find(|i| i.tag == "My" && i.v.iter().any(|v| *v != 0.0)).unwrap();
+    let natural = it.v.iter().fold(it.floor, |m, v| m.max(v.abs()));
+    it.v[0] += 1e-6 * natural;
+    assert!(cmp(&got).is_err());
 }
