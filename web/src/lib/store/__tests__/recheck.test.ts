@@ -317,23 +317,27 @@ describe('edited projects with older provenance', () => {
     expect(store.stale).toBe(false);
   });
 
-  it.skip('known wrong result: #1753: a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {
+  it('a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {
     const store = createRecheckStore();
     store.openProject({ ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'material-nonlinear-3d-orphan-dofs', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
   });
 
-  it.skip('known wrong result: #1753: clears an empty notice before adding shells, saving and reopening without a solve', async () => {
+  it('clears an acknowledged linear notice before adding shells, saving and reopening without a solve', async () => {
     const store = createRecheckStore();
     const snapshot = { ...frame(), elements: [], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
-    expect(store.assessment?.changes).toEqual([]);
+    expect(store.assessment?.changes.map(c => c.id)).toEqual(['linear-stability-refusals']);
+    expect(store.noticeOpen).toBe(true);
+    expect(store.stale).toBe(true);
+    store.acknowledge();
     expect(store.noticeOpen).toBe(false);
     expect(store.captureNotice()).toBeUndefined();
+    expect(store.stale).toBe(true);
 
     snapshot.solidShells = [[1, {}]];
     const saved = JSON.stringify({ ...snapshot, solvedWith: store.capture(), pendingRecheckNotice: store.captureNotice() });
