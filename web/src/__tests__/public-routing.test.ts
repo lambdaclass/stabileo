@@ -35,7 +35,7 @@ describe('merged public routes', () => {
   });
   it('keeps the combined navigation order and resolves every page destination', () => {
     expect(SITE_NAV.map(item => item.id)).toEqual([
-      'basic', 'examples', 'tools', 'research', 'pricing', 'blog',
+      'basic', 'examples', 'tools', 'game', 'research', 'pricing', 'blog',
     ]);
     for (const item of SITE_NAV) {
       if (item.kind === 'page') {
@@ -45,8 +45,8 @@ describe('merged public routes', () => {
   });
   it('marks the section a page belongs to: the paper under research, the changelog under the blog', () => {
     expect(['/', '/cirsoc', '/reliability', '/sap2000-alternative', '/blogger', '/papers'].map(currentNav)).toEqual([null, null, null, null, null, null]);
-    expect(['/examples', '/examples/beam-frame', '/tools', '/tools/truss-2d', '/research', '/research/benchmarks/navier-plate', '/paper', '/blog', '/blog/safety-advisories', '/changelog'].map(currentNav))
-      .toEqual(['examples', 'examples', 'tools', 'tools', 'research', 'research', 'research', 'blog', 'blog', 'blog']);
+    expect(['/examples', '/examples/beam-frame', '/tools', '/tools/truss-2d', '/research', '/research/benchmarks/navier-plate', '/paper', '/blog', '/blog/safety-advisories', '/changelog', '/diagram-game'].map(currentNav))
+      .toEqual(['examples', 'examples', 'tools', 'tools', 'research', 'research', 'research', 'blog', 'blog', 'blog', 'game']);
   });
   it('prerenders paper, research, tools, every standing page and every post, each once', async () => {
     const paths = await publicPaths();

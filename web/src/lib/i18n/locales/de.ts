@@ -9,6 +9,7 @@ const de: Translations = {
   'steps.catalog.title': 'Schritt für Schritt erklärt',
   'steps.catalog.intro': 'Wählen Sie ein Verfahren, um die Lösung Ihres Tragwerks Schritt für Schritt zu sehen. Zu jedem steht, was das Modell erfüllen muss, und ein Beispiel, das es erfüllt.',
   "landing.navTools": "Werkzeuge",
+  "landing.navGame": "Spiel",
   "landing.navExamples": "Beispiele",
 
   // ─── Shared scalar-field viewer ───

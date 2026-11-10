@@ -7,6 +7,7 @@ const en: Record<string, string> = {
   "advanced.modalIncomplete": "Modal analysis refused: only {n} of {m} computed modes have a positive frequency (ω² > 0). No incomplete set of modes was returned. Check stiffness and mass conditioning and the supports.",
   "advanced.eigenFailure": "Eigenvalue analysis refused: convergence and Sturm completeness could not be established for {n} free degrees of freedom. No incomplete set of results was returned. Check supports and releases for mechanisms, stiffness and mass conditioning, or request fewer modes.",
   "landing.navTools": "Tools",
+  "landing.navGame": "Game",
   "landing.navExamples": "Examples",
 
   // Shared scalar-field viewer

@@ -9,6 +9,7 @@ const fr: Translations = {
   'steps.catalog.title': 'Pas à pas expliqué',
   'steps.catalog.intro': 'Choisissez une méthode pour voir votre structure résolue pas à pas. Chacune indique ce dont le modèle a besoin et propose un exemple qui le respecte.',
   "landing.navTools": "Outils",
+  "landing.navGame": "Jeu",
   "landing.navExamples": "Exemples",
 
   // ─── Shared scalar-field viewer ───
