@@ -524,8 +524,8 @@
     "cut sheets",
     "bifurcation"
    ],
-   "summary": "",
-   "summary_source": null,
+   "summary": "Studies how symmetric cuts change the stability of an initially flat strip bent between vertical clamps and loaded at its midpoint, using a variable-stiffness elastica model.",
+   "summary_source": "full-text",
    "code": [],
    "data": [],
    "methods": [
@@ -535,11 +535,51 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "Queue item 6, sharing the 2D stability tooling of item 5 (a 2D frame with varying stiffness on the arc-length solver). No abstract in Crossref and the publisher page was not readable, so no summary; no code; published values are in figures only.",
-   "status": "proposed",
+   "relevance": "The production co-rotational solver now takes prescribed end rotations and continues from a converged state (pull request 1885), which lifts the blocker below. A first load-controlled prototype on the production engine reaches the paper's unloaded heights and limit loads of Figures 10 and 11 within a few percent (read from the figures); branch selection after the snap and B = 0.25L are open, and the measured points are not compared yet. See research/metamaterials/feher-2026/README.md.",
+   "status": "implementation-in-progress",
    "reproduced_published_results": false,
    "benchmarks": [],
-   "implementation": null,
+   "implementation": "metamaterials/feher-2026",
+   "contacts": []
+  },
+  {
+   "id": "feher-sipos-varkonyi-2026",
+   "doi": "10.1016/j.euromechsol.2025.106000",
+   "crossref": {
+    "title": "Quasi-static shape control of structures with topologically complex equilibrium sets",
+    "authors": [
+     "Eszter Fehér",
+     "András Á. Sipos",
+     "Péter L. Várkonyi"
+    ],
+    "year": 2026,
+    "venue": "European Journal of Mechanics - A/Solids"
+   },
+   "area": "numerical-methods",
+   "keywords": [
+    "shape control",
+    "active bending",
+    "elastica",
+    "multistability",
+    "path planning"
+   ],
+   "summary": "Proposes quasi-static shape control of structures whose equilibrium sets have a complex topology, and applies it to a strip bent into two rotary clamps under a fixed load, choosing actuator paths that stay on stable equilibria, including a path between two stable shapes without snap-through.",
+   "summary_source": "full-text",
+   "code": [],
+   "data": [],
+   "methods": [
+    "planar inextensible elastica",
+    "numerical continuation",
+    "stability of equilibria"
+   ],
+   "dependencies": [],
+   "complexity": "low",
+   "relevance": "Section 3 on the production co-rotational frame, which gained prescribed rotations and continued analyses for it. The five shapes of Figure 9(c), digitized from the open preprint (arXiv:2509.12916v1), lie on our computed actuator path within 0.005, at the points Figure 9(b) labels; the symmetric limit loads and curvature of Section 3.2 agree within 2%. The half-span-load values and the two Table 1 entries reached after a snap are open; the latter and the equilibrium surface of Figure 9(a) need arc-length with prescribed rotations.",
+   "status": "interactive",
+   "reproduced_published_results": false,
+   "benchmarks": [],
+   "implementation": "stability/feher-sipos-varkonyi-2026",
+   "page": "web/src/components/research/feher2026/ShapePage.svelte",
    "contacts": []
   },
   {

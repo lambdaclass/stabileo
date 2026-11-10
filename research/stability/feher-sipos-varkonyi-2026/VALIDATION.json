@@ -1,0 +1,265 @@
+{
+  "checks": [
+    {
+      "id": "arc-radius",
+      "metric": "unloaded strip at Θ = 1: largest distance from the exact circular arc, relative to its radius",
+      "observed": 0.000034222943513517734,
+      "passed": true,
+      "tolerance": 0.0001
+    },
+    {
+      "id": "arc-curvature",
+      "metric": "unloaded strip at Θ = 1: curvature relative error against the exact 2",
+      "observed": 0.00012523564739175264,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "id": "replay",
+      "metric": "replay.json against a fresh run: frames that differ",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "id": "path-stable",
+      "metric": "Section 3.4 path: states with an indefinite tangent",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "id": "path-jumps",
+      "metric": "Section 3.4 path: jumps between neighbouring states",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "id": "mesh",
+      "metric": "arch at Θ = 1, q = 2.5: y(1/2) change from 60 to 120 elements, relative",
+      "observed": 0.000187339169546451,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "id": "shape-1",
+      "metric": "Figure 9(c) shape 1: median distance from the digitized curve to the closest state on our path",
+      "observed": 0.0031862452160511074,
+      "passed": true,
+      "tolerance": 0.008
+    },
+    {
+      "id": "shape-2",
+      "metric": "Figure 9(c) shape 2: median distance from the digitized curve to the closest state on our path",
+      "observed": 0.0024957874964412095,
+      "passed": true,
+      "tolerance": 0.008
+    },
+    {
+      "id": "shape-3",
+      "metric": "Figure 9(c) shape 3: median distance from the digitized curve to the closest state on our path",
+      "observed": 0.0019425291433629796,
+      "passed": true,
+      "tolerance": 0.008
+    },
+    {
+      "id": "shape-4",
+      "metric": "Figure 9(c) shape 4: median distance from the digitized curve to the closest state on our path",
+      "observed": 0.0017547444232318607,
+      "passed": true,
+      "tolerance": 0.008
+    },
+    {
+      "id": "shape-5",
+      "metric": "Figure 9(c) shape 5: median distance from the digitized curve to the closest state on our path",
+      "observed": 0.004642972729265777,
+      "passed": true,
+      "tolerance": 0.008
+    },
+    {
+      "id": "ends",
+      "metric": "shapes 1 and 5 of Figure 9(c) are the start and the end of the path, both at Θ = 1, Δ = 0",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    }
+  ],
+  "figure_9c_matches": {
+    "1": {
+      "delta": 0.0,
+      "median_distance": 0.0031862452160511074,
+      "paper_delta": 0.0,
+      "paper_theta": 1.0,
+      "step": 0,
+      "theta": 1.0
+    },
+    "2": {
+      "delta": 0.06,
+      "median_distance": 0.0024957874964412095,
+      "paper_delta": 0.0,
+      "paper_theta": 1.3,
+      "step": 19,
+      "theta": 1.3
+    },
+    "3": {
+      "delta": 1.3,
+      "median_distance": 0.0019425291433629796,
+      "paper_delta": 1.3,
+      "paper_theta": 1.3,
+      "step": 82,
+      "theta": 1.28125
+    },
+    "4": {
+      "delta": 1.18,
+      "median_distance": 0.0017547444232318607,
+      "paper_delta": 1.3,
+      "paper_theta": 1.0,
+      "step": 103,
+      "theta": 1.0
+    },
+    "5": {
+      "delta": 0.0,
+      "median_distance": 0.004642972729265777,
+      "paper_delta": 0.0,
+      "paper_theta": 1.0,
+      "step": 162,
+      "theta": 1.0
+    }
+  },
+  "published_checks": [
+    {
+      "computed": 0.22582,
+      "id": "figure-9c-1",
+      "metric": "Figure 9(c) shape 1: midpoint height y(1/2) at the clamp angles where Figure 9(b) places it, absolute difference",
+      "observed": 0.0033199999999999896,
+      "passed": true,
+      "reference": 0.2225,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve",
+      "tolerance": 0.008
+    },
+    {
+      "computed": 0.18895,
+      "id": "figure-9c-2",
+      "metric": "Figure 9(c) shape 2: midpoint height y(1/2) at the clamp angles where Figure 9(b) places it, absolute difference",
+      "observed": 0.0010499999999999676,
+      "passed": true,
+      "reference": 0.18790000000000004,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve",
+      "tolerance": 0.008
+    },
+    {
+      "computed": 0.10815,
+      "id": "figure-9c-3",
+      "metric": "Figure 9(c) shape 3: midpoint height y(1/2) at the clamp angles where Figure 9(b) places it, absolute difference",
+      "observed": 0.000980364564276373,
+      "passed": true,
+      "reference": 0.10716963543572362,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve",
+      "tolerance": 0.008
+    },
+    {
+      "computed": -0.06535,
+      "id": "figure-9c-4",
+      "metric": "Figure 9(c) shape 4: midpoint height y(1/2) at the clamp angles where Figure 9(b) places it, absolute difference",
+      "observed": 0.010537242889091594,
+      "passed": false,
+      "reference": -0.0758872428890916,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve",
+      "tolerance": 0.008
+    },
+    {
+      "computed": -0.14983,
+      "id": "figure-9c-5",
+      "metric": "Figure 9(c) shape 5: midpoint height y(1/2) at the clamp angles where Figure 9(b) places it, absolute difference",
+      "observed": 0.005257891527902542,
+      "passed": true,
+      "reference": -0.15508789152790253,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve",
+      "tolerance": 0.008
+    },
+    {
+      "computed": 4.246875000000001,
+      "id": "qlim-uniform-0.9-0",
+      "metric": "Section 3.2.1: limit load, uniform load, Θ = 0.9, Δ = 0 (paper −4.2, downward)",
+      "observed": 0.011160714285714496,
+      "passed": true,
+      "reference": 4.2,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.18",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 3.950976562500002,
+      "id": "qlim-uniform-0.9-0.04",
+      "metric": "Section 3.2.1: limit load, uniform load, Θ = 0.9, Δ = 0.04 (paper −3.9, downward)",
+      "observed": 0.013070913461538986,
+      "passed": true,
+      "reference": 3.9,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.19",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 2.3654296875000007,
+      "id": "qlim-half-0.9-0",
+      "metric": "Section 3.2.1: limit load, half-span load, Θ = 0.9, Δ = 0 (paper −2.5, downward)",
+      "observed": 0.05382812499999971,
+      "passed": false,
+      "reference": 2.5,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.19",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 3.740429687500002,
+      "computed_delta": 1.1625,
+      "id": "qlim-half-optimum",
+      "metric": "Section 3.2.1: largest limit load with the half-span load along Θ = 0.66 (paper −4.0 at Δ = 1.36, on a bifurcation curve)",
+      "observed": 0.06489257812499949,
+      "passed": false,
+      "reference": 4.0,
+      "reference_delta": 1.36,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.19",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 2.1323171160019965,
+      "id": "kappa-uniform-0.96-0",
+      "metric": "Table 1: largest curvature at q = 2.5, uniform load, Θ = 0.96, Δ = 0",
+      "observed": 0.015389102858093515,
+      "passed": true,
+      "reference": 2.1,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 14.07326026579479,
+      "id": "kappa-half-0.96-0",
+      "metric": "Table 1: largest curvature at q = 2.5, half-span load, Θ = 0.96, Δ = 0",
+      "observed": 0.851744771815104,
+      "passed": false,
+      "reference": 7.6,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 11.381796810353144,
+      "id": "kappa-uniform-0.64-1.16",
+      "metric": "Table 1: largest curvature at q = 2.5, uniform load, Θ = 0.64, Δ = 1.16",
+      "observed": 0.027196853815970524,
+      "passed": true,
+      "reference": 11.7,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 3.761197756536493,
+      "id": "kappa-half-0.64-1.16",
+      "metric": "Table 1: largest curvature at q = 2.5, half-span load, Θ = 0.64, Δ = 1.16",
+      "observed": 0.12274559896611732,
+      "passed": false,
+      "reference": 3.35,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "tolerance": 0.05
+    }
+  ],
+  "scope": "Planar inextensible elastica approximated by the production co-rotational frame (60–96 elements, EA/EI·L² = 8·10⁵·π²); stability from the definiteness of the tangent. Numerical comparison with the paper's figures and text, not laboratory validation."
+}

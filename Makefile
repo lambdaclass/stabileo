@@ -582,6 +582,7 @@ research.wasm: web.deps
 	$(NIX_RUN) research/optimization/andreassen-2011/wasm/build.sh
 	$(NIX_RUN) research/mechanics/biggins-2026/build.sh
 	$(NIX_RUN) research/mechanics/gay-neto-2014/build.sh
+	$(NIX_RUN) research/stability/feher-sipos-varkonyi-2026/build.sh
 	$(NIX_RUN) research/metamaterials/grossman-2026/wasm/build.sh
 	$(NIX_RUN) research/form-finding/pastrana-2026/wasm/build.sh
 	$(NIX_RUN) research/optimisation/fairclough-2026/wasm/build.sh
@@ -855,3 +856,13 @@ check.engine.plastic-workflow:
 .PHONY: test.engine.plastic-samples
 test.engine.plastic-samples:
 	$(NIX_RUN) cargo test --locked -p dedaliano-engine --lib lp_work_matches_initial_samples
+FEHER_DIR = research/stability/feher-sipos-varkonyi-2026
+.PHONY: test.research.feher evidence.research.feher
+test.research.feher:
+	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate
+	$(NIX_RUN) cargo test --locked -p dedaliano-engine --test validation corotational_prescribed
+
+evidence.research.feher:
+	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin replay -- $(FEHER_DIR)/reference-results/replay.json
+	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate -- --write
+	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("$(FEHER_DIR)/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
