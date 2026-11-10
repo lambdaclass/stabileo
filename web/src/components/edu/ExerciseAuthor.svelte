@@ -11,7 +11,7 @@
    * be the wrong instinct. This reads the canvas.
    */
   import { modelStore, resultsStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import { accountGate } from '../../lib/store/account-gate.svelte';
   import { saveFile } from '../../lib/export/save-file';
   import { captureModel, toFile, fromFile, type CaptureWarning } from './exercise-capture';
@@ -26,14 +26,19 @@
   import { EXERCISE_EXAMPLES, fromExample, fromFileDed, fromShareUrl, hasDrawnModel, detectKinematics } from './exercise-source';
   import FieldHelp from './FieldHelp.svelte';
   import {
-    STEEL_GRADES, DEFAULT_GRADE, CHARACTERISTIC_PRESETS, STATIONS, suggestShapes,
+    STEEL_GRADES, DEFAULT_GRADE, CHARACTERISTIC_PRESETS, STATIONS, suggestShapes, SUPPORT_CHOICE_TYPES,
   } from './exercise-presets';
+  import { lintParams, type SupportChoice, type Variant } from './exercise-params';
+  import { paramTargets, parametrize, suggestBinding, type ParamBinding, type ParamTarget } from './exercise-param-authoring';
+  import { checkResolved, describeVariant, isParametric, lintVariants, reactionDofsFor, supportTypeName, variantOf, type VariantLint } from './exercise-variant';
+  import type { ModelSpec } from './exercise-spec';
+  import type { SupportType } from '../../lib/store/ui.svelte';
 
   interface Props {
     onclose: () => void;
     onsaved: (ex: EduExerciseSpec) => void;
     /** Open the draft the way a student will see it, and come back after. */
-    onpreview: (ex: EduExerciseSpec) => void;
+    onpreview: (ex: EduExerciseSpec, variant?: Variant) => void;
     /** An exercise being edited, or null when starting fresh. */
     editing?: EduExerciseSpec | null;
   }
@@ -74,9 +79,46 @@
   );
 
   // ── The structure ──────────────────────────────────────────
-  let captured = $state<ReturnType<typeof captureModel> | null>(
-    editing ? { spec: editing.model, warnings: [] } : null,
+  const legacyParams = !!editing && isParametric(editing) && !editing.authoredFrom;
+  let captured = $state<{ spec: ModelSpec | null; warnings: CaptureWarning[] } | null>(
+    editing ? { spec: editing.authoredFrom?.model ?? variantOf(editing).model, warnings: [] } : null,
   );
+  let keepLegacyParams = $state(legacyParams);
+  let bindings = $state<ParamBinding[]>(editing?.authoredFrom ? editing.authoredFrom.bindings.map((b) => ({ ...b, range: { ...b.range } })) : []);
+  let supportChoices = $state<SupportChoice[]>(
+    editing?.authoredFrom ? (editing.params?.supportChoices ?? []).map((c) => ({ ...c, types: [...c.types] })) : [],
+  );
+  const sameTarget = (a: ParamTarget, b: ParamTarget) => a.kind === b.kind && a.index === b.index;
+  const targets = $derived(captured?.spec ? paramTargets(captured.spec) : []);
+  const freeTargets = $derived(targets.filter((x) => !bindings.some((b) => sameTarget(b.target, x.target))));
+  const targetLabel = (target: ParamTarget) => targets.find((x) => sameTarget(x.target, target))?.label ?? '';
+  let addTargetKey = $state('');
+
+  function addBinding(key: string) {
+    const found = freeTargets.find((x) => `${x.target.kind}:${x.target.index}` === key);
+    addTargetKey = '';
+    if (!found || !captured?.spec) return;
+    bindings = [...bindings, suggestBinding(captured.spec, found.target, bindings.map((b) => b.name))];
+    variantLint = null;
+  }
+
+  function choiceTypes(k: number): SupportType[] {
+    return supportChoices.find((c) => c.support === k)?.types ?? [];
+  }
+
+  function toggleChoice(k: number, drawn: SupportType, type: SupportType, on: boolean) {
+    const current = choiceTypes(k).filter((x) => x !== drawn && x !== type);
+    const types = on ? [drawn, ...current, type] : [drawn, ...current];
+    supportChoices = [...supportChoices.filter((c) => c.support !== k), ...(types.length > 1 ? [{ support: k, types }] : [])]
+      .sort((a, b) => a.support - b.support);
+    variantLint = null;
+  }
+
+  const varyingNodes = $derived(new Set(
+    (keepLegacyParams ? editing?.params?.supportChoices ?? [] : supportChoices)
+      .filter((c) => c.types.length > 1)
+      .map((c) => (keepLegacyParams ? editing?.model : captured?.spec)?.supports[c.support]?.node),
+  ));
   let warnings = $state<CaptureWarning[]>([]);
 
   // ── Where the structure comes from ─────────────────────────
@@ -133,13 +175,20 @@
     const r = captureModel(modelStore.model);
     captured = r;
     warnings = r.warnings;
+    keepLegacyParams = false;
+    if (r.spec) {
+      const still = paramTargets(r.spec);
+      bindings = bindings.filter((b) => still.some((x) => sameTarget(x.target, b.target)));
+      supportChoices = supportChoices.filter((c) => r.spec!.supports[c.support]);
+    }
+    variantLint = null;
     if (r.spec && askReactions.length === 0) {
       // One reaction question per support, pre-filled from that support's own
       // degrees of freedom — what a statics exercise asks first. Removable.
       askReactions = r.spec.supports.map((s, i) => ({
         node: s.node,
         label: `${t('edu.author.reactionAt')} ${String.fromCharCode(65 + i)}`,
-        dofs: s.type === 'fixed' ? ['Rx', 'Ry', 'M'] : s.type === 'pinned' ? ['Rx', 'Ry'] : ['Ry'],
+        dofs: reactionDofsFor(s.type),
       }));
     }
     // Whatever the structure is, the app can say how it is classified — so it
@@ -170,7 +219,7 @@
   type CharRow = { label: string; unit: string; source: 'force' | 'stress'; force: ForceKind; measure: StressMeasure; scope: 'all' | 'element'; element: number; t: number };
 
   let askReactions = $state<Array<{ node: number; label: string; dofs: Array<'Rx' | 'Ry' | 'M'> }>>(
-    editing?.supports.map((s) => ({ node: s.nodeIndex, label: s.label, dofs: [...s.dofs] })) ?? [],
+    editing ? variantOf(editing).supports.map((s, i) => ({ node: s.nodeIndex, label: editing.supports[i]!.label, dofs: [...s.dofs] })) : [],
   );
   let characteristics = $state<CharRow[]>(
     editing?.characteristics.map((c) => fromAnswer(c.label, c.unit, c.answer)) ?? [],
@@ -185,7 +234,7 @@
   );
   // The shape list is spelled once, in the spec — repeating it here is how it
   // came to be missing `cubic` on one side of the boundary.
-  let shapeQs = $state<Array<{ diagram: 'N' | 'V' | 'M'; correct: DiagramShape }>>(
+  let shapeQs = $state<Array<{ diagram: 'N' | 'V' | 'M'; correct: DiagramShape | 'auto' }>>(
     editing?.diagramShapeQuestions?.map((q) => ({ ...q })) ?? [],
   );
   let givens = $state<Array<{ label: string; value: string }>>(
@@ -230,6 +279,12 @@
   /** Everything declared, assembled into one exercise. */
   const draft = $derived.by((): EduExerciseSpec | null => {
     if (!captured?.spec) return null;
+    const shaped = keepLegacyParams && editing
+      ? { model: editing.model, params: editing.params }
+      : parametrize({ model: captured.spec, bindings, supportChoices });
+    const authoredFrom = !keepLegacyParams && shaped.params
+      ? { model: captured.spec, bindings: bindings.map((b) => ({ ...b, range: { ...b.range } })) }
+      : undefined;
     const slug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     return {
       // Editing keeps the original id, so saving replaces rather than clones.
@@ -239,11 +294,13 @@
       difficulty,
       category,
       model: {
-        ...captured.spec,
+        ...shaped.model,
         profile: profile.trim() || undefined,
         fy: profile.trim() ? fy : undefined,
       },
-      supports: askReactions.map((r) => ({ label: r.label, nodeIndex: r.node, dofs: r.dofs })),
+      ...(shaped.params ? { params: shaped.params } : {}),
+      ...(authoredFrom ? { authoredFrom } : {}),
+      supports: askReactions.map((r) => ({ label: r.label, nodeIndex: r.node, dofs: varyingNodes.has(r.node) ? 'auto' as const : r.dofs })),
       characteristics: characteristics.map((c) => ({ label: c.label, unit: c.unit, answer: answerOf(c) })),
       diagramQuestions: diagramQs.map((q) => ({
         question: q.question, unit: q.unit,
@@ -259,7 +316,28 @@
     };
   });
 
-  const problems = $derived(draft ? lintExercise(draft) : []);
+  const problems = $derived(draft ? [...lintExercise(draft), ...(draft.params ? lintParams(draft.model, draft.params) : [])] : []);
+  const parametric = $derived(!!draft && isParametric(draft));
+
+  let variantLint = $state<VariantLint | null>(null);
+  let previewVariants = $state<Array<{ variant: Variant; text: string; problems: string[] }>>([]);
+
+  function showVariants() {
+    if (!draft) return;
+    variantLint = lintVariants(draft);
+    previewVariants = Array.from({ length: 3 }, () => {
+      const ex = variantOf(draft, Math.floor(Math.random() * 2 ** 32));
+      let found: string[];
+      try { found = checkResolved(ex); } catch (e) { found = [(e as Error).message]; }
+      return { variant: ex.variant!, text: describeVariant(draft, ex.variant!), problems: found };
+    });
+  }
+
+  function variantsOk(): boolean {
+    if (!draft || !parametric) return true;
+    variantLint = lintVariants(draft);
+    return variantLint.problems.length === 0;
+  }
   const hasQuestions = $derived(
     (draft?.supports.length ?? 0) + (draft?.characteristics.length ?? 0) +
     (draft?.diagramQuestions.length ?? 0) + (draft?.diagramShapeQuestions?.length ?? 0) > 0,
@@ -298,19 +376,19 @@
   let shareLink = $state('');
 
   function save() {
-    if (!draft) return;
+    if (!draft || !variantsOk()) return;
     const { ok } = saveToLibrary(draft);
     saveMsg = ok ? t('edu.author.saved') : t('edu.author.saveFailed');
     if (ok) onsaved(draft);
   }
 
   function download() {
-    if (!draft) return;
+    if (!draft || !variantsOk()) return;
     saveFile(`${draft.id}.stabileo-ej.json`, new Blob([toFile(draft)], { type: 'application/json' }));
   }
 
   function share() {
-    if (!draft) return;
+    if (!draft || !variantsOk()) return;
     shareLink = toShareLink(draft, location.origin + location.pathname);
     navigator.clipboard?.writeText(shareLink).catch(() => {});
   }
@@ -402,6 +480,98 @@
       </p>
     {/if}
     {#each warnings as w}<p class="warn">⚠ {w.detail}</p>{/each}
+
+    {#if captured?.spec}
+      {@const base = captured.spec}
+      <details class="params" data-testid="author-params">
+        <summary>
+          <span class="params-title">{t('edu.params.title')}</span>
+          <span class="params-sum">
+            {parametric
+              ? tp('edu.params.summary', {
+                  n: Object.keys(draft?.params?.values ?? {}).length,
+                  s: (draft?.params?.supportChoices ?? []).filter((c) => c.types.length > 1).length,
+                })
+              : t('edu.params.summaryNone')}
+          </span>
+        </summary>
+        <div class="field-head">
+          <span class="hint">{t('edu.params.helpWhat')}</span>
+          <FieldHelp what={t('edu.params.helpWhat')} example={t('edu.params.helpEx')} />
+        </div>
+
+        {#if keepLegacyParams}
+          <p class="hint">{tp('edu.params.fromFile', { names: Object.keys(editing?.params?.values ?? {}).join(', ') })}</p>
+        {:else}
+          {#each bindings as b, i (b.target.kind + b.target.index)}
+            <div class="qrow" data-testid="param-row-{i}">
+              <div class="row">
+                <input type="text" class="pname" bind:value={b.name} aria-label={t('edu.params.name')}
+                  oninput={() => { b.range.label = b.name; variantLint = null; }} data-testid="param-name-{i}" />
+                <span class="target">{targetLabel(b.target)}</span>
+                <button class="btn-del" onclick={() => { bindings = bindings.filter((_, k) => k !== i); variantLint = null; }} aria-label="✕">✕</button>
+              </div>
+              <div class="row sub">
+                <label class="rng">{t('edu.params.min')}
+                  <input type="number" class="num" bind:value={b.range.min} oninput={() => (variantLint = null)} data-testid="param-min-{i}" /></label>
+                <label class="rng">{t('edu.params.max')}
+                  <input type="number" class="num" bind:value={b.range.max} oninput={() => (variantLint = null)} data-testid="param-max-{i}" /></label>
+                <label class="rng">{t('edu.params.step')}
+                  <input type="number" class="num" bind:value={b.range.step} oninput={() => (variantLint = null)} data-testid="param-step-{i}" /></label>
+                <span class="unit-lbl">{b.range.unit ?? ''}</span>
+              </div>
+            </div>
+          {/each}
+          {#if freeTargets.length}
+            <select value={addTargetKey} onchange={(e) => addBinding(e.currentTarget.value)} data-testid="param-add">
+              <option value="">{t('edu.params.makeVariable')}</option>
+              {#each freeTargets as x}
+                <option value="{x.target.kind}:{x.target.index}">{x.label} · {x.value}</option>
+              {/each}
+            </select>
+          {/if}
+          {#if bindings.length}
+            <p class="hint mono">{bindings.map((b) => `{${b.name}}`).join(' ')}</p>
+          {/if}
+
+          <span class="qlabel params-sub">{t('edu.params.supports')}</span>
+          {#each base.supports as sup, k}
+            <div class="row">
+              <span class="target">{tp('edu.params.supportN', { n: String.fromCharCode(65 + k) })} · {supportTypeName(sup.type)}</span>
+              {#each SUPPORT_CHOICE_TYPES.filter((x) => x !== sup.type) as type}
+                <label class="chk">
+                  <input type="checkbox" checked={choiceTypes(k).includes(type)}
+                    onchange={(e) => toggleChoice(k, sup.type, type, e.currentTarget.checked)}
+                    data-testid="param-support-{k}-{type}" />{supportTypeName(type)}
+                </label>
+              {/each}
+            </div>
+          {/each}
+          <p class="hint">{t('edu.params.supportsHint')}</p>
+        {/if}
+
+        {#if parametric}
+          <button class="btn-ghost" onclick={showVariants} data-testid="param-show">
+            {previewVariants.length ? t('edu.params.regenerate') : t('edu.params.show')}
+          </button>
+          {#each previewVariants as pv}
+            <div class="variant-row">
+              <span class={pv.problems.length ? 'bad' : 'good'}>{pv.problems.length ? '⚠' : '✓'}</span>
+              <span class="variant-text">{pv.text}</span>
+              <button class="btn-ghost small" onclick={() => draft && onpreview(draft, pv.variant)}>{t('edu.params.tryAsStudent')}</button>
+            </div>
+          {/each}
+        {/if}
+        {#if variantLint}
+          {#if variantLint.problems.length === 0}
+            <p class="ok" data-testid="param-lint-ok">{tp('edu.params.allGood', { n: variantLint.checked })}</p>
+          {:else}
+            <p class="warn" data-testid="param-lint-bad">⚠ {t('edu.params.someBad')}</p>
+            {#each variantLint.problems.slice(0, 5) as p}<p class="warn small">{p}</p>{/each}
+          {/if}
+        {/if}
+      </details>
+    {/if}
   </section>
 
   {#if captured?.spec}
@@ -505,6 +675,9 @@
         {#each askReactions as r, i}
           <div class="row">
             <input type="text" bind:value={r.label} />
+            {#if varyingNodes.has(r.node)}
+              <span class="hint">{t('edu.params.dofsAuto')}</span>
+            {:else}
             {#each ['Rx', 'Ry', 'M'] as dof}
               <label class="chk">
                 <input type="checkbox" checked={r.dofs.includes(dof as never)}
@@ -516,6 +689,7 @@
                   }} />{dof}
               </label>
             {/each}
+            {/if}
             <button class="btn-del" onclick={() => (askReactions = askReactions.filter((_, k) => k !== i))} aria-label="✕">✕</button>
           </div>
         {/each}
@@ -629,13 +803,18 @@
               <option value="V">{t('edu.author.shear')} (V)</option>
               <option value="M">{t('edu.author.moment')} (M)</option>
             </select>
+            {#if parametric}
+              <span class="hint">{t('edu.params.shapeAuto')}</span>
+            {:else}
             <select bind:value={sq.correct}>
               <option value="zero">{t('edu.shape.zero')}</option>
               <option value="constant">{t('edu.shape.constant')}</option>
               <option value="linear">{t('edu.shape.linear')}</option>
               <option value="quadratic">{t('edu.shape.quadratic')}</option>
               <option value="cubic">{t('edu.shape.cubic')}</option>
+              <option value="auto">{t('edu.params.shapeAuto')}</option>
             </select>
+            {/if}
             <button class="btn-del" onclick={() => (shapeQs = shapeQs.filter((_, k) => k !== i))} aria-label="✕">✕</button>
           </div>
         {/each}
@@ -685,6 +864,7 @@
             <strong>{detected.classification === 'isostatic' ? t('edu.isostatic') : t('edu.hyperstatic')}</strong>
             {#if detected.degree > 0}· {t('edu.author.degree')} {detected.degree}{/if}
           </p>
+          {#if varyingNodes.size > 0}<p class="hint">{t('edu.params.kinVaries')}</p>{/if}
         {:else}
           <p class="hint">{t('edu.author.kinUnavailable')}</p>
         {/if}
@@ -734,7 +914,7 @@
         -->
         <button
           class="btn-ghost"
-          onclick={() => draft && onpreview(draft)}
+          onclick={() => draft && variantsOk() && onpreview(draft)}
           disabled={problems.length > 0 || !hasQuestions}
           data-testid="edu-preview-student"
         >{t('edu.author.previewAsStudent')}</button>
@@ -1006,4 +1186,38 @@
   .preview .val.bad { color: var(--st-warn); }
 
   .open-section { border-top: 1px solid var(--st-hair); }
+
+  .params {
+    margin-top: 10px;
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    padding: 6px 8px;
+  }
+
+  .params > summary {
+    cursor: pointer;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: baseline;
+    list-style: none;
+  }
+
+  .params > summary::-webkit-details-marker { display: none; }
+  .params > summary::before { content: '▸'; color: var(--st-text-3); font-size: 0.65rem; }
+  .params[open] > summary::before { content: '▾'; }
+  .params[open] > summary { margin-bottom: 6px; }
+  .params-title { font-size: 0.74rem; color: var(--st-text); font-weight: 600; }
+  .params-sum { font-family: var(--st-mono); font-size: 0.66rem; color: var(--st-value); }
+  .params-sub { margin-top: 10px; }
+  .pname { width: 56px; flex: none !important; min-width: 0 !important; font-family: var(--st-mono); }
+  .target { font-size: 0.7rem; color: var(--st-text-2); flex: 1; }
+  .rng { display: flex; align-items: center; gap: 3px; flex: none !important; font-size: 0.68rem; color: var(--st-text-3); }
+  .variant-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.7rem; }
+  .variant-row .good { color: var(--st-ok); }
+  .variant-row .bad { color: var(--st-warn); }
+  .variant-text { flex: 1; font-family: var(--st-mono); color: var(--st-text-2); font-size: 0.66rem; }
+  .btn-ghost.small { padding: 2px 7px; font-size: 0.66rem; }
+  .warn.small { font-size: 0.64rem; }
+  .hint.mono { font-family: var(--st-mono); }
 </style>

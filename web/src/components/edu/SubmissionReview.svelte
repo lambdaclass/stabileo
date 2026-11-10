@@ -11,16 +11,24 @@
    * in the file was produced on the student's own machine, and a teacher who
    * assumes otherwise would be trusting it for something it cannot carry.
    */
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import { scoreOf, type Submission } from './exercise-submission';
+  import type { EduExerciseSpec } from './exercise-spec';
+  import { remarkSubmission, type RemarkedAnswer } from './exercise-marking';
+  import { describeVariant } from './exercise-variant';
 
   interface Props {
     submission: Submission;
+    /** The exercise to mark against; null when the teacher does not have it, absent when nothing should be marked again. */
+    spec?: EduExerciseSpec | null;
     onclose: () => void;
   }
-  let { submission, onclose }: Props = $props();
+  let { submission, spec, onclose }: Props = $props();
 
-  const score = $derived(scoreOf(submission));
+  const remark = $derived(spec ? remarkSubmission(spec, submission) : null);
+  const rows = $derived<RemarkedAnswer[]>(remark?.answers ?? submission.answers.map((a) => ({ ...a, recorded: a.outcome })));
+  const score = $derived(scoreOf({ ...submission, answers: rows }));
+  const variantText = $derived(spec && remark?.variant ? describeVariant(spec, remark.variant) : '');
 
   const when = $derived(
     submission.submittedAt
@@ -38,6 +46,12 @@
   <div class="review-meta">
     <div><span class="k">{t('edu.review.exercise')}</span> <span class="v">{submission.exerciseTitle}</span></div>
     <div><span class="k">{t('edu.review.student')}</span> <span class="v">{submission.student || t('edu.review.anonymous')}</span></div>
+    {#if submission.legajo}
+      <div><span class="k">{t('edu.review.legajo')}</span> <span class="v" data-testid="review-legajo">{submission.legajo}</span></div>
+    {/if}
+    {#if variantText}
+      <div><span class="k">{t('edu.review.variant')}</span> <span class="v" data-testid="review-variant">{variantText}</span></div>
+    {/if}
     <div><span class="k">{t('edu.review.when')}</span> <span class="v">{when}</span></div>
   </div>
 
@@ -51,16 +65,27 @@
     {/if}
   </div>
 
+  {#if remark}
+    <p class="note" data-testid="review-remarked">
+      {t('edu.review.remarked')}
+      {#if remark.changed > 0}{tp('edu.review.changed', { n: remark.changed })}{/if}
+    </p>
+    {#if remark.seedMismatch}<p class="note warn">{t('edu.review.seedMismatch')}</p>{/if}
+  {:else if spec === null}
+    <p class="note">{t('edu.review.unknownExercise')}</p>
+  {/if}
+
   <table class="answers">
     <thead>
       <tr>
         <th>{t('edu.review.question')}</th>
         <th>{t('edu.review.answer')}</th>
         <th>{t('edu.review.outcome')}</th>
+        {#if remark}<th>{t('edu.review.expected')}</th>{/if}
       </tr>
     </thead>
     <tbody>
-      {#each submission.answers as a, i (i)}
+      {#each rows as a, i (i)}
         <tr>
           <td class="q">{a.label}</td>
           <td class="a">{a.answer || '—'}{#if a.unit && a.answer}<span class="u"> {a.unit}</span>{/if}</td>
@@ -76,6 +101,7 @@
             {/if}
             {#if a.revealed}<span class="rev">{t('edu.review.wasRevealed')}</span>{/if}
           </td>
+          {#if remark}<td class="a" data-testid="review-expected">{a.expected ?? '—'}</td>{/if}
         </tr>
       {/each}
     </tbody>
@@ -176,6 +202,19 @@
     font-size: 0.6rem;
     color: var(--st-warn);
   }
+
+  .note {
+    font-size: 0.68rem;
+    color: var(--st-text-2);
+    line-height: 1.4;
+    margin: 0;
+    padding: 5px 8px;
+    border-left: 2px solid var(--st-value);
+    background: var(--st-surface-2);
+    border-radius: var(--st-radius);
+  }
+
+  .note.warn { border-left-color: var(--st-warn); }
 
   .disclaimer {
     font-size: 0.65rem;

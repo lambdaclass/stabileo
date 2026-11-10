@@ -12,6 +12,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { loadLibrary, saveToLibrary, removeFromLibrary, toShareLink, fromShareLink } from '../exercise-library';
 import { getExerciseSpecs } from '../exercise-data';
 import type { EduExerciseSpec } from '../exercise-spec';
+import { studentSeed, variantOf } from '../exercise-variant';
 
 // The suite runs without a DOM, so storage is stubbed rather than the whole
 // environment swapped: what is under test is the library's behaviour, and a
@@ -112,5 +113,33 @@ describe('sharing by link', () => {
     const r = fromShareLink('#edu-ex=!!!not-base64!!!');
     expect(r?.ok).toBe(false);
     if (r && !r.ok) expect(r.error).toMatch(/damaged|incomplete/);
+  });
+});
+
+describe('a parametric exercise keeps its parameters', () => {
+  const parametric = () => getExerciseSpecs().find((s) => s.id === 'frame-varying-supports')!;
+
+  it('through the library, with every student still getting the same variant', () => {
+    const ex = { ...parametric(), id: 'mine-param' };
+    expect(saveToLibrary(ex).ok).toBe(true);
+    const back = loadLibrary()[0]!;
+    expect(back.params).toEqual(ex.params);
+    expect(back.model).toEqual(ex.model);
+    expect(variantOf(back, studentSeed(back.id, '104233'))).toEqual(variantOf(ex, studentSeed(ex.id, '104233')));
+  });
+
+  it('through a link', () => {
+    const ex = parametric();
+    const r = fromShareLink(new URL(toShareLink(ex, 'https://stabileo.com/app/education')).hash);
+    expect(r?.ok).toBe(true);
+    if (!r?.ok) return;
+    expect(r.exercise.params).toEqual(ex.params);
+  });
+
+  it('a file whose parameters do not resolve is refused with a sentence', () => {
+    const ex = { ...parametric(), model: { ...parametric().model, nodes: [[0, 0], ['Lx', 0]] as Array<[string | number, string | number]> } };
+    const r = fromShareLink(new URL(toShareLink(ex as never, 'https://stabileo.com/app/education')).hash);
+    expect(r?.ok).toBe(false);
+    if (r && !r.ok) expect(r.error).toMatch(/Lx/);
   });
 });

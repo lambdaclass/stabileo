@@ -150,6 +150,8 @@ export interface ParametricModelSpec {
   fy?: number;
   nodalLoads?: Array<{ node: number; fx?: Expr; fy?: Expr; mz?: Expr }>;
   distributedLoads?: Array<{ element: number; qI: Expr; qJ?: Expr }>;
+  hinges?: Array<{ element: number; end: 'start' | 'end' }>;
+  truss?: number[];
 }
 
 export function resolveModel(model: ParametricModelSpec, v: Variant): ModelSpec {
@@ -159,6 +161,8 @@ export function resolveModel(model: ParametricModelSpec, v: Variant): ModelSpec 
     elements: model.elements.map(([a, b]) => [a, b]),
     supports: model.supports.map((s, i) => ({ node: s.node, type: v.supports[i] ?? s.type })),
   };
+  if (model.hinges) out.hinges = model.hinges.map((h) => ({ element: h.element, end: h.end }));
+  if (model.truss) out.truss = [...model.truss];
   if (model.profile !== undefined) out.profile = model.profile;
   if (model.fy !== undefined) out.fy = model.fy;
   if (model.nodalLoads) {
@@ -192,6 +196,16 @@ export function modelExprs(model: ParametricModelSpec): Array<{ where: string; e
     out.push({ where: `distributedLoads[${i}].qI`, expr: l.qI });
     if (l.qJ !== undefined) out.push({ where: `distributedLoads[${i}].qJ`, expr: l.qJ });
   });
+  return out;
+}
+
+export function supportCombos(p: ExerciseParams, limit = 256): Array<Record<number, SupportType>> {
+  let out: Array<Record<number, SupportType>> = [{}];
+  for (const c of p.supportChoices ?? []) {
+    if (!c.types.length) continue;
+    out = out.flatMap((combo) => c.types.map((type) => ({ ...combo, [c.support]: type })));
+    if (out.length > limit) return out.slice(0, limit);
+  }
   return out;
 }
 
