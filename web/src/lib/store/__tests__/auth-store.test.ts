@@ -455,11 +455,13 @@ describe('consents and server switches', () => {
 
   it('reads the server switches and the terms version from /config', async () => {
     const { authStore } = await load();
-    on('GET /config', () => json(200, { user_login_enabled: true, terms_version: '2026-10-27', usage_telemetry_enabled: true, cloud_projects_enabled: false }));
+    on('GET /config', () => json(200, { user_login_enabled: true, terms_version: '2026-10-27', usage_telemetry_enabled: true, cloud_projects_enabled: false, assignments_enabled: true }));
     await authStore.init();
+    await authStore.ready();
     expect(authStore.termsVersion).toBe('2026-10-27');
     expect(authStore.usageTelemetryEnabled).toBe(true);
     expect(authStore.cloudProjectsEnabled).toBe(false);
+    expect(authStore.assignmentsEnabled).toBe(true);
   });
 
   it('switches read off when /config is unreachable', async () => {
@@ -468,6 +470,7 @@ describe('consents and server switches', () => {
     await authStore.init();
     expect(authStore.usageTelemetryEnabled).toBe(false);
     expect(authStore.cloudProjectsEnabled).toBe(false);
+    expect(authStore.assignmentsEnabled).toBe(false);
     expect(authStore.saveRequiresAccount).toBe(false);
     expect(authStore.termsVersion).toBeNull();
   });
