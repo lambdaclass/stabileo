@@ -51,6 +51,7 @@ let wasmSolveBuckling2d: ((json: string, numModes: number) => string) | null = n
 let wasmSolveModal2d: ((json: string, numModes: number) => string) | null = null;
 let wasmSolveSpectral2d: ((json: string) => string) | null = null;
 let wasmSolvePlastic2d: ((json: string) => string) | null = null;
+let wasmPlasticLimit2d: ((json: string) => string) | null = null;
 let wasmSolveMovingLoads2d: ((json: string) => string) | null = null;
 
 // 2D advanced analysis WASM functions
@@ -255,6 +256,7 @@ export async function initSolver(): Promise<void> {
     wasmSolveModal2d = wasm.solve_modal_2d;
     wasmSolveSpectral2d = wasm.solve_spectral_2d;
     wasmSolvePlastic2d = wasm.solve_plastic_2d;
+    wasmPlasticLimit2d = wasm.plastic_limit_2d;
     wasmSolveMovingLoads2d = wasm.solve_moving_loads_2d;
     // 2D advanced
     wasmSolveCorotational2d = wasm.solve_corotational_2d;
@@ -1233,6 +1235,33 @@ export function solvePlastic(config: {
   });
   const resultJson = wasmSolvePlastic2d(payload);
   return JSON.parse(resultJson);
+}
+
+export interface PlasticLimitResult {
+  lambda: number;
+  lambdaUpper: number;
+  hinges: Array<{ elementId: number; position: number; kind: 'bending' | 'axial'; sign: number }>;
+  /** The exact certificate's verdict on `lambda`: the engine releases only `exact`. */
+  confirmation: { kind: 'exact' } | { kind: 'contradicted'; reason: string; lower: number } | { kind: 'bracketed'; reason: string; lower: number; upper: number } | { kind: 'outOfScope'; reason: string };
+}
+
+/**
+ * Collapse load factor by limit analysis (engine `plastic_limit_2d`): the largest λ with a field in
+ * equilibrium and |M| ≤ Mp, |N| ≤ Np at every section. The engine releases it only where the exact
+ * plastic certificate's static and kinematic bounds meet at it; anything else throws the
+ * PL-2D-INVARIANCE refusal (#758). `mp`/`np` per element id; every frame needs a finite Mp,
+ * Infinity or an omitted Np never yields axially, and a zero, negative or NaN capacity is refused.
+ */
+export function plasticLimit2D(solver: SolverInput, mp: Map<number, number>, np: Map<number, number>): PlasticLimitResult {
+  if (!wasmReady || !wasmPlasticLimit2d) throw new Error('WASM solver not available.');
+  const frame = [...solver.elements.values()].find((e) => e.type === 'frame' && !Number.isFinite(mp.get(e.id)));
+  if (frame) throw new Error(`element ${frame.id}: frame has no finite plastic moment`);
+  const finite = (m: Map<number, number>) => {
+    const bad = [...m].find(([, v]) => !(v > 0));
+    if (bad) throw new Error(`element ${bad[0]}: plastic capacity ${bad[1]} must be positive`);
+    return Object.fromEntries([...m].filter(([, v]) => v !== Infinity).map(([k, v]) => [String(k), v]));
+  };
+  return JSON.parse(wasmPlasticLimit2d(JSON.stringify({ solver: input2DToWireObject(solver), mp: finite(mp), np: finite(np) })));
 }
 
 /** Solve 2D moving loads analysis via WASM. */

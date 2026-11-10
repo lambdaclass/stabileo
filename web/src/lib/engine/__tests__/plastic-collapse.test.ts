@@ -5,7 +5,7 @@
  * one. Each also has to form its hinges where the theory puts them.
  */
 import { describe, it, expect } from 'vitest';
-import { plasticCollapse2D } from '../plastic-collapse';
+import { plasticHistory2D } from '../plastic-collapse';
 import type { SolverInput, SolverLoad } from '../types';
 
 const MP = 100;
@@ -20,7 +20,7 @@ function model(nodes: Array<[number, number, number]>, elements: El[], supports:
     loads,
   } as unknown as SolverInput;
 }
-const run = (m: SolverInput, np = Infinity) => plasticCollapse2D(m, { mp: () => MP, np: () => np });
+const run = (m: SolverInput, np = Infinity) => plasticHistory2D(m, { mp: () => MP, np: () => np });
 const P = (nodeId: number, fx: number, fz: number): SolverLoad => ({ type: 'nodal', data: { nodeId, fx, fz, my: 0 } });
 const q = (elementId: number, v: number): SolverLoad => ({ type: 'distributed', data: { elementId, qI: v, qJ: v } });
 const pOn = (elementId: number, a: number, p: number): SolverLoad => ({ type: 'pointOnElement', data: { elementId, a, p } });

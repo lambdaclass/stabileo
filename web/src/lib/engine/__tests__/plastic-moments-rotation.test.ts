@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import { plasticModulus, plasticMoments } from '../plastic-moments';
 import { analyzeSectionPlastic, solvePlastic } from '../wasm-solver';
+import { runPlasticCollapse } from '../../actions/plastic';
 import { resolveCanonicalSection, isGeometryBacked } from '../../section/canonical';
 
 describe('plastic Mp of a rotated section', () => {
@@ -46,11 +47,12 @@ describe('plastic Mp of a rotated section', () => {
     expect(mps[0].mp).toBeCloseTo(mps[0].fy * 1000 * zz, 7);
   });
 
-  it.skip('plastic collapse of the rotated cantilever: first hinge at λ = fy·Zp,weak/(P·L) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', async () => {
-    const { zz, mps, run } = await rotatedCantilever();
-    const res = run();
+  it('plastic collapse of the rotated cantilever in the Basic panel: first hinge at λ = fy·Zp,weak/(P·L)', async () => {
+    const { zz, mps } = await rotatedCantilever();
+    const res = runPlasticCollapse()!.result;
     const fy = mps[0].fy;
     const lambdaWeak = fy * 1000 * zz / (15 * 3);
     expect(res.steps[0].loadFactor).toBeCloseTo(lambdaWeak, 3);
+    expect(res.collapseFactor).toBeCloseTo(lambdaWeak, 3);
   });
 });

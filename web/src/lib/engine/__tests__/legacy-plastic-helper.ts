@@ -1,6 +1,6 @@
 import { modelStore, uiStore } from '../../store';
 import { plasticMoments, DEFAULT_FY, type SectionMp } from '../plastic-moments';
-import { plasticCollapse2D, type PlasticCollapseResult } from '../plastic-collapse';
+import { plasticHistory2D, type PlasticCollapseResult } from '../plastic-collapse';
 import { advancedRefusal2D, variableRefusal2D } from '../solver-service';
 import { t } from '../../i18n';
 
@@ -16,7 +16,7 @@ export function runLegacyPlasticCollapse(): PlasticRun | null {
   if (refusal) throw new Error(refusal);
   const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
   const mpOfSection = new Map(mps.map((m) => [m.sectionId, m.mp]));
-  const result = plasticCollapse2D(input, {
+  const result = plasticHistory2D(input, {
     mp: (id) => mpOfSection.get(input.elements.get(id)!.sectionId) ?? Infinity,
     np: (id) => {
       const e = input.elements.get(id)!;
