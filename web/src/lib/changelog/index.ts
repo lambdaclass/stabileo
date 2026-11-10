@@ -267,6 +267,45 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Site, sayfa olmayan bir adrese gerçek bir 404 ile yanıt veriyor, açılış sayfasının her bölümünü JavaScript ve kaydırma olmadan gösteriyor, aynı derlemeden bayt bayt aynı sayfaları üretiyor ve her gün üretim ortamına karşı Lighthouse ile ölçülüyor.',
         ],
       },
+      hu: {
+        title: 'Javított hibás eredmények a méretezési ellenőrzésekben, a megoldóban és a dinamikában, helyesbített generált terhek, teljessé vált PRO analízis mód és visszatért az Alap mód tananyaga',
+        items: [
+          'Hibás eredmény javítva: a kihajlási tanúsítás olyan tényezőt is tanúsíthatott, amely meghaladta a saját, függetlenül számított felső korlátját; az ilyen tényezőt most elutasítja, 2D-ben és 3D-ben. Maga a számított tényező nem változik. A korábban mentett, kihajlásvizsgálatot tartalmazó projektek figyelmeztetést jelenítenek meg, hogy futtassa újra a tanúsítást, mielőtt egy korábbi tanúsításra támaszkodna.',
+          'Hibás eredmények javítva a dinamikában: az időtörténeti analízis kihagyta a tömeg nélküli csomópontra 0 s-kor működtetett terhet, így a futtatás egyensúlyon kívülről indult (SA-2026-031); a modális analízis átugrotta egy mechanizmus zérus rezgésalakját, és a többi rezgésalakot úgy adta vissza, mintha a készlet teljes lenne (SA-2026-032), most viszont elutasítja és megnevezi, a spektrális és szeizmikus analízisben is; a szimmetrikus szerkezetek többszörös sajátértékei megtartják teljes multiplicitásukat; a nem véges eredményt adó időtörténeti analízist pedig elutasítja ahelyett, hogy megjelenítené. Futtassa újra azokat az időtörténeti analíziseket, amelyekben tömeg nélküli csomópontokon 0 s-kor erők működnek, valamint a modális, spektrális és szeizmikus analíziseket; az alkalmazás megjelöli az érintett projekteket.',
+          'Hibás eredmény javítva, csak a számítómagban és a WASM API-ban (az alkalmazás mindig elküldi a területet): az AISC 360 nyírási ellenőrzése 0 kihasználtsággal megfelelt, ha hiányzott a gerinc területe (SA-2026-025), az EC3 pedig Av = 0,5·A értékkel számolt, ami 57%-kal nagyobb egy HEB 300 nyírási területénél (SA-2026-026). A terület most a keresztmetszetből származik, különben az ellenőrzés nem értékelődik ki.',
+          'A statikai és a modális analízis az eredmények visszaadása előtt ellenőrzi az egyensúlyt és a rezgésalakok ortogonalitását: a sikertelen ellenőrzés figyelmeztet, a nem véges vagy súlyosan sikertelen eredményt pedig elutasítja. A rúdra mértékadóként megnevezett kombináció most a rúd belsejében fellépő igénybevételeket is figyelembe veszi, nem csak a végeken lévőket.',
+          'A számítómag tesztjei: az invariancia-ellenőrzések most a hat kiemelt analízistípust és a merevség egyenletes skálázását is lefedik, a benchmark tesztekben pedig 48 hibás referenciát vagy modellt javítottak ki, a számítómag módosítása nélkül. Ez a munka egy valódi, egyelőre figyelmeztetés nélküli számítómag-hibát is feltárt: a MITC4 és MITC9 héjelemek vetemedett (csavart) geometrián túl hajlékonyak, az elmozdulások MITC4 esetén mintegy 30%-kal, MITC9 esetén 90°-os csavarásnál akár 2,4-szeresen nagyobbak. A hiba a csavarással nő, sík elemeken nem jelentkezik. Egy figyelmeztetés felülvizsgálat alatt áll (issue #1057, PR #807).',
+          'A háttérben, az eredmények változása nélkül: az éjszakai ellenőrzések kiváltó okonként egy megállapítást rögzítenek, és minden Rust-mutánst legalább 16 naponta tesztelnek.',
+          'Hibás eredmény javítva, CIRSOC 201 szerinti oszlopok: az ellenőrzés Mz-t vette az oszlop nyomatékának, és a h magasságra vonatkoztatva ellenőrizte, holott Mz a keresztmetszetet a b szélesség mentén hajlítja, így egy főként Mz-vel hajlított téglalap keresztmetszetű oszlop egy példában 36%-kal kevesebb vasalást kaphatott a szükségesnél (SA-2026-029). Most My és Mz közül a nagyobbat veszi, a saját magasságára vonatkoztatva, és a másik irányú nyírást is ellenőrzi. Futtassa újra az ilyen oszlopok méretezését.',
+          'Hibás eredmények javítva a méretezési ellenőrzésekben: az EN 1992-1-1 hajlítási ellenőrzése feltételezte, hogy a húzott vasalás megfolyik, így túlvasalt vagy felső vasalású gerendáknál MRd akár 22%-kal nagyobbra adódhatott, és egy nem megfelelő gerenda is megfelelhetett (SA-2026-028); a CIRSOC 301 nyomási ellenőrzése a lemezeinél kisebb, kézzel megadott területű zártszelvénynek vagy csőnek a képlékeny nyomási ellenállásnál nagyobb teherbírást adott és megfeleltette, most elutasítja (SA-2026-030); a karcsúsági határt épp meghaladó kör keresztmetszetű csövek pedig akár 1,2%-kal nagyobb teherbírást kaptak. Futtassa újra ezeket az ellenőrzéseket.',
+          'Hibás eredmény javítva, héjak burkolója: a lemez- és négyszögelemek minden elem teljes eredményét abból a kombinációból tartották meg, amely a legnagyobb von Mises-feszültséget adta, így a többi komponens a valósnál kisebb lehetett, a lemezalap példáján mx 14%-kal (SA-2026-027). Most minden komponensnek saját szélsőértékei vannak. A födémek és falak méretezése nem változik.',
+          'Hibás eredmény javítva a generált terhekben: a szabvány szerinti teher-generátor már nem terheli födémként a csarnok alsó övei és ereszgerendái által körülzárt mezőt (az a rendeltetés szerinti hasznos terhet és a padlórétegeket kapta), egy szintek nélküli modellben az 5°-os vagy nagyobb hajlású, födém nélküli magastető már nem kapja meg a szintek állandó terhét (a terv megáll, és a tető saját terhét kéri; a lapostető továbbra is megkapja), a szeizmikus tömeg pedig most tartalmazza a héjként rajzolt födémeket, falakat és tetőlemezeket; korábban egy betonépület talpnyíróereje nagyjából a felére adódott. A mentett terhek nem változnak: generálja újra őket, és ellenőrizze újra a fészereket, a csarnokokat, valamint a héjként modellezett födémeket vagy falakat tartalmazó épületek szeizmikus eseteit.',
+          'Javítva e változtatások élesítése után: a generátor már nem hagyja el egy szint teljes felületi terhét, ha egy 2,2 m-nél kisebb magasságban fölötte lévő rúd csak egy részét fedi (előtető, galéria széle, alacsony tetőgerenda), és a 45°-kal elforgatott födém megtartja a födémterhét (SA-2026-033, 20. eredményverzió); az egyensúlyi ellenőrzés már nem állítja, hogy egy tehereset egyensúlyban van, ha kihagyott olyan terheket, amelyeket nem tudott összegezni, hanem megnevezi őket (SA-2026-034). Generálja újra a terheket azoknál a modelleknél, amelyek terhei a generátorból származnak.',
+          'A PRO méretezés már nem tekint minden rudat acélnak, ha egy betonanyagnak nincs f′c értéke: megnevezi az anyagot, a 3D épületpélda H-30 betonja pedig most f′c = 30 MPa értéket kapott, így mind a 105 rúdját méretezi.',
+          'A számítási jelentés az Ön által választott eredményhalmazt nyomtatja, alapértelmezés szerint a kombinációk burkolóját; korábban azt nyomtatta, ami a képernyőn volt, ez pedig számítás után az összes tehereset 1-es tényezővel vett összege, és ez az összeg most ezen a néven szerepel, azzal a megjegyzéssel, hogy nem szabvány szerinti teherállapot. Egy exportált jelentés ellenőrzése minden nyomtatott értéket összevet, nem csak az ujjlenyomatokat, és a táblázatokat újra előállítja az ujjlenyomatban rögzített eredményből, így az a jelentés, amelyben az esetet és a számokat is kicserélték, már nem felel meg. Az a jelentés sem felel meg, amelyből teljes szakaszokat töröltek, a november 5. előtt exportált jelentés pedig hiányosnak minősül: exportálja újra. Az ellenőrzés azt igazolja, hogy a jelentés egyezik a saját nyilvántartásával; azt nem bizonyítja, ki készítette, így egy teljesen átírt, új nyilvántartással ellátott jelentés továbbra is megfelel.',
+          'Skálázódó exportálás: a hatszintes tesztépület jelentése most nagyjából 10 másodperc alatt készül el mintegy négy perc helyett, PNG-rajza pedig kb. 15 másodperc alatt két perc helyett; egy nagy modell eredmény-munkafüzete soronként írt CSV-fájlok zip-archívumaként érkezik (a párbeszédablak előbb közli a méretet), ahelyett hogy a böngészőlap kifogyna a memóriából; a jelentés pedig esetenként egy teherábrát rajzol, legfeljebb tizenkettőt, és minden eset szerepel a táblázatban.',
+          'Újdonságok a PRO analízis módjában: minden opció alatt kikapcsolható súgósorok, a mentés állapota a fejlécben, megjeleníthető, féltónusban mutatható vagy elrejthető nézetkategóriák (rudak, csomópontok, födémek és falak, támaszok, terhek, feliratok, háttérrajzok és csatolt modellek), amelyek elnevezett nézetekben tárolhatók, csatolt IFC 3D referenciaként, parancskeresés gombbal, / vagy Ctrl/⌘K billentyűvel, a 3D és az alaprajz osztott nézete, mester- és hasonló szintek, amelyeken a szerkesztések egy lépésben mindegyikre érvényesek, alapértelmezett teheresetek a felület nyelvén, valamint az analízis után a Diagnosztika alatt egy jelentés, amely felsorolja a modell, a megoldó és a méretezés megállapításait, és CSV, PDF vagy Word formátumba exportálható.',
+          'Lemezeredmények: Nx, Ny és Nxy membránerők egységnyi szélességre, Vx, Vy és Vmax nyíróerők a lemez síkjára merőlegesen, Mmax és Mmin főnyomatékok az irányaikkal, feszültségek a középfelületen vagy a felső, illetve alsó lapon, valamint csomóponti átlagok a teljes modellre, lemezenként vagy csoportonként.',
+          'A PRO-modellre mutató csak olvasható hivatkozás (Csak olvasható hivatkozás másolása, a Projekt lapon) megjelenítőben nyitja meg a modellt, 3D-ben, alaprajzban vagy mindkettőben, ahol semmi sem szerkeszthető és semmi sem mentődik, amíg a Másolat és szerkesztés saját példánnyá nem teszi. A Projekt lapon helyet kaptak a PRO videói, amelyek közzétételükig hamarosan érkezőként szerepelnek.',
+          'Hibás felirat javítva: a 3D ipari csarnok példája 1.2D + L + E nevű kombinációt mutatott, amelynek számai az 1,2 D + 1,0 Lr értékei voltak, mivel a csarnoknak nincs földrengési esete; ez a kombináció egyetlen erő, támaszerő vagy elmozdulás esetén sem adta a legnagyobb abszolút értéket. A példa most saját állandó, tető-hasznos és szélteher-eseteinek CIRSOC 101-2025 szerinti kombinációival nyílik meg, akárcsak a stadion lefedése, és az alkalmazás elutasítja azt a példát vagy munkafüzetet, amelyben olyan esetben van teher, amely nem létezik benne. A régi kombinációkkal mentett projektek a korábbiak szerint számíthatók; az újakért nyissa meg újra a példát.',
+          'Az alkalmazás most elutasítja azokat a megosztási hivatkozásokat, amelyek nem véges számokat, nem numerikus koordinátákat, vagy hiányzó csomópontokra, illetve elemekre mutató rudakat, támaszokat vagy terheket tartalmaznak, ahelyett hogy hibás modellt nyitna meg, és egy beágyazott vagy csak olvasható hivatkozás megnyitása már nem írja felül az Ön automatikusan mentett projektjét.',
+          'Hibás eredmény javítva az Eszközökben: a hatásvonal közvetlenül egy támasz után 200%-kal eltérő nyíróerőt adott; ellenőrizze újra a 2026. november 1. előtt egy eszközből leolvasott minden hatásvonal-nyíróerőt. Az Eszközök most arra is figyelmeztetnek, ha az elmozdulás meghaladja a fesztáv/50 értéket, ha a számítómag és a klasszikus képlet több mint 1%-kal eltér, vagy ha egy rúd túl zömök a hajlítási sajátfrekvenciájához, és elutasítják a közel zérus merevséget.',
+          'A Stabileo Research oldalai megmondják, mivel vetik össze az eredményeket (például az eredeti top88.m programmal GNU Octave-ban), ahelyett hogy függőben hagynák az összevetést; a keresési találatok pontosabban írják le a Stabileót, a kalkulátorait és a cikkét; a német nyitóoldal főcíme pedig már nem teszi szélesebbé az oldalt egy telefon képernyőjénél.',
+          'Alap mód: egy szerkezetszámítási tananyag 1–7. egysége (az erőmódszer, az órai elmozdulásmódszer, a hatásvonalak, a P-Δ és a kihajlás, a lépésről lépésre bemutatott képlékeny analízis és a dinamika) november 4-én, a felülvizsgálata előtt került az alkalmazásba, és még aznap visszavonták (14. és 15. eredményverzió). November 5-én a felülvizsgálat javításaival tért vissza, és vele három eredményváltozás: a nyomatéki hatásvonalak az alul húzott nyomatékot tekintik pozitívnak (27. eredményverzió), a P-Δ és a kritikus teher alapértelmezés szerint minden rudat 4 elemre oszt (28), a képlékeny tönkremenetel pedig lezárja a tehermentesülő csuklókat, és a valódi tönkremenetelig folytatódik, a keretpéldán 64,06 helyett 71,30 értékkel (29). Futtassa újra ezeket az analíziseket a síkbeli modelleken; az alkalmazás megjelöli őket. A 2D képlékeny tönkremenetel a 31. eredményverzió óta vissza van tartva: tényezője még mindig változik a számozással, a rúdiránnyal és a mértékegységekkel (#758), ezért az alkalmazás elutasítja, amíg ezt nem javítják.',
+          'A mellékelt példákat, ahogyan a v0.2.0, a v0.3.0 és a v0.4.0 mentette őket, minden változtatáskor megnyitják, migrálják és kiszámítják, és ugyanazokat az eredményeket kell adniuk, mint azokban a kiadásokban, hacsak nem vonatkozik rájuk nyilvántartott eredményváltozás. Az újabb Stabileóval mentett fájlt az alkalmazás ezt közlő üzenettel utasítja el az „érvénytelen formátum” helyett, és egy újabb munkamenetfájl már nem nyitja meg ennek ellenére a lapjait.',
+          'A teherkombinációk minden számításnál ugyanabban a sorrendben adják össze az eseteiket, így egy kombinált igénybevétel utolsó számjegye már nem változik buildről buildre, a modális analízis pedig jelzi, ha kevesebb rezgésalakot ad vissza, mint amennyit kért. A referenciakorpusz egyetlen eredménye sem változik, és az alkalmazás nem jelenít meg újraellenőrzési értesítést, de egy épp szerkesztési határon lévő rúd a határ másik oldalára kerülhet: ellenőrizze újra a hajszál híján megfelelt vagy meg nem felelt részletképzést.',
+          'A PRO elérhetőként jelenik meg, már nem fejlesztés alatt állóként vagy béta változatként. Fejlesztés alatt marad a PRO-n belüli szabvány szerinti méretezés (vasalás, részletképzés és kapcsolatok), amely alapértelmezés szerint ki van kapcsolva, valamint a Stabileo AI.',
+          'A nyitóoldal nagyjából 724 KB-tal, a szerkesztő mintegy 215 KB-tal kevesebbet tölt be, mert a blog csak akkor töltődik be, amikor megjelenik. Ezen az oldalon minden területszűrő most a saját területén lévő változásokat számolja, így a szűrők összege kiadja a teljes számot.',
+          'A javítások hamarabb jutnak el az oldalra: egy változtatás teljes ellenőrzése most kb. 22 percig tart a hét eleji hat-nyolc óra helyett, és ritkábban hiúsul meg a változtatástól független okokból.',
+          'Hibás eredmények javítva a méretezési ellenőrzésekben (16–19. eredményverzió): az EN 1999 szerinti alumínium-ellenőrzés most vizsgálja a gyenge tengely menti nyírást, amelyre korábban semmilyen ellenőrzés nem volt; az acél kapcsolatok (nyírt bekötőlemez, homloklemez, illesztés, csomólemez, oszloptalp) már nem hagyják figyelmen kívül a gyenge tengely körüli nyomatékot, hanem az okkal együtt megoldatlanként jelennek meg; a betonelemek a „csavarás nincs ellenőrizve” jelölést kapják ahelyett, hogy megfelelnének, ha csavarásuk meghaladja az ACI 318 azon határát, amely alatt elhanyagolható, illetve EN 1992 szerint, ha bármekkora csavarást viselnek, mert a Stabileo nem méretez csavarásra (SA-2026-040); a CIRSOC 201 szerinti oszlopok ellenőrzése pedig a legkisebb nyomóerejükre is kiterjed, amelynél az oszlop gyengébb, és ez az egyik kihasználtságot 0,727-ről 0,832-re emelte (SA-2026-041). Futtassa újra ezeket a méretezéseket.',
+          'Hibás eredmények javítva a megoldóban (22–25. és 30. eredményverzió): a 2D kihajlásvizsgálat minden rúd átlagos normálerejével számolt, így a rúd mentén működő teher figyelmeztetés nélkül 43–68%-kal túlbecsülhette a tényezőt, most az erőt a rúd mentén integrálja (SA-2026-042); a 3D korotációs analízis a több tengely körüli nagy elfordulásokat összetételként kezeli, ahelyett hogy kivonná őket (SA-2026-037); a merev kapcsolat, tárcsa vagy összekötő elem mögé rejtett 2D mechanizmust elutasítja ahelyett, hogy kiszámítaná és tanúsítaná; az Y–Z vagy X–Y síkban 2D-re vágott 3D modell pedig megtartja, hogy az egyes rudak melyik tengelyük körül hajlanak, és kényszereinek jelentését (SA-2026-035, SA-2026-036), vagy elutasításra kerül, ha 2D-ben nem ábrázolható. Futtassa újra ezeket az analíziseket, és vágja újra az ilyen 2D modelleket.',
+          'Egy rúd mértékadó értéke és a 2D burkoló az ábra valódi csúcsértékét olvassa le, nem a 21 osztáspont közül a legközelebbit, így nagyságuk csak nőhet, egy példában rövid részleges teher alatt 1,05%-kal (26. eredményverzió); a burkolók elutasítják a túlcsorduló eredményt ahelyett, hogy végtelen vagy NaN értékeket adnának vissza; az exportált héjábrák pedig ugyanazt a mezőt és skálát festik, mint a képernyő (21. eredményverzió).',
+          'Csak a számítómag API-ja, az alkalmazás még nem használja: a szálmodelles nemlineáris analízis az utolsó konvergált teherlépésnél áll meg, és annak támaszerőit és egyensúlyi ellenőrzését adja vissza az utolsó, nem konvergált iteráció helyett. Az éjszakai ellenőrzések kevesebb téves hibás eredményt jeleznek, a modellel arányosan skálázódó tűrésekkel.',
+          'Az újraellenőrzési értesítés minden eredményváltozást németül, franciául és törökül is elmagyaráz, angol helyett.',
+          'Stabileo Research: megjelent a cikkek második felülvizsgálati köre a javításokkal, minden cikk azokon a nyelveken van indexelve, amelyeken íródott, tudományos metaadataival együtt, az oldalak pedig telefonon és táblagépen is működnek, a kísérlettel közvetlenül a cím után és legalább 44 px-es kezelőelemekkel; minden kutatási oldalt minden változtatáskor ellenőriznek telefonos és táblagépes méretben.',
+          'Az oldal valódi 404-es választ ad az olyan címre, amely nem oldal, minden nyitóoldal-szakaszt megjelenít JavaScript és görgetés nélkül, ugyanabból a buildből bájtra azonos oldalakat állít elő, és a Lighthouse minden nap méri az éles környezetben.',
+        ],
+      },
     },
   },
   {
@@ -357,6 +396,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           'JAIE 2026 makalesinin tamamı /paper adresinde, ve bu değişiklik geçmişi.',
         ],
       },
+      hu: {
+        title: 'Stabileo Research, Eszközök, és az alkalmazás németül, franciául és törökül',
+        items: [
+          'Az X–Y síkon kívüli héjak solid-shell feszültségei most helyesek; az alkalmazás kéri, hogy futtassa újra az érintett projekteket.',
+          'A számítómagot minden változtatáskor invariancia-ellenőrzésekkel, minden éjjel pedig véletlenszerű modellekkel tesztelik; három feltételezett számítómag-hibáról kiderült, hogy hibás tesztmodell okozta, és minden benchmarkhoz mostantól két független referencia, modellellenőrzés és konvergenciavizsgálat szükséges.',
+          'Fizikai objektumként kezelt lemezek, amelyek a számításkor hálózódnak, egyetlen darabból álló görbe rudak, több szintre kiterjedő DXF-sablonok, valamint szintenkénti rendeltetési zónák a hasznos terheikkel.',
+          'Exportálás aszerint, hogy mi készül (eredmények, számítási jelentés, rajzok és IFC), a számítási jelentés pedig Word formátumban is, ábráival együtt.',
+          'Másolás és beillesztés az Alap módban ugyanúgy, mint a PRO-ban, előnézettel arról, hová kerül; a Ctrl+S már nem mozdítja el a 3D nézetet, a visszavonás már nem fekteti le a 2D modellt 3D-ben, a deformált alakon pedig kérésre megjelennek az elmozdulások.',
+          'Az alkalmazás és az oldal mostantól németül, franciául és törökül is elérhető.',
+          'Stabileo Research: 17 publikált cikk és klasszikus számítógépes mechanikai benchmark, amelyek a böngészőben, a Stabileo számítómagján futnak, és mindegyik megadja, mivel vetik össze és hogyan ellenőrzik.',
+          'Eszközök: nyolc ingyenes kalkulátor (gerendák, konzolok, Euler-oszlopok és mások), amelyek a valódi számítómagon számolnak, az eredmény mellett a klasszikus képletet is mutatják, és megnyitják a modellt a Stabileóban.',
+          'A JAIE 2026 cikk teljes terjedelmében a /paper oldalon, valamint ez a változásnapló.',
+        ],
+      },
     },
   },
   {
@@ -423,6 +476,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Blogda iki yeni yazı, yeniden tasarlanmış bir dizin ve Stabileo\'nun her CIRSOC yönetmeliğinden neyi kontrol ettiğini ayrıntılı anlatan bir sayfa.',
         ],
       },
+      hu: {
+        title: 'Méretezési ellenőrzések a számítómagban, valamint a 0.2.0 és a 0.3.0 verzió',
+        items: [
+          'A vasbeton (CIRSOC 201) és acél (CIRSOC 301) szabvány szerinti méretezési ellenőrzései most a számítómagon belül futnak, publikált referenciamodellekkel szembeni validációs tesztsorozatokkal.',
+          'Azoknál az eredményeknél, amelyeknél ez lehetséges, a számítómag intervallumaritmetikával hibakorlátot számít.',
+          'Megjelent a 0.2.0 és a 0.3.0 verzió, spanyol, angol és portugál kiadási jegyzetekkel. Ha egy változás érinti az eredményeket, az alkalmazás kéri, hogy futtassa újra a mentett projektjeit.',
+          'A nyitóoldal az ellenőrzésről szóló szakasszal bővült, és most 6,4 MB helyett 152 KB-ot tölt be.',
+          'Két új blogbejegyzés, megújult tartalomjegyzék, és egy oldal, amely felsorolja, mit ellenőriz a Stabileo az egyes CIRSOC szabványokból.',
+        ],
+      },
     },
   },
   {
@@ -439,6 +502,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         de: 'Der Dialog der statischen Berechnung im Basis-Modus, mit der Inhaltsliste, in der man auswählt, was aufgenommen wird',
         fr: 'La boîte de dialogue de la note de calcul du mode Basique, avec la liste des contenus où l\'on choisit ce qu\'elle inclut',
         tr: 'Temel modundaki hesap raporu iletişim kutusu; neyin dahil edileceğini seçmek için içerik listesiyle',
+        hu: 'Az Alap mód számítási jelentésének párbeszédablaka a tartalomlistával, amelyből kiválasztható, mi kerüljön bele',
       },
     },
     i18n: {
@@ -508,6 +572,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           'PRO\'nun tamamında birimler ve Excel, CSV, PDF rapor, DXF ve görüntü olarak dışa aktarma; her biri neyin çıkacağını gösteren bir iletişim kutusuyla.',
         ],
       },
+      hu: {
+        title: 'Összeállítható jelentés az Alap módban és dinamikus terhek a PRO-ban',
+        items: [
+          'Nagyítás kilométertől milliméterig, egymást átfedő rudak kijelölése, a modell részeinek elrejtése és jobban olvasható feliratok.',
+          'A PDF számítási jelentést a tartalmának kiválasztásával állíthatja össze, beleértve a kinematikai analízist és az egyensúlyban lévő szabadtest-ábrákat, az ábrák pedig nyomtatásra készen exportálhatók.',
+          'Videó, amelyen a szerkezet szintről szintre épül fel.',
+          'Összetett és referencia-teheresetek, helyettesítő vízszintes terhek, valamint SRSS és ABS kombinációk.',
+          'Dinamikus és mozgó terhek: projektspecifikus válaszspektrumok és katalógusbeli járművek.',
+          'Mértékegységek a teljes PRO-ban, valamint exportálás Excelbe, CSV-be, PDF-jelentésbe, DXF-be és képekbe, mindegyik egy párbeszédablakkal, amely megmutatja, mi készül.',
+        ],
+      },
     },
   },
   {
@@ -568,6 +643,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Bütün bir binanın betonarme boyutlandırması eskisinin yarısından daha kısa sürüyor.',
         ],
       },
+      hu: {
+        title: 'Szabvány szerinti terhek a PRO-ban',
+        items: [
+          'A szabvány szerinti teher-generátor lefedi a tetőket, a hózugokat és a sakktáblaszerű teherelrendezést, és kiszámítja a széllökési tényezőt a CIRSOC 102 szerint.',
+          'A rudak, csomópontok és lemezek terhei az irányukkal, a változásukkal és az általuk lefedett területtel adhatók meg.',
+          'Megjelenítési mértékegységek, változó keresztmetszetű rudak és fejlesztések a keresztmetszet-szerkesztőben.',
+          'Egy teljes épület vasbeton méretezése kevesebb mint feleannyi ideig tart, mint korábban.',
+        ],
+      },
     },
   },
   {
@@ -584,6 +668,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         de: 'Ein mehrgeschossiges Gebäude, im PRO-Modus mit Raster und Geschossen modelliert',
         fr: 'Un bâtiment de plusieurs étages modélisé dans le mode PRO, avec grilles et niveaux',
         tr: 'PRO modunda aks ızgaraları ve katlarla modellenmiş çok katlı bir bina',
+        hu: 'Többszintes épület a PRO módban modellezve, raszterrel és szintekkel',
       },
     },
     i18n: {
@@ -671,6 +756,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Büyük modelleri belirgin biçimde hızlandıran bir çözücü ve plak elemanlarında bir düzeltme.',
         ],
       },
+      hu: {
+        title: 'A feladatoktól a valódi projektekig a PRO-ban',
+        items: [
+          'A rudak pontról pontra rajzolhatók, csomópontokhoz, felezőpontokhoz és metszéspontokhoz illesztve, és az alkalmazás megkérdezi, összekösse-e az egymást keresztezőket.',
+          'Magyarázatokkal ellátott, lépésről lépésre bemutatott megoldások tizenöt analízismódszerre.',
+          'A dinamikai analízis megrajzolja a rezgésalakokat.',
+          'Raszterek és szintek, a modellbe beillesztő szerkezetgenerátorok, valamint másolás és beillesztés.',
+          'Födémterhek hatásfelület szerint, lemezek hálózása, rugalmas támaszok és alapozások.',
+          'Eredménytáblázatok, lehajlási határértékek, lemezek szintvonalas ábrái, projekt Excel-munkafüzet és jelentés.',
+          'Szerkesztő összetett keresztmetszetek rajzolásához, és a legkönnyebb megfelelő keresztmetszet keresése.',
+          'Hét publikált referenciaszerkezet, amelyeket az eredmények ellenőrzésére modelleztek, és egy 24 példát tartalmazó galéria.',
+          'Megoldó, amely sokkal gyorsabbá teszi a nagy modelleket, és javítás a lemezelemekben.',
+        ],
+      },
     },
   },
   {
@@ -687,6 +786,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         de: 'Die bemessene Bewehrung eines Stahlbetontragwerks, im PRO-Modus in 3D dargestellt',
         fr: 'Les armatures dimensionnées d\'une structure en béton armé, vues en 3D dans le mode PRO',
         tr: 'Betonarme bir yapının boyutlandırılmış donatıları, PRO modunda 3B olarak',
+        hu: 'Vasbeton szerkezet méretezett vasalása 3D-ben, a PRO módban',
       },
     },
     i18n: {
@@ -774,6 +874,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Hatalı kurulmuş bir model artık sıfır döndürmek yerine bir iletiyle reddediliyor.',
         ],
       },
+      hu: {
+        title: 'Vasbeton méretezés a PRO-ban',
+        items: [
+          'Rövidebb nyitóoldal, az árazási javaslattal és egy kapcsolatfelvételi panellel, amely az alkalmazáson belül is megjelenik.',
+          'Új blogbejegyzés arról, mikor érdemes rudakkal és mikor végeselemekkel modellezni, valamint felhasználói útmutató.',
+          'A CIRSOC Flex vasbeton kalkulátor most a betonacélokat is javasolja, és az eredeti táblázattal vetették össze.',
+          'Lépésről lépésre bemutatott megoldások elmozdulás- és erőmódszerrel, 2D-ben és 3D-ben.',
+          'Hőmérsékleti terhek minden analízisben.',
+          'Az Oktatási mód az Alap módon belüli panellé vált.',
+          'Vasbeton méretezés és átszervezett PRO felület.',
+          'A modell egyensúlyának ellenőrzése és dinamikai analízisek: modális, válaszspektrum- és időtörténeti analízis.',
+          'A hibásan felépített modellt az alkalmazás most üzenettel elutasítja ahelyett, hogy nullákat adna vissza.',
+        ],
+      },
     },
   },
   {
@@ -790,6 +904,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         de: 'Der Basis-Modus auf einem Smartphone, mit der Momentenlinie eines Rahmens',
         fr: 'Le mode Basique sur un téléphone, avec le diagramme des moments d\'un portique',
         tr: 'Telefonda Temel modu; bir çerçevenin eğilme momenti diyagramıyla',
+        hu: 'Az Alap mód telefonon, egy keret hajlítónyomatéki ábrájával',
       },
     },
     i18n: {
@@ -847,6 +962,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Çelik yapılar: kesit ve malzeme seçicileri, oluşturucular, çelik iş akışı ve birleşim boyutlandırması.',
         ],
       },
+      hu: {
+        title: 'A Stabileo a telefonján',
+        items: [
+          'Telefonos felület, ugyanazzal az elrendezéssel az Alap és a PRO módban.',
+          'Modellimportálás Excelből, a megosztott hivatkozások pedig ismét a teljes modellt nyitják meg.',
+          'Keresztmetszetek vasalásának méretezése a CIRSOC Flex szerint, azzal a táblázattal, amelyet Argentínában a legtöbb építőmérnök használ.',
+          'Acélszerkezetek: keresztmetszet- és anyagválasztók, generátorok, acél munkafolyamat és kapcsolatok méretezése.',
+        ],
+      },
     },
   },
   {
@@ -863,6 +987,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         de: 'Eine Industriehalle aus Stahl, aus bearbeitbaren Parametern erzeugt',
         fr: 'Une halle industrielle métallique générée à partir de paramètres modifiables',
         tr: 'Düzenlenebilir parametrelerle oluşturulmuş çelik bir endüstriyel yapı',
+        hu: 'Szerkeszthető paraméterekből felépített acél ipari csarnok',
       },
     },
     i18n: {
@@ -920,6 +1045,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Üç hesap hatası düzeltildi: dairesel bir borunun kesme kuvveti, tepe kesme kuvveti ve döşemeleri ve perde duvarları atlayan aşamalı bir analiz.',
         ],
       },
+      hu: {
+        title: 'Acélszerkezetek és az oldal három nyelven',
+        items: [
+          'Generátorok rácsos tartókhoz, rácsos oszlopokhoz és ipari csarnokokhoz szerkeszthető paraméterekből, katalógussal és szűrőkkel ellátott keresztmetszet-választóval.',
+          'A nyitóoldal és a blog spanyolul, angolul és portugálul. Az oldalt a keresőmotorok indexelhetik, tizennyolc oldallal és négy bejegyzéssel.',
+          'Hét rövid oktatóanyag a bemutató túra helyett.',
+          'Három számítási hiba javítva: a kör keresztmetszetű cső nyírása, a csúcs-nyíróerő, és egy építési fázisokra bontott analízis, amely kihagyta a födémeket és a falakat.',
+        ],
+      },
     },
   },
   {
@@ -936,6 +1070,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         de: 'Die Querschnittsanalyse im Basis-Modus, mit dem Spannungszustand über dem tatsächlichen Umriss des Profils',
         fr: 'L\'analyse de section du mode Basique, avec l\'état de contrainte sur le contour réel du profilé',
         tr: 'Temel modunda kesit analizi; profilin gerçek konturu üzerindeki gerilme durumuyla',
+        hu: 'Keresztmetszet-vizsgálat az Alap módban, a feszültségi állapottal a keresztmetszet valós kontúrján',
       },
     },
     i18n: {
@@ -993,6 +1128,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           'PRO, Temel ile aynı görsel kimlikle yeniden tasarlandı.',
         ],
       },
+      hu: {
+        title: 'Keresztmetszet-vizsgálat és új PRO felület',
+        items: [
+          'A szerkezet bármely pontjára kattintva megjelenik a feszültségi állapot a valós keresztmetszeten, főfeszültségekkel, Mohr-körrel, a keresztmetszet magidomával és egy húzható erőponttal, amellyel a külpontosság hatása látható.',
+          'Anyag- és keresztmetszet-adatbázis Argentínára, Európára, az Egyesült Államokra és Brazíliára, több mint 700 keresztmetszettel, amelyeket a szabványaikkal vetettek össze.',
+          'Egyszerűbb kijelölő és mozgató eszközök, valamint feszültségtérképek színskálával.',
+          'A PRO-t újratervezték, az Alap móddal azonos arculattal.',
+        ],
+      },
     },
   },
   {
@@ -1009,6 +1153,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         de: 'Eine Übung im Lehrmodus, bei der die von den Studierenden gezeichneten Verläufe mit der Berechnung abgeglichen und bewertet werden',
         fr: 'Un exercice du mode Enseignement, avec les diagrammes tracés par l\'étudiant corrigés par rapport au calcul',
         tr: 'Eğitim modunda bir alıştırma; öğrencinin çizdiği diyagramlar hesaba göre değerlendiriliyor',
+        hu: 'Feladat az Oktatási módban, a hallgató által rajzolt ábrákkal, amelyeket az alkalmazás az analízis alapján értékel',
       },
     },
     i18n: {
@@ -1072,6 +1217,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Kontrollerde düzeltmeler: güvensiz taraftaki varsayılan değerler, eksik sınır durumları ve göz ardı edilen girdiler.',
         ],
       },
+      hu: {
+        title: 'Új arculat és az Oktatási mód',
+        items: [
+          'Az Alap mód teljes felülete az új nyitóoldal arculatával.',
+          'Minden keresztmetszet a pontos kontúrjára vezethető vissza. Ha ilyen nincs, az alkalmazás nem számít feszültségeket, ahelyett hogy kitalálná a hiányzó vastagságokat.',
+          'Az oktató az alkalmazáson belül állítja össze a feladatot, a hallgató pedig megoldja; a hallgató által rajzolt ábrákat az analízis alapján értékeli.',
+          'Vasbeton alaptestek: a vasalás méretezésétől a CAD-fájlig, a vaskivonattal 3D-ben.',
+          'Javítások a méretezési ellenőrzésekben: a biztonság kárára tévedő alapértékek, hiányzó határállapotok és figyelmen kívül hagyott bemenetek.',
+        ],
+      },
     },
   },
   {
@@ -1124,6 +1279,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Açılış sayfası yeniden yapıldı: Stabileo\'nun ne olduğunu, bugün neyin çalıştığını ve neyin geliştirilmekte olduğunu Temel, Eğitim ve PRO bölümleriyle anlatıyor.',
           'CIRSOC 2025 yönetmeliklerine göre yükler ve kontroller; her yönetmeliğin baskısı projeye kaydediliyor.',
           'Büyük modellerde daha hızlı son işlem ve 3B görüntüleyici.',
+        ],
+      },
+      hu: {
+        title: 'Új nyitóoldal és a 2025-ös CIRSOC szabványok',
+        items: [
+          'A nyitóoldalt újraépítették: elmagyarázza, mi a Stabileo, mi működik ma és mi van fejlesztés alatt, külön szakaszokkal az Alap, az Oktatási és a PRO mód számára.',
+          'Terhek és méretezési ellenőrzések a 2025-ös CIRSOC szabványok szerint, az egyes szabványok kiadásának rögzítésével a projektben.',
+          'Gyorsabb utófeldolgozás és 3D megjelenítő nagy modelleken.',
         ],
       },
     },
@@ -1180,6 +1343,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Kısıtlarda ve eğik mesnetlerde düzeltmeler.',
         ],
       },
+      hu: {
+        title: 'Eredmények, amelyek mindig a modellhez illeszkednek',
+        items: [
+          'A modell szerkesztése érvényteleníti az általa elavulttá tett eredményeket és méretezési ellenőrzéseket, így a már nem érvényes eredmények sosem jelennek meg.',
+          'Gyorsabb analízis: a teheresetek újrahasznosítják a faktorizációt, a kombinációk kötegekben számítódnak, és az analízis a háttérben fut.',
+          'Javítások a kényszerekben és a ferde támaszokban.',
+        ],
+      },
     },
   },
   {
@@ -1222,6 +1393,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           'DXF plan içe aktarıcıya önizleme ve tanılama, birim kontrolü, birden çok kat ve kiriş yorumlama eklendi; sihirbaz da daha anlaşılır.',
         ],
       },
+      hu: {
+        title: 'DXF-rajzimportáló',
+        items: [
+          'A DXF-rajzimportáló előnézettel és diagnosztikával, mértékegység-kezeléssel, több szinttel és gerendafelismeréssel bővült, áttekinthetőbb varázslóval.',
+        ],
+      },
     },
   },
   {
@@ -1262,6 +1439,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: 'Temel\'de çubukların serbest cisim diyagramları',
         items: [
           'Çubukların 2B ve 3B serbest cisim diyagramları; 2B\'de kayan mafsallar, 3B\'de altı serbestlik derecesinde serbestlikler ve her uçtaki kuvvet vektörleri.',
+        ],
+      },
+      hu: {
+        title: 'Rudak szabadtest-ábrái az Alap módban',
+        items: [
+          'Rudak szabadtest-ábrái 2D-ben és 3D-ben, 2D-ben csúszó csuklókkal, 3D-ben hat szabadságfokú kioldásokkal, és az erővektorokkal minden rúdvégen.',
         ],
       },
     },
@@ -1318,6 +1501,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Temel 2B ve 3B\'de eksenler ve kesitler birleştirildi.',
         ],
       },
+      hu: {
+        title: 'CAD-rajztól a betonmodellig',
+        items: [
+          'DXF-rajzból vasbeton szerkezeti vázlat: rétegeket osztályozó varázsló, letölthető sablon és példák.',
+          'A 3D helyi tengelyek konvenciója javítva a felületen és a számítómagban, a meglévő modellek migrálásával.',
+          'Egységes tengelyek és keresztmetszetek az Alap mód 2D és 3D nézetében.',
+        ],
+      },
     },
   },
   {
@@ -1334,6 +1525,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         de: 'Die Normalkräfte eines Gebäudes im PRO-Modus, mit realen Querschnittsformen in der 3D-Ansicht',
         fr: 'Les efforts normaux d\'un bâtiment dans le mode PRO, avec les formes réelles des sections dans la vue 3D',
         tr: 'PRO modunda bir binanın normal kuvvetleri; 3B görüntüleyicide gerçek kesit şekilleriyle',
+        hu: 'Normálerők egy épületben a PRO módban, valós keresztmetszet-alakokkal a 3D megjelenítőben',
       },
     },
     i18n: {
@@ -1395,6 +1587,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Gerçek kesit şekilleri ve yerel eksenlerle bir 3B görüntüleyici; kirişleri kolon yüzünde modellemek için çubuk kaçıklıkları.',
           'Görüntüleme, eksenler, asal gerilmeler ve raporla döşemeler ve perde duvarlar.',
           'Temel modu yeniden yazıldı; PRO ile arasındaki sınır daha net.',
+        ],
+      },
+      hu: {
+        title: 'Professzionális munkafolyamat a PRO-ban',
+        items: [
+          'Méretezés, terhek és számítási jelentés együttműködve a PRO-ban, egységes méretezési ellenőrzésekkel.',
+          'Eredmények teheresetenként, kombinációnként és burkolóként.',
+          '3D megjelenítő valós keresztmetszet-alakokkal és helyi tengelyekkel, valamint rúdvégi eltolások az oszlop oldallapjához csatlakozó gerendák modellezéséhez.',
+          'Födémek és falak megjelenítéssel, tengelyekkel, főfeszültségekkel és jelentéssel.',
+          'Az Alap módot újraírták, világosabb határvonallal közte és a PRO között.',
         ],
       },
     },
@@ -1470,6 +1672,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Kaydetmede, paylaşılan bağlantılarda ve dışa aktarmalarda düzeltmeler.',
         ],
       },
+      hu: {
+        title: 'Gördülékenyebb 3D megjelenítő és robusztusabb számítómag',
+        items: [
+          'Újratervezett nyitóoldal.',
+          'Közel ezer új robusztussági teszt, pontossági javításokkal a számítómagban, az elemekben és a kényszerekben, valamint instabilitási figyelmeztetésekkel az analízis futtatása előtt.',
+          '3D csuklók tengelyenkénti kioldással minden rúdvégen.',
+          'A 3D megjelenítő ezernél több csomópontú modelleken is gördülékenyen mozog: a csomópontok egyetlen menetben rajzolódnak ki, és a rudak kijelölése gyorsabb.',
+          'A tengelyeket az egész alkalmazásban felfelé mutató Z tengellyel egységesítették, és javították az My és Mz nyomatékokat a feszültségekben és a méretezési ellenőrzésekben.',
+          'Javítások a mentésben, a megosztott hivatkozásokban és az exportálásban.',
+        ],
+      },
     },
   },
   {
@@ -1487,6 +1700,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         de: 'Ein räumlicher Rahmen mit seiner Momentenlinie in 3D',
         fr: 'Un portique spatial avec son diagramme des moments en 3D',
         tr: '3B eğilme momenti diyagramıyla bir uzay çerçeve',
+        hu: 'Térbeli keret a hajlítónyomatéki ábrájával 3D-ben',
       },
     },
     i18n: {
@@ -1580,6 +1794,21 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Bir konuşmadan modeller oluşturan ve düzenleyen bir yapay zekâ asistanı.',
         ],
       },
+      hu: {
+        title: 'Rust nyelvű számítómag, a PRO mód és a Stabileo név',
+        items: [
+          'Az analízis számítómagját Rust nyelven újraírták, és WebAssemblyn keresztül fut a böngészőben. Mielőtt leváltotta a régit, a kettőt 90 modellen vetették össze.',
+          'Több mint kétezer validációs teszt tankönyvi megoldásokkal és publikált referenciaesetekkel szemben.',
+          'Geometriailag és anyagilag nemlineáris analízis, modális, spektrális és időtörténeti dinamika, lemezek és héjak, kötelek, építési fázisok és rugókon álló alapozások.',
+          'Ritka mátrixos megoldó, amely felgyorsítja a nagy modelleket: a 3D modális analízis 11,8-szor gyorsabb lett.',
+          'A projekt a Stabileo nevet kapta, saját domainnel, nyitóoldallal és 14 nyelvű felülettel.',
+          'PRO mód, CIRSOC 201 szerinti vasbeton-ellenőrzésekkel, automatikus terhekkel, diagnosztikával és számítási jelentéssel.',
+          'Vasbeton munkafolyamat minden rúd mértékadó kombinációjával, automatikus ellenőrzésekkel, részletképzéssel és csomópontokkal, valamint nagy példákkal, például egy 1005 csomópontos stadionnal.',
+          'Oktatási mód lépésről lépésre ellenőrzött, vezetett feladatokkal.',
+          'Az Alap mód 3D nézettel bővült, és a 3D modellek 2D modellekké alakíthatók.',
+          'MI-asszisztens, amely beszélgetés alapján épít és szerkeszt modelleket.',
+        ],
+      },
     },
   },
   {
@@ -1597,6 +1826,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         de: 'Ein ebener Rahmen mit seiner Momentenlinie im Basis-Modus',
         fr: 'Un portique plan avec son diagramme des moments fléchissants dans le mode Basique',
         tr: 'Temel modunda eğilme momenti diyagramıyla bir düzlem çerçeve',
+        hu: 'Síkbeli keret a hajlítónyomatéki ábrájával az Alap módban',
       },
     },
     i18n: {
@@ -1672,6 +1902,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Mobil arayüz, modeli taşıyan paylaşılan bağlantılar, rehberli tur ve klavye kısayolları.',
         ],
       },
+      hu: {
+        title: 'A kezdet: szerkezeti szerkesztő a böngészőben',
+        items: [
+          'Az első verzió, február 10-én: rudak, támaszok és terhek 2D-ben, támaszerőkkel, igénybevételi ábrákkal és deformált alakkal, telepítés nélkül.',
+          'Koncentrált, részleges megoszló és mozgó terhek, teheresetek, kombinációk és mindkét görbét mutató burkolók.',
+          'Acél- és beton-keresztmetszetek keresztmetszet-szerkesztővel, valamint feszültségek a keresztmetszetben Navier, Jourawski és von Mises szerint.',
+          'Ferde támaszok, rugók és támaszsüllyedések, valamint a rudak önsúlya.',
+          '3D számítómag csomópontonként hat szabadságfokkal és a hozzá tartozó megjelenítővel, továbbá P-Delta, kihajlás és hatásvonalak 2D-ben.',
+          'Oktatási célú kinematikai analízis, amely rúdról rúdra elmagyarázza, miért mechanizmus egy szerkezet, vagy miért nem az.',
+          'Mobil felület, a modellt magukban hordozó megosztott hivatkozások, bemutató túra és billentyűparancsok.',
+        ],
+      },
     },
   },
 ];
@@ -1683,6 +1925,7 @@ export const AREA_LABELS: Record<PublicLocale, Record<ChangelogArea, string>> = 
   de: { basic: 'Basis', pro: 'PRO', edu: 'Lehre', app: 'App', engine: 'Rechenkern', site: 'Website' },
   fr: { basic: 'Basique', pro: 'PRO', edu: 'Enseignement', app: 'Application', engine: 'Moteur', site: 'Site' },
   tr: { basic: 'Temel', pro: 'PRO', edu: 'Eğitim', app: 'Uygulama', engine: 'Motor', site: 'Site' },
+  hu: { basic: 'Alap', pro: 'PRO', edu: 'Oktatás', app: 'Alkalmazás', engine: 'Számítómag', site: 'Weboldal' },
 };
 
 /** Parsed by parts, so no time zone moves the day back. */
