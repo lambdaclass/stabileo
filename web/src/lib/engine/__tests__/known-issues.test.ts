@@ -68,7 +68,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('describes the certified lower bound and uncertified raw steps in every offered language', async () => {
-    await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
+    await Promise.all(['de', 'fr', 'tr', 'hu'].map(ensureLocale));
     const warning = { code: 'known_issue', severity: 'warning', phase: 'PL-3D-CERTIFICATE-MISMATCH', value: 1760, message: 'ENGINE' };
     const clauses = {
       en: [/certified lower bound/, /steps and hinges/, /not certified/],
@@ -77,6 +77,7 @@ describe('known-issue warnings in the reader’s language', () => {
       de: [/zertifizierte untere Schranke/, /Schritte und Gelenke/, /nicht zertifiziert/],
       fr: [/borne inférieure certifiée/, /étapes et les rotules/, /ne sont pas certifiées/],
       tr: [/sertifikalı alt sınır/, /adımlar ve mafsallar/, /sertifikalandırılmamıştır/],
+      hu: [/tanúsított alsó korlát/, /lépések és a csuklók/, /nem tanúsítja/],
     };
     for (const loc of OFFERED_LOCALES) {
       setLocale(loc);
@@ -89,7 +90,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('translates the plastic resource-budget refusal and preserves its limit details', async () => {
-    await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
+    await Promise.all(['de', 'fr', 'tr', 'hu'].map(ensureLocale));
     const prefix = 'exact plastic LP resource budget exceeded';
     const engine = readFileSync('../engine/src/certify/plastic_budget.rs', 'utf8');
     expect(engine).toContain(prefix);

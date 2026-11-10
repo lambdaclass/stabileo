@@ -1124,7 +1124,7 @@ const hu: Record<Key, string> = {
   'beam-frame.p.position': 'Koncentrált erő helye (gerenda)',
   'beam-frame.benchmark': 'Eszközök: kéttámaszú gerenda, zárt alakú megoldásokkal ellenőrizve',
   'slab-on-columns.title': 'Oszlopokon álló födém',
-  'slab-on-columns.subtitle': 'Oszlopraszteren álló lapos betonfödém MITC4 héjelemekre hálózva, élő lehajlásmezővel.',
+  'slab-on-columns.subtitle': 'Oszlopraszteren álló lapos vasbeton födém, MITC4 héjelemekből álló hálóval, élőben frissülő lehajlási mezővel.',
   'slab-on-columns.about': 'Egy négyzetes betonfödém (E = 30 GPa, ν = 0,2) megoszló terhet visel, amely hatásterület szerinti csomóponti erőkként működik, minden oszlopnál pontszerű támaszokon, falak esetén pedig mind a négy szél mentén. A falak lent tartják a födém széleit, és megakadályozzák, hogy a szélek a hosszuk mentén elcsavarodjanak (merev csuklós megtámasztás); a legnagyobb lehajlás az adott lemez nyírási taggal kiegészített Navier-sora mellett jelenik meg (Reissner–Mindlin, κ = 5/6).',
   'slab-on-columns.p.supports': 'Támaszok',
   'slab-on-columns.o.columns': 'Oszlopok a raszteren',

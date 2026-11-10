@@ -441,7 +441,7 @@ export const batchTranslations: Record<string, Record<string, string>> = {
   },
   "hu": {
     "tools.index.metaTitle": "Ingyenes szerkezettervezési kalkulátorok: gerendák, oszlopok, keretek és rácsos tartók",
-    "tools.index.description": "Nyolc ingyenes kalkulátor gerendákhoz, oszlopkihajláshoz, többtámaszú gerendákhoz, portálkeretekhez, rácsos tartókhoz, hatásvonalakhoz és sajátfrekvenciákhoz, a Stabileótól, a nyílt forráskódú szerkezetszámító szoftvertől.",
+    "tools.index.description": "Nyolc ingyenes kalkulátor gerendákhoz, oszlopkihajláshoz, többtámaszú gerendákhoz, portálkeretekhez, rácsos tartókhoz, hatásvonalakhoz és sajátfrekvenciákhoz, a Stabileótól, a nyílt forráskódú szerkezettervező szoftvertől.",
     "tools.free": "Ingyenes, a böngészőben: a Stabileo, a nyílt forráskódú szerkezetszámító szoftver számítja, és ahol van, a klasszikus megoldással veti össze.",
     "tools.simply-supported-beam.case": "lehajlás-, nyíróerő- és nyomatékkalkulátor (5wL⁴/384EI)",
     "tools.cantilever-beam.case": "lehajlás-, nyíróerő- és nyomatékkalkulátor (PL³/3EI)",
