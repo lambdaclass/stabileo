@@ -8,6 +8,9 @@
   import { generateShareURL, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { t } from '../../lib/i18n';
   import ToolbarExamples from './ToolbarExamples.svelte';
+  import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
+  import { authStore } from '../../lib/store/auth.svelte';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import DemoMenu from '../DemoMenu.svelte';
   import CalcReportDialog from '../CalcReportDialog.svelte';
   import ExportViewDialog from '../export/ExportViewDialog.svelte';
@@ -185,6 +188,7 @@
    * what they explicitly asked to see.
    */
   let { flat = false }: { flat?: boolean } = $props();
+  let cloudOpen = $state(false);
 </script>
 
 <div class="toolbar-section" data-tour="project-section">
@@ -201,6 +205,9 @@
     <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openTooltip')}>
       {t('project.open')}
     </button>
+    {#if authStore.isAuthenticated && authStore.cloudProjectsEnabled}
+      <button class="file-btn" onclick={() => (cloudOpen = true)} data-testid="cloud-projects-open">{t('account.myProjects')}</button>
+    {/if}
     <!--
       Beside Abrir, because that is the pair a reader thinks in: a model
       arrives as a file or as a link, and the two ways in belong together.
@@ -218,7 +225,7 @@
       <button
         class="file-btn"
         data-testid="project-share-link"
-        onclick={handleCopyShareLink}
+        onclick={() => accountGate.guard('share', handleCopyShareLink)}
         aria-disabled={linkTooLong ? 'true' : undefined}
         aria-describedby={linkTooLong ? 'project-share-too-long' : undefined}
       >
@@ -409,6 +416,8 @@
 <CalcReportDialog bind:open={showCalcReport} />
 <ExportViewDialog bind:open={viewExportOpen} bind:format={viewExport} />
 <ResultsExportDialog bind:open={resultsOpen} />
+
+<CloudProjectsDialog bind:open={cloudOpen} />
 
 <style>
   /* ─── The Excel import report ────────────────────────────────────

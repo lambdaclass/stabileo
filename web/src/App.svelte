@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { accountGate } from './lib/store/account-gate.svelte';
   import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
   // pages' entries only; Root.svelte loads this component on the first app route).
@@ -23,6 +24,12 @@
   import { placementStore } from './lib/store/placement.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import WhatsNewNotice from './components/WhatsNewNotice.svelte';
+  import ResultsDisclaimer from './components/legal/ResultsDisclaimer.svelte';
+  import UsageNotice from './components/legal/UsageNotice.svelte';
+  import TermsUpdateDialog from './components/legal/TermsUpdateDialog.svelte';
+  import AccountGateDialog from './components/account/AccountGateDialog.svelte';
+  import FeedbackDialog from './components/account/FeedbackDialog.svelte';
+  import { installUsageTracking } from './lib/telemetry/instrument.svelte';
   import NodeEditor from './components/NodeEditor.svelte';
   import ElementEditor from './components/ElementEditor.svelte';
   import DespieceInspector from './components/DespieceInspector.svelte';
@@ -918,6 +925,7 @@
 
   onMount(() => {
     if (accountsEnabled) void authStore.init();
+    const stopUsageTracking = installUsageTracking();
     currentAppMode = pathToMode(location.pathname);
     if (currentAppMode === 'educativo') {
       uiStore.analysisMode = 'edu';
@@ -1114,13 +1122,15 @@
     window.addEventListener('stabileo-import-dxf', handleDxfImportEvent);
     const handleDxfDropEvent = (e: Event) => {
       const ce = e as CustomEvent<File>;
-      if (dxfGoesToCadWizard()) {
-        cadWizardFile = ce.detail;
-        showCadWizard = true;
-      } else {
-        dxfImportFile = ce.detail;
-        showDxfImport = true;
-      }
+      accountGate.guard('import', () => {
+        if (dxfGoesToCadWizard()) {
+          cadWizardFile = ce.detail;
+          showCadWizard = true;
+        } else {
+          dxfImportFile = ce.detail;
+          showDxfImport = true;
+        }
+      });
     };
     window.addEventListener('stabileo-dxf-drop', handleDxfDropEvent);
     const handleIfcImportEvent = () => { ifcFileInput?.click(); };
@@ -1153,6 +1163,7 @@
     window.addEventListener('stabileo-open-panel', handleOpenPanelEvent);
 
     return () => {
+      stopUsageTracking();
       if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
@@ -2175,7 +2186,11 @@
 
   {#if !uiStore.embedMode && !publicActive}
     <WhatsNewNotice />
+    <ResultsDisclaimer />
+    <UsageNotice />
+    <TermsUpdateDialog />
   {/if}
+  {#if accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
 
   <!--
     Mobile drawers (overlay on top of canvas) — PRO and Education only.
@@ -2418,7 +2433,7 @@
         rows="10"
       ></textarea>
       <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
-        <button class="btn btn-primary" onclick={handleImportCoordinates}>{t('app.import')}</button>
+        <button class="btn btn-primary" onclick={() => accountGate.guard('import', handleImportCoordinates)}>{t('app.import')}</button>
         <button class="btn btn-secondary" onclick={() => showImportDialog = false}>{t('app.cancel')}</button>
       </div>
     </div>
@@ -2426,8 +2441,6 @@
 {/if}
 
 {#if !uiStore.embedMode}
-  <!-- FeedbackWidget disabled — will be reimplemented professionally -->
-  <!-- <FeedbackWidget /> -->
 {/if}
 
 <!--

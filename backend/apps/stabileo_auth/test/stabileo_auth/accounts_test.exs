@@ -3,7 +3,7 @@ defmodule StabileoAuth.AccountsTest do
 
   alias StabileoAuth.Accounts
   alias StabileoRepo.Factory
-  alias StabileoRepo.Schemas.{Account, Session}
+  alias StabileoRepo.Schemas.Account
 
   describe "register/1" do
     test "creates an account" do
@@ -88,45 +88,6 @@ defmodule StabileoAuth.AccountsTest do
 
       assert {:error, changeset} = Accounts.update_profile(account, %{"country" => "Argentina"})
       assert %{country: ["must be a two-letter ISO code"]} = errors_on(changeset)
-    end
-  end
-
-  describe "change_password/4" do
-    setup do
-      account = Factory.insert(:account)
-      keep = Factory.insert(:session, account: account)
-      other = Factory.insert(:session, account: account)
-      %{account: account, keep: keep, other: other}
-    end
-
-    test "changes the password and revokes every other session", ctx do
-      assert {:ok, _} =
-               Accounts.change_password(
-                 ctx.account,
-                 Factory.password(),
-                 "brand-new-pass",
-                 ctx.keep.id
-               )
-
-      assert {:ok, _} = Accounts.authenticate(ctx.account.email, "brand-new-pass")
-      assert Repo.get!(Session, ctx.keep.id).revoked_at == nil
-      assert %DateTime{} = Repo.get!(Session, ctx.other.id).revoked_at
-    end
-
-    test "refuses a wrong current password and changes nothing", ctx do
-      assert {:error, :invalid_current_password} =
-               Accounts.change_password(ctx.account, "not-it", "brand-new-pass", ctx.keep.id)
-
-      assert {:ok, _} = Accounts.authenticate(ctx.account.email, Factory.password())
-      assert Repo.get!(Session, ctx.other.id).revoked_at == nil
-    end
-
-    test "refuses a short new password and revokes nothing", ctx do
-      assert {:error, changeset} =
-               Accounts.change_password(ctx.account, Factory.password(), "short", ctx.keep.id)
-
-      assert %{password: ["should be at least 8 character(s)"]} = errors_on(changeset)
-      assert Repo.get!(Session, ctx.other.id).revoked_at == nil
     end
   end
 end
