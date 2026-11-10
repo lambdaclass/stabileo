@@ -183,6 +183,9 @@ fn static_system(
             u[it.dofs[i]] = dot(&it.r[i], &v);
         }
     }
+    if u[nf..].iter().any(|v| *v != 0.0) {
+        return Err("accuracy certificate requires independently specified restrained displacements".into());
+    }
     let ids: Vec<_> = (0..nf).collect();
     let k = extract_submatrix(&asm.k, dof.n_total, &ids, &ids);
     let f: Vec<_> = (0..nf)
@@ -219,7 +222,7 @@ fn static_errors(
     let residual = static_accuracy_residual(&inverse, &x, &f, cond)?;
     Ok(physical_rows(dof, asm, cs)
         .iter()
-        .map(|row| inverse.functional_error(&residual, row))
+        .map(|row| residual.functional_error(&inverse, row))
         .collect())
 }
 
@@ -228,12 +231,26 @@ fn static_accuracy_limit(cond: &dedaliano_engine::metamorphic::conditioning::Con
         .min(dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE)
 }
 
+struct StaticAccuracy {
+    residual: (Vec<f64>, Vec<f64>),
+    ceiling: f64,
+    reference_upper: Vec<f64>,
+}
+
+impl StaticAccuracy {
+    fn functional_error(&self, inverse: &Inverse, row: &[f64]) -> f64 {
+        let scaled: Vec<_> = row.iter().zip(&inverse.diagonal).map(|(v, d)| v / d).collect();
+        inverse.functional_error(&self.residual, row)
+            .min(self.ceiling * norm(&scaled) * (1.0 + gamma(2 * inverse.n + 2)))
+    }
+}
+
 fn static_accuracy_residual(
     inverse: &Inverse,
     x: &[f64],
     f: &[f64],
     cond: &dedaliano_engine::metamorphic::conditioning::Conditioning,
-) -> Result<(Vec<f64>, Vec<f64>), String> {
+) -> Result<StaticAccuracy, String> {
     let n = inverse.n;
     let reference: Vec<_> = (0..n)
         .map(|i| (0..n).map(|j| inverse.inverse[i * n + j] * f[j] / inverse.diagonal[j]).sum::<f64>() / inverse.diagonal[i])
@@ -256,7 +273,10 @@ fn static_accuracy_residual(
     if !(upper.is_finite() && lower.is_finite() && upper <= limit * lower) {
         return Err("static result exceeds the independent accuracy ceiling".into());
     }
-    Ok(residual)
+    let ceiling = limit * lower;
+    let reference_upper = reference.iter().zip(&reference_error).zip(&inverse.diagonal)
+        .map(|((v, e), d)| (v.abs() + e + ceiling) / d).collect();
+    Ok(StaticAccuracy { residual, ceiling, reference_upper })
 }
 
 fn attach_displacements(r: &mut Resp, dof: &DofNumbering, err: &[f64], translations: usize) {
@@ -572,7 +592,12 @@ fn recovery_error(
         return Err("force recovery estimate does not cover warping DOFs".into());
     }
     let u = gather(r, dof, translations);
-    let e = static_errors(dof, asm, cs, u.clone(), cond)?;
+    let (inverse, x, f) = static_system(dof, asm, cs, u)?;
+    let certificate = static_accuracy_residual(&inverse, &x, &f, cond)?;
+    let rows = physical_rows(dof, asm, cs);
+    let e: Vec<_> = rows.iter().map(|row| certificate.functional_error(&inverse, row)).collect();
+    let independent_u: Vec<_> = rows.iter()
+        .map(|row| dot(&abs(row), &certificate.reference_upper)).collect();
     let mut traces = [0.0; 2];
     let mut groups = std::collections::BTreeMap::<(usize, usize), [f64; 3]>::new();
     for (&(node, local), &j) in &dof.map {
@@ -584,7 +609,7 @@ fn recovery_error(
         traces[family] += diag;
         let group = groups.entry((node, family)).or_default();
         group[0] += diag;
-        group[1] += u[j] * u[j];
+        group[1] += independent_u[j] * independent_u[j];
         group[2] += e[j] * e[j];
     }
     let mut magnitude = 0.0;
@@ -760,16 +785,34 @@ fn certify_recurrence(
     m: &[f64],
     damping: &[f64],
     effective: &Inverse,
-) -> Result<(), String> {
+    load_energies: &[f64],
+    relative_limit: f64,
+) -> Result<Vec<Vec<f64>>, String> {
     let n = effective.n;
     let h = trace.dt * 0.5;
+    let ki = Inverse::new(k.to_vec(), n)?;
+    let compliance: Vec<_> = (0..n).map(|i| {
+        let mut row = vec![0.0; n];
+        row[i] = 1.0;
+        dot(&row, &ki.absolute_solve(&row)).max(0.0).sqrt()
+    }).collect();
+    let initial_a = if trace.f[0].iter().all(|v| *v == 0.0) {
+        vec![0.0; n]
+    } else {
+        Inverse::new(m.to_vec(), n)?.absolute_solve(&trace.f[0])
+    };
+    let mut u_bound = vec![0.0; n];
+    let mut v_bound = vec![0.0; n];
+    let mut a_bound = initial_a.clone();
+    let mut velocity_bounds = vec![v_bound.clone()];
     for i in 0..n {
         let row = &m[i * n..(i + 1) * n];
         let (residual, evaluation) = dot_residual(row, &trace.a[0], trace.f[0][i]);
         let magnitude = trace.f[0][i].abs()
-            + row.iter().zip(&trace.a[0]).map(|(a, b)| (a * b).abs()).sum::<f64>();
-        let bound = gamma(3 * n + 8) * magnitude + evaluation;
-        if !(residual.abs() <= bound && bound.is_finite()) {
+            + row.iter().zip(&initial_a).map(|(a, b)| a.abs() * b).sum::<f64>();
+        let bound = gamma(3 * n + 8) * magnitude + evaluation.min(gamma(2 * n + 2) * magnitude);
+        if !(residual.abs() <= bound && bound.is_finite()
+            && trace.a[0][i].abs() <= initial_a[i] * (1.0 + relative_limit)) {
             return Err("initial acceleration violates the assembled equilibrium".into());
         }
     }
@@ -782,18 +825,28 @@ fn certify_recurrence(
             .map(|j| old_u[j] / (h * h) + 2.0 * old_v[j] / h + old_a[j])
             .collect();
         let damping_predictor: Vec<_> = (0..n).map(|j| old_u[j] / h + old_v[j]).collect();
+        let old_u_bound = u_bound.clone();
+        let old_v_bound = v_bound.clone();
+        let old_a_bound = a_bound.clone();
+        for j in 0..n {
+            u_bound[j] = (1.0 + relative_limit) * load_energies[t] * compliance[j];
+            v_bound[j] = ((u_bound[j] + old_u_bound[j]) / h + old_v_bound[j]) / (1.0 - gamma(16));
+            a_bound[j] = ((u_bound[j] + old_u_bound[j]) / (h * h)
+                + 2.0 * old_v_bound[j] / h + old_a_bound[j]) / (1.0 - gamma(16));
+        }
         let solve_scale: f64 = (0..n)
-            .map(|j| effective.matrix[j * n + j].sqrt() * u[j].abs())
+            .map(|j| effective.matrix[j * n + j].sqrt() * u_bound[j])
             .sum();
         for i in 0..n {
             let expected_a = (u[i] - old_u[i]) / (h * h) - 2.0 * old_v[i] / h - old_a[i];
-            let a_scale = (u[i].abs() + old_u[i].abs()) / (h * h)
-                + 2.0 * old_v[i].abs() / h + old_a[i].abs() + a[i].abs();
+            let a_scale = (u_bound[i] + old_u_bound[i]) / (h * h)
+                + 2.0 * old_v_bound[i] / h + old_a_bound[i] + a_bound[i];
             let expected_v = old_v[i] + h * (old_a[i] + a[i]);
-            let v_scale = old_v[i].abs() + h * (old_a[i].abs() + a[i].abs()) + v[i].abs();
+            let v_scale = old_v_bound[i] + h * (old_a_bound[i] + a_bound[i]) + v_bound[i];
             if !((a[i] - expected_a).abs() <= gamma(12) * a_scale
                 && (v[i] - expected_v).abs() <= gamma(8) * v_scale
-                && a_scale.is_finite() && v_scale.is_finite()) {
+                && a_scale.is_finite() && v_scale.is_finite()
+                && u[i].abs() <= u_bound[i] && v[i].abs() <= v_bound[i] && a[i].abs() <= a_bound[i]) {
                 return Err("trajectory violates the Newmark state recurrence".into());
             }
             let mut coefficients = Vec::with_capacity(3 * n);
@@ -807,33 +860,37 @@ fn certify_recurrence(
             let (residual, evaluation) = dot_residual(&coefficients, &values, trace.f[t][i]);
             let mut magnitude = trace.f[t][i].abs();
             for j in 0..n {
-                let mass = (u[j].abs() + old_u[j].abs()) / (h * h)
-                    + 2.0 * old_v[j].abs() / h + old_a[j].abs();
-                let rate = (u[j].abs() + old_u[j].abs()) / h + old_v[j].abs();
-                magnitude += k[i * n + j].abs() * u[j].abs() + m[i * n + j].abs() * mass
+                let mass = (u_bound[j] + old_u_bound[j]) / (h * h)
+                    + 2.0 * old_v_bound[j] / h + old_a_bound[j];
+                let rate = (u_bound[j] + old_u_bound[j]) / h + old_v_bound[j];
+                magnitude += k[i * n + j].abs() * u_bound[j] + m[i * n + j].abs() * mass
                     + (trace.a0 * m[i * n + j].abs() + trace.a1 * k[i * n + j].abs()) * rate;
             }
             let factorization = effective.matrix[i * n + i].sqrt() * solve_scale;
             let bound = gamma(12 * n + 32) * magnitude
-                + gamma(3 * n + 2) * factorization + evaluation;
+                + gamma(3 * n + 2) * factorization
+                + evaluation.min(gamma(6 * n + 2) * magnitude);
             if !(residual.abs() <= bound && bound.is_finite()) {
                 return Err("trajectory violates the assembled Newmark equilibrium recurrence".into());
             }
         }
+        velocity_bounds.push(v_bound.clone());
     }
-    Ok(())
+    Ok(velocity_bounds)
 }
 
 fn trajectory_error(
     trace: &dedaliano_engine::solver::time_integration::DynamicTrace,
     damping_error: f64,
-) -> Result<(Vec<f64>, Vec<Vec<f64>>), String> {
+    relative_limit: f64,
+) -> Result<(Vec<f64>, Vec<Vec<f64>>, Vec<f64>), String> {
     let n = trace.k.n;
     let steps = trace.u.len();
     if n == 0 || trace.m.n != n || steps < 2
         || !(trace.dt > 0.0 && trace.dt.is_finite())
         || !(trace.a0 >= 0.0 && trace.a0.is_finite() && trace.a1 >= 0.0 && trace.a1.is_finite())
         || !(damping_error >= 0.0 && damping_error.is_finite())
+        || !(relative_limit >= 0.0 && relative_limit.is_finite())
         || [&trace.u, &trace.v, &trace.a, &trace.f].iter().any(|history| {
             history.len() != steps || history.iter().any(|row| row.len() != n || row.iter().any(|v| !v.is_finite()))
         })
@@ -865,11 +922,24 @@ fn trajectory_error(
         .map(|((k, m), c)| k + m / (h * h) + c / h)
         .collect();
     let effective = Inverse::new(effective, n)?;
-    certify_recurrence(trace, &k, &m, &damping, &effective)?;
-    let mut energy = 0.0;
+    let relative_limit = relative_limit.min(dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE);
+    let mut load_energies = vec![0.0];
+    for t in 1..steps {
+        let load: Vec<_> = trace.f[t].iter().zip(&trace.f[t - 1]).map(|(a, b)| a.abs() + b.abs()).collect();
+        let increment = dot(&load, &effective.absolute_solve(&load)).max(0.0).sqrt();
+        load_energies.push(load_energies[t - 1] + increment);
+    }
+    if load_energies.iter().any(|v| !v.is_finite()) {
+        return Err("nonfinite independent trajectory scale".into());
+    }
+    let velocity_bounds = certify_recurrence(trace, &k, &m, &damping, &effective, &load_energies, relative_limit)?;
+    let mut numerical_energy = 0.0;
+    let mut damping_energy = 0.0;
     let mut energies = vec![0.0];
     let mut displacements = Vec::new();
     for t in 1..trace.u.len() {
+        let load_energy = load_energies[t];
+        let ceiling = relative_limit * load_energy;
         let (u, old_u, v, old_v) = (&trace.u[t], &trace.u[t - 1], &trace.v[t], &trace.v[t - 1]);
         let du: Vec<_> = (0..n)
             .map(|i| {
@@ -878,6 +948,7 @@ fn trajectory_error(
             })
             .collect();
         let mut dp = vec![0.0; n];
+        let mut damping_rhs = vec![0.0; n];
         for i in 0..n {
             let mut defect = -h * (trace.f[t][i] + trace.f[t - 1][i]);
             let mut magnitude = h * (trace.f[t][i].abs() + trace.f[t - 1][i].abs());
@@ -901,7 +972,15 @@ fn trajectory_error(
             }
             let damping_action = h * (trace.a0 * mass_rate.abs() + trace.a1 * stiffness_rate.abs())
                 + gamma(6 * n + 8) * damping;
-            dp[i] = defect.abs() + gamma(14 * n + 4) * magnitude + damping_error * damping_action;
+            dp[i] = defect.abs() + gamma(14 * n + 4) * magnitude;
+            let damping_ceiling = h * (0..n).map(|j| {
+                (trace.a0 * m[i * n + j].abs() + trace.a1 * k[i * n + j].abs())
+                    * (velocity_bounds[t][j] + velocity_bounds[t - 1][j])
+            }).sum::<f64>() * (1.0 + gamma(6 * n + 8));
+            if !(damping_action.is_finite() && damping_ceiling.is_finite()) {
+                return Err("nonfinite damping action ceiling".into());
+            }
+            damping_rhs[i] = damping_error * damping_action.min(damping_ceiling) / h;
         }
         let m_du = mat_vec(&abs(&m), &du, n);
         let c_du = mat_vec(&abs(&damping), &du, n);
@@ -911,14 +990,18 @@ fn trajectory_error(
         let u_error = effective.absolute_solve(&rhs);
         let effective_energy = dot(&rhs, &u_error).max(0.0).sqrt();
         let kinematic_energy = dot(&du, &mat_vec(&abs(&m), &du, n)).max(0.0).sqrt() / h;
-        energy += effective_energy + kinematic_energy;
-        energies.push(energy);
+        numerical_energy += effective_energy + kinematic_energy;
+        if !(numerical_energy.is_finite() && ceiling.is_finite() && numerical_energy <= ceiling) {
+            return Err("trajectory exceeds the independent forward-error ceiling before damping uncertainty".into());
+        }
+        damping_energy += dot(&damping_rhs, &effective.absolute_solve(&damping_rhs)).max(0.0).sqrt();
+        energies.push(numerical_energy.min(ceiling) + damping_energy);
         displacements.push(du);
     }
-    if !energy.is_finite() {
+    if energies.iter().any(|e| !e.is_finite()) {
         return Err("nonfinite trajectory defect".into());
     }
-    Ok((energies, displacements))
+    Ok((energies, displacements, load_energies))
 }
 
 fn time_errors(
@@ -958,7 +1041,8 @@ fn time_errors(
         return Err("unbounded damping coefficient uncertainty".into());
     }
     let damping_error = frequency / (1.0 - frequency);
-    let (energies, defects) = trajectory_error(trace, damping_error)?;
+    let relative_limit = crate::checks2::rel_without_eigen("time history", 1e-10, cond);
+    let (energies, defects, load_energies) = trajectory_error(trace, damping_error, relative_limit)?;
     let energy = *energies.last().unwrap();
     let velocity_integral: f64 = energies
         .windows(2)
@@ -996,7 +1080,12 @@ fn time_errors(
             let row = dof.map.get(&(node, local)).map(|&j| &rows[j]);
             let mapped = row.map_or(0.0, |row| dot(row, state));
             let magnitude = row.map_or(0.0, |row| row.iter().zip(state).map(|(a, b)| (a * b).abs()).sum::<f64>());
-            let ceiling = gamma(4 * dof.n_total + 16) * magnitude;
+            let independent = row.map_or(0.0, |row| {
+                let row = abs(row);
+                (1.0 + relative_limit.min(dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE))
+                    * load_energies[sample] * dot(&row, &ki.absolute_solve(&row)).max(0.0).sqrt()
+            });
+            let ceiling = gamma(4 * dof.n_total + 16) * magnitude.min(independent);
             if !i.v[component].is_finite() || !mapped.is_finite() || !ceiling.is_finite() || (i.v[component] - mapped).abs() > ceiling {
                 return Err("reported trajectory sample differs from the mapped trace".into());
             }
@@ -1080,6 +1169,7 @@ fn geometric_error(
     let (inverse, x, f) = static_system(dof, asm, cs, u.clone())?;
     let residual = static_accuracy_residual(&inverse, &x, &f, cond)?;
     let rows = physical_rows(dof, asm, cs);
+    let independent_u: Vec<_> = rows.iter().map(|row| dot(&abs(row), &residual.reference_upper)).collect();
     let n = rows[0].len();
     let mut functionals = vec![vec![0.0; n]; n * n];
     let mut rounding = vec![0.0; n * n];
@@ -1093,15 +1183,16 @@ fn geometric_error(
             * rational(term.a)
             * (elongation / rational(term.l) - rational(term.alpha) * rational(term.dt));
         let recovered = rational(*mean_n.get(&term.element_id).ok_or("missing axial force")?);
-        let magnitude: f64 = term.elongation.iter().map(|&(j, c)| (c * u[j]).abs()).sum();
+        let magnitude: f64 = term.elongation.iter().map(|&(j, c)| c.abs() * independent_u[j]).sum();
         let geometry = gamma(4 * (term.dofs.len() + 24)) * cond.geom * term.e * term.a / term.l
             * (magnitude + (term.l * term.alpha * term.dt).abs());
         let discrepancy = upper_abs(&(recovered - &axial));
-        let ceiling = static_accuracy_limit(cond) * upper_abs(&axial) + geometry + action_error;
+        let axial_scale = term.e * term.a * (magnitude / term.l + (term.alpha * term.dt).abs());
+        let ceiling = static_accuracy_limit(cond) * axial_scale;
         if !(ceiling.is_finite() && discrepancy <= ceiling) {
             return Err("axial recovery exceeds the independent accuracy ceiling".into());
         }
-        let roundoff = discrepancy + geometry + action_error;
+        let roundoff = discrepancy.min(ceiling) + geometry + action_error;
         let mut elongation = vec![0.0; n];
         for &(j, c) in &term.elongation {
             for (a, &v) in elongation.iter_mut().zip(&rows[j]) {
@@ -1131,7 +1222,7 @@ fn geometric_error(
     Ok(functionals
         .iter()
         .zip(rounding)
-        .map(|(row, roundoff)| inverse.functional_error(&residual, row) + roundoff)
+        .map(|(row, roundoff)| residual.functional_error(&inverse, row) + roundoff)
         .collect())
 }
 
@@ -1321,7 +1412,7 @@ fn unit_trajectory(u: f64, v: f64) -> dedaliano_engine::solver::time_integration
 #[test]
 fn issue_1892_zero_trajectory_cannot_certify_a_missing_response() {
     for damping_error in [0.0, 1e-4] {
-        assert!(trajectory_error(&unit_trajectory(0.0, 0.0), damping_error).is_err());
+        assert!(trajectory_error(&unit_trajectory(0.0, 0.0), damping_error, 1e-10).is_err());
     }
 }
 
@@ -1333,7 +1424,7 @@ fn issue_1892_absent_zero_load_projection_has_zero_error() {
 #[test]
 fn unit_trajectory_with_the_trapezoidal_response_is_certified() {
     let displacement = 2.0 / (1.0 + 4.0 + 0.2);
-    let (energies, _) = trajectory_error(&unit_trajectory(displacement, 2.0 * displacement), 0.0).unwrap();
+    let (energies, _, _) = trajectory_error(&unit_trajectory(displacement, 2.0 * displacement), 0.0, 1e-10).unwrap();
     assert!(*energies.last().unwrap() < gamma(100));
 }
 
@@ -1408,7 +1499,7 @@ fn issue_1892_scaled_trajectory_above_comparison_tolerance_is_rejected() {
         let scale = 1.0 + eps;
         let trace = unit_trajectory(displacement * scale, 2.0 * displacement * scale);
         for damping_error in [0.0, 1e-4] {
-            let result = trajectory_error(&trace, damping_error);
+            let result = trajectory_error(&trace, damping_error, 1e-10);
             assert!(result.is_err(), "amplitude error {eps:e} certified with damping uncertainty {damping_error:e}: {result:?}");
         }
     }
@@ -1419,7 +1510,7 @@ fn issue_1892_round_four_correct_recurrence_survives_damping_uncertainty() {
     let displacement = 2.0 / (1.0 + 4.0 + 0.2);
     let trace = unit_trajectory(displacement, 2.0 * displacement);
     for damping_error in [1e-8, 1e-6, 1e-4] {
-        let result = trajectory_error(&trace, damping_error);
+        let result = trajectory_error(&trace, damping_error, 1e-10);
         assert!(result.is_ok(), "correct discrete response rejected: {result:?}");
     }
 }
@@ -1524,17 +1615,15 @@ fn semidefinite_trajectory(amplitude: f64, dt: f64, stiffness: f64, mass: f64) -
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_semidefinite_mass_small_step_cannot_self_certify() {
     let trace = semidefinite_trajectory(1.0, 2e-7, 1.0, 1.0);
     for damping_error in [0.0, 1e-4] {
-        let result = trajectory_error(&trace, damping_error);
+        let result = trajectory_error(&trace, damping_error, 1e-10);
         assert!(result.is_err(), "zero-load null-mass trajectory certified: {result:?}");
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_random_candidate_amplification_cannot_widen_the_ceiling() {
     let tolerance = 1e-10;
     for seed in 0..32 {
@@ -1548,7 +1637,7 @@ fn issue_1892_random_candidate_amplification_cannot_widen_the_ceiling() {
             assert!(factor >= 1.0 + tolerance);
             let trace = semidefinite_trajectory(amplitude * factor, dt, stiffness, mass);
             for damping_error in [0.0, 1e-4] {
-                let result = trajectory_error(&trace, damping_error);
+                let result = trajectory_error(&trace, damping_error, 1e-10);
                 assert!(result.is_err(), "seed {seed}, amplification {factor:e} certified: {result:?}");
             }
         }
@@ -1560,14 +1649,14 @@ fn issue_1892_random_candidate_amplification_cannot_widen_the_ceiling() {
         correct.u[1][0] = displacement;
         correct.v[1][0] = displacement / h;
         correct.a[1][0] = displacement / (h * h) - 1.0;
-        assert!(trajectory_error(&correct, 0.0).is_ok());
+        assert!(trajectory_error(&correct, 0.0, 1e-10).is_ok());
         for factor in factors {
             let mut candidate = correct.clone();
             candidate.u[1][0] *= factor;
             candidate.v[1][0] *= factor;
             candidate.a[1][0] = candidate.u[1][0] / (h * h) - 1.0;
             for damping_error in [0.0, 1e-4] {
-                assert!(trajectory_error(&candidate, damping_error).is_err(), "seed {seed}, nonzero response scaled by {factor:e} certified");
+                assert!(trajectory_error(&candidate, damping_error, 1e-10).is_err(), "seed {seed}, nonzero response scaled by {factor:e} certified");
             }
         }
     }
