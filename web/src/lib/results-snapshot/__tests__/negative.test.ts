@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { initSolver } from '../../engine/wasm-solver';
 import { modelStore } from '../../store/model.svelte';
 import { CORPUS } from '../corpus';
-import { capture } from '../capture';
+import { capture, openedFeatures } from '../capture';
 import { snapshotFile } from '../run-group';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, formatCaseReport, mergeValues, parseSnapshot, serialiseSnapshot } from '../../../../scripts/results-snapshot/compare.mjs';
@@ -64,38 +64,43 @@ describe('a deliberate result change', () => {
     expect(report).toMatch(/base\.displacements\[n\d+\]/);
   });
 
-  it.skip('known wrong result: #1893 — fails the gate without a registry entry and a BREAKING (results) fragment, and passes with both', async () => {
+  it('fails the gate without a registry entry and a BREAKING (results) fragment, and passes with both', async () => {
     const file = `web/results-snapshots/${CASE.name}.json`;
     const base = parseSnapshot(readFileSync(snapshotFile(CASE.name), 'utf8'));
     const changed = await capture(CASE, { afterOpen: () => { modelStore.updateLoad(1, { qI: -10.1, qJ: -10.1 }); } });
     // The snapshot as `make snapshots-update` would rewrite it.
     const head = parseSnapshot(serialiseSnapshot({ ...changed, values: mergeValues(base.values, changed.values) }));
     const snapshots = [{ file, base, head }];
+    const caseFeatures = { [file]: await openedFeatures(CASE) };
 
-    const unregistered = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: REGISTRY, fragments: [] });
+    const unregistered = decide({ snapshots, caseFeatures, baseRegistry: REGISTRY, headRegistry: REGISTRY, fragments: [] });
     expect(unregistered.ok).toBe(false);
     expect(unregistered.report).toContain('no new entry in web/src/lib/provenance/result-changes');
     expect(unregistered.report).toContain('no changelog.d/ fragment under "### BREAKING (results)"');
     expect(unregistered.report).toContain(file);
 
     // A fragment alone, or a fragment in another section, is not enough.
-    const { resultsVersion: _, ...entry } = { ...REGISTRY.numbered.find((c: { scope?: string }) => c.scope === undefined), id: 'negative-case-entry' };
+    const entry = {
+      id: 'negative-case-entry',
+      when: { all: ['plane2D', 'frameMembers', 'analysis:linear'] },
+      quantities: ['displacements', 'reactions', 'elementForces', 'equilibrium', 'resultSummary'],
+    };
     const registered = { ...REGISTRY, unnumbered: [...REGISTRY.unnumbered, entry] };
     const fixed = { file: 'changelog.d/x.md', text: '### Fixed\n#### Something (2026-10-28)\n' };
     const breaking = { file: 'changelog.d/y.md', text: '### BREAKING (results)\n#### The beam load (2026-10-28)\n' };
-    expect(decide({ snapshots, baseRegistry: REGISTRY, headRegistry: REGISTRY, fragments: [breaking] }).ok).toBe(false);
-    expect(decide({ snapshots, baseRegistry: REGISTRY, headRegistry: registered, fragments: [fixed] }).ok).toBe(false);
+    expect(decide({ snapshots, caseFeatures, baseRegistry: REGISTRY, headRegistry: REGISTRY, fragments: [breaking] }).ok).toBe(false);
+    expect(decide({ snapshots, caseFeatures, baseRegistry: REGISTRY, headRegistry: registered, fragments: [fixed] }).ok).toBe(false);
     const contextFree = { ...REGISTRY, unnumbered: [...REGISTRY.unnumbered, { id: 'context-free-entry' }] };
-    const rejected = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: contextFree, fragments: [breaking] });
+    const rejected = decide({ snapshots, caseFeatures, baseRegistry: REGISTRY, headRegistry: contextFree, fragments: [breaking] });
     expect(rejected.ok).toBe(false);
     expect(rejected.report).toContain('no applicable entry can explain');
-    const ok = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: registered, fragments: [breaking] });
+    const ok = decide({ snapshots, caseFeatures, baseRegistry: REGISTRY, headRegistry: registered, fragments: [breaking] });
     expect(ok.ok).toBe(true);
     expect(ok.report).toContain('negative-case-entry');
 
     const examplesOnly = { ...entry, when: undefined, scope: 'examples', examples: ['simply-supported'] };
     const asExamples = { ...REGISTRY, unnumbered: [...REGISTRY.unnumbered, examplesOnly] };
-    const disguised = decide({ snapshots, baseRegistry: REGISTRY, headRegistry: asExamples, fragments: [breaking], changedFixtures: [], caseExample: { [file]: CASE.source && 'example' in CASE.source ? CASE.source.example : '' } });
+    const disguised = decide({ snapshots, caseFeatures, baseRegistry: REGISTRY, headRegistry: asExamples, fragments: [breaking], changedFixtures: [], caseExample: { [file]: CASE.source && 'example' in CASE.source ? CASE.source.example : '' } });
     expect(disguised.ok).toBe(false);
     expect(disguised.report).toContain('did not change');
   });
