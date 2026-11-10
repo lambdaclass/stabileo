@@ -889,6 +889,8 @@ fn start(m: usize, seed: u64) -> Vec<f64> {
 }
 
 fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64, certify: &dyn Fn(f64) -> Option<f64>) -> Option<(f64, Vec<f64>)> {
+    #[cfg(test)]
+    tests::LANCZOS_RUNS.with(|count| count.set(count.get() + 1));
     let steps = m.min(200);
     let mut basis: Vec<Vec<f64>> = vec![start(m, seed)];
     let (mut alpha, mut beta): (Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new());
@@ -1040,6 +1042,7 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
 #[cfg(test)]
 mod tests {
     thread_local! {
+        pub(super) static LANCZOS_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVECTOR_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     }
     use super::*;
@@ -1209,6 +1212,37 @@ mod tests {
                     else { assert_eq!(mode.unwrap(), (0..3).map(|r| expected_vectors[r * 3]).collect::<Vec<_>>()); }
                 }
             }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_fast_accepted_sparse_stability_avoids_lanczos() {
+        let n = FULL_SPECTRUM + 17;
+        for scale in [1e-100, 1.0, 1e100] {
+            let mut rows = Vec::new();
+            let mut cols = Vec::new();
+            let mut values = Vec::new();
+            for i in 0..n {
+                rows.push(i);
+                cols.push(i);
+                values.push(2.0 * scale);
+                if i > 0 {
+                    rows.push(i);
+                    cols.push(i - 1);
+                    values.push(-scale);
+                }
+            }
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            let tags: Vec<_> = (0..n).map(|node| DofTag { node, kind: DofKind::Translation }).collect();
+            LANCZOS_RUNS.with(|count| count.set(0));
+            let result = analyze(&matrix, &tags);
+            assert_eq!(result.verdict, Verdict::Stable);
+            assert!(!result.needs_accuracy_check());
+            let cosine = (std::f64::consts::PI / (n + 1) as f64).cos();
+            let exact_kappa = (1.0 + cosine) / (1.0 - cosine);
+            assert!(result.kappa >= exact_kappa);
+            assert_eq!(LANCZOS_RUNS.with(|count| count.get()), 0);
         }
     }
 
