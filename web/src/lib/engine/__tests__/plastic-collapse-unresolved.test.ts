@@ -19,7 +19,7 @@ vi.mock('../plastic/lp', async (orig) => {
   };
 });
 
-import { plasticCollapse2D } from '../plastic-collapse';
+import { plasticHistory2D } from '../plastic-collapse';
 import { verifiedCollapse, collapseVerdict } from '../../../components/advanced/plastic/user-compare';
 import type { SolverInput } from '../types';
 
@@ -35,14 +35,14 @@ const propped = () => ({
 describe('a mechanism the consistency check cannot accept', () => {
   it('a propped cantilever with a consistent mechanism is a verified collapse', () => {
     lp.forceInfeasible = false;
-    const r = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity });
+    const r = plasticHistory2D(propped(), { mp: () => 100, np: () => Infinity });
     expect(r.isMechanism).toBe(true);
     expect(r.unresolved).toBeUndefined();
   });
 
   it('an infeasible consistency program with no hinge to close is unresolved, not a verified collapse', () => {
     lp.forceInfeasible = true;
-    const r = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity });
+    const r = plasticHistory2D(propped(), { mp: () => 100, np: () => Infinity });
     lp.forceInfeasible = false;
     expect(r.unresolved).toBe(true);
     expect(verifiedCollapse(r)).toBe(false);
@@ -52,10 +52,10 @@ describe('a mechanism the consistency check cannot accept', () => {
 
 describe('an analysis that runs out of events', () => {
   it('is unresolved, not a structure that does not collapse', () => {
-    const cut = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 1 });
+    const cut = plasticHistory2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 1 });
     expect(cut.unresolved).toBe(true);
     expect(cut.isMechanism).toBe(false);
-    const whole = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 2 });
+    const whole = plasticHistory2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 2 });
     expect(whole.unresolved).toBeUndefined();
     expect(whole.isMechanism).toBe(true);
   });
@@ -64,7 +64,7 @@ describe('an analysis that runs out of events', () => {
 describe('a mechanism formed by the last allowed event', () => {
   it('goes through the same consistency check as one found inside the loop', () => {
     lp.forceInfeasible = true;
-    const r = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 2 });
+    const r = plasticHistory2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 2 });
     lp.forceInfeasible = false;
     expect(r.hinges).toHaveLength(2);
     expect(r.unresolved).toBe(true);
@@ -76,7 +76,7 @@ describe('a mechanism formed by the last allowed event', () => {
 describe('a mechanism the rigid-plastic model finds no motion for', () => {
   it('is unresolved, not a verified collapse', () => {
     lp.emptyMotion = true;
-    const r = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity });
+    const r = plasticHistory2D(propped(), { mp: () => 100, np: () => Infinity });
     lp.emptyMotion = false;
     expect(r.unresolved).toBe(true);
     expect(verifiedCollapse(r)).toBe(false);
