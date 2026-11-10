@@ -29,6 +29,7 @@ import { uiStore } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
 import type { Release, Section, SupportType } from './model.svelte';
 import { solverProperties } from '../section/state';
+import { liveSolveBusy } from '../engine/live-calc-state';
 
 export interface MemberFactors { e: number; a: number; iy: number }
 
@@ -39,7 +40,8 @@ let all = $state<MemberFactors>({ e: 1, a: 1, iy: 1 });
 let members = $state<Record<number, MemberFactors>>({});
 let releases = $state<Record<number, { i?: Release; j?: Release }>>({});
 let supportTypes = $state<Record<number, SupportType>>({});
-let timer: ReturnType<typeof setTimeout> | undefined;
+let frame: { cancel: () => void } | null = null;
+let pending = false;
 /*
  * The model version this session last produced. Anything else moving it —
  * an edit on the canvas, undo, opening a file, loading an example — changed
@@ -167,9 +169,33 @@ function apply(): void {
   }
 }
 
+function nextFrame(run: () => void): { cancel: () => void } {
+  if (typeof requestAnimationFrame === 'function') {
+    const id = requestAnimationFrame(run);
+    return { cancel: () => cancelAnimationFrame(id) };
+  }
+  const id = setTimeout(run, 16);
+  return { cancel: () => clearTimeout(id) };
+}
+
+// An edit landing mid-solve makes that solve stale and drops it: a drag faster than the solver would publish nothing.
+function pump(): void {
+  frame = null;
+  if (!pending) return;
+  if (liveSolveBusy()) { frame = nextFrame(pump); return; }
+  pending = false;
+  apply();
+}
+
 function schedule(): void {
-  clearTimeout(timer);
-  timer = setTimeout(apply, 60);
+  pending = true;
+  frame ??= nextFrame(pump);
+}
+
+function cancelScheduled(): void {
+  frame?.cancel();
+  frame = null;
+  pending = false;
 }
 
 export const whatIf = {
@@ -204,7 +230,7 @@ export const whatIf = {
 
   /** Leave: the model as it was, and live calc as it was — with results. */
   async close(): Promise<void> {
-    clearTimeout(timer);
+    cancelScheduled();
     const snap = baseline;
     baseline = null;
     uiStore.showWhatIf = false;
@@ -225,7 +251,7 @@ export const whatIf = {
 
   /** The model was replaced under the session (a project or example load): drop it, keep the new model. */
   abandon(): void {
-    clearTimeout(timer);
+    cancelScheduled();
     if (!baseline) return;
     baseline = null;
     uiStore.liveCalc = liveWasOn;
