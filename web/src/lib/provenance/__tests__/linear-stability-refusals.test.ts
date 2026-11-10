@@ -76,3 +76,11 @@ it('the changelog discloses corrected stable PCG responses and refinement', () =
   expect(text).toMatch(/PCG[\s\S]*corrected components/);
   expect(text).toContain('residual refinement');
 });
+
+it('#1753: a linear stamp without stiffness elements has no result to re-check', () => {
+  expect(conditionHolds(entry.when!, new Set(['analysis:linear']))).toBe(false);
+  for (const feature of ['members', 'shells', 'connectors', 'springs']) {
+    expect(conditionHolds(entry.when!, new Set(['analysis:linear', feature])), feature).toBe(true);
+    expect(conditionHolds(entry.when!, new Set([feature])), feature).toBe(false);
+  }
+});

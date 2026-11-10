@@ -892,6 +892,52 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
 mod tests {
     use super::*;
 
+    fn negative_node_block(two_d: bool, diagonal: f64, off_diagonal: f64) -> Stability {
+        let n = if two_d { 3 } else { 6 };
+        let offset = if two_d { 0 } else { 3 };
+        let numbering = DofNumbering {
+            map: (0..n).map(|i| ((7, i), i)).collect(),
+            n_free: n,
+            n_total: n,
+            dofs_per_node: n,
+            node_order: vec![7],
+        };
+        let mut k = vec![0.0; n * n];
+        for i in 0..n { k[i * n + i] = 1.0; }
+        k[offset * n + offset] = diagonal;
+        k[offset * n + offset + 1] = off_diagonal;
+        k[(offset + 1) * n + offset] = off_diagonal;
+        k[(offset + 1) * n + offset + 1] = -1.0;
+        analyze_dense(&k, n, &tags(&numbering, two_d))
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_negative_node_diagonal_is_not_hidden_by_stiffness_contrast_2d() {
+        let result = negative_node_block(true, 1e20, 1.0);
+        assert_eq!(result.reason, Reason::Indefinite, "{result:?}");
+        assert_eq!(result.verdict, Verdict::Singular);
+        assert!(result.pins().is_empty());
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_negative_node_diagonal_is_not_hidden_by_stiffness_contrast_3d() {
+        let result = negative_node_block(false, 1e20, 1.0);
+        assert_eq!(result.reason, Reason::Indefinite, "{result:?}");
+        assert_eq!(result.verdict, Verdict::Singular);
+        assert!(result.pins().is_empty());
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_unresolved_negative_rotation_is_not_an_explicit_release() {
+        let result = analyze_dense(&[1.0, 1.0 + f64::EPSILON, 1.0 + f64::EPSILON, 1.0], 2, &[DofTag { node: 7, kind: DofKind::Rotation }; 2]);
+        assert_eq!(result.verdict, Verdict::Singular, "{result:?}");
+        assert!(result.refusal().is_some());
+        assert!(result.pins().is_empty());
+    }
+
     #[test]
     fn issue_1753_stalled_ritz_values_do_not_underestimate_the_top_eigenvalue() {
         for m in [2, 80] {
