@@ -577,14 +577,22 @@ pub fn rows() -> Vec<Ana2> {
                 let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.z, 0.0]));
                 let us = linear::solve_2d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()).max(d.ry.abs() * l))).unwrap_or(0.0);
                 for k in 0..c.p.freqs.len() {
+                    let floor = if c.p.symmetry && !crate::generated::strict() {
+                        let rel = crate::checks2::rel_for("harmonic", 1e-10, cond.as_ref().ok_or("no harmonic conditioning")?);
+                        let residual = comps.iter().map(|(r, _)| {
+                            if r.method == harmonic::HarmonicMethod::Direct || r.direct_frequencies.contains(&c.p.freqs[k]) { 0.0 }
+                            else { r.max_modal_residual.filter(|v| *v >= 0.0 && *v < f64::MAX).unwrap_or(f64::INFINITY) }
+                        }).fold(0.0f64, f64::max);
+                        us.max(crate::dynamic_accuracy::harmonic_floor(accuracy.as_ref(), c.p.freqs[k], comps[0].1, cond.as_ref().unwrap().rel(), rel, residual))
+                    } else { us };
                     let (a, b) = (&comps[0].0.response_points[k], &comps[1].0.response_points[k]);
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V2(Dim::LEN), vec![a.real, b.real]);
                     o.push(Some(node), None, &format!("H_im{k}"), Kind::V2(Dim::LEN), vec![a.imag, b.imag]);
-                    o.set_floor(&format!("H_re{k}"), us);
-                    o.set_floor(&format!("H_im{k}"), us);
+                    o.set_floor(&format!("H_re{k}"), floor);
+                    o.set_floor(&format!("H_im{k}"), floor);
                     if let (Some(a), Some(cond)) = (&accuracy, &cond) {
                         let error = a.natural * a.harmonic_error(std::f64::consts::TAU * c.p.freqs[k], comps[0].1, cond.rel());
-                        if error.is_finite() {
+                        if error.is_finite() && (!c.p.symmetry || crate::generated::strict()) {
                             for i in o.0.iter_mut().filter(|i| i.tag == format!("H_re{k}") || i.tag == format!("H_im{k}")) { i.error = error; }
                         }
                     }

@@ -637,10 +637,10 @@ const MATRIX_3D: &[(&str, &str)] = &[
     ("modal", "PPPPP-----PP"),
     ("certified modal", "P-PPP------P"),
     ("buckling", "PPPPPP-----P"),
-    ("time history", "P-PPPPP----P"),
+    ("time history", "PPPPPPP----P"),
     ("time history (ground motion)", "P-PPP------P"),
     ("spectral", "P-PPP------P"),
-    ("harmonic", "P-PPPPP----P"),
+    ("harmonic", "PPPPPPP----P"),
     ("plastic collapse", "P-PPPP-----P"),
     ("kinematic check", "P-PPP------P"),
     ("moving loads", "P-PPP-------"),
@@ -2008,7 +2008,6 @@ fn strict_validator_rejects_bad_spectral_shear_and_modal_tensors() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_round_four_generated_dynamic_mirrors_are_required() {
     let mirror = crate::INV_3D.iter().position(|inv| *inv == "mirror").unwrap();
     for name in ["time history", "harmonic"] {

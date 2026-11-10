@@ -738,11 +738,92 @@ fn physical_rows(
     rows
 }
 
+fn certify_recurrence(
+    trace: &dedaliano_engine::solver::time_integration::DynamicTrace,
+    k: &[f64],
+    m: &[f64],
+    damping: &[f64],
+    effective: &Inverse,
+) -> Result<(), String> {
+    let n = effective.n;
+    let h = trace.dt * 0.5;
+    for i in 0..n {
+        let row = &m[i * n..(i + 1) * n];
+        let (residual, evaluation) = dot_residual(row, &trace.a[0], trace.f[0][i]);
+        let magnitude = trace.f[0][i].abs()
+            + row.iter().zip(&trace.a[0]).map(|(a, b)| (a * b).abs()).sum::<f64>();
+        let bound = gamma(3 * n + 8) * magnitude + evaluation;
+        if !(residual.abs() <= bound && bound.is_finite()) {
+            return Err("initial acceleration violates the assembled equilibrium".into());
+        }
+    }
+    for t in 1..trace.u.len() {
+        let (u, old_u, v, old_v, a, old_a) = (
+            &trace.u[t], &trace.u[t - 1], &trace.v[t], &trace.v[t - 1],
+            &trace.a[t], &trace.a[t - 1],
+        );
+        let mass_predictor: Vec<_> = (0..n)
+            .map(|j| old_u[j] / (h * h) + 2.0 * old_v[j] / h + old_a[j])
+            .collect();
+        let damping_predictor: Vec<_> = (0..n).map(|j| old_u[j] / h + old_v[j]).collect();
+        let solve_scale: f64 = (0..n)
+            .map(|j| effective.matrix[j * n + j].sqrt() * u[j].abs())
+            .sum();
+        for i in 0..n {
+            let expected_a = (u[i] - old_u[i]) / (h * h) - 2.0 * old_v[i] / h - old_a[i];
+            let a_scale = (u[i].abs() + old_u[i].abs()) / (h * h)
+                + 2.0 * old_v[i].abs() / h + old_a[i].abs() + a[i].abs();
+            let expected_v = old_v[i] + h * (old_a[i] + a[i]);
+            let v_scale = old_v[i].abs() + h * (old_a[i].abs() + a[i].abs()) + v[i].abs();
+            if !((a[i] - expected_a).abs() <= gamma(12) * a_scale
+                && (v[i] - expected_v).abs() <= gamma(8) * v_scale
+                && a_scale.is_finite() && v_scale.is_finite()) {
+                return Err("trajectory violates the Newmark state recurrence".into());
+            }
+            let mut coefficients = Vec::with_capacity(3 * n);
+            let mut values = Vec::with_capacity(3 * n);
+            coefficients.extend_from_slice(&effective.matrix[i * n..(i + 1) * n]);
+            coefficients.extend(m[i * n..(i + 1) * n].iter().map(|a| -a));
+            coefficients.extend(damping[i * n..(i + 1) * n].iter().map(|a| -a));
+            values.extend_from_slice(u);
+            values.extend_from_slice(&mass_predictor);
+            values.extend_from_slice(&damping_predictor);
+            let (residual, evaluation) = dot_residual(&coefficients, &values, trace.f[t][i]);
+            let mut magnitude = trace.f[t][i].abs();
+            for j in 0..n {
+                let mass = (u[j].abs() + old_u[j].abs()) / (h * h)
+                    + 2.0 * old_v[j].abs() / h + old_a[j].abs();
+                let rate = (u[j].abs() + old_u[j].abs()) / h + old_v[j].abs();
+                magnitude += k[i * n + j].abs() * u[j].abs() + m[i * n + j].abs() * mass
+                    + (trace.a0 * m[i * n + j].abs() + trace.a1 * k[i * n + j].abs()) * rate;
+            }
+            let factorization = effective.matrix[i * n + i].sqrt() * solve_scale;
+            let bound = gamma(12 * n + 32) * magnitude
+                + gamma(3 * n + 2) * factorization + evaluation;
+            if !(residual.abs() <= bound && bound.is_finite()) {
+                return Err("trajectory violates the assembled Newmark equilibrium recurrence".into());
+            }
+        }
+    }
+    Ok(())
+}
+
 fn trajectory_error(
     trace: &dedaliano_engine::solver::time_integration::DynamicTrace,
     damping_error: f64,
-    relative_limit: f64,
 ) -> Result<(Vec<f64>, Vec<Vec<f64>>), String> {
+    let n = trace.k.n;
+    let steps = trace.u.len();
+    if n == 0 || trace.m.n != n || steps < 2
+        || !(trace.dt > 0.0 && trace.dt.is_finite())
+        || !(trace.a0 >= 0.0 && trace.a0.is_finite() && trace.a1 >= 0.0 && trace.a1.is_finite())
+        || !(damping_error >= 0.0 && damping_error.is_finite())
+        || [&trace.u, &trace.v, &trace.a, &trace.f].iter().any(|history| {
+            history.len() != steps || history.iter().any(|row| row.len() != n || row.iter().any(|v| !v.is_finite()))
+        })
+    {
+        return Err("invalid discrete trajectory".into());
+    }
     if trace.u[0].iter().chain(&trace.v[0]).any(|v| *v != 0.0)
         || trace.beta != 0.25
         || trace.gamma != 0.5
@@ -768,13 +849,11 @@ fn trajectory_error(
         .map(|((k, m), c)| k + m / (h * h) + c / h)
         .collect();
     let effective = Inverse::new(effective, n)?;
+    certify_recurrence(trace, &k, &m, &damping, &effective)?;
     let mut energy = 0.0;
-    let mut load_energy = 0.0;
     let mut energies = vec![0.0];
     let mut displacements = Vec::new();
     for t in 1..trace.u.len() {
-        let load: Vec<_> = trace.f[t].iter().zip(&trace.f[t - 1]).map(|(a, b)| a.abs() + b.abs()).collect();
-        load_energy += dot(&load, &effective.absolute_solve(&load)).max(0.0).sqrt();
         let (u, old_u, v, old_v) = (&trace.u[t], &trace.u[t - 1], &trace.v[t], &trace.v[t - 1]);
         let du: Vec<_> = (0..n)
             .map(|i| {
@@ -823,13 +902,6 @@ fn trajectory_error(
     if !energy.is_finite() {
         return Err("nonfinite trajectory defect".into());
     }
-    if !(relative_limit.is_finite()
-        && relative_limit >= 0.0
-        && load_energy.is_finite()
-        && energy <= relative_limit.min(dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE) * load_energy)
-    {
-        return Err("trajectory exceeds the independent load-based accuracy ceiling".into());
-    }
     Ok((energies, displacements))
 }
 
@@ -870,13 +942,7 @@ fn time_errors(
         return Err("unbounded damping coefficient uncertainty".into());
     }
     let damping_error = frequency / (1.0 - frequency);
-    let positive: Vec<_> = eigen.mu.iter().copied().filter(|m| *m > 0.0).collect();
-    let spectrum = cond.with_spectrum(
-        positive.iter().copied().fold(f64::INFINITY, f64::min),
-        positive.iter().copied().fold(0.0, f64::max),
-    );
-    let relative_limit = crate::checks2::rel_for("time history", 1e-10, &spectrum);
-    let (energies, defects) = trajectory_error(trace, damping_error, relative_limit)?;
+    let (energies, defects) = trajectory_error(trace, damping_error)?;
     let energy = *energies.last().unwrap();
     let velocity_integral: f64 = energies
         .windows(2)
@@ -1214,7 +1280,9 @@ fn unit_trajectory(u: f64, v: f64) -> dedaliano_engine::solver::time_integration
 
 #[test]
 fn issue_1892_zero_trajectory_cannot_certify_a_missing_response() {
-    assert!(trajectory_error(&unit_trajectory(0.0, 0.0), 0.0, 1e-10).is_err());
+    for damping_error in [0.0, 1e-4] {
+        assert!(trajectory_error(&unit_trajectory(0.0, 0.0), damping_error).is_err());
+    }
 }
 
 #[test]
@@ -1225,7 +1293,7 @@ fn issue_1892_absent_zero_load_projection_has_zero_error() {
 #[test]
 fn unit_trajectory_with_the_trapezoidal_response_is_certified() {
     let displacement = 2.0 / (1.0 + 4.0 + 0.2);
-    let (energies, _) = trajectory_error(&unit_trajectory(displacement, 2.0 * displacement), 0.0, 1e-10).unwrap();
+    let (energies, _) = trajectory_error(&unit_trajectory(displacement, 2.0 * displacement), 0.0).unwrap();
     assert!(*energies.last().unwrap() < gamma(100));
 }
 
@@ -1299,18 +1367,19 @@ fn issue_1892_scaled_trajectory_above_comparison_tolerance_is_rejected() {
         assert!(eps < dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE);
         let scale = 1.0 + eps;
         let trace = unit_trajectory(displacement * scale, 2.0 * displacement * scale);
-        let result = trajectory_error(&trace, 0.0, comparison_tolerance);
-        assert!(result.is_err(), "amplitude error {eps:e} certified: {result:?}");
+        for damping_error in [0.0, 1e-4] {
+            let result = trajectory_error(&trace, damping_error);
+            assert!(result.is_err(), "amplitude error {eps:e} certified with damping uncertainty {damping_error:e}: {result:?}");
+        }
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_round_four_correct_recurrence_survives_damping_uncertainty() {
     let displacement = 2.0 / (1.0 + 4.0 + 0.2);
     let trace = unit_trajectory(displacement, 2.0 * displacement);
     for damping_error in [1e-8, 1e-6, 1e-4] {
-        let result = trajectory_error(&trace, damping_error, 1e-10);
+        let result = trajectory_error(&trace, damping_error);
         assert!(result.is_ok(), "correct discrete response rejected: {result:?}");
     }
 }
