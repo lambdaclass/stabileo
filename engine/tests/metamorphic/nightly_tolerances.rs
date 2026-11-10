@@ -22,7 +22,7 @@ fn model(issue: u32) -> Model {
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-{issue}.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&text).unwrap();
     let dens: Option<std::collections::HashMap<String, f64>> = meta.get("_nightly_dens").map(|d| serde_json::from_value(d.clone()).unwrap());
-    let name = format!("issue-{issue}");
+    let name = meta["_nightly_name"].as_str().unwrap_or("replay").to_owned();
     match crate::corpus::parse(&text).unwrap() {
         crate::corpus::Model::D2(s) => {
             let mut c = Case2::new(name, s);
@@ -44,13 +44,11 @@ fn model(issue: u32) -> Model {
 fn replay(issue: u32, seed: u64, cells: &[(&str, &str)]) -> Cells {
     let t = Tally::default();
     let wanted = |n: &str| cells.iter().any(|c| c.0 == n);
-    let mut invariants: Vec<&str> = cells.iter().map(|c| c.1).filter(|i| *i != "symmetry").collect();
-    invariants.dedup();
     let symmetry = cells.iter().any(|c| c.1 == "symmetry");
     match model(issue) {
         Model::D2(c) => {
             let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| wanted(a.name)).collect();
-            crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: seed }, &c, &anas, &invariants);
+            crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: seed }, &c, &anas, crate::INV_2D);
             for anti in [false, true].into_iter().filter(|_| symmetry) {
                 if let Some(sym) = crate::symmetry::symmetrize_2d(&c.name, &c.s, anti) {
                     crate::symmetry::check_2d(&t, &sym, anti, &anas);
@@ -59,7 +57,7 @@ fn replay(issue: u32, seed: u64, cells: &[(&str, &str)]) -> Cells {
         }
         Model::D3(c) => {
             let anas: Vec<_> = crate::ana3::rows().into_iter().filter(|a| wanted(a.name)).collect();
-            crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &anas, &invariants);
+            crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &anas, crate::INV_3D);
             for anti in [false, true].into_iter().filter(|_| symmetry) {
                 if let Some(sym) = crate::symmetry::symmetrize_3d(&c.name, &c.s, anti) {
                     crate::symmetry::check_3d(&t, &sym, anti, &anas);
@@ -336,4 +334,166 @@ fn a_bound_check_past_the_reliability_limit_is_inconclusive() {
     };
     assert!(matches!(crate::checks2::bounded(&factor(2.01, true), &factor(2.0, false), 2e-3), Some(Verdict::Inconclusive(_))));
     assert!(matches!(crate::checks2::bounded(&factor(2.01, true), &factor(2.0, false), 1e-4), Some(Verdict::Fail(_))));
+}
+
+#[test]
+fn issue_1088_published_near_zero_response() {
+    holds(1088, 20759, &[("linear (PCG)", "symmetry")]);
+}
+
+#[test]
+fn issue_1089_published_near_zero_response() {
+    holds(1089, 20759, &[("load combinations", "symmetry")]);
+}
+
+#[test]
+fn issue_1100_published_near_zero_response() {
+    holds(1100, 20759, &[("time history", "mirror")]);
+}
+
+#[test]
+fn issue_1105_published_near_zero_response() {
+    holds(1105, 20759, &[("linear (sparse path)", "units")]);
+}
+
+#[test]
+fn issue_1194_published_near_zero_response() {
+    holds(1194, 2026110204980, &[("time history", "symmetry")]);
+}
+
+#[test]
+fn issue_1195_published_near_zero_response() {
+    holds(1195, 2026110203579, &[("constrained", "symmetry")]);
+}
+
+#[test]
+fn issue_1197_published_near_zero_response() {
+    holds(1197, 2026110201437, &[("fiber nonlinear", "symmetry")]);
+}
+
+#[test]
+fn issue_1198_published_near_zero_response() {
+    holds(1198, 2026110203935, &[("creep & shrinkage (t = t0)", "symmetry")]);
+}
+
+#[test]
+fn issue_1199_published_near_zero_response() {
+    holds(1199, 2026110201708, &[("linear (sparse path)", "symmetry")]);
+}
+
+#[test]
+fn issue_1201_published_near_zero_response() {
+    holds(1201, 2026110205194, &[("linear (dense reference)", "symmetry")]);
+}
+
+#[test]
+fn issue_1206_published_near_zero_response() {
+    holds(1206, 2026110203439, &[("time history (ground motion)", "symmetry")]);
+}
+
+#[test]
+fn issue_1268_published_near_zero_response() {
+    holds(1268, 2026110301179, &[("linear (sparse path)", "symmetry")]);
+}
+
+#[test]
+fn issue_1363_published_near_zero_response() {
+    holds(1363, 2026110406943, &[("time history", "symmetry")]);
+}
+
+#[test]
+fn issue_1206_seeded_ground_motion_errors_are_caught() {
+    let Model::D3(c) = model(1206) else { panic!("3D") };
+    let sym = crate::symmetry::symmetrize_3d(&c.name, &c.s, false).unwrap();
+    let c = &sym.case;
+    let a = ana3("time history (ground motion)");
+    let cond = crate::checks3::with_eigen_3d(conditioning::of_3d(&c.s).unwrap(), c);
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
+    let mass = dedaliano_engine::solver::mass_matrix::total_mass_by_direction_3d(&c.s, &c.dens);
+    let force: f64 = mass.iter().zip(c.p.ground).map(|(m, g)| m * g.abs()).sum();
+    assert_eq!(crate::checks3::action_floor_3d(c, a.name, cond.lchar), force);
+    let natural = force * crate::checks2::compliance(a.name, &cond)[0];
+    assert!(natural.is_finite() && natural > 0.0);
+    let got = (a.run)(c).unwrap();
+    let expected = got.iso3(&sym.iso).unwrap().relabel(&sym.pair).common(&got);
+    let cmp = |g: &Resp| compare_with_compliance(&g.flat(), &expected.flat(), cond.lchar, rel, force, crate::checks2::compliance(a.name, &cond));
+    cmp(&got).unwrap();
+    let mut wrong = got.clone();
+    nudge(&mut wrong, "u_t010", Some(2), 0, 2.0 * rel * natural);
+    assert!(cmp(&wrong).is_err(), "a near-zero displacement wrong relative to mass times acceleration passed");
+    let mut wrong = got.clone();
+    nudge(&mut wrong, "u_t010", Some(2), 0, natural);
+    assert!(cmp(&wrong).is_err(), "an ordinary displacement error passed");
+}
+
+#[test]
+fn physical_floors_preserve_ordinary_response_boundaries() {
+    use dedaliano_engine::metamorphic::compare::Flat;
+    let rel = 1e-10;
+    let (l, force, compliance) = (3.0, 7.0, [0.02, 0.03]);
+    let natural = [force * compliance[0], force * l * compliance[1], force, force * l];
+    for family in 0..4 {
+        let push = |f: &mut Flat, v| match family {
+            0 => f.push_t("value", v),
+            1 => f.push_r("value", v),
+            2 => f.push_f("value", v),
+            _ => f.push_m("value", v),
+        };
+        for magnitude in [0.0, 100.0 * natural[family]] {
+            let mut expected = Flat::default();
+            push(&mut expected, magnitude);
+            let cmp = |g: &Flat| compare_with_compliance(g, &expected, l, rel, force, compliance);
+            cmp(&expected).unwrap();
+            let scale = if magnitude == 0.0 { natural[family] } else { magnitude };
+            let mut accepted = Flat::default();
+            push(&mut accepted, magnitude + 0.5 * rel * scale);
+            let report = cmp(&accepted).unwrap();
+            if magnitude > 0.0 {
+                let ordinary = dedaliano_engine::metamorphic::compare::compare(&accepted, &expected, l, rel).unwrap();
+                assert_eq!(report.worst, ordinary.worst);
+            }
+            let mut rejected = Flat::default();
+            push(&mut rejected, magnitude + 2.0 * rel * scale);
+            assert!(cmp(&rejected).is_err(), "family {family}, magnitude {magnitude}");
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1088"]
+fn issue_1088_pdelta_plane_convergence() {
+    holds(1088, 20759, &[("P-Delta", "planes")]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1100"]
+fn issue_1100_nonlinear_mirror_convergence() {
+    holds(1100, 20759, &[("P-Delta", "mirror"), ("fiber nonlinear", "mirror")]);
+}
+
+#[test]
+fn ground_action_scale_follows_units_and_excitation() {
+    let Model::D3(c) = model(1206) else { panic!("3D") };
+    let name = "time history (ground motion)";
+    let cond = conditioning::of_3d(&c.s).unwrap();
+    let force = crate::checks3::action_floor_3d(&c, name, cond.lchar);
+    assert!(force > 0.0);
+    for u in [Units::froude(10.0, 3.0), Units::froude(0.1, 0.5)] {
+        let tc = c.units(&u);
+        let other = conditioning::of_3d(&tc.s).unwrap();
+        let scaled_force = crate::checks3::action_floor_3d(&tc, name, other.lchar);
+        assert!((scaled_force / force - u.force).abs() < 64.0 * f64::EPSILON * u.force);
+        let translation = force * cond.compliance()[0];
+        let scaled_translation = scaled_force * other.compliance()[0];
+        assert!((scaled_translation / translation - u.length).abs() < 64.0 * f64::EPSILON * u.length);
+    }
+    for row in ["linear", "time history", "spectral"] {
+        assert_eq!(crate::checks3::action_floor_3d(&c, row, cond.lchar), crate::checks3::load_floor_3d(&c.s, cond.lchar));
+    }
+    let mut zero = c.clone();
+    zero.p.ground = [0.0; 3];
+    assert_eq!(crate::checks3::action_floor_3d(&zero, name, cond.lchar), 0.0);
+    let mut heavier = c.clone();
+    heavier.dens.values_mut().for_each(|d| *d *= 4.0);
+    assert_eq!(crate::checks3::action_floor_3d(&heavier, name, cond.lchar), 4.0 * force);
 }

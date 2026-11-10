@@ -1,0 +1,93 @@
+{
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": -58.8315269373155,
+      "z": 33.31983586931372
+    },
+    "2": {
+      "id": 2,
+      "x": 58.892376012341884,
+      "z": 4.03967422971121
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 147462025.13985765,
+      "nu": 0.20112177672666504
+    },
+    "2": {
+      "id": 2,
+      "e": 16551.33463817205,
+      "nu": 0.1690092037472275
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "a": 0.023593186098750683,
+      "iz": 0.000024726248368796033,
+      "asY": null
+    },
+    "2": {
+      "id": 2,
+      "a": 0.006001165991324031,
+      "iz": 0.0000027895107990265007,
+      "asY": null
+    }
+  },
+  "elements": {
+    "1": {
+      "id": 1,
+      "type": "truss",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 2,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  },
+  "supports": {
+    "1": {
+      "id": 1,
+      "nodeId": 1,
+      "type": "pinned",
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "dx": null,
+      "dz": null,
+      "dry": null,
+      "angle": null
+    },
+    "2": {
+      "id": 2,
+      "nodeId": 2,
+      "type": "rollerZ",
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "dx": null,
+      "dz": null,
+      "dry": null,
+      "angle": null
+    }
+  },
+  "loads": [
+    {
+      "type": "pointOnElement",
+      "data": {
+        "elementId": 1,
+        "a": 0.5592643919008866,
+        "p": -267.41927551080266,
+        "px": null,
+        "my": null
+      }
+    }
+  ],
+  "constraints": [],
+  "connectors": {},
+  "solverOptions": null
+}
