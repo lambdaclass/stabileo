@@ -195,7 +195,7 @@ fn assert_honest(label: &str, cert: &Certificate, r: &Reduced) -> (f64, f64, f64
     assert!(err <= *abs_bound, "{label}: true error {err:e} exceeds bound {abs_bound:e}");
     let un = norm(&r.u);
     if un > 0.0 {
-        assert!(err / un <= *rel_bound * (1.0 + 1e-12), "{label}: relative bound violated");
+        assert!(err / un <= *rel_bound, "{label}: relative bound violated");
     }
     (*abs_bound, *rel_bound, err)
 }
@@ -532,9 +532,10 @@ fn assert_buckling_enclosure(name: &str, cert: &BucklingCertificate) -> (f64, Op
     let BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } = cert else {
         panic!("{name}: {cert:?}");
     };
-    assert!(*lambda_lower > 0.0 && lambda_lower <= lambda_computed, "{name}: {cert:?}");
+    assert!(*lambda_lower > 0.0, "{name}: buckling lower bound must be positive: {cert:?}");
+    assert!(lambda_lower <= lambda_computed, "{name}: buckling lower bound excludes computed factor: {cert:?}");
     if let Some(ub) = lambda_upper {
-        assert!(lambda_computed <= ub, "{name}: {cert:?}");
+        assert!(lambda_computed <= ub, "{name}: buckling upper bound excludes computed factor: {cert:?}");
     }
     (*lambda_lower, *lambda_upper)
 }
@@ -1066,7 +1067,7 @@ fn assert_honest_gen(cert: &Certificate, s: &GenSystem) -> (f64, f64) {
     assert!(err <= *abs_bound, "{}: true error {err:e} exceeds bound {abs_bound:e}", s.label);
     let un = norm(&s.u_glob);
     if un > 0.0 {
-        assert!(err / un <= *rel_bound * (1.0 + 1e-12), "{}: relative bound violated", s.label);
+        assert!(err / un <= *rel_bound, "{}: relative bound violated", s.label);
     }
     eprintln!("{}: n={} p={} abs={abs_bound:.2e} err={err:.2e}", s.label, s.n, s.p);
     (*abs_bound, err)
@@ -1551,21 +1552,25 @@ fn seeded_failure_mechanism_and_warning_oracles() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_buckling_certificate_oracle() {
     let input = make_column(4, 5.0, 200_000.0, 0.01, 1e-4, "pinned", "rollerX", -100.0);
     let out = certify_buckling_2d(&input, 1).unwrap();
     assert_buckling_enclosure("control", &out.certificate);
-    for fault in 0..3 {
+    for fault in 0..4 {
         let mut cert = out.certificate.clone();
         if let BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } = &mut cert {
             match fault {
                 0 => *lambda_lower = lambda_computed.next_up(),
                 1 => *lambda_computed = *lambda_lower * 0.5,
-                _ => *lambda_computed = lambda_upper.unwrap() * 1000.0,
+                2 => *lambda_computed = lambda_upper.unwrap() * 1000.0,
+                _ => *lambda_lower *= -1.0,
             }
         }
-        rejects_seeded_oracle(|| { assert_buckling_enclosure("seeded buckling", &cert); }, if fault < 2 { "buckling lower bound excludes computed factor" } else { "buckling upper bound excludes computed factor" });
+        rejects_seeded_oracle(|| { assert_buckling_enclosure("seeded buckling", &cert); }, match fault {
+            0 | 1 => "buckling lower bound excludes computed factor",
+            2 => "buckling upper bound excludes computed factor",
+            _ => "buckling lower bound must be positive",
+        });
     }
 }
 
@@ -1576,7 +1581,8 @@ fn assert_modal_enclosure(name: &str, lower: f64, upper: f64, omega2: f64) {
 fn assert_modal_result_enclosures(out: &dedaliano_engine::certify::modal::CertifiedModal2D) {
     use dedaliano_engine::certify::modal::ModalCertificate;
     let ModalCertificate::Certified { modes, .. } = &out.certificate else { panic!("control not certified") };
-    assert!(!modes.is_empty());
+    assert!(!modes.is_empty(), "no modal certificate values were compared");
+    assert_eq!(modes.len(), out.results.modes.len(), "modal result and certificate mode counts differ");
     for (e, m) in modes.iter().zip(&out.results.modes) {
         assert_modal_enclosure("control", e.omega2_lower, e.omega2_upper, m.omega * m.omega);
     }
@@ -1608,19 +1614,16 @@ fn modal_certificate_dropped_results(keep: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_modal_certificate_empty_results() {
     modal_certificate_dropped_results(0);
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_modal_certificate_truncated_results() {
     modal_certificate_dropped_results(1);
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_relative_certificate_just_below_error() {
     let input = portal();
     let (res, mut cert) = certify_linear_2d(&input).unwrap();
@@ -1638,7 +1641,6 @@ fn seeded_failure_relative_certificate_just_below_error() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1919"]
 fn seeded_failure_generalized_relative_certificate_just_below_error() {
     let input = tied_columns_2d();
     let (res, mut cert) = certify_linear_2d(&input).unwrap();
