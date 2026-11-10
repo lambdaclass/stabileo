@@ -287,10 +287,10 @@ image is ✗); no collapse factor is verified.
 | modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | ✓ |
 | certified modal | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
 | buckling | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · |
-| time history | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
+| time history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
 | time history (ground motion) | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
 | spectral | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| harmonic | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
+| harmonic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
 | plastic collapse | ✓ | · | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · |
 | kinematic check | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
 | moving loads | ✓ | · | ✓ | ✓ | ✓ | · | · | · | R | · | · |

@@ -511,6 +511,394 @@ fn ground_action_scale_follows_units_and_excitation() {
 }
 
 #[test]
+fn issue_1094_analysis_accuracy() {
+    holds(1094, 2026110203181, &[("linear (PCG)", "units")]);
+}
+
+#[test]
+fn issue_1211_analysis_accuracy() {
+    holds(1211, 2026110205346, &[("linear (PCG)", "symmetry")]);
+}
+
+#[test]
+fn issue_1369_analysis_accuracy() {
+    holds(1369, 2026110406225, &[("time history", "symmetry")]);
+}
+
+#[test]
+fn issue_1650_analysis_accuracy() {
+    holds(1650, 2026110706031, &[("harmonic", "reciprocity")]);
+}
+
+#[test]
+fn issue_1652_analysis_accuracy() {
+    holds(1652, 2026110702242, &[("moving loads", "reversal")]);
+}
+
+#[test]
+fn issue_1763_analysis_accuracy() {
+    holds(1763, 2026110805292, &[("buckling", "planes"), ("buckling", "mirror"), ("buckling", "relabel"), ("buckling", "rotation"), ("buckling", "units")]);
+}
+
+#[test]
+fn issue_1765_analysis_accuracy() {
+    holds(1765, 2026110801842, &[("linear (PCG)", "reciprocity")]);
+}
+
+#[test]
+#[ignore]
+fn analysis_accuracy_200_seed_sweep() {
+    let names = ["linear (PCG)", "time history", "harmonic", "moving loads", "buckling"];
+    let a2: Vec<_> = crate::ana2::rows().into_iter().filter(|a| names.contains(&a.name)).collect();
+    let a3: Vec<_> = crate::ana3::rows().into_iter().filter(|a| names.contains(&a.name)).collect();
+    let mut output = Vec::new();
+    for k in 0..200 {
+        let seed = 2026110200000 + k;
+        let t2 = Tally::default();
+        let t3 = Tally::default();
+        let c2 = crate::corpus::fuzz_case_2d(2026110200000, k);
+        let c3 = crate::corpus::fuzz_case_3d(2026110200000, k);
+        crate::checks2::check_case(&crate::checks2::Ctx { tally: &t2, rng_seed: seed }, &c2, &a2, crate::INV_2D);
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &t3, rng_seed: seed }, &c3, &a3, crate::INV_3D);
+        for anti in [false, true] {
+            if let Some(sym) = crate::symmetry::symmetrize_2d(&c2.name, &c2.s, anti) {
+                crate::symmetry::check_2d(&t2, &sym, anti, &a2);
+            }
+            if let Some(sym) = crate::symmetry::symmetrize_3d(&c3.name, &c3.s, anti) {
+                crate::symmetry::check_3d(&t3, &sym, anti, &a3);
+            }
+        }
+        if let Ok(dir) = std::env::var("ANALYSIS_ACCURACY_REPRODUCERS") {
+            std::fs::create_dir_all(&dir).unwrap();
+            for (dim, t, mut model) in [("2d", &t2, serde_json::to_value(&c2.s).unwrap()), ("3d", &t3, serde_json::to_value(&c3.s).unwrap())] {
+                if t.failures().is_empty() { continue; }
+                let (name, dens) = if dim == "2d" { (&c2.name, &c2.dens) } else { (&c3.name, &c3.dens) };
+                model["_nightly_name"] = serde_json::json!(name);
+                model["_nightly_dens"] = serde_json::json!(dens);
+                std::fs::write(format!("{dir}/seed-{seed}-{dim}.json"), serde_json::to_vec_pretty(&model).unwrap()).unwrap();
+            }
+        }
+        assert_retained_analysis_failures(seed, "d2", &t2);
+        assert_retained_analysis_failures(seed, "d3", &t3);
+        output.push(serde_json::json!({"seed": seed, "d2": t2.replay_results(), "d3": t3.replay_results()}));
+    }
+    if let Ok(path) = std::env::var("ANALYSIS_ACCURACY_SWEEP") {
+        std::fs::write(path, serde_json::to_vec_pretty(&output).unwrap()).unwrap();
+    }
+    let moving_3d = analysis_accuracy_moving_3d_coverage();
+    if let Ok(path) = std::env::var("ANALYSIS_ACCURACY_MOVING_COVERAGE") {
+        std::fs::write(path, serde_json::to_vec_pretty(&moving_3d).unwrap()).unwrap();
+    }
+    let baseline: serde_json::Value = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/analysis-accuracy-coverage.json")).unwrap();
+    for dim in ["d2", "d3"] {
+        let mut counts = std::collections::BTreeMap::<String, std::collections::BTreeMap<String, u64>>::new();
+        for row in output.iter().flat_map(|v| v[dim]["verdicts"].as_array().unwrap()) {
+            let key = format!("{} / {}", row["analysis"].as_str().unwrap(), row["invariant"].as_str().unwrap());
+            let c = counts.entry(key).or_default();
+            *c.entry("compared".into()).or_default() += row["pass"].as_u64().unwrap() + row["fail"].as_u64().unwrap() + row["inconclusive"].as_u64().unwrap();
+            for field in ["pass", "fail", "inconclusive", "refused", "same_refusal", "unrepresentable", "not_applicable"] {
+                *c.entry(field.into()).or_default() += row[field].as_u64().unwrap();
+            }
+        }
+        assert_eq!(serde_json::to_value(counts).unwrap(), baseline[dim], "{dim}: the 200-seed coverage fraction changed");
+        let sum = |key: &str| output.iter().flat_map(|v| v[dim]["verdicts"].as_array().unwrap()).map(|c| c[key].as_u64().unwrap()).sum::<u64>();
+        eprintln!("{dim}: pass={} fail={} refused={} inconclusive={}", sum("pass"), sum("fail"), sum("refused"), sum("inconclusive"));
+    }
+}
+
+#[test]
+fn analysis_accuracy_certificates_cover_the_published_models() {
+    let Model::D2(pc) = model(1765) else { panic!("2D") };
+    let pr = (ana2("linear (PCG)").run)(&pc).unwrap();
+    assert!(pr.0.iter().any(|i| i.tag == "ry" && i.error > 0.0));
+
+    let Model::D2(c) = model(1652) else { panic!("2D") };
+    let input = dedaliano_engine::types::MovingLoadInput {
+        solver: c.s.clone(),
+        train: dedaliano_engine::types::LoadTrain { name: "two axles".into(), axles: vec![dedaliano_engine::types::Axle { offset: 0.0, weight: c.p.axle }, dedaliano_engine::types::Axle { offset: 3.0 * c.p.step, weight: 0.5 * c.p.axle }] },
+        step: Some(c.p.step), path_element_ids: c.path.clone(),
+    };
+    let env = dedaliano_engine::solver::moving_loads::solve_moving_loads_2d(&input).unwrap();
+    let mut r = (ana2("moving loads").run)(&c).unwrap();
+    crate::analysis_accuracy::moving_2d(&c, &env, &mut r).unwrap();
+    assert!(r.0.iter().filter(|i| i.tag == "M").all(|i| i.error > 0.0 && i.error.is_finite()));
+    let Model::D2(c) = model(1763) else { panic!("2D") };
+    let mut r = (ana2("buckling").run)(&c).unwrap();
+    crate::analysis_accuracy::buckling_2d(&c, &mut r).unwrap();
+    assert!(r.0.iter().all(|i| i.error > 0.0 && i.error.is_finite()));
+}
+
+#[test]
+fn analysis_accuracy_planted_errors_still_fail() {
+    for (issue, name, tag, relative_error) in [(1765, "linear (PCG)", "ry", 1e-6), (1652, "moving loads", "M", 1e-6), (1763, "buckling", "lambda2", 1e-3)] {
+        let Model::D2(c) = model(issue) else { panic!("2D") };
+        let a = ana2(name);
+        let cond = crate::checks2::with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), &c);
+        let rel = crate::checks2::rel_for(name, a.iter_tol, &cond);
+        let expected = (a.run)(&c).unwrap();
+        let mut got = expected.clone();
+        let floor = crate::checks2::load_floor_2d(&c.s, cond.lchar);
+        let cmp = |g: &Resp| crate::analysis_accuracy::compare(g, &expected, cond.lchar, rel, floor, crate::checks2::compliance(name, &cond));
+        cmp(&got).unwrap();
+        let it = got.0.iter_mut().find(|i| i.tag == tag && i.v.iter().any(|v| *v != 0.0)).unwrap();
+        let natural = if tag == "ry" { expected.flat().r.maxabs().max(expected.flat().t.maxabs() / cond.lchar).max(floor * cond.lchar * cond.compliance()[1]) }
+            else { it.v.iter().fold(it.floor, |s, v| s.max(v.abs())) };
+        let change = relative_error * natural;
+        it.v[0] += change;
+        assert!(cmp(&got).is_err(), "#{issue}: planted {change:e} ({relative_error:e} of {natural:e}) passed");
+    }
+    let Model::D3(c) = model(1650) else { panic!("3D") };
+    let a = ana3("harmonic");
+    let cond = conditioning::of_3d(&c.s).unwrap();
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond);
+    let expected = (a.run)(&c).unwrap();
+    let mut got = expected.clone();
+    let natural = dedaliano_engine::solver::linear::solve_3d(&c.s).unwrap().displacements.iter().flat_map(|d| [d.ux.abs(), d.uy.abs(), d.uz.abs()]).fold(0.0, f64::max);
+    let node = got.0.iter().find(|i| i.tag == "H_re0").unwrap().node;
+    nudge(&mut got, "H_re0", node, 0, 1e-3 * natural);
+    assert!(crate::analysis_accuracy::compare(&got, &expected, cond.lchar, rel, crate::checks3::action_floor_3d(&c, a.name, cond.lchar), crate::checks2::compliance(a.name, &cond)).is_err());
+}
+
+#[test]
+fn analysis_accuracy_ordinary_response_ratio_is_unchanged() {
+    use crate::response::{Dim, Kind};
+    for kind in [Kind::V2(Dim::LEN), Kind::P2(Dim::NONE), Kind::Local(Dim::NONE, false), Kind::Pair(Dim::MOMENT, false)] {
+        let mut expected = Resp::default();
+        let n = if matches!(kind, Kind::V2(_) | Kind::Pair(..)) { 2 } else { 1 };
+        expected.push(None, None, "ordinary", kind, vec![1e6; n]);
+        expected.0[0].error = 1e-8;
+        let mut got = expected.clone();
+        got.0[0].v[0] += 1e-4;
+        let legacy = compare_with_compliance(&got.flat(), &expected.flat(), 1.0, 1e-9, 0.0, [0.0; 2]).unwrap();
+        let bounded = crate::analysis_accuracy::compare(&got, &expected, 1.0, 1e-9, 0.0, [0.0; 2]).unwrap();
+        assert_eq!(legacy.worst.to_bits(), bounded.worst.to_bits());
+        got.0[0].v[0] += 1.0;
+        assert!(crate::analysis_accuracy::compare(&got, &expected, 1.0, 1e-9, 0.0, [0.0; 2]).is_err());
+        got.0[0].error = f64::INFINITY;
+        assert!(crate::analysis_accuracy::compare(&got, &expected, 1.0, 1e-9, 0.0, [0.0; 2]).is_err());
+    }
+}
+
+#[test]
+fn analysis_accuracy_time_history_plant_is_rejected() {
+    let Model::D3(c) = model(1369) else { panic!("3D") };
+    let a = ana3("time history");
+    let cond = crate::checks3::with_eigen_3d(conditioning::of_3d(&c.s).unwrap(), &c);
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond);
+    let expected = (a.run)(&c).unwrap();
+    assert!(expected.0.iter().any(|i| i.error > 0.0));
+    let mut got = expected.clone();
+    let floor = crate::checks3::action_floor_3d(&c, a.name, cond.lchar);
+    let natural = expected.flat().r.maxabs().max(expected.flat().t.maxabs() / cond.lchar).max(floor * cond.lchar * cond.compliance()[1]);
+    let node = got.0.iter().find(|i| i.tag == "r_t060" && i.v.iter().any(|v| *v != 0.0)).unwrap().node;
+    nudge(&mut got, "r_t060", node, 0, 1e-6 * natural);
+    let verdict = crate::analysis_accuracy::compare(&got, &expected, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond));
+    assert!(verdict.is_err(), "rel={rel:e}, natural={natural:e}, largest bound={:e}, report={verdict:?}, legacy={:?}", expected.0.iter().map(|i| i.error).fold(0.0, f64::max), compare_with_compliance(&got.flat(), &expected.flat(), cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)));
+}
+
+fn unit_stiffness_case(three: bool) -> serde_json::Value {
+    let mut v = serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 1.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 1.0, "nu": 0.0}},
+        "sections": {"1": {"id": 1, "a": 1.0, "iz": 1.0}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}, "2": {"id": 2, "nodeId": 2, "type": "roller_x"}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 1.0, "fz": 0.0, "my": 0.0}}]
+    });
+    if three {
+        for n in v["nodes"].as_object_mut().unwrap().values_mut() { n["y"] = 0.0.into(); }
+        v["sections"]["1"]["iy"] = 1.0.into();
+        v["sections"]["1"]["j"] = 1.0.into();
+        for id in ["1", "2"] {
+            v["supports"][id] = serde_json::json!({"nodeId": id.parse::<usize>().unwrap(), "rx": id == "1", "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true});
+        }
+        for key in ["fy", "mx", "mz"] { v["loads"][0]["data"][key] = 0.0.into(); }
+    } else {
+        v["supports"]["2"] = serde_json::json!({"id": 2, "nodeId": 2, "type": "spring", "kz": 1.0, "ky": 1.0});
+    }
+    v
+}
+
+#[test]
+fn analysis_accuracy_zeroed_pcg_2d_before_certification_is_rejected() {
+    let c = Case2::new("unit stiffness", serde_json::from_value(unit_stiffness_case(false)).unwrap());
+    let expected = crate::response::static_2d(&dedaliano_engine::solver::linear::solve_2d(&c.s).unwrap());
+    let mut got = expected.clone();
+    for i in got.0.iter_mut().filter(|i| i.tag == "u" || i.tag == "ry") { i.v.fill(0.0); }
+    crate::analysis_accuracy::attach(&mut got, |r| crate::analysis_accuracy::pcg_2d(&c, r));
+    assert!(crate::analysis_accuracy::compare(&got, &expected, 1.0, 1e-10, 0.0, [0.0; 2]).is_err());
+}
+
+#[test]
+fn analysis_accuracy_zeroed_pcg_3d_before_certification_is_rejected() {
+    let c = Case3::new("unit stiffness", serde_json::from_value(unit_stiffness_case(true)).unwrap());
+    let expected = crate::response::static_3d(&dedaliano_engine::solver::linear::solve_3d(&c.s).unwrap());
+    let mut got = expected.clone();
+    for i in got.0.iter_mut().filter(|i| i.tag == "u" || i.tag == "r") { i.v.fill(0.0); }
+    crate::analysis_accuracy::attach(&mut got, |r| crate::analysis_accuracy::pcg_3d(&c, r));
+    assert!(crate::analysis_accuracy::compare(&got, &expected, 1.0, 1e-10, 0.0, [0.0; 2]).is_err());
+}
+
+fn retained_analysis_failures(seed: u64, dim: &str) -> Vec<(&'static str, &'static str)> {
+    match (seed, dim) {
+        (2026110200030, "d2") => vec![("harmonic", "relabel"), ("harmonic", "units")],
+        (2026110200045, "d3") | (2026110200167 | 2026110200176, "d2") => vec![("harmonic", "units")],
+        (2026110200115, "d3") => vec![("linear (PCG)", "units")],
+        (2026110200131, "d3") => ["harmonic", "time history"].into_iter().flat_map(|a| ["relabel", "rotation", "units"].map(|i| (a, i))).collect(),
+        _ => vec![],
+    }
+}
+
+fn assert_retained_analysis_failures(seed: u64, dim: &str, t: &Tally) {
+    assert_analysis_failures(seed, dim, t, retained_analysis_failures(seed, dim));
+}
+
+fn assert_analysis_failures(seed: u64, dim: &str, t: &Tally, expected: Vec<(&str, &str)>) {
+    let cells = t.cells.lock().unwrap();
+    let actual: std::collections::BTreeSet<_> = cells.iter().filter(|(_, c)| !c.fails.is_empty()).map(|((a, i), _)| (a.as_str(), i.as_str())).collect();
+    assert_eq!(actual, expected.iter().copied().collect(), "{seed} {dim}: failing cells differ from the retained failures");
+    for (a, i) in expected {
+        let c = cell(&cells, 1892, a, i);
+        assert!(!c.fails.is_empty(), "{seed} {dim}: {a} / {i} stopped flagging the retained failure: {c:?}");
+        assert_eq!(c.pass, 0, "{seed} {dim}: {a} / {i} silently passed");
+    }
+}
+
+#[test]
+fn analysis_accuracy_retained_wrong_result_cells_stay_failures() {
+    for (seed, dim) in [(2026110200030, "d2"), (2026110200045, "d3"), (2026110200115, "d3"), (2026110200131, "d3"), (2026110200167, "d2"), (2026110200176, "d2")] {
+        let t = Tally::default();
+        let cells = retained_analysis_failures(seed, dim);
+        let names: Vec<_> = cells.iter().map(|c| c.0).collect();
+        if dim == "d2" {
+            let c = crate::corpus::fuzz_case_2d(2026110200000, seed - 2026110200000);
+            let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| names.contains(&a.name)).collect();
+            crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: seed }, &c, &anas, crate::INV_2D);
+        } else {
+            let c = crate::corpus::fuzz_case_3d(2026110200000, seed - 2026110200000);
+            let anas: Vec<_> = crate::ana3::rows().into_iter().filter(|a| names.contains(&a.name)).collect();
+            crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &anas, crate::INV_3D);
+        }
+        assert_retained_analysis_failures(seed, dim, &t);
+    }
+}
+
+fn moving_deck_3d() -> Case3 {
+    Case3::new("moving deck", serde_json::from_str(include_str!("../fixtures/ex-3d-torsion-beam-input.json")).unwrap())
+}
+
+fn analysis_accuracy_moving_3d_coverage() -> serde_json::Value {
+    let t = Tally::default();
+    let c = moving_deck_3d();
+    for u in [Units::froude(1.0, 1.0), Units::froude(0.3048, 4.448)] {
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: 2026110200000 }, &c.units(&u), &[ana3("moving loads")], &["relabel", "units", "reversal"]);
+    }
+    for inv in ["relabel", "units", "reversal"] {
+        let cells = t.cells.lock().unwrap();
+        let c = cell(&cells, 1892, "moving loads", inv);
+        assert!(c.pass > 0 && c.fails.is_empty(), "3D moving loads / {inv}: {c:?}");
+    }
+    t.replay_results()
+}
+
+#[test]
+fn analysis_accuracy_moving_3d_compares_transforms_and_rejects_a_plant() {
+    analysis_accuracy_moving_3d_coverage();
+    let c = moving_deck_3d();
+    let a = ana3("moving loads");
+    let u = Units::froude(0.3048, 4.448);
+    let tc = c.units(&u);
+    let cond = conditioning::of_3d(&c.s).unwrap().worst(&conditioning::of_3d(&tc.s).unwrap());
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond);
+    let expected = (a.run)(&c).unwrap().units(&u);
+    let mut got = (a.run)(&tc).unwrap();
+    assert!(got.0.iter().any(|i| i.error > 0.0 && i.error.is_finite()));
+    let cmp = |r: &Resp| crate::analysis_accuracy::compare(r, &expected, cond.lchar, rel, crate::checks3::load_floor_3d(&tc.s, cond.lchar), cond.compliance());
+    cmp(&got).unwrap();
+    let it = got.0.iter_mut().find(|i| i.tag == "My" && i.v.iter().any(|v| *v != 0.0)).unwrap();
+    let natural = it.v.iter().fold(it.floor, |m, v| m.max(v.abs()));
+    it.v[0] += 1e-6 * natural;
+    assert!(cmp(&got).is_err());
+}
+
+#[test]
+fn issue_1892_dynamic_3d_mirrors_must_compare() {
+    let Model::D3(c) = model(1369) else { panic!("3D") };
+    for name in ["harmonic", "time history"] {
+        let t = Tally::default();
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: 2026110406225 }, &c, &[ana3(name)], &["relabel", "mirror"]);
+        let cells = t.cells.lock().unwrap();
+        for inv in ["relabel", "mirror"] {
+            let c = cell(&cells, 1892, name, inv);
+            assert!(c.pass > 0 && c.fails.is_empty(), "{name} / {inv}: {c:?}");
+        }
+    }
+}
+
+#[test]
+#[ignore]
+fn analysis_accuracy_dynamic_3d_mirror_coverage() {
+    let t = Tally::default();
+    let anas = [ana3("harmonic"), ana3("time history")];
+    for k in 0..200 {
+        let seed = 2026110200000 + k;
+        let c = crate::corpus::fuzz_case_3d(2026110200000, k);
+        let per_seed = Tally::default();
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &per_seed, rng_seed: seed }, &c, &anas, &["mirror"]);
+        assert_analysis_failures(seed, "d3 mirror", &per_seed, retained_analysis_failures(seed, "d3").into_iter().filter(|(_, i)| *i == "mirror").collect());
+        for ((a, i), c) in per_seed.cells.into_inner().unwrap() {
+            let mut cells = t.cells.lock().unwrap();
+            let total = cells.entry((a, i)).or_default();
+            total.pass += c.pass;
+            total.refused += c.refused;
+            total.same_refusal += c.same_refusal;
+            total.unrep += c.unrep;
+            total.not_applicable += c.not_applicable;
+            total.inconclusive += c.inconclusive;
+            total.fails.extend(c.fails);
+        }
+    }
+    let result = t.replay_results();
+    if let Ok(path) = std::env::var("ANALYSIS_ACCURACY_MIRROR_COVERAGE") {
+        std::fs::write(path, serde_json::to_vec_pretty(&result).unwrap()).unwrap();
+    }
+    let baseline: serde_json::Value = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/analysis-accuracy-coverage.json")).unwrap();
+    for row in result["verdicts"].as_array().unwrap() {
+        let name = row["analysis"].as_str().unwrap();
+        let compared = row["pass"].as_u64().unwrap() + row["fail"].as_u64().unwrap() + row["inconclusive"].as_u64().unwrap();
+        assert!(compared > 0, "{name}: no mirrors compared");
+        assert!(row["pass"].as_u64().unwrap() > 0, "{name}: no mirrors passed");
+        assert_eq!(compared + row["refused"].as_u64().unwrap() + row["same_refusal"].as_u64().unwrap() + row["unrepresentable"].as_u64().unwrap(), 200, "{name}: a seed was not recorded");
+        assert_eq!(row["not_applicable"], 0, "{name}: applicable mirrors were skipped");
+        let mut counts = serde_json::json!({"compared": compared});
+        for field in ["pass", "fail", "inconclusive", "refused", "same_refusal", "unrepresentable", "not_applicable"] {
+            counts[field] = row[field].clone();
+        }
+        assert_eq!(counts, baseline["d3"][format!("{name} / mirror")], "{name} mirror coverage changed");
+    }
+
+}
+
+#[test]
+fn dynamic_3d_mirror_response_distinguishes_polar_and_axial_vectors() {
+    use crate::response::{Dim, Kind};
+    for (axis, polar, axial) in [
+        (0, [-1.0, 2.0, 3.0], [1.0, -2.0, -3.0]),
+        (1, [1.0, -2.0, 3.0], [-1.0, 2.0, -3.0]),
+        (2, [1.0, 2.0, -3.0], [-1.0, -2.0, 3.0]),
+    ] {
+        let mut r = Resp::default();
+        for tag in ["u_t010", "H_re0", "H_im0"] {
+            r.push(Some(1), None, tag, Kind::V3(Dim::LEN), vec![1.0, 2.0, 3.0]);
+        }
+        r.push(Some(1), None, "r_t010", Kind::V3(Dim::NONE), vec![1.0, 2.0, 3.0]);
+        let mirrored = r.mirror3(axis).unwrap();
+        for item in &mirrored.0[..3] { assert_eq!(item.v, polar); }
+        assert_eq!(mirrored.0[3].v, axial);
+    }
+}
+
+#[test]
 fn issue_1203_harmonic_symmetry() {
     let cells = replay(1203, 2026110201350, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1203, "harmonic", "symmetry");
@@ -777,8 +1165,9 @@ fn unresolved_harmonic_accuracy_is_inconclusive() {
     let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap();
     let a = ana2("harmonic");
     let mut got = (a.run)(&sym.case).unwrap();
+    let accuracy = crate::dynamic_accuracy::harmonic_2d(&sym.case).unwrap();
     for item in &mut got.0 {
-        item.floor = crate::dynamic_accuracy::harmonic_floor(None, 0.0, (0.0, 0.0), 0.0, 1.0, 0.0);
+        item.floor = crate::dynamic_accuracy::harmonic_floor(Some(&accuracy), f64::NAN, (0.0, 0.0), 0.0, 1.0, 0.0);
     }
     let cond = conditioning::of_2d(&sym.case.s).unwrap();
     let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
@@ -1099,5 +1488,119 @@ fn small_cluster_ordinary_ratios_and_planted_errors() {
         let mut got = expected.clone();
         nudge(&mut got, tag, None, 0, 2.0 * rel * scale);
         assert!(matches!(crate::checks2::judge_split(&got, &expected, rel, rel, cmp), Verdict::Fail(_)), "planted error in {tag} passed");
+    }
+}
+
+#[test]
+fn issue_1892_round_four_correct_dynamic_mirrors_keep_coverage() {
+    let _strict = crate::generated::Strict::enter();
+    let seed = 20261018;
+    for spatial in [false, true] {
+        let t = Tally::default();
+        let text = serde_json::to_string(&crate::generated::model(seed, spatial)).unwrap();
+        if spatial {
+            let crate::corpus::Model::D3(s) = crate::corpus::parse(&text).unwrap() else { panic!("3D") };
+            let c = Case3::new(format!("generated/{seed}/3d"), s);
+            let response = (ana3("time history").run)(&c).unwrap();
+            assert!(response.0.iter().any(|i| i.error > 0.0 && i.error.is_finite()), "3D correct trajectory lost its certificate");
+            crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &[ana3("time history")], crate::INV_3D);
+        } else {
+            let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D") };
+            let c = Case2::new(format!("generated/{seed}/2d"), s);
+            let response = (ana2("time history").run)(&c).unwrap();
+            assert!(response.0.iter().any(|i| i.error > 0.0 && i.error.is_finite()), "2D correct trajectory lost its certificate");
+            crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: seed }, &c, &[ana2("time history")], crate::INV_2D);
+        }
+        let cells = t.cells.lock().unwrap();
+        for inv in ["mirror", "relabel", "units"] {
+            let c = cell(&cells, 1892, "time history", inv);
+            assert_eq!((c.pass, c.inconclusive, c.refused, c.same_refusal, c.fails.len()), (1, 0, 0, 0, 0), "spatial={spatial} {inv}: {c:?}");
+        }
+    }
+}
+
+#[test]
+fn issue_1892_final_round_unexpected_failure_turns_the_seed_red() {
+    for invariant in ["units", "mirror"] {
+        let t = Tally::default();
+        t.record("harmonic", invariant, "passing seed", Verdict::Pass(0.0));
+        assert_retained_analysis_failures(2026110200000, "d3", &t);
+        {
+            let mut cells = t.cells.lock().unwrap();
+            let c = cells.get_mut(&("harmonic".into(), invariant.into())).unwrap();
+            c.pass -= 1;
+            c.fails.push("planted response regression".into());
+        }
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| assert_retained_analysis_failures(2026110200000, "d3", &t))).is_err(), "{invariant}: a passing cell became failing without rejecting the seed");
+    }
+}
+
+#[test]
+fn issue_1892_final_round_baseline_records_pass_and_fail() {
+    let baseline: serde_json::Value = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/analysis-accuracy-coverage.json")).unwrap();
+    for dim in ["d2", "d3"] {
+        for (name, c) in baseline[dim].as_object().unwrap() {
+            assert_eq!(c["pass"].as_u64().zip(c["fail"].as_u64()).map(|(p, f)| p + f + c["inconclusive"].as_u64().unwrap()), c["compared"].as_u64(), "{dim} {name}: missing pass/fail accounting");
+        }
+    }
+}
+
+fn harmonic_limit_model(spatial: bool) -> serde_json::Value {
+    let mut v = unit_stiffness_case(spatial);
+    v["supports"].as_object_mut().unwrap().remove("2");
+    for id in 3..=30 {
+        let mut node = v["nodes"]["2"].clone();
+        node["id"] = id.into();
+        node["x"] = (id - 1).into();
+        v["nodes"][id.to_string()] = node;
+        let mut element = v["elements"]["1"].clone();
+        element["id"] = (id - 1).into();
+        element["nodeI"] = (id - 1).into();
+        element["nodeJ"] = id.into();
+        v["elements"][(id - 1).to_string()] = element;
+    }
+    v
+}
+
+#[test]
+fn issue_1892_final_round_missing_harmonic_estimate_keeps_2d_response() {
+    let mut c = Case2::new("accuracy limit", serde_json::from_value(harmonic_limit_model(false)).unwrap());
+    c.p.symmetry = true;
+    assert!(crate::dynamic_accuracy::harmonic_2d(&c).is_err());
+    conditioning::of_2d(&c.s).unwrap();
+    let response = (ana2("harmonic").run)(&c).unwrap();
+    assert!(response.0.iter().all(|i| i.floor.is_finite() && i.error == 0.0));
+}
+
+#[test]
+fn issue_1892_final_round_missing_harmonic_estimate_keeps_3d_response() {
+    let mut c = Case3::new("accuracy limit", serde_json::from_value(harmonic_limit_model(true)).unwrap());
+    c.p.symmetry = true;
+    assert!(crate::dynamic_accuracy::harmonic_3d(&c).is_err());
+    conditioning::of_3d(&c.s).unwrap();
+    let response = (ana3("harmonic").run)(&c).unwrap();
+    assert!(response.0.iter().all(|i| i.floor.is_finite() && i.error == 0.0));
+}
+
+#[test]
+fn issue_1892_final_round_moving_moments_use_each_members_distance() {
+    let mut v = unit_stiffness_case(true);
+    v["supports"].as_object_mut().unwrap().remove("2");
+    v["nodes"]["3"] = serde_json::json!({"id": 3, "x": 3.0, "y": 0.0, "z": 0.0});
+    v["elements"]["2"] = v["elements"]["1"].clone();
+    v["elements"]["2"]["id"] = 2.into();
+    v["elements"]["2"]["nodeI"] = 2.into();
+    v["elements"]["2"]["nodeJ"] = 3.into();
+    let c3 = Case3::new("unequal members", serde_json::from_value(v.clone()).unwrap());
+    v["supports"]["1"] = serde_json::json!({"id": 1, "nodeId": 1, "type": "fixed"});
+    for key in ["fy", "mx", "mz"] { v["loads"][0]["data"].as_object_mut().unwrap().remove(key); }
+    for node in v["nodes"].as_object_mut().unwrap().values_mut() { node.as_object_mut().unwrap().remove("y"); }
+    let c2 = Case2::new("unequal members", serde_json::from_value(v).unwrap());
+    for r in [(ana2("moving loads").run)(&c2).unwrap(), (ana3("moving loads").run)(&c3).unwrap()] {
+        for tag in ["M", "My", "Mz"] {
+            let Some(short) = r.0.iter().find(|i| i.elem == Some(1) && i.tag == tag) else { continue };
+            let long = r.0.iter().find(|i| i.elem == Some(2) && i.tag == tag).unwrap();
+            assert!(short.error > 0.0 && short.error < long.error, "{tag}: short={} long={}", short.error, long.error);
+        }
     }
 }

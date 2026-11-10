@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Stand 10. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 und SA-2026-025 bis 047 in Version 0.5.0 (SA-2026-040 eingedämmt: Die Prüfung ist als unvollständig gekennzeichnet), außer SA-2026-044: Der plastische Kollaps in 2D bleibt abgelehnt, bis #758 geschlossen ist. SA-2026-048 wurde nach Version 0.5.0 behoben und ist seit dem 8. November 2026 auf stabileo.com online. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 und SA-2026-053 wurden nach Version 0.5.0 behoben und sind seit dem 9. November 2026 auf stabileo.com online. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben. SA-2026-055 / SA-2026-057 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht."
+      "t": "Stand 10. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 und SA-2026-025 bis 047 in Version 0.5.0 (SA-2026-040 eingedämmt: Die Prüfung ist als unvollständig gekennzeichnet), außer SA-2026-044: Der plastische Kollaps in 2D bleibt abgelehnt, bis #758 geschlossen ist. SA-2026-048 wurde nach Version 0.5.0 behoben und ist seit dem 8. November 2026 auf stabileo.com online. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 und SA-2026-053 wurden nach Version 0.5.0 behoben und sind seit dem 9. November 2026 auf stabileo.com online. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben. SA-2026-055 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-056 — Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht. SA-2026-057 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
@@ -206,6 +206,12 @@ const body: PostBody = {
           "Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026"
         ],
         ["SA-2026-055", "P-Delta in 2D und 3D konnte Vergrößerungen unterschätzen und Stabilität melden, wenn die Normalkraft unter Strecken- oder Einzellasten entlang eines Rahmenstabs variierte", "Hoch", "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"],
+        [
+          "SA-2026-056",
+          "3D-Modelle mit Rahmen, Schalen und Zwangsbedingungen: harmonische und erzwungene Zeitverlaufsanalysen liefern bei gleichwertigen Beschreibungen unterschiedliche Ergebnisse; der Umfang über das gespeicherte Modell hinaus ist nicht geklärt",
+          "Hoch",
+          "Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht"
+        ],
         [
           "SA-2026-057",
           "Die Anzeige plastischer Zertifikate konnte Faktoren außerhalb des zertifizierten Intervalls als innerhalb einstufen; die exakte Mechanismenermittlung verwarf Ressourcenablehnungen in Builds von PR #1888 vor der Korrektur",

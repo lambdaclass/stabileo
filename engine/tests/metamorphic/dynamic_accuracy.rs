@@ -25,7 +25,7 @@ fn pencil(
     translations: usize,
 ) -> Result<Pencil, String> {
     let nf = dof.n_free;
-    if nf == 0 {
+    if nf == 0 || nf > dedaliano_engine::metamorphic::conditioning::DENSE_EIGEN_MAX {
         return Err("empty dynamic pencil".into());
     }
     let ids: Vec<_> = (0..nf).collect();
@@ -72,6 +72,9 @@ fn pencil(
 
 fn pencil_2d(c: &Case2) -> Result<Pencil, String> {
     let dof = DofNumbering::build_2d(&c.s);
+    if dof.n_free > dedaliano_engine::metamorphic::conditioning::DENSE_EIGEN_MAX {
+        return Err("dynamic pencil exceeds the dense accuracy limit".into());
+    }
     let asm = assembly::assemble_2d(&c.s, &dof);
     let mass = mass_matrix::assemble_mass_matrix_2d_sparse_inclined(
         &c.s,
@@ -87,6 +90,9 @@ fn pencil_2d(c: &Case2) -> Result<Pencil, String> {
 fn pencil_3d(c: &Case3) -> Result<Pencil, String> {
     let s = dedaliano_engine::solver::linear::expand_curved_beams_3d(&c.s);
     let dof = DofNumbering::build_3d(&s);
+    if dof.n_free > dedaliano_engine::metamorphic::conditioning::DENSE_EIGEN_MAX {
+        return Err("dynamic pencil exceeds the dense accuracy limit".into());
+    }
     let asm = assembly::assemble_3d(&s, &dof);
     let mass = mass_matrix::assemble_mass_matrix_3d_sparse_inclined(
         &s,
@@ -431,12 +437,12 @@ pub fn harmonic_floor(
     rel: f64,
     modal_residual: f64,
 ) -> f64 {
-    let Some(accuracy) = accuracy else {
-        return f64::INFINITY;
-    };
     if !(modal_residual >= 0.0 && modal_residual < f64::MAX) {
         return f64::INFINITY;
     }
+    let Some(accuracy) = accuracy else {
+        return 0.0;
+    };
     let omega = 2.0 * std::f64::consts::PI * frequency;
     let error = accuracy.harmonic_error(omega, damping, assembly_error);
     let truncation = if modal_residual == 0.0 {
@@ -873,4 +879,18 @@ fn final_round_nan_modal_residual_rejects_comparison() {
         vectors: vec![1.0],
     };
     assert_nonfinite_form_comparison_rejected(pencil.spectrum_from(eig).map(|a| a.residual));
+}
+
+#[test]
+fn issue_1892_final_round_missing_harmonic_estimate_adds_no_allowance() {
+    assert_eq!(harmonic_floor(None, 1.0, (0.1, 0.1), 1e-10, 1e-10, 0.0), 0.0);
+}
+
+#[test]
+fn issue_1892_last_round_missing_accuracy_still_validates_modal_residual() {
+    for residual in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0, f64::MAX] {
+        assert_eq!(harmonic_floor(None, 1.0, (0.1, 0.1), 1e-10, 1e-10, residual), f64::INFINITY,
+            "invalid modal residual {residual:?} bypassed integrity validation");
+    }
+    assert_eq!(harmonic_floor(None, 1.0, (0.1, 0.1), 1e-10, 1e-10, 0.0), 0.0);
 }

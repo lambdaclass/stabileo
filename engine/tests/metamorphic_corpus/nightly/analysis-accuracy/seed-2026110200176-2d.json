@@ -1,0 +1,266 @@
+{
+  "_nightly_dens": {
+    "1": 2484.527779883953
+  },
+  "_nightly_name": "fuzz_rich_2d/2026110200176",
+  "connectors": {},
+  "constraints": [
+    {
+      "dofs": [
+        1
+      ],
+      "masterNode": 9,
+      "slaveNode": 2,
+      "type": "equalDOF"
+    }
+  ],
+  "elements": {
+    "1": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 1,
+      "materialId": 1,
+      "nodeI": 1,
+      "nodeJ": 2,
+      "sectionId": 2,
+      "type": "truss"
+    },
+    "2": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 2,
+      "materialId": 1,
+      "nodeI": 3,
+      "nodeJ": 2,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "3": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 3,
+      "materialId": 1,
+      "nodeI": 2,
+      "nodeJ": 4,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "4": {
+      "hingeEnd": true,
+      "hingeStart": false,
+      "id": 4,
+      "materialId": 1,
+      "nodeI": 5,
+      "nodeJ": 1,
+      "sectionId": 2,
+      "type": "frame"
+    },
+    "5": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 5,
+      "materialId": 1,
+      "nodeI": 5,
+      "nodeJ": 6,
+      "sectionId": 2,
+      "type": "truss"
+    },
+    "6": {
+      "hingeEnd": false,
+      "hingeStart": true,
+      "id": 6,
+      "materialId": 1,
+      "nodeI": 7,
+      "nodeJ": 5,
+      "sectionId": 2,
+      "type": "frame"
+    },
+    "7": {
+      "hingeEnd": true,
+      "hingeStart": false,
+      "id": 7,
+      "materialId": 1,
+      "nodeI": 5,
+      "nodeJ": 8,
+      "sectionId": 2,
+      "type": "frame"
+    },
+    "8": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 8,
+      "materialId": 1,
+      "nodeI": 6,
+      "nodeJ": 9,
+      "sectionId": 2,
+      "type": "frame"
+    }
+  },
+  "loads": [
+    {
+      "data": {
+        "a": 3.3438204086610384,
+        "elementId": 8,
+        "my": 5.935671529899853,
+        "p": 24.099190242576356,
+        "px": 34.28455111622428
+      },
+      "type": "pointOnElement"
+    },
+    {
+      "data": {
+        "a": 7.314993808706778,
+        "b": 13.136645853518338,
+        "elementId": 3,
+        "qI": -11.668741558598459,
+        "qJ": 0.8098538737834886
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "a": null,
+        "b": null,
+        "elementId": 4,
+        "qI": 3.527659067543894,
+        "qJ": 15.196978928932985
+      },
+      "type": "distributed"
+    },
+    {
+      "data": {
+        "fx": 27.919641567530178,
+        "fz": -36.41931259030045,
+        "my": -13.983883875039673,
+        "nodeId": 9
+      },
+      "type": "nodal"
+    },
+    {
+      "data": {
+        "alpha": 0.000023,
+        "dtGradient": -1.7243290592228,
+        "dtUniform": 33.78716999522089,
+        "elementId": 8
+      },
+      "type": "thermal"
+    },
+    {
+      "data": {
+        "a": 5.631182663796894,
+        "elementId": 4,
+        "my": null,
+        "p": -26.372649416218998,
+        "px": null
+      },
+      "type": "pointOnElement"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 271396.5495399752,
+      "id": 1,
+      "nu": 0.3906632786759804
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 1.1933164846200413,
+      "z": 5.121282275810518
+    },
+    "2": {
+      "id": 2,
+      "x": -7.820166950415498,
+      "z": -3.949121738731904
+    },
+    "3": {
+      "id": 3,
+      "x": -0.07700133475449178,
+      "z": -0.2802602997726673
+    },
+    "4": {
+      "id": 4,
+      "x": 0.4044324177803382,
+      "z": 7.954126127813677
+    },
+    "5": {
+      "id": 5,
+      "x": 0.9180123266983671,
+      "z": -1.8432248298058376
+    },
+    "6": {
+      "id": 6,
+      "x": -4.75708466835621,
+      "z": -1.249238754959638
+    },
+    "7": {
+      "id": 7,
+      "x": 1.1666113416053214,
+      "z": 7.005244228405598
+    },
+    "8": {
+      "id": 8,
+      "x": 5.053874061027493,
+      "z": 0.18516584796708457
+    },
+    "9": {
+      "id": 9,
+      "x": -2.054243042169979,
+      "z": 5.29114395238075
+    }
+  },
+  "sections": {
+    "1": {
+      "a": 0.001075493179979905,
+      "asY": null,
+      "id": 1,
+      "iz": 0.00022332691347860256
+    },
+    "2": {
+      "a": 0.00607528180728421,
+      "asY": 0.0037351777170199045,
+      "id": 2,
+      "iz": 2.5451182785706635e-6
+    }
+  },
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 1,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "type": "fixed"
+    },
+    "2": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 2,
+      "kx": null,
+      "ky": null,
+      "kz": 4186.751113798896,
+      "nodeId": 5,
+      "type": "spring"
+    },
+    "3": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 3,
+      "kx": null,
+      "ky": 33298.139644956755,
+      "kz": null,
+      "nodeId": 7,
+      "type": "spring"
+    }
+  }
+}
