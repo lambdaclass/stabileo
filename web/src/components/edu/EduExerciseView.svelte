@@ -326,13 +326,8 @@
 
   function downloadSubmission() {
     const sub = buildSubmission();
-<<<<<<< HEAD
-    const who = sub.student ? sub.student.replace(/[^\w\-]+/g, '-').toLowerCase() : 'entrega';
-    saveFile(`${who}-${sub.exerciseId}.stabileo-entrega.json`, () => new Blob([toSubmissionFile(sub)], { type: 'application/json' }));
-=======
     const who = sub.student || sub.legajo ? (sub.student || sub.legajo!).replace(/[^\w\-]+/g, '-').toLowerCase() : 'entrega';
-    saveFile(`${who}-${sub.exerciseId}.stabileo-entrega.json`, new Blob([toSubmissionFile(sub)], { type: 'application/json' }));
->>>>>>> e45ed6762 (Education: a parametric exercise asks for the legajo and is marked against it)
+    saveFile(`${who}-${sub.exerciseId}.stabileo-entrega.json`, () => new Blob([toSubmissionFile(sub)], { type: 'application/json' }));
     handinNote = t('edu.handin.downloaded');
   }
 
