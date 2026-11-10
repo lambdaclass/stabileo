@@ -1383,3 +1383,29 @@ fn issue_1892_round_four_correct_recurrence_survives_damping_uncertainty() {
         assert!(result.is_ok(), "correct discrete response rejected: {result:?}");
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_final_round_reported_sample_must_match_the_trace() {
+    let c = crate::case::Case2::new("unit beam", serde_json::from_str(r#"{
+        "nodes":{"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":1.0,"z":0.0}},
+        "materials":{"1":{"id":1,"e":1.0,"nu":0.0}},
+        "sections":{"1":{"id":1,"a":1.0,"iz":1.0}},
+        "elements":{"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+        "supports":{"1":{"id":1,"nodeId":1,"type":"fixed"}},"loads":[]
+    }"#).unwrap());
+    let eigen = crate::dynamic_accuracy::harmonic_2d(&c).unwrap();
+    let displacement = 2.0 / (1.0 + 4.0 + 0.2);
+    let trace = unit_trajectory(displacement, 2.0 * displacement);
+    for translations in [2, 3] {
+        let (dof, asm, _) = unit_static_system(translations);
+        let mut response = Resp::default();
+        let mut values = vec![0.0; translations];
+        values[0] = displacement;
+        response.push(Some(1), None, "u_t001", if translations == 2 { Kind::V2(Dim::LEN) } else { Kind::V3(Dim::LEN) }, values);
+        time_errors(&dof, &asm, None, &trace, &eigen, &unit_conditioning(), &mut response, translations).unwrap();
+        response.0[0].v[0] *= 1.0 + 1e-6;
+        let result = time_errors(&dof, &asm, None, &trace, &eigen, &unit_conditioning(), &mut response, translations);
+        assert!(result.is_err(), "{translations}D response changed without changing the trace: {result:?}");
+    }
+}

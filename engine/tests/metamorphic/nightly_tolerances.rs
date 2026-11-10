@@ -1497,3 +1497,94 @@ fn issue_1892_round_four_correct_dynamic_mirrors_keep_coverage() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_final_round_unexpected_failure_turns_the_seed_red() {
+    for invariant in ["units", "mirror"] {
+        let t = Tally::default();
+        t.record("harmonic", invariant, "passing seed", Verdict::Pass(0.0));
+        assert_retained_analysis_failures(2026110200000, "d3", &t);
+        {
+            let mut cells = t.cells.lock().unwrap();
+            let c = cells.get_mut(&("harmonic".into(), invariant.into())).unwrap();
+            c.pass -= 1;
+            c.fails.push("planted response regression".into());
+        }
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| assert_retained_analysis_failures(2026110200000, "d3", &t))).is_err(), "{invariant}: a passing cell became failing without rejecting the seed");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_final_round_baseline_records_pass_and_fail() {
+    let baseline: serde_json::Value = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/analysis-accuracy-coverage.json")).unwrap();
+    for dim in ["d2", "d3"] {
+        for (name, c) in baseline[dim].as_object().unwrap() {
+            assert_eq!(c["pass"].as_u64().zip(c["fail"].as_u64()).map(|(p, f)| p + f + c["inconclusive"].as_u64().unwrap()), c["compared"].as_u64(), "{dim} {name}: missing pass/fail accounting");
+        }
+    }
+}
+
+fn harmonic_limit_model(spatial: bool) -> serde_json::Value {
+    let mut v = unit_stiffness_case(spatial);
+    v["supports"].as_object_mut().unwrap().remove("2");
+    for id in 3..=30 {
+        let mut node = v["nodes"]["2"].clone();
+        node["id"] = id.into();
+        node["x"] = (id - 1).into();
+        v["nodes"][id.to_string()] = node;
+        let mut element = v["elements"]["1"].clone();
+        element["id"] = (id - 1).into();
+        element["nodeI"] = (id - 1).into();
+        element["nodeJ"] = id.into();
+        v["elements"][(id - 1).to_string()] = element;
+    }
+    v
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_final_round_missing_harmonic_estimate_keeps_2d_response() {
+    let mut c = Case2::new("accuracy limit", serde_json::from_value(harmonic_limit_model(false)).unwrap());
+    c.p.symmetry = true;
+    assert!(crate::dynamic_accuracy::harmonic_2d(&c).is_err());
+    conditioning::of_2d(&c.s).unwrap();
+    let response = (ana2("harmonic").run)(&c).unwrap();
+    assert!(response.0.iter().all(|i| i.floor.is_finite() && i.error == 0.0));
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_final_round_missing_harmonic_estimate_keeps_3d_response() {
+    let mut c = Case3::new("accuracy limit", serde_json::from_value(harmonic_limit_model(true)).unwrap());
+    c.p.symmetry = true;
+    assert!(crate::dynamic_accuracy::harmonic_3d(&c).is_err());
+    conditioning::of_3d(&c.s).unwrap();
+    let response = (ana3("harmonic").run)(&c).unwrap();
+    assert!(response.0.iter().all(|i| i.floor.is_finite() && i.error == 0.0));
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_final_round_moving_moments_use_each_members_distance() {
+    let mut v = unit_stiffness_case(true);
+    v["supports"].as_object_mut().unwrap().remove("2");
+    v["nodes"]["3"] = serde_json::json!({"id": 3, "x": 3.0, "y": 0.0, "z": 0.0});
+    v["elements"]["2"] = v["elements"]["1"].clone();
+    v["elements"]["2"]["id"] = 2.into();
+    v["elements"]["2"]["nodeI"] = 2.into();
+    v["elements"]["2"]["nodeJ"] = 3.into();
+    let c3 = Case3::new("unequal members", serde_json::from_value(v.clone()).unwrap());
+    v["supports"]["1"] = serde_json::json!({"id": 1, "nodeId": 1, "type": "fixed"});
+    for key in ["fy", "mx", "mz"] { v["loads"][0]["data"].as_object_mut().unwrap().remove(key); }
+    for node in v["nodes"].as_object_mut().unwrap().values_mut() { node.as_object_mut().unwrap().remove("y"); }
+    let c2 = Case2::new("unequal members", serde_json::from_value(v).unwrap());
+    for r in [(ana2("moving loads").run)(&c2).unwrap(), (ana3("moving loads").run)(&c3).unwrap()] {
+        for tag in ["M", "My", "Mz"] {
+            let Some(short) = r.0.iter().find(|i| i.elem == Some(1) && i.tag == tag) else { continue };
+            let long = r.0.iter().find(|i| i.elem == Some(2) && i.tag == tag).unwrap();
+            assert!(short.error > 0.0 && short.error < long.error, "{tag}: short={} long={}", short.error, long.error);
+        }
+    }
+}

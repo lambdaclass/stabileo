@@ -880,3 +880,9 @@ fn final_round_nan_modal_residual_rejects_comparison() {
     };
     assert_nonfinite_form_comparison_rejected(pencil.spectrum_from(eig).map(|a| a.residual));
 }
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_final_round_missing_harmonic_estimate_adds_no_allowance() {
+    assert_eq!(harmonic_floor(None, 1.0, (0.1, 0.1), 1e-10, 1e-10, 0.0), 0.0);
+}
