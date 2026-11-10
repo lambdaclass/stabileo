@@ -27,6 +27,7 @@
  */
 
 import type { Variant } from './exercise-params';
+import { SKETCH_POWERS, type Sketch } from './diagram-sketch';
 
 /** One answered field, as the student left it. */
 export interface SubmittedAnswer {
@@ -43,6 +44,8 @@ export interface SubmittedAnswer {
    *  teacher asked to mark this needs to know, and hiding it would make the
    *  record dishonest. */
   revealed?: boolean;
+  /** The drawing behind an `sk:<i>` answer, so it can be marked again. */
+  sketch?: Sketch;
 }
 
 export interface Submission {
@@ -81,6 +84,16 @@ export function scoreOf(sub: Submission): SubmissionScore {
 export type SubmissionParse =
   | { ok: true; submission: Submission }
   | { ok: false; error: string };
+
+export function isSketch(v: unknown): v is Sketch {
+  if (!v || typeof v !== 'object') return false;
+  const { points, powers, vertices } = v as Sketch;
+  return Array.isArray(points) && points.length >= 2
+    && points.every((p) => p && Number.isFinite(p.t) && Number.isFinite(p.value))
+    && Array.isArray(powers) && powers.length === points.length - 1
+    && powers.every((p) => SKETCH_POWERS.includes(p))
+    && (vertices === undefined || (Array.isArray(vertices) && vertices.every((x) => x === 'start' || x === 'end')));
+}
 
 function isVariant(v: unknown): v is Variant {
   if (!v || typeof v !== 'object') return false;
@@ -127,6 +140,7 @@ export function fromSubmissionFile(text: string): SubmissionParse {
       unit: typeof a.unit === 'string' ? a.unit : undefined,
       outcome: a.outcome === 'correct' || a.outcome === 'incorrect' ? a.outcome : 'pending',
       revealed: a.revealed === true,
+      ...(isSketch(a.sketch) ? { sketch: a.sketch } : {}),
     });
   }
   return {

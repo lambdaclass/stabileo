@@ -39,10 +39,12 @@
     onsaved: (ex: EduExerciseSpec) => void;
     /** Open the draft the way a student will see it, and come back after. */
     onpreview: (ex: EduExerciseSpec, variant?: Variant) => void;
+    /** Present only when this account may set assignments. */
+    onassign?: (ex: EduExerciseSpec) => void;
     /** An exercise being edited, or null when starting fresh. */
     editing?: EduExerciseSpec | null;
   }
-  let { onclose, onsaved, onpreview, editing = null }: Props = $props();
+  let { onclose, onsaved, onpreview, onassign, editing = null }: Props = $props();
 
   // ── Metadata ───────────────────────────────────────────────
   let title = $state(editing?.title ?? '');
@@ -920,6 +922,14 @@
         >{t('edu.author.previewAsStudent')}</button>
         <button class="btn-ghost" onclick={download} disabled={problems.length > 0}>{t('edu.author.download')}</button>
         <button class="btn-ghost" onclick={() => accountGate.guard('exercise', share)} disabled={problems.length > 0}>{t('edu.author.share')}</button>
+        {#if onassign}
+          <button
+            class="btn-ghost"
+            onclick={() => draft && variantsOk() && onassign(draft)}
+            disabled={problems.length > 0 || !hasQuestions}
+            data-testid="edu-author-assign"
+          >{t('exam.assign.open')}</button>
+        {/if}
       </div>
       {#if saveMsg}<p class="ok">{saveMsg}</p>{/if}
       {#if shareLink}
