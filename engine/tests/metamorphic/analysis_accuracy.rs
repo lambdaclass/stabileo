@@ -1232,3 +1232,66 @@ fn buckling_mode_intervals_follow_the_factor_order() {
     buckling_errors(vec![1.0, 0.0, 0.0, 1.0], vec![1.0, 0.0, 0.0, 4.0], vec![0.0; 4], 2, 0.0, &mut r).unwrap();
     assert!(r.0.iter().all(|i| i.error.is_finite() && i.error >= 0.0));
 }
+
+fn unit_static_system(translations: usize) -> (DofNumbering, assembly::AssemblyResult, Resp) {
+    let dof = DofNumbering {
+        map: [((1, 0), 0)].into(),
+        n_free: 1,
+        n_total: 1,
+        dofs_per_node: 2 * translations,
+        node_order: vec![1],
+    };
+    let asm = assembly::AssemblyResult {
+        k: vec![1.0],
+        f: vec![1.0],
+        max_diag_k: 1.0,
+        artificial_dofs: vec![],
+        inclined_transforms: vec![],
+        inclined_transforms_2d: vec![],
+        diagnostics: vec![],
+    };
+    let mut r = Resp::default();
+    r.push(Some(1), None, "u", if translations == 2 { Kind::V2(Dim::LEN) } else { Kind::V3(Dim::LEN) }, vec![2.0; translations]);
+    (dof, asm, r)
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_doubled_prestress_before_certification_is_rejected() {
+    use dedaliano_engine::solver::geometric_stiffness::KgAffineTerm;
+    for translations in [2, 3] {
+        let (dof, asm, linear) = unit_static_system(translations);
+        let terms = [KgAffineTerm {
+            element_id: 1, dofs: vec![0], g: vec![1.0], elongation: vec![(0, 1.0)],
+            e: 1.0, a: 1.0, l: 1.0, alpha: 0.0, dt: 0.0,
+        }];
+        let mean_n = [(1, 2.0)].into();
+        let result = geometric_error(&dof, &asm, None, &linear, &terms, &mean_n, translations, 1.0, 0.0);
+        assert!(result.is_err(), "{translations}D doubled pre-stress certified: {result:?}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_wrong_moving_recovery_before_certification_is_rejected() {
+    for translations in [2, 3] {
+        let (dof, asm, r) = unit_static_system(translations);
+        let result = recovery_error(&dof, &asm, None, &r, translations);
+        assert!(result.is_err(), "{translations}D doubled static response certified: {result:?}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_scaled_trajectory_above_comparison_tolerance_is_rejected() {
+    let comparison_tolerance = 1e-10;
+    let displacement = 2.0 / (1.0 + 4.0 + 0.2);
+    for eps in [2e-10, 1e-8, 1e-6, 1e-4] {
+        assert!(eps > comparison_tolerance);
+        assert!(eps < dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE);
+        let scale = 1.0 + eps;
+        let trace = unit_trajectory(displacement * scale, 2.0 * displacement * scale);
+        let result = trajectory_error(&trace, 0.0);
+        assert!(result.is_err(), "amplitude error {eps:e} certified: {result:?}");
+    }
+}

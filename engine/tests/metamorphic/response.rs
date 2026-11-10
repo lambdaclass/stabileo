@@ -596,3 +596,16 @@ pub fn incomplete_collapse(e: &str) -> bool {
 /// Tag of the marker a plastic row adds when its factor is only a lower bound
 /// (no mechanism formed).
 pub const LOWER_BOUND: &str = "lower_bound";
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_negative_unit_factor_preserves_the_floor_magnitude() {
+    let mut r = Resp::default();
+    r.push(Some(1), None, "u", Kind::V2(Dim::LEN), vec![0.0; 2]);
+    r.set_floor("u", 3.0);
+    r.0[0].error = 0.25;
+    let reversed = r.units(&Units { length: -2.0, force: 1.0, time: 1.0 });
+    assert_eq!(reversed.0[0].floor, 6.0);
+    assert_eq!(reversed.0[0].error, 0.5);
+    assert_eq!(reversed.flat().t.floor, 6.0);
+}
