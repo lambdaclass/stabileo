@@ -941,3 +941,151 @@ fn round_two_spectral_clusters_ignore_unavailable_residuals() {
         assert_eq!(kept, 5);
     }
 }
+
+#[test]
+fn issue_1365_nonfinite_mass_is_a_failure_even_when_the_eigen_bound_is_inconclusive() {
+    let mut expected = Resp::default();
+    expected.scalar("total_mass", crate::response::Dim::MASS, 10.0);
+    expected.push(None, None, "meff00", crate::response::Kind::T3(crate::response::Dim::MASS), vec![4.0; 6]);
+    expected.set_floor("meff00", 10.0);
+    let cmp = |g: &Resp, e: &Resp, rel: f64| dedaliano_engine::metamorphic::compare::compare(&g.flat(), &e.flat(), 1.0, rel);
+    for rel in [2e-3, 2e-6] {
+        let mut expected = expected.clone();
+        if rel < conditioning::INCONCLUSIVE {
+            expected.set_floor("meff00", 10.0 * crate::response::eigen_gap_factor(1.0, 1.0005));
+        }
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let mut got = expected.clone();
+            got.0.iter_mut().find(|i| i.tag == "meff00").unwrap().v[0] = value;
+            assert!(matches!(crate::checks2::judge_split(&got, &expected, rel, 1e-12, cmp), Verdict::Fail(_)), "nonfinite effective mass became inconclusive at {rel:e}");
+            assert!(matches!(crate::checks2::judge_split(&expected, &got, rel, 1e-12, cmp), Verdict::Fail(_)), "nonfinite expected mass became inconclusive at {rel:e}");
+        }
+    }
+}
+
+#[test]
+fn issue_1114_nonfinite_shell_stress_is_a_failure_even_when_conditioning_is_inconclusive() {
+    let mut expected = Resp::default();
+    expected.push(None, Some(1), "vm_quad9", crate::response::Kind::Stress, vec![1.0]);
+    let cmp = |g: &Resp, e: &Resp, rel: f64| dedaliano_engine::metamorphic::compare::compare(&g.flat(), &e.flat(), 1.0, rel);
+    for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut got = expected.clone();
+        got.0[0].v[0] = value;
+        assert!(matches!(crate::checks2::judge_split(&got, &expected, 2e-3, 2e-3, cmp), Verdict::Fail(_)), "nonfinite shell stress became inconclusive");
+        assert!(matches!(crate::checks2::judge_split(&expected, &got, 2e-3, 2e-3, cmp), Verdict::Fail(_)), "nonfinite expected shell stress became inconclusive");
+    }
+}
+
+fn counts(c: &Cell) -> [usize; 7] {
+    [c.pass, c.same_refusal, c.refused, c.unrep, c.not_applicable, c.inconclusive, c.fails.len()]
+}
+
+#[test]
+fn small_cluster_published_effective_mass_verdicts() {
+    for (issue, seed, analysis) in [
+        (1365, 2026110403879, "modal"),
+        (1267, 2026110303012, "certified modal"),
+        (1219, 2026110204090, "certified modal"),
+        (1213, 2026110200568, "modal"),
+    ] {
+        let got = replay(issue, seed, &[(analysis, "symmetry")]);
+        let c = cell(&got, issue, analysis, "symmetry");
+        assert_eq!(counts(c), [0, 0, 0, 0, 1, 1, 0], "#{issue}: {c:?}");
+    }
+}
+
+#[test]
+fn small_cluster_published_shell_stress_verdicts() {
+    for (issue, seed) in [(1114, 20759), (1356, 20761)] {
+        let got = replay(issue, seed, &[("linear (PCG)", "units")]);
+        let c = cell(&got, issue, "linear (PCG)", "units");
+        assert_eq!(counts(c), [0, 0, 1, 0, 0, 0, 0], "#{issue}: {c:?}");
+        assert!(c.notes.keys().any(|note| note.contains("Support 6 (node 6): ky contradicts")), "#{issue}: {c:?}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1114"]
+fn issue_1114_consistent_support_units_rotation_remains_unresolved() {
+    let Model::D3(mut c) = model(1114) else { panic!("3D") };
+    c.s.supports.get_mut("6").unwrap().ky = None;
+    let a = ana3("linear (PCG)");
+    let base = crate::checks3::run(&a, &c).unwrap();
+    for u in [Units::froude(1e-3, 1e3), Units::froude(25.0, 1e-2), Units::froude(0.3048, 4.448)] {
+        let tc = c.units(&u);
+        let cond = conditioning::of_3d(&c.s).unwrap().worst(&conditioning::of_3d(&tc.s).unwrap());
+        let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond);
+        let expected = base.units(&u);
+        let mut got = crate::checks3::run(&a, &tc).unwrap();
+        let cmp = |g: &Resp| compare_with_compliance(&g.flat(), &expected.flat(), cond.lchar, rel, crate::checks3::load_floor_3d(&tc.s, cond.lchar), crate::checks2::compliance(a.name, &cond));
+        let report = cmp(&got).unwrap();
+        assert!(report.worst <= 1.0);
+        let scale = expected.flat().s.maxabs();
+        assert!(scale > 0.0);
+        nudge(&mut got, "vm_quad9", None, 0, 2.0 * rel * scale);
+        assert!(cmp(&got).is_err(), "planted stress error passed at length {}", u.length);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1085"]
+fn issue_1085_staged_linear_agreement_remains_unresolved() {
+    holds(1085, 20759, &[("staged (loads in two stages)", "linear agreement")]);
+}
+
+#[test]
+#[ignore = "known wrong result: #971"]
+fn issue_971_pdelta_units_convergence_remains_unresolved() {
+    holds(971, 2026103104672, &[("P-Delta", "units")]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1114"]
+fn issue_1114_consistent_support_shell_recovery_remains_unresolved() {
+    let Model::D3(mut c) = model(1114) else { panic!("3D") };
+    c.s.supports.get_mut("6").unwrap().ky = None;
+    let a = ana3("linear (PCG)");
+    let stress = |mut r: Resp| {
+        r.0.retain(|i| matches!(i.kind, crate::response::Kind::Stress));
+        r
+    };
+    let base = stress(crate::checks3::run(&a, &c).unwrap());
+    for u in [Units::froude(1e-3, 1e3), Units::froude(25.0, 1e-2), Units::froude(0.3048, 4.448)] {
+        let tc = c.units(&u);
+        let cond = conditioning::of_3d(&c.s).unwrap().worst(&conditioning::of_3d(&tc.s).unwrap());
+        let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond);
+        let expected = base.units(&u);
+        let mut got = stress(crate::checks3::run(&a, &tc).unwrap());
+        let cmp = |g: &Resp, e: &Resp, rel: f64| compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel, 0.0, [0.0, 0.0]);
+        let ordinary = cmp(&got, &expected, rel).unwrap();
+        let Verdict::Pass(worst) = crate::checks2::judge_split(&got, &expected, rel, rel, cmp) else { panic!("finite stress control did not pass") };
+        assert_eq!(worst, ordinary.worst);
+        let scale = expected.flat().s.maxabs();
+        assert!(scale > 0.0);
+        nudge(&mut got, "vm_quad9", None, 0, 2.0 * rel * scale);
+        assert!(cmp(&got, &expected, rel).is_err(), "planted stress error passed at length {}", u.length);
+        assert!(matches!(crate::checks2::judge_split(&got, &expected, rel, rel, cmp), Verdict::Fail(_)));
+    }
+}
+
+#[test]
+fn small_cluster_ordinary_ratios_and_planted_errors() {
+    let mut expected = Resp::default();
+    expected.scalar("total_mass", crate::response::Dim::MASS, 10.0);
+    expected.push(None, None, "meff00", crate::response::Kind::T3(crate::response::Dim::MASS), vec![4.0; 6]);
+    expected.set_floor("meff00", 10.0);
+    expected.push(None, Some(1), "vm_quad9", crate::response::Kind::Stress, vec![1.0]);
+    let cmp = |g: &Resp, e: &Resp, rel: f64| dedaliano_engine::metamorphic::compare::compare(&g.flat(), &e.flat(), 1.0, rel);
+    let rel = 1e-6;
+    let mut got = expected.clone();
+    nudge(&mut got, "meff00", None, 0, 0.25 * rel * 10.0);
+    nudge(&mut got, "vm_quad9", None, 0, 0.25 * rel);
+    let ordinary = cmp(&got, &expected, rel).unwrap();
+    let Verdict::Pass(worst) = crate::checks2::judge_split(&got, &expected, rel, rel, cmp) else { panic!("ordinary comparison did not pass") };
+    assert_eq!(worst, ordinary.worst);
+    for (tag, scale) in [("meff00", 10.0), ("vm_quad9", 1.0)] {
+        let mut got = expected.clone();
+        nudge(&mut got, tag, None, 0, 2.0 * rel * scale);
+        assert!(matches!(crate::checks2::judge_split(&got, &expected, rel, rel, cmp), Verdict::Fail(_)), "planted error in {tag} passed");
+    }
+}
