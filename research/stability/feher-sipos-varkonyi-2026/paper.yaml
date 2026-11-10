@@ -1,0 +1,27 @@
+id: feher-sipos-varkonyi-2026
+doi: 10.1016/j.euromechsol.2025.106000
+preprint: arXiv:2509.12916v1 (titled "Quasi-static shape control of soft, morphing structures")
+scope: Section 3, the curved rod shaped by two rotary actuators; the path of Section 3.4 and the published values of Section 3.2
+equations: |
+  θ' = κ, x' = cos θ, y' = sin θ on 0 ≤ s ≤ 1; x(0) = y(0) = 0, x(1) = ν = sin 1, y(1) = 0.
+  U = ∫ ½ κ²/(4π²) ds; load potential W = q ∫ Q(s) y ds (q > 0 pushes down); ∫ Q ds = 1.
+  End tangents (counter-clockwise from x): θ(0) = Θ + Δ, θ(1) = Δ − Θ, read from Figures 5, 8 and 9.
+assumptions:
+  - planar, inextensible and unshearable rod with no intrinsic curvature (active bending)
+  - load fixed in direction and magnitude per unit reference length (dead load)
+  - stability is the positive definiteness of the tangent stiffness on the free DOFs
+inputs:
+  length: {value: 1}
+  bending_stiffness: {value: 1/(4π²), note: "λ = 1 is the Euler load of the clamped-clamped rod"}
+  axial_stiffness: {value: 2.0e4, note: "EA·L²/EI = 8·10⁵·π², axial strain below 10⁻⁴"}
+  span: {value: sin 1}
+  load: {Qs: "1", Qa: "2 for s ≤ 1/2, 0 beyond", q: 2.5}
+mesh: {elements: 60, check: 96 and 120, type: production 2D co-rotational Euler-Bernoulli frame}
+solver:
+  basis: dedaliano_engine::solver::corotational::solve_corotational_2d_from
+  stages: end rotations with the far end sliding (guidedX), far end clamped and moved to ν, load, then the actuator path in steps of 0.02 rad
+  tolerance: {relative_residual: 1.0e-7, max_iterations: 60}
+references:
+  - Figure 9(c), digitized: reference-results/fig9c_digitized.json
+  - Section 3.2.1 limit loads and Table 1 maximum curvatures (text values)
+excluded: [the equilibrium surface of Figure 9(a), unstable branches (no arc-length on prescribed rotations yet), Section 3.3 reachable sets, out-of-plane stability]

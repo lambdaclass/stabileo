@@ -1,0 +1,198 @@
+{
+  "checks": [
+    {
+      "metric": "unloaded strip at Θ = 1: largest distance from the exact circular arc, relative to its radius",
+      "observed": 0.000034222943513517734,
+      "passed": true,
+      "tolerance": 0.0001
+    },
+    {
+      "metric": "unloaded strip at Θ = 1: curvature relative error against the exact 2",
+      "observed": 0.00012523564739175264,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "metric": "replay.json against a fresh run: frames that differ",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "Section 3.4 path: states with an indefinite tangent",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "Section 3.4 path: jumps between neighbouring states",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "arch at Θ = 1, q = 2.5: y(1/2) change from 60 to 120 elements, relative",
+      "observed": 0.000187339169546451,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "metric": "shapes 1 and 5 of Figure 9(c) are the start and the end of the path, both at Θ = 1, Δ = 0",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    }
+  ],
+  "figure_9c_matches": {
+    "1": {
+      "delta": 0.0,
+      "median_distance": 0.0031862452160511074,
+      "step": 0,
+      "theta": 1.0
+    },
+    "2": {
+      "delta": 0.02,
+      "median_distance": 0.0026668678314375523,
+      "step": 17,
+      "theta": 1.3
+    },
+    "3": {
+      "delta": 0.66,
+      "median_distance": 0.0019280326753780914,
+      "step": 49,
+      "theta": 1.3
+    },
+    "4": {
+      "delta": 0.6,
+      "median_distance": 0.0022012711792702253,
+      "step": 132,
+      "theta": 1.0
+    },
+    "5": {
+      "delta": 0.0,
+      "median_distance": 0.004642972729265777,
+      "step": 162,
+      "theta": 1.0
+    }
+  },
+  "published_checks": [
+    {
+      "computed": 0.0031862452160511074,
+      "metric": "Figure 9(c) shape 1: median distance to the closest state on our path",
+      "observed": 0.0031862452160511074,
+      "passed": true,
+      "reference": 0.0,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(c) p.24, digitized (reference-results/fig9c_digitized.json)",
+      "tolerance": 0.008
+    },
+    {
+      "computed": 0.0026668678314375523,
+      "metric": "Figure 9(c) shape 2: median distance to the closest state on our path",
+      "observed": 0.0026668678314375523,
+      "passed": true,
+      "reference": 0.0,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(c) p.24, digitized (reference-results/fig9c_digitized.json)",
+      "tolerance": 0.008
+    },
+    {
+      "computed": 0.0019280326753780914,
+      "metric": "Figure 9(c) shape 3: median distance to the closest state on our path",
+      "observed": 0.0019280326753780914,
+      "passed": true,
+      "reference": 0.0,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(c) p.24, digitized (reference-results/fig9c_digitized.json)",
+      "tolerance": 0.008
+    },
+    {
+      "computed": 0.0022012711792702253,
+      "metric": "Figure 9(c) shape 4: median distance to the closest state on our path",
+      "observed": 0.0022012711792702253,
+      "passed": true,
+      "reference": 0.0,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(c) p.24, digitized (reference-results/fig9c_digitized.json)",
+      "tolerance": 0.008
+    },
+    {
+      "computed": 0.004642972729265777,
+      "metric": "Figure 9(c) shape 5: median distance to the closest state on our path",
+      "observed": 0.004642972729265777,
+      "passed": true,
+      "reference": 0.0,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Figure 9(c) p.24, digitized (reference-results/fig9c_digitized.json)",
+      "tolerance": 0.008
+    },
+    {
+      "computed": 4.246875000000001,
+      "metric": "Section 3.2.1: limit load, uniform load, Θ = 0.9, Δ = 0 (paper −4.2, downward)",
+      "observed": 0.011160714285714496,
+      "passed": true,
+      "reference": 4.2,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.18",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 3.7833984375000016,
+      "metric": "Section 3.2.1: limit load, uniform load, Θ = 0.9, Δ = 0.04 (paper −3.9, downward)",
+      "observed": 0.029897836538461106,
+      "passed": true,
+      "reference": 3.9,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.19",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 2.3654296875000007,
+      "metric": "Section 3.2.1: limit load, half-span load, Θ = 0.9, Δ = 0 (paper −2.5, downward)",
+      "observed": 0.05382812499999971,
+      "passed": false,
+      "reference": 2.5,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.19",
+      "tolerance": 0.05
+    },
+    {
+      "computed": null,
+      "metric": "Section 3.2.1: limit load, half-span load, Θ = 0.66, Δ = 1.36 (paper −4.0, downward)",
+      "observed": null,
+      "passed": false,
+      "reference": 4.0,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Sec. 3.2.1 p.19",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 2.132317115852303,
+      "metric": "Table 1: largest curvature at q = 2.5, uniform load, Θ = 0.96, Δ = 0",
+      "observed": 0.015389102786810853,
+      "passed": true,
+      "reference": 2.1,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "tolerance": 0.05
+    },
+    {
+      "computed": null,
+      "metric": "Table 1: largest curvature at q = 2.5, half-span load, Θ = 0.96, Δ = 0",
+      "observed": null,
+      "passed": false,
+      "reference": 7.6,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 12.832728383407577,
+      "metric": "Table 1: largest curvature at q = 2.5, uniform load, Θ = 0.64, Δ = 1.16",
+      "observed": 0.09681439174423744,
+      "passed": false,
+      "reference": 11.7,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "tolerance": 0.05
+    },
+    {
+      "computed": 14.472204645413122,
+      "metric": "Table 1: largest curvature at q = 2.5, half-span load, Θ = 0.64, Δ = 1.16",
+      "observed": 3.3200610881830213,
+      "passed": false,
+      "reference": 3.35,
+      "source": "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1, Table 1 p.20",
+      "tolerance": 0.05
+    }
+  ],
+  "scope": "Planar inextensible elastica approximated by the production co-rotational frame (60–96 elements, EA/EI·L² = 8·10⁵·π²); stability from the definiteness of the tangent. Numerical comparison with the paper's figures and text, not laboratory validation."
+}
