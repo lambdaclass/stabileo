@@ -152,7 +152,22 @@ independent engineer sign-off. None of those is claimed complete by this slice.
 - a pull request loosens or removes a spec tolerance without the
   `tolerance-change` label. CI reads the labels from the pull request as it is
   when the job runs; locally the base is the merge base with `origin/main`, and
-  `--label tolerance-change` (or `--base <rev>`) stands in for the label.
+  `--label tolerance-change --reason "<reason>"` supplies the acknowledgement, and `--base <rev>`
+  selects the comparison base. CI also requires a non-empty `Tolerance-change reason: ...` line
+  in the pull request body (or an explicit `BENCHMARK_GATE_REASON`). A label alone is insufficient.
+
+Case-file locators used by Rust also declare `consumers`: the lookup bindings, assertion
+conditions and any intermediate statements that carry that tolerance. The gate checks the actual
+Rust source against those contracts, ignoring comments and whitespace. Scaling or replacing a
+lookup, changing its consuming comparison, or editing/removing a previously registered contract
+requires review; an invalid source-to-contract binding fails the specification check. Adding
+consumer coverage is a strengthening and needs no acknowledgement.
+
+The base comparison also records enabled `#[test]` functions and their reachable helpers.
+Adding `#[ignore]`, a conditional test attribute, removing the test attribute/function, or
+disconnecting a helper counts as removing benchmark coverage. Conditional attributes are handled
+conservatively because CI platforms may differ. Existing disabled tests are not newly enabled by
+this audit. See [the #1490 measurements and uncertainty records](../verification/benchmark-tolerances-1490.md).
 
 Protocol specs keep their own references and tolerance; their registry entry adds
 units and the independence flag. Every quantity says whether its references are

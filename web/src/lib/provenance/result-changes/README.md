@@ -50,3 +50,14 @@ numbers are exact on main and in CI, which builds the pull request merged onto m
 Once an entry is on main, the results snapshot gate (`make check.results-snapshot-gate`) fails a
 pull request that removes, renames or changes it. Only its wording can change: `title`,
 `explanation` and `changelog`. To withdraw a change, add a new entry.
+
+## Snapshot applicability
+
+For every moved snapshot field, the snapshot gate opens the corpus fixture through the same
+example/project loader and workspace used by the snapshot test. A new entry with `when` must
+match that model and the analysis that produced the field; running another analysis does not
+cover it. Its `quantities` must declare the moved collection or field (`*` for all fields in the
+entry's area). `solve.ok` must be explicit for a change in solve success or refusal. Design
+fields require a design entry. Missing model context or undeclared fields fail closed. Multiple
+applicable entries can cover different fields. An examples-scoped entry covers only its listed
+examples and still requires the two-engine equivalence proof, even alongside engine entries.

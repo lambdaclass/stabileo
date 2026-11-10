@@ -251,6 +251,139 @@ class TestTolerance(unittest.TestCase):
                          ['case / tip deflection: case.json tolerance is absolute, the spec is relative'])
 
 
+class ConsumerGaps(unittest.TestCase):
+    def test_module_disabled_cqc_consumer_requires_acknowledgement(self):
+        path = 'engine/tests/benchmarks/cqc_1981.rs'
+        reg = json.loads((ROOT / gate.REGISTRY).read_text())
+        read = gate.disk_reader
+        original = read(path)
+        for attribute in ('#[cfg(any())]', '#[cfg_attr(all(), ignore)]', '#[ignore]'):
+            changed = attribute + '\nmod outer { mod inner {\n' + original + '\n} }'
+            with self.subTest(attribute=attribute):
+                head = lambda name: changed if name == path else read(name)
+                errors, _ = gate.label_check(reg, read, reg, head, set())
+                self.assertTrue(any('close_modes_against_closed_form removed or disabled' in e for e in errors), errors)
+
+    def test_file_disabled_cqc_consumer_requires_acknowledgement(self):
+        path = 'engine/tests/benchmarks/cqc_1981.rs'
+        reg = json.loads((ROOT / gate.REGISTRY).read_text())
+        read = gate.disk_reader
+        changed = '#![cfg(any())]\n' + read(path)
+        head = lambda name: changed if name == path else read(name)
+        errors, _ = gate.label_check(reg, read, reg, head, set())
+        self.assertTrue(any('close_modes_against_closed_form removed or disabled' in e for e in errors), errors)
+
+    def test_storing_a_case_verdict_is_not_an_asserting_consumer(self):
+        statement = 'let row = json!({"pass": error < case["tolerance"].as_f64().unwrap()});'
+        loc = dict(file='case.json', pointer='/tolerance', consumers=[dict(file='x.rs', statements=[statement])])
+        reg = registry(quantity(test_tolerances=[loc]))
+        files = dict(FILES, **{'x.rs': '#[test] fn t() { ' + statement + ' }'})
+        self.assertTrue(gate.check(reg, reader(files), []))
+
+    def test_asserting_an_unrelated_field_is_not_a_consumer(self):
+        for consumer in (dict(statements=['assert_close(actual, expected, case["other"].as_f64().unwrap());']),
+                         dict(assertions=['error < case["other"].as_f64().unwrap()']),
+                         dict(bindings={'tol': 'case["other"].as_f64().unwrap()'}, assertions=['error < tol'])):
+            with self.subTest(consumer=consumer):
+                loc = dict(file='case.json', pointer='/tolerance', consumers=[dict(file='x.rs', **consumer)])
+                code = 'let tol = case["other"].as_f64().unwrap(); assert!(error < tol); '
+                code += 'assert!(error < case["other"].as_f64().unwrap()); '
+                code += 'assert_close(actual, expected, case["other"].as_f64().unwrap());'
+                self.assertTrue(gate.check(registry(quantity(test_tolerances=[loc])), reader(dict(FILES, **{'x.rs': code})), []))
+
+    def test_assertion_calls_follow_tracked_case_bindings(self):
+        bindings = {'tol': 'case["tolerance"].as_f64().unwrap()', 'limit': 'tol'}
+        for statement in ('assert!(error < limit);', 'assert_eq!(limit, error);',
+                          'assert_close(actual, expected, limit);', 'crate::common::assert_close(actual, expected, limit);'):
+            with self.subTest(statement=statement):
+                consumer = dict(file='x.rs', bindings=bindings, statements=[statement])
+                loc = dict(file='case.json', pointer='/tolerance', consumers=[consumer])
+                code = 'let tol = case["tolerance"].as_f64().unwrap(); let limit = tol; ' + statement
+                self.assertEqual(gate.check(registry(quantity(test_tolerances=[loc])), reader(dict(FILES, **{'x.rs': code})), []), [])
+
+    def test_disabled_sibling_modules_do_not_disable_a_live_test(self):
+        source = '#[cfg(any())] mod disabled { #[test] fn gone() {} } mod live { #[test] fn active() {} }'
+        functions = gate.rust_functions(source)
+        self.assertEqual({name for name, _, enabled in functions if enabled}, {'active'})
+        source = 'mod disabled { #![cfg(any())] #[test] fn gone() {} } #[test] fn active() {}'
+        functions = gate.rust_functions(source)
+        self.assertEqual({name for name, _, enabled in functions if enabled}, {'active'})
+
+    def test_case_file_rust_mutations(self):
+        path = 'engine/tests/benchmarks/cqc_1981.rs'
+        reg = json.loads((ROOT / gate.REGISTRY).read_text())
+        read = lambda name: (ROOT / name).read_text() if (ROOT / name).is_file() else None
+        original = read(path)
+        self.assertEqual(gate.check(reg, read, []), [])
+        for expression in ('tolerance * 10.0', '0.1'):
+            changed = original.replace('<= tolerance * want.abs()', '<= ' + expression + ' * want.abs()')
+            with self.subTest(expression=expression):
+                head = lambda name: changed if name == path else read(name)
+                self.assertTrue(gate.check(reg, head, []))
+                self.assertTrue(gate.label_check(reg, read, reg, head, set())[0])
+
+    def test_disabled_or_removed_test_requires_acknowledgement(self):
+        reg = registry(quantity(test_tolerances=[dict(file='x.rs', calls=['assert_close'], argument=3)]))
+        base = '#[test]\nfn t() { helper(); }\nfn helper() { assert_close(x, y, 0.01, ""); }'
+        for changed in (base.replace('#[test]', '#[test]\n#[ignore]'), base.replace('#[test]', ''),
+                        base.replace('helper();', ''), base.replace('#[test]', '#[test]\n#[cfg_attr(all(), ignore)]')):
+            with self.subTest(changed=changed):
+                errors, _ = gate.label_check(reg, reader(dict(FILES, **{'x.rs': base})), reg,
+                                             reader(dict(FILES, **{'x.rs': changed})), set())
+                self.assertTrue(errors)
+
+    def test_enabled_helper_and_tightening_are_known_good(self):
+        reg = registry(quantity(test_tolerances=[dict(file='x.rs', calls=['assert_close'], argument=3)]))
+        original = '#[test]\nfn t() { helper(); }\nfn helper() { assert_close(x, y, 0.01, ""); }'
+        base = reader(dict(FILES, **{'x.rs': original}))
+        head = reader(dict(FILES, **{'x.rs': original.replace('0.01', '0.005')}))
+        self.assertEqual(gate.label_check(reg, base, reg, head, set()), ([], []))
+        disabled = reader(dict(FILES, **{'x.rs': original.replace('#[test]', '#[test]\n#[ignore = "pending"]')}))
+        self.assertTrue(gate.label_check(reg, base, reg, disabled, {'tolerance-change'})[0])
+        errors, note = gate.label_check(reg, base, reg, disabled, {'tolerance-change'}, reason='reference under review in issue #1')
+        self.assertEqual(errors, [])
+        self.assertIn('reference under review in issue #1', note)
+
+    def test_case_binding_and_contract_changes_cannot_bypass_the_base_check(self):
+        loc = dict(file='case.json', pointer='/tolerance', consumers=[dict(file='x.rs', bindings={'tol': 'case["tolerance"].as_f64().unwrap()'}, assertions=['err < tol'])])
+        original = '#[test] fn t() { let tol = case["tolerance"].as_f64().unwrap(); assert!(err < tol); }'
+        files = dict(FILES, **{'x.rs': original})
+        base = registry(quantity(test_tolerances=[loc]))
+        base['benchmarks'][0]['files'].append('x.rs')
+        self.assertEqual(gate.check(base, reader(files), []), [])
+        for replacement in ('case["tolerance"].as_f64().unwrap() * 10.0', '0.1'):
+            changed = reader(dict(files, **{'x.rs': original.replace('case["tolerance"].as_f64().unwrap()', replacement)}))
+            self.assertTrue(gate.check(base, changed, []))
+            self.assertTrue(gate.label_check(base, reader(files), base, changed, set())[0])
+        head = copy.deepcopy(base)
+        head['benchmarks'][0]['quantities'][0]['test_tolerances'][0]['consumers'][0]['assertions'] = ['err < tol * 10.0']
+        changed = reader(dict(files, **{'x.rs': original.replace('err < tol', 'err < tol * 10.0')}))
+        self.assertEqual(gate.check(head, changed, []), [])
+        self.assertTrue(gate.label_check(base, reader(files), head, changed, set())[0])
+        self.assertTrue(gate.label_check(base, reader(files), head, changed, {'tolerance-change'})[0])
+        self.assertEqual(gate.label_check(base, reader(files), head, changed, {'tolerance-change'}, reason='explicit review')[0], [])
+        head['benchmarks'][0]['quantities'][0]['test_tolerances'][0].pop('consumers')
+        self.assertTrue(gate.check(head, reader(files), []))
+
+    def test_shadowing_a_case_binding_does_not_preserve_its_contract(self):
+        loc = dict(file='case.json', pointer='/tolerance', consumers=[dict(file='x.rs', bindings={'tol': 'case["tolerance"].as_f64().unwrap()'}, assertions=['err < tol'])])
+        reg = registry(quantity(test_tolerances=[loc]))
+        for middle in ('let (tol, extra) = (0.1, 0);', 'let close = |tol: f64| { assert!(err < tol); };',
+                       'fn close(err: f64, tol: f64) { assert!(err < tol); }'):
+            original = '#[test] fn t() { let tol = case["tolerance"].as_f64().unwrap(); ' + middle
+            if middle.startswith('let ('):
+                original += 'assert!(err < tol);'
+            original += '}'
+            self.assertTrue(gate.check(reg, reader(dict(FILES, **{'x.rs': original})), []))
+
+    def test_pattern_assertions_and_completely_removed_tests_are_gated(self):
+        reg = registry(quantity(test_tolerances=[dict(file='x.rs', pattern='error-threshold')]))
+        base = '#[test] fn t() { assert!(error < 0.01); }'
+        for head in ('#[test] #[ignore] fn t() { assert!(error < 0.01); }', '', 'fn t() { assert!(error < 0.01); }'):
+            self.assertTrue(gate.label_check(reg, reader(dict(FILES, **{'x.rs': base})), reg,
+                                            reader(dict(FILES, **{'x.rs': head})), set())[0])
+
+
 class Protocol(unittest.TestCase):
     def test_a_protocol_spec_supplies_its_own_references_and_tolerance(self):
         refs = [dict(citation='A', location='Table 1', value=1.0, pass_fail=True, provisional=False),
@@ -269,7 +402,7 @@ class Loosening(unittest.TestCase):
     def run_check(self, head_tolerance, labels=(), head=None):
         base = registry()
         head = head or registry(quantity(tolerance=dict(relative=head_tolerance, justification='j')))
-        return gate.label_check(base, reader(FILES), head, reader(FILES), set(labels))
+        return gate.label_check(base, reader(FILES), head, reader(FILES), set(labels), reason='source uncertainty')
 
     def test_tightening_needs_no_label(self):
         self.assertEqual(self.run_check(0.01), ([], []))
@@ -280,7 +413,7 @@ class Loosening(unittest.TestCase):
 
     def test_loosening_with_the_label_passes_and_is_reported(self):
         self.assertEqual(self.run_check(0.03, ['tolerance-change']),
-                         ([], '1 loosened tolerance(s) accepted by the tolerance-change label'))
+                         ([], '1 loosened tolerance(s) accepted by the tolerance-change label: source uncertainty'))
 
     def test_removing_a_spec_or_its_number_counts_as_loosening(self):
         empty = dict(scope=[], excluded={}, benchmarks=[])
@@ -358,7 +491,7 @@ class Event(unittest.TestCase):
 
     def test_pull_request_labels_and_base_come_from_the_payload(self):
         payload = dict(pull_request=dict(base=dict(sha='abc'), labels=[dict(name='tolerance-change'), dict(name='x')]))
-        self.assertEqual(self.context('pull_request', payload), dict(base='abc', labels=['tolerance-change', 'x']))
+        self.assertEqual(self.context('pull_request', payload), dict(base='abc', labels=['tolerance-change', 'x'], body=''))
 
     def test_merge_group_and_push_skip_the_label_check(self):
         self.assertIn('skip', self.context('merge_group', dict(merge_group=dict(base_sha='abc'))))
@@ -376,7 +509,7 @@ class Event(unittest.TestCase):
         gate.base_revision = lambda sha: sha
         gate.git_reader = lambda rev: lambda path: json.dumps(base) if path == gate.REGISTRY else None
 
-        def label_check(base_registry, base_read, head, head_read, labels):
+        def label_check(base_registry, base_read, head, head_read, labels, reason=None):
             seen['labels'] = labels
             return [], None
         gate.label_check = label_check

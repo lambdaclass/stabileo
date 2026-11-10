@@ -13,6 +13,7 @@
  * in `numbered.json` are frozen; each later merge to main that adds entries takes the next one.
  */
 import metadata from 'virtual:result-change-metadata';
+import { conditionGroups } from '../../../scripts/results-snapshot/applicability.mjs';
 
 export const REGISTRY_LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
 export type RegistryLocale = (typeof REGISTRY_LOCALES)[number];
@@ -95,13 +96,7 @@ export function concernsGeneratedLoads(w: ChangeCondition = {}): boolean {
 }
 
 /** Every condition group of an entry, normalised to OR-groups that must all hold. */
-export function conditionGroups(w: ChangeCondition): string[][] {
-  const groups: string[][] = [];
-  if (w.any && w.any.length) groups.push(w.any);
-  for (const f of w.all ?? []) groups.push([f]);
-  for (const g of w.allOf ?? []) groups.push(g);
-  return groups;
-}
+export { conditionGroups } from '../../../scripts/results-snapshot/applicability.mjs';
 
 const QUANTITY = /^(\*|solve\.ok|[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)?)$/;
 

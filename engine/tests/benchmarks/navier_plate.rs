@@ -128,7 +128,8 @@ fn navier_plate_shared_cases() {
         let (w, values, reaction) = solve_center(&case["input"], center);
         assert!(w.is_finite() && w > 0.0);
         assert!((reaction - 150.0).abs() < 1e-6);
-        assert!(relative(w, reference).abs() < param(p, "tolerance_relative"));
+        assert!(case["tolerance_relative"].as_f64().unwrap() <= param(p, "tolerance_relative"));
+        assert!(relative(w, reference).abs() < case["tolerance_relative"].as_f64().unwrap());
         println!("{family} {n}: reference={reference:.9} mm, Stabileo={w:.9} mm, error={:.6}%", 100.0 * relative(w, reference));
         soft.entry(family).or_default().push(w);
         rows.push(json!({"family": family, "n": n, "center_mm": w, "values": values}));
@@ -172,5 +173,20 @@ fn navier_plate_shared_cases() {
 
     if let Ok(path) = std::env::var("NAVIER_RESULTS") {
         std::fs::write(path, serde_json::to_string(&json!({"parameters": p, "rows": rows, "hard_rows": hard_rows})).unwrap() + "\n").unwrap();
+    }
+}
+
+#[test]
+fn navier_case_accuracy_bounds() {
+    let data: Value = serde_json::from_str(include_str!("navier_plate.json")).unwrap();
+    let p = &data["parameters"];
+    for case in data["cases"].as_array().unwrap() {
+        let family = case["family"].as_str().unwrap();
+        let n = case["n"].as_u64().unwrap() as usize;
+        let center = case["center"].as_u64().unwrap() as usize;
+        let (w, _, _) = solve_center(&case["input"], center);
+        let error = relative(w, param(p, "reference_mm")).abs();
+        println!("Navier {family} {n}: center={w:.12}, relative_error={error:.12}");
+        assert!(error < case["tolerance_relative"].as_f64().unwrap());
     }
 }
