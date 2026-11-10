@@ -8,7 +8,7 @@
  *
  * Pure: the store (`store/recheck.svelte.ts`) calls it on open, the tests call it directly.
  */
-import { concernsGeneratedLoads, type ResultChange, type ResultChangeRegistry, type ChangeCondition } from './registry';
+import { concernsGeneratedLoads, type ResultChange, type ResultChangeRegistry } from './registry';
 import { RESULT_CHANGES } from './full-registry';
 import { LEGACY_RECORDED_ANALYSES, loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
 import { analysesContext, type SolveStamp } from './solve-stamp';
