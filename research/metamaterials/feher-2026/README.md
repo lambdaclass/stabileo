@@ -75,14 +75,27 @@ this directory builds the paper's model on it, in N and mm:
 `cargo run --release --bin curves` writes `reference-results/curves.json`
 (a = 0.5, b = 0.2, 0.5, 0.8, B = 0.5L and 0.75L: the cases of Figures 10 and 11).
 
-| Case (a = 0.5) | Ours | Read from the paper's figure (approximate) |
-|---|---|---|
-| B = 0.5L, b = 0.2: unloaded height | 125.8 mm | ≈ 122 mm (Fig. 10a) |
-| B = 0.5L, b = 0.2: snap-through | 2.85 N | ≈ 3.0 N |
-| B = 0.5L, b = 0.5: snap-through / snap-back | 2.05 N / 0.95 N | ≈ 2.3 N / ≈ 1.0 N (Fig. 10b) |
-| B = 0.5L, b = 0.8 | no snap, steep drop at 1.0–1.15 N | no snap, steep drop near 1.5 N (Fig. 10c) |
-| B = 0.75L, b = 0.2: unloaded height / snap-through | 86.6 mm / 1.55 N | ≈ 88 mm / ≈ 1.6 N (Fig. 11a) |
-| B = 0.75L, b = 0.5 and 0.8 | no snap | no snap (Fig. 11b, c) |
+The curves and the measured heights of Figures 10 and 11 are digitized in
+`reference-results/fig10_11_digitized.json`, with the method inside it. The paper's unstable
+branch (red) gives its snap-through and snap-back loads.
+
+| Case (a = 0.5) | Quantity | Paper | Ours | Difference |
+|---|---|---|---|---|
+| B = 0.5L, b = 0.2 | unloaded height (measured) | 125.6 mm | 125.8 mm | +0.2 mm |
+| B = 0.5L, b = 0.2 | snap-through load | 2.98 N | 2.85 N | −4.4 % |
+| B = 0.5L, b = 0.5 | unloaded height (measured) | 126.0 mm | 125.7 mm | −0.3 mm |
+| B = 0.5L, b = 0.5 | snap-through load | 2.22 N | 2.05 N | −7.7 % |
+| B = 0.5L, b = 0.5 | snap-back load | 0.96 N | 0.95 N | −1.4 % |
+| B = 0.5L, b = 0.8 | unloaded height (measured) | 124.4 mm | 124.1 mm | −0.3 mm |
+| B = 0.75L, b = 0.2 | unloaded height (measured) | 88.4 mm | 86.6 mm | −1.8 mm |
+| B = 0.75L, b = 0.2 | snap-through load | 1.64 N | 1.55 N | −5.3 % |
+| B = 0.75L, b = 0.5 | unloaded height (measured) | 86.8 mm | 85.7 mm | −1.1 mm |
+| B = 0.75L, b = 0.8 | unloaded height (measured) | 84.1 mm | 82.0 mm | −2.1 mm |
+
+The b = 0.8 cases (and b = 0.5 at 0.75L) have no snap in either the paper or our runs. Against
+the measured heights at each load step our curves differ by 7 to 23 mm on average. The largest
+differences sit on the branch reached after a snap, which our load-controlled run does not
+choose reliably (see below).
 
 The upper branches and the limit loads are close; the monotonic cases are
 softer than the paper's in their steep part (by roughly 0.3 N at b = 0.8).
@@ -96,7 +109,6 @@ symmetry-breaking bifurcations) has not been run.
 
 - Arc-length from a start state with prescribed rotations, to trace the unstable
   branches drawn in red and choose the post-snap branch.
-- Digitize the measured heights (green crosses) of Figures 10 and 11 and compare
-  with tolerances; investigate the softness of the monotonic cases (self-weight
-  distribution, the effective-width rule near the cut corners).
+- The snap-through loads come out 4–8 % low: check the self-weight distribution and
+  the effective-width rule near the cut corners.
 - B = 0.25L with branch switching; then a page.
