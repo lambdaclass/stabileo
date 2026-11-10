@@ -127,6 +127,16 @@ export const EXPERIMENTS: Experiment[] = [
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/biggins-2026',
   },
   {
+    paperId: 'feher-sipos-varkonyi-2026',
+    path: '/research/stability/feher-sipos-varkonyi-2026',
+    name: 'Steering a bent strip between two shapes',
+    hook: 'Turn the two clamps of an actively bent strip under load and take it from an arch to its inverted shape without a snap, on the production co-rotational frame.',
+    thumbnail: 'research-thumbs/feher-sipos-varkonyi-2026.svg',
+    thumbnailAlt: 'The strip from our run: the arch at the start of the actuator path and the inverted shape at its end, at the same clamp angles',
+    thumbnailQuery: '',
+    code: 'https://github.com/lambdaclass/stabileo/tree/main/research/stability/feher-sipos-varkonyi-2026',
+  },
+  {
     paperId: 'gay-neto-2014',
     path: '/research/mechanics/gay-neto-2014',
     name: 'A riser lifted off the seabed',
