@@ -1,0 +1,65 @@
+import { test, expect, type Page } from '@playwright/test';
+
+type Hook = { answer: () => number | null };
+const correctIndex = (page: Page) => page.evaluate(() => (window as unknown as { __diagramGame: Hook }).__diagramGame.answer());
+
+test('@smoke diagram game: a right answer scores and explains every option; three mistakes end it and the best score survives a reload', async ({ page }) => {
+  const fetched: string[] = [];
+  page.on('request', (r) => fetched.push(new URL(r.url()).pathname));
+  await page.goto('/en/diagram-game/?e2e=1&seed=12345');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pick the right diagram');
+  expect(fetched.some((p) => /\/App-[^/]*\.js$/.test(p))).toBe(false);
+  await page.getByTestId('dg-start').click();
+  await expect(page.getByTestId('dg-options')).toBeVisible();
+  await expect(page.getByTestId('dg-score')).toHaveText('0');
+
+  const right = (await correctIndex(page))!;
+  expect([0, 1, 2]).toContain(right);
+  await page.getByTestId(`dg-option-${right}`).click();
+  await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'true');
+  const score = Number(await page.getByTestId('dg-score').textContent());
+  expect(score).toBeGreaterThanOrEqual(100);
+  await expect(page.getByTestId('dg-points')).toHaveText(`+${score} points`);
+  await expect(page.getByTestId(`dg-why-${right}`)).toHaveText('Correct: this is the diagram of this structure.');
+  for (const i of [0, 1, 2].filter((i) => i !== right)) {
+    await expect(page.getByTestId(`dg-why-${i}`)).not.toHaveAttribute('data-tag', '');
+    await expect(page.getByTestId(`dg-why-${i}`)).not.toBeEmpty();
+  }
+
+  for (let lives = 2; lives >= 0; lives--) {
+    await page.getByTestId('dg-next').click();
+    await expect(page.getByTestId('dg-options')).toBeVisible();
+    const wrong = ((await correctIndex(page))! + 1) % 3;
+    await page.keyboard.press(String(wrong + 1));
+    await expect(page.getByTestId('dg-lives')).toHaveAttribute('data-lives', String(lives));
+    await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'false');
+  }
+  await expect(page.getByTestId('dg-again')).toBeVisible();
+  await expect(page.getByTestId('dg-new-best')).toBeVisible();
+  await expect(page.getByTestId('dg-score')).toHaveText(String(score));
+
+  await page.reload();
+  await expect(page.getByTestId('dg-best-intro')).toContainText(String(score));
+});
+
+test('@smoke diagram game on a phone: the options stack and nothing scrolls sideways', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 760 });
+  await page.goto('/es/diagram-game/?e2e=1&seed=7');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: elegí el correcto');
+  await page.getByTestId('dg-start').click();
+  await expect(page.getByTestId('dg-options')).toBeVisible();
+  const boxes = await Promise.all([0, 1, 2].map((i) => page.getByTestId(`dg-option-${i}`).boundingBox()));
+  expect(boxes[1]!.y).toBeGreaterThan(boxes[0]!.y + boxes[0]!.height - 1);
+  expect(boxes[2]!.y).toBeGreaterThan(boxes[1]!.y + boxes[1]!.height - 1);
+  for (const b of boxes) expect(b!.x).toBeGreaterThanOrEqual(15);
+  const overflow = await page.evaluate(() => { const el = document.querySelector('.landing')!; return el.scrollWidth - el.clientWidth; });
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('@slow Educational mode links to the diagram game', async ({ page }) => {
+  await page.goto('/app/education?e2e=1');
+  await expect(page.locator('.edu-panel')).toBeVisible({ timeout: 45_000 });
+  await page.getByTestId('edu-open-game').click();
+  await expect(page).toHaveURL(/\/diagram-game\/?$/);
+  await expect(page.getByTestId('dg-start')).toBeVisible();
+});
