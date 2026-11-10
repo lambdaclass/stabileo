@@ -701,7 +701,7 @@ fn rotation_demand_large_sweep() {
 #[test]
 fn curved_only_dynamic_solvers_warn() {
     use dedaliano_engine::solver::{harmonic::*, reduction::*, time_integration::*};
-    let mut solver = beam3d();
+    let mut solver = deep(beam3d());
     solver.elements.clear();
     solver.nodes.retain(|_, n| n.id == 1 || n.id == 5);
     solver.nodes.insert("200".into(), SolverNode3D { id: 200, x: 2.0, y: 0.0, z: 1.0 });
@@ -879,8 +879,15 @@ fn conditioning_cost_large_frame() {
         k.n, k.values.len(), standalone, reused, factor.l_values.len() * 8, symbolic_bytes, k.n * 8);
 }
 
+/// The section of `s` made deep enough for omitted rotary inertia to matter on its 4.5 m arch
+/// (r = √(4e-3/0.01) = 0.63, r/L = 0.14 against the limit 0.045); beam3d's r/L is 0.022.
+fn deep(mut s: SolverInput3D) -> SolverInput3D {
+    for sec in s.sections.values_mut() { sec.iy = 4e-3; sec.iz = 4e-3; }
+    s
+}
+
 fn arch3d() -> SolverInput3D {
-    let mut s = beam3d();
+    let mut s = deep(beam3d());
     s.elements.clear();
     for id in [2, 3, 4] { s.nodes.remove(&id.to_string()); }
     s.nodes.insert("200".into(), SolverNode3D { id: 200, x: 2.0, y: 0.0, z: 1.0 });
@@ -903,8 +910,12 @@ fn arch_only_dynamic_models_carry_the_issues_of_the_model_as_given() {
     let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: arch.clone(), boundary_nodes: vec![5], n_modes: 2, densities: densities.clone() }).unwrap();
     assert_warning(&cb.structured_diagnostics, "NL-DYNAMIC-GAPS", 370.0);
     assert_warning(&cb.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
-    let guyan = guyan_reduce_3d(&GuyanInput3D { solver: arch, boundary_nodes: vec![5] }).unwrap();
+    let guyan = guyan_reduce_3d(&GuyanInput3D { solver: arch.clone(), boundary_nodes: vec![5] }).unwrap();
     assert!(!ids(&guyan.structured_diagnostics).contains(&"NL-DYNAMIC-GAPS".to_string()), "{:?}", guyan.structured_diagnostics);
+    let mut slender = arch;
+    for sec in slender.sections.values_mut() { sec.iy = 1e-4; sec.iz = 1e-4; }
+    let modal = solve_modal_3d(&slender, &densities, 2).unwrap();
+    assert!(!ids(&modal.structured_diagnostics).contains(&"NL-DYNAMIC-GAPS".to_string()), "a slender arch: {:?}", modal.structured_diagnostics);
 
     let mut truss = beam3d();
     for e in truss.elements.values_mut() { e.elem_type = "truss".into(); }

@@ -140,9 +140,9 @@ fn a_pinned_base_sway_portal_is_flagged_where_the_cantilever_bound_would_not() {
     assert!(column_n / cantilever_ncr < SECOND_ORDER_RATIO, "the cantilever bound alone would stay quiet: N/Ncr = {}", column_n / cantilever_ncr);
     let factor = solve_buckling_2d(&portal("pinned", p, 0.01), 1).unwrap().modes[0].load_factor;
     assert!(factor < 1.0 / SECOND_ORDER_RATIO, "the pinned portal's own critical factor {factor} is under the limit");
-    assert_eq!(second_order(&pinned.structured_diagnostics), unbounded());
+    assert_eq!(second_order(&pinned.structured_diagnostics), warned(vec![]), "no support bounds the columns; the frame's critical factor does");
     let pinned = solve_2d(&portal("pinned", p, 0.0)).unwrap();
-    assert_eq!(second_order(&pinned.structured_diagnostics), unbounded());
+    assert_eq!(second_order(&pinned.structured_diagnostics), warned(vec![]));
 
     let fixed = solve_2d(&portal("fixed", p, 0.0)).unwrap();
     let factor = solve_buckling_2d(&portal("fixed", p, 0.0), 1).unwrap().modes[0].load_factor;
@@ -151,7 +151,9 @@ fn a_pinned_base_sway_portal_is_flagged_where_the_cantilever_bound_would_not() {
     let fixed = solve_2d(&portal("fixed", p / SECOND_ORDER_NEAR_FACTOR, 0.0)).unwrap();
     assert_eq!(second_order(&fixed.structured_diagnostics), vec![]);
     let fixed = solve_2d(&portal("fixed", p, 0.01)).unwrap();
-    assert_eq!(second_order(&fixed.structured_diagnostics), [near(vec![1, 3]), unbounded()].concat(), "the pushed beam is compressed and held by neither support");
+    let factor = solve_buckling_2d(&portal("fixed", p, 0.01), 1).unwrap().modes[0].load_factor;
+    assert!(factor * SECOND_ORDER_RATIO > 1.0 && factor * SECOND_ORDER_RATIO < SECOND_ORDER_NEAR_FACTOR, "the fixed portal's critical factor {factor} is near the limit, as its columns are");
+    assert_eq!(second_order(&fixed.structured_diagnostics), near(vec![1, 3]), "the pushed beam, held by neither support, is bounded by the frame's critical factor {factor}");
 }
 
 /// A 6 m member along x on supports holding translation at both ends, pushed toward the start by
@@ -199,7 +201,9 @@ fn a_member_braced_at_both_ends_is_judged_on_its_whole_length() {
     assert_eq!(second_order(&solve_2d(&braced_2d(loud, "pinned")).unwrap().structured_diagnostics), warned(vec![1, 2]));
     assert_eq!(second_order(&solve_3d(&braced_3d(quiet)).unwrap().structured_diagnostics), vec![]);
     assert_eq!(second_order(&solve_3d(&braced_3d(loud)).unwrap().structured_diagnostics), warned(vec![1, 2]));
-    assert_eq!(second_order(&solve_2d(&braced_2d(quiet, "rollerX")).unwrap().structured_diagnostics), unbounded(), "a roller does not hold the far end along the member");
+    let factor = solve_buckling_2d(&braced_2d(quiet, "rollerX"), 1).unwrap().modes[0].load_factor;
+    assert!(factor * SECOND_ORDER_RATIO > SECOND_ORDER_NEAR_FACTOR, "{factor}");
+    assert_eq!(second_order(&solve_2d(&braced_2d(quiet, "rollerX")).unwrap().structured_diagnostics), vec![], "a roller does not hold the far end along the member, but the member's critical factor {factor} bounds it");
 }
 
 #[test]
@@ -226,7 +230,7 @@ fn a_combination_is_bounded_by_its_factored_case_ratios() {
     assert!(reversed.element_forces.iter().all(|f| f.n_start < -9.0), "{:?}", reversed.element_forces);
     assert_eq!(second_order(&reversed.structured_diagnostics), unbounded(), "a negative factor turns tension into compression");
     let pinned = solve_2d(&portal("pinned", 250.0, 0.01)).unwrap();
-    assert_eq!(combine(&[(1, 0.1), (2, 1.0)], &[(1, &light), (2, &pinned)]), unbounded());
+    assert_eq!(combine(&[(1, 0.1), (2, 1.0)], &[(1, &light), (2, &pinned)]), whole(), "the pinned portal's critical factor is under the limit");
     let mut unscreened = light.clone();
     unscreened.result_summary = None;
     assert_eq!(combine(&[(1, 1.0)], &[(1, &unscreened)]), unbounded(), "a compressed case without a screened ratio");
@@ -306,7 +310,9 @@ fn truss_v(settled: bool) -> SolverInput {
 fn a_compressed_truss_bar_counts_only_when_supports_hold_both_its_ends() {
     let loaded = solve_2d(&truss_v(false)).unwrap();
     assert!(loaded.element_forces.iter().filter(|f| f.element_id != 3).all(|f| f.n_start < -1.0), "{:?}", loaded.element_forces);
-    assert_eq!(second_order(&loaded.structured_diagnostics), unbounded());
+    let factor = solve_buckling_2d(&truss_v(false), 1).unwrap().modes[0].load_factor;
+    assert!(factor * SECOND_ORDER_RATIO > SECOND_ORDER_NEAR_FACTOR, "{factor}");
+    assert_eq!(second_order(&loaded.structured_diagnostics), vec![], "the bars are not held by supports at both ends; the structure's critical factor {factor} bounds them");
     let settled = solve_2d(&truss_v(true)).unwrap();
     assert!(settled.element_forces.iter().filter(|f| f.element_id != 3).all(|f| f.n_start < -1.0), "{:?}", settled.element_forces);
     assert_eq!(second_order(&settled.structured_diagnostics), vec![]);
@@ -316,7 +322,7 @@ fn a_compressed_truss_bar_counts_only_when_supports_hold_both_its_ends() {
 fn a_p_delta_result_does_not_carry_the_linear_screen() {
     use dedaliano_engine::solver::pdelta::{solve_pdelta_2d, solve_pdelta_3d};
     let p = solve_pdelta_2d(&portal("pinned", 250.0, 0.01), 30, 1e-6).unwrap();
-    assert_eq!(second_order(&p.linear_results.structured_diagnostics), unbounded());
+    assert_eq!(second_order(&p.linear_results.structured_diagnostics), warned(vec![]));
     assert_eq!(second_order(&p.results.structured_diagnostics), vec![]);
     let p = solve_pdelta_3d(&cantilever_3d(2, -100.0, E, 1.0, IDENTITY, [0.0; 3]), 30, 1e-6).unwrap();
     assert_eq!(second_order(&p.linear_results.structured_diagnostics), warned(vec![1, 2]));
@@ -340,7 +346,7 @@ fn a_much_larger_force_elsewhere_does_not_hide_a_bounded_member() {
 }
 
 #[test]
-fn a_much_larger_force_elsewhere_does_not_hide_an_unbounded_member() {
+fn a_much_larger_force_elsewhere_does_not_hide_a_member_only_the_frame_bounds() {
     let mut value = serde_json::to_value(portal("pinned", 216.0, 0.0)).unwrap();
     value["nodes"]["5"] = json!({"id": 5, "x": 20.0, "z": 0.0});
     value["nodes"]["6"] = json!({"id": 6, "x": 23.0, "z": 0.0});
@@ -351,7 +357,7 @@ fn a_much_larger_force_elsewhere_does_not_hide_an_unbounded_member() {
     value["loads"].as_array_mut().unwrap().push(json!({"type": "nodal", "data": {"nodeId": 6, "fx": 1e16, "fz": 0.0, "my": 0.0}}));
     let r = solve_2d(&serde_json::from_value(value).unwrap()).unwrap();
     assert!(r.element_forces.iter().any(|f| f.element_id == 4 && f.n_start > 9e15), "{:?}", r.element_forces);
-    assert_eq!(second_order(&r.structured_diagnostics), unbounded());
+    assert_eq!(second_order(&r.structured_diagnostics), warned(vec![]), "the portal's critical factor at 216 kN is under the limit");
 }
 
 #[test]
@@ -364,9 +370,33 @@ fn a_much_larger_force_at_its_supports_does_not_hide_an_unbounded_member() {
     value["elements"]["5"] = json!({"id": 5, "type": "truss", "nodeI": 4, "nodeJ": 6, "materialId": 1, "sectionId": 3});
     value["supports"]["4"] = json!({"id": 4, "nodeId": 6, "type": "pinned", "dx": 1e7});
     value["supports"]["5"] = json!({"id": 5, "nodeId": 5, "type": "pinned", "dx": -1e7});
-    let r = solve_2d(&serde_json::from_value(value).unwrap()).unwrap();
+    let r = solve_2d(&serde_json::from_value(value.clone()).unwrap()).unwrap();
     assert!(r.element_forces.iter().filter(|f| f.element_id >= 4).all(|f| f.n_start > 1e15), "{:?}", r.element_forces);
     assert_eq!(second_order(&r.structured_diagnostics), unbounded());
+    let input: SolverInput = serde_json::from_value(value).unwrap();
+    let error = solve_buckling_2d(&input, 1).unwrap_err();
+    assert!(error.contains("not determinable"), "the portal's compression is round-off beside the bars' 1e15 kN, so its critical factor is unknown and the screen stays unbounded: {error}");
+}
+
+/// The pinned-base portal sways with nothing but itself to hold it: no member is bounded by its
+/// supports, and the frame's elastic critical factor λ_cr decides, against the same limits as a
+/// member's N/Ncr: warned under 1/0.07483 = 13.4, near under 1.6/0.07483 = 21.4, quiet above.
+#[test]
+fn a_frame_no_member_bounds_is_screened_by_its_critical_factor() {
+    let unit = solve_buckling_2d(&portal("pinned", 1.0, 0.01), 1).unwrap().modes[0].load_factor;
+    for (factor, expected) in [(10.0, warned(vec![])), (17.0, near(vec![])), (30.0, vec![]), (1e4, vec![])] {
+        let input = portal("pinned", unit / factor, 0.01);
+        let solved = solve_buckling_2d(&input, 1).unwrap().modes[0].load_factor;
+        assert!((solved / factor - 1.0).abs() < 1e-6, "{solved} vs {factor}");
+        let r = solve_2d(&input).unwrap();
+        assert_eq!(second_order(&r.structured_diagnostics), expected, "λ_cr = {factor}");
+        let ratio = r.result_summary.as_ref().and_then(|s| s.second_order_ratio).unwrap();
+        assert!((ratio * factor - 1.0).abs() < 1e-6, "the recorded ratio is 1/λ_cr: {ratio}");
+    }
+    let quiet = solve_2d(&portal("pinned", unit / 30.0, 0.01)).unwrap();
+    let combine = |f: f64| second_order(&combine_results_refs(&[CombinationFactor { case_id: 1, factor: f }], &[(1, &quiet)]).unwrap().structured_diagnostics);
+    assert_eq!(combine(1.0), vec![]);
+    assert_eq!(combine(2.5), warned(vec![]), "a combination factoring it up to λ_cr = 12 warns");
 }
 
 #[test]
@@ -428,5 +458,30 @@ fn a_case_without_a_screen_counts_as_compressed_when_a_span_load_compresses_a_me
         let mut spanned = blank(n);
         spanned.element_forces[0].distributed_loads_x.push(span.clone());
         assert_eq!(combine(&spanned), unbounded(), "3D: ends at {n}, compressed inside by a span load");
+    }
+}
+
+/// The Basic menu's 2D frames (web/src/lib/templates/fixtures), as the app sends them to the engine.
+/// Columns clamped at the base bound nothing above the first storey and no support holds a beam, so
+/// the members alone left every one of them unbounded, and each linear solve warned (#1551). Their
+/// critical factors run from about 110 to 19 000, far over the limit, and none warns now, under all
+/// its loads or under each load alone.
+#[test]
+fn the_basic_frame_examples_carry_no_second_order_warning() {
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/basic-2d-frame-examples.json")).unwrap();
+    let examples: std::collections::BTreeMap<String, SolverInput> = serde_json::from_str(&text).unwrap();
+    assert_eq!(examples.len(), 6);
+    for (name, input) in &examples {
+        let factor = solve_buckling_2d(input, 1).unwrap().modes[0].load_factor;
+        assert!(factor > 100.0, "{name}: λ_cr = {factor}");
+        let r = solve_2d(input).unwrap();
+        assert_eq!(second_order(&r.structured_diagnostics), vec![], "{name}");
+        let ratio = r.result_summary.as_ref().and_then(|s| s.second_order_ratio).unwrap();
+        assert!(ratio >= (1.0 - 1e-9) / factor && ratio * SECOND_ORDER_NEAR_FACTOR < SECOND_ORDER_RATIO, "{name}: the recorded ratio {ratio} is the larger of the members' bounds and 1/λ_cr");
+        for (k, load) in input.loads.iter().enumerate() {
+            let alone = SolverInput { loads: vec![load.clone()], ..input.clone() };
+            let r = solve_2d(&alone).unwrap();
+            assert_eq!(second_order(&r.structured_diagnostics), vec![], "{name}, load {k} alone");
+        }
     }
 }
