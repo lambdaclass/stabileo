@@ -989,26 +989,6 @@ fn nl_contact_review_frozen_bearing_obeys_penalty_hand_formula_3d() {
 }
 
 #[test]
-fn nl_contact_review_frozen_surface_checks_assembled_force() {
-    let mut input = bearing_surface_2d();
-    input.solver.supports.remove("3");
-    let mut master = input.solver.elements["1"].clone();
-    master.id = 2;
-    master.node_i = 3;
-    master.node_j = 4;
-    input.solver.elements.insert("2".into(), master);
-    if let SolverLoad::Nodal(load) = &mut input.solver.loads[0] { load.fz *= 4.0; }
-    input.al_max_iter = Some(2);
-    let error = dedaliano_engine::solver::contact::solve_contact_2d(&input).expect_err("the assembled tensile spring must be withheld");
-    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
-    let diagnostic = &error["structuredDiagnostics"][0];
-    assert_eq!(diagnostic["code"], "contact_state_invalid");
-    assert_eq!(diagnostic["severity"], "error");
-    assert_eq!(diagnostic["nodeIds"], serde_json::json!([2]));
-    assert_eq!(diagnostic["phase"], "node_to_surface");
-}
-
-#[test]
 fn nl_contact_review_rotating_master_cannot_hide_assembled_tension() {
     let mut input = bearing_surface_2d();
     input.solver.supports.remove("3");

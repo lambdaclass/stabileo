@@ -1,22 +1,30 @@
-# Frozen surface contacts validate the final geometry (2026-11-10)
+# Frozen surface final-geometry validation, superseded (2026-11-10)
 
 PR #1921 final review; issues #432 and #417. Results-change entry `frozen-surface-final-state`.
 
-The frozen 2D surface check projected the final undamped positions onto the normal and
-interpolation coordinate from the previous iterate, while computing opening on the final
-geometry. A master segment that rotated in the final solve could therefore produce a different
-signed force for validation than the final surface law. Validation now uses the final signed gap
-for both opening and force divided by stiffness: `gap - lambda / stiffness` for an active AL
-pair, `gap` for an active penalty pair, and zero force for an inactive pair. The existing
-contact tolerance and every bearing/opening/no-tension condition are unchanged.
+The contact correction recorded here was introduced in `4b88059be` and superseded by
+`5103f27d7`. The cable and replay changes below remain applicable. For the current contact
+behavior, see [assembled spring traction](2026-11-frozen-surface-assembled-traction.md).
+
+The superseded check used the final signed geometric gap for both opening and force divided
+by stiffness: `gap - lambda / stiffness` for an active AL pair, `gap` for an active penalty
+pair, and zero force for an inactive pair. It accepted the rotating-master fixture as closed
+and compressive with `converged=false`. That acceptance was wrong: the final geometric gap
+can indicate compression while the spring in the actual final assembly carries tension.
+
+Current validation checks the signed spring traction from the actual final assembly, using
+its normal and interpolation weights, the reference-position term and the AL multiplier.
+The opening check still uses the final geometric gap. Reported normal force uses the same
+assembled spring force. The contact tolerance and bearing, opening and no-tension conditions
+are unchanged.
 
 The regression attaches the upper master endpoint of the existing bearing fixture to a frame,
 instead of fixing it, multiplies its slave tangential load by four and limits AL to two passes.
-The master rotates in the final correction, demonstrated by the assembled reaction's tangential
-component differing from the reported friction force on the final tangent. The previous check
-refuses this state; the corrected check returns a closed compressive pair satisfying the final
-geometric law. It retains `converged=false`: this is a validation regression, not a claim of an
-equilibrated converged solution. Existing valid-bearing and invalid-state controls remain enforced.
+This rotating-master fixture now requires a structured `contact_state_invalid` refusal with
+severity `error`, phase `node_to_surface` and slave node 2, withholding the result. The identical
+assembled-force and rotating-master tests have been consolidated into
+`nl_contact_review_rotating_master_cannot_hide_assembled_tension`. Fixed-master frozen and
+unfrozen AL bearing controls still converge and retain their force and equilibrium assertions.
 
 The web flexibility wizards caught and replaced the structured cable error with generic
 stability errors. They now validate cable identity before entering their solve catches.
