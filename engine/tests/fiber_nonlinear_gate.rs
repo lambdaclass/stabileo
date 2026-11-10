@@ -316,3 +316,76 @@ fn a_stopped_3d_run_under_a_distributed_load_reports_member_forces_at_the_carrie
     let reaction = r.results.reactions.iter().find(|x| x.node_id == 1).unwrap();
     assert_close(-reaction.fy, carried * L, 1e-9, "reaction equals the carried load");
 }
+
+fn issue_1576_input(increments: usize) -> FiberNonlinearInput {
+    let (b, h, height, elements) = (0.4_f64, 0.5_f64, 3.0_f64, 20);
+    let nodes = (0..=elements).map(|i| (i + 1, 0.0, height * i as f64 / elements as f64)).collect();
+    let elems = (0..elements).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
+    let solver = make_input(nodes, vec![(1, 20_000.0, 0.2)], vec![(1, b * h, b * h.powi(3) / 12.0)], elems, vec![(1, 1, "fixed")], vec![SolverLoad::Nodal(SolverNodalLoad { node_id: elements + 1, fx: 206.190, fz: 0.0, my: 0.0 })]);
+    let mut fibers: Vec<Fiber> = (0..40).map(|i| Fiber { y: -h / 2.0 + h / 40.0 * (i as f64 + 0.5), z: 0.0, area: b * h / 40.0, material_idx: 0 }).collect();
+    let area = 3.0 * std::f64::consts::PI * 0.032_f64.powi(2) / 4.0;
+    for y in [-0.184, 0.184] {
+        fibers.push(Fiber { y, z: 0.0, area, material_idx: 1 });
+    }
+    let section = FiberSectionDef { fibers, materials: vec![
+        FiberMaterial::ConcreteHognestad { fc: 20.0, eps_c0: 0.002, eps_cu: 0.004, ft: 0.0 },
+        FiberMaterial::SteelBilinear { e: 200_000.0, fy: 420.0, hardening_ratio: 0.01 },
+    ] };
+    FiberNonlinearInput { solver, fiber_sections: HashMap::from([("1".into(), section)]), n_integration_points: 5, max_iter: if increments == 320 { 100 } else { 40 }, tolerance: 1e-8, n_increments: increments, modified_nr: false }
+}
+
+fn issue_1576_section_moment(top: f64) -> f64 {
+    let resultant = |c: f64| {
+        let strain = |y: f64| -top * (1.0 - (0.25 - y) / c);
+        let mut n = 0.0;
+        let mut m = 0.0;
+        for i in 0..400 {
+            let y = -0.25 + 0.5 / 400.0 * (i as f64 + 0.5);
+            let compression = -strain(y);
+            let stress = if compression <= 0.0 || compression >= 0.004 { 0.0 }
+                else if compression <= 0.002 { -20.0 * (2.0 * compression / 0.002 - (compression / 0.002).powi(2)) }
+                else { -20.0 * (1.0 - (compression - 0.002) / 0.002) };
+            let force = stress * 0.4 * 0.5 / 400.0;
+            n += force;
+            m -= force * y;
+        }
+        for y in [-0.184, 0.184] {
+            let e = strain(y);
+            let stress = if e.abs() <= 420.0 / 200_000.0 { 200_000.0 * e }
+                else { e.signum() * (420.0 + 0.01 * 200_000.0 * (e.abs() - 420.0 / 200_000.0)) };
+            let force = stress * 3.0 * std::f64::consts::PI * 0.032_f64.powi(2) / 4.0;
+            n += force;
+            m -= force * y;
+        }
+        (n, m * 1000.0)
+    };
+    let (mut lo, mut hi): (f64, f64) = (0.5e-6, 25.0);
+    for _ in 0..60 {
+        let c = (lo * hi).sqrt();
+        if resultant(c).0 < 0.0 { hi = c; } else { lo = c; }
+    }
+    resultant((lo * hi).sqrt()).1
+}
+
+#[test]
+#[ignore = "known wrong result: #1576"]
+fn rc_load_limit_is_refined_independently_of_the_requested_step_count() {
+    let mut limits = Vec::new();
+    for increments in [80, 160, 320] {
+        let input = issue_1576_input(increments);
+        let run = solve_fiber_nonlinear_2d(&input).unwrap();
+        eprintln!("#1576 increments={increments}: lambda={} stop={:?}", run.last_converged_load_factor, run.stop_reason);
+        assert_eq!(run.status, FiberRunStatus::Stopped);
+        assert!(run.results.equilibrium.as_ref().unwrap().residual_ok);
+        limits.push(run.last_converged_load_factor);
+    }
+    for limit in &limits[1..] {
+        assert!((limit - limits[0]).abs() <= 1e-8, "step-dependent load limits: {limits:?}");
+    }
+    let at_crushing = issue_1576_section_moment(0.004);
+    let true_peak = (1..=400).map(|i| issue_1576_section_moment(0.02 * i as f64 / 400.0)).fold(0.0_f64, f64::max);
+    eprintln!("#1576 independent M-phi: at epsCu={at_crushing}, peak through 0.02={true_peak}");
+    assert!((at_crushing / 3.0 - 133.399).abs() < 0.001);
+    assert!(true_peak > at_crushing);
+    assert!(limits[0] * 206.190 * 3.0 >= true_peak);
+}
