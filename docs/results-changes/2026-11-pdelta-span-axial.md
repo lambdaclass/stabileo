@@ -410,3 +410,68 @@ Assembly paths pass 20 with three existing ignores. `make wasm` succeeds;
 all 152 template tests and 123 results tests pass, with one existing results
 skip. All 112 provenance unit tests pass. No result snapshot or baseline was
 updated in this round.
+
+## PR #1895: register the snapshot displacement amplification
+
+The Results Snapshot gate rejected only `pdelta.b2` in the two PRO examples.
+Commit `02624bfca` replaced the original wildcard with explicit quantities and
+listed `b2Factor`, but omitted `b2`. Main's stricter field-applicability gate
+(`eaa7d270c`) arrived on this branch in merge `bfa1919e0`, exposing that omission;
+the earlier gate required a new entry but did not check each changed quantity.
+The merge did not change the registry format or this quantity list. The gate
+removes the `pdelta.` prefix and matches `b2` literally; `b2Factor` does not cover
+it. The pending
+`pdelta-span-axial` entry now includes both quantities, retaining its existing
+frame/P-Delta condition and results-version boundary.
+
+These names describe different response measures. The snapshot capture calls
+`amplification` in `web/src/lib/engine/pdelta-amplification.ts`: it selects the
+node with the greatest first-order horizontal displacement and divides that
+node's second-order horizontal displacement norm by its first-order norm.
+It does not capture the engine's `b2Factor` or recompute B₂ from buckling.
+
+| Snapshot | Governing node | Old `pdelta.b2` | Corrected `pdelta.b2` |
+|---|---:|---:|---:|
+| `pro-3d-portal-frame` | 5 | 1.006424741 | 1.006402477 |
+| `pro-3d-tower` | 11 | 1.000275385 | 1.000273522 |
+
+A controlled replay in this worktree isolates the cause. Starting with the
+engine at `942ef7a62`, build WASM and capture each opened example through the
+existing application path. Then temporarily remove only the
+`emit_span_geometric_stiffness(span_axial_geometric_stiffness_3d(...).0, emit)`
+call in `emit_geometric_stiffness_3d`, rebuild with `make wasm`, and capture the
+same inputs again. This disables only the added varying-span stiffness in the
+P-Delta displacement solve; force recovery and the other corrections remain.
+The complete solver inputs and first-order results are identical between runs.
+The mean-only replay reproduces both old snapshot B₂ values after the normal
+ten-digit storage rounding:
+
+| Model | Mean-only B₂, unrounded | Corrected B₂, unrounded | First-order horizontal norm (m) | Mean-only second-order norm (m) | Corrected second-order norm (m) |
+|---|---:|---:|---:|---:|---:|
+| Portal | 1.0064247413406224 | 1.006402476769824 | 0.0033039881515300375 | 0.0033252154207960992 | 0.003325141858917983 |
+| Tower | 1.0002753853359658 | 1.000273522187567 | 0.0018756888341081052 | 0.0018762053713078531 | 0.0018762018766212054 |
+
+Both decrease because the corrected span work reduces the governing horizontal
+response with an unchanged first-order denominator. The captured inputs have
+uniform axial self-weight `qXI = qXJ = -0.54165 kN/m` on the portal's four
+4 m columns and the tower's eight 3 m column segments. Compression from this
+load is greatest at the lower end. Its contribution relative to the mean force
+is `delta N(x) = -qX (x - L/2)`, with tension positive and x measured upward.
+The cubic displacement slopes weight this distribution rather than its mean.
+An independent Simpson integration over 1,024 intervals of
+
+    sum_columns integral delta N(x) [(dux/dx)^2 + (duy/dx)^2] dx
+
+using the corrected nodal translations and rotations gives positive bending
+stiffness work: approximately 2.82170769e-6 kN·m for the portal and
+1.35122629e-7 kN·m for the tower. Individual column contributions can have either
+sign. The total and the controlled displacement replay support the decrease
+for these examples; the correction need not increase amplification in every
+model. The inclined tower trusses retain their mean-force stiffness.
+
+The temporary engine edit was restored byte-for-byte and the corrected WASM
+restored before final verification. `make snapshots-update` preserves all
+committed snapshot bytes. This follow-up changes registration only, with two
+gate regressions for the measured B₂ changes; it adds no engine result change,
+new advisory or results-version boundary. The existing explanatory text already
+includes B₂ in all six languages.

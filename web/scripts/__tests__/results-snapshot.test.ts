@@ -93,10 +93,10 @@ describe('the gate', () => {
   const breaking = { file: 'changelog.d/a.md', text: '### BREAKING (results)\n#### A (2026-10-28)\n' };
   const moved = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1.01 }) }];
 
-  it.skip.each([
+  it.each([
     ['pro-3d-portal-frame', 1.006424741],
     ['pro-3d-tower', 1.000275385],
-  ])('known wrong result: #1329: registers %s displacement amplification', (name, before) => {
+  ])('#1329: registers %s displacement amplification', (name, before) => {
     const file = `web/results-snapshots/${name}.json`;
     const head = parseSnapshot(readFileSync(new URL(`../../results-snapshots/${name}.json`, import.meta.url), 'utf8'));
     const base = { ...head, values: { ...head.values, 'pdelta.b2': before } };
