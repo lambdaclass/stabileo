@@ -120,6 +120,7 @@ const words: Translations = {
   'course.plastic.trace.eventAxial': 'Der Stab {member} erreicht als erster Np: n = {n} je Einheit λ, aufsummiertes N = {N}, Np = {np}.',
   'course.plastic.trace.min': 'Es ist das kleinste Δλ aller Querschnitte: Die übrigen erreichen es noch nicht.',
   'course.plastic.trace.update': 'λ = {before} + {dl} = {after}. Schnittgrößen und Verschiebungen werden um das Δλ-fache dieser Lösung erhöht.',
+  'course.plastic.trace.moved': 'Gelenk {i} in Stab {member} wandert von x = {from} nach x = {to}, wo das Moment jetzt sein Maximum hat: Dort ist es Mp bei verschwindender Querkraft, und der verlassene Querschnitt behält die plastische Verdrehung, die er schon erfahren hat.',
   'course.plastic.trace.hinge': 'Gelenk {i} wird in Stab {member}, x = {x} eingefügt: Dort bleibt das Moment bei Mp und der Querschnitt dreht sich frei.',
   'course.plastic.trace.yield': 'Der Stab {member} fließt (Gelenk {i}): Er behält Np und trägt keine Steifigkeit mehr bei.',
   'course.plastic.trace.collapse': 'Mit diesem Gelenk ist das Tragwerk ein Mechanismus: λc = {lambda}.',

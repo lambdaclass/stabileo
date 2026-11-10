@@ -34,6 +34,15 @@ test.describe('@slow plastic collapse, explained', () => {
     const trace = page.getByTestId('plastic-trace');
     await trace.locator('summary').click();
     await expect(page.getByTestId('plastic-trace-formula').first()).toContainText('Δλ');
+    while (await page.getByTestId('plastic-prev').isEnabled()) await page.getByTestId('plastic-prev').click();
+    await expect(page.getByTestId('plastic-step')).toContainText('1/4');
+    await page.getByTestId('plastic-next').click();
+    await expect(page.getByTestId('plastic-trace-moved')).toHaveCount(0);
+    await page.getByTestId('plastic-next').click();
+    await expect(page.getByTestId('plastic-trace-moved')).toHaveCount(1);
+    await expect(page.getByTestId('plastic-trace-moved')).toContainText('2.89');
+    await page.getByTestId('plastic-next').click();
+    await expect(page.getByTestId('plastic-trace-moved')).toContainText('3');
 
     const curve = page.getByTestId('plastic-curve');
     await curve.locator('summary').click();
