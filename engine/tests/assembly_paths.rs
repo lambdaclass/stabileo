@@ -1576,3 +1576,112 @@ fn parallel_load_vector_self_weight_in_global_axes() {
     let f = assemble_load_vector_3d_dense(&m, &m.loads, &dn, &[]);
     assert_agree("sparse_3d (parallel) vs dense load vector", &assemble_load_vector_sparse_3d(&m, &m.loads, &dn, &[]), &f, 1);
 }
+
+
+fn assert_path_matches(checks: Checks, tag: &'static str) {
+    assert!(checks.ran.contains(tag), "comparison not reached: {tag}");
+    assert!(!checks.fails.contains_key(tag), "{tag}: {:?}", checks.fails.get(tag));
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn span_reference_2d_affine_includes_constant_once() {
+    let (input, densities, _) = model_2d(1);
+    assert_path_matches(check_2d(&input, &densities, 1), "2d.kg.terms");
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn span_reference_3d_affine_includes_constant_once() {
+    let (input, densities, _) = model_3d(1);
+    assert_path_matches(check_3d(&input, &densities, 1), "3d.kg.terms");
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn span_reference_3d_buckling_includes_constant_once() {
+    let (input, densities, _) = model_3d(71);
+    assert_path_matches(check_3d(&input, &densities, 71), "3d.buckling.kg");
+}
+
+fn simpson_span_plane(l: f64, p: f64, point: bool) -> [[f64; 4]; 4] {
+    let steps = 8192;
+    let mut out = [[0.0; 4]; 4];
+    for j in 0..=steps {
+        let t = j as f64 / steps as f64;
+        let weight = if j == 0 || j == steps { 1.0 } else if j % 2 == 0 { 2.0 } else { 4.0 };
+        let centered_n = if point {
+            if t < 0.5 { p / 2.0 } else if t == 0.5 { 0.0 } else { -p / 2.0 }
+        } else {
+            p * (0.5 - t)
+        };
+        let d = [
+            (6.0 * t * t - 6.0 * t) / l,
+            1.0 - 4.0 * t + 3.0 * t * t,
+            (6.0 * t - 6.0 * t * t) / l,
+            3.0 * t * t - 2.0 * t,
+        ];
+        for a in 0..4 {
+            for b in 0..4 {
+                out[a][b] += weight * l / (3.0 * steps as f64) * centered_n * d[a] * d[b];
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn span_reference_constant_matches_independent_simpson_quadrature() {
+    let l = 4.0;
+    let p = 3_000.0;
+    let axial = HashMap::from([(1, 0.0)]);
+    for point in [false, true] {
+        let plane = simpson_span_plane(l, p, point);
+        let load_2d = if point {
+            SolverLoad::PointOnElement(SolverPointLoadOnElement {
+                element_id: 1, a: l / 2.0, p: 0.0, px: Some(p), my: None,
+            })
+        } else {
+            SolverLoad::AxialDistributed(SolverAxialDistributedLoad {
+                element_id: 1, q_i: p / l, q_j: p / l, a: None, b: None,
+            })
+        };
+        let input = model_2d_from(
+            &[(1, 0.0, 0.0), (2, l, 0.0)], &[(1, "frame", 1, 2, false, false)],
+            vec![sup_2d(1, 1, "fixed")], vec![load_2d],
+        );
+        let dn = all_free(&DofNumbering::build_2d(&input));
+        let mut expected = vec![0.0; dn.n_total * dn.n_total];
+        let dofs = [dn.global_dof(1, 1).unwrap(), dn.global_dof(1, 2).unwrap(), dn.global_dof(2, 1).unwrap(), dn.global_dof(2, 2).unwrap()];
+        for a in 0..4 {
+            for b in 0..4 {
+                expected[dofs[a] * dn.n_total + dofs[b]] = plane[a][b];
+            }
+        }
+        let got = dense(&build_kg_from_forces_2d(&input, &dn, &forces_2d(&axial), &[]).into_csc());
+        assert_agree("2D constant span vs Simpson", &got, &expected, dn.n_total);
+
+        let load_3d = if point {
+            serde_json::json!({"type": "pointOnElement", "data": {"elementId": 1, "a": l / 2.0, "px": p, "py": 0.0, "pz": 0.0}})
+        } else {
+            serde_json::json!({"type": "distributed", "data": {"elementId": 1, "qXI": p / l, "qXJ": p / l, "qYI": 0.0, "qYJ": 0.0, "qZI": 0.0, "qZJ": 0.0}})
+        };
+        let input = model_3d_from(
+            &[(1, [0.0; 3]), (2, [l, 0.0, 0.0])], &[(1, "frame", 1, 2, 1)],
+            vec![sup_3d(1, [true; 6])], vec![serde_json::from_value(load_3d).unwrap()],
+        );
+        let dn = all_free(&DofNumbering::build_3d(&input));
+        let mut expected = vec![0.0; dn.n_total * dn.n_total];
+        for (trans, rot, sign) in [(1, 5, 1.0), (2, 4, -1.0)] {
+            let dofs = [dn.global_dof(1, trans).unwrap(), dn.global_dof(1, rot).unwrap(), dn.global_dof(2, trans).unwrap(), dn.global_dof(2, rot).unwrap()];
+            let signs = [1.0, sign, 1.0, sign];
+            for a in 0..4 {
+                for b in 0..4 {
+                    expected[dofs[a] * dn.n_total + dofs[b]] = signs[a] * signs[b] * plane[a][b];
+                }
+            }
+        }
+        let got = dense(&build_kg_from_forces_3d(&input, &dn, &forces_3d(&axial)).into_csc());
+        assert_agree("3D constant span vs Simpson", &got, &expected, dn.n_total);
+    }
+}
