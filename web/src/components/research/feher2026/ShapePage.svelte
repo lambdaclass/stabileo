@@ -75,7 +75,8 @@
 </script>
 
 <ExperimentShell paperId="feher-sipos-varkonyi-2026" name={s.title} lead={s.lead} introInArticle compactHeader wide locale={publicI18n.locale}
-  sourcePath="research/stability/feher-sipos-varkonyi-2026" referenceLabel={s.referenceLabel}
+  sourcePath="research/stability/feher-sipos-varkonyi-2026"
+  referenceLabel={s.referenceLabel}
   verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: '#checks' }, published: { kind: 'checks', passed: published.filter(c => c.passed).length, total: published.length, href: '#checks' } }}
   actions={{ goToStep: i => playback.seek(i), setParams: params => { if (typeof params.theta === 'number' && typeof params.delta === 'number') { cornerTheta = params.theta; cornerDelta = params.delta; compute(); } }, showTab: () => playback.interact() }}>
   {#snippet article()}
