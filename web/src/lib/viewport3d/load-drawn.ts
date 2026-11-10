@@ -40,7 +40,7 @@ export function currentLoadDrawView(): LoadDrawView {
   return {
     showLoads: uiStore.showLoads3D,
     hideLoadsWithDiagram: uiStore.hideLoadsWithDiagram,
-    diagramType: resultsStore.diagramType,
+    diagramType: resultsStore.screen.diagram,
     visibleCases: uiStore.visibleLoadCases3D,
     isHidden: isLoadHidden,
   };
