@@ -46,8 +46,8 @@
 
   function googleErrorText(err: unknown): string {
     if (err instanceof GoogleSignInError) {
-      const known = ['popup_blocked', 'provider_error', 'email_not_verified', 'email_in_use', 'invalid_state', 'oauth_unavailable', 'account_disabled', 'user_login_disabled'];
-      return known.includes(err.code) ? t(`account.google.err.${err.code}`) : t('account.google.err.callback_failed');
+      const known = new Set(['popup_blocked', 'provider_error', 'email_not_verified', 'email_in_use', 'invalid_state', 'oauth_unavailable', 'account_disabled', 'user_login_disabled']);
+      return known.has(err.code) ? t(`account.google.err.${err.code}`) : t('account.google.err.callback_failed');
     }
     return errorText(err);
   }

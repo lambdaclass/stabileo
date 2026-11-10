@@ -177,3 +177,7 @@ scripts/benchmark-gate.py: match = re.search(r'^Tolerance-change reason:[ \t]*([
 ## Replay assertions verify the user-visible warning contract; dispatch and acceptance also require the structured phase and severity.
 scripts/plastic-budget-corpus.py: assert any("certified lower bound" in warning for warning in certificate["solverWarnings"]), result
 scripts/plastic-budget-corpus.py: assert any("PL-3D-CERTIFICATE-MISMATCH" in warning
+
+## Translates an Ecto validation message the accounts backend returns for a form field: a wording change shows the server's English text instead of the translation; no result or decision depends on it.
+web/src/lib/api/error-text.ts: if (message === 'must be accepted') return t('account.field.mustAccept');
+web/src/lib/api/error-text.ts: if (message === 'is too large') return t('account.field.tooLarge');
