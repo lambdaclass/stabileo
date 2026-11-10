@@ -170,7 +170,6 @@ fn a_wrong_time_history_is_caught() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1890"]
 fn issue_1267_symmetric_full_spectrum_remains_available_for_conditioning() {
     let Model::D2(c) = model(1267) else { panic!("2D") };
     let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap();

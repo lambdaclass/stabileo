@@ -38,10 +38,14 @@ diagnostic reported approximately 1e-12.
 
 These are direct guard reproductions, not a reproduced public solver failure.
 They are committed as ignored failing tests first and enabled with the fix.
-No new advisory or results-change registry entry is warranted by the public
-reproductions: the numerical mode shapes and time-history equations are unchanged.
-The modal orthogonality diagnostic now measures the cumulative Gram error and
-uses its derived threshold; future inaccurate bases can be refused earlier.
+The numerical mode shapes and time-history equations are unchanged. The modal
+orthogonality diagnostic now measures the cumulative Gram error and uses its
+derived threshold; future inaccurate bases can be refused earlier. PR #1890
+round 1 also reproduces a false public-solver refusal introduced by the first
+version of this guard. That correction is registered as
+`modal-basis-entrywise-rounding`; see
+[the results-change write-up](../results-changes/2026-11-modal-basis-rounding.md).
+No new wrong numerical public result was reproduced; no new advisory is added.
 
 ## Acceptance bound
 
@@ -56,16 +60,24 @@ is necessary, not a certificate of eigenvector accuracy or completeness.
 For each evaluated Gram entry add an arithmetic allowance
 
     e_ij = gamma_(n+4) sum_l |P_li (MP_j)_l|
-           + (gamma_(r+1) + gamma_(n+4)) ||D^-1 M D^-1||_infinity
-             ||D P_i||_2 ||D P_j||_2,
+           + (gamma_(r+1) + gamma_(n+4)) |P_i|^T |M| |P_j|,
 
-where gamma_q = q epsilon / (1 - q epsilon), n is the solve dimension, r is the
-largest mass row nonzero count and D contains the existing energy scales.
-`ProductBound` supplies the mass norm and row count. The first term covers the
-dot product and normalization arithmetic; the second covers the mass product
-and normalization of its argument. The infinity norm bounds the spectral norm
-because the scaled mass matrix is symmetric. The bound is conservative and
-invariant under diagonal changes of coordinate units represented by D.
+where gamma_q = q epsilon / (1 - q epsilon), n is the solve dimension and r is
+the largest mass row nonzero count. `ProductBound` supplies the row count.
+The first term covers the dot product and normalization arithmetic; the second
+covers the mass product and normalization of its argument. The actual absolute
+mass product is evaluated in solve coordinates, on the dense or sparse mass
+matrix already used for M P_j. Absolute values are taken before multiplication,
+so cancellation in M P_j cannot shrink the rounding scale. The expression is
+invariant under diagonal coordinate-unit changes.
+
+The first guard version instead used the global scaled mass norm multiplied by
+the modes' energy norms in the second term. That bounds the arithmetic error,
+but can refuse a basis solely because an unrelated coordinate has large mass.
+For K = I and M = diag(1, 1e12), the regression's exact mass-normalized coordinate
+modes now pass in either order with zero Gram error and unit energy scales.
+The full-spectrum solve of the symmetrized #1267 model also completes again,
+restoring the harness's conditioning estimate without changing its tolerances.
 
 Each entry must be finite with error strictly below b + e_ij. If that bound
 reaches the old `1e-3` refusal threshold, refuse because independence cannot be
@@ -77,6 +89,7 @@ of each diagonal error and two copies of each off-diagonal error. Accumulate its
 bound the same way from b + e_ij. Every returned 2D or 3D mode passes this guard
 in the actual solve coordinates, including constraints and warping. A failure
 returns `REFUSE: self-check modal_orthogonality` and returns no mode set. Checks
-use O(nk) stored vectors and O(nk squared) work, matching the existing pairwise
-guard; matrices are not densified. Published shapes retain their existing display
-normalization; the Gram check uses mass-normalized vectors internally.
+use O(nk) stored vectors and O(nk squared) pairwise work, plus one absolute
+mass-matrix product per mode; matrices are not densified. Published shapes retain
+their existing display normalization; the Gram check uses mass-normalized vectors
+internally.

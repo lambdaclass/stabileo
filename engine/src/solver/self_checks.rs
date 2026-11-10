@@ -161,7 +161,10 @@ pub(super) struct ModalChecks {
 }
 
 impl ModalChecks {
-    pub fn check(&mut self, phi: &[f64], lambda: f64, k_phi: &[f64], m_phi: &[f64]) -> Result<(), String> {
+    pub fn check(&mut self, phi: &[f64], lambda: f64, k_phi: &[f64], m_phi: &[f64], abs_m_phi: &[f64]) -> Result<(), String> {
+        if abs_m_phi.len() != phi.len() || abs_m_phi.iter().any(|v| !v.is_finite() || *v < 0.0) {
+            return Err("REFUSE: self-check modal_orthogonality: invalid absolute mass product".into());
+        }
         let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(a,b)| a*b).sum::<f64>();
         let norm = |v: &[f64]| v.iter().fold(0.0_f64, |a, b| a.hypot(*b));
         let mass = dot(phi, m_phi);
@@ -188,20 +191,18 @@ impl ModalChecks {
         self.diagnostics.push(diagnostic(&format!("modal_residual:{}", self.normalized.len()+1), relative, WARN, REFUSE)?);
         let phi: Vec<_> = phi.iter().map(|p| p/mass.sqrt()).collect();
         let m_phi: Vec<_> = m_phi.iter().map(|p| p/mass.sqrt()).collect();
-        if phi.iter().chain(&m_phi).any(|v| !v.is_finite()) {
+        let abs_m_phi: Vec<_> = abs_m_phi.iter().map(|p| p/mass.sqrt()).collect();
+        if phi.iter().chain(&m_phi).chain(&abs_m_phi).any(|v| !v.is_finite()) {
             return Err("REFUSE: self-check modal_orthogonality: non-finite normalized mode".into());
         }
         let tau = crate::linalg::lanczos::LanczosParams::default().tol;
         let basis_bound = 2.0 * tau + tau * tau;
         let nu = (phi.len() + 4) as f64 * f64::EPSILON;
         let gamma = nu / (1.0 - nu);
-        let energy_norm = |p: &[f64]| norm(&p.iter().enumerate()
-            .map(|(i, p)| p * self.scales.get(i).copied().unwrap_or(1.0)).collect::<Vec<_>>());
-        let current_norm = energy_norm(&phi);
         let bound = |previous: &[f64]| {
             let product = previous.iter().zip(&m_phi).map(|(p, m)| (p*m).abs()).sum::<f64>();
-            let rounding = gamma * product
-                + (self.mass.gamma() + gamma) * self.mass.norm * energy_norm(previous) * current_norm;
+            let absolute_product = previous.iter().zip(&abs_m_phi).map(|(p, m)| p.abs()*m).sum::<f64>();
+            let rounding = gamma * product + (self.mass.gamma() + gamma) * absolute_product;
             basis_bound + rounding
         };
         let mut gram_norm = self.gram_norm;
@@ -257,11 +258,11 @@ mod tests {
             let diagonal = [1e24, c*c];
             assert_eq!(residual_energy(&[0.0, 1e-5*c], &[1e12, c], &diagonal).unwrap().severity, Severity::Warning);
             let mut warned = ModalChecks { scales: energy_scale(&diagonal), ..Default::default() };
-            warned.check(&[1.0, 1.0/c], 1.0, &[1e12, (1.0+1e-5)*c], &[1e12, c]).unwrap();
+            warned.check(&[1.0, 1.0/c], 1.0, &[1e12, (1.0+1e-5)*c], &[1e12, c], &[1e12, c.abs()]).unwrap();
             assert_eq!(warned.diagnostics[0].severity, Severity::Warning);
             assert!(residual_energy(&[0.0, 0.01*c], &[1e12, c], &diagonal).is_err());
             let mut checks = ModalChecks { scales: energy_scale(&diagonal), ..Default::default() };
-            assert!(checks.check(&[1.0, 1.0/c], 1.0, &[1e12, 1.01*c], &[1e12, c]).unwrap_err().contains("modal_residual"));
+            assert!(checks.check(&[1.0, 1.0/c], 1.0, &[1e12, 1.01*c], &[1e12, c], &[1e12, c.abs()]).unwrap_err().contains("modal_residual"));
         }
     }
 
@@ -270,8 +271,8 @@ mod tests {
         let mut checks = ModalChecks::default();
         let first = [1.0, 0.0];
         let second = [1e-5, 1.0];
-        checks.check(&first, 1.0, &first, &first).unwrap();
-        let result = checks.check(&second, 1.0, &second, &second);
+        checks.check(&first, 1.0, &first, &first, &first).unwrap();
+        let result = checks.check(&second, 1.0, &second, &second, &second);
         assert!(matches!(result, Err(ref e) if e.contains("modal_orthogonality")), "non-orthogonal exact eigenvectors accepted: {result:?}");
     }
 
@@ -282,7 +283,7 @@ mod tests {
         let second = [1e-12, 1.0, 0.0];
         let third = [1e-12, 1e-12, 1.0];
         for phi in [&first, &second, &third] {
-            checks.check(phi, 1.0, phi, phi).unwrap();
+            checks.check(phi, 1.0, phi, phi, phi).unwrap();
         }
         let measured = checks.diagnostics.last().unwrap().value.unwrap();
         let expected = (6.0_f64).sqrt() * 1e-12;
@@ -290,7 +291,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1890"]
     fn modal_basis_accepts_diagonal_mass_contrast_with_identity_stiffness() {
         let k = [1.0, 0.0, 0.0, 1.0];
         let m = [1.0, 0.0, 0.0, 1e12];
@@ -302,11 +302,33 @@ mod tests {
             if reversed { modes.reverse(); }
             for (phi, lambda) in modes {
                 let mp = [m[0] * phi[0], m[3] * phi[1]];
-                checks.check(&phi, lambda, &phi, &mp).unwrap();
+                checks.check(&phi, lambda, &phi, &mp, &mp).unwrap();
             }
             assert_eq!(checks.diagnostics.len(), 4);
             assert!(checks.diagnostics.iter().all(|d| d.severity == Severity::Info));
             assert_eq!(checks.diagnostics.last().unwrap().value, Some(0.0));
+        }
+    }
+
+    #[test]
+    fn modal_basis_refuses_unresolved_mass_product_cancellation() {
+        let m: [f64; 4] = [1e12, 1.0 - 1e12, 1.0 - 1e12, 1e12];
+        let phi = [1.0, 1.0];
+        let mp = [1.0, 1.0];
+        let abs_mp = [m[0].abs() + m[1].abs(), m[2].abs() + m[3].abs()];
+        let mut checks = ModalChecks { scales: vec![1.0, 1.0], ..Default::default() };
+        checks.stiffness = ProductBound::dense(&[1.0, 0.0, 0.0, 1.0], 2, &checks.scales);
+        checks.mass = ProductBound::dense(&m, 2, &checks.scales);
+        let error = checks.check(&phi, 1.0, &phi, &mp, &abs_mp).unwrap_err();
+        assert!(error.contains("rounding bound cannot establish an independent modal basis"), "{error}");
+    }
+
+    #[test]
+    fn modal_basis_refuses_invalid_absolute_mass_products() {
+        for abs_mp in [vec![], vec![f64::NAN, 0.0], vec![f64::INFINITY, 0.0], vec![-1.0, 0.0]] {
+            let mut checks = ModalChecks::default();
+            let phi = [1.0, 0.0];
+            assert!(checks.check(&phi, 1.0, &phi, &phi, &abs_mp).unwrap_err().contains("invalid absolute mass product"));
         }
     }
 
@@ -322,24 +344,24 @@ mod tests {
             let second = [-1.0 / (r * scale), scale / r];
             for phi in [first, second] {
                 let mp = [diagonal[0] * phi[0], diagonal[1] * phi[1]];
-                checks.check(&phi, 1.0, &mp, &mp).unwrap();
+                checks.check(&phi, 1.0, &mp, &mp, &mp.map(f64::abs)).unwrap();
             }
             let mixed = [second[0] + 1e-5 * first[0], second[1] + 1e-5 * first[1]];
             let mp = [diagonal[0] * mixed[0], diagonal[1] * mixed[1]];
             let mut rejected = ModalChecks { scales: checks.scales.clone(), mass: checks.mass, stiffness: checks.stiffness, ..Default::default() };
             let mp_first = [diagonal[0] * first[0], diagonal[1] * first[1]];
-            rejected.check(&first, 1.0, &mp_first, &mp_first).unwrap();
-            assert!(rejected.check(&mixed, 1.0, &mp, &mp).unwrap_err().contains("modal_orthogonality"));
+            rejected.check(&first, 1.0, &mp_first, &mp_first, &mp_first.map(f64::abs)).unwrap();
+            assert!(rejected.check(&mixed, 1.0, &mp, &mp, &mp.map(f64::abs)).unwrap_err().contains("modal_orthogonality"));
         }
     }
 
     #[test]
     fn self_checks_corrupted_mode_and_duplicate_mode() {
         let mut c = ModalChecks::default();
-        c.check(&[1.0,0.0], 2.0, &[2.0,0.0], &[1.0,0.0]).unwrap();
-        assert!(c.check(&[1.0,0.1], 2.0, &[2.0,0.3], &[1.0,0.1]).unwrap_err().contains("modal_residual"));
-        assert!(c.check(&[1.0,0.0], 2.0, &[2.0,0.0], &[1.0,0.0]).unwrap_err().contains("modal_orthogonality"));
-        c.check(&[0.0,2.0], 3.0, &[0.0,6.0], &[0.0,2.0]).unwrap();
+        c.check(&[1.0,0.0], 2.0, &[2.0,0.0], &[1.0,0.0], &[1.0,0.0]).unwrap();
+        assert!(c.check(&[1.0,0.1], 2.0, &[2.0,0.3], &[1.0,0.1], &[1.0,0.1]).unwrap_err().contains("modal_residual"));
+        assert!(c.check(&[1.0,0.0], 2.0, &[2.0,0.0], &[1.0,0.0], &[1.0,0.0]).unwrap_err().contains("modal_orthogonality"));
+        c.check(&[0.0,2.0], 3.0, &[0.0,6.0], &[0.0,2.0], &[0.0,2.0]).unwrap();
     }
 
     #[test]
@@ -351,11 +373,11 @@ mod tests {
             c.stiffness = ProductBound::sparse(&k, &c.scales);
             c.mass = ProductBound::sparse(&m, &c.scales);
             let phi = [5e3, 5e3];
-            c.check(&phi, 1e-12, &k_phi, &m.sym_mat_vec(&phi)).map(|_| c.diagonals_severity())
+            c.check(&phi, 1e-12, &k_phi, &m.sym_mat_vec(&phi), &m.sym_mat_vec(&phi)).map(|_| c.diagonals_severity())
         };
         assert_eq!(checks([3e-13, -3e-13]).unwrap(), vec![Severity::Info, Severity::Info]);
         let mut unbounded = ModalChecks { scales: energy_scale(&k.diagonal()), ..Default::default() };
-        assert!(unbounded.check(&[5e3, 5e3], 1e-12, &[3e-13, -3e-13], &m.sym_mat_vec(&[5e3, 5e3])).is_err());
+        assert!(unbounded.check(&[5e3, 5e3], 1e-12, &[3e-13, -3e-13], &m.sym_mat_vec(&[5e3, 5e3]), &m.sym_mat_vec(&[5e3, 5e3])).is_err());
         assert!(checks([1e-6, -1e-6]).unwrap_err().contains("modal_residual"));
     }
 
@@ -366,9 +388,9 @@ mod tests {
         let mut c = ModalChecks { scales: energy_scale(&k.diagonal()), ..Default::default() };
         c.stiffness = ProductBound::sparse(&k, &c.scales);
         c.mass = ProductBound::sparse(&m, &c.scales);
-        c.check(&[1.0, 0.0], 2.0, &[2.0*(1.0+1e-5), 0.0], &[1.0, 0.0]).unwrap();
+        c.check(&[1.0, 0.0], 2.0, &[2.0*(1.0+1e-5), 0.0], &[1.0, 0.0], &[1.0, 0.0]).unwrap();
         assert_eq!(c.diagnostics[0].severity, Severity::Warning);
-        assert!(c.check(&[0.0, 1.0], 3.0, &[0.0, 3.0*1.01], &[0.0, 1.0]).unwrap_err().contains("modal_residual"));
+        assert!(c.check(&[0.0, 1.0], 3.0, &[0.0, 3.0*1.01], &[0.0, 1.0], &[0.0, 1.0]).unwrap_err().contains("modal_residual"));
     }
 
     #[test]
@@ -472,7 +494,7 @@ mod tests {
             applied_force_components: vec![1e308,1e308], applied_force_sum: vec![1e308,1e308], reaction_force_sum: vec![], max_imbalance: 0.0, equilibrium_ok: true };
         assert!(statics(&eq, vec![vec![-1e308,-1e308]].into_iter(), 2, 0.0).unwrap().iter().all(|d| d.severity == Severity::Info));
         let mut checks = ModalChecks::default();
-        checks.check(&[1.0,0.0], 1.0, &[1e308,0.0], &[1e308,0.0]).unwrap();
-        assert!(checks.check(&[f64::NAN,1.0], 1.0, &[0.0,1.0], &[0.0,1.0]).is_err());
+        checks.check(&[1.0,0.0], 1.0, &[1e308,0.0], &[1e308,0.0], &[1e308,0.0]).unwrap();
+        assert!(checks.check(&[f64::NAN,1.0], 1.0, &[0.0,1.0], &[0.0,1.0], &[0.0,1.0]).is_err());
     }
 }
