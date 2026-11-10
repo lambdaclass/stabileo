@@ -222,3 +222,80 @@ changes or extend the affected saved-model conditions. Downstream Rust callers
 of the force-based builders do receive changed matrices under axial span loads.
 Their scope is included in SA-2026-055 and the existing `pdelta-span-axial`
 registry explanation; no additional release boundary is claimed.
+
+
+## PR #1895 review round 2: use one axial-force centre
+
+Adding the span correction to the force builders was insufficient for an
+asymmetric axial load. Their constant part still used the end average
+(N_start + N_end)/2, while the correction subtracted the length mean N̄.
+The omitted term was (N̄ − (N_start + N_end)/2) G. Both force builders now
+obtain that shift from the same span integration and use the length mean
+for their constant part. The complete frame matrix is exactly
+∫N(x)φ′ᵢφ′ⱼ dx for the cubic trial functions, with the existing release
+condensation. Trusses and cables use the corrected mean with their constant
+transverse slopes. The input axial span loads supply the force variation;
+callers must supply the actual member end forces, not synthetic equal end
+values representing its length mean.
+
+Four additional regressions were committed first with
+`#[ignore = "known wrong result: #1329"]`. They independently integrate
+geometric work by Simpson's rule and compare both force-based and
+displacement-based assembly in 2D and both 3D bending planes. They use the
+existing cantilever parameters above and these asymmetric loads:
+
+- An opposing axial point load +P at L/4 with tip thrust P gives compression
+  zero below L/4 and P above it. Mean compression is 3P/4, whereas the end
+  average is P/2.
+- An opposing axial trapezoid from P/(2L) to 3P/(2L), again with tip thrust P,
+  gives C(t) = P(t + t²)/2, t = x/L. Mean compression is 5P/12, whereas the
+  end average is P/2.
+
+The first free bending entry, on tip translation, changes as follows in both
+dimensions (kN/m):
+
+| Load | Before round 2 | Corrected and independent integral |
+|---|---:|---:|
+| Point at L/4 | −581.8359375 | −806.8359375 |
+| Axial trapezoid | −428.571428571429 | −353.571428571429 |
+
+All four tests failed on the force-builder assertion before the fix; their
+displacement-assembly checks already passed. All pass after the fix. The
+assembly-path oracle now constructs actual end forces from its prescribed
+mean and independently integrated equivalent end loads. Its zero-mean
+reference therefore continues to isolate G_span. Signed base-moment checks
+also retain the 2D/3D conventions instead of accepting either sign.
+
+The displacement emitters retain their numerical integration. No application
+solver calls the public force builders, so this centering repair changes the
+Rust matrix API without an additional application result change. The bundled
+crane baseline audit below covers a previously unrecorded application change
+from the original P-Delta span correction.
+
+
+### Crane-hangar workbook baseline
+
+The gallery baseline test also covers `pro-crane-hangar`, outside the earlier
+results-snapshot corpus comparison. The example requests P-Delta per combination
+and generates member axial span loads through gravity self-weight. With the
+corrected engine its maximum reaction Fx, at node 33 in combination 4
+(`1,2 D + 1,6 Grúa 2 + 0,5 S`), is 23.03318028125302 kN; the committed
+baseline contained 23.033548451025997 kN. An independently built current-main
+engine (`f032e42fa`) gives 23.033548451026192 kN, agreeing with the old baseline
+within its unchanged tolerance. This is a second-order reaction change caused
+by the original span correction, not by the round-2 force-builder repair.
+
+Using identical gallery inputs and the same application combination path, a
+side-by-side capture of current main and the corrected engine finds every raw
+linear case (7), linear combination (11), and linear envelope byte-identical.
+The linear cases returned alongside P-Delta combinations are also byte-identical.
+Only the P-Delta combination outputs, their derived envelopes and workbook
+maxima differ. All stored linear-case statics rows remain byte-identical. The
+66 changed statics rows belong to P-Delta combinations, including reaction and
+residual values. Across the maxima table, 36 numeric values change; the table's
+source, entity, sign, station and governing combination remain unchanged.
+The changed quantity families are second-order displacements, member forces,
+reactions, amplification and the removed span-load diagnostic, already within
+the registry's explicit scope. The existing `make test.web.unit` target, filtered
+to the crane example with `STABILEO_UPDATE_BASELINES=1`, regenerates its baseline.
+No tolerance or assertion is relaxed.

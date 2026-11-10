@@ -122,3 +122,36 @@ includes the constant span matrix separately from its mean-force affine terms;
 linear buckling also includes the correction once. Independent matrix
 integration regressions in `engine/tests/pdelta_span_axial.rs` fail before this
 follow-up and pass afterward.
+
+
+## Axial-force centering (PR #1895 review round 2)
+
+The first force-builder correction still combined an end-average constant
+force with a length-average span correction. Those averages differ for
+trapezoidal and off-centre point loads. Both builders now convert the supplied
+end average to the length mean before adding the correction, so the complete
+matrix integrates N(x) exactly for the existing cubic trial functions.
+For a tip thrust P opposed by +P at L/4, mean compression is 3P/4 rather than
+P/2. In the existing 4 m, P = 3,000 kN cantilever fixture, the tip-translation
+geometric stiffness entry changes from −581.8359375 to −806.8359375 kN/m
+in both 2D and 3D. An opposing axial trapezoid from P/(2L) to 3P/(2L)
+changes that entry from −428.571428571429 to −353.571428571429 kN/m.
+Independent Simpson regressions confirm both values and the unchanged
+correct displacement assembly. Trusses and cables also receive the corrected
+length mean in the force builders. Downstream callers must pass actual end
+forces consistent with the input span loads and must not add the span
+correction to the returned matrix again.
+
+
+## Crane-hangar bundled example
+
+`pro-crane-hangar` also uses axial self-weight and P-Delta combinations. Its
+workbook maximum reaction Fx at node 33 in combination 4 changes from the stored
+23.033548451025997 to 23.03318028125302 kN after the original span correction.
+Current main (`f032e42fa`) reproduces the old value as 23.033548451026192 kN.
+All seven linear cases, eleven linear combinations and linear envelopes are
+byte-identical between that main engine and the corrected engine on identical
+inputs. Changed outputs belong to P-Delta combinations and their derived
+member forces, reactions, displacements and envelopes. The force-centering
+follow-up does not introduce a further application result change. The existing
+`pdelta-span-axial` registry notice includes this example and these quantities.

@@ -89,7 +89,7 @@ fn ritz(compression: impl Fn(f64) -> f64) -> (f64, f64, f64) {
     let det = k[2][2] * k[3][3] - k[2][3] * k[3][2];
     let v = F * k[3][3] / det;
     let theta = -F * k[3][2] / det;
-    (v, theta, (k[1][2] * v + k[1][3] * theta).abs())
+    (v, theta, k[1][2] * v + k[1][3] * theta)
 }
 
 fn input_2d(n: usize, point: bool, angle: f64) -> SolverInput {
@@ -194,8 +194,7 @@ fn varying_compression_2d_matches_independent_ritz_and_shooting() {
                 .iter()
                 .find(|f| f.element_id == 1)
                 .unwrap()
-                .m_start
-                .abs();
+                .m_start;
             println!(
                 "2D n={n} angle={angle}: displacement {v}, moment {moment}, B2 {}",
                 pd.b2_factor
@@ -222,7 +221,7 @@ fn varying_compression_2d_matches_independent_ritz_and_shooting() {
         );
         close(
             moment,
-            if n == 1 { one.2 } else { exact.1 },
+            if n == 1 { one.2 } else { -exact.1 },
             if n == 1 { 1e-9 } else { 1e-4 },
         );
     }
@@ -253,9 +252,8 @@ fn varying_compression_3d_matches_independent_ritz_and_shooting_in_both_planes()
             let moment = if plane == 1 {
                 base.mz_start
             } else {
-                base.my_start
-            }
-            .abs();
+                -base.my_start
+            };
             println!(
                 "3D n={n} plane={plane}: displacement {v}, moment {moment}, B2 {}",
                 pd.b2_factor
@@ -285,7 +283,7 @@ fn varying_compression_3d_matches_independent_ritz_and_shooting_in_both_planes()
         );
         close(
             moment,
-            if n == 1 { one.2 } else { exact.1 },
+            if n == 1 { one.2 } else { -exact.1 },
             if n == 1 { 1e-9 } else { 1e-4 },
         );
     }
@@ -510,8 +508,8 @@ fn trapezoidal_and_partial_axial_span_loads_match_independent_ritz() {
             want.0,
             1e-9,
         );
-        close(pd.results.element_forces[0].m_start.abs(), want.2, 1e-9);
-        close(pd.results.reactions[0].my.abs(), want.2, 1e-9);
+        close(pd.results.element_forces[0].m_start, want.2, 1e-9);
+        close(pd.results.reactions[0].my, want.2, 1e-9);
         for plane in [1, 2] {
             let mut input = input_3d(1, plane, false);
             for load in &mut input.loads {
@@ -540,8 +538,8 @@ fn trapezoidal_and_partial_axial_span_loads_match_independent_ritz() {
             close(if plane == 1 { d.uy } else { d.uz }, want.0, 1e-9);
             let f = &pd.results.element_forces[0];
             close(
-                if plane == 1 { f.mz_start } else { f.my_start }.abs(),
-                want.2,
+                if plane == 1 { f.mz_start } else { f.my_start },
+                if plane == 1 { want.2 } else { -want.2 },
                 1e-9,
             );
         }
@@ -711,25 +709,21 @@ fn force_kg_3d_integrates_span_loads_in_both_bending_planes() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn force_and_displacement_kg_2d_off_centre_point_matches_independent_integral() {
     check_force_and_displacement_kg_2d(true, true);
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn force_and_displacement_kg_2d_trapezoidal_matches_independent_integral() {
     check_force_and_displacement_kg_2d(false, true);
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn force_and_displacement_kg_3d_off_centre_point_matches_independent_integral() {
     check_force_and_displacement_kg_3d(true, true);
 }
 
 #[test]
-#[ignore = "known wrong result: #1329"]
 fn force_and_displacement_kg_3d_trapezoidal_matches_independent_integral() {
     check_force_and_displacement_kg_3d(false, true);
 }

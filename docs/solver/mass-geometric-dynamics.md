@@ -125,8 +125,11 @@ torsion term). Tests: `dmgd::kg_2d_closed_form_symmetry_and_string_limit`;
   `buckling_3d_integrates_the_axial_force_of_frame_with_partial_axial_load`,
   `pdelta_span_axial.rs`). P-Delta uses the correction in geometric end forces and
   the constant part of its certified residual model as well.
-- **`build_kg_from_forces_2d/3d`** (public helpers, no solver path uses them now): $P=(N_\text{start}+N_\text{end})/2$.
-  Equal to the mean only when $N$ is linear.
+- **`build_kg_from_forces_2d/3d`** (public helpers, no solver path uses them now): assemble the full
+  $\int N(x)\,\varphi_i'\varphi_j'\,dx$ from the supplied end forces and the input axial span loads.
+  The constant part uses the length-average force, and the span correction is already included
+  in 2D and both 3D bending planes, with release condensation. Callers must not add the span term
+  again. Trusses and cables use the length-average force with their constant transverse slopes.
 - The per-element "critical force" in the buckling report uses the mean force $EA\,(\delta/L-\alpha\,\Delta T)$, and
   $k_\text{eff}=\pi\sqrt{EI/P_{cr}}/L$ with $I=I_z$ (2D) or $\min(I_y,I_z)$ (3D). These are
   derived quantities of the first mode only, meaningful for members that take part in it.
