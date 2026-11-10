@@ -28,3 +28,6 @@ mod solver_ci_coverage;
 mod solver_invariants;
 #[path = "../sparse_shell_gates.rs"]
 mod sparse_shell_gates;
+
+#[path = "../gate_gaps.rs"]
+mod gate_gaps;

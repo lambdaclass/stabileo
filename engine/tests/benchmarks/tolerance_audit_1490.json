@@ -1,0 +1,148 @@
+{
+  "issue": 1490,
+  "date": "2026-11-10",
+  "scope": "Tests and CI only; no engine or published engine result changed. Native targeted measurements on this worktree.",
+  "cases": {
+    "vm22": {
+      "source": "The beam-column approximation already encoded in validation_ansys_vm22_cantilever_axial_bending: 1/(1-N/Pcr). This is a first-mode amplification approximation, not an exact cantilever solution or a verified ANSYS table.",
+      "uncertainty": "Mesh refinement leaves a 0.13344% discrepancy against the approximate amplification. A 0.2% bound covers the measured approximation error and numerical margin; it replaces 15%.",
+      "bound": 0.002,
+      "measurements": [
+        {
+          "elements": 10,
+          "amplification": 1.111259745553,
+          "approximation": 1.11274459996,
+          "relative_error": 0.001334407201
+        },
+        {
+          "elements": 20,
+          "amplification": 1.111259755581,
+          "approximation": 1.11274459996,
+          "relative_error": 0.001334398189
+        },
+        {
+          "elements": 40,
+          "amplification": 1.111259756154,
+          "approximation": 1.11274459996,
+          "relative_error": 0.001334397674
+        }
+      ]
+    },
+    "vm40": {
+      "source": "Nanakorn and Vu (2006), Finite Elements in Analysis and Design 42, Table 1, printed p.1245; https://www.imechanica.org/sites/default/files/1-s2.0-S0168874X06000953-main.pdf . Independent elliptic-integral references and source locators in spec/mattiasson-1.json and spec/mattiasson-1-shortening.json.",
+      "uncertainty": "The old 0.3015/0.0566 reference pair was not the audited table pair. Use the existing independent reference (0.301720773799814/0.056433236283377). The test has finite axial stiffness EA*L^2/EI=1200; refinement approaches an extensible solution, not the inextensible reference. Coarse-mesh errors decrease and retain a model difference. Bounds 0.1% for deflection and 0.6% for shortening cover the measured combined error, replacing 10% and 15%.",
+      "bounds": {
+        "deflection": 0.001,
+        "shortening": 0.006
+      },
+      "measurements": [
+        {
+          "elements": 10,
+          "shortening": 0.056134495295,
+          "deflection": 0.301962065098,
+          "shortening_error": 0.005293706479,
+          "deflection_error": 0.000799717218
+        },
+        {
+          "elements": 20,
+          "shortening": 0.05620519661,
+          "deflection": 0.301904178229,
+          "shortening_error": 0.004040875347,
+          "deflection_error": 0.000607861456
+        },
+        {
+          "elements": 40,
+          "shortening": 0.056222920181,
+          "deflection": 0.301889766204,
+          "shortening_error": 0.003726812716,
+          "deflection_error": 0.000560095357
+        }
+      ]
+    },
+    "craig_bampton": {
+      "source": "The unreduced finite-element generalized eigenproblem on the identical 20-element cantilever, not an independent published frequency. Craig and Bampton (1968), Coupling of substructures for dynamic analyses, DOI 10.2514/3.4741, supplies the reduction method.",
+      "uncertainty": "Interior-mode truncation; five to eight retained modes reduces the worst error. The existing separate three-to-eight-mode convergence test remains and its eight-mode cap is also tightened. The new 0.03% cap covers the five-mode worst error with less than a 1.26 factor.",
+      "bound": 0.0003,
+      "measurements": [
+        {
+          "interior_modes": 5,
+          "maximum_relative_error": 0.000238828517
+        },
+        {
+          "interior_modes": 8,
+          "maximum_relative_error": 8.6546755e-05
+        }
+      ]
+    },
+    "notional_load": {
+      "source": "The same frame under explicit notional loads and prescribed geometric lean; AISC 360-22 Appendix 1 is the existing formulation source. This is a cross-method consistency test, not a table of exact displacements.",
+      "uncertainty": "The small-lean approximation equates the two methods only to leading order; this discrete one-element-per-member frame measures an approximation difference. The 0.6% bound covers the measured 0.465914912% difference with a factor below 1.29, replacing 50%. No claim of exact equality or general mesh convergence.",
+      "bound": 0.006,
+      "measured_relative_difference": 0.00465914912
+    },
+    "shell_thermal": {
+      "source": "Uniform thermal strain gives the affine displacement alpha*deltaT*L already encoded by the test. This affine solution is representable on the existing regular quad patch.",
+      "uncertainty": "No discretisation allowance is needed for an affine patch; a 1e-8 relative roundoff allowance replaces 15%. Stress and out-of-plane checks stay in force.",
+      "bound": 1e-08,
+      "measurements": {
+        "ux_relative_error": 4.551914400963e-15,
+        "uy_relative_error": 1.210143096841e-14
+      }
+    },
+    "mixed_frame_shell": {
+      "source": "Global force balance against the applied load totals in benchmark_mixed_frame_shell_building; this is conservation, not a published displacement reference.",
+      "uncertainty": "A 1e-8 relative roundoff allowance replaces 15%; equilibrium is independent of mesh convergence.",
+      "bound": 1e-08,
+      "measurements": {
+        "horizontal_relative_error": 1.989519660128e-14,
+        "vertical_relative_error": 1.95399252334e-14
+      }
+    },
+    "navier": {
+      "source": "Kirchhoff double sine series, cross-checked against the rounded 1.28375 mm in Navier/Timoshenko plate benchmark sources recorded in research/benchmarks/navier-plate/README.md. Hard-support Mindlin comparison is a separate existing test.",
+      "uncertainty": "DKT errors decrease at approximately second order. MITC4 soft simple support differs from the hard-support series boundary-value problem; its nonmonotone errors are case-specific comparison bounds, not convergence to Kirchhoff. The existing hard-support and series-convergence checks are preserved without running the large 32/64 grids for this change.",
+      "measurements": [
+        {
+          "family": "DKT",
+          "n": 4,
+          "center_mm": 1.239130910043,
+          "relative_error": 0.034755419457
+        },
+        {
+          "family": "DKT",
+          "n": 8,
+          "center_mm": 1.272493217498,
+          "relative_error": 0.008767215786
+        },
+        {
+          "family": "DKT",
+          "n": 16,
+          "center_mm": 1.280921493877,
+          "relative_error": 0.002201849663
+        },
+        {
+          "family": "MITC4",
+          "n": 4,
+          "center_mm": 1.266318869301,
+          "relative_error": 0.0135768417
+        },
+        {
+          "family": "MITC4",
+          "n": 8,
+          "center_mm": 1.287043561433,
+          "relative_error": 0.002567051252
+        },
+        {
+          "family": "MITC4",
+          "n": 16,
+          "center_mm": 1.297573174687,
+          "relative_error": 0.010769293683
+        }
+      ]
+    },
+    "shb8": {
+      "source": "MacNeal and Harder (1985), A proposed standard set of problems to test finite element accuracy, Table 8; DOI 10.1016/0168-874X(85)90003-4. The case references are unchanged.",
+      "uncertainty": "Strong trapezoidal and parallelogram in-plane parasitic shear locking persists at the six-element mesh. The normalized measured values in macneal_harder.json /solidCantilever/regression are implementation regression pins with a 1e-5 relative drift bound, not accuracy claims. All previous lower and upper bounds remain enforced. No convergence or published equivalence is inferred from those pins."
+    }
+  }
+}

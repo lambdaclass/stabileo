@@ -19,6 +19,7 @@
  * for another reason, is a result change too.
  */
 import { readFileSync } from 'node:fs';
+import { modelFeatures, ANALYSIS_KINDS } from '../provenance/model-features';
 import { modelStore } from '../store/model.svelte';
 import { historyStore } from '../store/history.svelte';
 import { uiStore } from '../store/ui.svelte';
@@ -91,7 +92,7 @@ async function open(c: SnapshotCase, fixture?: unknown): Promise<void> {
   if ('example' in c.source) {
     await modelStore.loadExample(c.source.example, fixture === undefined ? undefined : async () => structuredClone(fixture));
   } else {
-    const text = readFileSync(new URL(`../../../${c.source.ded}`, import.meta.url), 'utf8');
+    const text = fixture === undefined ? readFileSync(new URL(`../../../${c.source.ded}`, import.meta.url), 'utf8') : JSON.stringify(fixture);
     if (!deserializeProject(text)) throw new Error(`${c.source.ded} does not open`);
     uiStore.analysisMode = c.workspace;
   }
@@ -293,4 +294,10 @@ export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; f
     if (c.advanced) captureAdvanced(c, values);
   }
   return { case: c.name, covers: c.covers, format: FORMAT, values };
+}
+
+export async function openedFeatures(c: SnapshotCase, fixture?: unknown): Promise<string[]> {
+  reset(c);
+  await open(c, fixture);
+  return [...modelFeatures(modelStore.snapshot(), { analysisMode: c.workspace, analysesRun: ['linear', ...(c.advanced ?? [])], analysesRecorded: ANALYSIS_KINDS })];
 }
