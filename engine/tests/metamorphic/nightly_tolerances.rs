@@ -499,7 +499,6 @@ fn ground_action_scale_follows_units_and_excitation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1365"]
 fn issue_1365_nonfinite_mass_is_a_failure_even_when_the_eigen_bound_is_inconclusive() {
     let mut expected = Resp::default();
     expected.scalar("total_mass", crate::response::Dim::MASS, 10.0);
@@ -521,7 +520,6 @@ fn issue_1365_nonfinite_mass_is_a_failure_even_when_the_eigen_bound_is_inconclus
 }
 
 #[test]
-#[ignore = "known wrong result: #1114"]
 fn issue_1114_nonfinite_shell_stress_is_a_failure_even_when_conditioning_is_inconclusive() {
     let mut expected = Resp::default();
     expected.push(None, Some(1), "vm_quad9", crate::response::Kind::Stress, vec![1.0]);
