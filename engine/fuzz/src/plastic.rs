@@ -478,7 +478,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1760"]
     fn issue_1760_above_interval_roundoff_returns_certified_lower() {
         let raw =
             include_bytes!("../corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin");

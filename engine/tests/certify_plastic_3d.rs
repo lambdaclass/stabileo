@@ -441,7 +441,6 @@ fn unsupported_models_are_refused() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1760"]
 fn issue_1760_portal_above_certificate_returns_certified_lower() {
     let input = plastic(portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ);
     let results = solve_plastic_3d(&input).unwrap();

@@ -212,7 +212,7 @@ These are already-fixed mechanisms referenced by the containment negative contro
 | #418 | SP-15 | CORRECTED | Arc segments keep one section orientation. | bbb832fa8; derivation_special_elements::curved_beam_arch_is_invariant_under_plan_rotation |
 | #421, #422, #423 | AC-12 / AC-13 / AC-16 | CORRECTED | Soil curves follow their cited references. | 0ab97bf6b, 343ff25ce; soil_curves_references::soft_clay_ultimate_follows_matlock_with_j, stiff_clay_is_welch_reese_quarter_power_to_16_y50, sand_static_and_cyclic_match_api_hand_values, tz_is_shaft_friction_times_perimeter, qz_follows_api_table_times_tip_area |
 | #757 | SH-GLOBAL-STRESS (retired) | CORRECTED | Solid-shell centroid stresses use the local shell frame; the refusal for faces off the global X–Y plane is removed. | PR #814 (closed #757); shells::solid_shell_stress_axes (rotation invariance, analytical membrane tractions, aligned X–Y bit identity); solid_shell_locking Scordelis–Lo, pinched cylinder and hemisphere; shell_benchmark benchmark_ss_* and frontier gates; known_issues_shell_predicates_have_geometric_controls and determinism containment.test.mjs assert no #757 containment remains |
-| #1760 | `PL-3D-CERTIFICATE-MISMATCH` | WARN / REFUSE | The original resource artifact is conservative and now returns the sound certified lower bound, preserving the raw mismatch as a warning. A separate reachable cantilever has a raw factor one rounding step above its exact upper bound; the existing in-plane portal also exceeds its upper bound. These are engine wrong results on the unchanged main raw solver, strictly refused by the combined checked API. Missing sound certificates are refused too. | plastic::tests::issue_1760_returns_certified_lower; issue_1760_unconservative_roundoff_remains_refused; [wrong-result report](PLASTIC_3D_RAW_FACTOR.md) |
+| #1760 | `PL-3D-CERTIFICATE-MISMATCH` | WARN | The combined checked API returns the lower bound whenever a sound finite ordered certified interval exists, preserving raw mismatches in either direction as warnings. The cantilever and in-plane portal above-interval cases are raw-factor rounding at the certificate boundary. Missing sound certificates are refused. | plastic::tests::issue_1760_returns_certified_lower; issue_1760_above_interval_roundoff_returns_certified_lower; issue_1760_portal_above_certificate_returns_certified_lower; [boundary-rounding report](PLASTIC_3D_RAW_FACTOR.md) |
 
 ## Round 2 verification
 
@@ -410,10 +410,9 @@ and zero retained Rust allocation; #1261 already returns the 2D safety refusal.
 Its historical OOM attribution remains unverified. The separate grid-slab
 performance seed now receives an engine resource preflight refusal, and the
 combined checked 3D API returns the certified lower bound with a warning for a
-conservative raw mismatch. It refuses when no sound certificate is available or
-the raw factor is strictly above the interval, including roundoff, with
-`PL-3D-CERTIFICATE-MISMATCH` for that unconservative case. See the
+raw mismatch in either direction under `PL-3D-CERTIFICATE-MISMATCH`. It refuses
+when no sound certificate is available. See the
 [results change](../results-changes/2026-11-plastic-3d-certified-lower-bound.md) and
-[separate raw-factor wrong-result reproducer](PLASTIC_3D_RAW_FACTOR.md).
+[raw-factor boundary-rounding report](PLASTIC_3D_RAW_FACTOR.md).
 The raw incremental solver retains its conservative biaxial warning. No advisory
 is added; the previous local/unreleased conservative-mismatch advisory is removed.
