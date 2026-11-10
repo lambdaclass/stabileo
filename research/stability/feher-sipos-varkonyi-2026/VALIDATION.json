@@ -1,42 +1,49 @@
 {
   "checks": [
     {
+      "id": "arc-radius",
       "metric": "unloaded strip at Θ = 1: largest distance from the exact circular arc, relative to its radius",
       "observed": 0.000034222943513517734,
       "passed": true,
       "tolerance": 0.0001
     },
     {
+      "id": "arc-curvature",
       "metric": "unloaded strip at Θ = 1: curvature relative error against the exact 2",
       "observed": 0.00012523564739175264,
       "passed": true,
       "tolerance": 0.001
     },
     {
+      "id": "replay",
       "metric": "replay.json against a fresh run: frames that differ",
       "observed": 0.0,
       "passed": true,
       "tolerance": 0.0
     },
     {
+      "id": "path-stable",
       "metric": "Section 3.4 path: states with an indefinite tangent",
       "observed": 0.0,
       "passed": true,
       "tolerance": 0.0
     },
     {
+      "id": "path-jumps",
       "metric": "Section 3.4 path: jumps between neighbouring states",
       "observed": 0.0,
       "passed": true,
       "tolerance": 0.0
     },
     {
+      "id": "mesh",
       "metric": "arch at Θ = 1, q = 2.5: y(1/2) change from 60 to 120 elements, relative",
       "observed": 0.000187339169546451,
       "passed": true,
       "tolerance": 0.001
     },
     {
+      "id": "ends",
       "metric": "shapes 1 and 5 of Figure 9(c) are the start and the end of the path, both at Θ = 1, Δ = 0",
       "observed": 0.0,
       "passed": true,
@@ -78,6 +85,7 @@
   "published_checks": [
     {
       "computed": 0.0031862452160511074,
+      "id": "figure-9c-1",
       "metric": "Figure 9(c) shape 1: median distance to the closest state on our path",
       "observed": 0.0031862452160511074,
       "passed": true,
@@ -87,6 +95,7 @@
     },
     {
       "computed": 0.0026668678314375523,
+      "id": "figure-9c-2",
       "metric": "Figure 9(c) shape 2: median distance to the closest state on our path",
       "observed": 0.0026668678314375523,
       "passed": true,
@@ -96,6 +105,7 @@
     },
     {
       "computed": 0.0019280326753780914,
+      "id": "figure-9c-3",
       "metric": "Figure 9(c) shape 3: median distance to the closest state on our path",
       "observed": 0.0019280326753780914,
       "passed": true,
@@ -105,6 +115,7 @@
     },
     {
       "computed": 0.0022012711792702253,
+      "id": "figure-9c-4",
       "metric": "Figure 9(c) shape 4: median distance to the closest state on our path",
       "observed": 0.0022012711792702253,
       "passed": true,
@@ -114,6 +125,7 @@
     },
     {
       "computed": 0.004642972729265777,
+      "id": "figure-9c-5",
       "metric": "Figure 9(c) shape 5: median distance to the closest state on our path",
       "observed": 0.004642972729265777,
       "passed": true,
@@ -123,6 +135,7 @@
     },
     {
       "computed": 4.246875000000001,
+      "id": "qlim-uniform-0.9-0",
       "metric": "Section 3.2.1: limit load, uniform load, Θ = 0.9, Δ = 0 (paper −4.2, downward)",
       "observed": 0.011160714285714496,
       "passed": true,
@@ -132,6 +145,7 @@
     },
     {
       "computed": 3.7833984375000016,
+      "id": "qlim-uniform-0.9-0.04",
       "metric": "Section 3.2.1: limit load, uniform load, Θ = 0.9, Δ = 0.04 (paper −3.9, downward)",
       "observed": 0.029897836538461106,
       "passed": true,
@@ -141,6 +155,7 @@
     },
     {
       "computed": 2.3654296875000007,
+      "id": "qlim-half-0.9-0",
       "metric": "Section 3.2.1: limit load, half-span load, Θ = 0.9, Δ = 0 (paper −2.5, downward)",
       "observed": 0.05382812499999971,
       "passed": false,
@@ -150,6 +165,7 @@
     },
     {
       "computed": null,
+      "id": "qlim-half-0.66-1.36",
       "metric": "Section 3.2.1: limit load, half-span load, Θ = 0.66, Δ = 1.36 (paper −4.0, downward)",
       "observed": null,
       "passed": false,
@@ -159,6 +175,7 @@
     },
     {
       "computed": 2.132317115852303,
+      "id": "kappa-uniform-0.96-0",
       "metric": "Table 1: largest curvature at q = 2.5, uniform load, Θ = 0.96, Δ = 0",
       "observed": 0.015389102786810853,
       "passed": true,
@@ -168,6 +185,7 @@
     },
     {
       "computed": null,
+      "id": "kappa-half-0.96-0",
       "metric": "Table 1: largest curvature at q = 2.5, half-span load, Θ = 0.96, Δ = 0",
       "observed": null,
       "passed": false,
@@ -177,6 +195,7 @@
     },
     {
       "computed": 12.832728383407577,
+      "id": "kappa-uniform-0.64-1.16",
       "metric": "Table 1: largest curvature at q = 2.5, uniform load, Θ = 0.64, Δ = 1.16",
       "observed": 0.09681439174423744,
       "passed": false,
@@ -186,6 +205,7 @@
     },
     {
       "computed": 14.472204645413122,
+      "id": "kappa-half-0.64-1.16",
       "metric": "Table 1: largest curvature at q = 2.5, half-span load, Θ = 0.64, Δ = 1.16",
       "observed": 3.3200610881830213,
       "passed": false,
