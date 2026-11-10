@@ -10,6 +10,7 @@ defmodule StabileoRepo.Features do
   @usage_telemetry "usage_telemetry_enabled"
   @cloud_projects "cloud_projects_enabled"
   @save_requires_account "save_requires_account"
+  @assignments "assignments_enabled"
   @cloud_projects_limit "cloud_projects_limit"
   @cloud_projects_limit_range 1..100
 
@@ -67,6 +68,20 @@ defmodule StabileoRepo.Features do
       @save_requires_account,
       enabled,
       "Saving or exporting a model asks the user to sign in first"
+    )
+  end
+
+  def assignments_enabled? do
+    SystemSettings.get_flag(@assignments, false) == true
+  rescue
+    _ -> false
+  end
+
+  def set_assignments_enabled(enabled) when is_boolean(enabled) do
+    SystemSettings.set_flag(
+      @assignments,
+      enabled,
+      "Signed-in users may share Educational exercises as homework or timed exams"
     )
   end
 
