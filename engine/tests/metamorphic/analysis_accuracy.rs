@@ -223,6 +223,11 @@ fn static_errors(
         .collect())
 }
 
+fn static_accuracy_limit(cond: &dedaliano_engine::metamorphic::conditioning::Conditioning) -> f64 {
+    crate::checks2::rel_for("linear (PCG)", 1e-10, cond)
+        .min(dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE)
+}
+
 fn static_accuracy_residual(
     inverse: &Inverse,
     x: &[f64],
@@ -246,8 +251,7 @@ fn static_accuracy_residual(
     let reference: Vec<_> = reference.iter().zip(&inverse.diagonal).map(|(v, d)| v * d).collect();
     let lower = (norm(&reference) * (1.0 - gamma(2 * n + 2))
         - norm(&reference_error) * (1.0 + gamma(2 * n + 2))).max(0.0);
-    let limit = crate::checks2::rel_for("linear (PCG)", 1e-10, cond)
-        .min(dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE);
+    let limit = static_accuracy_limit(cond);
     let upper = norm(&error) * (1.0 + gamma(2 * n + 2));
     if !(upper.is_finite() && lower.is_finite() && upper <= limit * lower) {
         return Err("static result exceeds the independent accuracy ceiling".into());
@@ -1092,7 +1096,12 @@ fn geometric_error(
         let magnitude: f64 = term.elongation.iter().map(|&(j, c)| (c * u[j]).abs()).sum();
         let geometry = gamma(4 * (term.dofs.len() + 24)) * cond.geom * term.e * term.a / term.l
             * (magnitude + (term.l * term.alpha * term.dt).abs());
-        let roundoff = upper_abs(&(recovered - axial)) + geometry + action_error;
+        let discrepancy = upper_abs(&(recovered - &axial));
+        let ceiling = static_accuracy_limit(cond) * upper_abs(&axial) + geometry + action_error;
+        if !(ceiling.is_finite() && discrepancy <= ceiling) {
+            return Err("axial recovery exceeds the independent accuracy ceiling".into());
+        }
+        let roundoff = discrepancy + geometry + action_error;
         let mut elongation = vec![0.0; n];
         for &(j, c) in &term.elongation {
             for (a, &v) in elongation.iter_mut().zip(&rows[j]) {
@@ -1473,7 +1482,6 @@ fn issue_1892_final_round_reported_sample_must_match_the_trace() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_last_round_axial_recovery_cannot_buy_a_buckling_allowance() {
     use dedaliano_engine::solver::geometric_stiffness::KgAffineTerm;
     for translations in [2, 3] {

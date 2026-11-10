@@ -437,12 +437,12 @@ pub fn harmonic_floor(
     rel: f64,
     modal_residual: f64,
 ) -> f64 {
-    let Some(accuracy) = accuracy else {
-        return 0.0;
-    };
     if !(modal_residual >= 0.0 && modal_residual < f64::MAX) {
         return f64::INFINITY;
     }
+    let Some(accuracy) = accuracy else {
+        return 0.0;
+    };
     let omega = 2.0 * std::f64::consts::PI * frequency;
     let error = accuracy.harmonic_error(omega, damping, assembly_error);
     let truncation = if modal_residual == 0.0 {
@@ -887,7 +887,6 @@ fn issue_1892_final_round_missing_harmonic_estimate_adds_no_allowance() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_last_round_missing_accuracy_still_validates_modal_residual() {
     for residual in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0, f64::MAX] {
         assert_eq!(harmonic_floor(None, 1.0, (0.1, 0.1), 1e-10, 1e-10, residual), f64::INFINITY,

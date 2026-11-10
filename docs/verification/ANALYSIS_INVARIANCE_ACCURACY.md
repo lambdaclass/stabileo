@@ -2,7 +2,7 @@
 
 ## Scope and baseline
 
-Baseline main is `8f4c3ee6c`. All eight issues were read with `gh issue view` and replayed through `metamorphic_replay`, with the published JSON and seed, before changing the harness. The original model name and density metadata are preserved when supplied. #1369 and #1370 publish the same model and seed, and have separate regression tests.
+Baseline main is `8f4c3ee6c`. All eight issues were read with `gh issue view` and replayed through `metamorphic_replay`, with the published JSON and seed, before changing the harness. The original model name and density metadata are preserved when supplied. #1369 and #1370 publish the same model and seed, covered by the #1369 regression test.
 
 | Issue | Seed | Analysis / relation | Baseline | Fixed harness |
 |---|---:|---|---|---|
