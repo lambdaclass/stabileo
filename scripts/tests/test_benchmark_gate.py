@@ -251,6 +251,32 @@ class TestTolerance(unittest.TestCase):
                          ['case / tip deflection: case.json tolerance is absolute, the spec is relative'])
 
 
+@unittest.skipUnless(os.environ.get('GATE_GAP_REPRODUCERS'), 'known wrong result: #1489')
+class ConsumerGaps(unittest.TestCase):
+    def test_case_file_rust_mutations(self):
+        path = 'engine/tests/benchmarks/cqc_1981.rs'
+        reg = json.loads((ROOT / gate.REGISTRY).read_text())
+        read = lambda name: (ROOT / name).read_text() if (ROOT / name).is_file() else None
+        original = read(path)
+        self.assertEqual(gate.check(reg, read, []), [])
+        for expression in ('tolerance * 10.0', '0.1'):
+            changed = original.replace('<= tolerance * want.abs()', '<= ' + expression + ' * want.abs()')
+            with self.subTest(expression=expression):
+                head = lambda name: changed if name == path else read(name)
+                self.assertTrue(gate.check(reg, head, []))
+                self.assertTrue(gate.label_check(reg, read, reg, head, set())[0])
+
+    def test_disabled_or_removed_test_requires_acknowledgement(self):
+        reg = registry(quantity(test_tolerances=[dict(file='x.rs', calls=['assert_close'], argument=3)]))
+        base = '#[test]\nfn t() { helper(); }\nfn helper() { assert_close(x, y, 0.01, ""); }'
+        for changed in (base.replace('#[test]', '#[test]\n#[ignore]'), base.replace('#[test]', ''),
+                        base.replace('helper();', ''), base.replace('#[test]', '#[test]\n#[cfg_attr(all(), ignore)]')):
+            with self.subTest(changed=changed):
+                errors, _ = gate.label_check(reg, reader(dict(FILES, **{'x.rs': base})), reg,
+                                             reader(dict(FILES, **{'x.rs': changed})), set())
+                self.assertTrue(errors)
+
+
 class Protocol(unittest.TestCase):
     def test_a_protocol_spec_supplies_its_own_references_and_tolerance(self):
         refs = [dict(citation='A', location='Table 1', value=1.0, pass_fail=True, provisional=False),
