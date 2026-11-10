@@ -510,7 +510,7 @@ pub fn rows() -> Vec<Ana2> {
             planar: None,
             run: |c| {
                 // Never cut a repeated pair: a symmetric model's response would not be symmetric (#1030).
-                let (md, n) = cluster_complete(|k| modal::solve_modal_2d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 4, 8)?;
+                let (md, n) = cluster_complete(|k| modal::solve_modal_2d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 4, 8, crate::dynamic_accuracy::of_2d(c).map_or(0.0, |a| a.residual))?;
                 let modes = md.modes[..n]
                     .iter()
                     .map(|x| SpectralModeInput {
@@ -699,12 +699,12 @@ pub fn rows() -> Vec<Ana2> {
 
 /// The first `first` modes, extended to the end of a nearly repeated cluster, asking the solver for
 /// more modes until the cluster's end is seen; an unresolved cluster is an error, never a cut.
-pub(crate) fn cluster_complete<M>(solve: impl Fn(usize) -> Result<M, String>, omegas: impl Fn(&M) -> Vec<f64>, first: usize, mut requested: usize) -> Result<(M, usize), String> {
+pub(crate) fn cluster_complete<M>(solve: impl Fn(usize) -> Result<M, String>, omegas: impl Fn(&M) -> Vec<f64>, first: usize, mut requested: usize, uncertainty: f64) -> Result<(M, usize), String> {
     loop {
         let md = solve(requested)?;
         let w = omegas(&md);
         let mut n = w.len().min(first);
-        while n > 0 && n < w.len() && w[n] - w[n - 1] <= 1e-3 * w[n] {
+        while n > 0 && n < w.len() && (w[n] - w[n - 1] <= 1e-3 * w[n] || (uncertainty.is_finite() && w[n] * w[n] - w[n - 1] * w[n - 1] <= 2.0 * uncertainty)) {
             n += 1;
         }
         if n < w.len() || w.len() < requested {
@@ -722,12 +722,12 @@ fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
     let spectrum: Vec<f64> = [1.0, 2.0, 3.0].into_iter().chain([4.0; 9]).chain((0..10).map(|k| 10.0 + k as f64)).collect();
     let asked = std::cell::RefCell::new(Vec::new());
     let solve = |k: usize| -> Result<Vec<f64>, String> { asked.borrow_mut().push(k); Ok(spectrum[..k.min(spectrum.len())].to_vec()) };
-    let (modes, n) = cluster_complete(solve, |m: &Vec<f64>| m.clone(), 4, 8).unwrap();
+    let (modes, n) = cluster_complete(solve, |m: &Vec<f64>| m.clone(), 4, 8, 0.0).unwrap();
     assert_eq!(n, 12);
     assert_eq!(modes.len(), 16);
     assert_eq!(*asked.borrow(), vec![8, 16]);
     let flat = |k: usize| -> Result<Vec<f64>, String> { Ok(vec![1.0; k]) };
-    assert!(cluster_complete(flat, |m: &Vec<f64>| m.clone(), 4, 8).unwrap_err().contains("not resolved"));
+    assert!(cluster_complete(flat, |m: &Vec<f64>| m.clone(), 4, 8, 0.0).unwrap_err().contains("not resolved"));
 }
 
 /// A P-Delta result converged to 1e-12 within 100 steps, and finite in every reported number.

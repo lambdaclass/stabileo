@@ -21,7 +21,6 @@ mod stiffness;
 mod generated;
 mod safety_cases;
 mod analysis_accuracy;
-mod dynamic_accuracy;
 mod ana2;
 mod ana3;
 mod case;
@@ -31,6 +30,7 @@ mod corpus;
 mod modal_checks;
 mod parity;
 mod nightly_tolerances;
+mod dynamic_accuracy;
 mod quick;
 mod regressions;
 mod harmonic_linearity;
@@ -227,3 +227,5 @@ fn save_failing_model<T: serde::Serialize>(name: &str, index: usize, model: &T, 
         std::fs::write(dir.join(format!("{name}-{index}.json")), serde_json::to_vec(&value).unwrap()).unwrap();
     }
 }
+
+mod harmonic_coverage;
