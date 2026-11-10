@@ -70,9 +70,16 @@ impl LoadSession3D {
 impl LoadSession3D {
     pub fn from_input(mut input: SolverInput3D) -> Result<LoadSession3D, String> {
         crate::solver::linear::validate_input_3d(&input)?;
-        input.loads.clear();
+        let initial_loads = std::mem::take(&mut input.loads);
         let state = if input.constraints.is_empty() {
-            State3D::Prepared(Box::new(prepare_static_3d(&input)?))
+            let prepared = match prepare_static_3d(&input) {
+                Ok(prepared) => prepared,
+                Err(original) => {
+                    input.loads = initial_loads;
+                    return Err(prepare_static_3d(&input).err().unwrap_or(original));
+                },
+            };
+            State3D::Prepared(Box::new(prepared))
         } else {
             State3D::Constrained(Box::new(input))
         };

@@ -46,26 +46,62 @@ be accurate), and each was returned before with a conditioning warning or none:
 |---|---|---|
 | MITC9 twisted strip, 24×8 mesh, `t = 0.0254` and `0.047` (`t/L` about 0.002 to 0.004) | Singular | `κ_S A` = 3.8e10 × 8.4e2 and 1.1e10 × 1.2e3 |
 | Cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496) | Mechanism | weak-axis translation below `1e-12` of the strong one |
-| Beam with `A = 0.01`, `I = 1e-12` | Singular | `κ_S A` = 1.5e3 × 8.3e8 |
 | One-layer solid-shell strip in pure bending, `t/L = 1e-3` | Singular | `κ_S A` = 5.9e12 × 4.3; its test allowed an error of 1e-3 there (its comment measured about 2e-4), against 1e-6 at `t/L = 0.01` |
 
 Thin quadratic shells (MITC9) of that slenderness are refused; MITC4 on the same strip is
 Stable and solved as before.
 
-### Benchmarks refused, pending a decision
+### Coupled directions and verified references
 
-The full engine suite (8839 tests, run without fail-fast) also refuses these, all on
-`κ_S A > 1e12`. Each passed its reference before, so the verdict is conservative here. Their
-tests still expect a solve and fail; they are not changed until the threshold is decided:
+The product gate remains `κ_S A ≤ 1e12`. `A` now compares stiffnesses only within connected
+coupling components of each node-and-kind block, including transformation coupling that can
+cancel out of the assembled off-diagonal entries. Assembly cannot transfer rounding between
+structurally disconnected components. Constraint reductions carry the coupling provenance
+through their transformation too.
 
-| Test | Model | `κ_S A` |
+Tests specifically exercising a conditioning refusal now use genuinely coupled fixtures:
+`threshold_pair` has a nonzero within-node coupling, and the extreme-stiffness frame,
+buckling/bundle and Winkler/staged diagnostic fixtures use a rigid rotation of the same
+beam or frame. Their refusal assertions and tolerances are unchanged.
+
+The two axis-aligned Winkler/SSI limit tests now solve with their original assertions;
+previously this branch refused them at `κ_S = 3.3e9`, `A = 1.9e4`. Their independent axial
+and transverse directions now have singleton components, `A = 1`. Three rotated copies must
+agree with the original displacements and rotations to `1e-6` relative, or be refused.
+`sh_thin_cantilever_strip_does_not_shear_lock` also passes its unchanged `PL³/3EI` check
+(`0.95 < ratio < 1.02`) for MITC4, MITC9, DKT and curved shells. It remains active.
+
+The following tests do **not** verify a published reference on main. Their remaining refused
+meshes now assert the stability refusal, with test names and messages identifying them as
+ill-conditioned models, not verified references. Coarse meshes retain their original nonzero
+response checks or their existing containment:
+
+| Test | What main actually checked | Refused meshes |
 |---|---|---|
-| `benchmark_raasch_hook` | Raasch hook, MITC4, finer meshes (`t/R` about 1.4e-3) | 2.5e9 × 6.3e2 |
-| `benchmark_q9_raasch_hook` | Raasch hook, MITC9 | 3.4e9 × 7.6e2 |
-| `benchmark_q9_spherical_cap` | spherical cap, MITC9 | 8.7e5 × 1.5e7 |
-| `benchmark_spherical_cap_self_convergence` | spherical cap, MITC4, 32×32 (refused before the SH-MITC4-DISTORTION containment) | above 1e12 |
-| `sh_thin_cantilever_strip_does_not_shear_lock` | cantilever strip, `t/L = 1e-3` | 1.9e9 × 6.9e2 |
-| `validation_ssi_foundation_flexibility_ratio`, `validation_winkler_stiffness_ratio_limits` | beam with `Iz = 1` on Winkler springs of 1000 | 3.3e9 × 1.9e4 |
+| `benchmark_raasch_hook` | A nonzero-response floor, coarse convergence, and a finest ratio between `1e-8` and `100`; its comment records about `0.0001` of the published reference | MITC4 16×8, 24×12 |
+| `benchmark_q9_raasch_hook` | Positive displacement and finest ratio above `1e-6`; its comment records about `0.0001` of the reference | MITC9 8×4, 16×8 |
+| `benchmark_q9_spherical_cap` | Self-convergence to its own 16×16 mesh, without a published displacement | MITC9 16×16 |
+| `benchmark_spherical_cap_self_convergence` | All meshes already expected `SH-MITC4-DISTORTION` on main | MITC4 32×32, now caught earlier by stability; smaller meshes retain the distortion refusal |
+
+These claims were checked against `origin/main` after the merge. The Raasch comments describe
+severe locking; they are not evidence of reference accuracy. No tolerance, baseline or
+published-reference assertion was loosened.
+
+### Plastic 3D hinge-state force checks
+
+The existing `assuming_stable` scope remains only the kinematically unsolvable soft-spring
+hinge-state solve in `carry()`. It has not been extended to other states. The member-force
+balance and moment-diagram closure checks certify neither displacements nor the condition
+bound. They previously accepted any model with constraints or connectors without checking it;
+that soft-spring case now returns an explicit refusal. See stability.md §5 for all skipped
+nodes and restraint limitations.
+
+### Safety advisory
+
+[SA-2026-054](../advisories/SA-2026-054-unresolved-linear-stiffness.md) covers results silently
+returned on main beyond the matrix precision bound, including `fuzz_rich_3d/74` (recorded
+`κ_S A = 7.9e13`). The correct outcome is a refusal, not a replacement numerical answer.
+The `linear-stability-refusals` registry entry flags linear analyses for re-checking.
 
 ### Test models that were mechanisms
 

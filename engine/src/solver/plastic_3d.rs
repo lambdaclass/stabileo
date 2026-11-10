@@ -489,6 +489,9 @@ fn carry(input: &SolverInput3D) -> Result<Option<AnalysisResults3D>, String> {
     if super::super::kinematic::analyze_kinematics_3d(input).is_solvable {
         return crate::known_issues::optional_solve(super::super::linear::solve_3d(input));
     }
+    if !input.constraints.is_empty() || !input.connectors.is_empty() {
+        return Err("plastic 3D cannot certify a soft-spring hinge state with constraints or connectors: the member-force balance check does not include their forces".into());
+    }
     let soft = with_soft_springs(input);
     let solved = super::super::stability::assuming_stable(|| crate::known_issues::optional_solve(super::super::linear::solve_3d(&soft)))?;
     let Some(mut r) = solved else { return Ok(None); };
@@ -595,7 +598,7 @@ fn balanced(input: &SolverInput3D, r: &AnalysisResults3D) -> bool {
         skip.extend(p.nodes);
     }
     if !input.constraints.is_empty() || !input.connectors.is_empty() {
-        return true;
+        return false;
     }
     let mut sum: HashMap<usize, [f64; 6]> = HashMap::new();
     let mut scale = 0.0f64;
@@ -1403,7 +1406,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
         fn issue_1753_balance_cannot_certify_constraints_or_connectors() {
         let base: PlasticInput3D = serde_json::from_str(include_str!("../../../verify/samples/plastic-3d-portal.input.json")).unwrap();
         let results = crate::solver::linear::solve_3d(&base.solver).unwrap();

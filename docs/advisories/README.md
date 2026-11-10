@@ -80,6 +80,7 @@ merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
 | [SA-2026-051](SA-2026-051-moving-loads-3d.md) | 3D moving-load envelopes missed interior peaks and lost the axial component of axle weight | High | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
 | [SA-2026-052](SA-2026-052-moving-axial-patch-boundaries.md) | 2D/3D moving-load axial envelopes missed peaks at distributed-load boundaries | High | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
 | [SA-2026-053](SA-2026-053-moving-load-endpoint-forces.md) | Moving-load envelopes included exterior force limits at endpoint point loads | Low | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
+| [SA-2026-054](SA-2026-054-unresolved-linear-stiffness.md) | Linear analysis could silently return results beyond the double-precision stiffness bound | High | #762, #1496 | #1753 | Pending merge and deployment; prepared locally after 0.5.0 | Published 2026-11-09 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

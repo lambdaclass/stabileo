@@ -1678,7 +1678,7 @@ fn solve_constrained_2d_dense_validated(
     // F_reduced = C_ff^T * F_f
     let k_reduced = fcs.reduce_matrix(&k_ff);
     let f_reduced = fcs.reduce_vector(&f_f);
-    let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num);
+    let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, &CscMatrix::from_dense_symmetric(&k_ff, nf), &super::stability::coupling_2d(&input.solver, dof_num));
     refuse_unstable(&stability, &f_reduced)?;
     let u_indep = {
         let mut k_work = k_reduced.clone();
@@ -1953,7 +1953,7 @@ fn solve_constrained_2d_sparse(
     // K_reduced = C_ff^T * K_ff * C_ff as a sparse triple product.
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
     let f_reduced = fcs.reduce_vector(&f_f);
-    let stability = fcs.stability(&k_reduced, dof_num);
+    let stability = fcs.stability(&k_reduced, dof_num, k_ff, &super::stability::coupling_2d(&input.solver, dof_num));
     refuse_unstable(&stability, &f_reduced)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
@@ -2255,7 +2255,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     // over the triplets of K (near-linear in nnz(K) for MPC transforms).
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
     let f_reduced = fcs.reduce_vector(&f_f);
-    let stability = fcs.stability(&k_reduced, &dof_num);
+    let stability = fcs.stability(&k_reduced, &dof_num, k_ff, &super::stability::coupling_3d(&input.solver, &dof_num));
     refuse_unstable(&stability, &f_reduced)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
@@ -2602,7 +2602,7 @@ impl FreeConstraintSystem {
         self.dependent[i]
     }
 
-    pub fn stability(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering) -> super::stability::Stability {
+    pub fn stability(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)]) -> super::stability::Stability {
         let tags = super::stability::tags(dof_num, self.dimensions == 2);
         let reduced_tags: Vec<_> = self.independent.iter().map(|&d| tags[d]).collect();
         let c = &self.c_ff;
@@ -2612,7 +2612,8 @@ impl FreeConstraintSystem {
                 .map(|p| (c.row_idx[p], c.csc_vals[p]))
                 .collect()
         }).collect();
-        super::stability::analyze_constrained(k_reduced, &reduced_tags, &moves)
+        let coupling = super::stability::project_coupling(k_original, &tags, coupling, c, &self.independent);
+        super::stability::analyze_coupled(k_reduced, &reduced_tags, &moves, &coupling)
     }
 
     /// Reduce a dense symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff

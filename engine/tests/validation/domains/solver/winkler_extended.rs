@@ -804,7 +804,6 @@ fn validation_winkler_superposition_multiple_loads() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_winkler_rotated_copy_agrees_or_refuses_coupled_rounding() {
     use dedaliano_engine::metamorphic::transform::{transform_2d, map_results_2d, Iso2};
     let input = make_winkler_beam(40, 10.0, 1_000.0, E, A, 1.0, vec![SolverLoad::Nodal(SolverNodalLoad {
@@ -830,7 +829,6 @@ fn issue_1753_winkler_rotated_copy_agrees_or_refuses_coupled_rounding() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn incident_transform_coupling_survives_cancelled_node_off_diagonals() {
     use dedaliano_engine::solver::{assembly, dof::DofNumbering, stability};
     let mut input = make_winkler_beam(2, 2.0, 1_000.0, E, A, 1e-12, vec![]);

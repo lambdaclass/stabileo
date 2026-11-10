@@ -62,9 +62,30 @@ one carries no rounding from it. By positive semidefiniteness, `vᵀKv = 0` impl
 a local free direction is a null vector of `K` up to the rounding of its assembly, which is
 `O(ε)` of the largest stiffness acting on that node (an inclined member rounds its axial
 stiffness into the transverse directions). Below `τ_loc` the direction cannot be told from
-that rounding. The ratio `μ_b / μ` is the node's **anisotropy**; it is also the factor by
-which that rounding is amplified in the solution of the soft direction, which is what makes
-an axis-aligned and an inclined copy of the same slender member disagree.
+that rounding. This local-free classification still compares the whole node block; it has
+not been relaxed. The **anisotropy** used by the product gate is narrower: partition each
+node-and-kind block into connected components of its coupling graph. An edge is present for
+any nonzero off-diagonal entry, or when an incident element or support transformation mixes
+the two directions. Edges are exact structural tests, with no magnitude cutoff. Transformation
+edges survive cancellation between assembled contributions. Each component contributes its
+largest eigenvalue divided by its smallest kept eigenvalue; `A` is the largest of these ratios.
+A singleton contributes one. Membrane and bending directions within a shell plane are coupled;
+three-dimensional solid strains couple all three translations. A curved shell retains its
+full components when geometry or directors mix directions; an exactly flat coordinate-plane
+shell with axis-aligned directors keeps its normal separate from its tangential component.
+Constraint reduction projects the physical coupling components and nonzero stiffness entries
+through the nonzero rows of `C`, retaining edges between independent directions of the same
+node and kind. A matrix-only constrained API without assembly provenance retains the full
+node blocks conservatively.
+
+For an axis-aligned beam the axial and transverse entries are computed from separate local
+stiffness entries and multiplied by structural zeros in the transformation. Floating-point
+multiplication by zero and addition of zero cannot move axial stiffness into the transverse
+entry. Assembly sums each entry separately. Thus disconnected components carry independent
+rounding scales; their largest stiffnesses must not be compared to each other's smallest ones.
+An oblique beam mixes those entries before assembly, so its components merge and its weak
+direction again carries the full anisotropy penalty. Using the assembled block alone would
+miss this when incident elements cancel their off-diagonal entries.
 
 ### 2.2 Equilibrated scaling
 
@@ -105,7 +126,7 @@ before an uncertified estimate becomes a refusal.
 
 ### 2.3 Verdict
 
-    κ_S = λ_max(S) / λ_min(S)        A = max over nodes of μ_b / μ_min (kept directions)
+    κ_S = λ_max(S) / λ_min(S)        A = max over nodes and coupling components of μ_max / μ_min (kept directions)
 
 - **Mechanism** if a local free direction is a translation: a node can move in a direction
   nothing stiffens beyond `1e-12` of its own stiffest direction. This is decided node by
@@ -135,9 +156,14 @@ before an uncertified estimate becomes a refusal.
   A refusal of either kind has its own reason and wording, not the condition number.
 - All block eigenproblems and singular values run on the block divided by its largest
   entry, so scaling a block by `1e±200` neither underflows nor overflows.
-- **Singular** if `κ_S · A > R = 1e12`, or `S` does not factor (reason: conditioning). Assembly rounds every node
-  block to `ε μ_b`; scaled by `B^{-1/2}` that is `ε A` in `S`, and the smallest eigenvalue
-  moves by up to `ε A κ_S` relative. At `R` that bound is `2.2e-4`: four digits of the
+- **Singular** if `κ_S · A > R = 1e12`, or `S` does not factor (reason: conditioning).
+  The gate is on the product, independent of the applied load. Within each coupling component
+  assembly rounds on that component's `μ_max` scale. Its block scaling amplifies this by at
+  most `μ_max/μ_min`. Disconnected components have structurally zero transformations between
+  them and cannot exchange this rounding (§2.1). The scaled perturbation bound therefore
+  remains `‖δS‖ / λ_max(S) ≤ ε A` in the same first-order rounding model, and Weyl's bound gives
+  `|δλ_min(S)| / λ_min(S) ≤ ε κ_S A`. The shift here is relative, not an absolute eigenvalue
+  bound; operation-count constants are unchanged from the original estimate. At `R` that bound is `2.2e-4`: four digits of the
   smallest eigenpair, and of the displacement it carries, can no longer be guaranteed, and a
   stable and a singular model cannot be told apart beyond that. A mechanism and a near-mechanism are one verdict on
   purpose: which of the two a copy is reported as depends on rounding, so separate verdicts
@@ -146,9 +172,13 @@ before an uncertified estimate becomes a refusal.
 - **Stable**, with its **free rotations** (local free directions that are rotations or
   warping), otherwise.
 
-Every quantity in the verdict is a function of the spectra of `B` and `S`, so two
-transformed copies of a model get different verdicts only if `κ_S · A` or a block ratio
-`μ/μ_b` lies within its own rounding of a threshold.
+The spectra of `B` and `S` retain their invariance. The coupling graph also records where
+floating-point assembly can mix directions: an exactly axis-aligned copy can have smaller
+`A` than a rotated copy. It can solve while the rotated copy is refused, even away from a
+threshold. This is intentional: both solved copies must agree, or the uncertain one must
+refuse. It never licenses an inaccurate returned answer. The Winkler reproducer checks three
+oblique copies against the rotated original displacements and rotations, or requires the
+stability refusal. Unit changes and relabelling preserve the structural graph.
 
 ### 2.4 Known conservative refusals
 
@@ -185,7 +215,6 @@ tests that build them:
 |---|---|---|
 | MITC9 twisted strip, 24×8 mesh, `t = 0.0254` and `0.047` (`t/L` about 0.002 to 0.004) | Singular | `κ_S A` = 3.8e10 × 8.4e2 and 1.1e10 × 1.2e3, above `1e12`: thin quadratic shells of this slenderness are refused (MITC4 on the same strip is Stable) |
 | Cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496) | Mechanism | the weak-axis translation is below `1e-12` of the strong one at each node |
-| Beam with `A = 0.01`, `I = 1e-12` | Singular | `κ_S A` = 1.5e3 × 8.3e8 |
 
 For each, the bound cannot guarantee four digits for the weak direction in double precision
 (the answer may still be accurate: the bound covers every load, not the one applied); the old
@@ -216,8 +245,10 @@ solves returned it with `HighDiagonalRatio` or `NUM-INVARIANCE`, or silently.
   and 14 are solved with `StiffnessNotPositiveDefinite` or `NUM-INVARIANCE`; the last,
   `fuzz_rich_3d/74` (`κ_S A = 7.9e13`), is solved silently today, and the metamorphic
   harness rates every one of its transforms inconclusive.
-- A stiff frame on springs a million times softer than its members (`κ_S A = 3.9e12`) is
-  refused in every frame; on springs a thousand times softer it is Stable.
+- A generally oriented stiff frame on springs a million times softer than its members
+  (`κ_S A = 3.9e12`) is refused in the tested coupled orientations; on springs a thousand
+  times softer it is Stable. Its exactly axis-aligned copy can now solve with `A = 1`;
+  rotation that merges its coupling components can instead refuse.
 
 ## 3. Refusal policy
 
@@ -286,10 +317,33 @@ rigid motion) and connector/skew mechanisms are not special cases: they are null
    only when the stage verdicts are invariant) and plastic 3D. Until then plastic 3D solves a
    hinge state that leaves a mechanism with soft springs (`1e-10` of the softest member) at
    every free DOF, through the linear solve with the verdict assumed Stable and the
-   artificial springs kept (`stability::assuming_stable`), and accepts the answer only when
-   its member forces balance the loads at every free DOF; otherwise the state is a collapse.
-   With the verdict applied, those spring-held states are Singular (`κ_S A` about 1e14) and
-   every such hinge state would read as a premature collapse.
+   artificial springs kept (`stability::assuming_stable`). The assumption occurs only inside
+   `carry()`, only after the kinematic check finds an unsolvable hinge state, on its existing
+   soft-spring path. Kinematically solvable states still use the ordinary linear gate.
+
+   `balanced()` subtracts the applied nodal loads, rotates member end forces and moments into
+   global coordinates and checks their sum at unrestrained frame DOFs against `1e-8` times
+   the largest applied nodal or recovered member force/moment. It also evaluates each frame's
+   moment diagrams at its far end and requires both bending diagrams to close on the recovered
+   end moments within `1e-8` of their force/moment scale. Missing recovered member records are
+   skipped, and failure to construct member axes rejects the state. Nodes on plates, quads,
+   quad9s, solid shells or curved shells, and nodes with any nonzero physical support spring,
+   are skipped by the nodal sum check. All translations of an inclined-support node count as
+   restrained in that check; other restrained components follow the support flags. These are
+   limits of the check, not guarantees about those omitted forces.
+
+   Previously it returned `true` unconditionally for any model with constraints or connectors;
+   those forces are absent from its sums. It now returns `false`, and `carry()` explicitly
+   refuses that soft-spring case before entering `assuming_stable`, rather than accepting it
+   or mislabelling an unchecked answer as collapse. The regression covers both inputs.
+
+   Force balance and member closure do **not** certify displacement accuracy, uniqueness,
+   compatibility of omitted components or the matrix condition bound. Soft-spring hinge-state
+   displacements have no accuracy certificate. A failed force/closure check means the state
+   cannot carry the loads in this algorithm; it is not permission to return the spring-held
+   forces. With the ordinary verdict applied, spring-held hinge states can be Singular and
+   read as premature collapse. Extending the matrix certification to plastic states remains
+   slice 5; the bypass has not been widened.
 6. Staged construction (#1445: its own spring copy; #968, #1091).
 
 Not this test: #1099 (Stable, `κ_S = 5.4`) breaks linear superposition by 12 % on the
@@ -298,3 +352,23 @@ model; both go back to triage.
 
 Each slice carries its reproducers, a results-change registry entry for every model whose
 answer becomes a refusal, and states whether an advisory is needed.
+
+## Sparse direct solve accuracy after the gate
+
+A Stable verdict bounds sensitivity to assembly perturbations; it does not prove that a
+particular factorization and substitution returned accurate displacement digits. The 3D
+sparse Cholesky solve, including the direct fallback after PCG, refines against its original
+matrix using compensated residuals that retain product and summation error. Six corrections
+must reach `8 ε max(1, ||u||∞)` in the infinity norm of the correction, or the result is
+refused. Existing stiffness, residual and pin checks still apply.
+
+The independent 90-digit stored-matrix comparison for the soft-spring model is reproducible
+with the [decimal audit script](../results-changes/1753-decimal-audit.py). Run the
+`only_just_standing_displacements_match_the_decimal_reference` regression with
+`STABILEO_ACCURACY_AUDIT=1 make test.engine.targeted TEST=robustness
+FILTER=only_just_standing_displacements_match_the_decimal_reference`, save its output, then
+run the script in `make shell` with the log path and an output JSON path. The pre-refinement
+relative forward error was `1.2417706258805e-7`; refinement improves the last displayed
+sub-micrometre digit on this extreme soft-spring model. The original answer retained seven
+correct significant digits and did not warrant a safety advisory.
+This refinement is not a certificate for exact unrounded assembly or geometric linearity.

@@ -348,7 +348,9 @@ fn stable_frames_soft_springs_and_anisotropic_members_stay_stable_in_every_frame
     let s = invariant_verdict("bent frame on soft springs", d2(frame_2d(bent.clone(), soft)));
     assert!(s.is_stable(), "{s:?}");
     let softest = serde_json::json!({"1": {"id": 1, "nodeId": 1, "type": "spring", "kx": 1e-3, "ky": 1e-3, "kz": 1e-3}});
-    let s = invariant_verdict("bent frame on springs a million times softer than its members", d2(frame_2d(bent, softest)));
+    let softest: dedaliano_engine::types::SolverInput = serde_json::from_value(frame_2d(bent, softest)).unwrap();
+    let softest = dedaliano_engine::metamorphic::transform::transform_2d(&softest, &Iso2::rotation(0.37)).unwrap();
+    let s = invariant_verdict("coupled bent frame on springs a million times softer than its members", Model::D2(softest));
     assert!(s.verdict == Verdict::Singular && s.kappa * s.anisotropy > stability::RESOLVABLE, "{s:?}");
     let hinged = serde_json::json!({
         "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeEnd": true},
@@ -392,7 +394,7 @@ fn mechanisms_are_refused_in_every_frame() {
 
 fn threshold_pair(eta: f64) -> Stability {
     let c = 1e-3 * eta.sqrt();
-    let k = [eta, 0.0, c, 0.0, 1.0, 0.0, c, 0.0, 1.0];
+    let k = [eta, 1e-3 * eta, c, 1e-3 * eta, 1.0, 0.0, c, 0.0, 1.0];
     analyze_dense(&k, 3, &[t(1, DofKind::Translation), t(1, DofKind::Translation), t(2, DofKind::Translation)])
 }
 
@@ -761,7 +763,6 @@ fn a_long_continuous_beam_is_stable_past_the_full_spectrum() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_uncoupled_node_directions_do_not_amplify_each_others_rounding() {
     let tags = [DofTag { node: 1, kind: DofKind::Translation }; 3];
     let diagonal = [1.0, 0.0, 0.0, 0.0, 1e4, 0.0, 0.0, 0.0, 1e8];

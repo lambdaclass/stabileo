@@ -657,7 +657,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     // ── Triplet sparse path: large models (nf >= 64) ──
     if !force_dense && nf >= SPARSE_THRESHOLD {
         let stiff = super::assembly::without_artificial_stiffness(|| super::sparse_assembly::assemble_stiffness_sparse_2d_typed(input, &dof_num, &properties));
-        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze(&stiff.k_ff, &free_tags(&dof_num, true)) };
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_with_coupling(&stiff.k_ff, &free_tags(&dof_num, true), &super::stability::coupling_2d(input, &dof_num)) };
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         let k_ff = stability.pin_sparse(&stiff.k_ff);
 
@@ -731,7 +731,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     let k_rr = extract_submatrix(&stiff.k, n, &rest_idx, &rest_idx);
     let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
 
-    let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense(&k_ff, nf, &free_tags(&dof_num, true)) };
+    let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense_with_coupling(&k_ff, nf, &free_tags(&dof_num, true), &super::stability::coupling_2d(input, &dof_num)) };
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     stability.pin_dense(&mut k_ff, nf);
 
@@ -1412,6 +1412,42 @@ impl PreparedStatic2D<'_> {
     }
 }
 
+fn subtract_product(sum: &mut f64, low: &mut f64, a: f64, b: f64) {
+    let product = a*b;
+    let next = *sum-product;
+    *low += if sum.abs() >= product.abs() { (*sum-next)-product } else { (-product-next)+*sum };
+    *low -= a.mul_add(b, -product);
+    *sum = next;
+}
+
+fn refined_static_solve(f: &[f64], solve: impl Fn(&[f64]) -> Vec<f64>, residual: impl Fn(&[f64]) -> Vec<f64>) -> Result<Vec<f64>, String> {
+    let mut u = solve(f);
+    for _ in 0..6 {
+        let correction = solve(&residual(&u));
+        assert_finite_3d(&u)?;
+        assert_finite_3d(&correction)?;
+        let error = correction.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+        let scale = u.iter().map(|v| v.abs()).fold(1.0f64, f64::max);
+        if error <= 8.0*f64::EPSILON*scale { return Ok(u); }
+        for (u, delta) in u.iter_mut().zip(correction) { *u += delta; }
+    }
+    Err("the structure is a mechanism or so close to one that its displacement accuracy cannot be resolved: compensated residual refinement of the static solve did not converge; add supports or members, or reduce extreme stiffness contrasts".into())
+}
+
+fn refined_sparse_solve(k: &CscMatrix, factor: &NumericCholesky, f: &[f64]) -> Result<Vec<f64>, String> {
+    refined_static_solve(f, |rhs| sparse_cholesky_solve(factor, rhs), |u| {
+        let (mut sum, mut low) = (f.to_vec(), vec![0.0; k.n]);
+        for j in 0..k.n {
+            for p in k.col_ptr[j]..k.col_ptr[j+1] {
+                let (i, value) = (k.row_idx[p], k.values[p]);
+                subtract_product(&mut sum[i], &mut low[i], value, u[j]);
+                if i != j { subtract_product(&mut sum[j], &mut low[j], value, u[i]); }
+            }
+        }
+        sum.into_iter().zip(low).map(|(hi, lo)| hi+lo).collect()
+    })
+}
+
 /// Reject a solved displacement vector that is not finite.
 ///
 /// A factorization can report success and still produce Inf/NaN:
@@ -1720,7 +1756,11 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let mut solver_diags_base: Vec<SolverDiagnostic> = Vec::new();
 
         let t0 = now_micros();
-        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze(&stiff.k_ff, &free_tags(&dof_num, false)) };
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_with_coupling(&stiff.k_ff, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num)) };
+        if stability.free_rotations().next().is_some() {
+            let f = super::sparse_assembly::assemble_load_vector_sparse_3d(&input, &input.loads, &dof_num, &stiff.inclined_transforms);
+            refuse_loaded_free_rotation_3d(&stability, &dof_num, &f[..nf])?;
+        }
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         stiff.k_ff = stability.pin_sparse(&stiff.k_ff);
         let conditioning_us = now_micros().saturating_sub(t0);
@@ -1808,7 +1848,11 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let free_idx: Vec<usize> = (0..nf).collect();
         let rest_idx: Vec<usize> = (nf..n).collect();
         let mut k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
-        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense(&k_ff, nf, &free_tags(&dof_num, false)) };
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense_with_coupling(&k_ff, nf, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num)) };
+        if stability.free_rotations().next().is_some() {
+            let f = super::sparse_assembly::assemble_load_vector_sparse_3d(&input, &input.loads, &dof_num, &stiff.inclined_transforms);
+            refuse_loaded_free_rotation_3d(&stability, &dof_num, &f[..nf])?;
+        }
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         stability.pin_dense(&mut k_ff, nf);
 
@@ -1935,10 +1979,7 @@ impl PreparedStatic3D {
     fn refuse_loads_on_free_rotations(&self, loads: &[SolverLoad3D]) -> Result<(), String> {
         if self.stability.free_rotations().next().is_none() { return Ok(()); }
         let f = super::sparse_assembly::assemble_load_vector_sparse_3d(&self.input, loads, &self.dof_num, self.inclined_transforms());
-        match self.stability.load_on_free_rotation(&f[..self.nf]) {
-            Some(node) => Err(moment_lost_3d(node, "no member, support or spring stiffens that rotation (or warping) of the node")),
-            None => Ok(()),
-        }
+        refuse_loaded_free_rotation_3d(&self.stability, &self.dof_num, &f[..self.nf])
     }
 
     fn solve_loads_fully_restrained(
@@ -2197,7 +2238,7 @@ impl PreparedStatic3D {
 
         // Triangular solve with the precomputed sparse Cholesky factor
         let t0 = now_micros();
-        let u = sparse_cholesky_solve(&p.num, &f_f);
+        let u = refined_sparse_solve(&p.k_ff, &p.num, &f_f)?;
 
         let s_us = now_micros().saturating_sub(t0);
 
@@ -2504,7 +2545,7 @@ impl PreparedStatic3D {
                 {
                     {
                         let t0 = now_micros();
-                        let u = sparse_cholesky_solve(num, &f_f);
+                        let u = refined_sparse_solve(&p.k_ff, num, &f_f)?;
                         let s_us = now_micros().saturating_sub(t0);
 
                         // Verify final solution quality via residual check.
@@ -4102,6 +4143,17 @@ pub(crate) fn refuse_loads_on_orphan_dofs_3d(
     Ok(())
 }
 
+fn refuse_loaded_free_rotation_3d(stability: &super::stability::Stability, dof: &DofNumbering, f: &[f64]) -> Result<(), String> {
+    let Some(node) = stability.load_on_free_rotation(f) else { return Ok(()); };
+    let directions: Vec<_> = stability.free_rotations().filter(|d| d.node == node).map(|d| {
+        d.dofs.iter().zip(&d.direction).map(|(&index, value)| {
+            let local = dof.entries_by_dof().into_iter().find(|(_, i)| *i == index).unwrap().0.1;
+            format!("{}={value:.6e}", ["ux", "uy", "uz", "rx", "ry", "rz", "warping"][local])
+        }).collect::<Vec<_>>().join(", ")
+    }).collect();
+    Err(moment_lost_3d(node, &format!("a loaded released rotation or unstiffened rotational/warping direction is present; free directions [{}] have no resolvable stiffness", directions.join("; "))))
+}
+
 fn moment_lost_3d(node: usize, why: &str) -> String {
     format!(
         "Nodal moment at node {node} is not supported: {why}, so the moment would not reach the structure. \
@@ -5424,7 +5476,6 @@ pub(super) fn compute_equilibrium_summary_2d(
 #[cfg(test)]
 mod conditioning_1753_audit {
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn issue_1465_loaded_release_names_the_node_and_rotation() {
         let input: crate::types::SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/buckling-1465-loaded-release.json")).unwrap();
         let linear = super::solve_3d(&input).unwrap_err();

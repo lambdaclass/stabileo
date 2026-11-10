@@ -192,6 +192,112 @@ pub fn tags(dof_num: &DofNumbering, two_d: bool) -> Vec<DofTag> {
     out
 }
 
+fn couple_axes(out: &mut Vec<(usize, usize)>, dof: &DofNumbering, nodes: &[usize], offset: usize, axes: &[&[f64]]) {
+    for &node in nodes {
+        for axis in axes {
+            for i in 0..axis.len() {
+                for j in 0..i {
+                    if axis[i] != 0.0 && axis[j] != 0.0 {
+                        if let (Some(a), Some(b)) = (dof.global_dof(node, offset + i), dof.global_dof(node, offset + j)) {
+                            out.push((a, b));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub(crate) fn coupling_2d(input: &SolverInput, dof: &DofNumbering) -> Vec<(usize, usize)> {
+    let nodes: BTreeMap<_, _> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let mut out = Vec::new();
+    for e in input.elements.values() {
+        let (a, b) = (nodes[&e.node_i], nodes[&e.node_j]);
+        couple_axes(&mut out, dof, &[a.id, b.id], 0, &[&[b.x - a.x, b.z - a.z]]);
+    }
+    for e in input.connectors.values() {
+        let (a, b) = (nodes[&e.node_i], nodes[&e.node_j]);
+        let (dx, dz) = (b.x - a.x, b.z - a.z);
+        if (dx * dx + dz * dz).sqrt() > crate::element::connector::ZERO_LENGTH {
+            couple_axes(&mut out, dof, &[a.id, b.id], 0, &[&[dx, dz]]);
+        }
+    }
+    for support in input.supports.values() {
+        if support.support_type == "inclinedRoller" {
+            let r = super::assembly::inclined_rotation_matrix_2d(support.angle.unwrap_or(0.0));
+            couple_axes(&mut out, dof, &[support.node_id], 0, &[&r[0], &r[1]]);
+        } else if support.support_type == "spring" {
+            if let Some(angle) = support.angle.map(super::support::prepare_support_angle) {
+                if angle.abs() > 1e-15 && (support.kx.unwrap_or(0.0) > 0.0 || support.ky.unwrap_or(0.0) > 0.0) {
+                    couple_axes(&mut out, dof, &[support.node_id], 0, &[&[angle.cos(), angle.sin()]]);
+                }
+            }
+        }
+    }
+    out.sort_unstable();
+    out.dedup();
+    out
+}
+
+pub(crate) fn coupling_3d(input: &SolverInput3D, dof: &DofNumbering) -> Vec<(usize, usize)> {
+    let nodes: BTreeMap<_, _> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let mut out = Vec::new();
+    for e in input.elements.values() {
+        let (a, b) = (nodes[&e.node_i], nodes[&e.node_j]);
+        if e.elem_type == "truss" || e.elem_type == "cable" {
+            couple_axes(&mut out, dof, &[a.id, b.id], 0, &[&[b.x - a.x, b.y - a.y, b.z - a.z]]);
+        } else {
+            let (ex, ey, ez) = crate::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z, e.local_yx, e.local_yy, e.local_yz, e.roll_angle, input.left_hand.unwrap_or(false));
+            for offset in [0, 3] { couple_axes(&mut out, dof, &[a.id, b.id], offset, &[&ex, &ey, &ez]); }
+        }
+    }
+    for e in input.connectors.values() {
+        let (a, b) = (nodes[&e.node_i], nodes[&e.node_j]);
+        if a.x == b.x && a.y == b.y && a.z == b.z { continue; }
+        let delta = [b.x - a.x, b.y - a.y, b.z - a.z];
+        let length = delta.iter().map(|x| x * x).sum::<f64>().sqrt();
+        if length <= crate::element::connector::ZERO_LENGTH { continue; }
+        let [ex, ey, ez] = crate::element::connector::connector_axes_3d(delta.map(|x| x / length));
+        for offset in [0, 3] { couple_axes(&mut out, dof, &[a.id, b.id], offset, &[&ex, &ey, &ez]); }
+    }
+    let mut shell = |ids: &[usize], t: Vec<f64>, n: usize| {
+        let axes: Vec<Vec<f64>> = (0..3).map(|i| t[i * n..i * n + 3].to_vec()).collect();
+        let membrane: Vec<f64> = (0..3).map(|i| if axes[0][i] != 0.0 || axes[1][i] != 0.0 { 1.0 } else { 0.0 }).collect();
+        for offset in [0, 3] { couple_axes(&mut out, dof, ids, offset, &[&axes[0], &axes[1], &axes[2], &membrane]); }
+    };
+    for e in input.plates.values() {
+        let coords = e.nodes.map(|id| { let p = nodes[&id]; [p.x, p.y, p.z] });
+        shell(&e.nodes, crate::element::plate_transform_3d(&coords), 18);
+    }
+    for e in input.quads.values() {
+        let coords = e.nodes.map(|id| { let p = nodes[&id]; [p.x, p.y, p.z] });
+        shell(&e.nodes, crate::element::quad::quad_transform_3d(&coords), 24);
+    }
+    for e in input.quad9s.values() {
+        let coords = e.nodes.map(|id| { let p = nodes[&id]; [p.x, p.y, p.z] });
+        shell(&e.nodes, crate::element::quad9::quad9_transform_3d(&coords), 54);
+    }
+    for e in input.solid_shells.values() {
+        couple_axes(&mut out, dof, &e.nodes, 0, &[&[1.0, 1.0, 1.0]]);
+    }
+    for e in input.curved_shells.values() {
+        let coords = e.nodes.map(|id| { let p = nodes[&id]; [p.x, p.y, p.z] });
+        let dirs = e.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+        let normal = (0..3).find(|&axis| coords.iter().all(|p| p[axis] == coords[0][axis]) && dirs.iter().all(|d| d[axis] != 0.0 && (0..3).all(|j| j == axis || d[j] == 0.0)));
+        let plane: Vec<f64> = (0..3).map(|i| if normal == Some(i) { 0.0 } else { 1.0 }).collect();
+        for offset in [0, 3] { couple_axes(&mut out, dof, &e.nodes, offset, &[&plane]); }
+    }
+    for support in input.supports.values() {
+        if support.is_inclined == Some(true) {
+            let r = super::assembly::inclined_rotation_matrix(support.normal_x.unwrap_or(0.0), support.normal_y.unwrap_or(0.0), support.normal_z.unwrap_or(1.0));
+            couple_axes(&mut out, dof, &[support.node_id], 0, &[&r[0], &r[1], &r[2]]);
+        }
+    }
+    out.sort_unstable();
+    out.dedup();
+    out
+}
+
 fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
     let scale = a.iter().fold(0.0f64, |m, x| m.max(x.abs()));
     let scale = if scale > 0.0 && scale.is_finite() { scale } else { 1.0 };
@@ -242,10 +348,18 @@ fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
 struct Column { group: usize, w: Vec<f64> }
 
 pub fn analyze_dense(k: &[f64], n: usize, tags: &[DofTag]) -> Stability {
-    analyze_dense_constrained(k, n, tags, &[])
+    analyze_dense_with_coupling(k, n, tags, &[])
+}
+
+pub(crate) fn analyze_dense_with_coupling(k: &[f64], n: usize, tags: &[DofTag], coupling: &[(usize, usize)]) -> Stability {
+    analyze_dense_coupled(k, n, tags, &[], coupling)
 }
 
 pub fn analyze_dense_constrained(k: &[f64], n: usize, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>]) -> Stability {
+    analyze_dense_coupled(k, n, tags, moves_translation, &conservative_coupling(tags, moves_translation))
+}
+
+fn analyze_dense_coupled(k: &[f64], n: usize, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>], coupling: &[(usize, usize)]) -> Stability {
     let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
     for j in 0..n {
         for i in j..n {
@@ -257,14 +371,75 @@ pub fn analyze_dense_constrained(k: &[f64], n: usize, tags: &[DofTag], moves_tra
             }
         }
     }
-    analyze_constrained(&CscMatrix::from_triplets(n, &rows, &cols, &vals), tags, moves_translation)
+    analyze_coupled(&CscMatrix::from_triplets(n, &rows, &cols, &vals), tags, moves_translation, coupling)
 }
 
 pub fn analyze(k: &CscMatrix, tags: &[DofTag]) -> Stability {
-    analyze_constrained(k, tags, &[])
+    analyze_with_coupling(k, tags, &[])
+}
+
+pub(crate) fn analyze_with_coupling(k: &CscMatrix, tags: &[DofTag], coupling: &[(usize, usize)]) -> Stability {
+    analyze_coupled(k, tags, &[], coupling)
+}
+
+pub(crate) fn project_coupling(k: &CscMatrix, tags: &[DofTag], coupling: &[(usize, usize)], c: &crate::solver::constraints::SparseTransform, independent: &[usize]) -> Vec<(usize, usize)> {
+    fn root(parent: &[usize], mut i: usize) -> usize {
+        while parent[i] != i { i = parent[i]; }
+        i
+    }
+    let mut parent: Vec<usize> = (0..k.n).collect();
+    let mut join = |i: usize, j: usize| {
+        if i < k.n && j < k.n && tags[i] == tags[j] {
+            let (a, b) = (root(&parent, i), root(&parent, j));
+            parent[a] = b;
+        }
+    };
+    for &(i, j) in coupling { join(i, j); }
+    for j in 0..k.n {
+        for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+            if k.values[p] != 0.0 { join(k.row_idx[p], j); }
+        }
+    }
+    let mut images = vec![std::collections::BTreeSet::new(); k.n];
+    for i in 0..k.n.min(c.n_rows) {
+        for p in c.row_ptr[i]..c.row_ptr[i + 1] {
+            if c.vals[p] != 0.0 { images[root(&parent, i)].insert(c.col_idx[p]); }
+        }
+    }
+    let mut out = std::collections::BTreeSet::new();
+    let mut link = |a: usize, b: usize| {
+        for &i in &images[a] {
+            for &j in &images[b] {
+                if i != j && tags[independent[i]] == tags[independent[j]] { out.insert((i.max(j), i.min(j))); }
+            }
+        }
+    };
+    for i in 0..k.n { link(i, i); }
+    for j in 0..k.n {
+        for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+            if k.values[p] != 0.0 { link(root(&parent, k.row_idx[p]), root(&parent, j)); }
+        }
+    }
+    out.into_iter().collect()
+}
+
+fn conservative_coupling(tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>]) -> Vec<(usize, usize)> {
+    if moves_translation.is_empty() { return Vec::new(); }
+    let mut groups: BTreeMap<(usize, DofKind), Vec<usize>> = BTreeMap::new();
+    let mut out = Vec::new();
+    for (i, t) in tags.iter().enumerate() {
+        let group = groups.entry((t.node, t.kind)).or_default();
+        for &j in group.iter() { out.push((i, j)); }
+        group.push(i);
+    }
+    out
 }
 
 pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>]) -> Stability {
+    analyze_coupled(k, tags, moves_translation, &conservative_coupling(tags, moves_translation))
+}
+
+pub(crate) fn analyze_coupled(k: &CscMatrix, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>], coupling: &[(usize, usize)]) -> Stability {
     let n = k.n;
     if k.values.iter().any(|v| !v.is_finite()) {
         return non_finite();
@@ -289,6 +464,16 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
             blocks[gi][lj * b + li] = k.values[p];
         }
     }
+    let mut adjacency: Vec<Vec<bool>> = blocks.iter().map(|b| b.iter().map(|&x| x != 0.0).collect()).collect();
+    for &(i, j) in coupling {
+        if i >= n || j >= n { continue; }
+        let ((gi, li), (gj, lj)) = (group_of[i], group_of[j]);
+        if gi == gj {
+            let b = groups[gi].1.len();
+            adjacency[gi][li * b + lj] = true;
+            adjacency[gi][lj * b + li] = true;
+        }
+    }
     let eig: Vec<(Vec<f64>, Vec<f64>)> = blocks.iter().zip(&groups).map(|(b, (_, d))| sym_eigen_small(b, d.len())).collect();
     if eig.iter().any(|(mu, v)| mu.iter().chain(v).any(|x| !x.is_finite())) {
         return non_finite();
@@ -304,19 +489,43 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
             return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa: f64::NAN, anisotropy, free, mode_nodes: vec![*node] };
         }
         let whole_free = top <= 0.0;
-        let mut lowest_kept = f64::INFINITY;
+
         for c in 0..b {
             let v: Vec<f64> = (0..b).map(|r| vecs[r * b + c]).collect();
             if whole_free || mu[c] <= LOCAL_FREE * top {
                 free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v, scale: if top > 0.0 { top } else { 1.0 }, coupling: Vec::new() });
                 own.push((mu[c], top.max(0.0), b));
             } else {
-                lowest_kept = lowest_kept.min(mu[c]);
                 let s = mu[c].sqrt();
                 columns.push(Column { group: g, w: v.iter().map(|x| x / s).collect() });
             }
         }
-        if lowest_kept.is_finite() { anisotropy = anisotropy.max(top / lowest_kept); }
+        let mut seen = vec![false; b];
+        for start in 0..b {
+            if seen[start] { continue; }
+            let mut component = vec![start];
+            seen[start] = true;
+            let mut next = 0;
+            while next < component.len() {
+                let i = component[next];
+                for (j, visited) in seen.iter_mut().enumerate() {
+                    if !*visited && adjacency[g][i * b + j] {
+                        *visited = true;
+                        component.push(j);
+                    }
+                }
+                next += 1;
+            }
+            let mut block = Vec::new();
+            for &i in &component {
+                for &j in &component { block.push(blocks[g][i * b + j]); }
+            }
+            let (values, _) = sym_eigen_small(&block, component.len());
+            let highest = values.last().copied().unwrap_or(0.0);
+            if let Some(&lowest) = values.iter().find(|&&x| x > LOCAL_FREE * top) {
+                anisotropy = anisotropy.max(highest / lowest);
+            }
+        }
     }
     let mut translation_free: Vec<usize> = free.iter().filter(|f| f.kind == DofKind::Translation).map(|f| f.node).collect();
     let (moving, undecided) = swinging(&free, moves_translation);
@@ -615,14 +824,17 @@ fn mode_nodes(x: &[f64], columns: &[Column], groups: &[((usize, DofKind), Vec<us
     by_node.into_iter().filter(|&(_, v)| v >= 0.01 * top).map(|(n, _)| n).collect()
 }
 
-fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, ct: Option<crate::solver::constraints::ConstraintTransform>) -> (Vec<f64>, usize, Vec<DofTag>, Vec<Vec<(usize, f64)>>) {
+fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, mut coupling: Vec<(usize, usize)>, ct: Option<crate::solver::constraints::ConstraintTransform>) -> (Vec<f64>, usize, Vec<DofTag>, Vec<Vec<(usize, f64)>>, Vec<(usize, usize)>) {
     let n = dof.n_total;
     let nf = dof.n_free;
     let (k, size, idx, tag_of, moves): (Vec<f64>, usize, Vec<usize>, Vec<usize>, Vec<Vec<(usize, f64)>>) = match ct {
         None => (k.to_vec(), n, (0..nf).collect(), (0..nf).collect(), Vec::new()),
         Some(ct) => {
+            coupling = project_coupling(&CscMatrix::from_dense_symmetric(k, n), &tags, &coupling, &ct.c, &ct.independent_dofs);
             let idx: Vec<usize> = (0..ct.n_independent).filter(|&j| ct.independent_dofs[j] < nf).collect();
             let tag_of = idx.iter().map(|&j| ct.independent_dofs[j]).collect();
+            let positions: BTreeMap<usize, usize> = idx.iter().enumerate().map(|(i, &j)| (j, i)).collect();
+            coupling = coupling.into_iter().filter_map(|(i, j)| Some((*positions.get(&i)?, *positions.get(&j)?))).collect();
             let c = &ct.c;
             let moves = idx.iter().map(|&j| (c.col_ptr[j]..c.col_ptr[j + 1]).filter(|&p| c.csc_vals[p] != 0.0 && tags[c.row_idx[p]].kind == DofKind::Translation).map(|p| (c.row_idx[p], c.csc_vals[p])).collect()).collect();
             (c.reduce_dense(k), ct.n_independent, idx, tag_of, moves)
@@ -633,7 +845,7 @@ fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, ct: Option<crate::s
     for (a, &i) in idx.iter().enumerate() {
         for (b, &j) in idx.iter().enumerate() { out[a * m + b] = k[i * size + j]; }
     }
-    (out, m, tag_of.into_iter().map(|d| tags[d]).collect(), moves)
+    (out, m, tag_of.into_iter().map(|d| tags[d]).collect(), moves, coupling)
 }
 
 pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
@@ -643,8 +855,8 @@ pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
     let ct = if input.constraints.is_empty() { None } else {
         Some(build_constraint_transform(&input.constraints, &dof, Some(&input.nodes), None, &inclined_dofs_2d(input, &dof))?)
     };
-    let (k, m, t, moves) = reduced(&asm.k, &dof, tags(&dof, true), ct);
-    Ok(analyze_dense_constrained(&k, m, &t, &moves))
+    let (k, m, t, moves, coupling) = reduced(&asm.k, &dof, tags(&dof, true), coupling_2d(input, &dof), ct);
+    Ok(analyze_dense_coupled(&k, m, &t, &moves, &coupling))
 }
 
 pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
@@ -655,6 +867,6 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
     let ct = if input.constraints.is_empty() { None } else {
         Some(build_constraint_transform(&input.constraints, &dof, None, Some(&input.nodes), &inclined_dofs_3d(input, &dof))?)
     };
-    let (k, m, t, moves) = reduced(&asm.k, &dof, tags(&dof, false), ct);
-    Ok(analyze_dense_constrained(&k, m, &t, &moves))
+    let (k, m, t, moves, coupling) = reduced(&asm.k, &dof, tags(&dof, false), coupling_3d(input, &dof), ct);
+    Ok(analyze_dense_coupled(&k, m, &t, &moves, &coupling))
 }

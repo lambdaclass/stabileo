@@ -487,7 +487,6 @@ fn only_just_standing_building() -> (Spec, Building, Vec<SolverLoad3D>) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn only_just_standing_displacements_match_the_decimal_reference() {
     let (_, mut b, dead) = only_just_standing_building();
     b.input.loads = dead;
@@ -519,7 +518,6 @@ fn only_just_standing_displacements_match_the_decimal_reference() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn a_structure_that_only_just_stands_is_caught() {
     let (s, b, dead) = only_just_standing_building();
     let mut loaded = b.input.clone();

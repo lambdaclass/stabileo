@@ -221,7 +221,15 @@ fn invariance_reported_seeds_are_refused_or_stable() {
                 assert!(dedaliano_engine::solver::stability::of_3d(&input).unwrap().is_stable(), "3D/{seed}");
                 unit_invariant_3d(&input, &r, &format!("#762 3D/{seed}"));
             }
-            Err(e) => assert!(e.starts_with("the structure is a mechanism"), "#762 3D/{seed}: expected NUM-INVARIANCE warning or the stability refusal, got {e}"),
+            Err(e) => {
+                let verdict = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
+                assert!(verdict.refusal().expect("the original stiffness refusal remains").starts_with("the structure is a mechanism"));
+                if seed == 20761 {
+                    assert!(e.starts_with("Nodal moment at node 2 is not supported:") && e.contains("loaded released rotation") && e.contains("rx=") && e.contains("ry=") && e.contains("rz="), "#762 3D/{seed}: {e}");
+                } else {
+                    assert!(e.starts_with("the structure is a mechanism"), "#762 3D/{seed}: {e}");
+                }
+            },
         }
     }
 }
@@ -565,6 +573,7 @@ fn buckling_and_certificate_exports_preserve_warnings() {
     for affected in [false, true] {
         let solver = make_beam(4, 4.0, E, 0.01, if affected { 1e-12 } else { 1e-4 }, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: -1.0, fz: 0.0, my: 0.0 })]);
+        let solver = dedaliano_engine::metamorphic::transform::transform_2d(&solver, &dedaliano_engine::metamorphic::transform::Iso2::rotation(0.37)).unwrap();
         let multi = MultiCaseInput { solver: solver.clone(), load_cases: vec![LoadCase { name: "A".into(), loads: solver.loads.clone() }],
             combinations: vec![CombinationDef { name: "C".into(), factors: HashMap::from([("A".into(), 1.0)]) }] };
         if affected {
@@ -599,6 +608,7 @@ fn advanced_3d_and_bundles_keep_conditioning() {
         let inertia = if affected { 1e-12 } else { 1e-4 };
         let solver = make_3d_beam(4, 4.0, E, 0.3, 0.01, inertia, inertia, inertia, vec![true; 6], None,
             vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: -1.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
+        let solver = dedaliano_engine::metamorphic::transform::transform_3d(&solver, &dedaliano_engine::metamorphic::transform::Iso3::from_euler(0.37, 0.81, 1.19)).unwrap();
         let densities = HashMap::from([("1".into(), 7850.0)]);
         let modal = solve_modal_3d(&solver, &densities, 2).unwrap();
         let harmonic = solve_harmonic_3d(&HarmonicInput3D { solver: solver.clone(), densities: densities.clone(),
@@ -771,6 +781,7 @@ fn winkler_and_stages_check_the_solved_matrix() {
     for affected in [false, true] {
         let inertia = if affected { 1e-12 } else { 1e-4 };
         let solver = make_beam(4, 4.0, E, 0.01, inertia, "fixed", None, tip(-1.0));
+        let solver = dedaliano_engine::metamorphic::transform::transform_2d(&solver, &dedaliano_engine::metamorphic::transform::Iso2::rotation(0.37)).unwrap();
         let winkler = solve_winkler_2d(&WinklerInput { solver: solver.clone(), foundation_springs: vec![] }).unwrap();
         let mut staged = serde_json::to_value(&solver).unwrap();
         staged["stages"] = serde_json::json!([{ "name": "all", "elementsAdded": [1,2,3,4], "supportsAdded": [1], "loadIndices": [0] }]);
