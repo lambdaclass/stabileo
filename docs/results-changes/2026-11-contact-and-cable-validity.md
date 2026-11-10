@@ -9,11 +9,13 @@ unphysical tension and `converged = true` at the base revision. The base already
 translated NL-13 warning; these native reproducers therefore did not return silently wrong results.
 
 Both dimensions now check frozen contacts after the final solve without damping, remembering
-freezing across augmented-Lagrangian passes. Penetration and tensile force divided by the penalty
-stiffness must be within the contact tolerance, default 1e-10 m, and a separated contact must not
-carry compression above the same scaled tolerance. Invalid states return a structured
+freezing across augmented-Lagrangian passes. Open contacts must not penetrate or carry force; active
+contacts may carry compression with penalty penetration. Tensile force divided by penalty stiffness
+must be within the contact tolerance, default 1e-10 m, and a separated contact must not carry
+compression above the same scaled tolerance. Invalid states return a structured
 `contact_state_invalid` refusal. A frozen state that satisfies these conditions may converge.
-Ordinary unfrozen penalty contact keeps its existing treatment of penetration. Frozen uplift supports
+The [review correction](2026-11-frozen-contact-bearing-and-surface-al.md) also fixes the surface
+AL multiplier sign and documents hand-formula controls. Frozen uplift supports
 whose status still needs to change are refused rather than returned with an unsettled state.
 
 Outside the cable solver, cable elements were assembled as two-way truss bars. The 2D pinning

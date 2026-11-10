@@ -599,9 +599,6 @@ fn contact_corrections_2d(
         let mut dofs = Vec::new();
         let mut nv = Vec::new();
         let mut tv = Vec::new();
-        // Gap of the undeformed geometry along this normal: the linearised
-        // gap is g0 + N·u, and the penalty k·N·Nᵀ acts on it, so f carries
-        // −k·g0·N (and −λ·N under AL).
         let mut g0 = 0.0;
         for (node, w) in ends {
             let (x, z) = node_by_id.get(&node).map_or((0.0, 0.0), |nd| (nd.x, nd.z));
@@ -618,7 +615,7 @@ fn contact_corrections_2d(
         let k = p.stiffness;
         let mut lam = k * g0;
         if al {
-            lam += st.n2s_lambda[pi];
+            lam -= st.n2s_lambda[pi];
         }
         let mut kk = vec![0.0; m * m];
         for a in 0..m {
@@ -995,7 +992,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
     for (gi, gap) in input.gap_elements.iter().enumerate().filter(|(gi, _)| frozen_gaps[*gi]) {
         let opening = gap_relative_2d(gap, &dof_num, &u_global) + gap.initial_gap;
         let force = if st.gap[gi] == ContactStatus::Active { opening - if al { st.gap_lambda[gi] / gap.stiffness } else { 0.0 } } else { 0.0 };
-        super::validity::check_frozen_contact(gap.id, opening, force, gap.stiffness, tolerance, "gap")?;
+        super::validity::check_frozen_contact(gap.id, opening, force, gap.stiffness, tolerance, st.gap[gi] == ContactStatus::Active, "gap")?;
     }
     for (pi, pair) in input.node_to_surface_pairs.iter().enumerate().filter(|(pi, _)| frozen_pairs[*pi]) {
         let (_, _, opening) = project_slave_onto_segment_2d(pair, &node_by_id, &dof_num, &u_global);
@@ -1006,12 +1003,12 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
                     let (x, z) = get_deformed_pos_2d(node, &node_by_id, &dof_num, &u_global);
                     weight * (normal[0] * x + normal[1] * z)
                 }).sum::<f64>();
-            projected + if al { st.n2s_lambda[pi] / pair.stiffness } else { 0.0 }
+            projected - if al { st.n2s_lambda[pi] / pair.stiffness } else { 0.0 }
         } else { 0.0 };
-        super::validity::check_frozen_contact(pair.slave_node, opening, force, pair.stiffness, tolerance, "node_to_surface")?;
+        super::validity::check_frozen_contact(pair.slave_node, opening, force, pair.stiffness, tolerance, st.n2s[pi] == ContactStatus::Active, "node_to_surface")?;
     }
 
-    let diagnostics = build_diagnostics_2d(
+    let mut diagnostics = build_diagnostics_2d(
         &st.gap_flips,
         &input.gap_elements,
         &elem_flips,
@@ -1020,6 +1017,12 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
         &input.node_to_surface_pairs,
         max_flips,
     );
+    for (_, gap) in input.gap_elements.iter().enumerate().filter(|(gi, _)| frozen_gaps[*gi] && st.gap_flips[*gi] <= max_flips) {
+        diagnostics.push(format!("Gap {} status was frozen in an earlier augmented-Lagrangian pass.", gap.id));
+    }
+    for (_, pair) in input.node_to_surface_pairs.iter().enumerate().filter(|(pi, _)| frozen_pairs[*pi] && n2s_flips[*pi] <= max_flips) {
+        diagnostics.push(format!("Pair slave={} status was frozen in an earlier augmented-Lagrangian pass.", pair.slave_node));
+    }
 
     // Residual of the final state, R = K·u − f over all DOFs (frames of K):
     // the restrained part is the reactions, the free part the constraint
@@ -1494,10 +1497,13 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
     for (gi, gap) in input.gap_elements.iter().enumerate().filter(|(gi, _)| frozen_gaps[*gi]) {
         let opening = rel(gap, gap.direction.min(2), &u_global) + gap.initial_gap;
         let force = if gap_status[gi] == ContactStatus::Active { opening - if al { gap_lambda[gi] / gap.stiffness } else { 0.0 } } else { 0.0 };
-        super::validity::check_frozen_contact(gap.id, opening, force, gap.stiffness, tolerance, "gap")?;
+        super::validity::check_frozen_contact(gap.id, opening, force, gap.stiffness, tolerance, gap_status[gi] == ContactStatus::Active, "gap")?;
     }
 
-    let diagnostics = build_diagnostics_3d(&gap_flips, &input.gap_elements, &elem_flips, &input.element_behaviors, max_flips);
+    let mut diagnostics = build_diagnostics_3d(&gap_flips, &input.gap_elements, &elem_flips, &input.element_behaviors, max_flips);
+    for (_, gap) in input.gap_elements.iter().enumerate().filter(|(gi, _)| frozen_gaps[*gi] && gap_flips[*gi] <= max_flips) {
+        diagnostics.push(format!("Gap {} status was frozen in an earlier augmented-Lagrangian pass.", gap.id));
+    }
 
     // R = K·u − f over all DOFs (frames of K): reactions and constraint forces.
     let mut residual = base.mul(&u);

@@ -36,7 +36,7 @@ A member with `elem_type = "cable"` uses the node, material and section data of 
 | Path | Behaviour |
 |---|---|
 | Linear, modal, P-Δ, … | Refused by shared input validation: these analyses do not enforce cable slackening (SP-14, #417). |
-| Fiber solver (`assemble_elastic_elements(_3d)`) | Truss bar, linear. |
+| Fiber solver (`assemble_elastic_elements(_3d)`) | Cable members are refused by shared input validation; use cable analysis. |
 | Cable solver (`solve_cable_2d/3d`) | Truss bar following the elastic-catenary chord law, Newton iteration with Ernst's modulus as the tangent (§1.3). |
 
 There is no geometric (string) stiffness, no large-displacement equilibrium and no prestress or

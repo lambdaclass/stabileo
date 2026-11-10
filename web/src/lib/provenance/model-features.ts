@@ -31,7 +31,7 @@ export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pde
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'plane2D', 'space3D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
+  'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
@@ -48,7 +48,7 @@ interface Mat { id: number; fy?: number; gradeId?: string; name?: string; e?: nu
 interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: number; stagger?: { sMm?: number; gMm?: number } }
 const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.gMm].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 interface Elem {
-  id: number; type?: string; materialId: number; sectionId?: number; nodeI: number; nodeJ: number;
+  id: number; type?: string; behaviour?: string; materialId: number; sectionId?: number; nodeI: number; nodeJ: number;
   releaseI?: object; releaseJ?: object;
   semiRigid?: unknown; reinforcement?: unknown;
   tensionConnection?: { i?: TensionEndSnapshot; j?: TensionEndSnapshot };
@@ -60,7 +60,7 @@ interface Elem {
   offset?: { i?: Offset3; j?: Offset3 };
 }
 interface Sup {
-  nodeId: number; type?: string; angle?: number; isGlobal?: boolean; isInclined?: boolean; dofFrame?: string;
+  nodeId: number; type?: string; uplift?: boolean; angle?: number; isGlobal?: boolean; isInclined?: boolean; dofFrame?: string;
   normalX?: number; normalY?: number; normalZ?: number; curves?: unknown;
   kx?: unknown; ky?: unknown; kz?: unknown; krx?: unknown; kry?: unknown; krz?: unknown;
   dx?: unknown; dy?: unknown; dz?: unknown; dry?: unknown; drz?: unknown; drx?: unknown;
@@ -69,6 +69,9 @@ interface Sup {
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
 export interface FeatureSnapshot {
   analysisMode?: string;
+  gapElements?: unknown[];
+  nodeToSurfacePairs?: unknown[];
+  upliftSupports?: unknown[];
   materials?: Entries<Mat>;
   elements?: Entries<Elem>;
   sections?: Entries<{ id: number; shearAreas?: unknown }>;
@@ -161,6 +164,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const released = new Set<number>();
   const sheared = new Set(values(s.sections).filter((x) => x.shearAreas != null).map((x) => x.id));
   if (elements.length) f.add('members');
+  if (elements.some((e) => e.type === 'cable' || e.behaviour === 'cable')) f.add('cableMembers');
+  if (elements.some((e) => e.type === 'gap' || e.type === 'contact' || e.behaviour === 'tensionOnly' || e.behaviour === 'compressionOnly')
+    || s.gapElements?.length || s.nodeToSurfacePairs?.length || s.upliftSupports?.length) f.add('contactElements');
   let steel = 0, concrete = 0, steelWithoutConnection = 0, steelDeclaredLb = 0, steelChainEnd = 0;
   for (const e of elements) {
     if (e.type === 'truss') f.add('trussMembers'); else f.add('frameMembers');
@@ -204,6 +210,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 
   const supports = values(s.supports);
+  if (supports.some((s) => s.uplift)) f.add('contactElements');
   const supportedNodes = new Map<number, number>();
   for (const sp of supports) {
     supportedNodes.set(sp.nodeId, (supportedNodes.get(sp.nodeId) ?? 0) + 1);

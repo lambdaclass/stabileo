@@ -442,6 +442,8 @@ from that solution, and the passes repeat until no status changes.
   normal. The penalty adds $kNN^{\mathsf T}$ and $-k g_0 N$. Contact is active when $g<0$.
 - **Augmented Lagrangian** (optional). After the inner loop,
   $\lambda \leftarrow \lambda + \rho\,k\,\text{penetration}$, repeated up to `al_max_iter`.
+  The multiplier is compression-positive: a surface pair adds $+\lambda N$ to the applied
+  forces, and its signed contact force divided by stiffness is $g-\lambda/k$.
 - **Coulomb friction.** In the stick state, a tangential spring of stiffness $\mu k$ (not a
   separate tangential penalty) acts on the **total** tangential displacement, measured from zero
   rather than from the point of closure. In the slip state the force is $\mp\mu N$, with $N$ from
@@ -454,8 +456,9 @@ from that solution, and the passes repeat until no status changes.
   uplift supports are refused.
 - **Chattering.** After `max_flips` changes the status of a gap or pair is frozen. Both dimensions
   validate every frozen gap, and 2D every frozen surface pair, after the final solve without damping.
-  Penetration and tensile force divided by penalty stiffness must be within `tolerance` (default
-  $10^{-10}$ m); a separated contact cannot carry compression above the same scaled tolerance.
+  Open contacts must not penetrate or carry force. Active contacts may carry compression with
+  penalty penetration; tensile force divided by penalty stiffness must be within `tolerance`
+  (default $10^{-10}$ m). A separated contact cannot carry compression above the same scaled tolerance.
   Invalid states are refused with `contact_state_invalid`. Freezing is remembered across
   augmented-Lagrangian passes. Valid frozen states may converge and retain oscillation diagnostics.
   Optional damping adds $c(u-u_\text{prev})$ to oscillating gaps during iteration only.

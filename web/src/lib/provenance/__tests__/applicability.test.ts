@@ -449,7 +449,7 @@ it('shows moving-load changes for saved vehicle position cases and excludes ordi
   expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-loads-3d');
 });
 
-it.skip('known wrong result: #432: scopes contact and cable validity to affected models', () => {
+it('scopes contact and cable validity to affected models', () => {
   const id = 'contact-and-cable-validity';
   for (const analysisMode of ['2d', '3d', 'pro']) {
     for (const elements of [[], [member(1, 1, 'frame')], [member(1, 1, 'truss')]]) {

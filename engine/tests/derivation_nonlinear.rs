@@ -855,7 +855,6 @@ fn bearing_contact_2d() -> dedaliano_engine::solver::contact::ContactInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #432"]
 fn nl_contact_review_frozen_bearing_obeys_penalty_hand_formula() {
     let input = bearing_contact_2d();
     let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
@@ -902,7 +901,6 @@ fn nl_contact_review_frozen_al_separated_compression_refuses() {
 }
 
 #[test]
-#[ignore = "known wrong result: #432"]
 fn nl_contact_review_freezing_is_retained_across_al_passes() {
     let mut input = bearing_contact_2d();
     input.augmented_lagrangian = Some(1.0);
@@ -935,7 +933,6 @@ fn bearing_surface_2d() -> dedaliano_engine::solver::contact::ContactInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #432"]
 fn nl_contact_review_frozen_al_surface_bearing_obeys_equilibrium() {
     let input = bearing_surface_2d();
     let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
@@ -949,7 +946,6 @@ fn nl_contact_review_frozen_al_surface_bearing_obeys_equilibrium() {
 }
 
 #[test]
-#[ignore = "known wrong result: #432"]
 fn nl_contact_review_invalid_tolerance_is_structured() {
     for tolerance in [0.0, -1e-10, f64::NAN, f64::INFINITY] {
         let mut input = bearing_contact_2d();
@@ -962,7 +958,6 @@ fn nl_contact_review_invalid_tolerance_is_structured() {
 }
 
 #[test]
-#[ignore = "known wrong result: #432"]
 fn nl_contact_review_unfrozen_al_surface_bearing_obeys_equilibrium() {
     let mut input = bearing_surface_2d();
     input.max_flips = Some(100);
@@ -972,7 +967,6 @@ fn nl_contact_review_unfrozen_al_surface_bearing_obeys_equilibrium() {
 }
 
 #[test]
-#[ignore = "known wrong result: #432"]
 fn nl_contact_review_frozen_bearing_obeys_penalty_hand_formula_3d() {
     let plane = bearing_contact_2d();
     let mut input = chattering_contact_3d();

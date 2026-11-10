@@ -29,6 +29,7 @@ export function knownIssueMessage(d: { code: string; phase?: string; value?: num
     if (t('cableDiag.selfWeight') === 'cableDiag.selfWeight') return d.message;
     return tp('cableDiag.selfWeight', { pct: Math.round(100 * Math.min(1, d.value ?? 1)) });
   }
+  if (d.code === 'contact_tolerance_invalid') return t('analysisValidity.contactTolerance');
   if (d.code === 'cable_analysis_required' || d.code === 'contact_state_invalid') {
     const key = d.code === 'cable_analysis_required' ? 'analysisValidity.cable' : 'analysisValidity.contact';
     return tp(key, { elements: d.elementIds?.join(', ') || d.nodeIds?.join(', ') || '?' });
