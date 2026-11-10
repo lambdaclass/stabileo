@@ -1,7 +1,7 @@
 {
   "id": "harmonic-omitted-modes",
   "date": "2026-11-10",
-  "prs": [],
+  "prs": [1922],
   "area": "analysis",
   "when": {
     "allOf": [

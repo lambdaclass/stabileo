@@ -1,6 +1,8 @@
 # Harmonic response resolves omitted modes beyond the dense ceiling (2026-11-10)
 
-Issue #1434. Results-change entry `harmonic-omitted-modes`.
+Issue #1434. PR #1922. Results-change entry `harmonic-omitted-modes`.
+Safety advisory [SA-2026-058](../advisories/SA-2026-058-harmonic-omitted-modes.md),
+fixed in PR #1922, pending release.
 
 The harmonic solver already replaced modal responses outside its accepted truncation
 range with a full direct solve when the real block system fit the dense ceiling.
