@@ -560,11 +560,14 @@ pub fn rows() -> Vec<Ana2> {
                 let us = linear::solve_2d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()).max(d.ry.abs() * l))).unwrap_or(0.0);
                 let cond = if c.p.symmetry { Some(dedaliano_engine::metamorphic::conditioning::of_2d(&c.s)?) } else { None };
                 let rel = cond.as_ref().map_or(0.0, |cond| crate::checks2::rel_for("harmonic", 1e-10, cond));
-                let accuracy = if c.p.symmetry { crate::dynamic_accuracy::of_2d(c).ok() } else { None };
+                let accuracy = if c.p.symmetry { crate::dynamic_accuracy::harmonic_2d(c).ok() } else { None };
                 for k in 0..c.p.freqs.len() {
                     let floor = if !c.p.symmetry || crate::generated::strict() { us } else {
-                        let direct = comps.iter().all(|r| r.0.method == harmonic::HarmonicMethod::Direct);
-                        us.max(crate::dynamic_accuracy::harmonic_floor(if direct { accuracy.as_ref() } else { None }, c.p.freqs[k], comps[0].1, cond.as_ref().unwrap().rel(), rel))
+                        let residual = comps.iter().map(|(r, _)| {
+                            if r.method == harmonic::HarmonicMethod::Direct || r.direct_frequencies.contains(&c.p.freqs[k]) { 0.0 }
+                            else { r.max_modal_residual.filter(|v| *v >= 0.0 && *v < f64::MAX).unwrap_or(f64::INFINITY) }
+                        }).fold(0.0f64, f64::max);
+                        us.max(crate::dynamic_accuracy::harmonic_floor(accuracy.as_ref(), c.p.freqs[k], comps[0].1, cond.as_ref().unwrap().rel(), rel, residual))
                     };
                     let (a, b) = (&comps[0].0.response_points[k], &comps[1].0.response_points[k]);
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V2(Dim::LEN), vec![a.real, b.real]);

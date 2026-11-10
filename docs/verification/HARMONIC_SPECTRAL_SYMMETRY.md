@@ -22,12 +22,12 @@ apply.
 
 | Issue | Published seed | Dimension | Analysis | Before | After |
 |---|---:|---|---|---|---|
-| #1203 | 2026110201350 | 2D | harmonic | 2 passes | 2 inconclusive |
-| #1204 | 2026110201350 | 2D | harmonic | 2 passes | 2 inconclusive |
-| #1209 | 2026110205053 | 3D | harmonic | 2 passes | 2 inconclusive |
-| #1215 | 2026110201737 | 3D | harmonic | 2 passes | 2 inconclusive |
+| #1203 | 2026110201350 | 2D | harmonic | 2 passes | 2 passes |
+| #1204 | 2026110201350 | 2D | harmonic | 2 passes | 2 passes |
+| #1209 | 2026110205053 | 3D | harmonic | 2 passes | 2 passes |
+| #1215 | 2026110201737 | 3D | harmonic | 2 passes | 2 passes |
 | #1218 | 2026110200823 | 3D | harmonic | 2 passes | 2 passes |
-| #1278 | 2026110303012 | 2D | harmonic | 2 passes | 2 inconclusive |
+| #1278 | 2026110303012 | 2D | harmonic | 2 passes | 2 passes |
 | #1281 | 2026110301259 | 3D | harmonic | 2 passes | 2 passes |
 | #1464 | 2026110500040 | 2D | harmonic | 2 passes | 2 passes |
 | #1030 | 20758 | 2D | spectral | 1 pass | 1 pass |
@@ -84,9 +84,10 @@ CQC peak, and the existing cluster criterion has not been weakened.
 ## Error model
 
 `dynamic_accuracy.rs` assembles the same free stiffness and mass pencil and
-constraint reduction as the analysis. The new certificate is deliberately
-limited to a positive, complete, finite dense pencil. Let its mass-normalized
-computed eigenpairs be `(lambda_j, phi_j)` and
+constraint reduction as the analysis, including mass rotation into inclined
+support frames before free-DOF extraction. Spectral comparisons and the first
+harmonic estimate use a positive, complete, finite dense pencil. Let its
+mass-normalized computed eigenpairs be `(lambda_j, phi_j)` and
 
 ```
 r_j = K phi_j - lambda_j M phi_j
@@ -137,16 +138,76 @@ error, the eigen residual budget, and that damping error, with their explicit
 natural_scale * gain² * perturbation / (1 - gain * perturbation).
 ```
 
-A nonpositive denominator is uncertifiable. The implementation also refuses to
-certify this bound if it exceeds the existing `conditioning::INCONCLUSIVE`
-fraction of the natural scale. It currently certifies direct harmonic sweeps;
-modal truncation beyond the direct path requires a separate truncation
-certificate and is inconclusive here. Missing mass-frame support, incomplete
-finite pencils, nonpositive energy norms, and unbounded modal bases likewise
-remain inconclusive. An eigenvalue uncertainty interval crossing the solver's
-positive-mode cutoff cannot certify the selection of damping anchors either.
-The five changed published cells are certification limits,
-not successful comparisons with a larger allowed relative error.
+A nonpositive denominator leaves this particular estimate unbounded. A finite
+estimate is retained as a cancellation floor even when its fraction of the
+natural scale exceeds `conditioning::INCONCLUSIVE`. That limit still applies
+to the existing relative comparison tolerance; it no longer discards a finite
+absolute harmonic bound.
+
+When the mass-normalized estimate is unavailable or unbounded, harmonic
+symmetry uses the inverse pencil. With `K = L L^T`, form the symmetric
+positive-semidefinite matrix `H = L^-1 M L^-T`. Its eigenvalues `mu` are inverse
+squared frequencies; zero eigenvalues represent massless directions and do not
+require division by zero or deletion of part of the basis.
+
+For its complete computed eigenbasis `V`, measure `R = H V - V diag(mu)` and
+`d = ||V^T V - I||_F`. Let `s = sqrt(1-d)`, requiring `d < 1`, and
+`t = max(abs(mu))`. Polar orthogonalization bounds the difference from a truly
+orthogonal eigenbasis by `d/(1+s)`, giving the absolute eigenvalue allowance
+
+```
+delta = (||R||_F + 2 t d/(1+s))/s + 4(n+24) epsilon ||H||_F.
+```
+
+The operation-count allowance uses the existing dense convention. Each true
+inverse eigenvalue is enclosed in
+`[max(0, mu_j-delta), max(0, mu_j+delta)]`. On each interval, minimize
+
+```
+|D(mu)| = |1 - omega^2 mu + i omega (a1 + a0 mu)|.
+```
+
+Its squared modulus is a quadratic. The minimizer is the interval-clamped
+value `(1-a0 a1)/(omega^2+a0^2)`. This gives `g >= ||D(H)^-1||` and, using each
+interval's upper endpoint divided by its minimum modulus,
+`h >= ||H |D(H)|^-1||`. The massless candidate is included explicitly in `g`.
+The two largest certified positive inverse eigenvalues identify the damping
+anchors. Intervals crossing the solver's positive-mode cutoff remain
+uncertifiable; the cutoff is unchanged. The inverse-frequency relative error
+is bounded by `r = eta/[sqrt(1-eta)(1+sqrt(1-eta))]`, where `eta` uses the smaller
+anchor, and the coefficient allowance is `b = r/(1-r)`.
+
+Let `epsilon_a` be the existing assembly/conditioning allowance,
+`d0 = |1+i omega a1|`, and `z0 = |omega^2-i omega a0|`. Scale both sides of the
+perturbation by `|D(H)|^-1/2`. The stiffness and mass contributions then retain
+their separate weights instead of multiplying the largest inverse eigenvalue
+by a gain belonging to a different mode:
+
+```
+q = epsilon_a (d0 g + z0 h) + z0 delta g
+    + b |omega| (a1 g + a0 h)
+error <= natural_scale * g q/(1-q),  q < 1.
+```
+
+This is the resolvent identity in the weighted norm. It avoids an artificial
+infinite bound when a very soft mode and a different near-resonant mode make
+the product of separate global maxima excessive. The original finite forward
+estimate remains the first choice, preserving its established eigen-roundoff
+allowance and the resonance-budget regression.
+
+For a modal result, the solver also reports the full-system residual in the
+inverse-stiffness norm relative to the forcing's energy norm. Multiplying that
+residual by `natural_scale * g` bounds its displacement error, including modal
+truncation. This term is added to the numerical allowance. Direct frequencies
+receive no modal-residual term; other frequencies use the maximum across all
+reported components and the sweep. Missing, negative, nonfinite, and sentinel
+residuals cannot certify a modal response. A modal method label alone is no
+longer a reason to abandon a comparison.
+
+Missing energy norms, unavailable finite damping-anchor bounds, a singular
+undamped resolvent, an unbounded weighted perturbation estimate, or missing
+modal residual bounds still produce an infinite floor. Such tags are
+inconclusive, never compared with an infinite tolerance.
 
 For a spectral truncation after mode `k`, Weyl intervals cannot separate the
 retained and omitted spaces if the squared-frequency gap is at most `2 delta`.
@@ -171,18 +232,94 @@ comparison ratio with and without the new floors, and verifies that both reject
 the same above-boundary error. No empirical tolerance multiplier or relaxed
 baseline is used.
 
-The final targeted run passed 24 tests. `make check.changelog`,
-`make check.test-targets`, and `git diff --check` also passed. `cargo-nextest`
-is unavailable in the development shell, so the exact named tests were run
-with release `cargo test` through `make shell`. No full suites were run.
-
-Targeted tests cover all twelve published seeds, both load parities, sweeps at
-modal resonances, the failing resonant-budget reproducer, physical-scale planted
-errors in 2D harmonic, 3D harmonic, and spectral pair magnitudes, residual error
-intervals crossing a truncation boundary, and an uncertifiable harmonic response
-that must never pass even when its output is deliberately corrupted.
+The original change's targeted run passed 24 tests. The coverage follow-up
+passes 29 targeted regressions (28 in the final selection plus the existing
+eigen-spread/gap check), with zero failures or ignores, and both explicit sweep
+observers. It retains the original regressions, adds finite-bound and
+singular-mass checks, and measures seeded coverage against the same
+`origin/main`. See the diagnosis and sweep results below. `make check.changelog`, `make check.test-targets`, and
+`git diff --check` are the supporting checks. No full suites are required.
 
 Only the metamorphic test harness and its fixtures/documentation change. There
 is no production engine result change, results-change registry entry, or new
 safety advisory. Previously documented engine fixes remain covered by their
 existing results-change entries and advisories.
+
+
+## Coverage follow-up: why the five cells were lost
+
+The intermediate fix at `5b5de85f1` made these five published cells inconclusive.
+The follow-up reproducer commit `1c6bab5be` requires their original two passes
+and zero inconclusive outcomes, with each failing test marked with its issue's
+`known wrong result` ignore until the fix. All five failed when explicitly run
+at that commit. The final fix removes those five ignores; the twelve published
+regressions all require passes again.
+
+The following measurements are from the intermediate certificate, before the
+follow-up. Both load parities have the same pencil and failure mechanism.
+These are harness diagnostics, not engineering reference values.
+
+| Cell | Gram conditioning | Eigen residual / selection | Resonance distance and actual cause |
+|---|---|---|---|
+| #1203 | Certified; `d < 1` | Finite: `delta = 8.725185159965636e-5`, `lambda_min = 0.005563311845880128` | Finite distance and finite response allowances `0.015933326491201875`, `0.023036339624537`, `0.009044555059896118` at the three default frequencies. All were discarded by the additional `1e-3` absolute-bound cutoff. No bound was infinite. |
+| #1204 | Same as #1203 | Same published model and pencil as #1203 | Same finite bounds discarded by that cutoff; no resonance-distance failure. |
+| #1209 | Not reached by the old certificate | Massless directions make the finite positive spectrum incomplete. The old all-DOFs-positive requirement returns an error before constructing the residual bound. | Not evaluated; this is an unavailable certificate, not an infinite physical resonance. The inverse pencil retains the massless directions. |
+| #1215 | Not reached by the old certificate | Same incomplete-finite-spectrum requirement fails on its singular mass matrix. | Not evaluated. Its damped inverse-pencil resolvent has a finite bound. |
+| #1278 | Certified; `d < 1` | Finite absolute residual `0.013186302407770703` against `lambda_min = 3.745338034225005e-9`. The relative uncertainty exceeds one and the interval overlaps the positive-mode cutoff. | The forward formula returns infinity at the eigen/anchor guard, before evaluating resonance distance. The inverse-pencil anchor estimate is finite. |
+
+The regression `harmonic_certificates_compare_finite_published_and_inclined_bounds`
+asserts these mechanisms and checks a finite final bound at each default
+frequency for each parity. It also covers rich seed `2026110200084`: the first
+draft lost that pair because it did not rotate mass into inclined support
+frames. The existing mass assembler provides that rotation; no production
+solver change was needed.
+
+## Seeded before/after measurement
+
+Both sweeps use seeds `2026110200000..2026110200199` in each dimension and both
+load parities, and only the harmonic symmetry row. The baseline was run from
+`origin/main = 8f4c3ee6c07c661c090865f7390d10b78162786f` by temporarily restoring
+its tracked harness sources inside this worktree and adding only the same sweep
+observer. The live sources were restored afterwards. No other worktree or
+branch was changed. Published JSON fixtures added by the original reproducer
+were supplied unchanged to the baseline observer.
+
+The supported sweep cycles the published half-models #1203/#1278/#1464 in 2D
+and #1209/#1215/#1218/#1281 in 3D. Each seed multiplies the half-model's material
+stiffnesses by a seeded dimensionless factor in `[0.5, 2)` and selects two
+excitation frequencies in `[0.25, 4)`, alongside zero. These are sampling ranges,
+not acceptance tolerances. It gives 200 distinct seeded inputs and 400 actual
+symmetry comparisons per dimension.
+
+| Sweep | Dimension | Before passes / inconclusive / failures | After passes / inconclusive / failures | Inconclusive fraction before -> after |
+|---|---|---|---|---|
+| Supported published families | 2D | 400 / 0 / 0 | 400 / 0 / 0 | 0% -> 0% |
+| Supported published families | 3D | 400 / 0 / 0 | 400 / 0 / 0 | 0% -> 0% |
+| Rich corpus generator | 2D | 28 / 4 / 0 | 28 / 4 / 0 | 4/32 = 12.5% -> 12.5% |
+| Rich corpus generator | 3D | 2 / 0 / 0 | 2 / 0 / 0 | 0/2 = 0% -> 0% |
+
+The denominator is passes plus inconclusive plus failures, excluding refusals
+and unrepresentable transforms. The rich generator has many incompatible or
+refused models: 232 symmetry outcomes in 2D, including 200 refusals, and 27 in
+3D, including 25 refusals; the other attempted transforms are not constructible.
+The four unchanged 2D inconclusive outcomes are both parities of seeds ending
+in `0046` and `0193`, already beyond the existing stiffness-conditioning gate
+on the baseline. They are not new certificate losses. Among all 232 rich 2D
+outcomes the fraction is 4/232 = 1.7241% on both versions. The supported sweep
+prevents the sparse 3D rich coverage from concealing a regression.
+
+Both ignored sweep observers assert the reported pass/inconclusive/refusal
+counts and zero failures. Run them explicitly through `make shell`:
+
+```sh
+cargo test --release -p dedaliano-engine --test metamorphic harmonic_coverage:: \
+  -- --ignored --nocapture
+```
+
+The 2D and 3D planted static-translation-scale errors still return `Verdict::Fail`.
+Both spectral combination rules still reject planted peak-magnitude errors.
+The unresolved-certificate test now explicitly supplies a missing certificate,
+because its former #1278 fixture has become certifiable; both its unchanged
+inconclusive assertions remain. A manufactured modal-residual error is bounded,
+while an undamped resonance and an uncertain inverse damping anchor remain
+unbounded. Existing tolerances, baselines, and pass assertions are retained.

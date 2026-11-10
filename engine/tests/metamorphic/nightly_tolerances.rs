@@ -499,7 +499,6 @@ fn ground_action_scale_follows_units_and_excitation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1203"]
 fn issue_1203_harmonic_symmetry() {
     let cells = replay(1203, 2026110201350, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1203, "harmonic", "symmetry");
@@ -509,7 +508,6 @@ fn issue_1203_harmonic_symmetry() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1204"]
 fn issue_1204_harmonic_symmetry() {
     let cells = replay(1204, 2026110201350, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1204, "harmonic", "symmetry");
@@ -519,7 +517,6 @@ fn issue_1204_harmonic_symmetry() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1209"]
 fn issue_1209_harmonic_symmetry() {
     let cells = replay(1209, 2026110205053, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1209, "harmonic", "symmetry");
@@ -529,7 +526,6 @@ fn issue_1209_harmonic_symmetry() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1215"]
 fn issue_1215_harmonic_symmetry() {
     let cells = replay(1215, 2026110201737, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1215, "harmonic", "symmetry");
@@ -548,7 +544,6 @@ fn issue_1218_harmonic_symmetry() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1278"]
 fn issue_1278_harmonic_symmetry() {
     let cells = replay(1278, 2026110303012, &[("harmonic", "symmetry")]);
     let c = cell(&cells, 1278, "harmonic", "symmetry");
@@ -764,7 +759,10 @@ fn unresolved_harmonic_accuracy_is_inconclusive() {
     let Model::D2(c) = model(1278) else { panic!("2D") };
     let sym = crate::symmetry::symmetrize_2d(&c.name, &c.s, false).unwrap();
     let a = ana2("harmonic");
-    let got = (a.run)(&sym.case).unwrap();
+    let mut got = (a.run)(&sym.case).unwrap();
+    for item in &mut got.0 {
+        item.floor = crate::dynamic_accuracy::harmonic_floor(None, 0.0, (0.0, 0.0), 0.0, 1.0, 0.0);
+    }
     let cond = conditioning::of_2d(&sym.case.s).unwrap();
     let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
     let judge = |g: &Resp| crate::checks2::judge_split(g, &got, rel, rel, |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel, 0.0, [0.0, 0.0]));
@@ -821,25 +819,41 @@ fn harmonic_error_does_not_certify_an_uncertain_damping_anchor_selection() {
 }
 
 #[test]
-#[ignore]
-fn harmonic_certificate_diagnostics() {
-    for issue in [1203, 1204, 1209, 1215, 1278] {
+fn harmonic_certificates_compare_finite_published_and_inclined_bounds() {
+    for issue in [1203, 1204, 1209, 1215, 1278, 84] {
         for anti in [false, true] {
-            let (accuracy, response) = match model(issue) {
+            let source = if issue == 84 { Model::D2(crate::corpus::fuzz_case_2d(2026110200000, 84)) } else { model(issue) };
+            let (forward, accuracy, damping, cond, response, freqs) = match source {
                 Model::D2(c) => {
                     let c = crate::symmetry::symmetrize_2d(&c.name, &c.s, anti).unwrap().case;
-                    (crate::dynamic_accuracy::of_2d(&c), (ana2("harmonic").run)(&c))
+                    let input = dedaliano_engine::solver::harmonic::HarmonicInput { solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05, response_node_id: c.probes[0], response_dof: "x".into() };
+                    let (_, damping) = dedaliano_engine::solver::harmonic::solve_harmonic_2d_with_damping(&input).unwrap();
+                    (crate::dynamic_accuracy::of_2d(&c), crate::dynamic_accuracy::harmonic_2d(&c).unwrap(), damping, conditioning::of_2d(&c.s).unwrap(), (ana2("harmonic").run)(&c).unwrap(), c.p.freqs)
                 }
                 Model::D3(c) => {
                     let c = crate::symmetry::symmetrize_3d(&c.name, &c.s, anti).unwrap().case;
-                    (crate::dynamic_accuracy::of_3d(&c), (ana3("harmonic").run)(&c))
+                    let input = dedaliano_engine::solver::harmonic::HarmonicInput3D { solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05, response_node_id: c.probes[0], response_dof: "x".into() };
+                    let (_, damping) = dedaliano_engine::solver::harmonic::solve_harmonic_3d_with_damping(&input).unwrap();
+                    (crate::dynamic_accuracy::of_3d(&c), crate::dynamic_accuracy::harmonic_3d(&c).unwrap(), damping, conditioning::of_3d(&c.s).unwrap(), (ana3("harmonic").run)(&c).unwrap(), c.p.freqs)
                 }
             };
-            match accuracy {
-                Ok(a) => eprintln!("#{issue} anti={anti}: lambda={:?} residual={:e} natural={:e}", a.lambda, a.residual, a.natural),
-                Err(e) => eprintln!("#{issue} anti={anti}: accuracy error: {e}"),
+            if [1209, 1215, 84].contains(&issue) {
+                assert_eq!(forward.err().unwrap(), "dynamic accuracy requires a positive finite spectrum");
+            } else {
+                let a = forward.unwrap();
+                eprintln!("#{issue} anti={anti}: forward residual={:e}, minimum={:e}, eta={:e}", a.residual, a.lambda[0], a.residual / a.lambda[0]);
+                for &f in &freqs {
+                    let error = a.harmonic_error(2.0 * std::f64::consts::PI * f, damping, cond.rel());
+                    if issue == 1278 { assert!(!error.is_finite()); }
+                    else { assert!(error.is_finite() && error > conditioning::INCONCLUSIVE); }
+                }
             }
-            eprintln!("response floors: {:?}", response.map(|r| r.0.iter().map(|i| (i.tag.clone(), i.floor)).collect::<Vec<_>>()));
+            for f in freqs {
+                let error = accuracy.harmonic_error(2.0 * std::f64::consts::PI * f, damping, cond.rel());
+                eprintln!("#{issue} anti={anti}: frequency={f:e}, inverse residual={:e}, error={error:e}", accuracy.residual);
+                assert!(error.is_finite(), "#{issue} anti={anti} frequency={f}: {error}");
+            }
+            assert!(response.0.iter().all(|i| i.floor.is_finite()), "#{issue} anti={anti}");
         }
     }
 }
