@@ -650,6 +650,9 @@ fn energy(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdict {
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }
+    if !(w > 0.0) {
+        return Verdict::Fail(format!("nonzero probe loads did no positive work: ΣP·u = {w:e}"));
+    }
     let tol = rel * (wabs + eabs) + f64::MIN_POSITIVE;
     if (w - e2).abs() <= tol {
         Verdict::Pass((w - e2).abs() / tol)

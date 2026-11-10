@@ -5,6 +5,9 @@ pub mod tolerance;
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
+pub const STEEL_DENSITY_KG_M3: f64 = 7850.0;
+
 /// Build a 2D SolverInput from compact descriptions.
 #[allow(dead_code)]
 pub fn make_input(

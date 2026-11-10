@@ -1,10 +1,10 @@
 use crate::models::*;
 use crate::support::*;
 use dedaliano_engine::element::compute_local_axes_3d;
-use dedaliano_engine::solver::buckling::{solve_buckling_2d, solve_buckling_3d};
+use dedaliano_engine::solver::buckling::{solve_buckling_2d, solve_buckling_3d, BucklingResult3D};
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
-use dedaliano_engine::solver::modal::{solve_modal_2d, solve_modal_3d};
-use dedaliano_engine::solver::pdelta::{solve_pdelta_2d, solve_pdelta_3d};
+use dedaliano_engine::solver::modal::{solve_modal_2d, solve_modal_3d, ModalResult3D};
+use dedaliano_engine::solver::pdelta::{solve_pdelta_2d, solve_pdelta_3d, PDeltaResult3D};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -163,16 +163,26 @@ fn compare_static(s: &SolverInput, r2: &AnalysisResults, r3: &AnalysisResults3D,
 }
 
 pub fn linear_pair(s: &SolverInput) -> Result<Report, String> {
+    linear_pair_with(s, |_| {})
+}
+
+fn linear_pair_with(s: &SolverInput, perturb: impl FnOnce(&mut AnalysisResults3D)) -> Result<Report, String> {
     let r2 = solve_2d(s)?;
-    let r3 = solve_3d(&embed(s))?;
+    let mut r3 = solve_3d(&embed(s))?;
+    perturb(&mut r3);
     let mut r = Report::new();
     compare_static(s, &r2, &r3, ROUNDOFF, &mut r);
     Ok(r)
 }
 
 pub fn pdelta_pair(s: &SolverInput) -> Result<Report, String> {
+    pdelta_pair_with(s, |_| {})
+}
+
+fn pdelta_pair_with(s: &SolverInput, perturb: impl FnOnce(&mut PDeltaResult3D)) -> Result<Report, String> {
     let p2 = solve_pdelta_2d(s, 50, 1e-12)?;
-    let p3 = solve_pdelta_3d(&embed(s), 50, 1e-12)?;
+    let mut p3 = solve_pdelta_3d(&embed(s), 50, 1e-12)?;
+    perturb(&mut p3);
     let mut r = Report::new();
     if !(p2.converged && p3.converged) {
         r.fail(format!("converged: 2D {} 3D {}", p2.converged, p3.converged));
@@ -182,8 +192,13 @@ pub fn pdelta_pair(s: &SolverInput) -> Result<Report, String> {
 }
 
 pub fn modal_pair(s: &SolverInput, n_modes: usize) -> Result<Report, String> {
+    modal_pair_with(s, n_modes, |_| {})
+}
+
+fn modal_pair_with(s: &SolverInput, n_modes: usize, perturb: impl FnOnce(&mut ModalResult3D)) -> Result<Report, String> {
     let m2 = solve_modal_2d(s, &steel_densities(), n_modes)?;
-    let m3 = solve_modal_3d(&embed(s), &steel_densities(), n_modes)?;
+    let mut m3 = solve_modal_3d(&embed(s), &steel_densities(), n_modes)?;
+    perturb(&mut m3);
     let mut r = Report::new();
     if m2.modes.len() != m3.modes.len() {
         r.fail(format!("{} modes in 2D, {} in 3D", m2.modes.len(), m3.modes.len()));
@@ -196,8 +211,13 @@ pub fn modal_pair(s: &SolverInput, n_modes: usize) -> Result<Report, String> {
 }
 
 pub fn buckling_pair(s: &SolverInput) -> Result<Report, String> {
+    buckling_pair_with(s, |_| {})
+}
+
+fn buckling_pair_with(s: &SolverInput, perturb: impl FnOnce(&mut BucklingResult3D)) -> Result<Report, String> {
     let b2 = solve_buckling_2d(s, 3)?;
-    let b3 = solve_buckling_3d(&embed(s), 3)?;
+    let mut b3 = solve_buckling_3d(&embed(s), 3)?;
+    perturb(&mut b3);
     let mut r = Report::new();
     if b2.modes.len() != b3.modes.len() {
         r.fail(format!("{} buckling modes in 2D, {} in 3D", b2.modes.len(), b3.modes.len()));
@@ -252,4 +272,44 @@ fn planar_2d_matches_3d_on_frame_family() {
         agree(&format!("buckling, frame {seed} {spec:?}"), buckling_pair(&s));
         agree(&format!("P-delta, frame {seed} {spec:?}"), pdelta_pair(&s));
     }
+}
+
+#[test]
+fn seeded_failure_planar_static_and_pdelta() {
+    let s = frame_2d(&FrameSpec::two_storey());
+    for nonlinear in [false, true] {
+        let check = |field: Option<usize>| {
+            let perturb = |r: &mut AnalysisResults3D| {
+                let Some(field) = field else { return };
+                for d in &mut r.displacements {
+                    match field { 0 => d.ux *= -1.0, 1 => d.uz *= -1.0, 2 => d.ry *= -1.0, _ => {} }
+                }
+                for d in &mut r.reactions {
+                    match field { 3 => d.fx *= -1.0, 4 => d.fz *= -1.0, 5 => d.my *= -1.0, _ => {} }
+                }
+                for d in &mut r.element_forces {
+                    match field { 6 => { d.n_start *= -1.0; d.n_end *= -1.0; },
+                        7 => { d.vz_start *= -1.0; d.vz_end *= -1.0; },
+                        8 => { d.my_start *= -1.0; d.my_end *= -1.0; }, _ => {} }
+                }
+            };
+            if nonlinear { pdelta_pair_with(&s, |r| perturb(&mut r.results)) } else { linear_pair_with(&s, perturb) }
+        };
+        check(None).unwrap().into_result().unwrap();
+        for field in 0..9 {
+            let result = check(Some(field)).unwrap().into_result();
+            assert!(result.is_err(), "planar nonlinear={nonlinear}, field={field} did not reject the sign fault");
+        }
+    }
+}
+
+#[test]
+fn seeded_failure_planar_modal_and_buckling() {
+    let s = frame_2d(&FrameSpec::two_storey());
+    modal_pair(&s, 3).unwrap().into_result().unwrap();
+    let bad = modal_pair_with(&s, 3, |r| r.modes.iter_mut().for_each(|m| m.frequency *= 1000.0));
+    assert!(bad.unwrap().into_result().is_err());
+    buckling_pair(&s).unwrap().into_result().unwrap();
+    let bad = buckling_pair_with(&s, |r| r.modes.iter_mut().for_each(|m| m.load_factor *= -1.0));
+    assert!(bad.unwrap().into_result().is_err());
 }

@@ -32,6 +32,126 @@ const body: PostBody = {
       ],
       "rows": [
         [
+          "SA-2026-001",
+          "Erzeugte Kombinationen und Lasten (CIRSOC 101, 102, 103) auf der unsicheren Seite",
+          "Hoch",
+          "Behoben in 0.2.0"
+        ],
+        [
+          "SA-2026-002",
+          "Betonnachweise (CIRSOC 201, ACI 318) überschätzten die Tragfähigkeit",
+          "Kritisch",
+          "Behoben in 0.2.0"
+        ],
+        [
+          "SA-2026-003",
+          "Nachweise für Stahl, kaltgeformte Profile und Anschlüsse überschätzten die Tragfähigkeit",
+          "Kritisch",
+          "Behoben in 0.2.0"
+        ],
+        [
+          "SA-2026-004",
+          "Berechnungen, die einen Teil des Modells ignorierten (Dynamik, Knicken, plastischer Kollaps)",
+          "Kritisch",
+          "Behoben in 0.2.0"
+        ],
+        [
+          "SA-2026-005",
+          "Geneigte Stäbe in 2D: Normalkraft ohne die Lastkomponente in Stablängsrichtung",
+          "Hoch",
+          "Behoben am 2026-10-21"
+        ],
+        [
+          "SA-2026-006",
+          "Ebenes Modell in 3D berechnet: Knotenmomente und eingeprägte Verdrehungen umgekehrt",
+          "Hoch",
+          "Behoben am 2026-10-21"
+        ],
+        [
+          "SA-2026-007",
+          "3D-Knicken ohne Drill- oder Biegedrillknickformen",
+          "Hoch",
+          "Behoben am 2026-10-21"
+        ],
+        [
+          "SA-2026-008",
+          "Antwortspektrum: Gesamterdbebenkraft unter CQC mit SRSS überlagert; Beteiligung ohne die an die Auflager gekoppelte Masse",
+          "Hoch",
+          "Behoben am 2026-10-21"
+        ],
+        [
+          "SA-2026-009",
+          "Volumenschale SHB8 bei Biegung dünner Platten 22 % zu steif (Durchbiegungen 18 % zu niedrig)",
+          "Mittel (höher in statisch unbestimmten Tragwerken)",
+          "Behoben am 2026-10-19"
+        ],
+        [
+          "SA-2026-010",
+          "Spektrales Zertifikat ließ nicht endliche Ergebnisse durch",
+          "Mittel",
+          "Behoben am 2026-10-19"
+        ],
+        [
+          "SA-2026-011",
+          "3D-Auflager, von Feder auf eingespannt oder gelenkig umgestellt, als Feder berechnet",
+          "Hoch",
+          "Behoben am 2026-10-20"
+        ],
+        [
+          "SA-2026-012",
+          "Materiell nichtlineare Berechnung (nur Rechenkern und WASM): elastische Stabschnittgrößen nach dem Fließen",
+          "Mittel",
+          "Behoben in 0.3.0"
+        ],
+        [
+          "SA-2026-013",
+          "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
+          "Hoch",
+          "Behoben in 0.3.0"
+        ],
+        [
+          "SA-2026-014",
+          "Plastischer Kollaps in 3D: Der Faktor hing von der Elementnummerierung ab (bis zum 2,4-Fachen der Traglast)",
+          "Hoch",
+          "Behoben in 0.3.0"
+        ],
+        [
+          "SA-2026-015",
+          "Seile mit Eigengewicht erhielten in statisch unbestimmten Tragwerken zu wenig Zugkraft",
+          "Hoch",
+          "Behoben in 0.3.0"
+        ],
+        [
+          "SA-2026-016",
+          "Bögen (gekrümmte Balken im Rechenkern, Bogenwerkzeug der App): Iy und Iz an nahezu senkrechten Segmenten vertauscht",
+          "Mittel",
+          "Behoben in 0.3.0"
+        ],
+        [
+          "SA-2026-017",
+          "Boden-Bauwerk-Interaktion: Die Kennlinien p-y, t-z und q-z wichen von ihren Referenzen ab",
+          "Hoch",
+          "Behoben in 0.3.0"
+        ],
+        [
+          "SA-2026-018",
+          "MITC9-Schalen (nur Rechenkern und WASM) auf gekrümmter Geometrie durch Starrkörperbewegung verzerrt",
+          "Mittel",
+          "Behoben in 0.3.0"
+        ],
+        [
+          "SA-2026-019",
+          "Temperaturlasten auf Stäben (Rechenkern und WASM; die App glich seit 2026-10-07 aus): α von Stahl und Höhe eines Vollrechtecks",
+          "Mittel",
+          "Behoben in 0.3.0"
+        ],
+        [
+          "SA-2026-020",
+          "Materiell nichtlineare Berechnung in 3D (nur Rechenkern und WASM): Fließfläche weniger konservativ als in 2D",
+          "Mittel",
+          "Behoben in 0.3.0"
+        ],
+        [
           "SA-2026-021",
           "Freistehende Dächer: kein Wind in Firstrichtung und quer dazu weniger als das Minimum nach §2.1.5 (17 % davon bei 20 m/s)",
           "Hoch",
@@ -56,10 +176,16 @@ const body: PostBody = {
           "Behoben in 0.4.0"
         ],
         [
-          "SA-2026-039",
-          "Excel- und IFC-Import: Iy und Iz von Rechtecken und Rohren vertauscht (ein Kragträger 20 × 40 viermal zu weich, einer 40 × 20 viermal zu steif)",
-          "Hoch",
-          "Behoben in der nächsten Version"
+          "SA-2026-025",
+          "AISC 360 G2 Querkraft (nur Rechenkern und WASM): ohne Stegfläche mit Ausnutzung 0 bestanden, und zertifiziert",
+          "Mittel",
+          "Behoben auf stabileo.com (#1234)"
+        ],
+        [
+          "SA-2026-026",
+          "EC3 6.2.6 Querkraft (nur Rechenkern und WASM): ohne Schubfläche Av = 0,5·A angesetzt, Vpl,Rd bei HEB 300 57 % zu hoch, und zertifiziert",
+          "Mittel",
+          "Behoben auf stabileo.com (#1234)"
         ],
         [
           "SA-2026-027",
@@ -98,8 +224,44 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-033",
+          "Lastgenerator: eine Decke mit einem einzigen niedrigen Stab über einem Teil davon verlor ihre gesamte Flächenlast (36 m² einer 6 × 6 m großen Decke in einem Beispiel); Fachwerke zählten nicht als Dachtragwerk",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-034",
+          "Die Gleichgewichtsprüfung meldete Lasten und Auflagerkräfte als übereinstimmend für Lastfälle, deren Prüfung Lasten ausließ; Bearbeitungen ähnlicher Geschosse erreichten Stäbe des anderen Typs, und Kopien verloren ihre Gelenke",
+          "Mittel",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-035",
           "Wechsel von 3D zu 2D: Der Schnitt bog Stäbe um die falsche Querschnittsachse (ein Rahmen in der Y–Z-Ebene 13,5-mal zu steif)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-036",
+          "Wechsel von 3D zu 2D auf Y–Z oder X–Y: Zwangsbedingungen wurden gelesen, als stünde der Rahmen in X–Z (Verschiebungskopplungen verloren oder außerhalb der Ebene angesetzt)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-037",
+          "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
+          "Mittel",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-038",
+          "3D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bei einem Stab), und ein nur zwischen seinen Enden gedrückter Stab wurde abgelehnt",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-039",
+          "Excel- und IFC-Import: Iy und Iz von Rechtecken und Rohren vertauscht (ein Kragträger 20 × 40 viermal zu weich, einer 40 × 20 viermal zu steif)",
           "Hoch",
           "Behoben in der nächsten Version"
         ],
@@ -116,26 +278,14 @@ const body: PostBody = {
           "In der nächsten Version behoben"
         ],
         [
-          "SA-2026-033",
-          "Lastgenerator: eine Decke mit einem einzigen niedrigen Stab über einem Teil davon verlor ihre gesamte Flächenlast (36 m² einer 6 × 6 m großen Decke in einem Beispiel); Fachwerke zählten nicht als Dachtragwerk",
-          "Hoch",
-          "Behoben in der nächsten Version"
-        ],
-        [
-          "SA-2026-034",
-          "Die Gleichgewichtsprüfung meldete Lasten und Auflagerkräfte als übereinstimmend für Lastfälle, deren Prüfung Lasten ausließ; Bearbeitungen ähnlicher Geschosse erreichten Stäbe des anderen Typs, und Kopien verloren ihre Gelenke",
-          "Mittel",
-          "Behoben in der nächsten Version"
-        ],
-        [
-          "SA-2026-038",
-          "3D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bei einem Stab), und ein nur zwischen seinen Enden gedrückter Stab wurde abgelehnt",
-          "Hoch",
-          "Behoben in der nächsten Version"
-        ],
-        [
           "SA-2026-042",
           "2D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bis +68 % bei einem Stab)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-043",
+          "Harmonische Analyse: Die Korrektur der weggelassenen Moden verlor ihre Stellen, wenn eine Mode viel weicher war als die übrigen (79-fach bei 2,3 Hz in einem Beispiel)",
           "Hoch",
           "Behoben in der nächsten Version"
         ],
@@ -144,12 +294,6 @@ const body: PostBody = {
           "2D-Plastischer Kollaps: Der Kollapsfaktor änderte sich mit Knotennummerierung, Stabrichtung und Einheiten (bis zum 4,6-Fachen bei derselben Struktur)",
           "Hoch",
           "Traglastberechnung in der nächsten Version behoben; der ebene plastische Kollaps bleibt zurückgehalten, bis #758 geschlossen ist"
-        ],
-        [
-          "SA-2026-043",
-          "Harmonische Analyse: Die Korrektur der weggelassenen Moden verlor ihre Stellen, wenn eine Mode viel weicher war als die übrigen (79-fach bei 2,3 Hz in einem Beispiel)",
-          "Hoch",
-          "Behoben in der nächsten Version"
         ],
         [
           "SA-2026-045",
@@ -224,150 +368,6 @@ const body: PostBody = {
           "Mittel",
           "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"
         ],
-        [
-          "SA-2026-037",
-          "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
-          "Mittel",
-          "Behoben in der nächsten Version"
-        ],
-        [
-          "SA-2026-036",
-          "Wechsel von 3D zu 2D auf Y–Z oder X–Y: Zwangsbedingungen wurden gelesen, als stünde der Rahmen in X–Z (Verschiebungskopplungen verloren oder außerhalb der Ebene angesetzt)",
-          "Hoch",
-          "Behoben in der nächsten Version"
-        ],
-        [
-          "SA-2026-013",
-          "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
-          "Hoch",
-          "Behoben in 0.3.0"
-        ],
-        [
-          "SA-2026-014",
-          "Plastischer Kollaps in 3D: Der Faktor hing von der Elementnummerierung ab (bis zum 2,4-Fachen der Traglast)",
-          "Hoch",
-          "Behoben in 0.3.0"
-        ],
-        [
-          "SA-2026-015",
-          "Seile mit Eigengewicht erhielten in statisch unbestimmten Tragwerken zu wenig Zugkraft",
-          "Hoch",
-          "Behoben in 0.3.0"
-        ],
-        [
-          "SA-2026-011",
-          "3D-Auflager, von Feder auf eingespannt oder gelenkig umgestellt, als Feder berechnet",
-          "Hoch",
-          "Behoben am 2026-10-20"
-        ],
-        [
-          "SA-2026-017",
-          "Boden-Bauwerk-Interaktion: Die Kennlinien p-y, t-z und q-z wichen von ihren Referenzen ab",
-          "Hoch",
-          "Behoben in 0.3.0"
-        ],
-        [
-          "SA-2026-008",
-          "Antwortspektrum: Gesamterdbebenkraft unter CQC mit SRSS überlagert; Beteiligung ohne die an die Auflager gekoppelte Masse",
-          "Hoch",
-          "Behoben am 2026-10-21"
-        ],
-        [
-          "SA-2026-007",
-          "3D-Knicken ohne Drill- oder Biegedrillknickformen",
-          "Hoch",
-          "Behoben am 2026-10-21"
-        ],
-        [
-          "SA-2026-006",
-          "Ebenes Modell in 3D berechnet: Knotenmomente und eingeprägte Verdrehungen umgekehrt",
-          "Hoch",
-          "Behoben am 2026-10-21"
-        ],
-        [
-          "SA-2026-005",
-          "Geneigte Stäbe in 2D: Normalkraft ohne die Lastkomponente in Stablängsrichtung",
-          "Hoch",
-          "Behoben am 2026-10-21"
-        ],
-        [
-          "SA-2026-019",
-          "Temperaturlasten auf Stäben (Rechenkern und WASM; die App glich seit 2026-10-07 aus): α von Stahl und Höhe eines Vollrechtecks",
-          "Mittel",
-          "Behoben in 0.3.0"
-        ],
-        [
-          "SA-2026-012",
-          "Materiell nichtlineare Berechnung (nur Rechenkern und WASM): elastische Stabschnittgrößen nach dem Fließen",
-          "Mittel",
-          "Behoben in 0.3.0"
-        ],
-        [
-          "SA-2026-016",
-          "Bögen (gekrümmte Balken im Rechenkern, Bogenwerkzeug der App): Iy und Iz an nahezu senkrechten Segmenten vertauscht",
-          "Mittel",
-          "Behoben in 0.3.0"
-        ],
-        [
-          "SA-2026-018",
-          "MITC9-Schalen (nur Rechenkern und WASM) auf gekrümmter Geometrie durch Starrkörperbewegung verzerrt",
-          "Mittel",
-          "Behoben in 0.3.0"
-        ],
-        [
-          "SA-2026-020",
-          "Materiell nichtlineare Berechnung in 3D (nur Rechenkern und WASM): Fließfläche weniger konservativ als in 2D",
-          "Mittel",
-          "Behoben in 0.3.0"
-        ],
-        [
-          "SA-2026-025",
-          "AISC 360 G2 Querkraft (nur Rechenkern und WASM): ohne Stegfläche mit Ausnutzung 0 bestanden, und zertifiziert",
-          "Mittel",
-          "Behoben auf stabileo.com (#1234)"
-        ],
-        [
-          "SA-2026-026",
-          "EC3 6.2.6 Querkraft (nur Rechenkern und WASM): ohne Schubfläche Av = 0,5·A angesetzt, Vpl,Rd bei HEB 300 57 % zu hoch, und zertifiziert",
-          "Mittel",
-          "Behoben auf stabileo.com (#1234)"
-        ],
-        [
-          "SA-2026-010",
-          "Spektrales Zertifikat ließ nicht endliche Ergebnisse durch",
-          "Mittel",
-          "Behoben am 2026-10-19"
-        ],
-        [
-          "SA-2026-009",
-          "Volumenschale SHB8 bei Biegung dünner Platten 22 % zu steif (Durchbiegungen 18 % zu niedrig)",
-          "Mittel (höher in statisch unbestimmten Tragwerken)",
-          "Behoben am 2026-10-19"
-        ],
-        [
-          "SA-2026-004",
-          "Berechnungen, die einen Teil des Modells ignorierten (Dynamik, Knicken, plastischer Kollaps)",
-          "Kritisch",
-          "Behoben in 0.2.0"
-        ],
-        [
-          "SA-2026-003",
-          "Nachweise für Stahl, kaltgeformte Profile und Anschlüsse überschätzten die Tragfähigkeit",
-          "Kritisch",
-          "Behoben in 0.2.0"
-        ],
-        [
-          "SA-2026-002",
-          "Betonnachweise (CIRSOC 201, ACI 318) überschätzten die Tragfähigkeit",
-          "Kritisch",
-          "Behoben in 0.2.0"
-        ],
-        [
-          "SA-2026-001",
-          "Erzeugte Kombinationen und Lasten (CIRSOC 101, 102, 103) auf der unsicheren Seite",
-          "Hoch",
-          "Behoben in 0.2.0"
-        ]
       ]
     },
     {
