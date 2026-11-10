@@ -153,3 +153,85 @@ refuses is refused by each of them with the same message:
 - An L-frame (a fixed column with a beam on top, the default section) with every area
   multiplied by 1e4 is Singular (`κ_S A` = 7.0e6 × 9.4e5); by 1e3 it solves as before.
 
+
+## Review round 1: cancelled contributions and rotational components
+
+Constraint reduction now carries `H = |C|ᵀ |K_original| |C|`, including contributions
+that disappear from `Cᵀ K_original C`. Its row-sum bound in the absolute local scaling
+basis must satisfy the unchanged `1e12` precision gate together with the scaled condition
+bound. Both the standalone verdict and the dense/sparse 2D and sparse 3D constrained
+solvers use this envelope. A nonfinite bound refuses.
+
+The regression ties two axial DOFs with a unit-length member of axial stiffness `1e16`
+and a support spring of stiffness `3`, under axial force `1`. Assembly stores `M + 3`
+as `M + 4`, and reduction leaves `4`; the physical member does not extend under the tie,
+so the analytical displacement is `1/3`. The envelope retains approximately `4e16`,
+instead of judging the reduced scalar by itself. The fixed solver refuses this case;
+the same test with member stiffness `1e8` solves and checks `1/3` within `1e-9`.
+
+A detached test-only worktree at main `8f4c3ee6c` refused the minimal 3D example at its
+final force-balance self-check (`1.429e-1 > 1e-3`). Adding an independent load `fz = 1e6`
+at a fully restrained third node changed that outcome: main returned `ux = 0.25` at both
+axial nodes, **25% below `1/3`**, with zero reduced residual and a PASS force-balance
+self-check (`1.2499989062509567e-7`, below its `1e-6` warning threshold). All four structured
+diagnostics were informational. The independent load masks the axial error in the aggregate
+balance measure. The new load-independent gate refuses both versions before factorization.
+The [recorded main probe result](1753-main-constraint-cancellation-probe.json) retains the
+returned values and diagnostics. This extends [SA-2026-054](../advisories/SA-2026-054-unresolved-linear-stiffness.md).
+
+Free-direction classification now diagonalizes each structural coupling component and uses
+its own largest eigenvalue with the unchanged `LOCAL_FREE = 1e-12`. Two independent
+rotational springs of `1e13` and `1` no longer turn the weaker spring into a free direction;
+a moment `2` gives the signed rotation `2` in regular and prepared solves.
+
+Off-node coupling uses the rounding bound `64 b ε Σ_j |K_ij v_j|` for each row of `K v`.
+It discards only the rounding residual of those actual products. The oblique released
+cantilever regressions verify the signed axial displacement components `F L / E A` in
+regular and prepared solves, and still refuse a torsional moment on the released direction.
+A small genuine single-product coupling cannot disappear under an unrelated stiffness scale.
+
+The analyzed sanity review of the soft-supported building is restored: it retains the
+accurate-displacement reference and requires `DisplacementAbsurd` at `Severity::Error`.
+The settlement regression uses the signed analytical rotation `ry = -1.5 dz / L`.
+The existing `linear-stability-refusals` registry entry includes these result changes.
+
+The component fix also changes the axis-aligned settlement case with `Iy = 1e-10`: the
+independent weak rotation now solves in regular and prepared paths and must match the signed
+`-1.5 dz / L` reference at the existing `1e-9` relative tolerance. The original 3D rich seed
+`20761` now has a Stable unloaded stiffness verdict, while its loaded released rotation
+still explicitly refuses. No assertion accepts a returned inaccurate value for that seed.
+
+The C08 unloaded verdicts for #1090, #1106, #1193, #1351, #1352 and #1635 change from
+`CoupledSoftDirection` to `Stable/Resolved`, with one free rotation. Their linear replay
+checks retain no failed comparisons, but five are inconclusive under the certificate harness;
+#1106 explicitly refuses a loaded free rotation. The nonlinear tangent, modal completeness
+and time-history refusal differences in the original C08 analysis rows remain pending; this
+change does not certify those later solves. In particular, the original #1090, #1352 and
+#1635 rows can still report a transformed-copy refusal. Their previous conservative static
+refusal had masked those later outcomes.
+
+The synthetic coupled-direction tests now distinguish a genuinely free rotation from a
+small positive independent spring. The positive fixture with two rotational diagonals
+`2e-20` has a resolvable scaled condition number `9` and is required to remain Stable;
+the zero-diagonal version must still refuse its genuine off-node coupling. The vanishing
+warping-constant fixture retains its unit/relabel spectrum checks, checks every returned
+unloaded displacement and warping value against exact zero, and accepts only the explicit
+stability/factorization refusals for copies that cannot be factored. The original copy
+still explicitly refuses at factorization. No tolerance or numerical reference is relaxed.
+
+The #1465 load-session test now sends the original moment through `solve_loads`, requiring
+the same node-and-direction refusal as the regular solve. Session construction prepares an
+unloaded stiffness and can now succeed for that valid released system; it supplies no result
+until loads are applied.
+
+`tiny_rotational_spring_beside_stiff_ones_at_a_released_node_3d` now requires all three
+signed rotations to equal `M/k`, including the independent `1e-13` spring, at the existing
+spring tests’ `1e-9` relative tolerance. Its prior loaded-rotation refusal was false: each
+released member rotation has its own actual support spring. The exact result and the
+certificate variant are checked explicitly.
+
+The #1496 masking regression keeps its unchanged `1e-6` analytical rotation check on every
+returned result. It additionally requires every axis-aligned load/unit variant to solve and
+every refusal to have an unloaded stiffness refusal. Its previous all-frames-equal boolean
+expectation is replaced by the actual precision contract: coupled oblique copies may refuse,
+while every returned copy must satisfy the same numerical reference.

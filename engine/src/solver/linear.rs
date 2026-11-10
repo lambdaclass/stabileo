@@ -5479,7 +5479,7 @@ mod conditioning_1753_audit {
     fn issue_1465_loaded_release_names_the_node_and_rotation() {
         let input: crate::types::SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/buckling-1465-loaded-release.json")).unwrap();
         let linear = super::solve_3d(&input).unwrap_err();
-        let session = crate::load_session::LoadSession3D::from_input(input.clone()).err().expect("loaded release must be refused");
+        let session = crate::load_session::LoadSession3D::from_input(input.clone()).and_then(|session| session.solve_loads(&input.loads)).unwrap_err();
         assert_eq!(session, linear);
         for error in [linear, crate::solver::buckling::solve_buckling_3d(&input, 1).unwrap_err()] {
             assert!(error.contains("node 2") && error.contains("loaded released rotation") && error.contains("rx=") && error.contains("ry=") && error.contains("rz="), "{error}");

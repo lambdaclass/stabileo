@@ -2613,7 +2613,12 @@ impl FreeConstraintSystem {
                 .collect()
         }).collect();
         let coupling = super::stability::project_coupling(k_original, &tags, coupling, c, &self.independent);
-        super::stability::analyze_coupled(k_reduced, &reduced_tags, &moves, &coupling)
+        let mut magnitude_c = c.clone();
+        for v in magnitude_c.vals.iter_mut().chain(&mut magnitude_c.csc_vals) { *v = v.abs(); }
+        let mut magnitude_k = k_original.clone();
+        for v in &mut magnitude_k.values { *v = v.abs(); }
+        let rounding = magnitude_c.reduce_sparse(&magnitude_k);
+        super::stability::analyze_coupled_with_rounding(k_reduced, &reduced_tags, &moves, &coupling, Some(&rounding))
     }
 
     /// Reduce a dense symmetric matrix: K_reduced = C_ff^T * K_ff * C_ff

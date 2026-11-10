@@ -529,10 +529,11 @@ fn a_structure_that_only_just_stands_is_caught() {
         s.rho,
         s.fy,
         vec![CaseDef { id: 1, name: "D", kind: CaseKind::Dead, loads: dead, self_weight: true }],
-        false,
+        true,
     );
     let r = review(&input);
     assert!(r.has(SanityCode::SpringSoft), "{:?}", codes(&r));
+    assert_eq!(find(&r, SanityCode::DisplacementAbsurd).severity, Severity::Error);
 }
 
 #[test]

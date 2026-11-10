@@ -223,10 +223,11 @@ fn invariance_reported_seeds_are_refused_or_stable() {
             }
             Err(e) => {
                 let verdict = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
-                assert!(verdict.refusal().expect("the original stiffness refusal remains").starts_with("the structure is a mechanism"));
                 if seed == 20761 {
+                    assert!(verdict.is_stable(), "{verdict:?}");
                     assert!(e.starts_with("Nodal moment at node 2 is not supported:") && e.contains("loaded released rotation") && e.contains("rx=") && e.contains("ry=") && e.contains("rz="), "#762 3D/{seed}: {e}");
                 } else {
+                    assert!(verdict.refusal().expect("the original stiffness refusal remains").starts_with("the structure is a mechanism"));
                     assert!(e.starts_with("the structure is a mechanism"), "#762 3D/{seed}: {e}");
                 }
             },
@@ -1924,22 +1925,19 @@ fn propped_tip_soft_about_y(iy: f64, dz: f64) -> SolverInput3D {
     input
 }
 
-/// A tip whose translations are restrained and whose soft rotation about y is coupled only to
-/// a prescribed displacement there: the settlement turns it by 1.5 dz / L, so the pin of that
-/// rotation must not hold it at zero. With a resolvable Iy the rotation is exact; with a soft
-/// one the solve is refused, and without the settlement it solves.
 #[test]
 fn a_settlement_on_a_soft_rotation_is_not_held_by_its_pin() {
     let dz = -0.01;
-    let held = dedaliano_engine::solver::linear::solve_3d(&propped_tip_soft_about_y(1e-4, dz)).unwrap();
-    let ry = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
-    assert!((ry.abs() - 1.5 * dz.abs()).abs() <= 1e-9 * 1.5 * dz.abs(), "ry {ry}");
-    let soft = propped_tip_soft_about_y(1e-10, dz);
-    assert!(!dedaliano_engine::solver::stability::of_3d(&soft).unwrap().free.is_empty());
-    for r in [dedaliano_engine::solver::linear::solve_3d(&soft).map(|_| ()),
-        dedaliano_engine::solver::linear::prepare_static_3d(&soft).and_then(|p| p.solve_loads(&soft.loads)).map(|_| ())] {
-        let e = r.expect_err("a settlement acting on a pinned rotation was solved");
-        assert!(e.starts_with("the structure cannot be solved reliably"), "{e}");
+    for inertia in [1e-4, 1e-10] {
+        let input = propped_tip_soft_about_y(inertia, dz);
+        let verdict = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
+        assert!(verdict.is_stable() && verdict.free.is_empty(), "{verdict:?}");
+        for result in [dedaliano_engine::solver::linear::solve_3d(&input),
+            dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads))] {
+            let result = result.unwrap();
+            let ry = result.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
+            assert!((ry + 1.5 * dz).abs() <= 1e-9 * 1.5 * dz.abs(), "I {inertia}: ry {ry}");
+        }
     }
     dedaliano_engine::solver::linear::solve_3d(&propped_tip_soft_about_y(1e-10, 0.0)).unwrap();
 }
@@ -2678,7 +2676,6 @@ fn tied_axial_rounding_3d(member_stiffness: f64) -> SolverInput3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_constraint_cancellation_keeps_the_original_rounding_scale() {
     for stiffness in [1e16, 1e8] {
         let input = tied_axial_rounding_3d(stiffness);
@@ -2696,7 +2693,6 @@ fn issue_1753_constraint_cancellation_keeps_the_original_rounding_scale() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_a_loaded_uncoupled_rotational_spring_keeps_its_own_scale() {
     let mut input = common::make_3d_input(
         vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0), (3, 2.0, 0.0, 0.0)],
@@ -2718,7 +2714,6 @@ fn issue_1753_a_loaded_uncoupled_rotational_spring_keeps_its_own_scale() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_an_oblique_release_solves_unloaded_and_refuses_a_torsional_load() {
     for end in [(1.0, 2.0, 3.0), (2.0, -3.0, 1.0)] {
         let (x, y, z): (f64, f64, f64) = end;
@@ -2753,7 +2748,6 @@ fn issue_1753_an_oblique_release_solves_unloaded_and_refuses_a_torsional_load() 
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_constraint_cancellation_is_refused_by_both_2d_reductions() {
     let input: SolverInput = serde_json::from_value(serde_json::json!({
         "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 1.0, "z": 0.0}},
@@ -2776,7 +2770,6 @@ fn issue_1753_constraint_cancellation_is_refused_by_both_2d_reductions() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_an_independent_load_cannot_mask_constraint_cancellation() {
     let mut input = tied_axial_rounding_3d(1e16);
     input.nodes.insert("3".into(), serde_json::from_value(serde_json::json!({"id": 3, "x": 0.0, "y": 0.0, "z": 0.0})).unwrap());

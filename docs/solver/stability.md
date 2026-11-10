@@ -53,18 +53,19 @@ For every node and kind, `B` is the block of `K` on that node's free DOFs of tha
   same kind), so ratios of `μ` are unchanged.
 - Relabelling permutes the blocks.
 
-A direction `v` of the block is a **local free direction** when
+Partition the block by its structural coupling graph as defined below. A direction `v` of
+a connected component is a **local free direction** when
 
-    μ ≤ τ_loc · μ_b   with τ_loc = 1e-12, or the whole block is zero (μ_b ≤ 0).
+    μ ≤ τ_loc · μ_b   with τ_loc = 1e-12, or the whole component is zero (μ_b ≤ 0).
 
 A block is never judged against another node: a soft but restrained node next to a stiff
 one carries no rounding from it. By positive semidefiniteness, `vᵀKv = 0` implies `Kv = 0`:
 a local free direction is a null vector of `K` up to the rounding of its assembly, which is
 `O(ε)` of the largest stiffness acting on that node (an inclined member rounds its axial
 stiffness into the transverse directions). Below `τ_loc` the direction cannot be told from
-that rounding. This local-free classification still compares the whole node block; it has
-not been relaxed. The **anisotropy** used by the product gate is narrower: partition each
-node-and-kind block into connected components of its coupling graph. An edge is present for
+that rounding. Both the local-free classification and **anisotropy** use each connected
+component’s eigenpairs and largest eigenvalue, rather than comparing uncoupled components.
+Partition each node-and-kind block into connected components of its coupling graph. An edge is present for
 any nonzero off-diagonal entry, or when an incident element or support transformation mixes
 the two directions. Edges are exact structural tests, with no magnitude cutoff. Transformation
 edges survive cancellation between assembled contributions. Each component contributes its
@@ -129,17 +130,19 @@ before an uncertified estimate becomes a refusal.
     κ_S = λ_max(S) / λ_min(S)        A = max over nodes and coupling components of μ_max / μ_min (kept directions)
 
 - **Mechanism** if a local free direction is a translation: a node can move in a direction
-  nothing stiffens beyond `1e-12` of its own stiffest direction. This is decided node by
-  node, from the node's own block only.
+  nothing stiffens beyond `1e-12` of its own coupling component’s stiffest direction.
+  Uncoupled components cannot make each other free.
 - Free rotations are dropped from `S` only if the whole dropped set, across all nodes at
   once, is shown decoupled from everything outside each direction's own block (`K v_j`
   restricted to other blocks; within its block `v_j` is an exact eigenvector). Two cases:
-  - A direction whose own stiffness is at rounding, `μ_j ≤ 64 b ε μ_b`, has an unknown
-    stiffness. If it couples to anything outside its block at all (`K v_j` has any non-zero
-    entry there), the verdict is Singular. No floor is compared: any floor scaled by the
-    block can be outrun by stiffening another direction of the same block (Codex's
-    `[[1,0,-1],[0,2⁹⁶,0],[-1,0,1]]`, tags `[T1, R2, R2]`, has coupling `1` against a floor
-    of `8`, and is singular).
+  - For every off-block row, form `m_i = Σ_j |K_ij v_j|`. A component of `K v` is
+    rounding-level only when `|(K v)_i| ≤ 64 b ε m_i`, where `b` is the direction’s
+    node-and-kind block size. Such a residual is omitted from the coupling and pin-force
+    checks. This scale uses the actual products in that row, so a single small but real
+    coupling cannot hide beneath an unrelated stiff direction. A direction whose own
+    stiffness is at rounding, `μ_j ≤ 64 b_c ε μ_max,c`, is Singular if any off-block
+    coupling remains; `b_c` and `μ_max,c` belong to its coupling component. An unloaded
+    oblique torsional release can therefore solve, while a load along it still refuses.
   - The directions above rounding that couple are taken together: `K̃_DD` is their joint
     stiffness (cross terms between nodes included) scaled to a unit diagonal, `C̃` their
     coupling into the kept directions scaled by `1/√μ_j`. Condensing them back changes the
@@ -169,6 +172,17 @@ before an uncertified estimate becomes a refusal.
   purpose: which of the two a copy is reported as depends on rounding, so separate verdicts
   were not invariant (measured on the C08 models: `κ_S` of the same model was 2.7e11 in one
   frame and a failed factorization in another).
+- With constraints, also retain the nonnegative entrywise envelope
+  `H = |C|ᵀ |K_original| |C|`. Absolute values are taken before reduction, so terms that
+  cancel in `Cᵀ K_original C` still contribute to `H`. In the local eigenbasis form
+  `P = |W|ᵀ H |W|`; its maximum row sum `h` bounds its spectral norm. For this bound,
+  dropped directions are included with scale `1/√μ_max,c`. A zero-scale component with
+  nonzero envelope is refused. Nonfinite envelopes or projected bounds are refused.
+  Require `κ_S h ≤ 1e12` as well as the existing `κ_S A ≤ 1e12`; since the kept `S`
+  has unit diagonal, `λ_min(S) ≥ 1/κ_S`, and the first-order error amplification is
+  bounded by `ε κ_S h`. This is a conservative entrywise rounding envelope, not a claim
+  that constraint reduction can recover precision already lost during assembly.
+  The standalone verdict and all constrained solve paths use the same check.
 - **Stable**, with its **free rotations** (local free directions that are rotations or
   warping), otherwise.
 
@@ -182,11 +196,10 @@ stability refusal. Unit changes and relabelling preserve the structural graph.
 
 ### 2.4 Known conservative refusals
 
-A rotation whose own stiffness is at rounding and whose coupling outside its block is not
-exactly zero is refused, even when the coupling is itself only rounding. A refusal beats a
-silent number, so these are accepted. Measured (own stiffness `μ/μ_b`, largest coupling
-in units of `ε √μ_b`; verdict identical in every unit system, rotation, mirror and
-relabelling):
+Before review round 1, any nonzero off-block coupling of a rounding-level rotation caused
+refusal, including a dot product’s own rounding residue. The following are historical
+measurements from that implementation, not current refusal guarantees. Round 1 instead
+uses the row-wise product bound in §2.3 and keeps the loaded-direction checks active.
 
 | Model | Node | `μ/μ_b` | coupling / `ε √μ_b` | `κ_S` | `A` |
 |---|---|---|---|---|---|
@@ -196,8 +209,8 @@ relabelling):
 | #1351, #1352 (one model) | 2 | 8.8e-18 | 1.97 | 13.9 | 2.5e7 |
 | #1635 | 2 | -2.2e-18 | 1.11 | 13.9 | 4.9e3 |
 
-A 3D rigid link whose master spins about the link axis (`releaseTEnd` member) is the one
-model measured whose verdict is not invariant. In the axis-aligned frame, the unit systems
+A 3D rigid link whose master spins about the link axis (`releaseTEnd` member) is another
+model with a frame-dependent conservative refusal. In the axis-aligned frame, the unit systems
 and the relabellings the spin moves the slave by exactly zero and the coupling is exactly
 zero, so it is Stable with that free rotation. In the three general rotations rounding
 leaves a slave motion of `3.2 ε`, `4.1 ε` and `11.5 ε` (below the `192 ε` the map can
@@ -206,7 +219,10 @@ and a coupling of `0.11` to `0.91 ε √μ_b`, and it is Singular. In every fram
 that Stable verdict or a Singular refusal for rounding, never a Mechanism. A link offset by
 `9e-9` of its length moves its slave by `4.1e7 ε` and is a Mechanism in every frame.
 No model of the example, fixture,
-feature-matrix or differential corpus is refused by the rule.
+feature-matrix or differential corpus is refused by the rule. The vanishing-warping-constant
+fixture also has a Stable unloaded axis-aligned spectrum and may refuse oblique copies;
+its solve additionally retains the independent Cholesky check. These outcomes are covered
+by the transformed-copy tests, including exact zero for every returned unloaded response.
 
 Since slice 2 the linear solves refuse these real, if extreme, structures, measured on the
 tests that build them:

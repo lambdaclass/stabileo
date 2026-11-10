@@ -153,7 +153,7 @@ fn the_stability_verdict_of_every_c08_reproducer_survives_units_rotation_mirror_
 const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 973, 993, 1008, 1028, 1029, 1041, 1083, 1091, 1095, 1103, 1112, 1115, 1353, 1355, 1357, 1359, 1362, 1648, 1651, 1653];
 const SOLVED: &[u32] = &[954, 956, 960, 994, 1086, 1097, 1101, 1102, 1116, 1117, 1118, 1216, 1265];
 const STABLE_PENDING: &[u32] = &[972, 1099, 1647];
-const CONSERVATIVE: &[u32] = &[1090, 1106, 1193, 1351, 1352, 1635];
+const RELEASE_STABLE: &[u32] = &[1090, 1106, 1193, 1351, 1352, 1635];
 
 const C08: &[(u32, u64, &str, &str)] = &[
     (954, 20757, "linear (PCG)", "relabel"), (956, 20757, "linear (sparse path)", "energy"), (960, 2026103105180, "harmonic", "units"),
@@ -175,7 +175,12 @@ const C08: &[(u32, u64, &str, &str)] = &[
 ];
 
 fn replay(issue: u32) -> (Stability, crate::tally::Cell) {
+    replay_as(issue, None)
+}
+
+fn replay_as(issue: u32, analysis_override: Option<&str>) -> (Stability, crate::tally::Cell) {
     let &(_, seed, analysis, relation) = C08.iter().find(|c| c.0 == issue).unwrap();
+    let analysis = analysis_override.unwrap_or(analysis);
     let text = std::fs::read_to_string(corpus::root().join("metamorphic_corpus").join("stability").join(format!("issue-{}.json", fixture(issue)))).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&text).unwrap();
     let dens: Option<std::collections::HashMap<String, f64>> = meta.get("_nightly_dens").map(|d| serde_json::from_value(d.clone()).unwrap());
@@ -203,7 +208,7 @@ fn replay(issue: u32) -> (Stability, crate::tally::Cell) {
 
 #[test]
 fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict() {
-    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(CONSERVATIVE).copied().collect();
+    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(RELEASE_STABLE).copied().collect();
     assert_eq!(listed, C08.iter().map(|c| c.0).collect(), "every C08 issue is classified once");
     let mut wrong = Vec::new();
     for &issue in REFUSED {
@@ -214,9 +219,9 @@ fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict()
         let (v, cell) = replay(issue);
         if !v.is_stable() || !cell.fails.is_empty() || cell.pass == 0 { wrong.push(format!("#{issue} listed solved: {} {cell:?}", summary(&Ok(v)))); }
     }
-    for &issue in CONSERVATIVE {
-        let (v, _) = replay(issue);
-        if v.reason != Reason::CoupledSoftDirection { wrong.push(format!("#{issue} listed conservatively refused: {} {:?}", summary(&Ok(v.clone())), v.reason)); }
+    for &issue in RELEASE_STABLE {
+        let (v, cell) = replay_as(issue, Some("linear"));
+        if v.verdict != Verdict::Stable || v.reason != Reason::Resolved || v.free.len() != 1 || !cell.fails.is_empty() { wrong.push(format!("#{issue} listed release stable: {} {cell:?}", summary(&Ok(v.clone())))); }
     }
     for &issue in STABLE_PENDING {
         let (v, _) = replay(issue);
@@ -489,16 +494,29 @@ fn a_mode_with_equal_components_on_its_two_coupled_dofs_certifies_in_any_numberi
 }
 
 fn degenerate_free_rotations_coupled(angle: f64) -> Stability {
+    rotations_coupled_into_translation(angle, 0.0)
+}
+
+fn rotations_coupled_into_translation(angle: f64, stiffness: f64) -> Stability {
     let (c, s) = (angle.cos(), angle.sin());
     let coupling = [8e-11 * (c + s), 8e-11 * (c - s), 0.0];
     let mut k = vec![0.0; 16];
     k[0] = 1.0;
-    for (r, d) in [2e-20, 2e-20, 1.0].into_iter().enumerate() { k[(r + 1) * 4 + r + 1] = d; }
+    for (r, d) in [stiffness, stiffness, 1.0].into_iter().enumerate() { k[(r + 1) * 4 + r + 1] = d; }
     for r in 0..3 {
         k[r + 1] = coupling[r];
         k[(r + 1) * 4] = coupling[r];
     }
     analyze_dense(&k, 4, &[t(1, DofKind::Translation), t(2, DofKind::Rotation), t(2, DofKind::Rotation), t(2, DofKind::Rotation)])
+}
+
+#[test]
+fn independent_soft_rotations_with_a_resolvable_schur_complement_are_kept() {
+    for angle in [0.0, std::f64::consts::FRAC_PI_4] {
+        let s = rotations_coupled_into_translation(angle, 2e-20);
+        assert!(s.is_stable() && s.free.is_empty(), "{s:?}");
+        assert!((s.kappa - 9.0).abs() < 1e-12, "{s:?}");
+    }
 }
 
 #[test]
@@ -523,7 +541,7 @@ fn a_non_finite_stiffness_is_singular_never_stable() {
 }
 
 #[test]
-fn a_warping_stiffness_below_the_artificial_spring_gets_one_verdict_in_every_unit_system() {
+fn a_warping_stiffness_below_the_artificial_spring_solves_unloaded_or_refuses_an_uncertain_frame() {
     let cantilever = serde_json::json!({
         "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 3.0, "y": 0.0, "z": 0.0}},
         "materials": {"1": {"id": 1, "e": 2e8, "nu": 0.3}},
@@ -532,8 +550,34 @@ fn a_warping_stiffness_below_the_artificial_spring_gets_one_verdict_in_every_uni
         "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
         "loads": []
     });
-    let s = invariant_verdict("cantilever whose torsion only a vanishing warping constant stiffens", d3(cantilever));
-    assert_eq!((s.verdict, s.reason), (Verdict::Singular, Reason::CoupledSoftDirection), "{s:?}");
+    let input = serde_json::from_value(cantilever).unwrap();
+    let base = Case3::new("cantilever whose torsion only a vanishing warping constant stiffens", input);
+    let original = stability::of_3d(&base.s).unwrap();
+    let mut copies = vec![("original".to_string(), Ok(base.clone()))];
+    copies.extend(transforms_3d(&base, 1753));
+    for (what, copy) in copies {
+        let copy = copy.unwrap();
+        let s = stability::of_3d(&copy.s).unwrap();
+        if what == "original" || what.starts_with("units") || what.starts_with("relabel") {
+            assert!(s.is_stable() && s.free.is_empty(), "{what}: {s:?}");
+            same(&original, &s).unwrap_or_else(|e| panic!("{what}: {e}"));
+        }
+        let result = dedaliano_engine::solver::linear::solve_3d(&copy.s);
+        if what == "original" {
+            assert!(result.unwrap_err().starts_with("the stiffness matrix is not positive definite"), "{what}");
+        } else {
+            match result {
+                Ok(result) => {
+                    assert!(s.is_stable(), "{what}: {s:?}");
+                    for d in result.displacements {
+                        assert_eq!([d.ux, d.uy, d.uz, d.rx, d.ry, d.rz], [0.0; 6], "{what}");
+                        assert_eq!(d.warping, Some(0.0), "{what}");
+                    }
+                }
+                Err(e) => assert!(e.starts_with("the structure is a mechanism") || e.starts_with("the stiffness matrix is not positive definite"), "{what}: {e}"),
+            }
+        }
+    }
 }
 
 fn rotate_rotations(k: &[f64], n: usize, first: usize, angle: f64) -> Vec<f64> {
@@ -725,7 +769,17 @@ fn issue_1355_the_pcg_linear_solve_refuses_in_every_unit_system() { the_linear_s
 fn issue_1651_the_linear_solve_refuses_in_every_plane() { the_linear_solve_refuses_what_the_verdict_refuses(1651) }
 
 #[test]
-fn issue_1106_the_linear_solve_refuses_in_both_load_directions() { the_linear_solve_refuses_what_the_verdict_refuses(1106) }
+fn issue_1106_the_linear_solve_refuses_in_both_load_directions() {
+    let (v, cell) = replay_as(1106, Some("linear"));
+    assert!(v.is_stable() && !v.free.is_empty(), "{v:?}");
+    assert!(cell.fails.is_empty() && cell.refused > 0, "{cell:?}");
+    let solves = linear_solves(1106);
+    assert!(solves.len() > 3);
+    for (what, result) in solves {
+        let err = result.expect_err(&format!("#1106 {what}: a loaded release returned a result"));
+        assert!(err.contains("rotation") && err.contains("node 4"), "{what}: {err}");
+    }
+}
 
 fn continuous_beam(spans: usize) -> dedaliano_engine::types::SolverInput {
     let n = 10 * spans;

@@ -40,17 +40,37 @@ LU, high-residual and NUM-INVARIANCE warnings. This is another warned unresolved
 solve covered here, not a clean result with independently established static accuracy.
 The fixed entry points refuse it with node 2 and the loaded rotational direction named.
 
+Review round 1 also established a **25% displacement error with no warning** on main
+`8f4c3ee6c`. Two axial DOFs tied by `u1 = u2` have a unit-length member of stiffness
+`M = 1e16` between them and a support spring of stiffness `3`. Under axial force `1`,
+the member cannot extend and the correct displacement is `1/3`. Assembly rounds `M + 3`
+to `M + 4`; constraint reduction cancels the member terms and leaves `4`, returning `0.25`.
+The minimal example is caught by main’s final force-balance check. With an independent
+load `fz = 1e6` at a fully restrained third node, a detached, test-only probe of main
+returned `0.25` at both axial nodes. Its reduced residual was zero, its aggregate balance
+measure was `1.2499989062509567e-7`, and all four structured diagnostics were informational.
+The independent balanced load hides the axial imbalance in the aggregate measure. In this
+example the displacement is underestimated; the direction of error in another model is not
+established. The fixed gate carries `|C|ᵀ |K_original| |C|`, retaining the magnitudes of the
+cancelled contributions, and refuses both versions before factorization. Regression:
+`issue_1753_an_independent_load_cannot_mask_constraint_cancellation`.
+The [main probe evidence](../results-changes/1753-main-constraint-cancellation-probe.json)
+retains the returned values and diagnostics.
+
 For a component with anisotropy `A`, the first-order relative shift bound for the smallest
 scaled eigenvalue is `ε κ_S A`. Separate uncoupled directions cannot exchange assembly
 rounding; directions mixed by an element transformation can. The fix retains that coupling
 even if assembled off-diagonal entries cancel, and refuses when the product exceeds the gate.
+Constraint reduction additionally retains an entrywise absolute contribution envelope; judging
+only the small reduced stiffness would lose the rounding scale of cancelled contributions.
 See [the numerical argument and evidence](../solver/stability.md), and the regression tests
 in `engine/tests/metamorphic/stability.rs` and `engine/tests/known_issues.rs`.
 
 ## How to tell if your model is affected
 
 Re-check past linear results if a model has very soft restraints, released member directions,
-extreme member or spring stiffness contrasts, very thin shells, or responses that change
+extreme member or spring stiffness contrasts, constraints that cancel large member stiffnesses,
+very thin shells, or responses that change
 when equivalent units, orientation or node numbering are used. An absence of a conditioning
 warning in the old result does not establish accuracy. A large contrast between independent,
 axis-aligned directions alone does not establish that the model is affected.

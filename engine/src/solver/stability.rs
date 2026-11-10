@@ -1,9 +1,3 @@
-//! One stability and rank verdict for a free stiffness matrix, from spectra that are invariant
-//! under a change of units, a rigid rotation or mirror of the model and a relabelling of its
-//! nodes. A free rotation whose coupling or constraint motion is exactly zero in one frame and
-//! rounding in another is Stable in the first and Singular in the second
-//! (docs/solver/stability.md §2.4).
-
 use crate::linalg::sparse::CscMatrix;
 use crate::linalg::sparse_chol::{numeric_cholesky, sparse_cholesky_solve, symbolic_cholesky};
 use crate::solver::dof::DofNumbering;
@@ -26,7 +20,7 @@ pub struct DofTag { pub node: usize, pub kind: DofKind }
 pub enum Verdict { Stable, Mechanism, Singular }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, Indefinite, NonFinite }
+pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, ConstraintRounding, Indefinite, NonFinite }
 
 #[derive(Debug, Clone)]
 pub struct FreeDirection {
@@ -165,6 +159,9 @@ impl Stability {
             Reason::NonFinite => Some(
                 "the stiffness matrix has an infinite or undefined entry: check member properties, spring stiffnesses and node coordinates for zero lengths, infinities or missing values".to_string()
             ),
+            Reason::ConstraintRounding => Some(format!(
+                "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes}: constraint reduction cancels stiffness contributions whose rounding is too large to resolve the remaining stiffness; reduce extreme stiffness contrasts or revise the constraints"
+            )),
             Reason::SwingAtRounding => Some(format!(
                 "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes}: a free rotation moves a constrained node by an amount at the rounding of the constraint, so whether the node can move at zero stiffness depends on rounding; add supports or members, or remove releases"
             )),
@@ -440,6 +437,10 @@ pub fn analyze_constrained(k: &CscMatrix, tags: &[DofTag], moves_translation: &[
 }
 
 pub(crate) fn analyze_coupled(k: &CscMatrix, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>], coupling: &[(usize, usize)]) -> Stability {
+    analyze_coupled_with_rounding(k, tags, moves_translation, coupling, None)
+}
+
+pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>], coupling: &[(usize, usize)], rounding: Option<&CscMatrix>) -> Stability {
     let n = k.n;
     if k.values.iter().any(|v| !v.is_finite()) {
         return non_finite();
@@ -474,32 +475,12 @@ pub(crate) fn analyze_coupled(k: &CscMatrix, tags: &[DofTag], moves_translation:
             adjacency[gi][lj * b + li] = true;
         }
     }
-    let eig: Vec<(Vec<f64>, Vec<f64>)> = blocks.iter().zip(&groups).map(|(b, (_, d))| sym_eigen_small(b, d.len())).collect();
-    if eig.iter().any(|(mu, v)| mu.iter().chain(v).any(|x| !x.is_finite())) {
-        return non_finite();
-    }
     let mut free = Vec::new();
     let mut own: Vec<(f64, f64, usize)> = Vec::new();
     let mut columns: Vec<Column> = Vec::new();
     let mut anisotropy = 1.0f64;
-    for (g, (((node, kind), dofs), (mu, vecs))) in groups.iter().zip(&eig).enumerate() {
+    for (g, ((node, kind), dofs)) in groups.iter().enumerate() {
         let b = dofs.len();
-        let top = mu.last().copied().unwrap_or(0.0);
-        if mu.first().is_some_and(|&low| low < -ROUNDING * b as f64 * f64::EPSILON * top.abs()) || top < 0.0 {
-            return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa: f64::NAN, anisotropy, free, mode_nodes: vec![*node] };
-        }
-        let whole_free = top <= 0.0;
-
-        for c in 0..b {
-            let v: Vec<f64> = (0..b).map(|r| vecs[r * b + c]).collect();
-            if whole_free || mu[c] <= LOCAL_FREE * top {
-                free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v, scale: if top > 0.0 { top } else { 1.0 }, coupling: Vec::new() });
-                own.push((mu[c], top.max(0.0), b));
-            } else {
-                let s = mu[c].sqrt();
-                columns.push(Column { group: g, w: v.iter().map(|x| x / s).collect() });
-            }
-        }
         let mut seen = vec![false; b];
         for start in 0..b {
             if seen[start] { continue; }
@@ -520,10 +501,26 @@ pub(crate) fn analyze_coupled(k: &CscMatrix, tags: &[DofTag], moves_translation:
             for &i in &component {
                 for &j in &component { block.push(blocks[g][i * b + j]); }
             }
-            let (values, _) = sym_eigen_small(&block, component.len());
-            let highest = values.last().copied().unwrap_or(0.0);
-            if let Some(&lowest) = values.iter().find(|&&x| x > LOCAL_FREE * top) {
-                anisotropy = anisotropy.max(highest / lowest);
+            let size = component.len();
+            let (mu, vecs) = sym_eigen_small(&block, size);
+            if mu.iter().chain(&vecs).any(|x| !x.is_finite()) { return non_finite(); }
+            let top = mu.last().copied().unwrap_or(0.0);
+            if mu.first().is_some_and(|&low| low < -ROUNDING * size as f64 * f64::EPSILON * top.abs()) || top < 0.0 {
+                return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa: f64::NAN, anisotropy, free, mode_nodes: vec![*node] };
+            }
+            for c in 0..size {
+                let mut v = vec![0.0; b];
+                for (r, &i) in component.iter().enumerate() { v[i] = vecs[r * size + c]; }
+                if top <= 0.0 || mu[c] <= LOCAL_FREE * top {
+                    free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v, scale: if top > 0.0 { top } else { 1.0 }, coupling: Vec::new() });
+                    own.push((mu[c], top.max(0.0), size));
+                } else {
+                    let scale = mu[c].sqrt();
+                    columns.push(Column { group: g, w: v.iter().map(|x| x / scale).collect() });
+                }
+            }
+            if let Some(&lowest) = mu.iter().find(|&&x| x > LOCAL_FREE * top) {
+                anisotropy = anisotropy.max(top / lowest);
             }
         }
     }
@@ -539,6 +536,10 @@ pub(crate) fn analyze_coupled(k: &CscMatrix, tags: &[DofTag], moves_translation:
         mode_nodes.dedup();
         return Stability { verdict: Verdict::Mechanism, reason: Reason::FreeTranslation, kappa: f64::INFINITY, anisotropy, free, mode_nodes };
     }
+    let amplification = rounding.map(|bound| rounding_amplification(bound, &columns, &free, &own, &groups, &group_of)).unwrap_or(1.0);
+    if !amplification.is_finite() || amplification > RESOLVABLE {
+        return Stability { verdict: Verdict::Singular, reason: Reason::ConstraintRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: tags.iter().map(|t| t.node).collect() };
+    }
     let m = columns.len();
     if m == 0 {
         let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, 1.0);
@@ -552,6 +553,9 @@ pub(crate) fn analyze_coupled(k: &CscMatrix, tags: &[DofTag], moves_translation:
     let mode_nodes = mode.map(|x| mode_nodes(&x, &columns, &groups)).unwrap_or_default();
     if indefinite {
         return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa, anisotropy, free, mode_nodes };
+    }
+    if rounding.is_some() && kappa * amplification > RESOLVABLE {
+        return Stability { verdict: Verdict::Singular, reason: Reason::ConstraintRounding, kappa, anisotropy, free, mode_nodes };
     }
     let verdict = if kappa * anisotropy <= RESOLVABLE { Verdict::Stable } else { Verdict::Singular };
     if verdict == Verdict::Stable {
@@ -587,11 +591,20 @@ fn coupled_free(k: &CscMatrix, free: &mut [FreeDirection], own: &[(f64, f64, usi
         let mut u = vec![0.0; k.n];
         for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v; }
         let ku = k.sym_mat_vec(&u);
+        let mut magnitude = vec![0.0; k.n];
+        for col in 0..k.n {
+            for p in k.col_ptr[col]..k.col_ptr[col + 1] {
+                let row = k.row_idx[p];
+                magnitude[row] += k.values[p].abs() * u[col].abs();
+                if row != col { magnitude[col] += k.values[p].abs() * u[row].abs(); }
+            }
+        }
         let (mut c, mut x) = (BTreeMap::new(), BTreeMap::new());
         let mut outside = Vec::new();
         for (d, &val) in ku.iter().enumerate() {
             let (h, l) = group_of[d];
             if val == 0.0 || h == g { continue; }
+            if magnitude[d].is_finite() && val.abs() <= ROUNDING * f.dofs.len() as f64 * f64::EPSILON * magnitude[d] { continue; }
             outside.push((d, val));
             for &col in &columns_of[h] { *c.entry(col).or_insert(0.0) += columns[col].w[l] * val; }
             for &r in &dropped_of[h] { *x.entry(r).or_insert(0.0) += free[dropped[r]].direction[l] * val; }
@@ -824,49 +837,50 @@ fn mode_nodes(x: &[f64], columns: &[Column], groups: &[((usize, DofKind), Vec<us
     by_node.into_iter().filter(|&(_, v)| v >= 0.01 * top).map(|(n, _)| n).collect()
 }
 
-fn reduced(k: &[f64], dof: &DofNumbering, tags: Vec<DofTag>, mut coupling: Vec<(usize, usize)>, ct: Option<crate::solver::constraints::ConstraintTransform>) -> (Vec<f64>, usize, Vec<DofTag>, Vec<Vec<(usize, f64)>>, Vec<(usize, usize)>) {
-    let n = dof.n_total;
-    let nf = dof.n_free;
-    let (k, size, idx, tag_of, moves): (Vec<f64>, usize, Vec<usize>, Vec<usize>, Vec<Vec<(usize, f64)>>) = match ct {
-        None => (k.to_vec(), n, (0..nf).collect(), (0..nf).collect(), Vec::new()),
-        Some(ct) => {
-            coupling = project_coupling(&CscMatrix::from_dense_symmetric(k, n), &tags, &coupling, &ct.c, &ct.independent_dofs);
-            let idx: Vec<usize> = (0..ct.n_independent).filter(|&j| ct.independent_dofs[j] < nf).collect();
-            let tag_of = idx.iter().map(|&j| ct.independent_dofs[j]).collect();
-            let positions: BTreeMap<usize, usize> = idx.iter().enumerate().map(|(i, &j)| (j, i)).collect();
-            coupling = coupling.into_iter().filter_map(|(i, j)| Some((*positions.get(&i)?, *positions.get(&j)?))).collect();
-            let c = &ct.c;
-            let moves = idx.iter().map(|&j| (c.col_ptr[j]..c.col_ptr[j + 1]).filter(|&p| c.csc_vals[p] != 0.0 && tags[c.row_idx[p]].kind == DofKind::Translation).map(|p| (c.row_idx[p], c.csc_vals[p])).collect()).collect();
-            (c.reduce_dense(k), ct.n_independent, idx, tag_of, moves)
+fn rounding_amplification(bound: &CscMatrix, columns: &[Column], free: &[FreeDirection], own: &[(f64, f64, usize)], groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)]) -> f64 {
+    if bound.values.iter().any(|x| !x.is_finite()) { return f64::INFINITY; }
+    let mut weights: Vec<Column> = columns.iter().map(|c| Column { group: c.group, w: c.w.iter().map(|v| v.abs()).collect() }).collect();
+    for (f, &(_, top, _)) in free.iter().zip(own) {
+        if top == 0.0 {
+            let mut u = vec![0.0; bound.n];
+            for (&d, &v) in f.dofs.iter().zip(&f.direction) { u[d] = v.abs(); }
+            if bound.sym_mat_vec(&u).iter().any(|&x| x != 0.0) { return f64::INFINITY; }
+        } else {
+            weights.push(Column { group: group_of[f.dofs[0]].0, w: f.direction.iter().map(|v| v.abs() / top.sqrt()).collect() });
         }
-    };
-    let m = idx.len();
-    let mut out = vec![0.0; m * m];
-    for (a, &i) in idx.iter().enumerate() {
-        for (b, &j) in idx.iter().enumerate() { out[a * m + b] = k[i * size + j]; }
     }
-    (out, m, tag_of.into_iter().map(|d| tags[d]).collect(), moves, coupling)
+    let projected = scaled(bound, groups, group_of, &weights);
+    if projected.values.iter().any(|x| !x.is_finite()) { return f64::INFINITY; }
+    projected.sym_mat_vec(&vec![1.0; weights.len()]).into_iter().fold(0.0, f64::max)
+}
+
+fn of_assembled(k: &[f64], dof: &DofNumbering, two_d: bool, fcs: Option<crate::solver::constraints::FreeConstraintSystem>, coupling: &[(usize, usize)]) -> Stability {
+    let nf = dof.n_free;
+    let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+    for j in 0..nf {
+        for i in j..nf {
+            let value = 0.5 * k[i * dof.n_total + j] + 0.5 * k[j * dof.n_total + i];
+            if value != 0.0 { rows.push(i); cols.push(j); values.push(value); }
+        }
+    }
+    let k = CscMatrix::from_triplets(nf, &rows, &cols, &values);
+    match fcs {
+        Some(fcs) => fcs.stability(&fcs.reduce_matrix_sparse(&k), dof, &k, coupling),
+        None => analyze_with_coupling(&k, &tags(dof, two_d), coupling),
+    }
 }
 
 pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
-    use crate::solver::constraints::{build_constraint_transform, inclined_dofs_2d};
     let dof = DofNumbering::build_2d(input);
     let asm = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_2d(input, &dof));
-    let ct = if input.constraints.is_empty() { None } else {
-        Some(build_constraint_transform(&input.constraints, &dof, Some(&input.nodes), None, &inclined_dofs_2d(input, &dof))?)
-    };
-    let (k, m, t, moves, coupling) = reduced(&asm.k, &dof, tags(&dof, true), coupling_2d(input, &dof), ct);
-    Ok(analyze_dense_coupled(&k, m, &t, &moves, &coupling))
+    let fcs = crate::solver::constraints::FreeConstraintSystem::build_2d(input, &dof)?;
+    Ok(of_assembled(&asm.k, &dof, true, fcs, &coupling_2d(input, &dof)))
 }
 
 pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
-    use crate::solver::constraints::{build_constraint_transform, inclined_dofs_3d};
     let input = &crate::solver::linear::expand_curved_beams_3d(input);
     let dof = DofNumbering::build_3d(input);
     let asm = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_3d(input, &dof));
-    let ct = if input.constraints.is_empty() { None } else {
-        Some(build_constraint_transform(&input.constraints, &dof, None, Some(&input.nodes), &inclined_dofs_3d(input, &dof))?)
-    };
-    let (k, m, t, moves, coupling) = reduced(&asm.k, &dof, tags(&dof, false), coupling_3d(input, &dof), ct);
-    Ok(analyze_dense_coupled(&k, m, &t, &moves, &coupling))
+    let fcs = crate::solver::constraints::FreeConstraintSystem::build_3d(input, &dof)?;
+    Ok(of_assembled(&asm.k, &dof, false, fcs, &coupling_3d(input, &dof)))
 }
