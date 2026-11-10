@@ -8,8 +8,13 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { SHEET_FAMILIES, type SheetFamily, type TorsionMode } from '../../../lib/rc-sheets/types';
   import RcSheetsWorkspace from './RcSheetsWorkspace.svelte';
+  import RcCodePicker from './RcCodePicker.svelte';
+  import { SHEET_CODES } from '../../../lib/rc-sheets/types';
+  import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { rulesFor } from '../../../lib/rc-sheets/codes';
 
   let open = $state(false);
+  const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
   let family = $state<SheetFamily>('beam');
 
   const solved = $derived(!!resultsStore.results3D);
@@ -33,7 +38,7 @@
 </script>
 
 <div class="rcp" data-testid="rc-sheets-panel">
-  <p class="rcp-intro">{t('rcSheets.desc')}</p>
+  <p class="rcp-intro">{tp('rcSheets.desc', { code: SHEET_CODES[code].name })}</p>
 
   {#if !solved}
     <p class="rcp-note">{t('rcSheets.solveFirst')}</p>
@@ -44,7 +49,7 @@
       <p class="rcp-basis warn">{tp('rcSheets.wallsToMesh', { n: wallsToMesh })}</p>
       <button type="button" class="rcs-btn" onclick={meshWalls} disabled={solving} data-testid="rc-mesh-walls">{t('rcSheets.meshWalls')}</button>
     {/if}
-    <p class="rcp-code" data-testid="rc-panel-code"><span>{t('rcSheets.code')}</span><strong>{rows.code}</strong></p>
+    <div data-testid="rc-panel-code"><RcCodePicker /></div>
     <p class="rcp-note">{t('rcSheets.codeHint')}</p>
     <p class="rcp-basis" class:warn={rows.basis !== 'combinations'}>
       {rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`)}
@@ -69,12 +74,12 @@
     </label>
     <label class="rcp-chk"><input type="checkbox" checked={options.faces} onchange={(e) => setRcOption('faces', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-faces" /> <span>{t('rcSheets.opt.faces')}</span></label>
     <label class="rcp-chk"><input type="checkbox" checked={options.flange} onchange={(e) => setRcOption('flange', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-flange" /> <span>{t('rcSheets.opt.flange')}</span></label>
-    <label class="rcp-chk"><input type="checkbox" checked={options.seismic} onchange={(e) => setRcOption('seismic', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-seismic" /> <span>{t('rcSheets.opt.seismic')}</span></label>
+    {#if rulesFor(code).seismic}<label class="rcp-chk"><input type="checkbox" checked={options.seismic} onchange={(e) => setRcOption('seismic', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-seismic" /> <span>{t('rcSheets.opt.seismic')}</span></label>{/if}
     <div class="rcp-actions">
       <button type="button" class="rcs-btn primary" onclick={() => openAt(family)} data-testid="rc-open">{t('rcSheets.open')}</button>
       <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)}>{t('rcSheets.export')}</button>
     </div>
-    <p class="rcp-note">{t(options.seismic ? 'rcSheets.scopeNoteSeismic' : 'rcSheets.scopeNote')}</p>
+    <p class="rcp-note">{t(options.seismic && rulesFor(code).seismic ? 'rcSheets.scopeNoteSeismic' : 'rcSheets.scopeNote')}</p>
   {/if}
 </div>
 

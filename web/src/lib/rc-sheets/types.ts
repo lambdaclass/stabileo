@@ -3,9 +3,15 @@ import type { WallReinforcement } from '../design-contract/reinforcement';
 export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching';
 export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching'];
 
-export type SheetCode = 'cirsoc201-2025';
-export const SHEET_CODES: Record<SheetCode, { name: string; edition: '2025' }> = {
-  'cirsoc201-2025': { name: 'CIRSOC 201-2025', edition: '2025' },
+export type SheetCode = 'cirsoc201-2025' | 'aci318-19' | 'en1992-1-1' | 'bs-en1992-1-1' | 'ts500-2000';
+/** The codes the sheets design to, in the order they are offered. */
+export const SHEET_CODE_LIST: readonly SheetCode[] = ['cirsoc201-2025', 'aci318-19', 'en1992-1-1', 'bs-en1992-1-1', 'ts500-2000'];
+export const SHEET_CODES: Record<SheetCode, { name: string; country: string }> = {
+  'cirsoc201-2025': { name: 'CIRSOC 201-2025', country: 'AR' },
+  'aci318-19': { name: 'ACI 318-19', country: 'US' },
+  'en1992-1-1': { name: 'EN 1992-1-1:2004', country: 'EU' },
+  'bs-en1992-1-1': { name: 'BS EN 1992-1-1 + UK NA', country: 'GB' },
+  'ts500-2000': { name: 'TS 500:2000', country: 'TR' },
 };
 
 export type RowStatus = 'ok' | 'warn' | 'fail' | 'none';
@@ -45,7 +51,8 @@ export type TorsionMode = 'equilibrium' | 'compatibility';
 
 export interface RcSheetsData {
   version: 1;
-  code: SheetCode;
+  /** Absent: the project's concrete code. */
+  code?: SheetCode;
   torsion: TorsionMode;
   /** Beam moments at the support faces, shear and torsion at d from them. */
   faces?: boolean;
@@ -57,7 +64,7 @@ export interface RcSheetsData {
   adopted: Record<string, Adopted>;
 }
 
-export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, code: 'cirsoc201-2025', torsion: 'equilibrium', adopted: {} });
+export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 
 export interface Step {
   label: string;

@@ -25,12 +25,12 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(page.getByTestId('rc-open-column')).toBeEnabled();
   await expect(page.getByTestId('rc-open-slab')).toBeEnabled();
   await expect(page.getByTestId('rc-open-wall')).toBeEnabled();
-  await expect(page.getByTestId('rc-panel-code')).toContainText('CIRSOC 201-2025');
+  await expect(page.getByTestId('rc-panel-code').getByTestId('rc-code-select')).toHaveValue('cirsoc201-2025');
 
   await page.getByTestId('rc-open-beam').click();
   const ws = page.getByTestId('rc-sheets-workspace');
   await expect(ws).toBeVisible();
-  await expect(ws.getByTestId('rc-code')).toContainText('CIRSOC 201-2025');
+  await expect(ws.getByTestId('rc-code').getByTestId('rc-code-select')).toHaveValue('cirsoc201-2025');
   const first = ws.getByTestId('rc-row').first();
   await expect(first).toContainText('Verifica');
 
@@ -68,4 +68,18 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await ground.first().click();
   await expect(ws.getByTestId('rc-checks').first()).toContainText('La base del tabique apoya en toda su longitud');
   await expect(ws.getByTestId('rc-row').filter({ hasText: 'N1' }).first()).toContainText('Verifica');
+
+  // The code is switched from the sheets themselves: every family is designed again to it, and the choice is the project's.
+  const picker = ws.getByTestId('rc-code').getByTestId('rc-code-select');
+  for (const [code, clause] of [['en1992-1-1', '9.2.1.3, 6.1'], ['bs-en1992-1-1', '9.2.1.3, 6.1'], ['ts500-2000', '7.1, 7.3'], ['aci318-19', '§9.7.3, §22.2']] as const) {
+    await picker.selectOption(code);
+    await ws.getByTestId('rc-tab-beam').click();
+    await expect(ws.getByTestId('rc-row').first()).toBeVisible();
+    await ws.getByTestId('rc-row').first().click();
+    await expect(ws.getByTestId('rc-checks').first()).toContainText(clause);
+    await ws.getByTestId('rc-tab-column').click();
+    await expect(ws.getByTestId('rc-row').first()).toBeVisible();
+  }
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('rc-panel-code').getByTestId('rc-code-select')).toHaveValue('aci318-19');
 });

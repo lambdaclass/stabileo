@@ -9,6 +9,7 @@
   import { wallLabel } from '../../../lib/rc-sheets/wall-row';
   import { SHEET_FAMILIES, type SheetFamily } from '../../../lib/rc-sheets/types';
   import RcSteps from './RcSteps.svelte';
+  import RcCodePicker from './RcCodePicker.svelte';
   import RcChecks from './RcChecks.svelte';
   import RcCombos from './RcCombos.svelte';
   import RcLineDetail from './RcLineDetail.svelte';
@@ -53,7 +54,7 @@
 <div class="rcw" use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
   <header class="rcw-head">
     <strong>{t('rcSheets.title')}</strong>
-    <span class="rcw-code" data-testid="rc-code" title={t('rcSheets.codeHint')}>{t('rcSheets.code')}: {rows.code}</span>
+    <span class="rcw-code" data-testid="rc-code"><RcCodePicker compact /></span>
     <span class="rcw-dim">{rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`)}</span>
     <div class="rcw-tabs" role="tablist">
       {#each SHEET_FAMILIES as f (f)}
