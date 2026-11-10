@@ -88,7 +88,7 @@ describe('the workbook written as it is produced', () => {
     for (const p of parts) if (isStreamed(p)) { const body = p.body; p.body = function* () { produced++; yield* body.call(p); }; }
     parts.reduce((n, p) => n + partSize(p).cells, 0);
     expect(produced).toBe(0);
-    const est = workbookEstimate(5);
+    const est = workbookEstimate(5)!;
     expect(est.cells).toBeGreaterThan(0);
     expect(est.xlsx).toBe(true);
   });

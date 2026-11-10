@@ -45,6 +45,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Der Satz hinter der Schranke ist in Lean bewiesen. In der App zeigt das Ergebnisfenster die Zeile „Durchgängig geprüft“ mit der Schranke für den Verschiebungsfehler oder den Grund, warum nicht geprüft werden konnte."
     },
+    {"k": "img", "base": "blog/certificate", "w": 1600, "h": 1000, "alt": "Stabileo Basic mit dem gelösten Beispielrahmen. Unter den Ergebnisprüfungen steht unter dem Zertifikat die Ende-zu-Ende-Zeile: Eine unabhängige Neuassemblierung des Modells stimmt überein, Verschiebungsfehler höchstens 3,68e-15.", "caption": "Die Zeile im Ergebnispanel, am Beispielrahmen."},
     {
       "k": "h",
       "t": "Was gefunden wurde"

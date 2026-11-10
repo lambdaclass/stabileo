@@ -1,0 +1,551 @@
+/////////////////////////////////
+///Tutorial 16 - GIRAFFE 2.0/////
+/////////////////////////////////
+
+//Creation of nodes
+Nodes	270
+//Number	X	Y	Z
+Node	1	0.000000 	0	0
+Node	2	4.176750 	0	0
+Node	3	8.353500 	0	0
+Node	4	12.53025	0	0
+Node	5	16.70700	0	0
+Node	6	20.88375	0	0
+Node	7	25.06050	0	0
+Node	8	29.23725	0	0
+Node	9	33.41400	0	0
+Node	10	37.59075	0	0
+Node	11	41.76750	0	0
+Node	12	45.94425	0	0
+Node	13	50.12100	0	0
+Node	14	54.29775	0	0
+Node	15	58.47450	0	0
+Node	16	62.65125	0	0
+Node	17	66.82800	0	0
+Node	18	71.00475	0	0
+Node	19	75.18150	0	0
+Node	20	79.35825	0	0
+Node	21	83.53500	0	0
+Node	22	87.71175	0	0
+Node	23	91.88850	0	0
+Node	24	96.06525	0	0
+Node	25	100.24200	0	0
+Node	26	104.41875	0	0
+Node	27	108.59550	0	0
+Node	28	112.77225	0	0
+Node	29	116.94900	0	0
+Node	30	121.12575	0	0
+Node	31	125.30250	0	0
+Node	32	129.47925	0	0
+Node	33	133.65600	0	0
+Node	34	137.83275	0	0
+Node	35	142.00950	0	0
+Node	36	144.09788	0	0
+Node	37	146.18625	0	0
+Node	38	148.27463	0	0
+Node	39	150.36300	0	0
+Node	40	152.45138	0	0
+Node	41	154.53975	0	0
+Node	42	156.62813	0	0
+Node	43	158.71650	0	0
+Node	44	160.80488	0	0
+Node	45	162.89325	0	0
+Node	46	164.98163	0	0
+Node	47	167.07000	0	0
+Node	48	169.15838	0	0
+Node	49	171.24675	0	0
+Node	50	173.33513	0	0
+Node	51	175.42350	0	0
+Node	52	177.51188	0	0
+Node	53	179.60025	0	0
+Node	54	181.68863	0	0
+Node	55	183.77700	0	0
+Node	56	185.86538	0	0
+Node	57	187.95375	0	0
+Node	58	190.04213	0	0
+Node	59	192.13050	0	0
+Node	60	194.21888	0	0
+Node	61	196.30725	0	0
+Node	62	198.39563	0	0
+Node	63	200.48400	0	0
+Node	64	202.57238	0	0
+Node	65	204.66075	0	0
+Node	66	206.74913	0	0
+Node	67	208.83750	0	0
+Node	68	210.92588	0	0
+Node	69	213.01425	0	0
+Node	70	215.10263	0	0
+Node	71	217.19100	0	0
+Node	72	219.27938	0	0
+Node	73	221.36775	0	0
+Node	74	223.45613	0	0
+Node	75	225.54450	0	0
+Node	76	227.63288	0	0
+Node	77	229.72125	0	0
+Node	78	231.80963	0	0
+Node	79	233.89800	0	0
+Node	80	235.98638	0	0
+Node	81	238.07475	0	0
+Node	82	240.16313	0	0
+Node	83	242.25150	0	0
+Node	84	244.33988	0	0
+Node	85	246.42825	0	0
+Node	86	248.51663	0	0
+Node	87	250.60500	0	0
+Node	88	252.69338	0	0
+Node	89	254.78175	0	0
+Node	90	256.87013	0	0
+Node	91	258.95850	0	0
+Node	92	261.04688	0	0
+Node	93	263.13525	0	0
+Node	94	265.22363	0	0
+Node	95	267.31200	0	0
+Node	96	269.40038	0	0
+Node	97	271.48875	0	0
+Node	98	273.57713	0	0
+Node	99	275.66550	0	0
+Node	100	277.75388	0	0
+Node	101	279.84225	0	0
+Node	102	281.93063	0	0
+Node	103	284.01900	0	0
+Node	104	286.10738	0	0
+Node	105	288.19575	0	0
+Node	106	290.28413	0	0
+Node	107	292.37250	0	0
+Node	108	294.46088	0	0
+Node	109	296.54925	0	0
+Node	110	298.63763	0	0
+Node	111	300.72600	0	0
+Node	112	302.81438	0	0
+Node	113	304.90275	0	0
+Node	114	306.99113	0	0
+Node	115	309.07950	0	0
+Node	116	311.16788	0	0
+Node	117	313.25625	0	0
+Node	118	315.34463	0	0
+Node	119	317.43300	0	0
+Node	120	319.52138	0	0
+Node	121	321.60975	0	0
+Node	122	323.69813	0	0
+Node	123	325.78650	0	0
+Node	124	327.87488	0	0
+Node	125	329.96325	0	0
+Node	126	332.05163	0	0
+Node	127	334.14000	0	0
+Node	128	336.22838	0	0
+Node	129	338.31675	0	0
+Node	130	340.40513	0	0
+Node	131	342.49350	0	0
+Node	132	344.58188	0	0
+Node	133	346.67025	0	0
+Node	134	348.75863	0	0
+Node	135	350.84700	0	0
+Node	136	352.93538	0	0
+Node	137	355.02375	0	0
+Node	138	357.11213	0	0
+Node	139	359.20050	0	0
+Node	140	361.28888	0	0
+Node	141	363.37725	0	0
+Node	142	365.46563	0	0
+Node	143	367.55400	0	0
+Node	144	369.64238	0	0
+Node	145	371.73075	0	0
+Node	146	373.81913	0	0
+Node	147	375.90750	0	0
+Node	148	377.99588	0	0
+Node	149	380.08425	0	0
+Node	150	382.17263	0	0
+Node	151	384.26100	0	0
+Node	152	386.34938	0	0
+Node	153	388.43775	0	0
+Node	154	390.52613	0	0
+Node	155	392.61450	0	0
+Node	156	394.70288	0	0
+Node	157	396.79125	0	0
+Node	158	398.87963	0	0
+Node	159	400.96800	0	0
+Node	160	403.05638	0	0
+Node	161	405.14475	0	0
+Node	162	407.23313	0	0
+Node	163	409.32150	0	0
+Node	164	411.40988	0	0
+Node	165	413.49825	0	0
+Node	166	415.58663	0	0
+Node	167	417.67500	0	0
+Node	168	419.76338	0	0
+Node	169	421.85175	0	0
+Node	170	423.94013	0	0
+Node	171	426.02850	0	0
+Node	172	430.20525	0	0
+Node	173	434.38200	0	0
+Node	174	438.55875	0	0
+Node	175	442.73550	0	0
+Node	176	446.91225	0	0
+Node	177	451.08900	0	0
+Node	178	455.26575	0	0
+Node	179	459.44250	0	0
+Node	180	463.61925	0	0
+Node	181	467.79600	0	0
+Node	182	471.97275	0	0
+Node	183	476.14950	0	0
+Node	184	480.32625	0	0
+Node	185	484.50300	0	0
+Node	186	488.67975	0	0
+Node	187	492.85650	0	0
+Node	188	497.03325	0	0
+Node	189	501.21000	0	0
+Node	190	505.38675	0	0
+Node	191	509.56350	0	0
+Node	192	513.74025	0	0
+Node	193	517.91700	0	0
+Node	194	522.09375	0	0
+Node	195	526.27050	0	0
+Node	196	530.44725	0	0
+Node	197	534.62400	0	0
+Node	198	538.80075	0	0
+Node	199	542.97750	0	0
+Node	200	547.15425	0	0
+Node	201	551.33100	0	0
+Node	202	555.50775	0	0
+Node	203	559.68450	0	0
+Node	204	563.86125	0	0
+Node	205	568.03800	0	0
+Node	206	572.21475	0	0
+Node	207	576.39150	0	0
+Node	208	580.56825	0	0
+Node	209	584.74500	0	0
+Node	210	588.92175	0	0
+Node	211	593.09850	0	0
+Node	212	597.27525	0	0
+Node	213	601.45200	0	0
+Node	214	605.62875	0	0
+Node	215	609.80550	0	0
+Node	216	613.98225	0	0
+Node	217	618.15900	0	0
+Node	218	622.33575	0	0
+Node	219	626.51250	0	0
+Node	220	630.68925	0	0
+Node	221	634.86600	0	0
+Node	222	639.04275	0	0
+Node	223	643.21950	0	0
+Node	224	647.39625	0	0
+Node	225	651.57300	0	0
+Node	226	655.74975	0	0
+Node	227	659.92650	0	0
+Node	228	664.10325	0	0
+Node	229	668.28000	0	0
+Node	230	672.45675	0	0
+Node	231	676.63350	0	0
+Node	232	680.81025	0	0
+Node	233	684.98700	0	0
+Node	234	689.16375	0	0
+Node	235	693.34050	0	0
+Node	236	697.51725	0	0
+Node	237	701.69400	0	0
+Node	238	705.87075	0	0
+Node	239	710.04750	0	0
+Node	240	714.22425	0	0
+Node	241	718.40100	0	0
+Node	242	722.57775	0	0
+Node	243	726.75450	0	0
+Node	244	730.93125	0	0
+Node	245	735.10800	0	0
+Node	246	739.28475	0	0
+Node	247	743.46150	0	0
+Node	248	747.63825	0	0
+Node	249	751.81500	0	0
+Node	250	755.99175	0	0
+Node	251	760.16850	0	0
+Node	252	764.34525	0	0
+Node	253	768.52200	0	0
+Node	254	772.69875	0	0
+Node	255	776.87550	0	0
+Node	256	781.05225	0	0
+Node	257	785.22900	0	0
+Node	258	789.40575	0	0
+Node	259	793.58250	0	0
+Node	260	797.75925	0	0
+Node	261	801.93600	0	0
+Node	262	806.11275	0	0
+Node	263	810.28950	0	0
+Node	264	814.46625	0	0
+Node	265	818.64300	0	0
+Node	266	822.81975	0	0
+Node	267	826.99650	0	0
+Node	268	831.17325	0	0
+Node	269	835.35000	0	0
+Node	270	0	0	0
+
+//Creation of elements
+Elements	134
+Pipe_1	1	PipeSec	1	CS	1	Nodes	1	2	3
+Pipe_1	2	PipeSec	1	CS	1	Nodes	3	4	5
+Pipe_1	3	PipeSec	1	CS	1	Nodes	5	6	7
+Pipe_1	4	PipeSec	1	CS	1	Nodes	7	8	9
+Pipe_1	5	PipeSec	1	CS	1	Nodes	9	10	11
+Pipe_1	6	PipeSec	1	CS	1	Nodes	11	12	13
+Pipe_1	7	PipeSec	1	CS	1	Nodes	13	14	15
+Pipe_1	8	PipeSec	1	CS	1	Nodes	15	16	17
+Pipe_1	9	PipeSec	1	CS	1	Nodes	17	18	19
+Pipe_1	10	PipeSec	1	CS	1	Nodes	19	20	21
+Pipe_1	11	PipeSec	1	CS	1	Nodes	21	22	23
+Pipe_1	12	PipeSec	1	CS	1	Nodes	23	24	25
+Pipe_1	13	PipeSec	1	CS	1	Nodes	25	26	27
+Pipe_1	14	PipeSec	1	CS	1	Nodes	27	28	29
+Pipe_1	15	PipeSec	1	CS	1	Nodes	29	30	31
+Pipe_1	16	PipeSec	1	CS	1	Nodes	31	32	33
+Pipe_1	17	PipeSec	1	CS	1	Nodes	33	34	35
+Pipe_1	18	PipeSec	1	CS	1	Nodes	35	36	37
+Pipe_1	19	PipeSec	1	CS	1	Nodes	37	38	39
+Pipe_1	20	PipeSec	1	CS	1	Nodes	39	40	41
+Pipe_1	21	PipeSec	1	CS	1	Nodes	41	42	43
+Pipe_1	22	PipeSec	1	CS	1	Nodes	43	44	45
+Pipe_1	23	PipeSec	1	CS	1	Nodes	45	46	47
+Pipe_1	24	PipeSec	1	CS	1	Nodes	47	48	49
+Pipe_1	25	PipeSec	1	CS	1	Nodes	49	50	51
+Pipe_1	26	PipeSec	1	CS	1	Nodes	51	52	53
+Pipe_1	27	PipeSec	1	CS	1	Nodes	53	54	55
+Pipe_1	28	PipeSec	1	CS	1	Nodes	55	56	57
+Pipe_1	29	PipeSec	1	CS	1	Nodes	57	58	59
+Pipe_1	30	PipeSec	1	CS	1	Nodes	59	60	61
+Pipe_1	31	PipeSec	1	CS	1	Nodes	61	62	63
+Pipe_1	32	PipeSec	1	CS	1	Nodes	63	64	65
+Pipe_1	33	PipeSec	1	CS	1	Nodes	65	66	67
+Pipe_1	34	PipeSec	1	CS	1	Nodes	67	68	69
+Pipe_1	35	PipeSec	1	CS	1	Nodes	69	70	71
+Pipe_1	36	PipeSec	1	CS	1	Nodes	71	72	73
+Pipe_1	37	PipeSec	1	CS	1	Nodes	73	74	75
+Pipe_1	38	PipeSec	1	CS	1	Nodes	75	76	77
+Pipe_1	39	PipeSec	1	CS	1	Nodes	77	78	79
+Pipe_1	40	PipeSec	1	CS	1	Nodes	79	80	81
+Pipe_1	41	PipeSec	1	CS	1	Nodes	81	82	83
+Pipe_1	42	PipeSec	1	CS	1	Nodes	83	84	85
+Pipe_1	43	PipeSec	1	CS	1	Nodes	85	86	87
+Pipe_1	44	PipeSec	1	CS	1	Nodes	87	88	89
+Pipe_1	45	PipeSec	1	CS	1	Nodes	89	90	91
+Pipe_1	46	PipeSec	1	CS	1	Nodes	91	92	93
+Pipe_1	47	PipeSec	1	CS	1	Nodes	93	94	95
+Pipe_1	48	PipeSec	1	CS	1	Nodes	95	96	97
+Pipe_1	49	PipeSec	1	CS	1	Nodes	97	98	99
+Pipe_1	50	PipeSec	1	CS	1	Nodes	99	100	101
+Pipe_1	51	PipeSec	1	CS	1	Nodes	101	102	103
+Pipe_1	52	PipeSec	1	CS	1	Nodes	103	104	105
+Pipe_1	53	PipeSec	1	CS	1	Nodes	105	106	107
+Pipe_1	54	PipeSec	1	CS	1	Nodes	107	108	109
+Pipe_1	55	PipeSec	1	CS	1	Nodes	109	110	111
+Pipe_1	56	PipeSec	1	CS	1	Nodes	111	112	113
+Pipe_1	57	PipeSec	1	CS	1	Nodes	113	114	115
+Pipe_1	58	PipeSec	1	CS	1	Nodes	115	116	117
+Pipe_1	59	PipeSec	1	CS	1	Nodes	117	118	119
+Pipe_1	60	PipeSec	1	CS	1	Nodes	119	120	121
+Pipe_1	61	PipeSec	1	CS	1	Nodes	121	122	123
+Pipe_1	62	PipeSec	1	CS	1	Nodes	123	124	125
+Pipe_1	63	PipeSec	1	CS	1	Nodes	125	126	127
+Pipe_1	64	PipeSec	1	CS	1	Nodes	127	128	129
+Pipe_1	65	PipeSec	1	CS	1	Nodes	129	130	131
+Pipe_1	66	PipeSec	1	CS	1	Nodes	131	132	133
+Pipe_1	67	PipeSec	1	CS	1	Nodes	133	134	135
+Pipe_1	68	PipeSec	1	CS	1	Nodes	135	136	137
+Pipe_1	69	PipeSec	1	CS	1	Nodes	137	138	139
+Pipe_1	70	PipeSec	1	CS	1	Nodes	139	140	141
+Pipe_1	71	PipeSec	1	CS	1	Nodes	141	142	143
+Pipe_1	72	PipeSec	1	CS	1	Nodes	143	144	145
+Pipe_1	73	PipeSec	1	CS	1	Nodes	145	146	147
+Pipe_1	74	PipeSec	1	CS	1	Nodes	147	148	149
+Pipe_1	75	PipeSec	1	CS	1	Nodes	149	150	151
+Pipe_1	76	PipeSec	1	CS	1	Nodes	151	152	153
+Pipe_1	77	PipeSec	1	CS	1	Nodes	153	154	155
+Pipe_1	78	PipeSec	1	CS	1	Nodes	155	156	157
+Pipe_1	79	PipeSec	1	CS	1	Nodes	157	158	159
+Pipe_1	80	PipeSec	1	CS	1	Nodes	159	160	161
+Pipe_1	81	PipeSec	1	CS	1	Nodes	161	162	163
+Pipe_1	82	PipeSec	1	CS	1	Nodes	163	164	165
+Pipe_1	83	PipeSec	1	CS	1	Nodes	165	166	167
+Pipe_1	84	PipeSec	1	CS	1	Nodes	167	168	169
+Pipe_1	85	PipeSec	1	CS	1	Nodes	169	170	171
+Pipe_1	86	PipeSec	1	CS	1	Nodes	171	172	173
+Pipe_1	87	PipeSec	1	CS	1	Nodes	173	174	175
+Pipe_1	88	PipeSec	1	CS	1	Nodes	175	176	177
+Pipe_1	89	PipeSec	1	CS	1	Nodes	177	178	179
+Pipe_1	90	PipeSec	1	CS	1	Nodes	179	180	181
+Pipe_1	91	PipeSec	1	CS	1	Nodes	181	182	183
+Pipe_1	92	PipeSec	1	CS	1	Nodes	183	184	185
+Pipe_1	93	PipeSec	1	CS	1	Nodes	185	186	187
+Pipe_1	94	PipeSec	1	CS	1	Nodes	187	188	189
+Pipe_1	95	PipeSec	1	CS	1	Nodes	189	190	191
+Pipe_1	96	PipeSec	1	CS	1	Nodes	191	192	193
+Pipe_1	97	PipeSec	1	CS	1	Nodes	193	194	195
+Pipe_1	98	PipeSec	1	CS	1	Nodes	195	196	197
+Pipe_1	99	PipeSec	1	CS	1	Nodes	197	198	199
+Pipe_1	100	PipeSec	1	CS	1	Nodes	199	200	201
+Pipe_1	101	PipeSec	1	CS	1	Nodes	201	202	203
+Pipe_1	102	PipeSec	1	CS	1	Nodes	203	204	205
+Pipe_1	103	PipeSec	1	CS	1	Nodes	205	206	207
+Pipe_1	104	PipeSec	1	CS	1	Nodes	207	208	209
+Pipe_1	105	PipeSec	1	CS	1	Nodes	209	210	211
+Pipe_1	106	PipeSec	1	CS	1	Nodes	211	212	213
+Pipe_1	107	PipeSec	1	CS	1	Nodes	213	214	215
+Pipe_1	108	PipeSec	1	CS	1	Nodes	215	216	217
+Pipe_1	109	PipeSec	1	CS	1	Nodes	217	218	219
+Pipe_1	110	PipeSec	1	CS	1	Nodes	219	220	221
+Pipe_1	111	PipeSec	1	CS	1	Nodes	221	222	223
+Pipe_1	112	PipeSec	1	CS	1	Nodes	223	224	225
+Pipe_1	113	PipeSec	1	CS	1	Nodes	225	226	227
+Pipe_1	114	PipeSec	1	CS	1	Nodes	227	228	229
+Pipe_1	115	PipeSec	1	CS	1	Nodes	229	230	231
+Pipe_1	116	PipeSec	1	CS	1	Nodes	231	232	233
+Pipe_1	117	PipeSec	1	CS	1	Nodes	233	234	235
+Pipe_1	118	PipeSec	1	CS	1	Nodes	235	236	237
+Pipe_1	119	PipeSec	1	CS	1	Nodes	237	238	239
+Pipe_1	120	PipeSec	1	CS	1	Nodes	239	240	241
+Pipe_1	121	PipeSec	1	CS	1	Nodes	241	242	243
+Pipe_1	122	PipeSec	1	CS	1	Nodes	243	244	245
+Pipe_1	123	PipeSec	1	CS	1	Nodes	245	246	247
+Pipe_1	124	PipeSec	1	CS	1	Nodes	247	248	249
+Pipe_1	125	PipeSec	1	CS	1	Nodes	249	250	251
+Pipe_1	126	PipeSec	1	CS	1	Nodes	251	252	253
+Pipe_1	127	PipeSec	1	CS	1	Nodes	253	254	255
+Pipe_1	128	PipeSec	1	CS	1	Nodes	255	256	257
+Pipe_1	129	PipeSec	1	CS	1	Nodes	257	258	259
+Pipe_1	130	PipeSec	1	CS	1	Nodes	259	260	261
+Pipe_1	131	PipeSec	1	CS	1	Nodes	261	262	263
+Pipe_1	132	PipeSec	1	CS	1	Nodes	263	264	265
+Pipe_1	133	PipeSec	1	CS	1	Nodes	265	266	267
+Pipe_1	134	PipeSec	1	CS	1	Nodes	267	268	269
+
+//Creation of pipe sections
+PipeSections	1
+PS	1	EA	7.536000e+08	EI	2.763621e+05	GJ	1.905945e+05	GA	2.598621e+08	Rho	1.133500e+02	CDt	4.000000e-01	CDn	2.000000e+00	CAt	2.500000e-01	CAn	8.000000e-01	De	7.660000e-02	Di	0.000000e+00
+
+//Creation of coordinate systems
+CoordinateSystems	2
+//Pipe_1 Element CS (1)
+CS	1	E1	0	1	0	E3	1	0	0
+//Global aligned CS (2)
+CS	2	E1	1	0	0	E3	0	0	1
+
+//Creation of solution steps
+SolutionSteps	4
+Static	1	EndTime	1	TimeStep	0.1		MaxTimeStep	1.0	MinTimeStep	0.0001	MaxIt	20	MinIt	3	ConvIncrease	1	IncFactor	2	Sample	1
+Static	2	EndTime	2	TimeStep	0.1		MaxTimeStep	1.0	MinTimeStep	0.0001	MaxIt	30	MinIt	3	ConvIncrease	4	IncFactor	1.5	Sample	1
+Static	3	EndTime	3	TimeStep	0.01	MaxTimeStep	0.1	MinTimeStep	0.0001	MaxIt	20	MinIt	3	ConvIncrease	4	IncFactor	1.3	Sample	1
+Static	4	EndTime	4	TimeStep	0.01	MaxTimeStep	0.1	MinTimeStep	0.000001	MaxIt	20	MinIt	3	ConvIncrease	4	IncFactor	1.3	Sample	1
+
+//Creation of points (to establish triangular surfaces - seabed)
+Points 4
+Point	1	-100	-200	0.01
+Point	2	1100	-200	0.01
+Point 	3	1100	+200	0.01
+Point	4	-100	+200	0.01
+
+//Creation of surfaces
+Surfaces 2 
+RigidTriangularSurface_1 1 Points 1 2 3 PilotNode 270
+RigidTriangularSurface_1 2 Points 1 3 4 PilotNode 270
+
+//Creation of node sets
+NodeSets	4
+//Tip - Point A
+NodeSet	1	Nodes	1	List	1
+//Tip - Point B
+NodeSet	2	Nodes	1	List	269
+//Mooring line nodes (all - except the pilot node)
+NodeSet	3	Nodes	269	Sequence Initial 1 Increment 1
+//Tip - Pilot node (seabed)
+NodeSet	4	Nodes	1	List	270
+
+//Creation of surface sets
+SurfaceSets 1
+//Seabed (ground)
+SurfaceSet 1 Surfaces 2 List 1	2
+
+//Creation of contacts
+Contacts	1
+NSSS 1 NodeSet 3 SurfaceSet	1	MU	2.000000e-01	EPN	1.000000e+06	CN	1.000000e+02	EPT	1.000000e+05	CT	0.000000e+00	Pinball	1.762983e+03	Radius	0	MaxPointwiseInt	1	BoolTable 1 
+
+//Creation of constraints
+Constraints	3
+NodalConstraint	1	NodeSet	1
+	UX		BoolTable	1 
+	UY		BoolTable	1 
+	UZ		BoolTable	1 
+	ROTX	BoolTable	1
+NodalConstraint	2	NodeSet	2
+	UX		BoolTable	1 0 0 1
+	UY		BoolTable	1 1 1 1
+	UZ		BoolTable	1 1 1 1
+	ROTX	BoolTable	1 1 1 1
+	ROTY	BoolTable	0 0 0 1
+	ROTZ	BoolTable	0 0 0 1
+NodalConstraint	3	NodeSet	4
+	UX		BoolTable	1
+	UY		BoolTable	1 
+	UZ		BoolTable	1 
+	ROTX	BoolTable	1
+	ROTY	BoolTable	1
+	ROTZ	BoolTable	1
+
+//Creation of displacements
+Displacements	1
+NodalDisplacement	1	NodeSet	2	CS	2	NTimes	2
+	//Time UX UY UZ RX RY RZ
+	2	0	0	0	0	0	0
+	3	0	0	186	0	0	0
+
+//Creation of loads
+Loads	1
+NodalLoad	1	NodeSet	2	CS	2	NTimes	3
+	//Time FX FY FZ MX MY MZ
+	1	0	0	0	0	0	0
+	2	1000000	0	0	0	0	0
+	3	1000000	0	0	0	0	0
+
+//Creation of environment
+Environment
+//Gravity data
+GravityData
+G	0	0	-9.81	BoolTable	1
+OceanData
+RhoFluid	1024	SurfacePosition	0	0	200
+SeaCurrent	N	3	BoolTable	0 0 0 1
+Depth	0	Speed	1.5	Angle	90
+Depth	100	Speed	1.5	Angle	90
+Depth	200	Speed	1.5	Angle	90
+
+//Creation of post files
+PostFiles
+MagFactor	1
+WriteMesh	1
+WriteRenderMesh	1
+WriteRigidContactSurfaces	1
+WriteFlexibleContactSurfaces	1
+WriteForces	1
+WriteConstraints	0
+WriteSpecialConstraints	0
+WriteContactForces	1
+WriteRenderRigidBodies	0
+WriteRenderParticles	0
+
+//Creation of monitors
+Monitor		Sample	1
+MonitorNodes	10	1	36	68	70	86	102	104	136	138	170
+MonitorElements	13	1	34	35	43	50	51	52	53	60	68	69	85	134
+
+//Creation of convergence criteria
+ConvergenceCriteria
+ForceTolerance 1e-4
+MomentTolerance 1e-4
+ForceMinimumReference 1e-3
+MomentMinimumReference 1e-3
+ConstraintMinimumReference 1e-7
+DisplacementTolerance 1e-4
+RotationTolerance 1e-4
+LagrangeTolerance 1e-4
+DisplacementMinimumReference 1e-6
+RotationMinimumReference 1e-6
+LagrangeMinimumReference 1e-6
+DivergenceReference 1e+15
+
+//Creation of solver options
+SolverOptions
+Processors	4	LinSys	Direct

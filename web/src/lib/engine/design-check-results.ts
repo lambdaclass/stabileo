@@ -19,6 +19,7 @@ export interface CheckDetail {
   unit: string;           // "kN" or "kN·m"
   status: CheckStatus;
   comboName?: string;     // governing combination if known
+  notice?: 'RC-NM-PAIRING';
 }
 
 /** Unified per-member design check summary */
@@ -107,15 +108,22 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
       });
     }
 
+    const { axial, flexure, momentY } = v.governingCombos ?? {};
+    const sources = [axial, flexure, momentY].filter(c => !!c);
+    const mixed = new Set(sources.map(c => c!.comboId)).size > 1;
+    const moments = [...new Set([flexure, momentY].filter(c => !!c).map(c => c!.comboName))].join(', ');
+    const pairedName = mixed ? `N ${axial?.comboName ?? '—'} · M ${moments}` : axial?.comboName ?? flexure?.comboName;
     if (v.column) {
+      const status = v.column.status as CheckStatus;
       checks.push({
         name: 'Axial + Moment',
         demand: Math.abs(v.Nu),
         capacity: v.column.phiPn,
         ratio: v.column.ratio,
         unit: 'kN',
-        status: v.column.status as CheckStatus,
-        comboName: v.governingCombos?.axial?.comboName,
+        status: mixed && status === 'ok' ? 'warn' : status,
+        comboName: pairedName,
+        ...(mixed ? { notice: 'RC-NM-PAIRING' as const } : {}),
       });
     }
 
@@ -138,8 +146,9 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
         capacity: v.biaxial.phiMn,
         ratio: v.biaxial.ratio,
         unit: 'kN·m',
-        status: v.biaxial.status as CheckStatus,
-        comboName: v.governingCombos?.axial?.comboName,
+        status: mixed && v.biaxial.status === 'ok' ? 'warn' : v.biaxial.status as CheckStatus,
+        comboName: pairedName,
+        ...(mixed ? { notice: 'RC-NM-PAIRING' as const } : {}),
       });
     }
 
@@ -153,7 +162,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
       codeName: 'CIRSOC 201',
       governingCheck: governing.name,
       utilization: governing.ratio,
-      status: v.overallStatus as CheckStatus,
+      status: v.overallStatus === 'ok' && checks.some(c => c.status === 'warn') ? 'warn' : v.overallStatus as CheckStatus,
       comboName: governing.comboName,
       checks,
     };

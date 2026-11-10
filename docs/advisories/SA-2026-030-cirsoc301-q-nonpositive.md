@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#467](https://github.com/lambdaclass/stabileo/issues/467) |
-| Fix | PR [#1246](https://github.com/lambdaclass/stabileo/pull/1246) |
+| Fix | PR [#1246](https://github.com/lambdaclass/stabileo/pull/1246) (merged 2026-11-03), released in v0.5.0 |
 | Affected versions | every release with the engine's CIRSOC 301 check; not bisected |
 | Re-check registry | entry `cirsoc301-q-nonpositive-refused` (models with CIRSOC 301 steel members) |
 
@@ -57,6 +57,8 @@ Fy, or a compression capacity φPn above 0.85·A·Fy. After the fix such a membe
 "the effective area comes out Qa ≤ 0 … (§E.7)" and is never reported as passing.
 
 ## Fixed in
+
+0.5.0.
 
 PR #1246. The compression check refuses Q ≤ 0 (`c301.refuse.qNonPositive`) and, as a second
 guard on every path, any Fcr above Fy (`c301.refuse.fcrAboveFy`), so φPn can never exceed

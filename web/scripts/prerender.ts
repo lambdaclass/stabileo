@@ -43,13 +43,15 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newPrerenderPage, prerenderConcurrency, routePool, waitForRenderedApp, MIN_CAPTURE_CHARS } from './prerender-pool';
+import { captureProblem, newPrerenderPage, prerenderConcurrency, routePool, waitForRenderedApp } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { notFoundPage } from './not-found-page';
 import { buildStarCount, serveStarCount } from './build-stars';
 import { paperStructuredData } from './paper-structured-data';
+import { withResearchCard } from './research-card';
 import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import { isResearchRoute } from '../src/lib/i18n/research-routes';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -214,6 +216,9 @@ async function newCapturePage(browser: Browser, stars: number | null) {
   // Read the current route on every navigation: reused pages must not accumulate
   // locale-specific init scripts or inherit the previous route's preferences.
   await page.addInitScript(() => {
+    // Capture only the visited route's dependencies, never idle/hover prefetches.
+    Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } });
+    (window as { __prerenderCapture?: boolean }).__prerenderCapture = true;
     try {
       localStorage.clear();
       sessionStorage.clear();
@@ -231,12 +236,28 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
+  if (/^\/tools\/[^/]+$/.test(path)) await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
   // Network idle is not rendered: a page whose next chunk is requested only after a long main-thread task looks idle in between.
   await waitForRenderedApp(page);
-  const { head, body } = await page.evaluate(() => ({
-    head: document.head.innerHTML,
-    body: document.querySelector('#app')?.innerHTML ?? '',
-  }));
+  const { head, body } = await page.evaluate(() => {
+    const listed = new Set([...document.querySelectorAll<HTMLLinkElement | HTMLScriptElement>('link[rel=modulepreload], script[src]')]
+      .map((e) => new URL(e instanceof HTMLLinkElement ? e.href : e.src).pathname));
+    const loaded = new Set<string>();
+    for (const entry of performance.getEntriesByType('resource') as PerformanceResourceTiming[]) {
+      const path = new URL(entry.name).pathname;
+      if (entry.initiatorType === 'script' && /^\/assets\/[^/]+\.js$/.test(path) && !listed.has(path)) loaded.add(path);
+    }
+    for (const path of [...loaded].sort()) {
+      const link = document.createElement('link');
+      link.rel = 'modulepreload';
+      link.setAttribute('as', 'script');
+      link.crossOrigin = '';
+      link.href = path;
+      document.head.appendChild(link);
+    }
+    for (const control of document.querySelectorAll('#app form, #app input, #app select, #app textarea')) control.setAttribute('inert', '');
+    return { head: document.head.innerHTML, body: document.querySelector('#app')?.innerHTML ?? '' };
+  });
   const lang = await page.evaluate(() => document.documentElement.lang);
   return { head, body, lang, href };
 }
@@ -305,10 +326,11 @@ async function main() {
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
         const { head, body, lang, href } = result;
-        if (body.length < MIN_CAPTURE_CHARS) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
+        const problem = captureProblem(result, locale);
+        if (problem) throw new Error(`prerender: ${href} ${problem}`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
-        await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : head, body, lang));
+        await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : withResearchCard(head, path, DIST), body, lang));
         return { head, href };
       });
     // Pool results retain the original route order, including feed date ties.
@@ -333,7 +355,12 @@ async function main() {
     const [{ head, body, lang }] = await routePool(
       [{ href: '/', locale: DEFAULT_LOCALE, path: '/' }], 1,
       () => newCapturePage(browser, stars), p => p.close(),
-      (p) => capture(p, base, DEFAULT_LOCALE, '/'),
+      async (p) => {
+        const result = await capture(p, base, DEFAULT_LOCALE, '/');
+        const problem = captureProblem(result, DEFAULT_LOCALE);
+        if (problem) throw new Error(`prerender: / ${problem}`);
+        return result;
+      },
     );
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
     written.push('/');
@@ -357,7 +384,8 @@ async function main() {
             // pointed the default of every URL in the file at the English home
             // page instead of at the page declaring it.
             const xDefault = `${ORIGIN}/${DEFAULT_LOCALE}${path === '/' ? '' : path}/`;
-            return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${POST_LASTMOD.get(path) ?? TODAY}</lastmod>\n${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
+            const lastmod = POST_LASTMOD.get(path) ?? (isResearchRoute(path) ? undefined : TODAY);
+            return `  <url>\n    <loc>${loc}</loc>\n${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ''}${alts}\n    <xhtml:link rel="alternate" hreflang="x-default" href="${xDefault}"/>\n  </url>`;
           }),
         ).join('\n') +
         `\n</urlset>\n`,

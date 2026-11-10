@@ -4,7 +4,7 @@ Roadmap: "Trust and verification backlog", items 8 and 9 (`docs/roadmap/PRODUCT_
 
 ## Registry of result-affecting changes
 
-`web/src/lib/provenance/result-changes.json` lists every change that makes the same saved model
+`web/src/lib/provenance/result-changes/` lists every change that makes the same saved model
 give different numbers. Each entry has:
 
 | field | meaning |
@@ -14,6 +14,7 @@ give different numbers. Each entry has:
 | `date`, `prs` | when it reached main, and the pull requests |
 | `area` | `analysis`, `design` or `loads` |
 | `when` | which models it concerns, in feature ids (`any`: one of; `all`: each of; `allOf`: groups that must all hold) |
+| `scope`, `examples` | optional: `scope: "examples"` with the ids of the bundled examples it changed, and no `when` or `quantities`, when only example inputs changed and a saved model gives the same numbers. It is never shown on opening a project; the snapshot gate accepts it only for snapshots of the listed examples, only when each listed example's fixture changed its model inputs (names and descriptions aside), and only when both engines agree on both fixtures: this build, solving each explained example from its fixture at the base, gives the base snapshot's numbers, and the base's engine, solving it from its new fixture, gives the committed numbers (`examples-equivalence.test.ts`, run by `gate.mjs` in this checkout and in a checkout of the base). Otherwise the engine moved them too, and the change needs an entry with `when` |
 | `quantities` | optional: the solve results it can move, `*` (every result value), `solve.ok`, `errorCodes`, `unstableCombinations`, a collection (`reactions`) or one field (`quadStresses.sigmaXx`). `*` does not cover a refusal (`solve.ok`), a new error (`errorCodes`) or a newly unstable combination (`unstableCombinations`): each must be named. The legacy-projects test (#718) accepts a difference in an old project file (a value changed, no longer produced, or newly produced) only in values an applicable entry declares; without it, the entry explains none. That test alone also takes two values of a reaction force component as the same zero when both are within 1e-12 of that node's reaction force, because round-off in a component statics makes zero moves between releases (v0.2.0's truss reactions); every other quantity is compared by the gate's rule (`web/src/lib/legacy-projects/vector-floor.ts`); the snapshot gate does not |
 | `title`, `explanation` | what to tell the engineer, in each of the app's six languages: `en`, `es`, `pt`, `de`, `fr` and `tr` |
 | `changelog` | a file and one of its headings (checked by `registry.test.ts`) |
@@ -22,23 +23,33 @@ Feature ids are defined in `web/src/lib/provenance/model-features.ts`, read from
 snapshot. When in doubt a feature counts as present: a false "present" shows one notice too many,
 a false "absent" hides a change that moved the engineer's numbers. In particular, a steel code
 not bound to another code counts as CIRSOC 301, an unbound concrete code as CIRSOC 201, and
-analyses a project does not record count as run.
+analyses a project's stamp does not record count as run. A stamp lists the analyses it knows
+the runs of (`recorded`): since #1658 the PRO advanced panel's time history, nonlinear, harmonic
+and SSI runs report themselves, and a project begun since lists every analysis. A stamp without
+`recorded` was written before, and for it those four always count as run. A solve in another
+build adds the analysis it ran and drops from `recorded` those the previous stamp listed as run,
+so an analysis that ran under an earlier stamp never reads as not run. An advanced-panel run whose
+result is refused is not recorded.
 
-**Adding a change**: add an entry with `resultsVersion` one above the current
-`currentResultsVersion` and bump `currentResultsVersion`; changes merged together share the new
-version. Never add an entry to a version already on main: every merge to main is deployed and
-stamps what it solves with that version, so an entry added to it later is never shown to those
-projects. `results-version.test.ts` pins each version's entries and fails on such an addition
-(add the new version's set there), and the committed `.ded` fixture's stamp must follow the
-bump. `registry.test.ts` fails on unknown features, missing translations or a heading that does
-not exist.
+**Adding a change**: add one file, `result-changes/<id>.json`, with no `resultsVersion`
+([its README](../../web/src/lib/provenance/result-changes/README.md)). The versions numbered by hand are
+frozen in `result-changes/numbered.json`. Each later merge to main that adds entry files takes
+the next version, in main's merge order: `web/scripts/result-changes/registry.mjs` reads it from
+the first-parent history of the commit being built. Changes merged together share a version.
+A version on main is deployed and stamps what it solves, so an entry can never join a version
+already on main. Under this rule it can't: a version is given when its merge lands. Two pull
+requests that each add a file don't conflict, and the merge queue can land them in one run. A
+build without the history fails rather than guess (CI checks out the whole history; Docker
+reads `web/.result-change-order.json` from `make result-changes.order`). `registry.test.ts`
+fails on unknown features, missing translations or a heading that doesn't exist.
+`results-version.test.ts` pins the frozen versions' entries.
 
-The results snapshot gate also compares registry versions against its base commit,
-even when no snapshot changes. New entries cannot reuse a released version, and
-released entries cannot be removed or renumbered. PRs #807 and #814 both proposed
-version 5 while main was at 4: whichever merges second must preserve the first
-PR's entries and use version 6, updating the pinned version sets, fixture stamp
-and hashes, and documentation. #814 released version 5; #817 (buckling certificate) took 6; #1233 (column design axes) took 7; #1236 (EC2 strain compatibility) took 8; #827 (modal completeness, issue #759) took 9; #865 (self-checks) took 10; #1237 (shell envelope per component) took 11; #1246 (CIRSOC 301 Q ≤ 0 refused) took 12.
+The results snapshot gate also compares the registry with its base commit, even when no
+snapshot changes. It fails a pull request that adds to `numbered.json`, gives a new entry a
+version, or removes, renames or changes an entry already on main. Only its wording (`title`,
+`explanation`, `changelog`) may change. Before this (until November 2026), each pull request
+picked `currentResultsVersion + 1` by hand. It renumbered whenever another one landed first,
+and every results-changing pull request conflicted with every other.
 
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,
@@ -49,6 +60,25 @@ wind minimum and the earth-pressure dead load, #581 and #593); version 3, the co
 version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #460 and #461
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
+
+## Known wrong-result advisories (#1622)
+
+`web/src/lib/provenance/advisories.ts` lists the bugs known to have given wrong results, each with
+its issue or advisory, the affected feature (`when`, any one of its conditions) and the affected
+results versions: from the version of the result change that introduced the bug
+(`introducedBy`, or every earlier version when null) up to, not including, the version of the
+change that fixed it (`fixedBy`). The range is read from the registry, never written as numbers,
+and `advisories.test.ts` fails on an id it does not hold. A project opened with a stamp in that
+range, whose model uses the feature, lists the advisory in the re-check notice; once the notice
+is read, the stale banner names it until the model is solved again in this build. An advisory
+about one analysis (`analysis`) stays up until that analysis is run again, not on a static solve
+alone; when the stamp does not record that analysis, it says the results may be affected if the
+analysis was used (`ifUsed`).
+
+| Advisory | Feature | Introduced by | Fixed by | Source |
+|---|---|---|---|---|
+| SA-2026-046 (#1587) | harmonic analysis | `harmonic-modal-residual-checked` (#1423) | `harmonic-modal-or-direct-per-frequency` (#1587) | `docs/advisories/SA-2026-046-harmonic-modal-or-direct-per-load.md` |
+| #1569 | frame members with shear areas, or a thermal load on a frame member with a release | every earlier version | `span-check-shear-thermal` (#1593) | `docs/verification/CONTAINMENT.md`, row #1569 |
 
 ## CIRSOC 301 Qa ≤ 0 refused (PR #1246, issue #467)
 
@@ -193,7 +223,7 @@ changed magnitude is.
    with each moved value, before → after, and the percentage.
 2. `make check.results-snapshot-gate BASE=<base>` (pull requests and the merge queue): if the
    pull request changes or deletes a committed snapshot (beyond the tolerance), it must also add
-   an entry to `result-changes.json` (a change id the base does not have) and a `changelog.d/`
+   an entry file to `result-changes/` (a change id the base does not have) and a `changelog.d/`
    fragment under `### BREAKING (results)`. A value that moved, disappeared, or is newly produced
    in an existing snapshot (another combination, mode, member result or limit state) is a change;
    so is a deleted snapshot. Only a new snapshot file, a new corpus case, is coverage. When the

@@ -27,7 +27,7 @@ use super::assembly;
 use super::linear;
 use super::constraints::FreeConstraintSystem;
 use super::sparse_tangent::{
-    solve_tangent_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
+    solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
 
 use serde::{Serialize, Deserialize};
@@ -154,6 +154,7 @@ pub struct ContactInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     #[serde(default)]
     pub element_behaviors: HashMap<String, String>,
@@ -195,6 +196,8 @@ pub struct ContactResult {
     /// Number of augmented Lagrangian outer iterations performed.
     #[serde(default)]
     pub al_iterations: usize,
+    #[serde(skip)]
+    pub(crate) frozen: bool,
 }
 
 /// Contact analysis result (3D).
@@ -212,6 +215,8 @@ pub struct ContactResult3D {
     /// Number of augmented Lagrangian outer iterations performed.
     #[serde(default)]
     pub al_iterations: usize,
+    #[serde(skip)]
+    pub(crate) frozen: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -412,6 +417,7 @@ fn solve_contact_state(
     nf: usize,
     cs: &Option<FreeConstraintSystem>,
     sparse_sym_cache: &mut Option<SparseSymbolicCache>,
+    conditioning: &mut Option<StructuredDiagnostic>,
 ) -> Result<Vec<f64>, String> {
     let n = f_base.len();
     let mut u0 = vec![0.0; n];
@@ -468,7 +474,7 @@ fn solve_contact_state(
                 }
             }
             let k_s = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, cs);
-            solve_tangent_sparse(&k_s, &rhs_s, sparse_sym_cache)?
+            solve_tangent_sparse_diagnosed(&k_s, &rhs_s, sparse_sym_cache, conditioning)?
         }
         BaseStiffness::Dense(k) => {
             let mut k_ff = vec![0.0; nf * nf];
@@ -492,7 +498,9 @@ fn solve_contact_state(
             };
             let ns = rhs_s.len();
             let mut k_work = k_s.clone();
-            match cholesky_solve(&mut k_work, &rhs_s, ns) {
+            let solved = cholesky_solve(&mut k_work, &rhs_s, ns);
+            if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice())) { *conditioning = Some(found); }
+            match solved {
                 Some(u) => u,
                 None => {
                     let mut k_work = k_s;
@@ -711,6 +719,7 @@ fn solve_uplift_2d(input: &ContactInput) -> Result<ContactResult, String> {
             }
             r.results.reactions.sort_by_key(|x| x.node_id);
             r.converged &= !changed;
+            r.frozen |= changed;
             if changed {
                 r.diagnostics.push("Uplift supports oscillated; status frozen.".into());
             }
@@ -731,6 +740,12 @@ fn solve_uplift_2d(input: &ContactInput) -> Result<ContactResult, String> {
 /// member forces) are those of the converged state; a deactivated member
 /// carries only its own fixed-end forces.
 pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
+    let mut r = solve_contact_2d_contained(input)?;
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Contact).into_iter().filter(|d| d.phase.as_deref() != Some("NL-13") || r.frozen).collect());
+    Ok(r)
+}
+
+fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, String> {
     // Contact assembles the model itself, so it needs the same guarantee the
     // linear path gets before touching `node_by_id[&…]`.
     super::linear::validate_input_2d(&input.solver)?;
@@ -827,6 +842,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
     let mut elem_flips: HashMap<usize, usize> = HashMap::new();
 
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
 
     let mut u_global = vec![0.0; n];
     let mut converged = false;
@@ -834,9 +850,11 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
     let al = al_factor > 0.0;
     let al_outer_iters = if al { al_max_iter } else { 1 };
     let mut al_iter_count = 0;
+    let mut frozen = false;
 
     for al_iter in 0..al_outer_iters {
         al_iter_count = al_iter + 1;
+        frozen |= st.gap_flips.iter().chain(&n2s_flips).any(|&f| f > max_flips);
         st.gap_flips.iter_mut().for_each(|f| *f = 0);
         n2s_flips.iter_mut().for_each(|f| *f = 0);
         elem_flips.values_mut().for_each(|f| *f = 0);
@@ -850,7 +868,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
                 base_inactive = inactive;
             }
             let corr = contact_corrections_2d(input, &st, &node_by_id, &dof_num, &u_global, damping, al, &its);
-            let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache)?;
+            let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache, &mut conditioning)?;
             u_global = to_global(&u);
 
             let mut any_change = false;
@@ -965,7 +983,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
         base = BaseStiffness::build(&input.solver, &inactive, &dof_num, use_sparse).0;
     }
     let corr = contact_corrections_2d(input, &st, &node_by_id, &dof_num, &u_global, None, al, &its);
-    let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache)?;
+    let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache, &mut conditioning)?;
     // The iterate the final corrections were built from (sliding friction
     // forces are μ·N of this state).
     let u_iter = std::mem::replace(&mut u_global, to_global(&u));
@@ -1028,7 +1046,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics: vec![],
+        structured_diagnostics: conditioning.into_iter().collect(),
         equilibrium: None,
         result_summary: None,
         solver_run_meta: None,
@@ -1120,6 +1138,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
         diagnostics,
         node_to_surface_status: n2s_info,
         al_iterations: al_iter_count,
+        frozen: frozen || st.gap_flips.iter().chain(&n2s_flips).any(|&f| f > max_flips),
     })
 }
 
@@ -1195,6 +1214,13 @@ fn next_slip(slip: f64, stick_force: f64, limit: f64) -> f64 {
 /// in global axes and rotated into the inclined-support frames), and the
 /// results are those of the converged state.
 pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, String> {
+    let mut r = solve_contact_3d_contained(input)?;
+    crate::known_issues::membrane_bending_3d(&input.solver, &input.solver.loads, &r.results)?;
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Contact).into_iter().filter(|d| d.phase.as_deref() != Some("NL-13") || r.frozen).collect());
+    Ok(r)
+}
+
+fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
     if let Some(nid) = input.uplift_supports.first() {
         return Err(format!(
@@ -1337,14 +1363,17 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
 
     let mut base_inactive: Vec<usize> = Vec::new();
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
     let mut u_global = vec![0.0; n];
     let mut converged = false;
     let mut total_iters = 0;
     let al_outer_iters = if al { al_max_iter } else { 1 };
     let mut al_iter_count = 0;
+    let mut frozen = false;
 
     for al_iter in 0..al_outer_iters {
         al_iter_count = al_iter + 1;
+        frozen |= gap_flips.iter().any(|&f| f > max_flips);
         gap_flips.iter_mut().for_each(|f| *f = 0);
         elem_flips.values_mut().for_each(|f| *f = 0);
         let mut inner_converged = false;
@@ -1357,7 +1386,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
                 base_inactive = inactive;
             }
             let corr = corrections(&gap_status, &gap_flips, &gap_lambda, &gap_slip, &u_global, damping);
-            let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache)?;
+            let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache, &mut conditioning)?;
             u_global = to_global(&u);
 
             let mut any_change = false;
@@ -1435,7 +1464,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         base = BaseStiffness::build_3d(input_solver, &inactive, &dof_num, use_sparse);
     }
     let corr = corrections(&gap_status, &gap_flips, &gap_lambda, &gap_slip, &u_global, None);
-    let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache)?;
+    let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache, &mut conditioning)?;
     let u_iter = std::mem::replace(&mut u_global, to_global(&u));
 
     let diagnostics = build_diagnostics_3d(&gap_flips, &input.gap_elements, &elem_flips, &input.element_behaviors, max_flips);
@@ -1488,7 +1517,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics: vec![],
+        structured_diagnostics: conditioning.into_iter().collect(),
         equilibrium: None,
         timings: None,
         result_summary: None,
@@ -1545,6 +1574,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         gap_status: gap_info,
         diagnostics,
         al_iterations: al_iter_count,
+        frozen: frozen || gap_flips.iter().any(|&f| f > max_flips),
     })
 }
 
@@ -1630,7 +1660,7 @@ fn build_diagnostics_2d(
     // Report oscillating gap elements
     for (gi, gap) in gap_elements.iter().enumerate() {
         let flips = gap_flip_count[gi];
-        if flips >= 2 {
+        if flips >= 2 || flips > max_flips {
             let msg = format!(
                 "Gap element {} (nodes {}-{}): {} status oscillations in contact iteration",
                 gap.id, gap.node_i, gap.node_j, flips,
@@ -1649,7 +1679,7 @@ fn build_diagnostics_2d(
     for (eid_str, behavior) in element_behaviors {
         if let Ok(eid) = eid_str.parse::<usize>() {
             if let Some(&flips) = elem_flip_count.get(&eid) {
-                if flips >= 2 {
+                if flips >= 2 || flips > max_flips {
                     diags.push(format!(
                         "Element {} ({}): {} status oscillations. Consider increasing damping_coefficient.",
                         eid, behavior, flips,
@@ -1662,7 +1692,7 @@ fn build_diagnostics_2d(
     // Report oscillating node-to-surface pairs
     for (pi, pair) in n2s_pairs.iter().enumerate() {
         let flips = n2s_flip_count[pi];
-        if flips >= 2 {
+        if flips >= 2 || flips > max_flips {
             diags.push(format!(
                 "Node-to-surface pair (slave={}, master segment {}): {} status oscillations",
                 pair.slave_node, pair.master_segment.id, flips,
@@ -1696,7 +1726,7 @@ fn build_diagnostics_3d(
     // Report oscillating gap elements
     for (gi, gap) in gap_elements.iter().enumerate() {
         let flips = gap_flip_count[gi];
-        if flips >= 2 {
+        if flips >= 2 || flips > max_flips {
             let msg = format!(
                 "Gap element {} (nodes {}-{}): {} status oscillations in contact iteration",
                 gap.id, gap.node_i, gap.node_j, flips,
@@ -1715,7 +1745,7 @@ fn build_diagnostics_3d(
     for (eid_str, behavior) in element_behaviors {
         if let Ok(eid) = eid_str.parse::<usize>() {
             if let Some(&flips) = elem_flip_count.get(&eid) {
-                if flips >= 2 {
+                if flips >= 2 || flips > max_flips {
                     diags.push(format!(
                         "Element {} ({}): {} status oscillations. Consider increasing damping_coefficient.",
                         eid, behavior, flips,
@@ -1730,4 +1760,17 @@ fn build_diagnostics_3d(
     }
 
     diags
+}
+
+#[cfg(test)]
+mod containment_tests {
+    use super::*;
+    #[test]
+    fn freezing_on_the_first_flip_is_reported() {
+        let gap = GapElement { id: 1, node_i: 1, node_j: 2, direction: 0, initial_gap: 0.0, stiffness: 1.0, friction: None, friction_direction: None, friction_coefficient: None };
+        for flips in [0, 1, 2] {
+            let diagnostics = build_diagnostics_3d(&[flips], &[gap.clone()], &HashMap::new(), &HashMap::new(), 0);
+            assert_eq!(diagnostics.iter().any(|s| s.contains("frozen")), flips > 0);
+        }
+    }
 }

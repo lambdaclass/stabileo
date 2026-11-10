@@ -454,7 +454,7 @@ fn rotated_candidate_2d(
             // Mirrors prepare_static_2d / solve_constrained_2d: only the normal
             // (local 1) gets a prescribed value.
             let v = if a == 1 {
-                let (c, s) = (theta.cos(), theta.sin());
+                let [s, c] = crate::solver::assembly::inclined_rotation_matrix_2d(theta)[1];
                 let u_normal = sup.dx.unwrap_or(0.0) * s + sup.dz.unwrap_or(0.0) * c;
                 if u_normal.abs() > 1e-15 { u_normal } else { 0.0 }
             } else {
@@ -1011,5 +1011,183 @@ mod tests {
         for (f, u) in [(&[][..], &[1.0, 0.0][..]), (&[2.0, 0.0][..], &[1.0][..])] {
             assert!(!p.certify(f, u).is_certified(), "sparse: f {f:?}, u {u:?}");
         }
+    }
+
+    fn cantilever_2d() -> SolverInput {
+        serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "z": 0.0}, "3": {"id": 3, "x": 4.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+            "elements": {
+                "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+                "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1}
+            },
+            "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
+            "loads": [{"type": "nodal", "data": {"nodeId": 3, "fx": 1.0, "fz": -10.0, "my": 0.0}}]
+        }))
+        .unwrap()
+    }
+
+    fn cantilever_3d() -> SolverInput3D {
+        serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "y": 0.0, "z": 0.0}, "3": {"id": 3, "x": 4.0, "y": 0.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-4, "iz": 2e-4, "j": 5e-5}},
+            "elements": {
+                "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+                "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1}
+            },
+            "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+            "loads": [{"type": "nodal", "data": {"nodeId": 3, "fx": 1.0, "fy": 2.0, "fz": -10.0, "mx": 0.5, "my": 0.0, "mz": 0.0}}]
+        }))
+        .unwrap()
+    }
+
+    fn set_abs_bound(c: &mut Certificate, x: f64) {
+        let Certificate::Certified { abs_bound, .. } = c else { panic!("not certified: {c:?}") };
+        *abs_bound = x;
+    }
+
+    fn set_e2e_abs_bound(e: &mut EndToEnd, x: f64) {
+        let EndToEnd::Certified { abs_bound, .. } = e else { panic!("not certified end to end: {e:?}") };
+        *abs_bound = x;
+    }
+
+    fn uncertified_reason(c: &Certificate) -> &str {
+        match c {
+            Certificate::Uncertified { reason } => reason,
+            Certificate::Certified { .. } => panic!("still certified"),
+        }
+    }
+
+    fn e2e_reason(e: &EndToEnd) -> &str {
+        match e {
+            EndToEnd::Uncertified { reason } => reason,
+            other => panic!("not withdrawn: {other:?}"),
+        }
+    }
+
+    fn certified_2d() -> CertifiedResults2D {
+        let out = certify_linear_2d_full(&cantilever_2d()).unwrap();
+        assert!(out.certificate.is_certified(), "{:?}", out.certificate);
+        assert!(out.end_to_end.is_certified(), "{:?}", out.end_to_end);
+        assert_eq!(out.force_bounds.len(), 2);
+        assert!(!out.shown.station_bounds.is_empty() && !out.shown.reaction_bounds.is_empty());
+        out
+    }
+
+    fn certified_3d() -> CertifiedResults3D {
+        let out = certify_linear_3d_full(&cantilever_3d()).unwrap();
+        assert!(out.certificate.is_certified(), "{:?}", out.certificate);
+        assert!(out.end_to_end.is_certified(), "{:?}", out.end_to_end);
+        assert_eq!(out.force_bounds.len(), 2);
+        assert!(!out.shown.station_bounds.is_empty() && !out.shown.reaction_bounds.is_empty());
+        out
+    }
+
+    #[test]
+    fn a_finite_2d_certificate_survives_its_guard() {
+        let mut out = certified_2d();
+        set_abs_bound(&mut out.certificate, 1e-6);
+        let Certificate::Certified { rel_bound, .. } = &mut out.certificate else { unreachable!() };
+        *rel_bound = f64::INFINITY;
+        out.guard();
+        assert!(out.certificate.is_certified() && out.end_to_end.is_certified());
+        assert_eq!(out.force_bounds.len(), 2);
+        assert!(!out.shown.station_bounds.is_empty());
+    }
+
+    #[test]
+    fn a_non_finite_2d_bound_withdraws_the_certificate_and_every_bound_from_it() {
+        let mut out = certified_2d();
+        set_abs_bound(&mut out.certificate, f64::NAN);
+        out.guard();
+        assert_eq!(uncertified_reason(&out.certificate), "non-finite bound at $[0].absBound=NaN");
+        assert!(out.force_bounds.is_empty());
+        assert!(out.shown.station_bounds.is_empty() && out.shown.deflection_bounds.is_empty() && out.shown.reaction_bounds.is_empty());
+        assert!(out.end_to_end.is_certified(), "the end-to-end claim has its own guard");
+
+        let mut out = certified_2d();
+        out.force_bounds[1].m = f64::NAN;
+        out.guard();
+        assert_eq!(uncertified_reason(&out.certificate), "non-finite bound at $[1][1].m=NaN");
+        assert!(out.force_bounds.is_empty() && out.shown.station_bounds.is_empty());
+
+        let mut out = certified_2d();
+        out.shown.station_bounds[0].moment = f64::INFINITY;
+        out.guard();
+        assert!(uncertified_reason(&out.certificate).starts_with("non-finite bound at $[2].stationBounds[0].moment=inf"));
+        assert!(out.force_bounds.is_empty() && out.shown.station_bounds.is_empty());
+    }
+
+    #[test]
+    fn a_non_finite_2d_end_to_end_bound_withdraws_only_the_end_to_end_claim() {
+        let mut out = certified_2d();
+        set_e2e_abs_bound(&mut out.end_to_end, f64::NAN);
+        out.guard();
+        assert_eq!(e2e_reason(&out.end_to_end), "non-finite bound at $.absBound=NaN");
+        assert!(out.certificate.is_certified());
+        assert_eq!(out.force_bounds.len(), 2);
+    }
+
+    #[test]
+    fn a_finite_3d_certificate_survives_its_guard() {
+        let mut out = certified_3d();
+        let force_bounds = out.force_bounds.clone();
+        out.guard();
+        assert!(out.certificate.is_certified() && out.end_to_end.is_certified());
+        assert_eq!(out.force_bounds, force_bounds);
+    }
+
+    #[test]
+    fn a_non_finite_3d_bound_withdraws_the_certificate_and_every_bound_from_it() {
+        let mut out = certified_3d();
+        set_abs_bound(&mut out.certificate, f64::NAN);
+        out.guard();
+        assert_eq!(uncertified_reason(&out.certificate), "non-finite bound at $[0].absBound=NaN");
+        assert!(out.force_bounds.is_empty() && out.shell_bounds.is_empty());
+        assert!(out.shown.station_bounds.is_empty() && out.shown.reaction_bounds.is_empty());
+        assert!(out.end_to_end.is_certified());
+
+        let mut out = certified_3d();
+        out.force_bounds[0].mz = f64::NEG_INFINITY;
+        out.guard();
+        assert_eq!(uncertified_reason(&out.certificate), "non-finite bound at $[1][0].mz=-inf");
+        assert!(out.force_bounds.is_empty());
+
+        let mut out = certified_3d();
+        out.force_bounds[0].bimoment = f64::INFINITY;
+        out.guard();
+        assert!(out.certificate.is_certified(), "an unbounded bimoment is documented");
+
+        let mut out = certified_3d();
+        out.shell_bounds.push(ShellBound {
+            element_id: 1, kind: "quad".into(), sigma_xx: f64::NAN, sigma_yy: 0.0, tau_xy: 0.0,
+            mx: 0.0, my: 0.0, mxy: 0.0, qx: None, qy: None,
+        });
+        out.guard();
+        assert_eq!(uncertified_reason(&out.certificate), "non-finite bound at $[2][0].sigmaXx=NaN");
+        assert!(out.shell_bounds.is_empty() && out.force_bounds.is_empty());
+    }
+
+    #[test]
+    fn a_non_finite_3d_end_to_end_bound_withdraws_only_the_end_to_end_claim() {
+        let mut out = certified_3d();
+        set_e2e_abs_bound(&mut out.end_to_end, f64::INFINITY);
+        out.guard();
+        assert_eq!(e2e_reason(&out.end_to_end), "non-finite bound at $.absBound=inf");
+        assert!(out.certificate.is_certified());
+        assert_eq!(out.force_bounds.len(), 2);
+    }
+
+    #[test]
+    fn each_load_case_is_withdrawn_for_its_own_non_finite_data_or_bound() {
+        let ok = || Certificate::Certified { abs_bound: 1e-9, rel_bound: 1e-12, sigma: 1.0, residual_norm: 1e-12 };
+        let mut out = vec![ok(), ok(), ok()];
+        set_abs_bound(&mut out[2], f64::NAN);
+        guard_cases(&mut out, vec![None, Some("non-finite number in the results at $.x=NaN".into()), None]);
+        assert!(out[0].is_certified());
+        assert_eq!(uncertified_reason(&out[1]), "non-finite number in the results at $.x=NaN");
+        assert_eq!(uncertified_reason(&out[2]), "non-finite number in the certificate at $.absBound=NaN");
     }
 }

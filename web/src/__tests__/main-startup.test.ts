@@ -3,12 +3,14 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   route: 'app', mount: vi.fn(() => ({ mounted: true })), hooks: vi.fn(),
   load: vi.fn(async () => ({ default: 'Editor' })),
+  publicLocale: vi.fn(async (_locale: string) => {}),
+  boot: vi.fn(),
 }));
 vi.mock('../dev-favicon', () => ({}));
 vi.mock('../Root.svelte', () => ({ default: 'PublicRoot' }));
 vi.mock('svelte', async original => ({ ...await original<object>(), mount: mocks.mount }));
 vi.mock('../lib/public-route', () => ({ routeKind: () => ({ kind: mocks.route }), restoreRedirectedRoute: vi.fn() }));
-vi.mock('../lib/i18n/store.svelte', () => ({ i18n: { locale: 'en' }, ensureLocale: async () => {} }));
+vi.mock('../lib/i18n/store.svelte', () => ({ i18n: { locale: 'en' }, ensureLocale: async () => {}, ensurePublicLocale: mocks.publicLocale, PUBLIC_LOCALES: ['en', 'es', 'pt', 'de', 'fr', 'tr'] }));
 vi.mock('../load-app', () => ({ loadApplication: mocks.load }));
 vi.mock('../lib/utils/e2e-hooks', () => ({ installE2EHooks: mocks.hooks }));
 
@@ -17,7 +19,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv('VITE_E2E', '1');
   vi.stubGlobal('window', new EventTarget());
-  vi.stubGlobal('document', { getElementById: (id: string) => id === 'app' ? {} : null });
+  vi.stubGlobal('document', { getElementById: (id: string) => id === 'app' ? {} : null, documentElement: { classList: { add: mocks.boot } } });
+  vi.stubGlobal('location', { pathname: '/pt/research/' });
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -28,15 +31,32 @@ it('loads the named loader and installs hooks after a direct editor mount', asyn
   expect(mocks.load).toHaveBeenCalledOnce();
   expect(mocks.mount).toHaveBeenCalledWith('Editor', { target: {} });
   expect(mocks.mount.mock.invocationCallOrder[0]).toBeLessThan(mocks.hooks.mock.invocationCallOrder[0]);
+  expect(mocks.boot).toHaveBeenCalledWith('app-boot');
+  expect(mocks.boot.mock.invocationCallOrder[0]).toBeLessThan(mocks.load.mock.invocationCallOrder[0]);
 });
 it('waits for the lazy editor ready event on a public route and installs once', async () => {
   mocks.route = 'research';
   await (await import('../main')).default;
+  expect(mocks.publicLocale).toHaveBeenCalledWith('pt');
+  expect(mocks.publicLocale.mock.invocationCallOrder[0]).toBeLessThan(mocks.mount.mock.invocationCallOrder[0]);
   expect(mocks.load).not.toHaveBeenCalled();
+  expect(mocks.boot).not.toHaveBeenCalled();
   expect(mocks.hooks).not.toHaveBeenCalled();
   window.dispatchEvent(new Event('stabileo-app-ready'));
   window.dispatchEvent(new Event('stabileo-app-ready'));
   await vi.waitFor(() => expect(mocks.hooks).toHaveBeenCalledOnce());
+});
+it('mounts a public page in English when its language fails to load, and retries once back online', async () => {
+  mocks.route = 'research';
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  mocks.publicLocale.mockRejectedValueOnce(new Error('offline'));
+  await (await import('../main')).default;
+  expect(mocks.mount).toHaveBeenCalledWith('PublicRoot', { target: {} });
+  expect(mocks.publicLocale).toHaveBeenCalledOnce();
+  window.dispatchEvent(new Event('online'));
+  window.dispatchEvent(new Event('online'));
+  expect(mocks.publicLocale).toHaveBeenCalledTimes(2);
+  expect(mocks.publicLocale).toHaveBeenLastCalledWith('pt');
 });
 it('does not install hooks in a production build', async () => {
   vi.stubEnv('VITE_E2E', '');

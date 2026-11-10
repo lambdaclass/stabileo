@@ -1,3 +1,4 @@
+use crate::solver::support::{support_dofs_3d};
 use crate::types::*;
 use crate::linalg::*;
 use crate::element::*;
@@ -6,7 +7,7 @@ use super::assembly;
 use super::constraints::FreeConstraintSystem;
 use super::linear::SPARSE_THRESHOLD;
 use super::sparse_tangent::{
-    cached_symbolic, solve_tangent_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
+    cached_symbolic, solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
 
 /// Resolve the local-Y reference ONCE from the INITIAL element geometry so the
@@ -63,6 +64,29 @@ pub fn solve_corotational_2d(
     n_increments: usize,
     modified_nr: bool,
 ) -> Result<CorotationalResult, String> {
+    solve_corotational_2d_from(input, None, max_iter, tolerance, n_increments, modified_nr)
+}
+
+/// A converged co-rotational state to continue from: the model it was solved
+/// for (same nodes; its supports may differ) and its nodal displacements.
+pub struct CorotationalStart2D<'a> {
+    pub input: &'a SolverInput,
+    pub displacements: &'a [Displacement],
+}
+
+/// Co-rotational analysis that continues from `start` instead of the
+/// undeformed state. The external loads and the restrained DOFs ramp linearly
+/// from the start model's to `input`'s, so every restrained DOF ends at the
+/// value its support prescribes (zero when it prescribes none). Without a
+/// start this is [`solve_corotational_2d`].
+pub fn solve_corotational_2d_from(
+    input: &SolverInput,
+    start: Option<&CorotationalStart2D>,
+    max_iter: usize,
+    tolerance: f64,
+    n_increments: usize,
+    modified_nr: bool,
+) -> Result<CorotationalResult, String> {
     // Degenerate parameters, rejected before any work. These arrive from the
     // public WASM entry point exactly as the caller sent them, and the UI's
     // `min` attribute constrains the spinner, not the value that is bound.
@@ -86,15 +110,14 @@ pub fn solve_corotational_2d(
     // naming a node that does not exist panicked instead of returning an
     // error. In WASM that ends the module, not the call.
     super::linear::validate_input_2d(input)?;
-    // The tangent has no prescribed-displacement term.
     // Temperature enters as fixed-end forces held in the global frame, so a
     // heated member that rotates is pushed by its own (fictitious) thermal
     // axial force: 12% on the tip rotation of a heated, bent cantilever.
     super::feature_gates::refuse_2d(input, "Corotational analysis", &[
-        super::feature_gates::Feature::PrescribedDisplacements,
         super::feature_gates::Feature::ThermalLoads,
     ])?;
     crate::element::connector::refuse_for_corotational_2d(input, "Corotational analysis")?;
+    refuse_inclined_motion_2d(input, start.is_some())?;
 
     let dof_num = DofNumbering::build_2d(input);
 
@@ -114,8 +137,13 @@ pub fn solve_corotational_2d(
     let f_total = asm.f.clone();
     let art = assembly::artificial_stiffness_entries(&asm);
 
-    // Global displacement vector (starts at zero)
-    let mut u_full = vec![0.0; n];
+    let (mut u_full, f_base) = match start {
+        Some(start) => start_state_2d(input, start, &dof_num)?,
+        None => (vec![0.0; n], vec![0.0; n]),
+    };
+    let u_r_base: Vec<f64> = u_full[nf..].to_vec();
+    let u_r_target = super::linear::prescribed_displacements_2d(input, &dof_num);
+    let moves_supports = start.is_some() || u_r_target.iter().any(|&v| v != 0.0);
 
     let mut total_iterations = 0;
     let mut converged = true;
@@ -128,13 +156,19 @@ pub fn solve_corotational_2d(
     // symbolic phase is computed once and only the numeric phase repeats
     // per Newton iteration.
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
 
     // Incremental-iterative procedure
     for increment in 1..=n_increments {
         let load_factor = increment as f64 / n_increments as f64;
 
-        // Scaled external forces for this increment
-        let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
+        let f_ext: Vec<f64> = (0..n).map(|i| f_base[i] + load_factor * (f_total[i] - f_base[i])).collect();
+        let mut support_step: Option<Vec<f64>> = Some(
+            u_r_base.iter().zip(&u_r_target).enumerate()
+                .map(|(i, (base, target))| base + load_factor * (target - base) - u_full[nf + i])
+                .collect::<Vec<f64>>(),
+        )
+        .filter(|du| du.iter().any(|&v| v != 0.0));
 
         // Newton-Raphson inner loop
         let mut nr_converged = false;
@@ -226,7 +260,12 @@ pub fn solve_corotational_2d(
             };
 
             let r_norm: f64 = r_check.iter().map(|v| v * v).sum::<f64>().sqrt();
-            let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let mut f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+            // A model driven only by its supports carries no external load:
+            // its residual is measured against the support reactions instead.
+            if moves_supports {
+                f_norm = f_norm.max(f_int[nf..].iter().map(|v| v * v).sum::<f64>().sqrt());
+            }
 
             let rel_error = if f_norm > 1e-30 {
                 r_norm / f_norm
@@ -234,9 +273,29 @@ pub fn solve_corotational_2d(
                 r_norm
             };
 
-            if rel_error < tolerance {
+            if rel_error < tolerance && support_step.is_none() {
                 nr_converged = true;
                 break;
+            }
+
+            // The supports' step enters the first iteration as the tangent
+            // predictor's load −K_fr·Δu_r: moving only the support nodes
+            // would crush the elements next to them.
+            let mut r_f = r_f;
+            if let Some(ref du_r) = support_step {
+                if sparse_tangent {
+                    for ((&i, &j), &v) in trip_rows.iter().zip(&trip_cols).zip(&trip_vals) {
+                        if i >= nf && j < nf {
+                            r_f[j] -= v * du_r[i - nf];
+                        } else if j >= nf && i < nf {
+                            r_f[i] -= v * du_r[j - nf];
+                        }
+                    }
+                } else {
+                    for i in 0..nf {
+                        r_f[i] -= (0..n - nf).map(|r| k_t[i * n + nf + r] * du_r[r]).sum::<f64>();
+                    }
+                }
             }
 
             // Solve K_T * delta_u = R for free DOFs
@@ -258,7 +317,9 @@ pub fn solve_corotational_2d(
                         &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                     );
                     let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
-                    match numeric_cholesky(sym, &k_s_csc) {
+                    let factor = numeric_cholesky(sym, &k_s_csc);
+                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
+                    match factor {
                         Some(num) => {
                             let result = sparse_cholesky_solve(&num, &r_s);
                             cached_factor = Some(CachedTangentFactor::Sparse(num));
@@ -266,7 +327,7 @@ pub fn solve_corotational_2d(
                         }
                         None => {
                             // Sparse Cholesky failed — fall back to full NR for this increment
-                            solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?
+                            solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
                         }
                     }
                 } else {
@@ -277,7 +338,9 @@ pub fn solve_corotational_2d(
                     } else {
                         k_ff
                     };
-                    match try_cholesky_factor(&k_s, ns) {
+                    let factor = try_cholesky_factor(&k_s, ns);
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
+                    match factor {
                         Some(factor) => {
                             let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
                             cached_factor = Some(CachedTangentFactor::Dense(factor));
@@ -285,7 +348,7 @@ pub fn solve_corotational_2d(
                         }
                         None => {
                             // Cholesky failed — fall back to full NR for this increment
-                            solve_free_dofs(&k_s, &r_s, ns)?
+                            solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
                         }
                     }
                 }
@@ -293,7 +356,7 @@ pub fn solve_corotational_2d(
                 let k_s_csc = tangent_free_sparse_triplets(
                     &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                 );
-                solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?
+                solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
             } else {
                 let free_idx: Vec<usize> = (0..nf).collect();
                 let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
@@ -302,7 +365,7 @@ pub fn solve_corotational_2d(
                 } else {
                     k_ff
                 };
-                solve_free_dofs(&k_s, &r_s, ns)?
+                solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
             };
 
             let delta_u_f = if let Some(ref cs) = cs {
@@ -314,6 +377,11 @@ pub fn solve_corotational_2d(
             // Update displacements (free DOFs only)
             for i in 0..nf {
                 u_full[i] += delta_u_f[i];
+            }
+            if let Some(du_r) = support_step.take() {
+                for (r, du) in du_r.iter().enumerate() {
+                    u_full[nf + r] += du;
+                }
             }
         }
 
@@ -332,13 +400,18 @@ pub fn solve_corotational_2d(
 
     // Results of the last converged state, under the loads it carries.
     let scaled;
-    let at_state = if converged_factor < 1.0 {
+    let at_state = if let Some(start) = start {
+        scaled = blended_loads_2d(start.input, input, converged_factor);
+        &scaled
+    } else if converged_factor < 1.0 {
         scaled = scaled_loads_2d(input, converged_factor);
         &scaled
     } else {
         input
     };
-    let results = build_final_results(at_state, &dof_num, &u_full, &cs)?;
+    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs)?;
+    crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
+    crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Corotational));
 
     Ok(CorotationalResult {
         results,
@@ -370,6 +443,57 @@ fn scaled_loads_2d(input: &SolverInput, factor: f64) -> SolverInput {
         }
     }
     m
+}
+
+fn blended_loads_2d(from: &SolverInput, to: &SolverInput, factor: f64) -> SolverInput {
+    let mut m = scaled_loads_2d(to, factor);
+    m.loads.extend(scaled_loads_2d(from, 1.0 - factor).loads);
+    m
+}
+
+pub(crate) fn refuse_inclined_motion_2d(input: &SolverInput, from_start: bool) -> Result<(), String> {
+    let mut inclined: Vec<&SolverSupport> = crate::ordered::values(&input.supports)
+        .filter(|s| s.support_type == "inclinedRoller")
+        .filter(|s| from_start || [s.dx, s.dz, s.dry].iter().any(|v| v.is_some_and(|x| x != 0.0)))
+        .collect();
+    inclined.sort_by_key(|s| s.id);
+    match inclined.first() {
+        Some(s) => Err(format!(
+            "Corotational analysis does not support prescribed displacements or a start state on inclined supports (support {}, node {})",
+            s.id, s.node_id
+        )),
+        None => Ok(()),
+    }
+}
+
+pub(crate) fn start_state_2d(input: &SolverInput, start: &CorotationalStart2D, dof_num: &DofNumbering) -> Result<(Vec<f64>, Vec<f64>), String> {
+    super::linear::validate_input_2d(start.input)?;
+    refuse_inclined_motion_2d(start.input, true)?;
+    let same_nodes = start.input.nodes.len() == input.nodes.len()
+        && crate::ordered::values(&input.nodes).all(|n| {
+            crate::ordered::values(&start.input.nodes).any(|m| m.id == n.id && m.x == n.x && m.z == n.z)
+        });
+    let start_dofs = DofNumbering::build_2d(start.input);
+    if !same_nodes || start_dofs.dofs_per_node != dof_num.dofs_per_node {
+        return Err("The start state belongs to a model with other nodes".into());
+    }
+    let mut u = vec![0.0; dof_num.n_total];
+    for (&(node_id, local), &index) in &dof_num.map {
+        let d = start
+            .displacements
+            .iter()
+            .find(|d| d.node_id == node_id)
+            .ok_or_else(|| format!("The start state has no displacement for node {node_id}"))?;
+        u[index] = [d.ux, d.uz, d.ry][local];
+    }
+    let f_start = assembly::assemble_2d(start.input, &start_dofs).f;
+    let mut f = vec![0.0; dof_num.n_total];
+    for (key, &i) in &start_dofs.map {
+        if let Some(&j) = dof_num.map.get(key) {
+            f[j] = f_start[i];
+        }
+    }
+    Ok((u, f))
 }
 
 /// 3D twin of [`scaled_loads_2d`] (shell, thermal and bimoment loads are
@@ -912,9 +1036,11 @@ fn solve_with_cached_factor(factor: &CachedTangentFactor, r_s: &[f64]) -> Vec<f6
 // `super::sparse_tangent` (shared with arc_length, contact and fiber_nonlinear),
 // including `tangent_free_sparse_triplets` used by the sparse paths above.
 
-fn solve_free_dofs(k_ff: &[f64], r_f: &[f64], nf: usize) -> Result<Vec<f64>, String> {
+fn solve_free_dofs(k_ff: &[f64], r_f: &[f64], nf: usize, conditioning: &mut Option<StructuredDiagnostic>) -> Result<Vec<f64>, String> {
     let mut k_work = k_ff.to_vec();
-    match cholesky_solve(&mut k_work, r_f, nf) {
+    let solved = cholesky_solve(&mut k_work, r_f, nf);
+    if let Some(found) = crate::known_issues::dense_factor_conditioning(k_ff, nf, solved.as_ref().map(|_| k_work.as_slice())) { *conditioning = Some(found); }
+    match solved {
         Some(u) => Ok(u),
         None => {
             let mut k_work = k_ff.to_vec();
@@ -1348,6 +1474,7 @@ pub fn solve_corotational_3d(
     // See solve_corotational_2d: sparse symbolic factorization cache for the
     // ns >= SPARSE_THRESHOLD path (pattern is constant within a solve call).
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
 
     for increment in 1..=n_increments {
         let load_factor = increment as f64 / n_increments as f64;
@@ -1463,13 +1590,15 @@ pub fn solve_corotational_3d(
                         &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                     );
                     let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
-                    match numeric_cholesky(sym, &k_s_csc) {
+                    let factor = numeric_cholesky(sym, &k_s_csc);
+                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
+                    match factor {
                         Some(num) => {
                             let result = sparse_cholesky_solve(&num, &r_s);
                             cached_factor = Some(CachedTangentFactor::Sparse(num));
                             result
                         }
-                        None => solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?,
+                        None => solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?,
                     }
                 } else {
                     let free_idx: Vec<usize> = (0..nf).collect();
@@ -1479,20 +1608,22 @@ pub fn solve_corotational_3d(
                     } else {
                         k_ff
                     };
-                    match try_cholesky_factor(&k_s, ns) {
+                    let factor = try_cholesky_factor(&k_s, ns);
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
+                    match factor {
                         Some(factor) => {
                             let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
                             cached_factor = Some(CachedTangentFactor::Dense(factor));
                             result
                         }
-                        None => solve_free_dofs(&k_s, &r_s, ns)?,
+                        None => solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?,
                     }
                 }
             } else if ns >= SPARSE_THRESHOLD {
                 let k_s_csc = tangent_free_sparse_triplets(
                     &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                 );
-                solve_tangent_sparse(&k_s_csc, &r_s, &mut sparse_sym_cache)?
+                solve_tangent_sparse_diagnosed(&k_s_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
             } else {
                 let free_idx: Vec<usize> = (0..nf).collect();
                 let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
@@ -1501,7 +1632,7 @@ pub fn solve_corotational_3d(
                 } else {
                     k_ff
                 };
-                solve_free_dofs(&k_s, &r_s, ns)?
+                solve_free_dofs(&k_s, &r_s, ns, &mut conditioning)?
             };
 
             let delta_u = if let Some(ref cs) = cs {
@@ -1536,9 +1667,12 @@ pub fn solve_corotational_3d(
         input
     };
     let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
+    crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
+    crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Corotational));
     if deformations.iter().any(|d| d.natural > crate::known_issues::NL3_NATURAL_ROTATION) {
         crate::known_issues::attach(&mut results.structured_diagnostics, vec![crate::known_issues::corotational_natural_rotation()]);
     }
+    crate::known_issues::refuse(&results.structured_diagnostics)?;
 
     Ok(CorotationalResult3D {
         results,
@@ -2089,8 +2223,8 @@ fn add_spring_contributions_3d(
 ) {
     for sup in crate::ordered::values(&input.supports) {
         let springs: [(usize, Option<f64>); 6] = [
-            (0, sup.kx), (1, sup.ky), (2, sup.kz),
-            (3, sup.krx), (4, sup.kry), (5, sup.krz),
+            (0, support_dofs_3d(sup)[0].spring), (1, support_dofs_3d(sup)[1].spring), (2, support_dofs_3d(sup)[2].spring),
+            (3, support_dofs_3d(sup)[3].spring), (4, support_dofs_3d(sup)[4].spring), (5, support_dofs_3d(sup)[5].spring),
         ];
         for &(local_dof, k_val) in &springs {
             if let Some(k) = k_val {
@@ -2354,7 +2488,7 @@ fn elastic_corotational_forces_3d(
                 distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
                 q_zi: 0.0, q_zj: 0.0,
                 distributed_loads_x: Vec::new(),
-                distributed_loads_z: Vec::new(), point_loads_z: Vec::new(),
+                distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(),
                 bimoment_start: None, bimoment_end: None,
             });
             continue;
@@ -2468,7 +2602,7 @@ fn elastic_corotational_forces_3d(
             distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
             q_zi: 0.0, q_zj: 0.0,
             distributed_loads_x: Vec::new(),
-            distributed_loads_z: Vec::new(), point_loads_z: Vec::new(),
+            distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(),
             bimoment_start: None, bimoment_end: None,
         });
     }

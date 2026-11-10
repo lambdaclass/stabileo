@@ -1,8 +1,11 @@
-import { materialToWire, sectionToWire, type ElasticMaterialWire, type ElasticSectionWire } from './unit-types';
+import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
+import { element3DToWire, results3DFromWasm, resultsFromWasm, type AnalysisResultsWire, type AnalysisResults3DWire, load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, support3DToWire, supportToWire, type Element3DWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire, type Support3DWire, type SupportWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
 import { registerCirsoc301Kernel } from './codes/argentina/cirsoc301-kernel';
+import { registerCirsoc301InputsKernel } from './steel/cirsoc301-inputs';
+import type { PlateThickness } from './shell-combos';
 import { packedShellCombinationKernel, packedShellEnvelopeKernel, registerShellCombinationKernel, registerShellEnvelopeKernel } from './shell-combination-kernel';
 import { registerCirsoc201Engine } from './codes/argentina/cirsoc201-engine';
 import { registerCollisionKernel } from './detailing/collision-kernel';
@@ -19,12 +22,12 @@ import { registerCollisionKernel } from './detailing/collision-kernel';
 import { mergeAllHingedJoints2D, restrainOrphanRotations2D } from './orphan-rotations-2d';
 import { stripStabilisedReactions } from './stabilised-reactions';
 import type { SpectralModeInput3D } from './dynamics/requests';
-import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
-import type { SolverInput3D, SolverElement3D, SolverSection3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import type { SolverInput, SolverSupport, AnalysisResults, FullEnvelope } from './types';
+import type { SolverInput3D, SolverElement3D, SolverSection3D, SolverSupport3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { bucklingWarpingInput, hasBucklingWarping, torsionGaps3D } from './buckling-warping';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
-import { errorText } from '../utils/error-text';
+import { errorText } from '../utils/thrown-text';
 import { EngineUnavailableError, EngineCheckError } from './engine-unavailable';
 import { tagCertifyJob } from './certify-tags';
 import { modalMechanismRefusal } from './dynamics/time-history-refusal';
@@ -240,6 +243,7 @@ export async function initSolver(): Promise<void> {
     registerColumnCapacityKernel(wasm.solve_column_capacity_batch ?? null);
     registerCirsoc201BeamKernel(wasm.cirsoc201_beam_batch ?? null);
     registerCirsoc301Kernel({ check: wasm.check_cirsoc301_members ?? null, certify: wasm.certify_cirsoc301_members ?? null });
+    registerCirsoc301InputsKernel(wasm.cirsoc301_inputs ?? null);
     loadSession2D = wasm.LoadSession2D ?? null;
     loadSession3D = wasm.LoadSession3D ?? null;
     registerShellCombinationKernel(wasm.combine_shell_stresses ? packedShellCombinationKernel(wasm.combine_shell_stresses) : null);
@@ -469,16 +473,19 @@ export function assertFiniteWire(value: any, path = 'input'): void {
 /** Convert SolverInput (with Maps) to the plain JSON-ready wire object,
  *  without a string round trip. */
 export function input2DToWireObject(input: SolverInput): Record<string, any> & {
+  nodes: Record<string, NodeWire>;
   materials: Record<string, ElasticMaterialWire>;
   sections: Record<string, ElasticSectionWire>;
+  supports: Record<string, Omit<SolverSupport, keyof SupportWire> & SupportWire>;
+  loads: LoadWire[];
 } {
   return {
-    nodes: mapToObj(input.nodes),
+    nodes: Object.fromEntries(Array.from(input.nodes, ([id, n]) => [String(id), nodeToWire(n)])),
     materials: Object.fromEntries(Array.from(input.materials, ([id, m]) => [String(id), materialToWire(plainDeepCopy(m))])),
     sections: Object.fromEntries(Array.from(input.sections, ([id, s]) => [String(id), sectionToWire(plainDeepCopy(s))])),
     elements: mapToObj(input.elements),
-    supports: mapToObj(input.supports),
-    loads: input.loads,
+    supports: Object.fromEntries(Array.from(input.supports, ([id, s]) => [String(id), supportToWire(s)])),
+    loads: input.loads.map(loadToWire),
     constraints: plainDeepCopy(input.constraints ?? []),
     connectors: input.connectors ? mapToPlainObj(input.connectors) : {},
     ...(input.masses?.nodal?.length ? { masses: plainDeepCopy(input.masses) } : {}),
@@ -515,20 +522,26 @@ function serializeInput2D(input: SolverInput): string {
  * future.
  */
 /** A section as the engine takes it: the web-only fields (`bucklingCw`, `torsionGap`) left out. */
-function wireSection3D(s: SolverSection3D): SolverSection3D {
-  if (!('bucklingCw' in s) && !('torsionGap' in s)) return s;
+function wireSection3D(s: SolverSection3D): ElasticSection3DWire {
   const { bucklingCw: _cw, torsionGap: _gap, ...wire } = s;
-  return wire;
+  return section3DToWire(wire);
 }
 
-export function input3DToWireObject(input: SolverInput3D): Record<string, any> {
+export function input3DToWireObject(input: SolverInput3D): Record<string, any> & {
+  nodes: Record<string, Node3DWire>;
+  materials: Record<string, ElasticMaterialWire>;
+  sections: Record<string, ElasticSection3DWire>;
+  elements: Record<string, Omit<SolverElement3D, keyof Element3DWire> & Element3DWire>;
+  supports: Record<string, Omit<SolverSupport3D, keyof Support3DWire> & Support3DWire>;
+  loads: Load3DWire[];
+} {
   return {
-    nodes: mapToObj(input.nodes),
-    materials: mapToObj(input.materials),
-    sections: mapToObj(new Map(Array.from(input.sections, ([id, s]) => [id, wireSection3D(s)]))),
-    elements: mapToObj(input.elements),
-    supports: mapToObj(input.supports),
-    loads: input.loads,
+    nodes: Object.fromEntries(Array.from(input.nodes, ([id, n]) => [String(id), node3DToWire(n)])),
+    materials: Object.fromEntries(Array.from(input.materials, ([id, m]) => [String(id), materialToWire(m)])),
+    sections: Object.fromEntries(Array.from(input.sections, ([id, s]) => [String(id), wireSection3D(s)])),
+    elements: Object.fromEntries(Array.from(input.elements, ([id, e]) => [String(id), element3DToWire(e)])),
+    supports: Object.fromEntries(Array.from(input.supports, ([id, s]) => [String(id), support3DToWire(s)])),
+    loads: input.loads.map(load3DToWire),
     plates: input.plates ? mapToPlainObj(input.plates) : {},
     quads: input.quads ? mapToPlainObj(input.quads) : {},
     curvedShells: input.curvedShells ? mapToPlainObj(input.curvedShells) : {},
@@ -593,7 +606,7 @@ function refuse(msg: string | null | undefined): void {
   if (msg) throw new Error(msg);
 }
 
-const NO_FREE_DOFS = /^No free DOFs/;
+const noFreeDofsRefusal = (e: unknown) => refusedWithCode(e, 'no_free_dofs');
 
 function translateModalMechanism(e: unknown): void {
   const m = guards ? modalMechanismRefusal(thrownText(e)) : null;
@@ -714,11 +727,10 @@ function compressesAny(r: { elementForces?: Array<{ nStart: number; nEnd: number
 function noFreeDofs(kind: 'buckling' | 'modal', linear?: () => { elementForces?: Array<{ nStart: number; nEnd: number }> }): never {
   if (!guards) throw new Error('No free DOFs');
   // A beam no bar of which is compressed has nothing to buckle either way; say that, as for any other.
-  if (kind === 'buckling' && linear && !compressesAny(linear())) throw new Error('No compressed elements — buckling not applicable');
+  if (kind === 'buckling' && linear && !compressesAny(linear())) throw new CodedRefusal('No compressed elements — buckling not applicable', 'no_compressed_elements');
   throw new Error(guards.text(kind === 'buckling' ? 'advanced.noFreeDofsBuckling' : 'advanced.noFreeDofsModal'));
 }
 
-const DECOMPOSITION_FAILED = /Eigenvalue decomposition failed/;
 const SUPPORT_FLAG_3D: Record<string, 'rx' | 'ry' | 'rz' | 'rrx' | 'rry' | 'rrz'> = {
   ux: 'rx', uy: 'ry', uz: 'rz', rx: 'rrx', ry: 'rry', rz: 'rrz',
 };
@@ -766,25 +778,28 @@ function eigen3D<R>(input: SolverInput3D, run: (i: SolverInput3D) => R): { resul
   try {
     return { result: run(input), held: [] };
   } catch (e) {
-    if (!guards || !DECOMPOSITION_FAILED.test(thrownText(e))) throw e;
-    const hold = holdMechanism3D(input);
-    if (!hold) throw e;
-    return { result: run(hold.input), held: hold.held };
+    const hold = guards && refusedWithCode(e, 'eigen_decomposition_failed') ? holdMechanism3D(input) : null;
+    if (!hold) throw asCodedRefusal(e, 'eigen_decomposition_failed');
+    try {
+      return { result: run(hold.input), held: hold.held };
+    } catch (again) {
+      throw asCodedRefusal(again, 'eigen_decomposition_failed');
+    }
   }
 }
 
 // ─── Solver functions ───────────────────────────────────────────
 
 /** Solve 2D linear static analysis via WASM. JsValue in/out — no JSON round trip. */
-export function solve(input: SolverInput): AnalysisResults {
+export function solve(input: SolverInput): AnalysisResultsWire {
   if (!wasmReady || !wasmSolve2d) throw new Error('WASM solver not initialized. Call initSolver() first.');
   const wire = input2DToWireObject(input);
   assertFiniteWire(wire);
-  return wasmSolve2d(wire);
+  return resultsFromWasm(wasmSolve2d(wire));
 }
 
 /** Solve 3D linear static analysis via WASM. JsValue in/out — no JSON round trip. */
-export function solve3D(input: SolverInput3D): AnalysisResults3D {
+export function solve3D(input: SolverInput3D): AnalysisResults3DWire {
   if (!wasmReady || !wasmSolve3d) throw new Error('WASM solver not initialized. Call initSolver() first.');
   const wire = input3DToWireObject(input);
   assertFiniteWire(wire);
@@ -793,7 +808,7 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
   const origError = console.error;
   console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
   try {
-    return finishSolve3D(wasmSolve3d(wire), input);
+    return finishSolve3D(results3DFromWasm(wasmSolve3d(wire)), input);
   } catch (e: any) {
     // Include captured panic message in the error for better diagnostics
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';
@@ -952,12 +967,18 @@ export function hasCertifyExport(): boolean {
   return wasmCertifyLinear2d !== null && wasmCertifyLinear3d !== null;
 }
 
+function normalizeLinear<T extends { certificate: LinearCertificate; endToEnd?: EndToEnd }>(out: T): T {
+  if (out.certificate.status === 'certified') out.certificate.relBound ??= null;
+  if (out.endToEnd?.status === 'certified') out.endToEnd.relBound ??= null;
+  return out;
+}
+
 /** Solve and certify a 2D linear static analysis (a few times the cost of `solve`). */
 export function certifyLinear2D(input: SolverInput): CertifiedLinear2D {
   if (!wasmReady || !wasmCertifyLinear2d) throw new Error('WASM certificate export not available.');
   const wire = input2DToWireObject(input);
   assertFiniteWire(wire);
-  return wasmCertifyLinear2d(wire);
+  return normalizeLinear(wasmCertifyLinear2d(wire));
 }
 
 /** Solve and certify a 3D linear static analysis (a few times the cost of `solve3D`). */
@@ -965,7 +986,7 @@ export function certifyLinear3D(input: SolverInput3D): CertifiedLinear3D {
   if (!wasmReady || !wasmCertifyLinear3d) throw new Error('WASM certificate export not available.');
   const wire = input3DToWireObject(input);
   assertFiniteWire(wire);
-  const out: CertifiedLinear3D = wasmCertifyLinear3d(wire);
+  const out: CertifiedLinear3D = normalizeLinear(wasmCertifyLinear3d(wire));
   finishSolve3D(out.results, input);
   return out;
 }
@@ -975,7 +996,7 @@ export function certifyLinearWire(dim: '2d' | '3d', wire: Record<string, any>): 
   const certify = { '2d': wasmCertifyLinear2d, '3d': wasmCertifyLinear3d }[dim];
   if (!wasmReady || !certify) throw new Error('WASM certificate export not available.');
   assertFiniteWire(wire);
-  return certificateOnly(certify(wire));
+  return certificateOnly(normalizeLinear(certify(wire)));
 }
 
 /** A linear certificate without the results it re-solved (3D carries the shells' bounds). */
@@ -1070,14 +1091,15 @@ export function certifyBuckling3D(input: SolverInput3D, numModes = 4) {
 
 /**
  * The buckling result with its certificate attached, or null to solve it plainly:
- * no certify export, or the certifier threw (the plain solve then reports its own error).
+ * no certify export, or an ordinary certification failure. Containment refusals propagate.
  */
 function bucklingWithCertificate(certify: ((json: string, numModes: number) => string) | null, json: string, numModes: number): any | null {
   if (!certify) return null;
   try {
     const out = JSON.parse(certify(json, numModes));
     return { ...out.results, certificate: out.certificate as BucklingCertificate };
-  } catch {
+  } catch (error) {
+    if (isContainmentRefusal(error)) throw error;
     return null;
   }
 }
@@ -1098,8 +1120,9 @@ export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) 
   try {
     result = normalizePDeltaResult(JSON.parse(wasmSolvePdelta2d(json, maxIter, tolerance)));
   } catch (e) {
-    if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve(merged), 'noFreeDofs');
-    throw e;
+    if (!noFreeDofsRefusal(e)) throw e;
+    if (guards) return linearPDelta(solve(merged), 'noFreeDofs');
+    throw asCodedRefusal(e, 'no_free_dofs');
   }
   if (guards && result.linearResults && !(maxDisplacement(result.linearResults) > 0)) return linearPDelta(result.linearResults, 'noLoads');
   return tagCertifyJob(result, { name: 'certify_pdelta_2d', args: [json, maxIter, tolerance] });
@@ -1118,8 +1141,8 @@ export function solveBuckling(input: SolverInput, numModes = 4) {
     const json = serializeInput2D(restrainOrphanRotations2D(merged));
     result = bucklingWithCertificate(wasmCertifyBuckling2d, json, numModes) ?? JSON.parse(wasmSolveBuckling2d(json, numModes));
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve(merged));
-    throw e;
+    if (noFreeDofsRefusal(e)) noFreeDofs('buckling', () => solve(merged));
+    throw asCodedRefusal(e, 'no_compressed_elements');
   }
   return withoutStaleCertificate(filterBuckling(result));
 }
@@ -1142,7 +1165,7 @@ export function solveModal(
   try {
     result = JSON.parse(wasmSolveModal2d(payload, numModes));
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    if (noFreeDofsRefusal(e)) noFreeDofs('modal');
     translateModalMechanism(e);
     throw e;
   }
@@ -1253,8 +1276,9 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
   try {
     result = JSON.parse(wasmSolvePdelta3d(json, maxIter, tolerance));
   } catch (e) {
-    if (guards && NO_FREE_DOFS.test(thrownText(e))) return linearPDelta(solve3D(input), 'noFreeDofs');
-    throw e;
+    if (!noFreeDofsRefusal(e)) throw e;
+    if (guards) return linearPDelta(solve3D(input), 'noFreeDofs');
+    throw asCodedRefusal(e, 'no_free_dofs');
   }
   // Same as `solve3D` (`solve-finish.ts`). The no-free-DOF answer above is solve3D's, already finished.
   finishPDelta3D(result, input);
@@ -1277,7 +1301,7 @@ export function solveModal3D(input: SolverInput3D, densities: Map<number, number
       densities: mapToObj(densities),
     }), numModes)));
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    if (noFreeDofsRefusal(e)) noFreeDofs('modal');
     translateModalMechanism(e);
     throw e;
   }
@@ -1296,7 +1320,10 @@ export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
   if (hasBucklingWarping(input)) {
     try {
       axial = new Map(solve3D(input).elementForces.map((f) => [f.elementId, (f.nStart + f.nEnd) / 2]));
-    } catch { axial = null; /* The buckling solve below says why. */ }
+    } catch (error) {
+      if (isContainmentRefusal(error)) throw error;
+      axial = null; /* The buckling solve below says why. */
+    }
   }
   let warpingMembers: number[] = [];
   let run;
@@ -1308,8 +1335,8 @@ export function solveBuckling3D(input: SolverInput3D, numModes = 4) {
       return bucklingWithCertificate(wasmCertifyBuckling3d, json, numModes) ?? JSON.parse(wasmSolveBuckling3d!(json, numModes));
     });
   } catch (e) {
-    if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('buckling', () => solve3D(input));
-    throw e;
+    if (noFreeDofsRefusal(e)) noFreeDofs('buckling', () => solve3D(input));
+    throw asCodedRefusal(e, 'no_compressed_elements');
   }
   const out = filterBuckling(run.result);
   return withoutStaleCertificate({ ...out, discardedModes: [...run.held, ...out.discardedModes], warpingMembers });
@@ -1434,7 +1461,7 @@ export function analyzeKinematics3D(input: SolverInput3D) {
 export function combineResults(
   factors: Array<{ caseId: number; factor: number }>,
   perCase: Map<number, AnalysisResults>,
-): AnalysisResults | null {
+): AnalysisResultsWire | null {
   if (!wasmReady || !wasmCombineResults2d) throw new Error('WASM solver not initialized.');
   const cases = factors
     .filter(f => perCase.has(f.caseId))
@@ -1444,14 +1471,19 @@ export function combineResults(
   // output — produced after the input-side guard already rejected non-finite
   // model data — so re-walking multi-MB result trees per combo was pure cost.
   assertFiniteWire(factors);
-  return wasmCombineResults2d({ factors, cases });
+  const combined = wasmCombineResults2d({ factors, cases });
+  return combined === null ? null : resultsFromWasm(combined);
 }
 
-/** Combine 3D results with factors via WASM. JsValue in/out — no JSON round trip. */
+/**
+ * Combine 3D results with factors via WASM. JsValue in/out — no JSON round trip. The engine
+ * refuses plate stresses without `plates`' thicknesses.
+ */
 export function combineResults3D(
   factors: Array<{ caseId: number; factor: number }>,
   perCase: Map<number, AnalysisResults3D>,
-): AnalysisResults3D | null {
+  plates: PlateThickness,
+): AnalysisResults3DWire | null {
   if (!wasmReady || !wasmCombineResults3d) throw new Error('WASM solver not initialized.');
   const cases = factors
     .filter(f => perCase.has(f.caseId))
@@ -1459,7 +1491,8 @@ export function combineResults3D(
   if (cases.length === 0) return null;
   // Same rationale as combineResults: guard factors (cheap), trust solver output.
   assertFiniteWire(factors);
-  return wasmCombineResults3d({ factors, cases });
+  const combined = wasmCombineResults3d({ factors, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]) });
+  return combined === null ? null : results3DFromWasm(combined);
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */

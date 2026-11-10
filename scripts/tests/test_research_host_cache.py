@@ -184,7 +184,7 @@ class Workflow(unittest.TestCase):
     def test_every_bundle_is_offered_to_the_host_cache_in_both_directions(self):
         job = self.job('research-wasm')
         names = re.findall(r'id: research-([a-z0-9-]+)', job)
-        self.assertEqual(len(names), 6)
+        self.assertEqual(len(names), 8)
         restore = job.split('id: host-cache', 1)[1].split('run:', 1)[0]
         save = job.split("Save research compiled assets (this host's cache)", 1)[1].split('run:', 1)[0]
         for name in names:

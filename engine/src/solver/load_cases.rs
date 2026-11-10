@@ -39,6 +39,7 @@ pub struct MultiCaseInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MultiCaseInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub load_cases: Vec<LoadCase3D>,
     pub combinations: Vec<CombinationDef>,
@@ -149,7 +150,7 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
     solver.loads = vec![];
 
     let prepared = prepare_static_2d(&solver)
-        .map_err(|e| format!("Failed to solve case '{}': {}", input.load_cases[0].name, e))?;
+        .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", input.load_cases[0].name)))?;
     let settlement_only = if has_settlement_2d(&solver) { Some(prepared.solve_loads(&[])?) } else { None };
 
     // Solve each load case with the shared factorization
@@ -158,7 +159,7 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
 
     for (idx, lc) in input.load_cases.iter().enumerate() {
         let results = prepared.solve_loads(&lc.loads)
-            .map_err(|e| format!("Failed to solve case '{}': {}", lc.name, e))?;
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", lc.name)))?;
 
         case_map.insert(lc.name.clone(), idx);
         case_results.push(CaseResult {
@@ -214,11 +215,13 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
         .map(|(name, results)| CombinedResult { name, results })
         .collect();
 
-    Ok(MultiCaseResult {
+    let result = MultiCaseResult {
         case_results,
         combination_results,
         envelope,
-    })
+    };
+    crate::boundary::require_finite(&result)?;
+    Ok(result)
 }
 
 // ==================== 3D Multi-Case Solver ====================
@@ -249,7 +252,7 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
     solver.loads = vec![];
 
     let prepared = prepare_static_3d(&solver)
-        .map_err(|e| format!("Failed to solve case '{}': {}", input.load_cases[0].name, e))?;
+        .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", input.load_cases[0].name)))?;
     let settlement_only = if has_settlement_3d(&solver) { Some(prepared.solve_loads(&[])?) } else { None };
 
     let mut case_results = Vec::new();
@@ -257,7 +260,7 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
 
     for (idx, lc) in input.load_cases.iter().enumerate() {
         let results = prepared.solve_loads(&lc.loads)
-            .map_err(|e| format!("Failed to solve case '{}': {}", lc.name, e))?;
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", lc.name)))?;
 
         case_map.insert(lc.name.clone(), idx);
         case_results.push(CaseResult3D {
@@ -282,6 +285,7 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
     }
     let mut combo_names: Vec<String> = Vec::new();
     let mut all_combined_results: Vec<AnalysisResults3D> = Vec::new();
+    let plate_thickness: PlateThicknesses = crate::ordered::values(&input.solver.plates).map(|p| (p.id, p.thickness)).collect();
 
     for combo in &input.combinations {
         let mut combo_factors = Vec::new();
@@ -298,13 +302,16 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
             combo_factors.push(CombinationFactor { case_id: settle_idx, factor: 1.0 - sum });
         }
 
-        if let Some(combined) = combine_results_3d_refs(&combo_factors, &case_refs) {
+        let combined = combine_results_3d_refs_unchecked(&combo_factors, &case_refs, &plate_thickness)
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to combine '{}'", combo.name)))?;
+        if let Some(combined) = combined {
+            check_combined_containment(input, combo, &combo_factors, &case_refs, &combined)?;
             all_combined_results.push(combined);
             combo_names.push(combo.name.clone());
         }
     }
 
-    let envelope = compute_envelope_3d(&all_combined_results)?;
+    let envelope = compute_envelope_3d_checked(&all_combined_results)?;
 
     let combination_results = combo_names
         .into_iter()
@@ -312,11 +319,13 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
         .map(|(name, results)| CombinedResult3D { name, results })
         .collect();
 
-    Ok(MultiCaseResult3D {
+    let result = MultiCaseResult3D {
         case_results,
         combination_results,
         envelope,
-    })
+    };
+    crate::boundary::require_finite(&result)?;
+    Ok(result)
 }
 
 /// Legacy per-case 3D multi-case path: one full `solve_3d` per load case.
@@ -354,7 +363,7 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
         };
 
         let results = solve_3d(&case_input)
-            .map_err(|e| format!("Failed to solve case '{}': {}", lc.name, e))?;
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", lc.name)))?;
 
         case_map.insert(lc.name.clone(), idx);
         case_results.push(CaseResult3D {
@@ -379,6 +388,7 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
     }
     let mut combo_names: Vec<String> = Vec::new();
     let mut all_combined_results: Vec<AnalysisResults3D> = Vec::new();
+    let plate_thickness: PlateThicknesses = crate::ordered::values(&input.solver.plates).map(|p| (p.id, p.thickness)).collect();
 
     for combo in &input.combinations {
         let mut combo_factors = Vec::new();
@@ -395,13 +405,16 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
             combo_factors.push(CombinationFactor { case_id: settle_idx, factor: 1.0 - sum });
         }
 
-        if let Some(combined) = combine_results_3d_refs(&combo_factors, &case_refs) {
+        let combined = combine_results_3d_refs_unchecked(&combo_factors, &case_refs, &plate_thickness)
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to combine '{}'", combo.name)))?;
+        if let Some(combined) = combined {
+            check_combined_containment(input, combo, &combo_factors, &case_refs, &combined)?;
             all_combined_results.push(combined);
             combo_names.push(combo.name.clone());
         }
     }
 
-    let envelope = compute_envelope_3d(&all_combined_results)?;
+    let envelope = compute_envelope_3d_checked(&all_combined_results)?;
 
     let combination_results = combo_names
         .into_iter()
@@ -409,11 +422,13 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
         .map(|(name, results)| CombinedResult3D { name, results })
         .collect();
 
-    Ok(MultiCaseResult3D {
+    let result = MultiCaseResult3D {
         case_results,
         combination_results,
         envelope,
-    })
+    };
+    crate::boundary::require_finite(&result)?;
+    Ok(result)
 }
 
 /// Legacy per-case 2D multi-case path: one full `solve_2d` per load case
@@ -444,7 +459,7 @@ fn solve_multi_case_2d_per_case(input: &MultiCaseInput) -> Result<MultiCaseResul
         };
 
         let results = solve_2d(&case_input)
-            .map_err(|e| format!("Failed to solve case '{}': {}", lc.name, e))?;
+            .map_err(|e| crate::known_issues::contextual_error(e, format!("Failed to solve case '{}'", lc.name)))?;
 
         case_map.insert(lc.name.clone(), idx);
         case_results.push(CaseResult {
@@ -499,11 +514,13 @@ fn solve_multi_case_2d_per_case(input: &MultiCaseInput) -> Result<MultiCaseResul
         .map(|(name, results)| CombinedResult { name, results })
         .collect();
 
-    Ok(MultiCaseResult {
+    let result = MultiCaseResult {
         case_results,
         combination_results,
         envelope,
-    })
+    };
+    crate::boundary::require_finite(&result)?;
+    Ok(result)
 }
 
 fn has_settlement_2d(s: &SolverInput) -> bool {
@@ -512,6 +529,25 @@ fn has_settlement_2d(s: &SolverInput) -> bool {
 
 fn has_settlement_3d(s: &SolverInput3D) -> bool {
     crate::ordered::values(&s.supports).any(|x| [x.dx, x.dy, x.dz, x.drx, x.dry, x.drz].iter().any(|d| d.is_some_and(|v| v != 0.0)))
+}
+
+fn check_combined_containment(input: &MultiCaseInput3D, combo: &CombinationDef, factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)], result: &AnalysisResults3D) -> Result<(), String> {
+    for (_, case) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
+        crate::known_issues::refuse(&case.structured_diagnostics)?;
+    }
+    let mut thermal = Vec::new();
+    for case in &input.load_cases {
+        let factor = combo.factors.get(&case.name).copied().unwrap_or(0.0);
+        for load in &case.loads {
+            if let SolverLoad3D::QuadThermal(t) = load {
+                let mut t = t.clone();
+                t.dt_uniform *= factor;
+                t.dt_gradient *= factor;
+                thermal.push(SolverLoad3D::QuadThermal(t));
+            }
+        }
+    }
+    crate::known_issues::membrane_bending_3d(&input.solver, &thermal, result)
 }
 
 #[cfg(test)]
@@ -525,7 +561,7 @@ mod tests {
             "materials": {"1": {"id":1,"e":200000,"nu":0.3}},
             "sections": {"1": {"id":1,"a":0.01,"iy":0.0001,"iz":0.0001,"j":0.00001}},
             "supports": {"1": {"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
-            "loads": []
+            "loads": [{"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":-1,"mx":0,"my":0,"mz":0}}]
         })).unwrap()
     }
 
@@ -550,5 +586,21 @@ mod tests {
         for _ in 0..32 {
             assert_eq!(combined(), first);
         }
+    }
+
+    #[test]
+    fn a_combination_refuses_a_contributing_case_that_carries_a_refusal() {
+        let solver = cantilever();
+        let clean = solve_3d(&solver).unwrap();
+        let mut refused = clean.clone();
+        refused.structured_diagnostics.push(crate::known_issues::diagnostic("BU-BOUND"));
+        let input = MultiCaseInput3D { solver, load_cases: vec![], combinations: vec![] };
+        let combo = CombinationDef { name: "C".into(), factors: HashMap::new() };
+        let cases = [(0, &refused), (1, &clean)];
+        let with = [CombinationFactor { case_id: 0, factor: 1.0 }, CombinationFactor { case_id: 1, factor: 1.0 }];
+        let error = check_combined_containment(&input, &combo, &with, &cases, &clean).unwrap_err();
+        assert!(error.contains("BU-BOUND"), "{error}");
+        let without = [CombinationFactor { case_id: 0, factor: 0.0 }, CombinationFactor { case_id: 1, factor: 1.0 }];
+        check_combined_containment(&input, &combo, &without, &cases, &clean).unwrap();
     }
 }

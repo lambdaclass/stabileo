@@ -26,6 +26,7 @@
 //! the LP's dual (hinge locations and rotations), turned into an exact
 //! mechanism through the exact compatibility null space.
 
+use crate::solver::support::{support_dofs_3d};
 use super::exact::*;
 use super::plastic_bundle::{sparse_rows, CubicF, LimitProblem, LinF, YieldComp, YieldMember, YieldPiece};
 use super::plastic::{approx_mp, least_squares, lm_end, lm_pieces, push_breakpoints, simplex_min_sum, ElemLoad, Piece};
@@ -267,6 +268,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
     // inside this range; outside it the certificate is refused, not slow.
     super::finite::check_magnitudes(input, super::plastic::EXACT_MIN_ABS, super::plastic::EXACT_MAX_ABS)?;
     let s = &input.solver;
+    crate::solver::support::validate_supports_3d(s)?;
     if !s.constraints.is_empty() {
         return Err("constraints are not supported by the plastic certificate".into());
     }
@@ -300,7 +302,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
     sups.sort_by(|a, b| a.0.cmp(b.0));
     for (_, sup) in sups {
         let n = *idx.get(&sup.node_id).ok_or("support on unknown node")?;
-        for k in [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz, sup.kw].into_iter().flatten() {
+        for k in [support_dofs_3d(sup)[0].spring, support_dofs_3d(sup)[1].spring, support_dofs_3d(sup)[2].spring, support_dofs_3d(sup)[3].spring, support_dofs_3d(sup)[4].spring, support_dofs_3d(sup)[5].spring, support_dofs_3d(sup)[6].spring].into_iter().flatten() {
             if k != 0.0 {
                 return Err("spring supports are not part of the rigid-plastic model".into());
             }
@@ -313,18 +315,22 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
                 return Err("prescribed support displacements are not supported".into());
             }
         }
-        let r = [sup.rx, sup.ry, sup.rz, sup.rrx, sup.rry, sup.rrz];
+        let r = support_dofs_3d(sup).map(|d| d.restrained);
         for k in 0..6 {
             restrained[n][k] |= r[k];
         }
     }
 
-    let mut mp_by_sec: HashMap<usize, Option<[(Q, Q); 2]>> = HashMap::new();
+    let mut mp_by_sec: HashMap<usize, [(Q, Q); 2]> = HashMap::new();
     for (sid, sec) in &input.sections {
-        let sec_id: usize = sid.parse().unwrap_or(0);
+        let sec_id: usize = sid.parse().map_err(|_| format!("section id {sid:?} is not a number"))?;
         let over = input.mp_overrides.as_ref().and_then(|m| m.get(sid)).copied();
         let fy = input.materials.get(&sec.material_id.to_string()).and_then(|m| m.fy).unwrap_or(250.0);
-        mp_by_sec.insert(sec_id, mp_3d(sec, fy, over)?);
+        if let Ok(Some(mp)) = mp_3d(sec, fy, over) {
+            if mp[0].0.is_positive() && mp[1].0.is_positive() {
+                mp_by_sec.insert(sec_id, mp);
+            }
+        }
     }
 
     let mut elem_list: Vec<&SolverElement3D> = crate::ordered::values(&s.elements).collect();
@@ -377,7 +383,11 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
             nz,
             frame,
             rel,
-            mp: if frame_elem { mp_by_sec.get(&el.section_id).cloned().flatten() } else { None },
+            mp: if frame_elem {
+                Some(mp_by_sec.get(&el.section_id).cloned().ok_or_else(|| crate::solver::plastic::no_plastic_capacity_message(el.id, el.section_id))?)
+            } else {
+                None
+            },
             loads_y: Vec::new(),
             loads_z: Vec::new(),
             loads_x: Vec::new(),
@@ -455,6 +465,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
                 }
             }
             SolverLoad3D::PointOnElement(pl) => {
+                if pl.px != 0.0 { return Err("axial point loads are not supported by the 3D plastic certificate".into()); }
                 let ei = *eidx.get(&pl.element_id).ok_or("load on unknown element")?;
                 let (py, pz) = (q(pl.py).ok_or("non-finite load")?, q(pl.pz).ok_or("non-finite load")?);
                 if py.is_zero() && pz.is_zero() {
@@ -839,9 +850,15 @@ struct Equilibrium {
 /// `x = (F, Mᵢ)` per member.
 fn equilibrium_system(model: &PlasticModel3) -> Result<Equilibrium, String> {
     let (rows, rhs) = equilibrium_rows(model);
-    let r = rref_solve(&rows, Some(&rhs), 6 * model.elems.len());
+    let r = rref_solve(&rows, Some(&rhs), 6 * model.elems.len())?;
     let xp = r.particular.ok_or("the loads admit no equilibrium state (the structure cannot carry them)")?;
     Ok(Equilibrium { xp, null: r.null_basis })
+}
+
+fn equilibrium_equation_count(model: &PlasticModel3) -> usize {
+    model.restrained.iter().flatten().filter(|r| !**r).count().saturating_add(
+        model.elems.iter().map(|e| e.rel.iter().flatten().filter(|r| **r).count()).fold(0usize, usize::saturating_add),
+    )
 }
 
 /// The equilibrium equations `A x = λ b` (dense rows of `A`, and `b`): every free
@@ -1094,6 +1111,36 @@ fn lm_at(f: &ElemF, t: f64) -> (f64, f64) {
 }
 
 const DIRS0: usize = 8;
+const INITIAL_INTERVALS: usize = 16;
+const REFINEMENT_PASSES: usize = 60;
+const REFINEMENT_INTERVALS: usize = 64;
+
+pub fn lp_work(model: &PlasticModel3) -> super::plastic_budget::PlasticLpWork {
+    let mut initial_samples = 0usize;
+    let mut loaded_pieces = 0usize;
+    for e in model.elems.iter().filter(|e| e.mp.is_some()) {
+        let loaded = e.frame.is_some() && e.loaded();
+        let intervals = if loaded { INITIAL_INTERVALS } else { 1 };
+        let pieces = e.pieces_y.len();
+        initial_samples = initial_samples.saturating_add(
+            pieces.saturating_mul(intervals).saturating_add(usize::from(pieces != 0)),
+        );
+        if loaded {
+            loaded_pieces = loaded_pieces.saturating_add(pieces);
+        }
+    }
+    let initial_halfspaces = initial_samples.saturating_mul(DIRS0);
+    let extra_samples = REFINEMENT_PASSES.saturating_mul(REFINEMENT_INTERVALS - 1).saturating_mul(loaded_pieces);
+    let max_halfspaces = initial_halfspaces.saturating_add(REFINEMENT_PASSES.saturating_mul(2).saturating_mul(initial_samples))
+        .saturating_add(extra_samples.saturating_mul(DIRS0 + 1 + 2 * REFINEMENT_PASSES));
+    super::plastic_budget::PlasticLpWork {
+        equilibrium_equations: equilibrium_equation_count(model),
+        force_variables: model.elems.len().saturating_mul(6),
+        initial_halfspaces,
+        max_halfspaces,
+        max_solves: 1 + REFINEMENT_PASSES,
+    }
+}
 
 fn initial_samples(model: &PlasticModel3, ef: &[ElemF]) -> Vec<Sample> {
     let dirs = base_dirs();
@@ -1106,7 +1153,7 @@ fn initial_samples(model: &PlasticModel3, ef: &[ElemF]) -> Vec<Sample> {
         let mut ts: Vec<Q> = Vec::new();
         for pc in &e.pieces_y {
             let curved = f.loaded;
-            let n = if curved { 16 } else { 1 };
+            let n = if curved { INITIAL_INTERVALS } else { 1 };
             for j in 0..=n {
                 ts.push(&pc.a + (&pc.b - &pc.a) * qr(j as i64, n as i64));
             }
@@ -1307,7 +1354,7 @@ fn refine(model: &PlasticModel3, ef: &[ElemF], x: &[f64], lam: f64, samples: &mu
             (my * my + mz * mz).sqrt()
         };
         for &(pa, pb, _, _) in &f.pieces {
-            let n = 64;
+            let n = REFINEMENT_INTERVALS;
             let ts: Vec<f64> = (0..=n).map(|i| pa + (pb - pa) * i as f64 / n as f64).collect();
             let vs: Vec<f64> = ts.iter().map(|&t| ratio(t)).collect();
             for i in 1..n {
@@ -1431,7 +1478,7 @@ fn best_mechanism(
     end_hinge: &[[bool; 2]],
     interior: &[Vec<Q>],
     target: &[(usize, Q, [f64; 2])],
-) -> Option<(Mechanism3, MechanismCheck3)> {
+) -> Result<Option<(Mechanism3, MechanismCheck3)>, String> {
     let nn = model.node_ids.len();
     let mut col = vec![[usize::MAX; 6]; nn];
     let mut n = 0;
@@ -1509,9 +1556,9 @@ fn best_mechanism(
             rows.push(r);
         }
     }
-    let basis = rref_solve(&rows, None, n).null_basis;
+    let basis = rref_solve(&rows, None, n)?.null_basis;
     if basis.is_empty() {
-        return None;
+        return Ok(None);
     }
     let to_mech = |v: &[Q]| -> Mechanism3 {
         let nodes = (0..nn)
@@ -1583,7 +1630,7 @@ fn best_mechanism(
             }
         }
     }
-    best
+    Ok(best)
 }
 
 /// The mechanism of least `D/W` in the span of the compatibility basis:
@@ -1739,12 +1786,14 @@ pub fn plastic_candidates_3d(
     model: &PlasticModel3,
     solver: Option<(&PlasticInput3D, &PlasticResult3D)>,
 ) -> Result<PlasticCandidates3, String> {
+    lp_work(model).check_engine_budget()?;
     let eq = equilibrium_system(model)?;
+    lp_work(model).check_candidate_workspace(eq.null.len())?;
     let eqf = EqF { xp: eq.xp.iter().map(to_f64).collect(), null: eq.null.iter().map(|v| v.iter().map(to_f64).collect()).collect() };
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
     let mut samples = initial_samples(model, &ef);
     let mut lp = solve_lp(&samples, &ef, &eqf).ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
-    for _ in 0..60 {
+    for _ in 0..REFINEMENT_PASSES {
         let x = field_f64(&eqf, lp.lambda, &lp.z);
         let (added, _) = refine(model, &ef, &x, lp.lambda, &mut samples);
         if !added {
@@ -1839,7 +1888,7 @@ pub fn plastic_candidates_3d(
                 h.sort();
                 h.dedup();
             }
-            let cand = best_mechanism(model, &end_hinge, &interior, &target);
+            let cand = best_mechanism(model, &end_hinge, &interior, &target)?;
             let found = cand.is_some();
             keep(cand, &mut best_mech);
             if found {
@@ -1871,7 +1920,7 @@ pub fn plastic_candidates_3d(
             target.push((ei, t.clone(), [ry * to_f64(&e.ny).sqrt(), rz * to_f64(&e.nz).sqrt()]));
         }
         let before = c.lambda_upper.clone();
-        keep(best_mechanism(model, &end_hinge, &interior, &target), &mut best_mech);
+        keep(best_mechanism(model, &end_hinge, &interior, &target)?, &mut best_mech);
         if best_mech.as_ref().is_some_and(|(_, c)| c.lambda_upper >= before) {
             break;
         }
@@ -2066,15 +2115,83 @@ fn collapse_3d(input: &PlasticInput3D, solver: Option<&PlasticResult3D>) -> Plas
 /// Run the incremental 3D plastic solver and certify its collapse load factor.
 pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, String> {
     super::finite::check_input(input)?;
-    let results = solve_plastic_3d(input)?;
+    if let Ok(model) = build_model_3d(input) {
+        lp_work(&model).check_engine_budget()?;
+    }
+    let mut results = solve_plastic_3d(input)?;
     super::finite::check_results(&results)?;
     let certificate = certify_collapse_3d(input, Some(&results));
+    let (lower, upper) = match (certificate.certified, certificate.lambda_lower, certificate.lambda_upper) {
+        (true, Some(lower), Some(upper)) if lower.is_finite() && upper.is_finite() && lower <= upper => (lower, upper),
+        _ => return Err(format!("3D plastic collapse certificate unavailable: {}", certificate.reason.as_deref().unwrap_or("no sound finite ordered interval"))),
+    };
+    let raw = results.collapse_factor;
+    let outside = raw < lower || raw > upper;
+    let comparison = if outside {
+        format!("PL-3D-CERTIFICATE-MISMATCH: raw incremental factor {raw} lies outside the certified interval [{lower}, {upper}]")
+    } else {
+        format!("Raw incremental factor {raw} lies within the certified interval [{lower}, {upper}]")
+    };
+    let warning = format!("collapseFactor is the certified lower bound {lower}. {comparison}. Incremental steps and hinges retain raw solver values and are not certified by this interval.");
+    if outside {
+        let mut diagnostic = crate::known_issues::diagnostic("PL-3D-CERTIFICATE-MISMATCH");
+        diagnostic.severity = Severity::Warning;
+        diagnostic.message = warning.clone();
+        results.structured_diagnostics.push(diagnostic);
+    }
+    results.warnings.push(warning);
+    results.collapse_factor = lower;
     Ok(CertifiedPlastic3D { results, certificate })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mechanism_resource_refusal_is_preserved() {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        let mut model = build_model_3d(&input).unwrap();
+        model.elems[0].d[0] = Q::from_integer(num_bigint::BigInt::one() << (super::super::plastic_budget::MAX_EXACT_BITS as usize + 1));
+        let ends = vec![[false; 2]; model.elems.len()];
+        let interior = vec![Vec::new(); model.elems.len()];
+        let result = best_mechanism(&model, &ends, &interior, &[]);
+        let refusal = format!("{result:?}");
+        assert!(refusal.starts_with("Err("), "{refusal}");
+        assert!(refusal.contains("exact plastic LP resource budget exceeded: rational limb bits"), "{refusal}");
+    }
+
+
+    #[test]
+    fn lp_work_matches_initial_samples() {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        let original = build_model_3d(&input).unwrap();
+        for count in [1, 2, 7] {
+            for loaded in [true, false] {
+                let mut model = original.clone();
+                let e = &mut model.elems[0];
+                for pieces in [&mut e.pieces_y, &mut e.pieces_z] {
+                    let template = pieces[0].clone();
+                    *pieces = (0..count).map(|i| Piece {
+                        a: qr(i, count), b: qr(i + 1, count), c: template.c.clone(),
+                    }).collect();
+                }
+                if !loaded {
+                    e.loads_x.clear();
+                    e.loads_y.clear();
+                    e.loads_z.clear();
+                }
+                for capacity in [true, false] {
+                    if !capacity { model.elems[0].mp = None; }
+                    let ef: Vec<_> = model.elems.iter().map(elem_f64).collect();
+                    assert_eq!(lp_work(&model).initial_halfspaces,
+                        initial_samples(&model, &ef).iter().map(|s| s.dirs.len()).sum::<usize>());
+                }
+            }
+        }
+    }
 
     #[test]
     fn bernstein_max_bounds_a_sextic() {

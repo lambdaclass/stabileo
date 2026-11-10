@@ -115,7 +115,7 @@ def main():
             if proc.returncode not in (0, 1) or not result_path.exists():
                 raise RuntimeError(f'{check} harness failed: {proc.stdout}\n{proc.stderr}')
             rows = json.loads(result_path.read_text())
-            bad = {'mismatch', 'false_reject', 'false_warning', 'silent_singular'}
+            bad = {'mismatch', 'converging', 'false_reject', 'false_warning', 'silent_singular', 'silent_unimposed'}
             if not rows:
                 raise RuntimeError(f'{check} harness returned no outcomes')
             for row in rows:
@@ -124,7 +124,7 @@ def main():
                     category = 'completed'
                 elif status in {'unsupported', 'not_applicable', 'unloaded'}:
                     category = 'skipped'
-                elif status in {'ill_conditioned', 'near_singular', 'unstable', 'stabileo_failed', 'refused'}:
+                elif status in {'ill_conditioned', 'near_singular', 'warned_singular', 'unstable', 'stabileo_failed', 'refused'}:
                     category = 'inconclusive'
                 else:
                     category = 'errors'
@@ -149,6 +149,8 @@ def main():
                 changed = False
                 for field in ('loads', 'elements'):
                     values = structural_model(model).get(field, [])
+                    if field == 'loads' and len(values) <= 1:
+                        continue
                     for key in list(range(len(values))) if isinstance(values, list) else list(values):
                         if time.monotonic() >= end:
                             return model, 'budget-limited reduction'
@@ -186,7 +188,10 @@ def main():
                     if check == 'codeaster' and not any('y' in n and 'z' in n for n in model['nodes'].values()):
                         summary['comparisons'][check]['skipped'].append({'seed': seed, 'status': 'unsupported_2d'})
                         continue
+                    covered = summary['comparisons'][check].get('covered_models', 0)
                     failures = evaluate(model, check, seed, record=True)
+                    if check == 'metamorphic' and summary['comparisons'][check]['covered_models'] == covered:
+                        summary['comparisons'][check].setdefault('uncovered', []).append({'seed': seed, 'model': 'given' if a.model else dim})
                     pending = []
                     # Persist every failure before reduction, so a timeout cannot
                     # erase siblings. Replace each record atomically as it shrinks.
@@ -210,7 +215,8 @@ def main():
             else:
                 raise RuntimeError('too many rejected models; requested valid-model count not reached')
             if 'metamorphic' in checks and summary['comparisons']['metamorphic'].get('covered_models', 0) < summary['valid']:
-                raise RuntimeError('insufficient metamorphic coverage: each model requires a usable invariant')
+                uncovered = summary['comparisons']['metamorphic'].get('uncovered', [])
+                raise RuntimeError(f'insufficient metamorphic coverage: {len(uncovered)} of {summary["valid"]} models had no usable invariant (seeds under comparisons.metamorphic.uncovered in summary.json), and each model requires one')
         finally:
             (a.out / 'summary.json').write_text(json.dumps(summary, indent=2))
             print(json.dumps(summary), flush=True)

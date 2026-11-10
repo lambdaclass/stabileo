@@ -42,7 +42,7 @@ use crate::postprocess::rc_check::{
     axial_capacity as rc_axial_capacity, flexural_capacity as rc_flexural_capacity,
     flexure_section as rc_flexure_section, interaction_c_range, interaction_point,
     shear_capacity as rc_shear_capacity, RCDesignForces, RCMemberData, RCSectionType, RC_AXIAL, RC_FLEXURE,
-    RC_SHEAR,
+    RC_SHEAR, RC_TORSION,
 };
 use crate::postprocess::cfs_check::{
     cfs_capacities, CfsCapacities, CfsDesignForces, CfsMemberData, CFS_CHECK_NAMES, PHI_B as CFS_PHI_B,
@@ -140,14 +140,19 @@ fn around(x: f64, d: f64, what: &str) -> Result<Interval, String> {
 /// demand is "not applicable" (ratio 0), exactly as `CheckLedger::ratio_if_loaded`;
 /// otherwise the capacity must be certified positive.
 fn loaded_ratio(name: &str, d: Interval, cap: Interval) -> Result<Interval, String> {
-    if d.lo == 0.0 && d.hi == 0.0 {
-        return Ok(Interval::ZERO);
+    certified(name, cap, crate::check::enclosure_if_loaded(d, cap))
+}
+
+fn certified(name: &str, cap: Interval, o: crate::check::Outcome<Interval>) -> Result<Interval, String> {
+    use crate::check::{Outcome, Reason};
+    match o {
+        Outcome::Ratio(r) => Ok(r),
+        Outcome::Unevaluated(Reason::NonFiniteCapacity | Reason::NonPositiveCapacity) => {
+            Err(format!("{name}: capacity not certified positive ({cap:?})"))
+        }
+        Outcome::Unevaluated(Reason::NonFiniteDemand) => Err(format!("{name}: non-finite demand")),
+        Outcome::Unevaluated(Reason::NonFiniteRatio) => Err(format!("{name}: non-finite ratio")),
     }
-    if !cap.is_finite() || !(cap.lo > 0.0) {
-        return Err(format!("{name}: capacity not certified positive ({cap:?})"));
-    }
-    let r = d.div(cap);
-    if r.is_finite() { Ok(r) } else { Err(format!("{name}: non-finite ratio")) }
 }
 
 /// Interval enclosures of the six AISC ratios for one demand box. Mirrors
@@ -535,12 +540,7 @@ pub fn ec2_ratio_enclosures(
     let v = around(f.v_ed.unwrap_or(0.0), b.v_strong, "VEd")?.abs();
     let n = around(f.n_ed.unwrap_or(0.0), b.n, "NEd")?;
     let flex: Ec2Flexure<Interval> = ec2_flexure(m);
-    // `CheckLedger::ratio` (not `_if_loaded`): the flexural resistance must be
-    // usable even without a moment.
-    if !flex.m_rd.is_finite() || !(flex.m_rd.lo > 0.0) {
-        return Err(format!("{}: MRd not certified positive ({:?})", EC2_CHECK_NAMES[0], flex.m_rd));
-    }
-    let flexure = mm.div(flex.m_rd);
+    let flexure = required_ratio(EC2_CHECK_NAMES[0], mm, flex.m_rd)?;
     let shear: Ec2Shear<Interval> = ec2_shear(m, n);
     let shear = loaded_ratio(EC2_CHECK_NAMES[1], v, shear.v_rd)?;
     if !flexure.is_finite() || !shear.is_finite() {
@@ -584,11 +584,7 @@ const CIRSOC201_CHECK_NAMES: [&str; 4] = [CIRSOC201_FLEXURE, CIRSOC201_DUCTILITY
 /// Flexure ratio as `CheckLedger::ratio`: the capacity must be certified
 /// positive even with no moment (the f64 check flags it otherwise).
 fn required_ratio(name: &str, d: Interval, cap: Interval) -> Result<Interval, String> {
-    if !cap.is_finite() || !(cap.lo > 0.0) {
-        return Err(format!("{name}: capacity not certified positive ({cap:?})"));
-    }
-    let r = d.div(cap);
-    if r.is_finite() { Ok(r) } else { Err(format!("{name}: non-finite ratio")) }
+    certified(name, cap, crate::check::enclosure(d, cap))
 }
 
 /// Refuse a flexure section whose force residual is not provably strictly
@@ -627,10 +623,7 @@ pub fn cirsoc201_ratio_enclosures(
     let ductility = match applies {
         Tri::False => Interval::ZERO,
         _ => {
-            if !(flex.epsilon_t.lo > 0.0) {
-                return Err(format!("{CIRSOC201_DUCTILITY}: εt not certified positive"));
-            }
-            let r = cirsoc201_ductility_strain::<Interval>(m.edition, m.fy, es).div(flex.epsilon_t);
+            let r = required_ratio(CIRSOC201_DUCTILITY, cirsoc201_ductility_strain::<Interval>(m.edition, m.fy, es), flex.epsilon_t)?;
             if applies == Tri::True { r } else { r.hull(Interval::ZERO) }
         }
     };
@@ -913,6 +906,11 @@ fn interaction_moment_enclosure(m: &RCMemberData, es: f64, pu: Interval) -> Resu
 /// of both. A T-beam with a possibly non-zero axial force is refused (the f64
 /// check flags it incomplete).
 pub fn rc_ratio_enclosures(m: &RCMemberData, f: &RCDesignForces, b: &DemandBound) -> Result<[Interval; 3], String> {
+    if let Some(tu) = f.tu {
+        if !tu.is_finite() || tu != 0.0 {
+            return Err(format!("{RC_TORSION}: torsion check not implemented (Tu = {tu})"));
+        }
+    }
     let mu = around(f.mu, b.my, "Mu")?.abs();
     let vu = around(f.vu.unwrap_or(0.0), b.v_strong, "Vu")?.abs();
     let nu = around(f.nu.unwrap_or(0.0), b.n, "Nu")?;
@@ -984,7 +982,7 @@ pub fn rc_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedRcDemand>
         .map(|d| {
             strong_axis_only(d, "ACI 318", false)?;
             Ok(BoundedRcDemand {
-                forces: RCDesignForces { element_id: d.forces.element_id, mu: d.forces.my, vu: d.forces.v_strong, nu: Some(d.forces.n) },
+                forces: RCDesignForces { element_id: d.forces.element_id, mu: d.forces.my, vu: d.forces.v_strong, nu: Some(d.forces.n), tu: None },
                 bound: d.bound,
             })
         })
@@ -1491,6 +1489,19 @@ mod tests {
     }
 
     #[test]
+    fn sa_2026_025_shear_without_web_area_is_unevaluated_at_the_ratio_boundary() {
+        let mut m = w_member(1, 3.0);
+        m.aw = None;
+        let phi_vn: f64 = crate::postprocess::steel_check::shear_capacity(&m);
+        assert_eq!(phi_vn, 0.0);
+        assert_eq!(crate::check::ratio_if_loaded(400e3, phi_vn), crate::check::Outcome::Unevaluated(crate::check::Reason::NonPositiveCapacity));
+        let f = ElementDesignForces { element_id: 1, n: 0.0, my: 10e3, mz: None, v_strong: Some(400e3), v_weak: None };
+        let r = &check_steel_members(&SteelCheckInput { members: vec![m.clone()], forces: vec![f.clone()] })[0];
+        assert_eq!(r.unevaluated, vec!["Shear G2".to_string()]);
+        assert!(steel_ratio_enclosures(&m, &f, &ZERO_BOUND).is_err());
+    }
+
+    #[test]
     fn aisc_shear_bound_reaching_zero_without_web_area_is_refused() {
         let mut m = w_member(1, 3.0);
         m.aw = None;
@@ -1770,6 +1781,33 @@ mod tests {
         let (r, c) = ec3_shear_only(&m, 0.0);
         assert!(r.unevaluated.is_empty() && r.pass, "{:?}", r.unevaluated);
         assert!(c.certified && c.certified_ok, "{c:?}");
+    }
+
+    #[test]
+    fn sa_2026_026_shear_without_av_or_geometry_is_unevaluated_at_the_ratio_boundary() {
+        let mut m = heb300(1);
+        m.geometry = None;
+        m.ltb = None;
+        let av: f64 = crate::postprocess::ec3_check::shear_area(&m);
+        assert!(av.is_nan(), "no 0.5·A substitute: {av}");
+        let vpl_rd = av * m.fy / 3f64.sqrt();
+        assert_eq!(crate::check::ratio_if_loaded(1e5, vpl_rd), crate::check::Outcome::Unevaluated(crate::check::Reason::NonFiniteCapacity));
+        let (r, c) = ec3_shear_only(&m, 1e5);
+        assert_eq!(r.shear_ratio, 0.0);
+        assert!(r.unevaluated.iter().any(|n| n == "Shear 6.2.6") && !r.pass, "{:?}", r.unevaluated);
+        assert!(!c.certified_ok, "{c:?}");
+    }
+
+    #[test]
+    fn an_unknown_ec3_reduction_factor_crosses_the_boundary_as_null_with_its_check_unevaluated() {
+        let mut m = heb300(1);
+        m.geometry = None;
+        m.lb = 4.0;
+        let (r, _) = ec3_shear_only(&m, 1e5);
+        assert!(r.chi_lt.is_nan(), "{}", r.chi_lt);
+        let json: serde_json::Value = serde_json::from_str(&crate::boundary::to_json(&r).expect("an unknown chi_LT is reported, not refused")).unwrap();
+        assert!(json["chiLt"].is_null(), "{json}");
+        assert!(json["unevaluated"].as_array().unwrap().iter().any(|n| n == "LTB chi_LT"), "{json}");
     }
 
     #[test]
@@ -2124,6 +2162,7 @@ mod tests {
             mu: g.range(-8e5, 8e5),
             vu: if g.unit() < 0.1 { None } else { Some(g.range(-6e5, 6e5)) },
             nu: if !rect || g.unit() < 0.3 { None } else { Some(g.range(-0.6 * po, 0.1 * po)) },
+            tu: None,
         }
     }
 
@@ -2185,6 +2224,7 @@ mod tests {
                     mu: f.mu + b.my * g.range(-1.0, 1.0),
                     vu: Some(f.vu.unwrap_or(0.0) + b.v_strong * g.range(-1.0, 1.0)),
                     nu: Some(nu),
+                    tu: None,
                 };
                 let p = aci_f64(&m, &s).unwrap_or_else(|| panic!("{i}: certified box contains an unevaluable point"));
                 for k in 0..3 {
@@ -2219,7 +2259,7 @@ mod tests {
             s_stirrup: None,
             lambda: None,
         };
-        let f = RCDesignForces { element_id: 1, mu: 1.5e5, vu: None, nu: Some(0.0) };
+        let f = RCDesignForces { element_id: 1, mu: 1.5e5, vu: None, nu: Some(0.0), tu: None };
         let r = rc_ratio_enclosures(&m, &f, &DemandBound { n: 5e4, ..ZERO_BOUND }).unwrap();
         for nu in [-5e4, -1e4, -1.0, 0.0, 1.0, 1e4, 5e4] {
             let p = aci_f64(&m, &RCDesignForces { nu: Some(nu), ..f.clone() }).unwrap();
@@ -2265,7 +2305,7 @@ mod tests {
         let sqrt_fc = 28.0f64.sqrt();
         let av_min_mm2 = (0.062 * sqrt_fc * 300.0 * 200.0 / 420.0).max(0.35 * 300.0 * 200.0 / 420.0);
         m.av = Some(av_min_mm2 / 1e6);
-        let f = RCDesignForces { element_id: 1, mu: 1e5, vu: Some(2e5), nu: None };
+        let f = RCDesignForces { element_id: 1, mu: 1e5, vu: Some(2e5), nu: None, tu: None };
         let r = rc_ratio_enclosures(&m, &f, &ZERO_BOUND).unwrap();
         let p = aci_f64(&m, &f).unwrap();
         for k in 0..3 {

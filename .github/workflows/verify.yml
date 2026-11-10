@@ -33,10 +33,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  # The proofs run when a pull request touches one of these paths.
-  VERIFY_PATHS: '^(verify/|engine/src/|engine/Cargo\.toml$|Cargo\.lock$|docs/verification/|tools/symbolic/|engine/tests/symbolic_elements\.rs$|flake\.(nix|lock)$|scripts/kani|\.github/workflows/verify\.yml$)'
-
 jobs:
   # Pull requests and merge-queue entries only. If this job fails, the proofs run anyway (fail safe).
   changes:
@@ -48,11 +44,11 @@ jobs:
       pull-requests: read
     outputs:
       verify: ${{ steps.filter.outputs.verify }}
+      kani: ${{ steps.filter.outputs.kani }}
     steps:
-      - if: github.event_name == 'merge_group'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.merge_group.head_sha }}
+          ref: ${{ github.event.merge_group.head_sha || github.event.pull_request.head.sha }}
           fetch-depth: 1
       - id: filter
         env:
@@ -69,8 +65,7 @@ jobs:
             files=$(git diff --name-only "$BASE" "$HEAD")
           fi
           echo "$files"
-          if grep -qE "$VERIFY_PATHS" <<<"$files"; then verify=true; else verify=false; fi
-          echo "verify=$verify" | tee -a "$GITHUB_OUTPUT"
+          python3 -I .github/scripts/verify-changes.py <<<"$files" | tee -a "$GITHUB_OUTPUT"
 
   lean:
     needs: changes
@@ -129,11 +124,16 @@ jobs:
       - name: Generated test is up to date
         run: python -I tools/symbolic/gen.py --check
 
-  kani:
+  kani-shard:
+    name: kani-shard (${{ matrix.shard }}/5)
     needs: changes
-    if: ${{ !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.result != 'success' || needs.changes.outputs.verify == 'true') }}
+    if: ${{ !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.result != 'success' || needs.changes.outputs.kani != 'false') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -147,7 +147,7 @@ jobs:
         run: |
           .github/scripts/retry-infra.sh nix develop .#verify --command true
       - name: Install Kani
-        run: nix develop .#verify -c ./scripts/kani-setup.sh
+        run: .github/scripts/retry-infra.sh nix develop .#verify -c ./scripts/kani-setup.sh
       # One harness at a time under a memory/time watchdog: CBMC can need tens of GB
       # per float-heavy harness, and the runner has 16 GB.
       # Pull requests and the merge queue run the fast tier; the nightly schedule and manual runs
@@ -155,6 +155,7 @@ jobs:
       - name: Kani harnesses
         env:
           KANI_MEM_GB: 12
+          KANI_SHARD: ${{ matrix.shard }}/5
           # The nightly-tier harnesses take up to ~10 min locally, ~2x that on the runner.
           KANI_TIMEOUT_S: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 900 || 2400 }}
           KANI_TIER: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 'fast' || 'all' }}
@@ -162,3 +163,43 @@ jobs:
       - name: Kani report
         if: always()
         run: column -t target/kani-report.tsv || true
+      - name: Record shard result
+        if: always()
+        env:
+          SHARD_RESULT: ${{ job.status }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/kani-result"
+          printf '%s\n' "$SHARD_RESULT" > "$RUNNER_TEMP/kani-result/result"
+      - name: Publish shard result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kani-result-${{ matrix.shard }}
+          overwrite: true
+          path: ${{ runner.temp }}/kani-result/result
+
+  kani:
+    needs: [changes, kani-shard]
+    if: ${{ always() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.result != 'success' || needs.changes.outputs.kani != 'false') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Every Kani shard job succeeded
+        env:
+          SHARDS_RESULT: ${{ needs.kani-shard.result }}
+        run: |
+          if [ "$SHARDS_RESULT" != success ]; then
+            echo "Kani shard jobs: $SHARDS_RESULT" >&2
+            exit 1
+          fi
+      - name: Download shard results
+        continue-on-error: true
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: kani-result-*
+          path: target/kani-results
+      - name: Every Kani shard passed
+        run: python3 -I .github/scripts/kani-aggregate.py target/kani-results 5

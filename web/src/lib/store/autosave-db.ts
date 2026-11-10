@@ -98,6 +98,8 @@ export interface AutosaveWriteResult {
   backend: AutosaveBackend;
   /** The revision that was committed. Null when nothing was. */
   revision: number | null;
+  /** Names the committed write, so a later caller can tell it is still the newest one. */
+  writeId?: string;
   failure?: { kind: AutosaveFailureKind; detail: string };
 }
 
@@ -141,6 +143,7 @@ interface MetaRecord {
   unfinishedRevision: number | null;
   /** Set once the legacy localStorage slot has been imported (or found absent). */
   legacyImported: boolean;
+  lastWriteId?: string;
 }
 
 interface StoredRecord {
@@ -330,6 +333,7 @@ export async function autosaveWrite<T>(
     return { ok: false, backend: 'indexeddb', revision: null, failure: classify(err) };
   }
   const revision = meta.lastRevision + 1;
+  const writeId = crypto.randomUUID();
 
   try {
     // 1. Declare the intent. A marker left behind is the evidence that the write below
@@ -358,8 +362,9 @@ export async function autosaveWrite<T>(
       ...meta,
       lastRevision: revision,
       unfinishedRevision: null,
+      lastWriteId: writeId,
     });
-    return { ok: true, backend: 'indexeddb', revision };
+    return { ok: true, backend: 'indexeddb', revision, writeId };
   } catch (err) {
     return { ok: false, backend: 'indexeddb', revision: null, failure: classify(err) };
   }
@@ -540,6 +545,18 @@ async function importLegacyOnce<T>(database: IDBDatabase, policy: AutosavePolicy
   }
   const after = await readMeta(database).catch(() => meta);
   await writeMeta(database, { ...after, legacyImported: true }).catch(() => undefined);
+}
+
+/** The id of the newest committed IndexedDB write, or null when there is none or it cannot be read. */
+export async function autosaveLatestWriteId(): Promise<string | null> {
+  const database = await db();
+  if (!database) return null;
+  try {
+    const meta = await readMeta(database);
+    return meta.unfinishedRevision === null ? meta.lastWriteId ?? null : null;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Clear ──────────────────────────────────────────────────────────

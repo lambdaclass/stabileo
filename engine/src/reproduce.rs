@@ -64,7 +64,7 @@ fn hashes<I: Serialize, R: Serialize>(dim: &str, input: &I, result: &R) -> Resul
 /// Solve a linear `SolverInput` (2D) or `SolverInput3D` (3D) given as JSON and hash input and result.
 pub fn linear_hashes(json: &str, is_3d: bool) -> Result<ReproduceHashes, String> {
     if is_3d {
-        let input: SolverInput3D = serde_json::from_str(json).map_err(|e| format!("SolverInput3D: {e}"))?;
+        let input = serde_json::from_str::<crate::types::units::ElasticInput3D>(json).map_err(|e| format!("SolverInput3D: {e}"))?.into_legacy();
         let r = solve_3d(&input)?;
         hashes("3d", &input, &r)
     } else {

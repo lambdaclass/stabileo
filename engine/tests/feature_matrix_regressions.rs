@@ -6,7 +6,7 @@ use crate::common;
 
 use common::{make_3d_input, make_input};
 use dedaliano_engine::postprocess::influence;
-use dedaliano_engine::solver::{buckling, corotational, linear, material_nonlinear, plastic, staged};
+use dedaliano_engine::solver::{arc_length, buckling, corotational, linear, material_nonlinear, plastic, staged};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -73,7 +73,9 @@ fn plastic_2d_hinge_forms_at_a_rotational_spring() {
     input.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -30.0, my: 0.0 }));
     let sections = [("1".to_string(), PlasticSectionData { a: 0.08, iz: 0.2 * 0.4f64.powi(3) / 12.0, material_id: 1, b: Some(0.2), h: Some(0.4) })].into();
     let materials = [("1".to_string(), PlasticMaterialData { fy: Some(250.0) })].into();
-    let r = plastic::solve_plastic_2d(&PlasticInput { solver: input, sections, materials, max_hinges: None, mp_overrides: None }).unwrap();
+    let plastic_input = PlasticInput { solver: input, sections, materials, max_hinges: None, mp_overrides: None };
+    crate::common::assert_containment(plastic::solve_plastic_2d(&plastic_input), "PL-2D-INVARIANCE");
+    let r = plastic::solve_plastic_2d_unrefused(&plastic_input).unwrap();
     assert!((r.collapse_factor - 250.0 / 3.0).abs() < 1e-6, "collapse factor {}", r.collapse_factor);
 }
 
@@ -155,7 +157,8 @@ fn refusals_name_the_feature() {
         vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: -10.0, fz: 0.0, my: 0.0 })],
     );
     input.supports.get_mut("2").unwrap().dz = Some(-0.01);
-    let e = corotational::solve_corotational_2d(&input, 50, 1e-6, 4, false).unwrap_err();
+    let dc = arc_length::DisplacementControlInput { solver: input, control_node: 2, control_dof: 0, target_displacement: -0.01, n_steps: 4, max_iter: 30, tolerance: 1e-8 };
+    let e = arc_length::solve_displacement_control(&dc).unwrap_err();
     assert!(e.contains("prescribed support displacements") && e.contains("support 2"), "{e}");
     let _ = HashMap::<String, f64>::new();
 }

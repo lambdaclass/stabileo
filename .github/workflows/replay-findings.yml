@@ -1,0 +1,283 @@
+name: Replay nightly findings
+
+on:
+  workflow_dispatch:
+    inputs:
+      close_passing:
+        description: "Close passes-now issues with a comment and comment fresh output on still-fails issues"
+        type: boolean
+        default: false
+
+concurrency:
+  group: replay-findings-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: 2
+  CARGO_HTTP_MULTIPLEXING: false
+
+jobs:
+  issues:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/replay-findings.py
+          sparse-checkout-cone-mode: false
+      - name: Fetch open nightly-finding issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -B -I scripts/replay-findings.py fetch --output open-issues.json
+          python3 -B -I scripts/replay-findings.py replay --issues open-issues.json --source other --output partial-other.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: replay-findings-inputs
+          path: |
+            open-issues.json
+            partial-other.json
+          retention-days: 90
+
+  metamorphic:
+    needs: issues
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: replay-findings-inputs
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.99.1
+      - name: Install mold linker
+        if: runner.environment == 'github-hosted'
+        uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36
+        with:
+          mold-version: 2.40.4
+          make-default: false
+        timeout-minutes: 5
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: engine
+      - if: runner.environment == 'github-hosted'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Build metamorphic replay binary
+        working-directory: engine
+        run: |
+          cargo test --locked --release --test metamorphic --no-run --message-format=json > "$RUNNER_TEMP/nightly-build.jsonl"
+          python3 -c 'import json,os; rows=[json.loads(l) for l in open(os.environ["RUNNER_TEMP"]+"/nightly-build.jsonl")]; exe=next(r["executable"] for r in rows if r.get("executable") and r.get("target",{}).get("name")=="metamorphic"); print("NIGHTLY_REPLAY_BIN="+exe)' >> "$GITHUB_ENV"
+      - name: Replay metamorphic findings
+        run: |
+          python3 -B -I scripts/replay-findings.py replay \
+            --issues open-issues.json \
+            --source metamorphic \
+            --metamorphic-bin "$NIGHTLY_REPLAY_BIN" \
+            --jobs 2 \
+            --output partial-metamorphic.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: replay-findings-metamorphic
+          path: partial-metamorphic.json
+          retention-days: 90
+
+  opensees:
+    needs: issues
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: replay-findings-inputs
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.99.1
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - if: runner.environment == 'github-hosted'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Install OpenSees
+        run: |
+          python3 -m venv "$RUNNER_TEMP/nightly-opensees"
+          "$RUNNER_TEMP/nightly-opensees/bin/pip" install openseespy numpy
+      - name: Build solver CLI
+        run: cargo build --release --example solve_json
+      - name: Replay OpenSees findings
+        run: |
+          python3 -B -I scripts/replay-findings.py replay \
+            --issues open-issues.json \
+            --source opensees \
+            --solve-bin "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}/release/examples/solve_json" \
+            --opensees-python "$RUNNER_TEMP/nightly-opensees/bin/python" \
+            --jobs 2 \
+            --output partial-opensees.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: replay-findings-opensees
+          path: partial-opensees.json
+          retention-days: 90
+
+  codeaster:
+    needs: issues
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: replay-findings-inputs
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.99.1
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - name: Install Code_Aster
+        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39
+        with:
+          environment-name: aster
+          create-args: -c conda-forge code-aster=18.1.10 python=3.12
+          cache-environment: true
+          init-shell: bash
+          micromamba-binary-path: ${{ runner.temp }}/micromamba-bin/micromamba
+          micromamba-root-path: ${{ runner.temp }}/micromamba-root
+      - name: Build solver CLI
+        run: cargo build --release --example solve_json
+      - name: Replay Code_Aster findings
+        run: |
+          ASTER_PYTHON="$(which python)" python -B -I scripts/replay-findings.py replay \
+            --issues open-issues.json \
+            --source codeaster \
+            --solve-bin "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}/release/examples/solve_json" \
+            --aster-python "$(which python)" \
+            --jobs 2 \
+            --output partial-codeaster.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: replay-findings-codeaster
+          path: partial-codeaster.json
+          retention-days: 90
+
+  fuzz:
+    needs: issues
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      FUZZ_TARGET_TRIPLE: x86_64-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: replay-findings-inputs
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: nightly-2026-10-15
+          components: rust-src
+      - name: Install mold linker
+        if: runner.environment == 'github-hosted'
+        uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36
+        with:
+          mold-version: 2.40.4
+          make-default: false
+        timeout-minutes: 5
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            . -> target
+            engine/fuzz -> target
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283
+        with:
+          tool: cargo-fuzz
+      - name: Build referenced fuzz targets
+        run: |
+          targets=$(python3 -B -I -c 'import json,sys; sys.path.insert(0,"scripts"); import importlib; rf=importlib.import_module("replay-findings"); print(" ".join(sorted({s["target"] for i in json.load(open("open-issues.json")) for s in [rf.parse_issue(i)] if s["source"]=="fuzz" and s["replayable"]})))')
+          for target in $targets; do
+            (cd engine && cargo +nightly-2026-10-15 fuzz build --target "$FUZZ_TARGET_TRIPLE" "$target")
+          done
+      - name: Replay fuzz findings
+        run: |
+          python3 -B -I scripts/replay-findings.py replay \
+            --issues open-issues.json \
+            --source fuzz \
+            --fuzz-triple "$FUZZ_TARGET_TRIPLE" \
+            --output partial-fuzz.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: replay-findings-fuzz
+          path: partial-fuzz.json
+          retention-days: 90
+
+  report:
+    needs: [issues, metamorphic, opensees, codeaster, fuzz]
+    if: always() && needs.issues.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/replay-findings.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          pattern: replay-findings-*
+          path: partials
+      - name: Write replay report and optionally update issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOSE_PASSING: ${{ inputs.close_passing }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          args=(
+            report
+            --issues partials/replay-findings-inputs/open-issues.json
+            --partials
+            partials/replay-findings-inputs/partial-other.json
+            partials/replay-findings-metamorphic/partial-metamorphic.json
+            partials/replay-findings-opensees/partial-opensees.json
+            partials/replay-findings-codeaster/partial-codeaster.json
+            partials/replay-findings-fuzz/partial-fuzz.json
+            --output replay-findings.json
+            --summary "$GITHUB_STEP_SUMMARY"
+            --run-url "$RUN_URL"
+            --commit "$GITHUB_SHA"
+          )
+          if [ "$CLOSE_PASSING" = true ]; then
+            args+=(--close-passing)
+          fi
+          python3 -B -I scripts/replay-findings.py "${args[@]}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: replay-findings-report
+          path: replay-findings.json
+          retention-days: 90

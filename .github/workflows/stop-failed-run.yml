@@ -1,0 +1,42 @@
+name: Stop a failed pull request run
+
+# A failing fast check in CI asks for this run instead of cancelling its own run, so that its job ends
+# as a failure before everything else is cancelled.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: CI run to stop once one of its jobs has failed
+        required: true
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  stop:
+    name: Stop the failed run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Cancel the run once a job in it has failed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          [[ $RUN_ID =~ ^[0-9]+$ ]] || { echo "not a run id: $RUN_ID"; exit 1; }
+          run=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID" --jq '[.event, .path, .status] | join(" ")')
+          case $run in
+            "pull_request .github/workflows/ci.yml completed") echo "run $RUN_ID already finished"; exit 0 ;;
+            "pull_request .github/workflows/ci.yml "*) ;;
+            *) echo "not a pull request CI run: $run"; exit 0 ;;
+          esac
+          for _ in $(seq 60); do
+            failed=$(gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.conclusion == "failure") | .name' | head -1)
+            [ -n "$failed" ] && break
+            sleep 5
+          done
+          [ -n "$failed" ] || { echo "no failed job in run $RUN_ID; not stopping it"; exit 0; }
+          echo "$failed failed; stopping run $RUN_ID"
+          gh run cancel "$RUN_ID" || true

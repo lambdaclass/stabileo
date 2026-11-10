@@ -1,0 +1,8 @@
+{
+  "source": "`cargo run --release --bin curves > reference-results/curves.json` (this crate, production co-rotational engine); fig10_11_digitized.json: Figures 10 and 11 of arXiv:2601.20793v2, digitized (method inside the file)",
+  "platform": "rustc 1.99.1, Darwin arm64, 2026-11-09",
+  "files_sha256": {
+    "curves.json": "f1413d6e38bf83228f068bf901d948600954c8a36447aedf93477a78c73efe1f",
+    "fig10_11_digitized.json": "cc9080ca828fa38e5279cbe75879a9dde7cce9ac330d3bcf3d00d9143d3343ed"
+  }
+}

@@ -62,16 +62,98 @@ pub struct Item {
     /// e.g. an effective-mass tensor of a mode with no participation is
     /// compared on the total mass, not on its own ~0 entries.
     pub floor: f64,
+    pub error: f64,
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Resp(pub Vec<Item>);
+pub struct Resp(pub Vec<Item>, pub Vec<(String, u64)>, pub NearMechanism);
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NearMechanism(pub bool);
+
+impl NearMechanism {
+    pub fn of(diagnostics: &[StructuredDiagnostic]) -> NearMechanism {
+        NearMechanism(diagnostics.iter().any(|d| {
+            d.code == DiagnosticCode::StiffnessNotPositiveDefinite
+                || (d.code == DiagnosticCode::KnownIssue && d.phase.as_deref() == Some("NUM-INVARIANCE"))
+        }))
+    }
+}
+
+/// Only structured, error-severity known issues are solver refusals. Ordinary
+/// failures (including malformed refusal JSON) remain errors, never passes.
+pub fn outcome(result: Result<Resp, String>) -> Result<Resp, String> {
+    result.or_else(|error| {
+        let value: serde_json::Value = serde_json::from_str(&error).map_err(|_| error.clone())?;
+        let diagnostics = value["structuredDiagnostics"].as_array().ok_or_else(|| error.clone())?;
+        let mut ids = Vec::new();
+        for value in diagnostics {
+            let d: StructuredDiagnostic = serde_json::from_value(value.clone()).map_err(|_| error.clone())?;
+            if d.code == DiagnosticCode::KnownIssue && d.severity == Severity::Error {
+                let phase = d.phase.filter(|p| !p.is_empty()).ok_or_else(|| error.clone())?;
+                let issue = d.value.filter(|n| n.is_finite() && *n > 0.0 && n.fract() == 0.0)
+                    .ok_or_else(|| error.clone())?;
+                use dedaliano_engine::known_issues::{Mode, ENTRIES};
+                if !ENTRIES.iter().any(|e| e.id == phase && f64::from(e.issue) == issue && e.mode == Mode::Refuse) {
+                    return Err(format!("unregistered refusal {phase} #{issue}: {error}"));
+                }
+                ids.push((phase, issue as u64));
+            } else if d.severity == Severity::Error {
+                return Err(error);
+            }
+        }
+        if ids.is_empty() { return Err(error); }
+        ids.sort();
+        ids.dedup();
+        Ok(Resp(Vec::new(), ids, NearMechanism(false)))
+    })
+}
+
+/// A registered refusal is a pass only where its known issue applies; anywhere else it is a regression.
+pub fn scoped(analysis: &str, planar: bool, distorted_quads: bool, r: Resp) -> Result<Resp, String> {
+    for (id, issue) in &r.1 {
+        let expected = match id.as_str() {
+            "PL-2D-INVARIANCE" => planar && analysis == "plastic collapse",
+            "SH-MITC4-DISTORTION" => distorted_quads,
+            _ => false,
+        };
+        if !expected {
+            return Err(format!("{analysis}: unexpected refusal {id} (#{issue})"));
+        }
+    }
+    Ok(r)
+}
 
 fn item(node: Option<usize>, elem: Option<usize>, tag: &str, kind: Kind, v: Vec<f64>) -> Item {
-    Item { node, elem, tag: tag.into(), kind, v, floor: 0.0 }
+    Item { node, elem, tag: tag.into(), kind, v, floor: 0.0, error: 0.0 }
 }
 
 impl Resp {
+    pub fn lin_comb(a: f64, x: &Resp, b: f64, y: &Resp) -> Resp {
+        let mut out = x.clone();
+        let key = |i: &Item| (i.node, i.elem, i.tag.clone());
+        let other: std::collections::BTreeMap<_, _> = y.0.iter().map(|i| (key(i), i)).collect();
+        for i in &mut out.0 {
+            let Some(j) = other.get(&key(i)).filter(|j| j.v.len() == i.v.len()) else { i.v.fill(f64::NAN); continue };
+            for (v, w) in i.v.iter_mut().zip(&j.v) { *v = a * *v + b * w; }
+            i.floor = a.abs() * i.floor + b.abs() * j.floor;
+            i.error = a.abs() * i.error + b.abs() * j.error;
+        }
+        let keys: std::collections::BTreeSet<_> = x.0.iter().map(key).collect();
+        for j in &y.0 {
+            if !keys.contains(&key(j)) { let mut missing = j.clone(); missing.v.fill(f64::NAN); out.0.push(missing); }
+        }
+        out
+    }
+
+    pub fn abs_comb(a: f64, x: &Resp, b: f64, y: &Resp) -> Resp {
+        let mut xa = x.clone();
+        let mut ya = y.clone();
+        for i in &mut xa.0 { i.v.iter_mut().for_each(|v| *v = v.abs()); }
+        for i in &mut ya.0 { i.v.iter_mut().for_each(|v| *v = v.abs()); }
+        Resp::lin_comb(a.abs(), &xa, b.abs(), &ya)
+    }
+
     pub fn push(&mut self, node: Option<usize>, elem: Option<usize>, tag: &str, kind: Kind, v: Vec<f64>) {
         self.0.push(item(node, elem, tag, kind, v));
     }
@@ -80,7 +162,7 @@ impl Resp {
     }
     /// Without the stress invariants (von Mises is not linear in the loads).
     pub fn without_stress(&self) -> Resp {
-        Resp(self.0.iter().filter(|i| !matches!(i.kind, Kind::Stress)).cloned().collect())
+        Resp(self.0.iter().filter(|i| !matches!(i.kind, Kind::Stress)).cloned().collect(), self.1.clone(), self.2)
     }
     pub fn set_floor(&mut self, tag: &str, floor: f64) {
         for it in self.0.iter_mut().filter(|i| i.tag == tag) {
@@ -90,7 +172,7 @@ impl Resp {
     /// Keep only items whose key (node, element, tag) is also in `other`.
     pub fn common(&self, other: &Resp) -> Resp {
         let keys: std::collections::HashSet<(Option<usize>, Option<usize>, String)> = other.0.iter().map(|i| (i.node, i.elem, i.tag.clone())).collect();
-        Resp(self.0.iter().filter(|i| keys.contains(&(i.node, i.elem, i.tag.clone()))).cloned().collect())
+        Resp(self.0.iter().filter(|i| keys.contains(&(i.node, i.elem, i.tag.clone()))).cloned().collect(), self.1.clone(), self.2)
     }
     /// Keep only items on the given nodes/elements (drop padding).
     /// `elems` are frame element ids: shell stresses are keyed by shell id
@@ -178,6 +260,30 @@ impl Resp {
                 }
                 Kind::Local(..) | Kind::Pair(..) | Kind::Stress => {}
                 Kind::V2(_) | Kind::P2(_) | Kind::T2(_) | Kind::Abs2(_) => return Err("2D quantity in a 3D response".into()),
+            }
+        }
+        Ok(o)
+    }
+
+    pub fn mirror3(&self, axis: usize) -> Result<Resp, String> {
+        let s = |i: usize| if i == axis { -1.0 } else { 1.0 };
+        let mut o = self.clone();
+        for it in o.0.iter_mut() {
+            match (&it.kind, it.tag.as_str()) {
+                (Kind::V3(Dim::LEN), tag) if tag.starts_with("u_t") || tag.starts_with("H_re") || tag.starts_with("H_im") => it.v[axis] = -it.v[axis],
+                (Kind::V3(Dim::NONE), tag) if tag.starts_with("r_t") => (0..3).filter(|&i| i != axis).for_each(|i| it.v[i] = -it.v[i]),
+                (Kind::V3(_), "u" | "R") => it.v[axis] = -it.v[axis],
+                (Kind::V3(_), "r" | "RM") => (0..3).filter(|&i| i != axis).for_each(|i| it.v[i] = -it.v[i]),
+                (Kind::T3(_), _) => {
+                    let ij = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)];
+                    it.v.iter_mut().zip(ij).for_each(|(v, (i, j))| *v *= s(i) * s(j));
+                }
+                (Kind::Abs3(_) | Kind::Stress, _) => {}
+                (Kind::Local(..), "N") => {}
+                (Kind::Local(..), "V") => it.v[2..].iter_mut().for_each(|v| *v = -*v),
+                (Kind::Local(..), "M") => it.v[..4].iter_mut().for_each(|v| *v = -*v),
+                (Kind::Local(..), _) if it.v.len() == 1 => {}
+                _ => return Err(format!("{:?} {} has no mirror rule", it.kind, it.tag)),
             }
         }
         Ok(o)
@@ -284,7 +390,8 @@ impl Resp {
                 Kind::Stress => u.stress(),
             };
             it.v.iter_mut().for_each(|x| *x *= k);
-            it.floor *= k;
+            it.floor *= k.abs();
+            it.error *= k.abs();
         }
         o
     }
@@ -294,6 +401,12 @@ impl Resp {
         let mut items: Vec<&Item> = self.0.iter().collect();
         items.sort_by(|a, b| (a.node, a.elem, &a.tag).cmp(&(b.node, b.elem, &b.tag)));
         let mut f = Flat::default();
+        // Refusal identities are exact comparison keys, never numerical values
+        // subject to tolerances. Zero stays unchanged under load/unit scaling.
+        // A solved/refused pair or different issue IDs has different keys.
+        for (phase, issue) in &self.1 {
+            f.push_scalar(format!("refusal:{phase}:#{issue}"), 0.0);
+        }
         for it in items {
             let lab = |k: usize| format!("{}{}{}[{k}]", it.tag, it.node.map(|n| format!("@n{n}")).unwrap_or_default(), it.elem.map(|e| format!("@e{e}")).unwrap_or_default());
             let fam = |d: &Dim| -> u8 {
@@ -327,7 +440,7 @@ impl Resp {
                     b'm' => f.push_m(lab(k), v),
                     b's' => f.push_s(lab(k), v),
                     _ => {
-                        if dim_scalar {
+                        if dim_scalar || it.floor > 0.0 {
                             f.push_scalar_scaled(lab(k), v, whole)
                         } else {
                             f.push_scalar(lab(k), v)
@@ -348,7 +461,7 @@ impl Resp {
 // ==================== static results → responses ====================
 
 pub fn static_2d(r: &AnalysisResults) -> Resp {
-    let mut o = Resp::default();
+    let mut o = Resp(Vec::new(), Vec::new(), NearMechanism::of(&r.structured_diagnostics));
     for d in &r.displacements {
         o.push(Some(d.node_id), None, "u", Kind::V2(Dim::LEN), vec![d.ux, d.uz]);
         o.push(Some(d.node_id), None, "ry", Kind::P2(Dim::NONE), vec![d.ry]);
@@ -373,8 +486,30 @@ pub fn static_2d(r: &AnalysisResults) -> Resp {
     o
 }
 
-pub fn disp_2d(r: &AnalysisResults) -> Resp {
+pub fn planar_static(p: &dedaliano_engine::metamorphic::planes::PlanarStatic) -> Resp {
     let mut o = Resp::default();
+    for &(n, ux, uz, ry) in &p.displacements {
+        o.push(Some(n), None, "u", Kind::V2(Dim::LEN), vec![ux, uz]);
+        o.push(Some(n), None, "ry", Kind::P2(Dim::NONE), vec![ry]);
+    }
+    for &(n, rx, rz, m) in &p.reactions {
+        o.push(Some(n), None, "R", Kind::V2(Dim::FORCE), vec![rx, rz]);
+        o.push(Some(n), None, "RM", Kind::P2(Dim::MOMENT), vec![m]);
+    }
+    for &(e, a, b) in &p.element_forces {
+        o.push(None, Some(e), "N", Kind::Local(Dim::FORCE, false), vec![a[0], b[0]]);
+        o.push(None, Some(e), "V", Kind::Local(Dim::FORCE, true), vec![a[1], b[1]]);
+        o.push(None, Some(e), "M", Kind::Local(Dim::MOMENT, true), vec![a[2], b[2]]);
+    }
+    o.scalar("stray force", Dim::FORCE, p.stray_force);
+    o.scalar("stray moment", Dim::MOMENT, p.stray_moment);
+    o.scalar("stray translation", Dim::LEN, p.stray_translation);
+    o.scalar("stray rotation", Dim::NONE, p.stray_rotation);
+    o
+}
+
+pub fn disp_2d(r: &AnalysisResults) -> Resp {
+    let mut o = Resp(Vec::new(), Vec::new(), NearMechanism::of(&r.structured_diagnostics));
     for d in &r.displacements {
         o.push(Some(d.node_id), None, "u", Kind::V2(Dim::LEN), vec![d.ux, d.uz]);
         o.push(Some(d.node_id), None, "ry", Kind::P2(Dim::NONE), vec![d.ry]);
@@ -411,7 +546,7 @@ pub fn static_3d(r: &AnalysisResults3D) -> Resp {
 }
 
 pub fn disp_3d(r: &AnalysisResults3D) -> Resp {
-    let mut o = Resp::default();
+    let mut o = Resp(Vec::new(), Vec::new(), NearMechanism::of(&r.structured_diagnostics));
     for d in &r.displacements {
         o.push(Some(d.node_id), None, "u", Kind::V3(Dim::LEN), vec![d.ux, d.uy, d.uz]);
         o.push(Some(d.node_id), None, "r", Kind::V3(Dim::NONE), vec![d.rx, d.ry, d.rz]);
@@ -445,12 +580,12 @@ pub fn gap_amplification(r: &Resp, tag: &str) -> f64 {
 }
 
 pub fn widened_past(r: &Resp, rel: f64, limit: f64) -> std::collections::HashSet<String> {
-    r.0.iter().filter(|i| rel * gap_amplification(r, &i.tag) > limit).map(|i| i.tag.clone()).collect()
+    r.0.iter().filter(|i| !i.floor.is_finite() || rel * gap_amplification(r, &i.tag) > limit).map(|i| i.tag.clone()).collect()
 }
 
 impl Resp {
     pub fn without_tags(&self, tags: &std::collections::HashSet<String>) -> Resp {
-        Resp(self.0.iter().filter(|i| !tags.contains(&i.tag)).cloned().collect())
+        Resp(self.0.iter().filter(|i| !tags.contains(&i.tag)).cloned().collect(), self.1.clone(), self.2)
     }
 }
 
@@ -461,3 +596,15 @@ pub fn incomplete_collapse(e: &str) -> bool {
 /// Tag of the marker a plastic row adds when its factor is only a lower bound
 /// (no mechanism formed).
 pub const LOWER_BOUND: &str = "lower_bound";
+
+#[test]
+fn issue_1892_negative_unit_factor_preserves_the_floor_magnitude() {
+    let mut r = Resp::default();
+    r.push(Some(1), None, "u", Kind::V2(Dim::LEN), vec![0.0; 2]);
+    r.set_floor("u", 3.0);
+    r.0[0].error = 0.25;
+    let reversed = r.units(&Units { length: -2.0, force: 1.0, time: 1.0 });
+    assert_eq!(reversed.0[0].floor, 6.0);
+    assert_eq!(reversed.0[0].error, 0.5);
+    assert_eq!(reversed.flat().t.floor, 6.0);
+}

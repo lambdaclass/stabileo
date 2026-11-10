@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { isComplete } from '../src/lib/i18n/offered';
 
 test('MBB replay, both filters and live solve @smoke', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -108,6 +109,7 @@ for (const [locale, title, run] of [
   ['fr', 'Optimisation topologique d’une poutre MBB', 'Recalculer en direct'],
   ['tr', 'MBB kirişinin topoloji optimizasyonu', 'Canlı yeniden hesapla'],
 ]) test(`translated page and persistent language: ${locale}`, async ({ page }) => {
+  test.skip(!isComplete(locale), 'not offered until a native speaker checks it (#1628)');
   await page.addInitScript(() => { localStorage.setItem('stabileo-lang', 'fr'); localStorage.setItem('stabileo-lang-manual', '1'); });
   await page.goto(`/${locale}/research/optimization/andreassen-2011/`);
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();

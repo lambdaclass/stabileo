@@ -462,7 +462,7 @@ fn resolve3(m: &Model3, raws: &[RawLoad3], nodal_only: bool) -> Vec<SolverLoad3D
             RawLoad3::Point(i, f, py, pz) => {
                 let eid = frames[i.index(frames.len())];
                 let l = elem_len(&m.input, eid);
-                out.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: eid, a: f * l, py, pz }));
+                out.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: eid, a: f * l, py, pz }));
             }
         }
     }

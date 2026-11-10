@@ -14,8 +14,9 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "État au 28 octobre 2026 : SA-2026-001 à 020 sont corrigés dans la version 0.3.0 et SA-2026-021 à 024 dans la version 0.4.0 (en ligne sur stabileo.com, SA-2026-021 et 022 depuis le 22 octobre et SA-2026-023 et 024 depuis le 25 et le 26 octobre). Les publier fait partie de notre manière de vérifier les résultats ; ce n'est pas le signe qu'ils sont encore ouverts. Un avis est considéré comme corrigé lorsque la correction est en ligne sur stabileo.com, et non lorsque la modification existe. Tant qu'un avis est ouvert, appliquez sa solution de contournement et vérifiez à la main le résultat concerné avant de signer."
+      "t": "État au 10 novembre 2026 : SA-2026-001 à 020 sont corrigés dans la version 0.3.0, SA-2026-021 à 024 dans la version 0.4.0 et SA-2026-025 à 047 dans la version 0.5.0 (SA-2026-040 contenu : la vérification est marquée comme incomplète), sauf SA-2026-044 : le calcul de ruine plastique 2D reste refusé tant que #758 est ouvert. SA-2026-048 a été corrigé après la version 0.5.0 et est en ligne sur stabileo.com depuis le 8 novembre 2026. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 et SA-2026-053 ont été corrigés après la version 0.5.0 et sont en ligne sur stabileo.com depuis le 9 novembre 2026. Les publier fait partie de notre manière de vérifier les résultats ; ce n'est pas le signe qu'ils sont encore ouverts. Un avis est considéré comme corrigé lorsque la correction est en ligne sur stabileo.com, et non lorsque la modification existe. Tant qu'un avis est ouvert, appliquez sa solution de contournement et vérifiez à la main le résultat concerné avant de signer. SA-2026-055 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-056 — Brouillon : non résolu ; aucun correctif intégré ni déployé. SA-2026-057 — Brouillon : correction pas encore fusionnée ni publiée."
     },
+    {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
       "t": "Résumé"
@@ -53,6 +54,12 @@ const body: PostBody = {
           "Semelles, nœuds, dalles, voiles et l'optimiseur acier dimensionnaient pour les charges non pondérées lorsque des combinaisons étaient définies mais non calculées (calcul en direct, échec du calcul d'une combinaison ou liste active vide)",
           "Élevée",
           "Corrigé dans la 0.4.0"
+        ],
+        [
+          "SA-2026-039",
+          "Import Excel et IFC : Iy et Iz des rectangles et des tubes étaient inversés (une console de 20 × 40 quatre fois trop souple, une de 40 × 20 quatre fois trop rigide)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
         ],
         [
           "SA-2026-027",
@@ -121,10 +128,95 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-038",
+          "Flambement 3D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % pour une barre), et une barre comprimée seulement entre ses extrémités était refusée",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-042",
           "Flambement 2D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % à +68 % pour une barre)",
           "Élevée",
           "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-044",
+          "Effondrement plastique 2D : le facteur d'effondrement changeait avec la numérotation des nœuds, le sens des barres et les unités (jusqu'à 4,6 fois sur la même structure)",
+          "Élevée",
+          "Analyse limite corrigée dans la prochaine version ; l'effondrement plastique 2D reste retenu jusqu'à la clôture de #758"
+        ],
+        [
+          "SA-2026-043",
+          "Analyse harmonique : la correction des modes omis perdait ses chiffres lorsqu’un mode était beaucoup plus souple que les autres (79 fois à 2,3 Hz dans un exemple)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-045",
+          "Effondrement plastique 3D : une barre sans moment plastique utilisable était traitée comme si elle ne plastifiait jamais (6 fois trop haut dans un exemple, et certifié)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-046",
+          "Analyse harmonique : choisissait entre la superposition modale et la résolution directe selon la charge, si bien que la superposition et la réciprocité échouaient (107 % en un nœud dans un exemple) ; stabileo.com et les builds moteur/WASM de main, du 5 novembre 2026 jusqu'à la correction",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-047",
+          "Coques : un cas de charge imposant un déplacement d'appui perdait ses contraintes de coque, et les combinaisons et enveloppes ne sommaient que celles des autres cas (parfois du côté de l'insécurité, sans avertissement) ; 0.2.0 à 0.4.0",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-048",
+          "Acier CIRSOC 301 : Cb manquait un changement de signe aux extrémités d’une longueur non maintenue déclarée plus courte que la barre (un profilé U en double courbure recevait Cb = 2,55 au lieu de 1, résistance au déversement surestimée) ; 0.2.0 à 0.5.0, les alphas de bureau et stabileo.com jusqu’au 8 novembre 2026",
+          "Élevée",
+          "Corrigé après 0.5.0 ; sur stabileo.com depuis le 8 novembre 2026"
+        ],
+        [
+          "SA-2026-049",
+          "Appuis avec un ressort positif et un blocage rigide sur le même degré de liberté : en 3D, le ressort libérait le blocage et modifiait la condition aux limites ; code du moteur de 0.2.0 à 0.5.0",
+          "Élevée",
+          "Corrigé après 0.5.0 ; sur stabileo.com depuis le 9 novembre 2026"
+        ],
+        [
+          "SA-2026-050",
+          "Le flambement pouvait transformer en zéro un calcul d’élancement ayant échoué, et les combinaisons pouvaient renvoyer des valeurs non finies dans un résultat réussi",
+          "Moyenne",
+          "Corrigé après 0.5.0 ; sur stabileo.com depuis le 9 novembre 2026"
+        ],
+        [
+          "SA-2026-051",
+          "Charges mobiles 3D : les enveloppes omettaient des pics intérieurs d’efforts et perdaient la composante axiale du poids des essieux sur les barres inclinées, pouvant sous-estimer la sollicitation sans avertissement ; 0.2.0 à 0.5.0 et desktop-v0.1.0-alpha.1 à alpha.3",
+          "Élevée",
+          "Corrigé après 0.5.0 ; sur stabileo.com depuis le 9 novembre 2026"
+        ],
+        [
+          "SA-2026-052",
+          "Charges mobiles 2D et 3D du moteur : les enveloppes axiales avec charges réparties axiales permanentes partielles omettaient des extrema aux limites des plages chargées entre les stations, pouvant sous-estimer la sollicitation sans avertissement ; aucune limite de versions publiées n’est affirmée",
+          "Élevée",
+          "Corrigé après 0.5.0 ; sur stabileo.com depuis le 9 novembre 2026"
+        ],
+        [
+          "SA-2026-053",
+          "Charges mobiles 2D et 3D : les charges ponctuelles aux extrémités incluaient dans les enveloppes des efforts extérieurs à la barre, ajoutant des extrema axiaux et tranchants parasites et surestimant la sollicitation ; aucune limite de versions publiées n’est affirmée",
+          "Faible",
+          "Corrigé après 0.5.0 ; sur stabileo.com depuis le 9 novembre 2026"
+        ],
+        ["SA-2026-055", "P-Delta en 2D et 3D pouvait sous-estimer l’amplification et indiquer la stabilité lorsque l’effort normal variait sous des charges réparties ou ponctuelles le long d’une barre de portique", "Élevée", "Brouillon : correction pas encore fusionnée ni publiée"],
+        [
+          "SA-2026-056",
+          "Modèles 3D associant portiques, coques et contraintes : les résultats harmoniques et temporels forcés changent entre descriptions équivalentes ; l’étendue au-delà du modèle conservé reste inconnue",
+          "Élevée",
+          "Brouillon : non résolu ; aucun correctif intégré ni déployé"
+        ],
+        [
+          "SA-2026-057",
+          "L’affichage du certificat plastique pouvait classer dans l’intervalle certifié un facteur situé en dehors ; l’extraction exacte des mécanismes écartait les refus liés aux ressources dans les versions de PR #1888 avant correction",
+          "Moyenne",
+          "Brouillon : correction pas encore fusionnée ni publiée"
         ],
         [
           "SA-2026-037",

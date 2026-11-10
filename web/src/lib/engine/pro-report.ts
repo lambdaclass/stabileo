@@ -1,3 +1,5 @@
+import { knownIssueResultDisposition, type knownIssueDisposition } from './known-issues';
+import { ContainmentExportError } from './containment-error';
 import { finiteSpectrumWarning } from './finite-spectrum-warning';
 // PRO Report Generator — HTML-based report with KaTeX math rendering
 // Generates the structural analysis report; the design is reported by the memoria
@@ -125,10 +127,10 @@ export interface ReportData {
   quantities?: ProjectQuantities;
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
   advancedResults?: {
-    pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; finiteSpectrumDiagnostic?: string; ratiosWithheld?: boolean; structuredDiagnostics?: import('./types').StructuredDiagnostic[] };
-    buckling?: { factors: number[] };
-    spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
+    pdelta?: { disposition?: ReturnType<typeof knownIssueDisposition>; converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
+    modal?: { disposition?: ReturnType<typeof knownIssueDisposition>; modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; finiteSpectrumDiagnostic?: string; ratiosWithheld?: boolean; structuredDiagnostics?: import('./types').StructuredDiagnostic[] };
+    buckling?: { disposition?: ReturnType<typeof knownIssueDisposition>; factors: number[] };
+    spectral?: { disposition?: ReturnType<typeof knownIssueDisposition>; baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   };
   // Story drift results
   storyDrifts?: Array<{
@@ -142,6 +144,7 @@ export interface ReportData {
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
   // Diagnostics
+  containment?: ReturnType<typeof knownIssueDisposition>;
   diagnostics?: SolverDiagnostic[];
   // Viewport screenshot (data URL)
   screenshot?: string;
@@ -358,6 +361,10 @@ export function generateReportHtml(data: ReportData): string {
   // ─── Table of Contents ──────────────────────────────────
   html.push(`<div class="page-break"></div>`);
   html.push(`<div class="toc"><h2>${escHtml(tr('report.toc') || 'Table of Contents')}</h2>`);
+  const dispositions = [knownIssueResultDisposition([data.results, data.resultSets, ...Object.values(data.advancedResults ?? {})]), data.containment, ...Object.values(data.advancedResults ?? {}).map(value => (value as { disposition?: ReturnType<typeof knownIssueDisposition> }).disposition)].filter(Boolean);
+  if (dispositions.some(d => d?.refused)) throw new ContainmentExportError(dispositions.flatMap(d => d?.messages ?? []).join('\n'));
+  const reportWarnings = [...new Set(dispositions.flatMap(d => d?.messages ?? []))];
+  if (reportWarnings.length) html.push(`<section id="stabileo-warnings">${reportWarnings.map(message => `<p role="alert">${escHtml(message)}</p>`).join('')}</section>`);
   for (const p of parts) {
     if (p.on) html.push(`<div class="toc-entry"><a href="#${p.anchor}">${escHtml(numbered(p.anchor, p.label))}</a><span class="toc-dots"></span></div>`);
   }
@@ -693,7 +700,7 @@ export function generateReportHtml(data: ReportData): string {
     if (adv.modal && wants('modal') && adv.modal.modes.length > 0) {
       html.push(`<h3>${escHtml(tr('report.modalTitle'))}</h3>`);
       for (const d of adv.modal.structuredDiagnostics ?? []) {
-        if (d.severity !== 'info') html.push(`<p role="alert">${escHtml(selfCheckWarningText(d, tr))}</p>`);
+        if (d.severity !== 'info' && d.code !== 'known_issue') html.push(`<p role="alert">${escHtml(selfCheckWarningText(d, tr))}</p>`);
       }
       if (adv.modal.totalMass != null) {
         // The engine reports mass in tonnes (kN·s²/m). The label said kg.

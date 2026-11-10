@@ -1,0 +1,5 @@
+### Fixed
+
+#### Multi-turn 2D inclined-support angles preserve the diagnostic restraint count (2026-11-09)
+
+The 2D kinematic restraint counter reduces an inclined-support angle to one turn before constructing its normal. At 20π with only a positive global Y spring, trigonometric roundoff previously created a spurious second translation restraint and reported degree 1 (hyperstatic) instead of degree 0 (isostatic) in the regression fixture. The existing relative component threshold is unchanged, as are solve acceptance, stiffness assembly and numerical displacements, member forces and reactions. Direct 3D linear and buckling-preload solves now explicitly read loads from their prepared model. Numerical controls confirm that curved-beam expansion already preserves the load vector, including through load sessions and the typed input boundary; no dropped-load result was reproduced on head 146e26346. This correction to PR [#1780](https://github.com/lambdaclass/stabileo/pull/1780) is local and unreleased.

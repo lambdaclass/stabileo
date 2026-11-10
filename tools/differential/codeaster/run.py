@@ -21,15 +21,18 @@ session (aster_batch.py).
 
 Exit status: 0 = every compared model agrees, 1 = mismatches, models
 Code_Aster finds singular that stabileo solved without a warning
-(silent_singular) or models stabileo refused that Code_Aster solves
-(false_reject), 2 = harness error (Code_Aster failing for another reason).
+(silent_singular), models stabileo solved although a prescribed displacement
+has no rigid restraint to carry it (silent_unimposed) or models stabileo
+refused that Code_Aster solves (false_reject), 2 = harness error (Code_Aster failing for another reason).
 """
 
 import argparse
 import glob
 import importlib.util
 import json
+import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -99,10 +102,21 @@ def prepare(name, model, binary, workdir, flagged=False):
     why = to_aster.check_supported(model)
     if why:
         return dict(r, status="unsupported", why=why)
+    unimposed = to_aster.unimposed_settlements(model)
     try:
         sraw = C.stabileo(model, binary)
     except RuntimeError as ex:
-        return _prepare_refused(dict(r, status="stabileo_failed", why=[str(ex)[:200]]), model, workdir)
+        why = [str(ex)]
+        named = UNIMPOSED.search(why[0])
+        if named and named.group(1, 2) in unimposed:
+            return dict(r, status="refused", why=why + [
+                "code_aster translator: the same prescribed displacement has no rigid restraint to carry it "
+                "(the translation would drop it and solve a different model)"])
+        return _prepare_refused(dict(r, status="stabileo_failed", why=why), model, workdir)
+    if unimposed:
+        return dict(r, status="silent_unimposed", why=[
+            f"stabileo solved a model whose prescribed displacements {unimposed} no rigid restraint carries "
+            "(validate_input_3d refuses these, AC-10)"])
     sres = C.normalize_stabileo(sraw, 3)
     ill = sorted(set(sres["diags"]) & C.ILL_CONDITIONED)
     if ill and not flagged:
@@ -118,6 +132,16 @@ def prepare(name, model, binary, workdir, flagged=False):
     with open(os.path.join(job, "model.comm"), "w") as f:
         f.write(comm)
     return dict(r, status="pending", job=job, sres=sres, meta=meta)
+
+
+# The engine's refusal of a prescribed displacement no rigid restraint carries
+# (linear.rs, unimposed_settlement): support key and DOF name.
+UNIMPOSED = re.compile(r"^stabileo: Support (\S+) \(node \d+\): the prescribed (d[xyz]|dr[xyz]) = \S+ would not be applied, because ")
+
+
+# Warning-level conditioning diagnostics (not in C.ILL_CONDITIONED, which skips
+# the model): a singular Code_Aster verdict on such a model is not silent.
+WARNED_CONDITIONING = {"high_diagonal_ratio"}
 
 
 # The translator's own reasons for rejecting a model that say it has no
@@ -215,7 +239,7 @@ def _leaked(job):
     return os.path.exists(err) and "<FACTOR_60>" in open(err).read()
 
 
-def finish(r, tol, dump_dir, model):
+def finish(r, tol, dump_dir, model, binary=None):
     if "refused" in r:
         return _finish_refused(r, model, dump_dir)
     job = r.pop("job")
@@ -237,6 +261,42 @@ def finish(r, tol, dump_dir, model):
             # ill-conditioned for Code_Aster to give a reference.
             return dict(r, status="ill_conditioned", why=["code_aster: " + why[0]])
         return dict(r, status="aster_failed", why=why)
+    own = sres
+    bad, groups, sres = compare_with_aster(model, sres, meta, out, tol)
+    if bad is None:
+        return dict(r, status="unloaded")
+    st = "mismatch" if bad else "ok"
+    why = []
+    if r.pop("near_singular", False):
+        st = "silent_singular" if bad else "near_singular"
+        warned = sorted(set(sres["diags"]) & WARNED_CONDITIONING)
+        near_mechanism = "NUM-INVARIANCE" in sres.get("issues", [])
+        held = []
+        if bad and near_mechanism:
+            if warned and held_mechanism(model, sres, bad, binary, tol):
+                st = "warned_singular"
+            elif ((hres := held_solve(model, own, bad, binary)) is not None
+                  and held_mechanism(model, sres, [b for b in bad if b[0] == "disp"], binary, tol)
+                  and aster_agrees_held(model, own, hres, bad, job, tol)):
+                st = "warned_singular"
+                held = ["stabileo warned: NUM-INVARIANCE", "stabileo forces the same to round-off with the disagreeing DOFs held, "
+                        "moving them needs no force, and code_aster agrees on the held model: "
+                        + ", ".join(f"{b[1]} {b[2]}" for b in bad if b[0] == "disp")]
+        if bad:
+            why = ["code_aster: singular at NPREC=10, and with the check off its solution disagrees"] + [
+                f"stabileo warned: {w}" for w in warned] + held
+    r = dict(r, status=st, max_err=groups, tol=tol, n_bad=len(bad),
+             worst=sorted(bad, key=lambda b: -b[5])[:8], **({"why": why} if why else {}))
+    if bad and dump_dir:
+        os.makedirs(dump_dir, exist_ok=True)
+        base = os.path.join(dump_dir, r["name"].replace("/", "_"))
+        with open(base + ".json", "w") as f:
+            json.dump(model, f, indent=1)
+        shutil.copy(os.path.join(job, "model.comm"), base + ".comm")
+    return r
+
+
+def compare_with_aster(model, sres, meta, out, tol):
     ares = to_aster.postprocess(meta, json.load(open(out)))
     skip = set(ares.pop("skip_reac"))
     # Reactions at constrained nodes include the multipliers of the
@@ -256,20 +316,160 @@ def finish(r, tol, dump_dir, model):
         ares["forces"]["thermal-scale"] = dict(pseudo)
         sres = dict(sres, forces=dict(sres["forces"], **{"thermal-scale": dict(pseudo)}))
     bad, groups = C.compare(model, sres, ares, tol)
-    if bad is None:
-        return dict(r, status="unloaded")
-    st = "mismatch" if bad else "ok"
-    if r.pop("near_singular", False):
-        st = "silent_singular" if bad else "near_singular"
-    r = dict(r, status=st, max_err=groups, tol=tol, n_bad=len(bad),
-             worst=sorted(bad, key=lambda b: -b[5])[:8])
-    if bad and dump_dir:
-        os.makedirs(dump_dir, exist_ok=True)
-        base = os.path.join(dump_dir, r["name"].replace("/", "_"))
-        with open(base + ".json", "w") as f:
-            json.dump(model, f, indent=1)
-        shutil.copy(os.path.join(job, "model.comm"), base + ".comm")
-    return r
+    return bad, groups, sres
+
+
+def held_mechanism(model, sres, bad, binary, tol):
+    """Whether the disagreement is a mechanism of stabileo's own model. Every disagreement must be a
+    displacement, and stabileo is solved again with all of them moved at once along the difference
+    vector (Code_Aster minus stabileo), scaled to a finite amplitude: it qualifies only if no reaction,
+    member force or other displacement changes beyond `tol` and the imposed motion needs no force at
+    any moved DOF. A difference that deforms the structure, even between DOFs that share a rigid-body
+    motion, needs a force to impose, so it fails here."""
+    names = ["ux", "uy", "uz", "rx", "ry", "rz"]
+    diff = {}
+    for b in bad:
+        if b[0] != "disp" or b[2] not in names or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in b[3:6]):
+            return False
+        diff[(str(b[1]), names.index(b[2]))] = b[4] - b[3]
+    nodes = {str(n.get("id")) for n in (model.get("nodes") or {}).values()}
+    if not binary or not diff or any(nid not in nodes for nid, _ in diff):
+        return False
+    peak = max(abs(d) for d in diff.values())
+    if peak == 0.0:
+        return False
+    amplitude = 2.0 * max([abs(v) for u in sres["disp"].values() for v in u] + [1e-3]) / peak
+    moved = json.loads(json.dumps(model))
+    sups = moved.setdefault("supports", {})
+    imposed = {}
+    for (nid, k), d in sorted(diff.items()):
+        sup = next((s for s in sups.values() if str(s.get("nodeId")) == nid), None)
+        if sup is None:
+            next_id = max([int(s.get("id", 0) or 0) for s in sups.values()] + [0]) + 1
+            sup = sups.setdefault(f"moved-{nid}", {"id": next_id, "nodeId": int(nid)})
+        if sup.get(to_aster.FLAGS[k]) or sup.get(to_aster.PRESC[k]) is not None or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0:
+            return False
+        original = (sres["disp"].get(int(nid)) or sres["disp"].get(nid) or [0.0] * 6)[k]
+        imposed[(nid, k)] = original + amplitude * d
+        sup[to_aster.FLAGS[k]] = True
+        sup[to_aster.PRESC[k]] = imposed[(nid, k)]
+    try:
+        mres = dict(C.normalize_stabileo(C.stabileo(moved, binary), 3), dim=3)
+    except RuntimeError:
+        return False
+    changed, _ = C.compare(model, sres, mres, tol)
+    moved_nodes = {nid for nid, _ in imposed}
+    for b in changed:
+        if b[0] == "disp" and b[2] in names and (str(b[1]), names.index(b[2])) in imposed:
+            continue
+        if b[0] == "reac" and b[2] == "missing" and str(b[1]) in moved_nodes:
+            continue
+        return False
+    scale = max([abs(v) for r in sres["reac"].values() for v in r]
+                + [abs(v) for f in sres["forces"].values() for v in f.values()] + [1e-300])
+    for (nid, k), value in imposed.items():
+        applied = mres["disp"].get(int(nid)) or mres["disp"].get(nid)
+        if applied is None or not math.isfinite(applied[k]) or abs(applied[k] - value) > tol * max(abs(value), 1e-300):
+            return False
+        reaction = mres["reac"].get(int(nid)) or mres["reac"].get(nid)
+        if reaction is None or not math.isfinite(reaction[k]) or abs(reaction[k]) > tol * scale:
+            return False
+    return True
+
+
+HELD_ROUND_OFF = 64 * sys.float_info.epsilon
+
+
+def held_model(model, sres, bad):
+    """The model with every disagreeing displacement restrained at stabileo's own value, and those
+    DOFs; None when one is not a free DOF of a known node."""
+    names = ["ux", "uy", "uz", "rx", "ry", "rz"]
+    dofs = sorted({(str(b[1]), names.index(b[2])) for b in bad if b[0] == "disp" and b[2] in names})
+    nodes = {str(n.get("id")) for n in (model.get("nodes") or {}).values()}
+    if not dofs or any(nid not in nodes for nid, _ in dofs):
+        return None
+    held = json.loads(json.dumps(model))
+    sups = held.setdefault("supports", {})
+    for nid, k in dofs:
+        own = (sres["disp"].get(int(nid)) or sres["disp"].get(nid) or [None] * 6)[k]
+        if own is None or not math.isfinite(own):
+            return None
+        sup = next((s for s in sups.values() if str(s.get("nodeId")) == nid), None)
+        if sup is None:
+            next_id = max([int(s.get("id", 0) or 0) for s in sups.values()] + [0]) + 1
+            sup = sups.setdefault(f"held-{nid}", {"id": next_id, "nodeId": int(nid)})
+        if sup.get(to_aster.FLAGS[k]) or sup.get(to_aster.PRESC[k]) is not None or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0:
+            return None
+        sup[to_aster.FLAGS[k]] = True
+        sup[to_aster.PRESC[k]] = own
+    return held, dofs
+
+
+def held_solve(model, sres, bad, binary):
+    """Stabileo's answer for its model with every disagreeing displacement held at its own value, when
+    every member force and reaction is the same to round-off (HELD_ROUND_OFF of the largest force or
+    reaction, no absolute floor) and no held DOF or support the holding added carries a force; None
+    otherwise. This alone is self-consistency (a stiff DOF passes too)."""
+    built = held_model(model, sres, bad)
+    if not binary or built is None:
+        return None
+    held, dofs = built
+    try:
+        hres = C.normalize_stabileo(C.stabileo(held, binary), 3)
+    except RuntimeError:
+        return None
+    return hres if _held_identical(sres, hres, dofs) else None
+
+
+def _held_identical(sres, hres, dofs):
+    values = [v for f in sres["forces"].values() for v in f.values()] + [v for r in sres["reac"].values() for v in r]
+    if not values or not all(math.isfinite(v) for v in values):
+        return False
+    bound = HELD_ROUND_OFF * max(abs(v) for v in values)
+
+    def same(a, b):
+        return math.isfinite(b) and abs(a - b) <= bound
+
+    if not sres["forces"] or set(hres["forces"]) != set(sres["forces"]):
+        return False
+    for eid, f in sres["forces"].items():
+        if set(hres["forces"][eid]) != set(f) or not all(same(v, hres["forces"][eid][k]) for k, v in f.items()):
+            return False
+    for nid, r in sres["reac"].items():
+        h = hres["reac"].get(nid)
+        if h is None or len(h) != len(r) or not all(same(a, b) for a, b in zip(r, h)):
+            return False
+    for nid, k in dofs:
+        r = hres["reac"].get(int(nid)) or hres["reac"].get(nid)
+        if r is None or k >= len(r) or not same(0.0, r[k]):
+            return False
+    for nid, r in hres["reac"].items():
+        if nid not in sres["reac"] and not all(same(0.0, v) for v in r):
+            return False
+    return True
+
+
+def aster_agrees_held(model, sres, hres, bad, job, tol):
+    """Whether Code_Aster, solving the held model with its singularity check on, agrees with
+    stabileo's held answer `hres` on every displacement, reaction and member force within `tol`."""
+    built = held_model(model, sres, bad)
+    if built is None:
+        return False
+    held, _ = built
+    try:
+        comm, meta = to_aster.translate(held)
+    except to_aster.Unsupported:
+        return False
+    hjob = job.rstrip(os.sep) + "-held"
+    os.makedirs(hjob, exist_ok=True)
+    with open(os.path.join(hjob, "model.comm"), "w") as f:
+        f.write(comm)
+    run_aster([{"job": hjob}], os.path.dirname(hjob), 1)
+    out = os.path.join(hjob, "result.json")
+    if not os.path.exists(out):
+        return False
+    hbad, _, _ = compare_with_aster(held, hres, meta, out, tol)
+    return hbad == []
 
 
 def C_size(model):
@@ -339,7 +539,7 @@ def main():
     def safe_finish(r):
         job = r["job"]
         try:
-            return finish(r, a.tol, a.dump_dir, by_name[r["name"]])
+            return finish(r, a.tol, a.dump_dir, by_name[r["name"]], a.bin)
         except Exception:  # noqa: a harness bug on one model must not hide the others
             if a.dump_dir:
                 os.makedirs(a.dump_dir, exist_ok=True)
@@ -351,6 +551,9 @@ def main():
 
     results = [safe_finish(r) if r["status"] == "pending" else r for r in results]
     for r in results:
+        if r["status"] == "silent_unimposed" and a.dump_dir:
+            C._dump(a.dump_dir, r["name"], by_name[r["name"]])
+    for r in results:
         if r.get("flagged"):
             r["status"] = "flagged-" + ("silent" if r["status"] == "silent_singular" else r["status"])
     if a.keep:
@@ -359,7 +562,7 @@ def main():
         shutil.rmtree(workdir, ignore_errors=True)
 
     for r in results:
-        if a.verbose or r["status"] in ("mismatch", "aster_failed", "silent_singular", "false_reject", "harness_error"):
+        if a.verbose or r["status"] in ("mismatch", "aster_failed", "silent_singular", "silent_unimposed", "false_reject", "harness_error"):
             extra = r.get("why") or {k: f"{v:.1e}" for k, v in r.get("max_err", {}).items()}
             print(f"{r['status']:16} {r['name']}  {extra}")
             for w in r.get("worst", [])[:5] if r["status"] in ("mismatch", "silent_singular") else []:
@@ -374,8 +577,8 @@ def main():
     if g:
         print("max normalized error over compared models: " + json.dumps({k: f"{v:.2e}" for k, v in sorted(g.items())}))
     for st in ("unsupported", "refused", "false_reject", "stabileo_failed", "ill_conditioned", "silent_singular",
-               "aster_failed"):
-        reasons = Counter(w[:120] for r in results if r["status"] == st for w in r["why"])
+               "warned_singular", "silent_unimposed", "aster_failed"):
+        reasons = Counter(w[:120] for r in results if r["status"] == st for w in r.get("why", []))
         if reasons:
             print(f"{st} reasons: " + json.dumps(dict(reasons.most_common(8))))
     if a.report:
@@ -383,7 +586,7 @@ def main():
             json.dump(results, f, indent=1, default=str)
     if cnt.get("aster_failed") or cnt.get("harness_error"):
         return 2
-    return 1 if cnt.get("mismatch") or cnt.get("silent_singular") or cnt.get("false_reject") else 0
+    return 1 if any(cnt.get(st) for st in ("mismatch", "silent_singular", "silent_unimposed", "false_reject")) else 0
 
 
 if __name__ == "__main__":

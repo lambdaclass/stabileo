@@ -89,6 +89,9 @@ pub struct EquilibriumStep {
     pub control_displacement: f64,
     pub converged: bool,
     pub iterations: usize,
+    /// The converged nodal displacements (Rust callers only; not serialized).
+    #[serde(skip)]
+    pub displacements: Vec<Displacement>,
 }
 
 /// Arc-length analysis result.
@@ -115,21 +118,32 @@ pub struct DisplacementControlResult {
 
 /// Solve using Crisfield spherical arc-length method.
 pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, String> {
+    solve_arc_length_from(input, None)
+}
+
+/// Arc-length analysis that continues from `start` instead of the undeformed
+/// state. The start model's loads stay applied and its supports stay where the
+/// start state left them; the loads and prescribed support displacements of
+/// `input` are the pattern the load factor scales, so equilibrium is
+/// f_int(u) = f_start + λ·f_ref with each restrained DOF at u_start + λ·u_prescribed.
+/// Prescribed rotations alone (no loads) are a valid pattern.
+pub fn solve_arc_length_from(input: &ArcLengthInput, start: Option<&super::corotational::CorotationalStart2D>) -> Result<ArcLengthResult, String> {
+    let mut r = solve_arc_length_contained(input, start)?;
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Corotational));
+    Ok(r)
+}
+
+fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::corotational::CorotationalStart2D>) -> Result<ArcLengthResult, String> {
     // Assembly resolves ids by direct map indexing: an element naming a
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
     super::linear::validate_input_2d(&input.solver)?;
-    // The co-rotational tangent here carries no prescribed displacements, and
-    // it treats temperature as fixed global forces (see
-    // `solve_corotational_2d`). Connectors are supported (fix/nonlinear-solvers,
-    // shear on a connector with length refused below) and inclined rollers are
-    // solved in their frames (fix/inclined-supports, checked against the
-    // rotated model).
+    // Temperature is treated as fixed global forces (see `solve_corotational_2d`).
     super::feature_gates::refuse_2d(&input.solver, "Arc-length analysis", &[
-        super::feature_gates::Feature::PrescribedDisplacements,
         super::feature_gates::Feature::ThermalLoads,
     ])?;
     crate::element::connector::refuse_for_corotational_2d(&input.solver, "Arc-length analysis")?;
+    super::corotational::refuse_inclined_motion_2d(&input.solver, start.is_some())?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -162,17 +176,49 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let art = assembly::artificial_stiffness_entries(&asm);
     let its = asm.inclined_transforms_2d;
     let f_ref: Vec<f64> = asm.f[..nf].to_vec();
-    let f_ref_s = if let Some(ref cs) = cs {
-        cs.reduce_vector(&f_ref)
-    } else {
-        f_ref.clone()
+    let (mut u_full, f_start) = match start {
+        Some(start) => super::corotational::start_state_2d(&input.solver, start, &dof_num)?,
+        None => (vec![0.0; n], vec![0.0; n]),
     };
+    let f_start: Vec<f64> = f_start[..nf].to_vec();
+    let u_r_start: Vec<f64> = u_full[nf..].to_vec();
+    let du_support = super::linear::prescribed_displacements_2d(&input.solver, &dof_num);
+    let moves_supports = du_support.iter().any(|&v| v != 0.0);
     let f_ref_norm = vec_norm(&f_ref);
-    if f_ref_norm < 1e-15 {
+    if f_ref_norm < 1e-15 && !moves_supports {
         return Err("Zero reference load".into());
     }
+    // The load-factor term of the arc-length constraint, in force² when there
+    // is a reference load and in displacement² when only supports move.
+    let psi2 = if f_ref_norm >= 1e-15 { f_ref_norm * f_ref_norm } else { vec_norm(&du_support).powi(2) };
+    let set_supports = |u: &mut [f64], lambda: f64| {
+        for (r, (&u0, &du)) in u_r_start.iter().zip(&du_support).enumerate() {
+            u[nf + r] = u0 + lambda * du;
+        }
+    };
+    // dR/dλ: the reference load less the tangent's response to the support
+    // motion, g = f_ref − K_fr·Δu_r.
+    let reference = |asm_t: &TangentAssembly| -> Vec<f64> {
+        let mut g = f_ref.clone();
+        if moves_supports {
+            if sparse {
+                for ((&i, &j), &v) in asm_t.trip_rows.iter().zip(&asm_t.trip_cols).zip(&asm_t.trip_vals) {
+                    if i >= nf && j < nf {
+                        g[j] -= v * du_support[i - nf];
+                    } else if j >= nf && i < nf {
+                        g[i] -= v * du_support[j - nf];
+                    }
+                }
+            } else {
+                for (i, gi) in g.iter_mut().enumerate() {
+                    *gi -= (0..n - nf).map(|r| asm_t.k_t[i * n + nf + r] * du_support[r]).sum::<f64>();
+                }
+            }
+        }
+        g
+    };
+    let reduce = |v: &Vec<f64>| if let Some(ref cs) = cs { cs.reduce_vector(v) } else { v.clone() };
 
-    let mut u_full = vec![0.0; n];
     let mut lambda = 0.0_f64;
     let mut ds = input.initial_ds;
     let mut steps = Vec::new();
@@ -185,24 +231,25 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
 
     let mut step = 0;
     while step < input.max_steps {
-        // Predictor: solve K_T * δu_hat = f_ref
+        // Predictor: solve K_T * δu_hat = g
+        set_supports(&mut u_full, lambda);
         let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
 
         let du_hat_s = {
             // New tangent each step: factor once, solve the predictor RHS.
             let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
-            solve_with_tangent(&tangent, &f_ref_s, ns)?
+            solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?
         };
         let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s) } else { du_hat_s };
 
         // Determine Δλ from arc-length constraint
         // ||Δu||² + Δλ² × ||f_ref||² = Δs²
         let du_hat_norm = vec_norm(&du_hat);
-        let denom = du_hat_norm * du_hat_norm + f_ref_norm * f_ref_norm;
+        let denom = du_hat_norm * du_hat_norm + psi2;
         let mut delta_lambda = ds / denom.sqrt();
 
         // Sign: follow previous direction
-        let dot = dot_product(&prev_delta_u, &du_hat) + prev_delta_lambda * delta_lambda * f_ref_norm * f_ref_norm;
+        let dot = dot_product(&prev_delta_u, &du_hat) + prev_delta_lambda * delta_lambda * psi2;
         if dot < 0.0 {
             delta_lambda = -delta_lambda;
         }
@@ -225,12 +272,13 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             total_iters += 1;
 
             // Compute residual
+            set_supports(&mut u_full, lambda);
             let asm_t = assemble_tangent(&input.solver, &dof_num, &u_full, &art, sparse, &its);
             let f_int_new = &asm_t.f_int;
 
             let mut residual = vec![0.0; nf];
             for i in 0..nf {
-                residual[i] = lambda * f_ref[i] - f_int_new[i];
+                residual[i] = f_start[i] + lambda * f_ref[i] - f_int_new[i];
             }
 
             // Check convergence on independent (reduced) DOFs
@@ -240,7 +288,11 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
                 residual.clone()
             };
             let r_norm = vec_norm(&r_check);
-            let f_ext_norm = (lambda.abs() * f_ref_norm).max(1e-15);
+            let applied: Vec<f64> = (0..nf).map(|i| f_start[i] + lambda * f_ref[i]).collect();
+            let mut f_ext_norm = vec_norm(&applied).max(1e-15);
+            if start.is_some() || moves_supports {
+                f_ext_norm = f_ext_norm.max(vec_norm(&f_int_new[nf..]));
+            }
             if r_norm / f_ext_norm < input.tolerance {
                 step_converged = true;
                 break;
@@ -252,18 +304,18 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             let residual_s = if let Some(ref cs) = cs { cs.reduce_vector(&residual) } else { residual.clone() };
             let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
             let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
-            let du_t_s = solve_with_tangent(&tangent, &f_ref_s, ns)?;
+            let du_t_s = solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?;
             let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s) } else { du_r_s };
             let du_t = if let Some(ref cs) = cs { cs.expand_solution(&du_t_s) } else { du_t_s };
 
             // Arc-length constraint: quadratic equation for δλ
             // a*δλ² + b*δλ + c = 0
-            let a_coeff = dot_product(&du_t, &du_t) + f_ref_norm * f_ref_norm;
+            let a_coeff = dot_product(&du_t, &du_t) + psi2;
             let b_coeff = 2.0 * (dot_product(&delta_u, &du_t) + dot_product(&du_r, &du_t)
-                + delta_lambda * f_ref_norm * f_ref_norm);
+                + delta_lambda * psi2);
             let c_coeff = dot_product(&delta_u, &delta_u) + 2.0 * dot_product(&delta_u, &du_r)
                 + dot_product(&du_r, &du_r)
-                + delta_lambda * delta_lambda * f_ref_norm * f_ref_norm
+                + delta_lambda * delta_lambda * psi2
                 - ds * ds;
 
             let discriminant = b_coeff * b_coeff - 4.0 * a_coeff * c_coeff;
@@ -315,12 +367,14 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
 
         // Record converged step
         step += 1;
+        set_supports(&mut u_full, lambda);
         steps.push(EquilibriumStep {
             step,
             load_factor: lambda,
             control_displacement: u_full.get(0).copied().unwrap_or(0.0),
             converged: true,
             iterations: step_iters,
+            displacements: super::linear::build_displacements_2d(&dof_num, &assembly::to_global(&u_full, n, &its)),
         });
 
         // Save direction for next step
@@ -336,7 +390,8 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     }
 
     // Build final results using corotational forces (not linear)
-    let u_global = assembly::to_global(&u_full[..nf], n, &its);
+    set_supports(&mut u_full, lambda);
+    let u_global = assembly::to_global(&u_full, n, &its);
     let displacements = super::linear::build_displacements_2d(&dof_num, &u_global);
     let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_global);
 
@@ -381,6 +436,12 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
 
 /// Solve using displacement control method.
 pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<DisplacementControlResult, String> {
+    let mut r = solve_displacement_control_contained(input)?;
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Corotational));
+    Ok(r)
+}
+
+fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Result<DisplacementControlResult, String> {
     // As above: validated before assembly indexes by id.
     super::linear::validate_input_2d(&input.solver)?;
     super::feature_gates::refuse_2d(&input.solver, "Displacement-control analysis", &[
@@ -573,6 +634,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             control_displacement: u_full[ctrl],
             converged: step_converged,
             iterations: step_iters,
+            displacements: Vec::new(),
         });
 
         if !step_converged {
@@ -804,7 +866,7 @@ fn assemble_tangent(
     its: &[InclinedTransformData2D],
 ) -> TangentAssembly {
     let n = dof_num.n_total;
-    let u_global = assembly::to_global(&u_frame[..dof_num.n_free], n, its);
+    let u_global = assembly::to_global(u_frame, n, its);
     let u_full = &u_global[..];
     let mut f_int = vec![0.0; n];
     let mut k_t: Vec<f64> = Vec::new();

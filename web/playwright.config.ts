@@ -154,6 +154,9 @@ export default defineConfig({
     // for font/AA differences between platforms.
     toHaveScreenshot: { maxDiffPixelRatio: 0.02 },
   },
+  // On a pull request in CI the default diff runs `git fetch --depth=1` of the PR base, which cuts the checkout's history there and breaks the results registry (scripts/result-changes/registry.mjs).
+  globalSetup: './e2e/global-setup.ts',
+  captureGitInfo: { diff: false },
   reporter: process.env.CI
     // E2E_JSON_REPORT names the JSON report per suite (CI: e2e/.results/smoke.json, slow.json) for
     // the shard timing tables (scripts/e2e-shard.mjs). The default sat in `.artifacts`, which every

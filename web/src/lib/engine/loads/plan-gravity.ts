@@ -43,7 +43,7 @@
  * Pure: no store.
  */
 import polygonClipping from 'polygon-clipping';
-import { floorLoad, type FloorBeam } from './floor-loads';
+import { floorLoad, type FloorBeam, type SideStretch } from './floor-loads';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
 export interface GravityModel {
@@ -114,6 +114,8 @@ export interface GravityLayout {
   widthColour: Map<number, number>;
   /** The loaded panels, by `GravityPiece.panel`: their outline in plan, their level, and whether a roof. */
   panels: Array<{ polygon: Array<[number, number]>; z: number; roof: boolean }>;
+  /** Members whose area load all comes from one side of their axis, ascending; its torque is in no load. */
+  oneSided: number[];
   notes: EngineMessage[];
 }
 
@@ -142,7 +144,11 @@ function planArea(pts: Array<{ x: number; y: number }>): number {
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
   const out: GravityLayout = {
     pieces: [], points: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
-    roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), panels: [], notes: [],
+    roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), panels: [], oneSided: [], notes: [],
+  };
+  const sidesOf = new Map<number, SideStretch[]>();
+  const addSides = (id: number, sides: SideStretch[] | undefined) => {
+    if (sides) (sidesOf.get(id) ?? sidesOf.set(id, []).get(id)!).push(...sides);
   };
   const width = (id: number, length: number, horizontalLength: number) => {
     out.widthMembers.push({ elementId: id, length, horizontalLength });
@@ -261,10 +267,15 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
   const coverAbove = coverage(model, out.zOf, panelsAt);
   const covered = (pt: [number, number], zTop: number) => Number.isFinite(coverAbove(pt, zTop));
+  const panelSides = new Map<number, SideStretch[]>();
+  for (const { res } of levels.values()) for (const pn of res.panels) for (const [id, sides] of pn.own?.sides ?? []) {
+    (panelSides.get(id) ?? panelSides.set(id, []).get(id)!).push(...sides);
+  }
   if (opts.mode === 'width') levels.clear();
   const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, coverAbove, opts.tributaryWidth, opts.mode === 'panels');
   const deckless = (poly: Array<[number, number]>, z: number) => (deck ? deck.why(poly, z) : null);
   const fringeRoof = new Map<number, WidthSpan[]>();
+  const fringeSides = new Map<number, SideStretch[]>();
   let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0, unclearRoof = 0, fringes = 0;
   const segment = (id: number): Segment => {
     const e = model.elements.get(id)!;
@@ -339,6 +350,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         });
         if (spans.length === 0) { droppedMembers.add(e.id); continue; }
         fringeRoof.set(e.id, spans);
+        fringeSides.set(e.id, loadedSides(kept, axis));
         held.kept.push({ region: kept, z });
         fringes++;
         continue;
@@ -396,6 +408,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         const moved = regionToBeams(model, region, [...one.perBeam.keys()]);
         for (const pc of moved.pieces) {
           out.pieces.push({ ...pc, roof, panel: index });
+          addSides(pc.elementId, one.sides.get(pc.elementId));
           const a = pc.wI * (pc.b - pc.a);
           addArea(out.roofAreaOf, pc.elementId, a);
           out.roof.add(pc.elementId);
@@ -411,6 +424,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         continue;
       }
       for (const l of one.loads) {
+        addSides(l.elementId, one.sides.get(l.elementId));
         out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI * share, wJ: l.qJ * share, roof, panel: index });
       }
       for (const n of one.nodal) {
@@ -434,7 +448,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const m of out.widthMembers) {
     const spans = fringeRoof.get(m.elementId);
     if (spans) m.spans = spans;
+    addSides(m.elementId, spans ? fringeSides.get(m.elementId) : opts.mode === 'width' ? panelSides.get(m.elementId) : undefined);
   }
+  out.oneSided = [...sidesOf].filter(([, s]) => oneSidedSomewhere(s)).map(([id]) => id).sort((a, b) => a - b);
   if (out.widthMembers.length < beforeDepth) {
     out.notes.push(msg('loadPlan.gravity.membersLowHeadroom', { n: beforeDepth - out.widthMembers.length, h: MIN_STOREY_HEADROOM }));
   }
@@ -694,6 +710,73 @@ function lowRange(d0: number, d1: number, lo: number, hi: number): [number, numb
     if (f0 > 0) t1 = Math.min(t1, t); else t0 = Math.max(t0, t);
   }
   return t1 > t0 ? [t0, t1] : null;
+}
+
+export function loadedSides(r: Array<Array<Array<[number, number]>>>, axis: { p: [number, number]; u: [number, number]; L: number }): SideStretch[] {
+  const n = FRINGE_BINS, w = axis.L / n;
+  const bins = Array.from({ length: n }, () => ({ 1: 0, [-1]: 0 } as Record<number, number>));
+  const local = (q: [number, number]): [number, number] => {
+    const dx = q[0] - axis.p[0], dy = q[1] - axis.p[1];
+    return [dx * axis.u[0] + dy * axis.u[1], dy * axis.u[0] - dx * axis.u[1]];
+  };
+  const rings: Array<Array<[number, number]>> = [];
+  for (const poly of r) poly.forEach((ring, k) => {
+    const pts = openRing(ring).map(local);
+    rings.push(pts);
+    for (let b = 0; b < n; b++) for (const side of [1, -1]) {
+      const part = clipToBox(pts, side > 0 ? { x0: b * w, y0: 0, x1: (b + 1) * w, y1: 1e9 } : { x0: b * w, y0: -1e9, x1: (b + 1) * w, y1: 0 });
+      if (part.length >= 3) bins[b]![side]! += (k === 0 ? 1 : -1) * Math.abs(signedArea(part));
+    }
+  });
+  const breaks = new Set<number>(Array.from({ length: n + 1 }, (_, b) => b * w));
+  for (const pts of rings) pts.forEach((q, i) => {
+    const e = pts[(i + 1) % pts.length]!;
+    breaks.add(q[0]);
+    if ((q[1] < 0 && e[1] > 0) || (q[1] > 0 && e[1] < 0)) breaks.add(q[0] + (e[0] - q[0]) * (q[1] / (q[1] - e[1])));
+  });
+  const stations = [...breaks].filter((x) => x >= 0 && x <= axis.L).sort((x, y) => x - y);
+  const chord = (x: number, side: 1 | -1) => {
+    const ys: number[] = [];
+    for (const pts of rings) pts.forEach((q, i) => {
+      const e = pts[(i + 1) % pts.length]!;
+      if ((q[0] <= x && x < e[0]) || (e[0] <= x && x < q[0])) ys.push(side * (q[1] + (e[1] - q[1]) * ((x - q[0]) / (e[0] - q[0]))));
+    });
+    ys.sort((y0, y1) => y0 - y1);
+    let len = 0;
+    for (let i = 0; i + 1 < ys.length; i += 2) len += Math.max(0, ys[i + 1]! - Math.max(0, ys[i]!));
+    return len;
+  };
+  const total = bins.reduce((s, a) => s + a[1]! + a[-1]!, 0);
+  const out: SideStretch[] = [];
+  for (let i = 0; i + 1 < stations.length; i++) {
+    const x0 = stations[i]!, x1 = stations[i + 1]!;
+    if (!(x1 - x0 > 1e-12 * axis.L)) continue;
+    const mid = (x0 + x1) / 2, a = bins[Math.min(n - 1, Math.floor(mid / w))]!;
+    const here = a[1]! + a[-1]!;
+    if (!(here > 1e-6 * total)) continue;
+    for (const side of [1, -1] as const) {
+      if (a[side]! > 0.01 * here && chord(mid, side) > 0.01 * here / w) out.push({ t0: x0 / axis.L, t1: x1 / axis.L, side });
+    }
+  }
+  return out;
+}
+
+export function oneSidedSomewhere(list: SideStretch[]): boolean {
+  const merged = (side: number) => {
+    const out: Array<[number, number]> = [];
+    for (const s of list.filter((x) => x.side === side).sort((x, y) => x.t0 - y.t0)) {
+      const last = out[out.length - 1];
+      if (last && s.t0 <= last[1] + 1e-9) last[1] = Math.max(last[1], s.t1); else out.push([s.t0, s.t1]);
+    }
+    return out;
+  };
+  const left = merged(1), right = merged(-1);
+  const uncovered = (a: Array<[number, number]>, b: Array<[number, number]>) => a.some(([t0, t1]) => {
+    let open = t1 - t0;
+    for (const [u0, u1] of b) open -= Math.max(0, Math.min(t1, u1) - Math.max(t0, u0));
+    return open > 1e-6;
+  });
+  return uncovered(left, right) || uncovered(right, left);
 }
 
 /** A region cut on a grid of `cells` × `cells` over its bounding box: each piece's area (holes taken away) and centroid. */

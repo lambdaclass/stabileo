@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { assessProject, conditionHolds } from '../applicability';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
 import { RESULTS_VERSION, type ResultChangeRegistry } from '../registry';
-import { stampSolve, unknownStamp, type SolveStamp } from '../solve-stamp';
+import { analysesContext, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../solve-stamp';
 
 const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
 const CONCRETE = { id: 2, name: 'H-25', e: 30000, nu: 0.2, rho: 25, fy: 25 };
@@ -26,6 +26,26 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('scopes exact plastic resource refusals to frame projects after plastic analysis', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-exact-resource-budget-refused');
+    expect(entry).toBeDefined();
+    for (const dimension of ['space3D', 'plane2D']) {
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'frameMembers', 'analysis:plastic']))).toBe(true);
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'frameMembers', 'analysis:modal']))).toBe(false);
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'trussMembers', 'analysis:plastic']))).toBe(false);
+    }
+  });
+
+  it('scopes the checked 3D certified lower bound to space frames after plastic analysis', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-3d-certified-lower-bound');
+    expect(entry).toBeDefined();
+    const features = ['space3D', 'frameMembers', 'analysis:plastic'];
+    expect(conditionHolds(entry!.when ?? {}, new Set(features))).toBe(true);
+    for (const omitted of features) {
+      expect(conditionHolds(entry!.when ?? {}, new Set(features.filter((feature) => feature !== omitted)))).toBe(false);
+    }
+  });
+
   it('shows the CIRSOC 301 tension note only for steel members without connection data under CIRSOC 301', () => {
     const steelTruss = model({ elements: [member(1, 1, 'truss')] });
     expect(ids(steelTruss)).toContain('cirsoc301-tension-needs-connection');
@@ -46,6 +66,33 @@ describe('which registered changes concern a model', () => {
     expect(ids(ec3)).not.toContain('cirsoc301-tension-needs-connection');
     expect(ids(ec3)).not.toContain('cirsoc301-biaxial-h11b');
     expect(ids(ec3)).toContain('ec3-aisc-ltb-and-slender');
+  });
+
+  it('shows the Cb segment-ends change only for CIRSOC 301 steel with a declared unbraced length', () => {
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain('cb-segment-ends');
+    expect(ids(model({ elements: [member(1, 1, 'frame', { unbracedLength: 2 })] }))).toContain('cb-segment-ends');
+    expect(ids(model({ elements: [member(1, 1, 'frame', { bracing: { top: [1.5] } })] }))).toContain('cb-segment-ends');
+    expect(ids(model({ elements: [member(1, 2, 'frame', { unbracedLength: 2 })] }))).not.toContain('cb-segment-ends');
+    expect(ids(model({
+      elements: [member(1, 1, 'frame', { unbracedLength: 2 })],
+      regulations: { roles: { steel: { adapterId: 'eurocode3' } } },
+    }))).not.toContain('cb-segment-ends');
+  });
+
+  it('shows the net-area chain change only for CIRSOC 301 steel with a staggered or web-less "all" bolted end', () => {
+    const bolted = (extra: Record<string, unknown>) => ({ kind: 'bolted', connected: 'legH', holeKind: 'standard', ...extra });
+    const id = 'net-area-chains-and-web-lines';
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({}) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { j: bolted({ stagger: { sMm: 40, gMm: 60 } }) } })] }))).toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ connected: 'all', webLines: 0 }) } })] }))).toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ connected: 'all', webLines: 1 }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: { sMm: 40 } }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 2, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })] }))).not.toContain(id);
+    expect(ids(model({
+      elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })],
+      regulations: { roles: { steel: { adapterId: 'eurocode3' } } },
+    }))).not.toContain(id);
   });
 
   it('shows the arc local-axes change only for models with members drawn as an arc (#418)', () => {
@@ -156,6 +203,7 @@ describe('which registered changes concern a model', () => {
     expect(ids(plane, { resultsVersion: 14, analyses: ['linear'] } as SolveStamp)).toContain('basic-influence-line-moment-sign-withdrawn');
     expect(ids(plane, v20)).toContain('generated-area-loads-headroom');
     expect(ids(plane, v20)).not.toContain('basic-influence-line-moment-sign-withdrawn');
+    expect(ids(plane, v20)).toContain('safety-containment-diagnostics');
     const entry = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom') as unknown as { title: Record<string, string>; explanation: Record<string, string> };
     for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
       expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
@@ -201,6 +249,16 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'truss')] }))).not.toContain(change);
   });
 
+  it('tells 3D frames solved before version 39 about the 3D plastic refusal of a member without capacity, never a plane model or a truss (#1525)', () => {
+    const change = 'plastic-3d-member-without-capacity-refused';
+    const v38 = { resultsVersion: 38, analyses: ['linear'] } as SolveStamp;
+    expect(ids(model({ analysisMode: 'pro', elements: [member(1, 1, 'frame')] }), v38)).toContain(change);
+    expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'frame')] }), v38)).toContain(change);
+    expect(ids(model({ analysisMode: 'pro', elements: [member(1, 1, 'frame')] }), { resultsVersion: 39, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ analysisMode: '2d', elements: [member(1, 1, 'frame')] }), v38)).not.toContain(change);
+    expect(ids(model({ analysisMode: 'pro', elements: [member(1, 1, 'truss')] }), v38)).not.toContain(change);
+  });
+
   it('tells CIRSOC 301 steel models solved before the Q ≤ 0 refusal about it', () => {
     const change = 'cirsoc301-q-nonpositive-refused';
     const steel = model({ elements: [member(1, 1, 'frame')] });
@@ -240,6 +298,47 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
 
+  it('concerns a 3D steel truss solved before the containment diagnostics, and not the same supports and nodal load without members one version old (the re-check e2e relies on it)', () => {
+    const previous = { resultsVersion: RESULTS_VERSION - 1, analyses: ['linear'] } as SolveStamp;
+    const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 3, fz: -20 } }];
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('safety-containment-diagnostics');
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('fail-closed-ratios');
+    expect(ids(model({ loads }), previous)).toEqual([]);
+  });
+
+  it('tells a truss-only model with a support spring about the orphan-rotation fix, and not one without', () => {
+    const v32 = { resultsVersion: 32, analyses: ['linear'] } as SolveStamp;
+    const springs = [[1, { nodeId: 1, type: 'fixed3d' }], [2, { nodeId: 2, type: 'spring3d', krz: 1e-13 }]] as never;
+    expect(ids(model({ elements: [member(1, 1, 'truss')], supports: springs }), v32)).toContain('soft-rotation-not-orphan');
+    expect(ids(model({ elements: [member(1, 1, 'truss')] }), v32)).not.toContain('soft-rotation-not-orphan');
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }), v32)).toContain('soft-rotation-not-orphan');
+  });
+
+  it('tells every model that can rotate past 0.1 rad about the small-displacement warning (#1446), and not one with supports and loads only', () => {
+    const change = 'linear-small-displacement-warning';
+    const v35 = { resultsVersion: 35, analyses: ['linear'] } as SolveStamp;
+    const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 1, my: 5 } }];
+    expect(ids(model({ loads, elements: [member(1, 1, 'frame')] }), v35)).toContain(change);
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), v35)).toContain(change);
+    const spring = model({ loads, supports: [[1, { nodeId: 1, type: 'spring3d', kry: 1e-6 }]] as never });
+    expect(modelFeatures(spring).has('springs')).toBe(true);
+    expect(ids(spring, v35)).toContain(change);
+    expect(ids(model({ loads, elements: [member(1, 1, 'frame')] }), { resultsVersion: 36, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ loads }), v35)).not.toContain(change);
+  });
+
+  it('never tells a saved model about a change of bundled examples only, whatever it was solved with', () => {
+    const change = 'example-torsion-beam-closed-section';
+    expect(RESULT_CHANGES.changes.find((c) => c.id === change)?.scope).toBe('examples');
+    const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 2, fz: -20, mx: 8 } }];
+    const torsionBeam = model({ analysisMode: '3d', loads, elements: [member(1, 1, 'frame')] });
+    for (const stamp of [null, { resultsVersion: 1, analyses: ['linear'] } as SolveStamp, { resultsVersion: RESULTS_VERSION - 1, analyses: ['linear'] } as SolveStamp]) {
+      expect(ids(torsionBeam, stamp)).not.toContain(change);
+    }
+    const everything = { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.map((c) => (c.id === change ? { ...c, scope: undefined, when: {} } : c)) } as ResultChangeRegistry;
+    expect(assessProject(torsionBeam, null, '3d', everything).changes.map((c) => c.id)).toContain(change);
+  });
+
   it('tells plane frames with combinations and member loads about the true-peak governing value and envelope', () => {
     const change = 'governing-envelope-true-peak';
     const combos = { combinations: [{ id: 1, name: '1.2D', factors: [{ caseId: 1, factor: 1.2 }] }] } as Partial<FeatureSnapshot>;
@@ -260,8 +359,8 @@ describe('versions and recorded analyses (a later registry)', () => {
     currentResultsVersion: next,
     changes: [
       ...RESULT_CHANGES.changes,
-      { ...RESULT_CHANGES.changes[0], id: 'next-modal', resultsVersion: next, when: { all: ['members', 'analysis:modal'] } },
-      { ...RESULT_CHANGES.changes[0], id: 'next-all', resultsVersion: next, when: {} },
+      { ...RESULT_CHANGES.changes[0], scope: undefined, examples: undefined, id: 'next-modal', resultsVersion: next, when: { all: ['members', 'analysis:modal'] } },
+      { ...RESULT_CHANGES.changes[0], scope: undefined, examples: undefined, id: 'next-all', resultsVersion: next, when: {} },
     ],
   };
   const steel = model({ elements: [member(1, 1, 'truss')] });
@@ -277,12 +376,45 @@ describe('versions and recorded analyses (a later registry)', () => {
     expect(assessProject(steel, null, 'pro', later).changes.map((c) => c.id)).toContain('next-modal');
   });
 
-  it('counts the analyses the stamp cannot see as run', () => {
+  it('counts the analyses a stamp written before #1658 cannot see as run', () => {
     const f = modelFeatures(steel, { analysesRun: ['linear'] });
-    expect(f.has('analysis:timeHistory')).toBe(true);
-    // Soil-structure interaction is solved in the PRO panel from springs a file never carries.
-    expect(f.has('analysis:ssi')).toBe(true);
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi']) expect(f.has(`analysis:${k}` as never), k).toBe(true);
     expect(f.has('analysis:modal')).toBe(false);
+  });
+
+  it('counts an analysis a stamp records as run only when it ran', () => {
+    const stamp = solvedHere(['linear']);
+    const f = modelFeatures(steel, { analysesRun: stamp.analyses, analysesRecorded: stamp.recorded });
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi', 'modal']) expect(f.has(`analysis:${k}` as never), k).toBe(false);
+    const harmonic = stampSolve('harmonic', stamp);
+    expect(harmonic.analyses).toEqual(['harmonic', 'linear']);
+    expect(modelFeatures(steel, { analysesRun: harmonic.analyses, analysesRecorded: harmonic.recorded }).has('analysis:harmonic')).toBe(true);
+  });
+
+  it('a solve in another build never makes an analysis that ran under the previous stamp read as not run', () => {
+    const before = { ...stampSolve('harmonic', solvedHere(['linear'])), resultsVersion: 1, commit: 'old' };
+    expect(before.analyses).toEqual(['harmonic', 'linear']);
+    const solved = stampSolve('linear', before);
+    expect(solved.analyses).toEqual(['linear']);
+    expect(solved.recorded).not.toContain('harmonic');
+    expect(modelFeatures(steel, analysesContext(solved)).has('analysis:harmonic')).toBe(true);
+    expect(modelFeatures(steel, analysesContext(solved)).has('analysis:nonlinear')).toBe(false);
+    const fromUnknown = stampSolve('linear', unknownStamp());
+    expect(fromUnknown.recorded).toEqual(['linear']);
+  });
+
+  it('a solve on top of a stamp written before #1658 keeps the analyses it did not record counted as run', () => {
+    const { recorded: _all, ...legacy } = { ...solvedHere(['linear', 'harmonic']), resultsVersion: 1, commit: 'old' };
+    const solved = stampSolve('linear', legacy);
+    expect(solved.analyses).toEqual(['linear']);
+    expect(solved.recorded).not.toContain('harmonic');
+    const reread = readStamp(JSON.parse(JSON.stringify(solved)))!;
+    expect(reread.recorded).toEqual(solved.recorded);
+    const f = modelFeatures(steel, analysesContext(reread));
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi']) expect(f.has(`analysis:${k}` as never), k).toBe(true);
+    const ran = stampSolve('harmonic', reread);
+    expect(ran.recorded).toContain('harmonic');
+    expect(modelFeatures(steel, analysesContext(ran)).has('analysis:nonlinear')).toBe(true);
   });
 });
 
@@ -294,4 +426,25 @@ describe('conditionHolds', () => {
     expect(conditionHolds({ allOf: [['a'], ['b', 'c']] }, f)).toBe(true);
     expect(conditionHolds({}, f)).toBe(true);
   });
+});
+
+it('shows moving-load changes for saved vehicle position cases and excludes ordinary frames', () => {
+  const frame = model({ elements: [member(1, 1, 'frame')] });
+  const moving = { ...frame, loadCases: [{ id: 1, type: 'Tr', alternatives: 'move:vehicle' }] };
+  expect(modelFeatures(frame).has('movingLoads')).toBe(false);
+  expect(modelFeatures(moving).has('movingLoads')).toBe(true);
+  expect(ids(frame)).not.toContain('moving-loads-3d');
+  expect(ids(frame)).not.toContain('moving-load-endpoint-forces');
+  expect(ids(moving)).toContain('moving-loads-3d');
+  for (const analysisMode of ['2d', 'pro']) {
+    expect(ids({ ...moving, analysisMode })).toContain('moving-load-endpoint-forces');
+  }
+  expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-load-endpoint-forces');
+  expect(ids(moving)).not.toContain('moving-axial-patch-boundaries');
+  for (const analysisMode of ['2d', 'pro']) {
+    expect(ids({ ...moving, analysisMode, loads: [{ type: 'distributed', data: { a: 1.10, b: 1.15 } }] })).toContain('moving-axial-patch-boundaries');
+  }
+  expect(ids({ ...moving, analysisMode: '2d' })).not.toContain('moving-loads-3d');
+  expect(ids({ ...frame, loadCases: [{ id: 1, type: 'Tr' }] })).not.toContain('moving-loads-3d');
+  expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-loads-3d');
 });

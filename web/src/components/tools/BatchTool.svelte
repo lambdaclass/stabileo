@@ -9,10 +9,12 @@
  import { solverMessages } from './solver-messages';
  import { DEFAULT_BATCH, validateBatch, type BatchId, type BatchParameters } from './batch';
  import type { BatchResult } from './batch-solve';
+ import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
  let {id}:{id:BatchId}=$props();
  let p=$state<BatchParameters>({...DEFAULT_BATCH});
  let result=$state<BatchResult|null>(null), error=$state(''),busy=$state(false),href=$state('');
  let revision=0;
+ const warmSolver=()=>{void import('../../lib/engine/wasm-solver').then(m=>m.initSolver()).catch(()=>{});};
  const number=(n:number,digits=6)=>new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:digits}).format(n);
  const warning=(w:Warning)=>Object.entries(w.values??{}).reduce((text,[k,v])=>text.replace(`{${k}}`,typeof v==='number'?new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:3,notation:v>=1e5?'scientific':'standard'}).format(v):v),t(w.key));
  const largest=(r:BatchResult)=>Math.max(...r.comparisons.map(c=>Math.abs(c.engine-c.reference)));
@@ -25,13 +27,20 @@
   ...(id==='influence-line'?[['position','tools.batch.section','m',.000001,p.length*p.count-.000001]]:[])
  ] as [keyof Pick<BatchParameters,'e'|'i'|'area'|'length'|'height'|'horizontal'|'load'|'mass'|'position'>,string,string,number,number][]).filter(([key])=>id!=='truss-2d'||key!=='i'));
  $effect(()=>{
-  const tool=id,values={...p}; revision++; result=null;href='';error='';busy=true;
+  const tool=id,values={...p}; revision++;
+  const ready=prerenderedResult<BatchResult>(tool,values);
+  if(ready) {
+   const token=revision; result=ready;href='';error='';busy=false;
+   void import('./share').then(({editorUrl})=>{if(token===revision)href=editorUrl(ready.model,t(`tools.${tool}`),tool==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);});
+   return ()=>{revision++;};
+  }
+  result=null;href='';error='';busy=true;
   const timer=setTimeout(()=>void run(tool,values),250);
   return ()=>{clearTimeout(timer);revision++;};
  });
  async function run(tool:BatchId,values:BatchParameters) {
   const token=++revision;
-  try {validateBatch(tool,values); const [{calculateBatch},{editorUrl}]=await Promise.all([import('./batch-solve'),import('./share')]);const answer=await calculateBatch(tool,values);if(token!==revision)return; result=answer;href=editorUrl(answer.model,t(`tools.${tool}`),tool==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
+  try {validateBatch(tool,values); const [{calculateBatch},{editorUrl}]=await Promise.all([import('./batch-solve'),import('./share')]);const answer=await calculateBatch(tool,values);if(token!==revision)return; recordPrerenderedResult(tool,values,answer); result=answer;href=editorUrl(answer.model,t(`tools.${tool}`),tool==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
   catch(e) {if(token===revision)error=t(e instanceof Error&&e.message.startsWith('tools.')?e.message:'tools.failed');}
   finally {if(token===revision)busy=false;}
  }
@@ -40,7 +49,7 @@
 <div class="tool-layout">
  <header class="tool-intro"><p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p><h1>{t(`tools.${id}`)}</h1><p class="lead">{t(`tools.${id}.subtitle`)}</p></header>
  <aside class="tool-viewer" aria-label={t(`tools.${id}`)}><BatchViewer {id} {result}/></aside>
- <section class="tool-inputs"><form onsubmit={event=>event.preventDefault()}>
+ <section class="tool-inputs"><form onsubmit={event=>event.preventDefault()} onfocusin={warmSolver} onpointerdown={warmSolver}>
   {#each fields as [key,label,unit,min,max]}<ParamRow id={key} name={t(label)} {unit}><input id={key} data-testid={key} type="number" bind:value={p[key]} {min} {max} step="any" required/></ParamRow>{/each}
   {#if id==='continuous-beam'}
    <p>{t('tools.batch.listNote')}</p><label for="spans">{t('tools.batch.spans')} (m; 0.1–100)</label><input id="spans" bind:value={p.spans} />
@@ -92,6 +101,6 @@
  .crumb :global(a) {display:inline-flex;align-items:center;min-height:44px;min-width:44px;} .warning {border-left:3px solid var(--st-warn,#e5482a);padding-left:.75rem;color:var(--fg);} .tool-layout {display:grid;gap:1.5rem;} .tool-layout>* {min-width:0;} h1 {font:600 clamp(2rem,4.5vw,3rem)/1.1 var(--lp-display);margin:.75rem 0;overflow-wrap:anywhere;hyphens:auto;} .lead {font-size:1.05rem;color:var(--fg);margin-bottom:0;} .crumb {font-size:.95rem;color:var(--fg-2);margin-bottom:1rem;}
  form {border-top:1px solid var(--hair);padding-top:1rem;} input,select,textarea {min-height:44px;min-width:0;max-width:100%;background:var(--card);color:var(--fg);border:1px solid var(--hair);border-radius:3px;padding:.4rem;font:.875rem var(--lp-mono);} textarea,form>input {width:100%;box-sizing:border-box;} textarea {resize:vertical;} form>label {display:block;margin-top:1rem;margin-bottom:.5rem;} .tool-inputs :global(.rs-param) {grid-template-columns:minmax(0,1fr) minmax(6rem,10rem) 3.5rem;} .tool-viewer {border:1px solid var(--card-hair);border-radius:6px;background:var(--card);overflow:hidden;}
  .results {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem;padding:1.25rem 0;border-block:1px solid var(--hair);} .result {display:grid;gap:.25rem;font-size:.875rem;color:var(--fg-2);} .result:first-child {grid-column:1/-1;} .result strong {font:500 clamp(1.75rem,3vw,2.5rem) var(--lp-display);color:var(--fg);overflow-wrap:anywhere;} .result small {font:.875rem var(--lp-mono);} .verification {font-size:.875rem;color:var(--fg-2);overflow-wrap:anywhere;} .formula {font:.875rem/1.8 var(--lp-mono);overflow-wrap:anywhere;} details {border-top:1px solid var(--hair);margin-top:2rem;padding-top:1rem;font-size:.875rem;} summary {min-height:44px;cursor:pointer;display:flex;align-items:center;} .table-scroll {overflow-x:auto;} table {width:100%;font:.8125rem var(--lp-mono);} th,td {padding:.5rem;text-align:left;} .force-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.5rem;font:.875rem var(--lp-mono);} .tension {color:#f4a582;} .compression {color:#92c5de;} .open-editor {min-height:44px;}
- @media(max-height: 450px) and (max-width: 69.99rem) { .crumb {margin:0 0 .25rem;} h1 {margin:.5rem 0;font-size:2rem;} .lead {margin-top:.5rem;} .tool-layout {gap:1rem;} }
+ @media(max-height: 450px) and (max-width: 69.99rem) { .crumb {margin:0 0 .25rem;} h1 {margin:.5rem 0;font-size:1.75rem;} .lead {font-size:.95rem;} .lead {margin-top:.5rem;} .tool-layout {gap:1rem;} }
  @media(min-width:70rem) {.tool-layout {grid-template-columns:minmax(25rem,38rem) minmax(0,1fr);column-gap:3rem;align-items:start;} .tool-intro {grid-column:1;grid-row:1;} .tool-inputs {grid-column:1;grid-row:2;} .tool-results {grid-column:1;grid-row:3;} .tool-viewer {grid-column:2;grid-row:1/4;position:sticky;top:calc(var(--lp-nav-h,3.6rem) + .75rem);}}
 </style>

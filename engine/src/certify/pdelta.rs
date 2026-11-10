@@ -45,7 +45,7 @@ use crate::linalg::sparse::CscMatrix;
 use crate::linalg::sparse_chol::{numeric_cholesky, sparse_cholesky_solve, symbolic_cholesky};
 use crate::solver::assembly::{assemble_load_vector_2d, assemble_sparse_3d};
 use crate::solver::dof::DofNumbering;
-use crate::solver::geometric_stiffness::{geometric_stiffness_terms_2d, geometric_stiffness_terms_3d, KgAffineTerm};
+use crate::solver::geometric_stiffness::{geometric_stiffness_terms_2d, geometric_stiffness_terms_3d, span_axial_geometric_stiffness_2d, span_axial_geometric_stiffness_3d, KgAffineTerm};
 use crate::solver::linear::expand_curved_beams_3d;
 use crate::solver::pdelta::{solve_pdelta_2d, solve_pdelta_3d, PDeltaResult, PDeltaResult3D};
 use crate::solver::sparse_assembly::assemble_stiffness_sparse_2d;
@@ -69,9 +69,11 @@ pub enum PDeltaCertificate {
         /// `‖u*_F − ũ_F‖₂ ≤ abs_bound` for the exact solution `u*` of the model.
         abs_bound: f64,
         /// `abs_bound / ‖ũ_F‖₂` rounded up (+∞ when ũ_F = 0 and the bound is not 0).
+        #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
         rel_bound: f64,
         /// `u*` is the only solution of the model with `‖u_F − ũ_F‖₂ <` this
         /// (+∞ when the model is linear, β = 0).
+        #[serde(serialize_with = "crate::check::ser_ratio", deserialize_with = "crate::check::de_ratio")]
         uniqueness_radius: f64,
         /// Certified `λ_min(sym J(ũ)) ≥ mu > 0` (J the exact Jacobian at ũ).
         mu: f64,
@@ -161,8 +163,9 @@ fn pdelta_results_2d(input: &SolverInput, results: &AnalysisResults) -> PDeltaCe
     }
     let f = assemble_load_vector_2d(input, &input.loads, &dof_num, &[]);
     let terms = geometric_stiffness_terms_2d(input, &dof_num);
+    let k_full = with_span_stiffness(&stiff.k_full, span_axial_geometric_stiffness_2d(input, &dof_num));
     match gather_u_2d(&dof_num, &results.displacements) {
-        Ok(u) => certify_pdelta_system(&stiff.k_full, dof_num.n_free, &f, &terms, &u),
+        Ok(u) => certify_pdelta_system(&k_full, dof_num.n_free, &f, &terms, &u),
         Err(c) => PDeltaCertificate::uncertified(format!("displacements: {c:?}")),
     }
 }
@@ -192,10 +195,37 @@ fn pdelta_results_3d(input: &SolverInput3D, results: &AnalysisResults3D) -> PDel
         return PDeltaCertificate::uncertified("sparse assembly did not build the full K");
     };
     let terms = geometric_stiffness_terms_3d(input, &dof_num);
+    let k_full = with_span_stiffness(k_full, span_axial_geometric_stiffness_3d(input, &dof_num).0);
     match gather_u_3d(&dof_num, &results.displacements) {
-        Ok(u) => certify_pdelta_system(k_full, dof_num.n_free, &asm.f, &terms, &u),
+        Ok(u) => certify_pdelta_system(&k_full, dof_num.n_free, &asm.f, &terms, &u),
         Err(c) => PDeltaCertificate::uncertified(format!("displacements: {c:?}")),
     }
+}
+
+fn with_span_stiffness(k: &CscMatrix, span: Vec<(usize, Vec<usize>, Vec<f64>)>) -> CscMatrix {
+    if span.is_empty() { return k.clone(); }
+    let mut rows = Vec::new();
+    let mut cols = Vec::new();
+    let mut vals = Vec::new();
+    for j in 0..k.n {
+        for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+            rows.push(k.row_idx[p]);
+            cols.push(j);
+            vals.push(k.values[p]);
+        }
+    }
+    for (_, dofs, kg) in span {
+        for (i, &gi) in dofs.iter().enumerate() {
+            for (j, &gj) in dofs.iter().enumerate() {
+                if gi >= gj {
+                    rows.push(gi);
+                    cols.push(gj);
+                    vals.push(kg[i * dofs.len() + j]);
+                }
+            }
+        }
+    }
+    CscMatrix::from_triplets(k.n, &rows, &cols, &vals)
 }
 
 /// Interval quantities of one term at ũ.

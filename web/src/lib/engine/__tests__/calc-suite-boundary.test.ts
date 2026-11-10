@@ -37,6 +37,8 @@ const BASELINE = new Set([
   'lib/engine/wasm-solver.ts -> lib/engine/codes/argentina/cirsoc301-kernel',
   // The CIRSOC 201 section engine (main): the solver registers it at start, like the kernels above.
   'lib/engine/wasm-solver.ts -> lib/engine/codes/argentina/cirsoc201-engine',
+  // The CIRSOC 301 checker inputs moved into the engine (#1718); the solver registers their kernel at start.
+  'lib/engine/wasm-solver.ts -> lib/engine/steel/cirsoc301-inputs',
 ]);
 
 function walk(dir: string): string[] {

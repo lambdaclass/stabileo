@@ -44,6 +44,7 @@ fn rc_force(id: usize) -> RCDesignForces {
         mu: 100e3 + id as f64,
         vu: Some(50e3),
         nu: None,
+        tu: None,
     }
 }
 
@@ -67,10 +68,9 @@ fn rc_check_scales_linearly_in_member_count() {
 
     assert_eq!(results.len(), N);
     println!("rc_check over {N} members: {:.1}ms", elapsed.as_secs_f64() * 1000.0);
-    assert!(
+    dedaliano_engine::wall_clock::budget(
         elapsed.as_secs() < 20,
-        "{N} members took {:.1}s — the member/force pairing has gone quadratic again",
-        elapsed.as_secs_f64()
+        || format!("{N} members took {:.1}s — the member/force pairing has gone quadratic again", elapsed.as_secs_f64()),
     );
 }
 

@@ -4,6 +4,7 @@ import pathlib
 import re
 import subprocess
 import tempfile
+import unittest
 import yaml
 
 root = pathlib.Path(__file__).resolve().parents[2]
@@ -45,7 +46,7 @@ for job, tests in {
     'isolation': ['test_asset_identity.py', 'test_docker_context.py'],
     'catalog': ['test_grossman_catalog.py'],
 }.items():
-    assert research['jobs'][job]['if'] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
+    assert research['jobs'][job]['if'] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}"
     commands = [step.get('run', '') for step in research['jobs'][job]['steps']]
     for test in tests:
         assert any(f'-I research/tools/{test}' in command for command in commands), (job, test)
@@ -151,9 +152,10 @@ check_stacked_group(['research/papers.json'], 'true')
 measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
 assert measured and all('if' not in step for step in measured)
 assert measured[0]['env']['RESEARCH_ISOLATION'] == '${{ steps.scope.outputs.research }}'
-copy = next(line for line in measured[0]['run'].splitlines() if line.startswith('cp '))
-assert 'web/scripts/product-route-growth-budgets.json' not in copy.split()
-assert copy.split()[-1] == 'route-main/web/scripts/'
+assert not any(line.strip().startswith('cp ') for line in measured[0]['run'].splitlines())
+assert '.github/scripts/route-size-from-base.sh route-main .' in measured[0]['run']
+assert 'node .route-base/check-research-route-size.mjs' in measured[0]['run']
+assert 'product-route-growth-budgets.json' not in measured[0]['run']
 assert 'force_routes' not in jobs['research'].get('with', {})
 assert 'FORCE_ROUTES' not in scope['env']
 triggers = research.get('on', research.get(True))
@@ -161,7 +163,7 @@ assert set(triggers['pull_request']['paths']) == {
     'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
 for name, job in research['jobs'].items():
     if name != 'catalog-online':
-        assert "github.workflow != 'Research' || github.event_name != 'pull_request'" in job['if'], name
+        assert "github.workflow != 'Research' || github.event_name == 'schedule'" in job['if'], name
 script = jobs['ci-ok']['steps'][0]['run']
 for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cancelled', 1)]:
     run = subprocess.run(['sh', '-c', script], env={'RESULTS': f'success skipped {result}'}, capture_output=True)
@@ -169,7 +171,7 @@ for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cance
 print('ok required research CI propagates failures and accepts skipped jobs')
 
 koiter = research["jobs"]["koiter"]
-assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
+assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
 
 assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
@@ -178,7 +180,8 @@ for caller, event, route_only, expected in [
     ('CI', 'pull_request', False, set(research['jobs']) - {'catalog-online'}),
     ('CI', 'merge_group', False, set(research['jobs']) - {'catalog-online'}),
     ('CI', 'pull_request', True, {'route-size'}),
-    ('Research', 'push', False, set(research['jobs'])),
+    ('Research', 'push', False, {'catalog-online'}),
+    ('CI', 'push', False, set(research['jobs']) - {'catalog-online'}),
     ('Research', 'schedule', False, set(research['jobs'])),
 ]:
     selected = set()
@@ -193,66 +196,74 @@ for caller, event, route_only, expected in [
     assert selected == expected, (caller, event, route_only, selected)
 print('ok online audit runs on research PRs without duplicating required jobs')
 
-steps = jobs['research-wasm']['steps']
-caches = {step['id'].removeprefix('research-'): step for step in steps if step.get('id', '').startswith('research-')}
-assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026'}, sorted(caches)
-for name, cache in caches.items():
-    assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
-build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
-assert 'if' not in build and build['id'] == 'build-research'
-assert build['timeout-minutes'] + 10 <= jobs['research-wasm']['timeout-minutes'], 'the build step must stop early enough for the saves to run'
-host = next(step for step in steps if step.get('id') == 'host-cache')
-assert build['run'] == '.github/scripts/build-research-wasm.sh ${{ steps.host-cache.outputs.build }}', build['run']
-assert steps.index(host) < steps.index(build) and host['run'] == '.github/scripts/research-host-cache.sh restore'
-assert re.findall(r"([\w-]+)=\$\{\{ \(steps\.research-([\w-]+)\.outputs\.cache-hit == 'true' \|\| steps\.retry-([\w-]+)\.outputs\.cache-hit == 'true'\) && 'hit'", host['env']['BUNDLES']) == [(name, name, name) for name in caches], host['env']['BUNDLES']
-listed = subprocess.run(['.github/scripts/build-research-wasm.sh', '--list'], capture_output=True, text=True, check=True).stdout.split('\n')
-assert sorted(line.split()[0] for line in listed if line) == sorted(caches)
-for name, cache in caches.items():
-    retry = next(step for step in steps if step.get('id') == f'retry-{name}')
-    assert retry['if'] == f"steps.research-{name}.outputs.cache-hit != 'true'" and retry['with'] == cache['with'], name
-    saves = [step for step in steps if step.get('name') == f'Save research compiled assets ({name})']
-    assert len(saves) == 1 and saves[0]['if'] == f"always() && steps.build-research.outputs.{name} == 'ok'", name
-    assert saves[0]['with']['path'] == cache['with']['path'], name
-    assert saves[0]['with']['key'] == f"${{{{ steps.research-{name}.outputs.cache-primary-key || steps.retry-{name}.outputs.cache-primary-key }}}}", name
-    assert steps.index(build) < steps.index(saves[0]), name
-    for step in (cache, retry):
-        assert step['uses'].startswith('actions/cache/restore@') and step.get('continue-on-error') is True, name
-    assert saves[0]['uses'].startswith('actions/cache/save@') and saves[0].get('continue-on-error') is True, name
-print('ok each research bundle is cached on its own, rebuilt only on its own miss, and saved as soon as the parallel build finishes it')
+class ResearchCacheTests(unittest.TestCase):
+    def test_registered_bundles_and_cache_invalidation(self):
+        steps = jobs['research-wasm']['steps']
+        caches = {step['id'].removeprefix('research-'): step for step in steps if step.get('id', '').startswith('research-')}
+        assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026', 'gay-neto-2014', 'feher-sipos-varkonyi-2026'}, sorted(caches)
+        for name, cache in caches.items():
+            assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
+        build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
+        assert 'if' not in build and build['id'] == 'build-research'
+        assert build['timeout-minutes'] + 10 <= jobs['research-wasm']['timeout-minutes'], 'the build step must stop early enough for the saves to run'
+        host = next(step for step in steps if step.get('id') == 'host-cache')
+        assert build['run'] == '.github/scripts/build-research-wasm.sh ${{ steps.host-cache.outputs.build }}', build['run']
+        assert steps.index(host) < steps.index(build) and host['run'] == '.github/scripts/research-host-cache.sh restore'
+        assert re.findall(r"([\w-]+)=\$\{\{ \(steps\.research-([\w-]+)\.outputs\.cache-hit == 'true' \|\| steps\.retry-([\w-]+)\.outputs\.cache-hit == 'true'\) && 'hit'", host['env']['BUNDLES']) == [(name, name, name) for name in caches], host['env']['BUNDLES']
+        listed = subprocess.run(['.github/scripts/build-research-wasm.sh', '--list'], capture_output=True, text=True, check=True).stdout.split('\n')
+        assert sorted(line.split()[0] for line in listed if line) == sorted(caches)
+        for name, cache in caches.items():
+            retry = next(step for step in steps if step.get('id') == f'retry-{name}')
+            assert retry['if'] == f"steps.research-{name}.outputs.cache-hit != 'true'" and retry['with'] == cache['with'], name
+            saves = [step for step in steps if step.get('name') == f'Save research compiled assets ({name})']
+            assert len(saves) == 1 and saves[0]['if'] == f"always() && steps.build-research.outputs.{name} == 'ok'", name
+            assert saves[0]['with']['path'] == cache['with']['path'], name
+            assert saves[0]['with']['key'] == f"${{{{ steps.research-{name}.outputs.cache-primary-key || steps.retry-{name}.outputs.cache-primary-key }}}}", name
+            assert steps.index(build) < steps.index(saves[0]), name
+            for step in (cache, retry):
+                assert step['uses'].startswith('actions/cache/restore@') and step.get('continue-on-error') is True, name
+            assert saves[0]['uses'].startswith('actions/cache/save@') and saves[0].get('continue-on-error') is True, name
+        print('ok each research bundle is cached on its own, rebuilt only on its own miss, and saved as soon as the parallel build finishes it')
 
-def patterns_of(cache):
-    return re.findall(r"'([^']+)'", re.search(r'hashFiles\((.*?)\)', cache['with']['key']).group(1))
+        def patterns_of(cache):
+            return re.findall(r"'([^']+)'", re.search(r'hashFiles\((.*?)\)', cache['with']['key']).group(1))
 
-with tempfile.TemporaryDirectory() as directory:
-    checkout = pathlib.Path(directory)
-    def cache_digest(patterns):
-        files = set()
-        for glob in patterns:
-            matched = checkout.glob(glob + '/*' if glob.endswith('/**') else glob)
-            files.update(path for path in matched if path.is_file())
-        return hashlib.sha256(b''.join(hashlib.sha256(path.read_bytes()).digest() for path in sorted(files))).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            checkout = pathlib.Path(directory)
+            def cache_digest(patterns):
+                files = set()
+                for glob in patterns:
+                    matched = checkout.glob(glob + '/*' if glob.endswith('/**') else glob)
+                    files.update(path for path in matched if path.is_file())
+                return hashlib.sha256(b''.join(hashlib.sha256(path.read_bytes()).digest() for path in sorted(files))).hexdigest()
 
-    def invalidated(path):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        before = {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()}
-        path.write_text('changed input')
-        after = {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()}
-        path.unlink()
-        assert {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()} == before, path
-        return {name for name in caches if after[name] != before[name]}
+            def invalidated(path):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                before = {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()}
+                path.write_text('changed input')
+                after = {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()}
+                path.unlink()
+                assert {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()} == before, path
+                return {name for name in caches if after[name] != before[name]}
 
-    engine = set(caches)
-    for relative in ['engine/src/lib.rs', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/config.toml']:
-        assert invalidated(checkout / relative) == engine, relative
-    for crate in ['research/fracture/shauer-2025', 'research/optimization/andreassen-2011', 'research/mechanics/biggins-2026',
-                  'research/metamaterials/grossman-2026', 'research/form-finding/pastrana-2026', 'research/optimisation/fairclough-2026']:
-        assert 'dedaliano-engine' in pathlib.Path(crate, 'Cargo.toml').read_text(), crate
-    for relative in ['flake.lock', 'Cargo.lock', 'rust-toolchain.toml', 'research/tools/asset_identity.py']:
-        assert invalidated(checkout / relative) == set(caches), relative
-    assert invalidated(checkout / 'research/fracture/shauer-2025/wasm/trim_exports.py') == {'shauer-2025', 'biggins-2026'}
-    for name, crate in [('shauer-2025', 'research/fracture/shauer-2025'), ('grossman-2026', 'research/metamaterials/grossman-2026'),
-                        ('andreassen-2011', 'research/optimization/andreassen-2011'), ('pastrana-2026', 'research/form-finding/pastrana-2026'),
-                        ('biggins-2026', 'research/mechanics/biggins-2026'), ('fairclough-2026', 'research/optimisation/fairclough-2026')]:
-        for relative in ['build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml', 'wasm/build.sh']:
-            assert invalidated(checkout / crate / relative) == {name}, (crate, relative)
-print('ok research caches invalidate for their own inputs, and every engine change for all of them')
+            engine = set(caches)
+            for relative in ['engine/src/lib.rs', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/config.toml']:
+                assert invalidated(checkout / relative) == engine, relative
+            for crate in ['research/fracture/shauer-2025', 'research/optimization/andreassen-2011', 'research/mechanics/biggins-2026',
+                          'research/metamaterials/grossman-2026', 'research/form-finding/pastrana-2026', 'research/optimisation/fairclough-2026',
+                          'research/stability/feher-sipos-varkonyi-2026']:
+                assert 'dedaliano-engine' in pathlib.Path(crate, 'Cargo.toml').read_text(), crate
+            for relative in ['flake.lock', 'Cargo.lock', 'rust-toolchain.toml', 'research/tools/asset_identity.py']:
+                assert invalidated(checkout / relative) == set(caches), relative
+            assert invalidated(checkout / 'research/fracture/shauer-2025/wasm/trim_exports.py') == {'shauer-2025', 'biggins-2026'}
+            for name, crate in [('shauer-2025', 'research/fracture/shauer-2025'), ('grossman-2026', 'research/metamaterials/grossman-2026'),
+                                ('andreassen-2011', 'research/optimization/andreassen-2011'), ('pastrana-2026', 'research/form-finding/pastrana-2026'),
+                                ('biggins-2026', 'research/mechanics/biggins-2026'), ('fairclough-2026', 'research/optimisation/fairclough-2026'),
+                                ('feher-sipos-varkonyi-2026', 'research/stability/feher-sipos-varkonyi-2026')]:
+                for relative in ['src/lib.rs', 'Cargo.toml', 'Cargo.lock', 'build.sh', 'build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml', 'wasm/build.sh']:
+                    assert invalidated(checkout / crate / relative) == {name}, (crate, relative)
+        print('ok research caches invalidate for their own inputs, and every engine change for all of them')
+
+
+if __name__ == '__main__':
+    unittest.main()

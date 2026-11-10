@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import data from '../../../../../../engine/tests/benchmarks/macneal_harder.json';
-import { cases, compare, counts, nativeOnly, runCases, tolerance, verdict, viewerData, type Case, type Result } from '../cases';
+import { cases, compare, counts, nativeOnly, refusalFor, runCases, tolerance, verdict, viewerData, type Case, type Result } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { caseLabel, nativeReason, pageLocale, strings } from '../i18n';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
@@ -10,6 +10,7 @@ import { scalarViewerTranslations } from '../../../viewport/scalar-viewer-i18n';
 import { t } from '../../../../lib/i18n';
 import { publicI18n, setLocale } from '../../../../lib/i18n/store.svelte';
 import LZString from 'lz-string';
+import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 
 const byId = (id: string) => cases.find(c => c.id === id)!;
 const tip = (c: Case, v: number) => c.measurement.nodes.map(nodeId => ({ nodeId, [c.measurement.component]: v }));
@@ -72,15 +73,20 @@ describe('engine benchmark evidence', () => {
     expect(verdict(out, compare(out, tip(out, out.reference * 0.97)))).toBe('mismatch');
   });
   it('separates documented limitations, unexpected mismatches and engine errors', () => {
-    const distorted = byId('mitc4-trapezoidal-in');
+    const distorted = byId('mitc4-trapezoidal-out');
     const fail = (k: Case): Result => ({ ...compare(k, tip(k, k.reference * 0.5)) });
-    const pinnedValue = (k: Case) => (k.nativeBounds as { pinnedValue?: number }).pinnedValue ?? NaN;
+    const pinnedValue = (k: Case) => (k.nativeBounds as { pinnedValue?: number } | null)?.pinnedValue ?? NaN;
     const pinned = (k: Case) => compare(k, tip(k, pinnedValue(k)));
     expect(verdict(distorted, pinned(distorted))).toBe('documented');
     expect(verdict(distorted, fail(distorted))).toBe('mismatch');
     expect(verdict(distorted, compare(distorted, tip(distorted, distorted.reference * 1e-6)))).toBe('mismatch');
     expect(verdict(distorted, compare(distorted, tip(distorted, pinnedValue(distorted) * (1 + 1e-6))))).toBe('mismatch');
-    for (const k of cases.filter(k => !k.expectedPass)) expect(verdict(k, pinned(k)), k.id).toBe('documented');
+    for (const k of cases.filter(k => !k.expectedPass && !k.expectedRefusal)) expect(verdict(k, pinned(k)), k.id).toBe('documented');
+    for (const k of cases.filter(k => k.expectedRefusal)) {
+      expect(k.nativeBounds, k.id).toBeNull();
+      expect(verdict(k, { id: k.id, value: null, error: null, pass: false, refused: true, knownIssue: 'SH-MITC4-DISTORTION', issue: 798, failure: 'withheld' }), k.id).toBe('withheld');
+      expect(verdict(k, compare(k, tip(k, k.reference * 0.08))), k.id).toBe('mismatch');
+    }
     expect(verdict(distorted, compare(distorted, tip(distorted, -distorted.reference * 0.5)))).toBe('mismatch');
     expect(verdict(distorted, compare(distorted, tip(distorted, distorted.reference * 1.5)))).toBe('mismatch');
     expect(verdict(byId('mitc4-regular-in'), fail(byId('mitc4-regular-in')))).toBe('mismatch');
@@ -106,6 +112,20 @@ describe('engine benchmark evidence', () => {
       expect(snapshot.loads).toHaveLength(c.input.loads.length);
     }
   });
+  it('withholds a returned refusal instead of scoring its displacements', async () => {
+    const solver = await import('../../../../lib/engine/wasm-solver');
+    const refused = (c: typeof cases[number]) => ({
+      displacements: Object.values(c.input.nodes).map((n: any) => ({ nodeId: n.id, ux: 1, uy: 1, uz: 1, rx: 0, ry: 0, rz: 0 })),
+      structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE' }],
+    }) as never;
+    const spies = [vi.spyOn(solver, 'initSolver').mockResolvedValue(undefined as never), vi.spyOn(solver, 'solve').mockReturnValue(refused(cases[0]!)), vi.spyOn(solver, 'solve3D').mockReturnValue(refused(cases[0]!))];
+    try {
+      const { runCases } = await import('../cases');
+      const rows = await runCases();
+      expect(rows.every(r => r.value === null && r.error === null && r.pass === false)).toBe(true);
+      expect(rows.filter(r => r.refused).map(r => r.id)).toEqual(cases.filter(c => c.expectedRefusal?.id === 'SH-MITC4-DISTORTION').map(c => c.id));
+    } finally { spies.forEach(s => s.mockRestore()); }
+  });
   it('names the editor model in the page language', () => {
     const snapshot = editorSnapshot(byId('mitc4-regular-in'), strings.es);
     expect(snapshot.name).toBe('MacNeal–Harder: MITC4 · regular · en el plano');
@@ -116,6 +136,11 @@ describe('engine benchmark evidence', () => {
     const rows = await runCases();
     for (const c of cases) {
       const r = rows.find(r => r.id === c.id)!;
+      if (c.expectedRefusal) {
+        expect(r).toMatchObject({ refused: true, issue: 798, knownIssue: 'SH-MITC4-DISTORTION', value: null, error: null, pass: false });
+        expect(verdict(c, r)).toBe('withheld');
+        continue;
+      }
       expect(r.failure).toBeUndefined();
       expect(r.pass).toBe(c.expectedPass);
       expect(Math.sign(r.value!)).toBe(Math.sign(c.reference));
@@ -125,7 +150,7 @@ describe('engine benchmark evidence', () => {
     }
     expect(rows.filter(r => r.marginal).map(r => r.id)).toEqual(['mitc4-regular-out']);
     expect((100 * rows.find(r => r.id === 'mitc4-regular-out')!.error!).toFixed(2)).toBe('1.99');
-    expect(counts(rows)).toEqual({ shell: { passed: 2, total: 6 }, frame: { passed: 6, total: 6 } });
+    expect(counts(rows)).toEqual({ shell: { passed: 2, withheld: 2, total: 6 }, frame: { passed: 6, withheld: 0, total: 6 } });
     expect(cases.filter(c => !c.expectedPass).map(c => c.id)).toEqual(['mitc4-trapezoidal-out', 'mitc4-trapezoidal-in', 'mitc4-parallelogram-out', 'mitc4-parallelogram-in']);
   });
   it('editor model solves to the same signed measurements through the product input builders', async () => {
@@ -139,11 +164,41 @@ describe('engine benchmark evidence', () => {
       }
       const input = c.dimension === 2 ? buildSolverInput2D(model, false) : buildSolverInput3D(model, false);
       expect(input).not.toBeNull();
+      const direct = directResults.find(r => r.id === c.id)!;
+      if (c.expectedRefusal) {
+        expect(direct).toMatchObject({ refused: true, issue: 798, knownIssue: 'SH-MITC4-DISTORTION', value: null, error: null, pass: false });
+        expect(() => solve3D(input as Parameters<typeof solve3D>[0])).toThrow(/Results withheld:.*known issue #798, SH-MITC4-DISTORTION/);
+        expect(viewerData(c, direct).displacement).toBeNull();
+        continue;
+      }
       const result = c.dimension === 2 ? solve(input as Parameters<typeof solve>[0]) : solve3D(input as Parameters<typeof solve3D>[0]);
       const measured = compare(c, result.displacements as unknown as Record<string, number>[]);
-      const direct = directResults.find(r => r.id === c.id)!;
       expect(measured.value).toBeCloseTo(direct.value!, 10);
       expect(Math.sign(measured.value!)).toBe(Math.sign(c.reference));
+    }
+  });
+  it('recognizes only the expected containment issue and never counts it as accuracy', () => {
+    const withheld = cases.filter(c => c.expectedRefusal);
+    expect(withheld.map(c => c.id)).toEqual(['mitc4-trapezoidal-in', 'mitc4-parallelogram-in']);
+    for (const c of withheld) {
+      const refusal = (severity: string, phase: string, value: number) => JSON.stringify({ message: 'Ergebnisse zurückgehalten', structuredDiagnostics: [{ code: 'known_issue', severity, phase, value, message: 'x' }] });
+      const message = refusal('error', 'SH-MITC4-DISTORTION', 798);
+      expect(refusalFor(c, message)).toMatchObject({ refused: true, issue: 798, value: null, error: null, pass: false });
+      for (const failure of ['unavailable', 'Results withheld: unsafe (known issue #798, SH-MITC4-DISTORTION)', refusal('error', 'SH-MITC4-DISTORTION', 799), refusal('error', 'OTHER', 798), refusal('warning', 'SH-MITC4-DISTORTION', 798)]) {
+        expect(refusalFor(c, failure).refused).not.toBe(true);
+      }
+      expect(refusalFor(cases[0], message).refused).not.toBe(true);
+      expect(refusalFor(c, message).failure).not.toContain('{');
+    }
+  });
+  it('labels withheld rows in every page locale', () => {
+    for (const loc of PUBLIC_LOCALES.filter((l) => l !== 'en')) {
+      expect(strings[loc].withheld, loc).not.toBe(strings.en.withheld);
+      expect(strings[loc].withheldTally, loc).not.toBe(strings.en.withheldTally);
+    }
+    for (const loc of PUBLIC_LOCALES) {
+      expect(strings[loc].withheld, loc).toContain('#798');
+      expect(strings[loc].withheldTally, loc).toContain('{n}');
     }
   });
   it('uses actual mesh connectivity in the shared viewer and draws the mesh before results arrive', () => {
@@ -170,7 +225,7 @@ describe('engine benchmark evidence', () => {
 });
 
 describe('page language coverage', () => {
-  const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
+  const locales = PUBLIC_LOCALES;
   it.each(locales)('%s has every key, non-empty, with case labels and native reasons', locale => {
     const s = strings[locale];
     expect(Object.keys(s).sort()).toEqual(Object.keys(strings.en).sort());
@@ -192,5 +247,19 @@ describe('page language coverage', () => {
     expect(scalarViewerTranslations[locale]['scalarViewer.keyboard']).toBeTruthy();
     setLocale(locale);
     for (const key of Object.keys(scalarViewerTranslations.en)) expect(t(key)).not.toBe(key);
+  });
+});
+
+describe('containment explanation is localized', () => {
+  it('translates which results are withheld and why', () => {
+    for (const loc of PUBLIC_LOCALES.filter((l) => l !== 'en')) {
+      for (const key of ['accuracyDescription', 'limitationsBefore', 'limitationsMiddle', 'limitationsAfter', 'withheld', 'withheldTally'] as const) {
+        expect(strings[loc][key], `${loc} ${key}`).not.toBe(strings.en[key]);
+      }
+    }
+    for (const loc of PUBLIC_LOCALES) {
+      expect(strings[loc].limitationsMiddle, loc).toMatch(/SH-MITC4-DISTORTION/);
+      expect(strings[loc].issueLink, loc).toMatch(/#798/);
+    }
   });
 });

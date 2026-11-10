@@ -14,8 +14,9 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Stand 28. Oktober 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 (online auf stabileo.com, SA-2026-021 und 022 seit dem 22. Oktober, SA-2026-023 und 024 seit dem 25. und 26. Oktober). Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben."
+      "t": "Stand 10. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 und SA-2026-025 bis 047 in Version 0.5.0 (SA-2026-040 eingedämmt: Die Prüfung ist als unvollständig gekennzeichnet), außer SA-2026-044: Der plastische Kollaps in 2D bleibt abgelehnt, bis #758 geschlossen ist. SA-2026-048 wurde nach Version 0.5.0 behoben und ist seit dem 8. November 2026 auf stabileo.com online. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 und SA-2026-053 wurden nach Version 0.5.0 behoben und sind seit dem 9. November 2026 auf stabileo.com online. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben. SA-2026-055 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-056 — Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht. SA-2026-057 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht."
     },
+    {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
       "t": "Übersicht"
@@ -53,6 +54,12 @@ const body: PostBody = {
           "Fundamente, Knoten, Decken, Wände und der Stahloptimierer wurden für die Lasten ohne Teilsicherheitsbeiwerte bemessen, wenn Kombinationen definiert, aber nicht berechnet waren (Live-Berechnung, eine fehlgeschlagene Berechnung der Kombinationen oder eine leere Liste aktiver Kombinationen)",
           "Hoch",
           "Behoben in 0.4.0"
+        ],
+        [
+          "SA-2026-039",
+          "Excel- und IFC-Import: Iy und Iz von Rechtecken und Rohren vertauscht (ein Kragträger 20 × 40 viermal zu weich, einer 40 × 20 viermal zu steif)",
+          "Hoch",
+          "Behoben in der nächsten Version"
         ],
         [
           "SA-2026-027",
@@ -121,10 +128,95 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-038",
+          "3D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bei einem Stab), und ein nur zwischen seinen Enden gedrückter Stab wurde abgelehnt",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-042",
           "2D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bis +68 % bei einem Stab)",
           "Hoch",
           "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-044",
+          "2D-Plastischer Kollaps: Der Kollapsfaktor änderte sich mit Knotennummerierung, Stabrichtung und Einheiten (bis zum 4,6-Fachen bei derselben Struktur)",
+          "Hoch",
+          "Traglastberechnung in der nächsten Version behoben; der ebene plastische Kollaps bleibt zurückgehalten, bis #758 geschlossen ist"
+        ],
+        [
+          "SA-2026-043",
+          "Harmonische Analyse: Die Korrektur der weggelassenen Moden verlor ihre Stellen, wenn eine Mode viel weicher war als die übrigen (79-fach bei 2,3 Hz in einem Beispiel)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-045",
+          "3D-Plastischer Kollaps: Ein Stab ohne verwendbares plastisches Moment wurde behandelt, als würde er nie plastifizieren (6-fach zu hoch in einem Beispiel, und zertifiziert)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-046",
+          "Harmonische Analyse: Wählte je Last zwischen Modalsuperposition und direkter Lösung, sodass Superposition und Reziprozität versagten (107 % an einem Knoten in einem Beispiel); stabileo.com und Engine-/WASM-Builds von main, vom 5. November 2026 bis zur Korrektur",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-047",
+          "Schalen: Ein Lastfall mit eingeprägter Auflagerverschiebung verlor seine Schalenspannungen, und Kombinationen und Umhüllende summierten nur die der anderen Lastfälle (möglicherweise unsicher, ohne Warnung); 0.2.0 bis 0.4.0",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-048",
+          "CIRSOC-301-Stahl: Cb übersah einen Vorzeichenwechsel an den Enden einer angegebenen nicht ausgesteiften Länge, die kürzer als der Stab ist (ein U-Profil mit doppelter Krümmung erhielt Cb = 2,55 statt 1, die Biegedrillknick-Tragfähigkeit wurde überschätzt); 0.2.0 bis 0.5.0, die Desktop-Alphas und stabileo.com bis zum 8. November 2026",
+          "Hoch",
+          "Behoben nach 0.5.0; auf stabileo.com seit dem 8. November 2026"
+        ],
+        [
+          "SA-2026-049",
+          "Auflager mit positiver Feder und starrer Bindung am selben Freiheitsgrad: In 3D hob die Feder die Bindung auf und änderte die Randbedingung; Engine-Code in 0.2.0 bis 0.5.0",
+          "Hoch",
+          "Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026"
+        ],
+        [
+          "SA-2026-050",
+          "Knicken konnte eine fehlgeschlagene Schlankheitsberechnung in null umwandeln, und Lastfallkombinationen konnten nicht endliche Werte in einem erfolgreichen Ergebnis liefern",
+          "Mittel",
+          "Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026"
+        ],
+        [
+          "SA-2026-051",
+          "3D-Wanderlasten: Hüllkurven übersahen innere Schnittgrößenextrema und verloren die axiale Komponente des Achsgewichts bei geneigten Stäben, wodurch die Beanspruchung ohne Warnung unterschätzt werden konnte; 0.2.0 bis 0.5.0 und desktop-v0.1.0-alpha.1 bis alpha.3",
+          "Hoch",
+          "Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026"
+        ],
+        [
+          "SA-2026-052",
+          "2D- und 3D-Wanderlasten im Rechenkern: Normalkrafthüllkurven mit ständigen axialen Teilstreckenlasten übersahen Extrema an Lastabschnittsgrenzen zwischen Auswertestellen, wodurch die Beanspruchung ohne Warnung unterschätzt werden konnte; keine Grenze veröffentlichter Versionen wird behauptet",
+          "Hoch",
+          "Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026"
+        ],
+        [
+          "SA-2026-053",
+          "2D- und 3D-Wanderlasten: Punktlasten an Stabenden nahmen Kräfte außerhalb des Stabs in die Hüllkurven auf, erzeugten dadurch falsche Normal- und Querkraftextrema und überschätzten die Beanspruchung; keine Grenze veröffentlichter Versionen wird behauptet",
+          "Niedrig",
+          "Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026"
+        ],
+        ["SA-2026-055", "P-Delta in 2D und 3D konnte Vergrößerungen unterschätzen und Stabilität melden, wenn die Normalkraft unter Strecken- oder Einzellasten entlang eines Rahmenstabs variierte", "Hoch", "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"],
+        [
+          "SA-2026-056",
+          "3D-Modelle mit Rahmen, Schalen und Zwangsbedingungen: harmonische und erzwungene Zeitverlaufsanalysen liefern bei gleichwertigen Beschreibungen unterschiedliche Ergebnisse; der Umfang über das gespeicherte Modell hinaus ist nicht geklärt",
+          "Hoch",
+          "Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht"
+        ],
+        [
+          "SA-2026-057",
+          "Die Anzeige plastischer Zertifikate konnte Faktoren außerhalb des zertifizierten Intervalls als innerhalb einstufen; die exakte Mechanismenermittlung verwarf Ressourcenablehnungen in Builds von PR #1888 vor der Korrektur",
+          "Mittel",
+          "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"
         ],
         [
           "SA-2026-037",

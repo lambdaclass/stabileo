@@ -1,0 +1,121 @@
+{
+ "_nightly_dens": {
+  "1": 6252.7423106273,
+  "2": 5792.605806801444
+ },
+ "_nightly_name": "fuzz_rich_3d/20997",
+ "connectors": {},
+ "constraints": [],
+ "curvedBeams": [],
+ "curvedShells": {},
+ "elements": {
+  "1": {
+   "id": 1,
+   "localYx": -0.04096055939563624,
+   "localYy": -0.9976352394424942,
+   "localYz": 0.05519204287316733,
+   "materialId": 1,
+   "nodeI": 1,
+   "nodeJ": 2,
+   "releaseMyEnd": true,
+   "releaseMyStart": false,
+   "releaseMzEnd": false,
+   "releaseMzStart": false,
+   "releaseTEnd": false,
+   "releaseTStart": false,
+   "rollAngle": -169.57568004905625,
+   "sectionId": 1,
+   "type": "frame"
+  }
+ },
+ "leftHand": null,
+ "loads": [],
+ "materials": {
+  "1": {
+   "e": 13325.025023350023,
+   "id": 1,
+   "nu": 0.17793411521021665
+  },
+  "2": {
+   "e": 55848.63377955153,
+   "id": 2,
+   "nu": 0.36844728665043514
+  }
+ },
+ "nodes": {
+  "1": {
+   "id": 1,
+   "x": -3.8331628031767533,
+   "y": -2.8871984931090644,
+   "z": -2.4241418140057407
+  },
+  "2": {
+   "id": 2,
+   "x": 0.04614088101068958,
+   "y": -1.412080973718849,
+   "z": 0.07665537273924805
+  }
+ },
+ "plates": {},
+ "quad9s": {},
+ "quads": {},
+ "sections": {
+  "1": {
+   "a": 0.009996283684859622,
+   "asY": 0.006121254553520518,
+   "asZ": 0.0049206565176064705,
+   "cw": 6.494810266986473e-06,
+   "id": 1,
+   "iy": 2.89721112987188e-06,
+   "iz": 1.0126385438219498e-06,
+   "j": 0.0007539829450847416,
+   "name": null,
+   "shearCenterY": null,
+   "shearCenterZ": null
+  },
+  "2": {
+   "a": 0.003659991041808625,
+   "asY": null,
+   "asZ": 0.0023936488415465533,
+   "cw": null,
+   "id": 2,
+   "iy": 5.594797275089335e-06,
+   "iz": 2.2831562456131972e-06,
+   "j": 7.205747276408448e-05,
+   "name": null,
+   "shearCenterY": null,
+   "shearCenterZ": null
+  }
+ },
+ "solidShells": {},
+ "solverOptions": null,
+ "supports": {
+  "1": {
+   "drx": null,
+   "dry": null,
+   "drz": null,
+   "dx": null,
+   "dy": null,
+   "dz": -0.006804683421561557,
+   "isInclined": null,
+   "krx": null,
+   "kry": null,
+   "krz": null,
+   "kw": null,
+   "kx": null,
+   "ky": null,
+   "kz": null,
+   "nodeId": 1,
+   "normalX": null,
+   "normalY": null,
+   "normalZ": null,
+   "rrx": true,
+   "rry": true,
+   "rrz": true,
+   "rw": true,
+   "rx": true,
+   "ry": true,
+   "rz": true
+  }
+ }
+}

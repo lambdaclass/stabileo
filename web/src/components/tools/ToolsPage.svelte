@@ -1,6 +1,6 @@
 <script lang="ts">
   import './register-i18n';
-  import SiteHeader from '../site/SiteHeader.svelte';
+  import { batchTool as BatchTool, toolViewer as ToolViewer } from './load-detail';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import RelatedLinks from '../research/RelatedLinks.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
@@ -16,11 +16,10 @@
   import '../research/research.css';
   import Sci from '../research/shell/Sci.svelte';
   import ParamRow from '../research/shell/ParamRow.svelte';
-  import ToolViewer from './ToolViewer.svelte';
   import { tBatch as t } from './batch-i18n';
   import { BATCH_IDS } from './batch';
-  import BatchTool from './BatchTool.svelte';
   import ToolPreview from './ToolPreview.svelte';
+  import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
 
   let { path }: { path: string } = $props();
   const id = $derived(TOOL_IDS.find(id => path.replace(/\/$/, '') === `/tools/${id}`));
@@ -63,6 +62,13 @@
     const current = id;
     const values = { ...p };
     revision++;
+    const ready = current ? prerenderedResult<Awaited<ReturnType<typeof calculate>>>(current, values) : null;
+    if (current && ready) {
+      const token = revision;
+      result = ready; href = ''; error = ''; busy = false;
+      void import('./share').then(({ editorUrl }) => { if (token === revision) href = editorUrl(ready.model, t(`tools.${current}`)); });
+      return () => { revision++; };
+    }
     result = null; href = ''; error = ''; busy = !!current;
     const timer = setTimeout(() => { if (current) void run(current, values); }, 250);
     return () => { clearTimeout(timer); revision++; };
@@ -76,23 +82,24 @@
       const [{ calculate }, { editorUrl }] = await Promise.all([import('./solve'), import('./share')]);
       const answer = await calculate(tool, values);
       if (token !== revision) return;
+      recordPrerenderedResult(tool, values, answer);
       result = answer;
       href = editorUrl(answer.model, t(`tools.${tool}`));
     } catch (e) {
       if (token === revision) error = t('tools.failed');
     } finally { if (token === revision) busy = false; }
   }
+  const warmSolver = () => { void import('../../lib/engine/wasm-solver').then(m => m.initSolver()).catch(() => {}); };
   const number = (n: number, digits = 5) => new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: digits }).format(n);
   const warning = (w: Warning) => Object.entries(w.values ?? {}).reduce((text, [k, v]) => text.replace(`{${k}}`, typeof v === 'number' ? new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: 3, notation: v >= 1e5 ? 'scientific' : 'standard' }).format(v) : v), t(w.key));
   const expression = $derived(id === 'column-buckling' ? 'π²EI/(KL)²' : id === 'cantilever-beam' ? (p.uniform ? 'wL⁴/8EI' : 'Pa²(3L − a)/6EI') : p.uniform ? '5wL⁴/384EI' : p.position === p.length / 2 ? 'PL³/48EI' : 'δ(x)');
 </script>
 
 <div class="landing blog research tools">
-  <SiteHeader current="tools" />
   <main class="sec sec--ink">
     <div class="wrap tools-wrap" class:gallery={!id && !batchId}>
     {#if batchId}
-      {#key batchId}<BatchTool id={batchId}/>{/key}
+      {#key batchId}{#if BatchTool}<BatchTool id={batchId}/>{/if}{/key}
     {:else if id}
       <div class="tool-layout">
         <header class="tool-intro">
@@ -101,10 +108,10 @@
           <p class="lead">{t(`tools.${id}.subtitle`)}</p>
         </header>
         <aside class="tool-viewer" aria-label={title}>
-          <ToolViewer {id} {p} {result} />
+          {#if ToolViewer}<ToolViewer {id} {p} {result} />{/if}
         </aside>
         <section class="tool-inputs">
-          <form onsubmit={(event) => event.preventDefault()}>
+          <form onsubmit={(event) => event.preventDefault()} onfocusin={warmSolver} onpointerdown={warmSolver}>
             {#each fields as [key, label, unit, min, max]}
               <ParamRow id={key} name={t(`tools.${label}`)} {unit}>
                 <input id={key} data-testid={key} type="number" bind:value={p[key]} {min} {max} step="any" required />
@@ -196,7 +203,6 @@
 
 <style>
   .tools { font-synthesis: none; font-variant-numeric: tabular-nums; }
-  .tools :global(.nav) { background: var(--lp-ink); }
   .tools main.sec { padding: clamp(5rem, 7vw, 6rem) 0 4rem; }
   .tools-wrap { max-width: 96rem; --lp-gut: clamp(1rem, 3vw, 2.5rem); }
   .gallery { max-width: 68rem; }
@@ -234,7 +240,7 @@
   .card-body :global(h2 a) { text-decoration: none; }
   .tool-card :global(.preview) { display: grid; align-items: center; background: var(--lp-ink-2); min-height: 15rem; }
   @media(min-width: 52rem) { .tool-card { grid-template-columns: 1.1fr 1fr; } }
-  @media(max-height: 450px) and (max-width: 69.99rem) { .tools main.sec { padding-top: .75rem; } .lead { font-size: .95rem; } .crumb { margin: 0 0 .25rem; } h1 { margin: .5rem 0; font-size: 2rem; } .lead { margin-top: .5rem; } .tool-layout { gap: 1rem; } }
+  @media(max-height: 450px) and (max-width: 69.99rem) { .tools main.sec { padding-top: .75rem; } .lead { font-size: .95rem; } .crumb { margin: 0 0 .25rem; } h1 { margin: .5rem 0; font-size: 1.75rem; } .lead { margin-top: .5rem; } .tool-layout { gap: 1rem; } }
   @media(min-width: 70rem) {
     .tool-layout { grid-template-columns: minmax(25rem, 38rem) minmax(0, 1fr); column-gap: 3rem; align-items: start; }
     .tool-intro { grid-column: 1; grid-row: 1; }

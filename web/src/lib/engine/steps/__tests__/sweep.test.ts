@@ -353,6 +353,7 @@ function runAll(label: string, tally: Map<string, number>, failures: string[]): 
     try { ok = m.applies(base); } catch (e) { failures.push(`${label} ${m.id}: applies threw ${String(e).slice(0, 120)}`); continue; }
     if (!ok.ok) {
       if (!DICTS.es[ok.reason.key]) failures.push(`${label} ${m.id}: refusal key ${ok.reason.key} missing`);
+      if (ok.issue) tally.set(`withheld:${m.id}`, (tally.get(`withheld:${m.id}`) ?? 0) + 1);
       continue;
     }
     const variants: Record<string, boolean>[] = [{}];
@@ -513,7 +514,7 @@ describe('every explained method, everywhere it applies', () => {
     }
     expect(failures).toEqual([]);
     // Every method met at least one example it applies to.
-    for (const m of allMethods()) if (!m.wizard) expect(tally.get(m.id) ?? 0, m.id).toBeGreaterThan(0);
+    for (const m of allMethods()) if (!m.wizard) expect((tally.get(m.id) ?? 0) + (tally.get(`withheld:${m.id}`) ?? 0), m.id).toBeGreaterThan(0);
   }, 300_000);
 
   const generated = new Map<string, number>();

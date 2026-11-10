@@ -4,6 +4,7 @@ use crate::ana2::{conv, rect, Law};
 use crate::case::{pad_3d, Case3};
 use crate::response::{disp_3d, static_3d, Dim, Kind, Resp};
 use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
+use dedaliano_engine::load_session::LoadSession3D;
 use dedaliano_engine::postprocess::influence;
 use dedaliano_engine::solver::{
     buckling, cable, constraints, contact, corotational, creep_shrinkage, fiber_nonlinear, harmonic, kinematic, linear, load_cases,
@@ -32,7 +33,7 @@ pub struct Ana3 {
     pub run: fn(&Case3) -> Result<Resp, String>,
 }
 
-fn rect_fibers(b: f64, h: f64, ny: usize, nz: usize, e: f64) -> FiberSectionDef {
+pub(crate) fn rect_fibers(b: f64, h: f64, ny: usize, nz: usize, e: f64) -> FiberSectionDef {
     let mut fibers = Vec::new();
     for i in 0..ny {
         for j in 0..nz {
@@ -50,7 +51,7 @@ pub fn nodal_loads_3d(s: &SolverInput3D) -> Vec<SolverNodalLoad3D> {
 
 /// Rectangle (b along local z, h along local y) bending about local z with
 /// I_z, and its width from I_y: h = √(12 I_z / A), b = √(12 I_y / A).
-fn rect3(s: &SolverSection3D) -> (f64, f64) {
+pub(crate) fn rect3(s: &SolverSection3D) -> (f64, f64) {
     ((12.0 * s.iy / s.a).sqrt(), (12.0 * s.iz / s.a).sqrt())
 }
 
@@ -77,7 +78,7 @@ pub fn modal_resp_3d(r: &modal::ModalResult3D) -> Resp {
     o
 }
 
-fn staged_3d(s: &SolverInput3D, stages: serde_json::Value) -> Result<StagedAnalysisResults3D, String> {
+pub(crate) fn staged_3d(s: &SolverInput3D, stages: serde_json::Value) -> Result<StagedAnalysisResults3D, String> {
     let mut v = serde_json::json!({
         "nodes": s.nodes, "materials": s.materials, "sections": s.sections, "elements": s.elements,
         "supports": s.supports, "loads": s.loads, "constraints": s.constraints,
@@ -89,7 +90,7 @@ fn staged_3d(s: &SolverInput3D, stages: serde_json::Value) -> Result<StagedAnaly
     staged::solve_staged_3d(&staged::parse_staged_3d(&v.to_string())?)
 }
 
-fn stage_all(s: &SolverInput3D, loads: Vec<usize>) -> serde_json::Value {
+pub(crate) fn stage_all(s: &SolverInput3D, loads: Vec<usize>) -> serde_json::Value {
     // 3D stages name supports by node id (as the app does).
     let sup: Vec<usize> = s.supports.values().map(|x| x.node_id).collect();
     serde_json::json!({
@@ -105,6 +106,14 @@ fn stage_all(s: &SolverInput3D, loads: Vec<usize>) -> serde_json::Value {
 pub fn rows() -> Vec<Ana3> {
     vec![
         Ana3 { name: "linear", law: Law::Linear, motion: Motion::Any, iter_tol: 0.0, full_static: true, run: |c| Ok(static_3d(&linear::solve_3d(&c.s)?)) },
+        Ana3 {
+            name: "linear (load session)",
+            law: Law::Linear,
+            motion: Motion::Any,
+            iter_tol: 0.0,
+            full_static: true,
+            run: |c| Ok(static_3d(&LoadSession3D::from_input(c.s.clone())?.solve_loads(&c.s.loads)?)),
+        },
         Ana3 {
             name: "linear (sparse path)",
             law: Law::Linear,
@@ -128,6 +137,7 @@ pub fn rows() -> Vec<Ana3> {
                 let (mut p, n, e) = pad_3d(&c.s);
                 p.solver_options = Some(SolverOptions { method: Some("pcg".into()), preconditioner: None, tolerance: Some(1e-12), max_iterations: Some(100_000) });
                 let mut r = static_3d(&linear::solve_3d(&p)?);
+                crate::analysis_accuracy::attach(&mut r, |r| crate::analysis_accuracy::pcg_3d(c, r));
                 r.retain_ids(&n, &e);
                 Ok(r)
             },
@@ -146,7 +156,7 @@ pub fn rows() -> Vec<Ana3> {
             motion: Motion::Any,
             iter_tol: 0.0,
             full_static: true,
-            run: |c| Ok(static_3d(&dedaliano_engine::certify::solver::certify_linear_3d_full(&c.s)?.results)),
+            run: |c| Ok(static_3d(&dedaliano_engine::certify::certify_linear_3d_full(&c.s)?.results)),
         },
         Ana3 {
             name: "load combinations",
@@ -230,6 +240,7 @@ pub fn rows() -> Vec<Ana3> {
                 };
                 let r = creep_shrinkage::solve_creep_shrinkage_3d(&inp)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for d in &r.steps[0].displacements {
                     o.push(Some(d.node_id), None, "u", Kind::V3(Dim::LEN), vec![d.ux, d.uy, d.uz]);
                     o.push(Some(d.node_id), None, "r", Kind::V3(Dim::NONE), vec![d.rx, d.ry, d.rz]);
@@ -243,7 +254,7 @@ pub fn rows() -> Vec<Ana3> {
             motion: Motion::Any,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_3d(&conv(pdelta::solve_pdelta_3d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)))?)),
+            run: |c| Ok(static_3d(&crate::ana2::converged_finite(pdelta::solve_pdelta_3d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)), crate::ana2::finite_3d)?)),
         },
         Ana3 {
             name: "corotational",
@@ -297,8 +308,7 @@ pub fn rows() -> Vec<Ana3> {
                     .values()
                     .map(|x| {
                         let (b, h) = rect3(x);
-                        // Smallest modulus of the members sharing the section (see ana2::mat_e).
-                        let e = c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| c.s.materials[&e.material_id.to_string()].e).reduce(f64::min).unwrap_or(200_000.0);
+                        let e = crate::ana2::section_material(&c.s.materials, c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| e.material_id)).map_or(200_000.0, |m| m.e);
                         (x.id.to_string(), rect_fibers(b, h, 12, 12, e))
                     })
                     .collect();
@@ -334,9 +344,11 @@ pub fn rows() -> Vec<Ana3> {
             run: |c| {
                 let r = buckling::solve_buckling_3d(&c.s, 3)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for (k, m) in r.modes.iter().enumerate() {
                     o.scalar(&format!("lambda{k}"), Dim::NONE, m.load_factor);
                 }
+                crate::analysis_accuracy::attach(&mut o, |o| crate::analysis_accuracy::buckling_3d(c, o));
                 Ok(o)
             },
         },
@@ -354,13 +366,17 @@ pub fn rows() -> Vec<Ana3> {
                     force_history: Some(vec![TimeForceRecord3D { time: 0.0, loads: loads.clone() }, TimeForceRecord3D { time: 1000.0 * c.p.dt, loads }]),
                 };
                 let r = time_integration::solve_time_history_3d(&inp)?;
+                let (diagnostic, trace) = time_integration::solve_time_history_3d_traced(&inp)?;
+                crate::ana2::diagnostic_matches(&r, &diagnostic)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for h in &r.node_histories {
                     for k in (0..h.ux.len()).step_by(if crate::generated::strict() { 1 } else { 10 }) {
                         o.push(Some(h.node_id), None, &format!("u_t{k:03}"), Kind::V3(Dim::LEN), vec![h.ux[k], h.uy[k], h.uz[k]]);
                         o.push(Some(h.node_id), None, &format!("r_t{k:03}"), Kind::V3(Dim::NONE), vec![h.rx[k], h.ry[k], h.rz[k]]);
                     }
                 }
+                crate::analysis_accuracy::attach(&mut o, |o| crate::analysis_accuracy::time_3d(c, &trace, o));
                 Ok(o)
             },
         },
@@ -380,12 +396,16 @@ pub fn rows() -> Vec<Ana3> {
                     ground_accel_x: Some(rec(0)), ground_accel_y: Some(rec(1)), ground_accel_z: Some(rec(2)), force_history: None,
                 };
                 let r = time_integration::solve_time_history_3d(&inp)?;
+                let (diagnostic, trace) = time_integration::solve_time_history_3d_traced(&inp)?;
+                crate::ana2::diagnostic_matches(&r, &diagnostic)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for h in &r.node_histories {
                     for k in (0..h.ux.len()).step_by(if crate::generated::strict() { 1 } else { 10 }) {
                         o.push(Some(h.node_id), None, &format!("u_t{k:03}"), Kind::V3(Dim::LEN), vec![h.ux[k], h.uy[k], h.uz[k]]);
                     }
                 }
+                crate::analysis_accuracy::attach(&mut o, |o| crate::analysis_accuracy::time_3d(c, &trace, o));
                 Ok(o)
             },
         },
@@ -401,13 +421,13 @@ pub fn rows() -> Vec<Ana3> {
                 // the pair, and the response of a symmetric model is then not
                 // symmetric (rich3d-5/sym, built from two copies joined at
                 // one node, has such a pair at modes 6 and 7).
-                let md = modal::solve_modal_3d(&c.s, &c.dens, 12)?;
-                // Strict cantilevers need the higher axial modes as well:
-                // the first six can have zero X participation.
-                let mut n = if crate::generated::strict() { md.modes.len() } else { md.modes.len().min(6) };
-                while n > 0 && n < md.modes.len() && md.modes[n].omega - md.modes[n - 1].omega <= 1e-3 * md.modes[n].omega {
-                    n += 1;
-                }
+                let (md, n) = if crate::generated::strict() {
+                    let md = modal::solve_modal_3d(&c.s, &c.dens, 12)?;
+                    let n = md.modes.len();
+                    (md, n)
+                } else {
+                    crate::ana2::cluster_complete(|k| modal::solve_modal_3d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 6, 12, crate::dynamic_accuracy::of_3d(c).map_or(0.0, |a| a.residual))?
+                };
                 let modes = md.modes[..n]
                     .iter()
                     .map(|x| SpectralModeInput3D {
@@ -425,6 +445,7 @@ pub fn rows() -> Vec<Ana3> {
                 };
                 let r = spectral::solve_spectral_3d(&inp)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 let sd = md.modes.first().map_or(0.0, |m| 0.5 * 9.81 / (m.omega * m.omega));
                 for d in &r.displacements {
                     o.push(Some(d.node_id), None, "u", Kind::Abs3(Dim::LEN), vec![d.ux.abs(), d.uy.abs(), d.uz.abs()]);
@@ -444,21 +465,41 @@ pub fn rows() -> Vec<Ana3> {
             run: |c| {
                 let node = *c.probes.first().ok_or("no probe node")?;
                 let mut comps = Vec::new();
+                let accuracy = crate::dynamic_accuracy::harmonic_3d(c).ok();
+                let cond = dedaliano_engine::metamorphic::conditioning::of_3d(&c.s).ok();
                 for dof in ["x", "y", "z"] {
                     let inp = harmonic::HarmonicInput3D {
                         solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05,
                         response_node_id: node, response_dof: dof.into(),
                     };
-                    comps.push(harmonic::solve_harmonic_3d(&inp)?);
+                    let r = harmonic::solve_harmonic_3d(&inp)?;
+                    let (diagnostic, damping) = harmonic::solve_harmonic_3d_with_damping(&inp)?;
+                    crate::ana2::diagnostic_matches(&r, &diagnostic)?;
+                    comps.push((r, damping));
                 }
                 let mut o = Resp::default();
-                let us = linear::solve_3d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()))).unwrap_or(0.0);
+                let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.y, n.z]));
+                let us = linear::solve_3d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()).max(d.rx.abs().max(d.ry.abs()).max(d.rz.abs()) * l))).unwrap_or(0.0);
                 for k in 0..c.p.freqs.len() {
-                    let p = |i: usize| &comps[i].response_points[k];
+                    let floor = if c.p.symmetry && !crate::generated::strict() {
+                        let rel = crate::checks2::rel_for("harmonic", 1e-10, cond.as_ref().ok_or("no harmonic conditioning")?);
+                        let residual = comps.iter().map(|(r, _)| {
+                            if r.method == harmonic::HarmonicMethod::Direct || r.direct_frequencies.contains(&c.p.freqs[k]) { 0.0 }
+                            else { r.max_modal_residual.filter(|v| *v >= 0.0 && *v < f64::MAX).unwrap_or(f64::INFINITY) }
+                        }).fold(0.0f64, f64::max);
+                        us.max(crate::dynamic_accuracy::harmonic_floor(accuracy.as_ref(), c.p.freqs[k], comps[0].1, cond.as_ref().unwrap().rel(), rel, residual))
+                    } else { us };
+                    let p = |i: usize| &comps[i].0.response_points[k];
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V3(Dim::LEN), vec![p(0).real, p(1).real, p(2).real]);
                     o.push(Some(node), None, &format!("H_im{k}"), Kind::V3(Dim::LEN), vec![p(0).imag, p(1).imag, p(2).imag]);
-                    o.set_floor(&format!("H_re{k}"), us);
-                    o.set_floor(&format!("H_im{k}"), us);
+                    o.set_floor(&format!("H_re{k}"), floor);
+                    o.set_floor(&format!("H_im{k}"), floor);
+                    if let (Some(a), Some(cond)) = (&accuracy, &cond) {
+                        let error = a.natural * a.harmonic_error(std::f64::consts::TAU * c.p.freqs[k], comps[0].1, cond.rel());
+                        if error.is_finite() && (!c.p.symmetry || crate::generated::strict()) {
+                            for i in o.0.iter_mut().filter(|i| i.tag == format!("H_re{k}") || i.tag == format!("H_im{k}")) { i.error = error; }
+                        }
+                    }
                 }
                 Ok(o)
             },
@@ -476,13 +517,14 @@ pub fn rows() -> Vec<Ana3> {
                     .values()
                     .map(|x| {
                         let (b, h) = rect3(x);
-                        let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+                        let mat = crate::ana2::section_material(&c.s.materials, c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| e.material_id)).map_or(1, |m| m.id);
                         (x.id.to_string(), PlasticSectionData3D { a: x.a, iy: x.iy, iz: x.iz, material_id: mat, b: Some(b), h: Some(h), d: Some(b) })
                     })
                     .collect();
                 let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
                 let r = plastic::solve_plastic_3d(&PlasticInput3D { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None })?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 o.scalar("collapse_factor", Dim::NONE, r.collapse_factor);
                 if !r.is_mechanism {
                     o.scalar(crate::response::LOWER_BOUND, Dim::NONE, 1.0);
@@ -540,6 +582,7 @@ pub fn rows() -> Vec<Ana3> {
                 for t in ["Vy", "Vz", "N"] {
                     o.set_floor(t, c.p.axle);
                 }
+                crate::analysis_accuracy::attach(&mut o, |o| crate::analysis_accuracy::moving_3d(c, &r, o));
                 Ok(o)
             },
         },
@@ -557,6 +600,7 @@ pub fn rows() -> Vec<Ana3> {
                 };
                 let r = influence::compute_influence_line_3d(&inp)?;
                 let mut o = Resp::default();
+                o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for p in r.points.iter().filter(|p| path.contains(&p.element_id)) {
                     o.push(None, Some(p.element_id), &format!("IL_t{:04}", (p.t * 1000.0).round() as i64), Kind::Local(Dim::LEN, false), vec![p.value]);
                 }

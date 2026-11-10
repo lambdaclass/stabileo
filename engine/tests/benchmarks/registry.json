@@ -1,0 +1,2690 @@
+{
+  "scope": [
+    "engine/tests/benchmarks/*.json",
+    "engine/tests/benchmarks/*.rs",
+    "engine/tests/benchmarks/spec/*.json",
+    "engine/tests/validation/benchmarks/*.rs",
+    "engine/tests/validation/three_d/*_benchmarks.rs",
+    "engine/tests/research_benchmarks.rs"
+  ],
+  "excluded": {
+    "engine/tests/benchmarks/registry.json": "This registry.",
+    "engine/tests/benchmarks/spec/schema.json": "Schema of the protocol specs.",
+    "engine/tests/validation/benchmarks/mod.rs": "Module list, no tests.",
+    "engine/tests/validation/benchmarks/sparse_3d_benchmark.rs": "Performance benchmark (dense versus sparse wall clock and memory); no reference value.",
+    "engine/tests/validation/benchmarks/sparse_3d_parity.rs": "Dense-versus-sparse assembly parity: a self-consistency check between two engine paths, no external reference.",
+    "engine/tests/validation/benchmarks/sparse_3d_drilling_regression.rs": "Regression for the sparse path falling back on a singular drilling DOF; no external reference."
+  },
+  "benchmarks": [
+    {
+      "id": "cqc-1981",
+      "files": [
+        "engine/tests/benchmarks/cqc_1981.json",
+        "engine/tests/benchmarks/cqc_1981.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "First natural frequency",
+          "unit": "Hz",
+          "references": [
+            {
+              "source": "Closed-form modal solution of the two-coordinate idealization (M = diag(10,10) t, K = [[1020,-20],[-20,1230]] kN/m), with the equal-damping correlation of Wilson, Der Kiureghian & Bayo (1981), Earthquake Eng. Struct. Dyn. 9(2), 187-192, DOI 10.1002/eqe.4290090207",
+              "location": "research/benchmarks/cqc-1981/reference.py (eigenvalues); rho: Eq. (14), p. 191",
+              "value": 1.605897988918848,
+              "unit": "Hz"
+            }
+          ],
+          "tolerance": {
+            "relative": 1e-08,
+            "justification": "Regression bound for a small, well-conditioned two-coordinate problem (observed maximum 6.42e-15); not an accuracy target.",
+            "evidence": "research/benchmarks/cqc-1981/VALIDATION.json"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/cqc_1981.json",
+              "pointer": "/relativeTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/cqc_1981.rs",
+                  "bindings": {
+                    "tolerance": "case[\"relativeTolerance\"].as_f64().unwrap()"
+                  },
+                  "assertions": [
+                    "got.is_finite() && (got - want).abs() <= tolerance * want.abs()"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "reference.py evaluates the closed form in Python with no engine code; the engine runs its general 3D modal and spectrum solvers.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The only reference is this example's closed form; the paper's own building and Table I are not reproduced.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        },
+        {
+          "quantity": "SRSS base shear",
+          "unit": "kN",
+          "references": [
+            {
+              "source": "Closed-form modal solution of the two-coordinate idealization (M = diag(10,10) t, K = [[1020,-20],[-20,1230]] kN/m), with the equal-damping correlation of Wilson, Der Kiureghian & Bayo (1981), Earthquake Eng. Struct. Dyn. 9(2), 187-192, DOI 10.1002/eqe.4290090207",
+              "location": "research/benchmarks/cqc-1981/reference.py (SRSS); rho: Eq. (14), p. 191",
+              "value": 14.387570614381177,
+              "unit": "kN"
+            }
+          ],
+          "tolerance": {
+            "relative": 1e-08,
+            "justification": "Regression bound for a small, well-conditioned two-coordinate problem (observed maximum 6.42e-15); not an accuracy target.",
+            "evidence": "research/benchmarks/cqc-1981/VALIDATION.json"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/cqc_1981.json",
+              "pointer": "/relativeTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/cqc_1981.rs",
+                  "bindings": {
+                    "tolerance": "case[\"relativeTolerance\"].as_f64().unwrap()"
+                  },
+                  "assertions": [
+                    "got.is_finite() && (got - want).abs() <= tolerance * want.abs()"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "reference.py evaluates the closed form in Python with no engine code; the engine runs its general 3D modal and spectrum solvers.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The only reference is this example's closed form; the paper's own building and Table I are not reproduced.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        },
+        {
+          "quantity": "CQC base shear",
+          "unit": "kN",
+          "references": [
+            {
+              "source": "Closed-form modal solution of the two-coordinate idealization (M = diag(10,10) t, K = [[1020,-20],[-20,1230]] kN/m), with the equal-damping correlation of Wilson, Der Kiureghian & Bayo (1981), Earthquake Eng. Struct. Dyn. 9(2), 187-192, DOI 10.1002/eqe.4290090207",
+              "location": "research/benchmarks/cqc-1981/reference.py (CQC); rho: Eq. (14), p. 191",
+              "value": 17.549731954095833,
+              "unit": "kN"
+            }
+          ],
+          "tolerance": {
+            "relative": 1e-08,
+            "justification": "Regression bound for a small, well-conditioned two-coordinate problem (observed maximum 6.42e-15); not an accuracy target.",
+            "evidence": "research/benchmarks/cqc-1981/VALIDATION.json"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/cqc_1981.json",
+              "pointer": "/relativeTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/cqc_1981.rs",
+                  "bindings": {
+                    "tolerance": "case[\"relativeTolerance\"].as_f64().unwrap()"
+                  },
+                  "assertions": [
+                    "got.is_finite() && (got - want).abs() <= tolerance * want.abs()"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "reference.py evaluates the closed form in Python with no engine code; the engine runs its general 3D modal and spectrum solvers.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The only reference is this example's closed form; the paper's own building and Table I are not reproduced.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dadeppo-arch-1975",
+      "files": [
+        "engine/tests/benchmarks/dadeppo_arch.json",
+        "engine/tests/benchmarks/dadeppo_arch.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Limit load PR^2/EI",
+          "unit": "dimensionless",
+          "references": [
+            {
+              "source": "DaDeppo & Schmidt (1975), J. Appl. Mech. 42(4), 894-896, DOI 10.1115/1.3423734, Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), discussion",
+              "location": "Schmidt (2000), p. 1308 (second PDF page of https://userweb.eng.gla.ac.uk/sondipon.adhikari/fulltext/journal/ft7a.pdf)",
+              "value": 8.97,
+              "unit": "dimensionless"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.006,
+            "justification": "40-element grid-convergence index plus half a unit in the last published digit, rounded up; the native mesh study fails if the tolerance is below that budget or above 1.25 times it.",
+            "evidence": "research/benchmarks/dadeppo-arch-1975/README.md#mesh-study-and-tolerance-budget"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/dadeppo_arch.json",
+              "pointer": "/relativeTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/dadeppo_arch.rs",
+                  "assertions": {
+                    "(peak / case[\"reference\"].as_f64().unwrap() - 1.0).abs() < case[\"relativeTolerance\"].as_f64().unwrap()": 1,
+                    "(limit.crown[i] / published - 1.0).abs() < tolerance": 1,
+                    "(limit.load / case[\"reference\"].as_f64().unwrap() - 1.0).abs() < case[\"relativeTolerance\"].as_f64().unwrap()": 1
+                  },
+                  "statements": [
+                    "let tolerance = case[\"crownRelativeTolerance\"][key].as_f64().unwrap();",
+                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];",
+                    "for (i, key) in CROWN_KEYS.iter().enumerate() { let published = case[\"crownReference\"][key].as_f64().unwrap();"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Published table from an independent analysis; the engine traces the arch with general corotational frames and Crisfield arc-length.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The 1975 table is available only through its coauthor's 2000 quotation; no second independent source (another published solution or an independent solver run) is in the repository.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        },
+        {
+          "quantity": "Crown displacement u/R at the limit point",
+          "unit": "dimensionless",
+          "references": [
+            {
+              "source": "DaDeppo & Schmidt (1975), J. Appl. Mech. 42(4), 894-896, DOI 10.1115/1.3423734, Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), discussion",
+              "location": "Schmidt (2000), p. 1308 (second PDF page of https://userweb.eng.gla.ac.uk/sondipon.adhikari/fulltext/journal/ft7a.pdf)",
+              "value": 0.6116,
+              "unit": "dimensionless"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.0011,
+            "justification": "40-element grid-convergence index plus half a unit in the last published digit, rounded up; the native mesh study fails if the tolerance is below that budget or above 1.25 times it.",
+            "evidence": "research/benchmarks/dadeppo-arch-1975/README.md#mesh-study-and-tolerance-budget"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/dadeppo_arch.json",
+              "pointer": "/crownRelativeTolerance/uOverR",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/dadeppo_arch.rs",
+                  "assertions": {
+                    "(peak / case[\"reference\"].as_f64().unwrap() - 1.0).abs() < case[\"relativeTolerance\"].as_f64().unwrap()": 1,
+                    "(limit.crown[i] / published - 1.0).abs() < tolerance": 1,
+                    "(limit.load / case[\"reference\"].as_f64().unwrap() - 1.0).abs() < case[\"relativeTolerance\"].as_f64().unwrap()": 1
+                  },
+                  "statements": [
+                    "let tolerance = case[\"crownRelativeTolerance\"][key].as_f64().unwrap();",
+                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];",
+                    "for (i, key) in CROWN_KEYS.iter().enumerate() { let published = case[\"crownReference\"][key].as_f64().unwrap();"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Published table from an independent analysis; the engine traces the arch with general corotational frames and Crisfield arc-length.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The 1975 table is available only through its coauthor's 2000 quotation; no second independent source (another published solution or an independent solver run) is in the repository.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        },
+        {
+          "quantity": "Crown displacement v/R at the limit point",
+          "unit": "dimensionless",
+          "references": [
+            {
+              "source": "DaDeppo & Schmidt (1975), J. Appl. Mech. 42(4), 894-896, DOI 10.1115/1.3423734, Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), discussion",
+              "location": "Schmidt (2000), p. 1308 (second PDF page of https://userweb.eng.gla.ac.uk/sondipon.adhikari/fulltext/journal/ft7a.pdf)",
+              "value": 1.1372,
+              "unit": "dimensionless"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.0007,
+            "justification": "40-element grid-convergence index plus half a unit in the last published digit, rounded up; the native mesh study fails if the tolerance is below that budget or above 1.25 times it.",
+            "evidence": "research/benchmarks/dadeppo-arch-1975/README.md#mesh-study-and-tolerance-budget"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/dadeppo_arch.json",
+              "pointer": "/crownRelativeTolerance/vOverR",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/dadeppo_arch.rs",
+                  "assertions": {
+                    "(peak / case[\"reference\"].as_f64().unwrap() - 1.0).abs() < case[\"relativeTolerance\"].as_f64().unwrap()": 1,
+                    "(limit.crown[i] / published - 1.0).abs() < tolerance": 1,
+                    "(limit.load / case[\"reference\"].as_f64().unwrap() - 1.0).abs() < case[\"relativeTolerance\"].as_f64().unwrap()": 1
+                  },
+                  "statements": [
+                    "let tolerance = case[\"crownRelativeTolerance\"][key].as_f64().unwrap();",
+                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];",
+                    "for (i, key) in CROWN_KEYS.iter().enumerate() { let published = case[\"crownReference\"][key].as_f64().unwrap();"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Published table from an independent analysis; the engine traces the arch with general corotational frames and Crisfield arc-length.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The 1975 table is available only through its coauthor's 2000 quotation; no second independent source (another published solution or an independent solver run) is in the repository.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        },
+        {
+          "quantity": "Crown rotation at the limit point",
+          "unit": "rad",
+          "references": [
+            {
+              "source": "DaDeppo & Schmidt (1975), J. Appl. Mech. 42(4), 894-896, DOI 10.1115/1.3423734, Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), discussion",
+              "location": "Schmidt (2000), p. 1308 (second PDF page of https://userweb.eng.gla.ac.uk/sondipon.adhikari/fulltext/journal/ft7a.pdf)",
+              "value": 0.0498,
+              "unit": "rad"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.04,
+            "justification": "40-element grid-convergence index plus half a unit in the last published digit, rounded up; the native mesh study fails if the tolerance is below that budget or above 1.25 times it.",
+            "evidence": "research/benchmarks/dadeppo-arch-1975/README.md#mesh-study-and-tolerance-budget"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/dadeppo_arch.json",
+              "pointer": "/crownRelativeTolerance/rotation",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/dadeppo_arch.rs",
+                  "assertions": {
+                    "(peak / case[\"reference\"].as_f64().unwrap() - 1.0).abs() < case[\"relativeTolerance\"].as_f64().unwrap()": 1,
+                    "(limit.crown[i] / published - 1.0).abs() < tolerance": 1,
+                    "(limit.load / case[\"reference\"].as_f64().unwrap() - 1.0).abs() < case[\"relativeTolerance\"].as_f64().unwrap()": 1
+                  },
+                  "statements": [
+                    "let tolerance = case[\"crownRelativeTolerance\"][key].as_f64().unwrap();",
+                    "const CROWN_KEYS: [&str; 3] = [\"uOverR\", \"vOverR\", \"rotation\"];",
+                    "for (i, key) in CROWN_KEYS.iter().enumerate() { let published = case[\"crownReference\"][key].as_f64().unwrap();"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Published table from an independent analysis; the engine traces the arch with general corotational frames and Crisfield arc-length.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The 1975 table is available only through its coauthor's 2000 quotation; no second independent source (another published solution or an independent solver run) is in the repository.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lee-frame-1968",
+      "files": [
+        "engine/tests/benchmarks/lee_frame.json",
+        "engine/tests/lee_frame.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "First sampled limit load, 20 elements",
+          "unit": "kN",
+          "references": [
+            {
+              "source": "de Souza, Vanalli & de Luz (2020), DOI 10.1155/2020/3613892, pinned curve compared there with Schweizerhof & Wriggers (1986)",
+              "location": "Section 3.3, Figure 10: first peak read by eye; the paper tabulates no value",
+              "value": 1.83,
+              "unit": "kN"
+            }
+          ],
+          "tolerance": {
+            "absolute": 1e-08,
+            "justification": "Regression pin on Stabileo's own 20-element value (1.8657781212 kN), not an accuracy tolerance: the by-eye reference is compared only to the nearest percent on the page.",
+            "evidence": "research/benchmarks/lee-frame-1968/README.md#result"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/lee_frame.json",
+              "pointer": "/regression/absoluteTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/lee_frame.rs",
+                  "assertions": {
+                    "(peak.load_factor - expected).abs() < tolerance": 1,
+                    "(peak.load_factor - case[\"firstPeak\"].as_f64().unwrap()).abs() < tolerance": 1
+                  },
+                  "statements": [
+                    "let tolerance = data[\"regression\"][\"absoluteTolerance\"].as_f64().unwrap();",
+                    "let tolerance = check[\"absoluteTolerance\"].as_f64().unwrap();"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/lee_frame.json",
+              "pointer": "/convergence/absoluteTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/lee_frame.rs",
+                  "assertions": {
+                    "(peak.load_factor - expected).abs() < tolerance": 1,
+                    "(peak.load_factor - case[\"firstPeak\"].as_f64().unwrap()).abs() < tolerance": 1
+                  },
+                  "statements": [
+                    "let tolerance = data[\"regression\"][\"absoluteTolerance\"].as_f64().unwrap();",
+                    "let tolerance = check[\"absoluteTolerance\"].as_f64().unwrap();"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "The gated value is the engine's own earlier result; the external value is a figure reading with no stated precision, so nothing independent is gated.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The only external value is a by-eye reading of a published figure; no tabulated or independently computed limit load exists in the repository.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "macneal-harder-1985",
+      "files": [
+        "engine/tests/benchmarks/macneal_harder.json",
+        "engine/tests/macneal_harder.rs",
+        "engine/tests/benchmarks/macneal_harder.rs",
+        "engine/tests/solid_shell_locking.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "MITC4 straight cantilever tip displacement, out-of-plane load",
+          "unit": "length, in the consistent units of the case inputs",
+          "references": [
+            {
+              "source": "MacNeal & Harder (1985), Finite Elements in Analysis and Design 1, 3-20, DOI 10.1016/0168-874X(85)90003-4",
+              "location": "Table 3, p. 10, per a public transcription (publisher scan not inspected); geometry Fig. 4, p. 7",
+              "value": 0.4321,
+              "unit": "length, in the consistent units of the case inputs"
+            },
+            {
+              "source": "Timoshenko beam theory with shear factor 5/6, evaluated from the case inputs",
+              "location": "engine/tests/macneal_harder.rs, shell_references_match_timoshenko_beam_theory",
+              "value": 0.4320936,
+              "unit": "length, in the consistent units of the case inputs"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Stabileo acceptance choice, not from the paper; the printed reference is uncertain by half a unit in its fourth digit and a verdict inside that interval is reported as marginal. Distorted meshes are known failures pinned to their values (#798).",
+            "evidence": "engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/accuracyTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/macneal_harder.rs",
+                  "assertions": {
+                    "error < limit": 1
+                  },
+                  "statements": [
+                    "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
+                    "let pass = error < tolerance;",
+                    "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/cases/*/nativeBounds/relativeErrorLessThan",
+              "consumers": [
+                {
+                  "file": "engine/tests/macneal_harder.rs",
+                  "assertions": {
+                    "error < limit": 1
+                  },
+                  "statements": [
+                    "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
+                    "let pass = error < tolerance;",
+                    "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
+                  ]
+                },
+                {
+                  "file": "engine/tests/validation/benchmarks/patch_tests.rs",
+                  "assertions": {},
+                  "statements": [
+                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), &format!(\"MacNeal-Harder straight beam (n={n}): tip deflection\"))",
+                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: deflection\")",
+                    "assert_close(d_tip.ry, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: rotation\")"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Beam theory and the published table are independent of the MITC4 and SHB8 element formulations."
+        },
+        {
+          "quantity": "MITC4 straight cantilever tip displacement, in-plane load",
+          "unit": "length, in the consistent units of the case inputs",
+          "references": [
+            {
+              "source": "MacNeal & Harder (1985), Finite Elements in Analysis and Design 1, 3-20, DOI 10.1016/0168-874X(85)90003-4",
+              "location": "Table 3, p. 10, per a public transcription (publisher scan not inspected); geometry Fig. 4, p. 7",
+              "value": 0.1081,
+              "unit": "length, in the consistent units of the case inputs"
+            },
+            {
+              "source": "Timoshenko beam theory with shear factor 5/6, evaluated from the case inputs",
+              "location": "engine/tests/macneal_harder.rs, shell_references_match_timoshenko_beam_theory",
+              "value": 0.1080936,
+              "unit": "length, in the consistent units of the case inputs"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Stabileo acceptance choice, not from the paper; the printed reference is uncertain by half a unit in its fourth digit and a verdict inside that interval is reported as marginal. Distorted meshes are known failures pinned to their values (#798).",
+            "evidence": "engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/accuracyTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/macneal_harder.rs",
+                  "assertions": {
+                    "error < limit": 1
+                  },
+                  "statements": [
+                    "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
+                    "let pass = error < tolerance;",
+                    "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/cases/*/nativeBounds/relativeErrorLessThan",
+              "consumers": [
+                {
+                  "file": "engine/tests/macneal_harder.rs",
+                  "assertions": {
+                    "error < limit": 1
+                  },
+                  "statements": [
+                    "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
+                    "let pass = error < tolerance;",
+                    "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
+                  ]
+                },
+                {
+                  "file": "engine/tests/validation/benchmarks/patch_tests.rs",
+                  "assertions": {},
+                  "statements": [
+                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), &format!(\"MacNeal-Harder straight beam (n={n}): tip deflection\"))",
+                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: deflection\")",
+                    "assert_close(d_tip.ry, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: rotation\")"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Beam theory and the published table are independent of the MITC4 and SHB8 element formulations."
+        },
+        {
+          "quantity": "SHB8 straight cantilever tip displacement, out-of-plane load, every mesh shape",
+          "unit": "length, in the consistent units of the case inputs",
+          "references": [
+            {
+              "source": "MacNeal & Harder (1985), Finite Elements in Analysis and Design 1, 3-20, DOI 10.1016/0168-874X(85)90003-4",
+              "location": "Table 3, p. 10, per a public transcription (publisher scan not inspected); geometry Fig. 4, p. 7",
+              "value": 0.4321,
+              "unit": "length, in the consistent units of the case inputs"
+            },
+            {
+              "source": "Timoshenko beam theory with shear factor 5/6, evaluated from the case inputs",
+              "location": "engine/tests/macneal_harder.rs, shell_references_match_timoshenko_beam_theory",
+              "value": 0.4320936,
+              "unit": "length, in the consistent units of the case inputs"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Reference-error ceiling retained only as an existing one-sided floor. The case file now also requires normalized SHB8 displacements to stay within 1e-5 relative of measured pins for every shape. Trapezoidal and parallelogram in-plane locking are explicit limitations, not accepted accuracy; see the case-file regression justification.",
+            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/solidCantilever/shapes/*/1",
+              "transform": "ratio-floor",
+              "consumers": [
+                {
+                  "file": "engine/tests/solid_shell_locking.rs",
+                  "assertions": {
+                    "out > f_out && out < 1.01": 1,
+                    "inp > f_in && inp < 1.01": 1
+                  },
+                  "statements": [
+                    "let (shape, f_out, f_in) = (row[0].as_str().unwrap(), row[1].as_f64().unwrap(), row[2].as_f64().unwrap());"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/solid_shell_locking.rs",
+              "pattern": "out > f_\\w+ && out < ([\\d.]+)",
+              "transform": "ratio-ceiling"
+            },
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/solidCantilever/regression/relativeTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/solid_shell_locking.rs",
+                  "bindings": {
+                    "tolerance": "regression[\"relativeTolerance\"].as_f64().unwrap()"
+                  },
+                  "assertions": [
+                    "(out / pinned[0].as_f64().unwrap() - 1.0).abs() < tolerance",
+                    "(inp / pinned[1].as_f64().unwrap() - 1.0).abs() < tolerance"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Beam theory and the published table are independent of the MITC4 and SHB8 element formulations."
+        },
+        {
+          "quantity": "SHB8 straight cantilever tip displacement, in-plane load, every mesh shape",
+          "unit": "length, in the consistent units of the case inputs",
+          "references": [
+            {
+              "source": "MacNeal & Harder (1985), Finite Elements in Analysis and Design 1, 3-20, DOI 10.1016/0168-874X(85)90003-4",
+              "location": "Table 3, p. 10, per a public transcription (publisher scan not inspected); geometry Fig. 4, p. 7",
+              "value": 0.1081,
+              "unit": "length, in the consistent units of the case inputs"
+            },
+            {
+              "source": "Timoshenko beam theory with shear factor 5/6, evaluated from the case inputs",
+              "location": "engine/tests/macneal_harder.rs, shell_references_match_timoshenko_beam_theory",
+              "value": 0.1080936,
+              "unit": "length, in the consistent units of the case inputs"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.96,
+            "justification": "Reference-error ceiling retained only as an existing one-sided floor. The case file now also requires normalized SHB8 displacements to stay within 1e-5 relative of measured pins for every shape. Trapezoidal and parallelogram in-plane locking are explicit limitations, not accepted accuracy; see the case-file regression justification.",
+            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/solidCantilever/shapes/*/2",
+              "transform": "ratio-floor",
+              "consumers": [
+                {
+                  "file": "engine/tests/solid_shell_locking.rs",
+                  "assertions": {
+                    "out > f_out && out < 1.01": 1,
+                    "inp > f_in && inp < 1.01": 1
+                  },
+                  "statements": [
+                    "let (shape, f_out, f_in) = (row[0].as_str().unwrap(), row[1].as_f64().unwrap(), row[2].as_f64().unwrap());"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/solid_shell_locking.rs",
+              "pattern": "inp > f_\\w+ && inp < ([\\d.]+)",
+              "transform": "ratio-ceiling"
+            },
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/solidCantilever/regression/relativeTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/solid_shell_locking.rs",
+                  "bindings": {
+                    "tolerance": "regression[\"relativeTolerance\"].as_f64().unwrap()"
+                  },
+                  "assertions": [
+                    "(out / pinned[0].as_f64().unwrap() - 1.0).abs() < tolerance",
+                    "(inp / pinned[1].as_f64().unwrap() - 1.0).abs() < tolerance"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Beam theory and the published table are independent of the MITC4 and SHB8 element formulations."
+        },
+        {
+          "quantity": "Frame adaptation tip deflection under tip force",
+          "unit": "m",
+          "references": [
+            {
+              "source": "Euler-Bernoulli cantilever closed form PL^3/(3EI)",
+              "location": "engine/tests/validation/benchmarks/patch_tests.rs; case source fields in macneal_harder.json",
+              "value": -0.0036,
+              "unit": "m"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Same 2% page policy as the shell cases; the observed error is below 1e-10 because the cubic element reproduces these fields exactly.",
+            "evidence": "research/benchmarks/macneal-harder-1985/README.md#evidence"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/cases/*/nativeBounds/relativeErrorLessThan",
+              "consumers": [
+                {
+                  "file": "engine/tests/macneal_harder.rs",
+                  "assertions": {
+                    "error < limit": 1
+                  },
+                  "statements": [
+                    "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
+                    "let pass = error < tolerance;",
+                    "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
+                  ]
+                },
+                {
+                  "file": "engine/tests/validation/benchmarks/patch_tests.rs",
+                  "assertions": {},
+                  "statements": [
+                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), &format!(\"MacNeal-Harder straight beam (n={n}): tip deflection\"))",
+                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: deflection\")",
+                    "assert_close(d_tip.ry, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: rotation\")"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Closed-form beam theory, independent of the frame stiffness assembly.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "An exact closed form is the only reference for these frame adaptations, which are not problems from the paper.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        },
+        {
+          "quantity": "Frame adaptation tip deflection under tip moment",
+          "unit": "m",
+          "references": [
+            {
+              "source": "Euler-Bernoulli cantilever closed form ML^2/(2EI)",
+              "location": "engine/tests/validation/benchmarks/patch_tests.rs; case source fields in macneal_harder.json",
+              "value": 0.009,
+              "unit": "m"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Same 2% page policy as the shell cases; the observed error is below 1e-10 because the cubic element reproduces these fields exactly.",
+            "evidence": "research/benchmarks/macneal-harder-1985/README.md#evidence"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/cases/*/nativeBounds/relativeErrorLessThan",
+              "consumers": [
+                {
+                  "file": "engine/tests/macneal_harder.rs",
+                  "assertions": {
+                    "error < limit": 1
+                  },
+                  "statements": [
+                    "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
+                    "let pass = error < tolerance;",
+                    "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
+                  ]
+                },
+                {
+                  "file": "engine/tests/validation/benchmarks/patch_tests.rs",
+                  "assertions": {},
+                  "statements": [
+                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), &format!(\"MacNeal-Harder straight beam (n={n}): tip deflection\"))",
+                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: deflection\")",
+                    "assert_close(d_tip.ry, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: rotation\")"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Closed-form beam theory, independent of the frame stiffness assembly.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "An exact closed form is the only reference for these frame adaptations, which are not problems from the paper.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        },
+        {
+          "quantity": "Frame adaptation tip rotation under tip moment",
+          "unit": "rad",
+          "references": [
+            {
+              "source": "Euler-Bernoulli cantilever closed form ML/(EI)",
+              "location": "engine/tests/validation/benchmarks/patch_tests.rs; case source fields in macneal_harder.json",
+              "value": 0.003,
+              "unit": "rad"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Same 2% page policy as the shell cases; the observed error is below 1e-10 because the cubic element reproduces these fields exactly.",
+            "evidence": "research/benchmarks/macneal-harder-1985/README.md#evidence"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/macneal_harder.json",
+              "pointer": "/cases/*/nativeBounds/relativeErrorLessThan",
+              "consumers": [
+                {
+                  "file": "engine/tests/macneal_harder.rs",
+                  "assertions": {
+                    "error < limit": 1
+                  },
+                  "statements": [
+                    "let tolerance = cases::DATA[\"accuracyTolerance\"].as_f64().unwrap();",
+                    "let pass = error < tolerance;",
+                    "assert_eq!(pass, c[\"expectedPass\"].as_bool().unwrap(), \"{}: {value} vs {reference}\", c[\"id\"]);",
+                    "if let Some(limit) = bounds[\"relativeErrorLessThan\"].as_f64()",
+                    "let bounds = &c[\"nativeBounds\"];"
+                  ]
+                },
+                {
+                  "file": "engine/tests/validation/benchmarks/patch_tests.rs",
+                  "assertions": {},
+                  "statements": [
+                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), &format!(\"MacNeal-Harder straight beam (n={n}): tip deflection\"))",
+                    "assert_close(d_tip.uz, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: deflection\")",
+                    "assert_close(d_tip.ry, c[\"reference\"].as_f64().unwrap(), c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap(), \"MacNeal-Harder tip moment: rotation\")"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Closed-form beam theory, independent of the frame stiffness assembly.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "An exact closed form is the only reference for these frame adaptations, which are not problems from the paper.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mattiasson-elastica",
+      "files": [
+        "engine/tests/benchmarks/mattiasson_elastica.json",
+        "engine/tests/research_references/elastica.py",
+        "engine/tests/research_references/test_elastica.py"
+      ],
+      "quantities": [
+        {
+          "quantity": "Signed tip components u/L and v/L under q = PL^2/EI = 1, 2, 5, 10, 16 to 64 elements",
+          "unit": "dimensionless",
+          "references": [
+            {
+              "source": "Inextensible elastica, elliptic integrals, cross-checked with a SciPy BVP",
+              "location": "engine/tests/research_references/elastica.py, inextensible(); value shown: v/L at q = 10 (other loads in spec/mattiasson-*.json)",
+              "value": 0.810609024880296,
+              "unit": "dimensionless"
+            },
+            {
+              "source": "Nanakorn & Vu (2006), Finite Elements in Analysis and Design 42, 1240-1247 (reproduction of Mattiasson 1981)",
+              "location": "Table 1, p. 1245; value shown: v/L at q = 10",
+              "value": 0.81061,
+              "unit": "dimensionless"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.001,
+            "justification": "Both signed components strictly below 0.1%; measured 16/32/64-element ceilings 0.0801/0.0384/0.0281% decrease with refinement and the residual axial extension of A = 1 adds at most 0.025%.",
+            "evidence": "docs/safety/benchmark-correctness.md"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/mattiasson_elastica.json",
+              "pointer": "/accuracyTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/research_benchmarks.rs",
+                  "assertions": {
+                    "actual.is_finite() && error < tolerance": 1,
+                    "ceilings[0].1 < data[\"accuracyTolerance\"].as_f64().unwrap()": 1
+                  },
+                  "statements": [
+                    "relative(actual.0, u, tolerance);",
+                    "relative(actual.1, w, tolerance);",
+                    ".map(|c| (c[\"elements\"].as_u64().unwrap() as usize, c[\"relativeError\"].as_f64().unwrap()))",
+                    "let ceilings: Vec<(usize, f64)> = data[\"meshErrorCeilings\"]\n        .as_array()\n        .unwrap()\n        .iter()\n        .map(|c| (c[\"elements\"].as_u64().unwrap() as usize, c[\"relativeError\"].as_f64().unwrap()))\n        .collect();"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/mattiasson_elastica.json",
+              "pointer": "/meshErrorCeilings/*/relativeError",
+              "consumers": [
+                {
+                  "file": "engine/tests/research_benchmarks.rs",
+                  "assertions": {
+                    "actual.is_finite() && error < tolerance": 1,
+                    "ceilings[0].1 < data[\"accuracyTolerance\"].as_f64().unwrap()": 1
+                  },
+                  "statements": [
+                    "relative(actual.0, u, tolerance);",
+                    "relative(actual.1, w, tolerance);",
+                    ".map(|c| (c[\"elements\"].as_u64().unwrap() as usize, c[\"relativeError\"].as_f64().unwrap()))",
+                    "let ceilings: Vec<(usize, f64)> = data[\"meshErrorCeilings\"]\n        .as_array()\n        .unwrap()\n        .iter()\n        .map(|c| (c[\"elements\"].as_u64().unwrap() as usize, c[\"relativeError\"].as_f64().unwrap()))\n        .collect();"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Elliptic integrals of the continuum elastica and a published table; the engine uses corotational frame elements."
+        }
+      ]
+    },
+    {
+      "id": "navier-plate",
+      "files": [
+        "engine/tests/benchmarks/navier_plate.json",
+        "engine/tests/benchmarks/navier_plate.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "DKT centre deflection, 16 x 16 grid, against the Kirchhoff series",
+          "unit": "mm",
+          "references": [
+            {
+              "source": "Haukaas (2018), \"Navier's Solution for Uniform Load\", worked example of Timoshenko & Woinowsky-Krieger (1959), Art. 28",
+              "location": "pp. 1-3, printed centre displacement",
+              "value": 1.28375,
+              "unit": "mm"
+            },
+            {
+              "source": "Navier double sine series for the Kirchhoff plate (Timoshenko & Woinowsky-Krieger 1959, Art. 28), 100 x 100 odd terms, evaluated independently",
+              "location": "engine/tests/benchmarks/navier_plate.rs kirchhoff_center_mm; navier_plate.json /parameters/reference_mm",
+              "value": 1.2837481142296345,
+              "unit": "mm"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.0025,
+            "justification": "Measured 0.2202%, which is the 16 x 16 discretisation error (successive increments shrink 3.96x; Richardson extrapolation lands within 0.01% of the series).",
+            "evidence": "research/benchmarks/navier-plate/README.md#tolerances-and-what-each-covers"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/navier_plate.rs",
+              "pattern": "relative\\(dkt\\[2\\], reference\\)\\.abs\\(\\) < ([\\d.eE-]+)"
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Analytical series and a published worked example, independent of the DKT and MITC4 formulations."
+        },
+        {
+          "quantity": "Centre deflection of every case (DKT and MITC4, 4 x 4 to 16 x 16) against the Kirchhoff series",
+          "unit": "mm",
+          "references": [
+            {
+              "source": "Haukaas (2018), \"Navier's Solution for Uniform Load\", worked example of Timoshenko & Woinowsky-Krieger (1959), Art. 28",
+              "location": "pp. 1-3, printed centre displacement",
+              "value": 1.28375,
+              "unit": "mm"
+            },
+            {
+              "source": "Navier double sine series for the Kirchhoff plate (Timoshenko & Woinowsky-Krieger 1959, Art. 28), 100 x 100 odd terms, evaluated independently",
+              "location": "engine/tests/benchmarks/navier_plate.rs kirchhoff_center_mm; navier_plate.json /parameters/reference_mm",
+              "value": 1.2837481142296345,
+              "unit": "mm"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.036,
+            "justification": "The former blanket 5% limit is now a 3.6% ceiling over six individually measured case bounds (0.25% to 3.5%). DKT converges to Kirchhoff; soft-support MITC4 includes a boundary-condition/model difference, documented per case.",
+            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/navier_plate.json",
+              "pointer": "/parameters/tolerance_relative",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/navier_plate.rs",
+                  "assertions": {
+                    "case[\"tolerance_relative\"].as_f64().unwrap() <= param(p, \"tolerance_relative\")": 1,
+                    "relative(w, reference).abs() < case[\"tolerance_relative\"].as_f64().unwrap()": 1,
+                    "error < case[\"tolerance_relative\"].as_f64().unwrap()": 1
+                  },
+                  "statements": []
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/navier_plate.json",
+              "pointer": "/cases/*/tolerance_relative",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/navier_plate.rs",
+                  "assertions": {
+                    "case[\"tolerance_relative\"].as_f64().unwrap() <= param(p, \"tolerance_relative\")": 1,
+                    "relative(w, reference).abs() < case[\"tolerance_relative\"].as_f64().unwrap()": 1,
+                    "error < case[\"tolerance_relative\"].as_f64().unwrap()": 1
+                  },
+                  "statements": []
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Analytical series and a published worked example, independent of the DKT and MITC4 formulations."
+        },
+        {
+          "quantity": "MITC4 hard simple support centre deflection, 16 x 16 grid, against the Reissner-Mindlin series",
+          "unit": "mm",
+          "references": [
+            {
+              "source": "Reissner-Mindlin series, hard simple support, shear correction 5/6, 1000 x 1000 odd terms",
+              "location": "engine/tests/benchmarks/navier_plate.rs mindlin_center_mm; navier_plate.json /parameters/mindlin_reference_mm",
+              "value": 1.288120842251,
+              "unit": "mm"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.0016,
+            "justification": "Measured 0.1423%, the 16 x 16 discretisation error (second order; Richardson of 16 and 32 within 0.0002% of the series).",
+            "evidence": "research/benchmarks/navier-plate/README.md#tolerances-and-what-each-covers"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/navier_plate.rs",
+              "pattern": "relative\\(hard\\[2\\], mindlin\\)\\.abs\\(\\) < ([\\d.eE-]+)"
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Analytical series, independent of the MITC4 formulation.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The Reissner-Mindlin series is evaluated only in this repository; no published value or independent solver run for this plate is cited.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "newmark-1959",
+      "files": [
+        "engine/tests/benchmarks/newmark_1959.json",
+        "engine/tests/benchmarks/newmark_1959.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Measured period against the discrete period T_n = pi dt / atan(omega dt / 2), dt/T = 0.025 to 0.2",
+          "unit": "s",
+          "references": [
+            {
+              "source": "Average-acceleration Newmark recurrence for an undamped SDOF (amplification-matrix eigenvalues e^{+-i theta}, theta = 2 atan(omega dt/2)); Newmark (1959), J. Eng. Mech. Div. 85(EM3), 67-94, DOI 10.1061/JMCEA3.0000098",
+              "location": "research/benchmarks/newmark-1959/README.md, Reference and checks; value shown: dt/T = 0.025",
+              "value": 0.6296083406154982,
+              "unit": "s"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.005,
+            "justification": "Bound on measuring the period by linear interpolation of upward crossings over four periods; the solver itself is gated by the 1e-10 m sample check.",
+            "evidence": "research/benchmarks/newmark-1959/VALIDATION.json"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/newmark_1959.rs",
+              "pattern": "period_difference < ([\\d.eE-]+)"
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Derived from the integration scheme on paper, not from the engine code; it checks the implementation of the scheme, not the choice of scheme.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The only reference is the closed form derived from the Newmark recurrence itself (Chopra, ch. 5, discusses period elongation without a value for this case).",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        },
+        {
+          "quantity": "Displacement samples against the discrete solution u_n = (F/k)(1 - cos n theta)",
+          "unit": "m",
+          "references": [
+            {
+              "source": "Same recurrence as above, with u(0) = v(0) = 0 and the starting acceleration F/m",
+              "location": "research/benchmarks/newmark-1959/README.md, Reference and checks; value shown: static displacement F/k",
+              "value": 0.01,
+              "unit": "m"
+            }
+          ],
+          "tolerance": {
+            "absolute": 1e-10,
+            "justification": "Floating-point agreement of an exact discrete solution over at most 160 steps.",
+            "evidence": "research/benchmarks/newmark-1959/VALIDATION.json"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/newmark_1959.rs",
+              "kind": "absolute",
+              "pattern": "discrete_error < ([\\d.eE-]+)"
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Derived from the integration scheme on paper, not from the engine code.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The only reference is the closed form derived from the Newmark recurrence itself (Chopra, ch. 5, discusses period elongation without a value for this case).",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "plastic-collapse",
+      "files": [
+        "engine/tests/benchmarks/plastic_collapse.json",
+        "engine/tests/benchmarks/plastic_collapse.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Collapse load factor of the fixed-base portal (combined mechanism)",
+          "unit": "dimensionless",
+          "references": [
+            {
+              "source": "Hand calculation by the virtual-work mechanism method (upper bound) closed by statics (lower bound); method as in Horne, Plastic Theory of Structures, 2nd ed. (1979), cited as background only",
+              "location": "research/benchmarks/plastic-collapse/README.md, Reference and scope: lambda = 600/7",
+              "value": 85.71428571428571,
+              "unit": "dimensionless"
+            }
+          ],
+          "tolerance": {
+            "absolute": 1e-06,
+            "justification": "Regression bound for an 18-DOF well-conditioned problem; the observed error is -1.4e-11.",
+            "evidence": "research/benchmarks/plastic-collapse/VERIFICATION.md"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/plastic_collapse.json",
+              "pointer": "/tolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/plastic_collapse.rs",
+                  "assertions": {
+                    "(result.collapse_factor - combined).abs() < tolerance": 1,
+                    "(step.load_factor - num(expected, \"loadFactor\")).abs() < tolerance": 1,
+                    "(corner - num(&case, \"leftCornerMoment\")).abs() < tolerance": 1,
+                    "(moments[&(1, \"end\")].abs() - corner).abs() < tolerance": 1,
+                    "(3.0 * mp + corner - result.collapse_factor * v * l / 2.0).abs() < tolerance": 1
+                  },
+                  "statements": [
+                    "let tolerance = num(&case, \"tolerance\");"
+                  ]
+                }
+              ]
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Mechanism and statics hand calculation, independent of the event-to-event hinge algorithm.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "The reference is our own hand calculation; no page of the cited textbook was checked and no independent solver run is recorded.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "shell-obstacle-course",
+      "files": [
+        "engine/tests/benchmarks/shell_obstacle_course.json",
+        "engine/tests/benchmarks/shell_obstacle_course.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Scordelis-Lo roof midspan free-edge vertical displacement (MITC4)",
+          "unit": "length, in the consistent units of the case inputs",
+          "references": [
+            {
+              "source": "Altair OptiStruct verification OS-V:0730, https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm",
+              "location": "Results: target displacement (also in spec/scordelis-lo.json)",
+              "value": 0.3024,
+              "unit": "length, in the consistent units of the case inputs"
+            },
+            {
+              "source": "COMSOL 6.4 model documentation, Scordelis-Lo roof, https://doc.comsol.com/6.4/doc/com.comsol.help.models.sme.scordelis_lo_roof/scordelis_lo_roof.html",
+              "location": "Results and Discussion: converged displacement approximately 0.302",
+              "value": 0.302,
+              "unit": "length, in the consistent units of the case inputs"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Existing 2% shell accuracy policy, a project choice; the roof reaches 0.008% at 16 x 16, the cylinder misses below 32 x 32 and is a pinned known issue (#810).",
+            "evidence": "engine/tests/benchmarks/KNOWN_ISSUES.md#shell-obstacle-course"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/shell_obstacle_course.json",
+              "pointer": "/accuracyTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
+                  "statements": [
+                    "assert_eq!(DATA[\"accuracyTolerance\"].as_f64().unwrap(), 0.02);"
+                  ],
+                  "assertions": []
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/shell_obstacle_course.json",
+              "pointer": "/cases/*/tolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/shell_obstacle_course.json",
+              "pointer": "/nativeCases/*/tolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/shell_benchmark.rs",
+              "pattern": "fn research_shell_accuracy[^}]*?error < ([\\d.eE-]+)"
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Third-party solver results and a published solution, independent of the MITC4 formulation."
+        },
+        {
+          "quantity": "Pinched cylinder with rigid diaphragms, load-point displacement (MITC4)",
+          "unit": "length, in the consistent units of the case inputs",
+          "references": [
+            {
+              "source": "Nguyen-Van et al. (2009), CMES 49(2), 81-110",
+              "location": "Section 4.2, Fig. 9, Table 4 (also in spec/pinched-cylinder.json)",
+              "value": 1.8248e-05,
+              "unit": "length, in the consistent units of the case inputs"
+            },
+            {
+              "source": "Abaqus Benchmarks Guide, pinched cylinder, https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-pinchcyl.htm",
+              "location": "Table 3, STRI65, 3366 DOF, irregular mesh type 2",
+              "value": 1.824e-05,
+              "unit": "length, in the consistent units of the case inputs"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Existing 2% shell accuracy policy, a project choice; the roof reaches 0.008% at 16 x 16, the cylinder misses below 32 x 32 and is a pinned known issue (#810).",
+            "evidence": "engine/tests/benchmarks/KNOWN_ISSUES.md#shell-obstacle-course"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/shell_obstacle_course.json",
+              "pointer": "/accuracyTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
+                  "statements": [
+                    "assert_eq!(DATA[\"accuracyTolerance\"].as_f64().unwrap(), 0.02);"
+                  ],
+                  "assertions": []
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/shell_obstacle_course.json",
+              "pointer": "/cases/*/tolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/shell_obstacle_course.json",
+              "pointer": "/nativeCases/*/tolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/shell_benchmark.rs",
+              "pattern": "fn research_shell_accuracy[^}]*?error < ([\\d.eE-]+)"
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Third-party solver results and a published solution, independent of the MITC4 formulation."
+        },
+        {
+          "quantity": "Hemisphere with 18 degree hole, equator radial displacement (MITC4)",
+          "unit": "length, in the consistent units of the case inputs",
+          "references": [
+            {
+              "source": "NAFEMS, The Standard NAFEMS Benchmarks, Rev. 3 (1990), test LE3, as quoted in engine/tests/BENCHMARK_REFERENCES.md",
+              "location": "Hemisphere with 18 degree hole: u_x = 0.185 at point A (quotation; the NAFEMS table itself not checked)",
+              "value": 0.185,
+              "unit": "length, in the consistent units of the case inputs"
+            }
+          ],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Existing 2% shell accuracy policy, a project choice; the roof reaches 0.008% at 16 x 16, the cylinder misses below 32 x 32 and is a pinned known issue (#810).",
+            "evidence": "engine/tests/benchmarks/KNOWN_ISSUES.md#shell-obstacle-course"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/benchmarks/shell_obstacle_course.json",
+              "pointer": "/accuracyTolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
+                  "statements": [
+                    "assert_eq!(DATA[\"accuracyTolerance\"].as_f64().unwrap(), 0.02);"
+                  ],
+                  "assertions": []
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/shell_obstacle_course.json",
+              "pointer": "/cases/*/tolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/benchmarks/shell_obstacle_course.json",
+              "pointer": "/nativeCases/*/tolerance",
+              "consumers": [
+                {
+                  "file": "engine/tests/benchmarks/shell_obstacle_course.rs",
+                  "statements": [],
+                  "assertions": [
+                    "c[\"tolerance\"].as_f64().unwrap() <= DATA[\"accuracyTolerance\"].as_f64().unwrap()"
+                  ]
+                }
+              ]
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/shell_benchmark.rs",
+              "pattern": "fn research_shell_accuracy[^}]*?error < ([\\d.eE-]+)"
+            }
+          ],
+          "independent_of_derivation": true,
+          "independence_note": "Third-party solver results and a published solution, independent of the MITC4 formulation.",
+          "exemption": {
+            "kind": "single-reference",
+            "reason": "One quoted value whose source table has not been checked; no second source in the repository.",
+            "issue": 1481,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "protocol-mattiasson-1-shortening",
+      "protocol": "engine/tests/benchmarks/spec/mattiasson-1-shortening.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "dimensionless (tip displacement / L)",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": true,
+      "independence_note": "Continuum elliptic integrals and a published table, independent of the corotational frame formulation."
+    },
+    {
+      "id": "protocol-mattiasson-1",
+      "protocol": "engine/tests/benchmarks/spec/mattiasson-1.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "dimensionless (tip displacement / L)",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": true,
+      "independence_note": "Continuum elliptic integrals and a published table, independent of the corotational frame formulation."
+    },
+    {
+      "id": "protocol-mattiasson-10-shortening",
+      "protocol": "engine/tests/benchmarks/spec/mattiasson-10-shortening.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "dimensionless (tip displacement / L)",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": true,
+      "independence_note": "Continuum elliptic integrals and a published table, independent of the corotational frame formulation."
+    },
+    {
+      "id": "protocol-mattiasson-10",
+      "protocol": "engine/tests/benchmarks/spec/mattiasson-10.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "dimensionless (tip displacement / L)",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": true,
+      "independence_note": "Continuum elliptic integrals and a published table, independent of the corotational frame formulation."
+    },
+    {
+      "id": "protocol-mattiasson-2-shortening",
+      "protocol": "engine/tests/benchmarks/spec/mattiasson-2-shortening.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "dimensionless (tip displacement / L)",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": true,
+      "independence_note": "Continuum elliptic integrals and a published table, independent of the corotational frame formulation."
+    },
+    {
+      "id": "protocol-mattiasson-2",
+      "protocol": "engine/tests/benchmarks/spec/mattiasson-2.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "dimensionless (tip displacement / L)",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": true,
+      "independence_note": "Continuum elliptic integrals and a published table, independent of the corotational frame formulation."
+    },
+    {
+      "id": "protocol-mattiasson-5-shortening",
+      "protocol": "engine/tests/benchmarks/spec/mattiasson-5-shortening.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "dimensionless (tip displacement / L)",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": true,
+      "independence_note": "Continuum elliptic integrals and a published table, independent of the corotational frame formulation."
+    },
+    {
+      "id": "protocol-mattiasson-5",
+      "protocol": "engine/tests/benchmarks/spec/mattiasson-5.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "dimensionless (tip displacement / L)",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": true,
+      "independence_note": "Continuum elliptic integrals and a published table, independent of the corotational frame formulation."
+    },
+    {
+      "id": "protocol-pinched-cylinder",
+      "protocol": "engine/tests/benchmarks/spec/pinched-cylinder.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "length, in the consistent units of the case inputs",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": true,
+      "independence_note": "A published solution and a third-party solver run, independent of the MITC4 formulation."
+    },
+    {
+      "id": "protocol-scordelis-lo",
+      "protocol": "engine/tests/benchmarks/spec/scordelis-lo.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "length, in the consistent units of the case inputs",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": true,
+      "independence_note": "Two third-party solver results, independent of the MITC4 formulation."
+    },
+    {
+      "id": "protocol-shallow-toggle-frame",
+      "protocol": "engine/tests/benchmarks/spec/shallow-toggle-frame.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "m",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": false,
+      "independence_note": "Both references derive the same two-element discrete model the engine solves (equilibrium and energy differentiation): they check the solver, not the formulation, and are not a continuum reference."
+    },
+    {
+      "id": "protocol-shallow-toggle-truss",
+      "protocol": "engine/tests/benchmarks/spec/shallow-toggle-truss.json",
+      "files": [
+        "engine/tests/benchmarks/protocol.py",
+        "engine/tests/benchmarks/runner.rs"
+      ],
+      "unit": "m",
+      "evidence": "docs/safety/benchmark-correctness.md",
+      "independent_of_derivation": false,
+      "independence_note": "Both references derive the same two-element discrete model the engine solves (equilibrium and energy differentiation): they check the solver, not the formulation, and are not a continuum reference."
+    },
+    {
+      "id": "ansys-vm",
+      "files": [
+        "engine/tests/validation/benchmarks/ansys_vm.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in ansys_vm.rs (ANSYS Verification Manual Problems)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/ansys_vm.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS VM manual — VM1, VM2, VM4, VM10, VM12-inspired.. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ansys-vm-additional",
+      "files": [
+        "engine/tests/validation/benchmarks/ansys_vm_additional.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in ansys_vm_additional.rs (Extended ANSYS Verification Manual Problems)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/ansys_vm_additional.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/ansys_vm_additional.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS Mechanical APDL Verification Manual, Release 2024; VM29: Frequencies of a Simply Supported Beam; VM31: Natural Frequencies of a Free-Free Beam; VM35: Stress Stiffening of a Beam Under Axial Tension; VM36: Buckling of a Fixed-Free (Cantilever) Column; VM37: Moving Load on a Simply Supported Beam; VM38: Fixed-Fixed Beam with Two Symmetric Point Loads; VM39: Cantilever with Partial Distributed Load; VM41: 3D L-Frame Under Out-of-Plane Load. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ansys-vm-additional-extended",
+      "files": [
+        "engine/tests/validation/benchmarks/ansys_vm_additional_extended.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in ansys_vm_additional_extended.rs (Additional Extended ANSYS Verification Manual Problems)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.1,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/ansys_vm_additional_extended.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS Mechanical APDL Verification Manual, Release 2024; VM42: Cantilever with Triangular (Linearly Varying) Distributed Load; VM43: Propped Cantilever with Concentrated Load at Midspan; VM44: Two-Span Continuous Beam with UDL on Both Spans; VM45: Fixed-Pinned Beam (Propped Cantilever) with UDL; VM46: Warren Truss Bridge Under Central Load; VM47: 3D Cantilever with Pure Torsional Moment; VM48: Asymmetric Portal Frame with Sway; VM49: Continuous Beam with Support Settlement. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ansys-vm-benchmarks",
+      "files": [
+        "engine/tests/validation/benchmarks/ansys_vm_benchmarks.rs",
+        "engine/tests/benchmarks/tolerance_audit_1490.json"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in ansys_vm_benchmarks.rs (ANSYS Verification Manual — Benchmark Problems)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.1,
+            "justification": "Remaining file ceiling after the #1490 audit; the targeted loose assertions have separate measured bounds. This ceiling is not an accuracy claim for the other unaudited assertions. See the case-file uncertainty and measurements in engine/tests/benchmarks/tolerance_audit_1490.json.",
+            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/ansys_vm_benchmarks.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/ansys_vm_benchmarks.rs",
+              "pattern": "error-threshold"
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/ansys_vm_benchmarks.rs",
+              "pattern": "\\(actual_af - af_approx\\)\\.abs\\(\\) / af_approx < ([\\d.eE+-]+)"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS Mechanical APDL Verification Manual, Release 2024; VM22: Cantilever with Combined Axial and Bending (P-delta); VM23: Beam on Elastic (Winkler) Foundation; VM26: Two-Span Continuous Beam (Partial UDL); VM27: Simply Supported Beam with Thermal Gradient; VM30: Pin-Jointed Space Truss (3D); VM33: Statically Indeterminate Truss (3-bar, 45/90/135); VM34: Two-Bar Truss with Thermal Load; VM40: Large Deflection of a Cantilever (Corotational). Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ansys-vm-benchmarks-extended",
+      "files": [
+        "engine/tests/validation/benchmarks/ansys_vm_benchmarks_extended.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in ansys_vm_benchmarks_extended.rs (ANSYS Verification Manual — Extended Benchmark Problems)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.08,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/ansys_vm_benchmarks_extended.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS Mechanical APDL Verification Manual, Release 2024; VM11: Propped Cantilever with Point Load at Midspan; VM15: Pinned-Pinned Buckling (Higher Modes); VM17: Four-Bar Planar Truss (Overdetermined); VM19: Cantilever Beam with Linearly Varying (Triangular) Load; VM24: Three-Span Continuous Beam with UDL; VM28: Fixed-Pinned Beam with UDL; VM42: 3D Cantilever with Torsion; VM44: Portal Frame with Lateral and Gravity Loads (Sway Frame). Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ansys-vm-extended",
+      "files": [
+        "engine/tests/validation/benchmarks/ansys_vm_extended.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in ansys_vm_extended.rs (Extended ANSYS Verification Manual Problems)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/ansys_vm_extended.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS VM manual — VM3, VM5, VM6, VM7, VM8, VM9, VM13, VM14, VM21, VM156.. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "beam-shell-benchmark",
+      "files": [
+        "engine/tests/validation/benchmarks/beam_shell_benchmark.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in beam_shell_benchmark.rs (Beam-Shell Mixed Model Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": null,
+            "justification": "None: the file asserts only qualitative bounds (signs, ratio windows, monotonicity), so there is no numeric accuracy tolerance to gate."
+          },
+          "test_tolerances": [],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Cook et al., \"Concepts and Applications of FEA\" (mixed models); Bathe, \"Finite Element Procedures\" (beam-shell coupling). Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "constraints-benchmark",
+      "files": [
+        "engine/tests/validation/benchmarks/constraints_benchmark.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in constraints_benchmark.rs (Validation benchmarks for constraint types)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.01,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/constraints_benchmark.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/constraints_benchmark.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Cook et al., \"Concepts and Applications of FEA\", Ch. 9 (MPC); OpenSees documentation: equalDOF, rigidDiaphragm, rigidLink. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "contact-benchmark",
+      "files": [
+        "engine/tests/validation/benchmarks/contact_benchmark.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in contact_benchmark.rs (Contact Analysis Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.01,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/contact_benchmark.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Wriggers, P., \"Computational Contact Mechanics\", 2nd ed., Springer, 2006; Laursen, T.A., \"Computational Contact and Impact Mechanics\", Springer, 2002. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "corotational-benchmarks",
+      "files": [
+        "engine/tests/validation/benchmarks/corotational_benchmarks.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in corotational_benchmarks.rs (Advanced Corotational / Large Displacement Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": null,
+            "justification": "None: the file asserts only qualitative bounds (signs, ratio windows, monotonicity), so there is no numeric accuracy tolerance to gate."
+          },
+          "test_tolerances": [],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): ANSYS VM14: Eccentric compression column; Mattiasson (1981): Large deflection beam problems; Crisfield, \"Non-linear Finite Element Analysis of Solids and Structures\". Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "corotational-benchmarks-extended",
+      "files": [
+        "engine/tests/validation/benchmarks/corotational_benchmarks_extended.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in corotational_benchmarks_extended.rs (Extended Corotational / Large Displacement Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 1e-06,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/corotational_benchmarks_extended.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Mattiasson (1981): Large deflection beam problems; Crisfield, \"Non-linear Finite Element Analysis of Solids and Structures\"; Bathe & Bolourchi (1979): Large displacement analysis of 3D beam structures. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "creep-shrinkage-benchmark",
+      "files": [
+        "engine/tests/validation/benchmarks/creep_shrinkage_benchmark.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in creep_shrinkage_benchmark.rs (Creep and Shrinkage Structural Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.01,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/creep_shrinkage_benchmark.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): EN 1992-1-1 (EC2) Annex B: Creep and shrinkage; Gilbert & Ranzi (2011) \"Time-Dependent Behaviour of Concrete Structures\"; Bazant, Z.P. (1972) \"Prediction of concrete creep effects...\". Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fiber-benchmark",
+      "files": [
+        "engine/tests/validation/benchmarks/fiber_benchmark.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in fiber_benchmark.rs (Fiber Beam Nonlinear 3D Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/fiber_benchmark.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Spacone, E. et al., \"Fiber Beam-Column Model for Nonlinear Analysis of R/C Frames\", Earthquake Eng. & Struct. Dyn., 1996; AISC Steel Construction Manual, 15th Edition. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "imperfections-benchmark",
+      "files": [
+        "engine/tests/validation/benchmarks/imperfections_benchmark.rs",
+        "engine/tests/benchmarks/tolerance_audit_1490.json"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in imperfections_benchmark.rs (Initial Imperfections Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.1,
+            "justification": "Remaining file ceiling after the #1490 audit; the targeted loose assertions have separate measured bounds. This ceiling is not an accuracy claim for the other unaudited assertions. See the case-file uncertainty and measurements in engine/tests/benchmarks/tolerance_audit_1490.json.",
+            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/imperfections_benchmark.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): AISC 360-22, Appendix 1 (Design by Advanced Analysis); ECCS Manual on Stability of Steel Structures, 2nd Ed.; Galambos & Surovek, \"Structural Stability of Steel\", Ch. 4. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "material-nonlinear-benchmarks",
+      "files": [
+        "engine/tests/validation/benchmarks/material_nonlinear_benchmarks.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in material_nonlinear_benchmarks.rs (Extended Material Nonlinear Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": null,
+            "justification": "None: the file asserts only qualitative bounds (signs, ratio windows, monotonicity), so there is no numeric accuracy tolerance to gate."
+          },
+          "test_tolerances": [],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Chen & Sohal, \"Plastic Design and Second-Order Analysis of Steel Frames\"; Neal, \"Plastic Methods of Structural Analysis\"; EN 1993-1-1 §6.2.1: Cross-section resistance under N+M; Massonnet & Save, \"Plastic Analysis and Design of Beams and Frames\". Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "nafems",
+      "files": [
+        "engine/tests/validation/benchmarks/nafems.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in nafems.rs (NAFEMS Standard FE Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/nafems.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/nafems.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): NAFEMS \"Standard Benchmark Tests\" for finite elements; NAFEMS FV2: Axially loaded bar; NAFEMS FV12: Free vibration of a cantilever; NAFEMS FV32: Simply supported beam under uniform load; NAFEMS T3: Thermal stress in a constrained bar; NAFEMS LE5: Z-section cantilever (3D coupled bending); NAFEMS FV52: Pin-jointed cross frame. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "nafems-additional",
+      "files": [
+        "engine/tests/validation/benchmarks/nafems_additional.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in nafems_additional.rs (NAFEMS Extended Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.08,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/nafems_additional.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/nafems_additional.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): NAFEMS \"Standard Benchmark Tests for Finite Element Accuracy\"; NAFEMS LE1:  Elliptic membrane (approximated as frame grid for load distribution); NAFEMS FV2:  Natural frequency of a simply supported beam; NAFEMS FV4:  Cantilever beam natural frequencies (multiple modes); NAFEMS FV12: Free-free beam frequencies (indirect via boundary condition ratios); NAFEMS FV32: Free vibration of a symmetric cross-ply laminate (frame approximation); NAFEMS T1:   Plane thermal stress benchmark (1D bar analog); NAFEMS LE10: Thick plate bending (approximated as grillage of 3D beams); NAFEMS R0031: Linear elastic 3D beam bending. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "nafems-benchmarks",
+      "files": [
+        "engine/tests/validation/benchmarks/nafems_benchmarks.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in nafems_benchmarks.rs (NAFEMS Benchmark Tests (Additional Set))",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/nafems_benchmarks.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/nafems_benchmarks.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): NAFEMS \"Standard Benchmark Tests for Finite Element Accuracy\"; NAFEMS LE1: Elliptic membrane (load distribution / equilibrium); NAFEMS FV22: Free vibration of a cantilevered beam (fundamental frequency); NAFEMS FV42: Vibration of a simply supported beam (first 3 modes); NAFEMS FV72: Free-free beam vibration (first flexural mode); NAFEMS T2: Thermal expansion of a free bar (δ = α·ΔT·L); NAFEMS R0001: Simply supported beam with UDL (deflection, moment, reactions); NAFEMS R0015: Three-bar planar truss (member forces under vertical load); NAFEMS R0024: Portal frame under lateral load (column and beam moments). Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "nafems-extended",
+      "files": [
+        "engine/tests/validation/benchmarks/nafems_extended.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in nafems_extended.rs (NAFEMS Extended Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/nafems_extended.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/nafems_extended.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): NAFEMS \"Standard Benchmark Tests for Finite Element Accuracy\"; NAFEMS FV1: Centrally loaded SS beam (point load); NAFEMS FV13: SS beam free vibration; NAFEMS FV31: Cantilever beam with tip load; NAFEMS FV51: Vibration of a portal frame; NAFEMS LE10: 3D cantilever with combined bending/torsion; NAFEMS T1: Thermal gradient through depth (bending); NAFEMS FV41: Cantilever with lumped mass at tip; NAFEMS R0031: 3D truss benchmark. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "patch-tests",
+      "files": [
+        "engine/tests/validation/benchmarks/patch_tests.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in patch_tests.rs (Patch Tests and Element Quality Checks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/patch_tests.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3,
+              "aliases": {
+                "c[\"nativeBounds\"][\"relativeErrorLessThan\"].as_f64().unwrap()": {
+                  "file": "engine/tests/benchmarks/macneal_harder.json",
+                  "pointer": "/cases/*/nativeBounds/relativeErrorLessThan"
+                }
+              }
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/patch_tests.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): MacNeal, R.H. & Harder, R.L., \"A Proposed Standard Set of Problems\", FEM, 1985; Argyris, J.H. & Kelsey, S., \"Energy Theorems and Structural Analysis\", 1960; Irons, B.M. & Razzaque, A., \"Experience with the Patch Test\", 1972; Taylor, R.L. et al., \"The Patch Test — A Condition for Assessing FEM Convergence\", 1986. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pdelta-benchmarks",
+      "files": [
+        "engine/tests/validation/benchmarks/pdelta_benchmarks.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in pdelta_benchmarks.rs (P-Delta Analysis Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/pdelta_benchmarks.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/pdelta_benchmarks.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): AISC 360-16, Appendix 8 (Approximate Second-Order Analysis); Wilson, \"Static and Dynamic Analysis of Structures\", Ch. 7; Galambos & Surovek, \"Structural Stability of Steel\", Ch. 2; Chen & Lui, \"Structural Stability\", Ch. 3. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pdelta-benchmarks-extended",
+      "files": [
+        "engine/tests/validation/benchmarks/pdelta_benchmarks_extended.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in pdelta_benchmarks_extended.rs (P-Delta Analysis Benchmarks (Extended))",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.1,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/pdelta_benchmarks_extended.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/pdelta_benchmarks_extended.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): AISC 360-16, Appendix 8 (Approximate Second-Order Analysis); Galambos & Surovek, \"Structural Stability of Steel\", Ch. 2-3; Chen & Lui, \"Structural Stability\", Ch. 3-4; Timoshenko & Gere, \"Theory of Elastic Stability\", Ch. 1-2. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "reduction-benchmark",
+      "files": [
+        "engine/tests/validation/benchmarks/reduction_benchmark.rs",
+        "engine/tests/benchmarks/tolerance_audit_1490.json"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in reduction_benchmark.rs (Model Reduction Benchmarks (Guyan / Craig-Bampton))",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Remaining file ceiling after the #1490 audit; the targeted loose assertions have separate measured bounds. This ceiling is not an accuracy claim for the other unaudited assertions. See the case-file uncertainty and measurements in engine/tests/benchmarks/tolerance_audit_1490.json.",
+            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/reduction_benchmark.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Guyan, R.J. (1965). \"Reduction of stiffness and mass matrices\"; Craig, R.R. & Bampton, M.C.C. (1968). \"Coupling of substructures\"; Qu, Z.Q. (2004). \"Model Order Reduction Techniques\", Springer. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "scordelis-lo",
+      "files": [
+        "engine/tests/validation/benchmarks/scordelis_lo.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in scordelis_lo.rs (Plate Element Benchmarks (Shell/Plate))",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": null,
+            "justification": "None: the file asserts only qualitative bounds (signs, ratio windows, monotonicity), so there is no numeric accuracy tolerance to gate."
+          },
+          "test_tolerances": [],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Scordelis, A.C. & Lo, K.S., \"Computer Analysis of Cylindrical Shells\", 1964; MacNeal, R.H. & Harder, R.L., \"A Proposed Standard Set of Problems\", 1985; Batoz, J.L., Bathe, K.J., Ho, L.W., \"A Study of DKT Plate Elements\", 1980. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "shell-benchmark",
+      "files": [
+        "engine/tests/validation/benchmarks/shell_benchmark.rs",
+        "engine/tests/benchmarks/tolerance_audit_1490.json"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in shell_benchmark.rs (Shell Element Benchmarks (MITC4 Quad))",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Remaining file ceiling after the #1490 audit; the targeted loose assertions have separate measured bounds. This ceiling is not an accuracy claim for the other unaudited assertions. See the case-file uncertainty and measurements in engine/tests/benchmarks/tolerance_audit_1490.json.",
+            "evidence": "docs/verification/benchmark-tolerances-1490.md"
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/shell_benchmark.rs",
+              "pattern": "error-threshold"
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/shell_benchmark.rs",
+              "pattern": "\\(d\\.(?:ux|uy) - expected_disp\\)\\.abs\\(\\) / expected_disp < ([\\d.eE+-]+)"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Scordelis, A.C. & Lo, K.S., \"Computer Analysis of Cylindrical Shells\", 1964; MacNeal, R.H. & Harder, R.L., \"A Proposed Standard Set of Problems\", 1985; Timoshenko, S.P. & Woinowsky-Krieger, S., \"Theory of Plates and Shells\", 1959; Bathe, K.J. & Dvorkin, E.N., \"A formulation of general shell elements\", 1986. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sparse-benchmark",
+      "files": [
+        "engine/tests/validation/benchmarks/sparse_benchmark.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in sparse_benchmark.rs (Sparse Assembly and Large-Model Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/sparse_benchmark.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/benchmarks/sparse_benchmark.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Davis, T.A. (2006). \"Direct Methods for Sparse Linear Systems\", SIAM; Golub, G.H. & Van Loan, C.F. (2013). \"Matrix Computations\", 4th ed.; Bathe, K.J. (2014). \"Finite Element Procedures\". Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ssi-benchmark",
+      "files": [
+        "engine/tests/validation/benchmarks/ssi_benchmark.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in ssi_benchmark.rs (Soil-Structure Interaction (SSI) Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.01,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/ssi_benchmark.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Matlock, H., \"Correlations for Design of Laterally Loaded Piles in Soft Clay\", 1970; API RP 2A-WSD, \"Recommended Practice for Planning, Designing and Constructing Fixed Offshore Platforms\", 2000; Mosher, R.L., \"Load-Transfer Criteria for Numerical Analysis of Axially Loaded Piles in Sand\", 1984. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "truss-benchmarks",
+      "files": [
+        "engine/tests/validation/benchmarks/truss_benchmarks.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in truss_benchmarks.rs (Extended Truss Analysis Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/benchmarks/truss_benchmarks.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Hibbeler, \"Structural Analysis\", 10th Ed., Ch. 3-6; Kassimali, \"Structural Analysis\", 6th Ed.; ASCE Manual No. 7: Methods of Structural Analysis. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "three-d-cantilever-benchmarks",
+      "files": [
+        "engine/tests/validation/three_d/three_d_cantilever_benchmarks.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in three_d_cantilever_benchmarks.rs (3D Cantilever Beam Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.02,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/three_d/three_d_cantilever_benchmarks.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Timoshenko, \"Strength of Materials\", Vol. 1, Ch. 4; Weaver & Gere, \"Matrix Analysis of Framed Structures\", Ch. 12; Cook et al., \"Concepts and Applications of FEA\", 4th Ed., Ch. 2. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "three-d-frame-benchmarks",
+      "files": [
+        "engine/tests/validation/three_d/three_d_frame_benchmarks.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in three_d_frame_benchmarks.rs (3D Frame Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.03,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/three_d/three_d_frame_benchmarks.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs"
+              ],
+              "argument": 3
+            },
+            {
+              "file": "engine/tests/validation/three_d/three_d_frame_benchmarks.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Przemieniecki, \"Theory of Matrix Structural Analysis\", Dover, Ch. 6; Weaver & Gere, \"Matrix Analysis of Framed Structures\", Ch. 8; MacLeod, \"Modern Structural Analysis\", Ch. 9 (3D frames). Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "three-d-torsion-benchmarks",
+      "files": [
+        "engine/tests/validation/three_d/three_d_torsion_benchmarks.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in three_d_torsion_benchmarks.rs (3D Torsion and Combined Loading Benchmarks)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/validation/three_d/three_d_torsion_benchmarks.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "Sources listed in the file header, not checked against the source (no page, table, value or unit): Timoshenko & Goodier, \"Theory of Elasticity\"; Przemieniecki, \"Theory of Matrix Structural Analysis\"; Roark's Formulas for Stress and Strain, 9th Ed.; Gere & Goodno, \"Mechanics of Materials\", 9th Ed.. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    },
+    {
+      "id": "research-benchmarks",
+      "files": [
+        "engine/tests/research_benchmarks.rs"
+      ],
+      "quantities": [
+        {
+          "quantity": "Every assertion in research_benchmarks.rs (Production-engine checks for Research pages; see BENCHMARK_REFERENCES.md)",
+          "unit": "mixed, per assertion (unaudited)",
+          "references": [],
+          "tolerance": {
+            "relative": 0.05,
+            "justification": "Ceiling, not a justified accuracy tolerance: the loosest assert_close-family rel_tol and error-named `< literal` threshold the file asserts today; loosening one past it fails the gate."
+          },
+          "test_tolerances": [
+            {
+              "file": "engine/tests/research_benchmarks.rs",
+              "calls": [
+                "assert_close",
+                "assert_close_abs",
+                "relative"
+              ],
+              "argument": 3,
+              "aliases": {
+                "tolerance": {
+                  "file": "engine/tests/benchmarks/mattiasson_elastica.json",
+                  "pointer": "/meshErrorCeilings/*/relativeError"
+                }
+              }
+            },
+            {
+              "file": "engine/tests/research_benchmarks.rs",
+              "pattern": "error-threshold"
+            }
+          ],
+          "independent_of_derivation": false,
+          "independence_note": "Unaudited: expected values are computed inside the test from formulas written by the test author; whether they are independent of the engine derivation has not been reviewed.",
+          "exemption": {
+            "kind": "unaudited",
+            "reason": "The file header lists no source. Per-quantity references, units and tolerances not yet audited.",
+            "issue": 1482,
+            "reviewed": "Backfilled from the repository sources named in this entry; reviewed in PR #1484"
+          }
+        }
+      ]
+    }
+  ]
+}

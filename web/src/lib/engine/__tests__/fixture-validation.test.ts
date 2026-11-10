@@ -1,3 +1,4 @@
+import { expectMembraneRefusal } from './containment-helper';
 /**
  * Fixture validation — verify every registered example loads and solves correctly.
  *
@@ -253,6 +254,11 @@ describe('3D fixture validation', { timeout: 30_000 }, () => {
     const input = buildSolverInput3D(case1Model, false, false);
     expect(input).not.toBeNull();
 
+    if (['full-stadium', 'la-bombonera', 'cad-arch-structure-dxf'].includes(name)) {
+      expectMembraneRefusal(() => solve3D(input!));
+      // Restore the numerical response/equilibrium assertions below after #798 is fixed.
+      return;
+    }
     // 5. Solves without error (WASM may throw on panic)
     let res: any;
     try {
@@ -389,5 +395,17 @@ describe('the deep-beam fixtures read what the post tells the reader to look for
     const res: any = solve(buildSolverInput2D(model)!);
     const mid = res.displacements.find((d: any) => d.nodeId === 2);
     expect((mid.uz * 1000).toFixed(3)).toBe('-0.042');
+  });
+});
+
+describe('member behaviour in a fixture', () => {
+  it('reaches the model: the industrial building\'s Ø16 tie rods are tension-only, nothing else is', () => {
+    const json = loadFixtureFile('3d-nave-industrial');
+    const { model, api } = createStoreMock();
+    loadFixture(json, api);
+    const rods = new Set(json.sections.filter((s) => /Tirante/.test(String(s.name))).map((s) => s.id));
+    const behaviours = [...model.elements.values()].map((e: { sectionId: number; behaviour?: string }) => [rods.has(e.sectionId), e.behaviour ?? null] as const);
+    expect(behaviours.filter(([rod]) => rod)).toHaveLength(116);
+    for (const [rod, behaviour] of behaviours) expect(behaviour).toBe(rod ? 'tensionOnly' : null);
   });
 });

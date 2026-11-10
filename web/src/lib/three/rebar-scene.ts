@@ -181,27 +181,36 @@ export function transportFrames(points: readonly THREE.Vector3[]): {
   tangents: THREE.Vector3[]; normals: THREE.Vector3[]; binormals: THREE.Vector3[];
 } {
   const n = points.length;
-  const tangents: THREE.Vector3[] = [];
+  const make = () => Array.from({ length: n }, () => new THREE.Vector3());
+  const frames = { tangents: make(), normals: make(), binormals: make() };
+  fillFrames(points, n, frames.tangents, frames.normals, frames.binormals);
+  return frames;
+}
+
+const SEED = new THREE.Vector3();
+const AXIS = new THREE.Vector3();
+
+function fillFrames(
+  points: readonly THREE.Vector3[], n: number,
+  tangents: THREE.Vector3[], normals: THREE.Vector3[], binormals: THREE.Vector3[],
+): void {
   for (let i = 0; i < n; i++) {
     const a = points[Math.max(0, i - 1)];
     const b = points[Math.min(n - 1, i + 1)];
-    const t = new THREE.Vector3().subVectors(b, a);
+    const t = tangents[i].subVectors(b, a);
     // A zero tangent means two coincident samples. Inheriting the previous one keeps the
     // frame continuous rather than producing a NaN ring that renders as a black spike.
-    if (t.lengthSq() < 1e-20) t.copy(tangents[i - 1] ?? new THREE.Vector3(1, 0, 0));
-    tangents.push(t.normalize());
+    if (t.lengthSq() < 1e-20) {
+      if (i > 0) t.copy(tangents[i - 1]); else t.set(1, 0, 0);
+    }
+    t.normalize();
   }
 
   // Seed the normal with any axis not parallel to the first tangent.
   const t0 = tangents[0];
-  const seed = Math.abs(t0.z) < 0.9
-    ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
-  const normals: THREE.Vector3[] = [
-    new THREE.Vector3().crossVectors(t0, seed).normalize(),
-  ];
-  const binormals: THREE.Vector3[] = [
-    new THREE.Vector3().crossVectors(t0, normals[0]).normalize(),
-  ];
+  if (Math.abs(t0.z) < 0.9) SEED.set(0, 0, 1); else SEED.set(1, 0, 0);
+  normals[0].crossVectors(t0, SEED).normalize();
+  binormals[0].crossVectors(t0, normals[0]).normalize();
 
   for (let i = 1; i < n; i++) {
     // Rotate the previous normal by the same rotation that takes t[i-1] to t[i]. Where the
@@ -209,20 +218,29 @@ export function transportFrames(points: readonly THREE.Vector3[]): {
     // lacks and the reason a straight run does not spin.
     const prev = tangents[i - 1];
     const cur = tangents[i];
-    const axis = new THREE.Vector3().crossVectors(prev, cur);
-    const nrm = normals[i - 1].clone();
-    if (axis.lengthSq() > 1e-20) {
-      axis.normalize();
+    AXIS.crossVectors(prev, cur);
+    const nrm = normals[i].copy(normals[i - 1]);
+    if (AXIS.lengthSq() > 1e-20) {
+      AXIS.normalize();
       const angle = Math.acos(Math.min(1, Math.max(-1, prev.dot(cur))));
-      nrm.applyAxisAngle(axis, angle);
+      nrm.applyAxisAngle(AXIS, angle);
     }
     // Re-orthogonalise against the tangent so drift cannot accumulate over a long bar.
     nrm.addScaledVector(cur, -nrm.dot(cur)).normalize();
-    normals.push(nrm);
-    binormals.push(new THREE.Vector3().crossVectors(cur, nrm).normalize());
+    binormals[i].crossVectors(cur, nrm).normalize();
   }
+}
 
-  return { tangents, normals, binormals };
+const ring = {
+  points: [] as THREE.Vector3[], tangents: [] as THREE.Vector3[],
+  normals: [] as THREE.Vector3[], binormals: [] as THREE.Vector3[],
+};
+
+function ringScratch(n: number): typeof ring {
+  for (const list of [ring.points, ring.tangents, ring.normals, ring.binormals]) {
+    while (list.length < n) list.push(new THREE.Vector3());
+  }
+  return ring;
 }
 
 /**
@@ -232,13 +250,16 @@ export function transportFrames(points: readonly THREE.Vector3[]): {
  * merged mesh belongs to which bar.
  */
 function appendTube(
-  points: readonly THREE.Vector3[], radius: number, radial: number,
-  pos: number[], nor: number[], idx: number[],
+  polyline: readonly { x: number; y: number; z: number }[], radius: number, radial: number, out: TubeBuffers,
 ): number {
-  const n = points.length;
+  const n = polyline.length;
   if (n < 2) return 0;
-  const { normals, binormals } = transportFrames(points);
-  const base = pos.length / 3;
+  const { points, tangents, normals, binormals } = ringScratch(n);
+  for (let i = 0; i < n; i++) points[i].set(polyline[i].x, polyline[i].y, polyline[i].z);
+  fillFrames(points, n, tangents, normals, binormals);
+  const base = out.vertices;
+  const { pos, nor, idx } = out;
+  let v = base * 3;
 
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < radial; j++) {
@@ -248,11 +269,14 @@ function appendTube(
       const nx = normals[i].x * cx + binormals[i].x * sy;
       const ny = normals[i].y * cx + binormals[i].y * sy;
       const nz = normals[i].z * cx + binormals[i].z * sy;
-      pos.push(points[i].x + nx * radius, points[i].y + ny * radius, points[i].z + nz * radius);
-      nor.push(nx, ny, nz);
+      pos[v] = points[i].x + nx * radius; pos[v + 1] = points[i].y + ny * radius; pos[v + 2] = points[i].z + nz * radius;
+      nor[v] = nx; nor[v + 1] = ny; nor[v + 2] = nz;
+      v += 3;
     }
   }
+  out.vertices += n * radial;
 
+  let k = out.indices;
   let tris = 0;
   for (let i = 0; i < n - 1; i++) {
     for (let j = 0; j < radial; j++) {
@@ -261,11 +285,38 @@ function appendTube(
       const b = base + i * radial + j1;
       const c = base + (i + 1) * radial + j1;
       const d = base + (i + 1) * radial + j;
-      idx.push(a, b, c, a, c, d);
+      idx[k] = a; idx[k + 1] = b; idx[k + 2] = c; idx[k + 3] = a; idx[k + 4] = c; idx[k + 5] = d;
+      k += 6;
       tris += 2;
     }
   }
+  out.indices = k;
   return tris;
+}
+
+interface TubeBuffers {
+  pos: Float32Array;
+  nor: Float32Array;
+  idx: Uint16Array | Uint32Array;
+  vertices: number;
+  indices: number;
+}
+
+function tubeBuffers(polylines: readonly (readonly unknown[])[], radial: number): TubeBuffers {
+  let vertices = 0;
+  let indices = 0;
+  for (const p of polylines) {
+    if (p.length < 2) continue;
+    vertices += p.length * radial;
+    indices += (p.length - 1) * radial * 6;
+  }
+  return {
+    pos: new Float32Array(vertices * 3),
+    nor: new Float32Array(vertices * 3),
+    idx: vertices > 65535 ? new Uint32Array(indices) : new Uint16Array(indices),
+    vertices: 0,
+    indices: 0,
+  };
 }
 
 // ─── Concrete prisms ─────────────────────────────────────────────
@@ -871,16 +922,13 @@ export function createRebarScene(
       const list = byBatch.get(`${family}:${category}`);
       if (!list) continue;
 
-      const pos: number[] = [];
-      const nor: number[] = [];
-      const idx: number[] = [];
+      const out = tubeBuffers(list.map((b) => b.polyline), radial);
       const ranges: BarRange[] = [];
       const items: SceneBar[] = [];
       let tri = 0;
 
       for (const b of list) {
-        const pts = b.polyline.map((p) => new THREE.Vector3(p.x, p.y, p.z));
-        const written = appendTube(pts, (b.diameterMm / 2000) * scale, radial, pos, nor, idx);
+        const written = appendTube(b.polyline, (b.diameterMm / 2000) * scale, radial, out);
         if (written === 0) continue;
         ranges.push({ barId: b.barId, firstTri: tri, triCount: written });
         items.push(b);
@@ -889,9 +937,9 @@ export function createRebarScene(
       if (ranges.length === 0) continue;
 
       const geom = new THREE.BufferGeometry();
-      geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-      geom.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-      geom.setIndex(idx);
+      geom.setAttribute('position', new THREE.BufferAttribute(out.pos, 3));
+      geom.setAttribute('normal', new THREE.BufferAttribute(out.nor, 3));
+      geom.setIndex(new THREE.BufferAttribute(out.idx, 1));
       geom.computeBoundingSphere();
 
       const mat = new THREE.MeshStandardMaterial({

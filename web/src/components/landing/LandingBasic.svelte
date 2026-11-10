@@ -2,6 +2,7 @@
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import Eyebrow from './Eyebrow.svelte';
   import Shot from './Shot.svelte';
+  import PublicLink from './PublicLink.svelte';
 
   /**
    * Basic: the one mode finished enough to hand a stranger.
@@ -18,7 +19,7 @@
     { base: '3d-section-analysis', w: 1600, h: 876, alt: 'landing.shotStress3dAlt', title: 'landing.shotStress3dTitle' },
   ];
 
-  const points = ['basicPt1', 'basicPt2', 'basicPt3', 'basicPt4'];
+  const points = ['basicPt1', 'basicPt2', 'basicPt3', 'basicPt4', 'basicPt5'];
 </script>
 
 <section class="sec sec--paper basic" data-section="basic" id="basic" aria-labelledby="basic-title">
@@ -43,5 +44,8 @@
         </article>
       {/each}
     </div>
+    <p class="link-row">
+      <PublicLink to="/tools" class="link-arrow">{t('landing.navTools')}</PublicLink>
+    </p>
   </div>
 </section>

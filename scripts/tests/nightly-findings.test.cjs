@@ -60,6 +60,7 @@ test('write creates one issue per root cause and required labels', () => fixture
   assert.deepEqual(calls.filter(c => c.name === 'createLabel').map(c => c.args.name), ['safety', 'nightly-finding', 'wrong-result-candidate']);
   const created = calls.filter(c => c.name === 'create');
   assert.equal(created.length, 2);
+  for (const c of created) assert.deepEqual(c.args.assignees, ['unbalancedparentheses', 'Batuis']);
   assert.match(created[0].args.body, /Seed: `42`/);
   assert.match(created[0].args.body, /actions\/runs\/123/);
   assert.deepEqual(JSON.parse(created[0].args.body.split('```json\n')[1].split('\n```')[0]), finding.model);
@@ -121,7 +122,7 @@ const tonight = [
   [1, 'mirror', "Failed to solve case 'A': Node 4 has several supports (2, 3, 4) and not all are plain rigid restraints (springs, prescribed displacemen"],
 ];
 
-test('tonight: 66 findings become eight input-consistency issues across relations and analyses', () => fixture(async ({args, calls, save}) => {
+test('tonight: 66 findings become 32 issues with analyses kept distinct', () => fixture(async ({args, calls, save}) => {
   let index = 0;
   for (const [count, relation, message] of tonight) for (let i = 0; i < count; i++) {
     save(String(index), {...finding, test: `metamorphic/analysis${i}/${relation}`, seed: 20261030 + index,
@@ -131,17 +132,21 @@ test('tonight: 66 findings become eight input-consistency issues across relation
   assert.equal(index, 66);
   await report(args);
   const created = calls.filter(c => c.name === 'create');
-  assert.equal(created.length, 8);
-  assert.deepEqual(created.map(c => Number(c.args.body.match(/\*\*(\d+) findings/)[1])).sort((a,b) => a-b), [1,1,1,2,3,6,12,40]);
+  assert.equal(created.length, 32);
+  assert.deepEqual(created.map(c => Number(c.args.body.match(/\*\*(\d+) findings/)[1])).sort((a,b) => a-b), [
+    1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,4,4
+  ]);
   for (const c of created) {
     assert.ok(c.args.labels.includes('invariance-refusal'));
     assert.ok(!c.args.labels.includes('wrong-result-candidate'));
     assert.equal(c.args.body.split('```json').length, 2);
+    const analysis = Number(c.args.body.match(/Analyses \(hits\): analysis(\d+):/)[1]);
     const model = JSON.parse(c.args.body.split('```json\n')[1].split('\n```')[0]);
-    assert.equal(model.loads.length, 1);
+    assert.equal(model.loads.length, analysis + 1);
   }
-  const supports = created.find(c => c.args.body.includes('**40 findings**')).args.body;
-  assert.match(supports, /\*\*19 analyses\*\*, \*\*2 relations\*\*, \*\*5 models\*\*/);
+  const supports = created.filter(c => c.args.body.includes('node # has several supports'));
+  assert.equal(supports.length, 19);
+  assert.match(supports.find(c => c.args.body.includes('**4 findings**')).args.body, /\*\*1 analyses\*\*, \*\*2 relations\*\*/);
 }));
 
 test('IDs, numbers, seeds and models do not change cause; numeric mismatches stay separate', () => fixture(async ({args, calls, issues, save}) => {
@@ -187,6 +192,17 @@ for (const adapter of ['opensees', 'codeaster']) test(`${adapter}: adapter quant
   assert.equal(created.filter(c => c.args.body.includes('**2 findings**')).length, 1);
 }));
 
+test('codeaster refusals that differ only in numbers are one root cause', () => fixture(async ({args, calls, save}) => {
+  const refusal = v => ({...finding, test: 'codeaster/false_reject', details: {status: 'false_reject', why: [
+    `stabileo: Support 3 (node 2): the prescribed dy = ${v} would not be applied, because that direction is not restrained (its flag is not set). Restrain that direction to impose it, or remove the prescribed value.`]}});
+  save('a', refusal(-0.00010986903031340312));
+  save('b', {...refusal(0.0025), model: {loads: [2], elements: {b: {}}}});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 1);
+  assert.match(created[0].args.title, /restrain that direction to impose it/);
+}));
+
 const relabeled = [
   [1055, 'certified linear/relabel', 'fuzz_rich_3d/21463: stress[0]: label vm_quad@e382[0] vs expected vm_quad@e1[0]'],
   [1054, 'linear/relabel', 'fuzz_rich_3d/21463: stress[0]: label vm_quad@e83[0] vs expected vm_quad@e1[0]'],
@@ -202,24 +218,248 @@ const relabeled = [
   [1009, 'time history/reciprocity', 'fuzz_rich_3d/21721: u_t020: δ(n4←n2) = 2.5970546145e-3 vs δ(n2←n4) = 2.4937973053e-3, |diff| 1.033e-4 > tol 9.840e-5'],
 ];
 
-test('node and element ids in quantity labels do not split a root cause (issues #993-#1055)', () => fixture(async ({args, calls, save}) => {
+test('analysis stays distinct when quantity labels contain node and element ids', () => fixture(async ({args, calls, save}) => {
   for (const [issue, analysisRelation, message] of relabeled) save(String(issue), {...finding, seed: issue, test: `metamorphic/${analysisRelation}`, model: {loads: [issue]}, details: [message]});
   await report(args);
   const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 12);
   const causes = created.map(c => c.args.body.match(/^Root cause: (.*)$/m)[1]).sort();
   assert.deepEqual(causes, [
     'force n@e#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
+    'force n@e#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
     'r(ka) ≠ k·r(a): force n@e#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
-    'rotation ry@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
+    'rotation dof#@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
+    'rotation dof#@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
     'stress[#]: label vm_plate@e#[#] vs expected vm_quad@e#[#]',
     'stress[#]: label vm_quad@e#[#] vs expected vm_quad@e#[#]',
-    'translation h_im1@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
+    'stress[#]: label vm_quad@e#[#] vs expected vm_quad@e#[#]',
+    'translation h_im#@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
     'translation u@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
-    'u_t020: δ(n#←n#) = # vs δ(n#←n#) = #, |diff| # > tol #',
+    'translation u@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
+    'u_t#: δ(n#←n#) = # vs δ(n#←n#) = #, |diff| # > tol #',
   ]);
-  const hits = cause => Number(created.find(c => c.args.body.includes(`Root cause: ${cause}\n`)).args.body.match(/\*\*(\d+) findings/)[1]);
-  assert.equal(hits('stress[#]: label vm_quad@e#[#] vs expected vm_quad@e#[#]'), 2);
-  assert.equal(hits('force n@e#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)'), 2);
-  assert.equal(hits('translation u@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)'), 2);
-  assert.equal(hits('rotation ry@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)'), 2);
+  assert.ok(created.every(c => c.args.body.includes('**1 findings**')));
+}));
+
+test('support, DOF, number and secondary solver variants share one signature with bounded display', () => fixture(async ({args, calls, save}) => {
+  const refusal = (support, node, type, dof, value, kappa) => ({...finding, test: 'opensees/false_reject', details: {
+    status: 'false_reject', why: [
+      `stabileo: Support ${support} (node ${node}, ${type}): the prescribed ${dof} = ${value} would not be applied, because that direction is not restrained (its flag is not set). Restrain that direction to impose it, or remove the prescribed value.`,
+      `opensees kappa=${kappa}`]
+  }});
+  save('a', refusal(2, 3, 'rollerX', 'dx', '0.0072504954813476675', '6.7e+01'));
+  save('b', refusal(20, 30, 'pinned', 'dry', '0.00725', '8.1e+02'));
+  save('c', refusal(200, 300, 'guidedZ', 'drz', '7.25e-3', '9.2e+03'));
+  save('d', refusal(2000, 3000, 'fixed', 'dy', '0.007250495', '1.0e+04'));
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 1);
+  assert.match(created[0].args.body, /\*\*4 findings\*\*/);
+  assert.equal(created[0].args.body.match(/^Root cause: (.*)$/m)[1].length, 200);
+}));
+
+test('reasons that differ after the display limit keep distinct signatures', () => fixture(async ({args, calls, save}) => {
+  const prefix = `solver failed: ${'x'.repeat(220)}`;
+  const refusal = reason => ({...finding, test: 'opensees/false_reject', details: {
+    status: 'false_reject', why: [`${prefix} ${reason}`]
+  }});
+  save('a', refusal('constraint alpha'));
+  save('b', refusal('constraint beta'));
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 2);
+  assert.ok(created.every(c => c.args.body.match(/^Root cause: (.*)$/m)[1].length === 200));
+}));
+
+test('leading-decimal and zero-padded numbers share one signature', () => fixture(async ({args, calls, save}) => {
+  const refusal = (value, tolerance) => ({...finding, test: 'opensees/false_reject', details: {
+    status: 'false_reject', why: [`displacement error ${value} exceeds tolerance ${tolerance}`]
+  }});
+  save('leading', refusal('.5', '.000001'));
+  save('padded', refusal('0.5', '0.000001'));
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 1);
+  assert.match(created[0].args.body, /\*\*2 findings\*\*/);
+}));
+
+test('independent why reasons survive while solver metadata stays secondary', () => fixture(async ({args, calls, save}) => {
+  save('independent', {...finding, test: 'opensees/false_reject', details: {
+    status: 'false_reject', why: [
+      'stabileo: support constraint failed',
+      'stabileo: element formulation failed',
+      'opensees kappa=6.7e+01',
+      'code_aster solves it (NPREC=10 singularity check passed)'
+    ]
+  }});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 2);
+  assert.deepEqual(created.map(c => c.args.body.match(/^Root cause: (.*)$/m)[1]).sort(), [
+    'stabileo: element formulation failed',
+    'stabileo: support constraint failed'
+  ]);
+}));
+
+test('symmetry, timestep, mode, plane and non-finite variants collapse within each finding', () => fixture(async ({args, calls, save}) => {
+  save('symmetry', {...finding, test: 'metamorphic/symmetry/projection', details: [
+    'case-a: symmetric response not symmetric: u_t010@n1 got nan, expected inf',
+    'case-b: antisymmetric response not antisymmetric: u_t020@n2 got NaN, expected -inf'
+  ]});
+  save('modes', {...finding, test: 'certificates/modal', details: [
+    'xz: f00 lambda0 meff00 h_re0 h_im0 il_t0000',
+    'yz: f03 lambda2 meff02 h_re1 h_im1 il_t0001'
+  ]});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 2);
+  assert.ok(created.every(c => c.args.body.includes('**1 findings**')));
+  assert.ok(created.some(c => c.args.body.includes('Root cause: symmetric response not symmetric: u_t#@n# got #nonfinite, expected #nonfinite')));
+  assert.ok(created.some(c => c.args.body.includes('Root cause: plane: f# lambda# meff# h_re# h_im# il_t#')));
+}));
+
+test('quantity components collapse while quantity class, analysis, check and diagnostic stay distinct', () => fixture(async ({args, calls, save}) => {
+  const differential = (test, analysis, quantity, code) => ({...finding, test, details: {
+    status: 'mismatch', analysis, code, worst: quantity === 'disp' ? [
+      ['disp', 1, 'ux', 1, 2, 0.2], ['disp', 2, 'ry', 1, 2, 0.1], ['disp', 3, 'step010.0', 1, 2, 0.05]
+    ] : [
+      ['force', 1, 'nStart', 1, 2, 0.2], ['force', 2, 'mEnd', 1, 2, 0.1]
+    ]
+  }});
+  save('components', differential('opensees/mismatch', 'static', 'disp'));
+  save('quantity', differential('opensees/mismatch', 'static', 'force'));
+  save('analysis', differential('opensees/mismatch', 'pdelta', 'force'));
+  save('check', differential('codeaster/mismatch', 'static', 'force'));
+  save('diagnostic', differential('opensees/mismatch', 'static', 'force', 'residual_high'));
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 5);
+  assert.equal(created.filter(c => c.args.body.includes('Root cause: static: disp')).length, 1);
+  assert.equal(created.filter(c => c.args.body.includes('Root cause: static: force')).length, 3);
+  assert.equal(created.filter(c => c.args.body.includes('Root cause: pdelta: force')).length, 1);
+  assert.ok(created.some(c => c.args.body.includes('Test: **codeaster/mismatch**')));
+  assert.ok(created.some(c => c.args.body.includes('diagnostic: **residual_high**')));
+  assert.ok(created.every(c => c.args.body.includes('**1 findings**')));
+}));
+
+test('recent, truncated and pre-id legacy markers match without opening duplicates', () => fixture(async ({args, calls, issues, save}) => {
+  const marker = parts => `<!-- nightly-finding:${require('node:crypto').createHash('sha256').update(JSON.stringify(parts)).digest('hex')} -->`;
+  const support = 'stabileo: Support 2 (node 3, rollerX): the prescribed dx = 0.0072504954813476675 would not be applied, because that direction is not restrained (its flag is not set). Restrain that direction to impose it, or remove the prescribed value.';
+  const legacyNormalize = message => String(message)
+    .replace(/\b(node|element|member|support|case)\s+(?:['"][^'"]+['"]|[a-zA-Z_]*\d[\w.-]*)/gi, '$1 #')
+    .replace(/\b([ne])\d+\b/g, '$1#')
+    .replace(/[-+]?\b\d+(?:\.\d*)?(?:e[-+]?\d+)?\b/gi, '#')
+    .replace(/#(?:\s*,\s*#)+/g, '#')
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+  issues.push(
+    {number: 71, state: 'open', body: marker(['opensees', 'false_reject', legacyNormalize(support.slice(0, 200))])},
+    {number: 72, state: 'open', body: marker(['metamorphic', 'wrong-result-candidate', 'translation u@n8[#]: got #, expected #'])},
+    {number: 73, state: 'open', body: marker(['opensees', 'wrong-result-candidate', 'static: disp/ux'])},
+    {number: 74, state: 'open', body: marker(['metamorphic', 'wrong-result-candidate', 'antisymmetric response not antisymmetric: displacement #'])}
+  );
+  save('support', {...finding, test: 'opensees/false_reject', details: {status: 'false_reject', why: [support]}});
+  save('ids', {...finding, test: 'metamorphic/static/rotation', details: ['case: translation u@n8[1]: got 1, expected 2']});
+  save('worst', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [
+    ['disp', 1, 'ux', 1, 2, 0.2], ['disp', 2, 'ry', 1, 2, 0.1]
+  ]}});
+  save('symmetry', {...finding, test: 'metamorphic/symmetry/projection', details: [
+    'case: symmetric response not symmetric: displacement 1',
+    'case: antisymmetric response not antisymmetric: displacement 2'
+  ]});
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'create').length, 0);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number).sort(), [71, 72, 73, 74]);
+}));
+
+test('one legacy issue cannot absorb distinct analysis and diagnostic groups', () => fixture(async ({args, calls, issues, save}) => {
+  const legacy = require('node:crypto').createHash('sha256').update(JSON.stringify(['opensees', 'wrong-result-candidate', 'solver residual #'])).digest('hex');
+  issues.push({number: 75, state: 'open', body: `<!-- nightly-finding:${legacy} -->`});
+  save('static', {...finding, test: 'opensees/mismatch', details: {
+    status: 'mismatch', analysis: 'static', code: 'residual_high', message: 'solver residual 1'
+  }});
+  save('pdelta', {...finding, test: 'opensees/mismatch', details: {
+    status: 'mismatch', analysis: 'pdelta', code: 'iteration_limit', message: 'solver residual 2'
+  }});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 1);
+  const commented = calls.filter(c => c.name === 'createComment');
+  assert.deepEqual(commented.map(c => c.args.issue_number), [75]);
+  const bodies = [created[0].args.body, commented[0].args.body];
+  assert.ok(bodies.some(body => body.includes('diagnostic: **residual_high**') && body.includes('Analyses (hits): static: 1')));
+  assert.ok(bodies.some(body => body.includes('diagnostic: **iteration_limit**') && body.includes('Analyses (hits): pdelta: 1')));
+}));
+
+test('replay-pending placeholders do not open numerical findings', () => fixture(async ({args, calls, logs, save}) => {
+  save('original', {...finding, test: 'opensees/dumped_failure', details: {status: 'original failure; replay pending'}});
+  await report(args);
+  assert.equal(calls.filter(c => ['createLabel', 'create', 'createComment', 'update'].includes(c.name)).length, 0);
+  assert.match(logs[0], /No structured numerical findings/);
+}));
+
+test('legacy worst markers hashed verbatim still match mixed-case and decimal-step components', () => fixture(async ({args, calls, issues, save}) => {
+  const marker = parts => `<!-- nightly-finding:${require('node:crypto').createHash('sha256').update(JSON.stringify(parts)).digest('hex')} -->`;
+  issues.push(
+    {number: 81, state: 'open', body: marker(['opensees', 'wrong-result-candidate', 'static: force/nStart'])},
+    {number: 82, state: 'open', body: marker(['opensees', 'wrong-result-candidate', 'static: disp/step#.0'])}
+  );
+  save('nstart', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [['force', 1, 'nStart', 1, 2, 0.2]]}});
+  save('step', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [['disp', 1, 'step3.0', 1, 2, 0.2]]}});
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'create').length, 0);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number).sort(), [81, 82]);
+}));
+
+test('reason findings take the model analysis when the details give none', () => fixture(async ({args, calls, save}) => {
+  save('static', {...finding, test: 'opensees/false_reject', model: {...finding.model, analysis: 'static'}, details: {status: 'false_reject', why: ['refused: singular']}});
+  save('modal', {...finding, test: 'opensees/false_reject', model: {...finding.model, analysis: 'modal'}, details: {status: 'false_reject', why: ['refused: singular']}});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 2);
+  assert.ok(created.some(c => c.args.body.includes('Analyses (hits): static: 1')));
+  assert.ok(created.some(c => c.args.body.includes('Analyses (hits): modal: 1')));
+}));
+
+test('an exact-signature issue wins over a legacy alias listed before it', () => fixture(async ({args, calls, issues, save}) => {
+  const sha = parts => require('node:crypto').createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+  issues.push(
+    {number: 91, state: 'open', body: `<!-- nightly-finding:${sha(['opensees', 'wrong-result-candidate', 'static: force/nStart'])} -->`},
+    {number: 92, state: 'open', body: `<!-- nightly-finding:${sha(['opensees', 'wrong-result-candidate', 'static', 'unspecified', 'static: force'])} -->`}
+  );
+  save('first', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [['force', 1, 'nStart', 1, 2, 0.2]]}});
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'create').length, 0);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [92]);
+}));
+
+test('an adopted legacy issue keeps the new marker, so a later variant finds it', () => fixture(async ({args, calls, issues, save}) => {
+  const sha = parts => require('node:crypto').createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+  issues.push({number: 95, state: 'open', body: `<!-- nightly-finding:${sha(['opensees', 'wrong-result-candidate', 'static: disp/ux'])} -->`});
+  save('first', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [['disp', 1, 'ux', 1, 2, 0.2]]}});
+  await report(args);
+  const adopt = calls.find(c => c.name === 'update' && c.args.body);
+  assert.equal(adopt.args.issue_number, 95);
+  calls.length = 0;
+  require('node:fs').rmSync('nightly-findings/first.finding.json');
+  save('second', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', worst: [['disp', 1, 'uy', 1, 2, 0.2]]}});
+  args.context.runId = 124;
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'create').length, 0);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [95]);
+}));
+
+test('a legacy issue adopted by one group cannot be adopted by another in a later run', () => fixture(async ({args, calls, issues, save}) => {
+  const sha = parts => require('node:crypto').createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+  const old = sha(['opensees', 'wrong-result-candidate', 'solver residual #']);
+  issues.push({number: 97, state: 'open', body: `<!-- nightly-finding:${old} -->`});
+  save('static', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'static', code: 'residual_high', message: 'solver residual 1'}});
+  await report(args);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [97]);
+  calls.length = 0;
+  require('node:fs').rmSync('nightly-findings/static.finding.json');
+  save('pdelta', {...finding, test: 'opensees/mismatch', details: {status: 'mismatch', analysis: 'pdelta', code: 'iteration_limit', message: 'solver residual 2'}});
+  args.context.runId = 124;
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
+  assert.equal(calls.filter(c => c.name === 'create').length, 1);
 }));

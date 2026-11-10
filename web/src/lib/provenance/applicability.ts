@@ -8,14 +8,14 @@
  *
  * Pure: the store (`store/recheck.svelte.ts`) calls it on open, the tests call it directly.
  */
-import { conditionGroups, concernsGeneratedLoads, type ResultChange, type ResultChangeRegistry, type ChangeCondition } from './registry';
+import { concernsGeneratedLoads, type ResultChange, type ResultChangeRegistry } from './registry';
 import { RESULT_CHANGES } from './full-registry';
-import { loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
-import type { SolveStamp } from './solve-stamp';
+import { LEGACY_RECORDED_ANALYSES, loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
+import { analysesContext, type SolveStamp } from './solve-stamp';
+import { advisoriesFor, type Advisory } from './advisories';
 
-export function conditionHolds(w: ChangeCondition, features: ReadonlySet<string>): boolean {
-  return conditionGroups(w).every((g) => g.some((f) => features.has(f)));
-}
+import { conditionHolds } from '../../../scripts/results-snapshot/applicability.mjs';
+export { conditionHolds };
 
 export interface RecheckAssessment {
   /** The version the project was last solved with (0: unknown). */
@@ -28,6 +28,10 @@ export interface RecheckAssessment {
   newer: boolean;
   /** The changes that concern this model, oldest first. */
   changes: ResultChange[];
+  /** Known wrong-result bugs in the version that solved it, in a feature this model uses. */
+  advisories: Advisory[];
+  /** The advisories whose analysis the stamp does not record, or whose `certain` condition the model does not meet: their results may be affected. */
+  maybe: string[];
 }
 
 export function assessProject(
@@ -40,12 +44,16 @@ export function assessProject(
 ): RecheckAssessment {
   const solvedVersion = stamp?.resultsVersion ?? 0;
   const currentVersion = registry.currentResultsVersion;
-  const known = !!stamp && solvedVersion > 0;
-  const features = originalFeatures ?? modelFeatures(snapshot, { analysisMode, analysesRun: known ? stamp!.analyses : null });
+  const features = originalFeatures ?? modelFeatures(snapshot, { analysisMode, ...(stamp ? analysesContext(stamp) : { analysesRun: null }) });
   const changes = registry.changes
-    .filter((c) => c.resultsVersion <= currentVersion)
+    .filter((c) => c.resultsVersion <= currentVersion && c.scope !== 'examples')
     .filter((c) => c.resultsVersion > solvedVersion || (c.resultsVersion > loadsVersion && concernsGeneratedLoads(c.when)))
-    .filter((c) => conditionHolds(c.when, features))
+    .filter((c) => conditionHolds(c.when ?? {}, features))
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-  return { solvedVersion, currentVersion, older: solvedVersion < currentVersion, newer: solvedVersion > currentVersion, changes };
+  const advisories = advisoriesFor(solvedVersion, (w) => conditionHolds(w, features), registry);
+  const recorded = solvedVersion > 0 ? stamp?.recorded ?? LEGACY_RECORDED_ANALYSES : [];
+  const maybe = advisories
+    .filter((a) => (a.analysis && !recorded.includes(a.analysis)) || (a.certain && !a.certain.some((w) => conditionHolds(w, features))))
+    .map((a) => a.id);
+  return { solvedVersion, currentVersion, older: solvedVersion < currentVersion, newer: solvedVersion > currentVersion, changes, advisories, maybe };
 }

@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#1323](https://github.com/lambdaclass/stabileo/issues/1323) |
-| Fix | #1324 |
+| Fix | PR [#1324](https://github.com/lambdaclass/stabileo/pull/1324) (merged 2026-11-05), released in v0.5.0 |
 | Affected versions | every release with 2D buckling and axial span loads; not bisected |
 | Re-check registry | results version entry `buckling-2d-varying-axial-force` |
 
@@ -26,7 +26,7 @@ no warning.
 |---|---|---|---|
 | Cantilever, compression rising from 0 at the support to P at the tip | 3.477 | 4.972 (+43 %) | 3.542 (+1.9 %) |
 | Pinned-base sway column, compression largest at the pin | 3.477 | 4.972 (+43 %) | 3.542 (+1.9 %) |
-| Cantilever, axial point load at mid-span (N = 0 below, −P above) | 2.961 | 4.972 (+68 %) | 3.056 (+3.2 %) |
+| Cantilever, thrust P at the tip and an opposite axial point load P at mid-span (N = 0 below it, −P above) | 2.961 | 4.972 (+68 %) | 3.056 (+3.2 %) |
 | Euler's heavy column (compression largest at the support) | 7.837 | 4.972 (−37 %) | 7.889 (+0.7 %) |
 
 The exact values solve θ'' + λ·c(x)/EI·θ = 0 in closed form (Bessel functions of order −2/3 and
@@ -41,6 +41,8 @@ factor is a property of the whole model, so recheck it even when another member 
 with no load along any member's axis keep their factors.
 
 ## Fixed in
+
+0.5.0.
 
 The geometric stiffness of each member now integrates its whole axial force, ∫N(x)·φ'ᵢ·φ'ⱼ dx,
 not its mean. Tests: `engine/tests/buckling_span_axial_2d.rs`.

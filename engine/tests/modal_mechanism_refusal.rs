@@ -58,6 +58,7 @@ const SINGULAR: &str = "Eigenvalue decomposition failed";
 fn refusal(result: Result<Vec<f64>, String>, what: &str, expected: &[&str]) -> String {
     match result {
         Err(e) => {
+            let e = serde_json::from_str::<serde_json::Value>(&e).ok().and_then(|v| v["message"].as_str().map(str::to_owned)).unwrap_or(e);
             assert!(expected.iter().any(|x| e.starts_with(x)), "{what}: refused for another reason: {e}");
             e
         }
@@ -408,5 +409,72 @@ fn a_thousand_elements_per_member_still_return_the_lowest_modes() {
         for (c, f) in coarse.iter().zip(&fine) {
             assert!((f / c - 1.0).abs() < 1e-4, "{name}: {f} Hz with 1000 elements per member, {c} Hz with 100");
         }
+    }
+}
+
+fn seesaw_on_rollers(support: &str, angle: Option<f64>) -> SolverInput {
+    let mut input = serde_json::to_value(seesaw(2.0, 10.0, 0.0)).unwrap();
+    for (id, node) in [("3", 1), ("4", 3)] {
+        input["supports"][id] = json!({"id": id.parse::<usize>().unwrap(), "nodeId": node, "type": support, "angle": angle});
+    }
+    input["masses"]["nodal"] = json!([{"nodeId": 1, "mass": 1.0}, {"nodeId": 3, "mass": 1.0}]);
+    serde_json::from_value(input).unwrap()
+}
+
+#[test]
+fn issue_1315_a_seesaw_whose_ends_slide_on_inclined_rollers_is_refused() {
+    let e = refusal(freqs_2d(&seesaw_on_rollers("rollerZ", None), 4), "seesaw on vertical rollers", &[MECHANISM]);
+    assert!(e.contains("moves node 1") || e.contains("moves node 3"), "{e}");
+    for angle in [std::f64::consts::FRAC_PI_2, -std::f64::consts::FRAC_PI_2] {
+        let e = refusal(freqs_2d(&seesaw_on_rollers("inclinedRoller", Some(angle)), 4), &format!("seesaw on rollers inclined {angle} rad"), &[MECHANISM]);
+        assert!(e.contains("moves node 1") || e.contains("moves node 3"), "{e}");
+    }
+}
+
+#[test]
+fn a_seesaw_held_by_rollers_inclined_off_the_vertical_keeps_its_modes() {
+    let f = freqs_2d(&seesaw_on_rollers("inclinedRoller", Some(1.2)), 4).unwrap();
+    assert_eq!(f.len(), 4, "{f:?}");
+    assert!(f.iter().all(|&x| x > 0.1), "{f:?}");
+}
+
+fn turntable_3d(inclined: bool) -> SolverInput3D {
+    let end = |node: usize| if inclined {
+        json!({"nodeId": node, "rx": false, "ry": false, "rz": false, "rrx": false, "rry": false, "rrz": false, "isInclined": true, "normalX": 0.0, "normalY": 0.0, "normalZ": 1.0})
+    } else {
+        json!({"nodeId": node, "rx": false, "ry": false, "rz": true, "rrx": false, "rry": false, "rrz": false})
+    };
+    serde_json::from_value(json!({
+        "nodes": {
+            "1": {"id": 1, "x": -2.0, "y": 0.0, "z": 0.0},
+            "2": {"id": 2, "x": 0.0, "y": 0.0, "z": 0.0},
+            "3": {"id": 3, "x": 2.0, "y": 0.0, "z": 0.0},
+            "4": {"id": 4, "x": 10.0, "y": 0.0, "z": 0.0},
+            "5": {"id": 5, "x": 10.0, "y": 0.0, "z": 3.0},
+        },
+        "materials": {"1": {"id": 1, "e": 200_000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 2e-4, "iz": 1e-4, "j": 5e-5}},
+        "elements": {
+            "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+            "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1},
+            "3": {"id": 3, "type": "frame", "nodeI": 4, "nodeJ": 5, "materialId": 1, "sectionId": 1},
+        },
+        "supports": {
+            "1": {"nodeId": 2, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": false, "rrz": false},
+            "2": end(1),
+            "3": end(3),
+            "4": {"nodeId": 4, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true},
+        },
+        "loads": [],
+        "masses": {"nodal": [{"nodeId": 1, "mass": 1.0}, {"nodeId": 3, "mass": 1.0}]},
+    }))
+    .unwrap()
+}
+
+#[test]
+fn issue_1315_a_turntable_whose_ends_slide_on_inclined_supports_is_refused_in_3d() {
+    for inclined in [false, true] {
+        let e = refusal(freqs_3d(&turntable_3d(inclined), 6), &format!("turntable, inclined ends: {inclined}"), &[MECHANISM]);
+        assert!(e.contains("moves node 1") || e.contains("moves node 3"), "{e}");
     }
 }

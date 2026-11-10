@@ -24,6 +24,9 @@ import { captureProvenanceToken, provenanceForExport, provenanceLabels, scopeOfR
 import { reportProvenanceLines } from '../export/provenance-attach';
 import { runEngineActionAsync } from '../store/engine-action';
 import { tick } from 'svelte';
+import { errorText } from '../utils/error-text';
+import { exportMessages } from '../export/containment';
+import { ContainmentExportError, isContainmentRefusal } from '../engine/containment-error';
 import { viewportCanvas } from '../utils/viewport-canvas';
 import { uiStore } from '../store/ui.svelte';
 import { accountGate } from '../store/account-gate.svelte';
@@ -92,9 +95,16 @@ async function screenshotWithNumbers(): Promise<string | undefined> {
  * goes in the memoria (`lib/report/memoria`), the one document that states it.
  */
 export async function exportReportAs(input: ReportExportInputs): Promise<void> {
+  // A refused display accessor is null; explain the refusal before report assembly
+  // can mistake it for a project with no results.
+  if (exportMessages() === null) return;
   // What the report is taken from, checked again before its provenance is written.
   const token = captureProvenanceToken();
-  await runEngineActionAsync(() => exportReportWithEngine(input, token));
+  try { await runEngineActionAsync(() => exportReportWithEngine(input, token)); }
+  catch (error) {
+    if (!(error instanceof ContainmentExportError) && !isContainmentRefusal(error)) throw error;
+    uiStore.toast(errorText(error, tr('knownIssue.exportHeading')), 'error');
+  }
 }
 
 async function exportReportWithEngine(input: ReportExportInputs, token: ReturnType<typeof captureProvenanceToken>): Promise<void> {

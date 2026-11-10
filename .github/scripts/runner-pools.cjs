@@ -1,5 +1,5 @@
 const VARIABLES = ['STABILEO_SELF_HOSTED', 'STABILEO_PR_POOL', 'STABILEO_E2E_POOL'];
-const MINIMUM_ONLINE = { stabileo: 6, 'stabileo-pr': 4, 'stabileo-e2e': 4 };
+const MINIMUM_ONLINE = { stabileo: 6, 'stabileo-pr': 4, 'stabileo-e2e': 4, 'stabileo-engine': 6, 'stabileo-heavy': 2 };
 
 function problems({ variables, runners }) {
   const out = VARIABLES.filter((name) => variables[name] !== 'true')

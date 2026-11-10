@@ -4,6 +4,7 @@
 //! for common modelling mistakes: isolated nodes, near-duplicate nodes,
 //! shell distortion, suspicious local axes, and instability risks.
 
+use crate::solver::support::{support_dofs_2d, support_dofs_3d};
 use std::collections::{HashMap, HashSet};
 
 use crate::element::quad::{quad_quality_metrics, quad_check_jacobian};
@@ -242,17 +243,9 @@ pub fn check_instability_risk_2d(input: &SolverInput) -> Vec<StructuredDiagnosti
     // Collect rotational-restrained node IDs
     let mut rot_restrained: HashSet<usize> = HashSet::new();
     for sup in crate::ordered::values(&input.supports) {
-        match sup.support_type.as_str() {
-            // guidedZ is a 2D alias of guidedY (dof::is_dof_restrained_2d): ux+ry fixed
-            "fixed" | "guidedX" | "guidedY" | "guidedZ" => {
-                rot_restrained.insert(sup.node_id);
-            }
-            _ => {
-                // kz spring also provides rotational stiffness
-                if sup.kz.unwrap_or(0.0) > 0.0 {
-                    rot_restrained.insert(sup.node_id);
-                }
-            }
+        let rotation = support_dofs_2d(sup)[2];
+        if rotation.restrained || rotation.spring.is_some_and(|k| k > 0.0) {
+            rot_restrained.insert(sup.node_id);
         }
     }
 
@@ -1281,7 +1274,7 @@ pub fn check_rigid_body_restraint_3d(input: &SolverInput3D) -> Vec<StructuredDia
     let mut held: HashMap<usize, [bool; 6]> = HashMap::new();
     for s in crate::ordered::values(&input.supports) {
         let h = held.entry(s.node_id).or_insert([false; 6]);
-        let springs = [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz];
+        let springs = [support_dofs_3d(s)[0].spring, support_dofs_3d(s)[1].spring, support_dofs_3d(s)[2].spring, support_dofs_3d(s)[3].spring, support_dofs_3d(s)[4].spring, support_dofs_3d(s)[5].spring];
         let flags = [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz];
         for k in 0..6 {
             h[k] |= flags[k] || springs[k].map_or(false, |v| v > 0.0);

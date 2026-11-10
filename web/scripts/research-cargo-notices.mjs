@@ -20,7 +20,7 @@ export function cargoLicenceTexts(pkg) {
 
 export function researchCargoNotices(repo) {
   const seen = new Set();
-  return ['fracture/shauer-2025/wasm', 'optimization/andreassen-2011/wasm', 'mechanics/biggins-2026'].flatMap(experiment => experimentNotices(repo, experiment, seen));
+  return ['fracture/shauer-2025/wasm', 'optimization/andreassen-2011/wasm', 'mechanics/biggins-2026', 'mechanics/gay-neto-2014', 'stability/feher-sipos-varkonyi-2026'].flatMap(experiment => experimentNotices(repo, experiment, seen));
 }
 
 function experimentNotices(repo, experiment, seen) {
@@ -35,7 +35,7 @@ function experimentNotices(repo, experiment, seen) {
   visit(metadata.resolve.root);
   return metadata.packages.filter(pkg => reachable.has(pkg.id)).sort((a, b) => a.name.localeCompare(b.name)).flatMap(pkg => {
     if (pkg.source === null) {
-      if (!['dedaliano-engine', 'phasefield-shauer-2025', 'phasefield-shauer-2025-wasm', 'topopt-andreassen-2011', 'topopt-andreassen-2011-wasm', 'arches-biggins-2026'].includes(pkg.name) || pkg.license !== 'AGPL-3.0-only') throw new Error(`Unresolved local Cargo licence: ${pkg.name}`);
+      if (!['dedaliano-engine', 'phasefield-shauer-2025', 'phasefield-shauer-2025-wasm', 'topopt-andreassen-2011', 'topopt-andreassen-2011-wasm', 'arches-biggins-2026', 'risers-gay-neto-2014', 'shape-control-feher-2026'].includes(pkg.name) || pkg.license !== 'AGPL-3.0-only') throw new Error(`Unresolved local Cargo licence: ${pkg.name}`);
       return [];
     }
     if (seen.has(pkg.id)) return [];

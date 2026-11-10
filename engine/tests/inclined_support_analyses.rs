@@ -18,7 +18,8 @@ use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertifica
 use dedaliano_engine::certify::modal::{certify_modal_2d, certify_modal_3d};
 use dedaliano_engine::solver::harmonic::{solve_harmonic_2d, solve_harmonic_3d, HarmonicInput, HarmonicInput3D, HarmonicResponsePoint, HarmonicResult};
 use dedaliano_engine::solver::reduction::{craig_bampton_2d, craig_bampton_3d, CraigBamptonInput, CraigBamptonInput3D, CraigBamptonResult};
-use dedaliano_engine::solver::{buckling, modal, pdelta, spectral, time_integration};
+use dedaliano_engine::solver::soil_curves::SoilCurve;
+use dedaliano_engine::solver::{buckling, modal, pdelta, spectral, ssi, time_integration};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -189,11 +190,12 @@ fn restrained_is_zero(r: Result<HarmonicResult, String>) -> HarmonicResult {
     match r {
         Ok(r) => r,
         Err(e) if e == "Target DOF is restrained" => HarmonicResult {
+            structured_diagnostics: vec![],
             response_points: FREQS.iter().map(|&f| HarmonicResponsePoint {
                 frequency: f, omega: 0.0, amplitude: 0.0, phase: 0.0, real: 0.0, imag: 0.0,
             }).collect(),
-            peak_frequency: 0.0, peak_amplitude: 0.0, method: String::new(), modes_used: 0, n_dof: 0,
-            truncation_ratio: None, warnings: vec![],
+            peak_frequency: 0.0, peak_amplitude: 0.0, method: dedaliano_engine::solver::harmonic::HarmonicMethod::Direct, modes_used: 0, n_dof: 0,
+            truncation_ratio: None, max_modal_residual: None, direct_frequencies: vec![], warnings: vec![],
         },
         Err(e) => panic!("harmonic: {e}"),
     }
@@ -910,5 +912,106 @@ fn corotational_3d_inclined_support_matches_rotated_model() {
         let b = solve_corotational_3d(&frame_3d(Some(&q), sub), 50, 1e-8, 4, false).expect("b");
         assert!(a.converged && b.converged, "corotational 3d sub {sub}: converged {} {}", a.converged, b.converged);
         assert_static_3d(&format!("corotational 3d sub {sub}"), &q, &a.results, &b.results, 1e-6);
+    }
+}
+
+fn reaction_rows_2d(r: &[Reaction]) -> Vec<(usize, [f64; 3])> {
+    r.iter().map(|x| (x.node_id, [x.rx, x.rz, x.my])).collect()
+}
+
+fn reaction_rows_3d(r: &[Reaction3D]) -> Vec<(usize, [f64; 6])> {
+    r.iter().map(|x| (x.node_id, [x.fx, x.fy, x.fz, x.mx, x.my, x.mz])).collect()
+}
+
+fn assert_same_reactions<const N: usize>(what: &str, a: &[(usize, [f64; N])], b: &[(usize, [f64; N])]) {
+    assert!(!b.is_empty(), "{what}: the reference reports no reactions");
+    assert_eq!(a.iter().map(|r| r.0).collect::<Vec<_>>(), b.iter().map(|r| r.0).collect::<Vec<_>>(), "{what}: reaction nodes");
+    let scale = b.iter().flat_map(|r| r.1).fold(0.0f64, |m, v| m.max(v.abs()));
+    assert!(scale > 1e-6, "{what}: no reaction");
+    for ((node, x), (_, y)) in a.iter().zip(b) {
+        for i in 0..N {
+            assert_close(&format!("{what} node {node} component {i}"), x[i], y[i], scale, 1e-9);
+        }
+    }
+}
+
+fn soil_spring(node_id: usize, direction: usize) -> ssi::SoilSpring {
+    ssi::SoilSpring {
+        node_id, direction, tributary_length: 1.0,
+        curve: SoilCurve::Custom { points: vec![[0.0, 0.0], [1e-4, 400.0], [1e-3, 1500.0], [1e-2, 3000.0], [1.0, 3500.0]] },
+    }
+}
+
+#[test]
+fn issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_2d() {
+    for sub in SUBS {
+        for rotated in [false, true] {
+            let loads: Vec<_> = LOADS_2D.iter().copied().chain([(1, 7.0, -40.0), (4, -3.0, -60.0)]).collect();
+            let input = model_2d(THETA, rotated, sub, &loads);
+            let what = format!("2D sub {sub} rotated {rotated}");
+            let linear = dedaliano_engine::solver::linear::solve_2d(&input).unwrap();
+            let r = ssi::solve_ssi_2d(&ssi::SSIInput { solver: input, soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).unwrap();
+            assert!(r.converged, "{what}");
+            assert_same_reactions(&what, &reaction_rows_2d(&r.results.reactions), &reaction_rows_2d(&linear.reactions));
+        }
+    }
+}
+
+#[test]
+fn issue_1672_ssi_without_soil_springs_reports_the_linear_reactions_3d() {
+    let q = q_3d();
+    for sub in SUBS_3D {
+        for rotation in [None, Some(&q)] {
+            let loads: Vec<_> = LOADS_3D.iter().copied().chain([(1, [6.0, -2.0, -40.0]), (4, [-3.0, 4.0, -60.0])]).collect();
+            let input = model_3d(normal_3d(), rotation, sub, &loads);
+            let what = format!("3D sub {sub} rotated {}", rotation.is_some());
+            let linear = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+            let r = ssi::solve_ssi_3d(&ssi::SSIInput3D { solver: input, soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).unwrap();
+            assert!(r.converged, "{what}");
+            assert_same_reactions(&what, &reaction_rows_3d(&r.results.reactions), &reaction_rows_3d(&linear.reactions));
+        }
+    }
+}
+
+fn assert_balanced(what: &str, reactions: &[f64], loads: &[f64], springs: &[f64]) {
+    let scale = loads.iter().chain(springs).fold(0.0f64, |m, v| m.max(v.abs()));
+    assert!(springs.iter().any(|s| s.abs() > 1e-3 * scale), "{what}: the soil springs carry nothing");
+    for i in 0..loads.len() {
+        let residual = reactions[i] + loads[i] - springs[i];
+        assert!(residual.abs() <= 1e-8 * scale, "{what} axis {i}: reactions {} + loads {} − soil springs {} = {residual} (scale {scale})", reactions[i], loads[i], springs[i]);
+    }
+}
+
+#[test]
+fn ssi_reactions_and_soil_springs_balance_the_loads_2d() {
+    let springs = vec![soil_spring(4, 0), soil_spring(2, 0), soil_spring(3, 1), soil_spring(5, 0)];
+    for sub in SUBS {
+        let input = model_2d(THETA, false, sub, &LOADS_2D);
+        let what = format!("2D sub {sub}");
+        let r = ssi::solve_ssi_2d(&ssi::SSIInput { solver: input, soil_springs: springs.clone(), max_iter: 200, tolerance: 1e-12 }).unwrap();
+        assert!(r.converged, "{what}");
+        assert_eq!(r.results.reactions.iter().map(|x| x.node_id).collect::<Vec<_>>(), vec![1, 4, 6], "{what}");
+        let mut sums = [[0.0f64; 2]; 3];
+        for x in &r.results.reactions { sums[0][0] += x.rx; sums[0][1] += x.rz; }
+        for &(_, fx, fz) in &LOADS_2D { sums[1][0] += fx; sums[1][1] += fz; }
+        for s in &r.spring_results { sums[2][s.direction] += s.reaction; }
+        assert_balanced(&what, &sums[0], &sums[1], &sums[2]);
+    }
+}
+
+#[test]
+fn ssi_reactions_and_soil_springs_balance_the_loads_3d() {
+    let springs = vec![soil_spring(4, 0), soil_spring(2, 0), soil_spring(5, 1), soil_spring(3, 2)];
+    for sub in SUBS_3D {
+        let input = model_3d(normal_3d(), None, sub, &LOADS_3D);
+        let what = format!("3D sub {sub}");
+        let r = ssi::solve_ssi_3d(&ssi::SSIInput3D { solver: input, soil_springs: springs.clone(), max_iter: 200, tolerance: 1e-12 }).unwrap();
+        assert!(r.converged, "{what}");
+        assert_eq!(r.results.reactions.iter().map(|x| x.node_id).collect::<Vec<_>>(), vec![1, 4], "{what}");
+        let mut sums = [[0.0f64; 3]; 3];
+        for x in &r.results.reactions { sums[0][0] += x.fx; sums[0][1] += x.fy; sums[0][2] += x.fz; }
+        for &(_, f) in &LOADS_3D { for i in 0..3 { sums[1][i] += f[i]; } }
+        for s in &r.spring_results { sums[2][s.direction] += s.reaction; }
+        assert_balanced(&what, &sums[0], &sums[1], &sums[2]);
     }
 }

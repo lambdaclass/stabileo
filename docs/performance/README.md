@@ -12,6 +12,16 @@ weekly Route size workflow (`.github/workflows/route-size.yml`, also run by hand
 `web/scripts/route-size-ceilings.json` and opens or updates a `route-size` issue when a route is
 over, to be fixed then.
 
+## First paint on /app (every change to the web app)
+
+An `/app/*` address is served the prerendered landing, which `main.ts` removes before the
+application (about 2.4 MB of JavaScript) downloads. An inline script in `index.html` marks an `/app`
+address before the first paint, so the page shows the brand mark on the application's ground until
+App mounts; without it nothing paints until App mounts, and simulated mobile first
+contentful paint moves from about 2 s to about 9 s (2026-11-06, run 42176395212: mobile `/app/basic`
+and `/app/pro` performance 26 against a baseline of 46). The smoke spec `e2e/app-boot.spec.ts`
+holds the App chunk and fails unless the mark, and a first contentful paint, appear first.
+
 ## Lighthouse (daily, against production)
 
 `web/scripts/perf-lighthouse.mjs`, run by `.github/workflows/performance.yml` every day, on demand
@@ -66,6 +76,16 @@ when the editor appears (about 23 s on simulated mobile). The new number is the 
 application page. The first of the three runs also had a slower server response (206 against
 123 ms) and gave public-page medians up to 4 points lower than the other two. Each baseline is the
 midpoint of its lowest and highest median, so every observed median is within 2 points of it.
+
+### Re-baseline of 2026-11-08
+
+From 2026-11-06, both presets failed every day on `RAISE` alone. Accessibility went up one point on
+mobile `/app/basic` and `/app/pro` (73 to 74) and on desktop `/app/basic` (75 to 76), `/app/pro`
+(77 to 78) and, from 2026-11-07, the blog page (93 to 94). Each of these values was identical in
+every run since it appeared (runs 42176395212, 42348262635 and 42427965763). Desktop performance
+medians in those three runs were 96, 99, 99 for the blog page, 42, 43, 45 for `/app/basic` and 39, 42,
+42 for `/app/pro`. Their baselines are now 97, 43 and 40, the midpoints rounded down. No baseline went down, and
+no margin changed.
 
 ### The mobile application pages
 

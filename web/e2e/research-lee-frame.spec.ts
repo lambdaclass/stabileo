@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 
 const URL = (locale: string) => `/${locale}/research/benchmarks/lee-frame-1968/`;
 
@@ -62,7 +63,7 @@ test('@smoke Lee frame replay, reduced-motion live run and stop', async ({ page 
 });
 
 for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]]) {
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const locale of PUBLIC_LOCALES) {
     test(`Lee frame direct visit ${locale} ${width}x${height}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ reducedMotion: 'reduce' });

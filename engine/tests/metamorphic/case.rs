@@ -2,6 +2,7 @@
 //! analyses derive their inputs from, so that a transform of the case
 //! transforms everything consistently.
 
+use dedaliano_engine::metamorphic::mirror::mirror_3d;
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::{transform_2d, transform_3d, Iso2, Iso3};
 use dedaliano_engine::metamorphic::units::{scale_2d, scale_3d, scale_densities, Units};
@@ -24,11 +25,12 @@ pub struct Params {
     pub ground: [f64; 3],
     /// Excitation axis of a spectral analysis (0 = X, 1 = Y, 2 = Z).
     pub axis: usize,
+    pub symmetry: bool,
 }
 
 impl Default for Params {
     fn default() -> Self {
-        Params { fy: 250.0, dt: 0.002, freqs: vec![0.0, 0.7, 2.3], axle: 50.0, step: 0.5, ground: [1.0, 0.6, 0.3], axis: 0 }
+        Params { fy: 250.0, dt: 0.002, freqs: vec![0.0, 0.7, 2.3], axle: 50.0, step: 0.5, ground: [1.0, 0.6, 0.3], axis: 0, symmetry: false }
     }
 }
 
@@ -42,6 +44,7 @@ impl Params {
             step: self.step * u.length,
             ground: self.ground.map(|g| g * u.accel()),
             axis: self.axis,
+            symmetry: self.symmetry,
         }
     }
 }
@@ -66,6 +69,17 @@ pub struct Case3 {
     pub p: Params,
     pub probes: Vec<usize>,
     pub path: Option<Vec<usize>>,
+}
+
+pub fn extent(points: impl Iterator<Item = [f64; 3]>) -> f64 {
+    let (mut lo, mut hi) = ([f64::INFINITY; 3], [f64::NEG_INFINITY; 3]);
+    for p in points {
+        for i in 0..3 {
+            lo[i] = lo[i].min(p[i]);
+            hi[i] = hi[i].max(p[i]);
+        }
+    }
+    (0..3).map(|i| hi[i] - lo[i]).filter(|x| x.is_finite()).fold(0.0, f64::max)
 }
 
 pub fn default_densities(mats: impl Iterator<Item = usize>) -> HashMap<String, f64> {
@@ -110,6 +124,12 @@ impl Case3 {
         let probes = probes_3d(&s);
         let path = path_3d(&s);
         Case3 { name: name.into(), s, dens, p: Params::default(), probes, path }
+    }
+    pub fn mirror(&self, axis: usize, t: [f64; 3]) -> Result<Case3, String> {
+        let s = mirror_3d(&self.s, axis, t).map_err(|e| e.to_string())?;
+        let mut p = self.p.clone();
+        p.ground[axis] = -p.ground[axis];
+        Ok(Case3 { s, p, ..self.clone() })
     }
     pub fn iso(&self, iso: &Iso3) -> Result<Case3, String> {
         let s = transform_3d(&self.s, iso).map_err(|e| e.to_string())?;
@@ -273,7 +293,7 @@ pub fn pad_3d(s: &SolverInput3D) -> (SolverInput3D, HashSet<usize>, HashSet<usiz
         m.nodes.insert((n0 + k).to_string(), SolverNode3D { id: n0 + k, x: x0, y: 0.0, z: 0.25 * k as f64 });
     }
     for k in 0..12 {
-        let mut e = s.elements.values().next().cloned().unwrap_or_else(|| serde_json::from_value(serde_json::json!({
+        let mut e = dedaliano_engine::ordered::values(&s.elements).next().cloned().unwrap_or_else(|| serde_json::from_value(serde_json::json!({
             "id": 0, "type": "frame", "nodeI": 0, "nodeJ": 0, "materialId": mat, "sectionId": sec
         })).unwrap());
         e.id = e0 + k;

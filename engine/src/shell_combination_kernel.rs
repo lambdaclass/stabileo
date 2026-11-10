@@ -409,6 +409,18 @@ fn combine(input: Input) -> Output {
     }
 }
 
+pub(crate) fn unique_ids(ids: impl Iterator<Item = usize>) -> Result<(), String> {
+    let mut seen = HashSet::new();
+    for id in ids {
+        if !seen.insert(id) {
+            return Err(format!(
+                "Shell element {id} appears twice in one result set: shell families number their ids independently, so its stresses cannot be told apart"
+            ));
+        }
+    }
+    Ok(())
+}
+
 // A single f64 slice avoids serde property accesses for every shell of every
 // combination. Counts precede variable-length blocks; see the TS adapter.
 struct Reader<'a> {
@@ -492,6 +504,8 @@ impl Reader<'_> {
             for _ in 0..nq {
                 quads.push(self.row(false)?);
             }
+            unique_ids(plates.iter().map(|r| r.element_id))?;
+            unique_ids(quads.iter().map(|r| r.element_id))?;
             sources.push(Source { id, plates, quads });
         }
         Ok(sources)
@@ -525,6 +539,8 @@ fn decode(data: &[f64]) -> Result<Input, String> {
         for _ in 0..nq {
             quad_stresses.push(r.membrane()?);
         }
+        unique_ids(plate_stresses.iter().map(|m| m.element_id))?;
+        unique_ids(quad_stresses.iter().map(|m| m.element_id))?;
         cases.push(Case {
             id,
             plate_stresses,
@@ -728,6 +744,42 @@ mod tests {
         let mut trailing = valid;
         trailing.push(0.);
         assert!(decode(&trailing).is_err());
+    }
+
+    fn mitc4_and_mitc9_both_numbered_7(shells_per_set: usize) -> Vec<f64> {
+        let mitc4 = [7., 10., 0., 0., 2., 0., 0., 1., 1.];
+        let mitc9 = [7., 1000., 0., 0., 200., 0., 0., f64::NAN, f64::NAN];
+        let mut data = vec![1., 1., 0., 2.];
+        data.extend(mitc4);
+        data.extend(mitc9);
+        data.extend([1., 10., 1., 1., 1.5, 0.]);
+        data.extend([1., 20., 0., shells_per_set as f64]);
+        for row in [mitc4, mitc9].iter().take(shells_per_set) {
+            data.extend(row);
+            data.extend([row[1].abs(), f64::NAN, f64::NAN]);
+        }
+        data
+    }
+
+    #[test]
+    fn shells_of_two_families_with_one_id_are_refused_not_combined_into_one() {
+        let one_retained = mitc4_and_mitc9_both_numbered_7(1);
+        let err = decode(&one_retained).err().expect("a MITC4 and a MITC9 numbered 7 in one case");
+        assert!(err.contains("Shell element 7 appears twice"), "{err}");
+        let mut distinct = one_retained.clone();
+        distinct[13] = 8.;
+        let combined = combine(decode(&distinct).unwrap());
+        let quads = &combined.combinations[0].quad_stresses;
+        assert_eq!(quads.iter().map(|q| (q.element_id, q.sigma_xx)).collect::<Vec<_>>(), vec![(7, 15.), (8, 1500.)]);
+    }
+
+    #[test]
+    fn an_enveloped_set_with_two_shells_numbered_alike_is_refused() {
+        let data = mitc4_and_mitc9_both_numbered_7(2);
+        let sources_at = data.len() - 1 - 3 - 2 * 12;
+        let mut r = Reader { data: &data[sources_at..], pos: 0 };
+        let err = r.sources().err().expect("a MITC4 and a MITC9 numbered 7 in one set");
+        assert!(err.contains("Shell element 7 appears twice"), "{err}");
     }
 
     fn quad(element_id: usize, values: [f64; 9]) -> Row {

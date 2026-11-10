@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+
 export const RESEARCH_ISOLATION_BYTES = 128;
 
 export function routeGrowth(baseline, measured) {
@@ -8,16 +10,36 @@ export function routeGrowth(baseline, measured) {
   });
 }
 
-export function checkResearchIsolation(rows) {
-  const grown = rows.filter((r) => r.growth > RESEARCH_ISOLATION_BYTES);
+export function routeAllowances(text, exists) {
+  const { routes } = JSON.parse(text);
+  return Object.fromEntries(Object.entries(routes).map(([route, entry]) => {
+    const list = Array.isArray(entry) ? entry : [entry];
+    for (const a of list) {
+      if (!Number.isInteger(a?.bytes) || a.bytes <= 0 || typeof a.reason !== 'string' || !a.reason.trim() || typeof a.module !== 'string' || !exists(a.module)) {
+        throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
+      }
+    }
+    if (!list.length) throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
+    return [route, { bytes: list.reduce((n, a) => n + a.bytes, 0), reason: list.map((a) => a.reason).join(' + '), modules: list.map((a) => a.module) }];
+  }));
+}
+
+function shippedAllowances() {
+  const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
+  return routeAllowances(read('./research-route-allowances.json'), (module) => existsSync(new URL(`../${module}`, import.meta.url)));
+}
+
+export function checkResearchIsolation(rows, allowances = {}) {
+  const limit = (route) => RESEARCH_ISOLATION_BYTES + (allowances[route]?.bytes ?? 0);
+  const grown = rows.filter((r) => r.growth > limit(r.route));
   if (grown.length) {
-    throw new Error(grown.map((r) => `${r.route} grew: ${r.before} -> ${r.after} bytes (${RESEARCH_ISOLATION_BYTES} byte tolerance, research isolation: the change touches research code shipped to the browser)`).join('\n'));
+    throw new Error(grown.map((r) => `${r.route} grew: ${r.before} -> ${r.after} bytes (${limit(r.route)} byte tolerance${allowances[r.route] ? `, with ${allowances[r.route].bytes} allowed for ${allowances[r.route].reason}` : ''}, research isolation: the change touches research code shipped to the browser)`).join('\n'));
   }
 }
 
-export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION) {
+export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances()) {
   const rows = routeGrowth(baseline, measured);
-  if (isolation !== 'false') checkResearchIsolation(rows);
+  if (isolation !== 'false') checkResearchIsolation(rows, allowances);
   return rows;
 }
 
@@ -39,10 +61,14 @@ export const BLOG_ROUTE_BOUNDARY = 'src/components/blog/BlogPage.svelte';
 export const COURSE_ROUTE_BOUNDARY = 'src/lib/course/course-route.ts';
 
 export function isLazyRouteBoundary(key) {
-  return /components\/research\//.test(key) || /components\/tools\//.test(key) || key === BLOG_ROUTE_BOUNDARY || key === COURSE_ROUTE_BOUNDARY;
+  return /components\/research\//.test(key) || /components\/(tools|examples)\//.test(key) || key === BLOG_ROUTE_BOUNDARY || key === COURSE_ROUTE_BOUNDARY;
 }
 
-export function routeChunkFiles(manifest, roots, check = () => {}) {
+export function isBlogPostsChunk(moduleIds) {
+  return moduleIds.some((id) => id.endsWith('/src/lib/blog/index.ts')) && moduleIds.every((id) => id.includes('/src/lib/blog/'));
+}
+
+export function routeChunkFiles(manifest, roots, check = () => {}, isBoundary = isLazyRouteBoundary) {
   const files = new Set(['index.html']);
   const seen = new Set();
   function visit(key, lazy) {
@@ -55,7 +81,7 @@ export function routeChunkFiles(manifest, roots, check = () => {}) {
     files.add(chunk.file);
     for (const file of [...(chunk.css ?? []), ...(chunk.assets ?? [])]) files.add(file);
     for (const dep of chunk.imports ?? []) visit(dep, lazy);
-    if (lazy) for (const dep of chunk.dynamicImports ?? []) if (!isLazyRouteBoundary(dep)) visit(dep, true);
+    if (lazy) for (const dep of chunk.dynamicImports ?? []) if (!isBoundary(dep)) visit(dep, true);
   }
   for (const [key, lazy] of roots) visit(key, lazy);
   return files;

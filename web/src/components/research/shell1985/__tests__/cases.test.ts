@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { cases, compare, finest, inputFor, runCases, responseRatio, signedReference, viewerData } from '../cases';
+import { describe, expect, it, vi } from 'vitest';
+import { cases, compare, finest, inputFor, refusalFor, runCases, responseRatio, shown, signedReference, viewerData } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
 import { buildSolverInput3D, type ModelData } from '../../../../lib/engine/solver-service';
@@ -27,6 +27,22 @@ describe('shell obstacle course evidence', () => {
       expect(compare(c, [{ nodeId: c.measurement.node, [c.measurement.component]: .85 * direction * c.reference }]).pass).toBe(false);
     }
   });
+  it('recognizes only the expected containment refusal', () => {
+    const c = cases.find(c => c.id === 'hemisphere-4')!;
+    const refusal = (severity: string, phase: string, value: number) => JSON.stringify({ message: 'Ergebnisse zurückgehalten', structuredDiagnostics: [{ code: 'known_issue', severity, phase, value, message: 'x' }] });
+    const message = refusal('error', 'SH-MITC4-DISTORTION', 798);
+    expect(refusalFor(c, message).refused).toBe(true);
+    for (const failure of ['unavailable', 'Results withheld: unsafe (known issue #798, SH-MITC4-DISTORTION)', refusal('error', 'SH-MITC4-DISTORTION', 799), refusal('error', 'OTHER', 798), refusal('warning', 'SH-MITC4-DISTORTION', 798)]) {
+      expect(refusalFor(c, failure).refused).not.toBe(true);
+    }
+    expect(refusalFor(cases[0], message).refused).not.toBe(true);
+    expect(refusalFor(c, message).failure).not.toContain('{');
+  });
+  it('never shows a value or error for a withheld row', () => {
+    expect(shown({ id: 'hemisphere-4', value: .185, error: .001, pass: false, refused: true })).toEqual({ value: null, error: null });
+    expect(shown({ id: 'roof-16', value: -.3, error: .01, pass: true })).toEqual({ value: -.3, error: .01 });
+    expect(shown()).toEqual({ value: null, error: null });
+  });
   it('preserves connectivity and projects all three displacement components', () => {
     const c = cases[0];
     const displacement = Object.values(c.input.nodes).map(n => ({ nodeId: n.id, ux: 1, uy: 2, uz: 3 }));
@@ -50,15 +66,46 @@ describe('shell obstacle course evidence', () => {
       }
       const input = buildSolverInput3D(model, false);
       expect(input).not.toBeNull();
+      if (c.group === 'hemisphere') {
+        for (const source of [inputFor(c), input!]) {
+          expect(() => solve3D(source)).toThrow(/Results withheld:.*known issue #798, SH-MITC4-DISTORTION/);
+        }
+        continue;
+      }
       const direct = compare(c, solve3D(inputFor(c)).displacements as unknown as Record<string, number>[]);
       const editor = compare(c, solve3D(input!).displacements as unknown as Record<string, number>[]);
       expect(editor.value! / direct.value!).toBeCloseTo(1, 8);
     }
   }, 120_000);
+  it('withholds a returned refusal instead of scoring its displacements', async () => {
+    const solver = await import('../../../../lib/engine/wasm-solver');
+    const spy = vi.spyOn(solver, 'solve3D').mockReturnValue({
+      displacements: Object.values(cases[0]!.input.nodes).map((n: any) => ({ nodeId: n.id, ux: 1, uy: 1, uz: 1, rx: 0, ry: 0, rz: 0 })),
+      structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE' }],
+    } as never);
+    try {
+      const rows = await runCases();
+      expect(rows.every(r => r.value === null && r.error === null && r.pass === false)).toBe(true);
+      expect(rows.filter(r => r.refused).map(r => r.id)).toEqual(['hemisphere-4', 'hemisphere-8', 'hemisphere-16']);
+    } finally { spy.mockRestore(); }
+  });
   it('passes corrected roofs and keeps coarse cylinder failures in the denominator', async () => {
     const rows = await runCases();
     expect(rows).toHaveLength(cases.length);
-    expect(rows.every(r => r.value !== null && Number.isFinite(r.value))).toBe(true);
+    expect(rows.filter(r => r.refused).map(r => r.id)).toEqual(['hemisphere-4', 'hemisphere-8', 'hemisphere-16']);
+    for (const c of cases) {
+      const row = rows.find(r => r.id === c.id)!;
+      if (c.group === 'hemisphere') {
+        expect(row).toMatchObject({ refused: true, knownIssue: 'SH-MITC4-DISTORTION', issue: 798, value: null, error: null, pass: false });
+        expect(row.failure).toMatch(/#798/);
+        expect(row.failure).not.toContain('structuredDiagnostics');
+        expect(viewerData(c, row).displacement).toBeNull();
+      } else {
+        expect(row.value).not.toBeNull();
+        expect(Number.isFinite(row.value)).toBe(true);
+        expect(row.failure).toBeUndefined();
+      }
+    }
     const roof = rows.find(r => r.id === 'roof-16')!;
     expect(roof.value).toBeCloseTo(-.3024255392, 8);
     expect(rows.filter(r => r.id.startsWith('roof')).every(r => r.pass)).toBe(true);
@@ -68,6 +115,18 @@ describe('shell obstacle course evidence', () => {
     for (let i = 1; i < cylinders.length; i++) {
       expect(cylinders[i].error!).toBeLessThan(cylinders[i - 1].error!);
     }
-    expect(finest.filter(c => rows.find(r => r.id === c.id)!.pass)).toHaveLength(2);
+    expect(finest.filter(c => rows.find(r => r.id === c.id)!.pass).map(c => c.id)).toEqual(['roof-16']);
   }, 120_000);
+});
+
+describe('the containment passages of the article', () => {
+  it('state the withheld hemisphere meshes and the #810 warning', async () => {
+    const { articleStrings } = await import('../article');
+    const en = articleStrings('en');
+    expect(en.containsShellContainment).toMatch(/withholds the distorted hemisphere meshes/);
+    expect(en.containsShellContainment).toContain('#798');
+    expect(en.containsShellContainment).toContain('#810');
+    expect(en.theHeadlineCountsTheFinestSelectedBrowser).toContain('#798');
+    expect(en.theHeadlineCountsTheFinestSelectedBrowser).toContain('1/3 passing');
+  });
 });

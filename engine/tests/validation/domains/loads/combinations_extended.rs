@@ -514,6 +514,7 @@ fn validation_comb_ext_3d_distributed_combo() {
 
     // Combine: 2.0*LC1 + 0.5*LC2
     let combo = CombinationInput3D {
+        plate_thicknesses: vec![],
         factors: vec![
             CombinationFactor { case_id: 1, factor: 2.0 },
             CombinationFactor { case_id: 2, factor: 0.5 },
@@ -523,7 +524,7 @@ fn validation_comb_ext_3d_distributed_combo() {
             CaseEntry3D { case_id: 2, results: res2 },
         ],
     };
-    let combined = combine_results_3d(&combo).unwrap();
+    let combined = combine_results_3d(&combo).unwrap().unwrap();
 
     // Direct solve: qY = 2.0*(-6) = -12, qZ = 0.5*(-4) = -2
     let direct_loads: Vec<SolverLoad3D> = (1..=n)

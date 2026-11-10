@@ -198,11 +198,10 @@ fn benchmark_notional_load_equivalence() {
     if drift_b.abs() > 1e-8 {
         let rel_diff = (drift_a.abs() - drift_b.abs()).abs()
             / drift_a.abs().max(drift_b.abs());
-        eprintln!("  Relative difference: {:.1}%", rel_diff * 100.0);
-        // Loose tolerance — the two approaches are equivalent only in the limit
+        eprintln!("  Relative difference: {:.9}%", rel_diff * 100.0);
         assert!(
-            rel_diff < 0.50,
-            "Notional and lean drifts differ by {:.1}% (expect < 50%)",
+            rel_diff < 0.006,
+            "Notional and lean drifts differ by {:.1}% (expect < 0.6%)",
             rel_diff * 100.0
         );
     }

@@ -6,87 +6,10 @@
    cards, numbered monospace eyebrows, large tightly-set grotesk headlines and
    a lot of negative space. No gradients, no glass, no glow.
 
-   Everything is scoped under `.landing` except the :root token block and the
-   @font-face declarations.
+   Everything is scoped under `.landing` except the :root token block.
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* ─── FONTS ───────────────────────────────────────────────────────────────
-   Self-hosted from /public/fonts. Latin subset only — the public landing is
-   English and Spanish. Licences in /public/fonts/OFL.txt.
-   ───────────────────────────────────────────────────────────────────────── */
-
-/* Latin, declared in the same weight ranges as the Greek and maths subsets below: faces only
-   combine by unicode-range when their other descriptors match. One variable file serves both. */
-@font-face {
-  font-family: 'IBM Plex Sans';
-  font-style: normal;
-  font-weight: 100 500;
-  font-display: swap;
-  src: url('/fonts/ibm-plex-sans.woff2') format('woff2');
-  unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+2002, U+2009, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'IBM Plex Sans';
-  font-style: normal;
-  font-weight: 501 700;
-  font-display: swap;
-  src: url('/fonts/ibm-plex-sans.woff2') format('woff2');
-  unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+2002, U+2009, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-/* Greek letters and mathematical symbols (ν, σ, ℓ, ≈, √, …), fetched only by pages that use them. */
-@font-face {
-  font-family: 'IBM Plex Sans';
-  font-style: normal;
-  font-weight: 100 500;
-  font-display: swap;
-  src: url('/fonts/ibm-plex-sans-greek-math-400.woff2') format('woff2');
-  unicode-range: U+0370-03FF, U+2070-209F, U+2102-214F, U+2190-21FF, U+2200-22FF, U+2016, U+2032-2034, U+202F;
-}
-@font-face {
-  font-family: 'IBM Plex Sans';
-  font-style: normal;
-  font-weight: 501 700;
-  font-display: swap;
-  src: url('/fonts/ibm-plex-sans-greek-math-600.woff2') format('woff2');
-  unicode-range: U+0370-03FF, U+2070-209F, U+2102-214F, U+2190-21FF, U+2200-22FF, U+2016, U+2032-2034, U+202F;
-}
-@font-face {
-  font-family: 'IBM Plex Sans';
-  font-style: italic;
-  font-weight: 100 700;
-  font-display: swap;
-  src: url('/fonts/ibm-plex-sans-italic.woff2') format('woff2');
-}
-/* The few mathematical signs Plex lacks (‖, ∇), from Noto Sans Math. */
-@font-face {
-  font-family: 'Stabileo Math';
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url('/fonts/noto-sans-math-subset.woff2') format('woff2');
-  unicode-range: U+2016, U+2202, U+2207, U+2225;
-}
-@font-face {
-  font-family: 'Space Grotesk';
-  font-style: normal;
-  font-weight: 300 700;
-  font-display: swap;
-  src: url('/fonts/space-grotesk.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'IBM Plex Mono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('/fonts/ibm-plex-mono-500.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'IBM Plex Mono';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('/fonts/ibm-plex-mono-600.woff2') format('woff2');
-}
+/* Shared font faces are supplied by styles/tokens.css in both application entries. */
 
 /* ─── TOKENS ─────────────────────────────────────────────────────────────
    Measured from the deck. `--lp-*` is a private namespace; nothing outside
@@ -115,26 +38,15 @@
   --lp-max: 1360px;
   --lp-radius: 3px;
 
-  /*
-     The height of the sticky header, as a number the hero can subtract.
-
-     The nav is sticky at the top, so it takes this much layout height AND
-     stays over the page. The hero then added its own full section padding
-     underneath, which is why the first paint opened with a gap nobody asked
-     for: the header's band and the section's air, stacked. See `.hero`.
-
-     Kept as a token rather than measured, because the value only has to be
-     close: it is subtracted under a `max()` floor, so being a few pixels off
-     on a narrow screen moves the title by those pixels and nothing else.
-  */
-  --lp-nav-h: 3.6rem;
+  /* Must equal .site-header height in site-header.css: .landing starts below the header. */
+  --lp-nav-h: 3.625rem;
 }
 
 /* ─── SHELL ──────────────────────────────────────────────────────────────── */
 
 .landing {
   position: fixed;
-  inset: 0;
+  inset: var(--lp-nav-h) 0 0;
   z-index: 10000;
   overflow-y: auto;
   overflow-x: hidden;
@@ -264,16 +176,16 @@
   margin: 0 0 0.9rem;
 }
 
+.landing .fit { padding-bottom: 0; }
+.landing .link-row { display: flex; flex-wrap: wrap; gap: 0 2rem; margin-top: 1rem; }
+.landing .link-row a { min-height: 44px; display: inline-flex; align-items: center; }
+
 .landing .lead {
   color: var(--fg-2);
   font-size: clamp(1rem, 1.15vw, 1.12rem);
   line-height: 1.62;
   max-width: 58ch;
   margin-bottom: 2rem;
-}
-
-.landing .lead-wide {
-  max-width: 76ch;
 }
 
 .landing .kicker {
@@ -286,14 +198,6 @@
   margin: 0 0 0.7rem;
 }
 
-.landing .kicker-blue {
-  color: var(--dev);
-}
-
-.landing .kicker-accent {
-  color: var(--accent-text);
-}
-
 /* ─── EYEBROW ────────────────────────────────────────────────────────────── */
 
 .landing .eyebrow {
@@ -302,7 +206,7 @@
   gap: 0.75rem;
   margin: 0 0 1.5rem;
   font-family: var(--lp-mono);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -320,12 +224,13 @@
 }
 
 .landing .eyebrow-label {
+  min-width: 0;
   color: var(--accent-text);
 }
 
 /* ─── BUTTONS & LINKS ────────────────────────────────────────────────────── */
 
-.landing .btn {
+:is(.landing, .site-header) .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -343,12 +248,12 @@
   white-space: nowrap;
 }
 
-.landing .btn-primary {
+:is(.landing, .site-header) .btn-primary {
   background: var(--st-accent-fill);
   color: #fff;
 }
 
-.landing .btn-primary:hover {
+:is(.landing, .site-header) .btn-primary:hover {
   background: var(--st-accent-fill-hover);
 }
 
@@ -367,14 +272,14 @@
   font-size: 0.98rem;
 }
 
-.landing .btn-sm {
+:is(.landing, .site-header) .btn-sm {
   padding: 0.6rem 1rem;
   font-size: 0.84rem;
 }
 
 .landing .link-arrow {
   font-family: var(--lp-mono);
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--accent-text);
@@ -410,155 +315,6 @@
   letter-spacing: 0.09em;
   text-transform: uppercase;
   cursor: pointer;
-}
-
-/* ─── NAV ────────────────────────────────────────────────────────────────── */
-
-.landing .nav {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: rgba(12, 22, 32, 0.94);
-  border-bottom: 1px solid rgba(143, 163, 179, 0.14);
-}
-
-.landing .nav-inner {
-  max-width: var(--lp-max);
-  margin: 0 auto;
-  padding: 0.7rem var(--lp-gut);
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  min-width: 0;
-}
-
-.landing .nav-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  color: var(--lp-paper-2);
-  flex: none;
-  /* On the blog the brand is a link (PublicLink), and links are underlined: the
-     logo is a mark, not a word in running text. */
-  text-decoration: none;
-}
-
-/*
-   The mark, not a monogram.
-
-   This was a filled accent tile with an "S" in it, so the brand on the
-   landing was not the brand inside the editor one click later. It holds
-   BrandMark now — the same triangle as the favicon and the app header — and
-   carries the accent as `color`, which the SVG picks up via `currentColor`.
-*/
-.landing .nav-logo {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  color: var(--lp-accent);
-  flex: none;
-}
-
-.landing .brand-mark {
-  display: block;
-}
-
-.landing .nav-name {
-  font-family: var(--lp-display);
-  font-weight: 600;
-  font-size: 1rem;
-  letter-spacing: -0.015em;
-}
-
-.landing .nav-links {
-  display: flex;
-  align-items: center;
-  gap: 0.1rem;
-  margin-left: auto;
-  min-width: 0;
-}
-
-.landing .nav-links button,
-.landing .nav-links .nav-link {
-  background: none;
-  border: 0;
-  cursor: pointer;
-  font-family: var(--lp-sans);
-  font-size: 0.87rem;
-  color: var(--lp-slate-2);
-  padding: 0.45rem 0.35rem;
-  border-radius: var(--lp-radius);
-  white-space: nowrap;
-}
-
-/* The same box as the nav buttons beside it: a link inherits the page's line
-   height, which made the sticky nav taller than the hero assumes. */
-.landing .nav-links .nav-link {
-  display: inline-block;
-  line-height: normal;
-  text-decoration: none;
-}
-
-.landing .nav-links button:hover,
-.landing .nav-links .nav-link:hover {
-  color: var(--lp-paper-2);
-}
-
-/* The section the page belongs to (the research pages, for instance). */
-.landing .nav-links .nav-link.current {
-  color: var(--lp-paper-2);
-  box-shadow: inset 0 -2px 0 var(--lp-accent);
-}
-
-
-.landing .nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  flex: none;
-}
-
-.landing .nav-gh {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: var(--lp-mono);
-  font-size: 0.74rem;
-  color: var(--lp-slate-2);
-  text-decoration: none;
-  border: 1px solid rgba(143, 163, 179, 0.22);
-  border-radius: var(--lp-radius);
-  padding: 0.42rem 0.6rem;
-}
-
-.landing .nav-gh:hover {
-  color: var(--lp-paper-2);
-  border-color: rgba(143, 163, 179, 0.4);
-}
-
-.landing .nav-toggle {
-  display: none;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  width: 34px;
-  height: 34px;
-  padding: 0 7px;
-  background: transparent;
-  border: 1px solid rgba(143, 163, 179, 0.22);
-  border-radius: var(--lp-radius);
-  cursor: pointer;
-}
-
-.landing .nav-toggle span {
-  display: block;
-  height: 1.5px;
-  background: var(--lp-slate-2);
 }
 
 /* ─── HERO ───────────────────────────────────────────────────────────────── */
@@ -624,41 +380,6 @@
   margin-bottom: 2.5rem;
 }
 
-/*
-   The three modes, in the first screen. Each carries its own status word, so
-   the hero cannot be read as claiming all three are ready.
-*/
-.landing .hero-modes {
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem 1.6rem;
-  margin: 1.8rem 0 1.6rem;
-  padding: 0;
-}
-
-.landing .hero-modes li {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.landing .hero-mode-name {
-  font-family: var(--lp-display);
-  font-size: 1rem;
-  color: var(--fg);
-}
-
-.landing .hero-mode-st {
-  font-family: var(--lp-mono);
-  font-size: 0.64rem;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--fg-2);
-}
-
-.landing .hero-mode-st-today { color: var(--ok); }
-
 .landing .hero-meta {
   display: flex;
   flex-wrap: wrap;
@@ -670,7 +391,7 @@
 
 .landing .hero-meta dt {
   font-family: var(--lp-mono);
-  font-size: 0.73rem;
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   color: var(--fg-2);
 }
@@ -752,7 +473,7 @@
   gap: 0.4rem 1.15rem;
   margin-top: 1.15rem;
   font-family: var(--lp-mono);
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   letter-spacing: 0.12em;
   color: var(--fg-2);
 }
@@ -776,6 +497,7 @@
 .landing .tf-key-z::before { background: var(--tf-zero); opacity: 0.5; height: 1px; }
 .landing .tf-key-g::before { background: var(--fg-2); opacity: 0.24; height: 1px; }
 .landing .tf-key-n::before { display: none; }
+.landing .tf-key-n { max-width: 100%; white-space: normal; }
 
 /* compact still frames used by the real-time comparison */
 .landing .truss-fig.compact .tf-caption {
@@ -798,48 +520,6 @@
 .landing .rt-states .truss-fig {
   background: var(--card);
   padding: 1rem 1rem 1.1rem;
-}
-
-.landing .rt-compare-hint {
-  margin: 1rem 0 0;
-  color: var(--fg-2);
-  font-size: 0.92rem;
-  max-width: 62ch;
-}
-
-/* ─── PROBLEM ────────────────────────────────────────────────────────────── */
-
-.landing .prob-rows {
-  margin: 3rem 0 0;
-  border-top: 1px solid var(--hair);
-}
-
-.landing .prob-row {
-  display: grid;
-  grid-template-columns: minmax(0, 0.4fr) minmax(0, 1fr);
-  gap: 1rem clamp(1.5rem, 4vw, 4rem);
-  align-items: baseline;
-  padding: 1.9rem 0;
-  border-bottom: 1px solid var(--hair);
-}
-
-.landing .prob-term {
-  font-family: var(--lp-display);
-  font-weight: 700;
-  font-size: clamp(1.7rem, 3.4vw, 2.7rem);
-  letter-spacing: -0.03em;
-  line-height: 1;
-  margin: 0;
-}
-
-.landing .prob-term.accent {
-  color: var(--lp-accent);
-}
-
-.landing .prob-body {
-  margin: 0;
-  color: var(--fg-2);
-  max-width: 62ch;
 }
 
 /* ─── CARDS ──────────────────────────────────────────────────────────────── */
@@ -873,19 +553,6 @@
 
 .landing .card h3 {
   color: var(--fg);
-}
-
-.landing .card-quiet {
-  background: transparent;
-}
-
-.landing .card-link {
-  text-decoration: none;
-  gap: 0.5rem;
-}
-
-.landing .card-link:hover h3 {
-  color: var(--accent-text);
 }
 
 .landing .card-media {
@@ -1015,62 +682,8 @@
   white-space: nowrap;
 }
 
-.landing .chip-static {
-  cursor: default;
-  color: var(--fg);
-}
-
-.landing .chip-row {
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0;
-  margin: 0 0 3rem;
-}
-
-/* ─── CAPABILITIES ───────────────────────────────────────────────────────── */
-
-.landing .cap-matrix {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--hair);
-  border: 1px solid var(--hair);
-  margin-top: 2.5rem;
-}
-
-.landing .cap-col {
-  background: var(--card);
-  padding: clamp(1.2rem, 2vw, 1.8rem);
-}
-
-.landing .cap-col ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.42rem;
-}
-
-.landing .cap-col li {
-  color: var(--fg);
-  font-size: 0.95rem;
-}
-
 .landing .cap-shots {
   margin-top: 1.5rem;
-}
-
-/* ─── VALIDATION ─────────────────────────────────────────────────────────── */
-
-.landing .stat-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--hair);
-  border: 1px solid var(--hair);
-  margin-bottom: 1.5rem;
 }
 
 .landing .stat {
@@ -1081,56 +694,10 @@
   display: block;
 }
 
-.landing a.stat:hover .stat-num {
-  color: var(--lp-accent);
-}
-
-.landing .stat-num {
-  font-family: var(--lp-display);
-  font-weight: 700;
-  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
-  letter-spacing: -0.03em;
-  line-height: 1;
-  margin: 0 0 0.5rem;
-  color: var(--fg);
-  font-variant-numeric: tabular-nums;
-}
-
-.landing .stat-num-sm {
-  font-size: clamp(1.3rem, 2.2vw, 1.75rem);
-}
-
 .landing .stat-label {
   margin: 0 0 0.3rem;
   font-size: 0.9rem;
   color: var(--fg);
-}
-
-.landing .stat-hint {
-  margin: 0;
-  font-family: var(--lp-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.06em;
-  color: var(--fg-2);
-  line-height: 1.5;
-}
-
-/* ─── CODES ──────────────────────────────────────────────────────────────── */
-
-.landing .code-grid {
-  list-style: none;
-  margin: 2.5rem 0 2rem;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--hair);
-  border: 1px solid var(--hair);
-}
-
-.landing .code-cell {
-  background: var(--card);
-  padding: clamp(1rem, 1.8vw, 1.4rem);
 }
 
 .landing .code-name {
@@ -1140,12 +707,6 @@
   letter-spacing: 0.02em;
   margin: 0 0 0.25rem;
   color: var(--fg);
-}
-
-.landing .code-desc {
-  margin: 0;
-  font-size: 0.88rem;
-  color: var(--fg-2);
 }
 
 .landing .note {
@@ -1172,24 +733,6 @@
   margin-bottom: 1.5rem;
 }
 
-.landing .gv-side p:last-child {
-  margin-bottom: 0;
-  color: var(--fg-2);
-}
-
-.landing .gv-arrow {
-  font-size: 1.5rem;
-  color: var(--fg-2);
-  margin: 0;
-}
-
-.landing .analogies {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(1rem, 3vw, 2.5rem);
-  margin-bottom: 2.5rem;
-}
-
 .landing .analogy {
   border-left: 1px solid var(--hair);
   padding-left: 1.1rem;
@@ -1201,53 +744,10 @@
   font-size: 0.94rem;
 }
 
-/*
-   The section's closing line. `margin: 0` left it sitting directly under the
-   last bullet of the AI-future list, where a 2.2rem accent sentence reads as
-   another list item rather than as the section's conclusion. It needs the
-   room its weight implies.
-*/
-.landing .thesis-close {
-  font-family: var(--lp-display);
-  font-weight: 700;
-  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-  color: var(--accent-text);
-  max-width: 24ch;
-  margin: clamp(2.5rem, 5vw, 4rem) 0 0;
-}
-
-/* ─── STATUS ─────────────────────────────────────────────────────────────── */
-
-.landing .status-groups {
-  display: grid;
-  gap: 1px;
-  background: var(--hair);
-  border: 1px solid var(--hair);
-  margin-top: 2.5rem;
-}
-
-.landing .status-group {
-  background: var(--card);
-  padding: clamp(1.3rem, 2.4vw, 2rem);
-  display: grid;
-  grid-template-columns: minmax(0, 0.32fr) minmax(0, 1fr);
-  gap: 1rem clamp(1.5rem, 4vw, 3rem);
-  align-items: start;
-}
-
-.landing .status-head h3 {
-  margin: 0.6rem 0 0;
-  color: var(--fg-2);
-  font-size: 0.92rem;
-  font-weight: 500;
-}
-
 .landing .badge {
   display: inline-block;
   font-family: var(--lp-mono);
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1257,23 +757,7 @@
 }
 
 .landing .badge-today { color: var(--ok); }
-.landing .badge-partial { color: var(--accent-text); }
-/*
-   Four tiers, not three. "Partial" and "in development" were previously the
-   same badge, which let a mode that calculates something today (PRO) and a
-   mode whose teacher half does not exist (Education) share a label. Blue for
-   in-development keeps it visually distinct from the accent used by partial
-   without implying either is shipped.
-*/
 .landing .badge-dev { color: var(--dev); }
-/*
-   "Partial, in testing" reads as progress, not as a shortfall, so it takes the
-   green the shipped tier uses rather than the accent reserved for a caveat.
-   The label still says PARTIAL, so the status is not softened — only the
-   colour stops implying a problem where the work is simply being validated.
-*/
-.landing .badge-testing { color: var(--ok); }
-.landing .badge-roadmap { color: var(--fg-2); }
 
 /* ─── MODES (shared by the mode sections and the overview) ────────────────── */
 
@@ -1305,35 +789,7 @@
   max-width: 84ch;
 }
 
-.landing .mode-commit {
-  font-family: var(--lp-mono);
-  font-size: 0.76rem;
-  line-height: 1.6;
-  color: var(--fg-2);
-  margin: 0.9rem 0 0;
-  max-width: 84ch;
-}
-
-.landing .what-access {
-  margin-top: 2rem;
-  border-left: 2px solid var(--ok);
-  padding-left: 1.1rem;
-  color: var(--fg-2);
-  max-width: 84ch;
-}
-
 .landing .modes { margin-top: 3rem; }
-
-.landing .modes-title {
-  font-size: 1.25rem;
-  margin: 0 0 0.7rem;
-}
-
-.landing .modes-lead {
-  color: var(--fg-2);
-  max-width: 84ch;
-  margin: 0 0 1.4rem;
-}
 
 .landing .mode-list {
   list-style: none;
@@ -1361,12 +817,6 @@
   color: var(--fg);
 }
 
-.landing .mode-body {
-  margin: 0;
-  color: var(--fg-2);
-  font-size: 0.95rem;
-}
-
 /* ─── TWO-COLUMN NOW / NEXT ──────────────────────────────────────────────── */
 
 .landing .split {
@@ -1376,150 +826,6 @@
   background: var(--hair);
   border: 1px solid var(--hair);
   margin-top: 2.5rem;
-}
-
-.landing .split-col {
-  background: var(--card);
-  padding: clamp(1.4rem, 2.2vw, 2rem);
-}
-
-.landing .split-col h3 { margin: 0 0 1.1rem; font-size: 1.15rem; }
-.landing .split-col-quiet h3 { color: var(--fg-2); }
-.landing .split-col .tick-list,
-.landing .split-col .status-list { margin-top: 0; }
-
-/* ─── CIRSOC ─────────────────────────────────────────────────────────────── */
-
-.landing .cirsoc-list {
-  list-style: none;
-  margin: 2.5rem 0 0;
-  padding: 0;
-  display: grid;
-  gap: 1px;
-  background: var(--hair);
-  border: 1px solid var(--hair);
-}
-
-.landing .cirsoc-row {
-  background: var(--card);
-  padding: clamp(1.3rem, 2.4vw, 2rem);
-  display: grid;
-  grid-template-columns: minmax(0, 0.34fr) minmax(0, 1fr);
-  gap: 1rem clamp(1.5rem, 4vw, 3rem);
-  align-items: start;
-}
-
-.landing .cirsoc-name {
-  font-family: var(--lp-mono);
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--fg);
-  margin: 0;
-}
-
-.landing .cirsoc-ed {
-  font-family: var(--lp-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  color: var(--fg-2);
-  margin: 0.25rem 0 0.7rem;
-}
-
-.landing .cirsoc-what h3 { margin: 0 0 0.5rem; font-size: 1.1rem; }
-.landing .cirsoc-what p { margin: 0; color: var(--fg-2); font-size: 0.95rem; }
-
-.landing .cirsoc-limit {
-  margin-top: 0.7rem !important;
-  font-family: var(--lp-mono);
-  font-size: 0.74rem;
-  line-height: 1.6;
-}
-
-.landing .codes-intl-kicker { margin-top: 2.5rem; }
-
-.landing .cirsoc-intro {
-  color: var(--fg-2);
-  max-width: 84ch;
-  margin: 1rem 0 0;
-}
-
-.landing .intl { margin-top: 3rem; }
-
-.landing .intl-lead {
-  color: var(--fg-2);
-  max-width: 84ch;
-  margin: 0 0 1.6rem;
-}
-
-.landing .intl-group + .intl-group { margin-top: 1.8rem; }
-
-.landing .intl-region {
-  font-family: var(--lp-mono);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--fg-2);
-  margin: 0 0 0.8rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--hair);
-}
-
-/*
-   Inside a region the grid flows instead of holding a fixed four columns.
-   A group of five and a group of two left one and two empty cells painted in
-   the grid's own hair colour, which read as missing tiles rather than as the
-   end of a list. Flowing cells simply stop where the codes stop.
-*/
-.landing .intl-group .code-grid {
-  display: flex;
-  flex-wrap: wrap;
-  margin: 0;
-  border: none;
-  background: none;
-  gap: 1px;
-}
-
-.landing .intl-group .code-cell {
-  flex: 1 1 clamp(180px, 22%, 260px);
-  border: 1px solid var(--hair);
-  margin: -1px 0 0 -1px;
-}
-
-
-/* ─── AI FUTURE ──────────────────────────────────────────────────────────── */
-
-.landing .ai-future {
-  margin-top: 2rem;
-  border-top: 1px solid var(--hair);
-  padding-top: 1.6rem;
-}
-
-.landing .ai-future h3 { margin: 0 0 1.1rem; font-size: 1.15rem; }
-
-.landing .status-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.55rem;
-}
-
-.landing .status-list li {
-  position: relative;
-  padding-left: 1.2rem;
-  color: var(--fg);
-  font-size: 0.95rem;
-}
-
-.landing .status-list li::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0.62em;
-  width: 6px;
-  height: 6px;
-  border: 1px solid var(--fg-2);
 }
 
 .landing .access {
@@ -1537,14 +843,6 @@
   color: var(--fg-2);
 }
 
-.landing .access-note {
-  font-family: var(--lp-mono);
-  font-size: 0.74rem;
-  line-height: 1.6;
-  letter-spacing: 0.02em;
-  margin-bottom: 0;
-}
-
 /* ─── CTA ────────────────────────────────────────────────────────────────── */
 
 .landing .cta-inner {
@@ -1557,13 +855,6 @@
 
 .landing .cta-inner .lead {
   margin-bottom: 0;
-}
-
-.landing .cta-actions {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  flex-wrap: wrap;
 }
 
 /* ─── FOOTER ─────────────────────────────────────────────────────────────── */
@@ -1600,10 +891,12 @@
 }
 
 .landing .footer-right {
+  flex: 1 1 32rem;
+  max-width: 46rem;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 1rem;
+  align-items: stretch;
+  gap: 1.25rem;
 }
 
 .landing .footer-tagline {
@@ -1614,7 +907,7 @@
   display: flex;
   gap: 0.4rem;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1624,6 +917,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0.34rem 0.6rem;
   border: 1px solid rgba(143, 163, 179, 0.22);
   border-radius: var(--lp-radius);
@@ -1639,11 +934,6 @@
 }
 
 .landing .social-mark { display: inline-flex; }
-
-@media (max-width: 700px) {
-  .landing .footer-right { align-items: flex-start; }
-  .landing .footer-social { justify-content: flex-start; }
-}
 
 .landing .footer-brand {
   display: flex;
@@ -1665,18 +955,34 @@
 }
 
 .landing .footer-links {
-  display: flex;
-  gap: 1.25rem;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 1rem 1.5rem;
+}
+
+.landing .footer-head {
+  margin: 0 0 0.25rem;
+  font-family: var(--lp-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.landing .footer-links ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .landing .footer-links a,
 .landing .footer-links button {
   background: none;
   border: 0;
-  /* At least 24 px tall (WCAG 2.5.8); the links measured 23 px. */
   padding: 0.25rem 0;
-  min-height: 1.5rem;
+  text-align: left;
+  min-height: 44px;
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
   cursor: pointer;
@@ -1702,7 +1008,7 @@
   /* The WhatsApp button floats bottom-right; keep the line clear of it. */
   padding-right: 4.5rem;
   font-family: var(--lp-mono);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   color: var(--fg-2);
 }
@@ -1712,19 +1018,14 @@
 }
 
 /* ─── RESPONSIVE ─────────────────────────────────────────────────────────
-   Verified at 360, 390, 768, 1024 and 1440. The nav collapses at 1140px, below
-   which its longest language (Spanish, about 1,100px with the gutters) would
-   overflow; at 760px the full nav had overflowed by 45px. 1280px laptops keep
-   the links (e2e/site-nav-width.spec.ts).
+   Verified at 360, 390, 768, 1024 and 1440. The nav collapses at 1080px, below
+   which its longest language (Spanish, about 1,070px with the gutters) would
+   overflow (e2e/site-nav-width.spec.ts).
    ───────────────────────────────────────────────────────────────────────── */
 
 @media (max-width: 1100px) {
   .landing .card-row.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .landing .cap-matrix { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .landing .code-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .landing .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .landing .analogies { grid-template-columns: 1fr; gap: 1.25rem; }
-  .landing .hero-grid { grid-template-columns: 1fr; }
+  .landing .hero-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 1000px) {
@@ -1732,59 +1033,19 @@
   .landing .split { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 1140px) {
-  .landing .nav-links {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    margin: 0;
-    padding: 0.5rem var(--lp-gut) 1rem;
-    background: var(--lp-ink);
-    border-bottom: 1px solid rgba(143, 163, 179, 0.18);
-  }
-
-  .landing .nav-links.open { display: flex; }
-
-  .landing .nav-links button,
-  .landing .nav-links .nav-link {
-    text-align: left;
-    padding: 0.7rem 0;
-    border-bottom: 1px solid rgba(143, 163, 179, 0.1);
-  }
-
-  .landing .nav-actions { margin-left: auto; }
-  .landing .nav-toggle { display: flex; }
-}
-
 @media (max-width: 900px) {
   .landing .mode-row { grid-template-columns: minmax(0, 9rem) minmax(0, 1fr); }
   .landing .mode-row .badge { grid-row: 1; }
-  .landing .mode-body { grid-column: 1 / -1; }
-  .landing .cirsoc-row { grid-template-columns: 1fr; }
 
   .landing .gv { grid-template-columns: 1fr; }
-  .landing .gv-arrow { transform: rotate(90deg); justify-self: center; }
-  .landing .status-group { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {
-  .landing .nav-gh { display: none; }
-  .landing .nav-actions > .btn-primary { display: none; }
 
   .landing .card-row.cols-2,
-  .landing .card-row.cols-3,
-  .landing .cap-matrix,
-  .landing .code-grid,
-  .landing .stat-row {
+  .landing .card-row.cols-3 {
     grid-template-columns: 1fr;
   }
-
-  .landing .prob-row { grid-template-columns: 1fr; gap: 0.5rem; }
   .landing .rt-states { grid-template-columns: 1fr; }
 
   .landing .cta-inner { align-items: flex-start; }
@@ -1803,8 +1064,7 @@
 }
 
 @media (max-width: 420px) {
-  .landing .nav-name { display: none; }
-  .landing .tf-legend { font-size: 0.6rem; gap: 0.3rem 0.8rem; }
+  .landing .tf-legend { gap: 0.3rem 0.8rem; }
 }
 
 /* ─── FOCUS VISIBILITY ───────────────────────────────────────────────────── */
@@ -1957,13 +1217,8 @@
    Added with the shorter deck (September 2026).
    ───────────────────────────────────────────────────────────── */
 
-/* The table scrolls inside its own box. Three columns on a phone is the one
-   place this page can widen the document, and a landing that slides sideways
-   reads as broken. */
 .landing .model-table-wrap {
-  overflow-x: auto;
   margin: 1.6rem 0 1rem;
-  -webkit-overflow-scrolling: touch;
 }
 
 .landing .model-table {
@@ -1971,7 +1226,7 @@
   /* Three short columns stretched across a 1660px section put the prices a
      screen away from the module they belong to. */
   max-width: 56rem;
-  min-width: 30rem;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.95rem;
 }
@@ -1979,13 +1234,15 @@
 .landing .model-table th,
 .landing .model-table td {
   text-align: left;
-  padding: 0.7rem 0.9rem;
+  padding: 0.7rem clamp(0.35rem, 1.5vw, 0.9rem);
+  overflow-wrap: break-word;
+  hyphens: auto;
   border-bottom: 1px solid rgba(143, 163, 179, 0.18);
 }
 
 .landing .model-table thead th {
   font-family: var(--lp-sans);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--lp-slate-2);
@@ -1994,34 +1251,23 @@
 
 .landing .model-table tbody th {
   font-weight: 600;
-  white-space: nowrap;
 }
 
 .landing .model-table td { color: var(--lp-slate-2); }
 
 .landing .model-table thead th:not(:first-child),
-.landing .model-table thead th:not(:first-child),
 .landing .model-table .price {
   text-align: right;
   font-weight: 600;
-  white-space: nowrap;
 }
 
-.landing .model-table thead th:not(:first-child) { width: 22%; }
+.landing .model-table thead th:not(:first-child) { width: 30%; }
 
 /* Colour carries the same distinction the words do, never on its own. */
 /* Per CELL, not per row. "PRO · Diseño" is paid for firms and free for
    universities; colouring the row painted that free in the paid red. */
 .landing .model-table .price.is-free { color: #4ba36b; }
 .landing .model-table .price.is-paid { color: var(--lp-accent); }
-
-/* A closing line that is the point of its section, not an aside. */
-.landing .mode-note--strong {
-  color: var(--lp-paper-2);
-  font-weight: 500;
-}
-
-
 
 /* ─── TWO PICTURES, ONE CAPTION ──────────────────────────────────────────
 

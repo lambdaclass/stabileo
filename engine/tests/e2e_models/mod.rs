@@ -308,7 +308,8 @@ pub fn stable_3d(seed: u64) -> SolverInput3D {
                     s.kry = Some(rng.gen_range(1e2..1e4));
                 }
                 2 => {
-                    s.kz = Some(rng.gen_range(1e4..1e6)); // spring makes uz free
+                    s.rz = false;
+                    s.kz = Some(rng.gen_range(1e4..1e6));
                 }
                 3 if !inclined_done => {
                     inclined_done = true;
@@ -354,6 +355,7 @@ pub fn stable_3d(seed: u64) -> SolverInput3D {
                 }));
             }
             2 => loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                px: 0.0,
                 element_id, a: rng.gen_range(0.0..l), py: rng.gen_range(-20.0..20.0), pz: rng.gen_range(-30.0..10.0),
             })),
             _ => loads.push(SolverLoad3D::Thermal(SolverThermalLoad3D {

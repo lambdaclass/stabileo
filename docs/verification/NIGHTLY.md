@@ -55,7 +55,7 @@ is a harness error, not a successful comparison.
 | `metamorphic-nightly` | Full corpus plus 1,000 random cases **per dimension** on own runners; 200 per dimension hosted; exhaustive invariants/analyses; test command capped at 110 min | 150 min |
 | `random-models` | 1,000 valid generated models, alternating 2D/3D attempts; 100 hosted; two-hour work budget, 30 min hosted | 150 min |
 | `properties` | 10,000 cases per property, 1,000 hosted; command budget 2 h / 30 min | 150 min |
-| `opensees-diff` | Fixtures plus 4,160 random analysis cases | 45 min |
+| `opensees-diff` | Fixtures plus 4,160 random analysis cases, in five parallel parts (frames, buckling, pdelta, dynamics, shells); buckling runs four at a time because models with axial span loads are re-compared on meshes (see tools/opensees/README.md) | 45 min per part |
 | `codeaster-diff` | Fixtures plus 900 random 3D models | 60 min |
 | `fuzz` | Four independent targets, each 2 h own / 30 min hosted, 2 GiB RSS and 60 s per input | 180 min each |
 | `mutants` | Four of 512 shards, each capped at 120 min | 150 min each |
@@ -78,9 +78,16 @@ that doubled the baseline (155 s to ~400 s, a missed mutant ~800 s) and no shard
 A shard fails whenever `mutants.out/missed.txt` is not empty, whatever cargo-mutants' exit code
 (it reports timeouts, 3, over missed mutants, 2).
 
-Mutation shards rotate by UTC day, 32 each night, on the nightly runner pool
-(`stabileo-nightly`, or the `stabileo` pool when it is off): a complete 512-shard
-pass takes 16 nights, the roadmap's promise. A shard that runs to its verdict
+Each night runs the 32 mutation shards that went longest without running to their verdict
+(`.github/scripts/mutants-plan.py`; shards with no marker first, then the oldest marker, ties by
+shard index), on the nightly runner pool (`stabileo-nightly`, or the `stabileo` pool when it is
+off). A shard lost to a runner or to its time budget keeps its place in that order, so it is
+retried before any shard with a newer marker instead of waiting a fixed 16-night turn. After a
+second miss it is dated by its last attempt and waits like a shard that just ran, so shards that
+never finish cannot take every slot. Retries use slots, so a night that loses shards lengthens the
+pass; the dashboard check below is what catches a shard left without a report.
+When every shard finishes, a complete 512-shard pass takes 16 nights, the roadmap's promise; 32
+shards take about 8.5 hours of the nightly pool. A shard that runs to its verdict
 uploads `mutants-done-<k>-of-<n>`; the weekly verification dashboard fails when
 any shard has none from the last 16 days
 (`scripts/verification-metrics.py --check-mutants-rotation`). Override

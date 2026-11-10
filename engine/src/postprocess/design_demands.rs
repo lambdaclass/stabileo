@@ -79,6 +79,7 @@ pub fn extract_rc_demands_2d(
             mu: g.at.m_strong,
             vu: Some(g.peak.v_strong),
             nu: Some(g.at.n),
+            tu: None,
         }
     }).collect()
 }
@@ -93,6 +94,9 @@ pub fn extract_rc_demands_3d(
 ) -> Result<Vec<RCDesignForces>, String> {
     grouped.members.iter().map(|member| {
         let g = pick_governing_3d(&member.stations, strategy);
+        if !g.at.is_finite() || !g.peak.is_finite() {
+            return Err(format!("member {}: non-finite 3D RC demand", member.member_id));
+        }
         if g.peak.m_weak != 0.0 || g.peak.v_weak != 0.0 {
             return Err(format!(
                 "member {}: weak-axis Mz = {} / Vy = {} not checked by the RC check (strong axis only)",
@@ -104,6 +108,7 @@ pub fn extract_rc_demands_3d(
             mu: g.at.m_strong,
             vu: Some(g.peak.v_strong),
             nu: Some(g.at.n),
+            tu: Some(g.peak.torsion),
         })
     }).collect()
 }
@@ -114,7 +119,7 @@ struct Governing {
 }
 
 fn signed_peak(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() {
+    if !a.is_finite() || !b.is_finite() {
         f64::NAN
     } else if b.abs() > a.abs() {
         b
@@ -127,6 +132,12 @@ fn pick_governing(demands: impl Iterator<Item = AxisDemand>, strategy: DemandStr
     let mut best_score = f64::NEG_INFINITY;
     let mut g = Governing { at: AxisDemand::default(), peak: AxisDemand::default() };
     for d in demands {
+        if !d.is_finite() || !g.at.is_finite() {
+            best_score = f64::INFINITY;
+            g.at = AxisDemand::NAN;
+            g.peak = AxisDemand::NAN;
+            continue;
+        }
         let m = d.m_strong.hypot(d.m_weak);
         let score = match strategy {
             DemandStrategy::MaxAbsMoment => m,
@@ -137,9 +148,8 @@ fn pick_governing(demands: impl Iterator<Item = AxisDemand>, strategy: DemandStr
                 nr + mr
             }
         };
-        let invalid = [d.n, d.m_strong, d.v_strong, d.m_weak, d.v_weak].iter().any(|x| x.is_nan());
-        if invalid || score > best_score {
-            best_score = if invalid { f64::INFINITY } else { score };
+        if score > best_score {
+            best_score = score;
             g.at = d;
         }
         g.peak = AxisDemand {
@@ -148,6 +158,7 @@ fn pick_governing(demands: impl Iterator<Item = AxisDemand>, strategy: DemandStr
             v_strong: signed_peak(g.peak.v_strong, d.v_strong),
             m_weak: signed_peak(g.peak.m_weak, d.m_weak),
             v_weak: signed_peak(g.peak.v_weak, d.v_weak),
+            torsion: signed_peak(g.peak.torsion, d.torsion),
         };
     }
     g
@@ -345,6 +356,33 @@ mod tests {
         assert!((demands[0].mu - (-10.0)).abs() < 1e-10);
         assert!((demands[0].vu.unwrap() - 5.0).abs() < 1e-10);
         assert!((demands[0].nu.unwrap() - (-50.0)).abs() < 1e-10);
+        assert!((demands[0].tu.unwrap() - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn non_governing_infinity_poisons_governing_demand() {
+        for inf in [f64::INFINITY, f64::NEG_INFINITY] {
+            let stations_2d = vec![
+                make_station_2d(1, 0, 0.0, vec![(1, inf, 10.0, -30.0)]),
+                make_station_2d(1, 1, 0.5, vec![(1, 0.0, 5.0, -60.0)]),
+            ];
+            let g2 = pick_governing_2d(&stations_2d, DemandStrategy::MaxAbsMoment);
+            assert!(g2.at.n.is_nan() && g2.at.m_strong.is_nan() && g2.peak.v_strong.is_nan());
+
+            let stations_3d = vec![
+                make_station_3d(1, 0, 0.0, vec![(1, inf, 0.0, 5.0, -30.0, 0.0, 0.0)]),
+                make_station_3d(1, 1, 0.5, vec![(1, 0.0, 0.0, 3.0, -60.0, 0.0, 0.0)]),
+            ];
+            let g3 = pick_governing_3d(&stations_3d, DemandStrategy::MaxAbsMoment);
+            assert!(g3.at.n.is_nan() && g3.at.m_strong.is_nan() && g3.peak.v_strong.is_nan());
+
+            let tor_3d = vec![
+                make_station_3d(1, 0, 0.0, vec![(1, 0.0, 0.0, 5.0, -30.0, 0.0, inf)]),
+                make_station_3d(1, 1, 0.5, vec![(1, 0.0, 0.0, 3.0, -60.0, 0.0, 0.0)]),
+            ];
+            let gt = pick_governing_3d(&tor_3d, DemandStrategy::MaxAbsMoment);
+            assert!(gt.at.n.is_nan() && gt.peak.torsion.is_nan());
+        }
     }
 
     #[test]

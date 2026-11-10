@@ -42,9 +42,9 @@ const NUM_POINTS: usize = 21;
 
 // ==================== Sampling ====================
 
-fn build_sampling_positions(
+pub(crate) fn build_sampling_positions(
     length: f64,
-    point_loads: &[PointLoadInfo],
+    point_positions: impl Iterator<Item = f64>,
 ) -> Vec<f64> {
     let mut positions = std::collections::BTreeSet::new();
 
@@ -57,8 +57,8 @@ fn build_sampling_positions(
 
     // Around point loads
     let eps = 1e-6;
-    for pl in point_loads {
-        let t_pl = pl.a / length;
+    for a in point_positions {
+        let t_pl = a / length;
         if t_pl > eps {
             positions.insert(((t_pl - eps) * 1e12) as i64);
         }
@@ -80,7 +80,7 @@ pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {
     if kind == "axial" && !has_axial_pl {
         (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
     } else {
-        build_sampling_positions(ef.length, &ef.point_loads)
+        build_sampling_positions(ef.length, ef.point_loads.iter().map(|p| p.a))
     }
 }
 
@@ -208,7 +208,7 @@ pub fn compute_diagram_value_at_sorted(
     // of references on *every* station evaluation, which in the envelope path is
     // elements x 21 stations x load cases x diagram kinds allocations.
     let d_loads = &ef.distributed_loads;
-    let use_legacy_q = ef.distributed_loads.is_empty() && (ef.q_i.abs() > 1e-10 || ef.q_j.abs() > 1e-10);
+    let use_legacy_q = ef.distributed_loads.is_empty() && (ef.q_i != 0.0 || ef.q_j != 0.0);
 
     match kind {
         "moment" => {
@@ -394,6 +394,8 @@ pub fn compute_diagrams_2d(
 ///   m(x) = m0 + s0·x + m_q(x)
 ///   ψ(x) = θ_i + (m0·x + s0·x²/2 + ∫₀ˣ m_q)/EI
 ///   v(x) = v_i + θ_i·x + (m0·x²/2 + s0·x³/6 + ∫₀ˣ(x − t)·m_q)/EI − (s0·x + m_q(x))/(G·As)
+/// A free curvature κ, such as a thermal gradient's, makes the member's moment m − EI·κ, so
+/// it only moves the released-end conditions to m = EI·κ.
 /// The unknowns (θ_i, m0, s0) follow from the end conditions: θ_i is the node
 /// rotation or, at a hinge, m(0) = 0; v(L) = v_j; ψ(L) = θ_j or, at a hinge,
 /// m(L) = 0. Without shear flexibility the homogeneous part is the cubic
@@ -407,17 +409,21 @@ struct MemberDeflection {
     s0: f64,
     points: Vec<(f64, f64)>,
     dist: Vec<(f64, f64, f64, f64)>,
+    couples: Vec<(f64, f64)>,
 }
 
 impl MemberDeflection {
-    /// (m_q(x), ∫₀ˣ m_q, ∫₀ˣ (x − t) m_q(t) dt) of the member loads.
-    fn load_terms(&self, x: f64) -> [f64; 3] {
-        let mut out = [0.0; 3];
+    /// (m_q(x), ∫₀ˣ m_q, ∫₀ˣ (x − t) m_q(t) dt, ∫₀ˣ s_q, s_q(x)) of the member loads: couples
+    /// change m_q but carry no shear.
+    fn load_terms(&self, x: f64) -> [f64; 5] {
+        let mut out = [0.0; 5];
         let mut add = |p: f64, d: f64| {
             if d > 0.0 {
                 out[0] += p * d;
                 out[1] += p * d * d / 2.0;
                 out[2] += p * d * d * d / 6.0;
+                out[3] += p * d;
+                out[4] += p;
             }
         };
         for &(a, p) in &self.points {
@@ -438,6 +444,14 @@ impl MemberDeflection {
                 add(q * w * half, x - tt);
             }
         }
+        for &(a, c) in &self.couples {
+            let d = x - a;
+            if d > 0.0 {
+                out[0] -= c;
+                out[1] -= c * d;
+                out[2] -= c * d * d / 2.0;
+            }
+        }
         out
     }
 
@@ -445,18 +459,31 @@ impl MemberDeflection {
         l: f64, ei: f64, flex_s: f64,
         v_i: f64, r_i: f64, v_j: f64, r_j: f64,
         hinge_start: bool, hinge_end: bool,
-        points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>,
+        points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>, couples: Vec<(f64, f64)>,
     ) -> Self {
-        let mut d = MemberDeflection { ei, flex_s, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, points, dist };
-        let [mql, mq1, mq2] = d.load_terms(l);
+        Self::curved(l, ei, flex_s, v_i, r_i, v_j, r_j, hinge_start, hinge_end, points, dist, couples, 0.0)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn curved(
+        l: f64, ei: f64, flex_s: f64,
+        v_i: f64, r_i: f64, v_j: f64, r_j: f64,
+        hinge_start: bool, hinge_end: bool,
+        points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>, couples: Vec<(f64, f64)>,
+        kappa: f64,
+    ) -> Self {
+        let mut d = MemberDeflection { ei, flex_s, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, points, dist, couples };
+        let [mql, mq1, mq2, sql, _] = d.load_terms(l);
+        let free = ei * kappa;
         // Unknowns x = [θ_i, m0, s0].
-        let r1 = if hinge_start { ([0.0, 1.0, 0.0], 0.0) } else { ([1.0, 0.0, 0.0], r_i) };
+        let r1 = if hinge_start { ([0.0, 1.0, 0.0], free) } else { ([1.0, 0.0, 0.0], r_i) };
         let r2 = (
             [l, l * l / (2.0 * ei), l * l * l / (6.0 * ei) - flex_s * l],
-            v_j - v_i - mq2 / ei + flex_s * mql,
+            v_j - v_i - mq2 / ei + flex_s * sql,
         );
+        let end_couples: f64 = d.couples.iter().filter(|c| c.0 >= l).map(|c| c.1).sum();
         let r3 = if hinge_end {
-            ([0.0, 1.0, l], -mql)
+            ([0.0, 1.0, l], free + end_couples - mql)
         } else {
             ([1.0, l / ei, l * l / (2.0 * ei)], r_j - mq1 / ei)
         };
@@ -485,11 +512,81 @@ impl MemberDeflection {
     }
 
     fn v(&self, x: f64) -> f64 {
-        let [mq, _, mq2] = self.load_terms(x);
+        let [_, _, mq2, sq, _] = self.load_terms(x);
         self.v_i
             + self.theta_i * x
             + (self.m0 * x * x / 2.0 + self.s0 * x * x * x / 6.0 + mq2) / self.ei
-            - self.flex_s * (self.s0 * x + mq)
+            - self.flex_s * (self.s0 * x + sq)
+    }
+
+    fn rotation(&self, x: f64) -> f64 {
+        let [_, mq1, ..] = self.load_terms(x);
+        self.theta_i + (self.m0 * x + self.s0 * x * x / 2.0 + mq1) / self.ei
+    }
+
+    fn moment(&self, x: f64) -> f64 {
+        self.m0 + self.s0 * x + self.load_terms(x)[0]
+    }
+
+    fn shear(&self, x: f64) -> f64 {
+        self.s0 + self.load_terms(x)[4]
+    }
+}
+
+/// The section rotation along one bending plane of a loaded member, from the same exact
+/// Euler–Bernoulli / Timoshenko deflection as [`compute_deformed_shape`], couples included: end values in the
+/// member's local axes, `points` (a, p) and `dist` (q_i, q_j, a, b) as `ElementForces` carries
+/// them, `couples` (a, m) its counter-clockwise couples, and `kappa` the free curvature of a
+/// thermal gradient, which carries no moment and so is not in the member's forces.
+pub(crate) struct SpanRotation {
+    member: MemberDeflection,
+    breaks: Vec<f64>,
+}
+
+impl SpanRotation {
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new(
+        l: f64, ei: f64, flex_s: f64,
+        v_i: f64, r_i: f64, v_j: f64, r_j: f64,
+        hinge_start: bool, hinge_end: bool,
+        points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>, couples: Vec<(f64, f64)>,
+        kappa: f64,
+    ) -> Self {
+        let breaks = points.iter().map(|p| p.0).chain(couples.iter().map(|c| c.0)).chain(dist.iter().flat_map(|d| [d.2, d.3])).filter(|&a| a > 0.0 && a < l).collect();
+        SpanRotation { member: MemberDeflection::curved(l, ei, flex_s, v_i, r_i, v_j, r_j, hinge_start, hinge_end, points, dist, couples, kappa), breaks }
+    }
+
+    pub(crate) fn at(&self, x: f64) -> f64 {
+        self.member.rotation(x)
+    }
+
+    /// EI times the derivative of [`Self::at`]: the rotation is extreme only where it changes sign.
+    pub(crate) fn moment(&self, x: f64) -> f64 {
+        self.member.moment(x)
+    }
+
+    /// The shear, from the end shear and the loads rather than from differences of the moment,
+    /// which a large free curvature would swamp.
+    pub(crate) fn shear(&self, x: f64) -> f64 {
+        self.member.shear(x)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn deflection(&self, x: f64) -> f64 {
+        self.member.v(x)
+    }
+
+    pub(crate) fn ei(&self) -> f64 {
+        self.member.ei
+    }
+
+    /// 1/(G·As): the axis turns from the section by −V/(G·As).
+    pub(crate) fn shear_flexibility(&self) -> f64 {
+        self.member.flex_s
+    }
+
+    pub(crate) fn breaks(&self) -> &[f64] {
+        &self.breaks
     }
 }
 
@@ -506,7 +603,7 @@ pub(crate) fn deflection_shape_cubics(
     for (k, row) in out.iter_mut().enumerate() {
         let mut e = [0.0; 4];
         e[k] = 1.0;
-        let d = MemberDeflection::new(l, ei, flex_s, e[0], e[1], e[2], e[3], hinge_start, hinge_end, Vec::new(), Vec::new());
+        let d = MemberDeflection::new(l, ei, flex_s, e[0], e[1], e[2], e[3], hinge_start, hinge_end, Vec::new(), Vec::new(), Vec::new());
         *row = [d.v_i, d.theta_i - flex_s * d.s0, d.m0 / (2.0 * d.ei), d.s0 / (6.0 * d.ei)];
     }
     out
@@ -564,11 +661,11 @@ pub fn compute_deformed_shape(
     let member = if has_ei {
         MemberDeflection::new(
             l, ei_val, flex_s, v_i, r_iz, v_j, r_jz, hinge_start, hinge_end,
-            load_points.to_vec(), all_dist,
+            load_points.to_vec(), all_dist, Vec::new(),
         )
     } else {
         MemberDeflection::new(
-            l, 1.0, 0.0, v_i, r_iz, v_j, r_jz, hinge_start, hinge_end, Vec::new(), Vec::new(),
+            l, 1.0, 0.0, v_i, r_iz, v_j, r_jz, hinge_start, hinge_end, Vec::new(), Vec::new(), Vec::new(),
         )
     };
 
@@ -654,5 +751,66 @@ mod tests {
         let pinned = shape([0.0, 7.0, 0.0, -7.0], (true, true), ei, Some(gas), &[], &dist, l);
         let want = 5.0 * q * l.powi(4) / (384.0 * ei) + q * l * l / (8.0 * gas);
         assert!((pinned[10] - want).abs() < 1e-12 * want.abs().max(1.0), "{} vs {want}", pinned[10]);
+    }
+
+    fn scaled_beam_2d(s: f64) -> ElementForces {
+        let input: crate::types::SolverInput = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":4,"z":0}},
+            "materials": {"1": {"id":1,"e":200000.0 * s,"nu":0.3}},
+            "sections": {"1": {"id":1,"a":0.01,"iz":0.0001}},
+            "elements": {"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "supports": {"1": {"id":1,"nodeId":1,"type":"fixed"}, "2": {"id":2,"nodeId":2,"type":"pinned"}},
+            "loads": [{"type":"distributed","data":{"elementId":1,"qI":-10.0 * s,"qJ":-4.0 * s}}]
+        })).unwrap();
+        let mut ef = crate::solver::linear::solve_2d(&input).unwrap().element_forces.remove(0);
+        ef.distributed_loads.clear();
+        (ef.q_i, ef.q_j) = (-10.0 * s, -4.0 * s);
+        ef
+    }
+
+    #[test]
+    fn a_member_without_a_load_list_keeps_its_load_at_any_scale_1614() {
+        let reference = scaled_beam_2d(1.0);
+        let r_gaps = crate::certify::stations::diagram_gaps_2d(&reference);
+        for s in [1e-6, 1e-12] {
+            let scaled = scaled_beam_2d(s);
+            for k in 0..=20 {
+                let t = k as f64 / 20.0;
+                for kind in ["moment", "shear"] {
+                    let (want, got) = (compute_diagram_value_at(kind, t, &reference), compute_diagram_value_at(kind, t, &scaled) / s);
+                    assert!((got - want).abs() < 1e-9 * (1.0 + want.abs()), "{s:e} {kind} t {t}: {got} vs {want}");
+                }
+            }
+            let gaps = crate::certify::stations::diagram_gaps_2d(&scaled);
+            assert!((gaps.moment / s - r_gaps.moment).abs() <= 1e-9 * (1.0 + r_gaps.moment.abs()), "{s:e}: {gaps:?} vs {r_gaps:?}");
+        }
+    }
+
+    fn scaled_beam_3d(s: f64) -> crate::types::ElementForces3D {
+        let input: crate::types::SolverInput3D = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id":1,"x":0,"y":0,"z":0}, "2": {"id":2,"x":4,"y":0,"z":0}},
+            "materials": {"1": {"id":1,"e":200000.0 * s,"nu":0.3}},
+            "sections": {"1": {"id":1,"a":0.01,"iy":0.0001,"iz":0.0002,"j":0.0001}},
+            "elements": {"1": {"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "supports": {"1": {"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}, "2": {"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+            "loads": [{"type":"distributed","data":{"elementId":1,"qYI":-10.0 * s,"qYJ":-4.0 * s,"qZI":3.0 * s,"qZJ":7.0 * s}}]
+        })).unwrap();
+        crate::solver::linear::solve_3d(&input).unwrap().element_forces.remove(0)
+    }
+
+    #[test]
+    fn a_3d_member_diagram_keeps_its_load_at_any_scale_1614() {
+        let reference = scaled_beam_3d(1.0);
+        for s in [1e-12, 1e-200] {
+            let scaled = scaled_beam_3d(s);
+            for k in 0..=20 {
+                let t = k as f64 / 20.0;
+                for kind in ["momentZ", "momentY", "shearY", "shearZ"] {
+                    let want = crate::postprocess::diagrams_3d::evaluate_diagram_3d_at(&reference, kind, t);
+                    let got = crate::postprocess::diagrams_3d::evaluate_diagram_3d_at(&scaled, kind, t) / s;
+                    assert!((got - want).abs() < 1e-9 * (1.0 + want.abs()), "{s:e} {kind} t {t}: {got} vs {want}");
+                }
+            }
+        }
     }
 }

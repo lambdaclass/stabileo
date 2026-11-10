@@ -147,6 +147,18 @@ fn assert_results_3d_eq(a: &AnalysisResults3D, b: &AnalysisResults3D, ctx: &str)
         assert_f64_eq(qa.tau_xy, qb.tau_xy, &format!("{} tau_xy", c));
         assert_f64_eq(qa.von_mises, qb.von_mises, &format!("{} von_mises", c));
     }
+    assert_eq!(a.plate_stresses.len(), b.plate_stresses.len(), "{}: plate_stresses count", ctx);
+    for (pa, pb) in a.plate_stresses.iter().zip(&b.plate_stresses) {
+        assert_eq!(pa.element_id, pb.element_id, "{}: ps element_id", ctx);
+        let c = format!("{} ps {}", ctx, pa.element_id);
+        for (what, x, y) in [
+            ("sigma_xx", pa.sigma_xx, pb.sigma_xx), ("sigma_yy", pa.sigma_yy, pb.sigma_yy), ("tau_xy", pa.tau_xy, pb.tau_xy),
+            ("mx", pa.mx, pb.mx), ("my", pa.my, pb.my), ("mxy", pa.mxy, pb.mxy),
+            ("sigma_1", pa.sigma_1, pb.sigma_1), ("sigma_2", pa.sigma_2, pb.sigma_2), ("von_mises", pa.von_mises, pb.von_mises),
+        ] {
+            assert_f64_eq(x, y, &format!("{} {}", c, what));
+        }
+    }
 }
 
 // ==================== Legacy per-case reference path ====================
@@ -242,7 +254,8 @@ fn reference_3d(input: &MultiCaseInput3D) -> (Vec<AnalysisResults3D>, Vec<(Strin
             factors.push(CombinationFactor { case_id: cases.len(), factor: 1.0 - sum });
             cases.push(CaseEntry3D { case_id: cases.len(), results: r0.clone() });
         }
-        let combined = combine_results_3d(&CombinationInput3D { factors, cases }).unwrap();
+        let plate_thicknesses = input.solver.plates.values().map(|p| (p.id, p.thickness)).collect();
+        let combined = combine_results_3d(&CombinationInput3D { factors, cases, plate_thicknesses }).unwrap().unwrap();
         combos.push((combo.name.clone(), combined));
     }
     (cases, combos)
@@ -501,6 +514,19 @@ fn make_frame_slab_3d_sparse() -> SolverInput3D {
         curved_beams: vec![],
         connectors: HashMap::new(),
         solver_options: None, masses: Default::default(),    }
+}
+
+/// The sparse slab with each quad split into two triangular plates.
+fn make_frame_plate_slab_3d() -> SolverInput3D {
+    let mut s = make_frame_slab_3d_sparse();
+    for q in std::mem::take(&mut s.quads).into_values() {
+        let [a, b, c, d] = q.nodes;
+        for (k, nodes) in [[a, b, c], [a, c, d]].into_iter().enumerate() {
+            let id = 2 * q.id + k;
+            s.plates.insert(id.to_string(), SolverPlateElement { id, nodes, material_id: q.material_id, thickness: q.thickness });
+        }
+    }
+    s
 }
 
 // ==================== 2D tests ====================
@@ -769,7 +795,7 @@ fn parity_3d_sparse_multi_case() {
                         node_id: 5, fx: 12.0, fy: 0.0, fz: 0.0,
                         mx: 0.0, my: 0.0, mz: 0.0, bw: None,
                     }),
-                    SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                    SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0,
                         element_id: 4, a: 1.5, py: 8.0, pz: 0.0,
                     }),
                 ],
@@ -802,6 +828,57 @@ fn parity_3d_sparse_multi_case() {
     }
     for (mc, (name, rc)) in multi.combination_results.iter().zip(&ref_combos) {
         assert_eq!(&mc.name, name);
+        assert_results_3d_eq(&mc.results, rc, &format!("combo '{}'", mc.name));
+    }
+}
+
+#[test]
+fn parity_3d_plate_multi_case() {
+    let input = MultiCaseInput3D {
+        solver: make_frame_plate_slab_3d(),
+        load_cases: vec![
+            LoadCase3D {
+                name: "Gravity".to_string(),
+                loads: vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                    node_id: 13, fx: 0.0, fy: 0.0, fz: -40.0,
+                    mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+                })],
+            },
+            LoadCase3D {
+                name: "SlabPressure".to_string(),
+                loads: (2000..2032).map(|id| SolverLoad3D::Pressure(SolverPressureLoad { element_id: id, pressure: -2.5 })).collect(),
+            },
+            LoadCase3D {
+                name: "Thermal".to_string(),
+                loads: vec![SolverLoad3D::PlateThermal(SolverPlateThermalLoad {
+                    element_id: 2012, dt_uniform: 15.0, dt_gradient: 6.0, alpha: None,
+                })],
+            },
+        ],
+        combinations: vec![
+            CombinationDef {
+                name: "1.2G + 1.6P".to_string(),
+                factors: [("Gravity", 1.2), ("SlabPressure", 1.6)].iter()
+                    .map(|(n, f)| (n.to_string(), *f)).collect(),
+            },
+            CombinationDef {
+                name: "G + P + T".to_string(),
+                factors: [("Gravity", 1.0), ("SlabPressure", 1.0), ("Thermal", 1.0)].iter()
+                    .map(|(n, f)| (n.to_string(), *f)).collect(),
+            },
+        ],
+    };
+
+    let multi = solve_multi_case_3d(&input).unwrap();
+    let (ref_cases, ref_combos) = reference_3d(&input);
+    assert_eq!(multi.combination_results.len(), ref_combos.len());
+    for (mc, rc) in multi.case_results.iter().zip(&ref_cases) {
+        assert_results_3d_eq(&mc.results, rc, &format!("case '{}'", mc.name));
+    }
+    for (mc, (name, rc)) in multi.combination_results.iter().zip(&ref_combos) {
+        assert_eq!(&mc.name, name);
+        assert_eq!(rc.plate_stresses.len(), 32, "combo '{}' has no plate stresses to check", name);
+        assert!(rc.plate_stresses.iter().any(|p| p.von_mises > 0.0 && p.mx != 0.0), "combo '{}'", name);
         assert_results_3d_eq(&mc.results, rc, &format!("combo '{}'", mc.name));
     }
 }

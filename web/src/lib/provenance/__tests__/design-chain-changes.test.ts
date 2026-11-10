@@ -56,6 +56,11 @@ describe('results version 4: the design chain', () => {
     expect(seen).not.toContain('dynamic-analyses-refuse-eccentricities');
   });
 
+  it('tells a project solved with the current version nothing', () => {
+    const frame = model({ elements: [member(1, 1), member(2, 2)], quads: [quad(1)] as never, footings: [[1, {}]] as never });
+    expect(ids(frame, stamp(RESULT_CHANGES.currentResultsVersion))).toEqual([]);
+  });
+
   it('does not repeat version 4 changes to a project stamped 4', () => {
     const frame = model({ elements: [member(1, 1), member(2, 2)], quads: [quad(1)] as never, footings: [[1, {}]] as never });
     expect(ids(frame, stamp(4)).filter(id => V4.includes(id))).toEqual([]);
@@ -83,8 +88,6 @@ describe('results version 4: the design chain', () => {
   });
 
   it('tells every eccentric model about the dynamic refusal, and no model without eccentricities', () => {
-    // Time histories are solved outside the stamp (`UNTRACKED_ANALYSES`), so a stamp can never say
-    // one was not run: the entry errs towards present, as the registry's rule asks.
     const inserted = model({ elements: [member(1, 1, { offset: { frame: 'global', i: { x: 0, y: 0, z: -0.25 } } })] });
     expect(ids(inserted, stamp(3, ['linear']))).toContain('dynamic-analyses-refuse-eccentricities');
     expect(ids(inserted, stamp(3, ['linear', 'modal']))).toContain('dynamic-analyses-refuse-eccentricities');

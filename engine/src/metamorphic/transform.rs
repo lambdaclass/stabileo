@@ -185,19 +185,19 @@ enum Restraint2 {
 }
 
 fn restraint_2d(s: &SolverSupport) -> TResult<Restraint2> {
-    Ok(match s.support_type.as_str() {
-        "fixed" => Restraint2::Both { rot: true },
-        "pinned" => Restraint2::Both { rot: false },
-        "rollerX" => Restraint2::One { n: [0.0, 1.0], rot: false },
-        "rollerY" | "rollerZ" => Restraint2::One { n: [1.0, 0.0], rot: false },
-        "guidedX" => Restraint2::One { n: [0.0, 1.0], rot: true },
-        "guidedY" | "guidedZ" => Restraint2::One { n: [1.0, 0.0], rot: true },
-        "inclinedRoller" => match s.angle {
-            Some(th) => Restraint2::One { n: [th.sin(), th.cos()], rot: false },
-            None => Restraint2::One { n: [0.0, 1.0], rot: false },
-        },
-        "spring" => Restraint2::None,
-        other => return unrep(format!("support type {other:?}")),
+    if s.support_type == "inclinedRoller" {
+        let th = s.angle.unwrap_or(0.0);
+        return Ok(Restraint2::One { n: [th.sin(), th.cos()], rot: false });
+    }
+    if !matches!(s.support_type.as_str(), "spring" | "fixed" | "pinned" | "rollerX" | "rollerY" | "rollerZ" | "guidedX" | "guidedY" | "guidedZ") {
+        return unrep(format!("support type {:?}", s.support_type));
+    }
+    let [x, z, rot] = crate::solver::support::support_dofs_2d(s).map(|d| d.restrained);
+    Ok(match (x, z) {
+        (true, true) => Restraint2::Both { rot },
+        (true, false) => Restraint2::One { n: [1.0, 0.0], rot },
+        (false, true) => Restraint2::One { n: [0.0, 1.0], rot },
+        (false, false) => Restraint2::None,
     })
 }
 
@@ -353,6 +353,12 @@ pub fn transform_2d(input: &SolverInput, iso: &Iso2) -> TResult<SolverInput> {
     }
     for (k, s) in input.supports.iter() {
         m.supports.insert(k.clone(), transform_support_2d(s, iso)?);
+    }
+    for (k, s) in input.supports.iter() {
+        let shared = input.supports.values().filter(|o| o.node_id == s.node_id).count() > 1;
+        if shared && s.support_type != "inclinedRoller" && m.supports[k].support_type == "inclinedRoller" {
+            return unrep("a node with several supports, one of them turned off the axes (the solver merges only axis-aligned restraints)");
+        }
     }
     for l in m.loads.iter_mut() {
         match l {
@@ -668,12 +674,12 @@ fn transform_constraints_3d(cs: &[Constraint], iso: &Iso3) -> TResult<Vec<Constr
     Ok(out)
 }
 
-fn npos3(m: &SolverInput3D, id: usize) -> [f64; 3] {
+pub(crate) fn npos3(m: &SolverInput3D, id: usize) -> [f64; 3] {
     let n = &m.nodes[&id.to_string()];
     [n.x, n.y, n.z]
 }
 
-fn axes_of(m: &SolverInput3D, e: &SolverElement3D) -> ([f64; 3], [f64; 3], [f64; 3]) {
+pub(crate) fn axes_of(m: &SolverInput3D, e: &SolverElement3D) -> ([f64; 3], [f64; 3], [f64; 3]) {
     let (a, b) = (npos3(m, e.node_i), npos3(m, e.node_j));
     compute_local_axes_3d(a[0], a[1], a[2], b[0], b[1], b[2], e.local_yx, e.local_yy, e.local_yz, e.roll_angle, m.left_hand.unwrap_or(false))
 }

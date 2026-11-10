@@ -1,6 +1,6 @@
 [package]
 name = "dedaliano-engine"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 license = "AGPL-3.0-only"
 publish = false
@@ -57,6 +57,8 @@ proptest = "1"
 # CBOR values hold NaN and ±∞, which JSON cannot: the certificate property
 # tests inject them into typed inputs (tests/certify_nonfinite.rs).
 ciborium = "0.2"
+syn = { version = "2", features = ["full", "parsing", "printing"] }
+quote = "1"
 
 [[test]]
 name = "core"
@@ -107,8 +109,16 @@ name = "elements"
 path = "tests/elements/main.rs"
 
 [[test]]
+name = "mechanism_fuzz"
+path = "tests/mechanism_fuzz/main.rs"
+
+[[test]]
 name = "robustness"
 path = "tests/robustness/main.rs"
+
+[[test]]
+name = "differential"
+path = "tests/differential/main.rs"
 
 [[bench]]
 name = "solver_bench"

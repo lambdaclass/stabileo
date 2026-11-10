@@ -65,9 +65,68 @@ class Selection(unittest.TestCase):
             self.assertEqual(result['web_build'], result['web'])
             self.assertEqual(result['docker'], result['web'])
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        build = workflow.split('  web-build:', 1)[1].split('  results-snapshot:', 1)[0]
-        self.assertIn("if: needs.changes.outputs.web_build == 'true'", build)
-        self.assertIn('make typecheck.web', build)
+        typecheck = workflow.split('  web-typecheck:', 1)[1].split('  web-build:', 1)[0]
+        self.assertIn("if: needs.changes.outputs.web_build == 'true'", typecheck)
+        self.assertIn('make typecheck.web', typecheck)
+
+    def test_a_failed_fast_check_stops_the_rest_of_a_pull_request_run(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        jobs = dict(re.findall(r'(?ms)^  ([a-z0-9-]+):\n(.*?)(?=^  [a-z0-9-]+:\n|\Z)', workflow.split('\njobs:\n', 1)[1]))
+        fast = {'lint-repo', 'test-ci-scripts', 'lint-engine', 'lint-backend', 'web-typecheck', 'web-unit'}
+        stopping = {name for name, body in jobs.items() if 'stop-failed-run.yml' in body}
+        self.assertEqual(stopping, fast)
+        for name in fast:
+            body = jobs[name]
+            self.assertIn("      - name: Stop the rest of this run\n        if: failure() && github.event_name == 'pull_request'\n"
+                          "        continue-on-error: true\n", body, name)
+            self.assertIn('    permissions:\n      contents: read\n      actions: write\n', body, name)
+            steps = [line for line in body.splitlines() if line.strip() and not line.lstrip().startswith('#')]
+            self.assertEqual(steps[-1].strip(), 'run: gh workflow run stop-failed-run.yml --ref main -f run_id="$RUN_ID"', name)
+            self.assertNotIn('gh run cancel', body, 'a job cancelling its own run ends as cancelled, hiding its failure')
+        stop = (ROOT / '.github/workflows/stop-failed-run.yml').read_text()
+        self.assertIn('"pull_request .github/workflows/ci.yml "*) ;;', stop)
+        self.assertIn('select(.conclusion == "failure")', stop)
+        self.assertLess(stop.index('select(.conclusion == "failure")'), stop.index('gh run cancel "$RUN_ID"'))
+        self.assertIn("BAIL=${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '1' || '' }}", jobs['web-unit'])
+        self.assertIn('needs: [changes, wasm]\n', jobs['web-typecheck'])
+        self.assertNotIn('free-disk', jobs['web-typecheck'])
+
+    def test_the_stop_workflow_cancels_only_a_running_pull_request_run_with_a_failed_job(self):
+        stop = (ROOT / '.github/workflows/stop-failed-run.yml').read_text()
+        script = '\n'.join(line[10:] for line in stop.split('        run: |\n', 1)[1].splitlines())
+        script = script.replace('sleep 5', 'true')
+        cases = [('pull_request .github/workflows/ci.yml in_progress', 'Web Typecheck', True),
+                 ('pull_request .github/workflows/ci.yml in_progress', '', False),
+                 ('pull_request .github/workflows/ci.yml completed', 'Web Typecheck', False),
+                 ('merge_group .github/workflows/ci.yml in_progress', 'Web Typecheck', False),
+                 ('pull_request .github/workflows/research.yml in_progress', 'Web Typecheck', False)]
+        for run, failed, cancels in cases:
+            with self.subTest(run=run, failed=failed), tempfile.TemporaryDirectory() as directory:
+                log = Path(directory) / 'calls'
+                gh = Path(directory) / 'gh'
+                gh.write_text(f"""#!/bin/sh
+echo "$*" >> {log}
+case "$*" in
+  "api repos/o/r/actions/runs/7 --jq"*) echo "{run}" ;;
+  "api --paginate"*) [ -n "{failed}" ] && echo "{failed}" ;;
+esac
+exit 0
+""")
+                gh.chmod(0o755)
+                result = subprocess.run(['bash', '-c', script], capture_output=True, text=True, timeout=60,
+                                        env={**os.environ, 'PATH': f"{directory}:{os.environ['PATH']}", 'GH_REPO': 'o/r', 'RUN_ID': '7'})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual('run cancel 7' in log.read_text(), cancels, log.read_text())
+        result = subprocess.run(['bash', '-c', script], capture_output=True, text=True, env={**os.environ, 'RUN_ID': '7; rm'})
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_ci_runs_research_on_every_push_the_standalone_workflow_used_to(self):
+        workflow = (ROOT / '.github/workflows/research.yml').read_text()
+        paths = re.findall(r"^      - '([^']+)'$", workflow.split('\n  push:\n', 1)[1].split('\n  schedule:', 1)[0], re.M)
+        self.assertIn('engine/**', paths)
+        for pattern in paths:
+            path = pattern.replace('**', 'a/b.rs').replace('*', 'x')
+            self.assertEqual(selection.select('push', [path])['research'], 'true', path)
 
     def test_product_only_pr_and_merge_queue_do_not_select_research_isolation(self):
         workflow = (ROOT / '.github/workflows/research.yml').read_text()
@@ -93,7 +152,7 @@ class Selection(unittest.TestCase):
                     subprocess.run(['bash', '-eu', '-c', script_with_diff], env=env, check=True, stdout=subprocess.DEVNULL)
                     self.assertEqual(output.read_text().strip(), 'research=' + expected)
         self.assertIn('RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}', workflow)
-        self.assertIn('web/scripts/research-route-budget.mjs route-main/web/scripts/', workflow)
+        self.assertIn('.github/scripts/route-size-from-base.sh route-main .', workflow)
         self.assertNotIn('product-route-growth-budgets.json', workflow)
         self.assertNotIn('--product-budget', workflow)
 
@@ -104,7 +163,9 @@ class Selection(unittest.TestCase):
                       ['web/package-lock.json'], ['web/package.json'], ['web/src/lib/wasm/stabileo_engine.js'],
                       ['web/public/research-wasm/x.wasm'], ['web/vite.research-viewer.config.ts'],
                       ['web/src/App.svelte', 'engine/src/lib.rs'], ['web/src/App.svelte', 'research/a.rs'],
-                      ['backend/mix.exs', 'docs/a.md']]:
+                      ['backend/mix.exs', 'web/src/App.svelte'], ['backend/mix.exs', 'engine/src/lib.rs'],
+                      ['backend/mix.exs', 'research/DESIGN.md'], ['backend/mix.exs', 'Makefile'],
+                      ['backend/mix.exs', 'flake.lock'], ['specs/x.json']]:
             with self.subTest(paths=paths):
                 self.assert_full(selection.select('pull_request', paths))
 
@@ -164,14 +225,53 @@ class Selection(unittest.TestCase):
                 result = selection.select('merge_group', paths, ROOT)
                 self.assert_site(result, queue=True)
         for paths in [self.PR_1250 + ['engine/src/lib.rs'], self.DOCS_ONLY + ['engine/src/solver/linear.rs'],
-                      ['web/src/App.svelte', 'Cargo.lock'], ['web/package-lock.json'], ['backend/mix.lock'],
-                      ['.github/workflows/ci.yml'], ['engine/src/lib.rs']]:
+                      ['web/src/App.svelte', 'Cargo.lock'], ['web/package-lock.json'], ['backend/mix.lock', 'web/src/App.svelte'],
+                      ['.github/workflows/ci.yml'], ['engine/src/lib.rs'], ['backend/mix.lock', 'scripts/x.py'],
+                      ['backend/mix.lock', 'ai-backend/src/main.rs'], ['docs/a.md', '.github/scripts/select-ci.py']]:
             with self.subTest(paths=paths[-1]):
                 result = selection.select('merge_group', paths, ROOT)
                 self.assertEqual(result['scope'], 'full')
                 for key in ['engine', 'ai_backend', 'backend', 'ci_scripts', 'web', 'research', 'results']:
                     self.assertEqual(result[key], 'true', key)
                 self.assertEqual(result['research_route_only'], 'true')
+
+    BACKEND_ONLY = ['backend/apps/stabileo_web/lib/router.ex', 'backend/mix.lock',
+                    'backend/apps/stabileo_repo/priv/repo/migrations/20261108000000_x.exs', 'changelog.d/a.md',
+                    'specs/services/accounts.md']
+
+    def test_backend_only_changes_run_only_the_backend_jobs(self):
+        for event in ['pull_request', 'merge_group']:
+            with self.subTest(event=event):
+                result = selection.select(event, self.BACKEND_ONLY, ROOT)
+                self.assertEqual(result['scope'], 'backend')
+                self.assertEqual({k for k, v in result.items() if v == 'true'} - {'research_route_only'}, {'backend', 'retest'})
+                self.assertEqual(json.loads(result['slow_specs']), [])
+                self.assertEqual(json.loads(result['e2e_shards']), [1])
+        for event in ['push', 'schedule', 'workflow_dispatch']:
+            with self.subTest(event=event):
+                self.assert_full(selection.select(event, self.BACKEND_ONLY, ROOT))
+        self.assertEqual(selection.select('merge_group', self.BACKEND_ONLY, ROOT, force_full=True)['scope'], 'full')
+
+    def test_specs_prose_is_docs(self):
+        for event in ['pull_request', 'merge_group']:
+            with self.subTest(event=event):
+                result = selection.select(event, ['specs/services/admin.md', 'specs/README.md'], ROOT)
+                self.assertEqual(result['scope'], 'docs')
+                self.assert_docs(result)
+                self.assertEqual(result['slow_e2e'], 'false')
+
+    def test_the_backend_jobs_and_ci_ok_read_the_backend_output(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        jobs = dict(re.findall(r'(?ms)^  ([a-z0-9-]+):\n(.*?)(?=^  [a-z0-9-]+:\n|\Z)', workflow.split('\njobs:\n', 1)[1]))
+        for name in ['lint-backend', 'test-backend', 'check-migrations']:
+            self.assertIn("if: needs.changes.outputs.backend == 'true'", jobs[name])
+        for name in ['test-engine-suite', 'test-engine-metamorphic', 'test-engine-quick', 'test-engine-gates', 'lint-engine']:
+            self.assertIn("if: needs.changes.outputs.engine == 'true'", jobs[name])
+        ci_ok = jobs['ci-ok'].split('    steps:', 1)[0]
+        for name in ['lint-backend', 'test-backend', 'check-migrations', 'lint-repo', 'revert-check',
+                     'test-engine-suite', 'wasm', 'e2e', 'web-build']:
+            self.assertIn(f'      - {name}\n', ci_ok)
+        self.assertIn('case "$r" in success|skipped) ;; *) exit 1 ;; esac', jobs['ci-ok'])
 
     def test_merge_queue_reads_its_diff_and_fails_open(self):
         for diff, expected in [('docs/a.md\0changelog.d/b.md\0', 'docs'), ('web/src/App.svelte\0', 'site'),
@@ -330,15 +430,18 @@ class Selection(unittest.TestCase):
 
     def test_typecheck_covers_every_selected_web_scope(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        unit = workflow.split('  web-unit:', 1)[1].split('  web-build:', 1)[0]
+        unit = workflow.split('  web-unit:', 1)[1].split('  web-typecheck:', 1)[0]
         self.assertIn("if: needs.changes.outputs.web == 'true'", unit)
-        self.assertIn('shard: [1, 2, 3, 4]', unit)
-        build = workflow.split('  web-build:', 1)[1].split('  results-snapshot:', 1)[0]
-        self.assertIn('run: make typecheck.web', build)
+        self.assertIn('shard: [1, 2, 3, 4, 5, 6, 7, 8]', unit)
+        typecheck = workflow.split('  web-typecheck:', 1)[1].split('  web-build:', 1)[0]
+        self.assertIn('needs: [changes, wasm]', typecheck)
+        self.assertIn("if: needs.changes.outputs.web_build == 'true'", typecheck)
+        self.assertIn('run: make typecheck.web', typecheck)
         self.assertEqual(workflow.count('run: make typecheck.web'), 1)
         for path in ['research/a.rs', 'web/src/components/tools/a.svelte',
                      'engine/src/lib.rs', 'web/src/App.svelte']:
             self.assertEqual(selection.select('pull_request', [path])['web'], 'true')
+            self.assertEqual(selection.select('pull_request', [path])['web_build'], 'true')
         self.assertEqual(selection.select('pull_request', ['docs/a.md'])['web'], 'false')
         self.assertEqual(selection.select('merge_group', [])['web'], 'true')
 
@@ -368,10 +471,156 @@ class Selection(unittest.TestCase):
         self.assertNotIn('\n  rust:', text)
         self.assertNotIn('\n  npm:', text)
         aggregate = text.split('  ci-ok:', 1)[1]
-        script = aggregate.split('        run: |\n', 1)[1]
+        script = aggregate.split('        run: |\n', 1)[1].split('\n      - ', 1)[0]
         script = '\n'.join(line[10:] for line in script.splitlines())
         for result, code in [('success skipped', 0), ('failure skipped', 1), ('cancelled success', 1)]:
             self.assertEqual(subprocess.run(['sh', '-c', script], env={'RESULTS': result}, capture_output=True).returncode, code)
+
+    def test_merge_queue_engine_path_selects_design_desk_and_sweep_slow_specs(self):
+        for path in [
+            'engine/src/postprocess/result_summary.rs',
+            'engine/src/solver/linear.rs',
+            'web/src/lib/engine/verification-service.ts',
+            'web/src/lib/engine/steps/catalog.ts',
+            'web/src/lib/store/steel-check.ts',
+            'web/src/lib/wasm/stabileo_engine.js',
+        ]:
+            with self.subTest(path=path):
+                result = selection.select('merge_group', [path], ROOT)
+                self.assertEqual(result['slow_e2e'], 'true')
+                specs = json.loads(result['slow_specs'])
+                self.assertIn('design-desk.spec.ts', specs)
+                self.assertTrue(any(s.startswith('basic-advanced-sweep-') for s in specs))
+                self.assertIn('explained-steps.spec.ts', specs)
+                self.assertIn('basic-plastic-course.spec.ts', specs)
+                self.assertIn('excel-import.spec.ts', specs)
+                self.assertIn('basic-draw-members.spec.ts', specs)
+                self.assertEqual(specs, list(selection.ALL_SLOW_SPECS))
+
+    def test_merge_queue_unknown_path_selects_all_slow_specs(self):
+        for paths in [
+            ['unknown/new-area/file.xyz'],
+            ['Makefile'],
+            ['flake.nix'],
+            ['web/package.json'],
+            ['web/src/App.svelte'],
+            ['../outside'],
+            None,
+            [],
+            [None],
+        ]:
+            with self.subTest(paths=paths):
+                result = selection.select('merge_group', paths, ROOT)
+                self.assertEqual(result['slow_e2e'], 'true')
+                self.assertEqual(json.loads(result['slow_specs']), list(selection.ALL_SLOW_SPECS))
+
+    def test_merge_queue_docs_only_selects_no_slow_specs(self):
+        for paths in [
+            self.DOCS_ONLY,
+            ['docs/a.md'],
+            ['README.md'],
+            ['changelog.d/1519-queue-slow-e2e.md'],
+            ['research/DESIGN.md', 'docs/b.md'],
+        ]:
+            with self.subTest(paths=paths):
+                result = selection.select('merge_group', paths, ROOT)
+                self.assertEqual(result['slow_e2e'], 'false')
+                self.assertEqual(json.loads(result['slow_specs']), [])
+
+    def test_merge_queue_script_error_selects_all_slow_specs(self):
+        with patch.object(selection, 'slow_specs_for_path', side_effect=RuntimeError('boom')):
+            result = selection.select('merge_group', ['docs/a.md'], ROOT)
+        self.assertEqual(result['slow_e2e'], 'true')
+        self.assertEqual(json.loads(result['slow_specs']), list(selection.ALL_SLOW_SPECS))
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / 'outputs'
+            env = {'GITHUB_EVENT_NAME': 'merge_group', 'BASE_SHA': 'base', 'HEAD_SHA': 'head',
+                   'GITHUB_OUTPUT': str(output)}
+            with patch.dict(os.environ, env, clear=True), patch('subprocess.check_output', side_effect=subprocess.CalledProcessError(128, 'git')):
+                runpy.run_path(str(ROOT / '.github/scripts/select-ci.py'), run_name='__main__')
+            written = dict(line.split('=', 1) for line in output.read_text().splitlines())
+            self.assertEqual(written['slow_e2e'], 'true')
+            self.assertEqual(json.loads(written['slow_specs']), list(selection.ALL_SLOW_SPECS))
+
+    def test_slow_shard_filters_selected_specs_and_fails_closed(self):
+        shard_script = ROOT / 'web/scripts/e2e-shard.mjs'
+        subset = ['design-desk.spec.ts', 'basic-advanced-sweep-2d-a.spec.ts']
+        assigned = []
+        for idx in range(1, selection.E2E_SHARDS + 1):
+            proc = subprocess.run(
+                ['node', str(shard_script), '--suite', 'slow', str(idx), str(selection.E2E_SHARDS)],
+                cwd=ROOT / 'web',
+                env={**os.environ, 'E2E_SLOW_SPECS': json.dumps(subset)},
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            assigned.append(proc.stdout.split())
+        flat = [f for shard in assigned for f in shard]
+        self.assertEqual(sorted(flat), ['e2e/basic-advanced-sweep-2d-a.spec.ts', 'e2e/design-desk.spec.ts'])
+        self.assertEqual(sum(1 for shard in assigned if not shard), selection.E2E_SHARDS - 2)
+        for bad in ['not-json', '[]', '["nonexistent-spec.spec.ts"]', '["design-desk.spec.ts", "missing.spec.ts"]', '["design-desk.spec.ts", 7]']:
+            with self.subTest(bad=bad):
+                proc = subprocess.run(
+                    ['node', str(shard_script), '--suite', 'slow', '1', '1'],
+                    cwd=ROOT / 'web',
+                    env={**os.environ, 'E2E_SLOW_SPECS': bad},
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                self.assertGreater(len(proc.stdout.split()), 100)
+
+    def test_shard_runner_and_playwright_config_select_all_slow_specs(self):
+        for path in ['web/scripts/e2e-shard.mjs', 'web/playwright.config.ts', 'web/e2e/shard-timings-slow.json']:
+            with self.subTest(path=path):
+                self.assertEqual(selection.slow_specs_for_path(path), selection.ALL_SLOW_SPECS)
+
+    def test_slow_discovery_follows_helpers_transitively_and_skips_smoke_only_specs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            e2e = Path(tmp)
+            (e2e / 'url-title.spec.ts').write_text("test('https://example.test @slow', async () => {});\n")
+            (e2e / 'smoke-only.spec.ts').write_text("test('fast @smoke', async () => {});\n")
+            (e2e / 'deep.ts').write_text("export const t = (n: string) => `${n} @slow`;\n")
+            (e2e / 'mid.ts').write_text("export { t } from './deep';\n")
+            (e2e / 'via-helper.spec.ts').write_text("import { t } from './mid.ts';\ntest(t('x'), async () => {});\n")
+            (e2e / 'rc-design-visual.spec.ts').write_text("test('visual @slow', async () => {});\n")
+            self.assertEqual(selection.discover_slow_specs(e2e), ('url-title.spec.ts', 'via-helper.spec.ts'))
+
+    def test_a_smoke_only_spec_change_selects_no_slow_run(self):
+        smoke_only = next(p.name for p in sorted((ROOT / 'web/e2e').glob('*.spec.ts')) if p.name not in selection.ALL_SLOW_SET)
+        self.assertEqual(selection.slow_specs_for_path(f'web/e2e/{smoke_only}'), ())
+
+    def test_an_unknown_web_script_selects_every_slow_spec(self):
+        self.assertEqual(selection.slow_specs_for_path('web/scripts/new-script.mjs'), selection.ALL_SLOW_SPECS)
+        self.assertEqual(selection.slow_specs_for_path('web/scripts/__tests__/x.test.mjs'), ())
+
+    def test_shared_web_paths_select_every_slow_spec(self):
+        for path in ['web/src/styles/tokens.css', 'web/src/lib/geometry/plane.ts', 'web/src/components/viewport/Viewport.svelte',
+                     'web/src/components/pro/ProShell.svelte', 'web/src/lib/store/model.svelte.ts']:
+            with self.subTest(path=path):
+                self.assertEqual(selection.slow_specs_for_path(path), selection.ALL_SLOW_SPECS)
+
+    def test_area_runner_falls_back_to_every_spec_when_one_pattern_matches_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'e2e').mkdir()
+            for name in ('a.spec.ts', 'b.spec.ts', 'c.spec.ts'):
+                (root / 'e2e' / name).write_text('')
+            bin_dir = root / 'bin'
+            bin_dir.mkdir()
+            log = root / 'calls'
+            (bin_dir / 'npx').write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> {log}\n')
+            (bin_dir / 'npx').chmod(0o755)
+            env = {**os.environ, 'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', 'E2E_SUITE': 'slow'}
+            for specs, expected in [('["a.spec.ts"]', ['e2e/a.spec.ts']),
+                                    ('["a.spec.ts", "missing.spec.ts"]', ['e2e/a.spec.ts', 'e2e/b.spec.ts', 'e2e/c.spec.ts'])]:
+                with self.subTest(specs=specs):
+                    log.unlink(missing_ok=True)
+                    subprocess.run([sys.executable, '-I', str(ROOT / '.github/scripts/run-area-e2e.py')], cwd=root,
+                                   env={**env, 'E2E_SPECS': specs}, check=True)
+                    args = log.read_text().split()
+                    self.assertEqual([a for a in args if a.startswith('e2e/')], expected)
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@
 //! (feature, analysis) pair is tested in `tests/feature_matrix.rs` and listed
 //! in `docs/verification/FEATURE_MATRIX.md`.
 
+use crate::solver::support::{support_dofs_2d, support_dofs_3d};
 use crate::types::*;
 
 /// A model feature some analysis may not implement.
@@ -103,12 +104,12 @@ fn find_2d(input: &SolverInput, f: Feature) -> Option<String> {
             .collect(),
         Feature::RotationalSprings => sorted(crate::ordered::values(&input.supports), |s| s.id)
             .iter()
-            .filter(|s| s.kz.is_some_and(|k| k > 0.0))
+            .filter(|s| support_dofs_2d(s)[2].spring.is_some_and(|k| k > 0.0))
             .map(|s| format!("support {} (node {})", s.id, s.node_id))
             .collect(),
         Feature::SupportSprings => sorted(crate::ordered::values(&input.supports), |s| s.id)
             .iter()
-            .filter(|s| [s.kx, s.ky, s.kz].into_iter().any(|k| k.is_some_and(|k| k > 0.0)))
+            .filter(|s| [support_dofs_2d(s)[0].spring, support_dofs_2d(s)[1].spring, support_dofs_2d(s)[2].spring].into_iter().any(|k| k.is_some_and(|k| k > 0.0)))
             .map(|s| format!("support {} (node {})", s.id, s.node_id))
             .collect(),
         Feature::Constraints => (0..input.constraints.len()).map(|i| format!("constraint {}", i + 1)).collect(),
@@ -160,12 +161,12 @@ fn find_3d(input: &SolverInput3D, f: Feature) -> Option<String> {
             .collect(),
         Feature::RotationalSprings => sorted(crate::ordered::values(&input.supports), |s| s.node_id)
             .iter()
-            .filter(|s| [s.krx, s.kry, s.krz].into_iter().any(|k| k.is_some_and(|k| k > 0.0)))
+            .filter(|s| [support_dofs_3d(s)[3].spring, support_dofs_3d(s)[4].spring, support_dofs_3d(s)[5].spring].into_iter().any(|k| k.is_some_and(|k| k > 0.0)))
             .map(|s| format!("support at node {}", s.node_id))
             .collect(),
         Feature::SupportSprings => sorted(crate::ordered::values(&input.supports), |s| s.node_id)
             .iter()
-            .filter(|s| [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz, s.kw].into_iter().any(|k| k.is_some_and(|k| k > 0.0)))
+            .filter(|s| [support_dofs_3d(s)[0].spring, support_dofs_3d(s)[1].spring, support_dofs_3d(s)[2].spring, support_dofs_3d(s)[3].spring, support_dofs_3d(s)[4].spring, support_dofs_3d(s)[5].spring, support_dofs_3d(s)[6].spring].into_iter().any(|k| k.is_some_and(|k| k > 0.0)))
             .map(|s| format!("support at node {}", s.node_id))
             .collect(),
         Feature::Constraints => (0..input.constraints.len()).map(|i| format!("constraint {}", i + 1)).collect(),

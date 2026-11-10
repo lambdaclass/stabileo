@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "paper": {
     "doi": "10.1016/0168-874X(85)90003-4",
-    "source": "MacNeal & Harder (1985), Finite Elements in Analysis and Design 1, pp. 3\u201320",
+    "source": "MacNeal & Harder (1985), Finite Elements in Analysis and Design 1, pp. 3–20",
     "locatorStatus": "Table 3, printed p. 10, lists 0.4321 (out-of-plane load) and 0.1081 (in-plane load) as the theoretical tip displacements in the load direction, according to a public transcription of the paper; the publisher's scan itself was not inspected. Both values are independently recomputed from the case inputs with Timoshenko beam theory (shear factor 5/6), which rounds to the same four digits.",
     "geometrySource": "Fig. 4, p. 7 (straight cantilever), verified from an OCR preview of the paper; numerical table not available in preview.",
     "referenceTable": "Table 3, p. 10",
@@ -86,12 +86,12 @@
     "e": 1000000.0,
     "nu": 0.25,
     "tolerance": 1e-10,
-    "source": "MacNeal\u2013Harder (1985), Fig. 2, p. 5; Table 2, p. 10. Existing tests use general affine/quadratic fields and additional thicknesses."
+    "source": "MacNeal–Harder (1985), Fig. 2, p. 5; Table 2, p. 10. Existing tests use general affine/quadratic fields and additional thicknesses."
   },
   "cases": [
     {
       "id": "frame-shear-1-uz",
-      "label": "Frame adaptation \u00b7 shear \u00b7 1 element \u00b7 uz",
+      "label": "Frame adaptation · shear · 1 element · uz",
       "dimension": 2,
       "element": "frame",
       "mesh": [
@@ -164,7 +164,7 @@
         "component": "uz"
       },
       "reference": -0.0036,
-      "source": "Analytical Euler\u2013Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper\u2019s solid/shell mesh or material. PL\u00b3/(3EI), ML\u00b2/(2EI), ML/(EI).",
+      "source": "Analytical Euler–Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper’s solid/shell mesh or material. PL³/(3EI), ML²/(2EI), ML/(EI).",
       "nativeTest": "validation::benchmarks::patch_tests::validation_macneal_harder_straight_cantilever",
       "nativeBounds": {
         "relativeErrorLessThan": 0.02
@@ -174,7 +174,7 @@
     },
     {
       "id": "frame-shear-2-uz",
-      "label": "Frame adaptation \u00b7 shear \u00b7 2 elements \u00b7 uz",
+      "label": "Frame adaptation · shear · 2 elements · uz",
       "dimension": 2,
       "element": "frame",
       "mesh": [
@@ -262,7 +262,7 @@
         "component": "uz"
       },
       "reference": -0.0036,
-      "source": "Analytical Euler\u2013Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper\u2019s solid/shell mesh or material. PL\u00b3/(3EI), ML\u00b2/(2EI), ML/(EI).",
+      "source": "Analytical Euler–Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper’s solid/shell mesh or material. PL³/(3EI), ML²/(2EI), ML/(EI).",
       "nativeTest": "validation::benchmarks::patch_tests::validation_macneal_harder_straight_cantilever",
       "nativeBounds": {
         "relativeErrorLessThan": 0.02
@@ -272,7 +272,7 @@
     },
     {
       "id": "frame-shear-4-uz",
-      "label": "Frame adaptation \u00b7 shear \u00b7 4 elements \u00b7 uz",
+      "label": "Frame adaptation · shear · 4 elements · uz",
       "dimension": 2,
       "element": "frame",
       "mesh": [
@@ -390,7 +390,7 @@
         "component": "uz"
       },
       "reference": -0.0036,
-      "source": "Analytical Euler\u2013Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper\u2019s solid/shell mesh or material. PL\u00b3/(3EI), ML\u00b2/(2EI), ML/(EI).",
+      "source": "Analytical Euler–Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper’s solid/shell mesh or material. PL³/(3EI), ML²/(2EI), ML/(EI).",
       "nativeTest": "validation::benchmarks::patch_tests::validation_macneal_harder_straight_cantilever",
       "nativeBounds": {
         "relativeErrorLessThan": 0.02
@@ -400,7 +400,7 @@
     },
     {
       "id": "frame-shear-8-uz",
-      "label": "Frame adaptation \u00b7 shear \u00b7 8 elements \u00b7 uz",
+      "label": "Frame adaptation · shear · 8 elements · uz",
       "dimension": 2,
       "element": "frame",
       "mesh": [
@@ -578,7 +578,7 @@
         "component": "uz"
       },
       "reference": -0.0036,
-      "source": "Analytical Euler\u2013Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper\u2019s solid/shell mesh or material. PL\u00b3/(3EI), ML\u00b2/(2EI), ML/(EI).",
+      "source": "Analytical Euler–Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper’s solid/shell mesh or material. PL³/(3EI), ML²/(2EI), ML/(EI).",
       "nativeTest": "validation::benchmarks::patch_tests::validation_macneal_harder_straight_cantilever",
       "nativeBounds": {
         "relativeErrorLessThan": 0.02
@@ -588,7 +588,7 @@
     },
     {
       "id": "frame-moment-4-uz",
-      "label": "Frame adaptation \u00b7 moment \u00b7 4 elements \u00b7 uz",
+      "label": "Frame adaptation · moment · 4 elements · uz",
       "dimension": 2,
       "element": "frame",
       "mesh": [
@@ -706,7 +706,7 @@
         "component": "uz"
       },
       "reference": 0.009,
-      "source": "Analytical Euler\u2013Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper\u2019s solid/shell mesh or material. PL\u00b3/(3EI), ML\u00b2/(2EI), ML/(EI).",
+      "source": "Analytical Euler–Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper’s solid/shell mesh or material. PL³/(3EI), ML²/(2EI), ML/(EI).",
       "nativeTest": "validation::benchmarks::patch_tests::validation_macneal_harder_tip_moment",
       "nativeBounds": {
         "relativeErrorLessThan": 0.02
@@ -716,7 +716,7 @@
     },
     {
       "id": "frame-moment-4-ry",
-      "label": "Frame adaptation \u00b7 moment \u00b7 4 elements \u00b7 ry",
+      "label": "Frame adaptation · moment · 4 elements · ry",
       "dimension": 2,
       "element": "frame",
       "mesh": [
@@ -834,7 +834,7 @@
         "component": "ry"
       },
       "reference": 0.003,
-      "source": "Analytical Euler\u2013Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper\u2019s solid/shell mesh or material. PL\u00b3/(3EI), ML\u00b2/(2EI), ML/(EI).",
+      "source": "Analytical Euler–Bernoulli adaptation in validation/benchmarks/patch_tests.rs; NOT the paper’s solid/shell mesh or material. PL³/(3EI), ML²/(2EI), ML/(EI).",
       "nativeTest": "validation::benchmarks::patch_tests::validation_macneal_harder_tip_moment",
       "nativeBounds": {
         "relativeErrorLessThan": 0.02
@@ -844,7 +844,7 @@
     },
     {
       "id": "mitc4-regular-out",
-      "label": "MITC4 \u00b7 regular \u00b7 out-of-plane",
+      "label": "MITC4 · regular · out-of-plane",
       "dimension": 3,
       "element": "MITC4",
       "mesh": [
@@ -1072,7 +1072,7 @@
         "component": "uz"
       },
       "reference": 0.4321,
-      "source": "MacNeal\u2013Harder straight cantilever (Fig. 4, p. 7); 6\u00d71 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
+      "source": "MacNeal–Harder straight cantilever (Fig. 4, p. 7); 6×1 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
       "nativeTest": "macneal_harder::browser_cases",
       "nativeBounds": {
         "relativeErrorLessThan": 0.02
@@ -1082,7 +1082,7 @@
     },
     {
       "id": "mitc4-regular-in",
-      "label": "MITC4 \u00b7 regular \u00b7 in-plane",
+      "label": "MITC4 · regular · in-plane",
       "dimension": 3,
       "element": "MITC4",
       "mesh": [
@@ -1310,7 +1310,7 @@
         "component": "uy"
       },
       "reference": 0.1081,
-      "source": "MacNeal\u2013Harder straight cantilever (Fig. 4, p. 7); 6\u00d71 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
+      "source": "MacNeal–Harder straight cantilever (Fig. 4, p. 7); 6×1 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
       "nativeTest": "macneal_harder::browser_cases",
       "nativeBounds": {
         "relativeErrorLessThan": 0.02
@@ -1320,7 +1320,7 @@
     },
     {
       "id": "mitc4-trapezoidal-out",
-      "label": "MITC4 \u00b7 trapezoidal \u00b7 out-of-plane",
+      "label": "MITC4 · trapezoidal · out-of-plane",
       "dimension": 3,
       "element": "MITC4",
       "mesh": [
@@ -1548,7 +1548,7 @@
         "component": "uz"
       },
       "reference": 0.4321,
-      "source": "MacNeal\u2013Harder straight cantilever (Fig. 4, p. 7); 6\u00d71 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
+      "source": "MacNeal–Harder straight cantilever (Fig. 4, p. 7); 6×1 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
       "nativeTest": "macneal_harder::browser_cases",
       "nativeBounds": {
         "pinnedValue": 0.4162053612497649,
@@ -1560,7 +1560,11 @@
     },
     {
       "id": "mitc4-trapezoidal-in",
-      "label": "MITC4 \u00b7 trapezoidal \u00b7 in-plane",
+      "expectedRefusal": {
+        "issue": 798,
+        "id": "SH-MITC4-DISTORTION"
+      },
+      "label": "MITC4 · trapezoidal · in-plane",
       "dimension": 3,
       "element": "MITC4",
       "mesh": [
@@ -1788,19 +1792,16 @@
         "component": "uy"
       },
       "reference": 0.1081,
-      "source": "MacNeal\u2013Harder straight cantilever (Fig. 4, p. 7); 6\u00d71 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
+      "source": "MacNeal–Harder straight cantilever (Fig. 4, p. 7); 6×1 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
       "nativeTest": "macneal_harder::browser_cases",
-      "nativeBounds": {
-        "pinnedValue": 0.008443013508022026,
-        "relativeTolerance": 1e-08
-      },
+      "nativeBounds": null,
       "knownIssue": "https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion",
       "referenceRounding": 5e-05,
       "expectedPass": false
     },
     {
       "id": "mitc4-parallelogram-out",
-      "label": "MITC4 \u00b7 parallelogram \u00b7 out-of-plane",
+      "label": "MITC4 · parallelogram · out-of-plane",
       "dimension": 3,
       "element": "MITC4",
       "mesh": [
@@ -2028,7 +2029,7 @@
         "component": "uz"
       },
       "reference": 0.4321,
-      "source": "MacNeal\u2013Harder straight cantilever (Fig. 4, p. 7); 6\u00d71 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
+      "source": "MacNeal–Harder straight cantilever (Fig. 4, p. 7); 6×1 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
       "nativeTest": "macneal_harder::browser_cases",
       "nativeBounds": {
         "pinnedValue": 0.42257240188170075,
@@ -2040,7 +2041,11 @@
     },
     {
       "id": "mitc4-parallelogram-in",
-      "label": "MITC4 \u00b7 parallelogram \u00b7 in-plane",
+      "expectedRefusal": {
+        "issue": 798,
+        "id": "SH-MITC4-DISTORTION"
+      },
+      "label": "MITC4 · parallelogram · in-plane",
       "dimension": 3,
       "element": "MITC4",
       "mesh": [
@@ -2268,12 +2273,9 @@
         "component": "uy"
       },
       "reference": 0.1081,
-      "source": "MacNeal\u2013Harder straight cantilever (Fig. 4, p. 7); 6\u00d71 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
+      "source": "MacNeal–Harder straight cantilever (Fig. 4, p. 7); 6×1 mesh with midsurface MITC4 nodes. Reference: Table 3, p. 10, per a public transcription, checked against Timoshenko beam theory.",
       "nativeTest": "macneal_harder::browser_cases",
-      "nativeBounds": {
-        "pinnedValue": 0.010379694543545988,
-        "relativeTolerance": 1e-08
-      },
+      "nativeBounds": null,
       "knownIssue": "https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mh-mitc4-distortion",
       "referenceRounding": 5e-05,
       "expectedPass": false
@@ -2282,7 +2284,7 @@
   "nativeOnly": [
     {
       "id": "solid-regular-out",
-      "label": "SHB8 \u00b7 regular \u00b7 out-of-plane",
+      "label": "SHB8 · regular · out-of-plane",
       "reason": "Solid-shell inputs are not exposed by the production web wrapper.",
       "nativeTest": "solid_shell_locking::macneal_harder_straight_cantilever",
       "reference": 0.4321,
@@ -2664,7 +2666,7 @@
     },
     {
       "id": "solid-regular-in",
-      "label": "SHB8 \u00b7 regular \u00b7 in-plane",
+      "label": "SHB8 · regular · in-plane",
       "reason": "Solid-shell inputs are not exposed by the production web wrapper.",
       "nativeTest": "solid_shell_locking::macneal_harder_straight_cantilever",
       "reference": 0.1081,
@@ -3046,7 +3048,7 @@
     },
     {
       "id": "solid-trapezoidal-out",
-      "label": "SHB8 \u00b7 trapezoidal \u00b7 out-of-plane",
+      "label": "SHB8 · trapezoidal · out-of-plane",
       "reason": "Solid-shell inputs are not exposed by the production web wrapper.",
       "nativeTest": "solid_shell_locking::macneal_harder_straight_cantilever",
       "reference": 0.4321,
@@ -3428,7 +3430,7 @@
     },
     {
       "id": "solid-trapezoidal-in",
-      "label": "SHB8 \u00b7 trapezoidal \u00b7 in-plane",
+      "label": "SHB8 · trapezoidal · in-plane",
       "reason": "Solid-shell inputs are not exposed by the production web wrapper.",
       "nativeTest": "solid_shell_locking::macneal_harder_straight_cantilever",
       "reference": 0.1081,
@@ -3810,7 +3812,7 @@
     },
     {
       "id": "solid-parallelogram-out",
-      "label": "SHB8 \u00b7 parallelogram \u00b7 out-of-plane",
+      "label": "SHB8 · parallelogram · out-of-plane",
       "reason": "Solid-shell inputs are not exposed by the production web wrapper.",
       "nativeTest": "solid_shell_locking::macneal_harder_straight_cantilever",
       "reference": 0.4321,
@@ -4192,7 +4194,7 @@
     },
     {
       "id": "solid-parallelogram-in",
-      "label": "SHB8 \u00b7 parallelogram \u00b7 in-plane",
+      "label": "SHB8 · parallelogram · in-plane",
       "reason": "Solid-shell inputs are not exposed by the production web wrapper.",
       "nativeTest": "solid_shell_locking::macneal_harder_straight_cantilever",
       "reference": 0.1081,
@@ -4616,7 +4618,7 @@
     },
     {
       "id": "solid-scordelis_lo_roof",
-      "label": "SHB8 Scordelis\u2013Lo roof",
+      "label": "SHB8 Scordelis–Lo roof",
       "reason": "Solid-shell inputs are not exposed by the production web wrapper.",
       "nativeTest": "solid_shell_locking::scordelis_lo_roof",
       "reference": 0.3024,
@@ -4699,7 +4701,25 @@
         0.97,
         0.6
       ]
-    ]
+    ],
+    "regression": {
+      "relativeTolerance": 1e-05,
+      "normalized": {
+        "regular": [
+          0.978750271041,
+          0.978687753654
+        ],
+        "trapezoidal": [
+          0.959736783803,
+          0.047347230212
+        ],
+        "parallelogram": [
+          0.976171587167,
+          0.623807922324
+        ]
+      },
+      "justification": "Regression pins, not accuracy claims. The existing reference floors remain enforced. Trapezoidal and parallelogram in-plane bending retain parasitic shear locking; MacNeal and Harder (1985), Table 8, documents the severe distortion sensitivity of patch-test-passing eight-node hexes. The measured native ratios above characterize this implementation, not published reference values. See docs/verification/benchmark-tolerances-1490.md."
+    }
   },
   "shellReferences": {
     "scordelis": 0.3024,

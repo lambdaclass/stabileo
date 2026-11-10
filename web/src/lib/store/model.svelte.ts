@@ -1059,6 +1059,7 @@ export type { AnalysisResults3D };
 export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M' | 'N' | 'ux' | 'uz' | 'ry';
 
 export interface InfluenceLineResult {
+  structuredDiagnostics?: import('../engine/types').StructuredDiagnostic[];
   /** What quantity is being tracked */
   quantity: InfluenceQuantity;
   /** Target node for reactions, or target element+position for V/M */
@@ -1096,13 +1097,20 @@ const isDefinedLoadData = (l: Load | undefined): boolean => (l?.data as { fromDe
  * detailing: `restore()` copies what it receives before adopting it.
  */
 let detailingCopies = new WeakMap<object, unknown>();
+function deepFreeze<T>(v: T): T {
+  if (v !== null && typeof v === 'object' && !Object.isFrozen(v)) {
+    Object.freeze(v);
+    for (const child of Object.values(v)) deepFreeze(child);
+  }
+  return v;
+}
 function copyDetailing(d: DetailingStore | undefined): DetailingStore {
   if (!d) return emptyDetailingStore();
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(d)) {
     if (v === null || typeof v !== 'object') { out[k] = v; continue; }
     let copy = detailingCopies.get(v);
-    if (copy === undefined) { copy = JSON.parse(JSON.stringify($state.snapshot(v))); detailingCopies.set(v, copy); }
+    if (copy === undefined) { copy = deepFreeze(JSON.parse(JSON.stringify($state.snapshot(v)))); detailingCopies.set(v, copy); }
     out[k] = copy;
   }
   return out as unknown as DetailingStore;

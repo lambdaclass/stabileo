@@ -14,7 +14,6 @@ use crate::ana3::Ana3;
 use crate::case::{Case2, Case3};
 use crate::checks2::guarded;
 use crate::tally::{Tally, Verdict};
-use dedaliano_engine::metamorphic::compare::compare_with_compliance;
 use dedaliano_engine::metamorphic::conditioning;
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::{transform_2d, transform_3d, Iso2, Iso3};
@@ -129,6 +128,7 @@ pub fn symmetrize_2d(name: &str, half: &SolverInput, anti: bool) -> Option<Sym2>
     }
     let mut case = Case2::new(format!("{name}/{}", if anti { "anti" } else { "sym" }), full);
     case.path = None;
+    case.p.symmetry = true;
     // Single-node responses (harmonic) are read on the symmetry line.
     case.probes = axis.clone();
     Some(Sym2 { case, iso, pair })
@@ -179,7 +179,7 @@ pub fn check_2d(tally: &Tally, sym: &Sym2, anti: bool, anas: &[Ana2]) {
                         exp.0.iter_mut().filter(|i| !matches!(i.kind, crate::response::Kind::Stress)).for_each(|i| i.v.iter_mut().for_each(|x| *x = -*x));
                     }
                     let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
-                    crate::checks2::judge_split(&r, &exp, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &cond) * 2.0, |g, x, rel| compare_with_compliance(&g.flat(), &x.flat(), cond.lchar, rel, crate::checks2::load_floor_2d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("{} response not {}: {e}", if anti { "antisymmetric" } else { "symmetric" }, if anti { "antisymmetric" } else { "symmetric" })))
+                    crate::checks2::judge_split(&r, &exp, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &cond) * 2.0, |g, x, rel| crate::analysis_accuracy::compare(&g, &x, cond.lchar, rel, crate::checks2::load_floor_2d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("{} response not {}: {e}", if anti { "antisymmetric" } else { "symmetric" }, if anti { "antisymmetric" } else { "symmetric" })))
                 }
             },
         };
@@ -312,6 +312,7 @@ pub fn symmetrize_3d(name: &str, half: &SolverInput3D, anti: bool) -> Option<Sym
     }
     let mut case = Case3::new(format!("{name}/{}", if anti { "anti" } else { "sym" }), full);
     case.path = None;
+    case.p.symmetry = true;
     case.probes = axis.clone();
     // Excitations given in global axes must share the symmetry: a vertical
     // ground motion and spectrum direction are invariant under Rz(π).
@@ -339,7 +340,7 @@ pub fn check_3d(tally: &Tally, sym: &Sym3, anti: bool, anas: &[Ana3]) {
         if a.name == "moving loads" || a.name == "influence line" {
             continue;
         }
-        let v = match guarded(|| (a.run)(c)) {
+        let v = match guarded(|| (a.run)(c).map(|r| r.tag_shell_families(&c.s))) {
             Err(e) => Verdict::Refused(e),
             Ok(r) => match r.iso3(&sym.iso) {
                 Err(e) => Verdict::Unrepresentable(e),
@@ -354,7 +355,7 @@ pub fn check_3d(tally: &Tally, sym: &Sym3, anti: bool, anas: &[Ana3]) {
                         exp.0.iter_mut().filter(|i| !matches!(i.kind, crate::response::Kind::Stress)).for_each(|i| i.v.iter_mut().for_each(|x| *x = -*x));
                     }
                     let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
-                    crate::checks2::judge_split(&r, &exp, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &cond) * 2.0, |g, x, rel| compare_with_compliance(&g.flat(), &x.flat(), cond.lchar, rel, crate::checks3::load_floor_3d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("response not {}: {e}", if anti { "antisymmetric" } else { "C2-symmetric" })))
+                    crate::checks2::judge_split(&r, &exp, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &cond) * 2.0, |g, x, rel| crate::analysis_accuracy::compare(&g, &x, cond.lchar, rel, crate::checks3::action_floor_3d(c, a.name, cond.lchar), crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("response not {}: {e}", if anti { "antisymmetric" } else { "C2-symmetric" })))
                 }
             },
         };

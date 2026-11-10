@@ -1,0 +1,16 @@
+<script lang="ts">
+  import { tPublic as t } from '../../lib/i18n/store.svelte';
+
+  let { kind, failed = false }: { kind: string; failed?: boolean } = $props();
+  const KEYS: Record<string, string> = { tools: 'landing.navTools', blog: 'landing.navBlog', paper: 'landing.navPaper' };
+</script>
+
+<div class="landing blog" aria-busy={!failed} data-public-pending>
+  <main class="sec sec--ink"><div class="wrap" style="padding-top: 7rem">
+    <h1>Stabileo{kind === 'landing' ? '' : ` ${t(KEYS[kind] ?? 'landing.navResearch')}`}</h1>
+    {#if failed}
+      <p role="alert" data-public-load-failed>{t('landing.loadFailed')}</p>
+      <button type="button" class="btn btn-primary" onclick={() => location.reload()}>{t('landing.reload')}</button>
+    {/if}
+  </div></main>
+</div>

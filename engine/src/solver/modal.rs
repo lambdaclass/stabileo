@@ -77,7 +77,7 @@ pub fn solve_modal_2d(
     let n = dof_num.n_total;
 
     if nf == 0 {
-        return Err("No free DOFs".into());
+        return Err(crate::refusal::no_free_dofs());
     }
 
     // Mass ratios divide by the mass that can move in their direction: a
@@ -126,6 +126,13 @@ pub fn solve_modal_2d(
     let mut m_csc_opt: Option<crate::linalg::CscMatrix> = None;
     // M·r on the full free space, taken before the mass is reduced.
     let (m_r_x, m_r_y);
+    let mut structured_diagnostics = crate::known_issues::for_2d(input, crate::known_issues::Analysis::Modal);
+    let assembled_conditioning = match (&k_sparse, &k_dense) {
+        (Some(k), _) => crate::known_issues::sparse_conditioning(k),
+        (_, Some(k)) => crate::known_issues::dense_conditioning(k, nf),
+        _ => None,
+    };
+    crate::known_issues::attach(&mut structured_diagnostics, assembled_conditioning.into_iter().collect());
     let (result, ns, m_solve) = if let Some(k_ff) = k_sparse {
         // Assembled once: the branch below differs in whether the matrices are
         // reduced, not in how they are built.
@@ -135,14 +142,20 @@ pub fn solve_modal_2d(
         if let Some(ref cs) = cs {
             let k_solve = cs.reduce_matrix_sparse(&k_ff);
             let m_solve = cs.reduce_matrix_sparse(&m_csc);
-            let result = lanczos_generalized_eigen_sparse(&k_solve, &m_solve, num_modes, 0.0)
-                .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
+            let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_solve, |observe| {
+                crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(&k_solve, &m_solve, num_modes, 0.0, observe)
+            });
+            crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
+            let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
             k_check_sparse = Some(k_solve);
             m_csc_opt = Some(m_solve);
             (result, cs.n_free_indep, Vec::new())
         } else {
-            let result = lanczos_generalized_eigen_sparse(&k_ff, &m_csc, num_modes, 0.0)
-                .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_ff.n))?;
+            let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_ff, |observe| {
+                crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(&k_ff, &m_csc, num_modes, 0.0, observe)
+            });
+            crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
+            let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_ff.n))?;
             k_check_sparse = Some(k_ff);
             m_csc_opt = Some(m_csc);
             (result, nf, Vec::new())
@@ -173,8 +186,9 @@ pub fn solve_modal_2d(
         } else {
             (k_ff.clone(), m_ff.clone(), nf)
         };
-        let result = lanczos_generalized_eigen(&k_solve, &m_solve, ns, num_modes, 0.0)
+        let result = crate::linalg::lanczos::lanczos_generalized_eigen(&k_solve, &m_solve, ns, num_modes, 0.0)
             .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
+        crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(&k_solve, ns).into_iter().collect());
         k_check_dense = k_solve;
         (result, ns, m_solve)
     };
@@ -255,7 +269,12 @@ pub fn solve_modal_2d(
             Some(k) => k.sym_mat_vec(&phi_s),
             None => mat_vec_sub(&k_check_dense, &phi_s, ns),
         };
-        checks.check(&phi_s, eigenvalue, &k_phi, &m_phi)?;
+        let abs_phi: Vec<_> = phi_s.iter().map(|p| p.abs()).collect();
+        let abs_m_phi = match &m_csc_opt {
+            Some(m) => abs_mat_vec_sparse(m, &abs_phi),
+            None => abs_mat_vec_dense(&m_solve, &abs_phi, ns),
+        };
+        checks.check(&phi_s, eigenvalue, &k_phi, &m_phi, &abs_m_phi)?;
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
         // Participation factors in solve space: φ_s · Cᵀ(M·r).
@@ -339,6 +358,7 @@ pub fn solve_modal_2d(
         None
     };
 
+    structured_diagnostics.extend(checks.diagnostics);
     Ok(ModalResult {
         finite_spectrum_diagnostic: finite_spectrum_diagnostic(requested, modes.len()),
         modes,
@@ -347,7 +367,7 @@ pub fn solve_modal_2d(
         cumulative_mass_ratio_x: cum_mrx,
         cumulative_mass_ratio_y: cum_mry,
         rayleigh,
-        structured_diagnostics: checks.diagnostics,
+        structured_diagnostics,
         null_modes,
     })
 }
@@ -397,16 +417,15 @@ fn null_modes_or_mechanism(
             if pmp.abs() > 1e-30 && *mass > 1e-20 { w.max(pl * pl / pmp / mass) } else { w }
         });
         let uf = free(&phi);
-        let kinetic = |&&(_, local, g): &&(usize, usize, usize)| {
-            rigid.get(local).and_then(|m| m.get(g)).zip(uf.get(g)).map_or(0.0, |(m, u)| m.abs() * u * u)
-        };
+        let weight = |local: usize, g: usize| if local < rigid.len() { rigid.iter().map(|m| m.get(g).map_or(0.0, |x| x * x)).sum::<f64>().sqrt() } else { 0.0 };
+        let kinetic = |&&(_, local, g): &&(usize, usize, usize)| uf.get(g).map_or(0.0, |u| weight(local, g) * u * u);
         let heaviest = dofs.iter().filter(|d| d.1 < rigid.len()).max_by(|a, b| kinetic(a).total_cmp(&kinetic(b)));
         let translational: f64 = dofs.iter().map(|d| kinetic(&d)).sum();
         let u = shape(&phi);
         let (node_id, dof) = dofs.iter().filter(|d| d.2 < u.len()).max_by(|a, b| u[a.2].abs().total_cmp(&u[b.2].abs()))
             .map_or((0, String::new()), |&(node, local, _)| (node, dof_names.get(local).copied().unwrap_or("").to_string()));
         let reach = uf.iter().fold(0.0f64, |m, x| m.max(x.abs()));
-        let carries = |&&(_, local, g): &&(usize, usize, usize)| rigid.get(local).and_then(|m| m.get(g)).is_some_and(|m| m.abs() > MASSLESS * heaviest_mass);
+        let carries = |&&(_, local, g): &&(usize, usize, usize)| weight(local, g) > MASSLESS * heaviest_mass;
         let swings = dofs.iter().filter(carries).any(|&(_, _, g)| uf.get(g).is_some_and(|u| u.abs() > TRANSLATION_ROUND_OFF * reach));
         let translates = share > NULL_MODE_MASS_RATIO || translational > NULL_MODE_MASS_RATIO * pmp.abs() || swings;
         if moving.is_none() && (!round_off || translates) {
@@ -520,14 +539,10 @@ pub fn solve_modal_3d(
     densities: &HashMap<String, f64>,
     num_modes: usize,
 ) -> Result<ModalResult3D, String> {
-    // Curved beams become segments first, as in `solve_3d`: assembled from the
-    // unexpanded model they were silently left out.
+    let known_model = crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal);
+    crate::known_issues::refuse(&known_model)?;
     let input = &super::linear::expand_curved_beams_3d(input);
-    super::linear::validate_input_3d(input)?;
-    // Curved beams are expanded into straight members, as every static path
-    // does; left in place they were not part of the model at all.
-    let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));
-    let input = expanded.as_ref().unwrap_or(input);
+    super::linear::validate_input_3d_for_analysis(input, crate::known_issues::Analysis::Modal)?;
     super::dynamic_validation::validate_mass_3d(input, densities)?;
     if num_modes == 0 {
         return Err("num_modes must be >= 1".to_string());
@@ -536,7 +551,7 @@ pub fn solve_modal_3d(
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
-    if nf == 0 { return Err("No free DOFs".into()); }
+    if nf == 0 { return Err(crate::refusal::no_free_dofs()); }
 
     // Mass ratios per direction: see the 2D solver.
     let [mass_x, mass_y, mass_z] = total_mass_by_direction_3d(input, densities);
@@ -569,8 +584,14 @@ pub fn solve_modal_3d(
     } else {
         (&sasm.k_ff, &m_sparse_ff)
     };
-    let result = lanczos_generalized_eigen_sparse(k_solve, m_solve, num_modes, 0.0)
-        .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
+    let mut structured_diagnostics = known_model;
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
+    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
+        crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(k_solve, m_solve, num_modes, 0.0, observe)
+    });
+    crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
+    let result = result.ok_or_else(|| crate::refusal::eigen_decomposition_failed(&crate::linalg::lanczos::eigen_failure_message(k_solve.n)))?;
 
     let requested = num_modes;
     let num_modes = num_modes.min(ns);
@@ -622,7 +643,9 @@ pub fn solve_modal_3d(
         let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
 
         let m_phi = m_solve.sym_mat_vec(&phi_s);
-        checks.check(&phi_s, eigenvalue, &k_solve.sym_mat_vec(&phi_s), &m_phi)?;
+        let abs_phi: Vec<_> = phi_s.iter().map(|p| p.abs()).collect();
+        let abs_m_phi = abs_mat_vec_sparse(m_solve, &abs_phi);
+        checks.check(&phi_s, eigenvalue, &k_solve.sym_mat_vec(&phi_s), &m_phi, &abs_m_phi)?;
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
         let phi_m_rx: f64 = phi_s.iter().zip(l_x.iter()).map(|(p, l)| p * l).sum();
@@ -672,11 +695,18 @@ pub fn solve_modal_3d(
     }
 
     if modes.is_empty() { return Err("No valid modes found".into()); }
+    let guard = crate::known_issues::MembraneBendingGuard::for_analysis(input, crate::known_issues::Analysis::Modal);
+    if !guard.is_empty() {
+        for mode in &modes {
+            let by_node: HashMap<usize, &Displacement3D> = mode.displacements.iter().map(|d| (d.node_id, d)).collect();
+            guard.check_field(&[], |id| by_node.get(&id).map(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]))?;
+        }
+    }
 
     // The eigensolver excludes certified massless directions from this count;
     // dropping a finite low-frequency mode must still refuse a partial result.
     if modes.len() < num_modes.min(n_converged) {
-        return Err(format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (finite omega² > 0); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
+        return Err(crate::refusal::eigen_decomposition_failed(&format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (finite omega² > 0); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged))));
     }
 
 
@@ -691,6 +721,7 @@ pub fn solve_modal_3d(
         Some(RayleighDamping { a0, a1, omega1: w1, omega2: w2, damping_ratios })
     } else { None };
 
+    structured_diagnostics.extend(checks.diagnostics);
     Ok(ModalResult3D {
         finite_spectrum_diagnostic: finite_spectrum_diagnostic(requested, modes.len()),
         modes, n_dof: nf, total_mass,
@@ -698,7 +729,7 @@ pub fn solve_modal_3d(
         cumulative_mass_ratio_y: cum_mry,
         cumulative_mass_ratio_z: cum_mrz,
         rayleigh,
-        structured_diagnostics: checks.diagnostics,
+        structured_diagnostics,
         null_modes,
     })
 }

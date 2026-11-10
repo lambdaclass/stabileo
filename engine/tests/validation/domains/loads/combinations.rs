@@ -218,6 +218,7 @@ fn validation_comb_3d_biaxial() {
     let res_fz = linear::solve_3d(&input_fz).unwrap();
 
     let combo = CombinationInput3D {
+        plate_thicknesses: vec![],
         factors: vec![
             CombinationFactor { case_id: 1, factor: 2.0 },
             CombinationFactor { case_id: 2, factor: 1.0 },
@@ -227,7 +228,7 @@ fn validation_comb_3d_biaxial() {
             CaseEntry3D { case_id: 2, results: res_fz },
         ],
     };
-    let combined = combine_results_3d(&combo).unwrap();
+    let combined = combine_results_3d(&combo).unwrap().unwrap();
 
     // Direct solve: 2×Fy + Fz
     let direct_loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {

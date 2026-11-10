@@ -16,6 +16,7 @@
   import { legalHref, USAGE_DATA_PATH } from '../../lib/legal/legal';
   import { t } from '../../lib/i18n';
   import { setLocale, OFFERED_LOCALES, i18n } from '../../lib/i18n/store.svelte';
+  import { LOCALE_NAMES } from '../../lib/i18n/offered';
   import HelpTip from '../HelpTip.svelte';
   import UnitInput from '../UnitInput.svelte';
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
@@ -113,7 +114,7 @@
         <LocaleSelect
           value={i18n.locale}
           options={OFFERED_LOCALES}
-          label={(c) => t(`lang.${c}`)}
+          label={(c) => LOCALE_NAMES[c as keyof typeof LOCALE_NAMES]}
           onChange={(c) => setLocale(c)}
           ariaLabel={t('app.language')}
           testid="cfg-lang"

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { knownIssueResultDisposition } from '../../../lib/engine/known-issues';
   import { plainNumber } from '../../../lib/utils/units';
   /**
    * Time history: the ground motion, the run, and the response walked step by step.
@@ -14,6 +15,7 @@
   import { t, tp } from '../../../lib/i18n';
   import { modelStore } from '../../../lib/store';
   import { resultsStore } from '../../../lib/store';
+  import { recheckStore } from '../../../lib/store/recheck.svelte';
   import { solveTimeHistory3D } from '../../../lib/engine/wasm-solver';
   import { errorText } from '../../../lib/utils/error-text';
   import { te } from '../../../lib/i18n/engine-text';
@@ -97,6 +99,7 @@
 
   let running = $state(false);
   const result = $derived(timeHistoryView.source === 'timeHistory' ? timeHistoryView.result : null);
+  const containment = $derived(knownIssueResultDisposition(timeHistoryView.source === 'timeHistory' ? timeHistoryView.storedDiagnostics : undefined));
   const stale = $derived(!!result && timeHistoryView.modelVersion !== modelStore.modelVersion);
 
   /** Run a record through: enough steps at the current dt to reach its last sample. */
@@ -110,6 +113,8 @@
   }
 
   function run() {
+    timeHistoryView.clear();
+    nodeId = null;
     onError(null);
     running = true;
     try {
@@ -120,6 +125,7 @@
       const fields = timeHistoryInput(spec, densities, spectrumSa);
       const res = solveTimeHistory3D({ solver: input, ...fields }) as TimeHistoryResult3D;
       timeHistoryView.set(res, modelStore.modelVersion);
+      if (!knownIssueResultDisposition(res).refused) recheckStore.noteSolved('timeHistory');
       const main = (['x', 'y', 'z'] as const).find((d) => spec.ground[d].source !== 'none') ?? 'x';
       component = main === 'z' ? 'uz' : main === 'y' ? 'uy' : 'ux';
       nodeId = peakNode(res);
@@ -196,7 +202,8 @@
 
   <button class="adv-run-btn" onclick={run} disabled={disabled || running} data-testid="th-run">{t('pro.run')}</button>
 
-  {#if result}
+  {#each containment.messages as message}<div role="alert">{message}</div>{/each}
+  {#if result && !containment.refused}
     <div class="adv-inline" data-testid="th-summary">
       {#if peakDisp != null}δmax = {fmt(peakDisp * 1000)} mm{/if}
       {#if result.peakReactions?.length} — {t('pro.thBaseShearAtPeak')} = {fmt(peakBaseShear(result.peakReactions))} kN{/if}
@@ -290,4 +297,12 @@
   .adv-run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   .th-viewer { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; border-top: 1px solid var(--st-surface-3); }
   .th-slider { width: 100%; accent-color: var(--st-value); }
+  @media (max-width: 810px) {
+    .adv-panel { min-width: 0; max-width: 100%; }
+    .adv-panel.adv-panel :global(*) { font-size: max(12px, 0.75rem); min-width: 0; overflow-wrap: anywhere; }
+    .adv-panel.adv-panel :global(button), .adv-panel.adv-panel :global(input), .adv-panel.adv-panel :global(select), .adv-panel.adv-panel :global(textarea), .adv-panel.adv-panel :global(summary) { min-width: 44px; min-height: 44px; max-width: 100%; box-sizing: border-box; }
+    .adv-panel.adv-panel :global(label) { flex-wrap: wrap; white-space: normal; }
+    .adv-panel.adv-panel :global(label:has(input[type="file"])), .adv-panel.adv-panel :global(.pk-btn) { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+    .adv-panel.adv-panel :global(table) { max-width: 100%; }
+  }
 </style>

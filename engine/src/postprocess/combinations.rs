@@ -31,7 +31,12 @@ pub struct CaseEntry {
 pub struct CombinationInput3D {
     pub factors: Vec<CombinationFactor>,
     pub cases: Vec<CaseEntry3D>,
+    #[serde(default)]
+    pub plate_thicknesses: Vec<(usize, f64)>,
 }
+
+/// Plate id → thickness, which a combined plate's face stresses need.
+pub type PlateThicknesses = std::collections::HashMap<usize, f64>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -136,6 +141,16 @@ fn index_by_id(ids: impl Iterator<Item = usize>) -> std::collections::HashMap<us
 
 // ==================== 2D Combination ====================
 
+/// Whether a case may compress a member, for a case without a screened ratio: compression from an
+/// axial span load can leave both end forces at zero or in tension.
+fn axial_2d(f: &ElementForces) -> bool {
+    f.n_start != 0.0 || f.n_end != 0.0 || f.distributed_loads_x.iter().any(|q| q.q_i != 0.0 || q.q_j != 0.0) || f.point_loads.iter().any(|p| p.px.is_some_and(|px| px != 0.0))
+}
+
+fn axial_3d(f: &ElementForces3D) -> bool {
+    f.n_start != 0.0 || f.n_end != 0.0 || f.distributed_loads_x.iter().any(|q| q.q_i != 0.0 || q.q_j != 0.0)
+}
+
 /// Linearly combine AnalysisResults from multiple load cases.
 pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
     let cases: Vec<(usize, &AnalysisResults)> =
@@ -145,7 +160,11 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
 
 /// `combine_results` over borrowed case results: `(case_id, &results)` pairs,
 /// avoiding per-combination clones of every case.
+/// `None` when a contributing case carries a refusal; `combine_results_checked` says which.
 pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Option<AnalysisResults> {
+    if cases.iter().any(|(id, r)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0) && crate::known_issues::refuse_contained(&r.structured_diagnostics, *r).is_err()) {
+        return None;
+    }
     let template = cases.first()?;
     let tr = template.1;
 
@@ -228,13 +247,44 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
         }
     }
 
-    Some(AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, result_summary: None, solver_run_meta: None })
+    let mut structured_diagnostics = Vec::new();
+    let mut carried = Vec::new();
+    let mut second_order = Vec::new();
+    for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
+        let (small, others): (Vec<_>, Vec<_>) = crate::result_sites::known_issues(result).into_iter().partition(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT"));
+        let (second, others): (Vec<_>, Vec<_>) = others.into_iter().partition(crate::known_issues::is_second_order);
+        carried.extend(small);
+        second_order.extend(second);
+        crate::known_issues::attach(&mut structured_diagnostics, others);
+    }
+    let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))));
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio));
+    let mut combined = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
+    let factored = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].1))).map(|(f, r)| (f, r.result_summary.as_ref()));
+    let (beyond, chords, spans) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_2d(&combined), factored, &carried, |spans| crate::known_issues::span_rotations_2d(spans, &combined));
+    crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
+    let summary = combined.result_summary.get_or_insert_with(Default::default);
+    summary.member_chords = chords;
+    summary.member_spans = spans;
+    Some(combined)
+}
+
+/// `combine_results` for results received from outside the engine: a contributing case that
+/// carries a refusal is refused instead of being combined into usable numbers.
+pub fn combine_results_checked(input: &CombinationInput) -> Result<Option<AnalysisResults>, String> {
+    for case in input.cases.iter().filter(|c| input.factors.iter().any(|f| f.case_id == c.case_id && f.factor != 0.0)) {
+        crate::known_issues::refuse_contained(&case.results.structured_diagnostics, &case.results)?;
+    }
+    Ok(combine_results(input))
 }
 
 // ==================== 2D Envelope ====================
 
-/// Compute pointwise envelope from multiple results.
+/// Compute pointwise envelope from multiple results. A result that carries a refusal is refused.
 pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, String> {
+    for result in results {
+        crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
+    }
     let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
     check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
         (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
@@ -272,7 +322,11 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
         }
     }
 
-    let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, result_summary: None, solver_run_meta: None };
+    let mut structured_diagnostics = Vec::new();
+    for result in results {
+        crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result));
+    }
+    let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None };
 
     fn compute_env_diagram(kind: &str, results: &[AnalysisResults]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
@@ -344,16 +398,151 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
 // ==================== 3D Combination ====================
 
 /// Linearly combine 3D results.
-pub fn combine_results_3d(input: &CombinationInput3D) -> Option<AnalysisResults3D> {
+pub fn combine_results_3d(input: &CombinationInput3D) -> Result<Option<AnalysisResults3D>, String> {
     let cases: Vec<(usize, &AnalysisResults3D)> =
         input.cases.iter().map(|c| (c.case_id, &c.results)).collect();
-    combine_results_3d_refs(&input.factors, &cases)
+    combine_results_3d_refs_with_thickness(&input.factors, &cases, &input.plate_thicknesses.iter().copied().collect())
+}
+
+/// `combine_results_3d_refs_with_thickness` without plate thicknesses: refuses plate stresses.
+pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)]) -> Result<Option<AnalysisResults3D>, String> {
+    combine_results_3d_refs_with_thickness(factors, cases, &PlateThicknesses::new())
 }
 
 /// `combine_results_3d` over borrowed case results: `(case_id, &results)` pairs,
-/// avoiding per-combination clones of every case.
-pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)]) -> Option<AnalysisResults3D> {
-    let template = cases.first()?;
+/// avoiding per-combination clones of every case. Distorted-shell results combine only when
+/// Σ|factor| ≤ 1, which keeps each case's checked membrane-stress variation within its bound.
+/// Shell stresses are refused unless every contributing case lists the same shells in the same
+/// order, and plate stresses unless `plate_thickness` has each plate.
+pub fn combine_results_3d_refs_with_thickness(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)], plate_thickness: &PlateThicknesses) -> Result<Option<AnalysisResults3D>, String> {
+    let contributing: Vec<_> = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)).collect();
+    let weight: f64 = factors.iter().filter(|f| cases.iter().any(|(id, _)| *id == f.case_id)).map(|f| f.factor.abs()).sum();
+    for (_, result) in &contributing {
+        crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
+        if !(weight <= 1.0) && crate::result_sites::known_issues(result).iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+            crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
+        }
+    }
+    combine_results_3d_refs_unchecked(factors, cases, plate_thickness)
+}
+
+struct CombinedShells {
+    plates: Vec<PlateStress>,
+    quads: Vec<QuadStress>,
+    nodal: Vec<QuadNodalStress>,
+}
+
+fn same_sequence<T, K: PartialEq>(case: usize, what: &str, template: (usize, &[T]), other: &[T], key: impl Fn(&T) -> K) -> Result<(), String> {
+    if template.1.len() == other.len() && template.1.iter().map(&key).eq(other.iter().map(&key)) {
+        return Ok(());
+    }
+    Err(format!(
+        "Cannot combine the shell stresses: case {case} lists its {what} differently from case {}, so they cannot be matched shell by shell",
+        template.0
+    ))
+}
+
+fn membrane_von_mises(sxx: f64, syy: f64, txy: f64) -> f64 {
+    let (down, up) = crate::element::plate::power_of_two_scale([sxx, syy, txy]);
+    let (sxx, syy, txy) = (sxx * down, syy * down, txy * down);
+    (sxx * sxx - sxx * syy + syy * syy + 3.0 * txy * txy).sqrt() * up
+}
+
+/// Σ f·b for finite terms whose plain sum overflowed partway. Products are summed with compensation, scaled
+/// down by 2^shift, and those too small to survive that scaling apart and unscaled, so a residual left by
+/// cancelling large terms is kept wherever it sits and only a total beyond f64 stays non-finite.
+fn rescaled_sum(terms: impl Iterator<Item = (f64, f64)> + Clone) -> f64 {
+    use crate::element::plate::{binary_exponent, ldexp};
+    if terms.clone().any(|(f, b)| !f.is_finite() || !b.is_finite()) {
+        return terms.fold(0.0, |a, (f, b)| a + f * b);
+    }
+    let products = terms.filter(|&(f, b)| f != 0.0 && b != 0.0).map(|(f, b)| (binary_exponent(f) + binary_exponent(b), ldexp(f, -binary_exponent(f)) * ldexp(b, -binary_exponent(b))));
+    let Some(top) = products.clone().map(|(e, _)| e).max() else { return 0.0 };
+    let shift = (top - 1000).max(0);
+    let (mut large, mut small) = ([0.0, 0.0], [0.0, 0.0]);
+    for (e, p) in products {
+        if e - shift >= -1000 {
+            compensated_add(&mut large, ldexp(p, e - shift));
+        } else {
+            compensated_add(&mut small, ldexp(p, e));
+        }
+    }
+    ldexp(large[0] + large[1], shift) + (small[0] + small[1])
+}
+
+fn compensated_add(acc: &mut [f64; 2], x: f64) {
+    let t = acc[0] + x;
+    acc[1] += if acc[0].abs() >= x.abs() { (acc[0] - t) + x } else { (x - t) + acc[0] };
+    acc[0] = t;
+}
+
+fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, &AnalysisResults3D), plate_thickness: &PlateThicknesses) -> Result<CombinedShells, String> {
+    let (tid, tr) = template;
+    crate::shell_combination_kernel::unique_ids(tr.plate_stresses.iter().map(|p| p.element_id))?;
+    crate::shell_combination_kernel::unique_ids(tr.quad_stresses.iter().map(|q| q.element_id))?;
+    for &(_, id, r) in terms {
+        same_sequence(id, "plates", (tid, &tr.plate_stresses), &r.plate_stresses, |p| p.element_id)?;
+        same_sequence(id, "quads", (tid, &tr.quad_stresses), &r.quad_stresses, |q| q.element_id)?;
+        same_sequence(id, "nodal shell stresses", (tid, &tr.quad_nodal_stresses), &r.quad_nodal_stresses, |n| n.node_index)?;
+    }
+    let sum = |at: &dyn Fn(&AnalysisResults3D) -> [f64; 6]| -> [f64; 6] {
+        let mut v = [0.0; 6];
+        for &(f, _, r) in terms {
+            for (a, b) in v.iter_mut().zip(at(r)) {
+                *a += f * b;
+            }
+        }
+        for (i, a) in v.iter_mut().enumerate() {
+            if !a.is_finite() {
+                *a = rescaled_sum(terms.iter().map(|&(f, _, r)| (f, at(r)[i])));
+            }
+        }
+        v
+    };
+    let shear = |init: [Option<f64>; 2], at: &dyn Fn(&AnalysisResults3D) -> [Option<f64>; 2]| -> [Option<f64>; 2] {
+        let mut q = init.map(|x| x.map(|_| 0.0));
+        for &(f, _, r) in terms {
+            let v = at(r);
+            q = [0, 1].map(|i| q[i].zip(v[i]).map(|(a, b)| a + f * b));
+        }
+        for (i, a) in q.iter_mut().enumerate() {
+            if a.is_some_and(|a| !a.is_finite()) {
+                *a = Some(rescaled_sum(terms.iter().filter_map(|&(f, _, r)| at(r)[i].map(|b| (f, b)))));
+            }
+        }
+        if q[0].is_none() || q[1].is_none() { [None, None] } else { q }
+    };
+    let mut plates = Vec::with_capacity(tr.plate_stresses.len());
+    for (k, p) in tr.plate_stresses.iter().enumerate() {
+        let t = plate_thickness.get(&p.element_id).copied().filter(|t| t.is_finite() && *t > 0.0).ok_or_else(|| {
+            format!("Cannot combine the stresses of plate {}: its thickness is not given, and its principal and von Mises stresses depend on it", p.element_id)
+        })?;
+        let v = sum(&|r| { let x = &r.plate_stresses[k]; [x.sigma_xx, x.sigma_yy, x.tau_xy, x.mx, x.my, x.mxy] });
+        let [qx, qy] = shear([p.qx, p.qy], &|r| [r.plate_stresses[k].qx, r.plate_stresses[k].qy]);
+        let (sigma_1, sigma_2, von_mises) = crate::element::plate_worse_face(v[0], v[1], v[2], v[3], v[4], v[5], t);
+        plates.push(PlateStress { element_id: p.element_id, sigma_xx: v[0], sigma_yy: v[1], tau_xy: v[2], mx: v[3], my: v[4], mxy: v[5], sigma_1, sigma_2, von_mises, nodal_von_mises: vec![], qx, qy });
+    }
+    let mut quads = Vec::with_capacity(tr.quad_stresses.len());
+    for (k, q) in tr.quad_stresses.iter().enumerate() {
+        let v = sum(&|r| { let x = &r.quad_stresses[k]; [x.sigma_xx, x.sigma_yy, x.tau_xy, x.mx, x.my, x.mxy] });
+        let [qx, qy] = shear([q.qx, q.qy], &|r| [r.quad_stresses[k].qx, r.quad_stresses[k].qy]);
+        quads.push(QuadStress { element_id: q.element_id, sigma_xx: v[0], sigma_yy: v[1], tau_xy: v[2], mx: v[3], my: v[4], mxy: v[5], von_mises: membrane_von_mises(v[0], v[1], v[2]), nodal_von_mises: vec![], qx, qy });
+    }
+    let mut nodal = Vec::with_capacity(tr.quad_nodal_stresses.len());
+    for (k, n) in tr.quad_nodal_stresses.iter().enumerate() {
+        let v = sum(&|r| { let x = &r.quad_nodal_stresses[k]; [x.sigma_xx, x.sigma_yy, x.tau_xy, x.mx, x.my, x.mxy] });
+        let [qx, qy] = shear([n.qx, n.qy], &|r| [r.quad_nodal_stresses[k].qx, r.quad_nodal_stresses[k].qy]);
+        nodal.push(QuadNodalStress { node_index: n.node_index, sigma_xx: v[0], sigma_yy: v[1], tau_xy: v[2], mx: v[3], my: v[4], mxy: v[5], von_mises: membrane_von_mises(v[0], v[1], v[2]), qx, qy });
+    }
+    let combined = CombinedShells { plates, quads, nodal };
+    if let Some(at) = crate::certify::finite::non_finite_paths(&(&combined.plates, &combined.quads, &combined.nodal)).first() {
+        return Err(format!("Cannot combine the shell stresses: the combined value at {at} is beyond the range of f64"));
+    }
+    Ok(combined)
+}
+
+pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)], plate_thickness: &PlateThicknesses) -> Result<Option<AnalysisResults3D>, String> {
+    let Some(template) = cases.first() else { return Ok(None) };
     let tr = template.1;
 
     let mut displacements: Vec<Displacement3D> = tr.displacements.iter()
@@ -374,7 +563,7 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
             q_yi: 0.0, q_yj: 0.0, q_zi: 0.0, q_zj: 0.0,
             distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
             distributed_loads_x: Vec::new(),
-            distributed_loads_z: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })
+            distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })
         .collect();
 
     let disp_slot = index_by_id(displacements.iter().map(|d| d.node_id));
@@ -435,6 +624,9 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
             for dl in &ef.distributed_loads_z {
                 out.distributed_loads_z.push(DistributedLoadInfo { q_i: dl.q_i * f, q_j: dl.q_j * f, a: dl.a, b: dl.b });
             }
+            for pl in &ef.point_loads_x {
+                out.point_loads_x.push(PointLoadInfo3D { a: pl.a, p: pl.p * f });
+            }
             for pl in &ef.point_loads_y {
                 out.point_loads_y.push(PointLoadInfo3D { a: pl.a, p: pl.p * f });
             }
@@ -444,13 +636,45 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
         }
     }
 
-    Some(AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None, result_summary: None, solver_run_meta: None })
+    let mut structured_diagnostics = Vec::new();
+    let mut carried = Vec::new();
+    let mut second_order = Vec::new();
+    for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
+        let (small, others): (Vec<_>, Vec<_>) = crate::result_sites::known_issues(result).into_iter().partition(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT"));
+        let (second, others): (Vec<_>, Vec<_>) = others.into_iter().partition(crate::known_issues::is_second_order);
+        carried.extend(small);
+        second_order.extend(second);
+        crate::known_issues::attach(&mut structured_diagnostics, others);
+    }
+    let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_3d))));
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio));
+    let terms: Vec<(f64, usize, &AnalysisResults3D)> = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].0, cases[i].1))).collect();
+    let shells = combine_shells(&terms, terms.first().map_or((template.0, tr), |&(_, id, r)| (id, r)), plate_thickness)?;
+    let mut combined = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: shells.plates, quad_stresses: shells.quads, quad_nodal_stresses: shells.nodal, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
+    let factored = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].1))).map(|(f, r)| (f, r.result_summary.as_ref()));
+    let (beyond, chords, spans) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_3d(&combined), factored, &carried, |spans| crate::known_issues::span_rotations_3d(spans, &combined));
+    crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
+    let summary = combined.result_summary.get_or_insert_with(Default::default);
+    summary.member_chords = chords;
+    summary.member_spans = spans;
+    Ok(Some(combined))
 }
 
 // ==================== 3D Envelope ====================
 
-/// Compute pointwise 3D envelope.
+/// Compute pointwise 3D envelope. A single distorted-shell result is returned as it is; several
+/// are refused, since the envelope cannot check their combined membrane stresses.
 pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<FullEnvelope3D, String> {
+    for result in results {
+        crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
+        if results.len() > 1 && crate::result_sites::known_issues(result).iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+            crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
+        }
+    }
+    compute_envelope_3d_checked(results)
+}
+
+pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Result<FullEnvelope3D, String> {
     let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
     check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
         (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
@@ -501,7 +725,11 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<FullEnvelope
         }
     }
 
-    let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None, result_summary: None, solver_run_meta: None };
+    let mut structured_diagnostics = Vec::new();
+    for result in results {
+        crate::known_issues::attach(&mut structured_diagnostics, crate::result_sites::known_issues(result));
+    }
+    let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: None, solver_run_meta: None };
 
     fn compute_env_3d(kind: &str, results: &[AnalysisResults3D]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];

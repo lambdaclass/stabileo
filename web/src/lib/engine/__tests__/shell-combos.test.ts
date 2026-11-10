@@ -6,7 +6,9 @@ import { getShellCombinationKernel, registerShellCombinationKernel } from '../sh
  */
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { combineShellStresses, envelopeShellStresses, enrichComboShellStresses } from '../shell-combos';
+import { allLoadsResult3D, combineShellStresses, envelopeShellStresses, enrichComboShellStresses } from '../shell-combos';
+import { magnitudeCombination, superposed } from '../combination-methods';
+import { combineModes, type ModeCoefficient } from '../spectral-case';
 import { combineShellStressesOracle, enrichComboShellStressesOracle, envelopeShellStressesOracle } from './differential/shell-combos-oracle';
 import { EngineUnavailableError } from '../engine-unavailable';
 import type { AnalysisResults3D, QuadStress } from '../types-3d';
@@ -230,4 +232,32 @@ it('does not turn overflowing Von Mises arithmetic into a zero stress', () => {
     cases: [{ id: 1, plateStresses: [], quadStresses: [{ ...q(7, 1e200), sigmaYy: 1e200 }] }],
     combinations: [{ id: 10, factors: [{ caseId: 1, factor: 1 }] }], thicknesses: [], envelopeOrder: [],
   })).toThrow();
+});
+
+describe('a MITC4 and a MITC9 both numbered 7 in one result', () => {
+  const mitc4 = { ...q(7, 10), qx: 1, qy: 1 };
+  const mitc9 = q(7, 1000);
+  const twoFamilies = emptyResult([mitc4, mitc9]);
+  const appearsTwice = /Shell element 7 appears twice/;
+
+  it('are refused by the combinations, not one of them combined', () => {
+    const perCombo = new Map([[10, emptyResult([])]]);
+    expect(() => enrichComboShellStresses(new Map([[1, twoFamilies]]), perCombo, undefined, [{ id: 10, factors: [{ caseId: 1, factor: 1.5 }] }], new Map())).toThrow(appearsTwice);
+    expect(perCombo.get(10)!.quadStresses).toEqual([]);
+    expect(() => allLoadsResult3D(emptyResult([]), new Map([[1, twoFamilies]]), new Map())).toThrow(appearsTwice);
+    expect(() => superposed([{ r: twoFamilies, f: 1.5 }])).toThrow(appearsTwice);
+    expect(() => magnitudeCombination('srss', [{ caseId: 1, factor: 1.5 }], new Map([[1, twoFamilies]]))).toThrow(appearsTwice);
+  });
+
+  it('are refused by the envelope and the spectral combinations', () => {
+    expect(() => envelopeShellStresses([{ source: { kind: 'combination', id: 10 }, results: twoFamilies }])).toThrow(appearsTwice);
+    const mode = { mode: 1, period: 0.5, k: 2, excited: 1 } as ModeCoefficient;
+    expect(() => combineModes('srss', 0.05, [mode], [twoFamilies])).toThrow(appearsTwice);
+  });
+
+  it('the same two shells numbered apart are both combined, each from its own stresses', () => {
+    const apart = emptyResult([mitc4, { ...mitc9, elementId: 8 }]);
+    const r = superposed([{ r: apart, f: 1.5 }]);
+    expect(r.quadStresses!.map((s) => [s.elementId, s.sigmaXx])).toEqual([[7, 15], [8, 1500]]);
+  });
 });

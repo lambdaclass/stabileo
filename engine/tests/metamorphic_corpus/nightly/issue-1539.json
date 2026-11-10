@@ -1,0 +1,103 @@
+{
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": -9.13140472248368,
+      "y": 19.873782017678508,
+      "z": 23.985008467161848
+    },
+    "2": {
+      "id": 2,
+      "x": -31.554189022274294,
+      "y": 41.76657582777119,
+      "z": 1.6540279106999307
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 751990313.384662,
+      "nu": 0.2450364769576299
+    },
+    "2": {
+      "id": 2,
+      "e": 230375.95536441338,
+      "nu": 0.43683255823154343
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "name": null,
+      "a": 0.33088288632868246,
+      "iy": 6.398668463496045e-05,
+      "iz": 3.1077722013711574e-07,
+      "j": 0.0034146245587804436,
+      "cw": null,
+      "asY": null,
+      "asZ": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    }
+  },
+  "elements": {
+    "1": {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 1,
+      "releaseMyStart": false,
+      "releaseMyEnd": false,
+      "releaseMzStart": false,
+      "releaseMzEnd": false,
+      "releaseTStart": false,
+      "releaseTEnd": false,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "rollAngle": null
+    }
+  },
+  "supports": {
+    "1": {
+      "nodeId": 1,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": true,
+      "rry": true,
+      "rrz": true,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "krx": null,
+      "kry": null,
+      "krz": null,
+      "dx": null,
+      "dy": null,
+      "dz": null,
+      "drx": null,
+      "dry": null,
+      "drz": null,
+      "rw": null,
+      "kw": null,
+      "normalX": null,
+      "normalY": null,
+      "normalZ": null,
+      "isInclined": null
+    }
+  },
+  "loads": [],
+  "constraints": [],
+  "leftHand": null,
+  "plates": {},
+  "quads": {},
+  "quad9s": {},
+  "solidShells": {},
+  "curvedShells": {},
+  "curvedBeams": [],
+  "connectors": {},
+  "solverOptions": null
+}

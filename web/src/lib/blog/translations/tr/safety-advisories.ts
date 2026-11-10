@@ -14,8 +14,9 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "28 Ekim 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde düzeltildi (stabileo.com'da yayında; SA-2026-021 ve 022 22 Ekim'den, SA-2026-023 ve 024 ise 25 ve 26 Ekim'den beri). Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin."
+      "t": "10 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, 0.5.0 sürümünden sonra düzeltildi ve 9 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin. SA-2026-055 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-056 — Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı. SA-2026-057 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı."
     },
+    {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
       "t": "Özet"
@@ -53,6 +54,12 @@ const body: PostBody = {
           "Kombinasyonlar tanımlı olup çözülmemişken temeller, birleşim bölgeleri, döşemeler, perdeler ve çelik optimizasyonu katsayısız yüklere göre tasarlanıyordu (canlı hesaplama, başarısız bir kombinasyon çözümü veya boş bir etkin liste)",
           "Yüksek",
           "0.4.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-039",
+          "Excel ve IFC içe aktarma: dikdörtgen ve boru kesitlerde Iy ile Iz yer değiştirmişti (20 × 40 bir konsol 4 kat fazla esnek, 40 × 20 bir konsol 4 kat fazla rijit)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
         ],
         [
           "SA-2026-027",
@@ -121,10 +128,95 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
+          "SA-2026-038",
+          "3B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43) ve yalnızca uçları arasında basınç altındaki bir çubuk reddediliyordu",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-042",
           "2B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43 ile +%68)",
           "Yüksek",
           "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-044",
+          "2B plastik göçme: göçme katsayısı düğüm numaralandırması, çubuk yönü ve birimlerle değişiyordu (aynı yapıda 4,6 kata kadar)",
+          "Yüksek",
+          "Limit analizi bir sonraki sürümde düzeltildi; 2B plastik göçme #758 kapanana kadar geri tutuluyor"
+        ],
+        [
+          "SA-2026-043",
+          "Harmonik analiz: bir mod diğerlerinden çok daha yumuşak olduğunda atlanan modların düzeltmesi basamaklarını kaybediyordu (bir örnekte 2,3 Hz'de 79 kat)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-045",
+          "3B plastik göçme: kullanılabilir plastik momenti olmayan bir çubuk hiç akmayan bir çubuk gibi ele alınıyordu (bir örnekte 6 kat yüksek ve sertifikalı)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-046",
+          "Harmonik analiz: modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu; süperpozisyon ve karşılıklılık bozuluyordu (bir örnekte bir düğümde %107); 5 Kasım 2026'dan düzeltmeye kadar stabileo.com ve main dalının motor/WASM derlemeleri",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-047",
+          "Kabuklar: mesnet yer değiştirmesi zorlayan bir yük durumu kabuk gerilmelerini kaybediyor, kombinasyonlar ve zarflar yalnızca diğer durumlarınkini topluyordu (güvensiz tarafta kalabiliyordu, uyarısız); 0.2.0 ile 0.4.0 arası",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-048",
+          "CIRSOC 301 çelik: Cb, çubuktan kısa beyan edilen desteksiz boyun uçlarındaki işaret değişimini görmüyordu (çift eğrilikteki bir U profil 1 yerine Cb = 2,55 aldı, yanal burulmalı burkulma kapasitesi olduğundan yüksek çıktı); 0.2.0 ile 0.5.0 arası, masaüstü alfa sürümleri ve 8 Kasım 2026'ya kadar stabileo.com",
+          "Yüksek",
+          "0.5.0'dan sonra düzeltildi; 8 Kasım 2026'dan beri stabileo.com'da"
+        ],
+        [
+          "SA-2026-049",
+          "Aynı serbestlik derecesinde pozitif yay ve rijit kısıt bulunan mesnetler: 3D’de yay kısıtı kaldırıyor ve sınır koşulunu değiştiriyordu; 0.2.0 ile 0.5.0 arasındaki motor kodu",
+          "Yüksek",
+          "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
+        ],
+        [
+          "SA-2026-050",
+          "Burkulma başarısız narinlik hesabını sıfıra dönüştürebiliyor ve yük durumu analizleri başarılı sonuç içinde sonlu olmayan değerler döndürebiliyordu",
+          "Orta",
+          "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
+        ],
+        [
+          "SA-2026-051",
+          "3D hareketli yükler: zarflar, çubuk içindeki kesit tesiri tepe değerlerini atlıyor ve eğimli çubuklarda dingil ağırlığının eksenel bileşenini kaybediyordu; talep uyarı verilmeden düşük hesaplanabiliyordu; 0.2.0 ile 0.5.0 arası ve desktop-v0.1.0-alpha.1 ile alpha.3 arası",
+          "Yüksek",
+          "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
+        ],
+        [
+          "SA-2026-052",
+          "Motorun 2D ve 3D hareketli yükleri: kalıcı kısmi eksenel yayılı yükler içeren eksenel kuvvet zarfları, örnekleme noktaları arasındaki yük bölgesi sınırlarında uç değerleri atlayabiliyordu; talep uyarı verilmeden düşük hesaplanabiliyordu; yayımlanmış sürümler için bir sınır ileri sürülmüyor",
+          "Yüksek",
+          "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
+        ],
+        [
+          "SA-2026-053",
+          "2D ve 3D hareketli yükler: çubuk uçlarındaki tekil yükler, çubuk dışındaki kuvvetleri zarflara dahil ederek yapay eksenel kuvvet ve kesme kuvveti uç değerleri ekliyor ve talebi yüksek hesaplıyordu; yayımlanmış sürümler için bir sınır ileri sürülmüyor",
+          "Düşük",
+          "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
+        ],
+        ["SA-2026-055", "2B ve 3B P-Delta, çerçeve çubuğu boyunca yayılı veya tekil yükler altında eksenel kuvvet değiştiğinde büyütmeyi düşük gösterebilir ve kararlı sonuç bildirebilirdi", "Yüksek", "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"],
+        [
+          "SA-2026-056",
+          "Çerçeve, kabuk ve kısıt içeren 3B modeller: harmonik ve zorlanmış zaman geçmişi sonuçları eşdeğer tanımlamalarda değişiyor; saklanan modelin ötesindeki kapsam belirlenmedi",
+          "Yüksek",
+          "Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı"
+        ],
+        [
+          "SA-2026-057",
+          "Plastik sertifika gösterimi sertifikalı aralığın dışındaki katsayıları içeride olarak gösterebiliyordu; kesin mekanizma çıkarımı PR #1888’in düzeltme öncesi derlemelerinde kaynak sınırı retlerini kaybediyordu",
+          "Orta",
+          "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"
         ],
         [
           "SA-2026-037",

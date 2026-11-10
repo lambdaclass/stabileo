@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | Medium |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | [#338](https://github.com/lambdaclass/stabileo/issues/338) |
-| Fix | PR [#1247](https://github.com/lambdaclass/stabileo/pull/1247) |
+| Fix | PR [#1247](https://github.com/lambdaclass/stabileo/pull/1247) (merged through [#1285](https://github.com/lambdaclass/stabileo/pull/1285), 2026-11-03), released in v0.5.0 |
 | Affected versions | every release with modal analysis; not bisected |
 | Re-check registry | entry `modal-mechanism-refused` (models run in modal, spectral or seismic analysis) |
 
@@ -34,6 +34,8 @@ participation, on a model whose static analysis warns about excessive displaceme
 singular or indefinite stiffness. Re-run it: it now refuses and names the mechanism, or lists the zero mode when it moves no mass.
 
 ## Fixed in
+
+0.5.0.
 
 PR #1247. A mode is zero when its ω² is round-off: |ω²|·φᵀMφ at most 10⁻¹⁴ of |φ|ᵀ|K||φ|, the
 size of the stiffness terms that cancel in it (mechanisms measure 10⁻¹⁹ to 2·10⁻¹⁶). Real modes

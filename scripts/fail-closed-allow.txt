@@ -1,0 +1,337 @@
+# Lines that keep an `else { 0 }`, `unwrap_or(0)` or `.max(0.0)` fallback in engine/src/{design,certify,postprocess}.
+# Checked by scripts/check-fail-closed.py (make lint.engine). One line per occurrence, under the
+# `## reason` that makes it safe. A demand/capacity ratio never belongs here: it goes through crate::check.
+
+## Outward rounding of a non-negative quantity (a norm, a square, an amplitude, a station step): the lower bound is clamped at 0, which keeps the enclosure sound.
+engine/src/certify/constrained.rs: un2 = down(un2 + down(x * x)).max(0.0);
+engine/src/certify/constrained.rs: let unorm = down(un2.sqrt()).max(0.0);
+engine/src/certify/deflection.rs: let x = Interval::new(x0.next_down().max(0.0), x1.next_up());
+engine/src/certify/harmonic.rs: let amplitude = Enclosure { lo: down(amp.lo - b).max(0.0), hi: up(amp.hi + b) };
+engine/src/certify/harmonic.rs: Interval { lo: s.lo.max(0.0), hi: s.hi }.sqrt()
+engine/src/certify/interval.rs: let lo = if self.contains_zero() { 0.0 } else { down(mn * mn).max(0.0) };
+engine/src/certify/interval.rs: Interval { lo: down(self.lo.sqrt()).max(0.0), hi: up(self.hi.sqrt()) }
+engine/src/certify/linear.rs: un2 = down(un2 + down(x * x)).max(0.0);
+engine/src/certify/linear.rs: let unorm = down(un2.sqrt()).max(0.0);
+engine/src/certify/modal.rs: c = c.max(4.0 * (mu - pkp / pmp).max(0.0) / pmp);
+engine/src/certify/pdelta.rs: let s = u[..nf].iter().fold(0.0f64, |s, &x| down(s + down(x * x)).max(0.0));
+engine/src/certify/pdelta.rs: down(s.sqrt()).max(0.0)
+engine/src/certify/real.rs: let lo = (mn - mn.abs() * POW_ULPS - f64::MIN_POSITIVE).next_down().max(0.0);
+engine/src/certify/real.rs: let lo = (a - a.abs() * POW_ULPS - f64::MIN_POSITIVE).next_down().max(0.0);
+engine/src/certify/sparse.rs: un2 = down(un2 + down(x * x)).max(0.0);
+engine/src/certify/sparse.rs: let unorm = down(un2.sqrt()).max(0.0);
+engine/src/certify/spectral.rs: up(up(self.hi - x).max(up(x - self.lo))).max(0.0)
+engine/src/certify/spectral.rs: let pi = Interval::new(down(pm.lo - slack).max(0.0), up(pm.hi + slack));
+engine/src/certify/stations.rs: let h = up(x1 - x0).max(0.0);
+
+## Identity matrix entry.
+engine/src/certify/constrained.rs: let mut g = Interval::point(if a == b { -1.0 } else { 0.0 });
+
+## An absent force component is a zero demand; `around` refuses a non-finite one before any ratio is formed.
+engine/src/certify/design.rs: let mz = around(f.mz.unwrap_or(0.0), b.mz, "Mz")?.abs();
+engine/src/certify/design.rs: let v_strong = around(f.v_strong.unwrap_or(0.0), b.v_strong, "strong-axis shear")?.abs();
+engine/src/certify/design.rs: let v_weak = around(f.v_weak.unwrap_or(0.0), b.v_weak, "weak-axis shear")?.abs();
+engine/src/certify/design.rs: let n = around(f.n_ed.unwrap_or(0.0), b.n, "NEd")?;
+engine/src/certify/design.rs: let my = around(f.my_ed.unwrap_or(0.0), b.my, "My,Ed")?.abs();
+engine/src/certify/design.rs: let mz = around(f.mz_ed.unwrap_or(0.0), b.mz, "Mz,Ed")?.abs();
+engine/src/certify/design.rs: let v = around(f.v_ed.unwrap_or(0.0), b.v_strong, "VEd")?.abs();
+engine/src/certify/design.rs: let mm = around(f.m_ed.unwrap_or(0.0), b.my, "MEd")?.abs();
+engine/src/certify/design.rs: let v = around(f.v_ed.unwrap_or(0.0), b.v_strong, "VEd")?.abs();
+engine/src/certify/design.rs: let n = around(f.n_ed.unwrap_or(0.0), b.n, "NEd")?;
+engine/src/certify/design.rs: let mu = around(f.mu.unwrap_or(0.0), b.my, "Mu")?.abs();
+engine/src/certify/design.rs: let vu = around(f.vu.unwrap_or(0.0), b.v_strong, "Vu")?.abs();
+engine/src/certify/design.rs: let nu = around(f.axial_compression.unwrap_or(0.0), if f.axial_compression.is_some() { b.n } else { 0.0 }, "Nu")?;
+engine/src/certify/design.rs: let nu = around(f.axial_compression.unwrap_or(0.0), if f.axial_compression.is_some() { b.n } else { 0.0 }, "Nu")?;
+engine/src/certify/design.rs: let flex = cirsoc201_nominal_flexure::<Interval>(m, nu, f.axial_compression.unwrap_or(0.0))
+engine/src/certify/design.rs: let vu = around(f.vu.unwrap_or(0.0), b.v_strong, "Vu")?.abs();
+engine/src/certify/design.rs: let nu = around(f.nu.unwrap_or(0.0), b.n, "Nu")?;
+engine/src/certify/design.rs: let n = around(f.n.unwrap_or(0.0), b.n, "N")?;
+engine/src/certify/design.rs: let v = around(f.v.unwrap_or(0.0), b.v_strong, "V")?.abs();
+engine/src/certify/design.rs: let n = around(f.axial.unwrap_or(0.0), b.n, "axial")?;
+engine/src/certify/design.rs: let mx = around(f.mx.unwrap_or(0.0), b.my, "Mx")?.abs();
+engine/src/certify/design.rs: let my = around(f.my.unwrap_or(0.0), b.mz, "My")?.abs();
+engine/src/certify/design.rs: let v = around(f.shear.unwrap_or(0.0), b.v_strong, "shear")?.abs();
+
+## Index of the governing check over a list with one entry per check name, never empty.
+engine/src/certify/design.rs: let gov = (0..acc.len()).max_by(|&a, &b| acc[a].hi.total_cmp(&acc[b].hi)).unwrap_or(0);
+
+## An absent force component is a zero demand when demands are converted between codes; the converted demand goes through `around`, which refuses a non-finite one.
+engine/src/certify/design.rs: let mut dropped = vec![("weak-axis shear Vy", d.forces.v_weak.unwrap_or(0.0), d.bound.v_weak)];
+engine/src/certify/design.rs: dropped.push(("weak-axis moment Mz", d.forces.mz.unwrap_or(0.0), d.bound.mz));
+engine/src/certify/design.rs: mu_weak: d.forces.mz.unwrap_or(0.0),
+engine/src/certify/design.rs: vu: d.forces.v_strong.unwrap_or(0.0),
+engine/src/certify/design.rs: let (mz, bmz) = sc(d.forces.mz.unwrap_or(0.0), d.bound.mz);
+engine/src/certify/design.rs: let (vs, bvs) = sc(d.forces.v_strong.unwrap_or(0.0), d.bound.v_strong);
+engine/src/certify/design.rs: let (vw, bvw) = sc(d.forces.v_weak.unwrap_or(0.0), d.bound.v_weak);
+
+## Hull of the ratio enclosure with 0 when it is undecided whether the check applies: a sound enclosure, still bounded above by the ratio.
+engine/src/certify/design.rs: Tri::Unknown => r().map(|r| Interval::new(0.0, r.hi.max(0.0))),
+
+## Absent sparse matrix entries are zero, and an absent HHT alpha is the Newmark scheme (alpha = 0).
+engine/src/certify/dynamics.rs: let mv = mmap.get(&key).copied().unwrap_or(0.0);
+engine/src/certify/dynamics.rs: let kv = kmap.get(&key).copied().unwrap_or(0.0);
+engine/src/certify/dynamics.rs: identity_exact_for_scheme: tr.beta == 0.25 && tr.gamma == 0.5 && tr.alpha.unwrap_or(0.0) == 0.0,
+
+## Without a shear area the element is Euler-Bernoulli (φ = 0), as in the solver whose forces are certified.
+engine/src/certify/forces.rs: sec.as_y.map(|ay| 12.0 * e * sec.iy / (g * ay * l2)).unwrap_or(0.0),
+engine/src/certify/forces.rs: sec.as_z.map(|az| 12.0 * e * sec.iz / (g * az * l2)).unwrap_or(0.0),
+
+## Lower bound on ω² of 0 when the Rayleigh enclosure gives none: the weakest sound bound.
+engine/src/certify/modal.rs: let omega2_lower = if nu_hi > 0.0 && nu_hi.is_finite() { down(1.0 / nu_hi) } else { 0.0 };
+
+## Exact LP / simplex internals of the plastic certificate (identity columns, clamped basic values, zero for unscaled rows) and absent optional loads (zero); the certificate is checked exactly afterwards.
+engine/src/certify/plastic.rs: let ta = frac(e, dl.a.unwrap_or(0.0), "partial distributed load")?;
+engine/src/certify/plastic.rs: q(pl.px.unwrap_or(0.0)).ok_or("non-finite load")?,
+engine/src/certify/plastic.rs: q(pl.my.unwrap_or(0.0)).ok_or("non-finite load")?,
+engine/src/certify/plastic.rs: r.extend((0..p).map(|j| if i == j { 1.0 } else { 0.0 }));
+engine/src/certify/plastic.rs: theta = theta.min((r[w - 1].max(0.0) + delta) / r[jc]);
+engine/src/certify/plastic.rs: if r[jc] > ptol && r[w - 1].max(0.0) / r[jc] <= theta && row.is_none_or(|k| r[jc] > tab[k][jc]) {
+engine/src/certify/plastic.rs: degenerate = if tab[ir][w - 1].abs() < 1e-14 { degenerate + 1 } else { 0 };
+engine/src/certify/plastic.rs: if !run(&mut tab, &mut basis, &|j| if j >= n { 1.0 } else { 0.0 }, &|_| true) {
+engine/src/certify/plastic.rs: mu[basis[i]] = tab[i][w - 1].max(0.0);
+engine/src/certify/plastic.rs: .map(|k| (0..p).map(|i| if basis[i] < n { tab[i][n + k] } else { 0.0 }).sum())
+engine/src/certify/plastic.rs: let y: Vec<f64> = yhat.iter().zip(&scales).map(|(y, s)| if *s > 0.0 { y / s } else { 0.0 }).collect();
+engine/src/certify/plastic.rs: (0..r).map(|i| if a[i][i].abs() > 1e-300 { a[i][r] / a[i][i] } else { 0.0 }).collect()
+engine/src/certify/plastic.rs: (Some(l), Some(u), Some(s)) => Some(((l - s).max(s - u).max(0.0)) / u.abs().max(f64::MIN_POSITIVE)),
+engine/src/certify/plastic_3d.rs: let y: Vec<f64> = yhat.iter().zip(&scales).map(|(y, s)| if *s > 0.0 { y / s } else { 0.0 }).collect();
+engine/src/certify/plastic_3d.rs: let mu = samples.iter().map(|s| (0..s.dirs.len()).map(|_| it.next().unwrap_or(0.0)).collect()).collect();
+engine/src/certify/plastic_3d.rs: let w: Vec<f64> = mechs.iter().map(|mm| mechanism_terms(model, mm).map(|t| to_f64(&t.0)).unwrap_or(0.0)).collect();
+engine/src/certify/plastic_3d.rs: (Some(l), Some(u), Some(s)) => (Some(l <= s && s <= u), Some(((l - s).max(s - u).max(0.0)) / u.abs().max(f64::MIN_POSITIVE))),
+
+## Segment index of a station within [0, L]; the first segment when t is at the start.
+engine/src/certify/plastic.rs: let s = (0..=h).rfind(|&s| ts[s] <= *t).unwrap_or(0).min(h);
+engine/src/certify/plastic_3d.rs: let seg_of = |t: &Q| (0..=h).rfind(|&s| ts[s] <= *t).unwrap_or(0).min(h);
+
+## Absent support springs and prescribed displacements are zero (the solver's own convention, which the certificate reproduces); absent sparse entries are zero.
+engine/src/certify/reactions.rs: let mut acc = -Interval::point(f.get(d).copied().unwrap_or(0.0));
+engine/src/certify/reactions.rs: let kk = if c.spring_type || c.spring > 0.0 { c.spring } else { 0.0 };
+engine/src/certify/reactions.rs: let disp = if d < k.nf { up(kk.abs() * abs_bound) } else { 0.0 };
+engine/src/certify/reactions.rs: && (support_dofs_2d(sup)[0].spring.unwrap_or(0.0) > 0.0 || support_dofs_2d(sup)[1].spring.unwrap_or(0.0) > 0.0);
+engine/src/certify/reactions.rs: && (support_dofs_2d(sup)[0].spring.unwrap_or(0.0) > 0.0 || support_dofs_2d(sup)[1].spring.unwrap_or(0.0) > 0.0);
+engine/src/certify/reactions.rs: spring: springs[i].unwrap_or(0.0),
+engine/src/certify/reactions.rs: spring: springs[i].unwrap_or(0.0),
+
+## A negative spring on a restrained DOF adds nothing to its reaction (the solver's convention); the spring is finite (certify::finite::check_input runs first).
+engine/src/certify/reactions.rs: (up(r * abs_bound), value - Interval::point(c.spring.max(0.0)) * Interval::point(u[d]))
+engine/src/certify/solver.rs: let u_normal = sup.dx.unwrap_or(0.0) * s + sup.dz.unwrap_or(0.0) * c;
+engine/src/certify/solver.rs: let u_normal = sup.dx.unwrap_or(0.0) * s + sup.dz.unwrap_or(0.0) * c;
+engine/src/certify/solver.rs: if u_normal.abs() > 1e-15 { u_normal } else { 0.0 }
+engine/src/certify/solver.rs: } else {
+engine/src/certify/solver.rs: (nx * sup.dx.unwrap_or(0.0) + ny * sup.dy.unwrap_or(0.0) + nz * sup.dz.unwrap_or(0.0)) / n_len;
+engine/src/certify/solver.rs: (nx * sup.dx.unwrap_or(0.0) + ny * sup.dy.unwrap_or(0.0) + nz * sup.dz.unwrap_or(0.0)) / n_len;
+engine/src/certify/solver.rs: (nx * sup.dx.unwrap_or(0.0) + ny * sup.dy.unwrap_or(0.0) + nz * sup.dz.unwrap_or(0.0)) / n_len;
+engine/src/certify/solver.rs: if u_normal.abs() > 1e-15 { u_normal } else { 0.0 }
+engine/src/certify/solver.rs: } else {
+
+## Independent model reassembly: absent optional support springs and prescribed displacements are zero (and refused where unused), absent sparse entries are zero, and norms are rounded down at 0.
+engine/src/certify/reassembly/model2d.rs: let rigid = Rigid { ntrans: 2, nrot: if dpn == 3 { 1 } else { 0 }, delta: vec![dx, dz], handed: 1.0 };
+engine/src/certify/reassembly/model2d.rs: && [support_dofs_2d(s)[0].spring, support_dofs_2d(s)[1].spring, support_dofs_2d(s)[2].spring, s.dx, s.dz, s.dry, s.angle].into_iter().all(|v| v.unwrap_or(0.0) == 0.0)
+engine/src/certify/reassembly/model2d.rs: let nz = |v: Option<f64>| v.unwrap_or(0.0) != 0.0;
+engine/src/certify/reassembly/model2d.rs: if dpn < 3 && (support_dofs_2d(s)[2].spring.unwrap_or(0.0) > 0.0 || nz(s.dry)) {
+engine/src/certify/reassembly/model2d.rs: let kx = support_dofs_2d(s)[0].spring.unwrap_or(0.0);
+engine/src/certify/reassembly/model2d.rs: let ky = support_dofs_2d(s)[1].spring.unwrap_or(0.0);
+engine/src/certify/reassembly/model2d.rs: let kz = support_dofs_2d(s)[2].spring.unwrap_or(0.0);
+engine/src/certify/reassembly/model2d.rs: let un = inp(s.dx.unwrap_or(0.0)) * sn + inp(s.dz.unwrap_or(0.0)) * cs;
+engine/src/certify/reassembly/model2d.rs: let un = inp(s.dx.unwrap_or(0.0)) * sn + inp(s.dz.unwrap_or(0.0)) * cs;
+engine/src/certify/reassembly/model3d.rs: let rigid = Rigid { ntrans: 3, nrot: if dpn == 6 { 3 } else { 0 }, delta: sub3(&xj, &xi).to_vec(), handed: if left_hand && needs_axes { -1.0 } else { 1.0 } };
+engine/src/certify/reassembly/model3d.rs: && [s.normal_x, s.normal_y, s.normal_z].into_iter().all(|v| v.unwrap_or(0.0) == 0.0)
+engine/src/certify/reassembly/model3d.rs: .all(|v| v.unwrap_or(0.0) == 0.0)
+engine/src/certify/reassembly/model3d.rs: let nz = |v: Option<f64>| v.unwrap_or(0.0) != 0.0;
+engine/src/certify/reassembly/model3d.rs: if dpn < 6 && ([support_dofs_3d(s)[3].spring, support_dofs_3d(s)[4].spring, support_dofs_3d(s)[5].spring].into_iter().any(|k| k.unwrap_or(0.0) > 0.0) || [s.drx, s.dry, s.drz].into_iter().any(nz)) {
+engine/src/certify/reassembly/model3d.rs: let dvec = [inp(s.dx.unwrap_or(0.0)), inp(s.dy.unwrap_or(0.0)), inp(s.dz.unwrap_or(0.0))];
+engine/src/certify/reassembly/model3d.rs: let dvec = [inp(s.dx.unwrap_or(0.0)), inp(s.dy.unwrap_or(0.0)), inp(s.dz.unwrap_or(0.0))];
+engine/src/certify/reassembly/model3d.rs: let dvec = [inp(s.dx.unwrap_or(0.0)), inp(s.dy.unwrap_or(0.0)), inp(s.dz.unwrap_or(0.0))];
+engine/src/certify/reassembly/system.rs: if den > 0.0 { num / den } else { 0.0 }
+engine/src/certify/reassembly/system.rs: u2 = (u2 + u[i] * u[i]).next_down().max(0.0);
+engine/src/certify/reassembly/system.rs: let unorm = u2.sqrt().next_down().max(0.0);
+engine/src/certify/reassembly/system.rs: let kget = |a: usize, b: usize| eng.k.get(&(a, b)).copied().unwrap_or(0.0);
+engine/src/certify/reassembly/system.rs: let diag_scale: Vec<f64> = (0..n).map(|i| model.k[i].get(&i).map(|e| e.scale).unwrap_or(0.0)).collect();
+engine/src/certify/reassembly/system.rs: let sc = model.k[i].get(&j).map(|e| e.scale).unwrap_or(0.0).max((diag_scale[i] * diag_scale[j]).sqrt());
+engine/src/certify/reassembly/system.rs: } else {
+engine/src/certify/reassembly/system.rs: let s = model.f[i].map(|e| e.scale).unwrap_or(0.0);
+engine/src/certify/reassembly/system.rs: let v = eng.f.get(a).copied().unwrap_or(0.0);
+engine/src/certify/reassembly/system.rs: } else {
+
+## Station-bound internals: no jump term without jumps, and an absent point moment is zero; inputs are finite (certify::finite::check_input).
+engine/src/certify/stations.rs: let step = if jumps > 0.0 { jumps.min((shape.lip)(k, h) * h) } else { 0.0 };
+engine/src/certify/stations.rs: events: pls.iter().map(|p| Event { x: p.a, kink: p.p, jump: p.my.unwrap_or(0.0) }).collect(),
+
+## Without xo the compression check is flagged unevaluated right after (flexural-torsional mode unknown); the 0 only feeds the flexural-buckling part.
+engine/src/postprocess/cfs_check.rs: let (rx, ry, xo) = (T::exact(m.rx), T::exact(m.ry), T::exact(m.xo.unwrap_or(0.0)));
+
+## An absent force component is a zero demand (the API makes these components optional); NaN is not absent and still reaches the check.
+engine/src/postprocess/cfs_check.rs: let axial = f.axial.unwrap_or(0.0);
+engine/src/postprocess/cfs_check.rs: let mx = f.mx.unwrap_or(0.0);
+engine/src/postprocess/cfs_check.rs: let my = f.my.unwrap_or(0.0);
+engine/src/postprocess/cfs_check.rs: let shear = f.shear.unwrap_or(0.0);
+engine/src/postprocess/cirsoc201_check.rs: let mu = f.mu.unwrap_or(0.0).abs();
+engine/src/postprocess/cirsoc201_check.rs: let vu = f.vu.unwrap_or(0.0).abs();
+engine/src/postprocess/cirsoc201_check.rs: let nu = f.axial_compression.unwrap_or(0.0);
+engine/src/postprocess/connection_check.rs: let m = forces.m.unwrap_or(0.0);
+engine/src/postprocess/connection_check.rs: let m = forces.m.unwrap_or(0.0);
+engine/src/postprocess/ec2_check.rs: let m_ed = f.m_ed.unwrap_or(0.0).abs();
+engine/src/postprocess/ec2_check.rs: let v_ed = f.v_ed.unwrap_or(0.0).abs();
+engine/src/postprocess/ec2_check.rs: let Ec2Shear { v_rd, v_rdc, v_rds, v_rd_max } = ec2_shear::<f64>(m, f.n_ed.unwrap_or(0.0));
+engine/src/postprocess/ec3_check.rs: let n_ed = f.n_ed.unwrap_or(0.0);
+engine/src/postprocess/ec3_check.rs: let my_ed = f.my_ed.unwrap_or(0.0);
+engine/src/postprocess/ec3_check.rs: let mz_ed = f.mz_ed.unwrap_or(0.0);
+engine/src/postprocess/ec3_check.rs: let v_ed = f.v_ed.unwrap_or(0.0);
+engine/src/postprocess/foundation_check.rs: let mx = forces.mx.unwrap_or(0.0);
+engine/src/postprocess/foundation_check.rs: let my = forces.my.unwrap_or(0.0);
+engine/src/postprocess/foundation_check.rs: let h = forces.h.unwrap_or(0.0);
+engine/src/postprocess/masonry_check.rs: let pu = f.pu.unwrap_or(0.0);
+engine/src/postprocess/masonry_check.rs: let mu = f.mu.unwrap_or(0.0).abs();
+engine/src/postprocess/masonry_check.rs: let vu = f.vu.unwrap_or(0.0).abs();
+engine/src/postprocess/rc_check.rs: let nu = f.nu.unwrap_or(0.0);
+engine/src/postprocess/rc_check.rs: let vu_abs = f.vu.unwrap_or(0.0).abs();
+engine/src/postprocess/steel_check.rs: let mz = forces.mz.unwrap_or(0.0).abs();
+engine/src/postprocess/steel_check.rs: let v_strong = forces.v_strong.unwrap_or(0.0).abs();
+engine/src/postprocess/steel_check.rs: let v_weak = forces.v_weak.unwrap_or(0.0).abs();
+engine/src/postprocess/timber_check.rs: let n = f.n.unwrap_or(0.0);
+engine/src/postprocess/timber_check.rs: let v_abs = f.v.unwrap_or(0.0).abs();
+
+## Optional compression reinforcement: absent means a singly reinforced section, which only lowers the flexural capacity.
+engine/src/postprocess/cirsoc201_check.rs: let as_c = m.as_compression.unwrap_or(0.0).max(0.0);
+engine/src/postprocess/cirsoc201_check.rs: let as_c = m.as_compression.unwrap_or(0.0).max(0.0);
+engine/src/postprocess/cirsoc201_check.rs: let d_p = m.d_prime.unwrap_or(0.0);
+engine/src/postprocess/cirsoc201_check.rs: let as_c = m.as_compression.unwrap_or(0.0).max(0.0);
+engine/src/postprocess/cirsoc201_check.rs: let as_c = m.as_compression.unwrap_or(0.0).max(0.0);
+engine/src/postprocess/cirsoc201_check.rs: let d_p = m.d_prime.unwrap_or(0.0);
+engine/src/postprocess/cirsoc201_design.rs: if !allow_compression_steel || !(m.d_prime.unwrap_or(0.0) > 0.0 && m.d_prime.unwrap_or(0.0) < m.d) {
+engine/src/postprocess/cirsoc201_design.rs: if !allow_compression_steel || !(m.d_prime.unwrap_or(0.0) > 0.0 && m.d_prime.unwrap_or(0.0) < m.d) {
+engine/src/postprocess/rc_check.rs: let ast = T::exact(m.as_tension) + T::exact(m.as_compression.unwrap_or(0.0));
+engine/src/postprocess/rc_check.rs: let as_comp = m.as_compression.unwrap_or(0.0);
+engine/src/postprocess/rc_check.rs: let d_prime = m.d_prime.unwrap_or(0.0);
+engine/src/postprocess/rc_check.rs: let as_comp = T::exact(m.as_compression.unwrap_or(0.0));
+engine/src/postprocess/rc_check.rs: let d_prime = T::exact(m.d_prime.unwrap_or(0.0));
+
+## The minimum-shear-reinforcement check is a yes/no requirement: ∞ when it is missing, 0 when satisfied or not required.
+engine/src/postprocess/cirsoc201_check.rs: (if min_shear_reinforcement_missing { f64::INFINITY } else { 0.0 }, CIRSOC201_MIN_SHEAR),
+
+## The ductility strain limit applies only to flexural members with low axial load; 0 is "no limit" where it does not apply.
+engine/src/postprocess/cirsoc201_design.rs: let eps_min = if applies { ductility_strain(m.edition, m.fy, es) } else { 0.0 };
+
+## Missing J or Cw: either refused just below (e4NoJ, e4NoJCw, ltbNoJ, None for a channel rt) or a zero warping term, which only lowers Fe, Lr and the LTB capacity.
+engine/src/postprocess/cirsoc301_check.rs: let j = m.j.unwrap_or(0.0);
+engine/src/postprocess/cirsoc301_check.rs: let cw = m.cw.unwrap_or(0.0);
+engine/src/postprocess/cirsoc301_check.rs: let cw = m.cw.filter(|c| *c > 0.0).unwrap_or(0.0);
+engine/src/postprocess/cirsoc301_check.rs: let j = m.j.unwrap_or(0.0) * 1e12;
+engine/src/postprocess/cirsoc301_check.rs: let cw = m.cw.unwrap_or(0.0) * 1e18;
+engine/src/postprocess/cirsoc301_check.rs: let cw = m.cw.unwrap_or(0.0) * 1e18;
+engine/src/postprocess/cirsoc301_check.rs: let j = m.j.unwrap_or(0.0) * 1e12;
+engine/src/postprocess/cirsoc301_check.rs: None => ex::<T>(ho / 2.0) * q(ex::<T>(m.i_weak * 1e12), ex(m.cw.unwrap_or(0.0) * 1e18)).sqrt(),
+engine/src/postprocess/steel_check.rs: let cw = m.cw.unwrap_or(0.0);
+engine/src/postprocess/steel_check.rs: let cw = m.cw.unwrap_or(0.0);
+
+## Double-angle gap: absent means back-to-back legs, the smallest radius of gyration about the axis it widens.
+engine/src/postprocess/cirsoc301_check.rs: let gap = ang.gap.unwrap_or(0.0);
+
+## A refused CIRSOC 301 check with no demand is not applicable (ratio 0); under load it is ∞ and listed as unevaluated.
+engine/src/postprocess/cirsoc301_check.rs: ratio: if loaded { f64::INFINITY } else { 0.0 },
+
+## MaxInteraction picks a governing station, it is not a check; a zero reference drops that term from the score (documented), and only tests use this strategy.
+engine/src/postprocess/design_demands.rs: let nr = if n_ref.abs() > 1e-30 { (d.n / n_ref).abs() } else { 0.0 };
+engine/src/postprocess/design_demands.rs: let mr = if m_ref.abs() > 1e-30 { m / m_ref.abs() } else { 0.0 };
+
+## Diagram sampling: positions clamped to the member, absent span loads are zero, and without EI the deflected shape is the load-free Hermite interpolation (documented).
+engine/src/postprocess/diagrams.rs: out.push((t - 1e-9).max(0.0));
+engine/src/postprocess/diagrams.rs: let q0 = load_qi.unwrap_or(0.0);
+engine/src/postprocess/diagrams.rs: let q1 = load_qj.unwrap_or(0.0);
+engine/src/postprocess/diagrams.rs: let ei_val = ei.unwrap_or(0.0);
+
+## Mesh refinement bookkeeping (next free id, absent support values, absent load bounds) and error-estimate norms, not a check; the thickness map is built from the same plates and quads whose stresses are read, so the 0 is unreachable.
+engine/src/postprocess/discretization/convergence.rs: let k = if t > 0.0 { 6.0 / (t * t) } else { 0.0 };
+engine/src/postprocess/discretization/convergence.rs: smax = smax.max((a * a - a * b + b * b + 3.0 * c * c).max(0.0).sqrt());
+engine/src/postprocess/discretization/convergence.rs: visit_t([p.sigma_xx, p.sigma_yy, p.tau_xy], [p.mx, p.my, p.mxy], thick_p.get(&p.element_id).copied().unwrap_or(0.0));
+engine/src/postprocess/discretization/convergence.rs: visit_t([p.sigma_xx, p.sigma_yy, p.tau_xy], [p.mx, p.my, p.mxy], thick_q.get(&p.element_id).copied().unwrap_or(0.0));
+engine/src/postprocess/discretization/convergence.rs: let original_max_node = input.nodes.values().map(|n| n.id).max().unwrap_or(0);
+engine/src/postprocess/discretization/mod.rs: let mean = if n_estimated > 0 { ((u + eta2) / n_estimated as f64).sqrt() } else { 0.0 };
+engine/src/postprocess/discretization/refine.rs: let next_node = coords.keys().copied().max().unwrap_or(0) + 1;
+engine/src/postprocess/discretization/refine.rs: .unwrap_or(0);
+engine/src/postprocess/discretization/refine.rs: let mut next_sup = input.supports.keys().filter_map(|k| k.parse::<usize>().ok()).max().unwrap_or(0) + 1;
+engine/src/postprocess/discretization/refine.rs: let v: f64 = sups.iter().map(|s| f(s).unwrap_or(0.0)).sum::<f64>() / sups.len() as f64;
+engine/src/postprocess/discretization/refine.rs: let (a, bb) = (dl.a.unwrap_or(0.0) / l, dl.b.unwrap_or(l) / l);
+
+## With no axial force the eccentricity is undefined; the overturning check then has a resisting moment of 0 and fails any moment.
+engine/src/postprocess/foundation_check.rs: let ex = if p.abs() > 0.0 { my / p } else { 0.0 };
+engine/src/postprocess/foundation_check.rs: let ey = if p.abs() > 0.0 { mx / p } else { 0.0 };
+
+## Effective (Meyerhof) dimension clamped at 0: A' = 0 makes the bearing pressure ∞, which CheckLedger::ratio records as unevaluated.
+engine/src/postprocess/foundation_check.rs: let l_eff = (l - 2.0 * ex.abs()).max(0.0);
+engine/src/postprocess/foundation_check.rs: let b_eff = (b - 2.0 * ey.abs()).max(0.0);
+
+## Longitudinal ratio ρw only raises Vc through ∛ρw; clamping a negative or NaN one to 0 lowers the shear capacity.
+engine/src/postprocess/foundation_check.rs: let rho_w = ftg.rho_w.unwrap_or(0.0018).max(0.0);
+engine/src/postprocess/isolated_footing.rs: let rho_w = f.rho_w.unwrap_or(RHO_W_MIN).max(0.0);
+engine/src/postprocess/isolated_footing.rs: let rho_w = x(f.rho_w.unwrap_or(RHO_W_MIN).max(0.0));
+
+## No shear demand where the critical section falls outside the footing, or where the plan area is not positive (the bearing check is then unevaluated).
+engine/src/postprocess/foundation_check.rs: } else {
+engine/src/postprocess/foundation_check.rs: } else {
+
+## Influence-line extraction after check_il_target has validated the node, element and quantity; a node without a reaction entry is free, so its reaction is 0.
+engine/src/postprocess/influence.rs: } else {
+engine/src/postprocess/influence.rs: } else {
+engine/src/postprocess/influence.rs: } else {
+engine/src/postprocess/influence.rs: } else {
+engine/src/postprocess/influence.rs: } else {
+engine/src/postprocess/influence.rs: } else {
+engine/src/postprocess/influence.rs: } else {
+engine/src/postprocess/influence.rs: } else {
+
+## A non-positive plan dimension is refused by the bearing check (BearingInvalidInput) and makes the factored field refused as uplift.
+engine/src/postprocess/isolated_footing.rs: let kb = if b > 0.0 { kern_fraction(ab.worst_resultant_offset.abs(), b) } else { 0.0 };
+engine/src/postprocess/isolated_footing.rs: let kl = if l > 0.0 { kern_fraction(al.worst_resultant_offset.abs(), l) } else { 0.0 };
+
+## No relief from soil pressure over a zero-width strip.
+engine/src/postprocess/isolated_footing.rs: let relief = if s > 0.0 { enclosed_relief(q0, s, u_r, span, width) } else { 0.0 };
+
+## A non-positive plan area is refused by the bearing check (BearingInvalidInput).
+engine/src/postprocess/isolated_footing.rs: let q_factored = if area > 0.0 { f.factored_axial / area } else { 0.0 };
+
+## Soil pressure inside the punching perimeter clamped at 0: it is subtracted from the demand, so 0 (or a NaN dropped to 0) only raises Vu.
+engine/src/postprocess/isolated_footing.rs: inside = least.max(0.0);
+
+## TMS 402 counts the bar compression only for laterally tied steel; untied is the code default.
+engine/src/postprocess/masonry_check.rs: let steel = if m.laterally_tied.unwrap_or(false) { m.fy * m.as_tension } else { 0.0 };
+
+## A clamped Pn of 0 goes to ratio_if_loaded, which records a loaded axial check as unevaluated.
+engine/src/postprocess/masonry_check.rs: squash * (1.0 - hr * hr).max(0.0)
+
+## A capacity of 0 (no axis in range, or NaN) goes to CheckLedger::ratio, which records the flexure check as unevaluated.
+engine/src/postprocess/rc_check.rs: let phi_mn = if in_range { phi_mn.max(0.0) } else { 0.0 };
+engine/src/postprocess/rc_check.rs: let phi_mn = if in_range { phi_mn.max(0.0) } else { 0.0 };
+
+## Absent fiber coordinate: the section centroid line, documented default of the stress query.
+engine/src/postprocess/section_stress_3d.rs: let z = z_fiber.unwrap_or(0.0);
+
+## Neutral-axis drawing endpoints for the stress diagram, not a check: degenerate section properties give a line through the centroid.
+engine/src/postprocess/section_stress_3d.rs: let n_over_a = if rs.a > 1e-15 { n / rs.a } else { 0.0 };
+engine/src/postprocess/section_stress_3d.rs: (n_over_a + if rs.iz > 1e-15 { mz * za / rs.iz } else { 0.0 }) * rs.iy / my
+engine/src/postprocess/section_stress_3d.rs: } else { 0.0 };
+engine/src/postprocess/section_stress_3d.rs: (n_over_a + if rs.iz > 1e-15 { mz * zb / rs.iz } else { 0.0 }) * rs.iy / my
+engine/src/postprocess/section_stress_3d.rs: } else { 0.0 };
+engine/src/postprocess/section_stress_3d.rs: let n_over_a = if rs.a > 1e-15 { n / rs.a } else { 0.0 };
+engine/src/postprocess/section_stress_3d.rs: } else { 0.0 };
+
+## Buckling round-off bookkeeping: a member without an entry has no axial-force error bound or span-axial contribution, so its bound is zero.
+engine/src/solver/buckling.rs: let resolvable = |id: &usize, n: f64| n < -axial_noise.get(id).copied().unwrap_or(0.0);
+engine/src/solver/buckling.rs: -n, axial_noise.get(&id).copied().unwrap_or(0.0)
+engine/src/solver/buckling.rs: out.insert(e.id, 100.0 * f64::EPSILON * (elongation + end_forces.get(&e.id).copied().unwrap_or(0.0)));
+engine/src/solver/buckling.rs: out.insert(e.id, 100.0 * f64::EPSILON * (elongation + end_forces.get(&e.id).copied().unwrap_or(0.0)));
+engine/src/solver/buckling.rs: *s = s.max(own.get(id).copied().unwrap_or(0.0));
+engine/src/solver/buckling.rs: let e = noise.get(&t.element_id).copied().unwrap_or(0.0);
+engine/src/solver/buckling.rs: if n_avg >= -axial_noise.get(&ef.element_id).copied().unwrap_or(0.0) {
+engine/src/solver/buckling.rs: let compression = |id: &usize, n: f64| n + span_least.get(id).copied().unwrap_or(0.0).min(0.0);
+engine/src/solver/buckling.rs: let resolvable = |id: &usize, n: f64| compression(id, n) < -axial_noise.get(id).copied().unwrap_or(0.0);
+engine/src/solver/buckling.rs: -n, axial_noise.get(&id).copied().unwrap_or(0.0)
+engine/src/solver/buckling.rs: if n_avg >= -axial_noise.get(&ef.element_id).copied().unwrap_or(0.0) { continue; }
+
+## Buckling end-force scales omit M/L only for a zero-length result, which input validation refuses before these functions run.
+engine/src/solver/buckling.rs: let moments = if f.length > 0.0 { f.m_start.abs().max(f.m_end.abs()) / f.length } else { 0.0 };
+engine/src/solver/buckling.rs: let moments = if f.length > 0.0 { f.my_start.abs().max(f.my_end.abs()).max(f.mz_start.abs()).max(f.mz_end.abs()) / f.length } else { 0.0 };
+
+## A constrained node absent from the free global DOF map has no free displacement in the buckling preload vector.
+engine/src/solver/buckling.rs: let at = |node: usize, i: usize| dof_num.global_dof(node, i).map(|d| u[d]).unwrap_or(0.0);
+
+## A geometric-stiffness term without a mean axial-force entry contributes no axial work.
+engine/src/solver/buckling.rs: let n = mean_n.get(&t.element_id).copied().unwrap_or(0.0);

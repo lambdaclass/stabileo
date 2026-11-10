@@ -1,6 +1,7 @@
 <script lang="ts">
   import { accountGate } from '../../lib/store/account-gate.svelte';
   import { saveFile } from '../../lib/export/save-file';
+  import { exportMessages } from "../../lib/export/containment";
   import { downloadReport } from '../../lib/export/report-download';
   import type { DocBlock } from '../../lib/export/docx';
   import { captureProvenanceToken, provenanceForExport } from '../../lib/store/result-provenance';
@@ -101,6 +102,7 @@
 
   async function generate() {
     if (accountGate.defer('export', generate)) return;
+    if (exportMessages() === null) return;
     lastError = null;
     const results = resultsStore.results3D;
     if (!results || blockers.length > 0) return;

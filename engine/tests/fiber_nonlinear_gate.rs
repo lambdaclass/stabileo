@@ -247,13 +247,13 @@ fn a_settled_support_with_a_spring_is_refused_before_the_reactions_are_built() {
         s.kz = Some(5_000.0);
         s.dz = Some(-0.01);
     }
-    assert!(solve_fiber_nonlinear_2d(&input).err().is_some_and(|e| e.contains("prescribed support displacements")));
+    assert!(solve_fiber_nonlinear_2d(&input).err().is_some_and(|e| serde_json::from_str::<serde_json::Value>(&e).is_ok_and(|v| v["structuredDiagnostics"][0]["code"] == "conflicting_support_spring")));
     let mut input = cantilever_3d(FiberMaterial::Elastic { e: E }, 0.0, -20.0, 1);
     for s in input.solver.supports.values_mut() {
         s.kz = Some(5_000.0);
         s.dz = Some(-0.01);
     }
-    assert!(solve_fiber_nonlinear_3d(&input).err().is_some_and(|e| e.contains("would not be applied")));
+    assert!(solve_fiber_nonlinear_3d(&input).err().is_some_and(|e| serde_json::from_str::<serde_json::Value>(&e).is_ok_and(|v| v["structuredDiagnostics"][0]["code"] == "conflicting_support_spring")));
 }
 
 fn udl_2d(q: f64) -> Vec<SolverLoad> {

@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft |
+| Status | Published 2026-11-07 (fixed in 0.5.0) |
 | Issue | — (post-merge review of [#1076](https://github.com/lambdaclass/stabileo/pull/1076)) |
-| Fix | PR [#1253](https://github.com/lambdaclass/stabileo/pull/1253) |
+| Fix | PR [#1253](https://github.com/lambdaclass/stabileo/pull/1253) (merged 2026-11-05), released in v0.5.0 |
 | Affected versions | main from 2026-11-03 04:37 UTC (merge fc9421f25) until the fix; no release |
 | Re-check registry | entry `generated-area-loads-headroom` (models whose loads came from the generator) |
 
@@ -45,6 +45,8 @@ or one with a panel not square to the plan's axes and "wider than 12 m" in the d
 Generate the loads again and compare.
 
 ## Fixed in
+
+0.5.0.
 
 PR #1253. A panel is left out as roof structure only when roof structure lies over every probe
 (straight over it, or between roof members on both sides within the panel, along and across the

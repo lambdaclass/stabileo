@@ -59,9 +59,9 @@ const ORIGIN = 'https://stabileo.com';
 
 /** A sentence that only exists in one language, from `landing.heroP`. */
 const HERO = {
-  en: 'An open structural-analysis platform',
-  es: 'Una plataforma abierta de análisis estructural',
-  pt: 'Uma plataforma aberta de análise estrutural',
+  en: 'checked against seven other finite-element programs',
+  es: 'contrastados con otros siete programas de elementos finitos',
+  pt: 'comparados com outros sete programas de elementos finitos',
 } as const;
 
 /** The same, for the blog index — `blog.lead`. */
@@ -152,7 +152,7 @@ test.describe('@smoke prerender', () => {
       } finally {
         await close();
       }
-      for (const path of ['/blog/bars-or-finite-elements', '/blog/verificacion-flexion-cirsoc-201', '/reliability', '/sap2000-alternative', '/cirsoc']) {
+      for (const path of ['/blog/bars-or-finite-elements', '/blog/verificacion-flexion-cirsoc-201', '/reliability', '/sap2000-alternative', '/etabs-alternative', '/cirsoc']) {
         const crawled = await crawl(browser, `/${locale}${path}/`);
         try {
           expect(unfinishedProClaims(await crawled.page.locator('#prerender').innerText(), locale, { aboutPro: false }), path).toEqual([]);

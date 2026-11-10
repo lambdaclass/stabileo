@@ -434,18 +434,20 @@ fn mh_cantilever(shape: &str, out_of_plane: bool) -> f64 {
 /// membrane EAS-4 modes. The trapezoidal in-plane case stays locked: MacNeal (1987) showed no
 /// 4-node (per layer) element that passes the patch test can be free of trapezoidal locking,
 /// and every patch-test-passing 8-node hex in the MacNeal–Harder tables reports 0.02–0.07
-/// there. It is asserted as a floor so it is visible, and solid shells for in-plane bending
-/// need near-rectangular elements (the pre-solve Jacobian-ratio gate flags strong distortion).
 #[test]
 fn macneal_harder_straight_cantilever() {
-    // (shape, out-of-plane floor, in-plane floor)
     for row in mh::DATA["solidCantilever"]["shapes"].as_array().unwrap() {
         let (shape, f_out, f_in) = (row[0].as_str().unwrap(), row[1].as_f64().unwrap(), row[2].as_f64().unwrap());
         let out = mh_cantilever(shape, true) / mh::DATA["solidCantilever"]["references"][0].as_f64().unwrap();
         let inp = mh_cantilever(shape, false) / mh::DATA["solidCantilever"]["references"][1].as_f64().unwrap();
-        eprintln!("MH straight cantilever {shape}: out-of-plane {out:.4}, in-plane {inp:.4}");
+        eprintln!("MH straight cantilever {shape}: out-of-plane {out:.12}, in-plane {inp:.12}");
         assert!(out > f_out && out < 1.01, "{shape} out-of-plane: {out:.4}");
         assert!(inp > f_in && inp < 1.01, "{shape} in-plane: {inp:.4}");
+        let regression = &mh::DATA["solidCantilever"]["regression"];
+        let pinned = &regression["normalized"][shape];
+        let tolerance = regression["relativeTolerance"].as_f64().unwrap();
+        assert!((out / pinned[0].as_f64().unwrap() - 1.0).abs() < tolerance);
+        assert!((inp / pinned[1].as_f64().unwrap() - 1.0).abs() < tolerance);
     }
 }
 
@@ -528,4 +530,50 @@ fn buckle(n: usize, hard: bool) -> f64 {
     let ncr = 4.0 * PI * PI * d;
     let ratio = res.modes[0].load_factor / ncr;
     ratio
+}
+
+#[test]
+fn rotated_solid_shell_nonstatic_containment() {
+    use dedaliano_engine::solver::{kinematic::analyze_kinematics_3d, spectral::solve_spectral_3d};
+    let mut model = solid_surface(2, 2, 0.1, 200_000.0, 0.3,
+        &|u, v| ([u, 0.0, v], [0.0, -1.0, 0.0]),
+        &|i, _, _, _| (i == 0).then_some([true; 3]));
+    for j in 0..=2 {
+        for id in [model.grid[2][j].0, model.grid[2][j].1] {
+            model.input.loads.push(nodal(id, [-1.0, 0.0, 0.0]));
+        }
+    }
+    let static_result = linear::solve_3d(&model.input).unwrap();
+    assert!(!static_result.structured_diagnostics.iter().any(|d| d.value == Some(757.0)));
+    assert!(!static_result.quad_stresses.is_empty());
+    let system = buckling::buckling_system_3d(&model.input).unwrap();
+    assert!(!system.linear.displacements.is_empty());
+    assert_eq!(system.linear.quad_stresses.len(), static_result.quad_stresses.len());
+    assert!(system.k_ff.values.iter().any(|v| *v != 0.0));
+    assert!(system.neg_kg_csc.values.iter().any(|v| *v != 0.0));
+    let kinematics = analyze_kinematics_3d(&model.input);
+    assert!(kinematics.invalid_input.is_none(), "{:?}", kinematics.invalid_input);
+    assert!(kinematics.is_solvable);
+    let densities = HashMap::from([("1".to_string(), 7850.0)]);
+    let modes = modal::solve_modal_3d(&model.input, &densities, 2).unwrap();
+    let spectral: SpectralInput3D = serde_json::from_value(serde_json::json!({
+        "solver": model.input, "densities": densities, "modes": modes.modes,
+        "spectrum": {"name": "constant", "inG": false, "points": [{"period": 0.0, "sa": 1.0}, {"period": 1e9, "sa": 1.0}]},
+        "direction": "X"
+    })).unwrap();
+    let response = solve_spectral_3d(&spectral).unwrap();
+    assert!(response.base_shear.is_finite());
+    assert!(response.base_shear > 0.0);
+    let issue_757 = |ds: &[dedaliano_engine::types::StructuredDiagnostic]| ds.iter().any(|d| d.value == Some(757.0));
+    assert!(!issue_757(&system.linear.structured_diagnostics));
+    assert!(!issue_757(&modes.structured_diagnostics));
+    assert!(!issue_757(&response.structured_diagnostics));
+    let forces: Vec<f64> = response.per_mode.iter().map(|m| m.modal_force).collect();
+    for (m, mode) in response.per_mode.iter().zip(&modes.modes) {
+        assert_eq!(m.sa, 1.0);
+        assert!((m.modal_force - mode.effective_mass_x).abs() <= 1e-12 * mode.effective_mass_x.abs().max(1e-300), "{} vs {}", m.modal_force, mode.effective_mass_x);
+    }
+    let largest = forces.iter().fold(0.0f64, |a, f| a.max(f.abs()));
+    let sum: f64 = forces.iter().map(|f| f.abs()).sum();
+    assert!(largest > 0.0 && response.base_shear >= largest * (1.0 - 1e-12) && response.base_shear <= sum * (1.0 + 1e-12), "{} not in [{largest}, {sum}]", response.base_shear);
 }

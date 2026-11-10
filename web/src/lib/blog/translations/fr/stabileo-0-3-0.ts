@@ -20,6 +20,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Voici les cas qui peuvent le plus modifier un résultat de dimensionnement. Chaque avis contient le cas complet, calculé pas à pas, et ce qu'il faut faire des résultats déjà livrés."
     },
+    {"k": "img", "base": "blog/recheck-notice", "w": 1600, "h": 1000, "alt": "Stabileo PRO à l’ouverture d’un portique en béton enregistré en septembre. Une boîte de dialogue signale que les résultats ont changé depuis le dernier calcul du projet, liste les changements qui concernent le modèle, dont des corrections du solveur trouvées par les certificats et la compatibilité des déformations du CIRSOC 201, et demande de cocher leur lecture avant de continuer avec des résultats périmés ou de relancer le calcul.", "caption": "À l’ouverture d’un projet résolu avant une correction qui le concerne : l’application liste ces changements et garde les résultats périmés jusqu’au prochain calcul."},
     {
       "k": "table",
       "caption": "Quelques corrections de la 0.3.0 : la valeur correcte et celle que donnait la version précédente.",

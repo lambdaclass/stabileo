@@ -3,6 +3,7 @@
 //! (docs/verification/METAMORPHIC.md, "Violations found").
 
 use crate::case::Case2;
+use dedaliano_engine::solver::plastic_limit::limit_analysis_2d_input;
 use dedaliano_engine::metamorphic::transform::{transform_2d, Iso2, Iso3};
 use dedaliano_engine::postprocess::influence;
 use dedaliano_engine::solver::{constraints, corotational, kinematic, linear, load_cases, moving_loads, plastic, spectral, staged, winkler};
@@ -216,53 +217,6 @@ fn corotational_far_from_origin() {
     close(a.max_displacement, b.max_displacement, 1e-7, "max displacement");
 }
 
-fn plastic_2d(s: &SolverInput) -> Result<plastic::PlasticResult, String> {
-    let c = Case2::new("p", s.clone());
-    let sections = c
-        .s
-        .sections
-        .values()
-        .map(|x| {
-            let (b, h) = crate::ana2::rect(x.a, x.iz);
-            let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
-            (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
-        })
-        .collect();
-    let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(250.0) })).collect();
-    plastic::solve_plastic_2d(&PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None })
-}
-
-/// A symmetric fixed portal under a beam UDL collapses by the beam mechanism
-/// with hinges at both column tops (the weaker sections) and midspan:
-/// λ·qL²/8 = Mp_beam + Mp_column. Twin column hinges reached Mp ~1e-9 apart
-/// and formed in separate events; the second never formed and the reported
-/// factor was 15% too high.
-#[test]
-fn plastic_symmetric_portal_collapses_by_its_mechanism() {
-    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-frame-cirsoc-dl-case2-input.json")).unwrap();
-    let s: SolverInput = serde_json::from_str(&text).unwrap();
-    let r = plastic_2d(&s).unwrap();
-    // Mp = fy·b·h²/4: beam 0.2×0.5, columns 0.3×0.3, fy = 250 MPa; q = 5, L = 6.
-    let (mp_b, mp_c) = (250e3 * 0.2 * 0.25 / 4.0, 250e3 * 0.3 * 0.09 / 4.0);
-    let expected = (mp_b + mp_c) / (5.0 * 36.0 / 8.0);
-    close(r.collapse_factor, expected, 1e-3, "collapse factor");
-    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
-}
-
-/// Plastic collapse refuses a model loaded only by imposed deformations, and
-/// loads the structure carries without bending, instead of reporting a
-/// factor of ~1e16.
-#[test]
-fn plastic_refuses_what_it_cannot_scale_to_collapse() {
-    let mut s = settlement_beam();
-    s.loads.clear();
-    assert!(plastic_2d(&s).is_err_and(|e| e.contains("mechanical load")));
-    let arch = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-three-hinge-arch-input.json")).unwrap();
-    let a: SolverInput = serde_json::from_str(&arch).unwrap();
-    let r = plastic_2d(&a);
-    assert!(r.as_ref().is_err_and(|e| e.contains("without bending")), "{:?}", r.map(|r| r.collapse_factor));
-}
-
 /// A combination 1·A + 1·B equals the single solve of A + B: the model's
 /// settlement enters once, not once per case.
 #[test]
@@ -455,18 +409,6 @@ fn shell_rotary_inertia_follows_the_shell() {
     }
 }
 
-#[test]
-#[ignore]
-fn probe_plastic_file() {
-    // A debugging probe (PFILE=<model.json>); `--ignored` runs it too.
-    let Ok(f) = std::env::var("PFILE") else { return eprintln!("PFILE not set: probe skipped") };
-    let s: SolverInput = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
-    match plastic_2d(&s) {
-        Ok(r) => { println!("factor {} mech {} warn {:?}", r.collapse_factor, r.is_mechanism, r.warnings); for h in &r.hinges { println!("  {h:?}"); } }
-        Err(e) => println!("err {e}"),
-    }
-}
-
 /// The plastic-collapse input of a 3D case, as the "plastic collapse" analysis
 /// of the harness builds it (rectangles from A, I_y, I_z; f_y of the case).
 fn plastic_3d_input(c: &crate::case::Case3) -> PlasticInput3D {
@@ -599,6 +541,303 @@ fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     assert!(!r.warnings.iter().any(|w| w.contains("exceeds the yield surface")), "{:?}", r.warnings);
 }
 
+/// Nightly findings that were harness defects (docs/verification/CONTAINMENT.md): each model,
+/// replayed with its reported seed, holds the invariant it was reported to violate.
+#[test]
+fn nightly_harness_findings_hold() {
+    let cases: &[(u32, u64, &[(&str, &str)])] = &[
+        (971, 2026103104672, &[("P-Delta", "units")]),
+        (974, 20757, &[("linear", "relabel"), ("P-Delta", "relabel"), ("cable solver", "relabel"), ("Winkler (no foundation)", "relabel")]),
+        (992, 20758, &[("linear", "relabel"), ("linear (PCG)", "relabel"), ("linear (sparse path)", "relabel")]),
+        (1002, 20758, &[("linear", "relabel"), ("linear (PCG)", "relabel"), ("linear (sparse path)", "relabel"), ("cable solver", "relabel")]),
+        (1034, 20758, &[("harmonic", "superposition"), ("harmonic", "units"), ("harmonic", "rotation"), ("harmonic", "reversal")]),
+        (1014, 20758, &[("linear", "superposition")]),
+        (1022, 20758, &[("load combinations", "reversal")]),
+        (1037, 20758, &[("load combinations", "superposition")]),
+        (955, 20757, &[("linear", "mirror")]),
+    ];
+    for &(issue, seed, cells) in cases {
+        let f = format!("{}/tests/metamorphic_corpus/nightly/issue-{issue}.json", env!("CARGO_MANIFEST_DIR"));
+        let text = std::fs::read_to_string(&f).unwrap();
+        let meta: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let dens: Option<std::collections::HashMap<String, f64>> = meta.get("_nightly_dens").map(|d| serde_json::from_value(d.clone()).unwrap());
+        let name = format!("issue-{issue}");
+        let t = crate::tally::Tally::default();
+        let wanted = |n: &str| cells.iter().any(|c| c.0 == n);
+        let invariants: Vec<&str> = cells.iter().map(|c| c.1).collect();
+        match crate::corpus::parse(&text).unwrap() {
+            crate::corpus::Model::D2(s) => {
+                let mut c = crate::case::Case2::new(name, crate::common::explicit_rigid_support_control(&s));
+                if let Some(d) = dens { c.dens = d; }
+                let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| wanted(a.name)).collect();
+                crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: seed }, &c, &anas, &invariants);
+            }
+            crate::corpus::Model::D3(s) => {
+                let mut c = crate::case::Case3::new(name, crate::common::explicit_elastic_support_control(&s));
+                if let Some(d) = dens { c.dens = d; }
+                let anas: Vec<_> = crate::ana3::rows().into_iter().filter(|a| wanted(a.name)).collect();
+                crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &anas, &invariants);
+            }
+        }
+        let cellmap = t.cells.lock().unwrap();
+        for &(a, i) in cells {
+            let cell = cellmap.get(&(a.to_string(), i.to_string())).unwrap_or_else(|| panic!("#{issue}: {a} × {i} not run"));
+            assert!(cell.fails.is_empty(), "#{issue}: {a} × {i}: {:?}", cell.fails);
+            assert!(cell.pass > 0, "#{issue}: {a} × {i} did not complete: {cell:?}");
+        }
+    }
+}
+
+/// #1192: a pinned and a rollerX support share node 2. Off the axes the roller
+/// becomes an inclined roller, which the solver will not merge with another
+/// support on the same node, so the image was refused while the original
+/// solved.
+#[test]
+fn shared_node_supports_off_the_axes_are_unrepresentable() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-1192.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    linear::solve_2d(&s).unwrap();
+    for iso in [Iso2::mirror_line(0.4), Iso2::rotation(0.3)] {
+        assert!(transform_2d(&s, &iso).is_err());
+    }
+    for iso in [Iso2::mirror_x(), Iso2::rotation(std::f64::consts::FRAC_PI_2)] {
+        linear::solve_2d(&transform_2d(&s, &iso).unwrap()).unwrap();
+    }
+    let mut single = s.clone();
+    single.supports.retain(|_, x| x.support_type != "pinned");
+    assert_eq!(transform_2d(&single, &Iso2::rotation(0.3)).unwrap().supports["3"].support_type, "inclinedRoller");
+    let t = crate::tally::Tally::default();
+    let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| a.name == "linear").collect();
+    crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: 2026110204434 }, &crate::case::Case2::new("issue-1192", s), &anas, &["mirror", "rotation"]);
+    assert!(t.failures().is_empty(), "{:?}", t.failures());
+}
+
+/// #959: a cantilever under a purely transverse load has N = 0; its round-off
+/// axial force (-3e-6 kN on EA/L = 1.3e7 kN/m) passed the absolute compression
+/// test and gave load factors from 2.4e7 to 9.4e7, or a refusal, depending on
+/// the model's orientation. Every orientation now refuses.
+#[test]
+fn buckling_without_compression_refuses_in_every_orientation() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-959.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    assert!(s.loads.iter().all(|l| matches!(l, SolverLoad::Distributed(_))), "only member-local transverse loads turn with the nodes");
+    for deg in [0.0f64, 37.0, 90.0, 180.0] {
+        let (c, sn) = (deg.to_radians().cos(), deg.to_radians().sin());
+        let mut r = s.clone();
+        for n in r.nodes.values_mut() {
+            (n.x, n.z) = (c * n.x - sn * n.z, sn * n.x + c * n.z);
+        }
+        let e = dedaliano_engine::solver::buckling::solve_buckling_2d(&r, 3).map(|b| b.modes.iter().map(|m| m.load_factor).collect::<Vec<_>>()).unwrap_err();
+        assert!(e.contains("No compressed elements") || e.contains("Buckling not determinable"), "{deg}°: {e}");
+    }
+}
+
+/// The #959 refusal bounds the round-off of N recovered from u_j − u_i, which grows with the
+/// displacements themselves: a thermal compression a rigid translation leaves unchanged is
+/// refused only past a translation of αΔT·L_e/(200ε) along the members (1.4e10 m here), never at a
+/// physical one.
+#[test]
+fn restrained_thermal_compression_buckles_under_a_common_translation() {
+    let column = |shift: f64| -> SolverInput {
+        let support = |id: usize| json!({"id": id, "nodeId": id, "type": "fixed", "kx": null, "ky": null, "kz": null, "dx": shift, "dz": shift, "dry": null, "angle": null});
+        serde_json::from_value(json!({
+            "nodes": (1..=5).map(|i| (i.to_string(), json!({"id": i, "x": (i - 1) as f64, "z": 0.0}))).collect::<serde_json::Map<_, _>>(),
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-5}},
+            "elements": (1..=4).map(|i| (i.to_string(), json!({"id": i, "type": "frame", "nodeI": i, "nodeJ": i + 1, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}))).collect::<serde_json::Map<_, _>>(),
+            "supports": {"1": support(1), "5": support(5)},
+            "loads": (1..=4).map(|i| json!({"type": "thermal", "data": {"elementId": i, "dtUniform": 50.0, "dtGradient": 0.0, "alpha": 1.2e-5}})).collect::<Vec<_>>(),
+        })).unwrap()
+    };
+    let factor = |shift: f64| dedaliano_engine::solver::buckling::solve_buckling_2d(&column(shift), 1).unwrap_or_else(|e| panic!("shift {shift}: {e}")).modes[0].load_factor;
+    let still = factor(0.0);
+    let euler = 4.0 * std::f64::consts::PI.powi(2) * 2e8 * 1e-5 / 16.0 / (2e8 * 0.01 * 1.2e-5 * 50.0);
+    assert!((still / euler - 1.0).abs() < 0.02, "{still} vs {euler}");
+    for shift in [0.5, -30.0, 4.0e3, 1.0e6] {
+        let moved = factor(shift);
+        assert!((moved / still - 1.0).abs() < 1e-6, "shift {shift}: {moved} vs {still}");
+    }
+    let beyond = dedaliano_engine::solver::buckling::solve_buckling_2d(&column(2.0e10), 1).map(|b| b.modes[0].load_factor).unwrap_err();
+    assert!(beyond.contains("Buckling not determinable") || beyond.contains("self-check static_balance"), "{beyond}");
+}
+
+#[test]
+fn a_buckling_refusal_names_the_same_member_when_compressions_tie() {
+    let twin = || -> SolverInput {
+        let support = |id: usize| json!({"id": id, "nodeId": id, "type": "fixed", "dx": 2.0e10, "dz": 2.0e10});
+        let nodes: serde_json::Map<_, _> = (0..2).flat_map(|c| (1..=3).map(move |i| ((3 * c + i).to_string(), json!({"id": 3 * c + i, "x": (i - 1) as f64, "z": 8.0 * c as f64}))) ).collect();
+        let elements: serde_json::Map<_, _> = (0..2).flat_map(|c| (1..=2).map(move |i| { let id = 2 * c + i; (id.to_string(), json!({"id": id, "type": "frame", "nodeI": 3 * c + i, "nodeJ": 3 * c + i + 1, "materialId": 1, "sectionId": 1})) })).collect();
+        serde_json::from_value(json!({
+            "nodes": nodes, "elements": elements,
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-5}},
+            "supports": {"1": support(1), "3": support(3), "4": support(4), "6": support(6)},
+            "loads": (1..=4).map(|i| json!({"type": "thermal", "data": {"elementId": i, "dtUniform": 50.0, "dtGradient": 0.0, "alpha": 1.2e-5}})).collect::<Vec<_>>(),
+        })).unwrap()
+    };
+    let first = dedaliano_engine::solver::buckling::solve_buckling_2d(&twin(), 1).map(|b| b.modes[0].load_factor).unwrap_err();
+    assert!(first.contains("Buckling not determinable"), "{first}");
+    for _ in 0..40 {
+        assert_eq!(dedaliano_engine::solver::buckling::solve_buckling_2d(&twin(), 1).map(|b| b.modes[0].load_factor).unwrap_err(), first);
+    }
+}
+
+#[test]
+fn buckling_modes_from_round_off_compression_are_absent_in_every_orientation() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-982.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    assert!(s.loads.iter().all(|l| matches!(l, SolverLoad::Distributed(_))), "only member-local transverse loads turn with the nodes");
+    for deg in [0.0f64, 37.0, 90.0, 180.0, 271.0] {
+        let (c, sn) = (deg.to_radians().cos(), deg.to_radians().sin());
+        let mut r = s.clone();
+        for n in r.nodes.values_mut() {
+            (n.x, n.z) = (c * n.x - sn * n.z, sn * n.x + c * n.z);
+        }
+        let b = dedaliano_engine::solver::buckling::solve_buckling_2d(&r, 3).unwrap();
+        let factors: Vec<f64> = b.modes.iter().map(|m| m.load_factor).collect();
+        assert_eq!(factors.len(), 2, "{deg}°: {factors:?}");
+        assert!((factors[0] / 0.168666176385 - 1.0).abs() < 1e-9 && (factors[1] / 2.18337895643 - 1.0).abs() < 1e-9, "{deg}°: {factors:?}");
+        assert!(!b.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")), "{deg}°: {:?}", b.structured_diagnostics);
+    }
+    let column = |p: f64| s2(json!({
+        "nodes": {"0": {"id": 0, "x": 0.0, "z": 0.0}, "1": {"id": 1, "x": 0.0, "z": 2.0}, "2": {"id": 2, "x": 0.0, "z": 4.0}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 0, "nodeJ": 1, "materialId": 1, "sectionId": 1}, "2": {"id": 2, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 0, "type": "fixed"}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -p, "my": 0.0}}],
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}}
+    }));
+    for p in [100.0, 1e-5] {
+        let b = dedaliano_engine::solver::buckling::solve_buckling_2d(&column(p), 3).unwrap();
+        assert_eq!(b.modes.len(), 3);
+        assert!(!b.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")), "P = {p}: {:?}", b.structured_diagnostics);
+    }
+}
+
+/// The round-off threshold is per member and counts only the displacement
+/// components along it: a compressed column keeps its load factor next to an
+/// uncompressed, very flexible cantilever, a column under 1e-5 kN still
+/// buckles, and so does a slender horizontal cantilever under 1e-5 kN whose
+/// tip deflects 1.7e5 m transversely (λ ≈ 0.49, Codex review).
+#[test]
+fn buckling_compression_threshold_is_per_member() {
+    let column = |p: f64, beam: bool| {
+        let mut nodes = serde_json::Map::new();
+        let mut elements = serde_json::Map::new();
+        for k in 0..=10 {
+            nodes.insert(k.to_string(), json!({"id": k, "x": 0.0, "z": 0.5 * k as f64}));
+        }
+        for k in 1..=10 {
+            elements.insert(k.to_string(), json!({"id": k, "type": "frame", "nodeI": k - 1, "nodeJ": k, "materialId": 1, "sectionId": 1}));
+        }
+        let mut supports = json!({"1": {"id": 1, "nodeId": 0, "type": "fixed"}});
+        let mut loads = vec![json!({"type": "nodal", "data": {"nodeId": 10, "fx": 0.0, "fz": -p, "my": 0.0}})];
+        if beam {
+            nodes.insert("20".into(), json!({"id": 20, "x": 50.0, "z": 0.0}));
+            nodes.insert("21".into(), json!({"id": 21, "x": 150.0, "z": 0.0}));
+            elements.insert("20".into(), json!({"id": 20, "type": "frame", "nodeI": 20, "nodeJ": 21, "materialId": 1, "sectionId": 2}));
+            supports["2"] = json!({"id": 2, "nodeId": 20, "type": "fixed"});
+            loads.push(json!({"type": "nodal", "data": {"nodeId": 21, "fx": 0.0, "fz": -100.0, "my": 0.0}}));
+        }
+        s2(json!({
+            "nodes": nodes, "elements": elements, "supports": supports, "loads": loads,
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}, "2": {"id": 2, "a": 0.01, "iz": 1e-6}}
+        }))
+    };
+    let euler = std::f64::consts::PI.powi(2) * 200e6 * 1e-4 / (4.0 * 25.0);
+    let first = |s: &SolverInput| dedaliano_engine::solver::buckling::solve_buckling_2d(s, 1).unwrap().modes[0].load_factor;
+    let alone = first(&column(10.0, false));
+    assert!((alone * 10.0 / euler - 1.0).abs() < 1e-3, "{alone} vs {}", euler / 10.0);
+    let tip = linear::solve_2d(&column(10.0, true)).unwrap().displacements.iter().find(|d| d.node_id == 21).unwrap().uz;
+    assert!(tip.abs() > 1e3, "{tip}");
+    close(first(&column(10.0, true)), alone, 1e-9, "column next to a flexible beam");
+    let tiny = first(&column(1e-5, false));
+    close(tiny * 1e-5, alone * 10.0, 1e-6, "column under 1e-5 kN");
+
+    let mut nodes = serde_json::Map::new();
+    let mut elements = serde_json::Map::new();
+    for k in 0..=10 {
+        nodes.insert(k.to_string(), json!({"id": k, "x": 10.0 * k as f64, "z": 0.0}));
+    }
+    for k in 1..=10 {
+        elements.insert(k.to_string(), json!({"id": k, "type": "frame", "nodeI": k - 1, "nodeJ": k, "materialId": 1, "sectionId": 1}));
+    }
+    let slender = s2(json!({
+        "nodes": nodes, "elements": elements,
+        "supports": {"1": {"id": 1, "nodeId": 0, "type": "fixed"}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 10, "fx": -1e-5, "fz": 0.01, "my": 0.0}}],
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-10}}
+    }));
+    let tip = linear::solve_2d(&slender).unwrap().displacements.iter().find(|d| d.node_id == 10).unwrap().uz;
+    assert!(tip.abs() > 1e5, "{tip}");
+    let euler = std::f64::consts::PI.powi(2) * 200e6 * 1e-10 / (4.0 * 1e4 * 1e-5);
+    let lambda = first(&slender);
+    assert!((lambda / euler - 1.0).abs() < 1e-3, "{lambda} vs {euler}");
+}
+
+/// #1030: mirrored about node 3, the model is two independent cantilevers
+/// with the same modes; the 2D spectral row took 4 modes, which ended between
+/// the two copies of the second mode (12.83 Hz), so one cantilever had it and
+/// the other did not. The row now extends the cut to the end of a cluster.
+#[test]
+fn spectral_symmetry_keeps_repeated_pairs_whole() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-1030.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    let sym = crate::symmetry::symmetrize_2d("issue-1030", &s, false).unwrap();
+    let t = crate::tally::Tally::default();
+    let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| a.name == "spectral").collect();
+    crate::symmetry::check_2d(&t, &sym, false, &anas);
+    let cells = t.cells.lock().unwrap();
+    let cell = cells.get(&("spectral".to_string(), "symmetry".to_string())).expect("spectral × symmetry ran");
+    assert!(cell.fails.is_empty() && cell.pass > 0, "{cell:?}");
+}
+
+#[test]
+fn a_section_shared_by_two_materials_gets_one_fiber_material_in_any_order() {
+    let mut materials = std::collections::HashMap::new();
+    for (id, e) in [(1, 2089.9), (2, 6030.9), (3, 2089.9)] {
+        materials.insert(id.to_string(), SolverMaterial { id, e, nu: 0.3 });
+    }
+    let pick = |ids: &[usize]| crate::ana2::section_material(&materials, ids.iter().copied()).map(|m| m.id);
+    for ids in [[1, 2, 3], [2, 1, 3], [3, 1, 2], [3, 2, 1]] {
+        assert_eq!(pick(&ids), Some(2), "{ids:?}");
+    }
+    assert_eq!(pick(&[]), None);
+}
+
+#[test]
+fn a_negative_expansion_coefficient_raises_the_comparison_floor_as_a_positive_one_does() {
+    let heated = |alpha: f64| -> (SolverInput, SolverInput3D) {
+        let support = |id: usize| json!({"id": id, "nodeId": id, "type": "fixed"});
+        let s2: SolverInput = serde_json::from_value(json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 4.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-5}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": support(1)},
+            "loads": [{"type": "thermal", "data": {"elementId": 1, "dtUniform": 50.0, "dtGradient": 10.0, "alpha": alpha}}],
+        })).unwrap();
+        let s3: SolverInput3D = serde_json::from_value(json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 4.0, "y": 0.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-5, "iz": 1e-5, "j": 1e-5}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+            "loads": [{"type": "thermal", "data": {"elementId": 1, "dtUniform": 50.0, "dtGradientY": 10.0, "dtGradientZ": 10.0, "alpha": alpha}}],
+        })).unwrap();
+        (s2, s3)
+    };
+    let (p2, p3) = heated(1.2e-5);
+    let (n2, n3) = heated(-1.2e-5);
+    let f2 = crate::checks2::load_floor_2d(&p2, 4.0);
+    let f3 = crate::checks3::load_floor_3d(&p3, 4.0);
+    assert!(f2 > 0.0 && f3 > 0.0, "{f2} {f3}");
+    assert_eq!(crate::checks2::load_floor_2d(&n2, 4.0), f2);
+    assert_eq!(crate::checks3::load_floor_3d(&n3, 4.0), f3);
+}
+
 /// A general rotation makes the semidefinite drilling-mass reduction refuse
 /// this shell, selecting the direct harmonic fallback. Both paths must use
 /// the same Rayleigh anchors even though the sweep keeps only one mode.
@@ -615,4 +854,489 @@ fn harmonic_shell_rotation_preserves_damping_across_fallback() {
     let analyses: Vec<_> = crate::ana3::rows().into_iter().filter(|a| a.name == "harmonic").collect();
     crate::checks3::check_case(&ctx, &c, &analyses, &["rotation"]);
     assert_eq!(tally.status("harmonic", "rotation"), "holds", "{}", tally.report());
+}
+
+fn issue_758_plastic_input(c: &Case2) -> PlasticInput {
+    let sections = c.s.sections.values().map(|x| {
+        let (b, h) = crate::ana2::rect(x.a, x.iz);
+        let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+        (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+    }).collect();
+    let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
+    PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None }
+}
+
+type Limit758 = fn(&dedaliano_engine::solver::plastic_limit::LimitInput) -> Result<dedaliano_engine::solver::plastic_limit::LimitResult, String>;
+
+fn issue_758_limit(c: &Case2, limit: Limit758) -> Result<f64, String> {
+    let inp = issue_758_plastic_input(c);
+    let by_section = plastic::section_plastic_moments(&inp);
+    let mp = c.s.elements.values().filter(|e| e.elem_type == "frame").map(|e| (e.id.to_string(), by_section[&e.section_id])).collect();
+    limit(&dedaliano_engine::solver::plastic_limit::LimitInput { solver: c.s.clone(), mp, np: Default::default() }).map(|l| l.lambda)
+}
+
+fn issue_758_public_entry_is_withheld(c: &Case2) {
+    let refusal = plastic::solve_plastic_2d(&issue_758_plastic_input(c)).expect_err("solve_plastic_2d stays withheld until PL-2D-INVARIANCE is lifted");
+    assert!(refusal.contains("PL-2D-INVARIANCE"), "{refusal}");
+}
+
+const ISSUE_758_MECHANISM: &str = "the structure is a mechanism before any hinge forms";
+
+const ISSUE_758_CASES: &[(u64, &str, Option<f64>)] = &[
+    (20754, "feature_matrix/2d-constraint--rigid-link--offset-beam-with", Some(46.666666666666686)),
+    (20754, "fuzz_rich_2d/20772", Some(0.06569871968509293)),
+    (20754, "fuzz_rich_2d/20787", None),
+    (20754, "fuzz_rich_2d/20800", None),
+    (20754, "fuzz_rich_2d/20832", Some(123.29270872808767)),
+    (20754, "fuzz_rich_2d/20833", None),
+    (20754, "fuzz_rich_2d/20840", Some(0.27500611582047574)),
+    (20754, "fuzz_rich_2d/20843", Some(80.12437234517034)),
+    (20749, "feature_matrix/2d-constraint--rigid-link--offset-beam-with", Some(46.666666666666686)),
+    (20749, "fuzz_rich_2d/20772", Some(0.7290143868872333)),
+    (20749, "fuzz_rich_2d/20787", Some(1.7049195603727287)),
+    (20749, "fuzz_rich_2d/20800", None),
+    (20749, "fuzz_rich_2d/20832", Some(123.29270872808767)),
+    (20749, "fuzz_rich_2d/20833", None),
+    (20749, "fuzz_rich_2d/20840", None),
+    (20749, "fuzz_rich_2d/20843", Some(71.71445604810637)),
+];
+
+fn issue_758_allowed_refusal(corpus: u64, name: &str, transform: &str, seed: u64) -> Option<&'static str> {
+    (corpus == 20749 && name == "fuzz_rich_2d/20772" && transform == "units" && [1, 2, 5, 6].contains(&seed)).then_some("self-check static_residual")
+}
+
+fn issue_758_invariance(transform: &str, limit: Limit758) {
+    use dedaliano_engine::metamorphic::{relabel::Relabel, reversal::reverse_2d, units::Units};
+    let mut failures = Vec::new();
+    let mut seen = 0;
+    for corpus in [20754, 20749] {
+        for c in crate::corpus::cases_2d(crate::corpus::Tier::Nightly, corpus) {
+            let Some(&(_, _, expected)) = ISSUE_758_CASES.iter().find(|(k, n, _)| *k == corpus && *n == c.name) else { continue };
+            seen += 1;
+            issue_758_public_entry_is_withheld(&c);
+            let control = crate::common::explicit_rigid_support_control(&c.s);
+            if serde_json::to_value(&control.supports).unwrap() != serde_json::to_value(&c.s.supports).unwrap() {
+                crate::common::assert_support_conflict(&issue_758_limit(&c, limit).unwrap_err());
+            }
+            let c = Case2 { s: control, ..c };
+            let check = |what: String, r: Result<f64, String>, refusal: Option<&str>, failures: &mut Vec<String>| match (expected, r, refusal) {
+                (Some(want), Ok(got), None) if (got - want).abs() <= 1e-9 * want.abs() => {}
+                (Some(_), Err(e), Some(reason)) if e.contains(reason) => {}
+                (None, Err(e), _) if e.contains(ISSUE_758_MECHANISM) => {}
+                (_, r, _) => failures.push(format!("{corpus} {} {what}: expected {expected:?}, got {r:?}", c.name)),
+            };
+            check("base".into(), issue_758_limit(&c, limit), None, &mut failures);
+            for seed in 0..8 {
+                let other = match transform {
+                    "relabel" => c.relabel(&Relabel::random_2d(&c.s, seed), seed),
+                    "reversal" => Case2 { s: reverse_2d(&c.s, &|id| (id + seed as usize) % 3 != 0), ..c.clone() },
+                    _ => c.units(&Units::froude([1e-3, 25.0, 0.3048, 1e3][seed as usize % 4], [1e3, 1e-2, 4.448, 1e3][seed as usize % 4])),
+                };
+                check(format!("{transform}/{seed}"), issue_758_limit(&other, limit), issue_758_allowed_refusal(corpus, &c.name, transform, seed), &mut failures);
+            }
+        }
+    }
+    assert_eq!(seen, ISSUE_758_CASES.len(), "missing reproduction cases");
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn issue_758_renumbering() { issue_758_invariance("relabel", |i| limit_analysis_2d_input(i)); }
+#[test]
+fn issue_758_member_reversal() { issue_758_invariance("reversal", |i| limit_analysis_2d_input(i)); }
+#[test]
+fn issue_758_units() { issue_758_invariance("units", |i| limit_analysis_2d_input(i)); }
+
+
+#[test]
+fn issue_758_stiff_link_collapses_like_the_rigid_link() {
+    use dedaliano_engine::metamorphic::{relabel::Relabel, reversal::reverse_2d, units::Units};
+    let run = |c: &Case2| issue_758_limit(c, |i| limit_analysis_2d_input(i)).unwrap();
+    let cases: Vec<Case2> = crate::corpus::cases_2d(crate::corpus::Tier::Pr, 20261018).into_iter().chain(crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 20754)).collect();
+    let case = |suffix: &str| cases.iter().find(|c| c.name.contains(&format!("2d-constraint--rigid-link--offset-beam-{suffix}"))).unwrap().clone();
+    let (with, equiv) = (case("with"), case("equiv"));
+    let reference = run(&with);
+    close(reference, 140.0 / 3.0, 1e-7, "rigid link");
+    for seed in 0..4 {
+        for (what, other) in [
+            ("as given", equiv.clone()),
+            ("relabel", equiv.relabel(&Relabel::random_2d(&equiv.s, seed), seed)),
+            ("reversal", Case2 { s: reverse_2d(&equiv.s, &|id| (id + seed as usize) % 2 == 0), ..equiv.clone() }),
+            ("units", equiv.units(&Units::froude([1e-3, 25.0, 0.3048, 1e3][seed as usize], [1e3, 1e-2, 4.448, 1e3][seed as usize]))),
+        ] {
+            close(run(&other), reference, 1e-7, &format!("stiff link {what}/{seed}"));
+        }
+    }
+    let beam_e = equiv.s.elements.values().find(|e| e.id == 1).and_then(|e| equiv.s.materials.values().find(|m| m.id == e.material_id)).unwrap().e;
+    let link_material = equiv.s.elements.values().find(|e| e.id == 2).unwrap().material_id;
+    for ratio in [1e2, 1e4, 1e6, 1e8] {
+        let mut swept = equiv.clone();
+        swept.s.materials.values_mut().filter(|m| m.id == link_material).for_each(|m| m.e = beam_e * ratio);
+        close(run(&swept), reference, 1e-7, &format!("link {ratio:e} times as stiff"));
+    }
+}
+
+#[test]
+fn issue_758_axial_self_stress_round_off_is_not_a_bending_redundancy() {
+    let cases = crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 40000);
+    let c = cases.iter().find(|c| c.name.contains("2d-prescribed-displacement-support-settlement-equiv")).unwrap().clone();
+    let run = issue_758_plastic_input;
+    let base = run(&c);
+    let cert = dedaliano_engine::certify::plastic::certify_collapse_2d(&base, None);
+    let exact = cert.lambda_upper.unwrap();
+    assert!(cert.certified && (cert.lambda_lower.unwrap() - exact).abs() <= 1e-9 * exact, "{cert:?}");
+    for phi in [0.3, 1.1, 2.0, -0.7] {
+        for (what, iso) in [("rotation", Iso2::rotation(phi)), ("mirror", Iso2::mirror_line(phi))] {
+            let lambda = issue_758_limit(&c.iso(&iso).unwrap(), |i| limit_analysis_2d_input(i)).unwrap();
+            close(lambda, exact, 1e-9, &format!("{what} {phi}"));
+        }
+    }
+}
+
+#[test]
+fn issue_758_confirmation_rejects_the_earlier_unconservative_factors() {
+    use dedaliano_engine::metamorphic::transform::Iso2;
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let input = |c: &Case2| {
+        let sections = c.s.sections.values().map(|x| {
+            let (b, h) = crate::ana2::rect(x.a, x.iz);
+            let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+            (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+        }).collect();
+        let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
+        let inp = PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None };
+        let by_section = plastic::section_plastic_moments(&inp);
+        let mp: std::collections::HashMap<usize, f64> = c.s.elements.values().map(|e| (e.id, by_section[&e.section_id])).collect();
+        (inp, mp)
+    };
+    let none = std::collections::HashMap::new();
+    let cases: Vec<Case2> = crate::corpus::cases_2d(crate::corpus::Tier::Pr, 20261018).into_iter().chain(crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 40000)).collect();
+    let find = |name: &str| cases.iter().find(|c| c.name.contains(name)).unwrap().clone();
+
+    let (link, mp) = input(&find("2d-constraint--rigid-link--offset-beam-equiv"));
+    assert_eq!(confirm_2d(&link.solver, &mp, &none, 140.0 / 3.0), Confirmation::Exact);
+    assert!(matches!(confirm_2d(&link.solver, &mp, &none, 48770.074890207594), Confirmation::Contradicted { reason, lower } if reason.contains("bounds the collapse factor") && lower <= 140.0 / 3.0 && lower >= 140.0 / 3.0 * (1.0 - 1e-6)));
+
+    let settlement = find("2d-prescribed-displacement-support-settlement-equiv");
+    let (base, mp) = input(&settlement);
+    assert_eq!(confirm_2d(&base.solver, &mp, &none, 10.904960242330917), Confirmation::Exact);
+    let (rotated, mp) = input(&settlement.iso(&Iso2::rotation(0.3)).unwrap());
+    let scope = confirm_2d(&rotated.solver, &mp, &none, 148.88932546775965);
+    assert!(matches!(scope, Confirmation::OutOfScope { ref reason } if reason.contains("inclined")), "{scope:?}");
+    assert!(scope.accept(148.88932546775965, Some(10.904960242330917), 1e-6).is_err());
+    assert!(plastic::solve_plastic_2d(&rotated).is_err_and(|e| e.contains("PL-2D-INVARIANCE")));
+}
+
+#[test]
+fn issue_758_when_the_limit_analysis_fails_the_exact_certificate_still_checks_the_history() {
+    use dedaliano_engine::metamorphic::transform::Iso2;
+    let cases = crate::corpus::cases_2d(crate::corpus::Tier::Nightly, 66800);
+    let c = cases.iter().find(|c| c.name.contains("settlement-equiv")).unwrap().clone();
+    let t = c.iso(&Iso2::rotation(4.712398194981313).translated(-14.230913986567536, -19.647139184364594)).unwrap();
+    let sections = t.s.sections.values().map(|x| {
+        let (b, h) = crate::ana2::rect(x.a, x.iz);
+        let mat = t.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+        (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
+    }).collect();
+    let materials = t.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(t.p.fy) })).collect();
+    let inp = PlasticInput { solver: t.s.clone(), sections, materials, max_hinges: None, mp_overrides: None };
+    let by = plastic::section_plastic_moments(&inp);
+    let mp: std::collections::HashMap<usize, f64> = t.s.elements.values().map(|e| (e.id, by[&e.section_id])).collect();
+    assert!(plastic::solve_plastic_2d(&inp).is_err_and(|e| e.contains("PL-2D-INVARIANCE")));
+    let verdict = dedaliano_engine::solver::plastic_limit::confirm_2d(&t.s, &mp, &Default::default(), 399.9960419608519);
+    let dedaliano_engine::solver::plastic_limit::Confirmation::Contradicted { lower, .. } = verdict else { panic!("{verdict:?}") };
+    assert!(lower > 30.0 * 10.904960242330917, "a roller 1.4e-6 rad off the member axis props the tip: {lower}");
+}
+
+pub(crate) fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, w: f64) -> (Vec<f64>, Vec<f64>) {
+    let n2 = 2 * n;
+    let w1 = n2 + 1;
+    let mut a = vec![0.0; n2 * w1];
+    for i in 0..n {
+        for j in 0..n {
+            let d = k[i * n + j] - w * w * m[i * n + j];
+            let wc = w * c[i * n + j];
+            a[i * w1 + j] = d;
+            a[i * w1 + n + j] = -wc;
+            a[(n + i) * w1 + j] = wc;
+            a[(n + i) * w1 + n + j] = d;
+        }
+        a[i * w1 + n2] = f[i];
+    }
+    for col in 0..n2 {
+        let p = (col..n2).max_by(|&x, &y| a[x * w1 + col].abs().total_cmp(&a[y * w1 + col].abs())).unwrap();
+        for j in 0..w1 {
+            a.swap(col * w1 + j, p * w1 + j);
+        }
+        let piv = a[col * w1 + col];
+        for r in (0..n2).filter(|&r| r != col) {
+            let fct = a[r * w1 + col] / piv;
+            for j in col..w1 {
+                a[r * w1 + j] -= fct * a[col * w1 + j];
+            }
+        }
+    }
+    let x: Vec<f64> = (0..n2).map(|i| a[i * w1 + n2] / a[i * w1 + i]).collect();
+    (x[..n].to_vec(), x[n..].to_vec())
+}
+
+/// #1371: on the C2-symmetric copies of a frame with one very soft mode,
+/// modal superposition with the static correction was off by up to 79× at
+/// 2.3 Hz. Every reported value must match two independent direct complex
+/// solves, and the on-axis components symmetry forces to zero must be zero.
+#[test]
+fn harmonic_c2_symmetric_frame_matches_direct_solve() {
+    use dedaliano_engine::solver::{assembly, dof::DofNumbering, harmonic, mass_matrix};
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-1371.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let c = crate::case::Case3::new("issue-1371", serde_json::from_str(&text).unwrap());
+    for anti in [false, true] {
+        let sym = crate::symmetry::symmetrize_3d(&c.name, &c.s, anti).unwrap();
+        let sc = &sym.case;
+        let node = sc.probes[0];
+        let dn = DofNumbering::build_3d(&sc.s);
+        let (nf, n) = (dn.n_free, dn.n_total);
+        let asm = assembly::assemble_3d(&sc.s, &dn);
+        let m = mass_matrix::assemble_mass_matrix_3d(&sc.s, &dn, &sc.dens);
+        let kff: Vec<f64> = (0..nf * nf).map(|i| asm.k[(i / nf) * n + i % nf]).collect();
+        let mff: Vec<f64> = (0..nf * nf).map(|i| m[(i / nf) * n + i % nf]).collect();
+        let ff = &asm.f[..nf];
+        let mut rows = Vec::new();
+        for (di, dof) in ["x", "y", "z"].into_iter().enumerate() {
+            let inp = harmonic::HarmonicInput3D {
+                solver: sc.s.clone(), densities: sc.dens.clone(), frequencies: sc.p.freqs.clone(),
+                damping_ratio: 0.05, response_node_id: node, response_dof: dof.into(),
+            };
+            let (r, (a0, a1)) = harmonic::solve_harmonic_3d_with_damping(&inp).unwrap();
+            let cff: Vec<f64> = (0..nf * nf).map(|i| a0 * mff[i] + a1 * kff[i]).collect();
+            let g = dn.global_dof(node, di).unwrap();
+            for pt in &r.response_points {
+                let (lu_re, lu_im) = harmonic::solve_complex_system(&kff, &mff, &cff, ff, nf, pt.omega).unwrap();
+                let (ge_re, ge_im) = gauss_complex(&kff, &mff, &cff, ff, nf, pt.omega);
+                rows.push((di, pt.frequency, (pt.real, pt.imag), (lu_re[g], lu_im[g]), (ge_re[g], ge_im[g])));
+            }
+        }
+        let scale = rows.iter().map(|r| r.3 .0.hypot(r.3 .1)).fold(0.0f64, f64::max);
+        assert!(scale > 0.0);
+        let copy = if anti { "anti" } else { "sym" };
+        for (di, f, got, lu, ge) in rows {
+            let diff = |a: (f64, f64), b: (f64, f64)| (a.0 - b.0).hypot(a.1 - b.1) / scale;
+            assert!(diff(lu, ge) < 1e-9, "{copy} u{di} at {f} Hz: the two direct solves disagree: {lu:?} vs {ge:?}");
+            assert!(diff(got, lu) < 1e-6, "{copy} u{di} at {f} Hz: reported {got:?}, direct {lu:?} (scale {scale:.3e})");
+            if (anti && di == 2) || (!anti && di < 2) {
+                assert!(got.0.hypot(got.1) / scale < 1e-6, "{copy} u{di} at {f} Hz is zero by symmetry, got {got:?} (scale {scale:.3e})");
+            }
+        }
+    }
+    let tally = crate::tally::Tally::default();
+    let analyses: Vec<_> = crate::ana3::rows().into_iter().filter(|a| a.name == "harmonic").collect();
+    for anti in [false, true] {
+        crate::symmetry::check_3d(&tally, &crate::symmetry::symmetrize_3d(&c.name, &c.s, anti).unwrap(), anti, &analyses);
+    }
+    assert_eq!(tally.status("harmonic", "symmetry"), "holds", "{}", tally.report());
+}
+
+#[test]
+fn a_mirrored_frame_flips_what_acts_along_local_z() {
+    let s: SolverInput3D = serde_json::from_value(json!({
+        "nodes": {
+            "1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0},
+            "2": {"id": 2, "x": 3.0, "y": 1.0, "z": 2.0},
+            "3": {"id": 3, "x": 5.0, "y": 1.5, "z": 4.0}
+        },
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 2e-4, "iz": 1e-4, "j": 5e-5, "shearCenterY": 0.02, "shearCenterZ": 0.05}},
+        "elements": {
+            "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+            "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1}
+        },
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+        "loads": [
+            {"type": "thermal", "data": {"elementId": 1, "dtUniform": 0.0, "dtGradientY": 0.0, "dtGradientZ": 40.0, "alpha": 1.2e-5}},
+            {"type": "distributed", "data": {"elementId": 2, "qYI": 1.0, "qYJ": 1.0, "qZI": -3.0, "qZJ": -1.0}},
+            {"type": "pointOnElement", "data": {"elementId": 1, "a": 1.5, "py": 0.5, "pz": 2.0}},
+            {"type": "nodal", "data": {"nodeId": 3, "fx": -40.0, "fy": 1.0, "fz": -2.0, "mx": 0.5, "my": -1.0, "mz": 0.3}}
+        ]
+    }))
+    .unwrap();
+    let c = crate::case::Case3::new("mirror-local-z", s);
+    let analyses: Vec<_> = crate::ana3::rows().into_iter().filter(|a| ["linear", "P-Delta"].contains(&a.name)).collect();
+    for seed in 0..6 {
+        let tally = crate::tally::Tally::default();
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &tally, rng_seed: seed }, &c, &analyses, &["mirror"]);
+        for a in &analyses {
+            assert_eq!(tally.status(a.name, "mirror"), "holds", "seed {seed}: {}", tally.report());
+        }
+    }
+}
+
+#[test]
+fn buckling_modes_from_round_off_compression_are_absent_in_3d_in_every_plane_and_orientation() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+    use dedaliano_engine::metamorphic::transform::transform_3d;
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-982.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    let mut solved = 0;
+    for plane in Plane::ALL {
+        for deg in [0.0f64, 1.0, 13.0, 90.0, 121.0, 271.0] {
+            let planar = embed_2d(&transform_2d(&s, &Iso2::rotation(deg.to_radians())).unwrap(), plane).unwrap();
+            for k in 0..24 {
+                let Ok(model) = transform_3d(&planar, &Iso3::axis_permutation(k)) else { continue };
+                for load in [1.0, 1e-6, 1e6] {
+                    let mut scaled = model.clone();
+                    for l in scaled.loads.iter_mut() {
+                        let SolverLoad3D::Distributed(d) = l else { panic!("only distributed loads") };
+                        (d.q_yi, d.q_yj, d.q_zi, d.q_zj) = (d.q_yi * load, d.q_yj * load, d.q_zi * load, d.q_zj * load);
+                    }
+                    let b = dedaliano_engine::solver::buckling::solve_buckling_3d(&scaled, 3).unwrap_or_else(|e| panic!("{plane:?} {deg}° {k} ×{load}: {e}"));
+                    let factors: Vec<f64> = b.modes.iter().map(|m| m.load_factor * load).collect();
+                    let at = format!("{plane:?} {deg}° permutation {k} load ×{load}: {factors:?}");
+                    assert_eq!(factors.len(), 2, "{at}");
+                    assert!((factors[0] / 0.168666176385 - 1.0).abs() < 1e-9 && (factors[1] / 2.18337895643 - 1.0).abs() < 1e-9, "{at}");
+                    assert!(!b.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")), "{at}");
+                    solved += 1;
+                }
+            }
+        }
+    }
+    assert!(solved >= 300, "{solved} solved");
+}
+
+/// The 3D mode check against what a real compression gives: a cantilever column under
+/// 100 kN or 1e-5 kN in any coordinate plane, and the same column beside a flexible
+/// uncompressed cantilever, keep every mode unnamed.
+#[test]
+fn physical_3d_buckling_modes_are_not_named_unresolved() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+    let column = |p: f64, beside: bool| {
+        let mut v = json!({
+            "nodes": {"0": {"id": 0, "x": 0.0, "z": 0.0}, "1": {"id": 1, "x": 0.0, "z": 2.0}, "2": {"id": 2, "x": 0.0, "z": 4.0}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 0, "nodeJ": 1, "materialId": 1, "sectionId": 1}, "2": {"id": 2, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": {"id": 1, "nodeId": 0, "type": "fixed"}},
+            "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -p, "my": 0.0}}],
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}, "2": {"id": 2, "a": 0.01, "iz": 1e-6}}
+        });
+        if beside {
+            v["nodes"]["20"] = json!({"id": 20, "x": 50.0, "z": 0.0});
+            v["nodes"]["21"] = json!({"id": 21, "x": 150.0, "z": 0.0});
+            v["elements"]["20"] = json!({"id": 20, "type": "frame", "nodeI": 20, "nodeJ": 21, "materialId": 1, "sectionId": 2});
+            v["supports"]["2"] = json!({"id": 2, "nodeId": 20, "type": "fixed"});
+            v["loads"].as_array_mut().unwrap().push(json!({"type": "nodal", "data": {"nodeId": 21, "fx": 0.0, "fz": -100.0, "my": 0.0}}));
+        }
+        s2(v)
+    };
+    let euler = std::f64::consts::PI.powi(2) * 200e6 * 1e-4 / (4.0 * 16.0);
+    for plane in Plane::ALL {
+        for (p, beside) in [(100.0, false), (1e-5, false), (100.0, true)] {
+            let b = dedaliano_engine::solver::buckling::solve_buckling_3d(&embed_2d(&column(p, beside), plane).unwrap(), 3).unwrap();
+            assert!((b.modes[0].load_factor * p / euler - 1.0).abs() < 1e-2, "{plane:?} P = {p}: {}", b.modes[0].load_factor);
+            assert!(!b.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")), "{plane:?} P = {p}, beside {beside}: {:?}", b.structured_diagnostics);
+        }
+    }
+}
+
+/// Each member's round-off grows with its own displacement along it: a column carried
+/// 2e6 m along its axis by its support (uncertainty ≈ 1e-3 of its geometric work) keeps
+/// its two modes, at 2e8 m (≈ 9e-2) they are named, and a column beside an unloaded member
+/// carried 2e8 m keeps them.
+#[test]
+fn the_3d_mode_check_follows_each_members_own_offset_along_it() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+    let model = |column_shift: f64, beside_shift: Option<f64>| {
+        let mut v = json!({
+            "nodes": {"0": {"id": 0, "x": 0.0, "z": 0.0}, "1": {"id": 1, "x": 0.0, "z": 2.0}, "2": {"id": 2, "x": 0.0, "z": 4.0}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 0, "nodeJ": 1, "materialId": 1, "sectionId": 1}, "2": {"id": 2, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": {"id": 1, "nodeId": 0, "type": "fixed", "dz": column_shift}},
+            "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -100.0, "my": 0.0}}],
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}}
+        });
+        if let Some(shift) = beside_shift {
+            v["nodes"]["20"] = json!({"id": 20, "x": 10.0, "z": 0.0});
+            v["nodes"]["21"] = json!({"id": 21, "x": 12.0, "z": 0.0});
+            v["elements"]["20"] = json!({"id": 20, "type": "frame", "nodeI": 20, "nodeJ": 21, "materialId": 1, "sectionId": 1});
+            v["supports"]["2"] = json!({"id": 2, "nodeId": 20, "type": "fixed", "dx": shift});
+        }
+        s2(v)
+    };
+    let euler = std::f64::consts::PI.powi(2) * 200e6 * 1e-4 / (4.0 * 16.0) / 100.0;
+    for plane in Plane::ALL {
+        for (column_shift, beside, named) in [(2e6, None, false), (2e8, None, true), (0.0, Some(2e8), false)] {
+            let b = dedaliano_engine::solver::buckling::solve_buckling_3d(&embed_2d(&model(column_shift, beside), plane).unwrap(), 2).unwrap();
+            let at = format!("{plane:?} column {column_shift} m, beside {beside:?}");
+            let flagged = b.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE"));
+            assert!((b.modes[0].load_factor / euler - 1.0).abs() < 1e-2, "{at}: λ = {}", b.modes[0].load_factor);
+            for k in 0..b.modes.len() {
+                assert_eq!(flagged.is_some_and(|d| d.message.contains(&format!("mode {} (", k + 1))), named, "{at}, mode {}: {flagged:?}", k + 1);
+            }
+            if named {
+                assert_eq!(flagged.unwrap().element_ids, Vec::<usize>::new(), "{at}: no member is within round-off of zero");
+            }
+        }
+    }
+}
+
+#[test]
+fn only_the_near_mechanism_warning_excuses_a_refused_copy() {
+    use crate::response::NearMechanism;
+    let diag = |code: &str, phase: Option<&str>| -> StructuredDiagnostic {
+        serde_json::from_value(json!({"code": code, "severity": "warning", "message": "", "phase": phase})).unwrap()
+    };
+    assert_eq!(NearMechanism::of(&[diag("known_issue", Some("NUM-INVARIANCE"))]), NearMechanism(true));
+    assert_eq!(NearMechanism::of(&[diag("stiffness_not_positive_definite", None)]), NearMechanism(true));
+    assert_eq!(NearMechanism::of(&[diag("known_issue", Some("LIN-SECOND-ORDER-UNBOUNDED")), diag("high_diagonal_ratio", None)]), NearMechanism(false));
+    assert!(!crate::generated::strict());
+    for refusal in [
+        "Singular stiffness matrix — structure is a mechanism",
+        "did not converge",
+        "REFUSE: self-check static_residual: 2.1e-2 exceeds 1.0e-3; excessive displacement indicates a likely mechanism",
+        "Eigenvalue decomposition failed: could not establish convergence and Sturm completeness for 3 frequencies",
+    ] {
+        assert!(matches!(crate::checks2::transformed_failure(refusal.into(), NearMechanism(true)), crate::tally::Verdict::Refused(_)), "{refusal}");
+        assert!(matches!(crate::checks2::transformed_failure(refusal.into(), NearMechanism(false)), crate::tally::Verdict::Fail(_)), "{refusal}");
+    }
+    for unrelated in ["Element 3 references node 9, which does not exist", "No compressed elements — buckling not applicable"] {
+        assert!(matches!(crate::checks2::transformed_failure(unrelated.into(), NearMechanism(true)), crate::tally::Verdict::Fail(_)), "{unrelated}");
+    }
+    let _strict = crate::generated::Strict::enter();
+    assert!(matches!(crate::checks2::transformed_failure("did not converge".into(), NearMechanism(true)), crate::tally::Verdict::Fail(_)), "strict mode excuses nothing");
+}
+
+/// #983: a near-mechanism whose transformed copies are refused while the
+/// original solves under NUM-INVARIANCE and stiffness_not_positive_definite.
+#[test]
+fn a_copy_refused_beside_a_near_mechanism_original_is_not_a_violation() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-983.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    assert!(!crate::generated::strict());
+    let original = linear::solve_2d(&s).unwrap();
+    assert_eq!(crate::response::NearMechanism::of(&original.structured_diagnostics), crate::response::NearMechanism(true));
+    let t = crate::tally::Tally::default();
+    let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| a.name == "creep & shrinkage (t = t0)").collect();
+    let case = Case2::new("issue-983", s);
+    assert_eq!((anas[0].run)(&case).unwrap().2, crate::response::NearMechanism(true));
+    crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: 2026110601678 }, &case, &anas, &["relabel", "units"]);
+    let cells = t.cells.lock().unwrap();
+    for inv in ["relabel", "units"] {
+        let cell = &cells[&("creep & shrinkage (t = t0)".to_string(), inv.to_string())];
+        assert!(cell.fails.is_empty() && cell.refused > 0, "{inv}: {cell:?}");
+    }
+}
+
+/// Quad 1 and MITC9 quad 1 in one model: the linear reference has to tag its
+/// shell families as the analysis rows do, or the quad9 entry drops out of
+/// the comparison as "2 values vs 3 expected".
+#[test]
+fn linear_agreement_pairs_a_quad_and_a_quad9_with_the_same_id() {
+    let c = crate::corpus::fuzz_case_3d(20898, 0);
+    assert!(c.s.quads.values().any(|q| q.id == 1) && c.s.quad9s.values().any(|q| q.id == 1));
+    let t = crate::tally::Tally::default();
+    let names = ["Winkler (no foundation)", "linear (load session)", "certified linear"];
+    let anas: Vec<_> = crate::ana3::rows().into_iter().filter(|a| names.contains(&a.name)).collect();
+    crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: 20763 }, &c, &anas, &["linear agreement"]);
+    let cells = t.cells.lock().unwrap();
+    for a in names {
+        let cell = &cells[&(a.to_string(), "linear agreement".to_string())];
+        assert!(cell.fails.is_empty() && cell.pass > 0, "{a}: {cell:?}");
+    }
 }

@@ -87,8 +87,14 @@ cantilevered deck it always ran (its "roller" never restrained anything).
 Slow but correct (not bugs, recorded so nobody re-triages them):
 
 - The exact 3D plastic collapse certificate runs for over 25 minutes on the 24-member
-  grid-slab template. `json_plastic` keeps 3D models at 40 members for the solver and 10
-  for the certificate.
+  grid-slab template in the earlier investigation. Exact LP construction now has
+  engine storage preflights and the harness adds a stricter storage budget,
+  derived from the same engine construction. The grid passes those storage checks
+  but its regression artifact and both generated plastic seeds are excluded from
+  the live `json_plastic` corpus and kept in timed replay
+  coverage, including a short watchdog probe. The raw 3D solver retains its
+  40-member fuzz cap. See [the bounded replay report](PLASTIC_LP_BUDGET.md); the
+  historical long run was not repeated.
 - On the 232-node industrial-hall template (`ex-3d-nave-industrial`), natively in
   release: linear solve 0.02 s, linear certificate 0.06 s, P-Delta 4.6 s, P-Delta
   certificate 4.7 s, modal certificate 10.7 s, harmonic certificate 3.8 s. In the
@@ -140,8 +146,9 @@ in the `solver` and `element` scopes too: a mutant in an element kernel or in th
 assembly makes the engine's `K` or `f` disagree with the independent re-assembly. Results
 land in `mutants.out/`: `caught.txt`, `missed.txt`,
 `timeout.txt`, `unviable.txt`. CI (`.github/workflows/nightly.yml`, job `mutants`) splits
-the ~23,000 mutants into 512 shards and runs 32 of them each night, rotating with the day, so
-every mutant is tested every 16 nights (docs/verification/NIGHTLY.md). A shard fails on any
+the ~23,000 mutants into 512 shards and runs 32 of them each night, the ones that went longest
+without finishing, so every mutant is tested every 16 nights when every shard finishes, and a
+shard that does not finish is retried once ahead of shards with a newer report (docs/verification/NIGHTLY.md). A shard fails on any
 missed mutant, and fails loudly if it does not finish within its time budget;
 `scripts/mutants-summary.py` prints how far it got and the time per mutant. One shard by
 hand: `gh workflow run nightly.yml -f only=mutants -f mutants_shards='[5]'`.
@@ -169,6 +176,44 @@ Never exclude a mutant that could make a result or a certificate wrong because a
 hard to write; a hard-to-test mutant in the certificate code is exactly the one that
 matters. Resource caps, search heuristics and the choice between two sound paths can be
 excluded, with the reason next to the pattern.
+
+### Safety-critical scope (weekly)
+
+`MUTANTS_SCOPE=safety scripts/mutants.sh` (`make mutants.engine SCOPE=safety`) mutates the code
+whose bug would show an engineer a wrong verdict rather than a wrong number, grouped in modules
+by [`scripts/mutants-safety.json`](../../scripts/mutants-safety.json):
+
+| Module | Code |
+|---|---|
+| certificate | `certify/{linear,sparse,finite,solver}.rs`: the linear-static certificate and its finiteness guards |
+| provenance | `certify/{provenance,bundle}.rs`, `reproduce.rs`: hashes, the certificate bundle, reproduction |
+| design-verdict | `postprocess/check_ledger.rs` and the functions of `certify/design.rs` that decide a certified design verdict |
+| containment | `known_issues.rs`: the warnings that contain the open wrong-result issues |
+
+Sunday's `nightly.yml` runs it in the `mutants-safety` job (GitHub-hosted, sharded), next to
+the daily rotation, which it does not replace. `mutants-ratchet` then reports the kill rate,
+(caught + timed out) / (caught + timed out + missed), per module (`make mutants.safety.report
+OUT=<dirs>`), and compares it with [`mutants-baseline.json`](mutants-baseline.json). A module
+below its baseline or with no mutant tested, or a shard that did not report every mutant it
+holds, opens or updates the **Mutation kill rate below baseline** issue. When a run kills more,
+raise the baseline with `make mutants.safety.record` in the pull request that adds the tests.
+`record` refuses a lower rate unless it is given `ARGS=--allow-lower`, and it always refuses a module
+with no mutant tested, or a report in which a shard did not test every mutant it holds.
+
+Baseline (2026-11-05, 818 mutants, with the certificate guard tests added in the same pull request):
+
+| Module | Tested | Caught | Timeout | Missed | Unviable | Kill rate |
+|---|---:|---:|---:|---:|---:|---:|
+| certificate | 427 | 420 | 4 | 3 | 131 | 99.3 % |
+| provenance | 125 | 107 | 5 | 13 | 7 | 89.6 % |
+| design-verdict | 72 | 58 | 0 | 14 | 8 | 80.6 % |
+| containment | 38 | 20 | 0 | 18 | 10 | 52.6 % |
+
+Before the guard tests, the certificate stood at 96.0 % (17 missed): replacing any finiteness
+guard (`guard`, `guard_all`, `guard_end_to_end`, `guard_cases`, the 2D and 3D result guards,
+`check_input`) with a no-op went unnoticed, because no test fed a certificate a non-finite
+number. The largest gap left is containment: the 3D warnings (`for_3d`, `loads_3d` returning
+nothing) are untested.
 
 ### Last local run
 

@@ -26,12 +26,12 @@ import { ElementsBatched } from '../../three/elements-batched';
 import { ElementsPicking } from '../../three/elements-picking';
 import { NodesInstanced } from '../../three/nodes-instanced';
 import en from '../../i18n/locales/en';
+import { assertBudget } from './wall-clock-budget';
 
 const BAYS = 13, STOREYS = 10, SPAN = 6, H = 3;
 /** This run's times, ms. */
 const MEASURED = { tables: 0, report: 0, scene: 0 };
 const BUDGET = { tables: 1500, report: 2000, scene: 500 };
-const WALL_CLOCK = process.env.NO_WALL_CLOCK !== '1';
 
 let sources: Source[] = [];
 
@@ -84,7 +84,7 @@ describe('at about 5 000 members', () => {
     }
     rowsOf('forces', sources[0]!.results, { stations: 5 });
     MEASURED.tables = performance.now() - t0;
-    if (WALL_CLOCK) expect(MEASURED.tables).toBeLessThan(BUDGET.tables);
+    if (assertBudget(MEASURED.tables, BUDGET.tables, 'scale: the result tables')) expect(MEASURED.tables).toBeLessThan(BUDGET.tables);
   });
 
   it('the report, every section', () => {
@@ -100,7 +100,7 @@ describe('at about 5 000 members', () => {
     const html = generateReportHtml(data);
     MEASURED.report = performance.now() - t0;
     expect(html.length).toBeGreaterThan(1e6);
-    if (WALL_CLOCK) expect(MEASURED.report).toBeLessThan(BUDGET.report);
+    if (assertBudget(MEASURED.report, BUDGET.report, 'scale: the report')) expect(MEASURED.report).toBeLessThan(BUDGET.report);
   });
 
   it('the scene: batched members, picking and nodes', () => {
@@ -116,6 +116,6 @@ describe('at about 5 000 members', () => {
     eb.flush();
     MEASURED.scene = performance.now() - t0;
     expect(eb.count).toBe(modelStore.elements.size);
-    if (WALL_CLOCK) expect(MEASURED.scene).toBeLessThan(BUDGET.scene);
+    if (assertBudget(MEASURED.scene, BUDGET.scene, 'scale: the scene')) expect(MEASURED.scene).toBeLessThan(BUDGET.scene);
   });
 });

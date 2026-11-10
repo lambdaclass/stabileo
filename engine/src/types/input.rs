@@ -224,13 +224,13 @@ pub struct SolverOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SolverInput<M = SolverMaterial, S = SolverSection> {
-    pub nodes: HashMap<String, SolverNode>,
+pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L = SolverLoad, P = SolverSupport> {
+    pub nodes: HashMap<String, N>,
     pub materials: HashMap<String, M>,
     pub sections: HashMap<String, S>,
     pub elements: HashMap<String, SolverElement>,
-    pub supports: HashMap<String, SolverSupport>,
-    pub loads: Vec<SolverLoad>,
+    pub supports: HashMap<String, P>,
+    pub loads: Vec<L>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
     #[serde(default)]
@@ -463,6 +463,8 @@ pub struct SolverDistributedLoad3D {
 pub struct SolverPointLoad3D {
     pub element_id: usize,
     pub a: f64,
+    #[serde(default)]
+    pub px: f64,
     pub py: f64,
     pub pz: f64,
 }
@@ -472,7 +474,9 @@ pub struct SolverPointLoad3D {
 pub struct SolverThermalLoad3D {
     pub element_id: usize,
     pub dt_uniform: f64,
+    /// T(−y face) − T(+y face), °C: the opposite sign of `dt_gradient_z`.
     pub dt_gradient_y: f64,
+    /// T(+z face) − T(−z face), °C: the opposite sign of `dt_gradient_y`.
     pub dt_gradient_z: f64,
     /// The member material's coefficient of thermal expansion, 1/°C. Omitted:
     /// [`DEFAULT_FRAME_THERMAL_ALPHA`], and the result says so (`known_issues::FR-4`).
@@ -602,14 +606,14 @@ pub struct SolverPlateThermalLoad {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverInput3D {
-    pub nodes: HashMap<String, SolverNode3D>,
-    pub materials: HashMap<String, SolverMaterial>,
-    pub sections: HashMap<String, SolverSection3D>,
-    pub elements: HashMap<String, SolverElement3D>,
-    pub supports: HashMap<String, SolverSupport3D>,
-    pub loads: Vec<SolverLoad3D>,
+#[serde(rename_all = "camelCase", bound(deserialize = "M: super::units::TypedWire + Deserialize<'de>, S: super::units::TypedWire + Deserialize<'de>, N: super::units::TypedWire + Deserialize<'de>, L: super::units::TypedWire + Deserialize<'de>, P: super::units::TypedWire + Deserialize<'de>, E: super::units::TypedWire + Deserialize<'de>"))]
+pub struct SolverInput3D<M = SolverMaterial, S = SolverSection3D, N = SolverNode3D, L = SolverLoad3D, P = SolverSupport3D, E = SolverElement3D> {
+    pub nodes: HashMap<String, N>,
+    pub materials: HashMap<String, M>,
+    pub sections: HashMap<String, S>,
+    pub elements: HashMap<String, E>,
+    pub supports: HashMap<String, P>,
+    pub loads: Vec<L>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
     #[serde(default)]
@@ -868,6 +872,7 @@ pub struct SpectrumPoint {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpectralInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub modes: Vec<SpectralModeInput3D>,
     pub densities: HashMap<String, f64>,
@@ -916,6 +921,7 @@ pub struct SpectralModeDisp3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModalInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub densities: HashMap<String, f64>,
 }
@@ -968,6 +974,7 @@ pub struct PlasticMaterialData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlasticInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub sections: HashMap<String, PlasticSectionData3D>,
     pub materials: HashMap<String, PlasticMaterialData>,
@@ -1024,6 +1031,7 @@ pub struct Axle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MovingLoadInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub train: LoadTrain,
     #[serde(default)]
@@ -1077,6 +1085,7 @@ pub struct SectionCapacity {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NonlinearMaterialInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub material_models: HashMap<String, MaterialModel>,
     pub section_capacities: HashMap<String, SectionCapacity3D>,
@@ -1225,6 +1234,7 @@ pub struct TimeForceRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeHistoryInput3D {
+    #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub densities: HashMap<String, f64>,
     pub time_step: f64,

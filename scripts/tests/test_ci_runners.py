@@ -12,6 +12,10 @@ WORKFLOWS = ROOT / '.github/workflows'
 SAME_REPO = 'github.event.pull_request.head.repo.full_name == github.repository'
 NOT_DEPENDABOT = "github.event.pull_request.user.login != 'dependabot[bot]'"
 TRUSTED = "(github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule'))"
+HEAVY = '${{ fromJSON(needs.plan.outputs.heavy_runs_on) }}'
+POST_MERGE = ("${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' && fromJSON('[\"self-hosted\",\"stabileo\"]') "
+              "|| (github.ref == 'refs/heads/main' && github.event_name != 'schedule') && (vars.STABILEO_PR_POOL == 'true' "
+              "&& fromJSON('[\"self-hosted\",\"stabileo-pr\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))) || 'ubuntu-24.04' }}")
 QUEUE_POOL = {'stabileo', 'stabileo-pr', 'stabileo-e2e', 'stabileo-timing'}
 TOKEN = re.compile(r"\s*(==|!=|&&|\|\||\(|\)|,|'[^']*'|[\w.-]+)")
 
@@ -123,6 +127,8 @@ class CiRunners(unittest.TestCase):
                     continue
                 self.assertTrue(runs_on == 'ubuntu-24.04' or runs_on.endswith("|| 'ubuntu-24.04' }}"), name)
                 self.assertNotIn('stabileo-nightly', labels(runs_on), name)
+                if runs_on == POST_MERGE:
+                    continue
                 if 'stabileo-pr' in labels(runs_on):
                     self.assertIn(SAME_REPO, runs_on, name)
                     self.assertIn(NOT_DEPENDABOT, runs_on, name)
@@ -136,8 +142,8 @@ class CiRunners(unittest.TestCase):
     def test_routing(self):
         ci = jobs('ci.yml')
         hosted = {name for name, job in ci.items() if job.get('runs-on') == 'ubuntu-24.04'}
-        self.assertEqual(hosted, {'changes', 'caddy-routing', 'docker-smoke', 'determinism', 'timing-budgets', 'e2e', 'e2e-flaky', 'ci-ok', 'superseded',
-                                  'test-ci-scripts', 'lint-backend', 'check-migrations-immutable', 'check-migrations', 'results-snapshot'})
+        self.assertEqual(hosted, {'changes', 'caddy-routing', 'docker-smoke', 'determinism', 'timing-budgets', 'timing-budgets-alert', 'e2e', 'e2e-flaky', 'e2e-timings', 'ci-ok', 'superseded', 'web-typecheck',
+                                  'test-ci-scripts', 'lint-backend', 'check-migrations-immutable', 'check-migrations', 'results-snapshot', 'revert-check'})
         self.assertEqual({name for name, job in jobs('research.yml').items() if job.get('runs-on') == 'ubuntu-24.04'}, {'isolation', 'catalog'})
         for name in ['test-engine-gates', 'web-unit']:
             self.assertEqual(labels(ci[name]['runs-on']), {'stabileo-timing'})
@@ -158,9 +164,26 @@ class CiRunners(unittest.TestCase):
         pr = set()
         for workflow in ['ci.yml', 'research.yml']:
             for name, job in jobs(workflow).items():
-                if 'stabileo-pr' in labels(job.get('runs-on', '')):
+                if 'stabileo-pr' in labels(job.get('runs-on', '')) and job.get('runs-on') != POST_MERGE:
                     pr.add(f'{workflow}:{name}')
         self.assertEqual(pr, {'ci.yml:wasm', 'ci.yml:research-wasm', 'ci.yml:site-e2e'})
+
+    def test_the_standalone_research_workflow_runs_on_push_only_what_ci_does_not(self):
+        for name, job in jobs('research.yml').items():
+            with self.subTest(job=name):
+                if name == 'catalog-online':
+                    self.assertEqual(job['if'], "github.workflow == 'Research'")
+                else:
+                    self.assertIn("github.workflow != 'Research' || github.event_name == 'schedule'", job['if'])
+        ci = (WORKFLOWS / 'ci.yml').read_text()
+        self.assertIn('    uses: ./.github/workflows/research.yml\n', ci)
+        self.assertIn("    if: needs.changes.outputs.research == 'true'\n    uses: ./.github/workflows/research.yml", ci)
+
+    def test_post_merge_research_leaves_the_queue_only_runners_to_the_queue(self):
+        research = jobs('research.yml')
+        post_merge = {name for name, job in research.items() if job.get('runs-on') == POST_MERGE}
+        self.assertEqual(post_merge, {name for name, job in research.items() if labels(job.get('runs-on', ''))} - {'engine-benchmarks'})
+        self.assertNotIn('pull_request', POST_MERGE.split('stabileo-pr', 1)[0].split("'merge_group'", 1)[1])
 
     def test_jobs_use_a_github_runners_threads_wherever_they_run(self):
         caps = {'CARGO_BUILD_JOBS': '4', 'RUST_TEST_THREADS': '4', 'NEXTEST_TEST_THREADS': '4', 'RAYON_NUM_THREADS': '4',
@@ -198,7 +221,7 @@ class CiRunners(unittest.TestCase):
     def test_the_engine_suite_leaves_the_queue_critical_path_runners_free(self):
         ci = jobs('ci.yml')
         engine = {name for name, job in ci.items() if 'stabileo-engine' in labels(job.get('runs-on', ''))}
-        self.assertEqual(engine, {'test-engine-suite', 'test-engine-metamorphic'})
+        self.assertEqual(engine, {'test-engine-suite', 'test-engine-metamorphic', 'test-engine-quick'})
         for name in engine:
             runs_on = ci[name]['runs-on']
             self.assertEqual(labels(runs_on), {'stabileo-engine', 'stabileo'})
@@ -221,7 +244,7 @@ class CiRunners(unittest.TestCase):
     def test_nightly_self_hosted_jobs_take_only_the_nightly_pool(self):
         for name, job in jobs('nightly.yml').items():
             runs_on = job['runs-on']
-            if runs_on != 'ubuntu-24.04':
+            if runs_on not in ('ubuntu-24.04', HEAVY):
                 self.assertEqual(labels(runs_on), {'stabileo-nightly'}, name)
                 self.assertTrue(runs_on.endswith("|| 'ubuntu-24.04' }}"), name)
 
@@ -236,7 +259,7 @@ class CiRunners(unittest.TestCase):
 
     def plan_night(self, event, hour):
         text = (WORKFLOWS / 'nightly.yml').read_text()
-        script = re.search(r'\n        run: \|\n(.*?)\n\n', text.split('\n  plan:\n', 1)[1], re.S).group(1)
+        script = re.search(r'\n        run: \|\n(.*?)\n(?:\n|      - )', text.split('\n  plan:\n', 1)[1], re.S).group(1)
         script = '\n'.join(line[10:] for line in script.split('\n'))
         with tempfile.TemporaryDirectory() as directory:
             fake = pathlib.Path(directory) / 'date'
@@ -266,7 +289,7 @@ class CiRunners(unittest.TestCase):
             for event in scheduled_events(text):
                 for name, job in parse(text).items():
                     runs_on = job.get('runs-on', '')
-                    if not runs_on.startswith('${{'):
+                    if not runs_on.startswith('${{') or runs_on == HEAVY:
                         continue
                     variables = sorted(set(re.findall(r'vars\.\w+', runs_on)))
                     for values in itertools.product(['true', None], repeat=len(variables)):

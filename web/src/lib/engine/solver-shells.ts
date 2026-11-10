@@ -10,6 +10,7 @@
 import type { SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { Node, Material, SurfaceLoad3D, ThermalLoadQuad3D } from '../store/model.svelte';
 import { shellLoadForces } from './shell-load-integration';
+import { plateThermalToWire } from './unit-types';
 // Shell stress recovery now handled by WASM solver — TS fallback removed
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ export function convertThermalQuadLoad(load: ThermalLoadQuad3D, alpha?: number, 
   return [{
     // A triangle takes the engine's `plateThermal`, the same fields.
     type: load.on === 'plate' ? 'plateThermal' : curved ? 'curvedShellThermal' : 'quadThermal',
-    data: { elementId: load.quadId, dtUniform: load.dtUniform, dtGradient: load.dtGradient ?? 0, ...(alpha !== undefined ? { alpha } : {}) },
+    data: plateThermalToWire({ elementId: load.quadId, dtUniform: load.dtUniform, dtGradient: load.dtGradient ?? 0, ...(alpha !== undefined ? { alpha } : {}) }),
     // Not a member of `SolverLoad3D`'s union, which types the member loads the app reads back;
     // this one only travels to the engine, which knows the tag.
   } as unknown as SolverLoad3D];

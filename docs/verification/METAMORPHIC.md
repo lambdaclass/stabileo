@@ -24,6 +24,9 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
 
 * `engine/src/metamorphic/` — the reusable part, usable from any harness (fuzz
   targets, the differential tools):
+  * `mirror.rs` — 3D reflection in a coordinate plane (`mirror_3d`); a feature it
+    cannot reflect exactly (shells, connectors, constraints, inclined supports,
+    left-handed members) makes the case unrepresentable.
   * `transform.rs` — rigid motions. 2D: any rotation in the X–Z plane or mirror,
     plus translation. 3D: any proper rotation (uniform random, or one of the 24
     axis permutations) plus translation. Everything defined against global axes
@@ -57,19 +60,55 @@ UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamo
   `modal_checks.rs`, `corpus.rs`, `regressions.rs` (one minimal test per bug
   found), `active.rs` (active cable fixtures), `generated.rs` (strict generated
   coverage), `safety_cases.rs` (issue-linked reproductions), and `stiffness.rs`
-  (priority invariances and uniform stiffness scaling).
+  (priority invariances and uniform stiffness scaling), and `linear_identities.rs`
+  (load combinations 1.2A + 1.6B + 0.5C, 0.9A − 1.0B, 0A + 1.4C and 1.0B on three cases, each case also against its own linear solve,
+  `solve_multi_case_2d/3d` on its prepared and constrained paths, against the linear
+  solve of the factored loads with settlements counted once; and superposition
+  R(aA + bB) = a·R(A) + b·R(B) + (1 − a − b)·R(∅) of the shell stress components
+  σxx, σyy, τxy, mx, my, mxy, qx, qy of every shell family, which the matrix's
+  superposition cell does not see: it compares von Mises only, and von Mises is not
+  linear). Models: the fuzz generators (seeds 0–47, constraints on odd seeds) and 20
+  generated frame buildings with a roof slab of plates, MITC4, MITC9, solid or curved
+  shells, pressure, thermal, member, point and nodal loads, a spring and a settlement.
+  Membrane stress, bending moment and shear per length are compared each against its
+  own magnitude, floored by the load floor carried through the thinnest shell.
+* `completeness.rs`: result completeness. The metamorphic checks compare responses with
+  each other, so a record missing from every response would pass them. Here every result is
+  checked against the input model: one displacement per node, one reaction per distinct
+  support node, one force record per element (curved beams expanded), one plate stress per
+  plate, quad stresses per family in the engine's order (MITC4, MITC9, solid shells, curved
+  shells), and on the linear solve one quad nodal stress per MITC4/MITC9 element node, in the
+  engine's element and node order (the record carries no element id, so its position is its
+  identity). A
+  missing id, an id reported twice or an id not in the model fails. It runs linear, load
+  session, constrained, certified linear, load combinations (every case and the
+  combination), staged (every stage and the final result; the case, combination and stage
+  names must be exactly the requested ones), Winkler and SSI without springs and in 3D with
+  foundation springs on every unreleased member and soil springs on six free nodes, contact, P-Delta,
+  corotational, material and fiber nonlinear, cable, and every mode shape (4 modes on the
+  buildings and frame copies, 1 to 4 on fuzz models). Models: the same
+  fuzz seeds and 20 buildings as `linear_identities.rs`, plus frame-only copies of the
+  plate, MITC4 and curved-shell buildings (no settlement or thermal load) so that
+  corotational and fiber analyses are reached. Every analysis and every shell family on the
+  linear solve must be checked at least once. On the buildings and frame copies, the only
+  accepted refusals are the declared unsupported features (`DECLARED_REFUSALS`: shells in
+  corotational, material and fiber nonlinear, and staged MITC9/solid/curved shells; releases and
+  settlements in fiber nonlinear; settlements in SSI), and only when the model has that feature. Any other refusal fails. Fuzz models
+  may be refused. No engine bug is exempted. SSI reactions (#1672) and the plate, quad and
+  quad nodal stresses of 3D combinations (#1673) were asserted missing as known bugs until
+  they were fixed, and now have the full check.
 
 ## Invariants
 
 | Invariant | Relation checked |
 |---|---|
 | rotation | 2D: random in-plane rotation + translation. 3D: random rotation (60%) or axis permutation, + translation. Translations, rotations, reactions rotate; member end forces, shell stresses, frequencies, load factors are unchanged. Analyses with a built-in global direction (gravity of moving loads, influence lines, cables; a spectrum's axis) use rotations that keep it (about Z, axis permutations). When a general rotation turns a roller into an inclined support that an analysis refuses by name, a quarter turn is used instead. |
-| mirror | 2D: reflection about a random line (about a vertical line for gravity-bound analyses). In-plane moments, rotations and member shear / moment change sign. |
+| mirror | 2D: reflection about a random line (about a vertical line for gravity-bound analyses). In-plane moments, rotations and member shear / moment change sign. 3D (linear, P-Delta, modal, buckling rows): reflection in a random coordinate plane (X or Y for gravity-bound analyses) + translation. Each member keeps its reflected local y, so its local z changes sign: loads and section data along local z (`q_z`, `pz`, `dt_gradient_z`, the shear-centre z offset) flip, and so do the member forces Vz, Mx and My; moments and rotations reflect as axial vectors; effective-mass tensors map as R·M·Rᵀ. |
 | relabel | Renumbering and reordering of every entity and of the load list: identical results under the id map. |
 | reversal | Half the members reversed: displacements and reactions unchanged; end forces map as in `reversal.rs`. |
 | units | (λ, φ) ∈ {(10⁻³, 10³), (25, 10⁻²), (0.3048, 4.448)} with τ = √λ: every result scales by its dimension. |
 | superposition | Linear analyses: R(A+B) − R(∅) = (R(A) − R(∅)) + (R(B) − R(∅)) and R(kA) − R(∅) = k·(R(A) − R(∅)) (R(∅) carries settlements). Load-factor analyses (buckling, plastic collapse): all actions × k ⇒ factor / k. |
-| reciprocity | Maxwell–Betti: δ_ab·d_b under a unit force at a along d_a equals δ_ba·d_a under a unit force at b along d_b, random nodes and directions; for harmonic analysis at every frequency (real and imaginary parts), for time history at every sampled time. |
+| reciprocity | Maxwell–Betti: δ_ab·d_b under a unit force at a along d_a equals δ_ba·d_a under a unit force at b along d_b, random nodes and directions; for harmonic analysis at every frequency (real and imaginary parts), for time history at every sampled time. Where the analysis reports rotations (static rows, time history), also with moments (`betti.rs`), at nodes a frame end holds rotationally, settlements removed: θ_b·m_b under a unit force at a equals u_a·d_a under a unit moment at b about m_b, and θ_b·m_b under a unit moment at a equals θ_a·m_a under a unit moment at b. Each side is compared at `rel` times the magnitude of the field it is read from, so both sides of an identity have one dimension (rotation per force for the force–moment pair, rotation per moment for the moment–moment pair). |
 | energy | Clapeyron under random nodal forces and moments: Σ P·u = Σ_e f_e·u_e (member end forces in member axes) + Σ springs uᵀKu — the external work equals twice the strain energy recovered from the reported member forces. |
 | symmetry | Symmetric models built from any model (2D: mirrored about a vertical line through its right-most node and joined there; 3D: C2 rotation about a vertical axis through a node), symmetric and antisymmetric (linear analyses) loads and settlements: the response equals its own image (or minus it), nodes and members exchanged pairwise. |
 | linear agreement | Every analysis that reduces to the linear solve on the model given (dense / sparse / PCG paths, constrained, certified, one combination of two cases, one or two stages with the full structure, Winkler without foundation, contact without gaps, SSI without soil springs, creep at t₀) reproduces the linear solution. |
@@ -134,81 +173,128 @@ seven corpus models and ten fuzz models, with a fixed seed. The nightly tier
 seed that moves daily (printed; reproduce with `METAMORPHIC_SEED`), and uploads
 the per-cell report.
 
+The quick invariance tier (`make test.engine.invariance.quick`, `quick.rs`) runs
+on pull requests for the analyses the change can affect. `PATH_KINDS` maps each
+changed path to analyses: a solver module to its own analyses, a shared engine
+module (assembly, elements, types, the harness itself) to all of them, anything
+outside the engine to none. Those analyses run on a curated set of small models:
+examples, feature-matrix models with hinges, connectors, rigid links, diaphragms
+and inclined supports, and the fuzz models of #758. The transforms are rigid
+rotation, mirror, renumbering, member reversal, unit scaling and load order
+(the load list reversed, which also swaps the two cases of `load combinations`),
+each drawn from two fixed seeds. `quick::PROPERTIES` adds properties on top: harmonic
+superposition and reciprocity, on the same models and the nightly models of #1537–#1541.
+It takes about 10 s plus the release build.
+`KINDS=all` (or `KINDS="plastic collapse,harmonic"`) overrides the selection, and
+`BASE=<rev>` sets the comparison base (default `origin/main`).
+
+A known open issue is an expected failure in `quick::EXPECTED`, keyed by seed,
+model, analysis and transform and linked to its issue. The run fails on any other
+violation, and also on an expected failure that no longer fails (it passes,
+refuses or is no longer checked): the fix then removes the entry. The run also
+fails when a selected analysis completes no comparison on any curated model.
+
+## WASM entry points
+
+The matrix below is per analysis function; the app calls the WASM exports in
+`engine/src`. `engine/tests/metamorphic/entry_points.json` lists every export.
+A solve entry point names the functions its wrapper calls, each as a path such
+as `linear::solve_2d_typed` (a re-export counts only under the path the wrapper
+uses), and gives each
+invariance (units, relabel, reversal, rotation, mirror, planes: a 2D model in each
+of the three planes and embedded in 3D, prepared: agreement with the regular
+linear solve) one status: a metamorphic analysis whose row calls those same
+functions and shows ✓ below, a `#[test]` under `engine/tests` that calls them and
+asserts something (the gate checks that much; that the assertion is the invariance
+is for review), an
+exemption with a reason, or a tracking issue
+([#1497](https://github.com/lambdaclass/stabileo/issues/1497)). Every other export
+names a described scope (design, section, postprocess, session, utility).
+`scripts/invariance-gate.py`, run by `make lint.engine`, fails on an export with
+no row, a row for a removed export, a missing status, or a claimed coverage the
+code does not back.
+
 ## Matrix (PR tier)
 
 ✓ held on every model it ran on · ✗ violated · R refused by the analysis on
 every model it was given · U never representable · ~ inconclusive (tolerance
 above 10⁻³) · · not applicable. The matrices are regenerated by the PR tests
-and the tests fail when this file is out of date.
+and the tests fail when this file is out of date. A structured known-issue refusal
+is compared by its identity: for 2D plastic collapse, withheld under #758, R means
+every transformed model returned the same refusal (a different refusal or a solved
+image is ✗); no collapse factor is verified.
 
 ### 2D
 
 <!-- BEGIN pr_2d -->
-| Analysis | rotation | mirror | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
-| linear (dense reference) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| constrained | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| certified linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| load combinations | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| staged (loads in two stages) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| Winkler (no foundation) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| contact (no gaps) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| SSI (no soil springs) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| creep & shrinkage (t = t0) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| P-Delta | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| corotational | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| fiber nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| cable solver | · | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | ✓ |
-| certified modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| buckling | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · |
-| time history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
-| spectral | · | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| harmonic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
-| plastic collapse | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · |
-| kinematic check | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| moving loads | · | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · |
-| influence line | · | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · |
+| Analysis | rotation | mirror | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality | planes |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ |
+| linear (WASM typed path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ |
+| linear (load session) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ |
+| linear (dense reference) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| constrained | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| certified linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ |
+| load combinations | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| staged (loads in two stages) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · | · |
+| Winkler (no foundation) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| contact (no gaps) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · | · |
+| SSI (no soil springs) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · | · |
+| creep & shrinkage (t = t0) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · | · |
+| P-Delta | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | ✓ |
+| corotational | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| fiber nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| cable solver | · | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | ✓ | ✓ |
+| certified modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| buckling | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · | ✓ |
+| time history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · | · |
+| spectral | · | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| harmonic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · | · |
+| plastic collapse | R | R | R | R | R | R | · | · | R | · | · | · |
+| kinematic check | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · | · |
+| moving loads | · | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · | · |
+| influence line | · | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · | · |
 <!-- END pr_2d -->
 
 ### 3D
 
 <!-- BEGIN pr_3d -->
-| Analysis | rotation | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
-| linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| constrained | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| certified linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| load combinations | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| staged (loads in two stages) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| Winkler (no foundation) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
-| contact (no gaps) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| SSI (no soil springs) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| creep & shrinkage (t = t0) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
-| P-Delta | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| corotational | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| material nonlinear | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| fiber nonlinear | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| cable solver | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| modal | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | ✓ |
-| certified modal | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| buckling | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · |
-| time history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
-| time history (ground motion) | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| spectral | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| harmonic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
-| plastic collapse | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · |
-| kinematic check | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
-| moving loads | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · |
-| influence line | ✓ | ✓ | ✓ | ✓ | · | · | · | R | · | · |
+| Analysis | rotation | mirror | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · |
+| linear (load session) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
+| linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
+| linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
+| constrained | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
+| certified linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
+| load combinations | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
+| staged (one stage) | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
+| staged (loads in two stages) | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
+| Winkler (no foundation) | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · |
+| contact (no gaps) | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
+| SSI (no soil springs) | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
+| creep & shrinkage (t = t0) | ✓ | · | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ | · |
+| P-Delta | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
+| corotational | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
+| material nonlinear | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
+| fiber nonlinear | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
+| cable solver | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
+| modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ | · | ✓ |
+| certified modal | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
+| buckling | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · |
+| time history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
+| time history (ground motion) | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
+| spectral | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
+| harmonic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | · |
+| plastic collapse | ✓ | · | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | · |
+| kinematic check | ✓ | · | ✓ | ✓ | ✓ | · | · | · | ✓ | · | · |
+| moving loads | ✓ | · | ✓ | ✓ | ✓ | · | · | · | R | · | · |
+| influence line | ✓ | · | ✓ | ✓ | ✓ | · | · | · | R | · | · |
 <!-- END pr_3d -->
 
 ## Violations found and fixed
@@ -237,6 +323,7 @@ Each has a minimal reproduction in `engine/tests/metamorphic/regressions.rs` (or
 | units (via the feature matrix) | The 2D assemblers put an artificial rotational spring (10⁻¹⁰ × the largest, translational, diagonal) on every all-hinged node, including nodes whose rotation a constraint ties to the structure, where it becomes a real spring. | A rigid-link mechanism was held by it; whether the model counted as a mechanism depended on the units. | Constraint-tied rotations get no artificial spring (as in 3D). |
 | full-suite review | An unknown 2D support type ("pin", "roller") restrained nothing. | A misspelt support silently disappeared (three engine tests relied on it). | Unknown types are refused by name. |
 | harness review | `StagedInput3D` had no `leftHand` field; the app sends it and serde dropped it. | Left-handed models staged with right-handed member axes. | Field added and passed to every stage. |
+| symmetry (nightly #1371) | Modal harmonic analysis computed the omitted modes' static correction as the static response minus the kept modes' share, which leaves only round-off when a kept mode is much softer than the rest. | On a C2-symmetric frame the response at 2.3 Hz was 79× the direct solve, and an on-axis displacement zero by symmetry was 7·10⁻³ (SA-2026-043). | The correction is projected onto the omitted modes; every frequency's energy-norm residual is checked and re-solved directly above 10⁻². |
 
 ## Documented exceptions
 

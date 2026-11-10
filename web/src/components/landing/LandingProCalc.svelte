@@ -2,6 +2,7 @@
   import { tPublic as t } from '../../lib/i18n/store.svelte';
   import Eyebrow from './Eyebrow.svelte';
   import Shot from './Shot.svelte';
+  import PublicLink from './PublicLink.svelte';
 
   /**
    * PRO, the half that is free and stays free.
@@ -39,6 +40,8 @@
       </div>
       <figcaption>{t('landing.proCalcShots')}</figcaption>
     </figure>
-
+    <p class="link-row">
+      <PublicLink to="/examples" class="link-arrow">{t('landing.navExamples')}</PublicLink>
+    </p>
   </div>
 </section>

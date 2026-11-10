@@ -308,12 +308,12 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
     let mut ledger = CheckLedger::new();
 
     let tension_ratio =
-        ledger.ratio_if_loaded("Tension D2", n.max(0.0), phi_pn_tension);
+        ledger.ratio_if_loaded("Tension D2", crate::check::positive_part(n), phi_pn_tension);
     if n < 0.0 && member.compression_elements.is_none() {
         ledger.flag("Compression E7: compressionElements not given (Table B4.1a)");
     }
     let compression_ratio =
-        ledger.ratio_if_loaded("Compression E3/E7", (-n).max(0.0), phi_pn_compression);
+        ledger.ratio_if_loaded("Compression E3/E7", crate::check::positive_part(-n), phi_pn_compression);
     let flexure_y_ratio = ledger.ratio_if_loaded("Flexure-Y F2", my, phi_mn_y);
     let flexure_z_ratio = ledger.ratio_if_loaded("Flexure-Z F6", mz, phi_mn_z);
 

@@ -1,3 +1,5 @@
+import { knownIssueRefusal } from './known-issues';
+import { isContainmentRefusal } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
@@ -1072,7 +1074,7 @@ export function validateAndSolve2D(
     return certifiable(finalizeSolve2DResults(results, prep), '2d', () => input2DToWireObject(prep.input));
   } catch (err: any) {
     console.error('Solver error:', err);
-    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
+    return knownIssueRefusal(err) ?? t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -1174,7 +1176,7 @@ export async function validateAndSolve2DAsync(
     return finalResults;
   } catch (err: any) {
     console.error('Solver error:', err);
-    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
+    return knownIssueRefusal(err) ?? t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -1321,6 +1323,7 @@ function solveCombinations2DCore(
 
     return { perCase, perCombo, envelope: mcResult.envelope };
   } catch (err: any) {
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     // Fallback: if multi-case fails (e.g. an unsolvable case), the per-case
     // path reproduces the precise validation/kinematics error message.
     // (The engine throws plain strings, so don't rely on err.message.)
@@ -2289,7 +2292,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     return nonlinear ? finalResults : certifiable(finalResults, '3d', () => input3DToWireObject(input));
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
 }
 
@@ -2331,7 +2334,7 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     return finalResults;
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
 }
 
@@ -2445,6 +2448,7 @@ export function solveCombinations3D(
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     throw err;
   }
 }
@@ -2505,14 +2509,14 @@ function withCaseDisplacements(solved: Bundle3D, model: ModelData, combinations:
     if (typeof r === 'string') return r;
     const pruned = pruneComboBundle3D({ perCase: new Map([[0, r]]), perCombo: new Map(), envelope: undefined as never }, model).perCase.get(0)!;
     const base = perCase.get(c);
-    const sum = base ? combineResults3D([{ caseId: c, factor: 1 }, { caseId: TMP, factor: 1 }], new Map([[c, base], [TMP, pruned]])) : pruned;
+    const sum = base ? combineResults3D([{ caseId: c, factor: 1 }, { caseId: TMP, factor: 1 }], new Map([[c, base], [TMP, pruned]]), model.plates ?? new Map()) : pruned;
     if (sum) perCase.set(c, shells(sum));
   }
   const settled = perCase.has(SETTLEMENT_CASE_ID);
   const withIt = combinations.map((cb) => ({ ...cb, factors: settled ? [...cb.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }] : cb.factors }));
   const perCombo = new Map<number, AnalysisResults3D>();
   for (const cb of withIt) {
-    const r = combineResults3D(cb.factors, perCase);
+    const r = combineResults3D(cb.factors, perCase, model.plates ?? new Map());
     if (r) perCombo.set(cb.id, shells(r));
   }
   const envelope = computeEnvelope3D([...perCombo.values()]);
@@ -2625,9 +2629,8 @@ function solveCombinations3DCore(
       if (again) mcResult.envelope = again;
     }
 
-    // Shell stress enrichment. The WASM combine drops plate/quad stresses, but
-    // they are linear in displacement → recombine per-combo + envelope from the
-    // per-case results (which DO carry them). No solver change.
+    // Shell stresses by the shell combination kernel, the same as every other path, and the
+    // envelope's, which the engine's envelope leaves out.
     const t1 = performance.now();
     if (hasShells) {
       enrichComboShellStresses(perCase, perCombo, mcResult.envelope?.maxAbsResults3D, combinations, model.plates ?? new Map());
@@ -2638,6 +2641,7 @@ function solveCombinations3DCore(
 
     return pruneComboBundle3D({ perCase, perCombo, envelope: mcResult.envelope }, model);
   } catch (err: any) {
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     // Fallback: if multi-case fails, try the old per-case approach
     console.warn('Multi-case 3D failed, falling back to per-case solve:', err.message);
     return solveCombinations3DFallback(model, loadCases, combinations, includeSelfWeight, leftHand);
@@ -2679,7 +2683,7 @@ function solveCombinations3DFallback(
 
   const perCombo = new Map<number, AnalysisResults3D>();
   for (const combo of combinations) {
-    const combined = combineResults3D(combo.factors, perCase);
+    const combined = combineResults3D(combo.factors, perCase, model.plates ?? new Map());
     if (combined) {
       if (hasShells) postProcessShellStresses(combined, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       perCombo.set(combo.id, combined);
@@ -2760,7 +2764,7 @@ function solveCombinations3DNonlinear(
         continue;
       }
       const factors = settled ? [...combo.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }] : combo.factors;
-      const summed = combineResults3D(factors, perCase);
+      const summed = combineResults3D(factors, perCase, model.plates ?? new Map());
       if (!summed) continue;
       if (hasShells) postProcessShellStresses(summed, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
       perCombo.set(combo.id, { ...summed, nonlinear: superposedReport(model, factors, perCase, summed) });
@@ -2771,7 +2775,7 @@ function solveCombinations3DNonlinear(
     if (hasShells && method === 'superpose') enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations as never, model.plates ?? new Map());
     return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
   } catch (err: any) {
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
 }
 
@@ -2838,7 +2842,7 @@ function solveCombinations3DPDelta(
       perCombo.set(combo.id, results);
     }
   } catch (err: any) {
-    return t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
   }
   if (perCombo.size === 0) return unstable.length > 0 ? t('svc.pdeltaNoneStable') : t('svc.noLoadsApplied');
   const envelope = computeEnvelope3D([...perCombo.values()]);
@@ -2949,6 +2953,7 @@ export async function solveCombinations3DParallel(
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     throw err;
   }
 }
@@ -3034,7 +3039,7 @@ async function solveCombinations3DParallelCore(
         caseId: f.caseId,
         factor: f.factor,
       }));
-      const combined = combineResults3D(factors, perCase);
+      const combined = combineResults3D(factors, perCase, model.plates ?? new Map());
       if (combined) {
         if (hasShells) {
           postProcessShellStresses(combined, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);

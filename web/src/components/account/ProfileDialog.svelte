@@ -3,6 +3,7 @@
   import { authStore } from '../../lib/store/auth.svelte';
   import { errorText, fieldErrors } from '../../lib/api/error-text';
   import { t, tp, i18n, OFFERED_LOCALES, isOfferedLocale } from '../../lib/i18n';
+  import { LOCALE_NAMES } from '../../lib/i18n/offered';
   import LocaleSelect from '../LocaleSelect.svelte';
   import CloudProjectsDialog from './CloudProjectsDialog.svelte';
   import { usageConsent } from '../../lib/telemetry/consent.svelte';
@@ -174,7 +175,7 @@
             <LocaleSelect
               value={locale}
               options={OFFERED_LOCALES}
-              label={(c) => t(`lang.${c}`)}
+              label={(c) => LOCALE_NAMES[c as keyof typeof LOCALE_NAMES]}
               onChange={(c) => (locale = c)}
               ariaLabel={t('account.locale')}
               testid="profile-locale"

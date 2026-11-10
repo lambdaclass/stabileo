@@ -11,6 +11,10 @@ run-name: ${{ inputs.force_failure && '[forced failure] Nightly verification' ||
 # `ci-failure` issue for this workflow (verification-alert.yml).
 #
 # Runner routing, capacity budgets and staged rollout: docs/verification/NIGHTLY.md.
+# A heavy rerun on stabileo-ci-1 between 07:00 and 24:00 UTC, outside the nightly window:
+#   gh workflow run nightly.yml --ref main -f only=opensees-diff -f pool=stabileo-heavy
+# pool picks where opensees-diff runs (.github/scripts/heavy-pool.py); inside the window it takes the
+# nightly pool, and pool=nightly keeps the scheduled routing.
 #
 # The proofs (Lean, Kani, symbolic) run in verify.yml, the other differential
 # programs (Frame3DD, PyNite, Mystran, Kratos, CalculiX) in differential.yml,
@@ -22,7 +26,11 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: "Jobs to run, space separated (default all): certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench"
+        description: "Jobs to run, space separated (default all): certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench cadence triage flaky-report deps-audit mutants-safety mutants-monthly"
+        required: false
+        default: ""
+      tiers:
+        description: "Cadence tiers to run besides daily, e.g. weekly or 'weekly monthly' (blank: by the date on a scheduled run, none on a dispatch)"
         required: false
         default: ""
       random_count:
@@ -45,6 +53,11 @@ on:
         description: "Mutants: total number of shards (default 512)"
         required: false
         default: ""
+      pool:
+        description: "Where opensees-diff runs: stabileo-heavy (stabileo-ci-1 sgha7-8, from 07:00 to 24:00 UTC; the nightly pool inside the nightly window), nightly (the nightly pool from 00:00 to 07:00 UTC, GitHub otherwise) or ubuntu-24.04"
+        type: choice
+        options: [stabileo-heavy, nightly, ubuntu-24.04]
+        default: stabileo-heavy
       force_failure:
         description: "Fail at once without running anything: tests that a failure opens a ci-failure issue (verification-alert.yml)"
         type: boolean
@@ -66,58 +79,114 @@ jobs:
   # Which jobs run, and which mutants shards tonight. The mutants scope
   # (scripts/mutants.sh: certificate code, linear solver core, element
   # kernels) has ~23,000 mutants at 20 s to 2 min each: one pass is far more than a
-  # night of runners, so it is split into MUTANTS_TOTAL shards and
-  # MUTANTS_SLOTS of them run each night, rotating with the day number. Every
-  # mutant is tested once every MUTANTS_TOTAL / MUTANTS_SLOTS nights.
+  # night of runners, so it is split into MUTANTS_TOTAL shards and the
+  # MUTANTS_SLOTS shards that went longest without finishing run each night
+  # (.github/scripts/mutants-plan.py), so a shard lost to a runner does not wait a full pass.
   plan:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    env:
+      NIGHT_END_HOUR: 7
+    permissions:
+      contents: read
+      actions: read
     outputs:
       jobs: ${{ steps.plan.outputs.jobs }}
       mutants_shards: ${{ steps.plan.outputs.mutants_shards }}
       mutants_total: ${{ steps.plan.outputs.mutants_total }}
+      safety_shards: ${{ steps.plan.outputs.safety_shards }}
+      safety_total: ${{ steps.plan.outputs.safety_total }}
       night: ${{ steps.plan.outputs.night }}
+      weekly: ${{ steps.plan.outputs.weekly }}
+      monthly: ${{ steps.plan.outputs.monthly }}
+      scale: ${{ steps.plan.outputs.scale }}
+      cadence: ${{ steps.plan.outputs.cadence }}
+      heavy_runs_on: ${{ steps.heavy.outputs.runs_on }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            Makefile
+            .github/test-cadence.json
+            .github/scripts/
+            scripts/cadence.py
+            scripts/check-containment.py
+          sparse-checkout-cone-mode: false
       - id: plan
         name: Plan
         env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           ONLY: ${{ inputs.only }}
+          TIERS: ${{ inputs.tiers }}
           SHARDS: ${{ inputs.mutants_shards }}
           TOTAL: ${{ inputs.mutants_total }}
           MUTANTS_TOTAL: 512
           MUTANTS_SLOTS: 32
+          SAFETY_TOTAL: 24
           FORCE_FAILURE: ${{ inputs.force_failure }}
           EVENT: ${{ github.event_name }}
-          NIGHT_END_HOUR: 7
         run: |
           if [ "$FORCE_FAILURE" = true ]; then
             echo "::error::forced failure (dispatch input force_failure): verification-alert.yml must open 'CI failure: Nightly verification [forced failure]'"
             exit 1
           fi
-          all="certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench"
+          all="certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench cadence triage flaky-report deps-audit mutants-safety mutants-monthly"
           only="${ONLY:-$all}"
           for j in $only; do
             case " $all " in *" $j "*) ;; *) echo "::error::unknown job '$j' (known: $all)"; exit 1 ;; esac
           done
+          weekly=false; monthly=false
+          if [ -n "$TIERS" ]; then
+            for t in $TIERS; do
+              case "$t" in weekly) weekly=true ;; monthly) monthly=true ;; *) echo "::error::unknown tier '$t' (known: weekly monthly)"; exit 1 ;; esac
+            done
+          elif [ "$EVENT" = schedule ]; then
+            [ "$(date -u +%u)" = 7 ] && weekly=true
+            [ "$(date -u +%d)" = 01 ] && monthly=true
+          fi
+          [ -n "$ONLY" ] || { [ "$weekly" = true ] || only="${only/ flaky-report/}"; [ "$monthly" = true ] || only="${only/ deps-audit/}"; [ "$weekly" = true ] || only="${only/ mutants-safety/}"; [ "$monthly" = true ] || only="${only/ mutants-monthly/}"; }
+          tiers="daily"
+          [ "$weekly" = true ] && tiers="$tiers weekly"
+          [ "$monthly" = true ] && tiers="$tiers monthly"
+          cadence='[]'
+          read -ra tier_list <<< "$tiers"
+          case " $only " in *" cadence "*) cadence=$(python3 -I scripts/cadence.py list "${tier_list[@]}" --runner nightly) ;; esac
+          echo "tiers: $tiers"
+          echo "cadence checks: $cadence"
           total="${TOTAL:-$MUTANTS_TOTAL}"
           if [ -n "$SHARDS" ]; then
             shards="$SHARDS"
           else
             day=$(( $(date -u +%s) / 86400 ))
-            shards=$(python3 -c "import json,sys; t,s,d=map(int,sys.argv[1:]); print(json.dumps([(d*s+i)%t for i in range(s)]))" \
-              "$total" "$MUTANTS_SLOTS" "$day")
+            shards=$(python3 -I .github/scripts/mutants-plan.py "$total" "$MUTANTS_SLOTS" "$day")
           fi
           night=false
           if [ "$EVENT" = schedule ] || [ "$((10#$(date -u +%H)))" -lt "$NIGHT_END_HOUR" ]; then night=true; fi
-          [ "$night" = true ] || echo "::notice title=Daytime dispatch::runs on GitHub-hosted runners; the nightly pool takes dispatches between 00:00 and 0$NIGHT_END_HOUR:00 UTC, when pull requests and the merge queue are quiet"
+          [ "$night" = true ] || echo "::notice title=Daytime dispatch::the nightly-pool jobs run on GitHub-hosted runners; the nightly pool takes dispatches between 00:00 and 0$NIGHT_END_HOUR:00 UTC, when pull requests and the merge queue are quiet"
           echo "jobs: $only"
           echo "mutants shards (of $total): $shards"
           {
             echo "jobs= $only "
             echo "mutants_shards=$shards"
             echo "mutants_total=$total"
+            echo "safety_total=$SAFETY_TOTAL"
+            echo "safety_shards=$(python3 -c "import json,sys; print(json.dumps(list(range(int(sys.argv[1])))))" "$SAFETY_TOTAL")"
             echo "night=$night"
+            echo "weekly=$weekly"
+            echo "monthly=$monthly"
+            echo "scale=$([ "$monthly" = true ] && echo 3 || echo 1)"
+            echo "cadence=$cadence"
           } >> "$GITHUB_OUTPUT"
+      - id: heavy
+        name: Pool for the heavy dispatched jobs
+        env:
+          EVENT: ${{ github.event_name }}
+          POOL: ${{ inputs.pool }}
+          REF: ${{ github.ref }}
+          SELF_HOSTED: ${{ vars.STABILEO_SELF_HOSTED }}
+        run: python3 -B -I .github/scripts/heavy-pool.py
 
   # Large-model certificate runs (release, #[ignore]d in the normal suite):
   # certifies the 3D fixtures above 400 DOFs and grid frames up to 15k DOFs,
@@ -246,8 +315,12 @@ jobs:
   opensees-diff:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' opensees-diff ')
-    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
-    timeout-minutes: 45
+    runs-on: ${{ fromJSON(needs.plan.outputs.heavy_runs_on) }}
+    timeout-minutes: ${{ needs.plan.outputs.monthly == 'true' && 150 || 45 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [frames, buckling, pdelta, dynamics, shells]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -270,18 +343,25 @@ jobs:
           echo "$RUNNER_TEMP/nightly-opensees/bin" >> "$GITHUB_PATH"
       - name: Build solver CLI
         run: cargo build --release --example solve_json
-      - name: Compare with OpenSees
+      - name: Compare with OpenSees (three times the counts on the monthly night)
+        env:
+          S: ${{ needs.plan.outputs.scale }}
+          PART: ${{ matrix.part }}
         run: |
           seed=$(( $(date -u +%s) / 86400 % 1000 * 1000 ))
           echo "seed-start $seed"
           echo "DIFF_SEED=$seed" >> "$GITHUB_ENV"
-          python tools/opensees/compare.py --fixtures \
-            --random2d 300 --random3d 300 --rich2d 500 --rich3d 500 \
-            --buckling2d 300 --buckling3d 300 --modal2d 300 --modal3d 300 \
-            --pdelta2d 300 --pdelta3d 300 --th2d 200 --th3d 200 \
-            --plates 300 --shells 60 \
+          case "$PART" in
+            frames) cases=(--fixtures --random2d $((300 * S)) --random3d $((300 * S)) --rich2d $((500 * S)) --rich3d $((500 * S))) ;;
+            buckling) cases=(--buckling2d $((300 * S)) --buckling3d $((300 * S))) ;;
+            pdelta) cases=(--pdelta2d $((300 * S)) --pdelta3d $((300 * S))) ;;
+            dynamics) cases=(--modal2d $((300 * S)) --modal3d $((300 * S)) --th2d $((200 * S)) --th3d $((200 * S)) --plates $((300 * S))) ;;
+            shells) cases=(--shells $((60 * S))) ;;
+            *) echo "unknown part $PART"; exit 2 ;;
+          esac
+          python tools/opensees/compare.py "${cases[@]}" \
             --bin "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}/release/examples/solve_json" \
-            --seed-start "$seed" -j 2 --report opensees-report.json \
+            --seed-start "$seed" -j "$([ "$PART" = buckling ] && echo 4 || echo 2)" --report opensees-report.json \
             --dump-dir opensees-mismatches
       - name: Reduce and package opensees findings
         if: failure()
@@ -290,16 +370,17 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: nightly-findings-opensees
+          name: nightly-findings-opensees-${{ matrix.part }}
           path: nightly-findings/
           retention-days: 90
           if-no-files-found: ignore
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: opensees-report
+          name: opensees-report-${{ matrix.part }}
           path: |
             opensees-report.json
+            opensees-report.json.progress.jsonl
             opensees-mismatches/
           if-no-files-found: ignore
 
@@ -312,7 +393,7 @@ jobs:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' codeaster-diff ')
     runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
-    timeout-minutes: 60
+    timeout-minutes: ${{ needs.plan.outputs.monthly == 'true' && 180 || 60 }}
     defaults:
       run:
         shell: bash -el {0}
@@ -340,14 +421,16 @@ jobs:
         run: cargo build --release --example solve_json
       - name: Translator unit tests
         run: python tools/differential/codeaster/test_to_aster.py
-      - name: Compare with Code_Aster
+      - name: Compare with Code_Aster (three times the counts on the monthly night)
         working-directory: tools/differential/codeaster
+        env:
+          S: ${{ needs.plan.outputs.scale }}
         run: |
           seed=$(( $(date -u +%s) / 86400 % 1000 * 1000 ))
           echo "seed-start $seed"
           echo "DIFF_SEED=$seed" >> "$GITHUB_ENV"
-          ASTER_PYTHON="$(which python)" python run.py --fixtures \
-            --random3d 100 --rich3d 400 --aster3d 400 \
+          ASTER_PYTHON="$(which python)" python run.py regressions/*.json --fixtures \
+            --random3d $((100 * S)) --rich3d $((400 * S)) --aster3d $((400 * S)) \
             --bin "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}/release/examples/solve_json" \
             --seed-start "$seed" -j 2 --report codeaster-report.json \
             --dump-dir codeaster-mismatches
@@ -379,7 +462,7 @@ jobs:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' fuzz ')
     runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_NIGHTLY_POOL == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
-    timeout-minutes: 180
+    timeout-minutes: ${{ needs.plan.outputs.weekly == 'true' && 345 || 180 }}
     strategy:
       fail-fast: false
       matrix:
@@ -426,13 +509,20 @@ jobs:
       - name: Seed corpus
         working-directory: engine
         run: cargo run --release --example fuzz_seeds
+      - name: Plastic LP budgets and seeded resource watchdog
+        if: matrix.target == 'json_plastic'
+        run: |
+          RUSTUP_TOOLCHAIN=nightly-2026-10-15 make test.engine.plastic-budget test.engine.plastic-budget-watchdog test.engine.plastic-replay test.engine.plastic-resource test.engine.plastic-budget-corpus NIX_RUN=
+          mkdir -p engine/fuzz/corpus/json_plastic
+          rm -f engine/fuzz/corpus/json_plastic/engine-grid-slab.bin engine/fuzz/corpus/json_plastic/ex-3d-grid-slab-1 engine/fuzz/corpus/json_plastic/ex-3d-grid-slab-3
+          find engine/fuzz/corpus-regressions/plastic-lp-budget -maxdepth 1 -name '*.bin' ! -name engine-grid-slab.bin -exec cp {} engine/fuzz/corpus/json_plastic/ \;
       - name: Build target
         working-directory: engine
         run: cargo +nightly-2026-10-15 fuzz build --target "$FUZZ_TARGET_TRIPLE" ${{ matrix.target }}
-      - name: Fuzz (2 hours on own runners, 30 minutes on fallback)
+      - name: Fuzz (2 hours on own runners, 30 minutes on fallback, 5 hours on the weekly night)
         id: fuzz
         env:
-          FUZZ_SECONDS: ${{ runner.environment == 'self-hosted' && '7200' || '1800' }}
+          FUZZ_SECONDS: ${{ needs.plan.outputs.weekly == 'true' && '18000' || (runner.environment == 'self-hosted' && '7200' || '1800') }}
         working-directory: engine
         run: |
           mkdir -p fuzz/corpus/${{ matrix.target }}
@@ -467,6 +557,7 @@ jobs:
   # shard fails on a missed mutant, and fails loudly (with how far it got) if
   # it does not finish within its time budget; the report is uploaded either way.
   mutants:
+    name: mutants (${{ matrix.shard }} of ${{ needs.plan.outputs.mutants_total }})
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' mutants ')
     runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
@@ -545,6 +636,163 @@ jobs:
           name: mutants-done-${{ matrix.shard }}-of-${{ needs.plan.outputs.mutants_total }}
           path: ${{ runner.temp }}/mutants-done/
           retention-days: 45
+
+  mutants-safety:
+    needs: plan
+    if: contains(needs.plan.outputs.jobs, ' mutants-safety ')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.safety_shards) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: 1.99.1
+      - name: Install mold linker
+        uses: rui314/setup-mold@da13e0b42e392e3a45d1215033a2270b849d7d36 # main, 2026-10-08
+        with:
+          mold-version: 2.40.4
+          make-default: false
+        timeout-minutes: 5
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-mutants,nextest
+      - name: Mutants, safety scope (shard ${{ matrix.shard }}/${{ needs.plan.outputs.safety_total }})
+        id: mutants
+        env:
+          SHARD: ${{ matrix.shard }}/${{ needs.plan.outputs.safety_total }}
+          MUTANTS_SCOPE: safety
+          BUDGET_MIN: 300
+        run: |
+          export CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+          export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=clang
+          export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-arg=-fuse-ld=mold"
+          status=0
+          timeout --signal=INT --kill-after=5m "${BUDGET_MIN}m" \
+            ./scripts/mutants.sh --shard "$SHARD" --jobs 2 --test-tool nextest || status=$?
+          python3 scripts/mutants-summary.py mutants.out "$SHARD" | tee -a "$GITHUB_STEP_SUMMARY" || true
+          if [ -s mutants.out/missed.txt ]; then
+            { echo '### Missed mutants'; echo '```'; head -c 60000 mutants.out/missed.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          case "$status" in 0|2) echo "finished=true" >> "$GITHUB_OUTPUT" ;; esac
+          [ "$status" -eq 2 ] && status=0
+          if [ "$status" -eq 124 ]; then
+            echo "::error::mutants shard $SHARD did not finish within ${BUDGET_MIN} min (see the summary above for how far it got); raise SAFETY_TOTAL in nightly.yml"
+            exit 1
+          fi
+          exit "$status"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mutants-safety-report-${{ matrix.shard }}
+          path: mutants.out/
+          if-no-files-found: ignore
+
+  mutants-ratchet:
+    needs: [plan, mutants-safety]
+    if: always() && contains(needs.plan.outputs.jobs, ' mutants-safety ')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts/mutants-safety.py
+            scripts/mutants-safety.json
+            docs/verification/mutants-baseline.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: mutants-safety-report-*
+          path: mutants-reports
+      - name: Kill rate per module against the baseline
+        id: ratchet
+        env:
+          SAFETY_TOTAL: ${{ needs.plan.outputs.safety_total }}
+        run: |
+          shopt -s nullglob
+          reports=(mutants-reports/*)
+          if [ ${#reports[@]} -eq 0 ]; then
+            printf '{"modules": {}, "coverage": {"shards": 0, "complete": 0}}\n' > mutants-safety-report.json
+          else
+            python3 -I scripts/mutants-safety.py report "${reports[@]}" --json mutants-safety-report.json
+          fi
+          status=0
+          python3 -I scripts/mutants-safety.py ratchet mutants-safety-report.json --expect-shards "$SAFETY_TOTAL" --markdown "$RUNNER_TEMP/ratchet.md" || status=$?
+          cat "$RUNNER_TEMP/ratchet.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "below=$([ "$status" -eq 1 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          [ "$status" -le 1 ]
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mutants-safety-killrate
+          path: mutants-safety-report.json
+          retention-days: 400
+          if-no-files-found: ignore
+      - if: steps.ratchet.outputs.below == 'true'
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          REPORT: ${{ runner.temp }}/ratchet.md
+          DRY: ${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.findings_dry_run) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `The weekly mutation run of the safety-critical modules (${run}) killed fewer mutants than the baseline in \`docs/verification/mutants-baseline.json\`:\n\n${fs.readFileSync(process.env.REPORT, 'utf8')}\nAdd tests that kill the new survivors (the run's \`mutants-safety-killrate\` artifact lists them), or exclude an equivalent mutant in \`.cargo/mutants.toml\` with its justification. When the rate goes up, raise the baseline with \`make mutants.safety.record\`.`;
+            await require('./.github/scripts/cadence-reports.cjs').upsertIssue({ github, context, core, title: 'Mutation kill rate below baseline', label: 'mutants-ratchet', body, dry: process.env.DRY === 'true' });
+
+  mutants-monthly:
+    needs: plan
+    if: contains(needs.plan.outputs.jobs, ' mutants-monthly ')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts/mutants-safety.py
+            scripts/mutants-safety.json
+          sparse-checkout-cone-mode: false
+      - name: The shard reports of the last full rotation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p rotation
+          for id in $(gh run list --workflow nightly.yml --event schedule --branch main --limit 17 --json databaseId --jq '.[].databaseId'); do
+            gh run download "$id" -p 'mutants-report-*' -D "rotation/$id" || true
+          done
+      - name: Kill rate per area
+        env:
+          MUTANTS_TOTAL: ${{ needs.plan.outputs.mutants_total }}
+        run: python3 -I scripts/mutants-safety.py areas rotation --expect-shards "$MUTANTS_TOTAL" --markdown "$RUNNER_TEMP/monthly.md" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          REPORT: ${{ runner.temp }}/monthly.md
+          DRY: ${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.findings_dry_run) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = `Full-engine mutation pass: the shard reports of the daily rotation over the last 16 nights (certificates, solver core, element kernels). The first line says how many of the shards reported every mutant they hold.\n\n${fs.readFileSync(process.env.REPORT, 'utf8')}`;
+            await require('./.github/scripts/cadence-reports.cjs').upsertIssue({ github, context, core, title: 'Monthly mutation report', label: 'mutants-report', body, mode: 'replace', dry: process.env.DRY === 'true' });
 
   # Criterion reports, informational: benchmark wall time on shared runners is
   # too noisy to gate on (the perf regression gates in ci.yml run
@@ -672,6 +920,125 @@ jobs:
           path: nightly-findings/
           retention-days: 90
           if-no-files-found: ignore
+
+  cadence:
+    needs: plan
+    if: needs.plan.outputs.cadence != '[]' && needs.plan.outputs.cadence != ''
+    runs-on: ${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
+    timeout-minutes: ${{ matrix.check.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        check: ${{ fromJSON(needs.plan.outputs.cadence) }}
+    name: cadence (${{ matrix.check.tier }} ${{ matrix.check.id }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - if: runner.environment == 'github-hosted'
+        uses: ./.github/actions/free-disk
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: .github/scripts/retry-infra.sh nix develop --command true
+      - if: runner.environment == 'github-hosted'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        continue-on-error: true
+        with:
+          shared-key: nightly-cadence-${{ matrix.check.id }}
+      - name: ${{ matrix.check.id }}
+        env:
+          TIER: ${{ matrix.check.tier }}
+          ID: ${{ matrix.check.id }}
+        run: make test.cadence TIER="$TIER" RUNNER=nightly ID="$ID"
+
+  triage:
+    needs: [plan, findings]
+    if: always() && contains(needs.plan.outputs.jobs, ' triage ') && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          DRY: ${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.findings_dry_run) }}
+        with:
+          script: |
+            const r = await require('./.github/scripts/cadence-reports.cjs').triage({ github, context, core, dry: process.env.DRY === 'true' });
+            core.info(JSON.stringify(r));
+
+  flaky-report:
+    needs: plan
+    if: contains(needs.plan.outputs.jobs, ' flaky-report ')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          DRY: ${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.findings_dry_run) }}
+        with:
+          script: |
+            const r = await require('./.github/scripts/cadence-reports.cjs').flakyReport({ github, context, core, dry: process.env.DRY === 'true' });
+            core.info(JSON.stringify(r.flaky));
+
+  deps-audit:
+    needs: plan
+    if: contains(needs.plan.outputs.jobs, ' deps-audit ')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: .github/scripts/retry-infra.sh nix develop --command true
+      - run: .github/scripts/retry-infra.sh make web.deps
+      - run: make deps.audit OUT="$RUNNER_TEMP/deps-audit.md"
+      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          REPORT: ${{ runner.temp }}/deps-audit.md
+          DRY: ${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.findings_dry_run) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const month = 30 * 864e5;
+            const prs = await github.paginate(github.rest.pulls.list, { ...context.repo, state: 'open', per_page: 100 });
+            const held = prs.filter((p) => p.user?.login === 'dependabot[bot]' && Date.now() - Date.parse(p.created_at) > month);
+            const body = `${fs.readFileSync(process.env.REPORT, 'utf8')}\n## Dependency pull requests open for more than 30 days\n\n` +
+              (held.length ? held.map((p) => `- #${p.number} ${p.title}`).join('\n') : 'None.') +
+              '\n\nDecide each: merge, close with the reason, or record it in #457 (major upgrades held back).';
+            await require('./.github/scripts/cadence-reports.cjs').upsertIssue({ github, context, core, title: 'Monthly dependency audit', label: 'deps-audit', body, mode: 'replace', dry: process.env.DRY === 'true' });
 
   findings:
     needs: [fuzz, random-models, properties, metamorphic-nightly, opensees-diff, codeaster-diff]

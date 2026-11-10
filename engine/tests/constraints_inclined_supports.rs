@@ -1183,6 +1183,96 @@ fn ssi_constraints_on_inclined_supports_match_rotated_model() {
     }
 }
 
+fn assert_same_reactions<const N: usize>(what: &str, a: Vec<(usize, [f64; N])>, b: Vec<(usize, [f64; N])>) {
+    assert!(!b.is_empty(), "{what}: the reference reports no reactions");
+    assert_eq!(a.iter().map(|r| r.0).collect::<Vec<_>>(), b.iter().map(|r| r.0).collect::<Vec<_>>(), "{what}: reaction nodes");
+    let scale = b.iter().flat_map(|r| r.1).fold(0.0f64, |m, v| m.max(v.abs()));
+    assert!(scale > 1e-6, "{what}: no reaction");
+    for ((node, x), (_, y)) in a.iter().zip(&b) {
+        for i in 0..N {
+            assert_close(&format!("{what} node {node} component {i}"), x[i], y[i], scale, 1e-9);
+        }
+    }
+}
+
+#[test]
+fn ssi_without_soil_springs_reports_the_linear_reactions_with_constraints() {
+    use dedaliano_engine::solver::ssi::{solve_ssi_2d, solve_ssi_3d, SSIInput, SSIInput3D};
+    for sub in [1, 12] {
+        for (name, c, _) in cases_2d() {
+            for sup in [Sup::Inclined, Sup::Rotated] {
+                let what = format!("2D sub {sub}, {name}, {sup:?}");
+                let input = model_2d(sup, sub, &c);
+                let linear = solve_2d(&input).unwrap_or_else(|e| panic!("{what}: {e}"));
+                let ssi = solve_ssi_2d(&json_input::<SSIInput, _>(input, extra(SSI))).unwrap_or_else(|e| panic!("{what}: {e}"));
+                let rows = |r: &[Reaction]| r.iter().map(|x| (x.node_id, [x.rx, x.rz, x.my])).collect::<Vec<_>>();
+                assert_same_reactions(&what, rows(&ssi.results.reactions), rows(&linear.reactions));
+            }
+        }
+    }
+    for sub in [1, 6] {
+        for (name, c, _) in cases_3d() {
+            for sup in [Sup::Inclined, Sup::Rotated] {
+                let what = format!("3D sub {sub}, {name}, {sup:?}");
+                let input = model_3d(sup, sub, &c);
+                let linear = solve_3d(&input).unwrap_or_else(|e| panic!("{what}: {e}"));
+                let ssi = solve_ssi_3d(&json_input::<SSIInput3D, _>(input, extra(SSI))).unwrap_or_else(|e| panic!("{what}: {e}"));
+                let rows = |r: &[Reaction3D]| r.iter().map(|x| (x.node_id, [x.fx, x.fy, x.fz, x.mx, x.my, x.mz])).collect::<Vec<_>>();
+                assert_same_reactions(&what, rows(&ssi.results.reactions), rows(&linear.reactions));
+            }
+        }
+    }
+}
+
+fn soil_springs(at: &[(usize, usize)]) -> Value {
+    json!(at.iter().map(|&(node, direction)| json!({"nodeId": node, "direction": direction, "tributaryLength": 1.0,
+        "curve": {"type": "custom", "points": [[0.0, 0.0], [1e-5, 100.0], [1e-4, 500.0], [1e-3, 1200.0], [1.0, 1500.0]]}})).collect::<Vec<_>>())
+}
+
+fn assert_balanced(what: &str, reactions: &[f64], loads: &[f64], springs: &[f64]) {
+    let scale = loads.iter().chain(springs).fold(0.0f64, |m, v| m.max(v.abs()));
+    assert!(springs.iter().any(|s| s.abs() > 1e-3 * scale), "{what}: the soil springs carry nothing");
+    for i in 0..loads.len() {
+        let residual = reactions[i] + loads[i] - springs[i];
+        assert!(residual.abs() <= 1e-8 * scale, "{what} axis {i}: reactions {} + loads {} − soil springs {} = {residual} (scale {scale})", reactions[i], loads[i], springs[i]);
+    }
+}
+
+fn transfers_no_external_force(case: &str) -> bool {
+    !case.starts_with("linear MPC")
+}
+
+#[test]
+fn ssi_reactions_soil_springs_and_loads_balance_with_constraints() {
+    use dedaliano_engine::solver::ssi::{solve_ssi_2d, solve_ssi_3d, SSIInput, SSIInput3D};
+    for sub in [1, 12] {
+        for (name, c, _) in cases_2d().into_iter().filter(|(name, _, _)| transfers_no_external_force(name)) {
+            let what = format!("2D sub {sub}, {name}");
+            let input = model_2d(Sup::Inclined, sub, &c);
+            let loads = input.loads.iter().fold([0.0; 2], |s, l| match l { SolverLoad::Nodal(n) => [s[0] + n.fx, s[1] + n.fz], _ => panic!("{what}: nodal loads only") });
+            let extra = json!({"soilSprings": soil_springs(&[(7, 0), (7, 1), (4, 0), (4, 1), (3, 1)]), "maxIter": 300, "tolerance": 1e-12});
+            let r = solve_ssi_2d(&json_input::<SSIInput, _>(input, extra)).unwrap_or_else(|e| panic!("{what}: {e}"));
+            assert!(r.converged, "{what}");
+            let reactions = r.results.reactions.iter().fold([0.0; 2], |s, x| [s[0] + x.rx, s[1] + x.rz]);
+            let springs = r.spring_results.iter().fold([0.0; 2], |mut s, x| { s[x.direction] += x.reaction; s });
+            assert_balanced(&what, &reactions, &loads, &springs);
+        }
+    }
+    for sub in [1, 6] {
+        for (name, c, _) in cases_3d().into_iter().filter(|(name, _, _)| transfers_no_external_force(name)) {
+            let what = format!("3D sub {sub}, {name}");
+            let input = model_3d(Sup::Inclined, sub, &c);
+            let loads = input.loads.iter().fold([0.0; 3], |s, l| match l { SolverLoad3D::Nodal(n) => [s[0] + n.fx, s[1] + n.fy, s[2] + n.fz], _ => panic!("{what}: nodal loads only") });
+            let extra = json!({"soilSprings": soil_springs(&[(7, 0), (7, 1), (7, 2), (4, 0), (4, 2), (3, 1)]), "maxIter": 300, "tolerance": 1e-12});
+            let r = solve_ssi_3d(&json_input::<SSIInput3D, _>(input, extra)).unwrap_or_else(|e| panic!("{what}: {e}"));
+            assert!(r.converged, "{what}");
+            let reactions = r.results.reactions.iter().fold([0.0; 3], |s, x| [s[0] + x.fx, s[1] + x.fy, s[2] + x.fz]);
+            let springs = r.spring_results.iter().fold([0.0; 3], |mut s, x| { s[x.direction] += x.reaction; s });
+            assert_balanced(&what, &reactions, &loads, &springs);
+        }
+    }
+}
+
 #[test]
 fn arc_length_2d_constraints_on_inclined_roller_match_rotated_model() {
     use dedaliano_engine::solver::arc_length::{solve_arc_length, ArcLengthInput};
@@ -1252,4 +1342,3 @@ fn staged_refuses_inclined_supports_with_constraints() {
     let err = solve_staged_3d(&staged).expect_err(name);
     assert!(err.contains("nclined"), "{err}");
 }
-

@@ -82,9 +82,17 @@ export async function solveNow(): Promise<SolveOutcome> {
   if (!uiStore.is3DWorkspace) {
     const startedAt = performance.now();
     reportModelDiagnostics();
-    const outcome = runSolve2D();
-    noteSolve(outcome.ok, startedAt);
-    return outcome;
+    try {
+      const outcome = runSolve2D();
+      noteSolve(outcome.ok, startedAt);
+      return outcome;
+    } catch (e) {
+      noteSolve(false, startedAt);
+      resultsStore.clear();
+      const error = errorText(e, t('error.unknown'));
+      uiStore.toast(error, 'error');
+      return { ok: false, error };
+    }
   }
   try {
     return await runGlobalSolve({ directBase: true });
@@ -120,6 +128,11 @@ function runSolve2D(): SolveOutcome {
     // Basic with load cases off shows no combinations: none are solved.
     if (modelStore.model.combinations.length > 0 && uiStore.showLoadCasePicker) {
       const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
+      if (typeof comboResult === 'string' || !comboResult) {
+        const error = errorText(comboResult, t('results.emptyModelError'));
+        uiStore.toast(error, 'error');
+        return { ok: false, error };
+      }
       if (comboResult && typeof comboResult !== 'string') {
         resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
         comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { citation } from './catalogue';
-  import { articleStrings as shellStrings } from './shell1985/article';
+  import { shellCardTitle } from './shell1985/card';
   import { archStrings } from './biggins2026/strings';
   /**
    * /research: the experiments that run here first, then what is being built, then the
@@ -21,15 +21,16 @@
   import ResearchLink from './ResearchLink.svelte';
   import { isHttpUrl } from './urls';
   import { cardTitle } from './card-title';
+  import { shapeCard } from './feher2026/card';
   import { englishOnlyCard } from './english-only-cards';
   import { articleStrings as riksStrings } from './riksCrisfield/article';
-  import { summaryIn } from './summaries';
+  import { summaryIn } from './catalogue-summaries';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
   import { rs, fieldName, statusName } from './i18n';
   import { strings as mattiassonStrings } from './mattiasson1981/i18n';
-  import { strings as macnealStrings } from './macneal1985/i18n';
-  import { publicI18n } from '../../lib/i18n/store.svelte';
+  import { card as macnealCard } from './macneal1985/card';
+  import { publicI18n, tPublic } from '../../lib/i18n/store.svelte';
   import type { Experiment } from './experiments';
 
   type Paper = (typeof catalog.papers)[number];
@@ -55,10 +56,11 @@
     const translated = englishOnlyCard(e.paperId, publicI18n.locale);
     if (translated) return translated;
     if (e.paperId === 'mattiasson-elastica' || e.paperId === 'macneal-harder-1985') {
-      const dictionary = e.paperId === 'mattiasson-elastica' ? mattiassonStrings : macnealStrings;
+      const dictionary = e.paperId === 'mattiasson-elastica' ? mattiassonStrings : macnealCard;
       return dictionary[publicI18n.locale as keyof typeof dictionary] ?? dictionary.en;
     }
-    if (e.paperId === 'shell-obstacle-course') return { title: shellStrings(publicI18n.locale).shellObstacleCourseBelytschkoEtAl, hook: e.hook };
+    if (e.paperId === 'feher-sipos-varkonyi-2026') return shapeCard[publicI18n.locale as keyof typeof shapeCard] ?? shapeCard.en;
+    if (e.paperId === 'shell-obstacle-course') return { title: shellCardTitle, hook: e.hook };
     if (e.paperId === 'riks-1979') {
       const riks = riksStrings(publicI18n.locale);
       return { title: riks.arcLengthSnapThroughRiksAndCrisfield, hook: publicI18n.locale === 'en' ? e.hook : riks.lead };
@@ -80,6 +82,7 @@
       <p class="rs-g-lead">
         {s.galleryLead}
       </p>
+      <p class="link-row"><PublicLink to="/paper" class="link-arrow">{tPublic('landing.navPaper')}{' · JAIE 2026'}</PublicLink></p>
       <p class="rs-g-note"><strong>{s.notDesign}.</strong> {s.galleryDisclaimer} <a href="https://github.com/lambdaclass/stabileo/blob/main/research/CONTRIBUTING.md" rel="noreferrer" target="_blank">{"CONTRIBUTING.md"}</a>.</p>
     </header>
 

@@ -87,6 +87,8 @@
     lengthUnit?: string;
     /** Hide the axis triad when the drawn plane is not the global XY plane. */
     showAxes?: boolean;
+    /** False drops the camera buttons, the viewer mark and the status bar; drag, wheel and keys still navigate. */
+    chrome?: boolean;
   };
   let {
     locale,
@@ -119,6 +121,7 @@
     geometryOnly = false,
     lengthUnit,
     showAxes = true,
+    chrome = true,
   }: Props = $props();
 
   const t = (key: string) => locale ? tAt(key, locale) : appT(key);
@@ -339,6 +342,7 @@
 <div class="sfv-wrap">
   {#if toolbar}<div class="sfv-toolbar">{@render toolbar()}</div>{/if}
   <div class="sfv-stage">
+    {#if chrome}
     <div class="sfv-navigation">
       <div class="camera-controls">
         <div class="cam-menu-wrap">
@@ -360,6 +364,7 @@
         <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
       </div>
     </div>
+    {/if}
     <div class="sfv viewport-container" style:height>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
       <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={onKey} aria-label={ariaLabel} title={t('scalarViewer.keyboard')} aria-describedby={keysId} aria-keyshortcuts={SCALAR_FIELD_SHORTCUTS}></div>
@@ -368,9 +373,10 @@
       {#if displayMode === 'field' && values && !geometryOnly}
         <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} format={legendFormat} ariaLabel={`${title}${unit ? ` [${unit}]` : ''}: ${legendFormat(range.min, range.min, range.max, bands)} – ${legendFormat(range.max, range.min, range.max, bands)}`} />
       {/if}
-      <span class="sfv-mark">{t('scalarViewer.viewer')}</span>
+      {#if chrome}<span class="sfv-mark">{t('scalarViewer.viewer')}</span>{/if}
     </div>
   </div>
+  {#if chrome}
   <div class="status-bar sfv-status">
     <div class="status-item"><span class="status-label">{t('scalarViewer.position')}</span><span class="status-value">{pointer}</span></div>
     <div class="status-item"><span class="status-label">{t('scalarViewer.zoom')}</span><span class="status-value">{zoomText}</span></div>
@@ -380,6 +386,7 @@
     {/each}
     {#if editorButton}<button class="sfv-editor" disabled={!onOpenEditor} onclick={() => onOpenEditor?.()} title={onOpenEditor ? t('scalarViewer.openEditor') : (openEditorNote ?? t('scalarViewer.editorNote'))}>{t('scalarViewer.openEditor')}{onOpenEditor ? '' : t('scalarViewer.soon')}</button>{/if}
   </div>
+  {/if}
 </div>
 
 <style>

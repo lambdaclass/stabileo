@@ -19,6 +19,8 @@ import { POSTS, findPost } from '..';
 import { readingMinutes, wordCount, addTranslations, inLocale, type Block, type Localized, type PostBody } from '../types';
 import { type PublicLocale, dictFor } from '../../i18n/store.svelte';
 import { completeLocales } from '../../i18n/locales/all';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const REQUIRED = completeLocales() as PublicLocale[];
 const written = (post: { i18n: Partial<Record<PublicLocale, PostBody>> }) =>
@@ -26,6 +28,20 @@ const written = (post: { i18n: Partial<Record<PublicLocale, PostBody>> }) =>
 
 // Thousands may be grouped with a comma, a point or a (non-breaking) space depending on the
 // language: "15,833", "15.833" and "15 833" are one number, while "0,976" is a decimal.
+const SCREENSHOTS = fileURLToPath(new URL('../../../../public/screenshots/', import.meta.url));
+
+function webpSize(file: string): [number, number] {
+  const b = readFileSync(file);
+  const chunk = b.toString('ascii', 12, 16);
+  if (chunk === 'VP8X') return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+  if (chunk === 'VP8 ') return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff];
+  if (chunk === 'VP8L') {
+    const bits = b.readUInt32LE(21);
+    return [1 + (bits & 0x3fff), 1 + ((bits >> 14) & 0x3fff)];
+  }
+  throw new Error(`${file}: not a WebP`);
+}
+
 function normalizeNumber(cell: string): string | null {
   const c = cell.trim();
   if (/^-?[1-9]\d{0,2}(?:[.,\s\u00a0\u202f]\d{3})+$/.test(c)) return c.replace(/[.,\s\u00a0\u202f]/g, '');
@@ -109,11 +125,17 @@ describe('blog posts', () => {
               // application into the page; it has to say what they are getting.
               expect(b.label.trim().length).toBeGreaterThan(30);
               expect(b.query).toMatch(/example=/);
+            } else if (b.k === 'img') {
+              expect(b.alt.trim().length, `${b.base}: alt`).toBeGreaterThan(30);
+              expect(b.caption.trim()).not.toBe('');
             } else if (b.k === 'table') {
               expect(b.caption.trim()).not.toBe('');
               expect(b.head.length).toBeGreaterThan(1);
               expect(b.rows.length).toBeGreaterThan(0);
               for (const row of b.rows) expect(row).toHaveLength(b.head.length);
+            } else if (b.k === 'photo') {
+              expect(b.alt.trim().length).toBeGreaterThan(20);
+              expect(b.caption.trim()).not.toBe('');
             } else {
               expect(b.t.trim()).not.toBe('');
             }
@@ -136,11 +158,15 @@ describe('blog posts', () => {
                 ? `table:${b.head.length}x${b.rows.length}`
                 : b.k === 'embed'
                   ? `embed:${b.mode ?? 'basic'}:${b.query}`
+                  : b.k === 'photo'
+                    ? `photo:${b.src}:${b.w}x${b.h}`
                   : b.k === 'link'
                     ? `link:${b.slug}`
                     : b.k === 'ext'
                       ? `ext:${b.href}`
-                      : b.k,
+                      : b.k === 'img'
+                        ? `img:${b.base}:${b.w}x${b.h}`
+                        : b.k,
           );
         for (const locale of written(post)) {
           expect(shape(locale), `${locale} does not match the English structure`).toEqual(shape('en'));
@@ -175,6 +201,35 @@ describe('blog posts', () => {
             if (b.k !== 'ext') continue;
             expect(b.href, `${locale}: ${b.href}`).toMatch(/^https:\/\/github\.com\/lambdaclass\/stabileo\/[\w./#-]+$/);
             expect(b.label.trim()).not.toBe('');
+          }
+        }
+      });
+
+      it('shows at least one screenshot or photo, and every screenshot it shows is committed at the size it declares', () => {
+        const images = post.i18n.en.blocks.filter((b): b is Extract<Block, { k: 'img' }> => b.k === 'img');
+        expect(images.length + post.i18n.en.blocks.filter((b) => b.k === 'photo').length).toBeGreaterThan(0);
+        for (const img of images) {
+          for (const w of [800, 1600]) {
+            for (const ext of ['avif', 'webp']) {
+              expect(existsSync(`${SCREENSHOTS}${img.base}-${w}.${ext}`), `${img.base}-${w}.${ext}`).toBe(true);
+            }
+          }
+          expect(webpSize(`${SCREENSHOTS}${img.base}-1600.webp`), img.base).toEqual([img.w, img.h]);
+          expect(webpSize(`${SCREENSHOTS}${img.base}-800.webp`)[0], img.base).toBe(800);
+        }
+        const alts = (l: PublicLocale) => post.i18n[l]!.blocks.flatMap((b) => (b.k === 'img' ? [b.alt] : []));
+        for (const locale of written(post).filter((l) => l !== 'en')) {
+          alts(locale).forEach((alt, i) => expect(alt, `${locale} alt ${i} is the English one`).not.toBe(alts('en')[i]));
+        }
+      });
+
+      it('shows only photos that are committed at both widths, in both formats', async () => {
+        const { existsSync } = await import('node:fs');
+        const { join } = await import('node:path');
+        for (const b of post.i18n.en.blocks) {
+          if (b.k !== 'photo') continue;
+          for (const file of [`${b.src}-800.avif`, `${b.src}-800.webp`, `${b.src}-1600.avif`, `${b.src}-1600.webp`]) {
+            expect(existsSync(join(__dirname, '../../../../public/photos', file)), file).toBe(true);
           }
         }
       });
@@ -296,6 +351,24 @@ describe('reading time', () => {
 describe('the safety-advisories post quotes the advisories', () => {
   const post = findPost('safety-advisories');
 
+  it.each<[PublicLocale, string, string]>([
+    ['en', 'Medium', 'Draft: fix not yet merged or deployed'],
+    ['es', 'Media', 'Borrador: corrección aún no integrada ni publicada'],
+    ['pt', 'Média', 'Rascunho: correção ainda não integrada nem publicada'],
+    ['de', 'Mittel', 'Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht'],
+    ['fr', 'Moyenne', 'Brouillon : correction pas encore fusionnée ni publiée'],
+    ['tr', 'Orta', 'Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı'],
+  ])('known wrong result: #1888 — %s: lists SA-2026-057 as a pending draft', (locale, severity, draftStatus) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    const row = summary.rows.find((r) => r[0] === 'SA-2026-057');
+    expect(row, `${locale}: SA-2026-057 missing`).toBeDefined();
+    expect(row![2]).toBe(severity);
+    expect(row![3]).toBe(draftStatus);
+    expect(status.t).toContain(`SA-2026-057 — ${draftStatus}.`);
+  });
+
   it('exists, and lists every advisory in docs/advisories', async () => {
     expect(post).toBeTruthy();
     const { readdirSync } = await import('node:fs');
@@ -306,6 +379,57 @@ describe('the safety-advisories post quotes the advisories', () => {
       .sort();
     const summary = post!.i18n.en.blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
     expect(summary.rows.map((r) => r[0]).sort()).toEqual(ids);
+  });
+
+  it('known wrong result: #1782 — lists every advisory in every written language', async () => {
+    const { readdirSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const ids = readdirSync(join(__dirname, '../../../../../docs/advisories'))
+      .map((f) => /^(SA-\d{4}-\d{3})-/.exec(f)?.[1])
+      .filter((x): x is string => !!x)
+      .sort();
+    for (const locale of written(post!)) {
+      const summary = post!.i18n[locale]!.blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+      expect(summary.rows.map((r) => r[0]).sort(), `${locale}: advisory list`).toEqual(ids);
+    }
+  });
+
+  it.each<[PublicLocale, string, string]>([
+    ['en', 'Low', 'Fixed after 0.5.0; on stabileo.com since 9 November 2026'],
+    ['es', 'Baja', 'Corregido después de 0.5.0; en stabileo.com desde el 9 de noviembre de 2026'],
+    ['pt', 'Baixa', 'Corrigido depois da 0.5.0; em stabileo.com desde 9 de novembro de 2026'],
+    ['de', 'Niedrig', 'Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026'],
+    ['fr', 'Faible', 'Corrigé après 0.5.0 ; sur stabileo.com depuis le 9 novembre 2026'],
+    ['tr', 'Düşük', "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"],
+  ])('%s: publishes SA-2026-049 through 053 as fixed and retains 053’s low severity', (locale, severity, fixedStatus) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    for (const number of ['049', '050', '051', '052', '053']) {
+      const id = `SA-2026-${number}`;
+      const row = summary.rows.find((r) => r[0] === id);
+      expect(row, `${locale}: ${id} missing`).toBeDefined();
+      expect(row![3], `${locale}: ${id} status`).toBe(fixedStatus);
+      expect(status.t).toContain(id);
+    }
+    expect(summary.rows.find((r) => r[0] === 'SA-2026-053')![2]).toBe(severity);
+  });
+
+  it.each<[PublicLocale, string]>([
+    ['en', 'Draft: unresolved; no fix merged or deployed'],
+    ['es', 'Borrador: sin resolver; ninguna corrección integrada ni publicada'],
+    ['pt', 'Rascunho: não resolvido; nenhuma correção integrada nem publicada'],
+    ['de', 'Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht'],
+    ['fr', 'Brouillon : non résolu ; aucun correctif intégré ni déployé'],
+    ['tr', 'Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı'],
+  ])('%s: lists SA-2026-056 as a pending draft', (locale, draftStatus) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    const row = summary.rows.find((r) => r[0] === 'SA-2026-056');
+    expect(row, `${locale}: SA-2026-056 missing`).toBeDefined();
+    expect(row![3]).toBe(draftStatus);
+    expect(status.t).toContain(`SA-2026-056 — ${draftStatus}.`);
   });
 
   it('quotes each documented case exactly as its advisory states it', () => {

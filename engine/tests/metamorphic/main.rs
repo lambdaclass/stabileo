@@ -12,10 +12,15 @@
 //! * `metamorphic_nightly_*` (`--ignored`) — the whole corpus and many random
 //!   models; `METAMORPHIC_SEED` moves the random part (printed on failure).
 
+#[path = "../common/mod.rs"]
+mod common;
+
 mod active;
+mod betti;
 mod stiffness;
 mod generated;
 mod safety_cases;
+mod analysis_accuracy;
 mod ana2;
 mod ana3;
 mod case;
@@ -23,16 +28,25 @@ mod checks2;
 mod checks3;
 mod corpus;
 mod modal_checks;
+mod parity;
 mod nightly_tolerances;
+mod dynamic_accuracy;
+mod quick;
 mod regressions;
+mod harmonic_linearity;
+mod linear_identities;
+mod completeness;
 mod response;
+mod steel_inputs;
+mod tension_net_area;
 mod symmetry;
 mod tally;
+mod stability;
 
 use tally::Tally;
 
-pub const INV_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
-pub const INV_3D: &[&str] = &["rotation", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
+pub const INV_2D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality", "planes"];
+pub const INV_3D: &[&str] = &["rotation", "mirror", "relabel", "reversal", "units", "superposition", "reciprocity", "energy", "symmetry", "linear agreement", "modal orthogonality"];
 
 fn seed() -> u64 {
     std::env::var("METAMORPHIC_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(20261018)
@@ -213,3 +227,5 @@ fn save_failing_model<T: serde::Serialize>(name: &str, index: usize, model: &T, 
         std::fs::write(dir.join(format!("{name}-{index}.json")), serde_json::to_vec(&value).unwrap()).unwrap();
     }
 }
+
+mod harmonic_coverage;

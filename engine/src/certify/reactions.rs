@@ -3,7 +3,7 @@
 //!
 //! The solvers report, per support component with global DOF d,
 //!
-//!   restrained d:          R = (K u − f)_d = Σ_j K_dj u_j − f_d
+//!   restrained d:          R = (K u − f)_d − k·u_d = Σ_j K_dj u_j − f_d − k·u_d
 //!   free d with spring k:  R = −k·u_d
 //!
 //! (`build_reactions_2d/3d`), with K and f the assembly the certificate checks.
@@ -18,6 +18,7 @@
 //! go through transformed systems), 2D springs with an angle, nodes carrying
 //! more than one support, the warping bimoment reaction.
 
+use crate::solver::support::{support_dofs_2d, support_dofs_3d};
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -123,7 +124,7 @@ fn component_bound(c: &Component, k: &RestrainedRows, u: &[f64], f: &[f64], abs_
         }
         Some(d) => {
             let (r, value) = k.row(d, u, f);
-            (up(r * abs_bound), value)
+            (up(r * abs_bound), value - Interval::point(c.spring.max(0.0)) * Interval::point(u[d]))
         }
     };
     let dev = (value - Interval::point(c.reported)).mag();
@@ -186,12 +187,12 @@ pub(crate) fn reaction_bounds_2d_with(
     for (node, sup) in single_support_nodes(crate::ordered::values(&input.supports).map(|s| (s.node_id, s))) {
         let spring_type = sup.support_type == "spring";
         let angled = sup.angle.is_some_and(|a| a.abs() > 1e-15)
-            && (sup.kx.unwrap_or(0.0) > 0.0 || sup.ky.unwrap_or(0.0) > 0.0);
+            && (support_dofs_2d(sup)[0].spring.unwrap_or(0.0) > 0.0 || support_dofs_2d(sup)[1].spring.unwrap_or(0.0) > 0.0);
         if spring_type && angled {
             continue;
         }
         let Some(r) = reported.get(&node) else { continue };
-        let springs = [sup.kx, sup.ky, sup.kz];
+        let springs = [support_dofs_2d(sup)[0].spring, support_dofs_2d(sup)[1].spring, support_dofs_2d(sup)[2].spring];
         let rep = [r.rx, r.rz, r.my];
         let b: Vec<f64> = (0..3)
             .map(|i| {
@@ -259,7 +260,7 @@ pub(crate) fn reaction_bounds_3d_with(
     let mut out = Vec::new();
     for (node, sup) in single_support_nodes(crate::ordered::values(&input.supports).map(|s| (s.node_id, s))) {
         let Some(r) = reported.get(&node) else { continue };
-        let springs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
+        let springs = [support_dofs_3d(sup)[0].spring, support_dofs_3d(sup)[1].spring, support_dofs_3d(sup)[2].spring, support_dofs_3d(sup)[3].spring, support_dofs_3d(sup)[4].spring, support_dofs_3d(sup)[5].spring];
         let rep = [r.fx, r.fy, r.fz, r.mx, r.my, r.mz];
         let b: Vec<f64> = (0..6)
             .map(|i| {

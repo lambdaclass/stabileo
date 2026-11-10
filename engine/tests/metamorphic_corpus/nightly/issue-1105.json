@@ -1,0 +1,112 @@
+{
+  "_nightly_dens": {
+    "1": 3898.177616253411
+  },
+  "_nightly_name": "fuzz_rich_3d/21180",
+  "connectors": {},
+  "constraints": [],
+  "curvedBeams": [],
+  "curvedShells": {},
+  "elements": {
+    "1": {
+      "id": 1,
+      "localYx": null,
+      "localYy": null,
+      "localYz": null,
+      "materialId": 1,
+      "nodeI": 2,
+      "nodeJ": 1,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    }
+  },
+  "leftHand": null,
+  "loads": [
+    {
+      "data": {
+        "dtGradientY": -13.62483333941106,
+        "dtGradientZ": 3.3781311849944444,
+        "dtUniform": -3.2925655174652135,
+        "elementId": 1
+      },
+      "type": "thermal"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 53420.53601634479,
+      "id": 1,
+      "nu": 0.3603588295566865
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 0.4720155736487399,
+      "y": -5.211249055849046,
+      "z": -1.1753113506646713
+    },
+    "2": {
+      "id": 2,
+      "x": 3.858077950298343,
+      "y": 3.776058710839461,
+      "z": -5.452796640212226
+    }
+  },
+  "plates": {},
+  "quad9s": {},
+  "quads": {},
+  "sections": {
+    "1": {
+      "a": 0.0031515802245142112,
+      "asY": null,
+      "asZ": null,
+      "cw": null,
+      "id": 1,
+      "iy": 0.0005119556546204392,
+      "iz": 0.000011230692424642674,
+      "j": 0.00014518539035861917,
+      "name": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    }
+  },
+  "solidShells": {},
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "drx": null,
+      "dry": null,
+      "drz": null,
+      "dx": null,
+      "dy": null,
+      "dz": null,
+      "isInclined": null,
+      "krx": null,
+      "kry": null,
+      "krz": null,
+      "kw": null,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "normalX": null,
+      "normalY": null,
+      "normalZ": null,
+      "rrx": true,
+      "rry": true,
+      "rrz": true,
+      "rw": null,
+      "rx": true,
+      "ry": true,
+      "rz": true
+    }
+  }
+}

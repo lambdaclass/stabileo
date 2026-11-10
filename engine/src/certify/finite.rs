@@ -191,7 +191,16 @@ impl Audit {
     }
     fn nested<T: Serialize + ?Sized>(&mut self, seg: String, v: &T) -> Result<(), Error> {
         self.path.push(seg);
-        let r = v.serialize(&mut *self);
+        let r = match v.serialize(&mut *self) {
+            Err(Error(s)) => match s.strip_prefix(crate::check::NON_FINITE) {
+                Some(v) => {
+                    self.float(v.parse::<f64>().unwrap_or(f64::NAN));
+                    Ok(())
+                }
+                None => Err(Error(s)),
+            },
+            ok => ok,
+        };
         self.path.pop();
         r
     }
@@ -354,4 +363,147 @@ impl ser::SerializeStructVariant for &mut Audit {
         self.nested(format!(".{key}"), v)
     }
     fn end(self) -> R { Ok(()) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::Serialize;
+    use std::collections::BTreeMap;
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Sample {
+        x: f64,
+        list: Vec<f64>,
+        pair: (f64, f64),
+        by_id: BTreeMap<String, f64>,
+        rel_bound: f64,
+    }
+
+    fn sample() -> Sample {
+        Sample { x: 1.0, list: vec![2.0, 3.0], pair: (4.0, 5.0), by_id: BTreeMap::from([("7".to_string(), 6.0)]), rel_bound: 0.5 }
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all_fields = "camelCase")]
+    enum Cert {
+        Certified { abs_bound: f64, rel_bound: f64 },
+        Uncertified { reason: String },
+    }
+    guarded_enum!(Cert);
+
+    fn certified(abs_bound: f64, rel_bound: f64) -> Cert {
+        Cert::Certified { abs_bound, rel_bound }
+    }
+
+    fn reason(c: &Cert) -> &str {
+        match c {
+            Cert::Uncertified { reason } => reason,
+            Cert::Certified { .. } => panic!("still certified"),
+        }
+    }
+
+    #[test]
+    fn non_finite_paths_names_every_non_finite_number_wherever_it_is() {
+        assert!(non_finite_paths(&sample()).is_empty());
+        let mut s = sample();
+        s.x = f64::NAN;
+        s.list[1] = f64::INFINITY;
+        s.pair.1 = f64::NEG_INFINITY;
+        s.by_id.insert("7".to_string(), f64::NAN);
+        s.rel_bound = f64::INFINITY;
+        assert_eq!(
+            non_finite_paths(&s),
+            ["$.x=NaN", "$.list[1]=inf", "$.pair[1]=-inf", "$.byId[\"7\"]=NaN", "$.relBound=inf"]
+        );
+        assert_eq!(undocumented_non_finite(&s), ["$.x=NaN", "$.list[1]=inf", "$.pair[1]=-inf", "$.byId[\"7\"]=NaN"]);
+    }
+
+    #[test]
+    fn only_plus_infinity_in_a_documented_field_is_allowed() {
+        let mut s = sample();
+        s.rel_bound = f64::INFINITY;
+        assert!(undocumented_non_finite(&s).is_empty());
+        s.rel_bound = f64::NEG_INFINITY;
+        assert_eq!(undocumented_non_finite(&s), ["$.relBound=-inf"]);
+        s.rel_bound = f64::NAN;
+        assert_eq!(undocumented_non_finite(&s), ["$.relBound=NaN"]);
+    }
+
+    #[test]
+    fn check_input_rejects_any_non_finite_number_and_names_it() {
+        assert_eq!(check_input(&sample()), Ok(()));
+        let mut s = sample();
+        s.rel_bound = f64::INFINITY;
+        assert_eq!(check_input(&s), Err("non-finite number in the input at $.relBound=inf".to_string()));
+        assert_eq!(check_results(&s), Ok(()));
+        s.list[0] = f64::NAN;
+        assert_eq!(check_results(&s), Err("non-finite number in the results at $.list[0]=NaN".to_string()));
+    }
+
+    #[test]
+    fn describe_shows_three_paths_and_counts_the_rest() {
+        let bad: Vec<String> = (0..5).map(|i| format!("$[{i}]=NaN")).collect();
+        assert_eq!(describe("input", &bad[..3]), "non-finite number in the input at $[0]=NaN, $[1]=NaN, $[2]=NaN");
+        assert_eq!(describe("input", &bad[..4]), "non-finite number in the input at $[0]=NaN, $[1]=NaN, $[2]=NaN and 1 more");
+        assert_eq!(describe("results", &bad), "non-finite number in the results at $[0]=NaN, $[1]=NaN, $[2]=NaN and 2 more");
+    }
+
+    #[test]
+    fn guard_downgrades_a_claim_carrying_an_undocumented_non_finite_number() {
+        let mut c = certified(1e-9, f64::INFINITY);
+        assert!(!guard(&mut c));
+        assert!(c.claims());
+        let mut c = certified(f64::NAN, 0.1);
+        assert!(guard(&mut c));
+        assert_eq!(reason(&c), "non-finite number in the certificate at $.absBound=NaN");
+        assert!(!guard(&mut c));
+    }
+
+    #[test]
+    fn guard_all_withdraws_a_claim_on_non_finite_input_results_or_bounds() {
+        let finite = sample();
+        let mut bad = sample();
+        bad.x = f64::NAN;
+
+        let mut c = certified(1e-9, 1e-12);
+        guard_all(&finite, &finite, &mut c);
+        assert!(c.claims());
+
+        let mut c = certified(1e-9, 1e-12);
+        guard_all(&bad, &finite, &mut c);
+        assert_eq!(reason(&c), "non-finite number in the input at $.x=NaN");
+
+        let mut c = certified(1e-9, 1e-12);
+        guard_all(&finite, &bad, &mut c);
+        assert_eq!(reason(&c), "non-finite number in the results at $.x=NaN");
+
+        let mut c = certified(f64::INFINITY, 1e-12);
+        guard_all(&finite, &finite, &mut c);
+        assert_eq!(reason(&c), "non-finite number in the certificate at $.absBound=inf");
+
+        let mut c = Cert::Uncertified { reason: "singular".into() };
+        guard_all(&bad, &bad, &mut c);
+        assert_eq!(reason(&c), "singular");
+    }
+
+    #[test]
+    fn check_magnitudes_rejects_numbers_outside_the_range_but_not_zero() {
+        let mut s = sample();
+        s.x = 0.0;
+        s.rel_bound = 1.0;
+        assert_eq!(check_magnitudes(&s, 1.0, 10.0), Ok(()));
+        s.list[0] = 1e-3;
+        s.pair.0 = 1e3;
+        assert_eq!(
+            check_magnitudes(&s, 1.0, 10.0),
+            Err("number out of the range [1e0, 1e1] the exact certificate accepts at $.list[0]=1e-3, $.pair[0]=1e3".to_string())
+        );
+    }
+
+    #[test]
+    fn a_serialization_error_reads_as_its_message() {
+        assert_eq!(<Error as ser::Error>::custom("bad key").to_string(), "bad key");
+    }
 }

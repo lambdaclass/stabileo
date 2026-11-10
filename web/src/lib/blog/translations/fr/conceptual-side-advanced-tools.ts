@@ -131,6 +131,7 @@ const body: PostBody = {
       "k": "p",
       "t": "L'application ne se contente pas d'annoncer le zéro et de s'en laver les mains. Elle le contredit dans la même étape 2 qui l'a produit : « La formule donne GH = 0 (condition nécessaire d'isostaticité), mais PAS suffisante ». L'étape 3 assemble la matrice de rigidité globale, ici de 6×6, et signale « Mécanisme détecté : 1 mode » malgré GH = 0 ≥ 0. Elle désigne le nœud 3 et son déplacement horizontal, fait remarquer que l'équation de l'étape 2 compte les liaisons sans vérifier où elles se trouvent, et conclut par « ✗ Mécanisme — ne peut pas être calculé »."
     },
+    {"k": "img", "base": "blog/hidden-mechanism", "w": 1600, "h": 1000, "alt": "Stabileo Basic avec une poutre à deux travées sur trois appuis glissants horizontaux sous 10 kN/m. Le panneau d’analyse cinématique affiche GH = 3·2 + 3 − 3·3 = 0, et un message signale une structure instable (mécanisme) car aucun appui ne retient le déplacement horizontal.", "caption": "La même poutre dans l’application : la formule donne zéro, et le solveur la refuse quand même comme mécanisme."},
     {
       "k": "embed",
       "query": "example=hidden-mechanism&kin=1",

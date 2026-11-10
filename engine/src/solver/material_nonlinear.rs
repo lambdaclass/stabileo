@@ -1,3 +1,4 @@
+use crate::solver::support::{support_dofs_3d};
 use crate::types::*;
 use crate::linalg::*;
 use crate::element::*;
@@ -968,6 +969,7 @@ pub fn solve_nonlinear_material_3d(
 ) -> Result<NonlinearMaterialResult3D, String> {
     let mut r = solve_nonlinear_material_3d_inner(input)?;
     crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::MaterialNonlinear));
+    crate::known_issues::refuse(&r.results.structured_diagnostics)?;
     Ok(r)
 }
 
@@ -1004,6 +1006,8 @@ fn solve_nonlinear_material_3d_inner(
     // Full elastic assembly for total external load vector.
     let asm = super::assembly::assemble_3d(solver, &dof_num);
     let f_total = asm.f.clone();
+    let art = assembly::artificial_stiffness_entries(&asm);
+    super::linear::refuse_loads_on_orphan_dofs_3d(&dof_num, &asm.artificial_dofs.iter().copied().collect(), &solver.loads)?;
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&solver, &dof_num)?;
@@ -1088,10 +1092,13 @@ fn solve_nonlinear_material_3d_inner(
                 assembly::reverse_inclined_transform(&mut u_geom, &it.dofs, &it.r);
             }
             let mut f_int = compute_global_internal_forces_3d(solver, &dof_num, &u_geom, &states);
+            for &(d, k) in &art {
+                f_int[d] += k * u_geom[d];
+            }
 
             if sparse_tangent {
                 assemble_tangent_stiffness_3d_triplets(
-                    solver, &dof_num, &states,
+                    solver, &dof_num, &states, &art,
                     &mut trip_rows, &mut trip_cols, &mut trip_vals,
                 );
                 // Triplet K rotation + f rotation == dense
@@ -1103,7 +1110,7 @@ fn solve_nonlinear_material_3d_inner(
                     );
                 }
             } else {
-                k_t = assemble_tangent_stiffness_3d(solver, &dof_num, &states);
+                k_t = assemble_tangent_stiffness_3d(solver, &dof_num, &states, &art);
                 for it in &asm.inclined_transforms {
                     assembly::apply_inclined_transform(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
                 }
@@ -1189,7 +1196,7 @@ fn solve_nonlinear_material_3d_inner(
     }
 
     // k_final has no u-dependence — rotate directly (dummy F discarded).
-    let mut k_final = assemble_tangent_stiffness_3d(solver, &dof_num, &states);
+    let mut k_final = assemble_tangent_stiffness_3d(solver, &dof_num, &states, &art);
     let mut k_final_f_dummy = vec![0.0; n];
     for it in &asm.inclined_transforms {
         assembly::apply_inclined_transform(&mut k_final, &mut k_final_f_dummy, n, &it.dofs, &it.r);
@@ -1308,10 +1315,11 @@ fn assemble_tangent_stiffness_3d(
     solver: &SolverInput3D,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState3D)],
+    art: &[(usize, f64)],
 ) -> Vec<f64> {
     let n = dof_num.n_total;
     let mut k_global = vec![0.0; n * n];
-    assemble_tangent_stiffness_3d_scatter(solver, dof_num, states, &mut |gi, gj, v| {
+    assemble_tangent_stiffness_3d_scatter(solver, dof_num, states, art, &mut |gi, gj, v| {
         k_global[gi * n + gj] += v;
     });
     k_global
@@ -1323,11 +1331,12 @@ fn assemble_tangent_stiffness_3d_triplets(
     solver: &SolverInput3D,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState3D)],
+    art: &[(usize, f64)],
     trip_rows: &mut Vec<usize>,
     trip_cols: &mut Vec<usize>,
     trip_vals: &mut Vec<f64>,
 ) {
-    assemble_tangent_stiffness_3d_scatter(solver, dof_num, states, &mut |gi, gj, v| {
+    assemble_tangent_stiffness_3d_scatter(solver, dof_num, states, art, &mut |gi, gj, v| {
         if gi >= gj {
             trip_rows.push(gi);
             trip_cols.push(gj);
@@ -1342,6 +1351,7 @@ fn assemble_tangent_stiffness_3d_scatter(
     solver: &SolverInput3D,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState3D)],
+    art: &[(usize, f64)],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
     let left_hand = solver.left_hand.unwrap_or(false);
@@ -1441,10 +1451,10 @@ fn assemble_tangent_stiffness_3d_scatter(
                     phi_y, phi_z,
                 );
                 let k_glob = transform_stiffness(&k_local, &t, 12);
-                let ndof = elem_dofs.len();
-                for i in 0..ndof {
-                    for j in 0..ndof {
-                        scatter(elem_dofs[i], elem_dofs[j], k_glob[i * ndof + j]);
+                let frame_dofs = frame_dofs_12(&elem_dofs);
+                for i in 0..12 {
+                    for j in 0..12 {
+                        scatter(frame_dofs[i], frame_dofs[j], k_glob[i * 12 + j]);
                     }
                 }
             }
@@ -1454,8 +1464,8 @@ fn assemble_tangent_stiffness_3d_scatter(
     // Add spring stiffness contributions.
     for sup in crate::ordered::values(&solver.supports) {
         let spring_dofs: [(usize, Option<f64>); 6] = [
-            (0, sup.kx), (1, sup.ky), (2, sup.kz),
-            (3, sup.krx), (4, sup.kry), (5, sup.krz),
+            (0, support_dofs_3d(sup)[0].spring), (1, support_dofs_3d(sup)[1].spring), (2, support_dofs_3d(sup)[2].spring),
+            (3, support_dofs_3d(sup)[3].spring), (4, support_dofs_3d(sup)[4].spring), (5, support_dofs_3d(sup)[5].spring),
         ];
         for &(local_dof, k_val) in &spring_dofs {
             if let Some(k) = k_val {
@@ -1470,6 +1480,10 @@ fn assemble_tangent_stiffness_3d_scatter(
     // Connectors (small displacements, as in the linear assembler).
     for (i, j, k) in crate::element::connector::connector_entries_3d(solver, dof_num) {
         scatter(i, j, k);
+    }
+
+    for &(d, k) in art {
+        scatter(d, d, k);
     }
 }
 
@@ -1547,10 +1561,10 @@ fn compute_global_internal_forces_3d(
                 elem.roll_angle, left_hand,
             );
 
-            let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
-            let u_global: Vec<f64> = elem_dofs.iter().map(|&d| u[d]).collect();
-
             let has_cw = sec.cw.map_or(false, |cw| cw > 0.0);
+            let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+            let elem_dofs = if has_cw && dof_num.dofs_per_node >= 7 { elem_dofs } else { frame_dofs_12(&elem_dofs) };
+            let u_global: Vec<f64> = elem_dofs.iter().map(|&d| u[d]).collect();
             let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
                 let l2 = l * l;
                 let py = sec.as_y.map(|ay| 12.0 * e * iy_eff / (g * ay * l2)).unwrap_or(0.0);
@@ -1594,8 +1608,8 @@ fn compute_global_internal_forces_3d(
                 (f_global_elem, 12)
             };
 
-            let ndof = elem_dofs.len().min(ndof_elem);
-            for i in 0..ndof {
+            debug_assert_eq!(elem_dofs.len(), ndof_elem);
+            for i in 0..ndof_elem {
                 f_int[elem_dofs[i]] += f_local[i];
             }
         }
@@ -1604,8 +1618,8 @@ fn compute_global_internal_forces_3d(
     // Add spring force contributions.
     for sup in crate::ordered::values(&solver.supports) {
         let spring_dofs: [(usize, Option<f64>); 6] = [
-            (0, sup.kx), (1, sup.ky), (2, sup.kz),
-            (3, sup.krx), (4, sup.kry), (5, sup.krz),
+            (0, support_dofs_3d(sup)[0].spring), (1, support_dofs_3d(sup)[1].spring), (2, support_dofs_3d(sup)[2].spring),
+            (3, support_dofs_3d(sup)[3].spring), (4, support_dofs_3d(sup)[4].spring), (5, support_dofs_3d(sup)[5].spring),
         ];
         for &(local_dof, k_val) in &spring_dofs {
             if let Some(k) = k_val {
@@ -1785,4 +1799,12 @@ fn build_element_status_3d(
 
     statuses.sort_by_key(|s| s.element_id);
     statuses
+}
+
+fn frame_dofs_12(elem_dofs: &[usize]) -> Vec<usize> {
+    match elem_dofs.len() {
+        12 => elem_dofs.to_vec(),
+        14 => assembly::DOF_MAP_12_TO_14.iter().map(|&k| elem_dofs[k]).collect(),
+        n => unreachable!("a 3D frame has 12 or 14 element DOFs, not {n}"),
+    }
 }

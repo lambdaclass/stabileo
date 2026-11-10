@@ -93,6 +93,9 @@ class Models(unittest.TestCase):
             with self.subTest(wrapped=wrapped):
                 self.replay('mismatch', wrapped)
 
+    def test_a_buckling_difference_still_above_tolerance_on_the_finest_mesh_is_a_finding(self):
+        self.replay('converging')
+
     def test_false_rejection_reduces_despite_solver_rejection(self):
         for wrapped in (False, True):
             with self.subTest(wrapped=wrapped):
@@ -149,6 +152,31 @@ class Models(unittest.TestCase):
             self.assertEqual(finding['model'], {'loads': [1], 'elements': {'needed': {}}})
             self.assertTrue(all('needed' in model['elements'] for model in evaluated))
 
+    def test_reduction_keeps_a_load_when_the_failure_does_not_need_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source = base / 'model.json'
+            source.write_text(json.dumps({'loads': [1, 2, 3], 'elements': {'a': {}, 'b': {}}}))
+            out = base / 'out'
+            def replay(cmd, **kwargs):
+                if '-c' in cmd:
+                    return subprocess.CompletedProcess(cmd, 1)
+                if 'input' in kwargs:
+                    return subprocess.CompletedProcess(cmd, 0, '{}', '')
+                failure = {'test': 'metamorphic/static/rotation',
+                           'details': ['replay: original solved but transformed model failed: Singular stiffness matrix']}
+                row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
+                row['fail'] = 1
+                Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [failure], 'verdicts': [row]}))
+                return subprocess.CompletedProcess(cmd, 101, '', '')
+            with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
+                    patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
+                    patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(models.main(), 1)
+            finding = json.loads(next(out.glob('*.finding.json')).read_text())
+            self.assertEqual(len(finding['model']['loads']), 1)
+            self.assertEqual(finding['model']['elements'], {})
+
     def test_metamorphic_coverage_requires_usable_verdicts(self):
         for verdict in ('pass', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'):
             with self.subTest(verdict=verdict), tempfile.TemporaryDirectory() as tmp:
@@ -164,16 +192,17 @@ class Models(unittest.TestCase):
                         return subprocess.CompletedProcess(cmd, 1)
                     Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [], 'verdicts': [row]}))
                     return subprocess.CompletedProcess(cmd, 0, '', '')
-                with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
+                with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--seed', '7', '--check', 'metamorphic', '--out', str(out)]), \
                         patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
                         patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
                     if verdict == 'pass':
                         self.assertEqual(models.main(), 0)
                     else:
-                        with self.assertRaisesRegex(RuntimeError, 'insufficient metamorphic coverage'):
+                        with self.assertRaisesRegex(RuntimeError, 'insufficient metamorphic coverage: 1 of 1 models had no usable invariant'):
                             models.main()
                 counts = json.loads((out / 'summary.json').read_text())['comparisons']['metamorphic']
                 self.assertEqual(counts['completed'], 3 if verdict == 'pass' else 0)
+                self.assertEqual(counts.get('uncovered', []), [] if verdict == 'pass' else [{'seed': 7, 'model': 'given'}])
                 category = 'inconclusive' if verdict in ('refused', 'inconclusive') else 'skipped'
                 if verdict != 'pass':
                     self.assertEqual(counts[category][0][verdict], 3)
@@ -208,6 +237,39 @@ class Artifacts(unittest.TestCase):
                     subprocess.run(['bash', '-e', '-c', f['command'].splitlines()[0]], cwd=base, check=True)
                     self.assertEqual((base / 'crash.bin').read_bytes(), raw)
                     self.assertEqual((crashes / 'crash-original').read_bytes(), raw)
+
+    def test_slow_units_are_not_findings_and_every_oom_is_one(self):
+        for oom_fails_alone in (False, True):
+            with self.subTest(oom_fails_alone=oom_fails_alone), tempfile.TemporaryDirectory() as tmp:
+                base = Path(tmp)
+                crashes = base / 'engine/fuzz/artifacts/json_plastic'
+                crashes.mkdir(parents=True)
+                (crashes / 'slow-unit-1').write_bytes(b'\x03R{"slow": 1}')
+                (crashes / 'oom-2').write_bytes(b'\x03R{"oom": 2}')
+                (base / 'nightly-findings').mkdir()
+                calls = []
+
+                def fake(cmd, **kwargs):
+                    calls.append(cmd)
+                    if cmd[3] == 'run':
+                        self.assertIn('-rss_limit_mb=2048', cmd)
+                        self.assertIn('-timeout=60', cmd)
+                        return subprocess.CompletedProcess(cmd, 1 if oom_fails_alone else 0)
+                    raise subprocess.CalledProcessError(1, cmd)
+
+                with contextlib.chdir(base), patch.dict(os.environ, {
+                    'FUZZ_TARGET': 'json_plastic', 'FUZZ_SEED': '42', 'FUZZ_TARGET_TRIPLE': 'x86_64-unknown-linux-gnu'
+                }), patch('subprocess.run', side_effect=fake):
+                    runpy.run_path(str(ROOT / 'scripts/nightly-fuzz-findings.py'))
+                self.assertFalse(any('slow-unit-1' in ' '.join(c) for c in calls))
+                records = [json.loads(p.read_text()) for p in (base / 'nightly-findings').glob('*.finding.json')]
+                self.assertEqual([r['details'] for r in records], ['oom-2'])
+                self.assertEqual(bytes.fromhex(records[0]['model']['raw_hex']), b'\x03R{"oom": 2}')
+                if oom_fails_alone:
+                    self.assertNotIn('when run alone', records[0]['reduction'])
+                else:
+                    self.assertIn('when run alone', records[0]['reduction'])
+                    self.assertFalse(any(c[3] == 'tmin' for c in calls))
 
     def test_collector_continues_after_finding_and_harness_error(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -282,6 +344,26 @@ class Artifacts(unittest.TestCase):
 
 
 class Workflow(unittest.TestCase):
+    def test_expensive_plastic_grid_stays_out_of_the_live_corpus(self):
+        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
+        step = workflow.split('- name: Plastic LP budgets and seeded resource watchdog', 1)[1].split('- name:', 1)[0]
+        commands = textwrap.dedent(step.split('run: |', 1)[1])
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            base = Path(tmp)
+            source = base / 'engine/fuzz/corpus-regressions/plastic-lp-budget'
+            source.mkdir(parents=True)
+            names = {p.name for p in (ROOT / 'engine/fuzz/corpus-regressions/plastic-lp-budget').glob('*.bin')}
+            for name in names:
+                (source / name).write_bytes(name.encode())
+            live = base / 'engine/fuzz/corpus/json_plastic'
+            live.mkdir(parents=True)
+            for name in ('ex-3d-grid-slab-1', 'ex-3d-grid-slab-3', 'engine-grid-slab.bin'):
+                (live / name).write_bytes(name.encode())
+            subprocess.run(['bash', '-e', '-c', 'make() { :; }\n' + commands], cwd=base, check=True)
+            copied = {p.name for p in live.iterdir()}
+            self.assertEqual(copied, names - {'engine-grid-slab.bin'})
+            self.assertEqual((source / 'engine-grid-slab.bin').read_bytes(), b'engine-grid-slab.bin')
+
     def test_property_pipeline_propagates_failure_and_timeout(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
         step = workflow.split('      - name: Property soak', 1)[1].split('      - uses:', 1)[0]
@@ -330,6 +412,28 @@ class Workflow(unittest.TestCase):
             self.assertRegex(source.read_text(), rf'(?m)^#\[test\]\n#\[ignore\]\nfn {fn}\(\)', name)
             self.assertIn('--ignored', workflow.split(name, 1)[1].split('\n', 1)[0])
 
+
+
+class OpenSeesShards(unittest.TestCase):
+    def test_every_opensees_case_runs_in_exactly_one_part_with_its_own_artifacts(self):
+        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
+        job = workflow[workflow.index('  opensees-diff:'):workflow.index('  codeaster-diff:')]
+        parts = re.search(r'part: \[([^\]]*)\]', job).group(1).split(', ')
+        arms = dict(re.findall(r'\n\s+(\w+)\) cases=\(([^)]*(?:\)\)[^)]*)*)\) ;;', job))
+        self.assertEqual(sorted(arms), sorted(parts))
+        flags = [f for arm in arms.values() for f in re.findall(r'--(\w+)', arm)]
+        source = (ROOT / 'tools/opensees/compare.py').read_text()
+        kinds = re.findall(r"[\"'](\w+)[\"']", re.search(r'^EXT_KINDS = (.*)$', source, re.M).group(1))
+        static = ['fixtures', 'random2d', 'random3d', 'rich2d', 'rich3d', 'plates', 'shells']
+        for case in static:
+            self.assertIn(f'"--{case}"', source)
+        self.assertEqual(len(re.findall(r'ap\.add_argument\("--(?:fixtures|random[23]d|rich[23]d|plates|shells)"', source)), len(static))
+        cases = static + [k + d for k in kinds for d in ('2d', '3d')]
+        self.assertEqual(sorted(flags), sorted(cases))
+        self.assertIn('name: nightly-findings-opensees-${{ matrix.part }}', job)
+        self.assertIn('name: opensees-report-${{ matrix.part }}', job)
+        self.assertIn('opensees-report.json.progress.jsonl', job)
+        self.assertIn('fail-fast: false', job)
 
 if __name__ == '__main__':
     unittest.main()
