@@ -1,0 +1,43 @@
+{
+  "id": "dynamics-rotary-inertia-advisory-deep-members",
+  "date": "2026-11-10",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "frameMembers",
+        "arcMembers"
+      ],
+      [
+        "analysis:modal",
+        "analysis:spectral",
+        "analysis:timeHistory",
+        "analysis:harmonic"
+      ]
+    ]
+  },
+  "quantities": [
+    "diagnosticCodes"
+  ],
+  "title": {
+    "en": "The rotary-inertia warning of beam dynamics names only deep members, and the unconverged-increment warning is on nonlinear analyses only",
+    "es": "La advertencia de inercia rotacional de la dinámica de barras nombra solo las barras de gran canto, y la de incrementos no convergidos queda en los análisis no lineales",
+    "pt": "O aviso de inércia rotacional da dinâmica de barras nomeia só as barras de grande altura, e o de incrementos não convergidos fica nas análises não lineares",
+    "de": "Die Warnung zur Drehträgheit der Stabdynamik nennt nur gedrungene Stäbe, und die Warnung zu nicht konvergierten Inkrementen gilt nur für nichtlineare Analysen",
+    "fr": "L’avertissement d’inertie de rotation de la dynamique des barres ne nomme que les barres de grande hauteur, et celui des incréments non convergés ne concerne que les analyses non linéaires",
+    "tr": "Çubuk dinamiğinin dönme ataleti uyarısı yalnızca yüksek kesitli çubukları adlandırıyor, yakınsamayan artım uyarısı ise yalnızca doğrusal olmayan analizlerde"
+  },
+  "explanation": {
+    "en": "Every modal, spectral, time-history and harmonic analysis of a model with a frame member, and every material nonlinear analysis, carried the same known-issue warning NL-DYNAMIC-GAPS (#370), about both unconverged nonlinear increments and the bending rotary inertia that beam dynamics omits. It is now two warnings. NL-UNCONVERGED-INCREMENT is on material nonlinear analyses only. NL-DYNAMIC-GAPS is on dynamic analyses only when a frame member or curved beam has a radius of gyration over its length above 0.045, where the Rayleigh correction ω/ω_EB = 1/√(1 + (πr/L)²) lowers its first bending frequency by more than 1 %, and it names those members. Numerical values are unchanged.",
+    "es": "Todo análisis modal, espectral, de historia en el tiempo o armónico de un modelo con una barra de pórtico, y todo análisis no lineal del material, llevaba la misma advertencia de problema conocido NL-DYNAMIC-GAPS (#370), sobre los incrementos no lineales no convergidos y sobre la inercia rotacional a flexión que la dinámica de barras omite. Ahora son dos advertencias. NL-UNCONVERGED-INCREMENT queda solo en los análisis no lineales del material. NL-DYNAMIC-GAPS aparece en los análisis dinámicos solo cuando una barra de pórtico o una viga curva tiene un radio de giro sobre su longitud mayor que 0,045, donde la corrección de Rayleigh ω/ω_EB = 1/√(1 + (πr/L)²) baja su primera frecuencia de flexión más de un 1 %, y nombra esas barras. Los valores numéricos no cambian.",
+    "pt": "Toda análise modal, espectral, de histórico no tempo ou harmônica de um modelo com uma barra de pórtico, e toda análise não linear do material, levava o mesmo aviso de problema conhecido NL-DYNAMIC-GAPS (#370), sobre os incrementos não lineares não convergidos e sobre a inércia rotacional à flexão que a dinâmica de barras omite. Agora são dois avisos. NL-UNCONVERGED-INCREMENT fica só nas análises não lineares do material. NL-DYNAMIC-GAPS aparece nas análises dinâmicas só quando uma barra de pórtico ou uma viga curva tem raio de giração sobre o comprimento maior que 0,045, onde a correção de Rayleigh ω/ω_EB = 1/√(1 + (πr/L)²) reduz sua primeira frequência de flexão em mais de 1 %, e nomeia essas barras. Os valores numéricos não mudam.",
+    "de": "Jede Modal-, Spektral-, Zeitverlaufs- und harmonische Analyse eines Modells mit einem Rahmenstab und jede materialnichtlineare Analyse trug dieselbe Warnung zu einem bekannten Problem, NL-DYNAMIC-GAPS (#370), sowohl zu nicht konvergierten nichtlinearen Inkrementen als auch zur Drehträgheit bei Biegung, die die Stabdynamik vernachlässigt. Daraus sind zwei Warnungen geworden. NL-UNCONVERGED-INCREMENT steht nur bei materialnichtlinearen Analysen. NL-DYNAMIC-GAPS steht bei dynamischen Analysen nur, wenn ein Rahmenstab oder gekrümmter Träger einen Trägheitsradius über seiner Länge von mehr als 0,045 hat, wo die Rayleigh-Korrektur ω/ω_EB = 1/√(1 + (πr/L)²) seine erste Biegeeigenfrequenz um mehr als 1 % senkt, und nennt diese Stäbe. Die Zahlenwerte bleiben unverändert.",
+    "fr": "Toute analyse modale, spectrale, temporelle ou harmonique d’un modèle comportant une barre de portique, et toute analyse non linéaire matérielle, portait le même avertissement de problème connu NL-DYNAMIC-GAPS (#370), à la fois sur les incréments non linéaires non convergés et sur l’inertie de rotation en flexion que la dynamique des barres néglige. Ce sont désormais deux avertissements. NL-UNCONVERGED-INCREMENT ne concerne que les analyses non linéaires matérielles. NL-DYNAMIC-GAPS n’apparaît dans les analyses dynamiques que lorsqu’une barre de portique ou une poutre courbe a un rayon de giration rapporté à sa longueur supérieur à 0,045, où la correction de Rayleigh ω/ω_EB = 1/√(1 + (πr/L)²) abaisse sa première fréquence de flexion de plus de 1 %, et il nomme ces barres. Les valeurs numériques ne changent pas.",
+    "tr": "Çerçeve çubuğu olan bir modelin her modal, spektral, zaman tanım alanı ve harmonik analizi ile her malzeme bakımından doğrusal olmayan analiz, hem yakınsamayan doğrusal olmayan artımlar hem de çubuk dinamiğinin ihmal ettiği eğilme dönme ataleti hakkında aynı bilinen sorun uyarısını, NL-DYNAMIC-GAPS (#370), taşıyordu. Artık iki ayrı uyarı var. NL-UNCONVERGED-INCREMENT yalnızca malzeme bakımından doğrusal olmayan analizlerde. NL-DYNAMIC-GAPS dinamik analizlerde yalnızca bir çerçeve çubuğunun veya eğri kirişin atalet yarıçapının boyuna oranı 0,045'i aştığında çıkıyor; bu durumda Rayleigh düzeltmesi ω/ω_EB = 1/√(1 + (πr/L)²) ilk eğilme frekansını %1'den fazla düşürür. Uyarı bu çubukları adlandırıyor. Sayısal değerler değişmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-basic-advisories-and-plastic.md",
+    "heading": "Dynamics warnings split, the rotary-inertia one on deep members only"
+  }
+}

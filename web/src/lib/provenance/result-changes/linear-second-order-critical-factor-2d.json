@@ -1,0 +1,39 @@
+{
+  "id": "linear-second-order-critical-factor-2d",
+  "date": "2026-11-10",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "plane2D"
+      ],
+      [
+        "members"
+      ]
+    ]
+  },
+  "quantities": [
+    "diagnosticCodes"
+  ],
+  "title": {
+    "en": "2D linear analysis bounds its second-order warning by the structure's critical load factor",
+    "es": "El análisis lineal 2D acota su advertencia de segundo orden con el factor de carga crítica de la estructura",
+    "pt": "A análise linear 2D limita seu aviso de segunda ordem pelo fator de carga crítica da estrutura",
+    "de": "Die lineare 2D-Analyse begrenzt ihre Warnung zur Theorie zweiter Ordnung mit dem kritischen Lastfaktor des Tragwerks",
+    "fr": "L’analyse linéaire 2D borne son avertissement du second ordre par le facteur de charge critique de la structure",
+    "tr": "2B doğrusal analiz, ikinci mertebe uyarısını yapının kritik yük katsayısıyla sınırlandırıyor"
+  },
+  "explanation": {
+    "en": "When the members alone could not bound a compressed member's critical load (a beam no support holds, columns above the first storey, truss bars that end at free joints), a 2D linear solve warned LIN-SECOND-ORDER-UNBOUNDED, and held the CIRSOC 301 checks, however far the structure was from buckling (#1551). The 2D screen now bounds the whole structure by its lowest elastic critical load factor λcr, solved from the same linear result: every compressed member then has N/Ncr = 1/λcr, so it warns LIN-SECOND-ORDER when λcr < 13.4 and LIN-SECOND-ORDER-NEAR when λcr < 21.4, and keeps LIN-SECOND-ORDER-UNBOUNDED only where λcr cannot be computed. The Basic 2D frames and trusses (λcr from 113 to 19 000) no longer warn. 3D keeps the member screen alone. Numerical values are unchanged.",
+    "es": "Cuando las barras solas no permitían acotar la carga crítica de una barra comprimida (una viga que ningún apoyo sostiene, columnas por encima del primer piso, barras de reticulado que terminan en nudos libres), una resolución lineal 2D advertía LIN-SECOND-ORDER-UNBOUNDED y retenía las verificaciones CIRSOC 301, por lejos que estuviera la estructura del pandeo (#1551). La verificación 2D ahora acota toda la estructura con su menor factor de carga crítica elástica λcr, calculado a partir del mismo resultado lineal: cada barra comprimida tiene entonces N/Ncr = 1/λcr, así que advierte LIN-SECOND-ORDER cuando λcr < 13,4 y LIN-SECOND-ORDER-NEAR cuando λcr < 21,4, y deja LIN-SECOND-ORDER-UNBOUNDED solo donde λcr no se puede calcular. Los pórticos y reticulados 2D del modo Básico (λcr de 113 a 19 000) ya no advierten. En 3D sigue la verificación por barra. Los valores numéricos no cambian.",
+    "pt": "Quando as barras sozinhas não permitiam limitar a carga crítica de uma barra comprimida (uma viga que nenhum apoio sustenta, pilares acima do primeiro pavimento, barras de treliça que terminam em nós livres), uma resolução linear 2D avisava LIN-SECOND-ORDER-UNBOUNDED e retinha as verificações CIRSOC 301, por mais longe que a estrutura estivesse da flambagem (#1551). A verificação 2D agora limita a estrutura inteira pelo seu menor fator de carga crítica elástica λcr, calculado a partir do mesmo resultado linear: toda barra comprimida tem então N/Ncr = 1/λcr, de modo que avisa LIN-SECOND-ORDER quando λcr < 13,4 e LIN-SECOND-ORDER-NEAR quando λcr < 21,4, e mantém LIN-SECOND-ORDER-UNBOUNDED só onde λcr não pode ser calculado. Os pórticos e treliças 2D do modo Básico (λcr de 113 a 19 000) deixam de avisar. Em 3D continua a verificação por barra. Os valores numéricos não mudam.",
+    "de": "Ließ sich die kritische Last eines gedrückten Stabs aus den Stäben allein nicht eingrenzen (ein Träger, den kein Lager hält, Stützen oberhalb des ersten Geschosses, Fachwerkstäbe, die an freien Knoten enden), warnte eine lineare 2D-Berechnung LIN-SECOND-ORDER-UNBOUNDED und hielt die CIRSOC-301-Nachweise zurück, wie weit das Tragwerk auch vom Knicken entfernt war (#1551). Die 2D-Prüfung begrenzt jetzt das ganze Tragwerk mit seinem kleinsten elastischen kritischen Lastfaktor λcr, aus demselben linearen Ergebnis berechnet: Jeder gedrückte Stab hat dann N/Ncr = 1/λcr, daher warnt sie LIN-SECOND-ORDER bei λcr < 13,4 und LIN-SECOND-ORDER-NEAR bei λcr < 21,4 und behält LIN-SECOND-ORDER-UNBOUNDED nur, wo sich λcr nicht berechnen lässt. Die 2D-Rahmen und -Fachwerke des Basic-Modus (λcr von 113 bis 19 000) warnen nicht mehr. In 3D bleibt es bei der Prüfung je Stab. Die Zahlenwerte bleiben unverändert.",
+    "fr": "Lorsque les barres seules ne permettaient pas de borner la charge critique d’une barre comprimée (une poutre qu’aucun appui ne tient, des poteaux au-dessus du premier niveau, des barres de treillis qui aboutissent à des nœuds libres), un calcul linéaire 2D avertissait LIN-SECOND-ORDER-UNBOUNDED et retenait les vérifications CIRSOC 301, quelle que soit la marge de la structure vis-à-vis du flambement (#1551). Le contrôle 2D borne désormais toute la structure par son plus petit facteur de charge critique élastique λcr, calculé à partir du même résultat linéaire : chaque barre comprimée a alors N/Ncr = 1/λcr, il avertit donc LIN-SECOND-ORDER lorsque λcr < 13,4 et LIN-SECOND-ORDER-NEAR lorsque λcr < 21,4, et ne garde LIN-SECOND-ORDER-UNBOUNDED que là où λcr ne peut pas être calculé. Les portiques et treillis 2D du mode Basic (λcr de 113 à 19 000) n’avertissent plus. En 3D, le contrôle reste barre par barre. Les valeurs numériques ne changent pas.",
+    "tr": "Bir basınç çubuğunun kritik yükü yalnızca çubuklardan sınırlandırılamadığında (hiçbir mesnedin tutmadığı bir kiriş, birinci katın üstündeki kolonlar, serbest düğümlerde biten kafes çubukları), 2B doğrusal bir çözüm, yapı burkulmadan ne kadar uzak olursa olsun LIN-SECOND-ORDER-UNBOUNDED uyarısı veriyor ve CIRSOC 301 kontrollerini bekletiyordu (#1551). 2B kontrol artık yapının tamamını, aynı doğrusal sonuçtan hesaplanan en küçük elastik kritik yük katsayısı λcr ile sınırlandırıyor: bu durumda her basınç çubuğunda N/Ncr = 1/λcr olur; bu yüzden λcr < 13,4 olduğunda LIN-SECOND-ORDER, λcr < 21,4 olduğunda LIN-SECOND-ORDER-NEAR uyarısı veriyor ve LIN-SECOND-ORDER-UNBOUNDED uyarısını yalnızca λcr hesaplanamadığında koruyor. Basic modundaki 2B çerçeve ve kafesler (λcr 113 ile 19 000 arası) artık uyarı vermiyor. 3B'de çubuk bazlı kontrol sürüyor. Sayısal değerler değişmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-basic-advisories-and-plastic.md",
+    "heading": "2D second-order warning bounded by the critical load factor"
+  }
+}
