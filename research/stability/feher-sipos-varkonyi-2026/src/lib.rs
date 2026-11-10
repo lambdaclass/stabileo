@@ -193,6 +193,12 @@ impl State {
     }
 
     pub fn lowest_stiffness(&self) -> Option<f64> {
+        self.critical_mode().map(|(value, _)| value)
+    }
+
+    /// The lowest eigenvalue of the tangent on the free DOFs and its mode as
+    /// nodal displacements; `None` when the tangent is not positive definite.
+    pub fn critical_mode(&self) -> Option<(f64, Vec<Displacement>)> {
         let dofs = DofNumbering::build_2d(&self.input);
         let (n, nf) = (dofs.n_total, dofs.n_free);
         let mut u = vec![0.0; n];
@@ -210,21 +216,58 @@ impl State {
         if !cholesky_decompose(&mut kff, nf) {
             return None;
         }
-        let mut v = vec![1.0; nf];
+        // A start without the model's symmetry, so an antisymmetric mode is found too.
+        let mut v: Vec<f64> = (0..nf).map(|i| 0.1 + (i as f64 * 0.618_033_988_7).fract()).collect();
         let mut mu = 0.0;
-        for _ in 0..200 {
+        for _ in 0..400 {
             let norm = v.iter().map(|x| x * x).sum::<f64>().sqrt();
             v.iter_mut().for_each(|x| *x /= norm);
             let w = back_solve(&kff, &forward_solve(&kff, &v, nf), nf);
             let next: f64 = v.iter().zip(&w).map(|(a, b)| a * b).sum();
             v = w;
-            if (next - mu).abs() <= 1e-10 * next.abs() {
+            if (next - mu).abs() <= 1e-12 * next.abs() {
                 mu = next;
                 break;
             }
             mu = next;
         }
-        Some(1.0 / mu)
+        let mut mode: Vec<Displacement> = self.displacements.iter().map(|d| Displacement { node_id: d.node_id, ux: 0.0, uz: 0.0, ry: 0.0 }).collect();
+        for m in mode.iter_mut() {
+            for local in 0..3 {
+                if let Some(&i) = dofs.map.get(&(m.node_id, local)) {
+                    if i < nf {
+                        let value = v[i];
+                        match local { 0 => m.ux = value, 1 => m.uz = value, _ => m.ry = value }
+                    }
+                }
+            }
+        }
+        let scale = mode.iter().map(|m| m.ux.hypot(m.uz)).fold(0.0, f64::max).max(1e-30);
+        mode.iter_mut().for_each(|m| { m.ux /= scale; m.uz /= scale; m.ry /= scale; });
+        Some((1.0 / mu, mode))
+    }
+
+    /// Stable equilibria at `to` reached from this state pushed along its
+    /// critical mode: the states a snap can land on, when load control
+    /// finds no equilibrium near the limit point.
+    pub fn snap_targets(&self, to: Setting) -> Vec<State> {
+        let Some((_, mode)) = self.critical_mode() else { return vec![] };
+        let mut found: Vec<State> = vec![];
+        for amplitude in [0.02, -0.02, 0.05, -0.05, 0.1, -0.1, 0.2, -0.2] {
+            let pushed = State {
+                displacements: self.displacements.iter().zip(&mode).map(|(d, m)| Displacement {
+                    node_id: d.node_id, ux: d.ux + amplitude * m.ux, uz: d.uz + amplitude * m.uz, ry: d.ry + amplitude * m.ry,
+                }).collect(),
+                ..self.clone()
+            };
+            if let Ok(landed) = pushed.advance(to, 40) {
+                let p = landed.snapshot();
+                if p.stable && self.jump_to(&landed) > 0.05 && !found.iter().any(|f| f.jump_to(&landed) < 1e-4) {
+                    found.push(landed);
+                }
+            }
+        }
+        found
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -303,21 +346,35 @@ pub fn limit_load(n: usize, theta: f64, delta: f64, distribution: Distribution, 
 }
 
 /// Largest curvature once the load first reaches `q`, loading from rest, and
-/// whether the strip passed through an unstable state on the way.
+/// whether the strip snapped on the way. Where the loaded strip loses
+/// stability first, the state at `q` is the stable one it snaps to, found by
+/// pushing the last stable state along its critical mode.
 pub fn curvature_at(n: usize, theta: f64, delta: f64, distribution: Distribution, q: f64) -> Result<(f64, bool), String> {
     let mut s = bend(n, Setting { theta, delta, q: 0.0 }, distribution, 2)?;
-    let steps = (q.abs() / 0.02).ceil() as usize;
+    let steps = (q.abs() / 0.01).ceil() as usize;
     for k in 1..=steps {
         let to = Setting { q: q * k as f64 / steps as f64, ..s.setting };
         match s.advance(to, 2) {
             Ok(next) if s.jump_to(&next) <= 0.05 && next.snapshot().stable => s = next,
             _ => {
-                let landed = s.advance(Setting { q, ..s.setting }, 200)?;
-                return Ok((landed.snapshot().max_curvature, true));
+                let landed = s.snap_targets(Setting { q, ..s.setting });
+                let first = landed.first().ok_or("no stable state found past the snap")?;
+                return Ok((first.snapshot().max_curvature, true));
             }
         }
     }
     Ok((s.snapshot().max_curvature, false))
+}
+
+/// The largest limit load along Θ = `theta` for Δ in `range`, and where it is.
+pub fn optimum_limit_load(n: usize, theta: f64, range: (f64, f64), step: f64, distribution: Distribution) -> Option<(f64, f64)> {
+    let count = ((range.1 - range.0) / step).round() as usize;
+    (0..=count)
+        .filter_map(|k| {
+            let delta = range.0 + step * k as f64;
+            limit_load(n, theta, delta, distribution, 10.0, 1.0).ok().flatten().map(|(q, _)| (q, delta))
+        })
+        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
 }
 
 pub mod run;

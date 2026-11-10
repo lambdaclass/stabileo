@@ -1,5 +1,5 @@
 use serde_json::{json, Value};
-use shape_control_feher_2026::{bend, curvature_at, limit_load, run, span, Distribution, Setting};
+use shape_control_feher_2026::{bend, curvature_at, limit_load, optimum_limit_load, run, span, Distribution, Setting};
 
 const SOURCE: &str = "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1";
 
@@ -13,6 +13,37 @@ fn published(id: &str, metric: &str, computed: Option<f64>, reference: f64, tole
         "id": id, "metric": metric, "computed": computed, "reference": reference, "observed": if observed.is_finite() { json!(observed) } else { json!(null) },
         "tolerance": tolerance, "passed": observed <= tolerance, "source": format!("{SOURCE}, {where_}")
     })
+}
+
+/// The height at half the arc length of a digitized curve: the points are
+/// chained from the clamp at the origin to their nearest neighbour, smoothed
+/// over three points (the drawn line has a width) and measured along the chain.
+fn midpoint_height(points: &[(f64, f64)]) -> f64 {
+    let mut left: Vec<(f64, f64)> = points.to_vec();
+    let start = (0..left.len()).min_by(|&a, &b| left[a].0.hypot(left[a].1).partial_cmp(&left[b].0.hypot(left[b].1)).unwrap()).unwrap();
+    let mut chain = vec![left.remove(start)];
+    while !left.is_empty() {
+        let c = *chain.last().unwrap();
+        let (i, d) = left.iter().enumerate().map(|(i, p)| (i, (p.0 - c.0).hypot(p.1 - c.1))).min_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
+        if d > 0.05 {
+            break;
+        }
+        chain.push(left.remove(i));
+    }
+    let smooth: Vec<(f64, f64)> = (0..chain.len())
+        .map(|i| {
+            let w = &chain[i.saturating_sub(1)..(i + 2).min(chain.len())];
+            (w.iter().map(|p| p.0).sum::<f64>() / w.len() as f64, w.iter().map(|p| p.1).sum::<f64>() / w.len() as f64)
+        })
+        .collect();
+    let mut length = vec![0.0];
+    for w in smooth.windows(2) {
+        length.push(length.last().unwrap() + (w[1].0 - w[0].0).hypot(w[1].1 - w[0].1));
+    }
+    let half = length.last().unwrap() / 2.0;
+    let i = length.iter().position(|&l| l >= half).unwrap();
+    let t = (half - length[i - 1]) / (length[i] - length[i - 1]);
+    smooth[i - 1].1 + t * (smooth[i].1 - smooth[i - 1].1)
 }
 
 fn main() {
@@ -67,13 +98,20 @@ fn main() {
             }
         }
         let f = &frames[best.1];
-        matches.insert(label.clone(), json!({"step": best.1, "theta": f["theta"], "delta": f["delta"], "median_distance": best.0}));
+        let corner = &frames[fresh["corners"][label.parse::<usize>().unwrap() - 1].as_u64().unwrap() as usize];
+        let ours = corner["y_mid"].as_f64().unwrap();
+        let paper = midpoint_height(&points);
+        matches.insert(label.clone(), json!({
+            "step": best.1, "theta": f["theta"], "delta": f["delta"], "median_distance": best.0,
+            "paper_theta": corner["theta"], "paper_delta": corner["delta"],
+        }));
         published_checks.push(json!({
             "id": format!("figure-9c-{label}"),
-            "metric": format!("Figure 9(c) shape {label}: median distance to the closest state on our path"),
-            "computed": best.0, "reference": 0.0, "observed": best.0, "tolerance": 0.008, "passed": best.0 <= 0.008,
-            "source": format!("{SOURCE}, Figure 9(c) p.24, digitized (reference-results/fig9c_digitized.json)")
+            "metric": format!("Figure 9(c) shape {label}: midpoint height y(1/2) at the clamp angles where Figure 9(b) places it, absolute difference"),
+            "computed": ours, "reference": paper, "observed": (ours - paper).abs(), "tolerance": 0.008, "passed": (ours - paper).abs() <= 0.008,
+            "source": format!("{SOURCE}, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve")
         }));
+        checks.push(check(&format!("shape-{label}"), &format!("Figure 9(c) shape {label}: median distance from the digitized curve to the closest state on our path"), best.0, 0.008));
     }
     let on = |label: &str, theta: f64, delta: f64, last: bool| {
         let m = &matches[label];
@@ -86,7 +124,11 @@ fn main() {
     published_checks.push(published("qlim-uniform-0.9-0", "Section 3.2.1: limit load, uniform load, Θ = 0.9, Δ = 0 (paper −4.2, downward)", qlim(0.9, 0.0, Distribution::Uniform), 4.2, 0.05, "Sec. 3.2.1 p.18"));
     published_checks.push(published("qlim-uniform-0.9-0.04", "Section 3.2.1: limit load, uniform load, Θ = 0.9, Δ = 0.04 (paper −3.9, downward)", qlim(0.9, 0.04, Distribution::Uniform), 3.9, 0.05, "Sec. 3.2.1 p.19"));
     published_checks.push(published("qlim-half-0.9-0", "Section 3.2.1: limit load, half-span load, Θ = 0.9, Δ = 0 (paper −2.5, downward)", qlim(0.9, 0.0, Distribution::Asymmetric), 2.5, 0.05, "Sec. 3.2.1 p.19"));
-    published_checks.push(published("qlim-half-0.66-1.36", "Section 3.2.1: limit load, half-span load, Θ = 0.66, Δ = 1.36 (paper −4.0, downward)", qlim(0.66, 1.36, Distribution::Asymmetric), 4.0, 0.05, "Sec. 3.2.1 p.19"));
+    let optimum = optimum_limit_load(96, 0.66, (1.0, 1.5), 0.0125, Distribution::Asymmetric);
+    let mut best = published("qlim-half-optimum", "Section 3.2.1: largest limit load with the half-span load along Θ = 0.66 (paper −4.0 at Δ = 1.36, on a bifurcation curve)", optimum.map(|o| o.0), 4.0, 0.05, "Sec. 3.2.1 p.19");
+    best["computed_delta"] = json!(optimum.map(|o| o.1));
+    best["reference_delta"] = json!(1.36);
+    published_checks.push(best);
     let kappa = |theta, delta, d| curvature_at(96, theta, delta, d, 2.5).ok().map(|(k, _)| k);
     published_checks.push(published("kappa-uniform-0.96-0", "Table 1: largest curvature at q = 2.5, uniform load, Θ = 0.96, Δ = 0", kappa(0.96, 0.0, Distribution::Uniform), 2.1, 0.05, "Table 1 p.20"));
     published_checks.push(published("kappa-half-0.96-0", "Table 1: largest curvature at q = 2.5, half-span load, Θ = 0.96, Δ = 0", kappa(0.96, 0.0, Distribution::Asymmetric), 7.6, 0.05, "Table 1 p.20"));

@@ -14,8 +14,8 @@
   import replay from '../../../../../research/stability/feher-sipos-varkonyi-2026/reference-results/replay.json';
   import validation from '../../../../../research/stability/feher-sipos-varkonyi-2026/VALIDATION.json';
 
-  type Check = { id: string; computed?: number | null; reference?: number; observed: number | null; passed: boolean };
-  type Match = { step: number; theta: number; delta: number; median_distance: number };
+  type Check = { id: string; computed?: number | null; reference?: number; observed: number | null; passed: boolean; computed_delta?: number | null; reference_delta?: number };
+  type Match = { step: number; theta: number; delta: number; median_distance: number; paper_theta: number; paper_delta: number };
   type Row = { quantity: string; note: string; paper: string; ours: string; difference: string; passed: boolean };
 
   const s = $derived(shapeStrings());
@@ -74,25 +74,38 @@
   const percent = (d: number) => `${d > 0 ? '+' : d < 0 ? '−' : ''}${num(Math.abs(100 * d), { dp: 1 })} %`;
   const groups = $derived.by(() => {
     const setting = (t: number, d: number) => fill(s.setting, { t: num(t, { dp: 2 }), d: num(d, { dp: 2 }) });
-    const figure: Row[] = Object.entries(matches).map(([k, m]) => ({
-      quantity: fill(s.shapeRow, { k }),
-      note: '',
-      paper: s.shapePaper,
-      ours: setting(m.theta, m.delta),
-      difference: num(m.median_distance, { dp: 4 }),
-      passed: byId(`figure-9c-${k}`).passed,
-    }));
+    const signed = (d: number, dp: number) => `${d > 0 ? '+' : d < 0 ? '−' : ''}${num(Math.abs(d), { dp })}`;
+    const figure: Row[] = Object.entries(matches).map(([k, m]) => {
+      const c = byId(`figure-9c-${k}`);
+      return {
+        quantity: fill(s.shapeRow, { k }),
+        note: setting(m.paper_theta, m.paper_delta),
+        paper: num(c.reference!, { dp: 3 }),
+        ours: num(c.computed!, { dp: 3 }),
+        difference: signed(c.computed! - c.reference!, 3),
+        passed: c.passed,
+      };
+    });
+    const afterSnap = new Set(['kappa-half-0.96-0', 'kappa-uniform-0.64-1.16']);
     const values: Row[] = published.filter(c => c.id.startsWith('qlim-') || c.id.startsWith('kappa-')).map(c => {
-      const [kind, load, t, d] = c.id.split('-');
       const reference = c.reference!;
       const computed = c.computed ?? null;
+      const difference = computed === null ? '—' : percent((computed - reference) / reference);
+      const ours = computed === null ? s.notReached : num(computed, { dp: 2 });
+      if (c.id === 'qlim-half-optimum') {
+        return {
+          quantity: s.optimumRow,
+          note: fill(s.optimumNote, { p: num(c.reference_delta!, { dp: 2 }), o: c.computed_delta == null ? '—' : num(c.computed_delta, { dp: 2 }) }),
+          paper: `≈ ${num(reference, { dp: 1 })}`, ours, difference, passed: c.passed,
+        };
+      }
+      const [kind, load, t, d] = c.id.split('-');
+      const where = setting(Number(t), Number(d));
       return {
         quantity: fill(kind === 'qlim' ? s.limitRow : s.curvatureRow, { load: load === 'uniform' ? s.uniform : s.half }),
-        note: setting(Number(t), Number(d)),
+        note: afterSnap.has(c.id) ? `${where} · ${s.afterSnap}` : where,
         paper: kind === 'qlim' ? `≈ ${num(reference, { dp: 1 })}` : num(reference, { dp: 2 }),
-        ours: computed === null ? s.notReached : num(computed, { dp: 2 }),
-        difference: computed === null ? '—' : percent((computed - reference) / reference),
-        passed: c.passed,
+        ours, difference, passed: c.passed,
       };
     });
     const arc = byId('arc-radius');
