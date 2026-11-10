@@ -2,6 +2,8 @@ import importlib.util
 import json
 from pathlib import Path
 import unittest
+import tempfile
+import sys
 
 spec = importlib.util.spec_from_file_location("plastic_replay", Path(__file__).parents[1] / "replay-plastic-budget.py")
 module = importlib.util.module_from_spec(spec)
@@ -11,6 +13,16 @@ spec.loader.exec_module(module)
 class SeededReplay(unittest.TestCase):
     binary = Path("engine/fuzz/target/release/examples/plastic_replay")
     seed = Path("engine/fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin")
+
+    @unittest.skip("known wrong result: #1888")
+    def test_first_call_only_leak_is_detected_even_with_one_repeat(self):
+        with tempfile.TemporaryDirectory(dir=".") as directory:
+            binary = Path(directory).resolve() / "first-leak"
+            binary.write_text(f"#!{sys.executable}\nimport json, sys\nfor i in range(int(sys.argv[3])):\n print(json.dumps(dict(live_before=0 if i == 0 else 1, live_after=1)))\n")
+            binary.chmod(0o755)
+            for repeats in (1, 3):
+                result = module.replay(binary, self.seed, repeats=repeats, seconds=10)
+                self.assertEqual(result["failure"], "retained allocation", result)
 
     def test_good_seed_repeats_without_retaining_allocations(self):
         result = module.replay(self.binary, self.seed, repeats=3, seconds=10)

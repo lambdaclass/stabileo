@@ -178,6 +178,14 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #1888"]
+    fn exact_elimination_refuses_unbounded_limb_storage() {
+        let huge = Q::from_integer(BigInt::one() << 1_000_000usize);
+        let result = rref_solve(&[vec![huge]], Some(&[Q::one()]), 1);
+        assert!(result.particular.is_none());
+    }
+
+    #[test]
     fn f64_round_trip_is_exact_and_directed() {
         for &x in &[0.1, -0.1, 1.0 / 3.0, 1e-300, 123456.789, -7.5] {
             let r = q(x).unwrap();
