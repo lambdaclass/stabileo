@@ -14,10 +14,9 @@ const input = (): SolverInput => ({
 const warning = (position: number): StructuredDiagnostic => ({
   code: 'known_issue', severity: 'warning', phase: 'NUM-INVARIANCE', value: 762, message: `position ${position}`,
 });
-const regression = process.env.RUN_1753_WARNING_REPRODUCERS ? it : it.skip;
 afterEach(() => { vi.restoreAllMocks(); wasm.setPreparedLoadSessionsEnabled(true); });
 
-regression('known wrong result: #1753: influence collects every independent position warning through the solve entry point', () => {
+it('#1753 influence collects every independent position warning through the solve entry point', () => {
   const warnings = [warning(1), warning(2)];
   let position = 0;
   vi.spyOn(wasm, 'solve').mockImplementation(() => ({
@@ -34,7 +33,7 @@ it('influence retains each distinct native warning from later positions', () => 
   const run = LoadSession2D.prototype.solve;
   const warnings = [warning(1), warning(2)];
   let position = 0;
-  vi.spyOn(LoadSession2D.prototype, 'solve').mockImplementation(function (loads) {
+  vi.spyOn(LoadSession2D.prototype, 'solve').mockImplementation(function (this: LoadSession2D, loads) {
     const result = run.call(this, loads);
     if (position++ > 0) result.structuredDiagnostics.push(warnings[(position - 2) % warnings.length]);
     return result;
@@ -57,4 +56,16 @@ it('prepared influence preserves the complete diagnostics and ordinates of indep
   const independent = sweep();
   wasm.setPreparedLoadSessionsEnabled(true);
   expect(sweep()).toEqual(independent);
+});
+
+it('a prepared solve uses the candidate model when its structure differs', () => {
+  const model = input();
+  const session = wasm.prepareLoadSession2D(model);
+  const candidate = { ...model, supports: new Map([[2, { id: 2, nodeId: 2, type: 'fixed' as const }]]),
+    loads: [{ type: 'nodal' as const, data: { nodeId: 1, fx: 0, fz: -1, my: 0 } }] };
+  const run = vi.spyOn(LoadSession2D.prototype, 'solve');
+  try {
+    expect(wasm.solve(candidate, session)).toEqual(wasm.solve(candidate));
+    expect(run).not.toHaveBeenCalled();
+  } finally { session.free(); }
 });

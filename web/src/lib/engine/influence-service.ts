@@ -121,7 +121,7 @@ export function computePoints(
   };
   const session = familyOf(quantity) === 'displacement' ? null : prepareLoadSession2D(unit);
   const run: Solve = (input) => {
-    const result = session ? session.solve(input.loads) : solve(input);
+    const result = solve(input, session ?? undefined);
     seen(result);
     return result;
   };
