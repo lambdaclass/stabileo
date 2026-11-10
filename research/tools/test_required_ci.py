@@ -197,11 +197,10 @@ for caller, event, route_only, expected in [
 print('ok online audit runs on research PRs without duplicating required jobs')
 
 class ResearchCacheTests(unittest.TestCase):
-    @unittest.skip("known wrong result: #1885")
     def test_registered_bundles_and_cache_invalidation(self):
         steps = jobs['research-wasm']['steps']
         caches = {step['id'].removeprefix('research-'): step for step in steps if step.get('id', '').startswith('research-')}
-        assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026', 'gay-neto-2014'}, sorted(caches)
+        assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026', 'gay-neto-2014', 'feher-sipos-varkonyi-2026'}, sorted(caches)
         for name, cache in caches.items():
             assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
         build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
@@ -251,15 +250,17 @@ class ResearchCacheTests(unittest.TestCase):
             for relative in ['engine/src/lib.rs', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/config.toml']:
                 assert invalidated(checkout / relative) == engine, relative
             for crate in ['research/fracture/shauer-2025', 'research/optimization/andreassen-2011', 'research/mechanics/biggins-2026',
-                          'research/metamaterials/grossman-2026', 'research/form-finding/pastrana-2026', 'research/optimisation/fairclough-2026']:
+                          'research/metamaterials/grossman-2026', 'research/form-finding/pastrana-2026', 'research/optimisation/fairclough-2026',
+                          'research/stability/feher-sipos-varkonyi-2026']:
                 assert 'dedaliano-engine' in pathlib.Path(crate, 'Cargo.toml').read_text(), crate
             for relative in ['flake.lock', 'Cargo.lock', 'rust-toolchain.toml', 'research/tools/asset_identity.py']:
                 assert invalidated(checkout / relative) == set(caches), relative
             assert invalidated(checkout / 'research/fracture/shauer-2025/wasm/trim_exports.py') == {'shauer-2025', 'biggins-2026'}
             for name, crate in [('shauer-2025', 'research/fracture/shauer-2025'), ('grossman-2026', 'research/metamaterials/grossman-2026'),
                                 ('andreassen-2011', 'research/optimization/andreassen-2011'), ('pastrana-2026', 'research/form-finding/pastrana-2026'),
-                                ('biggins-2026', 'research/mechanics/biggins-2026'), ('fairclough-2026', 'research/optimisation/fairclough-2026')]:
-                for relative in ['build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml', 'wasm/build.sh']:
+                                ('biggins-2026', 'research/mechanics/biggins-2026'), ('fairclough-2026', 'research/optimisation/fairclough-2026'),
+                                ('feher-sipos-varkonyi-2026', 'research/stability/feher-sipos-varkonyi-2026')]:
+                for relative in ['src/lib.rs', 'Cargo.toml', 'Cargo.lock', 'build.sh', 'build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml', 'wasm/build.sh']:
                     assert invalidated(checkout / crate / relative) == {name}, (crate, relative)
         print('ok research caches invalidate for their own inputs, and every engine change for all of them')
 
