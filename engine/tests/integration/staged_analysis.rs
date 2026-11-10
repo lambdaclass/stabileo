@@ -840,7 +840,6 @@ fn staged_stays_fixture(n_elem: usize, anchored_pylon: bool) -> StagedInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #1921"]
 fn staged_sparse_path_with_cables_parity() {
     let mut mid_defs = Vec::new();
     for (n_elem, mid_node) in [(20usize, 11usize), (24, 13)] {
@@ -895,4 +894,56 @@ fn staged_compressive_cables_refused_on_dense_and_sparse_paths() {
         refusals.push(error);
     }
     assert_eq!(refusals[0], refusals[1]);
+}
+
+#[test]
+fn staged_cables_refuse_unsupported_histories_and_loads() {
+    let variants: [(&str, fn(&mut StagedInput)); 6] = [
+        ("previous load", |s| s.stages[0].load_indices.push(0)),
+        ("early cable", |s| s.stages[0].elements_added.push(101)),
+        ("settlement", |s| s.supports.get_mut("s1").unwrap().dx = Some(0.001)),
+        ("member load", |s| s.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 101, a: 1.0, p: -1.0, px: None, my: None,
+        }))),
+        ("prestress", |s| s.stages[1].prestress_loads.push(PrestressLoad {
+            element_id: 101, force: 1.0, eccentricity_i: 0.0, eccentricity_j: 0.0,
+            profile: TendonProfile::Straight, mu: None, kappa: None,
+        })),
+        ("constraint", |s| s.constraints.push(Constraint::RigidLink(RigidLinkConstraint {
+            master_node: 1, slave_node: 2, dofs: vec![0, 1],
+        }))),
+    ];
+    for n_elem in [20, 24] {
+        for (name, alter) in variants {
+            let mut input = staged_stays_fixture(n_elem, true);
+            alter(&mut input);
+            let error = solve_staged_2d(&input).expect_err(name);
+            let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+            let diagnostic = &error["structuredDiagnostics"][0];
+            assert_eq!(diagnostic["code"], "cable_analysis_required", "{name}");
+            assert_eq!(diagnostic["severity"], "error", "{name}");
+            assert_eq!(diagnostic["elementIds"], serde_json::json!([101, 102, 103]), "{name}");
+            assert!(error.get("results").is_none(), "{name}");
+        }
+    }
+}
+
+#[test]
+fn staged_cables_require_positive_tension() {
+    for n_elem in [20, 24] {
+        for factor in [0.0, -1.0] {
+            let mut input = staged_stays_fixture(n_elem, true);
+            for load in &mut input.loads {
+                let SolverLoad::Nodal(load) = load else { unreachable!() };
+                load.fz *= factor;
+            }
+            let error = solve_staged_2d(&input).expect_err("zero or compressive cable force");
+            let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+            let diagnostic = &error["structuredDiagnostics"][0];
+            assert_eq!(diagnostic["code"], "cable_analysis_required");
+            assert_eq!(diagnostic["severity"], "error");
+            assert_eq!(diagnostic["elementIds"], serde_json::json!([101, 102, 103]));
+            assert!(error.get("results").is_none());
+        }
+    }
 }

@@ -32,6 +32,6 @@
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-frozen-surface-final-state.md",
-    "heading": "Frozen surface contacts validate the final geometry (2026-11-10)"
+    "heading": "Frozen surface final-geometry validation, superseded (2026-11-10)"
   }
 }

@@ -104,7 +104,25 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
 
     // Build DOF numbering from the full structure (all nodes, all elements)
     let full_solver_input = staged_to_full_solver_input(input);
-    super::linear::validate_input_2d(&full_solver_input)?;
+    let cable_ids: HashSet<usize> = full_solver_input.elements.values()
+        .filter(|e| e.elem_type == "cable").map(|e| e.id).collect();
+    if cable_ids.is_empty() {
+        super::linear::validate_input_2d(&full_solver_input)?;
+    } else {
+        let supported = input.constraints.is_empty()
+            && input.loads.iter().all(|load| matches!(load, SolverLoad::Nodal(_)))
+            && input.supports.values().all(|s| [s.dx, s.dz, s.dry].iter().all(|d| d.is_none_or(|v| v == 0.0)))
+            && input.stages.iter().enumerate().all(|(i, stage)| {
+                stage.prestress_loads.is_empty()
+                    && (i == input.stages.len() - 1
+                        || (stage.load_indices.is_empty()
+                            && stage.elements_added.iter().all(|id| !cable_ids.contains(id))))
+            });
+        if !supported {
+            super::validity::require_cable_analysis(cable_ids.iter().copied())?;
+        }
+        super::linear::validate_input_2d_for_analysis(&full_solver_input, crate::known_issues::Analysis::Cable)?;
+    }
     let dof_num = DofNumbering::build_2d(&full_solver_input);
 
     if dof_num.n_free == 0 {
@@ -325,7 +343,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
                 &stage_solver_input, &dof_num, input, &active_elements, stage,
                 &mut cumulative_u, &u_r, nf, nr, n,
                 asm_trips.as_ref(), &mut cumulative_diagnostics,
-            );
+            )?;
         }
 
         // Build cumulative input for correct FEF subtraction in internal force recovery.
@@ -362,6 +380,17 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
                 nf,
             ),
         });
+        let forces = &stage_results.last().unwrap().results.element_forces;
+        super::validity::require_cable_analysis(
+            stage_solver_input.elements.values().filter(|e| e.elem_type == "cable")
+                .filter(|e| !forces.binary_search_by_key(&e.id, |f| f.element_id).ok()
+                    .is_some_and(|i| {
+                        let f = &forces[i];
+                        f.n_start.is_finite() && f.n_start > 0.0
+                            && f.n_end.is_finite() && f.n_end > 0.0
+                    }))
+                .map(|e| e.id),
+        )?;
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, conditioning.into_iter().collect());
         crate::known_issues::attach(&mut cumulative_diagnostics, stage_results.last().unwrap().results.structured_diagnostics.clone());
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, cumulative_diagnostics.clone());
@@ -989,7 +1018,7 @@ fn iterate_cables_staged_2d(
     n: usize,
     base_trips: Option<&StagedTriplets2D>,
     diagnostics: &mut Vec<StructuredDiagnostic>,
-) {
+) -> Result<(), String> {
     const MAX_CABLE_ITER: usize = 30;
     const CABLE_TOL: f64 = 1e-4;
 
@@ -1057,7 +1086,7 @@ fn iterate_cables_staged_2d(
         cable_tensions.insert(elem.id, tension);
     }
 
-    if cables.is_empty() { return; }
+    if cables.is_empty() { return Ok(()); }
 
     for iter in 0..MAX_CABLE_ITER {
         let u_f = if let Some(base) = base_trips {
@@ -1126,7 +1155,7 @@ fn iterate_cables_staged_2d(
             crate::known_issues::attach(diagnostics, conditioning.into_iter().collect());
             match solved {
                 Ok(u) => u,
-                Err(_) => break, // Can't solve, keep current state
+                Err(_) => return super::validity::require_cable_analysis(cables.iter().map(|ci| ci.elem_id)),
             }
         } else {
         // Re-assemble with modified cable stiffnesses
@@ -1197,7 +1226,7 @@ fn iterate_cables_staged_2d(
             crate::known_issues::attach(diagnostics, conditioning.into_iter().collect());
             match solved {
                 Ok(u) => u,
-                Err(_) => break, // Can't solve, keep current state
+                Err(_) => return super::validity::require_cable_analysis(cables.iter().map(|ci| ci.elem_id)),
             }
         } else {
             let mut k_work = k_ff.clone();
@@ -1210,7 +1239,7 @@ fn iterate_cables_staged_2d(
                     let mut f_work = f_f;
                     match lu_solve(&mut k_work, &mut f_work, nf) {
                         Some(u) => u,
-                        None => break, // Can't solve, keep current state
+                        None => return super::validity::require_cable_analysis(cables.iter().map(|ci| ci.elem_id)),
                     }
                 }
             }
@@ -1244,9 +1273,10 @@ fn iterate_cables_staged_2d(
         }
 
         if max_change < CABLE_TOL {
-            break;
+            return Ok(());
         }
     }
+    super::validity::require_cable_analysis(cables.iter().map(|ci| ci.elem_id))
 }
 
 // ==================== 3D Staged Construction Analysis ====================
