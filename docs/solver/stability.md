@@ -100,7 +100,7 @@ has identity diagonal blocks. Under rotation, mirror and relabelling `S` is repl
 **exactly invariant** under all four transforms. Plain Jacobi scaling (`D = diag K`) is
 invariant under units but not under rotation, which is why `kinematic.rs` still moved.
 
-Up to 64 kept directions the spectrum of `S` is computed in full (cyclic Jacobi). Above,
+Up to 64 kept directions the eigenvalues of `S` are computed in full (cyclic Jacobi). The same rotations compute eigenvectors only when the conditioning or constraint-rounding decision needs a refusal mode; accepted solves omit that unused work. Above,
 Lanczos with full reorthogonalization estimates `λ_max(S)` and, on a sparse Cholesky
 factor, `1/λ_min(S)`, each until its top Ritz value changes by less than `1e-12` of itself
 over ten steps, or after 200 steps (a non-finite value is a failure). A Ritz value never exceeds the extreme eigenvalue

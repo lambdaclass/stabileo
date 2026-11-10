@@ -305,11 +305,15 @@ pub(crate) fn coupling_3d(input: &SolverInput3D, dof: &DofNumbering) -> Vec<(usi
 }
 
 fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
+    sym_eigen_small_impl(a, n, true)
+}
+
+fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f64>) {
     let scale = a.iter().fold(0.0f64, |m, x| m.max(x.abs()));
     let scale = if scale > 0.0 && scale.is_finite() { scale } else { 1.0 };
     let mut m: Vec<f64> = a.iter().map(|x| x / scale).collect();
-    let mut v = vec![0.0; n * n];
-    for i in 0..n { v[i * n + i] = 1.0; }
+    let mut v = if vectors { vec![0.0; n * n] } else { Vec::new() };
+    if vectors { for i in 0..n { v[i * n + i] = 1.0; } }
     for _ in 0..64 {
         let off: f64 = (0..n).flat_map(|i| (0..n).filter(move |&j| j != i).map(move |j| (i, j))).map(|(i, j)| m[i * n + j] * m[i * n + j]).sum();
         let diag: f64 = (0..n).map(|i| m[i * n + i] * m[i * n + i]).sum();
@@ -333,12 +337,14 @@ fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
                     m[p * n + k] = c * mpk - s * mqk;
                     m[q * n + k] = s * mpk + c * mqk;
                 }
-                #[cfg(test)]
-                tests::EIGENVECTOR_ROTATIONS.with(|count| count.set(count.get() + 1));
-                for k in 0..n {
-                    let (vkp, vkq) = (v[k * n + p], v[k * n + q]);
-                    v[k * n + p] = c * vkp - s * vkq;
-                    v[k * n + q] = s * vkp + c * vkq;
+                if vectors {
+                    #[cfg(test)]
+                    tests::EIGENVECTOR_ROTATIONS.with(|count| count.set(count.get() + 1));
+                    for k in 0..n {
+                        let (vkp, vkq) = (v[k * n + p], v[k * n + q]);
+                        v[k * n + p] = c * vkp - s * vkq;
+                        v[k * n + q] = s * vkp + c * vkq;
+                    }
                 }
             }
         }
@@ -346,11 +352,14 @@ fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
     let mut order: Vec<usize> = (0..n).collect();
     order.sort_by(|&a, &b| m[a * n + a].total_cmp(&m[b * n + b]));
     let values = order.iter().map(|&i| m[i * n + i] * scale).collect();
-    let mut vectors = vec![0.0; n * n];
-    for (c, &i) in order.iter().enumerate() {
-        for r in 0..n { vectors[r * n + c] = v[r * n + i]; }
+    let mut eigenvectors = Vec::new();
+    if vectors {
+        eigenvectors.resize(n * n, 0.0);
+        for (c, &i) in order.iter().enumerate() {
+            for r in 0..n { eigenvectors[r * n + c] = v[r * n + i]; }
+        }
     }
-    (values, vectors)
+    (values, eigenvectors)
 }
 
 #[derive(Default)]
@@ -680,7 +689,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
         return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa: 1.0, anisotropy, free, mode_nodes: Vec::new() };
     }
     let s = scaled(k, &groups, &group_of, &columns);
-    let (kappa, mode, indefinite) = spectrum(&s, anisotropy);
+    let (kappa, mode, indefinite) = spectrum(&s, anisotropy, amplification);
     let mode_nodes = mode.map(|x| mode_nodes(&x, &columns, &groups)).unwrap_or_default();
     if indefinite {
         return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa, anisotropy, free, mode_nodes };
@@ -940,14 +949,20 @@ fn certified_top(s: &CscMatrix, estimate: f64) -> Option<f64> {
         .find(|&upper| upper.is_finite() && upper > 0.0 && positive_definite(s, -1.0, upper))
 }
 
-fn spectrum(s: &CscMatrix, anisotropy: f64) -> (f64, Option<Vec<f64>>, bool) {
+fn spectrum(s: &CscMatrix, anisotropy: f64, amplification: f64) -> (f64, Option<Vec<f64>>, bool) {
     let m = s.n;
     if m <= FULL_SPECTRUM {
-        let (mu, vecs) = sym_eigen_small(&s.to_dense_symmetric(), m);
-        let x: Vec<f64> = (0..m).map(|r| vecs[r * m]).collect();
+        let dense = s.to_dense_symmetric();
+        let (mu, _) = sym_eigen_small_impl(&dense, m, false);
         let indefinite = -mu[0] > ROUNDING * m as f64 * f64::EPSILON * anisotropy * mu[m - 1].abs();
-        if mu[0].is_nan() || mu[0] <= 0.0 { return (f64::INFINITY, Some(x), indefinite); }
-        return (mu[m - 1] / mu[0], Some(x), false);
+        let kappa = if mu[0].is_nan() || mu[0] <= 0.0 { f64::INFINITY } else { mu[m - 1] / mu[0] };
+        if !indefinite && kappa * amplification <= RESOLVABLE
+            && (kappa * anisotropy <= RESOLVABLE || (kappa <= RESOLVABLE && anisotropy <= MAX_ANISOTROPY)) {
+            return (kappa, None, false);
+        }
+        let (_, vecs) = sym_eigen_small(&dense, m);
+        let x: Vec<f64> = (0..m).map(|r| vecs[r * m]).collect();
+        return (kappa, Some(x), indefinite);
     }
     let sym = Rc::new(symbolic_cholesky(s));
     let Some(factor) = numeric_cholesky(&sym, s) else { return (f64::INFINITY, None, false) };
@@ -1159,7 +1174,6 @@ mod tests {
         assert!(lanczos_top(&|x| matrix.sym_mat_vec(x), 2, seed, &|top| certified_top(&matrix, top)).is_none());
     }
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn issue_1753_fast_accepted_spectrum_avoids_unused_eigenvector_rotations() {
         let matrix = CscMatrix::from_dense_symmetric(&[2.0, 1.0, 0.0, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0], 3);
         let tags: Vec<_> = (0..3).map(|node| DofTag { node, kind: DofKind::Translation }).collect();
@@ -1168,6 +1182,34 @@ mod tests {
         assert_eq!(result.verdict, Verdict::Stable);
         assert!(!result.needs_accuracy_check());
         assert_eq!(EIGENVECTOR_ROTATIONS.with(|count| count.get()), 0);
+    }
+
+    #[test]
+    fn issue_1753_spectrum_values_and_refusal_modes_match_full_jacobi() {
+        for dense in [
+            vec![2.0, 1.0, 0.0, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0],
+            vec![1.0, 2.0, 0.0, 2.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            vec![1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+        ] {
+            for scale in [1e-200, 1.0, 1e200] {
+                let dense: Vec<_> = dense.iter().map(|x| x * scale).collect();
+                let (expected_values, expected_vectors) = sym_eigen_small(&dense, 3);
+                let (values, vectors) = sym_eigen_small_impl(&dense, 3, false);
+                assert!(vectors.is_empty());
+                assert_eq!(values.iter().map(|v| v.to_bits()).collect::<Vec<_>>(), expected_values.iter().map(|v| v.to_bits()).collect::<Vec<_>>());
+                for (anisotropy, amplification) in [(1.0, 1.0), (RESOLVABLE, 1.0), (1.0, RESOLVABLE)] {
+                    let matrix = CscMatrix { n: 3, col_ptr: vec![0, 3, 5, 6], row_idx: vec![0, 1, 2, 1, 2, 2], values: vec![dense[0], dense[3], dense[6], dense[4], dense[7], dense[8]] };
+                    let (kappa, mode, indefinite) = spectrum(&matrix, anisotropy, amplification);
+                    let expected_kappa = if expected_values[0] <= 0.0 { f64::INFINITY } else { expected_values[2] / expected_values[0] };
+                    assert_eq!(kappa.to_bits(), expected_kappa.to_bits());
+                    let expected_indefinite = -expected_values[0] > ROUNDING * 3.0 * f64::EPSILON * anisotropy * expected_values[2].abs();
+                    assert_eq!(indefinite, expected_indefinite);
+                    let accepted = kappa * amplification <= RESOLVABLE && (kappa * anisotropy <= RESOLVABLE || (kappa <= RESOLVABLE && anisotropy <= MAX_ANISOTROPY));
+                    if accepted { assert!(mode.is_none()); }
+                    else { assert_eq!(mode.unwrap(), (0..3).map(|r| expected_vectors[r * 3]).collect::<Vec<_>>()); }
+                }
+            }
+        }
     }
 
 }

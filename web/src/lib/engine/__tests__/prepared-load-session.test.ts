@@ -79,7 +79,7 @@ it('2D constrained sessions retain constraint forces and prescribed coupling', (
   } finally { session.free(); }
 });
 
-it.skipIf(!process.env.RUN_1753_PERFORMANCE_REPRODUCERS)('known wrong result: #1753 influence positions share one native load session and retain every ordinate', () => {
+it('#1753 influence positions share one native load session and retain every ordinate', () => {
   const input = beam2();
   const target = { kind: 'section', elementId: 1, t: 0.37 } as const;
   for (const quantity of ['N', 'V', 'M'] as const) {
@@ -95,7 +95,7 @@ it.skipIf(!process.env.RUN_1753_PERFORMANCE_REPRODUCERS)('known wrong result: #1
     vi.restoreAllMocks();
   }
 });
-it.skipIf(!process.env.RUN_1753_PERFORMANCE_REPRODUCERS)('known wrong result: #1753 influence load sessions are freed when a position refuses', () => {
+it('#1753 influence load sessions are freed when a position refuses', () => {
   vi.spyOn(LoadSession2D.prototype, 'solve').mockImplementationOnce(() => { throw new Error('position refused'); });
   const free = vi.spyOn(LoadSession2D.prototype, 'free');
   expect(() => computePoints(beam2(), 'N', { kind: 'section', elementId: 1, t: 0.5 }, 20, { x: 1, z: 0 }, 'horizontal')).toThrow('position refused');
