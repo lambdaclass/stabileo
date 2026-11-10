@@ -73,7 +73,7 @@ describe('Lee frame', () => {
   });
 
   it('has complete dictionaries in all six site locales, translated', () => {
-    expect(Object.keys(strings).sort()).toEqual(['de', 'en', 'es', 'fr', 'pt', 'tr']);
+    expect(Object.keys(strings).sort()).toEqual(['de', 'en', 'es', 'fr', 'hu', 'pt', 'tr']);
     for (const [locale, dictionary] of Object.entries(strings)) {
       expect(Object.keys(dictionary)).toEqual(Object.keys(strings.en));
       if (locale !== 'en') for (const key of ['lead', 'description', 'provenance', 'convergence', 'paperWhy', 'codeWhy', 'readout'] as const) expect(dictionary[key]).not.toBe(strings.en[key]);
