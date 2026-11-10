@@ -47,8 +47,8 @@ impl System {
         self.set(row, col, self.rows[row].get(&col).copied().unwrap_or(0.0) + value)
     }
 
-    fn solve(mut self, mut rhs: Vec<f64>) -> Result<Vec<f64>, String> {
-        let n = rhs.len();
+    fn factor(&mut self) -> Result<Vec<usize>, String> {
+        let n = self.rows.len();
         let mut pivots = Vec::with_capacity(n);
         for col in 0..n {
             let row = self.columns[col].iter().copied()
@@ -69,15 +69,26 @@ impl System {
                 for &(j, v) in &upper {
                     self.add(i, j, -factor * v)?;
                 }
-                rhs[i] -= factor * rhs[row];
+                self.set(i, col, factor)?;
+                self.columns[col].remove(&i);
             }
             pivots.push(row);
+        }
+        Ok(pivots)
+    }
+
+    fn apply(&self, pivots: &[usize], rhs: &[f64]) -> Result<Vec<f64>, String> {
+        let n = pivots.len();
+        let mut y = rhs.to_vec();
+        for col in 0..n {
+            let row = pivots[col];
+            for (&j, &factor) in self.rows[row].range(..col) { y[row] -= factor * y[pivots[j]]; }
         }
         let mut x = vec![0.0; n];
         for col in (0..n).rev() {
             let row = pivots[col];
             let tail: f64 = self.rows[row].range((col + 1)..).map(|(&j, &v)| v * x[j]).sum();
-            x[col] = (rhs[row] - tail) / self.rows[row][&col];
+            x[col] = (y[row] - tail) / self.rows[row][&col];
         }
         if x.iter().any(|v| !v.is_finite()) {
             return Err("Harmonic sparse direct solve produced a non-finite response".into());
@@ -104,37 +115,98 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
     let perm = amd_order(n, &pattern.col_ptr, &pattern.row_idx);
     let mut inverse = vec![0; n];
     for (i, &j) in perm.iter().enumerate() { inverse[j] = i; }
-    for (matrix, real, imag) in [(k, 1.0, omega * a1), (m, -omega * omega, omega * a0)] {
-        for j in 0..n {
-            for p in matrix.col_ptr[j]..matrix.col_ptr[j + 1] {
-                let i = matrix.row_idx[p];
-                let v = matrix.values[p];
-                for (i, j) in [(i, j), (j, i)].into_iter().take(if i == j { 1 } else { 2 }) {
-                    let (r, c) = (2 * inverse[i], 2 * inverse[j]);
-                    let scale = (real * v).abs().max((imag * v).abs());
-                    scales[c] = scales[c].max(scale);
-                    scales[c + 1] = scales[c + 1].max(scale);
-                    system.add(r, c, real * v)?;
-                    system.add(r + 1, c + 1, real * v)?;
-                    system.add(r, c + 1, -imag * v)?;
-                    system.add(r + 1, c, imag * v)?;
-                }
-            }
+    dynamic_entries(k, m, (a0, a1), omega, |i, j, real, imag, scale| {
+        for (i, j) in [(i, j), (j, i)].into_iter().take(if i == j { 1 } else { 2 }) {
+            let (r, c) = (2 * inverse[i], 2 * inverse[j]);
+            scales[c] = scales[c].max(scale);
+            scales[c + 1] = scales[c + 1].max(scale);
+            system.add(r, c, real)?;
+            system.add(r + 1, c + 1, real)?;
+            system.add(r, c + 1, -imag)?;
+            system.add(r + 1, c, imag)?;
         }
-    }
+        Ok(())
+    })?;
     let mut rhs = vec![0.0; 2 * n];
     for i in 0..n { rhs[2 * inverse[i]] = f[i]; }
     for row in &system.rows {
         for (&col, &value) in row { scales[col] = scales[col].max(value.abs()); }
     }
+    for scale in &mut scales { *scale = column_scale(*scale)?; }
     for row in &mut system.rows {
         for (&col, value) in row { *value /= scales[col]; }
     }
-    let mut x = system.solve(rhs)?;
-    for (value, scale) in x.iter_mut().zip(scales) { *value /= scale; }
+    let pivots = system.factor()?;
+    let mut x = system.apply(&pivots, &rhs)?;
+    for (value, scale) in x.iter_mut().zip(&scales) { *value /= scale; }
+    for _ in 0..2 {
+        let mut residual: Vec<Residual> = rhs.iter().copied().map(Residual::new).collect();
+        dynamic_entries(k, m, (a0, a1), omega, |i, j, real, imag, _| {
+            for (i, j) in [(i, j), (j, i)].into_iter().take(if i == j { 1 } else { 2 }) {
+                let (r, c) = (2 * inverse[i], 2 * inverse[j]);
+                residual[r].subtract(real, x[c]);
+                residual[r].subtract(-imag, x[c + 1]);
+                residual[r + 1].subtract(imag, x[c]);
+                residual[r + 1].subtract(real, x[c + 1]);
+            }
+            Ok(())
+        })?;
+        let residual: Vec<f64> = residual.into_iter().map(Residual::value).collect();
+        let correction = system.apply(&pivots, &residual)?;
+        for i in 0..2 * n { x[i] += correction[i] / scales[i]; }
+    }
+    if x.iter().any(|v| !v.is_finite()) {
+        return Err("Harmonic sparse direct solve produced a non-finite response".into());
+    }
     let re = (0..n).map(|i| x[2 * inverse[i]]).collect();
     let im = (0..n).map(|i| x[2 * inverse[i] + 1]).collect();
     Ok((re, im))
+}
+
+fn dynamic_entries(k: &CscMatrix, m: &CscMatrix, (a0, a1): (f64, f64), omega: f64, mut visit: impl FnMut(usize, usize, f64, f64, f64) -> Result<(), String>) -> Result<(), String> {
+    for j in 0..k.n {
+        let (mut kp, mut mp) = (k.col_ptr[j], m.col_ptr[j]);
+        let (ke, me) = (k.col_ptr[j + 1], m.col_ptr[j + 1]);
+        while kp < ke || mp < me {
+            let i = k.row_idx.get(kp).filter(|_| kp < ke).copied().unwrap_or(usize::MAX)
+                .min(m.row_idx.get(mp).filter(|_| mp < me).copied().unwrap_or(usize::MAX));
+            let kv = if kp < ke && k.row_idx[kp] == i { let v = k.values[kp]; kp += 1; v } else { 0.0 };
+            let mv = if mp < me && m.row_idx[mp] == i { let v = m.values[mp]; mp += 1; v } else { 0.0 };
+            let inertia = omega * omega * mv;
+            let (kc, mc) = (omega * a1 * kv, omega * a0 * mv);
+            visit(i, j, kv - inertia, kc + mc, kv.abs().max(inertia.abs()).max(kc.abs()).max(mc.abs()))?;
+        }
+    }
+    Ok(())
+}
+
+pub(super) fn column_scale(value: f64) -> Result<f64, String> {
+    let fraction = (1_u64 << 52) - 1;
+    let bits = value.to_bits();
+    let scale = if bits & fraction == 0 { value } else { f64::from_bits((bits & !fraction) + (1_u64 << 52)) };
+    if !value.is_finite() || !scale.is_finite() {
+        return Err("Harmonic direct column scale is non-finite".into());
+    }
+    Ok(scale)
+}
+
+pub(super) struct Residual {
+    sum: f64,
+    correction: f64,
+}
+
+impl Residual {
+    pub(super) fn new(rhs: f64) -> Self { Self { sum: rhs, correction: 0.0 } }
+
+    pub(super) fn subtract(&mut self, a: f64, x: f64) {
+        let product = -a * x;
+        let next = self.sum + product;
+        self.correction += if self.sum.abs() >= product.abs() { (self.sum - next) + product } else { (product - next) + self.sum };
+        self.correction += (-a).mul_add(x, -product);
+        self.sum = next;
+    }
+
+    pub(super) fn value(self) -> f64 { self.sum + self.correction }
 }
 
 #[cfg(test)]
@@ -214,13 +286,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1539"]
     fn dense_coupled_static_response_matches_closed_form() {
         coupled_static_closed_form(false);
     }
 
     #[test]
-    #[ignore = "known wrong result: #1539"]
     fn sparse_coupled_static_response_matches_closed_form() {
         coupled_static_closed_form(true);
     }

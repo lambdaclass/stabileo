@@ -741,16 +741,28 @@ fn analysis_accuracy_zeroed_pcg_3d_before_certification_is_rejected() {
 
 fn retained_analysis_failures(seed: u64, dim: &str) -> Vec<(&'static str, &'static str)> {
     match (seed, dim) {
-        (2026110200030, "d2") => vec![("harmonic", "relabel"), ("harmonic", "units")],
-        (2026110200045, "d3") | (2026110200167 | 2026110200176, "d2") => vec![("harmonic", "units")],
         (2026110200115, "d3") => vec![("linear (PCG)", "units")],
         (2026110200131, "d3") => ["harmonic", "time history"].into_iter().flat_map(|a| ["relabel", "rotation", "units"].map(|i| (a, i))).collect(),
         _ => vec![],
     }
 }
 
+fn retained_analysis_refusals(seed: u64, dim: &str) -> Vec<(&'static str, &'static str)> {
+    match (seed, dim) {
+        (2026110200030, "d2") => vec![("harmonic", "relabel"), ("harmonic", "units")],
+        (2026110200045, "d3") | (2026110200167 | 2026110200176, "d2") => vec![("harmonic", "units")],
+        _ => vec![],
+    }
+}
+
 fn assert_retained_analysis_failures(seed: u64, dim: &str, t: &Tally) {
     assert_analysis_failures(seed, dim, t, retained_analysis_failures(seed, dim));
+    let cells = t.cells.lock().unwrap();
+    for (a, i) in retained_analysis_refusals(seed, dim) {
+        let c = cell(&cells, 1892, a, i);
+        assert!(c.fails.is_empty(), "{seed} {dim}: {a} / {i}: {c:?}");
+        assert_eq!((c.pass, c.refused, c.same_refusal, c.unrep, c.inconclusive, c.not_applicable), (0, 1, 0, 0, 0, 0), "{seed} {dim}: {a} / {i} must refuse: {c:?}");
+    }
 }
 
 fn assert_analysis_failures(seed: u64, dim: &str, t: &Tally, expected: Vec<(&str, &str)>) {
@@ -765,10 +777,11 @@ fn assert_analysis_failures(seed: u64, dim: &str, t: &Tally, expected: Vec<(&str
 }
 
 #[test]
-fn analysis_accuracy_retained_wrong_result_cells_stay_failures() {
+fn analysis_accuracy_retained_wrong_results_are_detected_or_refused() {
     for (seed, dim) in [(2026110200030, "d2"), (2026110200045, "d3"), (2026110200115, "d3"), (2026110200131, "d3"), (2026110200167, "d2"), (2026110200176, "d2")] {
         let t = Tally::default();
-        let cells = retained_analysis_failures(seed, dim);
+        let mut cells = retained_analysis_failures(seed, dim);
+        cells.extend(retained_analysis_refusals(seed, dim));
         let names: Vec<_> = cells.iter().map(|c| c.0).collect();
         if dim == "d2" {
             let c = crate::corpus::fuzz_case_2d(2026110200000, seed - 2026110200000);

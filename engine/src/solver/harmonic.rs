@@ -717,9 +717,8 @@ fn harmonic_modal_from_eigen(
         Some(_) => {}
     }
 
-    let unbounded = p < n && (statics.is_none() || !uncorrected.is_empty());
     let result = HarmonicResult {
-        structured_diagnostics: if unbounded { vec![crate::known_issues::diagnostic("HARM-TRUNCATION")] } else { vec![] },
+        structured_diagnostics: Vec::new(),
         response_points,
         peak_frequency: peak_freq,
         peak_amplitude: peak_amp,
@@ -793,7 +792,6 @@ fn resolve_unbounded_frequencies(
     result.peak_frequency = peak_freq;
     result.peak_amplitude = peak_amp;
     if direct.len() == result.response_points.len() {
-        result.structured_diagnostics.retain(|d| d.phase.as_deref() != Some("HARM-TRUNCATION"));
         return Ok((HarmonicResult {
             method: HarmonicMethod::Direct,
             modes_used: 0,
@@ -807,9 +805,6 @@ fn resolve_unbounded_frequencies(
     result.direct_frequencies = direct.iter().map(|&i| result.response_points[i].frequency).collect();
     if uncorrected.iter().all(|f| result.direct_frequencies.contains(f)) {
         result.warnings.retain(|w| !w.starts_with(UNCORRECTED_WARNING));
-        if !uncorrected.is_empty() {
-            result.structured_diagnostics.retain(|d| d.phase.as_deref() != Some("HARM-TRUNCATION"));
-        }
     }
     result.warnings.push(format!(
         "{} frequenc{} where the modes do not bound the truncation error (q over {MODAL_TRUNCATION_Q}) {} solved directly",
@@ -916,13 +911,33 @@ pub fn solve_complex_system(
     // RHS: [F, 0]
     rhs[..n].copy_from_slice(&f[..n]);
 
+    for scale in &mut scales { *scale = super::harmonic_direct::column_scale(*scale)?; }
     for i in 0..n2 {
         for j in 0..n2 { a[i * n2 + j] /= scales[j]; }
     }
-    let mut result = lu_solve(&mut a, &mut rhs, n2)
-        .ok_or_else(|| "Complex system solve failed".to_string())?;
-
-    for (value, scale) in result.iter_mut().zip(scales) { *value /= scale; }
+    let pivots = lu_factor(&mut a, n2).ok_or_else(|| "Complex system solve failed".to_string())?;
+    let mut result = lu_apply(&a, &pivots, &rhs, n2).ok_or_else(|| "Complex system solve failed".to_string())?;
+    for (value, scale) in result.iter_mut().zip(&scales) { *value /= scale; }
+    for _ in 0..2 {
+        let mut residual = vec![0.0; n2];
+        for i in 0..n {
+            let mut re = super::harmonic_direct::Residual::new(f[i]);
+            let mut im = super::harmonic_direct::Residual::new(0.0);
+            for j in 0..n {
+                let kd = k[i * n + j] - omega2 * m[i * n + j];
+                let wc = omega * c[i * n + j];
+                re.subtract(kd, result[j]);
+                re.subtract(-wc, result[n + j]);
+                im.subtract(wc, result[j]);
+                im.subtract(kd, result[n + j]);
+            }
+            residual[i] = re.value();
+            residual[n + i] = im.value();
+        }
+        let correction = lu_apply(&a, &pivots, &residual, n2).ok_or_else(|| "Complex system refinement failed".to_string())?;
+        for i in 0..n2 { result[i] += correction[i] / scales[i]; }
+    }
+    if result.iter().any(|v| !v.is_finite()) { return Err("Complex system refinement produced a non-finite response".into()); }
     let u_real = result[..n].to_vec();
     let u_imag = result[n..].to_vec();
     Ok((u_real, u_imag))

@@ -167,7 +167,6 @@ Pull requests and the merge queue check this ledger against their base and their
 - NL-3: a 3D co-rotational member whose ends turn more than 0.02 rad against its chord; the end forces omit a finite-rotation term whose relative error is about half that rotation.
 - NL-13: only a returned contact history with a frozen gap, including max_flips = 0 on the first flip; no warning for an ordinary converged contact solve.
 - MD-ORTHOGONALITY: 3D modal, spectral, and harmonic modal-superposition analysis; no proven safe input subset (#1371: harmonic responses off by large factors).
-- HARM-TRUNCATION: a 2D or 3D harmonic sweep by modal superposition with fewer modes than DOFs, at a frequency where the static correction of the omitted modes is not applied (q ≥ ½) or not available.
 - TH-RECIPROCITY: 2D and 3D time history; no proven safe input subset.
 - ORPHAN-SOFT-ROTATION: a 2D or 3D prepared static solve in which a DOF held by the orphan-rotation spring moves at all.
 - LIN-SMALL-DISPLACEMENT: a 2D or 3D prepared static solve or combination with a node rotation (3D: rotation-vector norm), or (solves; combinations carry their cases') a two-node member chord rotation ‖Δu‖/L, over 0.1 rad.
