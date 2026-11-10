@@ -268,3 +268,16 @@ it('translates cable and frozen-contact refusals in all six languages', async ()
   }
   setLocale('en');
 });
+
+it.skip('known wrong result: #432: translates invalid contact tolerance in six locales', async () => {
+  for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+    setLocale(loc);
+    await ensureLocale(loc);
+    const error = JSON.stringify({ structuredDiagnostics: [{ code: 'contact_tolerance_invalid', severity: 'error', message: 'ENGINE' }] });
+    const translated = dictFor(loc)['analysisValidity.contactTolerance'];
+    expect(translated).toBeTruthy();
+    expect(knownIssueRefusal(error)).toBe(translated);
+    expect(errorText(error, 'fallback')).toBe(translated);
+  }
+  setLocale('en');
+});
