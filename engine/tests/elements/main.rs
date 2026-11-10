@@ -18,6 +18,8 @@ mod axial_span_paths;
 mod buckling_span_axial_2d;
 #[path = "../buckling_span_axial_3d.rs"]
 mod buckling_span_axial_3d;
+#[path = "../pdelta_span_axial.rs"]
+mod pdelta_span_axial;
 #[path = "../cable_statics.rs"]
 mod cable_statics;
 #[path = "../connector_k_findings.rs"]
