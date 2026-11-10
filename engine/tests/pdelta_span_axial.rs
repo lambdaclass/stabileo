@@ -547,3 +547,112 @@ fn trapezoidal_and_partial_axial_span_loads_match_independent_ritz() {
         }
     }
 }
+
+
+fn independent_span_plane(point: bool) -> [[f64; 2]; 2] {
+    let steps = 8192;
+    let mut out = [[0.0; 2]; 2];
+    for j in 0..=steps {
+        let t = j as f64 / steps as f64;
+        let weight = if j == 0 || j == steps {
+            1.0
+        } else if j % 2 == 0 {
+            2.0
+        } else {
+            4.0
+        };
+        let compression = if point {
+            if t < 0.5 {
+                0.0
+            } else if t == 0.5 {
+                P / 2.0
+            } else {
+                P
+            }
+        } else {
+            P * t
+        };
+        let d = [(6.0 * t - 6.0 * t * t) / L, 3.0 * t * t - 2.0 * t];
+        for a in 0..2 {
+            for b in 0..2 {
+                out[a][b] -= weight * L / (3.0 * steps as f64) * compression * d[a] * d[b];
+            }
+        }
+    }
+    out
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn force_kg_2d_integrates_span_loads_like_displacement_assembly() {
+    use dedaliano_engine::solver::{dof::DofNumbering, geometric_stiffness::*, linear::solve_2d};
+    for point in [false, true] {
+        let input = input_2d(1, point, 0.0);
+        let dofs = DofNumbering::build_2d(&input);
+        let linear = solve_2d(&input).unwrap();
+        let mut u = vec![0.0; dofs.n_total];
+        for d in &linear.displacements {
+            for (i, value) in [d.ux, d.uz, d.ry].into_iter().enumerate() {
+                if let Some(k) = dofs.global_dof(d.node_id, i) {
+                    u[k] = value;
+                }
+            }
+        }
+        let mut dense = vec![0.0; dofs.n_total * dofs.n_total];
+        add_geometric_stiffness_2d(&input, &dofs, &u, &mut dense);
+        let force = build_kg_from_forces_2d(&input, &dofs, &linear.element_forces, &[])
+            .into_csc()
+            .to_dense_symmetric();
+        let want = independent_span_plane(point);
+        let plane = [
+            dofs.global_dof(2, 1).unwrap(),
+            dofs.global_dof(2, 2).unwrap(),
+        ];
+        for a in 0..2 {
+            for b in 0..2 {
+                let scale = P * L;
+                assert!(
+                    (dense[plane[a] * dofs.n_total + plane[b]] - want[a][b]).abs() <= 1e-10 * scale
+                );
+                assert!(
+                    (force[plane[a] * dofs.n_free + plane[b]] - want[a][b]).abs() <= 1e-10 * scale,
+                    "point {point}, ({a},{b}): force {}, independent {}",
+                    force[plane[a] * dofs.n_free + plane[b]],
+                    want[a][b]
+                );
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1329"]
+fn force_kg_3d_integrates_span_loads_in_both_bending_planes() {
+    use dedaliano_engine::solver::{dof::DofNumbering, geometric_stiffness::*, linear::solve_3d};
+    for point in [false, true] {
+        let input = input_3d(1, 1, point);
+        let dofs = DofNumbering::build_3d(&input);
+        let linear = solve_3d(&input).unwrap();
+        let force = build_kg_from_forces_3d(&input, &dofs, &linear.element_forces)
+            .into_csc()
+            .to_dense_symmetric();
+        let want = independent_span_plane(point);
+        for (trans, rot, sign) in [(1, 5, 1.0), (2, 4, -1.0)] {
+            let plane = [
+                dofs.global_dof(2, trans).unwrap(),
+                dofs.global_dof(2, rot).unwrap(),
+            ];
+            for a in 0..2 {
+                for b in 0..2 {
+                    let expected = want[a][b] * if a == b { 1.0 } else { sign };
+                    assert!(
+                        (force[plane[a] * dofs.n_free + plane[b]] - expected).abs()
+                            <= 1e-10 * P * L,
+                        "point {point}, plane {trans}, ({a},{b}): force {}, independent {expected}",
+                        force[plane[a] * dofs.n_free + plane[b]]
+                    );
+                }
+            }
+        }
+    }
+}
