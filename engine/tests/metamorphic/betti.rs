@@ -52,7 +52,10 @@ pub fn check(p: &Pair, s: &Solves, rel: f64) -> Verdict {
         let rhs = project(s, &s.moment_b, p.a, &format!("u{t}"), p.force_a);
         let what = format!("θ(n{}←F n{}) vs u(n{}←M n{}) {}", p.b, p.a, p.a, p.b, it.tag);
         let (Some(l), Some(r)) = (lhs, rhs) else { return Verdict::Fail(format!("{what}: a side is missing or malformed")) };
-        let tol = rel * (scale(&s.force_a, p.rotation) + scale(&s.moment_b, "u") + z_u + z_r);
+        let error = crate::analysis_accuracy::projected_error(&s.force_a, p.b, &it.tag, p.moment_b)
+            + crate::analysis_accuracy::projected_error(&s.moment_b, p.a, &format!("u{t}"), p.force_a)
+            + s.zero.as_ref().map_or(0.0, |z| crate::analysis_accuracy::projected_error(z, p.b, &it.tag, p.moment_b) + crate::analysis_accuracy::projected_error(z, p.a, &format!("u{t}"), p.force_a));
+        let tol = (rel * (scale(&s.force_a, p.rotation) + scale(&s.moment_b, "u") + z_u + z_r)).max(error);
         rows.push((what, l, r, tol));
     }
     for it in s.moment_a.0.iter().filter(|i| i.node == Some(p.b)) {
@@ -63,7 +66,10 @@ pub fn check(p: &Pair, s: &Solves, rel: f64) -> Verdict {
         let rhs = project(s, &s.moment_b, p.a, &it.tag, p.moment_a);
         let what = format!("θ(n{}←M n{}) vs θ(n{}←M n{}) {}", p.b, p.a, p.a, p.b, it.tag);
         let (Some(l), Some(r)) = (lhs, rhs) else { return Verdict::Fail(format!("{what}: a side is missing or malformed")) };
-        let tol = rel * (scale(&s.moment_a, p.rotation) + scale(&s.moment_b, p.rotation) + 2.0 * z_r);
+        let error = crate::analysis_accuracy::projected_error(&s.moment_a, p.b, &it.tag, p.moment_b)
+            + crate::analysis_accuracy::projected_error(&s.moment_b, p.a, &it.tag, p.moment_a)
+            + s.zero.as_ref().map_or(0.0, |z| crate::analysis_accuracy::projected_error(z, p.b, &it.tag, p.moment_b) + crate::analysis_accuracy::projected_error(z, p.a, &it.tag, p.moment_a));
+        let tol = (rel * (scale(&s.moment_a, p.rotation) + scale(&s.moment_b, p.rotation) + 2.0 * z_r)).max(error);
         rows.push((what, l, r, tol));
     }
     let force_rows = rows.iter().filter(|r| r.0.contains("←F")).count();
@@ -118,6 +124,29 @@ mod tests {
 
     fn pair() -> Pair<'static> {
         Pair { a: 1, b: 2, force_a: &[1.0, 0.0], moment_a: &[1.0], moment_b: &[1.0], rotation: "ry" }
+    }
+
+    #[test]
+    fn analysis_error_preserves_the_ordinary_betti_ratio() {
+        let mut s = solves(vec![0.0], vec![0.0, 0.0]);
+        s.force_a.0.iter_mut().find(|i| i.node == Some(2) && i.tag == "ry").unwrap().v[0] += 1e-13;
+        let Verdict::Pass(before) = check(&pair(), &s, 1e-12) else { panic!("ordinary response") };
+        for r in [&mut s.force_a, &mut s.moment_a, &mut s.moment_b, s.zero.as_mut().unwrap()] {
+            for i in &mut r.0 { i.error = 1e-20; }
+        }
+        let Verdict::Pass(after) = check(&pair(), &s, 1e-12) else { panic!("ordinary response with error metadata") };
+        assert_eq!(before.to_bits(), after.to_bits());
+        s.force_a.0.iter_mut().find(|i| i.node == Some(2) && i.tag == "ry").unwrap().v[0] += 1e-6;
+        assert!(matches!(check(&pair(), &s, 1e-12), Verdict::Fail(_)));
+    }
+
+    #[test]
+    fn invalid_analysis_bounds_cannot_pass_betti() {
+        for error in [f64::NAN, f64::INFINITY, -1.0] {
+            let mut s = solves(vec![0.0], vec![0.0, 0.0]);
+            s.force_a.0.iter_mut().find(|i| i.node == Some(2) && i.tag == "ry").unwrap().error = error;
+            assert!(matches!(check(&pair(), &s, 1e-12), Verdict::Fail(_)));
+        }
     }
 
     #[test]

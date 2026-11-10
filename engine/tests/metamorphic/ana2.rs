@@ -229,6 +229,7 @@ pub fn rows() -> Vec<Ana2> {
                 let (mut p, n, e) = pad_2d(&c.s);
                 p.solver_options = Some(SolverOptions { method: Some("pcg".into()), preconditioner: None, tolerance: Some(1e-12), max_iterations: Some(100_000) });
                 let mut r = static_2d(&linear::solve_2d(&p)?);
+                crate::analysis_accuracy::attach(&mut r, |r| crate::analysis_accuracy::pcg_2d(c, r));
                 r.retain_ids(&n, &e);
                 Ok(r)
             },
@@ -458,8 +459,17 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            planar: Some(|_, _, s| Ok(load_factors(buckling::solve_buckling_3d(s, 3)?.modes.iter().map(|m| m.load_factor)))),
-            run: |c| Ok(load_factors(buckling::solve_buckling_2d(&c.s, 3)?.modes.iter().map(|m| m.load_factor))),
+            planar: Some(|c, _, s| {
+                let c3 = crate::case::Case3 { s: s.clone(), name: c.name.clone(), dens: c.dens.clone(), p: c.p.clone(), probes: c.probes.clone(), path: c.path.clone() };
+                let mut r = load_factors(buckling::solve_buckling_3d(s, 3)?.modes.iter().map(|m| m.load_factor));
+                crate::analysis_accuracy::attach(&mut r, |r| crate::analysis_accuracy::buckling_3d(&c3, r));
+                Ok(r)
+            }),
+            run: |c| {
+                let mut r = load_factors(buckling::solve_buckling_2d(&c.s, 3)?.modes.iter().map(|m| m.load_factor));
+                crate::analysis_accuracy::attach(&mut r, |r| crate::analysis_accuracy::buckling_2d(c, r));
+                Ok(r)
+            },
         },
         Ana2 {
             name: "time history",
@@ -476,7 +486,7 @@ pub fn rows() -> Vec<Ana2> {
                     beta: 0.25, gamma: 0.5, alpha: None, damping_xi: Some(0.05), ground_accel: None, ground_direction: None,
                     force_history: Some(vec![TimeForceRecord { time: 0.0, loads: loads.clone() }, TimeForceRecord { time: 1000.0 * c.p.dt, loads }]),
                 };
-                let r = time_integration::solve_time_history_2d(&inp)?;
+                let (r, trace) = time_integration::solve_time_history_2d_traced(&inp)?;
                 let mut o = Resp::default();
                 o.2 = crate::response::NearMechanism::of(&r.structured_diagnostics);
                 for h in &r.node_histories {
@@ -485,6 +495,7 @@ pub fn rows() -> Vec<Ana2> {
                         o.push(Some(h.node_id), None, &format!("ry_t{k:03}"), Kind::P2(Dim::NONE), vec![h.ry[k]]);
                     }
                 }
+                crate::analysis_accuracy::attach(&mut o, |o| crate::analysis_accuracy::time_2d(c, &trace, o));
                 Ok(o)
             },
         },
@@ -547,23 +558,31 @@ pub fn rows() -> Vec<Ana2> {
             run: |c| {
                 let node = *c.probes.first().ok_or("no probe node")?;
                 let mut comps = Vec::new();
+                let accuracy = crate::dynamic_accuracy::harmonic_2d(c).ok();
+                let cond = accuracy.as_ref().and_then(|_| dedaliano_engine::metamorphic::conditioning::of_2d(&c.s).ok());
                 for dof in ["x", "y"] {
                     let inp = harmonic::HarmonicInput {
                         solver: c.s.clone(), densities: c.dens.clone(), frequencies: c.p.freqs.clone(), damping_ratio: 0.05,
                         response_node_id: node, response_dof: dof.into(),
                     };
-                    comps.push(harmonic::solve_harmonic_2d(&inp)?);
+                    comps.push(harmonic::solve_harmonic_2d_with_damping(&inp)?);
                 }
                 let mut o = Resp::default();
                 // Natural size: the largest static displacement (the ω = 0 response), a rotation as rotation × model size.
                 let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.z, 0.0]));
                 let us = linear::solve_2d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()).max(d.ry.abs() * l))).unwrap_or(0.0);
                 for k in 0..c.p.freqs.len() {
-                    let (a, b) = (&comps[0].response_points[k], &comps[1].response_points[k]);
+                    let (a, b) = (&comps[0].0.response_points[k], &comps[1].0.response_points[k]);
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V2(Dim::LEN), vec![a.real, b.real]);
                     o.push(Some(node), None, &format!("H_im{k}"), Kind::V2(Dim::LEN), vec![a.imag, b.imag]);
                     o.set_floor(&format!("H_re{k}"), us);
                     o.set_floor(&format!("H_im{k}"), us);
+                    if let (Some(a), Some(cond)) = (&accuracy, &cond) {
+                        let error = a.natural * a.harmonic_error(std::f64::consts::TAU * c.p.freqs[k], comps[0].1, cond.rel());
+                        if error.is_finite() {
+                            for i in o.0.iter_mut().filter(|i| i.tag == format!("H_re{k}") || i.tag == format!("H_im{k}")) { i.error = error; }
+                        }
+                    }
                 }
                 Ok(o)
             },
@@ -643,6 +662,7 @@ pub fn rows() -> Vec<Ana2> {
                 o.set_floor("M", c.p.axle * span);
                 o.set_floor("V", c.p.axle);
                 o.set_floor("N", c.p.axle);
+                crate::analysis_accuracy::attach(&mut o, |o| crate::analysis_accuracy::moving_2d(c, &r, o));
                 Ok(o)
             },
         },

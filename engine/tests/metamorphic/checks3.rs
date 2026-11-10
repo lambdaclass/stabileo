@@ -7,7 +7,7 @@ use crate::checks2::{bounded, guarded, hash, is_lower_bound, rel_for, settle, tr
 use crate::response::{Kind, Resp};
 use crate::tally::{Tally, Verdict};
 use dedaliano_engine::element::compute_local_axes_3d;
-use dedaliano_engine::metamorphic::compare::{compare_compliant, compare_with_compliance, Flat, Report};
+use dedaliano_engine::metamorphic::compare::Report;
 use dedaliano_engine::metamorphic::conditioning::{self, Conditioning, INCONCLUSIVE};
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::Iso3;
@@ -117,7 +117,7 @@ fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, action_floor_3d(tc, a.name, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
+        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| crate::analysis_accuracy::compare(&g, &e, c2.lchar, rel, action_floor_3d(tc, a.name, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
         Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e, expected.2),
     }
@@ -334,7 +334,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                                 let exp = lin.common(&base);
                                 let got = base.common(&exp);
                                 let rel = rel_for(a.name, a.iter_tol, &cond) * 2.0;
-                                judge(compare_with_compliance(&got.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)), rel)
+                                judge(crate::analysis_accuracy::compare(&got, &exp, cond.lchar, rel, load_floor_3d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)), rel)
                             }
                         }
                     }
@@ -364,8 +364,9 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
                 let mut exp = base.clone();
                 for it in exp.0.iter_mut().filter(|i| i.tag != crate::response::LOWER_BOUND) {
                     it.v.iter_mut().for_each(|x| *x /= k);
+                    it.error /= k;
                 }
-                bounded(&r, &exp, rel).unwrap_or_else(|| judge(compare_with_compliance(&r.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar) * k, crate::checks2::compliance(a.name, &cond)), rel))
+                bounded(&r, &exp, rel).unwrap_or_else(|| judge(crate::analysis_accuracy::compare(&r, &exp, cond.lchar, rel, load_floor_3d(&c.s, cond.lchar) * k, crate::checks2::compliance(a.name, &cond)), rel))
             }
             Err(e) if is_lower_bound(base) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
             Err(e) => Verdict::Fail(format!("scaled loads failed: {e}")),
@@ -385,15 +386,15 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
     ab.extend(lb.iter().cloned());
     let k = -2.5;
     let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
-    let r = (|| -> Result<(Flat, Flat, Flat, Flat, Flat), String> {
-        let ra = run(a, &c.with_loads(la.clone()))?.without_stress().flat();
-        let rb = run(a, &c.with_loads(lb.clone()))?.without_stress().flat();
-        let rab = run(a, &c.with_loads(ab))?.without_stress().flat();
-        let rk = run(a, &c.with_loads(scale_loads_3d(&la, k)))?.without_stress().flat();
+    let r = (|| -> Result<(Resp, Resp, Resp, Resp, Resp), String> {
+        let ra = run(a, &c.with_loads(la.clone()))?.without_stress();
+        let rb = run(a, &c.with_loads(lb.clone()))?.without_stress();
+        let rab = run(a, &c.with_loads(ab))?.without_stress();
+        let rk = run(a, &c.with_loads(scale_loads_3d(&la, k)))?.without_stress();
         let r0 = match run(a, &c.with_loads(vec![])) {
-            Ok(r) => r.without_stress().flat(),
+            Ok(r) => r.without_stress(),
             Err(e) if crate::generated::strict() => return Err(format!("zero-load solve: {e}")),
-            Err(_) => Flat::lin_comb(0.0, &ra, 0.0, &ra),
+            Err(_) => Resp::lin_comb(0.0, &ra, 0.0, &ra),
         };
         Ok((ra, rb, rab, rk, r0))
     })();
@@ -402,17 +403,17 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
         Err(e) if crate::generated::strict() => return Verdict::Fail(format!("load subset: {e}")),
         Err(e) => return Verdict::Refused(format!("load subset: {e}")),
     };
-    let da = Flat::lin_comb(1.0, &ra, -1.0, &r0);
-    let db = Flat::lin_comb(1.0, &rb, -1.0, &r0);
-    let exp_ab = Flat::lin_comb(1.0, &Flat::lin_comb(1.0, &da, 1.0, &db), 1.0, &r0);
-    let scale = Flat::lin_comb(1.0, &Flat::abs_comb(1.0, &ra, 1.0, &rb), 2.0, &Flat::abs_comb(1.0, &r0, 0.0, &r0));
+    let da = Resp::lin_comb(1.0, &ra, -1.0, &r0);
+    let db = Resp::lin_comb(1.0, &rb, -1.0, &r0);
+    let exp_ab = Resp::lin_comb(1.0, &Resp::lin_comb(1.0, &da, 1.0, &db), 1.0, &r0);
+    let scale = Resp::lin_comb(1.0, &Resp::abs_comb(1.0, &ra, 1.0, &rb), 2.0, &Resp::abs_comb(1.0, &r0, 0.0, &r0));
     let floor = load_floor_3d(&c.s, cond.lchar) * (1.0 + k.abs());
-    if let v @ Verdict::Fail(_) = judge(compare_compliant(&rab, &exp_ab, &scale, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("R(A+B) ≠ R(A)+R(B)−R(∅): {e}")), rel) {
+    if let v @ Verdict::Fail(_) = judge(crate::analysis_accuracy::compare_scaled(&rab, &exp_ab, &scale, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("R(A+B) ≠ R(A)+R(B)−R(∅): {e}")), rel) {
         return v;
     }
-    let exp_k = Flat::lin_comb(k, &da, 1.0, &r0);
-    let scale_k = Flat::abs_comb(k, &ra, 1.0 + k.abs(), &r0);
-    judge(compare_compliant(&rk, &exp_k, &scale_k, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("R(kA) ≠ k·R(A): {e}")), rel)
+    let exp_k = Resp::lin_comb(k, &da, 1.0, &r0);
+    let scale_k = Resp::abs_comb(k, &ra, 1.0 + k.abs(), &r0);
+    judge(crate::analysis_accuracy::compare_scaled(&rk, &exp_k, &scale_k, cond.lchar, rel, floor, crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("R(kA) ≠ k·R(A): {e}")), rel)
 }
 
 fn free_nodes(c: &Case3) -> Vec<usize> {
@@ -528,7 +529,10 @@ fn translational_reciprocity(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut
         let (b0, a0) = (base_at(nb, &it.tag), base_at(na, &it.tag));
         let dab = dot(&it.v, &db) - dot(&b0, &db);
         let dba = dot(&vb, &da) - dot(&a0, &da);
-        pairs.push((it.tag.clone(), dab, dba));
+        let error = crate::analysis_accuracy::projected_error(&ra, nb, &it.tag, &db)
+            + crate::analysis_accuracy::projected_error(&rb, na, &it.tag, &da)
+            + r0.as_ref().map_or(0.0, |r| if r.node_vec(nb, &it.tag).is_some() { crate::analysis_accuracy::projected_error(r, nb, &it.tag, &db) } else { 0.0 } + if r.node_vec(na, &it.tag).is_some() { crate::analysis_accuracy::projected_error(r, na, &it.tag, &da) } else { 0.0 });
+        pairs.push((it.tag.clone(), dab, dba, error));
     }
     let mut scale: f64 = 0.0;
     for r in [&ra, &rb] {
@@ -544,9 +548,9 @@ fn translational_reciprocity(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut
         return Verdict::Inconclusive(rel);
     }
     let mut worst: f64 = 0.0;
-    for (tag, dab, dba) in pairs {
-        let tol = rel * scale + f64::MIN_POSITIVE;
-        if !((dab - dba).abs() <= tol) {
+    for (tag, dab, dba, error) in pairs {
+        let tol = (rel * scale).max(error) + f64::MIN_POSITIVE;
+        if !tol.is_finite() || !((dab - dba).abs() <= tol) {
             return Verdict::Fail(format!("{tag}: δ(n{nb}←n{na}) = {dab:.10e} vs δ(n{na}←n{nb}) = {dba:.10e}, |diff| {:.3e} > tol {tol:.3e}", (dab - dba).abs()));
         }
         worst = worst.max((dab - dba).abs() / tol);

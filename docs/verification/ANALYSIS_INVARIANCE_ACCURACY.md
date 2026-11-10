@@ -1,0 +1,183 @@
+# Analysis error models in invariance checks
+
+## Scope and baseline
+
+Baseline main is `8f4c3ee6c`. All eight issues were read with `gh issue view` and replayed through `metamorphic_replay`, with the published JSON and seed, before changing the harness. The original model name and density metadata are preserved when supplied. #1369 and #1370 publish the same model and seed, and have separate regression tests.
+
+| Issue | Seed | Analysis / relation | Baseline | Fixed harness |
+|---|---:|---|---|---|
+| #1094 | 2026110203181 | PCG / units | Pass | Pass |
+| #1211 | 2026110205346 | PCG / symmetry | 2 passes | 2 passes |
+| #1369 | 2026110406225 | time history / symmetry | 2 passes | 2 passes |
+| #1370 | 2026110406225 | time history / symmetry | 2 passes | 2 passes |
+| #1650 | 2026110706031 | harmonic / reciprocity | Fail | Pass |
+| #1652 | 2026110702242 | moving loads / reversal | Fail | Pass |
+| #1763 | 2026110805292 | buckling / planes | Fail | Pass |
+| #1765 | 2026110801842 | PCG / reciprocity | Fail | Pass |
+
+#1763 additionally failed mirror, relabel, rotation and units on the baseline. The full eight-model replay checks those cells too. The four current failures are covered by analysis-derived rounding budgets; no current engine wrong result was established in these eight models. Passing now does not retrospectively certify the historical engine versions in the reports. The first four issues were already resolved on main.
+
+Commit A records four ignored failing tests and four already-passing regressions. Commit B removes the four ignores. Engine code, iteration parameters, relative tolerances, the inconclusive threshold and existing assertions are unchanged. There is no engine results-change registry entry because no engine result changes.
+
+## Comparison contract
+
+`Item.error` is a finite absolute bound in the item's own physical units. It is computed before comparison or error injection. Rigid transformations preserve a vector's Euclidean error bound; unit transformations scale it by the item's dimension. Linear combinations propagate absolute coefficient-weighted bounds, including the zero-load baseline. A load-factor inverse law also divides the bound by its load multiplier.
+
+For each physical family, or each individual scalar, the comparator uses
+
+```
+allowance = max(existing_relative_allowance, error_actual + error_expected).
+```
+
+It implements this through the comparison scale, without changing `rel_for`, the compliance floors, or `INCONCLUSIVE`. Scalars keep their own units and per-entry scales. Betti projections use Cauchy–Schwarz, `error_vector * ||direction||_2`, and add the bounds of the actual force, moment and baseline solves in that identity.
+
+An ordinary response whose existing relative allowance dominates has exactly the same comparison ratio, including its floating-point bits. The regression asserts this for translation, rotation, a scalar and an envelope pair, and checks that larger planted errors still fail. Nonfinite or negative absolute bounds fail comparison. No infinity is used to turn a failed comparison into a pass.
+
+The additional dense estimates are bounded by the existing dense accuracy limit. If an estimate is unavailable, has unsupported recovery DOFs, cannot verify its inverse defect, has a nonzero initial trajectory state, or crosses a required spectral boundary, it contributes **no additional allowance**. The original comparison remains in force. This adds no refusal or inconclusive outcome. The published models have explicit tests requiring finite, nonzero additional budgets where the new estimate is needed.
+
+## Linear and PCG residuals
+
+A PCG residual tolerance is not a fixed-point contraction tolerance. The error of a returned linear solution is determined by
+
+```
+r = K x - f
+x - x_exact = K^-1 r.
+```
+
+The harness assembles the original model's free stiffness, subtracts restrained-displacement forces, rotates into inclined-support frames, and reduces the constraints. Padding is disconnected and is excluded from the certificate. Reported displacements are pulled back through the actual support and constraint transforms.
+
+For `D = sqrt(diag(K))`, an approximate inverse `T` of `S = D^-1 K D^-1` is checked by its infinity-norm defect `theta = ||I - T S||_infinity < 1`, including the matrix product's operation-count rounding bound. The Neumann identity bounds inverse corrections by `theta/(1-theta)`. This verifies the inverse used by the error estimator instead of assuming that an auxiliary solve is exact.
+
+The forward residual is evaluated with error-free product and summation expansions. `mul_add` supplies the product remainder; ordered TwoSum expansions retain addition remainders. The omitted expansion tail is bounded explicitly, with a subnormal allowance. A test checks the enclosure against exact binary rational arithmetic, including an underflowing product.
+
+For a reported functional `l^T x`, the estimator uses an approximate dual `q` and its own residual `d = l - K^T q`:
+
+```
+l^T K^-1 r = q^T r + (K^-T d)^T r.
+```
+
+The first term is retained with its sign; the verified inverse bounds the remainder. This preserves the cancellation of a force or moment functional instead of replacing every displacement by an unrelated worst component. Component bounds form a Euclidean bound for each reported vector. The ordinary relative budget is retained; the residual budget supplies the missing absolute scale for #1765's small reciprocal rotation.
+
+## Harmonic analysis
+
+`dynamic_accuracy.rs` follows the eigen-residual and inverse-pencil construction of #1887, read from the available local history. It assembles mass in the same inclined-support frames as stiffness and applies the same constraint reduction. For mass-normalized eigenvectors, the residual columns are measured in the inverse-stiffness norm. Their Frobenius bound is divided by the modal Gram matrix's lower singular-value bound. The resulting eigenvalue uncertainty includes the existing dense operation-count rounding term.
+
+For `C = a0 M + a1 K`, the modal energy-coordinate gain is
+
+```
+g(lambda) = 1 / |1 - omega^2/lambda + i omega (a0/lambda + a1)|.
+```
+
+The resolvent identity gives `gain^2 * perturbation / (1 - gain * perturbation)` for the response error relative to the natural static scale. The perturbation includes stiffness/mass assembly and the Rayleigh coefficient uncertainty from the anchor frequencies. The coefficients returned by the actual harmonic solve are used.
+
+Massless directions are handled by the inverse pencil `H = L^-1 M L^-T`, `K = L L^T`. Its eigenvalue intervals bound the maximum resolvent gain, including the zero-mass limit. An interval that overlaps the solver's damping-anchor cutoff cannot justify an additional finite estimate.
+
+The natural translation scale comes from energy duality:
+
+```
+|e_i^T K^-1 f| <= sqrt(e_i^T K^-1 e_i) sqrt(f^T K^-1 f).
+```
+
+Summing translational compliance diagonals bounds all reported translations; unreported rotational compliance does not inflate this scale. Harmonic reciprocity now consumes the same finite absolute error information as the transformation checks. This covers #1650 without a new relative multiplier.
+
+## Average-acceleration time history
+
+The adapter obtains the existing solver's `DynamicTrace`; it does not integrate another trajectory or change the returned results. The estimate applies to the adapter's average-acceleration Newmark parameters and zero initial displacement and velocity. Its damping uncertainty uses the largest eligible inverse-pencil eigenvalues, with the stiffness assembly perturbation included; these are the low-frequency Rayleigh anchors. This avoids transferring a high-frequency vibration eigenvalue's absolute error to an unrelated damping anchor.
+
+Write `h = dt/2`. At each step the two trapezoidal state defects are
+
+```
+du = u_next - u_old - h (v_next + v_old)
+dp = M (v_next - v_old)
+   + h [K (u_next + u_old) + C (v_next + v_old) - f_next - f_old].
+```
+
+In the state energy norm `||u||_K^2 + ||v||_M^2`, the trapezoidal propagator of a system with positive stiffness, positive-semidefinite mass and damping is contractive. The defect impulse is obtained from the actual effective system:
+
+```
+W = K + M/h^2 + C/h
+W delta_u = dp/h + (M/h^2 + C/h) du
+delta_v = (delta_u - du)/h.
+```
+
+The verified inverse of `W` bounds this impulse's energy through
+`energy <= sqrt(rhs^T W^-1 rhs) + ||du||_M/h`, using `W >= K + M/h^2`. This retains the energy duality instead of taking separate absolute displacement and velocity components before multiplying by mass. Rayleigh uncertainty acts through the two scalar coefficients: the products `M(v_next+v_old)` and `K(v_next+v_old)` retain their internal cancellation. The accumulated state error is bounded by the sum of the impulse energy norms, including explicit arithmetic and damping-coefficient uncertainty. This avoids an inverse of a nearly massless direction and does not assume stability in a mixed displacement/rotation Euclidean norm. Stiffness dual rows map the energy bound to reported translations and rotations. A second, finite-horizon bound integrates the velocity error using mass dual rows and adds the kinematic displacement defects. The smaller of the two bounds is used. This prevents a soft static rotational compliance, which the short record never reaches, from masking a planted dynamic error.
+
+Unresolved damping anchors or a nonzero initial state produce no additional allowance. The inverse-pencil damping estimate also covers semidefinite mass; the optional finite-horizon velocity bound is used only when a positive mass can be factored. Other cases retain the existing eigen-aware relative comparison. The #1369/#1370 model completes the new estimate, and a planted time-history error must fail.
+
+## Buckling
+
+Buckling solves `B phi = mu K phi`, with `B = -Kg` and the reported factor `lambda = 1/mu`. It is not the vibration mass pencil. The estimate uses the actual reduced buckling system.
+
+The affine geometric-stiffness terms expose the axial recovery functionals and their unit-force geometric matrices. The estimator bounds each reduced `B` entry's sensitivity to the linear residual with the dual identity above. Its scalar axial recovery residual is evaluated in exact binary rational arithmetic. Geometry-operation and applied-action rounding terms are included independently of the reported eigenvalue.
+
+Form `H = L^-1 B L^-T`. Absolute matrix-product bounds cover its construction. The complete computed eigenbasis is checked by its Gram defect and residual. Geometric-force uncertainty is projected into that basis and Gershgorin discs are merged into connected components, preserving the count and ordering of roots in an unresolved cluster.
+
+Stiffness uncertainty perturbs the metric. If `|delta K|_K <= eta < 1`, the generalized eigenvalues are bounded by the corresponding metric factors `1/(1 +/- eta)`. This is applied to each root interval. Replacing this with `eta * ||H||` would needlessly transfer the scale of a large tensile eigenvalue to an unrelated positive buckling root. The seeded planted-factor test guards against that loss of discrimination.
+
+Finally, a reciprocal interval of radius `delta` gives the absolute load-factor error
+
+```
+error_lambda <= lambda^2 * delta / (1 - lambda * delta).
+```
+
+A nonpositive denominator justifies no additional finite allowance. Planar embeddings obtain the estimate from their actual 3D pencil as well as the original 2D pencil.
+
+## Moving-load envelopes
+
+The estimator replays the actual train positions and load sets, using the solver's existing position-to-load adapter. At each position it bounds the static residual and the recovery arithmetic. Positive-semidefinite member stiffness gives `|K_element,ij| <= sqrt(K_global,ii K_global,jj)`; diagonal trace bounds cover local force and moment rows. Frame transformation, recovery and diagram operation counts give the explicit gamma terms. Permanent loads are included.
+
+A moment diagram contains `M_start - x V_start` and its applied-load terms. Therefore its absolute budget includes **member length times shear error**, in addition to end-moment error. This term was missing from the old static comparison used by #1652.
+
+Envelope selection is nonexpansive:
+
+```
+|max_i a_i - max_i b_i| <= max_i |a_i - b_i|.
+```
+
+Thus per-position budgets are maximized, not added over the train positions. No empirical step-count multiplier is introduced. This estimate addresses solver/recovery arithmetic on the actual sampled train positions; it does not certify the spatial discretization of a moving-load envelope or conceal differing load-membership/shape results.
+
+## Coverage and separate engine findings
+
+The sweep uses 200 rich seeds per dimension, starting at `2026110200000`, over PCG, forced time history, harmonic, moving loads and buckling, including symmetry. It is a targeted diagnostic, not a full engine suite. The checked-in coverage JSON comes from commit A and asserts, for every analysis/relation cell, identical counts of comparisons, inconclusives, refusals, matching refusals, unrepresentable transforms and non-applicable checks.
+
+| Dimension | Numerical comparisons | Inconclusive before | Inconclusive after |
+|---|---:|---:|---:|
+| 2D | 1338 | 157 | 157 |
+| 3D | 258 | 66 | 66 |
+
+The 3D PCG units cell at seed `2026110200115` remains an unresolved numerical discrepancy. It is retained rather than being widened into a pass. The eight published-model regressions and the sweep do not require an engine refusal to become a numerical pass.
+
+The following retained sweep failures are **not** hidden by this change:
+
+| Seed | Dimension | Remaining failure |
+|---|---|---|
+| 2026110200030 | 2D | Harmonic relabel and units copies fail to solve |
+| 2026110200045 | 3D | Harmonic units copy fails to solve |
+| 2026110200115 | 3D | PCG units comparison remains outside its budget |
+| 2026110200131 | 3D | Harmonic and time-history relabel, rotation and units return incompatible numbers |
+| 2026110200167 | 2D | Harmonic units copy fails to solve |
+| 2026110200176 | 2D | Harmonic units copy fails to solve |
+
+JSON inputs, names and densities are in `engine/tests/metamorphic_corpus/nightly/analysis-accuracy/`. The numeric wrong-result case is separately documented in [SA-2026-058](../advisories/SA-2026-058-constrained-shell-dynamic-invariance.md). The five harmonic solve failures in the other four models are convergence/refusal failures, not numbers demonstrated wrong. Their engine root causes remain outside this harness fix.
+
+## Reproduction
+
+For a published model, enter `make shell` and run, substituting its issue number and published seed:
+
+```sh
+NIGHTLY_MODEL="$PWD/engine/tests/metamorphic_corpus/nightly/issue-1763.json" \
+NIGHTLY_RESULTS="$PWD/.replay-1763.json" METAMORPHIC_SEED=2026110805292 \
+cargo test --release -p dedaliano-engine --test metamorphic metamorphic_replay \
+  -- --ignored --exact --nocapture
+```
+
+For the coverage check:
+
+```sh
+ANALYSIS_ACCURACY_SWEEP="$PWD/.analysis-accuracy-sweep.json" \
+cargo test --release -p dedaliano-engine --test metamorphic \
+  nightly_tolerances::analysis_accuracy_200_seed_sweep -- --ignored --exact --nocapture
+```
+
+Planted-error, finite-budget, exact-residual and ordinary-ratio checks are selected by the `analysis_accuracy` filter. Existing planted-error tests in `nightly_tolerances` and `betti` remain in force.
