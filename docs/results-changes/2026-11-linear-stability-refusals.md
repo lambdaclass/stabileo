@@ -18,14 +18,17 @@ What changes for a model:
 | Before | After |
 |--------|-------|
 | Solved with `StiffnessNotPositiveDefinite` (LU fallback or a diagonal shift) | Refused: "the stiffness matrix is not positive …" or "the structure is a mechanism …" |
-| Solved with `HighDiagonalRatio`, `NearZeroDiagonal` or `NUM-INVARIANCE`, `κ_S A > 1e12` | Refused as Singular, naming the nodes |
+| Product above `1e12` | Refused if either separate limit fails; otherwise each loaded response must pass refinement and recovered-force equilibrium |
 | Solved with `HighDiagonalRatio` and `κ_S A ≤ 1e12` | Same displacements; accepted 3D solves retain conservative raw-diagonal warnings |
 | Solved with `ORPHAN-SOFT-ROTATION` (#1496) | Solved exactly, or refused |
 | A stable model | Corrected PCG components and sparse direct residual refinement can change stable responses; the legacy bridge has the exact small-component differences recorded below |
 
 `NUM-INVARIANCE` remains attached for an excessive displacement. Accepted 3D solves retain conservative conditioning warnings and original/reduced constrained-stiffness containment.
 
-## Corpus
+## Earlier corpus comparison
+
+This comparison records the implementation before conditional admission. The final
+loaded-response measurements for this change appear below.
 
 Every model of the example, fixture, feature-matrix and differential corpus (238 linear
 solves, 2D and 3D) was solved before (d81653aca) and after:
@@ -36,7 +39,11 @@ solves, 2D and 3D) was solved before (d81653aca) and after:
   and `NUM-INVARIANCE`: its hinge rotations are free directions the stability test eliminates,
   and its verdict is Stable.
 
-## Real structures: solved and refused orientations
+## Earlier product-gate measurements
+
+These verdict measurements predate conditional admission and do not establish the final
+solve/refuse outcome for those loaded models. The conditional rule below supersedes the
+product-only refusal interpretation.
 
 These are structures someone could model. Refused cases fail the stability bound for their
 weak direction in double precision (the answer itself may still be accurate), and were
@@ -55,7 +62,7 @@ Stable and solved as before.
 
 ### Coupled directions and verified references
 
-The product gate remains `κ_S A ≤ 1e12`. `A` now compares stiffnesses only within connected
+The product `κ_S A ≤ 1e12` is the fast accept; above it, `κ_S ≤ 1e12` and `A ≤ 1e8` permit a conditional solve requiring the a-posteriori checks below. `A` now compares stiffnesses only within connected
 coupling components of each node-and-kind block, including transformation coupling that can
 cancel out of the assembled off-diagonal entries. Assembly cannot transfer rounding between
 structurally disconnected components. Constraint reductions carry the coupling provenance
@@ -73,21 +80,67 @@ agree with the original displacements and rotations to `1e-6` relative, or be re
 `sh_thin_cantilever_strip_does_not_shear_lock` also passes its unchanged `PL³/3EI` check
 (`0.95 < ratio < 1.02`) for MITC4, MITC9, DKT and curved shells. It remains active.
 
-The following tests do **not** verify a published reference on main. Their remaining refused
-meshes now assert the stability refusal, with test names and messages identifying them as
-ill-conditioned models, not verified references. Coarse meshes retain their original nonzero
-response checks or their existing containment:
+The four shell tests now run main's code and assertions, with no ignore. Their benchmark
+meaning is unchanged: Raasch tests measure the existing locked response and convergence,
+MITC9 cap checks self-convergence, and MITC4 cap retains `SH-MITC4-DISTORTION` containment.
+Passing them does not establish a new published-reference accuracy claim.
 
-| Test | What main actually checked | Refused meshes |
-|---|---|---|
-| `benchmark_raasch_hook` | A nonzero-response floor, coarse convergence, and a finest ratio between `1e-8` and `100`; its comment records about `0.0001` of the published reference | MITC4 16×8, 24×12 |
-| `benchmark_q9_raasch_hook` | Positive displacement and finest ratio above `1e-6`; its comment records about `0.0001` of the reference | MITC9 8×4, 16×8 |
-| `benchmark_q9_spherical_cap` | Self-convergence to its own 16×16 mesh, without a published displacement | MITC9 16×16 |
-| `benchmark_spherical_cap_self_convergence` | All meshes already expected `SH-MITC4-DISTORTION` on main | MITC4 32×32, now caught earlier by stability; smaller meshes retain the distortion refusal |
+### Conditional accuracy above the product fast accept
 
-These claims were checked against `origin/main` after the merge. The Raasch comments describe
-severe locking; they are not evidence of reference accuracy. No tolerance, baseline or
-published-reference assertion was loosened.
+The correction and recovered-node balance share the accuracy constant defined once in
+`stability::CONDITIONAL_ACCURACY`. See [the solver specification](../solver/stability.md#24-conditional-response-accuracy).
+Residuals use compensated product and sum accumulation. Existing factors solve the
+correction; its norm is evaluated in diagonal energy coordinates, algebraically the
+scaled system. The correction is applied once. Failure of either check refuses with the
+conditioning reason. Other refusal gates remain active, including the independent
+constraint contribution-envelope bound. Shell balances use assembled nodal forces;
+frame/truss balances use the actual returned member endpoints.
+
+The canonical physical inputs and their independently assembled 90-digit references are
+checked in as [inputs](1753-loaded-c08-inputs.json),
+[generator](1753-c08-reference.py), and
+[reference responses](../../engine/tests/metamorphic_corpus/1753-accuracy-reference.json).
+Run `python3 docs/results-changes/1753-c08-reference.py` within `make shell` to verify
+regeneration; `--write` regenerates the reference file. The test requires each canonical
+loaded input to match its reference source exactly. The arithmetic operates on exact
+binary64 input values, with 90 decimal digits throughout assembly, reduction and solution.
+The cubic Hermite torsion/warping element is the model's finite-element interpolation.
+Reference responses are transformed from the original model, rather than treating
+rounding in transformed coordinates or released axes as a different physical structure.
+
+Final targeted evidence: **398 solved copies**, **2 split outcomes** against each fixture's
+original outcome. The `25 / 0.01` unit copies of #993 and #1653 refuse while their originals
+solve; every solved copy and every solved pair passes. The worst comparison is
+`1.8623288718840833e-7`, below the accuracy constant. There are 23 canonical physical
+reference responses. These counts belong to this deterministic loaded probe, not a claim
+about all loads or the saved fixtures' recorded non-static analyses.
+
+Each C08 free translation receives an added deterministic nodal component
+`(free DOF index + 1) * 1e-6`; original loads remain present. Every supported equivalent
+copy runs. Every solved copy must agree with its physical reference and every other
+solved copy within the shared accuracy constant. Norms use physical quantity families;
+force/moment scales include the largest applied load and its characteristic-length
+moment. Zero-load success/refusal differences do not establish wrong results.
+
+The soft-spring bent frame is separately loaded with the recorded small tip forces and
+checked against spring equilibrium, member equilibrium and cantilever flexibility. Both
+members' force resultants and all node displacements are checked in five unit systems.
+No engineering reference values were imported from memory.
+
+New admissions remain **Refs**, not issue closures:
+
+| Issue | Measured κ_S | Measured A | Recorded analysis limitation |
+|---|---:|---:|---|
+| #973 | 9.59032321013441e10 | 6.29686910234618e5 | Modal mechanism containment remains active |
+| #993 | 1.1363591745916341e8 | 9.139854339347761e3 | Original units refusal reproducer stays ignored; no closing claim |
+| #1029 / #1041 | 2.177434952691523e11 | 1.6075045114793433e6 | Recorded Winkler/time-history replay remains inconclusive |
+| #1115 | 7.88132212097111e7 | 3.610759941472731e4 | Original harmonic replay is measured separately |
+| #1357 | 1.115755122698227e9 | 2.5553624577796026e5 | Recorded time-history replay remains inconclusive |
+| #1653 | 3.359136066479603e7 | 5.050944657669129e6 | Static loaded-reference check does not close P-Delta accuracy |
+
+The two historical main silent errors covered by SA-2026-054 retain their targeted
+constraint-cancellation and independent-PCG-component regressions. No new advisory is
+created by this unmerged-branch change.
 
 ### Plastic 3D hinge-state force checks
 

@@ -1490,15 +1490,14 @@ fn check_3d(label: &str, r: &AnalysisResults3D, m: &M3, path: &str, want: &[C], 
             }
             C::HighDiagonalRatio | C::ExtremelyHighDiagonalRatio => {
                 let v = d.value.unwrap();
-                let (name, thr, suffix) = if d.code == C::HighDiagonalRatio {
-                    ("High diagonal ratio", 1e8, " — potential conditioning issues")
+                let (name, thr) = if d.code == C::HighDiagonalRatio {
+                    ("High diagonal ratio", 1e8)
                 } else {
-                    ("Extremely high diagonal ratio", 1e12, " — matrix is likely ill-conditioned")
+                    ("Extremely high diagonal ratio", 1e12)
                 };
                 assert!(v > thr && (d.code == C::ExtremelyHighDiagonalRatio || v <= 1e12), "{label}: ratio {v:e}");
                 assert_eq!(d.threshold, Some(thr), "{label}");
-                let sfx = if dense || lu_prepared { "" } else { suffix };
-                assert_eq!(d.message, format!("{name} {v:.2e}{sfx}"), "{label}");
+                assert_eq!(d.message, format!("{name} {v:.2e}"), "{label}");
                 assert_eq!(sev, (Severity::Warning, Some("conditioning")), "{label}");
             }
             C::NearZeroDiagonal => {
@@ -1755,19 +1754,21 @@ fn want3(run: &Run3, excessive: bool) -> Vec<C> {
     w
 }
 
-/// A free node on springs 1e-3 and 1e-7 (diagonal ratios above 1e8 and 1e12,
-/// which no longer warn: the stability test resolves the node) solves on
-/// every path. Its moment turns it by 1e6 rad (far above 1000× the
-/// characteristic length) while no translation is large: only translations
-/// are excessive, and the rotation is past small displacements (known issue
-/// #1446).
 #[test]
 fn soft_floating_node_and_rotation_only_node_on_every_3d_path() {
     for kt in [1e-3, 1e-7] {
         for run in variants3(|m| { add_floating3(m, kt, 1e-3, 1e3); }, "pcg_ics") {
             let label = format!("kt {kt:e} {}", run.label);
             let r = solve_path_3d(&run.m, run.p).unwrap_or_else(|e| panic!("{label}: {e}"));
-            check_3d(&label, &r, &run.m, run.path, &want3(&run, false), run.shift, &[], 1e-9);
+            let mut want = want3(&run, false);
+            want.insert(0, C::HighDiagonalRatio);
+            let mut near_zero = Vec::new();
+            if kt == 1e-7 {
+                want.insert(1, C::NearZeroDiagonal);
+                let dof = DofNumbering::build_3d(&run.m.input());
+                near_zero = (0..3).map(|local| dof.map[&(floating_id(&run.m), local)]).collect();
+            }
+            check_3d(&label, &r, &run.m, run.path, &want, run.shift, &near_zero, 1e-9);
             let rx = r.displacements.iter().find(|d| d.node_id == floating_id(&run.m)).unwrap().rx;
             assert!(close(rx, 1e6, 1e-6), "{label}: floating rotation {rx}");
         }
@@ -1781,7 +1782,9 @@ fn soft_floating_node_and_rotation_only_node_on_every_3d_path() {
 fn excessive_displacement_on_every_3d_path() {
     for run in variants3(|m| m.e = Some(1e-3), "pcg_ics") {
         let r = solve_path_3d(&run.m, run.p).unwrap_or_else(|e| panic!("{}: {e}", run.label));
-        check_3d(&run.label, &r, &run.m, run.path, &want3(&run, true), run.shift, &[], 1e-11);
+        let mut want = want3(&run, true);
+        want.insert(0, C::HighDiagonalRatio);
+        check_3d(&run.label, &r, &run.m, run.path, &want, run.shift, &[], 1e-11);
     }
 }
 

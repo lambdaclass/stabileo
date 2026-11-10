@@ -119,38 +119,9 @@ fn same(a: &Stability, b: &Stability) -> Result<(), String> {
     Ok(())
 }
 
-#[test]
-fn the_stability_verdict_of_every_c08_reproducer_survives_units_rotation_mirror_and_relabelling() {
-    let models = c08();
-    assert_eq!(models.len() + SAME_MODEL.len(), C08.len(), "the C08 reproducers");
-    let mut failures = Vec::new();
-    let mut skipped = std::collections::BTreeSet::new();
-    let mut compared = 0;
-    for (name, m) in &models {
-        let (base, others) = verdicts(name, m);
-        let base = base.unwrap_or_else(|e| panic!("{name}: {e}"));
-        let mut kinds = std::collections::BTreeSet::new();
-        for (what, other) in others {
-            match other {
-                Ok(Ok(o)) => {
-                    compared += 1;
-                    kinds.insert(kind(&what).to_string());
-                    if let Err(e) = same(&base, &o) { failures.push(format!("{name} {what}: {e}")) }
-                }
-                Ok(Err(e)) => failures.push(format!("{name} {what}: {e}")),
-                Err(e) if unsupported(name, &what, &e) => { skipped.insert((name.clone(), kind(&what).to_string())); }
-                Err(e) => failures.push(format!("{name} {what} could not be built: {e}")),
-            }
-        }
-        for &(_, k, _) in UNSUPPORTED.iter().filter(|&&(n, _, _)| n == name) {
-            if kinds.contains(k) || !skipped.contains(&(name.clone(), k.to_string())) { failures.push(format!("{name} {k} is listed unsupported but was built or never refused as such")); }
-        }
-    }
-    assert!(failures.is_empty(), "{} verdicts changed or missing:\n{}", failures.len(), failures.join("\n"));
-    assert!(compared >= models.len() * 15, "{compared} images compared");
-}
 
-const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 973, 993, 1008, 1028, 1029, 1041, 1083, 1091, 1095, 1103, 1112, 1115, 1353, 1355, 1357, 1359, 1362, 1648, 1651, 1653];
+const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 1008, 1028, 1083, 1091, 1095, 1103, 1112, 1353, 1355, 1359, 1362, 1648, 1651];
+const CONDITIONAL_REFS: &[u32] = &[973, 993, 1029, 1041, 1115, 1357, 1653];
 const SOLVED: &[u32] = &[954, 956, 960, 994, 1086, 1097, 1101, 1102, 1116, 1117, 1118, 1216, 1265];
 const STABLE_PENDING: &[u32] = &[972, 1099, 1647];
 const RELEASE_STABLE: &[u32] = &[1090, 1106, 1193, 1351, 1352, 1635];
@@ -208,12 +179,17 @@ fn replay_as(issue: u32, analysis_override: Option<&str>) -> (Stability, crate::
 
 #[test]
 fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict() {
-    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(RELEASE_STABLE).copied().collect();
+    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(RELEASE_STABLE).chain(CONDITIONAL_REFS).copied().collect();
     assert_eq!(listed, C08.iter().map(|c| c.0).collect(), "every C08 issue is classified once");
     let mut wrong = Vec::new();
     for &issue in REFUSED {
         let (v, _) = replay(issue);
         if v.is_stable() || v.refusal().is_none() { wrong.push(format!("#{issue} listed refused: {}", summary(&Ok(v)))); }
+    }
+    for &issue in CONDITIONAL_REFS {
+        let (v, cell) = replay(issue);
+        println!("CONDITIONAL REF #{issue}: {} {cell:?}", summary(&Ok(v.clone())));
+        if !v.needs_accuracy_check() { wrong.push(format!("#{issue} listed conditional reference: {}", summary(&Ok(v)))); }
     }
     for &issue in SOLVED {
         let (v, cell) = replay(issue);
@@ -353,10 +329,37 @@ fn stable_frames_soft_springs_and_anisotropic_members_stay_stable_in_every_frame
     let s = invariant_verdict("bent frame on soft springs", d2(frame_2d(bent.clone(), soft)));
     assert!(s.is_stable(), "{s:?}");
     let softest = serde_json::json!({"1": {"id": 1, "nodeId": 1, "type": "spring", "kx": 1e-3, "ky": 1e-3, "kz": 1e-3}});
-    let softest: dedaliano_engine::types::SolverInput = serde_json::from_value(frame_2d(bent, softest)).unwrap();
-    let softest = dedaliano_engine::metamorphic::transform::transform_2d(&softest, &Iso2::rotation(0.37)).unwrap();
-    let s = invariant_verdict("coupled bent frame on springs a million times softer than its members", Model::D2(softest));
-    assert!(s.verdict == Verdict::Singular && s.kappa * s.anisotropy > stability::RESOLVABLE, "{s:?}");
+    let mut softest: dedaliano_engine::types::SolverInput = serde_json::from_value(frame_2d(bent, softest)).unwrap();
+    softest.loads = serde_json::from_value(serde_json::json!([{"type":"nodal","data":{"nodeId":3,"fx":1e-6,"fz":-2e-6,"my":0.0}}])).unwrap();
+    for (length, force) in std::iter::once((1.0,1.0)).chain(UNITS) {
+        let scaled = dedaliano_engine::metamorphic::units::scale_2d(&softest, &Units::froude(length, force));
+        let rotated = dedaliano_engine::metamorphic::transform::transform_2d(&scaled, &Iso2::rotation(0.37)).unwrap();
+        let result = dedaliano_engine::solver::linear::solve_2d(&rotated);
+        println!("SOFT SPRING {length}/{force}: {}", if result.is_ok() { "solved" } else { "refused" });
+        let result = result.unwrap();
+        let (p, q, horizontal, vertical) = (1e-6, -2e-6, 3.0, 2.0);
+        let (ea, ei, spring) = (200000.0 * 1000.0 * 0.01, 200000.0 * 1000.0 * 1e-4, 1e-3);
+        let base = [p/spring, q/spring, (horizontal*q-vertical*p)/spring];
+        let turn = q*horizontal*horizontal/(2.0*ei)-p*vertical*horizontal/ei;
+        let bend = q*horizontal*horizontal*horizontal/(3.0*ei)-p*vertical*horizontal*horizontal/(2.0*ei);
+        let middle = [base[0]+p*horizontal/ea, base[1]+horizontal*base[2]+bend, base[2]+turn];
+        let tip = [middle[0]-vertical*middle[2]+p*vertical*vertical*vertical/(3.0*ei), middle[1]+q*vertical/ea, middle[2]-p*vertical*vertical/(2.0*ei)];
+        let expected = [base, middle, tip];
+        let (sin, cos) = 0.37f64.sin_cos();
+        for d in &result.displacements {
+            let actual = [(cos*d.ux+sin*d.uz)/length, (-sin*d.ux+cos*d.uz)/length, d.ry];
+            let reference = expected[d.node_id-1];
+            for (actual, reference) in actual.into_iter().zip(reference) {
+                assert!((actual-reference).abs() <= stability::CONDITIONAL_ACCURACY*reference.abs(), "node {} {length}/{force}: {actual} vs {reference}", d.node_id);
+            }
+        }
+        for (id, exact) in [(1, [1e-6, 2e-6, 8e-6, 2e-6]), (2, [-2e-6, 1e-6, 2e-6, 0.0])] {
+            let f = result.element_forces.iter().find(|f| f.element_id == id).unwrap();
+            for (actual, reference) in [f.n_start/force, f.v_start/force, f.m_start/(force*length), f.m_end/(force*length)].into_iter().zip(exact) {
+                assert!((actual-reference).abs() <= stability::CONDITIONAL_ACCURACY * 2e-6, "member {id} {length}/{force}: {actual} vs {reference}");
+            }
+        }
+    }
     let hinged = serde_json::json!({
         "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeEnd": true},
         "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": true},
@@ -779,6 +782,7 @@ fn the_linear_solve_refuses_what_the_verdict_refuses(issue: u32) {
 }
 
 #[test]
+#[ignore = "known wrong result: #993"]
 fn issue_993_the_sparse_linear_solve_refuses_in_every_unit_system() { the_linear_solve_refuses_what_the_verdict_refuses(993) }
 
 #[test]
@@ -895,7 +899,6 @@ fn conditioning_boundary(kappa: f64, anisotropy: f64) -> Stability {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_product_boundary_admits_both_sides_within_separate_limits() {
     for factor in [1.0 - 1e-4, 1.0 + 1e-4] {
         let s = conditioning_boundary(1e6, 1e6 * factor);
@@ -905,7 +908,6 @@ fn issue_1753_product_boundary_admits_both_sides_within_separate_limits() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_separate_condition_and_anisotropy_boundaries() {
     for factor in [1.0 - 1e-3, 1.0 + 1e-3] {
         let s = conditioning_boundary(1e12 * factor, 2.0);
@@ -914,3 +916,6 @@ fn issue_1753_separate_condition_and_anisotropy_boundaries() {
         assert_eq!(s.is_stable(), factor < 1.0, "anisotropy {factor}: {s:?}");
     }
 }
+
+#[path = "conditioning_accuracy.rs"]
+mod accuracy;

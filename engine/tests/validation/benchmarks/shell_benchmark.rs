@@ -3671,7 +3671,6 @@ fn raasch_hook_solve(n_arc: usize, n_width: usize) -> f64 {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn benchmark_raasch_hook() {
     let reference = 5.022;
 
@@ -4175,7 +4174,6 @@ fn spherical_cap_solve(n: usize) -> SolverInput3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn benchmark_spherical_cap_self_convergence() {
     for n in [4, 8, 16, 32] {
         crate::common::assert_containment(linear::solve_3d(&spherical_cap_solve(n)), "SH-MITC4-DISTORTION");
@@ -4983,7 +4981,6 @@ fn q9_spherical_cap_solve(n: usize) -> f64 {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn benchmark_q9_spherical_cap() {
     // Self-convergence: use finest mesh as reference
     let meshes = [4, 8, 16];
@@ -5318,7 +5315,6 @@ fn q9_raasch_hook_solve(n_arc: usize, n_width: usize) -> f64 {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn benchmark_q9_raasch_hook() {
     let reference = 5.022;
     let meshes = [(4, 2), (8, 4), (16, 8)];

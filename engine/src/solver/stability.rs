@@ -9,6 +9,8 @@ pub const LOCAL_FREE: f64 = 1e-12;
 pub const DENSE_SPECTRUM: usize = 240;
 pub const FULL_SPECTRUM: usize = 64;
 pub const RESOLVABLE: f64 = 1e12;
+pub const MAX_ANISOTROPY: f64 = 1e8;
+pub const CONDITIONAL_ACCURACY: f64 = 1e-4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DofKind { Translation, Rotation, Warping }
@@ -62,6 +64,16 @@ pub(crate) fn assumed() -> bool { ASSUMED.with(|a| a.get()) }
 
 impl Stability {
     pub fn is_stable(&self) -> bool { self.verdict == Verdict::Stable }
+
+    pub fn needs_accuracy_check(&self) -> bool {
+        self.is_stable() && self.kappa * self.anisotropy > RESOLVABLE
+    }
+
+    pub(crate) fn conditioning_refusal(&self) -> String {
+        let mut refused = self.clone();
+        refused.reason = Reason::Conditioning;
+        refused.refusal().unwrap()
+    }
 
     pub fn stable() -> Self {
         Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa: 1.0, anisotropy: 1.0, free: Vec::new(), mode_nodes: Vec::new() }
@@ -166,7 +178,7 @@ impl Stability {
                 "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes}: a rotation or warping direction far softer than the rest of its node is coupled into the stiffness of other directions, so whether it restrains them depends on rounding; add supports or members, remove releases, or reduce extreme stiffness contrasts"
             )),
             Reason::Conditioning => Some(format!(
-                "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes} (scaled condition number {:.1e} times node anisotropy {:.1e} exceeds {RESOLVABLE:.0e}): results would change with units, orientation or numbering; add supports or members, remove releases, or reduce extreme stiffness contrasts",
+                "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes} (scaled condition number {:.1e}, node anisotropy {:.1e}; limits {RESOLVABLE:.0e} and {MAX_ANISOTROPY:.0e}, conditional accuracy {CONDITIONAL_ACCURACY:.0e}): the matrix exceeds a conditioning limit or the recovered response fails its accuracy check; add supports or members, remove releases, or reduce extreme stiffness contrasts",
                 self.kappa, self.anisotropy
             )),
         }
@@ -674,7 +686,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
     if rounding.is_some() && kappa * amplification > RESOLVABLE {
         return Stability { verdict: Verdict::Singular, reason: Reason::ConstraintRounding, kappa, anisotropy, free, mode_nodes };
     }
-    let verdict = if kappa * anisotropy <= RESOLVABLE { Verdict::Stable } else { Verdict::Singular };
+    let verdict = if kappa * anisotropy <= RESOLVABLE || (kappa <= RESOLVABLE && anisotropy <= MAX_ANISOTROPY) { Verdict::Stable } else { Verdict::Singular };
     if verdict == Verdict::Stable {
         let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, kappa);
         if !coupled.is_empty() {

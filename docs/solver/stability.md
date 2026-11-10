@@ -159,26 +159,21 @@ before an uncertified estimate becomes a refusal.
   A refusal of either kind has its own reason and wording, not the condition number.
 - All block eigenproblems and singular values run on the block divided by its largest
   entry, so scaling a block by `1e±200` neither underflows nor overflows.
-- **Singular** if `κ_S · A > R = 1e12`, or `S` does not factor (reason: conditioning).
-  The gate is on the product, independent of the applied load. Within each coupling component
-  assembly rounds on that component's `μ_max` scale. Its block scaling amplifies this by at
-  most `μ_max/μ_min`. Disconnected components have structurally zero transformations between
-  them and cannot exchange this rounding (§2.1). The scaled perturbation bound therefore
-  remains `‖δS‖ / λ_max(S) ≤ ε A` in the same first-order rounding model, and Weyl's bound gives
-  `|δλ_min(S)| / λ_min(S) ≤ ε κ_S A`. The shift here is relative, not an absolute eigenvalue
-  bound; operation-count constants are unchanged from the original estimate. At `R` that bound is `2.2e-4`: four digits of the
-  smallest eigenpair, and of the displacement it carries, can no longer be guaranteed, and a
-  stable and a singular model cannot be told apart beyond that. A mechanism and a near-mechanism are one verdict on
-  purpose: which of the two a copy is reported as depends on rounding, so separate verdicts
-  were not invariant (measured on the C08 models: `κ_S` of the same model was 2.7e11 in one
-  frame and a failed factorization in another).
+- The product `κ_S A ≤ 1e12` remains the fast accept. Otherwise both `κ_S ≤ 1e12`
+  and `A ≤ 1e8` are required for conditional admission. A nonfinite condition bound or
+  a failed positive-definite factorization refuses. Conditional admission is not a
+  certificate of a returned response: each linear load case must pass the checks below.
+  The product is still the first-order assembly sensitivity estimate: disconnected
+  coupling components cannot exchange assembly rounding (§2.1), so block scaling gives
+  `‖δS‖/λ_max(S) ≤ ε A` and relative smallest-eigenvalue sensitivity `ε κ_S A`.
+  Exceeding the product threshold alone no longer establishes a refusal.
 - With constraints, also retain the nonnegative entrywise envelope
   `H = |C|ᵀ |K_original| |C|`. Absolute values are taken before reduction, so terms that
   cancel in `Cᵀ K_original C` still contribute to `H`. In the local eigenbasis form
   `P = |W|ᵀ H |W|`; its maximum row sum `h` bounds its spectral norm. For this bound,
   dropped directions are included with scale `1/√μ_max,c`. A zero-scale component with
   nonzero envelope is refused. Nonfinite envelopes or projected bounds are refused.
-  Require `κ_S h ≤ 1e12` as well as the existing `κ_S A ≤ 1e12`; since the kept `S`
+  Require `κ_S h ≤ 1e12` independently of the fast/conditional acceptance rule; since the kept `S`
   has unit diagonal, `λ_min(S) ≥ 1/κ_S`, and the first-order error amplification is
   bounded by `ε κ_S h`. This is a conservative entrywise rounding envelope, not a claim
   that constraint reduction can recover precision already lost during assembly.
@@ -194,7 +189,40 @@ refuse. It never licenses an inaccurate returned answer. The Winkler reproducer 
 oblique copies against the rotated original displacements and rotations, or requires the
 stability refusal. Unit changes and relabelling preserve the structural graph.
 
-### 2.4 Known conservative refusals
+### 2.4 Conditional response accuracy
+
+The single accuracy constant is `stability::CONDITIONAL_ACCURACY = 1e-4`.
+For a conditionally admitted matrix, every dense, sparse, PCG and constrained linear
+solve computes a compensated residual `r = b - Kx`, retaining product errors with FMA
+and summation errors. It reuses the existing factorization to solve `K dx = r`, checks
+`||dx||∞/||x||∞` in diagonal energy coordinates (`y_i = sqrt(|K_ii|) x_i`), and applies
+that one correction. These operations are algebraically a solve in
+`D⁻¹ K D⁻¹`, using the existing unscaled factors. The existing six-step 3D sparse
+refinement remains active as well. A nonfinite correction/estimate, or an estimate above
+the accuracy constant, refuses with the conditioning reason. An exactly zero response
+and zero correction have estimate zero.
+
+The recovered member endpoint forces are transformed to global axes and balanced against
+applied nodal loads at every free node, including support springs, connectors and shell
+nodal forces. The latter are recovered through their assembled stiffness, not through
+reported shell stresses. Inclined-support balances use the support coordinates;
+constraint balances are projected onto independent equations so constraint transfer is
+included. The scale is the largest assembled applied-load component, without an absolute
+load floor. A nonfinite balance or a relative imbalance above the same constant refuses.
+This check covers force-recovery cancellation that displacement refinement alone misses.
+The existing stiffness, release, constraint-envelope, row-residual and static checks
+remain active. The estimate is a measured correction, not a rigorous bound on assembly
+error or every possible load.
+
+All-zero right-hand sides have the exact zero response for an admitted matrix. Their
+solve/refuse splits therefore do not establish a wrong answer. The C08 invariance test
+adds deterministic nonzero loads on free translations and compares every solved copy
+with the same canonical physical model solved independently at 90 decimal digits, and
+with every other solved copy. Uncertain copies may refuse. See the reproducible
+[reference generator](../results-changes/1753-c08-reference.py) and
+[reference inputs](../results-changes/1753-loaded-c08-inputs.json).
+
+### 2.5 Historical conservative refusals
 
 Before review round 1, any nonzero off-block coupling of a rounding-level rotation caused
 refusal, including a dot product’s own rounding residue. The following are historical
@@ -237,35 +265,29 @@ For each refused case, the bound cannot guarantee four digits for the weak direc
 (the answer may still be accurate: the bound covers every load, not the one applied); the old
 solves returned it with `HighDiagonalRatio` or `NUM-INVARIANCE`, or silently.
 
-### 2.5 Evidence (slice 1, `engine/tests/metamorphic/stability.rs`)
+### 2.6 Loaded response evidence
 
-- The 47 C08 reproducers (43 distinct models: #965 and #968 report #964's model, #1041 #1029's and #1352 #1351's) under 4 unit systems, 3 general rotations, 3 quarter turns, 4
-  mirrors and 4 relabellings (3D: random rotations, axis permutations, mirrors about each
-  axis): every stable or refused verdict, and the number of free directions, is identical.
-  Every requested image must build. The only exceptions are listed by model, transform and
-  the reason the builder gives; a listed exception that builds, or any other image that does
-  not, fails the test. Eight models have no general-angle rotation (#993, #994, #1265: a
-  constraint on one translation; #1106, #1118, #1355: a support restraining some rotations;
-  #1028: anisotropic springs on a rigid support type; #1357: a support restraining two
-  translations) and keep only quarter turns or axis permutations; six have no general mirror
-  (the same reasons, #1106 constraints, #1118 a nodal bimoment).
-  25 are refused (13 Mechanism, 12 Singular) for conditioning or a free translation, 6
-  conservatively for a coupled rounding-level rotation, 16 are Stable.
-- The predicted drift `ε κ_S A` matches what the harness measures today: #993
-  (`κ_S A = 1.0e12`) drifts 1.4e-4 under units and #1115 (`2.8e12`) 2.9e-4, against a
-  prediction of 2.3e-4 and 6.3e-4.
-- Of the 13 Stable reproducers whose recorded analysis and relation hold today, all hold;
-  6 more are refused conservatively (below) and the other 3 Stable ones (#972, #1099,
-  #1647) do not hold today for reasons the verdict does not cover (§5).
-- No model of the example, fixture, feature-matrix or differential corpus is refused.
-  Of the 117 refused random `fuzz_rich` models, 102 are refused by the linear solver today
-  and 14 are solved with `StiffnessNotPositiveDefinite` or `NUM-INVARIANCE`; the last,
-  `fuzz_rich_3d/74` (`κ_S A = 7.9e13`), is solved silently today, and the metamorphic
-  harness rates every one of its transforms inconclusive.
-- A generally oriented stiff frame on springs a million times softer than its members
-  (`κ_S A = 3.9e12`) is refused in the tested coupled orientations; on springs a thousand
-  times softer it is Stable. Its exactly axis-aligned copy can now solve with `A = 1`;
-  rotation that merges its coupling components can instead refuse.
+The 47 C08 findings represent 43 distinct models (the four aliases remain unchanged).
+Each loaded original and every supported unit, rotation, mirror and relabelling copy is
+run through the public linear solver. Unsupported transformations retain the explicit
+model/transform/reason registry. Saved unloaded fixtures are unchanged. References are
+assembled from physical input fields with Decimal arithmetic at 90-digit precision,
+including member releases, thermal/distributed/point loads, supports, settlements,
+connectors, warping and constraints; they are not high-precision solves of the engine's
+rounded global matrix. Reference responses are transformed from the canonical physical
+model, avoiding a different model induced by tiny transformed release-axis coordinates.
+
+The final deterministic probe has 398 solved copies and two split outcomes: #993 and
+#1653 refuse their `25 / 0.01` unit copies while their originals solve. All solved
+reference/pair comparisons pass; the largest measured comparison is
+`1.8623288718840833e-7`.
+
+Newly admitted matrices #973, #993, #1029/#1041, #1115, #1357 and #1653 remain references,
+not closing claims for their recorded non-static analyses. The original #993 refusal
+reproducer remains ignored with its own issue number. The soft-spring bent frame is
+loaded and checked against independent spring equilibrium and member-flexibility closed
+forms in all five unit systems. The four restored shell benchmarks retain main's
+assertions and are active; thin-strip and Winkler/SSI reference assertions are unchanged.
 
 ## 3. Refusal policy
 
@@ -306,11 +328,9 @@ take the verdict on the `K_ff` (or `CᵀK_ffC`) they factor, and then:
    directions), is already Singular (`Indefinite`). There is no LU, no diagonal shift and no PCG past a failed Cholesky.
 
 The dense LU on a bad sparse residual (3D sparse and PCG paths) stays, as §3 allows: it runs
-only on a Stable, pinned, positive-definite matrix. The linear solves no longer warn from
-the raw-diagonal ratio, the near-zero diagonal or a round-off pivot (`HighDiagonalRatio`,
-`NearZeroDiagonal`, `StiffnessNotPositiveDefinite`), and attach `NUM-INVARIANCE` only from
-an `ExcessiveDisplacement` diagnostic: what those tests flagged is now either Stable, with
-`κ_S A ≤ 1e12`, or refused. A forward-error warning (`4(n+24) ε κ_S A > 1e-6`) was tried and
+only on a Stable, pinned, positive-definite matrix. Accepted 3D solves retain conservative raw-diagonal conditioning warnings.
+`NUM-INVARIANCE` also remains attached to excessive displacements. A Stable matrix is
+accepted by the product fast path or admitted conditionally with per-load accuracy checks. A forward-error warning (`4(n+24) ε κ_S A > 1e-6`) was tried and
 dropped: it fired on 24 ordinary corpus models, a plain 20-element cantilever among them.
 The other solvers keep the old tests until their slices.
 

@@ -1684,7 +1684,11 @@ fn solve_constrained_2d_dense_validated(
         let mut k_work = k_reduced.clone();
         stability.pin_dense(&mut k_work, n_free_indep);
         if !cholesky_decompose(&mut k_work, n_free_indep) { return Err(linear::not_positive_definite()); }
-        back_solve(&k_work, &forward_solve(&k_work, &f_reduced, n_free_indep), n_free_indep)
+        let u = back_solve(&k_work, &forward_solve(&k_work, &f_reduced, n_free_indep), n_free_indep);
+        let mut k_pinned = k_reduced.clone();
+        stability.pin_dense(&mut k_pinned, n_free_indep);
+        linear::conditional_dense_refinement(&stability, &k_pinned, &f_reduced, u,
+            |rhs| back_solve(&k_work, &forward_solve(&k_work, rhs, n_free_indep), n_free_indep))?
     };
     stability.check_pins(&u_indep, &f_reduced, &[])?;
 
@@ -1831,6 +1835,7 @@ fn solve_constrained_2d_dense_validated(
         result_summary: None, solver_run_meta: None,
     };
     let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num, 2);
+    super::conditioning_accuracy::member_balance_2d(&input.solver, &input.solver.loads, &dof_num, &stability, &result, Some(&fcs))?;
     super::self_checks::static_2d(&mut result, &resultant)?;
     Ok(result)
 }
@@ -1958,6 +1963,7 @@ fn solve_constrained_2d_sparse(
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
     let u_indep = sparse_cholesky_solve(&num, &f_reduced);
+    let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
     stability.check_pins(&u_indep, &f_reduced, &[])?;
 
     let mut u_f = fcs.expand_solution(&u_indep);
@@ -2078,6 +2084,7 @@ fn solve_constrained_2d_sparse(
         solver_run_meta: None,
     };
     let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, dof_num, 2);
+    super::conditioning_accuracy::member_balance_2d(&input.solver, &input.solver.loads, &dof_num, &stability, &result, Some(&fcs))?;
     super::self_checks::static_2d(&mut result, &resultant)?;
     Ok(Some(result))
 }
@@ -2262,6 +2269,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
     let u_indep = sparse_cholesky_solve(&num, &f_reduced);
+    let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
     stability.check_pins(&u_indep, &f_reduced, &[])?;
 
     let mut u_f = fcs.expand_solution(&u_indep);
@@ -2404,6 +2412,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
         result_summary: None, solver_run_meta: None,
     };
     let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num, 3);
+    super::conditioning_accuracy::member_balance_3d(&input.solver, &input.solver.loads, &dof_num, &stability, &result, Some(&fcs))?;
     super::self_checks::static_3d(&mut result, &resultant)?;
     Ok(result)
 }
