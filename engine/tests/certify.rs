@@ -675,10 +675,7 @@ fn certify_modal_3d_fixtures() {
         match &out.certificate {
             ModalCertificate::Uncertified { reason } => eprintln!("{name}: {reason}"),
             ModalCertificate::Certified { modes, complete_modes, cutoff_omega2, count_failure } => {
-                for (e, m) in modes.iter().zip(&out.results.modes) {
-                    let w2 = m.omega * m.omega;
-                    assert_modal_enclosure(&name, e.omega2_lower, e.omega2_upper, w2);
-                }
+                assert_modal_fixture_enclosures(&name, &out.certificate, &out.results.modes.iter().map(|m| m.omega).collect::<Vec<_>>());
                 let w = modes.iter().map(|e| (e.omega2_upper - e.omega2_lower) / e.omega2_computed).fold(0.0, f64::max);
                 eprintln!(
                     "{name}: max rel width {w:.1e}, {complete_modes}/{} complete below ω² = {cutoff_omega2:.4e} {count_failure:?}",
@@ -697,17 +694,7 @@ fn certify_modal_3d_fixtures() {
 /// and tied columns (2D). Every computed ω² lies in its certified enclosure.
 #[test]
 fn certify_modal_constrained() {
-    use dedaliano_engine::certify::modal::{certify_modal_2d, certify_modal_3d, ModalCertificate};
-    let check = |name: &str, c: &ModalCertificate, omegas: Vec<f64>| -> usize {
-        let ModalCertificate::Certified { modes, complete_modes, .. } = c else { panic!("{name}: {c:?}") };
-        for (e, w) in modes.iter().zip(omegas) {
-            let w2 = w * w;
-            assert_modal_enclosure(name, e.omega2_lower, e.omega2_upper, w2);
-            assert!((e.omega2_upper - e.omega2_lower) / w2 < 1e-6, "{name}: enclosure too wide {e:?}");
-        }
-        eprintln!("{name}: {complete_modes}/{} complete", modes.len());
-        *complete_modes
-    };
+    use dedaliano_engine::certify::modal::{certify_modal_2d, certify_modal_3d};
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-3d-building-case1-input.json");
     let mut input: SolverInput3D = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let supported: Vec<usize> = input.supports.values().map(|s| s.node_id).collect();
@@ -723,13 +710,13 @@ fn certify_modal_constrained() {
     }
     let densities: HashMap<String, f64> = input.materials.values().map(|m| (m.id.to_string(), 7.85)).collect();
     let out = certify_modal_3d(&input, &densities, 6).unwrap();
-    let complete = check("building + diaphragms", &out.certificate, out.results.modes.iter().map(|m| m.omega).collect());
+    let complete = assert_modal_constrained("building + diaphragms", &out.certificate, out.results.modes.iter().map(|m| m.omega).collect());
     assert!(complete >= 1);
 
     let input = tied_columns_2d();
     let densities: HashMap<String, f64> = input.materials.values().map(|m| (m.id.to_string(), 2.5)).collect();
     let out = certify_modal_2d(&input, &densities, 3).unwrap();
-    check("tied columns 2d", &out.certificate, out.results.modes.iter().map(|m| m.omega).collect());
+    assert_modal_constrained("tied columns 2d", &out.certificate, out.results.modes.iter().map(|m| m.omega).collect());
 }
 
 // ───────────────────────── fuzz with an oracle ─────────────────────────
@@ -1588,6 +1575,26 @@ fn assert_modal_result_enclosures(out: &dedaliano_engine::certify::modal::Certif
     }
 }
 
+fn assert_modal_fixture_enclosures(name: &str, c: &dedaliano_engine::certify::modal::ModalCertificate, omegas: &[f64]) {
+    use dedaliano_engine::certify::modal::ModalCertificate;
+    let ModalCertificate::Certified { modes, .. } = c else { panic!("{name}: {c:?}") };
+    for (e, w) in modes.iter().zip(omegas) {
+        assert_modal_enclosure(name, e.omega2_lower, e.omega2_upper, w * w);
+    }
+}
+
+fn assert_modal_constrained(name: &str, c: &dedaliano_engine::certify::modal::ModalCertificate, omegas: Vec<f64>) -> usize {
+    use dedaliano_engine::certify::modal::ModalCertificate;
+    let ModalCertificate::Certified { modes, complete_modes, .. } = c else { panic!("{name}: {c:?}") };
+    assert_modal_fixture_enclosures(name, c, &omegas);
+    for (e, w) in modes.iter().zip(omegas) {
+        let w2 = w * w;
+        assert!((e.omega2_upper - e.omega2_lower) / w2 < 1e-6, "{name}: enclosure too wide {e:?}");
+    }
+    eprintln!("{name}: {complete_modes}/{} complete", modes.len());
+    *complete_modes
+}
+
 fn modal_certificate_control() -> dedaliano_engine::certify::modal::CertifiedModal2D {
     let input = tied_columns_2d();
     let densities = input.materials.keys().map(|id| (id.clone(), 7.85)).collect();
@@ -1655,4 +1662,86 @@ fn seeded_failure_generalized_relative_certificate_just_below_error() {
         *rel_bound = relative.next_down();
     }
     rejects_seeded_oracle(|| { assert_honest_gen(&cert, &s); }, "relative bound violated");
+}
+
+fn modal_3d_certificate_control() -> dedaliano_engine::certify::modal::CertifiedModal3D {
+    let input: SolverInput3D = serde_json::from_str(include_str!("fixtures/ex-3d-cantilever-load-input.json")).unwrap();
+    let densities = input.materials.keys().map(|id| (id.clone(), 7.85)).collect();
+    dedaliano_engine::certify::modal::certify_modal_3d(&input, &densities, 6).unwrap()
+}
+
+fn modal_fixture_missing_results(keep: usize) {
+    let out = modal_3d_certificate_control();
+    let mut omegas: Vec<_> = out.results.modes.iter().map(|m| m.omega).collect();
+    assert_modal_fixture_enclosures("3D fixture control", &out.certificate, &omegas);
+    assert!(omegas.len() > keep);
+    omegas.truncate(keep);
+    let expected = if keep == 0 { "no modal result values were compared" } else { "modal result and certificate mode counts differ" };
+    rejects_seeded_oracle(|| assert_modal_fixture_enclosures("3D fixture seed", &out.certificate, &omegas), expected);
+}
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_modal_3d_fixture_empty_results() {
+    modal_fixture_missing_results(0);
+}
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_modal_3d_fixture_truncated_results() {
+    modal_fixture_missing_results(1);
+}
+
+fn modal_constrained_missing_results(keep: usize) {
+    let out2 = modal_certificate_control();
+    let out3 = modal_3d_certificate_control();
+    for (cert, mut omegas) in [
+        (out2.certificate, out2.results.modes.iter().map(|m| m.omega).collect::<Vec<_>>()),
+        (out3.certificate, out3.results.modes.iter().map(|m| m.omega).collect::<Vec<_>>()),
+    ] {
+        assert_modal_constrained("constrained control", &cert, omegas.clone());
+        assert!(omegas.len() > keep);
+        omegas.truncate(keep);
+        let expected = if keep == 0 { "no modal result values were compared" } else { "modal result and certificate mode counts differ" };
+        rejects_seeded_oracle(|| { assert_modal_constrained("constrained seed", &cert, omegas); }, expected);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_modal_constrained_empty_results() {
+    modal_constrained_missing_results(0);
+}
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_modal_constrained_truncated_results() {
+    modal_constrained_missing_results(1);
+}
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_modal_fixture_missing_certificates() {
+    use dedaliano_engine::certify::modal::ModalCertificate;
+    let out2 = modal_certificate_control();
+    let out3 = modal_3d_certificate_control();
+    for (cert, omegas) in [
+        (out2.certificate, out2.results.modes.iter().map(|m| m.omega).collect::<Vec<_>>()),
+        (out3.certificate, out3.results.modes.iter().map(|m| m.omega).collect::<Vec<_>>()),
+    ] {
+        assert_modal_fixture_enclosures("control", &cert, &omegas);
+        for keep in [0, 1] {
+            let mut wrong = cert.clone();
+            let ModalCertificate::Certified { modes, .. } = &mut wrong else { panic!("control not certified") };
+            assert!(modes.len() > keep);
+            modes.truncate(keep);
+            let expected = if keep == 0 { "no modal certificate values were compared" } else { "modal result and certificate mode counts differ" };
+            rejects_seeded_oracle(|| assert_modal_fixture_enclosures("missing certificates", &wrong, &omegas), expected);
+            rejects_seeded_oracle(|| { assert_modal_constrained("missing certificates", &wrong, omegas.clone()); }, expected);
+            if keep == 0 {
+                rejects_seeded_oracle(|| assert_modal_fixture_enclosures("both empty", &wrong, &[]), expected);
+                rejects_seeded_oracle(|| { assert_modal_constrained("both empty", &wrong, vec![]); }, expected);
+            }
+        }
+    }
 }

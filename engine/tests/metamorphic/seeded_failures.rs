@@ -480,3 +480,30 @@ fn seeded_failure_inverse_load_scaling() {
     assert_eq!(control["verdicts"][0]["pass"], 1, "{control}");
     assert_red(&seeded(1, Fault::Sign, check), "superposition");
 }
+
+#[test]
+#[ignore = "known wrong result: #1919"]
+fn seeded_failure_replay_reaches_numerical_assertion() {
+    let destination = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent().unwrap().join("target")
+        .join(format!("seeded-replay-assertion-{}.json", std::process::id()));
+    for (fault, code) in [("control", 0), ("sign", 101)] {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--ignored", "--exact", "metamorphic_replay", "--nocapture"])
+            .env("NIGHTLY_MODEL", concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-cantilever-input.json"))
+            .env("NIGHTLY_RESULTS", &destination)
+            .env("METAMORPHIC_SEED", "1919")
+            .env("STABILEO_SELFTEST_REPLAY", fault)
+            .output().unwrap();
+        assert_eq!(output.status.code(), Some(code), "{output:?}");
+        let result: serde_json::Value = serde_json::from_slice(&std::fs::read(&destination).unwrap()).unwrap();
+        std::fs::remove_file(&destination).unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if fault == "sign" {
+            assert_red(&result, "rotation");
+            assert!(stderr.contains("metamorphic violations:"), "replay failed outside its numerical assertion: {stderr}");
+        } else {
+            assert!(result["failures"].as_array().unwrap().is_empty(), "{result}");
+        }
+    }
+}
