@@ -39,6 +39,8 @@ fn frame(s: &State) -> Value {
 /// The path of Section 3.4 with the far corner of the rectangle at
 /// `(theta, delta)`: (1,0) → (Θ,0) → (Θ,Δ) → (1,Δ) → (1,0) under the uniform
 /// load 2.5, recording every state and any jump between neighbouring ones.
+/// Where no equilibrium is found near the previous state (a fold: the strip
+/// would snap), the path stops and `lost` names the actuator setting.
 pub fn path(theta: f64, delta: f64) -> Result<Value, String> {
     if !(1.0..=1.6).contains(&theta) || !(0.0..=1.8).contains(&delta) {
         return Err("corner out of range".into());
@@ -47,14 +49,18 @@ pub fn path(theta: f64, delta: f64) -> Result<Value, String> {
     let mut frames = vec![frame(&s)];
     let mut corners = vec![0];
     let mut snaps = vec![];
+    let mut lost = Value::Null;
     let legs = [(1.0, 0.0), (theta, 0.0), (theta, delta), (1.0, delta), (1.0, 0.0)];
-    for w in legs.windows(2) {
+    'legs: for w in legs.windows(2) {
         let ((t0, d0), (t1, d1)) = (w[0], w[1]);
         let steps = ((t1 - t0).abs().max((d1 - d0).abs()) / STEP).ceil() as usize;
         for k in 1..=steps {
             let f = k as f64 / steps as f64;
             let to = Setting { theta: t0 + f * (t1 - t0), delta: d0 + f * (d1 - d0), q: LOAD };
-            let next = s.advance(to, 2).or_else(|_| s.advance(to, 40))?;
+            let Ok(next) = s.advance(to, 2).or_else(|_| s.advance(to, 40)) else {
+                lost = json!({"theta": round(to.theta), "delta": round(to.delta)});
+                break 'legs;
+            };
             if s.jump_to(&next) > SNAP {
                 snaps.push(frames.len());
             }
@@ -64,6 +70,7 @@ pub fn path(theta: f64, delta: f64) -> Result<Value, String> {
         corners.push(frames.len() - 1);
     }
     Ok(json!({
+        "lost": lost,
         "elements": ELEMENTS,
         "load": LOAD,
         "corner": [theta, delta],

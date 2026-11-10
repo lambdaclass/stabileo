@@ -2,7 +2,7 @@
   "source": "replay.json: `cargo run --release --bin replay -- reference-results/replay.json` (this crate, production co-rotational engine). fig9c_digitized.json: the curves of Figure 9(c) of arXiv:2509.12916v1, read by colour from the page rendered at 600 dpi (method inside the file).",
   "platform": "rustc 1.99.1, Darwin arm64, 2026-11-09",
   "files_sha256": {
-    "replay.json": "ed2e32f90dfae17a0be5bce7b711175c40e5569772f92f120a3df9feea4fd84a",
+    "replay.json": "5881d48442fce06a93cdf56c878f03f02e66611b294d6cefd4469e93ea2f2aae",
     "fig9c_digitized.json": "3a96657e1109a9b17a5ade53f63e9336ea723bb92463febbbc2d39231f9a3646"
   }
 }
