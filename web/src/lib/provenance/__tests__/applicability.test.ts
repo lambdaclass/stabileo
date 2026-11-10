@@ -26,7 +26,7 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
-  it.skip('known wrong result: #1922: shows one complete harmonic correction notice for this PR', () => {
+  it('shows one complete harmonic correction notice for PR #1922', () => {
     const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!;
     const snapshot = model({ elements: [member(1, 1, 'frame')] });
     const before = entry.resultsVersion - 1;

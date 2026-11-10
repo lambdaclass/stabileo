@@ -60,3 +60,17 @@ diagnostic may still apply to a 3D mixed sweep.
 DOFs, especially near or above the first omitted mode. Check real and imaginary
 response, amplitude, phase and the sampled peak, including old results without a
 truncation warning. Smaller models retain their existing direct/modal selection.
+
+## Direct refinement in the same harmonic correction
+
+The same PR also corrects rounding introduced by its earlier direct implementation
+and retires the corrected truncation warning. The dense and sparse solvers use
+exact binary column scaling and compensated residual refinement while retaining
+resonance refusal. See the [direct-refinement evidence and recheck guidance](2026-11-harmonic-direct-refinement.md).
+
+Both fixes share the `harmonic-omitted-modes` registration and its harmonic
+structural-model condition. Its notice includes both explanations in every locale.
+An unknown legacy stamp still receives this notice because harmonic runs were not
+recorded; a stamp that records all analysis kinds and only ran linear analysis
+does not. This consolidates two entries from the unmerged PR without hiding a
+possible earlier harmonic run or changing any engine result.

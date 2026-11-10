@@ -1,6 +1,6 @@
 # Harmonic direct solves preserve accuracy on coupled systems (2026-11-10)
 
-Issue #1539. PR #1922. Results-change entry `harmonic-direct-refinement`.
+Issue #1539. PR #1922. Results-change entry `harmonic-omitted-modes` (shared by the harmonic fixes in this PR).
 
 After merging main, the #1539 harmonic cantilever regression passed its reciprocity
 checks but failed the comparison between two direct solves at zero frequency.
