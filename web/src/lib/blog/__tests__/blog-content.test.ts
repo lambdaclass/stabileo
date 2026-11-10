@@ -401,6 +401,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     ['de', 'Niedrig', 'Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026'],
     ['fr', 'Faible', 'Corrigé après 0.5.0 ; sur stabileo.com depuis le 9 novembre 2026'],
     ['tr', 'Düşük', "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"],
+    ['hu', 'Alacsony', '0.5.0 után javítva; 2026. november 9. óta a stabileo.com-on'],
   ])('%s: publishes SA-2026-049 through 053 as fixed and retains 053’s low severity', (locale, severity, fixedStatus) => {
     const blocks = post!.i18n[locale]!.blocks;
     const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
