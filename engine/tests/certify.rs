@@ -1470,7 +1470,7 @@ fn assert_uncertified_3d(seed: u64, input: &SolverInput3D, result: &AnalysisResu
         100309 => ("6", 2, true),
         100325 => ("4", 4, false),
         _ => {
-            assert_not_pd_warned(reason, &result.structured_diagnostics);
+            assert_not_pd_warned(seed, reason, &result.structured_diagnostics);
             return;
         }
     };
@@ -1604,8 +1604,8 @@ fn seeded_failure_mechanism_and_warning_oracles() {
     rejects_seeded_oracle(|| assert_never_certified("false mechanism certificate", Ok(solved)), "mechanism certified");
     let reason = "sparse Cholesky failed";
     let diagnostic = StructuredDiagnostic::global(DiagnosticCode::StiffnessNotPositiveDefinite, Severity::Warning, "seed control");
-    assert_not_pd_warned(reason, &[diagnostic]);
-    rejects_seeded_oracle(|| assert_not_pd_warned(reason, &[]), "without a warning");
+    assert_not_pd_warned(0, reason, &[diagnostic]);
+    rejects_seeded_oracle(|| assert_not_pd_warned(0, reason, &[]), "without a warning");
 }
 
 #[test]
