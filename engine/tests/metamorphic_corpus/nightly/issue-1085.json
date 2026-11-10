@@ -1,0 +1,75 @@
+{
+  "_nightly_dens": {
+    "1": 2542.843365613845
+  },
+  "_nightly_name": "fuzz_rich_2d/20800",
+  "connectors": {},
+  "constraints": [
+    {
+      "dofs": [],
+      "masterNode": 2,
+      "slaveNode": 3,
+      "type": "rigidLink"
+    }
+  ],
+  "elements": {
+    "1": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 1,
+      "materialId": 1,
+      "nodeI": 1,
+      "nodeJ": 2,
+      "sectionId": 1,
+      "type": "frame"
+    }
+  },
+  "loads": [],
+  "materials": {
+    "1": {
+      "e": 165672.36050626976,
+      "id": 1,
+      "nu": 0.287571628224092
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": -4.104937597735876,
+      "z": 2.597281735600504
+    },
+    "2": {
+      "id": 2,
+      "x": 5.853735517510675,
+      "z": 6.825623220049177
+    },
+    "3": {
+      "id": 3,
+      "x": -4.6413894407040495,
+      "z": 3.5484123532363014
+    }
+  },
+  "sections": {
+    "1": {
+      "a": 0.001446960407842959,
+      "asY": null,
+      "id": 1,
+      "iz": 1.1881303082714316e-06
+    }
+  },
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": 0.0073991927039322464,
+      "id": 1,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "type": "fixed"
+    }
+  }
+}
