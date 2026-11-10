@@ -950,6 +950,15 @@ dense path, `n_total < 64`, iterates on the dense assembly, which differs from t
 triplet one by rounding.) Restrained DOFs keep their returned (prescribed) values `u_R`.
 Constraints and inclined supports are refused.
 
+The correction is documented in draft [SA-2026-055](../advisories/SA-2026-055-pdelta-span-axial.md).
+
+For axial span loads, the certificate adds the displacement-independent correction
+`∫(N(x) − N̄)φ′ᵢφ′ⱼ dx` to its sparse `K` before evaluating these equations. Here
+`K` therefore includes that constant span-force contribution; `Σ N_e(u) G_e`
+contains the mean-force terms. This is the same corrected discrete model solved
+by P-Delta, including both bending planes and the 3D torsional coupling terms.
+The derivative and quadratic remainder below are unchanged by the constant term.
+
 The free equations `F(x) = [(K + K_G(u))u − f]_F`, `u = [x; u_R]`, are *exactly quadratic*:
 with `c_e = e·a/l` and `x = ũ + δ`,
 
