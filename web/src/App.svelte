@@ -388,6 +388,10 @@
   import ProDrawBar from './components/pro/ProDrawBar.svelte';
   import { drawState } from './lib/store/draw-state.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
+  import ExamPanel from './components/edu/ExamPanel.svelte';
+  import ExamCountdown from './components/edu/ExamCountdown.svelte';
+  import { examLock } from './lib/store/exam-lock.svelte';
+  import { openHandedOffSteps, takeStepsHandoff } from './components/edu/exam-steps-handoff';
   import { eduStore } from './components/edu/edu-store.svelte';
   import { leaveExercise } from './components/edu/exercise-session';
   import TourOverlay from './components/TourOverlay.svelte';
@@ -405,7 +409,7 @@
   import LandingPage from './components/LandingPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
-  import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
+  import { examCodeFromPath, modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n, ensurePublicLocale } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
   import { splitAllAtNodes } from './lib/model/edit/cut-members';
@@ -420,6 +424,8 @@
   // and the route rules are `lib/public-route.ts`'s, the same ones Root.svelte reads.
   const isAppRoute = isAppPath;
   const isDemoRoute = isDemoPath;
+  const examCode = typeof window !== 'undefined' ? examCodeFromPath(location.pathname) : null;
+  if (examCode) examLock.enterRoom();
 
   /**
    * The URL says which language the page is in, so on arrival the URL wins.
@@ -436,6 +442,7 @@
   adoptLocaleFromPath();
 
   function replaceAppUrl(mode: AppMode, tabName?: string) {
+    if (examCodeFromPath(location.pathname)) return;
     const url = new URL(location.href);
     url.pathname = modeToPath(mode);
     if (tabName) {
@@ -805,7 +812,7 @@
 
   // In the viewer nothing is edited from the keyboard, and the command search is the editor's.
   const publicActive = $derived(showLanding || showBlog || showExperiment || showPaper);
-  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode);
+  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode && !examLock.locked);
   provideEditorActivity(() => editorActive);
   $effect(() => { if (publicActive) return manualPublicScrollRestoration(); document.documentElement.lang = t('file.htmlLang'); });
 
@@ -922,6 +929,19 @@
     const embed = (png: Uint8Array) => pngWithProvenance(png, record);
     if (fig) { downloadDataUrlPNG(fig.dataUrl, embed); return; }
     if (canvas) downloadCanvasPNG(canvas, embed);
+  }
+
+  $effect(() => {
+    if (examLock.room && uiStore.isMobile && !uiStore.rightDrawerOpen) uiStore.rightDrawerOpen = true;
+  });
+
+  /** A structure handed over from an exam's results opens in a tab of its own, after the reader's tabs are back. */
+  function openStepsHandoff() {
+    const handoff = takeStepsHandoff();
+    if (!handoff) return;
+    openHandedOffSteps(handoff);
+    currentAppMode = 'basico';
+    replaceAppUrl('basico', modelStore.model.name);
   }
 
   onMount(() => {
@@ -1049,7 +1069,7 @@
     }
 
     // Restore full tab workspace first when available.
-    if (!hashMode) {
+    if (!hashMode && !examCode) {
       const savedWorkspace = loadWorkspaceFromLocalStorage();
       if (savedWorkspace && savedWorkspace.tabs.length > 0) {
         const restoreWorkspace = () => {
@@ -1061,6 +1081,7 @@
           currentAppMode = uiStore.appMode;
           replaceAppUrl(currentAppMode, modelStore.model.name);
           autosaveData = null;
+          openStepsHandoff();
         };
         if (workspaceNeedsDetailing(savedWorkspace)) {
           void restoreWorkspaceDetailing(savedWorkspace, restoreWorkspace);
@@ -1079,6 +1100,7 @@
       // user about anything it had to refuse; `autosaveStamp` carries the same fact into
       // the banner, so "this is not your newest save" is on screen and not only in a toast.
       if (!savedWorkspace) {
+        openStepsHandoff();
         void loadAutosave().then((result) => {
           if (result.value && snapshotHoldsWork(result.value.snapshot)) {
             autosaveData = result.value;
@@ -1098,7 +1120,7 @@
     // finishes, because losing one of those to a 30 s window is losing the run.
     autosaveInterval = setInterval(() => {
       void requestAutosave('timer');
-      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode && !examLock.holdsWorkspace) saveWorkspaceToLocalStorage();
     }, 30_000);
 
     // Mobile responsive: track window width
@@ -1165,7 +1187,7 @@
 
     return () => {
       stopUsageTracking();
-      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode && !examLock.holdsWorkspace) saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('stabileo-export-png', handleExportPNG);
@@ -1471,7 +1493,7 @@
 <div class="app-container" class:embed-mode={uiStore.embedMode || uiStore.viewerMode} class:viewer-mode={uiStore.viewerMode} class:hidden-behind-landing={publicActive}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
-      <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
+      <button class="logo-home" disabled={examLock.locked} onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
         <span class="logo-icon">△</span>
         <span class="logo-text">Stabileo</span>
       </button>
@@ -1484,7 +1506,10 @@
         said "New Structure" while the panel said "Simply supported beam",
         so the window disagreed with itself about what was open.
       -->
-      {#if eduStore.isHandout}
+      {#if examLock.room}
+        <span class="handout-title" data-testid="exam-room-title">{examLock.title}</span>
+        {#if examLock.locked}<ExamCountdown />{/if}
+      {:else if eduStore.isHandout}
         <span class="handout-title" data-testid="edu-handout-title">{eduStore.exercise?.title ?? eduStore.pending?.title}</span>
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
@@ -1523,7 +1548,7 @@
         </div>
       {/if}
     </div>
-    {#if !eduStore.isHandout}
+    {#if !eduStore.isHandout && !examLock.room}
       <span class="separator">|</span>
       <TabBar />
     {/if}
@@ -1545,9 +1570,11 @@
     {/if}
 
     <div class="header-actions">
+      {#if !examLock.locked}
       <button class="btn btn-help" onclick={() => uiStore.showHelp = true} title={t('app.keyboardShortcuts')}>
         ?
       </button>
+      {/if}
       <!--
         Three languages, fully maintained. The other eleven dictionaries still exist and still
         work — `tAt` falls back to English per key — but they are largely English underneath, so
@@ -1572,7 +1599,7 @@
         />
       </div>
 
-      {#if authStore.showAccountEntry}
+      {#if authStore.showAccountEntry && !examLock.locked}
         <AccountButton />
       {/if}
 
@@ -1633,7 +1660,7 @@
         stuck", one automatically and one with a person on the other end.
       -->
       {#if uiStore.appMode === 'pro'}<ProSaveStatus /><ProVideosOffer />{/if}
-      <ContactMenu />
+      {#if !examLock.locked}<ContactMenu />{/if}
 
       <!--
         At every width, now.
@@ -2159,7 +2186,7 @@
         {/if}
       {:else if uiStore.appMode === 'educativo'}
         <aside class="sidebar right edu-sidebar">
-          <EducativePanel />
+          {#if examCode}<ExamPanel code={examCode} />{:else}<EducativePanel />{/if}
         </aside>
       {/if}
       <!--
@@ -2187,8 +2214,10 @@
   {/if}
 
   {#if !uiStore.embedMode && !publicActive}
-    <WhatsNewNotice />
-    <ResultsDisclaimer />
+    {#if !examLock.room}
+      <WhatsNewNotice />
+      <ResultsDisclaimer />
+    {/if}
     <UsageNotice />
     <TermsUpdateDialog />
   {/if}
@@ -2257,7 +2286,7 @@
         -->
         <ProPanel bind:this={proPanelRef} />
       {:else if uiStore.appMode === 'educativo'}
-        <EducativePanel />
+        {#if examCode}<ExamPanel code={examCode} />{:else}<EducativePanel />{/if}
       {/if}
     </aside>
   {/if}
