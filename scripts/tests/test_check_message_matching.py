@@ -188,7 +188,6 @@ class AllowList(unittest.TestCase):
 
 
 class Tree(unittest.TestCase):
-    @unittest.skip("known wrong result: #1893")
     def test_benchmark_gate_source_and_pr_metadata_have_reviewed_exemptions(self):
         rel = 'scripts/benchmark-gate.py'
         allow = '\n'.join(line for line in lint.ALLOW.read_text().splitlines()
