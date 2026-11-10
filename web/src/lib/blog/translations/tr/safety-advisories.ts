@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "10 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, 0.5.0 sürümünden sonra düzeltildi ve 9 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin. SA-2026-056 — Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı. SA-2026-057 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-059 — PR #1921 ile düzeltildi, sürüm yayını bekleniyor."
+      "t": "10 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, 0.5.0 sürümünden sonra düzeltildi ve 9 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin. SA-2026-055 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-056 — Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı. SA-2026-057 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-059 — PR #1921 ile düzeltildi, sürüm yayını bekleniyor."
     },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
@@ -31,6 +31,126 @@ const body: PostBody = {
         "Durum"
       ],
       "rows": [
+        [
+          "SA-2026-001",
+          "Üretilen kombinasyonlar ve yükler (CIRSOC 101, 102, 103) güvensiz taraftaydı",
+          "Yüksek",
+          "0.2.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-002",
+          "Beton kontrolleri (CIRSOC 201, ACI 318) kapasiteyi olduğundan yüksek gösteriyordu",
+          "Kritik",
+          "0.2.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-003",
+          "Çelik, soğuk şekillendirilmiş ve birleşim kontrolleri kapasiteyi olduğundan yüksek gösteriyordu",
+          "Kritik",
+          "0.2.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-004",
+          "Modelin bir kısmını yok sayan analizler (dinamik, burkulma, plastik göçme)",
+          "Kritik",
+          "0.2.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-005",
+          "2B eğik çubuklar: eksenel kuvvette çubuk doğrultusundaki yük bileşeni yoktu",
+          "Yüksek",
+          "2026-10-21'de düzeltildi"
+        ],
+        [
+          "SA-2026-006",
+          "3B olarak çözülen düzlem model: düğüm momentleri ve zorlanmış dönmeler ters yöndeydi",
+          "Yüksek",
+          "2026-10-21'de düzeltildi"
+        ],
+        [
+          "SA-2026-007",
+          "Burulmalı veya eğilmeli-burulmalı modlar olmadan 3B burkulma",
+          "Yüksek",
+          "2026-10-21'de düzeltildi"
+        ],
+        [
+          "SA-2026-008",
+          "Tepki spektrumu: CQC seçiliyken taban kesme kuvveti SRSS ile birleştiriliyordu; katılımda mesnetlere bağlı kütle yoktu",
+          "Yüksek",
+          "2026-10-21'de düzeltildi"
+        ],
+        [
+          "SA-2026-009",
+          "SHB8 katı kabuk, ince plak eğilmesinde %22 fazla rijitti (sehimler %18 düşük)",
+          "Orta (hiperstatik yapılarda daha yüksek)",
+          "2026-10-19'da düzeltildi"
+        ],
+        [
+          "SA-2026-010",
+          "Spektral sertifika sonlu olmayan sonuçları geçiriyordu",
+          "Orta",
+          "2026-10-19'da düzeltildi"
+        ],
+        [
+          "SA-2026-011",
+          "Yaydan ankastre veya sabit mafsallıya çevrilen 3B mesnet yay olarak çözülüyordu",
+          "Yüksek",
+          "2026-10-20'de düzeltildi"
+        ],
+        [
+          "SA-2026-012",
+          "Malzeme bakımından doğrusal olmayan analiz (yalnızca hesap motoru ve WASM): akmadan sonra elastik çubuk kuvvetleri",
+          "Orta",
+          "0.3.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-013",
+          "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
+          "Yüksek",
+          "0.3.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-014",
+          "3B plastik göçme: çarpan eleman numaralandırmasına bağlıydı (göçme yükünün 2,4 katına kadar)",
+          "Yüksek",
+          "0.3.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-015",
+          "Öz ağırlıklı kablolar hiperstatik yapılarda olması gerekenden az çekme kuvveti alıyordu",
+          "Yüksek",
+          "0.3.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-016",
+          "Eğri çubuklar (hesap motorunun eğri kirişleri, uygulamanın yay aracı): neredeyse düşey parçalarda Iy ile Iz yer değiştirmişti",
+          "Orta",
+          "0.3.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-017",
+          "Zemin-yapı etkileşimi: p-y, t-z ve q-z eğrileri kaynaklarından sapıyordu",
+          "Yüksek",
+          "0.3.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-018",
+          "Eğri geometride MITC9 kabuklar (yalnızca hesap motoru ve WASM) rijit cisim hareketiyle şekil değiştiriyordu",
+          "Orta",
+          "0.3.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-019",
+          "Çubuk sıcaklık yükleri (hesap motoru ve WASM; uygulama 2026-10-07'den beri telafi ediyordu): çeliğin α'sı ve dolu dikdörtgen kesitin yüksekliği",
+          "Orta",
+          "0.3.0'da düzeltildi"
+        ],
+        [
+          "SA-2026-020",
+          "3B malzeme bakımından doğrusal olmayan analiz (yalnızca hesap motoru ve WASM): akma yüzeyi 2B'dekinden daha az güvenliydi",
+          "Orta",
+          "0.3.0'da düzeltildi"
+        ],
         [
           "SA-2026-021",
           "Serbest çatılar: mahya doğrultusunda rüzgar yoktu, mahyaya dik doğrultuda ise kuvvet §2.1.5 minimumunun altındaydı (20 m/s'de minimumun %17'si)",
@@ -56,10 +176,16 @@ const body: PostBody = {
           "0.4.0'da düzeltildi"
         ],
         [
-          "SA-2026-039",
-          "Excel ve IFC içe aktarma: dikdörtgen ve boru kesitlerde Iy ile Iz yer değiştirmişti (20 × 40 bir konsol 4 kat fazla esnek, 40 × 20 bir konsol 4 kat fazla rijit)",
-          "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "SA-2026-025",
+          "AISC 360 G2 kesme (yalnızca hesap motoru ve WASM): gövde alanı olmadan oran 0 ile geçiyordu ve sertifikalanıyordu",
+          "Orta",
+          "stabileo.com'da düzeltildi (#1234)"
+        ],
+        [
+          "SA-2026-026",
+          "EC3 6.2.6 kesme (yalnızca hesap motoru ve WASM): kesme alanı olmadan Av = 0,5·A alınıyordu, HEB 300'de Vpl,Rd %57 yüksek, ve sertifikalanıyordu",
+          "Orta",
+          "stabileo.com'da düzeltildi (#1234)"
         ],
         [
           "SA-2026-027",
@@ -98,8 +224,44 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
+          "SA-2026-033",
+          "Yük üreteci: bir kısmının üstünde tek bir alçak eleman olan bir döşeme bütün alan yükünü kaybediyordu (bir örnekte 6 × 6 m'lik bir döşemenin 36 m²'si); kafes kirişler çatı taşıyıcı sistemi sayılmıyordu",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-034",
+          "Denge kontrolü, kontrolünün yükleri dışarıda bıraktığı durumlarda yükleri ve tepkileri uyuşuyor olarak bildiriyordu; benzer katlardaki düzenlemeler diğer türdeki çubuklara ulaşıyor ve kopyalar mafsallarını kaybediyordu",
+          "Orta",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-035",
           "3D'den 2D'ye geçiş: kesit, elemanları yanlış kesit ekseni etrafında eğiyordu (Y–Z düzlemindeki bir çerçeve 13,5 kat fazla rijit)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-036",
+          "Y–Z veya X–Y üzerinde 3D'den 2D'ye geçiş: kısıtlar çerçeve X–Z'deymiş gibi okunuyordu (yer değiştirme bağları kayboluyor ya da düzlem dışına uygulanıyordu)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-037",
+          "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
+          "Orta",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-038",
+          "3B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43) ve yalnızca uçları arasında basınç altındaki bir çubuk reddediliyordu",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-039",
+          "Excel ve IFC içe aktarma: dikdörtgen ve boru kesitlerde Iy ile Iz yer değiştirmişti (20 × 40 bir konsol 4 kat fazla esnek, 40 × 20 bir konsol 4 kat fazla rijit)",
           "Yüksek",
           "Bir sonraki sürümde düzeltildi"
         ],
@@ -116,26 +278,14 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
-          "SA-2026-033",
-          "Yük üreteci: bir kısmının üstünde tek bir alçak eleman olan bir döşeme bütün alan yükünü kaybediyordu (bir örnekte 6 × 6 m'lik bir döşemenin 36 m²'si); kafes kirişler çatı taşıyıcı sistemi sayılmıyordu",
-          "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
-        ],
-        [
-          "SA-2026-034",
-          "Denge kontrolü, kontrolünün yükleri dışarıda bıraktığı durumlarda yükleri ve tepkileri uyuşuyor olarak bildiriyordu; benzer katlardaki düzenlemeler diğer türdeki çubuklara ulaşıyor ve kopyalar mafsallarını kaybediyordu",
-          "Orta",
-          "Bir sonraki sürümde düzeltildi"
-        ],
-        [
-          "SA-2026-038",
-          "3B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43) ve yalnızca uçları arasında basınç altındaki bir çubuk reddediliyordu",
-          "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
-        ],
-        [
           "SA-2026-042",
           "2B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43 ile +%68)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-043",
+          "Harmonik analiz: bir mod diğerlerinden çok daha yumuşak olduğunda atlanan modların düzeltmesi basamaklarını kaybediyordu (bir örnekte 2,3 Hz'de 79 kat)",
           "Yüksek",
           "Bir sonraki sürümde düzeltildi"
         ],
@@ -144,12 +294,6 @@ const body: PostBody = {
           "2B plastik göçme: göçme katsayısı düğüm numaralandırması, çubuk yönü ve birimlerle değişiyordu (aynı yapıda 4,6 kata kadar)",
           "Yüksek",
           "Limit analizi bir sonraki sürümde düzeltildi; 2B plastik göçme #758 kapanana kadar geri tutuluyor"
-        ],
-        [
-          "SA-2026-043",
-          "Harmonik analiz: bir mod diğerlerinden çok daha yumuşak olduğunda atlanan modların düzeltmesi basamaklarını kaybediyordu (bir örnekte 2,3 Hz'de 79 kat)",
-          "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
         ],
         [
           "SA-2026-045",
@@ -205,6 +349,7 @@ const body: PostBody = {
           "Düşük",
           "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
         ],
+        ["SA-2026-055", "2B ve 3B P-Delta, çerçeve çubuğu boyunca yayılı veya tekil yükler altında eksenel kuvvet değiştiğinde büyütmeyi düşük gösterebilir ve kararlı sonuç bildirebilirdi", "Yüksek", "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"],
         [
           "SA-2026-056",
           "Çerçeve, kabuk ve kısıt içeren 3B modeller: harmonik ve zorlanmış zaman geçmişi sonuçları eşdeğer tanımlamalarda değişiyor; saklanan modelin ötesindeki kapsam belirlenmedi",
@@ -223,150 +368,6 @@ const body: PostBody = {
           "Yüksek",
           "PR #1921 ile düzeltildi, sürüm yayını bekleniyor"
         ],
-        [
-          "SA-2026-037",
-          "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
-          "Orta",
-          "Bir sonraki sürümde düzeltildi"
-        ],
-        [
-          "SA-2026-036",
-          "Y–Z veya X–Y üzerinde 3D'den 2D'ye geçiş: kısıtlar çerçeve X–Z'deymiş gibi okunuyordu (yer değiştirme bağları kayboluyor ya da düzlem dışına uygulanıyordu)",
-          "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
-        ],
-        [
-          "SA-2026-013",
-          "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
-          "Yüksek",
-          "0.3.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-014",
-          "3B plastik göçme: çarpan eleman numaralandırmasına bağlıydı (göçme yükünün 2,4 katına kadar)",
-          "Yüksek",
-          "0.3.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-015",
-          "Öz ağırlıklı kablolar hiperstatik yapılarda olması gerekenden az çekme kuvveti alıyordu",
-          "Yüksek",
-          "0.3.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-011",
-          "Yaydan ankastre veya sabit mafsallıya çevrilen 3B mesnet yay olarak çözülüyordu",
-          "Yüksek",
-          "2026-10-20'de düzeltildi"
-        ],
-        [
-          "SA-2026-017",
-          "Zemin-yapı etkileşimi: p-y, t-z ve q-z eğrileri kaynaklarından sapıyordu",
-          "Yüksek",
-          "0.3.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-008",
-          "Tepki spektrumu: CQC seçiliyken taban kesme kuvveti SRSS ile birleştiriliyordu; katılımda mesnetlere bağlı kütle yoktu",
-          "Yüksek",
-          "2026-10-21'de düzeltildi"
-        ],
-        [
-          "SA-2026-007",
-          "Burulmalı veya eğilmeli-burulmalı modlar olmadan 3B burkulma",
-          "Yüksek",
-          "2026-10-21'de düzeltildi"
-        ],
-        [
-          "SA-2026-006",
-          "3B olarak çözülen düzlem model: düğüm momentleri ve zorlanmış dönmeler ters yöndeydi",
-          "Yüksek",
-          "2026-10-21'de düzeltildi"
-        ],
-        [
-          "SA-2026-005",
-          "2B eğik çubuklar: eksenel kuvvette çubuk doğrultusundaki yük bileşeni yoktu",
-          "Yüksek",
-          "2026-10-21'de düzeltildi"
-        ],
-        [
-          "SA-2026-019",
-          "Çubuk sıcaklık yükleri (hesap motoru ve WASM; uygulama 2026-10-07'den beri telafi ediyordu): çeliğin α'sı ve dolu dikdörtgen kesitin yüksekliği",
-          "Orta",
-          "0.3.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-012",
-          "Malzeme bakımından doğrusal olmayan analiz (yalnızca hesap motoru ve WASM): akmadan sonra elastik çubuk kuvvetleri",
-          "Orta",
-          "0.3.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-016",
-          "Eğri çubuklar (hesap motorunun eğri kirişleri, uygulamanın yay aracı): neredeyse düşey parçalarda Iy ile Iz yer değiştirmişti",
-          "Orta",
-          "0.3.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-018",
-          "Eğri geometride MITC9 kabuklar (yalnızca hesap motoru ve WASM) rijit cisim hareketiyle şekil değiştiriyordu",
-          "Orta",
-          "0.3.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-020",
-          "3B malzeme bakımından doğrusal olmayan analiz (yalnızca hesap motoru ve WASM): akma yüzeyi 2B'dekinden daha az güvenliydi",
-          "Orta",
-          "0.3.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-025",
-          "AISC 360 G2 kesme (yalnızca hesap motoru ve WASM): gövde alanı olmadan oran 0 ile geçiyordu ve sertifikalanıyordu",
-          "Orta",
-          "stabileo.com'da düzeltildi (#1234)"
-        ],
-        [
-          "SA-2026-026",
-          "EC3 6.2.6 kesme (yalnızca hesap motoru ve WASM): kesme alanı olmadan Av = 0,5·A alınıyordu, HEB 300'de Vpl,Rd %57 yüksek, ve sertifikalanıyordu",
-          "Orta",
-          "stabileo.com'da düzeltildi (#1234)"
-        ],
-        [
-          "SA-2026-010",
-          "Spektral sertifika sonlu olmayan sonuçları geçiriyordu",
-          "Orta",
-          "2026-10-19'da düzeltildi"
-        ],
-        [
-          "SA-2026-009",
-          "SHB8 katı kabuk, ince plak eğilmesinde %22 fazla rijitti (sehimler %18 düşük)",
-          "Orta (hiperstatik yapılarda daha yüksek)",
-          "2026-10-19'da düzeltildi"
-        ],
-        [
-          "SA-2026-004",
-          "Modelin bir kısmını yok sayan analizler (dinamik, burkulma, plastik göçme)",
-          "Kritik",
-          "0.2.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-003",
-          "Çelik, soğuk şekillendirilmiş ve birleşim kontrolleri kapasiteyi olduğundan yüksek gösteriyordu",
-          "Kritik",
-          "0.2.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-002",
-          "Beton kontrolleri (CIRSOC 201, ACI 318) kapasiteyi olduğundan yüksek gösteriyordu",
-          "Kritik",
-          "0.2.0'da düzeltildi"
-        ],
-        [
-          "SA-2026-001",
-          "Üretilen kombinasyonlar ve yükler (CIRSOC 101, 102, 103) güvensiz taraftaydı",
-          "Yüksek",
-          "0.2.0'da düzeltildi"
-        ]
       ]
     },
     {
@@ -381,17 +382,52 @@ const body: PostBody = {
       ],
       "rows": [
         [
-          "SA-2026-024",
-          "6 × 4 m portal çerçeve, kirişte 20 kN/m ölü yük, 15 kN rüzgar, 1.2D + 1.6W, canlı hesaplama açıkken yapılan bir düzenlemeden sonra: rüzgar alan taraftaki temelin düşey tepkisi",
-          "65,61",
-          "56,01",
+          "SA-2026-005",
+          "Beşik çatı merteği: tabandaki eksenel kuvvet",
+          "-56,67",
+          "-41,67",
           "kN"
         ],
         [
-          "SA-2026-023",
-          "30×30 cm kolon, 6 Ø20 (üçü alt yüzde), Nu = 100 kN: üç çubuklu yüz basınçtayken φMn",
-          "78,57",
-          "101,57",
+          "SA-2026-006",
+          "Düğüm momentleri ve kuvvetleri olan portal çerçeve: yanal ötelenme",
+          "0,92",
+          "2,52",
+          "mm"
+        ],
+        [
+          "SA-2026-007",
+          "200×10 mm haç kesitli kolon, 1,5 m: kritik yük",
+          "2993",
+          "5860",
+          "kN"
+        ],
+        [
+          "SA-2026-008",
+          "ω ve 1.1ω frekanslı iki mod: CQC değerine göre taban kesme kuvveti",
+          "1,00",
+          "0,81",
+          "—"
+        ],
+        [
+          "SA-2026-009",
+          "Eğilme etkisindeki ince plak, ν = 0,3: doğru değere göre rijitlik",
+          "1,000",
+          "1,225",
+          "—"
+        ],
+        [
+          "SA-2026-011",
+          "0, 4 ve 8 m'de mesnetli kiriş, 8 m'deki mesnet ankastre olarak çizilmiş: o mesnetteki sehim",
+          "0",
+          "-14,4",
+          "mm"
+        ],
+        [
+          "SA-2026-012",
+          "Akmış 4 m'lik konsol, uç yükü 1.2·Mp/L: ankastre uçtaki moment",
+          "1012,5",
+          "101250",
           "kN·m"
         ],
         [
@@ -416,10 +452,10 @@ const body: PostBody = {
           "kN"
         ],
         [
-          "SA-2026-011",
-          "0, 4 ve 8 m'de mesnetli kiriş, 8 m'deki mesnet ankastre olarak çizilmiş: o mesnetteki sehim",
-          "0",
-          "-14,4",
+          "SA-2026-016",
+          "Y–Z düzleminde 5 m'lik yarım daire kemer, 40 parça: tepe noktasındaki sehim",
+          "-7,29",
+          "-6,18",
           "mm"
         ],
         [
@@ -430,32 +466,11 @@ const body: PostBody = {
           "kN/m"
         ],
         [
-          "SA-2026-008",
-          "ω ve 1.1ω frekanslı iki mod: CQC değerine göre taban kesme kuvveti",
-          "1,00",
-          "0,81",
-          "—"
-        ],
-        [
-          "SA-2026-007",
-          "200×10 mm haç kesitli kolon, 1,5 m: kritik yük",
-          "2993",
-          "5860",
-          "kN"
-        ],
-        [
-          "SA-2026-006",
-          "Düğüm momentleri ve kuvvetleri olan portal çerçeve: yanal ötelenme",
-          "0,92",
-          "2,52",
-          "mm"
-        ],
-        [
-          "SA-2026-005",
-          "Beşik çatı merteği: tabandaki eksenel kuvvet",
-          "-56,67",
-          "-41,67",
-          "kN"
+          "SA-2026-018",
+          "MITC9 silindirik yama, 2×2 m, ok yüksekliği 0,2 m, çelik, 50 mm, 1 mrad rijit dönme: düğümlerdeki en büyük von Mises gerilmesi",
+          "0",
+          "101",
+          "MPa"
         ],
         [
           "SA-2026-019",
@@ -465,27 +480,6 @@ const body: PostBody = {
           "kN·m"
         ],
         [
-          "SA-2026-012",
-          "Akmış 4 m'lik konsol, uç yükü 1.2·Mp/L: ankastre uçtaki moment",
-          "1012,5",
-          "101250",
-          "kN·m"
-        ],
-        [
-          "SA-2026-016",
-          "Y–Z düzleminde 5 m'lik yarım daire kemer, 40 parça: tepe noktasındaki sehim",
-          "-7,29",
-          "-6,18",
-          "mm"
-        ],
-        [
-          "SA-2026-018",
-          "MITC9 silindirik yama, 2×2 m, ok yüksekliği 0,2 m, çelik, 50 mm, 1 mrad rijit dönme: düğümlerdeki en büyük von Mises gerilmesi",
-          "0",
-          "101",
-          "MPa"
-        ],
-        [
           "SA-2026-020",
           "3B konsol, 4 m, N = 0.5·Np, uç yükü: ilk akmadaki yük",
           "158,2",
@@ -493,12 +487,19 @@ const body: PostBody = {
           "kN"
         ],
         [
-          "SA-2026-009",
-          "Eğilme etkisindeki ince plak, ν = 0,3: doğru değere göre rijitlik",
-          "1,000",
-          "1,225",
-          "—"
-        ]
+          "SA-2026-023",
+          "30×30 cm kolon, 6 Ø20 (üçü alt yüzde), Nu = 100 kN: üç çubuklu yüz basınçtayken φMn",
+          "78,57",
+          "101,57",
+          "kN·m"
+        ],
+        [
+          "SA-2026-024",
+          "6 × 4 m portal çerçeve, kirişte 20 kN/m ölü yük, 15 kN rüzgar, 1.2D + 1.6W, canlı hesaplama açıkken yapılan bir düzenlemeden sonra: rüzgar alan taraftaki temelin düşey tepkisi",
+          "65,61",
+          "56,01",
+          "kN"
+        ],
       ]
     },
     {
