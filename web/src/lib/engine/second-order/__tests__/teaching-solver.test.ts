@@ -232,6 +232,60 @@ describe('iterations', () => {
   });
 });
 
+describe('span axial integration #1329', () => {
+  it('#1329: the teaching cantilever matches independently integrated cubic work', () => {
+    const L = 5, P = 100, W = 30, H = 2;
+    const input = column('fixed', null, L, P, H);
+    input.loads.push({ type: 'axialDistributed', data: { elementId: 1, qI: -W / L, qJ: -W / L } });
+    const a = 12 * EI / L ** 3 - (6 * P + 3 * W) / (5 * L);
+    const b = -6 * EI / L ** 2 + (P + W) / 10;
+    const c = 4 * EI / L - (2 * P / 15 + W / 30) * L;
+    const sway = H * c / (a * c - b * b);
+    const theta = -H * b / (a * c - b * b);
+    const moment = -((-6 * EI / L ** 2 + P / 10) * sway + (2 * EI / L + (P / 30 + W / 60) * L) * theta);
+    const t = teachingPDelta(input, { method: 'consistent', axialRigid: false });
+    if (!t.ok) throw new Error(t.reason.key);
+    const mine = toAnalysisResults(t.run.sys, input, t.run.final, 'consistent', t.run.finalSolvedWith);
+    const engine = wasm.solvePDelta(input).results;
+    for (const results of [engine, mine]) {
+      expect(results.displacements.find((d: { nodeId: number }) => d.nodeId === 2)!.ux).toBeCloseTo(sway, 12);
+      expect(results.elementForces[0].mStart).toBeCloseTo(moment, 6);
+      expect(results.reactions[0].my).toBeCloseTo(moment, 6);
+      expect(results.elementForces[0].mEnd).toBeCloseTo(0, 9);
+    }
+  });
+});
+
+describe('span load shapes #1329', () => {
+  for (const shape of ['trapezoidal', 'partial', 'point'] as const) {
+    for (const n of [1, 4]) {
+      it(`#1329: ${shape} axial load matches engine stiffness and end forces (n = ${n})`, () => {
+        const L = 5, P = 100, H = 2, angle = 0.4;
+        const c = Math.cos(angle), s = Math.sin(angle);
+        const input = column('fixed', null, L, P, H);
+        input.nodes.set(2, { id: 2, x: L * c, z: L * s });
+        input.loads = [{ type: 'nodal', data: { nodeId: 2, fx: -P * c - H * s, fz: -P * s + H * c, my: 0 } }];
+        if (shape === 'point') input.loads.push({ type: 'pointOnElement', data: { elementId: 1, a: 0.3 * L, p: 0, px: -30 } });
+        else input.loads.push({ type: 'axialDistributed', data: { elementId: 1, qI: shape === 'partial' ? -6 : 0, qJ: -6, ...(shape === 'partial' ? { a: 0.2 * L, b: 0.7 * L } : {}) } });
+        const refined = n === 1 ? input : refineInput(input, n).input;
+        const t = teachingPDelta(refined, { method: 'consistent', axialRigid: false });
+        if (!t.ok) throw new Error(t.reason.key);
+        const mine = toAnalysisResults(t.run.sys, refined, t.run.final, 'consistent', t.run.finalSolvedWith);
+        const eng = wasm.solvePDelta(refined).results;
+        mine.displacements.forEach((d, k) => {
+          for (const key of ['ux', 'uz', 'ry'] as const) expect(d[key]).toBeCloseTo(eng.displacements[k][key], 12);
+        });
+        mine.elementForces.forEach((f, k) => {
+          for (const key of ['nStart', 'nEnd', 'vStart', 'vEnd', 'mStart', 'mEnd'] as const) expect(f[key]).toBeCloseTo(eng.elementForces[k][key], 6);
+        });
+        mine.reactions.forEach((r, k) => {
+          for (const key of ['rx', 'rz', 'my'] as const) expect(r[key]).toBeCloseTo(eng.reactions[k][key], 6);
+        });
+      });
+    }
+  }
+});
+
 describe('a load along a member', () => {
   it('a cantilever column under its own axial load: N varies by the load along it, as in the engine, and the base carries it all', () => {
     const L = 5, qa = -6;

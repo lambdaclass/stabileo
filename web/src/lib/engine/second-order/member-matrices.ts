@@ -118,7 +118,7 @@ export const releasedOf = (m: Pick<PMember, 'truss' | 'hingeI' | 'hingeJ'>): num
  * The member's condensed local stiffness under the axial force N (tension positive).
  * `axial: false` drops EA/L: the bar is axially rigid and its length is held by a constraint.
  */
-export function memberStiffness(m: PMember, N: number, method: GeomMethod, axial = true): MemberStiffness {
+export function memberStiffness(m: PMember, N: number, method: GeomMethod, axial = true, spanAxial?: Mat): MemberStiffness {
   const ke0 = elasticLocal(m, axial);
   if (m.truss) {
     const kg = method === 'none' ? zeros(6, 6) : stringKg(N, m.L);
@@ -137,6 +137,9 @@ export function memberStiffness(m: PMember, N: number, method: GeomMethod, axial
   const T = condensation(elasticLocal(m, true), released);
   const ke = tkt(ke0, T);
   const g = method === 'consistent' ? consistentKg(N, m.L) : method === 'string' ? stringKg(N, m.L) : zeros(6, 6);
+  if (method === 'consistent' && spanAxial) {
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) g[i][j] += spanAxial[i][j];
+  }
   const kg = tkt(g, T);
   return { ke, kg, k: add(ke, kg), T };
 }
