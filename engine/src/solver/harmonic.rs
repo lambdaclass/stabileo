@@ -92,8 +92,12 @@ pub struct HarmonicResult {
     /// directly; `f64::MAX` when one was not finite. `None` for a direct solve.
     #[serde(default)]
     pub max_modal_residual: Option<f64>,
+    /// Frequencies (Hz) outside the accepted modal truncation range that
+    /// were solved directly in a mixed sweep. Empty for an entirely direct sweep.
     #[serde(default)]
     pub direct_frequencies: Vec<f64>,
+    /// Structured notes on approximations (e.g. frequencies where the
+    /// static correction could not be applied).
     #[serde(default)]
     pub warnings: Vec<String>,
 }
@@ -887,11 +891,16 @@ pub fn solve_complex_system(
     let mut rhs = vec![0.0; n2];
 
     // K_d = K - omega^2 * M
+    let mut scales = vec![1.0_f64; n2];
+
     // Build block matrix
     for i in 0..n {
         for j in 0..n {
             let kd = k[i * n + j] - omega2 * m[i * n + j];
             let wc = omega * c[i * n + j];
+            let scale = k[i * n + j].abs().max((omega2 * m[i * n + j]).abs()).max(wc.abs()).max(kd.abs());
+            scales[j] = scales[j].max(scale);
+            scales[n + j] = scales[n + j].max(scale);
 
             // Top-left: K_d
             a[i * n2 + j] = kd;
@@ -907,9 +916,13 @@ pub fn solve_complex_system(
     // RHS: [F, 0]
     rhs[..n].copy_from_slice(&f[..n]);
 
-    let result = lu_solve(&mut a, &mut rhs, n2)
+    for i in 0..n2 {
+        for j in 0..n2 { a[i * n2 + j] /= scales[j]; }
+    }
+    let mut result = lu_solve(&mut a, &mut rhs, n2)
         .ok_or_else(|| "Complex system solve failed".to_string())?;
 
+    for (value, scale) in result.iter_mut().zip(scales) { *value /= scale; }
     let u_real = result[..n].to_vec();
     let u_imag = result[n..].to_vec();
     Ok((u_real, u_imag))
@@ -1124,7 +1137,14 @@ mod tests {
         let sweep = solve_harmonic_modal_sparse(&k, &m, &f, &[0.05, 3000.0], 0.05, &[(0, 1.0)]).unwrap();
         assert_eq!(sweep.uncorrected, vec![3000.0]);
         assert!(sweep.residuals.iter().all(|&r| r <= MODAL_RESIDUAL_TOL), "{:?}", sweep.residuals);
+        let damping = sweep.damping;
         let (r, _) = resolve_unbounded_frequencies(sweep, || unreachable!(), &f, n, &[(0, 1.0)], Some((&k, &m))).unwrap();
+        let point = &r.response_points[1];
+        let real = 1.0 - point.omega * point.omega;
+        let imag = point.omega * (damping.0 + damping.1);
+        let denom = real * real + imag * imag;
+        let expected = (real / denom, -imag / denom);
+        assert!((point.real - expected.0).hypot(point.imag - expected.1) <= 1e-12 * expected.0.hypot(expected.1), "{point:?} vs {expected:?}");
         assert_eq!(r.method, HarmonicMethod::ModalStatic);
         assert_eq!(r.direct_frequencies, vec![3000.0]);
         assert!(!r.warnings.iter().any(|w| w.starts_with(UNCORRECTED_WARNING)), "{:?}", r.warnings);

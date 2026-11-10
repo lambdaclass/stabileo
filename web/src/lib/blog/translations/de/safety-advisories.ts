@@ -219,7 +219,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-058",
-          "Große harmonische 2D/3D-Modelle mit mehr als 3000 unabhängigen freien Freiheitsgraden konnten außerhalb von q ≤ 1/16 ungenaue Antworten ausgelassener Moden ohne Abschneidewarnung behalten (gemessener komplexer Fehler der Zielantwort: 8,079 %)",
+          "Große harmonische 2D/3D-Modelle mit mehr als 3000 unabhängigen freien Freiheitsgraden konnten außerhalb von q ≤ 1/16 ungenaue Antworten ausgelassener Moden bei Frequenzen außerhalb der Abschneidewarnung behalten (gemessener komplexer Fehler der Zielantwort: 8,079 %)",
           "Hoch",
           "In PR #1922 behoben, Veröffentlichung ausstehend"
         ],

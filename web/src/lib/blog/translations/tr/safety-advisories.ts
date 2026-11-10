@@ -219,7 +219,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-058",
-          "3000’den fazla bağımsız serbestlik derecesine sahip büyük 2D/3D harmonik modeller, q ≤ 1/16 aralığı dışında atlanan modların hatalı yanıtlarını kesme uyarısı olmadan koruyabiliyordu (hedef yanıtında ölçülen karmaşık bağıl hata: %8,079)",
+          "3000’den fazla bağımsız serbestlik derecesine sahip büyük 2D/3D harmonik modeller, q ≤ 1/16 aralığı dışında atlanan modların hatalı yanıtlarını kesme uyarısının kapsamadığı frekanslarda koruyabiliyordu (hedef yanıtında ölçülen karmaşık bağıl hata: %8,079)",
           "Yüksek",
           "PR #1922 ile düzeltildi, sürüm yayını bekleniyor"
         ],

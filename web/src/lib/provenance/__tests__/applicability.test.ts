@@ -36,6 +36,17 @@ describe('which registered changes concern a model', () => {
     expect(conditionHolds(entry!.when ?? {}, new Set(['analysis:harmonic']))).toBe(false);
   });
 
+  it('keeps the omitted harmonic notice for legacy unknown analyses and excludes a recorded linear-only solve', () => {
+    const snapshot = model({ elements: [member(1, 1, 'frame')] });
+    const harmonic = stampSolve('harmonic', null);
+    const linear = stampSolve('linear', null);
+    const before = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!.resultsVersion - 1;
+    expect(ids(snapshot, { ...harmonic, resultsVersion: before })).toContain('harmonic-omitted-modes');
+    expect(ids(snapshot, { ...linear, resultsVersion: before })).not.toContain('harmonic-omitted-modes');
+    const { recorded: _recorded, ...legacy } = linear;
+    expect(ids(snapshot, { ...legacy, resultsVersion: before })).toContain('harmonic-omitted-modes');
+  });
+
   it('scopes exact plastic resource refusals to frame projects after plastic analysis', () => {
     const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-exact-resource-budget-refused');
     expect(entry).toBeDefined();

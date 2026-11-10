@@ -1,4 +1,4 @@
-# SA-2026-058: Large harmonic models could retain inaccurate omitted-mode responses without a truncation warning
+# SA-2026-058: Large harmonic models could retain inaccurate omitted-mode responses outside the truncation warning’s coverage
 
 | | |
 |---|---|
@@ -52,13 +52,27 @@ reference. The relative complex target error,
 a response error, not a proven worst case or a conservative correction factor;
 no general bound or error direction has been established.
 
-The production baseline `99d5ee06c`, exercised through test-only commit
-`45e2eded8`, returned method `ModalStatic` and warning strings `[]` in both
-reproducers. The 2D result also lacked a diagnostic naming this defect, so it
-was silently wrong. The 3D result carried a separate `MD-ORTHOGONALITY`
-diagnostic, but no truncation warning for this failure. Do not interpret that
-case as completely diagnostic-free. The pre-fix implementation remains in
-inspected origin/main `52619652e`; that later commit was not independently replayed.
+The full six-frequency replay on origin/main `52619652ecb9d801af1868b34936518965c92d69`
+returns `ModalStatic` with a warning: "static correction not applied at 2
+frequencies (up to 47.7465 Hz)". The warning and `HARM-TRUNCATION` are computed
+from `uncorrected`, which contains only indices `[4, 5]`, frequencies
+`[31.830988618379067, 47.7464829275686]` Hz. The inaccurate responses at
+`15.756339366097638`, `15.915494309189533` and `16.07464925228143` Hz are not
+among them: static correction was applied there, with `q < 0.5`, but did not
+make those responses accurate. Main warns about two later frequencies; the
+8.079% error is at a frequency that warning does not identify or cover.
+The warning text prints the count and maximum, not the complete list.
+
+The web UI renders warning strings once for the whole harmonic sweep in
+`HarmonicCertificate.svelte`; it has no per-frequency warning markers. The
+structured diagnostic is also attached at sweep level, with no frequency
+indices, and describes frequencies whose omitted modes are uncorrected.
+That display does not extend the warning's numerical coverage to the earlier,
+incorrectly corrected points. The 3D sweep additionally carries the separate
+`MD-ORTHOGONALITY` diagnostic. Neither complete replay is diagnostic-free.
+The earlier claim that the full six-frequency sweep returned `warnings=[]`
+was incorrect. See the [retained replay](replays/SA-2026-058-main-frequency-coverage.txt)
+for exact warnings, diagnostics, frequencies, indices and truncation ratios.
 
 ### Release boundary
 
@@ -127,7 +141,7 @@ corrected build when available; no universal response multiplier is established.
 
 Re-run affected harmonic sweeps and review real and imaginary response,
 amplitude, phase, sampled peaks, and demands or deliverables based on them.
-Include results saved without a truncation warning. Reassess design and
+Include results saved at frequencies outside the truncation warning. Reassess design and
 serviceability decisions using the corrected or independently verified demands.
 
 ## Credits and references
@@ -141,4 +155,4 @@ PR #1922 against the independent direct and closed-form references, including
 frequencies around the omitted resonance and sampled-peak checks. See the
 [results-change write-up](../results-changes/2026-11-harmonic-omitted-modes.md)
 for the algorithm, admission limits and re-check scope. The coordinator
-assigned SA-2026-058 on the evidence of the silent 2D result on main.
+assigned SA-2026-058 because main returns inaccurate responses at frequencies outside the warning’s coverage.

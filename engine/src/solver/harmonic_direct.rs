@@ -92,6 +92,7 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
         return Err("Harmonic sparse direct dimension mismatch".into());
     }
     let mut system = System::new(2 * n, STORAGE_BUDGET)?;
+    let mut scales = vec![1.0_f64; 2 * n];
     if k.nnz().saturating_add(m.nnz()) > system.limit / 8 {
         return Err("Harmonic sparse direct storage budget exceeded before assembly".into());
     }
@@ -110,6 +111,9 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
                 let v = matrix.values[p];
                 for (i, j) in [(i, j), (j, i)].into_iter().take(if i == j { 1 } else { 2 }) {
                     let (r, c) = (2 * inverse[i], 2 * inverse[j]);
+                    let scale = (real * v).abs().max((imag * v).abs());
+                    scales[c] = scales[c].max(scale);
+                    scales[c + 1] = scales[c + 1].max(scale);
                     system.add(r, c, real * v)?;
                     system.add(r + 1, c + 1, real * v)?;
                     system.add(r, c + 1, -imag * v)?;
@@ -120,7 +124,14 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
     }
     let mut rhs = vec![0.0; 2 * n];
     for i in 0..n { rhs[2 * inverse[i]] = f[i]; }
-    let x = system.solve(rhs)?;
+    for row in &system.rows {
+        for (&col, &value) in row { scales[col] = scales[col].max(value.abs()); }
+    }
+    for row in &mut system.rows {
+        for (&col, value) in row { *value /= scales[col]; }
+    }
+    let mut x = system.solve(rhs)?;
+    for (value, scale) in x.iter_mut().zip(scales) { *value /= scale; }
     let re = (0..n).map(|i| x[2 * inverse[i]]).collect();
     let im = (0..n).map(|i| x[2 * inverse[i] + 1]).collect();
     Ok((re, im))
@@ -144,17 +155,21 @@ mod tests {
                 solve_complex_system(&k, &m, &[0.0; 4], &f, 2, omega)
             };
             assert!(result.is_err(), "scale={scale:e}, sparse={sparse}: {result:?}");
+            let scalar = if sparse {
+                solve(&CscMatrix::from_triplets(1, &[0], &[0], &[scale]), &CscMatrix::from_triplets(1, &[0], &[0], &[1.0]), &[1.0], (0.0, 0.0), omega)
+            } else {
+                solve_complex_system(&[scale], &[1.0], &[0.0], &[1.0], 1, omega)
+            };
+            assert!(scalar.is_err(), "scalar scale={scale:e}, sparse={sparse}: {scalar:?}");
         }
     }
 
     #[test]
-    #[ignore = "known wrong result: #1434"]
     fn dense_structural_scale_undamped_resonance_is_refused() {
         structural_resonance(false);
     }
 
     #[test]
-    #[ignore = "known wrong result: #1434"]
     fn sparse_structural_scale_undamped_resonance_is_refused() {
         structural_resonance(true);
     }
@@ -199,6 +214,15 @@ mod tests {
                     assert!((re[i] - er[i]).hypot(im[i] - ei[i]) <= 1e-12 * er[i].hypot(ei[i]), "w={w}, dof={i}");
                 }
             }
+        }
+    }
+
+    #[test]
+    fn sparse_full_system_refuses_dimension_mismatches() {
+        let one = CscMatrix::from_triplets(1, &[0], &[0], &[1.0]);
+        let two = CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[1.0, 1.0]);
+        for (m, f) in [(&two, vec![1.0]), (&one, vec![]), (&one, vec![1.0, 2.0])] {
+            assert_eq!(solve(&one, m, &f, (0.0, 0.0), 1.0).unwrap_err(), "Harmonic sparse direct dimension mismatch");
         }
     }
 

@@ -219,7 +219,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-058",
-          "Les modèles harmoniques 2D/3D dépassant 3000 degrés de liberté indépendants libres pouvaient conserver des réponses inexactes des modes omis hors de q ≤ 1/16 sans avertissement de troncature (erreur complexe mesurée de 8,079 % sur la réponse cible)",
+          "Les modèles harmoniques 2D/3D dépassant 3000 degrés de liberté indépendants libres pouvaient conserver des réponses inexactes des modes omis hors de q ≤ 1/16 à des fréquences hors de la portée de l’avertissement de troncature (erreur complexe mesurée de 8,079 % sur la réponse cible)",
           "Élevée",
           "Corrigé dans PR #1922, publication en attente"
         ],
