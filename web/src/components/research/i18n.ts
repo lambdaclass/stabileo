@@ -2168,7 +2168,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'hu', ResearchStrings> = {
     liveSource: "Élő számítás a böngészőjében",
     cachedSource: "Tárolt eredmény (ebben a böngészőben számítva)",
     researchTitle: "Kutatás a szerkezetépítő mérnöki tudományban",
-    galleryLead: "Klasszikus és friss cikkek, referenciafeladatok és módszerek, amelyeket a Stabileóban, a mesterséges intelligenciával támogatott szerkezettervező szoftverben futtathat és ellenőrizhet. Minden oldal leírja, mit reprodukálunk és hogyan ellenőriztük.",
+    galleryLead: "Klasszikus és friss cikkek, referenciafeladatok és módszerek, amelyeket a Stabileo nevű, mesterséges intelligenciával támogatott tartószerkezeti szoftverben futtathat és ellenőrizhet. Minden oldal leírja, mit reprodukálunk és hogyan ellenőriztük.",
     galleryDisclaimer: "Semmi sem mérnöki eredmény ezen az oldalon; egy referenciakóddal való egyezés nem tanúsítás. Hozzájárulások:",
     damageAlt: "A kísérlet saját futtatásunkból származó károsodási mezője",
     missingPage: "Nincs ilyen kutatási oldal",
