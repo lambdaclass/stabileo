@@ -36,90 +36,92 @@ const ALPHA: f64 = 12e-6; // /degC (hardcoded in engine)
 
 #[test]
 fn validation_ansys_vm22_cantilever_axial_bending() {
-    // Map to engine units: EI = 2e7 N*m^2 = 20000 kN*m^2
-    // So E_eff * Iz = 20000 => Iz = 20000 / E_EFF = 20000 / 200e6 = 1e-4 m^4
-    // P = 1000 N = 1.0 kN, N = 50000 N = 50 kN
-    let l = 10.0;
-    let iz = 1e-4;
-    let a_sec = 0.01;
-    let p_lat = 1.0; // kN lateral at tip
-    let n_axial = 50.0; // kN axial compression
-    let n_elem = 10;
+    for n_elem in [10, 20, 40] {
+        // Map to engine units: EI = 2e7 N*m^2 = 20000 kN*m^2
+        // So E_eff * Iz = 20000 => Iz = 20000 / E_EFF = 20000 / 200e6 = 1e-4 m^4
+        // P = 1000 N = 1.0 kN, N = 50000 N = 50 kN
+        let l = 10.0;
+        let iz = 1e-4;
+        let a_sec = 0.01;
+        let p_lat = 1.0; // kN lateral at tip
+        let n_axial = 50.0; // kN axial compression
 
-    let ei = E_EFF * iz; // 20000 kN*m^2
+        let ei = E_EFF * iz; // 20000 kN*m^2
 
-    // Euler critical load for cantilever: Pcr = pi^2*EI/(Le^2) where Le=2L
-    let pcr = std::f64::consts::PI.powi(2) * ei / (4.0 * l * l);
+        // Euler critical load for cantilever: Pcr = pi^2*EI/(Le^2) where Le=2L
+        let pcr = std::f64::consts::PI.powi(2) * ei / (4.0 * l * l);
 
-    // First-order tip deflection
-    let delta_1st = p_lat * l.powi(3) / (3.0 * ei);
+        // First-order tip deflection
+        let delta_1st = p_lat * l.powi(3) / (3.0 * ei);
 
-    // Amplification factor for cantilever with axial compression
-    // Using secant-based amplification: AF ~ 1/(1 - N/Pcr) as approximation
-    let af_approx = 1.0 / (1.0 - n_axial / pcr);
+        // Amplification factor for cantilever with axial compression
+        // Using secant-based amplification: AF ~ 1/(1 - N/Pcr) as approximation
+        let af_approx = 1.0 / (1.0 - n_axial / pcr);
 
-    let elem_len = l / n_elem as f64;
-    let nodes: Vec<_> = (0..=n_elem)
-        .map(|i| (i + 1, i as f64 * elem_len, 0.0))
-        .collect();
-    let elems: Vec<_> = (0..n_elem)
-        .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
-        .collect();
+        let elem_len = l / n_elem as f64;
+        let nodes: Vec<_> = (0..=n_elem)
+            .map(|i| (i + 1, i as f64 * elem_len, 0.0))
+            .collect();
+        let elems: Vec<_> = (0..n_elem)
+            .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
+            .collect();
 
-    let sups = vec![(1, 1, "fixed")];
-    let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_elem + 1,
-        fx: -n_axial, // compression
-        fz: -p_lat,   // lateral
-        my: 0.0,
-    })];
+        let sups = vec![(1, 1, "fixed")];
+        let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: n_elem + 1,
+            fx: -n_axial, // compression
+            fz: -p_lat,   // lateral
+            my: 0.0,
+        })];
 
-    let input = make_input(
-        nodes,
-        vec![(1, E, 0.3)],
-        vec![(1, a_sec, iz)],
-        elems,
-        sups,
-        loads,
-    );
+        let input = make_input(
+            nodes,
+            vec![(1, E, 0.3)],
+            vec![(1, a_sec, iz)],
+            elems,
+            sups,
+            loads,
+        );
 
-    // Linear solution (first-order)
-    let lin = linear::solve_2d(&input).unwrap();
-    let tip_lin = lin
-        .displacements
-        .iter()
-        .find(|d| d.node_id == n_elem + 1)
-        .unwrap();
-    assert_close(tip_lin.uz.abs(), delta_1st, 0.03, "VM22 1st-order tip deflection");
+        // Linear solution (first-order)
+        let lin = linear::solve_2d(&input).unwrap();
+        let tip_lin = lin
+            .displacements
+            .iter()
+            .find(|d| d.node_id == n_elem + 1)
+            .unwrap();
+        assert_close(tip_lin.uz.abs(), delta_1st, 0.03, "VM22 1st-order tip deflection");
 
-    // P-delta solution (second-order)
-    let pd = pdelta::solve_pdelta_2d(&input, 30, 1e-6).unwrap();
-    assert!(pd.converged, "VM22 P-delta should converge");
-    assert!(pd.is_stable, "VM22 should be stable (N < Pcr)");
+        // P-delta solution (second-order)
+        let pd = pdelta::solve_pdelta_2d(&input, 30, 1e-6).unwrap();
+        assert!(pd.converged, "VM22 P-delta should converge");
+        assert!(pd.is_stable, "VM22 should be stable (N < Pcr)");
 
-    let tip_pd = pd
-        .results
-        .displacements
-        .iter()
-        .find(|d| d.node_id == n_elem + 1)
-        .unwrap();
+        let tip_pd = pd
+            .results
+            .displacements
+            .iter()
+            .find(|d| d.node_id == n_elem + 1)
+            .unwrap();
 
-    // P-delta deflection should exceed linear
-    assert!(
-        tip_pd.uz.abs() > tip_lin.uz.abs(),
-        "VM22: P-delta deflection ({:.6}) should exceed linear ({:.6})",
-        tip_pd.uz.abs(),
-        tip_lin.uz.abs()
-    );
+        // P-delta deflection should exceed linear
+        assert!(
+            tip_pd.uz.abs() > tip_lin.uz.abs(),
+            "VM22: P-delta deflection ({:.6}) should exceed linear ({:.6})",
+            tip_pd.uz.abs(),
+            tip_lin.uz.abs()
+        );
 
-    // Amplification should be close to analytical 1/(1-N/Pcr)
-    let actual_af = tip_pd.uz.abs() / tip_lin.uz.abs();
-    assert!(
-        (actual_af - af_approx).abs() / af_approx < 0.15,
-        "VM22: amplification actual={:.4}, expected~{:.4}",
-        actual_af,
-        af_approx
-    );
+        // Amplification should be close to analytical 1/(1-N/Pcr)
+        let actual_af = tip_pd.uz.abs() / tip_lin.uz.abs();
+        eprintln!("VM22 n={n_elem}, actual_af={actual_af:.12}, approximate={af_approx:.12}, relative_error={:.12}", (actual_af / af_approx - 1.0).abs());
+        assert!(
+            (actual_af - af_approx).abs() / af_approx < 0.002,
+            "VM22: amplification actual={:.4}, expected~{:.4}",
+            actual_af,
+            af_approx
+        );
+    }
 }
 
 // ================================================================
@@ -891,115 +893,115 @@ fn validation_ansys_vm34_thermal_two_bar_truss() {
 
 #[test]
 fn validation_ansys_vm40_large_deflection_cantilever() {
-    let l = 1.0;
-    // Choose E and section so EI_eff = 1000:
-    // E_mpa = 12 -> E_eff = 12000, I = 1/12 -> EI = 1000
-    // A = 100 gives EA*L^2/EI = 1200, i.e. a nearly inextensible beam, so the
-    // (inextensible) Mattiasson elastica reference applies. With A = 1
-    // (EA*L^2/EI = 12) axial extensibility shifts u_tip/v_tip by tens of
-    // percent and the reference is not applicable.
-    let e_mpa = 12.0;
-    let e_eff = e_mpa * 1000.0;
-    let a_sec = 100.0;
-    let iz = 1.0 / 12.0;
-    let ei = e_eff * iz; // = 1000
+    for n in [10, 20, 40] {
+        let l = 1.0;
+        // Choose E and section so EI_eff = 1000:
+        // E_mpa = 12 -> E_eff = 12000, I = 1/12 -> EI = 1000
+        // A = 100 gives EA*L^2/EI = 1200, i.e. a nearly inextensible beam, so the
+        // (inextensible) Mattiasson elastica reference applies. With A = 1
+        // (EA*L^2/EI = 12) axial extensibility shifts u_tip/v_tip by tens of
+        // percent and the reference is not applicable.
+        let e_mpa = 12.0;
+        let e_eff = e_mpa * 1000.0;
+        let a_sec = 100.0;
+        let iz = 1.0 / 12.0;
+        let ei = e_eff * iz; // = 1000
 
-    // P*L^2/(EI) = 1.0 -> P = EI/L^2 = 1000
-    let p_load = ei / (l * l);
+        // P*L^2/(EI) = 1.0 -> P = EI/L^2 = 1000
+        let p_load = ei / (l * l);
 
-    let n = 10;
-    let elem_len = l / n as f64;
-    let nodes: Vec<_> = (0..=n)
-        .map(|i| (i + 1, i as f64 * elem_len, 0.0))
-        .collect();
-    let elems: Vec<_> = (0..n)
-        .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
-        .collect();
+        let elem_len = l / n as f64;
+        let nodes: Vec<_> = (0..=n)
+            .map(|i| (i + 1, i as f64 * elem_len, 0.0))
+            .collect();
+        let elems: Vec<_> = (0..n)
+            .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
+            .collect();
 
-    let input = make_input(
-        nodes,
-        vec![(1, e_mpa, 0.3)],
-        vec![(1, a_sec, iz)],
-        elems,
-        vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1,
-            fx: 0.0,
-            fz: -p_load,
-            my: 0.0,
-        })],
-    );
+        let input = make_input(
+            nodes,
+            vec![(1, e_mpa, 0.3)],
+            vec![(1, a_sec, iz)],
+            elems,
+            vec![(1, 1, "fixed")],
+            vec![SolverLoad::Nodal(SolverNodalLoad {
+                node_id: n + 1,
+                fx: 0.0,
+                fz: -p_load,
+                my: 0.0,
+            })],
+        );
 
-    // Linear solution for comparison
-    let lin = linear::solve_2d(&input).unwrap();
-    let tip_lin = lin
-        .displacements
-        .iter()
-        .find(|d| d.node_id == n + 1)
-        .unwrap();
-    let delta_lin = tip_lin.uz.abs();
+        // Linear solution for comparison
+        let lin = linear::solve_2d(&input).unwrap();
+        let tip_lin = lin
+            .displacements
+            .iter()
+            .find(|d| d.node_id == n + 1)
+            .unwrap();
+        let delta_lin = tip_lin.uz.abs();
 
-    // Linear theory: delta = P*L^3/(3EI) = 1000*1/(3*1000) = 1/3 = 0.3333L
-    let delta_lin_expected = p_load * l.powi(3) / (3.0 * ei);
-    assert_close(
-        delta_lin,
-        delta_lin_expected,
-        0.02,
-        "VM40 linear tip deflection",
-    );
+        // Linear theory: delta = P*L^3/(3EI) = 1000*1/(3*1000) = 1/3 = 0.3333L
+        let delta_lin_expected = p_load * l.powi(3) / (3.0 * ei);
+        assert_close(
+            delta_lin,
+            delta_lin_expected,
+            0.02,
+            "VM40 linear tip deflection",
+        );
 
-    // Corotational large displacement solution
-    let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 20, false).unwrap();
-    assert!(result.converged, "VM40 should converge");
+        // Corotational large displacement solution
+        let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 20, false).unwrap();
+        assert!(result.converged, "VM40 should converge");
 
-    let tip = result
-        .results
-        .displacements
-        .iter()
-        .find(|d| d.node_id == n + 1)
-        .unwrap();
+        let tip = result
+            .results
+            .displacements
+            .iter()
+            .find(|d| d.node_id == n + 1)
+            .unwrap();
 
-    // Mattiasson reference: v_tip/L = 0.3015 for P*L^2/(EI) = 1.0
-    let v_tip_ref = 0.3015 * l;
-    let v_tip_computed = tip.uz.abs();
+        let v_tip_ref = 0.301720773799814 * l;
+        let v_tip_computed = tip.uz.abs();
 
-    // u_tip/L = 0.0566 (horizontal shortening)
-    let u_tip_ref = 0.0566 * l;
-    let u_tip_computed = tip.ux.abs();
+        let u_tip_ref = 0.056433236283377 * l;
+        let u_tip_computed = tip.ux.abs();
 
-    // Large deflection should give smaller vertical deflection than linear
-    // (because beam shortens and stiffens geometrically)
-    assert!(
-        v_tip_computed < delta_lin,
-        "VM40: corotational v_tip ({:.4}) should be less than linear ({:.4})",
-        v_tip_computed,
-        delta_lin
-    );
+        // Large deflection should give smaller vertical deflection than linear
+        // (because beam shortens and stiffens geometrically)
+        assert!(
+            v_tip_computed < delta_lin,
+            "VM40: corotational v_tip ({:.4}) should be less than linear ({:.4})",
+            v_tip_computed,
+            delta_lin
+        );
 
-    // Check vertical deflection against Mattiasson
-    let err_v = (v_tip_computed - v_tip_ref).abs() / v_tip_ref;
-    assert!(
-        err_v < 0.10,
-        "VM40: v_tip/L computed={:.4}, reference={:.4}, error={:.1}%",
-        v_tip_computed / l,
-        v_tip_ref / l,
-        err_v * 100.0
-    );
+        // Check vertical deflection against Mattiasson
+        let err_v = (v_tip_computed - v_tip_ref).abs() / v_tip_ref;
+        assert!(
+            err_v < 0.001,
+            "VM40: v_tip/L computed={:.4}, reference={:.4}, error={:.1}%",
+            v_tip_computed / l,
+            v_tip_ref / l,
+            err_v * 100.0
+        );
 
-    // Check horizontal shortening against Mattiasson
-    let err_u = (u_tip_computed - u_tip_ref).abs() / u_tip_ref;
-    assert!(
-        err_u < 0.15,
-        "VM40: u_tip/L computed={:.4}, reference={:.4}, error={:.1}%",
-        u_tip_computed / l,
-        u_tip_ref / l,
-        err_u * 100.0
-    );
+        // Check horizontal shortening against Mattiasson
+        let err_u = (u_tip_computed - u_tip_ref).abs() / u_tip_ref;
+        eprintln!("VM40 n={n}, u={u_tip_computed:.12}, v={v_tip_computed:.12}, err_u={err_u:.12}, err_v={err_v:.12}");
+        assert!(
+            err_u < 0.006,
+            "VM40: u_tip/L computed={:.4}, reference={:.4}, error={:.1}%",
+            u_tip_computed / l,
+            u_tip_ref / l,
+            err_u * 100.0
+        );
 
-    // Verify that the beam has indeed shortened (nonlinear effect)
-    assert!(
-        u_tip_computed > 0.01 * l,
-        "VM40: beam should show measurable shortening, u_tip={:.6e}",
-        u_tip_computed
-    );
+        // Verify that the beam has indeed shortened (nonlinear effect)
+        assert!(
+            u_tip_computed > 0.01 * l,
+            "VM40: beam should show measurable shortening, u_tip={:.6e}",
+            u_tip_computed
+        );
+    }
 }

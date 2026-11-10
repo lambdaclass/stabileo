@@ -134,11 +134,81 @@ def keyed(code, found):
     return out
 
 
+def rust_functions(text):
+    code = strip_rust(text)
+    functions = []
+    for match in re.finditer(r'((?:#\[[^\]]*\]\s*)*)(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)[^{;]*\{', code):
+        depth, end = 1, match.end()
+        while end < len(code) and depth:
+            depth += (code[end] == '{') - (code[end] == '}')
+            end += 1
+        attrs, name = match.group(1), match.group(2)
+        enabled = bool(re.search(r'#\[\s*test\s*\]', attrs)) and not re.search(r'\b(?:ignore|cfg|cfg_attr)\b', attrs)
+        functions.append((name, code[match.end():end - 1], enabled))
+    return functions
+
+
+def enabled_coverage(registry, read):
+    out = set()
+    for entry in registry.get('benchmarks', []):
+        files = set(entry.get('files', []))
+        for q in quantities(entry, read):
+            for locator in q.get('test_tolerances') or []:
+                files.add(locator['file'])
+                files.update(c['file'] for c in locator.get('consumers', []))
+        for file in sorted(files):
+            if not file.endswith('.rs') or read(file) is None:
+                continue
+            functions = rust_functions(read(file))
+            active = {name for name, _, enabled in functions if enabled}
+            while True:
+                reached = active | {callee for name, body, _ in functions if name in active
+                                    for callee, _, _ in functions if call_arguments(body, callee)}
+                if reached == active:
+                    break
+                active = reached
+            out.update((entry['id'], file, name) for name in active)
+    return out
+
+
+def check_consumers(locator, read):
+    for consumer in locator.get('consumers', []):
+        if not consumer.get('assertions') and not consumer.get('statements'):
+            raise Gate(f"{consumer['file']}: empty case-file consumer contract")
+        source = read(consumer['file'])
+        if source is None:
+            raise Gate(f"{consumer['file']}: case-file consumer does not exist")
+        code = strip_rust(source, strings=True)
+        compact = lambda value: re.sub(r'\s+', '', value)
+        for binding, lookup in consumer.get('bindings', {}).items():
+            initializers = re.findall(rf'\blet\s+(?:mut\s+)?{re.escape(binding)}\s*(?::[^=;]+)?=\s*([^;]+);', code)
+            if len(initializers) != 1 or compact(initializers[0]) != compact(lookup):
+                raise Gate(f"{consumer['file']}: {binding} must be the plain case-file lookup {lookup}")
+            blank = strip_rust(source)
+            name = re.escape(binding)
+            shadowed = (len(re.findall(rf'\blet\s+[^;=]*\b{name}\b[^;=]*=', blank)) != 1
+                        or re.search(rf'\bfn\s+\w+\s*\([^)]*\b{name}\s*:', blank)
+                        or re.search(rf'\|[^|;]*\b{name}\s*(?::[^|]*)?\|', blank)
+                        or re.search(rf'\bfor\s+[^;{{]*\b{name}\b[^;{{]*\bin\b', blank))
+            without_binding = re.sub(rf'\blet\s+{re.escape(binding)}\s*=.*?;', '', code)
+            if shadowed or rebound(without_binding, binding):
+                raise Gate(f"{consumer['file']}: case-file binding {binding} is reassigned")
+        actual = [compact(args[0]) for _, args in call_arguments(code, 'assert!') if args]
+        for statement in consumer.get('statements', []):
+            if compact(code).count(compact(statement)) != 1:
+                raise Gate(f"{consumer['file']}: case-file consumer must remain {statement}")
+        for expression in consumer.get('assertions', []):
+            expected_count = consumer['assertions'][expression] if isinstance(consumer['assertions'], dict) else 1
+            if actual.count(compact(expression)) != expected_count:
+                raise Gate(f"{consumer['file']}: case-file tolerance assertion must remain {expression}")
+
+
 def items(locator, read):
     text = read(locator['file'])
     if text is None:
         raise Gate(f"{locator['file']}: test tolerance file does not exist")
     if 'pointer' in locator:
+        check_consumers(locator, read)
         found = pointer(json.loads(text), locator['pointer'])
         if locator.get('transform') == 'ratio-bounds':
             found = [(w, max(1 - b[0], b[1] - 1)) for w, b in found]
@@ -310,6 +380,10 @@ def check(registry, read, files):
             errors.append(f'{bid}: duplicated quantity names')
         for q in qs:
             check_quantity(f"{bid} / {q.get('quantity')}", q, read, errors)
+            if 'protocol' not in entry and any(file.endswith('.rs') for file in entry.get('files', [])):
+                for locator in q.get('test_tolerances') or []:
+                    if 'pointer' in locator and not locator.get('consumers'):
+                        errors.append(f"{bid}: {locator['file']}{locator['pointer']} needs its Rust consumers")
     for f in scoped_files(registry, files):
         if f not in covered:
             errors.append(f'{f}: benchmark has no spec in {REGISTRY}')
@@ -341,7 +415,7 @@ def test_tolerances(registry, read):
                 except Gate:
                     continue
                 for where, value in found:
-                    key = (entry.get('id'), q.get('quantity'), locator['file'], json.dumps(locator, sort_keys=True), where)
+                    key = (entry.get('id'), q.get('quantity'), locator['file'], json.dumps({k: v for k, v in locator.items() if k != 'consumers'}, sort_keys=True), where)
                     out[key] = max(value, out.get(key, value))
     return out
 
@@ -374,12 +448,28 @@ def loosened(base, head):
     return found
 
 
-def label_check(base, base_read, head, head_read, labels):
+def consumer_contracts(registry, read):
+    out = set()
+    for entry in registry.get('benchmarks', []):
+        for q in quantities(entry, read):
+            for locator in q.get('test_tolerances') or []:
+                for consumer in locator.get('consumers', []):
+                    out.add((entry['id'], q['quantity'], locator['file'], locator.get('pointer', ''), json.dumps(consumer, sort_keys=True)))
+    return out
+
+
+def label_check(base, base_read, head, head_read, labels, reason=None):
     changes = (loosened(spec_tolerances(base, base_read), spec_tolerances(head, head_read))
-               + tests_loosened(test_tolerances(base, base_read), test_tolerances(head, head_read)))
+               + tests_loosened(test_tolerances(base, base_read), test_tolerances(head, head_read))
+               + [f'{bid}: enabled benchmark {file} {name} removed or disabled'
+                  for bid, file, name in sorted(enabled_coverage(base, base_read) - enabled_coverage(head, head_read))]
+               + [f'{bid} / {quantity}: case-file consumer contract for {file}{pointer} removed or changed'
+                  for bid, quantity, file, pointer, _ in sorted(consumer_contracts(base, base_read) - consumer_contracts(head, head_read))])
     if changes and LABEL not in labels:
         return [f'{c} (needs the {LABEL} label)' for c in changes], None
-    return [], changes and f'{len(changes)} loosened tolerance(s) accepted by the {LABEL} label'
+    if changes and not str(reason or '').strip():
+        return [f'{c} (needs a non-empty tolerance-change reason)' for c in changes], None
+    return [], changes and f'{len(changes)} loosened tolerance(s) accepted by the {LABEL} label: {reason.strip()}'
 
 
 def git(*args):
@@ -405,7 +495,7 @@ def event_context(env):
     if name != 'pull_request':
         return dict(skip=f'{name} event: the label check runs on the pull request')
     pr = event['pull_request']
-    return dict(base=pr['base']['sha'], labels=[label['name'] for label in pr.get('labels', [])])
+    return dict(base=pr['base']['sha'], labels=[label['name'] for label in pr.get('labels', [])], body=pr.get('body') or '')
 
 
 def base_revision(sha):
@@ -418,6 +508,7 @@ def main(argv=None, env=None):
     env = os.environ if env is None else env
     parser = argparse.ArgumentParser()
     parser.add_argument('--base')
+    parser.add_argument('--reason')
     parser.add_argument('--label', action='append', default=[])
     a = parser.parse_args(argv)
     registry = json.loads(disk_reader(REGISTRY))
@@ -441,7 +532,11 @@ def main(argv=None, env=None):
         elif base_text is None:
             note = f'{REGISTRY} is new at {rev[:12]}: nothing to compare'
         else:
-            found, note = label_check(json.loads(base_text), git_reader(rev), registry, disk_reader, labels)
+            reason = a.reason or env.get('BENCHMARK_GATE_REASON')
+            if not reason and context:
+                match = re.search(r'^Tolerance-change reason:[ \t]*([^\r\n]*)', context.get('body', ''), re.MULTILINE | re.IGNORECASE)
+                reason = match.group(1).strip() if match else None
+            found, note = label_check(json.loads(base_text), git_reader(rev), registry, disk_reader, labels, reason=reason)
             errors += found
     if note:
         print(f'benchmark-gate: {note}')

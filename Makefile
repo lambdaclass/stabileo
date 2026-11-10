@@ -535,6 +535,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_verification_metrics.py
 	python3 -B -I scripts/tests/test_ci_scripts_target.py
 	python3 -B -I scripts/tests/test_benchmark_gate.py
+	$(NIX_RUN) node scripts/tests/snapshot-applicability.mjs
 	python3 -B -I scripts/tests/test_invariance_gate.py
 	python3 -B -I scripts/tests/test_engine_wall_clock_gate.py
 	python3 -B -I scripts/tests/test_timing_budgets_gate.py

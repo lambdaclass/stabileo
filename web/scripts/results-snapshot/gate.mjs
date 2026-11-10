@@ -23,6 +23,7 @@
  * registry entry fails (`scripts/__tests__/results-snapshot-gate.test.ts`). `main` is the CLI
  * CI runs: `node scripts/results-snapshot/gate.mjs --base <sha>`.
  */
+import { fieldCovered } from './applicability.mjs';
 import { pathToFileURL } from 'node:url';
 import { compareValues, formatCaseReport, parseSnapshot, FORMAT, FORMAT_ADDITIONS } from './compare.mjs';
 import { compareSources, readSourcesAt, DIR } from '../result-changes/registry.mjs';
@@ -75,7 +76,7 @@ export function newlyRecorded(path, baseFormat, headFormat, format = FORMAT, for
   return false;
 }
 
-export function decide({ snapshots, baseRegistry, headRegistry, fragments, format = FORMAT, formatAdditions = FORMAT_ADDITIONS, changedFixtures = [], caseExample = {} }) {
+export function decide({ snapshots, baseRegistry, headRegistry, fragments, format = FORMAT, formatAdditions = FORMAT_ADDITIONS, changedFixtures = [], caseExample = {}, caseFeatures = {} }) {
   const changed = [];
   const { problems, added } = compareSources(baseRegistry, headRegistry);
   const entries = (headRegistry?.unnumbered ?? []).filter((c) => added.includes(c.id));
@@ -87,12 +88,12 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
   }
   for (const s of snapshots) {
     if (s.base === null) continue; // a new case: coverage, not a change
-    if (s.head === null) { changed.push({ file: s.file, report: `✗ ${s.file}: snapshot deleted` }); continue; }
+    if (s.head === null) { changed.push({ file: s.file, paths: Object.keys(s.base.values ?? {}), report: `✗ ${s.file}: snapshot deleted` }); continue; }
     const diff = compareValues(s.base.values ?? {}, s.head.values ?? {});
     const added = diff.added.filter((path) => !newlyRecorded(path, s.base.format ?? 1, s.head.format ?? 1, format, formatAdditions));
     const counted = { ...diff, added };
     if (counted.changed.length || counted.removed.length || counted.added.length) {
-      changed.push({ file: s.file, report: formatCaseReport(s.file, counted) });
+      changed.push({ file: s.file, paths: [...counted.changed.map((c) => c.path), ...counted.removed, ...counted.added], report: formatCaseReport(s.file, counted) });
     }
   }
   const exampleEntries = entries.filter((e) => e.scope === 'examples');
@@ -120,10 +121,10 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
   const breaking = fragments.filter((f) => isBreakingResultsFragment(f.text));
   const missing = [];
   if (entries.length === 0) missing.push(`no new entry in ${REGISTRY}`);
-  const examplesOnly = entries.length > 0 && exampleEntries.length === entries.length;
-  if (examplesOnly) {
-    const unexplained = changed.filter((c) => !listed.has(caseExample[c.file]));
-    if (unexplained.length) missing.push(`an examples-only entry cannot explain ${unexplained.map((c) => c.file).join(', ')}: not a snapshot of a listed example`);
+  for (const c of changed) {
+    if (listed.has(caseExample[c.file])) continue;
+    const uncovered = c.paths.filter((path) => !entries.some((entry) => entry.scope !== 'examples' && fieldCovered(entry, path, caseFeatures[c.file])));
+    if (!c.paths.length || uncovered.length) missing.push(`no applicable entry can explain ${c.file}: ${uncovered.join(', ') || 'deleted coverage'}`);
   }
 
   if (breaking.length === 0) missing.push(`no ${FRAGMENT_DIR}/ fragment under "${BREAKING_RESULTS}"`);
@@ -173,7 +174,8 @@ async function main(argv) {
   const changedFixtures = git('-C', root, 'diff', '--name-only', '--no-renames', base, 'HEAD', '--', FIXTURE_DIR)
     .split('\n').filter((f) => f.endsWith('.json')).filter((f) => modelInputs(at(base, f)) !== modelInputs(at('HEAD', f)))
     .map((f) => f.slice(FIXTURE_DIR.length + 1, -'.json'.length));
-  const r = decide({ snapshots, baseRegistry: readSourcesAt(base, root), headRegistry: readSourcesAt('HEAD', root), fragments, changedFixtures, caseExample: corpusExamples(at('HEAD', CORPUS)) });
+  const caseFeatures = snapshots.some((s) => s.base !== null) ? await readCaseFeatures(snapshots.filter((s) => s.base !== null).map((s) => s.file), base, at, root) : {};
+  const r = decide({ caseFeatures, snapshots, baseRegistry: readSourcesAt(base, root), headRegistry: readSourcesAt('HEAD', root), fragments, changedFixtures, caseExample: corpusExamples(at('HEAD', CORPUS)) });
   (r.ok ? console.log : console.error)(r.report);
   if (!r.ok) return 1;
   if (!r.equivalence?.length) return 0;
@@ -267,4 +269,45 @@ async function checkoutBase(base, root, git) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).then((code) => process.exit(code), (e) => { console.error(e); process.exit(2); });
+}
+
+export function corpusCases(text) {
+  const cases = {};
+  for (const line of (text ?? '').split('\n')) {
+    const name = /\{ name: '([^']+)'/.exec(line)?.[1];
+    const workspace = /workspace: '(2d|3d|pro)'/.exec(line)?.[1];
+    const example = /source: ex\('([^']+)'\)/.exec(line)?.[1];
+    const ded = /source: \{ ded: '([^']+)' \}/.exec(line)?.[1];
+    if (!name || !workspace || (!example && !ded)) continue;
+    const advanced = /advanced: \[([^\]]*)\]/.exec(line)?.[1];
+    cases[`${SNAPSHOT_DIR}/${name}.json`] = { name, workspace, source: example ? { example } : { ded }, design: /design: true/.test(line), advanced: advanced ? [...advanced.matchAll(/'([^']+)'/g)].map((m) => m[1]) : [], group: 'basic', covers: '' };
+  }
+  return cases;
+}
+
+export async function readCaseFeatures(files, base, at, root) {
+  const { mkdtempSync, readFileSync, writeFileSync, rmSync } = await import('node:fs');
+  const { spawnSync } = await import('node:child_process');
+  const { join } = await import('node:path');
+  const headCases = corpusCases(at('HEAD', CORPUS));
+  const baseCases = corpusCases(at(base, CORPUS));
+  const dir = mkdtempSync(join(root, '.snapshot-features-'));
+  try {
+    const output = join(dir, 'features.json');
+    const cases = files.map((file) => {
+      const c = headCases[file] ?? baseCases[file];
+      if (!c) throw new Error(`No corpus model context for ${file}`);
+      const path = c.source.example ? `${FIXTURE_DIR}/${c.source.example}.json` : `web/${c.source.ded}`;
+      const fixture = at(headCases[file] ? 'HEAD' : base, path);
+      if (fixture === null) throw new Error(`No opened fixture for ${file}: ${path}`);
+      return { file, case: c, fixture: JSON.parse(fixture) };
+    });
+    const request = join(dir, 'request.json');
+    writeFileSync(request, JSON.stringify({ cases, output }));
+    const run = spawnSync('npx', ['--no-install', 'vitest', 'run', '--project', 'results', 'src/lib/results-snapshot/__tests__/applicability-context.test.ts'], { cwd: `${root}/web`, env: { ...process.env, SNAPSHOT_FEATURES: request }, stdio: 'inherit' });
+    if (run.status !== 0) throw new Error('Could not open the corpus models for applicability');
+    return JSON.parse(readFileSync(output, 'utf8'));
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
 }
