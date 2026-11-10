@@ -61,7 +61,7 @@ it('dispatches both combinations through production WASM wrappers with the modal
   } finally { vi.restoreAllMocks(); }
 });
 
-it('supplies complete keys with the same numbers in all six locales', () => {
+it('supplies complete keys with the same numbers in all seven locales', () => {
   const numbers = (v: unknown) => JSON.stringify(v).match(/\d+(?:\.\d+)*/g) ?? [];
   for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu'] as const) {
     expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());

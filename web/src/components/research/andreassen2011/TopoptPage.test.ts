@@ -6,7 +6,7 @@ import { text } from './i18n';
 import { num } from '../shell/format';
 import { publicI18n, setPublicLocale } from '../../../lib/i18n/store.svelte';
 import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
-it('renders every evidence measurement, unchanged tolerance and translated rationale in all six locales', () => {
+it('renders every evidence measurement, unchanged tolerance and translated rationale in all seven locales', () => {
   const original = publicI18n.locale;
   try {
     for (const locale of PUBLIC_LOCALES) {
