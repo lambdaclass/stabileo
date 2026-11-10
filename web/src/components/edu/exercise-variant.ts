@@ -201,7 +201,6 @@ export function supportTypeName(type: SupportType): string {
   return t(SUPPORT_TYPE_KEYS[type] ?? SUPPORT_TYPE_KEYS.pinned);
 }
 
-/** What a teacher reads to know which structure a student had: values with units, and the supports that changed. */
 export function describeVariant(spec: Pick<EduExerciseSpec, 'params' | 'model'>, v: Variant): string {
   const parts: string[] = [];
   for (const k of Object.keys(spec.params?.values ?? {}).sort()) {
@@ -230,7 +229,7 @@ function sampleVariants(params: ExerciseParams, seeds: number): Variant[] {
   return out;
 }
 
-/** Every answer of one variant, solved; null entries are what makes a variant unusable. */
+/** The problems of one resolved variant: a refused solve, or any answer it cannot produce. */
 export function checkResolved(ex: ResolvedExerciseSpec): string[] {
   const results = solveModel(ex.model, ex.solverType);
   if (typeof results === 'string') return [results];

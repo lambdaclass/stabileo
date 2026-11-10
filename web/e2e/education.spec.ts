@@ -64,6 +64,9 @@ function shareLink(): string {
 /** Open an exercise from the list and wait for it to be gradeable. */
 async function openExercise(page: Page, nth = 0) {
   await page.locator('.exercise-card').nth(nth).click();
+  // The first statics exercise varies per student; legajo 45 draws the 8 m beam under 5 kN/m these specs mark against.
+  await page.getByTestId('edu-legajo').fill('45');
+  await page.getByTestId('edu-legajo-start').click();
   await expect(page.locator('.exercise-view')).toHaveAttribute('data-solved', 'yes', { timeout: 30_000 });
 }
 
