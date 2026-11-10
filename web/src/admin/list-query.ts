@@ -9,6 +9,7 @@ export interface ListQuery {
   sortDir: SortDir;
   page: number;
   user: string | null;
+  channel: string;
 }
 
 export const DEFAULT_QUERY: ListQuery = {
@@ -18,11 +19,13 @@ export const DEFAULT_QUERY: ListQuery = {
   sortDir: 'desc',
   page: 1,
   user: null,
+  channel: 'all',
 };
 
 const STATUSES: readonly StatusFilter[] = ['all', 'active', 'disabled'];
 const SORTS: readonly SortBy[] = ['inserted_at', 'last_sign_in_at', 'email', 'name'];
 const DIRS: readonly SortDir[] = ['asc', 'desc'];
+export const CHANNELS = ['all', 'google', 'meta', 'search', 'social', 'referral', 'email', 'direct', 'other', 'unknown'] as const;
 
 function oneOf<T extends string>(value: string | null, allowed: readonly T[], fallback: T): T {
   return value !== null && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
@@ -38,6 +41,7 @@ export function parseQuery(search: string): ListQuery {
     sortDir: oneOf(qs.get('dir'), DIRS, DEFAULT_QUERY.sortDir),
     page: Number.isFinite(page) && page >= 1 ? page : 1,
     user: qs.get('user') || null,
+    channel: oneOf(qs.get('channel'), CHANNELS, 'all'),
   };
 }
 
@@ -48,6 +52,7 @@ export function toSearch(q: ListQuery): string {
   if (q.sortBy !== DEFAULT_QUERY.sortBy) qs.set('sort', q.sortBy);
   if (q.sortDir !== DEFAULT_QUERY.sortDir) qs.set('dir', q.sortDir);
   if (q.page > 1) qs.set('page', String(q.page));
+  if (q.channel !== 'all') qs.set('channel', q.channel);
   if (q.user) qs.set('user', q.user);
   const out = qs.toString();
   return out ? `?${out}` : '';
@@ -57,6 +62,7 @@ export function toParams(q: ListQuery): ListUsersParams {
   return {
     search: q.search.trim() || undefined,
     status: q.status,
+    channel: q.channel === 'all' ? undefined : q.channel,
     sort_by: q.sortBy,
     sort_dir: q.sortDir,
     limit: PAGE_SIZE,

@@ -52,6 +52,8 @@ export interface GoogleRegisterInput {
   usage_analytics?: boolean;
   model_research?: boolean;
   locale?: string;
+  source?: Record<string, string>;
+  attribution?: { fbp?: string; fbc?: string };
 }
 
 export type ProfileUpdate = Partial<{

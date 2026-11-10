@@ -61,11 +61,19 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "h",
+      "t": "Mesure de la publicité"
+    },
+    {
+      "k": "p",
+      "t": "Pour savoir quelles annonces amènent des comptes, nous conservons avec chaque nouveau compte l’origine de la visite (le canal, la campagne, l’annonce et la page d’arrivée) et ce qui a déclenché la création du compte. Si vous partagez vos données d’utilisation, nous enregistrons aussi son premier calcul, sa première sauvegarde, sa première exportation et les jours où il utilise l’application. Nous ne chargeons le pixel Meta et Google Tag Manager que si vous acceptez les cookies publicitaires. Dès lors, ils reçoivent chaque page que vous visitez (sans la partie de l’adresse qui contient un modèle partagé) et les étapes vers un compte : le clic d’une nouvelle personne sur « créer un compte », le début et l’étape des conditions, le compte créé, chaque connexion et le premier projet enregistré. Google Tag Manager envoie ces événements à Google Analytics et à Google Ads. Avec ce même accord, lorsque le compte est créé ou enregistre son premier projet, nous le signalons aussi à Meta depuis notre serveur, via son API Conversions, avec l’adresse e-mail et l’identifiant du compte hachés en SHA-256, votre adresse IP, l’agent utilisateur de votre navigateur et les identifiants des cookies du pixel (_fbp et _fbc). Meta et Google utilisent ces données pour mesurer et améliorer les campagnes selon leurs propres politiques. Aucun d’eux ne reçoit le contenu de vos modèles."
+    },
+    {
+      "k": "h",
       "t": "Avec qui nous les partageons"
     },
     {
       "k": "p",
-      "t": "Nous ne vendons pas de données. Elles sont hébergées sur des serveurs contractés par Stabileo SAS, et nous ne les partageons qu'avec les prestataires nécessaires au fonctionnement du service ou lorsqu'une autorité compétente l'exige. Pour la connexion, nous utilisons Google Sign-In, qui traite vos données conformément à sa propre politique de confidentialité."
+      "t": "Nous ne vendons pas de données. Elles sont hébergées sur des serveurs contractés par Stabileo SAS, et nous ne les partageons qu'avec les prestataires nécessaires au fonctionnement du service ou lorsqu'une autorité compétente l'exige. Pour la connexion, nous utilisons Google Sign-In, qui traite vos données conformément à sa propre politique de confidentialité. Pour mesurer la publicité, nous partageons avec Meta et Google les événements décrits dans Mesure de la publicité."
     },
     {
       "k": "h",
@@ -76,7 +84,8 @@ const body: StandingPage['i18n']['en'] = {
       "items": [
         "Votre compte et vos projets, jusqu'à ce que vous les supprimiez ou fermiez votre compte.",
         "Les données d'usage anonymes, jusqu'à treize mois.",
-        "Les justificatifs de consentement, tant que le compte existe, à titre de preuve."
+        "Les justificatifs de consentement, tant que le compte existe, à titre de preuve.",
+        "L’origine du compte et son activité, tant que le compte existe."
       ]
     },
     {
@@ -97,7 +106,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Nous n'utilisons pas de cookies publicitaires ni de traçage. Nous utilisons le stockage local du navigateur pour votre session et vos préférences."
+      "t": "Nous utilisons le stockage local du navigateur pour votre session et vos préférences, y compris votre choix concernant les cookies publicitaires. Ce n’est que si vous les acceptez que nous déposons un cookie propre, stb_visit, qui conserve pendant 30 jours l’origine de votre visite (les paramètres du lien et le site d’origine), et que le pixel Meta et Google Tag Manager déposent les leurs. Vous pouvez changer d’avis à tout moment depuis « Cookies publicitaires », en bas des pages du site."
     }
   ],
   "faqTitle": "Questions fréquentes",
