@@ -69,6 +69,21 @@ class SeededReplay(unittest.TestCase):
 
 
 class ReplayBuild(unittest.TestCase):
+    @unittest.skip("known wrong result: #1888")
+    def test_script_target_does_not_build_rust_or_require_nix(self):
+        result = subprocess.run(["make", "-n", "test.engine.plastic-budget-watchdog", "NIX_RUN="],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("cargo", result.stdout)
+        self.assertNotIn("nix", result.stdout)
+
+    @unittest.skip("known wrong result: #1888")
+    def test_script_runner_setup_does_not_invoke_a_build(self):
+        with patch.object(subprocess, "run") as build:
+            SeededReplay.setUpClass()
+        self.addCleanup(SeededReplay.tearDownClass)
+        build.assert_not_called()
+
     def test_replay_tests_build_the_example_before_running(self):
         with patch.object(subprocess, "run") as build:
             SeededReplay.setUpClass()

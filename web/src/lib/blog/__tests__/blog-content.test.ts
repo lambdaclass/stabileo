@@ -351,6 +351,24 @@ describe('reading time', () => {
 describe('the safety-advisories post quotes the advisories', () => {
   const post = findPost('safety-advisories');
 
+  it.skip.each<[PublicLocale, string, string]>([
+    ['en', 'Medium', 'Draft: fix not yet merged or deployed'],
+    ['es', 'Media', 'Borrador: corrección aún no integrada ni publicada'],
+    ['pt', 'Média', 'Rascunho: correção ainda não integrada nem publicada'],
+    ['de', 'Mittel', 'Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht'],
+    ['fr', 'Moyenne', 'Brouillon : correction pas encore fusionnée ni publiée'],
+    ['tr', 'Orta', 'Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı'],
+  ])('known wrong result: #1888 — %s: lists SA-2026-057 as a pending draft', (locale, severity, draftStatus) => {
+    const blocks = post!.i18n[locale]!.blocks;
+    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
+    const row = summary.rows.find((r) => r[0] === 'SA-2026-057');
+    expect(row, `${locale}: SA-2026-057 missing`).toBeDefined();
+    expect(row![2]).toBe(severity);
+    expect(row![3]).toBe(draftStatus);
+    expect(status.t).toContain(`SA-2026-057 — ${draftStatus}.`);
+  });
+
   it('exists, and lists every advisory in docs/advisories', async () => {
     expect(post).toBeTruthy();
     const { readdirSync } = await import('node:fs');
