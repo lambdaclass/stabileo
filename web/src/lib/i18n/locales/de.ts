@@ -14417,6 +14417,8 @@ const de: Translations = {
   "knownIssue.TH-RECIPROCITY": "Die lineare Zeitverlaufsanalyse hat Reziprozitätsprüfungen mit Abweichungen bis zum Faktor 33 nicht bestanden. Die betroffene Eingabeklasse ist noch nicht eingegrenzt; prüfen Sie diese Antwort vor der Bemessung unabhängig",
   "knownIssue.RC-NM-PAIRING": "Dieser Stützennachweis kombiniert die Normalkraft einer Kombination mit dem Moment einer anderen, was unterhalb des Balancepunkts unsicher sein kann. Weisen Sie die Stütze für jede genannte Kombination nach.",
   "knownIssue.NL-DYNAMIC-GAPS": "Die materiell nichtlineare Analyse kann nach einem nicht konvergierten Inkrement fortgesetzt werden; die Balkendynamik vernachlässigt die Rotationsträgheit bei Biegung. Prüfen Sie Konvergenz und das Verhalten gedrungener Stäbe unabhängig.",
+  "knownIssue.PL-3D-CERTIFICATE-MISMATCH": "Der rohe inkrementelle plastische 3D-Traglastfaktor liegt außerhalb des zertifizierten Intervalls. Der zurückgegebene Traglastfaktor ist die zertifizierte untere Schranke. Inkrementelle Schritte und Gelenke behalten die rohen Solverwerte bei und sind durch dieses Intervall nicht zertifiziert.",
+  "plasticDiag.resourceBudget": "Die plastische Zertifizierung wurde abgelehnt, weil ihr Ressourcenbudget überschritten wurde",
   "knownIssue.PL-3D-INVARIANCE": "Plastische 3D-Traglastfaktoren gekrümmter Balken können von der Nummerierung abhängen. Prüfen Sie die Traglast unabhängig.",
   "clipboard.spaceInPlane": "Die Kopie stammt aus einem 3D-Modell: Kopieren Sie sie in 2D erneut, um sie hier einzufügen.",
   "sel.copyTitle": "Auswahl kopieren (Strg+C)",

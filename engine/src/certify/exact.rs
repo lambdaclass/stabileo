@@ -80,6 +80,7 @@ pub fn qabs(x: &Q) -> Q {
 }
 
 /// Result of exact Gauss–Jordan elimination of `A x = b` (A is m × n).
+#[derive(Debug)]
 pub struct Rref {
     /// Particular solution (free variables set to 0); `None` if inconsistent.
     pub particular: Option<Vec<Q>>,
@@ -87,10 +88,56 @@ pub struct Rref {
     pub null_basis: Vec<Vec<Q>>,
 }
 
+fn check_limb_bits(bits: u64) -> Result<(), String> {
+    let limit = super::plastic_budget::MAX_EXACT_BITS;
+    if bits > limit {
+        return Err(format!(
+            "exact plastic LP resource budget exceeded: rational limb bits {bits} > {limit}"
+        ));
+    }
+    Ok(())
+}
+
+fn rational_bits(value: &Q) -> u64 {
+    value.numer().bits().saturating_add(value.denom().bits())
+}
+
+fn check_product(a: &Q, b: &Q, addend: Option<&Q>) -> Result<(), String> {
+    let numerator = a.numer().bits().saturating_add(b.numer().bits());
+    let denominator = a.denom().bits().saturating_add(b.denom().bits());
+    let bits = match addend {
+        Some(c) => numerator
+            .saturating_add(c.denom().bits())
+            .max(c.numer().bits().saturating_add(denominator))
+            .saturating_add(1)
+            .saturating_add(denominator)
+            .saturating_add(c.denom().bits()),
+        None => numerator.saturating_add(denominator),
+    };
+    check_limb_bits(bits)
+}
+
 /// Exact Gauss–Jordan elimination on `[A | b]` (rows of A given densely).
 /// With `b = None` only the null space is computed.
-pub fn rref_solve(a: &[Vec<Q>], b: Option<&[Q]>, n: usize) -> Rref {
+pub fn rref_solve(a: &[Vec<Q>], b: Option<&[Q]>, n: usize) -> Result<Rref, String> {
     let m = a.len();
+    let width = n.saturating_add(1);
+    let bytes = m
+        .saturating_mul(width)
+        .saturating_mul(2)
+        .saturating_add(width.saturating_mul(width))
+        .saturating_add(width.saturating_mul(4))
+        .saturating_add(64)
+        .saturating_mul(super::plastic_budget::EXACT_CELL_BYTES);
+    if bytes > super::plastic_budget::MAX_EXACT_WORKSPACE_BYTES {
+        return Err(format!(
+            "exact plastic LP resource budget exceeded: exact workspace bytes {bytes} > {}",
+            super::plastic_budget::MAX_EXACT_WORKSPACE_BYTES
+        ));
+    }
+    for value in a.iter().flatten().chain(b.into_iter().flatten()) {
+        check_limb_bits(rational_bits(value))?;
+    }
     let with_rhs = b.is_some();
     let b = b.unwrap_or(&[]);
     let mut rows: Vec<Vec<Q>> = a
@@ -112,11 +159,14 @@ pub fn rref_solve(a: &[Vec<Q>], b: Option<&[Q]>, n: usize) -> Rref {
         if r >= m {
             break;
         }
-        let Some(p) = (r..m).find(|&i| !rows[i][c].is_zero()) else { continue };
+        let Some(p) = (r..m).find(|&i| !rows[i][c].is_zero()) else {
+            continue;
+        };
         rows.swap(r, p);
         let inv = rows[r][c].recip();
         for v in rows[r][c..width].iter_mut() {
             if !v.is_zero() {
+                check_product(v, &inv, None)?;
                 *v = &*v * &inv;
             }
         }
@@ -128,6 +178,7 @@ pub fn rref_solve(a: &[Vec<Q>], b: Option<&[Q]>, n: usize) -> Rref {
             let f = row[c].clone();
             for k in c..width {
                 if !prow[k].is_zero() {
+                    check_product(&f, &prow[k], Some(&row[k]))?;
                     row[k] = &row[k] - &f * &prow[k];
                 }
             }
@@ -170,12 +221,33 @@ pub fn rref_solve(a: &[Vec<Q>], b: Option<&[Q]>, n: usize) -> Rref {
         }
         null_basis.push(v);
     }
-    Rref { particular, null_basis }
+    Ok(Rref {
+        particular,
+        null_basis,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exact_elimination_refuses_unbounded_limb_storage() {
+        let huge = Q::from_integer(BigInt::one() << 1_000_000usize);
+        let result = rref_solve(&[vec![huge]], Some(&[Q::one()]), 1);
+        assert!(result.unwrap_err().contains("rational limb bits"));
+    }
+
+    #[test]
+    fn exact_elimination_refuses_limb_growth_in_a_small_matrix() {
+        let large = Q::from_integer((BigInt::one() << 3000usize) + BigInt::one());
+        let a = vec![
+            vec![large.clone(), Q::one()],
+            vec![Q::one(), large + Q::one()],
+        ];
+        let reason = rref_solve(&a, Some(&[Q::one(), Q::one()]), 2).unwrap_err();
+        assert!(reason.contains("rational limb bits"));
+    }
 
     #[test]
     fn f64_round_trip_is_exact_and_directed() {
@@ -210,7 +282,7 @@ mod tests {
         // x + y + z = 3, x − y = 0
         let a = vec![vec![qi(1), qi(1), qi(1)], vec![qi(1), qi(-1), qi(0)]];
         let b = vec![qi(3), qi(0)];
-        let r = rref_solve(&a, Some(&b), 3);
+        let r = rref_solve(&a, Some(&b), 3).unwrap();
         let x = r.particular.unwrap();
         for (row, bi) in a.iter().zip(&b) {
             let s: Q = row.iter().zip(&x).map(|(p, q)| p * q).sum();
@@ -223,6 +295,9 @@ mod tests {
         }
         // inconsistent
         let a = vec![vec![qi(1), qi(1)], vec![qi(2), qi(2)]];
-        assert!(rref_solve(&a, Some(&[qi(1), qi(3)]), 2).particular.is_none());
+        assert!(rref_solve(&a, Some(&[qi(1), qi(3)]), 2)
+            .unwrap()
+            .particular
+            .is_none());
     }
 }

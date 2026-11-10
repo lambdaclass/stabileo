@@ -170,3 +170,7 @@ scripts/benchmark-gate.py: if re.search(r'\bfn\s+$', text[:match.start()]):
 
 ## Reads the structured Tolerance-change reason: field from a GitHub pull request body to acknowledge benchmark weakening: PR metadata, not an engine message.
 scripts/benchmark-gate.py: match = re.search(r'^Tolerance-change reason:[ \t]*([^\r\n]*)', context.get('body', ''), re.MULTILINE | re.IGNORECASE)
+
+## Replay assertions verify the user-visible warning contract; dispatch and acceptance also require the structured phase and severity.
+scripts/plastic-budget-corpus.py: assert any("certified lower bound" in warning for warning in certificate["solverWarnings"]), result
+scripts/plastic-budget-corpus.py: assert any("PL-3D-CERTIFICATE-MISMATCH" in warning

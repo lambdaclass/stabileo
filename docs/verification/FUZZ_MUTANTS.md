@@ -87,8 +87,14 @@ cantilevered deck it always ran (its "roller" never restrained anything).
 Slow but correct (not bugs, recorded so nobody re-triages them):
 
 - The exact 3D plastic collapse certificate runs for over 25 minutes on the 24-member
-  grid-slab template. `json_plastic` keeps 3D models at 40 members for the solver and 10
-  for the certificate.
+  grid-slab template in the earlier investigation. Exact LP construction now has
+  engine storage preflights and the harness adds a stricter storage budget,
+  derived from the same engine construction. The grid passes those storage checks
+  but its regression artifact and both generated plastic seeds are excluded from
+  the live `json_plastic` corpus and kept in timed replay
+  coverage, including a short watchdog probe. The raw 3D solver retains its
+  40-member fuzz cap. See [the bounded replay report](PLASTIC_LP_BUDGET.md); the
+  historical long run was not repeated.
 - On the 232-node industrial-hall template (`ex-3d-nave-industrial`), natively in
   release: linear solve 0.02 s, linear certificate 0.06 s, P-Delta 4.6 s, P-Delta
   certificate 4.7 s, modal certificate 10.7 s, harmonic certificate 3.8 s. In the

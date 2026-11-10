@@ -159,6 +159,30 @@ fn time_history_reciprocity() {
 }
 
 #[test]
+fn issue_760_seed_20827_time_history_is_reciprocal() {
+    let a: Vec<_> = ana2::rows().into_iter().filter(|a| a.name == "time history").collect();
+    let c = corpus::cases_2d(Tier::Nightly, 20754).into_iter()
+        .find(|c| c.name == "fuzz_rich_2d/20827").unwrap();
+    let t = Tally::default();
+    checks2::check_case(&checks2::Ctx { tally: &t, rng_seed: 20754 }, &c, &a, &["reciprocity"]);
+    let cells = t.cells.lock().unwrap();
+    let cell = &cells[&("time history".into(), "reciprocity".into())];
+    assert_eq!(cell.pass, 1, "{cell:?}");
+    assert_eq!(cell.refused + cell.same_refusal + cell.unrep + cell.inconclusive, 0, "{cell:?}");
+    assert!(cell.fails.is_empty() && cell.ignored.is_empty(), "{cell:?}");
+}
+
+#[test]
+fn issue_760_seed_20780_refuses_combined_singular_mass() {
+    let a = ana3::rows().into_iter().find(|a| a.name == "time history").unwrap();
+    let c = corpus::cases_3d(Tier::Nightly, 20754).into_iter()
+        .find(|c| c.name == "fuzz_rich_3d/20780").unwrap();
+    let error = (a.run)(&c).unwrap_err();
+    let code = dedaliano_engine::solver::time_integration::MASS_SINGULAR;
+    assert!(error.starts_with(&format!("{code}:")), "{}: {error}", c.name);
+}
+
+#[test]
 #[ignore = "known wrong result: #762"]
 fn near_mechanism_units_and_orientation() {
     let c = corpus::cases_2d(Tier::Nightly, 20754)

@@ -1,0 +1,41 @@
+{
+  "id": "plastic-mechanism-refusal-propagation",
+  "date": "2026-11-10",
+  "prs": [
+    1888
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "frameMembers"
+      ],
+      [
+        "analysis:plastic"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Plastic mechanism resource refusals propagate and interval readings use exact endpoints",
+    "es": "Los rechazos de recursos del mecanismo plástico se propagan y la lectura usa los extremos exactos",
+    "pt": "As recusas de recursos do mecanismo plástico são propagadas e a leitura usa os limites exatos",
+    "de": "Ressourcenfehler plastischer Mechanismen werden weitergegeben und Intervalle exakt gelesen",
+    "fr": "Les refus de ressources des mécanismes plastiques sont propagés et les bornes sont lues exactement",
+    "tr": "Plastik mekanizma kaynak retleri iletilir ve aralıklar kesin uç noktalarla okunur"
+  },
+  "explanation": {
+    "en": "Re-run plastic certificates. Exact mechanism elimination now preserves resource refusals instead of treating them as missing mechanisms. The app also labels every factor outside the certified interval as outside, including small deviations. Certificate endpoints and resource limits are unchanged.",
+    "es": "Vuelva a ejecutar los certificados plásticos. La eliminación exacta conserva los rechazos de recursos en vez de tratarlos como mecanismos ausentes. La aplicación marca como exterior todo factor fuera del intervalo, incluso desviaciones pequeñas. Los extremos y límites de recursos no cambian.",
+    "pt": "Execute novamente os certificados plásticos. A eliminação exata preserva as recusas de recursos em vez de as tratar como mecanismos ausentes. A aplicação marca como externo qualquer fator fora do intervalo, incluindo pequenos desvios. Os limites do intervalo e de recursos não mudam.",
+    "de": "Berechnen Sie plastische Zertifikate erneut. Exakte Mechanismuselimination gibt Ressourcenfehler weiter, statt sie als fehlende Mechanismen zu behandeln. Die App kennzeichnet jeden Faktor außerhalb des zertifizierten Intervalls als außerhalb, auch bei kleinen Abweichungen. Intervallgrenzen und Ressourcenlimits bleiben gleich.",
+    "fr": "Relancez les certificats plastiques. L’élimination exacte conserve les refus de ressources au lieu de les traiter comme des mécanismes absents. L’application signale tout facteur hors de l’intervalle certifié, même pour un faible écart. Les bornes et limites de ressources restent identiques.",
+    "tr": "Plastik sertifikaları yeniden çalıştırın. Kesin mekanizma eliminasyonu kaynak retlerini eksik mekanizma olarak değerlendirmek yerine korur. Uygulama küçük sapmalar dahil sertifikalı aralığın dışındaki her faktörü dışarıda olarak gösterir. Aralık uçları ve kaynak sınırları değişmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plastic-mechanism-refusal-propagation.md",
+    "heading": "Plastic mechanism resource refusals and exact interval readings (2026-11-10)"
+  }
+}

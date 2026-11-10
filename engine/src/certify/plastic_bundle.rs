@@ -294,7 +294,7 @@ pub fn kinematic_certificate(lp: &LimitProblem, hinges: &[HingeRot]) -> Result<(
             at[*i][r] += a;
         }
     }
-    let mut u = rref_solve(&at, Some(&g), nr)
+    let mut u = rref_solve(&at, Some(&g), nr)?
         .particular
         .ok_or("the mechanism's virtual-work identity has no multipliers (incompatible mechanism)")?;
     let mut work: Q = lp.rows.iter().zip(&u).map(|((_, p), ur)| p * ur).sum::<Q>() + hlam;
