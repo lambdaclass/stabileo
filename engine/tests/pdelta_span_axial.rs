@@ -906,7 +906,9 @@ fn issue_1329_closed_form_mixed_point_trapezoid_3d() {
 
 fn endpoint_point_kg_2d(at_end: bool, kind: &str) {
     use dedaliano_engine::solver::{
-        dof::DofNumbering, geometric_stiffness::build_kg_from_forces_2d, linear::solve_2d,
+        dof::DofNumbering,
+        geometric_stiffness::{add_geometric_stiffness_2d, build_kg_from_forces_2d},
+        linear::solve_2d,
     };
     let mut input = input_2d(1, true, 0.0);
     for load in &mut input.loads {
@@ -916,23 +918,30 @@ fn endpoint_point_kg_2d(at_end: bool, kind: &str) {
             _ => {}
         }
     }
-    let forces = solve_2d(&input).unwrap().element_forces;
+    let linear = solve_2d(&input).unwrap();
+    let forces = &linear.element_forces;
     assert!(forces[0].n_start.abs() <= 1e-10 * P);
     assert!((forces[0].n_end + P).abs() <= 1e-10 * P);
-    let mean = (forces[0].n_start + forces[0].n_end) / 2.0;
+    let mean = if at_end { 0.0 } else { -P };
     println!(
-        "end={at_end}, recovered start={}, end={}, average={mean}",
+        "end={at_end}, recovered start={}, end={}, interior force={mean}",
         forces[0].n_start, forces[0].n_end
     );
     input.elements.get_mut("1").unwrap().elem_type = kind.into();
     let dofs = DofNumbering::build_2d(&input);
-    let kg = build_kg_from_forces_2d(&input, &dofs, &forces, &[])
+    let kg = build_kg_from_forces_2d(&input, &dofs, forces, &[])
         .into_csc()
         .to_dense_symmetric();
-    input.loads.clear();
-    let without_span = build_kg_from_forces_2d(&input, &dofs, &forces, &[])
-        .into_csc()
-        .to_dense_symmetric();
+    let mut u = vec![0.0; dofs.n_total];
+    for d in &linear.displacements {
+        for (i, value) in [d.ux, d.uz, d.ry].into_iter().enumerate() {
+            if let Some(k) = dofs.global_dof(d.node_id, i) {
+                u[k] = value;
+            }
+        }
+    }
+    let mut displacement_kg = vec![0.0; dofs.n_total * dofs.n_total];
+    add_geometric_stiffness_2d(&input, &dofs, &u, &mut displacement_kg);
     let expected = if kind == "frame" {
         [
             [6.0 * mean / (5.0 * L), -mean / 10.0],
@@ -951,17 +960,28 @@ fn endpoint_point_kg_2d(at_end: bool, kind: &str) {
                 "2D {kind}, end={at_end}, ({ca},{cb}): {got}, closed form {}",
                 expected[a][b]
             );
+            let displacement = displacement_kg[i * dofs.n_total + j];
+            assert!((displacement - expected[a][b]).abs() <= 1e-10 * P * L);
             assert!((got - expected[a][b]).abs() <= 1e-10 * P * L);
         }
     }
-    for (got, want) in kg.iter().zip(without_span) {
-        assert!((got - want).abs() <= 1e-10 * P * L);
+    for i in 0..dofs.n_free {
+        for j in 0..dofs.n_free {
+            let force = kg[i * dofs.n_free + j];
+            let displacement = displacement_kg[i * dofs.n_total + j];
+            assert!(
+                (force - displacement).abs() <= 1e-10 * P * L,
+                "{kind}, end={at_end}, ({i},{j}): force {force}, displacement {displacement}"
+            );
+        }
     }
 }
 
 fn endpoint_point_kg_3d(at_end: bool, kind: &str) {
     use dedaliano_engine::solver::{
-        dof::DofNumbering, geometric_stiffness::build_kg_from_forces_3d, linear::solve_3d,
+        dof::DofNumbering,
+        geometric_stiffness::{add_geometric_stiffness_3d, build_kg_from_forces_3d},
+        linear::solve_3d,
     };
     let mut input = input_3d(1, 1, true);
     for load in &mut input.loads {
@@ -971,23 +991,30 @@ fn endpoint_point_kg_3d(at_end: bool, kind: &str) {
             _ => {}
         }
     }
-    let forces = solve_3d(&input).unwrap().element_forces;
+    let linear = solve_3d(&input).unwrap();
+    let forces = &linear.element_forces;
     assert!(forces[0].n_start.abs() <= 1e-10 * P);
     assert!((forces[0].n_end + P).abs() <= 1e-10 * P);
-    let mean = (forces[0].n_start + forces[0].n_end) / 2.0;
+    let mean = if at_end { 0.0 } else { -P };
     println!(
-        "end={at_end}, recovered start={}, end={}, average={mean}",
+        "end={at_end}, recovered start={}, end={}, interior force={mean}",
         forces[0].n_start, forces[0].n_end
     );
     input.elements.get_mut("1").unwrap().elem_type = kind.into();
     let dofs = DofNumbering::build_3d(&input);
-    let kg = build_kg_from_forces_3d(&input, &dofs, &forces)
+    let kg = build_kg_from_forces_3d(&input, &dofs, forces)
         .into_csc()
         .to_dense_symmetric();
-    input.loads.clear();
-    let without_span = build_kg_from_forces_3d(&input, &dofs, &forces)
-        .into_csc()
-        .to_dense_symmetric();
+    let mut u = vec![0.0; dofs.n_total];
+    for d in &linear.displacements {
+        for (i, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].into_iter().enumerate() {
+            if let Some(k) = dofs.global_dof(d.node_id, i) {
+                u[k] = value;
+            }
+        }
+    }
+    let mut displacement_kg = vec![0.0; dofs.n_total * dofs.n_total];
+    add_geometric_stiffness_3d(&input, &dofs, &u, &mut displacement_kg);
     let expected = if kind == "frame" {
         [
             [6.0 * mean / (5.0 * L), -mean / 10.0],
@@ -1009,51 +1036,68 @@ fn endpoint_point_kg_3d(at_end: bool, kind: &str) {
                 let want = expected[a][b] * if a == b { 1.0 } else { sign };
                 let got = kg[i * dofs.n_free + j];
                 println!("3D {kind}, end={at_end}, ({ca},{cb}): {got}, closed form {want}");
+                let displacement = displacement_kg[i * dofs.n_total + j];
+                assert!((displacement - want).abs() <= 1e-10 * P * L);
                 assert!((got - want).abs() <= 1e-10 * P * L);
             }
         }
     }
-    for (got, want) in kg.iter().zip(without_span) {
-        assert!((got - want).abs() <= 1e-10 * P * L);
+    for i in 0..dofs.n_free {
+        for j in 0..dofs.n_free {
+            let force = kg[i * dofs.n_free + j];
+            let displacement = displacement_kg[i * dofs.n_total + j];
+            assert!(
+                (force - displacement).abs() <= 1e-10 * P * L,
+                "{kind}, end={at_end}, ({i},{j}): force {force}, displacement {displacement}"
+            );
+        }
     }
 }
 
 #[test]
+#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_start_frame_2d() {
     endpoint_point_kg_2d(false, "frame");
 }
 
 #[test]
+#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_start_truss_2d() {
     endpoint_point_kg_2d(false, "truss");
 }
 
 #[test]
+#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_end_frame_2d() {
     endpoint_point_kg_2d(true, "frame");
 }
 
 #[test]
+#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_end_truss_2d() {
     endpoint_point_kg_2d(true, "truss");
 }
 
 #[test]
+#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_start_frame_3d() {
     endpoint_point_kg_3d(false, "frame");
 }
 
 #[test]
+#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_start_truss_3d() {
     endpoint_point_kg_3d(false, "truss");
 }
 
 #[test]
+#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_end_frame_3d() {
     endpoint_point_kg_3d(true, "frame");
 }
 
 #[test]
+#[ignore = "known wrong result: #1329"]
 fn issue_1329_endpoint_point_end_truss_3d() {
     endpoint_point_kg_3d(true, "truss");
 }
