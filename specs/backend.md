@@ -22,6 +22,8 @@ backend/
 | `/api/v1/auth` | `StabileoAuth.Router` | `stabileo_auth` |
 | `/api/v1/projects` | `StabileoProjects.Router` | `stabileo_projects` |
 | `/api/v1/insights` | `StabileoInsights.Router` | `stabileo_insights` |
+| `/api/v1/assignments` | `StabileoAssignments.Router` | `stabileo_assignments` |
+| `/api/v1/exams` | `StabileoAssignments.ExamRouter` | `stabileo_assignments` |
 | `/api/v1/admin/projects` | `StabileoProjects.AdminRouter` | `stabileo_projects` |
 | `/api/v1/admin/insights` | `StabileoInsights.AdminRouter` | `stabileo_insights` |
 | `/api/v1/admin` | `StabileoAuth.AdminRouter` | `stabileo_auth` |
@@ -58,6 +60,8 @@ Every new table answers in its PR: does any operation on it have a concurrency i
 | `consents` | None: append-only; an account's current decision of a kind is its latest row, ordered by a microsecond `inserted_at` so two decisions in one second still order |
 | `projects` | At most 100 active per account: `create` takes an advisory lock on the account before counting. Pinned sequentially by `projects_test.exs` |
 | `usage_events` | None: append-only, never tied to an account |
+| `assignments` | Unique `code`; at most 100 per account: `create` takes an advisory lock on the account before counting. Pinned by `attempts_concurrency_test.exs` |
+| `assignment_attempts` | One per student and assignment: unique index on `(assignment_id, account_id)`, start inserts with `ON CONFLICT DO NOTHING` and reads back. Autosave and submit lock the row. Pinned by `attempts_concurrency_test.exs` |
 | `feedback` | None: admins set the status, last write wins |
 | `admin_actions` | None: append-only |
 | `sessions` | One rotation per refresh token: `rotate_session/2` locks the row and refuses a revoked one. The two-connection race is not reachable under the Ecto sandbox; pinned sequentially by `sessions_test.exs` ("a second rotation of the same session fails without minting another") |

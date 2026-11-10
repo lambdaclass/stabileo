@@ -13,6 +13,7 @@ backend/apps/
 ├── stabileo_auth      # Accounts, sessions, tokens, profile, consents, admin audit log
 ├── stabileo_projects  # Cloud projects
 ├── stabileo_insights  # Anonymous usage, feedback, admin metrics
+├── stabileo_assignments # Homework and timed exams for Educational mode
 └── stabileo_web       # Endpoint and main router that forwards to domain routers
 ```
 
@@ -41,6 +42,7 @@ Schemas are centralized in `stabileo_repo`. Domain apps contain context modules 
 | Admin | `stabileo_auth` (`StabileoAuth.AdminRouter`) | Admin sign-in, account management, settings, audit log | `/api/v1/admin` |
 | Projects | `stabileo_projects` | Cloud projects; admin listing | `/api/v1/projects`, `/api/v1/admin/projects` |
 | Insights | `stabileo_insights` | Usage events, feedback; admin metrics and inbox | `/api/v1/insights`, `/api/v1/admin/insights` |
+| Assignments | `stabileo_assignments` | Homework and timed exams: owner side and student side | `/api/v1/assignments`, `/api/v1/exams` |
 | Web | `stabileo_web` | Endpoint, health | `/api/v1/health` |
 | Utilities | `stabileo_utils` | Shared plugs and helpers | — |
 

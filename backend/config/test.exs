@@ -41,6 +41,8 @@ config :stabileo_utils, rate_limit: false
 
 config :stabileo_insights, retention: false
 
+config :stabileo_assignments, retention: false
+
 config :logger, level: :warning
 
 config :phoenix, :plug_init_mode, :runtime

@@ -8,7 +8,7 @@
 4. **The server picks the seed.** A 32-bit unsigned seed from `:crypto.strong_rand_bytes/1`, fixed when the attempt starts, so a student cannot choose their variant. There is one attempt per student per assignment and no retake; the owner cannot reset one yet.
 5. **The deadline is set when the attempt starts.** `deadline_at = min(started_at + duration_minutes, closes_at)`. Later edits to `duration_minutes` or `closes_at` do not move existing deadlines. Autosave and submit get 30 seconds of grace after `deadline_at` for the network.
 6. **Past the deadline, the last autosave is the attempt.** A submit after the grace answers 409 `attempt_closed` and leaves the last autosave in place, and the attempt counts as closed from then on.
-7. **Two reveal modes.** `on_submit`: results show once the attempt is closed (submitted, or past its deadline). `after_close`: results show once `closes_at` has passed, so `after_close` requires `closes_at`. `reveal_allowed` tells the app when to show the graded explanation; since grading is in the browser, it cannot hide what the student's browser can compute.
+7. **Two reveal modes.** `on_submit`: results show once the attempt is closed (submitted, or past its deadline and grace). `after_close`: results show once `closes_at` and the grace have passed, when no attempt can change any more, so `after_close` requires `closes_at`. `reveal_allowed` tells the app when to show the graded explanation; since grading is in the browser, it cannot hide what the student's browser can compute.
 8. **Another account's assignment or attempt is a 404, never a 403**, as with projects, so ids do not leak. The only 403 is `assignments_disabled`.
 9. **The owner sees each student's name, email, seed, answers and score.** The exam page shows the owner's name before the student starts, and the app says the owner will see their name and email. The owner may take their own assignment to try it; that attempt is listed with the rest.
 10. **Deleting is a hard delete, cascading the attempts.** This departs from the soft-delete rule on purpose: the rows hold students' answers and personal data, and a soft delete would keep them until the purge.
@@ -115,7 +115,7 @@ The admin site shows nothing from these tables.
 { "answers": { … }, "client_score": 0.75 }
 ```
 
-`now` is the server's clock, so the app can count down without trusting the computer's. `closed` is `submitted_at` set or `now` past `deadline_at` plus the grace. `reveal_allowed` is `closed` for `on_submit`, and `now` past `closes_at` for `after_close`. `status` is `upcoming` before `opens_at`, `closed` after `closes_at`, else `open`.
+`now` is the server's clock, so the app can count down without trusting the computer's. `closed` is `submitted_at` set or `now` past `deadline_at` plus the grace. `reveal_allowed` is `closed` for `on_submit`, and `now` past `closes_at` plus the grace for `after_close`. `status` is `upcoming` before `opens_at`, `closed` after `closes_at`, else `open`.
 
 ## Permissions
 
@@ -126,7 +126,8 @@ None beyond ownership: an assignment belongs to the account that created it, an 
 - `assignment_attempts`: uniqueness. Unique index on `(assignment_id, account_id)`; start inserts with `ON CONFLICT DO NOTHING` and reads the row back, so two starts at once return the same attempt and seed. `attempts_concurrency_test.exs` races eight starts on real connections and expects one row and one attempt id.
 - `assignments.code`: uniqueness. Unique index; a colliding code is drawn again.
 - `assignments`: at most 100 per account; `create` takes a transaction-scoped advisory lock on `assignments:<account_id>` before counting, as projects do.
-- Answers and submit: last write wins before the submit; the submit is one `UPDATE … WHERE submitted_at IS NULL`, so a second submit, or an autosave racing it, cannot change a submitted attempt.
+- `assignment_attempts`, state: autosave and submit lock the attempt row (`FOR UPDATE`) and check `submitted_at` and the deadline under the lock, so a second submit, or an autosave racing it, cannot change a submitted attempt. Before the submit, the last autosave wins.
+- `assignments.exercise`, state across tables: `PUT` locks the assignment row (`FOR UPDATE`) before checking for attempts, and start reads it `FOR SHARE`, so an attempt cannot begin on an exercise that is being replaced.
 
 No idempotency keys: start is idempotent by the unique index, and the rest are last-write-wins or guarded by `submitted_at`.
 

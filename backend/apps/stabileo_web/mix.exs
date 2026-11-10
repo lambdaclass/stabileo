@@ -33,6 +33,7 @@ defmodule StabileoWeb.MixProject do
       {:stabileo_auth, in_umbrella: true},
       {:stabileo_projects, in_umbrella: true},
       {:stabileo_insights, in_umbrella: true},
+      {:stabileo_assignments, in_umbrella: true},
       {:phoenix, "~> 1.7"},
       {:bandit, "~> 1.5"},
       {:jason, "~> 1.4"},
