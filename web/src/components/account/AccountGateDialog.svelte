@@ -7,7 +7,9 @@
   const reason = $derived(
     accountGate.action === 'feedback'
       ? { title: t('account.gateFeedbackTitle'), lede: t('account.gateFeedbackLede') }
-      : { title: t('account.gateTitle'), lede: t('account.gateLede') },
+      : accountGate.action === 'exam'
+        ? { title: t('account.gateExamTitle'), lede: t('account.gateExamLede') }
+        : { title: t('account.gateTitle'), lede: t('account.gateLede') },
   );
 
   $effect(() => gateFileInputs());

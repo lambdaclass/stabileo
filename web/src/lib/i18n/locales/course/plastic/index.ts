@@ -3,6 +3,7 @@ import type { Translations } from '../../../types';
 export const es: Translations = {
   'course.plastic.closed': 'se cerró',
   'course.plastic.closedTitle': 'La rótula se descargó en λ = {lambda} y volvió a ser rígida.',
+  'course.plastic.limitOnly': 'El paso a paso no llega a la carga de colapso (termina en λ = {history}). La carga de colapso del análisis límite (teoremas estático y cinemático) es λc = {lambda}; las rótulas del paso a paso son aproximadas.',
   'course.plastic.unresolved': 'El análisis se detuvo en un mecanismo que no pudo distinguir de uno falso (rótulas que se descargarían): este λ es donde se detuvo, no una carga de colapso verificada.',
   'steps.group.plastic': 'Cálculo plástico',
   'steps.m.plasticKinematic.title': 'Método cinemático',
@@ -123,6 +124,7 @@ export const es: Translations = {
   'course.plastic.trace.eventAxial': 'La barra {member} es la primera que llega a Np: n = {n} por unidad de λ, N acumulado = {N}, Np = {np}.',
   'course.plastic.trace.min': 'Es el menor Δλ entre todas las secciones: las demás todavía no llegan.',
   'course.plastic.trace.update': 'λ = {before} + {dl} = {after}. Esfuerzos y desplazamientos se acumulan sumando Δλ veces los de esta solución.',
+  'course.plastic.trace.moved': 'La rótula {i} de la barra {member} se corre de x = {from} a x = {to}, donde ahora el momento es máximo: ahí vale Mp con corte nulo, y la sección que deja conserva el giro plástico que ya tomó.',
   'course.plastic.trace.hinge': 'Se pone la rótula {i} en la barra {member}, x = {x}: ahí el momento queda en Mp y la sección gira libremente.',
   'course.plastic.trace.yield': 'La barra {member} fluye (rótula {i}): sigue con Np y deja de aportar rigidez.',
   'course.plastic.trace.collapse': 'Con esta rótula la estructura es un mecanismo: λc = {lambda}.',
@@ -186,6 +188,7 @@ export const es: Translations = {
 export const en: Translations = {
   'course.plastic.closed': 'closed',
   'course.plastic.closedTitle': 'The hinge unloaded at λ = {lambda} and became rigid again.',
+  'course.plastic.limitOnly': 'The step-by-step history does not reach the collapse load (it ends at λ = {history}). The collapse load by limit analysis (static and kinematic theorems) is λc = {lambda}; the hinges of the history are approximate.',
   'course.plastic.unresolved': 'The analysis stopped at a mechanism it could not tell from a false one (hinges that would unload): this λ is where it stopped, not a verified collapse load.',
   'steps.group.plastic': 'Plastic analysis',
   'steps.m.plasticKinematic.title': 'Kinematic method',
@@ -306,6 +309,7 @@ export const en: Translations = {
   'course.plastic.trace.eventAxial': 'Member {member} is the first to reach Np: n = {n} per unit λ, accumulated N = {N}, Np = {np}.',
   'course.plastic.trace.min': 'It is the smallest Δλ over all sections: the others have not reached it yet.',
   'course.plastic.trace.update': 'λ = {before} + {dl} = {after}. Forces and displacements accumulate by adding Δλ times this solution.',
+  'course.plastic.trace.moved': 'Hinge {i} in member {member} moves from x = {from} to x = {to}, where the moment now peaks: it is Mp there with zero shear, and the section it leaves keeps the plastic rotation it already took.',
   'course.plastic.trace.hinge': 'Hinge {i} is placed in member {member}, x = {x}: the moment there stays at Mp and the section rotates freely.',
   'course.plastic.trace.yield': 'Member {member} yields (hinge {i}): it keeps Np and adds no more stiffness.',
   'course.plastic.trace.collapse': 'With this hinge the structure is a mechanism: λc = {lambda}.',
@@ -369,6 +373,7 @@ export const en: Translations = {
 export const pt: Translations = {
   'course.plastic.closed': 'fechou',
   'course.plastic.closedTitle': 'A rótula descarregou em λ = {lambda} e voltou a ser rígida.',
+  'course.plastic.limitOnly': 'O passo a passo não chega à carga de colapso (termina em λ = {history}). A carga de colapso da análise limite (teoremas estático e cinemático) é λc = {lambda}; as rótulas do passo a passo são aproximadas.',
   'course.plastic.unresolved': 'A análise parou num mecanismo que não conseguiu distinguir de um falso (rótulas que descarregariam): este λ é onde parou, não uma carga de colapso verificada.',
   'steps.group.plastic': 'Análise plástica',
   'steps.m.plasticKinematic.title': 'Método cinemático',
@@ -489,6 +494,7 @@ export const pt: Translations = {
   'course.plastic.trace.eventAxial': 'A barra {member} é a primeira a chegar a Np: n = {n} por unidade de λ, N acumulado = {N}, Np = {np}.',
   'course.plastic.trace.min': 'É o menor Δλ entre todas as seções: as outras ainda não chegam.',
   'course.plastic.trace.update': 'λ = {before} + {dl} = {after}. Esforços e deslocamentos se acumulam somando Δλ vezes os desta solução.',
+  'course.plastic.trace.moved': 'A rótula {i} da barra {member} se desloca de x = {from} para x = {to}, onde agora o momento é máximo: ali vale Mp com cortante nula, e a seção que ela deixa conserva o giro plástico que já sofreu.',
   'course.plastic.trace.hinge': 'Coloca-se a rótula {i} na barra {member}, x = {x}: ali o momento fica em Mp e a seção gira livremente.',
   'course.plastic.trace.yield': 'A barra {member} escoa (rótula {i}): continua com Np e deixa de contribuir com rigidez.',
   'course.plastic.trace.collapse': 'Com esta rótula a estrutura é um mecanismo: λc = {lambda}.',

@@ -25,15 +25,16 @@ function collapseAndLimit() {
   return { r: run.result, limit };
 }
 
-describe('a hinge under a distributed load drifts to the peak before the collapse is accepted', () => {
-  it('the spring-support example ends at the rigid-plastic collapse load, with its span hinge at √2 − 1', async () => {
+describe('a hinge under a distributed load sits at the peak of the collapse state', () => {
+  it('the spring-support example ends at the rigid-plastic collapse load, with one span hinge at √2 − 1', async () => {
     uiStore.analysisMode = '2d';
     historyStore.clear();
     await modelStore.loadExample('spring-support');
     const { r, limit } = collapseAndLimit();
     expect(r.unresolved).toBeUndefined();
     expect(r.isMechanism).toBe(true);
-    expect(r.hinges.filter((h) => h.unloadedAt !== undefined).length).toBeGreaterThan(10);
+    expect(r.hinges.every((h) => h.unloadedAt === undefined)).toBe(true);
+    expect(r.hinges.length).toBeLessThanOrEqual(r.degree + 1);
     expect(limit.positions.get(1)).toBeCloseTo(Math.SQRT2 - 1, 2);
     const open = r.hinges.filter((h) => h.unloadedAt === undefined && h.elementId === 1 && (h.position ?? 0) > 0 && (h.position ?? 1) < 1);
     expect(open.map((h) => h.position)).toEqual([expect.closeTo(Math.SQRT2 - 1, 2)]);

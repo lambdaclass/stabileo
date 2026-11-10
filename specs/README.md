@@ -9,6 +9,7 @@ specs/
 └── services/           # Per-service specifications
     ├── TEMPLATE.md     # Template for new service specs
     ├── accounts.md     # stabileo_auth accounts: the template filled in
+    ├── assignments.md  # Homework and timed exams for Educational mode
     └── admin.md        # The admin site: admin sign-in and account management
 ```
 

@@ -196,7 +196,7 @@
     <div class="wif-body">
       <div class="wif-results" role="group" aria-label={t('whatif.result')}>
         {#each diagrams as item (item.d)}
-          <button class="wif-res-btn" class:active={resultsStore.diagramType === item.d}
+          <button class="wif-res-btn" class:active={resultsStore.screen.diagram === item.d}
             title={item.title} onclick={() => showDiagram(item.d)} data-testid="whatif-diagram-{item.d}">{item.label}</button>
         {/each}
       </div>

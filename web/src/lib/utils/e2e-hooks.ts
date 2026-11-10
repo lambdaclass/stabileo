@@ -63,6 +63,9 @@ import { currentResultProvenance, provenanceForExport, captureProvenanceToken } 
 import { recheckStore } from '../store/recheck.svelte';
 import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
 
+const maxAbsMoment = (r: { elementForces: ReadonlyArray<{ mStart: number; mEnd: number }> }) =>
+  Math.max(0, ...r.elementForces.map((f) => Math.max(Math.abs(f.mStart), Math.abs(f.mEnd))));
+
 export const E2E_QUERY_FLAG = 'e2e';
 
 /** Build-time gate. Statically replaced by Vite, so the false branch is eliminated. */
@@ -204,6 +207,10 @@ export interface StabileoTestHooks {
   diagramType(): string;
   /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
   hasDrawnResults(): boolean;
+  /** What the 2D viewport draws this frame: a diagram or not, whether it is the held picture, and its largest |M|. */
+  screenFrame(): { drawn: boolean; held: boolean; diagram: string; maxMoment: number | null };
+  /** The largest |M| of a fresh plane solve of the model as it is now, outside the stores. */
+  freshMaxMoment(): number | null;
   verticalReaction3D(): number | null;
   verticalReaction2D(): number | null;
   /**
@@ -687,6 +694,14 @@ export function installE2EHooks(): void {
     diagramType: () => String(resultsStore.diagramType),
     /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
     hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
+    screenFrame: () => {
+      const r = resultsStore.screen.results, diagram = String(resultsStore.screen.diagram);
+      return { drawn: r !== null && diagram !== 'none', held: resultsStore.screen.held, diagram, maxMoment: r ? maxAbsMoment(r) : null };
+    },
+    freshMaxMoment: () => {
+      const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
+      return r && typeof r !== 'string' ? maxAbsMoment(r) : null;
+    },
     verticalReaction3D: () => resultsStore.results3D?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0) ?? null,
     verticalReaction2D: () => resultsStore.results?.reactions.reduce((sum, reaction) => sum + reaction.rz, 0) ?? null,
     cameraState: () => readCamera(),

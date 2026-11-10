@@ -2,7 +2,7 @@ import { authStore } from './auth.svelte';
 import { accounts } from '../features';
 import { trackUsage } from '../telemetry/usage';
 
-export type GatedAction = 'save' | 'open' | 'import' | 'share' | 'code' | 'export' | 'exercise' | 'feedback';
+export type GatedAction = 'save' | 'open' | 'import' | 'share' | 'code' | 'export' | 'exercise' | 'feedback' | 'exam';
 
 interface Request {
   action: GatedAction;

@@ -31,6 +31,8 @@ import type { SupportType } from '../../lib/store/ui.svelte';
 import type { ElementForces } from '../../lib/engine/types';
 import { computeDiagramValueAt } from '../../lib/engine/diagrams';
 import { t, tp } from '../../lib/i18n';
+import type { ExerciseParams, ParametricModelSpec, Variant } from './exercise-params';
+import type { ParamBinding } from './exercise-param-authoring';
 
 // ─── The structure ─────────────────────────────────────────────────
 
@@ -53,12 +55,15 @@ export interface ModelSpec {
   nodalLoads?: Array<{ node: number; fx?: number; fy?: number; mz?: number }>;
   /** Distributed loads on an element index; `qJ` defaults to `qI` (uniform). */
   distributedLoads?: Array<{ element: number; qI: number; qJ?: number }>;
+  hinges?: Array<{ element: number; end: 'start' | 'end' }>;
+  truss?: number[];
 }
 
 /** The subset of the model API an exercise needs. */
 export interface EduExerciseAPI {
   addNode: (x: number, y: number) => number;
-  addElement: (nI: number, nJ: number) => number;
+  addElement: (nI: number, nJ: number, type?: 'frame' | 'truss') => number;
+  addHinge?: (elementId: number, end: 'start' | 'end') => void;
   addSupport: (nodeId: number, type: SupportType) => void;
   addNodalLoad: (nodeId: number, fx: number, fy: number, mz?: number) => void;
   addDistributedLoad: (elementId: number, qI: number, qJ?: number) => void;
@@ -73,7 +78,17 @@ export interface EduExerciseAPI {
  */
 export function buildFromSpec(model: ModelSpec, api: EduExerciseAPI): void {
   const nodeIds = model.nodes.map(([x, y]) => api.addNode(x, y));
-  const elementIds = model.elements.map(([i, j]) => api.addElement(nodeIds[i], nodeIds[j]));
+  const truss = new Set(model.truss ?? []);
+  const elementIds = model.elements.map(([i, j], k) =>
+    truss.has(k) ? api.addElement(nodeIds[i], nodeIds[j], 'truss') : api.addElement(nodeIds[i], nodeIds[j]));
+  // addHinge toggles, so each element end is applied once, and never on a truss bar (already pinned at both ends).
+  const hinged = new Set<string>();
+  for (const h of model.hinges ?? []) {
+    const key = `${h.element}:${h.end}`;
+    if (truss.has(h.element) || hinged.has(key)) continue;
+    hinged.add(key);
+    api.addHinge?.(elementIds[h.element], h.end);
+  }
   for (const s of model.supports) api.addSupport(nodeIds[s.node], s.type);
   for (const l of model.nodalLoads ?? []) {
     api.addNodalLoad(nodeIds[l.node], l.fx ?? 0, l.fy ?? 0, l.mz);
@@ -254,8 +269,11 @@ export interface KinematicQuestion {
 
 export interface DiagramShapeQuestion {
   diagram: 'N' | 'V' | 'M';
-  correct: DiagramShape;
+  /** `auto` reads the shape off the solved diagram; a parametric exercise always does. */
+  correct: DiagramShape | 'auto';
 }
+
+export type ReactionDof = 'Rx' | 'Ry' | 'M';
 
 /**
  * "Draw this diagram."
@@ -289,9 +307,12 @@ export interface EduExerciseSpec {
   category: ExerciseCategory;
   solverType?: 'linear' | 'pdelta';
   /** The structure, as data. */
-  model: ModelSpec;
-  /** Reactions the student is asked for, by node index into `model.nodes`. */
-  supports: Array<{ label: string; nodeIndex: number; dofs: ('Rx' | 'Ry' | 'M')[] }>;
+  model: ParametricModelSpec;
+  params?: ExerciseParams;
+  /** What the authoring panel turned into `model` and `params`, so it can be edited again; nothing else reads it. */
+  authoredFrom?: { model: ModelSpec; bindings: ParamBinding[] };
+  /** Reactions the student is asked for, by node index into `model.nodes`. `auto` follows the support type. */
+  supports: Array<{ label: string; nodeIndex: number; dofs: ReactionDof[] | 'auto' }>;
   characteristics: Array<{ label: string; unit: string; answer: AnswerSpec }>;
   diagramQuestions: Array<{ question: string; unit: string; answer: AnswerSpec }>;
   kinematicQuestion?: KinematicQuestion;
@@ -310,6 +331,14 @@ export interface EduExerciseSpec {
   allowReveal?: boolean;
 }
 
+/** One variant of an exercise, with nothing left to resolve but what needs the solve. */
+export interface ResolvedExerciseSpec extends Omit<EduExerciseSpec, 'model' | 'params' | 'supports' | 'authoredFrom'> {
+  model: ModelSpec;
+  supports: Array<{ label: string; nodeIndex: number; dofs: ReactionDof[] }>;
+  variant?: Variant;
+  seed?: number;
+}
+
 /**
  * Structural problems an exercise can have, found without running the solver.
  *
@@ -317,7 +346,7 @@ export interface EduExerciseSpec {
  * feedback immediately: a support on a node that does not exist does not need a
  * linear system to be recognised as a mistake.
  */
-export function lintExercise(ex: EduExerciseSpec): string[] {
+export function lintExercise(ex: EduExerciseSpec | ResolvedExerciseSpec): string[] {
   const problems: string[] = [];
   const nodeCount = ex.model.nodes.length;
   const elemCount = ex.model.elements.length;
@@ -345,6 +374,8 @@ export function lintExercise(ex: EduExerciseSpec): string[] {
   (ex.model.nodalLoads ?? []).forEach((l, k) => node(l.node, tp('edu.lint.whereNodalLoad', { k })));
   (ex.model.distributedLoads ?? []).forEach((l, k) => elem(l.element, tp('edu.lint.whereDistLoad', { k })));
   ex.supports.forEach((s, k) => node(s.nodeIndex, tp('edu.lint.whereReaction', { k })));
+  (ex.model.hinges ?? []).forEach((h, k) => elem(h.element, tp('edu.lint.whereHinge', { k })));
+  (ex.model.truss ?? []).forEach((i, k) => elem(i, tp('edu.lint.whereTruss', { k })));
 
   const checkAnswer = (a: AnswerSpec, where: string): void => {
     if (a.kind === 'at') {

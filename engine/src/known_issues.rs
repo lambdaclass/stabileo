@@ -41,7 +41,8 @@ pub struct Entry {
 
 pub const ENTRIES: &[Entry] = &[
     Entry { id: "SH-MITC4-CONVERGENCE", issue: 810, mode: Mode::Warn, message: "MITC4 shell benchmarks show excessive stiffness and error increasing with mesh refinement. The affected subset is unresolved; independently verify shell response before design" },
-    Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response" },
+    Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Beam dynamic models omit bending rotary inertia, and these members are deep enough for it to lower their bending frequencies by more than 1 % (radius of gyration over member length above 0.045). Independently verify the dynamic response of these members" },
+    Entry { id: "NL-UNCONVERGED-INCREMENT", issue: 370, mode: Mode::Warn, message: "Material nonlinear analysis may continue after an unconverged increment. Independently verify convergence" },
     Entry { id: "PL-3D-CERTIFICATE-MISMATCH", issue: 1760, mode: Mode::Warn, message: "The raw incremental 3D plastic collapse factor lies outside the certified interval. The returned collapse factor is the certified lower bound; incremental steps and hinges retain raw solver values" },
     Entry { id: "PL-3D-INVARIANCE", issue: 758, mode: Mode::Warn, message: "3D plastic collapse of curved beams has shown numbering-dependent factors. Independently verify the collapse factor" },
     Entry { id: "ORPHAN-SOFT-ROTATION", issue: 1496, mode: Mode::Warn, message: "A node rotation with real but very small stiffness, compared with another rotation at the same node, was held by an artificial spring, so that rotation and the forces it carries can be far too small. Do not use this result for design until this warning clears" },
@@ -66,7 +67,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
     Entry { id: "LIN-SECOND-ORDER", issue: 1551, mode: Mode::Warn, message: "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "LIN-SECOND-ORDER-NEAR", issue: 1551, mode: Mode::Warn, message: "Axial compression is near the second-order limit (N/Ncr above 0.047, the limit 0.075 over the largest CIRSOC 301 load factor 1.6): a combination that factors this case up may pass it. Check the combinations with a P-Delta or second-order analysis" },
-    Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
+    Entry { id: "LIN-SECOND-ORDER-UNBOUNDED", issue: 1551, mode: Mode::Warn, message: "Members are in compression and the critical load could not be bounded, neither from the members alone nor from the structure's critical load factor, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
@@ -482,9 +483,8 @@ pub fn for_2d_loads(input: &SolverInput, loads: &[SolverLoad], analysis: Analysi
     if all_hinged_demand_2d(input, loads) {
         out.push(diagnostic("CERT-MECHANISM"));
     }
-    if analysis == Analysis::MaterialNonlinear || (matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic) && input.elements.values().any(|e| e.elem_type == "frame")) {
-        out.push(diagnostic("NL-DYNAMIC-GAPS"));
-    }
+    if analysis == Analysis::MaterialNonlinear { out.push(diagnostic("NL-UNCONVERGED-INCREMENT")); }
+    if is_dynamic(analysis) { out.extend(rotary_inertia(&screen_model_2d(input, &Default::default()), Vec::new())); }
     if analysis == Analysis::Plastic { out.push(diagnostic("PL-2D-INVARIANCE")); }
     if analysis != Analysis::Cable && input.elements.values().any(|e| e.elem_type == "cable") {
         out.push(diagnostic("SP-14"));
@@ -499,9 +499,8 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
 
     if analysis == Analysis::Buckling { out.push(diagnostic("BU-ACCURACY")); }
 
-    if analysis == Analysis::MaterialNonlinear || (matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic) && (!input.curved_beams.is_empty() || input.elements.values().any(|e| e.elem_type == "frame"))) {
-        out.push(diagnostic("NL-DYNAMIC-GAPS"));
-    }
+    if analysis == Analysis::MaterialNonlinear { out.push(diagnostic("NL-UNCONVERGED-INCREMENT")); }
+    if is_dynamic(analysis) { out.extend(rotary_inertia(&screen_model_3d(input, &Default::default()), deep_curved_beams(input))); }
     if analysis == Analysis::Plastic && !input.curved_beams.is_empty() { out.push(diagnostic("PL-3D-INVARIANCE")); }
     if analysis == Analysis::Modal { out.push(diagnostic("MD-ORTHOGONALITY")); }
     if analysis != Analysis::Cable && input.elements.values().any(|e| e.elem_type == "cable") {
@@ -907,6 +906,8 @@ pub(crate) struct ScreenBar {
     pub frame: bool,
     pub hinged: [bool; 2],
     pub ei_min: f64,
+    /// √(I_max/A): the larger radius of gyration, unlike `ei_min`.
+    pub radius: f64,
     pub compression: f64,
 }
 
@@ -933,9 +934,10 @@ fn norm(v: [f64; 3]) -> f64 {
     (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
 }
 
-/// Frame members as the physical members they belong to: chains of collinear frame elements
-/// through nodes no other element, support or hinge touches. Each chain is its element indices.
-fn member_chains(m: &ScreenModel) -> Vec<Vec<usize>> {
+/// Frame members as the physical members they belong to: chains of frame elements through nodes no
+/// other element, support or hinge touches, turning there by less than acos(`straight`), so 1 keeps
+/// them collinear. Each chain is its element indices.
+fn member_chains(m: &ScreenModel, straight: f64) -> Vec<Vec<usize>> {
     let mut at: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
     for (i, b) in m.bars.iter().enumerate() {
         for n in b.ends {
@@ -954,7 +956,7 @@ fn member_chains(m: &ScreenModel) -> Vec<Vec<usize>> {
         let (pa, pb, here) = (p(a)?, p(b)?, *m.position.get(&node)?);
         let (u, v) = (sub(pa, here), sub(pb, here));
         let cos = (u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (norm(u) * norm(v));
-        (cos < -1.0 + 1e-9).then_some((i, j))
+        (cos < -straight.min(1.0 - 1e-9)).then_some((i, j))
     };
     let mut seen = vec![false; m.bars.len()];
     let mut chains = Vec::new();
@@ -990,7 +992,10 @@ fn chain_ends(m: &ScreenModel, chain: &[usize]) -> Vec<usize> {
 
 /// A linear result's second-order screen (#1551). The K = 2 and K = 1 bounds hold for the frame
 /// only because the clamp or both braces are supports: restraint from other members does not count.
-pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) {
+/// When they leave a member unbounded, `global` gives 1/λ_cr of the whole structure (None when it
+/// cannot be computed), which is every compressed member's N/Ncr with Ncr = λ_cr·N, so the same
+/// limits apply to it.
+pub(crate) fn second_order(m: &ScreenModel, global: impl FnOnce() -> Option<f64>) -> (Vec<StructuredDiagnostic>, f64) {
     if !m.bars.iter().any(|b| b.compression > 0.0) { return (Vec::new(), 0.0); }
     let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
         (Some(&a), Some(&c)) => norm(sub(c, a)),
@@ -1015,7 +1020,7 @@ pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) 
         let b = &m.bars[i];
         if !b.frame && b.compression > 0.0 && !b.ends.iter().all(|n| m.braced.contains(n)) { unbound(&[i], b.compression, &mut largest); }
     }
-    for chain in member_chains(m) {
+    for chain in member_chains(m, 1.0) {
         let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
         if n <= 0.0 { continue; }
         let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbound(&chain, n, &mut largest); continue };
@@ -1029,7 +1034,20 @@ pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) 
         }
     }
     let mut found: Vec<StructuredDiagnostic> = [("LIN-SECOND-ORDER", over), ("LIN-SECOND-ORDER-NEAR", near)].into_iter().filter_map(|(id, e)| on_elements(id, e)).collect();
-    if unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
+    if unbounded {
+        match global() {
+            Some(ratio) => {
+                largest = if ratio.is_nan() { f64::INFINITY } else { largest.max(ratio) };
+                if !(ratio <= SECOND_ORDER_RATIO) {
+                    found = vec![whole_frame("LIN-SECOND-ORDER")];
+                } else if ratio * SECOND_ORDER_NEAR_FACTOR > SECOND_ORDER_RATIO
+                    && !found.iter().any(|d| matches!(d.phase.as_deref(), Some("LIN-SECOND-ORDER" | "LIN-SECOND-ORDER-NEAR"))) {
+                    found.push(whole_frame("LIN-SECOND-ORDER-NEAR"));
+                }
+            }
+            None => found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")),
+        }
+    }
     (found, largest)
 }
 
@@ -1112,21 +1130,24 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
         *span.entry(id).or_default() += total;
     }
     let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
+    second_order(&screen_model_2d(input, &n), || crate::solver::buckling::critical_factor_reciprocal_2d(input, loads, r))
+}
+
+fn screen_model_2d(input: &SolverInput, n: &std::collections::HashMap<usize, f64>) -> ScreenModel {
     let bars = crate::ordered::values(&input.elements).map(|e| {
-        let ei = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
-            .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iz);
-        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged: [e.hinge_start, e.hinge_end], ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0) }
+        let (ei, radius) = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
+            .map_or((f64::NAN, f64::NAN), |(m, s)| (m.e * 1000.0 * s.iz, (s.iz / s.a).sqrt()));
+        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged: [e.hinge_start, e.hinge_end], ei_min: ei, radius, compression: n.get(&e.id).copied().unwrap_or(0.0) }
     }).collect();
     let square = |s: &&crate::types::SolverSupport| s.angle.is_none_or(|a| a == 0.0);
-    let model = ScreenModel {
+    ScreenModel {
         bars,
         position: input.nodes.values().map(|n| (n.id, [n.x, 0.0, n.z])).collect(),
         supported: input.supports.values().map(|s| s.node_id).collect(),
         braced: input.supports.values().filter(square).filter(|s| matches!(s.support_type.as_str(), "fixed" | "pinned")).map(|s| s.node_id).collect(),
         clamped: input.supports.values().filter(square).filter(|s| s.support_type == "fixed").map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty(),
-    };
-    second_order(&model)
+    }
 }
 
 /// [`second_order`] for a 3D result: I_min is the lesser of Iy and Iz.
@@ -1139,14 +1160,21 @@ pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &Analys
         }
     }
     let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
+    let model = screen_model_3d(input, &n);
+    // No global bound in 3D: its buckling factors can be unconservatively high (BU-ACCURACY, #818),
+    // and a factor too high would clear a frame that needs a second-order analysis.
+    second_order(&model, || None)
+}
+
+fn screen_model_3d(input: &SolverInput3D, n: &std::collections::HashMap<usize, f64>) -> ScreenModel {
     let bars = crate::ordered::values(&input.elements).map(|e| {
-        let ei = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
-            .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iy.min(s.iz));
+        let (ei, radius) = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
+            .map_or((f64::NAN, f64::NAN), |(m, s)| (m.e * 1000.0 * s.iy.min(s.iz), (s.iy.max(s.iz) / s.a).sqrt()));
         let hinged = [e.release_my_start || e.release_mz_start, e.release_my_end || e.release_mz_end];
-        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged, ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0) }
+        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged, ei_min: ei, radius, compression: n.get(&e.id).copied().unwrap_or(0.0) }
     }).collect();
     let held = |s: &&crate::types::SolverSupport3D| s.rx && s.ry && s.rz && [s.kx, s.ky, s.kz].iter().all(Option::is_none) && s.is_inclined != Some(true);
-    let model = ScreenModel {
+    ScreenModel {
         bars,
         position: input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect(),
         supported: input.supports.values().map(|s| s.node_id).collect(),
@@ -1154,8 +1182,60 @@ pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &Analys
         clamped: input.supports.values().filter(held).filter(|s| s.rrx && s.rry && s.rrz && [s.krx, s.kry, s.krz].iter().all(Option::is_none)).map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty() || !input.plates.is_empty() || !input.quads.is_empty()
             || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() || !input.curved_beams.is_empty(),
+    }
+}
+
+fn is_dynamic(analysis: Analysis) -> bool {
+    matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic)
+}
+
+/// The radius of gyration over member length, r/L, above which omitting bending rotary inertia
+/// overestimates a member's bending frequencies by more than 1 %. Rotary inertia ρ·I·θ̈ alone (the
+/// Rayleigh beam) lowers the frequencies of a simply supported member to
+/// ω_n = ω_n,EB / √(1 + (nπ·r/L)²) (Rayleigh, Theory of Sound, 1877, §186; Timoshenko, Phil. Mag. 41,
+/// 1921; Han, Benaroya & Wei, J. Sound Vib. 225(5), 1999, eq. 39 with the shear terms dropped), an
+/// overestimate of about ½(nπ·r/L)² when it is left out. For the member's first mode that stays under
+/// 1 % while (π·r/L)² ≤ 0.02, r/L ≤ √0.02/π = 0.045: L/h ≥ 6.4 for a rectangle (r = h/√12). Shear
+/// deformation, which the stiffness carries when a shear area is given, is not part of this gap.
+pub const ROTARY_INERTIA_DEPTH: f64 = 0.045;
+
+/// cos 30°: a curved beam's segments (18° each for a half circle in the default 10) stay one member
+/// for the rotary-inertia length, a frame knee (60° or more) does not.
+const SMOOTH_TURN_COS: f64 = 0.866_025_403_784_438_6;
+
+fn rotary_inertia(m: &ScreenModel, curved: Vec<usize>) -> Option<StructuredDiagnostic> {
+    let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
+        (Some(&a), Some(&c)) => norm(sub(c, a)),
+        _ => f64::NAN,
     };
-    second_order(&model)
+    let mut deep: Vec<usize> = member_chains(m, SMOOTH_TURN_COS).into_iter().filter(|chain| {
+        let l: f64 = chain.iter().map(|&i| length(&m.bars[i])).sum();
+        let r = chain.iter().map(|&i| m.bars[i].radius).fold(0.0, |a: f64, r| if r.is_nan() { f64::NAN } else { a.max(r) });
+        !(r <= ROTARY_INERTIA_DEPTH * l)
+    }).flatten().map(|i| m.bars[i].id).collect();
+    if deep.is_empty() && curved.is_empty() { return None; }
+    let mut d = diagnostic("NL-DYNAMIC-GAPS");
+    d.threshold = Some(ROTARY_INERTIA_DEPTH);
+    if !deep.is_empty() {
+        deep.sort_unstable();
+        deep.dedup();
+        d.element_kind = Some(ElementKind::Frame);
+        d.element_ids = deep;
+    }
+    Some(d)
+}
+
+/// The polygon start–mid–end is shorter than the arc, so the length errs toward warning.
+fn deep_curved_beams(input: &SolverInput3D) -> Vec<usize> {
+    let at = |id: usize| input.nodes.values().find(|n| n.id == id).map(|n| [n.x, n.y, n.z]);
+    input.curved_beams.iter().enumerate().filter(|(_, c)| {
+        let l = match (at(c.node_start), at(c.node_mid), at(c.node_end)) {
+            (Some(a), Some(b), Some(e)) => norm(sub(b, a)) + norm(sub(e, b)),
+            _ => f64::NAN,
+        };
+        let r = input.sections.values().find(|s| s.id == c.section_id).map_or(f64::NAN, |s| (s.iy.max(s.iz) / s.a).sqrt());
+        !(r <= ROTARY_INERTIA_DEPTH * l)
+    }).map(|(i, _)| i).collect()
 }
 
 /// Add warnings to a result's diagnostics, once each: a path that already attached a finding
@@ -1214,7 +1294,7 @@ mod tests {
     fn known_issues_analysis_predicates_have_negative_controls() {
         for (id, analysis, space) in [
             ("NL-5", Analysis::MaterialNonlinear, false),
-            ("NL-DYNAMIC-GAPS", Analysis::MaterialNonlinear, false),
+            ("NL-UNCONVERGED-INCREMENT", Analysis::MaterialNonlinear, false),
             ("PL-2D-INVARIANCE", Analysis::Plastic, false),
             ("NL-13", Analysis::Contact, false),
             ("TH-RECIPROCITY", Analysis::TimeHistory, false),
@@ -1225,12 +1305,36 @@ mod tests {
             assert!(has(&diagnostics(analysis), id), "{id}");
             assert!(!has(&diagnostics(Analysis::Linear), id), "{id}");
         }
+        assert!(!has(&for_2d(&input2(), Analysis::Modal), "NL-UNCONVERGED-INCREMENT"), "a linear dynamic analysis has no increments");
+        // input2's member: r = √(1e-4/0.01) = 0.1 over L = 1, deep; 0.03 over L = 1 is not.
         let mut trusses = input2();
         for e in trusses.elements.values_mut() { e.elem_type = "truss".into(); }
+        let mut slender = input2();
+        for s in slender.sections.values_mut() { s.iz = 0.03_f64.powi(2) * s.a; }
         for analysis in [Analysis::Modal, Analysis::TimeHistory, Analysis::Harmonic] {
-            assert!(has(&for_2d(&input2(), analysis), "NL-DYNAMIC-GAPS"));
+            let deep = for_2d(&input2(), analysis);
+            assert!(has(&deep, "NL-DYNAMIC-GAPS"));
+            assert_eq!(deep.iter().find(|d| d.phase.as_deref() == Some("NL-DYNAMIC-GAPS")).unwrap().element_ids, vec![1]);
             assert!(!has(&for_2d(&trusses, analysis), "NL-DYNAMIC-GAPS"));
+            assert!(!has(&for_2d(&slender, analysis), "NL-DYNAMIC-GAPS"));
+            assert!(!has(&for_2d(&input2(), Analysis::MaterialNonlinear), "NL-DYNAMIC-GAPS"));
         }
+    }
+
+    #[test]
+    fn the_rotary_inertia_limit_is_one_percent_on_a_members_first_mode() {
+        let overestimate = |rho: f64| (1.0 + (std::f64::consts::PI * rho).powi(2)).sqrt() - 1.0;
+        assert!(overestimate(ROTARY_INERTIA_DEPTH) < 0.0101 && overestimate(ROTARY_INERTIA_DEPTH) > 0.0099, "{}", overestimate(ROTARY_INERTIA_DEPTH));
+    }
+
+    #[test]
+    fn rotary_inertia_is_judged_on_the_physical_member_not_its_elements() {
+        // r = 0.1 on a 3 m beam split into ten elements: each element's r/L is 0.33, the member's 0.033.
+        let mut value = serde_json::to_value(input2()).unwrap();
+        value["elements"] = serde_json::Value::Object((1..=10).map(|i| (i.to_string(), serde_json::json!({"id": i, "type": "frame", "nodeI": i, "nodeJ": i + 1, "materialId": 1, "sectionId": 1}))).collect());
+        for i in 1..=11 { value["nodes"][i.to_string()] = serde_json::json!({"id": i, "x": 0.3 * (i - 1) as f64, "z": 0.0}); }
+        let split: SolverInput = serde_json::from_value(value).unwrap();
+        assert!(!has(&for_2d(&split, Analysis::Modal), "NL-DYNAMIC-GAPS"));
     }
 
     #[test]

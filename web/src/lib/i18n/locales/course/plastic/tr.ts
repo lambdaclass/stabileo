@@ -120,6 +120,7 @@ const words: Translations = {
   'course.plastic.trace.eventAxial': 'Np değerine ilk ulaşan {member} çubuğu: birim λ başına n = {n}, biriken N = {N}, Np = {np}.',
   'course.plastic.trace.min': 'Bu, tüm kesitler arasındaki en küçük Δλ değeridir: diğerleri henüz ulaşmıyor.',
   'course.plastic.trace.update': 'λ = {before} + {dl} = {after}. İç kuvvetler ve yer değiştirmeler bu çözümün Δλ katı eklenerek birikir.',
+  'course.plastic.trace.moved': '{member} çubuğundaki {i} numaralı mafsal x = {from} konumundan, momentin artık en büyük olduğu x = {to} konumuna kayar: orada moment sıfır kesme kuvvetiyle Mp olur ve bıraktığı kesit aldığı plastik dönmeyi korur.',
   'course.plastic.trace.hinge': '{i} numaralı mafsal {member} çubuğuna, x = {x} konumuna konur: orada moment Mp değerinde kalır ve kesit serbestçe döner.',
   'course.plastic.trace.yield': '{member} çubuğu akar ({i} numaralı mafsal): Np değerini korur ve artık rijitlik katmaz.',
   'course.plastic.trace.collapse': 'Bu mafsalla yapı bir mekanizmadır: λc = {lambda}.',
@@ -180,6 +181,7 @@ const words: Translations = {
   'course.plastic.user.showMoments': 'Momentler',
   'course.plastic.closed': 'kapandı',
   'course.plastic.closedTitle': 'Mafsal λ = {lambda} değerinde yükünü bıraktı ve yeniden rijit oldu.',
+  'course.plastic.limitOnly': 'Adım adım analiz göçme yüküne ulaşmıyor (λ = {history} değerinde bitiyor). Limit analizinden (statik ve kinematik teoremler) göçme yükü λc = {lambda}; adım adım analizin mafsalları yaklaşıktır.',
   'course.plastic.unresolved': 'Analiz, sahte bir mekanizmadan ayıramadığı bir mekanizmada durdu (yükünü bırakacak mafsallar): bu λ durduğu yerdir, doğrulanmış bir göçme yükü değildir.',
 };
 

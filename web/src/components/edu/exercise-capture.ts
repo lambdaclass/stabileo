@@ -25,6 +25,8 @@
 import type { StructureModel, Node, Element, Support, Load } from '../../lib/store/model.svelte';
 import type { ModelSpec, EduExerciseSpec } from './exercise-spec';
 import { t, tp } from '../../lib/i18n';
+import { lintParams } from './exercise-params';
+import { variantOf } from './exercise-variant';
 
 /** What could not be captured, so the teacher is told rather than surprised. */
 export interface CaptureWarning {
@@ -73,13 +75,11 @@ export function captureModel(model: StructureModel): CaptureResult {
   const elementIndex = new Map<number, number>();
   elements.forEach((e, i) => elementIndex.set(e.id, i));
 
-  const truss = elements.filter((e) => e.type === 'truss');
-  if (truss.length > 0 && truss.length < elements.length) {
-    warnings.push({
-      kind: 'unsupportedElement',
-      detail: tp('edu.capture.mixedTruss', { n: truss.length }),
-    });
-  }
+  const truss = elements.flatMap((e, k) => (e.type === 'truss' ? [k] : []));
+  const hinges: NonNullable<ModelSpec['hinges']> = elements.flatMap((e, k) => [
+    ...(e.type !== 'truss' && e.releaseI?.mz ? [{ element: k, end: 'start' as const }] : []),
+    ...(e.type !== 'truss' && e.releaseJ?.mz ? [{ element: k, end: 'end' as const }] : []),
+  ]);
 
   const supports: ModelSpec['supports'] = [];
   for (const s of [...model.supports.values()] as Support[]) {
@@ -111,10 +111,10 @@ export function captureModel(model: StructureModel): CaptureResult {
     const anyCase = (l.data as { caseId?: string }).caseId;
     if (anyCase) cases.add(anyCase);
     if (l.type === 'nodal') {
-      const d = l.data as { nodeId: number; fx?: number; fy?: number; mz?: number };
+      const d = l.data as { nodeId: number; fx?: number; fz?: number; my?: number; fy?: number; mz?: number };
       const idx = nodeIndex.get(d.nodeId);
       if (idx == null) continue;
-      nodalLoads.push({ node: idx, fx: d.fx || undefined, fy: d.fy || undefined, mz: d.mz || undefined });
+      nodalLoads.push({ node: idx, fx: d.fx || undefined, fy: (d.fz ?? d.fy) || undefined, mz: (d.my ?? d.mz) || undefined });
     } else if (l.type === 'distributed') {
       const d = l.data as { elementId: number; qI: number; qJ?: number };
       const idx = elementIndex.get(d.elementId);
@@ -141,6 +141,8 @@ export function captureModel(model: StructureModel): CaptureResult {
       supports,
       nodalLoads: nodalLoads.length ? nodalLoads : undefined,
       distributedLoads: distributedLoads.length ? distributedLoads : undefined,
+      hinges: hinges.length ? hinges : undefined,
+      truss: truss.length ? truss : undefined,
     },
     warnings,
   };
@@ -210,14 +212,18 @@ export function fromFile(text: string): ParseResult {
   if (!ex.model?.nodes?.length || !ex.model?.elements?.length) {
     return { ok: false, error: t('edu.capture.errNoStructure') };
   }
-  // Fill the optional collections so consumers never have to guard them.
-  return {
-    ok: true,
-    exercise: {
-      ...ex,
-      supports: ex.supports ?? [],
-      characteristics: ex.characteristics ?? [],
-      diagramQuestions: ex.diagramQuestions ?? [],
-    } as EduExerciseSpec,
-  };
+  const exercise = {
+    ...ex,
+    supports: ex.supports ?? [],
+    characteristics: ex.characteristics ?? [],
+    diagramQuestions: ex.diagramQuestions ?? [],
+  } as EduExerciseSpec;
+  const paramProblems = ex.params ? lintParams(exercise.model, exercise.params!) : [];
+  if (paramProblems.length) return { ok: false, error: tp('edu.capture.errBadParams', { error: paramProblems[0]! }) };
+  try {
+    variantOf(exercise);
+  } catch (e) {
+    return { ok: false, error: tp('edu.capture.errBadParams', { error: (e as Error).message }) };
+  }
+  return { ok: true, exercise };
 }

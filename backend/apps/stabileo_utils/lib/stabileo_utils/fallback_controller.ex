@@ -8,6 +8,15 @@ defmodule StabileoUtils.FallbackController do
 
   import Plug.Conn
 
+  @assignment_conflicts %{
+    assignment_limit_reached: "You have reached the maximum number of assignments",
+    assignment_started: "The exercise cannot change once someone has started",
+    assignment_not_open: "This assignment is not open yet",
+    assignment_closed: "This assignment is closed",
+    attempt_closed: "The time for this attempt is over",
+    attempt_submitted: "This attempt was already submitted"
+  }
+
   def call(conn, {:error, :not_found}) do
     error(conn, :not_found, "not_found", "Resource not found")
   end
@@ -34,6 +43,14 @@ defmodule StabileoUtils.FallbackController do
 
   def call(conn, {:error, :cloud_projects_disabled}) do
     error(conn, :forbidden, "cloud_projects_disabled", "Cloud projects are currently disabled")
+  end
+
+  def call(conn, {:error, :assignments_disabled}) do
+    error(conn, :forbidden, "assignments_disabled", "Assignments are currently disabled")
+  end
+
+  def call(conn, {:error, reason}) when is_map_key(@assignment_conflicts, reason) do
+    error(conn, :conflict, to_string(reason), Map.fetch!(@assignment_conflicts, reason))
   end
 
   def call(conn, {:error, :project_limit_reached}) do

@@ -73,6 +73,10 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     super::linear::validate_input_2d_for_analysis(input, crate::known_issues::Analysis::Buckling)?;
     // 1. Linear solve to get axial forces
     let linear = super::linear::solve_2d(input)?;
+    buckling_system_of_linear_2d(input, linear)
+}
+
+fn buckling_system_of_linear_2d(input: &SolverInput, linear: AnalysisResults) -> Result<BucklingSystem2D, String> {
     let dof_num = DofNumbering::build_2d(input);
     let nf = dof_num.n_free;
 
@@ -144,6 +148,26 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     let neg_kg_csc = assemble(&[resolved]);
     let neg_kg_round_off_csc = has_round_off_member(&mean_n, &axial_noise).then(|| assemble(&[resolved, round_off]));
     Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, mean_n, span_axial, axial_noise })
+}
+
+/// 1/λ_cr of `loads` from their linear result, without a new linear solve: the linear solve calls it.
+/// Round-off members enter compressed by their round-off, which can only raise it.
+pub(crate) fn critical_factor_reciprocal_2d(input: &SolverInput, loads: &[SolverLoad], linear: &AnalysisResults) -> Option<f64> {
+    let model = SolverInput { loads: loads.to_vec(), ..input.clone() };
+    let system = buckling_system_of_linear_2d(&model, linear.clone()).ok()?;
+    let cs = FreeConstraintSystem::build_2d(&model, &system.dof_num).ok()?;
+    let neg_kg = system.neg_kg_round_off_csc.as_ref().unwrap_or(&system.neg_kg_csc);
+    let reduced;
+    let (k, neg_kg) = match cs.as_ref() {
+        Some(cs) => {
+            reduced = (cs.reduce_matrix_sparse(&system.k_ff), cs.reduce_matrix_sparse(neg_kg));
+            (&reduced.0, &reduced.1)
+        }
+        None => (&system.k_ff, neg_kg),
+    };
+    let result = crate::linalg::lanczos::lanczos_buckling_eigen_sparse(k, neg_kg, 1)?;
+    let mu = result.values.iter().fold(0.0f64, |a, &mu| a.max(mu));
+    mu.is_finite().then_some(mu)
 }
 
 /// Per member, the axial force that is round-off: 100 ε times the magnitudes N = EA·δ/L is

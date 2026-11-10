@@ -1,20 +1,26 @@
 <script lang="ts">
   import { viewportCanvas } from '../../lib/utils/viewport-canvas';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
-  import { returnBorrowedModel } from './exercise-session';
-  import { getExerciseSections, type EduExercise } from './exercises';
+  import { exerciseStoreApi, returnBorrowedModel } from './exercise-session';
+  import { getExerciseSections, toExercise, type EduExercise } from './exercises';
   import EduExerciseView from './EduExerciseView.svelte';
   import { t } from '../../lib/i18n';
   import { solveForEdu } from './edu-solver';
   import { isSolverReady } from '../../lib/engine/wasm-solver';
   import { eduStore } from './edu-store.svelte';
   import ExerciseAuthor from './ExerciseAuthor.svelte';
-  import { buildFromSpec, evaluateAnswer, type AnswerContext, type EduExerciseSpec } from './exercise-spec';
-  import { stressContext } from './exercise-stress';
+  import { buildFromSpec, type EduExerciseSpec } from './exercise-spec';
+  import { isParametric, studentSeed, variantOf } from './exercise-variant';
+  import type { Variant } from './exercise-params';
+  import { getExerciseSpecs } from './exercise-data';
   import { loadLibrary, removeFromLibrary, saveToLibrary, fromShareLink } from './exercise-library';
   import SubmissionReview from './SubmissionReview.svelte';
   import FieldHelp from './FieldHelp.svelte';
   import { fromSubmissionCode, fromSubmissionFile, type Submission } from './exercise-submission';
+  import { accounts } from '../../lib/features';
+  import { authStore } from '../../lib/store/auth.svelte';
+  import AssignDialog from './AssignDialog.svelte';
+  import AssignmentsPanel from './AssignmentsPanel.svelte';
 
   /** Teacher-authored exercises, restored from the library on mount.
    *  `authoring` lives in the store because the shell mounts the drawing
@@ -25,6 +31,9 @@
   let previewingSpec = $state<EduExerciseSpec | null>(null);
   let library = $state<EduExerciseSpec[]>([]);
   let linkNotice = $state('');
+  const assignmentsOn = $derived(accounts() && authStore.isAuthenticated && authStore.assignmentsEnabled);
+  let assigning = $state<EduExerciseSpec | null>(null);
+  let assignRevision = $state(0);
 
   // ── Collecting what students hand back ────────────────────────
   //
@@ -85,14 +94,52 @@
         library = next;
         history.replaceState(null, '', location.pathname + location.search);
         eduStore.markHandout();
-        loadExercise(specToExercise(shared.exercise));
+        openSpec(shared.exercise);
       } else {
         linkNotice = shared.error;
       }
     }
   });
 
-  const customExercises = $derived(library.map(specToExercise));
+  let currentSpec = $state<EduExerciseSpec | null>(null);
+  let legajoInput = $state('');
+  let openError = $state('');
+
+  const randomSeed = () => Math.floor(Math.random() * 2 ** 32);
+
+  function openSpec(spec: EduExerciseSpec) {
+    openError = '';
+    if (isParametric(spec)) {
+      legajoInput = '';
+      eduStore.pending = spec;
+      return;
+    }
+    startVariant(spec);
+  }
+
+  function startVariant(spec: EduExerciseSpec, which?: number | Variant, legajo?: string) {
+    let exercise: EduExercise;
+    try {
+      exercise = toExercise(variantOf(spec, which), { legajo });
+    } catch (e) {
+      openError = (e as Error).message;
+      return;
+    }
+    eduStore.pending = null;
+    currentSpec = spec;
+    loadExercise(exercise);
+  }
+
+  function startWithLegajo() {
+    const spec = eduStore.pending;
+    const legajo = legajoInput.trim();
+    if (!spec || !legajo) return;
+    startVariant(spec, studentSeed(spec.id, legajo), legajo);
+  }
+
+  function findSpec(id: string): EduExerciseSpec | null {
+    return library.find((s) => s.id === id) ?? getExerciseSpecs().find((s) => s.id === id) ?? null;
+  }
 
   function handleAuthored(spec: EduExerciseSpec) {
     const { library: next } = saveToLibrary(spec);
@@ -108,49 +155,6 @@
 
   function deleteExercise(id: string) {
     library = removeFromLibrary(id);
-  }
-
-  /** Adapt an authored spec to the shape the exercise view consumes. */
-  function specToExercise(spec: EduExerciseSpec): EduExercise {
-    // The stress resolver is built at most once per exercise — it meshes and
-    // solves the section, which is far too costly to repeat per question or
-    // per click. But it must stay LAZY: it only works once the WASM engine is
-    // ready (the first verify happens after the solve pipeline has awaited
-    // it), while specToExercise runs at panel mount, possibly before. An eager
-    // call — or caching the empty context an early call returns — would mark
-    // students against a fabricated 0 for the panel's whole lifetime.
-    let ctx: AnswerContext | undefined;
-    const stressCtx = (): AnswerContext => {
-      if (ctx) return ctx;
-      const built = stressContext(spec.model.profile, spec.model.fy);
-      // Empty means "no profile / no geometry" (stable) or "engine not ready"
-      // (must be retried). Only the stable cases get cached.
-      if (built.stress || !spec.model.profile) ctx = built;
-      return built;
-    };
-    return {
-      id: spec.id,
-      title: spec.title,
-      description: spec.description,
-      difficulty: spec.difficulty,
-      category: spec.category,
-      solverType: spec.solverType,
-      build: (api) => buildFromSpec(spec.model, api),
-      supports: spec.supports,
-      characteristics: spec.characteristics.map((c) => ({
-        label: c.label, unit: c.unit,
-        getCorrect: (f) => evaluateAnswer(c.answer, f, stressCtx()) ?? 0,
-      })),
-      diagramQuestions: spec.diagramQuestions.map((q) => ({
-        question: q.question, unit: q.unit,
-        getCorrect: (f) => evaluateAnswer(q.answer, f, stressCtx()) ?? 0,
-      })),
-      kinematicQuestion: spec.kinematicQuestion,
-      diagramShapeQuestions: spec.diagramShapeQuestions,
-      diagramSketchQuestions: spec.diagramSketchQuestions,
-      allowReveal: spec.allowReveal,
-      sectionData: spec.sectionData,
-    };
   }
 
   const sections = $derived(getExerciseSections());
@@ -186,17 +190,7 @@
     // array, not the model's ids (the store's id counter is shared with
     // whatever was loaded before this exercise).
     const builtNodeIds: number[] = [];
-    ex.build({
-      addNode: (x, y) => {
-        const id = modelStore.addNode(x, y);
-        builtNodeIds.push(id);
-        return id;
-      },
-      addElement: (nI, nJ) => modelStore.addElement(nI, nJ),
-      addSupport: (nodeId, type) => modelStore.addSupport(nodeId, type),
-      addNodalLoad: (nodeId, fx, fy, mz) => modelStore.addNodalLoad(nodeId, fx, fy, mz ?? 0),
-      addDistributedLoad: (elementId, qI, qJ) => modelStore.addDistributedLoad(elementId, qI, qJ),
-    });
+    ex.build(exerciseStoreApi(builtNodeIds));
 
     // Track in edu store
     eduStore.loadExercise(ex, builtNodeIds);
@@ -224,11 +218,12 @@
   }
 
   /** Open a draft the way a student will get it, without saving it first. */
-  function previewAsStudent(spec: EduExerciseSpec) {
+  function previewAsStudent(spec: EduExerciseSpec, variant?: Variant) {
     previewingSpec = spec;
     editingSpec = spec;
     eduStore.authoring = false;
-    loadExercise(specToExercise(spec));
+    if (variant) startVariant(spec, variant);
+    else openSpec(spec);
   }
 
   /** Poll for the engine, then solve. Bounded, and it gives up in the open
@@ -244,6 +239,8 @@
 
   function goBack() {
     eduStore.clearExercise();
+    eduStore.pending = null;
+    currentSpec = null;
     /*
      * Coming back from a preview returns to the form that opened it — and to
      * the structure it was written against. Clearing the canvas here left the
@@ -257,13 +254,7 @@
       eduStore.authoring = true;
       resultsStore.clear();
       modelStore.clear();
-      buildFromSpec(spec.model, {
-        addNode: (x, y) => modelStore.addNode(x, y),
-        addElement: (nI, nJ) => modelStore.addElement(nI, nJ),
-        addSupport: (nodeId, type) => modelStore.addSupport(nodeId, type),
-        addNodalLoad: (nodeId, fx, fy, mz) => modelStore.addNodalLoad(nodeId, fx, fy, mz ?? 0),
-        addDistributedLoad: (elementId, qI, qJ) => modelStore.addDistributedLoad(elementId, qI, qJ),
-      });
+      buildFromSpec(spec.authoredFrom?.model ?? variantOf(spec).model, exerciseStoreApi());
       return;
     }
     // Leaving the exercise ends the handout: from here the window is a normal
@@ -282,8 +273,43 @@
       onclose={() => { eduStore.authoring = false; editingSpec = null; }}
       onsaved={handleAuthored}
       onpreview={previewAsStudent}
+      onassign={assignmentsOn ? (spec) => (assigning = spec) : undefined}
       editing={editingSpec}
     />
+  {:else if eduStore.pending}
+    {@const spec = eduStore.pending}
+    <div class="edu-exercise-container" data-testid="edu-variant-gate">
+      <div class="edu-topbar">
+        <button class="edu-back-btn" onclick={goBack}>{t('edu.back')}</button>
+        <span class="edu-exercise-name">{spec.title}</span>
+      </div>
+      <form class="edu-gate" onsubmit={(e) => { e.preventDefault(); startWithLegajo(); }}>
+        <h3 class="section-title">{t('edu.params.gateTitle')}</h3>
+        <p class="edu-subtitle">{t('edu.params.gateHint')}</p>
+        <label class="gate-label">
+          {t('edu.params.legajo')}
+          <input
+            type="text"
+            class="gate-input"
+            bind:value={legajoInput}
+            placeholder={t('edu.params.legajoPlaceholder')}
+            autocomplete="off"
+            data-testid="edu-legajo"
+          />
+        </label>
+        <div class="submit-row">
+          <button type="submit" class="gate-start" disabled={!legajoInput.trim()} data-testid="edu-legajo-start">
+            {t('edu.params.start')}
+          </button>
+          {#if !eduStore.isHandout}
+            <button type="button" class="submit-btn" onclick={() => startVariant(spec, randomSeed())} data-testid="edu-practice">
+              {t('edu.params.practice')}
+            </button>
+          {/if}
+        </div>
+        {#if openError}<p class="edu-link-notice">{openError}</p>{/if}
+      </form>
+    </div>
   {:else if !eduStore.hasExercise}
     <div class="edu-welcome">
       <h2>{t('edu.title')}</h2>
@@ -295,7 +321,7 @@
             <h3 class="section-title">{section.title}</h3>
             <div class="exercise-list">
               {#each section.exercises as ex}
-                <button class="exercise-card" onclick={() => loadExercise(ex)}>
+                <button class="exercise-card" onclick={() => openSpec(ex)}>
                   <div class="exercise-header">
                     <span class="exercise-title">{ex.title}</span>
                     <span class="difficulty difficulty-{ex.difficulty}">
@@ -318,9 +344,9 @@
         <div class="exercise-section">
           <h3 class="section-title">{t('edu.author.mine')}</h3>
           <div class="exercise-list">
-            {#each library as spec, i}
+            {#each library as spec}
               <div class="exercise-card-wrap">
-                <button class="exercise-card" onclick={() => loadExercise(customExercises[i])}>
+                <button class="exercise-card" onclick={() => openSpec(spec)}>
                   <div class="exercise-header">
                     <span class="exercise-title">{spec.title}</span>
                     <span class="difficulty difficulty-{spec.difficulty}">{t('edu.' + spec.difficulty)}</span>
@@ -329,6 +355,9 @@
                 </button>
                 <div class="card-actions">
                   <button class="card-act" onclick={() => editExercise(spec)}>{t('edu.author.edit')}</button>
+                  {#if assignmentsOn}
+                    <button class="card-act" onclick={() => (assigning = spec)} data-testid="edu-assign">{t('exam.assign.open')}</button>
+                  {/if}
                   <button class="card-act del" onclick={() => deleteExercise(spec.id)}>{t('edu.author.delete')}</button>
                 </div>
               </div>
@@ -346,7 +375,7 @@
       <div class="exercise-section">
         <h3 class="section-title">{t('edu.review.open')}</h3>
         {#if openedSubmission}
-          <SubmissionReview submission={openedSubmission} onclose={() => (openedSubmission = null)} />
+          <SubmissionReview submission={openedSubmission} spec={findSpec(openedSubmission.exerciseId)} onclose={() => (openedSubmission = null)} />
         {:else}
           <p class="edu-subtitle">{t('edu.review.openHint')}</p>
 
@@ -389,6 +418,13 @@
         {/if}
       </div>
 
+      {#if assignmentsOn}
+        <div class="exercise-section">
+          <h3 class="section-title">{t('exam.mine.title')}</h3>
+          <AssignmentsPanel revision={assignRevision} />
+        </div>
+      {/if}
+
       <div class="edu-footer">
         <p>{t('edu.moreExercises')}</p>
         <!-- Authoring lives beside the exercise list, not behind a setting:
@@ -405,12 +441,20 @@
           {t('edu.back')}
         </button>
         <span class="edu-exercise-name">{eduStore.exercise!.title}</span>
+        {#if currentSpec && eduStore.exercise?.variant && !eduStore.exercise.legajo}
+          <button class="edu-other" onclick={() => currentSpec && startVariant(currentSpec, randomSeed())} data-testid="edu-other-data">
+            {t('edu.params.otherData')}
+          </button>
+        {/if}
       </div>
 
       {#key eduStore.exerciseKey}
         <EduExerciseView exercise={eduStore.exercise!} />
       {/key}
     </div>
+  {/if}
+  {#if assigning}
+    <AssignDialog spec={assigning} onclose={() => (assigning = null)} ondone={() => assignRevision++} />
   {/if}
 </div>
 
@@ -643,6 +687,68 @@
   .edu-back-btn:hover {
     color: var(--st-text-2);
     border-color: var(--st-text-2);
+  }
+
+  .edu-other {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid var(--st-hair);
+    color: var(--st-text-3);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .edu-other:hover { color: var(--st-text-2); border-color: var(--st-text-2); }
+
+  .edu-gate {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .gate-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--st-text-2);
+  }
+
+  .gate-input {
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-hair);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
+    font-family: var(--st-mono);
+    font-size: 0.85rem;
+    padding: 6px 8px;
+    max-width: 220px;
+  }
+
+  .gate-input:focus { outline: none; border-color: var(--st-focus); }
+
+  .gate-start {
+    background: var(--st-accent);
+    border: 1px solid var(--st-accent);
+    color: var(--st-text-on-accent);
+    font-family: var(--st-sans);
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 5px 14px;
+    border-radius: var(--st-radius);
+    cursor: pointer;
+  }
+
+  .gate-start:disabled {
+    background: none;
+    border-color: var(--st-hair);
+    color: var(--st-text-3);
+    cursor: not-allowed;
   }
 
   .edu-exercise-name {

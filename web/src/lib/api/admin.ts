@@ -52,11 +52,12 @@ export interface AdminSettings {
   usage_telemetry_enabled?: boolean;
   cloud_projects_enabled?: boolean;
   save_requires_account?: boolean;
+  assignments_enabled?: boolean;
   cloud_projects_limit?: number;
   terms_version?: string;
 }
 
-export type AdminFlag = 'user_login_enabled' | 'usage_telemetry_enabled' | 'cloud_projects_enabled' | 'save_requires_account';
+export type AdminFlag = 'user_login_enabled' | 'usage_telemetry_enabled' | 'cloud_projects_enabled' | 'save_requires_account' | 'assignments_enabled';
 export type AdminSettingsUpdate = Partial<Record<AdminFlag, boolean>> & { cloud_projects_limit?: number };
 
 export interface Count { label: string; count: number }

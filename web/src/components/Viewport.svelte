@@ -189,11 +189,13 @@
    * screen shows. Outside an export they read the stores, as before.
    */
   let exportFrame: ExportFrame | null = null;
-  const dtNow = () => (exportFrame ? diagramFor(exportFrame.content) : resultsStore.diagramType);
+  const dtNow = () => (exportFrame ? diagramFor(exportFrame.content) : resultsStore.screen.diagram);
+  const resNow = () => (exportFrame ? resultsStore.results : resultsStore.screen.results);
+  const HELD_DIM_MS = 250;
   const valuesNow = () => (exportFrame ? exportFrame.options.values : resultsStore.showDiagramValues);
   const reactionsNow = () => (exportFrame
     ? exportFrame.content === 'reactions' || exportFrame.content === 'despiece'
-    : resultsStore.showReactions);
+    : resultsStore.screen.showReactions);
   const nodeLabelsNow = () => (exportFrame ? exportFrame.options.numbering : uiStore.showNodeLabels);
   /**
    * The deformed shape in a figure: at the reader's scale when they set one, otherwise drawn so
@@ -241,7 +243,7 @@
     const wasAnimating = animating;
     animating =
       (resultsStore.ilAnimating && !!resultsStore.influenceLine) ||
-      (resultsStore.animateDeformed && resultsStore.diagramType === 'deformed' && !!resultsStore.results) ||
+      (resultsStore.animateDeformed && dtNow() === 'deformed' && !!resNow()) ||
       (resultsStore.diagramType === 'modeShape' && !!resultsStore.modalResult) ||
       (resultsStore.diagramType === 'bucklingMode' && !!resultsStore.bucklingResult) ||
       (resultsStore.diagramType === 'despiece' && !!resultsStore.results && (performance.now() - despieceStart) < DESPIECE_ANIM_MS);
@@ -262,6 +264,13 @@
 
   // Results changes
   $effect(() => { resultsStore.results; resultsStore.diagramType; invalidate(); });
+  $effect(() => {
+    resultsStore.screen.results; resultsStore.screen.diagram; resultsStore.screen.showReactions;
+    if (!resultsStore.screen.held) return;
+    invalidate();
+    const dim = setTimeout(invalidate, HELD_DIM_MS + 20);
+    return () => clearTimeout(dim);
+  });
   // Despiece: restart the pull-apart animation whenever the view (re)activates.
   $effect(() => {
     if (resultsStore.diagramType === 'despiece') {
@@ -547,6 +556,7 @@
 
   function draw() {
     if (!ctx) return;
+    const shown = resNow();
 
     /*
      * Every frame starts from the canvas's own text and compositing defaults.
@@ -616,10 +626,10 @@
     const colorMapOverrides = new Map<number, string>();
     // The value behind each member's colour, for its label when values are shown.
     let colorMapValues: { values: Map<number, number>; kind: string } | null = null;
-    if (resultsStore.results && dtNow() === 'axialColor') {
+    if (shown && dtNow() === 'axialColor') {
       // Axial color: blue = compression, red = tension, intensity by magnitude
       let globalMaxN = 0;
-      for (const ef of resultsStore.results.elementForces) {
+      for (const ef of shown.elementForces) {
         const absN = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
         if (absN > globalMaxN) globalMaxN = absN;
       }
@@ -646,7 +656,7 @@
           const g = (i: number, base: number) => Math.round(rgb[i] * n + base * (1 - n));
           return `rgb(${g(0, 143)},${g(1, 163)},${g(2, 179)})`;
         };
-        for (const ef of resultsStore.results.elementForces) {
+        for (const ef of shown.elementForces) {
           const avgN = (ef.nStart + ef.nEnd) / 2;
           const intensity = Math.min(Math.abs(avgN) / globalMaxN, 1.0);
           if (avgN > 0.001) {
@@ -658,13 +668,13 @@
           }
         }
       }
-    } else if (resultsStore.results && dtNow() === 'colorMap') {
+    } else if (shown && dtNow() === 'colorMap') {
       const kind = resultsStore.colorMapKind;
       let globalMax = 0;
       const elemMaxes = new Map<number, number>();
 
       if (kind === 'stressRatio' || kind === 'vonMises' || kind === 'sigmaMax' || kind === 'tauMax') {
-        for (const ef of resultsStore.results.elementForces) {
+        for (const ef of shown.elementForces) {
           const elem = modelStore.elements.get(ef.elementId);
           if (!elem) continue;
           const sec = modelStore.sections.get(elem.sectionId);
@@ -688,7 +698,7 @@
         }
         if (kind === 'stressRatio') globalMax = 1.0; // fixed scale: 0% → 100%+ of fy
       } else {
-        for (const ef of resultsStore.results.elementForces) {
+        for (const ef of shown.elementForces) {
           /*
            * A 2D frame has one bending axis and one shear, so the 3D names for
            * them land on the same two quantities. Accepting both spellings
@@ -752,8 +762,8 @@
     if (!exportFrame) drawLocalAxes2D();
 
     // Draw axial value labels when axialColor mode is active
-    if (resultsStore.results && dtNow() === 'axialColor') {
-      for (const ef of resultsStore.results.elementForces) {
+    if (shown && dtNow() === 'axialColor') {
+      for (const ef of shown.elementForces) {
         const avgN = (ef.nStart + ef.nEnd) / 2;
         if (Math.abs(avgN) < 0.001) continue;
         const sign = avgN > 0 ? '+' : '';
@@ -788,7 +798,7 @@
     }
 
     // Compute effective load visibility
-    const diagramActive = !!(resultsStore.results && dtNow() !== 'none');
+    const diagramActive = !!(shown && dtNow() !== 'none');
     const loadsVisible = exportFrame
       ? exportFrame.options.loads && (exportFrame.content === 'model' || exportFrame.content === 'reactions')
       : uiStore.showLoads && !(uiStore.hideLoadsWithDiagram && diagramActive);
@@ -1164,12 +1174,13 @@
      * was drawn only inside the results below, so on a model not yet calculated a click computed
      * the line, said so, and showed nothing.
      */
-    if (!resultsStore.results && dtNow() === 'influenceLine' && resultsStore.influenceLine) {
+    if (!shown && dtNow() === 'influenceLine' && resultsStore.influenceLine) {
       drawInfluenceLine(resultsStore.influenceLine, makeDrawContext(), uiStore.zoom, resultsStore.ilAnimating ? resultsStore.ilAnimProgress : undefined);
     }
 
     // Draw results
-    if (resultsStore.results) {
+    if (shown) {
+      ctx.globalAlpha = resultsStore.screen.held && !exportFrame && now - resultsStore.screen.heldSince > HELD_DIM_MS ? 0.45 : 1;
       const dt = dtNow();
       setDiagramUnitSystem(uiStore.unitSystem);
 
@@ -1178,7 +1189,7 @@
         const animScale = resultsStore.animateDeformed && !exportFrame
           ? scale * Math.sin(performance.now() / (500 / resultsStore.animSpeed))
           : scale;
-        drawDeformed(resultsStore.results, makeDrawContext(), uiStore.zoom, animScale);
+        drawDeformed(shown, makeDrawContext(), uiStore.zoom, animScale);
         drawDeformedValues(animScale);
       } else if (dt === 'despiece') {
         // Member free-body / "despiece": pull members off their joints (animated)
@@ -1342,11 +1353,11 @@
       } else if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
         const dkind = dt as DiagramKind;
         // Check if we should render envelope dual curves
-        const showEnvelopeDual = (resultsStore.isEnvelopeActive || resultsStore.movingLoadShowEnvelope) && (
-          resultsStore.isEnvelopeActive ? resultsStore.fullEnvelope : resultsStore.movingLoadEnvelope?.fullEnvelope
+        const showEnvelopeDual = (resultsStore.screen.envelopeActive || resultsStore.movingLoadShowEnvelope) && (
+          resultsStore.screen.envelopeActive ? resultsStore.screen.fullEnvelope : resultsStore.movingLoadEnvelope?.fullEnvelope
         );
         if (showEnvelopeDual) {
-          const envSrc = resultsStore.isEnvelopeActive ? resultsStore.fullEnvelope! : resultsStore.movingLoadEnvelope!.fullEnvelope!;
+          const envSrc = resultsStore.screen.envelopeActive ? resultsStore.screen.fullEnvelope! : resultsStore.movingLoadEnvelope!.fullEnvelope!;
           const envData = dkind === 'moment' ? envSrc.moment
                         : dkind === 'shear'  ? envSrc.shear
                         :                       envSrc.axial;
@@ -1374,16 +1385,16 @@
           if (resultsStore.overlayResults && !exportFrame) {
             // Compute shared globalMax so both diagrams use the same scale
             const sharedMax = Math.max(
-              computeDiagramGlobalMax(resultsStore.results, dkind),
+              computeDiagramGlobalMax(shown, dkind),
               computeDiagramGlobalMax(resultsStore.overlayResults, dkind),
             );
             const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
             drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
-            drawDiagrams(resultsStore.results, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
+            drawDiagrams(shown, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
           } else {
             // The certified ± beside the max label on screen only; a figure export stays as it was.
             const dc = exportFrame ? makeDrawContext() : { ...makeDrawContext(), extremeBound };
-            drawDiagrams(resultsStore.results, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
+            drawDiagrams(shown, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
           }
         }
       } else if (dt === 'influenceLine' && resultsStore.influenceLine) {
@@ -1459,6 +1470,7 @@
         ctx.fillStyle = '#ccc';
         ctx.fillText(t('viewport.compression'), lx + 16, ly + 32);
       }
+      ctx.globalAlpha = 1;
     }
 
     // Draw diagram query marker
@@ -1697,7 +1709,7 @@
    * ones that moved most (as the 3D view does), at where they moved to.
    */
   function drawDeformedValues(scale: number) {
-    const res = resultsStore.results;
+    const res = resNow();
     if (!ctx || !res || !(exportFrame ? exportFrame.options.values : resultsStore.showDeformedValues)) return;
     const byId = new Map(res.displacements.map((d) => [d.nodeId, d]));
     const picks = nodesToLabel(res.displacements.map((d) => ({ nodeId: d.nodeId, ux: d.ux, uy: 0, uz: d.uz })));
@@ -1855,8 +1867,9 @@
   }
 
   function drawReactions() {
-    if (!resultsStore.results) return;
-    _drawReactions(ctx!, resultsStore.results.reactions as ReactionData[], (nodeId) => {
+    const res = resNow();
+    if (!res) return;
+    _drawReactions(ctx!, res.reactions as ReactionData[], (nodeId) => {
       // A reaction is drawn with its support: not at a node the view hides.
       const node = viewVisibility.isNodeHidden(nodeId) ? undefined : modelStore.getNode(nodeId);
       if (!node) return null;
