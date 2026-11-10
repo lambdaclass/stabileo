@@ -431,3 +431,55 @@ second after compilation. `make lint.engine`, `make check.changelog`,
 `make check.test-targets`, and `git diff --check` pass. Nextest was unavailable in
 the shell, so the exact regression selection used Cargo's test runner. No full
 suite or heavy analysis ran.
+
+
+## PR #1887 final non-finite-bound review
+
+An exactly resonant, undamped forward certificate with zero residual and zero
+assembly perturbation has infinite gain. Multiplication of that gain by zero
+made the perturbation comparison NaN; the previous `>= 1` guard did not reject
+it, and the returned harmonic error was NaN. A finite gain can also overflow
+when squared before multiplication by zero. The forward guard now requires the
+scaled perturbation to be strictly below one, so NaN cannot satisfy it. Both
+forward and inverse return values, and the final scaled harmonic floor, convert
+every non-finite result to positive infinity. This preserves the explicit
+inconclusive contract even if the final arithmetic overflows or divides zero
+by zero.
+
+The forward path also applies the inverse path's input contract: finite
+frequency, finite nonnegative Rayleigh coefficients, and finite nonnegative
+assembly error. Negative damping coefficients cannot certify a comparison.
+Existing finite bounds, tolerances, baselines and assertions are retained.
+
+Commit A records four failing regressions with
+`known wrong result: #1887` ignores. Explicit execution before the fix produces
+four failures: a NaN resonant bound, acceptance of negative damping, NaN from
+non-finite inputs, and NaN during floor scaling. Commit B removes the ignores.
+The resonance regression covers infinite gain and overflow of a finite gain's
+square, uses the actual comparison and verdict functions, and requires
+`Verdict::Inconclusive` for both equal and deliberately differing responses.
+The inverse resonance path is checked too. Invalid-input coverage requires
+positive infinity on both certificate paths. The scaled-floor regression
+covers zero divided by zero and finite-input overflow.
+
+The existing comparison implementation rejects NaN ratios rather than passing
+them. This does not make NaN an acceptable bound: the certificate must supply
+positive infinity so every caller can classify unavailable accuracy as
+inconclusive, including comparisons that would otherwise use `diff > tol`.
+
+Only the test harness changes. No production solver or user-visible engineering
+result changes, so this fix requires neither a results-change registry entry nor
+a safety advisory. The deferred zero-frequency anchor discards and
+`single_mode_fallback` cutoff asymmetry are tracked in
+[#1889](https://github.com/lambdaclass/stabileo/issues/1889), assigned to
+unbalancedparentheses and Batuis with label `cause:harness`.
+
+Final validation passes all 15 dynamic-accuracy regressions and 17 explicitly
+selected harmonic integration regressions in release mode, with zero failures
+or ignored tests. The latter include all eight published harmonic symmetry
+cases, seeded resonances, ordinary response ratios, finite published and
+inclined bounds, uncertain certificates, and physical-error rejection in both
+dimensions and on the singular-mass inverse path. `make lint.engine`,
+`make check.changelog`, `make check.test-targets`, the single-file formatting
+check, and `git diff --check` pass. No full suite, coverage sweep, or heavy
+analysis was run.

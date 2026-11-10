@@ -259,6 +259,14 @@ pub struct HarmonicAccuracy {
     pub natural: f64,
 }
 
+fn finite_bound(bound: f64) -> f64 {
+    if bound.is_finite() {
+        bound
+    } else {
+        f64::INFINITY
+    }
+}
+
 impl HarmonicAccuracy {
     fn gains(&self, omega: f64, damping: (f64, f64)) -> (f64, f64) {
         let (a0, a1) = damping;
@@ -343,7 +351,7 @@ impl HarmonicAccuracy {
         if !(perturbation < 1.0) {
             return f64::INFINITY;
         }
-        gain * perturbation / (1.0 - perturbation)
+        finite_bound(gain * perturbation / (1.0 - perturbation))
     }
 }
 
@@ -364,6 +372,15 @@ impl Accuracy {
     }
 
     pub fn harmonic_error(&self, omega: f64, damping: (f64, f64), assembly_error: f64) -> f64 {
+        let (a0, a1) = damping;
+        if !omega.is_finite()
+            || !(a0 >= 0.0 && a1 >= 0.0)
+            || !a0.is_finite()
+            || !a1.is_finite()
+            || !(assembly_error >= 0.0 && assembly_error.is_finite())
+        {
+            return f64::INFINITY;
+        }
         let omega = omega.abs();
         let mut lambda = self.lambda.clone();
         lambda.sort_by(f64::total_cmp);
@@ -379,7 +396,6 @@ impl Accuracy {
         {
             return f64::INFINITY;
         }
-        let (a0, a1) = damping;
         let gain = self
             .lambda
             .iter()
@@ -390,10 +406,10 @@ impl Accuracy {
         let perturbation = assembly_error * (1.0 + omega * omega / lo + omega * (a0 / lo + a1))
             + eta * 1.0f64.hypot(omega * a1)
             + damping_error * omega * (a0 / lo + a1);
-        if gain * perturbation >= 1.0 {
+        if !(gain * perturbation < 1.0) {
             return f64::INFINITY;
         }
-        gain * gain * perturbation / (1.0 - gain * perturbation)
+        finite_bound(gain * gain * perturbation / (1.0 - gain * perturbation))
     }
 }
 
@@ -422,7 +438,7 @@ pub fn harmonic_floor(
     if !estimate.is_finite() {
         return f64::INFINITY;
     }
-    accuracy.natural * estimate / rel
+    finite_bound(accuracy.natural * estimate / rel)
 }
 
 #[test]
@@ -654,7 +670,6 @@ fn round_two_harmonic_pencil_obeys_the_dense_size_limit() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn final_review_resonant_zero_perturbation_is_inconclusive_never_passes() {
     use crate::tally::Verdict;
     use dedaliano_engine::metamorphic::compare::{compare, Flat};
@@ -688,7 +703,6 @@ fn final_review_resonant_zero_perturbation_is_inconclusive_never_passes() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn final_review_negative_rayleigh_coefficients_are_unbounded() {
     let forward = Accuracy {
         lambda: vec![1.0],
@@ -711,7 +725,6 @@ fn final_review_negative_rayleigh_coefficients_are_unbounded() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn final_review_nonfinite_harmonic_inputs_are_unbounded() {
     let forward = Accuracy {
         lambda: vec![1.0],
@@ -747,7 +760,6 @@ fn final_review_nonfinite_harmonic_inputs_are_unbounded() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn final_review_nonfinite_scaled_harmonic_floors_are_unbounded() {
     for (natural, rel, assembly_error) in [(0.0, 0.0, 0.0), (f64::MAX, f64::MIN_POSITIVE, 0.125)] {
         let accuracy = HarmonicAccuracy {
