@@ -42,6 +42,7 @@ pub struct Entry {
 pub const ENTRIES: &[Entry] = &[
     Entry { id: "SH-MITC4-CONVERGENCE", issue: 810, mode: Mode::Warn, message: "MITC4 shell benchmarks show excessive stiffness and error increasing with mesh refinement. The affected subset is unresolved; independently verify shell response before design" },
     Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response" },
+    Entry { id: "PL-3D-CERTIFICATE-MISMATCH", issue: 1760, mode: Mode::Warn, message: "The raw incremental 3D plastic collapse factor lies outside the certified interval. The returned collapse factor is the certified lower bound; incremental steps and hinges retain raw solver values" },
     Entry { id: "PL-3D-INVARIANCE", issue: 758, mode: Mode::Warn, message: "3D plastic collapse of curved beams has shown numbering-dependent factors. Independently verify the collapse factor" },
     Entry { id: "ORPHAN-SOFT-ROTATION", issue: 1496, mode: Mode::Warn, message: "A node rotation with real but very small stiffness, compared with another rotation at the same node, was held by an artificial spring, so that rotation and the forces it carries can be far too small. Do not use this result for design until this warning clears" },
     Entry { id: "NUM-INVARIANCE", issue: 762, mode: Mode::Warn, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design" },
@@ -1343,6 +1344,19 @@ mod tests {
         assert_eq!(value["structuredDiagnostics"][0]["code"], "known_issue");
         assert_eq!(value["structuredDiagnostics"][0]["value"], 741.0);
         assert_eq!(value["structuredDiagnostics"][0]["severity"], "error");
+    }
+
+    #[test]
+    fn known_issues_759_remains_warned_pending_all_modal_consumers() {
+        let entry = ENTRIES.iter().find(|entry| entry.issue == 759).unwrap();
+        assert_eq!(entry.id, "MD-ORTHOGONALITY");
+        assert_eq!(entry.mode, Mode::Warn);
+        assert!(has(&for_3d(&input3(), Analysis::Modal), entry.id));
+        let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
+        let row = ledger.lines().find(|line| line.starts_with("| #759 |")).unwrap();
+        let cells: Vec<_> = row.split('|').map(str::trim).collect();
+        assert_eq!(cells[2], "`MD-ORTHOGONALITY`");
+        assert_eq!(cells[3], "WARN");
     }
 
     #[test]

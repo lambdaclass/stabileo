@@ -1,0 +1,46 @@
+{
+  "id": "modal-basis-entrywise-rounding",
+  "date": "2026-11-10",
+  "prs": [
+    1890
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "connectors",
+        "springs"
+      ]
+    ],
+    "any": [
+      "analysis:modal",
+      "analysis:spectral"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "structuredDiagnostics"
+  ],
+  "title": {
+    "en": "Modal bases use the rounding scale of each mass Gram entry",
+    "es": "Las bases modales usan la escala de redondeo de cada entrada de Gram de masa",
+    "pt": "As bases modais usam a escala de arredondamento de cada entrada de Gram de massa",
+    "de": "Modalbasen verwenden die Rundungsskala jedes Eintrags der Massen-Gram-Matrix",
+    "fr": "Les bases modales utilisent l’échelle d’arrondi de chaque entrée de Gram de masse",
+    "tr": "Modal bazlar kütle Gram matrisinin her girdisinin yuvarlama ölçeğini kullanıyor"
+  },
+  "explanation": {
+    "en": "The modal-basis check could refuse an exactly orthogonal basis because an unrelated coordinate had a large mass. It now computes the rounding allowance from each Gram entry’s absolute mass products in the actual solve coordinates. Valid bases previously refused for this reason can return modes; inaccurate bases and unresolved arithmetic uncertainty still refuse at the existing limits. Frequencies, shapes and participation calculations are unchanged. This correction concerns PR #1890 and is not yet released or deployed.",
+    "es": "El control de la base modal podía rechazar una base exactamente ortogonal porque otra coordenada tenía una masa grande. Ahora calcula el margen de redondeo con los productos absolutos de masa de cada entrada de Gram en las coordenadas del cálculo. Las bases válidas antes rechazadas por este motivo pueden devolver modos; las bases inexactas y la incertidumbre aritmética no resuelta siguen rechazándose con los límites existentes. No cambian los cálculos de frecuencias, formas ni participación. Esta corrección corresponde a la PR #1890 y aún no se ha publicado ni desplegado.",
+    "pt": "A verificação da base modal podia recusar uma base exatamente ortogonal porque outra coordenada tinha massa elevada. Agora calcula a margem de arredondamento pelos produtos absolutos de massa de cada entrada de Gram nas coordenadas do cálculo. Bases válidas antes recusadas por esse motivo podem retornar modos; bases imprecisas e incerteza aritmética não resolvida continuam recusadas nos limites existentes. Os cálculos de frequências, formas e participação não mudam. Esta correção corresponde à PR #1890 e ainda não foi publicada nem implantada.",
+    "de": "Die Prüfung der Modalbasis konnte eine exakt orthogonale Basis ablehnen, weil eine andere Koordinate eine große Masse hatte. Die Rundungsschranke wird nun aus den absoluten Massenprodukten jedes Gram-Eintrags in den tatsächlichen Rechenkoordinaten berechnet. Deshalb zuvor abgelehnte gültige Basen können Eigenformen liefern; ungenaue Basen und unaufgelöste Rechenunsicherheit werden weiterhin an den bestehenden Grenzen abgelehnt. Frequenzen, Eigenformen und Beteiligung werden unverändert berechnet. Diese Korrektur betrifft PR #1890 und ist noch nicht veröffentlicht oder bereitgestellt.",
+    "fr": "Le contrôle de la base modale pouvait refuser une base exactement orthogonale parce qu’une autre coordonnée avait une masse élevée. La marge d’arrondi est désormais calculée à partir des produits absolus de masse de chaque entrée de Gram dans les coordonnées du calcul. Les bases valides refusées pour cette raison peuvent rendre des modes ; les bases imprécises et l’incertitude arithmétique non résolue restent refusées aux limites existantes. Les calculs des fréquences, formes et participations sont inchangés. Cette correction concerne la PR #1890 et n’est pas encore publiée ni déployée.",
+    "tr": "Modal baz kontrolü, başka bir koordinatın kütlesi büyük olduğu için tam ortogonal bir bazı reddedebiliyordu. Yuvarlama payı artık gerçek çözüm koordinatlarında her Gram girdisinin mutlak kütle çarpımlarından hesaplanıyor. Bu nedenle daha önce reddedilen geçerli bazlar mod döndürebilir; hatalı bazlar ve çözülemeyen aritmetik belirsizlik mevcut sınırlarda reddedilmeye devam eder. Frekans, mod şekli ve katılım hesapları değişmedi. Bu düzeltme PR #1890 ile ilgilidir ve henüz yayımlanmadı veya dağıtılmadı."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-modal-basis-rounding.md",
+    "heading": "Modal bases use the rounding scale of each mass Gram entry"
+  }
+}
