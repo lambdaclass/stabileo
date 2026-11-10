@@ -1581,7 +1581,7 @@ jobs:
           QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
         run: |
           if [ -n "$QUEUE_BASE" ]; then
-            git fetch --no-tags --depth=1 origin "$QUEUE_BASE"
+            git fetch --no-tags origin "$QUEUE_BASE"
             make check.results-snapshot-gate BASE="$QUEUE_BASE"
           else
             make check.results-snapshot-gate BASE=HEAD^1

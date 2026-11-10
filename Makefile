@@ -323,7 +323,7 @@ typecheck.web:
 	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs && node scripts/gen-result-sites.mjs"
 
 test.web.unit:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL))"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL))"
 
 test.web.build: web.build.tested
 	$(MAKE) test.web.build.shared
