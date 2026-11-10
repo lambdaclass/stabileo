@@ -154,12 +154,12 @@ describe('Vitest harness architecture', () => {
     expect(RESULTS_SNAPSHOT_TESTS).toEqual(['src/lib/results-snapshot/__tests__/**']);
   });
 
-  it.skip('the results pass runs the results snapshot tests, and only them (known wrong result: #1893)', () => {
+  it('the results pass runs the results snapshot tests, and only them', () => {
     // Exactly one entry point per corpus group, beside the coverage, examples-equivalence, governing-envelope, negative and
     // self-check tests: a group whose file went missing would leave its cases unrun (`results-snapshot/coverage.ts`).
     const groups = [...new Set(CORPUS.map((c) => c.group))].sort();
     expect(files.filter(inResultsPass).map((f) => f.split('/').pop()).sort()).toEqual([
-      'coverage.test.ts', 'examples-equivalence.test.ts', 'governing-envelope.test.ts', 'negative.test.ts', 'self-checks-preserve-snapshots.test.ts',
+      'applicability-context.test.ts', 'coverage.test.ts', 'examples-equivalence.test.ts', 'governing-envelope.test.ts', 'negative.test.ts', 'self-checks-preserve-snapshots.test.ts',
       ...groups.map((g) => `snapshot-${g}.test.ts`),
     ].sort());
   });
