@@ -692,12 +692,8 @@ fn cable_density_is_not_a_load() {
     assert!(r.cable_forces.iter().all(|c| c.ernst_modulus < 200e6), "density still reduces the modulus");
 }
 
-/// SP-14 (OPEN). Outside the cable solver a "cable" member is assembled as a
-/// plain truss bar, so the linear solver lets it carry compression without a
-/// warning. Two cables from a mid node to two supports, the node pushed up:
-/// both cables report compression.
 #[test]
-#[ignore = "open question SP-14: linear solve_2d lets a cable carry compression silently"]
+#[ignore = "known wrong result: #417"]
 fn linear_solver_does_not_report_cable_compression_silently() {
     let input = common::make_input(
         vec![(1, 0.0, 0.0), (2, 10.0, -2.0), (3, 20.0, 0.0)],
@@ -707,16 +703,11 @@ fn linear_solver_does_not_report_cable_compression_silently() {
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: 10.0, my: 0.0 })],
     );
-    match solve_2d(&input) {
-        Err(_) => {}
-        Ok(r) => {
-            let compressed = r.element_forces.iter().any(|f| f.n_start < 0.0);
-            let all = format!("{:?} {:?} {:?}", r.diagnostics, r.structured_diagnostics, r.solver_diagnostics).to_lowercase();
-            let warned = all.contains("cable") || all.contains("compression") || all.contains("tension-only");
-            assert!(!compressed || warned, "cables in compression without a diagnostic: N = {:?}",
-                r.element_forces.iter().map(|f| f.n_start).collect::<Vec<_>>());
-        }
-    }
+    let error = solve_2d(&input).expect_err("a two-way bar analysis must refuse cable elements");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    assert_eq!(error["structuredDiagnostics"][0]["code"], "cable_analysis_required");
+    assert_eq!(error["structuredDiagnostics"][0]["severity"], "error");
+    assert_eq!(error["structuredDiagnostics"][0]["elementIds"], serde_json::json!([1, 2]));
 }
 
 // ═════════════════════════════ CURVED BEAMS ════════════════════════════════
@@ -1173,4 +1164,21 @@ fn cable_on_an_inclined_roller_follows_the_chord_law() {
     let rx: f64 = r.results.reactions.iter().map(|x| x.rx).sum();
     let rz: f64 = r.results.reactions.iter().map(|x| x.rz).sum();
     assert!((rx + p).abs() < 1e-6 * p && rz.abs() < 1e-6 * p, "ΣR = ({rx}, {rz})");
+}
+
+#[test]
+#[ignore = "known wrong result: #417"]
+fn linear_solver_does_not_report_cable_compression_silently_3d() {
+    let input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0)],
+        vec![(1, 200_000.0, 0.3)], vec![(1, 1e-3, 1e-8, 1e-8, 1e-8)],
+        vec![(1, "cable", 1, 2, 1, 1)],
+        vec![(1, vec![true; 6]), (2, vec![false, true, true, true, true, true])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: -10.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+    );
+    let error = dedaliano_engine::solver::linear::solve_3d(&input).expect_err("a two-way bar analysis must refuse cable elements");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    assert_eq!(error["structuredDiagnostics"][0]["code"], "cable_analysis_required");
+    assert_eq!(error["structuredDiagnostics"][0]["severity"], "error");
+    assert_eq!(error["structuredDiagnostics"][0]["elementIds"], serde_json::json!([1]));
 }

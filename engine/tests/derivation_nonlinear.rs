@@ -676,3 +676,56 @@ fn nl_residual_stress_survives_the_first_evaluation() {
     let (sigma, _) = material_response(&mat, 0.0, &mut states[0].fiber_states[0]);
     close(sigma, -75.0, 1e-9, "fiber stress at zero strain after a −75 MPa residual stress");
 }
+
+fn chattering_contact_2d() -> dedaliano_engine::solver::contact::ContactInput {
+    serde_json::from_value(serde_json::json!({
+        "solver": make_input(
+            vec![(1, 0.0, 1.0), (2, 2.0, 0.0), (3, 2.5, -1.0), (4, 2.001, 0.0)],
+            vec![(1, 200.0, 0.3)], vec![(1, 0.01, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "truss", 2, 3, 1, 1, false, false)],
+            vec![(1, 1, "fixed"), (2, 3, "fixed"), (3, 4, "fixed")],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 50.0, fz: -50.0, my: 0.0 })],
+        ),
+        "elementBehaviors": {"2": "tension_only"},
+        "gapElements": [{"id": 1, "nodeI": 2, "nodeJ": 4, "direction": 0,
+            "initialGap": 0.001, "stiffness": 100_000.0}],
+        "maxFlips": 1, "maxIter": 30, "tolerance": 1e-10
+    })).unwrap()
+}
+
+fn chattering_contact_3d() -> dedaliano_engine::solver::contact::ContactInput3D {
+    serde_json::from_value(serde_json::json!({
+        "solver": make_3d_input(
+            vec![(1, 0.0, 0.0, 1.0), (2, 2.0, 0.0, 0.0), (3, 2.5, 0.0, -1.0), (4, 2.001, 0.0, 0.0)],
+            vec![(1, 200.0, 0.3)], vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1), (2, "truss", 2, 3, 1, 1)],
+            vec![(1, vec![true; 6]), (3, vec![true; 6]), (4, vec![true; 6])],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 50.0, fy: 0.0, fz: -50.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+        ),
+        "elementBehaviors": {"2": "tension_only"},
+        "gapElements": [{"id": 1, "nodeI": 2, "nodeJ": 4, "direction": 0,
+            "initialGap": 0.001, "stiffness": 100_000.0}],
+        "maxFlips": 1, "maxIter": 30, "tolerance": 1e-10
+    })).unwrap()
+}
+
+fn assert_contact_refusal<T: std::fmt::Debug>(result: Result<T, String>) {
+    let error = result.expect_err("an invalid frozen contact state must be withheld");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let d = &error["structuredDiagnostics"][0];
+    assert_eq!(d["code"], "contact_state_invalid");
+    assert_eq!(d["severity"], "error");
+    assert_eq!(d["elementIds"], serde_json::json!([1]));
+}
+
+#[test]
+#[ignore = "known wrong result: #432"]
+fn nl_contact_chattering_gap_is_refused_2d() {
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&chattering_contact_2d()));
+}
+
+#[test]
+#[ignore = "known wrong result: #432"]
+fn nl_contact_chattering_gap_is_refused_3d() {
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&chattering_contact_3d()));
+}
