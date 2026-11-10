@@ -26,6 +26,16 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('scopes the omitted harmonic mode correction to harmonic structural models, including spring-only models', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes');
+    expect(entry).toBeDefined();
+    for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+      expect(conditionHolds(entry!.when ?? {}, new Set([structure, 'analysis:harmonic']))).toBe(true);
+      expect(conditionHolds(entry!.when ?? {}, new Set([structure, 'analysis:linear']))).toBe(false);
+    }
+    expect(conditionHolds(entry!.when ?? {}, new Set(['analysis:harmonic']))).toBe(false);
+  });
+
   it('scopes exact plastic resource refusals to frame projects after plastic analysis', () => {
     const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-exact-resource-budget-refused');
     expect(entry).toBeDefined();

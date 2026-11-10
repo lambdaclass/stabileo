@@ -439,13 +439,17 @@ fn harmonic_2d_beam_above_the_kept_modes_matches_direct() {
 }
 
 fn omitted_spring_frequencies() -> Vec<f64> {
-    [0.99, 1.0, 1.01, 1.5].map(|r| r * 100.0 / (2.0 * PI)).to_vec()
+    [0.99, 1.0, 1.01, 1.5, 2.0, 3.0].map(|r| r * 100.0 / (2.0 * PI)).to_vec()
 }
 
 fn compare_omitted_spring(result: &HarmonicResult, damping: (f64, f64)) {
+    assert_eq!(result.method, HarmonicMethod::Direct);
+    let mut peak = (0.0f64, 0.0f64);
     let d = Dense { k: vec![1.0, 0.0, 0.0, 10000.0], m: vec![1.0, 0.0, 0.0, 1.0], f: vec![1.0, 1e-4], n: 2, target: 1 };
     for pt in &result.response_points {
         let (re, im, _) = direct(&d, damping, pt.omega).unwrap();
+        let amplitude = re.in_m().hypot(im.in_m());
+        if amplitude > peak.1 { peak = (pt.frequency, amplitude); }
         let ar = 10000.0 - pt.omega.powi(2);
         let ai = pt.omega * (damping.0 + damping.1 * 10000.0);
         let closed = (1e-4 * ar / (ar * ar + ai * ai), -1e-4 * ai / (ar * ar + ai * ai));
@@ -455,11 +459,12 @@ fn compare_omitted_spring(result: &HarmonicResult, damping: (f64, f64)) {
             "{} Hz: engine ({:e}, {:e}), direct/closed ({:e}, {:e}), method {:?}, warnings {:?}",
             pt.frequency, pt.real, pt.imag, re.in_m(), im.in_m(), result.method, result.warnings);
     }
+    assert_eq!(result.peak_frequency, peak.0);
+    assert!((result.peak_amplitude - peak.1).abs() <= 1e-12 * peak.1);
     assert!(!result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("HARM-TRUNCATION")));
 }
 
 #[test]
-#[ignore = "known wrong result: #1434"]
 fn harmonic_2d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form() {
     let n = 3001;
     let mut solver = crate::common::make_input(
@@ -478,7 +483,6 @@ fn harmonic_2d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form()
 }
 
 #[test]
-#[ignore = "known wrong result: #1434"]
 fn harmonic_3d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form() {
     let n = 3001;
     let mut solver = crate::common::make_3d_input(

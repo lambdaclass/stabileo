@@ -21,6 +21,7 @@ pub mod prestress;
 pub mod staged;
 pub mod cable;
 pub mod harmonic;
+mod harmonic_direct;
 pub mod load_cases;
 pub mod winkler;
 pub mod line_search;

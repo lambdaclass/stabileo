@@ -1,0 +1,43 @@
+{
+  "id": "harmonic-omitted-modes",
+  "date": "2026-11-10",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "curvedShells",
+        "connectors",
+        "springs"
+      ]
+    ],
+    "any": [
+      "analysis:harmonic"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Harmonic response resolves omitted modes beyond the dense ceiling",
+    "es": "La respuesta armónica resuelve los modos omitidos más allá del límite denso",
+    "pt": "A resposta harmônica resolve os modos omitidos além do limite denso",
+    "de": "Harmonische Antwort löst ausgelassene Moden jenseits der Grenze für dichte Systeme",
+    "fr": "La réponse harmonique résout les modes omis au-delà de la limite dense",
+    "tr": "Harmonik yanıt yoğun sistem sınırının ötesinde atlanan modları çözüyor"
+  },
+  "explanation": {
+    "en": "Above the dense fallback ceiling, harmonic analysis could retain inaccurate modal responses even near or above omitted modes. A small global load residual could hide the target error without any warning (#1434). Frequencies outside the existing truncation range now receive a full sparse solve. The frequency selection and numerical tolerances are unchanged. Excessive sparse fill, singularity or non-finite arithmetic withholds the result. Re-check real and imaginary response, amplitude, phase and sampled peaks for harmonic models above 3000 independent free DOFs.",
+    "es": "Por encima del límite de la solución densa, el análisis armónico podía conservar respuestas modales inexactas incluso cerca o por encima de los modos omitidos. Un residuo global pequeño podía ocultar el error sin advertencia (#1434). Las frecuencias fuera del intervalo de truncamiento existente ahora se resuelven con el sistema disperso completo. La selección de frecuencias y las tolerancias no cambian. Un llenado excesivo, una singularidad o aritmética no finita impide entregar el resultado. Revise las partes real e imaginaria, amplitud, fase y picos muestreados en modelos armónicos de más de 3000 grados de libertad independientes libres.",
+    "pt": "Acima do limite da solução densa, a análise harmônica podia manter respostas modais imprecisas mesmo perto ou acima dos modos omitidos. Um resíduo global pequeno podia ocultar o erro sem aviso (#1434). As frequências fora da faixa de truncamento existente agora recebem uma solução do sistema esparso completo. A seleção de frequências e as tolerâncias não mudam. Preenchimento excessivo, singularidade ou aritmética não finita impede a entrega do resultado. Revise as partes real e imaginária, amplitude, fase e picos amostrados em modelos harmônicos com mais de 3000 graus de liberdade independentes livres.",
+    "de": "Oberhalb der Grenze für die dichte Ersatzlösung konnte die harmonische Analyse ungenaue modale Antworten nahe oder oberhalb ausgelassener Moden behalten. Ein kleines globales Lastresiduum konnte den Zielfehler ohne Warnung verbergen (#1434). Frequenzen außerhalb des bisherigen Abschneidebereichs werden nun mit dem vollständigen dünn besetzten System gelöst. Frequenzauswahl und Toleranzen bleiben gleich. Übermäßige Füllung, Singularität oder nicht endliche Arithmetik hält das Ergebnis zurück. Reelle und imaginäre Antwort, Amplitude, Phase und abgetastete Spitzen bei harmonischen Modellen mit mehr als 3000 unabhängigen freien Freiheitsgraden erneut prüfen.",
+    "fr": "Au-delà de la limite de résolution dense, l’analyse harmonique pouvait conserver des réponses modales inexactes près ou au-dessus des modes omis. Un petit résidu global pouvait masquer l’erreur sans avertissement (#1434). Les fréquences hors de la plage de troncature existante reçoivent désormais une résolution du système creux complet. Le choix des fréquences et les tolérances restent inchangés. Un remplissage excessif, une singularité ou un calcul non fini retient le résultat. Revérifier les parties réelle et imaginaire, amplitude, phase et pics échantillonnés des modèles harmoniques dépassant 3000 degrés de liberté indépendants libres.",
+    "tr": "Yoğun yedek çözüm sınırının üzerinde harmonik analiz, atlanan modlara yakın veya onların üzerindeki frekanslarda hatalı modal yanıtları koruyabiliyordu. Küçük bir genel yük artığı hedef hatasını uyarı olmadan gizleyebiliyordu (#1434). Mevcut kesme aralığının dışındaki frekanslar artık tam seyrek sistemle çözülüyor. Frekans seçimi ve toleranslar değişmiyor. Aşırı dolgu, tekillik veya sonlu olmayan aritmetik sonucu durduruyor. 3000’den fazla bağımsız serbestlik derecesi olan harmonik modellerin gerçek ve sanal yanıtlarını, genliklerini, fazlarını ve örneklenmiş tepe değerlerini yeniden kontrol edin."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-harmonic-omitted-modes.md",
+    "heading": "Harmonic response resolves omitted modes beyond the dense ceiling (2026-11-10)"
+  }
+}
