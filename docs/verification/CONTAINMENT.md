@@ -408,7 +408,10 @@ resource artifacts, repeated calls in one process, ASan footprints, and the
 seeded hang/leak controls. The thirteen 3D cases show bounded certificate cost
 and zero retained Rust allocation; #1261 already returns the 2D safety refusal.
 Its historical OOM attribution remains unverified. The separate grid-slab
-performance seed now receives an engine resource preflight refusal, and the
+performance seed now passes both engine and fuzz storage admission; the old
+pivot-counter refusal is superseded by summed storage and bounded exact
+elimination (PR #1888). The one-second historical timeout demonstrates neither
+a memory overrun nor a 60-second overrun. The
 combined checked 3D API returns the certified lower bound with a warning for a
 raw mismatch in either direction under `PL-3D-CERTIFICATE-MISMATCH`. It refuses
 when no sound certificate is available. See the

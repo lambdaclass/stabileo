@@ -711,12 +711,9 @@ fn the_portal_sample_collapses_with_hinges_on_both_columns_1525() {
     let checked = certify_plastic_3d(&same).unwrap();
     assert_eq!(Some(checked.results.collapse_factor), checked.certificate.lambda_lower);
     assert_eq!(checked.certificate.solver_collapse_factor, Some(r.collapse_factor));
-    let results = solve_plastic_3d(&same).unwrap();
-    let certificate = certify_collapse_3d(&same, Some(&results));
-    assert!(certificate.certified);
-    assert_eq!(certificate.solver_within_bounds, Some(false));
-    let c = CertifiedPlastic3D { results, certificate };
-    assert_eq!(c.results.collapse_factor.to_bits(), r.collapse_factor.to_bits());
+    assert!(checked.certificate.certified);
+    assert_eq!(checked.certificate.solver_within_bounds, Some(false));
+    assert!(checked.results.collapse_factor <= checked.certificate.lambda_upper.unwrap());
 }
 
 #[test]

@@ -850,7 +850,7 @@ struct Equilibrium {
 /// `x = (F, Mᵢ)` per member.
 fn equilibrium_system(model: &PlasticModel3) -> Result<Equilibrium, String> {
     let (rows, rhs) = equilibrium_rows(model);
-    let r = rref_solve(&rows, Some(&rhs), 6 * model.elems.len());
+    let r = rref_solve(&rows, Some(&rhs), 6 * model.elems.len())?;
     let xp = r.particular.ok_or("the loads admit no equilibrium state (the structure cannot carry them)")?;
     Ok(Equilibrium { xp, null: r.null_basis })
 }
@@ -1548,7 +1548,7 @@ fn best_mechanism(
             rows.push(r);
         }
     }
-    let basis = rref_solve(&rows, None, n).null_basis;
+    let basis = rref_solve(&rows, None, n).ok()?.null_basis;
     if basis.is_empty() {
         return None;
     }
@@ -1780,6 +1780,7 @@ pub fn plastic_candidates_3d(
 ) -> Result<PlasticCandidates3, String> {
     lp_work(model).check_engine_budget()?;
     let eq = equilibrium_system(model)?;
+    lp_work(model).check_candidate_workspace(eq.null.len())?;
     let eqf = EqF { xp: eq.xp.iter().map(to_f64).collect(), null: eq.null.iter().map(|v| v.iter().map(to_f64).collect()).collect() };
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
     let mut samples = initial_samples(model, &ef);

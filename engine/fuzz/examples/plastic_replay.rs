@@ -26,7 +26,7 @@ unsafe impl GlobalAlloc for Meter {
             let live = LIVE.fetch_add(size, Relaxed) + size - layout.size();
             LIVE.fetch_sub(layout.size(), Relaxed);
             PEAK.fetch_max(live, Relaxed);
-            TOTAL.fetch_add(size, Relaxed);
+            TOTAL.fetch_add(size.saturating_sub(layout.size()), Relaxed);
         }
         new
     }
@@ -40,6 +40,8 @@ fn main() {
     let bytes = std::fs::read(&args[1]).unwrap();
     let mode = args.get(2).map(String::as_str).unwrap_or("gate");
     let repeats: usize = args.get(3).map(|s| s.parse().unwrap()).unwrap_or(3);
+    use std::io::Write;
+    std::io::stdout().lock().flush().unwrap();
     for iteration in 0..repeats {
         let before = LIVE.load(Relaxed);
         PEAK.store(before, Relaxed);
@@ -52,6 +54,7 @@ fn main() {
                     std::thread::park_timeout(std::time::Duration::from_secs(60));
                 },
                 "leak" => std::mem::forget(vec![0_u8; 1 << 20]),
+                "leak-first" if iteration == 0 => std::mem::forget(vec![0_u8; 1 << 20]),
                 _ => {}
             }
         }

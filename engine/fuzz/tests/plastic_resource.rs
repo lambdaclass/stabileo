@@ -1,20 +1,15 @@
 #[test]
-fn issue_743_large_exact_lp_is_refused_before_browser_work() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let output = std::process::Command::new("python3")
-        .arg(root.join("../../scripts/replay-plastic-budget.py"))
-        .arg(root.join("corpus-regressions/plastic-lp-budget/engine-grid-slab.bin"))
-        .arg("--binary")
-        .arg(root.join("target/release/examples/plastic_replay"))
-        .args(["--mode", "engine", "--seconds", "1", "--repeats", "1"])
-        .output()
-        .unwrap();
-    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert!(output.status.success(), "{report}");
-    assert!(report["failure"].is_null(), "{report}");
-    let outcome = report["iterations"][0]["outcome"].as_str().unwrap();
-    assert!(
-        outcome.starts_with("error:") && outcome.contains("resource budget"),
-        "{report}"
-    );
+fn issue_743_grid_is_admitted_by_storage_without_running_a_heavy_solve() {
+    let bytes = include_bytes!("../corpus-regressions/plastic-lp-budget/engine-grid-slab.bin");
+    let input: dedaliano_engine::types::PlasticInput3D =
+        serde_json::from_slice(&bytes[2..]).unwrap();
+    let model = dedaliano_engine::certify::plastic_3d::build_model_3d(&input).unwrap();
+    let work = dedaliano_engine::certify::plastic_3d::lp_work(&model);
+    assert_eq!(work.force_variables, 144);
+    assert_eq!(work.equilibrium_equations, 84);
+    assert_eq!(work.max_halfspaces, 6144);
+    assert_eq!(work.max_tableau_cells(), 912050);
+    assert!(work.initial_pivot_cells() > 1 << 31);
+    assert!(work.check_engine_budget().is_ok());
+    assert!(dedaliano_engine_fuzz::plastic::certificate_budget_3d(&input).is_ok());
 }

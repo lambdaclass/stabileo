@@ -62,7 +62,7 @@ def replay(binary, artifact, mode="gate", repeats=5, seconds=60, memory_mib=512,
             failure = "process failure"
         elif len(rows) != repeats:
             failure = "incomplete replay"
-        elif any(row["live_after"] > row["live_before"] for row in rows[1:]):
+        elif any(row["live_after"] > row["live_before"] for row in rows):
             failure = "retained allocation"
     return {"artifact": str(artifact), "mode": mode, "seconds": time.monotonic() - start,
             "peak_rss_bytes": peak_rss, "failure": failure, "exit_code": code,
@@ -73,7 +73,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("artifact", type=Path)
     parser.add_argument("--binary", type=Path, default=Path("engine/fuzz/target/release/examples/plastic_replay"))
-    parser.add_argument("--mode", default="gate", choices=["gate", "engine", "hang", "leak"])
+    parser.add_argument("--mode", default="gate", choices=["gate", "engine", "hang", "leak", "leak-first"])
     parser.add_argument("--seconds", type=float, default=60)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--memory-mib", type=int, default=512)

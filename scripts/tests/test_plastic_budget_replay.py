@@ -14,7 +14,6 @@ class SeededReplay(unittest.TestCase):
     binary = Path("engine/fuzz/target/release/examples/plastic_replay")
     seed = Path("engine/fuzz/corpus-regressions/plastic-lp-budget/good-loaded-beam.bin")
 
-    @unittest.skip("known wrong result: #1888")
     def test_first_call_only_leak_is_detected_even_with_one_repeat(self):
         with tempfile.TemporaryDirectory(dir=".") as directory:
             binary = Path(directory).resolve() / "first-leak"
@@ -38,6 +37,14 @@ class SeededReplay(unittest.TestCase):
             self.assertLessEqual(certificate["lambdaLower"], expected, result)
             self.assertLessEqual(expected, certificate["lambdaUpper"], result)
             self.assertIs(certificate["solverWithinBounds"], True, result)
+
+    def test_first_call_only_engine_leak_is_detected(self):
+        for repeats in (1, 3):
+            result = module.replay(self.binary, self.seed, mode="leak-first", repeats=repeats, seconds=10)
+            self.assertEqual(result["failure"], "retained allocation", result)
+            rows = result["iterations"]
+            self.assertGreaterEqual(rows[0]["live_after"] - rows[0]["live_before"], 1 << 20, result)
+            self.assertTrue(all(row["live_after"] == row["live_before"] for row in rows[1:]), result)
 
     def test_admitted_seed_with_planted_hang_times_out(self):
         result = module.replay(self.binary, self.seed, mode="hang", seconds=0.5)

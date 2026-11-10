@@ -6,7 +6,11 @@
   "native_rss_mib": 512,
   "asan_rss_mib": 2048,
   "wall_seconds": 60,
-  "native_repetitions": 5,
+  "native_repetitions": {
+    "initial_cases_and_grid": 5,
+    "seeded_controls": 3,
+    "final_pinned_validation_per_issue": 3
+  },
   "asan_repetitions": 3,
   "cases": [
     {
@@ -3569,7 +3573,8 @@
       "process_seconds": 1.004237403976731,
       "peak_rss_bytes": 10907648,
       "first_outcome": null,
-      "iterations": []
+      "iterations": [],
+      "wall_limit_seconds": 1
     },
     "after-grid": {
       "mode": "engine",
@@ -3701,7 +3706,8 @@
           "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
         }
       ]
-    }
+    },
+    "interpretation": "The one-second timeout with no iteration establishes neither a dense-memory overrun nor a 60-second overrun. after-grid and gate-grid record the superseded pivot-counter policy; current storage admission accepts this grid. No full grid solve was repeated."
   },
   "seeded_controls": {
     "gate": {
@@ -3808,7 +3814,6 @@
   },
   "schema": 1,
   "engine_nominal_dense_storage_budget_bytes": 1073741824,
-  "engine_initial_pivot_cell_budget": 2147483648,
   "fuzz_nominal_dense_storage_budget_bytes": 134217728,
   "final_pinned_validation": {
     "rustc": "1.99.1",
@@ -3826,5 +3831,59 @@
     "failure": "RSS budget exceeded",
     "completed_iterations": 0,
     "reported_corpus_rss_mib": 2048
+  },
+  "historical_engine_initial_pivot_cell_budget": 2147483648,
+  "historical_accounting_note": "Original observations, not current admission evidence. max_dense_bytes in plans excludes rational limbs and overlapping blocks. Initial pivot cells are no longer an admission limit. allocated_bytes used the old realloc traffic counter.",
+  "review_correction": {
+    "pr": 1888,
+    "engine_dense_storage_budget_bytes": 1073741824,
+    "fuzz_dense_storage_budget_bytes": 134217728,
+    "exact_workspace_budget_bytes": 536870912,
+    "exact_rational_bit_budget": 8192,
+    "pivot_counter_is_admission_limit": false,
+    "current_plans": {
+      "issue-951": {
+        "exact_cell_budget_bytes": 2208,
+        "exact_workspace_bytes": 11068704,
+        "equilibrium_float_workspace_bytes": 28616,
+        "max_dense_bytes": 395719096,
+        "engine_storage_admitted": true,
+        "fuzz_storage_admitted": false,
+        "source": "same checked-in model dimensions; Rust admission regressions verify the grid"
+      },
+      "engine-grid-slab": {
+        "exact_cell_budget_bytes": 2208,
+        "exact_workspace_bytes": 101632032,
+        "equilibrium_float_workspace_bytes": 265640,
+        "max_dense_bytes": 109194072,
+        "engine_storage_admitted": true,
+        "fuzz_storage_admitted": true,
+        "source": "same checked-in model dimensions; Rust admission regressions verify the grid"
+      },
+      "good-cantilever": {
+        "exact_cell_budget_bytes": 2208,
+        "exact_workspace_bytes": 496800,
+        "equilibrium_float_workspace_bytes": 728,
+        "max_dense_bytes": 512312,
+        "engine_storage_admitted": true,
+        "fuzz_storage_admitted": true,
+        "source": "same checked-in model dimensions; Rust admission regressions verify the grid"
+      },
+      "good-loaded-beam": {
+        "exact_cell_budget_bytes": 2208,
+        "exact_workspace_bytes": 311328,
+        "equilibrium_float_workspace_bytes": 392,
+        "max_dense_bytes": 27740744,
+        "engine_storage_admitted": true,
+        "fuzz_storage_admitted": true,
+        "source": "same checked-in model dimensions; Rust admission regressions verify the grid"
+      }
+    },
+    "current_artifact_sha256": {
+      "engine-grid-slab": "485aacbf2c5eb476f8fc7fc4c110346688f852a78de9df05ea3219dc2e224a7c",
+      "issue-1081": "2a37f495df38be8411b1b5552fb6efccf2de0596584c65c5274363beb854e2cc",
+      "over-budget-grid": "b6231e795bcac996eef23a4ff726740f64d9e8b1ee68daff5322d173f36de970"
+    },
+    "artifact_note": "Current hashes include the final newline added in review. Historical raw_sha fields and measurements are retained as originally recorded."
   }
 }

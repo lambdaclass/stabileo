@@ -497,7 +497,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts check.cadence
+test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -843,7 +843,7 @@ check.engine.plastic-fuzz:
 
 .PHONY: test.engine.plastic-wasm
 test.engine.plastic-wasm: wasm
-	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/engine-grid-slab.bin 'resource budget'
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin 'dense storage bytes'
 	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin certified-lower
 	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin certified-lower-above
 

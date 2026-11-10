@@ -5,11 +5,11 @@ use dedaliano_engine::types::*;
 pub const MAX_DENSE_LP_BYTES: usize = 128 * 1024 * 1024;
 
 fn budget(work: dedaliano_engine::certify::plastic_budget::PlasticLpWork) -> Result<(), String> {
-    if work.check_engine_budget().is_err() || work.max_dense_bytes() > MAX_DENSE_LP_BYTES {
-        return Err(format!(
-            "skipped: exact plastic LP fuzz budget: {}",
-            serde_json::to_string(&work).unwrap()
-        ));
+    work.check_engine_budget()
+        .map_err(|reason| format!("skipped: {reason}"))?;
+    let bytes = work.max_dense_bytes();
+    if bytes > MAX_DENSE_LP_BYTES {
+        return Err(format!("skipped: exact plastic LP fuzz budget: dense storage bytes {bytes} > {MAX_DENSE_LP_BYTES}"));
     }
     Ok(())
 }
@@ -180,7 +180,10 @@ mod tests {
             output["results"]["hinges"],
             serde_json::to_value(&raw_result.hinges).unwrap()
         );
-        assert!(output["results"]["isMechanism"].is_boolean());
+        assert_eq!(
+            output["results"]["isMechanism"],
+            serde_json::json!(raw_result.is_mechanism)
+        );
         let restored: cplastic3::CertifiedPlastic3D = serde_json::from_value(output).unwrap();
         assert_eq!(restored.results.collapse_factor.to_bits(), lower.to_bits());
     }
@@ -450,7 +453,7 @@ mod tests {
     }
 
     #[test]
-    fn issue_1760_conservative_roundoff_returns_certified_lower() {
+    fn cantilever_conservative_roundoff_returns_certified_lower() {
         assert_certified_lower(include_bytes!(
             "../corpus-regressions/plastic-lp-budget/good-cantilever.bin"
         ));
@@ -494,18 +497,33 @@ mod tests {
         let lower = certificate.lambda_lower.unwrap();
         let upper = certificate.lambda_upper.unwrap();
         assert_eq!(out.results.collapse_factor.to_bits(), lower.to_bits());
-        assert_eq!(out.certificate.solver_collapse_factor, Some(raw_result.collapse_factor));
+        assert_eq!(
+            out.certificate.solver_collapse_factor,
+            Some(raw_result.collapse_factor)
+        );
         assert_eq!(out.certificate.solver_within_bounds, Some(false));
         assert!(out.results.warnings.starts_with(&raw_result.warnings));
-        let warning = out.results.structured_diagnostics.iter().find(|d|
-            d.phase.as_deref() == Some("PL-3D-CERTIFICATE-MISMATCH")).unwrap();
+        let warning = out
+            .results
+            .structured_diagnostics
+            .iter()
+            .find(|d| d.phase.as_deref() == Some("PL-3D-CERTIFICATE-MISMATCH"))
+            .unwrap();
         assert_eq!(warning.severity, Severity::Warning);
         assert!(warning.message.contains("outside the certified interval"));
-        assert!(warning.message.contains(&raw_result.collapse_factor.to_string()));
+        assert!(warning
+            .message
+            .contains(&raw_result.collapse_factor.to_string()));
         assert!(warning.message.contains(&format!("[{lower}, {upper}]")));
         assert!(out.results.warnings.contains(&warning.message));
-        assert_eq!(serde_json::to_value(&out.results.steps).unwrap(), serde_json::to_value(&raw_result.steps).unwrap());
-        assert_eq!(serde_json::to_value(&out.results.hinges).unwrap(), serde_json::to_value(&raw_result.hinges).unwrap());
+        assert_eq!(
+            serde_json::to_value(&out.results.steps).unwrap(),
+            serde_json::to_value(&raw_result.steps).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(&out.results.hinges).unwrap(),
+            serde_json::to_value(&raw_result.hinges).unwrap()
+        );
     }
 
     #[test]
@@ -536,16 +554,12 @@ mod tests {
     }
 
     #[test]
-    fn engine_resource_budget_remains_visible_beyond_the_fuzz_gate() {
+    fn grid_storage_is_admitted_by_engine_and_fuzz_budgets() {
         let raw = include_bytes!("../corpus-regressions/plastic-lp-budget/engine-grid-slab.bin");
         let input: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
-        assert!(certificate_budget_3d(&input).is_err());
+        assert!(certificate_budget_3d(&input).is_ok());
         let model = cplastic3::build_model_3d(&input).unwrap();
-        assert!(cplastic3::lp_work(&model).check_engine_budget().is_err());
-        let certificate = cplastic3::certify_collapse_3d(&input, None);
-        assert!(!certificate.certified);
-        assert!(certificate.lambda_lower.is_none() && certificate.lambda_upper.is_none());
-        assert!(certificate.reason.unwrap().contains("resource budget"));
+        assert!(cplastic3::lp_work(&model).check_engine_budget().is_ok());
     }
 
     #[test]
