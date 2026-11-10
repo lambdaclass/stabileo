@@ -37,5 +37,6 @@ export function knownIssueMessage(d: { code: string; phase?: string; value?: num
   const key = `knownIssue.${d.phase}${WARNING_BANDS.has(d.phase) && d.severity === 'warning' ? '.warning' : ''}`;
   const text = t(key);
   if (text === key) return d.message;
-  return d.value !== undefined ? `${text} (#${d.value})` : text;
+  const sentence = d.value !== undefined ? `${text} (#${d.value})` : text;
+  return d.phase === 'PL-3D-CERTIFICATE-MISMATCH' ? `${sentence}\n${d.message}` : sentence;
 }

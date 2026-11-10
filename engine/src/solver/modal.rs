@@ -269,7 +269,12 @@ pub fn solve_modal_2d(
             Some(k) => k.sym_mat_vec(&phi_s),
             None => mat_vec_sub(&k_check_dense, &phi_s, ns),
         };
-        checks.check(&phi_s, eigenvalue, &k_phi, &m_phi)?;
+        let abs_phi: Vec<_> = phi_s.iter().map(|p| p.abs()).collect();
+        let abs_m_phi = match &m_csc_opt {
+            Some(m) => abs_mat_vec_sparse(m, &abs_phi),
+            None => abs_mat_vec_dense(&m_solve, &abs_phi, ns),
+        };
+        checks.check(&phi_s, eigenvalue, &k_phi, &m_phi, &abs_m_phi)?;
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
         // Participation factors in solve space: φ_s · Cᵀ(M·r).
@@ -638,7 +643,9 @@ pub fn solve_modal_3d(
         let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
 
         let m_phi = m_solve.sym_mat_vec(&phi_s);
-        checks.check(&phi_s, eigenvalue, &k_solve.sym_mat_vec(&phi_s), &m_phi)?;
+        let abs_phi: Vec<_> = phi_s.iter().map(|p| p.abs()).collect();
+        let abs_m_phi = abs_mat_vec_sparse(m_solve, &abs_phi);
+        checks.check(&phi_s, eigenvalue, &k_solve.sym_mat_vec(&phi_s), &m_phi, &abs_m_phi)?;
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
         let phi_m_rx: f64 = phi_s.iter().zip(l_x.iter()).map(|(p, l)| p * l).sum();

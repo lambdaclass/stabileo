@@ -25,6 +25,7 @@ KANI_MODULES = (
     'engine/src/certify/interval.rs',
     'engine/src/certify/sparse.rs',
     'engine/src/certify/exact.rs',
+    'engine/src/certify/plastic_budget.rs',
     'engine/src/certify/finite.rs',
     'engine/src/certify/linear.rs',
 )
