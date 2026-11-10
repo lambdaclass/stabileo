@@ -989,7 +989,7 @@ fn nl_contact_review_frozen_bearing_obeys_penalty_hand_formula_3d() {
 }
 
 #[test]
-fn nl_contact_review_frozen_surface_uses_final_normal() {
+fn nl_contact_review_frozen_surface_checks_assembled_force() {
     let mut input = bearing_surface_2d();
     input.solver.supports.remove("3");
     let mut master = input.solver.elements["1"].clone();
@@ -999,28 +999,16 @@ fn nl_contact_review_frozen_surface_uses_final_normal() {
     input.solver.elements.insert("2".into(), master);
     if let SolverLoad::Nodal(load) = &mut input.solver.loads[0] { load.fz *= 4.0; }
     input.al_max_iter = Some(2);
-    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
-    assert!(!result.converged);
-    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen")));
-    let master = disp2(&result.results, 4);
-    let slave = disp2(&result.results, 2);
-    let dx = master.ux;
-    let dz = 2.0 + master.uz;
-    let length = dx.hypot(dz);
-    let gap = (-dz * slave.ux + dx * (1.0 + slave.uz)) / length;
-    let pair = &result.node_to_surface_status[0];
-    assert!(dx.abs() > input.tolerance.unwrap());
-    assert_eq!(pair.status, "closed");
-    assert!(gap < 0.0);
-    close(pair.gap, gap, 1e-10, "gap on the final rotated master");
-    let reaction = result.results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    let tangent_force = (reaction.rx * dx + reaction.rz * dz) / length;
-    assert!((tangent_force.abs() - pair.friction_force.abs()).abs() > input.node_to_surface_pairs[0].stiffness * input.tolerance.unwrap());
-    assert!(pair.normal_force >= -input.node_to_surface_pairs[0].stiffness * gap);
+    let error = dedaliano_engine::solver::contact::solve_contact_2d(&input).expect_err("the assembled tensile spring must be withheld");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostic = &error["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "contact_state_invalid");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["nodeIds"], serde_json::json!([2]));
+    assert_eq!(diagnostic["phase"], "node_to_surface");
 }
 
 #[test]
-#[ignore = "known wrong result: #432"]
 fn nl_contact_review_rotating_master_cannot_hide_assembled_tension() {
     let mut input = bearing_surface_2d();
     input.solver.supports.remove("3");
@@ -1031,17 +1019,11 @@ fn nl_contact_review_rotating_master_cannot_hide_assembled_tension() {
     input.solver.elements.insert("2".into(), master);
     if let SolverLoad::Nodal(load) = &mut input.solver.loads[0] { load.fz *= 4.0; }
     input.al_max_iter = Some(2);
-    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input);
-    if let Ok(result) = &result {
-        let master = disp2(&result.results, 4);
-        let dx = master.ux;
-        let dz = 2.0 + master.uz;
-        let length = dx.hypot(dz);
-        let reaction = result.results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-        let assembled = (reaction.rx * dz - reaction.rz * dx) / length;
-        assert!(master.ux.abs() > input.tolerance.unwrap());
-        assert!(result.node_to_surface_status[0].gap < 0.0);
-        assert_eq!(result.node_to_surface_status[0].status, "closed");
-        assert!(assembled <= input.node_to_surface_pairs[0].stiffness * input.tolerance.unwrap());
-    }
+    let error = dedaliano_engine::solver::contact::solve_contact_2d(&input).expect_err("the assembled tensile spring must be withheld");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostic = &error["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "contact_state_invalid");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["nodeIds"], serde_json::json!([2]));
+    assert_eq!(diagnostic["phase"], "node_to_surface");
 }

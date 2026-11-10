@@ -110,13 +110,16 @@ it('the actual P-Delta panel handler with shortening withholds the result and di
   const source = readFileSync(new URL('../../../components/pro/ProAdvancedTab.svelte', import.meta.url), 'utf8');
   const scope: any = { pdeltaResult: null, pdeltaRefused: null, pdeltaElapsed: null, advancedResults: {}, solving: false, solveError: null, buildInput: centerlineInput, wasmPDelta3D: wasm.solvePDelta3D, knownIssueResultDisposition, amplification, resultsStore, t, tp, errorText };
   function handler(name: string) {
-    const start = source.indexOf(`  function ${name}(`);
-    const end = source.indexOf('\n  }', start) + 4;
-    const js = ts.transpile(source.slice(start, end), { target: ts.ScriptTarget.ES2022 });
+    const script = source.slice(source.indexOf('>', source.indexOf('<script')) + 1, source.indexOf('</script>'));
+    const parsed = ts.createSourceFile('ProAdvancedTab.ts', script, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
+    const declaration = parsed.statements.find((statement): statement is import('typescript').FunctionDeclaration => ts.isFunctionDeclaration(statement) && statement.name?.text === name);
+    expect(declaration?.body, name).toBeDefined();
+    const js = ts.transpile(declaration!.getText(parsed), { target: ts.ScriptTarget.ES2022 });
     return new Function('scope', `with (scope) { ${js}; return ${name}; }`)(scope);
   }
   scope.forgetPDelta = handler('forgetPDelta');
   handler('handlePDelta')();
+  expect(scope.solving).toBe(false);
   expect(scope.solveError).toBe(`P-Delta: ${tp('analysisValidity.cable', { elements: String(cable) })}`);
   expect(scope.pdeltaResult).toBeNull();
   expect(resultsStore.pdeltaResult3D).toBeNull();

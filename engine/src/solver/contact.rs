@@ -997,7 +997,8 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
     for (pi, pair) in input.node_to_surface_pairs.iter().enumerate().filter(|(pi, _)| frozen_pairs[*pi]) {
         let (_, _, opening) = project_slave_onto_segment_2d(pair, &node_by_id, &dof_num, &u_global);
         let force = if st.n2s[pi] == ContactStatus::Active {
-            opening - if al { st.n2s_lambda[pi] / pair.stiffness } else { 0.0 }
+            n2s_assembled_opening_2d(pair, &node_by_id, &dof_num, &u_iter, &u_global)
+                - if al { st.n2s_lambda[pi] / pair.stiffness } else { 0.0 }
         } else { 0.0 };
         super::validity::check_frozen_contact(pair.slave_node, opening, force, pair.stiffness, tolerance, st.n2s[pi] == ContactStatus::Active, "node_to_surface")?;
     }
@@ -1127,7 +1128,10 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
         .map(|(pi, pair)| {
             let (_, xi, gap_val) = project_slave_onto_segment_2d(pair, &node_by_id, &dof_num, &u_global);
             let closed = st.n2s[pi] == ContactStatus::Active;
-            let normal_force = if closed { n2s_normal_force_2d(pair, st.n2s_lambda[pi], al, &node_by_id, &dof_num, &u_global) } else { 0.0 };
+            let normal_force = if closed {
+                (-pair.stiffness * n2s_assembled_opening_2d(pair, &node_by_id, &dof_num, &u_iter, &u_global)
+                    + if al { st.n2s_lambda[pi] } else { 0.0 }).max(0.0)
+            } else { 0.0 };
             let friction_force = match (closed, pair.friction_coefficient) {
                 (true, Some(mu)) if st.n2s_slip[pi] == 0.0 => {
                     mu * pair.stiffness * n2s_tangential_2d(pair, &node_by_id, &dof_num, &u_global)
@@ -1181,6 +1185,21 @@ fn gap_tangential_2d(gap: &GapElement, dof_num: &DofNumbering, u: &[f64]) -> f64
 fn gap_normal_force_2d(gap: &GapElement, lambda: f64, al: bool, dof_num: &DofNumbering, u: &[f64]) -> f64 {
     let pen = -gap_relative_2d(gap, dof_num, u) - gap.initial_gap;
     (gap.stiffness * pen + if al { lambda } else { 0.0 }).max(0.0)
+}
+
+fn n2s_assembled_opening_2d(
+    pair: &NodeToSurfacePair,
+    node_by_id: &HashMap<usize, &SolverNode>,
+    dof_num: &DofNumbering,
+    geometry: &[f64],
+    displacement: &[f64],
+) -> f64 {
+    let (normal, xi, _) = project_slave_onto_segment_2d(pair, node_by_id, dof_num, geometry);
+    [(pair.slave_node, 1.0), (pair.master_segment.node_a, xi - 1.0), (pair.master_segment.node_b, -xi)]
+        .into_iter().map(|(node, weight)| {
+            let (x, z) = get_deformed_pos_2d(node, node_by_id, dof_num, displacement);
+            weight * (normal[0] * x + normal[1] * z)
+        }).sum()
 }
 
 /// Contact force of a node-to-surface pair (≥ 0), with its AL multiplier.

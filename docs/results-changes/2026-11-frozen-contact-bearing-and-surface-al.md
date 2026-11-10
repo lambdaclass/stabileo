@@ -31,9 +31,10 @@ multiplier update, and retain the diagnostic evidence of freezing when later pas
 flip counters. Invalid contact tolerances now return structured `contact_tolerance_invalid`
 refusals translated in all six locales.
 
-Re-check contact results that use augmented Lagrangian surface pairs. The additional unfrozen
-surface fixture returned `converged=false` at this PR's pushed head; this is not evidence of a
-silent successful result on origin/main or a release. The frozen-bearing over-refusal was
+Re-check contact results that use augmented Lagrangian surface pairs. The unfrozen surface
+control converges and carries the applied normal load, as asserted by
+`nl_contact_review_unfrozen_al_surface_bearing_obeys_equilibrium`. This branch control does not
+establish a silent wrong result on origin/main or a release. The frozen-bearing over-refusal was
 introduced on this unmerged branch. This review correction creates no safety advisory.
 
 The original contact/cable notice is now scoped to cable members and contact features, including

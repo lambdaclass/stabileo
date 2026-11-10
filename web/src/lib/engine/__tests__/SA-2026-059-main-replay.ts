@@ -67,7 +67,7 @@ it('replays the other advanced static entries', async () => {
   const { a, b, frame, cable } = fixture(true);
   const input = centerlineInput({ caseDisplacements: true });
   const { withFirstModeB2 } = await import('../../actions/second-order');
-  const { withNotionalLoads, notionalLoadsRefusal, stagedStagesPayload, creepSteps } = await import('../advanced-analyses');
+  const { withNotionalLoads, stagedStagesPayload, creepSteps } = await import('../advanced-analyses');
   const { solveDetailed3D } = await import('../solver-detailed-3d');
   const { solveForceMethod3D } = await import('../force-method/solve-3d');
   const { runDirectAnalysis } = await import('../direct-analysis');
@@ -99,7 +99,7 @@ it('replays dynamic entries', async () => {
   const { densityRecord, spectralModesFrom } = await import('../dynamics/requests');
   const modes = wasm.solveModal3D(input, densities, 6);
   record('advanced modal', modes, cable);
-  record('advanced spectral', wasm.solveSpectral3D({ solver: input, modes: spectralModesFrom(modes), densities, spectrum: { name: 'test', points: [[0, 1], [10, 1]], inG: true }, direction: 'Z', rule: 'CQC', importanceFactor: 1, reductionFactor: 1, xi: 0.05 }), cable);
+  record('advanced spectral', wasm.solveSpectral3D({ solver: input, modes: spectralModesFrom(modes), densities, spectrum: { name: 'test', points: [{ period: 0, sa: 1 }, { period: 10, sa: 1 }], inG: true }, direction: 'Z', rule: 'CQC', importanceFactor: 1, reductionFactor: 1, xi: 0.05 }), cable);
   record('advanced harmonic', wasm.solveHarmonic3D({ solver: input, densities: densityRecord(densities), frequencies: [0.1, 1], dampingRatio: 0.05, responseNodeId: b, responseDof: 'z' }), cable);
   record('advanced time history', wasm.solveTimeHistory3D({ solver: input, densities: densityRecord(densities), timeStep: 0.02, nSteps: 10, method: 'newmark', beta: 0.25, gamma: 0.5, dampingXi: 0.05 }), cable);
 });
@@ -115,7 +115,7 @@ it('no-warning P-Delta under imposed shortening', () => {
   expect(amplification(r).stable).toBe(true);
 });
 it('remaining paths: moving sweep, force recovery, modal plan and spectral statics', async () => {
-  const { b, frame, cable } = fixture(true);
+  const { frame, cable } = fixture(true);
   const { movingLoadBase3D, buildPath3D, sweepMovingLoad3D } = await import('../moving-loads-3d');
   const base = movingLoadBase3D(modelStore.model as never)!;
   const moving = await sweepMovingLoad3D(base, buildPath3D(base, [frame])!, { name: 'one', axles: [{ offset: 0, weight: 10 }] }, { step: 3 });
@@ -148,13 +148,16 @@ it('actual P-Delta panel handler with no-warning shortened cable', async () => {
   const source = readFileSync(new URL('../../../components/pro/ProAdvancedTab.svelte', import.meta.url), 'utf8');
   const scope: any = { pdeltaResult: null, pdeltaRefused: null, pdeltaElapsed: null, advancedResults: {}, solving: false, solveError: null, buildInput: centerlineInput, wasmPDelta3D: wasm.solvePDelta3D, knownIssueResultDisposition, amplification, resultsStore, t, tp, errorText };
   function handler(name: string) {
-    const start = source.indexOf(`  function ${name}(`);
-    const end = source.indexOf('\n  }', start) + 4;
-    const js = ts.transpile(source.slice(start, end), { target: ts.ScriptTarget.ES2022 });
+    const script = source.slice(source.indexOf('>', source.indexOf('<script')) + 1, source.indexOf('</script>'));
+    const parsed = ts.createSourceFile('ProAdvancedTab.ts', script, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
+    const declaration = parsed.statements.find((statement): statement is import('typescript').FunctionDeclaration => ts.isFunctionDeclaration(statement) && statement.name?.text === name);
+    expect(declaration?.body, name).toBeDefined();
+    const js = ts.transpile(declaration!.getText(parsed), { target: ts.ScriptTarget.ES2022 });
     return new Function('scope', `with (scope) { ${js}; return ${name}; }`)(scope);
   }
   scope.forgetPDelta = handler('forgetPDelta');
   handler('handlePDelta')();
+  expect(scope.solving).toBe(false);
   expect(scope.solveError).toBeNull();
   expect(scope.pdeltaRefused).toBeNull();
   expect(scope.pdeltaResult.converged).toBe(true);
@@ -170,7 +173,7 @@ it('additional paths: toolbar modal, horizontal spectra, pushover and saved spec
   const { spectralModesFrom } = await import('../dynamics/requests');
   const dyn = dynamicInput();
   const modal = wasm.solveModal3D(dyn.input, dyn.densities, 6);
-  for (const direction of ['X', 'Y'] as const) record(`advanced spectral ${direction}`, wasm.solveSpectral3D({ solver: dyn.input, modes: spectralModesFrom(modal), densities: dyn.densities, spectrum: { name: 'test', points: [[0, 1], [10, 1]], inG: true }, direction, rule: 'CQC', importanceFactor: 1, reductionFactor: 1, xi: 0.05 }), cable);
+  for (const direction of ['X', 'Y'] as const) record(`advanced spectral ${direction}`, wasm.solveSpectral3D({ solver: dyn.input, modes: spectralModesFrom(modal), densities: dyn.densities, spectrum: { name: 'test', points: [{ period: 0, sa: 1 }, { period: 10, sa: 1 }], inG: true }, direction, rule: 'CQC', importanceFactor: 1, reductionFactor: 1, xi: 0.05 }), cable);
   modelStore.addNodalLoad3D(b, 1, 0, 0, 0, 0, 0, 1);
   const { plasticInput3D } = await import('../plastic-moments');
   const { plasticForSolve } = await import('../advanced-analyses');
@@ -183,7 +186,7 @@ it('additional paths: toolbar modal, horizontal spectra, pushover and saved spec
   record('saved spectral case', spectralCaseResults(), cable);
 });
 it('concrete creep through the panel material filter and automatic cable forces', async () => {
-  const { b, cable, frame } = fixture(true);
+  const { cable, frame } = fixture(true);
   const { concreteMaterials, creepSteps } = await import('../advanced-analyses');
   const concrete = modelStore.addMaterial({ name: 'H-30', e: 30000, nu: 0.2, fy: 30, rho: 25 });
   modelStore.updateElement(frame, { materialId: concrete });
@@ -197,13 +200,19 @@ it('concrete creep through the panel material filter and automatic cable forces'
   expect(solved.elementForces.find((f: any) => f.elementId === control.cable)!.nStart).toBe(0);
   expect(solved.elementForces.find((f: any) => f.elementId === control.frame)!.nStart).toBe(-10);
 });
-it('influence coefficients and basic toolbar share the cable substitution', async () => {
+it('influence coefficients use a truss and basic toolbar returns compression with a warning', async () => {
   const { cable } = fixture(true);
-  const influence = wasm.computeInfluenceLine3D({ solver: centerlineInput({ uncut: true }), quantity: 'N', targetElementId: cable, targetPosition: 0.5, gravityDirection: 'z' });
+  const input = centerlineInput({ uncut: true });
+  expect(input.elements.get(cable)!.type).toBe('truss');
+  const influence = record('advanced influence axial', wasm.computeInfluenceLine3D({ solver: input, quantity: 'N', targetElementId: cable, targetPosition: 0.5, gravityDirection: 'z' }), cable);
+  expect(knownIssueResultDisposition(influence).messages).toEqual([]);
   expect(influence.points.length).toBeGreaterThan(0);
-  expect(influence.points.every(p => p.value === 0)).toBe(true);
+  expect(influence.points.every((p: { value: number }) => p.value === 0)).toBe(true);
   const { withFirstModeB2 } = await import('../../actions/second-order');
   const basic = modelStore.buildSolverInput3D(false, false, { basic: true, expandMemberOffsets: false, caseDisplacements: true })!;
   expect(basic.elements.get(cable)!.type).toBe('truss');
-  record('basic toolbar P-Delta', withFirstModeB2(basic, wasm.solvePDelta3D(basic)), cable);
+  const result = record('basic toolbar P-Delta', withFirstModeB2(basic, wasm.solvePDelta3D(basic)), cable);
+  expect(result.results.elementForces.find((f: any) => f.elementId === cable)!.nStart).toBeLessThan(0);
+  expect(knownIssueResultDisposition(result).messages).toHaveLength(1);
+  expect(knownIssueResultDisposition(result).messages[0]).toContain('#1551');
 });
