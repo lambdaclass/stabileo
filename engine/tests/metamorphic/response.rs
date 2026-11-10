@@ -390,7 +390,7 @@ impl Resp {
                 Kind::Stress => u.stress(),
             };
             it.v.iter_mut().for_each(|x| *x *= k);
-            it.floor *= k;
+            it.floor *= k.abs();
             it.error *= k.abs();
         }
         o
@@ -598,7 +598,6 @@ pub fn incomplete_collapse(e: &str) -> bool {
 pub const LOWER_BOUND: &str = "lower_bound";
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_negative_unit_factor_preserves_the_floor_magnitude() {
     let mut r = Resp::default();
     r.push(Some(1), None, "u", Kind::V2(Dim::LEN), vec![0.0; 2]);

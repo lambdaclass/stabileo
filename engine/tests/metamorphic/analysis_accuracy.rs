@@ -210,34 +210,30 @@ fn static_errors(
     asm: &assembly::AssemblyResult,
     cs: Option<&FreeConstraintSystem>,
     u: Vec<f64>,
-) -> Result<Vec<f64>, String> {
-    if dof.n_free == 0 {
-        return Ok(vec![0.0; dof.n_total]);
-    }
-    let (inverse, x, f) = static_system(dof, asm, cs, u)?;
-    let residual = inverse.residual(&x, &f);
-    Ok(physical_rows(dof, asm, cs)
-        .iter()
-        .map(|row| inverse.functional_error(&residual, row))
-        .collect())
-}
-
-fn pcg_errors(
-    dof: &DofNumbering,
-    asm: &assembly::AssemblyResult,
-    cs: Option<&FreeConstraintSystem>,
-    u: Vec<f64>,
     cond: &dedaliano_engine::metamorphic::conditioning::Conditioning,
 ) -> Result<Vec<f64>, String> {
     if dof.n_free == 0 {
         return Ok(vec![0.0; dof.n_total]);
     }
     let (inverse, x, f) = static_system(dof, asm, cs, u)?;
+    let residual = static_accuracy_residual(&inverse, &x, &f, cond)?;
+    Ok(physical_rows(dof, asm, cs)
+        .iter()
+        .map(|row| inverse.functional_error(&residual, row))
+        .collect())
+}
+
+fn static_accuracy_residual(
+    inverse: &Inverse,
+    x: &[f64],
+    f: &[f64],
+    cond: &dedaliano_engine::metamorphic::conditioning::Conditioning,
+) -> Result<(Vec<f64>, Vec<f64>), String> {
     let n = inverse.n;
     let reference: Vec<_> = (0..n)
         .map(|i| (0..n).map(|j| inverse.inverse[i * n + j] * f[j] / inverse.diagonal[j]).sum::<f64>() / inverse.diagonal[i])
         .collect();
-    let residual = inverse.residual(&x, &f);
+    let residual = inverse.residual(x, f);
     let reference_residual = inverse.residual(&reference, &f);
     let mut error = Vec::with_capacity(n);
     let mut reference_error = Vec::with_capacity(n);
@@ -254,12 +250,9 @@ fn pcg_errors(
         .min(dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE);
     let upper = norm(&error) * (1.0 + gamma(2 * n + 2));
     if !(upper.is_finite() && lower.is_finite() && upper <= limit * lower) {
-        return Err("PCG result exceeds the independent accuracy ceiling".into());
+        return Err("static result exceeds the independent accuracy ceiling".into());
     }
-    Ok(physical_rows(dof, asm, cs)
-        .iter()
-        .map(|row| inverse.functional_error(&residual, row))
-        .collect())
+    Ok(residual)
 }
 
 fn attach_displacements(r: &mut Resp, dof: &DofNumbering, err: &[f64], translations: usize) {
@@ -301,7 +294,7 @@ pub fn pcg_2d(c: &crate::case::Case2, r: &mut Resp) -> Result<(), String> {
         }
     }
     let cs = FreeConstraintSystem::build_2d(&c.s, &dof)?;
-    attach_displacements(r, &dof, &pcg_errors(&dof, &asm, cs.as_ref(), u, &dedaliano_engine::metamorphic::conditioning::of_2d(&c.s)?)?, 2);
+    attach_displacements(r, &dof, &static_errors(&dof, &asm, cs.as_ref(), u, &dedaliano_engine::metamorphic::conditioning::of_2d(&c.s)?)?, 2);
     Ok(())
 }
 
@@ -326,7 +319,7 @@ pub fn pcg_3d(c: &crate::case::Case3, r: &mut Resp) -> Result<(), String> {
         }
     }
     let cs = FreeConstraintSystem::build_3d(&c.s, &dof)?;
-    attach_displacements(r, &dof, &pcg_errors(&dof, &asm, cs.as_ref(), u, &dedaliano_engine::metamorphic::conditioning::of_3d(&c.s)?)?, 3);
+    attach_displacements(r, &dof, &static_errors(&dof, &asm, cs.as_ref(), u, &dedaliano_engine::metamorphic::conditioning::of_3d(&c.s)?)?, 3);
     Ok(())
 }
 
@@ -510,7 +503,7 @@ pub fn buckling_2d(c: &crate::case::Case2, r: &mut Resp) -> Result<(), String> {
         &terms,
         &s.mean_n,
         2,
-        cond.geom,
+        &cond,
         action_error,
     )?;
     buckling_errors(k, b, b_error, n, cond.rel(), r)
@@ -545,7 +538,7 @@ pub fn buckling_3d(c: &crate::case::Case3, r: &mut Resp) -> Result<(), String> {
         &terms,
         &s.mean_n,
         3,
-        cond.geom,
+        &cond,
         action_error,
     )?;
     buckling_errors(k, b, b_error, n, cond.rel(), r)
@@ -569,12 +562,13 @@ fn recovery_error(
     cs: Option<&FreeConstraintSystem>,
     r: &Resp,
     translations: usize,
+    cond: &dedaliano_engine::metamorphic::conditioning::Conditioning,
 ) -> Result<[f64; 2], String> {
     if dof.dofs_per_node > 2 * translations {
         return Err("force recovery estimate does not cover warping DOFs".into());
     }
     let u = gather(r, dof, translations);
-    let e = static_errors(dof, asm, cs, u.clone())?;
+    let e = static_errors(dof, asm, cs, u.clone(), cond)?;
     let mut traces = [0.0; 2];
     let mut groups = std::collections::BTreeMap::<(usize, usize), [f64; 3]>::new();
     for (&(node, local), &j) in &dof.map {
@@ -610,6 +604,7 @@ pub fn moving_2d(
     if dof.n_free > dedaliano_engine::metamorphic::conditioning::DENSE_EIGEN_MAX {
         return Err("accuracy pencil exceeds the dense certificate limit".into());
     }
+    let cond = dedaliano_engine::metamorphic::conditioning::of_2d(&c.s)?;
     let span: f64 = env.path.iter().map(|p| p.length).sum();
     let mut bounds = [0.0f64; 2];
     let mut s = c.s.clone();
@@ -619,7 +614,7 @@ pub fn moving_2d(
         let raw = crate::response::static_2d(&linear::solve_2d(&s)?);
         let asm = assembly::assemble_2d(&s, &dof);
         let cs = FreeConstraintSystem::build_2d(&s, &dof)?;
-        let mut e = recovery_error(&dof, &asm, cs.as_ref(), &raw, 2)?;
+        let mut e = recovery_error(&dof, &asm, cs.as_ref(), &raw, 2, &cond)?;
         let moment = raw
             .0
             .iter()
@@ -662,6 +657,7 @@ pub fn moving_3d(
     if dof.n_free > dedaliano_engine::metamorphic::conditioning::DENSE_EIGEN_MAX {
         return Err("accuracy pencil exceeds the dense certificate limit".into());
     }
+    let cond = dedaliano_engine::metamorphic::conditioning::of_3d(&c.s)?;
     let span: f64 = env.path.iter().map(|p| p.length).sum();
     let mut bounds = [0.0f64; 2];
     let mut s = c.s.clone();
@@ -672,7 +668,7 @@ pub fn moving_3d(
         let raw = crate::response::static_3d(&linear::solve_3d(&s)?);
         let asm = assembly::assemble_3d(&s, &dof);
         let cs = FreeConstraintSystem::build_3d(&s, &dof)?;
-        let mut e = recovery_error(&dof, &asm, cs.as_ref(), &raw, 3)?;
+        let mut e = recovery_error(&dof, &asm, cs.as_ref(), &raw, 3, &cond)?;
         let moment = raw
             .0
             .iter()
@@ -745,6 +741,7 @@ fn physical_rows(
 fn trajectory_error(
     trace: &dedaliano_engine::solver::time_integration::DynamicTrace,
     damping_error: f64,
+    relative_limit: f64,
 ) -> Result<(Vec<f64>, Vec<Vec<f64>>), String> {
     if trace.u[0].iter().chain(&trace.v[0]).any(|v| *v != 0.0)
         || trace.beta != 0.25
@@ -826,8 +823,10 @@ fn trajectory_error(
     if !energy.is_finite() {
         return Err("nonfinite trajectory defect".into());
     }
-    if !(load_energy.is_finite()
-        && energy <= dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE * load_energy)
+    if !(relative_limit.is_finite()
+        && relative_limit >= 0.0
+        && load_energy.is_finite()
+        && energy <= relative_limit.min(dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE) * load_energy)
     {
         return Err("trajectory exceeds the independent load-based accuracy ceiling".into());
     }
@@ -840,11 +839,11 @@ fn time_errors(
     cs: Option<&FreeConstraintSystem>,
     trace: &dedaliano_engine::solver::time_integration::DynamicTrace,
     eigen: &crate::dynamic_accuracy::HarmonicAccuracy,
-    assembly_error: f64,
+    cond: &dedaliano_engine::metamorphic::conditioning::Conditioning,
     r: &mut Resp,
     translations: usize,
 ) -> Result<(), String> {
-    let residual = eigen.residual + assembly_error * eigen.mu.iter().copied().fold(0.0, f64::max);
+    let residual = eigen.residual + cond.rel() * eigen.mu.iter().copied().fold(0.0, f64::max);
     if eigen
         .mu
         .iter()
@@ -871,7 +870,13 @@ fn time_errors(
         return Err("unbounded damping coefficient uncertainty".into());
     }
     let damping_error = frequency / (1.0 - frequency);
-    let (energies, defects) = trajectory_error(trace, damping_error)?;
+    let positive: Vec<_> = eigen.mu.iter().copied().filter(|m| *m > 0.0).collect();
+    let spectrum = cond.with_spectrum(
+        positive.iter().copied().fold(f64::INFINITY, f64::min),
+        positive.iter().copied().fold(0.0, f64::max),
+    );
+    let relative_limit = crate::checks2::rel_for("time history", 1e-10, &spectrum);
+    let (energies, defects) = trajectory_error(trace, damping_error, relative_limit)?;
     let energy = *energies.last().unwrap();
     let velocity_integral: f64 = energies
         .windows(2)
@@ -930,7 +935,7 @@ pub fn time_2d(
         cs.as_ref(),
         trace,
         &crate::dynamic_accuracy::harmonic_2d(c)?,
-        dedaliano_engine::metamorphic::conditioning::of_2d(&c.s)?.rel(),
+        &dedaliano_engine::metamorphic::conditioning::of_2d(&c.s)?,
         r,
         2,
     )
@@ -953,7 +958,7 @@ pub fn time_3d(
         cs.as_ref(),
         trace,
         &crate::dynamic_accuracy::harmonic_3d(c)?,
-        dedaliano_engine::metamorphic::conditioning::of_3d(&c.s)?.rel(),
+        &dedaliano_engine::metamorphic::conditioning::of_3d(&c.s)?,
         r,
         3,
     )
@@ -967,11 +972,12 @@ fn geometric_error(
     terms: &[dedaliano_engine::solver::geometric_stiffness::KgAffineTerm],
     mean_n: &std::collections::HashMap<usize, f64>,
     translations: usize,
-    geom: f64,
+    cond: &dedaliano_engine::metamorphic::conditioning::Conditioning,
     action_error: f64,
 ) -> Result<Vec<f64>, String> {
     let u = gather(linear, dof, translations);
     let (inverse, x, f) = static_system(dof, asm, cs, u.clone())?;
+    let residual = static_accuracy_residual(&inverse, &x, &f, cond)?;
     let rows = physical_rows(dof, asm, cs);
     let n = rows[0].len();
     let mut functionals = vec![vec![0.0; n]; n * n];
@@ -987,7 +993,7 @@ fn geometric_error(
             * (elongation / rational(term.l) - rational(term.alpha) * rational(term.dt));
         let recovered = rational(*mean_n.get(&term.element_id).ok_or("missing axial force")?);
         let magnitude: f64 = term.elongation.iter().map(|&(j, c)| (c * u[j]).abs()).sum();
-        let geometry = gamma(4 * (term.dofs.len() + 24)) * geom * term.e * term.a / term.l
+        let geometry = gamma(4 * (term.dofs.len() + 24)) * cond.geom * term.e * term.a / term.l
             * (magnitude + (term.l * term.alpha * term.dt).abs());
         let roundoff = upper_abs(&(recovered - axial)) + geometry + action_error;
         let mut elongation = vec![0.0; n];
@@ -1016,7 +1022,6 @@ fn geometric_error(
             }
         }
     }
-    let residual = inverse.residual(&x, &f);
     Ok(functionals
         .iter()
         .zip(rounding)
@@ -1209,7 +1214,7 @@ fn unit_trajectory(u: f64, v: f64) -> dedaliano_engine::solver::time_integration
 
 #[test]
 fn issue_1892_zero_trajectory_cannot_certify_a_missing_response() {
-    assert!(trajectory_error(&unit_trajectory(0.0, 0.0), 0.0).is_err());
+    assert!(trajectory_error(&unit_trajectory(0.0, 0.0), 0.0, 1e-10).is_err());
 }
 
 #[test]
@@ -1220,7 +1225,7 @@ fn issue_1892_absent_zero_load_projection_has_zero_error() {
 #[test]
 fn unit_trajectory_with_the_trapezoidal_response_is_certified() {
     let displacement = 2.0 / (1.0 + 4.0 + 0.2);
-    let (energies, _) = trajectory_error(&unit_trajectory(displacement, 2.0 * displacement), 0.0).unwrap();
+    let (energies, _) = trajectory_error(&unit_trajectory(displacement, 2.0 * displacement), 0.0, 1e-10).unwrap();
     assert!(*energies.last().unwrap() < gamma(100));
 }
 
@@ -1231,6 +1236,12 @@ fn buckling_mode_intervals_follow_the_factor_order() {
     r.scalar("lambda1", Dim::NONE, 1.0);
     buckling_errors(vec![1.0, 0.0, 0.0, 1.0], vec![1.0, 0.0, 0.0, 4.0], vec![0.0; 4], 2, 0.0, &mut r).unwrap();
     assert!(r.0.iter().all(|i| i.error.is_finite() && i.error >= 0.0));
+}
+
+fn unit_conditioning() -> dedaliano_engine::metamorphic::conditioning::Conditioning {
+    dedaliano_engine::metamorphic::conditioning::Conditioning {
+        n: 1, kappa: 1.0, geom: 1.0, lchar: 1.0, kmax: 1.0, kmax_r: 1.0, eig: 0.0,
+    }
 }
 
 fn unit_static_system(translations: usize) -> (DofNumbering, assembly::AssemblyResult, Resp) {
@@ -1256,7 +1267,6 @@ fn unit_static_system(translations: usize) -> (DofNumbering, assembly::AssemblyR
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_doubled_prestress_before_certification_is_rejected() {
     use dedaliano_engine::solver::geometric_stiffness::KgAffineTerm;
     for translations in [2, 3] {
@@ -1266,23 +1276,21 @@ fn issue_1892_doubled_prestress_before_certification_is_rejected() {
             e: 1.0, a: 1.0, l: 1.0, alpha: 0.0, dt: 0.0,
         }];
         let mean_n = [(1, 2.0)].into();
-        let result = geometric_error(&dof, &asm, None, &linear, &terms, &mean_n, translations, 1.0, 0.0);
+        let result = geometric_error(&dof, &asm, None, &linear, &terms, &mean_n, translations, &unit_conditioning(), 0.0);
         assert!(result.is_err(), "{translations}D doubled pre-stress certified: {result:?}");
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_wrong_moving_recovery_before_certification_is_rejected() {
     for translations in [2, 3] {
         let (dof, asm, r) = unit_static_system(translations);
-        let result = recovery_error(&dof, &asm, None, &r, translations);
+        let result = recovery_error(&dof, &asm, None, &r, translations, &unit_conditioning());
         assert!(result.is_err(), "{translations}D doubled static response certified: {result:?}");
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_scaled_trajectory_above_comparison_tolerance_is_rejected() {
     let comparison_tolerance = 1e-10;
     let displacement = 2.0 / (1.0 + 4.0 + 0.2);
@@ -1291,7 +1299,7 @@ fn issue_1892_scaled_trajectory_above_comparison_tolerance_is_rejected() {
         assert!(eps < dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE);
         let scale = 1.0 + eps;
         let trace = unit_trajectory(displacement * scale, 2.0 * displacement * scale);
-        let result = trajectory_error(&trace, 0.0);
+        let result = trajectory_error(&trace, 0.0, comparison_tolerance);
         assert!(result.is_err(), "amplitude error {eps:e} certified: {result:?}");
     }
 }

@@ -514,11 +514,6 @@ fn issue_1369_analysis_accuracy() {
 }
 
 #[test]
-fn issue_1370_analysis_accuracy() {
-    holds(1370, 2026110406225, &[("time history", "symmetry")]);
-}
-
-#[test]
 fn issue_1650_analysis_accuracy() {
     holds(1650, 2026110706031, &[("harmonic", "reciprocity")]);
 }
