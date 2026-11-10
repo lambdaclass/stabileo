@@ -101,7 +101,19 @@ struct Pencil {
 }
 
 impl Pencil {
+    fn eigen(&self) -> Result<EigenResult, String> {
+        if self.n > dedaliano_engine::metamorphic::conditioning::DENSE_EIGEN_MAX {
+            return Err("dynamic accuracy requires a bounded dense pencil".into());
+        }
+        lanczos_generalized_eigen(&self.k, &self.m, self.n, self.n, 0.0)
+            .ok_or_else(|| "no finite spectrum".into())
+    }
+
     fn spectrum(&self) -> Result<Accuracy, String> {
+        self.spectrum_from(self.eigen()?)
+    }
+
+    fn spectrum_from(&self, eig: EigenResult) -> Result<Accuracy, String> {
         let Self {
             k,
             m,
@@ -110,13 +122,9 @@ impl Pencil {
             natural,
         } = self;
         let (n, natural) = (*n, *natural);
-        if n > dedaliano_engine::metamorphic::conditioning::DENSE_EIGEN_MAX {
-            return Err("dynamic accuracy requires a bounded dense pencil".into());
-        }
         let solve = |rhs: &[f64]| back_solve(factor, &forward_solve(factor, rhs, n), n);
         let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(a, b)| a * b).sum::<f64>();
-        let eig = lanczos_generalized_eigen(&k, &m, n, n, 0.0).ok_or("no finite spectrum")?;
-        let lambda: Vec<_> = eig
+        let mut lambda: Vec<_> = eig
             .values
             .iter()
             .copied()
@@ -141,6 +149,7 @@ impl Pencil {
             normalized.push(phi.iter().map(|v| v / mass.sqrt()).collect::<Vec<_>>());
             mass_images.push(mp.iter().map(|v| v / mass.sqrt()).collect::<Vec<_>>());
         }
+        lambda.sort_by(f64::total_cmp);
         let top = *lambda.last().unwrap();
         let mut defect2 = 0.0;
         for (i, phi) in normalized.iter().enumerate() {
@@ -168,6 +177,9 @@ impl Pencil {
 
     fn harmonic(&self) -> Result<HarmonicAccuracy, String> {
         let n = self.n;
+        if n > dedaliano_engine::metamorphic::conditioning::DENSE_EIGEN_MAX {
+            return Err("dynamic accuracy requires a bounded dense pencil".into());
+        }
         let inv = lower_triangular_inverse(&self.factor, n);
         let mut transpose = vec![0.0; n * n];
         for i in 0..n {
@@ -201,11 +213,24 @@ impl Pencil {
         if !residual.is_finite() || eig.values.iter().any(|m| !m.is_finite()) {
             return Err("nonfinite inverse pencil error".into());
         }
+        let modes = self.eigen().ok();
+        let single_mode_fallback = modes.as_ref().is_some_and(|modes| {
+            modes
+                .values
+                .iter()
+                .take(2)
+                .filter(|l| l.is_finite() && **l > 1e-10)
+                .count()
+                == 1
+        });
+        let mut mu = eig.values;
+        mu.sort_by(f64::total_cmp);
         Ok(HarmonicAccuracy {
-            mu: eig.values,
+            single_mode_fallback,
+            mu,
             residual,
             natural: self.natural,
-            forward: self.spectrum().ok(),
+            forward: modes.and_then(|modes| self.spectrum_from(modes).ok()),
         })
     }
 }
@@ -228,6 +253,7 @@ pub fn harmonic_3d(c: &Case3) -> Result<HarmonicAccuracy, String> {
 
 pub struct HarmonicAccuracy {
     forward: Option<Accuracy>,
+    single_mode_fallback: bool,
     pub mu: Vec<f64>,
     pub residual: f64,
     pub natural: f64,
@@ -274,21 +300,27 @@ impl HarmonicAccuracy {
                 return error;
             }
         }
+        let cutoff = 1.0 / 1e-10;
         if self
             .mu
             .iter()
-            .any(|m| m - self.residual <= 1e10 && m + self.residual >= 1e10)
+            .any(|m| m - self.residual <= cutoff && m + self.residual >= cutoff)
         {
             return f64::INFINITY;
         }
-        let anchors: Vec<_> = self
+        let mut anchors: Vec<_> = self
             .mu
             .iter()
-            .rev()
             .copied()
-            .filter(|m| *m > self.residual && *m + self.residual < 1e10)
-            .take(2)
+            .filter(|m| *m > 0.0 && *m < cutoff)
             .collect();
+        anchors.sort_by(|a, b| b.total_cmp(a));
+        anchors.truncate(2);
+        if (anchors.len() == 1 && !self.single_mode_fallback)
+            || anchors.iter().any(|m| *m <= self.residual)
+        {
+            return f64::INFINITY;
+        }
         let Some(&anchor) = anchors.last() else {
             return f64::INFINITY;
         };
@@ -332,7 +364,12 @@ impl Accuracy {
     }
 
     pub fn harmonic_error(&self, omega: f64, damping: (f64, f64), assembly_error: f64) -> f64 {
-        let lo = self.lambda[0];
+        let omega = omega.abs();
+        let mut lambda = self.lambda.clone();
+        lambda.sort_by(f64::total_cmp);
+        let Some(&lo) = lambda.first() else {
+            return f64::INFINITY;
+        };
         let eta = self.residual / lo;
         if !(eta < 1.0)
             || self
@@ -398,17 +435,21 @@ fn singular_mass_has_a_finite_damped_harmonic_bound() {
         natural: 1.0,
     };
     assert!(pencil.spectrum().is_err());
-    let accuracy = pencil.harmonic().unwrap();
+    let mut accuracy = pencil.harmonic().unwrap();
+    assert!(accuracy.single_mode_fallback);
     let damping = dedaliano_engine::solver::damping::rayleigh_coefficients(1.0, 3.0, 0.05);
     for omega in [0.0, 1.0, 2.0] {
         assert!(accuracy.harmonic_error(omega, damping, 0.0).is_finite());
     }
+    accuracy.single_mode_fallback = false;
+    assert_eq!(accuracy.harmonic_error(1.0, damping, 0.0), f64::INFINITY);
 }
 
 #[test]
 fn modal_energy_residual_bounds_a_manufactured_harmonic_error() {
     let accuracy = HarmonicAccuracy {
         forward: None,
+        single_mode_fallback: true,
         mu: vec![0.0, 1.0],
         residual: 0.0,
         natural: 1.0,
@@ -436,6 +477,7 @@ fn modal_energy_residual_bounds_a_manufactured_harmonic_error() {
 fn undamped_resonance_and_uncertain_inverse_anchors_are_unbounded() {
     let mut accuracy = HarmonicAccuracy {
         forward: None,
+        single_mode_fallback: true,
         mu: vec![1.0],
         residual: 0.0,
         natural: 1.0,
@@ -450,6 +492,7 @@ fn undamped_resonance_and_uncertain_inverse_anchors_are_unbounded() {
 fn zero_load_keeps_uncertifiable_harmonic_floors_infinite() {
     let accuracy = HarmonicAccuracy {
         forward: None,
+        single_mode_fallback: true,
         mu: vec![1.0],
         residual: 0.0,
         natural: 0.0,
@@ -515,10 +558,10 @@ fn singular_mass_excludes_resolved_subcutoff_modes_only_from_anchors() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn round_two_uncertain_second_inverse_anchor_is_unbounded() {
     let mut accuracy = HarmonicAccuracy {
         forward: None,
+        single_mode_fallback: false,
         mu: vec![1e-16, 1.0],
         residual: 2e-14,
         natural: 1.0,
@@ -530,10 +573,10 @@ fn round_two_uncertain_second_inverse_anchor_is_unbounded() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn round_two_inverse_anchor_budget_is_independent_of_eigenvalue_order() {
     let mut accuracy = HarmonicAccuracy {
         forward: None,
+        single_mode_fallback: false,
         mu: vec![0.0, 0.125, 0.5, 1.0],
         residual: 1e-4,
         natural: 1.0,
@@ -552,7 +595,6 @@ fn round_two_inverse_anchor_budget_is_independent_of_eigenvalue_order() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn round_two_forward_budget_uses_the_minimum_eigenvalue() {
     let mut accuracy = Accuracy {
         lambda: vec![1.0, 4.0, 9.0],
@@ -567,7 +609,6 @@ fn round_two_forward_budget_uses_the_minimum_eigenvalue() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn round_two_forward_budget_is_even_in_frequency() {
     let accuracy = Accuracy {
         lambda: vec![1.0, 4.0],
@@ -584,6 +625,7 @@ fn round_two_forward_budget_is_even_in_frequency() {
 fn round_two_inverse_cutoff_matches_the_solver_reciprocal() {
     let accuracy = HarmonicAccuracy {
         forward: None,
+        single_mode_fallback: false,
         mu: vec![1.0, 1.0 / 1e-10],
         residual: 0.0,
         natural: 1.0,
@@ -592,7 +634,6 @@ fn round_two_inverse_cutoff_matches_the_solver_reciprocal() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1887"]
 fn round_two_harmonic_pencil_obeys_the_dense_size_limit() {
     let n = dedaliano_engine::metamorphic::conditioning::DENSE_EIGEN_MAX + 1;
     let mut identity = vec![0.0; n * n];

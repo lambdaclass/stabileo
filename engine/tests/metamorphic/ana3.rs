@@ -418,7 +418,7 @@ pub fn rows() -> Vec<Ana3> {
                     let n = md.modes.len();
                     (md, n)
                 } else {
-                    crate::ana2::cluster_complete(|k| modal::solve_modal_3d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 6, 12, crate::dynamic_accuracy::of_3d(c).map_or(f64::INFINITY, |a| a.residual))?
+                    crate::ana2::cluster_complete(|k| modal::solve_modal_3d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 6, 12, crate::dynamic_accuracy::of_3d(c).map_or(0.0, |a| a.residual))?
                 };
                 let modes = md.modes[..n]
                     .iter()

@@ -497,7 +497,7 @@ pub fn rows() -> Vec<Ana2> {
             planar: None,
             run: |c| {
                 // Never cut a repeated pair: a symmetric model's response would not be symmetric (#1030).
-                let (md, n) = cluster_complete(|k| modal::solve_modal_2d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 4, 8, crate::dynamic_accuracy::of_2d(c).map_or(f64::INFINITY, |a| a.residual))?;
+                let (md, n) = cluster_complete(|k| modal::solve_modal_2d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 4, 8, crate::dynamic_accuracy::of_2d(c).map_or(0.0, |a| a.residual))?;
                 let modes = md.modes[..n]
                     .iter()
                     .map(|x| SpectralModeInput {
@@ -694,7 +694,7 @@ pub(crate) fn cluster_complete<M>(solve: impl Fn(usize) -> Result<M, String>, om
         let md = solve(requested)?;
         let w = omegas(&md);
         let mut n = w.len().min(first);
-        while n > 0 && n < w.len() && (w[n] - w[n - 1] <= 1e-3 * w[n] || w[n] * w[n] - w[n - 1] * w[n - 1] <= 2.0 * uncertainty) {
+        while n > 0 && n < w.len() && (w[n] - w[n - 1] <= 1e-3 * w[n] || (uncertainty.is_finite() && w[n] * w[n] - w[n - 1] * w[n - 1] <= 2.0 * uncertainty)) {
             n += 1;
         }
         if n < w.len() || w.len() < requested {

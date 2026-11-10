@@ -171,8 +171,13 @@ Its squared modulus is a quadratic. The minimizer is the interval-clamped
 value `(1-a0 a1)/(omega^2+a0^2)`. This gives `g >= ||D(H)^-1||` and, using each
 interval's upper endpoint divided by its minimum modulus,
 `h >= ||H |D(H)|^-1||`. The massless candidate is included explicitly in `g`.
-The two largest certified positive inverse eigenvalues inside the solver's
-anchor-selection range identify the damping anchors. The solver selects squared
+The two largest nominally positive inverse eigenvalues inside the solver's
+anchor-selection range are selected first, after explicit sorting. Both selected
+anchors must then have certified positive intervals. An uncertain second anchor
+cannot disappear from the damping uncertainty allowance. A single selected
+anchor is accepted only when the generalized eigensolve confirms that the
+solver's first-two-mode request supplies exactly one usable mode, invoking its
+single-mode fallback. The solver selects squared
 frequencies strictly above `1e-10` (`solver/damping.rs`), so inverse intervals
 wholly above `1e10` cannot be anchors. These intervals remain in both resolvent
 gains. Intervals touching or crossing that boundary remain uncertifiable; the
@@ -214,7 +219,10 @@ inconclusive, never compared with an infinite tolerance.
 
 For a spectral truncation after mode `k`, Weyl intervals cannot separate the
 retained and omitted spaces if the squared-frequency gap is at most `2 delta`.
-Such a boundary is extended. A separated boundary has the residual/gap subspace
+Such a boundary is extended when the residual is finite. If the pencil cannot
+supply a residual, the caller supplies zero and the existing relative-frequency
+cluster rule still applies. Nonfinite residuals never activate the Weyl test.
+A separated boundary has the residual/gap subspace
 bound `delta/(gap-2 delta)`; an unresolved boundary is never silently cut. The
 existing request ceiling still refuses an unresolved cluster. Already unsigned
 peak combination invariants are preserved.
@@ -360,3 +368,66 @@ including both wrapper paths and the planted-error rejection checks. The
 resonance sweep recorded 14 passes, zero failures, zero refusals, and zero
 inconclusive outcomes. `make lint.engine`, `make check.changelog`, and
 `make check.test-targets` passed. No full suite or extended seeded sweep was run.
+
+
+## PR #1887 second review
+
+Commit A adds six failing regressions marked `known wrong result: #1887`:
+uncertainty in a second inverse damping anchor, inverse eigenvalue permutation,
+forward minimum-eigenvalue selection, negative frequency, the dense harmonic
+size ceiling, and an unavailable spectral residual. Explicit execution of the
+ignored tests fails on the previous head. The reciprocal-cutoff regression
+already passes on this platform and is a normal test. The second commit removes
+the six ignores and fixes the corresponding certificate paths.
+
+The uncertain-anchor regression uses manufactured inverse eigenvalues
+`[1e-16, 1]` and residual `2e-14`, including the reversed ordering. Previously
+the small positive second anchor was filtered out, leaving a finite allowance
+based only on the first anchor. Selection now precedes certification. The
+single-mode fallback is checked against the same generalized spectrum used for
+the forward certificate, reusing that eigensolve. Failed spectrum construction
+cannot establish a fallback. Residuals are evaluated against the original paired
+eigenvectors before sorting the returned forward eigenvalues, so sorting cannot
+break the eigenpair association. The largest forward eigenvalue is taken only
+after sorting. Harmonic evaluation also sorts its candidate values, covering
+manufactured or otherwise unordered inputs.
+
+The singular-mass negative coverage uses the antisymmetric responses of both
+#1209 and #1215. Each test first establishes that the forward certificate is
+unavailable, the response floors are finite, and the unchanged response passes.
+It then changes one real displacement component by the largest static
+translation of that same model and requires `Verdict::Fail`. These negative
+cases pass before and after the fix, independently of the pass-count tests.
+They specifically constrain the inverse path.
+
+An exploratory check of symmetric loading found that the conservative energy
+bound can exceed the largest actual static translation: the two-load-parity
+cases need not have comparable force energy or static response scales. In those
+symmetric cases a static-translation-sized perturbation can remain inside the
+certified allowance. The new negative tests do not claim to reject every
+physical-scale perturbation in every load parity. No tolerance or certificate
+allowance was capped to manufacture a rejection.
+
+The spectral regression retains a separated boundary even for infinite or NaN
+residual input, while still including a near-repeated neighbour under the
+existing relative rule. The finite-residual overlapping-interval regression
+remains unchanged. The dense guard runs before forming the inverse matrix or
+calling Jacobi. Both harmonic paths use the magnitude of excitation frequency,
+and the inverse cutoff is written as `1.0 / 1e-10`, matching `solver/damping.rs`.
+
+Only harness code and documentation change; production solver outputs are
+unchanged. This review therefore has no results-change registry entry or safety
+advisory. The existing sweep observers and their exact coverage assertions are
+retained, including the unchanged inconclusive fractions.
+
+Final second-review validation passed 36 exact release regression names and both
+existing ignored coverage observers, explicitly selected through `make shell`.
+The supported families retain 400 passes per dimension and zero inconclusive
+outcomes. The rich generator retains 28 passes, four inconclusive comparisons
+and 200 refusals in 2D, and two passes, zero inconclusive comparisons and 25
+refusals in 3D. Thus the comparison inconclusive fractions remain 4/32 and 0/2;
+no coverage expectation changes. The coverage observers complete in under one
+second after compilation. `make lint.engine`, `make check.changelog`,
+`make check.test-targets`, and `git diff --check` pass. Nextest was unavailable in
+the shell, so the exact regression selection used Cargo's test runner. No full
+suite or heavy analysis ran.
