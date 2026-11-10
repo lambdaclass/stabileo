@@ -30,8 +30,8 @@ pub fn applicable(a: &Ana3, inv: &str) -> bool {
     }
 }
 
-const MIRRORED: [&str; 8] = [
-    "linear", "linear (load session)", "linear (sparse path)", "linear (PCG)", "certified linear", "P-Delta", "modal", "buckling",
+const MIRRORED: [&str; 10] = [
+    "linear", "linear (load session)", "linear (sparse path)", "linear (PCG)", "certified linear", "P-Delta", "modal", "buckling", "harmonic", "time history",
 ];
 
 pub struct Ctx<'a> {
@@ -280,6 +280,8 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                     })
                 }
                 "mirror" if applicable(a, "mirror") => {
+                    let mut dynamic_rng = Rng::new(ctx.rng_seed ^ hash(&c.name) ^ hash(a.name) ^ hash("mirror"));
+                    let rng = if matches!(a.name, "harmonic" | "time history") { &mut dynamic_rng } else { &mut rng };
                     let axis = rng.below(if a.motion == Motion::AboutZ { 2 } else { 3 });
                     let t = [rng.range(-40.0, 40.0), rng.range(-40.0, 40.0), rng.range(-40.0, 40.0)];
                     match c.mirror(axis, t) {

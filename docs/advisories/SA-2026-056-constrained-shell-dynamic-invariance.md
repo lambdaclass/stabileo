@@ -1,4 +1,4 @@
-# SA-2026-058: A constrained 3D frame and shell model gives different dynamic results after relabelling, rotation or unit conversion
+# SA-2026-056: A constrained 3D frame and shell model gives different dynamic results after relabelling, rotation or unit conversion
 
 | | |
 |---|---|

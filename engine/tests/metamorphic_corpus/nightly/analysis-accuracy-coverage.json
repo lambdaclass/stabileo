@@ -531,12 +531,12 @@
       "unrepresentable": 0
     },
     "harmonic / mirror": {
-      "compared": 0,
-      "inconclusive": 0,
-      "not_applicable": 5,
-      "refused": 0,
+      "compared": 3,
+      "inconclusive": 1,
+      "not_applicable": 0,
+      "refused": 195,
       "same_refusal": 0,
-      "unrepresentable": 0
+      "unrepresentable": 2
     },
     "harmonic / modal orthogonality": {
       "compared": 0,
@@ -747,12 +747,12 @@
       "unrepresentable": 0
     },
     "time history / mirror": {
-      "compared": 0,
-      "inconclusive": 0,
-      "not_applicable": 13,
-      "refused": 0,
+      "compared": 5,
+      "inconclusive": 2,
+      "not_applicable": 0,
+      "refused": 187,
       "same_refusal": 0,
-      "unrepresentable": 0
+      "unrepresentable": 8
     },
     "time history / modal orthogonality": {
       "compared": 0,

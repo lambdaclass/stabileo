@@ -55,6 +55,9 @@ pub fn check(p: &Pair, s: &Solves, rel: f64) -> Verdict {
         let error = crate::analysis_accuracy::projected_error(&s.force_a, p.b, &it.tag, p.moment_b)
             + crate::analysis_accuracy::projected_error(&s.moment_b, p.a, &format!("u{t}"), p.force_a)
             + s.zero.as_ref().map_or(0.0, |z| crate::analysis_accuracy::projected_error(z, p.b, &it.tag, p.moment_b) + crate::analysis_accuracy::projected_error(z, p.a, &format!("u{t}"), p.force_a));
+        if !(error.is_finite() && error >= 0.0) {
+            return Verdict::Fail(format!("{what}: invalid analysis error bound"));
+        }
         let tol = (rel * (scale(&s.force_a, p.rotation) + scale(&s.moment_b, "u") + z_u + z_r)).max(error);
         rows.push((what, l, r, tol));
     }
@@ -69,6 +72,9 @@ pub fn check(p: &Pair, s: &Solves, rel: f64) -> Verdict {
         let error = crate::analysis_accuracy::projected_error(&s.moment_a, p.b, &it.tag, p.moment_b)
             + crate::analysis_accuracy::projected_error(&s.moment_b, p.a, &it.tag, p.moment_a)
             + s.zero.as_ref().map_or(0.0, |z| crate::analysis_accuracy::projected_error(z, p.b, &it.tag, p.moment_b) + crate::analysis_accuracy::projected_error(z, p.a, &it.tag, p.moment_a));
+        if !(error.is_finite() && error >= 0.0) {
+            return Verdict::Fail(format!("{what}: invalid analysis error bound"));
+        }
         let tol = (rel * (scale(&s.moment_a, p.rotation) + scale(&s.moment_b, p.rotation) + 2.0 * z_r)).max(error);
         rows.push((what, l, r, tol));
     }
@@ -141,7 +147,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1892"]
     fn invalid_analysis_bounds_cannot_pass_betti() {
         for error in [f64::NAN, f64::INFINITY, -1.0] {
             let mut s = solves(vec![0.0], vec![0.0, 0.0]);

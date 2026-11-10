@@ -809,7 +809,6 @@ fn analysis_accuracy_moving_3d_compares_transforms_and_rejects_a_plant() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_dynamic_3d_mirrors_must_compare() {
     let Model::D3(c) = model(1369) else { panic!("3D") };
     for name in ["harmonic", "time history"] {
@@ -820,5 +819,54 @@ fn issue_1892_dynamic_3d_mirrors_must_compare() {
             let c = cell(&cells, 1892, name, inv);
             assert!(c.pass > 0 && c.fails.is_empty(), "{name} / {inv}: {c:?}");
         }
+    }
+}
+
+#[test]
+#[ignore]
+fn analysis_accuracy_dynamic_3d_mirror_coverage() {
+    let t = Tally::default();
+    let anas = [ana3("harmonic"), ana3("time history")];
+    for k in 0..200 {
+        let c = crate::corpus::fuzz_case_3d(2026110200000, k);
+        crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: 2026110200000 + k }, &c, &anas, &["mirror"]);
+    }
+    let result = t.replay_results();
+    if let Ok(path) = std::env::var("ANALYSIS_ACCURACY_MIRROR_COVERAGE") {
+        std::fs::write(path, serde_json::to_vec_pretty(&result).unwrap()).unwrap();
+    }
+    let baseline: serde_json::Value = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/analysis-accuracy-coverage.json")).unwrap();
+    for row in result["verdicts"].as_array().unwrap() {
+        let name = row["analysis"].as_str().unwrap();
+        let compared = row["pass"].as_u64().unwrap() + row["fail"].as_u64().unwrap() + row["inconclusive"].as_u64().unwrap();
+        assert!(compared > 0, "{name}: no mirrors compared");
+        assert!(row["pass"].as_u64().unwrap() > 0, "{name}: no mirrors passed");
+        assert_eq!(compared + row["refused"].as_u64().unwrap() + row["same_refusal"].as_u64().unwrap() + row["unrepresentable"].as_u64().unwrap(), 200, "{name}: a seed was not recorded");
+        assert_eq!(row["not_applicable"], 0, "{name}: applicable mirrors were skipped");
+        let mut counts = serde_json::json!({"compared": compared});
+        for field in ["inconclusive", "refused", "same_refusal", "unrepresentable", "not_applicable"] {
+            counts[field] = row[field].clone();
+        }
+        assert_eq!(counts, baseline["d3"][format!("{name} / mirror")], "{name} mirror coverage changed");
+    }
+
+}
+
+#[test]
+fn dynamic_3d_mirror_response_distinguishes_polar_and_axial_vectors() {
+    use crate::response::{Dim, Kind};
+    for (axis, polar, axial) in [
+        (0, [-1.0, 2.0, 3.0], [1.0, -2.0, -3.0]),
+        (1, [1.0, -2.0, 3.0], [-1.0, 2.0, -3.0]),
+        (2, [1.0, 2.0, -3.0], [-1.0, -2.0, 3.0]),
+    ] {
+        let mut r = Resp::default();
+        for tag in ["u_t010", "H_re0", "H_im0"] {
+            r.push(Some(1), None, tag, Kind::V3(Dim::LEN), vec![1.0, 2.0, 3.0]);
+        }
+        r.push(Some(1), None, "r_t010", Kind::V3(Dim::NONE), vec![1.0, 2.0, 3.0]);
+        let mirrored = r.mirror3(axis).unwrap();
+        for item in &mirrored.0[..3] { assert_eq!(item.v, polar); }
+        assert_eq!(mirrored.0[3].v, axial);
     }
 }

@@ -78,7 +78,7 @@ pub fn compare_scaled(
 pub fn projected_error(r: &Resp, node: usize, tag: &str, dir: &[f64]) -> f64 {
     r.0.iter()
         .find(|i| i.node == Some(node) && i.tag == tag)
-        .map_or(f64::INFINITY, |i| {
+        .map_or(0.0, |i| {
             let direction = dir.iter().map(|d| d * d).sum::<f64>().sqrt();
             if !(i.error >= 0.0 && i.error.is_finite() && direction.is_finite()) {
                 return f64::INFINITY;
@@ -448,6 +448,8 @@ fn buckling_errors(
             break;
         }
     }
+    let mut modes: Vec<_> = (0..n).collect();
+    modes.sort_by(|&a, &b| eig.values[b].total_cmp(&eig.values[a]));
     for i in &mut r.0 {
         let Some(index) = i
             .tag
@@ -456,17 +458,19 @@ fn buckling_errors(
         else {
             continue;
         };
-        let j = n
-            .checked_sub(index + 1)
-            .ok_or("buckling mode index outside the pencil")?;
-        let mu = eig.values[j];
+        let j = *modes.get(index).ok_or("buckling mode index outside the pencil")?;
         let metric_error = eta * intervals[j].0.abs().max(intervals[j].1.abs()) / (1.0 - eta);
-        let delta = (mu - intervals[j].0).max(intervals[j].1 - mu) + metric_error;
-        let lambda = i.v[0];
-        if !(lambda.abs() * delta < 1.0) {
+        let lo = intervals[j].0 - metric_error;
+        let hi = intervals[j].1 + metric_error;
+        if !(lo.is_finite() && hi.is_finite()) || (lo <= 0.0 && hi >= 0.0) {
             return Err("buckling eigenvalue crosses zero under its rounding budget".into());
         }
-        i.error = lambda * lambda * delta / (1.0 - lambda.abs() * delta);
+        let lambda = *i.v.first().ok_or("missing buckling factor")?;
+        let reciprocal = 1.0 / lambda;
+        if !(lambda.is_finite() && reciprocal.is_finite() && lo <= reciprocal && reciprocal <= hi) {
+            return Err("buckling factor lies outside its matching certified interval".into());
+        }
+        i.error = ((1.0 / lo - 1.0 / hi).abs() * (1.0 + gamma(4))).next_up();
     }
     Ok(())
 }
@@ -768,9 +772,12 @@ fn trajectory_error(
         .collect();
     let effective = Inverse::new(effective, n)?;
     let mut energy = 0.0;
+    let mut load_energy = 0.0;
     let mut energies = vec![0.0];
     let mut displacements = Vec::new();
     for t in 1..trace.u.len() {
+        let load: Vec<_> = trace.f[t].iter().zip(&trace.f[t - 1]).map(|(a, b)| a.abs() + b.abs()).collect();
+        load_energy += dot(&load, &effective.absolute_solve(&load)).max(0.0).sqrt();
         let (u, old_u, v, old_v) = (&trace.u[t], &trace.u[t - 1], &trace.v[t], &trace.v[t - 1]);
         let du: Vec<_> = (0..n)
             .map(|i| {
@@ -818,6 +825,11 @@ fn trajectory_error(
     }
     if !energy.is_finite() {
         return Err("nonfinite trajectory defect".into());
+    }
+    if !(load_energy.is_finite()
+        && energy <= dedaliano_engine::metamorphic::conditioning::INCONCLUSIVE * load_energy)
+    {
+        return Err("trajectory exceeds the independent load-based accuracy ceiling".into());
     }
     Ok((energies, displacements))
 }
@@ -1147,7 +1159,7 @@ fn negative_buckling_factor_changes_fail_with_a_resolved_interval() {
     for factor in [1.0, -2.0] {
         let mut got = expected.clone();
         got.0[0].v[0] = factor;
-        buckling_errors(vec![1.0], vec![-1.0], vec![0.0], 1, 0.0, &mut got).unwrap();
+        assert!(buckling_errors(vec![1.0], vec![-1.0], vec![0.0], 1, 0.0, &mut got).is_err());
         assert!(compare(&got, &expected, 1.0, 1e-10, 0.0, [0.0; 2]).is_err());
     }
 }
@@ -1164,7 +1176,6 @@ fn negative_buckling_allowance_uses_the_absolute_reciprocal_radius() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_wrong_buckling_factor_cannot_buy_its_allowance() {
     let mut r = Resp::default();
     r.scalar("lambda0", Dim::NONE, 3.9);
@@ -1172,7 +1183,6 @@ fn issue_1892_wrong_buckling_factor_cannot_buy_its_allowance() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_buckling_modes_must_match_their_intervals() {
     let mut r = Resp::default();
     r.scalar("lambda0", Dim::NONE, 1.0);
@@ -1181,7 +1191,6 @@ fn issue_1892_buckling_modes_must_match_their_intervals() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_buckling_interval_crossing_is_independent_of_returned_factor() {
     let mut r = Resp::default();
     r.scalar("lambda0", Dim::NONE, 0.1);
@@ -1199,13 +1208,27 @@ fn unit_trajectory(u: f64, v: f64) -> dedaliano_engine::solver::time_integration
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_zero_trajectory_cannot_certify_a_missing_response() {
     assert!(trajectory_error(&unit_trajectory(0.0, 0.0), 0.0).is_err());
 }
 
 #[test]
-#[ignore = "known wrong result: #1892"]
 fn issue_1892_absent_zero_load_projection_has_zero_error() {
     assert_eq!(projected_error(&Resp::default(), 1, "u", &[1.0]), 0.0);
+}
+
+#[test]
+fn unit_trajectory_with_the_trapezoidal_response_is_certified() {
+    let displacement = 2.0 / (1.0 + 4.0 + 0.2);
+    let (energies, _) = trajectory_error(&unit_trajectory(displacement, 2.0 * displacement), 0.0).unwrap();
+    assert!(*energies.last().unwrap() < gamma(100));
+}
+
+#[test]
+fn buckling_mode_intervals_follow_the_factor_order() {
+    let mut r = Resp::default();
+    r.scalar("lambda0", Dim::NONE, 0.25);
+    r.scalar("lambda1", Dim::NONE, 1.0);
+    buckling_errors(vec![1.0, 0.0, 0.0, 1.0], vec![1.0, 0.0, 0.0, 4.0], vec![0.0; 4], 2, 0.0, &mut r).unwrap();
+    assert!(r.0.iter().all(|i| i.error.is_finite() && i.error >= 0.0));
 }

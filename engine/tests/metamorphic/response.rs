@@ -270,6 +270,8 @@ impl Resp {
         let mut o = self.clone();
         for it in o.0.iter_mut() {
             match (&it.kind, it.tag.as_str()) {
+                (Kind::V3(Dim::LEN), tag) if tag.starts_with("u_t") || tag.starts_with("H_re") || tag.starts_with("H_im") => it.v[axis] = -it.v[axis],
+                (Kind::V3(Dim::NONE), tag) if tag.starts_with("r_t") => (0..3).filter(|&i| i != axis).for_each(|i| it.v[i] = -it.v[i]),
                 (Kind::V3(_), "u" | "R") => it.v[axis] = -it.v[axis],
                 (Kind::V3(_), "r" | "RM") => (0..3).filter(|&i| i != axis).for_each(|i| it.v[i] = -it.v[i]),
                 (Kind::T3(_), _) => {

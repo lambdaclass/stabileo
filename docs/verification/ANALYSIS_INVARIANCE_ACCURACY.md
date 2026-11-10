@@ -105,6 +105,8 @@ delta_v = (delta_u - du)/h.
 The verified inverse of `W` bounds this impulse's energy through
 `energy <= sqrt(rhs^T W^-1 rhs) + ||du||_M/h`, using `W >= K + M/h^2`. This retains the energy duality instead of taking separate absolute displacement and velocity components before multiplying by mass. Rayleigh uncertainty acts through the two scalar coefficients: the products `M(v_next+v_old)` and `K(v_next+v_old)` retain their internal cancellation. The accumulated state error is bounded by the sum of the impulse energy norms, including explicit arithmetic and damping-coefficient uncertainty. This avoids an inverse of a nearly massless direction and does not assume stability in a mixed displacement/rotation Euclidean norm. Stiffness dual rows map the energy bound to reported translations and rotations. A second, finite-horizon bound integrates the velocity error using mass dual rows and adds the kinematic displacement defects. The smaller of the two bounds is used. This prevents a soft static rotational compliance, which the short record never reaches, from masking a planted dynamic error.
 
+A trajectory defect cannot certify itself at arbitrarily large magnitude. Independently of the returned states, let `p_t = abs(f_t) + abs(f_(t-1))` and sum the verified effective-inverse energy scales `S = sum_t sqrt(p_t^T abs(W^-1) p_t)`, including the inverse-defect bound. The accumulated trajectory error must be finite and no larger than the existing `INCONCLUSIVE * S` ceiling before it can supply an allowance. The zero trajectory under a constant unit load in the one-DOF regression fails this check; its directly calculated trapezoidal response passes. Failure supplies no additional allowance to the original comparison.
+
 Unresolved damping anchors or a nonzero initial state produce no additional allowance. The inverse-pencil damping estimate also covers semidefinite mass; the optional finite-horizon velocity bound is used only when a positive mass can be factored. Other cases retain the existing eigen-aware relative comparison. The #1369/#1370 model completes the new estimate, and a planted time-history error must fail.
 
 ## Buckling
@@ -117,13 +119,15 @@ Form `H = L^-1 B L^-T`. Absolute matrix-product bounds cover its construction. T
 
 Stiffness uncertainty perturbs the metric. If `|delta K|_K <= eta < 1`, the generalized eigenvalues are bounded by the corresponding metric factors `1/(1 +/- eta)`. This is applied to each root interval. Replacing this with `eta * ||H||` would needlessly transfer the scale of a large tensile eigenvalue to an unrelated positive buckling root. The seeded planted-factor test guards against that loss of discrimination.
 
-Finally, a reciprocal interval of radius `delta` gives the absolute load-factor error
+Finally, each `lambda_k` is associated with a reciprocal root by explicitly sorting the independent pencil's roots in descending order, matching increasing positive load factors without assuming an eigensolver's storage order. After expanding the interval for metric uncertainty, the estimator checks the interval itself for a zero crossing. The returned factor must be finite and its reciprocal must lie inside its matching interval `[lo, hi]`. Otherwise certification fails.
+
+For an accepted factor, the absolute allowance is the diameter of the reciprocal interval, with arithmetic rounding:
 
 ```
-error_lambda <= lambda^2 * delta / (1 - |lambda| * delta).
+error_lambda <= abs(1/lo - 1/hi).
 ```
 
-The crossing check also uses `|lambda| * delta`. A reciprocal interval containing zero justifies no additional finite allowance, including for negative factors. Regressions require equal radii for opposite signs, reject crossing intervals, and reject sign changes and different negative factors. Planar embeddings obtain the estimate from their actual 3D pencil as well as the original 2D pencil.
+Both the returned factor and the exact factor lie in that reciprocal interval, so its diameter bounds their difference independently of the returned value. This avoids the previous circular expression in which a wrong returned factor enlarged its own allowance. Regressions reject the unit-pencil factor 3.9, swapped factors in a two-mode pencil, zero-crossing intervals even with a small returned factor, and inconsistent negative factors. A correctly ordered two-mode response passes. Planar embeddings obtain the estimate from their actual 3D pencil as well as the original 2D pencil.
 
 ## Moving-load envelopes
 
@@ -141,12 +145,21 @@ Thus per-position budgets are maximized, not added over the train positions. No 
 
 ## Coverage and separate engine findings
 
-The sweep uses 200 rich seeds per dimension, starting at `2026110200000`, over PCG, forced time history, harmonic, moving loads and buckling, including symmetry. It is a targeted diagnostic, not a full engine suite. The checked-in coverage JSON comes from the original commit A and asserts, for every analysis/relation cell, identical counts of comparisons, inconclusives, refusals, matching refusals, unrepresentable transforms and non-applicable checks.
+The sweep uses 200 rich seeds per dimension, starting at `2026110200000`, over PCG, forced time history, harmonic, moving loads and buckling, including symmetry. It is a targeted diagnostic, not a full engine suite. The checked-in coverage JSON asserts, for every analysis/relation cell, identical counts of comparisons, inconclusives, refusals, matching refusals, unrepresentable transforms and non-applicable checks. Review round 2 replaces only the two previously inactive 3D dynamic mirror cells with measured outcomes; all other cells remain unchanged.
 
 | Dimension | Numerical comparisons | Inconclusive before | Inconclusive after |
 |---|---:|---:|---:|
 | 2D | 1338 | 157 | 157 |
-| 3D | 258 | 66 | 66 |
+| 3D, original sweep before dynamic mirrors | 258 | 66 | 66 |
+
+The 3D harmonic and forced time-history rows now run mirror transforms. Harmonic and time-history displacement vectors reflect as polar vectors; time-history rotations reflect as axial vectors. Their mirror randomness is independent of subsequent transforms, preserving existing retained-failure replays. The targeted mirror-only replay covers the same 200 3D seeds and requires nonzero numerical comparisons and passes for both rows, with zero not-applicable outcomes. Outcomes are:
+
+| 3D mirror row | Pass | Inconclusive | Refused | Unrepresentable |
+|---|---:|---:|---:|---:|
+| Harmonic | 2 | 1 | 195 | 2 |
+| Forced time history | 3 | 2 | 187 | 8 |
+
+No mirror failures were observed in this replay. A separate fast test requires the retained #1369 model to pass both relabel and mirror checks for both analyses, and explicit vector tests check all three reflection axes. A missing transform rule or a row that never compares fails these tests. The full multi-analysis sweep was not rerun for this review.
 
 Rich random models supplied no successful moving-load comparisons. The sweep now additionally checks a two-member 3D deck fixture, both in its original units and in a Froude-scaled copy. Each relabel, reversal and units cell must have nonzero passes and no failures. These supplemental cells do not replace or loosen the original rich-seed coverage snapshot. `ANALYSIS_ACCURACY_MOVING_COVERAGE` optionally writes their verdicts. A separate transformed-response regression requires finite nonzero budgets and rejects a planted moment error.
 
@@ -165,7 +178,7 @@ The following retained sweep failures are **not** hidden by this change:
 | 2026110200167 | 2D | Harmonic units copy fails to solve |
 | 2026110200176 | 2D | Harmonic units copy fails to solve |
 
-JSON inputs, names and densities are in `engine/tests/metamorphic_corpus/nightly/analysis-accuracy/`. The numeric wrong-result case is separately documented in [SA-2026-058](../advisories/SA-2026-058-constrained-shell-dynamic-invariance.md). The five harmonic solve failures in the other four models are convergence/refusal failures, not numbers demonstrated wrong. Their engine root causes remain outside this harness fix.
+JSON inputs, names and densities are in `engine/tests/metamorphic_corpus/nightly/analysis-accuracy/`. The numeric wrong-result case is separately documented in [SA-2026-056](../advisories/SA-2026-056-constrained-shell-dynamic-invariance.md). The five harmonic solve failures in the other four models are convergence/refusal failures, not numbers demonstrated wrong. Their engine root causes remain outside this harness fix.
 
 ## Reproduction
 
@@ -194,4 +207,10 @@ Commit `c00aae239` adds ignored failing reproducers for 2D and 3D displacements 
 
 Issue #1370 was retrieved again with `gh issue view 1370 -R lambdaclass/stabileo --json body`. Its fenced minimized JSON, with one trailing newline, is byte-for-byte identical to the existing `issue-1370.json`, which also equals `issue-1369.json`. No replacement with different engineering data is justified by the published issue. All six retained seed JSON files now end in a newline.
 
-Engine sources and returned engine results are unchanged, so this review fix needs no results-change registry entry or new user advisory. The separately documented wrong engine results in SA-2026-058 remain failures. Validation is targeted: the analysis-accuracy and negative-buckling tests, the nightly-tolerance module, and `make lint.engine`; the 200-seed sweep is not run as part of this review fix.
+Engine sources and returned engine results are unchanged, so this review fix needs no results-change registry entry or new user advisory. The separately documented wrong engine results in SA-2026-056 remain failures. Validation is targeted: the analysis-accuracy and negative-buckling tests, the nightly-tolerance module, and `make lint.engine`; the 200-seed sweep is not run as part of this review fix.
+
+## Review round 2 validation
+
+Commit A adds the ignored #1892 regressions before the fixes. The wrong-factor, mode-order, interval-crossing, zero-trajectory, missing zero-load projection and inactive-mirror tests all fail on that commit. The Betti test starts from a passing reciprocal response and requires invalid bounds to fail explicitly as invalid analysis error bounds; the earlier implementation rejected them later through the final tolerance finiteness check. It was already refusing these inputs, so this is a direct validation and diagnostic improvement rather than a demonstrated previously passing Betti result.
+
+Commit B removes those ignores and adds correct-response controls. Targeted release runs cover `analysis_accuracy`, `betti`, `nightly_tolerances`, and the ignored mirror-only coverage replay. All retained wrong-result cells still fail. `make lint.engine` and the blog unit area are also checked. Fixed comparison tolerances and the inconclusive threshold are unchanged. No engine source, engine result or user result-version entry changes in this review.
