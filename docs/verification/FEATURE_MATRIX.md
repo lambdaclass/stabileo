@@ -33,8 +33,8 @@ analytical value, or the linear solver in the linear limit).
 | load combinations | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | P-Delta | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | P-Delta (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| corotational | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| corotational (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| corotational | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| corotational (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | material nonlinear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | fiber nonlinear | ✓ | ✓ | R | R | ✓ | ✓ | ✓ | ✓ | R | ✓ | ✓ | ✓ | ✓ | ✓ | R | R | ✓ |
@@ -79,7 +79,7 @@ Features:
 - **F16** constraint (rigid link)
 - **F17** connector
 
-Totals: · 91, ✓ 413, R 32, ~ 8
+Totals: · 91, ✓ 415, R 30, ~ 8
 
 Notes on every cell that is not ✓ or ·:
 
@@ -102,8 +102,6 @@ Notes on every cell that is not ✓ or ·:
 - staged (one stage) × inclined support: roller at 30°: R Inclined supports are not yet supported in staged construction analysis (reactions would be reported in the ro…
 - spectral × inclined support: roller at 30°: ~ changes the answer by 1.2e6; no independent reference
 - plastic collapse × inclined support: roller at 30°: R Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis (known issue #758, PL-2D-INVARIANCE)
-- corotational × prescribed displacement: support settlement: R Corotational analysis does not support prescribed support displacements (support 2 (node 7)); it would solve t…
-- corotational (sparse path) × prescribed displacement: support settlement: R Corotational analysis does not support prescribed support displacements (support 2 (node 7)); it would solve t…
 - fiber nonlinear × prescribed displacement: support settlement: R Fiber-nonlinear analysis does not support prescribed support displacements (support 2 (node 7)); it would solv…
 - arc length × prescribed displacement: support settlement: R Arc-length analysis does not support prescribed support displacements (support 2 (node 7)); it would solve the…
 - displacement control × prescribed displacement: support settlement: R Displacement-control analysis does not support prescribed support displacements (support 2 (node 7)); it would…
