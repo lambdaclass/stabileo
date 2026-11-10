@@ -90,7 +90,7 @@ async function solveAndHandIn(page: Page, legajo: string): Promise<{ code: strin
   return { code: await page.locator('.handin-code').inputValue(), L };
 }
 
-test.describe('@smoke Education — different data for each student', () => {
+test.describe('@slow Education — different data for each student', () => {
   test('a teacher makes an exercise vary, two students get two beams, each is marked against their own', async ({ page }) => {
     test.setTimeout(180_000);
     const [legajoA, legajoB] = twoStudents();
