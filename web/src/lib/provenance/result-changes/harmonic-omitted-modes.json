@@ -17,9 +17,6 @@
       "analysis:harmonic"
     ]
   },
-  "quantities": [
-    "*"
-  ],
   "title": {
     "en": "Harmonic response resolves omitted modes beyond the dense ceiling",
     "es": "La respuesta armónica resuelve los modos omitidos más allá del límite denso",
