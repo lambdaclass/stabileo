@@ -93,6 +93,13 @@ pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>
 }
 
 pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, base: f64, cmp: impl Fn(&Resp, &Resp, f64) -> Result<dedaliano_engine::metamorphic::compare::Report, String>) -> Verdict {
+    for (side, response) in [("actual", got), ("expected", expected)] {
+        for item in &response.0 {
+            if let Some(k) = item.v.iter().position(|v| !v.is_finite()) {
+                return Verdict::Fail(format!("{side}: non-finite {}[{k}] at node {:?}, element {:?}", item.tag, item.node, item.elem));
+            }
+        }
+    }
     let free: std::collections::HashSet<String> = expected.0.iter().filter(|i| EIGEN_FREE.contains(&i.tag.as_str())).map(|i| i.tag.clone()).collect();
     if !free.is_empty() && base <= INCONCLUSIVE {
         let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect(), r.1.clone(), r.2);
