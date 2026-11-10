@@ -732,3 +732,53 @@ fn issue_758_a_frame_without_plastic_section_data_is_refused() {
     let r = solve_plastic_2d_unrefused(&input);
     assert!(r.as_ref().is_err_and(|e| e.contains("no plastic section data")), "{:?}", r.map(|r| r.collapse_factor));
 }
+
+/// The public entry (`certified_limit_2d`, WASM `plastic_limit_2d`) releases a factor only where
+/// the exact certificate's bounds meet at it.
+#[test]
+fn issue_758_certified_entry_releases_only_what_the_exact_certificate_confirms() {
+    use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, limit_analysis_2d_input, Confirmation, LimitInput};
+    let mp = |pairs: &[(usize, f64)]| pairs.iter().map(|(k, v)| (k.to_string(), *v)).collect::<HashMap<_, _>>();
+    // The Basic "Portal Frame" example, with the app's plastic moments: the beam mechanism,
+    // 8 (Mp,col + Mp,beam) / (q L²) = 1925/27, governs.
+    let portal = make_input(
+        vec![(1, 0.0, 0.0), (2, 0.0, 4.0), (3, 6.0, 4.0), (4, 6.0, 0.0)],
+        vec![(1, 30_000.0, 0.2)],
+        vec![(2, 0.09, 0.000675), (3, 0.1, 0.002083)],
+        vec![(1, "frame", 1, 2, 1, 2, false, false), (2, "frame", 2, 3, 1, 3, false, false), (3, "frame", 4, 3, 1, 2, false, false)],
+        vec![(1, 1, "fixed"), (2, 4, "fixed")],
+        vec![udl(2, -15.0), nodal(2, 10.0, 0.0)],
+    );
+    let r = certified_limit_2d(&LimitInput { solver: portal, mp: mp(&[(1, 1687.5), (2, 3125.0), (3, 1687.5)]), np: HashMap::new() }).unwrap();
+    assert_eq!(r.confirmation, Confirmation::Exact);
+    assert!((r.lambda - 1925.0 / 27.0).abs() <= 1e-9 * r.lambda, "{}", r.lambda);
+    let mut hinges: Vec<(usize, f64)> = r.hinges.iter().map(|h| (h.element_id, (h.position * 1e6).round() / 1e6)).collect();
+    hinges.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    assert_eq!(hinges, vec![(1, 1.0), (2, 0.5), (3, 1.0)], "{:?}", r.hinges);
+
+    // #1475: two fixed–fixed beams on a shared fixed node, one unloaded with Mp = 1e-12, the other
+    // of unit length with Mp = q = 1. The collapse factor is 16; the limit analysis's rank cutoff
+    // can lose the loaded beam's redundancy and give 12. The public entry gives 16 or refuses.
+    let beams = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 2.0, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, A_SEC, IZ_SEC)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 2, "fixed"), (3, 3, "fixed")],
+        vec![udl(2, -1.0)],
+    );
+    let input = LimitInput { solver: beams, mp: mp(&[(1, 1e-12), (2, 1.0)]), np: HashMap::new() };
+    let raw = limit_analysis_2d_input(&input).map(|r| r.lambda);
+    let released = certified_limit_2d(&input);
+    eprintln!("#1475 two beams: limit analysis {raw:?}, public entry {:?}", released.as_ref().map(|r| r.lambda));
+    match released {
+        Ok(r) => assert!((r.lambda - 16.0).abs() <= 1e-9 * 16.0, "released {} (limit analysis {raw:?})", r.lambda),
+        Err(e) => assert!(e.contains("PL-2D-INVARIANCE"), "{e}"),
+    }
+
+    // Outside the certificate (a support spring is fine, a constraint is not): refused.
+    let mut linked = two_member_cantilever();
+    linked.constraints.push(serde_json::from_value(serde_json::json!({"type": "equalDOF", "masterNode": 1, "slaveNode": 3, "dofs": [0]})).unwrap());
+    let r = certified_limit_2d(&LimitInput { solver: linked, mp: mp(&[(1, 1.0), (2, 1.0)]), np: HashMap::new() });
+    assert!(r.as_ref().is_err_and(|e| e.contains("PL-2D-INVARIANCE")), "{:?}", r.map(|r| r.lambda));
+}
