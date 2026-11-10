@@ -228,6 +228,22 @@ const labels: Record<string, Record<string, string>> = {
     "preDamage": "Tepeye kadar en büyük hasar",
     "force": "Kırılma dahil kuvvet",
     "mirror": "Düğüm hasarı, referans veya ayna görüntüsü"
+  },
+  "hu": {
+    "mesh": "Háló ujjlenyomatai",
+    "steps": "Teherlépések száma",
+    "iterations": "Iterációk minden lépésben",
+    "damage": "Legnagyobb károsodás minden lépésben",
+    "stress": "Középponti feszültség minden lépésben",
+    "damageField": "Csomóponti károsodás",
+    "displacementField": "Csomóponti elmozdulás",
+    "analytic": "Középponti feszültség / 1D AT2 megoldás, max d < 0.25",
+    "peakStep": "A csúcserő lépése",
+    "peak": "Csúcserő",
+    "preForce": "Erő a csúcsig",
+    "preDamage": "Legnagyobb károsodás a csúcsig",
+    "force": "Erő a töréssel együtt",
+    "mirror": "Csomóponti károsodás, referencia vagy tükörkép"
   }
 };
 const metrics: Record<string, Record<string, string>> = {
@@ -274,6 +290,14 @@ const metrics: Record<string, Record<string, string>> = {
   "tr": {
     "exact": "Tam",
     "relative difference": "Bağıl fark",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "max |Δd|",
+    "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
+  "hu": {
+    "exact": "Pontos",
+    "relative difference": "Relatív eltérés",
     "absolute difference / AT2 peak stress": "|Δσ| / σc",
     "max absolute difference": "max |Δd|",
     "max absolute difference / max |u|": "max |Δu| / max |u|",

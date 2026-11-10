@@ -34,5 +34,11 @@ export const galleryStrings: Record<string, { researchTitle: string; galleryLead
     "galleryLead": "Klasik ve güncel makaleleri, kıyaslama örneklerini ve yöntemleri yapay zekâ destekli yapı mühendisliği yazılımı Stabileo’da çalıştırıp kontrol edin. Her sayfa neyin yeniden üretildiğini ve nasıl kontrol edildiğini belirtir.",
     "reviewOne": "{count} inceleme turu",
     "reviewMany": "{count} inceleme turu"
+  },
+  "hu": {
+    "researchTitle": "Kutatás a tartószerkezet-tervezésben",
+    "galleryLead": "Klasszikus és friss cikkek, referenciafeladatok és módszerek, amelyeket a Stabileóban, a mesterséges intelligenciával támogatott tartószerkezeti szoftverben futtathat és ellenőrizhet. Minden oldal leírja, mit reprodukáltunk és hogyan ellenőriztük.",
+    "reviewOne": "{count} felülvizsgálati kör",
+    "reviewMany": "{count} felülvizsgálati kör"
   }
 };
