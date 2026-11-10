@@ -5,7 +5,9 @@ import { evaluateAnswer, type EduExerciseSpec, type ReactionDof } from './exerci
 import type { Submission, SubmittedAnswer } from './exercise-submission';
 import { stressContext } from './exercise-stress';
 import { readDisplayedReaction } from './edu-reactions';
-import { isParametric, shapeAnswer, solveModel, specNodeIds, studentSeed, variantOf } from './exercise-variant';
+import { isParametric, shapeAnswer, solveModel, specModelData, specNodeIds, studentSeed, variantOf } from './exercise-variant';
+import { degreeOfSamples, gradeSketch } from './diagram-sketch';
+import { sketchTruth } from './sketch-truth';
 
 export const TOLERANCE = 0.05;
 
@@ -96,6 +98,13 @@ export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark
         const shape = q ? shapeAnswer(q, forces) : null;
         if (!shape) return null;
         return { outcome: a.answer ? (a.answer === shape ? 'correct' : 'incorrect') : 'pending', expected: t(`edu.shape.${shape}`) };
+      }
+      case 'sk': {
+        const q = ex.diagramSketchQuestions?.[n];
+        const truth = q && a.sketch ? sketchTruth(q, results, specModelData(ex.model)) : null;
+        if (!truth) return null;
+        const v = gradeSketch(a.sketch!, truth);
+        return { outcome: v.curveOk && v.powersOk ? 'correct' : 'incorrect', expected: t(`edu.sketch.power.${degreeOfSamples(truth)}`) };
       }
       default:
         return null;

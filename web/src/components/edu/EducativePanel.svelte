@@ -1,7 +1,7 @@
 <script lang="ts">
   import { viewportCanvas } from '../../lib/utils/viewport-canvas';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
-  import { returnBorrowedModel } from './exercise-session';
+  import { exerciseStoreApi, returnBorrowedModel } from './exercise-session';
   import { getExerciseSections, toExercise, type EduExercise } from './exercises';
   import EduExerciseView from './EduExerciseView.svelte';
   import { t } from '../../lib/i18n';
@@ -9,7 +9,7 @@
   import { isSolverReady } from '../../lib/engine/wasm-solver';
   import { eduStore } from './edu-store.svelte';
   import ExerciseAuthor from './ExerciseAuthor.svelte';
-  import { buildFromSpec, type EduExerciseAPI, type EduExerciseSpec } from './exercise-spec';
+  import { buildFromSpec, type EduExerciseSpec } from './exercise-spec';
   import { isParametric, studentSeed, variantOf } from './exercise-variant';
   import type { Variant } from './exercise-params';
   import { getExerciseSpecs } from './exercise-data';
@@ -17,6 +17,10 @@
   import SubmissionReview from './SubmissionReview.svelte';
   import FieldHelp from './FieldHelp.svelte';
   import { fromSubmissionCode, fromSubmissionFile, type Submission } from './exercise-submission';
+  import { accounts } from '../../lib/features';
+  import { authStore } from '../../lib/store/auth.svelte';
+  import AssignDialog from './AssignDialog.svelte';
+  import AssignmentsPanel from './AssignmentsPanel.svelte';
 
   /** Teacher-authored exercises, restored from the library on mount.
    *  `authoring` lives in the store because the shell mounts the drawing
@@ -27,6 +31,9 @@
   let previewingSpec = $state<EduExerciseSpec | null>(null);
   let library = $state<EduExerciseSpec[]>([]);
   let linkNotice = $state('');
+  const assignmentsOn = $derived(accounts() && authStore.isAuthenticated && authStore.assignmentsEnabled);
+  let assigning = $state<EduExerciseSpec | null>(null);
+  let assignRevision = $state(0);
 
   // ── Collecting what students hand back ────────────────────────
   //
@@ -134,21 +141,6 @@
     return library.find((s) => s.id === id) ?? getExerciseSpecs().find((s) => s.id === id) ?? null;
   }
 
-  function storeApi(record?: number[]): EduExerciseAPI {
-    return {
-      addNode: (x, y) => {
-        const id = modelStore.addNode(x, y);
-        record?.push(id);
-        return id;
-      },
-      addElement: (nI, nJ, type) => modelStore.addElement(nI, nJ, type ?? 'frame'),
-      addHinge: (elementId, end) => modelStore.toggleHinge(elementId, end),
-      addSupport: (nodeId, type) => modelStore.addSupport(nodeId, type),
-      addNodalLoad: (nodeId, fx, fy, mz) => modelStore.addNodalLoad(nodeId, fx, fy, mz ?? 0),
-      addDistributedLoad: (elementId, qI, qJ) => modelStore.addDistributedLoad(elementId, qI, qJ),
-    };
-  }
-
   function handleAuthored(spec: EduExerciseSpec) {
     const { library: next } = saveToLibrary(spec);
     library = next;
@@ -198,7 +190,7 @@
     // array, not the model's ids (the store's id counter is shared with
     // whatever was loaded before this exercise).
     const builtNodeIds: number[] = [];
-    ex.build(storeApi(builtNodeIds));
+    ex.build(exerciseStoreApi(builtNodeIds));
 
     // Track in edu store
     eduStore.loadExercise(ex, builtNodeIds);
@@ -262,7 +254,7 @@
       eduStore.authoring = true;
       resultsStore.clear();
       modelStore.clear();
-      buildFromSpec(spec.authoredFrom?.model ?? variantOf(spec).model, storeApi());
+      buildFromSpec(spec.authoredFrom?.model ?? variantOf(spec).model, exerciseStoreApi());
       return;
     }
     // Leaving the exercise ends the handout: from here the window is a normal
@@ -281,6 +273,7 @@
       onclose={() => { eduStore.authoring = false; editingSpec = null; }}
       onsaved={handleAuthored}
       onpreview={previewAsStudent}
+      onassign={assignmentsOn ? (spec) => (assigning = spec) : undefined}
       editing={editingSpec}
     />
   {:else if eduStore.pending}
@@ -362,6 +355,9 @@
                 </button>
                 <div class="card-actions">
                   <button class="card-act" onclick={() => editExercise(spec)}>{t('edu.author.edit')}</button>
+                  {#if assignmentsOn}
+                    <button class="card-act" onclick={() => (assigning = spec)} data-testid="edu-assign">{t('exam.assign.open')}</button>
+                  {/if}
                   <button class="card-act del" onclick={() => deleteExercise(spec.id)}>{t('edu.author.delete')}</button>
                 </div>
               </div>
@@ -422,6 +418,13 @@
         {/if}
       </div>
 
+      {#if assignmentsOn}
+        <div class="exercise-section">
+          <h3 class="section-title">{t('exam.mine.title')}</h3>
+          <AssignmentsPanel revision={assignRevision} />
+        </div>
+      {/if}
+
       <div class="edu-footer">
         <p>{t('edu.moreExercises')}</p>
         <!-- Authoring lives beside the exercise list, not behind a setting:
@@ -449,6 +452,9 @@
         <EduExerciseView exercise={eduStore.exercise!} />
       {/key}
     </div>
+  {/if}
+  {#if assigning}
+    <AssignDialog spec={assigning} onclose={() => (assigning = null)} ondone={() => assignRevision++} />
   {/if}
 </div>
 
