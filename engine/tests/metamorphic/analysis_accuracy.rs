@@ -1509,3 +1509,66 @@ fn issue_1892_last_round_axial_recovery_cannot_buy_a_buckling_allowance() {
         }
     }
 }
+
+fn semidefinite_trajectory(amplitude: f64, dt: f64, stiffness: f64, mass: f64) -> dedaliano_engine::solver::time_integration::DynamicTrace {
+    let h = dt * 0.5;
+    dedaliano_engine::solver::time_integration::DynamicTrace {
+        k: CscMatrix::from_dense_symmetric(&[stiffness, 0.0, 0.0, stiffness], 2),
+        m: CscMatrix::from_dense_symmetric(&[mass; 4], 2),
+        a0: 0.0, a1: 0.0, beta: 0.25, gamma: 0.5, alpha: None, dt,
+        f: vec![vec![0.0; 2]; 2],
+        u: vec![vec![0.0; 2], vec![amplitude, -amplitude]],
+        v: vec![vec![0.0; 2], vec![amplitude / h, -amplitude / h]],
+        a: vec![vec![0.0; 2], vec![amplitude / (h * h), -amplitude / (h * h)]],
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_semidefinite_mass_small_step_cannot_self_certify() {
+    let trace = semidefinite_trajectory(1.0, 2e-7, 1.0, 1.0);
+    for damping_error in [0.0, 1e-4] {
+        let result = trajectory_error(&trace, damping_error);
+        assert!(result.is_err(), "zero-load null-mass trajectory certified: {result:?}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1892"]
+fn issue_1892_random_candidate_amplification_cannot_widen_the_ceiling() {
+    let tolerance = 1e-10;
+    for seed in 0..32 {
+        let mut rng = dedaliano_engine::metamorphic::Rng::new(2026111000000 + seed);
+        let stiffness = rng.range(0.75, 1.25);
+        let mass = rng.range(0.75, 1.25);
+        let dt = rng.range(1.5e-7, 2e-7);
+        let amplitude = rng.range(0.5, 2.0);
+        let factors = [1.0 + tolerance, 1.0 + rng.range(tolerance, 1e-4), rng.range(2.0, 1e6), 1e100];
+        for factor in factors {
+            assert!(factor >= 1.0 + tolerance);
+            let trace = semidefinite_trajectory(amplitude * factor, dt, stiffness, mass);
+            for damping_error in [0.0, 1e-4] {
+                let result = trajectory_error(&trace, damping_error);
+                assert!(result.is_err(), "seed {seed}, amplification {factor:e} certified: {result:?}");
+            }
+        }
+        let mut correct = unit_trajectory(0.0, 0.0);
+        correct.dt = rng.range(0.01, 2.0);
+        correct.a0 = rng.range(0.0, 0.25);
+        let h = correct.dt * 0.5;
+        let displacement = 2.0 / (1.0 + 1.0 / (h * h) + correct.a0 / h);
+        correct.u[1][0] = displacement;
+        correct.v[1][0] = displacement / h;
+        correct.a[1][0] = displacement / (h * h) - 1.0;
+        assert!(trajectory_error(&correct, 0.0).is_ok());
+        for factor in factors {
+            let mut candidate = correct.clone();
+            candidate.u[1][0] *= factor;
+            candidate.v[1][0] *= factor;
+            candidate.a[1][0] = candidate.u[1][0] / (h * h) - 1.0;
+            for damping_error in [0.0, 1e-4] {
+                assert!(trajectory_error(&candidate, damping_error).is_err(), "seed {seed}, nonzero response scaled by {factor:e} certified");
+            }
+        }
+    }
+}
