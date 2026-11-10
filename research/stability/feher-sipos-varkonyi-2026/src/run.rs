@@ -37,15 +37,28 @@ fn frame(s: &State) -> Value {
 }
 
 /// The path of Section 3.4 with the far corner of the rectangle at
-/// `(theta, delta)`: (1,0) → (Θ,0) → (Θ,Δ) → (1,Δ) → (1,0) under the uniform
-/// load 2.5, recording every state and any jump between neighbouring ones.
-/// Where no equilibrium is found near the previous state (a fold: the strip
-/// would snap), the path stops and `lost` names the actuator setting.
+/// `(theta, delta)`: (1,0) → (Θ,0) → (Θ,Δ) → (1,Δ) → (1,0) under the paper's
+/// uniform load 2.5, on 60 members.
 pub fn path(theta: f64, delta: f64) -> Result<Value, String> {
+    path_with(theta, delta, LOAD, Distribution::Uniform, ELEMENTS)
+}
+
+/// The same rectangle under the load `q` with the given distribution, on
+/// `elements` members. Where no equilibrium is found near the previous state
+/// (a fold: the strip would snap), the path stops and `lost` names the
+/// actuator setting. An error starting with "start:" means the arch at
+/// (1, 0) does not carry the load: it snaps while being loaded.
+pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, elements: usize) -> Result<Value, String> {
     if !(1.0..=1.6).contains(&theta) || !(0.0..=1.8).contains(&delta) {
         return Err("corner out of range".into());
     }
-    let mut s = bend(ELEMENTS, Setting { theta: 1.0, delta: 0.0, q: LOAD }, Distribution::Uniform, 2)?;
+    if !(0.0..=4.0).contains(&q) || !(20..=120).contains(&elements) {
+        return Err("load or mesh out of range".into());
+    }
+    let mut s = bend(elements, Setting { theta: 1.0, delta: 0.0, q }, distribution, 2)
+        .ok()
+        .filter(|s| s.snapshot().y_mid > 0.0)
+        .ok_or("start: the arch at (1, 0) snaps under this load")?;
     let mut frames = vec![frame(&s)];
     let mut corners = vec![0];
     let mut snaps = vec![];
@@ -56,7 +69,7 @@ pub fn path(theta: f64, delta: f64) -> Result<Value, String> {
         let steps = ((t1 - t0).abs().max((d1 - d0).abs()) / STEP).ceil() as usize;
         for k in 1..=steps {
             let f = k as f64 / steps as f64;
-            let to = Setting { theta: t0 + f * (t1 - t0), delta: d0 + f * (d1 - d0), q: LOAD };
+            let to = Setting { theta: t0 + f * (t1 - t0), delta: d0 + f * (d1 - d0), q };
             let Ok(next) = s.advance(to, 2).or_else(|_| s.advance(to, 40)) else {
                 lost = json!({"theta": round(to.theta), "delta": round(to.delta)});
                 break 'legs;
@@ -71,8 +84,9 @@ pub fn path(theta: f64, delta: f64) -> Result<Value, String> {
     }
     Ok(json!({
         "lost": lost,
-        "elements": ELEMENTS,
-        "load": LOAD,
+        "elements": elements,
+        "load": q,
+        "distribution": distribution,
         "corner": [theta, delta],
         "corners": corners,
         "snaps": snaps,
