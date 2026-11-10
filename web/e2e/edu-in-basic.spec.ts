@@ -78,6 +78,7 @@ async function openFirstExercise(page: Page) {
   const card = page.locator('.exercise-card').first();
   await expect(card).toBeVisible();
   await card.click();
+  await page.getByTestId('edu-practice').click();
   await expect(page.locator('.exercise-view')).toBeVisible();
 }
 

@@ -62,7 +62,6 @@ function roundTo(v: number, step: number) {
   return Number((Math.round(v / step) * step).toFixed(6));
 }
 
-/** A starting range a teacher would recognise: half to one and a half times the drawn value, on a round step. */
 export function suggestRange(kind: ParamTarget['kind'], value: number): ParamRange {
   const length = kind === 'segX' || kind === 'segY';
   const step = length ? 0.5 : value >= 10 ? 5 : value >= 2 ? 1 : 0.5;
