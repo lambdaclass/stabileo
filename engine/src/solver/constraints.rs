@@ -2255,6 +2255,8 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     // over the triplets of K (near-linear in nnz(K) for MPC transforms).
     let k_reduced = fcs.reduce_matrix_sparse(k_ff);
     let f_reduced = fcs.reduce_vector(&f_f);
+    let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff)
+        .or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
     let stability = fcs.stability(&k_reduced, &dof_num, k_ff, &super::stability::coupling_3d(&input.solver, &dof_num));
     refuse_unstable(&stability, &f_reduced)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
@@ -2380,6 +2382,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     });
 
     constraint_diags.push(checked_residual?);
+    crate::known_issues::attach(&mut constraint_diags, containment_conditioning.into_iter().collect());
 
     let mut result = AnalysisResults3D {
         displacements,

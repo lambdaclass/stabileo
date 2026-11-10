@@ -24,37 +24,30 @@ pub struct ConditioningReport {
 pub fn check_conditioning(k: &[f64], n: usize) -> ConditioningReport {
     assert!(k.len() >= n * n, "Matrix too small: expected {} elements, got {}", n * n, k.len());
 
-    let mut max_diag = 0.0f64;
+    check_diagonals((0..n).map(|i| k[i * n + i]))
+}
+
+pub fn check_sparse_conditioning(k: &crate::linalg::sparse::CscMatrix) -> ConditioningReport {
+    check_diagonals((0..k.n).map(|j| {
+        (k.col_ptr[j]..k.col_ptr[j + 1]).find(|&p| k.row_idx[p] == j).map_or(0.0, |p| k.values[p])
+    }))
+}
+
+fn check_diagonals(diagonals: impl Iterator<Item = f64> + Clone) -> ConditioningReport {
+    let max_diag = diagonals.clone().map(f64::abs).fold(0.0f64, f64::max);
+    let threshold = if max_diag > 0.0 { max_diag * 1e-12 } else { f64::EPSILON };
     let mut min_nonzero_diag = f64::MAX;
     let mut near_zero_dofs = Vec::new();
-
-    // First pass: find max diagonal
-    for i in 0..n {
-        let d = k[i * n + i].abs();
-        if d > max_diag {
-            max_diag = d;
-        }
-    }
-
-    let threshold = if max_diag > 0.0 { max_diag * 1e-12 } else { f64::EPSILON };
-
-    // Second pass: find near-zero diagonals and min nonzero diagonal
-    for i in 0..n {
-        let d = k[i * n + i].abs();
+    for (i, d) in diagonals.map(f64::abs).enumerate() {
         if d <= threshold {
             near_zero_dofs.push(i);
-        } else {
-            if d < min_nonzero_diag {
-                min_nonzero_diag = d;
-            }
+        } else if d < min_nonzero_diag {
+            min_nonzero_diag = d;
         }
     }
-
     let diagonal_ratio = if min_nonzero_diag < f64::MAX && min_nonzero_diag > 0.0 {
         max_diag / min_nonzero_diag
-    } else {
-        0.0
-    };
+    } else { 0.0 };
 
     // Build warnings
     let mut warnings = Vec::new();
@@ -87,6 +80,32 @@ pub fn check_conditioning(k: &[f64], n: usize) -> ConditioningReport {
         diagonal_ratio,
         near_zero_dofs,
         warnings,
+    }
+}
+
+impl ConditioningReport {
+    pub fn legacy_diagnostics(&self) -> Vec<crate::types::SolverDiagnostic> {
+        self.warnings.iter().map(|message| crate::types::SolverDiagnostic {
+            category: "conditioning".into(), message: message.clone(), severity: "warning".into(),
+        }).collect()
+    }
+
+    pub fn structured_diagnostics(&self) -> Vec<crate::types::StructuredDiagnostic> {
+        use crate::types::{DiagnosticCode, Severity, StructuredDiagnostic};
+        let mut out = Vec::new();
+        let cond = self.diagonal_ratio;
+        if cond > 1e12 {
+            out.push(StructuredDiagnostic::global(DiagnosticCode::ExtremelyHighDiagonalRatio, Severity::Warning,
+                format!("Extremely high diagonal ratio {:.2e}", cond)).with_value(cond, 1e12).with_phase("conditioning"));
+        } else if cond > 1e8 {
+            out.push(StructuredDiagnostic::global(DiagnosticCode::HighDiagonalRatio, Severity::Warning,
+                format!("High diagonal ratio {:.2e}", cond)).with_value(cond, 1e8).with_phase("conditioning"));
+        }
+        if !self.near_zero_dofs.is_empty() {
+            out.push(StructuredDiagnostic::global(DiagnosticCode::NearZeroDiagonal, Severity::Warning,
+                format!("{} near-zero diagonal entries", self.near_zero_dofs.len())).with_dofs(self.near_zero_dofs.clone()).with_phase("conditioning"));
+        }
+        out
     }
 }
 

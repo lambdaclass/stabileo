@@ -1549,6 +1549,7 @@ struct FullyRestrained3D {
 
 struct DensePrepared3D {
     k_ff: Vec<f64>,
+    conditioning_warnings: Vec<SolverDiagnostic>,
     k_rf: Vec<f64>,
     k_fr_ur: Vec<f64>,
     k_rr_ur: Vec<f64>,
@@ -1768,6 +1769,9 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_with_coupling(&stiff.k_ff, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num)) };
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         stiff.k_ff = stability.pin_sparse(&stiff.k_ff);
+        let conditioning = super::conditioning::check_sparse_conditioning(&stiff.k_ff);
+        pre_solve_diags.extend(conditioning.structured_diagnostics());
+        solver_diags_base.extend(conditioning.legacy_diagnostics());
         let conditioning_us = now_micros().saturating_sub(t0);
 
         let solver_opts = resolve_solver_options(&input.solver_options, nf, &mut solver_diags_base);
@@ -1856,6 +1860,8 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense_with_coupling(&k_ff, nf, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num)) };
         if let Some(refusal) = stability.refusal() { return Err(refusal); }
         stability.pin_dense(&mut k_ff, nf);
+        let conditioning = super::conditioning::check_conditioning(&k_ff, nf);
+        pre_solve_diags.extend(conditioning.structured_diagnostics());
 
         let k_fr = extract_submatrix(&stiff.k, n, &free_idx, &rest_idx);
         let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
@@ -1879,6 +1885,7 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
             pre_solve_diags,
             stability,
             path: PreparedPath3D::Dense(DensePrepared3D {
+                conditioning_warnings: conditioning.legacy_diagnostics(),
                 k_ff,
                 k_rf,
                 k_fr_ur,
@@ -2070,11 +2077,12 @@ impl PreparedStatic3D {
         assert_finite_3d(&u_f)?;
         self.stability.check_pins(&u_f, &f[..nf], &p.k_fr_ur)?;
 
-        let solver_diags = vec![SolverDiagnostic {
+        let mut solver_diags = p.conditioning_warnings.clone();
+        solver_diags.push(SolverDiagnostic {
             category: "solver_path".into(),
             message: format!("Dense solver ({} free DOFs)", nf),
             severity: "info".into(),
-        }];
+        });
 
         // Compute residual: ||K_ff · u_f − f_f|| / ||f_f||
         let rel_residual = {

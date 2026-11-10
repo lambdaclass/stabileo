@@ -2958,7 +2958,6 @@ fn issue_1753_unit_invariance_rejects_nan_displacement_components() {
 }
 
 #[test]
-#[ignore = "known wrong result: #762"]
 fn offset_cantilever_retains_original_stiffness_containment() {
     use dedaliano_engine::solver::constraints::{solve_constrained_3d, ConstrainedInput3D};
     let value: serde_json::Value = serde_json::from_str(include_str!("fixtures/findings-offset-762.json")).unwrap();
@@ -2971,7 +2970,6 @@ fn offset_cantilever_retains_original_stiffness_containment() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn accepted_3d_cantilever_retains_conditioning_in_both_diagnostic_lists() {
     use dedaliano_engine::solver::linear::prepare_static_3d;
     let base: SolverInput3D = serde_json::from_str(include_str!("fixtures/findings-conditioning-1753.json")).unwrap();

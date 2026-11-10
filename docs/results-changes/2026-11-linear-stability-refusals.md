@@ -19,11 +19,11 @@ What changes for a model:
 |--------|-------|
 | Solved with `StiffnessNotPositiveDefinite` (LU fallback or a diagonal shift) | Refused: "the stiffness matrix is not positive …" or "the structure is a mechanism …" |
 | Solved with `HighDiagonalRatio`, `NearZeroDiagonal` or `NUM-INVARIANCE`, `κ_S A > 1e12` | Refused as Singular, naming the nodes |
-| Solved with `HighDiagonalRatio` and `κ_S A ≤ 1e12` | Same displacements, without the warning |
+| Solved with `HighDiagonalRatio` and `κ_S A ≤ 1e12` | Same displacements; accepted 3D solves retain conservative raw-diagonal warnings |
 | Solved with `ORPHAN-SOFT-ROTATION` (#1496) | Solved exactly, or refused |
 | A stable model | The recorded corpus retains its displacements and reactions; corrected PCG components and sparse direct residual refinement can change other stable responses |
 
-`NUM-INVARIANCE` is attached by the linear solves only for an excessive displacement.
+`NUM-INVARIANCE` remains attached for an excessive displacement. Accepted 3D solves retain conservative conditioning warnings and original/reduced constrained-stiffness containment.
 
 ## Corpus
 
