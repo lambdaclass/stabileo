@@ -3576,138 +3576,7 @@
       "iterations": [],
       "wall_limit_seconds": 1
     },
-    "after-grid": {
-      "mode": "engine",
-      "failure": null,
-      "exit_code": 0,
-      "process_seconds": 0.006318706087768078,
-      "peak_rss_bytes": 10543104,
-      "first_outcome": {
-        "kind": "error: exact plastic LP resource budget exceeded (144 force variables, 6144 possible yield halfspaces); reduce members or load intervals"
-      },
-      "iterations": [
-        {
-          "allocated_bytes": 236188,
-          "iteration": 0,
-          "live_after": 4167,
-          "live_before": 4167,
-          "peak_bytes": 160310,
-          "peak_rss_bytes": 5738496,
-          "seconds": 0.000565492,
-          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
-        },
-        {
-          "allocated_bytes": 236188,
-          "iteration": 1,
-          "live_after": 5191,
-          "live_before": 5191,
-          "peak_bytes": 161334,
-          "peak_rss_bytes": 5746688,
-          "seconds": 0.000342123,
-          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
-        },
-        {
-          "allocated_bytes": 236188,
-          "iteration": 2,
-          "live_after": 5191,
-          "live_before": 5191,
-          "peak_bytes": 161334,
-          "peak_rss_bytes": 5750784,
-          "seconds": 0.0003139,
-          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
-        },
-        {
-          "allocated_bytes": 236188,
-          "iteration": 3,
-          "live_after": 5191,
-          "live_before": 5191,
-          "peak_bytes": 161334,
-          "peak_rss_bytes": 5754880,
-          "seconds": 0.00030821,
-          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
-        },
-        {
-          "allocated_bytes": 236188,
-          "iteration": 4,
-          "live_after": 5191,
-          "live_before": 5191,
-          "peak_bytes": 161334,
-          "peak_rss_bytes": 5754880,
-          "seconds": 0.000305685,
-          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
-        }
-      ]
-    },
-    "gate-grid": {
-      "mode": "gate",
-      "failure": null,
-      "exit_code": 0,
-      "process_seconds": 0.005895059090107679,
-      "peak_rss_bytes": 10543104,
-      "first_outcome": {
-        "kind": "fuzz budget skip",
-        "work": {
-          "equilibrium_equations": 84,
-          "force_variables": 144,
-          "initial_halfspaces": 384,
-          "max_halfspaces": 6144,
-          "max_solves": 61
-        }
-      },
-      "iterations": [
-        {
-          "allocated_bytes": 319519,
-          "iteration": 0,
-          "live_after": 4165,
-          "live_before": 4165,
-          "peak_bytes": 160308,
-          "peak_rss_bytes": 5885952,
-          "seconds": 0.000439816,
-          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
-        },
-        {
-          "allocated_bytes": 319519,
-          "iteration": 1,
-          "live_after": 5189,
-          "live_before": 5189,
-          "peak_bytes": 161332,
-          "peak_rss_bytes": 5898240,
-          "seconds": 0.000323648,
-          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
-        },
-        {
-          "allocated_bytes": 319519,
-          "iteration": 2,
-          "live_after": 5189,
-          "live_before": 5189,
-          "peak_bytes": 161332,
-          "peak_rss_bytes": 5898240,
-          "seconds": 0.000309121,
-          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
-        },
-        {
-          "allocated_bytes": 319519,
-          "iteration": 3,
-          "live_after": 5189,
-          "live_before": 5189,
-          "peak_bytes": 161332,
-          "peak_rss_bytes": 5910528,
-          "seconds": 0.000310834,
-          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
-        },
-        {
-          "allocated_bytes": 319519,
-          "iteration": 4,
-          "live_after": 5189,
-          "live_before": 5189,
-          "peak_bytes": 161332,
-          "peak_rss_bytes": 5910528,
-          "seconds": 0.000304732,
-          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
-        }
-      ]
-    },
-    "interpretation": "The one-second timeout with no iteration establishes neither a dense-memory overrun nor a 60-second overrun. after-grid and gate-grid record the superseded pivot-counter policy; current storage admission accepts this grid. No full grid solve was repeated."
+    "interpretation": "The one-second timeout with no iteration establishes neither a dense-memory overrun nor a 60-second overrun. Current storage admission accepts this grid. No full grid solve was repeated. Superseded refusal reports are kept only in historical_pivot_counter_grid_replays and are not current replay expectations."
   },
   "seeded_controls": {
     "gate": {
@@ -3885,5 +3754,139 @@
       "over-budget-grid": "b6231e795bcac996eef23a4ff726740f64d9e8b1ee68daff5322d173f36de970"
     },
     "artifact_note": "Current hashes include the final newline added in review. Historical raw_sha fields and measurements are retained as originally recorded."
+  },
+  "historical_pivot_counter_grid_replays": {
+    "policy": "Superseded pivot-counter admission, before current storage accounting; these refusals are historical evidence only and must not be required by a current replay.",
+    "after-grid": {
+      "mode": "engine",
+      "failure": null,
+      "exit_code": 0,
+      "process_seconds": 0.006318706087768078,
+      "peak_rss_bytes": 10543104,
+      "first_outcome": {
+        "kind": "error: exact plastic LP resource budget exceeded (144 force variables, 6144 possible yield halfspaces); reduce members or load intervals"
+      },
+      "iterations": [
+        {
+          "allocated_bytes": 236188,
+          "iteration": 0,
+          "live_after": 4167,
+          "live_before": 4167,
+          "peak_bytes": 160310,
+          "peak_rss_bytes": 5738496,
+          "seconds": 0.000565492,
+          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
+        },
+        {
+          "allocated_bytes": 236188,
+          "iteration": 1,
+          "live_after": 5191,
+          "live_before": 5191,
+          "peak_bytes": 161334,
+          "peak_rss_bytes": 5746688,
+          "seconds": 0.000342123,
+          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
+        },
+        {
+          "allocated_bytes": 236188,
+          "iteration": 2,
+          "live_after": 5191,
+          "live_before": 5191,
+          "peak_bytes": 161334,
+          "peak_rss_bytes": 5750784,
+          "seconds": 0.0003139,
+          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
+        },
+        {
+          "allocated_bytes": 236188,
+          "iteration": 3,
+          "live_after": 5191,
+          "live_before": 5191,
+          "peak_bytes": 161334,
+          "peak_rss_bytes": 5754880,
+          "seconds": 0.00030821,
+          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
+        },
+        {
+          "allocated_bytes": 236188,
+          "iteration": 4,
+          "live_after": 5191,
+          "live_before": 5191,
+          "peak_bytes": 161334,
+          "peak_rss_bytes": 5754880,
+          "seconds": 0.000305685,
+          "outcome_sha256": "31137792e3f71e6f9a8aa1749bcb0c77935d6ad2cd08f1d83bb0eedd306332fd"
+        }
+      ]
+    },
+    "gate-grid": {
+      "mode": "gate",
+      "failure": null,
+      "exit_code": 0,
+      "process_seconds": 0.005895059090107679,
+      "peak_rss_bytes": 10543104,
+      "first_outcome": {
+        "kind": "fuzz budget skip",
+        "work": {
+          "equilibrium_equations": 84,
+          "force_variables": 144,
+          "initial_halfspaces": 384,
+          "max_halfspaces": 6144,
+          "max_solves": 61
+        }
+      },
+      "iterations": [
+        {
+          "allocated_bytes": 319519,
+          "iteration": 0,
+          "live_after": 4165,
+          "live_before": 4165,
+          "peak_bytes": 160308,
+          "peak_rss_bytes": 5885952,
+          "seconds": 0.000439816,
+          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
+        },
+        {
+          "allocated_bytes": 319519,
+          "iteration": 1,
+          "live_after": 5189,
+          "live_before": 5189,
+          "peak_bytes": 161332,
+          "peak_rss_bytes": 5898240,
+          "seconds": 0.000323648,
+          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
+        },
+        {
+          "allocated_bytes": 319519,
+          "iteration": 2,
+          "live_after": 5189,
+          "live_before": 5189,
+          "peak_bytes": 161332,
+          "peak_rss_bytes": 5898240,
+          "seconds": 0.000309121,
+          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
+        },
+        {
+          "allocated_bytes": 319519,
+          "iteration": 3,
+          "live_after": 5189,
+          "live_before": 5189,
+          "peak_bytes": 161332,
+          "peak_rss_bytes": 5910528,
+          "seconds": 0.000310834,
+          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
+        },
+        {
+          "allocated_bytes": 319519,
+          "iteration": 4,
+          "live_after": 5189,
+          "live_before": 5189,
+          "peak_bytes": 161332,
+          "peak_rss_bytes": 5910528,
+          "seconds": 0.000304732,
+          "outcome_sha256": "fece688f7ae2846e5cba8ae9ec9115b5a60be83af1aade5deacc49d95397e290"
+        }
+      ]
+    }
   }
 }

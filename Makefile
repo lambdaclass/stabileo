@@ -820,8 +820,12 @@ test.engine.plastic-budget:
 replay.engine.plastic-budget: build.engine.plastic-budget
 	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
 
-test.engine.plastic-budget-watchdog: build.engine.plastic-budget
+test.engine.plastic-budget-watchdog:
 	$(NIX_RUN) python3 -B -I scripts/tests/test_plastic_budget_replay.py
+
+.PHONY: test.engine.plastic-replay
+test.engine.plastic-replay: build.engine.plastic-budget
+	$(NIX_RUN) python3 -B -I scripts/plastic-budget-engine-tests.py
 
 .PHONY: build.engine.plastic-budget-asan
 build.engine.plastic-budget-asan:

@@ -21,4 +21,4 @@ Regressions exercise rational-limb refusals directly in both mechanism builders,
 compare the portal's checked certificate against an independent certificate,
 require no mismatch diagnostic for an inside-interval factor, and read the real
 WASM above-interval artifact as outside. See
-[SA-2026-059](../advisories/SA-2026-059-plastic-interval-and-resource-refusals.md).
+[SA-2026-057](../advisories/SA-2026-057-plastic-interval-and-resource-refusals.md).

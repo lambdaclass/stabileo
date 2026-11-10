@@ -351,7 +351,7 @@ describe('reading time', () => {
 describe('the safety-advisories post quotes the advisories', () => {
   const post = findPost('safety-advisories');
 
-  it.skip.each<[PublicLocale, string, string]>([
+  it.each<[PublicLocale, string, string]>([
     ['en', 'Medium', 'Draft: fix not yet merged or deployed'],
     ['es', 'Media', 'Borrador: corrección aún no integrada ni publicada'],
     ['pt', 'Média', 'Rascunho: correção ainda não integrada nem publicada'],

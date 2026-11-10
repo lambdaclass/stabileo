@@ -18,7 +18,32 @@ class SeededReplay(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        subprocess.run(["make", "build.engine.plastic-budget"], check=True)
+        directory = tempfile.TemporaryDirectory(dir=".")
+        cls.addClassCleanup(directory.cleanup)
+        cls.binary = Path(directory.name).resolve() / "replay-runner"
+        cls.binary.write_text(f"#!{sys.executable}\n" + r'''import json
+from pathlib import Path
+import sys
+import time
+
+artifact, mode, repeats = sys.argv[1:]
+if mode == "hang" or Path(artifact).name == "engine-grid-slab.bin":
+    time.sleep(60)
+model = json.loads(Path(artifact).read_bytes()[2:])
+length = model["solver"]["nodes"]["2"]["x"] - model["solver"]["nodes"]["1"]["x"]
+load = abs(model["solver"]["loads"][0]["data"]["qZI"])
+factor = 16 * model["mpOverrides"]["1"][0] / (load * length * length)
+certificate = dict(certified=True, lambdaLower=factor, lambdaUpper=factor,
+                   solverWithinBounds=True)
+live = 0
+for iteration in range(int(repeats)):
+    before = live
+    if mode == "leak" or (mode == "leak-first" and iteration == 0):
+        live += 1 << 20
+    print(json.dumps(dict(iteration=iteration, live_before=before, live_after=live,
+                          outcome="ok: " + json.dumps(certificate))), flush=True)
+''')
+        cls.binary.chmod(0o755)
 
     def test_slow_grid_runs_only_under_the_replay_watchdog(self):
         seed = self.seed.with_name("engine-grid-slab.bin")
@@ -69,7 +94,6 @@ class SeededReplay(unittest.TestCase):
 
 
 class ReplayBuild(unittest.TestCase):
-    @unittest.skip("known wrong result: #1888")
     def test_script_target_does_not_build_rust_or_require_nix(self):
         result = subprocess.run(["make", "-n", "test.engine.plastic-budget-watchdog", "NIX_RUN="],
                                 capture_output=True, text=True)
@@ -77,17 +101,18 @@ class ReplayBuild(unittest.TestCase):
         self.assertNotIn("cargo", result.stdout)
         self.assertNotIn("nix", result.stdout)
 
-    @unittest.skip("known wrong result: #1888")
     def test_script_runner_setup_does_not_invoke_a_build(self):
         with patch.object(subprocess, "run") as build:
             SeededReplay.setUpClass()
-        self.addCleanup(SeededReplay.tearDownClass)
+        self.addCleanup(SeededReplay.doClassCleanups)
         build.assert_not_called()
 
-    def test_replay_tests_build_the_example_before_running(self):
-        with patch.object(subprocess, "run") as build:
-            SeededReplay.setUpClass()
-        build.assert_called_once_with(["make", "build.engine.plastic-budget"], check=True)
+    def test_engine_replay_builds_the_example_before_running(self):
+        result = subprocess.run(["make", "-n", "test.engine.plastic-replay", "NIX_RUN="],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertLess(result.stdout.index("cargo build"),
+                        result.stdout.index("scripts/plastic-budget-engine-tests.py"))
 
     def test_replay_build_uses_the_directory_consumed_by_tests(self):
         result = subprocess.run(["make", "-n", "build.engine.plastic-budget", "NIX_RUN="],
