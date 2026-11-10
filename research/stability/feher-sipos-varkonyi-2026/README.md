@@ -43,44 +43,54 @@ research/stability/feher-sipos-varkonyi-2026/build.sh   # the page's WASM
 
 ## Agreement
 
-`VALIDATION.json` holds every number below.
+Every number below is in `VALIDATION.json`.
 
 **Figure 9(c).** The five curves were digitized from the preprint
-(`reference-results/fig9c_digitized.json`, method inside). All five lie on our path, with median
-distances of 0.0018 to 0.0046 strip lengths; the plotted line is about 0.004 thick.
+(`reference-results/fig9c_digitized.json`, method inside). Each is compared through its midpoint
+height y(1/2), taken at the clamp angles where Figure 9(b) places it; the paper's value is
+measured at half the length of its digitized curve. The whole curves also lie on our path, at
+median distances of 0.0018 to 0.0046 strip lengths; the plotted line is about 0.004 thick.
 
-| Shape | Our closest state (Θ, Δ) |
-|---|---|
-| 1 | (1, 0), start of the path |
-| 2 | (1.3, 0.06) |
-| 3 | (1.28, 1.3) |
-| 4 | (1, 1.18) |
-| 5 | (1, 0), end of the path |
+| Shape | (Θ, Δ) | Paper y(1/2) | Ours | Difference |
+|---|---|---|---|---|
+| 1 | (1, 0) | 0.223 | 0.226 | +0.003 |
+| 2 | (1.3, 0) | 0.188 | 0.189 | +0.001 |
+| 3 | (1.3, 1.3) | 0.107 | 0.108 | +0.001 |
+| 4 | (1, 1.3) | −0.076 | −0.065 | +0.011 |
+| 5 | (1, 0) | −0.155 | −0.150 | +0.005 |
 
-**Section 3.2**, values read from the text:
+Shape 4 sits just past the cusp, where y(1/2) changes fast with the clamp angles: our path
+reaches −0.076 at Δ ≈ 1.22.
+
+**Section 3.2**, values read from the text. The paper prints the limit loads as negative numbers;
+with q > 0 pushing down, as in its energy, they are downward loads of that size.
 
 | Quantity | Paper | Ours | Difference |
 |---|---|---|---|
 | Limit load, uniform load, (0.9, 0) | ≈ 4.2 | 4.25 | +1.1 % |
 | Limit load, uniform load, (0.9, 0.04) | ≈ 3.9 | 3.95 | +1.3 % |
-| Table 1, uniform load, (0.96, 0), largest curvature | 2.1 | 2.13 | +1.5 % |
+| Limit load, half-span load, (0.9, 0) | ≈ 2.5 | 2.37 | −5.4 % |
+| Largest limit load, half-span load, Θ = 0.66 | ≈ 4.0 at Δ = 1.36 | 3.74 at Δ = 1.16 | −6.5 % |
+| Table 1, uniform load, (0.96, 0) | 2.10 | 2.13 | +1.5 % |
+| Table 1, half-span load, (0.96, 0), after a snap | 7.60 | 14.07 | +85 % |
+| Table 1, uniform load, (0.64, 1.16), after a snap | 11.70 | 11.38 | −2.7 % |
+| Table 1, half-span load, (0.64, 1.16) | 3.35 | 3.76 | +12 % |
 
-The paper prints the limit loads as negative numbers. With q > 0 pushing down, as in its energy,
-they are downward loads of that size.
+Where loading loses stability before q = 2.5, the state at 2.5 is the stable state the strip
+snaps to. It is found by pushing the last stable state along its critical mode, the lowest
+eigenvector of the tangent. All values are mesh-converged: going from 96 to 192 members changes
+them by less than 0.1 %.
 
 **Exact solution.** At Θ = 1 and q = 0 the strip is the circular arc of radius 1/2. Ours departs
 from it by 3.4·10⁻⁵ of the radius, and the error falls as h².
 
 ## What does not agree yet
 
-- **Load on half the span (Q_a):**
-  - the limit at (0.9, 0) is 2.37 against ≈ 2.5;
-  - the limit at the optimum (0.66, 1.36) is 2.26 against ≈ 4.0;
-  - the Table 1 curvature at (0.64, 1.16) is 3.76 against 3.35.
-- **Table 1 values reached after a snap:** Q_a at (0.96, 0), 7.6, and Q_s at (0.64, 1.16), 11.7.
-  Our load-controlled run loses the equilibrium at the limit point (q = 1.59 for the latter).
-  Following the paper past the snap needs arc-length with prescribed rotations, which the
-  production solver does not have yet.
+- **Load on half the span:** our limit loads come out 5–7 % lower. The bifurcation curve on which
+  the paper finds its optimum lies about 0.2 lower in Δ in our runs, which also puts the Table 1
+  point (0.64, 1.16) right on it.
+- **Half-span load at (0.96, 0):** the snap lands on a stable state with curvature 14.1, not the
+  paper's 7.6.
 - **Curvature threshold:** the inverted shape at the end of the path matches the figure but has a
   largest curvature of about 10.6. The paper sets a threshold of 6 for the path.
 - **Not attempted:** the equilibrium surface of Figure 9(a) (unstable branches) and the reachable
