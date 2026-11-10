@@ -414,3 +414,90 @@ row-residual verification. Its signed spring-equilibrium check uses relative tol
 `1e-12`, so a small absolute response cannot hide a missing component. No tolerance or
 assertion was relaxed. This measured main failure extends
 [SA-2026-054](../advisories/SA-2026-054-unresolved-linear-stiffness.md); SA-2026-055 is removed.
+
+
+### Final review: bounded Lanczos acceptance and restored fixture checks
+
+The final-round regression constructs a symmetric matrix with a leading block
+`[[2.0005, -0.0005], [-0.0005, 2.0005]]` and the remaining diagonal entries
+`1 + i / (10 m)`, for `m = 80`. Its largest eigenvalue is `2.001`, in the
+antisymmetric direction of that block. Seed `15233338564176581173` gives exactly
+equal first two starting components, making that direction absent from the Krylov
+subspace. The old helper accepted `2.0000000000000004` after two successive checks
+at iterations 10 and 20. Agreement between estimates does not bound the largest
+eigenvalue, and even a small residual could describe the wrong eigenpair.
+
+`lanczos_top` now returns only after its caller certifies an upper bound. For the
+stiffness, Cholesky of `u I - S` must succeed. For the inverse stiffness, Cholesky
+of `S - l I` must succeed, and `1/l` bounds the inverse's largest eigenvalue.
+The existing certification margin, widening limit, seed count and precision
+product gate are unchanged. Stall and iteration exhaustion select when to try
+certification; neither can bypass it. The regression also exercises a two-entry
+Krylov breakdown. A separate hidden-eigenvalue case whose certificate cannot be
+obtained within the existing widening budget must return `None`.
+
+The earlier `spectrum` already applied these Cholesky certificates after obtaining
+raw Ritz estimates. This patch moves that requirement into the helper's acceptance
+contract. It does not demonstrate a formerly accepted unsafe user solve; no new
+advisory is justified by this helper regression. The existing registry entry and
+SA-2026-054 continue to cover the independently demonstrated main failures.
+Reciprocal multiplication can change the last rounded bit of the condition-number
+diagnostic compared with the former upper/lower division. The matrix precision
+threshold is unchanged.
+
+The Q9 cap again compares its solved 4x4 and 8x8 meshes with the original `> 0.80`
+self-convergence assertion. The 16x16 refusal stays required. The solved Raasch
+meshes retain the original numeric floors, and the MITC4 solved mesh also retains
+the original upper capability bound. The 32x32 MITC4 cap now independently asserts
+the full registered `SH-MITC4-DISTORTION` containment identity through the distorted
+model preflight, as well as requiring the linear solver's conditioning refusal.
+The preflight code assertion does not pretend that the linear conditioning error
+is the distortion diagnostic: the matrix gate runs before the response-based
+membrane-bending guard on this mesh.
+
+The deformation test restores the original axial multiplier `1e5` and the original
+accuracy assertion. The unit-invariance helpers require every compared displacement
+component to be finite. The NaN reproducer used to pass its inner comparison; now
+all six injected nonfinite components are rejected. An empty prepared load case
+must contain every expected node exactly once, with all six components zero.
+
+#### Truss fixtures: mechanisms and independent signed forces
+
+Both original two-dimensional fixtures lack the middle-panel diagonal. A nonzero
+admissible motion is `ux = -z`, with `uz = x` for the left end block and `uz = x-12`
+for the right. It has exactly zero first-order extension in every original member
+and zero restrained support motion. Both original fixtures are therefore genuine
+mechanisms, independently of their solver refusal. Adding member 13 removes that
+mode. The tests are renamed for three-panel trusses with upward/downward end
+diagonals; they no longer claim the former Pratt/Howe pattern.
+
+[The independent calculator](1753-truss-reference.py) solves all joint equilibrium
+equations with rational arithmetic. With the fixtures' two downward loads of 30,
+it gives these signed tension-positive forces in member-id order:
+
+| End diagonals | Members 1 through 13 |
+|---|---|
+| Upward | 40, 40, 40, 0, -40, 0, 0, 0, 0, 0, -50, -50, 0 |
+| Downward | 0, 40, 0, -40, -40, -40, -30, -30, -30, -30, 50, 50, 0 |
+
+For the original bridge supports, rigid yaw has displacement
+`u = (-(y+1), x, 0)`. It is nonzero, stretches no original member and respects every
+restraint. It remains a mechanism after adding the braces if node 5 keeps its
+longitudinal roller. The tests prove both variants and require their refusal.
+The pinned-node-5 and cross-braced fixture stays, under an explicit name.
+
+The same calculator independently assembles axial compatibility and solves it at
+70-digit Decimal precision with uniform `EA = 1`; the common axial stiffness scale
+cancels from the member forces. It asserts free-joint equilibrium residuals below
+`1e-50`. Its [recorded output](1753-truss-reference.json) contains all 54 signed
+member forces and support reactions. The bridge test checks all of them using the
+existing 1% relative and `1e-6` absolute force tolerances. For example, members 1
+and 4 each carry `0.2310880534869431`, and the transverse reactions at nodes 1 and 5
+are opposite `1.6274824297717988`. Their longitudinal reactions are zero for these
+symmetric vertical loads. These values are computed references, not snapshots of
+engine output. Reproduce with `make shell` and run
+`python3 docs/results-changes/1753-truss-reference.py`.
+
+All other findings from the final review are tracked in
+[#1891](https://github.com/lambdaclass/stabileo/issues/1891), assigned to
+unbalancedparentheses and Batuis with label `cause:C`.

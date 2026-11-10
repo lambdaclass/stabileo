@@ -745,7 +745,7 @@ fn start(m: usize, seed: u64) -> Vec<f64> {
     x.into_iter().map(|a| a / nx).collect()
 }
 
-fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64) -> Option<(f64, Vec<f64>)> {
+fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64, certify: &dyn Fn(f64) -> Option<f64>) -> Option<(f64, Vec<f64>)> {
     let steps = m.min(200);
     let mut basis: Vec<Vec<f64>> = vec![start(m, seed)];
     let (mut alpha, mut beta): (Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new());
@@ -778,7 +778,7 @@ fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64) -> Optio
                 let c = y[i * k + k - 1];
                 x.iter_mut().zip(v).for_each(|(a, b)| *a += c * b);
             }
-            return Some((top, x));
+            return certify(top).map(|upper| (upper, x));
         }
         previous = top;
         beta.push(b);
@@ -801,6 +801,11 @@ fn positive_definite(s: &CscMatrix, scale: f64, shift: f64) -> bool {
 const CERTIFY: f64 = 1e-3;
 const WIDEN: i32 = 11;
 
+fn certified_top(s: &CscMatrix, estimate: f64) -> Option<f64> {
+    (0..WIDEN).map(|t| (1.0 + CERTIFY) * estimate * 2f64.powi(t))
+        .find(|&upper| upper.is_finite() && upper > 0.0 && positive_definite(s, -1.0, upper))
+}
+
 fn spectrum(s: &CscMatrix, anisotropy: f64) -> (f64, Option<Vec<f64>>, bool) {
     let m = s.n;
     if m <= FULL_SPECTRUM {
@@ -814,13 +819,14 @@ fn spectrum(s: &CscMatrix, anisotropy: f64) -> (f64, Option<Vec<f64>>, bool) {
     let Some(factor) = numeric_cholesky(&sym, s) else { return (f64::INFINITY, None, false) };
     let mut mode = None;
     for seed in 1..=3 {
-        let Some((inverse_top, x)) = lanczos_top(&|v| sparse_cholesky_solve(&factor, v), m, seed) else { continue };
+        let Some((inverse_top, x)) = lanczos_top(&|v| sparse_cholesky_solve(&factor, v), m, seed, &|top| {
+            (0..WIDEN).map(|t| (1.0 - CERTIFY) / top / 2f64.powi(t))
+                .find(|&lower| lower > 0.0 && positive_definite(s, 1.0, -lower)).map(|lower| 1.0 / lower)
+        }) else { continue };
         mode = Some(x);
-        let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m, seed) else { continue };
+        let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m, seed, &|top| certified_top(s, top)) else { continue };
         if !(inverse_top.is_finite() && inverse_top > 0.0 && lmax > 0.0) { continue; }
-        let lower = (0..WIDEN).map(|t| (1.0 - CERTIFY) / inverse_top / 2f64.powi(t)).find(|&l| positive_definite(s, 1.0, -l));
-        let upper = (0..WIDEN).map(|t| (1.0 + CERTIFY) * lmax * 2f64.powi(t)).find(|&u| positive_definite(s, -1.0, u));
-        if let (Some(lower), Some(upper)) = (lower, upper) { return (upper / lower, mode, false); }
+        return (lmax * inverse_top, mode, false);
     }
     (f64::INFINITY, mode, false)
 }
@@ -887,26 +893,33 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn issue_1753_stalled_ritz_values_do_not_underestimate_the_top_eigenvalue() {
-        let m = 80;
+        for m in [2, 80] {
+            let seed = 15_233_338_564_176_581_173;
+            let initial = start(m, seed);
+            assert_eq!(initial[0], initial[1]);
+            let mut diagonal: Vec<f64> = (0..m).map(|i| 1.0 + i as f64 / m as f64 / 10.0).collect();
+            diagonal[0] = 2.0005;
+            diagonal[1] = 2.0005;
+            let mut rows: Vec<usize> = (0..m).collect();
+            let mut cols = rows.clone();
+            rows.push(1);
+            cols.push(0);
+            diagonal.push(-0.0005);
+            let matrix = CscMatrix::from_triplets(m, &rows, &cols, &diagonal);
+            let exact_top = 2.001;
+            let calls = std::cell::Cell::new(0);
+            let apply = |x: &[f64]| { calls.set(calls.get() + 1); matrix.sym_mat_vec(x) };
+            let (upper, _) = lanczos_top(&apply, m, seed, &|top| certified_top(&matrix, top)).expect("a finite upper bound");
+            assert_eq!(calls.get(), if m == 2 { 1 } else { 20 }, "exercise both breakdown and successive stalled estimates");
+            assert!(upper >= exact_top, "stalled Ritz estimate {upper} is below the exact eigenvalue {exact_top}");
+        }
+    }
+
+    #[test]
+    fn issue_1753_an_exhausted_estimate_without_an_upper_certificate_is_refused() {
+        let matrix = CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1], &[2049.0, -2047.0, 2049.0]);
         let seed = 15_233_338_564_176_581_173;
-        let initial = start(m, seed);
-        assert_eq!(initial[0], initial[1]);
-        let mut diagonal: Vec<f64> = (0..m).map(|i| 1.0 + i as f64 / m as f64 / 10.0).collect();
-        diagonal[0] = 2.0005;
-        diagonal[1] = 2.0005;
-        let mut rows: Vec<usize> = (0..m).collect();
-        let mut cols = rows.clone();
-        rows.push(1);
-        cols.push(0);
-        diagonal.push(-0.0005);
-        let matrix = CscMatrix::from_triplets(m, &rows, &cols, &diagonal);
-        let exact_top = 2.001;
-        let calls = std::cell::Cell::new(0);
-        let apply = |x: &[f64]| { calls.set(calls.get() + 1); matrix.sym_mat_vec(x) };
-        let (upper, _) = lanczos_top(&apply, m, seed).expect("a finite upper bound");
-        assert_eq!(calls.get(), 20, "exercise successive stalled estimates before exhaustion");
-        assert!(upper >= exact_top, "stalled Ritz estimate {upper} is below the exact eigenvalue {exact_top}");
+        assert!(lanczos_top(&|x| matrix.sym_mat_vec(x), 2, seed, &|top| certified_top(&matrix, top)).is_none());
     }
 }

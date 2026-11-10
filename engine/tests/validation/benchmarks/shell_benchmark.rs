@@ -3677,6 +3677,7 @@ fn assert_ill_conditioned_not_verified_reference<T: std::fmt::Debug>(result: Res
 fn benchmark_raasch_hook_ill_conditioned_not_verified_reference() {
     let ratio = raasch_hook_solve(8, 4).unwrap() / 5.022;
     assert!(ratio > 1e-6, "Raasch hook 8x4 must retain its nonzero-response floor");
+    assert!(ratio > 1e-8 && ratio < 100.0, "Raasch hook 8x4: ratio {ratio} outside the main capability bounds");
     for (na, nw) in [(16, 8), (24, 12)] {
         assert_ill_conditioned_not_verified_reference(raasch_hook_solve(na, nw), &format!("Raasch hook {na}x{nw}"));
     }
@@ -4141,7 +4142,12 @@ fn benchmark_spherical_cap_self_convergence_ill_conditioned_not_verified_referen
     for n in [4, 8, 16] {
         crate::common::assert_containment(linear::solve_3d(&spherical_cap_solve(n)), "SH-MITC4-DISTORTION");
     }
-    assert_ill_conditioned_not_verified_reference(linear::solve_3d(&spherical_cap_solve(32)), "MITC4 spherical cap 32x32");
+    let input = spherical_cap_solve(32);
+    crate::common::assert_containment(
+        dedaliano_engine::known_issues::refuse_distorted(&dedaliano_engine::known_issues::for_3d(&input, dedaliano_engine::known_issues::Analysis::Linear)),
+        "SH-MITC4-DISTORTION",
+    );
+    assert_ill_conditioned_not_verified_reference(linear::solve_3d(&input), "MITC4 spherical cap 32x32");
 }
 
 // ================================================================
@@ -4946,9 +4952,11 @@ fn q9_spherical_cap_solve(n: usize) -> Result<f64, String> {
 
 #[test]
 fn benchmark_q9_spherical_cap_ill_conditioned_not_verified_reference() {
-    for n in [4, 8] {
-        assert!(q9_spherical_cap_solve(n).unwrap() > 1e-15, "Q9 cap {n}x{n} must retain its nonzero-response floor");
-    }
+    let coarse = q9_spherical_cap_solve(4).unwrap();
+    let fine = q9_spherical_cap_solve(8).unwrap();
+    assert!(coarse > 1e-15 && fine > 1e-15, "Q9 cap 4x4 and 8x8 must retain their nonzero-response floors");
+    let ratio = coarse / fine;
+    assert!(ratio > 0.80, "Q9 spherical cap 4x4: ratio {ratio} must be > 0.80 vs 8x8");
     assert_ill_conditioned_not_verified_reference(q9_spherical_cap_solve(16), "Q9 spherical cap 16x16");
 }
 
@@ -5255,6 +5263,8 @@ fn q9_raasch_hook_solve(n_arc: usize, n_width: usize) -> Result<f64, String> {
 fn benchmark_q9_raasch_hook_ill_conditioned_not_verified_reference() {
     let uz = q9_raasch_hook_solve(4, 2).unwrap();
     assert!(uz > 1e-15, "Q9 Raasch hook 4x2 must retain its nonzero-response floor");
+    let ratio = uz / 5.022;
+    assert!(ratio > 1e-6, "Q9 Raasch hook 4x2: ratio {ratio} regressed below the main floor 1e-6");
     for (na, nw) in [(8, 4), (16, 8)] {
         assert_ill_conditioned_not_verified_reference(q9_raasch_hook_solve(na, nw), &format!("Q9 Raasch hook {na}x{nw}"));
     }

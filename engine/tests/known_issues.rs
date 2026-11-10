@@ -178,6 +178,7 @@ fn unit_invariant_2d(input: &SolverInput, r: &AnalysisResults, what: &str) {
     let turn = r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ry.abs()));
     for d in &r.displacements {
         let e = scaled.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        assert!([d.ux, d.uz, d.ry, e.ux, e.uz, e.ry].iter().all(|v| v.is_finite()), "{what} node {}: nonfinite displacement", d.node_id);
         assert!((e.ux / u.length - d.ux).abs().max((e.uz / u.length - d.uz).abs()) <= 1e-4 * size, "{what} node {}: translation changes with units", d.node_id);
         assert!((e.ry - d.ry).abs() <= 1e-4 * turn, "{what} node {}: rotation changes with units", d.node_id);
     }
@@ -191,6 +192,7 @@ fn unit_invariant_3d(input: &SolverInput3D, r: &AnalysisResults3D, what: &str) {
     let turn = r.displacements.iter().fold(0.0f64, |m, d| m.max(d.rx.abs()).max(d.ry.abs()).max(d.rz.abs()));
     for d in &r.displacements {
         let e = scaled.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        assert!([d.ux, d.uy, d.uz, d.rx, d.ry, d.rz, e.ux, e.uy, e.uz, e.rx, e.ry, e.rz].iter().all(|v| v.is_finite()), "{what} node {}: nonfinite displacement", d.node_id);
         let moved = [(e.ux, d.ux), (e.uy, d.uy), (e.uz, d.uz)].iter().fold(0.0f64, |m, (a, b)| m.max((a / u.length - b).abs()));
         let turned = [(e.rx, d.rx), (e.ry, d.ry), (e.rz, d.rz)].iter().fold(0.0f64, |m, (a, b)| m.max((a - b).abs()));
         assert!(moved <= 1e-4 * size, "{what} node {}: translation changes with units", d.node_id);
@@ -2881,7 +2883,13 @@ fn issue_1753_preparation_ignores_default_loads_and_validates_each_supplied_case
         let err = prepared.solve_loads(&input.loads).expect_err("the default case still loads the free axis");
         assert!(err.contains("node 3") && err.contains("rotation"), "{err}");
         let unloaded = prepared.solve_loads(&[]).unwrap();
-        assert!(unloaded.displacements.iter().all(|d| d.rx == 0.0 && d.ry == 0.0 && d.rz == 0.0));
+        assert_eq!(unloaded.displacements.len(), input.nodes.len());
+        let actual: std::collections::BTreeSet<_> = unloaded.displacements.iter().map(|d| d.node_id).collect();
+        let expected: std::collections::BTreeSet<_> = input.nodes.values().map(|n| n.id).collect();
+        assert_eq!(actual, expected);
+        for d in &unloaded.displacements {
+            assert_eq!([d.ux, d.uy, d.uz, d.rx, d.ry, d.rz], [0.0; 6], "{nodes} nodes, pcg {pcg}: {d:?}");
+        }
         let repeated = prepared.solve_loads(&valid).unwrap();
         let again = repeated.displacements.iter().find(|d| d.node_id == 3).unwrap();
         assert_eq!((again.rx, again.ry, again.rz), (d.rx, d.ry, d.rz));
@@ -2930,7 +2938,6 @@ fn issue_1753_pcg_resolves_each_independent_moment_with_disparate_loads() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1753"]
 fn issue_1753_unit_invariance_rejects_nan_displacement_components() {
     let input = crate::common::make_3d_input(
         vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0)],
