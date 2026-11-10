@@ -7,7 +7,7 @@ import fullFr from '../src/lib/i18n/locales/full/fr';
 import fullTr from '../src/lib/i18n/locales/full/tr';
 
 const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe' };
-const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR' };
+const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR', hu: 'hu_HU' };
 /** The Open Graph alternates a public page in `locale` declares: every other public language. */
 const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== locale).map((l) => OG[l]);
 
