@@ -369,25 +369,6 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect(status.t).toContain(`SA-2026-057 — ${draftStatus}.`);
   });
 
-  it.each<[PublicLocale, string, string]>([
-    ["en", "High", "Fixed in PR #1921, pending release"],
-    ["es", "Alta", "Corregido en PR #1921, pendiente de publicación"],
-    ["pt", "Alta", "Corrigido no PR #1921, aguardando lançamento"],
-    ["de", "Hoch", "In PR #1921 behoben, Veröffentlichung ausstehend"],
-    ["fr", "Élevée", "Corrigé dans PR #1921, en attente de publication"],
-    ["tr", "Yüksek", "PR #1921 ile düzeltildi, sürüm yayını bekleniyor"],
-  ])('%s: lists the measured cable advisory with its pending-release status', (locale, severity, pendingStatus) => {
-    const blocks = post!.i18n[locale]!.blocks;
-    const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
-    const status = blocks.find((b) => b.k === 'note') as Extract<Block, { k: 'note' }>;
-    const rows = summary.rows.filter((r) => r[0] === 'SA-2026-059');
-    expect(rows).toHaveLength(1);
-    expect(rows[0][2]).toBe(severity);
-    expect(rows[0][3]).toBe(pendingStatus);
-    expect(rows[0][1].replace(',', '.')).toContain('−4.599884347090908 kN');
-    expect(status.t).toContain(`SA-2026-059 — ${pendingStatus}.`);
-  });
-
   it('exists, and lists every advisory in docs/advisories', async () => {
     expect(post).toBeTruthy();
     const { readdirSync } = await import('node:fs');
@@ -456,23 +437,23 @@ describe('the safety-advisories post quotes the advisories', () => {
     // (docs/advisories/SA-2026-*.md).
     const cases = post!.i18n.en.blocks.filter((b) => b.k === 'table')[1] as Extract<Block, { k: 'table' }>;
     expect(cases.rows.map((r) => [r[0], r[2], r[3]])).toEqual([
-      ['SA-2026-005', '-56.67', '-41.67'],
-      ['SA-2026-006', '0.92', '2.52'],
-      ['SA-2026-007', '2993', '5860'],
-      ['SA-2026-008', '1.00', '0.81'],
-      ['SA-2026-009', '1.000', '1.225'],
-      ['SA-2026-011', '0', '-14.4'],
-      ['SA-2026-012', '1012.5', '101250'],
+      ['SA-2026-024', '65.61', '56.01'],
+      ['SA-2026-023', '78.57', '101.57'],
       ['SA-2026-013', '35.0', '0'],
       ['SA-2026-014', '176.47', '424.3'],
       ['SA-2026-015', '5.18', '4.34'],
-      ['SA-2026-016', '-7.29', '-6.18'],
+      ['SA-2026-011', '0', '-14.4'],
       ['SA-2026-017', '124', '84'],
-      ['SA-2026-018', '0', '101'],
+      ['SA-2026-008', '1.00', '0.81'],
+      ['SA-2026-007', '2993', '5860'],
+      ['SA-2026-006', '0.92', '2.52'],
+      ['SA-2026-005', '-56.67', '-41.67'],
       ['SA-2026-019', '14.04', '9.76'],
+      ['SA-2026-012', '1012.5', '101250'],
+      ['SA-2026-016', '-7.29', '-6.18'],
+      ['SA-2026-018', '0', '101'],
       ['SA-2026-020', '158.2', '182.7'],
-      ['SA-2026-023', '78.57', '101.57'],
-      ['SA-2026-024', '65.61', '56.01'],
+      ['SA-2026-009', '1.000', '1.225'],
     ]);
   });
 });

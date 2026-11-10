@@ -32,126 +32,6 @@ const body: PostBody = {
       ],
       "rows": [
         [
-          "SA-2026-001",
-          "Combinaisons et charges générées (CIRSOC 101, 102, 103) allant dans le sens de l'insécurité",
-          "Élevée",
-          "Corrigé dans la 0.2.0"
-        ],
-        [
-          "SA-2026-002",
-          "Les vérifications béton (CIRSOC 201, ACI 318) surestimaient la capacité",
-          "Critique",
-          "Corrigé dans la 0.2.0"
-        ],
-        [
-          "SA-2026-003",
-          "Les vérifications acier, profilés formés à froid et assemblages surestimaient la capacité",
-          "Critique",
-          "Corrigé dans la 0.2.0"
-        ],
-        [
-          "SA-2026-004",
-          "Analyses qui ignoraient une partie du modèle (dynamique, flambement, effondrement plastique)",
-          "Critique",
-          "Corrigé dans la 0.2.0"
-        ],
-        [
-          "SA-2026-005",
-          "Barres inclinées 2D : effort normal sans la composante de la charge parallèle à la barre",
-          "Élevée",
-          "Corrigé le 2026-10-21"
-        ],
-        [
-          "SA-2026-006",
-          "Modèle plan calculé en 3D : moments nodaux et rotations imposées inversés",
-          "Élevée",
-          "Corrigé le 2026-10-21"
-        ],
-        [
-          "SA-2026-007",
-          "Flambement 3D sans les modes de torsion ou de flexion-torsion",
-          "Élevée",
-          "Corrigé le 2026-10-21"
-        ],
-        [
-          "SA-2026-008",
-          "Spectre de réponse : effort tranchant à la base SRSS sous CQC ; participation sans la masse couplée aux appuis",
-          "Élevée",
-          "Corrigé le 2026-10-21"
-        ],
-        [
-          "SA-2026-009",
-          "Coque volumique SHB8 22 % trop rigide en flexion de plaque mince (flèches 18 % trop faibles)",
-          "Moyenne (plus élevée dans les structures hyperstatiques)",
-          "Corrigé le 2026-10-19"
-        ],
-        [
-          "SA-2026-010",
-          "Le certificat spectral acceptait des résultats non finis",
-          "Moyenne",
-          "Corrigé le 2026-10-19"
-        ],
-        [
-          "SA-2026-011",
-          "Appui 3D passé de ressort à encastré ou articulé, calculé comme un ressort",
-          "Élevée",
-          "Corrigé le 2026-10-20"
-        ],
-        [
-          "SA-2026-012",
-          "Analyse non linéaire matérielle (moteur et WASM uniquement) : efforts élastiques dans les barres après plastification",
-          "Moyenne",
-          "Corrigé dans la 0.3.0"
-        ],
-        [
-          "SA-2026-013",
-          "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
-          "Élevée",
-          "Corrigé dans la 0.3.0"
-        ],
-        [
-          "SA-2026-014",
-          "Effondrement plastique 3D : le facteur dépendait de la numérotation des éléments (jusqu'à 2,4 fois la charge de ruine)",
-          "Élevée",
-          "Corrigé dans la 0.3.0"
-        ],
-        [
-          "SA-2026-015",
-          "Les câbles avec poids propre recevaient une traction trop faible dans les structures hyperstatiques",
-          "Élevée",
-          "Corrigé dans la 0.3.0"
-        ],
-        [
-          "SA-2026-016",
-          "Arcs (poutres courbes du moteur, outil arc de l'application) : Iy et Iz intervertis sur les segments presque verticaux",
-          "Moyenne",
-          "Corrigé dans la 0.3.0"
-        ],
-        [
-          "SA-2026-017",
-          "Interaction sol-structure : les courbes p-y, t-z et q-z s'écartaient de leurs références",
-          "Élevée",
-          "Corrigé dans la 0.3.0"
-        ],
-        [
-          "SA-2026-018",
-          "Coques MITC9 (moteur et WASM uniquement) sur géométrie courbe déformées par un mouvement de corps rigide",
-          "Moyenne",
-          "Corrigé dans la 0.3.0"
-        ],
-        [
-          "SA-2026-019",
-          "Charges de température sur barres (moteur et WASM ; l'application compensait depuis le 2026-10-07) : α de l'acier et hauteur d'un rectangle plein",
-          "Moyenne",
-          "Corrigé dans la 0.3.0"
-        ],
-        [
-          "SA-2026-020",
-          "Analyse non linéaire matérielle 3D (moteur et WASM uniquement) : surface de plastification moins conservatrice qu'en 2D",
-          "Moyenne",
-          "Corrigé dans la 0.3.0"
-        ],
-        [
           "SA-2026-021",
           "Toitures isolées : pas de vent parallèle au faîtage et, perpendiculairement, moins que le minimum du §2.1.5 (17 % de celui-ci à 20 m/s)",
           "Élevée",
@@ -176,16 +56,10 @@ const body: PostBody = {
           "Corrigé dans la 0.4.0"
         ],
         [
-          "SA-2026-025",
-          "Effort tranchant G2 de l'AISC 360 (moteur et WASM uniquement) : sans aire d'âme, vérifié avec un taux 0, et certifié",
-          "Moyenne",
-          "Corrigé sur stabileo.com (#1234)"
-        ],
-        [
-          "SA-2026-026",
-          "Effort tranchant 6.2.6 de l'EC3 (moteur et WASM uniquement) : sans aire de cisaillement, Av = 0,5·A, Vpl,Rd 57 % trop élevé pour un HEB 300, et certifié",
-          "Moyenne",
-          "Corrigé sur stabileo.com (#1234)"
+          "SA-2026-039",
+          "Import Excel et IFC : Iy et Iz des rectangles et des tubes étaient inversés (une console de 20 × 40 quatre fois trop souple, une de 40 × 20 quatre fois trop rigide)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
         ],
         [
           "SA-2026-027",
@@ -224,44 +98,8 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
-          "SA-2026-033",
-          "Générateur de charges : un plancher avec une seule barre basse au-dessus d'une partie perdait toute sa charge surfacique (36 m² d'un plancher de 6 × 6 m dans un exemple) ; les fermes ne comptaient pas comme structure de toiture",
-          "Élevée",
-          "Corrigé dans la prochaine version"
-        ],
-        [
-          "SA-2026-034",
-          "La vérification d'équilibre déclarait charges et réactions concordantes pour des cas dont la vérification laissait des charges de côté ; les modifications d'étages similaires atteignaient des barres de l'autre type et les copies perdaient leurs relâchements",
-          "Moyenne",
-          "Corrigé dans la prochaine version"
-        ],
-        [
           "SA-2026-035",
           "Passage de la 3D à la 2D : la coupe faisait fléchir des barres autour du mauvais axe de section (un portique dans le plan Y–Z 13,5 fois trop rigide)",
-          "Élevée",
-          "Corrigé dans la prochaine version"
-        ],
-        [
-          "SA-2026-036",
-          "Passage de la 3D à la 2D sur Y–Z ou X–Y : les liaisons étaient lues comme si le portique était dans X–Z (liaisons de déplacement perdues ou appliquées hors du plan)",
-          "Élevée",
-          "Corrigé dans la prochaine version"
-        ],
-        [
-          "SA-2026-037",
-          "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
-          "Moyenne",
-          "Corrigé dans la prochaine version"
-        ],
-        [
-          "SA-2026-038",
-          "Flambement 3D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % pour une barre), et une barre comprimée seulement entre ses extrémités était refusée",
-          "Élevée",
-          "Corrigé dans la prochaine version"
-        ],
-        [
-          "SA-2026-039",
-          "Import Excel et IFC : Iy et Iz des rectangles et des tubes étaient inversés (une console de 20 × 40 quatre fois trop souple, une de 40 × 20 quatre fois trop rigide)",
           "Élevée",
           "Corrigé dans la prochaine version"
         ],
@@ -278,14 +116,26 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
-          "SA-2026-042",
-          "Flambement 2D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % à +68 % pour une barre)",
+          "SA-2026-033",
+          "Générateur de charges : un plancher avec une seule barre basse au-dessus d'une partie perdait toute sa charge surfacique (36 m² d'un plancher de 6 × 6 m dans un exemple) ; les fermes ne comptaient pas comme structure de toiture",
           "Élevée",
           "Corrigé dans la prochaine version"
         ],
         [
-          "SA-2026-043",
-          "Analyse harmonique : la correction des modes omis perdait ses chiffres lorsqu’un mode était beaucoup plus souple que les autres (79 fois à 2,3 Hz dans un exemple)",
+          "SA-2026-034",
+          "La vérification d'équilibre déclarait charges et réactions concordantes pour des cas dont la vérification laissait des charges de côté ; les modifications d'étages similaires atteignaient des barres de l'autre type et les copies perdaient leurs relâchements",
+          "Moyenne",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-038",
+          "Flambement 3D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % pour une barre), et une barre comprimée seulement entre ses extrémités était refusée",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-042",
+          "Flambement 2D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % à +68 % pour une barre)",
           "Élevée",
           "Corrigé dans la prochaine version"
         ],
@@ -294,6 +144,12 @@ const body: PostBody = {
           "Effondrement plastique 2D : le facteur d'effondrement changeait avec la numérotation des nœuds, le sens des barres et les unités (jusqu'à 4,6 fois sur la même structure)",
           "Élevée",
           "Analyse limite corrigée dans la prochaine version ; l'effondrement plastique 2D reste retenu jusqu'à la clôture de #758"
+        ],
+        [
+          "SA-2026-043",
+          "Analyse harmonique : la correction des modes omis perdait ses chiffres lorsqu’un mode était beaucoup plus souple que les autres (79 fois à 2,3 Hz dans un exemple)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
         ],
         [
           "SA-2026-045",
@@ -368,6 +224,150 @@ const body: PostBody = {
           "Élevée",
           "Corrigé dans PR #1921, en attente de publication"
         ],
+        [
+          "SA-2026-037",
+          "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
+          "Moyenne",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-036",
+          "Passage de la 3D à la 2D sur Y–Z ou X–Y : les liaisons étaient lues comme si le portique était dans X–Z (liaisons de déplacement perdues ou appliquées hors du plan)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-013",
+          "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
+          "Élevée",
+          "Corrigé dans la 0.3.0"
+        ],
+        [
+          "SA-2026-014",
+          "Effondrement plastique 3D : le facteur dépendait de la numérotation des éléments (jusqu'à 2,4 fois la charge de ruine)",
+          "Élevée",
+          "Corrigé dans la 0.3.0"
+        ],
+        [
+          "SA-2026-015",
+          "Les câbles avec poids propre recevaient une traction trop faible dans les structures hyperstatiques",
+          "Élevée",
+          "Corrigé dans la 0.3.0"
+        ],
+        [
+          "SA-2026-011",
+          "Appui 3D passé de ressort à encastré ou articulé, calculé comme un ressort",
+          "Élevée",
+          "Corrigé le 2026-10-20"
+        ],
+        [
+          "SA-2026-017",
+          "Interaction sol-structure : les courbes p-y, t-z et q-z s'écartaient de leurs références",
+          "Élevée",
+          "Corrigé dans la 0.3.0"
+        ],
+        [
+          "SA-2026-008",
+          "Spectre de réponse : effort tranchant à la base SRSS sous CQC ; participation sans la masse couplée aux appuis",
+          "Élevée",
+          "Corrigé le 2026-10-21"
+        ],
+        [
+          "SA-2026-007",
+          "Flambement 3D sans les modes de torsion ou de flexion-torsion",
+          "Élevée",
+          "Corrigé le 2026-10-21"
+        ],
+        [
+          "SA-2026-006",
+          "Modèle plan calculé en 3D : moments nodaux et rotations imposées inversés",
+          "Élevée",
+          "Corrigé le 2026-10-21"
+        ],
+        [
+          "SA-2026-005",
+          "Barres inclinées 2D : effort normal sans la composante de la charge parallèle à la barre",
+          "Élevée",
+          "Corrigé le 2026-10-21"
+        ],
+        [
+          "SA-2026-019",
+          "Charges de température sur barres (moteur et WASM ; l'application compensait depuis le 2026-10-07) : α de l'acier et hauteur d'un rectangle plein",
+          "Moyenne",
+          "Corrigé dans la 0.3.0"
+        ],
+        [
+          "SA-2026-012",
+          "Analyse non linéaire matérielle (moteur et WASM uniquement) : efforts élastiques dans les barres après plastification",
+          "Moyenne",
+          "Corrigé dans la 0.3.0"
+        ],
+        [
+          "SA-2026-016",
+          "Arcs (poutres courbes du moteur, outil arc de l'application) : Iy et Iz intervertis sur les segments presque verticaux",
+          "Moyenne",
+          "Corrigé dans la 0.3.0"
+        ],
+        [
+          "SA-2026-018",
+          "Coques MITC9 (moteur et WASM uniquement) sur géométrie courbe déformées par un mouvement de corps rigide",
+          "Moyenne",
+          "Corrigé dans la 0.3.0"
+        ],
+        [
+          "SA-2026-020",
+          "Analyse non linéaire matérielle 3D (moteur et WASM uniquement) : surface de plastification moins conservatrice qu'en 2D",
+          "Moyenne",
+          "Corrigé dans la 0.3.0"
+        ],
+        [
+          "SA-2026-025",
+          "Effort tranchant G2 de l'AISC 360 (moteur et WASM uniquement) : sans aire d'âme, vérifié avec un taux 0, et certifié",
+          "Moyenne",
+          "Corrigé sur stabileo.com (#1234)"
+        ],
+        [
+          "SA-2026-026",
+          "Effort tranchant 6.2.6 de l'EC3 (moteur et WASM uniquement) : sans aire de cisaillement, Av = 0,5·A, Vpl,Rd 57 % trop élevé pour un HEB 300, et certifié",
+          "Moyenne",
+          "Corrigé sur stabileo.com (#1234)"
+        ],
+        [
+          "SA-2026-010",
+          "Le certificat spectral acceptait des résultats non finis",
+          "Moyenne",
+          "Corrigé le 2026-10-19"
+        ],
+        [
+          "SA-2026-009",
+          "Coque volumique SHB8 22 % trop rigide en flexion de plaque mince (flèches 18 % trop faibles)",
+          "Moyenne (plus élevée dans les structures hyperstatiques)",
+          "Corrigé le 2026-10-19"
+        ],
+        [
+          "SA-2026-004",
+          "Analyses qui ignoraient une partie du modèle (dynamique, flambement, effondrement plastique)",
+          "Critique",
+          "Corrigé dans la 0.2.0"
+        ],
+        [
+          "SA-2026-003",
+          "Les vérifications acier, profilés formés à froid et assemblages surestimaient la capacité",
+          "Critique",
+          "Corrigé dans la 0.2.0"
+        ],
+        [
+          "SA-2026-002",
+          "Les vérifications béton (CIRSOC 201, ACI 318) surestimaient la capacité",
+          "Critique",
+          "Corrigé dans la 0.2.0"
+        ],
+        [
+          "SA-2026-001",
+          "Combinaisons et charges générées (CIRSOC 101, 102, 103) allant dans le sens de l'insécurité",
+          "Élevée",
+          "Corrigé dans la 0.2.0"
+        ]
       ]
     },
     {
@@ -382,52 +382,17 @@ const body: PostBody = {
       ],
       "rows": [
         [
-          "SA-2026-005",
-          "Arbalétrier à deux versants : effort normal en pied",
-          "-56,67",
-          "-41,67",
+          "SA-2026-024",
+          "Portique de 6 × 4 m, 20 kN/m de charge permanente sur la poutre, 15 kN de vent, 1.2D + 1.6W, après une modification avec le calcul en direct activé : réaction verticale de la semelle au vent",
+          "65,61",
+          "56,01",
           "kN"
         ],
         [
-          "SA-2026-006",
-          "Portique avec moments et forces nodaux : déplacement latéral",
-          "0,92",
-          "2,52",
-          "mm"
-        ],
-        [
-          "SA-2026-007",
-          "Poteau cruciforme 200×10 mm, 1,5 m : charge critique",
-          "2993",
-          "5860",
-          "kN"
-        ],
-        [
-          "SA-2026-008",
-          "Deux modes à ω et 1.1ω : effort tranchant à la base rapporté à la valeur CQC",
-          "1,00",
-          "0,81",
-          "—"
-        ],
-        [
-          "SA-2026-009",
-          "Plaque mince en flexion, ν = 0,3 : rigidité rapportée à la valeur correcte",
-          "1,000",
-          "1,225",
-          "—"
-        ],
-        [
-          "SA-2026-011",
-          "Poutre avec appuis à 0, 4 et 8 m, appui dessiné comme encastré à 8 m : déplacement vertical sur cet appui",
-          "0",
-          "-14,4",
-          "mm"
-        ],
-        [
-          "SA-2026-012",
-          "Console de 4 m plastifiée, charge en bout 1.2·Mp/L : moment à l'encastrement",
-          "1012,5",
-          "101250",
+          "SA-2026-023",
+          "Poteau de 30×30 cm, 6 Ø20 (trois sur la face inférieure), Nu = 100 kN : φMn avec la face à trois barres comprimée",
+          "78,57",
+          "101,57",
           "kN·m"
         ],
         [
@@ -452,10 +417,10 @@ const body: PostBody = {
           "kN"
         ],
         [
-          "SA-2026-016",
-          "Arc semi-circulaire de 5 m dans le plan Y–Z, 40 segments : déplacement à la clé",
-          "-7,29",
-          "-6,18",
+          "SA-2026-011",
+          "Poutre avec appuis à 0, 4 et 8 m, appui dessiné comme encastré à 8 m : déplacement vertical sur cet appui",
+          "0",
+          "-14,4",
           "mm"
         ],
         [
@@ -466,11 +431,32 @@ const body: PostBody = {
           "kN/m"
         ],
         [
-          "SA-2026-018",
-          "Panneau cylindrique MITC9 de 2×2 m, montée de 0,2 m, acier, 50 mm, rotation rigide de 1 mrad : plus grande contrainte nodale de von Mises",
-          "0",
-          "101",
-          "MPa"
+          "SA-2026-008",
+          "Deux modes à ω et 1.1ω : effort tranchant à la base rapporté à la valeur CQC",
+          "1,00",
+          "0,81",
+          "—"
+        ],
+        [
+          "SA-2026-007",
+          "Poteau cruciforme 200×10 mm, 1,5 m : charge critique",
+          "2993",
+          "5860",
+          "kN"
+        ],
+        [
+          "SA-2026-006",
+          "Portique avec moments et forces nodaux : déplacement latéral",
+          "0,92",
+          "2,52",
+          "mm"
+        ],
+        [
+          "SA-2026-005",
+          "Arbalétrier à deux versants : effort normal en pied",
+          "-56,67",
+          "-41,67",
+          "kN"
         ],
         [
           "SA-2026-019",
@@ -480,6 +466,27 @@ const body: PostBody = {
           "kN·m"
         ],
         [
+          "SA-2026-012",
+          "Console de 4 m plastifiée, charge en bout 1.2·Mp/L : moment à l'encastrement",
+          "1012,5",
+          "101250",
+          "kN·m"
+        ],
+        [
+          "SA-2026-016",
+          "Arc semi-circulaire de 5 m dans le plan Y–Z, 40 segments : déplacement à la clé",
+          "-7,29",
+          "-6,18",
+          "mm"
+        ],
+        [
+          "SA-2026-018",
+          "Panneau cylindrique MITC9 de 2×2 m, montée de 0,2 m, acier, 50 mm, rotation rigide de 1 mrad : plus grande contrainte nodale de von Mises",
+          "0",
+          "101",
+          "MPa"
+        ],
+        [
           "SA-2026-020",
           "Console 3D de 4 m, N = 0.5·Np, charge en bout : charge à la première plastification",
           "158,2",
@@ -487,19 +494,12 @@ const body: PostBody = {
           "kN"
         ],
         [
-          "SA-2026-023",
-          "Poteau de 30×30 cm, 6 Ø20 (trois sur la face inférieure), Nu = 100 kN : φMn avec la face à trois barres comprimée",
-          "78,57",
-          "101,57",
-          "kN·m"
-        ],
-        [
-          "SA-2026-024",
-          "Portique de 6 × 4 m, 20 kN/m de charge permanente sur la poutre, 15 kN de vent, 1.2D + 1.6W, après une modification avec le calcul en direct activé : réaction verticale de la semelle au vent",
-          "65,61",
-          "56,01",
-          "kN"
-        ],
+          "SA-2026-009",
+          "Plaque mince en flexion, ν = 0,3 : rigidité rapportée à la valeur correcte",
+          "1,000",
+          "1,225",
+          "—"
+        ]
       ]
     },
     {
