@@ -2,7 +2,7 @@ let inFlight = 0;
 
 /** Whether an edit in this mode is followed by a live re-solve (App.svelte schedules it). */
 export function liveCalcFollowsEdits(liveCalc: boolean, mode: string): boolean {
-  return liveCalc && (mode === '2d' || mode === '3d');
+  return liveCalc && mode !== 'pro' && mode !== 'edu';
 }
 
 export function liveSolveBusy(): boolean {
