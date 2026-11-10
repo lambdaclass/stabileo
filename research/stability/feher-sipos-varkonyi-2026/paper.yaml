@@ -5,7 +5,7 @@ scope: Section 3, the curved rod shaped by two rotary actuators; the path of Sec
 equations: |
   θ' = κ, x' = cos θ, y' = sin θ on 0 ≤ s ≤ 1; x(0) = y(0) = 0, x(1) = ν = sin 1, y(1) = 0.
   U = ∫ ½ κ²/(4π²) ds; load potential W = q ∫ Q(s) y ds (q > 0 pushes down); ∫ Q ds = 1.
-  End tangents (counter-clockwise from x): θ(0) = Θ + Δ, θ(1) = Δ − Θ, read from Figures 5, 8 and 9.
+  End tangents (counter-clockwise from x): θ(0) = Θ + Δ/2, θ(1) = Δ/2 − Θ (Θ the half difference, Δ the sum), fixed by matching Figure 9(c) to the corners labelled in Figure 9(b).
 assumptions:
   - planar, inextensible and unshearable rod with no intrinsic curvature (active bending)
   - load fixed in direction and magnitude per unit reference length (dead load)

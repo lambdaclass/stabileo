@@ -24,10 +24,10 @@ test('@smoke research shape control: a rectangle below the cusp brings the arch 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(PAGE);
   const app = page.locator('.shape-app');
-  await page.locator('#shape-delta').fill('0.4');
+  await page.locator('#shape-delta').fill('0.6');
   await page.locator('#shape-delta').dispatchEvent('change');
   await expect(app).toHaveAttribute('data-source', 'live', { timeout: 60000 }); // slow-ok: the shape-control WASM worker solves the whole actuator path.
   await expect(app).toContainText('The strip came back as an arch');
-  await page.locator('#shape-step').fill('72');
+  await page.locator('#shape-step').fill('92');
   expect(Number(await app.getAttribute('data-ymid'))).toBeCloseTo(0.2258, 3);
 });

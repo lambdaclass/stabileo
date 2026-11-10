@@ -6,18 +6,18 @@ const en = {
   lead: 'Turn the two clamps of an actively bent strip under a fixed load and take it from an arch to its inverted shape without a snap.',
 
   modelHeading: 'The strip and its two actuators',
-  theory: 'A flat strip of length 1 is bent into two clamps placed sin 1 apart. Each clamp is a rotary actuator. The end tangents are θ(A) = Θ + Δ and θ(B) = Δ − Θ: Θ sets how much the strip arches and Δ how much it tilts. A dead load q·Q(s) pushes down. Section 3 of the paper treats the strip as a planar, inextensible elastica, θ″/(4π²) + qρ cos θ + λ sin θ − μ cos θ = 0, where ρ(s) is the load carried between A and s and λ, μ are the reactions at A. With a bending stiffness of 1/(4π²), λ = 1 is the Euler load of the clamped strip.',
+  theory: 'A flat strip of length 1 is bent into two clamps placed sin 1 apart. Each clamp is a rotary actuator. The end tangents are θ(A) = Θ + Δ/2 and θ(B) = Δ/2 − Θ: Θ sets how much the strip arches and Δ how much it tilts. A dead load q·Q(s) pushes down. Section 3 of the paper treats the strip as a planar, inextensible elastica, θ″/(4π²) + qρ cos θ + λ sin θ − μ cos θ = 0, where ρ(s) is the load carried between A and s and λ, μ are the reactions at A. With a bending stiffness of 1/(4π²), λ = 1 is the Euler load of the clamped strip.',
   shapesHeading: 'Two shapes for the same clamp angles',
   targets: 'At Θ = 1, Δ = 0 and q = 2.5 the strip has two stable shapes: an arch that carries the load in compression (shape 1) and an inverted shape in tension (shape 5). Section 3.4 moves from one to the other along (Θ, Δ) = (1, 0) → (1.3, 0) → (1.3, 1.3) → (1, 1.3) → (1, 0). The rectangle goes around the cusp of the region where both shapes exist, so the strip changes shape without losing stability on the way.',
   shapeLinks: 'The five shapes of Figure 9(c) on our path:',
   methodHeading: 'How we reproduce it',
   method: 'We model the strip with 60 members of Stabileo’s production 2D co-rotational frame (EA·L²/EI = 8·10⁵π², so the axial strain stays below 10⁻⁴). For this experiment the engine gained two things: prescribed end rotations and displacements in geometrically nonlinear analysis, and analyses that continue from a converged state. We reach the first state the way the paper does: the clamps turn while B slides, then B is clamped and moved to sin 1, then the load is applied. After that the actuators move in steps of 0.02 rad. Every state is checked for stability: its tangent stiffness must be positive definite.',
-  convention: 'The preprint writes the end conditions as θ(0) = θ₀, θ(1) = θ₁, with Δ and Θ their half sum and half difference. Its Figures 5, 8 and 9 measure the clamp angles as drawn, which in tangent angles gives θ(A) = Θ + Δ and θ(B) = Δ − Θ. We use the reading of the figures, which reproduces their shapes.',
+  convention: 'How Θ and Δ map to the end tangents was settled against the figures. Θ is half the difference of the tangents and Δ their sum: θ(A) = Θ + Δ/2, θ(B) = Δ/2 − Θ. With this reading the shapes of Figure 9(c) fall on the corners of the rectangle, where Figure 9(b) labels them; with Δ as the half sum they would fall halfway along its sides.',
   runHeading: 'What the run shows',
   runText: 'Every state along the path is stable and none jumps from its neighbour: the midpoint height goes smoothly from y(1/2) = {start} on the arch to {end} on the inverted shape, at the same clamp angles.',
-  cusp: 'The rectangle has to go around the cusp. With its far corner at Δ = 0.4 the strip comes back as an arch. With Θ = 1.1 the path crosses the fold where the arch stops existing, and no equilibrium is found nearby: the strip would snap there.',
-  tryBelow: 'Try Δ = 0.4',
-  tryFold: 'Try Θ = 1.1',
+  cusp: 'The rectangle has to go around the cusp, near (Θ, Δ) = (1.2, 1.2). With its far corner at Δ = 0.6 the strip comes back as an arch. With Θ = 1.05 the path crosses the fold where the arch stops existing, and no equilibrium is found nearby: the strip would snap there.',
+  tryBelow: 'Try Δ = 0.6',
+  tryFold: 'Try Θ = 1.05',
   limitsHeading: 'Limitations',
   limits: 'The model is planar, as in the paper. Unstable branches are not traced, because the production arc-length solver does not take prescribed rotations yet; the equilibrium surface of Figure 9(a) is not reproduced, and a fold shows up as the point where no nearby equilibrium exists. The co-rotational frame is slightly extensible and discretized. This is a numerical comparison with the paper’s figures and text, not a laboratory test.',
 
@@ -36,7 +36,7 @@ const en = {
   arcRow: 'Unloaded strip at Θ = 1',
   arcNote: 'largest distance to the circle of radius 1/2, over the radius',
   exactZero: '0 (exact)',
-  openNote: 'The rows marked ✗ are open. With the load on half the span our limit comes out lower. At the optimal settings with large Δ our unloaded strip already curves more than the paper’s values allow, which points to another branch or another reading of Δ there; with the load on half the span at (0.96, 0) our load-controlled run cannot follow the paper past the snap. These are open questions for the authors.',
+  openNote: 'The rows marked ✗ are open. Two Table 1 values are reached only after a snap: the paper follows the path through the unstable states, while our load-controlled run stops where the equilibrium is lost; tracing them needs arc-length with prescribed rotations. With the load on half the span the limit at (0.9, 0) comes out 5% lower, the limit at the optimum (0.66, 1.36) is about half of the paper’s, and the curvature at (0.64, 1.16) is 12% higher. The inverted shape at the end of the path, which matches the figure, has a largest curvature of about 10.6, above the threshold of 6 the paper sets for the path. These are open questions for the authors.',
   paper: 'Preprint (arXiv:2509.12916v1)',
   journal: 'Journal version',
 
@@ -65,6 +65,7 @@ const en = {
   lost: 'No equilibrium near Θ = {t}, Δ = {d}: the strip would snap through here, and the quasi-static path ends.',
   back: 'The strip came back as an arch: this rectangle does not go around the cusp.',
   inverted: 'The strip ended inverted, without a jump.',
+  jumped: 'The strip jumped near Θ = {t}, Δ = {d}: this path crosses the fold, so the shape changes by a snap.',
   computedCorner: 'Computed with the far corner at',
 };
 type Strings = typeof en;
@@ -75,18 +76,18 @@ const es: Strings = {
   lead: 'Girá las dos mordazas de una lámina curvada activamente bajo una carga fija y llevala de arco a su forma invertida sin que salte.',
 
   modelHeading: 'La lámina y sus dos actuadores',
-  theory: 'Una lámina plana de largo 1 se curva entre dos mordazas separadas sin 1. Cada mordaza es un actuador rotativo. Las tangentes extremas son θ(A) = Θ + Δ y θ(B) = Δ − Θ: Θ fija cuánto se arquea la lámina y Δ cuánto se inclina. Una carga muerta q·Q(s) empuja hacia abajo. La sección 3 del artículo trata la lámina como una elástica plana e inextensible, θ″/(4π²) + qρ cos θ + λ sin θ − μ cos θ = 0, donde ρ(s) es la carga entre A y s, y λ, μ son las reacciones en A. Con rigidez a flexión 1/(4π²), λ = 1 es la carga de Euler de la lámina empotrada.',
+  theory: 'Una lámina plana de largo 1 se curva entre dos mordazas separadas sin 1. Cada mordaza es un actuador rotativo. Las tangentes extremas son θ(A) = Θ + Δ/2 y θ(B) = Δ/2 − Θ: Θ fija cuánto se arquea la lámina y Δ cuánto se inclina. Una carga muerta q·Q(s) empuja hacia abajo. La sección 3 del artículo trata la lámina como una elástica plana e inextensible, θ″/(4π²) + qρ cos θ + λ sin θ − μ cos θ = 0, donde ρ(s) es la carga entre A y s, y λ, μ son las reacciones en A. Con rigidez a flexión 1/(4π²), λ = 1 es la carga de Euler de la lámina empotrada.',
   shapesHeading: 'Dos formas para los mismos ángulos de mordaza',
   targets: 'Con Θ = 1, Δ = 0 y q = 2,5 la lámina tiene dos formas estables: un arco que lleva la carga en compresión (forma 1) y una forma invertida en tracción (forma 5). La sección 3.4 pasa de una a otra por (Θ, Δ) = (1, 0) → (1,3, 0) → (1,3, 1,3) → (1, 1,3) → (1, 0). El rectángulo rodea la cúspide de la región donde coexisten las dos formas, así que la lámina cambia de forma sin perder estabilidad en el camino.',
   shapeLinks: 'Las cinco formas de la figura 9(c) sobre nuestro camino:',
   methodHeading: 'Cómo lo reproducimos',
   method: 'Modelamos la lámina con 60 barras del pórtico 2D corrotacional de producción de Stabileo (EA·L²/EI = 8·10⁵π², así la deformación axial queda por debajo de 10⁻⁴). Para este experimento el motor sumó dos cosas: giros y desplazamientos impuestos en el análisis geométricamente no lineal, y análisis que continúan desde un estado convergido. Llegamos al primer estado como el artículo: las mordazas giran mientras B desliza, después B se fija y se lleva a sin 1, y recién entonces se aplica la carga. Desde ahí los actuadores avanzan de a 0,02 rad. En cada estado se verifica la estabilidad: la rigidez tangente tiene que ser definida positiva.',
-  convention: 'El preprint escribe las condiciones de borde como θ(0) = θ₀, θ(1) = θ₁, con Δ y Θ su semisuma y su semidiferencia. Sus figuras 5, 8 y 9 miden los ángulos de las mordazas como están dibujados, lo que en ángulos tangentes da θ(A) = Θ + Δ y θ(B) = Δ − Θ. Usamos la lectura de las figuras, que reproduce sus formas.',
+  convention: 'Cómo se traducen Θ y Δ en las tangentes extremas lo definimos contra las figuras. Θ es la semidiferencia de las tangentes y Δ su suma: θ(A) = Θ + Δ/2, θ(B) = Δ/2 − Θ. Con esta lectura las formas de la figura 9(c) caen en las esquinas del rectángulo, donde las rotula la figura 9(b); si Δ fuera la semisuma caerían a mitad de sus lados.',
   runHeading: 'Qué muestra la corrida',
   runText: 'Todos los estados del camino son estables y ninguno salta respecto del anterior: la altura del punto medio pasa en forma continua de y(1/2) = {start} en el arco a {end} en la forma invertida, con los mismos ángulos de mordaza.',
-  cusp: 'El rectángulo tiene que rodear la cúspide. Con la esquina lejana en Δ = 0,4 la lámina vuelve como arco. Con Θ = 1,1 el camino cruza el pliegue donde el arco deja de existir y no hay un equilibrio cercano: ahí la lámina saltaría.',
-  tryBelow: 'Probá Δ = 0,4',
-  tryFold: 'Probá Θ = 1,1',
+  cusp: 'El rectángulo tiene que rodear la cúspide, cerca de (Θ, Δ) = (1,2, 1,2). Con la esquina lejana en Δ = 0,6 la lámina vuelve como arco. Con Θ = 1,05 el camino cruza el pliegue donde el arco deja de existir y no hay un equilibrio cercano: ahí la lámina saltaría.',
+  tryBelow: 'Probá Δ = 0,6',
+  tryFold: 'Probá Θ = 1,05',
   limitsHeading: 'Limitaciones',
   limits: 'El modelo es plano, como en el artículo. No se trazan ramas inestables, porque la longitud de arco de producción todavía no acepta giros impuestos; la superficie de equilibrio de la figura 9(a) no se reproduce, y un pliegue aparece como el punto donde no hay un equilibrio cercano. El pórtico corrotacional es levemente extensible y está discretizado. Es una comparación numérica con las figuras y el texto del artículo, no un ensayo de laboratorio.',
 
@@ -105,7 +106,7 @@ const es: Strings = {
   arcRow: 'Lámina sin carga con Θ = 1',
   arcNote: 'distancia máxima a la circunferencia de radio 1/2, sobre el radio',
   exactZero: '0 (exacta)',
-  openNote: 'Las filas con ✗ quedan abiertas. Con la carga en media luz nuestro límite da más bajo. En los ajustes óptimos con Δ grande nuestra lámina sin carga ya se curva más de lo que permiten los valores del artículo, lo que sugiere otra rama u otra lectura de Δ en esa zona; con la carga en media luz en (0,96, 0) nuestra corrida con carga controlada no puede seguir al artículo después del salto. Quedan como preguntas para los autores.',
+  openNote: 'Las filas con ✗ quedan abiertas. Dos valores de la tabla 1 se alcanzan recién después de un salto: el artículo sigue el camino a través de los estados inestables, y nuestra corrida con carga controlada se detiene donde se pierde el equilibrio; para trazarlos hace falta longitud de arco con giros impuestos. Con la carga en media luz, el límite en (0,9, 0) da un 5 % más bajo, el límite en el óptimo (0,66, 1,36) es cerca de la mitad del del artículo y la curvatura en (0,64, 1,16) da un 12 % más alta. La forma invertida al final del camino, que coincide con la figura, tiene una curvatura máxima de alrededor de 10,6, por encima del umbral de 6 que el artículo fija para el camino. Quedan como preguntas para los autores.',
   paper: 'Preprint (arXiv:2509.12916v1)',
   journal: 'Versión de la revista',
 
@@ -134,6 +135,7 @@ const es: Strings = {
   lost: 'No hay equilibrio cerca de Θ = {t}, Δ = {d}: la lámina saltaría acá y el camino cuasiestático termina.',
   back: 'La lámina volvió como arco: este rectángulo no rodea la cúspide.',
   inverted: 'La lámina terminó invertida, sin saltar.',
+  jumped: 'La lámina saltó cerca de Θ = {t}, Δ = {d}: este camino cruza el pliegue, así que la forma cambia por un salto.',
   computedCorner: 'Calculado con la esquina lejana en',
 };
 
@@ -143,18 +145,18 @@ const pt: Strings = {
   lead: 'Gire as duas garras de uma lâmina curvada ativamente sob uma carga fixa e leve-a de arco à forma invertida sem salto.',
 
   modelHeading: 'A lâmina e seus dois atuadores',
-  theory: 'Uma lâmina plana de comprimento 1 é curvada entre duas garras afastadas sin 1. Cada garra é um atuador rotativo. As tangentes nas extremidades são θ(A) = Θ + Δ e θ(B) = Δ − Θ: Θ define quanto a lâmina se arqueia e Δ quanto ela se inclina. Uma carga permanente q·Q(s) empurra para baixo. A seção 3 do artigo trata a lâmina como uma elástica plana e inextensível, θ″/(4π²) + qρ cos θ + λ sin θ − μ cos θ = 0, onde ρ(s) é a carga entre A e s, e λ, μ são as reações em A. Com rigidez à flexão 1/(4π²), λ = 1 é a carga de Euler da lâmina engastada.',
+  theory: 'Uma lâmina plana de comprimento 1 é curvada entre duas garras afastadas sin 1. Cada garra é um atuador rotativo. As tangentes nas extremidades são θ(A) = Θ + Δ/2 e θ(B) = Δ/2 − Θ: Θ define quanto a lâmina se arqueia e Δ quanto ela se inclina. Uma carga permanente q·Q(s) empurra para baixo. A seção 3 do artigo trata a lâmina como uma elástica plana e inextensível, θ″/(4π²) + qρ cos θ + λ sin θ − μ cos θ = 0, onde ρ(s) é a carga entre A e s, e λ, μ são as reações em A. Com rigidez à flexão 1/(4π²), λ = 1 é a carga de Euler da lâmina engastada.',
   shapesHeading: 'Duas formas para os mesmos ângulos das garras',
   targets: 'Com Θ = 1, Δ = 0 e q = 2,5 a lâmina tem duas formas estáveis: um arco que leva a carga em compressão (forma 1) e uma forma invertida em tração (forma 5). A seção 3.4 vai de uma à outra por (Θ, Δ) = (1, 0) → (1,3, 0) → (1,3, 1,3) → (1, 1,3) → (1, 0). O retângulo contorna a cúspide da região onde as duas formas coexistem, então a lâmina muda de forma sem perder estabilidade no caminho.',
   shapeLinks: 'As cinco formas da figura 9(c) no nosso caminho:',
   methodHeading: 'Como reproduzimos',
   method: 'Modelamos a lâmina com 60 barras do pórtico 2D corrotacional de produção do Stabileo (EA·L²/EI = 8·10⁵π², assim a deformação axial fica abaixo de 10⁻⁴). Para este experimento o motor ganhou duas coisas: rotações e deslocamentos impostos na análise geometricamente não linear, e análises que continuam a partir de um estado convergido. Chegamos ao primeiro estado como o artigo: as garras giram enquanto B desliza, depois B é fixado e levado a sin 1, e só então a carga é aplicada. Daí em diante os atuadores avançam em passos de 0,02 rad. Em cada estado verificamos a estabilidade: a rigidez tangente deve ser definida positiva.',
-  convention: 'O preprint escreve as condições de contorno como θ(0) = θ₀, θ(1) = θ₁, com Δ e Θ sua semissoma e sua semidiferença. Suas figuras 5, 8 e 9 medem os ângulos das garras como desenhados, o que em ângulos tangentes dá θ(A) = Θ + Δ e θ(B) = Δ − Θ. Usamos a leitura das figuras, que reproduz suas formas.',
+  convention: 'Como Θ e Δ se traduzem nas tangentes das extremidades foi definido a partir das figuras. Θ é a semidiferença das tangentes e Δ a sua soma: θ(A) = Θ + Δ/2, θ(B) = Δ/2 − Θ. Com essa leitura as formas da figura 9(c) caem nos cantos do retângulo, onde a figura 9(b) as rotula; se Δ fosse a semissoma, cairiam no meio dos lados.',
   runHeading: 'O que a execução mostra',
   runText: 'Todos os estados do caminho são estáveis e nenhum salta em relação ao anterior: a altura do ponto médio passa de forma contínua de y(1/2) = {start} no arco a {end} na forma invertida, com os mesmos ângulos das garras.',
-  cusp: 'O retângulo precisa contornar a cúspide. Com o canto distante em Δ = 0,4 a lâmina volta como arco. Com Θ = 1,1 o caminho cruza a dobra onde o arco deixa de existir e não há equilíbrio próximo: ali a lâmina saltaria.',
-  tryBelow: 'Experimente Δ = 0,4',
-  tryFold: 'Experimente Θ = 1,1',
+  cusp: 'O retângulo precisa contornar a cúspide, perto de (Θ, Δ) = (1,2, 1,2). Com o canto distante em Δ = 0,6 a lâmina volta como arco. Com Θ = 1,05 o caminho cruza a dobra onde o arco deixa de existir e não há equilíbrio próximo: ali a lâmina saltaria.',
+  tryBelow: 'Experimente Δ = 0,6',
+  tryFold: 'Experimente Θ = 1,05',
   limitsHeading: 'Limitações',
   limits: 'O modelo é plano, como no artigo. Ramos instáveis não são traçados, porque o comprimento de arco de produção ainda não aceita rotações impostas; a superfície de equilíbrio da figura 9(a) não é reproduzida, e uma dobra aparece como o ponto onde não há equilíbrio próximo. O pórtico corrotacional é levemente extensível e discretizado. É uma comparação numérica com as figuras e o texto do artigo, não um ensaio de laboratório.',
 
@@ -173,7 +175,7 @@ const pt: Strings = {
   arcRow: 'Lâmina sem carga com Θ = 1',
   arcNote: 'distância máxima à circunferência de raio 1/2, sobre o raio',
   exactZero: '0 (exata)',
-  openNote: 'As linhas com ✗ ficam em aberto. Com a carga em meio vão nosso limite sai mais baixo. Nos ajustes ótimos com Δ grande nossa lâmina sem carga já se curva mais do que os valores do artigo permitem, o que sugere outro ramo ou outra leitura de Δ nessa região; com a carga em meio vão em (0,96, 0) nossa execução com carga controlada não consegue seguir o artigo depois do salto. Ficam como perguntas para os autores.',
+  openNote: 'As linhas com ✗ ficam em aberto. Dois valores da tabela 1 só são alcançados depois de um salto: o artigo segue o caminho pelos estados instáveis, e nossa execução com carga controlada para onde o equilíbrio se perde; para traçá-los é preciso comprimento de arco com rotações impostas. Com a carga em meio vão, o limite em (0,9, 0) sai 5 % mais baixo, o limite no ótimo (0,66, 1,36) é cerca da metade do artigo e a curvatura em (0,64, 1,16) sai 12 % mais alta. A forma invertida no fim do caminho, que coincide com a figura, tem curvatura máxima de cerca de 10,6, acima do limiar de 6 que o artigo fixa para o caminho. Ficam como perguntas para os autores.',
   paper: 'Preprint (arXiv:2509.12916v1)',
   journal: 'Versão da revista',
 
@@ -202,6 +204,7 @@ const pt: Strings = {
   lost: 'Não há equilíbrio perto de Θ = {t}, Δ = {d}: a lâmina saltaria aqui e o caminho quase estático termina.',
   back: 'A lâmina voltou como arco: este retângulo não contorna a cúspide.',
   inverted: 'A lâmina terminou invertida, sem salto.',
+  jumped: 'A lâmina saltou perto de Θ = {t}, Δ = {d}: este caminho cruza a dobra, então a forma muda por um salto.',
   computedCorner: 'Calculado com o canto distante em',
 };
 
