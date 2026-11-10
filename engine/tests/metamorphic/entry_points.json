@@ -413,6 +413,15 @@
     }},
     "init": {"scope": "utility"},
     "loads_request": {"scope": "design"},
+    "plastic_limit_2d": {"scope": "solve", "calls": "plastic_limit::certified_limit_2d", "invariances": {
+      "units": {"test": "engine/tests/metamorphic/regressions.rs::issue_758_certified_units"},
+      "relabel": {"test": "engine/tests/metamorphic/regressions.rs::issue_758_certified_renumbering"},
+      "reversal": {"test": "engine/tests/metamorphic/regressions.rs::issue_758_certified_member_reversal"},
+      "rotation": {"test": "engine/tests/metamorphic/regressions.rs::issue_758_certified_rotation"},
+      "mirror": {"test": "engine/tests/metamorphic/regressions.rs::issue_758_certified_mirror"},
+      "planes": {"tracked": 1497},
+      "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own linear program"}
+    }},
     "review_model_sanity": {"scope": "utility"},
     "section_geometry_digest": {"scope": "section"},
     "solve_2d": {"scope": "solve", "calls": "linear::solve_2d_typed", "invariances": {

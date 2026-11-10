@@ -3,7 +3,7 @@
 //! (docs/verification/METAMORPHIC.md, "Violations found").
 
 use crate::case::Case2;
-use dedaliano_engine::solver::plastic_limit::limit_analysis_2d_input;
+use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, limit_analysis_2d_input};
 use dedaliano_engine::metamorphic::transform::{transform_2d, Iso2, Iso3};
 use dedaliano_engine::postprocess::influence;
 use dedaliano_engine::solver::{constraints, corotational, kinematic, linear, load_cases, moving_loads, plastic, spectral, staged, winkler};
@@ -947,6 +947,132 @@ fn issue_758_member_reversal() { issue_758_invariance("reversal", |i| limit_anal
 #[test]
 fn issue_758_units() { issue_758_invariance("units", |i| limit_analysis_2d_input(i)); }
 
+
+/// Models the exact certificate settles, with their collapse factor by hand from the plastic
+/// moments `issue_758_limit` gives their sections: the Basic "Portal Frame" example (its beam
+/// mechanism governs), and a fixed–fixed beam under a uniform load.
+fn issue_758_certified_cases() -> Vec<(Case2, f64)> {
+    use crate::common::make_input;
+    let udl = |e: usize, q: f64| SolverLoad::Distributed(SolverDistributedLoad { element_id: e, q_i: q, q_j: q, a: None, b: None });
+    let mp_of = |c: &Case2| plastic::section_plastic_moments(&issue_758_plastic_input(c));
+    let portal = Case2::new("Portal Frame", make_input(
+        vec![(1, 0.0, 0.0), (2, 0.0, 4.0), (3, 6.0, 4.0), (4, 6.0, 0.0)],
+        vec![(1, 30_000.0, 0.2)],
+        vec![(2, 0.09, 0.000675), (3, 0.1, 0.002083)],
+        vec![(1, "frame", 1, 2, 1, 2, false, false), (2, "frame", 2, 3, 1, 3, false, false), (3, "frame", 4, 3, 1, 2, false, false)],
+        vec![(1, 1, "fixed"), (2, 4, "fixed")],
+        vec![udl(2, -15.0), SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fz: 0.0, my: 0.0 })],
+    ));
+    let mp = mp_of(&portal);
+    let (mpc, mpb) = (mp[&2], mp[&3]);
+    let beam = 8.0 * (mpc + mpb) / (15.0 * 36.0);
+    let sway = 4.0 * mpc / (10.0 * 4.0);
+    // Combined: hinges at both column feet, at the right column head and in the beam at x.
+    let combined = (1..6000).map(|k| 6.0 * k as f64 / 6000.0).map(|x| (2.0 * mpc + (mpb + mpc) * 6.0 / (6.0 - x)) / (40.0 + 45.0 * x)).fold(f64::INFINITY, f64::min);
+    assert!(mpc < mpb && beam < sway && beam < combined, "{beam} {sway} {combined}");
+    let fixed = Case2::new("fixed-fixed beam", make_input(
+        vec![(1, 0.0, 0.0), (2, 6.0, 0.0)],
+        vec![(1, 200_000.0, 0.3)],
+        vec![(1, 0.045, 3.375e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 2, "fixed")],
+        vec![udl(1, -10.0)],
+    ));
+    let mpf = mp_of(&fixed)[&1];
+    vec![(portal, beam), (fixed, 16.0 * mpf / (10.0 * 36.0))]
+}
+
+/// The public entry (`certified_limit_2d`, WASM `plastic_limit_2d`) under one transform. The
+/// models of `issue_758_certified_cases` are released in every variant, at their factor by hand
+/// to 1e-9. The #758 reproductions (constraints, springs, links: outside the exact certificate)
+/// are released only at their reproduction's factor, and are otherwise the PL-2D-INVARIANCE
+/// refusal; which side of the gate one falls on does not change with the transform.
+fn issue_758_certified_invariance(transform: &str, limit: Limit758) -> Vec<String> {
+    use dedaliano_engine::metamorphic::{relabel::Relabel, reversal::reverse_2d, units::Units};
+    let variant = |c: &Case2, seed: u64| -> Result<Case2, String> {
+        let angle = [0.3, 1.1, 2.0, -0.7, 0.5, 2.9, -1.6, 3.6][seed as usize];
+        match transform {
+            "relabel" => Ok(c.relabel(&Relabel::random_2d(&c.s, seed), seed)),
+            "reversal" => Ok(Case2 { s: reverse_2d(&c.s, &|id| (id + seed as usize) % 3 != 0), ..c.clone() }),
+            "units" => Ok(c.units(&Units::froude([1e-3, 25.0, 0.3048, 1e3][seed as usize % 4], [1e3, 1e-2, 4.448, 1e3][seed as usize % 4]))),
+            "rotation" => c.iso(&Iso2::rotation(angle)),
+            _ => c.iso(&Iso2::mirror_line(angle)),
+        }
+    };
+    let mut outcomes = Vec::new();
+    let mut failures = Vec::new();
+    for (c, hand) in issue_758_certified_cases() {
+        let mut got = vec![issue_758_limit(&c, limit)];
+        for seed in 0..8u64 {
+            got.push(variant(&c, seed).and_then(|v| issue_758_limit(&v, limit)));
+        }
+        for (k, r) in got.iter().enumerate() {
+            match r {
+                Ok(l) if (l - hand).abs() <= 1e-9 * hand => {}
+                r => failures.push(format!("{} {transform}/{k}: expected {hand}, got {r:?}", c.name)),
+            }
+        }
+        outcomes.push(format!("{}: {hand} by hand, {transform} {:?}", c.name, got.iter().map(|r| r.as_ref().ok().copied()).collect::<Vec<_>>()));
+    }
+    for corpus in [20754, 20749] {
+        for c in crate::corpus::cases_2d(crate::corpus::Tier::Nightly, corpus) {
+            let Some(&(_, _, expected)) = ISSUE_758_CASES.iter().find(|(k, n, _)| *k == corpus && *n == c.name) else { continue };
+            let c = Case2 { s: crate::common::explicit_rigid_support_control(&c.s), ..c };
+            let check = |what: String, r: Result<f64, String>, failures: &mut Vec<String>| -> Option<bool> {
+                match (expected, r) {
+                    (Some(want), Ok(got)) if (got - want).abs() <= 1e-9 * want.abs() => Some(true),
+                    (_, Err(e)) if e.contains("PL-2D-INVARIANCE") => Some(false),
+                    (_, r) => {
+                        failures.push(format!("{corpus} {} {what}: expected {expected:?} or the PL-2D-INVARIANCE refusal, got {r:?}", c.name));
+                        None
+                    }
+                }
+            };
+            let Some(base) = check("base".into(), issue_758_limit(&c, limit), &mut failures) else { continue };
+            let mut released = Vec::new();
+            for seed in 0..8u64 {
+                // A rigid link or a constraint some isometries cannot carry is skipped, not compared.
+                let Ok(other) = variant(&c, seed) else { continue };
+                if let Some(r) = check(format!("{transform}/{seed}"), issue_758_limit(&other, limit), &mut failures) {
+                    released.push(r);
+                    if r != base {
+                        failures.push(format!("{corpus} {} {transform}/{seed}: released {r}, the base case {base}", c.name));
+                    }
+                }
+            }
+            outcomes.push(format!("{corpus} {}: base released {base}, {transform} {released:?}", c.name));
+        }
+    }
+    eprintln!("{}", outcomes.join("\n"));
+    assert!(failures.is_empty(), "{}\n{}", failures.join("\n"), outcomes.join("\n"));
+    outcomes
+}
+
+#[test]
+fn issue_758_certified_renumbering() {
+    let outcomes = issue_758_certified_invariance("relabel", |i| certified_limit_2d(i));
+    assert_eq!(outcomes.len(), ISSUE_758_CASES.len() + 2, "{outcomes:?}");
+}
+#[test]
+fn issue_758_certified_member_reversal() {
+    let outcomes = issue_758_certified_invariance("reversal", |i| certified_limit_2d(i));
+    assert_eq!(outcomes.len(), ISSUE_758_CASES.len() + 2, "{outcomes:?}");
+}
+#[test]
+fn issue_758_certified_units() {
+    let outcomes = issue_758_certified_invariance("units", |i| certified_limit_2d(i));
+    assert_eq!(outcomes.len(), ISSUE_758_CASES.len() + 2, "{outcomes:?}");
+}
+#[test]
+fn issue_758_certified_rotation() {
+    let outcomes = issue_758_certified_invariance("rotation", |i| certified_limit_2d(i));
+    assert_eq!(outcomes.len(), ISSUE_758_CASES.len() + 2, "{outcomes:?}");
+}
+#[test]
+fn issue_758_certified_mirror() {
+    let outcomes = issue_758_certified_invariance("mirror", |i| certified_limit_2d(i));
+    assert_eq!(outcomes.len(), ISSUE_758_CASES.len() + 2, "{outcomes:?}");
+}
 
 #[test]
 fn issue_758_stiff_link_collapses_like_the_rigid_link() {
