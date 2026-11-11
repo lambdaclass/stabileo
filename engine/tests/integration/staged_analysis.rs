@@ -947,3 +947,53 @@ fn staged_cables_require_positive_tension() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1921"]
+fn staged_cable_iteration_failure_is_not_an_input_refusal() {
+    for padding in [0, 24] {
+        for (force, code) in [(0.001, "solver_non_convergence"), (-1.0, "singular_matrix")] {
+            let (mut nodes, materials, sections, mut elements, mut supports) = make_three_node_beam();
+            nodes.remove("3");
+            elements.remove("e2");
+            elements.get_mut("e1").unwrap().elem_type = "cable".into();
+            let end = supports.get_mut("s2").unwrap();
+            end.node_id = 2;
+            end.support_type = "rollerX".into();
+            let mut input = staged_stays_fixture(20, true);
+            input.nodes = nodes; input.materials = materials; input.sections = sections;
+            input.elements = elements; input.supports = supports;
+            input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: force, fz: 0.0, my: 0.0 })];
+            input.stages.truncate(1);
+            let stage = &mut input.stages[0];
+            stage.elements_added = vec![1]; stage.supports_added = vec![1, 2]; stage.load_indices = vec![0];
+            for i in 0..padding {
+                let node_i = 10 + 2 * i;
+                let node_j = node_i + 1;
+                input.nodes.insert(node_i.to_string(), SolverNode { id: node_i, x: 0.0, z: i as f64 });
+                input.nodes.insert(node_j.to_string(), SolverNode { id: node_j, x: 5.0, z: i as f64 });
+                let mut frame = input.elements["e1"].clone();
+                frame.id = 2 + i; frame.node_i = node_i; frame.node_j = node_j; frame.elem_type = "frame".into();
+                input.stages[0].elements_added.push(frame.id);
+                input.elements.insert(frame.id.to_string(), frame);
+                let mut support = input.supports["s1"].clone();
+                support.id = 3 + i; support.node_id = node_i;
+                input.stages[0].supports_added.push(support.id);
+                input.supports.insert(support.id.to_string(), support);
+            }
+            let full = SolverInput {
+                nodes: input.nodes.clone(), materials: input.materials.clone(), sections: input.sections.clone(),
+                elements: input.elements.clone(), supports: input.supports.clone(), loads: input.loads.clone(),
+                constraints: vec![], connectors: HashMap::new(), solver_options: None, masses: Default::default(),
+            };
+            assert_eq!(dedaliano_engine::solver::DofNumbering::build_2d(&full).n_free
+                >= dedaliano_engine::solver::linear::SPARSE_THRESHOLD, padding != 0);
+            let error = solve_staged_2d(&input).expect_err("failed cable iteration");
+            let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+            let diagnostic = &error["structuredDiagnostics"][0];
+            assert_eq!(diagnostic["code"], code, "force={force}: {error}");
+            assert_eq!(diagnostic["severity"], "error");
+            assert!(error.get("results").is_none());
+        }
+        }
+}

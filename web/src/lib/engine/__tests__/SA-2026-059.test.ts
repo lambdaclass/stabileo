@@ -105,10 +105,17 @@ it('the actual P-Delta panel handler with shortening withholds the result and di
   const ts = await import('typescript');
   const { resultsStore } = await import('../../store');
   const { b, cable } = fixture();
+  const previousInput = centerlineInput();
+  previousInput.elements.delete(cable);
+  const previous = wasm.solvePDelta3D(previousInput);
+  if (typeof previous === 'string') throw new Error(previous);
+  expect(previous.converged).toBe(true);
+  expect(knownIssueResultDisposition(previous).refused).toBe(false);
   const sup = [...modelStore.supports.values()].find(s => s.nodeId === b)!;
   modelStore.updateSupport(sup.id, { dofRestraints: { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false }, dz: -0.00001 });
   const source = readFileSync(new URL('../../../components/pro/ProAdvancedTab.svelte', import.meta.url), 'utf8');
-  const scope: any = { pdeltaResult: null, pdeltaRefused: null, pdeltaElapsed: null, advancedResults: {}, solving: false, solveError: null, buildInput: centerlineInput, wasmPDelta3D: wasm.solvePDelta3D, knownIssueResultDisposition, amplification, resultsStore, t, tp, errorText };
+  resultsStore.setPDeltaResult3D(previous);
+  const scope: any = { pdeltaResult: { ...previous, ...amplification(previous) }, pdeltaRefused: null, pdeltaElapsed: null, advancedResults: {}, solving: false, solveError: null, buildInput: centerlineInput, wasmPDelta3D: wasm.solvePDelta3D, knownIssueResultDisposition, amplification, resultsStore, t, tp, errorText };
   function handler(name: string) {
     const script = source.slice(source.indexOf('>', source.indexOf('<script')) + 1, source.indexOf('</script>'));
     const parsed = ts.createSourceFile('ProAdvancedTab.ts', script, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
@@ -117,6 +124,8 @@ it('the actual P-Delta panel handler with shortening withholds the result and di
     const js = ts.transpile(declaration!.getText(parsed), { target: ts.ScriptTarget.ES2022 });
     return new Function('scope', `with (scope) { ${js}; return ${name}; }`)(scope);
   }
+  expect(scope.pdeltaResult.results).toBe(previous.results);
+  expect(resultsStore.pdeltaResult3D).toEqual(previous);
   scope.forgetPDelta = handler('forgetPDelta');
   handler('handlePDelta')();
   expect(scope.solving).toBe(false);

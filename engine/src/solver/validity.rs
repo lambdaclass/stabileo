@@ -44,3 +44,23 @@ pub(crate) fn check_frozen_contact(id: usize, gap: f64, force_over_stiffness: f6
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #1921"]
+    fn frozen_penetration_requires_assembled_compression() {
+        let tolerance = 1e-10;
+        for force in [0.0, -tolerance / 2.0, tolerance / 2.0] {
+            let error = check_frozen_contact(2, -1.0, force, 1e5, tolerance, true, "node_to_surface")
+                .expect_err("penetration without consistent assembled compression");
+            let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+            assert_eq!(error["structuredDiagnostics"][0]["code"], "contact_state_invalid");
+            assert_eq!(error["structuredDiagnostics"][0]["nodeIds"], serde_json::json!([2]));
+        }
+        assert!(check_frozen_contact(2, -1.0, -1.0, 1e5, tolerance, true, "node_to_surface").is_ok());
+        assert!(check_frozen_contact(2, -1.0, -2.0, 1e5, tolerance, true, "node_to_surface").is_ok());
+    }
+}
