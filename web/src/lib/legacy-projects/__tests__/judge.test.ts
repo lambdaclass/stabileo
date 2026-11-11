@@ -199,7 +199,7 @@ describe('against real corpus files', () => {
   }, 120_000);
 
   for (const mainFirst of [false, true]) {
-    it.skipIf(mainFirst)(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'known wrong result: #1753, main-first order' : 'checkout order'})`, async () => {
+    it(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'main-first order' : 'checkout order'})`, async () => {
       const registry = mainFirst ? {
         ...RESULT_CHANGES,
         currentResultsVersion: RESULT_CHANGES.currentResultsVersion + 1,
@@ -217,7 +217,10 @@ describe('against real corpus files', () => {
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
           'harmonic-modal-residual-checked',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes',
-        ]);
+        ].map(id => registry.changes.find(c => c.id === id)!)
+          .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+          .map(c => c.id));
+        if (mainFirst) expect(opened.changes.slice(-2).map(c => c.id)).toEqual(['harmonic-omitted-modes', 'linear-stability-refusals']);
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
         const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;

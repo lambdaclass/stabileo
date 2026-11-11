@@ -780,8 +780,8 @@ pub(crate) fn free_tags(dof_num: &DofNumbering, two_d: bool) -> Vec<super::stabi
 }
 
 pub(crate) fn not_positive_definite() -> String {
-    "the stiffness matrix is not positive definite although the stability test found the structure stable: \
-     a negative stiffness (a negative spring or member property) makes the structure unstable; check springs and member properties".to_string()
+    "the structure cannot be solved reliably: \
+     stiffness factorization accuracy is unresolved after the stability check; no result is returned".to_string()
 }
 
 impl PreparedStatic2D<'_> {
@@ -5542,7 +5542,6 @@ pub(super) fn compute_equilibrium_summary_2d(
 #[cfg(test)]
 mod conditioning_1753_audit {
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn issue_1753_unconfirmed_factorization_failure_reports_accuracy() {
         let error = super::not_positive_definite();
         assert!(error.contains("factorization") && error.contains("accuracy"), "{error}");

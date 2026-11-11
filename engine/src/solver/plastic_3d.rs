@@ -1406,7 +1406,7 @@ mod tests {
     use super::*;
 
     #[test]
-        fn issue_1753_balance_cannot_certify_constraints_or_connectors() {
+    fn issue_1753_balance_cannot_certify_constraints_or_connectors() {
         let base: PlasticInput3D = serde_json::from_str(include_str!("../../../verify/samples/plastic-3d-portal.input.json")).unwrap();
         let results = crate::solver::linear::solve_3d(&base.solver).unwrap();
         let mut constrained = base.solver.clone();

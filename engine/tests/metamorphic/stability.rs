@@ -576,7 +576,7 @@ fn a_warping_stiffness_below_the_artificial_spring_solves_unloaded_or_refuses_an
         }
         let result = dedaliano_engine::solver::linear::solve_3d(&copy.s);
         if what == "original" {
-            assert!(result.unwrap_err().starts_with("the stiffness matrix is not positive definite"), "{what}");
+            assert!(result.unwrap_err().starts_with("the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check;"), "{what}");
         } else {
             match result {
                 Ok(result) => {
@@ -586,7 +586,7 @@ fn a_warping_stiffness_below_the_artificial_spring_solves_unloaded_or_refuses_an
                         assert_eq!(d.warping, Some(0.0), "{what}");
                     }
                 }
-                Err(e) => assert!(e.starts_with("the structure is a mechanism") || e.starts_with("the stiffness matrix is not positive definite"), "{what}: {e}"),
+                Err(e) => assert!(e.starts_with("the structure is a mechanism") || e.starts_with("the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check;"), "{what}: {e}"),
             }
         }
     }

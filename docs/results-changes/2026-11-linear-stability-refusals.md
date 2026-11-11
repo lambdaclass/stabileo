@@ -932,3 +932,10 @@ The conditional balance check is absent from inspected origin/main
 `855e79a5c610cba5b7b45aac44380ec054476e1a`. This follow-up fixes an unmerged-branch false
 refusal and establishes no new silently wrong main or released result. Existing
 SA-2026-054 evidence above remains separate; no advisory is added here.
+
+## Unconfirmed factorization failure
+
+A failed Cholesky after the stability check reports unresolved numerical accuracy,
+without diagnosing negative stiffness. Confirmed negative modes retain that diagnosis.
+See the [diagnostic clarification](2026-11-linear-factorization-diagnostic.md) for scope
+and regression evidence. Solve/refuse decisions and numerical results are unchanged.

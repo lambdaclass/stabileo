@@ -150,9 +150,9 @@ fn expected_refusal(name: &str, e: &str) -> bool {
         && e.contains("the matrix exceeds a conditioning limit or the recovered response fails its accuracy check");
     let mechanism = e.starts_with("the structure is a mechanism at nodes ")
         && e.contains("a node can move freely in a direction no member, support or spring stiffens");
-    let indefinite = e.starts_with("the stiffness matrix is not positive definite although the stability test found the structure stable:");
+    let factorization_accuracy = e == "the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned";
     match name {
-        "issue-1029" | "issue-973" => conditioning || indefinite,
+        "issue-1029" | "issue-973" => conditioning || factorization_accuracy,
         "issue-1083" | "issue-1091" | "issue-1353" | "issue-1355" | "issue-1362" => conditioning,
         "issue-1008" | "issue-1095" | "issue-1103" | "issue-1112" | "issue-1359" | "issue-1648" | "issue-1651" | "issue-964" | "issue-966" | "issue-967" => mechanism,
         "issue-1028" => serde_json::from_str::<serde_json::Value>(e).ok().is_some_and(|v| {
