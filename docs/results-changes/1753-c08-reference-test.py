@@ -20,6 +20,18 @@ def model(support):
 
 
 class ReferenceTests(unittest.TestCase):
+    @unittest.skip('known wrong result: #1753')
+    def test_truss_point_force_resultant_with_nonzero_shear_area(self):
+        with localcontext() as context:
+            context.prec = 90
+            s = model({'type': 'fixed'})
+            s['elements']['1']['type'] = 'truss'
+            s['sections']['1']['asY'] = D('0.001')
+            s['loads'] = [{'type': 'pointOnElement', 'data': {'elementId': 1, 'a': 2, 'p': 3}}]
+            r = ref.reference(s, 2)
+            applied = sum(r['f'][r['index'][node, 1]] for node in [1, 2])
+            self.assertLess(abs(applied - 3), D('1e-80'))
+
     def test_2d_spring_stiffness_matches_its_prescribed_direction(self):
         with localcontext() as context:
             context.prec = 90

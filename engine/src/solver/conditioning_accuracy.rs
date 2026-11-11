@@ -343,4 +343,25 @@ mod tests {
         assert_eq!(checked_balance(&conditional(), &balance, &applied, &u, asm.k_full.as_ref().unwrap(), &dof, true, Some(&fcs)).unwrap_err(), conditional().conditioning_refusal());
     }
 
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn force_loaded_soft_springs_pass_recovered_moment_balance_in_small_length_units() {
+        let input: SolverInput = serde_json::from_value(serde_json::json!({
+            "nodes":{"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":3.0,"z":0.0},"3":{"id":3,"x":3.0,"z":2.0}},
+            "elements":{
+                "1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1},
+                "2":{"id":2,"type":"frame","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1}},
+            "materials":{"1":{"id":1,"e":200000.0,"nu":0.3}},
+            "sections":{"1":{"id":1,"a":0.01,"iz":1e-4}},
+            "supports":{"1":{"id":1,"nodeId":1,"type":"spring","kx":1e-3,"ky":1e-3,"kz":1e-3}},
+            "loads":[{"type":"nodal","data":{"nodeId":3,"fx":1e-6,"fz":-2e-6,"my":0.0}}]
+        })).unwrap();
+        let scaled = crate::metamorphic::units::scale_2d(&input, &crate::metamorphic::units::Units::froude(1e-3, 1e3));
+        let rotated = crate::metamorphic::transform::transform_2d(&scaled, &crate::metamorphic::transform::Iso2::rotation(0.37)).unwrap();
+        assert!(super::super::stability::of_2d(&rotated).unwrap().needs_accuracy_check());
+        let result = super::super::linear::solve_2d(&rotated).unwrap();
+        let end = result.element_forces.iter().find(|f| f.element_id == 2).unwrap();
+        assert!(end.m_end.abs() <= CONDITIONAL_ACCURACY * 2e-6);
+    }
+
 }
