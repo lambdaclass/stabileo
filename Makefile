@@ -78,6 +78,7 @@ help:
 	@echo "CI-shaped targets (what each CI job runs):"
 	@echo "  make check-pins           - One version of each tool in rust-toolchain.toml, .nvmrc, flake.nix and CI"
 	@echo "  make check.changelog      - changelog.d/ fragments are well formed"
+	@echo "  make changelog.unreleased - Refresh CHANGELOG.md from fragments, keeping them"
 	@echo "  make check.reverts [BASE=origin/main] [HEAD=HEAD] - Merging HEAD into BASE deletes no recent lines HEAD's branch never had"
 	@echo "  make lint.engine          - Clippy over the engine"
 	@echo "  make test.engine.gates    - The named engine correctness gates"
@@ -456,6 +457,10 @@ roadmap.inflight:
 	  | $(NIX_RUN) python3 -I scripts/roadmap-inflight.py docs/roadmap/PRODUCT_ROADMAP.md 1000
 
 ## Unreleased changes are one file each in changelog.d/ (scripts/changelog.py)
+.PHONY: changelog.unreleased
+changelog.unreleased:
+	$(NIX_RUN) python3 -I scripts/changelog.py --unreleased
+
 check.changelog:
 	$(NIX_RUN) python3 -I scripts/changelog.py --check
 
@@ -508,6 +513,7 @@ test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-w
 	python3 -B -I scripts/tests/test_kani_shards.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_release_step.py
+	python3 -B -I scripts/tests/test_changelog.py
 	python3 -B -I scripts/tests/test_roadmap_inflight.py
 	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
@@ -877,3 +883,8 @@ test.engine.nonlinear-convergence-wasm: wasm
 	NONLINEAR_CONVERGENCE_CASES=$(CURDIR)/.761-wasm-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=nonlinear_convergence::issue_761_native_and_wasm_cases
 	$(NIX_RUN) node scripts/tests/nonlinear-convergence-wasm.mjs $(CURDIR)/.761-wasm-cases.json
 	rm -f $(CURDIR)/.761-wasm-cases.json
+
+.PHONY: test.engine.frozen-shell-refusals
+test.engine.frozen-shell-refusals: wasm
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib frozen_shell_refusals -- --nocapture
+	$(NIX_RUN) node scripts/tests/frozen-shell-refusals-wasm.mjs

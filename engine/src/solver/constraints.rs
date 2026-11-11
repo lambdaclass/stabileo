@@ -2519,6 +2519,17 @@ impl FreeConstraintSystem {
 
     pub(super) fn independent_dofs(&self) -> &[usize] { &self.independent }
 
+    pub(super) fn coupled_free_dofs(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        let c = &self.c_ff;
+        (0..c.n_cols).flat_map(move |j| {
+            let mut rows = (c.col_ptr[j]..c.col_ptr[j + 1])
+                .filter(move |&p| c.csc_vals[p] != 0.0)
+                .map(move |p| c.row_idx[p]);
+            let first = rows.next();
+            rows.filter_map(move |i| first.map(|f| (f, i)))
+        })
+    }
+
     pub(super) fn prescribed_free(&self, restrained: &[f64]) -> Vec<f64> {
         self.restrained_masters.iter().map(|terms| terms.iter().map(|&(i, c)| c * restrained[i]).sum()).collect()
     }

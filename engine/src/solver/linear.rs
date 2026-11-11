@@ -4504,7 +4504,8 @@ pub fn compute_internal_forces_3d_with_loads(
         let e = mat.e * 1000.0;
         let g = e / (2.0 * (1.0 + mat.nu));
 
-        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+        let kinematics = element::MemberKinematics3D::from_elem(elem, sec);
+        if kinematics == element::MemberKinematics3D::Axial {
             let dir = [dx / l, dy / l, dz / l];
             let ui: Vec<f64> = (0..3).map(|i| {
                 dof_num.global_dof(elem.node_i, i).map(|d| u[d]).unwrap_or(0.0)
@@ -4567,7 +4568,6 @@ pub fn compute_internal_forces_3d_with_loads(
         }
 
         let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
-        let has_cw = sec.cw.map_or(false, |cw| cw > 0.0);
 
         let (ex, ey, ez) = element::compute_local_axes_3d(
             node_i.x, node_i.y, node_i.z,
@@ -4581,7 +4581,7 @@ pub fn compute_internal_forces_3d_with_loads(
         let (phi_y, phi_z) = crate::element::timoshenko_phi_3d(sec, e, g, l);
 
         // Determine element size and compute f_local
-        let (f_local, ndof_elem) = if has_cw && dof_num.dofs_per_node >= 7 {
+        let (f_local, ndof_elem) = if kinematics.uses_warping_formulation() && dof_num.dofs_per_node >= 7 {
             // Warping element: 14×14
             let u_global: Vec<f64> = elem_dofs.iter().map(|&d| u[d]).collect();
             let t = element::frame_transform_3d_warping(&ex, &ey, &ez);
