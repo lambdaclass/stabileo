@@ -163,7 +163,7 @@ const body: PostBody = {
       "items": [
         "Basic, yapı analizini adım adım öğretir: statik, kuvvet ve deplasman yöntemleri, tesir çizgileri, ikinci mertebe ve burkulma, plastik analiz ve dinamik; her biri uygulama içinde adım adım açıklanır. Plastik göçme eğitim birimi de diğer 2D plastik göçme hesaplarıyla birlikte #758 düzeltilene kadar gösterilmez.",
         "Almanca, Fransızca ve Türkçe yeniden sunuluyor.",
-        "Yapay zekâ asistanı, yalnızca tarayıcınızda tutulan kendi Anthropic veya OpenAI anahtarınızla çalışır; /examples sayfasında ise bir kaydırıcı hareket ettiğinde motorun yeniden çözdüğü etkileşimli modeller bulunur.",
+        "Yapay zekâ asistanı, yalnızca tarayıcınızda tutulan kendi Anthropic veya OpenAI anahtarınızla çalışır; /tools sayfasında ise bir kaydırıcı hareket ettiğinde motorun yeniden çözdüğü etkileşimli modeller bulunur.",
         "PRO: ana ve benzer katlar, asal momentler ve doğrultularla birim genişlik başına plak sonuçları, analiz sonrası rapor, «Çoğalt ve düzenle» seçeneği olan salt okunur görüntüleyici ve 3D referans olarak çizilen bağlantılı bir IFC.",
         "0.2.0, 0.3.0 ve 0.4.0 tarafından kaydedilen dosyalar her değişiklikte açılır, yeni biçime dönüştürülür ve kayıtlı bir sonuç değişikliği uygulanmadıkça aynı sonuçları verir; daha yeni bir sürümle kaydedilmiş dosya, bunu belirten bir mesajla reddedilir.",
         "Yeniden ölçeklenen, numaralandırılan, yönü ters çevrilen veya taşınan aynı yapı aynı cevabı vermelidir; bu, her değişiklikte 17 analiz türünde ve her gece üretilen 8.192 model üzerinde kontrol edilir.",

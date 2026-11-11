@@ -41,6 +41,7 @@ export type View = {
   lineWidth?: number;
   bounds: [number, number, number, number];
   legend?: { shape: 'deformed' | 'mode'; scale?: number };
+  peak?: { value: number; at: [number, number]; label?: 'max' | 'f' | 'lambda' | 'pcr'; unit?: string };
 };
 
 export type Overlay = { key: string; points: [number, number][]; dashed?: boolean; markers?: boolean };

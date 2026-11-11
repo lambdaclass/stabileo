@@ -1,0 +1,67 @@
+.tools { font-synthesis: none; font-variant-numeric: tabular-nums; }
+.tools main.sec { padding: clamp(1rem, 2.5vw, 1.75rem) 0 4rem; }
+.tools .tools-wrap { max-width: 96rem; --lp-gut: clamp(1rem, 3vw, 2.5rem); }
+.tools .tools-wrap.gallery { max-width: 76rem; }
+.tools h1 { font: 600 clamp(1.75rem, 3.2vw, 2.5rem)/1.12 var(--lp-display); margin: .25rem 0 .5rem; overflow-wrap: anywhere; hyphens: auto; text-wrap: balance; }
+.tools .lead { font-size: 1rem; line-height: 1.5; color: var(--fg); margin: 0; }
+.tools .crumb { font-size: .9375rem; color: var(--fg-2); margin: 0; }
+.tools .crumb a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+.tools a:not(.btn), .tools a:visited:not(.btn) { color: inherit; text-underline-offset: 3px; }
+.tools .btn { min-height: 44px; min-width: 44px; }
+.tools .warning { border-left: 3px solid var(--st-warn, #e5482a); padding-left: .75rem; color: var(--fg); }
+.tools .fine { font-size: .875rem; color: var(--fg-2); }
+
+.tools .tool-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+.tools .tool-layout > * { min-width: 0; }
+.tools .tool-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-content: start; }
+.tools .tool-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; align-content: start; }
+.tools .tool-inputs h2 { font: 500 1.0625rem/1.3 var(--lp-display); margin: 0 0 .25rem; }
+.tools .tool-inputs form { border-top: 1px solid var(--hair); padding-top: .5rem; }
+.tools .tool-inputs input, .tools .tool-inputs select, .tools .tool-inputs textarea { min-height: 44px; min-width: 0; max-width: 100%; box-sizing: border-box; background: var(--card); color: var(--fg); border: 1px solid var(--hair); border-radius: 3px; padding: .35rem .4rem; font: .875rem var(--lp-mono); }
+.tools .tool-inputs textarea { width: 100%; resize: vertical; }
+.tools .tool-inputs select { font: .875rem var(--st-sans, sans-serif); text-overflow: ellipsis; }
+.tools .tool-inputs form > label { display: block; margin: .75rem 0 .35rem; font-size: .9375rem; }
+.tools .tool-inputs form > input { width: 100%; }
+.tools .tool-inputs form > p { font-size: .875rem; color: var(--fg-2); margin: .5rem 0; }
+.tools .tool-inputs .rs-param { grid-template-columns: minmax(0, 1fr) minmax(7rem, 11rem) 3.25rem; padding: .1rem 0; }
+.tools .tool-inputs .rs-param label { font-size: .9375rem; }
+.tools .tool-inputs input[type='range'] { border: 0; background: none; padding: 0; width: 100%; accent-color: var(--lp-accent); }
+.tools .slider { display: grid; grid-template-columns: minmax(0, 1fr) 3.25rem; align-items: center; gap: .5rem; }
+.tools .slider output { font: .875rem var(--lp-mono); text-align: right; color: var(--fg); }
+.tools .paired { display: grid; grid-template-columns: minmax(0, 1fr); gap: .25rem; }
+.tools .status { font-size: .875rem; color: var(--fg-2); min-height: 1.5em; margin: .5rem 0 0; }
+
+.tools .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: 1rem 1.25rem; padding: 1rem 0; border-block: 1px solid var(--hair); }
+.tools .result { display: grid; gap: .2rem; font-size: .875rem; color: var(--fg-2); align-content: start; }
+.tools .result strong { font: 500 clamp(1.375rem, 2.4vw, 1.875rem) var(--lp-display); color: var(--fg); overflow-wrap: anywhere; }
+.tools .result small { font: .8125rem var(--lp-mono); }
+.tools .verification { font-size: .875rem; color: var(--fg-2); overflow-wrap: anywhere; }
+.tools .formula { font: .875rem/1.8 var(--lp-mono); overflow-wrap: anywhere; }
+.tools .tool-results h2 { font: 500 1.25rem/1.3 var(--lp-display); margin: 1.5rem 0 .5rem; }
+.tools .tool-results a { display: inline-flex; align-items: center; min-height: 44px; }
+.tools .tool-results details { border-top: 1px solid var(--hair); margin-top: 2rem; padding-top: 1rem; font-size: .875rem; }
+.tools .tool-results summary { min-height: 44px; cursor: pointer; display: flex; align-items: center; }
+.tools .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .75rem; }
+.tools .table-scroll { overflow-x: auto; }
+.tools table { border-collapse: collapse; font: .875rem var(--lp-mono); }
+.tools th, .tools td { padding: .3rem .6rem; border-bottom: 1px solid var(--hair); text-align: right; }
+
+.tools .tool-others { border-top: 1px solid var(--hair); margin-top: 3rem; padding-top: 1.5rem; }
+.tools .tool-others h2 { font: 500 1.25rem/1.2 var(--lp-display); margin: 0 0 .75rem; }
+.tools .tool-others ul { display: flex; flex-wrap: wrap; gap: .25rem 1.5rem; list-style: none; padding: 0; margin: 0; }
+.tools .tool-others a { display: inline-flex; align-items: center; min-height: 44px; }
+
+@media (max-width: 30rem) {
+  .tools .tool-inputs .rs-param { grid-template-columns: minmax(0, 1fr) minmax(6.5rem, 9rem) 2.75rem; column-gap: .4rem; }
+  .tools .tool-inputs .rs-param label { font-size: .875rem; }
+  .tools .lead { font-size: .9375rem; }
+}
+@media (min-width: 62rem), (min-width: 44rem) and (max-height: 500px) {
+  .tools .tool-layout { grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr); column-gap: clamp(1.25rem, 2.5vw, 2.5rem); align-items: start; }
+  .tools .tool-side { position: sticky; top: .75rem; max-height: calc(100dvh - var(--lp-nav-h, 3.6rem) - 1.5rem); overflow-y: auto; overscroll-behavior: contain; padding-right: .25rem; }
+}
+@media (min-width: 44rem) and (max-height: 500px) {
+  .tools main.sec { padding-top: .5rem; }
+  .tools h1 { font-size: 1.5rem; }
+  .tools .lead { display: none; }
+}

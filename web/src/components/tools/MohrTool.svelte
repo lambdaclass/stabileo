@@ -6,9 +6,8 @@
   import Mohr3D from '../mohr/Mohr3D.svelte';
   import MohrHelp from '../mohr/MohrHelp.svelte';
   import { decode2D, decode3D, encodeState, appHref } from '../../lib/mohr/state';
-  import type { MohrToolId } from './mohr-tools';
 
-  let { id }: { id: MohrToolId } = $props();
+  let { id }: { id: string } = $props();
   const kind = $derived(id === 'mohr-2d' ? 'plane' : 'space');
   const query = typeof location === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
   const e2e = query.get('e2e') === '1';

@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { mohrTranslations } from '../i18n';
-import { mohrToolTranslations, MOHR_IDS } from '../../tools/mohr-tools';
+import { MOHR_IDS } from '../../tools/mohr-tools';
+import { hubTranslations as mohrToolTranslations } from '../../tools/hub-i18n';
 import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 
 const SAME_AS_ENGLISH = ['pt mohr.face', 'fr mohr.face', 'fr mohr.conventions', 'fr mohr.rotation'];
@@ -10,7 +11,7 @@ const SAME_AS_ENGLISH = ['pt mohr.face', 'fr mohr.face', 'fr mohr.conventions', 
 const names = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
 describe('Mohr tool strings', () => {
-  for (const [label, dicts] of [['component', mohrTranslations], ['listing', mohrToolTranslations]] as const) {
+  for (const [label, dicts] of [['component', mohrTranslations]] as const) {
     it(`${label}: every language has every key, with the same placeholders`, () => {
       const keys = Object.keys(dicts.en).sort();
       const same: string[] = [];
