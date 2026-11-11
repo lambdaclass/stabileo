@@ -5542,6 +5542,14 @@ pub(super) fn compute_equilibrium_summary_2d(
 #[cfg(test)]
 mod conditioning_1753_audit {
     #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn issue_1753_unconfirmed_factorization_failure_reports_accuracy() {
+        let error = super::not_positive_definite();
+        assert!(error.contains("factorization") && error.contains("accuracy"), "{error}");
+        assert!(!error.contains("negative") && !error.contains("unstable"), "{error}");
+    }
+
+    #[test]
     fn issue_1465_loaded_release_names_the_node_and_rotation() {
         let input: crate::types::SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/buckling-1465-loaded-release.json")).unwrap();
         let linear = super::solve_3d(&input).unwrap_err();

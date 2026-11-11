@@ -218,6 +218,13 @@ fn invariance_reported_seeds_are_refused_or_stable() {
         let (mut input, _) = crate::fuzz_models::random_3d_model_rich(seed);
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_3d(&mut input, seed); }
         input = crate::common::explicit_elastic_support_control(&input);
+        if seed == 20761 {
+            let e = dedaliano_engine::solver::linear::solve_3d(&input).expect_err("#762 3D/20761: the loaded released rotation must be refused");
+            let verdict = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
+            assert!(verdict.is_stable(), "{verdict:?}");
+            assert!(e.starts_with("Nodal moment at node 2 is not supported:") && e.contains("loaded released rotation") && e.contains("rx=") && e.contains("ry=") && e.contains("rz="), "#762 3D/{seed}: {e}");
+            continue;
+        }
         match dedaliano_engine::solver::linear::solve_3d(&input) {
             Ok(r) => {
                 assert!(dedaliano_engine::solver::stability::of_3d(&input).unwrap().is_stable(), "3D/{seed}");
@@ -225,13 +232,8 @@ fn invariance_reported_seeds_are_refused_or_stable() {
             }
             Err(e) => {
                 let verdict = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
-                if seed == 20761 {
-                    assert!(verdict.is_stable(), "{verdict:?}");
-                    assert!(e.starts_with("Nodal moment at node 2 is not supported:") && e.contains("loaded released rotation") && e.contains("rx=") && e.contains("ry=") && e.contains("rz="), "#762 3D/{seed}: {e}");
-                } else {
-                    assert!(verdict.refusal().expect("the original stiffness refusal remains").starts_with("the structure is a mechanism"));
-                    assert!(e.starts_with("the structure is a mechanism"), "#762 3D/{seed}: {e}");
-                }
+                assert!(verdict.refusal().expect("the original stiffness refusal remains").starts_with("the structure is a mechanism"));
+                assert!(e.starts_with("the structure is a mechanism"), "#762 3D/{seed}: {e}");
             },
         }
     }

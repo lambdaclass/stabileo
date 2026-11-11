@@ -1,5 +1,6 @@
 /** The verdicts of the legacy-projects test (#718), and the negative tests that prove they fail. */
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import * as applicability from '../../provenance/applicability';
 import refinementEvidence from '../../../../../docs/results-changes/1753-refinement-corpus-evidence.json';
 import { initSolver } from '../../engine/wasm-solver';
 import type { ResultChange } from '../../provenance/registry';
@@ -197,24 +198,39 @@ describe('against real corpus files', () => {
     expect(v.report).toContain('base.elementForces[e1].nStart');
   }, 120_000);
 
-  it('NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained', async () => {
-    const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'deep-beam-shell')!;
-    const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`));
-    expect(opened.changes.map((c) => c.id)).toEqual([
-      'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
-      'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
-      'harmonic-modal-residual-checked',
-      'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes',
-    ]);
-    const then = readResults(`v0.4.0/${entry.results}`);
-    const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
-    const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;
-    const scaled = (k: string) => ({ ...then, [k]: (then[k] as number) * 1.05 });
-    expect(judge('stress', scaled(stress), opened.values, opened.changes).kind).toBe('explained');
-    const v = judge('displacement', scaled(disp), opened.values, opened.changes);
-    expect(v.kind).toBe('unexplained');
-    expect(v.report).toContain(disp);
-  }, 120_000);
+  for (const mainFirst of [false, true]) {
+    it.skipIf(mainFirst)(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'known wrong result: #1753, main-first order' : 'checkout order'})`, async () => {
+      const registry = mainFirst ? {
+        ...RESULT_CHANGES,
+        currentResultsVersion: RESULT_CHANGES.currentResultsVersion + 1,
+        changes: RESULT_CHANGES.changes.map(c => c.id === 'linear-stability-refusals'
+          ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 1 } : c),
+      } : RESULT_CHANGES;
+      const assess = applicability.assessProject;
+      const mocked = vi.spyOn(applicability, 'assessProject').mockImplementation((snapshot, stamp, mode, _registry, features, loadsVersion) =>
+        assess(snapshot, stamp, mode, registry, features, loadsVersion));
+      try {
+        const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'deep-beam-shell')!;
+        const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`));
+        expect(opened.changes.map((c) => c.id)).toEqual([
+          'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
+          'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
+          'harmonic-modal-residual-checked',
+          'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes',
+        ]);
+        const then = readResults(`v0.4.0/${entry.results}`);
+        const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
+        const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;
+        const scaled = (k: string) => ({ ...then, [k]: (then[k] as number) * 1.05 });
+        expect(judge('stress', scaled(stress), opened.values, opened.changes).kind).toBe('explained');
+        const v = judge('displacement', scaled(disp), opened.values, opened.changes);
+        expect(v.kind).toBe('unexplained');
+        expect(v.report).toContain(disp);
+      } finally {
+        mocked.mockRestore();
+      }
+    }, 120_000);
+  }
 
   it('the numerical evidence fingerprints the unchanged historical corpus files', () => {
     for (const entry of refinementEvidence.cases) {
