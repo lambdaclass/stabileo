@@ -18,6 +18,17 @@ spec.loader.exec_module(selection)
 
 
 class Selection(unittest.TestCase):
+    def test_exact_frozen_results_run_for_engine_gallery_and_baseline_changes(self):
+        paths = ['engine/src/solver/ssi.rs', 'engine/src/solver/arc_length.rs',
+                 'web/src/components/examples/slab.ts', 'web/results-frozen/gallery-slab-walls.json',
+                 'web/src/lib/results-snapshot/frozen-inputs.json',
+                 'web/scripts/results-snapshot/frozen.mjs',
+                 'web/src/lib/provenance/result-changes/ssi-support-reactions.json']
+        for event in ['pull_request', 'merge_group']:
+            for path in paths:
+                with self.subTest(event=event, path=path):
+                    self.assertEqual(selection.select(event, [path])['results'], 'true')
+
     def test_categories(self):
         for paths, scope, enabled in [
             (['docs/a.md', 'README.md', 'changelog.d/a.md'], 'docs', set()),

@@ -538,6 +538,7 @@ test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-w
 	python3 -B -I scripts/tests/test_ci_scripts_target.py
 	python3 -B -I scripts/tests/test_benchmark_gate.py
 	$(NIX_RUN) node scripts/tests/snapshot-applicability.mjs
+	$(NIX_RUN) node --test scripts/tests/frozen-results-gate.test.mjs scripts/tests/frozen-results-values.test.mjs
 	python3 -B -I scripts/tests/test_invariance_gate.py
 	python3 -B -I scripts/tests/test_engine_wall_clock_gate.py
 	python3 -B -I scripts/tests/test_timing_budgets_gate.py

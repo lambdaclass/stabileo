@@ -1,0 +1,49 @@
+{
+  "id": "arc-length-reference-norm",
+  "date": "2026-11-11",
+  "prs": [
+    1885
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "plane2D",
+      "analysis:nonlinear"
+    ],
+    "allOf": [
+      [
+        "members",
+        "connectors",
+        "springs"
+      ]
+    ]
+  },
+  "quantities": [
+    "displacements",
+    "elementForces",
+    "steps",
+    "finalLoadFactor",
+    "converged",
+    "totalIterations"
+  ],
+  "title": {
+    "en": "Arc-length continuation regroups reference-load arithmetic",
+    "es": "La continuación por longitud de arco reagrupa la aritmética de la carga de referencia",
+    "pt": "A continuação por comprimento de arco reagrupa a aritmética da carga de referência",
+    "de": "Bogenlängenfortsetzung gruppiert die Referenzlastarithmetik neu",
+    "fr": "La continuation en longueur d’arc regroupe le calcul de la charge de référence",
+    "tr": "Yay uzunluğu devamı referans yük hesabını yeniden grupluyor"
+  },
+  "explanation": {
+    "en": "PR #1885 added prescribed support motion and continuation from a converged state to 2D arc-length analysis. Precomputing the squared reference-load norm and evaluating the applied-load norm directly also changes low-order digits of existing zero-start paths. The audited benchmark samples retain convergence and their independent reference checks. This notice covers recorded 2D nonlinear runs because older stamps do not distinguish arc-length from other nonlinear methods; 3D and recorded linear runs are excluded.",
+    "es": "La PR #1885 añadió movimiento prescrito de apoyos y continuación desde un estado convergido al análisis 2D por longitud de arco. Precalcular la norma al cuadrado de la carga de referencia y evaluar directamente la norma aplicada también cambia las últimas cifras de trayectorias existentes desde cero. Las muestras auditadas conservan la convergencia y sus verificaciones independientes. Los sellos antiguos no distinguen los métodos no lineales: el aviso cubre cálculos 2D no lineales registrados, excluyendo 3D y lineales registrados.",
+    "pt": "A PR #1885 adicionou movimento prescrito dos apoios e continuação de um estado convergido à análise 2D por comprimento de arco. O pré-cálculo da norma quadrática da carga de referência e o cálculo direto da norma aplicada também alteram os últimos dígitos de trajetórias existentes iniciadas do zero. As amostras auditadas mantêm convergência e verificações independentes. Selos antigos não distinguem métodos não lineares: o aviso abrange análises 2D não lineares registradas, excluindo 3D e lineares registradas.",
+    "de": "PR #1885 ergänzt vorgeschriebene Auflagerbewegungen und die Fortsetzung aus einem konvergierten Zustand für die 2D-Bogenlängenanalyse. Die vorberechnete quadrierte Referenzlastnorm und die direkt berechnete Norm der aufgebrachten Last ändern auch letzte Stellen bestehender Pfade ohne Anfangszustand. Die geprüften Stichproben behalten Konvergenz und unabhängige Referenzprüfungen bei. Alte Stempel unterscheiden die nichtlinearen Verfahren nicht; der Hinweis betrifft aufgezeichnete nichtlineare 2D-Läufe, nicht 3D oder aufgezeichnete lineare Läufe.",
+    "fr": "La PR #1885 ajoute les mouvements d’appui imposés et la continuation depuis un état convergé à l’analyse 2D en longueur d’arc. Le précalcul de la norme au carré de la charge de référence et le calcul direct de la norme appliquée modifient aussi les derniers chiffres des chemins existants partant de zéro. Les échantillons audités conservent leur convergence et leurs contrôles indépendants. Les anciens tampons ne distinguent pas les méthodes non linéaires : cet avis couvre les calculs 2D non linéaires enregistrés, en excluant la 3D et les calculs linéaires enregistrés.",
+    "tr": "PR #1885, 2B yay uzunluğu analizine tanımlı mesnet hareketi ve yakınsamış durumdan devam ekledi. Referans yük normunun karesinin önceden hesaplanması ve uygulanan yük normunun doğrudan değerlendirilmesi, sıfırdan başlayan mevcut yolların son basamaklarını da değiştiriyor. Denetlenen örnekler yakınsamayı ve bağımsız referans kontrollerini koruyor. Eski kayıtlar doğrusal olmayan yöntemleri ayırmadığından bildirim kayıtlı 2B doğrusal olmayan çözümleri kapsar; 3B ve kayıtlı doğrusal çözümler kapsam dışıdır."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-arc-length-reference-norm.md",
+    "heading": "Arc-length continuation regroups reference-load arithmetic"
+  }
+}
