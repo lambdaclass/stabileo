@@ -256,3 +256,23 @@ it('the real #959 transverse-load model still refuses round-off compression', as
   expect(() => native.solve_buckling_2d(json, 3)).toThrow(/Buckling not determinable: every axial compression is within round-off/);
   expect(() => native.certify_buckling_2d(json, 3)).toThrow(/Buckling not determinable: every axial compression is within round-off/);
 });
+
+it('shared free warping without constraints refuses only unresolved compression (#1756)', async () => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const build = (p: number, shared: boolean) => {
+    const wire = JSON.parse(readFileSync('../engine/tests/fixtures/buckling-shared-free-warping.json', 'utf8'));
+    wire.loads[0].data.fz = -p;
+    wire.supports[1].rw = !shared;
+    expect(wire.constraints).toEqual([]);
+    return JSON.stringify(wire);
+  };
+  for (const solve of [native.solve_buckling_3d, native.certify_buckling_3d]) {
+    expect(() => solve(build(4e-8, true), 1)).toThrow(/every axial compression is within round-off/);
+    for (const [p, shared] of [[5e-8, true], [4e-8, false]] as const) {
+      const result = JSON.parse(solve(build(p, shared), 1));
+      const factor = (result.results ?? result).modes[0].loadFactor;
+      const expected = ((5.2 - Math.sqrt(19.84)) / 0.3) * (200000 * 1000 * 1e-12) / 100 / p;
+      expect(Math.abs(factor / expected - 1)).toBeLessThan(1e-6);
+    }
+  }
+});

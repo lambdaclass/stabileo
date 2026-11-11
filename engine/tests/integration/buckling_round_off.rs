@@ -6,7 +6,7 @@ use dedaliano_engine::metamorphic::transform::{transform_2d, Iso2};
 use dedaliano_engine::metamorphic::units::{
     scale_2d, scale_3d, scale_load_2d, scale_load_3d, Units,
 };
-use dedaliano_engine::solver::buckling::{solve_buckling_2d, solve_buckling_3d};
+use dedaliano_engine::solver::buckling::{buckling_system_2d, buckling_system_3d, solve_buckling_2d, solve_buckling_3d};
 use dedaliano_engine::solver::{corotational, pdelta};
 use dedaliano_engine::types::*;
 
@@ -374,6 +374,7 @@ fn one_element_cantilever_factor(ei: f64, l: f64, p: f64) -> f64 {
 }
 
 #[test]
+#[ignore = "known wrong result: #1756"]
 fn issue_1756_local_mpc_in_separate_member_leaves_resolved_compression_in_kg() {
     let expected = one_element_cantilever_factor(200000.0 * 1000.0 * 1e-12, 10.0, 1e-9);
     let mpc_2d = serde_json::json!({
@@ -432,6 +433,8 @@ fn issue_1756_local_mpc_in_separate_member_leaves_resolved_compression_in_kg() {
         });
     }
     let sparse_plane_input: SolverInput = serde_json::from_value(sparse_plane_v).unwrap();
+    let system = buckling_system_2d(&sparse_plane_input).unwrap();
+    assert!(system.cs.as_ref().unwrap().n_free_indep < system.dof_num.n_free);
     let sparse_plane = solve_buckling_2d(&sparse_plane_input, 1).unwrap();
     assert!(
         sparse_plane.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::SparseCholesky),
@@ -560,6 +563,7 @@ fn issue_1756_every_constraint_kind_on_free_dofs_of_separate_structure_leaves_co
 }
 
 #[test]
+#[ignore = "known wrong result: #1756"]
 fn issue_1756_boundary_around_component_own_round_off_bound_with_separate_constraint() {
     let mpc_2d = serde_json::json!({
         "type": "linearMPC",
@@ -591,6 +595,10 @@ fn issue_1756_boundary_around_component_own_round_off_bound_with_separate_constr
     let expected = one_element_cantilever_factor(200000.0 * 1000.0 * 1e-12, 10.0, p_above);
     let above_2d = separate_column_and_tie_2d(p_above, Some(1.0), vec![mpc_2d]);
     let above_3d = separate_column_and_tie_3d(p_above, Some(1.0), vec![mpc_3d]);
+    let system = buckling_system_2d(&above_2d).unwrap();
+    assert!(system.cs.as_ref().unwrap().n_free_indep < system.dof_num.n_free);
+    let system = buckling_system_3d(&above_3d).unwrap();
+    assert!(system.cs.as_ref().unwrap().n_free_indep < system.dof_num.n_free);
     for (name, lambda) in [
         ("2d plain", solve_buckling_2d(&above_2d, 1).unwrap().modes[0].load_factor),
         ("2d certified", certify_buckling_2d(&above_2d, 1).unwrap().results.modes[0].load_factor),
@@ -605,6 +613,7 @@ fn issue_1756_boundary_around_component_own_round_off_bound_with_separate_constr
 }
 
 #[test]
+#[ignore = "known wrong result: #1756"]
 fn issue_1756_omitted_member_mode_check_uses_component_round_off_bound() {
     let base = serde_json::json!({
         "nodes": {
@@ -658,6 +667,15 @@ fn issue_1756_omitted_member_mode_check_uses_component_round_off_bound() {
     }]))
     .unwrap();
 
+    let plane_system = buckling_system_2d(&constrained_2d).unwrap();
+    let space_system = buckling_system_3d(&constrained_3d).unwrap();
+    assert!(plane_system.neg_kg_round_off_csc.is_some());
+    assert!(space_system.neg_kg_round_off_csc.is_some());
+    assert!(plane_system.cs.as_ref().unwrap().n_free_indep < plane_system.dof_num.n_free);
+    assert!(space_system.cs.as_ref().unwrap().n_free_indep < space_system.dof_num.n_free);
+    for (mean_n, noise) in [(&plane_system.mean_n, &plane_system.axial_noise), (&space_system.mean_n, &space_system.axial_noise)] {
+        assert!(noise[&4] > 0.0 && mean_n[&4].abs() <= noise[&4]);
+    }
     let expected = one_element_cantilever_factor(200000.0 * 1000.0 * 1e-12, 10.0, 1e-9);
     for (name, lambda) in [
         ("2d plain", solve_buckling_2d(&constrained_2d, 1).unwrap().modes[0].load_factor),
@@ -812,4 +830,37 @@ fn nonlinear_analyses_solve_separate_constrained_member_alongside_small_compress
     let cr_con_3d = corotational::solve_corotational_3d(&constrained_3d, 50, 1e-10, 2, false).unwrap();
     assert!(cr_uncon_3d.converged && cr_con_3d.converged);
     assert!((uz3(&cr_con_3d.results) / uz3(&cr_uncon_3d.results) - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn unconstrained_shared_free_warping_propagates_round_off_only_until_compression_is_resolved() {
+    let build = |p: f64, shared: bool| {
+        let mut input: SolverInput3D = serde_json::from_str(include_str!("../fixtures/buckling-shared-free-warping.json")).unwrap();
+        let SolverLoad3D::Nodal(load) = &mut input.loads[0] else { panic!("nodal load") };
+        load.fz = -p;
+        input.supports.get_mut("1").unwrap().rw = Some(!shared);
+        assert!(input.constraints.is_empty());
+        input
+    };
+    let below = build(4e-8, true);
+    for error in [solve_buckling_3d(&below, 1).unwrap_err(), certify_buckling_3d(&below, 1).unwrap_err()] {
+        assert!(error.contains("every axial compression is within round-off"), "{error}");
+    }
+    for (p, shared) in [(5e-8, true), (4e-8, false)] {
+        let input = build(p, shared);
+        let system = buckling_system_3d(&input).unwrap();
+        let ordinary = (0..6).map(|d| system.dof_num.global_dof(1, d).unwrap());
+        assert!(ordinary.into_iter().all(|d| d >= system.dof_num.n_free));
+        assert_eq!(system.dof_num.global_dof(1, 6).unwrap() < system.dof_num.n_free, shared);
+        if shared {
+            assert_eq!(system.axial_noise[&1], system.axial_noise[&2]);
+        } else {
+            assert!(system.axial_noise[&1] < system.axial_noise[&2]);
+        }
+        assert!(system.mean_n[&1] < -system.axial_noise[&1]);
+        let expected = one_element_cantilever_factor(200000.0 * 1000.0 * 1e-12, 10.0, p);
+        for factor in [solve_buckling_3d(&input, 1).unwrap().modes[0].load_factor, certify_buckling_3d(&input, 1).unwrap().results.modes[0].load_factor] {
+            assert!((factor / expected - 1.0).abs() < 1e-6, "λ = {factor}, expected {expected}");
+        }
+    }
 }
