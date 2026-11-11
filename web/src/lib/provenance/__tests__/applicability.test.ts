@@ -26,6 +26,18 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('rechecks staged spring and mixed member models without requiring end releases', () => {
+    const ordinary = model({ elements: [member(1, 1, 'frame')] });
+    const spring = model({ elements: [member(1, 1, 'frame')], supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never });
+    const mixed = model({ elements: [member(1, 1, 'frame'), member(2, 1, 'truss')] });
+    for (const snapshot of [spring, mixed]) {
+      expect(modelFeatures(snapshot)).not.toContain('hinges');
+      expect(ids(snapshot)).toContain('staged-orphan-rotations');
+    }
+    expect(ids(ordinary)).not.toContain('staged-orphan-rotations');
+    expect(ids(spring, stampSolve('linear', null))).not.toContain('staged-orphan-rotations');
+  });
+
   it('scopes generator stability guidance to recorded generated structures', () => {
     const ordinary = model({ elements: [member(1, 1, 'frame')] });
     const generated = { ...ordinary, groups: [[1, { kind: 'generated' }]] } as FeatureSnapshot;

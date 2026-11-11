@@ -725,6 +725,9 @@ fn issue_1846_review_loads_on_future_members_refused() {
         let mut v=review_model(dim,pads);
         v["loads"][0]["data"]=serde_json::json!({"nodeId":3,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0});
         v["loads"][0]["data"][field]=1.0.into();
+        if field.starts_with('m') {
+            v["supports"]["3"]=if dim==2 {serde_json::json!({"id":3,"nodeId":3,"type":"pinned"})} else {serde_json::json!({"nodeId":3,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false})};
+        }
         review_stages(&mut v,true);
         assert!(review_solve(dim,v.clone()).is_err(),"{dim}D {pads} {field} answered an unsupported stage load");
         v["stages"][0]["loadIndices"]=serde_json::json!([]);
@@ -739,6 +742,10 @@ fn issue_1846_review_unidirectional_inactive_springs() {
     for dim in [2,3] { for pads in [0,22] { for scale in [1.0,1000.0] {
         let mut v=review_model(dim,pads);
         for n in v["nodes"].as_object_mut().unwrap().values_mut() {n["x"]=serde_json::json!(n["x"].as_f64().unwrap()*scale);}
+        v["materials"]["1"]["e"]=serde_json::json!(10000.0/scale.powi(2));
+        for (field,power) in [("a",2),("iy",4),("iz",4),("j",4)] {
+            v["sections"]["1"][field]=serde_json::json!(v["sections"]["1"][field].as_f64().unwrap()*scale.powi(power));
+        }
         v["supports"]["3"]=if dim==2 {serde_json::json!({"id":3,"nodeId":3,"type":"spring","kx":1000.0/scale})} else {serde_json::json!({"nodeId":3,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":1000.0/scale})};
         v["loads"][0]["data"]["nodeId"]=3.into();
         review_stages(&mut v,true);
@@ -779,12 +786,15 @@ fn issue_1846_review_hinged_support_springs_carry_moments() {
         let raw=solve_2d(&input).unwrap();
         let (certified,_)=dedaliano_engine::certify::certify_linear_2d(&input).unwrap();
         let staged=solve_staged_2d(&stage_2d(&input)).unwrap();
-        for r in [&raw,&certified,&staged.final_results] {
+        let nonlinear=dedaliano_engine::solver::corotational::solve_corotational_2d(&input,20,1e-12,1,false).unwrap();
+        assert!(nonlinear.converged);
+        for r in [&raw,&certified,&staged.final_results,&nonlinear.results] {
             let d=r.displacements.iter().find(|d|d.node_id==2).unwrap();assert!((d.ry-0.5).abs()<=1e-12);
         }
         v["supports"]["2"]["kz"]=0.0.into();
         let input:SolverInput=serde_json::from_value(v).unwrap();
         assert!(solve_2d(&input).is_err());assert!(solve_staged_2d(&stage_2d(&input)).is_err());
+        assert!(dedaliano_engine::solver::corotational::solve_corotational_2d(&input,20,1e-12,1,false).is_err());
     } }
 }
 
@@ -797,7 +807,7 @@ fn issue_1846_review_kinematic_spring_threshold_and_dispatch() {
         v["nodes"].as_object_mut().unwrap().remove("3");v["nodes"].as_object_mut().unwrap().remove("4");
         v["elements"]["1"]["type"]="truss".into();
         v["nodes"]["2"]["x"]=1.0.into();v["nodes"]["2"]["z"]=1.0.into();
-        v["materials"]["1"]["e"]=1e10.into();
+        v["materials"]["1"]["e"]=1e7.into();
         v["supports"]["2"]=if dim==2 {serde_json::json!({"id":2,"nodeId":2,"type":"spring","kx":spring})} else {serde_json::json!({"nodeId":2,"rx":false,"ry":true,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":spring})};
         v["loads"]=serde_json::json!([]);
         for i in 2..target_nf {
@@ -877,9 +887,9 @@ fn review_archived_comment(key: &str) {
             }
             let expected=serde_json::to_value(&linear.element_forces).unwrap();let got=serde_json::to_value(&actual.element_forces).unwrap();
             for a in expected.as_array().unwrap() {let b=got.as_array().unwrap().iter().find(|b|b["elementId"]==a["elementId"]).unwrap();
-                for fields in [["nStart","nEnd","vyStart","vyEnd","vzStart","vzEnd"],["tStart","tEnd","myStart","myEnd","mzStart","mzEnd"]] {
+                for fields in [["nStart","nEnd","vyStart","vyEnd","vzStart","vzEnd"],["mxStart","mxEnd","myStart","myEnd","mzStart","mzEnd"]] {
                     let scale=fields.iter().filter_map(|field|a[*field].as_f64()).map(f64::abs).fold(1e-10,f64::max);
-                    for field in fields {if let Some(x)=a[field].as_f64() {let y=b[field].as_f64().unwrap();assert!((x-y).abs()<=1e-9*scale,"{key}: {field} {x} != {y}");}}
+                    for field in fields {if let Some(x)=a[field].as_f64() {let y=b[field].as_f64().unwrap();assert!((x-y).abs()<=1e-9*scale,"{key}, length={length}, pads={pads}, split={split}, element {}: {field} {x} != {y}",a["elementId"]);}}
                 }
             }
         }
@@ -898,3 +908,28 @@ fn issue_1846_review_comment_1011() {review_archived_comment("1011-6730900141-0"
 #[test]
 #[ignore = "known wrong result: #1846"]
 fn issue_1846_review_comment_1846() {review_archived_comment("1846-6760758840-0");}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_review_spring_held_connector_arms() {
+    let mut v=review_model(2,0);
+    v["elements"].as_object_mut().unwrap().remove("2");v["elements"].as_object_mut().unwrap().remove("3");
+    v["loads"]=serde_json::json!([]);
+    v["connectors"]=serde_json::json!({"1":{"id":1,"nodeI":3,"nodeJ":4,"kShear":1.0}});
+    for node in [3,4] {v["supports"][node.to_string()]=serde_json::json!({"id":node,"nodeId":node,"type":"pinned","kz":2.0});}
+    let input:SolverInput=serde_json::from_value(v.clone()).unwrap();
+    solve_2d(&input).unwrap();
+    dedaliano_engine::certify::certify_linear_2d(&input).unwrap();
+    v["loads"]=serde_json::json!([{"type":"nodal","data":{"nodeId":3,"fx":0.0,"fz":0.0,"my":1e-6}}]);
+    let input:SolverInput=serde_json::from_value(v.clone()).unwrap();
+    let linear=solve_2d(&input).unwrap();
+    let nonlinear=dedaliano_engine::solver::corotational::solve_corotational_2d(&input,20,1e-12,1,false).unwrap();
+    assert!(nonlinear.converged);
+    for node in [3,4] {v["supports"][node.to_string()]["type"]="spring".into();v["supports"][node.to_string()]["kx"]=1e8.into();v["supports"][node.to_string()]["ky"]=1e8.into();}
+    let reference:SolverInput=serde_json::from_value(v).unwrap();
+    assert!(solve_2d(&reference).unwrap().displacements.iter().all(|d|d.ry.is_finite()));
+    for d in &linear.displacements {
+        let actual=nonlinear.results.displacements.iter().find(|a|a.node_id==d.node_id).unwrap();
+        assert!((d.ry-actual.ry).abs()<=1e-12);
+    }
+}

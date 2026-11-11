@@ -187,6 +187,24 @@ for (const dimension of [2, 3]) {
       assert.equal(result.stages[0].results.displacements.find(d => d.nodeId === 3).ux, 0);
     }
     input.constraints = [];
+    const springSupport = dimension === 2 ? { id: 3, nodeId: 3, type: 'spring', kx: 1000 } : { nodeId: 3, rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false, kx: 1000 };
+    input.supports[3] = springSupport;
+    stages[0].supportsAdded.push(3);
+    stages[0].loadIndices = [0];
+    const data = dimension === 2 ? { nodeId: 3, fx: 1, fz: 0, my: 0 } : { nodeId: 3, fx: 1, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 };
+    input.loads = [{ type: 'nodal', data }];
+    const springResult = JSON.parse(stagedSolve(JSON.stringify({ ...input, stages })));
+    assert.ok(Math.abs(springResult.stages[0].results.displacements.find(d => d.nodeId === 3).ux - 0.001) <= 1e-12);
+    data.fx = 0;
+    data.fz = 1;
+    assert.throws(() => stagedSolve(JSON.stringify({ ...input, stages })), /mechanism/);
+    input.supports[3] = dimension === 2 ? { id: 3, nodeId: 3, type: 'fixed', dx: 0.125 } : { nodeId: 3, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true, dx: 0.125 };
+    input.loads = [];
+    stages[0].loadIndices = [];
+    const settlementResult = JSON.parse(stagedSolve(JSON.stringify({ ...input, stages })));
+    assert.equal(settlementResult.stages[0].results.reactions.find(r => r.nodeId === 3)[dimension === 2 ? 'rx' : 'fx'], 0);
+    delete input.supports[3];
+    stages[0].supportsAdded.pop();
     for (const field of dimension === 2 ? ['fx', 'fz', 'my'] : ['fx', 'fy', 'fz', 'mx', 'my', 'mz']) {
       const data = dimension === 2 ? { nodeId: 3, fx: 0, fz: 0, my: 0 } : { nodeId: 3, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 };
       data[field] = 1e-6;
@@ -225,5 +243,41 @@ for (const support of ['pinned', 'rollerX', 'rollerY']) {
   input.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 1 } }];
   assert.ok(Math.abs(solve_2d(input).displacements.find(d => d.nodeId === 2).ry - 0.5) <= 1e-12);
   certify_linear_2d(input);
+  const nonlinear = JSON.parse(solve_corotational_2d(JSON.stringify(input), 20, 1e-12, 1));
+  assert.equal(nonlinear.converged, true);
+  assert.ok(Math.abs(nonlinear.results.displacements.find(d => d.nodeId === 2).ry - 0.5) <= 1e-12);
 }
 console.log('Multi-stage, partial constraints, unsupported loads, kinematics and support moment WASM regressions pass');
+
+
+for (const dimension of [2, 3]) {
+  for (const target of [63, 64]) {
+    for (const spring of [0, 0.5e-4, 1e-4, 0.1]) {
+      const input = {
+        nodes: { 1: { id: 1, x: 0, z: 0 }, 2: { id: 2, x: 1, z: 1 } },
+        materials: { 1: { id: 1, e: 1e7, nu: 0.3 } },
+        sections: { 1: { id: 1, a: 0.01, iy: 0.001, iz: 0.002, j: 0.003 } },
+        elements: { 1: { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 } },
+        supports: dimension === 2 ? { 1: { id: 1, nodeId: 1, type: 'fixed' }, 2: { id: 2, nodeId: 2, type: 'spring', kx: spring } } : {
+          1: { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true },
+          2: { nodeId: 2, rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false, kx: spring },
+        },
+        loads: [],
+      };
+      for (let i = 2; i < target; i++) {
+        const id = 100 + i;
+        input.nodes[id] = { id, x: 0, z: 2 };
+        input.supports[id] = dimension === 2 ? { id, nodeId: id, type: 'guidedY', ky: 1 } : { nodeId: id, rx: true, ry: true, rz: false, rrx: false, rry: false, rrz: false, kz: 1 };
+      }
+      if (dimension === 3) for (const node of Object.values(input.nodes)) node.y = 0;
+      const result = JSON.parse((dimension === 2 ? analyze_kinematics_2d : analyze_kinematics_3d)(JSON.stringify(input)));
+      assert.equal(result.isSolvable, spring === 0.1, `${dimension}D nf=${target} spring=${spring}`);
+      if (spring !== 0.1) {
+        assert.ok(result.mechanismModes > 0);
+        assert.ok(result.mechanismNodes.includes(2));
+        assert.match(result.diagnosis, /mecanismo/);
+      }
+    }
+  }
+}
+console.log('2D and 3D kinematic sub-threshold springs agree at nf=63 and nf=64');
