@@ -353,6 +353,20 @@ describe('which registered changes concern a model', () => {
     expect(conditionHolds(entry.when ?? {}, new Set(['inclinedSupports']))).toBe(false);
   });
 
+  it('scopes compensated equilibrium to P-Delta and SSI with structural stiffness', () => {
+    const change = 'nonlinear-equilibrium-arithmetic';
+    const entry = RESULT_CHANGES.changes.find(c => c.id === change)!;
+    for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+      for (const analysis of ['analysis:pdelta', 'analysis:ssi']) {
+        expect(conditionHolds(entry.when ?? {}, new Set([structure, analysis]))).toBe(true);
+        expect(conditionHolds(entry.when ?? {}, new Set([analysis]))).toBe(false);
+      }
+      for (const analysis of ['analysis:linear', 'analysis:modal', 'analysis:nonlinear']) {
+        expect(conditionHolds(entry.when ?? {}, new Set([structure, analysis]))).toBe(false);
+      }
+    }
+  });
+
   it('scopes supported and soil equilibrium to structural nonlinear or SSI histories', () => {
     const entry = RESULT_CHANGES.changes.find(c => c.id === 'nonlinear-supported-and-soil-equilibrium')!;
     for (const structure of ['members', 'connectors', 'springs']) {

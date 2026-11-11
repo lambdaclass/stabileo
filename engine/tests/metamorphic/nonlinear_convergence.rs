@@ -304,7 +304,6 @@ fn issue_761_unfinished_iterations_stay_unconverged_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #761"]
 fn issue_761_native_and_wasm_cases() {
     let mut cases = Vec::new();
     for case in fixtures() {

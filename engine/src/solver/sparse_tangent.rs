@@ -105,7 +105,7 @@ pub(crate) fn solve_tangent_sparse(
     r_s: &[f64],
     cache: &mut Option<SparseSymbolicCache>,
 ) -> Result<Vec<f64>, String> {
-    solve_tangent_sparse_impl(k_s, r_s, cache, None)
+    solve_tangent_sparse_impl(k_s, r_s, cache, None, false)
 }
 
 pub(crate) fn solve_tangent_sparse_diagnosed(
@@ -114,7 +114,16 @@ pub(crate) fn solve_tangent_sparse_diagnosed(
     cache: &mut Option<SparseSymbolicCache>,
     conditioning: &mut Option<crate::types::StructuredDiagnostic>,
 ) -> Result<Vec<f64>, String> {
-    solve_tangent_sparse_impl(k_s, r_s, cache, Some(conditioning))
+    solve_tangent_sparse_impl(k_s, r_s, cache, Some(conditioning), false)
+}
+
+pub(crate) fn solve_tangent_sparse_refined_diagnosed(
+    k_s: &CscMatrix,
+    r_s: &[f64],
+    cache: &mut Option<SparseSymbolicCache>,
+    conditioning: &mut Option<crate::types::StructuredDiagnostic>,
+) -> Result<Vec<f64>, String> {
+    solve_tangent_sparse_impl(k_s, r_s, cache, Some(conditioning), true)
 }
 
 fn solve_tangent_sparse_impl(
@@ -122,6 +131,7 @@ fn solve_tangent_sparse_impl(
     r_s: &[f64],
     cache: &mut Option<SparseSymbolicCache>,
     conditioning: Option<&mut Option<crate::types::StructuredDiagnostic>>,
+    refine: bool,
 ) -> Result<Vec<f64>, String> {
     let sym = cached_symbolic(cache, k_s);
     let factor = numeric_cholesky(sym, k_s);
@@ -129,7 +139,10 @@ fn solve_tangent_sparse_impl(
         if let Some(found) = crate::known_issues::sparse_factor_conditioning(k_s, factor.as_ref()) { *conditioning = Some(found); }
     }
     if let Some(num) = factor {
-        return Ok(sparse_cholesky_solve(&num, r_s));
+        let u = sparse_cholesky_solve(&num, r_s);
+        return Ok(if refine {
+            super::equilibrium::refine(u, |rhs| sparse_cholesky_solve(&num, rhs), |u| super::equilibrium::sparse_residual(k_s, r_s, u))
+        } else { u });
     }
     let n = k_s.n;
     if n > MAX_DENSE_FALLBACK_DOFS {

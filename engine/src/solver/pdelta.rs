@@ -34,28 +34,6 @@ fn model_solver_diagnostics(linear: &[SolverDiagnostic]) -> Vec<SolverDiagnostic
 /// Free DOFs threshold for sparse path in P-Delta iterations.
 const SPARSE_THRESHOLD: usize = 64;
 
-/// Right-hand side of the free equations with the restrained DOFs at their
-/// prescribed values: F_f − K_fr · u_r, with K the current (K + K_G).
-///
-/// The iterations used F_f alone and left every restrained DOF at zero, so a
-/// support settlement did not exist for the second-order solution: a model
-/// loaded only by one came back all zeros and "not converged", and one with
-/// loads as well came back without it. The linear pass had it; its
-/// displacements carry the prescribed values, which is where u_r comes from.
-fn rhs_with_prescribed(k: &[f64], n: usize, nf: usize, f_f: &[f64], u: &[f64]) -> Vec<f64> {
-    let u_r = &u[nf..n];
-    let mut rhs = f_f.to_vec();
-    if u_r.iter().all(|&v| v == 0.0) {
-        return rhs;
-    }
-    // Row i of K_fr is the contiguous slice k[i·n + nf .. (i+1)·n] (K is
-    // row-major), so no n_f × n_r block is copied out on every iteration.
-    for (i, r) in rhs.iter_mut().enumerate() {
-        *r -= k[i * n + nf..(i + 1) * n].iter().zip(u_r).map(|(a, b)| a * b).sum::<f64>();
-    }
-    rhs
-}
-
 /// The iteration works in the assembly's frame, in which every inclined
 /// support has its translations rotated so that the restrained direction is a
 /// DOF of its own. Element quantities — the axial force K_G is built from,
@@ -133,27 +111,20 @@ fn solve_spd_or_lu(
     if ns >= SPARSE_THRESHOLD {
         let k_csc = CscMatrix::from_dense_symmetric(&k_solve, ns);
         if let Some(factor) = numeric_cholesky(cached_symbolic(symbolic, &k_csc), &k_csc) {
-            return Some((sparse_cholesky_solve(&factor, f_solve), false));
+            let u = sparse_cholesky_solve(&factor, f_solve);
+            let u = super::equilibrium::refine(u, |rhs| sparse_cholesky_solve(&factor, rhs), |u| super::equilibrium::sparse_residual(&k_csc, f_solve, u));
+            return Some((u, false));
         }
     } else {
         let mut k_work = k_solve.clone();
         if let Some(u) = cholesky_solve(&mut k_work, f_solve, ns) {
+            let u = super::equilibrium::refine(u, |rhs| back_solve(&k_work, &forward_solve(&k_work, rhs, ns), ns), |u| super::equilibrium::dense_residual(&k_solve, f_solve, u));
             return Some((u, false));
         }
     }
     let mut k_work = k_solve;
     let mut f_work = f_solve.to_vec();
     lu_solve(&mut k_work, &mut f_work, ns).map(|u| (u, true))
-}
-
-/// Restrained rows of (K + K_G)·u − F: the reactions of the system that was
-/// solved, in the assembly's frame.
-///
-/// They were K·u − F. K_G's restrained rows are not zero — a column base
-/// carries the P·Δ/h shear — so with K alone ΣR missed it and did not balance
-/// the applied loads once the frame swayed.
-fn restrained_residual(k: &[f64], f: &[f64], u: &[f64], n: usize, nf: usize) -> Vec<f64> {
-    (nf..n).map(|d| k[d * n..(d + 1) * n].iter().zip(u).map(|(a, b)| a * b).sum::<f64>() - f[d]).collect()
 }
 
 /// B₂: the second-order amplification of the displacements that matter.
@@ -466,35 +437,22 @@ impl Tangent3D {
     }
 
     fn rhs(&self, n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
-        match self {
-            Self::Dense(k) => rhs_with_prescribed(k, n, nf, &f[..nf], u),
-            Self::Sparse(k) => {
-                let mut rhs = f[..nf].to_vec();
-                // Only lower entries K_rf are stored: their transpose contributes K_fr*u_r.
-                for (j, r) in rhs.iter_mut().enumerate() {
-                    for p in k.col_ptr[j]..k.col_ptr[j + 1] {
-                        let i = k.row_idx[p];
-                        if i >= nf { *r -= k.values[p] * u[i]; }
-                    }
-                }
-                rhs
-            }
-        }
+        let mut prescribed = u.to_vec();
+        prescribed[..nf].fill(0.0);
+        self.all_residual(n, f, &prescribed)[..nf].iter().map(|r| -r).collect()
     }
 
     fn all_residual(&self, n: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
-        let ku: Vec<f64> = match self {
-            Self::Dense(k) => (0..n).map(|i| k[i*n..(i+1)*n].iter().zip(u).map(|(a,b)| a*b).sum()).collect(),
-            Self::Sparse(k) => k.sym_mat_vec(u),
+        let residual = match self {
+            Self::Dense(k) => super::equilibrium::dense_residual(k, f, u),
+            Self::Sparse(k) => super::equilibrium::sparse_residual(k, f, u),
         };
-        ku.iter().zip(f).map(|(a,b)| a-b).collect()
+        assert_eq!(residual.len(), n);
+        residual.into_iter().map(|r| -r).collect()
     }
 
     fn residual(&self, n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
-        match self {
-            Self::Dense(k) => restrained_residual(k, f, u, n, nf),
-            Self::Sparse(k) => k.sym_mat_vec(u)[nf..].iter().zip(&f[nf..]).map(|(ku, f)| ku - f).collect(),
-        }
+        self.all_residual(n, f, u)[nf..].to_vec()
     }
 
     fn solve(self, rhs: &[f64], nf: usize, cs: &Option<FreeConstraintSystem>, cache: &mut Option<SparseSymbolicCache>) -> Option<(Vec<f64>, bool)> {
@@ -508,7 +466,9 @@ impl Tangent3D {
             Self::Sparse(k) => {
                 let k = cs.as_ref().map_or_else(|| k.clone(), |c| c.reduce_matrix_sparse(&k));
                 if let Some(factor) = numeric_cholesky(cached_symbolic(cache, &k), &k) {
-                    (sparse_cholesky_solve(&factor, &f), false)
+                    (super::equilibrium::refine(sparse_cholesky_solve(&factor, &f),
+                        |rhs| sparse_cholesky_solve(&factor, rhs),
+                        |u| super::equilibrium::sparse_residual(&k, &f, u)), false)
                 } else {
                     // Never turn a large, unstable sparse system back into a dense allocation.
                     if ns > super::time_integration::MAX_DENSE_FALLBACK_DOFS { return None; }
@@ -936,14 +896,13 @@ mod residual_precision_regressions {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn both_storage_paths_keep_balanced_and_unbalanced_residuals() {
         let large = 2.0_f64.powi(54);
         for scale in [2.0_f64.powi(-64), 1.0, 2.0_f64.powi(64)] {
             let k: Vec<_> = [large, 1.0, -large, 1.0, 2.0, 0.0, -large, 0.0, large]
                 .into_iter().map(|v| v * scale).collect();
             for tangent in [Tangent3D::Sparse(CscMatrix::from_dense_symmetric(&k, 3)), Tangent3D::Dense(k)] {
-                for load in [0.0, 1.0, 2.0] {
+                for load in [0.0, 1.0, 2.0, 1.0 - 0.5e-12, 1.0 + 0.5e-12, 1.0 - 2e-12, 1.0 + 2e-12] {
                     let f = [load * scale, 3.0 * scale, 0.0];
                     let residual = tangent.all_residual(3, &f, &[1.0; 3]);
                     assert_eq!(residual, [(1.0 - load) * scale, 0.0, 0.0]);

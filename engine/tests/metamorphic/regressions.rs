@@ -1379,7 +1379,6 @@ fn linear_agreement_pairs_a_quad_and_a_quad9_with_the_same_id() {
 }
 
 #[test]
-#[ignore = "known wrong result: #761"]
 fn pdelta_shell_self_weight_converges_after_relabeling() {
     let c = crate::corpus::cases_3d(crate::corpus::Tier::Pr, 20261018)
         .into_iter().find(|c| c.name == "feature_matrix/3d-shell-self-weight-mitc4-strip-equiv").unwrap();

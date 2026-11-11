@@ -1430,15 +1430,6 @@ impl PreparedStatic2D<'_> {
     }
 }
 
-fn subtract_product(sum: &mut f64, low: &mut f64, a: f64, b: f64) {
-    let product = a*b;
-    let next = *sum-product;
-    *low += if sum.abs() >= product.abs() { (*sum-next)-product } else { (-product-next)+*sum };
-    *low -= a.mul_add(b, -product);
-    *sum = next;
-}
-
-
 pub(super) fn conditional_refinement(
     stability: &super::stability::Stability, diagonal: &[f64], mut u: Vec<f64>,
     solve: impl Fn(&[f64]) -> Vec<f64>, residual: impl Fn(&[f64]) -> Vec<f64>,
@@ -1462,13 +1453,8 @@ pub(super) fn conditional_dense_refinement(
 ) -> Result<Vec<f64>, String> {
     let n = f.len();
     if !stability.needs_accuracy_check() { return Ok(u); }
-    conditional_refinement(stability, &(0..n).map(|i| k[i*n+i]).collect::<Vec<_>>(), u, solve, |u| {
-        (0..n).map(|i| {
-            let (mut hi, mut lo) = (f[i], 0.0);
-            for j in 0..n { subtract_product(&mut hi, &mut lo, k[i*n+j], u[j]); }
-            hi + lo
-        }).collect()
-    })
+    conditional_refinement(stability, &(0..n).map(|i| k[i*n+i]).collect::<Vec<_>>(), u, solve,
+        |u| super::equilibrium::dense_residual(k, f, u))
 }
 
 pub(super) fn conditional_sparse_refinement(
@@ -1480,15 +1466,7 @@ pub(super) fn conditional_sparse_refinement(
 }
 
 fn compensated_sparse_residual(k: &CscMatrix, f: &[f64], u: &[f64]) -> Vec<f64> {
-    let (mut sum, mut low) = (f.to_vec(), vec![0.0; k.n]);
-    for j in 0..k.n {
-        for p in k.col_ptr[j]..k.col_ptr[j+1] {
-            let (i, value) = (k.row_idx[p], k.values[p]);
-            subtract_product(&mut sum[i], &mut low[i], value, u[j]);
-            if i != j { subtract_product(&mut sum[j], &mut low[j], value, u[i]); }
-        }
-    }
-    sum.into_iter().zip(low).map(|(hi, lo)| hi+lo).collect()
+    super::equilibrium::sparse_residual(k, f, u)
 }
 
 fn refined_static_solve(f: &[f64], solve: impl Fn(&[f64]) -> Vec<f64>, residual: impl Fn(&[f64]) -> Vec<f64>) -> Result<Vec<f64>, String> {

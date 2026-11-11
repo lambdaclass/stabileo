@@ -224,7 +224,6 @@ fn assert_axial_pile_capacity(r: &dedaliano_engine::solver::ssi::SSIResult, delt
 }
 
 #[test]
-#[ignore = "known wrong result: #761"]
 fn single_pile_axial_capacity_matches_hand_calculation() {
     let (input, delta, shaft, tip) = axial_pile_case(true);
     let r = solve_ssi_2d(&input).unwrap();

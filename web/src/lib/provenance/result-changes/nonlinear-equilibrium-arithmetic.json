@@ -1,0 +1,47 @@
+{
+  "id": "nonlinear-equilibrium-arithmetic",
+  "date": "2026-11-11",
+  "prs": [
+    1940
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "curvedShells",
+        "connectors",
+        "springs"
+      ],
+      [
+        "analysis:pdelta",
+        "analysis:ssi"
+      ]
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "P-Delta and SSI preserve equilibrium through cancellation",
+    "es": "P-Delta y SSI conservan el equilibrio ante cancelaciones",
+    "pt": "P-Delta e SSI preservam o equilíbrio nas cancelações",
+    "de": "P-Delta und SSI erhalten das Gleichgewicht bei Auslöschung",
+    "fr": "P-Delta et SSI préservent l’équilibre malgré les annulations",
+    "tr": "P-Delta ve SSI birbirini götüren terimlerde dengeyi korur"
+  },
+  "explanation": {
+    "en": "Compensated residuals, bounded refinement and separate constraint reduction of soil and structural stiffness preserve strict equilibrium without changing convergence tolerances. Convergence, displacements, forces and reactions may change. Re-run P-Delta and SSI analyses (#761; PR #1940).",
+    "es": "Los residuos compensados, el refinamiento limitado y la reducción separada de las rigideces del suelo y de la estructura conservan el equilibrio sin cambiar tolerancias. Pueden cambiar la convergencia, los desplazamientos, los esfuerzos y las reacciones. Repita los análisis P-Delta y SSI (#761; PR #1940).",
+    "pt": "Resíduos compensados, refinamento limitado e redução separada das rigidezes do solo e da estrutura preservam o equilíbrio sem alterar tolerâncias. Convergência, deslocamentos, esforços e reações podem mudar. Refaça as análises P-Delta e SSI (#761; PR #1940).",
+    "de": "Kompensierte Residuen, begrenzte Nachiteration und getrennte Reduktion der Boden- und Struktursteifigkeit erhalten das Gleichgewicht ohne geänderte Toleranzen. Konvergenz, Verschiebungen, Kräfte und Reaktionen können sich ändern. P-Delta- und SSI-Analysen erneut ausführen (#761; PR #1940).",
+    "fr": "Les résidus compensés, le raffinement limité et la réduction séparée des raideurs du sol et de la structure préservent l’équilibre sans modifier les tolérances. Convergence, déplacements, efforts et réactions peuvent changer. Relancer les analyses P-Delta et SSI (#761 ; PR #1940).",
+    "tr": "Dengelenmiş artıklar, sınırlı iyileştirme ve zemin ile yapı rijitliklerinin ayrı indirgenmesi toleransları değiştirmeden dengeyi korur. Yakınsama, yer değiştirmeler, kuvvetler ve tepkiler değişebilir. P-Delta ve SSI analizlerini yeniden çalıştırın (#761; PR #1940)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-nonlinear-equilibrium-arithmetic.md",
+    "heading": "P-Delta and SSI retain equilibrium through cancellation (2026-11-11)"
+  }
+}
