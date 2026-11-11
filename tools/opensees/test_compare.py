@@ -633,7 +633,7 @@ class NumericFieldAudit(unittest.TestCase):
         cls.aster = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.aster)
 
-    def field(self, issue, field, component, dimension=3):
+    def field(self, issue, field, component, dimension=3, mutation="increase"):
         import tempfile
         model = column()
         force_names = ("nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd", "mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd")
@@ -663,9 +663,28 @@ class NumericFieldAudit(unittest.TestCase):
                     actual, expected = copy.deepcopy(reference), copy.deepcopy(reference)
                     changed = actual if side == "actual" else expected
                     target = changed[{"disp": "disp", "reac": "reac", "force": "forces"}[field]][3 if field == "disp" else 1]
-                    target[index] += 2.0 * max(abs(v) for v in vector.values()) if isinstance(vector, dict) else 2.0 * max(abs(v) for v in vector)
+                    if mutation == "increase":
+                        target[index] += 2.0 * max(abs(v) for v in vector.values()) if isinstance(vector, dict) else 2.0 * max(abs(v) for v in vector)
+                    elif mutation == "sign":
+                        target[index] = -target[index]
+                    elif mutation == "delete":
+                        del target[index]
+                    else:
+                        target[index] = float(mutation)
                     bad = compare(actual, expected)
-                    self.assertTrue(any(b[0] == field and b[2] == component for b in bad), (issue, entry, side, bad))
+                    self.assertTrue(any(b[0] == field and b[2] in ((component, "missing") if mutation == "delete" else (component,)) for b in bad), (issue, entry, side, mutation, bad))
+
+    @unittest.skip('known wrong result: #1946')
+    def test_signed_missing_and_nonfinite_components_on_both_sides(self):
+        for dimension in (2, 3):
+            displacement = ("ux", "uz", "ry") if dimension == 2 else ("ux", "uy", "uz", "rx", "ry", "rz")
+            reactions = ("rx", "rz", "my") if dimension == 2 else ("fx", "fy", "fz", "mx", "my", "mz")
+            forces = ("nStart", "nEnd", "vStart", "vEnd", "mStart", "mEnd") if dimension == 2 else ("nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd", "mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd")
+            for field, components in [("disp", displacement), ("reac", reactions), ("force", forces)]:
+                for component in components:
+                    for mutation in ("sign", "delete", "nan", "inf", "-inf"):
+                        with self.subTest(dimension=dimension, field=field, component=component, mutation=mutation):
+                            self.field(1946, field, component, dimension, mutation)
 
     def test_planar_displacements_reactions_and_member_forces_reject_planted_errors(self):
         for field, components in (("disp", ("ux", "uz", "ry")), ("reac", ("rx", "rz", "my")), ("force", ("nStart", "nEnd", "vStart", "vEnd", "mStart", "mEnd"))):

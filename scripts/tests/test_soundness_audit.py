@@ -243,5 +243,136 @@ class EvidenceChecks(unittest.TestCase):
                 self.assertEqual(first_boundary(sequence, lambda i: sequence[i], lambda v: v), expected)
 
 
+@unittest.skip('known wrong result: #1946')
+class FinalReview(unittest.TestCase):
+    def test_static_history_tracks_reactions_forces_and_stresses(self):
+        history = History()
+        for script in ['bisect-all-static.py', 'bisect-reference.py']:
+            for field in ['reactions', 'elementForces', 'quadStresses', 'quadNodalStresses']:
+                with self.subTest(script=script, field=field):
+                    values = [dict(displacements=[0], **{field: [v]}) for v in [1, -1, 1, 1, 2]]
+                    result, _ = history.run_history(script, values)
+                    self.assertEqual(len(result), 1)
+                    self.assertEqual(result[0]['parent'], 'r0')
+                    self.assertEqual(result[0].get('first_change'), 'r1')
+
+    def test_static_history_excludes_timing_and_build_metadata(self):
+        history = History()
+        for script in ['bisect-all-static.py', 'bisect-reference.py']:
+            values = [dict(displacements=[0], reactions=[1], timings={'solve': i}, solverRunMeta={'commit': str(i)}) for i in range(5)]
+            result, _ = history.run_history(script, values)
+            self.assertEqual(result, [])
+
+    def test_capture_preserves_every_contributing_test(self):
+        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+            area = Path(directory)
+            (area / 'engine/tests').mkdir(parents=True)
+            source = (AUDIT / 'instrument.py').read_text()
+            previous = Path.cwd()
+            try:
+                os.chdir(area)
+                exec(compile(source, str(AUDIT / 'instrument.py'), 'exec'), {})
+            finally:
+                os.chdir(previous)
+            helper = (area / 'engine/tests/audit_capture.rs').read_text()
+            record = helper[helper.index('fn record<'):helper.index('#[track_caller]')]
+            (area / 'src').mkdir()
+            (area / 'Cargo.toml').write_text('[package]\nname="audit-provenance-control"\nversion="0.1.0"\nedition="2021"\n[dependencies]\nserde="1"\nserde_json="1"\n[workspace]\n')
+            (area / 'src/main.rs').write_text('use std::hash::{Hash, Hasher};\n' + record + r''' 
+fn main() {
+    let handles: Vec<_> = ["first", "second", "first"].into_iter().map(|name| {
+        std::thread::Builder::new().name(name.into()).spawn(|| {
+            for kind in ["solve_2d", "solve_3d", "solve_corotational_2d", "solve_corotational_3d", "solve_arc_length"] {
+                record(kind, serde_json::json!([{}]), &Ok::<_, String>(1));
+            }
+        }).unwrap()
+    }).collect();
+    for handle in handles { handle.join().unwrap(); }
+}
+''')
+            output = area / 'capture'
+            result = subprocess.run(['cargo', 'run', '--offline', '--quiet', '--manifest-path', str(area / 'Cargo.toml'), '--target-dir', str(ROOT / '.audit-input/r3-capture-target')], env={**os.environ, 'AUDIT_NATIVE_OUT': str(output)}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            records = list(output.glob('*.json'))
+            self.assertEqual(len(records), 5)
+            for file in records:
+                self.assertEqual(json.loads(file.read_text()).get('tests'), ['first', 'second'])
+
+    def test_reference_collection_uses_all_provenance_and_refuses_changed_targets(self):
+        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+            area = Path(directory)
+            (area / 'base-fixed-native').mkdir()
+            model = dict(analysis='solve_3d', test='first', tests=['first', 'second'], input=[{}], result={'Ok': {'displacements': [{'ux': 1}]}})
+            (area / 'base-fixed-native/model.json').write_text(json.dumps(model))
+            for endpoint, actual, reference in [('base', 1, 1), ('repo', 2, 3)]:
+                observation = dict(test='second', site='test', actual=actual, reference=reference)
+                (area / f'{endpoint}-reference-test.log').write_text('AUDIT_REFERENCE=' + json.dumps(observation))
+            source = (AUDIT / 'collect-references.py').read_text().replace('/root/audit/soundness-2026-11-11', directory)
+            exec(compile(source, str(AUDIT / 'collect-references.py'), 'exec'), {})
+            row = json.loads((area / 'reference-comparisons.json').read_text())['rows'][0]
+            self.assertEqual(row['models'], ['model.json'])
+            self.assertIsNone(row['farther'])
+            self.assertIsNone(row['before_error'])
+            self.assertIsNone(row['after_error'])
+
+    def test_suite_failure_inventory_matches_the_recorded_count(self):
+        from audit_evidence import check_suite
+        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+            log = Path(directory) / 'suite.log'
+            log.write_text('test a::wrong ... FAILED\ntest b::wrong ... FAILED\nfailures:\n    a::wrong\n    b::wrong\ntest result: FAILED. 0 passed; 2 failed; 0 ignored;')
+            result = check_suite(log, 101, True)
+            self.assertEqual(result.get('failed_tests'), ['a::wrong', 'b::wrong'])
+            log.write_text('test a::wrong ... FAILED\ntest result: FAILED. 0 passed; 2 failed; 0 ignored;')
+            with self.assertRaises(ValueError):
+                check_suite(log, 101, True)
+
+    def test_archived_failure_inventory_is_complete(self):
+        import re
+        summary = json.loads((AUDIT / 'run-summary.json').read_text())
+        for row in summary:
+            failed = sum(int(n) for line in row['results'] for n in re.findall(r'; (\d+) failed;', line))
+            with self.subTest(log=row['log']):
+                self.assertEqual(len(row['failed_tests']), failed)
+
+    def test_successful_replay_reports_its_own_status(self):
+        source = (AUDIT / 'run-complete-native.sh').read_text()
+        replay = source[source.index('unset AUDIT_NATIVE_OUT'):]
+        self.assertNotIn('${status', replay)
+
+    def test_explicit_site_manifest_cannot_fall_back_to_generated_cases(self):
+        source = (AUDIT / 'site-gallery.test.ts').read_text()
+        line = next(line for line in source.splitlines() if line.startswith('const cases:'))
+        line = line.replace('const cases: typeof generated', 'const cases')
+        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+            manifest = Path(directory) / 'manifest.json'
+            for supplied, present, valid in [(None, False, True), (str(manifest), True, True), (str(manifest), False, False), ('', False, False)]:
+                if present:
+                    manifest.write_text('[{"id":"explicit"}]')
+                else:
+                    manifest.unlink(missing_ok=True)
+                code = "import {existsSync,readFileSync} from 'node:fs'; const generated=[{id:'generated'}]; const supplied=" + json.dumps(supplied) + ';' + line + '; console.log(JSON.stringify(cases));'
+                if supplied is None:
+                    code = code.replace('const supplied=null', 'const supplied=undefined')
+                result = subprocess.run(['node', '--input-type=module', '-e', code], capture_output=True, text=True)
+                self.assertEqual(result.returncode == 0, valid, result.stdout)
+                if valid:
+                    self.assertEqual(json.loads(result.stdout)[0]['id'], 'explicit' if present else 'generated')
+
+    def test_frozen_regressions_require_exact_nonempty_evidence(self):
+        source = (ROOT / 'scripts/tests/frozen-results-values.test.mjs').read_text()
+        original = next(line for line in source.splitlines() if line.startswith('const evidence ='))
+        for evidence in [[], [{}], [{'model': 'duplicate'}, {'model': 'duplicate'}]]:
+            modified = source.replace(original, 'const evidence = ' + json.dumps(evidence) + ';')
+            result = subprocess.run(['node', '--input-type=module', '-e', modified], cwd=ROOT / 'scripts/tests', capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+
+    def test_1784_coverage_cites_its_buckling_and_multicase_regressions(self):
+        report = AUDIT.with_suffix('.md').read_text()
+        row = next(line for line in report.splitlines() if line.startswith('| #1784 |'))
+        self.assertIn('issue_1759_buckling_rejects_negative_truss_inertia', row)
+        self.assertIn('issue_1761_multi_case_overflow_is_refused', row)
+        self.assertNotIn('issue_1760_plastic', row)
+
+
 if __name__ == '__main__':
     unittest.main()
