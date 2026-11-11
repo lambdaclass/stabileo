@@ -10,9 +10,10 @@ import {
   readCorpusText, readManifest, readResults, resultFingerprint, savedFixture, unexplainedMessage,
 } from '../legacy';
 import type { Values } from '../capture-results';
+import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import { modelStore } from '../../store/model.svelte';
 
-const change = (id: string, quantities?: ResultChange['quantities']): ResultChange => ({ ...RESULT_CHANGES.changes[0], id, resultsVersion: 1, quantities });
+const change = (id: string, quantities?: ResultChange['quantities']): ResultChange => ({ ...RESULT_CHANGES.changes[0], id, resultsVersion: 1, when: {}, quantities });
 const designOnly = change('design-only');
 const shellStresses = change('shell-stresses', ['quadStresses.sigmaXx', 'quadStresses.sigmaYy']);
 const everything = change('everything', ['*']);
@@ -54,6 +55,36 @@ describe('which values a registered change declares it moves', () => {
     expect(declaresMove(change('r', ['reactions']), 'unstableCombinations')).toBe(false);
     expect(declaresMove(everything, 'model.nodes')).toBe(false);
     expect(declaresMove(refusals, 'base.reactions[n1].rz')).toBe(false);
+  });
+});
+
+describe('analysis-specific result changes', () => {
+  it.skip('known wrong result: #1885 nonlinear and SSI notices cannot explain linear results', () => {
+    for (const id of ['arc-length-reference-norm', 'ssi-support-reactions']) {
+      const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+      const field = id === 'ssi-support-reactions' ? 'reactions[n1].rz' : 'elementForces[e1].nStart';
+      for (const prefix of ['base', 'case[2]', 'combo[1]']) {
+        const path = `${prefix}.${field}`;
+        expect(declaresMove(entry, path), `${id}: ${path}`).toBe(false);
+        expect(judge(id, reference, moved({ [path]: 99 }), [entry]).kind).toBe('unexplained');
+      }
+      expect(judge(id, reference, reference, [entry]).kind).toBe('same');
+    }
+  });
+
+  it.skip('known wrong result: #1885 analysis conditions agree with the snapshot gate', () => {
+    for (const analysis of ['linear', 'pdelta', 'modal', 'buckling', 'spectral', 'timeHistory', 'plastic', 'nonlinear', 'harmonic', 'ssi']) {
+      const entry = { ...change(analysis, ['reactions']), when: { all: [`analysis:${analysis}`] } };
+      const features = ['plane2D', 'space3D', 'members', `analysis:${analysis}`];
+      for (const prefix of ['base', 'case[2]', 'combo[1]']) {
+        const path = `${prefix}.reactions[n1].rz`;
+        expect(declaresMove(entry, path), analysis).toBe(analysis === 'linear');
+        expect(declaresMove(entry, path), analysis).toBe(fieldCovered(entry, path, features));
+      }
+    }
+    for (const when of [{ any: ['analysis:linear', 'analysis:nonlinear'] }, { allOf: [['analysis:linear', 'analysis:ssi']] }]) {
+      expect(declaresMove({ ...change('either', ['reactions']), when }, 'base.reactions[n1].rz')).toBe(true);
+    }
   });
 });
 
