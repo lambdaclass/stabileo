@@ -1171,6 +1171,80 @@ mod tests {
         }
     }
 
+    fn indirectly_loaded_unresolved_rotation(sparse: bool) {
+        let epsilon = f64::EPSILON;
+        let k = [
+            1.0, 1.0, 0.5,
+            1.0, 1.0 + epsilon, 0.5 + epsilon,
+            0.5, 0.5 + epsilon, 1.0,
+        ];
+        let tags = [
+            DofTag { node: 1, kind: DofKind::Rotation },
+            DofTag { node: 1, kind: DofKind::Rotation },
+            DofTag { node: 2, kind: DofKind::Translation },
+        ];
+        let matrix = CscMatrix::from_dense_symmetric(&k, 3);
+        let result = if sparse { analyze(&matrix, &tags) } else { analyze_dense(&k, 3, &tags) };
+        assert_eq!(result.verdict, Verdict::Stable, "{result:?}");
+        assert_eq!(result.free.len(), 1);
+        let load = [0.0, 0.0, 1.0];
+        assert_eq!(result.load_on_free_rotation(&load), None);
+        let mut pinned = if sparse { result.pin_sparse(&matrix).to_dense_symmetric() } else {
+            let mut pinned = k.to_vec();
+            result.pin_dense(&mut pinned, 3);
+            pinned
+        };
+        let u = crate::linalg::cholesky::cholesky_solve(&mut pinned, &load, 3).unwrap();
+        assert!(u.iter().all(|x| x.is_finite()));
+        println!("sparse={sparse}: pinned response {u:?}, coupling {:?}", result.free[0].coupling);
+        assert!(result.check_pins(&[0.0; 3], &[0.0; 3], &[0.0; 3]).is_ok());
+        let error = result.check_pins(&u, &load, &[0.0; 3])
+            .expect_err("the pin must not hide indirect loading of the unresolved rotation");
+        assert!(error.contains("rotation at node 1"), "{error}");
+        assert!(result.free[0].coupling.iter().any(|&(i, c)| i == 2 && c != 0.0));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1931"]
+    fn issue_1931_dense_indirect_load_on_unresolved_rotation_is_refused() {
+        indirectly_loaded_unresolved_rotation(false);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1931"]
+    fn issue_1931_sparse_indirect_load_on_unresolved_rotation_is_refused() {
+        indirectly_loaded_unresolved_rotation(true);
+    }
+
+    #[test]
+    fn issue_1931_rounding_coupling_of_an_explicit_release_remains_permitted() {
+        let k = [
+            1.0, 1.0, 0.5,
+            1.0, 1.0, 0.5 + f64::EPSILON,
+            0.5, 0.5 + f64::EPSILON, 1.0,
+        ];
+        let tags = [
+            DofTag { node: 1, kind: DofKind::Rotation },
+            DofTag { node: 1, kind: DofKind::Rotation },
+            DofTag { node: 2, kind: DofKind::Translation },
+        ];
+        let releases = ReleasedRotations {
+            rows: vec![vec![(0, 1.0), (1, 1.0)], vec![(2, 1.0)]],
+            nodes: [1].into_iter().collect(),
+            directions: vec![(1, vec![(0, 1.0), (1, -1.0)])],
+        };
+        let result = analyze_dense_with_coupling(&k, 3, &tags, &[], &releases);
+        assert_eq!(result.verdict, Verdict::Stable, "{result:?}");
+        assert_eq!(result.free.len(), 1);
+        assert!(releases.permits(1, &result.free[0].dofs, &result.free[0].direction));
+        assert!(result.free[0].coupling.is_empty());
+        let load = [0.0, 0.0, 1.0];
+        let mut pinned = k.to_vec();
+        result.pin_dense(&mut pinned, 3);
+        let u = crate::linalg::cholesky::cholesky_solve(&mut pinned, &load, 3).unwrap();
+        assert!(result.check_pins(&u, &load, &[0.0; 3]).is_ok());
+    }
+
     #[test]
     fn issue_1753_stalled_ritz_values_do_not_underestimate_the_top_eigenvalue() {
         for m in [2, 80] {
