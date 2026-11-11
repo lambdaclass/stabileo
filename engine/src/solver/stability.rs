@@ -626,10 +626,11 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
             if mu.first().is_some_and(|&low| low < -ROUNDING * size as f64 * f64::EPSILON * top.abs()) || top < 0.0 {
                 return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa: f64::NAN, anisotropy, free, mode_nodes: vec![*node] };
             }
+            let resolved_translation = |value: f64| *kind == DofKind::Translation && value > ROUNDING * size as f64 * f64::EPSILON * top;
             for c in 0..size {
                 let mut v = vec![0.0; b];
                 for (r, &i) in component.iter().enumerate() { v[i] = vecs[r * size + c]; }
-                if (top <= 0.0 || mu[c] <= LOCAL_FREE * top) && !(*kind == DofKind::Translation && mu[c] > 0.0) {
+                if (top <= 0.0 || mu[c] <= LOCAL_FREE * top) && !resolved_translation(mu[c]) {
                     if *kind != DofKind::Translation && !releases.permits(*node, dofs, &v) {
                         let canonical = (mu.iter().filter(|&&x| x <= LOCAL_FREE * top).count() == 1).then(|| {
                             releases.directions.iter().filter(|(n, _)| n == node).find_map(|(_, direction)| {
@@ -662,7 +663,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
                     columns.push(Column { group: g, w: v.iter().map(|x| x / scale).collect() });
                 }
             }
-            if let Some(&lowest) = mu.iter().find(|&&x| x > 0.0 && (*kind == DofKind::Translation || x > LOCAL_FREE * top)) {
+            if let Some(&lowest) = mu.iter().find(|&&x| x > LOCAL_FREE * top || resolved_translation(x)) {
                 anisotropy = anisotropy.max(top / lowest);
             }
         }
@@ -1182,7 +1183,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #1095"]
     fn translational_rank_requires_stiffness_above_eigenvalue_rounding() {
         for n in [2, 3] {
             let tags = vec![DofTag { node: 3, kind: DofKind::Translation }; n];

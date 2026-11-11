@@ -2,7 +2,6 @@ use crate::{ana2, ana3, case::{Case2, Case3}};
 use dedaliano_engine::{metamorphic::planes::{embed_2d, Plane}, solver::stability::{self, Reason}, types::SolverInput};
 
 #[test]
-#[ignore = "known wrong result: #1095"]
 fn oblique_truss_mechanisms_keep_their_refusals_across_entry_points() {
     let fixtures: serde_json::Value = serde_json::from_str(include_str!("../fixtures/cause-c-replay.json")).unwrap();
     let original: SolverInput = serde_json::from_value(fixtures["1095"].clone()).unwrap();

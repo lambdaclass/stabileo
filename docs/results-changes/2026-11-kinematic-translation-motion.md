@@ -54,3 +54,22 @@ refusal threshold or tolerance changed.
 ## Saved-model applicability and numerical scope
 
 The notice remains conservative for members, constraints and springs, and also includes eccentricities and saved construction phases. Numerical declarations name staged result collections, kinematic metadata and plastic history outputs, plus solve status. They do not explain changes to ordinary base linear forces, reactions or displacements. This preserves the legacy-model judge’s ability to reject fabricated values even when a notice applies.
+
+## CI refusal replay correction
+
+The shared local stiffness analysis requires a positive translational eigenvalue
+to exceed its existing eigenvalue rounding bound before it counts as a resolved
+direction. A positive sign alone did not prove rank: rotated rank-one truss
+blocks could gain a tiny positive eigenvalue from floating-point arithmetic.
+This restores the mechanism classification and all free-translation nodes for
+#965, #966, #1095, #1103 and #1359. Resolved weak springs still undergo the existing conditioning
+checks; rank, conditioning and accuracy constants are unchanged.
+
+At the prior PR head, #1095 remained refused by both modal exports, and #1103
+remained refused by creep analysis. The correction repairs their stability
+metadata; it does not newly admit an answer. The staged regression now requires
+an exact conditioning refusal for the rotated slender cantilever that regular
+linear analysis already refuses. Winkler retains its warning policy, and the
+healthy staged cantilever still returns its response. These are corrections to
+this unmerged PR's existing registry entry, not evidence of a new silent wrong
+result on main or a release.

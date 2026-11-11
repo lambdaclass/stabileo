@@ -44,7 +44,6 @@ fn issue_1648_buckling_refuses_the_unrestrained_translation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1359"]
 fn issue_1359_creep_refuses_the_unrestrained_translation() {
     mechanism_2d("1359", "creep & shrinkage (t = t0)", 5);
 }
@@ -127,7 +126,6 @@ fn issue_1110_buckling_refuses_the_unrestrained_translation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1103"]
 fn issue_1103_creep_refuses_both_unrestrained_translations() {
     mechanism_nodes_2d("1103", "creep & shrinkage (t = t0)", &[2, 7]);
 }
@@ -152,7 +150,6 @@ fn issue_1099_sparse_linear_refuses_the_connector_rotation_mechanism() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1095"]
 fn issue_1095_modal_refuses_the_free_translation_without_dropping_its_mode() {
     let solver: SolverInput = serde_json::from_value(input("1095")).unwrap();
     let verdict = stability::of_2d(&solver).unwrap();
@@ -194,13 +191,11 @@ fn issue_1028_cable_refuses_a_spring_on_a_rigid_translation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #966"]
 fn issue_966_buckling_refuses_the_unrestrained_translation() {
     mechanism_2d("966", "buckling", 2);
 }
 
 #[test]
-#[ignore = "known wrong result: #965"]
 fn issue_965_creep_refuses_the_unrestrained_translation() {
     mechanism_2d("965", "creep & shrinkage (t = t0)", 2);
 }

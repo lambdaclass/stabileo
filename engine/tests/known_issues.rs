@@ -790,11 +790,21 @@ fn winkler_and_stages_check_the_solved_matrix() {
         let winkler = solve_winkler_2d(&WinklerInput { solver: solver.clone(), foundation_springs: vec![] }).unwrap();
         let mut staged = serde_json::to_value(&solver).unwrap();
         staged["stages"] = serde_json::json!([{ "name": "all", "elementsAdded": [1,2,3,4], "supportsAdded": [1], "loadIndices": [0] }]);
-        let staged = solve_staged_2d(&serde_json::from_value(staged).unwrap()).unwrap();
-        if affected { refused_as_unresolvable(solve_2d(&solver)); }
+        let staged = solve_staged_2d(&serde_json::from_value(staged).unwrap());
+        if affected {
+            let verdict = dedaliano_engine::solver::stability::of_2d(&solver).unwrap();
+            assert_eq!(verdict.reason, dedaliano_engine::solver::stability::Reason::Conditioning);
+            assert!(verdict.kappa * verdict.anisotropy > dedaliano_engine::solver::stability::RESOLVABLE);
+            assert_eq!(staged.as_ref().unwrap_err(), &verdict.refusal().unwrap());
+            refused_as_unresolvable(solve_2d(&solver));
+        }
         else { assert!(!ids(&solve_2d(&solver).unwrap().structured_diagnostics).contains(&"NUM-INVARIANCE".into())); }
-        for ds in [&winkler.structured_diagnostics, &staged.final_results.structured_diagnostics, &staged.stages[0].results.structured_diagnostics] {
-            assert_eq!(ids(ds).contains(&"NUM-INVARIANCE".into()), affected);
+        assert_eq!(ids(&winkler.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), affected);
+        if !affected {
+            let staged = staged.unwrap();
+            for ds in [&staged.final_results.structured_diagnostics, &staged.stages[0].results.structured_diagnostics] {
+                assert!(!ids(ds).contains(&"NUM-INVARIANCE".into()));
+            }
         }
         let mut solver = beam3d();
         for section in solver.sections.values_mut() { section.iy = inertia; section.iz = inertia; section.j = inertia; }
