@@ -1,0 +1,314 @@
+{
+  "date": "2026-11-11",
+  "tested_main": "85c002b3a378a076fe118d75fcb665b5099dba46",
+  "source": "Supplied read-only candidate-replay/docs/verification/candidate-replay-2026-11-11.json, staged_followups for #1846; independent observations retained unchanged.",
+  "fixture": "engine/tests/fixtures/staged-orphan-1846.json",
+  "observations": [
+    {
+      "issue": 1846,
+      "side": "original",
+      "input_ref": "engine/tests/fixtures/candidate-replay.json#staged:1846:original",
+      "input_sha256": "849d6bb7726819e78b6837d9053f180ceb6a58c229128dcc10965d11130d1e14",
+      "native_staged": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "rx": 35.59064052615643,
+            "ry": 0.0,
+            "rz": -1.195295539594349,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          }
+        ],
+        "diagnostics": []
+      },
+      "public_wasm_staged": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ux": 0,
+            "uy": 0,
+            "uz": 0,
+            "rx": 0,
+            "ry": 0,
+            "rz": 0
+          },
+          {
+            "nodeId": 2,
+            "ux": 0,
+            "uy": 0,
+            "uz": 0,
+            "rx": 35.59064052615643,
+            "ry": 0,
+            "rz": -1.195295539594349
+          }
+        ],
+        "diagnostics": []
+      },
+      "regular_linear": {
+        "status": "solved",
+        "diagnostics": [
+          {
+            "code": "dense_lu",
+            "severity": "info",
+            "message": "Dense solver (2 free DOFs)",
+            "phase": "solve"
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "Dense solver residual 1.90e-16 (2 free DOFs)",
+            "phase": "solve",
+            "value": 1.899624673373767e-16,
+            "threshold": 1e-06
+          },
+          {
+            "code": "known_issue",
+            "severity": "warning",
+            "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 \u2212 cos \u03b8 \u2248 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+            "elementIds": [
+              1
+            ],
+            "nodeIds": [
+              2
+            ],
+            "phase": "LIN-SMALL-DISPLACEMENT",
+            "value": 1446.0,
+            "threshold": 0.1,
+            "elementKind": "frame"
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_residual: 1.621e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_residual",
+            "value": 1.6209515150085103e-16,
+            "threshold": 1e-06
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_balance: 9.993e-18 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_balance",
+            "value": 9.99269977041172e-18,
+            "threshold": 1e-06
+          }
+        ],
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0,
+            "rx": 35.59064052615643,
+            "ry": 0.0,
+            "rz": -1.195295539594349
+          }
+        ],
+        "load_factors": null
+      },
+      "opensees": {
+        "displacements": {
+          "1": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "2": [
+            0.0,
+            0.0,
+            0.0,
+            35.59064052615686,
+            0.0,
+            -1.195295539594668
+          ]
+        },
+        "kappa": 1253.0264747915269
+      },
+      "reference_comparison": {
+        "disp_t": 0.0,
+        "disp_r": 1.2178231759979615e-14,
+        "reac_f": 1.7605242914236054e-13,
+        "reac_m": 4.327662842900303e-17,
+        "force_f": 1.762688890543157e-13,
+        "force_m": 3.205676179926151e-17
+      },
+      "reference_tolerance": 1e-06
+    },
+    {
+      "issue": 1846,
+      "side": "transformed",
+      "input_ref": "engine/tests/fixtures/candidate-replay.json#staged:1846:transformed",
+      "input_sha256": "1743948e3411b1bc016f527b39d308fc83606246c2d2932e24a6db91696a0a96",
+      "native_staged": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "rx": 0.16535440385032843,
+            "ry": 0.0,
+            "rz": -0.010728277534928964,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          }
+        ],
+        "diagnostics": []
+      },
+      "public_wasm_staged": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ux": 0,
+            "uy": 0,
+            "uz": 0,
+            "rx": 0,
+            "ry": 0,
+            "rz": 0
+          },
+          {
+            "nodeId": 2,
+            "ux": 0,
+            "uy": 0,
+            "uz": 0,
+            "rx": 0.16535440385032843,
+            "ry": 0,
+            "rz": -0.010728277534928964
+          }
+        ],
+        "diagnostics": []
+      },
+      "regular_linear": {
+        "status": "solved",
+        "diagnostics": [
+          {
+            "code": "dense_lu",
+            "severity": "info",
+            "message": "Dense solver (2 free DOFs)",
+            "phase": "solve"
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "Dense solver residual 3.52e-16 (2 free DOFs)",
+            "phase": "solve",
+            "value": 3.523796721521939e-16,
+            "threshold": 1e-06
+          },
+          {
+            "code": "known_issue",
+            "severity": "warning",
+            "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 \u2212 cos \u03b8 \u2248 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+            "elementIds": [
+              1
+            ],
+            "nodeIds": [
+              2
+            ],
+            "phase": "LIN-SMALL-DISPLACEMENT",
+            "value": 1446.0,
+            "threshold": 0.1,
+            "elementKind": "frame"
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_residual: 4.809e-17 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_residual",
+            "value": 4.8094557942468385e-17,
+            "threshold": 1e-06
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_balance: 9.984e-18 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_balance",
+            "value": 9.984464311653777e-18,
+            "threshold": 1e-06
+          }
+        ],
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0,
+            "rx": 35.590640526156434,
+            "ry": 0.0,
+            "rz": -1.195295539594351
+          }
+        ],
+        "load_factors": null
+      },
+      "opensees": {
+        "displacements": {
+          "1": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "2": [
+            0.0,
+            0.0,
+            0.0,
+            35.59064055794726,
+            0.0,
+            -1.1952955419833164
+          ]
+        },
+        "kappa": 1253.0264747915694
+      },
+      "reference_comparison": {
+        "disp_t": 0.0,
+        "disp_r": 8.932355662425042e-10,
+        "reac_f": 2.835652498561509e-13,
+        "reac_m": 5.328795855962257e-15,
+        "force_f": 2.8391411291396315e-13,
+        "force_m": 5.175485397063669e-15
+      },
+      "reference_tolerance": 1e-06
+    }
+  ]
+}

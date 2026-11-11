@@ -1039,6 +1039,40 @@ fn rounding_amplification(bound: &CscMatrix, columns: &[Column], free: &[FreeDir
     projected.sym_mat_vec(&vec![1.0; weights.len()]).into_iter().fold(0.0, f64::max)
 }
 
+pub(crate) fn analyze_free_stiffness(
+    k: &CscMatrix,
+    dof: &DofNumbering,
+    two_d: bool,
+    constraints: Option<&crate::solver::constraints::FreeConstraintSystem>,
+    coupling: &[(usize, usize)],
+    releases: &ReleasedRotations,
+) -> (CscMatrix, Stability) {
+    let reduced = constraints.map_or_else(|| k.clone(), |c| c.reduce_matrix_sparse(k));
+    let stability = if assumed() {
+        Stability::stable()
+    } else if let Some(c) = constraints {
+        c.stability(&reduced, dof, k, coupling, releases)
+    } else {
+        let mut free_tags = tags(dof, two_d);
+        free_tags.truncate(dof.n_free);
+        analyze_with_coupling(k, &free_tags, coupling, releases)
+    };
+    (reduced, stability)
+}
+
+pub(crate) fn prepare_free_stiffness(
+    k: &CscMatrix,
+    dof: &DofNumbering,
+    two_d: bool,
+    constraints: Option<&crate::solver::constraints::FreeConstraintSystem>,
+    coupling: &[(usize, usize)],
+    releases: &ReleasedRotations,
+) -> Result<(CscMatrix, Stability), String> {
+    let (reduced, stability) = analyze_free_stiffness(k, dof, two_d, constraints, coupling, releases);
+    if let Some(refusal) = stability.refusal() { return Err(refusal); }
+    Ok((stability.pin_sparse(&reduced), stability))
+}
+
 fn of_assembled(k: &[f64], dof: &DofNumbering, two_d: bool, fcs: Option<crate::solver::constraints::FreeConstraintSystem>, coupling: &[(usize, usize)], releases: &ReleasedRotations) -> Stability {
     let nf = dof.n_free;
     let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
@@ -1049,10 +1083,7 @@ fn of_assembled(k: &[f64], dof: &DofNumbering, two_d: bool, fcs: Option<crate::s
         }
     }
     let k = CscMatrix::from_triplets(nf, &rows, &cols, &values);
-    match fcs {
-        Some(fcs) => fcs.stability(&fcs.reduce_matrix_sparse(&k), dof, &k, coupling, releases),
-        None => analyze_with_coupling(&k, &tags(dof, two_d), coupling, releases),
-    }
+    analyze_free_stiffness(&k, dof, two_d, fcs.as_ref(), coupling, releases).1
 }
 
 pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {

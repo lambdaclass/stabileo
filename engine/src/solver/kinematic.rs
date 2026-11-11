@@ -191,45 +191,12 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     }
 
     // Assemble K (no artificial stiffness in Rust assembly)
-    let asm = assemble_2d(input, &dof_num);
+    let asm = super::assembly::without_artificial_stiffness(|| assemble_2d(input, &dof_num));
     let n = dof_num.n_total;
 
     // Extract Kff
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-
-    // Topology-agnostic orphan-ROTATION-DOF detection on K_ff (pre-constraint-reduction):
-    // a free *rotation* DOF (local_dof=2 in 2D) whose row AND column in K_ff are
-    // identically zero has no rotational stiffness from anywhere — physically the
-    // rotation is undetermined, not a mechanism. Restricted to rotation DOFs so a
-    // genuinely floating node (translation DOFs orphan) still flags as mechanism.
-    let orphan_phys_dofs: Vec<usize> = {
-        let mut idx_to_local: HashMap<usize, usize> = HashMap::new();
-        for (&(_, ld), &idx) in &dof_num.map {
-            if idx < nf {
-                idx_to_local.insert(idx, ld);
-            }
-        }
-        // A zero diagonal of the positive semi-definite K_ff is a zero row.
-        // Judged against the largest ROTATIONAL diagonal (same units): the
-        // overall largest entry is a translational stiffness, so the old
-        // "max |K| · 1e-10, at least 1e-10" test depended on the model's
-        // units (found by the metamorphic unit-scaling check).
-        let max_rot = (0..nf).filter(|i| idx_to_local.get(i).is_some_and(|&ld| ld == 2)).fold(0.0f64, |m, i| m.max(k_ff[i * nf + i].abs()));
-        let orphan_tol = if max_rot > 0.0 { max_rot * 1e-10 } else { 0.0 };
-        let mut orphans = Vec::new();
-        for i in 0..nf {
-            // Only suppress rotation DOFs (local_dof = 2 in 2D)
-            if idx_to_local.get(&i).copied() != Some(2) {
-                continue;
-            }
-            let all_zero = k_ff[i * nf + i].abs() <= orphan_tol;
-            if all_zero {
-                orphans.push(i);
-            }
-        }
-        orphans
-    };
 
     // Apply constraint reduction if constraints present
     let cs = match FreeConstraintSystem::build_2d(input, &dof_num) {
@@ -246,11 +213,11 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         },
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-    let k_s = if let Some(ref cs) = cs {
-        cs.reduce_matrix(&k_ff)
-    } else {
-        k_ff
-    };
+    let (k_s, physical_stability) = super::stability::analyze_free_stiffness(
+        &crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_ff, nf),
+        &dof_num, true, cs.as_ref(), &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default(),
+    );
+    let k_s = physical_stability.pin_sparse(&k_s).to_dense_symmetric();
 
     // LU rank analysis (on reduced system if constraints present)
     // Rank of the Jacobi-scaled matrix D^{-1/2}·K·D^{-1/2}: pivots are then
@@ -267,19 +234,8 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         zero_pivot_dofs_reduced
     };
 
-    // Filter expected zero-stiffness DOFs at valid pin joints
-    let mut expected_zero = expected_zero_rotations_2d(input, &dof_num, nf);
-
-    for &i in &orphan_phys_dofs {
-        expected_zero.insert(i);
-    }
-
     // True mechanism DOFs
-    let true_mechanism_dofs: Vec<usize> = zero_pivot_dofs
-        .iter()
-        .filter(|&&d| !expected_zero.contains(&d))
-        .copied()
-        .collect();
+    let true_mechanism_dofs = zero_pivot_dofs;
     let mechanism_modes = true_mechanism_dofs.len();
 
     // Map pivots to nodes
@@ -305,7 +261,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0;
+    let is_solvable = mechanism_modes == 0 && physical_stability.is_stable();
     let classification = if degree > 0 && is_solvable {
         "hyperstatic"
     } else if degree == 0 && is_solvable {
@@ -314,7 +270,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         "hypostatic"
     }.to_string();
 
-    let diagnosis = build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs);
+    let diagnosis = physical_stability.refusal().unwrap_or_else(|| build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs));
 
     KinematicResult {
         degree,
@@ -332,54 +288,6 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
 /// of solvability before the dense one.
 const KINEMATIC_SPARSE_THRESHOLD: usize = 64;
 
-/// Rotation DOFs (local_dof = 2) that are expected to carry no stiffness: an
-/// all-hinged frame node with no rotational restraint.
-fn expected_zero_rotations_2d(
-    input: &SolverInput,
-    dof_num: &DofNumbering,
-    nf: usize,
-) -> std::collections::HashSet<usize> {
-    let mut expected_zero = std::collections::HashSet::new();
-    if dof_num.dofs_per_node < 3 {
-        return expected_zero;
-    }
-    let mut node_hinge_count: HashMap<usize, usize> = HashMap::new();
-    let mut node_frame_count: HashMap<usize, usize> = HashMap::new();
-    for elem in crate::ordered::values(&input.elements) {
-        if elem.elem_type == "frame" {
-            *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
-            *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-            if elem.hinge_start {
-                *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
-            }
-            if elem.hinge_end {
-                *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
-            }
-        }
-    }
-
-    let mut rot_restrained = std::collections::HashSet::new();
-    for sup in crate::ordered::values(&input.supports) {
-        let rotation = support_dofs_2d(sup)[2];
-        if rotation.restrained || rotation.spring.is_some_and(|k| k > 0.0) {
-            rot_restrained.insert(sup.node_id);
-        }
-    }
-
-    // All-hinged frame nodes
-    for (&node_id, &hinges) in crate::ordered::entries(&node_hinge_count) {
-        let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
-        if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
-            if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
-                if idx < nf {
-                    expected_zero.insert(idx);
-                }
-            }
-        }
-    }
-    expected_zero
-}
-
 /// The sparse proof of solvability for a large constraint-free model, or None
 /// to take the full dense path. A sparse Cholesky of K_ff proves full rank
 /// when every artificial DOF the assembly added is an expected zero rotation:
@@ -395,16 +303,8 @@ fn fast_solvable_2d(
     // `assemble_sparse_2d` is the linear path's K_ff, the dense free block
     // entry for entry (rotated springs, inclined-roller frames included).
     let sasm = assemble_sparse_2d(input, dof_num);
-    // Largest diagonal entry, for both tolerances below.
     let k = &sasm.k_ff;
-    let mut max_diag = 0.0f64;
-    for col in 0..k.n {
-        for p in k.col_ptr[col]..k.col_ptr[col + 1] {
-            if k.row_idx[p] == col { max_diag = max_diag.max(k.values[p].abs()); }
-        }
-    }
     if !sasm.artificial_dofs.is_empty() {
-        let expected = expected_zero_rotations_2d(input, dof_num, nf);
         let mut idx_to_local: HashMap<usize, usize> = HashMap::new();
         for (&(_, ld), &idx) in &dof_num.map {
             if idx < nf {
@@ -431,8 +331,7 @@ fn fast_solvable_2d(
             }
         }
         for &d in &sasm.artificial_dofs {
-            if !expected.contains(&d)
-                || idx_to_local.get(&d) != Some(&2)
+            if idx_to_local.get(&d) != Some(&2)
                 || touched_offdiag.contains(&d)
             {
                 return None;
@@ -610,42 +509,11 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         };
     }
 
-    let asm = assemble_3d(input, &dof_num);
+    let asm = super::assembly::without_artificial_stiffness(|| assemble_3d(input, &dof_num));
     let n = dof_num.n_total;
 
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-
-    // Topology-agnostic orphan-ROTATION-DOF detection (see 2D analyzer rationale).
-    // Restricted to rotation DOFs (local_dof in 3..=5 for 3D) so genuinely
-    // floating nodes still flag as mechanisms.
-    let orphan_phys_dofs: Vec<usize> = {
-        let mut idx_to_local: HashMap<usize, usize> = HashMap::new();
-        for (&(_, ld), &idx) in &dof_num.map {
-            if idx < nf {
-                idx_to_local.insert(idx, ld);
-            }
-        }
-        // A zero diagonal of the positive semi-definite K_ff is a zero row.
-        // Judged against the largest ROTATIONAL diagonal (same units): the
-        // overall largest entry is a translational stiffness, so the old
-        // "max |K| · 1e-10, at least 1e-10" test depended on the model's
-        // units (found by the metamorphic unit-scaling check).
-        let max_rot = (0..nf).filter(|i| idx_to_local.get(i).is_some_and(|&ld| (3..=5).contains(&ld))).fold(0.0f64, |m, i| m.max(k_ff[i * nf + i].abs()));
-        let orphan_tol = if max_rot > 0.0 { max_rot * 1e-10 } else { 0.0 };
-        let mut orphans = Vec::new();
-        for i in 0..nf {
-            match idx_to_local.get(&i).copied() {
-                Some(3) | Some(4) | Some(5) => {}
-                _ => continue,
-            }
-            let all_zero = k_ff[i * nf + i].abs() <= orphan_tol;
-            if all_zero {
-                orphans.push(i);
-            }
-        }
-        orphans
-    };
 
     // Apply constraint reduction if constraints present
     let cs = match FreeConstraintSystem::build_3d(input, &dof_num) {
@@ -662,11 +530,11 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         },
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-    let k_s = if let Some(ref cs) = cs {
-        cs.reduce_matrix(&k_ff)
-    } else {
-        k_ff
-    };
+    let (k_s, physical_stability) = super::stability::analyze_free_stiffness(
+        &crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_ff, nf),
+        &dof_num, false, cs.as_ref(), &super::stability::coupling_3d(input, &dof_num), &super::stability::released_rotations_3d(input, &dof_num),
+    );
+    let k_s = physical_stability.pin_sparse(&k_s).to_dense_symmetric();
 
     // Rank of the Jacobi-scaled matrix D^{-1/2}·K·D^{-1/2}: pivots are then
     // dimensionless (≤ 1), so the 1e-10 rank tolerance means the same thing in
@@ -682,81 +550,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         zero_pivot_dofs_reduced
     };
 
-    // Filter expected zero-stiffness DOFs
-    let mut expected_zero = std::collections::HashSet::new();
-    if dof_num.dofs_per_node >= 6 {
-        let mut node_hinge_count: HashMap<usize, usize> = HashMap::new();
-        let mut node_frame_count: HashMap<usize, usize> = HashMap::new();
-        let mut node_truss_count: HashMap<usize, usize> = HashMap::new();
-        for elem in crate::ordered::values(&input.elements) {
-            if elem.elem_type == "frame" {
-                *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
-                *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-                // Per-axis-aware count: an end fully releases rotational
-                // continuity only when BOTH bending rotations are released.
-                // A single-axis pin hinge preserves stiffness on the other
-                // bending axis and must not be counted as fully hinged here.
-                if elem.release_my_start && elem.release_mz_start {
-                    *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
-                }
-                if elem.release_my_end && elem.release_mz_end {
-                    *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
-                }
-            } else {
-                *node_truss_count.entry(elem.node_i).or_insert(0) += 1;
-                *node_truss_count.entry(elem.node_j).or_insert(0) += 1;
-            }
-        }
-
-        let mut rot_restrained = std::collections::HashSet::new();
-        for sup in crate::ordered::values(&input.supports) {
-            if sup.rrx { rot_restrained.insert(sup.node_id); }
-            if sup.rry { rot_restrained.insert(sup.node_id); }
-            if sup.rrz { rot_restrained.insert(sup.node_id); }
-            if support_dofs_3d(sup)[3].spring.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
-            if support_dofs_3d(sup)[4].spring.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
-            if support_dofs_3d(sup)[5].spring.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
-        }
-
-        // All-hinged frame nodes
-        for (&node_id, &hinges) in crate::ordered::entries(&node_hinge_count) {
-            let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
-            if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
-                for rd in 3..=5 {
-                    if let Some(&idx) = dof_num.map.get(&(node_id, rd)) {
-                        if idx < nf {
-                            expected_zero.insert(idx);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Truss-only nodes in mixed systems
-        for &node_id in &dof_num.node_order {
-            let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
-            let trusses = *node_truss_count.get(&node_id).unwrap_or(&0);
-            if frames == 0 && trusses > 0 && !rot_restrained.contains(&node_id) {
-                for rd in 3..=5 {
-                    if let Some(&idx) = dof_num.map.get(&(node_id, rd)) {
-                        if idx < nf {
-                            expected_zero.insert(idx);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    for &i in &orphan_phys_dofs {
-        expected_zero.insert(i);
-    }
-
-    let true_mechanism_dofs: Vec<usize> = zero_pivot_dofs
-        .iter()
-        .filter(|&&d| !expected_zero.contains(&d))
-        .copied()
-        .collect();
+    let true_mechanism_dofs = zero_pivot_dofs;
     let mechanism_modes = true_mechanism_dofs.len();
 
     let dof_labels_6 = ["ux", "uy", "uz", "rx", "ry", "rz"];
@@ -784,7 +578,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0;
+    let is_solvable = mechanism_modes == 0 && physical_stability.is_stable();
     let classification = if degree > 0 && is_solvable {
         "hyperstatic"
     } else if degree == 0 && is_solvable {
@@ -793,7 +587,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         "hypostatic"
     }.to_string();
 
-    let diagnosis = build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs);
+    let diagnosis = physical_stability.refusal().unwrap_or_else(|| build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs));
 
     KinematicResult {
         degree,

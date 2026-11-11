@@ -100,7 +100,6 @@ fn check_3d(input: &SolverInput3D) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_exact_original_and_unit_copy_dense_and_sparse() {
     let fixtures: serde_json::Value =
         serde_json::from_str(include_str!("../fixtures/staged-orphan-1846.json")).unwrap();
@@ -118,7 +117,6 @@ fn issue_1846_exact_original_and_unit_copy_dense_and_sparse() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_release_family_3d() {
     for scale in [1.0_f64, 1e-3, 1e3] {
         for axis in 0..4 {
@@ -191,7 +189,6 @@ fn issue_1846_release_family_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_release_family_2d_and_spring_boundary() {
     for scale in [1.0_f64, 1e-3, 1e3] {
         for angle in [0.0_f64, 0.7] {
@@ -299,7 +296,6 @@ fn issue_1846_release_family_2d_and_spring_boundary() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_nonlinear_entry_points_keep_real_rotations_and_true_orphans() {
     use dedaliano_engine::solver::corotational::{solve_corotational_2d, solve_corotational_3d};
     for scale in [1.0_f64, 1e-3, 1e3] {
@@ -413,7 +409,6 @@ fn issue_1846_nonlinear_entry_points_keep_real_rotations_and_true_orphans() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_inactive_nodes_preserve_positive_springs_and_constraint_stiffness() {
     for constrained in [false, true] {
         let mut input = make_3d_input(

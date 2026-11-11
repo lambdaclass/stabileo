@@ -1,0 +1,35 @@
+{
+  "id": "staged-orphan-rotations",
+  "date": "2026-11-11",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "hinges"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Staged rotations retain physical stiffness after unit changes",
+    "es": "Los giros por etapas conservan la rigidez física al cambiar unidades",
+    "pt": "As rotações por etapas preservam a rigidez física após mudanças de unidades",
+    "de": "Bauphasendrehungen behalten ihre physikalische Steifigkeit bei Einheitenwechseln",
+    "fr": "Les rotations par phases conservent leur rigidité physique après un changement d’unités",
+    "tr": "Aşamalı dönmeler birim değişiminden sonra fiziksel rijitliği korur"
+  },
+  "explanation": {
+    "en": "Staged 3D could add an artificial spring to a real rotation after a unit change when a member end released My or Mz. Staged 2D could also stiffen a real rotational support spring at a hinged end. Both dimensions now share regular linear assembly and its per-node rotation test. Unloaded free rotations still solve; unsupported nodal moments are refused. Re-run staged models with releases and review derived demands (#1846).",
+    "es": "El análisis 3D por etapas podía añadir un resorte artificial a un giro real después de cambiar unidades si un extremo liberaba My o Mz. El análisis 2D por etapas también podía rigidizar un resorte rotacional real en un extremo articulado. Ambas dimensiones comparten ahora el ensamblaje lineal y su comprobación de giros por nudo. Los giros libres sin carga siguen resolviéndose; los momentos nodales sin apoyo se rechazan. Volvé a calcular los modelos por etapas con liberaciones y revisá las solicitaciones derivadas (#1846).",
+    "pt": "A análise 3D por etapas podia adicionar uma mola artificial a uma rotação real após mudar unidades quando uma extremidade liberava My ou Mz. Em 2D, também podia enrijecer uma mola rotacional real numa extremidade articulada. Ambas as dimensões agora compartilham a montagem linear e sua verificação de rotações por nó. Rotações livres sem carga continuam sendo resolvidas; momentos nodais sem apoio são recusados. Recalcule modelos por etapas com liberações e revise as solicitações derivadas (#1846).",
+    "de": "Bei einer My- oder Mz-Freigabe konnte die 3D-Bauphasenberechnung nach einem Einheitenwechsel eine künstliche Feder an einer tatsächlich steifen Drehung ergänzen. In 2D konnte sie eine reale Drehfeder am Gelenk versteifen. Beide Dimensionen verwenden nun die lineare Assemblierung und deren knotenspezifische Drehungsprüfung. Unbelastete freie Drehungen bleiben lösbar; nicht abgestützte Knotenmomente werden abgelehnt. Berechnen Sie Bauphasenmodelle mit Freigaben neu und prüfen Sie abgeleitete Beanspruchungen (#1846).",
+    "fr": "Avec une libération My ou Mz, le calcul 3D par phases pouvait ajouter un ressort artificiel à une rotation réellement rigide après un changement d’unités. En 2D, il pouvait aussi raidir un ressort de rotation réel à une articulation. Les deux dimensions utilisent désormais l’assemblage linéaire et sa vérification des rotations par nœud. Les rotations libres sans charge restent résolues ; les moments nodaux sans appui sont refusés. Recalculez les modèles par phases avec libérations et vérifiez les sollicitations dérivées (#1846).",
+    "tr": "My veya Mz serbestliği olan bir uçta aşamalı 3B analiz, birim değişiminden sonra gerçek rijitliği olan bir dönmeye yapay yay ekleyebiliyordu. Aşamalı 2B analiz de mafsallı uçtaki gerçek dönme yayını sertleştirebiliyordu. Her iki boyut artık doğrusal montajı ve düğüm bazındaki dönme kontrolünü paylaşır. Yüksüz serbest dönmeler çözülür; desteklenmeyen düğüm momentleri reddedilir. Serbestlik içeren aşamalı modelleri yeniden hesaplayın ve türetilen talepleri inceleyin (#1846)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-staged-orphan-rotations.md",
+    "heading": "Staged rotations retain physical stiffness after unit changes (2026-11-11)"
+  }
+}

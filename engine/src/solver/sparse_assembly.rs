@@ -251,36 +251,10 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
 
     for d in &diag_vals[..nf] { max_diag = max_diag.max(d.abs()); }
 
-    // Artificial rotational stiffness
-    let mut artificial_dofs = Vec::new();
-    if dof_num.dofs_per_node >= 3 {
-        let artificial_k = super::assembly::artificial_stiffness(max_diag);
-        let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        for elem in crate::ordered::values(&input.elements) {
-            if elem.elem_type != "frame" { continue; }
-            *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
-            *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-            if elem.hinge_start { *node_hinge_count.entry(elem.node_i).or_insert(0) += 1; }
-            if elem.hinge_end { *node_hinge_count.entry(elem.node_j).or_insert(0) += 1; }
-        }
-        let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
-        for sup in crate::ordered::values(&input.supports) {
-            if crate::solver::support::support_dofs_2d(sup)[2].restrained { rot_restrained.insert(sup.node_id); }
-            if sup.support_type == "spring" && support_dofs_2d(sup)[2].spring.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
-        }
-        rot_restrained.extend(super::assembly::rotation_tied_nodes_2d(input));
-        for (&node_id, &hinges) in crate::ordered::entries(&node_hinge_count) {
-            let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
-            if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
-                if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
-                    if idx < nf {
-                        triplets.add(idx, idx, artificial_k);
-                        artificial_dofs.push(idx);
-                    }
-                }
-            }
-        }
+    let artificial_dofs = super::assembly::orphan_rotation_dofs_2d(input, dof_num, |d| diag_vals.get(d).copied().unwrap_or(0.0));
+    let artificial_k = super::assembly::artificial_stiffness(max_diag);
+    for &d in &artificial_dofs {
+        triplets.add(d, d, artificial_k);
     }
 
     TripletAssemblyResult {
@@ -491,50 +465,7 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
         max_diag = max_diag.max(d.abs());
     }
 
-    // Add artificial rotational stiffness at nodes where ALL connected frame
-    // elements are hinged at that node — prevents singular matrix.
     let mut artificial_dofs = Vec::new();
-    if dof_num.dofs_per_node >= 3 {
-        let artificial_k = super::assembly::artificial_stiffness(max_diag);
-
-        let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        for elem in crate::ordered::values(&input.elements) {
-            if elem.elem_type != "frame" { continue; }
-            *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
-            *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-            if elem.hinge_start {
-                *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
-            }
-            if elem.hinge_end {
-                *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
-            }
-        }
-
-        // Nodes with rotational restraint from supports
-        let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
-        for sup in crate::ordered::values(&input.supports) {
-            if crate::solver::support::support_dofs_2d(sup)[2].restrained {
-                rot_restrained.insert(sup.node_id);
-            }
-            if sup.support_type == "spring" && support_dofs_2d(sup)[2].spring.unwrap_or(0.0) > 0.0 {
-                rot_restrained.insert(sup.node_id);
-            }
-        }
-        rot_restrained.extend(super::assembly::rotation_tied_nodes_2d(input));
-
-        for (&node_id, &hinges) in crate::ordered::entries(&node_hinge_count) {
-            let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
-            if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
-                if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
-                    if idx < dof_num.n_free {
-                        trip_rows.push(idx); trip_cols.push(idx); trip_vals.push(artificial_k);
-                        artificial_dofs.push(idx);
-                    }
-                }
-            }
-        }
-    }
 
     // Apply 2D inclined support transformations (triplets before CSC conversion;
     // the force vector rotation happens in `assemble_load_vector_2d`)
@@ -580,28 +511,16 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
     // Full-K CSC (reactions + prescribed-displacement cross-block)
     let mut k_full = CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals);
 
-    // Topology-agnostic orphan-ROTATION-DOF guard, on the SUMMED K (matching
-    // the dense assembler exactly): a free rotation DOF whose summed row+col
-    // is ~zero gets artificial stiffness. (The earlier per-contribution test
-    // missed cancellation between elements — e.g. hinges forming around a
-    // node in plastic analysis — leaving the DOF bare and the solve garbage.)
-    if dof_num.dofs_per_node >= 3 {
-        let artificial_k = super::assembly::artificial_stiffness(max_diag);
-        let already: std::collections::HashSet<usize> = artificial_dofs.iter().copied().collect();
-        let tied = super::assembly::rotation_tied_nodes_2d(input);
-        let diag = k_full.diagonal();
-        let mut orphans = super::assembly::orphan_rotation_dofs(dof_num, 2..3, |node| tied.contains(&node), |d| diag[d]);
-        orphans.sort_unstable();
-        let mut added = false;
-        for i in orphans {
-            if already.contains(&i) { continue; }
-            trip_rows.push(i); trip_cols.push(i); trip_vals.push(artificial_k);
-            artificial_dofs.push(i);
-            added = true;
-        }
-        if added {
-            k_full = CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals);
-        }
+    let diag = k_full.diagonal();
+    let artificial_k = super::assembly::artificial_stiffness(max_diag);
+    artificial_dofs.extend(super::assembly::orphan_rotation_dofs_2d(input, dof_num, |d| diag[d]));
+    for &d in &artificial_dofs {
+        trip_rows.push(d);
+        trip_cols.push(d);
+        trip_vals.push(artificial_k);
+    }
+    if !artificial_dofs.is_empty() {
+        k_full = CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals);
     }
 
     // Filter triplets for Kff (free-free block)
@@ -850,36 +769,10 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
 
     for d in &diag_vals[..nf] { max_diag = max_diag.max(d.abs()); }
 
-    // Artificial rotational stiffness (sequential)
-    let mut artificial_dofs = Vec::new();
-    if dof_num.dofs_per_node >= 3 {
-        let artificial_k = super::assembly::artificial_stiffness(max_diag);
-        let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        for elem in crate::ordered::values(&input.elements) {
-            if elem.elem_type != "frame" { continue; }
-            *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
-            *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-            if elem.hinge_start { *node_hinge_count.entry(elem.node_i).or_insert(0) += 1; }
-            if elem.hinge_end { *node_hinge_count.entry(elem.node_j).or_insert(0) += 1; }
-        }
-        let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
-        for sup in crate::ordered::values(&input.supports) {
-            if crate::solver::support::support_dofs_2d(sup)[2].restrained { rot_restrained.insert(sup.node_id); }
-            if sup.support_type == "spring" && support_dofs_2d(sup)[2].spring.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
-        }
-        rot_restrained.extend(super::assembly::rotation_tied_nodes_2d(input));
-        for (&node_id, &hinges) in crate::ordered::entries(&node_hinge_count) {
-            let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
-            if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
-                if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
-                    if idx < nf {
-                        triplets.add(idx, idx, artificial_k);
-                        artificial_dofs.push(idx);
-                    }
-                }
-            }
-        }
+    let artificial_dofs = super::assembly::orphan_rotation_dofs_2d(input, dof_num, |d| diag_vals.get(d).copied().unwrap_or(0.0));
+    let artificial_k = super::assembly::artificial_stiffness(max_diag);
+    for &d in &artificial_dofs {
+        triplets.add(d, d, artificial_k);
     }
 
     TripletAssemblyResult {
