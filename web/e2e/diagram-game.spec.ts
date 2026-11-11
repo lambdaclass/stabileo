@@ -162,6 +162,22 @@ test.describe('on a phone', () => {
   });
 });
 
+test('@smoke when the clock runs out a life is lost and the right option is shown', async ({ page }) => {
+  await page.goto('/es/diagram-game/?e2e=1&seed=41');
+  await page.getByTestId('dg-start').click();
+  await expect(page.getByTestId('dg-options')).toBeVisible();
+  const right = (await correctIndex(page))!;
+  await page.evaluate(() => (window as unknown as { __diagramGame: { age: (ms: number) => void } }).__diagramGame.age(25_000));
+  await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-timed-out', 'true');
+  await expect(page.getByTestId('dg-lives')).toHaveAttribute('data-lives', '2');
+  await expect(page.getByTestId('dg-verdict')).toContainText('Se acabó el tiempo.');
+  await expect(page.getByTestId('dg-time-up')).toContainText(`La correcta era la ${right + 1}.`);
+  await expect(page.getByTestId(`dg-option-${right}`)).toHaveClass(/is-answer/);
+  await expect(page.getByTestId('dg-score')).toHaveAttribute('data-score', '0');
+  await page.getByTestId('dg-next').click();
+  await expect(page.getByTestId('dg-verdict')).toHaveCount(0);
+});
+
 test('@smoke auto-next starts off, moves on by itself once ticked, holds while a card is read, and is remembered', async ({ page }) => {
   await page.goto('/es/diagram-game/?e2e=1&seed=77');
   await page.getByTestId('dg-start').click();

@@ -20,7 +20,8 @@ text under 12 px; every figure of a round shares one frame fitted to what it dra
 upright the start screen suggests turning it, with a full screen option where the browser allows
 one. An auto-next box beside Next, off by default and remembered, moves on after each answer
 unless the player opens a card's explanation. Seven levels run from a simply supported beam
-to frames and trusses, and then everything mixed. Points come from the level, a streak multiplier
+to frames and trusses, and then everything mixed. Each round has a 20 s clock; when it runs out the round counts as a mistake and the right option is
+shown. Points come from the level, a streak multiplier
 and a time bonus, shown on each answer, with synthesised sound that can be turned off. The best
 score stays in the browser. The page loads the engine but not the application, so the app's own
 bundle does not grow.

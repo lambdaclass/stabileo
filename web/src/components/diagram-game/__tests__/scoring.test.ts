@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { answer, newGame, nextRound, readBest, recordBest, basePoints, multiplier, timeBonus, LIVES, LEVEL_UP, MAX_LEVEL, MAX_TIME_BONUS, TIME_BONUS_WINDOW_MS, type GameState } from '../scoring';
+import { answer, newGame, nextRound, readBest, recordBest, basePoints, multiplier, timeBonus, timeOut, LIVES, LEVEL_UP, MAX_LEVEL, MAX_TIME_BONUS, TIME_BONUS_WINDOW_MS, type GameState } from '../scoring';
 
 const SLOW = TIME_BONUS_WINDOW_MS * 2;
 
@@ -100,5 +100,21 @@ describe('best score', () => {
   it('works with no storage at all', () => {
     expect(readBest()).toBe(0);
     expect(recordBest(50)).toBe(50);
+  });
+});
+
+describe('running out of time', () => {
+  it('costs a life and the streak like a wrong answer, and says so', () => {
+    const s = answer(newGame(), true, 1000);
+    const t = timeOut(nextRound(s));
+    expect(t).toMatchObject({ phase: 'answered', lives: LIVES - 1, streak: 0, score: s.score, answered: 2 });
+    expect(t.last).toMatchObject({ correct: false, points: 0, timedOut: true });
+  });
+
+  it('ends the game on the last life, and does nothing once answered', () => {
+    let s: GameState = { ...newGame(), lives: 1 };
+    s = timeOut(s);
+    expect(s.phase).toBe('over');
+    expect(timeOut(s)).toBe(s);
   });
 });

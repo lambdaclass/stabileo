@@ -9,7 +9,7 @@
   import { initSolver } from '../../lib/engine/wasm-solver';
   import { seedFrom } from '../edu/exercise-params';
   import { dealRound, type Round, type RoundType } from './round';
-  import { answer, newGame, nextRound, readBest, recordBest, timeBonus, TIME_BONUS_WINDOW_MS, type GameState } from './scoring';
+  import { answer, newGame, nextRound, readBest, recordBest, timeBonus, timeOut, TIME_BONUS_WINDOW_MS, type GameState } from './scoring';
   import { cue, readAutoNext, readSound, writeAutoNext, writeSound, type Cue } from './sfx';
   import { marked, tg, tagText, type Key } from './strings';
   import { arrange } from './layout';
@@ -74,8 +74,17 @@
 
   $effect(() => {
     if (game?.phase !== 'playing') return;
-    const id = setInterval(() => { now = performance.now(); }, 100);
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      now = performance.now();
+      if (now - shownAt >= TIME_BONUS_WINDOW_MS) expire();
+    }, 100);
+    let hiddenAt = 0;
+    const away = () => {
+      if (document.hidden) hiddenAt = performance.now();
+      else if (hiddenAt) { shownAt += performance.now() - hiddenAt; hiddenAt = 0; }
+    };
+    document.addEventListener('visibilitychange', away);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', away); };
   });
 
   function play(c: Cue, streak = 0) {
@@ -196,6 +205,18 @@
     queueMicrotask(() => feedback?.focus());
   }
 
+  function expire() {
+    if (!game || !round || game.phase !== 'playing') return;
+    picked = null;
+    game = timeOut(game);
+    toast = null;
+    play(game.phase === 'over' ? 'over' : 'wrong');
+    navigator.vibrate?.(90);
+    if (game.phase === 'answered') prepare(game);
+    if (game.phase === 'over') newBest = game.score > bestAtStart;
+    queueMicrotask(() => feedback?.focus());
+  }
+
   function proceed() {
     if (!game || game.phase !== 'answered') return;
     const state = nextRound(game);
@@ -225,6 +246,7 @@
   if (import.meta.env.VITE_E2E === '1' && typeof window !== 'undefined' && new URLSearchParams(location.search).get('e2e') === '1') {
     (window as unknown as { __diagramGame?: object }).__diagramGame = {
       answer: () => round?.answer ?? null,
+      age: (ms: number) => { shownAt -= ms; },
       type: () => round?.type ?? null,
       level: (n: number) => { if (!game) return; const s: GameState = { ...game, level: n, round: game.round + 1, phase: 'playing', last: null }; deal(s); game = s; },
       find: (type: RoundType, template?: string) => {
@@ -365,9 +387,9 @@
           {#if game.phase === 'playing'}
             <p class="bar hint">{tg('pickHint')}</p>
           {:else}
-            <section class="bar verdict" bind:this={feedback} tabindex="-1" aria-live="polite" data-testid="dg-verdict" data-correct={game.last?.correct ?? false}>
+            <section class="bar verdict" bind:this={feedback} tabindex="-1" aria-live="polite" data-testid="dg-verdict" data-correct={game.last?.correct ?? false} data-timed-out={game.last?.timedOut ?? false}>
               <div class="result" class:ok={game.last?.correct}>
-                <p class="headline">{game.last?.correct ? tg('right') : tg('wrong')}</p>
+                <p class="headline">{game.last?.correct ? tg('right') : game.last?.timedOut ? tg('timeUp') : tg('wrong')}</p>
                 {#if game.last?.correct}
                   <p class="points" data-testid="dg-points">{tg('points', { n: game.last.points })}</p>
                   <p class="chips">
@@ -377,7 +399,9 @@
                   </p>
                   {#if toast}<p class="toast" data-testid="dg-streak-toast">{tg('streakToast', { n: toast })}</p>{/if}
                 {/if}
-                {#if told !== null}
+                {#if game.last?.timedOut && inspected === null}
+                  <p class="reason" data-testid="dg-time-up"><span class="tag-n">{round.answer + 1}</span>{tg('timeUpAnswer', { n: round.answer + 1 })}</p>
+                {:else if told !== null}
                   <p class="reason" data-testid="dg-reason"><span class="tag-n">{told + 1}</span>{explain(told)}</p>
                 {:else if !cardText}
                   <p class="reason tap">{tg('tapWhy')}</p>

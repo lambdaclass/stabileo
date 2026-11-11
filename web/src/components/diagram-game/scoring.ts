@@ -27,6 +27,7 @@ export interface Outcome {
   base: number;
   multiplier: number;
   speed: number;
+  timedOut?: boolean;
 }
 
 export function newGame(): GameState {
@@ -67,6 +68,12 @@ export function answer(s: GameState, correct: boolean, elapsedMs: number): GameS
     level: levelUp ? s.level + 1 : s.level,
     last: { correct: true, points, levelUp, base, multiplier: mult, speed },
   };
+}
+
+/** The clock ran out: a mistake like any other, with nothing picked. */
+export function timeOut(s: GameState): GameState {
+  const next = answer(s, false, TIME_BONUS_WINDOW_MS);
+  return next === s ? s : { ...next, last: { ...next.last!, timedOut: true } };
 }
 
 export function nextRound(s: GameState): GameState {
