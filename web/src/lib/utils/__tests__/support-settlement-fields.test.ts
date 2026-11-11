@@ -41,8 +41,8 @@ describe('the 2D drawing of a settlement', () => {
 describe('the supports table writes the canonical fields', () => {
   const src = readFileSync(fileURLToPath(new URL('../../../components/tables/SupportsTable.svelte', import.meta.url)), 'utf8');
   it('dz and dθy edit dz and dry, the fields they read', () => {
-    expect(src).toContain("updateSupportSpring(sup.id, 'dz', String(v))");
-    expect(src).toContain("updateSupportSpring(sup.id, 'dry', String(v))");
+    expect(src).toContain("updateSupportSpring(sup.id, 'dz', String(twoD.fromZ(v)))");
+    expect(src).toContain("updateSupportSpring(sup.id, 'dry', String(twoD.fromRot(v)))");
     expect(src).not.toContain("updateSupportSpring(sup.id, 'dy',");
     expect(src).not.toContain("updateSupportSpring(sup.id, 'drz',");
   });

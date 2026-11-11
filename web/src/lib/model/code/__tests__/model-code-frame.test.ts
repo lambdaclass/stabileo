@@ -38,7 +38,6 @@ function roundTrip(choice: AxesChoice) {
 }
 
 function smallSpaceModel() {
-  modelStore.analysisMode = 'pro' as never;
   const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3), c = modelStore.addNode(4, 1, 3);
   modelStore.addElement(a, b, 'frame');
   modelStore.addElement(b, c, 'frame');

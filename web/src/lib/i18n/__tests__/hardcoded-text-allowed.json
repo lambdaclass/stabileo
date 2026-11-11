@@ -8,8 +8,6 @@
   "components/export/ResultsExportDialog.svelte": 1,
   "components/flex/BarTable.svelte": 1,
   "components/flex/FlexResults.svelte": 1,
-  "components/floating-tools/SelectedEntityPanel.svelte": 9,
-  "components/floating-tools/ToolLoadOptions.svelte": 4,
   "components/floating-tools/ToolSupportOptions.svelte": 3,
   "components/pro/ProAdvancedTab.svelte": 12,
   "components/pro/ProAutoLoadsDialog.svelte": 2,
@@ -33,12 +31,9 @@
   "components/pro/loads/ProLoadTables.svelte": 5,
   "components/pro/loads/ProWriteLoadCard.svelte": 2,
   "components/property/ElementDetails.svelte": 2,
-  "components/property/SupportDetails.svelte": 3,
   "components/stress/StressStateDetails.svelte": 9,
   "components/stress/StressTensorDetails.svelte": 1,
-  "components/tables/LoadsTable.svelte": 6,
   "components/tables/ResultsTable.svelte": 10,
-  "components/tables/SupportsTable.svelte": 3,
   "components/toolbar/ToolbarAdvanced.svelte": 2,
   "components/toolbar/ToolbarAiReview.svelte": 1
 }
