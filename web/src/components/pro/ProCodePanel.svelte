@@ -12,8 +12,10 @@
   import { modelToCode, type CodeError } from '../../lib/model/code/format';
   import { applyCode } from '../../lib/model/code/apply';
   import { DERIVED_FIELDS } from '../../lib/model/code/coverage';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { untrack } from 'svelte';
 
-  let text = $state(modelToCode(modelStore.snapshot()));
+  let text = $state(modelToCode(modelStore.snapshot(), axesStore.choice));
   let generatedFrom = $state(modelStore.modelVersion);
   let lastGenerated = $state(text);
   let errors = $state<CodeError[]>([]);
@@ -26,8 +28,10 @@
   const behind = $derived(modelStore.modelVersion !== generatedFrom);
   const lineCount = $derived(text.split('\n').length);
 
+  $effect(() => { void axesStore.choice; untrack(() => { if (!dirty) regenerate(); }); });
+
   function regenerate() {
-    text = modelToCode(modelStore.snapshot());
+    text = modelToCode(modelStore.snapshot(), axesStore.choice);
     lastGenerated = text;
     generatedFrom = modelStore.modelVersion;
     errors = [];
