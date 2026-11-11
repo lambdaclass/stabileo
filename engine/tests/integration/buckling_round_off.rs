@@ -374,7 +374,6 @@ fn one_element_cantilever_factor(ei: f64, l: f64, p: f64) -> f64 {
 }
 
 #[test]
-#[ignore = "known wrong result: #1756"]
 fn issue_1756_local_mpc_in_separate_member_leaves_resolved_compression_in_kg() {
     let expected = one_element_cantilever_factor(200000.0 * 1000.0 * 1e-12, 10.0, 1e-9);
     let mpc_2d = serde_json::json!({
@@ -432,6 +431,12 @@ fn issue_1756_local_mpc_in_separate_member_leaves_resolved_compression_in_kg() {
             "id": next, "type": "frame", "nodeI": prev, "nodeJ": next, "materialId": 1, "sectionId": 2
         });
     }
+    sparse_plane_v["constraints"] = serde_json::json!([{
+        "type": "linearMPC", "terms": [
+            {"nodeId": 10, "dof": 2, "coefficient": 1.0},
+            {"nodeId": 11, "dof": 2, "coefficient": -1.0}
+        ]
+    }]);
     let sparse_plane_input: SolverInput = serde_json::from_value(sparse_plane_v).unwrap();
     let system = buckling_system_2d(&sparse_plane_input).unwrap();
     assert!(system.cs.as_ref().unwrap().n_free_indep < system.dof_num.n_free);
@@ -555,28 +560,25 @@ fn issue_1756_every_constraint_kind_on_free_dofs_of_separate_structure_leaves_co
         for lambda in [plain] {
             assert!((lambda / expected - 1.0).abs() < 1e-6, "3d {kind}: λ = {lambda}, expected {expected}");
         }
-        if !warping {
-            let cert = certify_buckling_3d(&input, 1).unwrap_or_else(|e| panic!("3d cert {kind}: {e}")).results.modes[0].load_factor;
-            assert!((cert / expected - 1.0).abs() < 1e-6, "3d cert {kind}: λ = {cert}, expected {expected}");
-        }
+        let cert = certify_buckling_3d(&input, 1).unwrap_or_else(|e| panic!("3d cert {kind}: {e}")).results.modes[0].load_factor;
+        assert!((cert / expected - 1.0).abs() < 1e-6, "3d cert {kind}: λ = {cert}, expected {expected}");
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1756"]
 fn issue_1756_boundary_around_component_own_round_off_bound_with_separate_constraint() {
     let mpc_2d = serde_json::json!({
         "type": "linearMPC",
         "terms": [
-            {"nodeId": 3, "dof": 1, "coefficient": 1.0},
-            {"nodeId": 4, "dof": 1, "coefficient": -1.0}
+            {"nodeId": 3, "dof": 2, "coefficient": 1.0},
+            {"nodeId": 4, "dof": 2, "coefficient": -1.0}
         ]
     });
     let mpc_3d = serde_json::json!({
         "type": "linearMPC",
         "terms": [
-            {"nodeId": 3, "dof": 2, "coefficient": 1.0},
-            {"nodeId": 4, "dof": 2, "coefficient": -1.0}
+            {"nodeId": 3, "dof": 4, "coefficient": 1.0},
+            {"nodeId": 4, "dof": 4, "coefficient": -1.0}
         ]
     });
 
@@ -613,56 +615,17 @@ fn issue_1756_boundary_around_component_own_round_off_bound_with_separate_constr
 }
 
 #[test]
-#[ignore = "known wrong result: #1756"]
 fn issue_1756_omitted_member_mode_check_uses_component_round_off_bound() {
-    let base = serde_json::json!({
-        "nodes": {
-            "1": {"id": 1, "x": 0.0, "z": 0.0},
-            "2": {"id": 2, "x": 0.0, "z": 4.0},
-            "3": {"id": 3, "x": 10.0, "z": 0.0},
-            "4": {"id": 4, "x": 10.0, "z": 10.0},
-            "5": {"id": 5, "x": 20.0, "z": 0.0},
-            "6": {"id": 6, "x": 24.0, "z": 0.0}
-        },
-        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
-        "sections": {
-            "1": {"id": 1, "a": 0.01, "iz": 1e-4},
-            "2": {"id": 2, "a": 1e-4, "iz": 1e-12}
-        },
-        "elements": {
-            "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
-            "2": {"id": 2, "type": "frame", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 2},
-            "3": {"id": 3, "type": "frame", "nodeI": 5, "nodeJ": 6, "materialId": 1, "sectionId": 1}
-        },
-        "supports": {
-            "1": {"id": 1, "nodeId": 1, "type": "fixed"},
-            "3": {"id": 3, "nodeId": 3, "type": "fixed"},
-            "5": {"id": 5, "nodeId": 5, "type": "pinned"},
-            "6": {"id": 6, "nodeId": 6, "type": "rollerX"}
-        },
-        "loads": [
-            {"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -1e-4, "my": 0.0}},
-            {"type": "nodal", "data": {"nodeId": 4, "fx": 0.0, "fz": -1e-9, "my": 0.0}},
-            {"type": "nodal", "data": {"nodeId": 6, "fx": 1e6, "fz": 0.0, "my": 0.0}}
-        ]
-    });
-    let unconstrained_2d: SolverInput = serde_json::from_value(base.clone()).unwrap();
-    let mut constrained_v = base;
-    constrained_v["constraints"] = serde_json::json!([{
-        "type": "linearMPC",
-        "terms": [
-            {"nodeId": 5, "dof": 1, "coefficient": 1.0},
-            {"nodeId": 6, "dof": 1, "coefficient": -1.0}
-        ]
-    }]);
-    let constrained_2d: SolverInput = serde_json::from_value(constrained_v).unwrap();
+    let constrained_2d: SolverInput = serde_json::from_str(include_str!("../fixtures/buckling-1756-omitted-member.json")).unwrap();
+    let mut unconstrained_2d = constrained_2d.clone();
+    unconstrained_2d.constraints.clear();
 
     let mut constrained_3d = embed_2d(&unconstrained_2d, Plane::XZ).unwrap();
     constrained_3d.constraints = serde_json::from_value(serde_json::json!([{
         "type": "linearMPC",
         "terms": [
-            {"nodeId": 5, "dof": 2, "coefficient": 1.0},
-            {"nodeId": 6, "dof": 2, "coefficient": -1.0}
+            {"nodeId": 5, "dof": 4, "coefficient": 1.0},
+            {"nodeId": 6, "dof": 4, "coefficient": -1.0}
         ]
     }]))
     .unwrap();
@@ -674,16 +637,25 @@ fn issue_1756_omitted_member_mode_check_uses_component_round_off_bound() {
     assert!(plane_system.cs.as_ref().unwrap().n_free_indep < plane_system.dof_num.n_free);
     assert!(space_system.cs.as_ref().unwrap().n_free_indep < space_system.dof_num.n_free);
     for (mean_n, noise) in [(&plane_system.mean_n, &plane_system.axial_noise), (&space_system.mean_n, &space_system.axial_noise)] {
+        assert_eq!(mean_n[&4], 0.0);
         assert!(noise[&4] > 0.0 && mean_n[&4].abs() <= noise[&4]);
     }
     let expected = one_element_cantilever_factor(200000.0 * 1000.0 * 1e-12, 10.0, 1e-9);
-    for (name, lambda) in [
-        ("2d plain", solve_buckling_2d(&constrained_2d, 1).unwrap().modes[0].load_factor),
-        ("2d certified", certify_buckling_2d(&constrained_2d, 1).unwrap().results.modes[0].load_factor),
-        ("3d plain", solve_buckling_3d(&constrained_3d, 1).unwrap().modes[0].load_factor),
-        ("3d certified", certify_buckling_3d(&constrained_3d, 1).unwrap().results.modes[0].load_factor),
-    ] {
+    for (name, lambda, omitted, diagnostics) in {
+        let plane = solve_buckling_2d(&constrained_2d, 1).unwrap();
+        let plane_cert = certify_buckling_2d(&constrained_2d, 1).unwrap().results;
+        let space = solve_buckling_3d(&constrained_3d, 1).unwrap();
+        let space_cert = certify_buckling_3d(&constrained_3d, 1).unwrap().results;
+        [
+            ("2d plain", plane.modes[0].load_factor, !plane.element_data.iter().any(|e| e.element_id == 4), plane.structured_diagnostics),
+            ("2d certified", plane_cert.modes[0].load_factor, !plane_cert.element_data.iter().any(|e| e.element_id == 4), plane_cert.structured_diagnostics),
+            ("3d plain", space.modes[0].load_factor, !space.element_data.iter().any(|e| e.element_id == 4), space.structured_diagnostics),
+            ("3d certified", space_cert.modes[0].load_factor, !space_cert.element_data.iter().any(|e| e.element_id == 4), space_cert.structured_diagnostics),
+        ]
+    } {
         assert!((lambda / expected - 1.0).abs() < 1e-6, "{name}: λ = {lambda}, expected {expected}");
+        assert!(omitted, "{name}: unloaded stub must be omitted");
+        assert!(!diagnostics.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")), "{name}: {diagnostics:?}");
     }
 }
 
@@ -792,11 +764,13 @@ fn nonlinear_analyses_solve_separate_constrained_member_alongside_small_compress
         vec![serde_json::json!({
             "type": "linearMPC",
             "terms": [
-                {"nodeId": 3, "dof": 1, "coefficient": 1.0},
-                {"nodeId": 4, "dof": 1, "coefficient": -1.0}
+                {"nodeId": 3, "dof": 2, "coefficient": 1.0},
+                {"nodeId": 4, "dof": 2, "coefficient": -1.0}
             ]
         })],
     );
+    let system = buckling_system_2d(&constrained_2d).unwrap();
+    assert!(system.cs.as_ref().unwrap().n_free_indep < system.dof_num.n_free);
     let pd_uncon_2d = pdelta::solve_pdelta_2d(&unconstrained_2d, 20, 1e-10).unwrap();
     let pd_con_2d = pdelta::solve_pdelta_2d(&constrained_2d, 20, 1e-10).unwrap();
     assert!(pd_uncon_2d.converged && pd_con_2d.converged);
@@ -815,11 +789,13 @@ fn nonlinear_analyses_solve_separate_constrained_member_alongside_small_compress
         vec![serde_json::json!({
             "type": "linearMPC",
             "terms": [
-                {"nodeId": 3, "dof": 2, "coefficient": 1.0},
-                {"nodeId": 4, "dof": 2, "coefficient": -1.0}
+                {"nodeId": 3, "dof": 4, "coefficient": 1.0},
+                {"nodeId": 4, "dof": 4, "coefficient": -1.0}
             ]
         })],
     );
+    let system = buckling_system_3d(&constrained_3d).unwrap();
+    assert!(system.cs.as_ref().unwrap().n_free_indep < system.dof_num.n_free);
     let pd_uncon_3d = pdelta::solve_pdelta_3d(&unconstrained_3d, 20, 1e-10).unwrap();
     let pd_con_3d = pdelta::solve_pdelta_3d(&constrained_3d, 20, 1e-10).unwrap();
     assert!(pd_uncon_3d.converged && pd_con_3d.converged);
@@ -842,6 +818,22 @@ fn unconstrained_shared_free_warping_propagates_round_off_only_until_compression
         assert!(input.constraints.is_empty());
         input
     };
+    let mut transverse = build(0.0, true);
+    transverse.nodes.get_mut("2").unwrap().x = 6.0;
+    transverse.nodes.get_mut("2").unwrap().z = 8.0;
+    transverse.elements.get_mut("1").unwrap().section_id = 2;
+    let SolverLoad3D::Nodal(load) = &mut transverse.loads[0] else { panic!("nodal load") };
+    load.fx = 8e6;
+    load.fz = -6e6;
+    assert_eq!(load.fx * 6.0 + load.fz * 8.0, 0.0);
+    let linear = dedaliano_engine::solver::linear::solve_3d(&transverse).unwrap();
+    let tip = linear.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    let recovered = 200000.0 * 1000.0 * 0.01 * ((tip.ux * 6.0 / 10.0 + tip.uz * 8.0 / 10.0) / 10.0);
+    let displacement_noise = 100.0 * f64::EPSILON * 200000.0 * 1000.0 * 0.01 * ((tip.ux * 0.6).abs() + (tip.uz * 0.8).abs()) / 10.0;
+    assert!(recovered < 0.0 && recovered.abs() < displacement_noise, "recovered {recovered}, noise {displacement_noise}");
+    for error in [solve_buckling_3d(&transverse, 1).unwrap_err(), certify_buckling_3d(&transverse, 1).unwrap_err()] {
+        assert!(error.contains("every axial compression is within round-off"), "{error}");
+    }
     let below = build(4e-8, true);
     for error in [solve_buckling_3d(&below, 1).unwrap_err(), certify_buckling_3d(&below, 1).unwrap_err()] {
         assert!(error.contains("every axial compression is within round-off"), "{error}");

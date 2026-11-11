@@ -1,0 +1,160 @@
+{
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 0.0,
+      "z": 0.0
+    },
+    "2": {
+      "id": 2,
+      "x": 0.0,
+      "z": 4.0
+    },
+    "3": {
+      "id": 3,
+      "x": 10.0,
+      "z": 0.0
+    },
+    "4": {
+      "id": 4,
+      "x": 10.0,
+      "z": 10.0
+    },
+    "5": {
+      "id": 5,
+      "x": 20.0,
+      "z": 0.0
+    },
+    "6": {
+      "id": 6,
+      "x": 24.0,
+      "z": 0.0
+    },
+    "7": {
+      "id": 7,
+      "x": 28.0,
+      "z": 0.0
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 200000.0,
+      "nu": 0.3
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "a": 0.01,
+      "iz": 0.0001
+    },
+    "2": {
+      "id": 2,
+      "a": 0.0001,
+      "iz": 1e-12
+    }
+  },
+  "elements": {
+    "1": {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 1
+    },
+    "2": {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 3,
+      "nodeJ": 4,
+      "materialId": 1,
+      "sectionId": 2
+    },
+    "3": {
+      "id": 3,
+      "type": "frame",
+      "nodeI": 5,
+      "nodeJ": 6,
+      "materialId": 1,
+      "sectionId": 1
+    },
+    "4": {
+      "id": 4,
+      "type": "frame",
+      "nodeI": 6,
+      "nodeJ": 7,
+      "materialId": 1,
+      "sectionId": 1
+    }
+  },
+  "supports": {
+    "1": {
+      "id": 1,
+      "nodeId": 1,
+      "type": "fixed"
+    },
+    "3": {
+      "id": 3,
+      "nodeId": 3,
+      "type": "fixed"
+    },
+    "5": {
+      "id": 5,
+      "nodeId": 5,
+      "type": "pinned"
+    },
+    "6": {
+      "id": 6,
+      "nodeId": 6,
+      "type": "rollerX"
+    }
+  },
+  "loads": [
+    {
+      "type": "nodal",
+      "data": {
+        "nodeId": 2,
+        "fx": 0.0,
+        "fz": -0.0001,
+        "my": 0.0
+      }
+    },
+    {
+      "type": "nodal",
+      "data": {
+        "nodeId": 4,
+        "fx": 0.0,
+        "fz": -1e-09,
+        "my": 0.0
+      }
+    },
+    {
+      "type": "nodal",
+      "data": {
+        "nodeId": 6,
+        "fx": 1000000.0,
+        "fz": 0.0,
+        "my": 0.0
+      }
+    }
+  ],
+  "constraints": [
+    {
+      "type": "linearMPC",
+      "terms": [
+        {
+          "nodeId": 5,
+          "dof": 2,
+          "coefficient": 1.0
+        },
+        {
+          "nodeId": 6,
+          "dof": 2,
+          "coefficient": -1.0
+        }
+      ]
+    }
+  ]
+}

@@ -133,7 +133,7 @@ it('a constraint in a separate structure does not refuse a resolved buckling com
       { type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1e-9, my: 0 } },
       { type: 'nodal', data: { nodeId: 4, fx: 1e6, fz: 0, my: 0 } },
     ],
-    constraints: [{ type: 'linearMPC', terms: [{ nodeId: 3, dof: 1, coefficient: 1 }, { nodeId: 4, dof: 1, coefficient: -1 }] }],
+    constraints: [{ type: 'linearMPC', terms: [{ nodeId: 3, dof: 2, coefficient: 1 }, { nodeId: 4, dof: 2, coefficient: -1 }] }],
   });
   const json3d = JSON.stringify({
     nodes: { 1: { id: 1, x: 0, y: 0, z: 0 }, 2: { id: 2, x: 0, y: 0, z: 10 }, 3: { id: 3, x: 10, y: 0, z: 0 }, 4: { id: 4, x: 14, y: 0, z: 0 } },
@@ -153,7 +153,7 @@ it('a constraint in a separate structure does not refuse a resolved buckling com
       { type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: -1e-9, mx: 0, my: 0, mz: 0 } },
       { type: 'nodal', data: { nodeId: 4, fx: 1e6, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } },
     ],
-    constraints: [{ type: 'linearMPC', terms: [{ nodeId: 3, dof: 2, coefficient: 1 }, { nodeId: 4, dof: 2, coefficient: -1 }] }],
+    constraints: [{ type: 'linearMPC', terms: [{ nodeId: 3, dof: 4, coefficient: 1 }, { nodeId: 4, dof: 4, coefficient: -1 }] }],
   });
 
   const plain2d = JSON.parse(native.solve_buckling_2d(json2d, 1));
@@ -197,7 +197,7 @@ it('a constraint in a separate structure does not refuse a resolved buckling com
       { type: 'nodal', data: { nodeId: 2, fx: 0, fy: -1e-9, mz: 0 } },
       { type: 'nodal', data: { nodeId: 4, fx: 1e6, fy: 0, mz: 0 } },
     ],
-    constraints: [{ type: 'linearMPC', terms: [{ nodeId: 3, dof: 1, coefficient: 1 }, { nodeId: 4, dof: 1, coefficient: -1 }] }],
+    constraints: [{ type: 'linearMPC', terms: [{ nodeId: 3, dof: 2, coefficient: 1 }, { nodeId: 4, dof: 2, coefficient: -1 }] }],
   };
   expect(Math.abs(solveBuckling(model2d as never, 1).modes[0].loadFactor / expected - 1)).toBeLessThan(1e-6);
 });
@@ -266,13 +266,56 @@ it('shared free warping without constraints refuses only unresolved compression 
     expect(wire.constraints).toEqual([]);
     return JSON.stringify(wire);
   };
+  const transverse = JSON.parse(build(0, true));
+  Object.assign(transverse.nodes[2], { x: 6, z: 8 });
+  transverse.elements[1].sectionId = 2;
+  Object.assign(transverse.loads[0].data, { fx: 8e6, fz: -6e6 });
+  expect(transverse.loads[0].data.fx * 6 + transverse.loads[0].data.fz * 8).toBe(0);
+  const linear = native.solve_3d(transverse);
+  const tip = linear.displacements.find((d: { nodeId: number }) => d.nodeId === 2);
+  const recovered = 200000 * 1000 * .01 * ((tip.ux * 6 / 10 + tip.uz * 8 / 10) / 10);
+  const noise = 100 * Number.EPSILON * 200000 * 1000 * .01 * (Math.abs(tip.ux * .6) + Math.abs(tip.uz * .8)) / 10;
+  expect(recovered).toBeLessThan(0);
+  expect(Math.abs(recovered)).toBeLessThan(noise);
   for (const solve of [native.solve_buckling_3d, native.certify_buckling_3d]) {
+    expect(() => solve(JSON.stringify(transverse), 1)).toThrow(/every axial compression is within round-off/);
     expect(() => solve(build(4e-8, true), 1)).toThrow(/every axial compression is within round-off/);
     for (const [p, shared] of [[5e-8, true], [4e-8, false]] as const) {
       const result = JSON.parse(solve(build(p, shared), 1));
       const factor = (result.results ?? result).modes[0].loadFactor;
       const expected = ((5.2 - Math.sqrt(19.84)) / 0.3) * (200000 * 1000 * 1e-12) / 100 / p;
       expect(Math.abs(factor / expected - 1)).toBeLessThan(1e-6);
+    }
+  }
+});
+
+it('an omitted round-off stub with a free-rotation MPC preserves the resolved column (#1756)', async () => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const plane = JSON.parse(readFileSync('../engine/tests/fixtures/buckling-1756-omitted-member.json', 'utf8'));
+  const space = structuredClone(plane);
+  for (const node of Object.values(space.nodes) as Array<Record<string, number>>) node.y = 0;
+  for (const section of Object.values(space.sections) as Array<Record<string, number>>) {
+    section.iy = section.iz;
+    section.j = section.iz;
+  }
+  space.supports = Object.fromEntries(Object.keys(space.nodes).map((id) => {
+    const type = plane.supports[id]?.type;
+    return [id, { nodeId: Number(id), rx: type === 'fixed' || type === 'pinned', ry: true,
+      rz: ['fixed', 'pinned', 'rollerX'].includes(type), rrx: true, rry: type === 'fixed', rrz: true }];
+  }));
+  for (const load of space.loads) Object.assign(load.data, { fy: 0, mx: 0, mz: 0 });
+  for (const term of space.constraints[0].terms) term.dof = 4;
+  const expected = ((5.2 - Math.sqrt(19.84)) / .3) * (200000 * 1000 * 1e-12) / 100 / 1e-9;
+  for (const [wire, plain, certified] of [
+    [plane, native.solve_buckling_2d, native.certify_buckling_2d],
+    [space, native.solve_buckling_3d, native.certify_buckling_3d],
+  ] as const) {
+    for (const solve of [plain, certified]) {
+      const response = JSON.parse(solve(JSON.stringify(wire), 1));
+      const result = response.results ?? response;
+      expect(Math.abs(result.modes[0].loadFactor / expected - 1)).toBeLessThan(1e-6);
+      expect(result.elementData.some((element: { elementId: number }) => element.elementId === 4)).toBe(false);
+      expect(result.structuredDiagnostics?.some((d: { phase: string }) => d.phase === 'BU-UNRESOLVED-MODE') ?? false).toBe(false);
     }
   }
 });

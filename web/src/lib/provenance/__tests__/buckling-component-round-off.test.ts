@@ -20,7 +20,7 @@ const stamp = (analyses: AnalysisKind[], version = entry.resultsVersion - 1): So
 const changes = (snapshot: FeatureSnapshot, solvedWith?: SolveStamp) =>
   assessProject(snapshot, solvedWith).changes.map((change) => change.id);
 
-it.skip.each(['2d', '3d'])('notifies unconstrained member buckling in %s, including shared free warping (#1756)', (mode) => {
+it.each(['2d', '3d'])('notifies unconstrained member buckling in %s, including shared free warping (#1756)', (mode) => {
   const snapshot = model(mode, false);
   expect(modelFeatures(snapshot).has('constraints')).toBe(false);
   expect(changes(snapshot, stamp(['buckling']))).toContain(id);
