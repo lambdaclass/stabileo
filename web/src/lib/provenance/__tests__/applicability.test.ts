@@ -609,3 +609,13 @@ describe('round 3 nonlinear stale-result coverage', () => {
     expect(ids(snapshot, { ...stamp, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
   });
 });
+
+it.skip('#761 round 4 flags saved linear displacement3d results', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'prescribed-and-inclined-equilibrium')!;
+  const snapshot = model({ elements: [member(1, 1, 'frame')], loads: [{ id: 1, type: 'displacement3d', data: { nodeId: 1, dx: 5e-16 } }] as never });
+  const stamp = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 };
+  expect(modelFeatures(snapshot)).toContain('caseDisplacements');
+  expect(ids(snapshot, stamp)).toContain(entry.id);
+  expect(ids({ ...snapshot, loads: [] }, stamp)).not.toContain(entry.id);
+  expect(ids(snapshot, stampSolve('linear', null))).not.toContain(entry.id);
+});

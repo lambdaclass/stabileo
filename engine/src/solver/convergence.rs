@@ -914,4 +914,45 @@ mod tests {
             );
         }
     }
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r4_coincident_extent_is_exact_under_translation() {
+        let mut d = DofNumbering::build_2d(&input());
+        for dimensions in [2, 3] {
+            d.map = [((2, 0), 0), ((2, dimensions), 1)].into_iter().collect();
+            d.n_free = 2;
+            d.n_total = 2;
+            let k = CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[1.0, 1.0]);
+            for point in [[0.0; 3], [1.0, 0.0, 0.0], [17.0, -31.0, 0.37]] {
+                assert_eq!(EquilibriumMetric::length(&[point; 6]).unwrap(), 0.0);
+                let m = EquilibriumMetric::with_stiffness([point; 6].into_iter(), dimensions, &d, None, Some((&k, &[])), &[], &[]).unwrap();
+                assert!(m.relative_residual(&[1.0, 0.0], &[1.0, 1.0], None, None) > 0.5);
+                for factor in [0.5, 2.0] {
+                    assert_eq!(m.relative_residual(&[factor * 1e-10, 0.0], &[1.0, 0.0], None, None) < 1e-10, factor < 1.0);
+                }
+                assert_eq!(m.relative_residual(&[0.0; 2], &[1.0; 2], None, None), 0.0);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r4_support_reference_is_continuous_and_survives_unloading() {
+        let d = DofNumbering::build_2d(&input());
+        let mut m = EquilibriumMetric::for_2d(&input(), &d, None).unwrap();
+        m.support_coupling = vec![(1, 0, 0, 100.0)];
+        m.support_force = 100.0;
+        for applied in [0.0, 1e-14, 1.0] {
+            let mut external = vec![0.0; d.n_total];
+            external[0] = applied;
+            for factor in [0.5, 2.0] {
+                let mut residual = external.clone();
+                residual[0] = factor * 1e-10 * 100.0;
+                assert_eq!(m.relative_residual(&residual, &external, Some(1.0), None) < 1e-10, factor < 1.0);
+                assert_eq!(m.continuation_residual(&residual, &external, &[1.0], &vec![0.0; d.n_total], None) < 1e-10, factor < 1.0);
+                assert_eq!(m.continuation_residual(&residual, &vec![0.0; d.n_total], &[0.0], &vec![0.0; d.n_total], None) < 1e-10, factor < 1.0);
+            }
+        }
+    }
+
 }

@@ -3047,7 +3047,8 @@ mod infinitesimal_rotation_regressions {
     fn natural_rotations_retain_increments_on_both_sides_of_machine_precision() {
         let ex = [1.0, 0.0, 0.0];
         let ey = [0.0, 1.0, 0.0];
-        let ez = [0.0, 0.0, 1.0];
+        for handedness in [-1.0, 1.0] {
+        let ez = [0.0, 0.0, handedness];
         for value in [
             0.5 * f64::EPSILON,
             f64::EPSILON,
@@ -3057,7 +3058,7 @@ mod infinitesimal_rotation_regressions {
             for t in [value, -value] {
                 let (_, ti, tj, _) =
                     natural_rotations_3d((&ex, &ey, &ez), [0.0, t, 0.0], [0.0; 3], [0.0; 3]);
-                assert!((ti[1] / t - 1.0).abs() <= 8.0 * f64::EPSILON);
+                assert!((ti[1] / t - handedness).abs() <= 8.0 * f64::EPSILON);
                 assert!(tj
                     .into_iter()
                     .all(|v| v.abs() <= 8.0 * f64::EPSILON * t.abs()));
@@ -3073,4 +3074,5 @@ mod infinitesimal_rotation_regressions {
             }
         }
     }
+}
 }

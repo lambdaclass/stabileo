@@ -4,6 +4,30 @@ import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const cases = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+function checkAxial(tip, solver, expected) {
+  const node = solver.nodes['2'];
+  const chord = [node.x, node.y ?? 0, node.z];
+  const axis = chord.map(v => v / Math.hypot(...chord));
+  const u = [tip.ux, tip.uy ?? 0, tip.uz];
+  const axial = u.reduce((sum, v, i) => sum + v * axis[i], 0);
+  assert.ok(Math.abs(axial / expected - 1) < 1e-10, 'signed axial response');
+  assert.ok(Math.hypot(...u.map((v, i) => v - axial * axis[i])) <= 1e-10 * Math.abs(expected), 'transverse response');
+}
+function checkComponents(actual, expected, all) {
+  for (const keys of [['ux', 'uy', 'uz'], ['rx', 'ry', 'rz']]) {
+    const scale = Math.max(0, ...all.flatMap(d => keys.map(k => Math.abs(d[k] ?? 0))));
+    for (const key of keys) {
+      if (expected[key] !== undefined) {
+        const value = expected[key];
+        assert.ok(Number.isFinite(actual[key]) && Math.abs(actual[key] - value) <= 1e-10 * (value === 0 ? scale : Math.abs(value)), key);
+      }
+    }
+  }
+}
+for (const tip of [{ ux: -1e-20, uz: 0 }, { ux: 0, uz: 1e-20 }]) {
+  assert.throws(() => checkAxial(tip, { nodes: { 2: { x: 1, z: 0 } } }, 1e-20));
+}
+assert.throws(() => checkComponents({ ux: 1e-25, uz: 0 }, { ux: 0, uz: 0 }, [{ ux: 1e-20, uz: 0 }]));
 let checked = 0;
 for (const test of cases) {
   if (test.api) {
@@ -39,9 +63,11 @@ for (const test of cases) {
     }
     for (const expected of test.expectedDisplacements ?? []) {
       const actual = result.results.displacements.find(d => d.nodeId === expected.nodeId);
-      for (const key of ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']) {
-        if (expected[key]) assert.ok(Math.abs(actual[key] / expected[key] - 1) < 1e-10, `${test.api}: ${key}`);
-      }
+      checkComponents(actual, expected, test.expectedDisplacements);
+    }
+    if (test.expectedControl !== undefined) {
+      const tip = result.results.displacements.find(d => d.nodeId === 2);
+      assert.ok(Math.abs(tip.ux / test.expectedControl - 1) < 1e-10, 'signed controlled displacement');
     }
     for (const [i, expected] of (test.expectedAppliedSum ?? []).entries()) {
       if (expected !== null) assert.equal(result.results.equilibrium.appliedForceSum[i], expected);
@@ -95,7 +121,7 @@ for (const test of cases) {
     assert.equal(arc.converged, true);
     assert.ok(Math.abs(arc.finalLoadFactor / 0.1 - 1) < 1e-10);
     const tip = arc.results.displacements.find(d => d.nodeId === 2);
-    assert.ok(Math.abs(Math.hypot(tip.ux, tip.uz) / (expected * 0.1) - 1) < 1e-10);
+    checkAxial(tip, solver, expected * 0.1);
     assert.throws(() => engine.solve_displacement_control(JSON.stringify({ solver, controlNode: 2, controlDof: 0, targetDisplacement: expected, nSteps: 2, maxIter: 100, tolerance: 1e-10 })), /inclined/i);
     checked += 2;
   }
@@ -107,8 +133,7 @@ for (const test of cases) {
     assert.equal(result.converged, test.converged, `${test.name}, ${dimension}D`);
     if (test.expectedAxialDisplacement !== undefined) {
       const tip = result.results.displacements.find((d) => d.nodeId === 2);
-      const displacement = Math.hypot(tip.ux, tip.uy ?? 0, tip.uz);
-      assert.ok(Math.abs(displacement / test.expectedAxialDisplacement - 1) < 1e-10, `${test.name}, ${dimension}D resolved axial response`);
+      checkAxial(tip, solver, test.expectedAxialDisplacement);
     }
     if (test.name === 'loaded cantilever' && test.converged) {
       const tip = result.results.displacements.find((d) => d.nodeId === 2);
