@@ -1,0 +1,45 @@
+{
+  "id": "buckling-component-round-off",
+  "date": "2026-11-11",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members"
+      ],
+      [
+        "constraints"
+      ],
+      [
+        "analysis:buckling"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "diagnosticCodes",
+    "modes",
+    "elementData"
+  ],
+  "title": {
+    "en": "Buckling round-off bounds follow actual constraint coupling",
+    "es": "Las cotas de redondeo del pandeo siguen el acoplamiento real de las restricciones",
+    "pt": "Os limites de arredondamento da flambagem seguem o acoplamento real das restrições",
+    "de": "Rundungsschranken beim Knicken folgen der tatsächlichen Zwangskopplung",
+    "fr": "Les bornes d’arrondi du flambement suivent le couplage réel des contraintes",
+    "tr": "Burkulma yuvarlama sınırları gerçek kısıt bağlaşmasını izliyor"
+  },
+  "explanation": {
+    "en": "Any constraint previously made 2D and 3D buckling share the largest axial-force round-off bound across the entire model. A local constraint in one structure could therefore refuse a resolved compression in an independent column (#1756). Bounds now propagate only along stiffness, member and constraint-transform connections. Previously refused independent columns can return their buckling factors; genuinely coupled round-off compressions still refuse. The round-off multiplier, mode-resolution limit and certificate checks are unchanged. This applies to native and WASM buckling and both certificate entry points.",
+    "es": "Antes, cualquier restricción hacía que el pandeo 2D y 3D compartiera la mayor cota de redondeo del esfuerzo axial en todo el modelo. Una restricción local podía así rechazar una compresión resoluble en una columna independiente (#1756). Ahora las cotas se propagan solo por conexiones de rigidez, barras y transformación de restricciones. Las columnas independientes antes rechazadas pueden devolver sus factores de pandeo; las compresiones realmente acopladas dentro del redondeo siguen rechazándose. El multiplicador de redondeo, el límite de resolución modal y las comprobaciones del certificado no cambian. Se aplica al pandeo nativo y WASM y a ambas entradas de certificación.",
+    "pt": "Antes, qualquer restrição fazia a flambagem 2D e 3D compartilhar o maior limite de arredondamento da força axial em todo o modelo. Uma restrição local podia assim recusar uma compressão resolvida em uma coluna independente (#1756). Agora os limites se propagam apenas pelas conexões de rigidez, barras e transformação das restrições. Colunas independentes antes recusadas podem retornar seus fatores de flambagem; compressões realmente acopladas dentro do arredondamento continuam recusadas. O multiplicador de arredondamento, o limite de resolução modal e as verificações do certificado não mudam. Aplica-se à flambagem nativa e WASM e às duas entradas de certificação.",
+    "de": "Bisher führte jede Zwangsbedingung dazu, dass beim 2D- und 3D-Knicken die größte Rundungsschranke der Normalkraft für das gesamte Modell galt. Eine lokale Zwangsbedingung konnte so eine auflösbare Druckkraft in einer unabhängigen Stütze zurückweisen (#1756). Die Schranken werden nun nur entlang der Verbindungen aus Steifigkeit, Stäben und Zwangstransformation weitergegeben. Zuvor zurückgewiesene unabhängige Stützen können ihre Knicklastfaktoren liefern; tatsächlich gekoppelte Druckkräfte innerhalb der Rundungsschranke werden weiterhin zurückgewiesen. Rundungsmultiplikator, modale Auflösungsgrenze und Zertifikatsprüfungen bleiben unverändert. Dies gilt für natives und WASM-Knicken sowie beide Zertifizierungseingänge.",
+    "fr": "Auparavant, toute contrainte faisait partager au flambement 2D et 3D la plus grande borne d’arrondi de l’effort normal dans tout le modèle. Une contrainte locale pouvait donc faire refuser une compression résoluble dans un poteau indépendant (#1756). Les bornes se propagent désormais uniquement par les connexions de rigidité, de barres et de transformation des contraintes. Les poteaux indépendants auparavant refusés peuvent donner leurs facteurs de flambement ; les compressions réellement couplées dans l’arrondi restent refusées. Le multiplicateur d’arrondi, la limite de résolution modale et les vérifications du certificat restent inchangés. Cela concerne le flambement natif et WASM et les deux entrées de certification.",
+    "tr": "Önceden herhangi bir kısıt, 2B ve 3B burkulmada en büyük eksenel kuvvet yuvarlama sınırının tüm modelde paylaşılmasına yol açıyordu. Yerel bir kısıt bu nedenle bağımsız bir kolondaki çözümlenebilir basıncı reddedebiliyordu (#1756). Sınırlar artık yalnızca rijitlik, çubuk ve kısıt dönüşümü bağlantıları boyunca yayılıyor. Önceden reddedilen bağımsız kolonlar burkulma katsayılarını döndürebilir; gerçekten bağlı ve yuvarlama sınırındaki basınçlar reddedilmeye devam eder. Yuvarlama çarpanı, mod çözünürlük sınırı ve sertifika denetimleri değişmedi. Bu, yerel ve WASM burkulması ile her iki sertifikasyon girişini kapsar."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-buckling-component-round-off.md",
+    "heading": "Buckling round-off bounds follow actual constraint coupling (2026-11-11)"
+  }
+}

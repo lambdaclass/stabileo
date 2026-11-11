@@ -117,7 +117,7 @@ it('the real #741 certificate refusal is a containment refusal and withholds the
   expect(mocks.plain).not.toHaveBeenCalled();
 });
 
-it.fails('a constraint in a separate structure does not refuse a resolved buckling compression (#1756)', async () => {
+it('a constraint in a separate structure does not refuse a resolved buckling compression (#1756)', async () => {
   const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
   const expected = ((5.2 - Math.sqrt(19.84)) / 0.3) * (200000 * 1000 * 1e-12) / 100 / 1e-9;
   const json2d = JSON.stringify({
@@ -160,6 +160,15 @@ it.fails('a constraint in a separate structure does not refuse a resolved buckli
   const cert2d = JSON.parse(native.certify_buckling_2d(json2d, 1));
   const plain3d = JSON.parse(native.solve_buckling_3d(json3d, 1));
   const cert3d = JSON.parse(native.certify_buckling_3d(json3d, 1));
+  const unconstrained = (json: string) => JSON.stringify({ ...JSON.parse(json), constraints: [] });
+  for (const [actual, control] of [
+    [cert2d, JSON.parse(native.certify_buckling_2d(unconstrained(json2d), 1))],
+    [cert3d, JSON.parse(native.certify_buckling_3d(unconstrained(json3d), 1))],
+  ]) {
+    expect(actual.certificate.status).toBe(control.certificate.status);
+    expect(Math.abs(control.results.modes[0].loadFactor / expected - 1)).toBeLessThan(1e-6);
+    expect(Math.abs(actual.results.modes[0].loadFactor / control.results.modes[0].loadFactor - 1)).toBeLessThan(1e-6);
+  }
   for (const factor of [
     plain2d.modes[0].loadFactor,
     cert2d.results.modes[0].loadFactor,
@@ -210,9 +219,40 @@ it('a constraint coupling a column to a heavily loaded member refuses compressio
     ],
     constraints: [{ type: 'equalDOF', masterNode: 4, slaveNode: 1, dofs: [0] }],
   });
+  const build3d = (p: number) => {
+    const input = JSON.parse(build2d(p));
+    for (const node of Object.values(input.nodes) as Array<Record<string, number>>) node.y = 0;
+    for (const section of Object.values(input.sections) as Array<Record<string, number>>) {
+      section.iy = section.iz;
+      section.j = section.iz;
+    }
+    input.supports = {
+      1: { nodeId: 1, rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true },
+      2: { nodeId: 2, rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true },
+      3: { nodeId: 3, rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true },
+      4: { nodeId: 4, rx: false, ry: true, rz: true, rrx: true, rry: false, rrz: true },
+    };
+    for (const { data } of input.loads) Object.assign(data, { fy: 0, mx: 0, mz: 0 });
+    return JSON.stringify(input);
+  };
+  expect(() => native.solve_buckling_3d(build3d(4e-8), 1)).toThrow(/Buckling not determinable/);
+  expect(() => native.certify_buckling_3d(build3d(4e-8), 1)).toThrow(/Buckling not determinable/);
   expect(() => native.solve_buckling_2d(build2d(4e-8), 1)).toThrow(/Buckling not determinable/);
   expect(() => native.certify_buckling_2d(build2d(4e-8), 1)).toThrow(/Buckling not determinable/);
   const expected = ((5.2 - Math.sqrt(19.84)) / 0.3) * (200000 * 1000 * 1e-12) / 100 / 5e-8;
-  const above = JSON.parse(native.solve_buckling_2d(build2d(5e-8), 1));
-  expect(Math.abs(above.modes[0].loadFactor / expected - 1)).toBeLessThan(1e-6);
+  for (const factor of [
+    JSON.parse(native.solve_buckling_2d(build2d(5e-8), 1)).modes[0].loadFactor,
+    JSON.parse(native.certify_buckling_2d(build2d(5e-8), 1)).results.modes[0].loadFactor,
+    JSON.parse(native.solve_buckling_3d(build3d(5e-8), 1)).modes[0].loadFactor,
+    JSON.parse(native.certify_buckling_3d(build3d(5e-8), 1)).results.modes[0].loadFactor,
+  ]) {
+    expect(Math.abs(factor / expected - 1)).toBeLessThan(1e-6);
+  }
+});
+
+it('the real #959 transverse-load model still refuses round-off compression', async () => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const json = readFileSync('../engine/tests/metamorphic_corpus/nightly/issue-959.json', 'utf8');
+  expect(() => native.solve_buckling_2d(json, 3)).toThrow(/Buckling not determinable: every axial compression is within round-off/);
+  expect(() => native.certify_buckling_2d(json, 3)).toThrow(/Buckling not determinable: every axial compression is within round-off/);
 });

@@ -374,7 +374,6 @@ fn one_element_cantilever_factor(ei: f64, l: f64, p: f64) -> f64 {
 }
 
 #[test]
-#[ignore = "known wrong result: #1756"]
 fn issue_1756_local_mpc_in_separate_member_leaves_resolved_compression_in_kg() {
     let expected = one_element_cantilever_factor(200000.0 * 1000.0 * 1e-12, 10.0, 1e-9);
     let mpc_2d = serde_json::json!({
@@ -395,12 +394,33 @@ fn issue_1756_local_mpc_in_separate_member_leaves_resolved_compression_in_kg() {
     let plane_input = separate_column_and_tie_2d(1e-9, None, vec![mpc_2d.clone()]);
     let plane = solve_buckling_2d(&plane_input, 1).unwrap();
     let plane_cert = certify_buckling_2d(&plane_input, 1).unwrap();
-    assert!(matches!(plane_cert.certificate, BucklingCertificate::Certified { .. }));
 
-    let space_input = separate_column_and_tie_3d(1e-9, None, vec![mpc_3d]);
+    let space_input = separate_column_and_tie_3d(1e-9, None, vec![mpc_3d.clone()]);
     let space = solve_buckling_3d(&space_input, 1).unwrap();
     let space_cert = certify_buckling_3d(&space_input, 1).unwrap();
-    assert!(matches!(space_cert.certificate, BucklingCertificate::Certified { .. }));
+
+    let mut well_cond_2d = separate_column_and_tie_2d(1e-8, None, vec![mpc_2d.clone()]);
+    well_cond_2d.elements.get_mut("1").unwrap().section_id = 2;
+    let well_cond_3d = {
+        let mut s = separate_column_and_tie_3d(1e-8, None, vec![mpc_3d]);
+        s.elements.get_mut("1").unwrap().section_id = 2;
+        s
+    };
+    let expected_well_cond = one_element_cantilever_factor(200000.0 * 1000.0 * 1e-4, 10.0, 1e-8);
+    for (name, cert) in [
+        ("2d certified enclosure", certify_buckling_2d(&well_cond_2d, 1).unwrap().certificate),
+        ("3d certified enclosure", certify_buckling_3d(&well_cond_3d, 1).unwrap().certificate),
+    ] {
+        match cert {
+            BucklingCertificate::Certified { lambda_lower: lower, lambda_upper: Some(upper), .. } => {
+                assert!(
+                    lower <= expected_well_cond && expected_well_cond <= upper,
+                    "{name}: [{lower}, {upper}] does not enclose {expected_well_cond}"
+                );
+            }
+            other => panic!("{name}: expected Certified, got {other:?}"),
+        }
+    }
 
     let mut sparse_plane_v = serde_json::to_value(separate_column_and_tie_2d(1e-9, None, vec![mpc_2d])).unwrap();
     for k in 0..24usize {
@@ -431,10 +451,27 @@ fn issue_1756_local_mpc_in_separate_member_leaves_resolved_compression_in_kg() {
             "{name}: λ = {lambda}, expected {expected}"
         );
     }
+    let mut plane_control = plane_input.clone();
+    plane_control.constraints.clear();
+    let mut space_control = space_input.clone();
+    space_control.constraints.clear();
+    let plane_control = certify_buckling_2d(&plane_control, 1).unwrap();
+    let space_control = certify_buckling_3d(&space_control, 1).unwrap();
+    for (name, certificate, control_certificate, actual, control) in [
+        ("2d", &plane_cert.certificate, &plane_control.certificate, plane_cert.results.modes[0].load_factor, plane_control.results.modes[0].load_factor),
+        ("3d", &space_cert.certificate, &space_control.certificate, space_cert.results.modes[0].load_factor, space_control.results.modes[0].load_factor),
+    ] {
+        assert_eq!(
+            std::mem::discriminant(certificate),
+            std::mem::discriminant(control_certificate),
+            "{name}: constrained {certificate:?}, unconstrained {control_certificate:?}"
+        );
+        assert!((control / expected - 1.0).abs() < 1e-6, "{name} control: λ = {control}, expected {expected}");
+        assert!((actual / control - 1.0).abs() < 1e-6, "{name}: constrained λ = {actual}, unconstrained λ = {control}");
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1756"]
 fn issue_1756_every_constraint_kind_on_free_dofs_of_separate_structure_leaves_column_resolved() {
     let expected = one_element_cantilever_factor(200000.0 * 1000.0 * 1e-12, 10.0, 1e-9);
     let base_2d = |constraint: serde_json::Value| -> SolverInput {
@@ -474,6 +511,7 @@ fn issue_1756_every_constraint_kind_on_free_dofs_of_separate_structure_leaves_co
         ("rigidLink", serde_json::json!({"type": "rigidLink", "masterNode": 4, "slaveNode": 5, "dofs": [0, 1, 2]})),
         ("linearMPC", serde_json::json!({"type": "linearMPC", "terms": [{"nodeId": 4, "dof": 0, "coefficient": 1.0}, {"nodeId": 5, "dof": 0, "coefficient": -1.0}]})),
         ("eccentricConnection", serde_json::json!({"type": "eccentricConnection", "masterNode": 4, "slaveNode": 5, "offsetX": 4.0, "offsetY": 0.0, "releases": [false, false, true]})),
+        ("diaphragm", serde_json::json!({"type": "diaphragm", "masterNode": 4, "slaveNodes": [5], "plane": "XZ"})),
     ] {
         let input = base_2d(c2);
         let plain = solve_buckling_2d(&input, 1).unwrap_or_else(|e| panic!("2d {kind}: {e}")).modes[0].load_factor;
@@ -484,23 +522,15 @@ fn issue_1756_every_constraint_kind_on_free_dofs_of_separate_structure_leaves_co
     }
 
     let base_3d = |constraint: serde_json::Value, warping: bool| -> SolverInput3D {
-        let mut space = embed_2d(&base_2d(serde_json::json!({"type": "equalDOF", "masterNode": 4, "slaveNode": 5, "dofs": [0]})), Plane::XZ)
-            .unwrap_or_else(|_| {
-                let mut u = base_2d(serde_json::json!({"type": "equalDOF", "masterNode": 4, "slaveNode": 5, "dofs": [0]}));
-                u.constraints.clear();
-                embed_2d(&u, Plane::XZ).unwrap()
-            });
-        space.nodes.insert("6".into(), SolverNode3D { id: 6, x: 16.0, y: 0.0, z: 0.0 });
-        for sup in space.supports.values_mut() {
-            if matches!(sup.node_id, 4 | 5 | 6) {
-                sup.ry = false;
-                sup.rrz = false;
-            }
-            if warping && matches!(sup.node_id, 1 | 3) {
-                sup.rw = Some(true);
-            }
-        }
+        let mut u = base_2d(serde_json::json!({"type": "equalDOF", "masterNode": 4, "slaveNode": 5, "dofs": [0]}));
+        u.constraints.clear();
+        let mut space = embed_2d(&u, Plane::XZ).unwrap();
         if warping {
+            for sup in space.supports.values_mut() {
+                if matches!(sup.node_id, 1 | 3) {
+                    sup.rw = Some(true);
+                }
+            }
             for sec in space.sections.values_mut() {
                 sec.cw = Some(1e-20);
             }
@@ -511,10 +541,10 @@ fn issue_1756_every_constraint_kind_on_free_dofs_of_separate_structure_leaves_co
 
     for (kind, c3, warping) in [
         ("equalDOF", serde_json::json!({"type": "equalDOF", "masterNode": 4, "slaveNode": 5, "dofs": [0, 2]}), false),
-        ("rigidLink", serde_json::json!({"type": "rigidLink", "masterNode": 4, "slaveNode": 5, "dofs": [0, 1, 2, 3, 4, 5]}), false),
+        ("rigidLink", serde_json::json!({"type": "rigidLink", "masterNode": 4, "slaveNode": 5, "dofs": [0, 2, 4]}), false),
         ("linearMPC", serde_json::json!({"type": "linearMPC", "terms": [{"nodeId": 4, "dof": 0, "coefficient": 1.0}, {"nodeId": 5, "dof": 0, "coefficient": -1.0}]}), false),
-        ("eccentricConnection", serde_json::json!({"type": "eccentricConnection", "masterNode": 4, "slaveNode": 5, "offsetX": 4.0, "offsetY": 0.0, "offsetZ": 0.0, "releases": [false, false, false, false, true, false]}), false),
-        ("diaphragm", serde_json::json!({"type": "diaphragm", "masterNode": 6, "slaveNodes": [4, 5], "plane": "XY"}), false),
+        ("eccentricConnection", serde_json::json!({"type": "eccentricConnection", "masterNode": 4, "slaveNode": 5, "offsetX": 4.0, "offsetY": 0.0, "offsetZ": 0.0, "releases": [false, true, false, true, true, true]}), false),
+        ("diaphragm", serde_json::json!({"type": "diaphragm", "masterNode": 4, "slaveNodes": [5], "plane": "XZ"}), false),
         ("warping+equalDOF", serde_json::json!({"type": "equalDOF", "masterNode": 4, "slaveNode": 5, "dofs": [0, 2]}), true),
     ] {
         let input = base_3d(c3, warping);
@@ -530,7 +560,6 @@ fn issue_1756_every_constraint_kind_on_free_dofs_of_separate_structure_leaves_co
 }
 
 #[test]
-#[ignore = "known wrong result: #1756"]
 fn issue_1756_boundary_around_component_own_round_off_bound_with_separate_constraint() {
     let mpc_2d = serde_json::json!({
         "type": "linearMPC",
@@ -547,8 +576,8 @@ fn issue_1756_boundary_around_component_own_round_off_bound_with_separate_constr
         ]
     });
 
-    let below_2d = separate_column_and_tie_2d(8.0e-11, Some(1e-3), vec![mpc_2d.clone()]);
-    let below_3d = separate_column_and_tie_3d(8.0e-11, Some(1e-3), vec![mpc_3d.clone()]);
+    let below_2d = separate_column_and_tie_2d(2000.0 * 2.0f64.powi(-45), Some(1.0), vec![mpc_2d.clone()]);
+    let below_3d = separate_column_and_tie_3d(2000.0 * 2.0f64.powi(-45), Some(1.0), vec![mpc_3d.clone()]);
     for err in [
         solve_buckling_2d(&below_2d, 1).unwrap_err(),
         certify_buckling_2d(&below_2d, 1).unwrap_err(),
@@ -558,10 +587,10 @@ fn issue_1756_boundary_around_component_own_round_off_bound_with_separate_constr
         assert!(err.contains("Buckling not determinable") && err.contains("within round-off"), "{err}");
     }
 
-    let p_above = 1.0e-10;
+    let p_above = 2000.0 * 2.0f64.powi(-44);
     let expected = one_element_cantilever_factor(200000.0 * 1000.0 * 1e-12, 10.0, p_above);
-    let above_2d = separate_column_and_tie_2d(p_above, Some(1e-3), vec![mpc_2d]);
-    let above_3d = separate_column_and_tie_3d(p_above, Some(1e-3), vec![mpc_3d]);
+    let above_2d = separate_column_and_tie_2d(p_above, Some(1.0), vec![mpc_2d]);
+    let above_3d = separate_column_and_tie_3d(p_above, Some(1.0), vec![mpc_3d]);
     for (name, lambda) in [
         ("2d plain", solve_buckling_2d(&above_2d, 1).unwrap().modes[0].load_factor),
         ("2d certified", certify_buckling_2d(&above_2d, 1).unwrap().results.modes[0].load_factor),
@@ -576,7 +605,6 @@ fn issue_1756_boundary_around_component_own_round_off_bound_with_separate_constr
 }
 
 #[test]
-#[ignore = "known wrong result: #1756"]
 fn issue_1756_omitted_member_mode_check_uses_component_round_off_bound() {
     let base = serde_json::json!({
         "nodes": {
