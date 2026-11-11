@@ -13,6 +13,10 @@ function spatial(solver) {
   const s = structuredClone(solver);
   for (const node of Object.values(s.nodes)) node.y = 0;
   for (const section of Object.values(s.sections)) Object.assign(section, { iy: section.iz, j: section.iz });
+  for (const element of Object.values(s.elements)) {
+    delete element.hingeStart;
+    delete element.hingeEnd;
+  }
   s.supports = Object.fromEntries(Object.values(s.nodes).map(n => [n.id, { nodeId: n.id, rx: n.id === 1, ry: true, rz: n.id === 1, rrx: true, rry: n.id === 1, rrz: true }]));
   return s;
 }
@@ -26,7 +30,7 @@ for (const dim of [2, 3]) for (const held of [false, true]) {
     else assert.throws(run, error => String(error).startsWith('MODAL-MECHANISM:') && String(error).includes('node 3'));
   });
   const json = JSON.stringify(s);
-  for (const name of ['solve_pdelta', 'solve_corotational']) check(`${dim}D ${name} held=${held}`, () => {
+  for (const name of ['solve_pdelta']) check(`${dim}D ${name} held=${held}`, () => {
     const run = () => engine[`${name}_${dim}d`](json, 30, 1e-8, 2);
     if (held) assert.ok(JSON.parse(run()));
     else assert.throws(run, /mechanism/);

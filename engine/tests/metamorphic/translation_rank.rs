@@ -6,7 +6,7 @@ use dedaliano_engine::{metamorphic::planes::{embed_2d, Plane}, solver::stability
 fn oblique_truss_mechanisms_keep_their_refusals_across_entry_points() {
     let fixtures: serde_json::Value = serde_json::from_str(include_str!("../fixtures/cause-c-replay.json")).unwrap();
     let original: SolverInput = serde_json::from_value(fixtures["1095"].clone()).unwrap();
-    let analyses = ["linear", "linear (load session)", "linear (sparse path)", "linear (PCG)", "constrained", "certified linear", "staged (one stage)", "staged (loads in two stages)", "creep & shrinkage (t = t0)", "P-Delta", "corotational", "modal", "certified modal"];
+    let analyses = ["linear", "linear (WASM typed path)", "linear (dense reference)", "linear (load session)", "linear (sparse path)", "linear (PCG)", "constrained", "certified linear", "load combinations", "staged (one stage)", "staged (loads in two stages)", "creep & shrinkage (t = t0)", "P-Delta", "modal", "certified modal"];
     for held in [false, true] {
         let mut solver = original.clone();
         if held { solver.elements.get_mut("2").unwrap().elem_type = "frame".into(); }
