@@ -14,7 +14,7 @@ import { knownIssueRefusal } from './known-issues';
  */
 
 import { ensurePhysicalModel } from '../store/plates-from-shells';
-import { platesNeedingMesh, preparePlatesForAnalysis } from '../store/physical-plates';
+import { platesNeedingMesh, preparePlatesForAnalysisAsync } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
 import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { spectralOrSay } from '../actions/solve';
@@ -163,7 +163,7 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
   const isPro = uiStore.analysisMode === 'pro';
   // A plate with no mesh, or one out of date, is not in the model the solve reads: results now would
   // leave it out. Live calc does not mesh behind an edit; the manual analysis does.
-  const unmeshed = platesNeedingMesh();
+  const unmeshed = platesNeedingMesh({ coarse: false });
   if (unmeshed.length > 0) {
     uiStore.liveCalcError = tp('plates.liveNeedsMesh', { n: unmeshed.length });
     return;
@@ -268,7 +268,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     ensurePhysicalModel();
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
-    const p = preparePlatesForAnalysis();
+    const p = await preparePlatesForAnalysisAsync();
     if (!p.ok) {
       const error = tp(p.reason === 'needsMesh' ? 'plates.analysisNeedsMesh' : p.reason === 'localLoads' ? 'plates.analysisLocalLoads' : 'plates.analysisMeshRefused', { names: p.plates.join(', ') });
       uiStore.toast(error, 'error');

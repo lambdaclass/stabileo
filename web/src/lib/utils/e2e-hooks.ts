@@ -63,6 +63,7 @@ import { currentResultProvenance, provenanceForExport, captureProvenanceToken } 
 import { recheckStore } from '../store/recheck.svelte';
 import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
 import { plateLoops } from '../model/physical/plate';
+import { meshBeforeAnalysis } from '../store/mesh-policy.svelte';
 
 export const E2E_QUERY_FLAG = 'e2e';
 
@@ -545,6 +546,8 @@ export interface StabileoTestActions {
   autosaveNow(): Promise<unknown>;
   /** The same clear the restore banner's Descartar button performs. */
   autosaveDiscard(): Promise<void>;
+  /** "Mesh before analysis" (`store/mesh-policy.svelte.ts`), as its checkbox sets it. */
+  setMeshBeforeAnalysis(on: boolean): void;
 }
 
 function rebarSummary(elementId: number): string {
@@ -998,6 +1001,7 @@ export function installE2EHooks(): void {
     cancel: () => designRunStore.cancel(),
     autosaveNow: () => requestAutosave('manual'),
     autosaveDiscard: () => clearAutosave(),
+    setMeshBeforeAnalysis: (on: boolean) => { meshBeforeAnalysis.value = on; },
   };
   // Frozen so a spec (or anything else) cannot substitute a hook implementation.
   (window as unknown as { __stabileo?: StabileoTestHooks }).__stabileo = Object.freeze(hooks);

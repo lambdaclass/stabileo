@@ -11,7 +11,8 @@
   import { onDestroy, untrack } from 'svelte';
   import { uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
-  import { applyPlateMeshes, planPlateMeshes, plateEntry, plateSides, type PlateMeshPlan } from '../../../lib/store/physical-plates';
+  import { applyPlateMeshesAsync, planPlateMeshes, plateEntry, plateSides, type PlateMeshPlan } from '../../../lib/store/physical-plates';
+  import MeshProgressBar from './MeshProgressBar.svelte';
   import { modelStore } from '../../../lib/store';
   import { unitQ } from '../../../lib/store/display-units.svelte';
   import { DEFAULT_PLATE_MESH, POOR_MIN_ANGLE } from '../../../lib/model/physical/plate';
@@ -36,6 +37,7 @@
   const gridOn = $derived(element === 'quad' && pattern !== 'free');
   let plans = $state<PlateMeshPlan[] | null>(null);
   let progress = $state<{ done: number; total: number } | null>(null);
+  let applying = $state<{ done: number; total: number } | null>(null);
   let result = $state<string | null>(null);
   let ctrl: AbortController | null = null;
 
@@ -56,9 +58,11 @@
   const ok = $derived((plans ?? []).filter((p) => p.mesh));
   const totals = $derived({ cells: ok.reduce((s, p) => s + p.cells, 0), local: (plans ?? []).reduce((s, p) => s + p.localLoads, 0) });
 
-  function apply() {
-    if (!plans) return;
-    const r = applyPlateMeshes(plans);
+  async function apply() {
+    if (!plans || applying) return;
+    applying = { done: 0, total: ok.length };
+    const r = await applyPlateMeshesAsync(plans, (done, total) => (applying = { done, total }));
+    applying = null;
     uiStore.selectPlates(ids);
     result = tp('plates.meshApplied', { plates: r.plates, cells: r.cells })
       + (r.refused.length ? ' ' + tp('plates.meshRefusedSome', { n: r.refused.length }) : '')
@@ -108,10 +112,10 @@
   const totalSize = $derived(gridOn && pattern === 'rect' ? `${significantNumber(size, 'length', uiStore.unitSystem, 3)} × ${meshSizeText(sizeV)}` : meshSizeText(size));
 </script>
 
-<svelte:window onkeydown={(e) => { if (e.key === 'Escape') onclose(); }} />
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && !applying) onclose(); }} />
 
 <div class="pmd-host">
-<div class="pmd-overlay" use:portal onclick={onclose} role="presentation">
+<div class="pmd-overlay" use:portal onclick={() => { if (!applying) onclose(); }} role="presentation">
   <div class="pmd" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t('plates.meshTitle')} data-testid="plate-mesh-dialog" tabindex="-1">
     <h3>{ids.length > 1 ? tp('plates.meshTitleMany', { n: ids.length }) : tp('plates.meshTitleOne', { name: plateEntry(ids[0]!)?.name ?? '' })}</h3>
 
@@ -151,9 +155,12 @@
 
     {#if progress}
       <div class="pmd-progress" data-testid="plate-mesh-progress">
-        {tp('plates.planning', { done: progress.done, total: progress.total })}
+        <MeshProgressBar phase="planning" done={progress.done} total={progress.total} />
         <button class="pmd-btn" onclick={cancel}>{t('plates.stop')}</button>
       </div>
+    {/if}
+    {#if applying}
+      <div class="pmd-progress" data-testid="plate-mesh-applying"><MeshProgressBar phase="meshing" done={applying.done} total={applying.total} /></div>
     {/if}
 
     {#if plans}
@@ -205,8 +212,8 @@
 
     {#if result}<p class="pmd-msg" data-testid="plate-mesh-result">{result}</p>{/if}
     <div class="pmd-actions">
-      <button class="pmd-btn" onclick={onclose}>{t('plates.close')}</button>
-      <button class="pmd-btn primary" disabled={!ok.length || !!progress} onclick={apply} data-testid="plate-mesh-apply">
+      <button class="pmd-btn" disabled={!!applying} onclick={onclose}>{t('plates.close')}</button>
+      <button class="pmd-btn primary" disabled={!ok.length || !!progress || !!applying} onclick={apply} data-testid="plate-mesh-apply">
         {totals.local ? t('plates.applyDropping') : t('plates.apply')}
       </button>
     </div>
@@ -229,6 +236,7 @@
   .pmd-seg button.on { background: var(--st-accent); color: #fff; }
   .pmd-hint { margin: 0; color: var(--st-text-3); font-size: 0.7rem; }
   .pmd-progress { display: flex; gap: 8px; align-items: center; }
+  .pmd-progress :global(.mpb) { flex: 1; }
   .pmd-table { width: 100%; border-collapse: collapse; }
   .pmd-table th, .pmd-table td { text-align: left; padding: 3px 5px; border-bottom: 1px solid var(--st-hair); }
   .pmd-table th { color: var(--st-text-3); font-weight: 500; }

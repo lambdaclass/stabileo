@@ -7,6 +7,8 @@
   import { t, tp } from '../../../lib/i18n';
   import { meshBeforeAnalysis, physicalPlates, platesNeedingMesh } from '../../../lib/store/physical-plates';
   import PlateMeshDialog from './PlateMeshDialog.svelte';
+  import MeshProgressBar from './MeshProgressBar.svelte';
+  import { meshProgress } from '../../../lib/store/mesh-progress.svelte';
 
   const info = $derived.by(() => {
     void modelStore.modelVersion; void modelStore.model.groups;
@@ -18,9 +20,13 @@
 
 {#if info.total > 0}
   <div class="amc" data-testid="analysis-mesh-control">
-    <span class="amc-state" class:warn={info.pending.length > 0} data-testid="analysis-mesh-state">
-      {info.pending.length ? tp('plates.pendingShort', { n: info.pending.length }) : t('plates.allCurrent')}
-    </span>
+    {#if meshProgress.now}
+      <MeshProgressBar phase={meshProgress.now.phase} done={meshProgress.now.done} total={meshProgress.now.total} />
+    {:else}
+      <span class="amc-state" class:warn={info.pending.length > 0} data-testid="analysis-mesh-state">
+        {info.pending.length ? tp('plates.pendingShort', { n: info.pending.length }) : t('plates.allCurrent')}
+      </span>
+    {/if}
     <label class="amc-check" title={t('plates.meshBeforeAnalysisHint')}>
       <input type="checkbox" checked={meshBeforeAnalysis.value} onchange={(e) => (meshBeforeAnalysis.value = e.currentTarget.checked)} data-testid="analysis-mesh-auto" />
       {t('plates.meshBeforeAnalysis')}

@@ -70,7 +70,7 @@ export function addPositionCases(
       for (const pass of positionPasses(train, total, step)) {
         for (const r of pass.refs) {
           const id = modelStore.addLoadCase(tp(pass.reversed ? 'moving.positionCaseBack' : 'moving.positionCase', { name: train.name, x: r.toFixed(2) }), 'Tr', { alternatives: group });
-          for (const l of trainModelLoads(pass.train, r, path, line2?.path2 ?? null, id)) modelStore.addLoadEntry(l);
+          modelStore.addLoadEntries(trainModelLoads(pass.train, r, path, line2?.path2 ?? null, id));
         }
       }
     }

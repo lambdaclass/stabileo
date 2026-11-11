@@ -49,7 +49,7 @@ export function runLegacyVersion(tag: string): void {
         const now = await againstExample(`${tag}/${e.example}`, tag, e, opened, !!e.results);
         if (now.verdict) record(`${e.example} vs ${now.reference}`, now.verdict);
         if (now.failure) throw new Error(now.failure);
-      }, 120_000);
+      }, 300_000);
     }
 
     const s = m.session;

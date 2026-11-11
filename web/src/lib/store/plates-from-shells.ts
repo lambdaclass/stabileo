@@ -156,7 +156,8 @@ export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boo
       const owned = opts.keepMesh === false ? [] : [...new Set(panel.flatMap((s) => s.nodes))].filter((n) => !inLoops.has(n));
       const edge = panel.flatMap((s) => s.nodes.map((a, k) => len(sub(pos(s.nodes[(k + 1) % s.nodes.length]!), pos(a)))));
       const mean = Math.max(0.05, Math.round((edge.reduce((a, b) => a + b, 0) / edge.length) / 0.05) * 0.05);
-      const size = opts.size ?? (mean > 1 ? DEFAULT_PLATE_MESH.size : mean);
+      // A panel of a few shells (one for a whole bay) is no mesh to keep the size of; a real mesh keeps its own.
+      const size = opts.size ?? (mean > 1 && panel.length <= 4 ? DEFAULT_PLATE_MESH.size : mean);
       const shells = panel.map((x) => (x.kind === 'quad' ? modelStore.quads.get(x.id) : modelStore.plates.get(x.id)) as { curved?: boolean; offset?: PlateSurface['offset'] } | undefined);
       const curved = panel.every((x, k) => x.kind === 'quad' && !!shells[k]?.curved);
       const offset = shells[0]?.offset && shells.every((x) => JSON.stringify(x?.offset) === JSON.stringify(shells[0]!.offset)) ? shells[0]!.offset : undefined;
