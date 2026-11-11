@@ -1644,3 +1644,83 @@ fn issue_1753_retained_pcg_units_inventory_accepts_verified_comparisons() {
     }
     assert_retained_analysis_failures(seed, "d3", &t);
 }
+
+#[test]
+fn audit_issue_1361_published_model() {
+    holds(1361, 20761, &[("influence line", "units")]);
+}
+
+#[test]
+fn audit_issue_1360_published_model() {
+    holds(1360, 20761, &[("moving loads", "units")]);
+}
+
+#[test]
+fn audit_issue_1280_published_model() {
+    holds(1280, 2026110305390, &[("time history", "mirror")]);
+}
+
+#[test]
+fn audit_issue_1279_published_model() {
+    holds(1279, 2026110302874, &[("time history", "superposition")]);
+}
+
+#[test]
+fn audit_issue_1277_published_model() {
+    holds(1277, 2026110305390, &[("time history", "superposition")]);
+}
+
+#[test]
+fn audit_issue_1271_published_model() {
+    holds(1271, 2026110303425, &[("time history (ground motion)", "rotation")]);
+}
+
+#[test]
+fn audit_issue_1270_published_model() {
+    holds(1270, 2026110303425, &[("time history", "superposition")]);
+}
+
+#[test]
+fn audit_issue_1269_published_model() {
+    holds(1269, 2026110305390, &[("time history", "rotation")]);
+}
+
+#[test]
+fn audit_issue_1212_published_model() {
+    holds(1212, 2026110202027, &[("time history (ground motion)", "units")]);
+}
+
+#[test]
+fn audit_issue_1210_published_model() {
+    holds(1210, 2026110201877, &[("time history", "superposition")]);
+}
+
+#[test]
+fn audit_issue_1208_published_model() {
+    holds(1208, 2026110202027, &[("time history", "units")]);
+}
+
+#[test]
+fn audit_issue_1207_published_model() {
+    holds(1207, 2026110202027, &[("time history (ground motion)", "rotation")]);
+}
+
+#[test]
+fn audit_issue_1205_published_model() {
+    holds(1205, 2026110302735, &[("time history (ground motion)", "units")]);
+}
+
+#[test]
+fn audit_issue_1196_published_model() {
+    holds(1196, 2026110300429, &[("time history (ground motion)", "units")]);
+}
+
+#[test]
+fn audit_issue_1009_published_model() {
+    holds(1009, 20758, &[("time history", "reciprocity")]);
+}
+
+#[test]
+fn audit_issue_969_published_model() {
+    holds(969, 20760, &[("modal", "modal orthogonality")]);
+}

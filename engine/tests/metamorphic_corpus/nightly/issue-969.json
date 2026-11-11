@@ -1,0 +1,159 @@
+{
+  "_nightly_dens": {
+    "1": 7928.874416451676
+  },
+  "_nightly_name": "fuzz_rich_3d/21171",
+  "connectors": {},
+  "constraints": [],
+  "curvedBeams": [],
+  "curvedShells": {},
+  "elements": {
+    "1": {
+      "id": 1,
+      "localYx": 0.21152626677428055,
+      "localYy": 0.5301970008180299,
+      "localYz": -0.8210650271373773,
+      "materialId": 1,
+      "nodeI": 1,
+      "nodeJ": 2,
+      "releaseMyEnd": false,
+      "releaseMyStart": false,
+      "releaseMzEnd": false,
+      "releaseMzStart": false,
+      "releaseTEnd": false,
+      "releaseTStart": false,
+      "rollAngle": null,
+      "sectionId": 1,
+      "type": "frame"
+    }
+  },
+  "leftHand": null,
+  "loads": [
+    {
+      "data": {
+        "bimoment": -17.838671306620853,
+        "nodeId": 1
+      },
+      "type": "bimoment"
+    },
+    {
+      "data": {
+        "a": 9.347303405193086,
+        "elementId": 1,
+        "py": -2.6909117341133637,
+        "pz": 17.498674428549236
+      },
+      "type": "pointOnElement"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 229668.9297212744,
+      "id": 1,
+      "nu": 0.35136551263171956
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 0.515008283463529,
+      "y": -4.342682037187243,
+      "z": -5.000727902764395
+    },
+    "2": {
+      "id": 2,
+      "x": -4.595069114289232,
+      "y": 1.6546883531243477,
+      "z": 5.045085209748377
+    }
+  },
+  "plates": {},
+  "quad9s": {},
+  "quads": {},
+  "sections": {
+    "1": {
+      "a": 0.03494662959430185,
+      "asY": 0.015451830658828316,
+      "asZ": null,
+      "cw": 2.0693537503436227e-08,
+      "id": 1,
+      "iy": 0.00019508730727419774,
+      "iz": 2.876584919493158e-06,
+      "j": 1.1953527111494464e-06,
+      "name": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    },
+    "2": {
+      "a": 0.08303522932083236,
+      "asY": 0.05351856923570115,
+      "asZ": null,
+      "cw": null,
+      "id": 2,
+      "iy": 4.607967460888221e-06,
+      "iz": 6.6520354373707104e-06,
+      "j": 0.0008751958688559438,
+      "name": null,
+      "shearCenterY": null,
+      "shearCenterZ": null
+    }
+  },
+  "solidShells": {},
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "drx": null,
+      "dry": null,
+      "drz": null,
+      "dx": null,
+      "dy": null,
+      "dz": null,
+      "isInclined": null,
+      "krx": null,
+      "kry": null,
+      "krz": null,
+      "kw": null,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "normalX": null,
+      "normalY": null,
+      "normalZ": null,
+      "rrx": true,
+      "rry": true,
+      "rrz": true,
+      "rw": true,
+      "rx": true,
+      "ry": true,
+      "rz": true
+    },
+    "2": {
+      "drx": null,
+      "dry": null,
+      "drz": null,
+      "dx": null,
+      "dy": null,
+      "dz": null,
+      "isInclined": null,
+      "krx": 595.5597203578681,
+      "kry": null,
+      "krz": null,
+      "kw": 13839.11398506265,
+      "kx": null,
+      "ky": 182.7527973189605,
+      "kz": null,
+      "nodeId": 2,
+      "normalX": null,
+      "normalY": null,
+      "normalZ": null,
+      "rrx": false,
+      "rry": false,
+      "rrz": false,
+      "rw": false,
+      "rx": true,
+      "ry": false,
+      "rz": true
+    }
+  }
+}
