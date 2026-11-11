@@ -102,8 +102,10 @@ checked in as [inputs](1753-loaded-c08-inputs.json),
 [reference responses](../../engine/tests/metamorphic_corpus/1753-accuracy-reference.json).
 Run `python3 docs/results-changes/1753-c08-reference.py` within `make shell` to verify
 regeneration; `--write` regenerates the reference file. The test requires each canonical
-loaded input to match its reference source exactly. The arithmetic operates on exact
-binary64 input values, with 90 decimal digits throughout assembly, reduction and solution.
+loaded input to match its reference source exactly. JSON numbers are parsed directly as Decimal values, with 90 decimal digits throughout
+assembly, reduction and solution. The native-input adapter explicitly maps the legacy
+2D spring fields `kx/ky/kz` to physical `kx/kz/kry`, and native support angles from
+radians to degrees; the physical oracle converts degree angles to radians like `rollAngle`.
 The cubic Hermite torsion/warping element is the model's finite-element interpolation.
 Reference responses are transformed from the original model, rather than treating
 rounding in transformed coordinates or released axes as a different physical structure.
@@ -792,3 +794,78 @@ Regeneration checks all 23 canonical references. Only five reaction items change
 serialized zero exponents, in #1265 and #1653; every stored numerical value is unchanged.
 This correction changes reference tooling and advisory wording, with no engine result or
 results-change registry change. No tolerance, engineering reference or assertion is widened.
+
+
+## Final round: prepared model edits and dimensional balance
+
+The 2D session compatibility check used a shallow copy of the input and compared
+only top-level references. Editing coordinates, material or section properties, or
+support spring stiffness in place could reuse the old native stiffness. Sessions
+now capture a deep copy of the complete structural wire input without loads and
+compare each candidate structural serialization with that snapshot before reuse.
+The four in-place edit regressions compare the entire session result with an
+independent fresh solve. All four failed before the fix and pass after it.
+
+Conditional recovered-force admission formerly compared all free residual components
+with the largest applied component, including loads on restrained DOFs. This mixed
+forces, moments and bimoments and allowed an unrelated large load to hide imbalance.
+It also gave a settlement-only model a zero forcing scale. The corrected check uses
+separate force, moment and bimoment scales in the same constraint-reduced free
+coordinates as the balance, excluding restrained applied loads. It includes the
+prescribed-displacement forcing `K u_p`, including constrained free slaves of
+restrained masters. Its roundoff term is `64 N ε` times the matching component-kind
+maximum of `|K| |u| + |F|`, reduced with `|C|ᵀ`; the residual and forcing use `Cᵀ`.
+`N` is the original DOF count. `CONDITIONAL_ACCURACY` remains unchanged.
+
+The large-moment and restrained-load regressions previously admitted a deliberately
+corrupted recovered force. Both now refuse with the conditioning reason. The
+settlement-only recovered-force regression previously refused; it now passes with
+nonzero internal forces. Additional checks cover 3D, constraint reduction, independent
+bimoment scaling, and a public conditional solve of a settlement-only C08 model.
+
+The physical reference oracle now reads 2D spring fields `kx/kz/kry` for `dx/dz/dry`
+and converts degree-valued inclined support angles like `rollAngle`. The saved
+canonical inputs are native engine inputs: native 2D still names these springs
+`kx/ky/kz` (`kz` is rotational), and native support angles are radians. This is
+established by `engine/src/types/units.rs`, `solver/support.rs` and the web's
+`supportToWire`. An explicit `physical_input` adapter translates that native schema
+before physical assembly. Reading those native fields directly as physical fields
+would remove the rotational restraint in #1265 and change the angle in #1116; those
+are different physical models. They were investigated before changing any engine
+test expectation. Neither the saved native inputs nor engine support semantics change.
+Direct analytic oracle tests check each spring axis, a right-angle roller and spring,
+and the native-to-physical conversion.
+
+JSON floats are now parsed directly as Decimal values. All 23 reference models have
+changed low-order reference components; the per-model counts and largest relative
+changes for components above `1e-10` are recorded in
+[the regeneration report](1753-final-reference-diff.json). The largest such relative
+change is about `1.02e-13` in #1115. That reporting cutoff is not a test tolerance;
+the engine comparison assertions remain unchanged. Very small roundoff zeros can
+also change sign or exponent. The reference file is regenerated reproducibly at
+90 decimal digits, and the loaded C08 tests use these references without changing
+their accuracy assertions.
+
+C08 coverage now requires designated solvable copies to compare successfully and
+validates refusal reasons per model. A refusal is counted only as a refusal, never
+as a successful comparison. The conditional #1653 original now refuses: the measured
+recovered moment imbalance is `-0.022353893839215055`, exceeding the dimensionally
+matching limit `0.0063107435265496396`; the previous force-based scale hid it.
+This is an intended admission change, not a changed reference or relaxed assertion.
+The existing #993 ignored regression remains deferred and unchanged.
+
+The final loaded C08 run requires at least 381 successful comparisons across all
+23 designated reference models, including the `1000/1000` unit copy of #1653.
+It records 381 solved copies, two split outcomes, and a worst unchanged comparison
+of `1.8623288718840833e-7`. #1653 changes from 18 solved / 1 refused to 1 solved /
+18 refused; #993 retains 12 solved / 1 refused. Its `25/0.01` refusal must carry the
+conditioning reason. Every other designated supported solvable copy must succeed;
+no refusal contributes to the successful-comparison count. The supported-copy
+coverage minimum remains separately checked.
+
+Focused verification also passes the ten balance unit tests, four physical-oracle
+checks, the 23-reference deterministic regeneration check, and 27 prepared-session,
+influence and provenance web tests. The single requested slab slider sweep passed
+all 300 samples with zero refusals: 61.210 seconds in the test, 71.19 seconds wall
+time. Native compilation ran concurrently, so this measurement does not establish
+an isolated performance comparison.

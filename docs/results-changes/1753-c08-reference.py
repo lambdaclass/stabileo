@@ -198,11 +198,11 @@ def reference(s,dim):
         node=sup['nodeId']
         if dim==2:
             rigid={'fixed':[1,1,1],'pinned':[1,1,0],'rollerX':[0,1,0],'rollerY':[1,0,0],'rollerZ':[1,0,0],'guidedX':[0,1,1],'guidedY':[1,0,1],'guidedZ':[1,0,1]}.get(sup['type'],[0,0,0])
-            pres=[sup.get(v) for v in ['dx','dz','dry']]; ks=[dec(sup.get(v)) for v in ['kx','ky','kz']]
+            pres=[sup.get(v) for v in ['dx','dz','dry']]; ks=[dec(sup.get(v)) for v in ['kx','kz','kry']]
             if sup['type']=='inclinedRoller':
-                sn,co=sincos(dec(sup.get('angle')));equation([(ix(node,0),sn),(ix(node,1),co)],sn*dec(pres[0])+co*dec(pres[1]))
+                sn,co=sincos(dec(sup.get('angle'))*(16*atan(D(1)/5)-4*atan(D(1)/239))/180);equation([(ix(node,0),sn),(ix(node,1),co)],sn*dec(pres[0])+co*dec(pres[1]))
             if sup['type']=='spring' and sup.get('angle'):
-                sn,co=sincos(dec(sup['angle'])); kx,kz=ks[:2];
+                sn,co=sincos(dec(sup['angle'])*(16*atan(D(1)/5)-4*atan(D(1)/239))/180); kx,kz=ks[:2];
                 for i,j,v in [(0,0,kx*co*co+kz*sn*sn),(1,1,kx*sn*sn+kz*co*co),(0,1,(kx-kz)*sn*co),(1,0,(kx-kz)*sn*co)]:k[ix(node,i)][ix(node,j)]+=v
                 ks[:2]=[D(0),D(0)]
         else:
@@ -254,8 +254,21 @@ def atan(x):
     return result
 
 
+def physical_input(s,dim):
+ if dim!=2:return s
+ pi=16*atan(D(1)/5)-4*atan(D(1)/239)
+ supports={}
+ for key,sup in s['supports'].items():
+  physical=dict(sup, kz=sup.get('ky'), kry=sup.get('kz'))
+  physical.pop('ky',None)
+  if sup.get('angle') is not None:physical['angle']=dec(sup['angle'])*180/pi
+  supports[key]=physical
+ return dict(s,supports=supports)
+
+
 def refs(rec):
- s=rec['input'];dim=rec['dim'];r=reference(s,dim);items=[];dpn=max(d for n,d in r['index'])+1
+ s=physical_input(rec['input'],rec['dim']);dim=rec['dim']
+ r=reference(s,dim);items=[];dpn=max(d for n,d in r['index'])+1
  def push(node,elem,tag,values):items.append({'node':node,'element':elem,'tag':tag,'values':[str(v) for v in values]})
  for node in sorted(v['id'] for v in s['nodes'].values()):
   u=[r['u'][r['index'][node,d]] for d in range(dpn)]
@@ -280,7 +293,7 @@ def refs(rec):
 
 if __name__ == '__main__':
     root = Path(__file__).resolve().parents[2]
-    sources = json.loads((root / 'docs/results-changes/1753-loaded-c08-inputs.json').read_text())
+    sources = json.loads((root / 'docs/results-changes/1753-loaded-c08-inputs.json').read_text(), parse_float=D)
     for name, value in sources.items():
         fixture = root / f'engine/tests/metamorphic_corpus/stability/{name}.json'
         assert hashlib.sha256(fixture.read_bytes()).hexdigest() == value['fixture_sha256'], name

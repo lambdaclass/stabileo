@@ -847,15 +847,18 @@ function loadSession<L, R>(Constructor: LoadSessionConstructor | null, wire: () 
   };
 }
 export function prepareLoadSession2D(input: SolverInput) {
-  const model = { ...input };
+  const model = plainDeepCopy(input2DToWireObject({ ...input, loads: [] }));
+  assertFiniteWire(model);
+  const snapshot = JSON.stringify(model);
   const session = loadSession<import('./types').SolverLoad, AnalysisResults>(loadSession2D,
-    () => input2DToWireObject({ ...input, loads: [] }),
+    () => model,
     loads => solve({ ...input, loads }), result => result);
   return {
     ...session,
     solveInput(candidate: SolverInput): AnalysisResults {
-      const keys = new Set([...Object.keys(model), ...Object.keys(candidate)]);
-      const sameModel = [...keys].every(key => key === 'loads' || model[key as keyof SolverInput] === candidate[key as keyof SolverInput]);
+      const wire = input2DToWireObject({ ...candidate, loads: [] });
+      assertFiniteWire(wire);
+      const sameModel = JSON.stringify(wire) === snapshot;
       return sameModel ? session.solve(candidate.loads) : solve(candidate);
     },
   };

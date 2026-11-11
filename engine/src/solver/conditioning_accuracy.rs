@@ -2,13 +2,54 @@ use super::assembly::InclinedFrame;
 use super::{assembly, dof::DofNumbering, stability::{Stability, CONDITIONAL_ACCURACY}};
 use crate::types::*;
 
-fn check(stability: &Stability, balance: &[f64], applied: &[f64], nf: usize) -> Result<(), String> {
-    if applied.iter().any(|v| !v.is_finite()) { return Err(stability.conditioning_refusal()); }
-    let scale = applied.iter().fold(0.0f64, |a, b| a.max(b.abs()));
-    if balance[..nf].iter().any(|v| !v.is_finite() || v.abs() > CONDITIONAL_ACCURACY * scale) {
-        return Err(stability.conditioning_refusal());
+fn check(stability: &Stability, balance: &[f64], applied: &[f64], prescribed: &[f64], roundoff: &[f64], kinds: &[super::stability::DofKind], terms: usize) -> Result<(), String> {
+    let mut scales = [0.0f64; 3];
+    let mut rounding = [0.0f64; 3];
+    let kind_index = |kind| match kind {
+        super::stability::DofKind::Translation => 0,
+        super::stability::DofKind::Rotation => 1,
+        super::stability::DofKind::Warping => 2,
+    };
+    for (i, &kind) in kinds.iter().enumerate() {
+        if !applied[i].is_finite() || !prescribed[i].is_finite() || !roundoff[i].is_finite() {
+            return Err(stability.conditioning_refusal());
+        }
+        let k = kind_index(kind);
+        scales[k] = scales[k].max(applied[i].abs()).max(prescribed[i].abs());
+        rounding[k] = rounding[k].max(roundoff[i]);
+    }
+    for (i, &kind) in kinds.iter().enumerate() {
+        let k = kind_index(kind);
+        let tolerance = CONDITIONAL_ACCURACY * scales[k] + 64.0 * terms as f64 * f64::EPSILON * rounding[k];
+        if !balance[i].is_finite() || balance[i].abs() > tolerance {
+            return Err(stability.conditioning_refusal());
+        }
     }
     Ok(())
+}
+
+fn checked_balance(stability: &Stability, balance: &[f64], applied: &[f64], u: &[f64], k: &crate::linalg::sparse::CscMatrix, dof: &DofNumbering, two_d: bool, fcs: Option<&super::constraints::FreeConstraintSystem>) -> Result<(), String> {
+    let nf = dof.n_free;
+    let mut prescribed = u.to_vec();
+    prescribed[..nf].fill(0.0);
+    if let Some(fcs) = fcs { prescribed[..nf].copy_from_slice(&fcs.prescribed_free(&u[nf..])); }
+    let prescribed = k.sym_mat_vec(&prescribed);
+    let mut magnitude_k = k.clone();
+    for v in &mut magnitude_k.values { *v = v.abs(); }
+    let magnitude_u: Vec<_> = u.iter().map(|v| v.abs()).collect();
+    let mut roundoff = magnitude_k.sym_mat_vec(&magnitude_u);
+    for (v, f) in roundoff.iter_mut().zip(applied) { *v += f.abs(); }
+    let tags = super::stability::tags(dof, two_d);
+    if let Some(fcs) = fcs {
+        let mut magnitude_c = fcs.c_ff.clone();
+        for v in &mut magnitude_c.vals { *v = v.abs(); }
+        let kinds: Vec<_> = fcs.independent_dofs().iter().map(|&i| tags[i].kind).collect();
+        check(stability, &fcs.reduce_vector(&balance[..nf]), &fcs.reduce_vector(&applied[..nf]),
+            &fcs.reduce_vector(&prescribed[..nf]), &magnitude_c.mul_transpose_vec(&roundoff[..nf]), &kinds, dof.n_total)
+    } else {
+        let kinds: Vec<_> = tags.iter().take(nf).map(|t| t.kind).collect();
+        check(stability, &balance[..nf], &applied[..nf], &prescribed[..nf], &roundoff[..nf], &kinds, dof.n_total)
+    }
 }
 
 fn constraints(balance: &mut [f64], dof: &DofNumbering, forces: &[ConstraintForce], names: &[&str]) {
@@ -49,10 +90,10 @@ pub(super) fn member_balance_2d(input: &SolverInput, loads: &[SolverLoad], dof: 
     let mut balance = asm.k_full.as_ref().unwrap().sym_mat_vec(&u);
     for ((v, end), load) in balance.iter_mut().zip(ends).zip(&asm.f) { *v += end - load; }
     let applied = assembly::assemble_load_vector_2d(input, loads, dof, &asm.inclined_transforms_2d);
-    if let Some(fcs) = fcs {
-        let reduced = fcs.reduce_vector(&balance[..dof.n_free]);
-        check(stability, &reduced, &applied, reduced.len())
-    } else { check(stability, &balance, &applied, dof.n_free) }
+    remainder.elements = input.elements.clone();
+    remainder.loads.clear();
+    let full = assembly::without_artificial_stiffness(|| assembly::assemble_sparse_2d_ex(&remainder, dof, true));
+    checked_balance(stability, &balance, &applied, &u, full.k_full.as_ref().unwrap(), dof, true, fcs)
 }
 
 pub(super) fn member_balance_3d(input: &SolverInput3D, loads: &[SolverLoad3D], dof: &DofNumbering, stability: &Stability, r: &AnalysisResults3D, fcs: Option<&super::constraints::FreeConstraintSystem>) -> Result<(), String> {
@@ -90,10 +131,10 @@ pub(super) fn member_balance_3d(input: &SolverInput3D, loads: &[SolverLoad3D], d
     let mut balance = asm.k_full.as_ref().unwrap().sym_mat_vec(&u);
     for ((v, end), load) in balance.iter_mut().zip(ends).zip(&asm.f) { *v += end - load; }
     let applied = super::sparse_assembly::assemble_load_vector_sparse_3d(input, loads, dof, &asm.inclined_transforms);
-    if let Some(fcs) = fcs {
-        let reduced = fcs.reduce_vector(&balance[..dof.n_free]);
-        check(stability, &reduced, &applied, reduced.len())
-    } else { check(stability, &balance, &applied, dof.n_free) }
+    remainder.elements = input.elements.clone();
+    remainder.loads.clear();
+    let full = assembly::without_artificial_stiffness(|| assembly::assemble_sparse_3d(&remainder, dof, true));
+    checked_balance(stability, &balance, &applied, &u, full.k_full.as_ref().unwrap(), dof, false, fcs)
 }
 
 #[cfg(test)]
@@ -104,11 +145,11 @@ mod tests {
     fn recovered_balance_checks_both_sides_of_the_accuracy_limit() {
         let s = Stability::stable();
         for factor in [1.0 - 1e-4, 1.0 + 1e-4] {
-            assert_eq!(check(&s, &[CONDITIONAL_ACCURACY*factor, 0.0], &[1.0, 0.0], 2).is_ok(), factor < 1.0);
+            assert_eq!(check(&s, &[CONDITIONAL_ACCURACY*factor, 0.0], &[1.0, 0.0], &[0.0; 2], &[0.0; 2], &[super::super::stability::DofKind::Translation; 2], 2).is_ok(), factor < 1.0);
         }
-        assert!(check(&s, &[f64::NAN], &[1.0], 1).is_err());
-        assert!(check(&s, &[f64::INFINITY], &[1.0], 1).is_err());
-        assert!(check(&s, &[0.0], &[0.0], 1).is_ok());
+        assert!(check(&s, &[f64::NAN], &[1.0], &[0.0], &[0.0], &[super::super::stability::DofKind::Translation], 1).is_err());
+        assert!(check(&s, &[f64::INFINITY], &[1.0], &[0.0], &[0.0], &[super::super::stability::DofKind::Translation], 1).is_err());
+        assert!(check(&s, &[0.0], &[0.0], &[0.0], &[0.0], &[super::super::stability::DofKind::Translation], 1).is_ok());
     }
 
     fn beam(settlement: bool) -> SolverInput {
@@ -133,7 +174,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn a_large_moment_cannot_mask_a_recovered_force_imbalance() {
         for constrained in [false, true] {
             let mut input = beam(false);
@@ -155,7 +195,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn a_restrained_force_cannot_mask_a_recovered_force_imbalance() {
         let mut input = beam(false);
         input.loads = serde_json::from_value(serde_json::json!([
@@ -169,13 +208,139 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn settlement_only_recovered_forces_pass_conditional_balance() {
         let input = beam(true);
         let r = super::super::linear::solve_2d(&input).unwrap();
         assert!(r.element_forces.iter().all(|f| f.n_start.abs() > 0.0 && f.n_end.abs() > 0.0));
         let dof = DofNumbering::build_2d(&input);
         member_balance_2d(&input, &input.loads, &dof, &conditional(), &r, None).unwrap();
+    }
+
+
+    fn beam3(settlement: bool) -> SolverInput3D {
+        let mut v = serde_json::to_value(beam(settlement)).unwrap();
+        for e in v["elements"].as_object_mut().unwrap().values_mut() {
+            let e = e.as_object_mut().unwrap();
+            e.remove("hingeStart"); e.remove("hingeEnd");
+        }
+        for n in v["nodes"].as_object_mut().unwrap().values_mut() { n["y"] = 0.0.into(); }
+        v["sections"]["1"]["iy"] = 2e-4.into();
+        v["sections"]["1"]["j"] = 1e-5.into();
+        for sup in v["supports"].as_object_mut().unwrap().values_mut() {
+            *sup = serde_json::json!({"nodeId":sup["nodeId"],"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true,"dx":sup["dx"]});
+        }
+        serde_json::from_value(v).unwrap()
+    }
+
+    #[test]
+    fn space_balance_separates_moments_and_restrained_loads_from_free_forces() {
+        for constrained in [false, true] {
+            for moment in [false, true] {
+                let mut input = beam3(false);
+                input.loads = serde_json::from_value(serde_json::json!([
+                    {"type":"nodal","data":{"nodeId":2,"fx":1.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":if moment {1e12} else {0.0},"mz":0.0}},
+                    {"type":"nodal","data":{"nodeId":1,"fx":if moment {0.0} else {1e12},"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0}}
+                ])).unwrap();
+                if constrained {
+                    input.constraints = serde_json::from_value(serde_json::json!([
+                        {"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[1]}
+                    ])).unwrap();
+                }
+                let mut r = super::super::linear::solve_3d(&input).unwrap();
+                let dof = DofNumbering::build_3d(&input);
+                let fcs = super::super::constraints::FreeConstraintSystem::build_3d(&input, &dof).unwrap();
+                member_balance_3d(&input, &input.loads, &dof, &conditional(), &r, fcs.as_ref()).unwrap();
+                r.element_forces.iter_mut().find(|f| f.element_id == 1).unwrap().n_end += 1.0;
+                assert_eq!(member_balance_3d(&input, &input.loads, &dof, &conditional(), &r, fcs.as_ref()).unwrap_err(), conditional().conditioning_refusal());
+            }
+        }
+    }
+
+    #[test]
+    fn space_settlement_only_recovered_forces_pass_conditional_balance() {
+        for constrained in [false, true] {
+            let mut input = beam3(true);
+            if constrained {
+                input.constraints = serde_json::from_value(serde_json::json!([
+                    {"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[1]}
+                ])).unwrap();
+            }
+            let r = super::super::linear::solve_3d(&input).unwrap();
+            let dof = DofNumbering::build_3d(&input);
+            let fcs = super::super::constraints::FreeConstraintSystem::build_3d(&input, &dof).unwrap();
+            assert!(r.element_forces.iter().all(|f| f.n_start.abs() > 0.0));
+            member_balance_3d(&input, &input.loads, &dof, &conditional(), &r, fcs.as_ref()).unwrap();
+        }
+    }
+
+    #[test]
+    fn force_moment_and_bimoment_have_independent_accuracy_scales() {
+        use super::super::stability::DofKind::*;
+        let kinds = [Translation, Rotation, Warping];
+        for large in 0..3 {
+            for small in 0..3 {
+                if large == small { continue; }
+                let mut applied = [1.0; 3];
+                applied[large] = 1e12;
+                let mut balance = [0.0; 3];
+                balance[small] = 1.0;
+                assert!(check(&conditional(), &balance, &applied, &[0.0; 3], &[0.0; 3], &kinds, 3).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn conditional_public_solve_accepts_a_settlement_only_c08_model() {
+        let sources: serde_json::Value = serde_json::from_str(include_str!("../../../docs/results-changes/1753-loaded-c08-inputs.json")).unwrap();
+        let mut input: SolverInput = serde_json::from_value(sources["issue-1653"]["input"].clone()).unwrap();
+        input.loads.clear();
+        input.supports.get_mut("2").unwrap().dz = Some(0.01);
+        assert!(super::super::stability::of_2d(&input).unwrap().needs_accuracy_check());
+        let r = super::super::linear::solve_2d(&input).unwrap();
+        assert!(r.element_forces.iter().any(|f| f.n_start.abs() > 0.0));
+    }
+
+
+    #[test]
+    fn prescribed_master_forcing_is_included_after_constraint_reduction() {
+        let constraint = serde_json::json!([{"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[0]}]);
+        let mut input = beam(true);
+        input.constraints = serde_json::from_value(constraint.clone()).unwrap();
+        let r = super::super::linear::solve_2d(&input).unwrap();
+        let dof = DofNumbering::build_2d(&input);
+        let fcs = super::super::constraints::FreeConstraintSystem::build_2d(&input, &dof).unwrap();
+        assert!(r.element_forces.iter().any(|f| f.n_start.abs() > 0.0));
+        member_balance_2d(&input, &input.loads, &dof, &conditional(), &r, fcs.as_ref()).unwrap();
+        let mut input = beam3(true);
+        input.constraints = serde_json::from_value(constraint).unwrap();
+        let r = super::super::linear::solve_3d(&input).unwrap();
+        let dof = DofNumbering::build_3d(&input);
+        let fcs = super::super::constraints::FreeConstraintSystem::build_3d(&input, &dof).unwrap();
+        assert!(r.element_forces.iter().any(|f| f.n_start.abs() > 0.0));
+        member_balance_3d(&input, &input.loads, &dof, &conditional(), &r, fcs.as_ref()).unwrap();
+    }
+
+
+    #[test]
+    fn loads_eliminated_by_constraints_cannot_inflate_the_checked_scale() {
+        let mut input = beam(false);
+        input.constraints = serde_json::from_value(serde_json::json!([
+            {"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[0]}
+        ])).unwrap();
+        input.loads = serde_json::from_value(serde_json::json!([
+            {"type":"nodal","data":{"nodeId":2,"fx":1e12,"fz":1.0,"my":0.0}}
+        ])).unwrap();
+        let dof = DofNumbering::build_2d(&input);
+        let fcs = super::super::constraints::FreeConstraintSystem::build_2d(&input, &dof).unwrap().unwrap();
+        let asm = assembly::without_artificial_stiffness(|| assembly::assemble_sparse_2d_ex(&input, &dof, true));
+        let mut balance = vec![0.0; dof.n_total];
+        let mut applied = vec![0.0; dof.n_total];
+        applied[dof.global_dof(2, 0).unwrap()] = 1e12;
+        applied[dof.global_dof(2, 1).unwrap()] = 1.0;
+        let u = vec![0.0; dof.n_total];
+        checked_balance(&conditional(), &balance, &applied, &u, asm.k_full.as_ref().unwrap(), &dof, true, Some(&fcs)).unwrap();
+        balance[dof.global_dof(2, 1).unwrap()] = 1.0;
+        assert_eq!(checked_balance(&conditional(), &balance, &applied, &u, asm.k_full.as_ref().unwrap(), &dof, true, Some(&fcs)).unwrap_err(), conditional().conditioning_refusal());
     }
 
 }

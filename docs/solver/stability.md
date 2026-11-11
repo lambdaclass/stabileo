@@ -227,8 +227,17 @@ applied nodal loads at every free node, including support springs, connectors an
 nodal forces. The latter are recovered through their assembled stiffness, not through
 reported shell stresses. Inclined-support balances use the support coordinates;
 constraint balances are projected onto independent equations so constraint transfer is
-included. The scale is the largest assembled applied-load component, without an absolute
-load floor. A nonfinite balance or a relative imbalance above the same constant refuses.
+included. Forces, moments and bimoments have separate scales, each taken only from the checked
+free coordinates after constraint reduction. Applied loads on restrained DOFs cannot
+inflate those scales. The forcing scale includes both applied loads and `K u_p`, where
+`u_p` contains prescribed restrained displacements and their constrained free-slave
+particular solution. The balance limit for each kind is `1e-4` times that forcing scale
+plus `64 N ε` times the corresponding roundoff scale, with `N` the original DOF count.
+The roundoff scale is the largest checked component of `|K| |u| + |F|`; constraint
+reduction uses `|C|ᵀ` for this magnitude bound and `Cᵀ` for residuals and forcing.
+There is no absolute load floor. Settlement-only models can therefore retain nonzero
+internal forces without requiring an exactly zero floating-point balance. A nonfinite
+quantity or a balance above its dimensionally matching limit refuses.
 This check covers force-recovery cancellation that displacement refinement alone misses.
 The existing stiffness, release, constraint-envelope, row-residual and static checks
 remain active. The estimate is a measured correction, not a rigorous bound on assembly
@@ -277,13 +286,15 @@ measured on the tests that build them:
 
 | Model | Verdict | Why |
 |---|---|---|
-| MITC9 twisted strip, 24×8 mesh, `t = 0.0254` and `0.047` (`t/L` about 0.002 to 0.004) | Singular | `κ_S A` = 3.8e10 × 8.4e2 and 1.1e10 × 1.2e3, above `1e12`: thin quadratic shells of this slenderness are refused (MITC4 on the same strip is Stable) |
+| MITC9 twisted strip, 24×8 mesh, `t = 0.0254` and `0.047` (`t/L` about 0.002 to 0.004) | Stable, conditionally solved | `κ_S A` = 3.8e10 × 8.4e2 and 1.1e10 × 1.2e3 exceed the fast accept; the separate limits pass, and the tested loads pass correction and recovered-force balance (§2.4) |
 | Axis-aligned cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496) | Stable, solved | independent coupling components; tip rotation agrees with `PL²/2EI` |
 | Coupled oblique cantilever with `Iy = 1e-10`, `Iz = 1e3` (#1496), rotated by Euler angles `(0.3, 1.1, -0.7)` | Mechanism | weak translation in a coupled node block is unresolved |
 
-For each refused case, the bound cannot guarantee four digits for the weak direction in double precision
-(the answer may still be accurate: the bound covers every load, not the one applied); the old
-solves returned it with `HighDiagonalRatio` or `NUM-INVARIANCE`, or silently.
+Above the product fast accept, the separate limits and per-load correction and
+recovered-force checks determine admission. The two strips pass those checks for the
+tested loads; that does not promise admission for every load. A refused case cannot
+establish the required accuracy in double precision. Earlier solves could return such
+cases with `HighDiagonalRatio` or `NUM-INVARIANCE`, or silently.
 
 ### 2.6 Loaded response evidence
 
@@ -297,10 +308,17 @@ connectors, warping and constraints; they are not high-precision solves of the e
 rounded global matrix. Reference responses are transformed from the canonical physical
 model, avoiding a different model induced by tiny transformed release-axis coordinates.
 
-The final deterministic probe has 398 solved copies and two split outcomes: #993 and
+Before the final dimensional-balance correction, the deterministic probe had 398 solved copies and two split outcomes: #993 and
 #1653 refuse their `25 / 0.01` unit copies while their originals solve. All solved
 reference/pair comparisons pass; the largest measured comparison is
 `1.8623288718840833e-7`.
+
+After dimensional balance scaling, the loaded probe requires and achieves 381
+successful comparisons across 23 designated reference models. #1653 solves only
+its `1000/1000` unit copy and refuses the other 18 for conditioning; #993 retains
+12 solved copies and the same unit refusal. All refusal reasons are checked and
+refusals do not count as successful comparisons. The worst comparison above is
+unchanged; see [the final-round evidence](../results-changes/2026-11-linear-stability-refusals.md#final-round-prepared-model-edits-and-dimensional-balance).
 
 Newly admitted matrices #973, #993, #1029/#1041, #1115, #1357 and #1653 remain references,
 not closing claims for their recorded non-static analyses. The original #993 refusal
@@ -335,7 +353,9 @@ take the verdict on the `K_ff` (or `CᵀK_ffC`) they factor, and then:
    (2) keeps at rounding, and every other component is the solution of the system without
    `v`. The displacement along `v` is reported as zero.
 2. A load with a component along a free rotation (nodal moment, or the end moment of a
-   member load) beyond `64 b ε max|f|` is refused before the solve.
+   member load) beyond `64 n ε max_i|v_i F_i|` is refused before the solve, where `n` is the
+   number of DOFs in that free direction and the maximum uses only its contributing
+   projection terms. Unrelated forces or moments cannot inflate the scale.
 3. A free rotation whose `K v` is not zero outside its block (μ above the rounding level, so
    the verdict resolved it, §2.3) is real but soft. After the solve, the force its pin
    carries through that coupling, `Σ (K v)_i u_i`, must cancel to rounding (`64 m ε Σ|(K v)_i

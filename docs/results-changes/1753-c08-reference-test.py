@@ -20,7 +20,6 @@ def model(support):
 
 
 class ReferenceTests(unittest.TestCase):
-    @unittest.skip('known wrong result: #1753')
     def test_2d_spring_stiffness_matches_its_prescribed_direction(self):
         with localcontext() as context:
             context.prec = 90
@@ -29,7 +28,6 @@ class ReferenceTests(unittest.TestCase):
                 i = r['index'][1, local]
                 self.assertEqual(r['springs'][i][i], D(stiffness))
 
-    @unittest.skip('known wrong result: #1753')
     def test_inclined_spring_uses_degrees(self):
         with localcontext() as context:
             context.prec = 90
@@ -39,13 +37,27 @@ class ReferenceTests(unittest.TestCase):
             self.assertLess(abs(r['springs'][j][j] - 2), D('1e-80'))
             self.assertLess(abs(r['springs'][i][j]), D('1e-80'))
 
-    @unittest.skip('known wrong result: #1753')
     def test_inclined_roller_uses_degrees(self):
         with localcontext() as context:
             context.prec = 90
             r = ref.reference(model({'type': 'inclinedRoller', 'angle': 90}), 2)
             self.assertLess(abs(r['u'][r['index'][1, 0]]), D('1e-80'))
             self.assertGreater(abs(r['u'][r['index'][1, 1]]), 0)
+
+    def test_native_support_adapter_preserves_spring_axes_and_radians(self):
+        with localcontext() as context:
+            context.prec = 90
+            pi = 16*ref.atan(D(1)/5)-4*ref.atan(D(1)/239)
+            native = model({'type': 'spring', 'kx': 2, 'ky': 3, 'kz': 4, 'angle': pi/2})
+            physical = ref.physical_input(native, 2)
+            self.assertEqual(physical['supports']['1']['kz'], 3)
+            self.assertEqual(physical['supports']['1']['kry'], 4)
+            self.assertLess(abs(physical['supports']['1']['angle']-90), D('1e-80'))
+            r = ref.reference(physical, 2)
+            i, j, t = (r['index'][1, d] for d in range(3))
+            self.assertLess(abs(r['springs'][i][i]-3), D('1e-80'))
+            self.assertLess(abs(r['springs'][j][j]-2), D('1e-80'))
+            self.assertEqual(r['springs'][t][t], 4)
 
 
 if __name__ == '__main__':

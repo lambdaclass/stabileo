@@ -2645,6 +2645,12 @@ impl FreeConstraintSystem {
         self.c_ff.reduce_sparse(k_ff)
     }
 
+    pub(super) fn independent_dofs(&self) -> &[usize] { &self.independent }
+
+    pub(super) fn prescribed_free(&self, restrained: &[f64]) -> Vec<f64> {
+        self.restrained_masters.iter().map(|terms| terms.iter().map(|&(i, c)| c * restrained[i]).sum()).collect()
+    }
+
     /// Reduce a force vector: F_reduced = C_ff^T * F_f
     pub fn reduce_vector(&self, f_f: &[f64]) -> Vec<f64> {
         self.c_ff.mul_transpose_vec(f_f)

@@ -145,12 +145,44 @@ fn compare(a: &Resp, b: &Resp, reference: &Resp, force: f64, length: f64) -> f64
     worst
 }
 
+fn expected_refusal(name: &str, what: &str, e: &str) -> bool {
+    let conditioning = e.starts_with("the structure is a mechanism or so close to one")
+        && e.contains("the matrix exceeds a conditioning limit or the recovered response fails its accuracy check");
+    let mechanism = e.starts_with("the structure is a mechanism at nodes ")
+        && e.contains("a node can move freely in a direction no member, support or spring stiffens");
+    let indefinite = e.starts_with("the stiffness matrix is not positive definite although the stability test found the structure stable:");
+    match name {
+        "issue-993" => what == "units 25/0.01" && conditioning,
+        "issue-1653" => what != "units 1000/1000" && conditioning,
+        "issue-1029" | "issue-973" => conditioning || indefinite,
+        "issue-1083" | "issue-1091" | "issue-1353" | "issue-1355" | "issue-1362" => conditioning,
+        "issue-1008" | "issue-1095" | "issue-1103" | "issue-1112" | "issue-1359" | "issue-1648" | "issue-1651" | "issue-964" | "issue-966" | "issue-967" => mechanism,
+        "issue-1028" => serde_json::from_str::<serde_json::Value>(e).ok().is_some_and(|v| {
+            v["structuredDiagnostics"].as_array().is_some_and(|ds| ds.iter().any(|d| d["code"] == "conflicting_support_spring" && d["severity"] == "error"))
+        }),
+        "issue-1099" => e.starts_with("Connector ") && e.contains("needs rotation DOFs to carry its moment V·L"),
+        "issue-1106" => e.starts_with("Nodal moment at node ") && e.contains("is not supported: no member, support or spring stiffens that rotation"),
+        _ => false,
+    }
+}
+
+const SOLVABLE: &[(&str, usize)] = &[
+    ("issue-1086", 19), ("issue-1090", 18), ("issue-1097", 19), ("issue-1101", 18),
+    ("issue-1102", 19), ("issue-1115", 18), ("issue-1116", 19), ("issue-1117", 18),
+    ("issue-1118", 12), ("issue-1193", 18), ("issue-1216", 19), ("issue-1265", 13),
+    ("issue-1351", 18), ("issue-1357", 15), ("issue-1635", 18), ("issue-1647", 19),
+    ("issue-1653", 1), ("issue-954", 19), ("issue-956", 19), ("issue-960", 19),
+    ("issue-972", 18), ("issue-993", 12), ("issue-994", 13),
+];
+
 #[test]
 fn every_loaded_c08_copy_agrees_with_its_physical_reference_and_other_solved_copies() {
     let references: serde_json::Value = serde_json::from_str(include_str!("../metamorphic_corpus/1753-accuracy-reference.json")).unwrap();
     let sources: serde_json::Value = serde_json::from_str(include_str!("../../../docs/results-changes/1753-loaded-c08-inputs.json")).unwrap();
     let mut total_splits = 0;
     let mut tested = 0;
+    let mut visited_copies = 0;
+    let mut designated = 0;
     let mut compared = 0;
     let mut worst = 0.0f64;
     let models = c08();
@@ -158,6 +190,9 @@ fn every_loaded_c08_copy_agrees_with_its_physical_reference_and_other_solved_cop
     let minimum_copies = models.len()*15;
     for (name, m) in models {
         let m = loaded(m);
+        let required = SOLVABLE.iter().find(|&&(n, _)| n == name).map(|&(_, count)| count);
+        assert_eq!(required.is_some(), sources.get(&name).is_some(), "{name}: designated solvable reference");
+        if required.is_some() { designated += 1; }
         if let Some(source) = sources.get(&name) {
             let input = match &m { Model::D2(s) => serde_json::to_value(s).unwrap(), Model::D3(s) => serde_json::to_value(s).unwrap() };
             assert_eq!(input, source["input"], "{name}: physical reference input");
@@ -173,9 +208,10 @@ fn every_loaded_c08_copy_agrees_with_its_physical_reference_and_other_solved_cop
                 continue;
             } };
             kinds.insert(kind(&what).to_string());
-            if what != "original" { tested += 1; }
+            if what != "original" { visited_copies += 1; }
             match solve(&copy) {
                 Ok(actual) => {
+                    if what != "original" { tested += 1; }
                     let v = &references[&name];
                     assert!(!v.is_null(), "{name} {what}: missing physical reference");
                     let reference = reference(v, matches!(m, Model::D2(_)));
@@ -187,18 +223,27 @@ fn every_loaded_c08_copy_agrees_with_its_physical_reference_and_other_solved_cop
                     for previous in &solved { worst = worst.max(compare(&actual, previous, &reference, force, length)); }
                     solved.push(actual); outcomes.push(true); compared += 1;
                 },
-                Err(e) => { println!("REFUSED {name} {what}: {e}"); outcomes.push(false); },
+                Err(e) => {
+                    assert!(expected_refusal(&name, &what, &e), "{name} {what}: unexpected refusal: {e}");
+                    assert!(required.is_none() || name == "issue-993" && what == "units 25/0.01" || name == "issue-1653" && what != "units 1000/1000", "{name} {what}: designated solvable copy refused: {e}");
+                    println!("REFUSED {name} {what}: {e}"); outcomes.push(false);
+                },
             }
         }
         for &(_, k, _) in UNSUPPORTED.iter().filter(|&&(n, _, _)| n == name) {
             assert!(!kinds.contains(k) && skipped.contains(k), "{name} {k} is listed unsupported but was built or never refused as such");
         }
         assert!(!outcomes.is_empty());
+        if let Some(required) = required { assert!(solved.len() >= required, "{name}: {} successful comparisons, require {required}", solved.len()); }
         let splits = outcomes.iter().skip(1).filter(|&&s| s != outcomes[0]).count();
         println!("OUTCOMES {name}: {} solved, {} refused, {splits} splits", solved.len(), outcomes.len()-solved.len());
         total_splits += splits;
     }
     println!("LOADED C08: {compared} solved copies, {total_splits} splits, worst comparison {worst:.16e}");
-    assert!(tested >= minimum_copies, "{tested} images compared");
-    assert!(compared > 0);
+    assert!(visited_copies >= minimum_copies, "{visited_copies} supported copies visited");
+    assert_eq!(designated, SOLVABLE.len());
+    let required: usize = SOLVABLE.iter().map(|&(_, count)| count).sum();
+    assert!(compared >= required, "{compared} successful comparisons, require {required}");
+    let originals = SOLVABLE.iter().filter(|&&(name, _)| name != "issue-1653").count();
+    assert!(tested >= required - originals, "{tested} transformed copies compared");
 }
