@@ -256,6 +256,7 @@ console.log('Multi-stage, partial constraints, unsupported loads, kinematics and
 
 for (const dimension of [2, 3]) {
   for (const target of [63, 64]) {
+   for (const scale of [1, 1000]) {
     for (const spring of [0, 1e-30, 0.5e-4, 1e-4, 0.1, 1e20]) {
       const input = {
         nodes: { 1: { id: 1, x: 0, z: 0 }, 2: { id: 2, x: 1, z: 1 } },
@@ -274,6 +275,20 @@ for (const dimension of [2, 3]) {
         input.supports[id] = dimension === 2 ? { id, nodeId: id, type: 'guidedY', ky: 1 } : { nodeId: id, rx: true, ry: true, rz: false, rrx: false, rry: false, rrz: false, kz: 1 };
       }
       if (dimension === 3) for (const node of Object.values(input.nodes)) node.y = 0;
+      for (const node of Object.values(input.nodes)) for (const axis of ['x','y','z']) if (axis in node) node[axis] *= scale;
+      input.materials[1].e /= scale ** 2;
+      for (const [key, power] of [['a',2],['iy',4],['iz',4],['j',4]]) input.sections[1][key] *= scale ** power;
+      for (const sup of Object.values(input.supports)) for (const key of ['kx','ky','kz']) if (key in sup) sup[key] /= scale;
+      const linear = dimension === 2 ? solve_2d : solve_3d;
+      if (spring === 0.1) {
+        const loaded = structuredClone(input);
+        loaded.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 1e-7, fz: 0, my: 0 } }];
+        if (dimension === 3) Object.assign(loaded.loads[0].data, { fy: 0, mx: 0, mz: 0 });
+        const d = linear(loaded).displacements.find(d => d.nodeId === 2);
+        assert.ok(Math.abs(d.ux / scale - 1e-6) <= 1e-12);
+        assert.ok(Math.abs(d.uz / scale + 1e-6) <= 1e-12);
+      } else if (spring === 0.5e-4 || spring === 1e-4) assert.throws(() => linear(input), /conditioning limit/);
+      else assert.throws(() => linear(input));
       const result = JSON.parse((dimension === 2 ? analyze_kinematics_2d : analyze_kinematics_3d)(JSON.stringify(input)));
       assert.equal(result.isSolvable, spring > 0, `${dimension}D nf=${target} spring=${spring}`);
       if (spring === 0) {
@@ -285,6 +300,7 @@ for (const dimension of [2, 3]) {
       }
     }
   }
+}
 }
 console.log('2D and 3D kinematic positive springs stabilize the truss and agree at nf=63 and nf=64');
 

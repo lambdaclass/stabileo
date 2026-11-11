@@ -1041,7 +1041,28 @@ fn issue_1846_round5_kinematic_spring_threshold_and_dispatch() {
                 } else {
                     solve_3d(&serde_json::from_value(v.clone()).unwrap()).map(|_| ())
                 };
+                if spring == 0.5e-4 || spring == 1e-4 {
+                    assert!(linear.as_ref().unwrap_err().contains("conditioning limit"), "{linear:?}");
+                }
                 assert_eq!(linear.is_ok(), spring == 0.1, "elastic refusal remains independent: {dim}D {target_nf} {spring} {scale}: {linear:?}");
+                if spring == 0.1 {
+                    let mut loaded = v.clone();
+                    loaded["loads"] = serde_json::json!([{"type":"nodal","data":{"nodeId":2,"fx":1e-7,"fz":0.0,"my":0.0}}]);
+                    if dim == 3 {
+                        for field in ["fy","mx","mz"] { loaded["loads"][0]["data"][field] = 0.0.into(); }
+                    }
+                    let (ux, uz) = if dim == 2 {
+                        let out = solve_2d(&serde_json::from_value(loaded).unwrap()).unwrap();
+                        let d = out.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                        (d.ux, d.uz)
+                    } else {
+                        let out = solve_3d(&serde_json::from_value(loaded).unwrap()).unwrap();
+                        let d = out.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                        (d.ux, d.uz)
+                    };
+                    assert!((ux / scale - 1e-6).abs() <= 1e-12, "{ux}");
+                    assert!((uz / scale + 1e-6).abs() <= 1e-12, "{uz}");
+                }
                 let r = if dim == 2 {
                     let input: SolverInput = serde_json::from_value(v).unwrap();
                     assert_eq!(DofNumbering::build_2d(&input).n_free, target_nf);
@@ -1851,6 +1872,7 @@ fn issue_1846_round5_rigid_arm_rotation_subspace() {
                     } else {
                         serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"offsetX":0.0,"offsetY":a,"offsetZ":b,"releases":[]})
                     };
+                    v["loads"] = serde_json::json!([{"type":"nodal","data":{"nodeId":2,"fx":1e-6,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0}}]);
                     let input: SolverInput3D = serde_json::from_value(v).unwrap();
                     let expected = usize::from(!held && (a != 0.0 || b != 0.0));
                     let result = analyze_kinematics_3d(&input);

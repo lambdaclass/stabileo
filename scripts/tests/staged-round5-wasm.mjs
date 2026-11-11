@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { initSync, solve_staged_2d, solve_staged_3d, solve_3d, analyze_kinematics_3d, solve_pdelta_3d } from '../../web/src/lib/wasm/dedaliano_engine.js';
+import { initSync, solve_staged_2d, solve_staged_3d, solve_3d, analyze_kinematics_3d, solve_pdelta_3d, solve_corotational_3d } from '../../web/src/lib/wasm/dedaliano_engine.js';
 initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/staged-review-round3.json', import.meta.url)));
 const failures = [];
@@ -58,6 +58,7 @@ for (const pads of [0, 22]) for (const [a,b] of [[2,1],[1,2],[0,1],[1,0],[0,0]])
   Object.assign(input.nodes[2], { x: 0, y: a, z: b });
   Object.assign(input.supports[1], { rrx: true, rry: held, rrz: held });
   input.constraints[0] = kind === 'rigidLink' ? { type: kind, masterNode: 1, slaveNode: 2, dofs: [] } : { type: kind, masterNode: 1, slaveNode: 2, offsetX: 0, offsetY: a, offsetZ: b, releases: [] };
+  input.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 1e-6, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } }];
   const modes = !held && (a !== 0 || b !== 0) ? 1 : 0;
   check(`3D pads=${pads} arm=(${a},${b}) ${kind} held=${held}`, () => {
     const out = JSON.parse(analyze_kinematics_3d(JSON.stringify(input)));
@@ -66,8 +67,10 @@ for (const pads of [0, 22]) for (const [a,b] of [[2,1],[1,2],[0,1],[1,0],[0,0]])
     if (modes) {
       assert.throws(() => solve_3d(input), /mechanism/);
       assert.throws(() => solve_pdelta_3d(JSON.stringify(input), 10, 1e-8), /mechanism/);
+      assert.throws(() => solve_corotational_3d(JSON.stringify(input), 10, 1e-8, 1), /mechanism/);
     } else {
       assert.ok(solve_3d(input).displacements.length > 0);
+      assert.ok(JSON.parse(solve_corotational_3d(JSON.stringify(input), 10, 1e-8, 1)).results.displacements.length > 0);
       assert.ok(JSON.parse(solve_pdelta_3d(JSON.stringify(input), 10, 1e-8)).results.displacements.length > 0);
     }
   });
