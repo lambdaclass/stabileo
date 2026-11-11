@@ -20,6 +20,70 @@ fn max(values: &[f64]) -> f64 {
     values.iter().fold(0.0_f64, |a, x| a.max(x.abs()))
 }
 
+fn relative_error(reference: &[f64], values: &[f64], scale: f64) -> f64 {
+    assert_eq!(reference.len(), values.len());
+    reference
+        .iter()
+        .zip(values)
+        .map(|(a, b)| (a - b).abs() / scale)
+        .fold(0.0_f64, f64::max)
+}
+
+#[test]
+#[ignore = "known wrong result: #1948"]
+fn frozen_shell_max_rejects_nonfinite_components() {
+    for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        for values in [vec![invalid; 3], vec![1.0, invalid, 2.0]] {
+            assert!(
+                std::panic::catch_unwind(|| max(&values)).is_err(),
+                "accepted nonfinite norm input {values:?}"
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1948"]
+fn frozen_shell_relative_error_rejects_nonfinite_components() {
+    let finite = [1.0, 2.0, 3.0];
+    for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        for index in 0..finite.len() {
+            let mut contaminated = finite;
+            contaminated[index] = invalid;
+            for (reference, values) in [(&finite, &contaminated), (&contaminated, &finite)] {
+                assert!(
+                    std::panic::catch_unwind(|| relative_error(reference, values, 3.0)).is_err(),
+                    "accepted nonfinite comparison {reference:?} against {values:?}"
+                );
+            }
+        }
+        assert!(std::panic::catch_unwind(|| relative_error(&finite, &[invalid; 3], 3.0)).is_err());
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1948"]
+fn frozen_shell_relative_error_rejects_invalid_scale() {
+    for scale in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0, -0.0, 0.0] {
+        assert!(
+            std::panic::catch_unwind(|| relative_error(&[1.0], &[1.0], scale)).is_err(),
+            "accepted invalid scale {scale}"
+        );
+    }
+}
+
+#[test]
+fn frozen_shell_comparison_accepts_finite_components() {
+    let reference = [-2.0, 0.0, 2.0];
+    assert_eq!(max(&reference), 2.0);
+    assert_eq!(max(&[0.0; 3]), 0.0);
+    assert_eq!(relative_error(&reference, &reference, 2.0), 0.0);
+    for scale in [f64::from_bits(1), f64::MAX] {
+        assert_eq!(relative_error(&[0.0], &[0.0], scale), 0.0);
+    }
+    assert_eq!(relative_error(&reference, &[-1.0, 0.0, 2.0], 2.0), 0.5);
+}
+
 fn controls(input: &SolverInput3D) -> (SolverInput3D, SolverInput3D) {
     let mut roller = input.clone();
     let mut drilling = input.clone();
@@ -140,13 +204,7 @@ fn check(index: usize) {
     assert_eq!(before.len(), drilling.len());
     let scale = max(&before);
     assert!(scale > 0.0);
-    let error = |values: &[f64]| {
-        before
-            .iter()
-            .zip(values)
-            .map(|(a, b)| (a - b).abs() / scale)
-            .fold(0.0_f64, f64::max)
-    };
+    let error = |values: &[f64]| relative_error(&before, values, scale);
     assert!(
         error(&roller) < 1e-6,
         "{}: roller {}",
@@ -217,15 +275,16 @@ fn frozen_shell_dense_and_sparse_share_the_physical_mechanism() {
             let u = crate::linalg::cholesky_solve(&mut k, &dense.f[..nf], nf).unwrap();
             let result = linear::solve_3d(input).unwrap();
             let scale = max(&u);
-            let mut error = 0.0_f64;
+            let mut values = vec![f64::NAN; nf];
             for d in &result.displacements {
                 for (local, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].into_iter().enumerate() {
                     let g = dof.global_dof(d.node_id, local).unwrap();
                     if g < nf {
-                        error = error.max((value - u[g]).abs() / scale);
+                        values[g] = value;
                     }
                 }
             }
+            let error = relative_error(&u, &values, scale);
             assert!(error < 1e-6, "dense/sparse physical response {error:e}");
             eprintln!(
                 "dense/sparse corrected pressure control relative displacement error={error:e}"
