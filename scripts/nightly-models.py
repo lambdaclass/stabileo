@@ -99,13 +99,17 @@ def main():
                 if proc.returncode != (101 if result['failures'] else 0):
                     raise RuntimeError('invariance harness exit disagrees with outcomes')
                 verdicts = result['verdicts']
+                failed = sorted(f"metamorphic/{row['analysis']}/{row['invariant']}" for row in verdicts if row['fail'])
+                reported = sorted(failure['test'] for failure in result['failures'])
+                if failed != reported:
+                    raise RuntimeError('invariance harness failure test identities disagree with outcomes')
                 completed = sum(row['pass'] + row['fail'] for row in verdicts)
                 if record:
                     counts = summary['comparisons'][check]
                     counts['completed'] += completed
                     counts['covered_models'] = counts.get('covered_models', 0) + int(completed > 0)
                     for row in verdicts:
-                        if row['refused'] or row['inconclusive']:
+                        if row['refused'] or row.get('same_refusal', 0) or row['inconclusive']:
                             counts['inconclusive'].append(dict(row, seed=seed))
                         if row['unrepresentable'] or row['not_applicable']:
                             counts['skipped'].append(dict(row, seed=seed))

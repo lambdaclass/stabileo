@@ -16,7 +16,7 @@ use crate::tally::Verdict;
 use dedaliano_engine::metamorphic::conditioning::Conditioning;
 use dedaliano_engine::solver::dof::DofNumbering;
 use dedaliano_engine::solver::mass_matrix::{assemble_mass_matrix_2d, assemble_mass_matrix_3d};
-use dedaliano_engine::solver::modal;
+use dedaliano_engine::solver::modal::{self, ModalResult, ModalResult3D};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -117,6 +117,10 @@ fn check(m: &[f64], n: usize, nf: usize, modes: &Modes, dirs: &[Vec<f64>], all_m
 }
 
 pub fn check_2d(s: &SolverInput, dens: &HashMap<String, f64>, cond: &Conditioning) -> Verdict {
+    check_2d_with(s, dens, cond, |_| {})
+}
+
+fn check_2d_with(s: &SolverInput, dens: &HashMap<String, f64>, cond: &Conditioning, perturb: impl FnOnce(&mut ModalResult)) -> Verdict {
     if s.supports.values().any(|x| x.support_type == "inclinedRoller") {
         return Verdict::Unrepresentable("mass matrix in inclined frames".into());
     }
@@ -127,10 +131,11 @@ pub fn check_2d(s: &SolverInput, dens: &HashMap<String, f64>, cond: &Conditionin
     }
     let all = nf <= 40 && s.constraints.is_empty();
     let want = if all { nf } else { nf.min(12) };
-    let r = match modal::solve_modal_2d(s, dens, want) {
+    let mut r = match modal::solve_modal_2d(s, dens, want) {
         Ok(r) => r,
         Err(e) => return Verdict::Refused(e),
     };
+    perturb(&mut r);
     let all = all && r.modes.len() == nf;
     let m = assemble_mass_matrix_2d(s, &dof, dens);
     let mut phi = Vec::new();
@@ -166,6 +171,10 @@ pub fn check_2d(s: &SolverInput, dens: &HashMap<String, f64>, cond: &Conditionin
 }
 
 pub fn check_3d(s: &SolverInput3D, dens: &HashMap<String, f64>, cond: &Conditioning) -> Verdict {
+    check_3d_with(s, dens, cond, |_| {})
+}
+
+fn check_3d_with(s: &SolverInput3D, dens: &HashMap<String, f64>, cond: &Conditioning, perturb: impl FnOnce(&mut ModalResult3D)) -> Verdict {
     if s.supports.values().any(|x| x.is_inclined.unwrap_or(false)) {
         return Verdict::Unrepresentable("mass matrix in inclined frames".into());
     }
@@ -177,10 +186,11 @@ pub fn check_3d(s: &SolverInput3D, dens: &HashMap<String, f64>, cond: &Condition
     }
     let all = nf <= 40 && s.constraints.is_empty();
     let want = if all { nf } else { nf.min(12) };
-    let r = match modal::solve_modal_3d(s, dens, want) {
+    let mut r = match modal::solve_modal_3d(s, dens, want) {
         Ok(r) => r,
         Err(e) => return Verdict::Refused(e),
     };
+    perturb(&mut r);
     let all = all && r.modes.len() == nf;
     let m = assemble_mass_matrix_3d(s, &dof, dens);
     let mut phi = Vec::new();
@@ -236,4 +246,44 @@ fn issue_759_single_member_warping_orthogonality() {
     let cond = dedaliano_engine::metamorphic::conditioning::of_3d(&s).unwrap();
     let verdict = check_3d(&s, &densities, &cond);
     assert!(matches!(verdict, Verdict::Pass(_)), "{verdict:?}");
+}
+
+#[test]
+fn seeded_failure_modal_orthogonality_and_effective_mass() {
+    let s: SolverInput = serde_json::from_str(include_str!("../fixtures/ex-cantilever-input.json")).unwrap();
+    let c = crate::case::Case2::new("modal seed", s);
+    let cond = dedaliano_engine::metamorphic::conditioning::of_2d(&c.s).unwrap();
+    assert!(matches!(check_2d(&c.s, &c.dens, &cond), Verdict::Pass(_)));
+    let mass = check_2d_with(&c.s, &c.dens, &cond, |r| {
+        r.modes[0].effective_mass_y += r.total_mass;
+    });
+    assert!(matches!(mass, Verdict::Fail(_)), "{mass:?}");
+    let shapes = check_2d_with(&c.s, &c.dens, &cond, |r| {
+        let first = r.modes[0].displacements.clone();
+        for (d, a) in r.modes[1].displacements.iter_mut().zip(first) {
+            d.ux += a.ux;
+            d.uz += a.uz;
+            d.ry += a.ry;
+        }
+    });
+    assert!(matches!(shapes, Verdict::Fail(_)), "{shapes:?}");
+    let c = crate::case::Case3::new("modal seed 3D", serde_json::from_str(include_str!("../fixtures/ex-3d-cantilever-load-input.json")).unwrap());
+    let cond = dedaliano_engine::metamorphic::conditioning::of_3d(&c.s).unwrap();
+    assert!(matches!(check_3d(&c.s, &c.dens, &cond), Verdict::Pass(_)));
+    let mass = check_3d_with(&c.s, &c.dens, &cond, |r| {
+        r.modes[0].effective_mass_z += r.total_mass;
+    });
+    assert!(matches!(mass, Verdict::Fail(_)), "{mass:?}");
+    let shapes = check_3d_with(&c.s, &c.dens, &cond, |r| {
+        let first = r.modes[0].displacements.clone();
+        for (d, a) in r.modes[1].displacements.iter_mut().zip(first) {
+            d.ux += a.ux;
+            d.uy += a.uy;
+            d.uz += a.uz;
+            d.rx += a.rx;
+            d.ry += a.ry;
+            d.rz += a.rz;
+        }
+    });
+    assert!(matches!(shapes, Verdict::Fail(_)), "{shapes:?}");
 }
