@@ -344,6 +344,22 @@ describe('which registered changes concern a model', () => {
     }
   });
 
+  it.fails('scopes nonlinear physical convergence to structural nonlinear analyses', () => {
+    const change = 'nonlinear-physical-convergence';
+    const entry = RESULT_CHANGES.changes.find(c => c.id === change)!;
+    const before = entry.resultsVersion - 1;
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    for (const kind of ['pdelta', 'nonlinear'] as const) {
+      const stamp = { ...stampSolve(kind, null), resultsVersion: before };
+      expect(ids(frame, stamp)).toContain(change);
+      expect(ids(model(), stamp)).not.toContain(change);
+      expect(ids(frame, { ...stamp, resultsVersion: entry.resultsVersion })).not.toContain(change);
+    }
+    expect(ids(frame, { ...stampSolve('linear', null), resultsVersion: before })).not.toContain(change);
+    expect(ids(frame)).toContain(change);
+    expect(ids(model())).not.toContain(change);
+  });
+
   it('unknown analysis history without stiffness elements has no linear result to re-check', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });

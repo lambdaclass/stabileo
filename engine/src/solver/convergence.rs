@@ -432,4 +432,20 @@ mod tests {
         force[dofs.global_dof(2, 1).unwrap()] = 1e20;
         assert!(metric.relative_residual(&force, &force, None, None) >= 1.0);
     }
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn an_inclined_projection_cannot_discard_a_small_real_free_load() {
+        let mut s: SolverInput =
+            serde_json::from_str(include_str!("../../tests/fixtures/random-41-input.json"))
+                .unwrap();
+        let support = s.supports.values_mut().find(|s| s.node_id == 2).unwrap();
+        support.support_type = "inclinedRoller".into();
+        support.angle = Some(std::f64::consts::FRAC_PI_4);
+        let dofs = DofNumbering::build_2d(&s);
+        let metric = EquilibriumMetric::for_2d(&s, &dofs, None).unwrap();
+        let mut force = vec![0.0; dofs.n_total];
+        force[dofs.global_dof(2, 0).unwrap()] = 65536.0;
+        force[dofs.global_dof(2, 1).unwrap()] = 1e20;
+        assert!(metric.relative_residual(&force, &force, None, None) >= 1.0);
+    }
 }

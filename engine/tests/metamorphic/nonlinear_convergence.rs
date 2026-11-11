@@ -395,6 +395,14 @@ fn issue_761_native_and_wasm_cases() {
     support.support_type = "inclinedRoller".into();
     support.angle = Some(0.0);
     cases.push(serde_json::json!({"name":"resolved axial beside support load","dimension":2,"solver":resolved,"converged":true,"expectedAxialDisplacement":axial}));
+    check_export_cases(cases);
+}
+
+fn check_export_cases(cases: Vec<serde_json::Value>) {
+    check_export_cases_for(cases, None);
+}
+
+fn check_export_cases_for(cases: Vec<serde_json::Value>, analysis: Option<usize>) {
     for case in &cases {
         let max_iter = if case["converged"] == true { 100 } else { 1 };
         let text = case["solver"].to_string();
@@ -451,7 +459,10 @@ fn issue_761_native_and_wasm_cases() {
                 .unwrap(),
             ]
         };
-        for text in results {
+        for (index, text) in results.into_iter().enumerate() {
+            if analysis.is_some_and(|a| a != index) {
+                continue;
+            }
             let r: serde_json::Value = serde_json::from_str(&text).unwrap();
             assert_eq!(r["converged"], case["converged"], "{}", case["name"]);
             if let Some(expected) = case["expectedAxialDisplacement"].as_f64() {
@@ -532,3 +543,120 @@ fn issue_761_path_correctors_keep_relative_equilibrium_under_rescaling() {
         crate::common::assert_close(r.final_load_factor, 0.1, 1e-10, "arc length load factor");
     }
 }
+
+fn projected_pair(a: f64, x: f64, b: f64, y: f64) -> f64 {
+    let first = a * x;
+    let second = b * y;
+    (first + second) + (a.mul_add(x, -first) + b.mul_add(y, -second))
+}
+
+fn rotated_resolved_cases() -> Vec<serde_json::Value> {
+    let mut cases = Vec::new();
+    let angle = std::f64::consts::FRAC_PI_4;
+    let (sn, cs) = angle.sin_cos();
+    for tangential in [65536.0, 262144.0] {
+        let mut s = fixtures().remove(0).s;
+        let length = s.nodes["2"].x;
+        let fx = -cs * tangential + sn * 1e20;
+        let fz = sn * tangential + cs * 1e20;
+        let projected = projected_pair(-cs, fx, sn, fz);
+        assert!(projected > 0.0);
+        assert!(fx != sn * 1e20 && fz != cs * 1e20);
+        let expected = projected * length / (1000.0 * s.materials["1"].e * s.sections["1"].a);
+        s.nodes.get_mut("2").unwrap().x = -cs * length;
+        s.nodes.get_mut("2").unwrap().z = sn * length;
+        s.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2,
+            fx,
+            fz,
+            my: 0.0,
+        })];
+        let support = s.supports.values_mut().find(|s| s.node_id == 2).unwrap();
+        support.support_type = "inclinedRoller".into();
+        support.angle = Some(angle);
+        cases.push(serde_json::json!({"name":"rotated resolved axial beside support load","dimension":2,"solver":s,"converged":true,"expectedAxialDisplacement":expected}));
+        for plane in Plane::ALL {
+            let base = fixtures().remove(0).s;
+            let mut s = embed_2d(&base, plane).unwrap();
+            let e1 = plane.e1();
+            let e2 = plane.e2();
+            let normal: [f64; 3] = std::array::from_fn(|i| sn * e1[i] + cs * e2[i]);
+            let r = dedaliano_engine::solver::assembly::inclined_rotation_matrix(
+                normal[0], normal[1], normal[2],
+            );
+            let tangent = r[1..]
+                .iter()
+                .find(|row| row.iter().zip(e1).map(|(a, b)| a * b).sum::<f64>().abs() > 0.5)
+                .unwrap();
+            let coords: [f64; 3] = std::array::from_fn(|i| tangent[i] * length);
+            let force: [f64; 3] = std::array::from_fn(|i| tangent[i] * tangential + r[0][i] * 1e20);
+            let active: Vec<_> = (0..3).filter(|&i| tangent[i] != 0.0).collect();
+            assert_eq!(active.len(), 2);
+            let projected = projected_pair(
+                tangent[active[0]],
+                force[active[0]],
+                tangent[active[1]],
+                force[active[1]],
+            );
+            assert!(projected > 0.0);
+            let expected =
+                projected * length / (1000.0 * base.materials["1"].e * base.sections["1"].a);
+            let node = s.nodes.get_mut("2").unwrap();
+            node.x = coords[0];
+            node.y = coords[1];
+            node.z = coords[2];
+            s.loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: 2,
+                fx: force[0],
+                fy: force[1],
+                fz: force[2],
+                mx: 0.0,
+                my: 0.0,
+                mz: 0.0,
+                bw: None,
+            })];
+            for support in s.supports.values_mut() {
+                let fixed = support.node_id == 1;
+                support.rx = true;
+                support.ry = fixed;
+                support.rz = fixed;
+                support.rrx = fixed;
+                support.rry = fixed;
+                support.rrz = fixed;
+                if !fixed {
+                    support.is_inclined = Some(true);
+                    support.normal_x = Some(normal[0]);
+                    support.normal_y = Some(normal[1]);
+                    support.normal_z = Some(normal[2]);
+                }
+            }
+            cases.push(serde_json::json!({"name":"rotated resolved axial beside support load","dimension":3,"solver":s,"converged":true,"expectedAxialDisplacement":expected}));
+        }
+    }
+    cases
+}
+
+macro_rules! rotated_resolved_test {
+    ($name:ident, $dimension:expr, $analysis:expr) => {
+        #[test]
+        #[ignore = "known wrong result: #761"]
+        fn $name() {
+            check_export_cases_for(
+                rotated_resolved_cases()
+                    .into_iter()
+                    .filter(|c| c["dimension"] == $dimension)
+                    .collect(),
+                Some($analysis),
+            );
+        }
+    };
+}
+
+rotated_resolved_test!(issue_761_rotated_resolved_pdelta_2d, 2, 0);
+rotated_resolved_test!(issue_761_rotated_resolved_corotational_2d, 2, 1);
+rotated_resolved_test!(issue_761_rotated_resolved_fiber_2d, 2, 2);
+rotated_resolved_test!(issue_761_rotated_resolved_material_2d, 2, 3);
+rotated_resolved_test!(issue_761_rotated_resolved_pdelta_3d, 3, 0);
+rotated_resolved_test!(issue_761_rotated_resolved_corotational_3d, 3, 1);
+rotated_resolved_test!(issue_761_rotated_resolved_fiber_3d, 3, 2);
+rotated_resolved_test!(issue_761_rotated_resolved_material_3d, 3, 3);
