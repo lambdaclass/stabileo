@@ -144,7 +144,7 @@ test.describe('on a phone', () => {
   });
 });
 
-test('@smoke the question names the diagram in its own colour, with its symbol, and the quit button goes back to the start', async ({ page }) => {
+test('@smoke the question names the diagram in its own colour, with its symbol, and quitting keeps the best score and goes back to the start', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/es/diagram-game/?e2e=1&seed=5');
   await page.getByTestId('dg-start').click();
@@ -153,8 +153,12 @@ test('@smoke the question names the diagram in its own colour, with its symbol, 
   await expect(term).toHaveText(/^(esfuerzo normal \(N\)|esfuerzo de corte \(Vz\)|momento flector \(My\)|deformada \(δ\))$/);
   const [termColour, textColour] = await term.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el.parentElement!).color]);
   expect(termColour).not.toBe(textColour);
+  await page.getByTestId(`dg-option-${(await correctIndex(page))!}`).click();
+  const score = await page.getByTestId('dg-score').getAttribute('data-score');
   await page.getByTestId('dg-quit').click();
   await expect(page.getByTestId('dg-start')).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('dg-best-intro')).toContainText(score!);
 });
 
 test('@slow Educational mode links to the diagram game', async ({ page }) => {

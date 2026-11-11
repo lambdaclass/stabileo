@@ -346,7 +346,7 @@ export const LEVELS: Level[] = [
   },
 ];
 
-const everything = LEVELS.slice(1).flatMap((l) => l.templates);
+const everything = LEVELS.flatMap((l) => l.templates);
 LEVELS.push({
   templates: everything, kinds: ['N', 'V', 'M', 'D'],
   tags: [...new Set(LEVELS.flatMap((l) => l.tags))],

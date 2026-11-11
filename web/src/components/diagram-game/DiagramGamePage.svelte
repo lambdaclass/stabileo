@@ -29,6 +29,7 @@
   let round = $state<Round | null>(null);
   let picked = $state<number | null>(null);
   let best = $state(0);
+  let bestAtStart = 0;
   let newBest = $state(false);
   let failed = $state(false);
   let starting = $state(false);
@@ -121,6 +122,7 @@
     try {
       await initSolver();
       gameSeed = seedFromAddress();
+      bestAtStart = readBest();
       const fresh = newGame();
       deal(fresh);
       game = fresh;
@@ -165,6 +167,7 @@
     game = answer(game, i === round.answer, performance.now() - shownAt);
     toast = null;
     if (game.last?.correct) {
+      best = recordBest(game.score);
       play('right', streak);
       if (game.last.levelUp) { play('level'); showBanner(game.level); }
       if (MILESTONES.includes(game.streak)) toast = game.streak;
@@ -173,11 +176,7 @@
       navigator.vibrate?.(90);
     }
     if (game.phase === 'answered') prepare(game);
-    if (game.phase === 'over') {
-      const before = readBest();
-      best = recordBest(game.score);
-      newBest = game.score > before;
-    }
+    if (game.phase === 'over') newBest = game.score > bestAtStart;
     queueMicrotask(() => feedback?.focus());
   }
 
