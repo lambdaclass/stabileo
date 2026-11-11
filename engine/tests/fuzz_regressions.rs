@@ -831,3 +831,82 @@ fn issue_1882_opensees_support_refusals_must_match_the_defect() {
 fn issue_1882_opensees_support_crashes_are_recorded_as_failures() {
     opensees_support_tests("SupportContractCrashTest");
 }
+
+#[test]
+#[ignore = "known wrong result: #818"]
+fn buckling_818_loaded_factor_is_inside_exact_bracket() {
+    use dedaliano_engine::certify::buckling::{buckling_certificate_3d, certify_buckling_3d, BucklingCertificate};
+    use dedaliano_engine::solver::buckling::{buckling_system_3d, solve_buckling_3d};
+    let input = buckling_741_with_axial_tip_load(100.0);
+    let fixture: dedaliano_engine::types::SolverInput3D = serde_json::from_str(include_str!("fixtures/buckling-741-compressed.json")).unwrap();
+    assert_eq!(serde_json::to_value(&input).unwrap(), serde_json::to_value(&fixture).unwrap());
+    let sys = buckling_system_3d(&input).unwrap();
+    let (lo, hi) = (1.208795360470504, 1.208795360470958);
+    assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, lo));
+    assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, hi));
+    for count in [1, 3] {
+        let raw = solve_buckling_3d(&input, count).unwrap();
+        let factor = raw.modes[0].load_factor;
+        assert!((lo..=hi).contains(&factor), "{factor:.17} outside [{lo}, {hi}]");
+        let out = certify_buckling_3d(&input, count).unwrap();
+        assert_eq!(out.results.modes[0].load_factor, factor);
+        let BucklingCertificate::Certified { lambda_lower, lambda_upper: Some(upper), lambda_computed } = out.certificate else { panic!("{:?}", out.certificate) };
+        assert_eq!(lambda_computed, factor);
+        assert!(lambda_lower <= factor && factor <= upper);
+        assert_eq!(buckling_certificate_3d(&input, count).unwrap(), out.certificate);
+        let json = serde_json::to_string(&input).unwrap();
+        let raw: serde_json::Value = serde_json::from_str(&dedaliano_engine::solve_buckling_3d(&json, count).unwrap()).unwrap();
+        let certified: serde_json::Value = serde_json::from_str(&dedaliano_engine::certify_buckling_3d(&json, count).unwrap()).unwrap();
+        assert_eq!(raw["modes"][0]["loadFactor"], factor);
+        assert_eq!(certified["results"]["modes"][0]["loadFactor"], factor);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #818"]
+fn buckling_818_original_pencil_accuracy() {
+    use dedaliano_engine::linalg::{sparse::CscMatrix, lanczos::lanczos_buckling_eigen_sparse};
+    for n in [2, 200, 201] {
+        let s = 1e7;
+        let mut k = vec![0.0; n*n];
+        let mut b = vec![0.0; n*n];
+        for i in 0..n { k[i*n+i] = 4.0 + i as f64; b[i*n+i] = 1.0; }
+        k[0] = s+1.0; k[1] = s; k[n] = s; k[n+1] = s+1.0;
+        let k = CscMatrix::from_dense_symmetric(&k,n);
+        let b = CscMatrix::from_dense_symmetric(&b,n);
+        let result = lanczos_buckling_eigen_sparse(&k,&b,1).unwrap();
+        let mu = result.values.iter().copied().fold(0.0f64,f64::max);
+        assert!((1.0/mu - 1.0).abs() < 1e-12, "n={n}: {}", 1.0/mu);
+    }
+}
+
+#[test]
+fn buckling_818_euler_family_all_entry_points() {
+    use dedaliano_engine::certify::buckling::*;
+    use dedaliano_engine::solver::buckling::*;
+    let cases: serde_json::Value = serde_json::from_str(include_str!("fixtures/buckling-818-family.json")).unwrap();
+    for case in cases.as_array().unwrap() {
+        let json = case["input"].to_string();
+        let (raw, certified, certificate) = if case["dimension"] == 2 {
+            let input = serde_json::from_str(&json).unwrap();
+            (serde_json::to_value(solve_buckling_2d(&input,2).unwrap()).unwrap(), serde_json::to_value(certify_buckling_2d(&input,2).unwrap()).unwrap(), buckling_certificate_2d(&input,2).unwrap())
+        } else {
+            let input = serde_json::from_str(&json).unwrap();
+            (serde_json::to_value(solve_buckling_3d(&input,2).unwrap()).unwrap(), serde_json::to_value(certify_buckling_3d(&input,2).unwrap()).unwrap(), buckling_certificate_3d(&input,2).unwrap())
+        };
+        assert!(certificate.is_certified(), "{certificate:?}");
+        for (i, multiple) in [1.0, case["ratio"].as_f64().unwrap()].into_iter().enumerate() {
+            let expected = case["expected"].as_f64().unwrap()*multiple;
+            let factor = raw["modes"][i]["loadFactor"].as_f64().unwrap();
+            assert!((factor/expected-1.0).abs() < 1e-6, "{}D ratio={} mode {i}: {factor} vs {expected}",case["dimension"],case["ratio"]);
+            assert_eq!(certified["results"]["modes"][i]["loadFactor"],factor);
+        }
+        let (wire, checked) = if case["dimension"] == 2 {
+            (dedaliano_engine::solve_buckling_2d(&json,2).unwrap(),dedaliano_engine::certify_buckling_2d(&json,2).unwrap())
+        } else {
+            (dedaliano_engine::solve_buckling_3d(&json,2).unwrap(),dedaliano_engine::certify_buckling_3d(&json,2).unwrap())
+        };
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&wire).unwrap(),raw);
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&checked).unwrap(),certified);
+    }
+}
