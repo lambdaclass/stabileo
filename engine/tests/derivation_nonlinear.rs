@@ -1076,3 +1076,98 @@ fn nl_contact_surface_tension_above_scaled_tolerance_is_refused() {
     assert_eq!(diagnostic["nodeIds"], serde_json::json!([2]));
     assert!(error.get("results").is_none());
 }
+
+fn one_way_contact_2d(behavior: &str, force: f64) -> dedaliano_engine::solver::contact::ContactInput {
+    serde_json::from_value(serde_json::json!({
+        "solver": make_input(
+            vec![(1, 0.0, 0.0), (2, 2.0, 0.0)],
+            vec![(1, 200.0, 0.3)], vec![(1, 0.01, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "truss", 1, 2, 1, 1, false, false)],
+            vec![(1, 1, "fixed")],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: force, fz: 0.0, my: 0.0 })],
+        ),
+        "elementBehaviors": {"2": behavior}, "maxFlips": 0, "tolerance": 1e-10
+    })).unwrap()
+}
+
+fn one_way_contact_3d(behavior: &str, force: f64) -> dedaliano_engine::solver::contact::ContactInput3D {
+    serde_json::from_value(serde_json::json!({
+        "solver": make_3d_input(
+            vec![(1, 0.0, 0.0, 0.0), (2, 2.0, 0.0, 0.0)],
+            vec![(1, 200.0, 0.3)], vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1), (2, "truss", 1, 2, 1, 1)],
+            vec![(1, vec![true; 6])],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: force, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+        ),
+        "elementBehaviors": {"2": behavior}, "maxFlips": 0, "tolerance": 1e-10
+    })).unwrap()
+}
+
+fn assert_one_way_refusal<T: std::fmt::Debug>(result: Result<T, String>) {
+    let error = result.expect_err("a frozen member with the forbidden axial-force sign must be withheld");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostic = &error["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "contact_state_invalid");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["elementIds"], serde_json::json!([2]));
+    assert_eq!(diagnostic["phase"], "element_behavior");
+}
+
+#[test]
+#[ignore = "known wrong result: #432"]
+fn nl_contact_frozen_tension_only_compression_refuses_2d() {
+    for al in [None, Some(1.0)] {
+        let mut input = one_way_contact_2d("tension_only", -50.0);
+        input.augmented_lagrangian = al;
+        assert!(input.gap_elements.is_empty());
+        assert_one_way_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&input));
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #432"]
+fn nl_contact_frozen_tension_only_compression_refuses_3d() {
+    for al in [None, Some(1.0)] {
+        let mut input = one_way_contact_3d("tension_only", -50.0);
+        input.augmented_lagrangian = al;
+        assert!(input.gap_elements.is_empty());
+        assert_one_way_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&input));
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #432"]
+fn nl_contact_frozen_compression_only_tension_refuses_2d() {
+    for al in [None, Some(1.0)] {
+        let mut input = one_way_contact_2d("compression_only", 50.0);
+        input.augmented_lagrangian = al;
+        assert!(input.gap_elements.is_empty());
+        assert_one_way_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&input));
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #432"]
+fn nl_contact_frozen_compression_only_tension_refuses_3d() {
+    for al in [None, Some(1.0)] {
+        let mut input = one_way_contact_3d("compression_only", 50.0);
+        input.augmented_lagrangian = al;
+        assert!(input.gap_elements.is_empty());
+        assert_one_way_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&input));
+    }
+}
+
+#[test]
+fn nl_contact_one_way_permitted_sign_still_solves() {
+    for (behavior, force) in [("tension_only", 50.0), ("compression_only", -50.0)] {
+        let plane = dedaliano_engine::solver::contact::solve_contact_2d(&one_way_contact_2d(behavior, force)).unwrap();
+        let space = dedaliano_engine::solver::contact::solve_contact_3d(&one_way_contact_3d(behavior, force)).unwrap();
+        assert!(plane.converged && space.converged);
+        for info in [&plane.element_status[0], &space.element_status[0]] {
+            assert_eq!(info.status, "active");
+            close(info.force, force / 2.0, 1e-12, "parallel bars share the axial load");
+        }
+        close(disp2(&plane.results, 2).ux, force / (2.0 * 200.0 * 1000.0 * 0.01 / 2.0), 1e-12, "2D parallel-bar displacement");
+        close(disp3(&space.results, 2).ux, disp2(&plane.results, 2).ux, 1e-12, "3D parallel-bar displacement");
+    }
+}
