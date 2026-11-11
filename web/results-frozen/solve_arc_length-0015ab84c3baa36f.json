@@ -50,7 +50,15 @@
     "nonlinear.results.elementForces[1].qJ": 0,
     "nonlinear.results.elementForces[1].vEnd": -0.00900512695715393,
     "nonlinear.results.elementForces[1].vStart": -0.00900512695715393,
-    "nonlinear.results.reactions.length": 0,
+    "nonlinear.results.reactions.length": 2,
+    "nonlinear.results.reactions[0].my": 0,
+    "nonlinear.results.reactions[0].nodeId": 1,
+    "nonlinear.results.reactions[0].rx": 2132.7471247245035,
+    "nonlinear.results.reactions[0].rz": 1362.4999992017047,
+    "nonlinear.results.reactions[1].my": 0,
+    "nonlinear.results.reactions[1].nodeId": 3,
+    "nonlinear.results.reactions[1].rx": -2132.7471247245035,
+    "nonlinear.results.reactions[1].rz": 1362.4999992017047,
     "nonlinear.steps.length": 109,
     "nonlinear.steps[0].controlDisplacement": -0.0002536390771049239,
     "nonlinear.steps[0].converged": true,
@@ -598,12 +606,5 @@
     "nonlinear.steps[108].loadFactor": 2.724999998405937,
     "nonlinear.steps[108].step": 109,
     "nonlinear.totalIterations": 218
-  },
-  "knownWrong": [
-    {
-      "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
-      "path": "nonlinear.results.reactions",
-      "reason": "Loaded converged arch omits support reactions; preserved as defect evidence, not an accepted engineering answer."
-    }
-  ]
+  }
 }

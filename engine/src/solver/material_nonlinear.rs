@@ -80,7 +80,6 @@ fn solve_nonlinear_material_2d_inner(
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let free_idx: Vec<usize> = (0..nf).collect();
-    let rest_idx: Vec<usize> = (nf..n).collect();
     let nr = n - nf;
 
     // Build constraint system (if constraints present)
@@ -309,19 +308,9 @@ fn solve_nonlinear_material_2d_inner(
     for it in &asm.inclined_transforms_2d {
         assembly::apply_inclined_transform_2d(&mut k_final, &mut k_final_f_dummy, n, &it.dofs, &it.r);
     }
-    let f_final: Vec<f64> = f_total.iter().map(|&f| f).collect(); // load_factor = 1.0 at end
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        let row = nf + i;
-        let mut ku = 0.0;
-        for j in 0..n {
-            // u_full stays in the rotated ("mixed") convention here — matches
-            // k_final's just-applied rotation (K'@u_mixed == R∘f_int_true_global,
-            // the same identity the NR loop relies on).
-            ku += k_final[row * n + j] * u_full[j];
-        }
-        reactions_vec[i] = ku - f_final[row];
-    }
+    let recovered = super::reaction_recovery::RecoveredForces::from_internal(
+        &mat_vec(&k_final, &u_full, n), &f_total, &dof_num, cs.as_ref(),
+    );
 
     // Reverse inclined transforms to get TRUE global displacements for
     // reporting — mirrors linear::solve_2d.
@@ -332,11 +321,7 @@ fn solve_nonlinear_material_2d_inner(
 
     let displacements = super::linear::build_displacements_2d(&dof_num, &u_geom);
 
-    let f_r = extract_subvec(&f_final, &rest_idx);
-    let mut reactions = super::linear::build_reactions_2d_inclined(
-        solver, &dof_num, &reactions_vec, &f_r, nf, &u_geom, &asm.inclined_transforms_2d,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let reactions = recovered.reactions_2d(solver, &dof_num, &u_geom, &asm.inclined_transforms_2d)?;
 
     // Member forces from the stiffness the solve balanced: a yielded member at α·EI (NL-4).
     // They were recovered with the elastic EI, so after yield they were up to ~100× off and did
@@ -349,14 +334,7 @@ fn solve_nonlinear_material_2d_inner(
 
     let final_load_factor = last_converged_factor;
 
-    // Compute constraint forces if constraints are active
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let constraint_forces = recovered.constraint_forces;
 
     Ok(NonlinearMaterialResult {
         results: AnalysisResults {
@@ -1000,7 +978,6 @@ fn solve_nonlinear_material_3d_inner(
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let free_idx: Vec<usize> = (0..nf).collect();
-    let rest_idx: Vec<usize> = (nf..n).collect();
     let nr = n - nf;
 
     // Full elastic assembly for total external load vector.
@@ -1201,18 +1178,9 @@ fn solve_nonlinear_material_3d_inner(
     for it in &asm.inclined_transforms {
         assembly::apply_inclined_transform(&mut k_final, &mut k_final_f_dummy, n, &it.dofs, &it.r);
     }
-    let f_final = f_total.clone();
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        let row = nf + i;
-        let mut ku = 0.0;
-        for j in 0..n {
-            // u_full stays in the rotated ("mixed") convention — see the
-            // 2D final-block comment for why this matches k_final's rotation.
-            ku += k_final[row * n + j] * u_full[j];
-        }
-        reactions_vec[i] = ku - f_final[row];
-    }
+    let recovered = super::reaction_recovery::RecoveredForces::from_internal(
+        &mat_vec(&k_final, &u_full, n), &f_total, &dof_num, cs.as_ref(),
+    );
 
     // Reverse inclined transforms to get TRUE global displacements for
     // reporting — mirrors linear::solve_3d.
@@ -1230,11 +1198,7 @@ fn solve_nonlinear_material_3d_inner(
     // would silently report zero reaction at an inclined 3D support. Use the
     // shared, dof_num-driven (and inclined-aware) builder instead, which
     // correctly detects restraint via the actual DOF partition.
-    let f_r = extract_subvec(&f_final, &rest_idx);
-    let mut reactions = super::linear::build_reactions_3d_inclined(
-        solver, &dof_num, &reactions_vec, &f_r, nf, &u_geom, &asm.inclined_transforms,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let reactions = recovered.reactions_3d(solver, &dof_num, &u_geom, &asm.inclined_transforms)?;
 
     // Member forces from the stiffness the solve balanced, as in 2D (NL-4).
     let mut element_forces = secant_member_forces_3d(solver, &states, &dof_num, &u_geom);
@@ -1242,14 +1206,7 @@ fn solve_nonlinear_material_3d_inner(
 
     let element_status = build_element_status_3d(solver, input, &dof_num, &u_geom, &element_forces, &states);
 
-    // Compute constraint forces if constraints are active
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let constraint_forces = recovered.constraint_forces;
 
     Ok(NonlinearMaterialResult3D {
         results: AnalysisResults3D {

@@ -410,19 +410,10 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
     } else {
         dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame)
     };
-    let mut free_residual = residual(ku, &input.soil_springs, &solved_k, &dof_num, its, &u_frame, &f_global);
-    let mut reactions_vec = free_residual.split_off(nf);
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let raw = fcs.constraint_forces_from_residual(&free_residual);
-        fcs.add_restrained_master_forces(&raw, &mut reactions_vec);
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
-    let mut reactions = linear::build_reactions_2d_inclined(
-        &input.solver, &dof_num, &reactions_vec, &f_global[nf..], nf, &u_full, its,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let full_residual = residual(ku, &input.soil_springs, &solved_k, &dof_num, its, &u_frame, &f_global);
+    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&full_residual, &dof_num, cs.as_ref());
+    let reactions = recovered.reactions_2d(&input.solver, &dof_num, &u_full, its)?;
+    let constraint_forces = recovered.constraint_forces;
 
     Ok(SSIResult {
         results: AnalysisResults {
@@ -661,19 +652,10 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     } else {
         dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame)
     };
-    let mut free_residual = residual(ku, &input.soil_springs, &solved_k, &dof_num, its, &u_frame, &f_global);
-    let mut reactions_vec = free_residual.split_off(nf);
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let raw = fcs.constraint_forces_from_residual(&free_residual);
-        fcs.add_restrained_master_forces(&raw, &mut reactions_vec);
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
-    let mut reactions = linear::build_reactions_3d_inclined(
-        &expanded_solver, &dof_num, &reactions_vec, &f_global[nf..], nf, &u_full, its,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let full_residual = residual(ku, &input.soil_springs, &solved_k, &dof_num, its, &u_frame, &f_global);
+    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&full_residual, &dof_num, cs.as_ref());
+    let reactions = recovered.reactions_3d(&input.solver, &dof_num, &u_full, its)?;
+    let constraint_forces = recovered.constraint_forces;
 
     Ok(SSIResult3D {
         results: AnalysisResults3D {

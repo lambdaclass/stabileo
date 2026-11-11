@@ -315,8 +315,8 @@ fn solve_time_history_2d_inner(
     let peak_reactions = compute_reactions_at_state(
         &input.solver, &dof_num,
         sasm.k_full.as_ref().expect("assemble_sparse_2d_ex with build_k_full"),
-        &sasm.f, &u_at_peak, its,
-    );
+        &sasm.f, &u_at_peak, its, cs.as_ref(),
+    )?;
 
     let method_name = if let Some(alpha) = alpha {
         format!("HHT-alpha (alpha={alpha:.3})")
@@ -330,6 +330,7 @@ fn solve_time_history_2d_inner(
     refuse_non_finite_response(first_bad, &time_steps, peak_reactions.iter().flat_map(|r| [r.rx, r.rz, r.my]))?;
 
     let mut structured_diagnostics = crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::TimeHistory);
+    structured_diagnostics.push(super::reaction_recovery::unavailable("peakReactions", "Total dynamic support reactions are unavailable. peakReactions is a legacy elastic-only estimate, not total reactions or a reaction envelope; inertia, damping and time-dependent support loads are omitted. Member forces are not recovered by time history."));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(&k_s).into_iter().collect());
     let factor = match &factored { FactoredMatrix::Sparse(factor) => Some(factor), FactoredMatrix::Lu { .. } => None };
@@ -1148,31 +1149,6 @@ fn find_peak_with_sign(values: &[f64]) -> f64 {
 /// (restrained DOFs stay at zero — no prescribed motion in time history).
 /// k_full is the full n×n stiffness as lower-triangle CSC: the K_rf block
 /// lives in columns j < nf at rows i ≥ nf.
-fn reactions_vec_from_kfull(k_full: &CscMatrix, f_full: &[f64], u_free: &[f64], nf: usize) -> Vec<f64> {
-    let n = k_full.n;
-    let nr = n - nf;
-    let mut reactions_vec = vec![0.0; nr];
-    if nr == 0 {
-        return reactions_vec;
-    }
-    for j in 0..nf {
-        let uj = u_free[j];
-        if uj == 0.0 {
-            continue;
-        }
-        for p in k_full.col_ptr[j]..k_full.col_ptr[j + 1] {
-            let i = k_full.row_idx[p];
-            if i >= nf {
-                reactions_vec[i - nf] += k_full.values[p] * uj;
-            }
-        }
-    }
-    for i in 0..nr {
-        reactions_vec[i] -= f_full[nf + i];
-    }
-    reactions_vec
-}
-
 /// Reactions at a specific displacement state using the full stiffness matrix,
 /// through the linear solver's reaction builder (rotated springs, springs on
 /// rigid supports, inclined rollers back to global axes). `u_free` is in the
@@ -1184,19 +1160,14 @@ fn compute_reactions_at_state(
     f_full: &[f64],
     u_free: &[f64],
     its: &[assembly::InclinedTransformData2D],
-) -> Vec<Reaction> {
-    let (n, nf) = (dof_num.n_total, dof_num.n_free);
-    if n == nf {
-        return Vec::new();
-    }
-    // Restrained DOFs stay zero (no prescribed displacements in dynamic analysis)
-    let reactions_vec = reactions_vec_from_kfull(k_full, f_full, u_free, nf);
-    let u_full = assembly::to_global(u_free, n, its);
-    let mut reactions = super::linear::build_reactions_2d_inclined(
-        solver_input, dof_num, &reactions_vec, &f_full[nf..], nf, &u_full, its,
-    );
-    reactions.sort_by_key(|r| r.node_id);
-    reactions
+    cs: Option<&FreeConstraintSystem>,
+) -> Result<Vec<Reaction>, String> {
+    let n = dof_num.n_total;
+    let mut u_frame = u_free.to_vec();
+    u_frame.resize(n, 0.0);
+    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&k_full.sym_mat_vec(&u_frame), f_full, dof_num, cs);
+    let u_global = assembly::to_global(&u_frame, n, its);
+    recovered.reactions_2d(solver_input, dof_num, &u_global, its)
 }
 
 // ============================================================================
@@ -1479,8 +1450,8 @@ fn solve_time_history_3d_inner(
     let peak_reactions = compute_reactions_at_state_3d(
         input_solver, &dof_num,
         sasm.k_full.as_ref().expect("assemble_sparse_3d with build_k_full"),
-        &sasm.f, &u_at_peak, its,
-    );
+        &sasm.f, &u_at_peak, its, cs3.as_ref(),
+    )?;
 
     let method_name = if let Some(alpha) = alpha {
         format!("HHT-alpha (alpha={alpha:.3})")
@@ -1494,6 +1465,7 @@ fn solve_time_history_3d_inner(
     refuse_non_finite_response(first_bad, &time_steps, peak_reactions.iter().flat_map(|r| [r.fx, r.fy, r.fz, r.mx, r.my, r.mz]))?;
 
     let mut structured_diagnostics = crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::TimeHistory);
+    structured_diagnostics.push(super::reaction_recovery::unavailable("peakReactions", "Total dynamic support reactions are unavailable. peakReactions is a legacy elastic-only estimate, not total reactions or a reaction envelope; inertia, damping and time-dependent support loads are omitted. Member forces are not recovered by time history."));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(&k_s).into_iter().collect());
     let factor = match &factored { FactoredMatrix::Sparse(factor) => Some(factor), FactoredMatrix::Lu { .. } => None };
@@ -1771,19 +1743,14 @@ fn compute_reactions_at_state_3d(
     f_full: &[f64],
     u_free: &[f64],
     its: &[assembly::InclinedTransformData],
-) -> Vec<Reaction3D> {
-    let (n, nf) = (dof_num.n_total, dof_num.n_free);
-    if n == nf {
-        return Vec::new();
-    }
-    // Restrained DOFs stay zero (no prescribed displacements in dynamic analysis)
-    let reactions_vec = reactions_vec_from_kfull(k_full, f_full, u_free, nf);
-    let u_full = assembly::to_global(u_free, n, its);
-    let mut reactions = super::linear::build_reactions_3d_inclined(
-        solver_input, dof_num, &reactions_vec, &f_full[nf..], nf, &u_full, its,
-    );
-    reactions.sort_by_key(|r| r.node_id);
-    reactions
+    cs: Option<&FreeConstraintSystem>,
+) -> Result<Vec<Reaction3D>, String> {
+    let n = dof_num.n_total;
+    let mut u_frame = u_free.to_vec();
+    u_frame.resize(n, 0.0);
+    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&k_full.sym_mat_vec(&u_frame), f_full, dof_num, cs);
+    let u_global = assembly::to_global(&u_frame, n, its);
+    recovered.reactions_3d(solver_input, dof_num, &u_global, its)
 }
 
 #[cfg(test)]

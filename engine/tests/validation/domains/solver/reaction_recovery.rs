@@ -339,7 +339,6 @@ fn assert_equilibrium(kind: &str, dim: usize, m: &Value, r: &Value, factor: f64)
 macro_rules! recovery_test {
     ($name:ident, $kind:literal, $dim:literal) => {
         #[test]
-        #[ignore = "known wrong result: #1949"]
         fn $name() {
             equilibrium($kind, $dim, true);
         }
@@ -399,19 +398,16 @@ fn supported_unconstrained_inputs_keep_their_answers() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_arc_unconstrained() {
     equilibrium("arc", 2, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_displacement_unconstrained() {
     equilibrium("displacement", 2, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_arc_inclined() {
     let mut m = model(2, false);
     m["supports"]["1"] = json!({"id": 1, "nodeId": 1, "type": "inclinedRoller", "angle": 30.0});
@@ -446,7 +442,6 @@ fn fiber_constraints_remain_explicitly_refused() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_path_member_loads_use_final_factor() {
     for kind in ["arc", "displacement"] {
         let mut m = model(2, false);
@@ -486,7 +481,6 @@ fn exact_frozen_arch(fixture: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_exact_frozen_0015ab84c3baa36f() {
     exact_frozen_arch(include_str!(
         "../../../fixtures/solve_arc_length-0015ab84c3baa36f.json"
@@ -494,7 +488,6 @@ fn issue_1949_exact_frozen_0015ab84c3baa36f() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_exact_frozen_022317310499426d() {
     exact_frozen_arch(include_str!(
         "../../../fixtures/solve_arc_length-022317310499426d.json"
@@ -502,7 +495,6 @@ fn issue_1949_exact_frozen_022317310499426d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_sparse_and_dense_path_reactions() {
     for elements in [21, 22] {
         let mut m = model(2, false);
@@ -567,13 +559,11 @@ fn dynamic_availability(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_dynamic_reaction_availability_2d() {
     dynamic_availability(2);
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_dynamic_reaction_availability_3d() {
     dynamic_availability(3);
 }
@@ -623,13 +613,11 @@ fn nonlinear_constraint_force(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_nonlinear_constraint_force_2d() {
     nonlinear_constraint_force(2);
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_nonlinear_constraint_force_3d() {
     nonlinear_constraint_force(3);
 }
@@ -661,7 +649,6 @@ fn staged_availability(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_staged_availability_2d() {
     staged_availability(2);
 }
@@ -672,7 +659,6 @@ fn staged_empty_3d_remains_explicitly_refused() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_displacement_step_snapshots() {
     let m = model(2, false);
     let i = serde_json::from_value(
@@ -703,22 +689,18 @@ fn issue_1949_displacement_step_snapshots() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_winkler_2d() {
     equilibrium("winkler", 2, true);
 }
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_winkler_3d() {
     equilibrium("winkler", 3, true);
 }
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_guyan_2d() {
     equilibrium("guyan", 2, true);
 }
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_guyan_3d() {
     equilibrium("guyan", 3, true);
 }
@@ -779,12 +761,10 @@ fn material_constraint_force(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_material_constraint_force_2d() {
     material_constraint_force(2);
 }
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_material_constraint_force_3d() {
     material_constraint_force(3);
 }
@@ -810,7 +790,6 @@ fn guyan_springs_2d_keeps_the_correct_answer() {
     guyan_springs(2);
 }
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_guyan_springs_3d() {
     guyan_springs(3);
 }
@@ -844,7 +823,6 @@ fn displacement_spatial_fields_are_refused_before_projection() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_arc_continuation_reactions() {
     let m = model(2, true);
     let solver: SolverInput = serde_json::from_value(m.clone()).unwrap();
@@ -867,7 +845,6 @@ fn issue_1949_arc_continuation_reactions() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_corotational_continuation_reactions() {
     let m = model(2, true);
     let solver: SolverInput = serde_json::from_value(m.clone()).unwrap();
@@ -926,12 +903,10 @@ fn staged_constraints_only(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_staged_constraints_only_2d() {
     staged_constraints_only(2);
 }
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_staged_constraints_only_3d() {
     staged_constraints_only(3);
 }
@@ -961,12 +936,10 @@ fn staged_support_changes(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_staged_support_changes_are_diagnosed_2d() {
     staged_support_changes(2);
 }
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_staged_support_changes_are_diagnosed_3d() {
     staged_support_changes(3);
 }
@@ -1004,7 +977,6 @@ fn guyan_member_forces_2d_keeps_the_correct_answer() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn issue_1949_guyan_member_forces_3d() {
     guyan_member_forces(3);
 }

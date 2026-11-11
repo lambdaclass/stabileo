@@ -4,8 +4,7 @@ use super::dof::DofNumbering;
 use super::assembly::*;
 use super::linear::{build_displacements_2d, compute_internal_forces_2d,
     build_displacements_3d, compute_internal_forces_3d,
-    compute_plate_stresses, compute_quad_stresses,
-    build_reactions_2d_inclined, build_reactions_3d_inclined};
+    compute_plate_stresses, compute_quad_stresses};
 use super::constraints::FreeConstraintSystem;
 use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic};
 
@@ -152,9 +151,7 @@ fn solve_spd_or_lu(
 /// They were K·u − F. K_G's restrained rows are not zero — a column base
 /// carries the P·Δ/h shear — so with K alone ΣR missed it and did not balance
 /// the applied loads once the frame swayed.
-fn restrained_residual(k: &[f64], f: &[f64], u: &[f64], n: usize, nf: usize) -> Vec<f64> {
-    (nf..n).map(|d| k[d * n..(d + 1) * n].iter().zip(u).map(|(a, b)| a * b).sum::<f64>() - f[d]).collect()
-}
+
 
 /// B₂: the second-order amplification of the displacements that matter.
 ///
@@ -345,13 +342,20 @@ pub fn solve_pdelta_2d_on(
     // Reactions and constraint forces of the system that was solved.
     let tangent = system.tangent(input, dof_num, &state.u);
     let residual = tangent.residual(n, nf, f, &state.u);
-    let mut reactions = build_reactions_2d_inclined(input, dof_num, &residual, &f[nf..], nf, &u_global, its);
-    reactions.sort_by_key(|r| r.node_id);
+    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, dof_num, cs.as_ref());
+    let reactions = recovered.reactions_2d(input, dof_num, &u_global, its)?;
+    let constraint_forces = recovered.constraint_forces;
 
-    let constraint_forces = cs.as_ref().map_or_else(Vec::new, |cs| {
-        let raw = tangent.free_block(n, nf).constraint_forces(cs, &state.u[..nf], &tangent.rhs(n, nf, f, &state.u));
-        cs.constraint_forces(&raw, dof_num)
-    });
+    let residual_free = cs.as_ref().map_or_else(|| residual[..nf].to_vec(), |cs| cs.reduce_vector(&residual[..nf]));
+    let applied_free = cs.as_ref().map_or_else(|| f[..nf].to_vec(), |cs| cs.reduce_vector(&f[..nf]));
+    let relative_residual = residual_free.iter().map(|v| v*v).sum::<f64>().sqrt() / applied_free.iter().map(|v| v*v).sum::<f64>().sqrt().max(1e-30);
+    let mut equilibrium = super::reaction_recovery::balance_2d(input, dof_num, &u_global, f, &reactions, its, tolerance);
+    equilibrium.relative_residual = relative_residual;
+    equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
+    let mut recovered_diagnostics = Vec::new();
+    if !equilibrium.equilibrium_ok || !equilibrium.residual_ok {
+        recovered_diagnostics.push(super::reaction_recovery::unavailable("reactions", "Finite-displacement support reactions are unavailable at this P-Delta state: its small-strain second-order reactions do not satisfy global force and moment equilibrium within the requested tolerance. Use corotational analysis for finite-displacement reactions."));
+    }
 
     Ok(PDeltaResult {
         results: AnalysisResults {
@@ -365,10 +369,8 @@ pub fn solve_pdelta_2d_on(
             // model's, though: see `model_structured_diagnostics`.
             diagnostics: linear_results.diagnostics.clone(),
             solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
-            structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
-            // Still not computed for the second-order state: the residual would
-            // have to be formed against (K + K_G) and the P-Delta reactions.
-            equilibrium: None,
+            structured_diagnostics: { let mut d = model_structured_diagnostics(&linear_results.structured_diagnostics); d.extend(recovered_diagnostics); d },
+            equilibrium: Some(equilibrium),
             result_summary: None, solver_run_meta: None,
         },
         iterations: state.iterations,
@@ -477,10 +479,10 @@ impl Tangent3D {
         }
     }
 
-    fn residual(&self, n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
+    fn residual(&self, n: usize, _nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
         match self {
-            Self::Dense(k) => restrained_residual(k, f, u, n, nf),
-            Self::Sparse(k) => k.sym_mat_vec(u)[nf..].iter().zip(&f[nf..]).map(|(ku, f)| ku - f).collect(),
+            Self::Dense(k) => mat_vec(k, u, n).iter().zip(f).map(|(ku, f)| ku - f).collect(),
+            Self::Sparse(k) => k.sym_mat_vec(u).iter().zip(f).map(|(ku, f)| ku - f).collect(),
         }
     }
 
@@ -508,12 +510,7 @@ impl Tangent3D {
         Some((cs.as_ref().map_or_else(|| u.clone(), |c| c.expand_solution(&u)), indefinite))
     }
 
-    fn constraint_forces(&self, cs: &FreeConstraintSystem, u: &[f64], rhs: &[f64]) -> Vec<(usize, f64)> {
-        match self {
-            Self::Dense(k) => cs.compute_constraint_forces(k, u, rhs),
-            Self::Sparse(k) => cs.compute_constraint_forces_sparse(k, u, rhs),
-        }
-    }
+
 }
 
 enum PDeltaSystem3D {
@@ -605,12 +602,21 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     let b2 = stability_b2(state.indefinite, b2_factor(dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
     let tangent = system.tangent(input, dof_num, &state.u);
     let residual = tangent.residual(n, nf, f, &state.u);
-    let mut reactions = build_reactions_3d_inclined(input, dof_num, &residual, &f[nf..], nf, &u_global, its);
-    reactions.sort_by_key(|r| r.node_id);
-    let constraint_forces = cs.as_ref().map_or_else(Vec::new, |cs| {
-        let raw = tangent.free_block(n, nf).constraint_forces(cs, &state.u[..nf], &tangent.rhs(n, nf, f, &state.u));
-        cs.constraint_forces(&raw, dof_num)
-    });
+    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, dof_num, cs.as_ref());
+    let reactions = recovered.reactions_3d(input, dof_num, &u_global, its)?;
+    let constraint_forces = recovered.constraint_forces;
+
+    let residual_free = cs.as_ref().map_or_else(|| residual[..nf].to_vec(), |cs| cs.reduce_vector(&residual[..nf]));
+    let applied_free = cs.as_ref().map_or_else(|| f[..nf].to_vec(), |cs| cs.reduce_vector(&f[..nf]));
+    let relative_residual = residual_free.iter().map(|v| v*v).sum::<f64>().sqrt() / applied_free.iter().map(|v| v*v).sum::<f64>().sqrt().max(1e-30);
+    let mut equilibrium = super::reaction_recovery::balance_3d(input, dof_num, &u_global, f, &reactions, its, tolerance);
+    equilibrium.relative_residual = relative_residual;
+    equilibrium.residual_ok = relative_residual.is_finite() && relative_residual <= tolerance;
+    let mut recovered_diagnostics = Vec::new();
+    if !equilibrium.equilibrium_ok || !equilibrium.residual_ok {
+        recovered_diagnostics.push(super::reaction_recovery::unavailable("reactions", "Finite-displacement support reactions are unavailable at this P-Delta state: its small-strain second-order reactions do not satisfy global force and moment equilibrium within the requested tolerance. Use corotational analysis for finite-displacement reactions."));
+    }
+
     Ok(PDeltaResult3D {
         results: AnalysisResults3D {
             displacements: build_displacements_3d(dof_num, &u_global), reactions,
@@ -619,8 +625,8 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
             quad_stresses: compute_quad_stresses(input, dof_num, &u_global, None), quad_nodal_stresses: vec![], constraint_forces,
             diagnostics: linear_results.diagnostics.clone(),
             solver_diagnostics: model_solver_diagnostics(&linear_results.solver_diagnostics),
-            structured_diagnostics: model_structured_diagnostics(&linear_results.structured_diagnostics),
-            equilibrium: None, timings: None, result_summary: None, solver_run_meta: None,
+            structured_diagnostics: { let mut d = model_structured_diagnostics(&linear_results.structured_diagnostics); d.extend(recovered_diagnostics); d },
+            equilibrium: Some(equilibrium), timings: None, result_summary: None, solver_run_meta: None,
         },
         iterations: state.iterations, converged: state.converged,
         is_stable: state.converged && b2 < 100.0, b2_factor: b2, linear_results,

@@ -632,32 +632,22 @@ fn solve_cable_2d_inner(
     }
 
     // Build results
-    let nr = n - nf;
-    let rest_idx: Vec<usize> = (nf..n).collect();
-    let free_idx: Vec<usize> = (0..nf).collect();
-    // Reactions use the BASE stiffness (same as the legacy dense path).
-    let k_rf = if let Some(ref s) = sparse_stiff {
-        // Same restrained×free block as the dense extract, from the full-K CSC.
-        s.k_full.extract_block_dense(&rest_idx, &free_idx)
+    let ku = if let Some(ref s) = sparse_stiff {
+        s.k_full.sym_mat_vec(&u_full)
     } else {
-        extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &rest_idx, &free_idx)
+        mat_vec(&dense_asm.as_ref().unwrap().k, &u_full, n)
     };
-    let f_r = extract_subvec(&f_global, &rest_idx);
-    let u_f: Vec<f64> = u_full[..nf].to_vec();
-    let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = k_rf_uf[i] - f_r[i];
-    }
+    let mut residual: Vec<f64> = ku.iter().zip(&f_global).map(|(i, f)| i - f).collect();
     // The base block gives every cable the force EA·ε_lin of a full-E truss; the supports feel its
     // tension T instead: add −c·(T − EA·ε_lin) at the restrained DOFs (c in the solver's frame).
     let mut r_cable = vec![0.0; n];
     for (ci, (dofs, coef)) in cables.iter().zip(&slots) {
         add_along(&mut r_cable, dofs, coef, -(cable_tensions[&ci.elem_id] - ci.ea * cable_eps_lin[&ci.elem_id]));
     }
-    for i in 0..nr {
-        reactions_vec[i] += r_cable[nf + i];
+    for i in 0..n {
+        residual[i] += r_cable[i];
     }
+    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, &dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_2d so cable analysis reports reactions and
@@ -668,10 +658,7 @@ fn solve_cable_2d_inner(
     }
 
     let displacements = linear::build_displacements_2d(&dof_num, &u_full);
-    let mut reactions = linear::build_reactions_2d_inclined(
-        input, &dof_num, &reactions_vec, &f_r, nf, &u_full, inclined_2d,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let reactions = recovered.reactions_2d(input, &dof_num, &u_full, inclined_2d)?;
 
     let mut element_forces = linear::compute_internal_forces_2d(input, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
@@ -683,22 +670,7 @@ fn solve_cable_2d_inner(
         }
     }
 
-    // Compute constraint forces if constraints are active. Uses u_f/f_global
-    // (pre-reversal, rotated-frame convention) — u_full has already been
-    // reversed above for reporting, so it can no longer be sliced here.
-    // The base K gives each cable EA·ε_lin; its force is T: K·u − (f − r_cable) on the free DOFs.
-    let f_constraint: Vec<f64> = (0..nf).map(|i| f_global[i] - r_cable[i]).collect();
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let raw = if let Some(ref s) = sparse_stiff {
-            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_f, &f_constraint)
-        } else {
-            let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_f, &f_constraint)
-        };
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let constraint_forces = recovered.constraint_forces;
 
     let results = AnalysisResults {
         displacements,
@@ -1044,32 +1016,20 @@ fn solve_cable_3d_inner(
         }
     }
 
-    let nr = n - nf;
-    let rest_idx: Vec<usize> = (nf..n).collect();
-    let free_idx: Vec<usize> = (0..nf).collect();
-    // Reactions use the BASE stiffness (same as the legacy dense path).
-    let k_rf = if let Some(ref s) = sparse_asm {
-        // Same restrained×free block as the dense extract, from the full-K CSC.
-        s.k_full.as_ref().unwrap().extract_block_dense(&rest_idx, &free_idx)
+    let ku = if let Some(ref s) = sparse_asm {
+        s.k_full.as_ref().expect("full stiffness assembled for reaction recovery").sym_mat_vec(&u_full)
     } else {
-        extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &rest_idx, &free_idx)
+        mat_vec(&dense_asm.as_ref().unwrap().k, &u_full, n)
     };
-    let f_r = extract_subvec(&f_global, &rest_idx);
-    let u_f: Vec<f64> = u_full[..nf].to_vec();
-    let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = k_rf_uf[i] - f_r[i];
-    }
-    // The base block gives every cable the force EA·ε_lin of a full-E truss; the supports feel its
-    // tension T instead: add −c·(T − EA·ε_lin) at the restrained DOFs (c in the solver's frame).
+    let mut residual: Vec<f64> = ku.iter().zip(&f_global).map(|(i, f)| i - f).collect();
     let mut r_cable = vec![0.0; n];
     for (ci, (dofs, coef)) in cables.iter().zip(&slots) {
         add_along(&mut r_cable, dofs, coef, -(cable_tensions[&ci.elem_id] - ci.ea * cable_eps_lin[&ci.elem_id]));
     }
-    for i in 0..nr {
-        reactions_vec[i] += r_cable[nf + i];
+    for i in 0..n {
+        residual[i] += r_cable[i];
     }
+    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, &dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_3d so cable analysis reports reactions and
@@ -1079,10 +1039,7 @@ fn solve_cable_3d_inner(
     }
 
     let displacements = linear::build_displacements_3d(&dof_num, &u_full);
-    let mut reactions = linear::build_reactions_3d_inclined(
-        input, &dof_num, &reactions_vec, &f_r, nf, &u_full, inclined_3d,
-    );
-    reactions.sort_by_key(|r| r.node_id);
+    let reactions = recovered.reactions_3d(input, &dof_num, &u_full, inclined_3d)?;
 
     let mut element_forces = linear::compute_internal_forces_3d(input, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
@@ -1094,21 +1051,7 @@ fn solve_cable_3d_inner(
         }
     }
 
-    // Compute constraint forces if constraints are active. Uses u_f/f_global
-    // (pre-reversal, rotated-frame convention) — see 2D solve_cable for why.
-    // The base K gives each cable EA·ε_lin; its force is T: K·u − (f − r_cable) on the free DOFs.
-    let f_constraint: Vec<f64> = (0..nf).map(|i| f_global[i] - r_cable[i]).collect();
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let raw = if let Some(ref s) = sparse_asm {
-            fcs.compute_constraint_forces_sparse(&s.k_ff, &u_f, &f_constraint)
-        } else {
-            let k_ff = extract_submatrix(&dense_asm.as_ref().unwrap().k, n, &free_idx, &free_idx);
-            fcs.compute_constraint_forces(&k_ff, &u_f, &f_constraint)
-        };
-        fcs.constraint_forces(&raw, &dof_num)
-    } else {
-        vec![]
-    };
+    let constraint_forces = recovered.constraint_forces;
 
     let results = AnalysisResults3D {
         displacements,

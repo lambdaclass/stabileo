@@ -1053,17 +1053,9 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
             }
         }
     }
-    let mut reactions = linear::build_reactions_2d_inclined(
-        &input.solver, &dof_num, &residual[nf..], &f_base[nf..], nf, &u_global, &its,
-    );
-    reactions.sort_by_key(|r| r.node_id);
-    let constraint_forces = match &cs {
-        Some(cs) => cs.constraint_forces(
-            &cs.constraint_forces_from_residual(&residual[..nf]),
-            &dof_num,
-        ),
-        None => vec![],
-    };
+    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, &dof_num, cs.as_ref());
+    let reactions = recovered.reactions_2d(&input.solver, &dof_num, &u_global, &its)?;
+    let constraint_forces = recovered.constraint_forces;
     // A deactivated member is not deformed by the structure; it carries only
     // its own fixed-end forces (the member loads it still passes to its nodes).
     let mut element_forces = linear::compute_internal_forces_2d(&input.solver, &dof_num, &u_global);
@@ -1567,17 +1559,9 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
             }
         }
     }
-    let mut reactions = linear::build_reactions_3d_inclined(
-        input_solver, &dof_num, &residual[nf..], &f_base[nf..], nf, &u_global, &its,
-    );
-    reactions.sort_by_key(|r| r.node_id);
-    let constraint_forces = match &cs {
-        Some(cs) => cs.constraint_forces(
-            &cs.constraint_forces_from_residual(&residual[..nf]),
-            &dof_num,
-        ),
-        None => vec![],
-    };
+    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, &dof_num, cs.as_ref());
+    let reactions = recovered.reactions_3d(input_solver, &dof_num, &u_global, &its)?;
+    let constraint_forces = recovered.constraint_forces;
     let mut element_forces = linear::compute_internal_forces_3d(input_solver, &dof_num, &u_global);
     if !inactive.is_empty() {
         let at_rest = linear::compute_internal_forces_3d(input_solver, &dof_num, &vec![0.0; n]);

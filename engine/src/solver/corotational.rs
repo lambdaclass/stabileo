@@ -409,7 +409,7 @@ pub fn solve_corotational_2d_from(
     } else {
         input
     };
-    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs)?;
+    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs, &art, &asm.inclined_transforms_2d)?;
     crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
     crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Corotational));
 
@@ -426,7 +426,7 @@ pub fn solve_corotational_2d_from(
 /// The model under `factor` times its loads: the state an unconverged solve
 /// reports is the last converged increment, and its reactions and member
 /// forces are those of the load that increment carries.
-fn scaled_loads_2d(input: &SolverInput, factor: f64) -> SolverInput {
+pub(super) fn scaled_loads_2d(input: &SolverInput, factor: f64) -> SolverInput {
     let mut m = input.clone();
     for l in m.loads.iter_mut() {
         match l {
@@ -549,14 +549,15 @@ fn timoshenko_phi(e: f64, iz: f64, g_as: Option<f64>, l: f64) -> f64 {
 
 /// Assemble co-rotational internal forces and tangent stiffness for all elements.
 fn assemble_corotational(
-    input: &SolverInput,
-    dof_num: &DofNumbering,
-    u_full: &[f64],
-    f_int: &mut [f64],
-    k_t: &mut [f64],
+    input: &SolverInput, dof_num: &DofNumbering, u_full: &[f64], f_int: &mut [f64], k_t: &mut [f64],
 ) {
     let n = dof_num.n_total;
+    assemble_corotational_impl(input, dof_num, u_full, f_int, &mut |i, j, v| k_t[i * n + j] += v);
+}
 
+fn assemble_corotational_impl(
+    input: &SolverInput, dof_num: &DofNumbering, u_full: &[f64], f_int: &mut [f64], scatter: &mut impl FnMut(usize, usize, f64),
+) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode> =
         crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
@@ -564,24 +565,23 @@ fn assemble_corotational(
     let sec_by_id: std::collections::HashMap<usize, &SolverSection> =
         crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
 
-    let mut scatter = |gi: usize, gj: usize, v: f64| k_t[gi * n + gj] += v;
     for elem in crate::ordered::values(&input.elements) {
         let node_i = node_by_id[&elem.node_i];
         let node_j = node_by_id[&elem.node_j];
         let mat = mat_by_id[&elem.material_id];
         let sec = sec_by_id[&elem.section_id];
 
-        let e = mat.e * 1000.0; // MPa -> kN/m^2
+        let e = mat.e * 1000.0;
 
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             assemble_truss_corotational(
                 dof_num, elem, node_i, node_j, e, sec.a,
-                u_full, f_int, &mut scatter,
+                u_full, f_int, scatter,
             );
         } else {
             assemble_frame_corotational(
                 dof_num, elem, node_i, node_j, e, sec.a, sec.iz, shear_rigidity_2d(mat, sec),
-                u_full, f_int, &mut scatter,
+                u_full, f_int, scatter,
             );
         }
     }
@@ -602,40 +602,13 @@ pub(crate) fn assemble_corotational_triplets_2d(
     trip_cols: &mut Vec<usize>,
     trip_vals: &mut Vec<f64>,
 ) {
-    let node_by_id: std::collections::HashMap<usize, &SolverNode> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
-    let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
-        crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
-    let sec_by_id: std::collections::HashMap<usize, &SolverSection> =
-        crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
-
-    let mut scatter = |gi: usize, gj: usize, v: f64| {
+    assemble_corotational_impl(input, dof_num, u_full, f_int, &mut |gi, gj, v| {
         if gi >= gj {
             trip_rows.push(gi);
             trip_cols.push(gj);
             trip_vals.push(v);
         }
-    };
-    for elem in crate::ordered::values(&input.elements) {
-        let node_i = node_by_id[&elem.node_i];
-        let node_j = node_by_id[&elem.node_j];
-        let mat = mat_by_id[&elem.material_id];
-        let sec = sec_by_id[&elem.section_id];
-
-        let e = mat.e * 1000.0; // MPa -> kN/m^2
-
-        if elem.elem_type == "truss" || elem.elem_type == "cable" {
-            assemble_truss_corotational(
-                dof_num, elem, node_i, node_j, e, sec.a,
-                u_full, f_int, &mut scatter,
-            );
-        } else {
-            assemble_frame_corotational(
-                dof_num, elem, node_i, node_j, e, sec.a, sec.iz, shear_rigidity_2d(mat, sec),
-                u_full, f_int, &mut scatter,
-            );
-        }
-    }
+    });
 }
 
 /// Co-rotational treatment for a 2D truss element.
@@ -1070,100 +1043,42 @@ fn compute_max_displacement(dof_num: &DofNumbering, u_full: &[f64]) -> f64 {
 }
 
 /// Build final AnalysisResults from the converged displacement field.
-fn build_final_results(
+pub(super) fn build_final_results(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
     cs: &Option<FreeConstraintSystem>,
+    art: &[(usize, f64)],
+    its: &[assembly::InclinedTransformData2D],
 ) -> Result<AnalysisResults, String> {
     let n = dof_num.n_total;
-    let nf = dof_num.n_free;
 
     // Reactions: co-rotational internal forces at restrained DOFs minus external loads
-    let asm = assembly::assemble_2d(input, dof_num);
-    let art = assembly::artificial_stiffness_entries(&asm);
-    let nr = n - nf;
-    let f_r: Vec<f64> = (nf..n).map(|i| asm.f[i]).collect();
-
+    let f_applied = assembly::assemble_load_vector_2d(input, &input.loads, dof_num, its);
     // Reverse the inclined-support rotation to get TRUE global displacements
     // — needed both for correct co-rotational element geometry (elements
     // must see real nodal x/z, not the rotated tangent/normal pair stored
     // at inclined-support DOFs) and for reporting displacements/reactions/
     // element forces in GLOBAL axes, mirroring linear::solve_2d.
     let mut u_geom = u_full.to_vec();
-    for it in &asm.inclined_transforms_2d {
+    for it in its {
         assembly::reverse_inclined_transform_2d(&mut u_geom, &it.dofs, &it.r);
     }
 
     let displacements = super::linear::build_displacements_2d(dof_num, &u_geom);
 
-    let mut f_int_corot = vec![0.0; n];
-    // The dense k_dummy tangent is only consumed by the constraint-forces
-    // path below; when no constraints are active, skip the O(n²) assembly
-    // entirely and accumulate f_int via the triplet variants (f_int math is
-    // identical — reactions come from f_int, never from k_dummy).
-    let mut k_dummy = if cs.is_some() { vec![0.0; n * n] } else { Vec::new() };
-    if cs.is_some() {
-        assemble_corotational(input, dof_num, &u_geom, &mut f_int_corot, &mut k_dummy);
-        add_spring_contributions(
-            input, dof_num, &u_geom, &mut f_int_corot, &art,
-            &mut |gi, gj, v| k_dummy[gi * n + gj] += v,
-        );
-
-        // Rotate back into the same rotated frame as asm.f before differencing —
-        // mirrors the per-iteration treatment in solve_corotational_2d.
-        for it in &asm.inclined_transforms_2d {
-            assembly::apply_inclined_transform_2d(&mut k_dummy, &mut f_int_corot, n, &it.dofs, &it.r);
-        }
-    } else {
-        let mut tr = Vec::new();
-        let mut tc = Vec::new();
-        let mut tv = Vec::new();
-        assemble_corotational_triplets_2d(
-            input, dof_num, &u_geom, &mut f_int_corot, &mut tr, &mut tc, &mut tv,
-        );
-        add_spring_contributions(
-            input, dof_num, &u_geom, &mut f_int_corot, &art,
-            &mut |d, _, v| {
-                tr.push(d);
-                tc.push(d);
-                tv.push(v);
-            },
-        );
-        for it in &asm.inclined_transforms_2d {
-            assembly::rotate_inclined_f_2d(&mut f_int_corot, &it.dofs, &it.r);
-        }
+    let mut f_int = vec![0.0; n];
+    let mut ignore = |_: usize, _: usize, _: f64| {};
+    assemble_corotational_impl(input, dof_num, &u_geom, &mut f_int, &mut ignore);
+    add_spring_contributions(input, dof_num, &u_geom, &mut f_int, art, &mut ignore);
+    for it in its {
+        assembly::rotate_inclined_f_2d(&mut f_int, &it.dofs, &it.r);
     }
-
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = f_int_corot[nf + i] - asm.f[nf + i];
-    }
-
-    let mut reactions = super::linear::build_reactions_2d_inclined(
-        input, dof_num, &reactions_vec, &f_r, nf, &u_geom, &asm.inclined_transforms_2d,
-    );
-    reactions.sort_by_key(|r| r.node_id);
-
+    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&f_int, &f_applied, dof_num, cs.as_ref());
+    let reactions = recovered.reactions_2d(input, dof_num, &u_geom, its)?;
+    let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_corotational_forces(input, dof_num, &u_geom);
     element_forces.sort_by_key(|ef| ef.element_id);
-
-    // Compute constraint forces if constraints are active. Uses the
-    // pre-reversal u_full/k_dummy/asm.f — all three stay in the same
-    // "mixed" (rotated-at-incline-DOFs) convention the free-DOF solve used,
-    // same rationale as the constrained-path fix (constraints.rs).
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let mut k_ff = vec![0.0; nf * nf];
-        for i in 0..nf {
-            for j in 0..nf {
-                k_ff[i * nf + j] = k_dummy[i * n + j];
-            }
-        }
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        fcs.constraint_forces(&raw, dof_num)
-    } else {
-        vec![]
-    };
 
     Ok(AnalysisResults {
         displacements,
@@ -1666,7 +1581,7 @@ pub fn solve_corotational_3d(
     } else {
         input
     };
-    let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
+    let mut results = build_final_results_3d(at_state, &dof_num, &u_full, left_hand, &cs, pre_solve_diags, &asm.inclined_transforms)?;
     crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
     crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Corotational));
     if deformations.iter().any(|d| d.natural > crate::known_issues::NL3_NATURAL_ROTATION) {
@@ -2263,85 +2178,31 @@ fn build_final_results_3d(
     left_hand: bool,
     cs: &Option<FreeConstraintSystem>,
     pre_solve_diags: Vec<StructuredDiagnostic>,
+    its: &[assembly::InclinedTransformData],
 ) -> Result<AnalysisResults3D, String> {
     let n = dof_num.n_total;
-    let nf = dof_num.n_free;
-    let nr = n - nf;
-
-    // Reactions from co-rotational internal forces at restrained DOFs
-    let asm = assembly::assemble_3d(input, dof_num);
-
+    let f_applied = assembly::assemble_load_vector_3d_dense(input, &input.loads, dof_num, its);
     // Reverse the inclined-support rotation to get TRUE global displacements
     // — see the 2D build_final_results for the full rationale.
     let mut u_geom = u_full.to_vec();
-    for it in &asm.inclined_transforms {
+    for it in its {
         assembly::reverse_inclined_transform(&mut u_geom, &it.dofs, &it.r);
     }
 
     let displacements = super::linear::build_displacements_3d(dof_num, &u_geom);
 
-    let mut f_int_corot = vec![0.0; n];
-    // See build_final_results (2D): the dense k_dummy tangent is only used by
-    // the constraint-forces path; skip the O(n²) assembly when unconstrained.
-    let mut k_dummy = if cs.is_some() { vec![0.0; n * n] } else { Vec::new() };
-    if cs.is_some() {
-        assemble_corotational_3d(input, dof_num, &u_geom, &mut f_int_corot, &mut k_dummy, left_hand);
-        add_spring_contributions_3d(
-            input, dof_num, &u_geom, &mut f_int_corot,
-            &mut |gi, gj, v| k_dummy[gi * n + gj] += v,
-        );
-
-        for it in &asm.inclined_transforms {
-            assembly::apply_inclined_transform(&mut k_dummy, &mut f_int_corot, n, &it.dofs, &it.r);
-        }
-    } else {
-        let mut tr = Vec::new();
-        let mut tc = Vec::new();
-        let mut tv = Vec::new();
-        assemble_corotational_triplets_3d(
-            input, dof_num, &u_geom, &mut f_int_corot, &mut tr, &mut tc, &mut tv, left_hand,
-        );
-        add_spring_contributions_3d(
-            input, dof_num, &u_geom, &mut f_int_corot,
-            &mut |d, _, v| {
-                tr.push(d);
-                tc.push(d);
-                tv.push(v);
-            },
-        );
-        for it in &asm.inclined_transforms {
-            assembly::rotate_inclined_f_triplets(&mut f_int_corot, &it.dofs, &it.r);
-        }
+    let mut f_int = vec![0.0; n];
+    let mut ignore = |_: usize, _: usize, _: f64| {};
+    assemble_corotational_3d_impl(input, dof_num, &u_geom, &mut f_int, &mut ignore, left_hand);
+    add_spring_contributions_3d(input, dof_num, &u_geom, &mut f_int, &mut ignore);
+    for it in its {
+        assembly::rotate_inclined_f_triplets(&mut f_int, &it.dofs, &it.r);
     }
-
-    let mut reactions_vec = vec![0.0; nr];
-    for i in 0..nr {
-        reactions_vec[i] = f_int_corot[nf + i] - asm.f[nf + i];
-    }
-
-    let f_r: Vec<f64> = (nf..n).map(|i| asm.f[i]).collect();
-    let mut reactions = super::linear::build_reactions_3d_inclined(
-        input, dof_num, &reactions_vec, &f_r, nf, &u_geom, &asm.inclined_transforms,
-    );
-    reactions.sort_by_key(|r| r.node_id);
-
+    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&f_int, &f_applied, dof_num, cs.as_ref());
+    let reactions = recovered.reactions_3d(input, dof_num, &u_geom, its)?;
+    let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_corotational_forces_3d(input, dof_num, &u_geom, left_hand);
     element_forces.sort_by_key(|ef| ef.element_id);
-
-    // Compute constraint forces if constraints are active. Uses pre-reversal
-    // u_full/k_dummy/asm.f — same "mixed" convention rationale as the 2D path.
-    let constraint_forces = if let Some(ref fcs) = cs {
-        let mut k_ff = vec![0.0; nf * nf];
-        for i in 0..nf {
-            for j in 0..nf {
-                k_ff[i * nf + j] = k_dummy[i * n + j];
-            }
-        }
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
-        fcs.constraint_forces(&raw, dof_num)
-    } else {
-        vec![]
-    };
 
     Ok(AnalysisResults3D {
         displacements,
