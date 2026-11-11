@@ -14585,7 +14585,7 @@ const tr: Translations = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Özel moment çerçeveleri (bölüm 18): kapasite kesmesi, sargı, güçlü kolon–zayıf kiriş, birleşimler",
-  "rcSheets.scopeNote": "Kenetlenme, bindirme, kesim noktaları ve sürekli kiriş donatı listesiyle ana donatı. Uygulama çizimleri ve büküm detayları dahil değildir.",
+  "rcSheets.scopeNote": "Kenetlenme, bindirme, kesim noktaları ve sürekli kiriş donatı listesiyle ana donatı. Kullanılabilir, ancak büyük kısmı hâlâ geliştirme aşamasında: sonuçları kontrol edin.",
   "rcSheets.scopeNoteSeismic": "Özel moment çerçevesi kurallarıyla (bölüm 18). Binanın buna uygun olduğunu ve analizin doğru olduğunu kontrol edin.",
   "rcSheets.g.seismic": "Deprem (bölüm 18)",
   "rcSheets.s.seisMpr": "Uçlarda olası momentler",

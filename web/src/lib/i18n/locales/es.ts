@@ -14734,7 +14734,7 @@ const es: Record<string, string> = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Pórticos especiales sismorresistentes (capítulo 18): corte por capacidad, confinamiento, columna fuerte y viga débil, nudos",
-  "rcSheets.scopeNote": "Armaduras principales con anclajes, empalmes, puntos de corte y despiece de vigas continuas. No incluye planos de obra ni detalles de doblado.",
+  "rcSheets.scopeNote": "Armaduras principales con anclajes, empalmes, puntos de corte y despiece de vigas continuas. Se puede usar, pero buena parte sigue en desarrollo: revisá los resultados.",
   "rcSheets.scopeNoteSeismic": "Con disposiciones de pórticos especiales (capítulo 18). Verificá que el edificio califique como tal y que el análisis sea el que corresponde.",
   "rcSheets.g.seismic": "Sismo (capítulo 18)",
   "rcSheets.s.seisMpr": "Momentos probables en los extremos",

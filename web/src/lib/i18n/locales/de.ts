@@ -14585,7 +14585,7 @@ const de: Translations = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Duktile Rahmen (Kapitel 18): Kapazitätsquerkraft, Umschnürung, starke Stütze–schwacher Balken, Knoten",
-  "rcSheets.scopeNote": "Hauptbewehrung mit Verankerung, Stößen, Abschnittpunkten und Biegeliste der Durchlaufträger. Ausführungspläne und Biegedetails sind nicht enthalten.",
+  "rcSheets.scopeNote": "Hauptbewehrung mit Verankerung, Stößen, Abschnittpunkten und Biegeliste der Durchlaufträger. Nutzbar, aber großenteils noch in Entwicklung: Prüfen Sie die Ergebnisse.",
   "rcSheets.scopeNoteSeismic": "Mit Regeln für duktile Rahmen (Kapitel 18). Prüfen Sie, ob das Gebäude dafür in Frage kommt und die Berechnung passt.",
   "rcSheets.g.seismic": "Erdbeben (Kapitel 18)",
   "rcSheets.s.seisMpr": "Wahrscheinliche Momente an den Enden",

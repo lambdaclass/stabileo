@@ -34,6 +34,7 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(page.getByTestId('rc-open-slab')).toBeEnabled();
   await expect(page.getByTestId('rc-open-wall')).toBeEnabled();
   await expect(page.getByTestId('rc-panel-code').getByTestId('rc-code-select')).toHaveValue('cirsoc201-2025');
+  await expect(page.getByTestId('rc-scope-note')).toHaveText(/buena parte sigue en desarrollo: revisá los resultados/);
 
   await page.getByTestId('rc-open-beam').click();
   const ws = page.getByTestId('rc-sheets-workspace');

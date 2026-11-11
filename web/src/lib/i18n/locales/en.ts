@@ -14745,7 +14745,7 @@ const en: Record<string, string> = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Special moment frames (chapter 18): capacity shear, confinement, strong column–weak beam, joints",
-  "rcSheets.scopeNote": "Main reinforcement with development, splices, cut-off points and the bar schedule of continuous beams. Construction drawings and bending details are not included.",
+  "rcSheets.scopeNote": "Main reinforcement with development, splices, cut-off points and the bar schedule of continuous beams. Usable, but mostly still in development: check the results.",
   "rcSheets.scopeNoteSeismic": "With special moment frame provisions (chapter 18). Check that the building qualifies and that the analysis is the right one.",
   "rcSheets.g.seismic": "Seismic (chapter 18)",
   "rcSheets.s.seisMpr": "Probable moments at the ends",

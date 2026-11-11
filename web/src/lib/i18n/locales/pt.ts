@@ -14386,7 +14386,7 @@ const pt: Translations = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Pórticos especiais sismorresistentes (capítulo 18): cortante por capacidade, confinamento, pilar forte e viga fraca, nós",
-  "rcSheets.scopeNote": "Armaduras principais com ancoragens, emendas, pontos de corte e detalhamento de vigas contínuas. Não inclui pranchas nem detalhes de dobramento.",
+  "rcSheets.scopeNote": "Armaduras principais com ancoragens, emendas, pontos de corte e detalhamento de vigas contínuas. Pode ser usado, mas boa parte ainda está em desenvolvimento: confira os resultados.",
   "rcSheets.scopeNoteSeismic": "Com disposições de pórticos especiais (capítulo 18). Verifique se o edifício se qualifica e se a análise é a correspondente.",
   "rcSheets.g.seismic": "Sismo (capítulo 18)",
   "rcSheets.s.seisMpr": "Momentos prováveis nas extremidades",

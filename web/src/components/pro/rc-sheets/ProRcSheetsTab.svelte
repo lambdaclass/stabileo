@@ -80,7 +80,8 @@
       <button type="button" class="rcs-btn primary" onclick={() => openAt(family)} data-testid="rc-open">{t('rcSheets.open')}</button>
       <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)}>{t('rcSheets.export')}</button>
     </div>
-    <p class="rcp-note">{t(options.seismic && rulesFor(code).seismic ? 'rcSheets.scopeNoteSeismic' : 'rcSheets.scopeNote')}</p>
+    <p class="rcp-note" data-testid="rc-scope-note">{t('rcSheets.scopeNote')}</p>
+    {#if options.seismic && rulesFor(code).seismic}<p class="rcp-note">{t('rcSheets.scopeNoteSeismic')}</p>{/if}
   {/if}
 </div>
 

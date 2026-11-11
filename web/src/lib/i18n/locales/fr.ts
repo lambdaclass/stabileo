@@ -14585,7 +14585,7 @@ const fr: Translations = {
 
   // Reinforcement sheets (rc-sheets/)
   "rcSheets.opt.seismic": "Portiques spéciaux parasismiques (chapitre 18) : effort tranchant de capacité, confinement, poteau fort–poutre faible, nœuds",
-  "rcSheets.scopeNote": "Armatures principales avec ancrages, recouvrements, arrêts de barres et nomenclature des poutres continues. Les plans d'exécution et détails de façonnage ne sont pas inclus.",
+  "rcSheets.scopeNote": "Armatures principales avec ancrages, recouvrements, arrêts de barres et nomenclature des poutres continues. Utilisable, mais encore en grande partie en développement : vérifiez les résultats.",
   "rcSheets.scopeNoteSeismic": "Avec les dispositions des portiques spéciaux (chapitre 18). Vérifiez que le bâtiment s'y prête et que l'analyse est adaptée.",
   "rcSheets.g.seismic": "Séisme (chapitre 18)",
   "rcSheets.s.seisMpr": "Moments probables aux extrémités",
