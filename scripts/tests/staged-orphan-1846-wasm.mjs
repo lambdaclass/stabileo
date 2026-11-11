@@ -256,7 +256,7 @@ console.log('Multi-stage, partial constraints, unsupported loads, kinematics and
 
 for (const dimension of [2, 3]) {
   for (const target of [63, 64]) {
-    for (const spring of [0, 0.5e-4, 1e-4, 0.1]) {
+    for (const spring of [0, 1e-30, 0.5e-4, 1e-4, 0.1, 1e20]) {
       const input = {
         nodes: { 1: { id: 1, x: 0, z: 0 }, 2: { id: 2, x: 1, z: 1 } },
         materials: { 1: { id: 1, e: 1e7, nu: 0.3 } },

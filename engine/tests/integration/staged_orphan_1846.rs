@@ -992,7 +992,7 @@ fn issue_1846_round5_kinematic_spring_threshold_and_dispatch() {
     for dim in [2, 3] {
         for target_nf in [63, 64] {
           for scale in [1.0_f64, 1000.0] {
-            for spring in [0.0, 0.5e-4, 1e-4, 0.1] {
+            for spring in [0.0, 1e-30, 0.5e-4, 1e-4, 0.1, 1e20] {
                 let mut v = review_model(dim, 0);
                 v["elements"].as_object_mut().unwrap().remove("2");
                 v["elements"].as_object_mut().unwrap().remove("3");
@@ -1859,6 +1859,7 @@ fn issue_1846_round5_rigid_arm_rotation_subspace() {
                     assert_eq!(solve_3d(&input).is_ok(), expected == 0);
                     assert_eq!(solve_staged_3d(&stage_3d(&input)).is_ok(), expected == 0);
                     assert_eq!(dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input, 10, 1e-8).is_ok(), expected == 0);
+                    assert_eq!(dedaliano_engine::solver::corotational::solve_corotational_3d(&input, 10, 1e-8, 1, false).is_ok(), expected == 0);
                 }
             }
         }
