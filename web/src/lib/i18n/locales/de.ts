@@ -14573,6 +14573,11 @@ const de: Translations = {
   "plates.progressTitleAnalysis": "Vernetzung vor der Berechnung",
   "plates.progressTitle": "Platten werden vernetzt",
   "plates.progressUndo": "Ein Rückgängig-Schritt nimmt alles zurück.",
+  "plates.meshShort.willMesh": "Netz: {n} zu vernetzen",
+  "plates.meshShort.willMeshKept": "Netz: {n} zu vernetzen · {kept} bleiben",
+  "plates.meshShort.missing": "Netz: {n} ohne Netz",
+  "plates.meshShort.asCame": "Netz: {n} wie übernommen",
+  "plates.meshShort.ready": "Netz: {n} bereit",
 };
 
 export default de;

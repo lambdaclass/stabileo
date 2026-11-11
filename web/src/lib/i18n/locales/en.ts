@@ -14733,5 +14733,10 @@ const en: Record<string, string> = {
   "plates.progressTitleAnalysis": "Meshing before the analysis",
   "plates.progressTitle": "Meshing plates",
   "plates.progressUndo": "One undo step takes it back.",
+  "plates.meshShort.willMesh": "Mesh: {n} to mesh",
+  "plates.meshShort.willMeshKept": "Mesh: {n} to mesh · {kept} kept",
+  "plates.meshShort.missing": "Mesh: {n} without one",
+  "plates.meshShort.asCame": "Mesh: {n} as they came",
+  "plates.meshShort.ready": "Mesh: {n} ready",
 };
 export default en;

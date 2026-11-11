@@ -14573,6 +14573,11 @@ const tr: Translations = {
   "plates.progressTitleAnalysis": "Analizden önce ağ oluşturuluyor",
   "plates.progressTitle": "Plaklar ağlanıyor",
   "plates.progressUndo": "Tek bir geri alma adımıyla geri alınır.",
+  "plates.meshShort.willMesh": "Ağ: {n} ağlanacak",
+  "plates.meshShort.willMeshKept": "Ağ: {n} ağlanacak · {kept} korunur",
+  "plates.meshShort.missing": "Ağ: {n} ağsız",
+  "plates.meshShort.asCame": "Ağ: {n} geldiği gibi",
+  "plates.meshShort.ready": "Ağ: {n} hazır",
 };
 
 export default tr;

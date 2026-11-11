@@ -14374,5 +14374,10 @@ const pt: Translations = {
   "plates.progressTitleAnalysis": "Malhando antes de calcular",
   "plates.progressTitle": "Malhando placas",
   "plates.progressUndo": "Desfaz-se em um único passo.",
+  "plates.meshShort.willMesh": "Malha: {n} a malhar",
+  "plates.meshShort.willMeshKept": "Malha: {n} a malhar · {kept} mantidas",
+  "plates.meshShort.missing": "Malha: {n} sem malha",
+  "plates.meshShort.asCame": "Malha: {n} como vieram",
+  "plates.meshShort.ready": "Malha: {n} prontas",
 };
 export default pt;

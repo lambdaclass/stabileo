@@ -78,6 +78,6 @@ test('@smoke a batch meshed from its dialog shows its progress at the viewer\'s 
   const pending = Number(await page.getByTestId('analysis-mesh-state').getAttribute('data-pending'));
   expect(pending).toBeGreaterThan(0);
   expect(pending).toBeLessThanOrEqual(all - chosen);
-  await expect(page.getByTestId('analysis-mesh-state')).toHaveText(`Mesh: ${pending} of ${all} plates meshed at the analysis`);
-  await expect(page.getByTestId('analysis-mesh-kept')).toHaveText(`${all - pending} keep their mesh`);
+  await expect(page.getByTestId('analysis-mesh-state')).toHaveText(`Mesh: ${pending} to mesh · ${all - pending} kept`);
+  await expect(page.getByTestId('analysis-mesh-state')).toHaveAttribute('title', `Mesh: ${pending} of ${all} plates meshed at the analysis · ${all - pending} keep their mesh`);
 });

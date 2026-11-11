@@ -14573,6 +14573,11 @@ const fr: Translations = {
   "plates.progressTitleAnalysis": "Maillage avant le calcul",
   "plates.progressTitle": "Maillage des plaques",
   "plates.progressUndo": "Une seule annulation revient en arrière.",
+  "plates.meshShort.willMesh": "Maillage : {n} à mailler",
+  "plates.meshShort.willMeshKept": "Maillage : {n} à mailler · {kept} gardées",
+  "plates.meshShort.missing": "Maillage : {n} sans maillage",
+  "plates.meshShort.asCame": "Maillage : {n} telles que reçues",
+  "plates.meshShort.ready": "Maillage : {n} prêtes",
 };
 
 export default fr;

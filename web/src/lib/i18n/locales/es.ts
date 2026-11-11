@@ -14722,5 +14722,10 @@ const es: Record<string, string> = {
   "plates.progressTitleAnalysis": "Mallando antes de calcular",
   "plates.progressTitle": "Mallando placas",
   "plates.progressUndo": "Se deshace en un solo paso.",
+  "plates.meshShort.willMesh": "Malla: {n} a mallar",
+  "plates.meshShort.willMeshKept": "Malla: {n} a mallar · {kept} quedan",
+  "plates.meshShort.missing": "Malla: {n} sin malla",
+  "plates.meshShort.asCame": "Malla: {n} como vinieron",
+  "plates.meshShort.ready": "Malla: {n} listas",
 };
 export default es;
