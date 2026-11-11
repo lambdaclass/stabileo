@@ -1562,9 +1562,22 @@ fn issue_1846_round3_empty_stage_has_no_artificial_conditioning_warning() {
 fn review_force_components(
     expected: &serde_json::Value,
     got: &serde_json::Value,
-    _ids: &[usize],
+    ids: &[usize],
     context: &str,
 ) {
+    let mut ids = ids.to_vec();
+    assert!(!ids.is_empty(), "{context}: no expected elements");
+    ids.sort_unstable();
+    for (side, forces) in [("expected", expected), ("actual", got)] {
+        let mut actual_ids: Vec<_> = forces
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["elementId"].as_u64().unwrap() as usize)
+            .collect();
+        actual_ids.sort_unstable();
+        assert_eq!(actual_ids, ids, "{context}: {side} element IDs");
+    }
     for a in expected.as_array().unwrap() {
         let b = got
             .as_array()
@@ -1576,27 +1589,31 @@ fn review_force_components(
             ["nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd"],
             ["mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd"],
         ] {
+            let finite = |value: &serde_json::Value, field: &str| {
+                let number = value[field]
+                    .as_f64()
+                    .expect("missing or nonnumeric force component");
+                assert!(number.is_finite(), "{context}: nonfinite {field}");
+                number
+            };
             let scale = fields
                 .iter()
-                .filter_map(|field| a[*field].as_f64())
-                .map(f64::abs)
+                .map(|field| finite(a, field).abs())
                 .fold(1e-10, f64::max);
             for field in fields {
-                if let Some(x) = a[field].as_f64() {
-                    let y = b[field].as_f64().unwrap();
-                    assert!(
-                        (x - y).abs() <= 1e-9 * scale,
-                        "{context}, element {}: {field} {x} != {y}",
-                        a["elementId"]
-                    );
-                }
+                let x = finite(a, field);
+                let y = finite(b, field);
+                assert!(
+                    (x - y).abs() <= 1e-9 * scale,
+                    "{context}, element {}: {field} {x} != {y}",
+                    a["elementId"]
+                );
             }
         }
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round4_force_comparison_rejects_incomplete_components() {
     let fields = [
         "nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd", "mxStart", "mxEnd", "myStart",
@@ -1691,19 +1708,16 @@ fn round4_plastic_mechanisms(torsions: &[f64]) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round4_plastic_joint_moment_mechanisms() {
     round4_plastic_mechanisms(&[1e-5]);
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round4_plastic_hinge_soft_states() {
     round4_plastic_mechanisms(&[1e-11, 1e-15, 1e-17]);
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round4_plastic_hinge_induced_coupled_soft_state() {
     let p: PlasticInput3D =
         serde_json::from_str(include_str!("../fixtures/staged-round4-soft-hinge.json")).unwrap();
@@ -1719,7 +1733,6 @@ fn issue_1846_round4_plastic_hinge_induced_coupled_soft_state() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round4_plastic_hinge_induced_conditioning() {
     for torsion in [1e-11, 1e-13, 1e-15, 1e-17] {
         let mut p: PlasticInput3D =

@@ -470,6 +470,12 @@ fn unit_moment_scale(r: &AnalysisResults3D) -> f64 {
         .fold(0.0f64, |a, ef| a.max(ef.my_start.abs()).max(ef.my_end.abs()).max(ef.mz_start.abs()).max(ef.mz_end.abs()))
 }
 
+#[derive(Clone, Copy)]
+enum CarryState {
+    InitialElastic,
+    Hinged,
+}
+
 /// The unit-load solution of the current state, or `None` when it is a
 /// collapse mechanism. A 3D hinge frees both bending rotations, which can
 /// leave mechanisms the loads do no work on (a planar frame loaded in its
@@ -485,15 +491,21 @@ fn unit_moment_scale(r: &AnalysisResults3D) -> f64 {
 /// member: they do iff the loads do no work on the free modes (the member
 /// forces are then the unique ones, the free modes being strain-free, and
 /// the springs carry nothing); otherwise the state is a collapse mechanism.
-fn carry(input: &SolverInput3D) -> Result<Option<AnalysisResults3D>, String> {
-    let elastic = super::super::stability::of_3d(input)?;
-    if elastic.verdict == super::super::stability::Verdict::Singular
-        && elastic.reason != super::super::stability::Reason::Conditioning
-    {
-        return Err(elastic.refusal().unwrap());
+fn carry(input: &SolverInput3D, state: CarryState) -> Result<Option<AnalysisResults3D>, String> {
+    if matches!(state, CarryState::InitialElastic) {
+        let elastic = super::super::stability::of_3d(input)?;
+        if elastic.verdict == super::super::stability::Verdict::Singular
+            && elastic.reason != super::super::stability::Reason::Conditioning
+        {
+            return Err(elastic.refusal().unwrap());
+        }
     }
     if super::super::kinematic::analyze_kinematics_3d(input).is_solvable {
-        return super::super::linear::solve_3d(input).map(Some);
+        let solved = super::super::linear::solve_3d(input);
+        return match state {
+            CarryState::InitialElastic => solved.map(Some),
+            CarryState::Hinged => crate::known_issues::optional_solve(solved),
+        };
     }
     if !input.constraints.is_empty() || !input.connectors.is_empty() {
         return Err("plastic 3D cannot certify a soft-spring hinge state with constraints or connectors: the member-force balance check does not include their forces".into());
@@ -693,7 +705,7 @@ fn rotation_coupled_nodes(input: &SolverInput3D) -> HashSet<usize> {
 }
 
 fn mechanism(input: &SolverInput3D) -> Result<bool, String> {
-    Ok(carry(input)?.is_none())
+    Ok(carry(input, CarryState::Hinged)?.is_none())
 }
 
 /// Solve 3D plastic analysis (event-to-event incremental method).
@@ -848,7 +860,8 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
         let entry_records = all_hinges.clone();
         let results = loop {
             let fresh = visited.insert(hinges.iter().map(|h| h.active).collect());
-            let state = carry(&current_input)?;
+            let carry_state = if step == 0 { CarryState::InitialElastic } else { CarryState::Hinged };
+            let state = carry(&current_input, carry_state)?;
             if state.is_none() {
                 if !fresh {
                     break None;
@@ -888,7 +901,7 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
                     }
                     let (mi, t) = (hinges[hi].member, hinges[hi].t);
                     set_hinge(&mut current_input, &members[mi], t, false);
-                    if let Some(r) = carry(&current_input)? {
+                    if let Some(r) = carry(&current_input, CarryState::Hinged)? {
                         let by_id: HashMap<usize, &ElementForces3D> = r.element_forces.iter().map(|ef| (ef.element_id, ef)).collect();
                         let m = &members[mi];
                         let mu = m.diagram(m.unit_vals(&by_id), 1.0, &current_input).at(t);
@@ -1431,13 +1444,12 @@ mod tests {
                 e.release_t_end = true;
             }
             assert!(!crate::solver::kinematic::analyze_kinematics_3d(&model).is_solvable);
-            let error = carry(&model).unwrap_err();
+            let error = carry(&model, CarryState::Hinged).unwrap_err();
             assert!(error.starts_with("plastic 3D cannot certify a soft-spring hinge state with constraints or connectors"), "{error}");
         }
     }
 
     #[test]
-    #[ignore = "known wrong result: #1846"]
     fn staged_round4_hinge_states_are_collapse_not_elastic_refusals() {
         let p: PlasticInput3D = serde_json::from_str(include_str!(
             "../../tests/fixtures/staged-round4-plastic.json"
@@ -1467,7 +1479,7 @@ mod tests {
             e.release_my_end = true;
             e.release_mz_end = true;
             let hinged = crate::solver::stability::of_3d(&model).unwrap();
-            let result = carry(&model);
+            let result = carry(&model, CarryState::Hinged);
             eprintln!(
                 "torsion={torsion}, oblique={oblique}, hinged={hinged:?}, carry={:?}",
                 result.as_ref().map(|x| x.is_some())
@@ -1481,7 +1493,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1846"]
     fn staged_round4_hinge_induced_coupled_soft_state() {
         let p: PlasticInput3D = serde_json::from_str(include_str!(
             "../../tests/fixtures/staged-round4-soft-hinge.json"
@@ -1501,8 +1512,9 @@ mod tests {
             crate::solver::stability::Reason::CoupledSoftDirection,
             "{hinged:?}"
         );
-        assert!(carry(&model).unwrap().is_none());
+        assert!(carry(&model, CarryState::Hinged).unwrap().is_none());
     }
+
     #[test]
     fn an_error_on_one_step_refuses_the_collapse_factor() {
         let solver: SolverInput3D = serde_json::from_value(serde_json::json!({

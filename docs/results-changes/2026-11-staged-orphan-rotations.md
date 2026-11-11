@@ -82,8 +82,11 @@ correction. The WASM comparison now requires every displacement component for th
 selected dimension to be a finite number before checking the existing tolerance.
 
 Second review of PR #1943 corrects inactive DOF handling in genuine multi-stage
-and partially constrained models. Loads applied before a member is erected are
-refused rather than carried by artificial springs. An unconnected support with
+and partially constrained models. Nonzero reduced loads on free inactive DOFs
+are refused rather than carried by artificial springs. This does not validate
+premature member or shell loads, out-of-range load indices, loads that reduce to
+zero through constraints, or prestress on inactive elements. Those cases retain
+their pre-existing behavior. An unconnected support with
 settlement produces zero stiffness reaction. Positive one-direction springs keep
 their physical response without stiffening their unloaded transverse directions.
 Sparse stages use the assembler's free matrix directly, avoiding a second
@@ -111,6 +114,13 @@ regression target is now an explicit step of the CI WASM job.
 
 The additional `staged-free-stiffness` registry entry covers these review changes
 conservatively for members, shells, constraints, springs and settlements. This
-broader entry is necessary because unsupported loads on future members and the
-solution accuracy checks can affect unreleased frames too. The original
+broader entry is necessary because loads on free inactive DOFs and the solution
+accuracy checks can affect unreleased frames too. The original
 `staged-orphan-rotations` entry retains its release/spring/mixed-member scope.
+
+Final review retains the sparse 2D assembler's inclined-support transforms with
+its stiffness and uses those same transforms when rebuilding cumulative loads
+for reaction recovery. Internal tests compare dense and sparse reactions and
+global force/moment equilibrium for nodal loads and independent prestress
+equivalents. Public staged inclined-support refusals remain in place in both
+dimensions; this correction enables no new public support configuration.

@@ -277,13 +277,11 @@ fn round4_reaction_check(prestress_only: bool) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn staged_round4_sparse_cumulative_nodal_reactions_keep_inclined_basis() {
     round4_reaction_check(false);
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn staged_round4_sparse_cumulative_prestress_reactions_keep_inclined_basis() {
     round4_reaction_check(true);
 }

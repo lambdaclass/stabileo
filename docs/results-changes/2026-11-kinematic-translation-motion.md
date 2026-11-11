@@ -11,7 +11,8 @@ mechanism as stable, with no mechanism nodes or unconstrained DOFs.
 
 Kinematic solvability distinguishes geometric mechanisms from numerical
 elastic refusals. A zero-mode `ConstraintRounding` or `CoupledSoftDirection`
-result now reaches the regular linear solver, which retains its refusal.
+result in the initial elastic model now reaches the regular linear solver,
+which retains its refusal.
 This prevents the unmerged branch's plastic 3D path from accepting an
 unverified elastic state through its soft-spring mechanism fallback. Rigid-
 plastic limit analysis can normalize elastic stiffness before solving, as on
@@ -38,3 +39,14 @@ nodes on both sides and run in the required CI scripts job.
 Pre-existing construction load validation, cumulative 2D prestress reactions
 and the web 2D rotational-support mirror are outside this round's repair
 scope. This change does not claim to correct them.
+
+Final review limits the elastic refusal policy to the initial 3D plastic state.
+Later hinge states again use main's existing mechanism classification: ordinary
+linear failures caused by yielded rotations or hinge-induced soft/ill-conditioned
+stiffness can signal collapse, while structured containment refusals still
+propagate. Raw and certified plastic entry points share this state-aware carry
+path. The portal loaded by a joint moment and a propped-beam equivalent now
+collapse as on main instead of aborting after the first hinges. Native and WASM
+regressions cover these mechanisms, hinge-induced conditioning and coupled-soft
+states, resolvable controls, and the unchanged initial elastic refusals. No
+refusal threshold or tolerance changed.

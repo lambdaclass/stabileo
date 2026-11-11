@@ -493,6 +493,7 @@ fn assemble_staged_2d(
 }
 
 struct StagedTriplets2D {
+    inclined_transforms_2d: Vec<super::assembly::InclinedTransformData2D>,
     k_ff: CscMatrix,
     rows: Vec<usize>,
     cols: Vec<usize>,
@@ -510,7 +511,7 @@ impl StagedTriplets2D {
         u: &[f64],
     ) -> Vec<f64> {
         let loads = stage_loads_2d(input, stage);
-        let f = super::assembly::assemble_load_vector_2d(input, &loads, dof, &[]);
+        let f = super::assembly::assemble_load_vector_2d(input, &loads, dof, &self.inclined_transforms_2d);
         compute_stage_reactions_sparse(k_full, &f, dof.n_free, dof.n_total - dof.n_free, u)
     }
 }
@@ -538,7 +539,7 @@ fn assemble_staged_2d_triplets(
     let loads = stage_loads_2d(stage_input, stage);
     let f = super::assembly::assemble_load_vector_2d(stage_input, &loads, dof_num, &stiff.inclined_transforms_2d);
     let (rows, cols, vals) = full_triplets(&stiff.k_full);
-    StagedTriplets2D { k_ff: stiff.k_ff, rows, cols, vals, f }
+    StagedTriplets2D { inclined_transforms_2d: stiff.inclined_transforms_2d, k_ff: stiff.k_ff, rows, cols, vals, f }
 }
 
 /// Build AnalysisResults from cumulative displacements.
