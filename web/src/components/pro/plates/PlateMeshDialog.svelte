@@ -11,12 +11,14 @@
   import { onDestroy, untrack } from 'svelte';
   import { uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
-  import { applyPlateMeshes, planPlateMeshes, plateEntry, type PlateMeshPlan } from '../../../lib/store/physical-plates';
-  import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
+  import { applyPlateMeshes, planPlateMeshes, plateEntry, plateSides, type PlateMeshPlan } from '../../../lib/store/physical-plates';
+  import { modelStore } from '../../../lib/store';
+  import { unitQ } from '../../../lib/store/display-units.svelte';
   import { DEFAULT_PLATE_MESH, POOR_MIN_ANGLE } from '../../../lib/model/physical/plate';
   import QuantityInput from '../loads/QuantityInput.svelte';
   import { portal } from '../../../lib/utils/portal';
   import { meshSizeText } from './plate-state';
+  import { significantNumber } from '../../../lib/utils/unit-format';
 
   let { ids, onclose }: { ids: number[]; onclose: () => void } = $props();
 
@@ -70,7 +72,7 @@
     const tri = p.mesh.cells.filter((c) => c.length === 3).length;
     if (p.spec.element === 'tri') return t('plates.meshKind.tri');
     if (p.grid) {
-      const sides = { a: fmtQ(p.grid.cellA, 'length'), b: fmtQ(p.grid.cellB, 'length'), unit: unitQ('length') };
+      const sides = { a: significantNumber(p.grid.cellA, 'length', uiStore.unitSystem, 3), b: significantNumber(p.grid.cellB, 'length', uiStore.unitSystem, 3), unit: unitQ('length') };
       const cells = Math.abs(p.grid.cellA - p.grid.cellB) < 1e-9 ? tp('plates.meshKind.squares', { n: p.grid.gridCells, ...sides }) : tp('plates.meshKind.rectangles', { n: p.grid.gridCells, ...sides });
       return p.grid.bandCells ? `${cells} ${tp('plates.meshKind.band', { n: p.grid.bandCells, tri: tri })}` : cells;
     }
@@ -78,19 +80,32 @@
     return tri ? tp('plates.meshKind.mixed', { n: tri }) : t('plates.meshKind.fromTriangles');
   };
 
-  // Flat drawing of a single plate's planned mesh.
-  const W = 300, H = 200, PAD = 8;
+  // Flat drawing of a single plate's planned mesh, with the directions of sides a and b and the plate's first side.
+  const W = 360, H = 240, PAD = 26;
   const drawing = $derived.by(() => {
     const p = plans?.length === 1 ? plans[0] : null;
     if (!p?.mesh || p.mesh.cells.length > 8000) return null;
     const { o, u, v } = p.mesh.plane;
-    const uv = p.mesh.points.map((q) => { const d = [q[0] - o[0], q[1] - o[1], q[2] - o[2]]; return [d[0]! * u[0] + d[1]! * u[1] + d[2]! * u[2], d[0]! * v[0] + d[1]! * v[1] + d[2]! * v[2]]; });
-    const xs = uv.map((q) => q[0]!), ys = uv.map((q) => q[1]!);
+    const proj = (q: readonly number[]) => { const d = [q[0]! - o[0], q[1]! - o[1], q[2]! - o[2]]; return [d[0]! * u[0] + d[1]! * u[1] + d[2]! * u[2], d[0]! * v[0] + d[1]! * v[1] + d[2]! * v[2]] as [number, number]; };
+    const uv = p.mesh.points.map(proj);
+    const xs = uv.map((q) => q[0]), ys = uv.map((q) => q[1]);
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
     const k = Math.min((W - 2 * PAD) / Math.max(x1 - x0, 1e-9), (H - 2 * PAD) / Math.max(y1 - y0, 1e-9));
     const sx = (x: number) => PAD + (x - x0) * k, sy = (y: number) => H - PAD - (y - y0) * k;
-    return p.mesh.cells.map((c) => c.map((i) => `${sx(uv[i]![0]!).toFixed(1)},${sy(uv[i]![1]!).toFixed(1)}`).join(' '));
+    const cells = p.mesh.cells.map((c) => c.map((i) => `${sx(uv[i]![0]).toFixed(1)},${sy(uv[i]![1]).toFixed(1)}`).join(' '));
+    let axes: { ax: number; ay: number; bx: number; by: number } | null = null;
+    if (gridOn && p.aDir && p.bDir) {
+      // On screen y grows down.
+      const on = (d: readonly number[]) => { const x = d[0]! * u[0] + d[1]! * u[1] + d[2]! * u[2], y = d[0]! * v[0] + d[1]! * v[1] + d[2]! * v[2]; const l = Math.hypot(x, y) || 1; return [x / l, -y / l] as const; };
+      const [ax, ay] = on(p.aDir), [bx, by] = on(p.bDir);
+      axes = { ax, ay, bx, by };
+    }
+    const side = plateSides(p.id)[0];
+    const na = side && modelStore.nodes.get(side.from), nb = side && modelStore.nodes.get(side.to);
+    const first = na && nb ? [proj([na.x, na.y, na.z ?? 0]), proj([nb.x, nb.y, nb.z ?? 0])].map(([x, y]) => [sx(x), sy(y)] as const) : null;
+    return { cells, axes, first, origin: [sx(x0), sy(y0)] as const };
   });
+  const totalSize = $derived(gridOn && pattern === 'rect' ? `${significantNumber(size, 'length', uiStore.unitSystem, 3)} × ${meshSizeText(sizeV)}` : meshSizeText(size));
 </script>
 
 <svelte:window onkeydown={(e) => { if (e.key === 'Escape') onclose(); }} />
@@ -165,11 +180,25 @@
           {/each}
         </tbody>
       </table>
-      <p class="pmd-hint">{tp('plates.planTotalOnly', { cells: totals.cells, size: meshSizeText(size) })}</p>
+      <p class="pmd-hint">{tp('plates.planTotalOnly', { cells: totals.cells, size: totalSize })}</p>
       {#if ok.some((p) => (p.quality?.poor ?? 0) > 0)}<Hint text={tp('plates.qualityHint', { angle: POOR_MIN_ANGLE })} />{/if}
       {#if drawing}
-        <svg class="pmd-svg" viewBox="0 0 {W} {H}" width={W} height={H} aria-hidden="true">
-          {#each drawing as pts, i (i)}<polygon points={pts} />{/each}
+        <svg class="pmd-svg" viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={t('plates.drawingLabel')} data-testid="plate-mesh-drawing">
+          {#each drawing.cells as pts, i (i)}<polygon points={pts} />{/each}
+          {#if drawing.first && (!gridOn || orient === 'plate')}
+            <line class="pmd-first" x1={drawing.first[0]![0]} y1={drawing.first[0]![1]} x2={drawing.first[1]![0]} y2={drawing.first[1]![1]} />
+            <text class="pmd-tag" x={(drawing.first[0]![0] + drawing.first[1]![0]) / 2} y={(drawing.first[0]![1] + drawing.first[1]![1]) / 2 + 14} text-anchor="middle" data-testid="plate-mesh-first-side">{t('plates.firstSide')}</text>
+          {/if}
+          {#if drawing.axes}
+            {@const [ox, oy] = [drawing.origin[0] - 14, drawing.origin[1] + 14]}
+            <g class="pmd-axes" data-testid="plate-mesh-axes">
+              <line x1={ox} y1={oy} x2={ox + drawing.axes.ax * 34} y2={oy + drawing.axes.ay * 34} marker-end="url(#pmd-arrow)" />
+              <line x1={ox} y1={oy} x2={ox + drawing.axes.bx * 34} y2={oy + drawing.axes.by * 34} marker-end="url(#pmd-arrow)" />
+              <text x={ox + drawing.axes.ax * 56} y={oy + drawing.axes.ay * 56 + 4} text-anchor="middle">a (u)</text>
+              <text x={ox + drawing.axes.bx * 50} y={oy + drawing.axes.by * 50 - 2} text-anchor="middle">b (v)</text>
+            </g>
+          {/if}
+          <defs><marker id="pmd-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" /></marker></defs>
         </svg>
       {/if}
     {/if}
@@ -206,7 +235,12 @@
   .pmd-table tr.refused td { color: var(--st-danger, #e06c6c); }
   .pmd-table td.warn, .pmd-note td { color: var(--st-warn, #d9a441); }
   .pmd-svg { background: var(--st-ink); border: 1px solid var(--st-hair); border-radius: var(--st-radius); align-self: center; }
+  .pmd-svg { overflow: visible; }
   .pmd-svg polygon { fill: rgba(78, 205, 196, 0.12); stroke: var(--st-accent); stroke-width: 0.6; }
+  .pmd-first { stroke: var(--st-text); stroke-width: 2.5; }
+  .pmd-tag, .pmd-axes text { fill: var(--st-text); font-size: 10px; }
+  .pmd-axes line { stroke: var(--st-text); stroke-width: 1.4; }
+  .pmd-svg marker path { fill: var(--st-text); }
   .pmd-msg { margin: 0; color: var(--st-text); }
   .pmd-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .pmd-btn { padding: 4px 12px; background: var(--st-surface-3); color: var(--st-text-2); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); font: inherit; cursor: pointer; }

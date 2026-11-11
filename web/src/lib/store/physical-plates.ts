@@ -30,6 +30,7 @@ import { pieceOf } from '../model/curve-entity';
 import type { Vec3 } from '../model/edit/affine';
 import { generateMesh, MAX_MESH_CELLS, type MeshOutput } from '../model/edit/mesher';
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
+import { rectGrid } from '../model/edit/rect-grid';
 import { applyMesh } from '../model/edit/mesh-apply';
 import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef, syncDefinedLoads } from './defined-loads';
@@ -37,7 +38,7 @@ import { constraintNodes } from '../engine/steel/unbraced-length';
 import { meshBeforeAnalysis } from './mesh-policy.svelte';
 export { meshBeforeAnalysis };
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
-import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes, type ColumnFootprint } from '../model/building/column-footprints';
+import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes, type ColumnFootprint, type FootprintCells } from '../model/building/column-footprints';
 import { designData } from './design-data';
 import { tributaryAreas } from '../engine/foundation-springs';
 import type { ModelGroup, SurfaceLoad3D } from './model.svelte';
@@ -395,11 +396,26 @@ export function setPlateHoles(id: number, holes: number[][]): PlateProblem | nul
   const loops = plateLoops(e.group);
   // The outline's curved sides stay; a hole is straight-sided when replaced this way.
   const outerArcs = (e.surface.arcMids ?? []).filter((k) => k < loops.outer.length);
-  const problem = plateProblem(plateModel(), loops.outer, holes, outerArcs);
+  return setPlateLoops(id, loops.outer, holes, outerArcs);
+}
+
+/**
+ * Replace a plate's outline and holes (node loops, `arcMids` the outline's curved-side points);
+ * one undo step. The plate's own holes are then its openings: a wall's openings as placed are dropped.
+ */
+export function setPlateLoops(id: number, outer: number[], holes: number[][], arcMids: number[] = []): PlateProblem | null {
+  const e = plateEntry(id);
+  if (!e) return 'needNodes';
+  const problem = plateProblem(plateModel(), outer, holes, arcMids);
   if (problem) return problem;
+  const loops = plateLoops(e.group);
+  const inLoops = new Set([...outer, ...holes.flat()]);
   modelStore.batch(() => {
-    modelStore.setGroupMembers(id, { ...e.group.members, nodes: [...loops.outer, ...holes.flat(), ...loops.owned] });
-    writeSurface(id, (s) => ({ ...s, loops: [loops.outer.length, ...holes.map((h) => h.length)], ...(outerArcs.length ? { arcMids: outerArcs } : { arcMids: undefined }) }));
+    modelStore.setGroupMembers(id, { ...e.group.members, nodes: [...outer, ...holes.flat(), ...loops.owned.filter((n) => !inLoops.has(n))] });
+    const g = modelStore.model.groups.get(id)!;
+    const d = physicalDataOf(g);
+    if (d && 'openings' in d) { const { openings: _gone, ...rest } = d as PhysicalData & { openings?: unknown }; modelStore.setGroupData(id, rest as unknown as Record<string, unknown>); }
+    writeSurface(id, (s) => ({ ...s, loops: [outer.length, ...holes.map((h) => h.length)], ...(arcMids.length ? { arcMids: [...arcMids].sort((x, y) => x - y) } : { arcMids: undefined }) }));
   });
   return null;
 }
@@ -493,6 +509,9 @@ export interface PlateMeshPlan {
   mixed: boolean;
   /** A grid's mesh: its rectangles, the strip along the boundary, and the rectangles' sides as they came out. */
   grid?: { gridCells: number; bandCells: number; cellA: number; cellB: number };
+  /** The directions sides a (u) and b (v) of a grid's cells run along. */
+  aDir?: Vec3;
+  bDir?: Vec3;
   /** The column sections a slab's mesh represents (`footprintsOf`). */
   footprints?: { columns: ColumnFootprint[]; z: number };
 }
@@ -594,15 +613,19 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
   const input = plateMeshInput(f.geo, spec, f.features);
   const signature = signatureOf(e, f, spec);
   const fp = footprintsOf(e, f.geo);
-  const fpMesh = fp ? footprintGrid(fp.corners, spec.size, fp.columns) : null;
-  if (fp && fpMesh) {
+  const grid = gridOfSpec(spec);
+  const fpCells = fp ? footprintCells(spec, grid, f.geo.frame) : null;
+  const fpMesh = fp && fpCells ? footprintGrid(fp.corners, fpCells.cells, fp.columns) : null;
+  if (fp && fpCells && fpMesh) {
     if (fpMesh.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: fpMesh.cells.length, quality: null, signature, input, mixed: false };
-    return { ...base, mesh: fpMesh, cells: fpMesh.cells.length, quality: meshQuality(fpMesh), signature, input, mixed: false, footprints: { columns: fp.columns, z: fp.z } };
+    return {
+      ...base, mesh: fpMesh, cells: fpMesh.cells.length, quality: meshQuality(fpMesh), signature, input, mixed: false, footprints: { columns: fp.columns, z: fp.z }, aDir: fpCells.aDir, bDir: fpCells.bDir,
+      ...(grid ? { grid: { gridCells: fpMesh.cells.length, bandCells: 0, cellA: grid.a, cellB: grid.b } } : {}),
+    };
   }
   // A plate far past the cap would be a long wait for a refusal: estimate from the area first.
   const estimate = plateAreaEstimate(f.geo, spec);
   if (estimate > MAX_MESH_CELLS * 1.5) return { ...base, mesh: null, refused: 'tooManyCells', cells: Math.round(estimate), quality: null, signature, input, mixed: false };
-  const grid = gridOfSpec(spec);
   if (grid) {
     const frame = grid.orient === 'globalX' ? frameAlong(f.geo.frame, [1, 0, 0]) : f.geo.frame;
     const g = gridMesh({
@@ -612,12 +635,55 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
     if (!g) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
     if (g.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: g.cells.length, quality: null, signature, input, mixed: false };
     const { gridCells, bandCells, cellA, cellB, ...mesh } = g;
-    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: bandCells > 0, grid: { gridCells, bandCells, cellA, cellB } };
+    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: bandCells > 0, grid: { gridCells, bandCells, cellA, cellB }, aDir: frame.u, bDir: frame.v };
   }
-  const mesh = generateMesh(input);
+  const general = generateMesh(input);
+  const mesh = general?.structured ? general : rectGridOf(f.geo, spec, f.features) ?? general;
   if (!mesh) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
   if (mesh.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: mesh.cells.length, quality: null, signature, input, mixed: false };
   return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: spec.element === 'quad' && !mesh.structured };
+}
+
+/**
+ * Rectangles for a plate whose sides run along its frame (an L, a notch, rectangular holes such as
+ * a wall's openings), where the general mesher would give distorted quadrilaterals around them.
+ * Null where a neighbour's mesh meets a side at points the grid does not have: its nodes would hang.
+ */
+function rectGridOf(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: PlateMeshSpec, features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null): MeshOutput | null {
+  const g = rectGrid({
+    frame: geo.frame, outer: geo.outer, holes: geo.holes, a: spec.size, b: spec.size, element: spec.element, maxCells: MAX_MESH_CELLS,
+    fixedPoints: features?.points ?? [], fixedSegments: spec.followMembers && features ? features.segments : [],
+  });
+  if (!g) return null;
+  const key = (p: readonly number[]) => `${Math.round(p[0]! * 1e4)},${Math.round(p[1]! * 1e4)},${Math.round(p[2]! * 1e4)}`;
+  const loops = [geo.outer, ...geo.holes];
+  const sideOf = (p: Vec3) => {
+    for (const l of loops) for (let i = 0; i < l.length; i++) {
+      const a = l[i]!, b = l[(i + 1) % l.length]!, ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+      const L2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
+      const t = ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1] + (p[2] - a[2]) * ab[2]) / L2;
+      if (t <= 1e-9 || t >= 1 - 1e-9) continue;
+      if (Math.hypot(p[0] - a[0] - ab[0] * t, p[1] - a[1] - ab[1] * t, p[2] - a[2] - ab[2] * t) < 1e-4) return `${loops.indexOf(l)}:${i}`;
+    }
+    return null;
+  };
+  const met = new Map<string, Set<string>>();
+  for (const p of features?.points ?? []) { const s = sideOf(p); if (s) (met.get(s) ?? met.set(s, new Set()).get(s)!).add(key(p)); }
+  for (const i of g.boundary) {
+    const p = g.points[i]!, s = sideOf(p);
+    if (s && met.has(s) && !met.get(s)!.has(key(p))) return null;
+  }
+  return g;
+}
+
+/**
+ * A slab panel with column footprints meshes on an axis-aligned grid: side a goes along X or Y,
+ * whichever the plate's first side (or global X) is closer to.
+ */
+function footprintCells(spec: PlateMeshSpec, grid: ReturnType<typeof gridOfSpec>, frame: { u: Vec3 }): { cells: FootprintCells; aDir: Vec3; bDir: Vec3 } {
+  const alongX = (grid?.orient ?? 'plate') === 'globalX' || Math.abs(frame.u[0]) >= Math.abs(frame.u[1]);
+  const a = grid?.a ?? spec.size, b = grid?.b ?? spec.size;
+  return { cells: { ax: alongX ? a : b, ay: alongX ? b : a, element: spec.element }, aDir: alongX ? [1, 0, 0] : [0, 1, 0], bDir: alongX ? [0, 1, 0] : [1, 0, 0] };
 }
 
 function plateAreaEstimate(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: PlateMeshSpec): number {

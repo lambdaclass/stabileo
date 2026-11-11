@@ -45,6 +45,7 @@ import {
   get2DDisplayNodalLoadMoment,
   get2DDisplayNodalLoadVertical,
   getCachedProjectModelToXZ,
+  GRAVITY_VECTOR_3D,
   projectNodeToScene,
   shouldProjectModelToXZ,
 } from '../geometry/coordinate-system';
@@ -621,20 +622,19 @@ function syncShellsNow(ctx: SceneSyncContext): void {
     const key = `P${pl.id}`;
     const geo = plateGeometry(modelStore, pl.group);
     if (!geo) continue;
-    const loops = plateLoops(pl.group);
-    const scene = (ids: number[]) => ids.map((nid) => getNode(nid));
-    const outer = scene(loops.outer), holes = loops.holes.map(scene);
-    if (outer.some((n) => !n) || holes.some((h) => h.some((n) => !n))) continue;
+    // The outline as drawn, its curved sides sampled: the face is triangulated over these very points.
+    const toScene = (l: Array<[number, number, number]>) => l.map(([x, y, z]) => ({ x, y, z }));
+    const outer = toScene(geo.outer), holes = geo.holes.map(toScene);
     const f = geo.frame;
     const uv = (p: [number, number, number]): [number, number] => {
       const d = [p[0] - f.o[0], p[1] - f.o[1], p[2] - f.o[2]];
       return [d[0]! * f.u[0] + d[1]! * f.u[1] + d[2]! * f.u[2], d[0]! * f.v[0] + d[1]! * f.v[1] + d[2]! * f.v[2]];
     };
-    const signature = `${renderMode}|${pl.surface.materialId}|${pl.surface.thickness}|` + [outer, ...holes].map((l) => l.map((n) => `${n!.x}:${n!.y}:${n!.z}`).join(';')).join('|');
+    const signature = `${renderMode}|${pl.surface.materialId}|${pl.surface.thickness}|` + [outer, ...holes].map((l) => l.map((n) => `${n.x}:${n.y}:${n.z}`).join(';')).join('|');
     const existing = ctx.shellGroups.get(key);
     if (existing && existing.userData.shellSig === signature) { seen.add(key); continue; }
     if (existing) { ctx.shellsParent.remove(existing); disposeObject(existing); }
-    const group = createPhysicalPlateMesh(outer as Array<{ x: number; y: number; z: number }>, holes as Array<Array<{ x: number; y: number; z: number }>>,
+    const group = createPhysicalPlateMesh(outer, holes,
       { outer: geo.outer.map(uv), holes: geo.holes.map((h) => h.map(uv)) }, pl.id, { renderMode, faceColor: shellColorForMaterial(pl.surface.materialId), thickness: pl.surface.thickness });
     group.userData.shellSig = signature;
     ctx.shellsParent.add(group);
@@ -877,7 +877,6 @@ export function syncLoads(ctx: SceneSyncContext): void {
   const pieceLoads = new Map<string, { plate: number; q: number; color: number; ids: number[] }>();
   if (platesAsPieces()) {
     for (const p of physicalPlates()) {
-      if (plateLoops(p.group).outer.length !== 4) continue;
       const keys = [...(p.group.members.quads ?? []).map((q) => `q${q}`), ...(p.group.members.plates ?? []).map((q) => `p${q}`)];
       if (keys.length > 1) for (const k of keys) pieceOf.set(k, p.id);
     }
@@ -1177,10 +1176,14 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // stamped per object inside build() — no traverse needed.
   for (const e of pieceLoads.values()) {
     const g = modelStore.model.groups.get(e.plate);
-    const corners = g ? plateLoops(g).outer.map((n) => modelStore.nodes.get(n)) : [];
-    if (corners.length !== 4 || corners.some((n) => !n)) continue;
+    const geo = g ? plateGeometry(modelStore, g) : null;
+    if (!geo) continue;
+    const scene = (l: Array<[number, number, number]>) => l.map(([x, y, z]) => projectNodeToScene({ id: 0, x, y, z } as never, project2D) as { x: number; y: number; z: number });
+    // A floor's load acts down; a wall's acts along the normal its shells are loaded on.
+    const flat = Math.abs(geo.frame.n[2]) > 1 - 1e-6;
+    const dir = flat ? GRAVITY_VECTOR_3D.clone() : new THREE.Vector3(-geo.frame.n[0], -geo.frame.n[1], -geo.frame.n[2]);
     batch.own(e.ids[0]!, selected.size === 0 ? null : e.ids.some((id) => selected.has(id)) ? COLORS.nodeSelected : LOAD_DIMMED);
-    batch.addSurfaceLoad(corners.map((n) => projectNodeToScene(n as never, project2D)) as Array<{ x: number; y: number; z: number }>, e.q, maxQ, e.color);
+    batch.addPlateLoad(scene(geo.outer), geo.holes.map(scene), e.q, maxQ, dir, e.color);
   }
   loadGrp.add(batch.build());
   ctx.loadFootprints = batch.footprints;

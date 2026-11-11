@@ -104,3 +104,30 @@ describe('a large floor while it is modelled', () => {
     expect([...ctx.shellGroups.keys()]).toEqual([`q${picked.id}`]);
   });
 });
+
+describe('a plate waiting for its mesh, with a curved side', () => {
+  beforeEach(() => { modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro'; uiStore.renderMode3D = 'solid'; });
+
+  it('is drawn over its arc: every triangle indexes a point of the sampled outline', async () => {
+    const { createPlate } = await import('../../store/physical-plates');
+    const { setPlateSideSagitta } = await import('../../store/plate-shape');
+    const ids = [[0, 0], [6, 0], [6, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+    const made = createPlate({ outline: ids, materialId: 1, thickness: 0.2 });
+    expect('id' in made).toBe(true);
+    const id = (made as { id: number }).id;
+    expect(setPlateSideSagitta(id, 0, 0.8)).toBeNull();
+    const ctx = makeCtx();
+    syncShells(ctx);
+    const group = ctx.shellGroups.get(`P${id}`)!;
+    expect(group).toBeDefined();
+    let face: THREE.Mesh | null = null;
+    group.traverse((c) => { if (c instanceof THREE.Mesh && c.userData?.shellFace) face = c; });
+    const geo = (face as unknown as THREE.Mesh).geometry;
+    const count = geo.getAttribute('position').count;
+    const index = [...(geo.getIndex()?.array ?? [])];
+    expect(count).toBeGreaterThan(5);
+    expect(Math.max(...index)).toBeLessThan(count);
+    geo.computeBoundingBox();
+    expect(geo.boundingBox!.min.y).toBeCloseTo(-0.8, 3);
+  });
+});

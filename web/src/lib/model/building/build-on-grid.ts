@@ -20,6 +20,7 @@ import { PHYSICAL_GROUP_KIND } from '../physical/types';
 import { computeLocalAxes3D, memberRoll } from '../../engine/local-axes-3d';
 import { declare, nextName } from './declare';
 import { platesFromShells } from '../../store/plates-from-shells';
+import { clearPlateMesh } from '../../store/physical-plates';
 
 export interface PlaceResult { created: number; elements: number; shells: number; refused?: string }
 
@@ -239,6 +240,8 @@ function meshPanel(corners: Vec3[], holes: Vec3[][], o: { size: number; material
 export function placeWall(g: StructuralGrid, o: {
   axis: string; from: string; to: string; levelFrom: string; levelTo: string;
   thickness: number; materialId: number; meshSize: number; typology?: string; openings?: WallOpening[];
+  /** The plates wait for the analysis to mesh them, as slabs do, rather than keeping the mesh made to place them. */
+  meshAtSolve?: boolean;
 }): PlaceResult {
   const a = g.axes.find((x) => x.id === o.axis);
   const p = g.axes.find((x) => x.id === o.from), q = g.axes.find((x) => x.id === o.to);
@@ -278,7 +281,8 @@ export function placeWall(g: StructuralGrid, o: {
         ...(o.typology ? { typology: o.typology } : {}),
         ...(openings.length ? { openings: openings.map((w) => ({ offset: w.offset, width: w.width, sill: w.sill, height: w.height })) } : {}),
       });
-      platesFromShells([...r.quads.map((q) => `q${q}`), ...r.plates.map((q) => `p${q}`)], { size: o.meshSize });
+      const made = platesFromShells([...r.quads.map((q) => `q${q}`), ...r.plates.map((q) => `p${q}`)], { size: o.meshSize });
+      if (o.meshAtSolve) { for (const id of made) clearPlateMesh(id); shells -= r.quads.length + r.plates.length; }
     }
   });
   return { created, elements: 0, shells, ...(refused ? { refused } : {}) };

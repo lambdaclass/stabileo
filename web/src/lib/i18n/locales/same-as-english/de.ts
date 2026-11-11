@@ -347,6 +347,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'plan.found.name',
   'plan.found.size',
   'plan.steel.param',
+  'plates.circle.radius',
   'plates.element',
   'plates.max',
   'plates.min',

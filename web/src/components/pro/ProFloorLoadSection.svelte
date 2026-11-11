@@ -18,11 +18,15 @@
   import { addFloorLoadDef, removeFloorLoadDef, expandDefinitions } from '../../lib/store/defined-loads';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import { physicalGroups } from '../../lib/store/physical';
+  import { floorLoadRequest } from '../../lib/store/floor-load-request.svelte';
+  import { plateLoadDef, plateEntry } from '../../lib/store/physical-plates';
 
   const floorGroups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'floor' && (g.members.elements?.length ?? 0) > 0));
   const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
-  /** The slabs placed or recognised (`model/physical`): a load on one goes onto its shells. */
-  const slabs = $derived(physicalGroups().filter((g) => g.physical.kind === 'slab' && ((g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0 || !!plateSurfaceOf(g))));
+  /** The slabs and walls placed or recognised (`model/physical`): a load on one goes onto its shells, normal to a wall. */
+  const slabs = $derived(physicalGroups().filter((g) => (g.physical.kind === 'slab' || g.physical.kind === 'wall') && ((g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0 || !!plateSurfaceOf(g))));
+  /** The plates selected whole: one definition each, so every one follows its own plate. */
+  const pickedPlates = $derived([...uiStore.selectedPlates].filter((id) => !!plateEntry(id)));
   /** The levels to offer: the grid's, or else every elevation that has horizontal beams. */
   const levels = $derived.by(() => {
     const named = sortedLevels(modelStore.grid);
@@ -49,7 +53,8 @@
   const targets = $derived<Array<{ key: string; label: string }>>([
     ...levels.map((l) => ({ key: `z:${l.z}`, label: l.name })),
     ...floorGroups.map((g) => ({ key: `g:${g.id}`, label: g.name })),
-    ...slabs.map((g) => ({ key: `g:${g.id}`, label: `${t('physical.kind.slab')} · ${g.name}` })),
+    ...(pickedPlates.length > 1 ? [{ key: 'plates', label: tp('floorLoad.pickedPlates', { n: pickedPlates.length }) }] : []),
+    ...slabs.map((g) => ({ key: `g:${g.id}`, label: `${t(`physical.kind.${g.physical.kind}`)} · ${g.name}` })),
     ...zones.map((g) => ({ key: `zone:${g.id}`, label: `${t('loadZone.zone')} · ${g.name}` })),
     { key: 'sel', label: t('floorLoad.selection') },
     { key: 'range', label: t('floorLoad.range') },
@@ -57,8 +62,18 @@
   // A slab is loaded on its own shells.
   let lastTarget = '';
   $effect(() => {
-    if (targetKey !== lastTarget && slabs.some((g) => `g:${g.id}` === targetKey)) distribution = 'slab';
+    if (targetKey !== lastTarget && (targetKey === 'plates' || slabs.some((g) => `g:${g.id}` === targetKey))) distribution = 'slab';
     lastTarget = targetKey;
+  });
+  // Asked for from a plate's panel, or the plates selected whole as the panel opens.
+  $effect(() => {
+    const asked = floorLoadRequest.target;
+    if (asked) { targetKey = asked; floorLoadRequest.target = null; }
+  });
+  $effect(() => {
+    void pickedPlates;
+    if (pickedPlates.length > 1) targetKey = 'plates';
+    else if (pickedPlates.length === 1) targetKey = `g:${pickedPlates[0]}`;
   });
   $effect(() => {
     if (!targets.some((x) => x.key === targetKey)) targetKey = targets[0]?.key ?? 'sel';
@@ -85,6 +100,7 @@
   const target = $derived.by((): FloorTarget | null => {
     if (targetKey.startsWith('z:')) return { by: 'level', z: Number(targetKey.slice(2)) };
     if (targetKey.startsWith('g:')) return { by: 'group', groupId: Number(targetKey.slice(2)) };
+    if (targetKey === 'plates') return pickedPlates.length ? { by: 'group', groupId: pickedPlates[0]! } : null;
     if (targetKey.startsWith('zone:')) return { by: 'zone', zoneId: Number(targetKey.slice(5)) };
     if (targetKey === 'range') return rangeOf(range);
     return { by: 'own' };
@@ -103,10 +119,17 @@
   const result = $derived(preview?.result ?? null);
   /** A slab plate waiting for its mesh takes its load now, which lands on its shells when it is meshed. */
   const waitingPlate = $derived(def?.target.by === 'group' && def.distribution === 'slab' && !!plateSurfaceOf(modelStore.model.groups.get(def.target.groupId)));
-  const canAdd = $derived(!!def && !!preview && (preview.loads.length > 0 || waitingPlate));
+  const canAdd = $derived(!!def && !!preview && (preview.loads.length > 0 || waitingPlate || targetKey === 'plates'));
 
   function add() {
     if (!def || !canAdd) return;
+    if (targetKey === 'plates') {
+      const label = name.trim() || t('floorLoad.plateDefault');
+      modelStore.batch(() => { for (const id of pickedPlates) addFloorLoadDef(`${label} · ${plateEntry(id)!.name}`, { ...plateLoadDef(id, def.caseId, def.q), ...(def.perPlanArea ? { perPlanArea: true } : {}) }); });
+      applied = tp('floorLoad.addedPlates', { n: pickedPlates.length });
+      name = '';
+      return;
+    }
     const label = name.trim() || tp('floorLoad.defaultName', { n: [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad').length + 1 });
     addFloorLoadDef(label, def, own);
     applied = tp('floorLoad.added', { name: label, n: preview?.loads.length ?? 0 });

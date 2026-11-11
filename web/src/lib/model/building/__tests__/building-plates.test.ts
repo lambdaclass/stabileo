@@ -11,10 +11,12 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '../../../store';
 import { placeFrame, placeSlabs, placeWall } from '../build-on-grid';
-import { addPlateLoad, clearPlateMesh, physicalPlates, planPlateMesh, plateStatus, preparePlatesForAnalysis } from '../../../store/physical-plates';
+import { addPlateLoad, applyPlateMeshes, plateEntry, clearPlateMesh, physicalPlates, planPlateMesh, plateStatus, preparePlatesForAnalysis } from '../../../store/physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../../../store/defined-loads';
 import { patchOwnDesignData } from '../../../store/design-data';
 import { plateLoops } from '../../physical/plate';
+import { physicalThickness } from '../../../store/physical';
+import { stripUnderWall, supportWallBase } from '../../foundation/generate';
 import type { AnalysisResults3D } from '../../../engine/types-3d';
 import type { StructuralGrid } from '../../grid';
 
@@ -95,6 +97,43 @@ describe('slabs placed by the building tool', () => {
   });
 });
 
+describe('a slab panel meshed with its columns\' sections', () => {
+  const stations = (pts: number[][], k: 0 | 1) => new Set(pts.map((q) => Math.round(q[k]! * 1e6))).size;
+
+  it('takes triangles when asked, each quadrilateral of the grid split in two', () => {
+    const id = build(true);
+    const quads = planPlateMesh(id, { element: 'quad', size: 0.5, pattern: 'free' })!;
+    const tris = planPlateMesh(id, { element: 'tri', size: 0.5, pattern: 'free' })!;
+    expect(quads.footprints).toBeDefined();
+    expect(tris.mesh!.cells.every((c) => c.length === 3)).toBe(true);
+    expect(tris.cells).toBe(2 * quads.cells);
+    expect(tris.mesh!.structured).toBe(false);
+  });
+
+  it('gives side a and side b their own lengths, along X or Y as the orientation says', () => {
+    const id = build(true);
+    const alongX = planPlateMesh(id, { element: 'quad', size: 0.5, sizeV: 1, pattern: 'rect', orient: 'globalX' })!;
+    expect(alongX.aDir).toEqual([1, 0, 0]);
+    expect(alongX.grid).toMatchObject({ cellA: 0.5, cellB: 1 });
+    const pts = alongX.mesh!.points as number[][];
+    const cols = (stations(pts, 0) - 1), rows = (stations(pts, 1) - 1);
+    expect(cols).toBeGreaterThanOrEqual(12);
+    expect(rows).toBeLessThan(cols);
+    const square = planPlateMesh(id, { element: 'quad', size: 0.5, pattern: 'square' })!;
+    expect(square.cells).toBeGreaterThan(alongX.cells);
+  });
+
+  it('solves in equilibrium with a triangular mesh', () => {
+    const id = build(true);
+    const plan = planPlateMesh(id, { element: 'tri', size: 0.5, pattern: 'free' })!;
+    applyPlateMeshes([plan]);
+    expect(modelStore.plates.size).toBe(plan.cells);
+    expect(modelStore.quads.size).toBe(0);
+    const total = solve().reactions.reduce((s, r) => s + r.fz, 0);
+    expect(total).toBeCloseTo(5 * 6 * 5, 3);
+  });
+});
+
 describe('walls placed by the building tool', () => {
   it('are plates with their windows as holes and their mesh current', () => {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
@@ -107,5 +146,26 @@ describe('walls placed by the building tool', () => {
     expect(loops.outer).toHaveLength(4);
     expect(loops.holes).toHaveLength(1);
     expect(wall!.surface.mesh.size).toBe(0.5);
+  });
+
+  it('can wait for the analysis to mesh them, as slabs do, standing on a strip footing that the mesh then meets', () => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    const r = placeWall(grid, { axis: 'y0', from: 'x0', to: 'x1', levelFrom: 'N0', levelTo: 'N1', thickness: 0.2, materialId: 1, meshSize: 0.5, meshAtSolve: true, openings: [{ offset: 2, width: 1.5, sill: 1, height: 1.2 }] });
+    expect(r).toMatchObject({ created: 1, shells: 0 });
+    const [wall] = physicalPlates();
+    expect(plateStatus(wall!.id)).toBe('unmeshed');
+    expect(modelStore.quads.size + modelStore.plates.size).toBe(0);
+    expect(physicalThickness(modelStore.model.groups.get(wall!.id)!)).toBe(0.2);
+    expect(plateLoops(wall!.group).holes).toHaveLength(1);
+    expect(supportWallBase(wall!.id)).toBe(2);
+    stripUnderWall(wall!.id, 0.4);
+    addPlateLoad(wall!.id, modelStore.model.loadCases[0]!.id, 2);
+    expect(preparePlatesForAnalysis()).toMatchObject({ ok: true, meshed: 1 });
+    expect(modelStore.quads.size).toBeGreaterThan(20);
+    const base = [...modelStore.nodes.values()].filter((n) => Math.abs(n.z ?? 0) < 1e-6 && Math.abs(n.y) < 1e-6);
+    expect(base.length).toBeGreaterThan(10);
+    expect(plateEntry(wall!.id)!.surface.meshed!.quality.minAngle).toBeCloseTo(90, 6);
+    const r3 = solve();
+    expect(r3.reactions.length).toBeGreaterThan(2);
   });
 });

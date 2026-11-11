@@ -62,6 +62,7 @@ import { loadFixture } from '../templates/load-fixture';
 import { currentResultProvenance, provenanceForExport, captureProvenanceToken } from '../store/result-provenance';
 import { recheckStore } from '../store/recheck.svelte';
 import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
+import { plateLoops } from '../model/physical/plate';
 
 export const E2E_QUERY_FLAG = 'e2e';
 
@@ -191,7 +192,7 @@ export interface StabileoTestHooks {
    */
   selectionByKind(): { nodes: number[]; elements: number[]; supports: number[]; loads: number[] };
   /** The physical plates: each one's mesh state and the shells it holds (`store/physical-plates.ts`). */
-  plates(): Array<{ id: number; name: string; status: string; shells: number; loads: number }>;
+  plates(): Array<{ id: number; name: string; status: string; shells: number; loads: number; holes: number; curvedSides: number; minAngle: number | null }>;
   /** The plates selected whole, and the shells selected. */
   plateSelection(): { plates: number[]; shells: string[]; scope: string };
   /** How many local-axis triads the 3-D viewport draws now. */
@@ -779,6 +780,8 @@ export function installE2EHooks(): void {
       id: p.id, name: p.name, status: plateStatus(p.id),
       shells: (p.group.members.quads?.length ?? 0) + (p.group.members.plates?.length ?? 0),
       loads: plateLoadDefs(p.id).length,
+      holes: plateLoops(p.group).holes.length, curvedSides: (p.surface.arcMids ?? []).length,
+      minAngle: p.surface.meshed && !p.surface.meshed.original ? p.surface.meshed.quality.minAngle : null,
     })),
     worldScreenPos: (x: number, y: number, z: number) => projectWorld(x, y, z),
     localAxesTriads: () => (window as unknown as { __localAxesTriads?: number }).__localAxesTriads ?? 0,
