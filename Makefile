@@ -91,7 +91,8 @@ help:
 	@echo "  make test.engine.differential.full  - Those plus the parametrised families (nightly)"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
-	@echo "  make test.web.unit [SHARD=1/4] - Vitest unit pass"
+	@echo "  make test.web.unit [SHARD=1/4] [VITEST_WORKERS=N] - Vitest unit pass"
+	@echo "  make test.web.timing [VITEST_WORKERS=N] - Project-scale timing budgets"
 	@echo "  make test.web.build       - Production build + build-pass tests"
 	@echo "  make test.web.determinism - WASM results bit-identical across Node and three browsers"
 	@echo "  make e2e.web.build        - The VITE_E2E=1 site the e2e suites run on with E2E_PREBUILT=1"
@@ -323,7 +324,7 @@ typecheck.web:
 	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs && node scripts/gen-result-sites.mjs"
 
 test.web.unit:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL))"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL)) $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
 
 test.web.build: web.build.tested
 	$(MAKE) test.web.build.shared
@@ -337,7 +338,7 @@ test.web.build.shared:
 	$(NIX_RUN) bash -c 'cd web && STABILEO_BUILD_ENV_STAMP=$$(node scripts/build-stamp.mjs --env) STABILEO_SHARED_BUILD=.dist-shared STABILEO_SHARED_PRERENDERED_BUILD=dist NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build'
 
 test.web.timing:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
 
 perf.lighthouse.deps:
 	$(NIX_RUN) bash -c "cd web/lighthouse && npm ci --no-audit --no-fund"
@@ -387,7 +388,7 @@ e2e.web.build:
 # SHARD=i/n picks whole spec files balanced by measured duration (web/scripts/e2e-shard.mjs).
 # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by e2e.web.flaky.
 e2e.web.smoke:
-	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
+	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
 
 e2e.web.slow:
 	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$files)'

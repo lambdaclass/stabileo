@@ -1,0 +1,43 @@
+{
+  "id": "linear-pin-coupling",
+  "date": "2026-11-11",
+  "prs": [
+    1931
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "analysis:linear"
+    ],
+    "any": [
+      "members",
+      "shells",
+      "connectors",
+      "springs"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "diagnosticCodes"
+  ],
+  "title": {
+    "en": "Linear analysis refuses indirect loading of unresolved rotations",
+    "es": "El análisis lineal rechaza cargas indirectas sobre giros no resolubles",
+    "pt": "A análise linear recusa cargas indiretas em rotações não resolvidas",
+    "de": "Die lineare Berechnung weist indirekt belastete, nicht auflösbare Rotationen zurück",
+    "fr": "L’analyse linéaire refuse les charges indirectes sur les rotations non résolubles",
+    "tr": "Doğrusal analiz çözümlenemeyen dönmelerin dolaylı yüklenmesini reddediyor"
+  },
+  "explanation": {
+    "en": "Earlier revisions of PR #1753 could drop small stiffness couplings before checking whether an artificial pin carried load. An unresolved rotation could then return a materially wrong response without a refusal, even when its direct applied moment was zero. Small couplings now remain in the post-solve pin check; a response that loads that unresolved rotation indirectly is refused. Couplings within projection rounding are removed completely only when explicit release information spans the direction. The spectral coupling threshold and pin-check tolerance are unchanged. Re-check linear results from earlier revisions of PR #1753.",
+    "es": "Versiones anteriores del PR #1753 podían eliminar acoplamientos pequeños de rigidez antes de comprobar si una restricción artificial soportaba carga. Así, un giro no resoluble podía devolver una respuesta materialmente incorrecta sin rechazo, incluso sin momento aplicado directo. Los acoplamientos pequeños ahora se conservan en la comprobación posterior a la solución; se rechaza una respuesta que cargue indirectamente ese giro. Los acoplamientos dentro del redondeo de la proyección solo se eliminan por completo si las liberaciones explícitas abarcan la dirección. El umbral espectral y la tolerancia de comprobación no cambian. Revise resultados lineales de versiones anteriores del PR #1753.",
+    "pt": "Revisões anteriores do PR #1753 podiam descartar pequenos acoplamentos de rigidez antes de verificar se uma restrição artificial suportava carga. Uma rotação não resolvida podia retornar uma resposta materialmente incorreta sem recusa, mesmo sem momento aplicado diretamente. Os pequenos acoplamentos agora permanecem na verificação após a solução; uma resposta que carregue indiretamente essa rotação é recusada. Acoplamentos dentro do arredondamento da projeção só são removidos completamente quando liberações explícitas abrangem a direção. O limite espectral e a tolerância de verificação permanecem iguais. Verifique novamente resultados lineares de revisões anteriores do PR #1753.",
+    "de": "Frühere Revisionen von PR #1753 konnten kleine Steifigkeitskopplungen vor der Prüfung verwerfen, ob eine künstliche Rotationsfessel Last trägt. Eine nicht auflösbare Rotation konnte dadurch ohne Zurückweisung eine wesentlich falsche Antwort liefern, selbst ohne direkt aufgebrachtes Moment. Kleine Kopplungen bleiben nun in der Prüfung nach der Lösung erhalten; eine Antwort mit indirekter Belastung dieser Rotation wird zurückgewiesen. Kopplungen innerhalb der Projektionsrundung werden nur dann vollständig entfernt, wenn explizite Freigaben die Richtung abdecken. Spektraler Grenzwert und Prüftoleranz bleiben unverändert. Prüfen Sie lineare Ergebnisse früherer Revisionen von PR #1753 erneut.",
+    "fr": "Les révisions antérieures de la PR #1753 pouvaient supprimer de faibles couplages de rigidité avant de vérifier si un blocage artificiel portait une charge. Une rotation non résoluble pouvait alors donner une réponse sensiblement fausse sans refus, même sans moment appliqué directement. Les faibles couplages restent désormais dans la vérification après résolution ; une réponse chargeant indirectement cette rotation est refusée. Les couplages dans l’arrondi de projection ne sont entièrement supprimés que si des libérations explicites couvrent la direction. Le seuil spectral et la tolérance de vérification restent inchangés. Revérifiez les résultats linéaires des révisions antérieures de la PR #1753.",
+    "tr": "PR #1753 önceki sürümlerinde, yapay dönme kısıtının yük taşıyıp taşımadığı denetlenmeden küçük rijitlik bağlaşmaları atılabiliyordu. Çözümlenemeyen bir dönme, doğrudan uygulanan moment sıfır olsa bile reddedilmeden önemli ölçüde yanlış sonuç verebiliyordu. Küçük bağlaşmalar artık çözüm sonrası denetimde korunuyor; bu dönmeyi dolaylı olarak yükleyen yanıt reddediliyor. İzdüşüm yuvarlaması içindeki bağlaşmalar ancak açık serbestlik bilgisi ilgili yönü kapsıyorsa tamamen kaldırılıyor. Spektral eşik ve denetim toleransı değişmiyor. PR #1753 önceki sürümlerinden alınan doğrusal sonuçları yeniden denetleyin."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-linear-pin-coupling.md",
+    "heading": "Linear pin checks retain small couplings (2026-11-11)"
+  }
+}

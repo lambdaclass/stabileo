@@ -27,7 +27,7 @@ function usedNodes(t: ReturnType<typeof generateShed>): Set<number> {
 
 describe('generateShed — the bare frame', () => {
   const bare = generateShed(P({
-    columnKind: 'solid', roof: false, purlins: false, longitudinalBeams: false,
+    columnKind: 'solid', roof: false, purlins: false, longitudinalBeams: false, wallBracing: false, roofBracing: false, trussBracing: false,
     spanM: 10, bayM: 5, frames: 6, clearHeightM: 6,
   }));
 

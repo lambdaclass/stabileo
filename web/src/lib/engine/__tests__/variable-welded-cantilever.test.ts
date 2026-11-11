@@ -123,6 +123,11 @@ describe('a welded I cantilever of variable depth', () => {
     modelStore.addSupport(b, 'pinned3d' as never);
     modelStore.addDistributedLoad3D(e, 0, 0, -4, -4, 1.1, 6.3, undefined, { frame: 'projected' } as never);
     modelStore.addThermalLoad(e, 20, 10);
+    const original = modelStore.solve3D(false, false, true);
+    expect(typeof original).toBe('string');
+    expect(original).toContain('mechanism');
+    const bearing = [...modelStore.supports.values()].find((s) => s.nodeId === a)!;
+    modelStore.updateSupport(bearing.id, { type: 'custom3d', dofFrame: 'global', dofRestraints: { tx: true, ty: true, tz: true, rx: true, ry: false, rz: false } });
     const r = solve();
     expect(r.reactions.reduce((s, x) => s + x.fz, 0)).toBeCloseTo((4 * (6.3 - 1.1) * 8) / Math.hypot(8, 3), 6);
     expect(r.reactions.reduce((s, x) => s + x.fx, 0)).toBeCloseTo(0, 6);

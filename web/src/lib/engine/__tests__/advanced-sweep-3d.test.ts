@@ -313,6 +313,7 @@ const LOGS = new Map<string, SweepLog>();
 describe.each(Object.keys(FAMILIES))('sweep: %s', (family) => {
   let log: SweepLog;
   beforeAll(async () => {
+    const started = performance.now();
     log = emptyLog();
     for (let seed = 1; seed <= SEEDS_PER_FAMILY; seed++) {
       // Keep progress RPC replies flowing during the synchronous solver sweep.
@@ -320,6 +321,7 @@ describe.each(Object.keys(FAMILIES))('sweep: %s', (family) => {
       runModel(buildRandom(family, seed), log);
     }
     LOGS.set(family, log);
+    process.stdout.write(`[advanced-sweep-3d] ${family} seeds 1–${SEEDS_PER_FAMILY}: ${((performance.now() - started) / 1000).toFixed(3)} s\n`);
   }, 120_000);
 
   it('builds and solves the models (no throw, clear refusals, finite numbers)', () => {
@@ -645,8 +647,9 @@ describe('closed forms: cantilever frequencies (modal 3D)', () => {
     a1.forEach((x: number, i: number) => expect(a4[i] / x).toBeCloseTo(2, 6));
   });
 
-  it('E × 4 → f × 2 on random space frames too', () => {
+  it('E × 4 → f × 2 on random space frames too', async () => {
     for (let seed = 1; seed <= 10; seed++) {
+      await yieldToEventLoop();
       buildRandom(seed % 2 ? 'skew-frame' : 'pitched-nave', seed);
       const f = solveModal3D(input3D()!, densities()).modes.map((x: { frequency: number }) => x.frequency);
       for (const mat of [...modelStore.materials.values()]) modelStore.updateMaterial(mat.id, { e: mat.e * 4 });
@@ -685,9 +688,10 @@ describe('closed forms: B2 on sway frames against the buckling factor', () => {
     return input3D()!;
   }
 
-  it.each([1.6, 2, 3, 5, 10])('λ1 = %s: B2 within 25 % of 1/(1 − 1/λ1) on 12 sway frames', (target) => {
+  it.each([1.6, 2, 3, 5, 10])('λ1 = %s: B2 within 25 % of 1/(1 − 1/λ1) on 12 sway frames', async (target) => {
     const bad: string[] = [];
     for (let seed = 1; seed <= 12; seed++) {
+      await yieldToEventLoop();
       const input = swayFrame(seed, target);
       const l1 = solveBuckling3D(input).modes[0].loadFactor;
       const p = solvePDelta3D(input, 50, 1e-7);
@@ -697,9 +701,10 @@ describe('closed forms: B2 on sway frames against the buckling factor', () => {
     expect(bad).toEqual([]);
   });
 
-  it('λ1 = 0.8: P-Δ reports instability on every one of 12 sway frames', () => {
+  it('λ1 = 0.8: P-Δ reports instability on every one of 12 sway frames', async () => {
     const bad: string[] = [];
     for (let seed = 1; seed <= 12; seed++) {
+      await yieldToEventLoop();
       const p = solvePDelta3D(swayFrame(seed, 0.8));
       if (p.converged && p.isStable) bad.push(`seed ${seed}: stable, B2=${p.b2Factor}`);
     }
@@ -770,7 +775,10 @@ describe('section stress 3D: the sign a student checks first', () => {
 // ═════════════════════════════════════════════════════════════════
 
 describe('what-if 3D', () => {
-  afterEach(() => { vi.useRealTimers(); });
+  afterEach(async () => {
+    vi.useRealTimers();
+    await whatIf.close();
+  });
 
   const flush = () => vi.advanceTimersByTime(200);
   const solved = (): AnalysisResults3D => {
@@ -787,15 +795,38 @@ describe('what-if 3D', () => {
   async function session<T>(fn: () => T): Promise<T> {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     uiStore.liveCalc = true; // so close() restores without scheduling a live solve
-    whatIf.open();
-    try { return fn(); } finally { await whatIf.close(); vi.useRealTimers(); }
+    try {
+      whatIf.open();
+      return await fn();
+    } finally {
+      vi.useRealTimers();
+      await whatIf.close();
+    }
   }
+
+  it('an abort after applying a slider restores the model and closes the session', async () => {
+    buildRandom('space-frame', 3);
+    const base = solved();
+    const snapshot = modelStore.snapshot();
+    const abort = new Error('injected mid-what-if abort');
+    await expect(session(() => {
+      whatIf.setAll('e', 2);
+      flush();
+      throw abort;
+    })).rejects.toBe(abort);
+    expect(whatIf.active).toBe(false);
+    expect(uiStore.showWhatIf).toBe(false);
+    expect(vi.isFakeTimers()).toBe(false);
+    expect(modelStore.snapshot()).toEqual(snapshot);
+    expect(solved().displacements).toEqual(base.displacements);
+  });
 
   const FAMS = ['space-frame', 'skew-frame', 'grillage', 'tower', 'cantilever-torsion', 'mixed-frame-truss', 'pitched-nave', 'space-truss'];
 
   it('every load × k → displacements and reactions × k; E × k → displacements ÷ k; close() restores (nodal + distributed loads)', async () => {
     const bad: string[] = [];
     for (const fam of FAMS) for (let seed = 1; seed <= 4; seed++) {
+      await yieldToEventLoop();
       buildRandom(fam, seed);
       // Keep only nodal and distributed loads here; point loads on members are D2 below.
       modelStore.model.loads = modelStore.model.loads.filter((l) => l.type !== 'pointOnElement3d');

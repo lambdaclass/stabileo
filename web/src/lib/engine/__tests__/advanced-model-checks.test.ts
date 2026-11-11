@@ -402,24 +402,15 @@ describe('3D D8 — modal and buckling on nodes only truss bars meet', () => {
   });
 });
 
-describe('3D — a mechanism the static solve accepts: its zero modes are discarded and named', () => {
+describe('3D — an unloaded mechanism is refused by the static solve and by every analysis alike', () => {
   it('a column on a pin free to spin under beams released about the vertical (the sweep\'s hinged-frame#10)', () => {
-    // Node 11: a column pinned at its foot, the three beams at its head released about the
-    // vertical. The loads do not turn it, and the static solve accepts it; the rank analysis
-    // finds the spin. Buckling used to fail its decomposition here.
     buildRandom('hinged-frame', 10);
-    expect(typeof staticSolve3D()).toBe('object');
+    const st = staticSolve3D();
+    expect(st).toContain('the structure is a mechanism');
     const input = input3D();
-    const modal = solveModal3D(input, densities());
-    expect(modal.modes.every((q: { frequency: number }) => q.frequency > 1e-3)).toBe(true);
-    const column = new Set([...input.elements.values()].filter((e) => e.nodeI === 11 || e.nodeJ === 11).flatMap((e) => [e.nodeI, e.nodeJ]));
-    const spin = modal.discardedModes.filter((d: { value: number; dof: string }) => Math.abs(d.value) < 1e-3 && d.dof === 'rz');
-    expect(spin).toHaveLength(1);
-    expect(column.has(spin[0].nodeId)).toBe(true);
-    // Buckling: the spin is held for the analysis and named, instead of a failed decomposition.
-    const bk = solveBuckling3D(input);
-    expect(bk.modes.every((q: { loadFactor: number }) => q.loadFactor > 0)).toBe(true);
-    expect(bk.discardedModes).toEqual([{ value: 0, nodeId: 11, dof: 'rz' }]);
+    expect(thrown(() => solvePDelta3D(input))).toBe(st);
+    expect(thrown(() => solveBuckling3D(input))).toBe(st);
+    expect(thrown(() => solveModal3D(input, densities()))).toBe(st);
   });
 });
 

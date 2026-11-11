@@ -61,8 +61,10 @@ describe('elevation — z is up on screen', () => {
   });
 
   it('marks the two bearings, and says which is fixed', () => {
-    expect(p.supports).toHaveLength(2);
-    for (const s of p.supports) expect(s.y).toBeCloseTo(0, 12);
+    expect(p.supports).toHaveLength(t.nodes.length);
+    const bearings = p.supports.filter((s) => s.type !== 'outOfPlane');
+    expect(bearings).toHaveLength(2);
+    for (const s of bearings) expect(s.y).toBeCloseTo(0, 12);
     const column = projectTopology(generateLatticeColumn({ fixedBase: true }), { view: 'elevation' });
     expect(column.supports.every((s) => s.type === 'fixed')).toBe(true);
   });

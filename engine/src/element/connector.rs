@@ -87,37 +87,7 @@ pub fn connector_stiffness_3d(
     dir: [f64; 3],  // unit direction from node_i to node_j (or [1,0,0] for zero-length)
     l: f64,
 ) -> [f64; 144] {
-    // Build local-to-global rotation from direction vector
-    // Local x = dir, local y and z are perpendicular
-    let (lx, ly, lz) = (dir[0], dir[1], dir[2]);
-
-    // Choose a reference vector not parallel to dir
-    let ref_vec = if lx.abs() < 0.9 { [1.0, 0.0, 0.0] } else { [0.0, 1.0, 0.0] };
-
-    // local_y = ref × dir (normalized)
-    let mut yy = [
-        ref_vec[1] * lz - ref_vec[2] * ly,
-        ref_vec[2] * lx - ref_vec[0] * lz,
-        ref_vec[0] * ly - ref_vec[1] * lx,
-    ];
-    let yn = (yy[0] * yy[0] + yy[1] * yy[1] + yy[2] * yy[2]).sqrt();
-    if yn > 1e-15 {
-        yy[0] /= yn; yy[1] /= yn; yy[2] /= yn;
-    }
-
-    // local_z = dir × local_y
-    let zz = [
-        ly * yy[2] - lz * yy[1],
-        lz * yy[0] - lx * yy[2],
-        lx * yy[1] - ly * yy[0],
-    ];
-
-    // Rotation matrix R (3×3): rows are local x, y, z in global components
-    let r = [
-        [lx, ly, lz],
-        [yy[0], yy[1], yy[2]],
-        [zz[0], zz[1], zz[2]],
-    ];
+    let r = connector_axes_3d(dir);
 
     let [ex, ey, ez] = r;
     let a = CONNECTOR_SHEAR_POSITION;
@@ -153,6 +123,34 @@ pub fn connector_stiffness_3d(
     add_spring(&mut k, 12, k_bend_y, &rot(ey));
     add_spring(&mut k, 12, k_bend_z, &rot(ez));
     k
+}
+
+pub(crate) fn connector_axes_3d(dir: [f64; 3]) -> [[f64; 3]; 3] {
+    let (lx, ly, lz) = (dir[0], dir[1], dir[2]);
+
+    let ref_vec = if lx.abs() < 0.9 { [1.0, 0.0, 0.0] } else { [0.0, 1.0, 0.0] };
+
+    let mut yy = [
+        ref_vec[1] * lz - ref_vec[2] * ly,
+        ref_vec[2] * lx - ref_vec[0] * lz,
+        ref_vec[0] * ly - ref_vec[1] * lx,
+    ];
+    let yn = (yy[0] * yy[0] + yy[1] * yy[1] + yy[2] * yy[2]).sqrt();
+    if yn > 1e-15 {
+        yy[0] /= yn; yy[1] /= yn; yy[2] /= yn;
+    }
+
+    let zz = [
+        ly * yy[2] - lz * yy[1],
+        lz * yy[0] - lx * yy[2],
+        lx * yy[1] - ly * yy[0],
+    ];
+
+    [
+        [lx, ly, lz],
+        [yy[0], yy[1], yy[2]],
+        [zz[0], zz[1], zz[2]],
+    ]
 }
 
 /// Global stiffness of one 2D connector (3 DOFs per node, [ux, uz, θ]).

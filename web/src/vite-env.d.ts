@@ -41,7 +41,7 @@ declare module 'virtual:result-change-metadata?*' {
 }
 
 declare module 'virtual:result-change-quantities' {
-  const quantities: Record<string, string[]>;
+  const quantities: Record<string, NonNullable<import('./lib/provenance/registry').ResultChange['quantities']>>;
   export default quantities;
 }
 

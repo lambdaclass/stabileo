@@ -142,6 +142,7 @@ const steelEn: Record<string, string> = {
   'generator.assume.webPinned': 'Posts and diagonals pin-ended.',
   'generator.assume.webContinuous': 'Posts and diagonals continuous.',
   'generator.assume.raftersContinuous': 'Rafters continuous through the apex.',
+  'generator.assume.planarRestraints': 'Planar model: panel nodes are restrained out of plane; bearings also restrain twist.',
   'generator.assume.supportsSimple': 'Simply supported: one pin and one roller.',
   'generator.assume.baseFixed': 'Fixed bases.',
   'generator.assume.baseChordsPinned': 'Each chord is pinned to its own anchorage.',

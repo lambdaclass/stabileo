@@ -64,7 +64,8 @@ describe('solver warnings reach the panels', () => {
     // The engine reports the near-zero diagonals in both lists, in different words.
     expect((res.solverDiagnostics ?? []).some((d: any) => d.category === 'conditioning')).toBe(true);
     expect((res.structuredDiagnostics ?? []).some((d: any) => d.phase === 'conditioning')).toBe(true);
-    const conditioning = merged.filter((d) => /near-zero diagonal/i.test(d.message));
+    expect((res.structuredDiagnostics ?? []).filter((d: any) => d.code === 'near_zero_diagonal')).toEqual([expect.objectContaining({ severity: 'warning', phase: 'conditioning', dofIndices: [1, 2, 3, 4, 5] })]);
+    const conditioning = merged.filter((d) => d.code === 'SOLVER_CONDITIONING' || d.code === 'near_zero_diagonal');
     expect(conditioning.length).toBe(1);
   });
 });

@@ -93,6 +93,8 @@ fn build_flat_shell_drilling_model(nx: usize, ny: usize) -> SolverInput3D {
     }
     // Pin one corner
     supports.insert(sid.to_string(), sup3d(grid[0][0], true, true, true, false, false, false));
+    sid += 1;
+    supports.insert(sid.to_string(), sup3d(grid[nx][0], false, true, true, false, false, false));
 
     // Thermal gradient load — this is the load type that originally exposed the bug
     let n_quads = quads.len();

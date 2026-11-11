@@ -1,0 +1,5634 @@
+{
+  "date": "2026-11-10",
+  "originMain": "52619652ecb9d801af1868b34936518965c92d69",
+  "engineBuild": "make wasm in cable-replay; cache key f0eb71949a146dc1261b21024e558a2b",
+  "records": [
+    {
+      "path": "PRO advanced P-Delta",
+      "forceRows": [
+        {
+          "at": ".results.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "at": ".linearResults.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".linearResults.solverDiagnostics",
+          "value": [
+            {
+              "category": "solver_path",
+              "message": "Dense solver (4 free DOFs)",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "at": ".linearResults.structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (4 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 0.00e0 (4 free DOFs)",
+              "phase": "solve",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "value": 1551,
+              "threshold": 0.07483
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (#1551)"
+        ]
+      },
+      "converged": true,
+      "isStable": true,
+      "keys": [
+        "results",
+        "iterations",
+        "converged",
+        "isStable",
+        "b2Factor",
+        "linearResults"
+      ]
+    },
+    {
+      "path": "Solve automatic cable",
+      "forceRows": [
+        {
+          "at": ".elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "at": ".nonlinear.cables.0",
+          "elementId": 2,
+          "tension": 0,
+          "horizontalThrust": 0,
+          "sag": 0,
+          "ernstModulus": 0
+        }
+      ],
+      "diagnostics": [],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "keys": [
+        "displacements",
+        "reactions",
+        "elementForces",
+        "nonlinear"
+      ]
+    },
+    {
+      "path": "Combinations automatic cable",
+      "forceRows": [
+        {
+          "at": ".perCase.map.1.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "at": ".perCase.map.1.nonlinear.cables.0",
+          "elementId": 2,
+          "tension": 0,
+          "horizontalThrust": 0,
+          "sag": 0,
+          "ernstModulus": 0
+        },
+        {
+          "at": ".perCombo.map.1.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "at": ".perCombo.map.1.nonlinear.cables.0",
+          "elementId": 2,
+          "tension": 0,
+          "horizontalThrust": 0,
+          "sag": 0,
+          "ernstModulus": 0
+        },
+        {
+          "at": ".envelope.maxAbsResults3D.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "keys": [
+        "perCase",
+        "perCombo",
+        "envelope"
+      ]
+    },
+    {
+      "path": "toolbar P-Delta",
+      "forceRows": [
+        {
+          "at": ".results.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "at": ".linearResults.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".linearResults.solverDiagnostics",
+          "value": [
+            {
+              "category": "solver_path",
+              "message": "Dense solver (4 free DOFs)",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "at": ".linearResults.structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (4 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 0.00e0 (4 free DOFs)",
+              "phase": "solve",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "value": 1551,
+              "threshold": 0.07483
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (#1551)"
+        ]
+      },
+      "converged": true,
+      "isStable": true,
+      "keys": [
+        "results",
+        "iterations",
+        "converged",
+        "isStable",
+        "b2Factor",
+        "linearResults",
+        "secondOrder"
+      ]
+    },
+    {
+      "path": "advanced/toolbar buckling",
+      "forceRows": [
+        {
+          "at": ".elementData.1",
+          "elementId": 2,
+          "axialForce": -5,
+          "criticalForce": 2419.6107897576026,
+          "kEffective": 0.6383517721866453,
+          "effectiveLength": 1.9150553165599358,
+          "length": 3,
+          "slendernessY": 16.080767689603732,
+          "slendernessZ": 75.0258976190653
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "3D buckling factors can be unconservatively high due to eigenproblem accuracy. Independently verify the critical factor before design (known issue #818, BU-ACCURACY)",
+              "phase": "BU-ACCURACY",
+              "value": 818
+            },
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (6 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 0.00e0 (6 free DOFs)",
+              "phase": "solve",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "value": 1551,
+              "threshold": 0.07483
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "3D buckling factors can be unconservatively high. Independently verify the critical factor before design. (#818)",
+          "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (#1551)"
+        ]
+      },
+      "keys": [
+        "structuredDiagnostics",
+        "modes",
+        "nDof",
+        "elementData",
+        "certificate",
+        "discardedModes",
+        "warpingMembers"
+      ]
+    },
+    {
+      "path": "advanced corotational",
+      "forceRows": [
+        {
+          "at": ".results.elementForces.1",
+          "elementId": 2,
+          "length": 2.999989130161494,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "converged": true,
+      "keys": [
+        "results",
+        "iterations",
+        "converged",
+        "loadIncrements",
+        "loadFactor",
+        "maxDisplacement"
+      ]
+    },
+    {
+      "path": "advanced Winkler",
+      "forceRows": [
+        {
+          "at": ".elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "keys": [
+        "displacements",
+        "reactions",
+        "elementForces"
+      ]
+    },
+    {
+      "path": "advanced SSI",
+      "forceRows": [
+        {
+          "at": ".results.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "converged": true,
+      "keys": [
+        "results",
+        "iterations",
+        "converged",
+        "springResults"
+      ]
+    },
+    {
+      "path": "advanced staged",
+      "forceRows": [
+        {
+          "at": ".stages.0.results.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "at": ".finalResults.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "keys": [
+        "stages",
+        "finalResults"
+      ]
+    },
+    {
+      "path": "advanced creep",
+      "forceRows": [
+        {
+          "at": ".0.results.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5.000000000000058,
+          "nEnd": -5.000000000000058,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".0.results.solverDiagnostics",
+          "value": [
+            {
+              "category": "solver_path",
+              "message": "Dense solver (4 free DOFs)",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "at": ".0.results.structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (4 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 1.78e-16 (4 free DOFs)",
+              "phase": "solve",
+              "value": 1.7763568394002506e-16,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Axial compression is near the second-order limit (N/Ncr above 0.047, the limit 0.075 over the largest CIRSOC 301 load factor 1.6): a combination that factors this case up may pass it. Check the combinations with a P-Delta or second-order analysis (known issue #1551, LIN-SECOND-ORDER-NEAR)",
+              "elementIds": [
+                1
+              ],
+              "phase": "LIN-SECOND-ORDER-NEAR",
+              "value": 1551,
+              "threshold": 0.07483,
+              "elementKind": "frame"
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "value": 1551,
+              "threshold": 0.07483
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 1.776e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 1.7763568394002506e-16,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 1.110e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 1.1102230246251568e-16,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Axial compression is near the second-order limit (N/Ncr above 0.047, the limit 0.075 over the largest CIRSOC 301 load factor 1.6): a combination that factors this case up may pass it. Check the combinations with a P-Delta or second-order analysis (#1551)",
+          "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (#1551)"
+        ]
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "path": "advanced influence axial",
+      "forceRows": [],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (4 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 0.00e0 (4 free DOFs)",
+              "phase": "solve",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "keys": [
+        "structuredDiagnostics",
+        "quantity",
+        "targetNodeId",
+        "targetElementId",
+        "targetPosition",
+        "points"
+      ]
+    },
+    {
+      "path": "explained stiffness",
+      "forceRows": [],
+      "diagnostics": [],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "keys": [
+        "dofNumbering",
+        "elements",
+        "K",
+        "kContributions",
+        "F",
+        "loadContributions",
+        "Kff",
+        "Kfr",
+        "Krf",
+        "Krr",
+        "Ff",
+        "Fr",
+        "uPrescribed",
+        "FfMod",
+        "uFree",
+        "uAll",
+        "reactionsRaw",
+        "elementForces",
+        "dofLabels",
+        "freeDofLabels",
+        "restrDofLabels",
+        "nullModes",
+        "nodeFrames",
+        "nodeFrames3D"
+      ]
+    },
+    {
+      "path": "explained flexibility",
+      "forceRows": [],
+      "diagnostics": [],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "keys": [
+        "is3D",
+        "count",
+        "isostatic",
+        "redundants",
+        "original",
+        "primary",
+        "states",
+        "delta",
+        "delta0",
+        "prescribed",
+        "deltaTerms",
+        "delta0Terms",
+        "deltaCheck",
+        "delta0Check",
+        "X",
+        "final",
+        "verification",
+        "stiffness"
+      ]
+    },
+    {
+      "path": "direct analysis",
+      "forceRows": [
+        {
+          "at": ".perCombo.map.1.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -4.999999999999999,
+          "nEnd": -4.999999999999999,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "keys": [
+        "perCombo",
+        "info",
+        "settings"
+      ]
+    },
+    {
+      "path": "P-Delta per combination cable route",
+      "forceRows": [
+        {
+          "at": ".perCase.map.1.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "at": ".perCase.map.1.nonlinear.cables.0",
+          "elementId": 2,
+          "tension": 0,
+          "horizontalThrust": 0,
+          "sag": 0,
+          "ernstModulus": 0
+        },
+        {
+          "at": ".perCombo.map.1.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "at": ".perCombo.map.1.nonlinear.cables.0",
+          "elementId": 2,
+          "tension": 0,
+          "horizontalThrust": 0,
+          "sag": 0,
+          "ernstModulus": 0
+        },
+        {
+          "at": ".envelope.maxAbsResults3D.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "keys": [
+        "perCase",
+        "perCombo",
+        "envelope"
+      ]
+    },
+    {
+      "path": "advanced imperfections on braced fixture",
+      "refusal": "restrained"
+    },
+    {
+      "path": "advanced imperfections unbraced",
+      "forceRows": [
+        {
+          "at": ".elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".solverDiagnostics",
+          "value": [
+            {
+              "category": "solver_path",
+              "message": "Dense solver (6 free DOFs)",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (6 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 5.72e-18 (6 free DOFs)",
+              "phase": "solve",
+              "value": 5.7218869750126264e-18,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "value": 1551,
+              "threshold": 0.07483
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 3.587e-17 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 3.587022437966528e-17,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 4.315e-19 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 4.315232527305491e-19,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (#1551)"
+        ]
+      },
+      "keys": [
+        "displacements",
+        "reactions",
+        "elementForces",
+        "solverDiagnostics",
+        "structuredDiagnostics",
+        "equilibrium",
+        "resultSummary",
+        "solverRunMeta"
+      ]
+    },
+    {
+      "path": "advanced modal",
+      "forceRows": [],
+      "diagnostics": [
+        {
+          "at": ".finiteSpectrumDiagnostic",
+          "value": "Requested 6 modes; returned all 4 finite modes certified by the Sturm count. Massless directions have no finite frequency."
+        },
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+              "phase": "NL-DYNAMIC-GAPS",
+              "value": 370
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (known issue #759, MD-ORTHOGONALITY)",
+              "phase": "MD-ORTHOGONALITY",
+              "value": 759
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:1: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:1",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:1: 0.000e0 (warning at 1.000e-10, refusal at 2.000e-10)",
+              "phase": "self_check:modal_orthogonality:1",
+              "value": 0,
+              "threshold": 1.0000199840644433e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:2: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:2",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:2: 0.000e0 (warning at 2.000e-10, refusal at 4.000e-10)",
+              "phase": "self_check:modal_orthogonality:2",
+              "value": 0,
+              "threshold": 2.0000199842142827e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:3: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:3",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:3: 0.000e0 (warning at 3.000e-10, refusal at 6.000e-10)",
+              "phase": "self_check:modal_orthogonality:3",
+              "value": 0,
+              "threshold": 3.000019984297563e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:4: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:4",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:4: 0.000e0 (warning at 4.000e-10, refusal at 8.000e-10)",
+              "phase": "self_check:modal_orthogonality:4",
+              "value": 0,
+              "threshold": 4.000019984364203e-10
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response. (#370)",
+          "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (#759)"
+        ]
+      },
+      "keys": [
+        "modes",
+        "finiteSpectrumDiagnostic",
+        "nDof",
+        "totalMass",
+        "cumulativeMassRatioX",
+        "cumulativeMassRatioY",
+        "cumulativeMassRatioZ",
+        "rayleigh",
+        "structuredDiagnostics",
+        "discardedModes"
+      ]
+    },
+    {
+      "path": "advanced spectral",
+      "forceRows": [],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+              "phase": "NL-DYNAMIC-GAPS",
+              "value": 370
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (known issue #759, MD-ORTHOGONALITY)",
+              "phase": "MD-ORTHOGONALITY",
+              "value": 759
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response. (#370)",
+          "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (#759)"
+        ]
+      },
+      "keys": [
+        "structuredDiagnostics",
+        "displacements",
+        "elementForces",
+        "baseShear",
+        "perMode",
+        "rule"
+      ]
+    },
+    {
+      "path": "advanced harmonic",
+      "forceRows": [],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+              "phase": "NL-DYNAMIC-GAPS",
+              "value": 370
+            }
+          ]
+        },
+        {
+          "at": ".warnings",
+          "value": []
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response. (#370)"
+        ]
+      },
+      "keys": [
+        "structuredDiagnostics",
+        "responsePoints",
+        "peakFrequency",
+        "peakAmplitude",
+        "method",
+        "modesUsed",
+        "nDof",
+        "truncationRatio",
+        "maxModalResidual",
+        "directFrequencies",
+        "warnings"
+      ]
+    },
+    {
+      "path": "advanced time history",
+      "forceRows": [],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design (known issue #760, TH-RECIPROCITY)",
+              "phase": "TH-RECIPROCITY",
+              "value": 760
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+              "phase": "NL-DYNAMIC-GAPS",
+              "value": 370
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design (#760)",
+          "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response. (#370)"
+        ]
+      },
+      "keys": [
+        "structuredDiagnostics",
+        "timeSteps",
+        "nodeHistories",
+        "peakDisplacements",
+        "peakReactions",
+        "nSteps",
+        "method"
+      ]
+    },
+    {
+      "path": "PRO advanced P-Delta imposed shortening",
+      "forceRows": [
+        {
+          "at": ".results.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -4.599884347090908,
+          "nEnd": -4.599884347090908,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "at": ".linearResults.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -4.599884347090908,
+          "nEnd": -4.599884347090908,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".linearResults.solverDiagnostics",
+          "value": [
+            {
+              "category": "solver_path",
+              "message": "Dense solver (3 free DOFs)",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "at": ".linearResults.structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (3 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 0.00e0 (3 free DOFs)",
+              "phase": "solve",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 1.388e-17 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 1.3877787807814457e-17,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "converged": true,
+      "isStable": true,
+      "keys": [
+        "results",
+        "iterations",
+        "converged",
+        "isStable",
+        "b2Factor",
+        "linearResults"
+      ]
+    },
+    {
+      "path": "shortening detail",
+      "input": {
+        "supports": [
+          [
+            1,
+            {
+              "nodeId": 1,
+              "rx": true,
+              "ry": true,
+              "rz": true,
+              "rrx": true,
+              "rry": true,
+              "rrz": true
+            }
+          ],
+          [
+            2,
+            {
+              "nodeId": 2,
+              "rx": true,
+              "ry": true,
+              "rz": true,
+              "rrx": false,
+              "rry": false,
+              "rrz": false,
+              "dz": -1e-05
+            }
+          ]
+        ],
+        "sections": [
+          [
+            1,
+            {
+              "id": 1,
+              "name": "IPN 300",
+              "a": 0.0068998265206363625,
+              "iy": 9.78559555065453e-05,
+              "iz": 4.495504302837911e-06,
+              "j": 4.666e-07,
+              "bucklingCw": 8.646861908321334e-08
+            }
+          ]
+        ],
+        "materials": [
+          [
+            1,
+            {
+              "id": 1,
+              "e": 200000,
+              "nu": 0.3
+            }
+          ]
+        ]
+      },
+      "result": {
+        "results": {
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uy": 0,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 0,
+              "uy": 0,
+              "uz": -1e-05,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            }
+          ],
+          "reactions": [
+            {
+              "nodeId": 1,
+              "fx": 0,
+              "fy": 0,
+              "fz": 9.199768694181817,
+              "mx": 0,
+              "my": 0,
+              "mz": 0
+            },
+            {
+              "nodeId": 2,
+              "fx": 0,
+              "fy": 0,
+              "fz": 0.8002313058181834,
+              "mx": 0,
+              "my": 0,
+              "mz": 0
+            }
+          ],
+          "elementForces": [
+            {
+              "elementId": 1,
+              "length": 3,
+              "nStart": -4.599884347090908,
+              "nEnd": -4.599884347090908,
+              "vyStart": 0,
+              "vyEnd": 0,
+              "vzStart": 0,
+              "vzEnd": 0,
+              "mxStart": 0,
+              "mxEnd": 0,
+              "myStart": 0,
+              "myEnd": 0,
+              "mzStart": 0,
+              "mzEnd": 0,
+              "releaseMyStart": false,
+              "releaseMyEnd": false,
+              "releaseMzStart": false,
+              "releaseMzEnd": false,
+              "releaseTStart": false,
+              "releaseTEnd": false,
+              "qYI": 0,
+              "qYJ": 0,
+              "distributedLoadsY": [],
+              "pointLoadsY": [],
+              "qZI": 0,
+              "qZJ": 0,
+              "distributedLoadsZ": [],
+              "pointLoadsZ": []
+            },
+            {
+              "elementId": 2,
+              "length": 3,
+              "nStart": -4.599884347090908,
+              "nEnd": -4.599884347090908,
+              "vyStart": 0,
+              "vyEnd": 0,
+              "vzStart": 0,
+              "vzEnd": 0,
+              "mxStart": 0,
+              "mxEnd": 0,
+              "myStart": 0,
+              "myEnd": 0,
+              "mzStart": 0,
+              "mzEnd": 0,
+              "releaseMyStart": false,
+              "releaseMyEnd": false,
+              "releaseMzStart": false,
+              "releaseMzEnd": false,
+              "releaseTStart": false,
+              "releaseTEnd": false,
+              "qYI": 0,
+              "qYJ": 0,
+              "distributedLoadsY": [],
+              "pointLoadsY": [],
+              "qZI": 0,
+              "qZJ": 0,
+              "distributedLoadsZ": [],
+              "pointLoadsZ": []
+            }
+          ]
+        },
+        "iterations": 1,
+        "converged": true,
+        "isStable": true,
+        "b2Factor": 1,
+        "linearResults": {
+          "displacements": [
+            {
+              "nodeId": 1,
+              "ux": 0,
+              "uy": 0,
+              "uz": 0,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            },
+            {
+              "nodeId": 2,
+              "ux": 0,
+              "uy": 0,
+              "uz": -1e-05,
+              "rx": 0,
+              "ry": 0,
+              "rz": 0
+            }
+          ],
+          "reactions": [
+            {
+              "nodeId": 1,
+              "fx": 0,
+              "fy": 0,
+              "fz": 9.199768694181817,
+              "mx": 0,
+              "my": 0,
+              "mz": 0
+            },
+            {
+              "nodeId": 2,
+              "fx": 0,
+              "fy": 0,
+              "fz": 0.8002313058181834,
+              "mx": 0,
+              "my": 0,
+              "mz": 0
+            }
+          ],
+          "elementForces": [
+            {
+              "elementId": 1,
+              "length": 3,
+              "nStart": -4.599884347090908,
+              "nEnd": -4.599884347090908,
+              "vyStart": 0,
+              "vyEnd": 0,
+              "vzStart": 0,
+              "vzEnd": 0,
+              "mxStart": 0,
+              "mxEnd": 0,
+              "myStart": 0,
+              "myEnd": 0,
+              "mzStart": 0,
+              "mzEnd": 0,
+              "releaseMyStart": false,
+              "releaseMyEnd": false,
+              "releaseMzStart": false,
+              "releaseMzEnd": false,
+              "releaseTStart": false,
+              "releaseTEnd": false,
+              "qYI": 0,
+              "qYJ": 0,
+              "distributedLoadsY": [],
+              "pointLoadsY": [],
+              "qZI": 0,
+              "qZJ": 0,
+              "distributedLoadsZ": [],
+              "pointLoadsZ": []
+            },
+            {
+              "elementId": 2,
+              "length": 3,
+              "nStart": -4.599884347090908,
+              "nEnd": -4.599884347090908,
+              "vyStart": 0,
+              "vyEnd": 0,
+              "vzStart": 0,
+              "vzEnd": 0,
+              "mxStart": 0,
+              "mxEnd": 0,
+              "myStart": 0,
+              "myEnd": 0,
+              "mzStart": 0,
+              "mzEnd": 0,
+              "releaseMyStart": false,
+              "releaseMyEnd": false,
+              "releaseMzStart": false,
+              "releaseMzEnd": false,
+              "releaseTStart": false,
+              "releaseTEnd": false,
+              "qYI": 0,
+              "qYJ": 0,
+              "distributedLoadsY": [],
+              "pointLoadsY": [],
+              "qZI": 0,
+              "qZJ": 0,
+              "distributedLoadsZ": [],
+              "pointLoadsZ": []
+            }
+          ],
+          "solverDiagnostics": [
+            {
+              "category": "solver_path",
+              "message": "Dense solver (3 free DOFs)",
+              "severity": "info"
+            }
+          ],
+          "structuredDiagnostics": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (3 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 0.00e0 (3 free DOFs)",
+              "phase": "solve",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 1.388e-17 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 1.3877787807814457e-17,
+              "threshold": 1e-06
+            }
+          ],
+          "equilibrium": {
+            "relativeResidual": 0,
+            "residualOk": true,
+            "appliedForceSum": [
+              0,
+              0,
+              -10,
+              0,
+              0,
+              0
+            ],
+            "reactionForceSum": [
+              0,
+              0,
+              10,
+              0,
+              0,
+              0
+            ],
+            "maxImbalance": 0,
+            "equilibriumOk": true
+          },
+          "resultSummary": {
+            "displacementX": {
+              "maxValue": 0,
+              "maxId": 1,
+              "minValue": 0,
+              "minId": 1
+            },
+            "displacementY": {
+              "maxValue": 0,
+              "maxId": 1,
+              "minValue": 0,
+              "minId": 1
+            },
+            "displacementZ": {
+              "maxValue": 0,
+              "maxId": 1,
+              "minValue": -1e-05,
+              "minId": 2
+            },
+            "displacementResultant": {
+              "maxValue": 1e-05,
+              "maxId": 2,
+              "minValue": 0,
+              "minId": 1
+            },
+            "reactionResultant": {
+              "maxValue": 9.199768694181817,
+              "maxId": 1,
+              "minValue": 0.8002313058181834,
+              "minId": 2
+            },
+            "secondOrderRatio": 0.018661272495448685,
+            "memberChords": [
+              {
+                "elementId": 1,
+                "chord": [
+                  0,
+                  0,
+                  -3.3333333333333337e-06
+                ]
+              },
+              {
+                "elementId": 2,
+                "chord": [
+                  0,
+                  0,
+                  -3.3333333333333337e-06
+                ]
+              }
+            ],
+            "memberSpans": [
+              {
+                "elementId": 1,
+                "nodes": [
+                  1,
+                  2
+                ],
+                "length": 3,
+                "axes": [
+                  [
+                    0,
+                    0,
+                    1
+                  ],
+                  [
+                    0,
+                    -1,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ],
+                "ei": [
+                  899.1008605675822,
+                  19571.191101309058
+                ],
+                "shearFlexibility": [
+                  0,
+                  0
+                ],
+                "curvature": [
+                  0,
+                  0
+                ]
+              }
+            ]
+          },
+          "solverRunMeta": {
+            "engineVersion": "0.5.0",
+            "buildTimestamp": "unknown",
+            "buildSha": "dev",
+            "solverPath": "dense_lu",
+            "nFreeDofs": 3,
+            "nElements": 2,
+            "nNodes": 2
+          }
+        }
+      }
+    },
+    {
+      "path": "moving sweep",
+      "forceRows": [],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (4 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 0.00e0 (4 free DOFs)",
+              "phase": "solve",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "value": 1551,
+              "threshold": 0.07483
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (#1551)"
+        ]
+      },
+      "keys": [
+        "structuredDiagnostics",
+        "elements",
+        "path",
+        "train",
+        "positions",
+        "failed"
+      ]
+    },
+    {
+      "path": "moving detail",
+      "result": {
+        "structuredDiagnostics": [
+          {
+            "code": "dense_lu",
+            "severity": "info",
+            "message": "Dense solver (4 free DOFs)",
+            "phase": "solve"
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "Dense solver residual 0.00e0 (4 free DOFs)",
+            "phase": "solve",
+            "value": 0,
+            "threshold": 1e-06
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_residual",
+            "value": 0,
+            "threshold": 1e-06
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_balance",
+            "value": 0,
+            "threshold": 1e-06
+          },
+          {
+            "code": "known_issue",
+            "severity": "warning",
+            "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+            "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+            "value": 1551,
+            "threshold": 0.07483
+          }
+        ],
+        "elements": [
+          [
+            1,
+            {
+              "n": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": -5,
+                  "x": 0,
+                  "position": 3
+                }
+              },
+              "vy": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                }
+              },
+              "vz": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                }
+              },
+              "my": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                }
+              },
+              "mz": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                }
+              },
+              "torsion": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                }
+              }
+            }
+          ],
+          [
+            2,
+            {
+              "n": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": -5,
+                  "x": 0,
+                  "position": 3
+                }
+              },
+              "vy": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                }
+              },
+              "vz": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                }
+              },
+              "my": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                }
+              },
+              "mz": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                }
+              },
+              "torsion": {
+                "max": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                },
+                "min": {
+                  "value": 0,
+                  "x": 0,
+                  "position": 0
+                }
+              }
+            }
+          ]
+        ],
+        "path": [
+          {
+            "elementId": 1,
+            "from": 1,
+            "to": 2,
+            "length": 3,
+            "cumStart": 0,
+            "reversed": false
+          }
+        ],
+        "train": {
+          "name": "one",
+          "axles": [
+            {
+              "offset": 0,
+              "weight": 10
+            }
+          ]
+        },
+        "positions": 2,
+        "failed": 0
+      }
+    },
+    {
+      "path": "explained detail",
+      "stiffness": [
+        {
+          "elementId": 1,
+          "uGlobal": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -1.0869838506183609e-05,
+            0,
+            0,
+            0
+          ],
+          "uLocal": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -1.0869838506183609e-05,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "fLocalRaw": [
+            5,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -5,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "fixedEndForces": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "fLocalFinal": [
+            5,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -5,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "elementId": 2,
+          "uGlobal": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            -1.0869838506183609e-05
+          ],
+          "uLocal": [
+            0,
+            0,
+            0,
+            -1.0869838506183609e-05,
+            0,
+            0
+          ],
+          "fLocalRaw": [
+            5,
+            0,
+            0,
+            -5,
+            0,
+            0
+          ],
+          "fixedEndForces": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "fLocalFinal": [
+            5,
+            0,
+            0,
+            -5,
+            0,
+            0
+          ]
+        }
+      ],
+      "flexibility": {
+        "keys": [
+          "is3D",
+          "count",
+          "isostatic",
+          "redundants",
+          "original",
+          "primary",
+          "states",
+          "delta",
+          "delta0",
+          "prescribed",
+          "deltaTerms",
+          "delta0Terms",
+          "deltaCheck",
+          "delta0Check",
+          "X",
+          "final",
+          "verification",
+          "stiffness"
+        ],
+        "final": {
+          "bars": [
+            {
+              "elementId": 1,
+              "L": 3,
+              "ends": {
+                "nStart": -5,
+                "vStart": 0,
+                "mStart": 0,
+                "nEnd": -5,
+                "vEnd": 0,
+                "mEnd": 0,
+                "myStart": 0,
+                "myEnd": 0,
+                "tStart": 0
+              },
+              "samples": [
+                {
+                  "x": 0,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.125,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.25,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.375,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.5,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.625,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.75,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.875,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.125,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.25,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.375,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.5,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.625,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.75,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.875,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.125,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.25,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.375,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.5,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.625,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.75,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.875,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 3,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                }
+              ]
+            },
+            {
+              "elementId": 2,
+              "L": 3,
+              "ends": {
+                "nStart": -5,
+                "vStart": 0,
+                "mStart": 0,
+                "nEnd": -5,
+                "vEnd": 0,
+                "mEnd": 0,
+                "myStart": 0,
+                "myEnd": 0,
+                "tStart": 0
+              },
+              "samples": [
+                {
+                  "x": 0,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.125,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.25,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.375,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.5,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.625,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.75,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 0.875,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.125,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.25,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.375,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.5,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.625,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.75,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 1.875,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.125,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.25,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.375,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.5,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.625,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.75,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 2.875,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                },
+                {
+                  "x": 3,
+                  "m": 0,
+                  "n": -5,
+                  "my": 0,
+                  "t": 0
+                }
+              ]
+            }
+          ],
+          "reactions": [
+            {
+              "nodeId": 1,
+              "component": 0,
+              "value": 0
+            },
+            {
+              "nodeId": 1,
+              "component": 1,
+              "value": 0
+            },
+            {
+              "nodeId": 1,
+              "component": 2,
+              "value": 10
+            },
+            {
+              "nodeId": 1,
+              "component": 3,
+              "value": 0
+            },
+            {
+              "nodeId": 1,
+              "component": 4,
+              "value": 0
+            },
+            {
+              "nodeId": 1,
+              "component": 5,
+              "value": 0
+            },
+            {
+              "nodeId": 2,
+              "component": 0,
+              "value": 0
+            },
+            {
+              "nodeId": 2,
+              "component": 1,
+              "value": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "seismic/wind plan modal",
+      "forceRows": [],
+      "diagnostics": [
+        {
+          "at": ".result.finiteSpectrumDiagnostic",
+          "value": "Requested 12 modes; returned all 4 finite modes certified by the Sturm count. Massless directions have no finite frequency."
+        },
+        {
+          "at": ".result.structuredDiagnostics",
+          "value": [
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+              "phase": "NL-DYNAMIC-GAPS",
+              "value": 370
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (known issue #759, MD-ORTHOGONALITY)",
+              "phase": "MD-ORTHOGONALITY",
+              "value": 759
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:1: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:1",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:1: 0.000e0 (warning at 1.000e-10, refusal at 2.000e-10)",
+              "phase": "self_check:modal_orthogonality:1",
+              "value": 0,
+              "threshold": 1.0000199840644433e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:2: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:2",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:2: 0.000e0 (warning at 2.000e-10, refusal at 4.000e-10)",
+              "phase": "self_check:modal_orthogonality:2",
+              "value": 0,
+              "threshold": 2.0000199842142827e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:3: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:3",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:3: 0.000e0 (warning at 3.000e-10, refusal at 6.000e-10)",
+              "phase": "self_check:modal_orthogonality:3",
+              "value": 0,
+              "threshold": 3.000019984297563e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:4: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:4",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:4: 0.000e0 (warning at 4.000e-10, refusal at 8.000e-10)",
+              "phase": "self_check:modal_orthogonality:4",
+              "value": 0,
+              "threshold": 4.000019984364203e-10
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response. (#370)",
+          "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (#759)"
+        ]
+      },
+      "keys": [
+        "result",
+        "reached"
+      ]
+    },
+    {
+      "path": "spectral-case mode statics",
+      "forceRows": [
+        {
+          "at": ".elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Fully restrained model (0 free DOFs, 12 restrained)",
+              "phase": "solve"
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+              "elementIds": [
+                1
+              ],
+              "nodeIds": [
+                2
+              ],
+              "phase": "LIN-SMALL-DISPLACEMENT",
+              "value": 1446,
+              "threshold": 0.1,
+              "elementKind": "frame"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (#1446)"
+        ]
+      },
+      "keys": [
+        "displacements",
+        "reactions",
+        "elementForces",
+        "structuredDiagnostics",
+        "equilibrium",
+        "resultSummary",
+        "solverRunMeta"
+      ]
+    },
+    {
+      "path": "actual P-Delta handler UI",
+      "solveError": null,
+      "pdeltaRefused": null,
+      "converged": true,
+      "stable": true,
+      "b2": 1,
+      "disposition": {
+        "refused": false,
+        "messages": []
+      },
+      "force": {
+        "elementId": 2,
+        "length": 3,
+        "nStart": -4.599884347090908,
+        "nEnd": -4.599884347090908,
+        "vyStart": 0,
+        "vyEnd": 0,
+        "vzStart": 0,
+        "vzEnd": 0,
+        "mxStart": 0,
+        "mxEnd": 0,
+        "myStart": 0,
+        "myEnd": 0,
+        "mzStart": 0,
+        "mzEnd": 0,
+        "releaseMyStart": false,
+        "releaseMyEnd": false,
+        "releaseMzStart": false,
+        "releaseMzEnd": false,
+        "releaseTStart": false,
+        "releaseTEnd": false,
+        "qYI": 0,
+        "qYJ": 0,
+        "distributedLoadsY": [],
+        "pointLoadsY": [],
+        "qZI": 0,
+        "qZJ": 0,
+        "distributedLoadsZ": [],
+        "pointLoadsZ": []
+      }
+    },
+    {
+      "path": "toolbar modal",
+      "forceRows": [],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+              "phase": "NL-DYNAMIC-GAPS",
+              "value": 370
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (known issue #759, MD-ORTHOGONALITY)",
+              "phase": "MD-ORTHOGONALITY",
+              "value": 759
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:1: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:1",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:1: 0.000e0 (warning at 1.000e-10, refusal at 2.000e-10)",
+              "phase": "self_check:modal_orthogonality:1",
+              "value": 0,
+              "threshold": 1.0000353518777762e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:2: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:2",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:2: 0.000e0 (warning at 2.000e-10, refusal at 4.000e-10)",
+              "phase": "self_check:modal_orthogonality:2",
+              "value": 0,
+              "threshold": 2.0000304438224149e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:3: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:3",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:3: 0.000e0 (warning at 3.000e-10, refusal at 6.000e-10)",
+              "phase": "self_check:modal_orthogonality:3",
+              "value": 0,
+              "threshold": 3.0000320800987766e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:4: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:4",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:4: 5.027e-16 (warning at 4.000e-10, refusal at 8.000e-10)",
+              "phase": "self_check:modal_orthogonality:4",
+              "value": 5.026748538604307e-16,
+              "threshold": 4.000055165834808e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:5: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:5",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:5: 7.109e-16 (warning at 5.000e-10, refusal at 1.000e-9)",
+              "phase": "self_check:modal_orthogonality:5",
+              "value": 7.108895957933346e-16,
+              "threshold": 5.000069017325829e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:6: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:6",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:6: 7.109e-16 (warning at 6.000e-10, refusal at 1.200e-9)",
+              "phase": "self_check:modal_orthogonality:6",
+              "value": 7.108895957933346e-16,
+              "threshold": 6.000061770518105e-10
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response. (#370)",
+          "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (#759)"
+        ]
+      },
+      "keys": [
+        "modes",
+        "nDof",
+        "totalMass",
+        "cumulativeMassRatioX",
+        "cumulativeMassRatioY",
+        "cumulativeMassRatioZ",
+        "rayleigh",
+        "structuredDiagnostics",
+        "discardedModes"
+      ]
+    },
+    {
+      "path": "advanced spectral X",
+      "forceRows": [],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+              "phase": "NL-DYNAMIC-GAPS",
+              "value": 370
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (known issue #759, MD-ORTHOGONALITY)",
+              "phase": "MD-ORTHOGONALITY",
+              "value": 759
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response. (#370)",
+          "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (#759)"
+        ]
+      },
+      "keys": [
+        "structuredDiagnostics",
+        "displacements",
+        "elementForces",
+        "baseShear",
+        "perMode",
+        "rule"
+      ]
+    },
+    {
+      "path": "advanced spectral Y",
+      "forceRows": [],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+              "phase": "NL-DYNAMIC-GAPS",
+              "value": 370
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (known issue #759, MD-ORTHOGONALITY)",
+              "phase": "MD-ORTHOGONALITY",
+              "value": 759
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response. (#370)",
+          "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (#759)"
+        ]
+      },
+      "keys": [
+        "structuredDiagnostics",
+        "displacements",
+        "elementForces",
+        "baseShear",
+        "perMode",
+        "rule"
+      ]
+    },
+    {
+      "path": "advanced pushover",
+      "forceRows": [
+        {
+          "at": ".steps.0.results.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -317.2922989689902,
+          "nEnd": -317.2922989689902,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (6 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 8.84e-17 (6 free DOFs)",
+              "phase": "solve",
+              "value": 8.837705591435611e-17,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "value": 1551,
+              "threshold": 0.07483
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 3.676e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 3.6764178954208436e-16,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            }
+          ]
+        },
+        {
+          "at": ".steps.0.results.structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (6 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 8.84e-17 (6 free DOFs)",
+              "phase": "solve",
+              "value": 8.837705591435611e-17,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "value": 1551,
+              "threshold": 0.07483
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 3.676e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 3.6764178954208436e-16,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (#1551)"
+        ]
+      },
+      "keys": [
+        "structuredDiagnostics",
+        "collapseFactor",
+        "steps",
+        "hinges",
+        "isMechanism",
+        "redundancy"
+      ]
+    },
+    {
+      "path": "saved spectral case",
+      "forceRows": [
+        {
+          "at": ".results.map.2.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0.8124545728049319,
+          "nEnd": 0.8124545728049319,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": [],
+          "distributedLoadsX": []
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".results.map.2.structuredDiagnostics",
+          "value": [
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Fully restrained model (0 free DOFs, 12 restrained)",
+              "phase": "solve"
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+              "elementIds": [
+                1,
+                2
+              ],
+              "nodeIds": [
+                2
+              ],
+              "phase": "LIN-SMALL-DISPLACEMENT",
+              "value": 1446,
+              "threshold": 0.1,
+              "elementKind": "frame"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+              "elementIds": [
+                1
+              ],
+              "nodeIds": [
+                2
+              ],
+              "phase": "LIN-SMALL-DISPLACEMENT",
+              "value": 1446,
+              "threshold": 0.1,
+              "elementKind": "frame"
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+              "elementIds": [
+                1,
+                2
+              ],
+              "phase": "LIN-SMALL-DISPLACEMENT",
+              "value": 1446,
+              "threshold": 0.1,
+              "elementKind": "frame"
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
+              "phase": "NL-DYNAMIC-GAPS",
+              "value": 370
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (known issue #759, MD-ORTHOGONALITY)",
+              "phase": "MD-ORTHOGONALITY",
+              "value": 759
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:1: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:1",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:1: 0.000e0 (warning at 1.000e-10, refusal at 2.000e-10)",
+              "phase": "self_check:modal_orthogonality:1",
+              "value": 0,
+              "threshold": 1.0000353518777762e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:2: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:2",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:2: 0.000e0 (warning at 2.000e-10, refusal at 4.000e-10)",
+              "phase": "self_check:modal_orthogonality:2",
+              "value": 0,
+              "threshold": 2.0000304438224149e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:3: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:3",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:3: 0.000e0 (warning at 3.000e-10, refusal at 6.000e-10)",
+              "phase": "self_check:modal_orthogonality:3",
+              "value": 0,
+              "threshold": 3.0000320800987766e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:4: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:4",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:4: 5.027e-16 (warning at 4.000e-10, refusal at 8.000e-10)",
+              "phase": "self_check:modal_orthogonality:4",
+              "value": 5.026748538604307e-16,
+              "threshold": 4.000055165834808e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:5: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:5",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:5: 7.109e-16 (warning at 5.000e-10, refusal at 1.000e-9)",
+              "phase": "self_check:modal_orthogonality:5",
+              "value": 7.108895957933346e-16,
+              "threshold": 5.000069017325829e-10
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_residual:6: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:modal_residual:6",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check modal_orthogonality:6: 7.109e-16 (warning at 6.000e-10, refusal at 1.200e-9)",
+              "phase": "self_check:modal_orthogonality:6",
+              "value": 7.108895957933346e-16,
+              "threshold": 6.000061770518105e-10
+            }
+          ]
+        },
+        {
+          "at": ".warnings",
+          "value": [
+            "Spectral cases along Z: 75.0 % of the mass moves in Z over 6 modes, short of 90 %. They are worked out on that mass."
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (#1446)",
+          "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response. (#370)",
+          "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (#759)"
+        ]
+      },
+      "keys": [
+        "results",
+        "warnings"
+      ]
+    },
+    {
+      "path": "advanced concrete creep filtered",
+      "forceRows": [
+        {
+          "at": ".steps.0.results.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -37.3032368909422,
+          "nEnd": -37.3032368909422,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".steps.0.results.solverDiagnostics",
+          "value": [
+            {
+              "category": "solver_path",
+              "message": "Dense solver (4 free DOFs)",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "at": ".steps.0.results.structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (4 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 0.00e0 (4 free DOFs)",
+              "phase": "solve",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "value": 1551,
+              "threshold": 0.07483
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (#1551)"
+        ]
+      },
+      "keys": [
+        "steps"
+      ]
+    },
+    {
+      "path": "automatic cable force control",
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": -10,
+          "nEnd": -10,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "nonlinear": {
+        "converged": true,
+        "iterations": 1,
+        "lifted": [],
+        "slack": [],
+        "cables": [
+          {
+            "elementId": 2,
+            "tension": 0,
+            "horizontalThrust": 0,
+            "sag": 0,
+            "ernstModulus": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "influence detail",
+      "result": {
+        "structuredDiagnostics": [
+          {
+            "code": "dense_lu",
+            "severity": "info",
+            "message": "Dense solver (4 free DOFs)",
+            "phase": "solve"
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "Dense solver residual 0.00e0 (4 free DOFs)",
+            "phase": "solve",
+            "value": 0,
+            "threshold": 1e-06
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_residual",
+            "value": 0,
+            "threshold": 1e-06
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_balance",
+            "value": 0,
+            "threshold": 1e-06
+          }
+        ],
+        "quantity": "N",
+        "targetNodeId": null,
+        "targetElementId": 2,
+        "targetPosition": 0.5,
+        "points": [
+          {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "elementId": 1,
+            "t": 0,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 0.15000000000000002,
+            "elementId": 1,
+            "t": 0.05,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 0.30000000000000004,
+            "elementId": 1,
+            "t": 0.1,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 0.44999999999999996,
+            "elementId": 1,
+            "t": 0.15,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 0.6000000000000001,
+            "elementId": 1,
+            "t": 0.2,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 0.75,
+            "elementId": 1,
+            "t": 0.25,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 0.8999999999999999,
+            "elementId": 1,
+            "t": 0.3,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 1.0499999999999998,
+            "elementId": 1,
+            "t": 0.35,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 1.2000000000000002,
+            "elementId": 1,
+            "t": 0.4,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 1.35,
+            "elementId": 1,
+            "t": 0.45,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 1.5,
+            "elementId": 1,
+            "t": 0.5,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 1.6500000000000001,
+            "elementId": 1,
+            "t": 0.55,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 1.7999999999999998,
+            "elementId": 1,
+            "t": 0.6,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 1.9500000000000002,
+            "elementId": 1,
+            "t": 0.65,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 2.0999999999999996,
+            "elementId": 1,
+            "t": 0.7,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 2.25,
+            "elementId": 1,
+            "t": 0.75,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 2.4000000000000004,
+            "elementId": 1,
+            "t": 0.8,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 2.55,
+            "elementId": 1,
+            "t": 0.85,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 2.7,
+            "elementId": 1,
+            "t": 0.9,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 2.8499999999999996,
+            "elementId": 1,
+            "t": 0.95,
+            "value": 0
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "z": 3,
+            "elementId": 1,
+            "t": 1,
+            "value": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "basic toolbar P-Delta",
+      "forceRows": [
+        {
+          "at": ".results.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "at": ".linearResults.elementForces.1",
+          "elementId": 2,
+          "length": 3,
+          "nStart": -5,
+          "nEnd": -5,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ],
+      "diagnostics": [
+        {
+          "at": ".linearResults.solverDiagnostics",
+          "value": [
+            {
+              "category": "solver_path",
+              "message": "Dense solver (4 free DOFs)",
+              "severity": "info"
+            }
+          ]
+        },
+        {
+          "at": ".linearResults.structuredDiagnostics",
+          "value": [
+            {
+              "code": "dense_lu",
+              "severity": "info",
+              "message": "Dense solver (4 free DOFs)",
+              "phase": "solve"
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "Dense solver residual 0.00e0 (4 free DOFs)",
+              "phase": "solve",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "known_issue",
+              "severity": "warning",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "value": 1551,
+              "threshold": 0.07483
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "value": 0,
+              "threshold": 1e-06
+            },
+            {
+              "code": "residual_ok",
+              "severity": "info",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "value": 0,
+              "threshold": 1e-06
+            }
+          ]
+        }
+      ],
+      "disposition": {
+        "refused": false,
+        "messages": [
+          "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (#1551)"
+        ]
+      },
+      "converged": true,
+      "isStable": true,
+      "keys": [
+        "results",
+        "iterations",
+        "converged",
+        "isStable",
+        "b2Factor",
+        "linearResults",
+        "secondOrder"
+      ]
+    }
+  ],
+  "fixedRecords": [
+    {
+      "path": "buckling",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "influence axial",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "concrete creep",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "imperfections",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "compression: 2D stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "compression: 2D flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "compression: P-Delta",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "compression: corotational",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "compression: Winkler",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "compression: SSI",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "compression: staged",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "compression: direct analysis",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "compression: stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "compression: flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "shortening: 2D stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "shortening: 2D flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "shortening: P-Delta",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "shortening: corotational",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "shortening: Winkler",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "shortening: SSI",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "shortening: staged",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "shortening: direct analysis",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "shortening: stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "shortening: flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "unloaded: 2D stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "unloaded: 2D flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "unloaded: P-Delta",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "unloaded: corotational",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "unloaded: Winkler",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "unloaded: SSI",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "unloaded: staged",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "unloaded: direct analysis",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "unloaded: stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "unloaded: flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "tension: 2D stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "tension: 2D flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "tension: P-Delta",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "tension: corotational",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "tension: Winkler",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "tension: SSI",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "tension: staged",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "tension: direct analysis",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "tension: stiffness teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "tension: flexibility teaching wizard",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "pushover",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "modal",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "spectral X",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "spectral Y",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "spectral Z",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "harmonic",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "automatic cable: compression",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": -10,
+          "nEnd": -10,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "time history",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "toolbar modal",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "seismic/wind plan modal",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "moving envelope",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "severity": "error",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: cable elements require cable analysis to enforce tension-only behaviour."
+        }
+      ]
+    },
+    {
+      "path": "Basic toolbar P-Delta",
+      "refused": true,
+      "elementForces": [],
+      "diagnostics": [
+        {
+          "code": "cable_analysis_required",
+          "elementIds": [
+            2
+          ],
+          "message": "Results withheld: this analysis treats cables as bars that can carry compression. Use cable analysis to enforce tension-only behaviour.",
+          "phase": "element_validity",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "path": "automatic cable: tension",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": 5.000000000001326,
+          "nEnd": 5.000000000001326,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 4.999999999997348,
+          "nEnd": 4.999999999997348,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "saved spectral case",
+      "refused": true,
+      "elementForces": [],
+      "error": "Results withheld: cable elements 2 require cable analysis to enforce tension-only behavior. This analysis treats cables as bars that can carry compression."
+    },
+    {
+      "path": "automatic cable: unloaded",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "combinations cable (perCombination=undefined)",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": -10,
+          "nEnd": -10,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "combinations cable (perCombination=undefined)",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": -10,
+          "nEnd": -10,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "combinations cable (perCombination=pdelta)",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": -10,
+          "nEnd": -10,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "combinations cable (perCombination=pdelta)",
+      "refused": false,
+      "elementForces": [
+        {
+          "elementId": 1,
+          "length": 3,
+          "nStart": -10,
+          "nEnd": -10,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        },
+        {
+          "elementId": 2,
+          "length": 3,
+          "nStart": 0,
+          "nEnd": 0,
+          "vyStart": 0,
+          "vyEnd": 0,
+          "vzStart": 0,
+          "vzEnd": 0,
+          "mxStart": 0,
+          "mxEnd": 0,
+          "myStart": 0,
+          "myEnd": 0,
+          "mzStart": 0,
+          "mzEnd": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false,
+          "qYI": 0,
+          "qYJ": 0,
+          "distributedLoadsY": [],
+          "pointLoadsY": [],
+          "qZI": 0,
+          "qZJ": 0,
+          "distributedLoadsZ": [],
+          "pointLoadsZ": []
+        }
+      ]
+    },
+    {
+      "path": "actual P-Delta handler UI",
+      "refused": true,
+      "elementForces": [],
+      "error": "P-Delta: Results withheld: cable elements 2 require cable analysis to enforce tension-only behavior. This analysis treats cables as bars that can carry compression."
+    }
+  ],
+  "fixedReplaySources": [
+    "web/src/lib/engine/__tests__/SA-2026-059.test.ts",
+    "web/src/lib/engine/__tests__/SA-2026-059-fixed.test.ts"
+  ],
+  "fixedReplayBuild": "make wasm in cause-a with PR #1921 round-2 final surface validation and cable refusal corrections; parent a4fe98eda"
+}

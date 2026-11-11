@@ -34,6 +34,7 @@ const PROFILES: EmitOptions['profiles'] = {
   column: defaultProfileSpec('HEB 160'),
   beam: defaultProfileSpec('IPE 200'),
   purlin: defaultProfileSpec('UPN 100'),
+  bracing: defaultProfileSpec('L 50x50x5'),
 };
 
 /** Solve under one downward nodal load at the highest node, as the sibling file does. */
@@ -120,7 +121,7 @@ describe('the default shed is connected', () => {
 
 describe('a roof with no purlins, and what is actually missing', () => {
   const NO_PURLINS = {
-    ...DEFAULT_SHED_PARAMS, frames: 3, roof: true, purlins: false, longitudinalBeams: true,
+    ...DEFAULT_SHED_PARAMS, frames: 3, roof: true, purlins: false, longitudinalBeams: true, wallBracing: false, roofBracing: false, trussBracing: false,
   };
 
   /**
@@ -194,8 +195,8 @@ describe('a roof with no purlins, and what is actually missing', () => {
     expect(typeof solve(emit(NO_PURLINS, 'Sin correas'), -20)).toBe('string');
   });
 
-  it('turning purlins back on is the fix the panel offers, and it works', () => {
-    const res = solve(emit({ ...NO_PURLINS, purlins: true }, 'Con correas'), -20);
+  it('purlins and vertical truss bracing together hold the roof sideways', () => {
+    const res = solve(emit({ ...NO_PURLINS, purlins: true, trussBracing: true }, 'Con correas'), -20);
     expect(typeof res, typeof res === 'string' ? String(res) : '').not.toBe('string');
     expect(maxDisplacement(res)).toBeLessThan(0.05);
   });

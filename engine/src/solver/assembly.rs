@@ -36,7 +36,7 @@ thread_local! {
     static ARTIFICIAL_STIFFNESS: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
 }
 
-fn artificial_stiffness(max_diag: f64) -> f64 {
+pub(super) fn artificial_stiffness(max_diag: f64) -> f64 {
     if !ARTIFICIAL_STIFFNESS.with(|a| a.get()) {
         return 0.0;
     }
@@ -44,6 +44,9 @@ fn artificial_stiffness(max_diag: f64) -> f64 {
 }
 
 pub(crate) fn without_artificial_stiffness<T>(f: impl FnOnce() -> T) -> T {
+    if super::stability::assumed() {
+        return f();
+    }
     struct Restore(bool);
     impl Drop for Restore {
         fn drop(&mut self) {

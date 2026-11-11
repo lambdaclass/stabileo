@@ -37,6 +37,7 @@
  */
 
 import { describe, expect, it, beforeAll } from 'vitest';
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import * as THREE from 'three';
 import { createRebarScene, rebarSceneBuilds, type RebarScene } from '../rebar-scene';
 import {
@@ -544,12 +545,13 @@ describe('nothing rebuilds a tube', () => {
 // ─── The 7-storey building ───────────────────────────────────────
 
 /** Milliseconds, median of `runs`, so one unlucky GC pause does not become the number. */
-function median(runs: number, act: () => void): number {
+async function median(runs: number, act: () => void): Promise<number> {
   const times: number[] = [];
   for (let i = 0; i < runs; i++) {
     const t0 = performance.now();
     act();
     times.push(performance.now() - t0);
+    await yieldToEventLoop();
   }
   times.sort((a, b) => a - b);
   return times[times.length >> 1];
@@ -603,7 +605,7 @@ for (const [label, example] of [
       built = createRebarScene(scene);
     }, 600_000);
 
-    it('reports what it is measuring, and holds every switch to a fraction of a rebuild', () => {
+    it('reports what it is measuring, and holds every switch to a fraction of a rebuild', async () => {
       /**
        * Setup is measured separately from interaction, on purpose.
        *
@@ -612,7 +614,7 @@ for (const [label, example] of [
        * tab switch. Building the scene is a one-off; a toggle is what the user does forty times
        * an hour. Mixing them hides which one is the problem.
        */
-      const rebuild = median(3, () => createRebarScene(scene).dispose());
+      const rebuild = await median(3, () => createRebarScene(scene).dispose());
 
       /**
        * The old toggle, measured in the same run as the new one.
@@ -622,7 +624,7 @@ for (const [label, example] of [
        * not a comparison.
        */
       const beforeOld = rebarSceneBuilds();
-      const oldToggle = median(3, () => {
+      const oldToggle = await median(3, () => {
         const smaller = filterScene(scene, { solidKinds: FAMILIES.filter((k) => k !== 'column') });
         createRebarScene(smaller).dispose();
       });
@@ -640,7 +642,7 @@ for (const [label, example] of [
 
       const switches: Array<[string, number]> = [];
       for (const family of FAMILIES) {
-        switches.push([`toggle ${family}`, median(5, () => {
+        switches.push([`toggle ${family}`, await median(5, () => {
           built.setVisibility({ filter: { solidKinds: FAMILIES.filter((k) => k !== family) } });
           built.setVisibility({ filter: {} });
         })]);
@@ -651,20 +653,20 @@ for (const [label, example] of [
         .filter((e) => e.status === report.present[0]).map((e) => e.elementId);
       const oneMember = scene.solids.find((s) => s.elementIds.length > 0)?.elementIds[0] ?? 1;
 
-      switches.push(['status filter', median(5, () => {
+      switches.push(['status filter', await median(5, () => {
         built.setVisibility({ filter: { elementIds: someStatus } });
         built.setVisibility({ filter: {} });
       })]);
-      switches.push(['isolate one member', median(5, () => {
+      switches.push(['isolate one member', await median(5, () => {
         built.setVisibility({ filter: { elementIds: [oneMember] } });
         built.setVisibility({ filter: {} });
       })]);
-      switches.push(['hide all the steel', median(5, () => {
+      switches.push(['hide all the steel', await median(5, () => {
         built.setVisibility({ filter: { hideBars: true } });
         built.setVisibility({ filter: {} });
       })]);
-      switches.push(['opacity', median(5, () => built.setConcreteOpacity(0.5))]);
-      switches.push(['section', median(5, () => {
+      switches.push(['opacity', await median(5, () => built.setConcreteOpacity(0.5))]);
+      switches.push(['section', await median(5, () => {
         built.setSection({ axis: 'z', at: 3 });
         built.setSection(undefined);
       })]);
@@ -685,15 +687,15 @@ for (const [label, example] of [
           if (built.solidIdAt(h.object, h.faceIndex ?? undefined)) return;
         }
       };
-      const firstPick = median(1, shoot);
-      const repeatPick = median(5, shoot);
+      const firstPick = await median(1, shoot);
+      const repeatPick = await median(5, shoot);
 
       // ── The panel's own derived chain, timed apart from the picture ──
-      const panelChain = median(3, () => {
+      const panelChain = await median(3, () => {
         const visible = filterScene(scene, { solidKinds: FAMILIES.filter((k) => k !== 'column') });
         summariseScene(visible);
       });
-      const statusReport = median(3, () => reportElementStatus(scene, outcomes));
+      const statusReport = await median(3, () => reportElementStatus(scene, outcomes));
 
       const ms = (n: number) => `${n.toFixed(2)} ms`;
       const rows = [

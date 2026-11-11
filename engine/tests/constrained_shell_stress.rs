@@ -51,7 +51,7 @@ fn make_plate(nx: usize, ny: usize, extra_nodes: &[(usize, f64, f64, f64)], cons
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
 
-    // Simply-supported boundary (restrain z), pin one corner fully.
+    // Simply-supported boundary (restrain z), pin one corner fully and hold the next in y.
     let mk_support = |node_id: usize, full: bool| SolverSupport3D {
         node_id,
         rx: full, ry: full, rz: true,
@@ -68,6 +68,8 @@ fn make_plate(nx: usize, ny: usize, extra_nodes: &[(usize, f64, f64, f64)], cons
     let mut sid = 1;
     for &n in &boundary { supports.insert(sid.to_string(), mk_support(n, false)); sid += 1; }
     supports.insert(sid.to_string(), mk_support(grid[0][0], true));
+    sid += 1;
+    supports.insert(sid.to_string(), SolverSupport3D { ry: true, ..mk_support(grid[nx][0], false) });
 
     let loads: Vec<SolverLoad3D> = (1..=quads.len())
         .map(|eid| SolverLoad3D::QuadPressure(SolverPressureLoad { element_id: eid, pressure: -5.0 }))

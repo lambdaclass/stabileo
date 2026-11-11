@@ -1,0 +1,44 @@
+{
+  "id": "generated-structure-stability",
+  "date": "2026-11-10",
+  "prs": [
+    1753
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "space3D"
+      ],
+      [
+        "members"
+      ],
+      [
+        "generatedStructures"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Generated planar structures gain explicit restraints and sheds default to bracing",
+    "es": "Las estructuras planas generadas incorporan restricciones explícitas y las naves se arriostran por defecto",
+    "pt": "Estruturas planas geradas recebem restrições explícitas e galpões têm contraventamento por padrão",
+    "de": "Erzeugte ebene Tragwerke erhalten explizite Halterungen und Hallen standardmäßig Verbände",
+    "fr": "Les structures planes générées reçoivent des maintiens explicites et les halls sont contreventés par défaut",
+    "tr": "Üretilen düzlem yapılara açık mesnetler ekleniyor ve hangarlar varsayılan olarak çaprazlanıyor"
+  },
+  "explanation": {
+    "en": "Standalone planar trusses, rolled beams, lattice girders, Howe roofs and sawtooth structures now have explicit lateral panel restraints and fork bearings. Standalone lattice columns default to fixed bases. Sheds default to wall, roof and vertical truss bracing; they use physical bracing rather than standalone planar supports. The previous inputs had physical null modes and remain refused even when the loads do not excite them. Saved models are unchanged: regenerate, review the supports and bracing, and solve again.",
+    "es": "Las cerchas, vigas, vigas reticuladas, cubiertas Howe y dientes de sierra independientes incorporan restricciones laterales de panel y apoyos de horquilla. Las columnas reticuladas independientes tienen bases empotradas por defecto. Las naves incluyen arriostramiento de fachada, cubierta y entre cerchas, sin heredar apoyos planos. Los modelos anteriores tienen modos nulos físicos y siguen rechazándose aunque las cargas no los exciten. Los modelos guardados no cambian: regenere, revise apoyos y arriostramientos y vuelva a resolver.",
+    "pt": "Treliças, vigas, vigas reticuladas, coberturas Howe e dentes de serra independentes recebem restrições laterais nos painéis e apoios de garfo. Colunas treliçadas independentes têm bases engastadas por padrão. Galpões incluem contraventamento de paredes, cobertura e entre treliças, sem herdar apoios planos. Os modelos anteriores têm modos nulos físicos e continuam recusados mesmo sem cargas que os excitem. Modelos salvos não mudam: gere novamente, revise apoios e contraventamentos e resolva.",
+    "de": "Einzelne ebene Fachwerke, Träger, Gitterträger, Howe-Dächer und Sheddächer erhalten seitliche Knotenhalterungen und Gabellager. Einzelne Gitterstützen haben standardmäßig eingespannte Füße. Hallen erhalten Wand-, Dach- und vertikale Fachwerkverbände, ohne die ebenen Lager zu übernehmen. Die bisherigen Modelle haben physikalische Nullmoden und werden auch ohne anregende Last abgelehnt. Gespeicherte Modelle bleiben bestehen: neu erzeugen, Lager und Verbände prüfen und erneut berechnen.",
+    "fr": "Les treillis, poutres, poutres réticulées, toitures Howe et sheds indépendants reçoivent des maintiens latéraux aux nœuds et des appuis à fourche. Les poteaux réticulés indépendants ont des bases encastrées par défaut. Les halls reçoivent des contreventements de façade, de toiture et entre fermes, sans hériter des appuis plans. Les anciens modèles ont des modes nuls physiques et restent refusés même sans charge les excitant. Les modèles enregistrés restent inchangés : régénérez, vérifiez les appuis et contreventements, puis recalculez.",
+    "tr": "Bağımsız düzlem kafesler, kirişler, kafes kirişler, Howe ve testere dişi çatılar yanal panel mesnetleri ve çatal mesnetler alıyor. Bağımsız kafes kolonların tabanları varsayılan olarak ankastre. Hangarlar duvar, çatı ve kafesler arası düşey çaprazlarla üretiliyor; düzlem mesnetlerini devralmıyor. Önceki girdilerin fiziksel sıfır modları var ve yükler bunları uyarmasa da reddediliyor. Kayıtlı modeller değişmiyor: yeniden üretin, mesnet ve çaprazları inceleyin ve yeniden çözün."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-generated-structure-stability.md",
+    "heading": "Generated structures receive their missing stability restraints"
+  }
+}

@@ -26,6 +26,19 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('scopes generator stability guidance to recorded generated structures', () => {
+    const ordinary = model({ elements: [member(1, 1, 'frame')] });
+    const generated = { ...ordinary, groups: [[1, { kind: 'generated' }]] } as FeatureSnapshot;
+    expect(modelFeatures(generated)).toContain('generatedStructures');
+    expect(ids(generated)).toContain('generated-structure-stability');
+    expect(ids(ordinary)).not.toContain('generated-structure-stability');
+    expect(ids({ ...ordinary, groups: [[1, { kind: 'floorLoad' }]] })).not.toContain('generated-structure-stability');
+    expect(ids({ ...generated, elements: [] })).not.toContain('generated-structure-stability');
+    expect(ids({ ...generated, analysisMode: '2d' })).not.toContain('generated-structure-stability');
+    const current = stampSolve('linear', null);
+    expect(ids(generated, current)).not.toContain('generated-structure-stability');
+  });
+
   it('shows one complete harmonic correction notice for PR #1922', () => {
     const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!;
     const snapshot = model({ elements: [member(1, 1, 'frame')] });
@@ -331,7 +344,7 @@ describe('which registered changes concern a model', () => {
     }
   });
 
-  it('an empty model is concerned by nothing', () => {
+  it('unknown analysis history without stiffness elements has no linear result to re-check', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
 
@@ -484,4 +497,42 @@ it('shows moving-load changes for saved vehicle position cases and excludes ordi
   expect(ids({ ...moving, analysisMode: '2d' })).not.toContain('moving-loads-3d');
   expect(ids({ ...frame, loadCases: [{ id: 1, type: 'Tr' }] })).not.toContain('moving-loads-3d');
   expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-loads-3d');
+});
+
+it('scopes contact and cable validity to affected models', () => {
+  const id = 'contact-and-cable-validity';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const elements of [[], [member(1, 1, 'frame')], [member(1, 1, 'truss')]]) {
+      expect(ids(model({ analysisMode, elements }))).not.toContain(id);
+    }
+    for (const behaviour of ['cable', 'tensionOnly', 'compressionOnly']) {
+      expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss', { behaviour })] }))).toContain(id);
+    }
+    for (const type of ['cable', 'gap', 'contact']) {
+      expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss', { type })] }))).toContain(id);
+    }
+    expect(ids(model({ analysisMode, supports: [[1, { nodeId: 1, uplift: true }]] }))).toContain(id);
+    expect(ids(model({ analysisMode, gapElements: [{ id: 1 }] }))).toContain(id);
+    expect(ids(model({ analysisMode, nodeToSurfacePairs: [{ slaveNode: 1 }] }))).toContain(id);
+    expect(ids(model({ analysisMode, upliftSupports: [1] }))).toContain(id);
+  }
+});
+
+it('classifies native cables as axial members and contacts without frame claims (#1921)', () => {
+  for (const type of ['cable', 'gap', 'contact']) {
+    const features = modelFeatures(model({ elements: [member(1, 1, 'truss', { type })] }));
+    expect(features.has('frameMembers'), type).toBe(false);
+    expect(features.has('trussMembers'), type).toBe(type === 'cable');
+  }
+});
+
+it('scopes frozen member validation to one-way behaviour even without gaps (#1921)', () => {
+  const id = 'frozen-one-way-members';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const behaviour of ['tensionOnly', 'compressionOnly']) {
+      expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss', { behaviour })] }))).toContain(id);
+    }
+    expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss')] }))).not.toContain(id);
+    expect(ids(model({ analysisMode, elements: [member(1, 1, 'frame')] }))).not.toContain(id);
+  }
 });

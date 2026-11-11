@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "10 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, 0.5.0 sürümünden sonra düzeltildi ve 9 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin. SA-2026-055 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-056 — Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı. SA-2026-057 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı."
+      "t": "10 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, 0.5.0 sürümünden sonra düzeltildi ve 9 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin. SA-2026-054 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-055 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-056 — Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı. SA-2026-057 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-059 — PR #1921 ile düzeltildi, sürüm yayını bekleniyor."
     },
     {
       "k": "note",
@@ -353,6 +353,12 @@ const body: PostBody = {
           "Düşük",
           "0.5.0'dan sonra düzeltildi; 9 Kasım 2026'dan beri stabileo.com'da"
         ],
+        [
+          "SA-2026-054",
+          "Doğrusal analiz, çözümlenemeyen rijitlik veya PCG tarafından atlanan yük bileşenleri nedeniyle uyarı vermeden hatalı sonuçlar döndürebiliyordu",
+          "Yüksek",
+          "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"
+        ],
         ["SA-2026-055", "2B ve 3B P-Delta, çerçeve çubuğu boyunca yayılı veya tekil yükler altında eksenel kuvvet değiştiğinde büyütmeyi düşük gösterebilir ve kararlı sonuç bildirebilirdi", "Yüksek", "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"],
         [
           "SA-2026-056",
@@ -371,6 +377,12 @@ const body: PostBody = {
           "3000’den fazla bağımsız serbestlik derecesine sahip büyük 2D/3D harmonik modeller, q ≤ 1/16 aralığı dışında atlanan modların hatalı yanıtlarını kesme uyarısının kapsamadığı frekanslarda koruyabiliyordu (hedef yanıtında ölçülen karmaşık bağıl hata: %8,079)",
           "Yüksek",
           "PR #1922 ile düzeltildi, sürüm yayını bekleniyor"
+        ],
+        [
+          "SA-2026-059",
+          "Gelişmiş web analizleri kablolara uyarı vermeden basınç direnci atayabiliyordu (P-Delta yeniden üretimi: −4,599884347090908 kN); kablolu modellerin gelişmiş analiz, doğrudan analiz ve öğretici sihirbaz sonuçlarını yeniden kontrol edin",
+          "Yüksek",
+          "PR #1921 ile düzeltildi, sürüm yayını bekleniyor"
         ],
       ]
     },

@@ -1298,8 +1298,8 @@ fn self_checks_portal_mechanism_keeps_actionable_refusal() {
         support.rrz = false;
     }
     let error = solve_3d(&input).unwrap_err();
-    assert!(error.contains("mechanism"), "{error}");
-    assert!(error.starts_with("REFUSE: self-check static_residual"), "{error}");
+    assert!(error.starts_with("the structure is a mechanism"), "{error}");
+    assert!(error.contains("add supports or members"), "{error}");
 }
 
 #[test]

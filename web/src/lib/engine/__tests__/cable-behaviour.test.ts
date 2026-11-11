@@ -10,6 +10,7 @@ import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
 import { initSolver } from '../wasm-solver';
+import { cableRefusal } from './sa-059-replay';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); });
@@ -82,12 +83,16 @@ describe('a cable', () => {
     expect(res.reactions.reduce((s, x) => s + x.fz, 0)).toBeCloseTo(P, 6);
   });
 
-  it('is a truss to the other analyses', async () => {
-    tripod(false);
+  it('preserves cable identity and refuses analyses without tension-only behaviour', async () => {
+    const { ids } = tripod(false);
     const { buildSolverInput3D } = await import('../solver-service');
     const m = modelStore.model;
     const input = buildSolverInput3D({ nodes: m.nodes, elements: m.elements, supports: m.supports, loads: [], materials: m.materials, sections: m.sections } as never, false, false)!;
-    for (const e of input.elements.values()) expect(e.type).toBe('truss');
+    for (const e of input.elements.values()) expect(e.type).toBe('cable');
+    const { solve3D, solvePDelta3D, solveCorotational3D } = await import('../wasm-solver');
+    for (const run of [() => solve3D(input), () => solvePDelta3D(input), () => solveCorotational3D(input)]) {
+      await cableRefusal('bar analysis', run, ids);
+    }
   });
 });
 

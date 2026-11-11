@@ -42,6 +42,7 @@ pub mod sparse_assembly;
 pub(crate) mod sparse_tangent;
 pub mod pre_solve_gates;
 pub mod feature_gates;
+pub(crate) mod validity;
 
 pub use dof::*;
 pub use assembly::*;
@@ -62,3 +63,8 @@ pub use load_cases::*;
 pub use winkler::*;
 
 pub(crate) mod self_checks;
+
+pub(crate) mod conditioning_accuracy;
+
+#[cfg(test)]
+mod web_mechanism_regressions;

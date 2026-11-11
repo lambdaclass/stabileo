@@ -44,7 +44,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response" },
     Entry { id: "PL-3D-CERTIFICATE-MISMATCH", issue: 1760, mode: Mode::Warn, message: "The raw incremental 3D plastic collapse factor lies outside the certified interval. The returned collapse factor is the certified lower bound; incremental steps and hinges retain raw solver values" },
     Entry { id: "PL-3D-INVARIANCE", issue: 758, mode: Mode::Warn, message: "3D plastic collapse of curved beams has shown numbering-dependent factors. Independently verify the collapse factor" },
-    Entry { id: "ORPHAN-SOFT-ROTATION", issue: 1496, mode: Mode::Warn, message: "A node rotation with real but very small stiffness, compared with another rotation at the same node, was held by an artificial spring, so that rotation and the forces it carries can be far too small. Do not use this result for design until this warning clears" },
     Entry { id: "NUM-INVARIANCE", issue: 762, mode: Mode::Warn, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design" },
     Entry { id: "CERT-MECHANISM", issue: 458, mode: Mode::Warn, message: "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability" },
     Entry { id: "NL-3", issue: 426, mode: Mode::Warn, message: "A member's end turns more than 0.02 rad against its chord in this 3D co-rotational analysis. Its end forces omit a finite-rotation term whose error grows about as half that rotation times the end moments; split the most deformed members into shorter ones until this warning clears" },
@@ -58,8 +57,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "BU-BOUND", issue: 741, mode: Mode::Refuse, message: "Results withheld: the computed buckling factor lies outside its certified bounds. Neither the displayed factor nor the certificate may be used for design" },
     Entry { id: "SP-17", issue: 419, mode: Mode::Warn, message: "Anisotropic connector transverse axes are not user-orientable and can change abruptly with direction. Independently verify the spring directions before using these results" },
     Entry { id: "FR-5", issue: 408, mode: Mode::Warn, message: "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently" },
-    Entry { id: "SP-14", issue: 417, mode: Mode::Warn, message: "Outside the cable analysis, cable elements can carry compression as truss bars. Verify cable tensions and use a tension-only cable analysis for slackening" },
-    Entry { id: "NL-13", issue: 432, mode: Mode::Warn, message: "Contact analysis can freeze a chattering gap while reporting convergence. Verify the contact state and equilibrium independently" },
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
     Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
@@ -185,7 +182,6 @@ pub fn for_analysis(analysis: Analysis) -> Vec<StructuredDiagnostic> {
     match analysis {
         Analysis::MaterialNonlinear => vec![diagnostic("NL-5")],
         Analysis::TimeHistory => vec![diagnostic("TH-RECIPROCITY")],
-        Analysis::Contact => vec![diagnostic("NL-13")],
         _ => vec![],
     }
 }
@@ -485,9 +481,6 @@ pub fn for_2d_loads(input: &SolverInput, loads: &[SolverLoad], analysis: Analysi
         out.push(diagnostic("NL-DYNAMIC-GAPS"));
     }
     if analysis == Analysis::Plastic { out.push(diagnostic("PL-2D-INVARIANCE")); }
-    if analysis != Analysis::Cable && input.elements.values().any(|e| e.elem_type == "cable") {
-        out.push(diagnostic("SP-14"));
-    }
     out.extend(loads_2d(loads));
     out
 }
@@ -503,9 +496,6 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
     }
     if analysis == Analysis::Plastic && !input.curved_beams.is_empty() { out.push(diagnostic("PL-3D-INVARIANCE")); }
     if analysis == Analysis::Modal { out.push(diagnostic("MD-ORTHOGONALITY")); }
-    if analysis != Analysis::Cable && input.elements.values().any(|e| e.elem_type == "cable") {
-        out.push(diagnostic("SP-14"));
-    }
     out.extend(model_3d(input));
     out.extend(loads_3d(&input.loads));
     out
@@ -1215,7 +1205,6 @@ mod tests {
             ("NL-5", Analysis::MaterialNonlinear, false),
             ("NL-DYNAMIC-GAPS", Analysis::MaterialNonlinear, false),
             ("PL-2D-INVARIANCE", Analysis::Plastic, false),
-            ("NL-13", Analysis::Contact, false),
             ("TH-RECIPROCITY", Analysis::TimeHistory, false),
             ("MD-ORTHOGONALITY", Analysis::Modal, true),
             ("BU-ACCURACY", Analysis::Buckling, true),
@@ -1286,10 +1275,14 @@ mod tests {
         assert!(has(&for_2d(&unloaded, Analysis::Linear), "CERT-MECHANISM"), "an all-hinged node with a rigid arm is covered without nodal moment");
         unloaded.supports.get_mut("1").unwrap().kz = Some(1.0);
         assert!(!has(&for_2d(&unloaded, Analysis::Linear), "CERT-MECHANISM"), "a real rotational spring supplies stiffness");
-        assert!(!has(&for_2d(&plane, Analysis::Linear), "SP-14"));
         plane.elements.get_mut("1").unwrap().elem_type = "cable".into();
-        assert!(has(&for_2d(&plane, Analysis::Linear), "SP-14"));
-        assert!(!has(&for_2d(&plane, Analysis::Cable), "SP-14"));
+        let error = crate::solver::linear::solve_2d(&plane).unwrap_err();
+        let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+        assert_eq!(error["structuredDiagnostics"][0]["code"], "cable_analysis_required");
+        let error = crate::solver::linear::validate_input_2d_for_analysis(&plane, Analysis::Cable).unwrap_err();
+        assert_eq!(error, crate::solver::linear::refuse_moments_without_rotation_2d(&plane, &plane.loads).unwrap_err());
+        plane.loads.clear();
+        assert!(crate::solver::linear::validate_input_2d_for_analysis(&plane, Analysis::Cable).is_ok());
         let mut space = input3();
         let connector: ConnectorElement = serde_json::from_value(serde_json::json!({"id":5,"nodeI":1,"nodeJ":2,"kShear":10,"kShearZ":10})).unwrap();
         space.connectors.insert("5".into(), connector);

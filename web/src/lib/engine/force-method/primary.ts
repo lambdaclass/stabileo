@@ -95,7 +95,7 @@ export interface IndeterminacyCount {
   equations: number;
   gh: number;
   /** Per-bar unknowns, for the step that explains the count. */
-  bars: Array<{ elementId: number; type: 'frame' | 'truss'; unknowns: number }>;
+  bars: Array<{ elementId: number; type: 'frame' | 'truss' | 'cable'; unknowns: number }>;
   nodes: Array<{ nodeId: number; equations: number }>;
 }
 

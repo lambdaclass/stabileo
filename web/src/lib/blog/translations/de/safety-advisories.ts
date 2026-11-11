@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Stand 10. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 und SA-2026-025 bis 047 in Version 0.5.0 (SA-2026-040 eingedämmt: Die Prüfung ist als unvollständig gekennzeichnet), außer SA-2026-044: Der plastische Kollaps in 2D bleibt abgelehnt, bis #758 geschlossen ist. SA-2026-048 wurde nach Version 0.5.0 behoben und ist seit dem 8. November 2026 auf stabileo.com online. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 und SA-2026-053 wurden nach Version 0.5.0 behoben und sind seit dem 9. November 2026 auf stabileo.com online. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben. SA-2026-055 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-056 — Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht. SA-2026-057 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht."
+      "t": "Stand 10. November 2026: SA-2026-001 bis 020 sind in Version 0.3.0 behoben, SA-2026-021 bis 024 in Version 0.4.0 und SA-2026-025 bis 047 in Version 0.5.0 (SA-2026-040 eingedämmt: Die Prüfung ist als unvollständig gekennzeichnet), außer SA-2026-044: Der plastische Kollaps in 2D bleibt abgelehnt, bis #758 geschlossen ist. SA-2026-048 wurde nach Version 0.5.0 behoben und ist seit dem 8. November 2026 auf stabileo.com online. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 und SA-2026-053 wurden nach Version 0.5.0 behoben und sind seit dem 9. November 2026 auf stabileo.com online. Die Veröffentlichung gehört zu unserer Art, die Ergebnisse zu verifizieren, und ist kein Zeichen dafür, dass die Hinweise noch offen sind. Ein Sicherheitshinweis gilt als behoben, wenn die Korrektur auf stabileo.com online ist, nicht schon, wenn die Änderung existiert. Solange ein Hinweis offen ist, verwenden Sie die angegebene Umgehung und prüfen Sie das betroffene Ergebnis von Hand, bevor Sie unterschreiben. SA-2026-054 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-055 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-056 — Entwurf: ungelöst; keine Korrektur integriert oder veröffentlicht. SA-2026-057 — Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht. SA-2026-059 — In PR #1921 behoben, Veröffentlichung ausstehend."
     },
     {
       "k": "note",
@@ -353,6 +353,12 @@ const body: PostBody = {
           "Niedrig",
           "Behoben nach 0.5.0; auf stabileo.com seit dem 9. November 2026"
         ],
+        [
+          "SA-2026-054",
+          "Die lineare Analyse konnte bei nicht auflösbarer Steifigkeit oder von PCG übersehenen Lastkomponenten ohne Warnung ungenaue Ergebnisse liefern",
+          "Hoch",
+          "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"
+        ],
         ["SA-2026-055", "P-Delta in 2D und 3D konnte Vergrößerungen unterschätzen und Stabilität melden, wenn die Normalkraft unter Strecken- oder Einzellasten entlang eines Rahmenstabs variierte", "Hoch", "Entwurf: Korrektur noch nicht zusammengeführt oder veröffentlicht"],
         [
           "SA-2026-056",
@@ -371,6 +377,12 @@ const body: PostBody = {
           "Große harmonische 2D/3D-Modelle mit mehr als 3000 unabhängigen freien Freiheitsgraden konnten außerhalb von q ≤ 1/16 ungenaue Antworten ausgelassener Moden bei Frequenzen außerhalb der Abschneidewarnung behalten (gemessener komplexer Fehler der Zielantwort: 8,079 %)",
           "Hoch",
           "In PR #1922 behoben, Veröffentlichung ausstehend"
+        ],
+        [
+          "SA-2026-059",
+          "Erweiterte Webanalysen konnten Seilen ohne Warnung Drucktragfähigkeit zuweisen (P-Delta-Reproduktion: −4,599884347090908 kN); Beanspruchungen aus erweiterten Analysen, direkter Analyse und Lehrassistenten für Seilmodelle prüfen",
+          "Hoch",
+          "In PR #1921 behoben, Veröffentlichung ausstehend"
         ],
       ]
     },

@@ -396,13 +396,21 @@ function split(v: Values): [Values, Values] {
 
 const RESULT_SET = /^(?:base|case\[[^\]]*\]|combo\[[^\]]*\])(?:\.(.*))?$/;
 
+export function resultFingerprint(values: Values): string {
+  const [gated] = split(values);
+  if (Object.values(gated).some((v) => typeof v === 'number' && !Number.isFinite(v))) return '';
+  const sorted = Object.entries(gated).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+  return createHash('sha256').update(JSON.stringify(sorted)).digest('hex');
+}
+
 /**
  * Whether a registered change declares that it moves this value. A model count never: the same
  * file must open as the same model whatever the solver does. `*` covers a result set's values,
  * not whether the solve refuses, raises an error or finds a combination unstable.
  */
-export function declaresMove(change: Pick<ResultChange, 'quantities'>, path: string): boolean {
-  const declared = change.quantities ?? [];
+export function declaresMove(change: Pick<ResultChange, 'quantities'>, path: string, results?: { before: string; after: string }): boolean {
+  const declared = (change.quantities ?? []).flatMap((q) => typeof q === 'string' ? [q]
+    : results?.before && results.after && q.before === results.before && q.after === results.after ? [q.quantity] : []);
   if (path === 'solve.ok' || path === 'unstableCombinations') return declared.includes(path);
   const set = RESULT_SET.exec(path);
   if (!set) return false;
@@ -469,8 +477,9 @@ export function judge(name: string, reference: Values, current: Values, changes:
   const diff = compareLegacy(solve ? outsideResults(refGated) : refGated, solve ? outsideResults(curGated) : curGated);
   if (!diff.differs && diff.added.length === 0) return { kind: 'same', solve, report: '', explainedBy: [], applicable, notes };
   const used = new Set<ResultChange>();
+  const results = { before: resultFingerprint(reference), after: resultFingerprint(current) };
   const explained = (path: string) => {
-    const by = changes.filter((c) => declaresMove(c, path));
+    const by = changes.filter((c) => declaresMove(c, path, results));
     for (const c of by) used.add(c);
     return by.length > 0;
   };

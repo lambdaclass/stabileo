@@ -1,0 +1,37 @@
+{
+  "id": "frozen-surface-assembled-traction",
+  "date": "2026-11-10",
+  "prs": [
+    1921
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "contactElements"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "nodeToSurfaceStatus.normalForce"
+  ],
+  "title": {
+    "en": "Frozen surface contacts check the assembled spring force",
+    "es": "Los contactos de superficie congelados comprueban la fuerza ensamblada",
+    "pt": "Contatos de superfície congelados verificam a força montada",
+    "de": "Eingefrorene Flächenkontakte prüfen die assemblierte Federkraft",
+    "fr": "Les contacts de surface figés vérifient la force assemblée",
+    "tr": "Sabitlenmiş yüzey temasları birleştirilen yay kuvvetini denetler"
+  },
+  "explanation": {
+    "en": "When a master segment rotates, a negative final gap can hide tension in the spring used by the final solve. Frozen surface validation now checks that assembled signed force and the final opening, refusing invalid states with contact_state_invalid. Reported normal force uses the same assembly. Re-check frozen surface contact results (#432; PR #1921).",
+    "es": "Si gira el segmento maestro, una abertura final negativa puede ocultar tracción en el resorte del cálculo final. La validación comprueba la fuerza ensamblada y la abertura final, y rechaza estados inválidos con contact_state_invalid. La fuerza normal informada usa el mismo ensamblaje. Revisá estos resultados (#432; PR #1921).",
+    "pt": "Quando o segmento mestre gira, uma abertura final negativa pode ocultar tração na mola da solução final. A validação verifica a força montada e a abertura final, recusando estados inválidos com contact_state_invalid. A força normal informada usa a mesma montagem. Revise esses resultados (#432; PR #1921).",
+    "de": "Bei Drehung des Mastersegments kann ein negativer Endspalt Zug in der Feder der letzten Lösung verdecken. Die Prüfung verwendet die assemblierte Kraft und die endgültige Öffnung und lehnt ungültige Zustände mit contact_state_invalid ab. Die ausgegebene Normalkraft stammt aus derselben Assemblierung. Prüfen Sie diese Ergebnisse erneut (#432; PR #1921).",
+    "fr": "La rotation du segment maître peut masquer une traction dans le ressort du calcul final malgré un jeu final négatif. La validation vérifie la force assemblée et l’ouverture finale et refuse les états invalides avec contact_state_invalid. L’effort normal publié utilise le même assemblage. Revérifiez ces résultats (#432 ; PR #1921).",
+    "tr": "Ana parça döndüğünde negatif son aralık, son çözümdeki yay çekmesini gizleyebilir. Doğrulama birleştirilen kuvveti ve son açıklığı denetler, geçersiz durumları contact_state_invalid ile reddeder. Bildirilen normal kuvvet aynı birleştirmeden gelir. Bu sonuçları yeniden denetleyin (#432; PR #1921)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-frozen-surface-assembled-traction.md",
+    "heading": "Frozen surface contacts check the equilibrated spring force (2026-11-10)"
+  }
+}

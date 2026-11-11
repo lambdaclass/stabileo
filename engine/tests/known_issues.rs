@@ -170,22 +170,48 @@ fn constrained_2d_entry_points_refuse_a_withheld_result() {
     }
 }
 
+fn unit_invariant_2d(input: &SolverInput, r: &AnalysisResults, what: &str) {
+    use dedaliano_engine::metamorphic::units::{scale_2d, Units};
+    let u = Units::froude(1000.0, 1000.0);
+    let scaled = solve_2d(&scale_2d(input, &u)).unwrap_or_else(|e| panic!("{what} in mm and N: {e}"));
+    let size = r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()));
+    let turn = r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ry.abs()));
+    for d in &r.displacements {
+        let e = scaled.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        assert!([d.ux, d.uz, d.ry, e.ux, e.uz, e.ry].iter().all(|v| v.is_finite()), "{what} node {}: nonfinite displacement", d.node_id);
+        assert!((e.ux / u.length - d.ux).abs().max((e.uz / u.length - d.uz).abs()) <= 1e-4 * size, "{what} node {}: translation changes with units", d.node_id);
+        assert!((e.ry - d.ry).abs() <= 1e-4 * turn, "{what} node {}: rotation changes with units", d.node_id);
+    }
+}
+
+fn unit_invariant_3d(input: &SolverInput3D, r: &AnalysisResults3D, what: &str) {
+    use dedaliano_engine::metamorphic::units::{scale_3d, Units};
+    let u = Units::froude(1000.0, 1000.0);
+    let scaled = dedaliano_engine::solver::linear::solve_3d(&scale_3d(input, &u)).unwrap_or_else(|e| panic!("{what} in mm and N: {e}"));
+    let size = r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()));
+    let turn = r.displacements.iter().fold(0.0f64, |m, d| m.max(d.rx.abs()).max(d.ry.abs()).max(d.rz.abs()));
+    for d in &r.displacements {
+        let e = scaled.displacements.iter().find(|x| x.node_id == d.node_id).unwrap();
+        assert!([d.ux, d.uy, d.uz, d.rx, d.ry, d.rz, e.ux, e.uy, e.uz, e.rx, e.ry, e.rz].iter().all(|v| v.is_finite()), "{what} node {}: nonfinite displacement", d.node_id);
+        let moved = [(e.ux, d.ux), (e.uy, d.uy), (e.uz, d.uz)].iter().fold(0.0f64, |m, (a, b)| m.max((a / u.length - b).abs()));
+        let turned = [(e.rx, d.rx), (e.ry, d.ry), (e.rz, d.rz)].iter().fold(0.0f64, |m, (a, b)| m.max((a - b).abs()));
+        assert!(moved <= 1e-4 * size, "{what} node {}: translation changes with units", d.node_id);
+        assert!(turned <= 1e-4 * turn, "{what} node {}: rotation changes with units", d.node_id);
+    }
+}
+
 #[test]
-fn invariance_reported_seeds_are_flagged_or_refused() {
+fn invariance_reported_seeds_are_refused_or_stable() {
     for seed in [20800,20833,20865,20795,20756,20824,20840,20806] {
         let (mut input, _) = crate::fuzz_models::random_2d_model_rich(seed);
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut input, seed); }
         input = crate::common::explicit_rigid_support_control(&input);
-        if seed == 20806 {
-            assert_eq!(solve_2d(&input).unwrap_err(), "Singular stiffness matrix — structure is a mechanism");
-            continue;
-        }
         match solve_2d(&input) {
             Ok(r) => {
-                eprintln!("#762 2D/{seed}: {:?}", r.structured_diagnostics);
-                assert!(ids(&r.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), "2D/{seed}");
+                assert!(dedaliano_engine::solver::stability::of_2d(&input).unwrap().is_stable(), "2D/{seed}");
+                unit_invariant_2d(&input, &r, &format!("#762 2D/{seed}"));
             }
-            Err(e) => assert!(e.contains("self-check static_residual"), "#762 2D/{seed}: expected NUM-INVARIANCE warning or the residual self-check refusal, got {e}"),
+            Err(e) => assert!(e.starts_with("the structure is a mechanism"), "#762 2D/{seed}: expected NUM-INVARIANCE warning or the stability refusal, got {e}"),
         }
     }
     for seed in [20761,20788] {
@@ -193,15 +219,22 @@ fn invariance_reported_seeds_are_flagged_or_refused() {
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_3d(&mut input, seed); }
         input = crate::common::explicit_elastic_support_control(&input);
         if seed == 20761 {
-            assert_eq!(dedaliano_engine::solver::linear::solve_3d(&input).unwrap_err(), "Singular stiffness matrix — structure is a mechanism");
+            let e = dedaliano_engine::solver::linear::solve_3d(&input).expect_err("#762 3D/20761: the loaded released rotation must be refused");
+            let verdict = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
+            assert!(verdict.is_stable(), "{verdict:?}");
+            assert!(e.starts_with("Nodal moment at node 2 is not supported:") && e.contains("loaded released rotation") && e.contains("rx=") && e.contains("ry=") && e.contains("rz="), "#762 3D/{seed}: {e}");
             continue;
         }
         match dedaliano_engine::solver::linear::solve_3d(&input) {
             Ok(r) => {
-                eprintln!("#762 3D/{seed}: {:?}", r.structured_diagnostics);
-                assert!(ids(&r.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), "3D/{seed}");
+                assert!(dedaliano_engine::solver::stability::of_3d(&input).unwrap().is_stable(), "3D/{seed}");
+                unit_invariant_3d(&input, &r, &format!("#762 3D/{seed}"));
             }
-            Err(e) => assert!(e.contains("self-check static_residual"), "#762 3D/{seed}: expected NUM-INVARIANCE warning or the residual self-check refusal, got {e}"),
+            Err(e) => {
+                let verdict = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
+                assert!(verdict.refusal().expect("the original stiffness refusal remains").starts_with("the structure is a mechanism"));
+                assert!(e.starts_with("the structure is a mechanism"), "#762 3D/{seed}: {e}");
+            },
         }
     }
 }
@@ -532,6 +565,11 @@ fn creep_preserves_step_only_diagnostics_and_values() {
     }
 }
 
+fn refused_as_unresolvable<T: std::fmt::Debug>(r: Result<T, String>) {
+    let e = r.expect_err("the linear solve of a model the stability test cannot resolve must be refused");
+    assert!(e.contains("cannot be decided in double precision"), "{e}");
+}
+
 #[test]
 fn buckling_and_certificate_exports_preserve_warnings() {
     use dedaliano_engine::solver::buckling::*;
@@ -540,16 +578,26 @@ fn buckling_and_certificate_exports_preserve_warnings() {
     for affected in [false, true] {
         let solver = make_beam(4, 4.0, E, 0.01, if affected { 1e-12 } else { 1e-4 }, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: -1.0, fz: 0.0, my: 0.0 })]);
+        let solver = dedaliano_engine::metamorphic::transform::transform_2d(&solver, &dedaliano_engine::metamorphic::transform::Iso2::rotation(0.37)).unwrap();
+        let multi = MultiCaseInput { solver: solver.clone(), load_cases: vec![LoadCase { name: "A".into(), loads: solver.loads.clone() }],
+            combinations: vec![CombinationDef { name: "C".into(), factors: HashMap::from([("A".into(), 1.0)]) }] };
+        if affected {
+            refused_as_unresolvable(solve_buckling_2d(&solver, 1));
+            refused_as_unresolvable(certify_buckling_2d(&solver, 1));
+            refused_as_unresolvable(export_linear_bundle_2d(&solver));
+            refused_as_unresolvable(export_combination_bundle_2d(&multi));
+            continue;
+        }
         let plain = solve_buckling_2d(&solver, 1).unwrap();
         let certified = certify_buckling_2d(&solver, 1).unwrap();
         assert_eq!(plain.modes[0].load_factor.to_bits(), certified.results.modes[0].load_factor.to_bits());
+        for ds in [&plain.structured_diagnostics, &certified.results.structured_diagnostics] {
+            assert!(!ids(ds).contains(&"NUM-INVARIANCE".into()));
+        }
         let linear = export_linear_bundle_2d(&solver).unwrap();
-        let multi = MultiCaseInput { solver: solver.clone(), load_cases: vec![LoadCase { name: "A".into(), loads: solver.loads.clone() }],
-            combinations: vec![CombinationDef { name: "C".into(), factors: HashMap::from([("A".into(), 1.0)]) }] };
         let combination = export_combination_bundle_2d(&multi).unwrap();
-        for ds in [&plain.structured_diagnostics, &certified.results.structured_diagnostics, &linear.structured_diagnostics, &combination.structured_diagnostics] {
-            if affected { assert_warning(ds, "NUM-INVARIANCE", 762.0); }
-            else { assert!(!ids(ds).contains(&"NUM-INVARIANCE".into())); }
+        for ds in [&linear.structured_diagnostics, &combination.structured_diagnostics] {
+            assert!(!ids(ds).contains(&"NUM-INVARIANCE".into()));
         }
         assert_eq!(LinearBundle::from_json(&linear.to_json()).unwrap().structured_diagnostics, linear.structured_diagnostics);
         assert_eq!(CombinationBundle::from_json(&combination.to_json()).unwrap().structured_diagnostics, combination.structured_diagnostics);
@@ -565,6 +613,7 @@ fn advanced_3d_and_bundles_keep_conditioning() {
         let inertia = if affected { 1e-12 } else { 1e-4 };
         let solver = make_3d_beam(4, 4.0, E, 0.3, 0.01, inertia, inertia, inertia, vec![true; 6], None,
             vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: -1.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
+        let solver = dedaliano_engine::metamorphic::transform::transform_3d(&solver, &dedaliano_engine::metamorphic::transform::Iso3::from_euler(0.37, 0.81, 1.19)).unwrap();
         let densities = HashMap::from([("1".into(), 7850.0)]);
         let modal = solve_modal_3d(&solver, &densities, 2).unwrap();
         let harmonic = solve_harmonic_3d(&HarmonicInput3D { solver: solver.clone(), densities: densities.clone(),
@@ -579,18 +628,27 @@ fn advanced_3d_and_bundles_keep_conditioning() {
         let creep: CreepShrinkageInput3D = serde_json::from_value(serde_json::json!({
             "solver": solver, "creepParams": {}, "timeSteps": [{"tDays": 28.0}]
         })).unwrap();
-        let creep = solve_creep_shrinkage_3d(&creep).unwrap();
-        let plain = solve_buckling_3d(&solver, 1).unwrap();
-        let certified = certify_buckling_3d(&solver, 1).unwrap();
-        assert_eq!(plain.modes[0].load_factor.to_bits(), certified.results.modes[0].load_factor.to_bits());
-        let linear = export_linear_bundle_3d(&solver).unwrap();
         let multi = MultiCaseInput3D { solver: solver.clone(), load_cases: vec![LoadCase3D { name: "A".into(), loads: solver.loads.clone() }],
             combinations: vec![CombinationDef { name: "C".into(), factors: HashMap::from([("A".into(), 1.0)]) }] };
-        let combination = export_combination_bundle_3d(&multi).unwrap();
-        for ds in [&modal.structured_diagnostics, &harmonic.structured_diagnostics, &guyan.structured_diagnostics,
-            &cb.structured_diagnostics, &time.structured_diagnostics, &creep.structured_diagnostics,
-            &plain.structured_diagnostics, &certified.results.structured_diagnostics, &linear.structured_diagnostics,
-            &combination.structured_diagnostics] {
+        let mut all = vec![modal.structured_diagnostics, harmonic.structured_diagnostics, guyan.structured_diagnostics,
+            cb.structured_diagnostics, time.structured_diagnostics];
+        if affected {
+            refused_as_unresolvable(solve_creep_shrinkage_3d(&creep));
+            refused_as_unresolvable(solve_buckling_3d(&solver, 1));
+            refused_as_unresolvable(certify_buckling_3d(&solver, 1));
+            refused_as_unresolvable(export_linear_bundle_3d(&solver));
+            refused_as_unresolvable(export_combination_bundle_3d(&multi));
+        } else {
+            all.push(solve_creep_shrinkage_3d(&creep).unwrap().structured_diagnostics);
+            let plain = solve_buckling_3d(&solver, 1).unwrap();
+            let certified = certify_buckling_3d(&solver, 1).unwrap();
+            assert_eq!(plain.modes[0].load_factor.to_bits(), certified.results.modes[0].load_factor.to_bits());
+            all.push(plain.structured_diagnostics);
+            all.push(certified.results.structured_diagnostics);
+            all.push(export_linear_bundle_3d(&solver).unwrap().structured_diagnostics);
+            all.push(export_combination_bundle_3d(&multi).unwrap().structured_diagnostics);
+        }
+        for ds in &all {
             if affected { assert_warning(ds, "NUM-INVARIANCE", 762.0); }
             else { assert!(!ids(ds).contains(&"NUM-INVARIANCE".into()), "{ds:?}"); }
         }
@@ -728,12 +786,14 @@ fn winkler_and_stages_check_the_solved_matrix() {
     for affected in [false, true] {
         let inertia = if affected { 1e-12 } else { 1e-4 };
         let solver = make_beam(4, 4.0, E, 0.01, inertia, "fixed", None, tip(-1.0));
-        let ordinary = solve_2d(&solver).unwrap();
+        let solver = dedaliano_engine::metamorphic::transform::transform_2d(&solver, &dedaliano_engine::metamorphic::transform::Iso2::rotation(0.37)).unwrap();
         let winkler = solve_winkler_2d(&WinklerInput { solver: solver.clone(), foundation_springs: vec![] }).unwrap();
         let mut staged = serde_json::to_value(&solver).unwrap();
         staged["stages"] = serde_json::json!([{ "name": "all", "elementsAdded": [1,2,3,4], "supportsAdded": [1], "loadIndices": [0] }]);
         let staged = solve_staged_2d(&serde_json::from_value(staged).unwrap()).unwrap();
-        for ds in [&ordinary.structured_diagnostics, &winkler.structured_diagnostics, &staged.final_results.structured_diagnostics, &staged.stages[0].results.structured_diagnostics] {
+        if affected { refused_as_unresolvable(solve_2d(&solver)); }
+        else { assert!(!ids(&solve_2d(&solver).unwrap().structured_diagnostics).contains(&"NUM-INVARIANCE".into())); }
+        for ds in [&winkler.structured_diagnostics, &staged.final_results.structured_diagnostics, &staged.stages[0].results.structured_diagnostics] {
             assert_eq!(ids(ds).contains(&"NUM-INVARIANCE".into()), affected);
         }
         let mut solver = beam3d();
@@ -952,7 +1012,7 @@ fn a_negligible_rotational_spring_at_an_all_hinged_node_still_warns() {
             Err(e) => panic!("kz {kz}: {e}"),
         };
         eprintln!("kz {kz}: {found:?}");
-        assert_eq!(found.contains(&"NUM-INVARIANCE".into()) || found.contains(&"CERT-MECHANISM".into()), warns, "kz {kz}: {found:?}");
+        assert_eq!(found.contains(&"LIN-SMALL-DISPLACEMENT".into()) || found.contains(&"NUM-INVARIANCE".into()) || found.contains(&"CERT-MECHANISM".into()), warns, "kz {kz}: {found:?}");
     }
 }
 
@@ -1721,30 +1781,30 @@ fn twisted_beam_theory(degrees: f64, t: f64, load_a: bool) -> f64 {
 fn warped_mitc_bands_bound_the_measured_twisted_beam_error() {
     let kappa = std::f64::consts::FRAC_PI_2 / 12.0;
     for (quad9, nx, ny, warn, refuse) in [(false, 24, 8, 0.009, 0.016), (true, 24, 8, 0.0035, 0.0065)] {
-        let excess = |kt: f64| -> (f64, Vec<StructuredDiagnostic>) {
+        let excess = |kt: f64| -> Result<(f64, Vec<StructuredDiagnostic>), String> {
             let t = kt / kappa;
             let mut worst = 0.0f64;
             let mut diagnostics = vec![];
             for (load_a, load) in [(true, [0.0, 0.0, 1.0]), (false, [0.0, 1.0, 0.0])] {
-                let ratio = |degrees: f64| {
+                let ratio = |degrees: f64| -> Result<(f64, Vec<StructuredDiagnostic>), String> {
                     let (input, tip) = twisted_strip(quad9, nx, ny, degrees, t, load);
-                    let r = dedaliano_engine::solver::linear::solve_3d(&input).unwrap_or_else(|e| panic!("{quad9} κt {kt}: {e}"));
+                    let r = dedaliano_engine::solver::linear::solve_3d(&input)?;
                     let d = r.displacements.iter().find(|d| d.node_id == tip).unwrap();
-                    (if load_a { d.uz } else { d.uy } / twisted_beam_theory(degrees, t, load_a), r.structured_diagnostics)
+                    Ok((if load_a { d.uz } else { d.uy } / twisted_beam_theory(degrees, t, load_a), r.structured_diagnostics))
                 };
-                let (twisted, ds) = ratio(90.0);
-                let (flat, _) = ratio(0.0);
+                let (twisted, ds) = ratio(90.0)?;
+                let (flat, _) = ratio(0.0)?;
                 assert!((flat - 1.0).abs() < 0.01, "{quad9} load {load_a}: the untwisted mesh is {flat} of beam theory");
                 assert!(twisted.is_finite() && flat.is_finite(), "{quad9} load {load_a}: {twisted} / {flat}");
                 worst = worst.max((twisted / flat - 1.0).abs());
                 diagnostics = ds;
             }
-            (worst, diagnostics)
+            Ok((worst, diagnostics))
         };
-        let (below_warn, ds) = excess(0.95 * warn);
+        let (below_warn, ds) = excess(0.95 * warn).unwrap_or_else(|e| panic!("{quad9}: {e}"));
         assert!(warped_findings(&ds).is_empty(), "{quad9}");
         assert!(below_warn < 0.015, "{quad9}: {below_warn} unflagged, over the 1.5 % warning band");
-        let (below_refuse, ds) = excess(0.95 * refuse);
+        let (below_refuse, ds) = excess(0.95 * refuse).unwrap_or_else(|e| panic!("{quad9}: {e}"));
         assert_eq!(warped_findings(&ds).iter().map(|d| d.severity).collect::<Vec<_>>(), vec![Severity::Warning], "{quad9}");
         assert!(below_refuse > below_warn && below_refuse < 0.05, "{quad9}: {below_refuse} only warned, over the 5 % refusal band");
     }
@@ -1819,7 +1879,6 @@ fn a_soft_rotation_beside_a_stiff_member_is_not_held_1367() {
         let r = dedaliano_engine::solver::linear::solve_3d(&soft_rotation_beside_a_stiff_member(inertia)).unwrap();
         let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
         assert!((theta - tip_rotation(inertia)).abs() < tip_tolerance(inertia) * tip_rotation(inertia), "I = {inertia:e}: θ {theta}, PL²/2EI {}", tip_rotation(inertia));
-        assert!(!ids(&r.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&r.structured_diagnostics));
     }
 }
 
@@ -1835,22 +1894,49 @@ fn cantilever_soft_about_y(iy: f64) -> SolverInput3D {
 }
 
 #[test]
-fn a_rotation_far_softer_than_another_at_its_node_is_warned_1496() {
+fn a_rotation_far_softer_than_another_at_its_node_is_solved_exactly_or_refused_1496() {
     let input = cantilever_soft_about_y(1e-10);
-    let regular = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
-    let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).unwrap().solve_loads(&input.loads).unwrap();
+    let regular = dedaliano_engine::solver::linear::solve_3d(&input);
+    let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads));
     for r in [&regular, &prepared] {
-        let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
-        assert!(theta.is_finite(), "θ {theta}: {:?}", ids(&r.structured_diagnostics));
-        if (theta - tip_rotation(1e-10)).abs() > 1e-6 * tip_rotation(1e-10) {
-            let warning = r.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("ORPHAN-SOFT-ROTATION")).unwrap_or_else(|| panic!("θ {theta}: {:?}", ids(&r.structured_diagnostics)));
-            assert_eq!(warning.severity, dedaliano_engine::types::Severity::Warning);
+        match r {
+            Ok(r) => {
+                let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+                assert!((theta - tip_rotation(1e-10)).abs() <= 1e-6 * tip_rotation(1e-10), "θ {theta}: {:?}", ids(&r.structured_diagnostics));
+            }
+            Err(e) => assert!(e.starts_with("the structure is a mechanism") || e.starts_with("the structure cannot be solved reliably"), "{e}"),
         }
     }
+    assert_eq!(regular.is_ok(), prepared.is_ok(), "{:?} vs {:?}", regular.as_ref().err(), prepared.as_ref().err());
     let held = dedaliano_engine::solver::linear::solve_3d(&cantilever_soft_about_y(1e-4)).unwrap();
     let theta = held.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
     assert!((theta - tip_rotation(1e-4)).abs() < 1e-9 * tip_rotation(1e-4), "{theta}");
-    assert!(!ids(&held.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&held.structured_diagnostics));
+}
+
+fn propped_tip_soft_about_y(iy: f64, dz: f64) -> SolverInput3D {
+    let mut input = cantilever_soft_about_y(iy);
+    input.loads.clear();
+    input.supports.insert("2".into(), serde_json::from_value(serde_json::json!({
+        "nodeId": 2, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": false, "rrz": false, "dz": dz
+    })).unwrap());
+    input
+}
+
+#[test]
+fn a_settlement_on_a_soft_rotation_is_not_held_by_its_pin() {
+    let dz = -0.01;
+    for inertia in [1e-4, 1e-10] {
+        let input = propped_tip_soft_about_y(inertia, dz);
+        let verdict = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
+        assert!(verdict.is_stable() && verdict.free.is_empty(), "{verdict:?}");
+        for result in [dedaliano_engine::solver::linear::solve_3d(&input),
+            dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads))] {
+            let result = result.unwrap();
+            let ry = result.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
+            assert!((ry + 1.5 * dz).abs() <= 1e-9 * 1.5 * dz.abs(), "I {inertia}: ry {ry}");
+        }
+    }
+    dedaliano_engine::solver::linear::solve_3d(&propped_tip_soft_about_y(1e-10, 0.0)).unwrap();
 }
 
 #[test]
@@ -1880,13 +1966,11 @@ fn a_soft_rotation_beside_a_stiff_member_is_not_held_in_2d_1367() {
         let r = solve_2d(&soft_rotation_beside_a_stiff_member_2d(inertia)).unwrap();
         let theta = r.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
         assert!((theta - tip_rotation(inertia)).abs() < tip_tolerance(inertia) * tip_rotation(inertia), "I = {inertia:e}: θ {theta}, PL²/2EI {}", tip_rotation(inertia));
-        assert!(!ids(&r.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&r.structured_diagnostics));
     }
     let mut hinged = soft_rotation_beside_a_stiff_member_2d(1e-4);
     for e in hinged.elements.values_mut().filter(|e| e.id == 1) { e.hinge_end = true; }
     let hinged = solve_2d(&hinged).unwrap();
     assert_eq!(hinged.displacements.iter().find(|d| d.node_id == 2).unwrap().ry, 0.0);
-    assert!(!ids(&hinged.structured_diagnostics).contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{:?}", ids(&hinged.structured_diagnostics));
     let masked = common::make_input(
         vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 0.0, 5.0), (4, 1.0, 5.0), (5, 0.0, 10.0), (6, 1.0, 10.0)],
         vec![(1, E, 0.3)],
@@ -1954,7 +2038,6 @@ fn a_soft_spring_at_a_hinged_node_is_not_replaced_by_the_orphan_spring_1437() {
     let ry = out.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
     let found = ids(&out.results.structured_diagnostics);
     assert!((ry - 5.0e10).abs() <= 1e-6 * 5.0e10, "ry {ry}: {found:?}");
-    assert!(!found.contains(&"ORPHAN-SOFT-ROTATION".to_string()), "{found:?}");
 }
 
 fn beyond_small_displacement(diagnostics: &[StructuredDiagnostic]) -> Option<&StructuredDiagnostic> {
@@ -2571,5 +2654,337 @@ fn unequal_shear_areas_are_paired_with_their_bending_plane_as_the_solver_pairs_t
         }
         let flexible = [(1e-6, 1.0), (1.0, 1e-6)].iter().filter(|&&(y, z)| warned_chords(&unequal_shear_span_3d(py, pz, y, z, true).structured_diagnostics).is_some()).count();
         assert_eq!(flexible, 1, "exactly one shear area turns the cut model for py {py} pz {pz}");
+    }
+}
+
+fn tied_axial_rounding_3d(member_stiffness: f64) -> SolverInput3D {
+    serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 1.0, "y": 0.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": member_stiffness / 1000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 1.0, "iy": 1.0, "iz": 1.0, "j": 1.0}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {
+            "1": {"nodeId": 1, "rx": false, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true, "kx": 3.0},
+            "2": {"nodeId": 2, "rx": false, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}
+        },
+        "constraints": [{"type": "equalDOF", "masterNode": 1, "slaveNode": 2, "dofs": [0]}],
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 1.0, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": 0.0}}]
+    })).unwrap()
+}
+
+#[test]
+fn issue_1753_constraint_cancellation_keeps_the_original_rounding_scale() {
+    for stiffness in [1e16, 1e8] {
+        let input = tied_axial_rounding_3d(stiffness);
+        let result = dedaliano_engine::solver::linear::solve_3d(&input);
+        if stiffness == 1e16 {
+            let stability = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
+            assert!(!stability.is_stable(), "{stability:?}");
+            let err = result.expect_err("constraint cancellation returned F/4 instead of F/3");
+            assert!(err.starts_with("the structure is a mechanism"), "{err}");
+        } else {
+            let result = result.unwrap();
+            for d in &result.displacements { assert!((d.ux - 1.0 / 3.0).abs() < 1e-9, "{d:?}"); }
+        }
+    }
+}
+
+#[test]
+fn issue_1753_a_loaded_uncoupled_rotational_spring_keeps_its_own_scale() {
+    let mut input = common::make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0), (3, 2.0, 0.0, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, 1.0, 1.0, 1.0, 1.0)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true; 6]), (2, vec![true; 6]), (3, vec![true, true, true, false, false, true])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 2.0, mz: 0.0, bw: None })],
+    );
+    let support = input.supports.values_mut().find(|s| s.node_id == 3).unwrap();
+    support.krx = Some(1e13);
+    support.kry = Some(1.0);
+    for result in [dedaliano_engine::solver::linear::solve_3d(&input),
+        dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads))] {
+        let result = result.unwrap();
+        let d = result.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        assert!((d.ry - 2.0).abs() < 1e-12, "{d:?}");
+        assert_eq!(d.rx, 0.0);
+    }
+}
+
+#[test]
+fn issue_1753_an_oblique_release_solves_unloaded_and_refuses_a_torsional_load() {
+    for end in [(1.0, 2.0, 3.0), (2.0, -3.0, 1.0)] {
+        let (x, y, z): (f64, f64, f64) = end;
+        let length = (x*x + y*y + z*z).sqrt();
+        let mut input = common::make_3d_input(
+            vec![(1, 0.0, 0.0, 0.0), (2, x, y, z)],
+            vec![(1, E, 0.3)], vec![(1, 1.0, 1.0, 1.0, 1.0)],
+            vec![(1, "frame", 1, 2, 1, 1)], vec![(1, vec![true; 6])],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: x/length, fy: y/length, fz: z/length, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+        );
+        input.elements.get_mut("1").unwrap().release_t_end = true;
+        for loaded in [false, true] {
+            if loaded {
+                if let SolverLoad3D::Nodal(n) = &mut input.loads[0] { n.mx = x/length; n.my = y/length; n.mz = z/length; }
+            }
+            for result in [dedaliano_engine::solver::linear::solve_3d(&input),
+                dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads))] {
+                if loaded {
+                    let err = result.expect_err("a released torsion carried a moment");
+                    assert!(err.contains("node 2") && err.contains("rotation"), "{err}");
+                } else {
+                    let result = result.unwrap();
+                    let d = result.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                    for (got, want) in [(d.ux, x/(E*1000.0)), (d.uy, y/(E*1000.0)), (d.uz, z/(E*1000.0))] {
+                        assert!((got-want).abs() < 1e-12 * want.abs(), "{d:?}");
+                    }
+                    assert!((d.rx*x + d.ry*y + d.rz*z).abs() < 1e-12);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn issue_1753_constraint_cancellation_is_refused_by_both_2d_reductions() {
+    let input: SolverInput = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 1.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 1e13, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 1.0, "iz": 1.0}},
+        "elements": {"1": {"id": 1, "type": "truss", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {
+            "1": {"id": 1, "nodeId": 1, "type": "spring", "kx": 3.0, "ky": 1.0},
+            "2": {"id": 2, "nodeId": 2, "type": "spring", "ky": 1.0}
+        },
+        "constraints": [{"type": "equalDOF", "masterNode": 1, "slaveNode": 2, "dofs": [0]}],
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 1.0, "fz": 0.0, "my": 0.0}}]
+    })).unwrap();
+    let ci = ConstrainedInput { solver: input.clone(), constraints: input.constraints.clone() };
+    let dof = dedaliano_engine::solver::dof::DofNumbering::build_2d(&input);
+    for result in [solve_2d(&input), dedaliano_engine::solver::constraints::solve_constrained_2d_dense(&ci, &dof)] {
+        let err = result.expect_err("constraint cancellation returned F/4 instead of F/3");
+        assert!(err.starts_with("the structure is a mechanism"), "{err}");
+    }
+}
+
+#[test]
+fn issue_1753_an_independent_load_cannot_mask_constraint_cancellation() {
+    let mut input = tied_axial_rounding_3d(1e16);
+    input.nodes.insert("3".into(), serde_json::from_value(serde_json::json!({"id": 3, "x": 0.0, "y": 0.0, "z": 0.0})).unwrap());
+    input.supports.insert("3".into(), serde_json::from_value(serde_json::json!({"nodeId": 3, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true})).unwrap());
+    input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: 1e6, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+    let result = dedaliano_engine::solver::linear::solve_3d(&input);
+    let err = result.expect_err("an independent load masked F/4 instead of F/3");
+    assert!(err.starts_with("the structure is a mechanism"), "{err}");
+}
+
+#[test]
+fn issue_1753_three_hinge_arch_snapshot_preserves_exact_statics_and_current_warnings() {
+    let mut fixture: serde_json::Value = serde_json::from_str(include_str!("../../web/src/lib/templates/fixtures/three-hinge-arch.json")).unwrap();
+    for node in fixture["nodes"].as_array_mut().unwrap() {
+        node["z"] = node["y"].take();
+        node.as_object_mut().unwrap().remove("y");
+    }
+    for field in ["nodes", "materials", "sections", "elements", "supports"] {
+        fixture[field] = fixture[field].as_array().unwrap().iter()
+            .map(|entry| (entry["id"].to_string(), entry.clone()))
+            .collect::<serde_json::Map<_, _>>().into();
+    }
+    let input: SolverInput = serde_json::from_value(fixture).unwrap();
+    let result = solve_2d(&input).unwrap();
+    let total: f64 = input.loads.iter().map(|load| match load {
+        SolverLoad::Nodal(load) => -load.fz,
+        _ => panic!("the arch reference requires nodal forces"),
+    }).sum();
+    let left = &input.nodes["1"];
+    let crown = &input.nodes["5"];
+    let right = &input.nodes["9"];
+    let vertical = total / 2.0;
+    let moment: f64 = input.loads.iter().map(|load| match load {
+        SolverLoad::Nodal(load) => {
+            let node = &input.nodes[&load.node_id.to_string()];
+            if node.x < crown.x { -load.fz * (crown.x - node.x) } else { 0.0 }
+        }
+        _ => unreachable!(),
+    }).sum();
+    let horizontal = (vertical * (crown.x - left.x) - moment) / (crown.z - left.z);
+    assert_eq!(crown.x - left.x, right.x - crown.x);
+    for (node, sign) in [(1, 1.0), (9, -1.0)] {
+        let reaction = result.reactions.iter().find(|r| r.node_id == node).unwrap();
+        assert!((reaction.rx - sign * horizontal).abs() < 1e-9);
+        assert!((reaction.rz - vertical).abs() < 1e-9);
+        assert_eq!(reaction.my, 0.0);
+    }
+    for force in &result.element_forces {
+        assert!(force.m_start.abs() < 1e-9);
+        assert!(force.m_end.abs() < 1e-9);
+        assert!(force.v_start.abs() < 1e-9);
+        assert!(force.v_end.abs() < 1e-9);
+    }
+    let mut codes: Vec<String> = result.structured_diagnostics.iter()
+        .filter(|d| matches!(d.severity, Severity::Warning | Severity::Error))
+        .map(|d| format!("{}:{}", serde_json::to_value(d.severity).unwrap().as_str().unwrap(),
+            serde_json::to_value(d.code).unwrap().as_str().unwrap()))
+        .collect();
+    codes.sort();
+    let snapshot: serde_json::Value = serde_json::from_str(include_str!("../../web/results-snapshots/2d-three-hinge-arch.json")).unwrap();
+    assert_eq!(snapshot["values"]["base.diagnosticCodes"], codes.join(" "));
+}
+
+fn independent_rotations_with_a_free_axis(nodes: usize, pcg: bool) -> SolverInput3D {
+    let mut input = common::make_3d_input(
+        (1..=nodes).map(|i| (i, i as f64, 0.0, 0.0)).collect(),
+        vec![(1, E, 0.3)], vec![(1, 1.0, 1.0, 1.0, 1.0)],
+        vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 2, 3, 1, 1)],
+        (1..=nodes).map(|i| (i, if i == 3 { vec![true, true, true, false, false, false] } else { vec![true; 6] })).collect(),
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: 0.0, mx: 1e20, my: 0.0, mz: 1.0, bw: None })],
+    );
+    let released = input.elements.get_mut("2").unwrap();
+    released.release_my_end = true;
+    released.release_mz_end = true;
+    let support = input.supports.values_mut().find(|s| s.node_id == 3).unwrap();
+    support.krx = Some(1e20);
+    support.kry = Some(1.0);
+    if pcg {
+        input.solver_options = Some(serde_json::from_value(serde_json::json!({"method": "pcg"})).unwrap());
+    }
+    input
+}
+
+#[test]
+fn issue_1753_an_independent_large_moment_cannot_mask_a_loaded_free_rotation() {
+    for (nodes, pcg) in [(3, false), (12, false), (12, true)] {
+        let input = independent_rotations_with_a_free_axis(nodes, pcg);
+        for result in [dedaliano_engine::solver::linear::solve_3d(&input),
+            dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads))] {
+            let err = result.expect_err("an independent stiff-axis moment masked a loaded free rotation");
+            assert!(err.contains("node 3") && err.contains("rotation"), "{nodes} nodes, pcg {pcg}: {err}");
+        }
+    }
+}
+
+#[test]
+fn issue_1753_preparation_ignores_default_loads_and_validates_each_supplied_case() {
+    for (nodes, pcg) in [(3, false), (12, false), (12, true)] {
+        let mut input = independent_rotations_with_a_free_axis(nodes, pcg);
+        if let SolverLoad3D::Nodal(n) = &mut input.loads[0] { n.mx = 0.0; }
+        let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input)
+            .unwrap_or_else(|e| panic!("{nodes} nodes, pcg {pcg}: preparation inspected the default case: {e}"));
+        let valid = [SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: 0.0, mx: 1e20, my: 2.0, mz: 0.0, bw: None })];
+        let result = prepared.solve_loads(&valid).unwrap();
+        let d = result.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        assert!((d.rx - 1.0).abs() < 1e-12, "{nodes} nodes, pcg {pcg}: {d:?}");
+        assert!((d.ry - 2.0).abs() < 1e-12, "{nodes} nodes, pcg {pcg}: {d:?}");
+        assert_eq!(d.rz, 0.0);
+        let err = prepared.solve_loads(&input.loads).expect_err("the default case still loads the free axis");
+        assert!(err.contains("node 3") && err.contains("rotation"), "{err}");
+        let unloaded = prepared.solve_loads(&[]).unwrap();
+        assert_eq!(unloaded.displacements.len(), input.nodes.len());
+        let actual: std::collections::BTreeSet<_> = unloaded.displacements.iter().map(|d| d.node_id).collect();
+        let expected: std::collections::BTreeSet<_> = input.nodes.values().map(|n| n.id).collect();
+        assert_eq!(actual, expected);
+        for d in &unloaded.displacements {
+            assert_eq!([d.ux, d.uy, d.uz, d.rx, d.ry, d.rz], [0.0; 6], "{nodes} nodes, pcg {pcg}: {d:?}");
+        }
+        let repeated = prepared.solve_loads(&valid).unwrap();
+        let again = repeated.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        assert_eq!((again.rx, again.ry, again.rz), (d.rx, d.ry, d.rz));
+    }
+}
+
+#[test]
+fn issue_1753_pcg_resolves_each_independent_moment_with_disparate_loads() {
+    for stiffness_ratio in [1.0, 1e3] {
+        for load_ratio in [1e3, 1e6, 1e7, 1e8, 1e9] {
+            for preconditioner in [None, Some("none")] {
+                let mut input = independent_rotations_with_a_free_axis(12, true);
+                for i in 3..12 {
+                    let mut element = input.elements["1"].clone();
+                    element.id = i;
+                    element.node_i = i;
+                    element.node_j = i + 1;
+                    element.release_my_start = i == 3;
+                    element.release_mz_start = i == 3;
+                    element.release_t_start = i == 3;
+                    input.elements.insert(i.to_string(), element);
+                }
+                let support = input.supports.values_mut().find(|s| s.node_id == 3).unwrap();
+                support.krx = Some(1e6);
+                support.kry = Some(1e6 / stiffness_ratio);
+                support.krz = Some(1e6);
+                input.solver_options = Some(serde_json::from_value(serde_json::json!({
+                    "method": "pcg", "preconditioner": preconditioner,
+                })).unwrap());
+                input.loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                    node_id: 3, fx: 0.0, fy: 0.0, fz: 0.0,
+                    mx: 1e3, my: 1e3 / load_ratio, mz: 0.0, bw: None,
+                })];
+                let expected = (1e3 / load_ratio) / (1e6 / stiffness_ratio);
+                for result in [dedaliano_engine::solver::linear::solve_3d(&input),
+                    dedaliano_engine::solver::linear::prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads))] {
+                    let result = result.unwrap();
+                    let d = result.displacements.iter().find(|d| d.node_id == 3).unwrap();
+                    assert!((d.ry - expected).abs() <= 1e-12 * expected.abs(),
+                        "load ratio {load_ratio}, stiffness ratio {stiffness_ratio}, preconditioner {preconditioner:?}: {d:?}, expected ry {expected}");
+                    assert_eq!(d.rz, 0.0);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn issue_1753_unit_invariance_rejects_nan_displacement_components() {
+    let input = crate::common::make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true; 6])], vec![],
+    );
+    for component in 0..6 {
+        let mut result = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+        let d = result.displacements.iter_mut().find(|d| d.node_id == 2).unwrap();
+        match component {
+            0 => d.ux = f64::NAN, 1 => d.uy = f64::NAN, 2 => d.uz = f64::NAN,
+            3 => d.rx = f64::NAN, 4 => d.ry = f64::NAN, _ => d.rz = f64::NAN,
+        }
+        assert!(std::panic::catch_unwind(|| unit_invariant_3d(&input, &result, "NaN probe")).is_err(),
+            "component {component}: the invariance helper accepted NaN");
+    }
+}
+
+#[test]
+fn offset_cantilever_retains_original_stiffness_containment() {
+    use dedaliano_engine::solver::constraints::{solve_constrained_3d, ConstrainedInput3D};
+    let value: serde_json::Value = serde_json::from_str(include_str!("fixtures/findings-offset-762.json")).unwrap();
+    let input = ConstrainedInput3D {
+        solver: serde_json::from_value(value.clone()).unwrap(),
+        constraints: serde_json::from_value(value["constraints"].clone()).unwrap(),
+    };
+    let result = solve_constrained_3d(&input).unwrap();
+    assert_warning(&result.structured_diagnostics, "NUM-INVARIANCE", 762.0);
+}
+
+#[test]
+fn accepted_3d_cantilever_retains_conditioning_in_both_diagnostic_lists() {
+    use dedaliano_engine::solver::linear::prepare_static_3d;
+    let base: SolverInput3D = serde_json::from_str(include_str!("fixtures/findings-conditioning-1753.json")).unwrap();
+    for (padded, pcg) in [(false, false), (true, false), (true, true)] {
+        let mut input = base.clone();
+        if padded {
+            for id in 3..12 {
+                input.nodes.insert(id.to_string(), SolverNode3D { id, x: id as f64, y: 0.0, z: 0.0 });
+                let mut support = input.supports["1"].clone();
+                support.node_id = id;
+                input.supports.insert(id.to_string(), support);
+            }
+        }
+        if pcg {
+            input.solver_options = Some(SolverOptions { method: Some("pcg".into()), preconditioner: None, tolerance: None, max_iterations: None });
+        }
+        let prepared = prepare_static_3d(&input).unwrap();
+        for result in [dedaliano_engine::solver::linear::solve_3d(&input).unwrap(), prepared.solve_loads(&input.loads).unwrap()] {
+            assert!(result.solver_diagnostics.iter().any(|d| d.category == "conditioning" && d.severity == "warning"), "padded={padded} pcg={pcg}: {:?}", result.solver_diagnostics);
+            assert!(result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::NearZeroDiagonal && d.phase.as_deref() == Some("conditioning") && d.severity == Severity::Warning), "padded={padded} pcg={pcg}: {:?}", result.structured_diagnostics);
+        }
     }
 }

@@ -70,6 +70,8 @@ describe('P-Delta member forces', () => {
     const m = modelStore.model;
     const input = buildSolverInput3D({ nodes: m.nodes, elements: m.elements, supports: m.supports, loads: [], materials: m.materials, sections: m.sections } as never, false, false)!;
     const full = { ...input, loads: [c, d].map((n) => ({ type: 'nodal' as const, data: { nodeId: n, fx: 5, fy: 0, fz: -400, mx: 0, my: 0, mz: 0 } })) };
+    expect(() => solvePDelta3D(full as never)).toThrow(/mechanism/);
+    full.supports.set(3, { nodeId: c, rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false });
     const r = solvePDelta3D(full as never).results;
     const sum = (k: 'fx' | 'fy' | 'fz') => r.reactions.reduce((s: number, x: Record<string, number>) => s + x[k]!, 0);
     expect(sum('fx') + 10).toBeCloseTo(0, 6);

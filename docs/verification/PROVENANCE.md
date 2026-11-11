@@ -19,6 +19,18 @@ give different numbers. Each entry has:
 | `title`, `explanation` | what to tell the engineer, in each of the app's six languages: `en`, `es`, `pt`, `de`, `fr` and `tr` |
 | `changelog` | a file and one of its headings (checked by `registry.test.ts`) |
 
+A numerical quantity may instead be an object with `quantity`, `before` and `after`.
+The two fingerprints are SHA-256 hashes of the complete gated legacy response:
+JSON-encoded `[key, value]` entries sorted by key, including model counts and derived
+error codes, excluding report-only diagnostics and refusal wording. Such an object
+explains its named collection or field only when both complete responses match
+exactly. Missing comparison context or a non-finite numerical response matches no scoped quantity. Wildcard and solve
+outcome objects are rejected. This permits a measured numerical correction without
+excusing a fabricated value, even in that same project. The snapshot gate has no
+legacy response fingerprint context and accepts no such numerical object. Record
+the source files, fingerprints and measured quantities in the change's evidence.
+No comparison tolerance or historical corpus value is changed by this mechanism.
+
 Feature ids are defined in `web/src/lib/provenance/model-features.ts`, read from the saved
 snapshot. When in doubt a feature counts as present: a false "present" shows one notice too many,
 a false "absent" hides a change that moved the engineer's numbers. In particular, a steel code

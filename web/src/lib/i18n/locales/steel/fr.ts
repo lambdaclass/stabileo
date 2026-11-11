@@ -135,6 +135,7 @@ const steelFr: Translations = {
   'generator.assume.webPinned': 'Montants et diagonales articulés aux extrémités.',
   'generator.assume.webContinuous': 'Montants et diagonales continus.',
   'generator.assume.raftersContinuous': 'Arbalétriers continus au faîtage.',
+  'generator.assume.planarRestraints': 'Modèle plan : les nœuds sont maintenus hors du plan ; les appuis bloquent aussi la torsion.',
   'generator.assume.supportsSimple': 'Appuis simples : un appui articulé et un appui à rouleau.',
   'generator.assume.baseFixed': 'Pieds encastrés.',
   'generator.assume.baseChordsPinned': 'Chaque membrure est articulée sur son propre ancrage.',

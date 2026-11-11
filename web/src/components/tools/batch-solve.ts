@@ -1,4 +1,4 @@
-import { initSolver, solve, solveModal, analyzeKinematics } from '../../lib/engine/wasm-solver';
+import { initSolver, solve, solveModal, analyzeKinematics, prepareLoadSession2D } from '../../lib/engine/wasm-solver';
 import { computeElementDiagram, computeDeformedShape } from '../../lib/engine/diagrams';
 import type { Displacement, SolverInput } from '../../lib/engine/types';
 import { batchModel, continuousInfluence, continuousReactions, frequencies, jointForces, numbers, portalSway, sectionPosition, simpleInfluence, type BatchId, type BatchParameters } from './batch';
@@ -24,12 +24,17 @@ export async function calculateBatch(id:BatchId,p:BatchParameters) {
     const side=L*1e-7, xs=[...new Set([...Array.from({length:101},(_,j)=>L*j/100).filter(x=>Math.abs(x-section)>=side),section,Math.max(0,section-side),Math.min(L,section+side)])].sort((a,b)=>a-b);
     const sectionElement=[...model.elements.values()].find(el=>Math.abs(model.nodes.get(el.nodeJ)!.x-section)<=tol)!;
     const a=model.nodes.get(sectionElement.nodeI)!,b=model.nodes.get(sectionElement.nodeJ)!;
-    for(const x of xs) {
-      model.loads=axle(model,x,1,tol);
-      const answer=solve(model);
-      const ef=answer.elementForces.find(ef=>ef.elementId===sectionElement.id)!;
-      const value=p.quantity==='reaction' ? answer.reactions.find(r=>r.nodeId===1)!.rz : (p.quantity==='moment'?-1:1)*computeElementDiagram(p.quantity,ef,a.x,a.z,b.x,b.z).points.at(-1)!.value;
-      influence.push([x,value]);
+    const session=prepareLoadSession2D(model);
+    try {
+      for(const x of xs) {
+        model.loads=axle(model,x,1,tol);
+        const answer=session.solve(model.loads);
+        const ef=answer.elementForces.find(ef=>ef.elementId===sectionElement.id)!;
+        const value=p.quantity==='reaction' ? answer.reactions.find(r=>r.nodeId===1)!.rz : (p.quantity==='moment'?-1:1)*computeElementDiagram(p.quantity,ef,a.x,a.z,b.x,b.z).points.at(-1)!.value;
+        influence.push([x,value]);
+      }
+    } finally {
+      session.free();
     }
     maximum=influence.reduce((best,v)=>Math.abs(v[1])>Math.abs(best[1])?v:best,[0,0]);
     const expected=p.count===1 ? simpleInfluence(L,section,maximum[0],p.quantity) : continuousInfluence(p.length,section,maximum[0],p.quantity);

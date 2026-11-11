@@ -195,9 +195,10 @@ fn validation_curved_roark_ring_diametral_loads() {
         },
     ];
 
-    // Restrain rigid body: fix translations at bottom node, fix X at top node
+    // Restrain rigid body: fix translations at bottom node and its rotation about Y
+    // (the line through both supports), fix X at top node
     let supports = vec![
-        (1, vec![true, true, true, false, false, false]),  // fix X,Y,Z at bottom
+        (1, vec![true, true, true, false, true, false]),
         (3, vec![true, false, true, false, false, false]),  // fix X,Z at top (free to move in Y)
     ];
 
@@ -369,9 +370,10 @@ fn validation_curved_parabolic_arch() {
         hinge_end: false,
     }];
 
-    // Pinned supports at both ends (restrain translations, free rotations)
+    // Pinned supports at both ends; the left one also holds the rotation about X,
+    // the line through both supports, about which the arch would turn freely
     let supports = vec![
-        (1, vec![true, true, true, false, false, false]),
+        (1, vec![true, true, true, true, false, false]),
         (3, vec![true, true, true, false, false, false]),
     ];
 

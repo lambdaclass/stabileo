@@ -676,3 +676,661 @@ fn nl_residual_stress_survives_the_first_evaluation() {
     let (sigma, _) = material_response(&mat, 0.0, &mut states[0].fiber_states[0]);
     close(sigma, -75.0, 1e-9, "fiber stress at zero strain after a −75 MPa residual stress");
 }
+
+fn chattering_contact_2d() -> dedaliano_engine::solver::contact::ContactInput {
+    serde_json::from_value(serde_json::json!({
+        "solver": make_input(
+            vec![(1, 0.0, 1.0), (2, 2.0, 0.0), (3, 2.5, -1.0), (4, 2.001, 0.0)],
+            vec![(1, 200.0, 0.3)], vec![(1, 0.01, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "truss", 2, 3, 1, 1, false, false)],
+            vec![(1, 1, "fixed"), (2, 3, "fixed"), (3, 4, "fixed")],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 50.0, fz: -50.0, my: 0.0 })],
+        ),
+        "elementBehaviors": {"2": "tension_only"},
+        "gapElements": [{"id": 1, "nodeI": 2, "nodeJ": 4, "direction": 0,
+            "initialGap": 0.001, "stiffness": 100_000.0}],
+        "maxFlips": 1, "maxIter": 30, "tolerance": 1e-10
+    })).unwrap()
+}
+
+fn chattering_contact_3d() -> dedaliano_engine::solver::contact::ContactInput3D {
+    serde_json::from_value(serde_json::json!({
+        "solver": make_3d_input(
+            vec![(1, 0.0, 0.0, 1.0), (2, 2.0, 0.0, 0.0), (3, 2.5, 0.0, -1.0), (4, 2.001, 0.0, 0.0)],
+            vec![(1, 200.0, 0.3)], vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1), (2, "truss", 2, 3, 1, 1)],
+            vec![(1, vec![true; 6]), (3, vec![true; 6]), (4, vec![true; 6])],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 50.0, fy: 0.0, fz: -50.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+        ),
+        "elementBehaviors": {"2": "tension_only"},
+        "gapElements": [{"id": 1, "nodeI": 2, "nodeJ": 4, "direction": 0,
+            "initialGap": 0.001, "stiffness": 100_000.0}],
+        "maxFlips": 1, "maxIter": 30, "tolerance": 1e-10
+    })).unwrap()
+}
+
+fn assert_contact_refusal<T: std::fmt::Debug>(result: Result<T, String>) {
+    let error = result.expect_err("an invalid frozen contact state must be withheld");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let d = &error["structuredDiagnostics"][0];
+    assert_eq!(d["code"], "contact_state_invalid");
+    assert_eq!(d["severity"], "error");
+    assert_eq!(d["elementIds"], serde_json::json!([1]));
+}
+
+#[test]
+fn nl_contact_chattering_gap_is_refused_2d() {
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&chattering_contact_2d()));
+}
+
+#[test]
+fn nl_contact_chattering_gap_is_refused_3d() {
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&chattering_contact_3d()));
+}
+
+
+#[test]
+fn nl_contact_frozen_gap_within_tolerance_can_converge_2d() {
+    let mut input = chattering_contact_2d();
+    input.gap_elements[0].initial_gap *= 1e-9;
+    for load in &mut input.solver.loads {
+        if let SolverLoad::Nodal(load) = load { load.fx *= 1e-9; load.fz *= 1e-9; }
+    }
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen")));
+    let gap = &result.gap_status[0];
+    assert!(gap.displacement + input.gap_elements[0].initial_gap >= -input.tolerance.unwrap());
+    assert!(gap.force <= input.gap_elements[0].stiffness * input.tolerance.unwrap());
+    input.tolerance = Some(1e-15);
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&input));
+}
+
+#[test]
+fn nl_contact_frozen_gap_within_tolerance_can_converge_3d() {
+    let mut input = chattering_contact_3d();
+    input.gap_elements[0].initial_gap *= 1e-9;
+    for load in &mut input.solver.loads {
+        if let SolverLoad3D::Nodal(load) = load { load.fx *= 1e-9; load.fz *= 1e-9; }
+    }
+    let result = dedaliano_engine::solver::contact::solve_contact_3d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen")));
+    let gap = &result.gap_status[0];
+    assert!(gap.displacement + input.gap_elements[0].initial_gap >= -input.tolerance.unwrap());
+    assert!(gap.force <= input.gap_elements[0].stiffness * input.tolerance.unwrap());
+    input.tolerance = Some(1e-15);
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&input));
+}
+
+#[test]
+fn nl_contact_frozen_open_gap_cannot_penetrate() {
+    let mut plane = chattering_contact_2d();
+    plane.max_flips = Some(0);
+    plane.element_behaviors.clear();
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&plane));
+    let mut space = chattering_contact_3d();
+    space.max_flips = Some(0);
+    space.element_behaviors.clear();
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&space));
+}
+
+#[test]
+fn nl_contact_frozen_surface_pair_cannot_penetrate() {
+    use dedaliano_engine::solver::contact::*;
+    let mut input = chattering_contact_2d();
+    input.max_flips = Some(0);
+    input.gap_elements.clear();
+    input.element_behaviors.clear();
+    input.solver.nodes.insert("5".into(), SolverNode { id: 5, x: 2.001, z: -1.0 });
+    let mut support = input.solver.supports["3"].clone();
+    support.id = 4;
+    support.node_id = 5;
+    input.solver.supports.insert("4".into(), support);
+    input.contact_type = ContactType::NodeToSurface;
+    input.node_to_surface_pairs.push(NodeToSurfacePair {
+        slave_node: 2, master_segment: MasterSegment { id: 1, node_a: 5, node_b: 4 },
+        stiffness: 100_000.0, friction_coefficient: None,
+    });
+    let error = solve_contact_2d(&input).unwrap_err();
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let d = &error["structuredDiagnostics"][0];
+    assert_eq!(d["code"], "contact_state_invalid");
+    assert_eq!(d["phase"], "node_to_surface");
+    assert_eq!(d["nodeIds"], serde_json::json!([2]));
+    assert!(d.get("elementIds").is_none());
+}
+
+fn assert_cable_refusal<T>(result: Result<T, String>) {
+    let error = match result { Err(error) => error, Ok(_) => panic!("cables require tension-only analysis") };
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    assert_eq!(error["structuredDiagnostics"][0]["code"], "cable_analysis_required");
+    assert_eq!(error["structuredDiagnostics"][0]["severity"], "error");
+    assert_eq!(error["structuredDiagnostics"][0]["elementIds"], serde_json::json!([2]));
+}
+
+#[test]
+fn nl_cable_validity_is_enforced_across_analysis_paths() {
+    use dedaliano_engine::solver::{contact, modal, time_integration, buckling};
+    let mut plane = chattering_contact_2d();
+    let mut space = chattering_contact_3d();
+    plane.solver.elements.get_mut("2").unwrap().elem_type = "cable".into();
+    space.solver.elements.get_mut("2").unwrap().elem_type = "cable".into();
+    let densities = HashMap::from([("1".into(), 1.0)]);
+    assert_cable_refusal(linear::prepare_static_2d(&plane.solver));
+    assert_cable_refusal(linear::prepare_static_3d(&space.solver));
+    assert_cable_refusal(modal::solve_modal_2d(&plane.solver, &densities, 1));
+    assert_cable_refusal(modal::solve_modal_3d(&space.solver, &densities, 1));
+    assert_cable_refusal(pdelta::solve_pdelta_2d(&plane.solver, 30, 1e-10));
+    assert_cable_refusal(pdelta::solve_pdelta_3d(&space.solver, 30, 1e-10));
+    assert_cable_refusal(buckling::solve_buckling_2d(&plane.solver, 1));
+    assert_cable_refusal(buckling::solve_buckling_3d(&space.solver, 1));
+    assert_cable_refusal(corotational::solve_corotational_2d(&plane.solver, 30, 1e-10, 1, false));
+    assert_cable_refusal(corotational::solve_corotational_3d(&space.solver, 30, 1e-10, 1, false));
+    let time2: TimeHistoryInput = serde_json::from_value(serde_json::json!({
+        "solver": plane.solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
+    })).unwrap();
+    let time3: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
+        "solver": space.solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
+    })).unwrap();
+    assert_cable_refusal(time_integration::solve_time_history_2d(&time2));
+    assert_cable_refusal(time_integration::solve_time_history_3d(&time3));
+    assert_cable_refusal(contact::solve_contact_2d(&plane));
+    assert_cable_refusal(contact::solve_contact_3d(&space));
+}
+
+fn bearing_contact_2d() -> dedaliano_engine::solver::contact::ContactInput {
+    serde_json::from_value(serde_json::json!({
+        "solver": make_input(
+            vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 1.0, 0.0)],
+            vec![(1, 200.0, 0.3)], vec![(1, 0.01, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1, false, false)],
+            vec![(1, 1, "fixed"), (2, 3, "fixed")],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 50.0, fz: -50.0, my: 0.0 })],
+        ),
+        "gapElements": [{"id": 1, "nodeI": 2, "nodeJ": 3, "direction": 0,
+            "initialGap": 0.0, "stiffness": 1e5, "friction": 0.1, "frictionDirection": 1}],
+        "maxFlips": 1, "maxIter": 30, "tolerance": 1e-10
+    })).unwrap()
+}
+
+#[test]
+fn nl_contact_review_frozen_bearing_obeys_penalty_hand_formula() {
+    let input = bearing_contact_2d();
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen")));
+    let k_bar = 200.0 * 1000.0 * 0.01 / 1.0;
+    let k_contact = input.gap_elements[0].stiffness;
+    let displacement = 50.0 / (k_bar + k_contact);
+    close(disp2(&result.results, 2).ux, displacement, 1e-10, "bearing displacement");
+    close(result.gap_status[0].force, -k_contact * displacement, 1e-10, "bearing force");
+    let reaction = result.results.reactions.iter().find(|r| r.node_id == 3).unwrap();
+    close(reaction.rx, -k_contact * displacement, 1e-10, "bearing support reaction");
+    assert_eq!(result.gap_status[0].status, "closed");
+    assert!(result.gap_status[0].penetration > input.tolerance.unwrap());
+}
+
+#[test]
+fn nl_contact_review_frozen_tensile_closed_and_penetrating_open_refuse() {
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&chattering_contact_2d()));
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&chattering_contact_3d()));
+    let mut input = bearing_contact_2d();
+    input.max_flips = Some(0);
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&input));
+}
+
+#[test]
+fn nl_contact_review_frozen_al_bearing_control() {
+    let mut input = bearing_contact_2d();
+    input.augmented_lagrangian = Some(1.0);
+    input.al_max_iter = Some(12);
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.al_iterations > 1);
+    assert_eq!(result.gap_status[0].status, "closed");
+    close(result.gap_status[0].force, -50.0, 1e-9, "AL bearing force");
+}
+
+#[test]
+fn nl_contact_review_frozen_al_separated_compression_refuses() {
+    let mut input = bearing_contact_2d();
+    input.augmented_lagrangian = Some(2.0);
+    input.al_max_iter = Some(1);
+    assert_contact_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&input));
+}
+
+#[test]
+fn nl_contact_review_freezing_is_retained_across_al_passes() {
+    let mut input = bearing_contact_2d();
+    input.augmented_lagrangian = Some(1.0);
+    input.al_max_iter = Some(12);
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.al_iterations > 1);
+    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen in an earlier augmented-Lagrangian pass")));
+    close(result.gap_status[0].force, -50.0, 1e-9, "retained frozen AL bearing force");
+}
+
+fn bearing_surface_2d() -> dedaliano_engine::solver::contact::ContactInput {
+    use dedaliano_engine::solver::contact::*;
+    let mut input = bearing_contact_2d();
+    input.gap_elements.clear();
+    input.solver.nodes.get_mut("3").unwrap().z = -1.0;
+    input.solver.nodes.insert("4".into(), SolverNode { id: 4, x: 1.0, z: 1.0 });
+    let mut support = input.solver.supports["2"].clone();
+    support.id = 3;
+    support.node_id = 4;
+    input.solver.supports.insert("3".into(), support);
+    input.node_to_surface_pairs.push(NodeToSurfacePair {
+        slave_node: 2, master_segment: MasterSegment { id: 1, node_a: 3, node_b: 4 },
+        stiffness: 1e5, friction_coefficient: Some(0.1),
+    });
+    input.contact_type = ContactType::NodeToSurface;
+    input.augmented_lagrangian = Some(1.0);
+    input.al_max_iter = Some(12);
+    input
+}
+
+#[test]
+fn nl_contact_review_frozen_al_surface_bearing_obeys_equilibrium() {
+    let input = bearing_surface_2d();
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.al_iterations > 1);
+    let pair = &result.node_to_surface_status[0];
+    assert_eq!(pair.status, "closed");
+    close(pair.normal_force, 50.0, 1e-9, "AL surface bearing force");
+    let reaction: f64 = result.results.reactions.iter().filter(|r| r.node_id == 3 || r.node_id == 4).map(|r| r.rx).sum();
+    close(reaction, -pair.normal_force, 1e-9, "surface force agrees with assembled reaction");
+}
+
+#[test]
+fn nl_contact_review_invalid_tolerance_is_structured() {
+    for tolerance in [0.0, -1e-10, f64::NAN, f64::INFINITY] {
+        let mut input = bearing_contact_2d();
+        input.tolerance = Some(tolerance);
+        let error = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap_err();
+        let error: serde_json::Value = serde_json::from_str(&error).expect("structured refusal");
+        assert_eq!(error["structuredDiagnostics"][0]["code"], "contact_tolerance_invalid");
+        assert_eq!(error["structuredDiagnostics"][0]["severity"], "error");
+    }
+}
+
+#[test]
+fn nl_contact_review_unfrozen_al_surface_bearing_obeys_equilibrium() {
+    let mut input = bearing_surface_2d();
+    input.max_flips = Some(100);
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
+    assert!(result.converged);
+    close(result.node_to_surface_status[0].normal_force, 50.0, 1e-9, "unfrozen AL surface bearing force");
+}
+
+#[test]
+fn nl_contact_review_frozen_bearing_obeys_penalty_hand_formula_3d() {
+    let plane = bearing_contact_2d();
+    let mut input = chattering_contact_3d();
+    input.solver = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0), (3, 1.0, 0.0, 0.0)],
+        vec![(1, 200.0, 0.3)], vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true; 6]), (3, vec![true; 6])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 50.0, fy: -50.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+    );
+    input.element_behaviors.clear();
+    input.gap_elements = plane.gap_elements;
+    let result = dedaliano_engine::solver::contact::solve_contact_3d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen")));
+    let displacement = 50.0 / (200.0 * 1000.0 * 0.01 / 1.0 + 1e5);
+    close(result.gap_status[0].force, -1e5 * displacement, 1e-10, "3D bearing force");
+    close(result.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux, displacement, 1e-10, "3D bearing displacement");
+    close(result.results.reactions.iter().find(|r| r.node_id == 3).unwrap().fx, -1e5 * displacement, 1e-10, "3D bearing reaction");
+}
+
+#[test]
+fn nl_contact_review_rotating_master_cannot_hide_assembled_tension() {
+    let mut input = bearing_surface_2d();
+    input.solver.supports.remove("3");
+    let mut master = input.solver.elements["1"].clone();
+    master.id = 2;
+    master.node_i = 3;
+    master.node_j = 4;
+    input.solver.elements.insert("2".into(), master);
+    if let SolverLoad::Nodal(load) = &mut input.solver.loads[0] { load.fz *= 4.0; }
+    input.al_max_iter = Some(2);
+    let error = dedaliano_engine::solver::contact::solve_contact_2d(&input).expect_err("the assembled tensile spring must be withheld");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostic = &error["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "contact_state_invalid");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["nodeIds"], serde_json::json!([2]));
+    assert_eq!(diagnostic["phase"], "node_to_surface");
+}
+
+fn surface_tolerance_control(limit_ratio: f64) -> dedaliano_engine::solver::contact::ContactInput {
+    use dedaliano_engine::solver::contact::*;
+    let mut input = chattering_contact_2d();
+    let material = &input.solver.materials["1"];
+    let section = &input.solver.sections["1"];
+    let length = 5.0_f64.sqrt();
+    let c = 2.0 / length;
+    let s = -1.0 / length;
+    let axial = material.e * 1000.0 * section.a / length;
+    let bending = 3.0 * material.e * 1000.0 * section.iz / length.powi(3);
+    let kxx = axial * c * c + bending * s * s;
+    let kzz = axial * s * s + bending * c * c;
+    let kxz = (axial - bending) * c * s;
+    let gap = input.gap_elements[0].initial_gap;
+    let stiffness = input.gap_elements[0].stiffness;
+    let ux = ((50.0 + stiffness * gap) * kzz + kxz * 50.0)
+        / ((kxx + stiffness) * kzz - kxz * kxz);
+    let scale = limit_ratio * input.tolerance.unwrap() / (gap - ux);
+    input.gap_elements.clear();
+    for node in input.solver.nodes.values_mut() { node.x -= 2.0; }
+    input.solver.nodes.get_mut("4").unwrap().x = gap * scale;
+    input.solver.nodes.get_mut("4").unwrap().z = -1.0;
+    input.solver.nodes.insert("5".into(), SolverNode { id: 5, x: gap * scale, z: 1.0 });
+    let mut support = input.solver.supports["3"].clone();
+    support.id = 4;
+    support.node_id = 5;
+    input.solver.supports.insert("4".into(), support);
+    input.node_to_surface_pairs.push(NodeToSurfacePair {
+        slave_node: 2, master_segment: MasterSegment { id: 1, node_a: 4, node_b: 5 },
+        stiffness: 1e5, friction_coefficient: None,
+    });
+    input.contact_type = ContactType::NodeToSurface;
+    for load in &mut input.solver.loads {
+        let SolverLoad::Nodal(load) = load else { unreachable!() };
+        load.fx *= scale; load.fz *= scale;
+    }
+    input
+}
+
+#[test]
+fn nl_contact_surface_tension_below_scaled_tolerance_is_accepted() {
+    let input = surface_tolerance_control(0.99);
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen")));
+    let pair = &result.node_to_surface_status[0];
+    let tolerance = input.tolerance.unwrap();
+    let stiffness = input.node_to_surface_pairs[0].stiffness;
+    assert_eq!(pair.status, "closed");
+    assert!(pair.gap > 0.0 && pair.gap < tolerance);
+    assert!(pair.normal_force < 0.0 && -pair.normal_force < stiffness * tolerance);
+    close(pair.gap, 0.99 * tolerance, 1e-15, "opening just below tolerance");
+    close(-pair.normal_force / stiffness, 0.99 * tolerance, 1e-15, "traction divided by stiffness just below tolerance");
+}
+
+#[test]
+fn nl_contact_surface_tension_above_scaled_tolerance_is_refused() {
+    let input = surface_tolerance_control(1.01);
+    let error = dedaliano_engine::solver::contact::solve_contact_2d(&input)
+        .expect_err("surface tension above stiffness times tolerance");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostic = &error["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "contact_state_invalid");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "node_to_surface");
+    assert_eq!(diagnostic["nodeIds"], serde_json::json!([2]));
+    assert!(error.get("results").is_none());
+}
+
+fn one_way_contact_2d(behavior: &str, force: f64) -> dedaliano_engine::solver::contact::ContactInput {
+    serde_json::from_value(serde_json::json!({
+        "solver": make_input(
+            vec![(1, 0.0, 0.0), (2, 2.0, 0.0)],
+            vec![(1, 200.0, 0.3)], vec![(1, 0.01, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "truss", 1, 2, 1, 1, false, false)],
+            vec![(1, 1, "fixed")],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: force, fz: 0.0, my: 0.0 })],
+        ),
+        "elementBehaviors": {"2": behavior}, "maxFlips": 0, "tolerance": 1e-10
+    })).unwrap()
+}
+
+fn one_way_contact_3d(behavior: &str, force: f64) -> dedaliano_engine::solver::contact::ContactInput3D {
+    serde_json::from_value(serde_json::json!({
+        "solver": make_3d_input(
+            vec![(1, 0.0, 0.0, 0.0), (2, 2.0, 0.0, 0.0)],
+            vec![(1, 200.0, 0.3)], vec![(1, 0.01, 1e-4, 1e-4, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1), (2, "truss", 1, 2, 1, 1)],
+            vec![(1, vec![true; 6])],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: force, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+        ),
+        "elementBehaviors": {"2": behavior}, "maxFlips": 0, "tolerance": 1e-10
+    })).unwrap()
+}
+
+fn assert_one_way_refusal<T: std::fmt::Debug>(result: Result<T, String>) {
+    let error = result.expect_err("a frozen member with the forbidden axial-force sign must be withheld");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostic = &error["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "contact_state_invalid");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["elementIds"], serde_json::json!([2]));
+    assert_eq!(diagnostic["phase"], "element_behavior");
+}
+
+#[test]
+fn nl_contact_frozen_tension_only_compression_refuses_2d() {
+    for al in [None, Some(1.0)] {
+        let mut input = one_way_contact_2d("tension_only", -50.0);
+        input.augmented_lagrangian = al;
+        assert!(input.gap_elements.is_empty());
+        assert_one_way_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&input));
+    }
+}
+
+#[test]
+fn nl_contact_frozen_tension_only_compression_refuses_3d() {
+    for al in [None, Some(1.0)] {
+        let mut input = one_way_contact_3d("tension_only", -50.0);
+        input.augmented_lagrangian = al;
+        assert!(input.gap_elements.is_empty());
+        assert_one_way_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&input));
+    }
+}
+
+#[test]
+fn nl_contact_frozen_compression_only_tension_refuses_2d() {
+    for al in [None, Some(1.0)] {
+        let mut input = one_way_contact_2d("compression_only", 50.0);
+        input.augmented_lagrangian = al;
+        assert!(input.gap_elements.is_empty());
+        assert_one_way_refusal(dedaliano_engine::solver::contact::solve_contact_2d(&input));
+    }
+}
+
+#[test]
+fn nl_contact_frozen_compression_only_tension_refuses_3d() {
+    for al in [None, Some(1.0)] {
+        let mut input = one_way_contact_3d("compression_only", 50.0);
+        input.augmented_lagrangian = al;
+        assert!(input.gap_elements.is_empty());
+        assert_one_way_refusal(dedaliano_engine::solver::contact::solve_contact_3d(&input));
+    }
+}
+
+#[test]
+fn nl_contact_one_way_permitted_sign_still_solves() {
+    for (behavior, force) in [("tension_only", 50.0), ("compression_only", -50.0)] {
+        let plane = dedaliano_engine::solver::contact::solve_contact_2d(&one_way_contact_2d(behavior, force)).unwrap();
+        let space = dedaliano_engine::solver::contact::solve_contact_3d(&one_way_contact_3d(behavior, force)).unwrap();
+        assert!(plane.converged && space.converged);
+        for info in [&plane.element_status[0], &space.element_status[0]] {
+            assert_eq!(info.status, "active");
+            close(info.force, force / 2.0, 1e-12, "parallel bars share the axial load");
+        }
+        close(disp2(&plane.results, 2).ux, force / (2.0 * 200.0 * 1000.0 * 0.01 / 2.0), 1e-12, "2D parallel-bar displacement");
+        close(disp3(&space.results, 2).ux, disp2(&plane.results, 2).ux, 1e-12, "3D parallel-bar displacement");
+    }
+}
+
+#[test]
+fn nl_contact_one_way_frozen_force_uses_scaled_tolerance() {
+    let stiffness = 200.0 * 1000.0 * 0.01 / 2.0;
+    for (behavior, sign) in [("tension_only", -1.0), ("compression_only", 1.0)] {
+        for ratio in [0.99, 1.01] {
+            let force = sign * 2.0 * stiffness * 1e-10 * ratio;
+            let plane = dedaliano_engine::solver::contact::solve_contact_2d(&one_way_contact_2d(behavior, force));
+            let space = dedaliano_engine::solver::contact::solve_contact_3d(&one_way_contact_3d(behavior, force));
+            if ratio > 1.0 {
+                assert_one_way_refusal(plane);
+                assert_one_way_refusal(space);
+            } else {
+                let plane = plane.unwrap();
+                let space = space.unwrap();
+                assert!(plane.converged && space.converged);
+                for (info, diagnostic) in [(&plane.element_status[0], &plane.diagnostics), (&space.element_status[0], &space.diagnostics)] {
+                    assert_eq!(info.status, "active");
+                    close(info.force, force / 2.0, 1e-12, "accepted frozen axial force");
+                    assert!(diagnostic.iter().any(|d| d.contains("status was frozen")));
+                }
+                for f in [&plane.results.element_forces[1].n_start, &space.results.element_forces[1].n_start] {
+                    close(*f / stiffness, sign * 1e-10 * ratio, 1e-12, "assembled force divided by axial stiffness");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn nl_contact_one_way_freezing_is_retained_across_al_passes() {
+    use dedaliano_engine::solver::contact::*;
+    for (behavior, sign) in [("tension_only", 1.0), ("compression_only", -1.0)] {
+        let mut plane = one_way_contact_2d(behavior, -50.0 * sign);
+        plane.max_flips = Some(1);
+        plane.gap_elements = vec![GapElement {
+            id: 1, node_i: if sign > 0.0 { 1 } else { 2 }, node_j: if sign > 0.0 { 2 } else { 1 },
+            direction: 0, initial_gap: -0.1, stiffness: 1000.0,
+            friction: None, friction_direction: None, friction_coefficient: None,
+        }];
+        plane.augmented_lagrangian = Some(1.5);
+        plane.al_max_iter = Some(40);
+        let mut space = one_way_contact_3d(behavior, -50.0 * sign);
+        space.max_flips = plane.max_flips;
+        space.gap_elements = plane.gap_elements.clone();
+        space.augmented_lagrangian = plane.augmented_lagrangian;
+        space.al_max_iter = plane.al_max_iter;
+        let plane = solve_contact_2d(&plane).unwrap();
+        let space = solve_contact_3d(&space).unwrap();
+        assert!(plane.converged && space.converged);
+        assert!(plane.al_iterations > 1 && space.al_iterations > 1);
+        for (info, diagnostics) in [(&plane.element_status[0], &plane.diagnostics), (&space.element_status[0], &space.diagnostics)] {
+            assert_eq!(info.status, "active");
+            close(info.force, 100.0 * sign, 1e-9, "AL pushes the bars to the gap seat");
+            assert!(diagnostics.iter().any(|d| d == &format!("Element 2 ({behavior}) status was frozen in an earlier augmented-Lagrangian pass.")));
+        }
+    }
+}
+
+fn inactive_one_way_contact_1932(behavior: &str, sign: f64, max_flips: usize, scale: f64) -> (
+    dedaliano_engine::solver::contact::ContactInput,
+    dedaliano_engine::solver::contact::ContactInput3D,
+) {
+    use dedaliano_engine::solver::contact::*;
+    let mut plane = one_way_contact_2d(behavior, -50.0 * sign * scale);
+    plane.max_flips = Some(max_flips);
+    plane.gap_elements = vec![GapElement {
+        id: 1, node_i: if sign > 0.0 { 1 } else { 2 }, node_j: if sign > 0.0 { 2 } else { 1 },
+        direction: 0, initial_gap: -0.1 * scale, stiffness: 1000.0,
+        friction: None, friction_direction: None, friction_coefficient: None,
+    }];
+    assert_eq!(plane.augmented_lagrangian, None);
+    let mut space = one_way_contact_3d(behavior, -50.0 * sign * scale);
+    space.max_flips = plane.max_flips;
+    space.gap_elements = plane.gap_elements.clone();
+    assert_eq!(space.augmented_lagrangian, None);
+    (plane, space)
+}
+
+fn assert_inactive_one_way_refusal_1932<T: std::fmt::Debug>(result: Result<T, String>) {
+    let error = result.expect_err("a frozen inactive member requiring reactivation must be withheld");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostic = &error["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "contact_state_invalid");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["elementIds"], serde_json::json!([2]));
+    assert_eq!(diagnostic["phase"], "element_behavior");
+    assert!(error.get("results").is_none());
+}
+
+#[test]
+fn issue_1932_frozen_inactive_tension_only_refuses_2d() {
+    let (plane, _) = inactive_one_way_contact_1932("tension_only", 1.0, 1, 1.0);
+    assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_2d(&plane));
+}
+
+#[test]
+fn issue_1932_frozen_inactive_tension_only_refuses_3d() {
+    let (_, space) = inactive_one_way_contact_1932("tension_only", 1.0, 1, 1.0);
+    assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_3d(&space));
+}
+
+#[test]
+fn issue_1932_frozen_inactive_compression_only_refuses_2d() {
+    let (plane, _) = inactive_one_way_contact_1932("compression_only", -1.0, 1, 1.0);
+    assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_2d(&plane));
+}
+
+#[test]
+fn issue_1932_frozen_inactive_compression_only_refuses_3d() {
+    let (_, space) = inactive_one_way_contact_1932("compression_only", -1.0, 1, 1.0);
+    assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_3d(&space));
+}
+
+#[test]
+fn issue_1932_sufficient_flip_budget_solves_with_reactivated_member() {
+    for (behavior, sign) in [("tension_only", 1.0), ("compression_only", -1.0)] {
+        let (plane, space) = inactive_one_way_contact_1932(behavior, sign, 2, 1.0);
+        let plane = dedaliano_engine::solver::contact::solve_contact_2d(&plane).unwrap();
+        let space = dedaliano_engine::solver::contact::solve_contact_3d(&space).unwrap();
+        assert!(plane.converged && space.converged);
+        let stiffness = 200.0 * 1000.0 * 0.01 / 2.0;
+        let displacement = sign * (1000.0 * 0.1 - 50.0) / (2.0 * stiffness + 1000.0);
+        close(disp2(&plane.results, 2).ux, displacement, 1e-12, "2D reactivated parallel bars and gap equilibrium");
+        close(disp3(&space.results, 2).ux, displacement, 1e-12, "3D reactivated parallel bars and gap equilibrium");
+        for info in [&plane.element_status[0], &space.element_status[0]] {
+            assert_eq!(info.status, "active");
+            close(info.force, stiffness * displacement, 1e-12, "reactivated member shares the load");
+        }
+        for (start, end) in plane.results.element_forces.iter().map(|f| (f.n_start, f.n_end))
+            .chain(space.results.element_forces.iter().map(|f| (f.n_start, f.n_end))) {
+            close(start, stiffness * displacement, 1e-12, "recovered parallel bar start force");
+            close(end, stiffness * displacement, 1e-12, "recovered parallel bar end force");
+        }
+    }
+}
+
+#[test]
+fn issue_1932_frozen_inactive_activation_uses_scaled_tolerance() {
+    for (behavior, sign) in [("tension_only", 1.0), ("compression_only", -1.0)] {
+        for ratio in [0.99, 1.01] {
+            let scale = ratio * 1e-10 / ((1000.0 * 0.1 - 50.0) / (1000.0 + 1000.0));
+            let (plane, space) = inactive_one_way_contact_1932(behavior, sign, 1, scale);
+            let plane = dedaliano_engine::solver::contact::solve_contact_2d(&plane);
+            let space = dedaliano_engine::solver::contact::solve_contact_3d(&space);
+            if ratio > 1.0 {
+                assert_inactive_one_way_refusal_1932(plane);
+                assert_inactive_one_way_refusal_1932(space);
+            } else {
+                let plane = plane.unwrap();
+                let space = space.unwrap();
+                assert!(plane.converged && space.converged);
+                close(disp2(&plane.results, 2).ux, sign * ratio * 1e-10, 1e-15, "2D inactive trial elongation below tolerance");
+                close(disp3(&space.results, 2).ux, sign * ratio * 1e-10, 1e-15, "3D inactive trial elongation below tolerance");
+                for (info, diagnostics) in [(&plane.element_status[0], &plane.diagnostics), (&space.element_status[0], &space.diagnostics)] {
+                    assert_eq!(info.status, "inactive");
+                    assert_eq!(info.force, 0.0);
+                    assert!(diagnostics.iter().any(|d| d == &format!("Element 2 ({behavior}) status was frozen.")));
+                }
+                for (start, end) in [(plane.results.element_forces[1].n_start, plane.results.element_forces[1].n_end), (space.results.element_forces[1].n_start, space.results.element_forces[1].n_end)] {
+                    assert_eq!(start, 0.0);
+                    assert_eq!(end, 0.0);
+                }
+            }
+        }
+    }
+}
