@@ -2336,6 +2336,7 @@ mod r3 {
                 calls.push(serde_json::json!({"api":api,"input":s,"maxIter":60,"converged":true,"expectedDisplacements":expected}));
             }
             calls.push(serde_json::json!({"api":"solve_arc_length","input":arc(s.clone(),dy*2.0f64.sqrt()),"converged":true,"expectedDisplacements":expected}));
+            calls.push(serde_json::json!({"api":"solve_nonlinear_material_2d","input":{"solver":s,"materialModels":{},"sectionCapacities":{},"maxIter":30,"tolerance":1e-10,"nIncrements":1},"converged":true,"expectedDisplacements":expected}));
             let constrained = dedaliano_engine::solver::constraints::ConstrainedInput {
                 solver: s.clone(),
                 constraints: vec![],
@@ -2351,6 +2352,7 @@ mod r3 {
                 for api in ["solve_3d", "solve_pdelta_3d"] {
                     calls.push(serde_json::json!({"api":api,"input":solver,"maxIter":60,"converged":true,"expectedDisplacements":expected}));
                 }
+                calls.push(serde_json::json!({"api":"solve_nonlinear_material_3d","input":{"solver":solver,"materialModels":{},"sectionCapacities":{},"maxIter":30,"tolerance":1e-10,"nIncrements":1},"converged":true,"expectedDisplacements":expected}));
                 let input = dedaliano_engine::solver::constraints::ConstrainedInput3D {
                     solver,
                     constraints: vec![],
@@ -2359,6 +2361,33 @@ mod r3 {
             }
         }
         calls
+    }
+
+    #[test]
+    fn tiny_settlements_reach_both_material_entry_points() {
+        for c in settlement_calls().into_iter().filter(|c| {
+            c["api"]
+                .as_str()
+                .unwrap()
+                .starts_with("solve_nonlinear_material")
+        }) {
+            let r: serde_json::Value = serde_json::from_str(&super::r2::call(&c).unwrap()).unwrap();
+            assert_eq!(r["converged"], true);
+            let expected = c["expectedDisplacements"].as_array().unwrap();
+            for d in expected {
+                let a = r["results"]["displacements"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|a| a["nodeId"] == d["nodeId"])
+                    .unwrap();
+                for key in ["ux", "uy", "uz"] {
+                    if let Some(e) = d[key].as_f64().filter(|e| *e != 0.0) {
+                        close(a[key].as_f64().unwrap(), e, 1e-10);
+                    }
+                }
+            }
+        }
     }
 
     pub(super) fn soil_calls() -> Vec<serde_json::Value> {
