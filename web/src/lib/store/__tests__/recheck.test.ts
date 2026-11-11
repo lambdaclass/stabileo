@@ -335,36 +335,12 @@ describe('edited projects with older provenance', () => {
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     .map(c => c.id);
 
-  it('#1753: connector-only opening notices follow main-first merge order', async () => {
+  it.each([false, true])('#1753: connector-only opening notices follow main-first merge order (shared pending version: %s)', async (sharedVersion) => {
     const module = await import('../../provenance/applicability');
     const mergedRegistry = {
       ...RESULT_CHANGES,
       currentResultsVersion: RESULT_CHANGES.currentResultsVersion + 2,
-      changes: RESULT_CHANGES.changes.map(c => c.id === 'linear-stability-refusals'
-        ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 1 }
-        : c.id === 'linear-pin-coupling'
-          ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 2 } : c),
-    };
-    const store = createRecheckStore(async () => ({
-      ...module,
-      assessProject: (...args: Parameters<typeof module.assessProject>) =>
-        module.assessProject(args[0], args[1], args[2], mergedRegistry, args[4], args[5]),
-    }));
-    const snapshot = { ...frame(), elements: [], connectors: [[1, { kShear: 0 }]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
-    store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
-    await vi.waitFor(() => expect(store.pending).toBe(false));
-    const received = store.assessment?.changes.map(c => c.id);
-    const expected = openingNoticeIds(mergedRegistry);
-    expect(expected.slice(-8)).toEqual(['connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']);
-    expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
-  });
-
-  it.skipIf(!process.env.RUN_KNOWN_WRONG_761)('#1940: connector-only notices retain exact order when pending entries land together', async () => {
-    const module = await import('../../provenance/applicability');
-    const mergedRegistry = {
-      ...RESULT_CHANGES,
-      currentResultsVersion: RESULT_CHANGES.currentResultsVersion + 2,
-      changes: RESULT_CHANGES.changes.map(c => c.prs.includes(1940)
+      changes: RESULT_CHANGES.changes.map(c => sharedVersion && c.prs.includes(1940)
         ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion }
         : c.id === 'linear-stability-refusals'
         ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 1 }
@@ -381,7 +357,11 @@ describe('edited projects with older provenance', () => {
     await vi.waitFor(() => expect(store.pending).toBe(false));
     const received = store.assessment?.changes.map(c => c.id);
     const expected = openingNoticeIds(mergedRegistry);
-    expect(expected.slice(-8)).toEqual(['connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']);
+    const tail = ['connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
+      .map(id => mergedRegistry.changes.find(c => c.id === id)!)
+      .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+      .map(c => c.id);
+    expect(expected.slice(-8)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
     expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
   });
 

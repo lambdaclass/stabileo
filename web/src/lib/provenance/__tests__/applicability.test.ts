@@ -619,3 +619,16 @@ it('#761 round 4 flags saved linear displacement3d results', () => {
   expect(ids({ ...snapshot, loads: [] }, stamp)).not.toContain(entry.id);
   expect(ids(snapshot, stampSolve('linear', null))).not.toContain(entry.id);
 });
+
+it('#761 scopes the collinear chord correction to nonlinear 2D frames', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'collinear-axial-chord-rotation')!;
+  expect(entry.scope).toBeUndefined();
+  expect(entry.when).toBeDefined();
+  expect(conditionHolds(entry.when!, new Set(['plane2D', 'frameMembers', 'analysis:nonlinear']))).toBe(true);
+  for (const features of [
+    ['plane2D', 'frameMembers', 'analysis:linear'],
+    ['space3D', 'frameMembers', 'analysis:nonlinear'],
+    ['plane2D', 'connectors', 'analysis:nonlinear'],
+    ['plane2D', 'trussMembers', 'analysis:nonlinear'],
+  ]) expect(conditionHolds(entry.when!, new Set(features))).toBe(false);
+});

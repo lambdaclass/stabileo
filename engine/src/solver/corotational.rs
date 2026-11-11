@@ -62,8 +62,9 @@ pub(crate) fn continuation_internal_2d(
 }
 
 pub(crate) fn chord_rotation(dx0: f64, dz0: f64, dux: f64, duz: f64) -> f64 {
-    dx0.mul_add(duz, -dz0 * dux)
-        .atan2(dx0 * dx0 + dz0 * dz0 + dx0 * dux + dz0 * duz)
+    assembly::compensated_dot(&[dx0, -dz0], &[duz, dux]).atan2(
+        assembly::compensated_dot(&[dx0, dz0, dx0, dz0], &[dx0, dz0, dux, duz]),
+    )
 }
 
 /// Solve a 2D frame using co-rotational large displacement analysis.
@@ -3070,14 +3071,17 @@ mod infinitesimal_rotation_regressions {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn rotated_pure_axial_chords_have_exactly_zero_rotation() {
         let a = 1.0 + 2.0f64.powi(-27);
         let b = 1.0 - 2.0f64.powi(-27);
+        assert_eq!(chord_rotation(a, a, b, b), 0.0);
         for sx in [-1.0, 1.0] {
             for sz in [-1.0, 1.0] {
                 for extension in [-0.5 * b, 0.0, b] {
-                    assert_eq!(chord_rotation(sx * a, sz * a, sx * extension, sz * extension), 0.0);
+                    assert_eq!(
+                        chord_rotation(sx * a, sz * a, sx * extension, sz * extension),
+                        0.0
+                    );
                 }
                 for transverse in [-2.0f64.powi(-26), 2.0f64.powi(-26)] {
                     let actual = chord_rotation(sx * a, sz * a, -sz * transverse, sx * transverse);
@@ -3089,7 +3093,6 @@ mod infinitesimal_rotation_regressions {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn rotated_pure_axial_states_have_no_assembled_or_recovered_bending() {
         let a = 1.0 + 2.0f64.powi(-27);
         let b = 1.0 - 2.0f64.powi(-27);
@@ -3111,11 +3114,22 @@ mod infinitesimal_rotation_regressions {
                 assert_eq!(internal[dofs.global_dof(node, 2).unwrap()], 0.0);
             }
             let mut triplet_internal = vec![0.0; dofs.n_total];
-            assemble_corotational_triplets_2d(&input, &dofs, &u, &mut triplet_internal, &mut vec![], &mut vec![], &mut vec![]);
+            assemble_corotational_triplets_2d(
+                &input,
+                &dofs,
+                &u,
+                &mut triplet_internal,
+                &mut vec![],
+                &mut vec![],
+                &mut vec![],
+            );
             assert_eq!(internal, triplet_internal);
             let forces = compute_corotational_forces(&input, &dofs, &u);
             for force in forces {
-                assert_eq!([force.v_start, force.v_end, force.m_start, force.m_end], [0.0; 4]);
+                assert_eq!(
+                    [force.v_start, force.v_end, force.m_start, force.m_end],
+                    [0.0; 4]
+                );
                 assert!(force.n_start.is_sign_positive() == extension.is_sign_positive());
             }
         }

@@ -304,7 +304,6 @@ fn issue_761_unfinished_iterations_stay_unconverged_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #761"]
 fn issue_761_native_and_wasm_cases() {
     let mut cases = Vec::new();
     for case in fixtures() {
@@ -2294,7 +2293,17 @@ mod r3 {
                     };
                     calls.push(serde_json::json!({"api":api,"input":input,"maxIter":60,"converged":true,"settlementResponse":true,"settlementReaction":{"rx":reaction[0],"rz":reaction[1]}}));
                 }
-                calls.push(serde_json::json!({"api":"solve_arc_length","input":arc(solver,1e-6),"converged":true,"settlementResponse":true,"settlementReaction":{"rx":reaction[0],"rz":reaction[1]}}));
+                let imposed = iso.apply_vec([1e-5, 0.0]);
+                calls.push(serde_json::json!({"api":"solve_arc_length","input":arc(solver.clone(),1e-6),"converged":true,"settlementResponse":true,"settlementControl":{"ux":imposed[0],"uz":imposed[1],"ry":-0.5e-5}}));
+                let length = base.nodes["2"].x;
+                let response = iso.apply_vec([
+                    0.0,
+                    -500.0 * length.powi(3)
+                        / (3.0 * 1000.0 * base.materials["1"].e * base.sections["1"].iz),
+                ]);
+                let mut free_tip = solver;
+                free_tip.supports.remove("2");
+                calls.push(serde_json::json!({"api":"solve_arc_length","input":arc(free_tip,1e-6),"converged":true,"settlementResponse":true,"settlementDisplacement":{"ux":response[0],"uz":response[1]}}));
             }
             for plane in Plane::ALL {
                 let mut spatial = embed_2d(&base, plane).unwrap();
@@ -2329,7 +2338,8 @@ mod r3 {
             std::fs::write(path, serde_json::to_vec(&r4_support_calls()).unwrap()).unwrap();
         }
         for case in r4_support_calls() {
-            let r: serde_json::Value = serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
+            let r: serde_json::Value =
+                serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
             assert_eq!(r["converged"], true, "{case}: {r}");
             let baseline = settlement_only_result(&case, &r);
             check_settlement_response(&r, &baseline, &case);
@@ -2359,24 +2369,119 @@ mod r3 {
         baseline
     }
 
-    pub(super) fn settlement_only_result(case: &serde_json::Value, result: &serde_json::Value) -> serde_json::Value {
+    pub(super) fn settlement_only_result(
+        case: &serde_json::Value,
+        result: &serde_json::Value,
+    ) -> serde_json::Value {
         let factor = result["finalLoadFactor"].as_f64().unwrap_or(1.0);
+        if case.get("settlementDisplacement").is_some() {
+            let solver = &case["input"]["solver"];
+            let support = &solver["supports"]["1"];
+            let angle = factor * support["dry"].as_f64().unwrap();
+            let dx = solver["nodes"]["2"]["x"].as_f64().unwrap();
+            let dz = solver["nodes"]["2"]["z"].as_f64().unwrap();
+            let cosm1 = -2.0 * (0.5 * angle).sin().powi(2);
+            return serde_json::json!({"converged":true,"results":{"displacements":[{"nodeId":2,
+                "ux":factor*support["dx"].as_f64().unwrap() + cosm1*dx - angle.sin()*dz,
+                "uz":factor*support["dz"].as_f64().unwrap() + angle.sin()*dx + cosm1*dz,
+                "ry":angle}]}});
+        }
         let baseline = settlement_only_case(case, factor);
-        let r: serde_json::Value = serde_json::from_str(&super::r2::call(&baseline).unwrap()).unwrap();
+        let r: serde_json::Value =
+            serde_json::from_str(&super::r2::call(&baseline).unwrap()).unwrap();
         assert_eq!(r["converged"], true, "{baseline}: {r}");
         r
     }
 
-    pub(super) fn check_settlement_response(result: &serde_json::Value, _baseline: &serde_json::Value, _case: &serde_json::Value) {
-        let tip = result["results"]["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 2).unwrap();
-        assert!(tip["ux"].as_f64().unwrap().hypot(tip["uy"].as_f64().unwrap_or(0.0)).hypot(tip["uz"].as_f64().unwrap()) > 0.0);
+    pub(super) fn check_settlement_response(
+        result: &serde_json::Value,
+        baseline: &serde_json::Value,
+        case: &serde_json::Value,
+    ) {
+        let tip = result["results"]["displacements"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["nodeId"] == 2)
+            .unwrap();
+        assert!(
+            tip["ux"]
+                .as_f64()
+                .unwrap()
+                .hypot(tip["uy"].as_f64().unwrap_or(0.0))
+                .hypot(tip["uz"].as_f64().unwrap())
+                > 0.0
+        );
+        if let Some(expected) = case
+            .get("settlementControl")
+            .or_else(|| case.get("settlementDisplacement"))
+        {
+            let factor = result["finalLoadFactor"].as_f64().unwrap();
+            assert!(factor.is_finite() && factor > 0.0);
+            let base_tip = baseline["results"]["displacements"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|d| d["nodeId"] == 2)
+                .unwrap();
+            let scale = expected
+                .as_object()
+                .unwrap()
+                .values()
+                .map(|v| v.as_f64().unwrap().abs())
+                .fold(0.0f64, f64::max)
+                * factor;
+            for (key, value) in expected.as_object().unwrap() {
+                let actual = tip[key].as_f64().unwrap()
+                    - if case.get("settlementDisplacement").is_some() {
+                        base_tip[key].as_f64().unwrap()
+                    } else {
+                        0.0
+                    };
+                let target = value.as_f64().unwrap() * factor;
+                assert!(
+                    (actual - target).abs()
+                        <= 1e-10 * if target == 0.0 { scale } else { target.abs() },
+                    "signed settlement displacement {key}: {actual} != {target}; {case}"
+                );
+            }
+            return;
+        }
+        let reaction = |r: &serde_json::Value, key: &str| {
+            r["results"]["reactions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|r| r["nodeId"] == 2)
+                .map(|r| r[key].as_f64().unwrap())
+                .sum::<f64>()
+        };
+        let factor = result["finalLoadFactor"].as_f64().unwrap_or(1.0);
+        assert!(factor.is_finite() && factor > 0.0);
+        let expected = case["settlementReaction"].as_object().unwrap();
+        let scale = expected
+            .values()
+            .map(|v| v.as_f64().unwrap().abs())
+            .fold(0.0f64, f64::max)
+            * factor;
+        for (key, value) in expected {
+            let target = value.as_f64().unwrap() * factor;
+            let actual = reaction(result, key) - reaction(baseline, key);
+            assert!(
+                (actual - target).abs() <= 1e-10 * if target == 0.0 { scale } else { target.abs() },
+                "signed settlement load response {key}: {actual} != {target}; {case}"
+            );
+        }
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r6_settlement_response_rejects_dropping_the_transverse_load() {
-        for case in r4_support_calls() {
-            let loaded: serde_json::Value = serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
+        for case in r4_support_calls()
+            .into_iter()
+            .filter(|c| c.get("settlementControl").is_none())
+        {
+            let loaded: serde_json::Value =
+                serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
             let baseline = settlement_only_result(&case, &loaded);
             check_settlement_response(&loaded, &baseline, &case);
             let factor = loaded["finalLoadFactor"].as_f64().unwrap_or(1.0);
@@ -2384,7 +2489,11 @@ mod r3 {
             if case["api"] == "solve_arc_length" {
                 dropped["finalLoadFactor"] = serde_json::json!(factor);
             }
-            assert!(std::panic::catch_unwind(|| check_settlement_response(&dropped, &baseline, &case)).is_err(), "{case}");
+            assert!(
+                std::panic::catch_unwind(|| check_settlement_response(&dropped, &baseline, &case))
+                    .is_err(),
+                "{case}"
+            );
         }
     }
 
@@ -3063,7 +3172,21 @@ mod r6 {
             solver.nodes.get_mut("2").unwrap().z = a;
             solver.loads.clear();
             solver.supports.insert("2".into(), serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"pinned","dx":extension,"dz":extension})).unwrap());
-            calls.push(serde_json::json!({"api":"solve_corotational_2d","input":solver,"maxIter":60,"converged":true,"zeroBending":true}));
+            let expected = serde_json::json!([{"nodeId":2,"ux":extension,"uz":extension,"ry":0.0}]);
+            calls.push(serde_json::json!({"api":"solve_corotational_2d","input":solver,"maxIter":60,"converged":true,"zeroBending":true,"expectedDisplacements":expected}));
+            calls.push(serde_json::json!({"api":"solve_2d","input":solver,"converged":true,"expectedDisplacements":expected}));
+            for plane in Plane::ALL {
+                let spatial = embed_2d(&solver, plane).unwrap();
+                let translation = plane.point(extension, extension);
+                let expected = serde_json::json!([{"nodeId":2,"ux":translation[0],"uy":translation[1],"uz":translation[2],"rx":0.0,"ry":0.0,"rz":0.0}]);
+                for api in ["solve_3d", "solve_corotational_3d"] {
+                    if api == "solve_corotational_3d" {
+                        calls.push(serde_json::json!({"api":api,"input":spatial,"maxIter":60,"error":"prescribed"}));
+                    } else {
+                        calls.push(serde_json::json!({"api":api,"input":spatial,"converged":true,"expectedDisplacements":expected}));
+                    }
+                }
+            }
         }
         calls
     }
@@ -3077,12 +3200,54 @@ mod r6 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r6_rotated_pure_axial_settlement_does_not_invent_bending() {
         for case in axial_calls() {
-            let result: serde_json::Value = serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
+            if case["error"].is_string() {
+                assert!(super::r2::call(&case).unwrap_err().to_lowercase().contains("prescribed"));
+                continue;
+            }
+            let result: serde_json::Value =
+                serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
             assert_eq!(result["converged"], true);
-            check_zero_bending(&result);
+            if case["zeroBending"] == true {
+                check_zero_bending(&result);
+                let solver: SolverInput = serde_json::from_value(case["input"].clone()).unwrap();
+                let mut initial = solver.clone();
+                initial.supports.get_mut("2").unwrap().dx = None;
+                initial.supports.get_mut("2").unwrap().dz = None;
+                let displacements = vec![
+                    Displacement {
+                        node_id: 1,
+                        ux: 0.0,
+                        uz: 0.0,
+                        ry: 0.0,
+                    },
+                    Displacement {
+                        node_id: 2,
+                        ux: 0.0,
+                        uz: 0.0,
+                        ry: 0.0,
+                    },
+                ];
+                let start = corotational::CorotationalStart2D {
+                    input: &initial,
+                    displacements: &displacements,
+                };
+                for modified in [false, true] {
+                    let continued = corotational::solve_corotational_2d_from(
+                        &solver,
+                        Some(&start),
+                        60,
+                        1e-10,
+                        1,
+                        modified,
+                    )
+                    .unwrap();
+                    assert!(continued.converged);
+                    check_zero_bending(&serde_json::to_value(continued).unwrap());
+                }
+            }
+            check_expected_displacements(&result, &case);
         }
     }
 }

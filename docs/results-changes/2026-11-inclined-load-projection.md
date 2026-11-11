@@ -20,15 +20,15 @@ free-force difference beside a large normal force.
 
 A spatial support-only control additionally exposed cancellation in the
 corotational natural rotations once its small projected load was retained.
-When every nodal rotation and normalized chord increment is at most machine
-epsilon, the shared natural-rotation function evaluates the infinitesimal
-limit directly from displacement increments. Terms omitted from that limit are
-second order in machine epsilon. It retains nonzero rotations and axial
-extension instead of subtracting nearly equal absolute frames. Assembly,
-member-force recovery and deformation diagnostics use that same function.
-Finite rotations continue through the existing rotation-matrix calculation.
-This numerical switch neither changes a convergence tolerance nor adds a
-force-based acceptance allowance.
+The shared natural-rotation function carries each finite rotation as its
+matrix delta from identity. It composes those deltas and computes the chord
+direction change from relative displacement increments and rationalized axial
+stretch. The mean end rotation and chord alignment are compared through their
+deltas before recovering the natural rotation vectors. This retains increments
+below the precision of an absolute frame without switching formulas at machine
+epsilon. Assembly, member-force recovery and deformation diagnostics use the
+same calculation for small and finite rotations. No convergence tolerance or
+force-based acceptance allowance changes.
 
 Native regressions cover all four nonlinear solvers in both dimensions, linear
 and prepared static paths, and all three spatial planes. The independent axial

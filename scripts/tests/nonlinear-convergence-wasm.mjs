@@ -86,15 +86,51 @@ function settlementOnlyCase(test, factor) {
   }
   return baseline;
 }
+function settlementOnlyResult(fixture, result) {
+  const factor = result.finalLoadFactor ?? 1;
+  if (fixture.settlementDisplacement) {
+    const solver = fixture.input.solver;
+    const support = solver.supports['1'];
+    const { x: dx, z: dz } = solver.nodes['2'];
+    const angle = factor * support.dry;
+    const cosm1 = -2 * Math.sin(angle / 2) ** 2;
+    return { converged: true, results: { displacements: [{ nodeId: 2,
+      ux: factor * support.dx + cosm1 * dx - Math.sin(angle) * dz,
+      uz: factor * support.dz + Math.sin(angle) * dx + cosm1 * dz, ry: angle }] } };
+  }
+  return JSON.parse(invokeCase(settlementOnlyCase(fixture, factor)));
+}
 function checkSettlementResponse(result, baseline, fixture) {
   const tip = result.results.displacements.find(d => d.nodeId === 2);
   assert.ok(Math.hypot(tip.ux, tip.uy ?? 0, tip.uz) > 0);
+  if (fixture.settlementControl || fixture.settlementDisplacement) {
+    const factor = result.finalLoadFactor;
+    assert.ok(Number.isFinite(factor) && factor > 0);
+    const baseTip = baseline.results.displacements.find(d => d.nodeId === 2);
+    const expectedValues = fixture.settlementControl ?? fixture.settlementDisplacement;
+    const scale = Math.max(...Object.values(expectedValues).map(Math.abs)) * factor;
+    for (const [key, value] of Object.entries(expectedValues)) {
+      const actual = tip[key] - (fixture.settlementDisplacement ? baseTip[key] : 0);
+      const expected = factor * value;
+      assert.ok(Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-10 * (expected === 0 ? scale : Math.abs(expected)), `signed settlement load response ${key}`);
+    }
+    return;
+  }
+  const reaction = (r, key) => r.results.reactions.filter(r => r.nodeId === 2).reduce((sum, r) => sum + r[key], 0);
+  const factor = result.finalLoadFactor ?? 1;
+  assert.ok(Number.isFinite(factor) && factor > 0);
+  const scale = Math.max(...Object.values(fixture.settlementReaction).map(Math.abs)) * factor;
+  for (const [key, value] of Object.entries(fixture.settlementReaction)) {
+    const expected = value * factor;
+    const actual = reaction(result, key) - reaction(baseline, key);
+    assert.ok(Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-10 * (expected === 0 ? scale : Math.abs(expected)), `signed settlement load response ${key}`);
+  }
 }
-for (const fixture of cases.filter(c => c.settlementResponse)) {
-  test(`settlement response rejects dropping fz: ${fixture.api} ${JSON.stringify(fixture.settlementReaction)}`, { skip: !process.env.RUN_KNOWN_WRONG_761 && 'known wrong result: #761' }, () => {
+for (const fixture of cases.filter(c => c.settlementResponse && !c.settlementControl)) {
+  test(`settlement response rejects dropping fz: ${fixture.api} ${JSON.stringify(fixture.settlementReaction)}`, () => {
     const loaded = JSON.parse(invokeCase(fixture));
     const factor = loaded.finalLoadFactor ?? 1;
-    const baseline = JSON.parse(invokeCase(settlementOnlyCase(fixture, factor)));
+    const baseline = settlementOnlyResult(fixture, loaded);
     assert.equal(baseline.converged, true);
     checkSettlementResponse(loaded, baseline, fixture);
     const dropped = { ...baseline, finalLoadFactor: factor };
@@ -129,11 +165,11 @@ for (const test of cases) {
     }
     if (test.zeroBending) {
       for (const force of result.results.elementForces) {
-        for (const key of ['vStart', 'vEnd', 'mStart', 'mEnd']) assert.equal(force[key], 0, key);
+        for (const key of ['vStart', 'vEnd', 'mStart', 'mEnd']) assert.ok(force[key] === 0, key);
       }
     }
     if (test.settlementResponse) {
-      const baseline = JSON.parse(invokeCase(settlementOnlyCase(test, result.finalLoadFactor ?? 1)));
+      const baseline = settlementOnlyResult(test, result);
       assert.equal(baseline.converged, true);
       checkSettlementResponse(result, baseline, test);
     }
