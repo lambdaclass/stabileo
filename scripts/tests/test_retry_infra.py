@@ -276,7 +276,6 @@ class BrowserDepsOutage(unittest.TestCase):
         spec.loader.exec_module(module)
         return module
 
-    @unittest.skip("known wrong result: #1945")
     def test_package_plan_can_use_a_standalone_playwright_install(self):
         from unittest.mock import patch
         module = self.module()
@@ -304,8 +303,8 @@ class BrowserDepsOutage(unittest.TestCase):
     def test_action_uses_the_package_plan_for_cache_keys_and_installation(self):
         text = (ROOT / '.github/actions/browser-deps/action.yml').read_text()
         self.assertNotIn('package-lock.json', text)
-        self.assertIn('browser-deps.py key', text)
-        self.assertIn('.github/scripts/retry-infra.sh nix develop --command python3 .github/scripts/browser-deps.py install', text)
+        self.assertIn('key $BROWSERS', text)
+        self.assertIn('.github/scripts/retry-infra.sh "${helper[@]}" .github/scripts/browser-deps.py', text)
 
     def test_package_plan_is_normalized_and_unrecognized_output_is_refused(self):
         module = self.module()
@@ -314,19 +313,46 @@ class BrowserDepsOutage(unittest.TestCase):
             with self.subTest(plan=plan), self.assertRaises(ValueError):
                 module.packages(plan)
 
-    def test_package_plan_captures_requested_packages_without_running_apt(self):
+    def test_package_plan_captures_the_pinned_playwright_simulation(self):
+        import json
+        import sys
+        from unittest.mock import patch
         module = self.module()
+        fixture_path = ROOT / 'scripts/tests/fixtures/playwright-deps-dry-run.json'
+        fixture = json.loads(fixture_path.read_text())
+        pin = json.loads((ROOT / 'web/package-lock.json').read_text())['packages']['node_modules/playwright-core']
+        self.assertEqual((fixture['version'], fixture['integrity']), (pin['version'], pin['integrity']))
         with tempfile.TemporaryDirectory() as directory:
             npx = Path(directory) / 'npx'
-            npx.write_text('#!/bin/sh\napt-get install -s --no-install-recommends libb liba libb\n')
+            npx.write_text(f'#!{sys.executable}\nimport json,subprocess,sys\nfrom pathlib import Path\n'
+                           f'fixture=json.loads(Path({str(fixture_path)!r}).read_text())\n'
+                           'assert sys.argv[1:] == ["--no-install", "playwright", "install-deps", "--dry-run", *fixture["browsers"]]\n'
+                           'subprocess.run(["apt-get", *fixture["apt_argv"]], check=True)\n'
+                           'sys.stdout.write(fixture["stdout"])\nsys.stderr.write(fixture["stderr"])\nsys.exit(fixture["returncode"])\n')
             npx.chmod(0o755)
-            from unittest.mock import patch
             with patch.dict(os.environ, {'PATH': directory + os.pathsep + os.environ['PATH']}):
-                self.assertEqual(module.package_plan(['chromium']), ['liba', 'libb'])
-            npx.write_text('#!/bin/sh\napt-get update\n')
-            with patch.dict(os.environ, {'PATH': directory + os.pathsep + os.environ['PATH']}):
-                with self.assertRaises(subprocess.CalledProcessError):
-                    module.package_plan(['chromium'])
+                self.assertEqual(module.package_plan(fixture['browsers']), sorted(set(fixture['apt_argv'][3:])))
+            for body, error in (('apt-get update', subprocess.CalledProcessError),
+                                ('printf "All system dependencies are installed.\\n"', ValueError)):
+                with self.subTest(body=body):
+                    npx.write_text('#!/bin/sh\n' + body + '\n')
+                    with patch.dict(os.environ, {'PATH': directory + os.pathsep + os.environ['PATH']}):
+                        with self.assertRaises(error):
+                            module.package_plan(['chromium'])
+
+    def test_both_modes_use_the_selected_playwright_directory(self):
+        from unittest.mock import patch
+        module = self.module()
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'output'
+            for mode in ('key', 'install'):
+                with self.subTest(mode=mode), patch.object(module, 'package_plan', return_value=['liba']) as plan, patch.object(module, 'install') as install, patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'amd64\n')), patch.dict(os.environ, {'GITHUB_OUTPUT': str(output)}), patch('sys.argv', ['browser-deps.py', '--playwright-directory', '/runner/pw', mode, 'chromium']):
+                    module.main()
+                    plan.assert_called_once_with(['chromium'], '/runner/pw')
+                    if mode == 'install':
+                        install.assert_called_once_with(['liba'], Path.home() / '.cache/browser-debs')
+                    else:
+                        install.assert_not_called()
 
     def test_keys_follow_packages_for_every_browser_combination(self):
         from itertools import combinations
@@ -337,8 +363,9 @@ class BrowserDepsOutage(unittest.TestCase):
             output = Path(directory) / 'output'
             for count in (1, 2, 3):
                 for browsers in combinations(('chromium', 'firefox', 'webkit'), count):
-                    def plan(requested):
+                    def plan(requested, playwright_directory):
                         self.assertEqual(requested, list(browsers))
+                        self.assertEqual(playwright_directory, 'web')
                         return ['liba', 'libb']
                     with patch.object(module, 'package_plan', side_effect=plan), patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'amd64\n')), patch.dict(os.environ, {'GITHUB_OUTPUT': str(output), 'ImageOS': 'ubuntu24', 'ImageVersion': 'fixture'}), patch('sys.argv', ['browser-deps.py', 'key', *browsers]):
                         module.main()
@@ -425,7 +452,6 @@ class BrowserDepsOutage(unittest.TestCase):
 
 
 class BrowserDeps(unittest.TestCase):
-    @unittest.skip("known wrong result: #1945")
     def test_all_workflows_share_browser_system_dependency_installation(self):
         for workflow in sorted((ROOT / '.github/workflows').glob('*.yml')):
             with self.subTest(workflow=workflow.name):
@@ -434,6 +460,13 @@ class BrowserDeps(unittest.TestCase):
                 self.assertNotIn('--with-deps', text)
         deploy = (ROOT / '.github/workflows/deploy.yml').read_text()
         self.assertRegex(deploy, r'uses: \./\.github/actions/browser-deps\n\s+with:\n\s+browsers: chromium\n')
+        for workflow in ('performance', 'production-health'):
+            with self.subTest(workflow=workflow):
+                text = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+                self.assertRegex(text, r'uses: \./\.github/actions/browser-deps\n\s+with:\n\s+browsers: chromium\n\s+playwright-directory: \$\{\{ runner.temp \}\}/pw\n\s+use-nix: "false"')
+                for path in ('.github/actions/browser-deps', '.github/scripts/browser-deps.py', '.github/scripts/retry-infra.sh'):
+                    self.assertIn('            ' + path + '\n', text)
+                self.assertLess(text.index('npm install --prefix'), text.index('uses: ./.github/actions/browser-deps'))
         ci = (ROOT / '.github/workflows/ci.yml').read_text()
         for job, browsers in (('determinism', 'chromium firefox webkit'), ('e2e', 'chromium')):
             with self.subTest(job=job):
@@ -457,13 +490,15 @@ class BrowserDeps(unittest.TestCase):
         keys = [re.search(r'key: (.+)', steps[name]).group(1) for name in ('Restore downloaded packages', 'Save downloaded packages')]
         self.assertEqual(keys[0], keys[1])
         self.assertIn("if: steps.restore.outputs.cache-hit != 'true'", steps['Save downloaded packages'])
-        install = re.search(r'run: (.+)', steps['Install browser system dependencies']).group(1)
-        install = install.replace('$BROWSERS', 'chromium firefox webkit')
-        self.assertTrue(install.startswith('.github/scripts/retry-infra.sh '))
+        install = steps['Install browser system dependencies'].split('run: |\n', 1)[1]
+        lines = [line.strip() for line in install.splitlines() if line.strip()]
+        self.assertTrue(lines[-1].startswith('.github/scripts/retry-infra.sh '))
         spec = importlib.util.spec_from_file_location('infra_retry', ROOT / '.github/scripts/infra-retry.py')
         infra = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(infra)
-        self.assertTrue(infra.acquisition({'title': install, 'script': [install]}))
+        self.assertTrue(infra.acquisition({'title': 'Install browser system dependencies', 'script': lines}))
+        self.assertFalse(infra.acquisition({'title': 'Install browser system dependencies', 'script': [*lines, 'make test.web.determinism']}))
+
 
 
 if __name__ == '__main__':

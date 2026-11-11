@@ -5,6 +5,12 @@ inputs:
   browsers:
     description: "Space-separated Playwright browsers"
     required: true
+  playwright-directory:
+    description: "Directory containing the pinned Playwright installation"
+    default: web
+  use-nix:
+    description: "Run the helper in the repository Nix shell"
+    default: "true"
 
 runs:
   using: "composite"
@@ -14,8 +20,12 @@ runs:
       shell: bash
       env:
         BROWSERS: ${{ inputs.browsers }}
+        PLAYWRIGHT_DIRECTORY: ${{ inputs.playwright-directory }}
+        USE_NIX: ${{ inputs.use-nix }}
       run: |
-        nix develop --command python3 .github/scripts/browser-deps.py key $BROWSERS
+        helper=(python3)
+        if [[ "$USE_NIX" == true ]]; then helper=(nix develop --command python3); fi
+        "${helper[@]}" .github/scripts/browser-deps.py --playwright-directory "$PLAYWRIGHT_DIRECTORY" key $BROWSERS
     - name: Restore downloaded packages
       id: restore
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -26,7 +36,12 @@ runs:
       shell: bash
       env:
         BROWSERS: ${{ inputs.browsers }}
-      run: .github/scripts/retry-infra.sh nix develop --command python3 .github/scripts/browser-deps.py install $BROWSERS
+        PLAYWRIGHT_DIRECTORY: ${{ inputs.playwright-directory }}
+        USE_NIX: ${{ inputs.use-nix }}
+      run: |
+        helper=(python3)
+        if [[ "$USE_NIX" == true ]]; then helper=(nix develop --command python3); fi
+        .github/scripts/retry-infra.sh "${helper[@]}" .github/scripts/browser-deps.py --playwright-directory "$PLAYWRIGHT_DIRECTORY" install $BROWSERS
     - name: Prepare downloaded packages for the cache
       if: steps.restore.outputs.cache-hit != 'true'
       shell: bash

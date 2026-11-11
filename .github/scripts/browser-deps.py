@@ -20,7 +20,7 @@ def packages(names):
     return sorted(set(names))
 
 
-def package_plan(browsers):
+def package_plan(browsers, playwright_directory="web"):
     with tempfile.TemporaryDirectory(prefix='browser-plan-') as directory:
         shim = Path(directory) / 'apt-get'
         captured = Path(directory) / 'packages.json'
@@ -29,7 +29,7 @@ def package_plan(browsers):
                         f'Path({str(captured)!r}).write_text(json.dumps(sys.argv[4:]))\n')
         shim.chmod(0o755)
         subprocess.run(['npx', '--no-install', 'playwright', 'install-deps', '--dry-run', *browsers],
-                              cwd='web', check=True, capture_output=True, text=True,
+                              cwd=playwright_directory, check=True, capture_output=True, text=True,
                               env={**os.environ, 'PATH': directory + os.pathsep + os.environ['PATH']})
         if not captured.exists():
             raise ValueError('Playwright did not invoke the expected apt simulation')
@@ -87,9 +87,10 @@ def install(names, debs, apt_root=Path('/etc/apt')):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('mode', choices=('key', 'install'))
+    parser.add_argument('--playwright-directory', default='web')
     parser.add_argument('browsers', nargs='+', choices=('chromium', 'firefox', 'webkit'))
     args = parser.parse_args()
-    names = package_plan(args.browsers)
+    names = package_plan(args.browsers, args.playwright_directory)
     debs = Path.home() / '.cache/browser-debs'
     if args.mode == 'key':
         digest = hashlib.sha256('\n'.join(names).encode()).hexdigest()
