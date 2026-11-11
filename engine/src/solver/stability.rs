@@ -629,7 +629,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
             for c in 0..size {
                 let mut v = vec![0.0; b];
                 for (r, &i) in component.iter().enumerate() { v[i] = vecs[r * size + c]; }
-                if top <= 0.0 || mu[c] <= LOCAL_FREE * top {
+                if (top <= 0.0 || mu[c] <= LOCAL_FREE * top) && !(*kind == DofKind::Translation && mu[c] > 0.0) {
                     if *kind != DofKind::Translation && !releases.permits(*node, dofs, &v) {
                         let canonical = (mu.iter().filter(|&&x| x <= LOCAL_FREE * top).count() == 1).then(|| {
                             releases.directions.iter().filter(|(n, _)| n == node).find_map(|(_, direction)| {
@@ -662,7 +662,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
                     columns.push(Column { group: g, w: v.iter().map(|x| x / scale).collect() });
                 }
             }
-            if let Some(&lowest) = mu.iter().find(|&&x| x > LOCAL_FREE * top) {
+            if let Some(&lowest) = mu.iter().find(|&&x| x > 0.0 && (*kind == DofKind::Translation || x > LOCAL_FREE * top)) {
                 anisotropy = anisotropy.max(top / lowest);
             }
         }
@@ -833,7 +833,7 @@ fn swinging(free: &mut [FreeDirection], moves_translation: &[Vec<(usize, f64)>])
         by_group.entry((f.node, f.kind)).or_default().push(i);
     }
     for ((node, _), dirs) in by_group {
-        let dofs = &free[dirs[0]].dofs;
+        let dofs = free[dirs[0]].dofs.clone();
         let arm = dofs.iter().flat_map(|&d| moves_translation[d].iter()).fold(0.0f64, |m, &(_, x)| m.max(x.abs()));
         if arm == 0.0 { continue; }
         if !arm.is_finite() {
@@ -847,28 +847,48 @@ fn swinging(free: &mut [FreeDirection], moves_translation: &[Vec<(usize, f64)>])
                 for &(r, x) in &moves_translation[d] { rows.entry(r).or_insert_with(|| vec![0.0; dirs.len()])[c] += (x / arm) * v; }
             }
         }
-        let motion = top_singular((0..dirs.len()).map(|c| rows.values().map(|m| m[c]).collect()).collect());
-        if motion == 0.0 { continue; }
-        if motion > ROUNDING * dofs.len() as f64 * f64::EPSILON {
-            moving.push(node);
-            for (c, &i) in dirs.iter().enumerate() {
-                free[i].moves_translation = rows.values().any(|m| m[c] != 0.0);
+        let tolerance = ROUNDING * dofs.len() as f64 * f64::EPSILON;
+        let mut basis: Vec<Vec<f64>> = Vec::new();
+        let mut remaining: Vec<Vec<f64>> = rows.into_values().collect();
+        loop {
+            for row in &mut remaining {
+                for _ in 0..2 {
+                    for direction in &basis {
+                        let projection = dot(row, direction);
+                        for (x, v) in row.iter_mut().zip(direction) { *x -= projection * v; }
+                    }
+                }
             }
-        } else { undecided.push(node); }
+            let Some((pivot, length)) = remaining.iter().enumerate().map(|(i, row)| (i, norm(row))).max_by(|a, b| a.1.total_cmp(&b.1)) else { break; };
+            if length <= tolerance { break; }
+            let row = remaining.swap_remove(pivot);
+            basis.push(row.into_iter().map(|v| v / length).collect());
+        }
+        if basis.is_empty() {
+            if remaining.iter().flatten().any(|&v| v != 0.0) { undecided.push(node); }
+            continue;
+        }
+        moving.push(node);
+        let moving_count = basis.len();
+        for axis in 0..dirs.len() {
+            let mut candidate = vec![0.0; dirs.len()];
+            candidate[axis] = 1.0;
+            for _ in 0..2 {
+                for direction in &basis {
+                    let projection = dot(&candidate, direction);
+                    for (x, v) in candidate.iter_mut().zip(direction) { *x -= projection * v; }
+                }
+            }
+            let length = norm(&candidate);
+            if length > tolerance { basis.push(candidate.into_iter().map(|v| v / length).collect()); }
+        }
+        let original: Vec<_> = dirs.iter().map(|&i| free[i].clone()).collect();
+        for (c, &i) in dirs.iter().enumerate() {
+            free[i].direction = (0..dofs.len()).map(|r| original.iter().zip(&basis[c]).map(|(f,w)| f.direction[r] * w).sum()).collect();
+            free[i].moves_translation = c < moving_count;
+        }
     }
     (moving, undecided)
-}
-
-fn top_singular(columns: Vec<Vec<f64>>) -> f64 {
-    let scale = columns.iter().flatten().fold(0.0f64, |m, x| m.max(x.abs()));
-    if scale == 0.0 { return 0.0; }
-    let n = columns.len();
-    let mut gram = vec![0.0; n * n];
-    for a in 0..n {
-        for b in 0..n { gram[a * n + b] = columns[a].iter().zip(&columns[b]).map(|(x, y)| (x / scale) * (y / scale)).sum(); }
-    }
-    let (mu, _) = sym_eigen_small(&gram, n);
-    mu.last().copied().unwrap_or(0.0).max(0.0).sqrt() * scale
 }
 
 fn scaled(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> CscMatrix {
@@ -1509,7 +1529,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1846"]
     fn staged_round5_rotation_subspace_and_rounding_boundary() {
         for angle in [0.0_f64, 0.3, 1.2] {
             let (s, c) = angle.sin_cos();

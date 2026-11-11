@@ -293,7 +293,14 @@ for (const dimension of [2, 3]) {
         loaded.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 1e-7, fz: 0, my: 0 } }];
         if (dimension === 3) Object.assign(loaded.loads[0].data, { fy: 0, mx: 0, mz: 0 });
         assert.throws(() => (dimension === 2 ? solve_pdelta_2d : solve_pdelta_3d)(JSON.stringify(loaded), 10, 1e-12), /conditioning limit/);
-        assert.throws(() => (dimension === 2 ? solve_corotational_2d : solve_corotational_3d)(JSON.stringify(loaded), 10, 1e-12, 1), /conditioning limit/);
+        const corot = JSON.parse((dimension === 2 ? solve_corotational_2d : solve_corotational_3d)(JSON.stringify(loaded), 10, 1e-12, 1));
+        if (corot.converged) {
+          assert.equal(corot.loadFactor, 1);
+          const d = corot.results.displacements.find(d => d.nodeId === 2);
+          const delta = 1e-7 / spring;
+          assert.ok(Math.abs(d.ux / scale - delta) <= 1e-12);
+          assert.ok(Math.abs(d.uz / scale - Math.sqrt(2 - (1 + delta) ** 2) + 1) <= 1e-12);
+        } else assert.ok(corot.loadFactor < 1);
       }
       else assert.throws(() => linear(input));
       const result = JSON.parse((dimension === 2 ? analyze_kinematics_2d : analyze_kinematics_3d)(JSON.stringify(input)));

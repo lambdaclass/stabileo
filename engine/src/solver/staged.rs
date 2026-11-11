@@ -237,12 +237,20 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         } else {
             CscMatrix::from_dense_symmetric_exact(&k_ff_dense.unwrap(), nf)
         };
-        let applied = asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f[..nf], |t| &t.f[..nf]);
+        let cumulative_solver_input = SolverInput {
+            solver_options: None, masses: Default::default(),
+            loads: cumulative_loads.clone(),
+            ..stage_solver_input.clone()
+        };
+        let cumulative_stage_loads = stage_loads_2d(&cumulative_solver_input, stage);
+        let applied = super::assembly::assemble_load_vector_2d(
+            &cumulative_solver_input, &cumulative_stage_loads, &dof_num, &[],
+        );
         let mut conditioning = None;
         let u_s_inc = solve_stage_free(
             &k_physical, &dof_num, cs.as_ref(), true, &connected_nodes_2d(&stage_solver_input),
             &super::stability::coupling_2d(&stage_solver_input, &dof_num),
-            &super::stability::ReleasedRotations::default(), &f_f, applied, use_sparse,
+            &super::stability::ReleasedRotations::default(), &f_f, &applied[..nf], use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
         )?;
 
@@ -261,13 +269,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             cumulative_u[nf + i] = u_r[i]; // prescribed displacements override
         }
         prev_u_r = u_r.clone();
-
-        // Build cumulative input for correct FEF subtraction in internal force recovery.
-        let cumulative_solver_input = SolverInput {
-            solver_options: None, masses: Default::default(),
-            loads: cumulative_loads.clone(),
-            ..stage_solver_input.clone()
-        };
 
         // Reassemble with cumulative loads for correct reaction F_r.
         // Sparse path: K is load-independent, so the stage's full-K CSC is
@@ -378,15 +379,15 @@ fn solve_stage_free(
     coupling: &[(usize, usize)],
     releases: &super::stability::ReleasedRotations,
     f: &[f64],
-    applied: &[f64],
+    cumulative_applied: &[f64],
     sparse: bool,
     cache: &mut Option<SparseSymbolicCache>,
     conditioning: &mut Option<StructuredDiagnostic>,
 ) -> Result<Vec<f64>, String> {
     let f = constraints.map_or_else(|| f.to_vec(), |c| c.reduce_vector(f));
-    let applied = constraints.map_or_else(|| applied.to_vec(), |c| c.reduce_vector(applied));
+    let cumulative_applied = constraints.map_or_else(|| cumulative_applied.to_vec(), |c| c.reduce_vector(cumulative_applied));
     let reduced = constraints.map_or_else(|| k.clone(), |c| c.reduce_matrix_sparse(k));
-    let inactive = inactive_dofs(&reduced, dof, two_d, constraints, connected, &f, &applied);
+    let inactive = inactive_dofs(&reduced, dof, two_d, constraints, connected, &f, &cumulative_applied);
     let (reduced, stability) = super::stability::analyze_free_stiffness_excluding(k, dof, two_d, constraints, coupling, releases, &inactive);
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     let pinned = stability.pin_sparse(&reduced);
@@ -395,7 +396,7 @@ fn solve_stage_free(
     let inactive_scale = if active_scale > 0.0 { active_scale } else { 1.0 };
     for &d in &inactive { rows.push(d); cols.push(d); vals.push(inactive_scale); }
     let pinned = CscMatrix::from_triplets(pinned.n, &rows, &cols, &vals);
-    if let Some(node) = stability.load_on_free_rotation(&applied) {
+    if let Some(node) = stability.load_on_free_rotation(&cumulative_applied) {
         return Err(format!("Nodal moment at node {node} is not supported: a free rotation would carry load"));
     }
     let u = if sparse {
@@ -820,12 +821,15 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         } else {
             CscMatrix::from_dense_symmetric_exact(&k_ff_dense.unwrap(), nf)
         };
-        let applied = asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f[..nf], |t| &t.f[..nf]);
+        let cum_input = SolverInput3D { loads: cumulative_loads.clone(), ..stage_input.clone() };
+        let applied = super::sparse_assembly::assemble_load_vector_sparse_3d(
+            &cum_input, &cum_input.loads, &dof_num, &[],
+        );
         let mut conditioning = None;
         let u_s_inc = solve_stage_free(
             &k_physical, &dof_num, cs.as_ref(), false, &connected_nodes_3d(&stage_input),
             &super::stability::coupling_3d(&stage_input, &dof_num),
-            &super::stability::released_rotations_3d(&stage_input, &dof_num), &f_f, applied, use_sparse,
+            &super::stability::released_rotations_3d(&stage_input, &dof_num), &f_f, &applied[..nf], use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
         )?;
 
@@ -846,7 +850,6 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         prev_u_r = u_r.clone();
 
         // Reactions (K·u − F_cumulative)_r with this stage's stiffness.
-        let cum_input = SolverInput3D { loads: cumulative_loads.clone(), ..stage_input.clone() };
         let reactions_vec = if let Some(ref t) = asm_trips {
             let k_full = CscMatrix::from_triplets(n, &t.rows, &t.cols, &t.vals);
             let f_cum = super::sparse_assembly::assemble_load_vector_sparse_3d(&cum_input, &cum_input.loads, &dof_num, &[]);

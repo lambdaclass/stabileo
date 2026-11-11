@@ -162,6 +162,8 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         };
     }
 
+    let rank_input = rank_springs_2d(input);
+    let input = rank_input.as_ref().unwrap_or(input);
     let dof_num = DofNumbering::build_2d(input);
     let nf = dof_num.n_free;
 
@@ -213,11 +215,11 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         },
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-    let (k_s, physical_stability) = super::stability::analyze_free_stiffness(
+    let (k_s, rank_stability) = super::stability::analyze_free_stiffness(
         &crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf),
         &dof_num, true, cs.as_ref(), &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default(),
     );
-    let k_s = physical_stability.pin_sparse(&k_s).to_dense_symmetric();
+    let k_s = rank_stability.pin_sparse(&k_s).to_dense_symmetric();
 
     // LU rank analysis (on reduced system if constraints present)
     // Rank of the Jacobi-scaled matrix D^{-1/2}·K·D^{-1/2}: pivots are then
@@ -225,7 +227,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     // metres and millimetres. Against the largest raw diagonal (with an
     // absolute floor) a model's mechanism count changed with its units.
     let k_s = jacobi_scaled(k_s, ns);
-    let zero_pivot_dofs_reduced = mechanism_pivots(&k_s, ns, &physical_stability);
+    let zero_pivot_dofs_reduced = mechanism_pivots(&k_s, ns, &rank_stability);
 
     // Map zero-pivot DOFs back to physical free DOFs
     let zero_pivot_dofs = if let Some(ref cs) = cs {
@@ -261,7 +263,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0 && physical_stability.verdict != super::stability::Verdict::Mechanism;
+    let is_solvable = mechanism_modes == 0 && rank_stability.verdict != super::stability::Verdict::Mechanism;
     let classification = if degree > 0 && is_solvable {
         "hyperstatic"
     } else if degree == 0 && is_solvable {
@@ -287,6 +289,38 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
 /// Above this many free DOFs the 2D kinematic analysis tries the sparse proof
 /// of solvability before the dense one.
 const KINEMATIC_SPARSE_THRESHOLD: usize = 64;
+
+fn normalize_springs<'a>(springs: impl Iterator<Item = &'a mut Option<f64>>, scale: f64) {
+    for spring in springs {
+        if spring.is_some_and(|k| k > 0.0) { *spring = Some(scale); }
+    }
+}
+
+fn rank_springs_2d(input: &SolverInput) -> Option<SolverInput> {
+    if !input.supports.values().any(|s| [s.kx,s.ky,s.kz].into_iter().any(|k| k.is_some_and(|v| v > 0.0))) { return None; }
+    let dof = DofNumbering::build_2d(input);
+    let mut rank = input.clone();
+    normalize_springs(rank.supports.values_mut().flat_map(|s| [&mut s.kx, &mut s.ky, &mut s.kz]), 0.0);
+    let asm = super::assembly::without_artificial_stiffness(|| assemble_sparse_2d(&rank, &dof));
+    let scale = asm.k_ff.diagonal().into_iter().fold(0.0_f64, f64::max);
+    let scale = if scale > 0.0 { scale } else { 1.0 };
+    rank.supports = input.supports.clone();
+    normalize_springs(rank.supports.values_mut().flat_map(|s| [&mut s.kx, &mut s.ky, &mut s.kz]), scale);
+    Some(rank)
+}
+
+fn rank_springs_3d(input: &SolverInput3D) -> Option<SolverInput3D> {
+    if !input.supports.values().any(|s| [s.kx,s.ky,s.kz,s.krx,s.kry,s.krz,s.kw].into_iter().any(|k| k.is_some_and(|v| v > 0.0))) { return None; }
+    let dof = DofNumbering::build_3d(input);
+    let mut rank = input.clone();
+    normalize_springs(rank.supports.values_mut().flat_map(|s| [&mut s.kx, &mut s.ky, &mut s.kz, &mut s.krx, &mut s.kry, &mut s.krz, &mut s.kw]), 0.0);
+    let asm = super::assembly::without_artificial_stiffness(|| assemble_sparse_3d(&rank, &dof, false));
+    let scale = asm.k_ff.diagonal().into_iter().fold(0.0_f64, f64::max);
+    let scale = if scale > 0.0 { scale } else { 1.0 };
+    rank.supports = input.supports.clone();
+    normalize_springs(rank.supports.values_mut().flat_map(|s| [&mut s.kx, &mut s.ky, &mut s.kz, &mut s.krx, &mut s.kry, &mut s.krz, &mut s.kw]), scale);
+    Some(rank)
+}
 
 fn mechanism_pivots(k: &[f64], n: usize, stability: &super::stability::Stability) -> Vec<usize> {
     let (_, mut pivots) = lu_rank(k, n, 1e-10);
@@ -459,6 +493,8 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         };
     }
 
+    let rank_input = rank_springs_3d(input);
+    let input = rank_input.as_ref().unwrap_or(input);
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
 
@@ -496,18 +532,18 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         },
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-    let (k_s, physical_stability) = super::stability::analyze_free_stiffness(
+    let (k_s, rank_stability) = super::stability::analyze_free_stiffness(
         &crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf),
         &dof_num, false, cs.as_ref(), &super::stability::coupling_3d(input, &dof_num), &super::stability::released_rotations_3d(input, &dof_num),
     );
-    let k_s = physical_stability.pin_sparse(&k_s).to_dense_symmetric();
+    let k_s = rank_stability.pin_sparse(&k_s).to_dense_symmetric();
 
     // Rank of the Jacobi-scaled matrix D^{-1/2}·K·D^{-1/2}: pivots are then
     // dimensionless (≤ 1), so the 1e-10 rank tolerance means the same thing in
     // metres and millimetres. Against the largest raw diagonal (with an
     // absolute floor) a model's mechanism count changed with its units.
     let k_s = jacobi_scaled(k_s, ns);
-    let zero_pivot_dofs_reduced = mechanism_pivots(&k_s, ns, &physical_stability);
+    let zero_pivot_dofs_reduced = mechanism_pivots(&k_s, ns, &rank_stability);
 
     // Map zero-pivot DOFs back to physical free DOFs
     let zero_pivot_dofs = if let Some(ref cs) = cs {
@@ -544,7 +580,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0 && physical_stability.verdict != super::stability::Verdict::Mechanism;
+    let is_solvable = mechanism_modes == 0 && rank_stability.verdict != super::stability::Verdict::Mechanism;
     let classification = if degree > 0 && is_solvable {
         "hyperstatic"
     } else if degree == 0 && is_solvable {
