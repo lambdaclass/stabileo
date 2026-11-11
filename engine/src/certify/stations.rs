@@ -420,14 +420,12 @@ pub fn diagram_gaps_3d(ef: &ElementForces3D) -> DiagramGaps3D {
     let (moment_y, shear_z) = plane(&ef.distributed_loads_z, &ef.point_loads_z, "momentY", "shearZ");
     // N: linear between the ends, or N' = −q_x with kinks where the loads start/end.
     let dx = dists_of(&ef.distributed_loads_x);
-    let axial = if dx.is_empty() {
-        0.0
-    } else {
-        gap(
-            &xs(l, &diagram_positions_3d(ef, "axial")),
-            &Shape { events: load_end_kinks(&dx), dists: dx, curvature: Dist::slope, lip: Box::new(|_, _| 0.0) },
-        )
-    };
+    let mut events = load_end_kinks(&dx);
+    events.extend(ef.point_loads_x.iter().map(|p| Event { x: p.a, kink: 0.0, jump: -p.p }));
+    let axial = gap(
+        &xs(l, &diagram_positions_3d(ef, "axial")),
+        &Shape { events, dists: dx, curvature: Dist::slope, lip: Box::new(|_, _| 0.0) },
+    );
     DiagramGaps3D { axial, shear_y, shear_z, torsion: 0.0, moment_y, moment_z }
 }
 

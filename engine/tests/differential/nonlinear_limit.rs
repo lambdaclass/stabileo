@@ -113,6 +113,10 @@ const THETAS: [f64; 4] = [1e-1, 1e-2, 1e-3, 1e-4];
 /// fall as θ². A path that returned the linear solution leaves `θ r₁`, which the
 /// first check keeps above twice the bound at θ = 0.1.
 fn pdelta_converges_to_linear(s: &SolverInput) -> Result<Report, String> {
+    pdelta_converges_to_linear_with(s, &pdelta)
+}
+
+fn pdelta_converges_to_linear_with(s: &SolverInput, solve: &dyn Fn(&SolverInput) -> Result<AnalysisResults, String>) -> Result<Report, String> {
     let lin = linearise(s);
     let r1 = lin.first_order();
     let mut r = Report::new();
@@ -121,7 +125,7 @@ fn pdelta_converges_to_linear(s: &SolverInput) -> Result<Report, String> {
     }
     for theta in THETAS {
         let scale = theta / lin.rho;
-        let rem = remainder(&lin, &pdelta(&scaled(s, scale))?, scale);
+        let rem = remainder(&lin, &solve(&scaled(s, scale))?, scale);
         r.close(&format!("P-delta θ = {theta:.0e}: ‖v − u₀ − θu₁/ρ‖_K/‖u₀‖_K"), Ratio::from_ratio(rem), Ratio::from_ratio(0.0), Ratio::from_ratio(second_order_bound(theta, r1)));
     }
     Ok(r)
@@ -134,13 +138,17 @@ fn pdelta_converges_to_linear(s: &SolverInput) -> Result<Report, String> {
 /// `‖v − u₀‖_K = c θ r₁ ‖u₀‖_K` with `c` within a factor 2 of the theory and steady to
 /// `O(θ)` between θ = 1e-2 and 1e-3; the column test pins `c` to the exact solution.
 fn corotational_departs_at_first_order(s: &SolverInput) -> Result<Report, String> {
+    corotational_departs_at_first_order_with(s, &corotational)
+}
+
+fn corotational_departs_at_first_order_with(s: &SolverInput, solve: &dyn Fn(&SolverInput) -> Result<AnalysisResults, String>) -> Result<Report, String> {
     let lin = linearise(s);
     let r1 = lin.first_order();
     let mut r = Report::new();
     let mut c = Vec::new();
     for theta in [1e-2, 1e-3] {
         let scale = theta / lin.rho;
-        let ratio = lin.deviation(&corotational(&scaled(s, scale))?, scale) / (theta * r1);
+        let ratio = lin.deviation(&solve(&scaled(s, scale))?, scale) / (theta * r1);
         c.push(ratio);
         r.close(&format!("co-rotational θ = {theta:.0e}: ‖v − u₀‖_K/(θ r₁ ‖u₀‖_K)"), Ratio::from_ratio(ratio), Ratio::from_ratio(1.25), Ratio::from_ratio(0.75));
     }
@@ -203,10 +211,14 @@ fn column_coefficient(n: usize, theta: f64, solve: &dyn Fn(&SolverInput) -> Resu
 /// coefficient matches the closed form on any mesh to the series' next term.
 #[test]
 fn pdelta_column_matches_the_exact_amplification() {
+    pdelta_column_matches_the_exact_amplification_check(&pdelta);
+}
+
+fn pdelta_column_matches_the_exact_amplification_check(solve: &dyn Fn(&SolverInput) -> Result<AnalysisResults, String>) {
     let mut r = Report::new();
     for n in [1, 4, 16] {
         for theta in [1e-2, 1e-3] {
-            let (c, exact) = column_coefficient(n, theta, &pdelta).unwrap();
+            let (c, exact) = column_coefficient(n, theta, solve).unwrap();
             r.close(&format!("P-delta column, {n} elements, θ = {theta:.0e}"), Ratio::from_ratio(c), Ratio::from_ratio(exact), Ratio::from_ratio(1e-4));
         }
     }
@@ -219,8 +231,12 @@ fn pdelta_column_matches_the_exact_amplification() {
 /// coefficient is `3ε/(2α²/5) = 7.5 r²/L²`, `r² = I/A`.
 #[test]
 fn corotational_column_converges_on_the_exact_amplification() {
+    corotational_column_converges_on_the_exact_amplification_check(&corotational);
+}
+
+fn corotational_column_converges_on_the_exact_amplification_check(solve: &dyn Fn(&SolverInput) -> Result<AnalysisResults, String>) {
     let theta = 1e-2;
-    let c: Vec<(f64, f64)> = [4, 8, 16, 32].into_iter().map(|n| column_coefficient(n, theta, &corotational).unwrap()).collect();
+    let c: Vec<(f64, f64)> = [4, 8, 16, 32].into_iter().map(|n| column_coefficient(n, theta, solve).unwrap()).collect();
     let exact = c[0].1;
     let mut r = Report::new();
     for w in c.windows(3) {
@@ -273,9 +289,14 @@ fn fiber(s: &SolverInput, n_layers: usize) -> Result<AnalysisResults, String> {
 /// term (the fiber solver is materially, not geometrically, nonlinear). Against the
 /// exact `bh³/12` the bending part differs by the 1/n² layering error.
 pub fn fiber_pair(n_layers: usize) -> Result<Report, String> {
+    fiber_pair_with(n_layers, |_| {})
+}
+
+fn fiber_pair_with(n_layers: usize, perturb: impl FnOnce(&mut AnalysisResults)) -> Result<Report, String> {
     let exact = rect_frame(layered_inertia(n_layers));
     let lin = solve_2d(&exact)?;
-    let fib = fiber(&exact, n_layers)?;
+    let mut fib = fiber(&exact, n_layers)?;
+    perturb(&mut fib);
     let peak_stress_mpa = 1e-3 * lin.element_forces.iter().map(|f| f.m_start.abs().max(f.m_end.abs())).fold(0.0, f64::max) * (RECT_H / 2.0) / layered_inertia(n_layers);
     let mut r = Report::new();
     if peak_stress_mpa > 0.5 * 355.0 {
@@ -304,6 +325,10 @@ fn fiber_elastic_matches_linear_with_layered_section() {
 /// predicted rate, the bending flexibility error being `1/(n² − 1)`.
 #[test]
 fn fiber_layer_refinement_converges_on_the_exact_section() {
+    fiber_refinement_check(|v| v);
+}
+
+fn fiber_refinement_check(perturb: impl Fn(f64) -> f64) {
     let exact = solve_2d(&rect_frame(RECT_B * RECT_H.powi(3) / 12.0)).unwrap();
     let roof = plane_frame(&FrameSpec::two_storey()).roof[0];
     let ux_exact = exact.displacements.iter().find(|d| d.node_id == roof).unwrap().ux;
@@ -311,6 +336,7 @@ fn fiber_layer_refinement_converges_on_the_exact_section() {
     let mut prev = None;
     for n in [4usize, 8, 16, 32] {
         let ux = fiber(&rect_frame(RECT_B * RECT_H.powi(3) / 12.0), n).unwrap().displacements.iter().find(|d| d.node_id == roof).unwrap().ux;
+        let ux = perturb(ux);
         let err = (ux - ux_exact).abs() / ux_exact.abs();
         let predicted = 1.0 / ((n * n) as f64 - 1.0);
         if !(err <= predicted) {
@@ -334,4 +360,38 @@ fn nonlinear_converges_to_linear_on_frame_family() {
         agree(&format!("P-delta, frame {seed} {spec:?}"), pdelta_converges_to_linear(&s));
         agree(&format!("co-rotational, frame {seed} {spec:?}"), corotational_departs_at_first_order(&s));
     }
+}
+
+#[test]
+fn seeded_failure_nonlinear_stiffness_terms() {
+    let s = sway_frame();
+    pdelta_converges_to_linear(&s).unwrap().into_result().unwrap();
+    corotational_departs_at_first_order(&s).unwrap().into_result().unwrap();
+    let p = pdelta_converges_to_linear_with(&s, &solve_2d).unwrap().into_result();
+    let c = corotational_departs_at_first_order_with(&s, &solve_2d).unwrap().into_result();
+    assert!(p.is_err(), "dropping geometric stiffness escaped the P-delta check");
+    assert!(c.is_err(), "dropping geometric stiffness escaped the corotational check");
+}
+
+#[test]
+fn seeded_failure_fiber_unit_factor() {
+    fiber_pair(4).unwrap().into_result().unwrap();
+    for field in 0..3 {
+        let result = fiber_pair_with(4, |r| {
+            for d in &mut r.displacements {
+                match field { 0 => d.ux *= 1000.0, 1 => d.uz *= 1000.0, _ => d.ry *= 1000.0 }
+            }
+        }).unwrap().into_result();
+        assert!(result.is_err(), "fiber field {field} accepted the wrong unit factor");
+    }
+}
+
+#[test]
+fn seeded_failure_column_and_fiber_refinement() {
+    pdelta_column_matches_the_exact_amplification();
+    rejects_seeded(|| pdelta_column_matches_the_exact_amplification_check(&solve_2d));
+    corotational_column_converges_on_the_exact_amplification();
+    rejects_seeded(|| corotational_column_converges_on_the_exact_amplification_check(&solve_2d));
+    fiber_layer_refinement_converges_on_the_exact_section();
+    rejects_seeded(|| fiber_refinement_check(|v| -v));
 }

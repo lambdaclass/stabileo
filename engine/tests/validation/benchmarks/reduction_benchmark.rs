@@ -200,133 +200,140 @@ fn benchmark_guyan_reduction_frequencies() {
 
 #[test]
 fn benchmark_craig_bampton_frequencies() {
-    let n_elements = 20;
-    let length = 10.0;
-    let beam = cantilever_beam(n_elements, length);
-    let n_nodes = n_elements + 1;
+    let errors = [5, 8].map(|n_modes| {
+        let mut worst = 0.0_f64;
+        let n_elements = 20;
+        let length = 10.0;
+        let beam = cantilever_beam(n_elements, length);
+        let n_nodes = n_elements + 1;
 
-    // Full modal analysis
-    let full_modal = modal::solve_modal_2d(&beam, &densities(), 5);
+        // Full modal analysis
+        let full_modal = modal::solve_modal_2d(&beam, &densities(), 5);
 
-    match full_modal {
-        Ok(full_result) => {
-            assert!(
-                full_result.modes.len() >= 3,
-                "Full modal should produce at least 3 modes"
-            );
+        match full_modal {
+            Ok(full_result) => {
+                assert!(
+                    full_result.modes.len() >= 3,
+                    "Full modal should produce at least 3 modes"
+                );
 
-            let full_freqs: Vec<f64> = full_result.modes.iter()
-                .take(3)
-                .map(|m| m.frequency)
-                .collect();
+                let full_freqs: Vec<f64> = full_result.modes.iter()
+                    .take(3)
+                    .map(|m| m.frequency)
+                    .collect();
 
-            // Craig-Bampton: retain tip + midpoint as boundary, keep 5 interior modes
-            let mid_node = n_nodes / 2;
-            let tip_node = n_nodes;
+                // Craig-Bampton: retain tip + midpoint as boundary, keep 5 interior modes
+                let mid_node = n_nodes / 2;
+                let tip_node = n_nodes;
 
-            let cb_input = CraigBamptonInput {
-                solver: beam.clone(),
-                boundary_nodes: vec![mid_node, tip_node],
-                n_modes: 5,
-                densities: densities(),
-            };
+                let cb_input = CraigBamptonInput {
+                    solver: beam.clone(),
+                    boundary_nodes: vec![mid_node, tip_node],
+                    n_modes,
+                    densities: densities(),
+                };
 
-            let cb_result = craig_bampton_2d(&cb_input);
+                let cb_result = craig_bampton_2d(&cb_input);
 
-            match cb_result {
-                Ok(cb) => {
-                    assert!(
-                        cb.n_reduced > 0,
-                        "CB should produce reduced system"
-                    );
-                    assert!(
-                        cb.n_modes_kept > 0,
-                        "CB should keep some interior modes, got {}",
-                        cb.n_modes_kept
-                    );
+                match cb_result {
+                    Ok(cb) => {
+                        assert!(
+                            cb.n_reduced > 0,
+                            "CB should produce reduced system"
+                        );
+                        assert!(
+                            cb.n_modes_kept > 0,
+                            "CB should keep some interior modes, got {}",
+                            cb.n_modes_kept
+                        );
 
-                    // Reduced stiffness should be symmetric
-                    let nr = cb.n_reduced;
-                    for i in 0..nr {
-                        for j in (i + 1)..nr {
-                            let kij = cb.k_reduced[i * nr + j];
-                            let kji = cb.k_reduced[j * nr + i];
-                            let diff = (kij - kji).abs();
-                            let scale = kij.abs().max(kji.abs()).max(1.0);
-                            assert!(
-                                diff < 1e-6 || diff / scale < 1e-6,
-                                "CB K_reduced not symmetric: K[{},{}]={:.6e}, K[{},{}]={:.6e}",
-                                i, j, kij, j, i, kji
-                            );
+                        // Reduced stiffness should be symmetric
+                        let nr = cb.n_reduced;
+                        for i in 0..nr {
+                            for j in (i + 1)..nr {
+                                let kij = cb.k_reduced[i * nr + j];
+                                let kji = cb.k_reduced[j * nr + i];
+                                let diff = (kij - kji).abs();
+                                let scale = kij.abs().max(kji.abs()).max(1.0);
+                                assert!(
+                                    diff < 1e-6 || diff / scale < 1e-6,
+                                    "CB K_reduced not symmetric: K[{},{}]={:.6e}, K[{},{}]={:.6e}",
+                                    i, j, kij, j, i, kji
+                                );
+                            }
+                        }
+
+                        // Reduced mass should be symmetric
+                        for i in 0..nr {
+                            for j in (i + 1)..nr {
+                                let mij = cb.m_reduced[i * nr + j];
+                                let mji = cb.m_reduced[j * nr + i];
+                                let diff = (mij - mji).abs();
+                                let scale = mij.abs().max(mji.abs()).max(1.0);
+                                assert!(
+                                    diff < 1e-6 || diff / scale < 1e-6,
+                                    "CB M_reduced not symmetric: M[{},{}]={:.6e}, M[{},{}]={:.6e}",
+                                    i, j, mij, j, i, mji
+                                );
+                            }
+                        }
+
+                        // Compare interior frequencies with full modal
+                        eprintln!(
+                            "Craig-Bampton: n_reduced={}, n_boundary={}, n_modes_kept={}",
+                            cb.n_reduced, cb.n_boundary, cb.n_modes_kept
+                        );
+
+                        // The CB interior frequencies are eigenvalues of the fixed-boundary
+                        // interior subsystem. They should be reasonably close to the higher
+                        // modes of the full system.
+                        for (i, f) in cb.interior_frequencies.iter().enumerate() {
+                            eprintln!("  CB interior mode {}: {:.4} Hz", i + 1, f);
+                        }
+                        for (i, f) in full_freqs.iter().enumerate() {
+                            eprintln!("  Full mode {}: {:.4} Hz", i + 1, f);
+                        }
+
+                        // Solve the reduced eigenvalue problem to get CB frequencies
+                        let eigen = solve_generalized_eigen(
+                            &cb.k_reduced, &cb.m_reduced, nr, 200,
+                        );
+
+                        {
+                            let eig = eigen.expect("reduced eigenproblem must converge");
+                            let mut cb_freqs: Vec<f64> = eig.values.iter()
+                                .filter(|&&v| v > 1e-6)
+                                .map(|&v| v.sqrt() / (2.0 * std::f64::consts::PI))
+                                .collect();
+                            cb_freqs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+                            assert!(cb_freqs.len() >= full_freqs.len());
+                            for (i, (cf, ff)) in cb_freqs.iter().zip(full_freqs.iter()).enumerate() {
+                                let rel_err = (cf - ff).abs() / ff.max(1e-20);
+                                worst = worst.max(rel_err);
+                                eprintln!(
+                                    "  Mode {}: CB={:.9} Hz, Full={:.9} Hz, error={:.9}%",
+                                    i + 1, cf, ff, rel_err * 100.0
+                                );
+
+                                assert!(
+                                    rel_err < 0.0003,
+                                    "CB mode {} frequency error too large: {:.2}%",
+                                    i + 1,
+                                    rel_err * 100.0
+                                );
+                            }
                         }
                     }
-
-                    // Reduced mass should be symmetric
-                    for i in 0..nr {
-                        for j in (i + 1)..nr {
-                            let mij = cb.m_reduced[i * nr + j];
-                            let mji = cb.m_reduced[j * nr + i];
-                            let diff = (mij - mji).abs();
-                            let scale = mij.abs().max(mji.abs()).max(1.0);
-                            assert!(
-                                diff < 1e-6 || diff / scale < 1e-6,
-                                "CB M_reduced not symmetric: M[{},{}]={:.6e}, M[{},{}]={:.6e}",
-                                i, j, mij, j, i, mji
-                            );
-                        }
-                    }
-
-                    // Compare interior frequencies with full modal
-                    eprintln!(
-                        "Craig-Bampton: n_reduced={}, n_boundary={}, n_modes_kept={}",
-                        cb.n_reduced, cb.n_boundary, cb.n_modes_kept
-                    );
-
-                    // The CB interior frequencies are eigenvalues of the fixed-boundary
-                    // interior subsystem. They should be reasonably close to the higher
-                    // modes of the full system.
-                    for (i, f) in cb.interior_frequencies.iter().enumerate() {
-                        eprintln!("  CB interior mode {}: {:.4} Hz", i + 1, f);
-                    }
-                    for (i, f) in full_freqs.iter().enumerate() {
-                        eprintln!("  Full mode {}: {:.4} Hz", i + 1, f);
-                    }
-
-                    // Solve the reduced eigenvalue problem to get CB frequencies
-                    let eigen = solve_generalized_eigen(
-                        &cb.k_reduced, &cb.m_reduced, nr, 200,
-                    );
-
-                    if let Some(eig) = eigen {
-                        let mut cb_freqs: Vec<f64> = eig.values.iter()
-                            .filter(|&&v| v > 1e-6)
-                            .map(|&v| v.sqrt() / (2.0 * std::f64::consts::PI))
-                            .collect();
-                        cb_freqs.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-                        for (i, (cf, ff)) in cb_freqs.iter().zip(full_freqs.iter()).enumerate() {
-                            let rel_err = (cf - ff).abs() / ff.max(1e-20);
-                            eprintln!(
-                                "  Mode {}: CB={:.4} Hz, Full={:.4} Hz, error={:.2}%",
-                                i + 1, cf, ff, rel_err * 100.0
-                            );
-
-                            // Accept up to 15% error (CB on a coarse boundary is approximate)
-                            // First few modes should be better
-                            assert!(
-                                rel_err < 0.15,
-                                "CB mode {} frequency error too large: {:.2}%",
-                                i + 1,
-                                rel_err * 100.0
-                            );
-                        }
-                    }
+                    Err(e) => panic!("Craig-Bampton reduction must succeed: {e}"),
                 }
-                Err(e) => panic!("Craig-Bampton reduction must succeed: {e}"),
             }
+            Err(e) => panic!("Full modal analysis must succeed: {e}"),
         }
-        Err(e) => panic!("Full modal analysis must succeed: {e}"),
-    }
+        eprintln!("CB interior_modes={n_modes}, worst_relative_error={worst:.12}");
+        worst
+    });
+    assert!(errors[1] <= errors[0]);
 }
 
 // ================================================================
@@ -549,7 +556,7 @@ fn benchmark_craig_bampton_mode_count() {
         freqs.sort_by(|a, b| a.partial_cmp(b).unwrap());
         for (i, (cf, ff)) in freqs.iter().zip(full_freqs.iter()).enumerate() {
             let err = (cf - ff).abs() / ff.max(1e-20);
-            eprintln!("CB {} modes: mode {}={:.4} Hz (full={:.4}, err={:.2}%)",
+            eprintln!("CB {} modes: mode {}={:.4} Hz (full={:.4}, err={:.9}%)",
                 n_modes, i + 1, cf, ff, err * 100.0);
             errs.push(err);
         }
@@ -563,10 +570,9 @@ fn benchmark_craig_bampton_mode_count() {
         assert!(avg8 <= avg3 * 1.1, "8-mode should not be worse than 3-mode");
     }
 
-    // 8-mode first 3 modes within 15%
     if all_errors.len() == 2 {
         for (i, err) in all_errors[1].1.iter().enumerate() {
-            assert!(*err < 0.15, "CB 8-mode: mode {} error {:.2}% exceeds 15%", i + 1, err * 100.0);
+            assert!(*err < 0.0003, "CB 8-mode: mode {} error {:.2}% exceeds 0.03%", i + 1, err * 100.0);
         }
     }
 }

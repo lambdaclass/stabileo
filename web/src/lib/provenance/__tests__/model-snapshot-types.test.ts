@@ -1,0 +1,7 @@
+import { expectTypeOf, it } from 'vitest';
+import type { ModelSnapshot } from '../../store/history.svelte';
+import type { FeatureSnapshot } from '../model-features';
+
+it('a store snapshot is valid feature input', () => {
+  expectTypeOf<ModelSnapshot>().toExtend<FeatureSnapshot>();
+});

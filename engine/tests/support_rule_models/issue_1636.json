@@ -1,0 +1,139 @@
+{
+  "_nightly_dens": {
+    "1": 5844.988917306453,
+    "2": 4038.7261123241733
+  },
+  "_nightly_name": "fuzz_rich_2d/20771",
+  "connectors": {},
+  "constraints": [],
+  "elements": {
+    "2": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 2,
+      "materialId": 2,
+      "nodeI": 3,
+      "nodeJ": 1,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "3": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 3,
+      "materialId": 2,
+      "nodeI": 3,
+      "nodeJ": 4,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "5": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 5,
+      "materialId": 2,
+      "nodeI": 3,
+      "nodeJ": 5,
+      "sectionId": 1,
+      "type": "frame"
+    }
+  },
+  "loads": [
+    {
+      "data": {
+        "a": 3.2480155485351814,
+        "elementId": 3,
+        "my": null,
+        "p": -5.231951098106279,
+        "px": null
+      },
+      "type": "pointOnElement"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 19349.230047719564,
+      "id": 1,
+      "nu": 0.2344533831929926
+    },
+    "2": {
+      "e": 25188.48300780657,
+      "id": 2,
+      "nu": 0.2288294797486737
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": -4.154055451455818,
+      "z": 7.59507436598718
+    },
+    "2": {
+      "id": 2,
+      "x": 4.34440290858705,
+      "z": 5.299445809855815
+    },
+    "3": {
+      "id": 3,
+      "x": 7.505704834487577,
+      "z": 7.050977074292199
+    },
+    "4": {
+      "id": 4,
+      "x": -6.894820882691146,
+      "z": 6.314885824571721
+    },
+    "5": {
+      "id": 5,
+      "x": 2.660965012013893,
+      "z": -3.9659225780280174
+    }
+  },
+  "sections": {
+    "1": {
+      "a": 0.0025538505419449987,
+      "asY": null,
+      "id": 1,
+      "iz": 1.4521409504460644e-06
+    }
+  },
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 1,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "type": "fixed"
+    },
+    "2": {
+      "angle": null,
+      "dry": null,
+      "dx": -0.00042348428819111855,
+      "dz": null,
+      "id": 2,
+      "kx": 23590.83249981733,
+      "ky": null,
+      "kz": null,
+      "nodeId": 2,
+      "type": "pinned"
+    },
+    "3": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 3,
+      "kx": 476.13771388495974,
+      "ky": null,
+      "kz": null,
+      "nodeId": 4,
+      "type": "rollerX"
+    }
+  }
+}

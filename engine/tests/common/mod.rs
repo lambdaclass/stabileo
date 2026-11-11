@@ -5,6 +5,9 @@ pub mod tolerance;
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
+pub const STEEL_DENSITY_KG_M3: f64 = 7850.0;
+
 /// Build a 2D SolverInput from compact descriptions.
 #[allow(dead_code)]
 pub fn make_input(
@@ -485,4 +488,64 @@ pub fn assert_containment<T: std::fmt::Debug>(result: Result<T, String>, id: &st
     assert_eq!(diagnostic["value"], expected.value.unwrap());
     assert_eq!(diagnostic["message"], expected.message);
     assert_eq!(value["message"], expected.message);
+}
+
+#[allow(dead_code)]
+pub fn assert_support_conflict(error: &str) {
+    let refusal: serde_json::Value = serde_json::from_str(error).unwrap();
+    let diagnostic = &refusal["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "conflicting_support_spring", "{error}");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "input");
+    assert!(!diagnostic["nodeIds"].as_array().unwrap().is_empty());
+    assert!(!diagnostic["dofIndices"].as_array().unwrap().is_empty());
+}
+
+#[allow(dead_code)]
+pub fn explicit_rigid_support_control(input: &SolverInput) -> SolverInput {
+    let mut control = input.clone();
+    let mut changed = false;
+    for s in control.supports.values_mut() {
+        let rigid = match s.support_type.as_str() {
+            "fixed" => [true, true, true],
+            "pinned" => [true, true, false],
+            "rollerX" => [false, true, false],
+            "rollerY" | "rollerZ" => [true, false, false],
+            "guidedX" => [false, true, true],
+            "guidedY" | "guidedZ" => [true, false, true],
+            _ => [false; 3],
+        };
+        for (k, rigid) in [&mut s.kx, &mut s.ky, &mut s.kz].into_iter().zip(rigid) {
+            if rigid && k.is_some_and(|k| k > 0.0) {
+                *k = None;
+                changed = true;
+            }
+        }
+    }
+    if changed { assert_support_conflict(&dedaliano_engine::solver::linear::solve_2d(input).unwrap_err()); }
+    control
+}
+
+#[allow(dead_code)]
+pub fn explicit_elastic_support_control(input: &SolverInput3D) -> SolverInput3D {
+    let mut control = input.clone();
+    let mut changed = false;
+    for s in control.supports.values_mut() {
+        let inclined = s.is_inclined.unwrap_or(false);
+        for (i, (rigid, k)) in [
+            (&mut s.rx, s.kx), (&mut s.ry, s.ky), (&mut s.rz, s.kz),
+            (&mut s.rrx, s.krx), (&mut s.rry, s.kry), (&mut s.rrz, s.krz),
+        ].into_iter().enumerate() {
+            if (!inclined || i >= 3) && *rigid && k.is_some_and(|k| k > 0.0) {
+                *rigid = false;
+                changed = true;
+            }
+        }
+        if s.rw == Some(true) && s.kw.is_some_and(|k| k > 0.0) {
+            s.rw = Some(false);
+            changed = true;
+        }
+    }
+    if changed { assert_support_conflict(&dedaliano_engine::solver::linear::solve_3d(input).unwrap_err()); }
+    control
 }

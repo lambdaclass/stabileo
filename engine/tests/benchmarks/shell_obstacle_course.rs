@@ -53,3 +53,13 @@ pub fn try_solve(group: &str, nx: usize, ny: usize) -> Result<f64, String> {
 pub fn solve(group: &str, nx: usize, ny: usize) -> f64 {
     try_solve(group, nx, ny).unwrap()
 }
+
+#[test]
+fn declared_tolerances_match_accuracy_gate() {
+    assert_eq!(DATA["accuracyTolerance"].as_f64().unwrap(), 0.02);
+    for key in ["cases", "nativeCases"] {
+        for c in DATA[key].as_array().unwrap() {
+            assert!(c["tolerance"].as_f64().unwrap() <= DATA["accuracyTolerance"].as_f64().unwrap());
+        }
+    }
+}

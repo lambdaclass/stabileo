@@ -1,0 +1,38 @@
+{
+  "id": "net-area-chains-and-web-lines",
+  "date": "2026-11-08",
+  "prs": [
+    1771
+  ],
+  "area": "design",
+  "when": {
+    "allOf": [
+      [
+        "steelCirsoc301"
+      ],
+      [
+        "steelStaggeredOrUnboltedWebEnd"
+      ]
+    ]
+  },
+  "title": {
+    "en": "The net area of a staggered bolted end takes its worst chain, and an all-elements bolted end needs bolts in the web",
+    "es": "El área neta de una unión abulonada al tresbolillo toma su peor cadena, y una unión abulonada de todos los elementos necesita bulones en el alma",
+    "pt": "A área líquida de uma ligação parafusada em quincôncio toma a sua pior cadeia, e uma ligação parafusada de todos os elementos precisa de parafusos na alma",
+    "de": "Die Nettofläche eines versetzt verschraubten Anschlusses nimmt die ungünstigste Risslinie, und ein Anschluss aller Querschnittsteile braucht Schrauben im Steg",
+    "fr": "L’aire nette d’une attache boulonnée en quinconce prend sa pire ligne de rupture, et une attache boulonnée de tous les éléments exige des boulons dans l’âme",
+    "tr": "Şaşırtmalı bulonlu bir ucun net alanı en elverişsiz kırılma hattını alıyor ve tüm elemanları bulonlu bir uç gövdede bulon gerektiriyor"
+  },
+  "explanation": {
+    "en": "CIRSOC 301 §B.4.2.2 deducts the hole chain that leaves the least net area. With staggered lines the check compared only the straight chain and the zig-zag through every line, so a chain through some of the lines could govern unseen. A 300 × 12 mm plate with four lines at s = g = 70 mm deducted 576 mm² where the chain through lines 1, 3 and 4 deducts 654 mm². The stagger s was also taken as given even when the diagonal to the next bolt of the line, pitch − s, is shorter. And a bolted end marked as connecting every element with no lines in the web, or in the second leg of an angle, was given U = 1 when only the flanges or one leg are bolted. The engine now takes the worst chain over every subset of lines with the shorter diagonal, and refuses an all-elements bolted end without web lines; describe it as connected through the flanges or the leg instead. Ae can only go down or be refused.",
+    "es": "CIRSOC 301 §B.4.2.2 descuenta la cadena de agujeros que deja la menor área neta. Con filas al tresbolillo la verificación comparaba solo la cadena recta y el zigzag por todas las filas, así que una cadena por algunas de las filas podía gobernar sin verse. Una chapa de 300 × 12 mm con cuatro filas a s = g = 70 mm descontaba 576 mm² donde la cadena por las filas 1, 3 y 4 descuenta 654 mm². El tresbolillo s se tomaba además tal cual aun cuando la diagonal al siguiente bulón de la fila, paso − s, es más corta. Y una unión abulonada marcada como de todos los elementos sin filas en el alma, o en la otra ala de un ángulo, recibía U = 1 cuando solo están abulonadas las alas o un ala del ángulo. El motor toma ahora la peor cadena sobre todo subconjunto de filas con la diagonal más corta, y rechaza una unión abulonada de todos los elementos sin filas en el alma; descríbala como unida por las alas o por el ala del ángulo. Ae solo puede bajar o quedar rechazada.",
+    "pt": "A CIRSOC 301 §B.4.2.2 deduz a cadeia de furos que deixa a menor área líquida. Com linhas em quincôncio a verificação comparava apenas a cadeia reta e o ziguezague por todas as linhas, de modo que uma cadeia por algumas das linhas podia governar sem ser vista. Uma chapa de 300 × 12 mm com quatro linhas a s = g = 70 mm deduzia 576 mm² onde a cadeia pelas linhas 1, 3 e 4 deduz 654 mm². O passo em quincôncio s também era tomado como dado mesmo quando a diagonal até ao parafuso seguinte da linha, passo − s, é mais curta. E uma ligação parafusada marcada como de todos os elementos sem linhas na alma, ou na outra aba de uma cantoneira, recebia U = 1 quando só as mesas ou uma aba estão parafusadas. O motor toma agora a pior cadeia sobre todo subconjunto de linhas com a diagonal mais curta, e recusa uma ligação parafusada de todos os elementos sem linhas na alma; descreva-a como ligada pelas mesas ou pela aba. Ae só pode descer ou ser recusada.",
+    "de": "CIRSOC 301 §B.4.2.2 zieht die Lochreihe ab, die die kleinste Nettofläche lässt. Bei versetzten Reihen verglich die Prüfung nur die gerade Risslinie und den Zickzack durch alle Reihen, sodass eine Risslinie durch einige der Reihen unbemerkt maßgebend sein konnte. Ein Blech 300 × 12 mm mit vier Reihen bei s = g = 70 mm zog 576 mm² ab, wo die Linie durch die Reihen 1, 3 und 4 654 mm² abzieht. Der Versatz s wurde zudem unverändert genommen, auch wenn die Diagonale zur nächsten Schraube der Reihe, Lochabstand − s, kürzer ist. Und ein als Anschluss aller Teile markiertes Schraubende ohne Reihen im Steg oder im zweiten Schenkel eines Winkels erhielt U = 1, obwohl nur die Gurte oder ein Schenkel verschraubt sind. Die Engine nimmt jetzt die ungünstigste Linie über jede Teilmenge der Reihen mit der kürzeren Diagonale und lehnt einen verschraubten Anschluss aller Teile ohne Stegreihen ab; beschreiben Sie ihn als über die Gurte oder den Schenkel angeschlossen. Ae kann nur sinken oder abgelehnt werden.",
+    "fr": "La CIRSOC 301 §B.4.2.2 déduit la ligne de trous qui laisse la plus petite aire nette. Avec des files en quinconce, la vérification ne comparait que la ligne droite et le zigzag par toutes les files, de sorte qu’une ligne passant par certaines files pouvait gouverner sans être vue. Une plaque de 300 × 12 mm à quatre files avec s = g = 70 mm déduisait 576 mm² là où la ligne par les files 1, 3 et 4 déduit 654 mm². Le décalage s était aussi pris tel quel même quand la diagonale vers le boulon suivant de la file, pas − s, est plus courte. Et une attache boulonnée marquée comme reliant tous les éléments sans file dans l’âme, ou dans la seconde aile d’une cornière, recevait U = 1 alors que seules les semelles ou une aile sont boulonnées. Le moteur prend désormais la pire ligne sur tout sous-ensemble de files avec la diagonale la plus courte, et refuse une attache boulonnée de tous les éléments sans file dans l’âme ; décrivez-la comme attachée par les semelles ou par l’aile. Ae ne peut que baisser ou être refusée.",
+    "tr": "CIRSOC 301 §B.4.2.2 en küçük net alanı bırakan delik hattını düşer. Şaşırtmalı sıralarda denetim yalnızca düz hattı ve tüm sıralardan geçen zikzakı karşılaştırıyordu; bu yüzden sıraların bir kısmından geçen bir hat görülmeden belirleyici olabiliyordu. s = g = 70 mm ile dört sıralı 300 × 12 mm bir levha 576 mm² düşüyordu; oysa 1, 3 ve 4. sıralardan geçen hat 654 mm² düşer. Şaşırtma s, sıranın bir sonraki bulonuna olan diyagonal (aralık − s) daha kısa olsa bile olduğu gibi alınıyordu. Ayrıca gövdede ya da korniyerin ikinci kolunda sıra olmadan tüm elemanları bağlı olarak işaretlenen bulonlu bir uç, yalnızca başlıklar ya da bir kol bulonluyken U = 1 alıyordu. Motor artık sıraların her alt kümesi üzerinden daha kısa diyagonalle en elverişsiz hattı alıyor ve gövde sırası olmayan tüm elemanları bulonlu bir ucu reddediyor; onu başlıklardan ya da koldan bağlı olarak tanımlayın. Ae yalnızca düşebilir ya da reddedilir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/net-area-chains-and-web-lines.md",
+    "heading": "Ae takes every staggered chain, and a bolted all-elements end needs web bolts (2026-11-08)"
+  }
+}

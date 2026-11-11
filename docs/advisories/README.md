@@ -17,7 +17,13 @@ each advisory says: re-cut models cut from 3D (SA-2026-035) and re-import models
 or IFC (SA-2026-039). SA-2026-044 is not fixed: 2D plastic collapse stays refused until
 [#758](https://github.com/lambdaclass/stabileo/issues/758) is fixed. **SA-2026-048 is published**
 (2026-11-08): it was fixed after 0.5.0, live on stabileo.com since 2026-11-08, and its re-check
-registry entry is `cb-segment-ends`.
+registry entry is `cb-segment-ends`. **SA-2026-049…053 are published**
+(2026-11-09): they were fixed after 0.5.0 and are live on stabileo.com since 2026-11-09.
+Their fixes are #1780 (SA-2026-049, merged 2026-11-09 07:41:41 UTC), #1784
+(SA-2026-050, merged 2026-11-09 01:53:37 UTC) and #1783 (SA-2026-051…053,
+merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
+`support-spring-conflicts-refused`, `non-finite-analysis-results`, `moving-loads-3d`,
+`moving-axial-patch-boundaries` and `moving-load-endpoint-forces`, respectively.
 
 | ID | Summary | Severity | Issue | Fix | Fixed in | Status |
 |---|---|---|---|---|---|---|
@@ -69,7 +75,20 @@ registry entry is `cb-segment-ends`.
 | [SA-2026-046](SA-2026-046-harmonic-modal-or-direct-per-load.md) | Harmonic analysis chose between modal superposition and the direct solve per load: superposition and reciprocity broke (107 % at a node in an example) | High | [#1537](https://github.com/lambdaclass/stabileo/issues/1537)–[#1541](https://github.com/lambdaclass/stabileo/issues/1541) | #1587 | 0.5.0 | Published 2026-11-07 |
 | [SA-2026-047](SA-2026-047-case-displacement-shell-stresses.md) | A load case that imposed a support displacement lost its shell stresses: combinations and envelopes summed only the other cases' plate and quad stresses | High | [#1673](https://github.com/lambdaclass/stabileo/issues/1673) | #1676 | 0.5.0 | Published 2026-11-07 |
 | [SA-2026-048](SA-2026-048-cb-segment-ends.md) | CIRSOC 301 Cb missed a sign change at the ends of a declared unbraced segment shorter than the member: a channel in double curvature got Cb = 2.55 instead of 1, overstating lateral-torsional capacity | High | — | #1718 | after 0.5.0 (stabileo.com since 2026-11-08) | Published 2026-11-08 |
+| [SA-2026-049](SA-2026-049-support-spring-conflicts.md) | Rigid support plus spring on the same DOF solved as elastic in 3D | High | #1636–#1646 | [#1780](https://github.com/lambdaclass/stabileo/pull/1780) | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
+| [SA-2026-050](SA-2026-050-non-finite-analysis-results.md) | Buckling could turn a failed slenderness calculation into zero, and multi-case analysis could return non-finite values inside `Ok` | Medium | [#1759](https://github.com/lambdaclass/stabileo/issues/1759), [#1761](https://github.com/lambdaclass/stabileo/issues/1761) | #1784 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
+| [SA-2026-051](SA-2026-051-moving-loads-3d.md) | 3D moving-load envelopes missed interior peaks and lost the axial component of axle weight | High | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
+| [SA-2026-052](SA-2026-052-moving-axial-patch-boundaries.md) | 2D/3D moving-load axial envelopes missed peaks at distributed-load boundaries | High | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
+| [SA-2026-053](SA-2026-053-moving-load-endpoint-forces.md) | Moving-load envelopes included exterior force limits at endpoint point loads | Low | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
+| [SA-2026-055](SA-2026-055-pdelta-span-axial.md) | P-Delta understated amplification when compression varied under axial span loads | High | [#1329](https://github.com/lambdaclass/stabileo/issues/1329) | Local fix | Not released | Draft 2026-11-10; fix not yet merged or deployed |
+| [SA-2026-056](SA-2026-056-constrained-shell-dynamic-invariance.md) | Constrained frame and shell dynamic results change under equivalent descriptions | High | Sweep seed 2026110200131 | — | Unfixed | Recorded 2026-11-10 |
+| [SA-2026-057](SA-2026-057-plastic-interval-and-resource-refusals.md) | Plastic interval displays admitted outside factors; exact mechanism extraction discarded resource refusals in pre-fix PR #1888 builds | Medium | — (review of #1888) | [#1888](https://github.com/lambdaclass/stabileo/pull/1888) | Fix not yet merged or deployed | Draft 2026-11-10 |
+| [SA-2026-058](SA-2026-058-harmonic-omitted-modes.md) | Large 2D/3D harmonic models retained inaccurate omitted-mode responses at frequencies outside the truncation warning’s coverage (8.079% complex target error measured) | High | [#1434](https://github.com/lambdaclass/stabileo/issues/1434) | [#1922](https://github.com/lambdaclass/stabileo/pull/1922) | Fixed in PR #1922, pending release | Draft 2026-11-10 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
 [verification dashboard](../verification/DASHBOARD.md).
+
+SA-2026-056 records an additional, unfixed dynamic result found during the analysis-error-model investigation:
+[constrained shell dynamic invariance](SA-2026-056-constrained-shell-dynamic-invariance.md).
+It has no result-version entry because this change does not fix or alter engine results.

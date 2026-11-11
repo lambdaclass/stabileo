@@ -26,6 +26,63 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('shows one complete harmonic correction notice for PR #1922', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!;
+    const snapshot = model({ elements: [member(1, 1, 'frame')] });
+    const before = entry.resultsVersion - 1;
+    for (const stamp of [null, { ...stampSolve('harmonic', null), resultsVersion: before }]) {
+      const notices = assessProject(snapshot, stamp).changes.filter((change) => change.prs.includes(1922));
+      expect(notices.map((change) => change.id)).toEqual(['harmonic-omitted-modes']);
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+        expect(notices[0].explanation[locale]).toContain('#1434');
+        expect(notices[0].explanation[locale]).toContain('PR #1922');
+      }
+    }
+    const linear = { ...stampSolve('linear', null), resultsVersion: before };
+    expect(assessProject(snapshot, linear).changes.filter((change) => change.prs.includes(1922))).toEqual([]);
+  });
+
+  it('scopes the omitted harmonic mode correction to harmonic structural models, including spring-only models', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes');
+    expect(entry).toBeDefined();
+    for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+      expect(conditionHolds(entry!.when ?? {}, new Set([structure, 'analysis:harmonic']))).toBe(true);
+      expect(conditionHolds(entry!.when ?? {}, new Set([structure, 'analysis:linear']))).toBe(false);
+    }
+    expect(conditionHolds(entry!.when ?? {}, new Set(['analysis:harmonic']))).toBe(false);
+  });
+
+  it('keeps the omitted harmonic notice for legacy unknown analyses and excludes a recorded linear-only solve', () => {
+    const snapshot = model({ elements: [member(1, 1, 'frame')] });
+    const harmonic = stampSolve('harmonic', null);
+    const linear = stampSolve('linear', null);
+    const before = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!.resultsVersion - 1;
+    expect(ids(snapshot, { ...harmonic, resultsVersion: before })).toContain('harmonic-omitted-modes');
+    expect(ids(snapshot, { ...linear, resultsVersion: before })).not.toContain('harmonic-omitted-modes');
+    const { recorded: _recorded, ...legacy } = linear;
+    expect(ids(snapshot, { ...legacy, resultsVersion: before })).toContain('harmonic-omitted-modes');
+  });
+
+  it('scopes exact plastic resource refusals to frame projects after plastic analysis', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-exact-resource-budget-refused');
+    expect(entry).toBeDefined();
+    for (const dimension of ['space3D', 'plane2D']) {
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'frameMembers', 'analysis:plastic']))).toBe(true);
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'frameMembers', 'analysis:modal']))).toBe(false);
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'trussMembers', 'analysis:plastic']))).toBe(false);
+    }
+  });
+
+  it('scopes the checked 3D certified lower bound to space frames after plastic analysis', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-3d-certified-lower-bound');
+    expect(entry).toBeDefined();
+    const features = ['space3D', 'frameMembers', 'analysis:plastic'];
+    expect(conditionHolds(entry!.when ?? {}, new Set(features))).toBe(true);
+    for (const omitted of features) {
+      expect(conditionHolds(entry!.when ?? {}, new Set(features.filter((feature) => feature !== omitted)))).toBe(false);
+    }
+  });
+
   it('shows the CIRSOC 301 tension note only for steel members without connection data under CIRSOC 301', () => {
     const steelTruss = model({ elements: [member(1, 1, 'truss')] });
     expect(ids(steelTruss)).toContain('cirsoc301-tension-needs-connection');
@@ -57,6 +114,22 @@ describe('which registered changes concern a model', () => {
       elements: [member(1, 1, 'frame', { unbracedLength: 2 })],
       regulations: { roles: { steel: { adapterId: 'eurocode3' } } },
     }))).not.toContain('cb-segment-ends');
+  });
+
+  it('shows the net-area chain change only for CIRSOC 301 steel with a staggered or web-less "all" bolted end', () => {
+    const bolted = (extra: Record<string, unknown>) => ({ kind: 'bolted', connected: 'legH', holeKind: 'standard', ...extra });
+    const id = 'net-area-chains-and-web-lines';
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({}) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { j: bolted({ stagger: { sMm: 40, gMm: 60 } }) } })] }))).toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ connected: 'all', webLines: 0 }) } })] }))).toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ connected: 'all', webLines: 1 }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: { sMm: 40 } }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 2, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })] }))).not.toContain(id);
+    expect(ids(model({
+      elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })],
+      regulations: { roles: { steel: { adapterId: 'eurocode3' } } },
+    }))).not.toContain(id);
   });
 
   it('shows the arc local-axes change only for models with members drawn as an arc (#418)', () => {
@@ -390,4 +463,25 @@ describe('conditionHolds', () => {
     expect(conditionHolds({ allOf: [['a'], ['b', 'c']] }, f)).toBe(true);
     expect(conditionHolds({}, f)).toBe(true);
   });
+});
+
+it('shows moving-load changes for saved vehicle position cases and excludes ordinary frames', () => {
+  const frame = model({ elements: [member(1, 1, 'frame')] });
+  const moving = { ...frame, loadCases: [{ id: 1, type: 'Tr', alternatives: 'move:vehicle' }] };
+  expect(modelFeatures(frame).has('movingLoads')).toBe(false);
+  expect(modelFeatures(moving).has('movingLoads')).toBe(true);
+  expect(ids(frame)).not.toContain('moving-loads-3d');
+  expect(ids(frame)).not.toContain('moving-load-endpoint-forces');
+  expect(ids(moving)).toContain('moving-loads-3d');
+  for (const analysisMode of ['2d', 'pro']) {
+    expect(ids({ ...moving, analysisMode })).toContain('moving-load-endpoint-forces');
+  }
+  expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-load-endpoint-forces');
+  expect(ids(moving)).not.toContain('moving-axial-patch-boundaries');
+  for (const analysisMode of ['2d', 'pro']) {
+    expect(ids({ ...moving, analysisMode, loads: [{ type: 'distributed', data: { a: 1.10, b: 1.15 } }] })).toContain('moving-axial-patch-boundaries');
+  }
+  expect(ids({ ...moving, analysisMode: '2d' })).not.toContain('moving-loads-3d');
+  expect(ids({ ...frame, loadCases: [{ id: 1, type: 'Tr' }] })).not.toContain('moving-loads-3d');
+  expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-loads-3d');
 });

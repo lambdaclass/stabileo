@@ -152,7 +152,7 @@ fn point_loads_on_members() {
     // in local y at a = 2 of L = 6: λ_c = Mp_z L / (P a b)
     let pinned = [true, true, true, true, false, false];
     let roller = [false, true, true, false, false, false];
-    let pl = SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 2.0, py: -1.0, pz: 0.0 });
+    let pl = SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 2.0, py: -1.0, pz: 0.0 });
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 6.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, pinned), (2, roller)], vec![pl]);
     let (c, res) = certify(&plastic(s, MPY, MPZ));
     assert_encloses("SS point load y", &c, MPZ * 6.0 / 8.0, 1e-12);
@@ -160,7 +160,7 @@ fn point_loads_on_members() {
     // same in local z with a UDL on top: fixed-fixed, central P and q:
     // mechanism hinges at both ends and midspan, λ (P L/2 + q L²/4)... = 4 Mp·2/L·... :
     // D = 4 Mp θ, W = λ (P θL/2 + q θL²/4) ⇒ λ = 16 Mp / (2 P L + q L²)
-    let pl = SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 3.0, py: 0.0, pz: -2.0 });
+    let pl = SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 3.0, py: 0.0, pz: -2.0 });
     let s = frame(vec![(1, 0.0, 0.0, 0.0), (2, 6.0, 0.0, 0.0)], vec![(1, 1, 2)], vec![(1, FIXED), (2, FIXED)], vec![pl, udl(1, 0.0, -1.0)]);
     let (c, _) = certify(&plastic(s, MPY, MPZ));
     assert_encloses("fixed beam P + q in z", &c, 16.0 * MPY / (2.0 * 2.0 * 6.0 + 36.0), 1e-9);
@@ -202,7 +202,7 @@ fn space_portal_sway() {
     // In-plane sway plus a vertical load at midspan of the beam (a point load
     // on the member): combined mechanism 6 Mp_y / (H h + V a), a = 2.
     let mut s = portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-    s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 2, a: 2.0, py: 0.0, pz: -1.0 }));
+    s.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 2, a: 2.0, py: 0.0, pz: -1.0 }));
     let (c, _) = certify(&plastic(s, MPY, MPZ));
     let exact = [4.0 * MPY / 3.0, 4.0 * MPY / 2.0, 6.0 * MPY / (3.0 + 2.0)].into_iter().fold(f64::INFINITY, f64::min);
     assert_encloses("portal sway + beam load", &c, exact, 1e-9);
@@ -266,7 +266,7 @@ fn point_load_beside_a_hinged_end_still_forms_its_hinge() {
         vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
         vec![(1, 1, 2)],
         vec![(1, FIXED), (2, [true, true, true, true, false, false])],
-        vec![SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: 1, a: 0.002, py: 0.0, pz: -1.0 })],
+        vec![SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: 1, a: 0.002, py: 0.0, pz: -1.0 })],
     );
     let e = s.elements.get_mut("1").unwrap();
     (e.release_my_start, e.release_mz_start) = (true, true);
@@ -441,10 +441,26 @@ fn unsupported_models_are_refused() {
 }
 
 #[test]
-fn certify_plastic_3d_reports_solver_value() {
-    let out = certify_plastic_3d(&plastic(portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ)).unwrap();
+fn issue_1760_portal_above_certificate_returns_certified_lower() {
+    let input = plastic(portal([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), MPY, MPZ);
+    let results = solve_plastic_3d(&input).unwrap();
+    let certificate = certify_collapse_3d(&input, Some(&results));
+    assert_eq!(certificate.solver_within_bounds, Some(false));
+    assert!(results.collapse_factor > certificate.lambda_upper.unwrap());
+    let out = certify_plastic_3d(&input).unwrap();
     assert!(out.certificate.certified);
-    assert_eq!(out.certificate.solver_collapse_factor, Some(out.results.collapse_factor));
+    let lower = certificate.lambda_lower.unwrap();
+    let upper = certificate.lambda_upper.unwrap();
+    assert_eq!(out.results.collapse_factor.to_bits(), lower.to_bits());
+    assert_eq!(out.certificate.solver_collapse_factor, Some(results.collapse_factor));
+    assert_eq!(out.certificate.solver_within_bounds, Some(false));
+    let warning = out.results.structured_diagnostics.iter().find(|d|
+        d.phase.as_deref() == Some("PL-3D-CERTIFICATE-MISMATCH")).unwrap();
+    assert_eq!(warning.severity, Severity::Warning);
+    assert!(warning.message.contains("outside the certified interval"));
+    assert!(warning.message.contains(&results.collapse_factor.to_string()));
+    assert!(warning.message.contains(&format!("[{lower}, {upper}]")));
+    assert!(out.results.warnings.contains(&warning.message));
     assert!(!out.certificate.mechanism.is_empty());
     let json = serde_json::to_string(&out).unwrap();
     assert!(json.contains("lambdaLower") && json.contains("rotationY") && json.contains("position"));
@@ -502,7 +518,7 @@ fn random_plane_frames_in_space_agree_with_solver() {
                     loads.push(udl(elems.len(), 0.0, -(1.0 + (g.next() * 3.0).round())));
                 } else {
                     let a = w * (1.0 + (g.next() * 3.0).round()) / 5.0;
-                    loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: elems.len(), a, py: 0.0, pz: -(2.0 + (g.next() * 6.0).round()) }));
+                    loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D { px: 0.0, element_id: elems.len(), a, py: 0.0, pz: -(2.0 + (g.next() * 6.0).round()) }));
                 }
                 if g.next() < 0.2 {
                     released.push(elems.len());
@@ -692,8 +708,18 @@ fn the_portal_sample_collapses_with_hinges_on_both_columns_1525() {
     let s = solve_plastic_3d(&same).unwrap();
     assert_eq!(s.collapse_factor.to_bits(), r.collapse_factor.to_bits());
     assert_eq!(hinged_members(&s), vec![1, 3]);
-    let c = certify_plastic_3d(&same).unwrap();
-    assert_eq!(c.results.collapse_factor.to_bits(), r.collapse_factor.to_bits());
+    let checked = certify_plastic_3d(&same).unwrap();
+    assert_eq!(Some(checked.results.collapse_factor), checked.certificate.lambda_lower);
+    assert_eq!(checked.certificate.solver_collapse_factor, Some(r.collapse_factor));
+    assert!(checked.certificate.certified);
+    assert_eq!(checked.certificate.solver_within_bounds, Some(false));
+    assert!(checked.results.collapse_factor <= checked.certificate.lambda_upper.unwrap());
+    let raw = solve_plastic_3d(&same).unwrap();
+    let independent = certify_collapse_3d(&same, Some(&raw));
+    assert!(independent.certified);
+    assert_eq!(checked.certificate.lambda_lower, independent.lambda_lower);
+    assert_eq!(checked.certificate.lambda_upper, independent.lambda_upper);
+    assert!(independent.solver_collapse_factor.unwrap() < independent.lambda_lower.unwrap());
 }
 
 #[test]
@@ -726,5 +752,25 @@ fn a_frame_without_plastic_capacity_is_refused_1525() {
         assert!(c.reason.as_deref().is_some_and(|r| r.contains("element 1")), "{what}: {:?}", c.reason);
         let bundle = dedaliano_engine::certify::plastic_bundle::export_plastic_bundle_3d(&input);
         refusal_names_member(&bundle.err().unwrap_or_else(|| panic!("{what}: bundle exported")), 1, 2);
+    }
+}
+
+#[test]
+fn axial_point_loads_are_refused_by_the_3d_plastic_certificate() {
+    for px in [-1.0, 1.0, -f64::EPSILON, f64::EPSILON] {
+        for (py, pz) in [(0.0, 0.0), (-1.0, 0.0), (0.0, -1.0), (-1.0, -1.0)] {
+            let load = SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                element_id: 1, a: 2.0, px, py, pz,
+            });
+            let solver = make_3d_beam(1, 6.0, E, 0.3, A, IY, IZ, J, FIXED.to_vec(), None, vec![load]);
+            let input = plastic(solver, MPY, MPZ);
+            let reason = build_model_3d(&input).unwrap_err();
+            assert!(reason.contains("axial point loads"), "{reason}");
+            let certificate = certify_collapse_3d(&input, None);
+            assert!(!certificate.certified, "{certificate:?}");
+            assert!(certificate.lambda_lower.is_none(), "{certificate:?}");
+            assert!(certificate.lambda_upper.is_none(), "{certificate:?}");
+            assert!(certificate.reason.as_deref().is_some_and(|r| r.contains("axial point loads")), "{certificate:?}");
+        }
     }
 }

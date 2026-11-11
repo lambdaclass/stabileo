@@ -1,0 +1,129 @@
+{
+  "analysis": "pdelta",
+  "model": {
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 9.653,
+        "z": 4.972
+      },
+      "2": {
+        "id": 2,
+        "x": 6.063,
+        "z": 4.839
+      },
+      "3": {
+        "id": 3,
+        "x": 1.088,
+        "z": 6.08
+      },
+      "4": {
+        "id": 4,
+        "x": 10.519,
+        "z": 3.142
+      },
+      "5": {
+        "id": 5,
+        "x": 2.205,
+        "z": 5.795
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 200000,
+        "nu": 0.16020930746874884
+      },
+      "2": {
+        "id": 2,
+        "e": 153589.27649926452,
+        "nu": 0.1676029774896869
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 0.06362834870052587,
+        "iz": 0.00015266477216995387
+      },
+      "2": {
+        "id": 2,
+        "a": 0.2146986781611086,
+        "iz": 0.0036213146577376964
+      },
+      "3": {
+        "id": 3,
+        "a": 0.21375056417765548,
+        "iz": 0.007932667768950772
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 2,
+        "nodeJ": 1,
+        "materialId": 1,
+        "sectionId": 2,
+        "hingeStart": false,
+        "hingeEnd": false
+      },
+      "2": {
+        "id": 2,
+        "type": "frame",
+        "nodeI": 1,
+        "nodeJ": 3,
+        "materialId": 1,
+        "sectionId": 2,
+        "hingeStart": false,
+        "hingeEnd": false
+      },
+      "3": {
+        "id": 3,
+        "type": "frame",
+        "nodeI": 1,
+        "nodeJ": 4,
+        "materialId": 1,
+        "sectionId": 2,
+        "hingeStart": false,
+        "hingeEnd": false
+      },
+      "4": {
+        "id": 4,
+        "type": "frame",
+        "nodeI": 5,
+        "nodeJ": 1,
+        "materialId": 1,
+        "sectionId": 2,
+        "hingeStart": false,
+        "hingeEnd": false
+      }
+    },
+    "supports": {
+      "1": {
+        "id": 1,
+        "nodeId": 1,
+        "type": "fixed"
+      },
+      "2": {
+        "id": 2,
+        "nodeId": 3,
+        "type": "rollerX",
+        "dx": 0.0072504954813476675,
+        "dz": -0.006455653893911091,
+        "dry": 0.0005753982981349789
+      }
+    },
+    "loads": [
+      {
+        "type": "nodal",
+        "data": {
+          "nodeId": 3,
+          "fx": 0,
+          "fz": -335.051700934273,
+          "my": 0
+        }
+      }
+    ]
+  }
+}

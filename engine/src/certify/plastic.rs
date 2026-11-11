@@ -144,19 +144,13 @@ pub(super) fn approx_mp(fyk: &Q, i: f64, a: f64) -> Result<(Q, Q), String> {
     Ok((&k / q(hi).unwrap(), &k / q(lo).unwrap()))
 }
 
-/// Restrained DOFs of a support, as the 2D DOF numbering defines them.
-fn support_restrains(t: &str) -> Result<[bool; 3], String> {
-    Ok(match t {
-        "fixed" => [true, true, true],
-        "pinned" => [true, true, false],
-        "rollerX" => [false, true, false],
-        "rollerY" | "rollerZ" => [true, false, false],
-        "guidedX" => [false, true, true],
-        "guidedY" | "guidedZ" => [true, false, true],
+fn support_restrains(s: &SolverSupport) -> Result<[bool; 3], String> {
+    match s.support_type.as_str() {
         "spring" => return Err("spring supports are not part of the rigid-plastic model".into()),
         "inclinedRoller" => return Err("inclined supports are not supported".into()),
-        _ => [false, false, false],
-    })
+        _ => {}
+    }
+    Ok(crate::solver::support::support_dofs_2d(s).map(|d| d.restrained))
 }
 
 fn build_pieces(e: &PElem) -> Result<Vec<Piece>, String> {
@@ -236,6 +230,7 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
     // inside this range; outside it the certificate is refused, not slow.
     super::finite::check_magnitudes(input, EXACT_MIN_ABS, EXACT_MAX_ABS)?;
     let s = &input.solver;
+    crate::solver::support::validate_supports_2d(s)?;
     if !s.constraints.is_empty() {
         return Err("constraints are not supported by the plastic certificate".into());
     }
@@ -259,7 +254,7 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
     sups.sort_by_key(|x| x.id);
     for sup in sups {
         let n = *idx.get(&sup.node_id).ok_or("support on unknown node")?;
-        let r = support_restrains(&sup.support_type)?;
+        let r = support_restrains(sup)?;
         if sup.angle.is_some_and(|a| a != 0.0) {
             return Err("inclined supports are not supported".into());
         }
@@ -717,9 +712,15 @@ struct Equilibrium {
 /// `A x = λ b` (x = (Fx, Fz, Mi) per member).
 fn equilibrium_system(model: &PlasticModel) -> Result<Equilibrium, String> {
     let (rows, rhs) = equilibrium_rows(model);
-    let r = rref_solve(&rows, Some(&rhs), 3 * model.elems.len());
+    let r = rref_solve(&rows, Some(&rhs), 3 * model.elems.len())?;
     let xp = r.particular.ok_or("the loads admit no equilibrium state (the structure cannot carry them)")?;
     Ok(Equilibrium { xp, null: r.null_basis })
+}
+
+fn equilibrium_equation_count(model: &PlasticModel) -> usize {
+    model.restrained.iter().flatten().filter(|r| !**r).count().saturating_add(
+        model.elems.iter().map(|e| usize::from(e.rel_i) + usize::from(e.rel_j)).fold(0usize, usize::saturating_add),
+    )
 }
 
 /// The equilibrium equations `A x = λ b` (dense rows of `A`, and `b`): every free
@@ -875,6 +876,30 @@ fn has_moment_at(e: &PElem, t: &Q) -> bool {
     e.loads.iter().any(|l| matches!(l, ElemLoad::Point { ta, my, .. } if ta == t && !my.is_zero()))
 }
 
+const INITIAL_INTERVALS: usize = 16;
+const REFINEMENT_PASSES: usize = 6;
+
+pub fn lp_work(model: &PlasticModel) -> super::plastic_budget::PlasticLpWork {
+    let mut initial = 0usize;
+    let mut curved_pieces = 0usize;
+    for e in model.elems.iter().filter(|e| e.mp.is_some()) {
+        initial = initial.saturating_add(2);
+        for piece in &e.pieces {
+            let curved = to_f64(&piece.c[2]) != 0.0 || to_f64(&piece.c[3]) != 0.0;
+            let intervals = if curved { INITIAL_INTERVALS } else { 1 };
+            initial = initial.saturating_add(intervals + 1);
+            curved_pieces = curved_pieces.saturating_add(usize::from(curved));
+        }
+    }
+    super::plastic_budget::PlasticLpWork {
+        equilibrium_equations: equilibrium_equation_count(model),
+        force_variables: model.elems.len().saturating_mul(3),
+        initial_halfspaces: initial.saturating_mul(2),
+        max_halfspaces: initial.saturating_add(REFINEMENT_PASSES.saturating_mul(2).saturating_mul(curved_pieces)).saturating_mul(2),
+        max_solves: 1 + REFINEMENT_PASSES,
+    }
+}
+
 fn initial_samples(model: &PlasticModel, ef: &[ElemF], per_piece: usize) -> Vec<Sample> {
     let mut out = Vec::new();
     for (ei, e) in model.elems.iter().enumerate() {
@@ -1003,7 +1028,7 @@ pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Ve
         }
     };
     let run = |tab: &mut Vec<Vec<f64>>, basis: &mut Vec<usize>, cost: &dyn Fn(usize) -> f64, allow: &dyn Fn(usize) -> bool| -> bool {
-        let max_iter = 50 * (n + p);
+        let max_iter = super::plastic_budget::SIMPLEX_PIVOTS_PER_COLUMN * (n + p);
         let mut degenerate = 0;
         let mut since = 0;
         for _ in 0..max_iter {
@@ -1336,7 +1361,7 @@ fn best_mechanism(
     end_j: &[bool],
     interior: &[Vec<Q>],
     target: &[(usize, Q, f64)],
-) -> Option<(Mechanism, MechanismCheck)> {
+) -> Result<Option<(Mechanism, MechanismCheck)>, String> {
     let nn = model.node_ids.len();
     let mut col = vec![[usize::MAX; 3]; nn];
     let mut n = 0;
@@ -1399,9 +1424,9 @@ fn best_mechanism(
             rows.push(r);
         }
     }
-    let basis = rref_solve(&rows, None, n).null_basis;
+    let basis = rref_solve(&rows, None, n)?.null_basis;
     if basis.is_empty() {
-        return None;
+        return Ok(None);
     }
     let to_mech = |v: &[Q]| -> Mechanism {
         let nodes = (0..nn)
@@ -1469,7 +1494,7 @@ fn best_mechanism(
             }
         }
     }
-    best
+    Ok(best)
 }
 
 /// Exact candidates found for a model (exposed for tests that tamper with them).
@@ -1487,15 +1512,17 @@ pub struct PlasticCandidates {
 /// Find and check a static field and a mechanism for the model. `solver` (if
 /// given) contributes its final state as a second static candidate.
 pub fn plastic_candidates(model: &PlasticModel, solver: Option<&PlasticResult>) -> Result<PlasticCandidates, String> {
+    lp_work(model).check_engine_budget()?;
     let eq = equilibrium_system(model)?;
+    lp_work(model).check_candidate_workspace(eq.null.len())?;
     let eqf = EqF {
         xp: eq.xp.iter().map(to_f64).collect(),
         null: eq.null.iter().map(|v| v.iter().map(to_f64).collect()).collect(),
     };
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
-    let mut samples = initial_samples(model, &ef, 16);
+    let mut samples = initial_samples(model, &ef, INITIAL_INTERVALS);
     let mut lp = solve_lp(&samples, &ef, &eqf).ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
-    for _ in 0..6 {
+    for _ in 0..REFINEMENT_PASSES {
         let x = field_f64(&eqf, lp.lambda, &lp.z);
         let extra = cutting_samples(model, &ef, &x, lp.lambda, &samples);
         if extra.is_empty() {
@@ -1563,7 +1590,7 @@ pub fn plastic_candidates(model: &PlasticModel, solver: Option<&PlasticResult>) 
             h.sort();
             h.dedup();
         }
-        if let Some((m, c)) = best_mechanism(model, &end_i, &end_j, &interior, &target) {
+        if let Some((m, c)) = best_mechanism(model, &end_i, &end_j, &interior, &target)? {
             if best_mech.as_ref().is_none_or(|(_, b)| c.lambda_upper < b.lambda_upper) {
                 best_mech = Some((m, c));
             }
@@ -1741,6 +1768,45 @@ fn certify_plastic_2d_body(input: &PlasticInput) -> Result<CertifiedPlastic2D, S
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mechanism_resource_refusal_is_preserved() {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        let mut model = build_model(&input).unwrap();
+        model.elems[0].dx = Q::from_integer(num_bigint::BigInt::one() << (super::super::plastic_budget::MAX_EXACT_BITS as usize + 1));
+        let ends = vec![false; model.elems.len()];
+        let interior = vec![Vec::new(); model.elems.len()];
+        let result = best_mechanism(&model, &ends, &ends, &interior, &[]);
+        let refusal = format!("{result:?}");
+        assert!(refusal.starts_with("Err("), "{refusal}");
+        assert!(refusal.contains("exact plastic LP resource budget exceeded: rational limb bits"), "{refusal}");
+    }
+
+
+    #[test]
+    fn lp_work_matches_initial_samples() {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1261.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        let original = build_model(&input).unwrap();
+        for degree in 0..4 {
+            for count in [1, 2, 7] {
+                let mut model = original.clone();
+                let e = &mut model.elems[0];
+                e.pieces = (0..count).map(|i| {
+                    let mut c = std::array::from_fn(|_| qi(0));
+                    c[degree] = qi(1);
+                    Piece { a: qr(i, count), b: qr(i + 1, count), c }
+                }).collect();
+                for capacity in [true, false] {
+                    if !capacity { model.elems[0].mp = None; }
+                    let ef: Vec<_> = model.elems.iter().map(elem_f64).collect();
+                    assert_eq!(lp_work(&model).initial_halfspaces,
+                        initial_samples(&model, &ef, INITIAL_INTERVALS).len() * 2);
+                }
+            }
+        }
+    }
 
     #[test]
     fn bernstein_bound_is_an_upper_bound_and_tight() {

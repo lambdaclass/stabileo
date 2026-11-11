@@ -141,7 +141,7 @@ class Models(unittest.TestCase):
                 failure = {'test': 'metamorphic/static/rotation',
                            'details': [f"replay: {quantity} error {len(model['loads']) * .01} exceeds tolerance 1e-6"]}
                 row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
-                row['fail'] = 1
+                row.update(analysis='static', invariant='rotation', fail=1)
                 Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [failure], 'verdicts': [row]}))
                 return subprocess.CompletedProcess(cmd, 101, '', '')
             with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
@@ -166,7 +166,7 @@ class Models(unittest.TestCase):
                 failure = {'test': 'metamorphic/static/rotation',
                            'details': ['replay: original solved but transformed model failed: Singular stiffness matrix']}
                 row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
-                row['fail'] = 1
+                row.update(analysis='static', invariant='rotation', fail=1)
                 Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [failure], 'verdicts': [row]}))
                 return subprocess.CompletedProcess(cmd, 101, '', '')
             with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
@@ -206,6 +206,82 @@ class Models(unittest.TestCase):
                 category = 'inconclusive' if verdict in ('refused', 'inconclusive') else 'skipped'
                 if verdict != 'pass':
                     self.assertEqual(counts[category][0][verdict], 3)
+
+
+    def test_seeded_failure_dropped_failure_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source = base / 'model.json'
+            source.write_text('{}')
+            out = base / 'out'
+            row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
+            row.update(analysis='linear', invariant='rotation', fail=1)
+            def replay(cmd, **kwargs):
+                if cmd == [sys.executable, '-c', 'import openseespy.opensees']:
+                    return subprocess.CompletedProcess(cmd, 1)
+                self.assertEqual(cmd, ['replay', '--ignored', '--exact', 'metamorphic_replay', '--nocapture'])
+                Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [], 'verdicts': [row]}))
+                return subprocess.CompletedProcess(cmd, 0, '', '')
+            with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
+                    patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
+                    patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(RuntimeError, 'failure test identities disagree'):
+                    models.main()
+
+    def test_one_metamorphic_failure_with_several_details_is_persisted(self):
+        for fail_count in (1, 2):
+            with self.subTest(fail_count=fail_count):
+                with tempfile.TemporaryDirectory() as tmp:
+                    base = Path(tmp)
+                    source = base / 'model.json'
+                    source.write_text('{}')
+                    out = base / 'out'
+                    row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
+                    row.update(analysis='linear', invariant='rotation', fail=fail_count)
+                    failure = {'test': 'metamorphic/linear/rotation', 'details': ['displacement sign differs', 'rotation sign differs']}
+                    def replay(cmd, **kwargs):
+                        if cmd == [sys.executable, '-c', 'import openseespy.opensees']:
+                            return subprocess.CompletedProcess(cmd, 1)
+                        self.assertEqual(cmd, ['replay', '--ignored', '--exact', 'metamorphic_replay', '--nocapture'])
+                        Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [failure], 'verdicts': [row]}))
+                        return subprocess.CompletedProcess(cmd, 101, '', '')
+                    with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--seed', '1919', '--reduce-seconds', '0', '--out', str(out)]), \
+                            patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
+                            patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
+                        self.assertEqual(models.main(), 1)
+                    findings = list(out.glob('*.finding.json'))
+                    self.assertEqual(len(findings), 1)
+                    finding = json.loads(findings[0].read_text())
+                    self.assertEqual(finding['test'], failure['test'])
+                    self.assertEqual(finding['details'], failure['details'])
+                    self.assertEqual(finding['seed'], 1919)
+                    summary = json.loads((out / 'summary.json').read_text())
+                    self.assertEqual(summary['findings'], 1)
+                    self.assertEqual(summary['comparisons']['metamorphic']['completed'], fail_count)
+
+    def test_same_refusal_is_recorded_as_inconclusive_coverage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source = base / 'model.json'
+            source.write_text('{}')
+            out = base / 'out'
+            row = dict.fromkeys(['pass', 'fail', 'refused', 'inconclusive', 'unrepresentable', 'not_applicable'], 0)
+            row.update(analysis='linear', invariant='rotation', same_refusal=1)
+            def replay(cmd, **kwargs):
+                if cmd == [sys.executable, '-c', 'import openseespy.opensees']:
+                    return subprocess.CompletedProcess(cmd, 1)
+                self.assertEqual(cmd, ['replay', '--ignored', '--exact', 'metamorphic_replay', '--nocapture'])
+                Path(kwargs['env']['NIGHTLY_RESULTS']).write_text(json.dumps({'failures': [], 'verdicts': [row]}))
+                return subprocess.CompletedProcess(cmd, 0, '', '')
+            with patch.object(sys, 'argv', ['nightly', '--model', str(source), '--check', 'metamorphic', '--out', str(out)]), \
+                    patch.dict(os.environ, {'NIGHTLY_REPLAY_BIN': 'replay', 'ASTER_PYTHON': ''}), \
+                    patch.object(models, 'run', side_effect=replay), contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(RuntimeError, 'insufficient metamorphic coverage'):
+                    models.main()
+            counts = json.loads((out / 'summary.json').read_text())['comparisons']['metamorphic']
+            self.assertEqual(counts['completed'], 0)
+            self.assertEqual(len(counts['inconclusive']), 1)
+            self.assertEqual(counts['inconclusive'][0]['same_refusal'], 1)
 
 
 class Artifacts(unittest.TestCase):
@@ -344,6 +420,26 @@ class Artifacts(unittest.TestCase):
 
 
 class Workflow(unittest.TestCase):
+    def test_expensive_plastic_grid_stays_out_of_the_live_corpus(self):
+        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
+        step = workflow.split('- name: Plastic LP budgets and seeded resource watchdog', 1)[1].split('- name:', 1)[0]
+        commands = textwrap.dedent(step.split('run: |', 1)[1])
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            base = Path(tmp)
+            source = base / 'engine/fuzz/corpus-regressions/plastic-lp-budget'
+            source.mkdir(parents=True)
+            names = {p.name for p in (ROOT / 'engine/fuzz/corpus-regressions/plastic-lp-budget').glob('*.bin')}
+            for name in names:
+                (source / name).write_bytes(name.encode())
+            live = base / 'engine/fuzz/corpus/json_plastic'
+            live.mkdir(parents=True)
+            for name in ('ex-3d-grid-slab-1', 'ex-3d-grid-slab-3', 'engine-grid-slab.bin'):
+                (live / name).write_bytes(name.encode())
+            subprocess.run(['bash', '-e', '-c', 'make() { :; }\n' + commands], cwd=base, check=True)
+            copied = {p.name for p in live.iterdir()}
+            self.assertEqual(copied, names - {'engine-grid-slab.bin'})
+            self.assertEqual((source / 'engine-grid-slab.bin').read_bytes(), b'engine-grid-slab.bin')
+
     def test_property_pipeline_propagates_failure_and_timeout(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
         step = workflow.split('      - name: Property soak', 1)[1].split('      - uses:', 1)[0]

@@ -90,15 +90,12 @@ fn member(s: &SolverInput, plane: Plane, eid: usize) -> TResult<Member> {
 }
 
 fn restraint(plane: Plane, support: Option<&SolverSupport>) -> TResult<[bool; 6]> {
-    let (x, z, r) = match support.map(|s| s.support_type.as_str()) {
-        None | Some("spring") | Some("free") => (false, false, false),
-        Some("fixed") => (true, true, true),
-        Some("pinned") => (true, true, false),
-        Some("rollerX") => (false, true, false),
-        Some("rollerY") | Some("rollerZ") => (true, false, false),
-        Some("guidedX") => (false, true, true),
-        Some("guidedY") | Some("guidedZ") => (true, false, true),
-        Some(t) => return unrep(format!("support type {t} has no plane-frame embedding")),
+    let [x, z, r] = match support {
+        None => [false; 3],
+        Some(s) if matches!(s.support_type.as_str(), "spring" | "free" | "fixed" | "pinned" | "rollerX" | "rollerY" | "rollerZ" | "guidedX" | "guidedY" | "guidedZ") => {
+            crate::solver::support::support_dofs_2d(s).map(|d| d.restrained)
+        }
+        Some(s) => return unrep(format!("support type {} has no plane-frame embedding", s.support_type)),
     };
     let (a1, a2) = plane.axes();
     let normal = 3 - a1 - a2;
@@ -170,9 +167,10 @@ pub fn embed_2d(s: &SolverInput, plane: Plane) -> TResult<SolverInput3D> {
         let mut k = [None; 6];
         let mut d = [None; 6];
         if let Some(sup) = sup {
-            k[a1] = sup.kx;
-            k[a2] = sup.ky;
-            k[3 + normal] = sup.kz;
+            let spring = crate::solver::support::support_dofs_2d(sup).map(|d| d.spring);
+            k[a1] = spring[0];
+            k[a2] = spring[1];
+            k[3 + normal] = spring[2];
             d[a1] = sup.dx;
             d[a2] = sup.dz;
             d[3 + normal] = sup.dry.map(|v| n_sign * v);
@@ -200,11 +198,11 @@ pub fn embed_2d(s: &SolverInput, plane: Plane) -> TResult<SolverInput3D> {
                 })
             }
             SolverLoad::PointOnElement(p) => {
-                if p.px.is_some_and(|v| v != 0.0) || p.my.is_some_and(|v| v != 0.0) {
-                    return unrep("a point load with an axial part or a moment has no 3D equivalent");
+                if p.my.is_some_and(|v| v != 0.0) {
+                    return unrep("a point load with a moment has no 3D equivalent");
                 }
                 let m = member(s, plane, p.element_id)?;
-                SolverLoad3D::PointOnElement(SolverPointLoad3D { element_id: p.element_id, a: p.a, py: m.cy * p.p, pz: m.cz * p.p })
+                SolverLoad3D::PointOnElement(SolverPointLoad3D { px: p.px.unwrap_or(0.0), element_id: p.element_id, a: p.a, py: m.cy * p.p, pz: m.cz * p.p })
             }
             SolverLoad::AxialDistributed(q) => SolverLoad3D::Distributed(SolverDistributedLoad3D {
                 element_id: q.element_id, q_xi: q.q_i, q_xj: q.q_j, q_yi: 0.0, q_yj: 0.0, q_zi: 0.0, q_zj: 0.0, a: q.a, b: q.b,

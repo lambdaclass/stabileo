@@ -1,0 +1,34 @@
+{
+  "id": "support-spring-conflicts-refused",
+  "date": "2026-11-08",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "springs"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Rigid restraints and springs on the same DOF are refused",
+    "es": "Se rechazan apoyos rígidos con resortes en el mismo grado de libertad",
+    "pt": "Restrições rígidas com molas no mesmo grau de liberdade são recusadas",
+    "de": "Starre Lager und Federn am selben Freiheitsgrad werden abgelehnt",
+    "fr": "Un blocage rigide et un ressort sur le même degré de liberté sont refusés",
+    "tr": "Aynı serbestlik derecesindeki rijit mesnet ve yay reddediliyor"
+  },
+  "explanation": {
+    "en": "The engine kept a rigid DOF fixed in 2D but made it elastic in 3D when the same support also had a positive spring. Displacements, reactions, member forces, modal frequencies and buckling factors could therefore describe a different structure (#1636–#1646). Both dimensions now refuse that contradictory input with conflicting_support_spring, naming the support, node and fields. Remove the spring for a rigid DOF, or release the restraint for an elastic DOF. Springs on free DOFs remain valid. This notice flags all projects with springs; many are unaffected. The web app already filters stale springs from rigid 3D DOFs, but direct engine inputs were still affected.",
+    "es": "El motor mantenía fijo un grado de libertad rígido en 2D, pero lo volvía elástico en 3D si el mismo apoyo también tenía un resorte positivo. Desplazamientos, reacciones, esfuerzos, frecuencias y factores de pandeo podían corresponder a otra estructura (#1636–#1646). Ahora ambas dimensiones rechazan esa entrada contradictoria con conflicting_support_spring e identifican el apoyo, nudo y campos. Quite el resorte para un apoyo rígido o libere la restricción para uno elástico. Los resortes en grados libres siguen siendo válidos. El aviso incluye todo proyecto con resortes; muchos no están afectados. La aplicación web ya filtraba resortes antiguos de grados rígidos 3D, pero la entrada directa al motor seguía afectada.",
+    "pt": "O motor mantinha fixo um grau de liberdade rígido em 2D, mas o tornava elástico em 3D quando o mesmo apoio também tinha uma mola positiva. Deslocamentos, reações, esforços, frequências e fatores de flambagem podiam representar outra estrutura (#1636–#1646). Agora ambas as dimensões recusam essa entrada contraditória com conflicting_support_spring, identificando apoio, nó e campos. Remova a mola para um apoio rígido ou libere a restrição para um elástico. Molas em graus livres continuam válidas. O aviso inclui todos os projetos com molas; muitos não são afetados. A aplicação web já filtrava molas antigas de graus rígidos 3D, mas a entrada direta no motor continuava afetada.",
+    "de": "Der Löser hielt einen starren Freiheitsgrad in 2D fest, machte ihn in 3D aber elastisch, wenn dasselbe Lager auch eine positive Feder hatte. Verschiebungen, Auflagerkräfte, Schnittgrößen, Eigenfrequenzen und Knickfaktoren konnten daher zu einer anderen Struktur gehören (#1636–#1646). Beide Dimensionen lehnen diese widersprüchliche Eingabe jetzt mit conflicting_support_spring unter Angabe von Lager, Knoten und Feldern ab. Entfernen Sie die Feder für ein starres Lager oder lösen Sie die Bindung für ein elastisches. Federn an freien Freiheitsgraden bleiben gültig. Der Hinweis erfasst alle Projekte mit Federn; viele sind nicht betroffen. Die Webanwendung filterte alte Federn an starren 3D-Freiheitsgraden bereits, direkte Eingaben an den Löser waren weiter betroffen.",
+    "fr": "Le moteur gardait fixe un degré de liberté rigide en 2D mais le rendait élastique en 3D lorsque le même appui portait aussi un ressort positif. Déplacements, réactions, efforts, fréquences propres et facteurs de flambement pouvaient donc décrire une autre structure (#1636–#1646). Les deux dimensions refusent désormais cette entrée contradictoire avec conflicting_support_spring, en nommant appui, nœud et champs. Supprimez le ressort pour un appui rigide ou libérez le blocage pour un appui élastique. Les ressorts sur les degrés libres restent valides. Cet avis vise tous les projets avec ressorts ; beaucoup ne sont pas concernés. Le web filtrait déjà les anciens ressorts sur les degrés rigides 3D, mais les entrées directes du moteur restaient touchées.",
+    "tr": "Çözücü, aynı mesnette pozitif yay da varsa rijit bir serbestlik derecesini 2D’de sabit tutarken 3D’de elastik yapıyordu. Yer değiştirmeler, mesnet kuvvetleri, çubuk kuvvetleri, doğal frekanslar ve burkulma katsayıları farklı bir yapıyı temsil edebiliyordu (#1636–#1646). Her iki boyut artık bu çelişkili girdiyi mesnet, düğüm ve alanları adlandıran conflicting_support_spring ile reddediyor. Rijit mesnet için yayı kaldırın, elastik mesnet için kısıtı serbest bırakın. Serbest derecelerdeki yaylar geçerlidir. Bildirim yay içeren tüm projeleri kapsar; çoğu etkilenmez. Web uygulaması rijit 3D derecelerdeki eski yayları zaten süzüyordu, ancak doğrudan çözücü girdileri hâlâ etkileniyordu."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-support-spring-conflicts.md",
+    "heading": "Rigid restraints and springs on the same DOF are refused"
+  }
+}

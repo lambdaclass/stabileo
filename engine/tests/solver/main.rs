@@ -61,3 +61,6 @@ mod cqc_1981;
 mod lee_frame;
 #[path = "../benchmarks/dadeppo_arch.rs"]
 mod dadeppo_arch;
+
+#[path = "../static_solver_mutants.rs"]
+mod static_solver_mutants;

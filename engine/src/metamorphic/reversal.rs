@@ -96,6 +96,7 @@ pub fn reverse_3d(input: &SolverInput3D, flip: &dyn Fn(usize) -> bool) -> TResul
             SolverLoad3D::PointOnElement(q) if flip(q.element_id) => {
                 let len = len3(&explicit, q.element_id);
                 q.a = len - q.a;
+                q.px = -q.px;
                 q.pz = -q.pz;
             }
             SolverLoad3D::Thermal(t) if flip(t.element_id) => t.dt_gradient_z = -t.dt_gradient_z,

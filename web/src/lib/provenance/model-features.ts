@@ -32,24 +32,26 @@ export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pde
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
-  'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'timberOrAluminiumMembers',
-  'concreteMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
+  'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
+  'concreteMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'coarseShellsPro',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear',
   'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
-  'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
 
 type Entries<T> = Array<[number, T]> | undefined;
 interface Mat { id: number; fy?: number; gradeId?: string; name?: string; e?: number }
+interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: number; stagger?: { sMm?: number; gMm?: number } }
+const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.gMm].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 interface Elem {
   id: number; type?: string; materialId: number; sectionId?: number; nodeI: number; nodeJ: number;
-  releaseI?: Record<string, unknown>; releaseJ?: Record<string, unknown>;
+  releaseI?: object; releaseJ?: object;
   semiRigid?: unknown; reinforcement?: unknown;
-  tensionConnection?: { i?: unknown; j?: unknown };
+  tensionConnection?: { i?: TensionEndSnapshot; j?: TensionEndSnapshot };
   unbracedLength?: number;
   bracing?: { top?: readonly unknown[]; bottom?: readonly unknown[] };
   /** Set on the members of a curve drawn as one (`lib/model/curved-member.ts`). */
@@ -60,7 +62,8 @@ interface Elem {
 interface Sup {
   nodeId: number; type?: string; angle?: number; isGlobal?: boolean; isInclined?: boolean; dofFrame?: string;
   normalX?: number; normalY?: number; normalZ?: number; curves?: unknown;
-  [k: string]: unknown;
+  kx?: unknown; ky?: unknown; kz?: unknown; krx?: unknown; kry?: unknown; krz?: unknown;
+  dx?: unknown; dy?: unknown; dz?: unknown; dry?: unknown; drz?: unknown; drx?: unknown;
 }
 
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
@@ -70,14 +73,15 @@ export interface FeatureSnapshot {
   materials?: Entries<Mat>;
   elements?: Entries<Elem>;
   sections?: Entries<{ id: number; shearAreas?: unknown }>;
+  fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
-  loadCases?: Array<{ id: number; type?: string; spectral?: unknown }>;
+  loadCases?: Array<{ id: number; type?: string; spectral?: unknown; alternatives?: string }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
-  plates?: Entries<{ offset?: Offset3; nodes?: number[] }>;
-  quads?: Entries<{ curved?: boolean; offset?: Offset3; nodes?: number[] }>;
+  plates?: Entries<{ id?: number; offset?: Offset3; nodes?: number[] }>;
+  quads?: Entries<{ id?: number; curved?: boolean; offset?: Offset3; nodes?: number[] }>;
   constraints?: Array<Record<string, unknown>>;
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
@@ -103,8 +107,8 @@ interface Offset3 { x?: number; y?: number; z?: number }
 const values = <T>(e: Entries<T>): T[] => (Array.isArray(e) ? e.map((x) => x?.[1]).filter((x): x is T => !!x) : []);
 const nonZero = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v !== 0;
 const positive = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
-const SPRING_KEYS = ['kx', 'ky', 'kz', 'krx', 'kry', 'krz'];
-const SETTLEMENT_KEYS = ['dx', 'dy', 'dz', 'dry', 'drz', 'drx'];
+const SPRING_KEYS = ['kx', 'ky', 'kz', 'krx', 'kry', 'krz'] as const;
+const SETTLEMENT_KEYS = ['dx', 'dy', 'dz', 'dry', 'drz', 'drx'] as const;
 
 function isInclined(s: Sup): boolean {
   if (s.isInclined) return true;
@@ -118,7 +122,7 @@ function offsetMoves(o: Offset3 | undefined): boolean {
   return !!o && [o.x, o.y, o.z].some(nonZero);
 }
 
-function hasRelease(r: Record<string, unknown> | undefined): boolean {
+function hasRelease(r: object | undefined): boolean {
   return !!r && Object.values(r).some((v) => v === true);
 }
 
@@ -158,12 +162,16 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const released = new Set<number>();
   const sheared = new Set(values(s.sections).filter((x) => x.shearAreas != null).map((x) => x.id));
+  const hognestadSections = new Set(Object.entries(s.fiberSections ?? {})
+    .filter(([, section]) => section.materials?.some((material) => material.type === 'concrete_hognestad'))
+    .map(([id]) => id));
   if (elements.length) f.add('members');
-  let steel = 0, concrete = 0, steelWithoutConnection = 0, steelDeclaredLb = 0;
+  let steel = 0, concrete = 0, steelWithoutConnection = 0, steelDeclaredLb = 0, steelChainEnd = 0;
   for (const e of elements) {
     if (e.type === 'truss') f.add('trussMembers'); else f.add('frameMembers');
     if (hasRelease(e.releaseI) || hasRelease(e.releaseJ) || e.semiRigid) { f.add('hinges'); if (e.type !== 'truss') released.add(e.id); }
     if (e.type !== 'truss' && e.sectionId !== undefined && sheared.has(e.sectionId)) f.add('shearAreas');
+    if (e.type !== 'truss' && e.type !== 'cable' && e.sectionId !== undefined && hognestadSections.has(String(e.sectionId))) f.add('hognestadFiberMembers');
     if (e.arc) f.add('arcMembers');
     if (offsetMoves(e.offset?.i) || offsetMoves(e.offset?.j)) f.add('eccentricities');
     const fam = familyOf(e.materialId);
@@ -172,6 +180,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       steel++;
       if (!e.tensionConnection?.i || !e.tensionConnection?.j) steelWithoutConnection++;
       if ((e.unbracedLength ?? 0) > 0 || e.bracing?.top?.length || e.bracing?.bottom?.length) steelDeclaredLb++;
+      if ([e.tensionConnection?.i, e.tensionConnection?.j].some((c) => c?.kind === 'bolted' && (staggerGiven(c.stagger) || (c.connected === 'all' && c.webLines === 0)))) steelChainEnd++;
     } else if (fam === 'concrete' || e.reinforcement) {
       concrete++;
     }
@@ -183,6 +192,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       f.add('steelCirsoc301');
       if (steelWithoutConnection) f.add('steelTensionWithoutConnection');
       if (steelDeclaredLb) f.add('steelDeclaredUnbracedLength');
+      if (steelChainEnd) f.add('steelStaggeredOrUnboltedWebEnd');
     }
   }
   if (concrete) {
@@ -227,6 +237,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (connectors.some((c) => positive(c.kShear) || positive(c.kShearZ))) f.add('connectorsWithShear');
 
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
+  if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';

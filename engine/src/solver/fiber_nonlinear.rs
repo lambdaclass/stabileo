@@ -81,10 +81,21 @@ pub struct FiberNonlinearResult {
     pub converged: bool,
     pub status: FiberRunStatus,
     pub last_converged_load_factor: f64,
+    pub load_limit: Option<FiberLoadLimit>,
     pub stop_reason: Option<String>,
     pub n_increments: usize,
     pub history: Vec<FiberIncrement<Displacement>>,
     pub fiber_status: Vec<FiberElementStatus>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FiberLoadLimit {
+    pub lower_load_factor: f64,
+    pub upper_load_factor: f64,
+    pub tolerance: f64,
+    pub capacity_certified: bool,
+    pub reason: String,
 }
 
 /// Per-element fiber status.
@@ -118,6 +129,16 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
         super::feature_gates::Feature::ShearDeformation, super::feature_gates::Feature::MomentReleases,
     ])?;
 
+    if input.n_increments == 0 || input.max_iter == 0 || !input.tolerance.is_finite() || input.tolerance <= 0.0 {
+        return Err("Fiber-nonlinear analysis requires positive increments, iterations and finite positive tolerance".into());
+    }
+    let refine_load = crate::ordered::values(&input.solver.elements)
+        .filter(|e| e.elem_type != "truss" && e.elem_type != "cable")
+        .filter_map(|e| input.fiber_sections.get(&e.section_id.to_string()))
+        .any(|s| s.materials.iter().any(|m| matches!(m, FiberMaterial::ConcreteHognestad { .. })));
+    if refine_load && input.tolerance * 0.25 == 0.0 {
+        return Err("Fiber-nonlinear tolerance is too small to represent the load refinement tolerance".into());
+    }
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
@@ -184,8 +205,17 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
     let mut last_lf = 0.0;
     let mut history = Vec::new();
     let mut stop_reason: Option<String> = None;
-    for inc in 1..=input.n_increments {
-        let load_factor = inc as f64 / input.n_increments as f64;
+    let mut load_limit = None;
+    let mut refused_upper = None;
+    let mut load_factor = 1.0 / input.n_increments as f64;
+    let mut next_increment = 1;
+    let mut attempts = 0usize;
+    while last_lf < 1.0 {
+        attempts += 1;
+        if attempts > input.n_increments.saturating_mul(64).saturating_add(256) {
+            return Err("Fiber load refinement exhausted its attempt budget; no capacity established".into());
+        }
+        stop_reason = None;
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
 
         let mut nr_converged = false;
@@ -298,6 +328,30 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
             let rel_error = if f_norm > 1e-30 { r_norm / f_norm } else { r_norm };
 
             inc_residual = rel_error;
+            let mut stable_dense = None;
+            let mut stable_sparse = None;
+            if refine_load {
+                let positive = if sparse_tangent {
+                    let k_csc = tangent_free_sparse_triplets(&trip_rows, &trip_cols, &trip_vals, nf, &cs);
+                    let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
+                    stable_sparse = numeric_cholesky(sym, &k_csc);
+                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_csc, stable_sparse.as_ref()) { conditioning = Some(found); }
+                    stable_sparse.is_some()
+                } else {
+                    let free_idx: Vec<usize> = (0..nf).collect();
+                    let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+                    let mut k_s = if let Some(ref cs) = cs { cs.reduce_matrix(&k_ff) } else { k_ff };
+                    let unfactored = k_s.clone();
+                    let positive = cholesky_decompose(&mut k_s, ns);
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&unfactored, ns, positive.then_some(k_s.as_slice())) { conditioning = Some(found); }
+                    if positive { stable_dense = Some(k_s); }
+                    positive
+                };
+                if !positive {
+                    stop_reason = Some("non-positive tangent on the load-controlled trial path".into());
+                    break;
+                }
+            }
             if rel_error < input.tolerance {
                 nr_converged = true;
                 break;
@@ -310,7 +364,16 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                 r_f
             };
 
-            let delta_u_indep = if sparse_tangent {
+            let delta_u_indep = if refine_load && !input.modified_nr {
+                if let Some(ref factor) = stable_sparse {
+                    sparse_cholesky_solve(factor, &r_s)
+                } else if let Some(ref factor) = stable_dense {
+                    let y = forward_solve(factor, &r_s, ns);
+                    back_solve(factor, &y, ns)
+                } else {
+                    return Err("Fiber load-control trial has no positive tangent factor".into());
+                }
+            } else if sparse_tangent {
                 // Sparse path: CSC free block built directly from the
                 // lower-triangle triplets (no dense n×n tangent), then
                 // sparse Cholesky with cached symbolic.
@@ -416,15 +479,35 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
         }
 
         if !nr_converged {
-            converged = false;
-            stop_reason.get_or_insert_with(|| format!(
+            let reason = stop_reason.get_or_insert_with(|| format!(
                 "no convergence in {} iterations at load factor {load_factor} (relative residual {inc_residual:.3e})",
                 input.max_iter,
-            ));
+            )).clone();
             u_full = u_committed;
             for (id, es) in elem_states.iter_mut() {
                 es.section_states.clone_from(&committed[id]);
             }
+            if refine_load {
+                refused_upper = Some(load_factor);
+                let width = load_factor - last_lf;
+                if width > input.tolerance * 0.25 {
+                    let midpoint = last_lf + width * 0.5;
+                    if midpoint <= last_lf || midpoint >= load_factor {
+                        return Err("Fiber load-control interval cannot be refined to the requested tolerance in floating point; no capacity established".into());
+                    }
+                    load_factor = midpoint;
+                    continue;
+                }
+                load_limit = Some(FiberLoadLimit {
+                    lower_load_factor: last_lf,
+                    upper_load_factor: load_factor,
+                    tolerance: input.tolerance,
+                    capacity_certified: false,
+                    reason: reason.clone(),
+                });
+                stop_reason = Some(format!("Load-control boundary in [{last_lf:.12}, {load_factor:.12}] (load-factor tolerance {}): {reason}. This numerical boundary is not a certified capacity; load control cannot follow a softening path.", input.tolerance));
+            }
+            converged = false;
             break;
         }
         last_lf = load_factor;
@@ -434,6 +517,17 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
             relative_residual: inc_residual,
             displacements: super::linear::build_displacements_2d(&dof_num, &u_full),
         });
+        if let Some(upper) = refused_upper {
+            if last_lf < upper {
+                load_factor = upper;
+                continue;
+            }
+            refused_upper = None;
+        }
+        while next_increment <= input.n_increments && next_increment as f64 / input.n_increments as f64 <= last_lf {
+            next_increment += 1;
+        }
+        load_factor = (next_increment as f64 / input.n_increments as f64).min(1.0);
     }
 
     // Build results
@@ -519,6 +613,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
         converged,
         status: if converged { FiberRunStatus::Complete } else { FiberRunStatus::Stopped },
         last_converged_load_factor: last_lf,
+        load_limit,
         stop_reason,
         n_increments: input.n_increments,
         history,

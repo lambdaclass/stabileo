@@ -3,6 +3,8 @@
  * the committed format, and when a pull request must register a result change.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import spanAxial from '../../src/lib/provenance/result-changes/pdelta-span-axial.json';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
@@ -86,9 +88,28 @@ describe('storing', () => {
 describe('the gate', () => {
   const snap = (values: Record<string, unknown>) => ({ case: 'c', covers: '', format: 1, values });
   const registry = { schema: 1, numbered: [{ id: 'old', resultsVersion: 4 }], unnumbered: [] };
-  const registered = { ...registry, unnumbered: [{ id: 'new' }] };
+  const registered = { ...registry, unnumbered: [{ id: 'new', when: {}, quantities: ['*'] }] };
+  const caseFeatures = { 'web/results-snapshots/c.json': ['space3D', 'analysis:linear'], 'web/results-snapshots/d.json': ['space3D', 'analysis:linear'] };
   const breaking = { file: 'changelog.d/a.md', text: '### BREAKING (results)\n#### A (2026-10-28)\n' };
   const moved = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1.01 }) }];
+
+  it.each([
+    ['pro-3d-portal-frame', 1.006424741],
+    ['pro-3d-tower', 1.000275385],
+  ])('#1329: registers %s displacement amplification', (name, before) => {
+    const file = `web/results-snapshots/${name}.json`;
+    const head = parseSnapshot(readFileSync(new URL(`../../results-snapshots/${name}.json`, import.meta.url), 'utf8'));
+    const base = { ...head, values: { ...head.values, 'pdelta.b2': before } };
+    const r = decide({
+      snapshots: [{ file, base, head }],
+      baseRegistry: registry,
+      headRegistry: { ...registry, unnumbered: [spanAxial] },
+      fragments: [breaking],
+      caseFeatures: { [file]: ['space3D', 'frameMembers', 'analysis:linear', 'analysis:pdelta'] },
+    });
+    expect(r.changed).toHaveLength(1);
+    expect(r.ok, r.report).toBe(true);
+  });
 
   it('passes a pull request whose snapshots did not move', () => {
     const same = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1 + 1e-12 }) }];
@@ -183,7 +204,7 @@ describe('the gate', () => {
     expect(decide({ snapshots: deleted, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(false);
   });
   it('passes a moved result with both', () => {
-    const r = decide({ snapshots: moved, baseRegistry: registry, headRegistry: registered, fragments: [breaking] });
+    const r = decide({ snapshots: moved, baseRegistry: registry, headRegistry: registered, fragments: [breaking], caseFeatures });
     expect(r.ok).toBe(true);
     expect(r.report).toContain('Registered: new (the next results version');
   });
@@ -191,7 +212,7 @@ describe('the gate', () => {
     const examplesOnly = { ...registry, unnumbered: [{ id: 'ex', scope: 'examples', examples: ['torsion'] }] };
     const caseExample = { 'web/results-snapshots/c.json': 'torsion', 'web/results-snapshots/d.json': 'other' };
     const run = (snapshots: unknown[], changedFixtures: string[], headRegistry: unknown = examplesOnly) =>
-      decide({ snapshots, baseRegistry: registry, headRegistry, fragments: [breaking], changedFixtures, caseExample });
+      decide({ snapshots, baseRegistry: registry, headRegistry, fragments: [breaking], changedFixtures, caseExample, caseFeatures });
 
     it('registers a moved snapshot of a listed example whose fixture changed', () => {
       expect(run(moved, ['torsion']).ok).toBe(true);
@@ -206,15 +227,15 @@ describe('the gate', () => {
       const other = [...moved, { file: 'web/results-snapshots/d.json', base: snap({ v: 1 }), head: snap({ v: 2 }) }];
       const r = run(other, ['torsion']);
       expect(r.ok).toBe(false);
-      expect(r.report).toContain('cannot explain web/results-snapshots/d.json');
-      const withEngineEntry = { ...examplesOnly, unnumbered: [{ id: 'engine' }, ...examplesOnly.unnumbered] };
+      expect(r.report).toContain('can explain web/results-snapshots/d.json');
+      const withEngineEntry = { ...examplesOnly, unnumbered: [{ id: 'engine', when: {}, quantities: ['*'] }, ...examplesOnly.unnumbered] };
       expect(run(other, ['torsion'], withEngineEntry).ok).toBe(true);
     });
     it('NEGATIVE: asks the CLI to prove every snapshot of a listed example, moved or not, even beside an unrelated engine entry', () => {
       const proof = [{ file: 'web/results-snapshots/c.json', example: 'torsion' }];
       expect(run(moved, ['torsion']).equivalence).toEqual(proof);
       expect(run([], ['torsion']).equivalence).toEqual(proof);
-      const withEngineEntry = { ...examplesOnly, unnumbered: [{ id: 'engine' }, ...examplesOnly.unnumbered] };
+      const withEngineEntry = { ...examplesOnly, unnumbered: [{ id: 'engine', when: {}, quantities: ['*'] }, ...examplesOnly.unnumbered] };
       expect(run(moved, ['torsion'], withEngineEntry).equivalence).toEqual(proof);
     });
     it('NEGATIVE: fails for a listed example no corpus case opens: nothing could prove its numbers', () => {

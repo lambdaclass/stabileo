@@ -323,7 +323,7 @@ typecheck.web:
 	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs && node scripts/gen-result-sites.mjs"
 
 test.web.unit:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL))"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL))"
 
 test.web.build: web.build.tested
 	$(MAKE) test.web.build.shared
@@ -497,7 +497,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.nightly-scripts check.cadence
+test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -535,6 +535,7 @@ test.ci-scripts: test.nightly-scripts check.cadence
 	python3 -B -I scripts/tests/test_verification_metrics.py
 	python3 -B -I scripts/tests/test_ci_scripts_target.py
 	python3 -B -I scripts/tests/test_benchmark_gate.py
+	$(NIX_RUN) node scripts/tests/snapshot-applicability.mjs
 	python3 -B -I scripts/tests/test_invariance_gate.py
 	python3 -B -I scripts/tests/test_engine_wall_clock_gate.py
 	python3 -B -I scripts/tests/test_timing_budgets_gate.py
@@ -582,6 +583,7 @@ research.wasm: web.deps
 	$(NIX_RUN) research/optimization/andreassen-2011/wasm/build.sh
 	$(NIX_RUN) research/mechanics/biggins-2026/build.sh
 	$(NIX_RUN) research/mechanics/gay-neto-2014/build.sh
+	$(NIX_RUN) research/stability/feher-sipos-varkonyi-2026/build.sh
 	$(NIX_RUN) research/metamaterials/grossman-2026/wasm/build.sh
 	$(NIX_RUN) research/form-finding/pastrana-2026/wasm/build.sh
 	$(NIX_RUN) research/optimisation/fairclough-2026/wasm/build.sh
@@ -807,3 +809,64 @@ evidence.research.biggins:
 
 wasm.research.biggins:
 	$(NIX_RUN) research/mechanics/biggins-2026/build.sh
+
+.PHONY: build.engine.plastic-budget test.engine.plastic-budget replay.engine.plastic-budget test.engine.plastic-budget-watchdog
+
+build.engine.plastic-budget:
+	$(NIX_RUN) cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay --target-dir engine/fuzz/target -j 2
+
+test.engine.plastic-budget:
+	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --lib plastic::tests -- --test-threads=1 $(if $(IGNORED),--ignored)
+
+replay.engine.plastic-budget: build.engine.plastic-budget
+	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
+
+test.engine.plastic-budget-watchdog:
+	$(NIX_RUN) python3 -B -I scripts/tests/test_plastic_budget_replay.py
+
+.PHONY: test.engine.plastic-replay
+test.engine.plastic-replay: build.engine.plastic-budget
+	$(NIX_RUN) python3 -B -I scripts/plastic-budget-engine-tests.py
+
+.PHONY: build.engine.plastic-budget-asan
+build.engine.plastic-budget-asan:
+	$(NIX_RUN) env RUSTC_BOOTSTRAP=1 RUSTFLAGS=-Zsanitizer=address cargo build --locked --release --manifest-path engine/fuzz/Cargo.toml --example plastic_replay --target x86_64-unknown-linux-gnu --target-dir engine/fuzz/target/asan -j 2
+
+.PHONY: test.engine.plastic-resource replay.engine.plastic-budget-asan
+test.engine.plastic-resource: build.engine.plastic-budget
+	$(NIX_RUN) cargo test --locked --release --manifest-path engine/fuzz/Cargo.toml --test plastic_resource -j 2 -- $(if $(IGNORED),--ignored)
+
+replay.engine.plastic-budget-asan: build.engine.plastic-budget-asan
+	$(NIX_RUN) python3 -I scripts/replay-plastic-budget.py $(FILE) --binary engine/fuzz/target/asan/x86_64-unknown-linux-gnu/release/examples/plastic_replay --asan --memory-mib 2048 --mode $(or $(MODE),gate) $(if $(SECONDS),--seconds $(SECONDS)) $(if $(REPEATS),--repeats $(REPEATS))
+
+.PHONY: test.engine.plastic-budget-corpus check.engine.plastic-fuzz
+test.engine.plastic-budget-corpus: build.engine.plastic-budget
+	$(NIX_RUN) python3 -B -I scripts/plastic-budget-corpus.py
+
+check.engine.plastic-fuzz:
+	$(NIX_RUN) cargo check --locked --release --manifest-path engine/fuzz/Cargo.toml --bin json_plastic -j 2
+
+.PHONY: test.engine.plastic-wasm
+test.engine.plastic-wasm: wasm
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/over-budget-grid.bin 'dense storage bytes'
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin certified-lower
+	$(NIX_RUN) timeout 30s node scripts/tests/plastic-budget-wasm.mjs engine/fuzz/corpus-regressions/plastic-lp-budget/unconservative-cantilever.bin certified-lower-above
+
+.PHONY: check.engine.plastic-workflow
+check.engine.plastic-workflow:
+	$(NIX_RUN) actionlint .github/workflows/nightly.yml
+	$(NIX_RUN) python3 -B -I scripts/tests/test_nightly.py Workflow.test_raw_artifact_upload_and_immutable_action
+
+.PHONY: test.engine.plastic-samples
+test.engine.plastic-samples:
+	$(NIX_RUN) cargo test --locked -p dedaliano-engine --lib lp_work_matches_initial_samples
+FEHER_DIR = research/stability/feher-sipos-varkonyi-2026
+.PHONY: test.research.feher evidence.research.feher
+test.research.feher:
+	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate
+	$(NIX_RUN) cargo test --locked -p dedaliano-engine --test validation corotational_prescribed
+
+evidence.research.feher:
+	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin replay -- $(FEHER_DIR)/reference-results/replay.json
+	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate -- --write
+	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("$(FEHER_DIR)/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'

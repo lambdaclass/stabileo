@@ -1,0 +1,35 @@
+{
+  "id": "moving-axial-patch-boundaries",
+  "date": "2026-11-08",
+  "prs": [
+    1783
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members",
+      "movingLoads",
+      "pointOrPartialMemberLoads"
+    ]
+  },
+  "title": {
+    "en": "Moving-load axial envelopes include distributed-load boundaries",
+    "es": "Las envolventes axiales de cargas móviles incluyen los límites de las cargas distribuidas",
+    "pt": "As envoltórias axiais de cargas móveis incluem os limites das cargas distribuídas",
+    "de": "Axialkraftumhüllende für Wanderlasten berücksichtigen Grenzen verteilter Lasten",
+    "fr": "Les enveloppes axiales des charges mobiles incluent les limites des charges réparties",
+    "tr": "Hareketli yük eksenel zarfları yayılı yük sınırlarını içeriyor"
+  },
+  "explanation": {
+    "en": "2D and 3D moving-load envelopes could miss an axial-force peak at the start or end of a distributed load patch, returning zero even for opposite patches with an interior force (#1782, SA-2026-052). Every axial patch boundary and the existing sign roots are now evaluated. Re-run affected envelopes and review designs and sizing based on their axial extrema. Saved moving-load position cases identify projects for this notice; transient sweeps leave no saved marker.",
+    "es": "Las envolventes de cargas móviles 2D y 3D podían omitir un pico axial al inicio o al final de una carga distribuida y devolver cero pese a existir fuerza interior (#1782, SA-2026-052). Ahora se evalúan todos los límites y las raíces de cambio de signo existentes. Vuelva a ejecutar las envolventes afectadas y revise los diseños y dimensionamientos basados en sus extremos axiales. El aviso identifica los casos de posiciones de cargas móviles guardados; los barridos transitorios no dejan una marca guardada.",
+    "pt": "As envoltórias de cargas móveis 2D e 3D podiam omitir um pico axial no início ou fim de uma carga distribuída e retornar zero apesar de existir força interior (#1782, SA-2026-052). Agora são avaliados todos os limites e as raízes de mudança de sinal existentes. Execute novamente as envoltórias afetadas e reveja os projetos e dimensionamentos baseados nos extremos axiais. O aviso identifica casos de posições de cargas móveis salvos; varreduras transitórias não deixam marca salva.",
+    "de": "Wanderlastumhüllende in 2D und 3D konnten Axialkraftspitzen am Anfang oder Ende verteilter Lasten übersehen und trotz innerer Kraft null melden (#1782, SA-2026-052). Nun werden alle Lastgrenzen sowie die bisherigen Vorzeichenwurzeln ausgewertet. Berechnen Sie betroffene Umhüllende erneut und prüfen Sie darauf beruhende Nachweise und Dimensionierungen. Gespeicherte Lastfälle für Wanderlastpositionen bestimmen diesen Hinweis; vorübergehende Lastdurchläufe hinterlassen keine gespeicherte Markierung.",
+    "fr": "Les enveloppes de charges mobiles 2D et 3D pouvaient omettre un pic axial au début ou à la fin d’une charge répartie et donner zéro malgré un effort intérieur (#1782, SA-2026-052). Toutes les limites et les racines de changement de signe existantes sont désormais évaluées. Recalculez les enveloppes concernées et vérifiez les dimensionnements fondés sur leurs extrêmes axiaux. Cet avis utilise les cas de positions de charges mobiles enregistrés ; les balayages transitoires ne laissent aucune marque enregistrée.",
+    "tr": "2B ve 3B hareketli yük zarfları yayılı yük başlangıcında veya sonunda eksenel kuvvet zirvesini kaçırıp iç kuvvet varken sıfır bildirebiliyordu (#1782, SA-2026-052). Artık tüm yük sınırları ve mevcut işaret değişimi kökleri değerlendiriliyor. Etkilenen zarfları yeniden hesaplayın ve eksenel uç değerlere dayanan tasarım ve boyutlandırmaları inceleyin. Bildirim kayıtlı hareketli yük konumu durumlarını kullanır; geçici taramalar kayıtlı işaret bırakmaz."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-moving-axial-patch-boundaries.md",
+    "heading": "Moving-load axial envelopes evaluate every distributed-load boundary (2026-11-08)"
+  }
+}

@@ -17,6 +17,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 pub mod audit;
+pub mod plastic;
 
 /// Fields whose documented values include +∞ (serialized as `null`); see
 /// `certify::finite::DOCUMENTED_INFINITE`. Only +∞ is allowed there, never NaN.

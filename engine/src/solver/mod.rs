@@ -1,4 +1,5 @@
 pub mod dof;
+pub(crate) mod support;
 pub(crate) mod dynamic_validation;
 pub mod assembly;
 pub mod linear;
@@ -20,6 +21,7 @@ pub mod prestress;
 pub mod staged;
 pub mod cable;
 pub mod harmonic;
+mod harmonic_direct;
 pub mod load_cases;
 pub mod winkler;
 pub mod line_search;

@@ -9,6 +9,8 @@
 //! whose catalogue entry lacks them. J and Z resolved from the section's geometry are taken as
 //! given; the closed forms are the thin-walled ones of AISC Design Guide 9 (eq. 3.4, 3.5 and the
 //! parallel-flange channel), which leave out the root fillets.
+//!
+//! `net_area`: Ae at each end of a tension member, §D.3 and §B.4.2.2, in `tension_net_area`.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -18,12 +20,16 @@ use serde_json::{json, Value};
 pub enum Cirsoc301InputsRequest {
     MomentGradient(MomentGradientInput),
     SectionConstants(SectionConstantsInput),
+    NetArea(super::tension_net_area::NetAreaInput),
+    TensionGeometry(super::tension_net_area::NetAreaSection),
 }
 
 pub fn answer(req: &Cirsoc301InputsRequest) -> Result<Value, String> {
     match req {
         Cirsoc301InputsRequest::MomentGradient(input) => moment_gradient(input).map(|g| json!(g)),
         Cirsoc301InputsRequest::SectionConstants(input) => section_constants(input).map(|k| json!(k)),
+        Cirsoc301InputsRequest::NetArea(input) => super::tension_net_area::member_net_area(input).map(|r| json!(r)),
+        Cirsoc301InputsRequest::TensionGeometry(s) => super::tension_net_area::geometry_answer(s).map(|g| json!(g)),
     }
 }
 

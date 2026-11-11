@@ -175,6 +175,7 @@ fn invariance_reported_seeds_are_flagged_or_refused() {
     for seed in [20800,20833,20865,20795,20756,20824,20840,20806] {
         let (mut input, _) = crate::fuzz_models::random_2d_model_rich(seed);
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut input, seed); }
+        input = crate::common::explicit_rigid_support_control(&input);
         if seed == 20806 {
             assert_eq!(solve_2d(&input).unwrap_err(), "Singular stiffness matrix — structure is a mechanism");
             continue;
@@ -190,6 +191,7 @@ fn invariance_reported_seeds_are_flagged_or_refused() {
     for seed in [20761,20788] {
         let (mut input, _) = crate::fuzz_models::random_3d_model_rich(seed);
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_3d(&mut input, seed); }
+        input = crate::common::explicit_elastic_support_control(&input);
         if seed == 20761 {
             assert_eq!(dedaliano_engine::solver::linear::solve_3d(&input).unwrap_err(), "Singular stiffness matrix — structure is a mechanism");
             continue;
@@ -477,6 +479,15 @@ fn reported_seeds_advanced_modal_and_time_history_are_contained() {
         let (mut solver, mut densities) = crate::fuzz_models::random_2d_model_rich(seed);
         for id in solver.materials.keys() { densities.insert(id.clone(), 7850.0); }
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut solver, seed); }
+        let control = crate::common::explicit_rigid_support_control(&solver);
+        if serde_json::to_value(&control.supports).unwrap() != serde_json::to_value(&solver.supports).unwrap() {
+            crate::common::assert_support_conflict(&solve_modal_2d(&solver, &densities, 2).unwrap_err());
+            let th: TimeHistoryInput = serde_json::from_value(serde_json::json!({
+                "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
+            })).unwrap();
+            crate::common::assert_support_conflict(&solve_time_history_2d(&th).unwrap_err());
+        }
+        solver = control;
         match solve_modal_2d(&solver, &densities, 2) {
             Ok(r) => assert_warning(&r.structured_diagnostics, "NUM-INVARIANCE", 762.0),
             Err(error) => assert!(error.starts_with("MODAL-MECHANISM:") || error.starts_with(if seed == 20824 { "Eigenvalue decomposition failed" } else { "No valid modes found" }), "seed {seed}: {error}"),
@@ -1040,24 +1051,24 @@ fn buckling_3d_with_axial_span_loads_carries_no_span_warning_456() {
 }
 
 #[test]
-fn pdelta_with_axial_span_loads_warns_1329() {
+fn pdelta_with_axial_span_loads_needs_no_mean_force_warning_1329() {
     use dedaliano_engine::solver::pdelta::{solve_pdelta_2d, solve_pdelta_3d};
     let tip = SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: -100.0, fz: -1.0, my: 0.0 });
     let lateral_span = SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: -1.0, q_j: -1.0, a: None, b: None });
     let axial_span = SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: 25.0, q_j: 25.0, a: None, b: None });
     let axial_point = SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a: 2.0, p: 0.0, px: Some(-50.0), my: None });
-    for (loads, warns) in [(vec![tip.clone(), lateral_span], false), (vec![tip.clone(), axial_span], true), (vec![tip, axial_point], true)] {
+    for loads in [vec![tip.clone(), lateral_span], vec![tip.clone(), axial_span], vec![tip, axial_point]] {
         let input = make_beam(1, 4.0, E, 0.01, 1e-4, "fixed", None, loads);
         let ds = solve_pdelta_2d(&input, 20, 1e-6).unwrap().results.structured_diagnostics;
-        assert_eq!(ids(&ds).contains(&"PD-SPAN-AXIAL".into()), warns, "2D {:?}", ids(&ds));
+        assert!(!ids(&ds).contains(&"PD-SPAN-AXIAL".into()), "2D {:?}", ids(&ds));
         assert!(!ids(&solve_2d(&input).unwrap().structured_diagnostics).contains(&"PD-SPAN-AXIAL".into()), "linear analysis is not affected");
     }
     let tip = SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: -100.0, fy: 1.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None });
     let span = |qx: f64| SolverLoad3D::Distributed(SolverDistributedLoad3D { q_xi: qx, q_xj: qx, element_id: 1, q_yi: 1.0, q_yj: 1.0, q_zi: 0.0, q_zj: 0.0, a: None, b: None });
-    for (qx, warns) in [(0.0, false), (25.0, true)] {
+    for qx in [0.0, 25.0] {
         let input = make_3d_beam(1, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![tip.clone(), span(qx)]);
         let ds = solve_pdelta_3d(&input, 20, 1e-6).unwrap().results.structured_diagnostics;
-        assert_eq!(ids(&ds).contains(&"PD-SPAN-AXIAL".into()), warns, "3D qx {qx}: {:?}", ids(&ds));
+        assert!(!ids(&ds).contains(&"PD-SPAN-AXIAL".into()), "3D qx {qx}: {:?}", ids(&ds));
     }
 }
 

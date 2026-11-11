@@ -14416,6 +14416,8 @@ const fr: Translations = {
   "knownIssue.TH-RECIPROCITY": "L’analyse temporelle linéaire a échoué aux contrôles de réciprocité avec des écarts allant jusqu’à un facteur 33. La classe de données d’entrée concernée n’est pas encore isolée ; vérifiez indépendamment cette réponse avant le dimensionnement",
   "knownIssue.RC-NM-PAIRING": "Cette vérification de poteau associe l'effort normal d'une combinaison au moment d'une autre, ce qui peut être non conservatif sous le point d'équilibre. Vérifiez le poteau sous chaque combinaison indiquée.",
   "knownIssue.NL-DYNAMIC-GAPS": "L’analyse matériellement non linéaire peut se poursuivre après un incrément non convergé ; la dynamique des poutres omet l’inertie de rotation en flexion. Vérifiez indépendamment la convergence et la réponse des éléments de grande hauteur.",
+  "knownIssue.PL-3D-CERTIFICATE-MISMATCH": "Le facteur brut de ruine plastique 3D incrémentale se situe hors de l’intervalle certifié. Le facteur de ruine renvoyé est la borne inférieure certifiée. Les étapes et les rotules incrémentales conservent les valeurs brutes du solveur et ne sont pas certifiées par cet intervalle.",
+  "plasticDiag.resourceBudget": "La certification plastique a été refusée car son budget de ressources a été dépassé",
   "knownIssue.PL-3D-INVARIANCE": "Les facteurs de charge de ruine plastique 3D des poutres courbes peuvent dépendre de la numérotation. Vérifiez indépendamment la ruine.",
   'clipboard.spaceInPlane': 'La copie provient d\'un modèle 3D : copiez-la à nouveau en 2D pour la coller ici.',
   'sel.copyTitle': 'Copier la sélection (Ctrl+C)',

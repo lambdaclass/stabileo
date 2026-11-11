@@ -62,6 +62,7 @@ pub struct Item {
     /// e.g. an effective-mass tensor of a mode with no participation is
     /// compared on the total mass, not on its own ~0 entries.
     pub floor: f64,
+    pub error: f64,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -124,10 +125,35 @@ pub fn scoped(analysis: &str, planar: bool, distorted_quads: bool, r: Resp) -> R
 }
 
 fn item(node: Option<usize>, elem: Option<usize>, tag: &str, kind: Kind, v: Vec<f64>) -> Item {
-    Item { node, elem, tag: tag.into(), kind, v, floor: 0.0 }
+    Item { node, elem, tag: tag.into(), kind, v, floor: 0.0, error: 0.0 }
 }
 
 impl Resp {
+    pub fn lin_comb(a: f64, x: &Resp, b: f64, y: &Resp) -> Resp {
+        let mut out = x.clone();
+        let key = |i: &Item| (i.node, i.elem, i.tag.clone());
+        let other: std::collections::BTreeMap<_, _> = y.0.iter().map(|i| (key(i), i)).collect();
+        for i in &mut out.0 {
+            let Some(j) = other.get(&key(i)).filter(|j| j.v.len() == i.v.len()) else { i.v.fill(f64::NAN); continue };
+            for (v, w) in i.v.iter_mut().zip(&j.v) { *v = a * *v + b * w; }
+            i.floor = a.abs() * i.floor + b.abs() * j.floor;
+            i.error = a.abs() * i.error + b.abs() * j.error;
+        }
+        let keys: std::collections::BTreeSet<_> = x.0.iter().map(key).collect();
+        for j in &y.0 {
+            if !keys.contains(&key(j)) { let mut missing = j.clone(); missing.v.fill(f64::NAN); out.0.push(missing); }
+        }
+        out
+    }
+
+    pub fn abs_comb(a: f64, x: &Resp, b: f64, y: &Resp) -> Resp {
+        let mut xa = x.clone();
+        let mut ya = y.clone();
+        for i in &mut xa.0 { i.v.iter_mut().for_each(|v| *v = v.abs()); }
+        for i in &mut ya.0 { i.v.iter_mut().for_each(|v| *v = v.abs()); }
+        Resp::lin_comb(a.abs(), &xa, b.abs(), &ya)
+    }
+
     pub fn push(&mut self, node: Option<usize>, elem: Option<usize>, tag: &str, kind: Kind, v: Vec<f64>) {
         self.0.push(item(node, elem, tag, kind, v));
     }
@@ -244,6 +270,8 @@ impl Resp {
         let mut o = self.clone();
         for it in o.0.iter_mut() {
             match (&it.kind, it.tag.as_str()) {
+                (Kind::V3(Dim::LEN), tag) if tag.starts_with("u_t") || tag.starts_with("H_re") || tag.starts_with("H_im") => it.v[axis] = -it.v[axis],
+                (Kind::V3(Dim::NONE), tag) if tag.starts_with("r_t") => (0..3).filter(|&i| i != axis).for_each(|i| it.v[i] = -it.v[i]),
                 (Kind::V3(_), "u" | "R") => it.v[axis] = -it.v[axis],
                 (Kind::V3(_), "r" | "RM") => (0..3).filter(|&i| i != axis).for_each(|i| it.v[i] = -it.v[i]),
                 (Kind::T3(_), _) => {
@@ -362,7 +390,8 @@ impl Resp {
                 Kind::Stress => u.stress(),
             };
             it.v.iter_mut().for_each(|x| *x *= k);
-            it.floor *= k;
+            it.floor *= k.abs();
+            it.error *= k.abs();
         }
         o
     }
@@ -411,7 +440,7 @@ impl Resp {
                     b'm' => f.push_m(lab(k), v),
                     b's' => f.push_s(lab(k), v),
                     _ => {
-                        if dim_scalar {
+                        if dim_scalar || it.floor > 0.0 {
                             f.push_scalar_scaled(lab(k), v, whole)
                         } else {
                             f.push_scalar(lab(k), v)
@@ -551,7 +580,7 @@ pub fn gap_amplification(r: &Resp, tag: &str) -> f64 {
 }
 
 pub fn widened_past(r: &Resp, rel: f64, limit: f64) -> std::collections::HashSet<String> {
-    r.0.iter().filter(|i| rel * gap_amplification(r, &i.tag) > limit).map(|i| i.tag.clone()).collect()
+    r.0.iter().filter(|i| !i.floor.is_finite() || rel * gap_amplification(r, &i.tag) > limit).map(|i| i.tag.clone()).collect()
 }
 
 impl Resp {
@@ -567,3 +596,15 @@ pub fn incomplete_collapse(e: &str) -> bool {
 /// Tag of the marker a plastic row adds when its factor is only a lower bound
 /// (no mechanism formed).
 pub const LOWER_BOUND: &str = "lower_bound";
+
+#[test]
+fn issue_1892_negative_unit_factor_preserves_the_floor_magnitude() {
+    let mut r = Resp::default();
+    r.push(Some(1), None, "u", Kind::V2(Dim::LEN), vec![0.0; 2]);
+    r.set_floor("u", 3.0);
+    r.0[0].error = 0.25;
+    let reversed = r.units(&Units { length: -2.0, force: 1.0, time: 1.0 });
+    assert_eq!(reversed.0[0].floor, 6.0);
+    assert_eq!(reversed.0[0].error, 0.5);
+    assert_eq!(reversed.flat().t.floor, 6.0);
+}

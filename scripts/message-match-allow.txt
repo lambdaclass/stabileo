@@ -164,3 +164,16 @@ scripts/verification-metrics.py: return analysis == "static" and "linear static"
 ## Redacts the user's own API key from a provider error before it is shown: nothing is decided from the wording.
 web/src/lib/ai/providers/types.ts: if (apiKey && err.message.includes(apiKey.slice(0, 12))) return new AiProviderError(err.kind, err.status);
 .github/scripts/nightly-findings.cjs: if (!existing.body.includes(marker)) {
+
+## Parses Rust declarations, attributes and bindings for benchmark assertion coverage; every matched value is Rust source, not an engine message.
+scripts/benchmark-gate.py: if re.search(r'\bfn\s+$', text[:match.start()]):
+scripts/benchmark-gate.py: if re.search(r'\b(?:ignore|cfg|cfg_attr)\b', attrs + enclosing_attrs):
+scripts/benchmark-gate.py: enabled = bool(re.search(r'#\[\s*test\s*\]', attrs))
+scripts/benchmark-gate.py: optional = re.fullmatch(r'\s*if\s+let\s+Some\((\w+)\)\s*=\s*(.*)', statement, re.DOTALL)
+
+## Reads the structured Tolerance-change reason: field from a GitHub pull request body to acknowledge benchmark weakening: PR metadata, not an engine message.
+scripts/benchmark-gate.py: match = re.search(r'^Tolerance-change reason:[ \t]*([^\r\n]*)', context.get('body', ''), re.MULTILINE | re.IGNORECASE)
+
+## Replay assertions verify the user-visible warning contract; dispatch and acceptance also require the structured phase and severity.
+scripts/plastic-budget-corpus.py: assert any("certified lower bound" in warning for warning in certificate["solverWarnings"]), result
+scripts/plastic-budget-corpus.py: assert any("PL-3D-CERTIFICATE-MISMATCH" in warning

@@ -46,7 +46,7 @@ struct Row {
     frequency: f64,
     got: (f64, f64),
     lu: (f64, f64),
-    gauss: (f64, f64),
+    exact: (f64, f64),
 }
 
 fn assert_rows_match_direct(issue: u32, what: &str, rows: &[Row]) {
@@ -58,13 +58,13 @@ fn assert_rows_match_direct(issue: u32, what: &str, rows: &[Row]) {
     });
     for f in freqs {
         let at_f: Vec<&Row> = rows.iter().filter(|r| r.frequency == f).collect();
-        let scale = at_f.iter().flat_map(|r| [r.lu, r.gauss, r.got]).map(|v| v.0.hypot(v.1)).fold(0.0f64, f64::max);
+        let scale = at_f.iter().flat_map(|r| [r.lu, r.exact, r.got]).map(|v| v.0.hypot(v.1)).fold(0.0f64, f64::max);
         if scale == 0.0 {
             continue;
         }
         for r in at_f {
             let diff = |a: (f64, f64), b: (f64, f64)| (a.0 - b.0).hypot(a.1 - b.1) / scale;
-            assert!(diff(r.lu, r.gauss) < 1e-9, "#{issue} {what} {} at {f} Hz: the two direct solves disagree: {:?} vs {:?}", r.at, r.lu, r.gauss);
+            assert!(diff(r.lu, r.exact) < 1e-9, "#{issue} {what} {} at {f} Hz: the two direct solves disagree: {:?} vs {:?}", r.at, r.lu, r.exact);
             assert!(diff(r.got, r.lu) < 1e-6, "#{issue} {what} {} at {f} Hz: reported {:?}, direct {:?} (scale {scale:.3e})", r.at, r.got, r.lu);
         }
     }
@@ -85,7 +85,7 @@ fn direct_rows_2d(c: &Case2) -> Vec<Row> {
             for pt in &r.response_points {
                 let (lr, li) = harmonic::solve_complex_system(&kff, &mff, &cff, &asm.f[..nf], nf, pt.omega).unwrap();
                 let (gr, gi) = crate::regressions::gauss_complex(&kff, &mff, &cff, &asm.f[..nf], nf, pt.omega);
-                rows.push(Row { at: format!("n{node} u{dof}"), frequency: pt.frequency, got: (pt.real, pt.imag), lu: (lr[g], li[g]), gauss: (gr[g], gi[g]) });
+                rows.push(Row { at: format!("n{node} u{dof}"), frequency: pt.frequency, got: (pt.real, pt.imag), lu: (lr[g], li[g]), exact: (gr[g], gi[g]) });
             }
         }
     }
@@ -107,7 +107,7 @@ fn direct_rows_3d(c: &Case3) -> Vec<Row> {
             for pt in &r.response_points {
                 let (lr, li) = harmonic::solve_complex_system(&kff, &mff, &cff, &asm.f[..nf], nf, pt.omega).unwrap();
                 let (gr, gi) = crate::regressions::gauss_complex(&kff, &mff, &cff, &asm.f[..nf], nf, pt.omega);
-                rows.push(Row { at: format!("n{node} u{dof}"), frequency: pt.frequency, got: (pt.real, pt.imag), lu: (lr[g], li[g]), gauss: (gr[g], gi[g]) });
+                rows.push(Row { at: format!("n{node} u{dof}"), frequency: pt.frequency, got: (pt.real, pt.imag), lu: (lr[g], li[g]), exact: (gr[g], gi[g]) });
             }
         }
     }

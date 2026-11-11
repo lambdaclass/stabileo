@@ -115,7 +115,10 @@ impl Report {
 
     /// Every pair within `rel` of the field's largest reference magnitude.
     pub fn field<Q: Unit>(&mut self, what: &str, pairs: &[(String, Q, Q)], rel: f64) {
-        let Some(first) = pairs.first() else { return };
+        let Some(first) = pairs.first() else {
+            self.fail(format!("{what}: no result values were compared"));
+            return;
+        };
         let scale = pairs.iter().map(|p| abs(p.2)).fold(abs(first.2), |m, x| if x > m { x } else { m });
         for (label, a, b) in pairs {
             self.close(&format!("{what} {label}"), *a, *b, scale * rel);
@@ -186,4 +189,20 @@ fn a_non_finite_value_or_tolerance_never_agrees() {
         r.close("x", Ratio::from_ratio(a), Ratio::from_ratio(b), Ratio::from_ratio(tol));
         assert!(r.into_result().is_err(), "{a} vs {b} (tol {tol}) agreed");
     }
+}
+
+#[test]
+fn seeded_failure_dropped_comparison_field() {
+    let mut r = Report::new();
+    r.close("rotation", Rotation::from_rad(1.0), Rotation::from_rad(1.0), Rotation::from_rad(0.0));
+    r.field::<Length>("dropped displacements", &[], 1e-9);
+    let error = r.into_result().expect_err("an empty displacement field agreed");
+    assert!(error.contains("no result values were compared"), "{error}");
+}
+
+pub fn rejects_seeded(check: impl FnOnce()) {
+    let error = std::panic::catch_unwind(std::panic::AssertUnwindSafe(check)).expect_err("seeded solver output passed the check");
+    let message = error.downcast_ref::<String>().map(String::as_str)
+        .or_else(|| error.downcast_ref::<&str>().copied()).unwrap_or("");
+    assert!(message.contains("checks disagree"), "seed failed outside the result comparison: {message}");
 }

@@ -592,3 +592,53 @@ fn stiffness_preserves_mass_floors_and_rejects_mass_scaling() {
         }
     }
 }
+
+#[test]
+fn seeded_failure_stiffness_scaling() {
+    let _strict = generated::Strict::enter();
+    for spatial in [false, true] {
+        for name in STIFFNESS.iter().copied().filter(|name| spatial || !refused_2d(name)) {
+            let run = |fault: bool| {
+                let mutate = |factor: f64, r: &mut Resp| {
+                    if !fault || factor == 1.0 { return; }
+                    let item = r.0.iter_mut().find(|i| {
+                        (if name == "linear" { i.tag == "u" } else { factor_tag(name, &i.tag) })
+                            && i.v.iter().any(|v| *v != 0.0)
+                    }).unwrap();
+                    item.v.iter_mut().for_each(|v| *v *= 1.01);
+                };
+                if spatial {
+                    let c = Case3::new("stiffness seed 3D", serde_json::from_value(generated::model(crate::seed(), true)).unwrap());
+                    let a = ana3::rows().into_iter().find(|a| a.name == name).unwrap();
+                    stiffness(name, a.iter_tol, &c.name, &ResponseShape::of_3d(&c), |factor| {
+                        let mut tc = c.clone();
+                        tc.s.materials.values_mut().for_each(|m| m.e *= factor);
+                        let cond = conditioning::of_3d(&tc.s).unwrap();
+                        let floor = checks3::load_floor_3d(&tc.s, cond.lchar);
+                        let mut response = (a.run)(&tc).unwrap();
+                        mutate(factor, &mut response);
+                        (response, cond, floor)
+                    })
+                } else {
+                    let c = Case2::new("stiffness seed 2D", serde_json::from_value(generated::model(crate::seed(), false)).unwrap());
+                    let a = ana2::rows().into_iter().find(|a| a.name == name).unwrap();
+                    stiffness(name, a.iter_tol, &c.name, &ResponseShape::of_2d(&c), |factor| {
+                        let mut tc = c.clone();
+                        tc.s.materials.values_mut().for_each(|m| m.e *= factor);
+                        let cond = conditioning::of_2d(&tc.s).unwrap();
+                        let floor = checks2::load_floor_2d(&tc.s, cond.lchar);
+                        let mut response = (a.run)(&tc).unwrap();
+                        mutate(factor, &mut response);
+                        (response, cond, floor)
+                    })
+                }
+            };
+            assert_eq!(run(false), 2);
+            let error = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(true)))
+                .expect_err("stiffness comparison accepted a seeded wrong response");
+            let message = error.downcast_ref::<String>().map(String::as_str)
+                .or_else(|| error.downcast_ref::<&str>().copied()).unwrap_or("");
+            assert!(message.contains("E×"), "{name}, spatial={spatial}: failed outside the stiffness comparison: {message}");
+        }
+    }
+}

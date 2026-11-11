@@ -215,11 +215,13 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
         .map(|(name, results)| CombinedResult { name, results })
         .collect();
 
-    Ok(MultiCaseResult {
+    let result = MultiCaseResult {
         case_results,
         combination_results,
         envelope,
-    })
+    };
+    crate::boundary::require_finite(&result)?;
+    Ok(result)
 }
 
 // ==================== 3D Multi-Case Solver ====================
@@ -317,11 +319,13 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
         .map(|(name, results)| CombinedResult3D { name, results })
         .collect();
 
-    Ok(MultiCaseResult3D {
+    let result = MultiCaseResult3D {
         case_results,
         combination_results,
         envelope,
-    })
+    };
+    crate::boundary::require_finite(&result)?;
+    Ok(result)
 }
 
 /// Legacy per-case 3D multi-case path: one full `solve_3d` per load case.
@@ -418,11 +422,13 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
         .map(|(name, results)| CombinedResult3D { name, results })
         .collect();
 
-    Ok(MultiCaseResult3D {
+    let result = MultiCaseResult3D {
         case_results,
         combination_results,
         envelope,
-    })
+    };
+    crate::boundary::require_finite(&result)?;
+    Ok(result)
 }
 
 /// Legacy per-case 2D multi-case path: one full `solve_2d` per load case
@@ -508,11 +514,13 @@ fn solve_multi_case_2d_per_case(input: &MultiCaseInput) -> Result<MultiCaseResul
         .map(|(name, results)| CombinedResult { name, results })
         .collect();
 
-    Ok(MultiCaseResult {
+    let result = MultiCaseResult {
         case_results,
         combination_results,
         envelope,
-    })
+    };
+    crate::boundary::require_finite(&result)?;
+    Ok(result)
 }
 
 fn has_settlement_2d(s: &SolverInput) -> bool {

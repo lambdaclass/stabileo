@@ -42,11 +42,11 @@ pub struct Entry {
 pub const ENTRIES: &[Entry] = &[
     Entry { id: "SH-MITC4-CONVERGENCE", issue: 810, mode: Mode::Warn, message: "MITC4 shell benchmarks show excessive stiffness and error increasing with mesh refinement. The affected subset is unresolved; independently verify shell response before design" },
     Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response" },
+    Entry { id: "PL-3D-CERTIFICATE-MISMATCH", issue: 1760, mode: Mode::Warn, message: "The raw incremental 3D plastic collapse factor lies outside the certified interval. The returned collapse factor is the certified lower bound; incremental steps and hinges retain raw solver values" },
     Entry { id: "PL-3D-INVARIANCE", issue: 758, mode: Mode::Warn, message: "3D plastic collapse of curved beams has shown numbering-dependent factors. Independently verify the collapse factor" },
     Entry { id: "ORPHAN-SOFT-ROTATION", issue: 1496, mode: Mode::Warn, message: "A node rotation with real but very small stiffness, compared with another rotation at the same node, was held by an artificial spring, so that rotation and the forces it carries can be far too small. Do not use this result for design until this warning clears" },
     Entry { id: "NUM-INVARIANCE", issue: 762, mode: Mode::Warn, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design" },
     Entry { id: "CERT-MECHANISM", issue: 458, mode: Mode::Warn, message: "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability" },
-    Entry { id: "PD-SPAN-AXIAL", issue: 1329, mode: Mode::Warn, message: "P-Delta builds each member's geometric stiffness from its mean axial force, so compression that varies along a member under axial span loads can understate the second-order amplification. Subdivide the loaded members and check that the results converge" },
     Entry { id: "NL-3", issue: 426, mode: Mode::Warn, message: "A member's end turns more than 0.02 rad against its chord in this 3D co-rotational analysis. Its end forces omit a finite-rotation term whose error grows about as half that rotation times the end moments; split the most deformed members into shorter ones until this warning clears" },
     Entry { id: "NL-5", issue: 428, mode: Mode::Warn, message: NL_MATERIAL },
     Entry { id: "SH-MITC4-DISTORTION", issue: 798, mode: Mode::Refuse, message: "Results withheld: distorted MITC4 quadrilaterals can be about ten times too stiff in membrane bending. Remesh with rectangular elements and check mesh convergence" },
@@ -60,7 +60,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "FR-5", issue: 408, mode: Mode::Warn, message: "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently" },
     Entry { id: "SP-14", issue: 417, mode: Mode::Warn, message: "Outside the cable analysis, cable elements can carry compression as truss bars. Verify cable tensions and use a tension-only cable analysis for slackening" },
     Entry { id: "NL-13", issue: 432, mode: Mode::Warn, message: "Contact analysis can freeze a chattering gap while reporting convergence. Verify the contact state and equilibrium independently" },
-    Entry { id: "HARM-TRUNCATION", issue: 1434, mode: Mode::Warn, message: "Harmonic response by modal superposition at frequencies near or above the first omitted mode: the omitted modes are not corrected there, and amplitude and phase can be wrong by large factors. Do not use these frequencies for design; independently verify them with a direct solve" },
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
     Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
@@ -271,22 +270,6 @@ pub fn conditioning(report: &crate::solver::conditioning::ConditioningReport) ->
     (report.diagonal_ratio > 1e8 || !report.near_zero_dofs.is_empty()).then(|| diagnostic("NUM-INVARIANCE"))
 }
 
-fn axial_span_loads_2d(loads: &[SolverLoad]) -> bool {
-    loads.iter().any(|l| match l {
-        SolverLoad::AxialDistributed(q) => q.q_i != 0.0 || q.q_j != 0.0,
-        SolverLoad::PointOnElement(p) => p.px.is_some_and(|px| px != 0.0),
-        _ => false,
-    })
-}
-
-pub fn pdelta_span_axial_2d(loads: &[SolverLoad]) -> Vec<StructuredDiagnostic> {
-    if axial_span_loads_2d(loads) { vec![diagnostic("PD-SPAN-AXIAL")] } else { vec![] }
-}
-
-pub fn pdelta_span_axial_3d(loads: &[SolverLoad3D]) -> Vec<StructuredDiagnostic> {
-    if loads.iter().any(|l| matches!(l, SolverLoad3D::Distributed(q) if q.q_xi != 0.0 || q.q_xj != 0.0)) { vec![diagnostic("PD-SPAN-AXIAL")] } else { vec![] }
-}
-
 pub fn refuse_distorted(known_model: &[StructuredDiagnostic]) -> Result<(), String> {
     let Some(distorted) = known_model.iter().find(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) else { return Ok(()) };
     let mut finding = diagnostic("SH-MITC4-DISTORTION").with_elements(distorted.element_ids.clone());
@@ -310,7 +293,7 @@ impl RotationDemand2D {
             }
         }
         for s in input.supports.values() {
-            if crate::solver::dof::is_dof_restrained_2d(s, 2) || s.kz.unwrap_or(0.0) > 0.0 {
+            if crate::solver::dof::is_dof_restrained_2d(s, 2) || crate::solver::support::support_dofs_2d(s)[2].spring.unwrap_or(0.0) > 0.0 {
                 stiff.insert(s.node_id);
             }
         }
@@ -1343,6 +1326,24 @@ mod tests {
         assert_eq!(value["structuredDiagnostics"][0]["code"], "known_issue");
         assert_eq!(value["structuredDiagnostics"][0]["value"], 741.0);
         assert_eq!(value["structuredDiagnostics"][0]["severity"], "error");
+    }
+
+    #[test]
+    fn known_issues_759_remains_warned_pending_all_modal_consumers() {
+        let entry = ENTRIES.iter().find(|entry| entry.issue == 759).unwrap();
+        assert_eq!(entry.id, "MD-ORTHOGONALITY");
+        assert_eq!(entry.mode, Mode::Warn);
+        assert!(has(&for_3d(&input3(), Analysis::Modal), entry.id));
+        let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
+        let row = ledger.lines().find(|line| line.starts_with("| #759 |")).unwrap();
+        let cells: Vec<_> = row.split('|').map(str::trim).collect();
+        assert_eq!(cells[2], "`MD-ORTHOGONALITY`");
+        assert_eq!(cells[3], "WARN");
+    }
+
+    #[test]
+    fn corrected_harmonic_truncation_is_retired_from_registry() {
+        assert!(!ENTRIES.iter().any(|entry| entry.issue == 1434));
     }
 
     #[test]

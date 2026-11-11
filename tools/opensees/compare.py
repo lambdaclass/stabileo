@@ -73,6 +73,10 @@ class Unsupported(Exception):
     """Model uses a feature without a clean OpenSees equivalent."""
 
 
+class EngineRefusal(RuntimeError):
+    pass
+
+
 # ---------------------------------------------------------------- geometry
 
 def _cross(a, b):
@@ -1427,7 +1431,7 @@ def stabileo(path_or_json, binary):
     except json.JSONDecodeError:
         raise RuntimeError(f"stabileo: bad output (exit {p.returncode}): {p.stderr[-400:]}")
     if "error" in out:
-        raise RuntimeError("stabileo: " + out["error"])
+        raise EngineRefusal("stabileo: " + out["error"])
     return out
 
 
@@ -1834,6 +1838,103 @@ def classify_refusal(r, ores):
     return dict(r, why=r["why"] + [f"opensees kappa={kappa:.1e}"], kappa=kappa)
 
 
+def _support_contract_defects(d, dim):
+    rotational = any(e["type"] == "frame" for e in d["elements"].values())
+    if dim == 3:
+        rotational = rotational or any(d.get(k) for k in ("plates", "quads", "quad9s", "curvedShells", "curvedBeams"))
+    errors = []
+    for key, s in sorted(d["supports"].items()):
+        if dim == 2:
+            flags = SUPPORT_FLAGS_2D.get(s["type"], (False, False, False))
+            names = ("dx", "dz", "dry")
+            values = (s.get("dx"), _get(s, "dz", "dy", default=None), _get(s, "dry", "drz", default=None))
+            springs = ("kx", "ky", "kz")
+            restraints = tuple(f"type={s['type']} ({dof})" for dof in ("ux", "uz", "ry"))
+            what = f"Support {s['id']} (node {s['nodeId']}, {s['type']})"
+        else:
+            restraints = ("rx", "ry", "rz", "rrx", "rry", "rrz")
+            flags = tuple(s.get(k, False) for k in restraints)
+            names = ("dx", "dy", "dz", "drx", "dry", "drz")
+            values = tuple(s.get(k) for k in names)
+            springs = ("kx", "ky", "kz", "krx", "kry", "krz")
+            what = f"Support {key} (node {s['nodeId']})"
+        for i, (fixed, spring, name, value) in enumerate(zip(flags, springs, names, values)):
+            where = f"support {key} (node {s['nodeId']})"
+            elastic = (s.get(spring) or 0.0) > 0.0
+            if fixed and elastic:
+                restraint = restraints[i]
+                message = (f"Support {key} (node {s['nodeId']}): {spring} contradicts the rigid restraint {restraint} on the same DOF. "
+                           f"Remove {spring} to keep it rigid, or release {restraint} to use the spring.")
+                errors.append(dict(description=f"{where}: {spring} conflicts with a rigid restraint", message=message,
+                                   code="conflicting_support_spring", node=s["nodeId"], dof=i))
+            if value is None or abs(value) <= 1e-15:
+                continue
+            description = f"{where}: prescribed {name} has no rigid restraint without a spring"
+            if dim == 2 and s["type"] == "spring":
+                reason = ("a spring support restrains nothing rigidly (its stiffness is added to the structure) "
+                          "and a settlement of the spring's base is not modelled")
+            elif i >= dim and not rotational:
+                description = f"{where}: prescribed {name} has no rotational DOF"
+                reason = ("a model of truss members only has no rotation DOFs" if dim == 2 else
+                          "a model of truss or cable members only has no rotation DOFs")
+            elif not fixed:
+                reason = ("this support type leaves that DOF free" if dim == 2 else
+                          "that direction is elastic (a spring cannot impose a prescribed displacement)" if elastic else
+                          "that direction is not restrained (its flag is not set)")
+            else:
+                continue
+            errors.append(dict(description=description, value=value,
+                               prefix=f"{what}: the prescribed {name} = ",
+                               suffix=f" would not be applied, because {reason}. Restrain that direction to impose it, or remove the prescribed value."))
+    return errors
+
+
+def support_contract_errors(d, dim):
+    return [e["description"] for e in _support_contract_defects(d, dim)]
+
+
+def _matches_support_refusal(refusal, errors):
+    raw = str(refusal).removeprefix("stabileo: ")
+    try:
+        structured = json.loads(raw)
+    except json.JSONDecodeError:
+        structured = None
+    for error in errors:
+        if "code" in error:
+            if not isinstance(structured, dict) or structured.get("message") != error["message"]:
+                continue
+            diagnostics = structured.get("structuredDiagnostics")
+            if not isinstance(diagnostics, list):
+                continue
+            if any(isinstance(d, dict) and d.get("code") == error["code"] and d.get("message") == error["message"]
+                   and d.get("nodeIds") == [error["node"]] and d.get("dofIndices") == [error["dof"]]
+                   and d.get("phase") == "input" and d.get("severity") == "error" for d in diagnostics):
+                return True
+        elif raw.startswith(error["prefix"]) and raw.endswith(error["suffix"]):
+            value = raw[len(error["prefix"]):-len(error["suffix"])]
+            try:
+                if float(value) == error["value"]:
+                    return True
+            except ValueError:
+                pass
+    return False
+
+
+def check_support_contract(base, model, binary, dump_dir, original):
+    defects = _support_contract_defects(model, base["dim"])
+    if not defects:
+        return None
+    errors = [e["description"] for e in defects]
+    try:
+        stabileo(model, binary)
+    except EngineRefusal as ex:
+        status = "refused" if _matches_support_refusal(ex, defects) else "stabileo_failed"
+        return dict(base, status=status, why=[str(ex), *errors])
+    if dump_dir:
+        _dump(dump_dir, base["name"], original)
+    return dict(base, status="mismatch", why=["stabileo accepted invalid support input", *errors], max_err={}, n_bad=len(errors))
+
+
 def run_one(name, model, binary, tol, verbose, dump_dir=None):
     if "analysis" in model:
         return run_ext(name, model, binary, tol, dump_dir)
@@ -1842,6 +1943,9 @@ def run_one(name, model, binary, tol, verbose, dump_dir=None):
     if why:
         return dict(name=name, dim=dim, status="unsupported", why=why)
     try:
+        contract = check_support_contract(dict(name=name, dim=dim), model, binary, dump_dir, model)
+        if contract is not None:
+            return contract
         sres = normalize_stabileo(stabileo(model, binary), dim)
     except RuntimeError as ex:
         r = classify_refusal(dict(name=name, dim=dim, status="stabileo_failed", why=[str(ex)]),
@@ -2077,6 +2181,9 @@ def run_ext(name, job, binary, tol, dump_dir=None):
     if why:
         return dict(base, status="unsupported", why=why)
     try:
+        contract = check_support_contract(base, d, binary, dump_dir, job)
+        if contract is not None:
+            return contract
         lin = normalize_stabileo(stabileo(_probe_loads(d) if kind in MASS_MODES else d, binary), dim)
     except RuntimeError as ex:
         r = classify_refusal(dict(base, status="stabileo_failed", why=[str(ex)[:200]]),
