@@ -882,3 +882,10 @@ test.engine.staged-prestress:
 
 test.staged-wasm-assertions:
 	$(NIX_RUN) node --test scripts/tests/staged-orphan-1846-assertions.test.mjs
+
+.PHONY: test.engine.staged-review test.engine.staged-review-numeric
+test.engine.staged-review:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_review -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-review-numeric:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_review_numeric -- --nocapture $(if $(IGNORED),--ignored)

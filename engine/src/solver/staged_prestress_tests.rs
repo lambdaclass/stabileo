@@ -145,3 +145,19 @@ fn staged_prestress_inclined_dense_matches_regular_linear_equivalent_loads() {
 fn staged_prestress_inclined_sparse_matches_regular_linear_equivalent_loads() {
     check(true);
 }
+
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn staged_review_numeric_nonfinite_solutions_are_refused() {
+    let input=model(None);
+    let dof=DofNumbering::build_2d(&input);
+    let nf=dof.n_free;
+    for sparse in [false,true] { for load in [f64::NAN,f64::INFINITY,1e308] {
+        let mut dense=vec![0.0;nf*nf];for i in 0..nf {dense[i*nf+i]=1e-8;}
+        let k=CscMatrix::from_dense_symmetric(&dense,nf);
+        let f=vec![load;nf];
+        let result=solve_stage_free(&k,&dof,None,true,&[],&super::super::stability::ReleasedRotations::default(),&f,&f,sparse,&mut None,&mut None);
+        assert!(result.is_err(),"sparse={sparse}, load={load}: {result:?}");
+    } }
+}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { initSync, solve_staged_2d, solve_staged_3d, solve_2d, solve_3d, solve_corotational_2d, solve_nonlinear_material_3d } from '../../web/src/lib/wasm/dedaliano_engine.js';
+import { initSync, solve_staged_2d, solve_staged_3d, solve_2d, solve_3d, solve_corotational_2d, solve_nonlinear_material_3d, analyze_kinematics_2d, analyze_kinematics_3d, certify_linear_2d } from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/staged-orphan-1846.json', import.meta.url)));
@@ -165,3 +165,65 @@ for (const dimension of [2, 3]) {
   }
 }
 console.log('2D and 3D staged prestress retain inclined-support refusals');
+
+
+for (const dimension of [2, 3]) {
+  for (const pads of dimension === 2 ? [0, 21] : [0, 11]) {
+    const input = structuredClone(cases.find(([label]) => label === (dimension === 2 ? `2d:1:0:false:0:${pads}` : `3d:1:0:0:${pads}`))[1]);
+    input.loads = [];
+    input.nodes[3] = { ...input.nodes[2], id: 3, x: 8 };
+    input.nodes[4] = { ...input.nodes[2], id: 4, x: 12 };
+    input.elements[2] = { ...input.elements[1], id: 2, nodeI: 2, nodeJ: 3 };
+    input.elements[3] = { ...input.elements[1], id: 3, nodeI: 3, nodeJ: 4 };
+    const stagedSolve = dimension === 2 ? solve_staged_2d : solve_staged_3d;
+    const initial = Object.values(input.elements).filter(e => e.id !== 2 && e.id !== 3).map(e => e.id);
+    const stages = [
+      { name: 'first', elementsAdded: initial, supportsAdded: Object.values(input.supports).map(s => s.nodeId), loadIndices: [] },
+      { name: 'second', elementsAdded: [2, 3], loadIndices: [] },
+    ];
+    for (const dofs of [[0], dimension === 2 ? [0, 1, 2] : [0, 1, 2, 3, 4, 5]]) {
+      input.constraints = [{ type: 'equalDOF', masterNode: 3, slaveNode: 4, dofs }];
+      const result = JSON.parse(stagedSolve(JSON.stringify({ ...input, stages })));
+      assert.equal(result.stages[0].results.displacements.find(d => d.nodeId === 3).ux, 0);
+    }
+    input.constraints = [];
+    for (const field of dimension === 2 ? ['fx', 'fz', 'my'] : ['fx', 'fy', 'fz', 'mx', 'my', 'mz']) {
+      const data = dimension === 2 ? { nodeId: 3, fx: 0, fz: 0, my: 0 } : { nodeId: 3, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 };
+      data[field] = 1e-6;
+      input.loads = [{ type: 'nodal', data }];
+      stages[0].loadIndices = [0];
+      stages[1].loadIndices = [];
+      assert.throws(() => stagedSolve(JSON.stringify({ ...input, stages })), /mechanism|free rotation|not supported/);
+      stages[0].loadIndices = [];
+      stages[1].loadIndices = [0];
+      stagedSolve(JSON.stringify({ ...input, stages }));
+    }
+    const hinged = structuredClone(input);
+    hinged.loads = [{ type: 'nodal', data: dimension === 2 ? { nodeId: 4, fx: 0, fz: 0, my: 1 } : { nodeId: 4, fx: 0, fy: 0, fz: 0, mx: 0, my: 1, mz: 0 } }];
+    if (dimension === 2) hinged.elements[3].hingeEnd = true;
+    else hinged.elements[3].releaseMyEnd = true;
+    stages[0].elementsAdded = Object.values(hinged.elements).map(e => e.id);
+    stages[0].loadIndices = [0];
+    stages[1].loadIndices = [];
+    assert.throws(() => stagedSolve(JSON.stringify({ ...hinged, stages })), /free rotation|not supported/);
+    const kinematic = dimension === 2 ? analyze_kinematics_2d : analyze_kinematics_3d;
+    const kin = JSON.parse(kinematic(JSON.stringify(input)));
+    assert.equal(kin.isSolvable, true);
+    const mechanism = structuredClone(input);
+    mechanism.supports = {};
+    mechanism.loads = [];
+    const unstable = JSON.parse(kinematic(JSON.stringify(mechanism)));
+    assert.equal(unstable.isSolvable, false);
+    assert.ok(unstable.mechanismModes > 0);
+    assert.match(unstable.diagnosis, /mecanismo/);
+  }
+}
+
+for (const support of ['pinned', 'rollerX', 'rollerY']) {
+  const input = structuredClone(cases.find(([label]) => label === '2d:1:0:true:1:0')[1]);
+  input.supports[2] = { id: 2, nodeId: 2, type: support, kz: 2 };
+  input.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 1 } }];
+  assert.ok(Math.abs(solve_2d(input).displacements.find(d => d.nodeId === 2).ry - 0.5) <= 1e-12);
+  certify_linear_2d(input);
+}
+console.log('Multi-stage, partial constraints, unsupported loads, kinematics and support moment WASM regressions pass');
