@@ -875,3 +875,10 @@ evidence.research.feher:
 .PHONY: test.engine.staged-orphan-wasm
 test.engine.staged-orphan-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-orphan-1846-wasm.mjs
+
+.PHONY: test.engine.staged-prestress test.staged-wasm-assertions
+test.engine.staged-prestress:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_prestress_inclined -- --nocapture $(if $(IGNORED),--ignored)
+
+test.staged-wasm-assertions:
+	$(NIX_RUN) node --test scripts/tests/staged-orphan-1846-assertions.test.mjs

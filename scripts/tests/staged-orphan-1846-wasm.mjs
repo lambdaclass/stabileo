@@ -133,3 +133,28 @@ for (const scale of [1, 1e-3, 1e3]) {
   }
 }
 console.log('24 nonlinear WASM controls agree with regular linear');
+
+for (const dimension of [2, 3]) {
+  for (const pads of dimension === 2 ? [0, 20, 21] : [0, 10, 11]) {
+    const source = cases.find(([label]) => dimension === 2 ? label === `2d:1:0:false:0:${pads}` : label === `3d:1:0:0:${pads}`)[1];
+    const input = structuredClone(source);
+    const stages = [{
+      name: 'prestress with inclined support', elementsAdded: Object.values(input.elements).map(e => e.id),
+      supportsAdded: Object.values(input.supports).map(s => s.nodeId), loadIndices: input.loads.map((_, i) => i),
+      prestressLoads: [{ elementId: 1, force: 1, eccentricityI: 0, eccentricityJ: 0, profile: 'straight' }],
+    }];
+    const support = input.supports[1];
+    if (dimension === 2) {
+      support.type = 'inclinedRoller';
+      support.angle = 30;
+    } else {
+      support.isInclined = true;
+      support.normalX = 1;
+      support.normalY = 2;
+      support.normalZ = 3;
+    }
+    const stagedSolve = dimension === 2 ? solve_staged_2d : solve_staged_3d;
+    assert.throws(() => stagedSolve(JSON.stringify({ ...input, stages })), /Inclined supports are not yet supported/);
+  }
+}
+console.log('2D and 3D staged prestress retain inclined-support refusals');

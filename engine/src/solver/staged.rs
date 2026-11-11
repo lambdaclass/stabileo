@@ -1086,3 +1086,7 @@ fn build_results_from_u_3d(
         result_summary: None, solver_run_meta: None,
     }
 }
+
+#[cfg(test)]
+#[path = "staged_prestress_tests.rs"]
+mod prestress_tests;

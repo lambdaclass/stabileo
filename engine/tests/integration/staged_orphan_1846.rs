@@ -587,3 +587,61 @@ fn issue_1846_inactive_nodes_preserve_positive_springs_and_constraint_stiffness(
         }
     }
 }
+
+#[test]
+fn issue_1846_prestress_inclined_public_refusals_2d_and_3d() {
+    for (pads2, pads3) in [(0, 0), (20, 10), (21, 11)] {
+        let mut input = make_input(
+            vec![(1, 0.0, 0.0), (2, 4.0, 0.0)],
+            vec![(1, 10_000.0, 0.3)], vec![(1, 0.01, 0.001)],
+            vec![(1, "frame", 1, 2, 1, 1, false, false)],
+            vec![(1, 1, "fixed"), (2, 2, "rollerZ")],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 1.0, fz: 0.0, my: 0.0 })],
+        );
+        pad_2d(&mut input, pads2);
+        let mut staged = stage_2d(&input);
+        let prestress = PrestressLoad {
+            element_id: 1, force: 1.0, eccentricity_i: 0.0, eccentricity_j: 0.0,
+            profile: TendonProfile::Straight, mu: None, kappa: None,
+        };
+        staged.stages[0].prestress_loads.push(prestress.clone());
+        let correct = solve_staged_2d(&staged).unwrap();
+        let mut equivalent = input.clone();
+        equivalent.loads.extend([
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: -1.0, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 1.0, fz: 0.0, my: 0.0 }),
+        ]);
+        let linear = solve_2d(&equivalent).unwrap();
+        for d in &linear.displacements {
+            let s = correct.final_results.displacements.iter().find(|s| s.node_id == d.node_id).unwrap();
+            assert!((d.ux - s.ux).abs() <= 1e-12);
+            assert!((d.uz - s.uz).abs() <= 1e-12);
+            assert!((d.ry - s.ry).abs() <= 1e-12);
+        }
+        for angle in [0.0, 30.0, 90.0] {
+            let mut inclined = staged.clone();
+            let support = inclined.supports.get_mut("2").unwrap();
+            support.support_type = "inclinedRoller".into();
+            support.angle = Some(angle);
+            assert!(solve_staged_2d(&inclined).unwrap_err().contains("Inclined supports are not yet supported"));
+        }
+        let mut input3 = make_3d_input(
+            vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
+            vec![(1, 10_000.0, 0.3)], vec![(1, 0.01, 0.001, 0.002, 0.003)],
+            vec![(1, "frame", 1, 2, 1, 1)], vec![(1, vec![true; 6])],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 1.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+        );
+        pad_3d(&mut input3, pads3);
+        check_3d(&input3);
+        let mut inclined3 = stage_3d(&input3);
+        inclined3.stages[0].prestress_loads.push(prestress);
+        for normal in [[1.0, 0.0, 0.0], [1.0, 2.0, 3.0]] {
+            let support = inclined3.supports.get_mut("1").unwrap();
+            support.is_inclined = Some(true);
+            support.normal_x = Some(normal[0]);
+            support.normal_y = Some(normal[1]);
+            support.normal_z = Some(normal[2]);
+            assert!(solve_staged_3d(&inclined3).unwrap_err().contains("Inclined supports are not yet supported"));
+        }
+    }
+}
