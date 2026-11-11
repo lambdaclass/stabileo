@@ -50,6 +50,36 @@ class References(unittest.TestCase):
             self.assertIsNone(r['pr'])
             self.assertEqual(r.get('first_parent_merges', []), [])
 
+    @unittest.skip('known wrong result: #1946')
+    def test_reference_categories_distinguish_consistency_controls_and_accuracy(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('annotation', AUDIT / 'annotate-references.py')
+        annotation = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(annotation)
+        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+            area = Path(directory)
+            (area / 'base/engine/tests/benchmarks').mkdir(parents=True)
+            (area / 'base/engine/tests/benchmarks/macneal_harder.json').write_text('{"cases": []}')
+            data = json.loads((AUDIT / 'reference-comparisons.json').read_text())
+            selected = [r for r in data['rows'] if any(n in r['test'] for n in
+                        ['mattiasson_load_step_independence', 'signed_response_checks_reject_reversals', 'mattiasson_10'])]
+            self.assertTrue(selected)
+            (area / 'reference-comparisons.json').write_text(json.dumps({'rows': selected}))
+            annotation.main(area)
+            regenerated = json.loads((area / 'reference-comparisons.json').read_text())
+            for rows in [selected, regenerated['rows']]:
+                for row in rows:
+                    if 'load_step_independence' in row['test']:
+                        self.assertEqual(row['category'], 'self_consistency')
+                        self.assertEqual(row['reference_kind'], 'load-step consistency/self-convergence')
+                        self.assertIsNone(row['pr'])
+                    elif 'signed_response_checks' in row['test']:
+                        self.assertEqual(row['category'], 'checker_control')
+                        self.assertEqual(row['reference_kind'], 'synthetic signed-response checker control')
+                        self.assertIsNone(row['pr'])
+                    else:
+                        self.assertEqual(row['category'], 'engineering_reference')
+
     def test_empty_arch_reactions_are_known_wrong(self):
         for model in ['0015ab84c3baa36f', '022317310499426d']:
             data = json.loads((ROOT / f'web/results-frozen/solve_arc_length-{model}.json').read_text())
@@ -58,7 +88,7 @@ class References(unittest.TestCase):
 
 
 class History(unittest.TestCase):
-    def run_history(self, filename, values, provenance=None):
+    def run_history(self, filename, values, provenance=None, extra_models=None):
         with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
             area = Path(directory)
             for sub in ['repo', 'base-fixed-native', 'all-static-bisect', 'arc-bisect', 'reference-bisect', 'bisect-probe', 'target-arc-bisect/release/examples']:
@@ -74,7 +104,12 @@ class History(unittest.TestCase):
             (area / 'base-fixed-native' / model).write_text(json.dumps(record))
             drift = dict(model=model, analysis=record['analysis'], engineering_fields=1,
                          before_refused=False, after_refused=refusal, test=test)
-            (area / 'native-summary.json').write_text(json.dumps({'drift': [drift]}))
+            drifts = [drift]
+            for name, extra_values, extra_provenance in extra_models or []:
+                extra = {**record, **extra_provenance, 'input': [{'model': name}], 'result': extra_values[0]}
+                (area / 'base-fixed-native' / name).write_text(json.dumps(extra))
+                drifts.append({**drift, **extra_provenance, 'model': name})
+            (area / 'native-summary.json').write_text(json.dumps({'drift': drifts}))
             current = [0]
             seen = []
             revisions = ['r0', 'r1', 'r2', 'r3', 'r4']
@@ -91,7 +126,9 @@ class History(unittest.TestCase):
                     current[0] = revisions.index(args[3])
                 if str(args[0]) == 'nice' and 'build' not in args:
                     seen.append(current[0])
-                    value = values[current[0]]
+                    model = json.loads(kwargs.get('input', '[{}]'))[0].get('model')
+                    series = next((v for name, v, _ in extra_models or [] if name == model), values)
+                    value = series[current[0]]
                     return subprocess.CompletedProcess(args, 2 if refusal and value['refused'] else 0,
                                                        json.dumps(value.get('output', value)), '')
                 return subprocess.CompletedProcess(args, 0, '', '')
@@ -103,6 +140,20 @@ class History(unittest.TestCase):
                        'bisect-reference.py': 'reference-bisection.json', 'bisect-refusals.py': 'refusal-bisection.json'}
             result = json.loads((area / outputs[filename]).read_text())
             return result, seen
+
+    @unittest.skip('known wrong result: #1946')
+    def test_arc_history_keeps_each_model_and_all_contributing_tests(self):
+        values = [{'displacements': [i > 0]} for i in range(5)]
+        later = [{'displacements': [i > 2]} for i in range(5)]
+        unchanged = [{'displacements': [0]}] * 5
+        rows, _ = self.run_history('bisect-arc.py', values,
+                                   dict(tests=['macneal_harder::browser_cases', 'shared']),
+                                   [('later.json', later, dict(tests=['shared', 'later'])),
+                                    ('unchanged.json', unchanged, dict(tests=['shared']))])
+        self.assertEqual({r['model']: (r['parent'], r['first_bad']) for r in rows},
+                         {'solve_3d-test.json': ('r0', 'r1'), 'later.json': ('r2', 'r3')})
+        self.assertEqual(rows[0]['tests'], ['macneal_harder::browser_cases', 'shared'])
+        self.assertEqual(rows[1]['tests'], ['later', 'macneal_harder::browser_cases', 'shared'])
 
     def test_reverted_changes_and_refusals_find_first_adjacent_transition(self):
         for filename in ['bisect-all-static.py', 'bisect-arc.py', 'bisect-reference.py', 'bisect-refusals.py']:
@@ -434,10 +485,15 @@ fn main() {
     def test_frozen_regressions_require_exact_nonempty_evidence(self):
         source = (ROOT / 'scripts/tests/frozen-results-values.test.mjs').read_text()
         original = next(line for line in source.splitlines() if line.startswith('const evidence ='))
-        for evidence in [[], [{}], [{'model': 'duplicate'}, {'model': 'duplicate'}]]:
+        valid = json.loads((AUDIT / 'arc-bisection.json').read_text())
+        duplicate = [valid[0], valid[0], valid[2]]
+        wrong = [valid[0], {**valid[1], 'model': 'wrong-model.json'}, valid[2]]
+        for evidence in [[], [{}], [{'model': 'duplicate'}, {'model': 'duplicate'}], duplicate, wrong, valid]:
             modified = source.replace(original, 'const evidence = ' + json.dumps(evidence) + ';')
             result = subprocess.run(['node', '--input-type=module', '-e', modified], cwd=ROOT / 'scripts/tests', capture_output=True, text=True)
-            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(result.returncode == 0, evidence == valid, result.stdout + result.stderr)
+            if len(evidence) == 3 and evidence != valid:
+                self.assertIn('arc evidence case identities', result.stderr)
 
     def test_1784_coverage_cites_its_buckling_and_multicase_regressions(self):
         report = AUDIT.with_suffix('.md').read_text()
