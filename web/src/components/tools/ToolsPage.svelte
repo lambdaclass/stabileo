@@ -1,6 +1,7 @@
 <script lang="ts">
   import './register-i18n';
-  import { batchTool as BatchTool, toolViewer as ToolViewer } from './load-detail';
+  import { batchTool as BatchTool, toolViewer as ToolViewer, mohrTool as MohrTool } from './load-detail';
+  import { MOHR_IDS } from './mohr-tools';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import RelatedLinks from '../research/RelatedLinks.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
@@ -24,7 +25,8 @@
   let { path }: { path: string } = $props();
   const id = $derived(TOOL_IDS.find(id => path.replace(/\/$/, '') === `/tools/${id}`));
   const batchId = $derived(BATCH_IDS.find(id => path.replace(/\/$/, '') === `/tools/${id}`));
-  const title = $derived(t(id || batchId ? `tools.${id || batchId}` : 'tools.index'));
+  const mohrId = $derived(MOHR_IDS.find(id => path.replace(/\/$/, '') === `/tools/${id}`));
+  const title = $derived(t(id || batchId || mohrId ? `tools.${id || batchId || mohrId}` : 'tools.index'));
   let p = $state<Parameters>({ ...EXAMPLE });
   let result = $state<Awaited<ReturnType<typeof calculate>> | null>(null);
   let error = $state('');
@@ -34,9 +36,9 @@
   const units = { moment: 'kN·m', shear: 'kN', deflection: 'm' };
   const fields = [ ['length', 'length', 'm', 0.1, 100], ['e', 'modulus', 'MPa', 1, 1000000], ['i', 'inertia', 'm⁴', 1e-10, 10] ] as const;
   const ends = [[0.5, 'fixedFixed'], [0.7, 'fixedPinned'], [1, 'pinnedPinned'], [2, 'fixedFree']] as const;
-  const others = $derived([...TOOL_IDS, ...BATCH_IDS].filter(tool => tool !== (id || batchId)));
+  const others = $derived([...TOOL_IDS, ...BATCH_IDS, ...MOHR_IDS].filter(tool => tool !== (id || batchId || mohrId)));
   $effect(() => {
-    const tool = id || batchId;
+    const tool = id || batchId || mohrId;
     const locale = publicI18n.locale;
     if (tool) {
       const route = `/tools/${tool}`, url = publicUrl(route, locale);
@@ -52,7 +54,7 @@
       applyPageMeta({ title: `${t('tools.index.metaTitle')} — Stabileo`, description, locale, path: '/tools',
         graph: [
           { '@type': 'CollectionPage', '@id': url, url, name: title, description, inLanguage: locale, isPartOf: { '@id': WEBSITE_ID }, mainEntity: { '@id': `${url}#calculators` } },
-          { '@type': 'ItemList', '@id': `${url}#calculators`, itemListElement: [...TOOL_IDS, ...BATCH_IDS].map((tool, i) => ({ '@type': 'ListItem', position: i + 1, name: t(`tools.${tool}`), url: publicUrl(`/tools/${tool}`, locale) })) },
+          { '@type': 'ItemList', '@id': `${url}#calculators`, itemListElement: [...TOOL_IDS, ...BATCH_IDS, ...MOHR_IDS].map((tool, i) => ({ '@type': 'ListItem', position: i + 1, name: t(`tools.${tool}`), url: publicUrl(`/tools/${tool}`, locale) })) },
           breadcrumbs(locale, [['Stabileo', '/'], [title, '/tools']]),
         ] });
     }
@@ -97,8 +99,10 @@
 
 <div class="landing blog research tools">
   <main class="sec sec--ink">
-    <div class="wrap tools-wrap" class:gallery={!id && !batchId}>
-    {#if batchId}
+    <div class="wrap tools-wrap" class:gallery={!id && !batchId && !mohrId}>
+    {#if mohrId}
+      {#key mohrId}{#if MohrTool}<MohrTool id={mohrId}/>{/if}{/key}
+    {:else if batchId}
       {#key batchId}{#if BatchTool}<BatchTool id={batchId}/>{/if}{/key}
     {:else if id}
       <div class="tool-layout">
@@ -180,7 +184,7 @@
     {:else}
       <header><h1>{title}</h1><p class="lead">{t('tools.lead')}</p></header>
       <ul class="tool-cards">
-        {#each [...TOOL_IDS, ...BATCH_IDS] as tool}
+        {#each [...TOOL_IDS, ...BATCH_IDS, ...MOHR_IDS] as tool}
           <li class="tool-card">
             <PublicLink to={`/tools/${tool}`} class="preview" aria-label={t(`tools.${tool}`)}><ToolPreview id={tool} /></PublicLink>
             <div class="card-body"><h2><PublicLink to={`/tools/${tool}`}>{t(`tools.${tool}`)}</PublicLink></h2><p>{t(`tools.${tool}.subtitle`)}</p><PublicLink to={`/tools/${tool}`} class="btn btn-primary btn-sm">{t('tools.openTool')} ↗</PublicLink></div>
@@ -189,7 +193,7 @@
       </ul>
       <p>{t('tools.indexAssumptions')}</p>
     {/if}
-    {#if id || batchId}
+    {#if id || batchId || mohrId}
       <nav class="tool-others" aria-labelledby="tool-others-h">
         <h2 id="tool-others-h">{t('tools.index')}</h2>
         <ul>{#each others as tool (tool)}<li><PublicLink to={`/tools/${tool}`}>{t(`tools.${tool}`)}</PublicLink></li>{/each}</ul>

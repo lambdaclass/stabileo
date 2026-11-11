@@ -90,7 +90,8 @@ try {
     '/app/basic': app, '/app/education': app, '/app/pro': app,
     '/en/research/': footprint(false, 'research'), '/en/tools/': footprint(false, 'tools'),
     '/en/tools/simply-supported-beam/': footprint(false, 'tools', 'ToolViewer.svelte'),
-    '/en/tools/continuous-beam/': footprint(false, 'tools', 'BatchTool.svelte') };
+    '/en/tools/continuous-beam/': footprint(false, 'tools', 'BatchTool.svelte'),
+    '/en/tools/mohr-2d/': footprint(false, 'tools', 'MohrTool.svelte') };
   for (const [route, bytes] of Object.entries(measured)) console.log(`${route}: ${bytes} bytes`);
   if (ceilingPath) {
     const over = overCeilings(measured, JSON.parse(readFileSync(ceilingPath, 'utf8')).routes);

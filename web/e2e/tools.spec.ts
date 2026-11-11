@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { BATCH_IDS } from '../src/components/tools/batch';
 import { TOOL_IDS, formula, format, workedExamples } from '../src/components/tools/calculators';
+import { MOHR_IDS } from '../src/components/tools/mohr-tools';
 import { PUBLIC_LOCALES, isComplete } from '../src/lib/i18n/offered';
 
 const difference = async (agreement: Locator) => {
@@ -79,8 +80,9 @@ for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]])
 for (const locale of PUBLIC_LOCALES) test(`@smoke tools localized index ${locale}`, async ({ page }) => {
   await page.goto(`/${locale}/tools/`);
   await expect(page.locator('h1')).toBeVisible();
-  await expect(page.locator('.tool-card h2 a')).toHaveCount(8);
-  await expect(page.locator('.tool-card')).toHaveCount(8);
+  const listed = TOOL_IDS.length + BATCH_IDS.length + MOHR_IDS.length;
+  await expect(page.locator('.tool-card h2 a')).toHaveCount(listed);
+  await expect(page.locator('.tool-card')).toHaveCount(listed);
   await expect(page.locator('.tool-card .badge')).toHaveCount(0);
   for (const link of await page.locator('.tool-card h2 a, main .btn').all()) {
     const box = (await link.boundingBox())!;

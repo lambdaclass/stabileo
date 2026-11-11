@@ -9,6 +9,8 @@ import type { ElementForces } from './types';
 import { computeSectionStress2D, isWasmReady } from './wasm-solver';
 import { requireEngine } from './engine-unavailable';
 import { t } from '../i18n';
+import { computeMohrCircle, type MohrCircle } from '../mohr/plane';
+export { computeMohrCircle, type MohrCircle };
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -34,15 +36,6 @@ export interface StressPoint {
   y: number;     // m from centroid (positive up)
   sigma: number; // MPa - normal stress (positive = tension)
   tau: number;   // MPa - shear stress τ_xy (from V, Jourawski)
-}
-
-export interface MohrCircle {
-  center: number;   // MPa - (σ₁ + σ₂) / 2
-  radius: number;   // MPa
-  sigma1: number;   // MPa - major principal stress
-  sigma2: number;   // MPa - minor principal stress
-  thetaP: number;   // rad - principal angle
-  tauMax: number;   // MPa - max shear stress = radius
 }
 
 export interface FailureCheck {
@@ -659,29 +652,6 @@ export function computeStressDistribution(
     sigma: normalStress(N, M, rs.a, rs.iy, y),
     tau: shearStress(V, y, rs),
   }));
-}
-
-// ─── Mohr's Circle ────────────────────────────────────────────────────
-
-/**
- * Compute Mohr's circle for plane stress state.
- * σ_x = sigma, σ_y = 0 (free surface), τ_xy = tau
- */
-export function computeMohrCircle(sigma: number, tau: number): MohrCircle {
-  const center = sigma / 2;
-  const radius = Math.sqrt((sigma / 2) ** 2 + tau ** 2);
-  const sigma1 = center + radius;
-  const sigma2 = center - radius;
-  const thetaP = 0.5 * Math.atan2(2 * tau, sigma);
-
-  return {
-    center,
-    radius,
-    sigma1,
-    sigma2,
-    thetaP,
-    tauMax: radius,
-  };
 }
 
 // ─── Failure criteria ─────────────────────────────────────────────────

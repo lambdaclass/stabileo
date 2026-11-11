@@ -1,11 +1,16 @@
 <script lang="ts">
   import type { ToolId } from './calculators';
   import type { BatchId } from './batch';
-  let { id }: { id: ToolId | BatchId } = $props();
+  import type { MohrToolId } from './mohr-tools';
+  let { id }: { id: ToolId | BatchId | MohrToolId } = $props();
 </script>
 
 <svg viewBox="0 0 600 300" fill="none" aria-hidden="true">
-  {#if id === 'portal-frame'}
+  {#if id === 'mohr-2d'}
+    <path d="M60 160H540 M150 40V280" stroke="var(--fg-2)" stroke-width="2"/><circle cx="330" cy="160" r="110" stroke="var(--lp-accent)" stroke-width="3"/><path d="M408 82L252 238" stroke="var(--fg-2)" stroke-width="2"/><circle cx="408" cy="82" r="7" fill="var(--lp-accent)"/><circle cx="252" cy="238" r="7" fill="var(--lp-accent)"/><circle cx="440" cy="160" r="6" fill="var(--fg-2)"/><circle cx="220" cy="160" r="6" fill="var(--fg-2)"/>
+  {:else if id === 'mohr-3d'}
+    <path d="M40 170H560 M130 40V290" stroke="var(--fg-2)" stroke-width="2"/><circle cx="330" cy="170" r="130" stroke="var(--lp-accent)" stroke-width="3"/><circle cx="260" cy="170" r="60" stroke="var(--lp-accent)" stroke-width="2"/><circle cx="390" cy="170" r="70" stroke="var(--lp-accent)" stroke-width="2"/><path d="M372 64V170" stroke="var(--fg-2)" stroke-width="2" stroke-dasharray="6 5"/><circle cx="372" cy="64" r="7" fill="var(--lp-accent)"/>
+  {:else if id === 'portal-frame'}
     <path d="M100 250V80H500V250 M75 250H125 M475 250H525" stroke="var(--fg-2)" stroke-width="3"/><path d="M100 250Q100 160 145 80H545Q500 160 500 250 M20 80H85L70 70 M85 80L70 90" stroke="var(--lp-accent)" stroke-width="3"/>
   {:else if id === 'truss-2d'}
     <path d="M60 220H540L420 80H180L60 220 M180 80V220 M300 80V220 M420 80V220 M180 80L300 220L420 80" stroke="var(--lp-accent)" stroke-width="3"/>

@@ -236,7 +236,7 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
-  if (/^\/tools\/[^/]+$/.test(path)) await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
+  if (/^\/tools\/(?!mohr-)[^/]+$/.test(path)) await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
   // Network idle is not rendered: a page whose next chunk is requested only after a long main-thread task looks idle in between.
   await waitForRenderedApp(page);
   const { head, body } = await page.evaluate(() => {

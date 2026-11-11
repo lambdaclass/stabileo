@@ -329,6 +329,8 @@
   import WorkspaceSaveNotice from './components/WorkspaceSaveNotice.svelte';
   import { prepareExportProvenance, pngWithProvenance } from './lib/export/provenance-attach';
   import ReproduceDialog from './components/ReproduceDialog.svelte';
+  import { mohrPanel, openMohr } from './lib/mohr/panel.svelte';
+  import { readAppLink, APP_LINK_KEYS } from './lib/mohr/state';
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import KeyboardShortcuts from './components/KeyboardShortcuts.svelte';
@@ -561,6 +563,16 @@
     // A link to a place of design while design is off asks the reader; it turns nothing on.
     if (isDesignTab(tab) && !uiStore.designInPro) { askDesignForLink(tab); return; }
     uiStore.proActiveTab = tab;
+  }
+
+  /** `?mohr=plane|space&…` opens the Mohr circle function with the state the public tool encoded. */
+  function openMohrFromUrl(params: URLSearchParams) {
+    const link = readAppLink(params);
+    if (!link) return;
+    openMohr(link.kind === 'plane' ? { kind: 'plane', plane: link.state } : { kind: 'space', space: link.state });
+    const url = new URL(location.href);
+    for (const key of APP_LINK_KEYS) url.searchParams.delete(key);
+    history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
   }
 
   function findTabBySlug(tabSlug: string | null) {
@@ -981,6 +993,7 @@
     if (hashMode === 'embed' || queryParams.has('embed')) {
       uiStore.embedMode = true;
     }
+    openMohrFromUrl(queryParams);
 
     // Landing demo iframe uses ?example=<id> to pre-load a sample structure
     const exampleId = queryParams.get('example');
@@ -2358,6 +2371,9 @@
 <RecheckNotice />
 <WorkspaceSaveNotice />
 <ReproduceDialog />
+{#if mohrPanel.open}
+  {#await import('./components/mohr/MohrDialog.svelte') then { default: MohrDialog }}<MohrDialog />{/await}
+{/if}
 
 <DxfImportDialog
   open={showDxfImport}
