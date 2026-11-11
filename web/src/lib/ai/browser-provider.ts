@@ -9,6 +9,7 @@ import type {
   ReviewModelResponse,
   SolverDiagnosticMsg,
 } from './client';
+import { axesStore } from '../axes/axes.svelte';
 import type { AiCredentials } from './keys.svelte';
 import { t } from '../i18n';
 import { is3DWorkspace } from '../utils/workspace';
@@ -263,7 +264,7 @@ export async function buildModel(
     }
   }
   const current = currentSnapshot ? { ...currentSnapshot, analysisMode: mode } : undefined;
-  const system = buildSystemPrompt(sanitizeLocale(locale), mode, modelContext, current);
+  const system = buildSystemPrompt(sanitizeLocale(locale), mode, modelContext, current, axesStore.frame);
   const conversation = buildConversation(description, messages, solverDiagnostics);
   checkPromptSize(system, conversation.map((m) => m.content).join(''));
   const resp = await complete(creds, {

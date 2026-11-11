@@ -1,4 +1,5 @@
 import type { ConversationMessage, ModelContext, SolverDiagnosticMsg } from '../client';
+import { gravityLabel, signedLabel, userAxisAlong, type AxesFrame } from '../../axes/frame';
 import { type BuildAction, isEdit, isPlainObject, parseAction, parseActionResponse, validateAction } from './actions';
 import { applyEdit } from './edit-executor';
 import { executeAction } from './generators';
@@ -109,10 +110,22 @@ function snapshotSection(snapshot: Record<string, unknown>): string {
   return `\n\n## Current model (JSON, entries are [id, data])\nUse these IDs for edits; never invent one.\n${json}`;
 }
 
-export function buildSystemPrompt(locale: string, mode: string, ctx?: ModelContext, snapshot?: Record<string, unknown>): string {
+export function userAxesSection(f: AxesFrame): string {
+  if (f.identity) return '';
+  const name = (k: 0 | 1 | 2) => signedLabel(userAxisAlong(f, k));
+  return `
+
+## The user's axes
+The user works with their own global axes. Model +X is the user's ${name(0)}, model +Y is the user's ${name(1)}, model +Z (up) is the user's ${name(2)}; gravity is the user's ${gravityLabel(f)}. The frame is ${f.det === 1 ? 'right' : 'left'}-handed: moments and rotations convert like the axis they turn about${f.det === 1 ? '' : ', times −1'}.
+- Tools, JSON and the current model below stay in MODEL axes, exactly as the rules say.
+- When you write to the user, name axes, coordinates, loads, reactions and directions in THE USER'S axes.
+- When the user gives coordinates, loads or directions, read them in their axes and convert them to model axes before calling a tool.`;
+}
+
+export function buildSystemPrompt(locale: string, mode: string, ctx?: ModelContext, snapshot?: Record<string, unknown>, axes?: AxesFrame): string {
   const safeLocale = sanitizeLocale(locale);
   const capabilities = promptText(mode);
-  const context = (ctx ? contextSection(ctx) : '') + (snapshot ? snapshotSection(snapshot) : '');
+  const context = (ctx ? contextSection(ctx) : '') + (snapshot ? snapshotSection(snapshot) : '') + (axes ? userAxesSection(axes) : '');
   return `You are a helpful assistant embedded in Stabileo, a structural analysis app.
 
 Respond in locale: ${safeLocale}
