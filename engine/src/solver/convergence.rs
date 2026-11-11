@@ -766,4 +766,27 @@ mod tests {
         }
     }
 
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r3_spatial_coincident_settlement_keeps_length_units() {
+        let mut s: SolverInput3D=serde_json::from_str(include_str!("../../tests/metamorphic_corpus/feature_matrix/3d-prescribed-displacement-support-settlement-with.json")).unwrap();
+        s.elements.clear(); s.plates.clear(); s.quads.clear(); s.loads.clear();s.constraints.clear();
+        s.nodes.retain(|_,n|n.id<=2);
+        for n in s.nodes.values_mut() {n.x=0.0;n.y=0.0;n.z=0.0;}
+        s.sections.values_mut().next().unwrap().cw=Some(0.0);
+        s.supports.clear();
+        s.supports.insert("1".into(),serde_json::from_value(serde_json::json!({"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true,"rw":true,"dx":0.01})).unwrap());
+        s.supports.insert("2".into(),serde_json::from_value(serde_json::json!({"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":false,"rrz":true,"rw":true})).unwrap());
+        s.connectors.insert("1".into(),serde_json::from_value(serde_json::json!({"id":1,"nodeI":1,"nodeJ":2,"kAxial":100.0,"kShear":100.0,"kMoment":400.0,"kShearZ":100.0,"kBendY":400.0,"kBendZ":400.0})).unwrap());
+        let ratio=|s:&SolverInput3D| {
+            let d=DofNumbering::build_3d(s);
+            let metric=EquilibriumMetric::for_3d(s,&d,None).unwrap();
+            let mut before=vec![0.0;d.n_total];before[d.global_dof(1,0).unwrap()]=s.supports["1"].dx.unwrap();
+            let mut after=before.clone();after[d.global_dof(2,4).unwrap()]=0.001;
+            metric.relative_increment(&before,&after)
+        };
+        let expected=ratio(&s);
+        for length in [1e-3,1e3] {assert!((ratio(&scale_3d(&s,&Units::froude(length,1.0)))/expected-1.0).abs()<1e-12);}
+    }
+
 }
