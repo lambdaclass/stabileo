@@ -1,0 +1,328 @@
+{
+  "swing2": {
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 0,
+        "z": 0
+      },
+      "2": {
+        "id": 2,
+        "x": 2,
+        "z": 1
+      },
+      "3": {
+        "id": 3,
+        "x": -3,
+        "z": 0
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 10000,
+        "nu": 0.3
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 0.01,
+        "iy": 0.001,
+        "iz": 0.002,
+        "j": 0.003
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 3,
+        "nodeJ": 1,
+        "materialId": 1,
+        "sectionId": 1,
+        "hingeEnd": true,
+        "releaseMyEnd": true,
+        "releaseMzEnd": true,
+        "releaseTEnd": true
+      }
+    },
+    "supports": {
+      "1": {
+        "id": 1,
+        "nodeId": 1,
+        "type": "pinned",
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": false,
+        "rry": false,
+        "rrz": false
+      },
+      "3": {
+        "id": 3,
+        "nodeId": 3,
+        "type": "fixed",
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      }
+    },
+    "loads": [],
+    "constraints": [
+      {
+        "type": "rigidLink",
+        "masterNode": 1,
+        "slaveNode": 2,
+        "dofs": []
+      }
+    ]
+  },
+  "soft2": {
+    "constraints": [
+      {
+        "dofs": [
+          0,
+          1,
+          2
+        ],
+        "masterNode": 2,
+        "slaveNode": 3,
+        "type": "equalDOF"
+      }
+    ],
+    "elements": {
+      "1": {
+        "id": 1,
+        "materialId": 1,
+        "nodeI": 1,
+        "nodeJ": 2,
+        "sectionId": 1,
+        "type": "frame"
+      }
+    },
+    "loads": [
+      {
+        "type": "nodal",
+        "data": {
+          "nodeId": 2,
+          "fx": 0,
+          "fz": 1,
+          "my": 0
+        }
+      }
+    ],
+    "materials": {
+      "1": {
+        "e": 10000,
+        "id": 1,
+        "nu": 0.3
+      }
+    },
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 0,
+        "z": 0
+      },
+      "2": {
+        "id": 2,
+        "x": 4,
+        "z": 4
+      },
+      "3": {
+        "id": 3,
+        "x": 4,
+        "z": 0
+      }
+    },
+    "sections": {
+      "1": {
+        "a": 0.01,
+        "id": 1,
+        "iy": 1e-18,
+        "iz": 1e-13,
+        "j": 0.003
+      },
+      "2": {
+        "a": 0.01,
+        "id": 2,
+        "iy": 1e-18,
+        "iz": 0.002,
+        "j": 0.003
+      }
+    },
+    "supports": {
+      "1": {
+        "id": 1,
+        "nodeId": 1,
+        "rrx": true,
+        "rry": true,
+        "rrz": true,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "type": "fixed"
+      }
+    }
+  },
+  "swing3": {
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "2": {
+        "id": 2,
+        "x": 2,
+        "y": 0,
+        "z": 1
+      },
+      "3": {
+        "id": 3,
+        "x": -3,
+        "y": 0,
+        "z": 0
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 10000,
+        "nu": 0.3
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 0.01,
+        "iy": 0.001,
+        "iz": 0.002,
+        "j": 0.003
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 3,
+        "nodeJ": 1,
+        "materialId": 1,
+        "sectionId": 1,
+        "releaseMyEnd": true,
+        "releaseMzEnd": true,
+        "releaseTEnd": true
+      }
+    },
+    "supports": {
+      "1": {
+        "id": 1,
+        "nodeId": 1,
+        "type": "pinned",
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": false,
+        "rry": false,
+        "rrz": false
+      },
+      "3": {
+        "id": 3,
+        "nodeId": 3,
+        "type": "fixed",
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      }
+    },
+    "loads": [],
+    "constraints": [
+      {
+        "type": "rigidLink",
+        "masterNode": 1,
+        "slaveNode": 2,
+        "dofs": []
+      }
+    ]
+  },
+  "soft3": {
+    "elements": {
+      "1": {
+        "id": 1,
+        "materialId": 1,
+        "nodeI": 1,
+        "nodeJ": 2,
+        "sectionId": 1,
+        "type": "frame"
+      },
+      "2": {
+        "id": 2,
+        "materialId": 1,
+        "nodeI": 1,
+        "nodeJ": 2,
+        "releaseMyEnd": true,
+        "sectionId": 2,
+        "type": "frame"
+      }
+    },
+    "loads": [],
+    "materials": {
+      "1": {
+        "e": 10000,
+        "id": 1,
+        "nu": 0.3
+      }
+    },
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "2": {
+        "id": 2,
+        "x": 4,
+        "y": 2,
+        "z": 3
+      }
+    },
+    "sections": {
+      "1": {
+        "a": 0.01,
+        "id": 1,
+        "iy": 1e-18,
+        "iz": 0.002,
+        "j": 0.003
+      },
+      "2": {
+        "a": 0.01,
+        "id": 2,
+        "iy": 0.001,
+        "iz": 0.002,
+        "j": 0.003
+      }
+    },
+    "supports": {
+      "1": {
+        "id": 1,
+        "nodeId": 1,
+        "rrx": true,
+        "rry": true,
+        "rrz": true,
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "type": "fixed"
+      }
+    }
+  }
+}

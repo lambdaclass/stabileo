@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { initSync, solve_staged_2d, solve_staged_3d, solve_2d, solve_3d, solve_corotational_2d, solve_nonlinear_material_3d, analyze_kinematics_2d, analyze_kinematics_3d, certify_linear_2d } from '../../web/src/lib/wasm/dedaliano_engine.js';
+import { initSync, solve_staged_2d, solve_staged_3d, solve_2d, solve_3d, solve_corotational_2d, solve_nonlinear_material_3d, analyze_kinematics_2d, analyze_kinematics_3d, certify_linear_2d, solve_plastic_3d, solve_plastic_2d } from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/staged-orphan-1846.json', import.meta.url)));
@@ -281,3 +281,108 @@ for (const dimension of [2, 3]) {
   }
 }
 console.log('2D and 3D kinematic sub-threshold springs agree at nf=63 and nf=64');
+
+const round3Fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/staged-review-round3.json', import.meta.url)));
+function round3Model(name, pads) {
+  const input = structuredClone(round3Fixtures[name]);
+  const dimension = name.endsWith('2') ? 2 : 3;
+  const padding = cases.find(([label]) => label === (dimension === 2 ? '2d:1:0:false:0:21' : '3d:1:0:0:11'))[1];
+  for (const field of ['nodes', 'elements', 'supports']) {
+    for (const [key, value] of Object.entries(padding[field])) {
+      if (Number(key) >= 100 && Number(key) < 100 + pads * 2) input[field][key] = structuredClone(value);
+    }
+  }
+  return input;
+}
+for (const dimension of [2, 3]) {
+  const kinematics = dimension === 2 ? analyze_kinematics_2d : analyze_kinematics_3d;
+  const linear = dimension === 2 ? solve_2d : solve_3d;
+  for (const pads of [0, dimension === 2 ? 21 : 11]) {
+    for (const kind of dimension === 2 ? ['rigidLink', 'eccentricConnection'] : ['rigidLink', 'eccentricConnection', 'diaphragm']) {
+      for (const held of [false, true]) {
+        const input = round3Model(`swing${dimension}`, pads);
+        input.constraints = [kind === 'diaphragm'
+          ? { type: kind, masterNode: 1, slaveNodes: [2], plane: 'XZ' }
+          : { type: kind, masterNode: 1, slaveNode: 2, dofs: [], releases: [] }];
+        if (held) Object.assign(input.supports[1], { type: 'fixed', rrx: true, rry: true, rrz: true });
+        const result = kinematics(input);
+        assert.equal(result.isSolvable, held);
+        if (held) {
+          assert.equal(result.mechanismModes, 0);
+          linear(input);
+        } else {
+          assert.ok(result.mechanismModes > 0, JSON.stringify(result));
+          assert.ok(result.mechanismNodes.includes(1));
+          assert.ok(result.unconstrainedDofs.length > 0);
+          assert.throws(() => linear(input), /mechanism/);
+        }
+      }
+    }
+    for (const soft of [false, true]) {
+      const input = round3Model(`soft${dimension}`, pads);
+      if (!soft) input.sections[1][dimension === 2 ? 'iz' : 'iy'] = 0.001;
+      const result = kinematics(input);
+      assert.equal(result.isSolvable, true, JSON.stringify(result));
+      assert.equal(result.mechanismModes, 0);
+      if (soft) assert.throws(() => linear(input), dimension === 2 ? /constraint reduction/ : /coupled/);
+      else linear(input);
+    }
+  }
+}
+console.log('round 3 kinematic WASM mechanisms and elastic refusals pass');
+
+for (const soft of [false, true]) {
+  const input = round3Model('soft3', 1);
+  input.loads = [{ type: 'nodal', data: { nodeId: 101, fx: 0, fy: 1, fz: 0, mx: 0, my: 0, mz: 0 } }];
+  if (!soft) input.sections[1].iy = 0.001;
+  const plastic = {
+    solver: input,
+    sections: { 1: { a: 0.01, iy: 0.001, iz: 0.002, materialId: 1 }, 2: { a: 0.01, iy: 0.001, iz: 0.002, materialId: 1 } },
+    materials: { 1: { fy: 1 } }, maxHinges: 1,
+  };
+  if (soft) assert.throws(() => solve_plastic_3d(JSON.stringify(plastic)), /coupled/);
+  else assert.ok(JSON.parse(solve_plastic_3d(JSON.stringify(plastic))).collapseFactor > 0);
+}
+console.log('round 3 plastic WASM preserves the elastic refusal');
+
+for (const dimension of [2, 3]) {
+  for (const pads of [0, dimension === 2 ? 21 : 11]) {
+    for (const scale of [1e-12, 1, 1e12]) {
+      const input = round3Model(`soft${dimension}`, pads);
+      delete input.constraints;
+      delete input.elements[2];
+      delete input.nodes[3];
+      input.sections[1].iy = 0.001;
+      input.sections[1].iz = 0.002;
+      input.materials[1].e *= scale;
+      input.nodes[4] = { ...input.nodes[1], id: 4, x: 8 };
+      input.nodes[5] = { ...input.nodes[2], id: 5, x: 12 };
+      input.elements[2] = { ...input.elements[1], id: 2, nodeI: 4, nodeJ: 5 };
+      input.supports[4] = { ...input.supports[1], id: 4, nodeId: 4 };
+      input.loads = [];
+      const stages = [
+        { name: 'before', elementsAdded: Object.values(input.elements).filter(e => e.id !== 2).map(e => e.id), supportsAdded: Object.values(input.supports).map(s => s.nodeId), loadIndices: [] },
+        { name: 'after', elementsAdded: [2], loadIndices: [] },
+      ];
+      const solve = dimension === 2 ? solve_staged_2d : solve_staged_3d;
+      const result = JSON.parse(solve(JSON.stringify({ ...input, stages })));
+      for (const stage of result.stages) {
+        assert.ok(!(stage.results.structuredDiagnostics ?? []).some(d => d.phase === 'NUM-INVARIANCE'), JSON.stringify(stage));
+        assert.ok(stage.results.displacements.every(d => Number.isFinite(d.ux)));
+      }
+    }
+  }
+}
+console.log('round 3 dormant WASM pins keep conditioning independent of stiffness scale');
+
+for (const soft of [false, true]) {
+  const input = round3Model('soft2', 0);
+  if (!soft) input.sections[1].iz = 0.001;
+  const plastic = {
+    solver: input, sections: { 1: { a: 0.01, iz: 0.002, materialId: 1 } },
+    materials: { 1: { fy: 1 } }, maxHinges: 1,
+  };
+  if (soft) assert.throws(() => solve_plastic_2d(JSON.stringify(plastic)), /constraint reduction/);
+  else assert.ok(JSON.parse(solve_plastic_2d(JSON.stringify(plastic))).collapseFactor > 0);
+}
+console.log('round 3 plastic 2D WASM reports the elastic refusal');

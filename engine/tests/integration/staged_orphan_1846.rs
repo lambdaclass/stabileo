@@ -593,28 +593,57 @@ fn issue_1846_prestress_inclined_public_refusals_2d_and_3d() {
     for (pads2, pads3) in [(0, 0), (20, 9), (21, 10)] {
         let mut input = make_input(
             vec![(1, 0.0, 0.0), (2, 4.0, 0.0)],
-            vec![(1, 10_000.0, 0.3)], vec![(1, 0.01, 0.001)],
+            vec![(1, 10_000.0, 0.3)],
+            vec![(1, 0.01, 0.001)],
             vec![(1, "frame", 1, 2, 1, 1, false, false)],
             vec![(1, 1, "fixed"), (2, 2, "rollerZ")],
-            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 1.0, fz: 0.0, my: 0.0 })],
+            vec![SolverLoad::Nodal(SolverNodalLoad {
+                node_id: 2,
+                fx: 1.0,
+                fz: 0.0,
+                my: 0.0,
+            })],
         );
         pad_2d(&mut input, pads2);
-        assert_eq!(DofNumbering::build_2d(&input).n_free >= SPARSE_THRESHOLD, pads2 == 21);
+        assert_eq!(
+            DofNumbering::build_2d(&input).n_free >= SPARSE_THRESHOLD,
+            pads2 == 21
+        );
         let mut staged = stage_2d(&input);
         let prestress = PrestressLoad {
-            element_id: 1, force: 1.0, eccentricity_i: 0.0, eccentricity_j: 0.0,
-            profile: TendonProfile::Straight, mu: None, kappa: None,
+            element_id: 1,
+            force: 1.0,
+            eccentricity_i: 0.0,
+            eccentricity_j: 0.0,
+            profile: TendonProfile::Straight,
+            mu: None,
+            kappa: None,
         };
         staged.stages[0].prestress_loads.push(prestress.clone());
         let correct = solve_staged_2d(&staged).unwrap();
         let mut equivalent = input.clone();
         equivalent.loads.extend([
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: -1.0, fz: 0.0, my: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 1.0, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad {
+                node_id: 1,
+                fx: -1.0,
+                fz: 0.0,
+                my: 0.0,
+            }),
+            SolverLoad::Nodal(SolverNodalLoad {
+                node_id: 2,
+                fx: 1.0,
+                fz: 0.0,
+                my: 0.0,
+            }),
         ]);
         let linear = solve_2d(&equivalent).unwrap();
         for d in &linear.displacements {
-            let s = correct.final_results.displacements.iter().find(|s| s.node_id == d.node_id).unwrap();
+            let s = correct
+                .final_results
+                .displacements
+                .iter()
+                .find(|s| s.node_id == d.node_id)
+                .unwrap();
             assert!((d.ux - s.ux).abs() <= 1e-12);
             assert!((d.uz - s.uz).abs() <= 1e-12);
             assert!((d.ry - s.ry).abs() <= 1e-12);
@@ -624,16 +653,32 @@ fn issue_1846_prestress_inclined_public_refusals_2d_and_3d() {
             let support = inclined.supports.get_mut("2").unwrap();
             support.support_type = "inclinedRoller".into();
             support.angle = Some(angle);
-            assert!(solve_staged_2d(&inclined).unwrap_err().contains("Inclined supports are not yet supported"));
+            assert!(solve_staged_2d(&inclined)
+                .unwrap_err()
+                .contains("Inclined supports are not yet supported"));
         }
         let mut input3 = make_3d_input(
             vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
-            vec![(1, 10_000.0, 0.3)], vec![(1, 0.01, 0.001, 0.002, 0.003)],
-            vec![(1, "frame", 1, 2, 1, 1)], vec![(1, vec![true; 6])],
-            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 1.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+            vec![(1, 10_000.0, 0.3)],
+            vec![(1, 0.01, 0.001, 0.002, 0.003)],
+            vec![(1, "frame", 1, 2, 1, 1)],
+            vec![(1, vec![true; 6])],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: 2,
+                fx: 1.0,
+                fy: 0.0,
+                fz: 0.0,
+                mx: 0.0,
+                my: 0.0,
+                mz: 0.0,
+                bw: None,
+            })],
         );
         pad_3d(&mut input3, pads3);
-        assert_eq!(DofNumbering::build_3d(&input3).n_free >= SPARSE_THRESHOLD, pads3 == 10);
+        assert_eq!(
+            DofNumbering::build_3d(&input3).n_free >= SPARSE_THRESHOLD,
+            pads3 == 10
+        );
         check_3d(&input3);
         let mut inclined3 = stage_3d(&input3);
         inclined3.stages[0].prestress_loads.push(prestress);
@@ -643,11 +688,12 @@ fn issue_1846_prestress_inclined_public_refusals_2d_and_3d() {
             support.normal_x = Some(normal[0]);
             support.normal_y = Some(normal[1]);
             support.normal_z = Some(normal[2]);
-            assert!(solve_staged_3d(&inclined3).unwrap_err().contains("Inclined supports are not yet supported"));
+            assert!(solve_staged_3d(&inclined3)
+                .unwrap_err()
+                .contains("Inclined supports are not yet supported"));
         }
     }
 }
-
 
 fn review_model(dim: usize, pads: usize) -> serde_json::Value {
     let mut v = serde_json::json!({
@@ -776,6 +822,22 @@ fn issue_1846_review_partial_constraints_and_multistage_erection() {
                     assert_eq!(d["uz"].as_f64().unwrap(), 0.0);
                     if !partial {
                         assert_eq!(d["ux"].as_f64().unwrap(), 0.0);
+                    }
+                    if partial && matches!(kind, "equalDOF" | "linearMPC") {
+                        for node in [2, 3] {
+                            let ux = r["stages"][0]["results"]["displacements"]
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .find(|d| d["nodeId"] == node)
+                                .unwrap()["ux"]
+                                .as_f64()
+                                .unwrap();
+                            assert!(
+                                (ux - 0.04).abs() <= 1e-12,
+                                "{dim}D {pads} {kind} node {node}: {ux}"
+                            );
+                        }
                     }
                     assert!(r["finalResults"]["displacements"]
                         .as_array()
@@ -1233,6 +1295,219 @@ fn issue_1846_review_tiny_spring_dispatch_boundaries() {
                     solve_staged_3d(&stage_3d(&input)).unwrap_err()
                 );
             }
+        }
+    }
+}
+
+fn round3_model(name: &str, pads: usize) -> serde_json::Value {
+    let fixtures: serde_json::Value =
+        serde_json::from_str(include_str!("../fixtures/staged-review-round3.json")).unwrap();
+    let mut v = fixtures[name].clone();
+    let dim = if name.ends_with('2') { 2 } else { 3 };
+    let padding = review_model(dim, pads);
+    for field in ["nodes", "elements", "supports"] {
+        for (key, value) in padding[field].as_object().unwrap() {
+            if key.parse::<usize>().unwrap() >= 100 {
+                v[field][key] = value.clone();
+            }
+        }
+    }
+    v
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round3_swinging_rotations_report_mechanisms() {
+    use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
+    for dim in [2, 3] {
+        for pads in [0, 22] {
+            for kind in ["rigidLink", "eccentricConnection", "diaphragm"] {
+                if dim == 2 && kind == "diaphragm" {
+                    continue;
+                }
+                let mut v = round3_model(&format!("swing{dim}"), pads);
+                v["constraints"][0] = match kind {
+                    "diaphragm" => {
+                        serde_json::json!({"type":kind,"masterNode":1,"slaveNodes":[2],"plane":"XZ"})
+                    }
+                    "eccentricConnection" => {
+                        serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"releases":[]})
+                    }
+                    _ => serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"dofs":[]}),
+                };
+                for held in [false, true] {
+                    if held {
+                        v["supports"]["1"]["type"] = "fixed".into();
+                        for field in ["rrx", "rry", "rrz"] {
+                            v["supports"]["1"][field] = true.into();
+                        }
+                    }
+                    let k = if dim == 2 {
+                        analyze_kinematics_2d(&serde_json::from_value(v.clone()).unwrap())
+                    } else {
+                        analyze_kinematics_3d(&serde_json::from_value(v.clone()).unwrap())
+                    };
+                    assert_eq!(k.is_solvable, held, "{dim}D {pads} {kind}: {k:?}");
+                    if held {
+                        assert_eq!(k.mechanism_modes, 0, "{k:?}");
+                    } else {
+                        assert!(k.mechanism_modes > 0, "{dim}D {pads} {kind}: {k:?}");
+                        assert!(k.mechanism_nodes.contains(&1), "{k:?}");
+                        assert!(!k.unconstrained_dofs.is_empty());
+                        assert!(k.diagnosis.contains("Mecanismo"), "{k:?}");
+                    }
+                    let linear = if dim == 2 {
+                        solve_2d(&serde_json::from_value(v.clone()).unwrap()).map(|_| ())
+                    } else {
+                        solve_3d(&serde_json::from_value(v.clone()).unwrap()).map(|_| ())
+                    };
+                    assert_eq!(linear.is_ok(), held, "{linear:?}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round3_elastic_refusals_do_not_become_kinematic_mechanisms() {
+    use dedaliano_engine::solver::{kinematic::*, stability};
+    for dim in [2, 3] {
+        for pads in [0, 22] {
+            for soft in [true, false] {
+                let mut v = round3_model(&format!("soft{dim}"), pads);
+                if !soft {
+                    v["sections"]["1"][if dim == 2 { "iz" } else { "iy" }] = 0.001.into();
+                }
+                let (k, s, r) = if dim == 2 {
+                    let i = serde_json::from_value(v).unwrap();
+                    (
+                        analyze_kinematics_2d(&i),
+                        stability::of_2d(&i).unwrap(),
+                        solve_2d(&i).map(|_| ()),
+                    )
+                } else {
+                    let i = serde_json::from_value(v).unwrap();
+                    (
+                        analyze_kinematics_3d(&i),
+                        stability::of_3d(&i).unwrap(),
+                        solve_3d(&i).map(|_| ()),
+                    )
+                };
+                if soft {
+                    assert_eq!(
+                        s.reason,
+                        if dim == 2 {
+                            stability::Reason::ConstraintRounding
+                        } else {
+                            stability::Reason::CoupledSoftDirection
+                        }
+                    );
+                }
+                assert!(k.is_solvable, "{dim}D {pads} soft={soft}: {k:?}");
+                assert_eq!(k.mechanism_modes, 0, "{k:?}");
+                assert_eq!(r.is_ok(), !soft, "{r:?}");
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round3_limit_analysis_normalizes_elastic_contrast() {
+    for soft in [true, false] {
+        let mut v = round3_model("soft2", 0);
+        if !soft {
+            v["sections"]["1"]["iz"] = 0.001.into();
+        }
+        let i = serde_json::from_value(v).unwrap();
+        let r = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(
+            &i,
+            &[(1, 1.0)].into_iter().collect(),
+            &Default::default(),
+        )
+        .unwrap();
+        assert!(r.lambda.is_finite() && r.lambda > 0.0, "{r:?}");
+        assert!((r.lambda - 0.25).abs() <= 1e-10, "{r:?}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round3_plastic_preserves_coupled_soft_refusal() {
+    for pads in [1, 22] {
+        for soft in [true, false] {
+            let mut v = round3_model("soft3", pads);
+            v["loads"] = serde_json::json!([{"type":"nodal","data":{"nodeId":101,"fx":0.0,"fy":1.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0}}]);
+            if !soft {
+                v["sections"]["1"]["iy"] = 0.001.into();
+            }
+            let p: PlasticInput3D = serde_json::from_value(serde_json::json!({
+                "solver":v,"sections":{"1":{"a":0.01,"iy":0.001,"iz":0.002,"materialId":1},"2":{"a":0.01,"iy":0.001,"iz":0.002,"materialId":1}},
+                "materials":{"1":{"fy":1.0}},"maxHinges":1
+            })).unwrap();
+            let r = dedaliano_engine::solver::plastic::solve_plastic_3d(&p);
+            if soft {
+                assert!(r.unwrap_err().contains("coupled"));
+            } else {
+                assert!(r.unwrap().collapse_factor > 0.0);
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round3_dormant_pins_do_not_create_conditioning_warnings() {
+    for dim in [2, 3] {
+        for pads in [0, 22] {
+            for scale in [1e-12, 1.0, 1e12] {
+                let mut v = review_model(dim, pads);
+                v["materials"]["1"]["e"] = (10000.0 * scale).into();
+                v["loads"][0]["data"]["fx"] = scale.into();
+                review_stages(&mut v, true);
+                let r = review_solve(dim, v).unwrap();
+                for stage in r["stages"].as_array().unwrap() {
+                    let result = &stage["results"];
+                    let d = result["displacements"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|d| d["nodeId"] == 2)
+                        .unwrap();
+                    assert!((d["ux"].as_f64().unwrap() - 0.04).abs() <= 1e-12);
+                    assert!(
+                        !result["structuredDiagnostics"]
+                            .as_array()
+                            .unwrap_or(&vec![])
+                            .iter()
+                            .any(|d| d["phase"] == "NUM-INVARIANCE"),
+                        "{dim}D {pads} {scale}: {result}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round3_plastic_2d_preserves_elastic_refusal() {
+    for soft in [true, false] {
+        let mut v = round3_model("soft2", 0);
+        if !soft {
+            v["sections"]["1"]["iz"] = 0.001.into();
+        }
+        let p: PlasticInput = serde_json::from_value(serde_json::json!({
+            "solver":v,"sections":{"1":{"a":0.01,"iz":0.002,"materialId":1}},
+            "materials":{"1":{"fy":1.0}},"maxHinges":1
+        }))
+        .unwrap();
+        let r = dedaliano_engine::solver::plastic::solve_plastic_2d(&p);
+        if soft {
+            assert!(r.unwrap_err().contains("constraint reduction"));
+        } else {
+            assert!(r.unwrap().collapse_factor > 0.0);
         }
     }
 }

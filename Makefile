@@ -889,3 +889,7 @@ test.engine.staged-review:
 
 test.engine.staged-review-numeric:
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_review_numeric -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.staged-round3
+test.engine.staged-round3:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_round3 -- --nocapture $(if $(IGNORED),--ignored)

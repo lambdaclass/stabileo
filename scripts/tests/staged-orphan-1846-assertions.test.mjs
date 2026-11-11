@@ -10,14 +10,14 @@ function compare(dimension, change) {
   const displacement = dimension === 2
     ? { nodeId: 2, ux: 1, uz: 2, ry: 3 }
     : { nodeId: 2, ux: 1, uy: 2, uz: 3, rx: 4, ry: 5, rz: 6 };
-  const linear = { displacements: [structuredClone(displacement)] };
-  const staged = { displacements: [structuredClone(displacement)] };
+  const linear = { displacements: [{ ...displacement, nodeId: 1 }, structuredClone(displacement)] };
+  const staged = { displacements: [{ ...displacement, nodeId: 1 }, structuredClone(displacement)] };
   change(linear, staged);
   const solve2d = () => linear;
   const solve3d = () => linear;
   runInNewContext(comparison, {
     assert, console: { error() {} }, solve_2d: solve2d, solve_3d: solve3d,
-    cases: [['injected', { elements: {}, supports: {}, loads: [] }, dimension === 2 ? solve2d : solve3d, () => JSON.stringify({ finalResults: staged })]],
+    cases: [['injected', { nodes: { 1: {}, 2: {} }, elements: {}, supports: {}, loads: [] }, dimension === 2 ? solve2d : solve3d, () => JSON.stringify({ finalResults: staged })]],
   });
 }
 
@@ -46,4 +46,20 @@ for (const dimension of [2, 3]) {
   test(`${dimension}D rejects missing staged node`, () => {
     assert.throws(() => compare(dimension, (_, staged) => { staged.displacements = []; }));
   });
+}
+
+for (const dimension of [2, 3]) {
+  for (const side of ['linear', 'staged']) {
+    for (const mutation of ['empty', 'missing', 'extra', 'duplicate']) {
+      test(`${dimension}D rejects ${side} ${mutation} nodes`, () => {
+        assert.throws(() => compare(dimension, (linear, staged) => {
+          const result = side === 'linear' ? linear : staged;
+          if (mutation === 'empty') result.displacements = [];
+          if (mutation === 'missing') result.displacements.pop();
+          if (mutation === 'extra') result.displacements.push({ ...result.displacements[0], nodeId: 3 });
+          if (mutation === 'duplicate') result.displacements[1].nodeId = 1;
+        }));
+      });
+    }
+  }
 }
