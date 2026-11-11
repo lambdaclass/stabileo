@@ -464,23 +464,27 @@ fn rotate_inclined_k_2d(k: &mut [f64], n: usize, dofs: &[usize; 2], r: &[[f64; 2
     }
 }
 
+pub(crate) fn compensated_dot<const D: usize>(a: &[f64; D], b: &[f64; D]) -> f64 {
+    let mut sum = 0.0f64;
+    let mut correction = 0.0;
+    for (&a, &b) in a.iter().zip(b) {
+        let product = a * b;
+        let next = sum + product;
+        correction += if sum.abs() >= product.abs() {
+            (sum - next) + product
+        } else {
+            (product - next) + sum
+        };
+        correction += a.mul_add(b, -product);
+        sum = next;
+    }
+    sum + correction
+}
+
 fn rotate_inclined_vector<const D: usize>(f: &mut [f64], dofs: &[usize; D], r: &[[f64; D]; D]) {
-    let values: [f64; D] = std::array::from_fn(|i| f[dofs[i]]);
+    let values = std::array::from_fn(|i| f[dofs[i]]);
     for (i, row) in r.iter().enumerate() {
-        let mut sum = 0.0f64;
-        let mut correction = 0.0;
-        for (&a, &b) in row.iter().zip(&values) {
-            let product = a * b;
-            let next = sum + product;
-            correction += if sum.abs() >= product.abs() {
-                (sum - next) + product
-            } else {
-                (product - next) + sum
-            };
-            correction += a.mul_add(b, -product);
-            sum = next;
-        }
-        f[dofs[i]] = sum + correction;
+        f[dofs[i]] = compensated_dot(row, &values);
     }
 }
 
@@ -503,17 +507,8 @@ pub(crate) fn apply_inclined_transform_2d(k: &mut [f64], f: &mut [f64], n: usize
 
 /// Reverse 2D inclined rotation on displacement vector: u_global = R^T * u_rotated
 pub fn reverse_inclined_transform_2d(u: &mut [f64], dofs: &[usize; 2], r: &[[f64; 2]; 2]) {
-    let mut vals = [0.0; 2];
-    for a in 0..2 {
-        vals[a] = u[dofs[a]];
-    }
-    for a in 0..2 {
-        let mut sum = 0.0;
-        for b in 0..2 {
-            sum += r[b][a] * vals[b]; // R^T[a][b] = R[b][a]
-        }
-        u[dofs[a]] = sum;
-    }
+    let rt = std::array::from_fn(|i| std::array::from_fn(|j| r[j][i]));
+    rotate_inclined_vector(u, dofs, &rt);
 }
 
 /// Build rotation matrix that maps global to local frame where ê₁ = normal.
@@ -588,17 +583,8 @@ pub(crate) fn apply_inclined_transform(k: &mut [f64], f: &mut [f64], n: usize,
 
 /// Reverse inclined rotation on displacement vector: u_global = R^T * u_rotated
 pub fn reverse_inclined_transform(u: &mut [f64], dofs: &[usize; 3], r: &[[f64; 3]; 3]) {
-    let mut vals = [0.0; 3];
-    for a in 0..3 {
-        vals[a] = u[dofs[a]];
-    }
-    for a in 0..3 {
-        let mut sum = 0.0;
-        for b in 0..3 {
-            sum += r[b][a] * vals[b]; // R^T[a][b] = R[b][a]
-        }
-        u[dofs[a]] = sum;
-    }
+    let rt = std::array::from_fn(|i| std::array::from_fn(|j| r[j][i]));
+    rotate_inclined_vector(u, dofs, &rt);
 }
 
 /// Stiffness-only assembly result for 2D (K with inclined support transforms applied).

@@ -44,26 +44,27 @@ fn spring_triplets<T: InclinedFrame>(
     (rows, cols, vals)
 }
 
-/// K·[u_f; 0] − F over every DOF, K with the soil springs at the secants of the solve.
 fn residual<T: InclinedFrame>(
-    mut ku: Vec<f64>, springs: &[SoilSpring], spring_k: &[f64], dof_num: &DofNumbering, its: &[T],
-    u_frame: &[f64], f_global: &[f64],
-) -> Vec<f64> {
-    let nf = dof_num.n_free;
-    let (sr, sc, sv) = spring_triplets(springs, spring_k, dof_num, its);
-    for t in 0..sr.len() {
-        let (a, b, v) = (sr[t], sc[t], sv[t]);
-        if b < nf {
-            ku[a] += v * u_frame[b];
-        }
-        if a != b && a < nf {
-            ku[b] += v * u_frame[a];
+    mut ku: Vec<f64>,
+    springs: &[SoilSpring],
+    dof_num: &DofNumbering,
+    its: &[T],
+    u_global: &[f64],
+    f_global: &[f64],
+) -> Result<Vec<f64>, String> {
+    let mut soil = vec![0.0; dof_num.n_total];
+    for spring in springs {
+        if let Some(d) = dof_num.global_dof(spring.node_id, spring.direction) {
+            soil[d] += evaluate_soil_curve(&spring.curve, u_global[d])?.0 * spring.length_factor();
         }
     }
-    for (r, f) in ku.iter_mut().zip(f_global) {
-        *r -= f;
+    for it in its {
+        it.rotate(&mut soil);
     }
-    ku
+    for ((r, soil), f) in ku.iter_mut().zip(soil).zip(f_global) {
+        *r += soil - f;
+    }
+    Ok(ku)
 }
 
 fn relative_stiffness_change(old: f64, new: f64) -> f64 {
@@ -224,7 +225,6 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
 
     // Constraint system (built once before iteration)
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
-    let metric = super::convergence::EquilibriumMetric::for_2d(&input.solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -289,11 +289,16 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
 
     let mut u_full = vec![0.0; n];
     let mut u_frame = vec![0.0; nf];
-    let mut solved_k = spring_k.clone();
     let mut converged = false;
     let mut total_iters = 0;
     let mut conditioning = None;
 
+    let (sr, sc, sv) = spring_triplets(&input.soil_springs, &spring_k, &dof_num, its);
+    let extra: Vec<_> = sr.into_iter().zip(sc).zip(sv)
+        .filter_map(|((r,c),v)|(r==c).then_some((r,v))).collect();
+    let metric = super::convergence::EquilibriumMetric::for_2d_with_state(
+        &input.solver, &dof_num, cs.as_ref(), None, &extra,
+    )?;
     // Sparse symbolic Cholesky reused across iterations (spring stiffnesses
     // change values, not the pattern; the fingerprinted cache rebuilds the
     // symbolic if an entry ever crosses exactly zero).
@@ -369,7 +374,6 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
         // K's frames for the constraint forces.
         u_full = assembly::to_global(&u_f, n, its);
         u_frame = u_f;
-        solved_k.clone_from(&spring_k);
 
         // Update soil spring stiffnesses
         let mut max_change = 0.0_f64;
@@ -393,7 +397,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
             let ku = if let Some(ref s) = sparse_stiff {
                 sparse_ku(&s.k_full, n, &u_frame)
             } else { dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame) };
-            let r = residual(ku, &input.soil_springs, &spring_k, &dof_num, its, &u_frame, &f_global);
+            let r = residual(ku, &input.soil_springs, &dof_num, its, &u_full, &f_global)?;
             if metric.relative_residual(&r, &f_global, None, cs.as_ref()) < input.tolerance {
                 converged = true;
                 break;
@@ -427,7 +431,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
     } else {
         dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame)
     };
-    let mut free_residual = residual(ku, &input.soil_springs, &solved_k, &dof_num, its, &u_frame, &f_global);
+    let mut free_residual = residual(ku, &input.soil_springs, &dof_num, its, &u_full, &f_global)?;
     let mut reactions_vec = free_residual.split_off(nf);
     let constraint_forces = if let Some(ref fcs) = cs {
         let raw = fcs.constraint_forces_from_residual(&free_residual);
@@ -487,7 +491,6 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     // expansion adds new nodes/elements but preserves the original IDs that
     // constraints reference.
     let cs = FreeConstraintSystem::build_3d(&expanded_solver, &dof_num)?;
-    let metric = super::convergence::EquilibriumMetric::for_3d(&expanded_solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -549,11 +552,16 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
 
     let mut u_full = vec![0.0; n];
     let mut u_frame = vec![0.0; nf];
-    let mut solved_k = spring_k.clone();
     let mut converged = false;
     let mut total_iters = 0;
     let mut conditioning = None;
 
+    let (sr, sc, sv) = spring_triplets(&input.soil_springs, &spring_k, &dof_num, its);
+    let extra: Vec<_> = sr.into_iter().zip(sc).zip(sv)
+        .filter_map(|((r,c),v)|(r==c).then_some((r,v))).collect();
+    let metric = super::convergence::EquilibriumMetric::for_3d_with_state(
+        &expanded_solver, &dof_num, cs.as_ref(), None, &extra,
+    )?;
     // Sparse symbolic Cholesky reused across iterations (spring stiffnesses
     // change values, not the pattern; the fingerprinted cache rebuilds the
     // symbolic if an entry ever crosses exactly zero).
@@ -627,7 +635,6 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         // K's frames for the constraint forces.
         u_full = assembly::to_global(&u_f, n, its);
         u_frame = u_f;
-        solved_k.clone_from(&spring_k);
 
         let mut max_change = 0.0_f64;
 
@@ -650,7 +657,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             let ku = if let Some(ref s) = sparse_asm {
                 sparse_ku(s.k_full.as_ref().ok_or("SSI: sparse assembly without the full stiffness")?, n, &u_frame)
             } else { dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame) };
-            let r = residual(ku, &input.soil_springs, &spring_k, &dof_num, its, &u_frame, &f_global);
+            let r = residual(ku, &input.soil_springs, &dof_num, its, &u_full, &f_global)?;
             if metric.relative_residual(&r, &f_global, None, cs.as_ref()) < input.tolerance {
                 converged = true;
                 break;
@@ -683,7 +690,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     } else {
         dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame)
     };
-    let mut free_residual = residual(ku, &input.soil_springs, &solved_k, &dof_num, its, &u_frame, &f_global);
+    let mut free_residual = residual(ku, &input.soil_springs, &dof_num, its, &u_full, &f_global)?;
     let mut reactions_vec = free_residual.split_off(nf);
     let constraint_forces = if let Some(ref fcs) = cs {
         let raw = fcs.constraint_forces_from_residual(&free_residual);

@@ -192,11 +192,14 @@ impl SoilCurve {
                 pos("tip_area", a)?;
             }
             SoilCurve::Custom { points } => {
+                if points.first().is_some_and(|p|p[0]<0.0 || (p[0]==0.0 && p[1]!=0.0)) {
+                    return Err("Custom soil curve requires nonnegative displacement and zero reaction at the origin".into());
+                }
                 for (i, p) in points.iter().enumerate() {
                     if !p[0].is_finite() || !p[1].is_finite() {
                         return Err(format!("Custom soil curve point {i} is not finite"));
                     }
-                    if i > 0 && p[0] < points[i - 1][0] {
+                    if i > 0 && p[0] <= points[i - 1][0] {
                         return Err(format!("Custom soil curve points must be sorted by displacement (point {i})"));
                     }
                 }
@@ -213,7 +216,8 @@ impl SoilCurve {
 /// Refuses an invalid curve (see [`SoilCurve::validate`]).
 pub fn evaluate_soil_curve(curve: &SoilCurve, displacement: f64) -> Result<(f64, f64), String> {
     curve.validate()?;
-    Ok(match curve {
+    if !displacement.is_finite() {return Err("Soil displacement must be finite".into());}
+    let evaluated=match curve {
         SoilCurve::PySoftClay { su, gamma_eff, d, depth, eps_50, j } => {
             py_soft_clay(*su, *gamma_eff, *d, *depth, *eps_50, j.unwrap(), displacement)
         }
@@ -234,7 +238,9 @@ pub fn evaluate_soil_curve(curve: &SoilCurve, displacement: f64) -> Result<(f64,
             (q * a, k * a)
         }
         SoilCurve::Custom { points } => custom_curve(points, displacement),
-    })
+    };
+    if !evaluated.0.is_finite() || !evaluated.1.is_finite() {return Err("Soil reaction and secant stiffness must be finite".into());}
+    Ok(evaluated)
 }
 
 /// Matlock's ultimate resistance per unit length (kN/m):
@@ -253,8 +259,9 @@ pub const API_SOFT_CLAY_STATIC: [(f64, f64); 6] = [(0.0, 0.0), (0.1, 0.23), (0.3
 /// is the first segment's slope.
 fn normalized_curve(p_u: f64, y_c: f64, pts: &[(f64, f64)], y: f64) -> (f64, f64) {
     let y_abs = y.abs();
-    if y_abs < 1e-15 {
-        return (0.0, p_u * pts[1].1 / (pts[1].0 * y_c));
+    if y_abs <= pts[1].0 * y_c {
+        let k=p_u * pts[1].1 / (pts[1].0 * y_c);
+        return (k*y,k);
     }
     let r = y_abs / y_c;
     let mut ratio = pts[pts.len() - 1].1;
@@ -334,7 +341,7 @@ pub fn py_sand(phi: f64, gamma_eff: f64, d: f64, depth: f64, loading: SandLoadin
         // At the ground surface p_u = 0: no resistance.
         return Ok((0.0, 0.0));
     }
-    if y_abs < 1e-15 {
+    if y_abs == 0.0 {
         return Ok((0.0, k * depth));
     }
     let p = ap * (k * depth * y_abs / ap).tanh();
@@ -362,7 +369,7 @@ pub const WELCH_REESE_ABSCISSAE: [f64; 11] = [0.0, 0.001, 0.003, 0.01, 0.03, 0.1
 pub fn tz_curve(t_ult: f64, z_ult: f64, z: f64) -> (f64, f64) {
     let curve = |za: f64| if za < z_ult { t_ult * (za / z_ult).sqrt() } else { t_ult };
     let z_abs = z.abs();
-    if z_abs < 1e-15 {
+    if z_abs == 0.0 {
         let z0 = 1e-6 * z_ult;
         return (0.0, curve(z0) / z0);
     }
@@ -379,25 +386,8 @@ const API_QZ: [(f64, f64); 6] = [(0.0, 0.0), (0.002, 0.25), (0.013, 0.50), (0.04
 /// axis (down, for a vertical pile with the vertical axis up). Moving the other
 /// way it gives no resistance (secant 0), never tension.
 pub fn qz_curve(q_ult: f64, d: f64, z: f64) -> (f64, f64) {
-    let ratio = |za: f64| {
-        let r = za / d;
-        for w in API_QZ.windows(2) {
-            if r <= w[1].0 {
-                return w[0].1 + (r - w[0].0) / (w[1].0 - w[0].0) * (w[1].1 - w[0].1);
-            }
-        }
-        1.0
-    };
-    let z_abs = z.abs();
-    if z_abs < 1e-15 {
-        // The first segment is linear: its slope.
-        return (0.0, q_ult * API_QZ[1].1 / (API_QZ[1].0 * d));
-    }
-    if z > 0.0 {
-        return (0.0, 0.0);
-    }
-    let q = q_ult * ratio(z_abs);
-    (q * z.signum(), q / z_abs)
+    if z>0.0 {return (0.0,0.0);}
+    normalized_curve(q_ult,d,&API_QZ,z)
 }
 
 /// User-defined multilinear curve.
@@ -415,10 +405,10 @@ pub fn custom_curve(points: &[[f64; 2]], displacement: f64) -> (f64, f64) {
 
     // Find bracketing interval
     if y_abs <= points[0][0] {
-        let k = if points[0][0] > 1e-15 {
+        let k = if points[0][0] > 0.0 {
             points[0][1] / points[0][0]
         } else if points.len() > 1 {
-            (points[1][1] - points[0][1]) / (points[1][0] - points[0][0]).max(1e-15)
+            (points[1][1] - points[0][1]) / (points[1][0] - points[0][0])
         } else {
             0.0
         };
@@ -430,16 +420,16 @@ pub fn custom_curve(points: &[[f64; 2]], displacement: f64) -> (f64, f64) {
         if y_abs <= points[i][0] {
             let dx = points[i][0] - points[i-1][0];
             let dp = points[i][1] - points[i-1][1];
-            let t = (y_abs - points[i-1][0]) / dx.max(1e-15);
+            let t = (y_abs - points[i-1][0]) / dx;
             let p = points[i-1][1] + t * dp;
-            let k_secant = if y_abs > 1e-15 { p / y_abs } else { dp / dx.max(1e-15) };
+            let k_secant = if y_abs > 0.0 { p / y_abs } else { dp / dx };
             return (p * sign, k_secant);
         }
     }
 
     // Beyond last point: constant
     let p = points.last().unwrap()[1];
-    let k_secant = if y_abs > 1e-15 { p / y_abs } else { 0.0 };
+    let k_secant = if y_abs > 0.0 { p / y_abs } else { 0.0 };
     (p * sign, k_secant)
 }
 

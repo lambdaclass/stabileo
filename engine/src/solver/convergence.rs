@@ -8,6 +8,7 @@ pub(crate) struct EquilibriumMetric {
     weights: Vec<f64>,
     nf: usize,
     support_force: f64,
+    support_coupling: Vec<(usize, usize, usize, f64)>,
     projected: Option<(Vec<f64>, NumericCholesky)>,
 }
 
@@ -17,10 +18,22 @@ impl EquilibriumMetric {
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
     ) -> Result<Self, String> {
+        Self::for_2d_with_state(input, dofs, cs, None, &[])
+    }
+
+    pub(crate) fn for_2d_with_state(
+        input: &SolverInput,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+        state: Option<&[f64]>,
+        extra_stiffness: &[(usize, f64)],
+    ) -> Result<Self, String> {
         let points: Vec<_> = crate::ordered::values(&input.nodes)
             .map(|n| [n.x, 0.0, n.z])
             .collect();
-        let prescribed = super::linear::prescribed_displacements_2d(input, dofs);
+        let prescribed = state
+            .map(Vec::from)
+            .unwrap_or_else(|| super::linear::prescribed_displacements_2d(input, dofs));
         let stiffness = if Self::length(&points)? == 0.0 || prescribed.iter().any(|v| *v != 0.0) {
             Some(super::assembly::assemble_sparse_2d_ex(input, dofs, true))
         } else {
@@ -31,9 +44,14 @@ impl EquilibriumMetric {
             2,
             dofs,
             cs,
-            stiffness
-                .as_ref()
-                .map(|s| (&s.k_ff, s.artificial_dofs.as_slice())),
+            stiffness.as_ref().map(|s| {
+                (
+                    s.k_full.as_ref().unwrap_or(&s.k_ff),
+                    s.artificial_dofs.as_slice(),
+                )
+            }),
+            &prescribed,
+            extra_stiffness,
         )?;
         if let Some(stiffness) = stiffness {
             metric.set_support_force(
@@ -54,10 +72,22 @@ impl EquilibriumMetric {
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
     ) -> Result<Self, String> {
+        Self::for_3d_with_state(input, dofs, cs, None, &[])
+    }
+
+    pub(crate) fn for_3d_with_state(
+        input: &SolverInput3D,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+        state: Option<&[f64]>,
+        extra_stiffness: &[(usize, f64)],
+    ) -> Result<Self, String> {
         let points: Vec<_> = crate::ordered::values(&input.nodes)
             .map(|n| [n.x, n.y, n.z])
             .collect();
-        let prescribed = super::linear::prescribed_displacements_3d(input, dofs);
+        let prescribed = state
+            .map(Vec::from)
+            .unwrap_or_else(|| super::linear::prescribed_displacements_3d(input, dofs));
         let stiffness = if Self::length(&points)? == 0.0 || prescribed.iter().any(|v| *v != 0.0) {
             Some(super::assembly::assemble_sparse_3d(input, dofs, true))
         } else {
@@ -68,9 +98,14 @@ impl EquilibriumMetric {
             3,
             dofs,
             cs,
-            stiffness
-                .as_ref()
-                .map(|s| (&s.k_ff, s.artificial_dofs.as_slice())),
+            stiffness.as_ref().map(|s| {
+                (
+                    s.k_full.as_ref().unwrap_or(&s.k_ff),
+                    s.artificial_dofs.as_slice(),
+                )
+            }),
+            &prescribed,
+            extra_stiffness,
         )?;
         if let Some(stiffness) = stiffness {
             metric.set_support_force(
@@ -122,7 +157,7 @@ impl EquilibriumMetric {
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
     ) -> Result<Self, String> {
-        Self::with_stiffness(points, dimensions, dofs, cs, None)
+        Self::with_stiffness(points, dimensions, dofs, cs, None, &[], &[])
     }
 
     fn with_stiffness(
@@ -131,6 +166,8 @@ impl EquilibriumMetric {
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
         stiffness: Option<(&CscMatrix, &[usize])>,
+        prescribed: &[f64],
+        extra_stiffness: &[(usize, f64)],
     ) -> Result<Self, String> {
         let mut length = Self::length(&points.collect::<Vec<_>>())?;
         if length == 0.0 {
@@ -146,7 +183,9 @@ impl EquilibriumMetric {
             };
             let active: std::collections::BTreeSet<_> = entries
                 .iter()
-                .filter(|(_, i)| *i < dofs.n_free)
+                .filter(|(_, i)| {
+                    *i < dofs.n_free || prescribed.get(*i - dofs.n_free).is_some_and(|v| *v != 0.0)
+                })
                 .map(|((_, local), _)| power(*local))
                 .collect();
             length = if active.len() > 1 {
@@ -155,8 +194,17 @@ impl EquilibriumMetric {
                 let diagonal = k.diagonal();
                 let mut traces = [0.0f64; 3];
                 for ((_, local), i) in entries {
-                    if i < dofs.n_free && !artificial.contains(&i) {
-                        traces[power(local)] += diagonal[i];
+                    let driven = i < dofs.n_free
+                        || prescribed.get(i - dofs.n_free).is_some_and(|v| *v != 0.0);
+                    if driven {
+                        if !artificial.contains(&i) {
+                            traces[power(local)] += diagonal[i];
+                        }
+                        traces[power(local)] += extra_stiffness
+                            .iter()
+                            .filter(|(d, _)| *d == i)
+                            .map(|(_, k)| *k)
+                            .sum::<f64>();
                     }
                 }
                 let physical: Vec<_> = traces
@@ -242,6 +290,7 @@ impl EquilibriumMetric {
             weights,
             nf: dofs.n_free,
             support_force: 0.0,
+            support_coupling: Vec::new(),
             projected,
         })
     }
@@ -257,8 +306,7 @@ impl EquilibriumMetric {
         for ((node, _), i) in dofs.entries_by_dof() {
             nodes[i] = node;
         }
-        let mut coupling =
-            std::collections::BTreeMap::<usize, std::collections::BTreeMap<usize, f64>>::new();
+        self.support_coupling.clear();
         for j in 0..dofs.n_total {
             for p in stiffness.col_ptr[j]..stiffness.col_ptr[j + 1] {
                 let i = stiffness.row_idx[p];
@@ -270,18 +318,27 @@ impl EquilibriumMetric {
                     None
                 };
                 if let Some((free, restrained)) = pair {
-                    let displacement = prescribed[restrained - self.nf];
-                    if displacement != 0.0 {
-                        *coupling
-                            .entry(nodes[restrained])
-                            .or_default()
-                            .entry(free)
-                            .or_default() += stiffness.values[p] * displacement;
-                    }
+                    self.support_coupling.push((
+                        nodes[restrained],
+                        free,
+                        restrained - self.nf,
+                        stiffness.values[p],
+                    ));
                 }
             }
         }
-        self.support_force = 0.0;
+        self.support_force = self.support_reference(prescribed, cs);
+    }
+
+    fn support_reference(&self, prescribed: &[f64], cs: Option<&FreeConstraintSystem>) -> f64 {
+        let mut coupling =
+            std::collections::BTreeMap::<usize, std::collections::BTreeMap<usize, f64>>::new();
+        for &(node, free, restrained, k) in &self.support_coupling {
+            if let Some(&displacement) = prescribed.get(restrained) {
+                *coupling.entry(node).or_default().entry(free).or_default() += k * displacement;
+            }
+        }
+        let mut support_force = 0.0f64;
         for force in coupling.values() {
             let norm = if cs.is_none() {
                 force
@@ -294,7 +351,47 @@ impl EquilibriumMetric {
                 }
                 self.free_norm(&vector, cs)
             };
-            self.support_force = self.support_force.hypot(norm);
+            support_force = support_force.hypot(norm);
+        }
+        support_force
+    }
+
+    pub(crate) fn continuation_residual(
+        &self,
+        residual: &[f64],
+        external: &[f64],
+        prescribed: &[f64],
+        start_external: &[f64],
+        cs: Option<&FreeConstraintSystem>,
+    ) -> f64 {
+        if residual
+            .iter()
+            .chain(external)
+            .chain(prescribed)
+            .chain(start_external)
+            .any(|v| !v.is_finite())
+        {
+            return f64::INFINITY;
+        }
+        let applied = self.free_norm(external, cs);
+        let reference = if applied > 0.0 {
+            applied
+        } else {
+            self.support_reference(prescribed, cs)
+                .max(self.free_norm(start_external, cs))
+        };
+        Self::residual_ratio(self.free_norm(residual, cs), reference)
+    }
+
+    fn residual_ratio(residual: f64, reference: f64) -> f64 {
+        if !residual.is_finite() || !reference.is_finite() {
+            f64::INFINITY
+        } else if residual == 0.0 {
+            0.0
+        } else if reference == 0.0 {
+            f64::INFINITY
+        } else {
+            residual / reference
         }
     }
 
@@ -399,17 +496,7 @@ impl EquilibriumMetric {
         } else {
             support_factor.map_or(0.0, |factor| factor.abs() * self.support_force)
         };
-        if !r.is_finite() || !reference.is_finite() {
-            return f64::INFINITY;
-        }
-        if r == 0.0 {
-            return 0.0;
-        }
-        if reference == 0.0 {
-            f64::INFINITY
-        } else {
-            r / reference
-        }
+        Self::residual_ratio(r, reference)
     }
 }
 
@@ -691,6 +778,8 @@ mod tests {
                 &d,
                 None,
                 Some((&stiffness, &[])),
+                &[],
+                &[],
             )
             .unwrap();
             assert!((metric.weights[2] / scale / 2.0f64.sqrt() - 1.0).abs() < 1e-12);
@@ -701,7 +790,9 @@ mod tests {
             2,
             &d,
             None,
-            Some((&stiffness, &[2]))
+            Some((&stiffness, &[2])),
+            &[],
+            &[],
         )
         .is_err());
         let stiffness = CscMatrix::from_triplets(3, &[0, 1, 2], &[0, 1, 2], &[100.0, 100.0, 0.0]);
@@ -710,7 +801,9 @@ mod tests {
             2,
             &d,
             None,
-            Some((&stiffness, &[]))
+            Some((&stiffness, &[])),
+            &[],
+            &[],
         )
         .is_err());
         assert!(EquilibriumMetric::new([[0.0; 3]; 2].into_iter(), 2, &d, None).is_err());
@@ -737,56 +830,88 @@ mod tests {
             &d,
             None,
             Some((&stiffness, &[])),
+            &[],
+            &[],
         )
         .unwrap();
         assert_eq!(metric.weights, vec![2.0, 4.0]);
     }
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r3_coincident_settlement_mixes_physical_dimensions() {
-        let mut s: SolverInput = serde_json::from_str(include_str!("../../tests/fixtures/random-41-input.json")).unwrap();
-        s.elements.clear(); s.loads.clear(); s.nodes.retain(|_,n|n.id<=2);
-        for n in s.nodes.values_mut() { n.x=0.0; n.z=0.0; }
+        let mut s: SolverInput =
+            serde_json::from_str(include_str!("../../tests/fixtures/random-41-input.json"))
+                .unwrap();
+        s.elements.clear();
+        s.loads.clear();
+        s.nodes.retain(|_, n| n.id <= 2);
+        for n in s.nodes.values_mut() {
+            n.x = 0.0;
+            n.z = 0.0;
+        }
         s.supports.clear();
-        s.supports.insert("1".into(),serde_json::from_value(serde_json::json!({"id":1,"nodeId":1,"type":"fixed","dx":0.01})).unwrap());
-        s.supports.insert("2".into(),serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"pinned"})).unwrap());
+        s.supports.insert(
+            "1".into(),
+            serde_json::from_value(serde_json::json!({"id":1,"nodeId":1,"type":"fixed","dx":0.01}))
+                .unwrap(),
+        );
+        s.supports.insert(
+            "2".into(),
+            serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"pinned"})).unwrap(),
+        );
         s.connectors.insert("1".into(),serde_json::from_value(serde_json::json!({"id":1,"nodeI":1,"nodeJ":2,"kAxial":100.0,"kShear":100.0,"kMoment":400.0})).unwrap());
-        let ratio=|s:&SolverInput| {
-            let mut d=DofNumbering::build_2d(s);
-            d.map=[((2,2),0),((1,0),1)].into_iter().collect(); d.n_free=1;d.n_total=2; d.dofs_per_node=3;
-            let metric=EquilibriumMetric::for_2d(s,&d,None).unwrap();
-            let mut before=vec![0.0;d.n_total];
-            before[d.global_dof(1,0).unwrap()]=s.supports["1"].dx.unwrap();
-            let mut after=before.clone(); after[d.global_dof(2,2).unwrap()]=0.001;
-            metric.relative_increment(&before,&after)
+        let ratio = |s: &SolverInput| {
+            let mut d = DofNumbering::build_2d(s);
+            d.map = [((2, 2), 0), ((1, 0), 1)].into_iter().collect();
+            d.n_free = 1;
+            d.n_total = 2;
+            d.dofs_per_node = 3;
+            let metric = EquilibriumMetric::for_2d(s, &d, None).unwrap();
+            let mut before = vec![0.0; d.n_total];
+            before[d.global_dof(1, 0).unwrap()] = s.supports["1"].dx.unwrap();
+            let mut after = before.clone();
+            after[d.global_dof(2, 2).unwrap()] = 0.001;
+            metric.relative_increment(&before, &after)
         };
-        let expected=ratio(&s);
-        for length in [1e-3,1e3] {
-            assert!((ratio(&scale_2d(&s,&Units::froude(length,1.0)))/expected-1.0).abs()<1e-12);
+        let expected = ratio(&s);
+        for length in [1e-3, 1e3] {
+            assert!(
+                (ratio(&scale_2d(&s, &Units::froude(length, 1.0))) / expected - 1.0).abs() < 1e-12
+            );
         }
     }
-
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r3_spatial_coincident_settlement_keeps_length_units() {
         let mut s: SolverInput3D=serde_json::from_str(include_str!("../../tests/metamorphic_corpus/feature_matrix/3d-prescribed-displacement-support-settlement-with.json")).unwrap();
-        s.elements.clear(); s.plates.clear(); s.quads.clear(); s.loads.clear();s.constraints.clear();
-        s.nodes.retain(|_,n|n.id<=2);
-        for n in s.nodes.values_mut() {n.x=0.0;n.y=0.0;n.z=0.0;}
-        s.sections.values_mut().next().unwrap().cw=Some(0.0);
+        s.elements.clear();
+        s.plates.clear();
+        s.quads.clear();
+        s.loads.clear();
+        s.constraints.clear();
+        s.nodes.retain(|_, n| n.id <= 2);
+        for n in s.nodes.values_mut() {
+            n.x = 0.0;
+            n.y = 0.0;
+            n.z = 0.0;
+        }
+        s.sections.values_mut().next().unwrap().cw = Some(0.0);
         s.supports.clear();
         s.supports.insert("1".into(),serde_json::from_value(serde_json::json!({"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true,"rw":true,"dx":0.01})).unwrap());
         s.supports.insert("2".into(),serde_json::from_value(serde_json::json!({"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":false,"rrz":true,"rw":true})).unwrap());
         s.connectors.insert("1".into(),serde_json::from_value(serde_json::json!({"id":1,"nodeI":1,"nodeJ":2,"kAxial":100.0,"kShear":100.0,"kMoment":400.0,"kShearZ":100.0,"kBendY":400.0,"kBendZ":400.0})).unwrap());
-        let ratio=|s:&SolverInput3D| {
-            let d=DofNumbering::build_3d(s);
-            let metric=EquilibriumMetric::for_3d(s,&d,None).unwrap();
-            let mut before=vec![0.0;d.n_total];before[d.global_dof(1,0).unwrap()]=s.supports["1"].dx.unwrap();
-            let mut after=before.clone();after[d.global_dof(2,4).unwrap()]=0.001;
-            metric.relative_increment(&before,&after)
+        let ratio = |s: &SolverInput3D| {
+            let d = DofNumbering::build_3d(s);
+            let metric = EquilibriumMetric::for_3d(s, &d, None).unwrap();
+            let mut before = vec![0.0; d.n_total];
+            before[d.global_dof(1, 0).unwrap()] = s.supports["1"].dx.unwrap();
+            let mut after = before.clone();
+            after[d.global_dof(2, 4).unwrap()] = 0.001;
+            metric.relative_increment(&before, &after)
         };
-        let expected=ratio(&s);
-        for length in [1e-3,1e3] {assert!((ratio(&scale_3d(&s,&Units::froude(length,1.0)))/expected-1.0).abs()<1e-12);}
+        let expected = ratio(&s);
+        for length in [1e-3, 1e3] {
+            assert!(
+                (ratio(&scale_3d(&s, &Units::froude(length, 1.0))) / expected - 1.0).abs() < 1e-12
+            );
+        }
     }
-
 }

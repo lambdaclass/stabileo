@@ -558,8 +558,8 @@ pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumb
                 // u_local[0] = -cos θ * ux + sin θ * uz (free tangent)
                 //
                 // Prescribed displacement in the restrained direction:
-                let u_normal = glob_dx * s + glob_dz * c;
-                if u_normal.abs() > 1e-15 {
+                let u_normal = super::assembly::compensated_dot(&[s,c], &[glob_dx,glob_dz]);
+                if u_normal != 0.0 {
                     // local_dof=1 is restrained
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
                         if d >= nf {
@@ -570,7 +570,7 @@ pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumb
             } else {
                 // No angle: treat as rollerX (restrain uz)
                 if let Some(v) = sup.dz {
-                    if v.abs() > 1e-15 {
+                    if v != 0.0 {
                         if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
                             if d >= nf {
                                 u_r[d - nf] = v;
@@ -581,7 +581,7 @@ pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumb
             }
             // Rotational prescribed displacement
             if let Some(v) = sup.dry {
-                if v.abs() > 1e-15 {
+                if v != 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
                         if d >= nf {
                             u_r[d - nf] = v;
@@ -595,7 +595,7 @@ pub(crate) fn prescribed_displacements_2d(input: &SolverInput, dof_num: &DofNumb
             ];
             for &(local_dof, val) in &prescribed {
                 if let Some(v) = val {
-                    if v.abs() > 1e-15 {
+                    if v != 0.0 {
                         if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
                             if d >= nf {
                                 u_r[d - nf] = v;
@@ -1683,10 +1683,8 @@ pub(crate) fn prescribed_displacements_3d(input: &SolverInput3D, dof_num: &DofNu
             if let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) {
                 let n_len = (nx * nx + ny * ny + nz * nz).sqrt();
                 if n_len > 1e-12 {
-                    let u_normal = (nx * sup.dx.unwrap_or(0.0)
-                        + ny * sup.dy.unwrap_or(0.0)
-                        + nz * sup.dz.unwrap_or(0.0)) / n_len;
-                    if u_normal.abs() > 1e-15 {
+                    let u_normal = super::assembly::compensated_dot(&[nx/n_len,ny/n_len,nz/n_len], &[sup.dx.unwrap_or(0.0),sup.dy.unwrap_or(0.0),sup.dz.unwrap_or(0.0)]);
+                    if u_normal != 0.0 {
                         if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
                             if d >= nf {
                                 u_r[d - nf] = u_normal;
@@ -1696,7 +1694,7 @@ pub(crate) fn prescribed_displacements_3d(input: &SolverInput3D, dof_num: &DofNu
                     // Rotational prescribed values use the standard flags.
                     for (i, pd) in [sup.drx, sup.dry, sup.drz].iter().enumerate() {
                         if let Some(val) = pd {
-                            if val.abs() > 1e-15 {
+                            if *val != 0.0 {
                                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 3 + i)) {
                                     if d >= nf {
                                         u_r[d - nf] = *val;
@@ -1712,7 +1710,7 @@ pub(crate) fn prescribed_displacements_3d(input: &SolverInput3D, dof_num: &DofNu
         let prescribed = [sup.dx, sup.dy, sup.dz, sup.drx, sup.dry, sup.drz];
         for (i, pd) in prescribed.iter().enumerate() {
             if let Some(val) = pd {
-                if val.abs() > 1e-15 {
+                if *val != 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
                         if d >= nf {
                             u_r[d - nf] = *val;
@@ -5318,120 +5316,19 @@ pub(super) fn compute_equilibrium_summary_3d(
     rel_residual: f64,
     inclined_transforms: &[InclinedTransformData],
 ) -> EquilibriumSummary {
-    let nf = dof_num.n_free;
-
-    // Sum applied forces and reactions by physical direction using DOF map.
-    // For inclined supports, we first accumulate per-node reaction vectors in
-    // the rotated frame, then back-transform to global before adding to the sum.
-    let mut applied = [0.0f64; 6];
-    let mut rxn = [0.0f64; 6];
-
-    // Collect per-node rotated reaction vectors for inclined support nodes
-    let mut inclined_node_rxn: std::collections::HashMap<usize, [f64; 3]> =
-        std::collections::HashMap::new();
-    for it in inclined_transforms {
-        inclined_node_rxn.insert(it.node_id, [0.0; 3]);
-    }
-
-    for ((node_id, local_dof), global_idx) in dof_num.entries_by_dof() {
-        if local_dof >= 6 { continue; }
-        if global_idx < nf {
-            // Free DOF: only applied force
-            if global_idx < assembled_f.len() {
-                applied[local_dof] += assembled_f[global_idx];
-            }
-        } else {
-            // Restrained DOF: applied force + reaction
-            if global_idx < assembled_f.len() {
-                applied[local_dof] += assembled_f[global_idx];
-            }
-            let ridx = global_idx - nf;
-            if ridx < reactions_vec.len() {
-                if local_dof < 3 {
-                    if let Some(node_rxn) = inclined_node_rxn.get_mut(&node_id) {
-                        // Accumulate in rotated frame; will back-transform later
-                        node_rxn[local_dof] += reactions_vec[ridx];
-                    } else {
-                        rxn[local_dof] += reactions_vec[ridx];
-                    }
-                } else {
-                    rxn[local_dof] += reactions_vec[ridx];
-                }
-            }
-        }
-    }
-
-    // Back-transform inclined support reactions from rotated to global: r_global = R^T * r_rotated
-    for it in inclined_transforms {
-        if let Some(rotated) = inclined_node_rxn.get(&it.node_id) {
-            let gx = it.r[0][0] * rotated[0] + it.r[1][0] * rotated[1] + it.r[2][0] * rotated[2];
-            let gy = it.r[0][1] * rotated[0] + it.r[1][1] * rotated[1] + it.r[2][1] * rotated[2];
-            let gz = it.r[0][2] * rotated[0] + it.r[1][2] * rotated[1] + it.r[2][2] * rotated[2];
-            rxn[0] += gx;
-            rxn[1] += gy;
-            rxn[2] += gz;
-        }
-    }
-
-    // Also back-transform the applied force sums for inclined support DOFs
-    // (assembled_f is in the rotated frame for inclined support DOFs too)
-    let mut inclined_node_app: std::collections::HashMap<usize, [f64; 3]> =
-        std::collections::HashMap::new();
-    for it in inclined_transforms {
-        inclined_node_app.insert(it.node_id, [0.0; 3]);
-    }
-    // Subtract what we already added (in rotated frame) and re-accumulate
-    for ((node_id, local_dof), global_idx) in dof_num.entries_by_dof() {
-        if local_dof >= 3 { continue; }
-        if inclined_node_app.contains_key(&node_id) && global_idx < assembled_f.len() {
-            applied[local_dof] -= assembled_f[global_idx];
-            inclined_node_app.get_mut(&node_id).unwrap()[local_dof] += assembled_f[global_idx];
-        }
-    }
-    for it in inclined_transforms {
-        if let Some(rotated) = inclined_node_app.get(&it.node_id) {
-            let gx = it.r[0][0] * rotated[0] + it.r[1][0] * rotated[1] + it.r[2][0] * rotated[2];
-            let gy = it.r[0][1] * rotated[0] + it.r[1][1] * rotated[1] + it.r[2][1] * rotated[2];
-            let gz = it.r[0][2] * rotated[0] + it.r[1][2] * rotated[1] + it.r[2][2] * rotated[2];
-            applied[0] += gx;
-            applied[1] += gy;
-            applied[2] += gz;
-        }
-    }
-
-    let mut applied_force_components: Vec<f64> = dof_num.entries_by_dof().into_iter()
-        .filter(|((node, local), _)| *local < 3 && !inclined_node_app.contains_key(node))
-        .filter_map(|(_, global)| assembled_f.get(global).copied()).collect();
-    for it in inclined_transforms {
-        if let Some(rotated) = inclined_node_app.get(&it.node_id) {
-            for axis in 0..3 {
-                applied_force_components.push((0..3).map(|j| it.r[j][axis] * rotated[j]).sum());
-            }
-        }
-    }
-
-    // Translational equilibrium (fx, fy, fz): applied + reactions ≈ 0
-    let force_imbalance: Vec<f64> = (0..3).map(|i| applied[i] + rxn[i]).collect();
-    let max_imbalance = force_imbalance.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
-    let max_force = applied[..3].iter().chain(&rxn[..3]).map(|v| v.abs()).fold(0.0f64, f64::max);
-    let equilibrium_ok = max_imbalance < 1e-6 * max_force.max(1.0);
-
-    EquilibriumSummary {
-        applied_force_components,
-        relative_residual: rel_residual,
-        residual_ok: rel_residual < 1e-6,
-        applied_force_sum: applied.to_vec(),
-        reaction_force_sum: rxn.to_vec(),
-        max_imbalance,
-        equilibrium_ok,
-    }
+    let inclined: Vec<_> = inclined_transforms.iter().flat_map(|it| it.dofs).collect();
+    equilibrium_summary(
+        assembled_f,
+        reactions_vec,
+        dof_num,
+        rel_residual,
+        inclined_transforms,
+        &inclined,
+        3,
+        6,
+    )
 }
 
-/// Compute equilibrium summary for 2D from the assembled force vector.
-///
-/// When inclined supports are present, the reactions in `reactions_vec` are in the
-/// rotated local frame. The `inclined_transforms` are used to back-transform each
-/// inclined node's reaction contributions to global axes before summing.
 pub(super) fn compute_equilibrium_summary_2d(
     assembled_f: &[f64],
     reactions_vec: &[f64],
@@ -5439,104 +5336,69 @@ pub(super) fn compute_equilibrium_summary_2d(
     rel_residual: f64,
     inclined_transforms: &[InclinedTransformData2D],
 ) -> EquilibriumSummary {
-    let nf = dof_num.n_free;
-    let ndirs = dof_num.dofs_per_node.min(3);
+    let inclined: Vec<_> = inclined_transforms.iter().flat_map(|it| it.dofs).collect();
+    equilibrium_summary(
+        assembled_f,
+        reactions_vec,
+        dof_num,
+        rel_residual,
+        inclined_transforms,
+        &inclined,
+        2,
+        3,
+    )
+}
 
-    // Sum applied forces and reactions by physical direction using DOF map.
-    // For inclined supports, translational reactions are accumulated per-node
-    // in the rotated frame, then back-transformed to global.
-    let mut applied = [0.0f64; 3];
-    let mut rxn = [0.0f64; 3];
-
-    // Collect per-node rotated reaction vectors for inclined support nodes
-    let mut inclined_node_rxn: std::collections::HashMap<usize, [f64; 2]> =
-        std::collections::HashMap::new();
-    for it in inclined_transforms {
-        inclined_node_rxn.insert(it.node_id, [0.0; 2]);
+fn equilibrium_summary<T: super::assembly::InclinedFrame>(
+    assembled_f: &[f64],
+    reactions_vec: &[f64],
+    dof_num: &DofNumbering,
+    rel_residual: f64,
+    its: &[T],
+    inclined: &[usize],
+    translations: usize,
+    directions: usize,
+) -> EquilibriumSummary {
+    let mut f = assembled_f.to_vec();
+    f.resize(dof_num.n_total, 0.0);
+    let mut reactions = vec![0.0; dof_num.n_total];
+    for (r, value) in reactions.iter_mut().skip(dof_num.n_free).zip(reactions_vec) {
+        *r = *value;
     }
-
-    for ((node_id, local_dof), global_idx) in dof_num.entries_by_dof() {
-        if local_dof >= ndirs { continue; }
-        if global_idx < nf {
-            if global_idx < assembled_f.len() {
-                applied[local_dof] += assembled_f[global_idx];
-            }
-        } else {
-            if global_idx < assembled_f.len() {
-                applied[local_dof] += assembled_f[global_idx];
-            }
-            let ridx = global_idx - nf;
-            if ridx < reactions_vec.len() {
-                if local_dof < 2 {
-                    if let Some(node_rxn) = inclined_node_rxn.get_mut(&node_id) {
-                        node_rxn[local_dof] += reactions_vec[ridx];
-                    } else {
-                        rxn[local_dof] += reactions_vec[ridx];
-                    }
-                } else {
-                    rxn[local_dof] += reactions_vec[ridx];
-                }
-            }
+    for it in its {
+        it.reverse(&mut f);
+        it.reverse(&mut reactions);
+    }
+    let mut applied = vec![0.0; directions];
+    let mut rxn = vec![0.0; directions];
+    let mut applied_force_components = Vec::new();
+    let inclined_set: std::collections::HashSet<_> = inclined.iter().copied().collect();
+    for ((_, local), i) in dof_num.entries_by_dof() {
+        if local < directions {
+            applied[local] += f[i];
+            rxn[local] += reactions[i];
+        }
+        if local < translations && !inclined_set.contains(&i) {
+            applied_force_components.push(f[i]);
         }
     }
-
-    // Back-transform inclined support reactions: r_global = R^T * r_rotated
-    for it in inclined_transforms {
-        if let Some(rotated) = inclined_node_rxn.get(&it.node_id) {
-            let gx = it.r[0][0] * rotated[0] + it.r[1][0] * rotated[1];
-            let gz = it.r[0][1] * rotated[0] + it.r[1][1] * rotated[1];
-            rxn[0] += gx;
-            rxn[1] += gz;
-        }
-    }
-
-    // Also back-transform the applied force sums for inclined support DOFs
-    let mut inclined_node_app: std::collections::HashMap<usize, [f64; 2]> =
-        std::collections::HashMap::new();
-    for it in inclined_transforms {
-        inclined_node_app.insert(it.node_id, [0.0; 2]);
-    }
-    for ((node_id, local_dof), global_idx) in dof_num.entries_by_dof() {
-        if local_dof >= 2 { continue; }
-        if inclined_node_app.contains_key(&node_id) && global_idx < assembled_f.len() {
-            applied[local_dof] -= assembled_f[global_idx];
-            inclined_node_app.get_mut(&node_id).unwrap()[local_dof] += assembled_f[global_idx];
-        }
-    }
-    for it in inclined_transforms {
-        if let Some(rotated) = inclined_node_app.get(&it.node_id) {
-            let gx = it.r[0][0] * rotated[0] + it.r[1][0] * rotated[1];
-            let gz = it.r[0][1] * rotated[0] + it.r[1][1] * rotated[1];
-            applied[0] += gx;
-            applied[1] += gz;
-        }
-    }
-
-    let mut applied_force_components: Vec<f64> = dof_num.entries_by_dof().into_iter()
-        .filter(|((node, local), _)| *local < 2 && !inclined_node_app.contains_key(node))
-        .filter_map(|(_, global)| assembled_f.get(global).copied()).collect();
-    for it in inclined_transforms {
-        if let Some(rotated) = inclined_node_app.get(&it.node_id) {
-            for axis in 0..2 {
-                applied_force_components.push((0..2).map(|j| it.r[j][axis] * rotated[j]).sum());
-            }
-        }
-    }
-
-    // Translational equilibrium (fx, fy)
-    let force_imbalance: Vec<f64> = (0..2).map(|i| applied[i] + rxn[i]).collect();
-    let max_imbalance = force_imbalance.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
-    let max_force = applied[..2].iter().chain(&rxn[..2]).map(|v| v.abs()).fold(0.0f64, f64::max);
-    let equilibrium_ok = max_imbalance < 1e-6 * max_force.max(1.0);
-
+    applied_force_components.extend(inclined.iter().map(|i| f[*i]));
+    let max_imbalance = (0..translations)
+        .map(|i| (applied[i] + rxn[i]).abs())
+        .fold(0.0f64, f64::max);
+    let max_force = applied[..translations]
+        .iter()
+        .chain(&rxn[..translations])
+        .map(|v| v.abs())
+        .fold(0.0f64, f64::max);
     EquilibriumSummary {
         applied_force_components,
         relative_residual: rel_residual,
         residual_ok: rel_residual < 1e-6,
-        applied_force_sum: applied.to_vec(),
-        reaction_force_sum: rxn.to_vec(),
+        applied_force_sum: applied,
+        reaction_force_sum: rxn,
         max_imbalance,
-        equilibrium_ok,
+        equilibrium_ok: max_imbalance < 1e-6 * max_force.max(1.0),
     }
 }
 
@@ -5589,7 +5451,6 @@ mod r3_summary_tests {
     use crate::solver::assembly::{InclinedTransformData, InclinedTransformData2D};
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn inclined_summary_preserves_other_node_loads() {
         let s: SolverInput = serde_json::from_str(include_str!("../../tests/fixtures/random-41-input.json")).unwrap();
         let dofs = DofNumbering::build_2d(&s);

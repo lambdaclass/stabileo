@@ -304,7 +304,6 @@ fn issue_761_unfinished_iterations_stay_unconverged_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #761"]
 fn issue_761_native_and_wasm_cases() {
     let mut cases = Vec::new();
     for case in fixtures() {
@@ -2079,7 +2078,6 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn rotated_chords_keep_precision_through_all_paths() {
         for c in precision_calls() {
             let r = invoke(&c);
@@ -2101,7 +2099,6 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn continuation_releases_settlements_and_external_loads() {
         for prescribed in [false, true] {
             let mut s = cantilever();
@@ -2159,7 +2156,6 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn curve_reactions_equal_secants_on_both_sides_of_old_floor() {
         for curve in curves() {
             for y in [
@@ -2310,7 +2306,6 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn linear_summaries_preserve_other_node_loads() {
         for c in summary_calls() {
             let r: serde_json::Value = serde_json::from_str(&super::r2::call(&c).unwrap()).unwrap();
@@ -2411,7 +2406,6 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn ssi_reported_curve_reactions_balance_structure() {
         for c in soil_calls() {
             let r = invoke(&c);
@@ -2443,7 +2437,6 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn custom_offsets_and_duplicate_abscissae_are_refused() {
         for points in [
             vec![[0.0, 1.0], [1.0, 2.0]],
@@ -2477,7 +2470,6 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn mixed_point_ssi_uses_soil_stiffness() {
         let mut s = cantilever();
         s.elements.clear();
@@ -2545,7 +2537,6 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn small_prescribed_settlements_are_not_silently_zeroed() {
         let mut s = cantilever();
         s.loads.clear();

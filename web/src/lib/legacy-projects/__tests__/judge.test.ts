@@ -193,6 +193,7 @@ describe('against real corpus files', () => {
     expect(judge('truss', then, opened.values, opened.changes).kind).toBe('same');
     const wrong = { ...then, 'base.elementForces[e1].nStart': (then['base.elementForces[e1].nStart'] as number) * 1.01 };
     expect(opened.changes.map((c) => c.id)).toContain('linear-stability-refusals');
+    expect(opened.changes.map((c) => c.id)).toEqual(expect.arrayContaining(['nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium']));
     const v = judge('truss, wrong force', wrong, opened.values, opened.changes);
     expect(v.kind).toBe('unexplained');
     expect(v.report).toContain('base.elementForces[e1].nStart');
@@ -217,12 +218,12 @@ describe('against real corpus files', () => {
         expect(opened.changes.map((c) => c.id)).toEqual([
           'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
-          'harmonic-modal-residual-checked',
+          'harmonic-modal-residual-checked', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
         ].map(id => registry.changes.find(c => c.id === id)!)
           .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
           .map(c => c.id));
-        if (mainFirst) expect(opened.changes.slice(-3).map(c => c.id)).toEqual(['harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling']);
+        if (mainFirst) expect(opened.changes.slice(-6).map(c => c.id)).toEqual(['harmonic-omitted-modes', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'linear-stability-refusals', 'linear-pin-coupling']);
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
         const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;

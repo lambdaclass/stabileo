@@ -155,7 +155,6 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
-    let metric = super::convergence::EquilibriumMetric::for_2d(&input.solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // At or above SPARSE_THRESHOLD independent DOFs the tangent is assembled
@@ -187,13 +186,18 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
     let u_r_start: Vec<f64> = u_full[nf..].to_vec();
     let du_support = super::linear::prescribed_displacements_2d(&input.solver, &dof_num);
     let moves_supports = du_support.iter().any(|&v| v != 0.0);
+    let support_extent: Vec<_> = u_r_start.iter().zip(&du_support)
+        .map(|(a,b)|a.abs()+b.abs()).collect();
+    let metric = super::convergence::EquilibriumMetric::for_2d_with_state(
+        &input.solver, &dof_num, cs.as_ref(), Some(&support_extent), &[],
+    )?;
     let f_ref_norm = metric.free_norm(&f_ref, cs.as_ref());
     if f_ref_norm == 0.0 && !moves_supports {
         return Err("Zero reference load".into());
     }
     // The load-factor term of the arc-length constraint, in force² when there
     // is a reference load and in displacement² when only supports move.
-    let psi2 = if f_ref_norm > 0.0 { f_ref_norm * f_ref_norm } else { vec_norm(&du_support).powi(2) };
+    let psi2 = if f_ref_norm > 0.0 { vec_norm(&f_ref).powi(2) } else { vec_norm(&du_support).powi(2) };
     let set_supports = |u: &mut [f64], lambda: f64| {
         for (r, (&u0, &du)) in u_r_start.iter().zip(&du_support).enumerate() {
             u[nf + r] = u0 + lambda * du;
@@ -286,8 +290,7 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
 
             // Check convergence on independent (reduced) DOFs
             let applied: Vec<f64> = (0..n).map(|i| f_start_full[i] + lambda * f_ref_full[i]).collect();
-            let support_driven = start.is_some() || moves_supports;
-            if metric.relative_residual(&residual, &applied, support_driven.then_some(lambda), cs.as_ref()) < input.tolerance {
+            if metric.continuation_residual(&residual,&applied,&u_full[nf..],&f_start_full,cs.as_ref()) < input.tolerance {
                 step_converged = true;
                 break;
             }

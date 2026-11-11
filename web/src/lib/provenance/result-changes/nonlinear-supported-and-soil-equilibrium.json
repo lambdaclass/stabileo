@@ -9,6 +9,8 @@
     "allOf": [
       [
         "members",
+        "shells",
+        "curvedShells",
         "connectors",
         "springs"
       ],

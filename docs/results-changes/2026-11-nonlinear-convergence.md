@@ -55,8 +55,10 @@ material nonlinear 2D/3D, 2D arc-length and 2D displacement control. Fiber's
 reassembled final equilibrium audit uses the same metric. Dense and sparse
 P-Delta paths enter the same checks. Arc-length and displacement control also
 recognize exactly zero reference loads rather than an absolute force cutoff.
-Their path parameterization and step adaptation are unchanged; this change does
-not redefine the physical meaning or units of a supplied arc-length increment.
+The admissible norm guards the reference load. Round 2 also used that norm in
+the arc-length force term; round 3 restores the existing unweighted path
+parameterization after the unchanged Roorda replay exposed the difference.
+Step adaptation is unchanged. See the continuation and curve-reaction record.
 
 The regression tests retain the four exact original fixtures and the nightly
 seed/name combinations for their rotation and mirror witnesses. They cover the
