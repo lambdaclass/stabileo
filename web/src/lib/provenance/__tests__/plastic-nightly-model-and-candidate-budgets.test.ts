@@ -15,7 +15,7 @@ const notices = (snapshot: FeatureSnapshot, solvedWith: SolveStamp | null) =>
   assessProject(snapshot, solvedWith).changes.filter((entry) => entry.id === id).map((entry) => entry.id);
 
 for (const analysisMode of ['2d', 'pro']) {
-  describe.skip(`known wrong result: #1957: plastic nightly notice in ${analysisMode}`, () => {
+  describe(`#1957: plastic nightly notice in ${analysisMode}`, () => {
     const frame: FeatureSnapshot = {
       analysisMode,
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],

@@ -4,9 +4,13 @@
   "prs": [],
   "area": "analysis",
   "when": {
-    "any": [
-      "members",
-      "arcMembers"
+    "allOf": [
+      [
+        "frameMembers"
+      ],
+      [
+        "analysis:plastic"
+      ]
     ]
   },
   "quantities": [

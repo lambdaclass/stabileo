@@ -2,6 +2,19 @@
 
 Results-change entry `plastic-nightly-model-and-candidate-budgets`; issues #1953 and #1954.
 
+The saved-project notice requires both frame members and a plastic analysis. A
+stamp that records only a linear solve does not qualify; an unstamped frame still
+qualifies because its analysis history is unknown. Truss-only, cable-only and
+shell-only models do not enter the affected frame certificate path.
+
+The linear-only frame in the recheck-store regression has matching member map
+keys and record IDs. The checked ID index therefore resolves the same member as
+before, and the plastic certificate storage forecast is never called. Its result
+does not change with this correction, so its exact opening-notice list stays
+unchanged (#1957). The native balance correction also covers noncanonical IDs in
+linear and P-Delta inputs, as exercised by the engine regressions; this plastic
+notice does not assert a change to ordinary linear frame results.
+
 The recovered-force accuracy check resolves element and node IDs from the model that
 produced the result. It no longer interprets those IDs as JSON object keys. Both 2D
 and 3D checks use the same checked index. A missing or ambiguous recovered ID follows
