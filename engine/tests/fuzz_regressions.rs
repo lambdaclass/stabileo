@@ -300,17 +300,18 @@ fn buckling_741_with_axial_tip_load(p: f64) -> dedaliano_engine::types::SolverIn
 }
 
 #[test]
-fn buckling_741_certificate_contains_reported_and_reference_factors() {
-    use dedaliano_engine::certify::buckling::{buckling_certificate_3d, certify_buckling_3d, BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
+fn buckling_741_perturbed_factor_is_still_refused() {
+    use dedaliano_engine::certify::buckling::{certify_critical_factor, certify_buckling_3d, BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
     use dedaliano_engine::solver::buckling::{buckling_system_3d, solve_buckling_3d};
     for error in [certify_buckling_3d(&buckling_741_input(), 3).map(|_| ()).unwrap_err(), solve_buckling_3d(&buckling_741_input(), 3).map(|_| ()).unwrap_err()] {
         assert!(error.contains("Buckling not determinable") && error.contains("element 3"), "{error}");
     }
     let input = buckling_741_with_axial_tip_load(100.0);
-    assert!(certify_buckling_3d(&input, 3).unwrap_err().contains("BU-BOUND"));
-    let certificate = buckling_certificate_3d(&input, 3).unwrap();
-    let factor = solve_buckling_3d(&input, 3).unwrap().modes[0].load_factor;
+    let result = solve_buckling_3d(&input, 3).unwrap();
     let sys = buckling_system_3d(&input).unwrap();
+    let phi = buckling_free_mode_3d(&sys, &result);
+    let factor = 1.2087954149900562;
+    let certificate = certify_critical_factor(&sys.k_ff, &sys.neg_kg_csc, factor, &phi);
     assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 0.0));
     let (mut lo, mut hi) = (1.0, 1.5);
     assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, lo));
@@ -338,6 +339,19 @@ fn buckling_741_certificate_contains_reported_and_reference_factors() {
     ] {
         assert!(refusal_741_holds(&wrong, factor, &sys, hi).is_err(), "{wrong:?}");
     }
+}
+
+fn buckling_free_mode_3d(
+    sys: &dedaliano_engine::solver::buckling::BucklingSystem3D,
+    result: &dedaliano_engine::solver::buckling::BucklingResult3D,
+) -> Vec<f64> {
+    let mut phi = vec![0.0; sys.dof_num.n_free];
+    for d in &result.modes[0].displacements {
+        for (i, v) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].into_iter().enumerate() {
+            if let Some(dof) = sys.dof_num.global_dof(d.node_id, i).filter(|&d| d < phi.len()) { phi[dof] = v; }
+        }
+    }
+    phi
 }
 
 fn refusal_of(
@@ -410,6 +424,7 @@ fn generated_buckling_enclosures(cases: u64) {
     let mut certified = [0; 2];
     let mut refused = [0; 2];
     let mut above_upper = [0; 2];
+    let mut perturbed_above_upper = 0;
     let mut errors = [std::collections::BTreeMap::new(), std::collections::BTreeMap::new()];
     for seed in 0..cases {
         let mut input = buckling_741_input();
@@ -463,6 +478,19 @@ fn generated_buckling_enclosures(cases: u64) {
                         assert!(lambda_lower <= factor, "seed {seed}: {certificate:?}");
                         if let Some(upper) = lambda_upper {
                             assert!(factor <= upper, "seed {seed}: {certificate:?}");
+                            if dimension == 1 {
+                                use dedaliano_engine::solver::buckling::buckling_system_3d;
+                                use dedaliano_engine::certify::buckling::certify_critical_factor;
+                                let sys = buckling_system_3d(&input).unwrap();
+                                let mode = solve_buckling_3d(&input,3).unwrap();
+                                let phi = buckling_free_mode_3d(&sys,&mode);
+                                let perturbed = upper.next_up();
+                                let refusal = certify_critical_factor(&sys.k_ff,&sys.neg_kg_csc,perturbed,&phi);
+                                let Some(BucklingRefusal::ComputedAboveUpperBound { lambda_computed, lambda_upper }) = refusal_of(&refusal) else { panic!("seed {seed}: {refusal:?}") };
+                                assert_eq!(lambda_computed,perturbed);
+                                assert!(lambda_computed > lambda_upper);
+                                perturbed_above_upper += 1;
+                            }
                         }
                     }
                     BucklingCertificate::Uncertified { refusal, .. } => {
@@ -498,7 +526,8 @@ fn generated_buckling_enclosures(cases: u64) {
     assert_eq!(certified[0], cases, "every generated 2D column must certify");
     assert!(certified[1] > 0, "no generated 3D certificates");
     assert!(certified[1] + refused[1] >= cases / 8, "too few 3D cases reached certification");
-    assert!(above_upper[1] > 0, "no generated 3D computedAboveUpperBound refusals");
+    assert_eq!(above_upper[1], 0, "a refined generated 3D factor still exceeded its bound");
+    assert!(perturbed_above_upper > 0, "no perturbed generated 3D computedAboveUpperBound refusals");
 }
 
 #[test]
@@ -833,7 +862,6 @@ fn issue_1882_opensees_support_crashes_are_recorded_as_failures() {
 }
 
 #[test]
-#[ignore = "known wrong result: #818"]
 fn buckling_818_loaded_factor_is_inside_exact_bracket() {
     use dedaliano_engine::certify::buckling::{buckling_certificate_3d, certify_buckling_3d, BucklingCertificate};
     use dedaliano_engine::solver::buckling::{buckling_system_3d, solve_buckling_3d};
@@ -847,6 +875,7 @@ fn buckling_818_loaded_factor_is_inside_exact_bracket() {
     for count in [1, 3] {
         let raw = solve_buckling_3d(&input, count).unwrap();
         let factor = raw.modes[0].load_factor;
+        eprintln!("#818 count={count}: refined factor {factor:.17}");
         assert!((lo..=hi).contains(&factor), "{factor:.17} outside [{lo}, {hi}]");
         let out = certify_buckling_3d(&input, count).unwrap();
         assert_eq!(out.results.modes[0].load_factor, factor);
@@ -863,7 +892,6 @@ fn buckling_818_loaded_factor_is_inside_exact_bracket() {
 }
 
 #[test]
-#[ignore = "known wrong result: #818"]
 fn buckling_818_original_pencil_accuracy() {
     use dedaliano_engine::linalg::{sparse::CscMatrix, lanczos::lanczos_buckling_eigen_sparse};
     for n in [2, 200, 201] {
@@ -877,6 +905,12 @@ fn buckling_818_original_pencil_accuracy() {
         let result = lanczos_buckling_eigen_sparse(&k,&b,1).unwrap();
         let mu = result.values.iter().copied().fold(0.0f64,f64::max);
         assert!((1.0/mu - 1.0).abs() < 1e-12, "n={n}: {}", 1.0/mu);
+        let mut expected: Vec<f64> = (2..n).map(|i| 1.0/(4.0+i as f64)).chain([1.0/(2.0*s+1.0),1.0]).collect();
+        expected.sort_by(f64::total_cmp);
+        let expected = &expected[expected.len()-result.values.len()..];
+        for (&actual,&expected) in result.values.iter().zip(expected) {
+            assert!((actual/expected-1.0).abs() < 1e-12, "n={n}: {actual} vs {expected}");
+        }
     }
 }
 

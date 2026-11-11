@@ -29,6 +29,7 @@ for (const error of [refusal, new Error(refusal)]) {
   it(`propagates a certified buckling refusal without running the plain fallback (${typeof error})`, () => {
     mocks.certify.mockImplementation(() => { throw error; });
     expect(() => solveBuckling3D(input())).toThrow();
+    expect(isContainmentRefusal(error)).toBe(true);
     expect(mocks.certify).toHaveBeenCalled();
     expect(mocks.plain).not.toHaveBeenCalled();
     try { solveBuckling3D(input()); } catch (caught) { expect(caught).toBe(error); }
@@ -77,11 +78,14 @@ it('the real #741 model under a compressive tip load stays warned through an ord
   const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
   const json = readFileSync('../engine/tests/fixtures/buckling-741-compressed.json', 'utf8');
   const plain = JSON.parse(native.solve_buckling_3d(json, 1));
-  expect(plain.modes[0].loadFactor).toBeCloseTo(1.2087954149900562, 9);
+  expect(plain.modes[0].loadFactor).toBeGreaterThanOrEqual(1.208795360470504);
+  expect(plain.modes[0].loadFactor).toBeLessThanOrEqual(1.208795360470958);
   expect(plain.structuredDiagnostics).toEqual(expect.arrayContaining([
     expect.objectContaining({ phase: 'BU-ACCURACY', value: 818, severity: 'warning' }),
   ]));
-  expect(() => native.certify_buckling_3d(json, 1)).toThrow(/BU-BOUND/);
+  const certified = JSON.parse(native.certify_buckling_3d(json, 1));
+  expect(certified.certificate.status).toBe('certified');
+  expect(certified.results.modes[0].loadFactor).toBe(plain.modes[0].loadFactor);
   const wire = JSON.parse(json);
   for (const key of ['nodes', 'elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'quad9s', 'solidShells', 'curvedShells', 'connectors']) {
     wire[key] = new Map(Object.entries(wire[key] ?? {}).map(([id, value]) => [Number(id), value]));
@@ -97,22 +101,21 @@ it('the real #741 model under a compressive tip load stays warned through an ord
   expect(disposition.messages.some(m => m.includes('#818'))).toBe(true);
 });
 
-it('the real #741 certificate refusal is a containment refusal and withholds the factor', async () => {
+it('the loaded #741/#818 model returns its refined certificate without a plain fallback', async () => {
   const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
   const json = readFileSync('../engine/tests/fixtures/buckling-741-compressed.json', 'utf8');
-  let thrown: unknown = null;
-  try { native.certify_buckling_3d(json, 1); } catch (e) { thrown = e; }
-  expect(thrown).not.toBeNull();
-  expect(isContainmentRefusal(thrown)).toBe(true);
+  const certified = JSON.parse(native.certify_buckling_3d(json, 1));
+  expect(certified.certificate.status).toBe('certified');
   const wire = JSON.parse(json);
   for (const key of ['nodes', 'elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'quad9s', 'solidShells', 'curvedShells', 'connectors']) {
     wire[key] = new Map(Object.entries(wire[key] ?? {}).map(([id, value]) => [Number(id), value]));
   }
   mocks.certify.mockImplementation(native.certify_buckling_3d);
   mocks.plain.mockImplementation(native.solve_buckling_3d);
-  let result: unknown = null;
-  expect(() => { result = solveBuckling3D(wire, 1); }).toThrow(/BU-BOUND/);
-  expect(result).toBeNull();
+  const result = solveBuckling3D(wire, 1);
+  expect(result.modes[0].loadFactor).toBeGreaterThanOrEqual(1.208795360470504);
+  expect(result.modes[0].loadFactor).toBeLessThanOrEqual(1.208795360470958);
+  expect(result.modes[0].loadFactor).toBe(certified.results.modes[0].loadFactor);
   expect(mocks.certify).toHaveBeenCalled();
   expect(mocks.plain).not.toHaveBeenCalled();
 });

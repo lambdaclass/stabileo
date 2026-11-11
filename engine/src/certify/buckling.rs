@@ -463,6 +463,19 @@ mod tests {
         }
     }
 
+    #[test]
+    fn refined_factor_does_not_relax_the_upper_bound_boundary() {
+        let k = diag(&[4.0, 6.0, 10.0]);
+        let n = diag(&[1.0, 3.0, 1.0]);
+        let phi = [0.0, 1.0, 0.0];
+        let c = certify_critical_factor(&k, &n, 2.0, &phi);
+        let BucklingCertificate::Certified { lambda_upper: Some(upper), .. } = c else { panic!("{c:?}") };
+        for factor in [2.0 - 1e-12, 2.0, upper.next_down(), upper] {
+            assert!(certify_critical_factor(&k, &n, factor, &phi).is_certified(), "{factor}");
+        }
+        assert_refused_above_upper(certify_critical_factor(&k, &n, upper.next_up(), &phi), upper.next_up());
+    }
+
     fn assert_refused_above_upper(c: BucklingCertificate, factor: f64) {
         let BucklingCertificate::Uncertified {
             reason,

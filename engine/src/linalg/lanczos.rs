@@ -967,22 +967,75 @@ pub fn lanczos_buckling_eigen_sparse_observed(
     assert_eq!(neg_kg.n, n, "K and Kg must have the same dimension");
     let k = k.min(n);
 
-    // For small problems, use dense Jacobi: (-Kg)*φ = μ*K*φ
-    // solve_generalized_eigen(A, B) solves A*x = λ*B*x by Cholesky-decomposing B.
-    // Here B = K (SPD) which is safe.
-    // Return ALL eigenvalues — caller filters for positive μ.
-    if n <= 200 {
+    let result = if n <= 200 {
         let k_dense = k_ff.to_dense_symmetric();
         let neg_kg_dense = neg_kg.to_dense_symmetric();
-        return solve_generalized_eigen(&neg_kg_dense, &k_dense, n, 200);
+        solve_generalized_eigen(&neg_kg_dense, &k_dense, n, 200)?
+    } else {
+        let op = SparseShiftInvertOp::new_k_inner_product(k_ff,neg_kg);
+        observe(op.as_ref().map(|op| &op.factor));
+        let op = op?;
+        sturm_complete(&op,k_ff,neg_kg,k)?
+    };
+    original_buckling_rayleigh(k_ff, neg_kg, result)
+}
+
+#[derive(Default)]
+struct BucklingWork {
+    sum: f64,
+    low: f64,
+}
+
+impl BucklingWork {
+    fn add(&mut self, value: f64) {
+        let next = self.sum + value;
+        self.low += if self.sum.abs() >= value.abs() { (self.sum-next)+value } else { (value-next)+self.sum };
+        self.sum = next;
     }
 
-    let op = SparseShiftInvertOp::new_k_inner_product(k_ff,neg_kg);
-    observe(op.as_ref().map(|op| &op.factor));
-    let op = op?;
-    let mut result = sturm_complete(&op,k_ff,neg_kg,k)?;
-    for value in &mut result.values { *value = 1.0 / *value; }
-    Some(result)
+    fn triple(&mut self, a: f64, b: f64, c: f64) {
+        let ab = a*b;
+        let product = ab*c;
+        self.add(product);
+        self.add(ab.mul_add(c, -product));
+        self.add(a.mul_add(b, -ab)*c);
+    }
+
+    fn value(self) -> f64 { self.sum + self.low }
+}
+
+fn buckling_work(matrix: &CscMatrix, phi: &[f64]) -> f64 {
+    let mut work = BucklingWork::default();
+    for j in 0..matrix.n {
+        for p in matrix.col_ptr[j]..matrix.col_ptr[j+1] {
+            let i = matrix.row_idx[p];
+            work.triple(phi[i], matrix.values[p], phi[j]);
+            if i != j { work.triple(phi[j], matrix.values[p], phi[i]); }
+        }
+    }
+    work.value()
+}
+
+fn original_buckling_rayleigh(k: &CscMatrix, b: &CscMatrix, mut result: EigenResult) -> Option<EigenResult> {
+    let count = result.values.len();
+    let mut phi = vec![0.0; k.n];
+    for col in 0..count {
+        let scale = (0..k.n).map(|i| result.vectors[i*count+col].abs()).fold(0.0f64, f64::max);
+        if !(scale > 0.0 && scale.is_finite()) { return None; }
+        for i in 0..k.n { phi[i] = result.vectors[i*count+col]/scale; }
+        let stiffness = buckling_work(k, &phi);
+        let geometric = buckling_work(b, &phi);
+        if !(stiffness > 0.0 && stiffness.is_finite() && geometric.is_finite()) { return None; }
+        let mu = geometric/stiffness;
+        if !mu.is_finite() { return None; }
+        result.values[col] = mu;
+    }
+    let mut order: Vec<usize> = (0..count).collect();
+    order.sort_by(|&i, &j| result.values[i].total_cmp(&result.values[j]));
+    Some(EigenResult {
+        values: order.iter().map(|&col| result.values[col]).collect(),
+        vectors: (0..k.n).flat_map(|row| order.iter().map(move |&col| (row,col))).map(|(row,col)| result.vectors[row*count+col]).collect(),
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -1000,6 +1053,22 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn original_buckling_work_rejects_invalid_modes() {
+        let b = CscMatrix::from_dense_symmetric(&[1.0],1);
+        for (stiffness, vector) in [(1.0,0.0), (1.0,f64::NAN), (1.0,f64::INFINITY), (0.0,1.0), (-1.0,1.0), (f64::INFINITY,1.0)] {
+            let k = CscMatrix { n: 1, col_ptr: vec![0,1], row_idx: vec![0], values: vec![stiffness] };
+            let result = EigenResult { values: vec![123.0], vectors: vec![vector] };
+            assert!(original_buckling_rayleigh(&k,&b,result).is_none(), "{stiffness}, {vector}");
+        }
+        for stiffness in [1e-100,1.0,1e100] {
+            let k = CscMatrix { n: 1, col_ptr: vec![0,1], row_idx: vec![0], values: vec![stiffness] };
+            let result = EigenResult { values: vec![123.0], vectors: vec![1.0] };
+            let result = original_buckling_rayleigh(&k,&b,result).unwrap();
+            assert_eq!(result.values,vec![1.0/stiffness]);
+        }
+    }
 
     /// Buckling must stay on the SPARSE path when -Kg is indefinite.
     ///
