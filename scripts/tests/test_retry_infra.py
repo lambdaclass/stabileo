@@ -276,6 +276,17 @@ class BrowserDepsOutage(unittest.TestCase):
         spec.loader.exec_module(module)
         return module
 
+    @unittest.skip("known wrong result: #1945")
+    def test_package_plan_can_use_a_standalone_playwright_install(self):
+        from unittest.mock import patch
+        module = self.module()
+        def run(command, **kwargs):
+            self.assertEqual(kwargs['cwd'], '/runner/pw')
+            raise subprocess.CalledProcessError(1, command)
+        with patch.object(module.subprocess, 'run', side_effect=run):
+            with self.assertRaises(subprocess.CalledProcessError):
+                module.package_plan(['chromium'], '/runner/pw')
+
     def test_apt_transport_errors_are_infrastructure(self):
         for line in ("Temporary failure resolving 'azure.archive.ubuntu.com'", 'E: Failed to fetch http://archive.ubuntu.com/ubuntu/a.deb'):
             with self.subTest(line=line), tempfile.TemporaryDirectory() as directory:
@@ -414,6 +425,21 @@ class BrowserDepsOutage(unittest.TestCase):
 
 
 class BrowserDeps(unittest.TestCase):
+    @unittest.skip("known wrong result: #1945")
+    def test_all_workflows_share_browser_system_dependency_installation(self):
+        for workflow in sorted((ROOT / '.github/workflows').glob('*.yml')):
+            with self.subTest(workflow=workflow.name):
+                text = workflow.read_text()
+                self.assertNotIn('install-deps', text)
+                self.assertNotIn('--with-deps', text)
+        deploy = (ROOT / '.github/workflows/deploy.yml').read_text()
+        self.assertRegex(deploy, r'uses: \./\.github/actions/browser-deps\n\s+with:\n\s+browsers: chromium\n')
+        ci = (ROOT / '.github/workflows/ci.yml').read_text()
+        for job, browsers in (('determinism', 'chromium firefox webkit'), ('e2e', 'chromium')):
+            with self.subTest(job=job):
+                body = re.search(r'\n  ' + job + r':\n(.*?)(?=\n  [a-z0-9_-]+:|\Z)', ci, re.S).group(1)
+                self.assertRegex(body, r'uses: \./\.github/actions/browser-deps\n\s+with:\n\s+browsers: ' + browsers + r'\n')
+
     def test_every_browser_package_install_goes_through_the_cached_action(self):
         text = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertNotIn('install-deps', text)
