@@ -183,9 +183,7 @@ fn qz_follows_api_table_times_tip_area() {
 /// A near-rigid vertical pile on t-z springs along the shaft and a q-z spring
 /// at the tip. Prescribe the settlement δ through the load the hand
 /// calculation says it takes: P = t(δ)·πD·L + q(δ)·A_tip.
-#[test]
-#[ignore = "known wrong result: #761"]
-fn single_pile_axial_capacity_matches_hand_calculation() {
+fn axial_pile_case(rigid: bool) -> (SSIInput, f64, f64, f64) {
     let (d, length, n) = (0.5_f64, 10.0_f64, 10usize);
     let (t_ult, z_ult, q_ult) = (50.0, 0.01, 2000.0);
     let delta = 0.0025;
@@ -198,7 +196,7 @@ fn single_pile_axial_capacity_matches_hand_calculation() {
     let p = shaft + tip; // 517.65 kN
 
     let dz = length / n as f64;
-    let solver = pile(n, length, 2.0e11, area, std::f64::consts::PI * d.powi(4) / 64.0, "guidedZ",
+    let mut solver = pile(n, length, 2.0e11, area, std::f64::consts::PI * d.powi(4) / 64.0, "guidedZ",
         SolverNodalLoad { node_id: 1, fx: 0.0, fz: -p, my: 0.0 });
     let mut soil_springs: Vec<SoilSpring> = (0..=n).map(|i| SoilSpring {
         node_id: i + 1, direction: 1,
@@ -208,8 +206,14 @@ fn single_pile_axial_capacity_matches_hand_calculation() {
     // The tip spring: its tributary length is not used (a force already).
     soil_springs.push(SoilSpring { node_id: n + 1, direction: 1, curve: SoilCurve::Qz { q_ult, d, tip_area: Some(area) }, tributary_length: 123.0 });
 
-    let r = solve_ssi_2d(&SSIInput { solver, soil_springs, max_iter: 500, tolerance: 1e-12 }).unwrap();
-    assert!(r.converged);
+    if rigid {
+        solver.constraints = serde_json::from_value(json!((2..=n+1).map(|node| json!({"type":"equalDOF", "masterNode":1, "slaveNode":node, "dofs":[1]})).collect::<Vec<_>>())).unwrap();
+    }
+    (SSIInput { solver, soil_springs, max_iter: 500, tolerance: 1e-12 }, delta, shaft, tip)
+}
+
+fn assert_axial_pile_capacity(r: &dedaliano_engine::solver::ssi::SSIResult, delta: f64, shaft: f64, tip: f64) {
+    let n = r.spring_results.len() - 2;
     for disp in &r.results.displacements {
         close(&format!("settlement of node {}", disp.node_id), -disp.uz, delta, 1e-6);
     }
@@ -217,6 +221,43 @@ fn single_pile_axial_capacity_matches_hand_calculation() {
     let tip_got = r.spring_results[n + 1].reaction;
     close("shaft force", -shaft_got, shaft, 1e-6);
     close("tip force", -tip_got, tip, 1e-6);
+}
+
+#[test]
+#[ignore = "known wrong result: #761"]
+fn single_pile_axial_capacity_matches_hand_calculation() {
+    let (input, delta, shaft, tip) = axial_pile_case(true);
+    let r = solve_ssi_2d(&input).unwrap();
+    assert!(r.converged);
+    assert_axial_pile_capacity(&r, delta, shaft, tip);
+}
+
+#[test]
+fn near_rigid_pile_does_not_claim_unresolved_equilibrium() {
+    let (input, delta, shaft, tip) = axial_pile_case(false);
+    let r = solve_ssi_2d(&input).unwrap();
+    assert!(!r.converged);
+    assert_axial_pile_capacity(&r, delta, shaft, tip);
+    let mut residual: std::collections::BTreeMap<_, f64> = r.results.displacements.iter().map(|d| (d.node_id, 0.0)).collect();
+    for spring in &r.spring_results {
+        *residual.get_mut(&spring.node_id).unwrap() += spring.reaction;
+    }
+    for load in &input.solver.loads {
+        if let SolverLoad::Nodal(l) = load {
+            *residual.get_mut(&l.node_id).unwrap() -= l.fz;
+        }
+    }
+    for element in input.solver.elements.values() {
+        let uz = |node| r.results.displacements.iter().find(|d| d.node_id == node).unwrap().uz;
+        let length = (input.solver.nodes[&element.node_i.to_string()].z - input.solver.nodes[&element.node_j.to_string()].z).abs();
+        let e = input.solver.materials[&element.material_id.to_string()].e;
+        let area = input.solver.sections[&element.section_id.to_string()].a;
+        let force = 1000.0 * e * area / length * (uz(element.node_i) - uz(element.node_j));
+        *residual.get_mut(&element.node_i).unwrap() += force;
+        *residual.get_mut(&element.node_j).unwrap() -= force;
+    }
+    let imbalance = residual.values().fold(0.0_f64, |norm, value| norm.hypot(*value)) / (shaft + tip);
+    assert!(imbalance > input.tolerance, "independent axial residual {imbalance}");
 }
 
 /// A vertical pile, head (node 1) at z = 0, `n` frame elements down to z = −length.

@@ -159,6 +159,13 @@ for (const test of cases) {
       checked++; continue;
     }
     assert.equal(result.converged, test.unconvergedOrError ? false : test.converged, test.api);
+    if (test.pileCapacity) {
+      const c = test.pileCapacity;
+      const close = (actual, expected) => assert.ok(Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-6 * Math.max(Math.abs(expected), 1e-12), `pile capacity: ${actual} vs ${expected}`);
+      for (const d of result.results.displacements) close(-d[c.displacement], c.delta);
+      close(-result.springResults.slice(0, 11).reduce((sum, s) => sum + s.reaction, 0), c.shaft);
+      close(-result.springResults[11].reaction, c.tip);
+    }
     if (test.nonzeroTip) {
       const tip = result.results.displacements.find(d => d.nodeId === 2);
       assert.ok(Math.hypot(tip.ux, tip.uy ?? 0, tip.uz) > 0);
