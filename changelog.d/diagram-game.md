@@ -9,9 +9,14 @@ structures it comes from. The wrong options come from solving a changed structur
 reversed or rescaled, a support or a hinge changed) or from a classic drawing mistake (the wrong
 degree, vertex or concavity, a missing jump, a shear that does not close, a moment that does not
 vanish at a hinge or does not appear at a fixed support, a deflection that does not vanish at a
-support or rotates at a fixed one), and the explanation after each answer says which. No option
-is the right one drawn with its sign reversed, on the whole diagram or on one straight run of a
-frame, since textbooks disagree on that convention. Seven levels run from a simply supported beam
+support or rotates at a fixed one), and the explanation after each answer says which. Wrong options include another diagram of the
+same structure drawn as the one asked for, and the right one mirrored end for end. No option is
+the right one drawn with its sign reversed, on the whole diagram or on one straight run of a
+frame, since textbooks disagree on that convention, and no two options are closer than a widest
+visible gap that shrinks with the level. The question names the diagram in its own colour with its
+symbol (N, Vz, My, δ). The game fills one screen with no scroll on a desktop, a tablet and a phone
+held either way, and on a phone held upright the start screen suggests turning it, with a full
+screen option where the browser allows one. Seven levels run from a simply supported beam
 to frames and trusses, and then everything mixed. Points come from the level, a streak multiplier
 and a time bonus, shown on each answer, with synthesised sound that can be turned off. The best
 score stays in the browser. The page loads the engine but not the application, so the app's own

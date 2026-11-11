@@ -1,6 +1,7 @@
 import { drawVariant, rng, seedFrom } from '../edu/exercise-params';
 import { resolveGameModel, solveGame, type GameModel, type Solved } from './game-model';
-import { apparentDistance, diagramOf, isEmpty, type Diagram, type DiagramKind } from './traces';
+import { apparentGap, diagramOf, isEmpty, type Diagram, type DiagramKind } from './traces';
+import type { GameModel as Model } from './game-model';
 import { isPhysical, mutate, mutateModel, PHYSICAL_TAGS, type Tag } from './mutations';
 import { LEVELS, type Level, type Template } from './levels';
 
@@ -40,22 +41,29 @@ function shuffle<T>(items: T[], next: () => number): T[] {
   return out;
 }
 
-/** Each tag is tried twice, since a mutation drawn again can land somewhere else. */
-function tagOrder(tags: Tag[], next: () => number): Tag[] {
-  return [...shuffle(tags, next), ...shuffle(tags, next)];
+/** Each tag is tried twice, since a mutation drawn again can land somewhere else; `late` ones only after the rest. */
+function tagOrder(tags: Tag[], next: () => number, late: Tag[] = []): Tag[] {
+  const early = tags.filter((t) => !late.includes(t)), last = tags.filter((t) => late.includes(t));
+  return [...shuffle(early, next), ...shuffle(early, next), ...shuffle(last, next), ...shuffle(last, next)];
 }
 
-/** Distractors for `kind`, each at least `minGap` away from the correct one and from every other picked, whatever sign convention a reader uses. */
-export function distractors(solved: Solved, kind: DiagramKind, level: Level, count: number, next: () => number): Option[] {
+/** Whether two options read as different shapes to an eye that ignores sign conventions. */
+export function distinct(a: Diagram, b: Diagram, m: Model, level: Level): boolean {
+  const g = apparentGap(a, b, m);
+  return g.rms >= level.minGap && g.max >= level.minPeak;
+}
+
+/** Distractors for `kind`, each distinct from the correct one and from every other picked. */
+export function distractors(solved: Solved, kind: DiagramKind, level: Level, count: number, next: () => number, tags: Tag[] = level.tags): Option[] {
   const correct = diagramOf(solved, kind);
   const m = solved.model;
   const accepted: Option[] = [];
-  for (const tag of tagOrder(level.tags, next)) {
+  for (const tag of tagOrder(tags, next, level.late)) {
     if (accepted.length === count) break;
     const d = mutate(tag, { solved, correct, kind, next });
     if (!d || isEmpty(d)) continue;
-    if (apparentDistance(d, correct, m) < level.minGap) continue;
-    if (accepted.some((o) => apparentDistance(o.diagram, d, m) < level.minGap)) continue;
+    if (!distinct(d, correct, m, level)) continue;
+    if (accepted.some((o) => !distinct(o.diagram, d, m, level))) continue;
     accepted.push({ diagram: d, tag });
   }
   return accepted;
@@ -74,8 +82,8 @@ export function otherStructures(solved: Solved, kind: DiagramKind, level: Level,
     const s = model && solveGame(model);
     if (!s) continue;
     const d = diagramOf(s, kind);
-    if (isEmpty(d) || apparentDistance(d, correct, m) < level.minGap) continue;
-    if (accepted.some((o) => apparentDistance(o.diagram, d, m) < level.minGap)) continue;
+    if (isEmpty(d) || !distinct(d, correct, m, level)) continue;
+    if (accepted.some((o) => !distinct(o.diagram, d, m, level))) continue;
     accepted.push({ diagram: d, model, tag });
   }
   return accepted;
@@ -99,7 +107,7 @@ function attempt(levelIndex: number, seed: number): Round | null {
   if (kinds.length >= 3 && roll < level.oddShare) {
     const shown = shuffle(kinds, next).slice(0, Math.min(level.options, kinds.length)).sort((a, b) => 'NVMD'.indexOf(a) - 'NVMD'.indexOf(b));
     const wrong = Math.floor(next() * shown.length);
-    const [bad] = distractors(solved, shown[wrong]!, level, 1, next);
+    const [bad] = distractors(solved, shown[wrong]!, level, 1, next, level.tags.filter((t) => t !== 'wrongKind'));
     if (!bad) return null;
     const options = shown.map((k, i): Option => (i === wrong ? bad : { diagram: diagramOf(solved, k), tag: null }));
     return { ...base, type: 'odd', kind: null, options, answer: wrong };

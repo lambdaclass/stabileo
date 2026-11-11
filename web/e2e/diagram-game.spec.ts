@@ -61,18 +61,86 @@ test('@smoke diagram game: a round that shows one diagram and asks which of four
   for (const i of [0, 1, 2, 3].filter((i) => i !== right)) await expect(page.getByTestId(`dg-option-${i}`).locator('.curve').first()).toBeVisible();
 });
 
-test('@smoke diagram game on a phone: the options stack and nothing scrolls sideways', async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 760 });
-  await page.goto('/es/diagram-game/?e2e=1&seed=7');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: elegí el correcto');
+const call = (page: Page, f: string, ...args: unknown[]) =>
+  page.evaluate(([name, rest]) => (window as unknown as { __diagramGame: Record<string, (...a: unknown[]) => unknown> }).__diagramGame[name as string]!(...(rest as unknown[])), [f, args] as const);
+
+async function fitsOneScreen(page: Page, what: string) {
+  const m = await page.evaluate(() => {
+    const scroller = document.querySelector('.landing')!;
+    const inside = (el: Element | null) => {
+      if (!el) return true;
+      const r = el.getBoundingClientRect();
+      return r.top >= -1 && r.left >= -1 && r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1;
+    };
+    const parts = ['.hud', '[data-testid="dg-question"]', '.problem-figure', '[data-testid="dg-next"]', '[data-testid="dg-again"]', ...[0, 1, 2, 3].map((i) => `[data-testid="dg-option-${i}"]`)];
+    return {
+      down: scroller.scrollHeight - scroller.clientHeight,
+      side: Math.max(scroller.scrollWidth - scroller.clientWidth, document.documentElement.scrollWidth - innerWidth),
+      outside: parts.filter((sel) => !inside(document.querySelector(sel))),
+    };
+  });
+  expect(m.down, `${what}: vertical scroll`).toBeLessThanOrEqual(0);
+  expect(m.side, `${what}: horizontal scroll`).toBeLessThanOrEqual(0);
+  expect(m.outside, `${what}: off screen`).toEqual([]);
+}
+
+async function playThrough(page: Page, label: string) {
+  await page.goto('/es/diagram-game/?e2e=1&seed=31');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
-  const boxes = await Promise.all([0, 1, 2].map((i) => page.getByTestId(`dg-option-${i}`).boundingBox()));
-  expect(boxes[1]!.y).toBeGreaterThan(boxes[0]!.y + boxes[0]!.height - 1);
-  expect(boxes[2]!.y).toBeGreaterThan(boxes[1]!.y + boxes[1]!.height - 1);
-  for (const b of boxes) expect(b!.x).toBeGreaterThanOrEqual(15);
-  const overflow = await page.evaluate(() => { const el = document.querySelector('.landing')!; return el.scrollWidth - el.clientWidth; });
-  expect(overflow).toBeLessThanOrEqual(0);
+  await fitsOneScreen(page, `${label} first round`);
+  await page.getByTestId(`dg-option-${(await correctIndex(page))!}`).click();
+  await expect(page.getByTestId('dg-next')).toBeVisible();
+  await fitsOneScreen(page, `${label} answered`);
+  for (const [level, type] of [[3, 'which'], [4, 'odd'], [5, 'pick']] as const) {
+    await call(page, 'level', level);
+    expect(await call(page, 'find', type)).toBe(true);
+    await fitsOneScreen(page, `${label} level ${level + 1} ${type}`);
+    await page.keyboard.press(String((((await correctIndex(page))! + 1) % 3) + 1));
+    await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'false');
+    await fitsOneScreen(page, `${label} level ${level + 1} ${type} answered wrong`);
+  }
+  await expect(page.getByTestId('dg-again')).toBeVisible();
+  await fitsOneScreen(page, `${label} game over`);
+}
+
+for (const [label, width, height] of [['wide screen', 1440, 900], ['laptop', 1280, 680], ['tablet portrait', 768, 1024]] as const) {
+  test(`@smoke diagram game fits one screen on a ${label}, with no scroll either way, through every kind of round`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await playThrough(page, label);
+  });
+}
+
+test.describe('on a phone', () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  for (const [label, width, height] of [['portrait', 390, 664], ['small portrait', 360, 600], ['landscape', 844, 340], ['small landscape', 667, 300]] as const) {
+    test(`@smoke diagram game fits one screen on a phone in ${label}, with no scroll either way`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await playThrough(page, label);
+    });
+  }
+
+  test('@smoke held upright, the start screen suggests turning the phone; held sideways, it does not', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 664 });
+    await page.goto('/es/diagram-game/?e2e=1');
+    await expect(page.getByTestId('dg-rotate')).toContainText('Girá el teléfono');
+    await page.setViewportSize({ width: 844, height: 340 });
+    await expect(page.getByTestId('dg-rotate')).toHaveCount(0);
+  });
+});
+
+test('@smoke the question names the diagram in its own colour, with its symbol, and the quit button goes back to the start', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/es/diagram-game/?e2e=1&seed=5');
+  await page.getByTestId('dg-start').click();
+  await expect(page.getByTestId('dg-options')).toBeVisible();
+  const term = page.getByTestId('dg-term');
+  await expect(term).toHaveText(/^(esfuerzo normal \(N\)|esfuerzo de corte \(Vz\)|momento flector \(My\)|deformada \(δ\))$/);
+  const [termColour, textColour] = await term.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el.parentElement!).color]);
+  expect(termColour).not.toBe(textColour);
+  await page.getByTestId('dg-quit').click();
+  await expect(page.getByTestId('dg-start')).toBeVisible();
 });
 
 test('@slow Educational mode links to the diagram game', async ({ page }) => {

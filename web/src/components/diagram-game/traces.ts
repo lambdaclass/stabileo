@@ -18,6 +18,8 @@ export interface Trace {
 export interface Diagram {
   kind: DiagramKind;
   traces: Trace[];
+  /** Set when the curve is another diagram of the structure drawn as if it were `kind`. */
+  from?: DiagramKind;
 }
 
 const FORCE = { N: 'axial', V: 'shear', M: 'moment' } as const;
@@ -129,21 +131,35 @@ export function signGroups(m: GameModel, kind: DiagramKind): number[] {
 
 /** `shapeDistance` with every sign group free to flip: two options never differ only by a sign convention. */
 export function apparentDistance(a: Diagram, b: Diagram, m: GameModel): number {
+  return apparentGap(a, b, m).rms;
+}
+
+/**
+ * How far apart two diagrams look, each scaled to its own peak and with every sign group flipped to match best:
+ * the RMS gap, and the widest gap at any station, which is what an eye catches.
+ */
+export function apparentGap(a: Diagram, b: Diagram, m: GameModel): { rms: number; max: number } {
   const groups = signGroups(m, a.kind);
   const ts = gridStations();
   const sa = sampleDiagram(a), sb = sampleDiagram(b);
   const pa = peak(sa), pb = peak(sb);
-  if (pa < 1e-12 || pb < 1e-12) return pa < 1e-12 && pb < 1e-12 ? 0 : 1;
-  const same = new Map<number, number>(), flipped = new Map<number, number>();
+  if (pa < 1e-12 || pb < 1e-12) return pa < 1e-12 && pb < 1e-12 ? { rms: 0, max: 0 } : { rms: 1, max: 1 };
+  const acc = new Map<number, { same: number; flipped: number; maxSame: number; maxFlipped: number }>();
   for (let k = 0; k < sa.length; k++) {
     const g = groups[Math.floor(k / ts.length)]!;
     const ax = sa[k]![0] / pa, ay = sa[k]![1] / pa, bx = sb[k]![0] / pb, by = sb[k]![1] / pb;
-    same.set(g, (same.get(g) ?? 0) + (ax - bx) ** 2 + (ay - by) ** 2);
-    flipped.set(g, (flipped.get(g) ?? 0) + (ax + bx) ** 2 + (ay + by) ** 2);
+    const s2 = (ax - bx) ** 2 + (ay - by) ** 2, f2 = (ax + bx) ** 2 + (ay + by) ** 2;
+    const r = acc.get(g) ?? { same: 0, flipped: 0, maxSame: 0, maxFlipped: 0 };
+    r.same += s2; r.flipped += f2; r.maxSame = Math.max(r.maxSame, s2); r.maxFlipped = Math.max(r.maxFlipped, f2);
+    acc.set(g, r);
   }
-  let sum = 0;
-  for (const [g, v] of same) sum += Math.min(v, flipped.get(g)!);
-  return Math.sqrt(sum / sa.length);
+  let sum = 0, max = 0;
+  for (const r of acc.values()) {
+    const flip = r.flipped < r.same;
+    sum += flip ? r.flipped : r.same;
+    max = Math.max(max, flip ? r.maxFlipped : r.maxSame);
+  }
+  return { rms: Math.sqrt(sum / sa.length), max: Math.sqrt(max) };
 }
 
 export function negated(d: Diagram): Diagram {

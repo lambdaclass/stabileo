@@ -16,6 +16,10 @@ export interface Level {
   tags: Tag[];
   /** Smallest normalised RMS gap between any two options; lower is subtler. */
   minGap: number;
+  /** Smallest widest gap at any station between any two options, so no two read as the same shape. */
+  minPeak: number;
+  /** Tags tried only once the rest are spent: blunt traps that should stay rare where the level is about subtler ones. */
+  late?: Tag[];
   /** Share of rounds that show N, V, M and D of one structure and ask for the inconsistent one. */
   oddShare: number;
   /** Share of rounds that show one diagram and ask which of several structures it belongs to. */
@@ -309,38 +313,36 @@ const bracket: Template = {
   kinds: ['N'],
 };
 
-const BEAM_MATH: Tag[] = ['degreeLowered', 'degreeRaised', 'vertexWrongEnd', 'jumpMissing', 'concavityFlipped', 'notClosed'];
-
 export const LEVELS: Level[] = [
   {
     templates: [ssPoint, cantileverTip, cantileverRight, ssTwoPoints], kinds: ['V', 'M'],
-    tags: ['loadMoved', 'loadScaled', 'supportsMirrored', 'supportChanged', 'pointAsUniform', 'degreeRaised', 'jumpMissing', 'notClosed'],
-    minGap: 0.25, oddShare: 0, whichShare: 0.3, options: 3,
+    tags: ['wrongKind', 'pointAsUniform', 'degreeRaised', 'loadMoved', 'supportsMirrored', 'mirrored', 'jumpMissing'],
+    minGap: 0.3, minPeak: 0.6, oddShare: 0, whichShare: 0.3, options: 3,
   },
   {
     templates: [ssUniform, cantileverUniform, overhang, overhangTip, ssPartial], kinds: ['V', 'M', 'D'],
-    tags: ['degreeLowered', 'degreeRaised', 'vertexWrongEnd', 'concavityFlipped', 'resultantLoad', 'supportsMirrored', 'supportChanged', 'loadMoved', 'notClosed', 'fixedEndRotates'],
-    minGap: 0.22, oddShare: 0, whichShare: 0.3, options: 3,
+    tags: ['wrongKind', 'resultantLoad', 'degreeLowered', 'degreeRaised', 'concavityFlipped', 'supportsMirrored', 'mirrored', 'loadMoved', 'notClosed'],
+    minGap: 0.28, minPeak: 0.55, oddShare: 0, whichShare: 0.3, options: 3,
   },
   {
     templates: [ssCouple, ssTriangular, cantileverTriangular, ssCombined, cantileverCouple, ssEndCouple, ssTrapezoid], kinds: ['V', 'M', 'D'],
-    tags: [...BEAM_MATH, 'loadMoved', 'loadFlipped', 'loadScaled', 'resultantLoad', 'supportChanged', 'fixedEndRotates'],
-    minGap: 0.2, oddShare: 0.15, whichShare: 0.3, options: 3,
+    tags: ['wrongKind', 'resultantLoad', 'pointAsUniform', 'vertexWrongEnd', 'concavityFlipped', 'jumpMissing', 'mirrored', 'loadMoved', 'loadScaled', 'notClosed', 'degreeLowered', 'fixedEndRotates'],
+    minGap: 0.25, minPeak: 0.5, oddShare: 0.15, whichShare: 0.3, options: 3,
   },
   {
     templates: [gerber, gerberOverhang, gerberPoints, continuous, propped, proppedUniform, fixedFixed], kinds: ['V', 'M', 'D'],
-    tags: ['nonZeroAtRelease', 'hingeToggled', 'inflectionMisplaced', 'supportDisplaced', 'supportChanged', 'fixedEndReleased', 'fixedEndRotates', 'vertexWrongEnd', 'concavityFlipped', 'loadMoved', 'loadScaled', 'jumpMissing'],
-    minGap: 0.16, oddShare: 0.25, whichShare: 0.25, options: 4,
+    tags: ['nonZeroAtRelease', 'hingeToggled', 'fixedEndReleased', 'fixedEndRotates', 'inflectionMisplaced', 'supportDisplaced', 'vertexWrongEnd', 'concavityFlipped', 'jumpMissing', 'supportChanged', 'loadMoved', 'mirrored', 'wrongKind'],
+    minGap: 0.22, late: ['wrongKind', 'mirrored'], minPeak: 0.45, oddShare: 0.25, whichShare: 0.25, options: 4,
   },
   {
     templates: [portalLateral, portalGravity, inclined, gable, lFrame, column, threeHinged], kinds: ['N', 'V', 'M', 'D'],
-    tags: ['supportChanged', 'hingeToggled', 'rollerTurned', 'loadFlipped', 'loadMoved', 'loadScaled', 'nonZeroAtRelease', 'inflectionMisplaced', 'supportDisplaced', 'fixedEndReleased', 'fixedEndRotates', 'notClosed', 'jumpMissing'],
-    minGap: 0.14, oddShare: 0.3, whichShare: 0.25, options: 4,
+    tags: ['supportChanged', 'hingeToggled', 'rollerTurned', 'loadFlipped', 'loadMoved', 'loadScaled', 'nonZeroAtRelease', 'inflectionMisplaced', 'supportDisplaced', 'fixedEndReleased', 'fixedEndRotates', 'notClosed', 'jumpMissing', 'wrongKind'],
+    minGap: 0.2, late: ['wrongKind', 'mirrored'], minPeak: 0.4, oddShare: 0.3, whichShare: 0.25, options: 4,
   },
   {
     templates: [triangleTruss, pratt, howe, warren, bracket], kinds: ['N'],
     tags: ['memberSignFlipped', 'zeroForceLoaded', 'loadedShownZero', 'loadMoved', 'loadFlipped', 'loadScaled', 'rollerTurned'],
-    minGap: 0.14, oddShare: 0, whichShare: 0.3, options: 4,
+    minGap: 0.2, minPeak: 0.4, oddShare: 0, whichShare: 0.3, options: 4,
   },
 ];
 
@@ -348,5 +350,5 @@ const everything = LEVELS.slice(1).flatMap((l) => l.templates);
 LEVELS.push({
   templates: everything, kinds: ['N', 'V', 'M', 'D'],
   tags: [...new Set(LEVELS.flatMap((l) => l.tags))],
-  minGap: 0.12, oddShare: 0.25, whichShare: 0.3, options: 4,
+  minGap: 0.2, minPeak: 0.4, late: ['wrongKind', 'mirrored'], oddShare: 0.25, whichShare: 0.3, options: 4,
 });

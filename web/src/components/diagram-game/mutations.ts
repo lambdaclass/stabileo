@@ -3,7 +3,7 @@ import { memberLength, solveGame, type GameModel, type Solved } from './game-mod
 import { chainNeighbour, diagramOf, memberAxis, peak, sampleDiagram, forceValue, signGroups, type Diagram, type DiagramKind, type Trace, type Vec } from './traces';
 
 export const PHYSICAL_TAGS = ['loadMoved', 'loadFlipped', 'loadScaled', 'supportChanged', 'supportsMirrored', 'hingeToggled', 'rollerTurned', 'resultantLoad', 'pointAsUniform'] as const;
-export const MATH_TAGS = ['degreeLowered', 'degreeRaised', 'vertexWrongEnd', 'jumpMissing', 'nonZeroAtRelease', 'inflectionMisplaced', 'supportDisplaced', 'memberSignFlipped', 'zeroForceLoaded', 'loadedShownZero', 'concavityFlipped', 'fixedEndReleased', 'fixedEndRotates', 'notClosed'] as const;
+export const MATH_TAGS = ['degreeLowered', 'degreeRaised', 'vertexWrongEnd', 'jumpMissing', 'nonZeroAtRelease', 'inflectionMisplaced', 'supportDisplaced', 'memberSignFlipped', 'zeroForceLoaded', 'loadedShownZero', 'concavityFlipped', 'fixedEndReleased', 'fixedEndRotates', 'notClosed', 'wrongKind', 'mirrored'] as const;
 export type PhysicalTag = typeof PHYSICAL_TAGS[number];
 export type MathTag = typeof MATH_TAGS[number];
 export type Tag = PhysicalTag | MathTag;
@@ -406,6 +406,37 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
     return {
       kind: 'V',
       traces: ctx.correct.traces.map((tr, e) => groups[e] !== g ? tr : ({ breaks: tr.breaks, at: (t) => add(tr.at(t), memberAxis(m, e).normal, c) })),
+    };
+  },
+  wrongKind: ({ solved, kind, next }) => {
+    if (solved.model.allTruss) return null;
+    const other = pick((['N', 'V', 'M', 'D'] as DiagramKind[]).filter((k) => k !== kind && peak(sampleDiagram(diagramOf(solved, k))) > 1e-9), next);
+    if (!other) return null;
+    return { kind, from: other, traces: diagramOf(solved, other).traces };
+  },
+  mirrored: ({ correct, solved }) => {
+    const m = solved.model;
+    if (m.allTruss || new Set(signGroups(m, 'V')).size !== 1) return null;
+    const lengths = m.elements.map((_, e) => memberLength(m, e));
+    const starts = lengths.map((_, e) => lengths.slice(0, e).reduce((a, b) => a + b, 0));
+    const total = lengths.reduce((a, b) => a + b, 0);
+    const locate = (x: number) => {
+      const e = Math.max(0, starts.findLastIndex((s0) => s0 <= x + 1e-12));
+      return { e, t: Math.min(1, Math.max(0, (x - starts[e]!) / lengths[e]!)) };
+    };
+    const { dir, normal } = memberAxis(m, 0);
+    const cuts = [...starts.slice(1), ...correct.traces.flatMap((tr, e) => tr.breaks.map((b) => starts[e]! + b * lengths[e]!))].map((x) => total - x);
+    return {
+      kind: correct.kind,
+      traces: correct.traces.map((_, e): Trace => ({
+        breaks: cuts.filter((x) => x > starts[e]! + 1e-9 && x < starts[e]! + lengths[e]! - 1e-9).map((x) => (x - starts[e]!) / lengths[e]!),
+        at: (t) => {
+          const at = locate(total - (starts[e]! + t * lengths[e]!));
+          const p = correct.traces[at.e]!.at(at.t);
+          const u = p[0] * dir[0] + p[1] * dir[1], v = p[0] * normal[0] + p[1] * normal[1];
+          return [v * normal[0] - u * dir[0], v * normal[1] - u * dir[1]];
+        },
+      })),
     };
   },
   loadedShownZero: (ctx) => {

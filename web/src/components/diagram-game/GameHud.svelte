@@ -4,7 +4,7 @@
   import { LEVEL_UP, LIVES, MAX_LEVEL, multiplier, type GameState } from './scoring';
   import { tg, type Key } from './strings';
 
-  let { game, best, sound, ontoggle }: { game: GameState; best: number; sound: boolean; ontoggle: () => void } = $props();
+  let { game, best, sound, ontoggle, onquit }: { game: GameState; best: number; sound: boolean; ontoggle: () => void; onquit: () => void } = $props();
 
   const shown = new Tween(0, { duration: 650, easing: cubicOut });
   $effect(() => {
@@ -62,10 +62,13 @@
       {#if sound}<path class="wave" d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.5a6 6 0 0 1 0 9" />{:else}<path class="wave" d="M11 6l4 4M15 6l-4 4" />{/if}
     </svg>
   </button>
+  <button type="button" class="sound quit" onclick={onquit} aria-label={tg('quit')} title={tg('quit')} data-testid="dg-quit">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path class="wave" d="M4 4l8 8M12 4l-8 8" /></svg>
+  </button>
 </section>
 
 <style>
-  .hud { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; padding: .75rem 1rem; margin-bottom: .75rem;
+  .hud { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1.25rem; padding: .35rem .5rem .35rem .9rem;
     background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius-lg); }
   .cell { display: flex; align-items: center; gap: .45rem; min-width: 0; }
   .k { font: .7rem var(--st-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--st-text-3); }
@@ -78,7 +81,7 @@
   .pip { width: .55rem; height: .55rem; border-radius: 2px; background: var(--st-hair-strong); transition: background .2s, transform .2s; }
   .pip.on { background: var(--st-ok); transform: scale(1.15); }
   .score { margin-inline: auto; }
-  .big { font: 700 clamp(1.5rem, 4vw, 2rem)/1 var(--st-mono); font-variant-numeric: tabular-nums; color: var(--st-text); min-width: 4ch; text-align: right; }
+  .big { font: 700 clamp(1.3rem, 3.5vw, 1.9rem)/1 var(--st-mono); font-variant-numeric: tabular-nums; color: var(--st-text); min-width: 4ch; text-align: right; }
   .mult { display: inline-flex; align-items: center; gap: .2rem; font: 700 1.05rem var(--st-mono); color: var(--st-text-2); }
   .mult svg { width: 1rem; height: 1rem; fill: var(--st-text-3); }
   .hot .mult { color: var(--st-warn); }
@@ -87,13 +90,23 @@
   .hearts { display: inline-flex; gap: .2rem; }
   .heart { width: 1.15rem; height: 1.15rem; fill: var(--st-danger); transition: transform .25s, opacity .25s; }
   .heart.lost { fill: none; stroke: var(--st-hair-strong); stroke-width: 1.2; animation: lose .45s ease-out; }
-  .sound { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--st-hair-strong);
+  .quit { margin-left: -.75rem; }
+  .sound { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--st-hair-strong);
     background: var(--st-surface-2); color: var(--st-text-2); cursor: pointer; }
   .sound svg { width: 1.1rem; height: 1.1rem; fill: currentColor; }
   .sound .wave { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
   .sound:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 2px; }
   @keyframes bump { 0% { transform: scale(1); } 45% { transform: scale(1.45); } 100% { transform: scale(1); } }
   @keyframes lose { 0% { transform: scale(1.3) rotate(0); } 50% { transform: scale(.7) rotate(-15deg); } 100% { transform: scale(1) rotate(0); } }
-  @media (max-width: 560px) { .score { margin-inline: 0; } .level-name { display: none; } }
+  @media (max-width: 900px), (max-height: 540px) { .level-name { display: none; } }
+  @media (max-width: 560px) {
+    .hud { flex-wrap: nowrap; gap: .5rem; padding: .3rem .3rem .3rem .5rem; }
+    .k, .best { display: none; }
+    .score { margin-inline: auto; }
+    .badge { min-width: 1.6rem; height: 1.6rem; font-size: .85rem; }
+    .heart { width: .95rem; height: .95rem; }
+    .quit { margin-left: -.35rem; }
+  }
+  @media (max-width: 440px) { .pips { display: none; } .mult svg { display: none; } }
   @media (prefers-reduced-motion: reduce) { .bump, .heart.lost { animation: none; } .pip, .heart { transition: none; } }
 </style>

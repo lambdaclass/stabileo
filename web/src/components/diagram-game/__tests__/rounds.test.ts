@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { drawVariant } from '../../edu/exercise-params';
 import { resolveGameModel, solveGame } from '../game-model';
-import { apparentDistance, diagramOf, negated, sampleDiagram, shapeDistance, peak } from '../traces';
+import { apparentGap, diagramOf, negated, sampleDiagram, shapeDistance, peak } from '../traces';
 import { buildRound } from '../round';
 import { LEVELS } from '../levels';
 import { figure } from '../figure';
@@ -51,7 +51,9 @@ describe('rounds', () => {
           expect(new Set(r.options.map((o) => o.diagram.kind)).size).toBe(r.options.length);
           const bad = r.options[r.answer]!.diagram;
           const truth = diagramOf(solveGame(r.model)!, bad.kind);
-          expect(apparentDistance(bad, truth, r.model)).toBeGreaterThanOrEqual(level.minGap);
+          expect(apparentGap(bad, truth, r.model).rms).toBeGreaterThanOrEqual(level.minGap);
+          expect(apparentGap(bad, truth, r.model).max).toBeGreaterThanOrEqual(level.minPeak);
+          expect(r.options[r.answer]!.tag).not.toBe('wrongKind');
           expect(shapeDistance(bad, negated(truth))).toBeGreaterThanOrEqual(level.minGap);
         } else {
           expect(r.options).toHaveLength(level.options);
@@ -60,7 +62,9 @@ describe('rounds', () => {
           expect(new Set(r.options.map((o) => o.diagram.kind)).size).toBe(1);
           for (let i = 0; i < r.options.length; i++) for (let j = i + 1; j < r.options.length; j++) {
             const a = r.options[i]!.diagram, b = r.options[j]!.diagram;
-            expect(apparentDistance(a, b, r.model), `seed ${seed} ${i}-${j}`).toBeGreaterThanOrEqual(level.minGap);
+            const g = apparentGap(a, b, r.model);
+            expect(g.rms, `seed ${seed} ${i}-${j}`).toBeGreaterThanOrEqual(level.minGap);
+            expect(g.max, `seed ${seed} ${i}-${j} widest`).toBeGreaterThanOrEqual(level.minPeak);
             expect(shapeDistance(a, negated(b)), `seed ${seed} ${i}-${j} reversed`).toBeGreaterThanOrEqual(level.minGap);
           }
           if (r.type === 'which') {
@@ -90,6 +94,13 @@ describe('rounds', () => {
       }
     });
   }
+
+  it('the first levels lean on blunt traps: another diagram drawn as the one asked for shows up', () => {
+    for (const l of [0, 1, 2]) {
+      const tags = SEEDS.flatMap((seed) => buildRound(l, seed).options.map((o) => o.tag));
+      expect(tags, `level ${l + 1}`).toContain('wrongKind');
+    }
+  });
 
   it('the scoring ceiling is the last level', () => {
     expect(MAX_LEVEL).toBe(LEVELS.length);

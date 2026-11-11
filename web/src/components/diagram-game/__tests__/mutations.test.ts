@@ -4,7 +4,7 @@ import { resolveGameModel, solveGame, type Solved } from '../game-model';
 import { diagramOf, drawnOrdinate, shapeDistance, type DiagramKind } from '../traces';
 import { mutate, PHYSICAL_TAGS, MATH_TAGS, type Tag } from '../mutations';
 import { LEVELS } from '../levels';
-import { tagText, gameStrings } from '../strings';
+import { tagText, gameStrings, marked } from '../strings';
 
 function solved(id: string, values: Record<string, number> = {}): Solved {
   const t = LEVELS.flatMap((l) => l.templates).find((x) => x.id === id)!;
@@ -37,6 +37,8 @@ const CASES: Record<Tag, [string, DiagramKind, Record<string, number>?]> = {
   fixedEndReleased: ['propped', 'M'],
   fixedEndRotates: ['cantilever-uniform', 'D'],
   notClosed: ['ss-point', 'V'],
+  wrongKind: ['ss-uniform', 'M'],
+  mirrored: ['ss-point', 'M', { f: 0.25 }],
 };
 
 describe('each tag changes the diagram it is applied to', () => {
@@ -48,7 +50,7 @@ describe('each tag changes the diagram it is applied to', () => {
       const d = mutate(tag, { solved: s, correct, kind, next: rng(7) });
       expect(d, `${tag} on ${id}`).not.toBeNull();
       expect(shapeDistance(d!, correct)).toBeGreaterThan(0.1);
-      expect(tagText(tag, kind)).not.toMatch(/^tag\./);
+      expect(tagText(tag, kind, d!.from)).not.toMatch(/^tag\./);
     });
   }
 });
@@ -143,6 +145,24 @@ describe('what the mutations claim', () => {
     expect(slope(d)).toBeGreaterThan(10 * slope(correct));
   });
 
+  it('another diagram of the structure is drawn as the one asked for, and says which it is', () => {
+    const s = solved('ss-uniform');
+    const d = mutate('wrongKind', { solved: s, correct: diagramOf(s, 'M'), kind: 'M', next: rng(3) })!;
+    expect(d.kind).toBe('M');
+    expect(['V', 'D']).toContain(d.from);
+    expect(shapeDistance(d, diagramOf(s, d.from!))).toBeLessThan(1e-12);
+    expect(tagText('wrongKind', 'M', 'V')).toBe(gameStrings.en!['tag.wrongKind.V']);
+  });
+
+  it('a mirrored moment puts the peak under the mirror image of the load', () => {
+    const s = solved('ss-point', { L: 8, f: 0.25 });
+    const correct = diagramOf(s, 'M');
+    const d = mutate('mirrored', { solved: s, correct, kind: 'M', next: rng(1) })!;
+    const deepest = (x: typeof correct) => [0.25, 0.75].map((t) => Math.abs(x.traces[0]!.at(t)[1]));
+    expect(deepest(correct)[0]).toBeGreaterThan(deepest(correct)[1]!);
+    expect(deepest(d)[1]).toBeCloseTo(deepest(correct)[0]!, 6);
+  });
+
   it('a mutated structure that is a mechanism yields no distractor', () => {
     const s = solved('ss-point');
     expect(mutate('rollerTurned', { solved: s, correct: diagramOf(s, 'M'), kind: 'M', next: rng(1) })).toBeNull();
@@ -157,5 +177,18 @@ describe('strings', () => {
       for (const [k, v] of Object.entries(table)) expect(v.trim(), `${locale} ${k}`).not.toBe('');
     }
     expect(Object.keys(gameStrings).sort()).toEqual(['de', 'en', 'es', 'fr', 'pt', 'tr']);
+  });
+
+  it('every question about one diagram marks its name exactly once, and nothing else is bracketed', () => {
+    for (const [locale, table] of Object.entries(gameStrings)) {
+      for (const [k, v] of Object.entries(table)) {
+        const brackets = (v.match(/\[/g) ?? []).length;
+        if (/^ask\.(which\.)?[NVMD]$/.test(k)) {
+          expect(brackets, `${locale} ${k}`).toBe(1);
+          expect(marked(v).term.length, `${locale} ${k}`).toBeGreaterThan(2);
+        } else expect(brackets, `${locale} ${k}`).toBe(0);
+      }
+    }
+    expect(marked('¿Cuál es el diagrama de [momento flector]?')).toEqual({ before: '¿Cuál es el diagrama de ', term: 'momento flector', after: '?' });
   });
 });
