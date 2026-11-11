@@ -1,4 +1,4 @@
-# SA-2026-060: Staged 3D could silently stiffen real rotations after a unit change
+# SA-2026-060: Staged artificial rotational stiffness could corrupt translations and member actions
 
 | | |
 |---|---|
@@ -12,7 +12,10 @@
 ## Affected features
 
 Staged 3D construction analysis of frames with local My or Mz end releases,
-including partial releases. Both dense and sparse staged paths contain the defect.
+including partial releases, multi-member frames without rotational supports and
+multiple load stages. Both dense and sparse staged paths contain the defect.
+Incorrect rotational restraint can redistribute moments and forces throughout
+the model and change nodal translations, reactions and derived design demands.
 The failure depends on the relationship between translational and rotational
 stiffness entries, so changing units or other model stiffness can expose it.
 
@@ -59,6 +62,24 @@ in as [the regression fixture](../../engine/tests/fixtures/staged-orphan-1846.js
 The ignored reproducer commit fails against main production code with the same
 incorrect native rotation; the public WASM reproducer also fails before the fix.
 
+## Multi-member and multi-stage comment witnesses
+
+The archived main replay also records silent failures through `solve_staged_3d`
+for these exact model-bearing issue comments:
+
+- [#1085 comment 6760749658](https://github.com/lambdaclass/stabileo/issues/1085#issuecomment-6760749658): a five-node, eight-frame model without rotational supports. Both frame ends meeting at interior node 4 release local My while retaining Mz and torsion. The archived unit-copy relation changes node 2 translation from 15.917273251 to 16.002586398 in the transformed length scale. This demonstrates translation corruption and redistribution of member actions in a multi-member frame.
+- [#1011 comment 6730900141](https://github.com/lambdaclass/stabileo/issues/1011#issuecomment-6730900141): a local Mz end release under loads applied in two stages. The archived unit-copy translation comparison differs by 3.775e-10 against its retained tolerance 4.380e-15.
+- [#1846 comment 6760758840](https://github.com/lambdaclass/stabileo/issues/1846#issuecomment-6760758840): a three-node, two-frame model with local Mz end releases. Its archived rotation relation compares 1.3690211093 with 25.827800947.
+
+Each matching archived staged call records `diagnostic_calls: [[]]` and
+`near_mechanism_warning: false`. The unrelated body classifications of #1085
+and #1011 do not describe these comment witnesses. The retained evidence below
+copies their exact observations and hashes from the supplied main archive;
+new native replays with main production sources in this worktree reproduce the
+three failing staged comparisons. The exact fixtures are retained in
+`engine/tests/fixtures/staged-review-comments.json`. No new independent oracle
+or historical release binary replay is claimed for these additional witnesses.
+
 ## Affected-version evidence
 
 The defective staged 3D pass was introduced in `da31341f8` on 2026-03-07.
@@ -71,14 +92,16 @@ silent runtime observation is specifically the main revision named above.
 ## Fixed behavior
 
 Staged 2D and 3D use regular linear assembly of the active physical model and the
-same `prepare_free_stiffness` function as regular linear solves. The existing
+same physical stability implementation as regular linear solves. The existing
 stability projection handles free rotations between global axes, constraint
 reduction, unsupported loads and loads transmitted indirectly to pinned rotations.
 Kinematic analysis uses that physical classification and projection. Legacy
 triplet assemblers share the per-node diagonal test. The separate release-count
-passes are deleted. Additional staged handling is limited to
-exactly unstiffened DOFs of inactive nodes, excluding active shell and constraint
-nodes. A genuinely free, unloaded rotation still solves, and unsupported applied
+passes are deleted. Additional staged handling is confined to unloaded reduced
+DOFs with exactly zero stiffness and no motion at an active member or shell node.
+Constraints are considered per reduced DOF. These DOFs are excluded from the
+stability check and pinned only in the solve matrix; physical stiffness and
+reactions never contain inactive artificial springs. A genuinely free, unloaded rotation still solves, and unsupported applied
 nodal moments remain refused. No existing tolerance or assertion is relaxed.
 
 The [results-change write-up](../results-changes/2026-11-staged-orphan-rotations.md)

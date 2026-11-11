@@ -333,7 +333,7 @@ pub(crate) fn refuse_connector_arm_mechanism_2d(input: &SolverInput) -> Result<(
         if !e.hinge_end { held.insert(e.node_j); }
     }
     for s in crate::ordered::values(&input.supports) {
-        if super::dof::is_dof_restrained_2d(s, 2) || (s.support_type == "spring" && support_dofs_2d(s)[2].spring.unwrap_or(0.0) != 0.0) {
+        if super::dof::is_dof_restrained_2d(s, 2) || support_dofs_2d(s)[2].spring.is_some_and(|k| k > 0.0) {
             held.insert(s.node_id);
         }
     }

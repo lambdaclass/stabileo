@@ -659,277 +659,580 @@ fn review_model(dim: usize, pads: usize) -> serde_json::Value {
         "loads":[{"type":"nodal","data":{"nodeId":2,"fx":1.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0}}]
     });
     for i in 0..pads {
-        let a = (100 + 2*i).to_string();
-        let b = (101 + 2*i).to_string();
+        let a = (100 + 2 * i).to_string();
+        let b = (101 + 2 * i).to_string();
         v["nodes"][&a] = serde_json::json!({"id":100+2*i,"x":0.0,"y":0.0,"z":0.0});
         v["nodes"][&b] = serde_json::json!({"id":101+2*i,"x":4.0,"y":0.0,"z":0.0});
         let mut e = v["elements"]["1"].clone();
-        e["id"]=serde_json::json!(100+2*i); e["nodeI"]=serde_json::json!(100+2*i); e["nodeJ"]=serde_json::json!(101+2*i);
-        v["elements"][&a]=e;
-        let mut s = v["supports"]["1"].clone(); s["id"]=serde_json::json!(100+2*i); s["nodeId"]=serde_json::json!(100+2*i);
-        v["supports"][&a]=s;
+        e["id"] = serde_json::json!(100 + 2 * i);
+        e["nodeI"] = serde_json::json!(100 + 2 * i);
+        e["nodeJ"] = serde_json::json!(101 + 2 * i);
+        v["elements"][&a] = e;
+        let mut s = v["supports"]["1"].clone();
+        s["id"] = serde_json::json!(100 + 2 * i);
+        s["nodeId"] = serde_json::json!(100 + 2 * i);
+        v["supports"][&a] = s;
     }
     if dim == 2 {
-        for l in v["loads"].as_array_mut().unwrap() {for key in ["fy","mz"] {l["data"].as_object_mut().unwrap().remove(key);}}
-        for n in v["nodes"].as_object_mut().unwrap().values_mut() { n.as_object_mut().unwrap().remove("y"); }
-        for e in v["elements"].as_object_mut().unwrap().values_mut() { e["hingeStart"]=false.into(); e["hingeEnd"]=false.into(); }
+        for l in v["loads"].as_array_mut().unwrap() {
+            for key in ["fy", "mz"] {
+                l["data"].as_object_mut().unwrap().remove(key);
+            }
+        }
+        for n in v["nodes"].as_object_mut().unwrap().values_mut() {
+            n.as_object_mut().unwrap().remove("y");
+        }
+        for e in v["elements"].as_object_mut().unwrap().values_mut() {
+            e["hingeStart"] = false.into();
+            e["hingeEnd"] = false.into();
+        }
     }
     v
 }
 
 fn review_stages(v: &mut serde_json::Value, loads_first: bool) {
-    let initial: Vec<_> = v["elements"].as_object().unwrap().values().filter(|e| e["id"] != 2 && e["id"] != 3).map(|e|e["id"].clone()).collect();
-    let supports: Vec<_> = v["supports"].as_object().unwrap().values().map(|s|s["nodeId"].clone()).collect();
+    let initial: Vec<_> = v["elements"]
+        .as_object()
+        .unwrap()
+        .values()
+        .filter(|e| e["id"] != 2 && e["id"] != 3)
+        .map(|e| e["id"].clone())
+        .collect();
+    let supports: Vec<_> = v["supports"]
+        .as_object()
+        .unwrap()
+        .values()
+        .map(|s| s["nodeId"].clone())
+        .collect();
     v["stages"] = serde_json::json!([
         {"name":"first","elementsAdded":initial,"supportsAdded":supports,"loadIndices":if loads_first {vec![0]} else {vec![]}},
         {"name":"second","elementsAdded":[2,3],"loadIndices":if loads_first {vec![]} else {vec![0]}}
     ]);
 }
 
-fn review_solve(dim: usize, mut v: serde_json::Value) -> Result<serde_json::Value,String> {
-    if dim == 2 { for l in v["loads"].as_array_mut().unwrap() {for key in ["fy","mz"] {l["data"].as_object_mut().unwrap().remove(key);}} }
-    if dim == 2 { solve_staged_2d(&serde_json::from_value(v).unwrap()).map(|r|serde_json::to_value(r).unwrap()) }
-    else { solve_staged_3d(&serde_json::from_value(v).unwrap()).map(|r|serde_json::to_value(r).unwrap()) }
+fn review_solve(dim: usize, mut v: serde_json::Value) -> Result<serde_json::Value, String> {
+    if dim == 2 {
+        for l in v["loads"].as_array_mut().unwrap() {
+            for key in ["fy", "mz"] {
+                l["data"].as_object_mut().unwrap().remove(key);
+            }
+        }
+    }
+    if dim == 2 {
+        solve_staged_2d(&serde_json::from_value(v).unwrap())
+            .map(|r| serde_json::to_value(r).unwrap())
+    } else {
+        solve_staged_3d(&serde_json::from_value(v).unwrap())
+            .map(|r| serde_json::to_value(r).unwrap())
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_review_partial_constraints_and_multistage_erection() {
-    for dim in [2,3] { for pads in [0,22] { for partial in [false,true] {
-        let dofs = if partial {vec![0]} else {(0..if dim==2 {3} else {6}).collect()};
-        for kind in ["equalDOF","rigidLink","diaphragm","eccentricConnection","linearMPC"] {
-            if kind=="diaphragm" && dim==2 {continue;}
-            let mut v = review_model(dim,pads);
-            let (master,slave) = if partial {(2,3)} else {(3,4)};
-            let constraint = match kind {
-                "diaphragm" => serde_json::json!({"type":kind,"masterNode":master,"slaveNodes":[slave],"plane":"XY"}),
-                "eccentricConnection" => serde_json::json!({"type":kind,"masterNode":master,"slaveNode":slave,"releases":[]}),
-                "linearMPC" => serde_json::json!({"type":kind,"terms":[{"nodeId":master,"dof":0,"coefficient":1.0},{"nodeId":slave,"dof":0,"coefficient":-1.0}]}),
-                _ => serde_json::json!({"type":kind,"masterNode":master,"slaveNode":slave,"dofs":dofs})
-            };
-            v["constraints"]=serde_json::json!([constraint]);
-            review_stages(&mut v,true);
-            let r = review_solve(dim,v).unwrap_or_else(|e|panic!("{dim}D {pads} {partial} {kind}: {e}"));
-            let d = r["stages"][0]["results"]["displacements"].as_array().unwrap().iter().find(|d|d["nodeId"]==3).unwrap();
-            assert_eq!(d["uz"].as_f64().unwrap(),0.0);
-            if !partial {assert_eq!(d["ux"].as_f64().unwrap(),0.0);}
-            assert!(r["finalResults"]["displacements"].as_array().unwrap().iter().all(|d|d["ux"].as_f64().unwrap().is_finite()));
+    for dim in [2, 3] {
+        for pads in [0, 22] {
+            for partial in [false, true] {
+                let dofs = if partial {
+                    vec![0]
+                } else {
+                    (0..if dim == 2 { 3 } else { 6 }).collect()
+                };
+                for kind in [
+                    "equalDOF",
+                    "rigidLink",
+                    "diaphragm",
+                    "eccentricConnection",
+                    "linearMPC",
+                ] {
+                    if kind == "diaphragm" && dim == 2 {
+                        continue;
+                    }
+                    let mut v = review_model(dim, pads);
+                    let (master, slave) = if partial { (2, 3) } else { (3, 4) };
+                    let constraint = match kind {
+                        "diaphragm" => {
+                            serde_json::json!({"type":kind,"masterNode":master,"slaveNodes":[slave],"plane":"XY"})
+                        }
+                        "eccentricConnection" => {
+                            serde_json::json!({"type":kind,"masterNode":master,"slaveNode":slave,"releases":[]})
+                        }
+                        "linearMPC" => {
+                            serde_json::json!({"type":kind,"terms":[{"nodeId":master,"dof":0,"coefficient":1.0},{"nodeId":slave,"dof":0,"coefficient":-1.0}]})
+                        }
+                        _ => {
+                            serde_json::json!({"type":kind,"masterNode":master,"slaveNode":slave,"dofs":dofs})
+                        }
+                    };
+                    v["constraints"] = serde_json::json!([constraint]);
+                    review_stages(&mut v, true);
+                    let r = review_solve(dim, v)
+                        .unwrap_or_else(|e| panic!("{dim}D {pads} {partial} {kind}: {e}"));
+                    let d = r["stages"][0]["results"]["displacements"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|d| d["nodeId"] == 3)
+                        .unwrap();
+                    assert_eq!(d["uz"].as_f64().unwrap(), 0.0);
+                    if !partial {
+                        assert_eq!(d["ux"].as_f64().unwrap(), 0.0);
+                    }
+                    assert!(r["finalResults"]["displacements"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .all(|d| d["ux"].as_f64().unwrap().is_finite()));
+                }
+            }
         }
-    } } }
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_review_loads_on_future_members_refused() {
-    for dim in [2,3] { for pads in [0,22] { for field in if dim==2 {vec!["fx","fz","my"]} else {vec!["fx","fy","fz","mx","my","mz"]} {
-        let mut v=review_model(dim,pads);
-        v["loads"][0]["data"]=serde_json::json!({"nodeId":3,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0});
-        v["loads"][0]["data"][field]=1.0.into();
-        if field.starts_with('m') {
-            v["supports"]["3"]=if dim==2 {serde_json::json!({"id":3,"nodeId":3,"type":"pinned"})} else {serde_json::json!({"nodeId":3,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false})};
+    for dim in [2, 3] {
+        for pads in [0, 22] {
+            for field in if dim == 2 {
+                vec!["fx", "fz", "my"]
+            } else {
+                vec!["fx", "fy", "fz", "mx", "my", "mz"]
+            } {
+                let mut v = review_model(dim, pads);
+                v["loads"][0]["data"] = serde_json::json!({"nodeId":3,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0});
+                v["loads"][0]["data"][field] = 1.0.into();
+                if field.starts_with('m') {
+                    v["supports"]["3"] = if dim == 2 {
+                        serde_json::json!({"id":3,"nodeId":3,"type":"pinned"})
+                    } else {
+                        serde_json::json!({"nodeId":3,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false})
+                    };
+                }
+                review_stages(&mut v, true);
+                assert!(
+                    review_solve(dim, v.clone()).is_err(),
+                    "{dim}D {pads} {field} answered an unsupported stage load"
+                );
+                v["stages"][0]["loadIndices"] = serde_json::json!([]);
+                v["stages"][1]["loadIndices"] = serde_json::json!([0]);
+                review_solve(dim, v).unwrap();
+            }
         }
-        review_stages(&mut v,true);
-        assert!(review_solve(dim,v.clone()).is_err(),"{dim}D {pads} {field} answered an unsupported stage load");
-        v["stages"][0]["loadIndices"]=serde_json::json!([]);
-        v["stages"][1]["loadIndices"]=serde_json::json!([0]);
-        review_solve(dim,v).unwrap();
-    } } }
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_review_unidirectional_inactive_springs() {
-    for dim in [2,3] { for pads in [0,22] { for scale in [1.0,1000.0] {
-        let mut v=review_model(dim,pads);
-        for n in v["nodes"].as_object_mut().unwrap().values_mut() {n["x"]=serde_json::json!(n["x"].as_f64().unwrap()*scale);}
-        v["materials"]["1"]["e"]=serde_json::json!(10000.0/scale.powi(2));
-        for (field,power) in [("a",2),("iy",4),("iz",4),("j",4)] {
-            v["sections"]["1"][field]=serde_json::json!(v["sections"]["1"][field].as_f64().unwrap()*scale.powi(power));
+    for dim in [2, 3] {
+        for pads in [0, 22] {
+            for scale in [1.0, 1000.0] {
+                let mut v = review_model(dim, pads);
+                for n in v["nodes"].as_object_mut().unwrap().values_mut() {
+                    n["x"] = serde_json::json!(n["x"].as_f64().unwrap() * scale);
+                }
+                v["materials"]["1"]["e"] = serde_json::json!(10000.0 / scale.powi(2));
+                for (field, power) in [("a", 2), ("iy", 4), ("iz", 4), ("j", 4)] {
+                    v["sections"]["1"][field] = serde_json::json!(
+                        v["sections"]["1"][field].as_f64().unwrap() * scale.powi(power)
+                    );
+                }
+                v["supports"]["3"] = if dim == 2 {
+                    serde_json::json!({"id":3,"nodeId":3,"type":"spring","kx":1000.0/scale})
+                } else {
+                    serde_json::json!({"nodeId":3,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":1000.0/scale})
+                };
+                v["loads"][0]["data"]["nodeId"] = 3.into();
+                review_stages(&mut v, true);
+                let r = review_solve(dim, v.clone()).unwrap();
+                let d = r["stages"][0]["results"]["displacements"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|d| d["nodeId"] == 3)
+                    .unwrap();
+                assert!((d["ux"].as_f64().unwrap() - scale / 1000.0).abs() <= 1e-12);
+                v["loads"][0]["data"]["fx"] = 0.0.into();
+                v["loads"][0]["data"]["fz"] = 1.0.into();
+                assert!(review_solve(dim, v).is_err());
+            }
         }
-        v["supports"]["3"]=if dim==2 {serde_json::json!({"id":3,"nodeId":3,"type":"spring","kx":1000.0/scale})} else {serde_json::json!({"nodeId":3,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":1000.0/scale})};
-        v["loads"][0]["data"]["nodeId"]=3.into();
-        review_stages(&mut v,true);
-        let r=review_solve(dim,v.clone()).unwrap();
-        let d=r["stages"][0]["results"]["displacements"].as_array().unwrap().iter().find(|d|d["nodeId"]==3).unwrap();
-        assert!((d["ux"].as_f64().unwrap()-scale/1000.0).abs()<=1e-12);
-        v["loads"][0]["data"]["fx"]=0.0.into(); v["loads"][0]["data"]["fz"]=1.0.into();
-        assert!(review_solve(dim,v).is_err());
-    } } }
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_review_inactive_settlement_has_no_reaction() {
-    for dim in [2,3] { for pads in [0,22] {
-        let mut v=review_model(dim,pads);
-        let mut s=v["supports"]["1"].clone(); s["id"]=3.into();s["nodeId"]=3.into();s["dx"]=0.125.into();
-        v["supports"]["3"]=s;
-        review_stages(&mut v,false);
-        let r=review_solve(dim,v).unwrap();
-        let reactions=r["stages"][0]["results"]["reactions"].as_array().unwrap();
-        let r=reactions.iter().find(|r|r["nodeId"]==3).unwrap();
-        assert_eq!(r[if dim==2 {"rx"} else {"fx"}].as_f64().unwrap(),0.0,"{dim}D {pads}: {r}");
-    } }
+    for dim in [2, 3] {
+        for pads in [0, 22] {
+            let mut v = review_model(dim, pads);
+            let mut s = v["supports"]["1"].clone();
+            s["id"] = 3.into();
+            s["nodeId"] = 3.into();
+            s["dx"] = 0.125.into();
+            v["supports"]["3"] = s;
+            review_stages(&mut v, false);
+            let r = review_solve(dim, v).unwrap();
+            let reactions = r["stages"][0]["results"]["reactions"].as_array().unwrap();
+            let r = reactions.iter().find(|r| r["nodeId"] == 3).unwrap();
+            assert_eq!(
+                r[if dim == 2 { "rx" } else { "fx" }].as_f64().unwrap(),
+                0.0,
+                "{dim}D {pads}: {r}"
+            );
+        }
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_review_hinged_support_springs_carry_moments() {
-    for support in ["pinned","rollerX","rollerY","spring"] { for pads in [0,22] {
-        let mut v=review_model(2,pads);
-        v["elements"].as_object_mut().unwrap().remove("2");v["elements"].as_object_mut().unwrap().remove("3");
-        v["nodes"].as_object_mut().unwrap().remove("3");v["nodes"].as_object_mut().unwrap().remove("4");
-        v["elements"]["1"]["hingeEnd"]=true.into();
-        v["supports"]["2"]=serde_json::json!({"id":2,"nodeId":2,"type":support,"kz":2.0});
-        v["loads"][0]["data"]["fx"]=0.0.into();v["loads"][0]["data"]["my"]=1.0.into();
-        let input:SolverInput=serde_json::from_value(v.clone()).unwrap();
-        let raw=solve_2d(&input).unwrap();
-        let (certified,_)=dedaliano_engine::certify::certify_linear_2d(&input).unwrap();
-        let staged=solve_staged_2d(&stage_2d(&input)).unwrap();
-        let nonlinear=dedaliano_engine::solver::corotational::solve_corotational_2d(&input,20,1e-12,1,false).unwrap();
-        assert!(nonlinear.converged);
-        for r in [&raw,&certified,&staged.final_results,&nonlinear.results] {
-            let d=r.displacements.iter().find(|d|d.node_id==2).unwrap();assert!((d.ry-0.5).abs()<=1e-12);
+    for support in ["pinned", "rollerX", "rollerY", "spring"] {
+        for pads in [0, 22] {
+            let mut v = review_model(2, pads);
+            v["elements"].as_object_mut().unwrap().remove("2");
+            v["elements"].as_object_mut().unwrap().remove("3");
+            v["nodes"].as_object_mut().unwrap().remove("3");
+            v["nodes"].as_object_mut().unwrap().remove("4");
+            v["elements"]["1"]["hingeEnd"] = true.into();
+            v["supports"]["2"] = serde_json::json!({"id":2,"nodeId":2,"type":support,"kz":2.0});
+            v["loads"][0]["data"]["fx"] = 0.0.into();
+            v["loads"][0]["data"]["my"] = 1.0.into();
+            let input: SolverInput = serde_json::from_value(v.clone()).unwrap();
+            let raw = solve_2d(&input).unwrap();
+            let (certified, _) = dedaliano_engine::certify::certify_linear_2d(&input).unwrap();
+            let staged = solve_staged_2d(&stage_2d(&input)).unwrap();
+            let nonlinear = dedaliano_engine::solver::corotational::solve_corotational_2d(
+                &input, 20, 1e-12, 1, false,
+            )
+            .unwrap();
+            assert!(nonlinear.converged);
+            for r in [&raw, &certified, &staged.final_results, &nonlinear.results] {
+                let d = r.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                assert!((d.ry - 0.5).abs() <= 1e-12);
+            }
+            v["supports"]["2"]["kz"] = 0.0.into();
+            let input: SolverInput = serde_json::from_value(v).unwrap();
+            assert!(solve_2d(&input).is_err());
+            assert!(solve_staged_2d(&stage_2d(&input)).is_err());
+            assert!(
+                dedaliano_engine::solver::corotational::solve_corotational_2d(
+                    &input, 20, 1e-12, 1, false
+                )
+                .is_err()
+            );
         }
-        v["supports"]["2"]["kz"]=0.0.into();
-        let input:SolverInput=serde_json::from_value(v).unwrap();
-        assert!(solve_2d(&input).is_err());assert!(solve_staged_2d(&stage_2d(&input)).is_err());
-        assert!(dedaliano_engine::solver::corotational::solve_corotational_2d(&input,20,1e-12,1,false).is_err());
-    } }
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_review_kinematic_spring_threshold_and_dispatch() {
-    for dim in [2,3] { for target_nf in [63,64] { for spring in [0.0,0.5e-4,1e-4,0.1] {
-        let mut v=review_model(dim,0);
-        v["elements"].as_object_mut().unwrap().remove("2");v["elements"].as_object_mut().unwrap().remove("3");
-        v["nodes"].as_object_mut().unwrap().remove("3");v["nodes"].as_object_mut().unwrap().remove("4");
-        v["elements"]["1"]["type"]="truss".into();
-        v["nodes"]["2"]["x"]=1.0.into();v["nodes"]["2"]["z"]=1.0.into();
-        v["materials"]["1"]["e"]=1e7.into();
-        v["supports"]["2"]=if dim==2 {serde_json::json!({"id":2,"nodeId":2,"type":"spring","kx":spring})} else {serde_json::json!({"nodeId":2,"rx":false,"ry":true,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":spring})};
-        v["loads"]=serde_json::json!([]);
-        for i in 2..target_nf {
-            let id=100+i;
-            v["nodes"][id.to_string()]=if dim==2 {serde_json::json!({"id":id,"x":0.0,"z":2.0})} else {serde_json::json!({"id":id,"x":0.0,"y":0.0,"z":2.0})};
-            v["supports"][id.to_string()]=if dim==2 {serde_json::json!({"id":id,"nodeId":id,"type":"guidedY","ky":1.0})} else {serde_json::json!({"nodeId":id,"rx":true,"ry":true,"rz":false,"rrx":false,"rry":false,"rrz":false,"kz":1.0})};
+    for dim in [2, 3] {
+        for target_nf in [63, 64] {
+            for spring in [0.0, 0.5e-4, 1e-4, 0.1] {
+                let mut v = review_model(dim, 0);
+                v["elements"].as_object_mut().unwrap().remove("2");
+                v["elements"].as_object_mut().unwrap().remove("3");
+                v["nodes"].as_object_mut().unwrap().remove("3");
+                v["nodes"].as_object_mut().unwrap().remove("4");
+                v["elements"]["1"]["type"] = "truss".into();
+                v["nodes"]["2"]["x"] = 1.0.into();
+                v["nodes"]["2"]["z"] = 1.0.into();
+                v["materials"]["1"]["e"] = 1e7.into();
+                v["supports"]["2"] = if dim == 2 {
+                    serde_json::json!({"id":2,"nodeId":2,"type":"spring","kx":spring})
+                } else {
+                    serde_json::json!({"nodeId":2,"rx":false,"ry":true,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":spring})
+                };
+                v["loads"] = serde_json::json!([]);
+                for i in 2..target_nf {
+                    let id = 100 + i;
+                    v["nodes"][id.to_string()] = if dim == 2 {
+                        serde_json::json!({"id":id,"x":0.0,"z":2.0})
+                    } else {
+                        serde_json::json!({"id":id,"x":0.0,"y":0.0,"z":2.0})
+                    };
+                    v["supports"][id.to_string()] = if dim == 2 {
+                        serde_json::json!({"id":id,"nodeId":id,"type":"guidedY","ky":1.0})
+                    } else {
+                        serde_json::json!({"nodeId":id,"rx":true,"ry":true,"rz":false,"rrx":false,"rry":false,"rrz":false,"kz":1.0})
+                    };
+                }
+                let r = if dim == 2 {
+                    let input: SolverInput = serde_json::from_value(v).unwrap();
+                    assert_eq!(DofNumbering::build_2d(&input).n_free, target_nf);
+                    dedaliano_engine::solver::kinematic::analyze_kinematics_2d(&input)
+                } else {
+                    let input: SolverInput3D = serde_json::from_value(v).unwrap();
+                    assert_eq!(DofNumbering::build_3d(&input).n_free, target_nf);
+                    dedaliano_engine::solver::kinematic::analyze_kinematics_3d(&input)
+                };
+                if spring <= 1e-4 {
+                    assert!(!r.is_solvable, "{dim}D {target_nf} {spring}: {r:?}");
+                    assert_eq!(r.mechanism_modes, 1, "{r:?}");
+                    assert!(r.mechanism_nodes.contains(&2));
+                    assert!(r.diagnosis.contains("mecanismo"), "{r:?}");
+                } else {
+                    assert!(r.is_solvable, "{dim}D {target_nf} {spring}: {r:?}");
+                    assert_eq!(r.mechanism_modes, 0);
+                }
+            }
         }
-        let r=if dim==2 {let input:SolverInput=serde_json::from_value(v).unwrap();assert_eq!(DofNumbering::build_2d(&input).n_free,target_nf);dedaliano_engine::solver::kinematic::analyze_kinematics_2d(&input)} else {let input:SolverInput3D=serde_json::from_value(v).unwrap();assert_eq!(DofNumbering::build_3d(&input).n_free,target_nf);dedaliano_engine::solver::kinematic::analyze_kinematics_3d(&input)};
-        if spring<=1e-4 {assert!(!r.is_solvable,"{dim}D {target_nf} {spring}: {r:?}");assert!(r.mechanism_modes>0,"{r:?}");assert!(r.mechanism_nodes.contains(&2));assert!(r.diagnosis.contains("mecanismo"),"{r:?}");}
-        else {assert!(r.is_solvable,"{dim}D {target_nf} {spring}: {r:?}");assert_eq!(r.mechanism_modes,0);}
-    } } }
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_review_kinematic_conditioning_is_not_plastic_mechanism() {
-    let mut v=review_model(2,0);
-    v["nodes"].as_object_mut().unwrap().remove("4");v["elements"].as_object_mut().unwrap().remove("3");
-    v["elements"]["2"]["nodeI"]=1.into();v["elements"]["2"]["nodeJ"]=2.into();
+    let mut v = review_model(2, 0);
+    v["nodes"].as_object_mut().unwrap().remove("4");
+    v["elements"].as_object_mut().unwrap().remove("3");
+    v["elements"]["2"]["nodeI"] = 1.into();
+    v["elements"]["2"]["nodeJ"] = 2.into();
     v["nodes"].as_object_mut().unwrap().remove("3");
-    v["sections"]["1"]["iz"]=1e-13.into();
-    v["nodes"]["2"]["z"]=4.0.into();
-    v["loads"][0]["data"]["fx"]=0.0.into();v["loads"][0]["data"]["fz"]=1.0.into();
-    let input:SolverInput=serde_json::from_value(v).unwrap();
-    let k=dedaliano_engine::solver::kinematic::analyze_kinematics_2d(&input);
-    assert!(k.is_solvable,"{k:?}");assert_eq!(k.mechanism_modes,0);assert_eq!(k.classification,"hyperstatic");
-    let capacities=[(1,1.0),(2,1.0)].into_iter().collect();
-    let r=dedaliano_engine::solver::plastic_limit::limit_analysis_2d(&input,&capacities,&Default::default()).unwrap();
-    assert!((r.lambda-0.5).abs()<=1e-8,"{r:?}");
+    v["sections"]["1"]["iz"] = 1e-13.into();
+    v["nodes"]["2"]["z"] = 4.0.into();
+    v["loads"][0]["data"]["fx"] = 0.0.into();
+    v["loads"][0]["data"]["fz"] = 1.0.into();
+    let input: SolverInput = serde_json::from_value(v).unwrap();
+    let k = dedaliano_engine::solver::kinematic::analyze_kinematics_2d(&input);
+    assert!(k.is_solvable, "{k:?}");
+    assert_eq!(k.mechanism_modes, 0);
+    assert_eq!(k.classification, "hyperstatic");
+    let capacities = [(1, 1.0), (2, 1.0)].into_iter().collect();
+    let r = dedaliano_engine::solver::plastic_limit::limit_analysis_2d(
+        &input,
+        &capacities,
+        &Default::default(),
+    )
+    .unwrap();
+    assert!((r.lambda - 0.5).abs() <= 1e-8, "{r:?}");
 }
 
-
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_review_tiny_springs_dense_sparse_refusal_parity() {
-    for dim in [2,3] {for pads in [0,22] {
-        let mut v=review_model(dim,pads);
-        let mut s=v["supports"]["1"].clone();
-        s["id"]=3.into();s["nodeId"]=3.into();s["type"]="spring".into();
-        for key in ["rx","ry","rz","rrx","rry","rrz"] {s[key]=false.into();}
-        for key in ["kx","ky","kz","krx","kry","krz"] {s[key]=1e-35.into();}
-        v["supports"]["3"]=s;
-        v["loads"][0]["data"]["nodeId"]=3.into();v["loads"][0]["data"]["fx"]=1e-35.into();
-        v["elements"].as_object_mut().unwrap().remove("2");v["elements"].as_object_mut().unwrap().remove("3");
-        v["nodes"].as_object_mut().unwrap().remove("4");
-        if dim==2 {
-            let input:SolverInput=serde_json::from_value(v).unwrap();
-            assert_eq!(solve_2d(&input).unwrap_err(),solve_staged_2d(&stage_2d(&input)).unwrap_err());
-        } else {
-            let input:SolverInput3D=serde_json::from_value(v).unwrap();
-            assert_eq!(solve_3d(&input).unwrap_err(),solve_staged_3d(&stage_3d(&input)).unwrap_err());
+    for dim in [2, 3] {
+        for pads in [0, 22] {
+            let mut v = review_model(dim, pads);
+            let mut s = v["supports"]["1"].clone();
+            s["id"] = 3.into();
+            s["nodeId"] = 3.into();
+            s["type"] = "spring".into();
+            for key in ["rx", "ry", "rz", "rrx", "rry", "rrz"] {
+                s[key] = false.into();
+            }
+            for key in ["kx", "ky", "kz", "krx", "kry", "krz"] {
+                s[key] = 1e-35.into();
+            }
+            v["supports"]["3"] = s;
+            v["loads"][0]["data"]["nodeId"] = 3.into();
+            v["loads"][0]["data"]["fx"] = 1e-35.into();
+            v["elements"].as_object_mut().unwrap().remove("2");
+            v["elements"].as_object_mut().unwrap().remove("3");
+            v["nodes"].as_object_mut().unwrap().remove("4");
+            if dim == 2 {
+                let input: SolverInput = serde_json::from_value(v).unwrap();
+                assert_eq!(
+                    solve_2d(&input).unwrap_err(),
+                    solve_staged_2d(&stage_2d(&input)).unwrap_err()
+                );
+            } else {
+                let input: SolverInput3D = serde_json::from_value(v).unwrap();
+                assert_eq!(
+                    solve_3d(&input).unwrap_err(),
+                    solve_staged_3d(&stage_3d(&input)).unwrap_err()
+                );
+            }
         }
-    }}
+    }
 }
 
 fn review_archived_comment(key: &str) {
-    use dedaliano_engine::metamorphic::units::{scale_3d,Units};
-    let fixtures:serde_json::Value=serde_json::from_str(include_str!("../fixtures/staged-review-comments.json")).unwrap();
-    let v=&fixtures[key];
-    for (length,force) in [(1.0,1.0),(1e-3,1e3),(25.0,1e-2),(0.3048,4.448)] {for pads in [0,11] {
-        let input:SolverInput3D=serde_json::from_value(v.clone()).unwrap();
-        let mut input=scale_3d(&input,&Units::froude(length,force));
-        pad_3d(&mut input,pads);
-        let linear=solve_3d(&input).unwrap();
-        for split in [false,true] {
-            let mut staged=stage_3d(&input);
-            if split {
-                let all=staged.stages[0].load_indices.clone();
-                staged.stages[0].load_indices=all.iter().copied().filter(|i|i%2==0).collect();
-                let mut second=staged.stages[0].clone();second.name="second".into();second.elements_added.clear();second.supports_added.clear();second.load_indices=all.iter().copied().filter(|i|i%2==1).collect();staged.stages.push(second);
-            }
-            let actual=solve_staged_3d(&staged).unwrap().final_results;
-            for a in &linear.displacements {let b=actual.displacements.iter().find(|b|b.node_id==a.node_id).unwrap();
-                for (x,y) in [a.ux,a.uy,a.uz,a.rx,a.ry,a.rz].into_iter().zip([b.ux,b.uy,b.uz,b.rx,b.ry,b.rz]) {
-                    assert!((x-y).abs()<=1e-9*x.abs().max(1e-10),"{key}, {length}, pads={pads}, split={split}, node {}: {x} != {y}",a.node_id);
+    use dedaliano_engine::metamorphic::units::{scale_3d, Units};
+    let fixtures: serde_json::Value =
+        serde_json::from_str(include_str!("../fixtures/staged-review-comments.json")).unwrap();
+    let v = &fixtures[key];
+    for (length, force) in [(1.0, 1.0), (1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)] {
+        for pads in [0, 11] {
+            let input: SolverInput3D = serde_json::from_value(v.clone()).unwrap();
+            let mut input = scale_3d(&input, &Units::froude(length, force));
+            pad_3d(&mut input, pads);
+            let linear = solve_3d(&input).unwrap();
+            for split in [false, true] {
+                let mut staged = stage_3d(&input);
+                if split {
+                    let all = staged.stages[0].load_indices.clone();
+                    staged.stages[0].load_indices =
+                        all.iter().copied().filter(|i| i % 2 == 0).collect();
+                    let mut second = staged.stages[0].clone();
+                    second.name = "second".into();
+                    second.elements_added.clear();
+                    second.supports_added.clear();
+                    second.load_indices = all.iter().copied().filter(|i| i % 2 == 1).collect();
+                    staged.stages.push(second);
                 }
-            }
-            let expected=serde_json::to_value(&linear.element_forces).unwrap();let got=serde_json::to_value(&actual.element_forces).unwrap();
-            for a in expected.as_array().unwrap() {let b=got.as_array().unwrap().iter().find(|b|b["elementId"]==a["elementId"]).unwrap();
-                for fields in [["nStart","nEnd","vyStart","vyEnd","vzStart","vzEnd"],["mxStart","mxEnd","myStart","myEnd","mzStart","mzEnd"]] {
-                    let scale=fields.iter().filter_map(|field|a[*field].as_f64()).map(f64::abs).fold(1e-10,f64::max);
-                    for field in fields {if let Some(x)=a[field].as_f64() {let y=b[field].as_f64().unwrap();assert!((x-y).abs()<=1e-9*scale,"{key}, length={length}, pads={pads}, split={split}, element {}: {field} {x} != {y}",a["elementId"]);}}
+                let actual = solve_staged_3d(&staged).unwrap().final_results;
+                for a in &linear.displacements {
+                    let b = actual
+                        .displacements
+                        .iter()
+                        .find(|b| b.node_id == a.node_id)
+                        .unwrap();
+                    for (x, y) in [a.ux, a.uy, a.uz, a.rx, a.ry, a.rz]
+                        .into_iter()
+                        .zip([b.ux, b.uy, b.uz, b.rx, b.ry, b.rz])
+                    {
+                        assert!(
+                            (x - y).abs() <= 1e-9 * x.abs().max(1e-10),
+                            "{key}, {length}, pads={pads}, split={split}, node {}: {x} != {y}",
+                            a.node_id
+                        );
+                    }
+                }
+                let expected = serde_json::to_value(&linear.element_forces).unwrap();
+                let got = serde_json::to_value(&actual.element_forces).unwrap();
+                for a in expected.as_array().unwrap() {
+                    let b = got
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|b| b["elementId"] == a["elementId"])
+                        .unwrap();
+                    for fields in [
+                        ["nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd"],
+                        ["mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd"],
+                    ] {
+                        let scale = fields
+                            .iter()
+                            .filter_map(|field| a[*field].as_f64())
+                            .map(f64::abs)
+                            .fold(1e-10, f64::max);
+                        for field in fields {
+                            if let Some(x) = a[field].as_f64() {
+                                let y = b[field].as_f64().unwrap();
+                                assert!((x-y).abs()<=1e-9*scale,"{key}, length={length}, pads={pads}, split={split}, element {}: {field} {x} != {y}",a["elementId"]);
+                            }
+                        }
+                    }
                 }
             }
         }
-    }}
+    }
 }
 
+#[test]
+fn issue_1846_review_comment_1085() {
+    review_archived_comment("1085-6760749658-0");
+}
 
 #[test]
-#[ignore = "known wrong result: #1085"]
-fn issue_1846_review_comment_1085() {review_archived_comment("1085-6760749658-0");}
+fn issue_1846_review_comment_1011() {
+    review_archived_comment("1011-6730900141-0");
+}
 
 #[test]
-#[ignore = "known wrong result: #1011"]
-fn issue_1846_review_comment_1011() {review_archived_comment("1011-6730900141-0");}
+fn issue_1846_review_comment_1846() {
+    review_archived_comment("1846-6760758840-0");
+}
 
 #[test]
-#[ignore = "known wrong result: #1846"]
-fn issue_1846_review_comment_1846() {review_archived_comment("1846-6760758840-0");}
-
-#[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_review_spring_held_connector_arms() {
-    let mut v=review_model(2,0);
-    v["elements"].as_object_mut().unwrap().remove("2");v["elements"].as_object_mut().unwrap().remove("3");
-    v["loads"]=serde_json::json!([]);
-    v["connectors"]=serde_json::json!({"1":{"id":1,"nodeI":3,"nodeJ":4,"kShear":1.0}});
-    for node in [3,4] {v["supports"][node.to_string()]=serde_json::json!({"id":node,"nodeId":node,"type":"pinned","kz":2.0});}
-    let input:SolverInput=serde_json::from_value(v.clone()).unwrap();
+    let mut v = review_model(2, 0);
+    v["elements"].as_object_mut().unwrap().remove("2");
+    v["elements"].as_object_mut().unwrap().remove("3");
+    v["loads"] = serde_json::json!([]);
+    v["connectors"] = serde_json::json!({"1":{"id":1,"nodeI":3,"nodeJ":4,"kShear":1.0}});
+    for node in [3, 4] {
+        v["supports"][node.to_string()] =
+            serde_json::json!({"id":node,"nodeId":node,"type":"pinned","kz":2.0});
+    }
+    let input: SolverInput = serde_json::from_value(v.clone()).unwrap();
     solve_2d(&input).unwrap();
     dedaliano_engine::certify::certify_linear_2d(&input).unwrap();
-    v["loads"]=serde_json::json!([{"type":"nodal","data":{"nodeId":3,"fx":0.0,"fz":0.0,"my":1e-6}}]);
-    let input:SolverInput=serde_json::from_value(v.clone()).unwrap();
-    let linear=solve_2d(&input).unwrap();
-    let nonlinear=dedaliano_engine::solver::corotational::solve_corotational_2d(&input,20,1e-12,1,false).unwrap();
-    assert!(nonlinear.converged);
-    for node in [3,4] {v["supports"][node.to_string()]["type"]="spring".into();v["supports"][node.to_string()]["kx"]=1e8.into();v["supports"][node.to_string()]["ky"]=1e8.into();}
-    let reference:SolverInput=serde_json::from_value(v).unwrap();
-    assert!(solve_2d(&reference).unwrap().displacements.iter().all(|d|d.ry.is_finite()));
+    v["loads"] =
+        serde_json::json!([{"type":"nodal","data":{"nodeId":3,"fx":0.0,"fz":0.0,"my":1e-6}}]);
+    let input: SolverInput = serde_json::from_value(v.clone()).unwrap();
+    let linear = solve_2d(&input).unwrap();
+    let unsupported =
+        dedaliano_engine::solver::corotational::solve_corotational_2d(&input, 20, 1e-12, 1, false)
+            .unwrap_err();
+    assert!(unsupported.contains("does not support the shear stiffness of a connector with length"));
+    let (certified, _) = dedaliano_engine::certify::certify_linear_2d(&input).unwrap();
+    for node in [3, 4] {
+        v["supports"][node.to_string()]["type"] = "spring".into();
+        v["supports"][node.to_string()]["kx"] = 1e8.into();
+        v["supports"][node.to_string()]["ky"] = 1e8.into();
+    }
+    let reference: SolverInput = serde_json::from_value(v.clone()).unwrap();
+    assert!(solve_2d(&reference)
+        .unwrap()
+        .displacements
+        .iter()
+        .all(|d| d.ry.is_finite()));
+    for node in [3, 4] {
+        v["supports"][node.to_string()]["type"] = "pinned".into();
+        v["supports"][node.to_string()]
+            .as_object_mut()
+            .unwrap()
+            .remove("kx");
+        v["supports"][node.to_string()]
+            .as_object_mut()
+            .unwrap()
+            .remove("ky");
+        v["supports"][node.to_string()]["kz"] = 0.0.into();
+    }
+    v["loads"] = serde_json::json!([]);
+    let mechanism: SolverInput = serde_json::from_value(v).unwrap();
+    assert!(solve_2d(&mechanism).is_err());
     for d in &linear.displacements {
-        let actual=nonlinear.results.displacements.iter().find(|a|a.node_id==d.node_id).unwrap();
-        assert!((d.ry-actual.ry).abs()<=1e-12);
+        let actual = certified
+            .displacements
+            .iter()
+            .find(|a| a.node_id == d.node_id)
+            .unwrap();
+        assert!((d.ry - actual.ry).abs() <= 1e-12);
+    }
+}
+
+#[test]
+fn issue_1846_review_tiny_spring_dispatch_boundaries() {
+    for dim in [2, 3] {
+        for nf in [63, 64] {
+            let mut v = review_model(dim, 0);
+            v["elements"].as_object_mut().unwrap().remove("2");
+            v["elements"].as_object_mut().unwrap().remove("3");
+            v["nodes"].as_object_mut().unwrap().remove("4");
+            v["supports"]["3"] = if dim == 2 {
+                serde_json::json!({"id":3,"nodeId":3,"type":"spring","kx":1e-35,"ky":1e-35,"kz":1e-35})
+            } else {
+                serde_json::json!({"nodeId":3,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":1e-35,"ky":1e-35,"kz":1e-35,"krx":1e-35,"kry":1e-35,"krz":1e-35})
+            };
+            v["loads"][0]["data"]["nodeId"] = 3.into();
+            v["loads"][0]["data"]["fx"] = 1e-35.into();
+            let base = if dim == 2 { 6 } else { 12 };
+            for i in base..nf {
+                let id = 100 + i;
+                v["nodes"][id.to_string()] = if dim == 2 {
+                    serde_json::json!({"id":id,"x":0.0,"z":2.0})
+                } else {
+                    serde_json::json!({"id":id,"x":0.0,"y":0.0,"z":2.0})
+                };
+                v["supports"][id.to_string()] = if dim == 2 {
+                    serde_json::json!({"id":id,"nodeId":id,"type":"guidedY","ky":1.0})
+                } else {
+                    serde_json::json!({"nodeId":id,"rx":true,"ry":true,"rz":false,"rrx":true,"rry":true,"rrz":true,"kz":1.0})
+                };
+            }
+            if dim == 2 {
+                let input: SolverInput = serde_json::from_value(v).unwrap();
+                assert_eq!(DofNumbering::build_2d(&input).n_free, nf);
+                assert_eq!(
+                    solve_2d(&input).unwrap_err(),
+                    solve_staged_2d(&stage_2d(&input)).unwrap_err()
+                );
+            } else {
+                let input: SolverInput3D = serde_json::from_value(v).unwrap();
+                assert_eq!(DofNumbering::build_3d(&input).n_free, nf);
+                assert_eq!(
+                    solve_3d(&input).unwrap_err(),
+                    solve_staged_3d(&stage_3d(&input)).unwrap_err()
+                );
+            }
+        }
     }
 }

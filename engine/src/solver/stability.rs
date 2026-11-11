@@ -1039,6 +1039,37 @@ fn rounding_amplification(bound: &CscMatrix, columns: &[Column], free: &[FreeDir
     projected.sym_mat_vec(&vec![1.0; weights.len()]).into_iter().fold(0.0, f64::max)
 }
 
+pub(crate) fn analyze_excluding(
+    k: &CscMatrix, tags: &[DofTag], moves: &[Vec<(usize, f64)>],
+    coupling: &[(usize, usize)], rounding: Option<&CscMatrix>, releases: &ReleasedRotations,
+    inactive: &[usize],
+) -> Stability {
+    if inactive.is_empty() { return analyze_coupled_with_rounding(k, tags, moves, coupling, rounding, releases); }
+    let mut excluded = vec![false; k.n];
+    for &i in inactive { excluded[i] = true; }
+    let kept: Vec<_> = (0..k.n).filter(|&i| !excluded[i]).collect();
+    let mut map = vec![None; k.n];
+    for (j, &i) in kept.iter().enumerate() { map[i] = Some(j); }
+    let rows = map.iter().map(|j| j.map_or_else(Vec::new, |j| vec![(j, 1.0)])).collect();
+    let selection = super::constraints::SparseTransform::from_rows(k.n, kept.len(), rows);
+    let matrix = selection.reduce_sparse(k);
+    let bound = rounding.map(|r| selection.reduce_sparse(r));
+    let tags: Vec<_> = kept.iter().map(|&i| tags[i]).collect();
+    let moves: Vec<_> = if moves.is_empty() { Vec::new() } else { kept.iter().map(|&i| moves[i].clone()).collect() };
+    let coupling: Vec<_> = coupling.iter().filter_map(|&(i, j)| Some((map.get(i).copied().flatten()?, map.get(j).copied().flatten()?))).collect();
+    let remap = |row: &Vec<(usize, f64)>| row.iter().filter_map(|&(i, v)| map.get(i).copied().flatten().map(|j| (j, v))).collect();
+    let releases = ReleasedRotations {
+        rows: releases.rows.iter().map(remap).collect(), nodes: releases.nodes.clone(),
+        directions: releases.directions.iter().map(|(node, row)| (*node, remap(row))).collect(),
+    };
+    let mut result = analyze_coupled_with_rounding(&matrix, &tags, &moves, &coupling, bound.as_ref(), &releases);
+    for f in &mut result.free {
+        for d in &mut f.dofs { *d = kept[*d]; }
+        for (d, _) in &mut f.coupling { *d = kept[*d]; }
+    }
+    result
+}
+
 pub(crate) fn analyze_free_stiffness(
     k: &CscMatrix,
     dof: &DofNumbering,
@@ -1047,15 +1078,23 @@ pub(crate) fn analyze_free_stiffness(
     coupling: &[(usize, usize)],
     releases: &ReleasedRotations,
 ) -> (CscMatrix, Stability) {
+    analyze_free_stiffness_excluding(k, dof, two_d, constraints, coupling, releases, &[])
+}
+
+pub(crate) fn analyze_free_stiffness_excluding(
+    k: &CscMatrix, dof: &DofNumbering, two_d: bool,
+    constraints: Option<&crate::solver::constraints::FreeConstraintSystem>,
+    coupling: &[(usize, usize)], releases: &ReleasedRotations, inactive: &[usize],
+) -> (CscMatrix, Stability) {
     let reduced = constraints.map_or_else(|| k.clone(), |c| c.reduce_matrix_sparse(k));
     let stability = if assumed() {
         Stability::stable()
     } else if let Some(c) = constraints {
-        c.stability(&reduced, dof, k, coupling, releases)
+        c.stability_excluding(&reduced, dof, k, coupling, releases, inactive)
     } else {
         let mut free_tags = tags(dof, two_d);
         free_tags.truncate(dof.n_free);
-        analyze_with_coupling(k, &free_tags, coupling, releases)
+        analyze_excluding(k, &free_tags, &[], coupling, None, releases, inactive)
     };
     (reduced, stability)
 }

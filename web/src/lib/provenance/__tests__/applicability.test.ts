@@ -26,6 +26,16 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('also rechecks unreleased members and constraint-only snapshots for staged solve checks', () => {
+    const ordinary = model({ elements: [member(1, 1, 'frame')] });
+    const constrained = model({ constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }] });
+    for (const snapshot of [ordinary, constrained]) {
+      expect(modelFeatures(snapshot)).not.toContain('hinges');
+      expect(ids(snapshot)).toContain('staged-free-stiffness');
+      expect(ids(snapshot, stampSolve('linear', null))).not.toContain('staged-free-stiffness');
+    }
+  });
+
   it('rechecks staged spring and mixed member models without requiring end releases', () => {
     const ordinary = model({ elements: [member(1, 1, 'frame')] });
     const spring = model({ elements: [member(1, 1, 'frame')], supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never });

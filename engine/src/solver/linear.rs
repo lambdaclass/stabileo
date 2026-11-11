@@ -738,7 +738,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     let k_rr = extract_submatrix(&stiff.k, n, &rest_idx, &rest_idx);
     let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
 
-    let (pinned, stability) = super::stability::prepare_free_stiffness(&CscMatrix::from_dense_symmetric(&k_ff, nf), &dof_num, true, None, &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default())?;
+    let (pinned, stability) = super::stability::prepare_free_stiffness(&CscMatrix::from_dense_symmetric_exact(&k_ff, nf), &dof_num, true, None, &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default())?;
     k_ff = pinned.to_dense_symmetric();
 
     let (factor, used_sparse) = if nf >= SPARSE_THRESHOLD {
@@ -1496,7 +1496,7 @@ fn refined_static_solve(f: &[f64], solve: impl Fn(&[f64]) -> Vec<f64>, residual:
     Err("the structure is a mechanism or so close to one that its displacement accuracy cannot be resolved: compensated residual refinement of the static solve did not converge; add supports or members, or reduce extreme stiffness contrasts".into())
 }
 
-fn refined_sparse_solve(k: &CscMatrix, factor: &NumericCholesky, f: &[f64]) -> Result<Vec<f64>, String> {
+pub(super) fn refined_sparse_solve(k: &CscMatrix, factor: &NumericCholesky, f: &[f64]) -> Result<Vec<f64>, String> {
     refined_static_solve(f, |rhs| sparse_cholesky_solve(factor, rhs), |u| compensated_sparse_residual(k, f, u))
 }
 
@@ -1899,7 +1899,7 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let free_idx: Vec<usize> = (0..nf).collect();
         let rest_idx: Vec<usize> = (nf..n).collect();
         let mut k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
-        let (pinned, stability) = super::stability::prepare_free_stiffness(&CscMatrix::from_dense_symmetric(&k_ff, nf), &dof_num, false, None, &super::stability::coupling_3d(&input, &dof_num), &super::stability::released_rotations_3d(&input, &dof_num))?;
+        let (pinned, stability) = super::stability::prepare_free_stiffness(&CscMatrix::from_dense_symmetric_exact(&k_ff, nf), &dof_num, false, None, &super::stability::coupling_3d(&input, &dof_num), &super::stability::released_rotations_3d(&input, &dof_num))?;
         k_ff = pinned.to_dense_symmetric();
         let conditioning = super::conditioning::check_conditioning(&k_ff, nf);
         pre_solve_diags.extend(conditioning.structured_diagnostics());
@@ -3637,7 +3637,7 @@ pub(crate) fn refuse_moments_without_rotation_2d(input: &SolverInput, loads: &[S
     }
     for s in crate::ordered::values(&input.supports) {
         let rigid = crate::solver::support::support_dofs_2d(s)[2].restrained;
-        let spring = s.support_type == "spring" && support_dofs_2d(s)[2].spring.unwrap_or(0.0) > 0.0;
+        let spring = support_dofs_2d(s)[2].spring.is_some_and(|k| k > 0.0);
         if rigid || spring {
             carried.insert(s.node_id);
         }

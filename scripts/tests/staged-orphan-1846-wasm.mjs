@@ -273,7 +273,7 @@ for (const dimension of [2, 3]) {
       const result = JSON.parse((dimension === 2 ? analyze_kinematics_2d : analyze_kinematics_3d)(JSON.stringify(input)));
       assert.equal(result.isSolvable, spring === 0.1, `${dimension}D nf=${target} spring=${spring}`);
       if (spring !== 0.1) {
-        assert.ok(result.mechanismModes > 0);
+        assert.equal(result.mechanismModes, 1);
         assert.ok(result.mechanismNodes.includes(2));
         assert.match(result.diagnosis, /mecanismo/);
       }

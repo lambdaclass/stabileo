@@ -185,7 +185,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     // translation, an unexpected zero, a failed factorization — falls through
     // to the full path, which names the DOFs.
     if nf >= KINEMATIC_SPARSE_THRESHOLD && input.constraints.is_empty() {
-        if let Some(result) = fast_solvable_2d(input, &dof_num, nf, degree) {
+        if let Some(result) = fast_solvable_2d(input, &dof_num, degree) {
             return result;
         }
     }
@@ -214,7 +214,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, physical_stability) = super::stability::analyze_free_stiffness(
-        &crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_ff, nf),
+        &crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf),
         &dof_num, true, cs.as_ref(), &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default(),
     );
     let k_s = physical_stability.pin_sparse(&k_s).to_dense_symmetric();
@@ -225,7 +225,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     // metres and millimetres. Against the largest raw diagonal (with an
     // absolute floor) a model's mechanism count changed with its units.
     let k_s = jacobi_scaled(k_s, ns);
-    let (_rank, zero_pivot_dofs_reduced) = lu_rank(&k_s, ns, 1e-10);
+    let zero_pivot_dofs_reduced = mechanism_pivots(&k_s, ns, &physical_stability);
 
     // Map zero-pivot DOFs back to physical free DOFs
     let zero_pivot_dofs = if let Some(ref cs) = cs {
@@ -261,7 +261,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0 && physical_stability.is_stable();
+    let is_solvable = mechanism_modes == 0 && matches!(physical_stability.reason, super::stability::Reason::Resolved | super::stability::Reason::Conditioning);
     let classification = if degree > 0 && is_solvable {
         "hyperstatic"
     } else if degree == 0 && is_solvable {
@@ -270,7 +270,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         "hypostatic"
     }.to_string();
 
-    let diagnosis = physical_stability.refusal().unwrap_or_else(|| build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs));
+    let diagnosis = build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs);
 
     KinematicResult {
         degree,
@@ -288,73 +288,39 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
 /// of solvability before the dense one.
 const KINEMATIC_SPARSE_THRESHOLD: usize = 64;
 
-/// The sparse proof of solvability for a large constraint-free model, or None
-/// to take the full dense path. A sparse Cholesky of K_ff proves full rank
-/// when every artificial DOF the assembly added is an expected zero rotation:
-/// the artificial spring is exactly what a mechanism hides behind, so any
-/// other artificial DOF — a floating translation, or a rotation with a nonzero
-/// off-diagonal entry — is left to the dense analysis, which names the DOFs.
+fn mechanism_pivots(k: &[f64], n: usize, stability: &super::stability::Stability) -> Vec<usize> {
+    let (_, mut pivots) = lu_rank(k, n, 1e-10);
+    for direction in stability.free.iter().filter(|f| f.kind == super::stability::DofKind::Translation) {
+        if direction.dofs.iter().zip(&direction.direction).any(|(d, v)| *v != 0.0 && pivots.contains(d)) { continue; }
+        if let Some((i, _)) = direction.direction.iter().enumerate().max_by(|(_, a), (_, b)| a.abs().total_cmp(&b.abs())) {
+            pivots.push(direction.dofs[i]);
+        }
+    }
+    pivots.sort_unstable();
+    pivots.dedup();
+    pivots
+}
+
 fn fast_solvable_2d(
     input: &SolverInput,
     dof_num: &DofNumbering,
-    nf: usize,
     degree: i32,
 ) -> Option<KinematicResult> {
     // `assemble_sparse_2d` is the linear path's K_ff, the dense free block
     // entry for entry (rotated springs, inclined-roller frames included).
-    let sasm = assemble_sparse_2d(input, dof_num);
-    let k = &sasm.k_ff;
-    if !sasm.artificial_dofs.is_empty() {
-        let mut idx_to_local: HashMap<usize, usize> = HashMap::new();
-        for (&(_, ld), &idx) in &dof_num.map {
-            if idx < nf {
-                idx_to_local.insert(idx, ld);
-            }
-        }
-        // The CSC stores the lower triangle: an off-diagonal touching d shows
-        // either in d's column below the diagonal or as row d of an earlier column.
-        //
-        // Explicit zeros are kept in the CSC — the assembler pushes every
-        // element pair, and a hinge-condensed rotation row is exactly zero — so
-        // "an entry exists" is not "stiffness couples these DOFs". Compare
-        // values, at the orphan-rotation guard's own tolerance.
-        // Relative to the two diagonals the entry couples (unit-independent).
-        let kd = k.diagonal();
-        let mut touched_offdiag = std::collections::HashSet::new();
-        for col in 0..k.n {
-            for p in k.col_ptr[col]..k.col_ptr[col + 1] {
-                let row = k.row_idx[p];
-                if row != col && k.values[p].abs() > 1e-12 * (kd[row].abs() * kd[col].abs()).sqrt() {
-                    touched_offdiag.insert(row);
-                    touched_offdiag.insert(col);
-                }
-            }
-        }
-        for &d in &sasm.artificial_dofs {
-            if idx_to_local.get(&d) != Some(&2)
-                || touched_offdiag.contains(&d)
-            {
-                return None;
-            }
-        }
-    }
+    let sasm = super::assembly::without_artificial_stiffness(|| assemble_sparse_2d(input, dof_num));
+    let (physical, stability) = super::stability::analyze_free_stiffness(
+        &sasm.k_ff, dof_num, true, None, &super::stability::coupling_2d(input, dof_num), &super::stability::ReleasedRotations::default(),
+    );
+    if !matches!(stability.reason, super::stability::Reason::Resolved | super::stability::Reason::Conditioning) { return None; }
+    let pinned = stability.pin_sparse(&physical);
+    let k = &pinned;
     let mut symbolic = None;
-    let factor = numeric_cholesky(super::sparse_tangent::cached_symbolic(&mut symbolic, &sasm.k_ff), &sasm.k_ff)?;
+    let factor = numeric_cholesky(super::sparse_tangent::cached_symbolic(&mut symbolic, k), k)?;
 
-    // A factorization that succeeds is not yet a proof. `numeric_cholesky` refuses only a
-    // pivot at or below an absolute 1e-15, and a mechanism's zero pivot comes out of the
-    // elimination as rounding, often positive: a rigid frame on one pin, or a beam with an
-    // internal hinge, factored "fine" and was called solvable. Every pivot must clear the
-    // dense rank's own tolerance, relative to the largest diagonal; the artificial springs
-    // on the expected pin rotations, checked above, are the only pivots excused.
-    // Each pivot against its own original diagonal: the Schur-complement
-    // pivot over K_jj is dimensionless, the same test as the dense path's
-    // rank of the Jacobi-scaled matrix.
     let kd = k.diagonal();
-    let artificial: std::collections::HashSet<usize> = sasm.artificial_dofs.iter().copied().collect();
     let sym = &factor.symbolic;
     for j in 0..sym.n {
-        if artificial.contains(&sym.perm[j]) { continue; }
         let d = factor.l_values[sym.l_col_ptr[j]];
         if d * d < 1e-10 * kd[sym.perm[j]].abs() { return None; }
     }
@@ -531,7 +497,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, physical_stability) = super::stability::analyze_free_stiffness(
-        &crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_ff, nf),
+        &crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf),
         &dof_num, false, cs.as_ref(), &super::stability::coupling_3d(input, &dof_num), &super::stability::released_rotations_3d(input, &dof_num),
     );
     let k_s = physical_stability.pin_sparse(&k_s).to_dense_symmetric();
@@ -541,7 +507,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     // metres and millimetres. Against the largest raw diagonal (with an
     // absolute floor) a model's mechanism count changed with its units.
     let k_s = jacobi_scaled(k_s, ns);
-    let (_rank, zero_pivot_dofs_reduced) = lu_rank(&k_s, ns, 1e-10);
+    let zero_pivot_dofs_reduced = mechanism_pivots(&k_s, ns, &physical_stability);
 
     // Map zero-pivot DOFs back to physical free DOFs
     let zero_pivot_dofs = if let Some(ref cs) = cs {
@@ -578,7 +544,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0 && physical_stability.is_stable();
+    let is_solvable = mechanism_modes == 0 && matches!(physical_stability.reason, super::stability::Reason::Resolved | super::stability::Reason::Conditioning);
     let classification = if degree > 0 && is_solvable {
         "hyperstatic"
     } else if degree == 0 && is_solvable {
@@ -587,7 +553,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         "hypostatic"
     }.to_string();
 
-    let diagnosis = physical_stability.refusal().unwrap_or_else(|| build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs));
+    let diagnosis = build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs);
 
     KinematicResult {
         degree,

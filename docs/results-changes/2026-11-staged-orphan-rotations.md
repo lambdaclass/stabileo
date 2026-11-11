@@ -24,7 +24,7 @@ retained in `engine/tests/fixtures/staged-orphan-1846.json`.
 
 Both staged dimensions now assemble their active physical model through regular
 linear assembly with legacy artificial rotational stiffness disabled. Regular
-linear and staged solves use the same `prepare_free_stiffness` function: it reduces
+linear preparation and staged solves share `analyze_free_stiffness_excluding`: it reduces
 constraints through the existing constrained stability path, classifies physical
 stiffness in the existing node-local rotational subspaces, refuses unresolved
 mechanisms and pins only unloaded free rotations. The shared pin load checks also
@@ -32,8 +32,11 @@ verify that the solved response does not load a pinned direction indirectly. Thi
 handles a release rotated between global axes, as well as an axis-aligned zero
 rotation. No stability threshold changes.
 
-Only genuinely inactive, exactly unstiffened DOFs receive additional staged
-treatment; active shell and constraint nodes are excluded from that step. Older
+Only unloaded reduced DOFs with an exactly zero stiffness column and no motion
+at an active member or shell node receive inactive stage treatment. Constraints
+are projected per DOF; they never activate an entire node. Inactive DOFs are
+excluded from stability analysis, then assigned a unit solve diagonal. Physical
+stiffness and support reactions contain no inactive artificial springs. Older
 serial and parallel 2D triplet assemblers use the existing per-node rotational
 check instead of hinge counts. Kinematic analysis uses the same physical
 stiffness classification and pin projection instead of another orphan threshold.
@@ -45,7 +48,7 @@ artificial spring.
 Re-run staged models with member releases, particularly models transformed
 between units or with soft rotational springs. Rotations, displacements, forces,
 reactions and demands derived from affected results can change. The re-check
-registry conservatively selects models with hinges; it does not assume a saved
+registry conservatively selects models with hinges, springs or truss members; it does not assume a saved
 analysis stamp records staged construction separately.
 
 The defect was introduced with staged 3D in `da31341f8` (2026-03-07). Source
@@ -77,3 +80,37 @@ and sparse dispatch. Staged 3D has no implementation that consumes its stage
 prestress field; adding that physics is separate work, not part of this coordinate
 correction. The WASM comparison now requires every displacement component for the
 selected dimension to be a finite number before checking the existing tolerance.
+
+Second review of PR #1943 corrects inactive DOF handling in genuine multi-stage
+and partially constrained models. Loads applied before a member is erected are
+refused rather than carried by artificial springs. An unconnected support with
+settlement produces zero stiffness reaction. Positive one-direction springs keep
+their physical response without stiffening their unloaded transverse directions.
+Sparse stages use the assembler's free matrix directly, avoiding a second
+summation order through the full matrix. Dense physical matrices preserve exact
+nonzeros; sparse staged matrices use the regular sparse assembler's existing
+entry filtering. Stage solves require SPD Cholesky, conditional refinement and
+finite solutions, matching regular linear analysis.
+
+Kinematic solvability distinguishes elastic conditioning refusals from geometric
+mechanisms, so rigid-plastic analysis retains geometrically stable inputs.
+Mechanism diagnostics retain Spanish text and identify free translations;
+the sparse proof checks the same physical stability as the dense path. Hinged
+nodes with positive rotational springs on pinned or roller supports now carry
+nodal moments through raw, certified and staged 2D solves.
+
+The exact archived comment models `1085-6760749658-0`, `1011-6730900141-0`
+and `1846-6760758840-0` are retained in
+`engine/tests/fixtures/staged-review-comments.json`. Their staged unit-copy
+failures reproduce with main production sources in this worktree. The class can
+change translations and member actions in multi-member 3D frames without
+rotational supports and across multiple load stages, rather than only a single
+member's rotation. Targeted tests compare translations, rotations and member
+force/moment groups across unit scales and both dispatch paths. The public WASM
+regression target is now an explicit step of the CI WASM job.
+
+The additional `staged-free-stiffness` registry entry covers these review changes
+conservatively for members, shells, constraints, springs and settlements. This
+broader entry is necessary because unsupported loads on future members and the
+solution accuracy checks can affect unreleased frames too. The original
+`staged-orphan-rotations` entry retains its release/spring/mixed-member scope.

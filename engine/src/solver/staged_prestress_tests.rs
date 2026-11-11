@@ -148,16 +148,59 @@ fn staged_prestress_inclined_sparse_matches_regular_linear_equivalent_loads() {
 
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn staged_review_numeric_nonfinite_solutions_are_refused() {
-    let input=model(None);
-    let dof=DofNumbering::build_2d(&input);
-    let nf=dof.n_free;
-    for sparse in [false,true] { for load in [f64::NAN,f64::INFINITY,1e308] {
-        let mut dense=vec![0.0;nf*nf];for i in 0..nf {dense[i*nf+i]=1e-8;}
-        let k=CscMatrix::from_dense_symmetric(&dense,nf);
-        let f=vec![load;nf];
-        let result=solve_stage_free(&k,&dof,None,true,&[],&super::super::stability::ReleasedRotations::default(),&f,&f,sparse,&mut None,&mut None);
-        assert!(result.is_err(),"sparse={sparse}, load={load}: {result:?}");
-    } }
+    let input = model(None);
+    let input3: SolverInput3D=serde_json::from_value(serde_json::json!({
+        "nodes":{"1":{"id":1,"x":0.0,"y":0.0,"z":0.0},"2":{"id":2,"x":4.0,"y":0.0,"z":0.0}},
+        "materials":{"1":{"id":1,"e":10000.0,"nu":0.3}},
+        "sections":{"1":{"id":1,"a":0.01,"iy":0.001,"iz":0.002,"j":0.003}},
+        "elements":{"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+        "supports":{"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},"loads":[]
+    })).unwrap();
+    for (two_d, dof, connected) in [
+        (
+            true,
+            DofNumbering::build_2d(&input),
+            connected_nodes_2d(&input),
+        ),
+        (
+            false,
+            DofNumbering::build_3d(&input3),
+            connected_nodes_3d(&input3),
+        ),
+    ] {
+        let nf = dof.n_free;
+        for sparse in [false, true] {
+            for load in [1.0, f64::NAN, f64::INFINITY, 1e308] {
+                let mut dense = vec![0.0; nf * nf];
+                for i in 0..nf {
+                    dense[i * nf + i] = 1e-8;
+                }
+                let k = CscMatrix::from_dense_symmetric(&dense, nf);
+                let f = vec![load; nf];
+                let result = solve_stage_free(
+                    &k,
+                    &dof,
+                    None,
+                    two_d,
+                    &connected,
+                    &[],
+                    &super::super::stability::ReleasedRotations::default(),
+                    &f,
+                    &f,
+                    sparse,
+                    &mut None,
+                    &mut None,
+                );
+                if load == 1.0 {
+                    assert!(result.unwrap().iter().all(|u| u.is_finite()));
+                } else {
+                    assert!(
+                        result.is_err(),
+                        "two_d={two_d}, sparse={sparse}, load={load}: {result:?}"
+                    );
+                }
+            }
+        }
+    }
 }
