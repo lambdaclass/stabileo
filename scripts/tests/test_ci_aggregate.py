@@ -1,11 +1,41 @@
 import pathlib
 import re
+import subprocess
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class CiAggregate(unittest.TestCase):
+    @unittest.skip('known wrong result: #1935')
+    def test_vitest_targets_honour_optional_worker_cap(self):
+        for target in ['test.web.unit', 'test.web.timing']:
+            for workers in ['', '1', '2']:
+                with self.subTest(target=target, workers=workers):
+                    result = subprocess.run(
+                        ['make', '--no-print-directory', '--dry-run', target,
+                         f'VITEST_WORKERS={workers}'],
+                        cwd=ROOT, check=True, capture_output=True, text=True,
+                    )
+                    caps = re.findall(r'--maxWorkers(?:=| +)([^ "\n]+)', result.stdout)
+                    self.assertEqual(caps, [workers] if workers else [])
+
+    @unittest.skip('known wrong result: #1935')
+    def test_ci_vitest_jobs_limit_workers(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        for job in ['web-unit', 'timing-budgets']:
+            with self.subTest(job=job):
+                body = workflow.split(f'  {job}:\n', 1)[1]
+                body = re.split(r'^  [\w-]+:', body, maxsplit=1, flags=re.M)[0]
+                job_env = re.search(r'^    env:\n((?:^      .*\n)*)', body, re.M)
+                self.assertIsNotNone(job_env, f'{job} must limit Vitest workers')
+                self.assertRegex(job_env[1], r"(?m)^      VITEST_WORKERS: '2'$")
+
+    @unittest.skip('known wrong result: #1935')
+    def test_vitest_setup_does_not_drain_deferred_work_after_each_test(self):
+        setup = (ROOT / 'web/vitest.setup.ts').read_text()
+        self.assertEqual(re.findall(r'\bafterEach\s*\(', setup), [])
+
     def test_every_blocking_job_is_required(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text().split('\njobs:\n', 1)[1]
         jobs = set(re.findall(r'^  ([\w-]+):$', workflow, re.M))
