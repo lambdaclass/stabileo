@@ -1664,16 +1664,22 @@ fn round4_plastic_mechanisms(torsions: &[f64]) {
             support.rrz = false;
             p.solver.supports.insert("2".into(), support);
         }
-        for (&torsion, pads) in torsions
-            .iter()
-            .flat_map(|j| [0, 10, 11].map(|pads| (j, pads)))
-        {
+        for (&torsion, pads) in torsions.iter().flat_map(|j| {
+            [
+                0,
+                if propped { 10 } else { 8 },
+                if propped { 11 } else { 9 },
+            ]
+            .map(|pads| (j, pads))
+        }) {
             let mut p = p.clone();
             p.solver.sections.get_mut("1").unwrap().j = torsion;
             pad_3d(&mut p.solver, pads);
-            let raw = dedaliano_engine::solver::plastic::solve_plastic_3d(&p).unwrap();
-            let certified = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&p).unwrap();
-            for r in [&raw, &certified.results] {
+            let raw = dedaliano_engine::solver::plastic::solve_plastic_3d(&p);
+            let certified = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&p)
+                .map(|out| out.results);
+            for r in [raw, certified] {
+                let r = r.unwrap();
                 assert!(r.is_mechanism, "{r:?}");
                 assert!(
                     (r.collapse_factor - if propped { 100.0 } else { 200.0 }).abs() <= 1e-9,
@@ -1709,5 +1715,29 @@ fn issue_1846_round4_plastic_hinge_induced_coupled_soft_state() {
             "{r:?}"
         );
         assert!(r.is_mechanism, "{r:?}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round4_plastic_hinge_induced_conditioning() {
+    for torsion in [1e-11, 1e-13, 1e-15, 1e-17] {
+        let mut p: PlasticInput3D =
+            serde_json::from_str(include_str!("../fixtures/staged-round4-plastic.json")).unwrap();
+        p.solver.nodes.get_mut("3").unwrap().y = 4.0;
+        p.solver.nodes.get_mut("4").unwrap().y = 4.0;
+        p.solver.sections.get_mut("1").unwrap().j = torsion;
+        let raw = dedaliano_engine::solver::plastic::solve_plastic_3d(&p);
+        let certified =
+            dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&p).map(|out| out.results);
+        for result in [raw, certified] {
+            let result = result.unwrap();
+            eprintln!(
+                "full conditioning torsion={torsion}: factor={}, mechanism={}",
+                result.collapse_factor, result.is_mechanism
+            );
+            assert!(result.collapse_factor.is_finite() && result.collapse_factor > 0.0);
+            assert!(result.is_mechanism);
+        }
     }
 }
