@@ -110,4 +110,72 @@ mod tests {
         assert!(check(&s, &[f64::INFINITY], &[1.0], 1).is_err());
         assert!(check(&s, &[0.0], &[0.0], 1).is_ok());
     }
+
+    fn beam(settlement: bool) -> SolverInput {
+        serde_json::from_value(serde_json::json!({
+            "nodes": {"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":2.0,"z":0.0},"3":{"id":3,"x":6.0,"z":0.0}},
+            "elements": {
+                "1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeStart":false,"hingeEnd":false},
+                "2":{"id":2,"type":"frame","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1,"hingeStart":false,"hingeEnd":false}},
+            "materials":{"1":{"id":1,"e":200000.0,"nu":0.3}},
+            "sections":{"1":{"id":1,"a":0.01,"iz":1e-4}},
+            "supports":{"1":{"id":1,"nodeId":1,"type":"fixed","dx":if settlement {0.01} else {0.0}},"2":{"id":2,"nodeId":3,"type":"fixed"}},
+            "loads":[]
+        })).unwrap()
+    }
+
+    fn conditional() -> Stability {
+        let mut s = Stability::stable();
+        s.kappa = super::super::stability::RESOLVABLE;
+        s.anisotropy = 2.0;
+        assert!(s.needs_accuracy_check());
+        s
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn a_large_moment_cannot_mask_a_recovered_force_imbalance() {
+        for constrained in [false, true] {
+            let mut input = beam(false);
+            input.loads = serde_json::from_value(serde_json::json!([
+                {"type":"nodal","data":{"nodeId":2,"fx":1.0,"fz":0.0,"my":1e12}}
+            ])).unwrap();
+            if constrained {
+                input.constraints = serde_json::from_value(serde_json::json!([
+                    {"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[1]}
+                ])).unwrap();
+            }
+            let mut r = super::super::linear::solve_2d(&input).unwrap();
+            r.element_forces.iter_mut().find(|f| f.element_id == 1).unwrap().n_end += 1.0;
+            let dof = DofNumbering::build_2d(&input);
+            let fcs = super::super::constraints::FreeConstraintSystem::build_2d(&input, &dof).unwrap();
+            let e = member_balance_2d(&input, &input.loads, &dof, &conditional(), &r, fcs.as_ref()).unwrap_err();
+            assert_eq!(e, conditional().conditioning_refusal());
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn a_restrained_force_cannot_mask_a_recovered_force_imbalance() {
+        let mut input = beam(false);
+        input.loads = serde_json::from_value(serde_json::json!([
+            {"type":"nodal","data":{"nodeId":1,"fx":1e12,"fz":0.0,"my":0.0}},
+            {"type":"nodal","data":{"nodeId":2,"fx":1.0,"fz":0.0,"my":0.0}}
+        ])).unwrap();
+        let mut r = super::super::linear::solve_2d(&input).unwrap();
+        r.element_forces.iter_mut().find(|f| f.element_id == 1).unwrap().n_end += 1.0;
+        let dof = DofNumbering::build_2d(&input);
+        assert_eq!(member_balance_2d(&input, &input.loads, &dof, &conditional(), &r, None).unwrap_err(), conditional().conditioning_refusal());
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1753"]
+    fn settlement_only_recovered_forces_pass_conditional_balance() {
+        let input = beam(true);
+        let r = super::super::linear::solve_2d(&input).unwrap();
+        assert!(r.element_forces.iter().all(|f| f.n_start.abs() > 0.0 && f.n_end.abs() > 0.0));
+        let dof = DofNumbering::build_2d(&input);
+        member_balance_2d(&input, &input.loads, &dof, &conditional(), &r, None).unwrap();
+    }
+
 }

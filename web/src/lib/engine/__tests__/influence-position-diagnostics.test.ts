@@ -69,3 +69,20 @@ it('a prepared solve uses the candidate model when its structure differs', () =>
     expect(run).not.toHaveBeenCalled();
   } finally { session.free(); }
 });
+
+it.skip.each(['coordinates', 'section', 'material', 'spring'] as const)('known wrong result: #1753: in-place %s edits invalidate a prepared stiffness', edit => {
+  const model = input();
+  model.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 1, fz: -1, my: 1 } }];
+  model.supports.set(2, { id: 2, nodeId: 2, type: 'spring', kx: 2, kz: 3, kry: 4 });
+  const session = wasm.prepareLoadSession2D(model);
+  try {
+    const before = wasm.solve(model, session);
+    if (edit === 'coordinates') model.nodes.get(2)!.x *= 2;
+    if (edit === 'section') model.sections.get(1)!.iz *= 2;
+    if (edit === 'material') model.materials.get(1)!.e *= 2;
+    if (edit === 'spring') model.supports.get(2)!.kz! *= 2;
+    const fresh = wasm.solve(model);
+    expect(fresh.displacements).not.toEqual(before.displacements);
+    expect(wasm.solve(model, session)).toEqual(fresh);
+  } finally { session.free(); }
+});
