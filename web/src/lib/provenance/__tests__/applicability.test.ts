@@ -584,6 +584,21 @@ describe('round 3 nonlinear stale-result coverage', () => {
       }
     }
   });
+  it.skip('known wrong result: #761 — assesses saved shell and point results with complete histories', () => {
+    const shapes = [
+      { plates: [[1, {}]] }, { quads: [[1, { curved: true }]] }, { solidShells: [[1, {}]] },
+      { connectors: [[1, { kShear: 1 }]] }, { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] },
+    ] as Partial<FeatureSnapshot>[];
+    for (const shape of shapes) {
+      for (const kind of ['pdelta', 'nonlinear', 'ssi'] as const) {
+        const snapshot = model(shape);
+        const entry = RESULT_CHANGES.changes.find(c => c.id === 'nonlinear-supported-and-soil-equilibrium')!;
+        const stamp = { ...stampSolve(kind, null), resultsVersion: entry.resultsVersion - 1 };
+        expect(ids(snapshot, stamp)).toContain(entry.id);
+        expect(ids(snapshot, { ...stamp, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
+      }
+    }
+  });
   it.skip('known wrong result: #761 — infers SSI from 3D support curves despite linear stamps', () => {
     const snapshot = model({ supports: [[1, { nodeId: 1, type: 'spring3d', curves: { x: [[0, 0], [1, 1]] } }]] as never });
     const entry = RESULT_CHANGES.changes.find(c => c.id === 'nonlinear-supported-and-soil-equilibrium')!;

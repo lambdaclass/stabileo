@@ -9,6 +9,8 @@ for (const test of cases) {
   if (test.api) {
     const invoke = () => {
       const input = JSON.stringify(test.input);
+      if (/^solve_[23]d$/.test(test.api)) return JSON.stringify({ converged: true, results: engine[test.api](test.input) });
+      if (test.api.startsWith('solve_constrained')) return JSON.stringify({ converged: true, results: JSON.parse(engine[test.api](input)) });
       if (test.api.startsWith('solve_corotational')) return engine[test.api](input, test.maxIter ?? 2, 1e-10, 1);
       if (test.api.startsWith('solve_pdelta')) return engine[test.api](input, test.maxIter ?? 1, 1e-10);
       return engine[test.api](input);
@@ -40,6 +42,15 @@ for (const test of cases) {
       for (const key of ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']) {
         if (expected[key]) assert.ok(Math.abs(actual[key] / expected[key] - 1) < 1e-10, `${test.api}: ${key}`);
       }
+    }
+    for (const [i, expected] of (test.expectedAppliedSum ?? []).entries()) {
+      if (expected !== null) assert.equal(result.results.equilibrium.appliedForceSum[i], expected);
+    }
+    if (test.soilBalance !== undefined) {
+      const key = test.api === 'solve_ssi_2d' ? 'rz' : ['fx', 'fy', 'fz'][test.balanceDirection];
+      const reaction = result.results.reactions.reduce((sum, r) => sum + r[key], 0);
+      const soil = result.springResults.reduce((sum, r) => sum + r.reaction, 0);
+      assert.ok(Math.abs((reaction - soil) / -test.soilBalance - 1) < 1e-10, `${test.api} soil reaction balance`);
     }
     checked++; continue;
   }
