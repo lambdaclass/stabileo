@@ -1,7 +1,5 @@
 # Arc-length continuation regroups reference-load arithmetic
 
-## Arc-length continuation regroups reference-load arithmetic
-
 This retrospectively registers [PR #1885](https://github.com/lambdaclass/stabileo/pull/1885),
 merged on 2026-11-10. The engine change deliberately introduced prescribed
 support motion and continuation from a converged state in the 2D co-rotational
@@ -58,3 +56,9 @@ unrelated linear, modal or design results. The new support-motion feature and
 its old refusal boundary are described in the PR; this retrospective entry
 specifically records the previously unregistered numerical movement. No solver
 code or engineering limit is changed here, and no new advisory is added.
+
+The frozen loaded-arch outputs `solve_arc_length-0015ab84c3baa36f.json` and
+`solve_arc_length-022317310499426d.json` omit support reactions. They are explicitly
+known-wrong evidence linked to [#1949](https://github.com/lambdaclass/stabileo/issues/1949),
+with expected-failure reaction checks. This arithmetic registration does not accept
+those missing reactions as correct or fix that separate defect.

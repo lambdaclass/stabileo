@@ -1,3 +1,4 @@
+from audit_evidence import first_boundary
 import json,pathlib,subprocess
 area=pathlib.Path('/root/audit/soundness-2026-11-11');repo=area/'repo';work=area/'arc-bisect';target=area/'target-arc-bisect'
 def git(*a,cwd=repo):return subprocess.check_output(['git',*a],cwd=cwd,text=True).strip()
@@ -11,6 +12,7 @@ code='''fn main() { let v: serde_json::Value=serde_json::from_reader(std::io::st
 def evaluate(i):
  if i in cache:return cache[i]
  sha=revs[i];subprocess.run(['git','checkout','--detach',sha],cwd=work,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+ subprocess.run(['git','diff','--exit-code','--','engine/src','web/src/lib/engine'],cwd=work,check=True)
  (work/'engine/examples/audit_arc.rs').write_text(code)
  with (area/f'arc-bisect-build-{sha[:9]}.log').open('w') as log:subprocess.run(['nice','-n','19','nix','develop','--command','env','CARGO_BUILD_JOBS=2','CARGO_TARGET_DIR='+str(target),'RUSTC_WRAPPER=','cargo','build','--locked','--release','-p','dedaliano-engine','--example','audit_arc'],cwd=work,check=True,stdout=log,stderr=subprocess.STDOUT)
  cache[i]={}
@@ -21,11 +23,8 @@ def evaluate(i):
 a=evaluate(0);b=evaluate(len(revs)-1);out=[]
 for f,r in records.items():
  assert a[f]==r['result'],('base binary differs from captured test',f)
- assert a[f]!=b[f],('not reproduced',f)
- lo,hi=0,len(revs)-1
- while hi-lo>1:
-  m=(lo+hi)//2
-  if evaluate(m)[f]!=a[f]:hi=m
-  else:lo=m
+ boundary=first_boundary(revs,evaluate,lambda result: result[f])
+ if boundary is None:continue
+ lo,hi=boundary
  out.append(dict(model=f,test=r['test'],first_bad=revs[hi],parent=revs[lo],merge_subject=git('show','-s','--format=%s',revs[hi]),before=evaluate(lo)[f],after=evaluate(hi)[f]));print('FIRST CHANGE',f,out[-1]['merge_subject'],flush=True)
 (area/'arc-bisection.json').write_text(json.dumps(out))

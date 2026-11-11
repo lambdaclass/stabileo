@@ -60,14 +60,20 @@
     "results": [
       "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4780 filtered out; finished in 0.00s"
     ],
-    "failed_tests": []
+    "failed_tests": [],
+    "executed": 0,
+    "evidence_status": "invalid empty selection; superseded by round 2 targeted rerun",
+    "superseded_by": "base-r3-validation-three_d__three_d_buckling__.log"
   },
   {
     "log": "repo-complete-validation-three_d__buckling_benchmarks.log",
     "results": [
       "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4792 filtered out; finished in 0.00s"
     ],
-    "failed_tests": []
+    "failed_tests": [],
+    "executed": 0,
+    "evidence_status": "invalid empty selection; superseded by round 2 targeted rerun",
+    "superseded_by": "repo-r3-validation-three_d__three_d_buckling__.log"
   },
   {
     "log": "repo-complete-validation-benchmarks__.log",
@@ -193,7 +199,10 @@
     "results": [
       "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4780 filtered out; finished in 0.00s"
     ],
-    "failed_tests": []
+    "failed_tests": [],
+    "executed": 0,
+    "evidence_status": "invalid empty selection; superseded by round 2 targeted rerun",
+    "superseded_by": "base-r3-validation-three_d__three_d_corotational__.log"
   },
   {
     "log": "repo-complete-validation-navier_plate__.log",
@@ -228,7 +237,10 @@
     "results": [
       "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4792 filtered out; finished in 0.00s"
     ],
-    "failed_tests": []
+    "failed_tests": [],
+    "executed": 0,
+    "evidence_status": "invalid empty selection; superseded by round 2 targeted rerun",
+    "superseded_by": "repo-r3-validation-three_d__three_d_corotational__.log"
   },
   {
     "log": "repo-complete-integration-plastic_collapse_benchmark__.log",
@@ -404,5 +416,65 @@
       "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 284 filtered out; finished in 0.00s"
     ],
     "failed_tests": []
+  },
+  {
+    "log": "base-r3-fixed-replay.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 1.57s"
+    ],
+    "failed_tests": [],
+    "executed": 1,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  },
+  {
+    "log": "base-r3-validation-three_d__three_d_buckling__.log",
+    "results": [
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 4773 filtered out; finished in 0.02s"
+    ],
+    "failed_tests": [],
+    "executed": 7,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  },
+  {
+    "log": "base-r3-validation-three_d__three_d_corotational__.log",
+    "results": [
+      "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 4771 filtered out; finished in 2.51s"
+    ],
+    "failed_tests": [],
+    "executed": 9,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  },
+  {
+    "log": "repo-r3-fixed-replay.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 930 filtered out; finished in 1.54s"
+    ],
+    "failed_tests": [],
+    "executed": 1,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  },
+  {
+    "log": "repo-r3-validation-three_d__three_d_buckling__.log",
+    "results": [
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 4785 filtered out; finished in 0.05s"
+    ],
+    "failed_tests": [],
+    "executed": 7,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  },
+  {
+    "log": "repo-r3-validation-three_d__three_d_corotational__.log",
+    "results": [
+      "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 4783 filtered out; finished in 2.65s"
+    ],
+    "failed_tests": [],
+    "executed": 9,
+    "round": 2,
+    "host": "stabileo-ci-1"
   }
 ]

@@ -1,3 +1,4 @@
+from audit_evidence import first_boundary
 import pathlib,json,subprocess,re
 area=pathlib.Path('/root/audit/soundness-2026-11-11')
 repo=area/'repo';work=area/'bisect-probe';target=area/'target-bisect'
@@ -31,12 +32,10 @@ def evaluate(index):
 first=evaluate(0);last=evaluate(len(revisions)-1)
 result=[]
 for r,model in records:
- file=r['model'];lo,hi=0,len(revisions)-1
- assert not first[file]['refused'] and last[file]['refused']
- while hi-lo>1:
-  mid=(lo+hi)//2
-  if evaluate(mid)[file]['refused']:hi=mid
-  else:lo=mid
+ file=r['model']
+ boundary=first_boundary(revisions,evaluate,lambda result: result[file]['refused'])
+ if boundary is None:continue
+ lo,hi=boundary
  before,after=evaluate(lo)[file],evaluate(hi)[file]
  result.append(dict(model=file,test=r['test'],input=model,first_bad=revisions[hi],parent=revisions[lo],merge_subject=git('show','-s','--format=%s',revisions[hi]),before=before,after=after))
  print('FIRST BAD',file,revisions[hi],result[-1]['merge_subject'],flush=True)

@@ -1,7 +1,5 @@
 # The public slab gallery uses hard simple supports on walls
 
-## The public slab gallery uses hard simple supports on walls
-
 This retrospectively registers [PR #1627](https://github.com/lambdaclass/stabileo/pull/1627),
 merged on 2026-11-07. The public `slab-on-columns` gallery with walls selected
 changed both its generated model and its displayed independent reference. This

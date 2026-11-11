@@ -598,5 +598,12 @@
     "nonlinear.steps[108].loadFactor": 2.724999998405937,
     "nonlinear.steps[108].step": 109,
     "nonlinear.totalIterations": 218
-  }
+  },
+  "knownWrong": [
+    {
+      "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
+      "path": "nonlinear.results.reactions",
+      "reason": "Loaded converged arch omits support reactions; preserved as defect evidence, not an accepted engineering answer."
+    }
+  ]
 }

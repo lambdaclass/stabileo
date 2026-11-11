@@ -1,7 +1,5 @@
 # SSI returns support reactions and includes soil springs in constraint forces
 
-## SSI returns support reactions and includes soil springs in constraint forces
-
 This retrospectively registers [PR #1675](https://github.com/lambdaclass/stabileo/pull/1675),
 merged on 2026-11-07. The change is intended, not a numerical regression. The PR
 explicitly replaced `reactions: []` in both SSI solvers. Its claim that no registry
@@ -19,7 +17,7 @@ forces were not changed by this correction.
 The frozen audit replay compares the adjacent parent `477adc7b3` with merge
 `d2a75e111`. All six previously empty lists acquire support-force records:
 
-| Frozen SSI input suffix | New reaction node | rx | rz |
+| Frozen SSI input suffix | New reaction node | rx (kN) | rz (kN) |
 | --- | ---: | ---: | ---: |
 | 05d0301923fe0235 | 21 | -0.022046866023461148 | 0 |
 | 169f627ba8e7f8cf | 11 | 0 | 389.144696748935 |

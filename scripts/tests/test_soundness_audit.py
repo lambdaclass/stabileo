@@ -1,6 +1,4 @@
 import ast
-import copy
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -8,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'docs/verification/soundness-regression-audit-2026-11-11'))
 
 ROOT = Path(__file__).resolve().parents[2]
 AUDIT = ROOT / 'docs/verification/soundness-regression-audit-2026-11-11'
@@ -28,13 +28,11 @@ class References(unittest.TestCase):
         self.assertFalse(match({'loads': [{'fz': -1}]}, {'loads': [{'fz': 1}]}))
         self.assertFalse(match([1], [1, 2]))
 
-    @unittest.skip('known wrong result: #1946')
     def test_missing_nonzero_load_restraint_and_geometry_do_not_match(self):
         for field, value in [('fz', -1), ('rz', True), ('x', 6)]:
             with self.subTest(field=field):
                 self.assertFalse(partial()({field: value}, {}))
 
-    @unittest.skip('known wrong result: #1946')
     def test_frame_measurements_reproduce_each_source_observation(self):
         data = json.loads((AUDIT / 'reference-comparisons.json').read_text())
         rows = [r for r in data['rows'] if r['test'].endswith('::macneal_frame_shear_and_moment')]
@@ -52,11 +50,10 @@ class References(unittest.TestCase):
             self.assertIsNone(r['pr'])
             self.assertEqual(r.get('first_parent_merges', []), [])
 
-    @unittest.skip('known wrong result: #1949')
     def test_empty_arch_reactions_are_known_wrong(self):
         for model in ['0015ab84c3baa36f', '022317310499426d']:
             data = json.loads((ROOT / f'web/results-frozen/solve_arc_length-{model}.json').read_text())
-            self.assertEqual(data['knownWrong'][0]['issue'], 'https://github.com/lambdaclass/stabileo/issues/1949')
+            self.assertEqual(data.get('knownWrong', [{}])[0].get('issue'), 'https://github.com/lambdaclass/stabileo/issues/1949')
             self.assertEqual(data['knownWrong'][0]['path'], 'nonlinear.results.reactions')
 
 
@@ -106,7 +103,6 @@ class History(unittest.TestCase):
             result = json.loads((area / outputs[filename]).read_text())
             return result, seen
 
-    @unittest.skip('known wrong result: #1946')
     def test_reverted_changes_and_refusals_find_first_adjacent_transition(self):
         for filename in ['bisect-all-static.py', 'bisect-arc.py', 'bisect-reference.py', 'bisect-refusals.py']:
             with self.subTest(script=filename):
@@ -126,7 +122,7 @@ class History(unittest.TestCase):
 
 
 class Shells(unittest.TestCase):
-    def run_script(self, filename, failure, replay_missing=False):
+    def run_script(self, filename, failure):
         with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
             area = Path(directory)
             for sub in ['repo', 'base', 'bin', 'repo/engine/tests/metamorphic_corpus/nightly']:
@@ -148,7 +144,6 @@ class Shells(unittest.TestCase):
             result = subprocess.run(['bash'], input=source, text=True, capture_output=True, cwd=ROOT, env=env)
             return result.returncode, marker.exists()
 
-    @unittest.skip('known wrong result: #1946')
     def test_setup_and_integrity_fail_before_tests(self):
         for script in ['run-complete-native.sh', 'finish-corpus.sh', 'probe-units.sh', 'probe-units-parent.sh']:
             failures = ['integrity'] if script.startswith('probe-') else ['setup', 'integrity']
@@ -158,13 +153,94 @@ class Shells(unittest.TestCase):
                     self.assertNotEqual(status, 0)
                     self.assertFalse(ran)
 
-    @unittest.skip('known wrong result: #1946')
     def test_suite_selectors_exist_and_every_suite_checks_execution(self):
         source = (AUDIT / 'run-complete-native.sh').read_text()
         self.assertNotIn('three_d::corotational_benchmarks', source)
         self.assertNotIn('three_d::buckling_benchmarks', source)
-        for script in ['run-complete-native.sh', 'finish-corpus.sh']:
+        for selector in ['three_d::three_d_corotational::', 'three_d::three_d_buckling::']:
+            self.assertIn(selector, source)
+        for script in ['run-complete-native.sh', 'finish-corpus.sh', 'probe-units.sh', 'probe-units-parent.sh']:
             self.assertIn('check-suite', (AUDIT / script).read_text())
+
+
+class EvidenceChecks(unittest.TestCase):
+    def test_report_counts_archives_and_digests_agree(self):
+        import gzip
+        import hashlib
+        report = json.loads(AUDIT.with_suffix('.json').read_text())
+        self.assertEqual(report['reference_comparisons'], json.loads((AUDIT / 'reference-comparisons.json').read_text()))
+        summary = json.loads((AUDIT / 'run-summary.json').read_text())
+        evidence = json.loads(gzip.decompress((AUDIT / 'run-evidence.json.gz').read_bytes()))
+        self.assertEqual(summary, evidence['summary'])
+        suites = [r for r in summary if r.get('round') == 2 and 'validation' in r['log']]
+        self.assertEqual(len(suites), 4)
+        self.assertEqual(sorted(r['executed'] for r in suites), [7, 7, 9, 9])
+        additional = json.loads(gzip.decompress((AUDIT / 'r3-additional-native.json.gz').read_bytes()))
+        self.assertEqual(len(additional), 51)
+        for row in additional:
+            self.assertEqual(row['before'], row['after'])
+            self.assertEqual(row['changes'], [])
+        self.assertEqual(report['counts']['native_models'], 3771)
+        self.assertEqual(report['counts']['native_unchanged'] + report['counts']['native_changed'], 3771)
+        for artifact in report['artifacts']:
+            data = (AUDIT / artifact['file']).read_bytes()
+            self.assertEqual(len(data), artifact['bytes'], artifact['file'])
+            self.assertEqual(hashlib.sha256(data).hexdigest(), artifact['sha256'], artifact['file'])
+
+    def test_suite_counts_both_sides_of_execution_and_failure_limits(self):
+        from audit_evidence import check_suite
+        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+            log = Path(directory) / 'suite.log'
+            for passed, failed, ignored, status, allow, valid in [
+                (0, 0, 0, 0, False, False), (0, 0, 7, 0, False, False),
+                (1, 0, 0, 0, False, True), (0, 1, 0, 101, True, True),
+                (0, 1, 0, 101, False, False), (1, 0, 0, 9, True, False),
+                (0, 1, 0, 0, True, False),
+            ]:
+                with self.subTest(passed=passed, failed=failed, status=status, allow=allow):
+                    log.write_text(f'test result: ok. {passed} passed; {failed} failed; {ignored} ignored;')
+                    if valid:
+                        self.assertEqual(check_suite(log, status, allow)['executed'], passed + failed)
+                    else:
+                        with self.assertRaises(ValueError):
+                            check_suite(log, status, allow)
+            for text in ['compilation failed', 'test result: ok. 1 passed; 0 failed; 0 ignored;\n' * 2]:
+                log.write_text(text)
+                with self.assertRaises(ValueError):
+                    check_suite(log, 0)
+
+    def test_replay_requires_exact_manifest_inputs_and_results(self):
+        from audit_evidence import check_replay
+        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+            source, target = Path(directory) / 'input', Path(directory) / 'output'
+            source.mkdir()
+            target.mkdir()
+            with self.assertRaises(ValueError):
+                check_replay(source, target)
+            expected = dict(analysis='solve_2d', input=[{'loads': []}], test='control')
+            (source / 'model.json').write_text(json.dumps(expected))
+            with self.assertRaises(ValueError):
+                check_replay(source, target)
+            output = target / 'model.json'
+            output.write_text(json.dumps({**expected, 'result': {'Ok': {}}}))
+            self.assertEqual(check_replay(source, target), 1)
+            for invalid in [expected, {**expected, 'result': None}, {**expected, 'result': {}}, {**expected, 'result': {'Ok': {}, 'Err': 'invalid'}}, {**expected, 'input': [{}], 'result': {'Ok': {}}}]:
+                output.write_text(json.dumps(invalid))
+                with self.assertRaises(ValueError):
+                    check_replay(source, target)
+            output.write_text(json.dumps({**expected, 'result': {'Ok': {}}}))
+            (target / 'stale.json').write_text('{}')
+            with self.assertRaises(ValueError):
+                check_replay(source, target)
+
+    def test_scan_first_last_reverted_and_unchanged_boundaries(self):
+        from audit_evidence import first_boundary
+        for sequence, expected in [
+            (['A', 'B'], (0, 1)), (['A', 'A', 'B'], (1, 2)),
+            (['A', 'B', 'A'], (0, 1)), (['A', 'A', 'A'], None), (['A'], None),
+        ]:
+            with self.subTest(sequence=sequence):
+                self.assertEqual(first_boundary(sequence, lambda i: sequence[i], lambda v: v), expected)
 
 
 if __name__ == '__main__':

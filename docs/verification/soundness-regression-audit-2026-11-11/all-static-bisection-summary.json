@@ -1,830 +1,1106 @@
 [
   {
     "model": "solve_3d-014e120126c3a373.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-044270ccbf5a73fe.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-04b6bd337d0a50cf.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-05602550597c003d.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-057ae8bb84d3ea56.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-05f998c6915fe379.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-06626f4740120654.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-076c62ba7aa2c726.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-0842a4ca64979933.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-0857c760a4ea91b1.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-0a4dace00e7686c5.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-0c08790f246a30ab.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-0d864a64ab8cda2e.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-0e8ca91c8312c0d9.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-10393adeffae91c9.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-110eff270af940a6.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-1543542e1fe8fae1.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-17206b2e42a4b069.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-174d46e023a6b1d7.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-17d7340ad632d7c9.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-182823eddfe1e952.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-1998b802f34b2066.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-1ad60a2beb7eb7a9.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-1c2dea2419efffd5.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-1ddef2d9d9bcf406.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-1e01d8d809f45a7c.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-1eec9b31ef6a90d0.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-203251fc08334e8f.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-22331550f3ef4c8c.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-2358674cd92bd996.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-2a6d5781c630833f.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-2b34492cc3432f83.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-3184ca533f45d519.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-32007d3c128a5e9e.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-32a5fa4156268c15.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-37b530dbbc159b78.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-37d71500bde602b3.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-3c0fec75c67a2fa4.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-3c623e7ccab2046a.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-3cde13db8fdf6566.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-3e5025d4dbeb3806.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-3ea4151b0c87b49f.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-3eed55cf55526ed9.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-3f8aa2494da9bde3.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-3fb639f038137472.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-460f13415b204a9b.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-48793d0e17582340.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-4a65f1374e31223f.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-4ff9ed575a13eb3f.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-5124345b386d2173.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-542c447385c2f0cd.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-57e8f8624d88a6da.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-59972156a0159679.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-5ae7b20c25f931c0.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-5c31ade68b81ae9f.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-5d7973bed8620e7a.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-5f3938a42a7fcd5a.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-5f74ca3a65e8921e.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-63a41089b79ce24d.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-64667082d2f05499.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-6496121985f2aa27.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-64c312053cb914ed.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-68bdf0aca1220ec2.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-730597b3645b0df8.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-73ba4ce1f510e8e9.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-77061941ed6503e8.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-79757e7bdaaaa361.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-8239e143dea95561.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-82e89a42c2527795.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-830ab4b0eccfda12.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-8334f7147600780a.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-84719a2e761538f3.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-85c9787de392698f.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-897d2bbb7fadd30e.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-89a06b9a8d09fca2.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-8b277980af9362bd.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-8b766b56ff1183f0.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-8ba9316771d7c2d2.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-8d3409c7734d2ced.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-937490028233d0d7.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-93f85d2970a438f2.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-94e9dddefab49b9b.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-976fe666be16916a.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-982f458cd951c6ca.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-98e3c1a4d409bce8.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-9a0e90934e4ebcea.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-9e354436a0b827f3.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-9e3d3bf44735c0aa.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-9efb557651ed34d0.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-a1686ea6759d297c.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-a31b0630e601e4ba.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-a356e06e60a6fb88.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-a7af66951ecd4112.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-a7df63a94660c306.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-ab704fced9f6fb42.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-b0200f42e14f0b46.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-b0fb66a5c10a9201.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-b1c47ca8bf45220f.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-b2fccf0ac7f8a411.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-b46641d906928e92.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-b8c42731772d1992.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-ba78daf040fd3ea9.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-bbf1990360914296.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-bc75effcb7682b29.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-c48a740a966a767c.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-c5bcb5d3ee990911.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-c7886b5c64807661.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-c829c96275aacfe2.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-ce1f19b3352fb8ce.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-d05eb875ee90a19e.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-d0fd3fe8791eac5f.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-d2e784223d9aa201.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-d3cb161d64a77f79.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-d4118cb9f4bd5544.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-d449c60189ceb9f9.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-d6827651cb2c073f.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-d851337b1a936c92.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-dbfc972cab42a1fa.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-dd16426212788791.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-e0509abe72563911.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-e06599c1d670b6fa.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-e0da09f57decbffb.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-e6967afee6d119ee.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-e7820e97c1d2ea1e.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-eb6bf79f63a580b3.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-ee102f840b16f341.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-eebc2a241159d7f7.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-f08bb1a04fbbd69e.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-f0ddf80a865f99c1.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-f6d58e09ffb15a2d.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-f9de89dc8195cdd4.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-fac00c1a0504527a.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-fb8498a868e7d048.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-fc13832ef1b6b6af.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-fd4f0c2aa650b6df.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-fe4c35f19dba4f9c.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-ff8b05f9615cba78.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   },
   {
     "model": "solve_3d-ffae2af1d05f6e33.json",
-    "first_change": "77294fe006d716bf2e1900a85b3818906cf2fd33",
     "parent": "cb671ed319d14ee4d4505a3c43fe233b9607cd27",
-    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear"
+    "subject": "Merge pull request #1753 from lambdaclass/conditioning/slice-2-linear",
+    "observed_transition": "77294fe006d716bf2e1900a85b3818906cf2fd33",
+    "earliest_verified": false,
+    "boundary_scope": "Adjacent parent/merge transition only; historical binary search did not verify monotonicity."
   }
 ]

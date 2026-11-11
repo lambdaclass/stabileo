@@ -16,10 +16,10 @@ const solvers = {
 };
 const update = process.env.RESULTS_FROZEN_UPDATE === '1';
 
-function check(name: string, features: string[], response: unknown, prefix: string): void {
+function check(name: string, features: string[], response: unknown, prefix: string, knownWrong?: unknown): void {
   names.push(`${name}.json`);
   const file = new URL(`${name}.json`, dir);
-  const snapshot = { format: 1, features, values: freezeValues(response, prefix) };
+  const snapshot = { format: 1, features, values: freezeValues(response, prefix), ...(knownWrong ? { knownWrong } : {}) };
   if (update) {
     mkdirSync(dir, { recursive: true });
     writeFileSync(file, JSON.stringify(snapshot, null, 2) + '\n');
@@ -28,10 +28,18 @@ function check(name: string, features: string[], response: unknown, prefix: stri
   const committed = JSON.parse(readFileSync(file, 'utf8'));
   expect(committed.format, name).toBe(snapshot.format);
   expect(committed.features, name).toEqual(features);
+  expect(committed.knownWrong, name).toEqual(knownWrong);
   expect(compareFrozen(committed.values, snapshot.values), name).toEqual({ changed: [], removed: [], added: [], differs: false });
 }
 
 for (const c of inputs) {
+  if ('knownWrong' in c) {
+    it.fails(`known wrong result: #1949 ${c.model} must return support reactions`, () => {
+      const result = engine.solveArcLength(c.input[0]);
+      expect(result.converged).toBe(true);
+      expect(result.results.reactions.length).toBeGreaterThan(0);
+    });
+  }
   it(`freezes every serialized field of ${c.model}`, () => {
     const arc = c.analysis === 'solve_arc_length';
     const three = c.analysis === 'solve_ssi_3d';
@@ -43,7 +51,7 @@ for (const c of inputs) {
     if (!arc) expect(result.results.reactions.length).toBeGreaterThan(0);
     if (three) expect(result.results.reactions).toEqual(solve_3d(c.input[0].solver).reactions);
     const prefix = arc ? 'nonlinear' : 'ssi';
-    check(c.model.replace(/\.json$/, ''), [three ? 'space3D' : 'plane2D', 'members', `analysis:${prefix}`], result, prefix);
+    check(c.model.replace(/\.json$/, ''), [three ? 'space3D' : 'plane2D', 'members', `analysis:${prefix}`], result, prefix, 'knownWrong' in c ? c.knownWrong : undefined);
   });
 }
 
