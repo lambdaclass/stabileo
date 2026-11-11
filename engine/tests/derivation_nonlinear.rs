@@ -1225,3 +1225,117 @@ fn nl_contact_one_way_freezing_is_retained_across_al_passes() {
         }
     }
 }
+
+fn inactive_one_way_contact_1932(behavior: &str, sign: f64, max_flips: usize, scale: f64) -> (
+    dedaliano_engine::solver::contact::ContactInput,
+    dedaliano_engine::solver::contact::ContactInput3D,
+) {
+    use dedaliano_engine::solver::contact::*;
+    let mut plane = one_way_contact_2d(behavior, -50.0 * sign * scale);
+    plane.max_flips = Some(max_flips);
+    plane.gap_elements = vec![GapElement {
+        id: 1, node_i: if sign > 0.0 { 1 } else { 2 }, node_j: if sign > 0.0 { 2 } else { 1 },
+        direction: 0, initial_gap: -0.1 * scale, stiffness: 1000.0,
+        friction: None, friction_direction: None, friction_coefficient: None,
+    }];
+    assert_eq!(plane.augmented_lagrangian, None);
+    let mut space = one_way_contact_3d(behavior, -50.0 * sign * scale);
+    space.max_flips = plane.max_flips;
+    space.gap_elements = plane.gap_elements.clone();
+    assert_eq!(space.augmented_lagrangian, None);
+    (plane, space)
+}
+
+fn assert_inactive_one_way_refusal_1932<T: std::fmt::Debug>(result: Result<T, String>) {
+    let error = result.expect_err("a frozen inactive member requiring reactivation must be withheld");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostic = &error["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "contact_state_invalid");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["elementIds"], serde_json::json!([2]));
+    assert_eq!(diagnostic["phase"], "element_behavior");
+    assert!(error.get("results").is_none());
+}
+
+#[test]
+#[ignore = "known wrong result: #1932"]
+fn issue_1932_frozen_inactive_tension_only_refuses_2d() {
+    let (plane, _) = inactive_one_way_contact_1932("tension_only", 1.0, 1, 1.0);
+    assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_2d(&plane));
+}
+
+#[test]
+#[ignore = "known wrong result: #1932"]
+fn issue_1932_frozen_inactive_tension_only_refuses_3d() {
+    let (_, space) = inactive_one_way_contact_1932("tension_only", 1.0, 1, 1.0);
+    assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_3d(&space));
+}
+
+#[test]
+#[ignore = "known wrong result: #1932"]
+fn issue_1932_frozen_inactive_compression_only_refuses_2d() {
+    let (plane, _) = inactive_one_way_contact_1932("compression_only", -1.0, 1, 1.0);
+    assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_2d(&plane));
+}
+
+#[test]
+#[ignore = "known wrong result: #1932"]
+fn issue_1932_frozen_inactive_compression_only_refuses_3d() {
+    let (_, space) = inactive_one_way_contact_1932("compression_only", -1.0, 1, 1.0);
+    assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_3d(&space));
+}
+
+#[test]
+fn issue_1932_sufficient_flip_budget_solves_with_reactivated_member() {
+    for (behavior, sign) in [("tension_only", 1.0), ("compression_only", -1.0)] {
+        let (plane, space) = inactive_one_way_contact_1932(behavior, sign, 2, 1.0);
+        let plane = dedaliano_engine::solver::contact::solve_contact_2d(&plane).unwrap();
+        let space = dedaliano_engine::solver::contact::solve_contact_3d(&space).unwrap();
+        assert!(plane.converged && space.converged);
+        let stiffness = 200.0 * 1000.0 * 0.01 / 2.0;
+        let displacement = sign * (1000.0 * 0.1 - 50.0) / (2.0 * stiffness + 1000.0);
+        close(disp2(&plane.results, 2).ux, displacement, 1e-12, "2D reactivated parallel bars and gap equilibrium");
+        close(disp3(&space.results, 2).ux, displacement, 1e-12, "3D reactivated parallel bars and gap equilibrium");
+        for info in [&plane.element_status[0], &space.element_status[0]] {
+            assert_eq!(info.status, "active");
+            close(info.force, stiffness * displacement, 1e-12, "reactivated member shares the load");
+        }
+        for (start, end) in plane.results.element_forces.iter().map(|f| (f.n_start, f.n_end))
+            .chain(space.results.element_forces.iter().map(|f| (f.n_start, f.n_end))) {
+            close(start, stiffness * displacement, 1e-12, "recovered parallel bar start force");
+            close(end, stiffness * displacement, 1e-12, "recovered parallel bar end force");
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1932"]
+fn issue_1932_frozen_inactive_activation_uses_scaled_tolerance() {
+    for (behavior, sign) in [("tension_only", 1.0), ("compression_only", -1.0)] {
+        for ratio in [0.99, 1.01] {
+            let scale = ratio * 1e-10 / ((1000.0 * 0.1 - 50.0) / (1000.0 + 1000.0));
+            let (plane, space) = inactive_one_way_contact_1932(behavior, sign, 1, scale);
+            let plane = dedaliano_engine::solver::contact::solve_contact_2d(&plane);
+            let space = dedaliano_engine::solver::contact::solve_contact_3d(&space);
+            if ratio > 1.0 {
+                assert_inactive_one_way_refusal_1932(plane);
+                assert_inactive_one_way_refusal_1932(space);
+            } else {
+                let plane = plane.unwrap();
+                let space = space.unwrap();
+                assert!(plane.converged && space.converged);
+                close(disp2(&plane.results, 2).ux, sign * ratio * 1e-10, 1e-15, "2D inactive trial elongation below tolerance");
+                close(disp3(&space.results, 2).ux, sign * ratio * 1e-10, 1e-15, "3D inactive trial elongation below tolerance");
+                for (info, diagnostics) in [(&plane.element_status[0], &plane.diagnostics), (&space.element_status[0], &space.diagnostics)] {
+                    assert_eq!(info.status, "inactive");
+                    assert_eq!(info.force, 0.0);
+                    assert!(diagnostics.iter().any(|d| d == &format!("Element 2 ({behavior}) status was frozen.")));
+                }
+                for (start, end) in [(plane.results.element_forces[1].n_start, plane.results.element_forces[1].n_end), (space.results.element_forces[1].n_start, space.results.element_forces[1].n_end)] {
+                    assert_eq!(start, 0.0);
+                    assert_eq!(end, 0.0);
+                }
+            }
+        }
+    }
+}
