@@ -1,0 +1,226 @@
+{
+  "_nightly_dens": {
+    "1": 2831.17984408728
+  },
+  "_nightly_name": "fuzz_rich_2d/20892",
+  "connectors": {},
+  "constraints": [
+    {
+      "dofs": [],
+      "masterNode": 9,
+      "slaveNode": 5,
+      "type": "rigidLink"
+    },
+    {
+      "dofs": [
+        0,
+        2
+      ],
+      "masterNode": 3,
+      "slaveNode": 4,
+      "type": "equalDOF"
+    }
+  ],
+  "elements": {
+    "1": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 1,
+      "materialId": 1,
+      "nodeI": 2,
+      "nodeJ": 1,
+      "sectionId": 2,
+      "type": "truss"
+    },
+    "2": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 2,
+      "materialId": 1,
+      "nodeI": 2,
+      "nodeJ": 3,
+      "sectionId": 2,
+      "type": "frame"
+    },
+    "3": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 3,
+      "materialId": 1,
+      "nodeI": 2,
+      "nodeJ": 4,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "4": {
+      "hingeEnd": true,
+      "hingeStart": true,
+      "id": 4,
+      "materialId": 1,
+      "nodeI": 5,
+      "nodeJ": 1,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "5": {
+      "hingeEnd": true,
+      "hingeStart": false,
+      "id": 5,
+      "materialId": 1,
+      "nodeI": 6,
+      "nodeJ": 4,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "7": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 7,
+      "materialId": 1,
+      "nodeI": 4,
+      "nodeJ": 8,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "8": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 8,
+      "materialId": 1,
+      "nodeI": 7,
+      "nodeJ": 9,
+      "sectionId": 1,
+      "type": "frame"
+    },
+    "9": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 9,
+      "materialId": 1,
+      "nodeI": 10,
+      "nodeJ": 7,
+      "sectionId": 2,
+      "type": "frame"
+    },
+    "10": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 10,
+      "materialId": 1,
+      "nodeI": 6,
+      "nodeJ": 5,
+      "sectionId": 2,
+      "type": "truss"
+    },
+    "11": {
+      "hingeEnd": false,
+      "hingeStart": false,
+      "id": 11,
+      "materialId": 1,
+      "nodeI": 4,
+      "nodeJ": 10,
+      "sectionId": 1,
+      "type": "frame"
+    }
+  },
+  "loads": [
+    {
+      "data": {
+        "a": 1.0579632063214823,
+        "b": 1.4897008500219626,
+        "elementId": 3,
+        "qI": -9.925178552625953,
+        "qJ": -10.853964389667752
+      },
+      "type": "distributed"
+    }
+  ],
+  "materials": {
+    "1": {
+      "e": 82670.23347947071,
+      "id": 1,
+      "nu": 0.24066148627876435
+    }
+  },
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": -7.2424443518207156,
+      "z": 7.24533737888633
+    },
+    "2": {
+      "id": 2,
+      "x": -0.2379436147398124,
+      "z": 0.1112155702823685
+    },
+    "3": {
+      "id": 3,
+      "x": -6.519749975510848,
+      "z": -4.986839600816687
+    },
+    "4": {
+      "id": 4,
+      "x": -3.3600354547665887,
+      "z": 2.129922852447777
+    },
+    "5": {
+      "id": 5,
+      "x": -1.677477477719144,
+      "z": -1.7956882891767698
+    },
+    "6": {
+      "id": 6,
+      "x": -7.9142623218414805,
+      "z": 7.662440791271958
+    },
+    "7": {
+      "id": 7,
+      "x": 6.692941650518851,
+      "z": 5.7422367540828425
+    },
+    "8": {
+      "id": 8,
+      "x": 2.7518442648213792,
+      "z": -0.14531056779520668
+    },
+    "9": {
+      "id": 9,
+      "x": -2.898540035771667,
+      "z": -0.9155387340598402
+    },
+    "10": {
+      "id": 10,
+      "x": 6.753351822219436,
+      "z": -2.2836096462387125
+    }
+  },
+  "sections": {
+    "1": {
+      "a": 0.0038520517335068733,
+      "asY": null,
+      "id": 1,
+      "iz": 1.4937741978301568e-06
+    },
+    "2": {
+      "a": 0.004120596486215129,
+      "asY": null,
+      "id": 2,
+      "iz": 5.795392179858618e-06
+    }
+  },
+  "solverOptions": null,
+  "supports": {
+    "1": {
+      "angle": null,
+      "dry": null,
+      "dx": null,
+      "dz": null,
+      "id": 1,
+      "kx": null,
+      "ky": null,
+      "kz": null,
+      "nodeId": 1,
+      "type": "fixed"
+    }
+  }
+}

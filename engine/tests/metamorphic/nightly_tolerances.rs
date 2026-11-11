@@ -1724,3 +1724,58 @@ fn audit_issue_1009_published_model() {
 fn audit_issue_969_published_model() {
     holds(969, 20760, &[("modal", "modal orthogonality")]);
 }
+
+#[test]
+fn audit_issue_1272_published_model() {
+    holds(1272, 2026110303871, &[("plastic collapse", "units")]);
+}
+
+#[test]
+fn audit_issue_1265_published_model() {
+    holds(1265, 20760, &[("harmonic", "units")]);
+}
+
+#[test]
+fn audit_issue_1216_published_model() {
+    holds(1216, 2026110204962, &[("harmonic", "rotation")]);
+}
+
+#[test]
+fn audit_issue_1118_published_model() {
+    holds(1118, 20759, &[("time history", "units")]);
+}
+
+#[test]
+fn audit_issue_1117_published_model() {
+    holds(1117, 2026110201645, &[("harmonic", "rotation")]);
+}
+
+#[test]
+fn audit_issue_1115_published_model() {
+    holds(1115, 2026110202157, &[("harmonic", "units")]);
+}
+
+#[test]
+fn audit_issue_1102_published_model() {
+    holds(1102, 20759, &[("time history", "units")]);
+}
+
+#[test]
+fn audit_issue_994_published_model() {
+    holds(994, 20758, &[("harmonic", "units")]);
+}
+
+#[test]
+fn audit_issue_993_published_model() {
+    holds(993, 20758, &[("linear (sparse path)", "units")]);
+}
+
+#[test]
+fn audit_issue_960_published_model() {
+    holds(960, 2026103105180, &[("harmonic", "units")]);
+}
+
+#[test]
+fn audit_issue_954_published_model() {
+    holds(954, 20757, &[("linear (PCG)", "relabel")]);
+}
