@@ -59,7 +59,7 @@ describe('the changelog', () => {
     }
   });
 
-  it.skip.each(LOCALES)('known wrong result: #1057 retains the unresolved warped-shell warning in %s', (locale) => {
+  it.each(LOCALES)('known wrong result: #1057 retains the unresolved warped-shell warning in %s', (locale) => {
     const entry = CHANGELOG.find((e) => e.date === '2026-11-06')!;
     const warning = entry.i18n[locale].items.find((item) => item.includes('#1057'));
     expect(warning, locale).toBeDefined();
