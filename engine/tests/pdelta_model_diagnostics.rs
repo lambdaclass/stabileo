@@ -5,7 +5,7 @@
 use crate::common;
 
 use common::*;
-use dedaliano_engine::solver::{linear, pdelta};
+use dedaliano_engine::solver::{assembly, dof::DofNumbering, geometric_stiffness, linear, pdelta};
 use dedaliano_engine::types::*;
 
 /// Diagnostics whose content is a property of one particular solve (the
@@ -37,8 +37,39 @@ fn dump(label: &str, diags: &[StructuredDiagnostic]) {
     }
 }
 
+fn assert_final_equilibrium(
+    equilibrium: &EquilibriumSummary,
+    linear: &[f64],
+    tangent: &[f64],
+    f: &[f64],
+    u: &[f64],
+    nf: usize,
+) {
+    let relative_residual = |k: &[f64]| {
+        let residual_squared: f64 = (0..nf).map(|i| {
+            let internal: f64 = u.iter().enumerate().map(|(j, v)| k[i * u.len() + j] * v).sum();
+            (internal - f[i]).powi(2)
+        }).sum();
+        residual_squared.sqrt() / f[..nf].iter().map(|v| v * v).sum::<f64>().sqrt()
+    };
+    let linear_at_final_state = relative_residual(linear);
+    let second_order_at_final_state = relative_residual(tangent);
+    println!("final-state residuals: linear={linear_at_final_state:e}, second-order={second_order_at_final_state:e}, reported={:e}", equilibrium.relative_residual);
+    assert!(linear_at_final_state > 1e-6);
+    assert!(second_order_at_final_state.is_finite() && second_order_at_final_state <= 1e-6);
+    assert_eq!(equilibrium.relative_residual, second_order_at_final_state);
+    assert!(equilibrium.residual_ok && equilibrium.equilibrium_ok);
+    assert!(equilibrium.max_imbalance.is_finite());
+    assert_eq!(equilibrium.applied_force_sum.len(), equilibrium.reaction_force_sum.len());
+    println!("final equilibrium summary: {equilibrium:?}");
+    assert!(matches!(equilibrium.applied_force_sum.len(), 3 | 6));
+    let translations = if equilibrium.applied_force_sum.len() == 3 { 2 } else { 3 };
+    for (f, r) in equilibrium.applied_force_sum[..translations].iter().zip(&equilibrium.reaction_force_sum[..translations]) {
+        assert!((f + r).abs() < 1e-6 * f.abs().max(1.0));
+    }
+}
+
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn pdelta_2d_does_not_claim_linear_residual_ok() {
     // Slender fixed-base portal (h=4 m, w=6 m, E=200 GPa, I=1e-4 m^4) with a
     // lateral load and heavy gravity so the sway is amplified ~1.8x.
@@ -59,9 +90,18 @@ fn pdelta_2d_does_not_claim_linear_residual_ok() {
 
     assert!(pd.converged && pd.is_stable);
     assert!(pd_ux / lin_ux > 1.5, "want a real amplification, got {}", pd_ux / lin_ux);
-    assert!(pd.results.equilibrium.is_none());
+    let dofs = DofNumbering::build_2d(&input);
+    let asm = assembly::assemble_2d(&input, &dofs);
+    let mut u = vec![0.0; dofs.n_total];
+    for d in &pd.results.displacements {
+        for (k, v) in [d.ux, d.uz, d.ry].into_iter().enumerate() {
+            if let Some(i) = dofs.global_dof(d.node_id, k) { u[i] = v; }
+        }
+    }
+    let mut tangent = asm.k.clone();
+    geometric_stiffness::add_geometric_stiffness_2d(&input, &dofs, &u, &mut tangent);
+    assert_final_equilibrium(pd.results.equilibrium.as_ref().unwrap(), &asm.k, &tangent, &asm.f, &u, dofs.n_free);
 
-    // The copied ResidualOk carries the *linear* residual, bit-for-bit.
     let lin_res = lin
         .structured_diagnostics
         .iter()
@@ -84,13 +124,12 @@ fn pdelta_2d_does_not_claim_linear_residual_ok() {
         .collect();
     assert!(
         leaked.is_empty(),
-        "P-Delta result (equilibrium=None, sway x{:.2}) carries linear-solve diagnostics: {leaked:?}",
+        "P-Delta result (sway x{:.2}) carries linear-solve diagnostics: {leaked:?}",
         pd_ux / lin_ux
     );
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn pdelta_3d_does_not_claim_linear_residual_ok() {
     // 4 m cantilever column along Z, 4 elements, axial P ~0.44 Pcr + lateral.
     let n = 4;
@@ -132,7 +171,17 @@ fn pdelta_3d_does_not_claim_linear_residual_ok() {
 
     assert!(pd.converged && pd.is_stable);
     assert!(pd_ux / lin_ux > 1.5, "want a real amplification, got {}", pd_ux / lin_ux);
-    assert!(pd.results.equilibrium.is_none());
+    let dofs = DofNumbering::build_3d(&input);
+    let asm = assembly::assemble_3d(&input, &dofs);
+    let mut u = vec![0.0; dofs.n_total];
+    for d in &pd.results.displacements {
+        for (k, v) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].into_iter().enumerate() {
+            if let Some(i) = dofs.global_dof(d.node_id, k) { u[i] = v; }
+        }
+    }
+    let mut tangent = asm.k.clone();
+    geometric_stiffness::add_geometric_stiffness_3d(&input, &dofs, &u, &mut tangent);
+    assert_final_equilibrium(pd.results.equilibrium.as_ref().unwrap(), &asm.k, &tangent, &asm.f, &u, dofs.n_free);
 
     let leaked: Vec<_> = pd
         .results
@@ -143,7 +192,7 @@ fn pdelta_3d_does_not_claim_linear_residual_ok() {
         .collect();
     assert!(
         leaked.is_empty(),
-        "3D P-Delta result (equilibrium=None, sway x{:.2}) carries linear-solve diagnostics: {leaked:?}",
+        "3D P-Delta result (sway x{:.2}) carries linear-solve diagnostics: {leaked:?}",
         pd_ux / lin_ux
     );
 }

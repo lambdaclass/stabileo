@@ -23,7 +23,7 @@
 ///   7. Multi-story frame erection sequence
 ///   8. Global equilibrium holds at every construction stage
 
-use dedaliano_engine::solver::staged::solve_staged_2d;
+use dedaliano_engine::solver::{linear::solve_2d, staged::solve_staged_2d};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -45,6 +45,49 @@ fn assert_close(actual: f64, expected: f64, rel_tol: f64, label: &str) {
         "{}: actual={:.8}, expected={:.8}, rel_err={:.4}%",
         label, actual, expected, rel_err * 100.0
     );
+}
+
+pub(super) fn assert_support_refusal(input: &StagedInput, nodes: &[usize]) {
+    let error = match solve_staged_2d(input) {
+        Err(error) => error,
+        Ok(results) => panic!("Changing-support history returned numeric results: {:?}", results.stages.iter().map(|s| (&s.results.displacements, &s.results.structured_diagnostics)).collect::<Vec<_>>()),
+    };
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostics = error["structuredDiagnostics"].as_array().unwrap();
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0]["code"], "result_quantity_unavailable");
+    assert_eq!(diagnostics[0]["severity"], "error");
+    assert_eq!(diagnostics[0]["phase"], "reactions");
+    assert_eq!(diagnostics[0]["nodeIds"], serde_json::json!(nodes));
+    assert!(error.get("results").is_none());
+}
+
+fn select_ids<T: Clone>(values: &HashMap<String, T>, ids: &[usize]) -> HashMap<String, T> {
+    ids.iter().map(|id| {
+        let key = id.to_string();
+        (key.clone(), values[&key].clone())
+    }).collect()
+}
+
+pub(super) fn reference_input(
+    input: &StagedInput,
+    nodes: &[usize],
+    elements: &[usize],
+    supports: &[usize],
+    loads: &[usize],
+) -> SolverInput {
+    SolverInput {
+        nodes: select_ids(&input.nodes, nodes),
+        elements: select_ids(&input.elements, elements),
+        supports: select_ids(&input.supports, supports),
+        materials: input.materials.clone(),
+        sections: input.sections.clone(),
+        loads: loads.iter().map(|&i| input.loads[i].clone()).collect(),
+        constraints: input.constraints.clone(),
+        connectors: HashMap::new(),
+        solver_options: None,
+        masses: Default::default(),
+    }
 }
 
 // ================================================================
@@ -107,7 +150,6 @@ fn make_supports(sups: &[(usize, usize, &str)]) -> HashMap<String, SolverSupport
 // span does not redistribute the stage 1 forces.
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn validation_staged_1_two_phase_beam() {
     let l = 5.0; // each span
     let q = -10.0; // kN/m downward
@@ -121,7 +163,6 @@ fn validation_staged_1_two_phase_beam() {
         (2, 3, "rollerX"),
     ]);
 
-    // UDL on element 1 (stage 1) and UDL on element 2 (stage 2)
     let loads = vec![
         SolverLoad::Distributed(SolverDistributedLoad {
             element_id: 1, q_i: q, q_j: q, a: None, b: None,
@@ -131,7 +172,6 @@ fn validation_staged_1_two_phase_beam() {
         }),
     ];
 
-    // --- Staged solve ---
     let staged_input = StagedInput {
         nodes: nodes.clone(),
         materials: materials.clone(),
@@ -159,9 +199,11 @@ fn validation_staged_1_two_phase_beam() {
         ],
         constraints: vec![],
     };
-    let staged_results = solve_staged_2d(&staged_input).unwrap();
+    assert_support_refusal(&staged_input, &[3]);
+    let stage1_input = reference_input(&staged_input, &[1, 2], &[1], &[1], &[0]);
+    let stage1_results = solve_2d(&stage1_input).unwrap();
+    let complete_reference = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0, 1])).unwrap();
 
-    // --- Single-stage solve (all at once) ---
     let single_input = StagedInput {
         nodes, materials, sections, elements, supports,
         loads,
@@ -177,27 +219,28 @@ fn validation_staged_1_two_phase_beam() {
     };
     let single_results = solve_staged_2d(&single_input).unwrap();
 
-    // The midspan deflection at node 2 should differ between staged and single-stage.
-    let staged_uy2 = staged_results.final_results.displacements.iter()
+    let cantilever_uy2 = stage1_results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     let single_uy2 = single_results.final_results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
 
-    // They must NOT be equal — staged construction produces different results
-    let diff = (staged_uy2 - single_uy2).abs();
+    let diff = (cantilever_uy2 - single_uy2).abs();
     assert!(
         diff > 1e-6,
-        "Staged and single-stage should differ at node 2: staged={:.8}, single={:.8}",
-        staged_uy2, single_uy2
+        "Cantilever and complete beam references should differ at node 2: cantilever={:.8}, single={:.8}",
+        cantilever_uy2, single_uy2
     );
 
-    // Stage 1 result: cantilever with UDL => tip deflection qL^4/(8EI)
-    // E in solver units = E * 1000 kN/m^2
+    let complete_uy2 = complete_reference.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    assert_close(single_uy2, complete_uy2, 1e-10, "Complete beam staged control matches linear reference");
+    println!("two-phase references: cantilever={cantilever_uy2:e}, complete={complete_uy2:e}");
+
     let e_kn = E * 1000.0;
     let cantilever_tip = q * l.powi(4) / (8.0 * e_kn * IZ);
-    let stage1_uy2 = staged_results.stages[0].results.displacements.iter()
+    let stage1_uy2 = stage1_results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
 
+    assert!((stage1_uy2 - cantilever_tip).abs() < 1e-10);
     assert_close(stage1_uy2, cantilever_tip, REL_TOL,
         "Stage 1 cantilever tip deflection");
 }
@@ -215,7 +258,6 @@ fn validation_staged_1_two_phase_beam() {
 // of placement (no new loads are applied in stage 2).
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn validation_staged_2_support_addition() {
     let l = 10.0;
     let p = -100.0;
@@ -236,7 +278,7 @@ fn validation_staged_2_support_addition() {
         }),
     ];
 
-    let staged_input = StagedInput {
+    let mut staged_input = StagedInput {
         nodes, materials, sections, elements, supports,
         loads,
         stages: vec![
@@ -260,32 +302,35 @@ fn validation_staged_2_support_addition() {
         constraints: vec![],
     };
 
+    assert_support_refusal(&staged_input, &[2]);
+    let original_reference = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0])).unwrap();
+    let propped_reference = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2, 3], &[0])).unwrap();
+    let original_uz = original_reference.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let propped_uz = propped_reference.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    assert!(original_uz < -ABS_TOL);
+    assert_eq!(propped_uz, 0.0);
+    let propped_reaction = propped_reference.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
+    assert_eq!(propped_reaction, -p);
+    assert_close(propped_reaction, -p, REL_TOL, "Premature support takes the point load");
+    println!("support-addition references: simply-supported={original_uz:e}, prematurely-propped={propped_uz:e}, propped reaction={propped_reaction:e}");
+    staged_input.supports.remove("3");
+    staged_input.stages[1].supports_added.clear();
     let results = solve_staged_2d(&staged_input).unwrap();
+    assert_eq!(results.stages.len(), 2);
 
-    // Stage 2 has no new loads, so the incremental displacement is zero.
-    // The intermediate support at node 2 should see zero reaction from stage 2
-    // (since no incremental load is applied).
-    //
-    // Check that the stage 2 cumulative result still has the stage 1
-    // deflection at node 2.
     let s1_uy2 = results.stages[0].results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     let s2_uy2 = results.stages[1].results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
 
-    // The cumulative displacement at node 2 should be unchanged
-    // (support was added with no new load, so no incremental deformation).
-    assert_close(s2_uy2, s1_uy2, REL_TOL,
-        "Node 2 displacement unchanged after support addition");
+    assert_close(s1_uy2, original_uz, 1e-10, "Supported no-change control matches the original beam reference");
 
-    // The reaction at node 2 in stage 1 should be zero (no support at node 2 yet).
-    // In the staged solver, reactions are computed from element forces.
-    // After stage 2, since no new load was applied, the element forces
-    // remain the same as stage 1.
+    assert_close(s2_uy2, s1_uy2, REL_TOL,
+        "Node 2 displacement unchanged in the no-change control");
+
     let s1_forces = &results.stages[0].results.element_forces;
     let s2_forces = &results.stages[1].results.element_forces;
 
-    // Element forces should be essentially the same between stages.
     for (ef1, ef2) in s1_forces.iter().zip(s2_forces.iter()) {
         assert_close(ef1.m_start, ef2.m_start, REL_TOL,
             &format!("Element {} m_start unchanged", ef1.element_id));
@@ -440,7 +485,6 @@ fn validation_staged_3_element_activation() {
 // any new loads in stage 3.
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn validation_staged_4_support_removal() {
     let l = 5.0;
     let p = -100.0; // kN at node 2
@@ -455,11 +499,9 @@ fn validation_staged_4_support_removal() {
     ]);
 
     let loads = vec![
-        // Stage 1: load on complete structure
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
-        // Stage 3: load on cantilever
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
@@ -501,11 +543,12 @@ fn validation_staged_4_support_removal() {
         constraints: vec![],
     };
 
-    let results = solve_staged_2d(&staged_input).unwrap();
-    assert_eq!(results.stages.len(), 3);
+    assert_support_refusal(&staged_input, &[3]);
+    let full_reference = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0])).unwrap();
+    let cantilever_reference = solve_2d(&reference_input(&staged_input, &[1, 2], &[1], &[1], &[0])).unwrap();
+    let reloaded_reference = solve_2d(&reference_input(&staged_input, &[1, 2], &[1], &[1], &[0, 1])).unwrap();
 
-    // Stage 1: full two-span beam with load at node 2. Node 2 deflects.
-    let s1_uy2 = results.stages[0].results.displacements.iter()
+    let s1_uy2 = full_reference.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
         s1_uy2 < 0.0,
@@ -513,16 +556,14 @@ fn validation_staged_4_support_removal() {
         s1_uy2
     );
 
-    // Stage 1: both elements should have forces
-    let s1_ef1 = results.stages[0].results.element_forces.iter()
+    let s1_ef1 = full_reference.element_forces.iter()
         .find(|ef| ef.element_id == 1).unwrap();
-    let s1_ef2 = results.stages[0].results.element_forces.iter()
+    let s1_ef2 = full_reference.element_forces.iter()
         .find(|ef| ef.element_id == 2).unwrap();
     assert!(s1_ef1.v_start.abs() > 1.0, "Stage 1: element 1 should have shear");
     assert!(s1_ef2.v_start.abs() > 1.0, "Stage 1: element 2 should have shear");
 
-    // Stage 2: element 2 removed. Only element 1 should appear in forces.
-    let s2_forces = &results.stages[1].results.element_forces;
+    let s2_forces = &cantilever_reference.element_forces;
     assert!(
         s2_forces.iter().all(|ef| ef.element_id != 2),
         "Stage 2: element 2 should not appear in element forces"
@@ -532,9 +573,8 @@ fn validation_staged_4_support_removal() {
         "Stage 2: element 1 should appear in element forces"
     );
 
-    // Stage 3: load applied to cantilever structure. Node 2 should
-    // deflect further downward.
-    let s3_uy2 = results.stages[2].results.displacements.iter()
+    println!("support-removal references: full={s1_uy2:e}, cantilever={:e}", cantilever_reference.displacements.iter().find(|d| d.node_id == 2).unwrap().uz);
+    let s3_uy2 = reloaded_reference.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
         s3_uy2 < s1_uy2,

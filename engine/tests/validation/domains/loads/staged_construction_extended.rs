@@ -13,7 +13,8 @@
 /// of staged vs instantaneous solutions.
 
 use crate::common::*;
-use dedaliano_engine::solver::staged::solve_staged_2d;
+use dedaliano_engine::solver::{linear::solve_2d, staged::solve_staged_2d};
+use super::staged_construction::{assert_support_refusal, reference_input};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -82,7 +83,6 @@ fn make_supports(sups: &[(usize, usize, &str)]) -> HashMap<String, SolverSupport
 // the continuous-beam (fixed-roller) solution.
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn validation_staged_ext_1_two_phase_beam() {
     let l = 5.0; // each span
     let q = -10.0; // kN/m downward
@@ -105,7 +105,6 @@ fn validation_staged_ext_1_two_phase_beam() {
         }),
     ];
 
-    // --- Staged solve: build left span as cantilever, then add right span ---
     let staged_input = StagedInput {
         nodes: nodes.clone(),
         materials: materials.clone(),
@@ -133,9 +132,10 @@ fn validation_staged_ext_1_two_phase_beam() {
         ],
         constraints: vec![],
     };
-    let staged_results = solve_staged_2d(&staged_input).unwrap();
+    assert_support_refusal(&staged_input, &[3]);
+    let stage1_results = solve_2d(&reference_input(&staged_input, &[1, 2], &[1], &[1], &[0])).unwrap();
+    let complete_reference = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0, 1])).unwrap();
 
-    // --- Single-stage solve (all at once) ---
     let single_input = StagedInput {
         nodes, materials, sections, elements, supports,
         loads,
@@ -151,26 +151,27 @@ fn validation_staged_ext_1_two_phase_beam() {
     };
     let single_results = solve_staged_2d(&single_input).unwrap();
 
-    // The staged and single-stage solutions must differ at node 2,
-    // because in staged construction the stage 1 cantilever deflection is locked in.
-    let staged_uy2 = staged_results.final_results.displacements.iter()
+    let cantilever_uy2 = stage1_results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     let single_uy2 = single_results.final_results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
 
-    let diff = (staged_uy2 - single_uy2).abs();
+    let diff = (cantilever_uy2 - single_uy2).abs();
     assert!(
         diff > 1e-6,
-        "Staged and single-stage should differ at node 2: staged={:.8}, single={:.8}",
-        staged_uy2, single_uy2
+        "Cantilever and complete beam references should differ at node 2: cantilever={:.8}, single={:.8}",
+        cantilever_uy2, single_uy2
     );
 
-    // Stage 1: cantilever tip deflection = q*L^4/(8*E*I)
+    let complete_uy2 = complete_reference.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    assert_close(single_uy2, complete_uy2, 1e-10, "Complete beam staged control matches linear reference");
+
     let e_kn = E * 1000.0;
     let cant_deflection = q * l.powi(4) / (8.0 * e_kn * IZ);
-    let stage1_uy2 = staged_results.stages[0].results.displacements.iter()
+    let stage1_uy2 = stage1_results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
 
+    assert!((stage1_uy2 - cant_deflection).abs() < 1e-10);
     assert_close(stage1_uy2, cant_deflection, 0.02,
         "Stage 1 cantilever tip deflection");
 }
@@ -189,7 +190,6 @@ fn validation_staged_ext_1_two_phase_beam() {
 // Verify the final reactions balance: sum(Ry) = -2P.
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn validation_staged_ext_2_support_addition() {
     let l = 5.0; // each element
     let p = -60.0; // kN at node 2
@@ -218,8 +218,7 @@ fn validation_staged_ext_2_support_addition() {
         }),
     ];
 
-    // --- Staged: build 2 elements, then extend ---
-    let staged_input = StagedInput {
+    let mut staged_input = StagedInput {
         nodes: nodes.clone(),
         materials: materials.clone(),
         sections: sections.clone(),
@@ -246,9 +245,13 @@ fn validation_staged_ext_2_support_addition() {
         ],
         constraints: vec![],
     };
+    assert_support_refusal(&staged_input, &[4]);
+    let original_reference = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0])).unwrap();
+    staged_input.stages[0].supports_added.push(3);
+    staged_input.stages[1].supports_added.clear();
     let staged_results = solve_staged_2d(&staged_input).unwrap();
+    assert_eq!(staged_results.stages.len(), 2);
 
-    // --- Single-stage solve with all at once ---
     let single_input = StagedInput {
         nodes, materials, sections, elements, supports,
         loads: vec![
@@ -268,9 +271,6 @@ fn validation_staged_ext_2_support_addition() {
     };
     let single_results = solve_staged_2d(&single_input).unwrap();
 
-    // The staged and single-stage solutions must differ because
-    // in the staged case, stage 1 load acts on a 2-element structure
-    // while in single-stage, both loads act on the 3-element structure.
     let staged_uy2 = staged_results.final_results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     let single_uy2 = single_results.final_results.displacements.iter()
@@ -283,7 +283,6 @@ fn validation_staged_ext_2_support_addition() {
         staged_uy2, single_uy2
     );
 
-    // Stage 1: node 2 should deflect downward
     let s1_uy2 = staged_results.stages[0].results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
@@ -291,7 +290,9 @@ fn validation_staged_ext_2_support_addition() {
         "Stage 1: node 2 should deflect downward: uy={}", s1_uy2
     );
 
-    // Final reactions: sum(Ry) should balance 2*P
+    let reference_uz = original_reference.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    assert_close(s1_uy2, reference_uz, 1e-10, "Initially isolated far support leaves the loaded beam unchanged");
+
     let sum_ry: f64 = staged_results.final_results.reactions.iter()
         .map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * p, 0.05,
@@ -544,7 +545,6 @@ fn validation_staged_ext_4_sequential_loading() {
 // than the stage 1 deflection (two-span beam) for the same load.
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn validation_staged_ext_5_prop_removal() {
     let l = 5.0;
     let p = -100.0; // kN at node 2
@@ -563,11 +563,9 @@ fn validation_staged_ext_5_prop_removal() {
     ]);
 
     let loads = vec![
-        // Stage 1 load
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
-        // Stage 3 load (same magnitude, on cantilever)
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
@@ -605,34 +603,32 @@ fn validation_staged_ext_5_prop_removal() {
         constraints: vec![],
     };
 
-    let results = solve_staged_2d(&staged_input).unwrap();
-    assert_eq!(results.stages.len(), 3);
+    assert_support_refusal(&staged_input, &[3]);
+    let full_reference = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0])).unwrap();
+    let cantilever_reference = solve_2d(&reference_input(&staged_input, &[1, 2], &[1], &[1], &[0])).unwrap();
+    let reloaded_reference = solve_2d(&reference_input(&staged_input, &[1, 2], &[1], &[1], &[0, 1])).unwrap();
 
-    // Stage 1: two-span beam. Node 2 deflects.
-    let s1_uy2 = results.stages[0].results.displacements.iter()
+    let s1_uy2 = full_reference.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
         s1_uy2 < 0.0,
         "Stage 1: node 2 should deflect downward: uy={}", s1_uy2
     );
 
-    // Stage 1: both elements should have forces
-    let s1_ef1 = results.stages[0].results.element_forces.iter()
+    let s1_ef1 = full_reference.element_forces.iter()
         .find(|ef| ef.element_id == 1).unwrap();
-    let s1_ef2 = results.stages[0].results.element_forces.iter()
+    let s1_ef2 = full_reference.element_forces.iter()
         .find(|ef| ef.element_id == 2).unwrap();
     assert!(s1_ef1.v_start.abs() > 1.0, "Stage 1: element 1 should have shear");
     assert!(s1_ef2.v_start.abs() > 1.0, "Stage 1: element 2 should have shear");
 
-    // Stage 2: element 2 removed, no new load. Only element 1 in forces.
-    let s2_forces = &results.stages[1].results.element_forces;
+    let s2_forces = &cantilever_reference.element_forces;
     assert!(
         s2_forces.iter().all(|ef| ef.element_id != 2),
         "Stage 2: element 2 should not appear"
     );
 
-    // Stage 3: load on cantilever. Node 2 deflects further.
-    let s3_uy2 = results.stages[2].results.displacements.iter()
+    let s3_uy2 = reloaded_reference.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
         s3_uy2 < s1_uy2,
@@ -640,9 +636,7 @@ fn validation_staged_ext_5_prop_removal() {
         s3_uy2, s1_uy2
     );
 
-    // Incremental deflection from stage 3 (cantilever) should be larger
-    // in magnitude than stage 1 (two-span beam) for the same load.
-    let s2_uy2 = results.stages[1].results.displacements.iter()
+    let s2_uy2 = cantilever_reference.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     let incr_stage3 = (s3_uy2 - s2_uy2).abs();
     let incr_stage1 = s1_uy2.abs();
