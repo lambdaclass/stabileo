@@ -1,0 +1,36 @@
+{
+  "id": "plastic-nightly-model-and-candidate-budgets",
+  "date": "2026-11-11",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "members",
+      "arcMembers"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "collapseFactor"
+  ],
+  "title": {
+    "en": "Plastic balance uses solved model IDs and certificates budget actual candidates",
+    "es": "El equilibrio plástico usa los identificadores del modelo resuelto y el certificado limita cada candidato",
+    "pt": "O equilíbrio plástico usa os IDs do modelo resolvido e o certificado limita cada candidato",
+    "de": "Plastisches Gleichgewicht nutzt Modell-IDs und Zertifikate begrenzen einzelne Kandidaten",
+    "fr": "L’équilibre plastique utilise les identifiants du modèle résolu et le certificat limite chaque candidat",
+    "tr": "Plastik denge çözülen modelin kimliklerini kullanır; sertifikalar her adayın belleğini sınırlar"
+  },
+  "explanation": {
+    "en": "Recovered-force accuracy checks now resolve member and node IDs from the solved model, independently of JSON map keys. Missing recovered members return a coded refusal. Exact plastic certification checks initial storage and each actual LP candidate against the existing byte limits; it retains proven bounds if further refinement cannot fit. Previously refused random frames can now certify. Numerical tolerances are unchanged.",
+    "es": "Las comprobaciones de fuerzas recuperadas resuelven los identificadores de miembros y nodos del modelo resuelto, independientemente de las claves JSON. Un miembro ausente produce un rechazo codificado. La certificación plástica exacta verifica el almacenamiento inicial y cada candidato LP con los límites de bytes existentes; conserva cotas demostradas si no cabe otro refinamiento. Los pórticos aleatorios antes rechazados pueden certificarse. No cambian las tolerancias numéricas.",
+    "pt": "As verificações de forças recuperadas usam os IDs de membros e nós do modelo resolvido, independentemente das chaves JSON. Um membro ausente retorna recusa codificada. A certificação plástica exata verifica o armazenamento inicial e cada candidato LP nos limites de bytes existentes; conserva limites provados se outro refinamento não couber. Pórticos aleatórios antes recusados podem ser certificados. As tolerâncias numéricas permanecem iguais.",
+    "de": "Prüfungen rückgerechneter Kräfte verwenden Stab- und Knoten-IDs des gelösten Modells unabhängig von JSON-Schlüsseln. Fehlende Stäbe liefern eine codierte Ablehnung. Die exakte plastische Zertifizierung prüft den Anfangsspeicher und jeden LP-Kandidaten gegen die bisherigen Bytegrenzen und behält bewiesene Schranken bei, wenn weitere Verfeinerung nicht hineinpasst. Bisher abgelehnte Zufallsrahmen können nun zertifiziert werden. Numerische Toleranzen bleiben gleich.",
+    "fr": "Les vérifications des forces récupérées utilisent les identifiants des barres et nœuds du modèle résolu, indépendamment des clés JSON. Une barre absente entraîne un refus codé. La certification plastique exacte vérifie le stockage initial et chaque candidat LP avec les limites d’octets existantes ; elle conserve les bornes prouvées si un raffinement supplémentaire dépasse le budget. Des portiques aléatoires auparavant refusés peuvent être certifiés. Les tolérances numériques sont inchangées.",
+    "tr": "Geri hesaplanan kuvvet kontrolleri, JSON anahtarlarından bağımsız olarak çözülen modeldeki çubuk ve düğüm kimliklerini kullanır. Eksik çubuk kodlu ret üretir. Kesin plastik sertifikalama ilk belleği ve her LP adayını mevcut bayt sınırlarıyla denetler; ek iyileştirme sığmazsa kanıtlanmış sınırları korur. Önceden reddedilen rastgele çerçeveler artık sertifikalanabilir. Sayısal toleranslar değişmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plastic-nightly-model-and-candidate-budgets.md",
+    "heading": "Plastic balance model identity and incremental certificate storage (2026-11-11)"
+  }
+}

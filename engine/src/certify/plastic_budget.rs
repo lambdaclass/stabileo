@@ -19,6 +19,16 @@ pub struct PlasticLpWork {
 }
 
 impl PlasticLpWork {
+    pub fn initial(self) -> Self {
+        Self { max_halfspaces: self.initial_halfspaces, ..self }
+    }
+
+    pub(crate) fn check_candidate(self, free_variables: usize, halfspaces: usize) -> Result<(), String> {
+        let candidate = Self { max_halfspaces: halfspaces, ..self };
+        candidate.check_engine_budget()?;
+        candidate.check_candidate_workspace(free_variables)
+    }
+
     pub fn max_tableau_cells(self) -> usize {
         let rows = self.force_variables.saturating_add(1);
         rows.saturating_mul(self.max_halfspaces.saturating_add(rows).saturating_add(1))

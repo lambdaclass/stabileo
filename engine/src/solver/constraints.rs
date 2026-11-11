@@ -1848,7 +1848,7 @@ fn solve_constrained_2d_dense_validated(
 /// linear sparse path (`prepare_static_2d`). `Ok(None)` on a failed
 /// factorization: the caller then runs the dense path, whose LU reports the
 /// mechanism exactly as before.
-fn solve_constrained_2d_sparse(
+pub(super) fn solve_constrained_2d_sparse(
     input: &ConstrainedInput,
     dof_num: &DofNumbering,
 ) -> Result<Option<AnalysisResults>, String> {

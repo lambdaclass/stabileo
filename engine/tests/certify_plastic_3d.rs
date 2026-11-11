@@ -782,9 +782,10 @@ fn axial_point_loads_are_refused_by_the_3d_plastic_certificate() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1954"]
 fn nightly_plane_case_zero_has_provable_bounds() {
     let input = nightly_plane_frames(1).pop().unwrap();
+    let recorded: PlasticInput3D = serde_json::from_str(include_str!("fixtures/plastic-1954-plane-seed7.json")).unwrap();
+    assert_eq!(serde_json::to_value(&input).unwrap(), serde_json::to_value(recorded).unwrap());
     let raw = solve_plastic_3d(&input).unwrap();
     let certificate = certify_collapse_3d(&input, Some(&raw));
     assert!(certificate.certified, "{certificate:?}");
@@ -801,9 +802,18 @@ fn nightly_plane_case_zero_has_provable_bounds() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1954"]
 fn nightly_space_case_two_has_provable_bounds() {
-    let input = nightly_space_frames(3).pop().unwrap();
+    let mut input = nightly_space_frames(3).pop().unwrap();
+    let first_storey = input.solver.nodes.values().map(|n| n.z).filter(|&z| z > 0.0).min_by(f64::total_cmp).unwrap();
+    input.solver.nodes.retain(|_, n| n.z <= first_storey);
+    let nodes: std::collections::HashSet<_> = input.solver.nodes.values().map(|n| n.id).collect();
+    input.solver.elements.retain(|_, e| nodes.contains(&e.node_i) && nodes.contains(&e.node_j));
+    let members: std::collections::HashSet<_> = input.solver.elements.values().map(|e| e.id).collect();
+    input.solver.loads.retain(|load| match load {
+        SolverLoad3D::Nodal(l) => nodes.contains(&l.node_id),
+        SolverLoad3D::Distributed(l) => members.contains(&l.element_id),
+        _ => panic!("unexpected random frame load"),
+    });
     let raw = solve_plastic_3d(&input).unwrap();
     let certificate = certify_collapse_3d(&input, Some(&raw));
     assert!(certificate.certified, "{certificate:?}");

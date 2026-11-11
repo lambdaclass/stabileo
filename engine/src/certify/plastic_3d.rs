@@ -1076,6 +1076,7 @@ fn polyf(c: &[f64; 4], t: f64) -> f64 {
     ((c[3] * t + c[2]) * t + c[1]) * t + c[0]
 }
 
+#[derive(Clone)]
 struct Sample {
     e: usize,
     t: Q,
@@ -1199,7 +1200,13 @@ struct LpSolution {
 
 /// max λ s.t. `cos φ m_y + sin φ m_z ≤ 1` for every sample and tangent
 /// direction φ (an outer polygon of the ellipse), through its dual.
-fn solve_lp(samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Option<LpSolution> {
+fn solve_lp(model: &PlasticModel3, samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Result<Option<LpSolution>, String> {
+    let halfspaces = samples.iter().fold(0usize, |count, sample| count.saturating_add(sample.dirs.len()));
+    lp_work(model).check_candidate(eq.null.len(), halfspaces)?;
+    Ok(solve_lp_unchecked(samples, ef, eq))
+}
+
+fn solve_lp_unchecked(samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Option<LpSolution> {
     let r = eq.null.len();
     let mut g = Vec::new();
     let mut h: Vec<Vec<f64>> = vec![Vec::new(); r];
@@ -1786,22 +1793,20 @@ pub fn plastic_candidates_3d(
     model: &PlasticModel3,
     solver: Option<(&PlasticInput3D, &PlasticResult3D)>,
 ) -> Result<PlasticCandidates3, String> {
-    lp_work(model).check_engine_budget()?;
+    lp_work(model).initial().check_engine_budget()?;
     let eq = equilibrium_system(model)?;
-    lp_work(model).check_candidate_workspace(eq.null.len())?;
     let eqf = EqF { xp: eq.xp.iter().map(to_f64).collect(), null: eq.null.iter().map(|v| v.iter().map(to_f64).collect()).collect() };
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
     let mut samples = initial_samples(model, &ef);
-    let mut lp = solve_lp(&samples, &ef, &eqf).ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
+    let mut lp = solve_lp(model, &samples, &ef, &eqf)?.ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
     for _ in 0..REFINEMENT_PASSES {
         let x = field_f64(&eqf, lp.lambda, &lp.z);
-        let (added, _) = refine(model, &ef, &x, lp.lambda, &mut samples);
-        if !added {
-            break;
-        }
-        match solve_lp(&samples, &ef, &eqf) {
-            Some(s) => lp = s,
-            None => break,
+        let mut refined = samples.clone();
+        let (added, _) = refine(model, &ef, &x, lp.lambda, &mut refined);
+        if !added { break; }
+        match solve_lp(model, &refined, &ef, &eqf) {
+            Ok(Some(next)) => { lp = next; samples = refined; }
+            Ok(None) | Err(_) => break,
         }
     }
 
@@ -1950,16 +1955,16 @@ pub fn plastic_candidates_3d(
             }
         }
         if changed {
-            if let Some(mut lp2) = solve_lp(&samples, &ef, &eqf) {
+            if let Ok(Some(mut lp2)) = solve_lp(model, &samples, &ef, &eqf) {
                 for _ in 0..10 {
                     let x = field_f64(&eqf, lp2.lambda, &lp2.z);
                     let (added, _) = refine(model, &ef, &x, lp2.lambda, &mut samples);
                     if !added {
                         break;
                     }
-                    match solve_lp(&samples, &ef, &eqf) {
-                        Some(s) => lp2 = s,
-                        None => break,
+                    match solve_lp(model, &samples, &ef, &eqf) {
+                        Ok(Some(s)) => lp2 = s,
+                        Ok(None) | Err(_) => break,
                     }
                 }
                 if lp2.lambda > 0.0 && lp2.lambda.is_finite() {
@@ -2116,7 +2121,7 @@ fn collapse_3d(input: &PlasticInput3D, solver: Option<&PlasticResult3D>) -> Plas
 pub fn certify_plastic_3d(input: &PlasticInput3D) -> Result<CertifiedPlastic3D, String> {
     super::finite::check_input(input)?;
     if let Ok(model) = build_model_3d(input) {
-        lp_work(&model).check_engine_budget()?;
+        lp_work(&model).initial().check_engine_budget()?;
     }
     let mut results = solve_plastic_3d(input)?;
     super::finite::check_results(&results)?;
