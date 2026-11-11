@@ -31,6 +31,7 @@ import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import { buildSolverInput3D } from '../solver-service';
 import * as wasmSolver from '../wasm-solver';
+import { stagedStagesPayload } from '../advanced-analyses';
 import {
   solveHarmonic3D, solveSSI3D, solveStaged3D, solveCreepShrinkage3D,
   solveWithImperfections3D, computeInfluenceLine3D, solveMultiCase3D,
@@ -114,11 +115,15 @@ describe('advanced analyses: 3D payloads the engine accepts', () => {
     expect(typeof res.converged).toBe('boolean');
   });
 
-  it.skip('known wrong result: #1949: staged construction flattens the model beside the stages', () => {
-    const res = solveStaged3D({
-      solver: input3D(),
-      stages: [{ name: 'Etapa 1', elementsAdded: [...modelStore.elements.keys()], elementsRemoved: [], loadIndices: [] }],
-    });
+  it('staged construction flattens the model beside the stages', () => {
+    const solver = input3D();
+    const stage = { name: 'Etapa 1', elementsAdded: [...modelStore.elements.keys()], elementsRemoved: [], loadIndices: [] };
+    expect(() => solveStaged3D({ solver, stages: [stage] })).toThrow(/active support restraints differ/);
+    const supportNodes = [...new Set([...modelStore.supports.values()].map((s) => s.nodeId))];
+    const stages = stagedStagesPayload([
+      { ...stage, platesAdded: [], platesRemoved: [], quadsAdded: [], quadsRemoved: [], caseIds: [] },
+    ], new Map(), supportNodes);
+    const res = solveStaged3D({ solver, stages });
     expect(res.stages).toHaveLength(1);
     expect(res.stages[0].stageName).toBe('Etapa 1');
   });

@@ -218,7 +218,6 @@ fn staged_3d_displacement_accumulation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1949"]
 fn staged_3d_support_activation() {
     let mut input = make_staged_3d_base();
 
@@ -266,6 +265,19 @@ fn staged_3d_support_activation() {
         supports_removed: vec![],
         prestress_loads: vec![], ..Default::default() });
 
+    let mut reference: SolverInput3D = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+    reference.loads.truncate(1);
+    let propped = dedaliano_engine::solver::linear::solve_3d(&reference).unwrap();
+    reference.supports.remove("3");
+    let cantilever = dedaliano_engine::solver::linear::solve_3d(&reference).unwrap();
+    let propped_tip = propped.displacements.iter().find(|d| d.node_id == 3).unwrap().uz;
+    let cantilever_tip = cantilever.displacements.iter().find(|d| d.node_id == 3).unwrap().uz;
+    assert!(propped_tip.abs() < 1e-10);
+    assert!(cantilever_tip.abs() > 1e-10);
+    eprintln!("support activation reference: propped tip={propped_tip:e}, cantilever tip={cantilever_tip:e}");
+    super::staged_analysis::assert_support_refusal(solve_staged_3d(&input).unwrap_err(), &[3]);
+    input.stages[0].supports_added.push(3);
+    input.stages[1].supports_added.clear();
     let result = solve_staged_3d(&input).unwrap();
     assert_eq!(result.stages.len(), 2);
 

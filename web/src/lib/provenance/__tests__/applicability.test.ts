@@ -549,13 +549,14 @@ describe('reaction recovery saved-model scope (#1949)', () => {
 
   it('excludes unchanged linear and unconstrained nonlinear results in every workspace', () => {
     for (const analysisMode of ['2d', '3d', 'pro']) {
-      for (const structure of [
+      const structures: Partial<FeatureSnapshot>[] = [
         { elements: [member(1, 1, 'frame')] },
         { elements: [member(1, 1, 'truss')] },
-        { quads: [[1, {}]] as never },
-        { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] as never },
+        { quads: [[1, {}]] },
+        { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] },
         { connectors: [[1, { kShear: 1 }]] },
-      ]) {
+      ];
+      for (const structure of structures) {
         const snapshot = model({ ...structure, analysisMode });
         for (const analysis of ['linear', 'nonlinear'] as const) {
           expect(ids(snapshot, before(analysis)), `${analysisMode} ${analysis} ${JSON.stringify(structure)}`).not.toContain(change);
