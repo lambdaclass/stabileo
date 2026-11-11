@@ -1,3 +1,5 @@
+import reactionRecoveryChange from '../result-changes/arc-length-reactions.json';
+import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
 import { assessProject, conditionHolds } from '../applicability';
@@ -535,4 +537,71 @@ it('scopes frozen member validation to one-way behaviour even without gaps (#192
     expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss')] }))).not.toContain(id);
     expect(ids(model({ analysisMode, elements: [member(1, 1, 'frame')] }))).not.toContain(id);
   }
+});
+
+
+describe('reaction recovery saved-model scope (#1949)', () => {
+  const change = 'arc-length-reactions';
+  const entry = RESULT_CHANGES.changes.find((c) => c.id === change)!;
+  const before = (analysis: 'linear' | 'pdelta' | 'nonlinear' | 'timeHistory') => ({
+    ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1,
+  });
+
+  it.skip('known wrong result: #1949: excludes unchanged linear and unconstrained nonlinear results in every workspace', () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      for (const structure of [
+        { elements: [member(1, 1, 'frame')] },
+        { elements: [member(1, 1, 'truss')] },
+        { quads: [[1, {}]] as never },
+        { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] as never },
+        { connectors: [[1, { kShear: 1 }]] },
+      ]) {
+        const snapshot = model({ ...structure, analysisMode });
+        for (const analysis of ['linear', 'nonlinear'] as const) {
+          expect(ids(snapshot, before(analysis)), `${analysisMode} ${analysis} ${JSON.stringify(structure)}`).not.toContain(change);
+        }
+      }
+    }
+  });
+
+  it.skip('known wrong result: #1949: requires recoverable structure even when analyses are unknown or a time history is configured', () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      for (const dynamics of [undefined, { timeHistory: { forces: [] } }]) {
+        const snapshot = model({ analysisMode, dynamics, supports: [], loadCases: [] });
+        for (const stamp of [null, before('linear'), before('pdelta'), before('timeHistory')]) {
+          expect(ids(snapshot, stamp)).not.toContain(change);
+        }
+      }
+    }
+  });
+
+  it.skip('known wrong result: #1949: covers P-Delta equilibrium fields without covering unrelated static output', () => {
+    const features = ['members', 'analysis:linear', 'analysis:pdelta'];
+    expect(fieldCovered(reactionRecoveryChange, 'pdelta.results.equilibrium.equilibriumOk', features)).toBe(true);
+    for (const path of ['base.reactions[n1].rz', 'base.elementForces[e1].mStart', 'base.displacements[n1].uz', 'solve.ok', 'pdelta.results.displacements[n1].uz']) {
+      expect(fieldCovered(reactionRecoveryChange, path, features), path).toBe(false);
+    }
+  });
+
+  it('includes changed P-Delta metadata, constrained nonlinear recovery and configured dynamic results', () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      for (const structure of [
+        { elements: [member(1, 1, 'frame')] },
+        { elements: [member(1, 1, 'truss')] },
+        { quads: [[1, {}]] as never },
+        { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] as never },
+      ]) {
+        const snapshot = model({ ...structure, analysisMode });
+        expect(ids(snapshot, before('pdelta'))).toContain(change);
+        expect(ids(snapshot, stampSolve('pdelta', null))).not.toContain(change);
+        const dynamic = { ...snapshot, dynamics: { timeHistory: { forces: [] } } };
+        expect(ids(dynamic, before('timeHistory'))).toContain(change);
+        expect(ids(dynamic, before('linear'))).toContain(change);
+        expect(ids(dynamic)).toContain(change);
+      }
+      const constrained = model({ analysisMode, constraints: [{ type: 'equalDof', masterNode: 1, slaveNode: 2 }] });
+      expect(ids(constrained, before('nonlinear'))).toContain(change);
+      expect(ids(constrained)).toContain(change);
+    }
+  });
 });

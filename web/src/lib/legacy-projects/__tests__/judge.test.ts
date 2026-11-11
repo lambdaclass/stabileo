@@ -1,3 +1,4 @@
+import declaredQuantities from 'virtual:result-change-quantities';
 /** The verdicts of the legacy-projects test (#718), and the negative tests that prove they fail. */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import * as applicability from '../../provenance/applicability';
@@ -58,6 +59,17 @@ describe('which values a registered change declares it moves', () => {
 });
 
 describe('judge', () => {
+  it.skip('known wrong result: #1949: reaction recovery does not explain fabricated static values or linear refusals (#1949)', () => {
+    const metadata = RESULT_CHANGES.changes.find((c) => c.id === 'arc-length-reactions')!;
+    const entry = { ...metadata, quantities: declaredQuantities[metadata.id] };
+    for (const path of ['base.reactions[n1].rz', 'base.elementForces[e1].mStart', 'base.displacements[n1].uz']) {
+      expect(declaresMove(entry, path), path).toBe(false);
+      expect(judge('unrelated linear value', reference, moved({ [path]: 99 }), [entry]).kind, path).toBe('unexplained');
+    }
+    expect(declaresMove(entry, 'solve.ok')).toBe(false);
+    expect(judge('unrelated linear refusal', reference, { 'model.nodes': 4, 'solve.ok': false }, [entry]).kind).toBe('unexplained');
+  });
+
   it('takes round-off in a component statics makes zero as the same result', () => {
     expect(judge('noise', reference, moved({ 'base.reactions[n1].rx': 7.105427358e-14 }), []).kind).toBe('same');
   });
