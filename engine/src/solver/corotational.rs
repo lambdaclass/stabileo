@@ -130,6 +130,7 @@ pub fn solve_corotational_2d_from(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_2d(input, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Get the full external load vector from linear assembly (reference load)
@@ -247,31 +248,7 @@ pub fn solve_corotational_2d_from(
 
             // Reduce residual and check convergence on independent DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
-            let r_check = if let Some(ref cs) = cs {
-                cs.reduce_vector(&r_f)
-            } else {
-                r_f.clone()
-            };
-            let f_ext_f: Vec<f64> = f_ext[..nf].to_vec();
-            let f_check = if let Some(ref cs) = cs {
-                cs.reduce_vector(&f_ext_f)
-            } else {
-                f_ext_f
-            };
-
-            let r_norm: f64 = r_check.iter().map(|v| v * v).sum::<f64>().sqrt();
-            let mut f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
-            // A model driven only by its supports carries no external load:
-            // its residual is measured against the support reactions instead.
-            if moves_supports {
-                f_norm = f_norm.max(f_int[nf..].iter().map(|v| v * v).sum::<f64>().sqrt());
-            }
-
-            let rel_error = if f_norm > 1e-30 {
-                r_norm / f_norm
-            } else {
-                r_norm
-            };
+            let rel_error = metric.relative_residual(&residual, &f_ext, moves_supports.then_some(f_int.as_slice()), cs.as_ref());
 
             if rel_error < tolerance && support_step.is_none() {
                 nr_converged = true;
@@ -1457,6 +1434,7 @@ pub fn solve_corotational_3d(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_3d(input, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Reference load vector from linear assembly
@@ -1550,23 +1528,9 @@ pub fn solve_corotational_3d(
 
             // Reduce residual and check convergence on independent DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
-            let r_check = if let Some(ref cs) = cs {
-                cs.reduce_vector(&r_f)
-            } else {
-                r_f.clone()
-            };
-            let f_ext_f: Vec<f64> = f_ext[..nf].to_vec();
-            let f_check = if let Some(ref cs) = cs {
-                cs.reduce_vector(&f_ext_f)
-            } else {
-                f_ext_f
-            };
+            let rel_error = metric.relative_residual(&residual, &f_ext, None, cs.as_ref());
 
-            let r_norm: f64 = r_check.iter().map(|v| v * v).sum::<f64>().sqrt();
-            let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
-            let ref_val = if f_norm > 1e-30 { f_norm } else { 1.0 };
-
-            if r_norm / ref_val < tolerance {
+            if rel_error < tolerance {
                 nr_converged = true;
                 break;
             }

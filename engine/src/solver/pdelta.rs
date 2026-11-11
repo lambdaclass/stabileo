@@ -317,6 +317,7 @@ pub fn solve_pdelta_2d_on(
     }
     for it in its { rotate_inclined_f_2d(&mut u_prev, &it.dofs, &it.r); }
 
+    let metric = super::convergence::EquilibriumMetric::for_2d(input, dof_num, cs.as_ref())?;
     let mut state = Iteration { u: u_prev.clone(), iterations: 0, converged: false, indefinite: false };
     let mut symbolic = None;
     for iter in 0..max_iter {
@@ -330,12 +331,17 @@ pub fn solve_pdelta_2d_on(
             });
         };
         state.indefinite = indefinite;
-        let diff = u[..nf].iter().zip(&state.u[..nf]).map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt();
-        let norm = u[..nf].iter().map(|x| x * x).sum::<f64>().sqrt();
+        let step_error = metric.relative_increment(&state.u, &u);
         state.u[..nf].copy_from_slice(&u[..nf]);
-        if (norm == 0.0 && diff == 0.0) || (norm > 1e-20 && diff / norm < tolerance) {
-            state.converged = true;
-            break;
+        if step_error < tolerance {
+            let equilibrium = system.tangent(input, dof_num, &state.u);
+            let residual = equilibrium.all_residual(n, f, &state.u);
+            let internal: Vec<_> = residual.iter().zip(f).map(|(a,b)| a+b).collect();
+            let support_driven = state.u[nf..].iter().any(|v| *v != 0.0);
+            if metric.relative_residual(&residual, f, support_driven.then_some(internal.as_slice()), cs.as_ref()) < tolerance {
+                state.converged = true;
+                break;
+            }
         }
     }
 
@@ -477,6 +483,14 @@ impl Tangent3D {
         }
     }
 
+    fn all_residual(&self, n: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
+        let ku: Vec<f64> = match self {
+            Self::Dense(k) => (0..n).map(|i| k[i*n..(i+1)*n].iter().zip(u).map(|(a,b)| a*b).sum()).collect(),
+            Self::Sparse(k) => k.sym_mat_vec(u),
+        };
+        ku.iter().zip(f).map(|(a,b)| a-b).collect()
+    }
+
     fn residual(&self, n: usize, nf: usize, f: &[f64], u: &[f64]) -> Vec<f64> {
         match self {
             Self::Dense(k) => restrained_residual(k, f, u, n, nf),
@@ -585,6 +599,7 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
         }
     }
     for it in its { rotate_inclined_f_3d(&mut u_prev, &it.dofs, &it.r); }
+    let metric = super::convergence::EquilibriumMetric::for_3d(input, dof_num, cs.as_ref())?;
     let mut state = Iteration { u: u_prev.clone(), iterations: 0, converged: false, indefinite: false };
     let mut symbolic = None;
     for iter in 0..max_iter {
@@ -596,10 +611,18 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
                 converged: false, is_stable: false, b2_factor: f64::INFINITY });
         };
         state.indefinite = indefinite;
-        let diff = u[..nf].iter().zip(&state.u[..nf]).map(|(a,b)| (a-b).powi(2)).sum::<f64>().sqrt();
-        let norm = u[..nf].iter().map(|x| x*x).sum::<f64>().sqrt();
+        let step_error = metric.relative_increment(&state.u, &u);
         state.u[..nf].copy_from_slice(&u[..nf]);
-        if (norm == 0.0 && diff == 0.0) || (norm > 1e-20 && diff / norm < tolerance) { state.converged = true; break; }
+        if step_error < tolerance {
+            let equilibrium = system.tangent(input, dof_num, &state.u);
+            let residual = equilibrium.all_residual(n, f, &state.u);
+            let internal: Vec<_> = residual.iter().zip(f).map(|(a,b)| a+b).collect();
+            let support_driven = state.u[nf..].iter().any(|v| *v != 0.0);
+            if metric.relative_residual(&residual, f, support_driven.then_some(internal.as_slice()), cs.as_ref()) < tolerance {
+                state.converged = true;
+                break;
+            }
+        }
     }
     let u_global = to_global_3d(&state.u, its);
     let b2 = stability_b2(state.indefinite, b2_factor(dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
@@ -859,4 +882,58 @@ mod tests {
         }
     }
 
+}
+
+#[cfg(test)]
+mod convergence_regressions {
+    use super::*;
+    use crate::metamorphic::{
+        planes::{embed_2d, Plane},
+        transform::{transform_2d, transform_3d, Iso2, Iso3},
+        units::{scale_2d, Units},
+    };
+
+    #[test]
+    fn support_only_loads_converge_on_both_storage_paths_in_both_dimensions() {
+        for text in [
+            include_str!("../../tests/fixtures/random-29-input.json"),
+            include_str!("../../tests/fixtures/random-32-input.json"),
+            include_str!("../../tests/fixtures/random-41-input.json"),
+            include_str!("../../tests/fixtures/random-49-input.json"),
+        ] {
+            let base: SolverInput = serde_json::from_str(text).unwrap();
+            for units in [Units::froude(0.001, 1000.0), Units::froude(1000.0, 0.001)] {
+                let base = scale_2d(&base, &units);
+                for iso in [Iso2::rotation(0.731), Iso2::mirror_line(1.293)] {
+                    let s = transform_2d(&base, &iso).unwrap();
+                    let dofs = DofNumbering::build_2d(&s);
+                    for sparse in [false, true] {
+                        let cs = FreeConstraintSystem::build_2d(&s, &dofs).unwrap();
+                        let r = solve_pdelta_2d_on(&s, &dofs, cs, sparse, 100, 1e-12).unwrap();
+                        assert!(r.converged && r.is_stable);
+                    }
+                }
+                for plane in Plane::ALL {
+                    let mut s = embed_2d(&base, plane).unwrap();
+                    for support in s.supports.values_mut() {
+                        let fixed = support.node_id == 1;
+                        let normal = plane.e2();
+                        support.rx = fixed || normal[0] != 0.0;
+                        support.ry = fixed || normal[1] != 0.0;
+                        support.rz = fixed || normal[2] != 0.0;
+                        support.rrx = fixed;
+                        support.rry = fixed;
+                        support.rrz = fixed;
+                    }
+                    let s = transform_3d(&s, &Iso3::from_euler(0.731, -0.417, 1.293)).unwrap();
+                    let dofs = DofNumbering::build_3d(&s);
+                    for sparse in [false, true] {
+                        let cs = FreeConstraintSystem::build_3d(&s, &dofs).unwrap();
+                        let r = solve_pdelta_3d_on(&s, &dofs, cs, sparse, 100, 1e-12).unwrap();
+                        assert!(r.converged && r.is_stable);
+                    }
+                }
+            }
+        }
+    }
 }

@@ -1,4 +1,5 @@
 pub mod dof;
+pub(crate) mod convergence;
 pub(crate) mod support;
 pub(crate) mod dynamic_validation;
 pub mod assembly;

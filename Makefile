@@ -871,3 +871,9 @@ evidence.research.feher:
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin replay -- $(FEHER_DIR)/reference-results/replay.json
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate -- --write
 	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("$(FEHER_DIR)/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
+
+.PHONY: test.engine.nonlinear-convergence-wasm
+test.engine.nonlinear-convergence-wasm: wasm
+	NONLINEAR_CONVERGENCE_CASES=$(CURDIR)/.761-wasm-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=nonlinear_convergence::issue_761_native_and_wasm_cases
+	$(NIX_RUN) node scripts/tests/nonlinear-convergence-wasm.mjs $(CURDIR)/.761-wasm-cases.json
+	rm -f $(CURDIR)/.761-wasm-cases.json

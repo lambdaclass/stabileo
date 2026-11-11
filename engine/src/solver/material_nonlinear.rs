@@ -85,6 +85,7 @@ fn solve_nonlinear_material_2d_inner(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_2d(&solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_2d(solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Full elastic assembly to obtain the total external load vector.
@@ -144,10 +145,6 @@ fn solve_nonlinear_material_2d_inner(
 
         // Target external load for this increment.
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
-        let f_ext_free = extract_subvec(&f_ext, &free_idx);
-
-        // F_ext_free norm for convergence check.
-        let f_ext_norm = vec_norm_l2(&f_ext_free);
 
         // Apply this increment's prescribed displacements to the restrained
         // DOFs BEFORE the first residual evaluation: f_int then includes the
@@ -224,12 +221,8 @@ fn solve_nonlinear_material_2d_inner(
             // free-DOF residual carries the constraint forces, which never
             // vanish, and the iteration never converged (a model with a
             // single rigid link or EqualDOF always came back unconverged).
-            let r_norm = match &cs {
-                Some(cs) => vec_norm_l2(&cs.reduce_vector(&r_free)),
-                None => vec_norm_l2(&r_free),
-            };
-            let ref_norm = if f_ext_norm > 1e-20 { f_ext_norm } else { 1.0 };
-            if r_norm < tolerance * ref_norm {
+            let support_driven = u_r.iter().any(|v| *v != 0.0);
+            if metric.relative_residual(&residual, &f_ext, support_driven.then_some(f_int.as_slice()), cs.as_ref()) < tolerance {
                 converged_increment = true;
                 break;
             }
@@ -838,12 +831,7 @@ fn solve_system(k_ff: Vec<f64>, rhs: Vec<f64>, nf: usize) -> Result<Vec<f64>, St
 }
 
 // ---------------------------------------------------------------------------
-// L2 norm of a vector.
-// ---------------------------------------------------------------------------
 
-fn vec_norm_l2(v: &[f64]) -> f64 {
-    v.iter().map(|x| x * x).sum::<f64>().sqrt()
-}
 
 // ---------------------------------------------------------------------------
 // Compute the maximum absolute translational displacement.
@@ -1011,6 +999,7 @@ fn solve_nonlinear_material_3d_inner(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_3d(solver, &dof_num, cs.as_ref())?;
 
     // Prescribed displacements, in the inclined-support frames the restrained
     // DOFs are numbered in (one definition with the linear solver: this
@@ -1059,8 +1048,6 @@ fn solve_nonlinear_material_3d_inner(
         let load_factor = inc as f64 / n_increments as f64;
 
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
-        let f_ext_free = extract_subvec(&f_ext, &free_idx);
-        let f_ext_norm = vec_norm_l2(&f_ext_free);
 
         // Apply this increment's prescribed displacements to the restrained
         // DOFs BEFORE the first residual evaluation — see the 2D solver for
@@ -1126,12 +1113,8 @@ fn solve_nonlinear_material_3d_inner(
             // free-DOF residual carries the constraint forces, which never
             // vanish, and the iteration never converged (a model with a
             // single rigid link or EqualDOF always came back unconverged).
-            let r_norm = match &cs {
-                Some(cs) => vec_norm_l2(&cs.reduce_vector(&r_free)),
-                None => vec_norm_l2(&r_free),
-            };
-            let ref_norm = if f_ext_norm > 1e-20 { f_ext_norm } else { 1.0 };
-            if r_norm < tolerance * ref_norm {
+            let support_driven = u_r.iter().any(|v| *v != 0.0);
+            if metric.relative_residual(&residual, &f_ext, support_driven.then_some(f_int.as_slice()), cs.as_ref()) < tolerance {
                 converged_increment = true;
                 break;
             }
