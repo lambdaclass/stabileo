@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
-import { applyPlateMeshes, applyPlateMeshesAsync, coarseAsModelled, physicalPlates, planPlateMesh, platesNeedingMesh, preparePlatesForAnalysisAsync } from '../physical-plates';
+import { applyPlateMeshes, applyPlateMeshesAsync, coarseAsModelled, physicalPlates, planPlateMesh, plateStatus, platesNeedingMesh, preparePlatesForAnalysis, preparePlatesForAnalysisAsync } from '../physical-plates';
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
@@ -100,4 +100,27 @@ describe('mesh before analysis', () => {
     }
     expect(platesNeedingMesh()).toEqual([]);
   }, 300000);
+
+  it('leaves a one-shell wall loaded by hand as it came, and meshes the bare one beside it', () => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    const wall = (x: number) => {
+      const a = modelStore.addNode(x, 0, 0), b = modelStore.addNode(x + 4, 0, 0), c = modelStore.addNode(x + 4, 0, 3), d = modelStore.addNode(x, 0, 3);
+      modelStore.addSupport(a, 'fixed3d'); modelStore.addSupport(b, 'fixed3d');
+      return modelStore.addQuad([a, b, c, d], conc, 0.2);
+    };
+    const bare = wall(0), loaded = wall(10);
+    modelStore.addSurfaceLoad3D(loaded, 2, modelStore.model.loadCases[0]!.id);
+    ensurePhysicalModel();
+    const plateOf = (q: number) => physicalPlates().find((p) => p.group.members.quads?.includes(q))!;
+    expect(coarseAsModelled(plateOf(bare))).toBe(true);
+    expect(coarseAsModelled(plateOf(loaded))).toBe(false);
+    const loadedId = plateOf(loaded).id;
+    meshBeforeAnalysis.value = true;
+    expect(preparePlatesForAnalysis()).toMatchObject({ ok: true, meshed: 1 });
+    expect(modelStore.quads.has(loaded)).toBe(true);
+    expect(plateStatus(loadedId)).toBe('current');
+    expect(modelStore.loads.filter((l) => l.type === 'surface3d' && (l.data as { quadId: number }).quadId === loaded)).toHaveLength(1);
+    expect(platesNeedingMesh()).toEqual([]);
+  });
 });

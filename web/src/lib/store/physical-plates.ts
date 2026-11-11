@@ -260,8 +260,7 @@ export function plateStatus(id: number): PlateStatus {
   return s;
 }
 
-/** The plates whose mesh is missing or out of date. */
-/** `coarse: false` leaves out plates still on the coarse shells they came with, which solve as they are. */
+/** The plates whose mesh is missing or out of date. `coarse: false` leaves out plates still on the coarse shells they came with, which solve as they are. */
 export function platesNeedingMesh(opts: { coarse?: boolean } = {}): number[] {
   const coarse = opts.coarse ?? true;
   return physicalPlates().filter((p) => { const s = plateStatus(p.id); return s === 'unmeshed' || s === 'stale' || (coarse && s === 'current' && coarseAsModelled(p)); }).map((p) => p.id);
@@ -271,7 +270,7 @@ let coarseMemo: { version: number; map: Map<number, boolean> } | null = null;
 /**
  * Shells that came with the model and are coarser than the plate's mesh size, such as one shell
  * for a whole bay: no mesher's mesh, and what "mesh before analysis" meshes. A fine mesh that came
- * with the model is kept.
+ * with the model is kept, and so are shells carrying loads put on them by hand, which a new mesh would drop.
  */
 export function coarseAsModelled(e: PlateEntry): boolean {
   if (!e.surface.meshed?.original) return false;
@@ -280,6 +279,7 @@ export function coarseAsModelled(e: PlateEntry): boolean {
   if (hit !== undefined) return hit;
   const limit = 1.5 * specOf(e).size;
   let coarse = false;
+  if (localLoadsOn(e) > 0) { coarseMemo.map.set(e.id, false); return false; }
   const shells = [...(e.group.members.quads ?? []).map((q) => modelStore.quads.get(q)?.nodes), ...(e.group.members.plates ?? []).map((q) => modelStore.plates.get(q)?.nodes)];
   for (const ns of shells) {
     if (!ns || coarse) break;
