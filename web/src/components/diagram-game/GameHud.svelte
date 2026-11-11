@@ -71,7 +71,7 @@
   .hud { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1.25rem; padding: .35rem .5rem .35rem .9rem;
     background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius-lg); }
   .cell { display: flex; align-items: center; gap: .45rem; min-width: 0; }
-  .k { font: .7rem var(--st-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--st-text-3); }
+  .k { font: .75rem var(--st-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--st-text-3); }
   .v { font: 1.05rem var(--st-mono); font-variant-numeric: tabular-nums; }
   .level { flex-wrap: wrap; }
   .badge { display: inline-grid; place-items: center; min-width: 1.9rem; height: 1.9rem; padding: 0 .4rem; border-radius: 999px;
@@ -115,5 +115,6 @@
     .badge { min-width: 1.5rem; height: 1.5rem; font-size: .8rem; }
   }
   @media (max-width: 440px) { .pips { display: none; } .mult svg { display: none; } }
+  @media (max-width: 360px) { .hud { gap: .35rem; } .sound { width: 36px; height: 36px; } .hearts { gap: .1rem; } }
   @media (prefers-reduced-motion: reduce) { .bump, .heart.lost { animation: none; } .pip, .heart { transition: none; } }
 </style>

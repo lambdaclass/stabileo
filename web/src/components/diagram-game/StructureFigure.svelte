@@ -3,20 +3,31 @@
   import type { GameModel } from './game-model';
   import type { Diagram } from './traces';
 
-  let { model, diagram = null, label, faintLoads = false, bare = false }: { model: GameModel; diagram?: Diagram | null; label: string; faintLoads?: boolean; bare?: boolean } = $props();
-  const fig = $derived(figure(model, diagram, bare));
+  let { model, diagram = null, label, faintLoads = false, bare = false, frame, minLabelPx = 14 }: {
+    model: GameModel; diagram?: Diagram | null; label: string; faintLoads?: boolean; bare?: boolean; frame?: string; minLabelPx?: number;
+  } = $props();
+  const fig = $derived(figure(model, diagram, bare, frame));
+  let width = $state(0), height = $state(0);
+  const pxPerUnit = $derived.by(() => {
+    const [, , w, h] = fig.viewBox.split(' ').map(Number);
+    return width > 0 && height > 0 && w! > 0 && h! > 0 ? Math.min(width / w!, height / h!) : 0;
+  });
+  const labelSize = $derived(Math.max(fig.unit * 0.1, pxPerUnit > 0 ? minLabelPx / pxPerUnit : 0));
 </script>
 
+<div class="holder" bind:clientWidth={width} bind:clientHeight={height}>
 <svg class="figure" class:faint-loads={faintLoads} viewBox={fig.viewBox} preserveAspectRatio="xMidYMid meet" role="img" aria-label={label}>
   {#each fig.shapes as s, i (i)}
     <path d={s.d} class={s.ink} vector-effect="non-scaling-stroke" style:stroke-width={s.width ? `${s.width}px` : null} />
   {/each}
   {#each fig.labels as l, i (i)}
-    <text x={l.x} y={l.y} class={`label ${l.ink}`} font-size={fig.unit * 0.1} text-anchor="middle" dominant-baseline="middle">{l.text}</text>
+    <text x={l.x} y={l.y} class={`label ${l.ink}`} font-size={labelSize} text-anchor="middle" dominant-baseline="middle">{l.text}</text>
   {/each}
 </svg>
+</div>
 
 <style>
+  .holder { width: 100%; height: 100%; min-height: 0; }
   .figure { display: block; width: 100%; height: 100%; overflow: visible; }
   path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
   .member { stroke: var(--st-model-member); stroke-width: 2.5px; }

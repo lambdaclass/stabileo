@@ -69,7 +69,7 @@ const call = (page: Page, f: string, ...args: unknown[]) =>
   page.evaluate(([name, rest]) => (window as unknown as { __diagramGame: Record<string, (...a: unknown[]) => unknown> }).__diagramGame[name as string]!(...(rest as unknown[])), [f, args] as const);
 
 async function fitsOneScreen(page: Page, what: string, minDrawing: number) {
-  const m = await page.evaluate(() => {
+  const measure = () => page.evaluate(() => {
     const scroller = document.querySelector('.landing')!;
     const inside = (el: Element | null) => {
       if (!el) return true;
@@ -77,25 +77,40 @@ async function fitsOneScreen(page: Page, what: string, minDrawing: number) {
       return r.top >= -1 && r.left >= -1 && r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1;
     };
     const parts = ['.hud', '[data-testid="dg-question"]', '.problem-figure', '[data-testid="dg-next"]', '[data-testid="dg-again"]', ...[0, 1, 2, 3].map((i) => `[data-testid="dg-option-${i}"]`)];
-    const drawn = [0, 1, 2, 3].flatMap((i) => {
-      const svg = document.querySelector(`[data-testid="dg-option-${i}"] svg`);
+    const extent = (svg: Element | null) => {
       if (!svg) return [];
       const boxes = [...svg.querySelectorAll('path')].map((p) => p.getBoundingClientRect()).filter((r) => r.width + r.height > 0);
       const w = Math.max(...boxes.map((r) => r.right)) - Math.min(...boxes.map((r) => r.left));
       const h = Math.max(...boxes.map((r) => r.bottom)) - Math.min(...boxes.map((r) => r.top));
       return [Math.max(w, h)];
-    });
+    };
+    const drawn = [0, 1, 2, 3].flatMap((i) => extent(document.querySelector(`[data-testid="dg-option-${i}"] svg`)));
+    const play = document.querySelector('[data-testid="dg-play"]');
+    const tiny = play ? [...play.querySelectorAll('*')].filter((el) => {
+      if (el.closest('.over-layer') && !document.querySelector('[data-testid="dg-again"]')) return false;
+      const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim());
+      if (!own || (el as HTMLElement).offsetParent === null && el.namespaceURI !== 'http://www.w3.org/2000/svg') return false;
+      const size = el.namespaceURI === 'http://www.w3.org/2000/svg' ? el.getBoundingClientRect().height : parseFloat(getComputedStyle(el).fontSize);
+      return size > 0 && size < 11.5;
+    }).map((el) => `${el.tagName}.${el.getAttribute('class') ?? ''} "${el.textContent!.trim().slice(0, 20)}"`) : [];
     return {
       smallest: Math.min(...drawn),
+      problem: Math.min(...extent(document.querySelector('[data-testid="dg-problem"] svg')), Infinity),
+      question: parseFloat(getComputedStyle(document.querySelector('[data-testid="dg-question"]')!).fontSize),
+      tiny,
       down: scroller.scrollHeight - scroller.clientHeight,
       side: Math.max(scroller.scrollWidth - scroller.clientWidth, document.documentElement.scrollWidth - innerWidth),
       outside: parts.filter((sel) => !inside(document.querySelector(sel))),
     };
   });
+  await expect.poll(async () => (await measure()).tiny, { message: `${what}: text under 11.5 px`, timeout: 3000 }).toEqual([]);
+  const m = await measure();
   expect(m.down, `${what}: vertical scroll`).toBeLessThanOrEqual(0);
   expect(m.side, `${what}: horizontal scroll`).toBeLessThanOrEqual(0);
   expect(m.outside, `${what}: off screen`).toEqual([]);
   expect(m.smallest, `${what}: the smallest option drawing, in px`).toBeGreaterThanOrEqual(minDrawing);
+  if (minDrawing > 0) expect(m.problem, `${what}: the structure itself, in px`).toBeGreaterThanOrEqual(minDrawing);
+  expect(m.question, `${what}: the question's type size`).toBeGreaterThanOrEqual(15);
 }
 
 async function playThrough(page: Page, label: string, minDrawing: number) {
@@ -128,7 +143,10 @@ for (const [label, width, height, minDrawing] of [['wide screen', 1440, 900, 150
 test.describe('on a phone', () => {
   test.use({ hasTouch: true, isMobile: true });
 
-  for (const [label, width, height, minDrawing] of [['portrait', 390, 664, 90], ['small portrait', 360, 600, 75], ['landscape', 844, 340, 90], ['small landscape', 667, 300, 70]] as const) {
+  for (const [label, width, height, minDrawing] of [
+    ['portrait', 390, 664, 90], ['portrait with the browser bars', 395, 618, 90], ['small portrait', 360, 600, 70], ['tall portrait', 412, 860, 100],
+    ['smallest portrait', 320, 540, 60], ['landscape', 844, 340, 90], ['small landscape', 667, 300, 70], ['smallest landscape', 568, 300, 50],
+  ] as const) {
     test(`@smoke diagram game fits one screen on a phone in ${label}, with no scroll either way`, async ({ page }) => {
       await page.setViewportSize({ width, height });
       await playThrough(page, label, minDrawing);
@@ -142,6 +160,33 @@ test.describe('on a phone', () => {
     await page.setViewportSize({ width: 844, height: 340 });
     await expect(page.getByTestId('dg-rotate')).toHaveCount(0);
   });
+});
+
+test('@smoke auto-next starts off, moves on by itself once ticked, holds while a card is read, and is remembered', async ({ page }) => {
+  await page.goto('/es/diagram-game/?e2e=1&seed=77');
+  await page.getByTestId('dg-start').click();
+  await expect(page.getByTestId('dg-options')).toBeVisible();
+  await page.getByTestId(`dg-option-${(await correctIndex(page))!}`).click();
+  const auto = page.getByTestId('dg-auto-next');
+  await expect(auto).not.toBeChecked();
+  await page.waitForTimeout(2500);
+  await expect(page.getByTestId('dg-verdict'), 'off, the verdict waits for Next').toBeVisible();
+
+  await auto.check();
+  await expect(page.getByTestId('dg-verdict')).toHaveCount(0, { timeout: 4000 });
+  await expect(page.getByTestId('dg-options')).toBeVisible();
+
+  const right = (await correctIndex(page))!;
+  await page.getByTestId(`dg-option-${right}`).click();
+  await page.getByTestId(`dg-option-${(right + 1) % 3}`).click();
+  await page.waitForTimeout(3000);
+  await expect(page.getByTestId('dg-verdict'), 'reading a card holds the round').toBeVisible();
+
+  await page.reload();
+  await page.getByTestId('dg-start').click();
+  await expect(page.getByTestId('dg-options')).toBeVisible();
+  await page.getByTestId(`dg-option-${(await correctIndex(page))!}`).click();
+  await expect(page.getByTestId('dg-auto-next')).toBeChecked();
 });
 
 test('@smoke the question names the diagram in its own colour, with its symbol, and quitting keeps the best score and goes back to the start', async ({ page }) => {

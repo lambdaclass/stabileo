@@ -162,7 +162,7 @@ function diagramShapes(m: GameModel, d: Diagram, S: number): { shapes: Shape[]; 
 }
 
 /** `bare` draws only the members and the diagram: supports, hinges and loads would give away which structure it came from. */
-export function figure(m: GameModel, d: Diagram | null, bare = false): Figure {
+export function figure(m: GameModel, d: Diagram | null, bare = false, frame?: string): Figure {
   const { box, S } = size(m);
   const pad = 0.27 * S;
   const sym = 0.07 * S;
@@ -171,7 +171,7 @@ export function figure(m: GameModel, d: Diagram | null, bare = false): Figure {
   const labels = drawn.labels;
   shapes.push(...drawn.shapes);
   if (!(d && m.allTruss)) m.elements.forEach(([i, j]) => shapes.push({ d: polyline([m.nodes[i] as Vec, m.nodes[j] as Vec]), ink: 'member' }));
-  const viewBox = [box.minX - pad, -(box.maxY + pad), box.maxX - box.minX + 2 * pad, box.maxY - box.minY + 2 * pad].map(fmt).join(' ');
+  const viewBox = frame ?? [box.minX - pad, -(box.maxY + pad), box.maxX - box.minX + 2 * pad, box.maxY - box.minY + 2 * pad].map(fmt).join(' ');
   if (bare) return { viewBox, shapes, labels, unit: S };
   for (const s of m.supports) shapes.push({ d: supportShape(m, s.node, s.type, sym), ink: 'support' });
   for (const n of m.allTruss ? m.nodes.map((_, k) => k) : m.nodeHinges ?? []) {
@@ -186,4 +186,30 @@ export function figure(m: GameModel, d: Diagram | null, bare = false): Figure {
 export function figureAspect(m: GameModel): number {
   const [, , w, h] = figure(m, null, true).viewBox.split(' ').map(Number);
   return w! / h!;
+}
+
+const POINT = /[ML](-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g;
+
+/** The box around everything a figure actually draws, in its own coordinates; a relative arc stays within its start's neighbourhood. */
+export function drawnBounds(f: Figure): { minX: number; minY: number; maxX: number; maxY: number } {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const take = (x: number, y: number, r = 0) => {
+    minX = Math.min(minX, x - r); maxX = Math.max(maxX, x + r);
+    minY = Math.min(minY, y - r); maxY = Math.max(maxY, y + r);
+  };
+  for (const s of f.shapes) for (const m of s.d.matchAll(POINT)) take(Number(m[1]), Number(m[2]), 0.025 * f.unit);
+  for (const l of f.labels) take(l.x, l.y, 0.07 * f.unit);
+  return { minX, minY, maxX, maxY };
+}
+
+/** One frame for every figure of a round, fitted to what they draw, so all of them share a scale and none wastes its card on margin. */
+export function sharedFrame(figures: Figure[]): { viewBox: string; aspect: number } {
+  const boxes = figures.map(drawnBounds);
+  const unit = Math.max(...figures.map((f) => f.unit));
+  const margin = 0.05 * unit;
+  const minX = Math.min(...boxes.map((b) => b.minX)) - margin, maxX = Math.max(...boxes.map((b) => b.maxX)) + margin;
+  const minY = Math.min(...boxes.map((b) => b.minY)) - margin, maxY = Math.max(...boxes.map((b) => b.maxY)) + margin;
+  const w = Math.max(maxX - minX, 0.3 * unit), h = Math.max(maxY - minY, 0.3 * unit);
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  return { viewBox: [cx - w / 2, cy - h / 2, w, h].map(fmt).join(' '), aspect: w / h };
 }

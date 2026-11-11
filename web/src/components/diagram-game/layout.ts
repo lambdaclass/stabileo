@@ -13,12 +13,10 @@ export interface Space {
   /** Height an explanation takes inside a card, and the narrowest card that still holds one readably. */
   textHeight: number;
   textMinWidth: number;
-  /** Whether the cards already show the structure and its loads, so the structure on its own may give way. */
-  structureInCards: boolean;
 }
 
 export interface Arrangement {
-  problem: 'top' | 'left' | 'none';
+  problem: 'top' | 'left';
   /** Share of the board's height (top) or width (left) the structure takes. */
   split: number;
   columns: number;
@@ -30,10 +28,7 @@ export interface Arrangement {
   text: boolean;
 }
 
-const SPLITS = [0.22, 0.3, 0.38, 0.46];
-/** How much larger the cards must get before the structure on its own is left out, and below which drawing height a board counts as cramped. */
-const WITHOUT_STRUCTURE = 1.35;
-const CRAMPED = 100;
+const SPLITS = [0.18, 0.22, 0.26, 0.3, 0.34, 0.38, 0.42, 0.46];
 
 function fit(w: number, h: number, aspect: number): number {
   return w <= 0 || h <= 0 ? 0 : Math.min(w / aspect, h);
@@ -63,18 +58,6 @@ export function arrange(s: Space): Arrangement {
           bestScore = score;
           best = { problem, split, columns, optionScale, problemScale, cardWidth: cw, text };
         }
-      }
-    }
-  }
-  if (s.structureInCards && bestScore < CRAMPED) {
-    for (let columns = 1; columns <= s.options; columns++) {
-      const rows = Math.ceil(s.options / columns);
-      const cw = (s.width - (columns - 1) * s.gap) / columns, ch = (s.height - (rows - 1) * s.gap) / rows;
-      const text = cw >= s.textMinWidth;
-      const optionScale = fit(cw - s.cardChromeX, ch - s.cardChromeY - (text ? s.textHeight : 0), s.aspect);
-      if (optionScale > WITHOUT_STRUCTURE * bestScore) {
-        bestScore = optionScale / WITHOUT_STRUCTURE;
-        best = { problem: 'none', split: 0, columns, optionScale, problemScale: 0, cardWidth: cw, text };
       }
     }
   }

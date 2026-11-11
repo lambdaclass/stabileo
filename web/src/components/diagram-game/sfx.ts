@@ -1,4 +1,5 @@
 const SOUND_KEY = 'stabileo.diagramGame.sound';
+const AUTO_NEXT_KEY = 'stabileo.diagramGame.autoNext';
 
 export type Cue = 'right' | 'wrong' | 'level' | 'over' | 'tick';
 
@@ -7,6 +8,22 @@ export function readSound(): boolean {
     return globalThis.localStorage?.getItem(SOUND_KEY) !== '0';
   } catch {
     return true;
+  }
+}
+
+export function readAutoNext(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(AUTO_NEXT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function writeAutoNext(on: boolean): void {
+  try {
+    globalThis.localStorage?.setItem(AUTO_NEXT_KEY, on ? '1' : '0');
+  } catch {
+    return;
   }
 }
 

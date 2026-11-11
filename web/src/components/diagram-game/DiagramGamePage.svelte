@@ -10,10 +10,10 @@
   import { seedFrom } from '../edu/exercise-params';
   import { dealRound, type Round, type RoundType } from './round';
   import { answer, newGame, nextRound, readBest, recordBest, timeBonus, TIME_BONUS_WINDOW_MS, type GameState } from './scoring';
-  import { cue, readSound, writeSound, type Cue } from './sfx';
+  import { cue, readAutoNext, readSound, writeAutoNext, writeSound, type Cue } from './sfx';
   import { marked, tg, tagText, type Key } from './strings';
   import { arrange } from './layout';
-  import { figureAspect } from './figure';
+  import { figure, sharedFrame } from './figure';
   import type { DiagramKind } from './traces';
   import '../landing/landing.css';
 
@@ -34,6 +34,7 @@
   let failed = $state(false);
   let starting = $state(false);
   let sound = $state(true);
+  let autoNext = $state(false);
   let banner = $state<number | null>(null);
   let toast = $state<number | null>(null);
   let portraitPhone = $state(false);
@@ -61,6 +62,7 @@
   onMount(() => {
     best = readBest();
     sound = readSound();
+    autoNext = readAutoNext();
     canFullscreen = !!document.fullscreenEnabled;
     void initSolver().catch(() => {});
     const query = matchMedia('(pointer: coarse) and (orientation: portrait) and (max-width: 760px)');
@@ -79,6 +81,20 @@
   function play(c: Cue, streak = 0) {
     if (sound) cue(c, streak);
   }
+
+  function toggleAutoNext() {
+    autoNext = !autoNext;
+    writeAutoNext(autoNext);
+  }
+
+  /** With auto-next on, a verdict moves on by itself unless the player opens a card's explanation, which holds the round. */
+  const autoDelay = $derived(game?.last?.levelUp ? 2400 : game?.last?.correct ? 1400 : 3200);
+  $effect(() => {
+    if (!autoNext || game?.phase !== 'answered' || inspected !== null) return;
+    const state = game;
+    const id = setTimeout(() => { if (game === state) proceed(); }, autoDelay);
+    return () => clearTimeout(id);
+  });
 
   function toggleSound() {
     sound = !sound;
@@ -236,13 +252,25 @@
     return round!.type === 'odd' ? tg('is.consistent') : tg('is.correct');
   };
   const kindName = (k: DiagramKind) => `${tg(`kind.${k}` as Key)} (${SYMBOL[k]})`;
-  const layout = $derived(round && boardWidth > 0 && boardHeight > 0 ? arrange({
-    width: boardWidth, height: boardHeight, options: round.options.length, aspect: figureAspect(round.model),
+  const frame = $derived.by(() => {
+    if (!round) return null;
+    const r = round;
+    return sharedFrame(r.type === 'which'
+      ? [figure(r.model, r.shown ?? null, true), ...r.options.flatMap((o) => [figure(o.model!, null), figure(o.model!, o.diagram)])]
+      : [figure(r.model, null), ...r.options.map((o) => figure(r.model, o.diagram))]);
+  });
+  const fitted = $derived(round && frame && boardWidth > 0 && boardHeight > 0 ? arrange({
+    width: boardWidth, height: boardHeight, options: round.options.length, aspect: frame.aspect,
     gap: 10, cardChromeX: 20, cardChromeY: round.type === 'odd' ? 46 : 23, problemChrome: 16, textHeight: 38, textMinWidth: 220,
-    structureInCards: round.type !== 'which',
   }) : null);
+  /** The arrangement chosen while the round is played stays through its verdict, so the taller verdict bar shrinks the board instead of rearranging it. */
+  let held = $state<{ round: number; width: number; layout: NonNullable<typeof fitted> } | null>(null);
+  $effect(() => {
+    if (fitted && game?.phase === 'playing') held = { round: game.round, width: boardWidth, layout: fitted };
+  });
+  const layout = $derived(held && game && game.phase !== 'playing' && held.round === game.round && Math.abs(held.width - boardWidth) < 24 ? held.layout : fitted);
   const rows = $derived(layout && round ? Math.ceil(round.options.length / layout.columns) : 1);
-  const boardStyle = $derived(!layout ? '' : layout.problem === 'none' ? 'grid-template: minmax(0, 1fr) / minmax(0, 1fr);' : layout.problem === 'top'
+  const boardStyle = $derived(!layout ? '' : layout.problem === 'top'
     ? `grid-template-rows: minmax(0, ${layout.split}fr) minmax(0, ${1 - layout.split}fr); grid-template-columns: minmax(0, 1fr);`
     : `grid-template-columns: minmax(0, ${layout.split}fr) minmax(0, ${1 - layout.split}fr); grid-template-rows: minmax(0, 1fr);`);
   const spare = $derived(layout && round ? layout.columns * rows - round.options.length : 0);
@@ -293,11 +321,12 @@
           </h2>
 
           <div class="board" bind:clientWidth={boardWidth} bind:clientHeight={boardHeight} style={boardStyle} data-problem={layout?.problem} data-columns={layout?.columns}>
-            <div class="problem-figure" class:shown={round.type === 'which'} hidden={layout?.problem === 'none'} style:--dg-ink={round.kind ? INK[round.kind] : null}>
+            <div class="problem-figure" class:shown={round.type === 'which'} class:beside={layout?.problem === 'left'} data-testid="dg-problem"
+              style:height={layout?.problem === 'left' ? `${Math.round(layout.problemScale + 16)}px` : null} style:--dg-ink={round.kind ? INK[round.kind] : null}>
               {#if round.type === 'which'}
-                <StructureFigure model={round.model} diagram={round.shown} bare label={tg('shown')} />
+                <StructureFigure model={round.model} diagram={round.shown} bare label={tg('shown')} frame={frame?.viewBox} />
               {:else}
-                <StructureFigure model={round.model} label={tg('structure')} />
+                <StructureFigure model={round.model} label={tg('structure')} frame={frame?.viewBox} />
               {/if}
             </div>
 
@@ -317,9 +346,9 @@
                     {#if round.type === 'odd'}<span class="kind">{(layout?.cardWidth ?? 999) >= 170 ? kindName(kind) : SYMBOL[kind]}</span>{/if}
                     <span class="option-figure">
                       {#if round.type === 'which'}
-                        <StructureFigure model={option.model!} diagram={revealed ? option.diagram : null} faintLoads={revealed} label={tg('structure')} />
+                        <StructureFigure model={option.model!} diagram={revealed ? option.diagram : null} faintLoads={revealed} label={tg('structure')} frame={frame?.viewBox} />
                       {:else}
-                        <StructureFigure model={round.model} diagram={option.diagram} faintLoads={layout?.problem !== 'none'} label={kindName(kind)} />
+                        <StructureFigure model={round.model} diagram={option.diagram} faintLoads label={kindName(kind)} frame={frame?.viewBox} />
                       {/if}
                     </span>
                     {#if revealed && cardText}<span class="why" data-testid={`dg-why-${i}`} data-tag={option.tag ?? ''} title={explain(i)}>{explain(i)}</span>{/if}
@@ -354,7 +383,15 @@
                   <p class="reason tap">{tg('tapWhy')}</p>
                 {/if}
               </div>
-              {#if game.phase === 'answered'}<button type="button" class="btn btn-primary next" onclick={proceed} data-testid="dg-next">{tg('next')}</button>{/if}
+              {#if game.phase === 'answered'}
+                <div class="go">
+                  <label class="auto" title={tg('autoNextHelp')}>
+                    <input type="checkbox" checked={autoNext} onchange={toggleAutoNext} data-testid="dg-auto-next" />
+                    <span>{tg('autoNext')}</span>
+                  </label>
+                  <button type="button" class="btn btn-primary next" class:counting={autoNext && inspected === null} style:--dg-wait={`${autoDelay}ms`} onclick={proceed} data-testid="dg-next">{tg('next')}</button>
+                </div>
+              {/if}
             </section>
           {/if}
 
@@ -382,7 +419,7 @@
   .diagram-game.playing main.sec { padding: 0; height: 100%; box-sizing: border-box; }
   .diagram-game.playing .dg-wrap { height: 100%; box-sizing: border-box; padding-block: .6rem; display: flex; flex-direction: column; }
   .diagram-game:fullscreen { inset: 0; }
-  @media (max-height: 540px) and (orientation: landscape) {
+  @media (max-width: 760px), (max-height: 540px) {
     :global(body:has(.diagram-game.playing) .site-header) { display: none; }
     .diagram-game.playing { top: 0; }
     .diagram-game.playing .dg-wrap { padding-block: .4rem; }
@@ -405,18 +442,18 @@
   .rotate p { margin: .2rem 0 .5rem; font-size: .92rem; color: var(--st-text-2); }
   .rotate .btn { min-height: 44px; }
 
-  .play { position: relative; flex: 1; min-height: 0; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; gap: .45rem; }
+  .play { position: relative; flex: 1; min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr) auto; gap: .45rem; }
   .timer { display: flex; align-items: center; gap: .5rem; }
   .track { flex: 1; height: 8px; border-radius: 999px; background: var(--st-hair); overflow: hidden; }
   .fill { display: block; height: 100%; background: var(--dg-clock); transform-origin: left; transition: transform .1s linear, background .3s; }
-  .timer em { min-width: 2.5rem; text-align: right; font: 600 .75rem var(--st-mono); font-style: normal; color: var(--st-text-3); }
+  .timer em { min-width: 2.2rem; text-align: right; font: 600 .75rem var(--st-mono); font-style: normal; color: var(--st-text-3); }
   .question { font: 500 clamp(1rem, 2.4vw, 1.3rem)/1.25 var(--lp-display); margin: 0; outline: none; }
   .term { font-weight: 700; }
 
   .board { min-height: 0; min-width: 0; display: grid; grid-template-rows: minmax(0, .3fr) minmax(0, .7fr); gap: 10px; }
   .problem-figure { min-height: 0; min-width: 0; box-sizing: border-box; border: 2px solid var(--st-hair); border-radius: var(--st-radius-lg); background: var(--st-surface); padding: 6px; }
   .problem-figure.shown { border: 2px solid var(--dg-ink); }
-  .problem-figure[hidden] { display: none; }
+  .problem-figure.beside { align-self: center; max-height: 100%; }
   .options { list-style: none; margin: 0; padding: 0; min-height: 0; min-width: 0; display: grid; gap: 10px;
     grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); }
   .options li { min-height: 0; min-width: 0; display: flex; }
@@ -433,8 +470,8 @@
   .option.is-wrong-pick { border-color: var(--st-danger); box-shadow: 0 4px 0 var(--st-danger); animation: shake .4s; }
   .option.is-faded { opacity: .6; }
   .option.inspected { outline: 2px dashed var(--st-text-3); outline-offset: 2px; }
-  .num { position: absolute; top: .35rem; left: .4rem; display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 999px;
-    background: var(--st-surface-3); font: 700 .72rem var(--st-mono); color: var(--st-text-2); z-index: 1; }
+  .num { position: absolute; top: .35rem; left: .4rem; display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 999px;
+    background: var(--st-surface-3); font: 700 .8rem var(--st-mono); color: var(--st-text-2); z-index: 1; }
   .is-answer .num { background: var(--st-ok); color: var(--st-surface); }
   .is-wrong-pick .num { background: var(--st-danger); color: var(--st-surface); }
   .kind { align-self: center; max-width: 100%; height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 .75em/18px var(--st-mono); color: var(--dg-ink); }
@@ -450,20 +487,25 @@
 
   .bar { margin: 0; min-height: 48px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem 1rem; outline: none; }
   .hint { font-size: .85rem; color: var(--st-text-3); }
-  .result { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .9rem; min-width: 0; flex: 1; color: var(--st-danger); }
+  .result { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .9rem; min-width: 0; flex: 1 1 16rem; color: var(--st-danger); }
   .result p { margin: 0; }
   .headline { font: 700 1.15rem var(--lp-display); }
   .result.ok { color: var(--st-ok); }
   .points { font: 800 1.35rem var(--st-mono); animation: pop .45s cubic-bezier(.3, 1.6, .5, 1); }
   .reason { color: var(--st-text-2); font-size: .9em; line-height: 1.35; flex: 1 1 16rem; }
   .reason.tap { color: var(--st-text-3); }
-  .tag-n { display: inline-grid; place-items: center; width: 1.4em; height: 1.4em; margin-right: .4em; border-radius: 999px; background: var(--st-surface-3); font: 700 .8em var(--st-mono); vertical-align: .1em; }
+  .tag-n { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; margin-right: .4em; border-radius: 999px; background: var(--st-surface-3); font: 700 max(.8em, 12px) var(--st-mono); vertical-align: .1em; }
   .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
   .chips span { padding: .1rem .5rem; border-radius: 999px; border: 1px solid var(--st-hair-strong); color: var(--st-text-2); font: .78rem var(--st-mono); }
   .chips .hot { border-color: var(--st-warn); color: var(--st-warn); }
   .chips .fast { border-color: var(--st-interactive); color: var(--st-interactive); }
   .toast { padding: .15rem .65rem; border-radius: 999px; background: var(--st-warn); color: var(--st-surface); font-weight: 700; animation: pop .5s cubic-bezier(.3, 1.6, .5, 1); }
-  .next { min-height: 44px; min-width: 8rem; }
+  .go { display: flex; align-items: center; gap: .6rem; margin-left: auto; }
+  .auto { display: inline-flex; align-items: center; gap: .35rem; min-height: 44px; font-size: .85rem; color: var(--st-text-2); cursor: pointer; user-select: none; white-space: nowrap; }
+  .auto input { width: 1.1rem; height: 1.1rem; accent-color: var(--st-accent); margin: 0; }
+  .next { position: relative; overflow: hidden; min-height: 44px; min-width: 8rem; }
+  .next.counting::after { content: ''; position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: color-mix(in srgb, var(--st-surface) 70%, transparent);
+    transform-origin: left; animation: wait var(--dg-wait) linear forwards; }
   .over-layer { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: .5rem; background: color-mix(in srgb, var(--lp-ink) 78%, transparent); }
 
   .levelup { position: fixed; left: 50%; top: 40%; z-index: 20; display: grid; justify-items: center; gap: .3rem; padding: 1.25rem 2rem; max-width: calc(100vw - 32px);
@@ -475,6 +517,11 @@
 
   @media (orientation: portrait) and (max-width: 760px) {
     .hint { display: none; }
+    .bar.verdict { gap: .25rem .75rem; }
+    .headline { font-size: 1.05rem; }
+    .points { font-size: 1.15rem; }
+    .reason { font-size: .85rem; flex-basis: 100%; }
+    .chips { display: none; }
     .bar { min-height: 44px; }
     .dg-intro > :global(*) { order: 4; }
     .dg-intro h1 { order: 0; }
@@ -491,6 +538,7 @@
     .headline { font-size: 1rem; }
     .points { font-size: 1.1rem; }
     .reason { font-size: .82em; }
+    .chips { display: none; }
   }
 
   @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
@@ -498,9 +546,11 @@
   @keyframes spark { 0% { opacity: 1; transform: rotate(var(--a)) translateX(0) scale(1); } 100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--d)) scale(.4); } }
   @keyframes rise { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.6); } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -3rem) scale(1); } }
   @keyframes banner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.5); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -60%) scale(1); } }
+  @keyframes wait { from { transform: scaleX(0); } to { transform: scaleX(1); } }
   @keyframes turn { 0%, 30% { transform: rotate(-90deg); opacity: 0; } 55%, 100% { transform: rotate(0); opacity: 1; } }
   @media (prefers-reduced-motion: reduce) {
     .fill, .option { transition: none; }
+    .next.counting::after { animation: none; }
     .option.won, .option.is-wrong-pick, .points, .toast, .levelup, .rotate .turned { animation: none; }
     .burst, .float-pts { display: none; }
     .levelup { opacity: 1; }

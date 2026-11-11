@@ -38,7 +38,7 @@
   .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1.5rem; margin: .25rem 0; }
   @media (min-width: 560px) { .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
   .stats div { display: grid; gap: .15rem; }
-  dt { font: .7rem var(--st-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--st-text-3); }
+  dt { font: .75rem var(--st-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--st-text-3); }
   dd { margin: 0; font: 700 1.25rem var(--st-mono); }
   .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; }
   .again { min-height: 44px; min-width: 9rem; }
