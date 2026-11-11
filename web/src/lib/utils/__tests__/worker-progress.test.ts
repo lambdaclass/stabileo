@@ -9,7 +9,7 @@ describe.sequential('worker progress between synchronous test cases', () => {
     expect(progressDelivered).toBe(false);
   });
 
-  it.skip('known wrong result: #N (CI task; no issue number supplied): delivers the pending callback before the next synchronous test', () => {
+  it('delivers the pending callback before the next synchronous test', () => {
     expect(progressDelivered).toBe(true);
   });
 });
