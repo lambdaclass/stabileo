@@ -1,5 +1,5 @@
 import { buildCriticalStations, extractForcesAtStation, type StationForces } from '../engine/station-forces';
-import { shellCentreRows, shellLocalAxes, type ShellModel } from '../engine/shell-results';
+import { shellCentreRows, shellLocalAxes, type ShellCentreRow, type ShellModel } from '../engine/shell-results';
 import { woodArmer } from '../engine/wood-armer';
 import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-flange';
 import { wallBaseResultants } from '../engine/detailing/wall-design';
@@ -103,8 +103,32 @@ function chain(m: DemandInput, ids: readonly number[]): Array<{ e: El; forward: 
 
 interface Station { x: number; s: StationForces }
 
+const forcesById = new WeakMap<DemandSet['result'], Map<number, ElementForces3D>>();
+function forcesOf(set: DemandSet): Map<number, ElementForces3D> {
+  let by = forcesById.get(set.result);
+  if (!by) { by = new Map(set.result.elementForces.map((f) => [f.elementId, f])); forcesById.set(set.result, by); }
+  return by;
+}
+
+type KeyedRows = { rows: ShellCentreRow[]; at: Map<string, number> };
+const shellRowsOf = new WeakMap<DemandSet['result'], WeakMap<ShellModel, KeyedRows>>();
+/** The shells' centre rows of one result, computed once, in their own order, for the shells of `keys`. */
+function shellRowsIn(set: DemandSet, shells: ShellModel, keys: ReadonlySet<string>): ShellCentreRow[] {
+  let byModel = shellRowsOf.get(set.result);
+  if (!byModel) { byModel = new WeakMap(); shellRowsOf.set(set.result, byModel); }
+  let k = byModel.get(shells);
+  if (!k) {
+    const rows = shellCentreRows(set.result, shells);
+    k = { rows, at: new Map(rows.map((r, i) => [`${r.kind === 'quad' ? 'q' : 'p'}${r.id}`, i])) };
+    byModel.set(shells, k);
+  }
+  const idx: number[] = [];
+  for (const key of keys) { const i = k.at.get(key); if (i !== undefined) idx.push(i); }
+  return idx.sort((a, b) => a - b).map((i) => k.rows[i]!);
+}
+
 function runStations(m: DemandInput, run: Array<{ e: El; forward: boolean }>, set: DemandSet): Station[] {
-  const by = new Map(set.result.elementForces.map((f) => [f.elementId, f]));
+  const by = forcesOf(set);
   const out: Station[] = [];
   let offset = 0;
   for (const { e, forward } of run) {
@@ -119,7 +143,7 @@ function runStations(m: DemandInput, run: Array<{ e: El; forward: boolean }>, se
 const upright = (e: El) => { const r = ((((e.rollAngle ?? 0) % 180) + 180) % 180); return r < 5 || r > 175; };
 
 function forcesAt(m: DemandInput, run: Array<{ e: El; forward: boolean }>, set: DemandSet, x: number): StationForces | undefined {
-  const by = new Map(set.result.elementForces.map((f) => [f.elementId, f]));
+  const by = forcesOf(set);
   let offset = 0;
   for (const { e, forward } of run) {
     const L = lengthOf(m, e);
@@ -252,7 +276,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       const deadPu = deadBy.reduce((s, by) => s - (at(by.get(bottom.e.id), bottom.forward, 'bottom')?.n ?? 0), 0);
       const cases: ColumnCase[] = [];
       for (const set of m.sets) {
-        const by = new Map(set.result.elementForces.map((f) => [f.elementId, f]));
+        const by = forcesOf(set);
         const b = at(by.get(bottom.e.id), bottom.forward, 'bottom'), t = at(by.get(top.e.id), top.forward, 'top');
         if (!b || !t) continue;
         let vx = 0, vy = 0;
@@ -300,7 +324,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     const combos: SlabComboForces[] = [];
     for (const set of m.sets) {
       const c: SlabComboForces = { combo: set.name, bottomX: 0, bottomY: 0, topX: 0, topY: 0, qx: 0, qy: 0 };
-      for (const row of shellCentreRows(set.result, m.shells)) {
+      for (const row of shellRowsIn(set, m.shells, keys)) {
         const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
         if (!keys.has(key) || !row.global) continue;
         const k = flipOf.get(key) ?? 1;
@@ -379,7 +403,7 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       for (const set of m.sets) {
         let muV = 0, muH = 0;
         const strips: Parameters<typeof wallBaseResultants>[0][number][] = [];
-        for (const row of shellCentreRows(set.result, m.shells)) {
+        for (const row of shellRowsIn(set, m.shells, keys)) {
           const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
           if (!keys.has(key) || !row.global) continue;
           muV = Math.max(muV, Math.abs(tensorAlong(row.global.moment, v, v)));
@@ -425,7 +449,7 @@ export function punchingDemands(m: DemandInput): PunchingDemand[] {
       const sec = m.sections.get(r.e.sectionId);
       const p = m.nodes.get(node)!;
       const forces: SlabJointForce[] = m.sets.map((set, k) => {
-        const by = new Map(set.result.elementForces.map((f) => [f.elementId, f]));
+        const by = forcesOf(set);
         const fb = by.get(r.e.id), fa = above ? by.get(above.e.id) : undefined;
         const b = fb ? extractForcesAtStation(fb, r.forward ? 1 : 0) : undefined;
         const a = fa && above ? extractForcesAtStation(fa, above.forward ? 0 : 1) : undefined;
