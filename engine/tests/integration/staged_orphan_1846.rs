@@ -590,7 +590,7 @@ fn issue_1846_inactive_nodes_preserve_positive_springs_and_constraint_stiffness(
 
 #[test]
 fn issue_1846_prestress_inclined_public_refusals_2d_and_3d() {
-    for (pads2, pads3) in [(0, 0), (20, 10), (21, 11)] {
+    for (pads2, pads3) in [(0, 0), (20, 9), (21, 10)] {
         let mut input = make_input(
             vec![(1, 0.0, 0.0), (2, 4.0, 0.0)],
             vec![(1, 10_000.0, 0.3)], vec![(1, 0.01, 0.001)],
@@ -599,6 +599,7 @@ fn issue_1846_prestress_inclined_public_refusals_2d_and_3d() {
             vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 1.0, fz: 0.0, my: 0.0 })],
         );
         pad_2d(&mut input, pads2);
+        assert_eq!(DofNumbering::build_2d(&input).n_free >= SPARSE_THRESHOLD, pads2 == 21);
         let mut staged = stage_2d(&input);
         let prestress = PrestressLoad {
             element_id: 1, force: 1.0, eccentricity_i: 0.0, eccentricity_j: 0.0,
@@ -632,6 +633,7 @@ fn issue_1846_prestress_inclined_public_refusals_2d_and_3d() {
             vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 1.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
         );
         pad_3d(&mut input3, pads3);
+        assert_eq!(DofNumbering::build_3d(&input3).n_free >= SPARSE_THRESHOLD, pads3 == 10);
         check_3d(&input3);
         let mut inclined3 = stage_3d(&input3);
         inclined3.stages[0].prestress_loads.push(prestress);

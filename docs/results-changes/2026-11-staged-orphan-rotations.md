@@ -61,3 +61,19 @@ boundaries, true orphans, real support springs and unsupported moments. They als
 check legacy 2D assembly paths, kinematics and nonlinear consumers. The public
 WASM test covers the same staged release family and nonlinear controls. No
 existing tolerance, baseline or assertion was relaxed.
+
+Review of PR #1943 also found that the replacement 2D stage assembly added
+prestress to the force vector after ordinary assembly had rotated it for inclined
+supports. Prestress is now represented as ordinary global nodal loads before
+assembly, so both dense and sparse paths use the regular load assembler and its
+single support transformation. Native internal regressions compare assembled
+loads, displacements and reactions against regular linear solves with independent
+equivalent loads for straight, parabolic and harped tendons, including zero force.
+
+Public staged 2D and 3D still explicitly refuse inclined supports, as main does.
+This internal correction does not enable them or claim a public inclined-support
+result changed. Native and WASM tests retain those refusals on both sides of dense
+and sparse dispatch. Staged 3D has no implementation that consumes its stage
+prestress field; adding that physics is separate work, not part of this coordinate
+correction. The WASM comparison now requires every displacement component for the
+selected dimension to be a finite number before checking the existing tolerance.

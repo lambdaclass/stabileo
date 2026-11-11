@@ -1,7 +1,9 @@
 {
   "id": "staged-orphan-rotations",
   "date": "2026-11-11",
-  "prs": [],
+  "prs": [
+    1943
+  ],
   "area": "analysis",
   "when": {
     "any": [

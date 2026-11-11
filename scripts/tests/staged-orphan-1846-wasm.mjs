@@ -99,8 +99,11 @@ for (const [label, input, linearSolve, stagedSolve] of cases) {
   const staged = JSON.parse(stagedSolve(JSON.stringify({ ...input, stages }))).finalResults;
   for (const a of linear.displacements) {
     const b = staged.displacements.find(b => b.nodeId === a.nodeId);
-    for (const field of ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']) {
-      if (!(field in a)) continue;
+    assert.ok(b, `${label}: missing staged node ${a.nodeId}`);
+    const fields = linearSolve === solve_2d ? ['ux', 'uz', 'ry'] : ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
+    for (const field of fields) {
+      assert.ok(Number.isFinite(a[field]), `${label}, node ${a.nodeId}, ${field}: linear component must be finite`);
+      assert.ok(Number.isFinite(b[field]), `${label}, node ${a.nodeId}, ${field}: staged component must be finite`);
       if (Math.abs(a[field] - b[field]) > 1e-9 * Math.max(Math.abs(a[field]), 1e-10)) {
         failures++;
         console.error(`${label}, node ${a.nodeId}, ${field}: linear=${a[field]}, staged=${b[field]}`);
@@ -120,6 +123,8 @@ for (const scale of [1, 1e-3, 1e3]) {
     const nonlinear = JSON.parse(solve_corotational_2d(JSON.stringify(input), 20, 1e-12, 1));
     assert.equal(nonlinear.converged, true);
     const actual = nonlinear.results.displacements.find(d => d.nodeId === 2).ry;
+    assert.ok(Number.isFinite(linear));
+    assert.ok(Number.isFinite(actual));
     assert.ok(Math.abs(linear - actual) <= 1e-9 * Math.max(Math.abs(linear), 1e-10));
   }
   for (let release = 0; release < 5; release++) {
@@ -129,6 +134,8 @@ for (const scale of [1, 1e-3, 1e3]) {
     const nonlinear = JSON.parse(solve_nonlinear_material_3d(JSON.stringify({ solver: input, materialModels: {}, sectionCapacities: {}, maxIter: 20, tolerance: 1e-12, nIncrements: 1 })));
     assert.equal(nonlinear.converged, true);
     const actual = nonlinear.results.displacements.find(d => d.nodeId === 2).rx;
+    assert.ok(Number.isFinite(linear));
+    assert.ok(Number.isFinite(actual));
     assert.ok(Math.abs(linear - actual) <= 1e-9 * Math.max(Math.abs(linear), 1e-10));
   }
 }

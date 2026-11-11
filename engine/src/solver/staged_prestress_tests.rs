@@ -137,13 +137,11 @@ fn check(sparse: bool) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn staged_prestress_inclined_dense_matches_regular_linear_equivalent_loads() {
     check(false);
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn staged_prestress_inclined_sparse_matches_regular_linear_equivalent_loads() {
     check(true);
 }

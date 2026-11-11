@@ -440,7 +440,8 @@ fn connected_nodes_3d(input: &SolverInput3D) -> HashSet<usize> {
     connected
 }
 
-fn add_stage_prestress_2d(input: &SolverInput, dof_num: &DofNumbering, stage: &ConstructionStage, f: &mut [f64]) {
+fn stage_loads_2d(input: &SolverInput, stage: &ConstructionStage) -> Vec<SolverLoad> {
+    let mut loads = input.loads.clone();
     let nodes: HashMap<_, _> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let elements: HashMap<_, _> = crate::ordered::values(&input.elements).map(|e| (e.id, e)).collect();
     for ps in &stage.prestress_loads {
@@ -452,13 +453,19 @@ fn add_stage_prestress_2d(input: &SolverInput, dof_num: &DofNumbering, stage: &C
         let l = (dx * dx + dz * dz).sqrt();
         let t = frame_transform_2d(dx / l, dz / l);
         let local = prestress_fef_2d(ps, l);
-        let dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+        let mut global = [0.0; 6];
         for i in 0..6 {
             for j in 0..6 {
-                f[dofs[i]] += t[j * 6 + i] * local[j];
+                global[i] += t[j * 6 + i] * local[j];
             }
         }
+        for (node_id, offset) in [(elem.node_i, 0), (elem.node_j, 3)] {
+            loads.push(SolverLoad::Nodal(SolverNodalLoad {
+                node_id, fx: global[offset], fz: global[offset + 1], my: global[offset + 2],
+            }));
+        }
     }
+    loads
 }
 
 fn assemble_staged_2d(
@@ -466,8 +473,8 @@ fn assemble_staged_2d(
     dof_num: &DofNumbering,
     stage: &ConstructionStage,
 ) -> AssemblyResult {
-    let mut asm = super::assembly::without_artificial_stiffness(|| assemble_2d(stage_input, dof_num));
-    add_stage_prestress_2d(stage_input, dof_num, stage, &mut asm.f);
+    let loaded_input = SolverInput { loads: stage_loads_2d(stage_input, stage), ..stage_input.clone() };
+    let mut asm = super::assembly::without_artificial_stiffness(|| assemble_2d(&loaded_input, dof_num));
     let n = dof_num.n_total;
     let k = super::assembly::artificial_stiffness(asm.max_diag_k);
     for d in inactive_dofs(dof_num, &connected_nodes_2d(stage_input), |d| asm.k[d * n + d]) {
@@ -504,8 +511,8 @@ fn assemble_staged_2d_triplets(
     stage: &ConstructionStage,
 ) -> StagedTriplets2D {
     let stiff = super::assembly::without_artificial_stiffness(|| super::sparse_assembly::assemble_stiffness_sparse_2d(stage_input, dof_num));
-    let mut f = super::assembly::assemble_load_vector_2d(stage_input, &stage_input.loads, dof_num, &stiff.inclined_transforms_2d);
-    add_stage_prestress_2d(stage_input, dof_num, stage, &mut f);
+    let loads = stage_loads_2d(stage_input, stage);
+    let f = super::assembly::assemble_load_vector_2d(stage_input, &loads, dof_num, &stiff.inclined_transforms_2d);
     let (mut rows, mut cols, mut vals) = full_triplets(&stiff.k_full);
     let mut diag = stiff.k_full.diagonal();
     let k = super::assembly::artificial_stiffness(stiff.max_diag_k);
