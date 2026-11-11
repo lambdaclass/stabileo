@@ -489,8 +489,12 @@ fn carry(input: &SolverInput3D) -> Result<Option<AnalysisResults3D>, String> {
     if super::super::kinematic::analyze_kinematics_3d(input).is_solvable {
         return crate::known_issues::optional_solve(super::super::linear::solve_3d(input));
     }
+    if !input.constraints.is_empty() || !input.connectors.is_empty() {
+        return Err("plastic 3D cannot certify a soft-spring hinge state with constraints or connectors: the member-force balance check does not include their forces".into());
+    }
     let soft = with_soft_springs(input);
-    let Some(mut r) = crate::known_issues::optional_solve(super::super::linear::solve_3d(&soft))? else { return Ok(None); };
+    let solved = super::super::stability::assuming_stable(|| crate::known_issues::optional_solve(super::super::linear::solve_3d(&soft)))?;
+    let Some(mut r) = solved else { return Ok(None); };
     if !balanced(input, &r) {
         return Ok(None);
     }
@@ -594,7 +598,7 @@ fn balanced(input: &SolverInput3D, r: &AnalysisResults3D) -> bool {
         skip.extend(p.nodes);
     }
     if !input.constraints.is_empty() || !input.connectors.is_empty() {
-        return true;
+        return false;
     }
     let mut sum: HashMap<usize, [f64; 6]> = HashMap::new();
     let mut scale = 0.0f64;
@@ -1400,6 +1404,31 @@ fn compute_plastic_moments_3d(sec: &PlasticSectionData3D, fy: f64) -> (f64, f64)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn issue_1753_balance_cannot_certify_constraints_or_connectors() {
+        let base: PlasticInput3D = serde_json::from_str(include_str!("../../../verify/samples/plastic-3d-portal.input.json")).unwrap();
+        let results = crate::solver::linear::solve_3d(&base.solver).unwrap();
+        let mut constrained = base.solver.clone();
+        constrained.constraints.push(Constraint::EqualDOF(EqualDOFConstraint { master_node: 1, slave_node: 2, dofs: vec![0] }));
+        assert!(!balanced(&constrained, &results), "constraints bypass the force check and cannot certify a hinge-state solve");
+        let mut connected = base.solver;
+        connected.connectors.insert("1".into(), serde_json::from_value(serde_json::json!({"id": 1, "nodeI": 1, "nodeJ": 2, "kAxial": 1.0})).unwrap());
+        assert!(!balanced(&connected, &results), "connectors bypass the force check and cannot certify a hinge-state solve");
+        for mut model in [constrained, connected] {
+            for e in model.elements.values_mut() {
+                e.release_my_start = true;
+                e.release_my_end = true;
+                e.release_mz_start = true;
+                e.release_mz_end = true;
+                e.release_t_start = true;
+                e.release_t_end = true;
+            }
+            assert!(!crate::solver::kinematic::analyze_kinematics_3d(&model).is_solvable);
+            let error = carry(&model).unwrap_err();
+            assert!(error.starts_with("plastic 3D cannot certify a soft-spring hinge state with constraints or connectors"), "{error}");
+        }
+    }
 
     #[test]
     fn an_error_on_one_step_refuses_the_collapse_factor() {

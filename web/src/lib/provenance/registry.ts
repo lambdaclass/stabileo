@@ -37,6 +37,12 @@ export interface ChangeCondition {
   allOf?: string[][];
 }
 
+export interface ScopedQuantity {
+  quantity: string;
+  before: string;
+  after: string;
+}
+
 export interface ResultChange {
   id: string;
   resultsVersion: number;
@@ -62,7 +68,7 @@ export interface ResultChange {
    * (`quadNodalStresses`) or one field of it (`quadStresses.sigmaXx`). Absent: it explains no
    * difference in a solve's results, which is right for a design change and strict for any other.
    */
-  quantities?: string[];
+  quantities?: Array<string | ScopedQuantity>;
   title: Localised;
   explanation: Localised;
   /** Where the change is written up: a repository file and one of its headings. */
@@ -124,7 +130,11 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
     }
     if (!c.changelog?.file || !c.changelog?.heading) problems.push(`${where}: missing changelog link`);
     if (c.quantities !== undefined && (!Array.isArray(c.quantities) || c.quantities.length === 0
-      || c.quantities.some((q) => typeof q !== 'string' || !QUANTITY.test(q)))) {
+      || c.quantities.some((q) => typeof q === 'string' ? !QUANTITY.test(q)
+        : !q || typeof q !== 'object' || typeof q.quantity !== 'string' || !QUANTITY.test(q.quantity)
+          || q.quantity === '*' || q.quantity === 'solve.ok'
+          || typeof q.before !== 'string' || typeof q.after !== 'string'
+          || !/^[a-f0-9]{64}$/.test(q.before) || !/^[a-f0-9]{64}$/.test(q.after)))) {
       problems.push(`${where}: quantities must be a non-empty list of "*", "solve.ok", a collection or collection.field`);
     }
     if (c.scope !== undefined && c.scope !== 'examples') problems.push(`${where}: unknown scope "${c.scope}"`);

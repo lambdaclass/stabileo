@@ -303,8 +303,10 @@ const BUILDERS: Record<StructureKind, (p: StructureParams) => Topology | null> =
       for (let i = 0; i < n; i++) { b.member(bot(i), top(i + 1), 'diagonal', 'truss'); b.member(top(i), bot(i + 1), 'diagonal', 'truss'); }
       b.assumptions.push('generator.assume.xBracingUnconnected');
     }
-    b.support(bot(0), 'pinned');
-    b.support(bot(n), 'rollerX');
+    b.support(bot(0), 'forkPinned');
+    b.support(bot(n), 'forkRollerX');
+    for (const node of b.nodes) b.support(node.i, 'outOfPlane');
+    b.assumptions.push('generator.assume.planarRestraints');
     return b.done();
   },
 
@@ -331,8 +333,10 @@ const BUILDERS: Record<StructureKind, (p: StructureParams) => Topology | null> =
       // The glazed face: the tall post at the end of the tooth.
       b.member(bot(k), top(k), 'post');
     }
-    b.support(b.node(0, 0, 0), 'pinned');
-    b.support(b.node(n * s, 0, 0), 'rollerX');
+    b.support(b.node(0, 0, 0), 'forkPinned');
+    b.support(b.node(n * s, 0, 0), 'forkRollerX');
+    for (const node of b.nodes) b.support(node.i, 'outOfPlane');
+    b.assumptions.push('generator.assume.planarRestraints');
     return b.done(Math.round((h / s) * 1000) / 10);
   },
 

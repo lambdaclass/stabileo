@@ -75,6 +75,8 @@ fn build_large_plate(nx: usize, ny: usize) -> SolverInput3D {
         sid += 1;
     }
     supports.insert(sid.to_string(), sup3d(grid[0][0], true, true, true, false, false, false));
+    sid += 1;
+    supports.insert(sid.to_string(), sup3d(grid[nx][0], false, true, true, false, false, false));
 
     // Uniform pressure
     let n_quads = quads.len();

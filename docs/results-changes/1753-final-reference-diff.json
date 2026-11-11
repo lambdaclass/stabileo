@@ -1,0 +1,163 @@
+[
+  {
+    "model": "issue-1086",
+    "changed_components": 16,
+    "components_above_1e-10": 16,
+    "max_absolute_change": "1.273445354001215657480346949E-19",
+    "max_relative_above_1e-10": "2.691559179323877953634045926E-16"
+  },
+  {
+    "model": "issue-1090",
+    "changed_components": 27,
+    "components_above_1e-10": 21,
+    "max_absolute_change": "1.023194618760498997289687395E-19",
+    "max_relative_above_1e-10": "8.944708560584884904096672195E-16"
+  },
+  {
+    "model": "issue-1097",
+    "changed_components": 30,
+    "components_above_1e-10": 30,
+    "max_absolute_change": "1.676803695105179001533024527E-15",
+    "max_relative_above_1e-10": "3.557329187596170444548422719E-16"
+  },
+  {
+    "model": "issue-1101",
+    "changed_components": 24,
+    "components_above_1e-10": 20,
+    "max_absolute_change": "1.941260577573188842810563388E-11",
+    "max_relative_above_1e-10": "1.548916299241534312377755312E-16"
+  },
+  {
+    "model": "issue-1102",
+    "changed_components": 16,
+    "components_above_1e-10": 16,
+    "max_absolute_change": "8.981453586449599398135484823E-15",
+    "max_relative_above_1e-10": "1.730220181168978910919567034E-16"
+  },
+  {
+    "model": "issue-1115",
+    "changed_components": 42,
+    "components_above_1e-10": 38,
+    "max_absolute_change": "8.649569474197850207421832932E-9",
+    "max_relative_above_1e-10": "1.015012001131644213090351087E-13"
+  },
+  {
+    "model": "issue-1116",
+    "changed_components": 32,
+    "components_above_1e-10": 31,
+    "max_absolute_change": "1.428830191260914982228659168E-17",
+    "max_relative_above_1e-10": "6.547575648909859620453023959E-16"
+  },
+  {
+    "model": "issue-1117",
+    "changed_components": 24,
+    "components_above_1e-10": 20,
+    "max_absolute_change": "4.925757309368547659596123746E-12",
+    "max_relative_above_1e-10": "6.781904643321120424750306393E-17"
+  },
+  {
+    "model": "issue-1118",
+    "changed_components": 79,
+    "components_above_1e-10": 75,
+    "max_absolute_change": "2.632592558410238052795022992E-14",
+    "max_relative_above_1e-10": "7.707702463471082265528200967E-16"
+  },
+  {
+    "model": "issue-1193",
+    "changed_components": 23,
+    "components_above_1e-10": 19,
+    "max_absolute_change": "6.639137123121355288558897912E-21",
+    "max_relative_above_1e-10": "2.383949844973678453337277693E-16"
+  },
+  {
+    "model": "issue-1216",
+    "changed_components": 32,
+    "components_above_1e-10": 27,
+    "max_absolute_change": "2.603050383685477703880501736E-15",
+    "max_relative_above_1e-10": "2.169071826094644557299994505E-15"
+  },
+  {
+    "model": "issue-1265",
+    "changed_components": 61,
+    "components_above_1e-10": 60,
+    "max_absolute_change": "1.561158350134395509487612918E-13",
+    "max_relative_above_1e-10": "2.529815243062384850439987902E-16"
+  },
+  {
+    "model": "issue-1351",
+    "changed_components": 23,
+    "components_above_1e-10": 20,
+    "max_absolute_change": "9.043448200420358029651870141E-20",
+    "max_relative_above_1e-10": "1.263826860667493823006908145E-16"
+  },
+  {
+    "model": "issue-1357",
+    "changed_components": 103,
+    "components_above_1e-10": 99,
+    "max_absolute_change": "5.864160740997633854855363199E-17",
+    "max_relative_above_1e-10": "4.832326061066243664280977129E-15"
+  },
+  {
+    "model": "issue-1635",
+    "changed_components": 23,
+    "components_above_1e-10": 16,
+    "max_absolute_change": "5.563304742432330363133274886E-15",
+    "max_relative_above_1e-10": "1.072084362279313959425620223E-15"
+  },
+  {
+    "model": "issue-1647",
+    "changed_components": 12,
+    "components_above_1e-10": 11,
+    "max_absolute_change": "6.840395214252353557881933754E-13",
+    "max_relative_above_1e-10": "7.411929025944246083375047465E-17"
+  },
+  {
+    "model": "issue-1653",
+    "changed_components": 59,
+    "components_above_1e-10": 54,
+    "max_absolute_change": "6.943910392953900079272311822E-10",
+    "max_relative_above_1e-10": "3.743233325398634046079230435E-16"
+  },
+  {
+    "model": "issue-954",
+    "changed_components": 29,
+    "components_above_1e-10": 29,
+    "max_absolute_change": "1.123002684872117056812855836E-14",
+    "max_relative_above_1e-10": "3.850191518718895772620119622E-16"
+  },
+  {
+    "model": "issue-956",
+    "changed_components": 27,
+    "components_above_1e-10": 27,
+    "max_absolute_change": "1.603187410016036501447711323E-20",
+    "max_relative_above_1e-10": "6.427267736599430836758270753E-16"
+  },
+  {
+    "model": "issue-960",
+    "changed_components": 15,
+    "components_above_1e-10": 15,
+    "max_absolute_change": "1.335719263538976708362100730E-15",
+    "max_relative_above_1e-10": "1.946757635958942414103218882E-16"
+  },
+  {
+    "model": "issue-993",
+    "changed_components": 78,
+    "components_above_1e-10": 72,
+    "max_absolute_change": "2.300503170388413607314493730E-13",
+    "max_relative_above_1e-10": "4.292416938822673902252081862E-16"
+  },
+  {
+    "model": "issue-994",
+    "changed_components": 83,
+    "components_above_1e-10": 77,
+    "max_absolute_change": "1.496664721892579397964639777E-13",
+    "max_relative_above_1e-10": "7.591145242317739652558920173E-16"
+  },
+  {
+    "model": "issue-972",
+    "changed_components": 24,
+    "components_above_1e-10": 20,
+    "max_absolute_change": "8.246068048256583771888521684E-12",
+    "max_relative_above_1e-10": "8.927805300788753320856733401E-16"
+  }
+]

@@ -44,15 +44,6 @@ export interface LatticeColumnParams {
   lacing: LacingPattern;
   chordContinuity: 'frame' | 'truss';
   webContinuity: 'frame' | 'truss';
-  /**
-   * Whether the base is fixed.
-   *
-   * A latticed column's two chords land on two separate anchor points, and pinning each
-   * of them ALREADY restrains the column against rotation in its own plane — the couple
-   * is carried by the pair, not by either base. So pinned chords are the honest default,
-   * and fixing them additionally restrains out-of-plane rotation, which is a different
-   * claim about the foundation and is therefore a choice.
-   */
   fixedBase: boolean;
   /**
    * Add a node on the column's centreline at the top, tied to both chord heads.
@@ -76,7 +67,7 @@ export const DEFAULT_LATTICE_COLUMN_PARAMS: LatticeColumnParams = Object.freeze(
   lacing: 'zigzag',
   chordContinuity: 'frame',
   webContinuity: 'truss',
-  fixedBase: false,
+  fixedBase: true,
   capTop: false,
 });
 

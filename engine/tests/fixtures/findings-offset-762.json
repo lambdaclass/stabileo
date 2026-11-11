@@ -1,0 +1,128 @@
+{
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "2": {
+      "id": 2,
+      "x": 4,
+      "y": 0,
+      "z": 0
+    },
+    "3": {
+      "id": 3,
+      "x": 0,
+      "y": 0,
+      "z": 0.3
+    },
+    "4": {
+      "id": 4,
+      "x": 4,
+      "y": 0,
+      "z": 0.3
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 200000,
+      "nu": 0.3
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "name": "IPN 300",
+      "a": 0.0068998265206363625,
+      "iy": 9.78559555065453e-05,
+      "iz": 4.495504302837911e-06,
+      "j": 4.666e-07
+    }
+  },
+  "elements": {
+    "1": {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 3,
+      "nodeJ": 4,
+      "materialId": 1,
+      "sectionId": 1,
+      "releaseMyStart": false,
+      "releaseMyEnd": false,
+      "releaseMzStart": false,
+      "releaseMzEnd": false,
+      "releaseTStart": false,
+      "releaseTEnd": false,
+      "localYx": 0,
+      "localYy": 1,
+      "localYz": 0
+    }
+  },
+  "supports": {
+    "1": {
+      "nodeId": 1,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": true,
+      "rry": true,
+      "rrz": true
+    }
+  },
+  "loads": [
+    {
+      "type": "nodal",
+      "data": {
+        "nodeId": 2,
+        "fx": 0,
+        "fy": 0,
+        "fz": -10,
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      }
+    }
+  ],
+  "plates": {},
+  "quads": {},
+  "curvedShells": {},
+  "constraints": [
+    {
+      "type": "eccentricConnection",
+      "masterNode": 1,
+      "slaveNode": 3,
+      "offsetX": 0,
+      "offsetY": 0,
+      "offsetZ": 0.3,
+      "releases": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "type": "eccentricConnection",
+      "masterNode": 2,
+      "slaveNode": 4,
+      "offsetX": 0,
+      "offsetY": 0,
+      "offsetZ": 0.3,
+      "releases": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  ],
+  "connectors": {},
+  "leftHand": false
+}

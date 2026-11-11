@@ -756,8 +756,17 @@ fn retained_analysis_refusals(seed: u64, dim: &str) -> Vec<(&'static str, &'stat
 }
 
 fn assert_retained_analysis_failures(seed: u64, dim: &str, t: &Tally) {
-    assert_analysis_failures(seed, dim, t, retained_analysis_failures(seed, dim));
+    let corrected = |a: &str, i: &str| seed == 2026110200115 && dim == "d3" && a == "linear (PCG)" && i == "units";
+    let retained = retained_analysis_failures(seed, dim);
+    let failures = retained.iter().copied().filter(|(a, i)| !corrected(a, i)).collect();
+    assert_analysis_failures(seed, dim, t, failures);
     let cells = t.cells.lock().unwrap();
+    for (a, i) in retained.into_iter().filter(|(a, i)| corrected(a, i)) {
+        let c = cell(&cells, 1753, a, i);
+        assert_eq!(c.pass, 1, "{seed} {dim}: corrected {a} / {i} did not compare: {c:?}");
+        assert!(c.fails.is_empty(), "{seed} {dim}: corrected {a} / {i} regressed: {c:?}");
+        assert_eq!(c.same_refusal + c.refused + c.inconclusive + c.unrep + c.not_applicable, 0, "{seed} {dim}: corrected {a} / {i} lost its numerical comparison: {c:?}");
+    }
     for (a, i) in retained_analysis_refusals(seed, dim) {
         let c = cell(&cells, 1892, a, i);
         assert!(c.fails.is_empty(), "{seed} {dim}: {a} / {i}: {c:?}");
@@ -1616,4 +1625,22 @@ fn issue_1892_final_round_moving_moments_use_each_members_distance() {
             assert!(short.error > 0.0 && short.error < long.error, "{tag}: short={} long={}", short.error, long.error);
         }
     }
+}
+
+#[test]
+fn issue_1753_retained_pcg_units_inventory_accepts_verified_comparisons() {
+    let seed = 2026110200115;
+    let c = crate::corpus::fuzz_case_3d(2026110200000, seed - 2026110200000);
+    let t = Tally::default();
+    crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &[ana3("linear (PCG)")], crate::INV_3D);
+    {
+        let cells = t.cells.lock().unwrap();
+        for invariant in ["relabel", "units"] {
+            let c = cell(&cells, 1753, "linear (PCG)", invariant);
+            assert_eq!(c.pass, 1, "{invariant}: {c:?}");
+            assert!(c.fails.is_empty(), "{invariant}: {c:?}");
+            assert_eq!(c.same_refusal + c.refused + c.inconclusive + c.unrep + c.not_applicable, 0, "{invariant}: {c:?}");
+        }
+    }
+    assert_retained_analysis_failures(seed, "d3", &t);
 }

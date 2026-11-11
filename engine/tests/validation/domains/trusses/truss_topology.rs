@@ -5,15 +5,11 @@
 ///   - Kassimali, "Structural Analysis", Ch. 4-5 (Trusses)
 ///   - Leet, Uang & Gilbert, "Fundamentals of Structural Analysis", Ch. 3
 ///
-/// These tests verify member force patterns in various truss
-/// topologies: Warren, Pratt, Howe, K-truss, and fan trusses.
 /// Results are checked against method of joints/sections
 /// analytical solutions.
 ///
 /// Tests verify:
 ///   1. Warren truss: alternating diagonal tension/compression
-///   2. Pratt truss: diagonals in tension, verticals in compression
-///   3. Howe truss: diagonals in compression, verticals in tension
 ///   4. Simple truss: method of joints verification
 ///   5. K-truss: member force pattern
 ///   6. Symmetric truss: force symmetry under symmetric load
@@ -102,14 +98,11 @@ fn validation_truss_warren_pattern() {
 }
 
 // ================================================================
-// 2. Pratt Truss: Diagonals in Tension
 // ================================================================
 //
-// Pratt truss has verticals and diagonals sloping toward midspan.
-// Under gravity, diagonals are in tension, verticals in compression.
 
 #[test]
-fn validation_truss_pratt_pattern() {
+fn validation_truss_three_panel_upward_end_diagonals() {
     let span = 12.0;
     let h = 3.0;
     let p = 30.0;
@@ -139,9 +132,9 @@ fn validation_truss_pratt_pattern() {
         (8, "truss", 2, 6, 1, 1, false, false),
         (9, "truss", 3, 7, 1, 1, false, false),
         (10, "truss", 4, 8, 1, 1, false, false),
-        // Pratt diagonals (slope toward midspan)
         (11, "truss", 1, 6, 1, 1, false, false), // left panel
         (12, "truss", 7, 4, 1, 1, false, false), // right panel (mirror)
+        (13, "truss", 2, 7, 1, 1, false, false),
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "rollerX")];
     // Loads at top chord joints
@@ -152,33 +145,24 @@ fn validation_truss_pratt_pattern() {
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
     );
+    assert_original_middle_panel_mechanism(&input);
     let results = linear::solve_2d(&input).unwrap();
-
-    // Bottom chord should be in tension
-    let ef_bc = results.element_forces.iter()
-        .find(|e| e.element_id == 2).unwrap();
-    assert!(ef_bc.n_start > 0.0, "Pratt: bottom chord in tension");
-
-    // Top chord should be in compression
-    let ef_tc = results.element_forces.iter()
-        .find(|e| e.element_id == 5).unwrap();
-    assert!(ef_tc.n_start < 0.0, "Pratt: top chord in compression");
-
-    // Diagonals carry significant force
-    let ef_diag = results.element_forces.iter()
-        .find(|e| e.element_id == 11).unwrap();
-    assert!(ef_diag.n_start.abs() > 0.1, "Pratt: diagonal carries force");
+    let expected = [40.0, 40.0, 40.0, 0.0, -40.0, 0.0, 0.0, 0.0, 0.0, 0.0, -50.0, -50.0, 0.0];
+    assert_eq!(results.element_forces.len(), expected.len());
+    for (id, force) in expected.into_iter().enumerate() {
+        let actual = results.element_forces.iter().find(|e| e.element_id == id + 1).unwrap();
+        assert_close_abs(actual.n_start, force, 0.01, 1e-6, "three-panel upward end diagonals: joint equilibrium");
+    }
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
+    assert_close(sum_ry, 2.0 * p, 0.01, "three-panel truss: vertical equilibrium");
 }
 
 // ================================================================
-// 3. Howe Truss: Diagonals in Compression
 // ================================================================
 //
-// Howe truss diagonals slope away from midspan.
-// Under gravity, diagonals are in compression, verticals in tension.
 
 #[test]
-fn validation_truss_howe_pattern() {
+fn validation_truss_three_panel_downward_end_diagonals() {
     let span = 12.0;
     let h = 3.0;
     let p = 30.0;
@@ -202,9 +186,9 @@ fn validation_truss_howe_pattern() {
         (8, "truss", 2, 6, 1, 1, false, false),
         (9, "truss", 3, 7, 1, 1, false, false),
         (10, "truss", 4, 8, 1, 1, false, false),
-        // Howe diagonals (slope away from midspan)
         (11, "truss", 5, 2, 1, 1, false, false), // left panel
         (12, "truss", 3, 8, 1, 1, false, false), // right panel
+        (13, "truss", 6, 3, 1, 1, false, false),
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "rollerX")];
     let loads = vec![
@@ -214,16 +198,16 @@ fn validation_truss_howe_pattern() {
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
     );
+    assert_original_middle_panel_mechanism(&input);
     let results = linear::solve_2d(&input).unwrap();
-
-    // Howe diagonals carry significant force
-    let ef_diag = results.element_forces.iter()
-        .find(|e| e.element_id == 11).unwrap();
-    assert!(ef_diag.n_start.abs() > 0.1, "Howe: diagonal carries force");
-
-    // Global equilibrium
+    let expected = [0.0, 40.0, 0.0, -40.0, -40.0, -40.0, -30.0, -30.0, -30.0, -30.0, 50.0, 50.0, 0.0];
+    assert_eq!(results.element_forces.len(), expected.len());
+    for (id, force) in expected.into_iter().enumerate() {
+        let actual = results.element_forces.iter().find(|e| e.element_id == id + 1).unwrap();
+        assert_close_abs(actual.n_start, force, 0.01, 1e-6, "three-panel downward end diagonals: joint equilibrium");
+    }
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 2.0 * p, 0.01, "Howe: ΣRy = 2P");
+    assert_close(sum_ry, 2.0 * p, 0.01, "three-panel truss: vertical equilibrium");
 }
 
 // ================================================================
@@ -498,4 +482,25 @@ fn validation_truss_global_equilibrium() {
     // ΣFy = 0: Ry_reactions = 40
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 40.0, 0.01, "Truss equilibrium: ΣRy = 40");
+}
+
+fn assert_original_middle_panel_mechanism(braced: &SolverInput) {
+    let mut original = braced.clone();
+    original.elements.remove("13");
+    let motion = |n: &SolverNode| [-n.z, if n.x <= 4.0 { n.x } else { n.x - 12.0 }];
+    for element in original.elements.values() {
+        let a = &original.nodes[&element.node_i.to_string()];
+        let b = &original.nodes[&element.node_j.to_string()];
+        let (ua, ub) = (motion(a), motion(b));
+        let extension = (b.x - a.x) * (ub[0] - ua[0]) + (b.z - a.z) * (ub[1] - ua[1]);
+        assert_eq!(extension, 0.0, "original member {} has no extension in the middle-panel mechanism", element.id);
+    }
+    for support in original.supports.values() {
+        let u = motion(&original.nodes[&support.node_id.to_string()]);
+        assert_eq!(u[1], 0.0);
+        if support.support_type == "pinned" { assert_eq!(u[0], 0.0); }
+    }
+    assert_ne!(motion(&original.nodes["2"]), [0.0; 2]);
+    let error = linear::solve_2d(&original).expect_err("the original unbraced middle panel is a genuine mechanism");
+    assert!(error.starts_with("the structure is a mechanism"), "{error}");
 }

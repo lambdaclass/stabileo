@@ -93,17 +93,15 @@ fn validation_arch_ext_fixed_fixed_zero_displacement() {
 }
 
 // ================================================================
-// 2. Truss Arch: Purely Axial — Zero Bending Moments
+// 2. Truss Arch: a Chain of Pin-Jointed Bars Is a Mechanism
 // ================================================================
 //
-// A parabolic arch built from truss (pin-jointed) elements carries
-// load purely in axial compression/tension. All bending moments must
-// be zero because truss elements have no moment capacity.
+// A parabolic arch built from pin-jointed bars is a chain: its linear
+// stiffness is singular, so the linear solve refuses it.
 //
-// Ref: Kassimali, "Structural Analysis", 6th Ed., Ch. 4
 
 #[test]
-fn validation_arch_ext_truss_arch_zero_moments() {
+fn validation_arch_ext_truss_arch_is_refused_as_a_mechanism() {
     let l = 12.0;
     let f_rise = 3.0;
     let n = 12;
@@ -132,31 +130,8 @@ fn validation_arch_ext_truss_arch_zero_moments() {
         .collect();
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
-    let results = linear::solve_2d(&input).unwrap();
-
-    // All element moments must be zero (truss behavior)
-    for ef in &results.element_forces {
-        assert_close(ef.m_start, 0.0, 0.001,
-            &format!("Truss arch elem {}: m_start=0", ef.element_id));
-        assert_close(ef.m_end, 0.0, 0.001,
-            &format!("Truss arch elem {}: m_end=0", ef.element_id));
-        assert_close(ef.v_start, 0.0, 0.001,
-            &format!("Truss arch elem {}: v_start=0", ef.element_id));
-        assert_close(ef.v_end, 0.0, 0.001,
-            &format!("Truss arch elem {}: v_end=0", ef.element_id));
-    }
-
-    // All elements should carry axial force (non-zero n)
-    for ef in &results.element_forces {
-        assert!(ef.n_start.abs() > 0.1,
-            "Truss arch elem {}: should have axial force, got n_start={:.4}",
-            ef.element_id, ef.n_start);
-    }
-
-    // Vertical equilibrium: ΣRy = (n-1) * P
-    let total_applied = (n - 1) as f64 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, total_applied, 0.01, "Truss arch: ΣRy = total P");
+    let refused = linear::solve_2d(&input).map(|_| ()).expect_err("a chain of pin-ended bars is a mechanism");
+    assert!(refused.starts_with("the structure is a mechanism"), "{refused}");
 }
 
 // ================================================================

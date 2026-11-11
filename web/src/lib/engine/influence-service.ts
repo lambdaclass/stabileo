@@ -5,7 +5,7 @@
 // built by the same model→solver mapping the static solve uses, so the line
 // can never be computed on a structure the solve does not see.
 
-import { computeInfluenceLineWasm, solve, isWasmReady } from './wasm-solver';
+import { computeInfluenceLineWasm, prepareLoadSession2D, solve, isWasmReady } from './wasm-solver';
 import { advancedRefusal2D, buildSolverInput2D, variableRefusal2D, type ModelData } from './solver-service';
 import { withoutSettlement } from './settlement-case';
 import { modelHasSlidingJoints } from './sliding-joints';
@@ -119,14 +119,19 @@ export function computePoints(
     collect(result);
     refused.push(...(result.structuredDiagnostics ?? []).filter((d) => d.code === 'known_issue' && d.severity === 'error'));
   };
+  const session = familyOf(quantity) === 'displacement' ? null : prepareLoadSession2D(unit);
   const run: Solve = (input) => {
-    const result = solve(input);
+    const result = solve(input, session ?? undefined);
     seen(result);
     return result;
   };
-  const points = sweepOf(unit, quantity, target, n, dir, direction, run, seen);
-  if (refused.length > 0) throw new Error(JSON.stringify({ structuredDiagnostics: refused }));
-  return points;
+  try {
+    const points = sweepOf(unit, quantity, target, n, dir, direction, run, seen);
+    if (refused.length > 0) throw new Error(JSON.stringify({ structuredDiagnostics: refused }));
+    return points;
+  } finally {
+    session?.free();
+  }
 }
 
 function sweepOf(

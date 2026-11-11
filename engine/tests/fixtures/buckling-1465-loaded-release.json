@@ -1,0 +1,35 @@
+{
+  "nodes": {
+    "1": {"id": 1, "x": -42.73486809555524, "y": -43.00492043439355, "z": 21.888237485783876},
+    "2": {"id": 2, "x": -9.509043346973776, "y": 9.378544413776723, "z": 37.524200982686054}
+  },
+  "materials": {
+    "1": {"id": 1, "e": 1460272.4794624972, "nu": 0.44379567146608256},
+    "2": {"id": 2, "e": 146668.26290495906, "nu": 0.4015452570179968}
+  },
+  "sections": {
+    "1": {"id": 1, "name": null, "a": 0.00033475112821069076, "iy": 0.000018385814972917203, "iz": 0.00019486759077340282, "j": 0.0016076313575130923, "cw": null, "asY": null, "asZ": null, "shearCenterY": null, "shearCenterZ": null},
+    "2": {"id": 2, "name": null, "a": 0.09809033797343326, "iy": 0.0009929872645970984, "iz": 0.00033627633675105265, "j": 0.0002439065549738456, "cw": null, "asY": null, "asZ": null, "shearCenterY": null, "shearCenterZ": null},
+    "3": {"id": 3, "name": null, "a": 0.0014308832410869939, "iy": 0.0000039434683920711424, "iz": 4.701676784888907e-7, "j": 0.000023786584588677693, "cw": null, "asY": null, "asZ": null, "shearCenterY": null, "shearCenterZ": null}
+  },
+  "elements": {
+    "1": {"id": 1, "type": "frame", "nodeI": 2, "nodeJ": 1, "materialId": 1, "sectionId": 1, "releaseMyStart": false, "releaseMyEnd": false, "releaseMzStart": true, "releaseMzEnd": false, "releaseTStart": false, "releaseTEnd": false, "localYx": null, "localYy": null, "localYz": null, "rollAngle": null}
+  },
+  "supports": {
+    "1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true, "kx": null, "ky": null, "kz": null, "krx": null, "kry": null, "krz": null, "dx": null, "dy": null, "dz": null, "drx": null, "dry": null, "drz": null, "rw": null, "kw": null, "normalX": null, "normalY": null, "normalZ": null, "isInclined": null}
+  },
+  "loads": [
+    {"type": "distributed", "data": {"qXI": 0, "qXJ": 0, "elementId": 1, "qYI": -25.132983563089795, "qYJ": 88.87945448254305, "qZI": -78.57309967629864, "qZJ": -65.05742847994003, "a": null, "b": null}},
+    {"type": "nodal", "data": {"nodeId": 2, "fx": -130.94494134871894, "fy": -399.7748368107692, "fz": -427.8253260092846, "mx": -183.87363101547675, "my": -159.5600483351638, "mz": -68.61483880510892, "bw": null}}
+  ],
+  "constraints": [],
+  "leftHand": null,
+  "plates": {},
+  "quads": {},
+  "quad9s": {},
+  "solidShells": {},
+  "curvedShells": {},
+  "curvedBeams": [],
+  "connectors": {},
+  "solverOptions": null
+}

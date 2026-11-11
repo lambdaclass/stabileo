@@ -276,8 +276,15 @@ test.describe('@smoke the sectioned generator form', () => {
     await ribbonCmd(page, 'generators');
     await page.getByTestId('gen-card-shed').click();
     await page.getByTestId('gen-sec-bracing').locator('summary').click();
-    await page.getByTestId('gen-scroll').evaluate((e) => { e.scrollTop = e.scrollHeight; });
-    const row = page.getByTestId('gen-sec-bracing').locator('.gr').first();
+    const row = page.getByTestId('gen-sec-bracing').locator('.gr-check').last();
+    await row.evaluate((e) => {
+      const scroller = e.closest('[data-testid="gen-scroll"]')!;
+      scroller.scrollTop += e.getBoundingClientRect().bottom - scroller.getBoundingClientRect().bottom;
+    });
+    expect(await row.evaluate((e) => {
+      const box = e.getBoundingClientRect();
+      return e.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    })).toBe(true);
     const before = await row.boundingBox();
     // The pointer moved onto it, not `hover()`, which scrolls a row at the edge into view.
     await page.mouse.move(before!.x + before!.width / 2, before!.y + before!.height / 2);

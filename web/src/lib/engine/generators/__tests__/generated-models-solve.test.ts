@@ -39,6 +39,7 @@ const PROFILES: EmitOptions['profiles'] = {
   column: defaultProfileSpec('HEB 160'),
   beam: defaultProfileSpec('IPE 200'),
   purlin: defaultProfileSpec('UPN 100'),
+  bracing: defaultProfileSpec('L 50x50x5'),
 };
 
 /**
@@ -195,34 +196,11 @@ describe('a generated shed solves', () => {
 });
 
 describe('the configuration that is NOT stable, recorded rather than hidden', () => {
-  /**
-   * This used to assert the opposite, and the reason it changed is worth more than the test.
-   *
-   * The claim was: latticed columns on pinned bases are a mechanism, because the lacing braces
-   * the column in its own plane and a pin under each chord leaves the pair free to fold
-   * sideways. The singular matrix that backed it was real. Its CAUSE was not the pins.
-   *
-   * The cap tying the two chord tops was built from two `truss` members, and those two members
-   * are COLLINEAR. A pair of pin-ended collinear bars restrains their node along one line and
-   * in no other direction, so the cap node had no transverse and no rotational stiffness — on
-   * fixed bases just as much as on pinned ones. The default shed was a mechanism at every frame
-   * count from 2 to 7, and nothing here caught it because the only test that solved a shed
-   * passed `longitudinalBeams: true`, which the default does not.
-   *
-   * With the cap modelled as the rigid plate its own doc comment always said it was, this
-   * configuration solves. So the recorded property is inverted, and the pins are exonerated.
-   *
-   * What is NOT claimed: that pinned bases are as good as fixed. This solves one vertical load
-   * case. Base fixity earns its default from lateral behaviour, which nothing here measures —
-   * see the handoff's note on longitudinal bracing.
-   */
-  it('latticed columns on pinned bases stand once the cap is a plate and not two pins', () => {
+  it('latticed columns on pinned bases stand with the wall, roof and vertical truss bracing', () => {
     const shed = generateShed({
       ...DEFAULT_SHED_PARAMS, frames: 3, roof: true, purlins: true,
       fixedBase: false, column: { ...DEFAULT_SHED_PARAMS.column, fixedBase: false },
     });
-    // The caution still travels with the model: this configuration has no longitudinal
-    // bracing, which is a real gap even though it is not a mechanism.
     expect(shed.assumptions).toContain('generator.assume.latticeBasesPinnedNoOutOfPlane');
 
     const g = emitModel(shed, { name: 'Nave articulada', profiles: PROFILES });
@@ -283,7 +261,7 @@ describe('a pointed truss', () => {
     const supports = [{ node: 0, type: 'forkPinned' as const }, { node: 4, type: 'forkRollerX' as const }];
     const byHand = { ...topo, nodes, members, supports, counts: { ...topo.counts, chord: 8, post: 3, diagonal: 2 } };
     expect(topo.members.length).toBe(members.length);
-    expect(topo.supports.map((x) => x.node)).toEqual([0, 4]);
+    expect(topo.supports.filter((x) => x.type !== 'outOfPlane').map((x) => x.node)).toEqual([0, 4]);
 
     const midUz = (t: typeof topo) => {
       const g = emitModel(t, { name: 'p', profiles: PROFILES });

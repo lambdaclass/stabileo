@@ -93,37 +93,39 @@ fn soft_cantilever(load: f64, stiff_part: bool) -> SolverInput3D {
 }
 
 #[test]
-fn a_wrong_soft_rotation_is_warned_whatever_masks_its_scale_1496() {
+fn a_soft_rotation_is_solved_exactly_or_refused_whatever_masks_its_scale_1496() {
     let exact = |load: f64| load / (2.0 * E * 1000.0 * 1e-10);
-    let mut cases: Vec<(String, SolverInput3D, f64, bool)> = Vec::new();
+    let mut cases: Vec<(String, SolverInput3D, f64)> = Vec::new();
     for load in [1e-3, 1e-12, 1e6] {
         for stiff_part in [false, true] {
-            cases.push((format!("load {load:e}, stiff part {stiff_part}"), soft_cantilever(load, stiff_part), exact(load), true));
+            cases.push((format!("load {load:e}, stiff part {stiff_part}"), soft_cantilever(load, stiff_part), exact(load)));
         }
     }
     for u in units() {
-        cases.push((format!("units {} {}", u.length, u.force), scale_3d(&soft_cantilever(1e-3, true), &u), exact(1e-3), true));
+        cases.push((format!("units {} {}", u.length, u.force), scale_3d(&soft_cantilever(1e-3, true), &u), exact(1e-3)));
     }
     for iso in motions_3d() {
-        cases.push((format!("moved {:?}", iso.t), transform_3d(&soft_cantilever(1e-3, true), &iso).unwrap(), exact(1e-3), false));
+        cases.push((format!("moved {:?}", iso.t), transform_3d(&soft_cantilever(1e-3, true), &iso).unwrap(), exact(1e-3)));
     }
-    let mut held = 0;
-    for (name, input, theta, on_axes) in cases {
-        let Ok(r) = dedaliano_engine::solver::linear::solve_3d(&input) else { continue };
+    let mut outcomes = Vec::new();
+    for (name, input, theta) in cases {
+        let verdict = dedaliano_engine::solver::stability::of_3d(&input).unwrap();
+        let r = match dedaliano_engine::solver::linear::solve_3d(&input) {
+            Ok(r) => r,
+            Err(e) => {
+                assert!(e.starts_with("the structure is a mechanism") || e.starts_with("the structure cannot be solved reliably"), "{name}: {e}");
+                assert!(verdict.refusal().is_some(), "{name}: {verdict:?}");
+                outcomes.push(false);
+                continue;
+            }
+        };
+        assert!(verdict.is_stable(), "{name}: {verdict:?}");
         let tip = r.displacements.iter().find(|d| d.node_id == 2).unwrap();
         let got = (tip.rx * tip.rx + tip.ry * tip.ry + tip.rz * tip.rz).sqrt();
-        let found = phases(&r.structured_diagnostics);
-        assert!(got.is_finite(), "{name}: θ {got}: {found:?}");
-        if (got - theta).abs() > 1e-6 * theta {
-            if on_axes {
-                assert!(found.contains(&"ORPHAN-SOFT-ROTATION"), "{name}: θ {got} instead of {theta}, unwarned: {found:?}");
-                held += 1;
-            } else {
-                assert!(found.contains(&"ORPHAN-SOFT-ROTATION") || found.contains(&"NUM-INVARIANCE"), "{name}: θ {got} instead of {theta}, unwarned: {found:?}");
-            }
-        }
+        assert!((got - theta).abs() <= 1e-6 * theta, "{name}: θ {got} instead of {theta}: {:?}", phases(&r.structured_diagnostics));
+        outcomes.push(true);
     }
-    assert_eq!(held, 9, "every case on the axes is held by the artificial spring");
+    assert!(outcomes[..6 + units().len()].iter().all(|&solved| solved), "the independent axis-aligned directions must solve at every load and unit scale: {outcomes:?}");
 }
 
 fn bathe_bolourchi() -> SolverInput3D {

@@ -3980,7 +3980,6 @@ const en: Record<string, string> = {
   "knownIssue.LIN-SECOND-ORDER-UNBOUNDED": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design",
   "containment.more": "More",
   "containment.less": "Less",
-  "knownIssue.ORPHAN-SOFT-ROTATION": "A node rotation with real but very small stiffness, compared with another rotation at the same node, was held by an artificial spring, so that rotation and the forces it carries can be far too small. Do not use this result for design until this warning clears",
   "knownIssue.CERT-MECHANISM": "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability",
   "knownIssue.PD-SPAN-AXIAL": "P-Delta builds each member's geometric stiffness from its mean axial force, so compression that varies along a member under axial span loads can understate the second-order amplification. Subdivide the loaded members and check that the results converge.",
   "knownIssue.SH-MITC4-DISTORTION.warning": "Distorted MITC4 elements can lock in membrane bending. Verify mesh convergence; significant membrane bending results are withheld.",

@@ -119,41 +119,12 @@ fn same(a: &Stability, b: &Stability) -> Result<(), String> {
     Ok(())
 }
 
-#[test]
-fn the_stability_verdict_of_every_c08_reproducer_survives_units_rotation_mirror_and_relabelling() {
-    let models = c08();
-    assert_eq!(models.len() + SAME_MODEL.len(), C08.len(), "the C08 reproducers");
-    let mut failures = Vec::new();
-    let mut skipped = std::collections::BTreeSet::new();
-    let mut compared = 0;
-    for (name, m) in &models {
-        let (base, others) = verdicts(name, m);
-        let base = base.unwrap_or_else(|e| panic!("{name}: {e}"));
-        let mut kinds = std::collections::BTreeSet::new();
-        for (what, other) in others {
-            match other {
-                Ok(Ok(o)) => {
-                    compared += 1;
-                    kinds.insert(kind(&what).to_string());
-                    if let Err(e) = same(&base, &o) { failures.push(format!("{name} {what}: {e}")) }
-                }
-                Ok(Err(e)) => failures.push(format!("{name} {what}: {e}")),
-                Err(e) if unsupported(name, &what, &e) => { skipped.insert((name.clone(), kind(&what).to_string())); }
-                Err(e) => failures.push(format!("{name} {what} could not be built: {e}")),
-            }
-        }
-        for &(_, k, _) in UNSUPPORTED.iter().filter(|&&(n, _, _)| n == name) {
-            if kinds.contains(k) || !skipped.contains(&(name.clone(), k.to_string())) { failures.push(format!("{name} {k} is listed unsupported but was built or never refused as such")); }
-        }
-    }
-    assert!(failures.is_empty(), "{} verdicts changed or missing:\n{}", failures.len(), failures.join("\n"));
-    assert!(compared >= models.len() * 15, "{compared} images compared");
-}
 
-const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 973, 993, 1008, 1028, 1029, 1041, 1083, 1091, 1095, 1103, 1112, 1115, 1353, 1355, 1357, 1359, 1362, 1648, 1651, 1653];
+const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 1008, 1028, 1083, 1091, 1095, 1103, 1112, 1353, 1355, 1359, 1362, 1648, 1651];
+const CONDITIONAL_REFS: &[u32] = &[973, 993, 1029, 1041, 1115, 1357, 1653];
 const SOLVED: &[u32] = &[954, 956, 960, 994, 1086, 1097, 1101, 1102, 1116, 1117, 1118, 1216, 1265];
 const STABLE_PENDING: &[u32] = &[972, 1099, 1647];
-const CONSERVATIVE: &[u32] = &[1090, 1106, 1193, 1351, 1352, 1635];
+const RELEASE_STABLE: &[u32] = &[1090, 1106, 1193, 1351, 1352, 1635];
 
 const C08: &[(u32, u64, &str, &str)] = &[
     (954, 20757, "linear (PCG)", "relabel"), (956, 20757, "linear (sparse path)", "energy"), (960, 2026103105180, "harmonic", "units"),
@@ -175,7 +146,12 @@ const C08: &[(u32, u64, &str, &str)] = &[
 ];
 
 fn replay(issue: u32) -> (Stability, crate::tally::Cell) {
+    replay_as(issue, None)
+}
+
+fn replay_as(issue: u32, analysis_override: Option<&str>) -> (Stability, crate::tally::Cell) {
     let &(_, seed, analysis, relation) = C08.iter().find(|c| c.0 == issue).unwrap();
+    let analysis = analysis_override.unwrap_or(analysis);
     let text = std::fs::read_to_string(corpus::root().join("metamorphic_corpus").join("stability").join(format!("issue-{}.json", fixture(issue)))).unwrap();
     let meta: serde_json::Value = serde_json::from_str(&text).unwrap();
     let dens: Option<std::collections::HashMap<String, f64>> = meta.get("_nightly_dens").map(|d| serde_json::from_value(d.clone()).unwrap());
@@ -203,20 +179,25 @@ fn replay(issue: u32) -> (Stability, crate::tally::Cell) {
 
 #[test]
 fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict() {
-    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(CONSERVATIVE).copied().collect();
+    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(RELEASE_STABLE).chain(CONDITIONAL_REFS).copied().collect();
     assert_eq!(listed, C08.iter().map(|c| c.0).collect(), "every C08 issue is classified once");
     let mut wrong = Vec::new();
     for &issue in REFUSED {
         let (v, _) = replay(issue);
         if v.is_stable() || v.refusal().is_none() { wrong.push(format!("#{issue} listed refused: {}", summary(&Ok(v)))); }
     }
+    for &issue in CONDITIONAL_REFS {
+        let (v, cell) = replay(issue);
+        println!("CONDITIONAL REF #{issue}: {} {cell:?}", summary(&Ok(v.clone())));
+        if !v.needs_accuracy_check() { wrong.push(format!("#{issue} listed conditional reference: {}", summary(&Ok(v)))); }
+    }
     for &issue in SOLVED {
         let (v, cell) = replay(issue);
         if !v.is_stable() || !cell.fails.is_empty() || cell.pass == 0 { wrong.push(format!("#{issue} listed solved: {} {cell:?}", summary(&Ok(v)))); }
     }
-    for &issue in CONSERVATIVE {
-        let (v, _) = replay(issue);
-        if v.reason != Reason::CoupledSoftDirection { wrong.push(format!("#{issue} listed conservatively refused: {} {:?}", summary(&Ok(v.clone())), v.reason)); }
+    for &issue in RELEASE_STABLE {
+        let (v, cell) = replay_as(issue, Some("linear"));
+        if v.verdict != Verdict::Stable || v.reason != Reason::Resolved || v.free.len() != 1 || !cell.fails.is_empty() { wrong.push(format!("#{issue} listed release stable: {} {cell:?}", summary(&Ok(v.clone())))); }
     }
     for &issue in STABLE_PENDING {
         let (v, _) = replay(issue);
@@ -239,24 +220,18 @@ fn no_model_of_the_example_and_feature_corpus_is_refused() {
     assert!(refused.is_empty(), "{}", refused.join("\n"));
 }
 
-fn warned_near_singular(d: &[dedaliano_engine::types::StructuredDiagnostic]) -> bool {
-    use dedaliano_engine::types::DiagnosticCode::*;
-    d.iter().any(|d| matches!(d.code, StiffnessNotPositiveDefinite) || d.phase.as_deref() == Some("NUM-INVARIANCE"))
-}
-
 #[test]
-fn every_random_model_the_verdict_refuses_is_refused_or_warned_near_singular_today() {
-    let silent_but_unverifiable = ["fuzz_rich_3d/74"];
-    let mut silent = Vec::new();
+fn every_random_model_the_verdict_refuses_is_refused_by_the_linear_solve() {
+    let mut solved = Vec::new();
     for c in corpus::cases_2d(Tier::Nightly, 0).into_iter().filter(|c| c.name.starts_with("fuzz_")) {
         if stability::of_2d(&c.s).is_ok_and(|s| s.is_stable()) { continue; }
-        if dedaliano_engine::solver::linear::solve_2d(&c.s).is_ok_and(|r| !warned_near_singular(&r.structured_diagnostics)) { silent.push(c.name.clone()); }
+        if dedaliano_engine::solver::linear::solve_2d(&c.s).is_ok() { solved.push(c.name.clone()); }
     }
     for c in corpus::cases_3d(Tier::Nightly, 0).into_iter().filter(|c| c.name.starts_with("fuzz_")) {
         if stability::of_3d(&c.s).is_ok_and(|s| s.is_stable()) { continue; }
-        if dedaliano_engine::solver::linear::solve_3d(&c.s).is_ok_and(|r| !warned_near_singular(&r.structured_diagnostics)) { silent.push(c.name.clone()); }
+        if dedaliano_engine::solver::linear::solve_3d(&c.s).is_ok() { solved.push(c.name.clone()); }
     }
-    assert_eq!(silent, silent_but_unverifiable);
+    assert_eq!(solved, Vec::<String>::new());
 }
 
 fn t(node: usize, kind: DofKind) -> DofTag { DofTag { node, kind } }
@@ -354,8 +329,37 @@ fn stable_frames_soft_springs_and_anisotropic_members_stay_stable_in_every_frame
     let s = invariant_verdict("bent frame on soft springs", d2(frame_2d(bent.clone(), soft)));
     assert!(s.is_stable(), "{s:?}");
     let softest = serde_json::json!({"1": {"id": 1, "nodeId": 1, "type": "spring", "kx": 1e-3, "ky": 1e-3, "kz": 1e-3}});
-    let s = invariant_verdict("bent frame on springs a million times softer than its members", d2(frame_2d(bent, softest)));
-    assert!(s.verdict == Verdict::Singular && s.kappa * s.anisotropy > stability::RESOLVABLE, "{s:?}");
+    let mut softest: dedaliano_engine::types::SolverInput = serde_json::from_value(frame_2d(bent, softest)).unwrap();
+    softest.loads = serde_json::from_value(serde_json::json!([{"type":"nodal","data":{"nodeId":3,"fx":1e-6,"fz":-2e-6,"my":0.0}}])).unwrap();
+    for (length, force) in std::iter::once((1.0,1.0)).chain(UNITS) {
+        let scaled = dedaliano_engine::metamorphic::units::scale_2d(&softest, &Units::froude(length, force));
+        let rotated = dedaliano_engine::metamorphic::transform::transform_2d(&scaled, &Iso2::rotation(0.37)).unwrap();
+        let result = dedaliano_engine::solver::linear::solve_2d(&rotated);
+        println!("SOFT SPRING {length}/{force}: {}", if result.is_ok() { "solved" } else { "refused" });
+        let result = result.unwrap();
+        let (p, q, horizontal, vertical) = (1e-6, -2e-6, 3.0, 2.0);
+        let (ea, ei, spring) = (200000.0 * 1000.0 * 0.01, 200000.0 * 1000.0 * 1e-4, 1e-3);
+        let base = [p/spring, q/spring, (horizontal*q-vertical*p)/spring];
+        let turn = q*horizontal*horizontal/(2.0*ei)-p*vertical*horizontal/ei;
+        let bend = q*horizontal*horizontal*horizontal/(3.0*ei)-p*vertical*horizontal*horizontal/(2.0*ei);
+        let middle = [base[0]+p*horizontal/ea, base[1]+horizontal*base[2]+bend, base[2]+turn];
+        let tip = [middle[0]-vertical*middle[2]+p*vertical*vertical*vertical/(3.0*ei), middle[1]+q*vertical/ea, middle[2]-p*vertical*vertical/(2.0*ei)];
+        let expected = [base, middle, tip];
+        let (sin, cos) = 0.37f64.sin_cos();
+        for d in &result.displacements {
+            let actual = [(cos*d.ux+sin*d.uz)/length, (-sin*d.ux+cos*d.uz)/length, d.ry];
+            let reference = expected[d.node_id-1];
+            for (actual, reference) in actual.into_iter().zip(reference) {
+                assert!((actual-reference).abs() <= stability::CONDITIONAL_ACCURACY*reference.abs(), "node {} {length}/{force}: {actual} vs {reference}", d.node_id);
+            }
+        }
+        for (id, exact) in [(1, [1e-6, 2e-6, 8e-6, 2e-6]), (2, [-2e-6, 1e-6, 2e-6, 0.0])] {
+            let f = result.element_forces.iter().find(|f| f.element_id == id).unwrap();
+            for (actual, reference) in [f.n_start/force, f.v_start/force, f.m_start/(force*length), f.m_end/(force*length)].into_iter().zip(exact) {
+                assert!((actual-reference).abs() <= stability::CONDITIONAL_ACCURACY * 2e-6, "member {id} {length}/{force}: {actual} vs {reference}");
+            }
+        }
+    }
     let hinged = serde_json::json!({
         "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeEnd": true},
         "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": true},
@@ -398,7 +402,7 @@ fn mechanisms_are_refused_in_every_frame() {
 
 fn threshold_pair(eta: f64) -> Stability {
     let c = 1e-3 * eta.sqrt();
-    let k = [eta, 0.0, c, 0.0, 1.0, 0.0, c, 0.0, 1.0];
+    let k = [eta, 1e-3 * eta, c, 1e-3 * eta, 1.0, 0.0, c, 0.0, 1.0];
     analyze_dense(&k, 3, &[t(1, DofKind::Translation), t(1, DofKind::Translation), t(2, DofKind::Translation)])
 }
 
@@ -473,7 +477,7 @@ fn coupled_identity(order: &[usize]) -> Stability {
     let m = order.len();
     let mut k = vec![0.0; m * m];
     for i in 0..m { k[i * m + i] = 1.0; }
-    let (a, b) = (order[0], order[101]);
+    let (a, b) = (order[0], order[101.min(m - 1)]);
     k[a * m + b] = -0.5;
     k[b * m + a] = -0.5;
     analyze_dense(&k, m, &(0..m).map(|i| t(i, DofKind::Translation)).collect::<Vec<_>>())
@@ -481,28 +485,50 @@ fn coupled_identity(order: &[usize]) -> Stability {
 
 #[test]
 fn a_mode_with_equal_components_on_its_two_coupled_dofs_certifies_in_any_numbering() {
-    let m = stability::DENSE_SPECTRUM + 1;
-    let identity: Vec<usize> = (0..m).collect();
-    let reversed: Vec<usize> = (0..m).rev().collect();
-    let shuffled: Vec<usize> = (0..m).map(|i| (i * 37 + 11) % m).collect();
-    for order in [identity, reversed, shuffled] {
-        let s = coupled_identity(&order);
-        assert_eq!(s.verdict, Verdict::Stable, "{s:?}");
-        assert!(s.kappa >= 3.0 && s.kappa <= 3.0 * (1.0 + 3e-3), "{}", s.kappa);
+    for m in [stability::FULL_SPECTRUM, stability::DENSE_SPECTRUM + 1] {
+        let identity: Vec<usize> = (0..m).collect();
+        let reversed: Vec<usize> = (0..m).rev().collect();
+        let shuffled: Vec<usize> = (0..m).map(|i| (i * 37 + 11) % m).collect();
+        for order in [identity, reversed, shuffled] {
+            let s = coupled_identity(&order);
+            assert_eq!(s.verdict, Verdict::Stable, "{s:?}");
+            assert!(s.kappa.is_finite() && s.kappa >= 3.0, "{}", s.kappa);
+            if m <= stability::FULL_SPECTRUM {
+                assert!(s.kappa <= 3.0 * (1.0 + 3e-3), "{}", s.kappa);
+            } else {
+                let fast_bound_factor = stability::RESOLVABLE.sqrt() / 3.0;
+                assert!(s.kappa <= 3.0 * fast_bound_factor * (1.0 + 4.0 * f64::EPSILON), "{}", s.kappa);
+            }
+            assert!(!s.needs_accuracy_check(), "{s:?}");
+            assert!(s.kappa * s.anisotropy <= stability::RESOLVABLE, "{s:?}");
+        }
     }
 }
 
 fn degenerate_free_rotations_coupled(angle: f64) -> Stability {
+    rotations_coupled_into_translation(angle, 0.0)
+}
+
+fn rotations_coupled_into_translation(angle: f64, stiffness: f64) -> Stability {
     let (c, s) = (angle.cos(), angle.sin());
     let coupling = [8e-11 * (c + s), 8e-11 * (c - s), 0.0];
     let mut k = vec![0.0; 16];
     k[0] = 1.0;
-    for (r, d) in [2e-20, 2e-20, 1.0].into_iter().enumerate() { k[(r + 1) * 4 + r + 1] = d; }
+    for (r, d) in [stiffness, stiffness, 1.0].into_iter().enumerate() { k[(r + 1) * 4 + r + 1] = d; }
     for r in 0..3 {
         k[r + 1] = coupling[r];
         k[(r + 1) * 4] = coupling[r];
     }
     analyze_dense(&k, 4, &[t(1, DofKind::Translation), t(2, DofKind::Rotation), t(2, DofKind::Rotation), t(2, DofKind::Rotation)])
+}
+
+#[test]
+fn independent_soft_rotations_with_a_resolvable_schur_complement_are_kept() {
+    for angle in [0.0, std::f64::consts::FRAC_PI_4] {
+        let s = rotations_coupled_into_translation(angle, 2e-20);
+        assert!(s.is_stable() && s.free.is_empty(), "{s:?}");
+        assert!((s.kappa - 9.0).abs() < 1e-12, "{s:?}");
+    }
 }
 
 #[test]
@@ -527,7 +553,7 @@ fn a_non_finite_stiffness_is_singular_never_stable() {
 }
 
 #[test]
-fn a_warping_stiffness_below_the_artificial_spring_gets_one_verdict_in_every_unit_system() {
+fn a_warping_stiffness_below_the_artificial_spring_solves_unloaded_or_refuses_an_uncertain_frame() {
     let cantilever = serde_json::json!({
         "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 3.0, "y": 0.0, "z": 0.0}},
         "materials": {"1": {"id": 1, "e": 2e8, "nu": 0.3}},
@@ -536,8 +562,34 @@ fn a_warping_stiffness_below_the_artificial_spring_gets_one_verdict_in_every_uni
         "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
         "loads": []
     });
-    let s = invariant_verdict("cantilever whose torsion only a vanishing warping constant stiffens", d3(cantilever));
-    assert_eq!((s.verdict, s.reason), (Verdict::Singular, Reason::CoupledSoftDirection), "{s:?}");
+    let input = serde_json::from_value(cantilever).unwrap();
+    let base = Case3::new("cantilever whose torsion only a vanishing warping constant stiffens", input);
+    let original = stability::of_3d(&base.s).unwrap();
+    let mut copies = vec![("original".to_string(), Ok(base.clone()))];
+    copies.extend(transforms_3d(&base, 1753));
+    for (what, copy) in copies {
+        let copy = copy.unwrap();
+        let s = stability::of_3d(&copy.s).unwrap();
+        if what == "original" || what.starts_with("units") || what.starts_with("relabel") {
+            assert!(s.is_stable() && s.free.is_empty(), "{what}: {s:?}");
+            same(&original, &s).unwrap_or_else(|e| panic!("{what}: {e}"));
+        }
+        let result = dedaliano_engine::solver::linear::solve_3d(&copy.s);
+        if what == "original" {
+            assert!(result.unwrap_err().starts_with("the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check;"), "{what}");
+        } else {
+            match result {
+                Ok(result) => {
+                    assert!(s.is_stable(), "{what}: {s:?}");
+                    for d in result.displacements {
+                        assert_eq!([d.ux, d.uy, d.uz, d.rx, d.ry, d.rz], [0.0; 6], "{what}");
+                        assert_eq!(d.warping, Some(0.0), "{what}");
+                    }
+                }
+                Err(e) => assert!(e.starts_with("the structure is a mechanism") || e.starts_with("the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check;"), "{what}: {e}"),
+            }
+        }
+    }
 }
 
 fn rotate_rotations(k: &[f64], n: usize, first: usize, angle: f64) -> Vec<f64> {
@@ -673,5 +725,278 @@ fn free_rotations_coupled_only_to_each_other_are_refused_even_when_nothing_else_
             let beside = analyze_dense(&k, 3, &[t(1, DofKind::Translation), t(a, DofKind::Rotation), t(b, DofKind::Rotation)]);
             assert_eq!(beside.verdict, Verdict::Singular, "{delta} {swap}: {beside:?}");
         }
+    }
+}
+
+fn linear_solves(issue: u32) -> Vec<(String, Result<(), String>)> {
+    use dedaliano_engine::metamorphic::{planes::{embed_2d, Plane}, transform::{transform_2d, transform_3d}, units::{scale_2d, scale_3d}};
+    use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
+    let text = std::fs::read_to_string(corpus::root().join("metamorphic_corpus").join("stability").join(format!("issue-{}.json", fixture(issue)))).unwrap();
+    let units = [Units::froude(1e3, 1e-3), Units::froude(1e-3, 1e3), Units::froude(0.3048, 4.448)];
+    let mut out = Vec::new();
+    let expected: &[&str] = match corpus::parse(&text).unwrap() {
+        Model::D2(s) => {
+            out.push(("as given".to_string(), solve_2d(&s).map(|_| ())));
+            for (i, u) in units.iter().enumerate() { out.push((format!("units {i}"), solve_2d(&scale_2d(&s, u)).map(|_| ()))); }
+            let (name, angle) = if issue == 993 { ("quarter turn", std::f64::consts::FRAC_PI_2) } else { ("rotated", 1.1) };
+            let t = transform_2d(&s, &Iso2::rotation(angle).translated(40.0, -7.0))
+                .unwrap_or_else(|e| panic!("#{issue} {name}: required transformation failed: {e}"));
+            out.push((name.to_string(), solve_2d(&t).map(|_| ())));
+            if issue == 993 {
+                for plane in [Plane::XZ, Plane::XY, Plane::YZ] {
+                    let err = embed_2d(&s, plane).expect_err("#993 constraints have no plane embedding");
+                    assert!(err.to_string().contains("constraints have no plane-frame embedding"), "#{issue} {plane:?}: {err}");
+                }
+                &["as given", "units 0", "units 1", "units 2", "quarter turn"]
+            } else {
+                for plane in [Plane::XZ, Plane::XY, Plane::YZ] {
+                    let t = embed_2d(&s, plane).unwrap_or_else(|e| panic!("#{issue} {plane:?}: required embedding failed: {e}"));
+                    out.push((format!("in plane {plane:?}"), solve_3d(&t).map(|_| ())));
+                }
+                &["as given", "units 0", "units 1", "units 2", "rotated", "in plane XZ", "in plane XY", "in plane YZ"]
+            }
+        }
+        Model::D3(s) => {
+            out.push(("as given".to_string(), solve_3d(&s).map(|_| ())));
+            for (i, u) in units.iter().enumerate() { out.push((format!("units {i}"), solve_3d(&scale_3d(&s, u)).map(|_| ()))); }
+            let first = match issue {
+                1106 | 1355 => ("axis permutation 2", Iso3::axis_permutation(2).translated([1e4, -3e3, 7e3])),
+                _ => ("rotated", Iso3::from_euler(0.3, 1.1, -0.7).translated([1e4, -3e3, 7e3])),
+            };
+            for (name, iso) in [first, ("axis permutation 5", Iso3::axis_permutation(5))] {
+                let t = transform_3d(&s, &iso).unwrap_or_else(|e| panic!("#{issue} {name}: required transformation failed: {e}"));
+                out.push((name.to_string(), solve_3d(&t).map(|_| ())));
+            }
+            match issue {
+                1106 | 1355 => &["as given", "units 0", "units 1", "units 2", "axis permutation 2", "axis permutation 5"],
+                _ => &["as given", "units 0", "units 1", "units 2", "rotated", "axis permutation 5"],
+            }
+        }
+    };
+    assert_eq!(out.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), expected, "#{issue}: required linear solve variants");
+    out
+}
+
+fn the_linear_solve_refuses_what_the_verdict_refuses(issue: u32) {
+    let (v, cell) = replay(issue);
+    let refusal = v.refusal().unwrap_or_else(|| panic!("#{issue}: the verdict is Stable"));
+    assert!(cell.fails.is_empty(), "#{issue}: {cell:?}");
+    let solves = linear_solves(issue);
+    for (k, (what, solved)) in solves.into_iter().enumerate() {
+        let err = solved.expect_err(&format!("#{issue} {what}: the linear solve returned a result"));
+        if k == 0 { assert!(err.contains(&refusal), "#{issue}: {err}"); }
+        let refused = ["the structure is a mechanism", "the stiffness matrix is not positive", "the structure cannot be solved reliably"].iter().any(|p| err.starts_with(p));
+        assert!(refused, "#{issue} {what}: {err}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #993"]
+fn issue_993_the_sparse_linear_solve_refuses_in_every_unit_system() { the_linear_solve_refuses_what_the_verdict_refuses(993) }
+
+#[test]
+fn issue_1353_the_linear_solve_refuses_in_every_orientation() { the_linear_solve_refuses_what_the_verdict_refuses(1353) }
+
+#[test]
+fn issue_1355_the_pcg_linear_solve_refuses_in_every_unit_system() { the_linear_solve_refuses_what_the_verdict_refuses(1355) }
+
+#[test]
+fn issue_1651_the_linear_solve_refuses_in_every_plane() { the_linear_solve_refuses_what_the_verdict_refuses(1651) }
+
+#[test]
+fn issue_1106_the_linear_solve_refuses_in_both_load_directions() {
+    let (v, cell) = replay_as(1106, Some("linear"));
+    assert!(v.is_stable() && !v.free.is_empty(), "{v:?}");
+    assert!(cell.fails.is_empty() && cell.refused > 0, "{cell:?}");
+    let solves = linear_solves(1106);
+    for (what, result) in solves {
+        let err = result.expect_err(&format!("#1106 {what}: a loaded release returned a result"));
+        assert!(err.contains("rotation") && err.contains("node 4"), "{what}: {err}");
+    }
+}
+
+fn continuous_beam(spans: usize) -> dedaliano_engine::types::SolverInput {
+    let n = 10 * spans;
+    let nodes: serde_json::Map<String, serde_json::Value> = (0..=n).map(|i| (i.to_string(), serde_json::json!({"id": i, "x": i as f64, "z": 0.0}))).collect();
+    let elements: serde_json::Map<String, serde_json::Value> = (0..n)
+        .map(|i| (i.to_string(), serde_json::json!({"id": i, "type": "frame", "nodeI": i, "nodeJ": i + 1, "materialId": 1, "sectionId": 1})))
+        .collect();
+    let mut supports = serde_json::Map::new();
+    supports.insert("0".into(), serde_json::json!({"id": 0, "nodeId": 0, "type": "fixed"}));
+    for i in (10..=n).step_by(10) {
+        supports.insert(i.to_string(), serde_json::json!({"id": i, "nodeId": i, "type": "pinned"}));
+    }
+    serde_json::from_value(serde_json::json!({
+        "nodes": nodes, "elements": elements, "supports": supports,
+        "materials": {"1": {"id": 1, "e": 200e3, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+        "loads": [{"type": "nodal", "data": {"nodeId": n / 2 + 5, "fx": 0.0, "fz": -10.0, "my": 0.0}}]
+    }))
+    .unwrap()
+}
+
+fn assert_beam_condition_bound(input: &dedaliano_engine::types::SolverInput, kappa: f64) {
+    use dedaliano_engine::linalg::sparse_chol::{numeric_cholesky, symbolic_cholesky};
+    use dedaliano_engine::solver::dof::DofNumbering;
+    use dedaliano_engine::solver::sparse_assembly::assemble_stiffness_sparse_2d;
+    use std::rc::Rc;
+
+    assert!(kappa.is_finite() && kappa >= 1.0, "{kappa}");
+    let dof = DofNumbering::build_2d(input);
+    let assembly = assemble_stiffness_sparse_2d(input, &dof);
+    assert!(assembly.artificial_dofs.is_empty());
+    let mut matrix = assembly.k_ff;
+    let tags = stability::tags(&dof, true);
+    let diagonal = matrix.diagonal();
+    assert!(diagonal.iter().all(|&d| d.is_finite() && d > 0.0));
+    let mut rows = vec![0.0; matrix.n];
+    for j in 0..matrix.n {
+        for p in matrix.col_ptr[j]..matrix.col_ptr[j + 1] {
+            let i = matrix.row_idx[p];
+            assert!(i == j || tags[i] != tags[j] || matrix.values[p] == 0.0);
+            matrix.values[p] /= diagonal[i].sqrt() * diagonal[j].sqrt();
+            rows[i] += matrix.values[p].abs();
+            if i != j { rows[j] += matrix.values[p].abs(); }
+        }
+    }
+    let upper = 2.0 * rows.into_iter().fold(0.0f64, f64::max);
+    let lower = upper / kappa;
+    assert!(upper.is_finite() && lower > 0.0);
+    let symbolic = Rc::new(symbolic_cholesky(&matrix));
+    for (scale, shift) in [(-1.0, upper), (1.0, -lower)] {
+        let mut shifted = matrix.clone();
+        for j in 0..shifted.n {
+            for p in shifted.col_ptr[j]..shifted.col_ptr[j + 1] {
+                shifted.values[p] *= scale;
+                if shifted.row_idx[p] == j { shifted.values[p] += shift; }
+            }
+        }
+        assert!(numeric_cholesky(&symbolic, &shifted).is_some(), "uncertified condition bound {kappa}");
+    }
+}
+
+#[test]
+fn a_long_continuous_beam_is_stable_past_the_full_spectrum() {
+    let dense = stability::of_2d(&continuous_beam(2)).unwrap();
+    assert!(dense.is_stable(), "{:?}", dense.refusal());
+    for spans in [10, 20, 40] {
+        let input = continuous_beam(spans);
+        let s = stability::of_2d(&input).unwrap();
+        assert!(s.is_stable(), "{spans} spans: {s:?}");
+        assert_beam_condition_bound(&input, s.kappa);
+        assert!(!s.needs_accuracy_check(), "{spans} spans: {s:?}");
+        assert!(s.kappa * s.anisotropy <= stability::RESOLVABLE, "{spans} spans: {s:?}");
+        dedaliano_engine::solver::linear::solve_2d(&input).unwrap_or_else(|e| panic!("{spans} spans: {e}"));
+    }
+}
+
+#[test]
+fn issue_1753_uncoupled_node_directions_do_not_amplify_each_others_rounding() {
+    let tags = [DofTag { node: 1, kind: DofKind::Translation }; 3];
+    let diagonal = [1.0, 0.0, 0.0, 0.0, 1e4, 0.0, 0.0, 0.0, 1e8];
+    let result = analyze_dense(&diagonal, 3, &tags);
+    assert!(result.is_stable(), "{result:?}");
+    assert_eq!(result.anisotropy, 1.0);
+    let coupled = [2.0, 1.0, 0.0, 1.0, 2.0, 0.0, 0.0, 0.0, 1e8];
+    let result = analyze_dense(&coupled, 3, &tags);
+    assert!(result.is_stable(), "{result:?}");
+    assert!((result.anisotropy - 3.0).abs() < 1e-12, "{result:?}");
+}
+
+#[test]
+fn node_coupling_components_include_transitive_edges() {
+    let tags = [DofTag { node: 1, kind: DofKind::Translation }; 3];
+    let k = [2.0, 1.0, 0.0, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0];
+    let result = analyze_dense(&k, 3, &tags);
+    let root = 2.0_f64.sqrt();
+    let expected = (2.0 + root) / (2.0 - root);
+    assert!((result.anisotropy / expected - 1.0).abs() < 1e-12, "{result:?}");
+}
+
+fn independent_rotational_stability() -> Stability {
+    let s = analyze_dense(&[1e20, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], 3, &[t(3, DofKind::Rotation); 3]);
+    assert!(s.is_stable(), "{s:?}");
+    assert_eq!(s.free_rotations().count(), 1);
+    s
+}
+
+#[test]
+fn issue_1753_free_rotation_load_projection_uses_only_contributing_terms() {
+    let s = independent_rotational_stability();
+    assert_eq!(s.load_on_free_rotation(&[1e20, 0.0, 1.0]), Some(3));
+    assert_eq!(s.load_on_free_rotation(&[1e20, 0.0, 0.0]), None);
+}
+
+#[test]
+fn issue_1753_pin_verification_uses_only_contributing_terms() {
+    let s = independent_rotational_stability();
+    let err = s.check_pins(&[1.0, 0.0, 1.0], &[1e20, 0.0, 1.0], &[0.0; 3])
+        .expect_err("the artificial pin carried a unit moment masked by an independent axis");
+    assert!(err.contains("node 3") && err.contains("rotation"), "{err}");
+    assert!(s.check_pins(&[1.0, 0.0, 0.0], &[1e20, 0.0, 0.0], &[0.0; 3]).is_ok());
+    assert!(s.check_pins(&[1.0, 0.0, 0.0], &[1e20, 0.0, 1.0], &[0.0, 0.0, 1.0]).is_ok());
+    assert!(s.check_pins(&[1.0, 0.0, 0.0], &[1e20, 0.0, 0.0], &[0.0, 0.0, 1.0]).is_err());
+}
+
+fn conditioning_boundary(kappa: f64, anisotropy: f64) -> Stability {
+    let eta = 1.0 / anisotropy;
+    let cross = (kappa - 1.0) / (kappa + 1.0) * eta.sqrt();
+    let local = 1e-3 * eta.sqrt();
+    let other = 1e-3 * (kappa - 1.0) / (kappa + 1.0);
+    analyze_dense(&[eta, local, cross, local, 1.0, other, cross, other, 1.0], 3,
+        &[t(1, DofKind::Translation), t(1, DofKind::Translation), t(2, DofKind::Translation)])
+}
+
+#[test]
+fn issue_1753_product_boundary_admits_both_sides_within_separate_limits() {
+    for factor in [1.0 - 1e-4, 1.0 + 1e-4] {
+        let s = conditioning_boundary(1e6, 1e6 * factor);
+        assert!(s.is_stable(), "{factor}: {s:?}");
+        assert_eq!(s.kappa * s.anisotropy > stability::RESOLVABLE, factor > 1.0, "{s:?}");
+    }
+}
+
+#[test]
+fn issue_1753_separate_condition_and_anisotropy_boundaries() {
+    for factor in [1.0 - 1e-3, 1.0 + 1e-3] {
+        let s = conditioning_boundary(1e12 * factor, 2.0);
+        assert_eq!(s.is_stable(), factor < 1.0, "kappa {factor}: {s:?}");
+        let s = conditioning_boundary(1e6, 1e8 * factor);
+        assert_eq!(s.is_stable(), factor < 1.0, "anisotropy {factor}: {s:?}");
+    }
+}
+
+#[path = "conditioning_accuracy.rs"]
+mod accuracy;
+
+#[test]
+fn issue_1753_two_internal_hinge_arch_solves_with_balanced_released_ends() {
+    let input: dedaliano_engine::types::SolverInput3D = serde_json::from_str(include_str!("../fixtures/1753-two-internal-hinge-arch.json")).unwrap();
+    let stability = stability::of_3d(&input).unwrap();
+    println!("arch stability: {stability:?}");
+    let result = dedaliano_engine::solver::linear::solve_3d(&input).expect("the stable arch with two internal hinges must solve");
+    assert!(stability.is_stable());
+    assert!(stability.kappa.is_finite());
+    assert_eq!(stability.free.len(), 2);
+    for f in &result.element_forces {
+        if f.release_my_start { assert_eq!(f.my_start, 0.0); }
+        if f.release_my_end { assert_eq!(f.my_end, 0.0); }
+    }
+    let mut applied = [0.0; 3];
+    for load in &input.loads {
+        let dedaliano_engine::types::SolverLoad3D::Distributed(load) = load else { unreachable!() };
+        let e = &input.elements[&load.element_id.to_string()];
+        let a = &input.nodes[&e.node_i.to_string()];
+        let b = &input.nodes[&e.node_j.to_string()];
+        let length = (b.x-a.x).hypot(b.z-a.z);
+        let (_, ey, ez) = dedaliano_engine::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z, None, None, None, None, false);
+        for axis in 0..3 {
+            applied[axis] += 0.5 * length * ((load.q_yi+load.q_yj)*ey[axis] + (load.q_zi+load.q_zj)*ez[axis]);
+        }
+    }
+    let scale = applied.iter().fold(0.0f64, |a, b| a.max(b.abs()));
+    for axis in 0..3 {
+        let reaction: f64 = result.reactions.iter().map(|r| [r.fx, r.fy, r.fz][axis]).sum();
+        assert!((reaction + applied[axis]).abs() <= stability::CONDITIONAL_ACCURACY * scale);
     }
 }

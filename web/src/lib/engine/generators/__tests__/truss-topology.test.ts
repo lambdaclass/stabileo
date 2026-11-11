@@ -74,14 +74,16 @@ describe('generateTruss — structural sanity, every kind', () => {
 
   it.each(TRUSS_KINDS)('%s is simply supported at the two ends', (kind) => {
     const t = generateTruss(P({ kind, spanM: 14 }));
-    expect(t.supports).toHaveLength(2);
-    const sx = t.supports.map((s) => t.nodes[s.node].x).sort((a, b) => a - b);
+    const bearings = t.supports.filter((s) => s.type !== 'outOfPlane');
+    expect(bearings).toHaveLength(2);
+    expect(t.supports).toHaveLength(t.nodes.length);
+    const sx = bearings.map((s) => t.nodes[s.node].x).sort((a, b) => a - b);
     expect(sx[0]).toBeCloseTo(0, 9);
     expect(sx[1]).toBeCloseTo(14, 9);
     // One pinned and one roller — two pins would lock the thermal expansion of a truss
     // against itself and report axial force that a real bearing would not carry.
-    expect(t.supports.filter((s) => s.type === 'pinned')).toHaveLength(1);
-    expect(t.supports.filter((s) => s.type === 'rollerX')).toHaveLength(1);
+    expect(t.supports.filter((s) => s.type === 'forkPinned')).toHaveLength(1);
+    expect(t.supports.filter((s) => s.type === 'forkRollerX')).toHaveLength(1);
   });
 
   it('generates every kind in the XZ plane at y = 0', () => {

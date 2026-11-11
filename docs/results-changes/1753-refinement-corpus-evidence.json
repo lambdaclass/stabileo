@@ -1,0 +1,116 @@
+{
+  "algorithm": "SHA-256 of JSON-encoded key-sorted gated result entries; diagnosticCodes and solve.refusal excluded; errorCodes retained",
+  "cases": [
+    {
+      "sources": [
+        "v0.2.0/cable-stayed-bridge.results.json.gz"
+      ],
+      "before": "24e63275a3345aeddfc2ad71b82681632ba27dbff47949a92a7535c82791a772",
+      "after": "b7fc7d47d27488b7d8542b48d105bf5ebc14ed2cc7ae19c54e0ffc1f24e70b84",
+      "quantities": [
+        {
+          "quantity": "displacements.rz",
+          "changedComponents": 372,
+          "maxAbsBefore": 3.146652157e-15,
+          "maxAbsAfter": 5.264728212e-16,
+          "sample": [
+            {
+              "path": "base.displacements[n10].rz",
+              "before": 5.370926429e-20,
+              "after": -3.545779366e-21
+            },
+            {
+              "path": "base.displacements[n13].rz",
+              "before": 2.068796122e-18,
+              "after": 1.047636876e-18
+            },
+            {
+              "path": "base.displacements[n14].rz",
+              "before": 2.067806675e-18,
+              "after": 1.047636876e-18
+            }
+          ]
+        },
+        {
+          "quantity": "reactions.mz",
+          "changedComponents": 24,
+          "maxAbsBefore": 3.082446808e-14,
+          "maxAbsAfter": 3.215494178e-15,
+          "sample": [
+            {
+              "path": "base.reactions[n11].mz",
+              "before": 2.023277506e-14,
+              "after": 2.296781556e-15
+            },
+            {
+              "path": "base.reactions[n12].mz",
+              "before": 2.025066538e-14,
+              "after": 2.296781556e-15
+            },
+            {
+              "path": "base.reactions[n31].mz",
+              "before": -2.201037805e-14,
+              "after": -1.785189229e-15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sources": [
+        "v0.3.0/cable-stayed-bridge.results.json.gz",
+        "v0.4.0/cable-stayed-bridge.results.json.gz"
+      ],
+      "before": "625f64fe96b0fa8aeeea95de8d5fa15c3973e8e41c5ce98c3583c406c52031a8",
+      "after": "b7fc7d47d27488b7d8542b48d105bf5ebc14ed2cc7ae19c54e0ffc1f24e70b84",
+      "quantities": [
+        {
+          "quantity": "displacements.rz",
+          "changedComponents": 372,
+          "maxAbsBefore": 3.146652157e-15,
+          "maxAbsAfter": 5.264728212e-16,
+          "sample": [
+            {
+              "path": "base.displacements[n10].rz",
+              "before": 5.370926429e-20,
+              "after": -3.545779366e-21
+            },
+            {
+              "path": "base.displacements[n13].rz",
+              "before": 2.068796122e-18,
+              "after": 1.047636876e-18
+            },
+            {
+              "path": "base.displacements[n14].rz",
+              "before": 2.067806675e-18,
+              "after": 1.047636876e-18
+            }
+          ]
+        },
+        {
+          "quantity": "reactions.mz",
+          "changedComponents": 24,
+          "maxAbsBefore": 3.082446808e-14,
+          "maxAbsAfter": 3.215494178e-15,
+          "sample": [
+            {
+              "path": "base.reactions[n11].mz",
+              "before": 2.023277506e-14,
+              "after": 2.296781556e-15
+            },
+            {
+              "path": "base.reactions[n12].mz",
+              "before": 2.025066538e-14,
+              "after": 2.296781556e-15
+            },
+            {
+              "path": "base.reactions[n31].mz",
+              "before": -2.201037805e-14,
+              "after": -1.785189229e-15
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -150,6 +150,7 @@ const steelEs: Record<string, string> = {
   'generator.assume.webPinned': 'Montantes y diagonales biarticulados.',
   'generator.assume.webContinuous': 'Montantes y diagonales continuos.',
   'generator.assume.raftersContinuous': 'Cabios continuos a través de la cumbrera.',
+  'generator.assume.planarRestraints': 'Modelo plano: los nudos de panel se restringen fuera del plano; los apoyos también restringen la torsión.',
   'generator.assume.supportsSimple': 'Apoyos simples: un fijo y un móvil.',
   'generator.assume.baseFixed': 'Bases empotradas.',
   'generator.assume.baseChordsPinned': 'Cada cordón apoya articulado en su propio anclaje.',
