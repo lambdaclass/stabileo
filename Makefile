@@ -883,6 +883,7 @@ test.engine.staged-orphan-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-orphan-1846-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
 	$(NIX_RUN) node scripts/tests/translation-rank-red-wasm.mjs
 
 .PHONY: test.engine.staged-prestress test.staged-wasm-assertions
@@ -932,3 +933,8 @@ test.engine.translation-rank-wasm: wasm
 test.engine.frozen-shell-refusals: wasm
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib frozen_shell_refusals -- --nocapture
 	$(NIX_RUN) node scripts/tests/frozen-shell-refusals-wasm.mjs
+
+.PHONY: test.engine.staged-settlement-1085-wasm
+
+test.engine.staged-settlement-1085-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
