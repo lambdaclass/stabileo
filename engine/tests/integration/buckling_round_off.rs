@@ -911,7 +911,7 @@ fn check_member_coupling_witnesses(second_column: f64) {
                 Ok(result) => {
                     let factor = result.modes[0].load_factor;
                     let governing = if second_column > 0.0 { expected * second_column.min(1.0) } else { expected };
-                    println!("{name} {api} second={second_column}: factor {factor}, expected {expected}, elements {:?}", result.element_data.iter().map(|e| e.element_id).collect::<Vec<_>>());
+                    println!("{name} {api} second={second_column}: factor {factor}, expected {governing}, elements {:?}", result.element_data.iter().map(|e| e.element_id).collect::<Vec<_>>());
                     if (factor / governing - 1.0).abs() >= 1e-6 {
                         failures.push(format!("{name} {api}: factor {factor}, expected {expected}"));
                     }
@@ -919,6 +919,12 @@ fn check_member_coupling_witnesses(second_column: f64) {
                         failures.push(format!("{name} {api}: column 1 omitted"));
                     }
                     if second_column > 0.0 {
+                        let amplitude = |node| {
+                            let d = result.modes[0].displacements.iter().find(|d| d.node_id == node).unwrap();
+                            (d.ux * d.ux + d.uy * d.uy + d.uz * d.uz).sqrt()
+                        };
+                        let (governing_node, other_node) = if second_column < 1.0 { (5, 2) } else { (2, 5) };
+                        assert!(amplitude(other_node) < amplitude(governing_node) * 1e-6, "{name} {api}: wrong governing mode shape");
                         if result.modes.len() < 2 || (result.modes[1].load_factor / (expected * second_column.max(1.0)) - 1.0).abs() >= 1e-6 {
                             failures.push(format!("{name} {api}: second column mode missing or wrong"));
                         }
@@ -931,19 +937,24 @@ fn check_member_coupling_witnesses(second_column: f64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1947"]
 fn issue_1947_inactive_member_dofs_do_not_refuse_resolved_compression() {
     check_member_coupling_witnesses(0.0);
 }
 
 #[test]
-#[ignore = "known wrong result: #1947"]
 fn issue_1947_inactive_member_dofs_preserve_governing_and_second_modes() {
     check_member_coupling_witnesses(0.4);
 }
 
 #[test]
-#[ignore = "known wrong result: #1947"]
 fn issue_1947_inactive_member_dofs_preserve_nearby_governing_mode() {
     check_member_coupling_witnesses(1.005);
+}
+
+#[test]
+fn issue_1947_cables_keep_the_existing_explicit_refusal() {
+    let input = member_coupling_witness(&serde_json::json!({"elements": {"2": {"type": "cable"}}}), 0.0);
+    for error in [solve_buckling_3d(&input, 4).unwrap_err(), certify_buckling_3d(&input, 4).unwrap_err()] {
+        assert!(error.contains("cable_analysis_required"), "{error}");
+    }
 }

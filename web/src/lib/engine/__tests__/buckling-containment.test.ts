@@ -321,7 +321,7 @@ it('an omitted round-off stub with a free-rotation MPC preserves the resolved co
 });
 
 const memberCouplingCases = JSON.parse(readFileSync('../engine/tests/fixtures/buckling-member-coupling-cases.json', 'utf8')) as { name: string; patch: Record<string, Record<string, Record<string, unknown>>> }[];
-it.skip.each(memberCouplingCases.flatMap((c) => [0, .4, 1.005].map((ratio) => ({ ...c, ratio }))))('inactive member DOFs preserve resolved buckling modes: $name ratio $ratio (#1947)', async ({ patch, ratio }) => {
+it.each(memberCouplingCases.flatMap((c) => [0, .4, 1.005].map((ratio) => ({ ...c, ratio }))))('inactive member DOFs preserve resolved buckling modes: $name ratio $ratio (#1947)', async ({ patch, ratio }) => {
   const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
   const expected = ((5.2 - Math.sqrt(19.84)) / 0.3) * (200000 * 1000 * 1e-12) / 100 / 4e-8;
   {
@@ -357,5 +357,14 @@ it.skip.each(memberCouplingCases.flatMap((c) => [0, .4, 1.005].map((ratio) => ({
         expect(amplitude(ratio < 1 ? 2 : 5)).toBeLessThan(amplitude(ratio < 1 ? 5 : 2) * 1e-6);
       }
     }
+  }
+});
+
+it('cable buckling retains its explicit refusal through both WASM exports (#1947)', async () => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const wire = JSON.parse(readFileSync('../engine/tests/fixtures/buckling-shared-free-warping.json', 'utf8'));
+  wire.elements[2].type = 'cable';
+  for (const solve of [native.solve_buckling_3d, native.certify_buckling_3d]) {
+    expect(() => solve(JSON.stringify(wire), 4)).toThrow(/cable_analysis_required/);
   }
 });

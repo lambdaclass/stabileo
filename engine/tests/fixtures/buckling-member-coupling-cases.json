@@ -69,5 +69,35 @@
         }
       }
     }
+  },
+  {
+    "name": "truss-free-rotation",
+    "patch": {
+      "elements": {
+        "2": {
+          "type": "truss"
+        }
+      },
+      "supports": {
+        "1": {
+          "rrx": false
+        }
+      }
+    }
+  },
+  {
+    "name": "cw-none-rw-absent",
+    "patch": {
+      "sections": {
+        "2": {
+          "cw": null
+        }
+      },
+      "supports": {
+        "1": {
+          "rw": null
+        }
+      }
+    }
   }
 ]

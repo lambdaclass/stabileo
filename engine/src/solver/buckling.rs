@@ -534,8 +534,9 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     let compression = |id: &usize, n: f64| n + span_least.get(id).copied().unwrap_or(0.0).min(0.0);
     let SparseAssemblyResult3D { k_ff, inclined_transforms, .. } = assemble_sparse_3d(input, &dof_num, false);
     let cs = FreeConstraintSystem::build_3d(input, &dof_num)?;
+    let sections: HashMap<usize, &SolverSection3D> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
     let member_dofs: Vec<(usize, Vec<usize>)> = crate::ordered::values(&input.elements)
-        .map(|e| (e.id, dof_num.element_dofs(e.node_i, e.node_j)))
+        .map(|e| (e.id, dof_num.coupled_member_dofs_3d(e, sections[&e.section_id])))
         .collect();
     let inclined_dofs: Vec<&[usize]> = inclined_transforms.iter().map(|it| it.dofs.as_slice()).collect();
     let axial_noise = coupled_round_off(&k_ff, cs.as_ref(), &member_dofs, &inclined_dofs, &axial_force_round_off_3d(input, &dof_num, &u_full, &linear));
