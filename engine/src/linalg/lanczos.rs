@@ -1202,6 +1202,25 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #818"]
+    fn buckling_818_nonpositive_original_work_is_deflated() {
+        for n in [3,201] { for work in [0.0,-3.0] {
+            let k = CscMatrix::from_triplets(n,&(0..n).collect::<Vec<_>>(),&(0..n).collect::<Vec<_>>(),&vec![1.0;n]);
+            let b_solve = CscMatrix::from_triplets(n,&[0,1,2],&[0,1,2],&[4.0,3.0,2.0]);
+            let b = CscMatrix::from_triplets(n,&[0,1,2],&[0,1,2],&[4.0,work,2.0]);
+            let pencil = BucklingPencil { k:&k,b:&b,transform:None };
+            let op = SparseShiftInvertOp::new_k_inner_product(&k,&b_solve).unwrap();
+            let result = sturm_complete_rounds(&op,&k,&b_solve,2,&LanczosParams::default(),&mut 0,Some(&pencil)).expect("compressed modes survive nonpositive work");
+            assert_eq!(result.values.len(),2);
+            for (i,expected) in [0.25,0.5].into_iter().enumerate() {
+                assert!((result.values[i]/expected-1.0).abs()<1e-12);
+                let phi: Vec<_> = (0..n).map(|row| result.vectors[row*2+i]).collect();
+                assert!((1.0/pencil.mu(&phi).unwrap()/expected-1.0).abs()<1e-12);
+            }
+        }}
+    }
+
+    #[test]
     fn buckling_818_constrained_inertia_resolves_both_sides_and_refuses_at_the_mode() {
         use crate::solver::constraints::SparseTransform;
         let s = 1e12;

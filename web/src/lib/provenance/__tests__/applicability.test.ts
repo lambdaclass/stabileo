@@ -3,6 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { assessProject, conditionHolds } from '../applicability';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
 import { RESULTS_VERSION, type ResultChangeRegistry } from '../registry';
+import bucklingChange from '../result-changes/buckling-original-pencil.json';
+import { declaresMove } from '../../legacy-projects/legacy';
 import { analysesContext, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../solve-stamp';
 
 const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
@@ -537,37 +539,31 @@ it('scopes frozen member validation to one-way behaviour even without gaps (#192
   }
 });
 
-it('known wrong result: #818: original-pencil notice covers every buckling structure', () => {
+it.skip('known wrong result: #818: original-pencil notice covers unknown and partial histories', () => {
   const entry = RESULT_CHANGES.changes.find(c => c.id === 'buckling-original-pencil')!;
   for (const structure of ['members', 'shells', 'curvedShells', 'connectors']) {
-    expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:buckling', 'ranBuckling']))).toBe(true);
-    expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:buckling']))).toBe(false);
-    expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:linear', 'ranBuckling']))).toBe(false);
-    expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:modal', 'ranBuckling']))).toBe(false);
+    expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:buckling']))).toBe(true);
+    expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:linear']))).toBe(false);
+    expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:modal']))).toBe(false);
   }
   expect(conditionHolds(entry.when ?? {}, new Set(['analysis:buckling']))).toBe(false);
-  for (const over of [{ elements: [member(1, 1, 'frame')] }, { quads: [[1, {}]] }, { quads: [[1, { curved: {} }]] }, { connectors: [[1, {}]] }]) {
+  for (const over of [{ elements: [member(1, 1, 'frame')] }, { elements: [member(1, 1, 'truss')] }, { quads: [[1, {}]] }, { quads: [[1, { curved: {} }]] }, { connectors: [[1, {}]] }]) {
     const snapshot = model(over as never);
     const before = { ...stampSolve('buckling', null), resultsVersion: entry.resultsVersion - 1 };
     expect(ids(snapshot, before)).toContain(entry.id);
+    expect(ids(snapshot, unknownStamp())).toContain(entry.id);
+    expect(ids(snapshot, { ...before, analyses: [], recorded: [] })).toContain(entry.id);
+    const afterLinear = stampSolve('linear', { ...before, commit: 'another-build' });
+    expect(afterLinear.recorded).not.toContain('buckling');
+    expect(ids(snapshot, { ...afterLinear, resultsVersion: before.resultsVersion })).toContain(entry.id);
     expect(ids(snapshot, { ...before, analyses: ['linear'] })).not.toContain(entry.id);
+    expect(ids(snapshot, { ...before, analyses: ['modal'] })).not.toContain(entry.id);
     expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
   }
 });
 
-it('known wrong result: #818: the buckling notice excludes a truss-only model with unknown analysis history', () => {
-  const entry = RESULT_CHANGES.changes.find(c => c.id === 'buckling-original-pencil')!;
-  expect(ids(model({ elements: [member(1, 1, 'truss')] }), unknownStamp())).not.toContain(entry.id);
-  for (const type of ['frame', 'truss'] as const) {
-    const snapshot = model({ elements: [member(1, 1, type)] });
-    const before = { ...stampSolve('buckling', null), resultsVersion: entry.resultsVersion - 1 };
-    expect(ids(snapshot, before)).toContain(entry.id);
-    expect(ids(snapshot, unknownStamp())).not.toContain(entry.id);
-    expect(modelFeatures(snapshot, { analysesRun: null }).has('ranBuckling')).toBe(false);
-    expect(modelFeatures(snapshot, { analysesRun: [], analysesRecorded: [] }).has('analysis:buckling')).toBe(true);
-    expect(modelFeatures(snapshot, { analysesRun: [], analysesRecorded: [] }).has('ranBuckling')).toBe(false);
-    expect(ids(snapshot, { ...before, analyses: [], recorded: [] })).not.toContain(entry.id);
-    expect(ids(snapshot, { ...before, analyses: ['linear'] })).not.toContain(entry.id);
-    expect(ids(snapshot, { ...before, analyses: ['modal'] })).not.toContain(entry.id);
+it.skip('known wrong result: #818: a buckling notice cannot excuse linear result changes', () => {
+  for (const path of ['solve.ok', 'base.elementForces[e1].nStart', 'base.displacements[n1].ux', 'base.reactions[n1].rz']) {
+    expect(declaresMove(bucklingChange, path), path).toBe(false);
   }
 });

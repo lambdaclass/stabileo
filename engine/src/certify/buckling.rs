@@ -449,7 +449,7 @@ mod tests {
             if case["dimension"] == 2 {
                 let input = serde_json::from_str(&json).unwrap();
                 let mut result = solve_buckling_2d(&input,1).unwrap();
-                assert!(certify_buckling_result_2d(&input,result.clone()).is_ok());
+                assert!(certify_buckling_result_2d(&input,result.clone()).unwrap().certificate.is_certified());
                 let mut empty = result.clone();
                 empty.modes.clear();
                 assert!(certify_buckling_result_2d(&input,empty).unwrap_err().contains("no buckling modes"));
@@ -458,7 +458,7 @@ mod tests {
             } else {
                 let input = serde_json::from_str(&json).unwrap();
                 let mut result = solve_buckling_3d(&input,1).unwrap();
-                assert!(certify_buckling_result_3d(&input,result.clone()).is_ok());
+                assert!(certify_buckling_result_3d(&input,result.clone()).unwrap().certificate.is_certified());
                 let mut empty = result.clone();
                 empty.modes.clear();
                 assert!(certify_buckling_result_3d(&input,empty).unwrap_err().contains("no buckling modes"));

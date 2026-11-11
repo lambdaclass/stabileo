@@ -2779,6 +2779,74 @@ impl FreeConstraintSystem {
 mod tests {
 
     #[test]
+    #[ignore = "known wrong result: #818"]
+    fn buckling_818_coupled_constraints_preserve_eigenvectors() {
+        use crate::linalg::sparse::CscMatrix;
+        use num_rational::BigRational;
+        use num_traits::{ToPrimitive, Zero};
+        for n in [2, 200, 201, 202] {
+            for delta in [-2.0f64.powi(-27), 2.0f64.powi(-27)] {
+                let size = n+1;
+                let stiff = 1e13;
+                let mut k = vec![0.0; size*size];
+                let mut b = vec![0.0; size*size];
+                k[0] = stiff+0.002; k[1] = -stiff; k[size] = -stiff;
+                k[size+1] = stiff+0.001; k[2] = -0.001; k[2*size] = -0.001; k[2*size+2] = 0.003;
+                b[0] = 1.0; b[2*size+2] = 1.0;
+                for i in 3..size { k[i*size+i] = 10.0+i as f64; b[i*size+i] = 1.0; }
+                let c = [1.0,1.0+delta];
+                let mut a = BigRational::zero();
+                for i in 0..2 { for j in 0..2 {
+                    a += BigRational::from_float(c[i]).unwrap()*BigRational::from_float(k[i*size+j]).unwrap()*BigRational::from_float(c[j]).unwrap();
+                }}
+                let a = a.to_f64().unwrap();
+                let d = k[2*size+2]; let off = k[2];
+                let root = ((a-d).powi(2)+4.0*off*off).sqrt();
+                let expected = [(a+d-root)/2.0, (a+d+root)/2.0];
+                let k = CscMatrix::from_dense_symmetric(&k,size);
+                let b = CscMatrix::from_dense_symmetric(&b,size);
+                let ct = ConstraintTransform {
+                    c: SparseTransform::from_rows(size,n,(0..size).map(|i| match i { 0 => vec![(0,1.0)], 1 => vec![(0,c[1])], _ => vec![(i-1,1.0)] }).collect()),
+                    n_independent: n, n_total: size, independent_dofs: (0..size).filter(|&i| i!=1).collect(), dependent_dofs: [1].into_iter().collect(),
+                };
+                for dimensions in [2,3] {
+                    let cs = FreeConstraintSystem::from_transform(&ct,size,dimensions);
+                    let result = crate::solver::buckling::buckling_eigen(&k,&b,Some(&cs),2).0.expect("coupled constrained modes");
+                    let mut factors: Vec<_> = result.values.iter().filter(|&&mu| mu>0.0).map(|mu| 1.0/mu).collect();
+                    factors.sort_by(f64::total_cmp);
+                    for i in 0..2 { assert!((factors[i]/expected[i]-1.0).abs()<1e-12,"{dimensions}D n={n} delta={delta} mode={i}: {} vs {}",factors[i],expected[i]); }
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #818"]
+    fn buckling_818_constraint_rounding_cannot_erase_positive_stiffness() {
+        use crate::linalg::sparse::CscMatrix;
+        for n in [1,200,201] {
+            let size = n+1;
+            let stiff = 2e13;
+            let delta = 2.0f64.powi(-27);
+            let mut k = vec![0.0;size*size]; let mut b = k.clone();
+            k[0] = stiff+0.001; k[1] = -stiff; k[size] = -stiff; k[size+1] = stiff+0.001; b[0] = 1.0;
+            for i in 2..size { k[i*size+i] = 10.0+i as f64; b[i*size+i] = 1.0; }
+            let expected = 2.0*(k[0]-stiff)+(k[0]-stiff)*2.0*delta+k[size+1]*delta*delta;
+            let k = CscMatrix::from_dense_symmetric(&k,size); let b = CscMatrix::from_dense_symmetric(&b,size);
+            let ct = ConstraintTransform {
+                c: SparseTransform::from_rows(size,n,(0..size).map(|i| match i { 0 => vec![(0,1.0)], 1 => vec![(0,1.0+delta)], _ => vec![(i-1,1.0)] }).collect()),
+                n_independent: n,n_total: size,independent_dofs: (0..size).filter(|&i| i!=1).collect(),dependent_dofs: [1].into_iter().collect(),
+            };
+            for dimensions in [2,3] {
+                let cs = FreeConstraintSystem::from_transform(&ct,size,dimensions);
+                let result = crate::solver::buckling::buckling_eigen(&k,&b,Some(&cs),1).0.expect("positive constrained stiffness");
+                let factor = 1.0/result.values.iter().copied().fold(0.0f64,f64::max);
+                assert!((factor/expected-1.0).abs()<1e-12,"{dimensions}D n={n}: {factor} vs {expected}");
+            }
+        }
+    }
+
+    #[test]
     fn buckling_818_constrained_sparse_completeness_uses_original_pencil() {
         use crate::linalg::sparse::CscMatrix;
         for n in [200, 201, 202] {

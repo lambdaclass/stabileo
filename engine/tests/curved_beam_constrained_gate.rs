@@ -70,3 +70,31 @@ fn constrained_solve_expands_curved_beams() {
     let sum_fz: f64 = res.reactions.iter().map(|r| r.fz).sum();
     assert!((sum_fz - 10.0).abs() < 1e-6, "sumFz={sum_fz}");
 }
+
+#[test]
+#[ignore = "known wrong result: #818"]
+fn buckling_818_curved_constraint_certificates_expand_the_same_model() {
+    use dedaliano_engine::certify::buckling::*;
+    use dedaliano_engine::solver::buckling::solve_buckling_3d;
+    for generated_master in [false,true] {
+        let mut input = arch_with_constraint();
+        input.supports.insert("4".into(),serde_json::from_value(serde_json::json!({"nodeId":4,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":1000,"ky":1000,"kz":1000})).unwrap());
+        input.constraints = vec![Constraint::RigidLink(RigidLinkConstraint {
+            master_node: if generated_master { 5 } else { 2 }, slave_node: 4, dofs: (0..6).collect(),
+        })];
+        let expanded = linear::expand_curved_beams_3d(&input);
+        let raw = solve_buckling_3d(&input,1).unwrap();
+        let reference = certify_buckling_result_3d(&expanded,raw.clone()).unwrap();
+        assert!(reference.certificate.is_certified(),"{:?}",reference.certificate);
+        let supplied = certify_buckling_result_3d(&input,raw.clone()).unwrap();
+        assert!(supplied.certificate.is_certified(),"{:?}",supplied.certificate);
+        assert_eq!(serde_json::to_value(&supplied).unwrap(),serde_json::to_value(&reference).unwrap());
+        assert!(certify_buckling_3d(&input,1).unwrap().certificate.is_certified());
+        assert!(buckling_certificate_3d(&input,1).unwrap().is_certified());
+        let json = serde_json::to_string(&input).unwrap();
+        let out: serde_json::Value = serde_json::from_str(&dedaliano_engine::certify_buckling_3d(&json,1).unwrap()).unwrap();
+        assert_eq!(out["certificate"]["status"],"certified");
+        let supplied_json = dedaliano_engine::certify_buckling_result_3d(&json,&serde_json::to_string(&raw).unwrap()).unwrap();
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&supplied_json).unwrap(),out);
+    }
+}

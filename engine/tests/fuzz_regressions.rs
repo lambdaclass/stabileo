@@ -982,6 +982,7 @@ fn buckling_818_constrained_structures_use_original_work() {
         let factor = raw["modes"][0]["loadFactor"].as_f64().unwrap();
         eprintln!("{}D constrained {factor} vs rational {expected}",case["dimension"]);
         assert!((factor/expected-1.0).abs() < 1e-12);
+        assert_eq!(certified["certificate"]["status"],"certified");
         assert_eq!(certified["results"]["modes"][0]["loadFactor"],factor);
         let (wire,checked) = if case["dimension"] == 2 { (dedaliano_engine::solve_buckling_2d(&json,1).unwrap(),dedaliano_engine::certify_buckling_2d(&json,1).unwrap()) } else { (dedaliano_engine::solve_buckling_3d(&json,1).unwrap(),dedaliano_engine::certify_buckling_3d(&json,1).unwrap()) };
         assert_eq!(serde_json::from_str::<serde_json::Value>(&wire).unwrap(),raw);
@@ -1006,14 +1007,14 @@ fn buckling_818_structural_original_quotients() {
             for d in &result.modes[0].displacements { for (local,value) in [d.ux,d.uz,d.ry].into_iter().enumerate() {
                 if let Some(i)=sys.dof_num.global_dof(d.node_id,local).filter(|&i| i<phi.len()) { phi[i]=value; }
             }}
-            assert!(certify_buckling_2d(&input,1).is_ok());
+            assert!(certify_buckling_2d(&input,1).unwrap().certificate.is_certified());
             (sys.k_ff,sys.neg_kg_csc,phi,result.modes[0].load_factor)
         } else {
             let input=serde_json::from_str(&json).unwrap();
             let sys=buckling_system_3d(&input).unwrap();
             let result=solve_buckling_3d(&input,1).unwrap();
             let phi=gather_buckling_mode_3d(&sys,&result.modes[0].displacements).unwrap();
-            assert!(certify_buckling_3d(&input,1).is_ok());
+            assert!(certify_buckling_3d(&input,1).unwrap().certificate.is_certified());
             (sys.k_ff,sys.neg_kg_csc,phi,result.modes[0].load_factor)
         };
         let work=|m: &dedaliano_engine::linalg::sparse::CscMatrix| {
@@ -1038,6 +1039,17 @@ fn constrained_sparse_buckling_818(dimension: u64) {
     let bases: serde_json::Value = serde_json::from_str(include_str!("fixtures/buckling-818-constrained.json")).unwrap();
     let json = fixtures.as_array().unwrap().iter().find(|c| c["dimension"]==dimension).unwrap()["input"].to_string();
     let base = bases.as_array().unwrap().iter().find(|c| c["dimension"]==dimension).unwrap()["input"].to_string();
+    let second = if dimension==2 {
+        let sys = buckling_system_2d(&serde_json::from_str(&json).unwrap()).unwrap();
+        let i = sys.dof_num.global_dof(6,0).unwrap();
+        let n = sys.k_ff.n;
+        sys.k_ff.to_dense_symmetric()[i*n+i]/sys.neg_kg_csc.to_dense_symmetric()[i*n+i]
+    } else {
+        let sys = buckling_system_3d(&serde_json::from_str(&json).unwrap()).unwrap();
+        let i = sys.dof_num.global_dof(6,0).unwrap();
+        let n = sys.k_ff.n;
+        sys.k_ff.to_dense_symmetric()[i*n+i]/sys.neg_kg_csc.to_dense_symmetric()[i*n+i]
+    };
     for count in [1,2] {
         let (expected,raw,certified,certificate,supplied,wire,checked) = if dimension==2 {
             let input = serde_json::from_str(&json).unwrap();
@@ -1060,6 +1072,9 @@ fn constrained_sparse_buckling_818(dimension: u64) {
         };
         let factor = raw["modes"][0]["loadFactor"].as_f64().unwrap();
         assert!((factor/expected-1.0).abs()<1e-12,"{dimension}D k={count}: {factor} vs {expected}");
+        assert!(certificate.is_certified(),"{certificate:?}");
+        assert_eq!(certified["certificate"]["status"],"certified");
+        if count==2 { assert!((raw["modes"][1]["loadFactor"].as_f64().unwrap()/second-1.0).abs()<1e-12); }
         assert_eq!(certified["results"],raw);
         assert_eq!(supplied,certified);
         assert_eq!(serde_json::to_value(certificate).unwrap(),certified["certificate"]);
@@ -1073,3 +1088,57 @@ fn buckling_818_constrained_sparse_2d() { constrained_sparse_buckling_818(2); }
 
 #[test]
 fn buckling_818_constrained_sparse_3d() { constrained_sparse_buckling_818(3); }
+
+#[test]
+#[ignore = "known wrong result: #818"]
+fn buckling_818_coupled_structures_use_compensated_modes() {
+    use dedaliano_engine::certify::buckling::*;
+    use dedaliano_engine::solver::buckling::*;
+    use num_rational::BigRational;
+    use num_traits::{Zero,ToPrimitive};
+    let cases: serde_json::Value = serde_json::from_str(include_str!("fixtures/buckling-818-coupled.json")).unwrap();
+    for case in cases.as_array().unwrap() {
+        let json = case["input"].to_string();
+        let (k,b,first,last,raw,certified,supplied) = if case["dimension"]==2 {
+            let input = serde_json::from_str(&json).unwrap();
+            let sys = buckling_system_2d(&input).unwrap();
+            let first = [sys.dof_num.global_dof(2,0).unwrap(),sys.dof_num.global_dof(4,0).unwrap()];
+            let last = sys.dof_num.global_dof(6,0).unwrap();
+            let raw = solve_buckling_2d(&input,2).unwrap();
+            let supplied = certify_buckling_result_2d(&input,raw.clone()).unwrap();
+            (sys.k_ff,sys.neg_kg_csc,first,last,serde_json::to_value(raw).unwrap(),serde_json::to_value(certify_buckling_2d(&input,2).unwrap()).unwrap(),serde_json::to_value(supplied).unwrap())
+        } else {
+            let input = serde_json::from_str(&json).unwrap();
+            let sys = buckling_system_3d(&input).unwrap();
+            let first = [sys.dof_num.global_dof(2,0).unwrap(),sys.dof_num.global_dof(4,0).unwrap()];
+            let last = sys.dof_num.global_dof(6,0).unwrap();
+            let raw = solve_buckling_3d(&input,2).unwrap();
+            let supplied = certify_buckling_result_3d(&input,raw.clone()).unwrap();
+            (sys.k_ff,sys.neg_kg_csc,first,last,serde_json::to_value(raw).unwrap(),serde_json::to_value(certify_buckling_3d(&input,2).unwrap()).unwrap(),serde_json::to_value(supplied).unwrap())
+        };
+        let mut q0 = vec![0.0;k.n]; let mut q1 = q0.clone();
+        q0[first[0]] = 1.0; q0[first[1]] = 1.0-2.0f64.powi(-27); q1[last] = 1.0;
+        let work = |m: &dedaliano_engine::linalg::sparse::CscMatrix,x: &[f64],y: &[f64]| {
+            let r = |v| BigRational::from_float(v).unwrap();
+            let mut sum = BigRational::zero();
+            for j in 0..m.n { for p in m.col_ptr[j]..m.col_ptr[j+1] {
+                let i = m.row_idx[p];
+                sum += r(x[i])*r(m.values[p])*r(y[j]);
+                if i!=j { sum += r(x[j])*r(m.values[p])*r(y[i]); }
+            }}
+            sum.to_f64().unwrap()
+        };
+        let b0 = work(&b,&q0,&q0); let b1 = work(&b,&q1,&q1);
+        assert_eq!(work(&b,&q0,&q1),0.0);
+        let a = work(&k,&q0,&q0)/b0; let d = work(&k,&q1,&q1)/b1;
+        let c = work(&k,&q0,&q1)/(b0*b1).sqrt();
+        let root = ((a-d).powi(2)+4.0*c*c).sqrt();
+        let expected = [(a+d-root)/2.0,(a+d+root)/2.0];
+        eprintln!("coupled {}D sparse={} exact factors {expected:?}",case["dimension"],case["sparse"]);
+        for i in 0..2 { assert!((raw["modes"][i]["loadFactor"].as_f64().unwrap()/expected[i]-1.0).abs()<1e-12,"{}D sparse={} mode {i}: {} vs {}",case["dimension"],case["sparse"],raw["modes"][i]["loadFactor"],expected[i]); }
+        assert_eq!(certified["certificate"]["status"],"certified");
+        assert_eq!(certified["results"],raw); assert_eq!(supplied,certified);
+        let wire = if case["dimension"]==2 { dedaliano_engine::certify_buckling_2d(&json,2).unwrap() } else { dedaliano_engine::certify_buckling_3d(&json,2).unwrap() };
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&wire).unwrap(),certified);
+    }
+}
