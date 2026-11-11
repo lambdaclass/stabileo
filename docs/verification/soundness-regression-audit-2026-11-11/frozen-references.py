@@ -7,6 +7,7 @@ previous={(r['id'],r['model']):r for r in d.get('frozen_primary_comparisons',[])
 fallback={'benchmark_curved_shell_hemisphere_8x8':{2:81},'benchmark_q9_navier_plate':{2:289},'benchmark_ss_navier_plate':{0:50},'benchmark_ss_scordelis_lo':{0:98,1:162}}
 rows=[];unresolved=[]
 for r in d['rows']:
+ annotation.classify_reference(r)
  if r['category']!='engineering_reference' or 'riks_' in r['test']:continue
  test=r['test'].split('::')[-1]
  if not r['models'] and test in fallback and r['observation'] in fallback[test]:
@@ -76,5 +77,6 @@ for row in rows:
  if (prior.get('before'),prior.get('after'))==(row['before'],row['after']):
   for key in ['comparison_mode','reference_kind','pr','first_parent_merge','evidence']:
    if key in prior:row[key]=prior[key]
+d['coverage_counts']=dict(sorted(collections.Counter(r['category'] for r in d['rows']).items()))
 d['frozen_primary_comparisons']=rows;d['frozen_farther']=[r for r in rows if r['farther']];d['unresolved_frozen_measurements']=unresolved;d['farther']=[r for r in d['rows'] if r['farther']]
 (p/'reference-comparisons.json').write_text(json.dumps(d,indent=2));print('shipped rows',len(d['rows']),'farther',len(d['farther']),'frozen primary',len(rows),'farther',len(d['frozen_farther']),'unresolved',len(unresolved));print('no farther model',[r['id'] for r in d['farther'] if not r['models']])

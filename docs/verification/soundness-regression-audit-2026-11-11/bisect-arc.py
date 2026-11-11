@@ -6,10 +6,10 @@ base=git('rev-parse','3e8b33d1c');head=git('rev-parse','85c002b3a');revs=[base]+
 rows=json.loads((area/'native-summary.json').read_text())['drift'];cases={}
 for r in rows:
  if r['analysis']=='solve_arc_length':
-  for test in contributing_tests(r):
-   if test not in cases:cases[test]=r['model']
+  cases.setdefault(r['model'],set()).update(contributing_tests(r))
 if not work.exists():subprocess.run(['git','worktree','add','--detach',str(work),base],cwd=repo,check=True)
-records={f:json.loads((area/'base-fixed-native'/f).read_text()) for f in cases.values()};cache={}
+records={f:json.loads((area/'base-fixed-native'/f).read_text()) for f in cases};cache={}
+for f,r in records.items():r['tests']=sorted(set(contributing_tests(r))|cases[f])
 code='''fn main() { let v: serde_json::Value=serde_json::from_reader(std::io::stdin()).unwrap(); let r=dedaliano_engine::solver::arc_length::solve_arc_length(&serde_json::from_value(v).unwrap()); println!("{}",serde_json::to_string(&r).unwrap()); }'''
 def evaluate(i):
  if i in cache:return cache[i]

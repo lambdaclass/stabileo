@@ -50,7 +50,6 @@ class References(unittest.TestCase):
             self.assertIsNone(r['pr'])
             self.assertEqual(r.get('first_parent_merges', []), [])
 
-    @unittest.skip('known wrong result: #1946')
     def test_reference_categories_distinguish_consistency_controls_and_accuracy(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location('annotation', AUDIT / 'annotate-references.py')
@@ -67,7 +66,19 @@ class References(unittest.TestCase):
             (area / 'reference-comparisons.json').write_text(json.dumps({'rows': selected}))
             annotation.main(area)
             regenerated = json.loads((area / 'reference-comparisons.json').read_text())
-            for rows in [selected, regenerated['rows']]:
+            self.assertEqual(regenerated['coverage_counts'], {'checker_control': 10, 'engineering_reference': 6, 'self_consistency': 4})
+            stale = json.loads(json.dumps(selected))
+            for row in stale:
+                row['category'] = 'engineering_reference'
+                row['reference_kind'] = 'source formula or published target'
+            (area / 'reference-comparisons.json').write_text(json.dumps({'rows': stale}))
+            source = (AUDIT / 'frozen-references.py').read_text()
+            with patch.object(sys, 'argv', ['frozen-references.py', directory]):
+                exec(compile(source, str(AUDIT / 'frozen-references.py'), 'exec'), {'__file__': str(AUDIT / 'frozen-references.py')})
+            frozen = json.loads((area / 'reference-comparisons.json').read_text())
+            self.assertEqual(frozen['coverage_counts'], regenerated['coverage_counts'])
+            self.assertEqual(frozen['frozen_primary_comparisons'], [])
+            for rows in [selected, regenerated['rows'], frozen['rows']]:
                 for row in rows:
                     if 'load_step_independence' in row['test']:
                         self.assertEqual(row['category'], 'self_consistency')
@@ -143,7 +154,6 @@ class History(unittest.TestCase):
             result = json.loads((area / outputs[filename]).read_text())
             return result, seen
 
-    @unittest.skip('known wrong result: #1946')
     def test_arc_history_keeps_each_model_and_all_contributing_tests(self):
         values = [{'displacements': [i > 0]} for i in range(5)]
         later = [{'displacements': [i > 2]} for i in range(5)]

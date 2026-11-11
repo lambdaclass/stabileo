@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 import pathlib
 import sys
 from audit_evidence import contributing_tests
@@ -20,12 +21,26 @@ def macneal_case(row):
  raise ValueError(f"No source measurement for {row['id']}")
 
 
+def classify_reference(row):
+ name=row['test'].split('::')[-1]
+ kinds={
+  'mattiasson_load_step_independence':('self_consistency','load-step consistency/self-convergence'),
+  'signed_response_checks_reject_reversals':('checker_control','synthetic signed-response checker control'),
+ }
+ if name in kinds:
+  row['category'],row['reference_kind']=kinds[name]
+  row['pr']=None;row['first_parent_merges']=[]
+  row['attribution']='No solver accuracy or engineering-reference coverage claim; '+row['reference_kind']+'.'
+ return row
+
+
 def main(p):
  d=json.loads((p/'reference-comparisons.json').read_text())
  models={f.name:json.loads(f.read_text()) for f in (p/'base-fixed-native').glob('*.json')}
  cases=json.loads((p/'base/engine/tests/benchmarks/macneal_harder.json').read_text())['cases']
  for r in d['rows']:
   r['category']='engineering_reference'
+  classify_reference(r)
   if r['test']=='research_benchmarks::fairclough_frame_equilibrium' and r['observation']==0:
    r['category']='test_input_metric';r['farther']=False;r['note']='Geometric volume summed over a HashMap in the test builder; not an engine output.'
   if 'macneal' in r['test']:
@@ -44,6 +59,7 @@ def main(p):
   elif r['category']=='engineering_reference':
    r.setdefault('pr',None);r.setdefault('attribution','Boundary attribution requires separate evidence.')
   if 'raasch_hook' in r['test']:r['existing_caveat']='Large reference error predates audit interval. Both current raw outputs carry LIN-SMALL-DISPLACEMENT; MITC4 also carries SH-MITC4-CONVERGENCE. See reference-warnings.json.'
+ d['coverage_counts']=dict(sorted(Counter(r['category'] for r in d['rows']).items()))
  d['farther']=[r for r in d['rows'] if r['farther']]
  (p/'reference-comparisons.json').write_text(json.dumps(d,indent=2));print('OBSERVATIONS',len(d['rows']),'FARTHER',len(d['farther']),'NO MODEL',[(r['id']) for r in d['farther'] if not r['models'] or r['models']==[None]])
 

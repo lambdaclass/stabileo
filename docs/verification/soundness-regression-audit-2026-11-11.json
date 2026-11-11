@@ -298671,12 +298671,12 @@
         "after_error": 1.8441470572838625e-11,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; load-step consistency/self-convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "load-step consistency/self-convergence"
       },
       {
         "id": "research_benchmarks::mattiasson_load_step_independence:1",
@@ -298693,12 +298693,12 @@
         "after_error": 9.956591107140866e-12,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; load-step consistency/self-convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "load-step consistency/self-convergence"
       },
       {
         "id": "research_benchmarks::mattiasson_load_step_independence:2",
@@ -298715,12 +298715,12 @@
         "after_error": 1.4240830736866883e-12,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; load-step consistency/self-convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "load-step consistency/self-convergence"
       },
       {
         "id": "research_benchmarks::mattiasson_load_step_independence:3",
@@ -298737,12 +298737,12 @@
         "after_error": 4.2676973066591017e-13,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; load-step consistency/self-convergence.",
+        "pr": null,
+        "category": "self_consistency",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "load-step consistency/self-convergence"
       },
       {
         "id": "research_benchmarks::mattiasson_original_area_extensible:0",
@@ -302758,12 +302758,12 @@
         "after_error": 0.0,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; synthetic signed-response checker control.",
+        "pr": null,
+        "category": "checker_control",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "synthetic signed-response checker control"
       },
       {
         "id": "research_benchmarks::signed_response_checks_reject_reversals:1",
@@ -302780,12 +302780,12 @@
         "after_error": 0.0072,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; synthetic signed-response checker control.",
+        "pr": null,
+        "category": "checker_control",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "synthetic signed-response checker control"
       },
       {
         "id": "research_benchmarks::signed_response_checks_reject_reversals:2",
@@ -302802,12 +302802,12 @@
         "after_error": 0.0,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; synthetic signed-response checker control.",
+        "pr": null,
+        "category": "checker_control",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "synthetic signed-response checker control"
       },
       {
         "id": "research_benchmarks::signed_response_checks_reject_reversals:3",
@@ -302824,12 +302824,12 @@
         "after_error": 0.018,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; synthetic signed-response checker control.",
+        "pr": null,
+        "category": "checker_control",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "synthetic signed-response checker control"
       },
       {
         "id": "research_benchmarks::signed_response_checks_reject_reversals:4",
@@ -302846,12 +302846,12 @@
         "after_error": 0.0,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; synthetic signed-response checker control.",
+        "pr": null,
+        "category": "checker_control",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "synthetic signed-response checker control"
       },
       {
         "id": "research_benchmarks::signed_response_checks_reject_reversals:5",
@@ -302868,12 +302868,12 @@
         "after_error": 0.006,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; synthetic signed-response checker control.",
+        "pr": null,
+        "category": "checker_control",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "synthetic signed-response checker control"
       },
       {
         "id": "research_benchmarks::signed_response_checks_reject_reversals:6",
@@ -302890,12 +302890,12 @@
         "after_error": 0.0,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; synthetic signed-response checker control.",
+        "pr": null,
+        "category": "checker_control",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "synthetic signed-response checker control"
       },
       {
         "id": "research_benchmarks::signed_response_checks_reject_reversals:7",
@@ -302912,12 +302912,12 @@
         "after_error": 0.2162,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; synthetic signed-response checker control.",
+        "pr": null,
+        "category": "checker_control",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "synthetic signed-response checker control"
       },
       {
         "id": "research_benchmarks::signed_response_checks_reject_reversals:8",
@@ -302934,12 +302934,12 @@
         "after_error": 0.0,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; synthetic signed-response checker control.",
+        "pr": null,
+        "category": "checker_control",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "synthetic signed-response checker control"
       },
       {
         "id": "research_benchmarks::signed_response_checks_reject_reversals:9",
@@ -302956,12 +302956,12 @@
         "after_error": 0.8642,
         "farther": false,
         "models": [],
-        "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
-        "pr": 1753,
-        "category": "engineering_reference",
+        "attribution": "No solver accuracy or engineering-reference coverage claim; synthetic signed-response checker control.",
+        "pr": null,
+        "category": "checker_control",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "synthetic signed-response checker control"
       },
       {
         "id": "macneal:frame-shear-1-uz:0",
@@ -309893,7 +309893,13 @@
         "evidence": "all-static-bisection.json.gz"
       }
     ],
-    "unresolved_frozen_measurements": []
+    "unresolved_frozen_measurements": [],
+    "coverage_counts": {
+      "checker_control": 10,
+      "engineering_reference": 333,
+      "self_consistency": 4,
+      "test_input_metric": 1
+    }
   },
   "merge_reviews": [
     {
@@ -335025,8 +335031,8 @@
     },
     {
       "file": "annotate-references.py",
-      "bytes": 3276,
-      "sha256": "30e237e8b0e2fa508539b342034d359c1d96b0e2f9fc716557a9d3c3e3822c5d"
+      "bytes": 3945,
+      "sha256": "2b09e956230389449a75193bba4a8c5e5baa34b51e2400cf553c11338432d2c1"
     },
     {
       "file": "arc-bisection.json",
@@ -335060,8 +335066,8 @@
     },
     {
       "file": "bisect-arc.py",
-      "bytes": 2793,
-      "sha256": "a4a229e300c708d90094585aab3f7745757945deea25fbc3aaa16739180ab764"
+      "bytes": 2849,
+      "sha256": "9541cb518fa8b9d637de89c05dc611646b62a8d95a1b7274ad47747d95aaedcf"
     },
     {
       "file": "bisect-reference.py",
@@ -335120,8 +335126,8 @@
     },
     {
       "file": "frozen-references.py",
-      "bytes": 8179,
-      "sha256": "07b5c4202b4c3289815dac0a53c1cd5530176ac06162f64db6fda12d532b416b"
+      "bytes": 8310,
+      "sha256": "510cf2e9c7b64403aaba475e1b4623b925f0dfe014f7a3b98dfc61e927a87120"
     },
     {
       "file": "harmonic-fix-a9d72cbe6.log",
@@ -335220,8 +335226,8 @@
     },
     {
       "file": "reference-comparisons.json",
-      "bytes": 567731,
-      "sha256": "89f55b78ae536d9096e177ab97fd2f4939e58b8a40cd5c9f1ca4c289d9675bc6"
+      "bytes": 567685,
+      "sha256": "4c7966641a59c131d13028204b49dd1f79579133c94f6d78dece692bf77bc430"
     },
     {
       "file": "reference-probe-logs.json.gz",
@@ -335443,5 +335449,10 @@
     "incomparable_as_shipped_observations": 13,
     "archived_adjacent_full_output_comparisons": 142,
     "lost_legacy_provenance": "Original captures retained only the last contributing test. The historical suite corpus was not rerun; missing aliases cannot be reconstructed from those files. New captures and input unions retain every contributing test."
+  },
+  "round_4_evidence": {
+    "classification": "Four load-step observations are self-consistency and ten signed-response observations are synthetic checker controls. They are excluded from engineering-reference coverage.",
+    "conclusion_impact": "None of these fourteen unchanged observations contributed to the 176 frozen primary comparisons, 53 frozen distance flags, 30 comparable as-shipped distance flags, refusals or result-registration findings. Independent accuracy coverage no longer claims these fourteen observations.",
+    "history": "Arc history now selects every drifted model filename and preserves contributing tests. Archived boundaries were not rerun; earliest attribution remains unverified."
   }
 }
