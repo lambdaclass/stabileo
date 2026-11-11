@@ -27,3 +27,7 @@ The first line is the section, one of: `BREAKING (results)`, `Security`, `Added`
   every Cargo.lock. It fails if any of those is left behind.
 - `scripts/changelog.py --release 0.3.1 2026-10-23` moves every fragment under
   `## 0.3.1 (2026-10-23)` in CHANGELOG.md, grouped by section in that order, and deletes them.
+
+- `make changelog.unreleased` rebuilds the Unreleased summary in CHANGELOG.md from the
+  current fragments, keeping the fragments for release. Run it again after adding or changing a
+  fragment; the summary is a snapshot, and the fragments remain the source of truth.

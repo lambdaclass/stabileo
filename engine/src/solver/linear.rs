@@ -770,6 +770,13 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     })
 }
 
+#[cfg(test)]
+pub(crate) fn free_tags(dof_num: &DofNumbering, two_d: bool) -> Vec<super::stability::DofTag> {
+    let mut tags = super::stability::tags(dof_num, two_d);
+    tags.truncate(dof_num.n_free);
+    tags
+}
+
 pub(crate) fn not_positive_definite() -> String {
     "the structure cannot be solved reliably: \
      stiffness factorization accuracy is unresolved after the stability check; no result is returned".to_string()

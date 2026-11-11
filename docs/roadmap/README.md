@@ -8,16 +8,22 @@ answers which question, how current each one is, and where the work is tracked.
 coverage, Solver and proof depth, Release safety, Platform and architecture, Growth and
 housekeeping). Every item there links to its GitHub issue;
 the tracker is [#396](https://github.com/lambdaclass/stabileo/issues/396). What comes first right now is
-the **Now** section at the top of PRODUCT_ROADMAP: soundness first (wrong-result bugs, the tests
+the **Overall order** and **Priority now** in the Now section of PRODUCT_ROADMAP: soundness first (wrong-result bugs, the tests
 that catch them, the verification safety net and release safety), then other bugs, then features. Each section has
 measurable exit criteria, and the metrics behind them are regenerated on the
 [verification dashboard](../verification/DASHBOARD.md).
+
+As of **2026-11-11**, the immediate work is [#761](https://github.com/lambdaclass/stabileo/issues/761), [#1756](https://github.com/lambdaclass/stabileo/issues/1756) and [#818](https://github.com/lambdaclass/stabileo/issues/818) ([#1939](https://github.com/lambdaclass/stabileo/pull/1939)),
+replay of 108 wrong-result candidates (conditioning subset: [#1937](https://github.com/lambdaclass/stabileo/pull/1937)), and the regression audit
+of the merged soundness fixes. Next: [#1040](https://github.com/lambdaclass/stabileo/issues/1040), [#972](https://github.com/lambdaclass/stabileo/issues/972), [#1453](https://github.com/lambdaclass/stabileo/issues/1453), [#742](https://github.com/lambdaclass/stabileo/issues/742),
+then causes H, B, G, D, F, harness self-tests and finally 2D/3D unification ([#1781](https://github.com/lambdaclass/stabileo/pull/1781)).
+The product roadmap records counts and query scope; the dashboard has its own generation date.
 
 ## Documents
 
 | Document | Answers | Status | Owner |
 |---|---|---|---|
-| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-08) | Federico Carrone |
+| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-11): merged soundness work, live cause counts, replay and regression audit | Federico Carrone |
 | [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, numerical methods, long-term solver sequence (Steps 1–14+) | Long-term sequence current; its "Where we are" and "Wave 1" sections predate v0.2.0 (see the note at its top) | Diego K (last editor) |
 | [../../research/DESIGN.md](../../research/DESIGN.md) | Stabileo Research: what it is, its rules, the engine-benchmarks track and the ordered paper queue (summary in PRODUCT_ROADMAP "Stabileo Research") | Current (2026-10-29) | Federico Carrone |
 | [AI_ROADMAP.md](AI_ROADMAP.md) | AI capabilities, their order, prerequisites and safety rules | Current as of 2026-10-07 | Diego K (last editor) |

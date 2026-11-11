@@ -239,3 +239,5 @@ mod seeded_failures;
 
 mod cause_c_replay;
 mod translation_rank;
+
+mod candidate_replay;
