@@ -14078,7 +14078,7 @@ const fr: Translations = {
   'plates.pendingShort': 'Maillage : {n} plaques en attente',
   'plates.allCurrent': 'Maillage : à jour',
   'plates.meshBeforeAnalysis': 'Mailler avant le calcul',
-  'plates.meshBeforeAnalysisHint': 'Avant chaque calcul, seules les plaques sans maillage ou au maillage obsolète sont maillées, avec leurs propres paramètres. Désactivé, le calcul s\'arrête et les nomme.',
+  "plates.meshBeforeAnalysisHint": "Une plaque que vous avez maillée garde son maillage : elle n'est pas maillée à nouveau. Avant chaque calcul, seules les plaques sans maillage, au maillage obsolète ou avec les coques grossières reçues avec le modèle sont maillées, chacune avec ses propres paramètres. Désactivé, ces coques sont calculées telles quelles et le calcul s'arrête s'il manque un maillage à une plaque.",
   'plates.meshSettings': 'Paramètres…',
   'plates.pickScope': 'Clic sur une plaque',
   'plates.pickPlate': 'Plaque entière',
@@ -14558,6 +14558,18 @@ const fr: Translations = {
   "plates.scopePlates": "Plaques ({n})",
   "plates.scopeElements": "Éléments de maillage ({n})",
   "plates.elementsNote": "Un clic dans le modèle choisit un élément du maillage, pas la plaque entière. Ce que vous modifiez ici vaut pour ces éléments et se perd si la plaque est maillée à nouveau.",
+  "plates.meshStateWillMesh": "Maillage : {n} plaques sur {total} maillées au calcul",
+  "plates.meshStateMissing": "Maillage : {n} plaques sur {total} sans maillage",
+  "plates.meshStateAsCame": "Maillage : {n} plaques sur {total} telles que reçues",
+  "plates.meshStateReady": "Maillage : {n} plaques prêtes",
+  "plates.meshStateKept": "{n} gardent leur maillage",
+  "plates.meshedAtAnalysisKept": "{n} plaques maillées avant le calcul ({cells} éléments) ; les {kept} autres ont gardé leur maillage.",
+  "plates.remeshNoteOne": "Cette plaque est déjà maillée : Appliquer remplace son maillage. « Mailler avant le calcul » ne la maille pas à nouveau.",
+  "plates.remeshNoteAll": "Les {n} plaques sont déjà maillées : Appliquer remplace leur maillage. « Mailler avant le calcul » ne les maille pas à nouveau.",
+  "plates.remeshNoteSome": "{n} des {total} plaques sont déjà maillées : Appliquer remplace leur maillage. « Mailler avant le calcul » ne les maille pas à nouveau.",
+  "plates.progressTitleAnalysis": "Maillage avant le calcul",
+  "plates.progressTitle": "Maillage des plaques",
+  "plates.progressUndo": "Une seule annulation revient en arrière.",
 };
 
 export default fr;

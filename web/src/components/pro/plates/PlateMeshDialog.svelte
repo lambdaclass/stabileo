@@ -6,12 +6,15 @@
    * what cannot be carried over), and one undo step to put them in.
    *
    * Planning runs plate by plate, with a frame between them, so a long batch shows its progress
-   * and can be stopped; nothing reaches the model until Apply.
+   * and can be stopped; nothing reaches the model until Apply, which closes the dialog and meshes
+   * in the model under the progress card (`store/mesh-apply.ts`).
    */
   import { onDestroy, untrack } from 'svelte';
   import { uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
-  import { applyPlateMeshesAsync, planPlateMeshes, plateEntry, plateSides, type PlateMeshPlan } from '../../../lib/store/physical-plates';
+  import { planPlateMeshes, plateEntry, plateSides, plateStatus, type PlateMeshPlan } from '../../../lib/store/physical-plates';
+  import { meshPlatesInModel } from '../../../lib/store/mesh-apply';
+  import { meshProgress } from '../../../lib/store/mesh-progress.svelte';
   import MeshProgressBar from './MeshProgressBar.svelte';
   import { modelStore } from '../../../lib/store';
   import { unitQ } from '../../../lib/store/display-units.svelte';
@@ -37,14 +40,11 @@
   const gridOn = $derived(element === 'quad' && pattern !== 'free');
   let plans = $state<PlateMeshPlan[] | null>(null);
   let progress = $state<{ done: number; total: number } | null>(null);
-  let applying = $state<{ done: number; total: number } | null>(null);
-  let result = $state<string | null>(null);
   let ctrl: AbortController | null = null;
 
   async function preview() {
     ctrl?.abort();
     ctrl = new AbortController();
-    result = null;
     progress = { done: 0, total: ids.length };
     const r = await planPlateMeshes(ids, { size, element, followMembers, pattern, sizeV, orient }, { signal: ctrl.signal, onProgress: (done, total) => (progress = { done, total }) });
     progress = null;
@@ -58,18 +58,16 @@
   const ok = $derived((plans ?? []).filter((p) => p.mesh));
   const totals = $derived({ cells: ok.reduce((s, p) => s + p.cells, 0), local: (plans ?? []).reduce((s, p) => s + p.localLoads, 0) });
 
-  async function apply() {
-    if (!plans || applying) return;
-    applying = { done: 0, total: ok.length };
-    const r = await applyPlateMeshesAsync(plans, (done, total) => (applying = { done, total }));
-    applying = null;
-    uiStore.selectPlates(ids);
-    result = tp('plates.meshApplied', { plates: r.plates, cells: r.cells })
-      + (r.refused.length ? ' ' + tp('plates.meshRefusedSome', { n: r.refused.length }) : '')
-      + (r.droppedLocalLoads ? ' ' + tp('plates.localLoadsDropped', { n: r.droppedLocalLoads }) : '');
-    plans = null;
-    if (!r.refused.length) onclose();
+  function apply() {
+    if (!plans || meshProgress.now) return;
+    // `ids` belongs to the parent, which drops it when the dialog closes.
+    const chosen = plans, of = [...ids];
+    onclose();
+    void meshPlatesInModel(chosen, of);
   }
+
+  // Plates the mesher has already meshed: Apply puts a new mesh in place of theirs.
+  const remeshing = $derived(ids.filter((id) => plateStatus(id) === 'current' && !plateEntry(id)?.surface.meshed?.original).length);
 
   const kindOf = (p: PlateMeshPlan) => {
     if (!p.mesh) return '';
@@ -112,10 +110,10 @@
   const totalSize = $derived(gridOn && pattern === 'rect' ? `${significantNumber(size, 'length', uiStore.unitSystem, 3)} × ${meshSizeText(sizeV)}` : meshSizeText(size));
 </script>
 
-<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && !applying) onclose(); }} />
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') onclose(); }} />
 
 <div class="pmd-host">
-<div class="pmd-overlay" use:portal onclick={() => { if (!applying) onclose(); }} role="presentation">
+<div class="pmd-overlay" use:portal onclick={onclose} role="presentation">
   <div class="pmd" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t('plates.meshTitle')} data-testid="plate-mesh-dialog" tabindex="-1">
     <h3>{ids.length > 1 ? tp('plates.meshTitleMany', { n: ids.length }) : tp('plates.meshTitleOne', { name: plateEntry(ids[0]!)?.name ?? '' })}</h3>
 
@@ -159,8 +157,8 @@
         <button class="pmd-btn" onclick={cancel}>{t('plates.stop')}</button>
       </div>
     {/if}
-    {#if applying}
-      <div class="pmd-progress" data-testid="plate-mesh-applying"><MeshProgressBar phase="meshing" done={applying.done} total={applying.total} /></div>
+    {#if remeshing}
+      <p class="pmd-note-line" data-testid="plate-mesh-remesh-note">{remeshing === ids.length ? (ids.length === 1 ? t('plates.remeshNoteOne') : tp('plates.remeshNoteAll', { n: remeshing })) : tp('plates.remeshNoteSome', { n: remeshing, total: ids.length })}</p>
     {/if}
 
     {#if plans}
@@ -210,10 +208,9 @@
       {/if}
     {/if}
 
-    {#if result}<p class="pmd-msg" data-testid="plate-mesh-result">{result}</p>{/if}
     <div class="pmd-actions">
-      <button class="pmd-btn" disabled={!!applying} onclick={onclose}>{t('plates.close')}</button>
-      <button class="pmd-btn primary" disabled={!ok.length || !!progress || !!applying} onclick={apply} data-testid="plate-mesh-apply">
+      <button class="pmd-btn" onclick={onclose}>{t('plates.close')}</button>
+      <button class="pmd-btn primary" disabled={!ok.length || !!progress || !!meshProgress.now} onclick={apply} data-testid="plate-mesh-apply">
         {totals.local ? t('plates.applyDropping') : t('plates.apply')}
       </button>
     </div>
@@ -249,7 +246,7 @@
   .pmd-tag, .pmd-axes text { fill: var(--st-text); font-size: 10px; }
   .pmd-axes line { stroke: var(--st-text); stroke-width: 1.4; }
   .pmd-svg marker path { fill: var(--st-text); }
-  .pmd-msg { margin: 0; color: var(--st-text); }
+  .pmd-note-line { margin: 0; padding: 5px 8px; border-left: 2px solid var(--st-accent); background: var(--st-surface-2, rgba(255, 255, 255, 0.03)); color: var(--st-text-2); }
   .pmd-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .pmd-btn { padding: 4px 12px; background: var(--st-surface-3); color: var(--st-text-2); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); font: inherit; cursor: pointer; }
   .pmd-btn.primary { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }

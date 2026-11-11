@@ -36,7 +36,7 @@ import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef, syncDefinedLoads } from './defined-loads';
 import { constraintNodes } from '../engine/steel/unbraced-length';
 import { meshBeforeAnalysis } from './mesh-policy.svelte';
-import { endMeshProgress, setMeshProgress } from './mesh-progress.svelte';
+import { endMeshProgress, nextFrame, setMeshProgress } from './mesh-progress.svelte';
 export { meshBeforeAnalysis };
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
 import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes, type ColumnFootprint, type FootprintCells } from '../model/building/column-footprints';
@@ -625,8 +625,7 @@ export async function planPlateMeshes(ids: readonly number[], spec?: Partial<Pla
     const plan = planPlateMesh(ids[i]!, spec);
     if (plan) out.push(plan);
     opts.onProgress?.(i + 1, ids.length);
-    // Give the page a frame between plates, so a long batch can be watched and stopped.
-    if (ids.length > 1) await new Promise((r) => setTimeout(r, 0));
+    if (ids.length > 1) await nextFrame();
   }
   return out;
 }
@@ -873,10 +872,11 @@ export async function applyPlateMeshesAsync(plans: readonly PlateMeshPlan[], onP
   if (!run.ok.length) return run.report;
   const total = run.ok.length;
   let done = 0;
-  modelStore.batch(() => run.begin());
   onProgress?.(0, total);
+  await nextFrame();
+  modelStore.batch(() => run.begin());
   while (done < total) {
-    await new Promise((r) => setTimeout(r, 0));
+    await nextFrame();
     const t0 = performance.now();
     modelStore.amendLastStep(() => { while (done < total && (performance.now() - t0 < sliceMs || done === 0)) run.meshOne(run.ok[done++]!); });
     onProgress?.(done, total);

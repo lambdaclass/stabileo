@@ -14078,7 +14078,7 @@ const tr: Translations = {
   'plates.pendingShort': 'Ağ: {n} plak bekliyor',
   'plates.allCurrent': 'Ağ: güncel',
   'plates.meshBeforeAnalysis': 'Analizden önce ağ oluştur',
-  'plates.meshBeforeAnalysisHint': 'Her analizden önce yalnızca ağı olmayan veya ağı güncel olmayan plakların ağı, kendi ayarlarıyla oluşturulur. Kapalıyken analiz durur ve bu plakları adlarıyla bildirir.',
+  "plates.meshBeforeAnalysisHint": "Ağladığınız bir plak ağını korur: yeniden ağlanmaz. Her analizden önce yalnızca ağı olmayan, ağı güncel olmayan veya modelle gelen kaba kabuklarıyla duran plaklar, her biri kendi ayarlarıyla ağlanır. Kapalıyken bu kabuklar geldiği gibi çözülür ve bir plağın ağı yoksa analiz durur.",
   'plates.meshSettings': 'Ayarlar…',
   'plates.pickScope': 'Bir plağa tıklayın',
   'plates.pickPlate': 'Plağın tamamı',
@@ -14558,6 +14558,18 @@ const tr: Translations = {
   "plates.scopePlates": "Plaklar ({n})",
   "plates.scopeElements": "Ağ elemanları ({n})",
   "plates.elementsNote": "Modelde bir tıklama plağın tamamını değil, ağın bir elemanını seçer. Burada değiştirdikleriniz o elemanlar için geçerlidir ve plak yeniden ağlanırsa kaybolur.",
+  "plates.meshStateWillMesh": "Ağ: {total} plaktan {n} tanesi analizde ağlanır",
+  "plates.meshStateMissing": "Ağ: {total} plaktan {n} tanesinin ağı yok",
+  "plates.meshStateAsCame": "Ağ: {total} plaktan {n} tanesi geldiği gibi",
+  "plates.meshStateReady": "Ağ: {n} plak hazır",
+  "plates.meshStateKept": "{n} tanesi ağını korur",
+  "plates.meshedAtAnalysisKept": "Analizden önce {n} plak ağlandı ({cells} eleman); diğer {kept} plak ağını korudu.",
+  "plates.remeshNoteOne": "Bu plak zaten ağlanmış: Uygula onun ağının yerine yenisini koyar. \"Analizden önce ağ oluştur\" onu yeniden ağlamaz.",
+  "plates.remeshNoteAll": "{n} plağın hepsi zaten ağlanmış: Uygula onların ağının yerine yenisini koyar. \"Analizden önce ağ oluştur\" onları yeniden ağlamaz.",
+  "plates.remeshNoteSome": "{total} plaktan {n} tanesi zaten ağlanmış: Uygula onların ağının yerine yenisini koyar. \"Analizden önce ağ oluştur\" onları yeniden ağlamaz.",
+  "plates.progressTitleAnalysis": "Analizden önce ağ oluşturuluyor",
+  "plates.progressTitle": "Plaklar ağlanıyor",
+  "plates.progressUndo": "Tek bir geri alma adımıyla geri alınır.",
 };
 
 export default tr;

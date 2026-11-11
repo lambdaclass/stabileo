@@ -14,7 +14,7 @@ import { knownIssueRefusal } from './known-issues';
  */
 
 import { ensurePhysicalModel } from '../store/plates-from-shells';
-import { platesNeedingMesh, preparePlatesForAnalysisAsync } from '../store/physical-plates';
+import { physicalPlates, platesNeedingMesh, preparePlatesForAnalysisAsync } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
 import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { spectralOrSay } from '../actions/solve';
@@ -274,7 +274,10 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
       uiStore.toast(error, 'error');
       return { ok: false, error };
     }
-    if (p.meshed > 0) uiStore.toast(tp('plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells }), 'info');
+    if (p.meshed > 0) {
+      const kept = physicalPlates().length - p.meshed;
+      uiStore.toast(tp(kept > 0 ? 'plates.meshedAtAnalysisKept' : 'plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells, kept }), 'info');
+    }
   }
   // Floor loads kept as definitions are rewritten first when the model moved under them, so the
   // guard below starts from the model that is solved (`store/defined-loads.ts`).

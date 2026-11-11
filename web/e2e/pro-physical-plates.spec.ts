@@ -114,7 +114,7 @@ test('@smoke an analysis meshes the plate first, and stops when told not to', as
   await page.getByTestId('draw-stop').click();
 
   await page.getByTestId('pr-stage-analyse').click();
-  await expect(page.getByTestId('analysis-mesh-state')).toContainText('1');
+  await expect(page.getByTestId('analysis-mesh-state')).toHaveAttribute('data-pending', '1');
   await page.getByTestId('analysis-mesh-auto').uncheck();
   await page.getByTestId('pr-cmd-solve').click();
   await expect.poll(async () => (await plates(page))[0]!.status).toBe('unmeshed');
@@ -123,7 +123,7 @@ test('@smoke an analysis meshes the plate first, and stops when told not to', as
   await page.getByTestId('analysis-mesh-auto').check();
   await page.getByTestId('pr-cmd-solve').click();
   await expect.poll(async () => (await plates(page))[0]!.status, { timeout: 20_000 }).toBe('current');
-  await expect(page.getByTestId('analysis-mesh-state')).not.toContainText('1');
+  await expect(page.getByTestId('analysis-mesh-state')).toHaveAttribute('data-pending', '0');
   await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount())).toBeGreaterThan(0);
 });
 

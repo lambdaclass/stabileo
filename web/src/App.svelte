@@ -5,6 +5,8 @@
   import './lib/i18n/full-dictionaries';
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
+  import MeshProgressCard from './components/pro/plates/MeshProgressCard.svelte';
+  import { meshProgress } from './lib/store/mesh-progress.svelte';
   import { is3DWorkspace } from './lib/utils/workspace';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
@@ -2297,8 +2299,9 @@
 <RebarWorkspace />
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if uiStore.toasts.length > 0}
+{#if uiStore.toasts.length > 0 || meshProgress.now}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
+    <MeshProgressCard />
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>

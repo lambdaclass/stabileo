@@ -14078,7 +14078,7 @@ const de: Translations = {
   'plates.pendingShort': 'Netz: {n} Platten ausstehend',
   'plates.allCurrent': 'Netz: aktuell',
   'plates.meshBeforeAnalysis': 'Vor der Berechnung vernetzen',
-  'plates.meshBeforeAnalysisHint': 'Vor jeder Berechnung werden nur die Platten ohne Netz oder mit veraltetem Netz vernetzt, mit ihren eigenen Einstellungen. Ausgeschaltet bricht die Berechnung ab und nennt sie.',
+  "plates.meshBeforeAnalysisHint": "Eine Platte, die Sie vernetzt haben, behält ihr Netz und wird nicht erneut vernetzt. Vor jeder Berechnung werden nur Platten ohne Netz, mit veraltetem Netz oder mit den groben Schalen, mit denen sie übernommen wurden, vernetzt, jede mit ihren eigenen Einstellungen. Ausgeschaltet werden diese Schalen wie übernommen berechnet, und die Berechnung bricht ab, wenn einer Platte das Netz fehlt.",
   'plates.meshSettings': 'Einstellungen…',
   'plates.pickScope': 'Klick auf eine Platte',
   'plates.pickPlate': 'Ganze Platte',
@@ -14558,6 +14558,18 @@ const de: Translations = {
   "plates.scopePlates": "Platten ({n})",
   "plates.scopeElements": "Netzelemente ({n})",
   "plates.elementsNote": "Ein Klick im Modell wählt ein Netzelement, nicht die ganze Platte. Was Sie hier ändern, gilt für diese Elemente und geht verloren, wenn die Platte neu vernetzt wird.",
+  "plates.meshStateWillMesh": "Netz: {n} von {total} Platten werden bei der Berechnung vernetzt",
+  "plates.meshStateMissing": "Netz: {n} von {total} Platten ohne Netz",
+  "plates.meshStateAsCame": "Netz: {n} von {total} Platten wie übernommen",
+  "plates.meshStateReady": "Netz: {n} Platten bereit",
+  "plates.meshStateKept": "{n} behalten ihr Netz",
+  "plates.meshedAtAnalysisKept": "{n} Platten vor der Berechnung vernetzt ({cells} Elemente); die übrigen {kept} behielten ihr Netz.",
+  "plates.remeshNoteOne": "Diese Platte ist bereits vernetzt: Anwenden ersetzt ihr Netz. „Vor der Berechnung vernetzen“ vernetzt sie nicht erneut.",
+  "plates.remeshNoteAll": "Die {n} Platten sind bereits vernetzt: Anwenden ersetzt ihr Netz. „Vor der Berechnung vernetzen“ vernetzt sie nicht erneut.",
+  "plates.remeshNoteSome": "{n} der {total} Platten sind bereits vernetzt: Anwenden ersetzt ihr Netz. „Vor der Berechnung vernetzen“ vernetzt sie nicht erneut.",
+  "plates.progressTitleAnalysis": "Vernetzung vor der Berechnung",
+  "plates.progressTitle": "Platten werden vernetzt",
+  "plates.progressUndo": "Ein Rückgängig-Schritt nimmt alles zurück.",
 };
 
 export default de;

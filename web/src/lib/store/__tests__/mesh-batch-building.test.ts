@@ -7,11 +7,12 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
-import { applyPlateMeshes, applyPlateMeshesAsync, coarseAsModelled, physicalPlates, planPlateMesh, plateStatus, platesNeedingMesh, preparePlatesForAnalysis, preparePlatesForAnalysisAsync } from '../physical-plates';
+import { applyPlateMeshes, applyPlateMeshesAsync, coarseAsModelled, physicalPlates, planPlateMesh, planPlateMeshes, plateStatus, platesNeedingMesh, preparePlatesForAnalysis, preparePlatesForAnalysisAsync } from '../physical-plates';
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { meshProgress } from '../mesh-progress.svelte';
+import { meshPlatesInModel } from '../mesh-apply';
 
 beforeAll(async () => { await wasmSolver.initSolver(); });
 
@@ -123,4 +124,31 @@ describe('mesh before analysis', () => {
     expect(modelStore.loads.filter((l) => l.type === 'surface3d' && (l.data as { quadId: number }).quadId === loaded)).toHaveLength(1);
     expect(platesNeedingMesh()).toEqual([]);
   });
+
+  it('does not mesh again the plates meshed from their dialog, and the dialog\'s meshing shows the same progress card', async () => {
+    await building();
+    meshBeforeAnalysis.value = true;
+    const ids = physicalPlates().map((p) => p.id);
+    const plans = (await planPlateMeshes(ids, { size: 0.5, element: 'quad', pattern: 'square' }))!;
+    const seen = new Set<string>();
+    const watch = setInterval(() => { if (meshProgress.now) seen.add(`${meshProgress.now.for}:${meshProgress.now.phase}`); }, 0);
+    const toasts = uiStore.toasts.length;
+    const r = await meshPlatesInModel(plans, ids);
+    clearInterval(watch);
+    expect(r).toMatchObject({ plates: ids.length, refused: [] });
+    expect(seen).toEqual(new Set(['plates:meshing']));
+    expect(meshProgress.now).toBeNull();
+    expect(uiStore.toasts.length).toBe(toasts + 1);
+    expect(uiStore.selectedPlates.size).toBe(ids.length);
+    for (const p of physicalPlates()) {
+      expect(plateStatus(p.id)).toBe('current');
+      expect(p.surface.mesh.size).toBe(0.5);
+      expect(coarseAsModelled(p)).toBe(false);
+    }
+    const shells = modelStore.quads.size;
+    expect(platesNeedingMesh()).toEqual([]);
+    expect(await preparePlatesForAnalysisAsync()).toEqual({ ok: true, meshed: 0, cells: 0 });
+    expect(modelStore.quads.size).toBe(shells);
+  }, 300000);
+
 });
