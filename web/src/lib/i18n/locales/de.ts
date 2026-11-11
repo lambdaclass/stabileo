@@ -15380,7 +15380,7 @@ const de: Translations = {
   "loads.tr.seismic.sameSystem": "Wie in X",
   "loads.tr.seismic.siteTitle": "Standort und Spektrum (TBDY 2.3)",
   "loads.tr.seismic.soil": "Örtliche Bodenklasse",
-  "loads.tr.seismic.system": "System (Tablo 4.1)",
+  "loads.tr.seismic.system": "Tragsystem (Tablo 4.1)",
   "loads.tr.seismic.systemTitle": "Tragsystem und Verfahren (TBDY 4.3 und 4.7)",
   "loads.tr.seismic.systemY": "System in Y, falls abweichend (4.3.4.2)",
   "loads.tr.seismic.tdthHint": "SS und S1 sind die Werte des Standorts für die Stufe DD-2 aus der AFAD-Karte (TDTH).",
