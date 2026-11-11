@@ -76,3 +76,29 @@ inclined supports in supported solvers, both sparse/dense path-following paths,
 nonlinear constraint forces, unavailable quantities, and correct control inputs.
 The handoff records parent failures, final results and the origin/main evidence
 for the coordinator's advisory decision. No advisory is assigned here.
+
+
+## Saved-project applicability and quantity declarations
+
+The notice requires members, shells, springs or constraints, plus an affected
+analysis context: P-Delta, a configured time history, or constraints with a
+nonlinear or time-history context. A current stamp recording only linear
+analysis does not receive the notice for an ordinary frame or shell. An empty
+model does not qualify solely because its unknown history includes time history.
+Legacy stamps retain the existing conservative treatment of unrecorded analyses.
+
+The linear and SSI paths already transferred restrained-master forces; factoring
+that transfer into a shared helper does not change their answers. Unconstrained
+corotational results use the same internal residual as before. Neither is a
+reason to mark every saved member or shell model as affected. Planar arc-length
+and displacement-control research/API results are not saved-project analysis
+kinds; their direct numerical regressions remain covered by the native and WASM
+reproducers rather than a blanket declaration over saved linear results.
+
+The only result fields this entry declares to the snapshot and legacy gates are
+`equilibrium`. The changed committed PRO snapshots add P-Delta equilibrium fields;
+their existing reactions, displacements and member forces remain unchanged.
+Advanced stage refusals are not ordinary linear solve refusals, and corrected
+advanced forces are not arbitrary changes in saved linear forces. Consequently
+the entry declares neither `*` nor `solve.ok`. Historical truss force errors and
+fabricated bridge forces, displacements or reactions must remain unexplained.

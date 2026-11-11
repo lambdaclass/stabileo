@@ -59,7 +59,7 @@ describe('which values a registered change declares it moves', () => {
 });
 
 describe('judge', () => {
-  it.skip('known wrong result: #1949: reaction recovery does not explain fabricated static values or linear refusals (#1949)', () => {
+  it('reaction recovery does not explain fabricated static values or linear refusals (#1949)', () => {
     const metadata = RESULT_CHANGES.changes.find((c) => c.id === 'arc-length-reactions')!;
     const entry = { ...metadata, quantities: declaredQuantities[metadata.id] };
     for (const path of ['base.reactions[n1].rz', 'base.elementForces[e1].mStart', 'base.displacements[n1].uz']) {

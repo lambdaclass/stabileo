@@ -547,7 +547,7 @@ describe('reaction recovery saved-model scope (#1949)', () => {
     ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1,
   });
 
-  it.skip('known wrong result: #1949: excludes unchanged linear and unconstrained nonlinear results in every workspace', () => {
+  it('excludes unchanged linear and unconstrained nonlinear results in every workspace', () => {
     for (const analysisMode of ['2d', '3d', 'pro']) {
       for (const structure of [
         { elements: [member(1, 1, 'frame')] },
@@ -561,10 +561,12 @@ describe('reaction recovery saved-model scope (#1949)', () => {
           expect(ids(snapshot, before(analysis)), `${analysisMode} ${analysis} ${JSON.stringify(structure)}`).not.toContain(change);
         }
       }
+      const constrained = model({ analysisMode, constraints: [{ type: 'equalDof', masterNode: 1, slaveNode: 2 }] });
+      expect(ids(constrained, before('linear'))).not.toContain(change);
     }
   });
 
-  it.skip('known wrong result: #1949: requires recoverable structure even when analyses are unknown or a time history is configured', () => {
+  it('requires recoverable structure even when analyses are unknown or a time history is configured', () => {
     for (const analysisMode of ['2d', '3d', 'pro']) {
       for (const dynamics of [undefined, { timeHistory: { forces: [] } }]) {
         const snapshot = model({ analysisMode, dynamics, supports: [], loadCases: [] });
@@ -575,7 +577,7 @@ describe('reaction recovery saved-model scope (#1949)', () => {
     }
   });
 
-  it.skip('known wrong result: #1949: covers P-Delta equilibrium fields without covering unrelated static output', () => {
+  it('covers P-Delta equilibrium fields without covering unrelated static output', () => {
     const features = ['members', 'analysis:linear', 'analysis:pdelta'];
     expect(fieldCovered(reactionRecoveryChange, 'pdelta.results.equilibrium.equilibriumOk', features)).toBe(true);
     for (const path of ['base.reactions[n1].rz', 'base.elementForces[e1].mStart', 'base.displacements[n1].uz', 'solve.ok', 'pdelta.results.displacements[n1].uz']) {

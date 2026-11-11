@@ -4,17 +4,27 @@
   "prs": [],
   "area": "analysis",
   "when": {
-    "any": [
-      "constraints",
-      "members",
-      "shells",
-      "springs",
-      "analysis:timeHistory"
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "springs",
+        "constraints"
+      ],
+      [
+        "constraints",
+        "analysis:pdelta",
+        "timeHistorySpec"
+      ],
+      [
+        "analysis:pdelta",
+        "analysis:nonlinear",
+        "analysis:timeHistory"
+      ]
     ]
   },
   "quantities": [
-    "*",
-    "solve.ok"
+    "equilibrium"
   ],
   "title": {
     "en": "Support reactions follow the reported equilibrium state",
