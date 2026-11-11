@@ -558,3 +558,18 @@ it('scopes frozen member validation to one-way behaviour even without gaps (#192
     expect(ids(model({ analysisMode, elements: [member(1, 1, 'frame')] }))).not.toContain(id);
   }
 });
+
+it('rechecks kinematic motion and dormant stiffness changes in both dimensions', () => {
+  const id = 'kinematic-translation-motion';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const snapshot of [
+      model({ analysisMode, elements: [member(1, 1, 'frame')] }),
+      model({ analysisMode, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: [] }] }),
+      model({ analysisMode, supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never }),
+    ]) {
+      expect(ids(snapshot)).toContain(id);
+      expect(ids(snapshot, stampSolve('linear', null))).not.toContain(id);
+    }
+    expect(ids(model({ analysisMode }))).not.toContain(id);
+  }
+});

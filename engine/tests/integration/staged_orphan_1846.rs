@@ -1517,3 +1517,73 @@ fn issue_1846_round3_plastic_2d_retains_existing_refusal() {
             .any(|d| d["phase"] == "PL-2D-INVARIANCE" && d["severity"] == "error"));
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round3_zero_arm_is_a_harmless_free_rotation() {
+    use dedaliano_engine::solver::kinematic::*;
+    for dim in [2, 3] {
+        for arm in [0.0, 1e-6] {
+            let mut v = round3_model(&format!("swing{dim}"), 0);
+            v["nodes"]["2"]["x"] = (2.0 * arm).into();
+            v["nodes"]["2"]["z"] = arm.into();
+            let k = if dim == 2 {
+                analyze_kinematics_2d(&serde_json::from_value(v.clone()).unwrap())
+            } else {
+                analyze_kinematics_3d(&serde_json::from_value(v.clone()).unwrap())
+            };
+            assert_eq!(k.is_solvable, arm == 0.0, "{dim}D {arm}: {k:?}");
+            assert_eq!(k.mechanism_modes == 0, arm == 0.0, "{k:?}");
+            let r = if dim == 2 {
+                solve_2d(&serde_json::from_value(v).unwrap()).map(|_| ())
+            } else {
+                solve_3d(&serde_json::from_value(v).unwrap()).map(|_| ())
+            };
+            assert_eq!(r.is_ok(), arm == 0.0, "{r:?}");
+        }
+    }
+}
+
+#[test]
+fn issue_1846_round3_empty_stage_has_no_artificial_conditioning_warning() {
+    for dim in [2, 3] {
+        for pads in [0, 22] {
+            for scale in [1e-12, 1.0, 1e12] {
+                let mut v = review_model(dim, pads);
+                v["materials"]["1"]["e"] = (10000.0 * scale).into();
+                v["loads"][0]["data"]["fx"] = (1000.0 * scale).into();
+                review_stages(&mut v, false);
+                let all = v["elements"]
+                    .as_object()
+                    .unwrap()
+                    .values()
+                    .map(|e| e["id"].clone())
+                    .collect::<Vec<_>>();
+                v["stages"][0]["elementsAdded"] = serde_json::json!([]);
+                v["stages"][1]["elementsAdded"] = serde_json::json!(all);
+                let r = review_solve(dim, v).unwrap();
+                for (i, stage) in r["stages"].as_array().unwrap().iter().enumerate() {
+                    let result = &stage["results"];
+                    let d = result["displacements"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|d| d["nodeId"] == 2)
+                        .unwrap();
+                    assert!(
+                        (d["ux"].as_f64().unwrap() - if i == 0 { 0.0 } else { 0.04 }).abs()
+                            <= 1e-12
+                    );
+                    assert!(
+                        !result["structuredDiagnostics"]
+                            .as_array()
+                            .unwrap_or(&vec![])
+                            .iter()
+                            .any(|d| d["phase"] == "NUM-INVARIANCE"),
+                        "{result}"
+                    );
+                }
+            }
+        }
+    }
+}

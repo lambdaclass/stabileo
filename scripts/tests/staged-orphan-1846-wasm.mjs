@@ -289,7 +289,10 @@ function round3Model(name, pads) {
   const padding = cases.find(([label]) => label === (dimension === 2 ? '2d:1:0:false:0:21' : '3d:1:0:0:11'))[1];
   for (const field of ['nodes', 'elements', 'supports']) {
     for (const [key, value] of Object.entries(padding[field])) {
-      if (Number(key) >= 100 && Number(key) < 100 + pads * 2) input[field][key] = structuredClone(value);
+      if (Number(key) >= 100 && Number(key) < 100 + pads * 2) {
+        input[field][key] = structuredClone(value);
+        if (field === 'elements') input[field][key].sectionId = 1;
+      }
     }
   }
   return input;
@@ -386,3 +389,34 @@ for (const soft of [false, true]) {
   assert.throws(() => solve_plastic_2d(JSON.stringify(plastic)), /PL-2D-INVARIANCE/);
 }
 console.log('round 3 plastic 2D WASM retains its existing refusal');
+
+for (const dimension of [2, 3]) {
+  for (const arm of [0, 1e-6]) {
+    const input = round3Model(`swing${dimension}`, 0);
+    input.nodes[2].x = 2 * arm;
+    input.nodes[2].z = arm;
+    const result = JSON.parse((dimension === 2 ? analyze_kinematics_2d : analyze_kinematics_3d)(JSON.stringify(input)));
+    assert.equal(result.isSolvable, arm === 0);
+    assert.equal(result.mechanismModes === 0, arm === 0);
+    const solve = dimension === 2 ? solve_2d : solve_3d;
+    if (arm === 0) solve(input);
+    else assert.throws(() => solve(input), /mechanism/);
+  }
+  const input = round3Model(`soft${dimension}`, 0);
+  delete input.constraints;
+  delete input.elements[2];
+  delete input.nodes[3];
+  input.sections[1].iy = 0.001;
+  input.sections[1].iz = 0.002;
+  input.loads = [];
+  const stages = [
+    { name: 'empty', elementsAdded: [], supportsAdded: [1], loadIndices: [] },
+    { name: 'erect', elementsAdded: [1], loadIndices: [] },
+  ];
+  const result = JSON.parse((dimension === 2 ? solve_staged_2d : solve_staged_3d)(JSON.stringify({ ...input, stages })));
+  for (const stage of result.stages) {
+    assert.ok(!(stage.results.structuredDiagnostics ?? []).some(d => d.phase === 'NUM-INVARIANCE'));
+    assert.ok(stage.results.displacements.every(d => d.ux === 0));
+  }
+}
+console.log('zero-arm and entirely inactive-stage WASM boundaries pass');
