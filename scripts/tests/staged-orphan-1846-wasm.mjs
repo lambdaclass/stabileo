@@ -1,0 +1,135 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { initSync, solve_staged_2d, solve_staged_3d, solve_2d, solve_3d, solve_corotational_2d, solve_nonlinear_material_3d } from '../../web/src/lib/wasm/dedaliano_engine.js';
+
+initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
+const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/staged-orphan-1846.json', import.meta.url)));
+const cases = [];
+for (const [key, source] of Object.entries(fixtures)) {
+  for (const pads of [0, 11]) {
+    const input = structuredClone(source);
+    for (let i = 0; i < pads; i++) {
+      const a = 100 + 2 * i;
+      const b = a + 1;
+      input.nodes[a] = { ...input.nodes[1], id: a };
+      input.nodes[b] = { ...input.nodes[1], id: b, x: input.nodes[1].x + 1 };
+      input.elements[a] = { ...input.elements[1], id: a, nodeI: a, nodeJ: b, releaseMyEnd: false };
+      input.supports[a] = { ...input.supports[1], nodeId: a };
+    }
+    cases.push([`${key}:${pads}`, input, solve_3d, solve_staged_3d]);
+  }
+}
+for (const scale of [1, 1e-3, 1e3]) {
+  for (let axis = 0; axis < 4; axis++) {
+    for (let release = 0; release < 5; release++) {
+      for (const pads of [0, 10, 11]) {
+        const input = structuredClone(fixtures['staged:1846:original']);
+        const end = axis === 3 ? [scale, 2 * scale, 3 * scale] : [0, 0, 0];
+        if (axis < 3) end[axis] = 4 * scale;
+        input.nodes = { 1: { id: 1, x: 0, y: 0, z: 0 }, 2: { id: 2, x: end[0], y: end[1], z: end[2] } };
+        input.materials = { 1: { id: 1, e: 10000 / scale ** 2, nu: 0.3 } };
+        input.sections = { 2: { id: 2, a: 0.01 * scale ** 2, iy: 1e-9 * scale ** 4, iz: 2e-9 * scale ** 4, j: 3e-9 * scale ** 4 } };
+        Object.assign(input.elements[1], { releaseMyEnd: release === 1 || release >= 3, releaseMzEnd: release === 2 || release >= 3, releaseTEnd: release === 4 });
+        Object.assign(input.supports[2], { rrx: false, rry: false, rrz: false });
+        input.loads = [{ type: 'pointOnElement', data: { elementId: 1, a: scale, px: 0, py: 1e-3, pz: 2e-3 } }];
+        for (let i = 0; i < pads; i++) {
+          const a = 100 + 2 * i;
+          const b = a + 1;
+          input.nodes[a] = { id: a, x: 0, y: 0, z: 0 };
+          input.nodes[b] = { id: b, x: 1, y: 0, z: 0 };
+          input.elements[a] = { ...input.elements[1], id: a, nodeI: a, nodeJ: b, releaseMyEnd: false, releaseMzEnd: false, releaseTEnd: false };
+          input.supports[a] = { ...input.supports[1], nodeId: a };
+        }
+        cases.push([`3d:${scale}:${axis}:${release}:${pads}`, input, solve_3d, solve_staged_3d]);
+      }
+    }
+  }
+}
+for (const scale of [1, 1e-3, 1e3]) {
+  for (const angle of [0, 0.7]) {
+    for (const hingeEnd of [false, true]) {
+      for (const spring of [0, 1e-8, 1]) {
+        for (const pads of [0, 20, 21]) {
+          const input = {
+            nodes: { 1: { id: 1, x: 0, z: 0 }, 2: { id: 2, x: 4 * scale * Math.cos(angle), z: 4 * scale * Math.sin(angle) } },
+            materials: { 1: { id: 1, e: 10000 / scale ** 2, nu: 0.3 } },
+            sections: { 1: { id: 1, a: 0.01 * scale ** 2, iz: 1e-9 * scale ** 4 } },
+            elements: { 1: { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd } },
+            supports: { 1: { id: 1, nodeId: 1, type: 'fixed' }, 2: { id: 2, nodeId: 2, type: 'spring', kz: spring * scale } },
+            loads: [{ type: 'pointOnElement', data: { elementId: 1, a: scale, p: 1e-3 } }],
+          };
+          if (spring > 0) input.loads.push({ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 1e-10 * scale } });
+          for (let i = 0; i < pads; i++) {
+            const a = 100 + 2 * i;
+            const b = a + 1;
+            input.nodes[a] = { id: a, x: 0, z: 0 };
+            input.nodes[b] = { id: b, x: scale, z: 0 };
+            input.elements[a] = { ...input.elements[1], id: a, nodeI: a, nodeJ: b, hingeEnd: false };
+            input.supports[a] = { id: a, nodeId: a, type: 'fixed' };
+          }
+          cases.push([`2d:${scale}:${angle}:${hingeEnd}:${spring}:${pads}`, input, solve_2d, solve_staged_2d]);
+        }
+      }
+    }
+  }
+}
+for (const dimension of [2, 3]) {
+  for (const constrained of [false, true]) {
+    for (const pads of [0, dimension === 2 ? 21 : 11]) {
+      const label = dimension === 2 ? `2d:1:0:false:0:${pads}` : `3d:1:0:0:${pads}`;
+      const input = structuredClone(cases.find(([name]) => name === label)[1]);
+      input.nodes[3] = { ...input.nodes[2], id: 3 };
+      if (constrained) {
+        input.constraints = [{ type: 'equalDOF', masterNode: 2, slaveNode: 3, dofs: dimension === 2 ? [0, 1, 2] : [0, 1, 2, 3, 4, 5] }];
+      } else if (dimension === 2) {
+        input.supports[3] = { id: 3, nodeId: 3, type: 'spring', kx: 1e-8, ky: 1e-8, kz: 1e-8 };
+        input.loads = [{ type: 'nodal', data: { nodeId: 3, fx: 1e-8, fz: 0, my: 1e-8 } }];
+      } else {
+        input.supports[3] = { nodeId: 3, rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false, kx: 1e-8, ky: 1e-8, kz: 1e-8, krx: 1e-8, kry: 1e-8, krz: 1e-8 };
+        input.loads = [{ type: 'nodal', data: { nodeId: 3, fx: 1e-8, fy: 0, fz: 0, mx: 1e-8, my: 0, mz: 0 } }];
+      }
+      cases.push([`inactive:${dimension}:${constrained}:${pads}`, input, dimension === 2 ? solve_2d : solve_3d, dimension === 2 ? solve_staged_2d : solve_staged_3d]);
+    }
+  }
+}
+let failures = 0;
+for (const [label, input, linearSolve, stagedSolve] of cases) {
+  const stages = [{ name: 'all', elementsAdded: Object.values(input.elements).map(e => e.id), supportsAdded: Object.values(input.supports).map(s => s.nodeId), loadIndices: input.loads.map((_, i) => i) }];
+  const linear = linearSolve(input);
+  const staged = JSON.parse(stagedSolve(JSON.stringify({ ...input, stages }))).finalResults;
+  for (const a of linear.displacements) {
+    const b = staged.displacements.find(b => b.nodeId === a.nodeId);
+    for (const field of ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']) {
+      if (!(field in a)) continue;
+      if (Math.abs(a[field] - b[field]) > 1e-9 * Math.max(Math.abs(a[field]), 1e-10)) {
+        failures++;
+        console.error(`${label}, node ${a.nodeId}, ${field}: linear=${a[field]}, staged=${b[field]}`);
+      }
+    }
+  }
+}
+assert.equal(failures, 0);
+console.log(`${cases.length} staged WASM cases agree with regular linear`);
+
+for (const scale of [1, 1e-3, 1e3]) {
+  for (const spring of [0, 1e-8, 1]) {
+    const source = cases.find(([label]) => label === `2d:${scale}:0:true:${spring}:0`)[1];
+    const input = structuredClone(source);
+    input.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: spring === 0 ? 0 : 1e-6 * scale } }];
+    const linear = solve_2d(input).displacements.find(d => d.nodeId === 2).ry;
+    const nonlinear = JSON.parse(solve_corotational_2d(JSON.stringify(input), 20, 1e-12, 1));
+    assert.equal(nonlinear.converged, true);
+    const actual = nonlinear.results.displacements.find(d => d.nodeId === 2).ry;
+    assert.ok(Math.abs(linear - actual) <= 1e-9 * Math.max(Math.abs(linear), 1e-10));
+  }
+  for (let release = 0; release < 5; release++) {
+    const input = structuredClone(cases.find(([label]) => label === `3d:${scale}:0:${release}:0`)[1]);
+    input.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: release === 4 ? 0 : 1e-6 * scale, my: 0, mz: 0 } }];
+    const linear = solve_3d(input).displacements.find(d => d.nodeId === 2).rx;
+    const nonlinear = JSON.parse(solve_nonlinear_material_3d(JSON.stringify({ solver: input, materialModels: {}, sectionCapacities: {}, maxIter: 20, tolerance: 1e-12, nIncrements: 1 })));
+    assert.equal(nonlinear.converged, true);
+    const actual = nonlinear.results.displacements.find(d => d.nodeId === 2).rx;
+    assert.ok(Math.abs(linear - actual) <= 1e-9 * Math.max(Math.abs(linear), 1e-10));
+  }
+}
+console.log('24 nonlinear WASM controls agree with regular linear');
