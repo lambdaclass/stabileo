@@ -71,7 +71,7 @@ for (const { dimension, input } of fixture('buckling-818-constrained-sparse.json
 }
 
 for (const { dimension, sparse, input } of fixture('buckling-818-coupled.json')) {
-  test.skip(`known wrong result: #818: ${dimension}D coupled constrained sparse=${sparse}`, () => {
+  test(`known wrong result: #818: ${dimension}D coupled constrained sparse=${sparse}`, () => {
     const json = JSON.stringify(input);
     for (const count of [1, 2]) {
       const raw = JSON.parse(engine[`solve_buckling_${dimension}d`](json, count));
@@ -85,7 +85,7 @@ for (const { dimension, sparse, input } of fixture('buckling-818-coupled.json'))
   });
 }
 
-test.skip('known wrong result: #818: curved-beam certification uses expanded constraint coordinates', () => {
+test('known wrong result: #818: curved-beam certification uses expanded constraint coordinates', () => {
   const input = fixture('buckling-818-curved.json');
   const json = JSON.stringify(input);
   const raw = engine.solve_buckling_3d(json, 1);

@@ -2779,7 +2779,6 @@ impl FreeConstraintSystem {
 mod tests {
 
     #[test]
-    #[ignore = "known wrong result: #818"]
     fn buckling_818_coupled_constraints_preserve_eigenvectors() {
         use crate::linalg::sparse::CscMatrix;
         use num_rational::BigRational;
@@ -2821,7 +2820,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #818"]
     fn buckling_818_constraint_rounding_cannot_erase_positive_stiffness() {
         use crate::linalg::sparse::CscMatrix;
         for n in [1,200,201] {

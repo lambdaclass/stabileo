@@ -10,16 +10,9 @@
       ],
       [
         "analysis:buckling"
-      ],
-      [
-        "ranBuckling"
       ]
     ]
   },
-  "quantities": [
-    "*",
-    "solve.ok"
-  ],
   "title": {
     "en": "Buckling factors use the original stiffness pencil",
     "es": "Los factores de pandeo usan las matrices de rigidez originales",

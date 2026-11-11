@@ -13,7 +13,7 @@ it('known wrong result: #818: teaching eigenvalues use original work', () => {
   expect(generalizedEigen([[1]], [[-1]])).toEqual([]);
 });
 
-it.skip('known wrong result: #818: non-buckling Ritz vectors do not discard compressed modes', () => {
+it('known wrong result: #818: non-buckling Ritz vectors do not discard compressed modes', () => {
   const R = [[5,9,-1],[-1,-4,-2],[9,4,9],[-5,1,-9],[7,1,2],[2,-2,-9],[3,-4,-6],[-5,-7,-8]];
   for (const s of [1e7,1e10]) for (const work of [0,-1]) {
     const K = zeros(10,10), G = zeros(10,10);
@@ -27,7 +27,7 @@ it.skip('known wrong result: #818: non-buckling Ritz vectors do not discard comp
   }
 });
 
-it.skip('known wrong result: #818: rigid axial projection retains original matrix work', () => {
+it('known wrong result: #818: rigid axial projection retains original matrix work', () => {
   for (const delta of [-(2**-27),2**-27]) {
     const s = 1e13;
     const K = [[s+0.002,-s,-0.001],[-s,s+0.001,0],[-0.001,0,0.003]];
@@ -39,6 +39,7 @@ it.skip('known wrong result: #818: rigid axial projection retains original matri
     const modes = Reflect.apply(generalizedEigen,null,[K,G,T]);
     expect(modes).not.toBeNull();
     expect(modes).toHaveLength(2);
+    if (!modes) throw new Error("missing rigid modes");
     for (let i=0; i<2; i++) expect(Math.abs(modes[i].lambda/expected[i]-1)).toBeLessThan(1e-12);
   }
 });

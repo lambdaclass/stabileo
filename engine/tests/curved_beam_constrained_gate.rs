@@ -72,7 +72,6 @@ fn constrained_solve_expands_curved_beams() {
 }
 
 #[test]
-#[ignore = "known wrong result: #818"]
 fn buckling_818_curved_constraint_certificates_expand_the_same_model() {
     use dedaliano_engine::certify::buckling::*;
     use dedaliano_engine::solver::buckling::solve_buckling_3d;

@@ -196,6 +196,8 @@ pub fn certify_buckling_result_3d(input: &SolverInput3D, results: BucklingResult
 
 fn certificate_for_result_3d(input: &SolverInput3D, results: BucklingResult3D) -> Result<CertifiedBuckling3D, String> {
     super::finite::check_input(input)?;
+    let expanded = (!input.curved_beams.is_empty()).then(|| crate::solver::linear::expand_curved_beams_3d(input));
+    let input = expanded.as_ref().unwrap_or(input);
     super::finite::check_results(&results)?;
     if results.modes.is_empty() { return Err("no buckling modes returned".into()); }
     let sys = buckling_system_3d(input)?;

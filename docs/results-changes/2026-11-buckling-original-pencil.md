@@ -73,14 +73,15 @@ the review has this independent limitation even at the exact boundary.
 The 2D solve, 3D solve and roundoff bounding solve share buckling_eigen. It carries
 the original matrices and optional constraint transform into BucklingPencil.
 Constraint expansion keeps both the leading sum and its product/summation
-remainders, and quadratic work includes their cross terms. Rounded reduced
-matrices are used to find modes, never as the reported quotient's work matrices.
+remainders, and quadratic work includes their cross terms. Compensated reduced
+matrices find the modes; the reported quotient retains original-matrix work.
 The constrained stiff-tie fixtures are checked against exact-rational work on
 the original assembled pencil in both dimensions.
 
 Teaching and step-document generalizedEigen also recomputes original-matrix work
 with compensated sums and Dekker product remainders, then reorders the modes.
-Invalid retained work refuses the entire teaching solve. The provenance predicate
+Non-finite work or non-positive stiffness refuses the teaching solve;
+non-positive or unresolved geometric work excludes only that non-buckling candidate. The provenance predicate
 covers members, shells, curved shells and connectors after buckling. The native
 and WASM supplied-result certification APIs share the production containment path;
 perturbing a factor still produces BU-BOUND and the web refuses to fall back.
@@ -131,9 +132,62 @@ certified, certificate-only and supplied-result APIs, JSON wrappers and actual
 WASM exports. Shift tests compare the congruence with exact-rational arithmetic,
 check inertia on both sides of the critical factor, and retain singular refusal.
 The unmodified legacy-project judge must still reject a wrong linear truss member
-force. The registry now requires `ranBuckling`, a feature emitted only when the solve
-stamp records a buckling run, as well as structural elements and buckling analysis.
-A legacy linear truss with unknown history is not excused by this change. An
-explicit buckling run on a truss still receives the notice. Unknown or unrecorded
-analysis history alone does not satisfy this entry; other notices and advisories
-retain their existing conservative history rules.
+force. Unknown and partially recorded analysis histories remain eligible through the shared
+`analysis:buckling` fallback. A stamp that explicitly records a linear-only or
+modal-only history is excluded. The registry declares no linear-static quantity
+changes, so its notice cannot explain a changed member force, reaction,
+displacement or solve status in the legacy-project judge.
+
+PR #1939 fourth review: corrected Rayleigh work alone cannot repair a mode rotated
+by cancellation in an uncompensated constraint reduction. The solver now has one
+`BucklingSolve` constructor, owned by `BucklingPencil`. It derives both reduced
+matrices with compensated original congruence. Its private reduced matrices feed
+Cholesky, Jacobi, Lanczos and residual checks; factor refinement and shifted
+inertia use the same original pencil. Callers cannot pair a pencil with arbitrary
+reduced eigensolver matrices. The shared path also handles roundoff bounding solves.
+
+The coupled constrained structural fixtures have two transverse directions.
+Their first two factors, independently calculated from exact-rational bilinear
+work on the assembled matrices and an analytic two-by-two eigenproblem, are
+21.52873226079837 and 41.80506272171481. The previous branch returns
+21.528732261250827 for the first factor in the dense 2D case, an overestimate that
+still receives a Certified status. Dense and padded sparse 2D and 3D cases now
+agree with both reference factors to the unchanged relative 1e-12 assertion.
+Minimal matrix tests cover one, two, 200, 201 and 202 independent coordinates,
+both signs of the constraint perturbation, and positive stiffness erased by the
+old reduction. Native and actual WASM raw, certified and supplied-result paths
+exercise the structural cases.
+
+Sparse candidate locking distinguishes non-buckling directions from invalid
+work. A zero/tension candidate is deflated without discarding compressed modes;
+accepted factors keep an explicit index into the locked vectors. Only finite positive original work enters the returned buckling spectrum.
+The native positive-mode resolution, inertia shifts, residual thresholds and
+certificate tolerances are unchanged.
+
+The teaching generalized eigenproblem accepts the original free-DOF matrices
+and optional axial-rigidity transform together. It performs compensated
+congruence internally and retains both expansion terms when evaluating original
+work. Linear buckling and step derivations use this same path. A spurious
+positive Ritz value from a zero/tension direction no longer discards all valid
+compressed modes. Non-finite work and non-positive stiffness still refuse.
+
+3D result certification expands curved beams before constructing the system,
+constraint map and inclined DOFs. A rigid link to an interior arc node with a
+spring at its slave previously produced a false BU-BOUND refusal against a
+system that certifies when explicitly expanded. Solver-driven, certificate-only,
+supplied-result, JSON and WASM paths now use identical coordinates and certify.
+
+The structural native and WASM checks now require Certified status, including
+the constrained sparse cases. The shell reference is 0.27449776038400286 from
+exact-rational original work; the WASM test asserts it instead of skipping the
+factor. Two-mode sparse requests check the second factor against an isolated
+column as well as checking the first one.
+
+The branch also changes previously recorded unconstrained buckling factors.
+The 3D sparse-mass parity golden represented the old reciprocal eigenvalue;
+its replacement is independently checked by exact-rational original work on each
+returned mode, retaining the 1e-10 golden assertion and adding a 1e-12 work check.
+The curvature-patterned-arch evidence is regenerated for the corrected engine
+factors, with every reference, validation tolerance and passed assertion retained.
+No advisory is added or numbered. The previously recorded silent origin/main
+2D error remains for the coordinator's advisory decision.

@@ -539,7 +539,7 @@ it('scopes frozen member validation to one-way behaviour even without gaps (#192
   }
 });
 
-it.skip('known wrong result: #818: original-pencil notice covers unknown and partial histories', () => {
+it('known wrong result: #818: original-pencil notice covers unknown and partial histories', () => {
   const entry = RESULT_CHANGES.changes.find(c => c.id === 'buckling-original-pencil')!;
   for (const structure of ['members', 'shells', 'curvedShells', 'connectors']) {
     expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:buckling']))).toBe(true);
@@ -562,8 +562,8 @@ it.skip('known wrong result: #818: original-pencil notice covers unknown and par
   }
 });
 
-it.skip('known wrong result: #818: a buckling notice cannot excuse linear result changes', () => {
+it('known wrong result: #818: a buckling notice cannot excuse linear result changes', () => {
   for (const path of ['solve.ok', 'base.elementForces[e1].nStart', 'base.displacements[n1].ux', 'base.reactions[n1].rz']) {
-    expect(declaresMove(bucklingChange, path), path).toBe(false);
+    expect(declaresMove({ quantities: undefined, ...bucklingChange }, path), path).toBe(false);
   }
 });

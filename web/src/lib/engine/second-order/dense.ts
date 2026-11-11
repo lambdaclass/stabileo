@@ -213,29 +213,56 @@ export function eigenErrorBound(C: Mat, mu: number, v: number[]): number {
   return (Math.sqrt(r2) + 2 * (n + 1) * Number.EPSILON * Math.sqrt(a2)) / nv;
 }
 
-function compensatedWork(matrix: Mat, vector: number[]): number {
-  let sum = 0, low = 0;
-  const add = (value: number) => {
-    const next = sum + value;
-    low += Math.abs(sum) >= Math.abs(value) ? (sum-next)+value : (value-next)+sum;
-    sum = next;
-  };
-  const product = (a: number, b: number): [number, number] => {
-    const value = a*b;
-    const sa = 134217729*a, sb = 134217729*b;
-    const ah = sa-(sa-a), bh = sb-(sb-b);
-    const al = a-ah, bl = b-bh;
-    return [value, ((ah*bh-value)+ah*bl+al*bh)+al*bl];
-  };
-  for (let i = 0; i < vector.length; i++) for (let j = 0; j < vector.length; j++) {
-    const [ab, remainder] = product(vector[i], matrix[i][j]);
-    const [abc, tail] = product(ab, vector[j]);
-    add(abc); add(tail); add(remainder*vector[j]);
+class BucklingWork {
+  sum = 0;
+  low = 0;
+
+  add(value: number): void {
+    const next = this.sum + value;
+    this.low += Math.abs(this.sum) >= Math.abs(value) ? (this.sum-next)+value : (value-next)+this.sum;
+    this.sum = next;
   }
-  return sum+low;
+
+  triple(a: number, b: number, c: number): void {
+    const product = (x: number, y: number): [number, number] => {
+      const value = x*y;
+      const sx = 134217729*x, sy = 134217729*y;
+      const xh = sx-(sx-x), yh = sy-(sy-y);
+      const xl = x-xh, yl = y-yh;
+      return [value, ((xh*yh-value)+xh*yl+xl*yh)+xl*yl];
+    };
+    const [ab, remainder] = product(a,b);
+    const [abc, tail] = product(ab,c);
+    this.add(abc); this.add(tail); this.add(remainder*c);
+  }
+
+  value(): number { return this.sum+this.low; }
 }
 
-export function generalizedEigen(K: Mat, G: Mat): Array<{ lambda: number; vector: number[] }> | null {
+function bucklingProjection(matrix: Mat, transform: Mat): Mat {
+  const n = transform[0]?.length ?? 0;
+  const rows = transform.map(row => row.flatMap((value,i) => value===0 ? [] : [[i,value]]));
+  const sums = Array.from({length:n}, () => Array.from({length:n}, () => new BucklingWork()));
+  for (let i=0; i<matrix.length; i++) for (let j=0; j<matrix.length; j++) {
+    if (matrix[i][j]===0) continue;
+    for (const [a,x] of rows[i]) for (const [b,y] of rows[j]) {
+      if (a>=b) sums[a][b].triple(x,matrix[i][j],y);
+    }
+  }
+  return sums.map((row,i) => row.map((work,j) => j<=i ? work.value() : sums[j][i].value()));
+}
+
+function compensatedWork(matrix: Mat, vector: Array<[number,number]>): number {
+  const work = new BucklingWork();
+  for (let i=0; i<vector.length; i++) for (let j=0; j<vector.length; j++) {
+    for (const x of vector[i]) for (const y of vector[j]) work.triple(x,matrix[i][j],y);
+  }
+  return work.value();
+}
+
+export function generalizedEigen(originalK: Mat, originalG: Mat, transform?: Mat): Array<{ lambda: number; vector: number[] }> | null {
+  const K = transform ? bucklingProjection(originalK,transform) : originalK;
+  const G = transform ? bucklingProjection(originalG,transform) : originalG;
   const L = cholesky(K);
   if (!L) return null;
   const n = K.length;
@@ -253,13 +280,21 @@ export function generalizedEigen(K: Mat, G: Mat): Array<{ lambda: number; vector
   const { values, vectors } = symmetricEigen(C);
   const out: Array<{ lambda: number; vector: number[] }> = [];
   let invalid = false;
+  const maxMu = Math.max(0,...values);
   values.forEach((mu, k) => {
     if (!(mu > eigenErrorBound(C, mu, vectors.map((r) => r[k])))) return;
     const vector = triSolve(L, vectors.map((r) => r[k]), true);
     const scale = Math.max(...vector.map(Math.abs));
-    const phi = vector.map(v => v/scale);
-    const stiffness = compensatedWork(K, phi), geometric = compensatedWork(G, phi);
-    if (!(stiffness > 0 && Number.isFinite(stiffness) && geometric > 0 && Number.isFinite(geometric))) { invalid = true; return; }
+    if (!(scale > 0 && Number.isFinite(scale))) { invalid = true; return; }
+    const q = vector.map(v => v/scale);
+    const phi: Array<[number,number]> = transform ? transform.map(row => {
+      const sum = new BucklingWork();
+      for (let j=0; j<q.length; j++) sum.triple(row[j],q[j],1);
+      return [sum.sum,sum.low];
+    }) : q.map(v => [v,0]);
+    const stiffness = compensatedWork(originalK, phi), geometric = compensatedWork(originalG, phi);
+    if (!(stiffness > 0 && Number.isFinite(stiffness) && Number.isFinite(geometric))) { invalid = true; return; }
+    if (geometric <= 100*Number.EPSILON*maxMu*stiffness) return;
     const lambda = stiffness/geometric;
     if (!Number.isFinite(lambda)) { invalid = true; return; }
     out.push({ lambda, vector });

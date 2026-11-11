@@ -890,7 +890,8 @@ fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usi
     let a_norm = matrix_norm(a);
     let b_norm = matrix_norm(b);
     let positive_bound = match pencil {
-        Some(pencil) => positive_spectrum_upper_bound(&pencil.projected(&[(pencil.b,1.0)])?),
+        Some(pencil) if pencil.transform.is_some() => positive_spectrum_upper_bound(&pencil.projected(&[(pencil.b,1.0)])?),
+        Some(pencil) => positive_spectrum_upper_bound(pencil.b),
         None => positive_spectrum_upper_bound(b),
     };
     let k = k.min(positive_bound);
@@ -898,6 +899,7 @@ fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usi
     let mut locked = Vec::new();
     let mut locked_mu = Vec::new();
     let mut values = Vec::new();
+    let mut value_locks = Vec::new();
     let mut seed = 12345u64;
     let mut stalled = 0;
     for _ in 0..params.max_iter {
@@ -933,12 +935,17 @@ fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usi
             if !scale.is_finite() || residual > 1e-10 * scale { continue; }
             let value = match pencil {
                 Some(pencil) => {
-                    let value = 1.0/pencil.mu(&v)?;
-                    if !(value > 0.0 && value.is_finite()) { return None; }
+                    let original_mu = pencil.mu(&v)?;
+                    let value = 1.0/original_mu;
+                    if !(original_mu > 0.0 && value.is_finite()) {
+                        locked.push((v,bv)); locked_mu.push(mu);
+                        continue;
+                    }
                     value
                 }
                 None => 1.0/mu,
             };
+            value_locks.push(locked.len());
             locked.push((v,bv)); locked_mu.push(mu); values.push(value);
         }
         if locked.len() == locked_before {
@@ -963,7 +970,7 @@ fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usi
         if certified {
             let mut vectors = vec![0.0;n*k];
             for (col,&index) in order[..k].iter().enumerate() {
-                for row in 0..n { vectors[row*k+col] = locked[index].0[row]; }
+                for row in 0..n { vectors[row*k+col] = locked[value_locks[index]].0[row]; }
             }
             return Some(EigenResult { values: order[..k].iter().map(|&i| values[i]).collect(), vectors });
         }
@@ -993,7 +1000,7 @@ pub fn lanczos_buckling_eigen_sparse_observed(
     observe: &mut dyn FnMut(Option<&super::sparse_chol::NumericCholesky>),
 ) -> Option<EigenResult> {
     let pencil = BucklingPencil { k: k_ff, b: neg_kg, transform: None };
-    lanczos_buckling_eigen_sparse_mapped_observed(k_ff, neg_kg, k, &pencil, observe)
+    pencil.solver()?.eigen_observed(k, observe)
 }
 
 pub(crate) struct BucklingPencil<'a> {
@@ -1011,28 +1018,31 @@ pub(crate) struct BucklingTransform<'a> {
     pub vals: &'a [f64],
 }
 
-pub(crate) fn lanczos_buckling_eigen_sparse_mapped_observed(
-    k_ff: &CscMatrix,
-    neg_kg: &CscMatrix,
-    k: usize,
-    pencil: &BucklingPencil<'_>,
-    observe: &mut dyn FnMut(Option<&super::sparse_chol::NumericCholesky>),
-) -> Option<EigenResult> {
-    let n = k_ff.n;
-    assert_eq!(neg_kg.n, n, "K and Kg must have the same dimension");
-    let k = k.min(n);
+pub(crate) struct BucklingSolve<'p, 'a> {
+    pencil: &'p BucklingPencil<'a>,
+    reduced: Option<(CscMatrix,CscMatrix)>,
+}
 
-    let result = if n <= 200 {
-        let k_dense = k_ff.to_dense_symmetric();
-        let neg_kg_dense = neg_kg.to_dense_symmetric();
-        solve_generalized_eigen(&neg_kg_dense, &k_dense, n, 200)?
-    } else {
-        let op = SparseShiftInvertOp::new_k_inner_product(k_ff,neg_kg);
-        observe(op.as_ref().map(|op| &op.factor));
-        let op = op?;
-        sturm_complete_rounds(&op,k_ff,neg_kg,k,&LanczosParams::default(),&mut 0,Some(pencil))?
-    };
-    pencil.refine(result)
+impl BucklingSolve<'_, '_> {
+    pub(crate) fn stiffness(&self) -> &CscMatrix {
+        self.reduced.as_ref().map_or(self.pencil.k, |(k,_)| k)
+    }
+
+    pub(crate) fn eigen_observed(&self, k: usize, observe: &mut dyn FnMut(Option<&super::sparse_chol::NumericCholesky>)) -> Option<EigenResult> {
+        let k_ff = self.stiffness();
+        let neg_kg = self.reduced.as_ref().map_or(self.pencil.b, |(_,b)| b);
+        let n = k_ff.n;
+        assert_eq!(neg_kg.n, n, "K and Kg must have the same dimension");
+        let k = k.min(n);
+        let result = if n <= 200 {
+            solve_generalized_eigen(&neg_kg.to_dense_symmetric(), &k_ff.to_dense_symmetric(), n, 200)?
+        } else {
+            let op = SparseShiftInvertOp::new_k_inner_product(k_ff,neg_kg);
+            observe(op.as_ref().map(|op| &op.factor));
+            sturm_complete_rounds(&op?,k_ff,neg_kg,k,&LanczosParams::default(),&mut 0,Some(self.pencil))?
+        };
+        self.pencil.refine(result)
+    }
 }
 
 fn buckling_mat_vec(matrix: &CscMatrix, x: &[f64], rhs: Option<&[f64]>) -> Vec<f64> {
@@ -1080,6 +1090,13 @@ fn original_buckling_rayleigh(k: &CscMatrix, b: &CscMatrix, result: EigenResult)
 }
 
 impl BucklingPencil<'_> {
+    pub(crate) fn solver(&self) -> Option<BucklingSolve<'_, '_>> {
+        let reduced = if self.transform.is_some() {
+            Some((self.projected(&[(self.k,1.0)])?,self.projected(&[(self.b,1.0)])?))
+        } else { None };
+        Some(BucklingSolve { pencil:self,reduced })
+    }
+
     fn row(&self, i: usize) -> impl Iterator<Item = (usize,f64)> + '_ {
         let (cols, vals) = self.transform.map_or((&[][..],&[][..]), |c| {
             let range = c.row_ptr[i]..c.row_ptr[i+1];
@@ -1202,13 +1219,13 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #818"]
     fn buckling_818_nonpositive_original_work_is_deflated() {
         for n in [3,201] { for work in [0.0,-3.0] {
             let k = CscMatrix::from_triplets(n,&(0..n).collect::<Vec<_>>(),&(0..n).collect::<Vec<_>>(),&vec![1.0;n]);
             let b_solve = CscMatrix::from_triplets(n,&[0,1,2],&[0,1,2],&[4.0,3.0,2.0]);
-            let b = CscMatrix::from_triplets(n,&[0,1,2],&[0,1,2],&[4.0,work,2.0]);
-            let pencil = BucklingPencil { k:&k,b:&b,transform:None };
+            let original_k = CscMatrix::from_triplets(n,&(0..n).collect::<Vec<_>>(),&(0..n).collect::<Vec<_>>(),&vec![1e-300;n]);
+            let b = CscMatrix::from_triplets(n,&[0,1,2],&[0,1,2],&[4e-300,work*1e-300,2e-300]);
+            let pencil = BucklingPencil { k:&original_k,b:&b,transform:None };
             let op = SparseShiftInvertOp::new_k_inner_product(&k,&b_solve).unwrap();
             let result = sturm_complete_rounds(&op,&k,&b_solve,2,&LanczosParams::default(),&mut 0,Some(&pencil)).expect("compressed modes survive nonpositive work");
             assert_eq!(result.values.len(),2);
