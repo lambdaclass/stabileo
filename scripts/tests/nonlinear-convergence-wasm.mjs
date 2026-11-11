@@ -6,6 +6,43 @@ engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano
 const cases = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 let checked = 0;
 for (const test of cases) {
+  if (test.api) {
+    const invoke = () => {
+      const input = JSON.stringify(test.input);
+      if (test.api.startsWith('solve_corotational')) return engine[test.api](input, test.maxIter ?? 2, 1e-10, 1);
+      if (test.api.startsWith('solve_pdelta')) return engine[test.api](input, test.maxIter ?? 1, 1e-10);
+      return engine[test.api](input);
+    };
+    if (test.error) { assert.throws(invoke, new RegExp(test.error, 'i')); checked++; continue; }
+    let result;
+    try { result = JSON.parse(invoke()); } catch (error) { if (test.unconvergedOrError || test.allowRefusal) { checked++; continue; } throw error; }
+    if (test.allowRefusal) {
+      if (result.converged) {
+        const w = test.arcWitness;
+        const base = result.results.displacements.find(d => d.nodeId === 1);
+        const tip = result.results.displacements.find(d => d.nodeId === 2);
+        const ux = tip.ux - base.ux, uz = tip.uz - base.uz;
+        const l0 = Math.hypot(w.dx, w.dz), ln = Math.hypot(w.dx + ux, w.dz + uz);
+        const axial = 1000 * w.e * w.a * (2 * w.dx * ux + 2 * w.dz * uz + ux * ux + uz * uz) / (l0 * (ln + l0));
+        const projected = axial * ((w.dx + ux) * w.tx + (w.dz + uz) * w.tz) / ln;
+        assert.ok(Number.isFinite(result.finalLoadFactor));
+        assert.ok(Math.abs(projected / (result.finalLoadFactor * w.force) - 1) < 1e-10);
+      }
+      checked++; continue;
+    }
+    assert.equal(result.converged, test.unconvergedOrError ? false : test.converged, test.api);
+    if (test.nonzeroTip) {
+      const tip = result.results.displacements.find(d => d.nodeId === 2);
+      assert.ok(Math.hypot(tip.ux, tip.uy ?? 0, tip.uz) > 0);
+    }
+    for (const expected of test.expectedDisplacements ?? []) {
+      const actual = result.results.displacements.find(d => d.nodeId === expected.nodeId);
+      for (const key of ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']) {
+        if (expected[key]) assert.ok(Math.abs(actual[key] / expected[key] - 1) < 1e-10, `${test.api}: ${key}`);
+      }
+    }
+    checked++; continue;
+  }
   const dimension = test.dimension;
   const maxIter = test.converged ? 100 : 1;
   const solver = test.solver;

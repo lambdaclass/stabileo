@@ -222,7 +222,7 @@ fn solve_nonlinear_material_2d_inner(
             // vanish, and the iteration never converged (a model with a
             // single rigid link or EqualDOF always came back unconverged).
             let support_driven = u_r.iter().any(|v| *v != 0.0);
-            if metric.relative_residual(&residual, &f_ext, support_driven.then_some(f_int.as_slice()), cs.as_ref()) < tolerance {
+            if (!support_driven || _nr_iter > 0) && metric.relative_residual(&residual, &f_ext, support_driven.then_some(load_factor), cs.as_ref()) < tolerance {
                 converged_increment = true;
                 break;
             }
@@ -805,9 +805,17 @@ fn update_element_states(
 // Yield interaction criterion: (N/Np)^2 + |M|/Mp
 // ---------------------------------------------------------------------------
 
+fn capacity_ratio(demand: f64, capacity: f64) -> f64 {
+    if capacity > 0.0 {
+        demand / capacity
+    } else {
+        0.0
+    }
+}
+
 fn yield_utilization(n: f64, m: f64, np: f64, mp: f64) -> f64 {
-    let axial_ratio = if np > 1e-20 { n / np } else { 0.0 };
-    let moment_ratio = if mp > 1e-20 { m.abs() / mp } else { 0.0 };
+    let axial_ratio = capacity_ratio(n, np);
+    let moment_ratio = capacity_ratio(m.abs(), mp);
     axial_ratio * axial_ratio + moment_ratio
 }
 
@@ -1114,7 +1122,7 @@ fn solve_nonlinear_material_3d_inner(
             // vanish, and the iteration never converged (a model with a
             // single rigid link or EqualDOF always came back unconverged).
             let support_driven = u_r.iter().any(|v| *v != 0.0);
-            if metric.relative_residual(&residual, &f_ext, support_driven.then_some(f_int.as_slice()), cs.as_ref()) < tolerance {
+            if (!support_driven || _nr_iter > 0) && metric.relative_residual(&residual, &f_ext, support_driven.then_some(load_factor), cs.as_ref()) < tolerance {
                 converged_increment = true;
                 break;
             }
@@ -1633,9 +1641,9 @@ fn compute_global_internal_forces_3d(
 /// convex), so it never yields later than either uniaxial limit implies. It replaced
 /// `(N/Np)^2 + (My/Mpy)^2 + (Mz/Mpz)^2`, which gave 0.74 where 2D gives 0.95 (NL-6, #429).
 fn yield_utilization_3d(n: f64, my: f64, mz: f64, np: f64, mpy: f64, mpz: f64) -> f64 {
-    let axial_ratio = if np > 1e-20 { n / np } else { 0.0 };
-    let my_ratio = if mpy > 1e-20 { my.abs() / mpy } else { 0.0 };
-    let mz_ratio = if mpz > 1e-20 { mz.abs() / mpz } else { 0.0 };
+    let axial_ratio = capacity_ratio(n, np);
+    let my_ratio = capacity_ratio(my.abs(), mpy);
+    let mz_ratio = capacity_ratio(mz.abs(), mpz);
     axial_ratio * axial_ratio + my_ratio + mz_ratio
 }
 

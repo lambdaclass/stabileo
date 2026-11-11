@@ -248,7 +248,7 @@ pub fn solve_corotational_2d_from(
 
             // Reduce residual and check convergence on independent DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
-            let rel_error = metric.relative_residual(&residual, &f_ext, moves_supports.then_some(f_int.as_slice()), cs.as_ref());
+            let rel_error = metric.relative_residual(&residual, &f_ext, moves_supports.then_some(load_factor), cs.as_ref());
 
             if rel_error < tolerance && support_step.is_none() {
                 nr_converged = true;

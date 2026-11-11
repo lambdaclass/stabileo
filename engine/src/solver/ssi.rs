@@ -66,6 +66,18 @@ fn residual<T: InclinedFrame>(
     ku
 }
 
+fn relative_stiffness_change(old: f64, new: f64) -> f64 {
+    if !old.is_finite() || !new.is_finite() {
+        f64::INFINITY
+    } else if old == new {
+        0.0
+    } else if old == 0.0 || new == 0.0 {
+        f64::INFINITY
+    } else {
+        (new - old).abs() / old.abs().max(new.abs())
+    }
+}
+
 fn dense_ku(k: &[f64], n: usize, u_frame: &[f64]) -> Vec<f64> {
     (0..n).map(|i| u_frame.iter().enumerate().map(|(j, u)| k[i * n + j] * u).sum()).collect()
 }
@@ -212,6 +224,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
 
     // Constraint system (built once before iteration)
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_2d(&input.solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -371,16 +384,20 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
             let new_k = k_secant * spring.length_factor();
 
             let old_k = spring_k[si];
-            let change = (new_k - old_k).abs();
-            let ref_val = old_k.abs().max(new_k.abs()).max(1.0);
-            max_change = max_change.max(change / ref_val);
+            max_change = max_change.max(relative_stiffness_change(old_k, new_k));
 
             spring_k[si] = new_k;
         }
 
         if max_change < input.tolerance && iter > 0 {
-            converged = true;
-            break;
+            let ku = if let Some(ref s) = sparse_stiff {
+                sparse_ku(&s.k_full, n, &u_frame)
+            } else { dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame) };
+            let r = residual(ku, &input.soil_springs, &spring_k, &dof_num, its, &u_frame, &f_global);
+            if metric.relative_residual(&r, &f_global, None, cs.as_ref()) < input.tolerance {
+                converged = true;
+                break;
+            }
         }
     }
 
@@ -470,6 +487,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     // expansion adds new nodes/elements but preserves the original IDs that
     // constraints reference.
     let cs = FreeConstraintSystem::build_3d(&expanded_solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_3d(&expanded_solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -623,16 +641,20 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             let new_k = k_secant * spring.length_factor();
 
             let old_k = spring_k[si];
-            let change = (new_k - old_k).abs();
-            let ref_val = old_k.abs().max(new_k.abs()).max(1.0);
-            max_change = max_change.max(change / ref_val);
+            max_change = max_change.max(relative_stiffness_change(old_k, new_k));
 
             spring_k[si] = new_k;
         }
 
         if max_change < input.tolerance && iter > 0 {
-            converged = true;
-            break;
+            let ku = if let Some(ref s) = sparse_asm {
+                sparse_ku(s.k_full.as_ref().ok_or("SSI: sparse assembly without the full stiffness")?, n, &u_frame)
+            } else { dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame) };
+            let r = residual(ku, &input.soil_springs, &spring_k, &dof_num, its, &u_frame, &f_global);
+            if metric.relative_residual(&r, &f_global, None, cs.as_ref()) < input.tolerance {
+                converged = true;
+                break;
+            }
         }
     }
 
@@ -695,4 +717,26 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         converged,
         spring_results,
     })
+}
+
+#[cfg(test)]
+mod convergence_tests {
+    use super::relative_stiffness_change;
+
+    #[test]
+    fn zero_nonfinite_and_both_sides_of_relative_stiffness_tolerance() {
+        assert_eq!(relative_stiffness_change(0.0, 0.0), 0.0);
+        for scale in [1e-200, 1.0, 1e200] {
+            assert_eq!(relative_stiffness_change(0.0, scale), f64::INFINITY);
+            assert_eq!(relative_stiffness_change(scale, 0.0), f64::INFINITY);
+            for factor in [0.5, 2.0] {
+                let ratio = relative_stiffness_change(scale, scale * (1.0 - factor * 1e-6));
+                assert_eq!(ratio < 1e-6, factor < 1.0);
+            }
+        }
+        for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(relative_stiffness_change(invalid, 1.0), f64::INFINITY);
+            assert_eq!(relative_stiffness_change(1.0, invalid), f64::INFINITY);
+        }
+    }
 }

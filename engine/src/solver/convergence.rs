@@ -7,6 +7,7 @@ use crate::{
 pub(crate) struct EquilibriumMetric {
     weights: Vec<f64>,
     nf: usize,
+    support_force: f64,
     projected: Option<(Vec<f64>, NumericCholesky)>,
 }
 
@@ -16,8 +17,36 @@ impl EquilibriumMetric {
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
     ) -> Result<Self, String> {
-        let points = crate::ordered::values(&input.nodes).map(|n| [n.x, 0.0, n.z]);
-        Self::new(points, 2, dofs, cs)
+        let points: Vec<_> = crate::ordered::values(&input.nodes)
+            .map(|n| [n.x, 0.0, n.z])
+            .collect();
+        let prescribed = super::linear::prescribed_displacements_2d(input, dofs);
+        let stiffness = if Self::length(&points)? == 0.0 || prescribed.iter().any(|v| *v != 0.0) {
+            Some(super::assembly::assemble_sparse_2d_ex(input, dofs, true))
+        } else {
+            None
+        };
+        let mut metric = Self::with_stiffness(
+            points.into_iter(),
+            2,
+            dofs,
+            cs,
+            stiffness
+                .as_ref()
+                .map(|s| (&s.k_ff, s.artificial_dofs.as_slice())),
+        )?;
+        if let Some(stiffness) = stiffness {
+            metric.set_support_force(
+                stiffness
+                    .k_full
+                    .as_ref()
+                    .ok_or("Missing support coupling stiffness")?,
+                &prescribed,
+                dofs,
+                cs,
+            );
+        }
+        Ok(metric)
     }
 
     pub(crate) fn for_3d(
@@ -25,26 +54,140 @@ impl EquilibriumMetric {
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
     ) -> Result<Self, String> {
-        let points = crate::ordered::values(&input.nodes).map(|n| [n.x, n.y, n.z]);
-        Self::new(points, 3, dofs, cs)
+        let points: Vec<_> = crate::ordered::values(&input.nodes)
+            .map(|n| [n.x, n.y, n.z])
+            .collect();
+        let prescribed = super::linear::prescribed_displacements_3d(input, dofs);
+        let stiffness = if Self::length(&points)? == 0.0 || prescribed.iter().any(|v| *v != 0.0) {
+            Some(super::assembly::assemble_sparse_3d(input, dofs, true))
+        } else {
+            None
+        };
+        let mut metric = Self::with_stiffness(
+            points.into_iter(),
+            3,
+            dofs,
+            cs,
+            stiffness
+                .as_ref()
+                .map(|s| (&s.k_ff, s.artificial_dofs.as_slice())),
+        )?;
+        if let Some(stiffness) = stiffness {
+            metric.set_support_force(
+                stiffness
+                    .k_full
+                    .as_ref()
+                    .ok_or("Missing support coupling stiffness")?,
+                &prescribed,
+                dofs,
+                cs,
+            );
+        }
+        Ok(metric)
     }
 
-    fn new(
-        mut points: impl Iterator<Item = [f64; 3]>,
-        dimensions: usize,
-        dofs: &DofNumbering,
-        cs: Option<&FreeConstraintSystem>,
-    ) -> Result<Self, String> {
-        let origin = points.next().ok_or("Convergence metric requires nodes")?;
+    fn length(points: &[[f64; 3]]) -> Result<f64, String> {
+        if points.is_empty() {
+            return Err("Convergence metric requires nodes".into());
+        }
+        if points.iter().flatten().any(|v| !v.is_finite()) {
+            return Err("Convergence metric requires finite node coordinates".into());
+        }
+        let mut points = points.to_vec();
+        points.sort_by(|a, b| {
+            a[0].total_cmp(&b[0])
+                .then(a[1].total_cmp(&b[1]))
+                .then(a[2].total_cmp(&b[2]))
+        });
+        let origin: [f64; 3] =
+            std::array::from_fn(|i| points.iter().map(|p| p[i] / points.len() as f64).sum());
         let length = points
+            .iter()
             .map(|p| {
                 (p[0] - origin[0])
                     .hypot(p[1] - origin[1])
                     .hypot(p[2] - origin[2])
             })
             .fold(0.0, f64::max);
-        if !length.is_finite() || length <= 0.0 {
-            return Err("Convergence metric requires a finite positive model length".into());
+        if !length.is_finite() {
+            return Err("Convergence metric requires a finite model length".into());
+        }
+        Ok(length)
+    }
+
+    #[cfg(test)]
+    fn new(
+        points: impl Iterator<Item = [f64; 3]>,
+        dimensions: usize,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+    ) -> Result<Self, String> {
+        Self::with_stiffness(points, dimensions, dofs, cs, None)
+    }
+
+    fn with_stiffness(
+        points: impl Iterator<Item = [f64; 3]>,
+        dimensions: usize,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+        stiffness: Option<(&CscMatrix, &[usize])>,
+    ) -> Result<Self, String> {
+        let mut length = Self::length(&points.collect::<Vec<_>>())?;
+        if length == 0.0 {
+            let entries = dofs.entries_by_dof();
+            let power = |local| {
+                if local < dimensions {
+                    0
+                } else if local < 6 {
+                    1
+                } else {
+                    2
+                }
+            };
+            let active: std::collections::BTreeSet<_> = entries
+                .iter()
+                .filter(|(_, i)| *i < dofs.n_free)
+                .map(|((_, local), _)| power(*local))
+                .collect();
+            length = if active.len() > 1 {
+                let (k, artificial) = stiffness
+                    .ok_or("Mixed point-model convergence requires physical stiffness scales")?;
+                let diagonal = k.diagonal();
+                let mut traces = [0.0f64; 3];
+                for ((_, local), i) in entries {
+                    if i < dofs.n_free && !artificial.contains(&i) {
+                        traces[power(local)] += diagonal[i];
+                    }
+                }
+                let physical: Vec<_> = traces
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, k)| k.is_finite() && **k > 0.0)
+                    .collect();
+                if traces.iter().any(|k| !k.is_finite() || *k < 0.0) || physical.len() < 2 {
+                    return Err(
+                        "Mixed point-model convergence requires positive physical stiffness scales"
+                            .into(),
+                    );
+                }
+                let (lower, kl) = physical[0];
+                let (upper, ku) = physical[1];
+                let ratio = ku.sqrt() / kl.sqrt();
+                let scale = if upper - lower == 2 {
+                    ratio.sqrt()
+                } else {
+                    ratio
+                };
+                if !scale.is_finite() || scale <= 0.0 {
+                    return Err(
+                        "Mixed point-model convergence requires positive physical stiffness scales"
+                            .into(),
+                    );
+                }
+                scale
+            } else {
+                1.0
+            };
         }
         let mut weights = vec![1.0; dofs.n_total];
         for ((_, local), i) in dofs.entries_by_dof() {
@@ -55,6 +198,9 @@ impl EquilibriumMetric {
             } else {
                 length * length
             };
+        }
+        if weights.iter().any(|w| !w.is_finite() || *w <= 0.0) {
+            return Err("Convergence metric requires finite positive DOF scales".into());
         }
         let projected = if let Some(cs) = cs {
             let c = &cs.c_ff;
@@ -95,8 +241,61 @@ impl EquilibriumMetric {
         Ok(Self {
             weights,
             nf: dofs.n_free,
+            support_force: 0.0,
             projected,
         })
+    }
+
+    fn set_support_force(
+        &mut self,
+        stiffness: &CscMatrix,
+        prescribed: &[f64],
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+    ) {
+        let mut nodes = vec![0; dofs.n_total];
+        for ((node, _), i) in dofs.entries_by_dof() {
+            nodes[i] = node;
+        }
+        let mut coupling =
+            std::collections::BTreeMap::<usize, std::collections::BTreeMap<usize, f64>>::new();
+        for j in 0..dofs.n_total {
+            for p in stiffness.col_ptr[j]..stiffness.col_ptr[j + 1] {
+                let i = stiffness.row_idx[p];
+                let pair = if i < self.nf && j >= self.nf {
+                    Some((i, j))
+                } else if j < self.nf && i >= self.nf {
+                    Some((j, i))
+                } else {
+                    None
+                };
+                if let Some((free, restrained)) = pair {
+                    let displacement = prescribed[restrained - self.nf];
+                    if displacement != 0.0 {
+                        *coupling
+                            .entry(nodes[restrained])
+                            .or_default()
+                            .entry(free)
+                            .or_default() += stiffness.values[p] * displacement;
+                    }
+                }
+            }
+        }
+        self.support_force = 0.0;
+        for force in coupling.values() {
+            let norm = if cs.is_none() {
+                force
+                    .iter()
+                    .fold(0.0f64, |norm, (i, f)| norm.hypot(f / self.weights[*i]))
+            } else {
+                let mut vector = vec![0.0; self.nf];
+                for (i, f) in force {
+                    vector[*i] = *f;
+                }
+                self.free_norm(&vector, cs)
+            };
+            self.support_force = self.support_force.hypot(norm);
+        }
     }
 
     fn full_norm(&self, vector: &[f64]) -> f64 {
@@ -106,7 +305,7 @@ impl EquilibriumMetric {
             .fold(0.0f64, |n, (v, w)| n.hypot(v / w))
     }
 
-    fn free_norm(&self, vector: &[f64], cs: Option<&FreeConstraintSystem>) -> f64 {
+    pub(crate) fn free_norm(&self, vector: &[f64], cs: Option<&FreeConstraintSystem>) -> f64 {
         let free = &vector[..self.nf];
         match (&self.projected, cs) {
             (Some((scales, factor)), Some(cs)) => {
@@ -138,11 +337,18 @@ impl EquilibriumMetric {
     }
 
     pub(crate) fn relative_increment(&self, previous: &[f64], next: &[f64]) -> f64 {
+        if previous.iter().chain(next).any(|v| !v.is_finite()) {
+            return f64::INFINITY;
+        }
         let mut change = 0.0f64;
         let mut reference = 0.0f64;
         for ((a, b), w) in previous.iter().zip(next).zip(&self.weights).take(self.nf) {
             change = change.hypot((b - a) * w);
             reference = reference.hypot(b * w);
+        }
+        for (i, (a, w)) in previous.iter().zip(&self.weights).enumerate().skip(self.nf) {
+            let b = next.get(i).copied().unwrap_or(*a);
+            reference = reference.hypot(a.abs().max(b.abs()) * w);
         }
         if !change.is_finite() || !reference.is_finite() {
             f64::INFINITY
@@ -168,30 +374,32 @@ impl EquilibriumMetric {
         for it in its {
             it.rotate(&mut external);
         }
-        self.relative_residual(&residual, &external, support_driven.then_some(internal), cs)
+        self.relative_residual(&residual, &external, support_driven.then_some(1.0), cs)
     }
 
     pub(crate) fn relative_residual(
         &self,
         residual: &[f64],
         external: &[f64],
-        support_reference: Option<&[f64]>,
+        support_factor: Option<f64>,
         cs: Option<&FreeConstraintSystem>,
     ) -> f64 {
         if residual
             .iter()
             .chain(external)
-            .chain(support_reference.into_iter().flatten())
+            .chain(support_factor.as_ref())
             .any(|v| !v.is_finite())
         {
             return f64::INFINITY;
         }
         let r = self.free_norm(residual, cs);
-        let full = self.full_norm(external);
-        let reference = self
-            .free_norm(external, cs)
-            .max(support_reference.map_or(0.0, |v| self.full_norm(v)));
-        if !r.is_finite() || !full.is_finite() || !reference.is_finite() {
+        let applied = self.free_norm(external, cs);
+        let reference = if applied > 0.0 {
+            applied
+        } else {
+            support_factor.map_or(0.0, |factor| factor.abs() * self.support_force)
+        };
+        if !r.is_finite() || !reference.is_finite() {
             return f64::INFINITY;
         }
         if r == 0.0 {
@@ -399,36 +607,38 @@ mod tests {
         assert!(metric.relative_residual(&force, &force, None, None) >= 1.0);
     }
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r2_restrained_reactions_cannot_mask_free_disequilibrium() {
         let s = input();
         let d = DofNumbering::build_2d(&s);
-        let m = EquilibriumMetric::for_2d(&s, &d, None).unwrap();
+        let mut m = EquilibriumMetric::for_2d(&s, &d, None).unwrap();
+        m.support_force = 1e20;
         let mut f = vec![0.0; d.n_total];
         f[0] = 0.01;
-        let mut internal = vec![0.0; d.n_total];
-        internal[d.n_free] = 1e20;
-        assert_eq!(m.relative_residual(&f, &f, Some(&internal), None), 1.0);
+        assert_eq!(m.relative_residual(&f, &f, Some(1.0), None), 1.0);
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r2_length_does_not_depend_on_node_labels() {
         let mut s = input();
-        for (i, n) in s.nodes.values_mut().enumerate() {
+        let keys: Vec<_> = crate::ordered::entries(&s.nodes)
+            .map(|(key, _)| key.clone())
+            .collect();
+        for (i, key) in keys.iter().enumerate() {
+            let n = s.nodes.get_mut(key).unwrap();
             n.x = i as f64 * 5.0;
             n.z = 0.0;
         }
         let d = DofNumbering::build_2d(&s);
         let a = EquilibriumMetric::for_2d(&s, &d, None).unwrap();
-        let mut points: Vec<_> = crate::ordered::values(&s.nodes).map(|n| [n.x, 0.0, n.z]).collect();
+        let mut points: Vec<_> = crate::ordered::values(&s.nodes)
+            .map(|n| [n.x, 0.0, n.z])
+            .collect();
         points.rotate_left(1);
         let b = EquilibriumMetric::new(points.into_iter(), 2, &d, None).unwrap();
         assert_eq!(a.weights, b.weights);
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r2_settlement_scales_free_roundoff_increments() {
         let s = input();
         let d = DofNumbering::build_2d(&s);
@@ -438,18 +648,97 @@ mod tests {
         let mut b = a.clone();
         b[0] = 1e-19;
         assert!(m.relative_increment(&a, &b) < 1e-12);
+        b.truncate(d.n_free);
+        assert!(m.relative_increment(&a, &b) < 1e-12);
         b[0] = 0.001;
         assert!(m.relative_increment(&a, &b) > 1e-2);
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r2_every_coordinate_must_be_finite() {
         let s = input();
         let d = DofNumbering::build_2d(&s);
         for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
-            assert!(EquilibriumMetric::new([[0.0; 3], [1.0; 3], [bad; 3]].into_iter(), 2, &d, None).is_err());
+            assert!(EquilibriumMetric::new(
+                [[0.0; 3], [1.0; 3], [bad; 3]].into_iter(),
+                2,
+                &d,
+                None
+            )
+            .is_err());
         }
     }
 
+    #[test]
+    fn point_model_scales_require_physical_stiffness_only_when_dimensions_mix() {
+        let s = input();
+        let mut d = DofNumbering::build_2d(&s);
+        d.map = [((2, 0), 0), ((2, 1), 1), ((2, 2), 2)]
+            .into_iter()
+            .collect();
+        d.n_free = 3;
+        d.n_total = 3;
+        for scale in [1e-100, 1.0, 1e100] {
+            let stiffness = CscMatrix::from_triplets(
+                3,
+                &[0, 1, 2],
+                &[0, 1, 2],
+                &[100.0 / scale, 100.0 / scale, 400.0 * scale],
+            );
+            let metric = EquilibriumMetric::with_stiffness(
+                [[0.0; 3]; 2].into_iter(),
+                2,
+                &d,
+                None,
+                Some((&stiffness, &[])),
+            )
+            .unwrap();
+            assert!((metric.weights[2] / scale / 2.0f64.sqrt() - 1.0).abs() < 1e-12);
+        }
+        let stiffness = CscMatrix::from_triplets(3, &[0, 1, 2], &[0, 1, 2], &[100.0, 100.0, 400.0]);
+        assert!(EquilibriumMetric::with_stiffness(
+            [[0.0; 3]; 2].into_iter(),
+            2,
+            &d,
+            None,
+            Some((&stiffness, &[2]))
+        )
+        .is_err());
+        let stiffness = CscMatrix::from_triplets(3, &[0, 1, 2], &[0, 1, 2], &[100.0, 100.0, 0.0]);
+        assert!(EquilibriumMetric::with_stiffness(
+            [[0.0; 3]; 2].into_iter(),
+            2,
+            &d,
+            None,
+            Some((&stiffness, &[]))
+        )
+        .is_err());
+        assert!(EquilibriumMetric::new([[0.0; 3]; 2].into_iter(), 2, &d, None).is_err());
+        for local in [0, 2] {
+            d.map = [((2, local), 0)].into_iter().collect();
+            d.n_free = 1;
+            d.n_total = 1;
+            let metric = EquilibriumMetric::new([[0.0; 3]].into_iter(), 2, &d, None).unwrap();
+            assert_eq!(metric.relative_residual(&[1.0], &[1.0], None, None), 1.0);
+        }
+    }
+    #[test]
+    fn point_model_warping_uses_its_own_dimension_category() {
+        let s = input();
+        let mut d = DofNumbering::build_2d(&s);
+        d.map = [((2, 3), 0), ((2, 6), 1)].into_iter().collect();
+        d.n_free = 2;
+        d.n_total = 2;
+        assert!(EquilibriumMetric::new([[0.0; 3]].into_iter(), 3, &d, None).is_err());
+        let stiffness = CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[100.0, 400.0]);
+        let metric = EquilibriumMetric::with_stiffness(
+            [[0.0; 3]].into_iter(),
+            3,
+            &d,
+            None,
+            Some((&stiffness, &[])),
+        )
+        .unwrap();
+        assert_eq!(metric.weights, vec![2.0, 4.0]);
+    }
 }

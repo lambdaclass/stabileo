@@ -20,9 +20,10 @@ physical norm.
 All these acceptance decisions now use `solver::convergence::EquilibriumMetric`.
 For a model length L, the displacement metric has weights 1 for translations,
 L for rotations and L² for warping derivatives. Its dual measures forces,
-moments/L and bimoments/L². L is the maximum distance from the first deterministically
-ordered node to another node: it is positive for a valid structural geometry,
-independent of rigid frame and reflection, and scales with length units.
+moments/L and bimoments/L². L is the maximum distance from the geometric centroid,
+independent of node labels, rigid frame and reflection, and scales with length
+units. Coincident models use dimension cancellation or physical stiffness scales;
+see [the second review correction](2026-11-supported-and-soil-equilibrium.md).
 Scaled `hypot` accumulation avoids squaring large or tiny dimensional values.
 
 For constraints u = Cq, the residual norm is
@@ -41,8 +42,8 @@ above cancellation resolution beside a large restrained load. See
 [the projection correction](2026-11-inclined-load-projection.md).
 
 The relative residual uses the admissible external-load norm. Support-driven
-continuations additionally use their internal-force norm, as required when
-external loading is zero. Non-finite data refuses. P-Delta retains its relative
+continuations with zero admissible external load use the support-to-free
+coupling forces, excluding direct restrained reactions. Non-finite data refuses. P-Delta retains its relative
 iterate-change requirement, measured in the physical displacement metric without
 an absolute cutoff, and additionally evaluates the equilibrium residual using
 the geometric stiffness rebuilt at the candidate state. It cannot accept merely

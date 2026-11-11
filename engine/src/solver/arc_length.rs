@@ -187,7 +187,7 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
     let u_r_start: Vec<f64> = u_full[nf..].to_vec();
     let du_support = super::linear::prescribed_displacements_2d(&input.solver, &dof_num);
     let moves_supports = du_support.iter().any(|&v| v != 0.0);
-    let f_ref_norm = vec_norm(&f_ref);
+    let f_ref_norm = metric.free_norm(&f_ref, cs.as_ref());
     if f_ref_norm == 0.0 && !moves_supports {
         return Err("Zero reference load".into());
     }
@@ -287,7 +287,7 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
             // Check convergence on independent (reduced) DOFs
             let applied: Vec<f64> = (0..n).map(|i| f_start_full[i] + lambda * f_ref_full[i]).collect();
             let support_driven = start.is_some() || moves_supports;
-            if metric.relative_residual(&residual, &applied, support_driven.then_some(f_int_new.as_slice()), cs.as_ref()) < input.tolerance {
+            if metric.relative_residual(&residual, &applied, support_driven.then_some(lambda), cs.as_ref()) < input.tolerance {
                 step_converged = true;
                 break;
             }
@@ -510,7 +510,7 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
         f_ref.clone()
     };
     // Loop-invariant: f_ref is built once and never mutated.
-    let f_ref_norm = vec_norm(&f_ref);
+    let f_ref_norm = metric.free_norm(&f_ref, cs_dc.as_ref());
     // Same guard `solve_arc_length` applies. Without a reference load the
     // tangent correction du_t is zero, so d_lambda is pinned at zero and the
     // control DOF is never driven anywhere — the solver would burn

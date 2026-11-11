@@ -353,6 +353,17 @@ describe('which registered changes concern a model', () => {
     expect(conditionHolds(entry.when ?? {}, new Set(['inclinedSupports']))).toBe(false);
   });
 
+  it('scopes supported and soil equilibrium to structural nonlinear or SSI histories', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'nonlinear-supported-and-soil-equilibrium')!;
+    for (const structure of ['members', 'connectors', 'springs']) {
+      for (const analysis of ['analysis:pdelta', 'analysis:nonlinear', 'analysis:ssi']) {
+        expect(conditionHolds(entry.when ?? {}, new Set([structure, analysis]))).toBe(true);
+        expect(conditionHolds(entry.when ?? {}, new Set([analysis]))).toBe(false);
+      }
+      expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:linear']))).toBe(false);
+    }
+  });
+
   it('scopes nonlinear physical convergence to structural nonlinear analyses', () => {
     const change = 'nonlinear-physical-convergence';
     const entry = RESULT_CHANGES.changes.find(c => c.id === change)!;

@@ -1984,12 +1984,7 @@ impl PreparedStatic3D {
 
     pub(super) fn check_returned_displacements(&self, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> Result<StructuredDiagnostic, String> {
         let nf = self.dof_num.n_free;
-        let mut u = vec![0.0; self.dof_num.n_total];
-        for d in &r.displacements {
-            for (local, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate() {
-                if let Some(&index) = self.dof_num.map.get(&(d.node_id, local)) { u[index] = value; }
-            }
-        }
+        let mut u = self.dof_num.displacement_vector_3d(&r.displacements);
         let its = self.inclined_transforms();
         for it in its { it.rotate(&mut u); }
         let mut f = super::sparse_assembly::assemble_load_vector_sparse_3d(&self.input, loads, &self.dof_num, its);

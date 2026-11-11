@@ -548,7 +548,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
     }
 
     let (reactions, balance) = fiber_reactions_and_equilibrium_2d(
-        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, &art, cs.as_ref(),
+        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, &art, cs.as_ref(), &metric,
     );
     if !balance.summary.residual_ok || !balance.gate {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
@@ -1365,7 +1365,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
     }
 
     let (reactions, balance) = fiber_reactions_and_equilibrium_3d(
-        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, cs.as_ref(),
+        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, cs.as_ref(), &metric,
     );
     if !balance.summary.residual_ok || !balance.gate {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
@@ -1741,6 +1741,7 @@ fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
     its: &[T],
     art: &[(usize, f64)],
     cs: Option<&FreeConstraintSystem>,
+    metric: &super::convergence::EquilibriumMetric,
 ) -> (Vec<Reaction>, WrenchBalance) {
     let n = dof_num.n_total;
     let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
@@ -1750,8 +1751,7 @@ fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
     assemble_fiber_elements(&input.solver, &input.fiber_sections, dof_num, u_full, &mut probe, n_ip, &mut f_int, &mut ignore);
     assemble_elastic_elements(&input.solver, &input.fiber_sections, dof_num, u_full, &mut f_int, &mut ignore);
     add_springs(&input.solver, dof_num, u_full, &mut f_int, art, &mut ignore);
-    let rel_residual = super::convergence::EquilibriumMetric::for_2d(&input.solver, dof_num, cs)
-        .map_or(f64::INFINITY, |metric| metric.global_residual(&f_ext, &f_int, its, cs, false));
+    let rel_residual = metric.global_residual(&f_ext, &f_int, its, cs, false);
     let support_force = support_forces(&f_int, &f_ext, assembly::support_spring_entries_2d(&input.solver, dof_num), u_full, its, dof_num.n_free);
     let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
     let position = |node: usize| {
@@ -1790,6 +1790,7 @@ fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
     load_factor: f64,
     its: &[T],
     cs: Option<&FreeConstraintSystem>,
+    metric: &super::convergence::EquilibriumMetric,
 ) -> (Vec<Reaction3D>, WrenchBalance) {
     let n = dof_num.n_total;
     let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
@@ -1799,8 +1800,7 @@ fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
     assemble_fiber_elements_3d(&input.solver, &input.fiber_sections, dof_num, u_full, &mut probe, n_ip, &mut f_int, &mut ignore);
     assemble_elastic_elements_3d(&input.solver, &input.fiber_sections, dof_num, u_full, &mut f_int, &mut ignore);
     add_springs_3d(&input.solver, dof_num, u_full, &mut f_int, &mut ignore);
-    let rel_residual = super::convergence::EquilibriumMetric::for_3d(&input.solver, dof_num, cs)
-        .map_or(f64::INFINITY, |metric| metric.global_residual(&f_ext, &f_int, its, cs, false));
+    let rel_residual = metric.global_residual(&f_ext, &f_int, its, cs, false);
     let support_force = support_forces(&f_int, &f_ext, assembly::support_spring_entries_3d(&input.solver, dof_num), u_full, its, dof_num.n_free);
     let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
     let position = |node: usize| {

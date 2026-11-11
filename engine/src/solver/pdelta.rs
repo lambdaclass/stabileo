@@ -336,9 +336,8 @@ pub fn solve_pdelta_2d_on(
         if step_error < tolerance {
             let equilibrium = system.tangent(input, dof_num, &state.u);
             let residual = equilibrium.all_residual(n, f, &state.u);
-            let internal: Vec<_> = residual.iter().zip(f).map(|(a,b)| a+b).collect();
             let support_driven = state.u[nf..].iter().any(|v| *v != 0.0);
-            if metric.relative_residual(&residual, f, support_driven.then_some(internal.as_slice()), cs.as_ref()) < tolerance {
+            if metric.relative_residual(&residual, f, support_driven.then_some(1.0), cs.as_ref()) < tolerance {
                 state.converged = true;
                 break;
             }
@@ -592,12 +591,7 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     let system = if sparse { PDeltaSystem3D::Sparse(assemble_sparse_3d(input, dof_num, true)) }
         else { PDeltaSystem3D::Dense(assemble_3d(input, dof_num)) };
     let (f, its) = system.data();
-    let mut u_prev = vec![0.0; n];
-    for d in &linear_results.displacements {
-        for (i, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].iter().enumerate() {
-            if let Some(&idx) = dof_num.map.get(&(d.node_id, i)) { u_prev[idx] = *value; }
-        }
-    }
+    let mut u_prev = dof_num.displacement_vector_3d(&linear_results.displacements);
     for it in its { rotate_inclined_f_3d(&mut u_prev, &it.dofs, &it.r); }
     let metric = super::convergence::EquilibriumMetric::for_3d(input, dof_num, cs.as_ref())?;
     let mut state = Iteration { u: u_prev.clone(), iterations: 0, converged: false, indefinite: false };
@@ -616,9 +610,8 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
         if step_error < tolerance {
             let equilibrium = system.tangent(input, dof_num, &state.u);
             let residual = equilibrium.all_residual(n, f, &state.u);
-            let internal: Vec<_> = residual.iter().zip(f).map(|(a,b)| a+b).collect();
             let support_driven = state.u[nf..].iter().any(|v| *v != 0.0);
-            if metric.relative_residual(&residual, f, support_driven.then_some(internal.as_slice()), cs.as_ref()) < tolerance {
+            if metric.relative_residual(&residual, f, support_driven.then_some(1.0), cs.as_ref()) < tolerance {
                 state.converged = true;
                 break;
             }
