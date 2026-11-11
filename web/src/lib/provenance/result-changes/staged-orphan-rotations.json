@@ -10,10 +10,14 @@
       "hinges",
       "springs",
       "trussMembers"
+    ],
+    "all": [
+      "stagedConstruction"
     ]
   },
   "quantities": [
-    "*",
+    "stages",
+    "finalResults",
     "solve.ok"
   ],
   "title": {

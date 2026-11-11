@@ -9,11 +9,25 @@
     "any": [
       "members",
       "constraints",
-      "springs"
+      "springs",
+      "eccentricities",
+      "stagedConstruction"
     ]
   },
   "quantities": [
-    "*",
+    "stages",
+    "finalResults",
+    "mechanismModes",
+    "mechanismNodes",
+    "unconstrainedDofs",
+    "isSolvable",
+    "classification",
+    "diagnosis",
+    "collapseFactor",
+    "steps",
+    "hinges",
+    "isMechanism",
+    "warnings",
     "solve.ok"
   ],
   "title": {

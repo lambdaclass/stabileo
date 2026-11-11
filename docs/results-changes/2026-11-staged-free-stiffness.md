@@ -38,3 +38,7 @@ support-spring checks; the WASM CI job now runs them. No tolerance or baseline
 was loosened. The broader original rotational-stiffness failure and its retained
 silent main evidence remain in the existing
 [SA-2026-060 draft](../advisories/SA-2026-060-staged-orphan-rotations.md).
+
+## Saved-model applicability and numerical scope
+
+The saved-model notice requires nonempty construction phases in `designData.site.phases`, in addition to the structural features in the entry. The advanced panel keeps manually entered stages and their results locally; they are not saved as base linear results. A saved model without construction phases has no persisted staged history to recheck. The numerical declarations cover `stages` and `finalResults`, plus solve status, rather than unrelated base forces, reactions or displacements.

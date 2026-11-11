@@ -7,13 +7,21 @@
   "area": "analysis",
   "when": {
     "any": [
-      "members",
+      "stagedConstruction",
       "constraints",
+      "eccentricities",
       "springs"
     ]
   },
   "quantities": [
-    "*",
+    "stages",
+    "finalResults",
+    "mechanismModes",
+    "mechanismNodes",
+    "unconstrainedDofs",
+    "isSolvable",
+    "classification",
+    "diagnosis",
     "solve.ok"
   ],
   "title": {

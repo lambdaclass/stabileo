@@ -14,7 +14,7 @@ const frame = (analysisMode: string, phases?: unknown[]): FeatureSnapshot => ({
   ...(phases === undefined ? {} : { designData: { site: { phases } } }),
 } as FeatureSnapshot);
 
-describe.skip('known wrong result: #1846 result-change scope', () => {
+describe('staged result-change scope', () => {
   it.each(['2d', '3d', 'pro'])('distinguishes saved construction phases from an ordinary %s model', analysisMode => {
     for (const phases of [undefined, []]) {
       const snapshot = frame(analysisMode, phases);

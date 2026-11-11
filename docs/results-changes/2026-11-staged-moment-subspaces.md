@@ -36,8 +36,10 @@ accuracy assertion is relaxed.
 
 Re-run staged histories that remove rotational restraints after moments have
 been applied, and constrained or spring-supported models whose kinematic mode
-count informed review. The registry conservatively selects members, constraints
-and springs because saved stamps do not distinguish these paths. The stage
+count informed review. The registry selects saved construction phases, constraints, member or shell
+eccentricities, and springs. Ordinary members alone do not select this change.
+Its numerical declarations cover staged results and kinematic metadata, not the
+base linear displacement, reaction or member-force collections. The stage
 history defect is reproducible on local origin/main; the coordinator decides
 whether an advisory is needed. This entry assigns no advisory number.
 

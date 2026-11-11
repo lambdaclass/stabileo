@@ -27,8 +27,9 @@ const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProje
 
 describe('which registered changes concern a model', () => {
   it('also rechecks unreleased members and constraint-only snapshots for staged solve checks', () => {
-    const ordinary = model({ elements: [member(1, 1, 'frame')] });
-    const constrained = model({ constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }] });
+    const designData = { site: { phases: [{ id: 'first' }] } };
+    const ordinary = model({ designData, elements: [member(1, 1, 'frame')] });
+    const constrained = model({ designData, constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }] });
     for (const snapshot of [ordinary, constrained]) {
       expect(modelFeatures(snapshot)).not.toContain('hinges');
       expect(ids(snapshot)).toContain('staged-free-stiffness');
@@ -37,9 +38,10 @@ describe('which registered changes concern a model', () => {
   });
 
   it('rechecks staged spring and mixed member models without requiring end releases', () => {
-    const ordinary = model({ elements: [member(1, 1, 'frame')] });
-    const spring = model({ elements: [member(1, 1, 'frame')], supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never });
-    const mixed = model({ elements: [member(1, 1, 'frame'), member(2, 1, 'truss')] });
+    const designData = { site: { phases: [{ id: 'first' }] } };
+    const ordinary = model({ designData, elements: [member(1, 1, 'frame')] });
+    const spring = model({ designData, elements: [member(1, 1, 'frame')], supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never });
+    const mixed = model({ designData, elements: [member(1, 1, 'frame'), member(2, 1, 'truss')] });
     for (const snapshot of [spring, mixed]) {
       expect(modelFeatures(snapshot)).not.toContain('hinges');
       expect(ids(snapshot)).toContain('staged-orphan-rotations');

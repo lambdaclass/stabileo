@@ -12,10 +12,14 @@
       "constraints",
       "springs",
       "settlements"
+    ],
+    "all": [
+      "stagedConstruction"
     ]
   },
   "quantities": [
-    "*",
+    "stages",
+    "finalResults",
     "solve.ok"
   ],
   "title": {

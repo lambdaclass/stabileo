@@ -50,3 +50,7 @@ collapse as on main instead of aborting after the first hinges. Native and WASM
 regressions cover these mechanisms, hinge-induced conditioning and coupled-soft
 states, resolvable controls, and the unchanged initial elastic refusals. No
 refusal threshold or tolerance changed.
+
+## Saved-model applicability and numerical scope
+
+The notice remains conservative for members, constraints and springs, and also includes eccentricities and saved construction phases. Numerical declarations name staged result collections, kinematic metadata and plastic history outputs, plus solve status. They do not explain changes to ordinary base linear forces, reactions or displacements. This preserves the legacy-model judge’s ability to reject fabricated values even when a notice applies.

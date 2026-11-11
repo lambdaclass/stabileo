@@ -124,3 +124,7 @@ for reaction recovery. Internal tests compare dense and sparse reactions and
 global force/moment equilibrium for nodal loads and independent prestress
 equivalents. Public staged inclined-support refusals remain in place in both
 dimensions; this correction enables no new public support configuration.
+
+## Saved-model applicability and numerical scope
+
+The saved-model notice requires nonempty construction phases in `designData.site.phases`, in addition to the structural features in the entry. The advanced panel keeps manually entered stages and their results locally; they are not saved as base linear results. A saved model without construction phases has no persisted staged history to recheck. The numerical declarations cover `stages` and `finalResults`, plus solve status, rather than unrelated base forces, reactions or displacements.
