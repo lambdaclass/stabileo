@@ -191,9 +191,16 @@ function shearRatios(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, ct: { 
 /** Where the storey sits in its stack: the pattern the bars below keep, whether bars come up from below, and how far its faces step in, m. */
 export interface StackPlace { pattern?: { nx: number; ny: number; maxDia: number }; fromBelow?: boolean; offset?: number }
 
+/** A class B tension splice (§25.5.2), m. */
+export const tensionLap = (mat: Materials, dia: number): number =>
+  deriveLap(deriveDevelopment({ diameterMm: dia, fy: mat.fy, fc: mat.fc, favourableSpacing: false, edition: EDITION }), { edition: EDITION }).lapM;
+
+/** The largest tie spacing of §25.7.2.1, m. */
+export const tieSpacingLimit = (longDia: number, tieDia: number, least: number): number => columnTieSpacing(EDITION, longDia, tieDia, least).spacing;
+
 /** §25.5.5.1 in compression, or a class B tension splice (§25.5.2) where the column is not compression-dominated. */
 export function columnSplice(c: ColumnContext, dia: number, tension: boolean): { length: number; tension: boolean } {
-  if (tension) return { length: deriveLap(deriveDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, edition: EDITION }), { edition: EDITION }).lapM, tension };
+  if (tension) return { length: tensionLap(c.mat, dia), tension };
   return { length: compressionLapMm(c.mat.fy, dia) / 1000, tension };
 }
 

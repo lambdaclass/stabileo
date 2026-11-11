@@ -1,7 +1,7 @@
 import { checkWallInPlaneShear, maxWallSpacing, minimumWallRatios, minimumWallThickness, PHI_WALL_SHEAR } from '../engine/detailing/wall-design';
 import { wallInPlane, wallOutOfPlane } from '../engine/detailing/wall-member';
 import { shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
-import { deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
+import { tensionLap } from './column-row';
 import { barArea, roundDown } from './bars';
 import type { Fmt } from './format';
 import { check, ratioOf, type CheckLine, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, type WallAdopted } from './types';
@@ -186,7 +186,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     utilization: Math.max(0, ...ev.pm, ...ev.shear, ...ev.out),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     cover: c.cover,
-    hLap: deriveLap(deriveDevelopment({ diameterMm: ad.horizontal.diameter, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, edition: EDITION }), { edition: EDITION }).lapM,
+    hLap: tensionLap(c.mat, ad.horizontal.diameter),
   };
 }
 

@@ -12,9 +12,8 @@
  * curtains (9.6.4(2)). TS 500: the edge U-bars lapped as 9.3 asks.
  */
 import { wallVerticalBars } from '../engine/detailing/wall-member';
-import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
 import { barArea } from './bars';
-import { tieDiaFor } from './column-row';
+import { tieDiaFor, tieSpacingLimit } from './column-row';
 import type { WallRow } from './wall-row';
 import type { SheetCode } from './types';
 
@@ -65,7 +64,7 @@ export function wallDetail(row: WallRow, code: SheetCode, opts: { seismic?: bool
     let ties: NonNullable<WallDetail['boundary']>['ties'] = null;
     if (fam === 'aci' && rho > 0.01) {
       const dia = tieDiaFor(big);
-      ties = { dia, spacing: floorTo(columnTieSpacing('2025', small, dia, t).spacing, 0.025), clause: '§11.7.4.1, §25.7.2.1' };
+      ties = { dia, spacing: floorTo(tieSpacingLimit(small, dia, t), 0.025), clause: '§11.7.4.1, §25.7.2.1' };
     } else if (fam === 'ec2' && rho > 0.02) {
       ties = { dia: Math.max(6, Math.ceil(big / 4)), spacing: floorTo(Math.min(20 * small / 1000, t, 0.4), 0.025), clause: '9.6.4(1), 9.5.3(3)' };
     }
@@ -83,7 +82,7 @@ export function wallDetail(row: WallRow, code: SheetCode, opts: { seismic?: bool
     notes.push({ key: 'rcSheets.wallFig.n.links', clause: '9.6.4(2)', params: { a: Math.round(crossTies.along * 100), u: Math.round(crossTies.up * 100) } });
   } else if (fam === 'aci' && curtains === 2 && rhoV > 0.01) {
     const dia = tieDiaFor(a.vertical.diameter);
-    crossTies = { along: 2 * a.vertical.spacing, up: floorTo(columnTieSpacing('2025', a.vertical.diameter, dia, t).spacing, a.horizontal.spacing), dia, clause: '§11.7.4.1' };
+    crossTies = { along: 2 * a.vertical.spacing, up: floorTo(tieSpacingLimit(a.vertical.diameter, dia, t), a.horizontal.spacing), dia, clause: '§11.7.4.1' };
     notes.push({ key: 'rcSheets.wallFig.n.ties', clause: '§11.7.4.1', params: { a: Math.round(crossTies.along * 100), u: Math.round(crossTies.up * 100) } });
   } else if (fam === 'aci' && curtains === 2) {
     notes.push({ key: 'rcSheets.wallFig.n.noTies', clause: '§11.7.4.1', params: { rho: (rhoV * 100).toFixed(2) } });
