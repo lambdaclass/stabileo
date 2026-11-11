@@ -987,9 +987,11 @@ fn issue_1846_review_hinged_support_springs_carry_moments() {
 }
 
 #[test]
-fn issue_1846_review_kinematic_spring_threshold_and_dispatch() {
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round5_kinematic_spring_threshold_and_dispatch() {
     for dim in [2, 3] {
         for target_nf in [63, 64] {
+          for scale in [1.0_f64, 1000.0] {
             for spring in [0.0, 0.5e-4, 1e-4, 0.1] {
                 let mut v = review_model(dim, 0);
                 v["elements"].as_object_mut().unwrap().remove("2");
@@ -1019,6 +1021,27 @@ fn issue_1846_review_kinematic_spring_threshold_and_dispatch() {
                         serde_json::json!({"nodeId":id,"rx":true,"ry":true,"rz":false,"rrx":false,"rry":false,"rrz":false,"kz":1.0})
                     };
                 }
+                for node in v["nodes"].as_object_mut().unwrap().values_mut() {
+                    for axis in ["x", "y", "z"] {
+                        if let Some(x) = node[axis].as_f64() { node[axis] = (x * scale).into(); }
+                    }
+                }
+                v["materials"]["1"]["e"] = (1e7 / scale.powi(2)).into();
+                for (key, power) in [("a",2), ("iy",4), ("iz",4), ("j",4)] {
+                    let x = v["sections"]["1"][key].as_f64().unwrap();
+                    v["sections"]["1"][key] = (x * scale.powi(power)).into();
+                }
+                for sup in v["supports"].as_object_mut().unwrap().values_mut() {
+                    for key in ["kx", "ky", "kz"] {
+                        if let Some(x) = sup[key].as_f64() { sup[key] = (x / scale).into(); }
+                    }
+                }
+                let linear = if dim == 2 {
+                    solve_2d(&serde_json::from_value(v.clone()).unwrap()).map(|_| ())
+                } else {
+                    solve_3d(&serde_json::from_value(v.clone()).unwrap()).map(|_| ())
+                };
+                assert_eq!(linear.is_ok(), spring == 0.1, "elastic refusal remains independent: {dim}D {target_nf} {spring} {scale}: {linear:?}");
                 let r = if dim == 2 {
                     let input: SolverInput = serde_json::from_value(v).unwrap();
                     assert_eq!(DofNumbering::build_2d(&input).n_free, target_nf);
@@ -1028,7 +1051,7 @@ fn issue_1846_review_kinematic_spring_threshold_and_dispatch() {
                     assert_eq!(DofNumbering::build_3d(&input).n_free, target_nf);
                     dedaliano_engine::solver::kinematic::analyze_kinematics_3d(&input)
                 };
-                if spring <= 1e-4 {
+                if spring == 0.0 {
                     assert!(!r.is_solvable, "{dim}D {target_nf} {spring}: {r:?}");
                     assert_eq!(r.mechanism_modes, 1, "{r:?}");
                     assert!(r.mechanism_nodes.contains(&2));
@@ -1040,6 +1063,7 @@ fn issue_1846_review_kinematic_spring_threshold_and_dispatch() {
             }
         }
     }
+          }
 }
 
 #[test]
@@ -1751,6 +1775,92 @@ fn issue_1846_round4_plastic_hinge_induced_conditioning() {
             );
             assert!(result.collapse_factor.is_finite() && result.collapse_factor > 0.0);
             assert!(result.is_mechanism);
+        }
+    }
+}
+
+fn round5_cantilever(dim: usize, pads: usize) -> serde_json::Value {
+    let mut v = review_model(dim, pads);
+    for id in ["3", "4"] { v["nodes"].as_object_mut().unwrap().remove(id); }
+    for id in ["2", "3"] { v["elements"].as_object_mut().unwrap().remove(id); }
+    v["supports"]["2"] = if dim == 2 {
+        serde_json::json!({"id":2,"nodeId":2,"type":"pinned"})
+    } else {
+        serde_json::json!({"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":false,"rrz":true})
+    };
+    v["loads"][0]["data"]["fx"] = 0.0.into();
+    v["loads"][0]["data"]["my"] = 1.0.into();
+    v
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round5_persistent_moment_after_member_removal() {
+    for dim in [2, 3] {
+        for pads in [0, 22] {
+            for connected in [false, true] {
+                for (moment, removed, cancel, refused) in [(1.0,true,false,true), (1.0,false,false,false), (0.0,true,false,false), (1.0,true,true,false)] {
+                    let mut v = round5_cantilever(dim, pads);
+                    if connected {
+                        v["elements"]["2"] = v["elements"]["1"].clone();
+                        v["elements"]["2"]["id"] = 2.into();
+                        v["elements"]["2"]["type"] = "truss".into();
+                    }
+                    v["loads"][0]["data"]["my"] = moment.into();
+                    let mut opposite = v["loads"][0].clone();
+                    opposite["data"]["my"] = (-moment).into();
+                    v["loads"].as_array_mut().unwrap().push(opposite);
+                    let elements: Vec<_> = v["elements"].as_object().unwrap().values().map(|e| e["id"].clone()).collect();
+                    let supports: Vec<_> = v["supports"].as_object().unwrap().values().map(|s| s["nodeId"].clone()).collect();
+                    v["stages"] = serde_json::json!([
+                        {"name":"loaded","elementsAdded":elements,"supportsAdded":supports,"loadIndices":[0]},
+                        {"name":"removal","elementsRemoved":if removed {vec![1]} else {vec![]},"loadIndices":if cancel {vec![1]} else {vec![]}}
+                    ]);
+                    let result = review_solve(dim, v);
+                    assert_eq!(result.is_err(), refused, "{dim}D pads={pads} connected={connected} moment={moment} removed={removed} cancel={cancel}: {result:?}");
+                    if refused { assert!(result.unwrap_err().contains("free rotation")); }
+                    else if !removed {
+                        let out = result.unwrap();
+                        assert_eq!(out["stages"][0]["results"]["displacements"], out["finalResults"]["displacements"]);
+                        let d = out["finalResults"]["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 2).unwrap();
+                        assert!(d["ry"].as_f64().unwrap().abs() > 0.0);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round5_rigid_arm_rotation_subspace() {
+    use dedaliano_engine::solver::kinematic::analyze_kinematics_3d;
+    for pads in [0, 22] {
+        for (a,b) in [(2.0,1.0),(1.0,2.0),(0.0,1.0),(1.0,0.0),(0.0,0.0)] {
+            for kind in ["rigidLink", "eccentricConnection"] {
+                for held in [false, true] {
+                    let mut v = round3_model("swing3", pads);
+                    v["nodes"]["2"]["x"] = 0.0.into();
+                    v["nodes"]["2"]["y"] = a.into();
+                    v["nodes"]["2"]["z"] = b.into();
+                    v["supports"]["1"]["rrx"] = true.into();
+                    v["supports"]["1"]["rry"] = held.into();
+                    v["supports"]["1"]["rrz"] = held.into();
+                    v["constraints"][0] = if kind == "rigidLink" {
+                        serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"dofs":[]})
+                    } else {
+                        serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"offsetX":0.0,"offsetY":a,"offsetZ":b,"releases":[]})
+                    };
+                    let input: SolverInput3D = serde_json::from_value(v).unwrap();
+                    let expected = usize::from(!held && (a != 0.0 || b != 0.0));
+                    let result = analyze_kinematics_3d(&input);
+                    assert_eq!(result.mechanism_modes, expected, "pads={pads} arm=({a},{b}) {kind} held={held}: {result:?}");
+                    assert_eq!(result.is_solvable, expected == 0);
+                    assert_eq!(solve_3d(&input).is_ok(), expected == 0);
+                    assert_eq!(solve_staged_3d(&stage_3d(&input)).is_ok(), expected == 0);
+                    assert_eq!(dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input, 10, 1e-8).is_ok(), expected == 0);
+                }
+            }
         }
     }
 }

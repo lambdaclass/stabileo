@@ -275,16 +275,18 @@ for (const dimension of [2, 3]) {
       }
       if (dimension === 3) for (const node of Object.values(input.nodes)) node.y = 0;
       const result = JSON.parse((dimension === 2 ? analyze_kinematics_2d : analyze_kinematics_3d)(JSON.stringify(input)));
-      assert.equal(result.isSolvable, spring === 0.1, `${dimension}D nf=${target} spring=${spring}`);
-      if (spring !== 0.1) {
+      assert.equal(result.isSolvable, spring > 0, `${dimension}D nf=${target} spring=${spring}`);
+      if (spring === 0) {
         assert.equal(result.mechanismModes, 1);
         assert.ok(result.mechanismNodes.includes(2));
         assert.match(result.diagnosis, /mecanismo/);
+      } else {
+        assert.equal(result.mechanismModes, 0);
       }
     }
   }
 }
-console.log('2D and 3D kinematic sub-threshold springs agree at nf=63 and nf=64');
+console.log('2D and 3D kinematic positive springs stabilize the truss and agree at nf=63 and nf=64');
 
 const round3Fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/staged-review-round3.json', import.meta.url)));
 function round3Model(name, pads) {
