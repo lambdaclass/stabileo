@@ -530,6 +530,17 @@ export function runDesign(
   contexts: Iterable<MemberContext>,
   opts: RunOptions = {},
 ): DesignRunSummary {
+  const steps = runDesignSteps(adapter, contexts, opts);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+export function* runDesignSteps(
+  adapter: DesignCodeAdapter,
+  contexts: Iterable<MemberContext>,
+  opts: RunOptions = {},
+): Generator<void, DesignRunSummary, void> {
   const clock = opts.clock ?? defaultClock;
   const t0 = clock();
   const maxRunMs = opts.maxRunMs ?? DEFAULT_RUN_MS;
@@ -579,6 +590,7 @@ export function runDesign(
         elementId: ctx.elementId,
       });
     }
+    yield;
   }
 
   /*
@@ -591,9 +603,9 @@ export function runDesign(
    * what it leaves out is counted in `notReached`; a cancellation still stops the settle, and the
    * run says it was aborted.
    */
-  if (!settleCrossingSeats(adapter, list, outcomes, cages, colBars, corners, absent, {
+  if (!(yield* settleCrossingSeats(adapter, list, outcomes, cages, colBars, corners, absent, {
     budget: opts.budget, clock, cancelled: () => !!opts.signal?.aborted,
-  })) aborted = true;
+  }))) aborted = true;
 
   const prov = adapter.provenance();
   return tallyRunSummary(
@@ -623,12 +635,12 @@ export function runDesign(
  * against stay what they were checked as, and what is left verified passes against the designs
  * the detailing lays: never a guess.
  */
-function settleCrossingSeats(
+function* settleCrossingSeats(
   adapter: DesignCodeAdapter, list: MemberContext[], outcomes: MemberDesignOutcome[],
   cages: Map<number, number>, colBars: Map<number, { count: number; diameterMm: number }>,
   corners: Map<number, BeamCornerRecord>, absent: Set<number>,
   o: { budget?: SearchBudget; clock: Clock; cancelled: () => boolean },
-): boolean {
+): Generator<void, boolean, void> {
   const refusedOnAnchorage = (x: MemberDesignOutcome) => x.elementType === 'beam' && x.outcome !== 'VERIFIED' && x.limiting.includes('anchorage');
   const pieces = (c: MemberContext) => c.span?.elements ?? [c.elementId];
   const record = (i: number) => {
@@ -654,6 +666,7 @@ function settleCrossingSeats(
     for (const id of pieces(c)) lightest.set(id, { cornerDiasMm: [Math.min(...admissible)], stirrupDiaMm: c.material.stirrupDia });
   }
   for (const i of refused) {
+    yield;
     if (o.cancelled()) return false;
     const again = designMember(adapter, withSeats(list[i]!, { seats: lightest, present: new Set(lightest.keys()) }), { budget: o.budget, clock: o.clock });
     if (again.outcome !== 'VERIFIED') {
@@ -676,6 +689,7 @@ function settleCrossingSeats(
     // Every beam's corner seats as designed now (its crossing beams' settled since).
     for (let i = 0; i < outcomes.length; i++) if (outcomes[i]!.elementType === 'beam') record(i);
     for (let i = 0; i < outcomes.length; i++) {
+      yield;
       const x = outcomes[i]!;
       if (x.elementType !== 'beam' || x.outcome !== 'VERIFIED') continue;
       const rebar = detailableReinforcement(x)?.rebar;

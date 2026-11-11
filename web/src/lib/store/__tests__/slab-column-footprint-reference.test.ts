@@ -51,7 +51,8 @@
  * where the shear stress around a column is checked; how much of the floor's load crosses it is
  * the analysis', all of it in a flat plate. It does not bound the global split.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { modelStore, resultsStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { designRunStore } from '../design-run.svelte';
@@ -72,6 +73,8 @@ beforeAll(async () => {
   expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
 });
 
+afterEach(() => { resultsStore.clear(); });
+
 const PRINT = !!process.env.SPAN_TRACE_PRINT;
 const FINE = !!process.env.SLAB_COLUMN_REFERENCE;
 const COMBO = '1.2D + 1.6L';
@@ -83,7 +86,7 @@ const r1 = (v: number) => Math.round(v * 10) / 10;
 
 interface Floor { slab: number; beamsWeight: number; J: number; faces: number; nodes: number }
 interface BeamAtFaces { V: [number, number]; M: [number, number] }
-interface Reading { applied: number; reactions: number; floors: Map<number, Floor>; beams: Map<string, BeamAtFaces>; links: number }
+interface Reading { applied: number; reactions: number; floors: Map<number, Floor>; beams: Map<string, BeamAtFaces>; links: number; joint: ReturnType<typeof currentSlabColumnJoint> }
 
 /** The nearest column axis point to a node, and how far it is from it (plan, Chebyshev). */
 function axisOf(p: { x: number; y: number }) {
@@ -151,7 +154,7 @@ function read(mesh: number, o: { footprint?: boolean; beamStiffness?: number } =
       if (foot.z > 0) fl(foot.z).J -= foot.n;
     }
   }
-  return { applied, reactions, floors, beams, links: modelStore.model.constraints.length };
+  return { applied, reactions, floors, beams, links: modelStore.model.constraints.length, joint: currentSlabColumnJoint() };
 }
 
 /** The beams' weight inside the column sections, a floor: 14 ends × 0,20 m × 1,2 · 25 · 0,10 kN/m. */
@@ -189,10 +192,18 @@ function rigidSupportTributary(): number {
 
 describe('the slab-column joint on the span building: one node against the column\'s section, 0,2 m', () => {
   const x = new Map<string, Reading>();
-  beforeAll(() => {
+  beforeAll(async () => {
+    resultsStore.clear();
+    await yieldToEventLoop();
     x.set('node', read(0.2));
+    resultsStore.clear();
+    await yieldToEventLoop();
     x.set('section', read(0.2, { footprint: true }));
+    resultsStore.clear();
+    await yieldToEventLoop();
     x.set('k10', read(0.2, { footprint: true, beamStiffness: 10 }));
+    resultsStore.clear();
+    await yieldToEventLoop();
     x.set('k100', read(0.2, { footprint: true, beamStiffness: 100 }));
     if (!PRINT) return;
     for (const [k, v] of x) console.log(`${k}: links ${v.links} faces ${floorsOf(v, atFaces)} node ${floorsOf(v, atNode)} V4 ${beamV4(v)} beams ${JSON.stringify([...v.beams].map(([p, b]) => [p, b.V.map(r1), b.M.map(r1)]))}`);
@@ -235,20 +246,25 @@ describe('the slab-column joint on the span building: one node against the colum
   }, 60_000);
 
   it('the indicator: one node is a point joint on both floors, the tied sections are represented', () => {
-    read(0.2);
-    const node = currentSlabColumnJoint();
+    const node = x.get('node')!.joint;
     expect(node.verdict).toBe('pointJoint');
     expect([...new Set(node.pointJoints.map((m) => m.params?.level))].sort()).toEqual([3, 6]);
-    read(0.2, { footprint: true });
-    expect(currentSlabColumnJoint().verdict).toBe('sectionRepresented');
+    expect(x.get('section')!.joint.verdict).toBe('sectionRepresented');
   }, 60_000);
 });
 
 describe.runIf(FINE)('the reference converges: 0,2, 0,1 and 0,05 m', () => {
   const MESHES = [0.2, 0.1, 0.05] as const;
   const node = new Map<number, Reading>(), section = new Map<number, Reading>();
-  beforeAll(() => {
-    for (const m of MESHES) { node.set(m, read(m)); section.set(m, read(m, { footprint: true })); }
+  beforeAll(async () => {
+    for (const m of MESHES) {
+      resultsStore.clear();
+      await yieldToEventLoop();
+      node.set(m, read(m));
+      resultsStore.clear();
+      await yieldToEventLoop();
+      section.set(m, read(m, { footprint: true }));
+    }
     if (PRINT) for (const m of MESHES) console.log(`mesh ${m}: node ${floorsOf(node.get(m)!, atNode)} / ${floorsOf(node.get(m)!, atFaces)} section ${floorsOf(section.get(m)!, atFaces)} V4 ${beamV4(node.get(m)!)} | ${beamV4(section.get(m)!)}`);
   }, 7_200_000);
 
