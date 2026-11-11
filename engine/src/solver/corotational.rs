@@ -3070,6 +3070,58 @@ mod infinitesimal_rotation_regressions {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #761"]
+    fn rotated_pure_axial_chords_have_exactly_zero_rotation() {
+        let a = 1.0 + 2.0f64.powi(-27);
+        let b = 1.0 - 2.0f64.powi(-27);
+        for sx in [-1.0, 1.0] {
+            for sz in [-1.0, 1.0] {
+                for extension in [-0.5 * b, 0.0, b] {
+                    assert_eq!(chord_rotation(sx * a, sz * a, sx * extension, sz * extension), 0.0);
+                }
+                for transverse in [-2.0f64.powi(-26), 2.0f64.powi(-26)] {
+                    let actual = chord_rotation(sx * a, sz * a, -sz * transverse, sx * transverse);
+                    let expected = transverse.atan2(a);
+                    assert!((actual / expected - 1.0).abs() < 1e-14);
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn rotated_pure_axial_states_have_no_assembled_or_recovered_bending() {
+        let a = 1.0 + 2.0f64.powi(-27);
+        let b = 1.0 - 2.0f64.powi(-27);
+        for extension in [-0.5 * b, b] {
+            let input: SolverInput = serde_json::from_value(serde_json::json!({
+                "nodes":{"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":a,"z":a}},
+                "elements":{"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+                "materials":{"1":{"id":1,"e":1.0,"nu":0.0}},
+                "sections":{"1":{"id":1,"a":1.0,"iz":1.0}},"supports":{},"loads":[]
+            })).unwrap();
+            let dofs = DofNumbering::build_2d(&input);
+            let mut u = vec![0.0; dofs.n_total];
+            u[dofs.global_dof(2, 0).unwrap()] = extension;
+            u[dofs.global_dof(2, 1).unwrap()] = extension;
+            let mut internal = vec![0.0; dofs.n_total];
+            let mut tangent = vec![0.0; dofs.n_total * dofs.n_total];
+            assemble_corotational(&input, &dofs, &u, &mut internal, &mut tangent);
+            for node in [1, 2] {
+                assert_eq!(internal[dofs.global_dof(node, 2).unwrap()], 0.0);
+            }
+            let mut triplet_internal = vec![0.0; dofs.n_total];
+            assemble_corotational_triplets_2d(&input, &dofs, &u, &mut triplet_internal, &mut vec![], &mut vec![], &mut vec![]);
+            assert_eq!(internal, triplet_internal);
+            let forces = compute_corotational_forces(&input, &dofs, &u);
+            for force in forces {
+                assert_eq!([force.v_start, force.v_end, force.m_start, force.m_end], [0.0; 4]);
+                assert!(force.n_start.is_sign_positive() == extension.is_sign_positive());
+            }
+        }
+    }
+
+    #[test]
     fn natural_rotations_retain_increments_on_both_sides_of_machine_precision() {
         let ex = [1.0, 0.0, 0.0];
         let ey = [0.0, 1.0, 0.0];

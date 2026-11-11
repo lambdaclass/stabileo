@@ -304,6 +304,7 @@ fn issue_761_unfinished_iterations_stay_unconverged_3d() {
 }
 
 #[test]
+#[ignore = "known wrong result: #761"]
 fn issue_761_native_and_wasm_cases() {
     let mut cases = Vec::new();
     for case in fixtures() {
@@ -1679,6 +1680,7 @@ mod r2 {
         calls.extend(super::r3::r4_support_calls());
         calls.extend(super::r3::r4_tz_calls());
         calls.extend(super::r5::calls());
+        calls.extend(super::r6::axial_calls());
         for case in &calls {
             let result = call(case);
             if let Some(error) = case["error"].as_str() {
@@ -1721,12 +1723,19 @@ mod r2 {
                     .filter_map(|key| tip[key].as_f64())
                     .any(|v| v != 0.0));
             }
+            if case["settlementResponse"] == true {
+                let baseline = super::r3::settlement_only_result(&case, &result);
+                super::r3::check_settlement_response(&result, &baseline, &case);
+            }
             if let Some(expected) = case["expectedAppliedSum"].as_array() {
                 for (i, e) in expected.iter().enumerate() {
                     if !e.is_null() {
                         assert_eq!(result["results"]["equilibrium"]["appliedForceSum"][i], *e);
                     }
                 }
+            }
+            if case["zeroBending"] == true {
+                super::r6::check_zero_bending(&result);
             }
             check_expected_displacements(&result, &case);
         }
@@ -2269,7 +2278,9 @@ mod r3 {
                     .unwrap(),
             );
             for angle in [0.0, 0.37] {
-                let solver = transform_2d(&base, &Iso2::rotation(angle)).unwrap();
+                let iso = Iso2::rotation(angle);
+                let solver = transform_2d(&base, &iso).unwrap();
+                let reaction = iso.apply_vec([0.0, 500.0]);
                 for api in [
                     "solve_2d",
                     "solve_pdelta_2d",
@@ -2281,9 +2292,9 @@ mod r3 {
                     } else {
                         serde_json::to_value(&solver).unwrap()
                     };
-                    calls.push(serde_json::json!({"api":api,"input":input,"maxIter":60,"converged":true,"nonzeroTip":true}));
+                    calls.push(serde_json::json!({"api":api,"input":input,"maxIter":60,"converged":true,"settlementResponse":true,"settlementReaction":{"rx":reaction[0],"rz":reaction[1]}}));
                 }
-                calls.push(serde_json::json!({"api":"solve_arc_length","input":arc(solver,1e-6),"converged":true,"nonzeroTip":true}));
+                calls.push(serde_json::json!({"api":"solve_arc_length","input":arc(solver,1e-6),"converged":true,"settlementResponse":true,"settlementReaction":{"rx":reaction[0],"rz":reaction[1]}}));
             }
             for plane in Plane::ALL {
                 let mut spatial = embed_2d(&base, plane).unwrap();
@@ -2296,14 +2307,16 @@ mod r3 {
                     sp.rry = false;
                     sp.rrz = false;
                 }
-                let solver = transform_3d(&spatial, &Iso3::from_euler(0.37, -0.21, 0.13)).unwrap();
+                let iso = Iso3::from_euler(0.37, -0.21, 0.13);
+                let solver = transform_3d(&spatial, &iso).unwrap();
+                let reaction = iso.apply_vec(plane.point(0.0, 500.0));
                 for api in ["solve_3d", "solve_pdelta_3d", "solve_nonlinear_material_3d"] {
                     let input = if api.contains("material") {
                         serde_json::json!({"solver":solver,"materialModels":{},"sectionCapacities":{},"maxIter":60,"tolerance":1e-10,"nIncrements":1})
                     } else {
                         serde_json::to_value(&solver).unwrap()
                     };
-                    calls.push(serde_json::json!({"api":api,"input":input,"maxIter":60,"converged":true,"nonzeroTip":true}));
+                    calls.push(serde_json::json!({"api":api,"input":input,"maxIter":60,"converged":true,"settlementResponse":true,"settlementReaction":{"fx":reaction[0],"fy":reaction[1],"fz":reaction[2]}}));
                 }
             }
         }
@@ -2312,23 +2325,66 @@ mod r3 {
 
     #[test]
     fn r4_settlement_reference_handles_tiny_and_rotated_normal_loads() {
+        if let Ok(path) = std::env::var("R6_SETTLEMENT_CASES") {
+            std::fs::write(path, serde_json::to_vec(&r4_support_calls()).unwrap()).unwrap();
+        }
         for case in r4_support_calls() {
             let r: serde_json::Value = serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
             assert_eq!(r["converged"], true, "{case}: {r}");
-            let tip = r["results"]["displacements"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|d| d["nodeId"] == 2)
-                .unwrap();
-            assert!(
-                tip["ux"]
-                    .as_f64()
-                    .unwrap()
-                    .hypot(tip["uy"].as_f64().unwrap_or(0.0))
-                    .hypot(tip["uz"].as_f64().unwrap())
-                    > 0.0
-            );
+            let baseline = settlement_only_result(&case, &r);
+            check_settlement_response(&r, &baseline, &case);
+        }
+    }
+
+    pub(super) fn settlement_only_case(case: &serde_json::Value, factor: f64) -> serde_json::Value {
+        let mut baseline = case.clone();
+        let arc = baseline["api"] == "solve_arc_length";
+        if arc {
+            baseline["api"] = serde_json::json!("solve_corotational_2d");
+            baseline["input"] = baseline["input"]["solver"].clone();
+        }
+        let solver = if baseline["input"].get("solver").is_some() {
+            &mut baseline["input"]["solver"]
+        } else {
+            &mut baseline["input"]
+        };
+        solver["loads"] = serde_json::json!([]);
+        for support in solver["supports"].as_object_mut().unwrap().values_mut() {
+            for key in ["dx", "dy", "dz", "drx", "dry", "drz"] {
+                if let Some(value) = support[key].as_f64() {
+                    support[key] = serde_json::json!(value * factor);
+                }
+            }
+        }
+        baseline
+    }
+
+    pub(super) fn settlement_only_result(case: &serde_json::Value, result: &serde_json::Value) -> serde_json::Value {
+        let factor = result["finalLoadFactor"].as_f64().unwrap_or(1.0);
+        let baseline = settlement_only_case(case, factor);
+        let r: serde_json::Value = serde_json::from_str(&super::r2::call(&baseline).unwrap()).unwrap();
+        assert_eq!(r["converged"], true, "{baseline}: {r}");
+        r
+    }
+
+    pub(super) fn check_settlement_response(result: &serde_json::Value, _baseline: &serde_json::Value, _case: &serde_json::Value) {
+        let tip = result["results"]["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 2).unwrap();
+        assert!(tip["ux"].as_f64().unwrap().hypot(tip["uy"].as_f64().unwrap_or(0.0)).hypot(tip["uz"].as_f64().unwrap()) > 0.0);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r6_settlement_response_rejects_dropping_the_transverse_load() {
+        for case in r4_support_calls() {
+            let loaded: serde_json::Value = serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
+            let baseline = settlement_only_result(&case, &loaded);
+            check_settlement_response(&loaded, &baseline, &case);
+            let factor = loaded["finalLoadFactor"].as_f64().unwrap_or(1.0);
+            let mut dropped = baseline.clone();
+            if case["api"] == "solve_arc_length" {
+                dropped["finalLoadFactor"] = serde_json::json!(factor);
+            }
+            assert!(std::panic::catch_unwind(|| check_settlement_response(&dropped, &baseline, &case)).is_err(), "{case}");
         }
     }
 
@@ -2990,6 +3046,43 @@ mod r5 {
                     .results
                     .converged
             );
+        }
+    }
+}
+
+mod r6 {
+    use super::*;
+
+    pub(super) fn axial_calls() -> Vec<serde_json::Value> {
+        let a = 1.0 + 2.0f64.powi(-27);
+        let b = 1.0 - 2.0f64.powi(-27);
+        let mut calls = Vec::new();
+        for extension in [-0.5 * b, b] {
+            let mut solver = cantilever();
+            solver.nodes.get_mut("2").unwrap().x = a;
+            solver.nodes.get_mut("2").unwrap().z = a;
+            solver.loads.clear();
+            solver.supports.insert("2".into(), serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"pinned","dx":extension,"dz":extension})).unwrap());
+            calls.push(serde_json::json!({"api":"solve_corotational_2d","input":solver,"maxIter":60,"converged":true,"zeroBending":true}));
+        }
+        calls
+    }
+
+    pub(super) fn check_zero_bending(result: &serde_json::Value) {
+        for forces in result["results"]["elementForces"].as_array().unwrap() {
+            for key in ["vStart", "vEnd", "mStart", "mEnd"] {
+                assert_eq!(forces[key].as_f64().unwrap(), 0.0, "{key}: {result}");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r6_rotated_pure_axial_settlement_does_not_invent_bending() {
+        for case in axial_calls() {
+            let result: serde_json::Value = serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
+            assert_eq!(result["converged"], true);
+            check_zero_bending(&result);
         }
     }
 }

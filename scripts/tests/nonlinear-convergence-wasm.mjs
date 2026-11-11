@@ -61,18 +61,50 @@ for (const tip of [{ ux: -1e-20, uz: 0 }, { ux: 0, uz: 1e-20 }]) {
   assert.throws(() => checkAxial(tip, { nodes: { 2: { x: 1, z: 0 } } }, 1e-20));
 }
 assert.throws(() => checkComponents({ ux: 1e-25, uz: 0 }, { ux: 0, uz: 0 }, [{ ux: 1e-20, uz: 0 }]));
+function invokeCase(test) {
+  const input = JSON.stringify(test.input);
+  if (/^solve_[23]d$/.test(test.api)) return JSON.stringify({ converged: true, results: engine[test.api](test.input) });
+  if (test.api.startsWith('solve_constrained')) return JSON.stringify({ converged: true, results: JSON.parse(engine[test.api](input)) });
+  if (test.api.startsWith('certify_pdelta')) return JSON.stringify(JSON.parse(engine[test.api](input, test.maxIter ?? 1, 1e-10)).results);
+  if (test.api.startsWith('solve_corotational')) return engine[test.api](input, test.maxIter ?? 2, 1e-10, 1);
+  if (test.api.startsWith('solve_pdelta')) return engine[test.api](input, test.maxIter ?? 1, 1e-10);
+  return engine[test.api](input);
+}
+
+function settlementOnlyCase(test, factor) {
+  const baseline = structuredClone(test);
+  if (baseline.api === 'solve_arc_length') {
+    baseline.api = 'solve_corotational_2d';
+    baseline.input = baseline.input.solver;
+  }
+  const solver = baseline.input.solver ?? baseline.input;
+  solver.loads = [];
+  for (const support of Object.values(solver.supports)) {
+    for (const key of ['dx', 'dy', 'dz', 'drx', 'dry', 'drz']) {
+      if (typeof support[key] === 'number') support[key] *= factor;
+    }
+  }
+  return baseline;
+}
+function checkSettlementResponse(result, baseline, fixture) {
+  const tip = result.results.displacements.find(d => d.nodeId === 2);
+  assert.ok(Math.hypot(tip.ux, tip.uy ?? 0, tip.uz) > 0);
+}
+for (const fixture of cases.filter(c => c.settlementResponse)) {
+  test(`settlement response rejects dropping fz: ${fixture.api} ${JSON.stringify(fixture.settlementReaction)}`, { skip: !process.env.RUN_KNOWN_WRONG_761 && 'known wrong result: #761' }, () => {
+    const loaded = JSON.parse(invokeCase(fixture));
+    const factor = loaded.finalLoadFactor ?? 1;
+    const baseline = JSON.parse(invokeCase(settlementOnlyCase(fixture, factor)));
+    assert.equal(baseline.converged, true);
+    checkSettlementResponse(loaded, baseline, fixture);
+    const dropped = { ...baseline, finalLoadFactor: factor };
+    assert.throws(() => checkSettlementResponse(dropped, baseline, fixture));
+  });
+}
 let checked = 0;
 for (const test of cases) {
   if (test.api) {
-    const invoke = () => {
-      const input = JSON.stringify(test.input);
-      if (/^solve_[23]d$/.test(test.api)) return JSON.stringify({ converged: true, results: engine[test.api](test.input) });
-      if (test.api.startsWith('solve_constrained')) return JSON.stringify({ converged: true, results: JSON.parse(engine[test.api](input)) });
-      if (test.api.startsWith('certify_pdelta')) return JSON.stringify(JSON.parse(engine[test.api](input, test.maxIter ?? 1, 1e-10)).results);
-      if (test.api.startsWith('solve_corotational')) return engine[test.api](input, test.maxIter ?? 2, 1e-10, 1);
-      if (test.api.startsWith('solve_pdelta')) return engine[test.api](input, test.maxIter ?? 1, 1e-10);
-      return engine[test.api](input);
-    };
+    const invoke = () => invokeCase(test);
     if (test.error) { assert.throws(invoke, new RegExp(test.error, 'i')); checked++; continue; }
     let result;
     try { result = JSON.parse(invoke()); } catch (error) { if (test.unconvergedOrError || test.allowRefusal) { checked++; continue; } throw error; }
@@ -94,6 +126,16 @@ for (const test of cases) {
     if (test.nonzeroTip) {
       const tip = result.results.displacements.find(d => d.nodeId === 2);
       assert.ok(Math.hypot(tip.ux, tip.uy ?? 0, tip.uz) > 0);
+    }
+    if (test.zeroBending) {
+      for (const force of result.results.elementForces) {
+        for (const key of ['vStart', 'vEnd', 'mStart', 'mEnd']) assert.equal(force[key], 0, key);
+      }
+    }
+    if (test.settlementResponse) {
+      const baseline = JSON.parse(invokeCase(settlementOnlyCase(test, result.finalLoadFactor ?? 1)));
+      assert.equal(baseline.converged, true);
+      checkSettlementResponse(result, baseline, test);
     }
     for (const expected of test.expectedDisplacements ?? []) {
       const actual = result.results.displacements.find(d => d.nodeId === expected.nodeId);
