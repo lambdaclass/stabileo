@@ -992,7 +992,7 @@ fn issue_1846_round5_kinematic_spring_threshold_and_dispatch() {
     for dim in [2, 3] {
         for target_nf in [63, 64] {
           for scale in [1.0_f64, 1000.0] {
-            for spring in [0.0, 1e-30, 0.5e-4, 1e-4, 0.1, 1e20] {
+            for spring in [0.0, 0.5e-4, 1e-4, 1e-30, 0.1, 1e20] {
                 let mut v = review_model(dim, 0);
                 v["elements"].as_object_mut().unwrap().remove("2");
                 v["elements"].as_object_mut().unwrap().remove("3");
@@ -1043,6 +1043,23 @@ fn issue_1846_round5_kinematic_spring_threshold_and_dispatch() {
                 };
                 if spring == 0.5e-4 || spring == 1e-4 {
                     assert!(linear.as_ref().unwrap_err().contains("conditioning limit"), "{linear:?}");
+                    let mut loaded = v.clone();
+                    loaded["loads"] = serde_json::json!([{"type":"nodal","data":{"nodeId":2,"fx":1e-7,"fz":0.0,"my":0.0}}]);
+                    let errors = if dim == 2 {
+                        let input: SolverInput = serde_json::from_value(loaded).unwrap();
+                        vec![
+                            dedaliano_engine::solver::pdelta::solve_pdelta_2d(&input, 10, 1e-12).unwrap_err(),
+                            dedaliano_engine::solver::corotational::solve_corotational_2d(&input, 10, 1e-12, 1, false).unwrap_err(),
+                        ]
+                    } else {
+                        for field in ["fy","mx","mz"] { loaded["loads"][0]["data"][field] = 0.0.into(); }
+                        let input: SolverInput3D = serde_json::from_value(loaded).unwrap();
+                        vec![
+                            dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input, 10, 1e-12).unwrap_err(),
+                            dedaliano_engine::solver::corotational::solve_corotational_3d(&input, 10, 1e-12, 1, false).unwrap_err(),
+                        ]
+                    };
+                    for error in errors { assert!(error.contains("conditioning limit"), "{error}"); }
                 }
                 assert_eq!(linear.is_ok(), spring == 0.1, "elastic refusal remains independent: {dim}D {target_nf} {spring} {scale}: {linear:?}");
                 if spring == 0.1 {

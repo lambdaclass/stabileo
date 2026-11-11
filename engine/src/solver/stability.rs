@@ -1508,4 +1508,41 @@ mod tests {
         assert!(LANCZOS_RUNS.with(|count| count.get()) > 0);
     }
 
+    #[test]
+    #[ignore = "known wrong result: #1846"]
+    fn staged_round5_rotation_subspace_and_rounding_boundary() {
+        for angle in [0.0_f64, 0.3, 1.2] {
+            let (s, c) = angle.sin_cos();
+            let mut free: Vec<_> = [vec![c,s], vec![-s,c]].into_iter().map(|direction| FreeDirection {
+                node: 1, kind: DofKind::Rotation, moves_translation: false,
+                dofs: vec![0,1], direction, scale: 1.0, coupling: Vec::new(),
+            }).collect();
+            let (moving, undecided) = swinging(&mut free, &[vec![(0,1.0)],vec![(0,2.0)]]);
+            assert_eq!(moving, vec![1]);
+            assert!(undecided.is_empty());
+            assert_eq!(free.iter().filter(|f| f.moves_translation).count(), 1);
+            let harmless = free.iter().find(|f| !f.moves_translation).unwrap();
+            assert!((harmless.direction[0] + 2.0 * harmless.direction[1]).abs() <= ROUNDING * f64::EPSILON);
+        }
+        let tolerance = ROUNDING * 3.0 * f64::EPSILON;
+        for factor in [0.0, 0.25, 2.0] {
+            let alpha = factor * tolerance;
+            let tags = vec![DofTag { node: 1, kind: DofKind::Rotation }; 3];
+            let k = vec![1.0,0.0,0.0, 0.0,0.0,0.0, 0.0,0.0,0.0];
+            let motion = vec![vec![(0,1.0)],vec![(0,alpha)],vec![(0,2.0*alpha)]];
+            let result = analyze_dense_constrained(&k, 3, &tags, &motion);
+            if factor == 0.0 {
+                assert_eq!(result.verdict, Verdict::Stable);
+                assert_eq!(result.free_rotations().count(), 2);
+            } else if factor < 1.0 {
+                assert_eq!(result.verdict, Verdict::Singular);
+                assert_eq!(result.reason, Reason::SwingAtRounding);
+            } else {
+                assert_eq!(result.verdict, Verdict::Mechanism);
+                assert_eq!(result.free_rotations().count(), 1);
+                assert_eq!(result.mechanism_directions().count(), 1);
+            }
+        }
+    }
+
 }

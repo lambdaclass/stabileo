@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { initSync, solve_staged_2d, solve_staged_3d, solve_2d, solve_3d, solve_corotational_2d, solve_nonlinear_material_3d, analyze_kinematics_2d, analyze_kinematics_3d, certify_linear_2d, solve_plastic_3d, solve_plastic_2d } from '../../web/src/lib/wasm/dedaliano_engine.js';
+import { initSync, solve_staged_2d, solve_staged_3d, solve_2d, solve_3d, solve_corotational_2d, solve_corotational_3d, solve_pdelta_2d, solve_pdelta_3d, solve_nonlinear_material_3d, analyze_kinematics_2d, analyze_kinematics_3d, certify_linear_2d, solve_plastic_3d, solve_plastic_2d } from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/staged-orphan-1846.json', import.meta.url)));
@@ -287,7 +287,14 @@ for (const dimension of [2, 3]) {
         const d = linear(loaded).displacements.find(d => d.nodeId === 2);
         assert.ok(Math.abs(d.ux / scale - 1e-6) <= 1e-12);
         assert.ok(Math.abs(d.uz / scale + 1e-6) <= 1e-12);
-      } else if (spring === 0.5e-4 || spring === 1e-4) assert.throws(() => linear(input), /conditioning limit/);
+      } else if (spring === 0.5e-4 || spring === 1e-4) {
+        assert.throws(() => linear(input), /conditioning limit/);
+        const loaded = structuredClone(input);
+        loaded.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 1e-7, fz: 0, my: 0 } }];
+        if (dimension === 3) Object.assign(loaded.loads[0].data, { fy: 0, mx: 0, mz: 0 });
+        assert.throws(() => (dimension === 2 ? solve_pdelta_2d : solve_pdelta_3d)(JSON.stringify(loaded), 10, 1e-12), /conditioning limit/);
+        assert.throws(() => (dimension === 2 ? solve_corotational_2d : solve_corotational_3d)(JSON.stringify(loaded), 10, 1e-12, 1), /conditioning limit/);
+      }
       else assert.throws(() => linear(input));
       const result = JSON.parse((dimension === 2 ? analyze_kinematics_2d : analyze_kinematics_3d)(JSON.stringify(input)));
       assert.equal(result.isSolvable, spring > 0, `${dimension}D nf=${target} spring=${spring}`);
