@@ -3,6 +3,7 @@
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { coordLabels, modelCoords, shownCoords } from '../../lib/axes/display';
+  import { nodeMoveArgs3D, nodeShown3D } from '../../lib/axes/node-coords';
   import { unitQ } from '../../lib/store/display-units.svelte';
   import UnitInput from '../UnitInput.svelte';
 
@@ -20,13 +21,12 @@
     if (!Number.isFinite(value)) return;
     const node = modelStore.getNode(id);
     if (!node) return;
-    const shown = shownCoords(node, is3D);
+    const shown = is3D ? nodeShown3D(node) : shownCoords(node, false);
     if (shown[axis] === value) return;
     shown[axis] = value;
-    const m = modelCoords(shown, is3D);
     historyStore.pushState();
-    if (is3D) modelStore.updateNode(id, m.x, m.y, m.z);
-    else modelStore.updateNode(id, m.x, m.y);
+    if (is3D) modelStore.updateNode(id, ...nodeMoveArgs3D(shown));
+    else { const m = modelCoords(shown, false); modelStore.updateNode(id, m.x, m.y); }
     resultsStore.clear();
   }
 
@@ -57,7 +57,7 @@
         <tr class:row-sel={rowSelected('node', node.id)} onclick={(e) => selectRow(e, 'node', node.id)}
           ondblclick={(e) => frameRow(e, 'node', node.id)} onfocusin={(e) => focusRow(e, 'node', node.id)}>
           <td class="id-cell">{node.id}</td>
-          {#each shownCoords(node, is3D) as c, i}
+          {#each is3D ? nodeShown3D(node) : shownCoords(node, false) as c, i}
             <td><UnitInput value={c} qty="length" unit={false} step="0.001" onchange={(v) => updateCoord(node.id, i, v)} /></td>
           {/each}
           <td><button class="del" onclick={() => deleteNode(node.id)}>&#10005;</button></td>

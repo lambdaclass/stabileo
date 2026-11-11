@@ -5,6 +5,7 @@
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import SupportDetails from './SupportDetails.svelte';
   import { shownCoords, coordLabels, twoD, userRot, userVec } from '../../lib/axes/display';
+  import { nodeShown3D } from '../../lib/axes/node-coords';
   import {
     TWO_D_DISPLACEMENT_LABELS,
     TWO_D_NODAL_LOAD_LABELS,
@@ -54,7 +55,7 @@
         <span>ID:</span>
         <span>{node.id}</span>
       </div>
-      {#each shownCoords(is3DMode ? node : { x: node.x, y: get2DDisplayedVertical(node) }, is3DMode) as c, i}
+      {#each is3DMode ? nodeShown3D(node) : shownCoords({ x: node.x, y: get2DDisplayedVertical(node) }, false) as c, i}
         <div class="property-row">
           <span>{coordLabels(is3DMode)[i]}:</span>
           <span>{dv(c, 'length').toFixed(3)} {ul('length')}</span>

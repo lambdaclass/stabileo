@@ -49,6 +49,7 @@ import {
   get2DDisplayedVertical,
 } from '../geometry/coordinate-system';
 import { coordLabels, shownCoords, twoD, userRot, userVec } from '../axes/display';
+import { nodeShown3D } from '../axes/node-coords';
 
 interface ExcelExportOptions {
   filename?: string;
@@ -343,7 +344,7 @@ function createNodesSheet(): Xlsx.WorkSheet {
   for (const node of modelStore.nodes.values()) {
     const row: (string | number)[] = [
       node.id,
-      ...shownCoords(is3D ? node : { x: node.x, y: get2DDisplayedVertical(node) }, is3D).map((c) => Number(c.toFixed(4))),
+      ...(is3D ? nodeShown3D(node) : shownCoords({ x: node.x, y: get2DDisplayedVertical(node) }, false)).map((c) => Number(c.toFixed(4))),
     ];
 
     if (hasResults && is3D && r3d) {

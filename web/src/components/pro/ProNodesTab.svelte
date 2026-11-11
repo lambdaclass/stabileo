@@ -7,7 +7,8 @@
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
-  import { axesKey, modelVec, userVec } from '../../lib/axes/display';
+  import { axesKey, modelVec } from '../../lib/axes/display';
+  import { nodeMoveArgs3D, nodeShown3D, standingPlane } from '../../lib/axes/node-coords';
   import { findCoincidentNode } from '../../lib/engine/mesh-weld';
   import { addNodeRow } from '../../lib/actions/node-rows';
   import { mergeNodesInto } from '../../lib/model/edit/cleanup';
@@ -46,12 +47,13 @@
   $effect(() => {
     const storeNodes = [...modelStore.nodes.values()];
     const unsavedRows = rows.filter(r => r.id === null);
-    const signature = uiStore.unitSystem + '#' + axesKey() + '#' + storeNodes.map(n => `${n.id}:${n.x}:${n.y}:${n.z ?? 0}:${n.name ?? ''}`).join('|');
+    const plane = standingPlane();
+    const signature = uiStore.unitSystem + '#' + axesKey() + '#' + plane + '#' + storeNodes.map(n => `${n.id}:${n.x}:${n.y}:${n.z ?? 0}:${n.name ?? ''}`).join('|');
     if (signature !== synced) {
       synced = signature;
       rows = [
         ...storeNodes.map(n => {
-          const [ux, uy, uz] = userVec(n.x, n.y, n.z ?? 0);
+          const [ux, uy, uz] = nodeShown3D(n, plane);
           return { id: n.id, x: shown(ux), y: shown(uy), z: shown(uz), name: n.name ?? '' };
         }),
         ...unsavedRows,
@@ -72,7 +74,7 @@
     const uy = parseNumber(row.y);
     const uz = row.z.trim() === '' ? 0 : parseNumber(row.z);
     if (ux === null || uy === null || uz === null) return;
-    const [x, y, z] = modelVec(ux, uy, uz);
+    const [x, y, z] = row.id === null ? modelVec(ux, uy, uz) : nodeMoveArgs3D([ux, uy, uz]);
 
     if (row.id === null) {
       // New node — or the one already at these coordinates, whose name stays (`addNodeRow`).
@@ -83,7 +85,7 @@
       // cells show it, so a value that only went through the unit conversion is not a move.
       const id = row.id;
       const n = modelStore.nodes.get(id);
-      const was = n ? userVec(n.x, n.y, n.z ?? 0) : null;
+      const was = n ? nodeShown3D(n) : null;
       if (was && row.x === shown(was[0]) && row.y === shown(was[1]) && row.z === shown(was[2])) return;
       if (n && n.x === x && n.y === y && (n.z ?? 0) === z) return;
       // `updateNode` pushes no undo of its own — its callers are expected to — so without the
