@@ -22,7 +22,6 @@ const CASES: Record<Tag, [string, DiagramKind, Record<string, number>?]> = {
   rollerTurned: ['inclined', 'N'],
   resultantLoad: ['ss-uniform', 'M'],
   pointAsUniform: ['ss-point', 'M'],
-  signFlipped: ['ss-uniform', 'M'],
   degreeLowered: ['ss-uniform', 'M'],
   degreeRaised: ['ss-point', 'M'],
   vertexWrongEnd: ['cantilever-uniform', 'M'],
@@ -33,6 +32,11 @@ const CASES: Record<Tag, [string, DiagramKind, Record<string, number>?]> = {
   memberSignFlipped: ['truss-pratt', 'N'],
   zeroForceLoaded: ['truss-pratt', 'N', { A: 0, D: 0 }],
   loadedShownZero: ['truss-pratt', 'N'],
+  loadScaled: ['ss-two-points', 'M'],
+  concavityFlipped: ['cantilever-uniform', 'M'],
+  fixedEndReleased: ['propped', 'M'],
+  fixedEndRotates: ['cantilever-uniform', 'D'],
+  notClosed: ['ss-point', 'V'],
 };
 
 describe('each tag changes the diagram it is applied to', () => {
@@ -115,6 +119,28 @@ describe('what the mutations claim', () => {
     const flipped = correct.traces.filter((tr, e) => Math.hypot(...tr.at(0.5)) > 1e-6 && Math.sign(drawnOrdinate(s.model, e, tr.at(0.5), 'N')) !== Math.sign(drawnOrdinate(s.model, e, f.traces[e]!.at(0.5), 'N')));
     expect(flipped.length).toBeGreaterThan(0);
     expect(flipped.length).toBeLessThan(correct.traces.length);
+  });
+
+  it('a flipped concavity keeps the ends and bends the parabola the other way', () => {
+    const s = solved('cantilever-uniform');
+    const correct = diagramOf(s, 'M');
+    const d = mutate('concavityFlipped', { solved: s, correct, kind: 'M', next: rng(8) })!;
+    const y = (x: typeof correct, t: number) => x.traces[0]!.at(t)[1];
+    expect(y(d, 1e-6)).toBeCloseTo(y(correct, 1e-6), 3);
+    const chord = (y(correct, 1e-6) + y(correct, 1 - 1e-6)) / 2;
+    expect(Math.sign(y(d, 0.5) - chord)).toBe(-Math.sign(y(correct, 0.5) - chord));
+  });
+
+  it('a fixed support shown without moment, and a fixed end that rotates', () => {
+    const s = solved('propped');
+    const m = mutate('fixedEndReleased', { solved: s, correct: diagramOf(s, 'M'), kind: 'M', next: rng(9) })!;
+    expect(Math.hypot(...diagramOf(s, 'M').traces[0]!.at(0))).toBeGreaterThan(1);
+    expect(Math.hypot(...m.traces[0]!.at(0))).toBeLessThan(1e-6);
+    const c = solved('cantilever-uniform');
+    const correct = diagramOf(c, 'D');
+    const d = mutate('fixedEndRotates', { solved: c, correct, kind: 'D', next: rng(9) })!;
+    const slope = (x: typeof correct) => Math.abs(x.traces[0]!.at(0.01)[1] - x.traces[0]!.at(0)[1]) / 0.01;
+    expect(slope(d)).toBeGreaterThan(10 * slope(correct));
   });
 
   it('a mutated structure that is a mechanism yields no distractor', () => {

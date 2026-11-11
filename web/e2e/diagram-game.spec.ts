@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
-type Hook = { answer: () => number | null };
+type Hook = { answer: () => number | null; type: () => string | null; level: (n: number) => void; find: (type: string) => boolean };
 const correctIndex = (page: Page) => page.evaluate(() => (window as unknown as { __diagramGame: Hook }).__diagramGame.answer());
 
 test('@smoke diagram game: a right answer scores and explains every option; three mistakes end it and the best score survives a reload', async ({ page }) => {
@@ -11,15 +11,16 @@ test('@smoke diagram game: a right answer scores and explains every option; thre
   expect(fetched.some((p) => /\/App-[^/]*\.js$/.test(p))).toBe(false);
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
-  await expect(page.getByTestId('dg-score')).toHaveText('0');
+  await expect(page.getByTestId('dg-score')).toHaveAttribute('data-score', '0');
 
   const right = (await correctIndex(page))!;
   expect([0, 1, 2]).toContain(right);
   await page.getByTestId(`dg-option-${right}`).click();
   await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'true');
-  const score = Number(await page.getByTestId('dg-score').textContent());
+  const score = Number(await page.getByTestId('dg-score').getAttribute('data-score'));
   expect(score).toBeGreaterThanOrEqual(100);
   await expect(page.getByTestId('dg-points')).toHaveText(`+${score} points`);
+  await expect(page.getByTestId('dg-score')).toHaveText(String(score));
   await expect(page.getByTestId(`dg-why-${right}`)).toHaveText('Correct: this is the diagram of this structure.');
   for (const i of [0, 1, 2].filter((i) => i !== right)) {
     await expect(page.getByTestId(`dg-why-${i}`)).not.toHaveAttribute('data-tag', '');
@@ -36,10 +37,28 @@ test('@smoke diagram game: a right answer scores and explains every option; thre
   }
   await expect(page.getByTestId('dg-again')).toBeVisible();
   await expect(page.getByTestId('dg-new-best')).toBeVisible();
-  await expect(page.getByTestId('dg-score')).toHaveText(String(score));
+  await expect(page.getByTestId('dg-score')).toHaveAttribute('data-score', String(score));
+  await expect(page.getByTestId('dg-stat-rounds')).toHaveText('4');
 
   await page.reload();
   await expect(page.getByTestId('dg-best-intro')).toContainText(String(score));
+});
+
+test('@smoke diagram game: a round that shows one diagram and asks which of four structures it belongs to', async ({ page }) => {
+  await page.goto('/es/diagram-game/?e2e=1&seed=99');
+  await page.getByTestId('dg-start').click();
+  await expect(page.getByTestId('dg-options')).toBeVisible();
+  await page.evaluate(() => (window as unknown as { __diagramGame: Hook }).__diagramGame.level(3));
+  expect(await page.evaluate(() => (window as unknown as { __diagramGame: Hook }).__diagramGame.find('which'))).toBe(true);
+  await expect(page.getByTestId('dg-options')).toHaveAttribute('data-round-type', 'which');
+  await expect(page.getByTestId('dg-question')).toContainText('¿Qué estructura');
+  await expect(page.getByTestId('dg-options').locator('> li')).toHaveCount(4);
+  await expect(page.locator('.problem-figure .support, .problem-figure .load')).toHaveCount(0);
+  const right = (await correctIndex(page))!;
+  await page.keyboard.press(String(right + 1));
+  await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'true');
+  await expect(page.getByTestId(`dg-why-${right}`)).toHaveText('Esta estructura da el diagrama de arriba.');
+  for (const i of [0, 1, 2, 3].filter((i) => i !== right)) await expect(page.getByTestId(`dg-option-${i}`).locator('.curve').first()).toBeVisible();
 });
 
 test('@smoke diagram game on a phone: the options stack and nothing scrolls sideways', async ({ page }) => {

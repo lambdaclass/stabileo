@@ -17,6 +17,13 @@ describe('scoring', () => {
     const second = answer(nextRound(first), true, SLOW);
     expect(second.last!.points).toBe(Math.round(basePoints(0) * multiplier(1)));
     expect(second.score).toBe(first.score + second.last!.points);
+    expect(first.last).toMatchObject({ base: basePoints(0), multiplier: 1, speed: MAX_TIME_BONUS });
+    expect(second.last).toMatchObject({ base: basePoints(0), multiplier: multiplier(1), speed: 0 });
+  });
+
+  it('counts answers, right answers and the longest streak', () => {
+    const s = play(newGame(), [true, true, true, false, true]);
+    expect(s).toMatchObject({ answered: 5, correct: 4, bestStreak: 3, streak: 1 });
   });
 
   it('the time bonus falls to zero over its window', () => {
@@ -37,7 +44,7 @@ describe('scoring', () => {
     const s = answer(play(newGame(), [true, true]), false, 0);
     expect(s.lives).toBe(LIVES - 1);
     expect(s.streak).toBe(0);
-    expect(s.last).toEqual({ correct: false, points: 0, levelUp: false });
+    expect(s.last).toEqual({ correct: false, points: 0, levelUp: false, base: 0, multiplier: 1, speed: 0 });
     expect(s.score).toBe(play(newGame(), [true, true]).score);
   });
 

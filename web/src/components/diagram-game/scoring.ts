@@ -1,6 +1,6 @@
 export const LIVES = 3;
 export const LEVEL_UP = 5;
-export const MAX_LEVEL = 6;
+export const MAX_LEVEL = 7;
 export const TIME_BONUS_WINDOW_MS = 20_000;
 export const MAX_TIME_BONUS = 50;
 
@@ -13,11 +13,24 @@ export interface GameState {
   lives: number;
   correctInLevel: number;
   round: number;
-  last: { correct: boolean; points: number; levelUp: boolean } | null;
+  answered: number;
+  correct: number;
+  bestStreak: number;
+  last: Outcome | null;
+}
+
+export interface Outcome {
+  correct: boolean;
+  points: number;
+  levelUp: boolean;
+  /** What the points are made of: the level base, the streak multiplier it was scaled by and the time bonus. */
+  base: number;
+  multiplier: number;
+  speed: number;
 }
 
 export function newGame(): GameState {
-  return { phase: 'playing', level: 0, score: 0, streak: 0, lives: LIVES, correctInLevel: 0, round: 0, last: null };
+  return { phase: 'playing', level: 0, score: 0, streak: 0, lives: LIVES, correctInLevel: 0, round: 0, answered: 0, correct: 0, bestStreak: 0, last: null };
 }
 
 export function multiplier(streak: number): number {
@@ -34,20 +47,25 @@ export function basePoints(level: number): number {
 
 export function answer(s: GameState, correct: boolean, elapsedMs: number): GameState {
   if (s.phase !== 'playing') return s;
+  const answered = s.answered + 1;
   if (!correct) {
     const lives = s.lives - 1;
-    return { ...s, phase: lives <= 0 ? 'over' : 'answered', lives, streak: 0, last: { correct: false, points: 0, levelUp: false } };
+    return { ...s, phase: lives <= 0 ? 'over' : 'answered', lives, streak: 0, answered, last: { correct: false, points: 0, levelUp: false, base: 0, multiplier: 1, speed: 0 } };
   }
-  const points = Math.round(basePoints(s.level) * multiplier(s.streak)) + timeBonus(elapsedMs);
+  const base = basePoints(s.level), mult = multiplier(s.streak), speed = timeBonus(elapsedMs);
+  const points = Math.round(base * mult) + speed;
   const levelUp = s.correctInLevel + 1 >= LEVEL_UP && s.level < MAX_LEVEL - 1;
   return {
     ...s,
     phase: 'answered',
     score: s.score + points,
     streak: s.streak + 1,
+    answered,
+    correct: s.correct + 1,
+    bestStreak: Math.max(s.bestStreak, s.streak + 1),
     correctInLevel: levelUp ? 0 : s.correctInLevel + 1,
     level: levelUp ? s.level + 1 : s.level,
-    last: { correct: true, points, levelUp },
+    last: { correct: true, points, levelUp, base, multiplier: mult, speed },
   };
 }
 

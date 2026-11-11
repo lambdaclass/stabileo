@@ -3,8 +3,8 @@
   import type { GameModel } from './game-model';
   import type { Diagram } from './traces';
 
-  let { model, diagram = null, label, faintLoads = false }: { model: GameModel; diagram?: Diagram | null; label: string; faintLoads?: boolean } = $props();
-  const fig = $derived(figure(model, diagram));
+  let { model, diagram = null, label, faintLoads = false, bare = false }: { model: GameModel; diagram?: Diagram | null; label: string; faintLoads?: boolean; bare?: boolean } = $props();
+  const fig = $derived(figure(model, diagram, bare));
 </script>
 
 <svg class="figure" class:faint-loads={faintLoads} viewBox={fig.viewBox} preserveAspectRatio="xMidYMid meet" role="img" aria-label={label}>

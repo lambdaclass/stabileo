@@ -101,6 +101,55 @@ export function shapeDistance(a: Diagram, b: Diagram): number {
   return Math.sqrt(sum / sa.length);
 }
 
+/** The next member along a straight run: it starts where `e` ends and keeps its direction. -1 when there is none. */
+export function chainNeighbour(m: GameModel, e: number): number {
+  const [, j] = m.elements[e]!;
+  const { dir } = memberAxis(m, e);
+  return m.elements.findIndex(([i2], e2) => {
+    if (e2 === e || i2 !== j) return false;
+    const d2 = memberAxis(m, e2).dir;
+    return Math.abs(dir[0] * d2[0] + dir[1] * d2[1] - 1) < 1e-6;
+  });
+}
+
+/**
+ * Members that share one sign choice. Textbooks disagree on which side a shear or moment is drawn, and in a
+ * frame each straight run can carry its own convention; the deflected shape and a truss share a single one.
+ */
+export function signGroups(m: GameModel, kind: DiagramKind): number[] {
+  if (kind === 'D' || m.allTruss) return m.elements.map(() => 0);
+  const group = m.elements.map((_, e) => e);
+  const find = (e: number): number => (group[e] === e ? e : (group[e] = find(group[e]!)));
+  m.elements.forEach((_, e) => {
+    const n = chainNeighbour(m, e);
+    if (n >= 0) group[find(n)] = find(e);
+  });
+  return m.elements.map((_, e) => find(e));
+}
+
+/** `shapeDistance` with every sign group free to flip: two options never differ only by a sign convention. */
+export function apparentDistance(a: Diagram, b: Diagram, m: GameModel): number {
+  const groups = signGroups(m, a.kind);
+  const ts = gridStations();
+  const sa = sampleDiagram(a), sb = sampleDiagram(b);
+  const pa = peak(sa), pb = peak(sb);
+  if (pa < 1e-12 || pb < 1e-12) return pa < 1e-12 && pb < 1e-12 ? 0 : 1;
+  const same = new Map<number, number>(), flipped = new Map<number, number>();
+  for (let k = 0; k < sa.length; k++) {
+    const g = groups[Math.floor(k / ts.length)]!;
+    const ax = sa[k]![0] / pa, ay = sa[k]![1] / pa, bx = sb[k]![0] / pb, by = sb[k]![1] / pb;
+    same.set(g, (same.get(g) ?? 0) + (ax - bx) ** 2 + (ay - by) ** 2);
+    flipped.set(g, (flipped.get(g) ?? 0) + (ax + bx) ** 2 + (ay + by) ** 2);
+  }
+  let sum = 0;
+  for (const [g, v] of same) sum += Math.min(v, flipped.get(g)!);
+  return Math.sqrt(sum / sa.length);
+}
+
+export function negated(d: Diagram): Diagram {
+  return { kind: d.kind, traces: d.traces.map((tr) => ({ breaks: tr.breaks, at: (t) => { const p = tr.at(t); return [-p[0], -p[1]]; } })) };
+}
+
 export function isEmpty(d: Diagram): boolean {
   return peak(sampleDiagram(d)) < 1e-9;
 }

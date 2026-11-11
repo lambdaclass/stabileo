@@ -28,6 +28,15 @@ describe('figure', () => {
     expect(figure(s.model, diagramOf(s, 'M')).labels).toEqual([]);
   });
 
+  it('a bare figure keeps the members and the diagram and leaves out what would give the structure away', () => {
+    const s = solved('gerber');
+    const f = figure(s.model, diagramOf(s, 'M'), true);
+    expect(f.shapes.filter((x) => x.ink === 'member')).toHaveLength(2);
+    expect(f.shapes.some((x) => x.ink === 'curve')).toBe(true);
+    expect(f.shapes.some((x) => x.ink === 'support' || x.ink === 'load' || x.ink === 'hinge')).toBe(false);
+    expect(f.viewBox).toBe(figure(s.model, diagramOf(s, 'M')).viewBox);
+  });
+
   it('draws a truss bar by bar in the colour of its force, with zero-force bars apart', () => {
     const s = solved('truss-pratt', { A: 0, D: 0 });
     const f = figure(s.model, diagramOf(s, 'N'));

@@ -1,9 +1,9 @@
 import type { SupportType } from '../../lib/store/ui.svelte';
 import { memberLength, solveGame, type GameModel, type Solved } from './game-model';
-import { diagramOf, memberAxis, peak, sampleDiagram, forceValue, type Diagram, type DiagramKind, type Trace, type Vec } from './traces';
+import { chainNeighbour, diagramOf, memberAxis, peak, sampleDiagram, forceValue, signGroups, type Diagram, type DiagramKind, type Trace, type Vec } from './traces';
 
-export const PHYSICAL_TAGS = ['loadMoved', 'loadFlipped', 'supportChanged', 'supportsMirrored', 'hingeToggled', 'rollerTurned', 'resultantLoad', 'pointAsUniform'] as const;
-export const MATH_TAGS = ['signFlipped', 'degreeLowered', 'degreeRaised', 'vertexWrongEnd', 'jumpMissing', 'nonZeroAtRelease', 'inflectionMisplaced', 'supportDisplaced', 'memberSignFlipped', 'zeroForceLoaded', 'loadedShownZero'] as const;
+export const PHYSICAL_TAGS = ['loadMoved', 'loadFlipped', 'loadScaled', 'supportChanged', 'supportsMirrored', 'hingeToggled', 'rollerTurned', 'resultantLoad', 'pointAsUniform'] as const;
+export const MATH_TAGS = ['degreeLowered', 'degreeRaised', 'vertexWrongEnd', 'jumpMissing', 'nonZeroAtRelease', 'inflectionMisplaced', 'supportDisplaced', 'memberSignFlipped', 'zeroForceLoaded', 'loadedShownZero', 'concavityFlipped', 'fixedEndReleased', 'fixedEndRotates', 'notClosed'] as const;
 export type PhysicalTag = typeof PHYSICAL_TAGS[number];
 export type MathTag = typeof MATH_TAGS[number];
 export type Tag = PhysicalTag | MathTag;
@@ -89,8 +89,9 @@ const MUTATORS: Record<PhysicalTag, (m: GameModel, next: () => number) => GameMo
     if (!ref) return null;
     if (ref.list === 'pointLoads') {
       const l = m.pointLoads![ref.index]!, L = memberLength(m, l.element);
-      const mirrored = L - l.a;
-      l.a = Math.abs(mirrored - l.a) > 0.25 * L ? mirrored : Math.min(0.9 * L, Math.max(0.1 * L, l.a + (l.a < L / 2 ? 0.35 : -0.35) * L));
+      const a = pick([0.15, 0.3, 0.5, 0.7, 0.85].map((f) => f * L).filter((a) => Math.abs(a - l.a) > 0.2 * L), next);
+      if (a === undefined) return null;
+      l.a = a;
       return m;
     }
     if (ref.list === 'nodalLoads') {
@@ -123,6 +124,25 @@ const MUTATORS: Record<PhysicalTag, (m: GameModel, next: () => number) => GameMo
       const l = m.distributedLoads![ref.index]!;
       l.qI = -l.qI;
       if (l.qJ !== undefined) l.qJ = -l.qJ;
+    }
+    return m;
+  },
+  loadScaled(m, next) {
+    const refs = loadRefs(m);
+    if (refs.length < 2) return null;
+    const ref = pick(refs, next)!;
+    const k = next() < 0.5 ? 3 : 1 / 3;
+    if (ref.list === 'nodalLoads') {
+      const l = m.nodalLoads![ref.index]!;
+      for (const f of ['fx', 'fy', 'mz'] as const) if (l[f]) l[f] = l[f]! * k;
+    } else if (ref.list === 'pointLoads') {
+      const l = m.pointLoads![ref.index]!;
+      if (l.p) l.p *= k;
+      if (l.m) l.m *= k;
+    } else {
+      const l = m.distributedLoads![ref.index]!;
+      l.qI *= k;
+      if (l.qJ !== undefined) l.qJ *= k;
     }
     return m;
   },
@@ -211,18 +231,11 @@ function outwardSign(tr: Trace, normal: Vec): number {
   return v < 0 ? -1 : 1;
 }
 
-function chainNeighbour(m: GameModel, e: number): number | undefined {
-  const [, j] = m.elements[e]!;
-  const { dir } = memberAxis(m, e);
-  return m.elements.findIndex(([i2], e2) => {
-    if (e2 === e || i2 !== j) return false;
-    const d2 = memberAxis(m, e2).dir;
-    return Math.abs(dir[0] * d2[0] + dir[1] * d2[1] - 1) < 1e-6;
-  });
+function fixedEnds(m: GameModel): Array<{ e: number; end: 0 | 1 }> {
+  return m.supports.filter((s) => s.type === 'fixed').flatMap((s) => membersAt(m, s.node).map((e) => ({ e, end: (m.elements[e]![0] === s.node ? 0 : 1) as 0 | 1 })));
 }
 
 const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
-  signFlipped: ({ correct }) => ({ kind: correct.kind, traces: correct.traces.map((tr) => ({ breaks: tr.breaks, at: (t) => scale(tr.at(t), -1) })) }),
   degreeLowered: ({ correct }) => perSegment(correct, (_tr, [a, b], s) => {
     if (s.curved) return (t) => add(s.f0, add(s.f1, s.f0, -1), (t - a) / (b - a));
     if (s.sloped) return () => scale(add(s.f0, s.f1), 0.5);
@@ -256,13 +269,13 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
     const inside = correct.traces.flatMap((tr, e) => tr.breaks.map((b) => ({ e, b, jump: add(tr.at(b + EPS), tr.at(b - EPS), -1) })));
     const across = m.elements.flatMap((_, e) => {
       const n = chainNeighbour(m, e);
-      if (n === undefined || n < 0) return [];
+      if (n < 0) return [];
       return [{ e: n, b: 0, jump: add(correct.traces[n]!.at(0), correct.traces[e]!.at(1), -1) }];
     });
     const jump = pick([...inside, ...across].filter((j) => norm(j.jump) > 0.1 * ref), ctx.next);
     if (!jump) return null;
     const after = new Set<number>([jump.e]);
-    for (let e = jump.e, n = chainNeighbour(m, e); n !== undefined && n >= 0 && !after.has(n); e = n, n = chainNeighbour(m, e)) after.add(n);
+    for (let e = jump.e, n = chainNeighbour(m, e); n >= 0 && !after.has(n); e = n, n = chainNeighbour(m, e)) after.add(n);
     return {
       kind: correct.kind,
       traces: correct.traces.map((tr, e) => !after.has(e) ? tr : ({
@@ -348,6 +361,53 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
       }),
     };
   },
+  concavityFlipped: ({ correct, solved }) => solved.model.allTruss ? null : perSegment(correct, (tr, [a, b], s) => {
+    if (!s.curved) return null;
+    return (t) => add(scale(add(s.f0, add(s.f1, s.f0, -1), (t - a) / (b - a)), 2), tr.at(t), -1);
+  }),
+  fixedEndReleased: (ctx) => {
+    if (ctx.kind !== 'M' || ctx.solved.model.allTruss) return null;
+    const ref = peak(sampleDiagram(ctx.correct));
+    const end = pick(fixedEnds(ctx.solved.model).filter(({ e, end }) => norm(ctx.correct.traces[e]!.at(end)) > 0.2 * ref), ctx.next);
+    if (!end) return null;
+    const tr = ctx.correct.traces[end.e]!;
+    const [a, b] = segmentOf(tr, end.end);
+    const v = tr.at(end.end);
+    return {
+      kind: 'M',
+      traces: ctx.correct.traces.map((t0, e) => e !== end.e ? t0 : ({
+        breaks: t0.breaks,
+        at: (t) => (t < a || t > b ? t0.at(t) : add(t0.at(t), v, -(end.end === 0 ? (b - t) / (b - a) : (t - a) / (b - a)))),
+      })),
+    };
+  },
+  fixedEndRotates: (ctx) => {
+    if (ctx.kind !== 'D' || ctx.solved.model.allTruss) return null;
+    const end = pick(fixedEnds(ctx.solved.model), ctx.next);
+    if (!end) return null;
+    const ref = peak(sampleDiagram(ctx.correct));
+    const tr = ctx.correct.traces[end.e]!;
+    const { normal } = memberAxis(ctx.solved.model, end.e);
+    const h = 0.9 * ref * outwardSign(tr, normal);
+    return {
+      kind: 'D',
+      traces: ctx.correct.traces.map((t0, e) => e !== end.e ? t0 : ({
+        breaks: t0.breaks,
+        at: (t) => { const u = end.end === 0 ? t : 1 - t; return add(t0.at(t), normal, 6.75 * h * u * (1 - u) ** 2); },
+      })),
+    };
+  },
+  notClosed: (ctx) => {
+    if (ctx.kind !== 'V' || ctx.solved.model.allTruss) return null;
+    const m = ctx.solved.model;
+    const groups = signGroups(m, 'V');
+    const g = pick([...new Set(groups)], ctx.next)!;
+    const c = 0.45 * peak(sampleDiagram(ctx.correct)) * (ctx.next() < 0.5 ? 1 : -1);
+    return {
+      kind: 'V',
+      traces: ctx.correct.traces.map((tr, e) => groups[e] !== g ? tr : ({ breaks: tr.breaks, at: (t) => add(tr.at(t), memberAxis(m, e).normal, c) })),
+    };
+  },
   loadedShownZero: (ctx) => {
     if (!ctx.solved.model.allTruss) return null;
     const ref = peak(sampleDiagram(ctx.correct));
@@ -364,4 +424,8 @@ export function isPhysical(tag: Tag): tag is PhysicalTag {
 
 export function mutate(tag: Tag, ctx: MutationContext): Diagram | null {
   return isPhysical(tag) ? physical(ctx, (m) => MUTATORS[tag](m, ctx.next)) : MATH[tag](ctx);
+}
+
+export function mutateModel(tag: PhysicalTag, m: GameModel, next: () => number): GameModel | null {
+  return MUTATORS[tag](clone(m), next);
 }

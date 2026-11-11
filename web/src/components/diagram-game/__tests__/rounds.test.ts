@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { drawVariant } from '../../edu/exercise-params';
 import { resolveGameModel, solveGame } from '../game-model';
-import { diagramOf, sampleDiagram, shapeDistance, peak } from '../traces';
+import { apparentDistance, diagramOf, negated, sampleDiagram, shapeDistance, peak } from '../traces';
 import { buildRound } from '../round';
 import { LEVELS } from '../levels';
 import { figure } from '../figure';
+import { MAX_LEVEL } from '../scoring';
 
 const SEEDS = Array.from({ length: 120 }, (_, k) => (k * 2654435761) >>> 0);
 
@@ -36,33 +37,46 @@ describe('rounds', () => {
       for (const seed of SEEDS.slice(0, 20)) expect(fingerprint(l, seed)).toEqual(fingerprint(l, seed));
     });
 
-    it(`level ${l + 1}: three visibly different options, exactly one to choose`, () => {
-      let odd = 0;
+    it(`level ${l + 1}: ${level.options} visibly different options, exactly one to choose, none of them another with its sign reversed`, () => {
+      const seen = { pick: 0, odd: 0, which: 0 };
       for (const seed of SEEDS) {
         const r = buildRound(l, seed);
-        expect(r.options).toHaveLength(3);
+        seen[r.type]++;
         expect(r.answer).toBeGreaterThanOrEqual(0);
-        if (r.type === 'pick') {
+        if (r.type === 'odd') {
+          expect(r.options.length).toBeGreaterThanOrEqual(3);
+          expect(r.options.length).toBeLessThanOrEqual(level.options);
+          expect(r.options.filter((o) => o.tag !== null)).toHaveLength(1);
+          expect(r.options[r.answer]!.tag).not.toBeNull();
+          expect(new Set(r.options.map((o) => o.diagram.kind)).size).toBe(r.options.length);
+          const bad = r.options[r.answer]!.diagram;
+          const truth = diagramOf(solveGame(r.model)!, bad.kind);
+          expect(apparentDistance(bad, truth, r.model)).toBeGreaterThanOrEqual(level.minGap);
+          expect(shapeDistance(bad, negated(truth))).toBeGreaterThanOrEqual(level.minGap);
+        } else {
+          expect(r.options).toHaveLength(level.options);
           expect(r.options.filter((o) => o.tag === null)).toHaveLength(1);
           expect(r.options[r.answer]!.tag).toBeNull();
           expect(new Set(r.options.map((o) => o.diagram.kind)).size).toBe(1);
-          for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) {
-            expect(shapeDistance(r.options[i]!.diagram, r.options[j]!.diagram), `seed ${seed} ${i}-${j}`).toBeGreaterThanOrEqual(level.minGap);
+          for (let i = 0; i < r.options.length; i++) for (let j = i + 1; j < r.options.length; j++) {
+            const a = r.options[i]!.diagram, b = r.options[j]!.diagram;
+            expect(apparentDistance(a, b, r.model), `seed ${seed} ${i}-${j}`).toBeGreaterThanOrEqual(level.minGap);
+            expect(shapeDistance(a, negated(b)), `seed ${seed} ${i}-${j} reversed`).toBeGreaterThanOrEqual(level.minGap);
           }
-        } else {
-          odd++;
-          expect(r.options.filter((o) => o.tag !== null)).toHaveLength(1);
-          expect(r.options[r.answer]!.tag).not.toBeNull();
-          expect(new Set(r.options.map((o) => o.diagram.kind)).size).toBe(3);
-          const bad = r.options[r.answer]!.diagram;
-          const truth = diagramOf(solveGame(r.model)!, bad.kind);
-          expect(shapeDistance(bad, truth)).toBeGreaterThanOrEqual(level.minGap);
+          if (r.type === 'which') {
+            expect(r.shown).toBe(r.options[r.answer]!.diagram);
+            for (const o of r.options) expect(o.model).toBeDefined();
+            expect(new Set(r.options.map((o) => JSON.stringify(o.model))).size).toBe(r.options.length);
+            for (const o of r.options) expect(shapeDistance(diagramOf(solveGame(o.model!)!, r.kind!), o.diagram)).toBeLessThan(1e-9);
+          }
         }
         for (const o of r.options) expect(peak(sampleDiagram(o.diagram))).toBeGreaterThan(0);
-        expect(level.tags).toEqual(expect.arrayContaining(r.options.flatMap((o) => (o.tag ? [o.tag] : []))));
+        if (r.type !== 'which') expect(level.tags).toEqual(expect.arrayContaining(r.options.flatMap((o) => (o.tag ? [o.tag] : []))));
       }
-      if (level.oddShare > 0) expect(odd).toBeGreaterThan(0);
-      else expect(odd).toBe(0);
+      if (level.oddShare > 0) expect(seen.odd).toBeGreaterThan(0);
+      else expect(seen.odd).toBe(0);
+      expect(seen.which).toBeGreaterThan(0);
+      expect(seen.pick).toBeGreaterThan(0);
     });
 
     it(`level ${l + 1}: every option draws without a non-finite coordinate`, () => {
@@ -76,6 +90,10 @@ describe('rounds', () => {
       }
     });
   }
+
+  it('the scoring ceiling is the last level', () => {
+    expect(MAX_LEVEL).toBe(LEVELS.length);
+  });
 
   it('different seeds deal different rounds', () => {
     const seen = new Set(SEEDS.slice(0, 30).map((s) => JSON.stringify(fingerprint(1, s).options.map((o) => o.samples[3]))));

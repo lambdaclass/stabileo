@@ -1,12 +1,18 @@
 ### Added
-#### A game for reading diagrams: one structure, three diagrams, pick the right one (2026-11-10)
+#### A game for reading diagrams: pick the right one, spot the odd one, find the structure (2026-11-10)
 
-`/<locale>/diagram-game/`, also linked from Educational mode, shows a structure with its loads and
-three bending moment, shear, axial force or deflected-shape diagrams, one of them right. The wrong
-ones come from solving a changed structure (a load moved or reversed, a support or a hinge changed)
-or from a classic drawing mistake (the wrong sign, degree or vertex, a missing jump, a moment that
-does not vanish at a hinge, a deflection that does not vanish at a support), and the explanation
-after each answer says which. Six levels run from a simply supported beam to frames and trusses,
-with rounds in the later ones that ask for the diagram that does not match the others. The best
+`/<locale>/diagram-game/`, also linked from Educational mode and from the landing header between
+Tools and Research, shows a structure with its loads and three or four bending moment, shear,
+axial force or deflected-shape diagrams, one of them right. Other rounds ask for the diagram that
+does not match the rest, or show one diagram on the bare members and ask which of several
+structures it comes from. The wrong options come from solving a changed structure (a load moved,
+reversed or rescaled, a support or a hinge changed) or from a classic drawing mistake (the wrong
+degree, vertex or concavity, a missing jump, a shear that does not close, a moment that does not
+vanish at a hinge or does not appear at a fixed support, a deflection that does not vanish at a
+support or rotates at a fixed one), and the explanation after each answer says which. No option
+is the right one drawn with its sign reversed, on the whole diagram or on one straight run of a
+frame, since textbooks disagree on that convention. Seven levels run from a simply supported beam
+to frames and trusses, and then everything mixed. Points come from the level, a streak multiplier
+and a time bonus, shown on each answer, with synthesised sound that can be turned off. The best
 score stays in the browser. The page loads the engine but not the application, so the app's own
 bundle does not grow.

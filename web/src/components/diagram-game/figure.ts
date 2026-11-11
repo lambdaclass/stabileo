@@ -161,7 +161,8 @@ function diagramShapes(m: GameModel, d: Diagram, S: number): { shapes: Shape[]; 
   return { shapes, labels };
 }
 
-export function figure(m: GameModel, d: Diagram | null): Figure {
+/** `bare` draws only the members and the diagram: supports, hinges and loads would give away which structure it came from. */
+export function figure(m: GameModel, d: Diagram | null, bare = false): Figure {
   const { box, S } = size(m);
   const pad = 0.3 * S;
   const sym = 0.07 * S;
@@ -170,12 +171,13 @@ export function figure(m: GameModel, d: Diagram | null): Figure {
   const labels = drawn.labels;
   shapes.push(...drawn.shapes);
   if (!(d && m.allTruss)) m.elements.forEach(([i, j]) => shapes.push({ d: polyline([m.nodes[i] as Vec, m.nodes[j] as Vec]), ink: 'member' }));
+  const viewBox = [box.minX - pad, -(box.maxY + pad), box.maxX - box.minX + 2 * pad, box.maxY - box.minY + 2 * pad].map(fmt).join(' ');
+  if (bare) return { viewBox, shapes, labels, unit: S };
   for (const s of m.supports) shapes.push({ d: supportShape(m, s.node, s.type, sym), ink: 'support' });
   for (const n of m.allTruss ? m.nodes.map((_, k) => k) : m.nodeHinges ?? []) {
     const [x, y] = m.nodes[n]!, r = 0.022 * S;
     shapes.push({ d: `M${fmt(x - r)} ${fmt(-y)} a${fmt(r)} ${fmt(r)} 0 1 0 ${fmt(2 * r)} 0 a${fmt(r)} ${fmt(r)} 0 1 0 ${fmt(-2 * r)} 0`, ink: 'hinge' });
   }
   for (const l of loadShapes(m, S)) shapes.push({ d: l, ink: 'load' });
-  const viewBox = [box.minX - pad, -(box.maxY + pad), box.maxX - box.minX + 2 * pad, box.maxY - box.minY + 2 * pad].map(fmt).join(' ');
   return { viewBox, shapes, labels, unit: S };
 }
