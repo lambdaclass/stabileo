@@ -68,8 +68,8 @@
         {#if uiStore.is3DWorkspace}
           <!-- 3D: per-DOF checkboxes -->
           {@const dofs = sup.dofRestraints ?? defaultDofs(sup.type)}
+          {@const ix = (i: number) => (sup.dofFrame === 'local' ? XYZ[i] : XYZ[modelIndexOfUser(i)])}
           <td class="load-values">
-            {@const ix = (i: number) => (sup.dofFrame === 'local' ? XYZ[i] : XYZ[modelIndexOfUser(i)])}
             {#each XYZ as a, i}
               <label class="dof-chk" title={t(`table.translation${a.toUpperCase()}`)}><input type="checkbox" checked={dofs[`t${ix(i)}`]} onchange={() => toggleDofRestraint(sup.id, sup, `t${ix(i)}`)} />F{a}</label>
             {/each}
