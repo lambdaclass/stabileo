@@ -121,7 +121,7 @@ test.describe('@smoke Education — a handed-out exercise', () => {
     // Uppercase is a CSS transform; the DOM text is the sentence itself.
     await expect(page.locator('.step-title')).toContainText(/Support reactions/i);
 
-    await page.getByTestId('edu-step-3').click();
+    await page.getByTestId('edu-step-values').click();
     await expect(page.locator('.step-section')).toHaveCount(1);
     await expect(page.locator('.step-title')).toContainText('Characteristic values');
   });
@@ -134,6 +134,8 @@ test.describe('@smoke Education — a handed-out exercise', () => {
     await fields.nth(0).fill('10');
     await fields.nth(1).fill('-40');
     await page.locator('.verify-btn').first().click();
+
+    await page.getByTestId('edu-step-handin').click();
 
     await page.locator('.handin-name input').fill('E2E student');
     await page.getByTestId('edu-handin-code').click();
@@ -160,7 +162,7 @@ test.describe('@smoke Education — drawing the diagram', () => {
   test('the built-in beam asks for the diagram to be drawn, and marks it', async ({ page }) => {
     await bootEducation(page);
     await openExercise(page);
-    await page.getByTestId('edu-step-2').click();
+    await page.getByTestId('edu-step-diagrams').click();
 
     // Shear and moment, each with its own strip and its own spans.
     await expect(page.locator('.ds-plot')).toHaveCount(2);
@@ -180,7 +182,7 @@ test.describe('@smoke Education — drawing the diagram', () => {
   test('a right picture with the wrong power named is told which one', async ({ page }) => {
     await bootEducation(page);
     await openExercise(page);
-    await page.getByTestId('edu-step-2').click();
+    await page.getByTestId('edu-step-diagrams').click();
 
     // Left untouched, both spans say "constant". Under a uniform load the
     // shear is linear and the moment quadratic, and the student is told which
@@ -204,10 +206,10 @@ test.describe('@smoke Education — the whole flow', () => {
     await dofs.nth(2).fill('20');
     await page.locator('.radio-option', { hasText: /Statically determinate/i }).first().click();
     await page.locator('.verify-btn').first().click();
-    await expect(page.getByTestId('edu-step-1')).toHaveClass(/done/);
+    await expect(page.getByTestId('edu-step-reactions')).toHaveClass(/done/);
 
     // ── Step 2 · the shapes, the drawings, and the two values.
-    await page.getByTestId('edu-step-2').click();
+    await page.getByTestId('edu-step-diagrams').click();
     for (const [i, want] of [[0, 'Zero'], [1, 'Linear'], [2, 'Quadratic']] as const) {
       await page.locator('.shape-row').nth(i)
         // Not anchored: the label carries the radio and its whitespace too.
@@ -239,22 +241,55 @@ test.describe('@smoke Education — the whole flow', () => {
     await numeric.nth(0).fill('20');
     await numeric.nth(1).fill('40');
     await page.locator('.verify-btn', { hasText: /Verify diagrams/i }).click();
-    await expect(page.getByTestId('edu-step-2')).toHaveClass(/done/);
+    await expect(page.getByTestId('edu-step-diagrams')).toHaveClass(/done/);
 
     // ── Step 3 · the characteristic values.
-    await page.getByTestId('edu-step-3').click();
+    await page.getByTestId('edu-step-values').click();
     const chars = page.locator('.char-input input');
     await chars.nth(0).fill('40');
     await chars.nth(1).fill('20');
     await page.locator('.verify-btn').last().click();
-    await expect(page.getByTestId('edu-step-3')).toHaveClass(/done/);
+    await expect(page.getByTestId('edu-step-values')).toHaveClass(/done/);
     await expect(page.locator('.success-banner')).toBeVisible();
 
     // ── And what the teacher will see, from the student's own screen.
+    await page.getByTestId('edu-step-handin').click();
     await page.getByTestId('edu-feedback-preview').click();
     const feedback = page.locator('.handin-feedback');
     await expect(feedback).toBeVisible();
     await expect(feedback.locator('.score')).toContainText(/13 \/ 13/);
+  });
+});
+
+test.describe('@smoke Education — free bodies and handing in', () => {
+  test('the list reads ranges, a frame asks for each bar on its own, and handing in is the last step', async ({ page }) => {
+    await bootEducation(page);
+    const statements = await page.locator('.exercise-desc').allTextContents();
+    expect(statements.filter((d) => /\{[A-Za-z]/.test(d)), 'no statement shows a raw parameter').toEqual([]);
+    await expect(page.locator('.exercise-desc').first()).toContainText(/\d–\d/);
+
+    await page.locator('.exercise-card', { hasText: /portal frame/i }).first().click();
+    await page.getByTestId('edu-practice').click();
+    await expect(page.locator('.exercise-view')).toHaveAttribute('data-solved', 'yes', { timeout: 30_000 });
+    await expect(page.locator('.progress-step')).toHaveCount(5);
+    await expect(page.getByTestId('edu-handin')).toHaveCount(0);
+
+    await page.getByTestId('edu-step-freeBody').click();
+    await expect(page.locator('.step-title')).toContainText(/Step 2 — Free-body/i);
+    await expect(page.locator('.fb-tab')).toHaveCount(3);
+    await expect(page.getByTestId('edu-fb-drawing')).toBeVisible();
+
+    for (const end of ['i', 'j']) for (const dof of ['Fx', 'Fy', 'M']) await page.getByTestId(`edu-fb-0-${end}-${dof}`).fill('0');
+    await page.getByTestId('edu-fb-verify').click();
+    await expect(page.locator('.fb .hint').first()).toContainText(/Bar 1/);
+    const reveals = page.locator('.fb .reveal-btn');
+    await expect(reveals.first()).toBeVisible();
+    while (await reveals.count()) await reveals.first().click();
+    await expect(page.getByTestId('edu-fb-bar-0'), 'the engine agrees with every value it revealed').toHaveClass(/done/);
+
+    await page.getByTestId('edu-step-handin').click();
+    await expect(page.getByTestId('edu-handin')).toBeVisible();
+    await expect(page.locator('.step-section')).toHaveCount(0);
   });
 });
 

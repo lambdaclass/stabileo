@@ -8,6 +8,7 @@ import { readDisplayedReaction } from './edu-reactions';
 import { isParametric, shapeAnswer, solveModel, specModelData, specNodeIds, studentSeed, variantOf } from './exercise-variant';
 import { degreeOfSamples, gradeSketch } from './diagram-sketch';
 import { sketchTruth } from './sketch-truth';
+import { exerciseBars, freeBodyTruth, parseFreeBodyKey } from './free-body-step';
 
 export const TOLERANCE = 0.05;
 
@@ -63,6 +64,8 @@ export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark
   const forces = results.elementForces as ElementForces[];
   const ctx = stressContext(ex.model.profile, ex.model.fy);
   const ids = specNodeIds(ex.model);
+  const bars = exerciseBars(ex);
+  const barTruth = bars.length ? freeBodyTruth(ex.model, bars, forces) : null;
 
   const mark = (a: SubmittedAnswer): { outcome: Outcome; expected?: string } | null => {
     const [kind, i, dof] = (a.key ?? '').split(':');
@@ -105,6 +108,11 @@ export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark
         if (!truth) return null;
         const v = gradeSketch(a.sketch!, truth);
         return { outcome: v.curveOk && v.powersOk ? 'correct' : 'incorrect', expected: t(`edu.sketch.power.${degreeOfSamples(truth)}`) };
+      }
+      case 'fb': {
+        const k = parseFreeBodyKey(a.key!);
+        const v = k ? barTruth?.[k.bar]?.[k.end][k.dof] ?? null : null;
+        return v === null ? null : { outcome: markNumber(a.answer, v, true), expected: fixed(v) };
       }
       default:
         return null;
