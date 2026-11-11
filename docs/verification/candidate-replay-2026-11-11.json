@@ -4314,7 +4314,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1912)`, `P(1912)`: body now refuses: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 1.5e11, node anisotropy 3.6e3; limits 1e12 and 1e8, conditional accuracy 1e-4); no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1912_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1912_refuses_unresolved_stiffness",
       "witnesses": [
         {
           "key": "1912-body-0",
@@ -4518,7 +4518,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1908)`, `P(1908)`: body now refuses: the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [7, 8, 9, 10, 11, 12, 13, 14, 15, 16] (scaled condition number 1.1e5, node anisotropy 1.4e9; limits 1e12 and 1e8, conditional accuracy 1e-4); no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1908_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1908_refuses_unresolved_stiffness",
       "witnesses": [
         {
           "key": "1908-body-0",
@@ -4771,7 +4771,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1906)`, `P(1906)`: body now refuses: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 1.5e11, node anisotropy 3.6e3; limits 1e12 and 1e8, conditional accuracy 1e-4); no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1906_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1906_refuses_unresolved_stiffness",
       "witnesses": [
         {
           "key": "1906-body-0",
@@ -4825,7 +4825,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1905)`, `P(1905)`: body now refuses: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 1.5e11, node anisotropy 3.6e3; limits 1e12 and 1e8, conditional accuracy 1e-4); no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1905_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1905_refuses_unresolved_stiffness",
       "witnesses": [
         {
           "key": "1905-body-0",
@@ -5036,7 +5036,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1903)`, `P(1903)`: body now refuses: the structure is a mechanism at nodes [5]; no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1903_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1903_refuses_unrestrained_translation",
       "witnesses": [
         {
           "key": "1903-body-0",
@@ -5090,7 +5090,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1902)`, `P(1902)`: body now refuses: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 1.5e11, node anisotropy 3.6e3; limits 1e12 and 1e8, conditional accuracy 1e-4); no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1902_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1902_refuses_unresolved_stiffness",
       "witnesses": [
         {
           "key": "1902-body-0",
@@ -5144,7 +5144,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1901)`, `P(1901)`: body now refuses: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 6.3e7, node anisotropy 1.3e7; limits 1e12 and 1e8, conditional accuracy 1e-4); no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1901_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1901_refuses_unresolved_stiffness",
       "witnesses": [
         {
           "key": "1901-body-0",
@@ -7152,7 +7152,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1859)`, `P(1859)`: body now refuses: the structure is a mechanism at nodes [2]; no result. 1 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1859_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1859_refuses_unrestrained_translation",
       "witnesses": [
         {
           "key": "1859-body-0",
@@ -7246,7 +7246,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1858)`, `P(1858)`: body now refuses: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 2.1e11, node anisotropy 1.1e6; limits 1e12 and 1e8, conditional accuracy 1e-4); no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1858_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1858_refuses_unresolved_stiffness",
       "witnesses": [
         {
           "key": "1858-body-0",
@@ -7435,7 +7435,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1856)`, `P(1856)`: body now refuses: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 2.1e11, node anisotropy 1.1e6; limits 1e12 and 1e8, conditional accuracy 1e-4); no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1856_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1856_refuses_unresolved_stiffness",
       "witnesses": [
         {
           "key": "1856-body-0",
@@ -7744,7 +7744,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1852)`, `P(1852)`: body now refuses: the structure is a mechanism at nodes [2]; no result. 1 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1852_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1852_refuses_unrestrained_translation",
       "witnesses": [
         {
           "key": "1852-body-0",
@@ -7838,7 +7838,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1851)`, `P(1851)`: body now refuses: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 2.1e11, node anisotropy 1.1e6; limits 1e12 and 1e8, conditional accuracy 1e-4); no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1851_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1851_refuses_unresolved_stiffness",
       "witnesses": [
         {
           "key": "1851-body-0",
@@ -7892,7 +7892,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1850)`, `P(1850)`: body now refuses: the structure is a mechanism at nodes [2]; no result. 1 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1850_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1850_refuses_unrestrained_translation",
       "witnesses": [
         {
           "key": "1850-body-0",
@@ -7986,7 +7986,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1847)`, `P(1847)`: body now refuses: the structure is a mechanism at nodes [2]; no result. 1 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1847_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1847_refuses_unrestrained_translation",
       "witnesses": [
         {
           "key": "1847-body-0",
@@ -8079,7 +8079,7 @@
       "cause": "E",
       "cause_status": "confirmed",
       "cause_basis": "Staged 3D duplicates an obsolete orphan-rotation regularizer: any released local bending axis marks the whole node hinged, then compares global rotational diagonals to max_diag*1e-10 across mixed translation/rotation units. The regular linear path does not add this stiffness.",
-      "evidence": "`M(1846)`: replay: rotation r@n2[0]: got 1.6535440385e-1, expected 3.5590640526e1, &#124;diff&#124; 3.543e1 > tol 1.689e-8 (scale 2.825e5, rel 5.98e-14). `U`: independent regular-linear/OpenSees checks agree for both exact unit copies; staged 3D adds artificial rotational stiffness. See retained native and public WASM follow-ups. 1 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
+      "evidence": "`M(1846)`: replay: rotation r@n2[0]: got 1.6535440385e-1, expected 3.5590640526e1, &#124;diff&#124; 3.543e1 > tol 1.689e-8 (scale 2.825e5, rel 5.98e-14). `U`: independent regular-linear/OpenSees checks agree for both exact unit copies; staged 3D adds artificial rotational stiffness. See retained native and public WASM follow-ups. 1 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments. Comment `1846-6760758840-0` is a silent staged-3D witness linked to the #1846 coordinator escalation; its outcome is separate from this body classification.",
       "regression": null,
       "witnesses": [
         {
@@ -8637,7 +8637,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The shared coupled stability gate identifies an unrestrained translation or refuses stiffness whose accuracy cannot be established.",
       "evidence": "`M(1842)`, `P(1842)`: body now refuses: the structure is a mechanism or so close to one that its stability cannot be decided in double precision (scaled condition number 2.1e11, node anisotropy 1.1e6; limits 1e12 and 1e8, conditional accuracy 1e-4); no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1842_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1842_refuses_unresolved_stiffness",
       "witnesses": [
         {
           "key": "1842-body-0",
@@ -20046,7 +20046,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1800)`, `P(1800)`: body now refuses conflicting_support_spring, error, phase input, nodes [2], DOFs [1]; no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1800_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1800_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1800-body-0",
@@ -20100,7 +20100,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1799)`, `P(1799)`: body now refuses conflicting_support_spring, error, phase input, nodes [2], DOFs [1]; no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1799_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1799_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1799-body-0",
@@ -20154,7 +20154,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1798)`, `P(1798)`: body now refuses conflicting_support_spring, error, phase input, nodes [2], DOFs [1]; no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1798_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1798_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1798-body-0",
@@ -20208,7 +20208,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1797)`, `P(1797)`: body now refuses conflicting_support_spring, error, phase input, nodes [2], DOFs [1]; no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1797_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1797_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1797-body-0",
@@ -20262,7 +20262,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1796)`, `P(1796)`: body now refuses conflicting_support_spring, error, phase input, nodes [2], DOFs [1]; no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1796_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1796_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1796-body-0",
@@ -20316,7 +20316,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1795)`, `P(1795)`: body now refuses conflicting_support_spring, error, phase input, nodes [2], DOFs [0]; no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1795_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1795_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1795-body-0",
@@ -20370,7 +20370,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1794)`, `P(1794)`: body now refuses conflicting_support_spring, error, phase input, nodes [2], DOFs [0]; no result. 1 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1794_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1794_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1794-body-0",
@@ -20577,7 +20577,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1793)`, `P(1793)`: body now refuses conflicting_support_spring, error, phase input, nodes [2], DOFs [0]; no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1793_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1793_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1793-body-0",
@@ -20631,7 +20631,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1792)`, `P(1792)`: body now refuses conflicting_support_spring, error, phase input, nodes [2], DOFs [0]; no result.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1792_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1792_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1792-body-0",
@@ -21086,7 +21086,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1643)`, `P(1643)`: body now refuses conflicting_support_spring, error, phase input, nodes [4], DOFs [0]; no result. 3 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1643_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1643_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1643-body-0",
@@ -22027,7 +22027,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1356)`, `P(1356)`: body now refuses conflicting_support_spring, error, phase input, nodes [6], DOFs [1]; no result. 1 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1356_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1356_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1356-body-0",
@@ -24092,7 +24092,7 @@
       "cause_status": "confirmed",
       "cause_basis": "The old OpenSees list skipped the fourth mode: the reported native fourth factor was already 372.9157279683578, while the reference incorrectly used 2789.6348527101786.",
       "evidence": "`X`, `P(control)`: all four requested native modes agree with fresh OpenSees (worst normalized eig error 1.5143821882095047e-13, 1-MAC 3.3306690738754696e-16, issue tolerance 1e-6). The former discrepancy was reference mode completeness; native positive control also passes both historical parents. Both model comments now refuse support conflicts. 2 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
-      "regression": null,
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1122_correct_buckling_control_keeps_all_requested_modes_in_order",
       "witnesses": [
         {
           "key": "1122-body-0",
@@ -24271,7 +24271,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1114)`, `P(1114)`: body now refuses conflicting_support_spring, error, phase input, nodes [6], DOFs [1]; no result. 8 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1114_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1114_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1114-body-0",
@@ -28420,7 +28420,7 @@
       "cause_status": "confirmed",
       "cause_basis": "A spring on a rigidly restrained DOF cannot be applied as specified; shared support validation now rejects the conflict.",
       "evidence": "`M(1111)`, `P(1111)`: body now refuses conflicting_support_spring, error, phase input, nodes [2], DOFs [1]; no result. 7 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
-      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1111_",
+      "regression": "engine/tests/metamorphic/candidate_replay.rs#issue_1111_refuses_conflicting_support_spring",
       "witnesses": [
         {
           "key": "1111-body-0",
@@ -30284,7 +30284,7 @@
       "cause": "C",
       "cause_status": "provisional",
       "cause_basis": "Numerical conditioning/roundoff candidate; a failed relation alone does not isolate the implementation defect.",
-      "evidence": "`M(1085)`: fuzz_rich_2d/20800: translation u@n2[0]: got -6.2243228429e-9, expected 1.2811682145e-15, &#124;diff&#124; 6.224e-9 > tol 1.437e-11 (scale 7.399e-3, rel 1.94e-9). 8 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
+      "evidence": "`M(1085)`: fuzz_rich_2d/20800: translation u@n2[0]: got -6.2243228429e-9, expected 1.2811682145e-15, &#124;diff&#124; 6.224e-9 > tol 1.437e-11 (scale 7.399e-3, rel 1.94e-9). 8 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments. Comment `1085-6760749658-0` is a silent staged-3D witness linked to the #1846 coordinator escalation; its outcome is separate from this body classification.",
       "regression": null,
       "witnesses": [
         {
@@ -32073,7 +32073,7 @@
       "cause": "C",
       "cause_status": "provisional",
       "cause_basis": "Numerical conditioning/roundoff candidate; a failed relation alone does not isolate the implementation defect.",
-      "evidence": "`M(1011)`: Fiber-nonlinear analysis: the state at load factor 1 is not in equilibrium (relative residual 5.838e-17, imbalance 9.468e2); no result is returned. Refusal alone does not establish whether the requested well-posed answer is available; an independent dynamic/nonlinear reference is missing. 2 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments.",
+      "evidence": "`M(1011)`: Fiber-nonlinear analysis: the state at load factor 1 is not in equilibrium (relative residual 5.838e-17, imbalance 9.468e2); no result is returned. Refusal alone does not establish whether the requested well-posed answer is available; an independent dynamic/nonlinear reference is missing. 2 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments. Comment `1011-6730900141-0` is a silent staged-3D witness linked to the #1846 coordinator escalation; its outcome is separate from this body classification.",
       "regression": null,
       "witnesses": [
         {
@@ -36883,7 +36883,7 @@
         "issue_1111_refuses_conflicting_support_spring": "ok",
         "issue_1800_refuses_conflicting_support_spring": "ok",
         "issue_1908_refuses_unresolved_stiffness": "FAILED",
-        "issue_1122_returns_all_four_requested_buckling_modes_in_order": "ok",
+        "issue_1122_correct_buckling_control_keeps_all_requested_modes_in_order": "ok",
         "issue_1856_refuses_unresolved_stiffness": "FAILED",
         "issue_1851_refuses_unresolved_stiffness": "FAILED",
         "issue_1792_refuses_conflicting_support_spring": "ok",
@@ -36912,7 +36912,7 @@
         "issue_1794_refuses_conflicting_support_spring": "FAILED",
         "issue_1842_refuses_unresolved_stiffness": "FAILED",
         "issue_1796_refuses_conflicting_support_spring": "FAILED",
-        "issue_1122_returns_all_four_requested_buckling_modes_in_order": "ok",
+        "issue_1122_correct_buckling_control_keeps_all_requested_modes_in_order": "ok",
         "issue_1793_refuses_conflicting_support_spring": "FAILED",
         "issue_1847_refuses_unrestrained_translation": "FAILED",
         "issue_1114_refuses_conflicting_support_spring": "FAILED",
@@ -39349,8 +39349,13 @@
     "status": "collision observed in actual modelFingerprint and fingerprintDifference"
   },
   "advisory_escalation": {
+    "related_witnesses": [
+      "1085-6760749658-0",
+      "1011-6730900141-0",
+      "1846-6760758840-0"
+    ],
     "issue": 1846,
     "main_silently_wrong": true,
-    "evidence": "Both exact unit copies agree in independent regular linear/OpenSees solves. Scaled staged native and public WASM return the wrong unique rotation with no final structured diagnostics. No advisory authored; coordinator chooses applicability and number."
+    "evidence": "Both exact #1846 body unit copies agree in independent regular linear/OpenSees solves. Scaled staged native and public WASM return the wrong unique rotation with no final structured diagnostics. The same staged regularizer defect also reaches comment witnesses 1085-6760749658-0 (multi-member 3D translations, without rotational supports), 1011-6730900141-0 (two-stage translations, releaseMzEnd), and 1846-6760758840-0 (rotation, releaseMzEnd); each archives diagnostic_calls: [[]] and near_mechanism_warning: false. A node whose incident members each release My or Mz can retain physical stiffness on other rotational axes; treating it as an all-axis hinge inserts artificial rotational restraints, redistributing translations and member forces across connected frames. Dense and sparse staged paths duplicate this unit-mixed rule. Member-force corruption is an implication of changed frame kinematics, not a separately archived force-reference comparison. No advisory authored; coordinator chooses applicability and number."
   }
 }

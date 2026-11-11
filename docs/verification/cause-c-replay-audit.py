@@ -184,6 +184,7 @@ def audit_candidates():
 
     finite(candidate)
     finite(fixtures, 'fixtures')
+    test_names = set(re.findall(r'fn (issue_[a-zA-Z0-9_]+)\(', source))
     fixed = set()
     cell_count = 0
     inline_count = 0
@@ -235,17 +236,23 @@ def audit_candidates():
                 if e['omitted_inclined_spring_work'] > 0.0:
                     verified_energy_count += 1
                     check(difference <= e['tolerance'], f"candidate {w['key']}: unsupported omitted-work explanation")
+        functions = sorted(name for name in test_names if name.startswith(f'issue_{n}_'))
+        expected_regression = f'engine/tests/metamorphic/candidate_replay.rs#{functions[0]}' if len(functions) == 1 else None
+        check(entry['regression'] == expected_regression, f'candidate #{n}: regression symbol mismatch')
         if entry['class'].startswith('FIXED-'):
             fixed.add(n)
             check(body is not None and body['observed']['base']['status'] == 'refused', f'candidate #{n}: fixed-refusal evidence')
-            functions = re.findall(rf'fn (issue_{n}_[a-zA-Z0-9_]+)\(', source)
-            check(len(functions) == 1 and bool(entry['regression']), f'candidate #{n}: missing active regression')
-            check(any(name.startswith(f'issue_{n}_') and status == 'FAILED' for name, status in support_parent['tests'].items()), f'candidate #{n}: test did not fail on main parent')
+            check(len(functions) == 1, f'candidate #{n}: missing active regression')
+            if len(functions) == 1:
+                check(support_parent['tests'].get(functions[0]) == 'FAILED', f'candidate #{n}: test did not fail on main parent')
         elif body and body['observed'].get('base') and entry['class'] == 'CANNOT-REPRODUCE':
             rs = body['observed']['relations']
             check(any(r['pass'] for r in rs) and not any(r['failures'] or r['refused'] or r['same_refusal'] or r['inconclusive'] for r in rs), f'candidate #{n}: passing relation claim')
         if body and body['observed'].get('relations') and entry['class'] == 'STILL-WRONG':
             check(any(r['failures'] for r in body['observed']['relations']), f'candidate #{n}: missing reproduced discrepancy')
+    for parent in parents:
+        check(set(parent['tests']) == test_names, f"candidate: historical-parent test symbols differ at {parent['revision']}")
+        check(set(parent['tests'].values()) <= {'ok', 'FAILED'}, f"candidate: unknown historical-parent outcome at {parent['revision']}")
     check(len(fixed) == 28, 'candidate: refusal regression count')
     check(len(re.findall(r'^#\[test\]', source, re.M)) == 29, 'candidate: active test count')
     check(sum(v == 'FAILED' for v in support_parent['tests'].values()) == 28, 'candidate: support-parent failures')
@@ -270,6 +277,17 @@ def audit_candidates():
     check(abs(staged_d['rx'] - linear_d['rx']) > 1.689e-8, 'candidate: #1846 silent discrepancy missing')
     check(not silent['native_staged']['diagnostics'] and not silent['public_wasm_staged']['diagnostics'], 'candidate: #1846 silence contradicts diagnostics')
     check(candidate['advisory_escalation']['issue'] == 1846 and candidate['advisory_escalation']['main_silently_wrong'], 'candidate: missing coordinator escalation')
+    related = candidate['advisory_escalation'].get('related_witnesses', [])
+    check(set(related) == {'1085-6760749658-0', '1011-6730900141-0', '1846-6760758840-0'} and len(related) == 3, 'candidate: staged escalation witness coverage')
+    for key in related:
+        entry = by_number[int(key.split('-')[0])]
+        matches = [w for w in entry['witnesses'] if w['key'] == key]
+        check(len(matches) == 1, f'candidate: missing escalation witness {key}')
+        check(key in entry['evidence'] and key in doc and key in candidate['advisory_escalation']['evidence'], f'candidate: unlinked escalation witness {key}')
+        if len(matches) == 1:
+            observed = matches[0]['observed']
+            check(observed['base']['status'] == 'solved' and observed['base']['diagnostic_calls'] == [[]] and observed['base']['near_mechanism_warning'] is False, f'candidate: escalation silence unsupported for {key}')
+            check(any(r['analysis'].startswith('staged (') and r['invariant'] == 'units' and r['failures'] for r in observed['relations']), f'candidate: escalation discrepancy missing for {key}')
     check(fixture_keys == fixtures.keys(), 'candidate: orphan/missing fixture references')
     check(sum(c['embedded_model_count'] for i in candidate['source_inventory'] for c in i['comments']) == sum(w['source'] != 'body' for i in entries for w in i['witnesses']), 'candidate: comment inventory')
     for klass, count in candidate['classification_counts'].items():

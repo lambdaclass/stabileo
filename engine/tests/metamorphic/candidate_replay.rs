@@ -43,8 +43,8 @@ fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) 
         let value: Value = serde_json::from_str(&error).unwrap();
         let actual = value["structuredDiagnostics"].as_array().unwrap();
         assert_eq!(actual.len(), 1);
-        for key in ["code", "severity", "phase", "nodeIds", "dofIndices"] {
-            assert_eq!(actual[0][key], expected[key], "#{issue}: {key}");
+        for (key, expected_value) in expected.as_object().unwrap() {
+            assert_eq!(&actual[0][key], expected_value, "#{issue}: {key}");
         }
     } else {
         assert!(error.starts_with(prefix), "#{issue}: {error}");
