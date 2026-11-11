@@ -49,9 +49,12 @@ test('allowances need bytes, a reason and an existing module', () => {
   assert.throws(() => parse([]), /invalid route allowance/);
   assert.throws(() => parse([entry, { ...entry, reason: '' }]), /invalid route allowance/);
 });
-test('the shipped allowances are the #1483 related links on research and tools, the #1619 riser card on research, and the #447 containment messages on tools', () => {
+test('the shipped allowances cover #1483 related links, the #1619 riser card, #447 containment messages and #818 Rayleigh refinement', () => {
   const routes = routeAllowances(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'), () => true);
-  assert.deepEqual(Object.keys(routes).sort(), ['/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']);
+  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']);
+  for (const route of ['/app/basic', '/app/education', '/app/pro']) {
+    assert.deepEqual(routes[route], { bytes: 3400, reason: '#818 original-pencil Rayleigh refinement', modules: ['src/lib/engine/second-order/dense.ts'] });
+  }
   assert.deepEqual(routes['/en/research/'], { bytes: 2600, reason: '#1483 related links styled as theme chips + #1619 riser gallery card and catalogue entry', modules: ['src/components/research/RelatedLinks.svelte', 'src/components/research/gayNeto2014/card.ts'] });
   for (const route of ['/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']) {
     assert.deepEqual(routes[route], { bytes: 1300, reason: '#1483 related links styled as theme chips + #447 containment messages', modules: ['src/components/research/RelatedLinks.svelte', 'src/lib/engine/known-issue-message.ts'] });
