@@ -273,9 +273,9 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         // Sparse path: K is load-independent, so the stage's full-K CSC is
         // also the cumulative one — only the force vector is reassembled.
         let reactions_vec = if let Some(ref k_full) = k_full_csc {
-            let loads = stage_loads_2d(&cumulative_solver_input, stage);
-            let f = super::assembly::assemble_load_vector_2d(&cumulative_solver_input, &loads, &dof_num, &[]);
-            compute_stage_reactions_sparse(k_full, &f, nf, nr, &cumulative_u)
+            asm_trips.as_ref().unwrap().cumulative_reactions(
+                k_full, &cumulative_solver_input, stage, &dof_num, &cumulative_u,
+            )
         } else {
             let cumulative_asm = assemble_staged_2d(
                 &cumulative_solver_input, &dof_num, stage,
@@ -498,6 +498,21 @@ struct StagedTriplets2D {
     cols: Vec<usize>,
     vals: Vec<f64>,
     f: Vec<f64>,
+}
+
+impl StagedTriplets2D {
+    fn cumulative_reactions(
+        &self,
+        k_full: &CscMatrix,
+        input: &SolverInput,
+        stage: &ConstructionStage,
+        dof: &DofNumbering,
+        u: &[f64],
+    ) -> Vec<f64> {
+        let loads = stage_loads_2d(input, stage);
+        let f = super::assembly::assemble_load_vector_2d(input, &loads, dof, &[]);
+        compute_stage_reactions_sparse(k_full, &f, dof.n_free, dof.n_total - dof.n_free, u)
+    }
 }
 
 fn full_triplets(k: &CscMatrix) -> (Vec<usize>, Vec<usize>, Vec<f64>) {

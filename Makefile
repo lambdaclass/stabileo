@@ -875,6 +875,7 @@ evidence.research.feher:
 .PHONY: test.engine.staged-orphan-wasm
 test.engine.staged-orphan-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-orphan-1846-wasm.mjs
+	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs
 
 .PHONY: test.engine.staged-prestress test.staged-wasm-assertions
 test.engine.staged-prestress:
@@ -893,3 +894,14 @@ test.engine.staged-review-numeric:
 .PHONY: test.engine.staged-round3
 test.engine.staged-round3:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1846_round3 -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.staged-round4 test.engine.staged-round4-internal test.engine.staged-round4-wasm
+
+test.engine.staged-round4:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration $(or $(FILTER),issue_1846_round4) -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round4-internal:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_round4 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round4-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs

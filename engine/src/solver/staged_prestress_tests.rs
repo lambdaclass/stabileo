@@ -204,3 +204,86 @@ fn staged_review_numeric_nonfinite_solutions_are_refused() {
         }
     }
 }
+
+fn round4_reaction_check(prestress_only: bool) {
+    for angle in [None, Some(0.0), Some(30.0), Some(-45.0), Some(90.0)] {
+        for force in [0.0, 1.0] {
+            for profile in [
+                TendonProfile::Straight,
+                TendonProfile::Parabolic { e_mid: 0.3 },
+                TendonProfile::Harped { e_harp: 0.3 },
+            ] {
+                let mut input = model(angle);
+                if prestress_only {
+                    input.loads.clear();
+                }
+                let stage = stage(profile, force);
+                let dof = DofNumbering::build_2d(&input);
+                let sparse = assemble_staged_2d_triplets(&input, &dof, &stage);
+                let dense = assemble_staged_2d(&input, &dof, &stage);
+                let k_full =
+                    CscMatrix::from_triplets(dof.n_total, &sparse.rows, &sparse.cols, &sparse.vals);
+                let free: Vec<_> = (0..dof.n_free).collect();
+                let mut kff = extract_submatrix(&dense.k, dof.n_total, &free, &free);
+                let uf = cholesky_solve(&mut kff, &dense.f[..dof.n_free], dof.n_free).unwrap();
+                let mut u = vec![0.0; dof.n_total];
+                u[..dof.n_free].copy_from_slice(&uf);
+                let r = sparse.cumulative_reactions(&k_full, &input, &stage, &dof, &u);
+                let expected = compute_stage_reactions_vec(
+                    &dense,
+                    dof.n_total,
+                    dof.n_free,
+                    dof.n_total - dof.n_free,
+                    &u,
+                    &vec![0.0; dof.n_total - dof.n_free],
+                );
+                close(&r, &expected);
+                let independent = equivalent(&input, &stage);
+                let asm = super::super::assembly::without_artificial_stiffness(|| {
+                    assemble_2d(&independent, &dof)
+                });
+                let mut full_r = mat_vec(&dense.k, &u, dof.n_total);
+                for (r, f) in full_r.iter_mut().zip(&dense.f) {
+                    *r -= f;
+                }
+                full_r[dof.n_free..].copy_from_slice(&r);
+                for it in &asm.inclined_transforms_2d {
+                    super::super::assembly::reverse_inclined_transform_2d(
+                        &mut full_r,
+                        &it.dofs,
+                        &it.r,
+                    );
+                }
+                let mut equilibrium = [0.0; 3];
+                for node in input.nodes.values() {
+                    let rx = full_r[dof.map[&(node.id, 0)]];
+                    let rz = full_r[dof.map[&(node.id, 1)]];
+                    equilibrium[0] += rx;
+                    equilibrium[1] += rz;
+                    equilibrium[2] += full_r[dof.map[&(node.id, 2)]] + node.x * rz - node.z * rx;
+                }
+                for load in &independent.loads {
+                    if let SolverLoad::Nodal(load) = load {
+                        let node = &input.nodes[&load.node_id.to_string()];
+                        equilibrium[0] += load.fx;
+                        equilibrium[1] += load.fz;
+                        equilibrium[2] += load.my + node.x * load.fz - node.z * load.fx;
+                    }
+                }
+                close(&equilibrium, &[0.0; 3]);
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn staged_round4_sparse_cumulative_nodal_reactions_keep_inclined_basis() {
+    round4_reaction_check(false);
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn staged_round4_sparse_cumulative_prestress_reactions_keep_inclined_basis() {
+    round4_reaction_check(true);
+}

@@ -1151,30 +1151,7 @@ fn review_archived_comment(key: &str) {
                 }
                 let expected = serde_json::to_value(&linear.element_forces).unwrap();
                 let got = serde_json::to_value(&actual.element_forces).unwrap();
-                for a in expected.as_array().unwrap() {
-                    let b = got
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .find(|b| b["elementId"] == a["elementId"])
-                        .unwrap();
-                    for fields in [
-                        ["nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd"],
-                        ["mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd"],
-                    ] {
-                        let scale = fields
-                            .iter()
-                            .filter_map(|field| a[*field].as_f64())
-                            .map(f64::abs)
-                            .fold(1e-10, f64::max);
-                        for field in fields {
-                            if let Some(x) = a[field].as_f64() {
-                                let y = b[field].as_f64().unwrap();
-                                assert!((x-y).abs()<=1e-9*scale,"{key}, length={length}, pads={pads}, split={split}, element {}: {field} {x} != {y}",a["elementId"]);
-                            }
-                        }
-                    }
-                }
+                review_force_components(&expected, &got, &input.elements.values().map(|e| e.id).collect::<Vec<_>>(), &format!("{key}, length={length}, pads={pads}, split={split}"));
             }
         }
     }
@@ -1579,5 +1556,158 @@ fn issue_1846_round3_empty_stage_has_no_artificial_conditioning_warning() {
                 }
             }
         }
+    }
+}
+
+fn review_force_components(
+    expected: &serde_json::Value,
+    got: &serde_json::Value,
+    _ids: &[usize],
+    context: &str,
+) {
+    for a in expected.as_array().unwrap() {
+        let b = got
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|b| b["elementId"] == a["elementId"])
+            .unwrap();
+        for fields in [
+            ["nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd"],
+            ["mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd"],
+        ] {
+            let scale = fields
+                .iter()
+                .filter_map(|field| a[*field].as_f64())
+                .map(f64::abs)
+                .fold(1e-10, f64::max);
+            for field in fields {
+                if let Some(x) = a[field].as_f64() {
+                    let y = b[field].as_f64().unwrap();
+                    assert!(
+                        (x - y).abs() <= 1e-9 * scale,
+                        "{context}, element {}: {field} {x} != {y}",
+                        a["elementId"]
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round4_force_comparison_rejects_incomplete_components() {
+    let fields = [
+        "nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd", "mxStart", "mxEnd", "myStart",
+        "myEnd", "mzStart", "mzEnd",
+    ];
+    let mut element = serde_json::json!({"elementId": 1});
+    for field in fields {
+        element[field] = 1.0.into();
+    }
+    let valid = serde_json::json!([element]);
+    review_force_components(&valid, &valid, &[1], "valid");
+    let mut cases = vec![
+        (serde_json::json!([]), serde_json::json!([])),
+        (valid.clone(), serde_json::json!([])),
+        (
+            valid.clone(),
+            serde_json::json!([valid[0].clone(), valid[0].clone()]),
+        ),
+    ];
+    let mut wrong_id = valid.clone();
+    wrong_id[0]["elementId"] = 2.into();
+    cases.push((wrong_id.clone(), wrong_id));
+    for field in fields {
+        for side in [false, true] {
+            for missing in [false, true] {
+                let mut broken = valid.clone();
+                if missing {
+                    broken[0].as_object_mut().unwrap().remove(field);
+                } else {
+                    broken[0][field] = serde_json::to_value(f64::NAN).unwrap();
+                }
+                cases.push(if side {
+                    (valid.clone(), broken)
+                } else {
+                    (broken, valid.clone())
+                });
+            }
+        }
+    }
+    for (expected, got) in cases {
+        assert!(
+            std::panic::catch_unwind(|| review_force_components(
+                &expected,
+                &got,
+                &[1],
+                "negative control"
+            ))
+            .is_err(),
+            "accepted {expected} / {got}"
+        );
+    }
+}
+
+fn round4_plastic_mechanisms(torsions: &[f64]) {
+    for propped in [false, true] {
+        let mut p: PlasticInput3D =
+            serde_json::from_str(include_str!("../fixtures/staged-round4-plastic.json")).unwrap();
+        if propped {
+            p.solver.nodes.retain(|id, _| id == "1" || id == "2");
+            p.solver.elements.retain(|id, _| id == "1");
+            p.solver.supports.remove("4");
+            let mut support = p.solver.supports["1"].clone();
+            support.node_id = 2;
+            support.rry = false;
+            support.rrz = false;
+            p.solver.supports.insert("2".into(), support);
+        }
+        for (&torsion, pads) in torsions
+            .iter()
+            .flat_map(|j| [0, 10, 11].map(|pads| (j, pads)))
+        {
+            let mut p = p.clone();
+            p.solver.sections.get_mut("1").unwrap().j = torsion;
+            pad_3d(&mut p.solver, pads);
+            let raw = dedaliano_engine::solver::plastic::solve_plastic_3d(&p).unwrap();
+            let certified = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&p).unwrap();
+            for r in [&raw, &certified.results] {
+                assert!(r.is_mechanism, "{r:?}");
+                assert!(
+                    (r.collapse_factor - if propped { 100.0 } else { 200.0 }).abs() <= 1e-9,
+                    "propped={propped}, pads={pads}: {r:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round4_plastic_joint_moment_mechanisms() {
+    round4_plastic_mechanisms(&[1e-5]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round4_plastic_hinge_soft_states() {
+    round4_plastic_mechanisms(&[1e-11, 1e-15, 1e-17]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1846"]
+fn issue_1846_round4_plastic_hinge_induced_coupled_soft_state() {
+    let p: PlasticInput3D =
+        serde_json::from_str(include_str!("../fixtures/staged-round4-soft-hinge.json")).unwrap();
+    let raw = dedaliano_engine::solver::plastic::solve_plastic_3d(&p).unwrap();
+    let certified = dedaliano_engine::certify::plastic_3d::certify_plastic_3d(&p).unwrap();
+    for r in [&raw, &certified.results] {
+        assert!(
+            r.collapse_factor.is_finite() && r.collapse_factor > 0.0,
+            "{r:?}"
+        );
+        assert!(r.is_mechanism, "{r:?}");
     }
 }

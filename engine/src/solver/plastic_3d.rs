@@ -1437,6 +1437,73 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #1846"]
+    fn staged_round4_hinge_states_are_collapse_not_elastic_refusals() {
+        let p: PlasticInput3D = serde_json::from_str(include_str!(
+            "../../tests/fixtures/staged-round4-plastic.json"
+        ))
+        .unwrap();
+        let mut failures = Vec::new();
+        for (torsion, oblique) in [1e-5, 1e-11, 1e-13, 1e-15, 1e-17]
+            .into_iter()
+            .flat_map(|j| [0, 1, 2].map(|b| (j, b)))
+        {
+            let mut model = p.solver.clone();
+            if oblique > 0 {
+                model.nodes.get_mut("3").unwrap().y = 4.0;
+                model.nodes.get_mut("4").unwrap().y = 4.0;
+            }
+            if oblique == 2 {
+                model.nodes.get_mut("3").unwrap().z = 5.0;
+            }
+            model.sections.get_mut("1").unwrap().j = torsion;
+            let initial = crate::solver::stability::of_3d(&model).unwrap();
+            assert_eq!(
+                initial.verdict,
+                crate::solver::stability::Verdict::Stable,
+                "{initial:?}"
+            );
+            let e = model.elements.get_mut("1").unwrap();
+            e.release_my_end = true;
+            e.release_mz_end = true;
+            let hinged = crate::solver::stability::of_3d(&model).unwrap();
+            let result = carry(&model);
+            eprintln!(
+                "torsion={torsion}, oblique={oblique}, hinged={hinged:?}, carry={:?}",
+                result.as_ref().map(|x| x.is_some())
+            );
+            let carries = oblique == 0 || torsion >= 1e-11;
+            if !matches!(result, Ok(ref r) if r.is_some() == carries) {
+                failures.push((torsion, oblique));
+            }
+        }
+        assert!(failures.is_empty(), "{failures:?}");
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1846"]
+    fn staged_round4_hinge_induced_coupled_soft_state() {
+        let p: PlasticInput3D = serde_json::from_str(include_str!(
+            "../../tests/fixtures/staged-round4-soft-hinge.json"
+        ))
+        .unwrap();
+        let mut model = p.solver;
+        assert_eq!(
+            crate::solver::stability::of_3d(&model).unwrap().verdict,
+            crate::solver::stability::Verdict::Stable
+        );
+        let e = model.elements.get_mut("2").unwrap();
+        e.release_my_end = true;
+        e.release_mz_end = true;
+        let hinged = crate::solver::stability::of_3d(&model).unwrap();
+        assert_eq!(
+            hinged.reason,
+            crate::solver::stability::Reason::CoupledSoftDirection,
+            "{hinged:?}"
+        );
+        assert!(carry(&model).unwrap().is_none());
+    }
+    #[test]
     fn an_error_on_one_step_refuses_the_collapse_factor() {
         let solver: SolverInput3D = serde_json::from_value(serde_json::json!({
             "nodes": {}, "elements": {}, "materials": {}, "sections": {}, "supports": {}, "loads": []
