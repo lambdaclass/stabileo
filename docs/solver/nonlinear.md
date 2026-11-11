@@ -469,7 +469,10 @@ from that solution, and the passes repeat until no status changes.
   augmented-Lagrangian passes. Valid frozen states may converge and retain oscillation diagnostics.
   Frozen tension-only and compression-only members are also remembered across these passes.
   After the final solve, both recovered axial end forces must have the permitted sign within
-  `tolerance` multiplied by the member's axial stiffness $EA/L$. Non-finite forces or stiffness,
+  `tolerance` multiplied by the member's axial stiffness $EA/L$. A frozen inactive member's
+  full-stiffness trial axial force on the final geometry must not require reactivation beyond
+  that same scaled tolerance (tension for tension-only members, compression for compression-only).
+  Non-finite trial or recovered forces or stiffness,
   non-positive stiffness and forces exceeding that limit return `contact_state_invalid`, naming
   the member in phase `element_behavior`. Empty gap and surface lists do not bypass this check.
   Optional damping adds $c(u-u_\text{prev})$ to oscillating gaps during iteration only.

@@ -528,5 +528,7 @@ not establish that the cable remains taut under load combinations or dynamic res
 truss members remain two-way bars. For tension-only members in contact analysis, use a truss with
 an explicit `tension_only` behaviour. Contact member states obey `max_flips`; a frozen member's
 final recovered axial end forces must respect its one-way sign within the contact tolerance
-scaled by $EA/L$, or the solve refuses with `contact_state_invalid`. The dedicated cable solver
+scaled by $EA/L$. A frozen inactive member's full-stiffness trial axial force on the final
+geometry must not require reactivation beyond that same scaled tolerance. Invalid states refuse
+with `contact_state_invalid`. The dedicated cable solver
 keeps its tension-only formulation.

@@ -1078,13 +1078,13 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
         }
     }
     for &(eid, behavior) in behaviors.iter().filter(|(eid, _)| frozen_elements.contains(eid)) {
-        let (_, stiffness) = axial(eid, &u_global);
+        let (trial_force, stiffness) = axial(eid, &u_global);
         let force = element_forces.iter().find(|ef| ef.element_id == eid)
             .ok_or_else(|| super::validity::refusal(
                 DiagnosticCode::ContactStateInvalid, vec![eid], "element_behavior",
                 "Results withheld: a frozen one-way member has no assembled axial forces. Revise the contact model or iteration settings and solve again.",
             ))?;
-        super::validity::check_frozen_member(eid, behavior, [force.n_start, force.n_end], stiffness, tolerance)?;
+        super::validity::check_frozen_member(eid, behavior, [force.n_start, force.n_end], inactive.contains(&eid).then_some(trial_force), stiffness, tolerance)?;
         let earlier = if elem_flips.get(&eid).copied().unwrap_or(0) <= max_flips { " in an earlier augmented-Lagrangian pass" } else { "" };
         diagnostics.push(format!("Element {eid} ({behavior}) status was frozen{earlier}."));
     }
@@ -1590,13 +1590,13 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
         }
     }
     for &(eid, behavior) in behaviors.iter().filter(|(eid, _)| frozen_elements.contains(eid)) {
-        let (_, stiffness) = axial(eid, &u_global);
+        let (trial_force, stiffness) = axial(eid, &u_global);
         let force = element_forces.iter().find(|ef| ef.element_id == eid)
             .ok_or_else(|| super::validity::refusal(
                 DiagnosticCode::ContactStateInvalid, vec![eid], "element_behavior",
                 "Results withheld: a frozen one-way member has no assembled axial forces. Revise the contact model or iteration settings and solve again.",
             ))?;
-        super::validity::check_frozen_member(eid, behavior, [force.n_start, force.n_end], stiffness, tolerance)?;
+        super::validity::check_frozen_member(eid, behavior, [force.n_start, force.n_end], inactive.contains(&eid).then_some(trial_force), stiffness, tolerance)?;
         let earlier = if elem_flips.get(&eid).copied().unwrap_or(0) <= max_flips { " in an earlier augmented-Lagrangian pass" } else { "" };
         diagnostics.push(format!("Element {eid} ({behavior}) status was frozen{earlier}."));
     }

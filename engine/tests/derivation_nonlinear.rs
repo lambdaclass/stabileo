@@ -1258,28 +1258,24 @@ fn assert_inactive_one_way_refusal_1932<T: std::fmt::Debug>(result: Result<T, St
 }
 
 #[test]
-#[ignore = "known wrong result: #1932"]
 fn issue_1932_frozen_inactive_tension_only_refuses_2d() {
     let (plane, _) = inactive_one_way_contact_1932("tension_only", 1.0, 1, 1.0);
     assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_2d(&plane));
 }
 
 #[test]
-#[ignore = "known wrong result: #1932"]
 fn issue_1932_frozen_inactive_tension_only_refuses_3d() {
     let (_, space) = inactive_one_way_contact_1932("tension_only", 1.0, 1, 1.0);
     assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_3d(&space));
 }
 
 #[test]
-#[ignore = "known wrong result: #1932"]
 fn issue_1932_frozen_inactive_compression_only_refuses_2d() {
     let (plane, _) = inactive_one_way_contact_1932("compression_only", -1.0, 1, 1.0);
     assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_2d(&plane));
 }
 
 #[test]
-#[ignore = "known wrong result: #1932"]
 fn issue_1932_frozen_inactive_compression_only_refuses_3d() {
     let (_, space) = inactive_one_way_contact_1932("compression_only", -1.0, 1, 1.0);
     assert_inactive_one_way_refusal_1932(dedaliano_engine::solver::contact::solve_contact_3d(&space));
@@ -1309,7 +1305,6 @@ fn issue_1932_sufficient_flip_budget_solves_with_reactivated_member() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1932"]
 fn issue_1932_frozen_inactive_activation_uses_scaled_tolerance() {
     for (behavior, sign) in [("tension_only", 1.0), ("compression_only", -1.0)] {
         for ratio in [0.99, 1.01] {
