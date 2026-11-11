@@ -1,4 +1,4 @@
-use super::{assembly, dof::DofNumbering, linear};
+use crate::solver::{assembly, dof::DofNumbering, linear, stability};
 use crate::types::*;
 use serde::Deserialize;
 
@@ -10,18 +10,25 @@ struct Case {
 }
 
 fn cases() -> Vec<Case> {
-    serde_json::from_str(include_str!(
-        "../../tests/fixtures/1753-frozen-shell-refusals.json"
-    ))
-    .unwrap()
+    serde_json::from_str(include_str!("fixtures/1753-frozen-shell-refusals.json")).unwrap()
+}
+
+fn assert_finite(values: &[f64]) {
+    for (index, value) in values.iter().enumerate() {
+        assert!(value.is_finite(), "nonfinite component {index}: {value}");
+    }
 }
 
 fn max(values: &[f64]) -> f64 {
+    assert_finite(values);
     values.iter().fold(0.0_f64, |a, x| a.max(x.abs()))
 }
 
 fn relative_error(reference: &[f64], values: &[f64], scale: f64) -> f64 {
     assert_eq!(reference.len(), values.len());
+    assert_finite(reference);
+    assert_finite(values);
+    assert!(scale.is_finite() && scale > 0.0, "invalid scale {scale}");
     reference
         .iter()
         .zip(values)
@@ -30,7 +37,6 @@ fn relative_error(reference: &[f64], values: &[f64], scale: f64) -> f64 {
 }
 
 #[test]
-#[ignore = "known wrong result: #1948"]
 fn frozen_shell_max_rejects_nonfinite_components() {
     for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
         for values in [vec![invalid; 3], vec![1.0, invalid, 2.0]] {
@@ -43,7 +49,6 @@ fn frozen_shell_max_rejects_nonfinite_components() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1948"]
 fn frozen_shell_relative_error_rejects_nonfinite_components() {
     let finite = [1.0, 2.0, 3.0];
     for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
@@ -62,7 +67,6 @@ fn frozen_shell_relative_error_rejects_nonfinite_components() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1948"]
 fn frozen_shell_relative_error_rejects_invalid_scale() {
     for scale in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -1.0, -0.0, 0.0] {
         assert!(
@@ -263,12 +267,12 @@ fn frozen_shell_dense_and_sparse_share_the_physical_mechanism() {
         let free: Vec<usize> = (0..nf).collect();
         let mut k = crate::linalg::extract_submatrix(&dense.k, dof.n_total, &free, &free);
         let tags = linear::free_tags(&dof, false);
-        let coupling = super::stability::coupling_3d(input, &dof);
-        let releases = super::stability::released_rotations_3d(input, &dof);
+        let coupling = stability::coupling_3d(input, &dof);
+        let releases = stability::released_rotations_3d(input, &dof);
         let dense_gate =
-            super::stability::analyze_dense_with_coupling(&k, nf, &tags, &coupling, &releases);
+            stability::analyze_dense_with_coupling(&k, nf, &tags, &coupling, &releases);
         let sparse_gate =
-            super::stability::analyze_with_coupling(&sparse.k_ff, &tags, &coupling, &releases);
+            stability::analyze_with_coupling(&sparse.k_ff, &tags, &coupling, &releases);
         assert_eq!(dense_gate.is_stable(), stable);
         assert_eq!(sparse_gate.is_stable(), stable);
         if stable {
