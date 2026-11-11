@@ -50,8 +50,7 @@ def notes_line(version, root=ROOT):
 def rebase_section(log, version, date, line=""):
     start, end = section_bounds(log, version, date)
     heading = f"## {version} ({date})\n\n"
-    body = INLINE.sub(r"\1", log[start + len(heading):end])
-    body = REFERENCE.sub(r"\1", body)
+    body = changelog_module().rebase_fragment_links(log[start + len(heading):end])
     return log[:start] + heading + line + body + log[end:]
 
 

@@ -21,7 +21,7 @@ class Changelog(unittest.TestCase):
         (self.fragments / 'README.md').write_text('Instructions')
         self.log = self.root / 'CHANGELOG.md'
         self.log.write_text('# Changelog\n\n## Unreleased\n\nStale summary.\n\n' + HISTORY)
-        self.fix = '### Fixed\n\n#### Correct support reactions\n\nThe reactions balance.\n'
+        self.fix = '### Fixed\n\n#### Correct support reactions\n\nThe reactions balance. See [evidence](../docs/evidence.md).\n\n[record]: ../docs/record.md\n'
         (self.fragments / 'a-fix.md').write_text(self.fix)
         (self.fragments / 'z-add.md').write_text('### Added\n\n#### A new view\n\nView the model.\n')
 
@@ -35,6 +35,9 @@ class Changelog(unittest.TestCase):
         self.assertNotIn('Stale summary.', text)
         self.assertIn('### Fixed\n\n#### Correct support reactions', text)
         self.assertLess(text.index('### Added'), text.index('### Fixed'))
+        self.assertIn('[evidence](docs/evidence.md)', text)
+        self.assertIn('[record]: docs/record.md', text)
+        self.assertNotIn('](../docs/', text)
         self.assertTrue(text.endswith(HISTORY))
         self.assertEqual((self.fragments / 'a-fix.md').read_text(), self.fix)
         self.assertEqual(len(list(self.fragments.glob('*.md'))), 3)
@@ -55,6 +58,13 @@ class Changelog(unittest.TestCase):
             self.assertNotEqual(self.run_cli(*args).returncode, 0)
             self.assertEqual(self.log.read_text(), before)
             self.assertTrue((self.fragments / 'invalid.md').exists())
+
+    def test_unreleased_without_a_previous_release(self):
+        self.log.write_text('# Changelog\n\n## Unreleased\n\nStale summary.\n')
+        result = self.run_cli('--unreleased')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('#### Correct support reactions', self.log.read_text())
+        self.assertNotIn('Stale summary.', self.log.read_text())
 
     def test_empty_fragments_remove_the_stale_summary_and_keep_history(self):
         for path in self.fragments.glob('*.md'):
