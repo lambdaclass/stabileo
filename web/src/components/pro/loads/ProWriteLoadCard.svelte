@@ -28,6 +28,7 @@
   import LoadSketch, { type SketchInput } from './LoadSketch.svelte';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import ProShellLoadForm from './ProShellLoadForm.svelte';
+  import { axisName } from '../../../lib/axes/display';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
 
   type Kind = 'nodal' | 'displacement' | 'distributed' | 'point' | 'thermal' | 'strain' | 'prestress' | 'surface' | 'hydro' | 'shellPoint' | 'thermalQuad' | 'selfWeight';
@@ -190,7 +191,7 @@
     modelStore.setAnalysis({ selfWeight: same >= 0 ? now.map((r, i) => (i === same ? rule : r)) : [...now, rule] });
     error = null;
     const c = modelStore.model.loadCases.find((lc) => lc.id === rule.caseId)?.name ?? '';
-    done = tp(same >= 0 ? 'writeLoad.swReplaced' : 'writeLoad.swAdded', { case: c, f: String(f).replace('-', '−'), dir: swDir });
+    done = tp(same >= 0 ? 'writeLoad.swReplaced' : 'writeLoad.swAdded', { case: c, f: String(f).replace('-', '−'), dir: axisName(['X', 'Y', 'Z'].indexOf(swDir) as 0 | 1 | 2) });
   }
 
   function add() {
@@ -295,7 +296,7 @@
     {:else}
       <div class="fg-r"><span class="fg-l">w₁</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={w1} quantity="distributedLoad" testid="wl-w1" /><span class="fg-u">{unitQ('distributedLoad')}</span></div>
       <div class="fg-r"><span class="fg-l">w₂</span><QuantityInput nullable showUnit={false} cls="fg-in" bind:value={w2} quantity="distributedLoad" testid="wl-w2" /><span class="fg-u">{unitQ('distributedLoad')}</span></div>
-      <div class="fg-r"><span class="fg-l">{t('writeLoad.alongAxis')}</span><select class="fg-in" bind:value={hydroAxis} data-testid="wl-hydro-axis"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></div>
+      <div class="fg-r"><span class="fg-l">{t('writeLoad.alongAxis')}</span><select class="fg-in" bind:value={hydroAxis} data-testid="wl-hydro-axis">{#each ['X', 'Y', 'Z'] as const as a, k (a)}<option value={a}>{axisName(k as 0 | 1 | 2)}</option>{/each}</select></div>
       <div class="fg-r"><span class="fg-l">{t('writeLoad.acting')}</span><select class="fg-in" bind:value={hydroComp} data-testid="wl-hydro-comp">{#each ['x', 'y', 'z'] as c (c)}<option value={c}>{frame === 'local' ? c : c.toUpperCase()}</option>{/each}</select></div>
       <p class="wl-hint fg-full">{t('writeLoad.hydrostaticHint')}</p>
     {/if}
@@ -337,7 +338,7 @@
       <span class="fg-u">{unitQ('length')}</span></div>
     <p class="wl-hint fg-full">{t('writeLoad.prestressHint')}</p>
   {:else if kind === 'selfWeight'}
-    <div class="fg-r"><span class="fg-l">{t('selfWeight.direction')}</span><select class="fg-in" bind:value={swDir} data-testid="wl-sw-dir"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></div>
+    <div class="fg-r"><span class="fg-l">{t('selfWeight.direction')}</span><select class="fg-in" bind:value={swDir} data-testid="wl-sw-dir">{#each ['X', 'Y', 'Z'] as const as a, k (a)}<option value={a}>{axisName(k as 0 | 1 | 2)}</option>{/each}</select></div>
     <div class="fg-r"><span class="fg-l">{t('selfWeight.factor')}</span><input type="text" inputmode="decimal" bind:value={swFactor} class="fg-in" data-testid="wl-sw-factor" /></div>
     <p class="wl-hint fg-full">{t('writeLoad.swHint')}</p>
   {:else if kind === 'surface' || kind === 'hydro' || kind === 'shellPoint'}

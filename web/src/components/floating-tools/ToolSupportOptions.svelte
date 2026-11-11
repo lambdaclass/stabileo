@@ -5,6 +5,7 @@
   // Stiffnesses and settlements are typed in the chosen unit system and kept in SI.
   import UnitInput from '../UnitInput.svelte';
   import { unitQ } from '../../lib/store/display-units.svelte';
+  import { twoD } from '../../lib/axes/display';
 
   const supportTypes = [
     { id: 'fixed', key: 'float.supportFixedShort', icon: '▣', svg: false },
@@ -110,13 +111,13 @@
       title={uiStore.supportIsGlobal
         ? t('float.rollerRestrictsYGlobal')
         : t('float.rollerRestrictsJLocal')}
-    >{uiStore.supportIsGlobal ? 'X' : 'i'}</button>
+    >{uiStore.supportIsGlobal ? twoD.horizontal : 'i'}</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.supportDirection === 'y'}
       onclick={() => uiStore.supportDirection = 'y'}
       title={uiStore.supportIsGlobal
         ? t('float.rollerRestrictsXGlobal')
         : t('float.rollerRestrictsILocal')}
-    >{uiStore.supportIsGlobal ? 'Z' : 'j'}</button>
+    >{uiStore.supportIsGlobal ? twoD.vertical : 'j'}</button>
     <span class="ft-sep">|</span>
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = true}
       title={t('float.rollerGlobalLabel')}>Gl</button>
@@ -135,17 +136,17 @@
     <span class="ft-sep">|</span>
     {#if uiStore.supportType === 'fixed' || uiStore.supportType === 'pinned'}
       <label class="ft-input-group" title={t('float.prescribedDx')}>
-        <span>dx:</span>
+        <span>d{twoD.horizontal.toLowerCase()}:</span>
         <UnitInput value={uiStore.supportDx} qty="displacement" onchange={(v) => (uiStore.supportDx = v)} unit={false} live /><span class="ft-unit">{unitQ('displacement')}</span>
       </label>
       <label class="ft-input-group" title={t('float.prescribedDy')}>
-        <span>dz:</span>
+        <span>d{twoD.vertical.toLowerCase()}:</span>
         <UnitInput value={uiStore.supportDy} qty="displacement" onchange={(v) => (uiStore.supportDy = v)} unit={false} live /><span class="ft-unit">{unitQ('displacement')}</span>
       </label>
     {/if}
     {#if uiStore.supportType === 'fixed'}
       <label class="ft-input-group" title={t('float.prescribedDrz')}>
-        <span>dθy:</span>
+        <span>dθ{twoD.normal.toLowerCase()}:</span>
         <UnitInput value={uiStore.supportDrz} qty="rotation" onchange={(v) => (uiStore.supportDrz = v)} unit={false} live /><span class="ft-unit">{unitQ('rotation')}</span>
       </label>
     {/if}

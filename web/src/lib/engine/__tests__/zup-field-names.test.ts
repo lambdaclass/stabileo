@@ -91,7 +91,7 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(toolLoadOptions).toContain('>Z</button>');
     expect(toolLoadOptions).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
 
-    expect(selectedEntityPanel).toContain('>Z</button>');
+    expect(selectedEntityPanel).toContain("title={t('float.loadGlobalYDir')}>{twoD.vertical}</button>");
     expect(selectedEntityPanel).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
   });
 

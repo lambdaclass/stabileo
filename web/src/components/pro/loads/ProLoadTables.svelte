@@ -23,6 +23,7 @@
   import { editSelfWeightRule, type GlobalAxis, type SelfWeightLoad } from '../../../lib/engine/analysis-settings';
   import { shellText, surfaceValueText, surfaceHowText } from '../../../lib/model/loads/surface-load-text';
   import { definitionName, type DefinitionModel } from '../../../lib/model/loads/floor-definitions';
+  import { axisName } from '../../../lib/axes/display';
 
   let scope = $state<'case' | 'all'>('case');
   let wrap = $state<HTMLDivElement | null>(null);
@@ -219,7 +220,7 @@
             {#each cases as c (c.id)}<option value={String(c.id)}>{c.name}</option>{/each}
           </select></td>
           <td><select class="inp-cell" value={w.direction} onchange={(e) => swChange(i, { direction: e.currentTarget.value as GlobalAxis })} data-testid="sw-dir">
-            <option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option>
+            {#each ['X', 'Y', 'Z'] as const as a, k (a)}<option value={a}>{axisName(k as 0 | 1 | 2)}</option>{/each}
           </select></td>
           <td class="col-num"><input class="inp-cell" value={plainNumber(w.factor, 6)} onchange={(e) => swFactor(e.currentTarget, i, w.factor)} data-testid="sw-factor" /></td>
           <td>{swReach(w)}</td>

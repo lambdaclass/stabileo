@@ -2,6 +2,7 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
+  import { modelIndexOfUser, twoD, XYZ } from '../../lib/axes/display';
 
   let { supId, sup }: { supId: number; sup: any } = $props();
 
@@ -41,45 +42,27 @@
 {#if uiStore.is3DWorkspace}
   <!-- 3D per-DOF editing -->
   {@const dofs = sup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true }}
+  {@const ix = (i: number) => (sup.dofFrame === 'local' ? XYZ[i] : XYZ[modelIndexOfUser(i)])}
   <div class="property-row" style="flex-wrap:wrap;gap:4px;">
-    <label style="font-size:0.7rem;display:inline-flex;align-items:center;gap:2px;cursor:pointer;">
-      <input type="checkbox" checked={dofs.tx} onchange={() => toggleDofRestraint(supId, sup, 'tx')} /> Fx
-    </label>
-    <label style="font-size:0.7rem;display:inline-flex;align-items:center;gap:2px;cursor:pointer;">
-      <input type="checkbox" checked={dofs.ty} onchange={() => toggleDofRestraint(supId, sup, 'ty')} /> Fy
-    </label>
-    <label style="font-size:0.7rem;display:inline-flex;align-items:center;gap:2px;cursor:pointer;">
-      <input type="checkbox" checked={dofs.tz} onchange={() => toggleDofRestraint(supId, sup, 'tz')} /> Fz
-    </label>
-    <label style="font-size:0.7rem;display:inline-flex;align-items:center;gap:2px;cursor:pointer;">
-      <input type="checkbox" checked={dofs.rx} onchange={() => toggleDofRestraint(supId, sup, 'rx')} /> Mx
-    </label>
-    <label style="font-size:0.7rem;display:inline-flex;align-items:center;gap:2px;cursor:pointer;">
-      <input type="checkbox" checked={dofs.ry} onchange={() => toggleDofRestraint(supId, sup, 'ry')} /> My
-    </label>
-    <label style="font-size:0.7rem;display:inline-flex;align-items:center;gap:2px;cursor:pointer;">
-      <input type="checkbox" checked={dofs.rz} onchange={() => toggleDofRestraint(supId, sup, 'rz')} /> Mz
-    </label>
+    {#each ['t', 'r'] as kind (kind)}
+      {#each XYZ as a, i (a)}
+        <label style="font-size:0.7rem;display:inline-flex;align-items:center;gap:2px;cursor:pointer;">
+          <input type="checkbox" checked={dofs[`${kind}${ix(i)}`]} onchange={() => toggleDofRestraint(supId, sup, `${kind as 't' | 'r'}${ix(i)}`)} /> {kind === 't' ? 'F' : 'M'}{a}
+        </label>
+      {/each}
+    {/each}
   </div>
   <!-- Spring stiffnesses for unchecked DOFs -->
-  {#if !dofs.tx}
-    <div class="property-row"><span>kx:</span><input type="number" step="100" value={sup.kx ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'kx', e.currentTarget.value)} /><span>kN/m</span></div>
-  {/if}
-  {#if !dofs.ty}
-    <div class="property-row"><span>ky:</span><input type="number" step="100" value={sup.ky ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'ky', e.currentTarget.value)} /><span>kN/m</span></div>
-  {/if}
-  {#if !dofs.tz}
-    <div class="property-row"><span>kz:</span><input type="number" step="100" value={sup.kz ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'kz', e.currentTarget.value)} /><span>kN/m</span></div>
-  {/if}
-  {#if !dofs.rx}
-    <div class="property-row"><span>krx:</span><input type="number" step="100" value={sup.krx ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'krx', e.currentTarget.value)} /><span>kN·m/rad</span></div>
-  {/if}
-  {#if !dofs.ry}
-    <div class="property-row"><span>kry:</span><input type="number" step="100" value={sup.kry ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'kry', e.currentTarget.value)} /><span>kN·m/rad</span></div>
-  {/if}
-  {#if !dofs.rz}
-    <div class="property-row"><span>krz:</span><input type="number" step="100" value={sup.krz ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'krz', e.currentTarget.value)} /><span>kN·m/rad</span></div>
-  {/if}
+  {#each XYZ as a, i (a)}
+    {#if !dofs[`t${ix(i)}`]}
+      <div class="property-row"><span>k{a}:</span><input type="number" step="100" value={sup[`k${ix(i)}`] ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, `k${ix(i)}`, e.currentTarget.value)} /><span>kN/m</span></div>
+    {/if}
+  {/each}
+  {#each XYZ as a, i (a)}
+    {#if !dofs[`r${ix(i)}`]}
+      <div class="property-row"><span>kr{a}:</span><input type="number" step="100" value={sup[`kr${ix(i)}`] ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, `kr${ix(i)}`, e.currentTarget.value)} /><span>kN·m/rad</span></div>
+    {/if}
+  {/each}
 {:else}
   <!-- 2D support editing -->
   <div class="property-row">
@@ -103,9 +86,9 @@
     <div class="property-row">
       <span>{t('prop.direction')}:</span>
       <button class="btn-small" class:active={sup.type === 'rollerX'} onclick={() => changeSupportType(supId, 'rollerX')}
-      >{sup.isGlobal !== false ? 'X' : 'i'}</button>
+      >{sup.isGlobal !== false ? twoD.horizontal : 'i'}</button>
       <button class="btn-small" class:active={sup.type === 'rollerY' || sup.type === 'rollerZ'} onclick={() => changeSupportType(supId, 'rollerZ')}
-      >{sup.isGlobal !== false ? 'Z' : 'j'}</button>
+      >{sup.isGlobal !== false ? twoD.vertical : 'j'}</button>
     </div>
     <div class="property-row">
       <span>{t('prop.axes')}:</span>
@@ -156,20 +139,20 @@
     <h4>{t('prop.imposedDisp')}</h4>
     {#if sup.type === 'fixed' || sup.type === 'pinned'}
       <div class="property-row" title={t('prop.imposedDxTitle')}>
-        <span>dx:</span>
-        <input type="number" step="0.001" value={sup.dx ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'dx', e.currentTarget.value)} />
+        <span>d{twoD.horizontal.toLowerCase()}:</span>
+        <input type="number" step="0.001" value={twoD.x(sup.dx ?? 0)} class="prop-input" onchange={(e) => updateSpringField(supId, 'dx', String(twoD.fromX(parseFloat(e.currentTarget.value))))} />
         <span>m</span>
       </div>
       <div class="property-row" title={t('prop.imposedDyTitle')}>
-        <span>dz:</span>
-        <input type="number" step="0.001" value={sup.dz ?? sup.dy ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'dz', e.currentTarget.value)} />
+        <span>d{twoD.vertical.toLowerCase()}:</span>
+        <input type="number" step="0.001" value={twoD.z(sup.dz ?? sup.dy ?? 0)} class="prop-input" onchange={(e) => updateSpringField(supId, 'dz', String(twoD.fromZ(parseFloat(e.currentTarget.value))))} />
         <span>m</span>
       </div>
     {/if}
     {#if sup.type === 'fixed'}
       <div class="property-row" title={t('prop.imposedDrzTitle')}>
-        <span>dθy:</span>
-        <input type="number" step="0.001" value={sup.dry ?? sup.drz ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'dry', e.currentTarget.value)} />
+        <span>dθ{twoD.normal.toLowerCase()}:</span>
+        <input type="number" step="0.001" value={twoD.rot(sup.dry ?? sup.drz ?? 0)} class="prop-input" onchange={(e) => updateSpringField(supId, 'dry', String(twoD.fromRot(parseFloat(e.currentTarget.value))))} />
         <span>rad</span>
       </div>
     {/if}

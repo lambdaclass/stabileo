@@ -2117,9 +2117,9 @@
           const supId = modelStore.addSupport(nearNode.id, uiStore.supportType as any, undefined, opts.angle !== undefined ? opts : undefined);
           // Apply prescribed displacements if any are non-zero
           const presc: Record<string, number> = {};
-          if (uiStore.supportDx !== 0) presc.dx = uiStore.supportDx;
-          if (uiStore.supportDy !== 0) presc.dz = uiStore.supportDy;
-          if (uiStore.supportDrz !== 0) presc.dry = uiStore.supportDrz;
+          if (uiStore.supportDx !== 0) presc.dx = twoD.fromX(uiStore.supportDx);
+          if (uiStore.supportDy !== 0) presc.dz = twoD.fromZ(uiStore.supportDy);
+          if (uiStore.supportDrz !== 0) presc.dry = twoD.fromRot(uiStore.supportDrz);
           if (Object.keys(presc).length > 0) {
             modelStore.updateSupport(supId, presc);
           }

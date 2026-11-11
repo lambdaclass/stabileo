@@ -2006,7 +2006,21 @@
     if (gizmoCanvas) gizmoCanvas.style.display = show ? 'block' : 'none';
     invalidate();
   });
-  $effect(() => { void axesStore.frame; invalidate(); });
+  $effect(() => {
+    void axesStore.frame;
+    if (axesHelper) {
+      const visible = axesHelper.visible;
+      scene.remove(axesHelper);
+      disposeObject(axesHelper);
+      for (const s of axisLabelSprites) { scene.remove(s); s.material.map?.dispose(); s.material.dispose(); }
+      axesHelper = createFatAxes();
+      axesHelper.visible = visible;
+      scene.add(axesHelper);
+      addAxisLabels();
+      for (const s of axisLabelSprites) s.visible = visible;
+    }
+    invalidate();
+  });
 
   // Reactive clipping plane: invalidate when clipping settings change
   $effect(() => {
@@ -2583,9 +2597,10 @@
       const opts: { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; drz?: number } = {};
       opts.angle = uiStore.supportAngle;
       opts.isGlobal = uiStore.supportIsGlobal;
-      if (uiStore.supportDx !== 0) opts.dx = uiStore.supportDx;
-      if (uiStore.supportDy !== 0) opts.dy = uiStore.supportDy;
-      if (uiStore.supportDrz !== 0) opts.drz = uiStore.supportDrz;
+      const plain = type === 'fixed' || type === 'pinned';
+      if (uiStore.supportDx !== 0) opts.dx = plain ? twoD.fromX(uiStore.supportDx) : uiStore.supportDx;
+      if (uiStore.supportDy !== 0) opts.dy = twoD.fromZ(uiStore.supportDy);
+      if (uiStore.supportDrz !== 0) opts.drz = twoD.fromRot(uiStore.supportDrz);
       const supId = modelStore.addSupport(nodeId, type as any, springs, opts);
       if (uiStore.appMode === 'pro') uiStore.selectSupport(supId, false);
       uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');

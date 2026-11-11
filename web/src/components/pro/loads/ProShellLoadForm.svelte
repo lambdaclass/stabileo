@@ -17,6 +17,7 @@
   import { buildShellLoads, type ShellLoadFields } from '../../../lib/model/loads/shell-load-form';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
   import type { WriteOutcome, WriteRefusal } from '../../../lib/model/loads/write-load';
+  import { signedModelName } from '../../../lib/axes/display';
 
   interface Props {
     kind: 'surface' | 'hydro' | 'shellPoint';
@@ -66,7 +67,7 @@
         <option value="projected">{t('writeLoad.shell.dir.projected')}</option>
       </select>
       {#if dirMode === 'global' || dirMode === 'projected'}
-        <select class="fg-in sl-axis" bind:value={dirAxis} data-testid="wl-sl-axis">{#each ['X', 'Y', 'Z'] as a (a)}<option value={a}>+{a}</option>{/each}</select>
+        <select class="fg-in sl-axis" bind:value={dirAxis} data-testid="wl-sl-axis">{#each ['X', 'Y', 'Z'] as a, k (a)}<option value={a}>{signedModelName(k as 0 | 1 | 2, 1)}</option>{/each}</select>
       {/if}
     </span></div>
   <div class="fg-r"><span class="fg-l">{t('writeLoad.shell.field')}</span>
