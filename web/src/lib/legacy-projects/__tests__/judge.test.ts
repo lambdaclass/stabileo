@@ -204,7 +204,7 @@ describe('against real corpus files', () => {
       'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
       'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
       'harmonic-modal-residual-checked',
-      'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals',
+      'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes',
     ]);
     const then = readResults(`v0.4.0/${entry.results}`);
     const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;

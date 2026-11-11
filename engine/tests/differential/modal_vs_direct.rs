@@ -526,3 +526,99 @@ fn seeded_failure_time_history_static_limit() {
     time_history_slow_ramp_settles_on_the_static_solution();
     rejects_seeded(|| slow_ramp_check(|v| -v));
 }
+
+fn omitted_spring_frequencies() -> Vec<f64> {
+    [0.99, 1.0, 1.01, 1.5, 2.0, 3.0].map(|r| r * 100.0 / (2.0 * PI)).to_vec()
+}
+
+fn compare_omitted_spring(result: &HarmonicResult, damping: (f64, f64)) {
+    let requested = omitted_spring_frequencies();
+    assert_eq!(result.response_points.len(), requested.len());
+    assert_eq!(result.response_points.iter().map(|p| p.frequency).collect::<Vec<_>>(), requested);
+    assert_eq!(result.method, HarmonicMethod::Direct);
+    assert!(result.warnings.is_empty(), "{:?}", result.warnings);
+    let mut peak = (0.0f64, 0.0f64);
+    let d = Dense { k: vec![1.0, 0.0, 0.0, 10000.0], m: vec![1.0, 0.0, 0.0, 1.0], f: vec![1.0, 1e-4], n: 2, target: 1 };
+    for pt in &result.response_points {
+        let (re, im, _) = direct(&d, damping, pt.omega).unwrap();
+        let amplitude = re.in_m().hypot(im.in_m());
+        if amplitude > peak.1 { peak = (pt.frequency, amplitude); }
+        let ar = 10000.0 - pt.omega.powi(2);
+        let ai = pt.omega * (damping.0 + damping.1 * 10000.0);
+        let closed = (1e-4 * ar / (ar * ar + ai * ai), -1e-4 * ai / (ar * ar + ai * ai));
+        let tol = 1e-12 * re.in_m().hypot(im.in_m());
+        assert!((re.in_m() - closed.0).hypot(im.in_m() - closed.1) <= tol);
+        assert!((pt.real - re.in_m()).hypot(pt.imag - im.in_m()) <= tol,
+            "{} Hz: engine ({:e}, {:e}), direct/closed ({:e}, {:e}), method {:?}, warnings {:?}",
+            pt.frequency, pt.real, pt.imag, re.in_m(), im.in_m(), result.method, result.warnings);
+    }
+    assert_eq!(result.peak_frequency, peak.0);
+    assert!((result.peak_amplitude - peak.1).abs() <= 1e-12 * peak.1);
+    assert!(!result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("HARM-TRUNCATION")));
+}
+
+#[test]
+fn harmonic_2d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form() {
+    let n = 3001;
+    let mut solver = crate::common::make_input(
+        (1..=n).map(|i| (i, i as f64, 0.0)).collect(), vec![], vec![], vec![],
+        (1..=n).map(|i| (i, i, "guidedX")).collect(),
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 1.0, fz: 0.0, my: 0.0 }),
+             SolverLoad::Nodal(SolverNodalLoad { node_id: 100, fx: 1e-4, fz: 0.0, my: 0.0 })]);
+    for i in 1..=n {
+        solver.supports.get_mut(&i.to_string()).unwrap().kx = Some((i * i) as f64);
+        solver.masses.nodal.push(NodalMass { node_id: i, mass: 1.0, mass_x: None, mass_z: None, rotary_inertia: 0.0 });
+    }
+    let h = HarmonicInput { solver, densities: HashMap::new(), frequencies: omitted_spring_frequencies(), damping_ratio: 0.05, response_node_id: 100, response_dof: "x".into() };
+    let (result, damping) = solve_harmonic_2d_with_damping(&h).unwrap();
+    assert_eq!(result.n_dof, n);
+    compare_omitted_spring(&result, damping);
+}
+
+#[test]
+fn harmonic_3d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form() {
+    let n = 3001;
+    let mut solver = crate::common::make_3d_input(
+        (1..=n).map(|i| (i, i as f64, 0.0, 0.0)).collect(), vec![], vec![], vec![],
+        (1..=n).map(|i| (i, vec![false, true, true, true, true, true])).collect(),
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 1, fx: 1.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }),
+             SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 100, fx: 1e-4, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
+    for i in 1..=n {
+        solver.supports.get_mut(&i.to_string()).unwrap().kx = Some((i * i) as f64);
+        solver.masses.nodal.push(NodalMass3D { node_id: i, mass: 1.0, mass_x: None, mass_y: None, mass_z: None, ixx: 0.0, iyy: 0.0, izz: 0.0 });
+    }
+    let h = HarmonicInput3D { solver, densities: HashMap::new(), frequencies: omitted_spring_frequencies(), damping_ratio: 0.05, response_node_id: 100, response_dof: "x".into() };
+    let (result, damping) = solve_harmonic_3d_with_damping(&h).unwrap();
+    assert_eq!(result.n_dof, n);
+    compare_omitted_spring(&result, damping);
+}
+
+#[test]
+fn omitted_spring_comparison_rejects_incomplete_direct_responses() {
+    let damping = (0.0, 1.0);
+    let d = Dense { k: vec![1.0, 0.0, 0.0, 10000.0], m: vec![1.0, 0.0, 0.0, 1.0], f: vec![1.0, 1e-4], n: 2, target: 1 };
+    let points: Vec<HarmonicResponsePoint> = omitted_spring_frequencies().into_iter().map(|frequency| {
+        let omega = 2.0 * PI * frequency;
+        let (re, im, _) = direct(&d, damping, omega).unwrap();
+        HarmonicResponsePoint { frequency, omega, real: re.in_m(), imag: im.in_m(), amplitude: re.in_m().hypot(im.in_m()), phase: im.in_m().atan2(re.in_m()) }
+    }).collect();
+    let peak = points.iter().max_by(|a, b| a.amplitude.total_cmp(&b.amplitude)).unwrap();
+    let result = HarmonicResult {
+        structured_diagnostics: Vec::new(), response_points: points.clone(),
+        peak_frequency: peak.frequency, peak_amplitude: peak.amplitude, method: HarmonicMethod::Direct,
+        modes_used: 0, n_dof: 3001, truncation_ratio: None, max_modal_residual: None,
+        direct_frequencies: Vec::new(), warnings: Vec::new(),
+    };
+    compare_omitted_spring(&result, damping);
+    let mut empty = result.clone();
+    empty.response_points.clear();
+    empty.peak_frequency = 0.0;
+    empty.peak_amplitude = 0.0;
+    let mut missing = result.clone();
+    missing.response_points.pop();
+    let mut reordered = result.clone();
+    reordered.response_points.reverse();
+    for invalid in [empty, missing, reordered] {
+        assert!(std::panic::catch_unwind(|| compare_omitted_spring(&invalid, damping)).is_err());
+    }
+}

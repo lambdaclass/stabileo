@@ -321,7 +321,7 @@ describe('edited projects with older provenance', () => {
     const store = createRecheckStore();
     store.openProject({ ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
   });
@@ -330,7 +330,7 @@ describe('edited projects with older provenance', () => {
     'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
     'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
     'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
-    'connector-arm-mechanism-3d-refused', 'linear-stability-refusals',
+    'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals',
   ].map(id => registry.changes.find(c => c.id === id)!)
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     .map(c => c.id);
@@ -353,7 +353,7 @@ describe('edited projects with older provenance', () => {
     await vi.waitFor(() => expect(store.pending).toBe(false));
     const received = store.assessment?.changes.map(c => c.id);
     const expected = openingNoticeIds(mergedRegistry);
-    expect(expected.slice(-2)).toEqual(['connector-arm-mechanism-3d-refused', 'linear-stability-refusals']);
+    expect(expected.slice(-3)).toEqual(['connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals']);
     expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
   });
 

@@ -9,6 +9,9 @@ use dedaliano_engine::postprocess::influence;
 use dedaliano_engine::solver::{constraints, corotational, kinematic, linear, load_cases, moving_loads, plastic, spectral, staged, winkler};
 use dedaliano_engine::types::*;
 use serde_json::json;
+use num_rational::BigRational;
+use num_bigint::BigInt;
+use num_traits::ToPrimitive;
 
 fn s2(v: serde_json::Value) -> SolverInput {
     serde_json::from_value(v).unwrap()
@@ -1048,35 +1051,45 @@ fn issue_758_when_the_limit_analysis_fails_the_exact_certificate_still_checks_th
     assert!(lower > 30.0 * 10.904960242330917, "a roller 1.4e-6 rad off the member axis props the tip: {lower}");
 }
 
-pub(crate) fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, w: f64) -> (Vec<f64>, Vec<f64>) {
+pub(crate) fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, omega: f64) -> (Vec<f64>, Vec<f64>) {
     let n2 = 2 * n;
-    let w1 = n2 + 1;
-    let mut a = vec![0.0; n2 * w1];
+    let mut a = vec![vec![BigRational::from_integer(0.into()); n2 + 1]; n2];
     for i in 0..n {
         for j in 0..n {
-            let d = k[i * n + j] - w * w * m[i * n + j];
-            let wc = w * c[i * n + j];
-            a[i * w1 + j] = d;
-            a[i * w1 + n + j] = -wc;
-            a[(n + i) * w1 + j] = wc;
-            a[(n + i) * w1 + n + j] = d;
+            let kd = BigRational::from_float(k[i * n + j] - omega * omega * m[i * n + j]).unwrap();
+            let wc = BigRational::from_float(omega * c[i * n + j]).unwrap();
+            a[i][j] = kd.clone();
+            a[n + i][n + j] = kd;
+            a[i][n + j] = -wc.clone();
+            a[n + i][j] = wc;
         }
-        a[i * w1 + n2] = f[i];
+        a[i][n2] = BigRational::from_float(f[i]).unwrap();
     }
+    let mut a: Vec<Vec<BigInt>> = a.into_iter().map(|row| {
+        let denominator = row.iter().map(|v| v.denom()).max().unwrap();
+        row.iter().map(|v| v.numer() * (denominator / v.denom())).collect()
+    }).collect();
+    let mut previous = BigInt::from(1);
     for col in 0..n2 {
-        let p = (col..n2).max_by(|&x, &y| a[x * w1 + col].abs().total_cmp(&a[y * w1 + col].abs())).unwrap();
-        for j in 0..w1 {
-            a.swap(col * w1 + j, p * w1 + j);
-        }
-        let piv = a[col * w1 + col];
-        for r in (0..n2).filter(|&r| r != col) {
-            let fct = a[r * w1 + col] / piv;
-            for j in col..w1 {
-                a[r * w1 + j] -= fct * a[col * w1 + j];
+        let row = (col..n2).find(|&i| a[i][col] != BigInt::from(0)).unwrap();
+        a.swap(col, row);
+        let pivot = a[col][col].clone();
+        for i in col + 1..n2 {
+            for j in col + 1..=n2 {
+                let numerator = &a[i][j] * &pivot - &a[i][col] * &a[col][j];
+                assert_eq!(&numerator % &previous, BigInt::from(0));
+                a[i][j] = numerator / &previous;
             }
+            a[i][col] = BigInt::from(0);
         }
+        previous = pivot;
     }
-    let x: Vec<f64> = (0..n2).map(|i| a[i * w1 + n2] / a[i * w1 + i]).collect();
+    let mut x = vec![BigRational::from_integer(0.into()); n2];
+    for i in (0..n2).rev() {
+        let tail: BigRational = (i + 1..n2).map(|j| BigRational::from_integer(a[i][j].clone()) * &x[j]).sum();
+        x[i] = (BigRational::from_integer(a[i][n2].clone()) - tail) / BigRational::from_integer(a[i][i].clone());
+    }
+    let x: Vec<f64> = x.iter().map(|v| v.to_f64().unwrap()).collect();
     (x[..n].to_vec(), x[n..].to_vec())
 }
 
@@ -1101,6 +1114,7 @@ fn harmonic_c2_symmetric_frame_matches_direct_solve() {
         let mff: Vec<f64> = (0..nf * nf).map(|i| m[(i / nf) * n + i % nf]).collect();
         let ff = &asm.f[..nf];
         let mut rows = Vec::new();
+        let mut exact_solutions = std::collections::HashMap::new();
         for (di, dof) in ["x", "y", "z"].into_iter().enumerate() {
             let inp = harmonic::HarmonicInput3D {
                 solver: sc.s.clone(), densities: sc.dens.clone(), frequencies: sc.p.freqs.clone(),
@@ -1111,7 +1125,8 @@ fn harmonic_c2_symmetric_frame_matches_direct_solve() {
             let g = dn.global_dof(node, di).unwrap();
             for pt in &r.response_points {
                 let (lu_re, lu_im) = harmonic::solve_complex_system(&kff, &mff, &cff, ff, nf, pt.omega).unwrap();
-                let (ge_re, ge_im) = gauss_complex(&kff, &mff, &cff, ff, nf, pt.omega);
+                let (ge_re, ge_im) = exact_solutions.entry((pt.omega.to_bits(), a0.to_bits(), a1.to_bits()))
+                    .or_insert_with(|| gauss_complex(&kff, &mff, &cff, ff, nf, pt.omega));
                 rows.push((di, pt.frequency, (pt.real, pt.imag), (lu_re[g], lu_im[g]), (ge_re[g], ge_im[g])));
             }
         }

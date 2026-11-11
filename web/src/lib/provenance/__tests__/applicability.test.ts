@@ -39,6 +39,43 @@ describe('which registered changes concern a model', () => {
     expect(ids(generated, current)).not.toContain('generated-structure-stability');
   });
 
+  it('shows one complete harmonic correction notice for PR #1922', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!;
+    const snapshot = model({ elements: [member(1, 1, 'frame')] });
+    const before = entry.resultsVersion - 1;
+    for (const stamp of [null, { ...stampSolve('harmonic', null), resultsVersion: before }]) {
+      const notices = assessProject(snapshot, stamp).changes.filter((change) => change.prs.includes(1922));
+      expect(notices.map((change) => change.id)).toEqual(['harmonic-omitted-modes']);
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+        expect(notices[0].explanation[locale]).toContain('#1434');
+        expect(notices[0].explanation[locale]).toContain('PR #1922');
+      }
+    }
+    const linear = { ...stampSolve('linear', null), resultsVersion: before };
+    expect(assessProject(snapshot, linear).changes.filter((change) => change.prs.includes(1922))).toEqual([]);
+  });
+
+  it('scopes the omitted harmonic mode correction to harmonic structural models, including spring-only models', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes');
+    expect(entry).toBeDefined();
+    for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+      expect(conditionHolds(entry!.when ?? {}, new Set([structure, 'analysis:harmonic']))).toBe(true);
+      expect(conditionHolds(entry!.when ?? {}, new Set([structure, 'analysis:linear']))).toBe(false);
+    }
+    expect(conditionHolds(entry!.when ?? {}, new Set(['analysis:harmonic']))).toBe(false);
+  });
+
+  it('keeps the omitted harmonic notice for legacy unknown analyses and excludes a recorded linear-only solve', () => {
+    const snapshot = model({ elements: [member(1, 1, 'frame')] });
+    const harmonic = stampSolve('harmonic', null);
+    const linear = stampSolve('linear', null);
+    const before = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!.resultsVersion - 1;
+    expect(ids(snapshot, { ...harmonic, resultsVersion: before })).toContain('harmonic-omitted-modes');
+    expect(ids(snapshot, { ...linear, resultsVersion: before })).not.toContain('harmonic-omitted-modes');
+    const { recorded: _recorded, ...legacy } = linear;
+    expect(ids(snapshot, { ...legacy, resultsVersion: before })).toContain('harmonic-omitted-modes');
+  });
+
   it('scopes exact plastic resource refusals to frame projects after plastic analysis', () => {
     const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-exact-resource-budget-refused');
     expect(entry).toBeDefined();

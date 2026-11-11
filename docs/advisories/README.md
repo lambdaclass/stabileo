@@ -86,6 +86,7 @@ merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
 | [SA-2026-055](SA-2026-055-pdelta-span-axial.md) | P-Delta understated amplification when compression varied under axial span loads | High | [#1329](https://github.com/lambdaclass/stabileo/issues/1329) | Local fix | Not released | Draft 2026-11-10; fix not yet merged or deployed |
 | [SA-2026-056](SA-2026-056-constrained-shell-dynamic-invariance.md) | Constrained frame and shell dynamic results change under equivalent descriptions | High | Sweep seed 2026110200131 | — | Unfixed | Recorded 2026-11-10 |
 | [SA-2026-057](SA-2026-057-plastic-interval-and-resource-refusals.md) | Plastic interval displays admitted outside factors; exact mechanism extraction discarded resource refusals in pre-fix PR #1888 builds | Medium | — (review of #1888) | [#1888](https://github.com/lambdaclass/stabileo/pull/1888) | Fix not yet merged or deployed | Draft 2026-11-10 |
+| [SA-2026-058](SA-2026-058-harmonic-omitted-modes.md) | Large 2D/3D harmonic models retained inaccurate omitted-mode responses at frequencies outside the truncation warning’s coverage (8.079% complex target error measured) | High | [#1434](https://github.com/lambdaclass/stabileo/issues/1434) | [#1922](https://github.com/lambdaclass/stabileo/pull/1922) | Fixed in PR #1922, pending release | Draft 2026-11-10 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
