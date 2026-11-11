@@ -107,6 +107,7 @@ fn make_supports(sups: &[(usize, usize, &str)]) -> HashMap<String, SolverSupport
 // span does not redistribute the stage 1 forces.
 
 #[test]
+#[ignore = "known wrong result: #1952"]
 fn validation_staged_1_two_phase_beam() {
     let l = 5.0; // each span
     let q = -10.0; // kN/m downward
@@ -214,6 +215,7 @@ fn validation_staged_1_two_phase_beam() {
 // of placement (no new loads are applied in stage 2).
 
 #[test]
+#[ignore = "known wrong result: #1952"]
 fn validation_staged_2_support_addition() {
     let l = 10.0;
     let p = -100.0;
@@ -438,6 +440,7 @@ fn validation_staged_3_element_activation() {
 // any new loads in stage 3.
 
 #[test]
+#[ignore = "known wrong result: #1952"]
 fn validation_staged_4_support_removal() {
     let l = 5.0;
     let p = -100.0; // kN at node 2

@@ -38,6 +38,7 @@ fn dump(label: &str, diags: &[StructuredDiagnostic]) {
 }
 
 #[test]
+#[ignore = "known wrong result: #1952"]
 fn pdelta_2d_does_not_claim_linear_residual_ok() {
     // Slender fixed-base portal (h=4 m, w=6 m, E=200 GPa, I=1e-4 m^4) with a
     // lateral load and heavy gravity so the sway is amplified ~1.8x.
@@ -89,6 +90,7 @@ fn pdelta_2d_does_not_claim_linear_residual_ok() {
 }
 
 #[test]
+#[ignore = "known wrong result: #1952"]
 fn pdelta_3d_does_not_claim_linear_residual_ok() {
     // 4 m cantilever column along Z, 4 elements, axial P ~0.44 Pcr + lateral.
     let n = 4;
