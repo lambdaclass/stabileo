@@ -1007,3 +1007,72 @@ fn nl_contact_review_rotating_master_cannot_hide_assembled_tension() {
     assert_eq!(diagnostic["nodeIds"], serde_json::json!([2]));
     assert_eq!(diagnostic["phase"], "node_to_surface");
 }
+
+fn surface_tolerance_control(limit_ratio: f64) -> dedaliano_engine::solver::contact::ContactInput {
+    use dedaliano_engine::solver::contact::*;
+    let mut input = chattering_contact_2d();
+    let material = &input.solver.materials["1"];
+    let section = &input.solver.sections["1"];
+    let length = 5.0_f64.sqrt();
+    let c = 2.0 / length;
+    let s = -1.0 / length;
+    let axial = material.e * 1000.0 * section.a / length;
+    let bending = 3.0 * material.e * 1000.0 * section.iz / length.powi(3);
+    let kxx = axial * c * c + bending * s * s;
+    let kzz = axial * s * s + bending * c * c;
+    let kxz = (axial - bending) * c * s;
+    let gap = input.gap_elements[0].initial_gap;
+    let stiffness = input.gap_elements[0].stiffness;
+    let ux = ((50.0 + stiffness * gap) * kzz + kxz * 50.0)
+        / ((kxx + stiffness) * kzz - kxz * kxz);
+    let scale = limit_ratio * input.tolerance.unwrap() / (gap - ux);
+    input.gap_elements.clear();
+    input.solver.nodes.get_mut("4").unwrap().x = 2.0 + 0.001 * scale;
+    input.solver.nodes.get_mut("4").unwrap().z = -1.0;
+    input.solver.nodes.insert("5".into(), SolverNode { id: 5, x: 2.0 + 0.001 * scale, z: 1.0 });
+    let mut support = input.solver.supports["3"].clone();
+    support.id = 4;
+    support.node_id = 5;
+    input.solver.supports.insert("4".into(), support);
+    input.node_to_surface_pairs.push(NodeToSurfacePair {
+        slave_node: 2, master_segment: MasterSegment { id: 1, node_a: 4, node_b: 5 },
+        stiffness: 1e5, friction_coefficient: None,
+    });
+    input.contact_type = ContactType::NodeToSurface;
+    for load in &mut input.solver.loads {
+        let SolverLoad::Nodal(load) = load else { unreachable!() };
+        load.fx *= scale; load.fz *= scale;
+    }
+    input
+}
+
+#[test]
+#[ignore = "known wrong result: #1921"]
+fn nl_contact_surface_tension_below_scaled_tolerance_is_accepted() {
+    let input = surface_tolerance_control(0.99);
+    let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();
+    assert!(result.converged);
+    assert!(result.diagnostics.iter().any(|d| d.contains("status was frozen")));
+    let pair = &result.node_to_surface_status[0];
+    let tolerance = input.tolerance.unwrap();
+    let stiffness = input.node_to_surface_pairs[0].stiffness;
+    assert_eq!(pair.status, "closed");
+    assert!(pair.gap > 0.0 && pair.gap < tolerance);
+    assert!(pair.normal_force < 0.0 && -pair.normal_force < stiffness * tolerance);
+    close(pair.gap, 0.99 * tolerance, 1e-15, "opening just below tolerance");
+    close(-pair.normal_force / stiffness, 0.99 * tolerance, 1e-15, "traction divided by stiffness just below tolerance");
+}
+
+#[test]
+fn nl_contact_surface_tension_above_scaled_tolerance_is_refused() {
+    let input = surface_tolerance_control(1.01);
+    let error = dedaliano_engine::solver::contact::solve_contact_2d(&input)
+        .expect_err("surface tension above stiffness times tolerance");
+    let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+    let diagnostic = &error["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "contact_state_invalid");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "node_to_surface");
+    assert_eq!(diagnostic["nodeIds"], serde_json::json!([2]));
+    assert!(error.get("results").is_none());
+}
