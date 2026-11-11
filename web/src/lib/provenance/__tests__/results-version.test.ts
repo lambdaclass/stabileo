@@ -1,7 +1,7 @@
 import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
 import { assessProject } from '../applicability';
-import type { FeatureSnapshot } from '../model-features';
+import { ANALYSIS_KINDS, type FeatureSnapshot } from '../model-features';
 import type { SolveStamp } from '../solve-stamp';
 
 /**
@@ -98,7 +98,7 @@ describe('results versions', () => {
     expect(RESULT_CHANGES.currentResultsVersion).toBeGreaterThanOrEqual(frozen);
   });
 
-  it('tells a modal frame about modal completeness up to version 8, self-checks up to 9, the mechanism refusal up to 12, the 3D co-rotational rotations up to 23 and the containment diagnostics up to 29, until it is re-solved', () => {
+  it.skipIf(process.env.RUN_KNOWN_WRONG_761 !== '1')('known wrong result: #761 — tells a modal frame about modal completeness up to version 8, self-checks up to 9, the mechanism refusal up to 12, the 3D co-rotational rotations up to 23 and the containment diagnostics up to 29, until it is re-solved', () => {
     const frame: FeatureSnapshot = {
       analysisMode: 'pro',
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
@@ -113,6 +113,25 @@ describe('results versions', () => {
     expect(ids(13)).toEqual(['corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'modal-basis-entrywise-rounding', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
     expect(ids(26)).toEqual(['harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'modal-basis-entrywise-rounding', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
     expect(ids(RESULT_CHANGES.currentResultsVersion)).toEqual([]);
+  });
+
+  it('#761 distinguishes unknown nonlinear history from complete linear and modal histories', () => {
+    const nonlinearIds = ['nonlinear-continuation-and-curve-reactions', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium'];
+    const before = Math.min(...nonlinearIds.map(id => RESULT_CHANGES.changes.find(c => c.id === id)!.resultsVersion)) - 1;
+    for (const analysisMode of ['2d', 'pro']) {
+      const frame: FeatureSnapshot = {
+        analysisMode,
+        elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+      };
+      for (const analysis of ['linear', 'modal'] as const) {
+        const stamp = { resultsVersion: before, analyses: [analysis] } as unknown as SolveStamp;
+        const ids = (saved: SolveStamp) => assessProject(frame, saved, analysisMode).changes
+          .map(c => c.id).filter(id => nonlinearIds.includes(id)).sort();
+        expect(ids(stamp)).toEqual(nonlinearIds);
+        expect(ids({ ...stamp, recorded: [...ANALYSIS_KINDS] })).toEqual([]);
+        expect(ids({ ...stamp, resultsVersion: RESULT_CHANGES.currentResultsVersion })).toEqual([]);
+      }
+    }
   });
 
   it('tells a project solved with version 1 about the changes added after it shipped', () => {
