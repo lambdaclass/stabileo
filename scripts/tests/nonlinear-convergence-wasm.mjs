@@ -38,6 +38,23 @@ for (const test of cases) {
     engine[`solve_fiber_nonlinear_${dimension}d`](JSON.stringify(fiberInput)),
     engine[`solve_nonlinear_material_${dimension}d`](JSON.stringify({ solver, materialModels: {}, sectionCapacities: {}, maxIter, tolerance: 1e-10, nIncrements: 1 })),
   ].map(JSON.parse);
+  if (test.name === 'rotated resolved axial beside support load' && dimension === 2) {
+    const expected = test.expectedAxialDisplacement;
+    const length = Math.hypot(solver.nodes['2'].x, solver.nodes['2'].z);
+    const force = expected * 1000 * solver.materials['1'].e * solver.sections['1'].a / length;
+    const ds = Math.hypot(force, expected) / 10;
+    const arc = JSON.parse(engine.solve_arc_length(JSON.stringify({ solver, maxSteps: 1, maxIter: 100, tolerance: 1e-10, initialDs: ds, minDs: ds, maxDs: ds, targetIter: 4 })));
+    assert.equal(arc.converged, true);
+    assert.ok(Math.abs(arc.finalLoadFactor / 0.1 - 1) < 1e-10);
+    const tip = arc.results.displacements.find(d => d.nodeId === 2);
+    assert.ok(Math.abs(Math.hypot(tip.ux, tip.uz) / (expected * 0.1) - 1) < 1e-10);
+    assert.throws(() => engine.solve_displacement_control(JSON.stringify({ solver, controlNode: 2, controlDof: 0, targetDisplacement: expected, nSteps: 2, maxIter: 100, tolerance: 1e-10 })), /inclined/i);
+    checked += 2;
+  }
+  if (test.expectedAxialDisplacement !== undefined) {
+    const result = engine[`solve_${dimension}d`](solver);
+    results.push({ converged: true, results: result });
+  }
   for (const result of results) {
     assert.equal(result.converged, test.converged, `${test.name}, ${dimension}D`);
     if (test.expectedAxialDisplacement !== undefined) {

@@ -1,10 +1,11 @@
 {
   "id": "nonlinear-physical-convergence",
   "date": "2026-11-11",
-  "prs": [],
+  "prs": [1940],
   "area": "analysis",
   "when": {
     "allOf": [
+      ["members"],
       [
         "analysis:pdelta",
         "analysis:nonlinear"

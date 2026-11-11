@@ -1886,6 +1886,7 @@ fn assemble_frame_corotational_3d(
     let ((ex_n, ey_n, ez_n), theta_i_nat, theta_j_nat, _) = natural_rotations_3d(
         [dx_n / l_n, dy_n / l_n, dz_n / l_n], (&ex_0, &ey_0, &ez_0),
         [u_elem[3], u_elem[4], u_elem[5]], [u_elem[9], u_elem[10], u_elem[11]],
+        [0, 1, 2].map(|k| (u_elem[6 + k] - u_elem[k]) / l0),
     );
 
     // Natural deformations (rigid body removed)
@@ -2026,24 +2027,68 @@ fn natural_rotations_3d(
     (ex_0, ey_0, ez_0): (&[f64; 3], &[f64; 3], &[f64; 3]),
     psi_i: [f64; 3],
     psi_j: [f64; 3],
+    relative_chord_increment: [f64; 3],
 ) -> (Axes3, [f64; 3], [f64; 3], f64) {
+    if psi_i
+        .iter()
+        .chain(&psi_j)
+        .chain(&relative_chord_increment)
+        .all(|v| v.abs() <= f64::EPSILON)
+    {
+        let cross = |a: &[f64; 3], b: &[f64; 3]| {
+            [
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0],
+            ]
+        };
+        let dot = |a: &[f64; 3], b: &[f64; 3]| a.iter().zip(b).map(|(x, y)| x * y).sum::<f64>();
+        let norm = |a: [f64; 3]| a.into_iter().fold(0.0f64, f64::hypot);
+        let chord = cross(ex_0, &relative_chord_increment);
+        let twist = 0.5 * (dot(ex_0, &psi_i) + dot(ex_0, &psi_j));
+        let turn: [f64; 3] = std::array::from_fn(|k| chord[k] + twist * ex_0[k]);
+        let local = |psi: &[f64; 3]| {
+            let delta = std::array::from_fn(|k| psi[k] - turn[k]);
+            [dot(ex_0, &delta), dot(ey_0, &delta), dot(ez_0, &delta)]
+        };
+        let half = std::array::from_fn(|k| 0.5 * (psi_j[k] - psi_i[k]));
+        return (
+            (ex_n, rotate_by(turn, ey_0), rotate_by(turn, ez_0)),
+            local(&psi_i),
+            local(&psi_j),
+            norm(chord) + norm(half),
+        );
+    }
     let r_i = rotation_matrix(psi_i);
     let r_j = rotation_matrix(psi_j);
     let half = rotation_vector(&mat_mul(&transposed(&r_i), &r_j)).map(|v| 0.5 * v);
     let r_mean = mat_mul(&r_i, &rotation_matrix(half));
     let turned = |v: &[f64; 3]| [0, 1, 2].map(|m| (0..3).map(|k| r_mean[m][k] * v[k]).sum::<f64>());
     let (e1, e2, e3) = (turned(ex_0), turned(ey_0), turned(ez_0));
-    let k = [e1[1] * ex_n[2] - e1[2] * ex_n[1], e1[2] * ex_n[0] - e1[0] * ex_n[2], e1[0] * ex_n[1] - e1[1] * ex_n[0]];
+    let k = [
+        e1[1] * ex_n[2] - e1[2] * ex_n[1],
+        e1[2] * ex_n[0] - e1[0] * ex_n[2],
+        e1[0] * ex_n[1] - e1[1] * ex_n[0],
+    ];
     let sin = (k[0] * k[0] + k[1] * k[1] + k[2] * k[2]).sqrt();
     let cos = e1[0] * ex_n[0] + e1[1] * ex_n[1] + e1[2] * ex_n[2];
     let angle = sin.atan2(cos);
-    let phi = if sin > 1e-300 { [0, 1, 2].map(|m| k[m] / sin * angle) } else { [0.0; 3] };
+    let phi = if sin > 1e-300 {
+        [0, 1, 2].map(|m| k[m] / sin * angle)
+    } else {
+        [0.0; 3]
+    };
     let (ey_n, ez_n) = (rotate_by(phi, &e2), rotate_by(phi, &e3));
     let r_n_t = transposed(&columns(&ex_n, &ey_n, &ez_n));
     let r_0 = columns(ex_0, ey_0, ez_0);
     let natural = |r: &Mat3| rotation_vector(&mat_mul(&mat_mul(&r_n_t, r), &r_0));
     let half_turn = (half[0] * half[0] + half[1] * half[1] + half[2] * half[2]).sqrt();
-    ((ex_n, ey_n, ez_n), natural(&r_i), natural(&r_j), angle + half_turn)
+    (
+        (ex_n, ey_n, ez_n),
+        natural(&r_i),
+        natural(&r_j),
+        angle + half_turn,
+    )
 }
 
 /// Each frame member's largest natural rotation and the turn of its chord away from its mean end frame.
@@ -2104,7 +2149,7 @@ fn member_deformations_3d(input: &SolverInput3D, dof_num: &DofNumbering, u: &[f6
         if l_n < 1e-15 { return None; }
         let (ry_x, ry_y, ry_z) = corot_local_y_ref(ni.x, ni.y, ni.z, nj.x, nj.y, nj.z, e.local_yx, e.local_yy, e.local_yz);
         let (ex_0, ey_0, ez_0) = compute_local_axes_3d(ni.x, ni.y, ni.z, nj.x, nj.y, nj.z, ry_x, ry_y, ry_z, e.roll_angle, left_hand);
-        let (_, ti, tj, chord) = natural_rotations_3d(d.map(|v| v / l_n), (&ex_0, &ey_0, &ez_0), [3, 4, 5].map(|k| at(e.node_i, k)), [3, 4, 5].map(|k| at(e.node_j, k)));
+        let (_, ti, tj, chord) = natural_rotations_3d(d.map(|v| v / l_n), (&ex_0, &ey_0, &ez_0), [3, 4, 5].map(|k| at(e.node_i, k)), [3, 4, 5].map(|k| at(e.node_j, k)), [0, 1, 2].map(|k| (at(e.node_j, k) - at(e.node_i, k)) / norm([nj.x-ni.x, nj.y-ni.y, nj.z-ni.z])));
         Some(MemberDeformation3D { id: e.id, natural: norm(ti).max(norm(tj)), chord, ends: [ti, tj] })
     }).collect()
 }
@@ -2506,6 +2551,7 @@ fn elastic_corotational_forces_3d(
         let (_, ti, tj, _) = natural_rotations_3d(
             [dx_n / l_n, dy_n / l_n, dz_n / l_n], (&ex_0, &ey_0, &ez_0),
             [u_elem_12[3], u_elem_12[4], u_elem_12[5]], [u_elem_12[9], u_elem_12[10], u_elem_12[11]],
+            [0, 1, 2].map(|k| (u_elem_12[6 + k] - u_elem_12[k]) / l0),
         );
         let d_nat = [
             0.0, 0.0, 0.0,
@@ -2951,5 +2997,42 @@ mod tests {
             "Axial force should be ~100 kN, got {}",
             ef.n_start
         );
+    }
+}
+
+#[cfg(test)]
+mod infinitesimal_rotation_regressions {
+    use super::*;
+
+    #[test]
+    fn natural_rotations_retain_increments_on_both_sides_of_machine_precision() {
+        let ex = [1.0, 0.0, 0.0];
+        let ey = [0.0, 1.0, 0.0];
+        let ez = [0.0, 0.0, 1.0];
+        for value in [
+            0.5 * f64::EPSILON,
+            f64::EPSILON,
+            f64::from_bits(f64::EPSILON.to_bits() + 1),
+            2.0 * f64::EPSILON,
+        ] {
+            for t in [value, -value] {
+                let (_, ti, tj, _) =
+                    natural_rotations_3d(ex, (&ex, &ey, &ez), [0.0, t, 0.0], [0.0; 3], [0.0; 3]);
+                assert!((ti[1] / t - 1.0).abs() <= 8.0 * f64::EPSILON);
+                assert!(tj
+                    .into_iter()
+                    .all(|v| v.abs() <= 8.0 * f64::EPSILON * t.abs()));
+                let (_, ti, tj, _) = natural_rotations_3d(
+                    [1.0, t, 0.0],
+                    (&ex, &ey, &ez),
+                    [0.0; 3],
+                    [0.0; 3],
+                    [0.0, t, 0.0],
+                );
+                for theta in [ti, tj] {
+                    assert!((theta[2] / t + 1.0).abs() <= 8.0 * f64::EPSILON);
+                }
+            }
+        }
     }
 }

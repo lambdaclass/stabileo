@@ -32,22 +32,13 @@ measures residual work on the actual admissible displacement space, independent
 of its coordinate representation. A failed metric factorization refuses.
 
 A zero projected reference requires zero checked residual. There is no absolute
-force or displacement reference. The only roundoff allowance concerns the free
-translation subspace of an inclined support whose entire projected load is at
-projection roundoff. Both that load and its residual must be within
-`gamma(2d+2) = (2d+2)*epsilon / (1-(2d+2)*epsilon)` times the norm of the absolute
-product sums in its free projection rows, with d the translation dimension.
-The load is mapped back through the actual support rotation to obtain these
-product magnitudes. The rotation data comes from the existing shared constraint
-frame constructors. This accounts for forward and support-frame projections and
-subtraction while distinguishing cancellation from a directly represented free
-load. With an axis-aligned support, a large normal load contributes nothing to
-that bound on the tangent load. Only the affected support's free translation
-entries are cleared for the check. Forces elsewhere, moments and resolved
-projected loads receive no such allowance. This is a numerical projection
-resolution bound, not an additional engineering tolerance. A regression requires
-the exact axial response to a synthetic unit free load alongside a restrained
-load of 1e20 in both dimensions and through native and WASM exports.
+force or displacement reference, and no residual exemption based on a restrained
+load. Applied loads use compensated products and summation in the shared inclined
+support projection. Fiber projects applied and internal forces independently
+before subtracting them, in both its Newton corrections and final audit. A
+representable free load must reach equilibrium even when it is only a few ULPs
+above cancellation resolution beside a large restrained load. See
+[the projection correction](2026-11-inclined-load-projection.md).
 
 The relative residual uses the admissible external-load norm. Support-driven
 continuations additionally use their internal-force norm, as required when
@@ -71,8 +62,8 @@ seed/name combinations for their rotation and mirror witnesses. They cover the
 linear controls, four nonlinear analyses, 2D, planar embeddings in all three
 3D planes, and fully spatial fixed-base/roller equivalents permitting arbitrary
 3D rotations. Unit changes, closed-form axial responses, incomplete iterations,
-non-finite inputs, zero references, both sides of the tolerance and projection
-bounds, and mixed force/moment constraint metrics are checked. The WASM test
+non-finite inputs, zero references, both sides of the tolerance and former projection
+exemption, and mixed force/moment constraint metrics are checked. The WASM test
 uses the same generated cases as native exports. Existing collapse and
 last-converged-state tests retain their assertions.
 

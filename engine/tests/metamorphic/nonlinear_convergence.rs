@@ -395,6 +395,16 @@ fn issue_761_native_and_wasm_cases() {
     support.support_type = "inclinedRoller".into();
     support.angle = Some(0.0);
     cases.push(serde_json::json!({"name":"resolved axial beside support load","dimension":2,"solver":resolved,"converged":true,"expectedAxialDisplacement":axial}));
+    cases.extend(rotated_resolved_cases());
+    let tiny = spatial_sub_ulp_input();
+    let linear = dedaliano_engine::solver::linear::solve_3d(&tiny).unwrap();
+    let tip = linear
+        .displacements
+        .iter()
+        .find(|d| d.node_id == 2)
+        .unwrap();
+    let expected = tip.ux.hypot(tip.uy).hypot(tip.uz);
+    cases.push(serde_json::json!({"name":"sub ULP spatial load","dimension":3,"solver":tiny,"converged":true,"expectedAxialDisplacement":expected}));
     check_export_cases(cases);
 }
 
@@ -464,29 +474,69 @@ fn check_export_cases_for(cases: Vec<serde_json::Value>, analysis: Option<usize>
                 continue;
             }
             let r: serde_json::Value = serde_json::from_str(&text).unwrap();
-            assert_eq!(r["converged"], case["converged"], "{}", case["name"]);
-            if let Some(expected) = case["expectedAxialDisplacement"].as_f64() {
-                let tip = r["results"]["displacements"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .find(|d| d["nodeId"] == 2)
-                    .unwrap();
-                let displacement = ["ux", "uy", "uz"]
-                    .into_iter()
-                    .filter_map(|k| tip[k].as_f64())
-                    .fold(0.0f64, |norm, value| norm.hypot(value));
-                crate::common::assert_close(
-                    displacement,
-                    expected,
-                    1e-10,
-                    "resolved axial beside support load",
-                );
-            }
+            assert_eq!(
+                r["converged"], case["converged"],
+                "analysis {index}: {case}, result {r}"
+            );
+            check_axial_displacement(&r, case);
+        }
+    }
+    for case in cases
+        .iter()
+        .filter(|c| c["expectedAxialDisplacement"].is_number())
+    {
+        let results = if case["dimension"] == 2 {
+            let s: SolverInput = serde_json::from_value(case["solver"].clone()).unwrap();
+            let prepared = dedaliano_engine::solver::linear::prepare_static_2d(&s).unwrap();
+            let dense =
+                dedaliano_engine::solver::linear::prepare_static_2d_dense_reference(&s).unwrap();
+            vec![
+                serde_json::to_value(dedaliano_engine::solver::linear::solve_2d(&s).unwrap())
+                    .unwrap(),
+                serde_json::to_value(prepared.solve_loads(&s.loads).unwrap()).unwrap(),
+                serde_json::to_value(dense.solve_loads(&s.loads).unwrap()).unwrap(),
+            ]
+        } else {
+            let s: SolverInput3D = serde_json::from_value(case["solver"].clone()).unwrap();
+            let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&s).unwrap();
+            vec![
+                serde_json::to_value(dedaliano_engine::solver::linear::solve_3d(&s).unwrap())
+                    .unwrap(),
+                serde_json::to_value(prepared.solve_loads(&s.loads).unwrap()).unwrap(),
+            ]
+        };
+        for r in results {
+            check_axial_displacement(&serde_json::json!({"results":r}), case);
         }
     }
     if let Ok(path) = std::env::var("NONLINEAR_CONVERGENCE_CASES") {
         std::fs::write(path, serde_json::to_vec(&cases).unwrap()).unwrap();
+    }
+}
+
+fn check_axial_displacement(r: &serde_json::Value, case: &serde_json::Value) {
+    if let Some(expected) = case["expectedAxialDisplacement"].as_f64() {
+        let tip = r["results"]["displacements"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["nodeId"] == 2)
+            .unwrap();
+        let displacement = ["ux", "uy", "uz"]
+            .into_iter()
+            .filter_map(|k| tip[k].as_f64())
+            .fold(0.0f64, |norm, value| norm.hypot(value));
+        crate::common::assert_close(
+            displacement,
+            expected,
+            1e-10,
+            &format!(
+                "resolved axial beside support load: diagnostics={}, solver={}, structured={}",
+                r["results"]["diagnostics"],
+                r["results"]["solverDiagnostics"],
+                r["results"]["structuredDiagnostics"]
+            ),
+        );
     }
 }
 
@@ -639,7 +689,6 @@ fn rotated_resolved_cases() -> Vec<serde_json::Value> {
 macro_rules! rotated_resolved_test {
     ($name:ident, $dimension:expr, $analysis:expr) => {
         #[test]
-        #[ignore = "known wrong result: #761"]
         fn $name() {
             check_export_cases_for(
                 rotated_resolved_cases()
@@ -660,3 +709,127 @@ rotated_resolved_test!(issue_761_rotated_resolved_pdelta_3d, 3, 0);
 rotated_resolved_test!(issue_761_rotated_resolved_corotational_3d, 3, 1);
 rotated_resolved_test!(issue_761_rotated_resolved_fiber_3d, 3, 2);
 rotated_resolved_test!(issue_761_rotated_resolved_material_3d, 3, 3);
+
+#[test]
+fn issue_761_spatial_corotational_resolves_sub_ulp_chord_displacements() {
+    let s = spatial_sub_ulp_input();
+    let reference = dedaliano_engine::solver::linear::solve_3d(&s).unwrap();
+    let result = corotational::solve_corotational_3d(&s, 100, 1e-10, 1, false).unwrap();
+    assert!(result.converged);
+    let expected = reference
+        .displacements
+        .iter()
+        .find(|d| d.node_id == 2)
+        .unwrap();
+    let actual = result
+        .results
+        .displacements
+        .iter()
+        .find(|d| d.node_id == 2)
+        .unwrap();
+    for (a, b) in [
+        (actual.ux, expected.ux),
+        (actual.uy, expected.uy),
+        (actual.uz, expected.uz),
+    ] {
+        crate::common::assert_close(a, b, 1e-10, "sub ULP spatial axial displacement");
+    }
+}
+
+fn spatial_sub_ulp_input() -> SolverInput3D {
+    let base = cantilever();
+    let mut s = embed_2d(&base, Plane::XZ).unwrap();
+    s.supports.retain(|_, support| support.node_id == 1);
+    let iso = dedaliano_engine::metamorphic::transform::Iso3::from_euler(0.731, -0.417, 1.293);
+    let mut s = dedaliano_engine::metamorphic::transform::transform_3d(&s, &iso).unwrap();
+    for load in &mut s.loads {
+        if let SolverLoad3D::Nodal(load) = load {
+            load.fx *= 1e-16;
+            load.fy *= 1e-16;
+            load.fz *= 1e-16;
+        }
+    }
+    s
+}
+
+#[test]
+fn issue_761_rotated_resolved_linear_2d() {
+    check_export_cases_for(
+        rotated_resolved_cases()
+            .into_iter()
+            .filter(|c| c["dimension"] == 2)
+            .collect(),
+        Some(4),
+    );
+}
+
+#[test]
+fn issue_761_rotated_resolved_linear_3d() {
+    check_export_cases_for(
+        rotated_resolved_cases()
+            .into_iter()
+            .filter(|c| c["dimension"] == 3)
+            .collect(),
+        Some(4),
+    );
+}
+
+#[test]
+fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
+    use dedaliano_engine::solver::arc_length::{self, ArcLengthInput, DisplacementControlInput};
+    for case in rotated_resolved_cases()
+        .into_iter()
+        .filter(|c| c["dimension"] == 2)
+    {
+        let solver: SolverInput = serde_json::from_value(case["solver"].clone()).unwrap();
+        let expected = case["expectedAxialDisplacement"].as_f64().unwrap();
+        let length = solver.nodes["2"].x.hypot(solver.nodes["2"].z);
+        let force = expected * 1000.0 * solver.materials["1"].e * solver.sections["1"].a / length;
+        let ds = force.hypot(expected) / 10.0;
+        let input = ArcLengthInput {
+            solver: solver.clone(),
+            max_steps: 1,
+            max_iter: 100,
+            tolerance: 1e-10,
+            initial_ds: ds,
+            min_ds: ds,
+            max_ds: ds,
+            target_iter: 4,
+        };
+        let r = arc_length::solve_arc_length(&input).unwrap();
+        assert!(r.converged);
+        crate::common::assert_close(
+            r.final_load_factor,
+            0.1,
+            1e-10,
+            "inclined arc-length load factor",
+        );
+        let r: serde_json::Value = serde_json::from_str(
+            &dedaliano_engine::solve_arc_length(&serde_json::to_string(&input).unwrap()).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(r["converged"], true);
+        crate::common::assert_close(
+            r["finalLoadFactor"].as_f64().unwrap(),
+            0.1,
+            1e-10,
+            "exported inclined arc-length load factor",
+        );
+        let mut expected_case = case;
+        expected_case["expectedAxialDisplacement"] = serde_json::json!(expected * 0.1);
+        check_axial_displacement(&r, &expected_case);
+        let control = DisplacementControlInput {
+            solver,
+            control_node: 2,
+            control_dof: 0,
+            target_displacement: expected,
+            n_steps: 2,
+            max_iter: 100,
+            tolerance: 1e-10,
+        };
+        assert!(arc_length::solve_displacement_control(&control)
+            .unwrap_err()
+            .to_lowercase()
+            .contains("inclined"));
+    }
+}

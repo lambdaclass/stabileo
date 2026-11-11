@@ -305,11 +305,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
             }
 
             // Residual
-            let mut residual = vec![0.0; n];
-            for i in 0..n {
-                residual[i] = f_ext[i] - f_int[i];
-            }
-            let residual = assembly::to_inclined_free(residual, &its, nf);
+            let residual = assembly::inclined_residual(&f_ext, &f_int, &its);
 
             // Check convergence on independent (reduced) DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
@@ -1195,11 +1191,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
             }
 
             // Residual
-            let mut residual = vec![0.0; n];
-            for i in 0..n {
-                residual[i] = f_ext[i] - f_int[i];
-            }
-            let residual = assembly::to_inclined_free(residual, &its, nf);
+            let residual = assembly::inclined_residual(&f_ext, &f_int, &its);
 
             // Check convergence on independent (reduced) DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();

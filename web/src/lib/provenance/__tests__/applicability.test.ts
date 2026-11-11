@@ -344,7 +344,16 @@ describe('which registered changes concern a model', () => {
     }
   });
 
-  it.fails('scopes nonlinear physical convergence to structural nonlinear analyses', () => {
+  it('scopes compensated load projection to inclined structural supports', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'inclined-resolved-load-projection')!;
+    for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+      expect(conditionHolds(entry.when ?? {}, new Set([structure, 'inclinedSupports']))).toBe(true);
+      expect(conditionHolds(entry.when ?? {}, new Set([structure]))).toBe(false);
+    }
+    expect(conditionHolds(entry.when ?? {}, new Set(['inclinedSupports']))).toBe(false);
+  });
+
+  it('scopes nonlinear physical convergence to structural nonlinear analyses', () => {
     const change = 'nonlinear-physical-convergence';
     const entry = RESULT_CHANGES.changes.find(c => c.id === change)!;
     const before = entry.resultsVersion - 1;

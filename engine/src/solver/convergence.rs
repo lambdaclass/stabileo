@@ -1,7 +1,4 @@
-use super::{
-    constraints::{inclined_dofs_2d, inclined_dofs_3d, FreeConstraintSystem, InclinedDofs},
-    dof::DofNumbering,
-};
+use super::{constraints::FreeConstraintSystem, dof::DofNumbering};
 use crate::{
     linalg::*,
     types::{SolverInput, SolverInput3D},
@@ -10,7 +7,6 @@ use crate::{
 pub(crate) struct EquilibriumMetric {
     weights: Vec<f64>,
     nf: usize,
-    roundoff_groups: Vec<InclinedDofs>,
     projected: Option<(Vec<f64>, NumericCholesky)>,
 }
 
@@ -21,7 +17,7 @@ impl EquilibriumMetric {
         cs: Option<&FreeConstraintSystem>,
     ) -> Result<Self, String> {
         let points = crate::ordered::values(&input.nodes).map(|n| [n.x, 0.0, n.z]);
-        Self::new(points, 2, dofs, cs, inclined_dofs_2d(input, dofs))
+        Self::new(points, 2, dofs, cs)
     }
 
     pub(crate) fn for_3d(
@@ -30,7 +26,7 @@ impl EquilibriumMetric {
         cs: Option<&FreeConstraintSystem>,
     ) -> Result<Self, String> {
         let points = crate::ordered::values(&input.nodes).map(|n| [n.x, n.y, n.z]);
-        Self::new(points, 3, dofs, cs, inclined_dofs_3d(input, dofs))
+        Self::new(points, 3, dofs, cs)
     }
 
     fn new(
@@ -38,7 +34,6 @@ impl EquilibriumMetric {
         dimensions: usize,
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
-        roundoff_groups: Vec<InclinedDofs>,
     ) -> Result<Self, String> {
         let origin = points.next().ok_or("Convergence metric requires nodes")?;
         let length = points
@@ -100,7 +95,6 @@ impl EquilibriumMetric {
         Ok(Self {
             weights,
             nf: dofs.n_free,
-            roundoff_groups,
             projected,
         })
     }
@@ -169,10 +163,9 @@ impl EquilibriumMetric {
         cs: Option<&FreeConstraintSystem>,
         support_driven: bool,
     ) -> f64 {
-        let mut residual: Vec<_> = external.iter().zip(internal).map(|(a, b)| a - b).collect();
+        let residual = super::assembly::inclined_residual(external, internal, its);
         let mut external = external.to_vec();
         for it in its {
-            it.rotate(&mut residual);
             it.rotate(&mut external);
         }
         self.relative_residual(&residual, &external, support_driven.then_some(internal), cs)
@@ -193,22 +186,7 @@ impl EquilibriumMetric {
         {
             return f64::INFINITY;
         }
-        let mut checked = residual.to_vec();
-        for group in &self.roundoff_groups {
-            let load = projection_scale(group, external, self.nf);
-            let free = group.dofs.iter().copied().filter(|&i| i < self.nf);
-            let active = free.clone().fold(0.0f64, |n, i| n.hypot(external[i]));
-            let error = free.clone().fold(0.0f64, |n, i| n.hypot(residual[i]));
-            if load > 0.0
-                && active / load <= projection_roundoff(group.dofs.len())
-                && error / load <= projection_roundoff(group.dofs.len())
-            {
-                for i in free {
-                    checked[i] = 0.0;
-                }
-            }
-        }
-        let r = self.free_norm(&checked, cs);
+        let r = self.free_norm(residual, cs);
         let full = self.full_norm(external);
         let reference = self
             .free_norm(external, cs)
@@ -225,31 +203,6 @@ impl EquilibriumMetric {
             r / reference
         }
     }
-}
-
-fn projection_scale(frame: &InclinedDofs, external: &[f64], nf: usize) -> f64 {
-    let dimensions = frame.dofs.len();
-    let global: Vec<f64> = (0..dimensions)
-        .map(|j| {
-            (0..dimensions)
-                .map(|i| frame.r[i][j] * external[frame.dofs[i]])
-                .sum()
-        })
-        .collect();
-    frame
-        .dofs
-        .iter()
-        .zip(&frame.r)
-        .filter(|(i, _)| **i < nf)
-        .fold(0.0f64, |norm, (_, row)| {
-            norm.hypot(row.iter().zip(&global).map(|(r, f)| (r * f).abs()).sum())
-        })
-}
-
-fn projection_roundoff(dimensions: usize) -> f64 {
-    let operations = (2 * dimensions + 2) as f64;
-    let error = operations * f64::EPSILON;
-    error / (1.0 - error)
 }
 
 #[cfg(test)]
@@ -389,27 +342,25 @@ mod tests {
     }
 
     #[test]
-    fn projection_roundoff_is_local_and_cannot_hide_a_real_load() {
+    fn every_representable_free_residual_is_checked() {
         let base: SolverInput =
             serde_json::from_str(include_str!("../../tests/fixtures/random-41-input.json"))
                 .unwrap();
         let s = transform_2d(&base, &Iso2::rotation(0.731)).unwrap();
         let dofs = DofNumbering::build_2d(&s);
         let metric = EquilibriumMetric::for_2d(&s, &dofs, None).unwrap();
-        assert_eq!(metric.roundoff_groups.len(), 1);
-        let group = &metric.roundoff_groups[0];
+        let groups = super::super::constraints::inclined_dofs_2d(&s, &dofs);
+        assert_eq!(groups.len(), 1);
+        let group = &groups[0];
         let tangent = *group.dofs.iter().find(|&&i| i < dofs.n_free).unwrap();
         let normal = *group.dofs.iter().find(|&&i| i >= dofs.n_free).unwrap();
         for force in [1e-200, 1.0, 1e200] {
             let mut f = vec![0.0; dofs.n_total];
             f[normal] = force;
-            let bound = projection_roundoff(2) * projection_scale(group, &f, dofs.n_free) / force;
+            let bound = 6.0 * f64::EPSILON;
             for factor in [0.5, 2.0] {
                 f[tangent] = factor * bound * force;
-                assert_eq!(
-                    metric.relative_residual(&f, &f, None, None) < 1e-10,
-                    factor < 1.0
-                );
+                assert_eq!(metric.relative_residual(&f, &f, None, None), 1.0);
             }
             f[tangent] = 0.0;
             let other = (0..dofs.n_free).find(|i| !group.dofs.contains(i)).unwrap();
@@ -433,7 +384,6 @@ mod tests {
         assert!(metric.relative_residual(&force, &force, None, None) >= 1.0);
     }
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn an_inclined_projection_cannot_discard_a_small_real_free_load() {
         let mut s: SolverInput =
             serde_json::from_str(include_str!("../../tests/fixtures/random-41-input.json"))
