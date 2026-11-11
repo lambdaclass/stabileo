@@ -116,3 +116,103 @@ it('the real #741 certificate refusal is a containment refusal and withholds the
   expect(mocks.certify).toHaveBeenCalled();
   expect(mocks.plain).not.toHaveBeenCalled();
 });
+
+it.fails('a constraint in a separate structure does not refuse a resolved buckling compression (#1756)', async () => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const expected = ((5.2 - Math.sqrt(19.84)) / 0.3) * (200000 * 1000 * 1e-12) / 100 / 1e-9;
+  const json2d = JSON.stringify({
+    nodes: { 1: { id: 1, x: 0, z: 0 }, 2: { id: 2, x: 0, z: 10 }, 3: { id: 3, x: 10, z: 0 }, 4: { id: 4, x: 14, z: 0 } },
+    materials: { 1: { id: 1, e: 200000, nu: 0.3 } },
+    sections: { 1: { id: 1, a: 1e-4, iz: 1e-12 }, 2: { id: 2, a: 0.01, iz: 1e-4 } },
+    elements: {
+      1: { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 },
+      2: { id: 2, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 2 },
+    },
+    supports: { 1: { id: 1, nodeId: 1, type: 'fixed' }, 3: { id: 3, nodeId: 3, type: 'pinned' }, 4: { id: 4, nodeId: 4, type: 'rollerX' } },
+    loads: [
+      { type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1e-9, my: 0 } },
+      { type: 'nodal', data: { nodeId: 4, fx: 1e6, fz: 0, my: 0 } },
+    ],
+    constraints: [{ type: 'linearMPC', terms: [{ nodeId: 3, dof: 1, coefficient: 1 }, { nodeId: 4, dof: 1, coefficient: -1 }] }],
+  });
+  const json3d = JSON.stringify({
+    nodes: { 1: { id: 1, x: 0, y: 0, z: 0 }, 2: { id: 2, x: 0, y: 0, z: 10 }, 3: { id: 3, x: 10, y: 0, z: 0 }, 4: { id: 4, x: 14, y: 0, z: 0 } },
+    materials: { 1: { id: 1, e: 200000, nu: 0.3 } },
+    sections: { 1: { id: 1, a: 1e-4, iy: 1e-12, iz: 1e-12, j: 1e-12 }, 2: { id: 2, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 } },
+    elements: {
+      1: { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 },
+      2: { id: 2, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 2 },
+    },
+    supports: {
+      1: { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true },
+      2: { nodeId: 2, rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true },
+      3: { nodeId: 3, rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true },
+      4: { nodeId: 4, rx: false, ry: true, rz: true, rrx: true, rry: false, rrz: true },
+    },
+    loads: [
+      { type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: -1e-9, mx: 0, my: 0, mz: 0 } },
+      { type: 'nodal', data: { nodeId: 4, fx: 1e6, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } },
+    ],
+    constraints: [{ type: 'linearMPC', terms: [{ nodeId: 3, dof: 2, coefficient: 1 }, { nodeId: 4, dof: 2, coefficient: -1 }] }],
+  });
+
+  const plain2d = JSON.parse(native.solve_buckling_2d(json2d, 1));
+  const cert2d = JSON.parse(native.certify_buckling_2d(json2d, 1));
+  const plain3d = JSON.parse(native.solve_buckling_3d(json3d, 1));
+  const cert3d = JSON.parse(native.certify_buckling_3d(json3d, 1));
+  for (const factor of [
+    plain2d.modes[0].loadFactor,
+    cert2d.results.modes[0].loadFactor,
+    plain3d.modes[0].loadFactor,
+    cert3d.results.modes[0].loadFactor,
+  ]) {
+    expect(Math.abs(factor / expected - 1)).toBeLessThan(1e-6);
+  }
+
+  mocks.certify2D.mockImplementation(native.certify_buckling_2d);
+  mocks.plain2D.mockImplementation(native.solve_buckling_2d);
+  const model2d = {
+    nodes: new Map([[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 0, y: 10 }], [3, { id: 3, x: 10, y: 0 }], [4, { id: 4, x: 14, y: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 1e-4, iz: 1e-12 }], [2, { id: 2, a: 0.01, iz: 1e-4 }]]),
+    elements: new Map([
+      [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }],
+      [2, { id: 2, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 2 }],
+    ]),
+    supports: new Map([
+      [1, { id: 1, nodeId: 1, type: 'fixed' }],
+      [3, { id: 3, nodeId: 3, type: 'pinned' }],
+      [4, { id: 4, nodeId: 4, type: 'rollerX' }],
+    ]),
+    loads: [
+      { type: 'nodal', data: { nodeId: 2, fx: 0, fy: -1e-9, mz: 0 } },
+      { type: 'nodal', data: { nodeId: 4, fx: 1e6, fy: 0, mz: 0 } },
+    ],
+    constraints: [{ type: 'linearMPC', terms: [{ nodeId: 3, dof: 1, coefficient: 1 }, { nodeId: 4, dof: 1, coefficient: -1 }] }],
+  };
+  expect(Math.abs(solveBuckling(model2d as never, 1).modes[0].loadFactor / expected - 1)).toBeLessThan(1e-6);
+});
+
+it('a constraint coupling a column to a heavily loaded member refuses compression within coupled round-off', async () => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const build2d = (p: number) => JSON.stringify({
+    nodes: { 1: { id: 1, x: 0, z: 0 }, 2: { id: 2, x: 0, z: 10 }, 3: { id: 3, x: 10, z: 0 }, 4: { id: 4, x: 14, z: 0 } },
+    materials: { 1: { id: 1, e: 200000, nu: 0.3 } },
+    sections: { 1: { id: 1, a: 1e-4, iz: 1e-12 }, 2: { id: 2, a: 0.01, iz: 1e-4 } },
+    elements: {
+      1: { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 },
+      2: { id: 2, type: 'frame', nodeI: 3, nodeJ: 4, materialId: 1, sectionId: 2 },
+    },
+    supports: { 1: { id: 1, nodeId: 1, type: 'guidedX' }, 3: { id: 3, nodeId: 3, type: 'pinned' }, 4: { id: 4, nodeId: 4, type: 'rollerX' } },
+    loads: [
+      { type: 'nodal', data: { nodeId: 2, fx: 0, fz: -p, my: 0 } },
+      { type: 'nodal', data: { nodeId: 4, fx: 1e6, fz: 0, my: 0 } },
+    ],
+    constraints: [{ type: 'equalDOF', masterNode: 4, slaveNode: 1, dofs: [0] }],
+  });
+  expect(() => native.solve_buckling_2d(build2d(4e-8), 1)).toThrow(/Buckling not determinable/);
+  expect(() => native.certify_buckling_2d(build2d(4e-8), 1)).toThrow(/Buckling not determinable/);
+  const expected = ((5.2 - Math.sqrt(19.84)) / 0.3) * (200000 * 1000 * 1e-12) / 100 / 5e-8;
+  const above = JSON.parse(native.solve_buckling_2d(build2d(5e-8), 1));
+  expect(Math.abs(above.modes[0].loadFactor / expected - 1)).toBeLessThan(1e-6);
+});
