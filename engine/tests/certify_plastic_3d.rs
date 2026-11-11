@@ -481,14 +481,11 @@ impl Lcg {
 /// (nodal loads and beam UDLs along local z), random capacities, some
 /// released beam ends and pinned bases. Every hinge is uniaxial, so the
 /// solver must land in the certified enclosure.
-#[test]
-#[ignore = "minutes at opt-level 1; nightly certify-large runs it in release"]
-fn random_plane_frames_in_space_agree_with_solver() {
+fn nightly_plane_frames(count: usize) -> Vec<PlasticInput3D> {
+    let mut inputs = Vec::new();
     let mut g = Lcg(7);
-    // plan directions with rational unit vectors (coordinates stay exact)
     let dirs = [(1.0, 0.0), (0.0, 1.0), (3.0 / 5.0, 4.0 / 5.0), (-4.0 / 5.0, 3.0 / 5.0)];
-    let (mut checked, mut warned, mut unloaded, mut spans) = (0, 0, 0, 0);
-    for case in 0..20 {
+    for case in 0..count {
         let (cx, cy) = dirs[case % 4];
         let bays = 1 + (g.next() * 2.0) as usize;
         let stories = 1 + (g.next() * 3.0) as usize;
@@ -497,7 +494,6 @@ fn random_plane_frames_in_space_agree_with_solver() {
         let mut col_node = vec![vec![0; bays + 1]; stories + 1];
         for (s, row) in col_node.iter_mut().enumerate() {
             for (b, n) in row.iter_mut().enumerate() {
-                // w is a multiple of 5: b w (3/5) etc. are integers
                 let x = b as f64 * w;
                 nodes.push((nodes.len() + 1, (x * cx * 5.0).round() / 5.0, (x * cy * 5.0).round() / 5.0, s as f64 * h));
                 *n = nodes.len();
@@ -531,9 +527,6 @@ fn random_plane_frames_in_space_agree_with_solver() {
             .map(|b| (col_node[0][b], if g.next() < 0.3 { vec![true, true, true, true, false, true] } else { FIXED.to_vec() }))
             .collect();
         let mut s = make_3d_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IY, IZ, J), (2, A, IY, IZ, J)], elems, sups, loads);
-        // columns turn their local y into the frame's plane (local_y = plan
-        // direction): in-plane bending is about local z for the columns and
-        // about local y for the beams, so every hinge is uniaxial
         for e in s.elements.values_mut() {
             let (ni, nj) = (e.node_i, e.node_j);
             let zi = s.nodes.values().find(|n| n.id == ni).unwrap().z;
@@ -543,12 +536,8 @@ fn random_plane_frames_in_space_agree_with_solver() {
             }
         }
         for id in released {
-            // release about the in-plane bending axis (local y) only
             s.elements.get_mut(&id.to_string()).unwrap().release_my_start = true;
         }
-        // pinned bases: in-plane rotation free means rotation about the plan
-        // normal (−cy, cx, 0); only axis-aligned planes can express that with
-        // support flags, so the oblique frames keep fixed bases.
         if cx != 0.0 && cy != 0.0 {
             for sup in s.supports.values_mut() {
                 sup.rry = true;
@@ -566,46 +555,15 @@ fn random_plane_frames_in_space_agree_with_solver() {
         let mp_beam = 50.0 + (g.next() * 100.0).round();
         inp.sections.insert("2".to_string(), PlasticSectionData3D { a: A, iy: IY, iz: IZ, material_id: 1, b: None, h: None, d: None });
         inp.mp_overrides.as_mut().unwrap().insert("2".to_string(), [mp_beam, mp_beam * 0.5]);
-        let res = solve_plastic_3d(&inp).unwrap();
-        let c = certify_collapse_3d(&inp, Some(&res));
-        assert!(c.certified, "case {case}: {c:?}");
-        let (lo, up) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
-        assert!((up - lo) / up < 1e-7, "case {case}: [{lo}, {up}]");
-        assert!(res.is_mechanism, "case {case}: {:?}", res.warnings);
-        let dev = c.solver_deviation.unwrap();
-        if res.warnings.is_empty() {
-            assert!(dev < 1e-9, "case {case}: solver {} outside [{lo}, {up}]", res.collapse_factor);
-            checked += 1;
-        } else {
-            // hinges cannot move along a member: when a span peak passes a
-            // hinge the solver says so, and is then only approximate
-            assert!(res.warnings.iter().all(|w| w.contains("moves along a member") || w.contains("exceeds the yield surface")), "case {case}: {:?}", res.warnings);
-            warned += 1;
-        }
-        if res.hinges.iter().any(|h| h.unloaded_at.is_some()) {
-            unloaded += 1;
-        }
-        if res.hinges.iter().any(|h| h.position > 0.0 && h.position < 1.0) {
-            spans += 1;
-        }
-        eprintln!("case {case}: λ = {} ∈ [{lo}, {up}], {} hinges", res.collapse_factor, res.hinges.len());
+        inputs.push(inp);
     }
-    eprintln!("within the enclosure {checked}, warned {warned}, with unloading {unloaded}, with span hinges {spans}");
-    assert!(checked >= 14, "only {checked} cases without warnings");
-    assert!(spans >= 5, "span hinges exercised in {spans} cases");
+    inputs
 }
 
-/// Space frames (1×1 or 2×1 bays in plan, 1–2 storeys) with lateral loads
-/// in X and Y and gravity loads on the beams: hinges are biaxial. The
-/// enclosure is certified and tight, and the solver never exceeds it; where
-/// it falls below, it warns about biaxial hinges.
-#[test]
-#[ignore = "minutes at opt-level 1; nightly certify-large runs it in release"]
-fn random_space_frames_solver_is_safe() {
+fn nightly_space_frames(count: usize) -> Vec<PlasticInput3D> {
+    let mut inputs = Vec::new();
     let mut g = Lcg(99);
-    let (mut inside, mut below) = (0, 0);
-    for case in 0..8 {
-        // kept small: the exact checks and the polygon LP grow fast with size
+    for _case in 0..count {
         let (bx, by) = (1 + (g.next() * 2.0) as usize, 1);
         let stories = 1 + (g.next() * 1.6) as usize;
         let (w, h) = (4.0, 3.0);
@@ -645,6 +603,54 @@ fn random_space_frames_solver_is_safe() {
         let sups = (0..=bx).flat_map(|i| (0..=by).map(move |j| (i, j))).map(|(i, j)| (id[&(0, i, j)], FIXED)).collect();
         let s = frame(nodes, elems, sups, loads);
         let inp = plastic(s, MPY, MPZ);
+        inputs.push(inp);
+    }
+    inputs
+}
+
+#[test]
+#[ignore = "minutes at opt-level 1; nightly certify-large runs it in release"]
+fn random_plane_frames_in_space_agree_with_solver() {
+    let (mut checked, mut warned, mut unloaded, mut spans) = (0, 0, 0, 0);
+    for (case, inp) in nightly_plane_frames(20).into_iter().enumerate() {
+        let res = solve_plastic_3d(&inp).unwrap();
+        let c = certify_collapse_3d(&inp, Some(&res));
+        assert!(c.certified, "case {case}: {c:?}");
+        let (lo, up) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
+        assert!((up - lo) / up < 1e-7, "case {case}: [{lo}, {up}]");
+        assert!(res.is_mechanism, "case {case}: {:?}", res.warnings);
+        let dev = c.solver_deviation.unwrap();
+        if res.warnings.is_empty() {
+            assert!(dev < 1e-9, "case {case}: solver {} outside [{lo}, {up}]", res.collapse_factor);
+            checked += 1;
+        } else {
+            // hinges cannot move along a member: when a span peak passes a
+            // hinge the solver says so, and is then only approximate
+            assert!(res.warnings.iter().all(|w| w.contains("moves along a member") || w.contains("exceeds the yield surface")), "case {case}: {:?}", res.warnings);
+            warned += 1;
+        }
+        if res.hinges.iter().any(|h| h.unloaded_at.is_some()) {
+            unloaded += 1;
+        }
+        if res.hinges.iter().any(|h| h.position > 0.0 && h.position < 1.0) {
+            spans += 1;
+        }
+        eprintln!("case {case}: λ = {} ∈ [{lo}, {up}], {} hinges", res.collapse_factor, res.hinges.len());
+    }
+    eprintln!("within the enclosure {checked}, warned {warned}, with unloading {unloaded}, with span hinges {spans}");
+    assert!(checked >= 14, "only {checked} cases without warnings");
+    assert!(spans >= 5, "span hinges exercised in {spans} cases");
+}
+
+/// Space frames (1×1 or 2×1 bays in plan, 1–2 storeys) with lateral loads
+/// in X and Y and gravity loads on the beams: hinges are biaxial. The
+/// enclosure is certified and tight, and the solver never exceeds it; where
+/// it falls below, it warns about biaxial hinges.
+#[test]
+#[ignore = "minutes at opt-level 1; nightly certify-large runs it in release"]
+fn random_space_frames_solver_is_safe() {
+    let (mut inside, mut below) = (0, 0);
+    for (case, inp) in nightly_space_frames(8).into_iter().enumerate() {
         let res = solve_plastic_3d(&inp).unwrap();
         let c = certify_collapse_3d(&inp, Some(&res));
         assert!(c.certified, "case {case}: {c:?}");
@@ -773,4 +779,39 @@ fn axial_point_loads_are_refused_by_the_3d_plastic_certificate() {
             assert!(certificate.reason.as_deref().is_some_and(|r| r.contains("axial point loads")), "{certificate:?}");
         }
     }
+}
+
+#[test]
+#[ignore = "known wrong result: #1954"]
+fn nightly_plane_case_zero_has_provable_bounds() {
+    let input = nightly_plane_frames(1).pop().unwrap();
+    let raw = solve_plastic_3d(&input).unwrap();
+    let certificate = certify_collapse_3d(&input, Some(&raw));
+    assert!(certificate.certified, "{certificate:?}");
+    let (lower, upper) = (certificate.lambda_lower.unwrap(), certificate.lambda_upper.unwrap());
+    assert!((upper - lower) / upper < 1e-7);
+    assert!(certificate.solver_deviation.unwrap() < 1e-9);
+    let independent = certify_collapse_3d(&input, None);
+    assert!(independent.certified, "{independent:?}");
+    assert!(independent.lambda_lower.unwrap() <= upper);
+    assert!(independent.lambda_upper.unwrap() >= lower);
+    let checked = certify_plastic_3d(&input).unwrap();
+    assert_eq!(checked.results.collapse_factor, checked.certificate.lambda_lower.unwrap());
+    eprintln!("plane: raw {}, bounds [{lower}, {upper}]", raw.collapse_factor);
+}
+
+#[test]
+#[ignore = "known wrong result: #1954"]
+fn nightly_space_case_two_has_provable_bounds() {
+    let input = nightly_space_frames(3).pop().unwrap();
+    let raw = solve_plastic_3d(&input).unwrap();
+    let certificate = certify_collapse_3d(&input, Some(&raw));
+    assert!(certificate.certified, "{certificate:?}");
+    let (lower, upper) = (certificate.lambda_lower.unwrap(), certificate.lambda_upper.unwrap());
+    assert!((upper - lower) / upper < 1e-4);
+    assert!(raw.collapse_factor <= upper * (1.0 + 1e-9));
+    if certificate.solver_deviation.unwrap() >= 1e-9 {
+        assert!(raw.warnings.iter().any(|warning| warning.contains("biaxial")));
+    }
+    eprintln!("space: raw {}, bounds [{lower}, {upper}]", raw.collapse_factor);
 }

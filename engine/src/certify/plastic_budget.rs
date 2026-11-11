@@ -158,4 +158,32 @@ mod tests {
         assert!(reason.contains("dense storage bytes"));
         assert!(reason.contains(&MAX_ENGINE_LP_BYTES.to_string()));
     }
+    #[test]
+    fn candidate_storage_limit_has_adjacent_admitted_and_refused_counts() {
+        for free_variables in [0usize, 1, 12, 48] {
+            let mut work = PlasticLpWork {
+                equilibrium_equations: 12,
+                force_variables: 48,
+                initial_halfspaces: 32,
+                max_halfspaces: 0,
+                max_solves: 61,
+            };
+            assert!(work.check_candidate_workspace(free_variables).is_ok());
+            let (mut lower, mut upper) = (0usize, MAX_ENGINE_LP_BYTES);
+            while upper - lower > 1 {
+                work.max_halfspaces = lower + (upper - lower) / 2;
+                if work.check_candidate_workspace(free_variables).is_ok() {
+                    lower = work.max_halfspaces;
+                } else {
+                    upper = work.max_halfspaces;
+                }
+            }
+            work.max_halfspaces = lower;
+            assert!(work.check_candidate_workspace(free_variables).is_ok());
+            work.max_halfspaces = upper;
+            assert!(work.check_candidate_workspace(free_variables).unwrap_err().contains("simplex workspace bytes"));
+            assert_eq!(upper, lower + 1);
+        }
+    }
+
 }

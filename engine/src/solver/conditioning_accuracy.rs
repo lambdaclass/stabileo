@@ -393,4 +393,65 @@ mod tests {
         }
     }
 
+    #[test]
+    #[ignore = "known wrong result: #1953"]
+    fn nightly_plastic_input_and_minimum_never_panic() {
+        let raw = include_bytes!("../../tests/fixtures/plastic-1953-nightly.bin");
+        let original: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
+        let minimum: PlasticInput3D = serde_json::from_str(include_str!("../../tests/fixtures/plastic-1953-min.json")).unwrap();
+        for input in [original, minimum] {
+            let mut canonical = input.solver.clone();
+            canonical.elements = canonical.elements.into_values().map(|e| (e.id.to_string(), e)).collect();
+            let expected = super::super::linear::solve_3d(&canonical).unwrap();
+            let actual = super::super::linear::solve_3d(&input.solver).unwrap();
+            assert_eq!(serde_json::to_value(&actual.element_forces).unwrap(), serde_json::to_value(&expected.element_forces).unwrap());
+            let result = super::super::plastic::solve_plastic_3d(&input);
+            assert!(result.is_ok(), "{result:?}");
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1953"]
+    fn balance_uses_member_and_node_ids_from_the_solved_model() {
+        for altered in [false, true] {
+            let mut input = beam(true);
+            if altered {
+                input.sections.get_mut("1").unwrap().iz *= 2.0;
+                input.elements.get_mut("1").unwrap().hinge_end = true;
+            }
+            let result = super::super::linear::solve_2d(&input).unwrap();
+            input.elements = input.elements.into_values().map(|e| (format!("member-{}", e.id), e)).collect();
+            input.nodes = input.nodes.into_values().map(|n| (format!("node-{}", n.id), n)).collect();
+            let dof = DofNumbering::build_2d(&input);
+            member_balance_2d(&input, &input.loads, &dof, &conditional(), &result, None).unwrap();
+            let mut input = beam3(true);
+            if altered {
+                input.sections.get_mut("1").unwrap().iy *= 2.0;
+                input.elements.get_mut("1").unwrap().release_my_end = true;
+            }
+            let result = super::super::linear::solve_3d(&input).unwrap();
+            input.elements = input.elements.into_values().map(|e| (format!("member-{}", e.id), e)).collect();
+            input.nodes = input.nodes.into_values().map(|n| (format!("node-{}", n.id), n)).collect();
+            let dof = DofNumbering::build_3d(&input);
+            member_balance_3d(&input, &input.loads, &dof, &conditional(), &result, None).unwrap();
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1953"]
+    fn missing_recovered_members_return_the_structured_conditioning_refusal() {
+        let input = beam(true);
+        let mut result = super::super::linear::solve_2d(&input).unwrap();
+        result.element_forces[0].element_id = usize::MAX;
+        let dof = DofNumbering::build_2d(&input);
+        let error = member_balance_2d(&input, &input.loads, &dof, &conditional(), &result, None).unwrap_err();
+        assert_eq!(error, conditional().conditioning_refusal());
+        assert!(serde_json::from_str::<serde_json::Value>(&error).is_ok());
+        let input = beam3(true);
+        let mut result = super::super::linear::solve_3d(&input).unwrap();
+        result.element_forces[0].element_id = usize::MAX;
+        let dof = DofNumbering::build_3d(&input);
+        assert_eq!(member_balance_3d(&input, &input.loads, &dof, &conditional(), &result, None).unwrap_err(), error);
+    }
+
 }
