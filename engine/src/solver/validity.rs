@@ -36,7 +36,8 @@ pub(crate) fn contact_tolerance(tolerance: Option<f64>) -> Result<f64, String> {
 
 pub(crate) fn check_frozen_contact(id: usize, gap: f64, force_over_stiffness: f64, stiffness: f64, tolerance: f64, active: bool, phase: &str) -> Result<(), String> {
     if !stiffness.is_finite() || stiffness <= 0.0 || !gap.is_finite() || !force_over_stiffness.is_finite() || (!active && (gap < -tolerance || force_over_stiffness.abs() > tolerance)) || force_over_stiffness > tolerance
-        || (gap > tolerance && force_over_stiffness < -tolerance) {
+        || (gap > tolerance && force_over_stiffness < -tolerance)
+        || (active && force_over_stiffness > gap.min(0.0) + tolerance) {
         return Err(refusal(
             DiagnosticCode::ContactStateInvalid, vec![id], phase,
             "Results withheld: a frozen contact state does not satisfy the bearing, opening and no-tension conditions within the contact tolerance. Revise the contact model or iteration settings and solve again.",
@@ -50,7 +51,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #1921"]
     fn frozen_penetration_requires_assembled_compression() {
         let tolerance = 1e-10;
         for force in [0.0, -tolerance / 2.0, tolerance / 2.0] {

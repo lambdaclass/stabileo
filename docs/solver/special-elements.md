@@ -509,7 +509,7 @@ All tests are in `engine/tests/derivation_special_elements.rs` unless stated.
 | SP-11 | `ernst_tangent_modulus` returns $E(1+\alpha(1-\frac{3\alpha}{1+\alpha}))/(1+\alpha)^2$, which is not the derivative of the chord–tension law (that derivative is `ernst_equivalent_modulus`); negative for moderate α. Now returns that derivative (#415). Not used by any solver. | FIXED | `ernst_tangent_modulus_is_the_chord_law_derivative` |
 | SP-12 | Cable solver recovers tension as $T = E_\text{eq}(T)A\varepsilon$, using Ernst's tangent as a secant from a straight, stress-free chord: $\varepsilon = T/EA + (wl_h)^2/(12T^2)$ instead of the elastic-catenary $T/EA - (wl_h)^2/(24T^2)$. Indeterminate cable systems got too little cable tension when sag matters (example: 9.39 kN where the chord law gives 9.59 kN). The solver now runs Newton on the chord law with the unstressed length equal to the modelled chord, Ernst's modulus as the tangent (§1.3; #416, advisory SA-2026-015). An unstressed-length or pretension input is still to add. | FIXED | `cable_tension_follows_the_elastic_catenary_chord_law` |
 | SP-13 | The cable solver does not apply the cable's self-weight as a load; density only reduces the modulus. | DOCUMENTED-CHOICE | `cable_density_is_not_a_load` |
-| SP-14 | Analyses outside the cable solver refuse cable elements with a structured `cable_analysis_required` error. This restriction includes tensile and unloaded cases: these analyses do not enforce slackening. Main previously returned bar results with an `SP-14` warning. | FIXED (#417) | `linear_solver_does_not_report_cable_compression_silently` |
+| SP-14 | Analyses outside the cable solver refuse cable elements with a structured `cable_analysis_required` error, except for the restricted 2D staged path described below. Other paths also refuse tensile and unloaded cases: they do not enforce slackening. Main previously returned bar results with an `SP-14` warning. | FIXED (#417) | `linear_solver_does_not_report_cable_compression_silently` |
 | SP-15 | Curved-beam segments take default local axes; near-vertical segments switch reference, so outside the X–Z plane $I_y$/$I_z$ swap on them (semicircle, N = 40: 15 % crown-deflection difference between the X–Z and Y–Z planes). Fixed (#418): every segment takes its axes from the arc's plane, the same relative to the curve. | FIXED | `curved_beam_arch_is_invariant_under_plan_rotation`, `curved_beam_arch_matches_explicit_members_with_plane_normal_axes` |
 | SP-16 | Zero-length 3D connector axes are $e_x=X$, $e_y=-Z$, $e_z=Y$ (its own reference rule), so `k_shear` acts along global Z and `k_shear_z` along Y; the "local Y" in the type doc is not the frame's local y. | DOCUMENTED-CHOICE | `connector_zero_length_3d_axis_mapping` |
 | SP-17 | 3D connector triad is discontinuous where its reference switches ($|e_{x,X}|=0.9$) for directions with a Z component, and has no user orientation input: anisotropic transverse springs change by O(k) between nearly parallel connectors. | OPEN | `connector_3d_axes_are_continuous_in_direction` |
@@ -519,11 +519,19 @@ All tests are in `engine/tests/derivation_special_elements.rs` unless stated.
 
 The common 2D/3D input validation refuses cable elements outside the dedicated cable solver,
 including linear and prepared static, P-Delta, modal, buckling, time history, harmonic, constrained,
-staged, contact, co-rotational, material and fiber analyses. Analysis and design workflows that use
+3D staged, contact, co-rotational, material and fiber analyses. Analysis and design workflows that use
 these entry points propagate the refusal. The structured `cable_analysis_required` error names the
 members and directs the user to cable analysis; the web translates it in all six languages.
 
-This deliberately also refuses tensile and unloaded cable cases: a two-way bar calculation does
+The restricted 2D staged exception permits cables only when first added in the final stage,
+after stages with no assigned loads. The entire input must contain only nodal loads, no constraints,
+no prestress in any stage, and no nonzero prescribed support displacement (`dx`, `dz`, `dry`).
+Cable iteration must converge, and every active cable must have recovered force records with
+finite, strictly positive axial force at both ends. Missing or non-tensile forces return
+`cable_analysis_required`; factorization failure returns `singular_matrix`, and an exhausted
+iteration budget returns `solver_non_convergence`. Compressive staged cases remain refused.
+
+Other analysis paths deliberately also refuse tensile and unloaded cable cases: a two-way bar calculation does
 not establish that the cable remains taut under load combinations or dynamic response. Explicit
 truss members remain two-way bars. For tension-only members in contact analysis, use a truss with
 an explicit `tension_only` behaviour. The dedicated cable solver keeps its tension-only formulation.

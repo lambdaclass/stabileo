@@ -994,13 +994,24 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
         let force = if st.gap[gi] == ContactStatus::Active { opening - if al { st.gap_lambda[gi] / gap.stiffness } else { 0.0 } } else { 0.0 };
         super::validity::check_frozen_contact(gap.id, opening, force, gap.stiffness, tolerance, st.gap[gi] == ContactStatus::Active, "gap")?;
     }
-    for (pi, pair) in input.node_to_surface_pairs.iter().enumerate().filter(|(pi, _)| frozen_pairs[*pi]) {
+    let n2s_assembled_forces: Vec<_> = input.node_to_surface_pairs.iter().enumerate().map(|(pi, pair)| {
+        if st.n2s[pi] == ContactStatus::Active {
+            pair.stiffness * n2s_assembled_opening_2d(pair, &node_by_id, &dof_num, &u_iter, &u_global)
+                - if al { st.n2s_lambda[pi] } else { 0.0 }
+        } else { 0.0 }
+    }).collect();
+    for (pi, pair) in input.node_to_surface_pairs.iter().enumerate() {
         let (_, _, opening) = project_slave_onto_segment_2d(pair, &node_by_id, &dof_num, &u_global);
-        let force = if st.n2s[pi] == ContactStatus::Active {
-            n2s_assembled_opening_2d(pair, &node_by_id, &dof_num, &u_iter, &u_global)
-                - if al { st.n2s_lambda[pi] / pair.stiffness } else { 0.0 }
-        } else { 0.0 };
-        super::validity::check_frozen_contact(pair.slave_node, opening, force, pair.stiffness, tolerance, st.n2s[pi] == ContactStatus::Active, "node_to_surface")?;
+        let force = n2s_assembled_forces[pi];
+        if st.n2s[pi] == ContactStatus::Active && (!force.is_finite() || force > 0.0) {
+            return Err(super::validity::refusal(
+                DiagnosticCode::ContactStateInvalid, vec![pair.slave_node], "node_to_surface",
+                "Results withheld: a closed surface contact has tensile or non-finite assembled spring force. Revise the contact model or iteration settings and solve again.",
+            ));
+        }
+        if frozen_pairs[pi] {
+            super::validity::check_frozen_contact(pair.slave_node, opening, force / pair.stiffness, pair.stiffness, tolerance, st.n2s[pi] == ContactStatus::Active, "node_to_surface")?;
+        }
     }
 
     let mut diagnostics = build_diagnostics_2d(
@@ -1129,8 +1140,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
             let (_, xi, gap_val) = project_slave_onto_segment_2d(pair, &node_by_id, &dof_num, &u_global);
             let closed = st.n2s[pi] == ContactStatus::Active;
             let normal_force = if closed {
-                (-pair.stiffness * n2s_assembled_opening_2d(pair, &node_by_id, &dof_num, &u_iter, &u_global)
-                    + if al { st.n2s_lambda[pi] } else { 0.0 }).max(0.0)
+                -n2s_assembled_forces[pi]
             } else { 0.0 };
             let friction_force = match (closed, pair.friction_coefficient) {
                 (true, Some(mu)) if st.n2s_slip[pi] == 0.0 => {

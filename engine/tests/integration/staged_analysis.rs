@@ -861,7 +861,6 @@ fn staged_sparse_path_with_cables_parity() {
         for cid in [101, 102, 103] {
             let ef = result.final_results.element_forces.iter()
                 .find(|e| e.element_id == cid).expect("cable should have forces");
-            println!("n_elem={n_elem} cable={cid} N_start={} N_end={}", ef.n_start, ef.n_end);
             assert!(ef.n_start.is_finite() && ef.n_start > 0.0,
                 "n_elem={n_elem}: cable {cid} start must be in tension: {}", ef.n_start);
             assert!(ef.n_end.is_finite() && ef.n_end > 0.0,
@@ -949,7 +948,6 @@ fn staged_cables_require_positive_tension() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1921"]
 fn staged_cable_iteration_failure_is_not_an_input_refusal() {
     for padding in [0, 24] {
         for (force, code) in [(0.001, "solver_non_convergence"), (-1.0, "singular_matrix")] {
@@ -959,11 +957,28 @@ fn staged_cable_iteration_failure_is_not_an_input_refusal() {
             elements.get_mut("e1").unwrap().elem_type = "cable".into();
             let end = supports.get_mut("s2").unwrap();
             end.node_id = 2;
-            end.support_type = "rollerX".into();
+            end.support_type = "guidedX".into();
             let mut input = staged_stays_fixture(20, true);
             input.nodes = nodes; input.materials = materials; input.sections = sections;
             input.elements = elements; input.supports = supports;
             input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: force, fz: 0.0, my: 0.0 })];
+            if force < 0.0 {
+                let l = input.nodes["2"].x - input.nodes["1"].x;
+                let compression = 0.1;
+                let transverse = 1.1;
+                let strain = ((l - compression).powi(2) + transverse * transverse).sqrt() / l - 1.0;
+                let area = input.sections["s1"].a;
+                let weight = dedaliano_engine::element::cable::cable_self_weight(7.85 / 1000.0, area);
+                let ea = weight * l / (12.0 * strain.powi(3)).sqrt();
+                input.materials.get_mut("m1").unwrap().e = ea / (1000.0 * area);
+                let end = input.supports.get_mut("s2").unwrap();
+                end.support_type = "spring".into();
+                end.ky = Some(1.0);
+                end.kz = Some(1.0);
+                let SolverLoad::Nodal(load) = &mut input.loads[0] else { unreachable!() };
+                load.fx = -ea / l * compression;
+                load.fz = transverse;
+            }
             input.stages.truncate(1);
             let stage = &mut input.stages[0];
             stage.elements_added = vec![1]; stage.supports_added = vec![1, 2]; stage.load_indices = vec![0];
@@ -989,11 +1004,13 @@ fn staged_cable_iteration_failure_is_not_an_input_refusal() {
             assert_eq!(dedaliano_engine::solver::DofNumbering::build_2d(&full).n_free
                 >= dedaliano_engine::solver::linear::SPARSE_THRESHOLD, padding != 0);
             let error = solve_staged_2d(&input).expect_err("failed cable iteration");
-            let error: serde_json::Value = serde_json::from_str(&error).unwrap();
+            let error: serde_json::Value = serde_json::from_str(&error).unwrap_or_else(|e| panic!("padding={padding}, force={force}: {error}: {e}"));
             let diagnostic = &error["structuredDiagnostics"][0];
             assert_eq!(diagnostic["code"], code, "force={force}: {error}");
             assert_eq!(diagnostic["severity"], "error");
+            assert_eq!(diagnostic["phase"], "staged_cable_iteration");
+            assert_eq!(diagnostic["elementIds"], serde_json::json!([1]));
             assert!(error.get("results").is_none());
         }
-        }
+    }
 }

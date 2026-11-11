@@ -1,0 +1,38 @@
+{
+  "id": "contact-and-staged-final-validity",
+  "date": "2026-11-11",
+  "prs": [
+    1921
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "contactElements",
+      "cableMembers"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "nodeToSurfaceStatus.normalForce"
+  ],
+  "title": {
+    "en": "Contact bearing and staged cable failures are checked",
+    "es": "Se comprueban el apoyo de contacto y los fallos de cables por etapas",
+    "pt": "Apoio de contato e falhas de cabos por etapas são verificados",
+    "de": "Kontakttragwirkung und Fehler der Bauphasenseile werden geprüft",
+    "fr": "L’appui de contact et les échecs des câbles par phases sont vérifiés",
+    "tr": "Temas basıncı ve aşamalı kablo hataları denetlenir"
+  },
+  "explanation": {
+    "en": "Active frozen contacts now require assembled compression consistent with final penetration within contact tolerance. Closed surface pairs with tensile assembled force are refused with contact_state_invalid instead of reporting zero force. Staged cable factorization failure returns singular_matrix and iteration exhaustion returns solver_non_convergence; cable_analysis_required remains for unsupported input and failed tension checks. Re-check affected results (#432, #417; PR #1921).",
+    "es": "Los contactos activos congelados requieren compresión ensamblada coherente con la penetración final dentro de la tolerancia. Los pares de superficie cerrados con fuerza ensamblada de tracción se rechazan con contact_state_invalid en vez de informar fuerza cero. El fallo de factorización de cables por etapas devuelve singular_matrix y el agotamiento de iteraciones, solver_non_convergence; cable_analysis_required se conserva para entradas no admitidas y controles de tracción fallidos. Revisá los resultados afectados (#432, #417; PR #1921).",
+    "pt": "Contatos ativos congelados exigem compressão montada compatível com a penetração final dentro da tolerância. Pares de superfície fechados com força montada de tração são recusados com contact_state_invalid em vez de informar força zero. Falha de fatoração de cabos por etapas retorna singular_matrix e esgotamento de iterações retorna solver_non_convergence; cable_analysis_required permanece para entradas não suportadas e verificações de tração reprovadas. Revise os resultados afetados (#432, #417; PR #1921).",
+    "de": "Aktive eingefrorene Kontakte erfordern innerhalb der Toleranz eine zur endgültigen Eindringung passende assemblierte Druckkraft. Geschlossene Flächenpaare mit assemblierter Zugkraft werden mit contact_state_invalid abgelehnt statt mit Kraft null ausgegeben. Fehler der Seilfaktorisierung in Bauphasen liefern singular_matrix, ausgeschöpfte Iterationen solver_non_convergence; cable_analysis_required bleibt für unzulässige Eingaben und fehlgeschlagene Zugprüfungen. Prüfen Sie betroffene Ergebnisse erneut (#432, #417; PR #1921).",
+    "fr": "Les contacts actifs figés exigent une compression assemblée compatible avec la pénétration finale dans la tolérance. Les paires de surface fermées avec une force assemblée de traction sont refusées avec contact_state_invalid au lieu d’afficher une force nulle. Un échec de factorisation des câbles par phases renvoie singular_matrix et l’épuisement des itérations renvoie solver_non_convergence ; cable_analysis_required reste réservé aux entrées non prises en charge et aux contrôles de traction échoués. Revérifiez les résultats concernés (#432, #417 ; PR #1921).",
+    "tr": "Aktif sabitlenmiş temaslar, tolerans içinde son penetrasyonla tutarlı birleştirilmiş basınç gerektirir. Birleştirilmiş çekme kuvveti taşıyan kapalı yüzey çiftleri sıfır kuvvet bildirmek yerine contact_state_invalid ile reddedilir. Aşamalı kablo çarpanlara ayırma hatası singular_matrix, iterasyon sınırının dolması solver_non_convergence döndürür; cable_analysis_required desteklenmeyen girdiler ve başarısız çekme denetimleri için korunur. Etkilenen sonuçları yeniden denetleyin (#432, #417; PR #1921)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-contact-and-staged-final-validity.md",
+    "heading": "Final contact bearing and staged cable solver refusals (2026-11-11)"
+  }
+}

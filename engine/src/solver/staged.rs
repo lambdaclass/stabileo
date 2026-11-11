@@ -383,9 +383,8 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         let forces = &stage_results.last().unwrap().results.element_forces;
         super::validity::require_cable_analysis(
             stage_solver_input.elements.values().filter(|e| e.elem_type == "cable")
-                .filter(|e| !forces.binary_search_by_key(&e.id, |f| f.element_id).ok()
-                    .is_some_and(|i| {
-                        let f = &forces[i];
+                .filter(|e| !forces.iter().find(|f| f.element_id == e.id)
+                    .is_some_and(|f| {
                         f.n_start.is_finite() && f.n_start > 0.0
                             && f.n_end.is_finite() && f.n_end > 0.0
                     }))
@@ -1088,6 +1087,12 @@ fn iterate_cables_staged_2d(
 
     if cables.is_empty() { return Ok(()); }
 
+    let iteration_refusal = |code, message: &str| {
+        let mut ids: Vec<_> = cables.iter().map(|ci| ci.elem_id).collect();
+        ids.sort_unstable();
+        super::validity::refusal(code, ids, "staged_cable_iteration", message)
+    };
+
     for iter in 0..MAX_CABLE_ITER {
         let u_f = if let Some(base) = base_trips {
             // Sparse path: rebuild the corrected matrix from the cached base
@@ -1155,7 +1160,8 @@ fn iterate_cables_staged_2d(
             crate::known_issues::attach(diagnostics, conditioning.into_iter().collect());
             match solved {
                 Ok(u) => u,
-                Err(_) => return super::validity::require_cable_analysis(cables.iter().map(|ci| ci.elem_id)),
+                Err(error) => return Err(iteration_refusal(DiagnosticCode::SingularMatrix,
+                    &format!("Results withheld: staged cable factorization failed: {error}"))),
             }
         } else {
         // Re-assemble with modified cable stiffnesses
@@ -1226,7 +1232,8 @@ fn iterate_cables_staged_2d(
             crate::known_issues::attach(diagnostics, conditioning.into_iter().collect());
             match solved {
                 Ok(u) => u,
-                Err(_) => return super::validity::require_cable_analysis(cables.iter().map(|ci| ci.elem_id)),
+                Err(error) => return Err(iteration_refusal(DiagnosticCode::SingularMatrix,
+                    &format!("Results withheld: staged cable factorization failed: {error}"))),
             }
         } else {
             let mut k_work = k_ff.clone();
@@ -1239,7 +1246,8 @@ fn iterate_cables_staged_2d(
                     let mut f_work = f_f;
                     match lu_solve(&mut k_work, &mut f_work, nf) {
                         Some(u) => u,
-                        None => return super::validity::require_cable_analysis(cables.iter().map(|ci| ci.elem_id)),
+                        None => return Err(iteration_refusal(DiagnosticCode::SingularMatrix,
+                            "Results withheld: staged cable stiffness factorization failed.")),
                     }
                 }
             }
@@ -1276,7 +1284,8 @@ fn iterate_cables_staged_2d(
             return Ok(());
         }
     }
-    super::validity::require_cable_analysis(cables.iter().map(|ci| ci.elem_id))
+    Err(iteration_refusal(DiagnosticCode::SolverNonConvergence,
+        &format!("Results withheld: staged cable iteration did not converge within {MAX_CABLE_ITER} iterations.")))
 }
 
 // ==================== 3D Staged Construction Analysis ====================
