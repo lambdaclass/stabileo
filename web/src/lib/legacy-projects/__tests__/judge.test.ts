@@ -199,12 +199,14 @@ describe('against real corpus files', () => {
     expect(v.report).toContain('base.elementForces[e1].nStart');
   }, 120_000);
 
-  for (const mainFirst of [false, true]) {
-    it(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'main-first order' : 'checkout order'})`, async () => {
+  for (const [mainFirst, sharedVersion] of [[false, false], [true, false], [true, true]]) {
+    it.skipIf(sharedVersion && process.env.RUN_KNOWN_WRONG_761 !== '1')(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'main-first order' : 'checkout order'}${sharedVersion ? ', shared pending version; known wrong result: #761' : ''})`, async () => {
       const registry = mainFirst ? {
         ...RESULT_CHANGES,
         currentResultsVersion: RESULT_CHANGES.currentResultsVersion + 2,
-        changes: RESULT_CHANGES.changes.map(c => c.id === 'linear-stability-refusals'
+        changes: RESULT_CHANGES.changes.map(c => sharedVersion && c.prs.includes(1940)
+          ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion }
+          : c.id === 'linear-stability-refusals'
           ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 1 }
           : c.id === 'linear-pin-coupling'
             ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 2 } : c),
