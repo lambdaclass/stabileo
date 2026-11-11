@@ -1181,6 +1181,31 @@ mod tests {
     }
     use super::*;
 
+    #[test]
+    #[ignore = "known wrong result: #1095"]
+    fn translational_rank_requires_stiffness_above_eigenvalue_rounding() {
+        for n in [2, 3] {
+            let tags = vec![DofTag { node: 3, kind: DofKind::Translation }; n];
+            for factor in [0.0, 0.5, 2.0] {
+                let gap = factor * ROUNDING * 2.0 * f64::EPSILON * 2.0;
+                let mut k = vec![0.0; n * n];
+                k[0] = 1.0;
+                k[1] = 1.0 - gap;
+                k[n] = 1.0 - gap;
+                k[n + 1] = 1.0;
+                if n == 3 { k[8] = 1.0; }
+                let result = analyze_dense(&k, n, &tags);
+                assert_eq!(result.reason, if factor <= 0.5 { Reason::FreeTranslation } else { Reason::Conditioning }, "{n} {factor}: {result:?}");
+                assert_eq!(result.mode_nodes, vec![3]);
+            }
+            for spring in [1e-30, 1.0, 1e20] {
+                let mut k = vec![0.0; n * n];
+                for i in 0..n { k[i * n + i] = spring; }
+                assert!(analyze_dense(&k, n, &tags).is_stable());
+            }
+        }
+    }
+
     fn negative_node_block(two_d: bool, diagonal: f64, off_diagonal: f64) -> Stability {
         let n = if two_d { 3 } else { 6 };
         let offset = if two_d { 0 } else { 3 };

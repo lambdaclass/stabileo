@@ -915,3 +915,8 @@ test.engine.staged-round5:
 
 test.engine.staged-round5-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
+
+.PHONY: test.engine.translation-rank-wasm
+
+test.engine.translation-rank-wasm: wasm
+	$(NIX_RUN) node scripts/tests/translation-rank-red-wasm.mjs
