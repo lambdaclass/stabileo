@@ -18,6 +18,7 @@
  */
 import type { SolverInput3D, SolverLoad3D, SolverElement3D } from '../types-3d';
 import { solveDetailed3D } from '../solver-detailed-3d';
+import { requireCableAnalysis } from '../analysis-validity';
 import { loadAlpha, loadDepth } from '../thermal-alpha';
 import type { DSMStepData } from '../solver-detailed';
 import { computeLocalAxes3D } from '../local-axes-3d';
@@ -246,6 +247,7 @@ function kffNullity(d: DSMStepData): number {
 }
 
 export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
+  requireCableAnalysis(input.elements.values());
   let base: DSMStepData;
   try { base = solveDetailed3D(input); } catch { throw new ForceMethodError('hypostatic'); }
   if (base.nullModes.length > 0) throw new ForceMethodError('unstable', base.nullModes);

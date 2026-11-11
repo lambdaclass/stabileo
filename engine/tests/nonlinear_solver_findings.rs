@@ -871,12 +871,16 @@ fn gap_2d(max_flips: Option<usize>) -> ContactInput {
     ci
 }
 
-/// With max_flips = 0 the first status change freezes each contact, so every path must carry
-/// NL-13 (#432), and the same model with room to settle must not.
 #[test]
-fn every_frozen_contact_path_warns_432() {
+fn every_invalid_frozen_contact_path_is_refused_432() {
+    fn refused<T>(r: Result<T, String>) {
+        let Err(error) = r else { panic!("an invalid frozen contact must be withheld") };
+        let data: serde_json::Value = serde_json::from_str(&error).unwrap();
+        assert_eq!(data["structuredDiagnostics"][0]["code"], "contact_state_invalid");
+        assert_eq!(data["structuredDiagnostics"][0]["severity"], "error");
+    }
     assert!(!warns_freezing(&solve_contact_2d(&gap_2d(None)).unwrap().results.structured_diagnostics));
-    assert!(warns_freezing(&solve_contact_2d(&gap_2d(Some(0))).unwrap().results.structured_diagnostics), "2D gap");
+    refused(solve_contact_2d(&gap_2d(Some(0))));
 
     let model = make_input(
         vec![(1, 0.0, 2.0), (2, 0.0, 0.01), (3, -1.0, 0.0), (4, 1.0, 0.0)],
@@ -896,7 +900,7 @@ fn every_frozen_contact_path_warns_432() {
     });
     assert!(!warns_freezing(&solve_contact_2d(&ci).unwrap().results.structured_diagnostics));
     ci.max_flips = Some(0);
-    assert!(warns_freezing(&solve_contact_2d(&ci).unwrap().results.structured_diagnostics), "2D node-to-surface");
+    refused(solve_contact_2d(&ci));
 
     let model = make_input(
         vec![(1, 0.0, 0.0), (2, 6.0, 0.0), (3, 0.0, 4.0), (4, 6.0, 4.0)],
@@ -917,7 +921,7 @@ fn every_frozen_contact_path_warns_432() {
     ci.uplift_supports = vec![1, 2];
     assert!(!warns_freezing(&solve_contact_2d(&ci).unwrap().results.structured_diagnostics));
     ci.max_flips = Some(0);
-    assert!(warns_freezing(&solve_contact_2d(&ci).unwrap().results.structured_diagnostics), "2D uplift");
+    refused(solve_contact_2d(&ci));
 
     let g0 = 0.002;
     let input = |max_flips: Option<usize>| -> ContactInput3D {
@@ -938,5 +942,5 @@ fn every_frozen_contact_path_warns_432() {
         })).unwrap()
     };
     assert!(!warns_freezing(&solve_contact_3d(&input(None)).unwrap().results.structured_diagnostics));
-    assert!(warns_freezing(&solve_contact_3d(&input(Some(0))).unwrap().results.structured_diagnostics), "3D gap");
+    refused(solve_contact_3d(&input(Some(0))));
 }

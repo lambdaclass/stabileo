@@ -1,0 +1,36 @@
+{
+  "id": "staged-cable-tension-parity",
+  "date": "2026-11-11",
+  "prs": [
+    1921
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "cableMembers"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "The staged cable exception is withdrawn",
+    "es": "Se retira la excepción para cables por etapas",
+    "pt": "A exceção para cabos por etapas foi retirada",
+    "de": "Die Ausnahme für Bauphasenseile entfällt",
+    "fr": "L’exception pour les câbles par phases est retirée",
+    "tr": "Aşamalı kablo istisnası kaldırılmıştır"
+  },
+  "explanation": {
+    "en": "Both staged solvers refuse every cable with cable_analysis_required, including tensile and unloaded inputs. Positive end forces and convergence of an Ernst stiffness iteration do not prove cable equilibrium when sag matters. Cable parity now requires identical structured refusals; numerical staged parity uses explicit trusses. Use dedicated cable analysis (#417; PR #1921).",
+    "es": "Ambos solvers por etapas rechazan todos los cables con cable_analysis_required, incluidos los casos en tracción y sin carga. Las fuerzas positivas en los extremos y la convergencia de Ernst no prueban el equilibrio con flecha. La paridad de cables exige rechazos estructurados idénticos; la paridad numérica utiliza barras explícitas. Usá el análisis dedicado de cables (#417; PR #1921).",
+    "pt": "Os dois solvers por etapas recusam todos os cabos com cable_analysis_required, inclusive tracionados e sem carga. Forças positivas nas extremidades e convergência de Ernst não comprovam equilíbrio com flecha. A paridade de cabos exige recusas estruturadas idênticas; a paridade numérica usa treliças explícitas. Use a análise dedicada de cabos (#417; PR #1921).",
+    "de": "Beide Bauphasenlöser lehnen alle Seile mit cable_analysis_required ab, auch unter Zug und ohne Last. Positive Endkräfte und Konvergenz der Ernst-Iteration belegen kein Gleichgewicht mit Durchhang. Seilparität verlangt identische strukturierte Ablehnungen; numerische Bauphasenparität nutzt explizite Fachwerkstäbe. Verwenden Sie die Seilanalyse (#417; PR #1921).",
+    "fr": "Les deux solveurs par phases refusent tous les câbles avec cable_analysis_required, même en traction ou sans charge. Des efforts positifs aux extrémités et la convergence d’Ernst ne prouvent pas l’équilibre avec flèche. La parité des câbles exige des refus structurés identiques ; la parité numérique utilise des barres explicites. Utilisez l’analyse dédiée aux câbles (#417 ; PR #1921).",
+    "tr": "Her iki aşamalı çözücü, çekmedeki ve yüksüz girdiler dahil tüm kabloları cable_analysis_required ile reddeder. Pozitif uç kuvvetleri ve Ernst iterasyonunun yakınsaması sehimli dengeyi kanıtlamaz. Kablo karşılaştırması aynı yapılandırılmış retleri gerektirir; sayısal karşılaştırma açıkça tanımlanmış kafes çubukları kullanır. Özel kablo analizini kullanın (#417; PR #1921)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-staged-cable-tension-parity.md",
+    "heading": "Staged cable exception withdrawn (2026-11-11)"
+  }
+}

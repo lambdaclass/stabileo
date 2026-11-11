@@ -20,7 +20,7 @@ export function modeDrawGeometry(result: unknown, model: DrawGeometry): DrawGeom
   if (!out) {
     out = {
       nodes: new Map(g.nodes.map((n) => [n.id, { x: n.x, y: n.y }])),
-      elements: new Map(g.elements.map((e) => [e.id, { nodeI: e.nodeI, nodeJ: e.nodeJ, type: e.type, releaseI: { mz: e.hingeStart }, releaseJ: { mz: e.hingeEnd } }])),
+      elements: new Map(g.elements.map((e) => [e.id, { nodeI: e.nodeI, nodeJ: e.nodeJ, type: e.type === 'frame' ? 'frame' as const : 'truss' as const, releaseI: { mz: e.hingeStart }, releaseJ: { mz: e.hingeEnd } }])),
     };
     cache.set(g, out);
   }

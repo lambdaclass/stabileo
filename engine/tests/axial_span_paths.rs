@@ -50,8 +50,8 @@ fn linear_closed_form() {
 /// Codex: the corotational truss/cable branch reported EA·elongation/L at both ends and no
 /// span load, a constant N even in the small-displacement limit.
 #[test]
-fn corotational_truss_and_cable_recover_the_axial_span_load() {
-    for t in ["truss", "cable", "frame"] {
+fn corotational_trusses_and_frames_recover_the_axial_span_load() {
+    for t in ["truss", "frame"] {
         let input = bar(t, 1e-3);
         let lin = &solve_2d(&input).unwrap().element_forces[0];
         let cr = solve_corotational_2d(&input, 50, 1e-12, 1, false).unwrap();
@@ -193,4 +193,17 @@ fn moving_loads_keep_permanent_member_point_loads() {
     let m_peak = p.abs() * a * (l - a) / l;
     assert!((e.m_max_pos.abs().max(e.m_max_neg.abs()) - m_peak).abs() < 1e-6, "M envelope {} / {} vs {m_peak}", e.m_max_pos, e.m_max_neg);
     assert!((e.n_max_pos.abs().max(e.n_max_neg.abs()) - px.abs()).abs() < 1e-6, "N envelope {} / {} vs {px}", e.n_max_pos, e.n_max_neg);
+}
+
+#[test]
+fn bar_analyses_refuse_cables_even_under_tensile_axial_span_loads() {
+    let input = bar("cable", 1e-3);
+    let errors = [solve_2d(&input).unwrap_err(), solve_corotational_2d(&input, 50, 1e-12, 1, false).unwrap_err()];
+    for error in errors {
+        let data: serde_json::Value = serde_json::from_str(&error).unwrap();
+        assert_eq!(data["structuredDiagnostics"][0]["code"], "cable_analysis_required");
+        assert_eq!(data["structuredDiagnostics"][0]["severity"], "error");
+        assert_eq!(data["structuredDiagnostics"][0]["elementIds"], serde_json::json!([1]));
+        assert!(data.get("results").is_none());
+    }
 }

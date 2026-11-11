@@ -3338,6 +3338,9 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
 }
 
 pub(crate) fn validate_input_2d_for_analysis(input: &SolverInput, analysis: crate::known_issues::Analysis) -> Result<(), String> {
+    if analysis != crate::known_issues::Analysis::Cable {
+        super::validity::require_cable_analysis(crate::ordered::values(&input.elements).filter(|e| e.elem_type == "cable").map(|e| e.id))?;
+    }
     // 0. Non-finite input rejection (NaN/Inf). Note: JSON cannot carry NaN, so
     // this primarily protects native/Rust API callers and internally-built inputs.
     for n in crate::ordered::values(&input.nodes) {
@@ -3673,6 +3676,9 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
 }
 
 pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_issues::Analysis) -> Result<(), String> {
+    if analysis != crate::known_issues::Analysis::Cable {
+        super::validity::require_cable_analysis(crate::ordered::values(&input.elements).filter(|e| e.elem_type == "cable").map(|e| e.id))?;
+    }
     // Left-handed member axes are refused. `compute_local_axes_3d` reverses ey,
     // which makes the triad (ex, ey, ez) improper, but the element kernels assume
     // the right-hand kinematics θz = v', θy = −w': the v–θz and w–θy coupling

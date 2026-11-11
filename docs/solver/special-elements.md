@@ -35,8 +35,8 @@ A member with `elem_type = "cable"` uses the node, material and section data of 
 
 | Path | Behaviour |
 |---|---|
-| Linear, modal, P-Δ, … (`assembly.rs`, `sparse_assembly.rs`, `mass_matrix.rs`) | A plain truss bar, $k = EA/L$. Compression is carried and **not reported** ([SP-14](#discrepancies-and-open-questions-for-review)). |
-| Fiber solver (`assemble_elastic_elements(_3d)`) | Truss bar, linear. |
+| Linear, modal, P-Δ, … | Refused by shared input validation: these analyses do not enforce cable slackening (SP-14, #417). |
+| Fiber solver (`assemble_elastic_elements(_3d)`) | Cable members are refused by shared input validation; use cable analysis. |
 | Cable solver (`solve_cable_2d/3d`) | Truss bar following the elastic-catenary chord law, Newton iteration with Ernst's modulus as the tangent (§1.3). |
 
 There is no geometric (string) stiffness, no large-displacement equilibrium and no prestress or
@@ -429,8 +429,8 @@ flag per element). Section stresses are not reported per fiber.
 
 ### 4.6 Members without a fiber section
 
-Frames without a fiber section in a fiber analysis are linear elastic frames, trusses and cables
-are linear bars (`assemble_elastic_elements(_3d)`), connectors and support springs are linear
+Frames without a fiber section in a fiber analysis are linear elastic frames, trusses
+are linear bars; cable members are refused (`assemble_elastic_elements(_3d)`), connectors and support springs are linear
 (`add_springs(_3d)`).
 
 ---
@@ -509,8 +509,26 @@ All tests are in `engine/tests/derivation_special_elements.rs` unless stated.
 | SP-11 | `ernst_tangent_modulus` returns $E(1+\alpha(1-\frac{3\alpha}{1+\alpha}))/(1+\alpha)^2$, which is not the derivative of the chord–tension law (that derivative is `ernst_equivalent_modulus`); negative for moderate α. Now returns that derivative (#415). Not used by any solver. | FIXED | `ernst_tangent_modulus_is_the_chord_law_derivative` |
 | SP-12 | Cable solver recovers tension as $T = E_\text{eq}(T)A\varepsilon$, using Ernst's tangent as a secant from a straight, stress-free chord: $\varepsilon = T/EA + (wl_h)^2/(12T^2)$ instead of the elastic-catenary $T/EA - (wl_h)^2/(24T^2)$. Indeterminate cable systems got too little cable tension when sag matters (example: 9.39 kN where the chord law gives 9.59 kN). The solver now runs Newton on the chord law with the unstressed length equal to the modelled chord, Ernst's modulus as the tangent (§1.3; #416, advisory SA-2026-015). An unstressed-length or pretension input is still to add. | FIXED | `cable_tension_follows_the_elastic_catenary_chord_law` |
 | SP-13 | The cable solver does not apply the cable's self-weight as a load; density only reduces the modulus. | DOCUMENTED-CHOICE | `cable_density_is_not_a_load` |
-| SP-14 | Outside the cable solver a cable is a truss bar: the linear solver lets it carry compression (−25.5 kN in the example) with no diagnostic. | OPEN | `linear_solver_does_not_report_cable_compression_silently` |
+| SP-14 | Analyses outside the dedicated cable solver refuse cable elements with a structured `cable_analysis_required` error, including both staged solvers and tensile and unloaded cases. Main previously returned bar results with an `SP-14` warning. | FIXED (#417) | `linear_solver_does_not_report_cable_compression_silently` |
 | SP-15 | Curved-beam segments take default local axes; near-vertical segments switch reference, so outside the X–Z plane $I_y$/$I_z$ swap on them (semicircle, N = 40: 15 % crown-deflection difference between the X–Z and Y–Z planes). Fixed (#418): every segment takes its axes from the arc's plane, the same relative to the curve. | FIXED | `curved_beam_arch_is_invariant_under_plan_rotation`, `curved_beam_arch_matches_explicit_members_with_plane_normal_axes` |
 | SP-16 | Zero-length 3D connector axes are $e_x=X$, $e_y=-Z$, $e_z=Y$ (its own reference rule), so `k_shear` acts along global Z and `k_shear_z` along Y; the "local Y" in the type doc is not the frame's local y. | DOCUMENTED-CHOICE | `connector_zero_length_3d_axis_mapping` |
 | SP-17 | 3D connector triad is discontinuous where its reference switches ($|e_{x,X}|=0.9$) for directions with a Z component, and has no user orientation input: anisotropic transverse springs change by O(k) between nearly parallel connectors. | OPEN | `connector_3d_axes_are_continuous_in_direction` |
 | SP-18 | Fiber solvers return an empty `reactions` list. | OPEN | `fiber_solver_reports_reactions` |
+
+### Cable validity outside cable analysis (SP-14)
+
+The common 2D/3D input validation refuses cable elements outside the dedicated cable solver,
+including linear and prepared static, P-Delta, modal, buckling, time history, harmonic, constrained,
+2D/3D staged, contact, co-rotational, material and fiber analyses. Analysis and design workflows that use
+these entry points propagate the refusal. The structured `cable_analysis_required` error names the
+members and directs the user to cable analysis; the web translates it in all six languages.
+
+These analysis paths also refuse tensile and unloaded cable cases: a two-way bar calculation does
+not establish that the cable remains taut under load combinations or dynamic response. Explicit
+truss members remain two-way bars. For tension-only members in contact analysis, use a truss with
+an explicit `tension_only` behaviour. Contact member states obey `max_flips`; a frozen member's
+final recovered axial end forces must respect its one-way sign within the contact tolerance
+scaled by $EA/L$. A frozen inactive member's full-stiffness trial axial force on the final
+geometry must not require reactivation beyond that same scaled tolerance. Invalid states refuse
+with `contact_state_invalid`. The dedicated cable solver
+keeps its tension-only formulation.

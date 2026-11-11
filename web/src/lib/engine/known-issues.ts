@@ -21,7 +21,7 @@ export function knownIssueRefusal(error: unknown): string | null {
     const errors = data.structuredDiagnostics.filter((d: { severity?: string }) => d.severity === 'error');
     const disposition = knownIssueDisposition(errors);
     if (disposition.refused) return disposition.messages.join('\n');
-    const refusals = errors.filter((d: { code?: string }) => d.code === 'plastic_capacity_missing');
+    const refusals = errors.filter((d: { code?: string }) => d.code === 'plastic_capacity_missing' || d.code === 'cable_analysis_required' || d.code === 'contact_state_invalid' || d.code === 'contact_tolerance_invalid');
     return refusals.length > 0 ? [...new Set(refusals.map(knownIssueMessage))].join('\n') : null;
   } catch { return null; }
 }

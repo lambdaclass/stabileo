@@ -792,7 +792,7 @@ function solverFrame2D(model: ModelData): SolverInput {
       return [id, { id: s.id, a: props.a, iz: effectiveBendingInertia(s, props) }];
     })),
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => [id, {
-      id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
+      id: e.id, type: e.behaviour === 'cable' ? 'cable' : e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
       materialId: e.materialId, sectionId: e.sectionId,
       hingeStart: e.releaseI?.mz === true, hingeEnd: e.releaseJ?.mz === true,
     }])),
@@ -1775,9 +1775,7 @@ export function buildSolverInput3D(
       // and the θy/My display labels agree). So the 2D `mz` release maps to releaseMy,
       // NOT releaseMz. Genuine 3D models (project2DToXZ=false) keep my→My, mz→Mz.
       const elem: any = {
-        // A cable is a truss to every analysis but the cable solve, which `member-behaviour.ts`
-        // hands it to with its own type.
-        id: e.id, type: e.behaviour === 'cable' ? 'truss' : e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
+        id: e.id, type: e.behaviour === 'cable' ? 'cable' : e.type, nodeI: e.nodeI, nodeJ: e.nodeJ,
         materialId: e.materialId, sectionId: e.sectionId,
         releaseMyStart: project2DToXZ ? (e.releaseI?.mz === true) : (e.releaseI?.my === true),
         releaseMyEnd: project2DToXZ ? (e.releaseJ?.mz === true) : (e.releaseJ?.my === true),

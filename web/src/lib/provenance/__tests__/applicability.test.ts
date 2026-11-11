@@ -498,3 +498,41 @@ it('shows moving-load changes for saved vehicle position cases and excludes ordi
   expect(ids({ ...frame, loadCases: [{ id: 1, type: 'Tr' }] })).not.toContain('moving-loads-3d');
   expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-loads-3d');
 });
+
+it('scopes contact and cable validity to affected models', () => {
+  const id = 'contact-and-cable-validity';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const elements of [[], [member(1, 1, 'frame')], [member(1, 1, 'truss')]]) {
+      expect(ids(model({ analysisMode, elements }))).not.toContain(id);
+    }
+    for (const behaviour of ['cable', 'tensionOnly', 'compressionOnly']) {
+      expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss', { behaviour })] }))).toContain(id);
+    }
+    for (const type of ['cable', 'gap', 'contact']) {
+      expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss', { type })] }))).toContain(id);
+    }
+    expect(ids(model({ analysisMode, supports: [[1, { nodeId: 1, uplift: true }]] }))).toContain(id);
+    expect(ids(model({ analysisMode, gapElements: [{ id: 1 }] }))).toContain(id);
+    expect(ids(model({ analysisMode, nodeToSurfacePairs: [{ slaveNode: 1 }] }))).toContain(id);
+    expect(ids(model({ analysisMode, upliftSupports: [1] }))).toContain(id);
+  }
+});
+
+it('classifies native cables as axial members and contacts without frame claims (#1921)', () => {
+  for (const type of ['cable', 'gap', 'contact']) {
+    const features = modelFeatures(model({ elements: [member(1, 1, 'truss', { type })] }));
+    expect(features.has('frameMembers'), type).toBe(false);
+    expect(features.has('trussMembers'), type).toBe(type === 'cable');
+  }
+});
+
+it('scopes frozen member validation to one-way behaviour even without gaps (#1921)', () => {
+  const id = 'frozen-one-way-members';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const behaviour of ['tensionOnly', 'compressionOnly']) {
+      expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss', { behaviour })] }))).toContain(id);
+    }
+    expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss')] }))).not.toContain(id);
+    expect(ids(model({ analysisMode, elements: [member(1, 1, 'frame')] }))).not.toContain(id);
+  }
+});
