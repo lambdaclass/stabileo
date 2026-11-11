@@ -1950,3 +1950,220 @@ mod yielding_force_floor {
         }
     }
 }
+
+mod r3 {
+    use super::*;
+    use dedaliano_engine::solver::{
+        arc_length::{self, ArcLengthInput, DisplacementControlInput},
+        linear,
+        soil_curves::{evaluate_soil_curve, SoilCurve},
+        ssi::{self, SSIInput, SSIInput3D, SoilSpring},
+    };
+
+    fn close(a: f64, b: f64, tolerance: f64) {
+        assert!(a.is_finite() && b.is_finite());
+        assert!((a - b).abs() <= tolerance * b.abs(), "{a} != {b}");
+    }
+
+    fn arc(solver: SolverInput, ds: f64) -> ArcLengthInput {
+        ArcLengthInput { solver, max_steps: 1, max_iter: 60, tolerance: 1e-10,
+            initial_ds: ds, min_ds: ds, max_ds: ds, target_iter: 4 }
+    }
+
+    pub(super) fn precision_calls() -> Vec<serde_json::Value> {
+        let mut calls = Vec::new();
+        for factor in [1e-16, 3e-11, 1e-10, 1e-6] {
+            let mut base = cantilever();
+            for load in &mut base.loads {
+                if let SolverLoad::Nodal(l) = load { l.fx *= factor; l.fz *= factor; }
+            }
+            for angle in [0.0, 0.731] {
+                let s = transform_2d(&base, &Iso2::rotation(angle)).unwrap();
+                let expected = linear::solve_2d(&s).unwrap().displacements;
+                calls.push(serde_json::json!({"api":"solve_corotational_2d","input":s,"maxIter":60,"converged":true,"expectedDisplacements":expected}));
+                let ds = factor * 0.1;
+                calls.push(serde_json::json!({"api":"solve_arc_length","input":arc(s.clone(),ds),"converged":true,"nonzeroTip":true}));
+                let target = expected.iter().find(|d| d.node_id == 2).unwrap().ux;
+                calls.push(serde_json::json!({"api":"solve_displacement_control","input":DisplacementControlInput { solver:s, control_node:2, control_dof:0, target_displacement:target, n_steps:1, max_iter:60, tolerance:1e-10 },"converged":target.abs()>1e-15,"nonzeroTip":target.abs()>1e-15}));
+            }
+            let mut s = spatial_sub_ulp_input();
+            for load in &mut s.loads {
+                if let SolverLoad3D::Nodal(l) = load { l.fx *= factor/1e-16; l.fy *= factor/1e-16; l.fz *= factor/1e-16; }
+            }
+            let expected = linear::solve_3d(&s).unwrap().displacements;
+            calls.push(serde_json::json!({"api":"solve_corotational_3d","input":s,"maxIter":60,"converged":true,"expectedDisplacements":expected}));
+        }
+        calls
+    }
+
+    fn invoke(c: &serde_json::Value) -> serde_json::Value {
+        let text = serde_json::to_string(&c["input"]).unwrap();
+        let result = match c["api"].as_str().unwrap() {
+            "solve_corotational_2d" => dedaliano_engine::solve_corotational_2d(&text,60,1e-10,1),
+            "solve_corotational_3d" => dedaliano_engine::solve_corotational_3d(&text,60,1e-10,1),
+            "solve_arc_length" => dedaliano_engine::solve_arc_length(&text),
+            "solve_displacement_control" => dedaliano_engine::solve_displacement_control(&text),
+            "solve_ssi_2d" => dedaliano_engine::solve_ssi_2d(&text),
+            "solve_ssi_3d" => dedaliano_engine::solve_ssi_3d(&text),
+            _ => unreachable!(),
+        };
+        serde_json::from_str(&result.unwrap()).unwrap()
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn rotated_chords_keep_precision_through_all_paths() {
+        for c in precision_calls() {
+            let r = invoke(&c);
+            assert_eq!(r["converged"],c["converged"],"{}",c);
+            for d in c["expectedDisplacements"].as_array().into_iter().flatten() {
+                let a = r["results"]["displacements"].as_array().unwrap().iter().find(|a| a["nodeId"] == d["nodeId"]).unwrap();
+                for key in ["ux","uy","uz","rx","ry","rz"] {
+                    if let Some(b) = d[key].as_f64().filter(|v| *v != 0.0) { close(a[key].as_f64().unwrap(),b,1e-10); }
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn continuation_releases_settlements_and_external_loads() {
+        for prescribed in [false,true] {
+            let mut s = cantilever();
+            if prescribed {
+                s.loads.clear();
+                s.nodes.get_mut("2").unwrap().z=1.0;
+                s.supports.values_mut().next().unwrap().dry = Some(0.01);
+                s.supports.insert("2".into(),serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"rollerX"})).unwrap());
+            }
+            let initial = corotational::solve_corotational_2d(&s,60,1e-10,4,false).unwrap();
+            assert!(initial.converged);
+            let start = corotational::CorotationalStart2D { input:&s, displacements:&initial.results.displacements };
+            let mut target = s.clone();
+            target.loads.clear();
+            target.supports.get_mut("1").unwrap().dry = None;
+            let released = corotational::solve_corotational_2d_from(&target,Some(&start),60,1e-10,4,false).unwrap();
+            assert!(released.converged,"prescribed={prescribed}");
+            for d in &released.results.displacements {
+                assert!(d.ux.abs().max(d.uz.abs()).max(d.ry.abs()) < 1e-12);
+            }
+            if prescribed {
+                let r = arc_length::solve_arc_length_from(&arc(cantilever(),0.1),Some(&start)).unwrap();
+                assert!(r.converged);
+            }
+        }
+    }
+
+    fn curves() -> Vec<SoilCurve> {
+        [
+            serde_json::json!({"type":"py_soft_clay","su":50.0,"gamma_eff":8.0,"d":0.5,"depth":2.0,"eps_50":0.01,"j":0.5}),
+            serde_json::json!({"type":"py_stiff_clay","su":50.0,"gamma_eff":8.0,"d":0.5,"depth":2.0,"eps_50":0.01,"j":0.5,"free_water":false}),
+            serde_json::json!({"type":"py_sand","phi":30.0,"gamma_eff":8.0,"d":0.5,"depth":2.0,"loading":"static"}),
+            serde_json::json!({"type":"tz","t_ult":50.0,"z_ult":0.01,"perimeter":1.0}),
+            serde_json::json!({"type":"qz","q_ult":50.0,"d":0.5,"tip_area":1.0}),
+            serde_json::json!({"type":"custom","points":[[0.0,0.0],[1e-17,1e-10],[2e-17,1.5e-10]]}),
+        ].into_iter().map(|v| serde_json::from_value(v).unwrap()).collect()
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn curve_reactions_equal_secants_on_both_sides_of_old_floor() {
+        for curve in curves() {
+            for y in [0.0,1e-20,1e-17,1.5e-17,3e-17,0.5e-15,1e-15,2e-15,1e-6] {
+                for sign in [-1.0,1.0] {
+                    let (p,k) = evaluate_soil_curve(&curve,sign*y).unwrap();
+                    if y == 0.0 { assert_eq!(p,0.0); assert!(k.is_finite()); }
+                    else if matches!(curve,SoilCurve::Qz {..}) && sign > 0.0 { assert_eq!((p,k),(0.0,0.0)); }
+                    else { assert_ne!(p,0.0,"{curve:?} at {y}"); close(k*sign*y,p,1e-12); }
+                }
+            }
+        }
+    }
+
+    pub(super) fn soil_calls() -> Vec<serde_json::Value> {
+        let mut calls = Vec::new();
+        for curve in curves() {
+            for factor in [1e-16,1e-10,1.0] {
+                let mut s = cantilever();
+                if let SolverLoad::Nodal(l) = &mut s.loads[0] { l.fx=0.0; l.fz *= factor; }
+                let spring = SoilSpring { node_id:2,direction:1,curve:curve.clone(),tributary_length:1.0 };
+                let input = SSIInput { solver:s.clone(),soil_springs:vec![spring.clone()], max_iter:200,tolerance:1e-10 };
+                calls.push(serde_json::json!({"api":"solve_ssi_2d","input":input,"converged":true,"soilBalance":-0.25*factor}));
+                for plane in Plane::ALL {
+                    let direction = match plane { Plane::XZ => 2, Plane::XY => 1, Plane::YZ => 2 };
+                    let input = SSIInput3D { solver:embed_2d(&s,plane).unwrap(),soil_springs:vec![SoilSpring {direction,..spring.clone()}],max_iter:200,tolerance:1e-10 };
+                    calls.push(serde_json::json!({"api":"solve_ssi_3d","input":input,"converged":true,"soilBalance":-0.25*factor,"balanceDirection":direction}));
+                }
+            }
+        }
+        calls
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn ssi_reported_curve_reactions_balance_structure() {
+        for c in soil_calls() {
+            let r = invoke(&c);
+            assert_eq!(r["converged"],true,"{}",c);
+            let direction = c["balanceDirection"].as_u64().unwrap_or(1) as usize;
+            let key = if c["api"] == "solve_ssi_2d" { "rz" } else { ["fx","fy","fz"][direction] };
+            let reaction:f64 = r["results"]["reactions"].as_array().unwrap().iter().map(|v| v[key].as_f64().unwrap()).sum();
+            let soil:f64 = r["springResults"].as_array().unwrap().iter().map(|v|v["reaction"].as_f64().unwrap()).sum();
+            close(reaction-soil,-c["soilBalance"].as_f64().unwrap(),1e-10);
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn custom_offsets_and_duplicate_abscissae_are_refused() {
+        for points in [vec![[0.0,1.0],[1.0,2.0]],vec![[0.0,0.0],[0.0,1.0]],vec![[-1.0,0.0],[1.0,1.0]]] {
+            let curve=SoilCurve::Custom {points};
+            assert!(evaluate_soil_curve(&curve,0.1).is_err());
+            for mut c in soil_calls().into_iter().take(2) {
+                c["input"]["soilSprings"][0]["curve"]=serde_json::to_value(&curve).unwrap();
+                let text=serde_json::to_string(&c["input"]).unwrap();
+                assert!(dedaliano_engine::solve_ssi_2d(&text).is_err());
+            }
+        }
+        assert!(evaluate_soil_curve(&SoilCurve::Custom {points:vec![[0.0,0.0],[1e-20,1.0]]},1e-21).is_ok());
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn mixed_point_ssi_uses_soil_stiffness() {
+        let mut s=cantilever();
+        s.elements.clear(); s.nodes.remove("1"); s.supports.clear();
+        s.nodes.get_mut("2").unwrap().x=0.0;
+        s.supports.insert("2".into(),serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"spring","kz":400.0})).unwrap());
+        for length in [1e-3,1.0,1e3] {
+            let scaled=scale_2d(&s,&Units::froude(length,1.0));
+            let springs=vec![0,1].into_iter().map(|direction| SoilSpring {node_id:2,direction,curve:SoilCurve::Custom {points:vec![[0.0,0.0],[length,100.0]]},tributary_length:1.0}).collect();
+            let input=SSIInput {solver:scaled,soil_springs:springs,max_iter:30,tolerance:1e-10};
+            let r=ssi::solve_ssi_2d(&input).unwrap(); assert!(r.converged);
+            close(r.results.displacements[0].ux,-0.01*length,1e-10);
+            let mut solver=embed_2d(&input.solver,Plane::XZ).unwrap();
+            let sp=solver.supports.get_mut("2").unwrap();
+            sp.rrx=true;sp.rrz=true;sp.ry=true;sp.rw=Some(true);sp.kry=Some(400.0*length);
+            solver.sections.values_mut().next().unwrap().cw=Some(0.0);
+            let springs=input.soil_springs.iter().cloned().map(|mut s| {if s.direction==1 {s.direction=2;} s}).collect();
+            let r=ssi::solve_ssi_3d(&SSIInput3D {solver,soil_springs:springs,max_iter:30,tolerance:1e-10}).unwrap();
+            assert!(r.converged);close(r.results.displacements[0].ux,-0.01*length,1e-10);
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn small_prescribed_settlements_are_not_silently_zeroed() {
+        let mut s=cantilever(); s.loads.clear();
+        for dy in [0.5e-15,1e-15,2e-15] {
+            s.supports.values_mut().next().unwrap().dz=Some(dy);
+            let r=linear::solve_2d(&s).unwrap();
+            close(r.displacements.iter().find(|d|d.node_id==1).unwrap().uz,dy,1e-12);
+            for plane in Plane::ALL {
+                let r=linear::solve_3d(&embed_2d(&s,plane).unwrap()).unwrap();
+                let d=r.displacements.iter().find(|d|d.node_id==1).unwrap();
+                close(d.ux.hypot(d.uy).hypot(d.uz),dy,1e-12);
+            }
+        }
+    }
+}

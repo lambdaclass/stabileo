@@ -5582,3 +5582,36 @@ mod conditional_accuracy_tests {
         assert!(conditional_dense_refinement(&stability, &[1.0], &[f64::NAN], vec![1.0], |r| r.to_vec()).is_err());
     }
 }
+
+#[cfg(test)]
+mod r3_summary_tests {
+    use super::*;
+    use crate::solver::assembly::{InclinedTransformData, InclinedTransformData2D};
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn inclined_summary_preserves_other_node_loads() {
+        let s: SolverInput = serde_json::from_str(include_str!("../../tests/fixtures/random-41-input.json")).unwrap();
+        let dofs = DofNumbering::build_2d(&s);
+        let ds = [0,1].map(|d| dofs.global_dof(2,d).unwrap());
+        let it = InclinedTransformData2D { node_id:2,dofs:ds,r:[[0.0,-1.0],[1.0,0.0]] };
+        for force in [0.0,1e20] {
+            let mut f=vec![0.0;dofs.n_total];
+            f[dofs.global_dof(1,0).unwrap()]=1000.0;
+            f[ds[0]]=force;
+            let r=compute_equilibrium_summary_2d(&f,&vec![0.0;dofs.n_total-dofs.n_free],&dofs,0.0,std::slice::from_ref(&it));
+            assert_eq!(r.applied_force_sum[0],1000.0);
+        }
+        for plane in crate::metamorphic::planes::Plane::ALL {
+            let s=crate::metamorphic::planes::embed_2d(&s,plane).unwrap();
+            let dofs=DofNumbering::build_3d(&s);
+            let ds=[0,1,2].map(|d|dofs.global_dof(2,d).unwrap());
+            let it=InclinedTransformData {node_id:2,dofs:ds,r:[[0.0,1.0,0.0],[1.0,0.0,0.0],[0.0,0.0,-1.0]]};
+            for force in [0.0,1e20] {
+                let mut f=vec![0.0;dofs.n_total]; f[dofs.global_dof(1,0).unwrap()]=1000.0;f[ds[0]]=force;
+                let r=compute_equilibrium_summary_3d(&f,&vec![0.0;dofs.n_total-dofs.n_free],&dofs,0.0,std::slice::from_ref(&it));
+                assert_eq!(r.applied_force_sum[0],1000.0);
+            }
+        }
+    }
+}

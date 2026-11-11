@@ -741,4 +741,29 @@ mod tests {
         .unwrap();
         assert_eq!(metric.weights, vec![2.0, 4.0]);
     }
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r3_coincident_settlement_mixes_physical_dimensions() {
+        let mut s: SolverInput = serde_json::from_str(include_str!("../../tests/fixtures/random-41-input.json")).unwrap();
+        s.elements.clear(); s.loads.clear(); s.nodes.retain(|_,n|n.id<=2);
+        for n in s.nodes.values_mut() { n.x=0.0; n.z=0.0; }
+        s.supports.clear();
+        s.supports.insert("1".into(),serde_json::from_value(serde_json::json!({"id":1,"nodeId":1,"type":"fixed","dx":0.01})).unwrap());
+        s.supports.insert("2".into(),serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"pinned"})).unwrap());
+        s.connectors.insert("1".into(),serde_json::from_value(serde_json::json!({"id":1,"nodeI":1,"nodeJ":2,"kAxial":100.0,"kShear":100.0,"kMoment":400.0})).unwrap());
+        let ratio=|s:&SolverInput| {
+            let mut d=DofNumbering::build_2d(s);
+            d.map=[((2,2),0),((1,0),1)].into_iter().collect(); d.n_free=1;d.n_total=2; d.dofs_per_node=3;
+            let metric=EquilibriumMetric::for_2d(s,&d,None).unwrap();
+            let mut before=vec![0.0;d.n_total];
+            before[d.global_dof(1,0).unwrap()]=s.supports["1"].dx.unwrap();
+            let mut after=before.clone(); after[d.global_dof(2,2).unwrap()]=0.001;
+            metric.relative_increment(&before,&after)
+        };
+        let expected=ratio(&s);
+        for length in [1e-3,1e3] {
+            assert!((ratio(&scale_2d(&s,&Units::froude(length,1.0)))/expected-1.0).abs()<1e-12);
+        }
+    }
+
 }
