@@ -833,3 +833,169 @@ fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
             .contains("inclined"));
     }
 }
+
+mod r2 {
+    use super::*;
+    use dedaliano_engine::solver::{arc_length::{self, ArcLengthInput, DisplacementControlInput}, material_nonlinear, linear, ssi::{self, SSIInput, SSIInput3D, SoilSpring}, soil_curves::SoilCurve};
+
+    fn material(s: SolverInput, max_iter: usize) -> NonlinearMaterialInput {
+        NonlinearMaterialInput { solver: s, material_models: Default::default(), section_capacities: Default::default(), max_iter, tolerance: 1e-6, n_increments: 1 }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn settlement_cannot_hide_a_transverse_load() {
+        let mut base = cantilever();
+        base.nodes.get_mut("2").unwrap().x = 5.0;
+        base.sections.get_mut("1").unwrap().a = 0.02;
+        base.supports.values_mut().next().unwrap().dx = Some(0.01);
+        let mut tip = base.supports.values().next().unwrap().clone();
+        tip.id = 2; tip.node_id = 2; tip.support_type = "rollerZ".into(); tip.dx = None;
+        base.supports.insert("2".into(), tip);
+        base.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -0.01, my: 0.0 })];
+        for force in [1.0, 1e-10, 1e10] {
+            let s = scale_2d(&base, &Units::froude(1.0, force));
+            let expected = linear::solve_2d(&s).unwrap();
+            let input = material(s.clone(), 20);
+            let actual = material_nonlinear::solve_nonlinear_material_2d(&input).unwrap();
+            assert!(actual.converged);
+            let e = expected.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+            let a = actual.results.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+            crate::common::assert_close(a, e, 1e-10, "settlement plus transverse load");
+            assert!(!material_nonlinear::solve_nonlinear_material_2d(&material(s.clone(), 1)).unwrap().converged);
+            for plane in Plane::ALL {
+                let s = embed_2d(&s, plane).unwrap();
+                let input = NonlinearMaterialInput3D { solver: s.clone(), material_models: Default::default(), section_capacities: Default::default(), max_iter: 20, tolerance: 1e-6, n_increments: 1 };
+                let a = material_nonlinear::solve_nonlinear_material_3d(&input).unwrap();
+                assert!(a.converged);
+                let e = linear::solve_3d(&s).unwrap();
+                let a = a.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                let e = e.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                crate::common::assert_close(a.ux.hypot(a.uy).hypot(a.uz), e.ux.hypot(e.uy).hypot(e.uz), 1e-10, "spatial settlement plus transverse load");
+            }
+        }
+    }
+
+    fn spring_model(connector: bool) -> SolverInput {
+        let mut s = cantilever();
+        s.elements.clear(); s.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 1.0, fz: 0.0, my: 0.0 })];
+        s.nodes.get_mut("2").unwrap().x = 0.0;
+        if connector {
+            s.connectors.insert("1".into(), ConnectorElement { id: 1, node_i: 1, node_j: 2, k_axial: 100.0, k_shear: 100.0, k_moment: 400.0, k_shear_z: 100.0, k_bend_y: 400.0, k_bend_z: 400.0 });
+        } else {
+            s.nodes.remove("1"); s.supports.clear();
+            s.supports.insert("2".into(), serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"spring","kx":100.0,"ky":100.0,"kz":400.0})).unwrap());
+        }
+        s
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn coincident_connectors_and_single_node_springs_keep_their_answers() {
+        for connector in [false, true] {
+            let s = spring_model(connector);
+            let r = linear::solve_2d(&s).unwrap();
+            crate::common::assert_close(r.displacements.iter().find(|d| d.node_id == 2).unwrap().ux, 0.01, 1e-10, "linear spring");
+            let results = [pdelta::solve_pdelta_2d(&s, 20, 1e-10).unwrap().converged, corotational::solve_corotational_2d(&s, 20, 1e-10, 1, false).unwrap().converged, fiber::solve_fiber_nonlinear_2d(&fiber_input(&s, 20)).unwrap().converged, material_nonlinear::solve_nonlinear_material_2d(&material(s.clone(), 20)).unwrap().converged];
+            assert!(results.into_iter().all(|c| c));
+            let dc = DisplacementControlInput { solver: s.clone(), control_node: 2, control_dof: 0, target_displacement: 0.01, n_steps: 1, max_iter: 20, tolerance: 1e-10 };
+            assert!(arc_length::solve_displacement_control(&dc).unwrap().converged);
+            let ds = 0.1;
+            let arc = ArcLengthInput { solver: s.clone(), max_steps: 1, max_iter: 20, tolerance: 1e-10, initial_ds: ds, min_ds: ds, max_ds: ds, target_iter: 4 };
+            assert!(arc_length::solve_arc_length(&arc).unwrap().converged);
+            let s = embed_2d(&s, Plane::XZ).unwrap();
+            assert!(pdelta::solve_pdelta_3d(&s, 20, 1e-10).unwrap().converged);
+            assert!(corotational::solve_corotational_3d(&s, 20, 1e-10, 1, false).unwrap().converged);
+            assert!(fiber::solve_fiber_nonlinear_3d(&fiber_input_3d(&s, 20)).unwrap().converged);
+            let input = NonlinearMaterialInput3D { solver: s, material_models: Default::default(), section_capacities: Default::default(), max_iter: 20, tolerance: 1e-10, n_increments: 1 };
+            assert!(material_nonlinear::solve_nonlinear_material_3d(&input).unwrap().converged);
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn ssi_stiffness_convergence_is_relative_below_one() {
+        let base = cantilever();
+        for force in [1.0, 1e-10, 1e-12] {
+            let units = Units::froude(1.0, force);
+            let solver = scale_2d(&base, &units);
+            let springs = vec![SoilSpring { node_id: 2, direction: 1, tributary_length: 1.0, curve: SoilCurve::Custom { points: vec![[0.0, 0.0], [1e-7, 0.01 * force], [0.01, 0.02 * force]] } }];
+            let input = SSIInput { solver: solver.clone(), soil_springs: springs.clone(), max_iter: 2, tolerance: 1e-6 };
+            let r = ssi::solve_ssi_2d(&input).unwrap();
+            assert!(!r.converged, "{force}: {r:?}");
+            let mut springs3 = springs;
+            springs3[0].direction = 2;
+            let input = SSIInput3D { solver: embed_2d(&solver, Plane::XZ).unwrap(), soil_springs: springs3, max_iter: 2, tolerance: 1e-6 };
+            assert!(!ssi::solve_ssi_3d(&input).unwrap().converged);
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn pdelta_warping_seed_contains_the_seventh_dof() {
+        let mut s: SolverInput3D = serde_json::from_str(include_str!("../metamorphic_corpus/feature_matrix/3d-warping-torsion-restrained-cantilever-with.json")).unwrap();
+        if let SolverLoad3D::Nodal(l) = &mut s.loads[0] { l.fz = 0.0; }
+        let linear = linear::solve_3d(&s).unwrap();
+        assert!(linear.displacements.iter().any(|d| d.warping.is_some_and(|v| v != 0.0)));
+        let r = pdelta::solve_pdelta_3d(&s, 1, 1e-10).unwrap();
+        assert!(r.converged);
+    }
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn path_reference_load_must_reach_an_independent_dof() {
+        let mut solver = cantilever();
+        solver.constraints = serde_json::from_value(serde_json::json!([{"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[0]}])).unwrap();
+        solver.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 1.0, fz: 0.0, my: 0.0 })];
+        let arc = ArcLengthInput { solver: solver.clone(), max_steps: 1, max_iter: 20, tolerance: 1e-10, initial_ds: 0.1, min_ds: 0.1, max_ds: 0.1, target_iter: 4 };
+        assert!(arc_length::solve_arc_length(&arc).unwrap_err().contains("Zero reference load"));
+        let dc = DisplacementControlInput { solver, control_node: 2, control_dof: 1, target_displacement: 0.01, n_steps: 1, max_iter: 20, tolerance: 1e-10 };
+        assert!(arc_length::solve_displacement_control(&dc).unwrap_err().contains("Zero reference load"));
+    }
+
+    #[test]
+    fn post_step_nonlinearity_is_checked_below_the_old_force_floors() {
+        use dedaliano_engine::element::fiber_beam::FiberMaterial;
+        let mut base = cantilever();
+        if let SolverLoad::Nodal(l) = &mut base.loads[0] { l.fx = 0.0; l.fz = -1000.0; }
+        let mut tip = base.supports.values().next().unwrap().clone();
+        tip.id = 2; tip.node_id = 2; tip.support_type = "guidedZ".into();
+        base.supports.insert("2".into(), tip);
+        for force in [1.0, 1e-25, 1e-40, 1e-50] {
+            let s = scale_2d(&base, &Units::froude(1.0, force));
+            assert!(!corotational::solve_corotational_2d(&s, 2, 1e-10, 1, false).is_ok_and(|r| r.converged));
+            let mut f = fiber_input(&s, 2);
+            for section in f.fiber_sections.values_mut() {
+                section.materials = vec![FiberMaterial::SteelBilinear { e: s.materials["1"].e, fy: base.materials["1"].e * 1e-5 * force, hardening_ratio: 0.01 }];
+            }
+            assert!(!fiber::solve_fiber_nonlinear_2d(&f).is_ok_and(|r| r.converged));
+            let s = embed_2d(&s, Plane::XZ).unwrap();
+            assert!(!corotational::solve_corotational_3d(&s, 2, 1e-10, 1, false).is_ok_and(|r| r.converged));
+            let mut f = fiber_input_3d(&s, 2);
+            for section in f.fiber_sections.values_mut() {
+                section.materials = vec![FiberMaterial::SteelBilinear { e: s.materials["1"].e, fy: base.materials["1"].e * 1e-5 * force, hardening_ratio: 0.01 }];
+            }
+            assert!(!fiber::solve_fiber_nonlinear_3d(&f).is_ok_and(|r| r.converged));
+        }
+    }
+
+    #[test]
+    fn yielding_material_is_not_elastic_below_a_force_floor() {
+        let mut base = cantilever();
+        if let SolverLoad::Nodal(l) = &mut base.loads[0] { l.fx = 0.0; l.fz = -1000.0; }
+        let mut tip = base.supports.values().next().unwrap().clone();
+        tip.id = 2; tip.node_id = 2; tip.support_type = "guidedZ".into();
+        base.supports.insert("2".into(), tip);
+        for force in [1.0, 1e-25, 1e-40, 1e-50] {
+            let s = scale_2d(&base, &Units::froude(1.0, force));
+            let mut input = material(s.clone(), 2);
+            input.tolerance = 1e-10;
+            input.material_models.insert("1".into(), MaterialModel { model_type: "bilinear".into(), fy: base.materials["1"].e * 1e-5 * force, alpha: Some(0.01) });
+            let mp = 100.0 * base.nodes["2"].x * force;
+            input.section_capacities.insert("1".into(), SectionCapacity { np: 100.0 * force, mp, zp: None });
+            assert!(!material_nonlinear::solve_nonlinear_material_2d(&input).is_ok_and(|r| r.converged), "force {force}");
+            let input = NonlinearMaterialInput3D { solver: embed_2d(&s, Plane::XZ).unwrap(), material_models: input.material_models, section_capacities: [("1".into(), SectionCapacity3D { np: 100.0 * force, mpy: mp, mpz: mp, mpx: None })].into_iter().collect(), max_iter: 2, tolerance: 1e-10, n_increments: 1 };
+            assert!(!material_nonlinear::solve_nonlinear_material_3d(&input).is_ok_and(|r| r.converged), "force {force}");
+        }
+    }
+
+}

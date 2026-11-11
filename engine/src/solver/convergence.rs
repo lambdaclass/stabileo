@@ -398,4 +398,58 @@ mod tests {
         force[dofs.global_dof(2, 1).unwrap()] = 1e20;
         assert!(metric.relative_residual(&force, &force, None, None) >= 1.0);
     }
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r2_restrained_reactions_cannot_mask_free_disequilibrium() {
+        let s = input();
+        let d = DofNumbering::build_2d(&s);
+        let m = EquilibriumMetric::for_2d(&s, &d, None).unwrap();
+        let mut f = vec![0.0; d.n_total];
+        f[0] = 0.01;
+        let mut internal = vec![0.0; d.n_total];
+        internal[d.n_free] = 1e20;
+        assert_eq!(m.relative_residual(&f, &f, Some(&internal), None), 1.0);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r2_length_does_not_depend_on_node_labels() {
+        let mut s = input();
+        for (i, n) in s.nodes.values_mut().enumerate() {
+            n.x = i as f64 * 5.0;
+            n.z = 0.0;
+        }
+        let d = DofNumbering::build_2d(&s);
+        let a = EquilibriumMetric::for_2d(&s, &d, None).unwrap();
+        let mut points: Vec<_> = crate::ordered::values(&s.nodes).map(|n| [n.x, 0.0, n.z]).collect();
+        points.rotate_left(1);
+        let b = EquilibriumMetric::new(points.into_iter(), 2, &d, None).unwrap();
+        assert_eq!(a.weights, b.weights);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r2_settlement_scales_free_roundoff_increments() {
+        let s = input();
+        let d = DofNumbering::build_2d(&s);
+        let m = EquilibriumMetric::for_2d(&s, &d, None).unwrap();
+        let mut a = vec![0.0; d.n_total];
+        a[d.n_free] = 0.01;
+        let mut b = a.clone();
+        b[0] = 1e-19;
+        assert!(m.relative_increment(&a, &b) < 1e-12);
+        b[0] = 0.001;
+        assert!(m.relative_increment(&a, &b) > 1e-2);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r2_every_coordinate_must_be_finite() {
+        let s = input();
+        let d = DofNumbering::build_2d(&s);
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(EquilibriumMetric::new([[0.0; 3], [1.0; 3], [bad; 3]].into_iter(), 2, &d, None).is_err());
+        }
+    }
+
 }
