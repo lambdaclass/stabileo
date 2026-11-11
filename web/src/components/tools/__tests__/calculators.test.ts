@@ -4,6 +4,7 @@ import { inflateSync } from 'fflate';
 import { TOOL_IDS, EXAMPLE, formula, format, workedExamples, buildModel, valid } from '../calculators';
 import { calculate } from '../solve';
 import { editorUrl } from '../share';
+import { toolPaths } from '../registry';
 
 for (const id of TOOL_IDS) describe(id, () => {
   for (const p of workedExamples(id)) it(`worked example uniform=${p.uniform} K=${p.k}`, async () => {
@@ -41,8 +42,7 @@ it('rejects invalid inputs', () => {
   }
 });
 it('prerender captures the same worked-example formatter and routes', () => {
-  const page = readFileSync(new URL('../ToolsPage.svelte', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('../CalculatorTool.svelte', import.meta.url), 'utf8');
   expect(page).toContain('data-value={format(formula(id, example).value)}');
-  const script = readFileSync(new URL('../../../../scripts/public-paths.ts', import.meta.url), 'utf8');
-  for (const id of TOOL_IDS) expect(script).toContain(`/tools/${id}`);
+  for (const id of TOOL_IDS) expect(toolPaths()).toContain(`/tools/${id}`);
 });

@@ -2,8 +2,8 @@
 import { publicI18n, tPublic } from '../../lib/i18n/store.svelte';
 export const batchTranslations: Record<string, Record<string, string>> = {
   "en": {
-    "tools.index.metaTitle": "Free structural engineering calculators: beams, columns, frames and trusses",
-    "tools.index.description": "Eight free calculators for beams, column buckling, continuous beams, portal frames, trusses, influence lines and natural frequencies, from Stabileo, open-source structural engineering software.",
+    "tools.index.metaTitle": "Free structural engineering tools: beams, frames, columns, slabs and towers",
+    "tools.index.description": "Free tools for beams, frames, trusses, column buckling, influence lines, natural frequencies, concrete columns, slabs, earthquake response and towers, from Stabileo, open-source structural engineering software.",
     "tools.free": "Free in the browser: solved by Stabileo, open-source structural engineering software, and compared with the classical solution where one exists.",
     "tools.simply-supported-beam.case": "deflection, shear and moment calculator (5wL⁴/384EI)",
     "tools.cantilever-beam.case": "deflection, shear and moment calculator (PL³/3EI)",
@@ -75,8 +75,8 @@ export const batchTranslations: Record<string, Record<string, string>> = {
     "tools.batch.displacement": "Maximum displacement |u|"
   },
   "es": {
-    "tools.index.metaTitle": "Calculadoras de ingeniería estructural gratis: vigas, columnas, pórticos y cerchas",
-    "tools.index.description": "Ocho calculadoras gratis de vigas, pandeo de columnas, vigas continuas, pórticos, cerchas, líneas de influencia y frecuencias naturales, de Stabileo, software de ingeniería estructural de código abierto.",
+    "tools.index.metaTitle": "Herramientas de ingeniería estructural gratis: vigas, pórticos, columnas, losas y torres",
+    "tools.index.description": "Herramientas gratis para vigas, pórticos, cerchas, pandeo de columnas, líneas de influencia, frecuencias naturales, columnas de hormigón, losas, respuesta sísmica y torres, de Stabileo, software de ingeniería estructural de código abierto.",
     "tools.free": "Gratis en el navegador: lo resuelve Stabileo, software de ingeniería estructural de código abierto, y lo compara con la solución clásica cuando existe.",
     "tools.simply-supported-beam.case": "calculadora de flecha, cortante y momento (5wL⁴/384EI)",
     "tools.cantilever-beam.case": "calculadora de flecha, cortante y momento (PL³/3EI)",
@@ -148,8 +148,8 @@ export const batchTranslations: Record<string, Record<string, string>> = {
     "tools.batch.displacement": "Desplazamiento máximo |u|"
   },
   "pt": {
-    "tools.index.metaTitle": "Calculadoras de engenharia estrutural grátis: vigas, colunas, pórticos e treliças",
-    "tools.index.description": "Oito calculadoras grátis de vigas, flambagem de colunas, vigas contínuas, pórticos, treliças, linhas de influência e frequências naturais, do Stabileo, software de engenharia estrutural de código aberto.",
+    "tools.index.metaTitle": "Ferramentas de engenharia estrutural grátis: vigas, pórticos, pilares, lajes e torres",
+    "tools.index.description": "Ferramentas grátis para vigas, pórticos, treliças, flambagem de pilares, linhas de influência, frequências naturais, pilares de concreto, lajes, resposta sísmica e torres, do Stabileo, software de engenharia estrutural de código aberto.",
     "tools.free": "Grátis no navegador: resolvido pelo Stabileo, software de engenharia estrutural de código aberto, e comparado com a solução clássica quando existe.",
     "tools.simply-supported-beam.case": "calculadora de flecha, cortante e momento (5wL⁴/384EI)",
     "tools.cantilever-beam.case": "calculadora de flecha, cortante e momento (PL³/3EI)",
@@ -221,8 +221,8 @@ export const batchTranslations: Record<string, Record<string, string>> = {
     "tools.batch.displacement": "Deslocamento máximo |u|"
   },
   "de": {
-    "tools.index.metaTitle": "Kostenlose Rechner für die Tragwerksplanung: Balken, Stützen, Rahmen und Fachwerke",
-    "tools.index.description": "Acht kostenlose Rechner für Balken, Stützenknicken, Durchlaufträger, Portalrahmen, Fachwerke, Einflusslinien und Eigenfrequenzen, von Stabileo, quelloffener Software für die Tragwerksplanung.",
+    "tools.index.metaTitle": "Kostenlose Werkzeuge für die Tragwerksplanung: Balken, Rahmen, Stützen, Decken und Türme",
+    "tools.index.description": "Kostenlose Werkzeuge für Balken, Rahmen, Fachwerke, Stützenknicken, Einflusslinien, Eigenfrequenzen, Stahlbetonstützen, Decken, Erdbebenantwort und Türme, von Stabileo, quelloffener Software für die Tragwerksplanung.",
     "tools.free": "Kostenlos im Browser: gelöst von Stabileo, quelloffener Software für die Tragwerksplanung, und, wo es sie gibt, mit der klassischen Lösung verglichen.",
     "tools.simply-supported-beam.case": "Rechner für Durchbiegung, Querkraft und Moment (5wL⁴/384EI)",
     "tools.cantilever-beam.case": "Rechner für Durchbiegung, Querkraft und Moment (PL³/3EI)",
@@ -294,8 +294,8 @@ export const batchTranslations: Record<string, Record<string, string>> = {
     "tools.batch.displacement": "Größte Verschiebung |u|"
   },
   "fr": {
-    "tools.index.metaTitle": "Calculateurs gratuits de calcul de structures : poutres, poteaux, portiques et treillis",
-    "tools.index.description": "Huit calculateurs gratuits pour poutres, flambement de poteaux, poutres continues, portiques, treillis, lignes d’influence et fréquences propres, par Stabileo, logiciel open source d’ingénierie des structures.",
+    "tools.index.metaTitle": "Outils gratuits de calcul de structures : poutres, portiques, poteaux, dalles et tours",
+    "tools.index.description": "Outils gratuits pour poutres, portiques, treillis, flambement de poteaux, lignes d’influence, fréquences propres, poteaux en béton armé, dalles, réponse sismique et tours, par Stabileo, logiciel open source d’ingénierie des structures.",
     "tools.free": "Gratuit dans le navigateur : résolu par Stabileo, logiciel open source d’ingénierie des structures, et comparé à la solution classique quand elle existe.",
     "tools.simply-supported-beam.case": "calcul de la flèche, de l’effort tranchant et du moment (5wL⁴/384EI)",
     "tools.cantilever-beam.case": "calcul de la flèche, de l’effort tranchant et du moment (PL³/3EI)",
@@ -367,8 +367,8 @@ export const batchTranslations: Record<string, Record<string, string>> = {
     "tools.batch.displacement": "Déplacement maximal |u|"
   },
   "tr": {
-    "tools.index.metaTitle": "Ücretsiz yapı mühendisliği hesaplayıcıları: kiriş, kolon, çerçeve ve kafes",
-    "tools.index.description": "Kirişler, kolon burkulması, sürekli kirişler, çerçeveler, kafesler, tesir çizgileri ve doğal frekanslar için sekiz ücretsiz hesaplayıcı; açık kaynaklı yapı mühendisliği yazılımı Stabileo’dan.",
+    "tools.index.metaTitle": "Ücretsiz yapı mühendisliği araçları: kiriş, çerçeve, kolon, döşeme ve kule",
+    "tools.index.description": "Kirişler, çerçeveler, kafesler, kolon burkulması, tesir çizgileri, doğal frekanslar, betonarme kolonlar, döşemeler, deprem tepkisi ve kuleler için ücretsiz araçlar; açık kaynaklı yapı mühendisliği yazılımı Stabileo’dan.",
     "tools.free": "Tarayıcıda ücretsiz: açık kaynaklı yapı mühendisliği yazılımı Stabileo ile çözülür ve varsa klasik çözümle karşılaştırılır.",
     "tools.simply-supported-beam.case": "sehim, kesme kuvveti ve moment hesaplayıcısı (5wL⁴/384EI)",
     "tools.cantilever-beam.case": "sehim, kesme kuvveti ve moment hesaplayıcısı (PL³/3EI)",

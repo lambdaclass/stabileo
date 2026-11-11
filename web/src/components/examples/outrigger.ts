@@ -131,9 +131,12 @@ export const outrigger = defineExample<Model>({
       const da = disp.get(a.id)!, db = disp.get(b.id)!;
       s.line(a.x + da.ux * scale, a.z + da.uz * scale, b.x + db.ux * scale, b.z + db.uz * scale);
     }
+    const tip = results.displacements.reduce((best, d) => Math.abs(d.ux) > Math.abs(best.ux) ? d : best);
+    const top = model.nodes.get(tip.nodeId)!;
+    const peak = { value: Math.abs(tip.ux) * 1000, at: [top.x + tip.ux * scale, top.z + tip.uz * scale] as [number, number] };
     return {
       status: 'ok', readouts, certificate, notes: ['chord'],
-      views: { outrigger: { ...s.view('outrigger', 'mm', boundsOf(s.xy, 0.06)), legend: { shape: 'deformed', scale } } },
+      views: { outrigger: { ...s.view('outrigger', 'mm', boundsOf(s.xy, 0.06)), legend: { shape: 'deformed', scale }, peak } },
       charts: [{ key: 'driftSweep', xUnit: 'm', yUnit: 'mm', points, marker: model.level * model.storeyHeight, xLabel: 'z (m)' }],
     };
   },

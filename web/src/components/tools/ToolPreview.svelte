@@ -1,9 +1,14 @@
 <script lang="ts">
-  import type { ToolId } from './calculators';
-  import type { BatchId } from './batch';
-  let { id }: { id: ToolId | BatchId } = $props();
+  import ExampleThumb from '../examples/ExampleThumb.svelte';
+  import { TOOLS } from './registry';
+  let { id }: { id: string } = $props();
+  const BEAMS = ['simply-supported-beam', 'cantilever-beam', 'column-buckling', 'continuous-beam', 'influence-line', 'beam-natural-frequency'];
+  const model = $derived(TOOLS.find(tool => tool.id === id)?.kind === 'model');
 </script>
 
+{#if model}
+  <ExampleThumb {id} />
+{:else if id === 'portal-frame' || id === 'truss-2d' || BEAMS.includes(id)}
 <svg viewBox="0 0 600 300" fill="none" aria-hidden="true">
   {#if id === 'portal-frame'}
     <path d="M100 250V80H500V250 M75 250H125 M475 250H525" stroke="var(--fg-2)" stroke-width="3"/><path d="M100 250Q100 160 145 80H545Q500 160 500 250 M20 80H85L70 70 M85 80L70 90" stroke="var(--lp-accent)" stroke-width="3"/>
@@ -28,4 +33,10 @@
   {/if}
   {/if}
 </svg>
+{:else}
+<svg viewBox="0 0 600 300" fill="none" aria-hidden="true">
+  <path d="M60 240H540M300 40V260" stroke="var(--fg-2)" stroke-width="2"/>
+  <circle cx="300" cy="150" r="90" stroke="var(--lp-accent)" stroke-width="3"/>
+</svg>
+{/if}
 <style>svg { display: block; width: 100%; }</style>

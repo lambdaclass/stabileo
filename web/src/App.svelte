@@ -397,6 +397,7 @@
   import LandingPage from './components/LandingPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
+  import { restoreMovedRoute } from './lib/legacy-routes';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n, ensurePublicLocale } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
@@ -576,7 +577,7 @@
   const initialPublicRoute = routeKind();
   const initialShell = publicShell();
   let showLanding = $state(initialShell.kind === 'landing');
-  let showExperiment = $state(['research', 'tools', 'examples'].includes(initialPublicRoute.kind));
+  let showExperiment = $state(['research', 'tools'].includes(initialPublicRoute.kind));
   let showPaper = $state(initialPublicRoute.kind === 'paper');
   let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
   let publicRevision = 0;
@@ -615,6 +616,7 @@
 
   async function syncRouteState() {
     const token = ++publicRevision;
+    restoreMovedRoute();
     const next = routeKind();
     const shell = publicShell();
     const hash = next.kind === 'app' ? '' : location.hash;
@@ -627,7 +629,7 @@
       if (token === publicRevision) location.reload();
       return;
     }
-    showExperiment = next.kind === 'research' || next.kind === 'tools' || next.kind === 'examples';
+    showExperiment = next.kind === 'research' || next.kind === 'tools';
     showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
     showBlog = shell.kind === 'blog';
