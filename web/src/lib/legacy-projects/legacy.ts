@@ -30,6 +30,7 @@ import '../store';
 import { deserializeProject, loadFile } from '../store/file';
 import { tabManager } from '../store/tabs.svelte';
 import { solveNow } from '../actions/solve';
+import { meshBeforeAnalysis } from '../store/mesh-policy.svelte';
 import { setLocale } from '../i18n';
 import type { ResultChange } from '../provenance/registry';
 import declaredQuantities from 'virtual:result-change-quantities';
@@ -141,8 +142,12 @@ export function reset(workspace: Workspace): void {
 }
 
 /** Solve what is on screen through Calcular's entry point and record the results. */
+/** Solved as the file was built, as the results corpus is: coarse plates are not meshed first. */
 export async function solveAndRecord(values: Values): Promise<void> {
-  const outcome = await solveNow();
+  const meshing = meshBeforeAnalysis.value;
+  meshBeforeAnalysis.value = false;
+  let outcome: Awaited<ReturnType<typeof solveNow>>;
+  try { outcome = await solveNow(); } finally { meshBeforeAnalysis.value = meshing; }
   values['solve.ok'] = outcome.ok;
   if (!outcome.ok) values['solve.refusal'] = outcome.error ?? '';
   else resultValues(resultsStore as never, uiStore.is3DWorkspace, values);

@@ -80,8 +80,8 @@ export interface FeatureSnapshot {
   combinations?: unknown[];
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
-  plates?: Entries<{ id?: number; offset?: Offset3; nodes?: number[] }>;
-  quads?: Entries<{ id?: number; curved?: boolean; offset?: Offset3; nodes?: number[] }>;
+  plates?: Entries<{ id?: number; offset?: Offset3 }>;
+  quads?: Entries<{ id?: number; curved?: boolean; offset?: Offset3 }>;
   constraints?: Array<Record<string, unknown>>;
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
@@ -214,7 +214,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       const p = at.get(a), q = at.get(ns![(k + 1) % ns!.length]!);
       return !!p && !!q && Math.hypot((q.x ?? 0) - (p.x ?? 0), (q.y ?? 0) - (p.y ?? 0), (q.z ?? 0) - (p.z ?? 0)) > 1;
     });
-    if ([...quads, ...values(s.plates)].some((q) => long(q?.nodes))) f.add('coarseShellsPro');
+    if ([...quads, ...values(s.plates)].some((q) => long((q as { nodes?: number[] } | undefined)?.nodes))) f.add('coarseShellsPro');
   }
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 
