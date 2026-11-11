@@ -146,6 +146,8 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
     let mut x = system.apply(&pivots, &rhs)?;
     for (value, scale) in x.iter_mut().zip(&scales) { *value /= scale; }
     for step in 0..=2 {
+        #[cfg(test)]
+        tests::perturb_zero_load_response(step, &mut x[2 * inverse[0] + 1]);
         let mut residual: Vec<Residual> = rhs.iter().copied().map(Residual::new).collect();
         dynamic_entries(k, m, (a0, a1), omega, |i, j, real, imag, _| {
             for (i, j) in [(i, j), (j, i)].into_iter().take(if i == j { 1 } else { 2 }) {
@@ -295,10 +297,104 @@ impl Residual {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use crate::solver::damping::rayleigh_damping_matrix;
     use crate::solver::harmonic::solve_complex_system;
+
+    std::thread_local! {
+        static PERTURB_ZERO_LOAD_RESPONSE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+
+    struct ResponsePerturbation;
+
+    impl ResponsePerturbation {
+        fn new() -> Self {
+            PERTURB_ZERO_LOAD_RESPONSE.with(|active| assert!(!active.replace(true)));
+            Self
+        }
+    }
+
+    impl Drop for ResponsePerturbation {
+        fn drop(&mut self) {
+            PERTURB_ZERO_LOAD_RESPONSE.with(|active| active.set(false));
+        }
+    }
+
+    pub(in crate::solver) fn perturb_zero_load_response(step: usize, imaginary: &mut f64) {
+        if step == 2 && PERTURB_ZERO_LOAD_RESPONSE.with(|active| active.replace(false)) {
+            assert_eq!(*imaginary, 0.0);
+            *imaginary = 1.0;
+        }
+    }
+
+    fn residual_refusal(sparse: bool, independent_load: bool, zero_load: bool) {
+        let n = if independent_load { 2 } else { 1 };
+        let mut k = vec![0.0; n * n];
+        let mut m = vec![0.0; n * n];
+        k[0] = 4.0;
+        m[0] = 1.0;
+        let mut f = vec![if zero_load { 0.0 } else { f64::from_bits(1) }; n];
+        if independent_load {
+            k[n * n - 1] = 2.0;
+            m[n * n - 1] = 1.0;
+            f[n - 1] = 1e12;
+        }
+        let tolerance = crate::solver::harmonic::MODAL_RESIDUAL_TOL;
+        if !zero_load {
+            let response = f[0] / (k[0] - m[0]);
+            let residual = f[0] - (k[0] - m[0]) * response;
+            assert_eq!(response, 0.0);
+            assert!(residual / f[0] > tolerance);
+            if independent_load {
+                assert!(residual / f[0].hypot(f[1]) <= tolerance);
+            }
+        }
+        let _perturbation = zero_load.then(ResponsePerturbation::new);
+        let result = if sparse {
+            solve(&CscMatrix::from_dense_symmetric(&k, n), &CscMatrix::from_dense_symmetric(&m, n), &f, (0.0, 0.0), 1.0)
+        } else {
+            solve_complex_system(&k, &m, &vec![0.0; n * n], &f, n, 1.0)
+        };
+        assert!(!PERTURB_ZERO_LOAD_RESPONSE.with(|active| active.get()), "final residual was not reached");
+        let error = result.expect_err("unconverged direct response was accepted");
+        assert!(error.starts_with("Harmonic direct refinement did not converge: component relative residual "), "sparse={sparse}: {error}");
+        if zero_load {
+            assert!(error.contains("inf"), "{error}");
+        } else {
+            assert!(error.contains("1.000e0"), "{error}");
+        }
+    }
+
+    #[test]
+    fn dense_direct_residual_check_refuses_excessive_component_residual() {
+        residual_refusal(false, false, false);
+    }
+
+    #[test]
+    fn sparse_direct_residual_check_refuses_excessive_component_residual() {
+        residual_refusal(true, false, false);
+    }
+
+    #[test]
+    fn dense_direct_residual_check_refuses_dilution_by_independent_large_load() {
+        residual_refusal(false, true, false);
+    }
+
+    #[test]
+    fn sparse_direct_residual_check_refuses_dilution_by_independent_large_load() {
+        residual_refusal(true, true, false);
+    }
+
+    #[test]
+    fn dense_direct_residual_check_refuses_nonzero_residual_in_zero_load_component() {
+        residual_refusal(false, true, true);
+    }
+
+    #[test]
+    fn sparse_direct_residual_check_refuses_nonzero_residual_in_zero_load_component() {
+        residual_refusal(true, true, true);
+    }
 
     fn singular_arrowhead_case(sparse: bool, independent_load: Option<f64>, connected: bool) {
         let count = 1024;

@@ -924,6 +924,8 @@ pub fn solve_complex_system(
     let mut result = lu_apply(&a, &pivots, &rhs, n2).ok_or_else(|| "Complex system solve failed".to_string())?;
     for (value, scale) in result.iter_mut().zip(&scales) { *value /= scale; }
     for step in 0..=2 {
+        #[cfg(test)]
+        super::harmonic_direct::tests::perturb_zero_load_response(step, &mut result[n]);
         let mut residual = vec![0.0; n2];
         for i in 0..n {
             let mut re = super::harmonic_direct::Residual::new(f[i]);
