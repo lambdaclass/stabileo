@@ -686,6 +686,7 @@ pub struct SparseShiftInvertOp<'a> {
     /// unchanged — θ = μ either way — only the basis is built in a metric that
     /// exists.
     inner: &'a CscMatrix,
+    compensated: bool,
 }
 
 impl<'a> SparseShiftInvertOp<'a> {
@@ -698,7 +699,7 @@ impl<'a> SparseShiftInvertOp<'a> {
         assert_eq!(k_csc.n, b_csc.n, "K and B must have the same dimension");
         let sym = Rc::new(symbolic_cholesky(k_csc));
         let factor = numeric_cholesky(&sym, k_csc)?;
-        Some(Self { factor, b_csc, inner: b_csc })
+        Some(Self { factor, b_csc, inner: b_csc, compensated: false })
     }
 
     /// Same operator, with the recurrence running in the K inner product.
@@ -709,21 +710,33 @@ impl<'a> SparseShiftInvertOp<'a> {
         assert_eq!(k_csc.n, b_csc.n, "K and B must have the same dimension");
         let sym = Rc::new(symbolic_cholesky(k_csc));
         let factor = numeric_cholesky(&sym, k_csc)?;
-        Some(Self { factor, b_csc, inner: k_csc })
+        Some(Self { factor, b_csc, inner: k_csc, compensated: true })
     }
 }
 
 impl<'a> MatVecOp for SparseShiftInvertOp<'a> {
     fn mul_vec(&self, x: &[f64], y: &mut [f64]) {
         // tmp = B * x (sparse, O(nnz))
-        let tmp = self.b_csc.sym_mat_vec(x);
-        // y = K⁻¹ tmp (sparse Cholesky solve)
-        let result = sparse_cholesky_solve(&self.factor, &tmp);
+        let tmp = if self.compensated { buckling_mat_vec(self.b_csc,x,None) } else { self.b_csc.sym_mat_vec(x) };
+        let mut result = sparse_cholesky_solve(&self.factor, &tmp);
+        if self.compensated {
+            for _ in 0..4 {
+                let residual = buckling_mat_vec(self.inner,&result,Some(&tmp));
+                let correction = sparse_cholesky_solve(&self.factor,&residual);
+                let mut changed = false;
+                for (value,delta) in result.iter_mut().zip(correction) {
+                    let next = *value+delta;
+                    changed |= next != *value;
+                    *value = next;
+                }
+                if !changed { break; }
+            }
+        }
         y[..self.b_csc.n].copy_from_slice(&result);
     }
     fn dim(&self) -> usize { self.b_csc.n }
     fn b_mul(&self, x: &[f64], y: &mut [f64]) {
-        let r = self.inner.sym_mat_vec(x);
+        let r = if self.compensated { buckling_mat_vec(self.inner,x,None) } else { self.inner.sym_mat_vec(x) };
         y[..self.inner.n].copy_from_slice(&r);
     }
 }
@@ -856,11 +869,11 @@ fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k
 
 fn sturm_complete_counted(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize, params: &LanczosParams) -> (Option<EigenResult>, usize) {
     let mut rounds = 0;
-    let result = sturm_complete_rounds(op, a, b, k, params, &mut rounds);
+    let result = sturm_complete_rounds(op, a, b, k, params, &mut rounds, None);
     (result, rounds)
 }
 
-fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize, params: &LanczosParams, rounds: &mut usize) -> Option<EigenResult> {
+fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize, params: &LanczosParams, rounds: &mut usize, factor: Option<&dyn Fn(&[f64]) -> Option<f64>>) -> Option<EigenResult> {
     let n = a.n;
     if k == 0 { return Some(EigenResult { values: vec![], vectors: vec![] }); }
     // Infinity norms for a scale-independent backward-error check, including
@@ -914,7 +927,15 @@ fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usi
                 residual = residual.max((left-mv[i]).abs());
             }
             if !scale.is_finite() || residual > 1e-10 * scale { continue; }
-            locked.push((v,bv)); locked_mu.push(mu); values.push(1.0/mu);
+            let value = match factor {
+                Some(factor) => {
+                    let value = factor(&v)?;
+                    if !(value > 0.0 && value.is_finite()) { return None; }
+                    value
+                }
+                None => 1.0/mu,
+            };
+            locked.push((v,bv)); locked_mu.push(mu); values.push(value);
         }
         if locked.len() == locked_before {
             stalled += 1;
@@ -963,6 +984,23 @@ pub fn lanczos_buckling_eigen_sparse_observed(
     k: usize,
     observe: &mut dyn FnMut(Option<&super::sparse_chol::NumericCholesky>),
 ) -> Option<EigenResult> {
+    let pencil = BucklingPencil { k: k_ff, b: neg_kg, transform: None };
+    lanczos_buckling_eigen_sparse_mapped_observed(k_ff, neg_kg, k, &pencil, observe)
+}
+
+pub(crate) struct BucklingPencil<'a> {
+    pub k: &'a CscMatrix,
+    pub b: &'a CscMatrix,
+    pub transform: Option<&'a crate::solver::constraints::SparseTransform>,
+}
+
+pub(crate) fn lanczos_buckling_eigen_sparse_mapped_observed(
+    k_ff: &CscMatrix,
+    neg_kg: &CscMatrix,
+    k: usize,
+    pencil: &BucklingPencil<'_>,
+    observe: &mut dyn FnMut(Option<&super::sparse_chol::NumericCholesky>),
+) -> Option<EigenResult> {
     let n = k_ff.n;
     assert_eq!(neg_kg.n, n, "K and Kg must have the same dimension");
     let k = k.min(n);
@@ -975,9 +1013,27 @@ pub fn lanczos_buckling_eigen_sparse_observed(
         let op = SparseShiftInvertOp::new_k_inner_product(k_ff,neg_kg);
         observe(op.as_ref().map(|op| &op.factor));
         let op = op?;
-        sturm_complete(&op,k_ff,neg_kg,k)?
+        sturm_complete_rounds(&op,k_ff,neg_kg,k,&LanczosParams::default(),&mut 0,Some(&|phi| {
+            let mu = pencil.mu(phi)?;
+            (mu > 0.0).then(|| 1.0/mu)
+        }))?
     };
-    original_buckling_rayleigh(k_ff, neg_kg, result)
+    pencil.refine(result)
+}
+
+fn buckling_mat_vec(matrix: &CscMatrix, x: &[f64], rhs: Option<&[f64]>) -> Vec<f64> {
+    let mut sums: Vec<_> = (0..matrix.n).map(|i| {
+        let mut sum = BucklingWork::default();
+        if let Some(rhs) = rhs { sum.add(rhs[i]); }
+        sum
+    }).collect();
+    let sign = if rhs.is_some() { -1.0 } else { 1.0 };
+    for j in 0..matrix.n { for p in matrix.col_ptr[j]..matrix.col_ptr[j+1] {
+        let i = matrix.row_idx[p];
+        sums[i].triple(sign*matrix.values[p],x[j],1.0);
+        if i != j { sums[j].triple(sign*matrix.values[p],x[i],1.0); }
+    }}
+    sums.into_iter().map(BucklingWork::value).collect()
 }
 
 #[derive(Default)]
@@ -1004,38 +1060,59 @@ impl BucklingWork {
     fn value(self) -> f64 { self.sum + self.low }
 }
 
-fn buckling_work(matrix: &CscMatrix, phi: &[f64]) -> f64 {
-    let mut work = BucklingWork::default();
-    for j in 0..matrix.n {
-        for p in matrix.col_ptr[j]..matrix.col_ptr[j+1] {
-            let i = matrix.row_idx[p];
-            work.triple(phi[i], matrix.values[p], phi[j]);
-            if i != j { work.triple(phi[j], matrix.values[p], phi[i]); }
-        }
-    }
-    work.value()
+#[cfg(test)]
+fn original_buckling_rayleigh(k: &CscMatrix, b: &CscMatrix, result: EigenResult) -> Option<EigenResult> {
+    BucklingPencil { k, b, transform: None }.refine(result)
 }
 
-fn original_buckling_rayleigh(k: &CscMatrix, b: &CscMatrix, mut result: EigenResult) -> Option<EigenResult> {
-    let count = result.values.len();
-    let mut phi = vec![0.0; k.n];
-    for col in 0..count {
-        let scale = (0..k.n).map(|i| result.vectors[i*count+col].abs()).fold(0.0f64, f64::max);
+impl BucklingPencil<'_> {
+    fn mu(&self, vector: &[f64]) -> Option<f64> {
+        let scale = vector.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
         if !(scale > 0.0 && scale.is_finite()) { return None; }
-        for i in 0..k.n { phi[i] = result.vectors[i*count+col]/scale; }
-        let stiffness = buckling_work(k, &phi);
-        let geometric = buckling_work(b, &phi);
+        let q: Vec<_> = vector.iter().map(|v| v/scale).collect();
+        let phi: Vec<(f64,f64)> = if let Some(c) = self.transform {
+            if q.len() != c.n_cols || c.n_rows != self.k.n { return None; }
+            (0..c.n_rows).map(|i| {
+                let mut sum = BucklingWork::default();
+                for p in c.row_ptr[i]..c.row_ptr[i+1] { sum.triple(c.vals[p], q[c.col_idx[p]], 1.0); }
+                (sum.sum, sum.low)
+            }).collect()
+        } else {
+            if q.len() != self.k.n { return None; }
+            q.iter().map(|&v| (v,0.0)).collect()
+        };
+        let work = |matrix: &CscMatrix| {
+            let mut sum = BucklingWork::default();
+            for j in 0..matrix.n { for p in matrix.col_ptr[j]..matrix.col_ptr[j+1] {
+                let i = matrix.row_idx[p];
+                for x in [phi[i].0,phi[i].1] { for y in [phi[j].0,phi[j].1] {
+                    sum.triple(x,matrix.values[p],y);
+                    if i != j { sum.triple(y,matrix.values[p],x); }
+                }}
+            }}
+            sum.value()
+        };
+        let stiffness = work(self.k);
+        let geometric = work(self.b);
         if !(stiffness > 0.0 && stiffness.is_finite() && geometric.is_finite()) { return None; }
         let mu = geometric/stiffness;
-        if !mu.is_finite() { return None; }
-        result.values[col] = mu;
+        mu.is_finite().then_some(mu)
     }
-    let mut order: Vec<usize> = (0..count).collect();
-    order.sort_by(|&i, &j| result.values[i].total_cmp(&result.values[j]));
-    Some(EigenResult {
-        values: order.iter().map(|&col| result.values[col]).collect(),
-        vectors: (0..k.n).flat_map(|row| order.iter().map(move |&col| (row,col))).map(|(row,col)| result.vectors[row*count+col]).collect(),
-    })
+
+    fn refine(&self, mut result: EigenResult) -> Option<EigenResult> {
+        let count = result.values.len();
+        let n = if count == 0 { 0 } else { result.vectors.len()/count };
+        for col in 0..count {
+            let phi: Vec<_> = (0..n).map(|i| result.vectors[i*count+col]).collect();
+            result.values[col] = self.mu(&phi)?;
+        }
+        let mut order: Vec<_> = (0..count).collect();
+        order.sort_by(|&i,&j| result.values[i].total_cmp(&result.values[j]));
+        Some(EigenResult {
+            values: order.iter().map(|&col| result.values[col]).collect(),
+            vectors: (0..n).flat_map(|row| order.iter().map(move |&col| (row,col))).map(|(row,col)| result.vectors[row*count+col]).collect(),
+        })
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1055,9 +1132,8 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #818"]
     fn buckling_818_sparse_boundary_uses_original_factors() {
-        for (s, gap) in [(1e7, 1e-10), (1e8, 1e-9), (1e11, 1e-8)] {
+        for (s, gap) in [(1e6, 1e-10), (5e6, 1e-10), (1e7, 1e-10), (1e7, 1e-6)] {
             let n = 201;
             let mut a = vec![0.0; n*n];
             let mut b = vec![0.0; n*n];
@@ -1075,17 +1151,40 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #818"]
     fn buckling_818_sparse_refinement_prevents_false_refusal() {
-        let n = 201;
-        for s in [1e10, 1e11] {
-            let mut a = vec![0.0; n*n];
-            let mut b = vec![0.0; n*n];
-            for i in 0..n { a[i*n+i] = 4.0 + i as f64; b[i*n+i] = 1.0; }
-            a[0] = s+1.0; a[1] = s; a[n] = s; a[n+1] = s+1.0;
-            let result = lanczos_buckling_eigen_sparse(&CscMatrix::from_dense_symmetric(&a,n),&CscMatrix::from_dense_symmetric(&b,n),1).expect("valid sparse pencil");
-            assert!((1.0/result.values[0]-1.0).abs() < 1e-12);
+        struct RoundedInverse<'a>(SparseShiftInvertOp<'a>);
+        impl MatVecOp for RoundedInverse<'_> {
+            fn dim(&self) -> usize { self.0.dim() }
+            fn mul_vec(&self, x: &[f64], y: &mut [f64]) {
+                self.0.mul_vec(x,y);
+                for value in y { *value *= 1.000002; }
+            }
+            fn b_mul(&self, x: &[f64], y: &mut [f64]) { self.0.b_mul(x,y); }
         }
+        let n = 201;
+        let s = 1e6;
+        let mut a = vec![0.0;n*n];
+        let mut b = vec![0.0;n*n];
+        for i in 0..n { a[i*n+i]=4.0+i as f64; b[i*n+i]=1.0; }
+        a[0]=s+1.0;a[1]=s;a[n]=s;a[n+1]=s+1.0;
+        let a=CscMatrix::from_dense_symmetric(&a,n);
+        let b=CscMatrix::from_dense_symmetric(&b,n);
+        let op=RoundedInverse(SparseShiftInvertOp::new_k_inner_product(&a,&b).unwrap());
+        assert!(sturm_complete(&op,&a,&b,1).is_none());
+        let pencil=BucklingPencil { k:&a,b:&b,transform:None };
+        let result=sturm_complete_rounds(&op,&a,&b,1,&LanczosParams::default(),&mut 0,Some(&|phi| Some(1.0/pencil.mu(phi)?))).unwrap();
+        assert!((result.values[0]-1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn buckling_818_unresolvable_sparse_inertia_still_refuses() {
+        let n=201;
+        let s=1e11;
+        let mut a=vec![0.0;n*n];let mut b=vec![0.0;n*n];
+        for i in 0..n { a[i*n+i]=4.0+i as f64;b[i*n+i]=1.0; }
+        a[0]=s+1.0;a[1]=s;a[n]=s;a[n+1]=s+1.0;
+        let a=CscMatrix::from_dense_symmetric(&a,n);let b=CscMatrix::from_dense_symmetric(&b,n);
+        assert!(sturm_count_above(&a,&b,1.0).is_none());
     }
 
     #[test]
@@ -1095,13 +1194,37 @@ mod tests {
                 let mut a = vec![0.0; n*n];
                 let mut b = vec![0.0; n*n];
                 for i in 0..n { a[i*n+i] = 1.0; b[i*n+i] = -2.0-i as f64; }
-                b[0] = (1.0-magnitude)/2.0; b[n+1] = b[0];
-                b[1] = (1.0+magnitude)/2.0; b[n] = b[1];
+                let m = magnitude/5.0;
+                b[0] = 1.00001-4.0*m; b[n+1] = 1.00001-m;
+                b[1] = 2.0*m; b[n] = b[1];
+                use num_rational::BigRational;
+                use num_traits::ToPrimitive;
+                let exact = |x| BigRational::from_float(x).unwrap();
+                let (a00,a01,a11) = (exact(b[0]),exact(b[1]),exact(b[n+1]));
+                let (mut lo,mut hi) = (exact(0.5),exact(1.5));
+                for _ in 0..80 {
+                    let mid = (&lo+&hi)/BigRational::from_integer(2.into());
+                    let determinant = (&a00-&mid)*(&a11-&mid)-&a01*&a01;
+                    if determinant > BigRational::from_integer(0.into()) { hi=mid; } else { lo=mid; }
+                }
+                let expected = ((lo+hi)/BigRational::from_integer(2.into())).to_f64().unwrap();
                 let result = lanczos_buckling_eigen_sparse(&CscMatrix::from_dense_symmetric(&a,n),&CscMatrix::from_dense_symmetric(&b,n),1).unwrap();
                 let mu = result.values.iter().copied().fold(0.0f64,f64::max);
-                assert!((1.0/mu-1.0).abs() < 1e-12, "n={n}, magnitude={magnitude}: {}",1.0/mu);
+                assert!((mu/expected-1.0).abs() < 1e-12, "n={n}, magnitude={magnitude}: {mu} vs {expected}");
             }
         }
+    }
+
+    #[test]
+    fn buckling_818_constraint_expansion_retains_product_and_sum_remainders() {
+        use crate::solver::constraints::SparseTransform;
+        let k=CscMatrix::from_dense_symmetric(&[2.0],1);
+        let b=CscMatrix::from_dense_symmetric(&[1.0],1);
+        let c=SparseTransform::from_rows(1,3,vec![vec![(0,1e16),(1,1.0),(2,-1e16)]]);
+        assert_eq!(BucklingPencil { k:&k,b:&b,transform:Some(&c) }.mu(&[1.0,1.0,1.0]),Some(0.5));
+        let e=f64::EPSILON;
+        let c=SparseTransform::from_rows(1,2,vec![vec![(0,1.0+e),(1,-1.0)]]);
+        assert_eq!(BucklingPencil { k:&k,b:&b,transform:Some(&c) }.mu(&[1.0-e,1.0]),Some(0.5));
     }
 
     #[test]

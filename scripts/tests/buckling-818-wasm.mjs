@@ -22,10 +22,24 @@ for (const { dimension, ratio, expected, input } of fixture('buckling-818-family
   const raw = JSON.parse(engine[`solve_buckling_${dimension}d`](json, 2));
   const out = JSON.parse(engine[`certify_buckling_${dimension}d`](json, 2));
   assert.equal(out.certificate.status, 'certified');
+  const certifyResult = engine[`certify_buckling_result_${dimension}d`];
+  assert.equal(JSON.parse(certifyResult(json, JSON.stringify(raw))).certificate.status, 'certified');
+  const perturbed = structuredClone(raw);
+  perturbed.modes[0].loadFactor *= 1.000001;
+  assert.throws(() => certifyResult(json, JSON.stringify(perturbed)), /BU-BOUND/);
   for (const [i, multiple] of [1, ratio].entries()) {
     const factor = raw.modes[i].loadFactor;
     assert.ok(Math.abs(factor / (expected * multiple) - 1) < 1e-6, `${dimension}D ratio=${ratio}: ${factor}`);
     assert.equal(out.results.modes[i].loadFactor, factor);
   }
 }
-console.log('buckling #818: WASM exact bracket, original refusal and Euler family passed');
+
+for (const { dimension, input, kind } of [...fixture('buckling-818-constrained.json'), ...fixture('buckling-818-structures.json')]) {
+  const json = JSON.stringify(input);
+  const raw = JSON.parse(engine[`solve_buckling_${dimension}d`](json, 1));
+  const certified = JSON.parse(engine[`certify_buckling_${dimension}d`](json, 1));
+  assert.equal(certified.results.modes[0].loadFactor, raw.modes[0].loadFactor);
+  const expected = kind ? (kind === 'solid shell strip' ? null : 39.99999999568) : 47.57901233095258;
+  if (expected !== null) assert.ok(Math.abs(raw.modes[0].loadFactor / expected - 1) < 1e-12);
+}
+console.log('buckling #818: WASM brackets, containment, constrained frames, inclined frame and shell passed');

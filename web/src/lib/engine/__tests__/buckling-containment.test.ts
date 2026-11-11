@@ -119,3 +119,27 @@ it('the loaded #741/#818 model returns its refined certificate without a plain f
   expect(mocks.certify).toHaveBeenCalled();
   expect(mocks.plain).not.toHaveBeenCalled();
 });
+
+it('withholds perturbed results using the engine-produced BU-BOUND payload in both dimensions', async () => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const cases = JSON.parse(readFileSync('../engine/tests/fixtures/buckling-818-family.json', 'utf8'));
+  for (const { dimension, input } of cases) {
+    const json = JSON.stringify(input);
+    const raw = native[`solve_buckling_${dimension}d` as 'solve_buckling_2d'](json, 1);
+    const certify = native[`certify_buckling_result_${dimension}d` as 'certify_buckling_result_2d'];
+    expect(JSON.parse(certify(json, raw)).certificate.status).toBe('certified');
+    const perturbed = JSON.parse(raw);
+    perturbed.modes[0].loadFactor *= 1.000001;
+    let payload: unknown;
+    try { certify(json, JSON.stringify(perturbed)); } catch (error) { payload = error; }
+    expect(payload).toBeDefined();
+    expect(isContainmentRefusal(payload)).toBe(true);
+    expect(String(payload)).toContain('BU-BOUND');
+    const mocked = dimension === 2 ? mocks.certify2D : mocks.certify;
+    mocked.mockImplementation(() => { throw payload; });
+    for (const key of ['nodes', 'elements', 'materials', 'sections', 'supports']) input[key] = new Map(Object.entries(input[key]));
+    const solve = dimension === 2 ? solveBuckling : solveBuckling3D;
+    expect(() => solve(input, 1)).toThrow();
+    expect(dimension === 2 ? mocks.plain2D : mocks.plain).not.toHaveBeenCalled();
+  }
+});

@@ -537,7 +537,7 @@ it('scopes frozen member validation to one-way behaviour even without gaps (#192
   }
 });
 
-it.skip('known wrong result: #818: original-pencil notice covers every buckling structure', () => {
+it('known wrong result: #818: original-pencil notice covers every buckling structure', () => {
   const entry = RESULT_CHANGES.changes.find(c => c.id === 'buckling-original-pencil')!;
   for (const structure of ['members', 'shells', 'curvedShells', 'connectors']) {
     expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:buckling']))).toBe(true);
@@ -545,7 +545,7 @@ it.skip('known wrong result: #818: original-pencil notice covers every buckling 
     expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:modal']))).toBe(false);
   }
   expect(conditionHolds(entry.when ?? {}, new Set(['analysis:buckling']))).toBe(false);
-  for (const over of [{ elements: [member(1, 1, 'frame')] }, { quads: [[1, {}]] }, { curvedShells: [[1, {}]] }, { connectors: [[1, {}]] }]) {
+  for (const over of [{ elements: [member(1, 1, 'frame')] }, { quads: [[1, {}]] }, { quads: [[1, { curved: {} }]] }, { connectors: [[1, {}]] }]) {
     const snapshot = model(over as never);
     const before = { ...stampSolve('buckling', null), resultsVersion: entry.resultsVersion - 1 };
     expect(ids(snapshot, before)).toContain(entry.id);

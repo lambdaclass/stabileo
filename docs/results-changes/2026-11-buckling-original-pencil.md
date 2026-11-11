@@ -1,6 +1,6 @@
 # Buckling factors use the original stiffness pencil
 
-Issues #818 and #741. Results-change entry `buckling-original-pencil`. No PR assigned.
+Issues #818 and #741. Results-change entry `buckling-original-pencil`. PR #1939 (partly addresses #818).
 
 The dense buckling path forms the reciprocal problem N phi = mu K phi using a
 Cholesky congruence and reports lambda = 1/mu. Rounding in that transformed
@@ -59,3 +59,46 @@ Validation is targeted: the exact model, closed-form pencils, Euler family,
 certificate boundary/perturbation, sparse buckling tests and the existing 64-pair
 generated invariant. The ignored 4096-pair nightly run is deliberately not run
 under the task's no-heavy-runs constraint.
+
+
+PR #1939 second review: sparse buckling now computes each locked factor from the
+original pencil before boundary counting, ordering and truncation. Modal counting
+keeps its existing reciprocal values. Buckling inverse matvecs and their residual
+corrections use compensated products; four iterative corrections recover the
+original inverse action when cancellation in Cholesky would otherwise rotate a
+close mode into its neighbour. All existing residual and inertia thresholds remain.
+A pencil whose inertia cannot be resolved still refuses; the s=1e11 example in
+the review has this independent limitation even at the exact boundary.
+
+The 2D solve, 3D solve and roundoff bounding solve share buckling_eigen. It carries
+the original matrices and optional constraint transform into BucklingPencil.
+Constraint expansion keeps both the leading sum and its product/summation
+remainders, and quadratic work includes their cross terms. Rounded reduced
+matrices are used to find modes, never as the reported quotient's work matrices.
+The constrained stiff-tie fixtures are checked against exact-rational work on
+the original assembled pencil in both dimensions.
+
+Teaching and step-document generalizedEigen also recomputes original-matrix work
+with compensated sums and Dekker product remainders, then reorders the modes.
+Invalid retained work refuses the entire teaching solve. The provenance predicate
+covers members, shells, curved shells and connectors after buckling. The native
+and WASM supplied-result certification APIs share the production containment path;
+perturbing a factor still produces BU-BOUND and the web refuses to fall back.
+The CI WASM job runs test.engine.buckling-818-wasm after building the engine.
+
+The historical buckling_818_exact_reference remains ignored: its compression is
+refused before eigensolving and belongs to #1756's roundoff-bound work. This PR
+partly addresses #818 and retains its ledger warning; it does not close the issue.
+
+
+Additional main evidence: running origin/main's four affected production sources
+(lanczos.rs, solver/buckling.rs, certify/buckling.rs and lib.rs) on the new
+buckling-818-constrained.json fixtures returns 47.579661853206964 in both dimensions.
+The original assembled constrained pencil's exact-rational work is
+47.57901233095258. The 2D output has only info diagnostics, and its public
+certificate returns Certified with computed 47.579661853206964, lower
+47.53208219135376 and upper 47.59431026276751. The 3D output carries BU-ACCURACY.
+The silent 2D result is recorded for the coordinator's advisory decision; no
+advisory or number is assigned here. The corrected factors in both dimensions
+are 47.57901233095258. Disabling refinement locally restores the wrong factor
+and fails the structural regression by more than relative 1e-6.

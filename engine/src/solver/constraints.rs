@@ -2772,7 +2772,6 @@ impl FreeConstraintSystem {
 mod tests {
 
     #[test]
-    #[ignore = "known wrong result: #818"]
     fn buckling_818_constraint_work_uses_original_pencil() {
         use crate::linalg::sparse::CscMatrix;
         let s = 1e12;
@@ -2785,7 +2784,7 @@ mod tests {
         };
         for dimensions in [2,3] {
             let cs = FreeConstraintSystem::from_transform(&ct,2,dimensions);
-            let result = crate::linalg::lanczos::lanczos_buckling_eigen_sparse(&cs.reduce_matrix_sparse(&k),&cs.reduce_matrix_sparse(&b),1).unwrap();
+            let result = crate::solver::buckling::buckling_eigen(&k,&b,Some(&cs),1).0.unwrap();
             let expected = 1.0 + s*(t-1.0).powi(2);
             assert!((1.0/result.values[0]/expected-1.0).abs() < 1e-12, "{dimensions}D: {} vs {expected}",1.0/result.values[0]);
         }

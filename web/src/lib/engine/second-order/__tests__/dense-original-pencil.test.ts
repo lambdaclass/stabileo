@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { generalizedEigen } from '../dense';
 
-it.skip('known wrong result: #818: teaching eigenvalues use original work', () => {
+it('known wrong result: #818: teaching eigenvalues use original work', () => {
   for (const s of [1e7, 1e8]) {
     const result = generalizedEigen([[s+1,s],[s,s+1]], [[1,0],[0,1]])!;
     expect(Math.abs(result[0].lambda-1)).toBeLessThan(1e-12);

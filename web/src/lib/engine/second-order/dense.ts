@@ -213,6 +213,28 @@ export function eigenErrorBound(C: Mat, mu: number, v: number[]): number {
   return (Math.sqrt(r2) + 2 * (n + 1) * Number.EPSILON * Math.sqrt(a2)) / nv;
 }
 
+function compensatedWork(matrix: Mat, vector: number[]): number {
+  let sum = 0, low = 0;
+  const add = (value: number) => {
+    const next = sum + value;
+    low += Math.abs(sum) >= Math.abs(value) ? (sum-next)+value : (value-next)+sum;
+    sum = next;
+  };
+  const product = (a: number, b: number): [number, number] => {
+    const value = a*b;
+    const sa = 134217729*a, sb = 134217729*b;
+    const ah = sa-(sa-a), bh = sb-(sb-b);
+    const al = a-ah, bl = b-bh;
+    return [value, ((ah*bh-value)+ah*bl+al*bh)+al*bl];
+  };
+  for (let i = 0; i < vector.length; i++) for (let j = 0; j < vector.length; j++) {
+    const [ab, remainder] = product(vector[i], matrix[i][j]);
+    const [abc, tail] = product(ab, vector[j]);
+    add(abc); add(tail); add(remainder*vector[j]);
+  }
+  return sum+low;
+}
+
 export function generalizedEigen(K: Mat, G: Mat): Array<{ lambda: number; vector: number[] }> | null {
   const L = cholesky(K);
   if (!L) return null;
@@ -230,9 +252,17 @@ export function generalizedEigen(K: Mat, G: Mat): Array<{ lambda: number; vector
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const m = (C[i][j] + C[j][i]) / 2; C[i][j] = m; C[j][i] = m; }
   const { values, vectors } = symmetricEigen(C);
   const out: Array<{ lambda: number; vector: number[] }> = [];
+  let invalid = false;
   values.forEach((mu, k) => {
     if (!(mu > eigenErrorBound(C, mu, vectors.map((r) => r[k])))) return;
-    out.push({ lambda: 1 / mu, vector: triSolve(L, vectors.map((r) => r[k]), true) });
+    const vector = triSolve(L, vectors.map((r) => r[k]), true);
+    const scale = Math.max(...vector.map(Math.abs));
+    const phi = vector.map(v => v/scale);
+    const stiffness = compensatedWork(K, phi), geometric = compensatedWork(G, phi);
+    if (!(stiffness > 0 && Number.isFinite(stiffness) && geometric > 0 && Number.isFinite(geometric))) { invalid = true; return; }
+    const lambda = stiffness/geometric;
+    if (!Number.isFinite(lambda)) { invalid = true; return; }
+    out.push({ lambda, vector });
   });
-  return out.sort((a, b) => a.lambda - b.lambda);
+  return invalid ? null : out.sort((a, b) => a.lambda - b.lambda);
 }
