@@ -1027,9 +1027,10 @@ fn surface_tolerance_control(limit_ratio: f64) -> dedaliano_engine::solver::cont
         / ((kxx + stiffness) * kzz - kxz * kxz);
     let scale = limit_ratio * input.tolerance.unwrap() / (gap - ux);
     input.gap_elements.clear();
-    input.solver.nodes.get_mut("4").unwrap().x = 2.0 + 0.001 * scale;
+    for node in input.solver.nodes.values_mut() { node.x -= 2.0; }
+    input.solver.nodes.get_mut("4").unwrap().x = gap * scale;
     input.solver.nodes.get_mut("4").unwrap().z = -1.0;
-    input.solver.nodes.insert("5".into(), SolverNode { id: 5, x: 2.0 + 0.001 * scale, z: 1.0 });
+    input.solver.nodes.insert("5".into(), SolverNode { id: 5, x: gap * scale, z: 1.0 });
     let mut support = input.solver.supports["3"].clone();
     support.id = 4;
     support.node_id = 5;
@@ -1047,7 +1048,6 @@ fn surface_tolerance_control(limit_ratio: f64) -> dedaliano_engine::solver::cont
 }
 
 #[test]
-#[ignore = "known wrong result: #1921"]
 fn nl_contact_surface_tension_below_scaled_tolerance_is_accepted() {
     let input = surface_tolerance_control(0.99);
     let result = dedaliano_engine::solver::contact::solve_contact_2d(&input).unwrap();

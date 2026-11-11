@@ -1003,10 +1003,10 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
     for (pi, pair) in input.node_to_surface_pairs.iter().enumerate() {
         let (_, _, opening) = project_slave_onto_segment_2d(pair, &node_by_id, &dof_num, &u_global);
         let force = n2s_assembled_forces[pi];
-        if st.n2s[pi] == ContactStatus::Active && (!force.is_finite() || force > 0.0) {
+        if st.n2s[pi] == ContactStatus::Active && (!force.is_finite() || force / pair.stiffness > tolerance) {
             return Err(super::validity::refusal(
                 DiagnosticCode::ContactStateInvalid, vec![pair.slave_node], "node_to_surface",
-                "Results withheld: a closed surface contact has tensile or non-finite assembled spring force. Revise the contact model or iteration settings and solve again.",
+                "Results withheld: a closed surface contact has non-finite assembled spring force or tension exceeding the contact tolerance. Revise the contact model or iteration settings and solve again.",
             ));
         }
         if frozen_pairs[pi] {

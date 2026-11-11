@@ -259,7 +259,6 @@ pub enum DiagnosticCode {
     CableSelfWeightTension,
     PlasticCapacityMissing,
     CableAnalysisRequired,
-    SolverNonConvergence,
     ContactStateInvalid,
     ContactToleranceInvalid,
 
@@ -391,7 +390,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
             DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk | DiagnosticCode::ShellDistortion | DiagnosticCode::SuspiciousLocalAxis | DiagnosticCode::ExcessiveDisplacement | DiagnosticCode::StiffnessNotPositiveDefinite => "model_quality",
             DiagnosticCode::NoCompressedElements => "model_quality",
-            DiagnosticCode::EigenDecompositionFailed | DiagnosticCode::SolverNonConvergence => "solver_path",
+            DiagnosticCode::EigenDecompositionFailed => "solver_path",
             DiagnosticCode::InvalidSupportAngle | DiagnosticCode::ConflictingSupportSpring | DiagnosticCode::ConflictingConstraints | DiagnosticCode::CircularConstraint | DiagnosticCode::OverConstrainedDof => "constraints",
             DiagnosticCode::KnownIssue => "known_issue",
             DiagnosticCode::ThermalDefaultAssumed => "assumption",

@@ -20,9 +20,8 @@ use super::linear::{
 use super::prestress::prestress_fef_2d;
 use super::constraints::FreeConstraintSystem;
 use super::sparse_tangent::{
-    SparseSymbolicCache, tangent_free_sparse, tangent_free_sparse_triplets, solve_tangent_sparse_diagnosed,
+    SparseSymbolicCache, tangent_free_sparse_triplets, solve_tangent_sparse_diagnosed,
 };
-use crate::element::cable::cable_self_weight;
 
 /// Model parts a staged payload can carry that the staged input has no field
 /// for: serde drops unknown fields, so these used to vanish from the analysis
@@ -104,25 +103,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
 
     // Build DOF numbering from the full structure (all nodes, all elements)
     let full_solver_input = staged_to_full_solver_input(input);
-    let cable_ids: HashSet<usize> = full_solver_input.elements.values()
-        .filter(|e| e.elem_type == "cable").map(|e| e.id).collect();
-    if cable_ids.is_empty() {
-        super::linear::validate_input_2d(&full_solver_input)?;
-    } else {
-        let supported = input.constraints.is_empty()
-            && input.loads.iter().all(|load| matches!(load, SolverLoad::Nodal(_)))
-            && input.supports.values().all(|s| [s.dx, s.dz, s.dry].iter().all(|d| d.is_none_or(|v| v == 0.0)))
-            && input.stages.iter().enumerate().all(|(i, stage)| {
-                stage.prestress_loads.is_empty()
-                    && (i == input.stages.len() - 1
-                        || (stage.load_indices.is_empty()
-                            && stage.elements_added.iter().all(|id| !cable_ids.contains(id))))
-            });
-        if !supported {
-            super::validity::require_cable_analysis(cable_ids.iter().copied())?;
-        }
-        super::linear::validate_input_2d_for_analysis(&full_solver_input, crate::known_issues::Analysis::Cable)?;
-    }
+    super::linear::validate_input_2d(&full_solver_input)?;
     let dof_num = DofNumbering::build_2d(&full_solver_input);
 
     if dof_num.n_free == 0 {
@@ -335,17 +316,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         }
         prev_u_r = u_r.clone();
 
-        // Cable iteration: if stage has cable elements, iterate with Ernst modulus
-        let has_cables = crate::ordered::values(&stage_solver_input.elements)
-            .any(|e| e.elem_type == "cable");
-        if has_cables {
-            iterate_cables_staged_2d(
-                &stage_solver_input, &dof_num, input, &active_elements, stage,
-                &mut cumulative_u, &u_r, nf, nr, n,
-                asm_trips.as_ref(), &mut cumulative_diagnostics,
-            )?;
-        }
-
         // Build cumulative input for correct FEF subtraction in internal force recovery.
         let cumulative_solver_input = SolverInput {
             solver_options: None, masses: Default::default(),
@@ -380,16 +350,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
                 nf,
             ),
         });
-        let forces = &stage_results.last().unwrap().results.element_forces;
-        super::validity::require_cable_analysis(
-            stage_solver_input.elements.values().filter(|e| e.elem_type == "cable")
-                .filter(|e| !forces.iter().find(|f| f.element_id == e.id)
-                    .is_some_and(|f| {
-                        f.n_start.is_finite() && f.n_start > 0.0
-                            && f.n_end.is_finite() && f.n_end > 0.0
-                    }))
-                .map(|e| e.id),
-        )?;
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, conditioning.into_iter().collect());
         crate::known_issues::attach(&mut cumulative_diagnostics, stage_results.last().unwrap().results.structured_diagnostics.clone());
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, cumulative_diagnostics.clone());
@@ -993,299 +953,6 @@ fn compute_stage_reactions_sparse(
         reactions_vec[i] = ku[nf + i] - f[nf + i];
     }
     reactions_vec
-}
-
-/// Iterate cable elements in staged 2D using Ernst equivalent modulus.
-/// Modifies cumulative_u in place. Follows the pattern from cable.rs.
-///
-/// `base_trips` is the stage's triplet assembly on the sparse path
-/// (ns >= SPARSE_THRESHOLD): each iteration rebuilds the corrected matrix
-/// from the cached base triplets plus the Ernst correction triplets, so no
-/// dense n×n matrix is ever built. `None` selects the dense path (dense
-/// re-assembly per iteration, byte-identical to the legacy behavior).
-#[allow(clippy::too_many_arguments)]
-fn iterate_cables_staged_2d(
-    stage_input: &SolverInput,
-    dof_num: &DofNumbering,
-    full_input: &StagedInput,
-    active_elements: &HashSet<usize>,
-    stage: &ConstructionStage,
-    cumulative_u: &mut [f64],
-    u_r: &[f64],
-    nf: usize,
-    nr: usize,
-    n: usize,
-    base_trips: Option<&StagedTriplets2D>,
-    diagnostics: &mut Vec<StructuredDiagnostic>,
-) -> Result<(), String> {
-    const MAX_CABLE_ITER: usize = 30;
-    const CABLE_TOL: f64 = 1e-4;
-
-    // Sparse symbolic Cholesky cache for the per-iteration solves (pattern
-    // constant; fingerprint rebuilds it if an Ernst correction crosses zero).
-    let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
-
-    // Precompute cable geometry
-    struct CableInfo {
-        elem_id: usize,
-        node_i: usize,
-        node_j: usize,
-        l0: f64,
-        cos_a: f64,
-        sin_a: f64,
-        ea: f64,
-        w: f64,
-        dx: f64,
-    }
-
-    let mut cables = Vec::new();
-    let mut cable_tensions: HashMap<usize, f64> = HashMap::new();
-
-    // Build lookup maps to avoid O(n) linear scans per element
-    let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&full_input.nodes).map(|n| (n.id, n)).collect();
-    let mat_by_id: HashMap<usize, &SolverMaterial> = crate::ordered::values(&full_input.materials).map(|m| (m.id, m)).collect();
-    let sec_by_id: HashMap<usize, &SolverSection> = crate::ordered::values(&full_input.sections).map(|s| (s.id, s)).collect();
-
-    for elem in crate::ordered::values(&stage_input.elements) {
-        if elem.elem_type != "cable" { continue; }
-
-        let node_i = node_by_id[&elem.node_i];
-        let node_j = node_by_id[&elem.node_j];
-        let mat = mat_by_id[&elem.material_id];
-        let sec = sec_by_id[&elem.section_id];
-
-        let dx = node_j.x - node_i.x;
-        let dy = node_j.z - node_i.z;
-        let l0 = (dx * dx + dy * dy).sqrt();
-        let e = mat.e * 1000.0;
-
-        // Estimate self-weight (assume steel density if not specified)
-        let density = 7.85 / 1000.0; // t/m³
-        let w = cable_self_weight(density, sec.a);
-
-        cables.push(CableInfo {
-            elem_id: elem.id,
-            node_i: elem.node_i,
-            node_j: elem.node_j,
-            l0, cos_a: dx / l0, sin_a: dy / l0,
-            ea: e * sec.a, w, dx,
-        });
-
-        // Initial tension from current displacement state
-        let u_xi = dof_num.global_dof(elem.node_i, 0).map(|d| cumulative_u[d]).unwrap_or(0.0);
-        let u_yi = dof_num.global_dof(elem.node_i, 1).map(|d| cumulative_u[d]).unwrap_or(0.0);
-        let u_xj = dof_num.global_dof(elem.node_j, 0).map(|d| cumulative_u[d]).unwrap_or(0.0);
-        let u_yj = dof_num.global_dof(elem.node_j, 1).map(|d| cumulative_u[d]).unwrap_or(0.0);
-
-        let dx_def = dx + u_xj - u_xi;
-        let dy_def = dy + u_yj - u_yi;
-        let l_def = (dx_def * dx_def + dy_def * dy_def).sqrt();
-        let strain = (l_def - l0) / l0;
-        let tension = if strain > 0.0 { e * sec.a * strain } else { 0.0 };
-        cable_tensions.insert(elem.id, tension);
-    }
-
-    if cables.is_empty() { return Ok(()); }
-
-    let iteration_refusal = |code, message: &str| {
-        let mut ids: Vec<_> = cables.iter().map(|ci| ci.elem_id).collect();
-        ids.sort_unstable();
-        super::validity::refusal(code, ids, "staged_cable_iteration", message)
-    };
-
-    for iter in 0..MAX_CABLE_ITER {
-        let u_f = if let Some(base) = base_trips {
-            // Sparse path: rebuild the corrected matrix from the cached base
-            // triplets plus the Ernst correction triplets (mirrors cable.rs).
-            let mut rows = base.rows.clone();
-            let mut cols = base.cols.clone();
-            let mut vals = base.vals.clone();
-            for ci in &cables {
-                let tension = cable_tensions[&ci.elem_id];
-                let l_h = ci.dx.abs().max(1e-10);
-
-                let e_eq_factor = if tension > 1e-10 && ci.w > 1e-15 {
-                    let wl = ci.w * l_h;
-                    1.0 / (1.0 + wl * wl * ci.ea / (12.0 * tension.powi(3)))
-                } else if tension <= 0.0 && iter > 0 {
-                    0.0 // Slack cable: zero stiffness (tension-only)
-                } else {
-                    1.0
-                };
-
-                if (e_eq_factor - 1.0).abs() > 1e-15 {
-                    let ea_l = ci.ea / ci.l0;
-                    let diff = (e_eq_factor - 1.0) * ea_l;
-                    let c2 = ci.cos_a * ci.cos_a;
-                    let s2 = ci.sin_a * ci.sin_a;
-                    let cs = ci.cos_a * ci.sin_a;
-
-                    let cable_dofs = [
-                        dof_num.global_dof(ci.node_i, 0).unwrap(),
-                        dof_num.global_dof(ci.node_i, 1).unwrap(),
-                        dof_num.global_dof(ci.node_j, 0).unwrap(),
-                        dof_num.global_dof(ci.node_j, 1).unwrap(),
-                    ];
-
-                    let dk = [
-                        [diff * c2,  diff * cs, -diff * c2, -diff * cs],
-                        [diff * cs,  diff * s2, -diff * cs, -diff * s2],
-                        [-diff * c2, -diff * cs,  diff * c2,  diff * cs],
-                        [-diff * cs, -diff * s2,  diff * cs,  diff * s2],
-                    ];
-
-                    // Symmetric block: push each lower-triangle pair once,
-                    // over ALL DOFs — the restrained entries also enter
-                    // K_fr·u_r below, exactly as the dense path's corrected
-                    // asm.k feeds its K_fr extraction.
-                    for i in 0..4 {
-                        for j in 0..=i {
-                            rows.push(cable_dofs[i]);
-                            cols.push(cable_dofs[j]);
-                            vals.push(dk[i][j]);
-                        }
-                    }
-                }
-            }
-
-            let k_full = CscMatrix::from_triplets(n, &rows, &cols, &vals);
-            let mut f_f: Vec<f64> = base.f[..nf].to_vec();
-            let k_fr_ur = k_full.sparse_cross_block_matvec(u_r, nf);
-            for i in 0..nf {
-                f_f[i] -= k_fr_ur[i];
-            }
-            let k_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &None);
-            let mut conditioning = None;
-            let solved = solve_tangent_sparse_diagnosed(&k_csc, &f_f, &mut sparse_sym_cache, &mut conditioning);
-            crate::known_issues::attach(diagnostics, conditioning.into_iter().collect());
-            match solved {
-                Ok(u) => u,
-                Err(error) => return Err(iteration_refusal(DiagnosticCode::SingularMatrix,
-                    &format!("Results withheld: staged cable factorization failed: {error}"))),
-            }
-        } else {
-        // Re-assemble with modified cable stiffnesses
-        let mut asm = assemble_staged_2d(
-            stage_input, dof_num, full_input, active_elements, stage,
-        );
-
-        // Modify cable stiffness entries with Ernst factor
-        for ci in &cables {
-            let tension = cable_tensions[&ci.elem_id];
-            let l_h = ci.dx.abs().max(1e-10);
-
-            let e_eq_factor = if tension > 1e-10 && ci.w > 1e-15 {
-                let wl = ci.w * l_h;
-                1.0 / (1.0 + wl * wl * ci.ea / (12.0 * tension.powi(3)))
-            } else if tension <= 0.0 && iter > 0 {
-                0.0 // Slack cable: zero stiffness (tension-only)
-            } else {
-                1.0
-            };
-
-            if (e_eq_factor - 1.0).abs() > 1e-15 {
-                let ea_l = ci.ea / ci.l0;
-                let diff = (e_eq_factor - 1.0) * ea_l;
-                let c2 = ci.cos_a * ci.cos_a;
-                let s2 = ci.sin_a * ci.sin_a;
-                let cs = ci.cos_a * ci.sin_a;
-
-                let cable_dofs = [
-                    dof_num.global_dof(ci.node_i, 0).unwrap(),
-                    dof_num.global_dof(ci.node_i, 1).unwrap(),
-                    dof_num.global_dof(ci.node_j, 0).unwrap(),
-                    dof_num.global_dof(ci.node_j, 1).unwrap(),
-                ];
-
-                let dk = [
-                    [diff * c2,  diff * cs, -diff * c2, -diff * cs],
-                    [diff * cs,  diff * s2, -diff * cs, -diff * s2],
-                    [-diff * c2, -diff * cs,  diff * c2,  diff * cs],
-                    [-diff * cs, -diff * s2,  diff * cs,  diff * s2],
-                ];
-
-                for i in 0..4 {
-                    for j in 0..4 {
-                        asm.k[cable_dofs[i] * n + cable_dofs[j]] += dk[i][j];
-                    }
-                }
-            }
-        }
-
-        // Solve
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let rest_idx: Vec<usize> = (nf..n).collect();
-        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-        let mut f_f = extract_subvec(&asm.f, &free_idx);
-
-        let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
-        let k_fr_ur = mat_vec_rect(&k_fr, u_r, nf, nr);
-        for i in 0..nf {
-            f_f[i] -= k_fr_ur[i];
-        }
-
-        if nf >= super::linear::SPARSE_THRESHOLD {
-            // Sparse path: CSC + sparse Cholesky with cached symbolic.
-            let k_csc = tangent_free_sparse(&k_ff, nf, &None);
-            let mut conditioning = None;
-            let solved = solve_tangent_sparse_diagnosed(&k_csc, &f_f, &mut sparse_sym_cache, &mut conditioning);
-            crate::known_issues::attach(diagnostics, conditioning.into_iter().collect());
-            match solved {
-                Ok(u) => u,
-                Err(error) => return Err(iteration_refusal(DiagnosticCode::SingularMatrix,
-                    &format!("Results withheld: staged cable factorization failed: {error}"))),
-            }
-        } else {
-            let mut k_work = k_ff.clone();
-            let solved = cholesky_solve(&mut k_work, &f_f, nf);
-            crate::known_issues::attach(diagnostics, crate::known_issues::dense_factor_conditioning(&k_ff, nf, solved.as_ref().map(|_| k_work.as_slice())).into_iter().collect());
-            match solved {
-                Some(u) => u,
-                None => {
-                    let mut k_work = k_ff;
-                    let mut f_work = f_f;
-                    match lu_solve(&mut k_work, &mut f_work, nf) {
-                        Some(u) => u,
-                        None => return Err(iteration_refusal(DiagnosticCode::SingularMatrix,
-                            "Results withheld: staged cable stiffness factorization failed.")),
-                    }
-                }
-            }
-        }
-        };
-
-        // Update cumulative_u with new solution
-        for i in 0..nf {
-            cumulative_u[i] = u_f[i];
-        }
-
-        // Update cable tensions
-        let mut max_change = 0.0_f64;
-        for ci in &cables {
-            let u_xi = dof_num.global_dof(ci.node_i, 0).map(|d| cumulative_u[d]).unwrap_or(0.0);
-            let u_yi = dof_num.global_dof(ci.node_i, 1).map(|d| cumulative_u[d]).unwrap_or(0.0);
-            let u_xj = dof_num.global_dof(ci.node_j, 0).map(|d| cumulative_u[d]).unwrap_or(0.0);
-            let u_yj = dof_num.global_dof(ci.node_j, 1).map(|d| cumulative_u[d]).unwrap_or(0.0);
-
-            let dx_def = ci.dx + u_xj - u_xi;
-            let dy_def = (ci.sin_a * ci.l0) + u_yj - u_yi;
-            let l_def = (dx_def * dx_def + dy_def * dy_def).sqrt();
-            let strain = (l_def - ci.l0) / ci.l0;
-            let tension = if strain > 0.0 { ci.ea * strain } else { 0.0 };
-
-            let old_tension = cable_tensions[&ci.elem_id];
-            let change = (tension - old_tension).abs();
-            let ref_val = old_tension.abs().max(tension.abs()).max(1.0);
-            max_change = max_change.max(change / ref_val);
-            cable_tensions.insert(ci.elem_id, tension);
-        }
-
-        if max_change < CABLE_TOL {
-            return Ok(());
-        }
-    }
-    Err(iteration_refusal(DiagnosticCode::SolverNonConvergence,
-        &format!("Results withheld: staged cable iteration did not converge within {MAX_CABLE_ITER} iterations.")))
 }
 
 // ==================== 3D Staged Construction Analysis ====================

@@ -46,6 +46,6 @@ return compressed cables without containment messages. The dedicated cable route
 cable force for the load-driven control. See [SA-2026-059](../advisories/SA-2026-059-web-cable-compression.md)
 and its [replay evidence](../advisories/replays/SA-2026-059.md). Fixed in PR #1921, pending release.
 
-The later [staged cable correction](2026-11-staged-cable-tension-parity.md) permits a limited
-2D staged configuration after converged cable iteration and positive finite end-force checks.
-It retains the compression refusal and all other analysis restrictions described above.
+The staged cable exception introduced later on this branch has been withdrawn. Both staged
+solvers refuse every cable with `cable_analysis_required`; see the
+[coordinator correction](2026-11-staged-cable-refusal-and-contact-tolerance.md).

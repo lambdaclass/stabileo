@@ -35,7 +35,7 @@ The re-check registry flags models with cable members or contact features, inclu
 
 ## Fixed in
 
-Fixed in PR #1921, pending release. Web builders preserve cable identity. Shared engine validation refuses analyses outside the dedicated cable solver with the structured, translated `cable_analysis_required` error, including tensile and unloaded cable inputs. Teaching solvers refuse them as well. The automatic dedicated cable route remains available. No released fix or deployment is claimed by this draft.
+Fixed in PR #1921, pending release. Web builders preserve cable identity. Shared engine validation refuses every cable in analyses outside the dedicated cable solver, including 2D and 3D staged construction, with the structured, translated `cable_analysis_required` error, including tensile and unloaded cable inputs. Teaching solvers refuse them as well. The automatic dedicated cable route remains available. No released fix or deployment is claimed by this draft.
 
 ## Workaround
 

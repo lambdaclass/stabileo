@@ -1,6 +1,6 @@
 {
   "id": "staged-cable-tension-parity",
-  "date": "2026-11-10",
+  "date": "2026-11-11",
   "prs": [
     1921
   ],
@@ -14,23 +14,23 @@
     "solve.ok"
   ],
   "title": {
-    "en": "Staged cable results require verified tension",
-    "es": "Los resultados de cables por etapas requieren tracción verificada",
-    "pt": "Resultados de cabos por etapas exigem tração verificada",
-    "de": "Seilergebnisse der Bauphasen erfordern geprüfte Zugkräfte",
-    "fr": "Les résultats des câbles par phases exigent une traction vérifiée",
-    "tr": "Aşamalı kablo sonuçları doğrulanmış çekme gerektirir"
+    "en": "The staged cable exception is withdrawn",
+    "es": "Se retira la excepción para cables por etapas",
+    "pt": "A exceção para cabos por etapas foi retirada",
+    "de": "Die Ausnahme für Bauphasenseile entfällt",
+    "fr": "L’exception pour les câbles par phases est retirée",
+    "tr": "Aşamalı kablo istisnası kaldırılmıştır"
   },
   "explanation": {
-    "en": "A limited 2D staged cable path now accepts nodal loading in the final stage after unloaded construction, without constraints, imposed displacements or prestress. Cable iteration must converge and every active cable must have positive finite end forces. Compressive, unloaded and unsupported cases remain refused with cable_analysis_required. Other analysis restrictions are unchanged (#417; PR #1921).",
-    "es": "Una vía limitada de cables por etapas 2D acepta cargas nodales en la última etapa tras construir sin cargas, sin restricciones adicionales, desplazamientos impuestos ni pretensado. La iteración debe converger y cada cable activo debe tener fuerzas positivas y finitas en sus extremos. Los casos comprimidos, sin carga o no admitidos siguen rechazándose con cable_analysis_required. Las restricciones de otros análisis no cambian (#417; PR #1921).",
-    "pt": "Um caminho limitado de cabos por etapas 2D aceita cargas nodais na etapa final após construção sem cargas, sem vínculos adicionais, deslocamentos impostos ou protensão. A iteração deve convergir e cada cabo ativo deve ter forças positivas e finitas nas extremidades. Casos comprimidos, sem carga ou não suportados continuam recusados com cable_analysis_required. As restrições de outras análises permanecem (#417; PR #1921).",
-    "de": "Ein begrenzter 2D-Bauphasenpfad für Seile erlaubt Knotenlasten in der letzten Phase nach unbelasteter Errichtung, ohne zusätzliche Zwangsbedingungen, vorgegebene Verschiebungen oder Vorspannung. Die Seiliteration muss konvergieren und jedes aktive Seil muss positive endliche Endkräfte haben. Druck, unbelastete und nicht unterstützte Fälle bleiben mit cable_analysis_required abgelehnt. Andere Analysebeschränkungen bleiben bestehen (#417; PR #1921).",
-    "fr": "Un cas limité de câbles par phases 2D accepte les charges nodales dans la dernière phase après une construction sans charge, sans contraintes supplémentaires, déplacements imposés ni précontrainte. L’itération doit converger et chaque câble actif doit avoir des efforts positifs et finis aux extrémités. Les cas comprimés, non chargés ou non pris en charge restent refusés avec cable_analysis_required. Les restrictions des autres analyses restent inchangées (#417 ; PR #1921).",
-    "tr": "Sınırlı bir 2B aşamalı kablo yolu, yüksüz yapımdan sonra son aşamada düğüm yüklerini kabul eder; ek kısıt, zorlanmış yer değiştirme veya öngerme içermez. Kablo iterasyonu yakınsamalı ve her aktif kablonun uç kuvvetleri pozitif ve sonlu olmalıdır. Basınçlı, yüksüz ve desteklenmeyen durumlar cable_analysis_required ile reddedilir. Diğer analiz kısıtları değişmez (#417; PR #1921)."
+    "en": "Both staged solvers refuse every cable with cable_analysis_required, including tensile and unloaded inputs. Positive end forces and convergence of an Ernst stiffness iteration do not prove cable equilibrium when sag matters. Cable parity now requires identical structured refusals; numerical staged parity uses explicit trusses. Use dedicated cable analysis (#417; PR #1921).",
+    "es": "Ambos solvers por etapas rechazan todos los cables con cable_analysis_required, incluidos los casos en tracción y sin carga. Las fuerzas positivas en los extremos y la convergencia de Ernst no prueban el equilibrio con flecha. La paridad de cables exige rechazos estructurados idénticos; la paridad numérica utiliza barras explícitas. Usá el análisis dedicado de cables (#417; PR #1921).",
+    "pt": "Os dois solvers por etapas recusam todos os cabos com cable_analysis_required, inclusive tracionados e sem carga. Forças positivas nas extremidades e convergência de Ernst não comprovam equilíbrio com flecha. A paridade de cabos exige recusas estruturadas idênticas; a paridade numérica usa treliças explícitas. Use a análise dedicada de cabos (#417; PR #1921).",
+    "de": "Beide Bauphasenlöser lehnen alle Seile mit cable_analysis_required ab, auch unter Zug und ohne Last. Positive Endkräfte und Konvergenz der Ernst-Iteration belegen kein Gleichgewicht mit Durchhang. Seilparität verlangt identische strukturierte Ablehnungen; numerische Bauphasenparität nutzt explizite Fachwerkstäbe. Verwenden Sie die Seilanalyse (#417; PR #1921).",
+    "fr": "Les deux solveurs par phases refusent tous les câbles avec cable_analysis_required, même en traction ou sans charge. Des efforts positifs aux extrémités et la convergence d’Ernst ne prouvent pas l’équilibre avec flèche. La parité des câbles exige des refus structurés identiques ; la parité numérique utilise des barres explicites. Utilisez l’analyse dédiée aux câbles (#417 ; PR #1921).",
+    "tr": "Her iki aşamalı çözücü, çekmedeki ve yüksüz girdiler dahil tüm kabloları cable_analysis_required ile reddeder. Pozitif uç kuvvetleri ve Ernst iterasyonunun yakınsaması sehimli dengeyi kanıtlamaz. Kablo karşılaştırması aynı yapılandırılmış retleri gerektirir; sayısal karşılaştırma açıkça tanımlanmış kafes çubukları kullanır. Özel kablo analizini kullanın (#417; PR #1921)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-staged-cable-tension-parity.md",
-    "heading": "Staged cable parity requires verified tension (2026-11-10)"
+    "heading": "Staged cable exception withdrawn (2026-11-11)"
   }
 }
