@@ -6,6 +6,7 @@
  * Local DOF order: [u1,v1,w1,θx1,θy1,θz1, u2,v2,w2,θx2,θy2,θz2]
  */
 
+import { requireCableAnalysis } from './analysis-validity';
 import type {
   SolverInput3D, SolverSupport3D,
   SolverDistributedLoad3D, SolverPointLoad3D, SolverThermalLoad3D, SolverElement3D,
@@ -304,6 +305,7 @@ function dofLabel3D(nodeId: number, localDof: number, dofsPerNode: number): stri
 // ─── Main detailed 3D solver ────────────────────────────────────
 
 export function solveDetailed3D(input: SolverInput3D): DSMStepData {
+  requireCableAnalysis(input.elements.values());
   // ─── Step 1: DOF Numbering ────────────────────────────────────
   const hasFrames = Array.from(input.elements.values()).some(e => e.type === 'frame');
   const dofsPerNode = hasFrames ? 6 : 3;

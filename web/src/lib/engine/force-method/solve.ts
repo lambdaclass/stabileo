@@ -1,3 +1,4 @@
+import { requireCableAnalysis } from '../analysis-validity';
 /**
  * The force (flexibility) method, step by step, for 2D frames and trusses.
  *
@@ -88,6 +89,7 @@ function chosen(input: SolverInput, keys: string[], gh: number): Redundant[] {
 const sum = (rows: TermRow[]) => rows.reduce((s, r) => s + r.value, 0);
 
 export function solveForceMethod(input: SolverInput, opts: ForceMethodOptions = {}): ForceMethodResult {
+  requireCableAnalysis(input.elements.values());
   const count = countIndeterminacy(input);
   const withAxial = opts.axial ?? true;
   const manual = opts.releases !== undefined;

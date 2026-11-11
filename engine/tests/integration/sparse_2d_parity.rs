@@ -366,9 +366,8 @@ fn make_truss_connector_model() -> SolverInput {
     let mut eid = 1;
     for lvl in 0..levels {
         // horizontal tie at each level (truss)
-        let ty = if lvl % 2 == 0 { "truss" } else { "cable" }; // exercise both spellings
         elements.insert(eid.to_string(), SolverElement {
-            id: eid, elem_type: ty.to_string(),
+            id: eid, elem_type: "truss".to_string(),
             node_i: lvl * 2 + 1, node_j: lvl * 2 + 2,
             material_id: 1, section_id: 1, hinge_start: false, hinge_end: false,
         });
@@ -387,14 +386,13 @@ fn make_truss_connector_model() -> SolverInput {
                 material_id: 1, section_id: 1, hinge_start: false, hinge_end: false,
             });
             eid += 1;
-            // alternating diagonal (cable one way, truss the other)
-            let (ni, nj, ty) = if lvl % 2 == 0 {
-                (lvl * 2 + 1, (lvl + 1) * 2 + 2, "cable")
+            let (ni, nj) = if lvl % 2 == 0 {
+                (lvl * 2 + 1, (lvl + 1) * 2 + 2)
             } else {
-                (lvl * 2 + 2, (lvl + 1) * 2 + 1, "truss")
+                (lvl * 2 + 2, (lvl + 1) * 2 + 1)
             };
             elements.insert(eid.to_string(), SolverElement {
-                id: eid, elem_type: ty.to_string(),
+                id: eid, elem_type: "truss".to_string(),
                 node_i: ni, node_j: nj,
                 material_id: 1, section_id: 1, hinge_start: false, hinge_end: false,
             });

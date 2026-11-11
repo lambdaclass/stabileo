@@ -21,7 +21,7 @@ export interface SolverSection {
 
 export interface SolverElement {
   id: number;
-  type: 'frame' | 'truss';
+  type: 'frame' | 'truss' | 'cable';
   nodeI: number;
   nodeJ: number;
   materialId: number;

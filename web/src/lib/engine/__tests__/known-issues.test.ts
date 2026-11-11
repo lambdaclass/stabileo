@@ -248,3 +248,59 @@ describe('the result walker finds a refusal wherever a bundle keeps it', () => {
     expect(d.messages.join()).toContain('#741');
   });
 });
+
+
+it('translates cable and frozen-contact refusals in all six languages', async () => {
+  for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+    setLocale(loc);
+    await ensureLocale(loc);
+    for (const [code, key] of [['cable_analysis_required', 'cable'], ['contact_state_invalid', 'contact']] as const) {
+      const d = { code, severity: 'error', elementIds: [7, 9], message: 'ENGINE' };
+      const error = JSON.stringify({ message: 'ENGINE', structuredDiagnostics: [d] });
+      const template = dictFor(loc)[`analysisValidity.${key}`];
+      expect(template, `${code} ${loc}`).toContain('{elements}');
+      const translated = template.replace('{elements}', '7, 9');
+      expect(knownIssueRefusal(error), `${code} ${loc}`).toBe(translated);
+      expect(errorText(error, 'fallback'), `${code} ${loc}`).toBe(translated);
+      expect(knownIssueRefusal(error)).toContain('7, 9');
+      expect(errorText(error, 'fallback')).toContain('7, 9');
+      if (code === 'contact_state_invalid') {
+        const nodeError = JSON.stringify({ structuredDiagnostics: [{ ...d, elementIds: [], nodeIds: [7, 9] }] });
+        expect(knownIssueRefusal(nodeError)).toBe(translated);
+        expect(knownIssueRefusal(nodeError)).toContain('7, 9');
+        expect(errorText(nodeError, 'fallback')).toBe(translated);
+        expect(errorText(nodeError, 'fallback')).toContain('7, 9');
+      }
+      expect(knownIssueRefusal(JSON.stringify({ structuredDiagnostics: [{ ...d, severity: 'warning' }] }))).toBeNull();
+    }
+  }
+  setLocale('en');
+});
+
+it('translates invalid contact tolerance in six locales', async () => {
+  for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+    setLocale(loc);
+    await ensureLocale(loc);
+    const error = JSON.stringify({ structuredDiagnostics: [{ code: 'contact_tolerance_invalid', severity: 'error', message: 'ENGINE' }] });
+    const translated = dictFor(loc)['analysisValidity.contactTolerance'];
+    expect(translated).toBeTruthy();
+    expect(knownIssueRefusal(error)).toBe(translated);
+    expect(errorText(error, 'fallback')).toBe(translated);
+    expect(knownIssueRefusal(JSON.stringify({ structuredDiagnostics: [{ code: 'contact_tolerance_invalid', severity: 'warning', message: 'ENGINE' }] }))).toBeNull();
+  }
+  setLocale('en');
+});
+
+it('translates frozen one-way member refusals with the member ID in six locales', async () => {
+  for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+    setLocale(loc);
+    await ensureLocale(loc);
+    const error = JSON.stringify({ structuredDiagnostics: [{ code: 'contact_state_invalid', phase: 'element_behavior', severity: 'error', elementIds: [2], message: 'ENGINE' }] });
+    const template = dictFor(loc)['analysisValidity.member'];
+    expect(template).toContain('{elements}');
+    const translated = template.replace('{elements}', '2');
+    expect(knownIssueRefusal(error)).toBe(translated);
+    expect(errorText(error, 'fallback')).toBe(translated);
+  }
+  setLocale('en');
+});

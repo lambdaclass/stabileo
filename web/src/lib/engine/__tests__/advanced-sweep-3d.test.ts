@@ -313,6 +313,7 @@ const LOGS = new Map<string, SweepLog>();
 describe.each(Object.keys(FAMILIES))('sweep: %s', (family) => {
   let log: SweepLog;
   beforeAll(async () => {
+    const started = performance.now();
     log = emptyLog();
     for (let seed = 1; seed <= SEEDS_PER_FAMILY; seed++) {
       // Keep progress RPC replies flowing during the synchronous solver sweep.
@@ -320,6 +321,7 @@ describe.each(Object.keys(FAMILIES))('sweep: %s', (family) => {
       runModel(buildRandom(family, seed), log);
     }
     LOGS.set(family, log);
+    process.stdout.write(`[advanced-sweep-3d] ${family} seeds 1–${SEEDS_PER_FAMILY}: ${((performance.now() - started) / 1000).toFixed(3)} s\n`);
   }, 120_000);
 
   it('builds and solves the models (no throw, clear refusals, finite numbers)', () => {
@@ -773,7 +775,10 @@ describe('section stress 3D: the sign a student checks first', () => {
 // ═════════════════════════════════════════════════════════════════
 
 describe('what-if 3D', () => {
-  afterEach(() => { vi.useRealTimers(); });
+  afterEach(async () => {
+    vi.useRealTimers();
+    await whatIf.close();
+  });
 
   const flush = () => vi.advanceTimersByTime(200);
   const solved = (): AnalysisResults3D => {
@@ -790,9 +795,31 @@ describe('what-if 3D', () => {
   async function session<T>(fn: () => T): Promise<T> {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     uiStore.liveCalc = true; // so close() restores without scheduling a live solve
-    whatIf.open();
-    try { return fn(); } finally { await whatIf.close(); vi.useRealTimers(); }
+    try {
+      whatIf.open();
+      return await fn();
+    } finally {
+      vi.useRealTimers();
+      await whatIf.close();
+    }
   }
+
+  it('an abort after applying a slider restores the model and closes the session', async () => {
+    buildRandom('space-frame', 3);
+    const base = solved();
+    const snapshot = modelStore.snapshot();
+    const abort = new Error('injected mid-what-if abort');
+    await expect(session(() => {
+      whatIf.setAll('e', 2);
+      flush();
+      throw abort;
+    })).rejects.toBe(abort);
+    expect(whatIf.active).toBe(false);
+    expect(uiStore.showWhatIf).toBe(false);
+    expect(vi.isFakeTimers()).toBe(false);
+    expect(modelStore.snapshot()).toEqual(snapshot);
+    expect(solved().displacements).toEqual(base.displacements);
+  });
 
   const FAMS = ['space-frame', 'skew-frame', 'grillage', 'tower', 'cantilever-torsion', 'mixed-frame-truss', 'pitched-nave', 'space-truss'];
 

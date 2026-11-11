@@ -36,11 +36,6 @@ import { t } from '../i18n';
 import { massDensities } from './dynamics/requests';
 import { CONCRETE_FY_CEILING } from '../model/material-family';
 
-/**
- * `cable`: tension only, and softened by its own weight (Ernst's equivalent modulus), solved by the
- * engine's cable analysis; it reports tension, thrust, sag and that modulus. Every other analysis
- * takes a cable as a truss. There is no pretension: the unstretched length is the chord.
- */
 export type MemberBehaviour = 'tensionOnly' | 'compressionOnly' | 'inactive' | 'cable';
 
 export type StiffnessPreset = 'column' | 'wallUncracked' | 'wallCracked' | 'beam' | 'slab';

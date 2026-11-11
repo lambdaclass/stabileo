@@ -3,6 +3,7 @@
  * Mirrors the logic in solver-js.ts but stores every matrix, vector, and contribution.
  */
 
+import { requireCableAnalysis } from './analysis-validity';
 import type {
   SolverInput, SolverNode, SolverSupport,
   SolverPointLoadOnElement, SolverThermalLoad,
@@ -398,6 +399,7 @@ export function freeDofCount(input: SolverInput): number {
 }
 
 export function solveDetailed(input: SolverInput, opts: { axialRigid?: boolean } = {}): DSMStepData {
+  requireCableAnalysis(input.elements.values());
   const out = solveDetailedFlexible(input);
   if (!opts.axialRigid) return out;
   const r = applyAxialRigidity(input, out);

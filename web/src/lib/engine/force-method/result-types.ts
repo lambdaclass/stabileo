@@ -48,7 +48,7 @@ export interface Geometry {
   is3D?: boolean;
   nodes: Array<{ id: number; x: number; z: number; y?: number }>;
   elements: Array<{
-    id: number; nodeI: number; nodeJ: number; type: 'frame' | 'truss'; hingeStart: boolean; hingeEnd: boolean;
+    id: number; nodeI: number; nodeJ: number; type: 'frame' | 'truss' | 'cable'; hingeStart: boolean; hingeEnd: boolean;
     /** 3D: local y and z, for drawing Mz and My off the bar. */
     ey?: [number, number, number]; ez?: [number, number, number];
   }>;
