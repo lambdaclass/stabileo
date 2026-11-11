@@ -269,7 +269,6 @@ else flock -n {lock} echo retried; fi
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))
 
 
-@unittest.skip("known wrong result: apt DNS outage, job 130632471024")
 class BrowserDepsOutage(unittest.TestCase):
     def module(self):
         spec = importlib.util.spec_from_file_location('browser_deps', ROOT / '.github/scripts/browser-deps.py')
@@ -284,12 +283,59 @@ class BrowserDepsOutage(unittest.TestCase):
                 log.write_text(line)
                 self.assertEqual(subprocess.run([str(WRAPPER), '--matches', str(log)]).returncode, 0)
 
+    def test_genuine_apt_package_errors_are_not_infrastructure(self):
+        for line in ('E: Unable to locate package libmissing', 'E: Unmet dependencies. Try apt --fix-broken install.'):
+            with self.subTest(line=line), tempfile.TemporaryDirectory() as directory:
+                log = Path(directory) / 'log'
+                log.write_text(line)
+                self.assertEqual(subprocess.run([str(WRAPPER), '--matches', str(log)]).returncode, 1)
+
+    def test_action_uses_the_package_plan_for_cache_keys_and_installation(self):
+        text = (ROOT / '.github/actions/browser-deps/action.yml').read_text()
+        self.assertNotIn('package-lock.json', text)
+        self.assertIn('browser-deps.py key', text)
+        self.assertIn('.github/scripts/retry-infra.sh nix develop --command python3 .github/scripts/browser-deps.py install', text)
+
     def test_package_plan_is_normalized_and_unrecognized_output_is_refused(self):
         module = self.module()
-        self.assertEqual(module.packages("sudo -- sh -c 'apt-get update && apt-get install -y --no-install-recommends libb liba libb'"), ['liba', 'libb'])
-        for plan in ('', 'apt-get update', 'apt-get install -y', 'apt-get install -y liba; echo bad'):
+        self.assertEqual(module.packages(['libb', 'liba', 'libb']), ['liba', 'libb'])
+        for plan in ('', [], ['-y'], ['liba; echo bad'], ['liba', 1], {'liba': True}):
             with self.subTest(plan=plan), self.assertRaises(ValueError):
                 module.packages(plan)
+
+    def test_package_plan_captures_requested_packages_without_running_apt(self):
+        module = self.module()
+        with tempfile.TemporaryDirectory() as directory:
+            npx = Path(directory) / 'npx'
+            npx.write_text('#!/bin/sh\napt-get install -s --no-install-recommends libb liba libb\n')
+            npx.chmod(0o755)
+            from unittest.mock import patch
+            with patch.dict(os.environ, {'PATH': directory + os.pathsep + os.environ['PATH']}):
+                self.assertEqual(module.package_plan(['chromium']), ['liba', 'libb'])
+            npx.write_text('#!/bin/sh\napt-get update\n')
+            with patch.dict(os.environ, {'PATH': directory + os.pathsep + os.environ['PATH']}):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    module.package_plan(['chromium'])
+
+    def test_keys_follow_packages_for_every_browser_combination(self):
+        from itertools import combinations
+        from unittest.mock import patch
+        module = self.module()
+        keys = []
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'output'
+            for count in (1, 2, 3):
+                for browsers in combinations(('chromium', 'firefox', 'webkit'), count):
+                    def plan(requested):
+                        self.assertEqual(requested, list(browsers))
+                        return ['liba', 'libb']
+                    with patch.object(module, 'package_plan', side_effect=plan), patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'amd64\n')), patch.dict(os.environ, {'GITHUB_OUTPUT': str(output), 'ImageOS': 'ubuntu24', 'ImageVersion': 'fixture'}), patch('sys.argv', ['browser-deps.py', 'key', *browsers]):
+                        module.main()
+                    keys.append(output.read_text().splitlines()[-1])
+            self.assertEqual(len(set(keys)), 1)
+            with patch.object(module, 'package_plan', return_value=['libc']), patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'amd64\n')), patch.dict(os.environ, {'GITHUB_OUTPUT': str(output), 'ImageOS': 'ubuntu24', 'ImageVersion': 'fixture'}), patch('sys.argv', ['browser-deps.py', 'key', 'chromium']):
+                module.main()
+            self.assertNotEqual(output.read_text().splitlines()[-1], keys[0])
 
     def test_fallback_splits_security_suites_and_preserves_signatures(self):
         module = self.module()
@@ -300,6 +346,11 @@ class BrowserDepsOutage(unittest.TestCase):
         self.assertIn('Suites: noble noble-updates', fallback)
         self.assertIn('Suites: noble-security', fallback)
         self.assertEqual(fallback.count('Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg'), 2)
+        for suites, host in (('noble', 'archive'), ('noble-security', 'security')):
+            single = original.replace('noble noble-updates noble-security', suites)
+            self.assertIn(f'URIs: http://{host}.ubuntu.com/ubuntu', module.rewrite_sources(single, '.sources'))
+        with self.assertRaises(ValueError):
+            module.rewrite_sources('URIs: http://azure.archive.ubuntu.com/ubuntu', '.sources')
         legacy = 'deb [signed-by=/key] http://azure.archive.ubuntu.com/ubuntu noble-security main\n'
         self.assertEqual(module.rewrite_sources(legacy, '.list'), legacy.replace('azure.archive', 'security'))
         other = 'deb https://packages.example.com/ubuntu noble main\n'
@@ -373,13 +424,15 @@ class BrowserDeps(unittest.TestCase):
     def test_apt_keeps_its_downloads_in_the_cache_and_waits_for_the_lock(self):
         text = (ROOT / '.github/actions/browser-deps/action.yml').read_text()
         steps = dict(part.split('\n', 1) for part in text.split('\n    - name: ')[1:])
-        for setting in ('Dir::Cache::Archives', 'APT::Keep-Downloaded-Packages \\"true\\"', 'DPkg::Lock::Timeout'):
-            self.assertIn(setting.replace('\\', ''), steps['Point apt at the package cache'].replace('\\', ''))
+        installer = (ROOT / '.github/scripts/browser-deps.py').read_text()
+        for setting in ('Dir::Cache::Archives', 'APT::Keep-Downloaded-Packages=true', 'DPkg::Lock::Timeout'):
+            self.assertIn(setting, installer)
+        self.assertNotIn('/etc/apt/apt.conf.d/', text)
         keys = [re.search(r'key: (.+)', steps[name]).group(1) for name in ('Restore downloaded packages', 'Save downloaded packages')]
         self.assertEqual(keys[0], keys[1])
         self.assertIn("if: steps.restore.outputs.cache-hit != 'true'", steps['Save downloaded packages'])
         install = re.search(r'run: (.+)', steps['Install browser system dependencies']).group(1)
-        install = install.replace('${{ inputs.browsers }}', 'chromium firefox webkit')
+        install = install.replace('$BROWSERS', 'chromium firefox webkit')
         self.assertTrue(install.startswith('.github/scripts/retry-infra.sh '))
         spec = importlib.util.spec_from_file_location('infra_retry', ROOT / '.github/scripts/infra-retry.py')
         infra = importlib.util.module_from_spec(spec)
