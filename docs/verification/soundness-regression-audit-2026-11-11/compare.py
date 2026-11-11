@@ -1,3 +1,4 @@
+from audit_evidence import contributing_tests
 import json,pathlib,sys,collections
 area=pathlib.Path('/root/audit/soundness-2026-11-11')
 missing=object()
@@ -42,7 +43,7 @@ def run(base,head,name):
   change=diffs(normalize(av),normalize(bv))
   if not change:unchanged.append(file);continue
   row=dict(model=file,test=b.get('test',b.get('case')),changes=change)
-  if native:row['input']=b['input'];row['analysis']=b['analysis']
+  if native:row['input']=b['input'];row['analysis']=b['analysis'];row['tests']=contributing_tests(b)
   row['numeric_changes']=sum(isinstance(c.get('before'),(float,int)) and not isinstance(c.get('before'),bool) and isinstance(c.get('after'),(float,int)) for c in change)
   row['before_refused']='Err' in a.get('result',{}) if native else not a['values'].get('solve.ok',False)
   row['after_refused']='Err' in b.get('result',{}) if native else not b['values'].get('solve.ok',False)

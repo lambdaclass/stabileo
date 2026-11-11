@@ -58,7 +58,7 @@ class References(unittest.TestCase):
 
 
 class History(unittest.TestCase):
-    def run_history(self, filename, values):
+    def run_history(self, filename, values, provenance=None):
         with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
             area = Path(directory)
             for sub in ['repo', 'base-fixed-native', 'all-static-bisect', 'arc-bisect', 'reference-bisect', 'bisect-probe', 'target-arc-bisect/release/examples']:
@@ -70,6 +70,7 @@ class History(unittest.TestCase):
             test = 'macneal_harder::browser_cases'
             record = dict(analysis='solve_arc_length' if arc else 'solve_3d', test=test,
                           input=[{}], result=values[0] if arc else {'Ok': values[0]})
+            record.update(provenance or {})
             (area / 'base-fixed-native' / model).write_text(json.dumps(record))
             drift = dict(model=model, analysis=record['analysis'], engineering_fields=1,
                          before_refused=False, after_refused=refusal, test=test)
@@ -243,7 +244,6 @@ class EvidenceChecks(unittest.TestCase):
                 self.assertEqual(first_boundary(sequence, lambda i: sequence[i], lambda v: v), expected)
 
 
-@unittest.skip('known wrong result: #1946')
 class FinalReview(unittest.TestCase):
     def test_static_history_tracks_reactions_forces_and_stresses(self):
         history = History()
@@ -255,6 +255,23 @@ class FinalReview(unittest.TestCase):
                     self.assertEqual(len(result), 1)
                     self.assertEqual(result[0]['parent'], 'r0')
                     self.assertEqual(result[0].get('first_change'), 'r1')
+
+    def test_reference_history_selects_secondary_test_provenance(self):
+        rows, _ = History().run_history('bisect-reference.py', [{'displacements': [i]} for i in range(5)],
+                                       dict(test='another_test', tests=['another_test', 'macneal_harder::browser_cases']))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['first_change'], 'r1')
+
+    def test_later_forces_are_not_attributed_to_an_earlier_displacement_change(self):
+        for script in ['bisect-all-static.py', 'bisect-reference.py']:
+            values = [dict(displacements=[int(i > 0)], reactions=[int(i > 2)], elementForces=[int(i > 3)]) for i in range(5)]
+            rows, _ = History().run_history(script, values)
+            expected = {
+                'displacements': {'parent': 'r0', 'first_change': 'r1'},
+                'reactions': {'parent': 'r2', 'first_change': 'r3'},
+                'elementForces': {'parent': 'r3', 'first_change': 'r4'},
+            }
+            self.assertEqual(rows[0].get('quantity_transitions'), expected)
 
     def test_static_history_excludes_timing_and_build_metadata(self):
         history = History()
@@ -278,7 +295,7 @@ class FinalReview(unittest.TestCase):
             record = helper[helper.index('fn record<'):helper.index('#[track_caller]')]
             (area / 'src').mkdir()
             (area / 'Cargo.toml').write_text('[package]\nname="audit-provenance-control"\nversion="0.1.0"\nedition="2021"\n[dependencies]\nserde="1"\nserde_json="1"\n[workspace]\n')
-            (area / 'src/main.rs').write_text('use std::hash::{Hash, Hasher};\n' + record + r''' 
+            (area / 'src/main.rs').write_text('use std::hash::{Hash, Hasher};\n' + record + r'''
 fn main() {
     let handles: Vec<_> = ["first", "second", "first"].into_iter().map(|name| {
         std::thread::Builder::new().name(name.into()).spawn(|| {
@@ -298,6 +315,17 @@ fn main() {
             for file in records:
                 self.assertEqual(json.loads(file.read_text()).get('tests'), ['first', 'second'])
 
+    def test_input_unions_preserve_provenance_and_reject_identity_collisions(self):
+        from audit_evidence import merge_input_records
+        first = dict(analysis='solve_2d', input=[{}], test='first')
+        second = dict(analysis='solve_2d', input=[{}], test='second', tests=['second', 'third'])
+        merged = merge_input_records(first, second)
+        self.assertEqual(merged['tests'], ['first', 'second', 'third'])
+        self.assertEqual(merge_input_records(merged, first)['tests'], merged['tests'])
+        for invalid in [dict(second, input=[{'different': True}]), dict(second, analysis='solve_3d')]:
+            with self.assertRaises(ValueError):
+                merge_input_records(first, invalid)
+
     def test_reference_collection_uses_all_provenance_and_refuses_changed_targets(self):
         with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
             area = Path(directory)
@@ -314,6 +342,40 @@ fn main() {
             self.assertIsNone(row['farther'])
             self.assertIsNone(row['before_error'])
             self.assertIsNone(row['after_error'])
+            observation = dict(test='second', site='test', actual=2, reference=1)
+            (area / 'repo-reference-test.log').write_text('AUDIT_REFERENCE=' + json.dumps(observation))
+            exec(compile(source, str(AUDIT / 'collect-references.py'), 'exec'), {})
+            row = json.loads((area / 'reference-comparisons.json').read_text())['rows'][0]
+            self.assertTrue(row['farther'])
+            self.assertEqual((row['before_error'], row['after_error']), (0, 1))
+
+    def test_secondary_provenance_reaches_acceptance_and_frozen_reference_consumers(self):
+        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+            area = Path(directory)
+            for folder in ['base-fixed-native', 'repo-fixed-native', 'base-site-gallery', 'repo-site-gallery',
+                           'base/engine/tests/benchmarks', 'repo/engine/tests/benchmarks/spec', 'repo/engine/tests/acceptance/models']:
+                (area / folder).mkdir(parents=True)
+            (area / 'compare.py').write_text((AUDIT / 'compare.py').read_text())
+            (area / 'base/engine/tests/benchmarks/macneal_harder.json').write_text('{"cases": []}')
+            (area / 'reference-comparisons.json').write_text('{"rows": []}')
+            (area / 'repo/engine/tests/benchmarks/spec/scordelis-lo.json').write_text(json.dumps({'references': [{'value': 1, 'citation': 'synthetic control'}]}))
+            case = dict(id='control', source='synthetic control', references=[dict(quantity='displacement', node=1, component='uz', value=1, tolAbs=0)])
+            (area / 'repo/engine/tests/acceptance/models/control.json').write_text(json.dumps(case))
+            record = dict(analysis='solve_3d', test='first', tests=['first', 'acceptance::control', 'benchmark_protocol::benchmark_protocol_roof'],
+                          input=[{'nodes': {'1': {'id': 1, 'x': 0, 'y': 1, 'z': 0}}}], result={'Ok': {'displacements': [{'nodeId': 1, 'uz': 1}]}})
+            for endpoint in ['base', 'repo']:
+                (area / f'{endpoint}-fixed-native/model.json').write_text(json.dumps(record))
+            for script in ['finish-analysis.py', 'frozen-references.py']:
+                source = (AUDIT / script).read_text().replace('/root/audit/soundness-2026-11-11', directory)
+                with patch.object(sys, 'argv', [script, directory]):
+                    exec(compile(source, str(AUDIT / script), 'exec'), {'__file__': str(AUDIT / script)})
+            acceptance = json.loads((area / 'acceptance-comparison.json').read_text())
+            self.assertEqual((acceptance['cases'], acceptance['references']), (1, 1))
+            self.assertTrue(acceptance['comparisons'][0]['after_pass'])
+            frozen = json.loads((area / 'reference-comparisons.json').read_text())['frozen_primary_comparisons']
+            self.assertEqual(len(frozen), 1)
+            self.assertEqual(frozen[0]['test'], 'benchmark_protocol::benchmark_protocol_roof')
+            self.assertFalse(frozen[0]['farther'])
 
     def test_suite_failure_inventory_matches_the_recorded_count(self):
         from audit_evidence import check_suite
@@ -322,17 +384,28 @@ fn main() {
             log.write_text('test a::wrong ... FAILED\ntest b::wrong ... FAILED\nfailures:\n    a::wrong\n    b::wrong\ntest result: FAILED. 0 passed; 2 failed; 0 ignored;')
             result = check_suite(log, 101, True)
             self.assertEqual(result.get('failed_tests'), ['a::wrong', 'b::wrong'])
+            log.write_text('test result: FAILED. 0 passed; 2 failed; 0 ignored;')
+            unavailable = check_suite(log, 101, True)
+            self.assertIsNone(unavailable['failed_tests'])
+            self.assertIn('no test names', unavailable['failed_tests_unavailable'])
             log.write_text('test a::wrong ... FAILED\ntest result: FAILED. 0 passed; 2 failed; 0 ignored;')
             with self.assertRaises(ValueError):
                 check_suite(log, 101, True)
 
     def test_archived_failure_inventory_is_complete(self):
         import re
+        import gzip
+        from audit_evidence import failure_inventory
+        logs = json.loads(gzip.decompress((AUDIT / 'run-evidence.json.gz').read_bytes()))['logs']
         summary = json.loads((AUDIT / 'run-summary.json').read_text())
         for row in summary:
             failed = sum(int(n) for line in row['results'] for n in re.findall(r'; (\d+) failed;', line))
             with self.subTest(log=row['log']):
                 self.assertEqual(len(row['failed_tests']), failed)
+                text = logs.get(row['log'])
+                if text is None:
+                    text = (AUDIT / row['log']).read_text()
+                self.assertEqual(row['failed_tests'], failure_inventory(text, failed)['failed_tests'])
 
     def test_successful_replay_reports_its_own_status(self):
         source = (AUDIT / 'run-complete-native.sh').read_text()

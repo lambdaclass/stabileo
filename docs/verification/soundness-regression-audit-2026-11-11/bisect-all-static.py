@@ -1,4 +1,4 @@
-from audit_evidence import first_boundary
+from audit_evidence import engineering_signature, first_boundary, quantity_boundaries
 import pathlib,json,subprocess
 area=pathlib.Path('/root/audit/soundness-2026-11-11');repo=area/'repo';work=area/'all-static-bisect';target=area/'target-all-static-bisect'
 def git(*a,cwd=repo):return subprocess.check_output(['git',*a],cwd=cwd,text=True).strip()
@@ -9,7 +9,7 @@ for row in json.loads((area/'native-summary.json').read_text())['drift']:
  if row['analysis']=='solve_3d' and row['engineering_fields'] and not row['after_refused']:
   f=area/'base-fixed-native'/row['model'];records[f.name]=json.loads(f.read_text())
 cache={}
-def signature(out):return out['displacements']
+def signature(out):return engineering_signature(out)
 def evaluate(i):
  if i in cache:return cache[i]
  sha=revs[i];subprocess.run(['git','checkout','--detach',sha],cwd=work,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
@@ -24,5 +24,5 @@ for f,r in records.items():
  boundary=first_boundary(revs,evaluate,lambda result: signature(result[f]))
  if boundary is None:continue
  lo,hi=boundary
- out.append(dict(model=f,first_change=revs[hi],parent=revs[lo],subject=git('show','-s','--format=%s',revs[hi]),before=evaluate(lo)[f],after=evaluate(hi)[f]));print('FIRST CHANGE',f,out[-1]['subject'],flush=True)
+ out.append(dict(model=f,first_change=revs[hi],parent=revs[lo],subject=git('show','-s','--format=%s',revs[hi]),quantity_transitions=quantity_boundaries(revs,evaluate,lambda result: result[f]),before=evaluate(lo)[f],after=evaluate(hi)[f]));print('FIRST CHANGE',f,out[-1]['subject'],flush=True)
 (area/'all-static-bisection.json').write_text(json.dumps(out))

@@ -16,7 +16,7 @@
     "gallery.readouts.length": 3,
     "gallery.readouts[0].key": "maxDeflection",
     "gallery.readouts[0].reference.source": "Reissner–Mindlin Navier series, κ = 5/6 (Reddy 2007; Wang, Reddy & Lee 2000)",
-    "gallery.readouts[0].reference.value": 24.339803852876386,
+    "gallery.readouts[0].reference.value": 24.339803852876383,
     "gallery.readouts[0].unit": "mm",
     "gallery.readouts[0].value": 24.307234116900524,
     "gallery.readouts[1].key": "spanRatio",

@@ -1,3 +1,4 @@
+from audit_evidence import contributing_tests
 import pathlib,json,importlib.util,gzip,collections,hashlib,re
 area=pathlib.Path('/root/audit/soundness-2026-11-11')
 spec=importlib.util.spec_from_file_location('audit_compare',area/'compare.py');cmp=importlib.util.module_from_spec(spec);spec.loader.exec_module(cmp)
@@ -23,10 +24,10 @@ for r in rows:
 records=[]
 for p in (area/'repo-fixed-native').glob('*.json'):
  d=json.loads(p.read_text())
- if str(d.get('test','')).startswith('acceptance::'):records.append((p.name,d))
+ if any(test.startswith('acceptance::') for test in contributing_tests(d)):records.append((p.name,d))
 refs=[]
 for case_path in (area/'repo/engine/tests/acceptance/models').glob('*.json'):
- case=json.loads(case_path.read_text());matches=[r for r in records if r[1]['test'].endswith('::'+case['id'])]
+ case=json.loads(case_path.read_text());matches=[r for r in records if any(test.endswith('::'+case['id']) for test in contributing_tests(r[1]))]
  assert len(matches)==1,(case['id'],len(matches))
  file,d=matches[0];before=json.loads((area/'base-fixed-native'/file).read_text())['result']['Ok'];after=d['result']['Ok']
  def quantity(result,r):

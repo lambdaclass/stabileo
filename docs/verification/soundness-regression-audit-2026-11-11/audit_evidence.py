@@ -12,6 +12,54 @@ def first_boundary(revisions, evaluate, signature):
     return None
 
 
+def engineering_signature(value):
+    if isinstance(value, dict):
+        return {key: engineering_signature(item) for key, item in value.items()
+                if key not in {'timings', 'elapsedMs', 'elapsed', 'solveTimeMs', 'solverRunMeta'}}
+    if isinstance(value, list):
+        return [engineering_signature(item) for item in value]
+    return value
+
+
+def quantity_boundaries(revisions, evaluate, select):
+    baseline = engineering_signature(select(evaluate(0)))
+    boundaries = {}
+    missing = object()
+    for index in range(1, len(revisions)):
+        current = engineering_signature(select(evaluate(index)))
+        for quantity in baseline.keys() | current.keys():
+            if quantity not in boundaries and baseline.get(quantity, missing) != current.get(quantity, missing):
+                boundaries[quantity] = dict(parent=revisions[index - 1], first_change=revisions[index])
+    return dict(sorted(boundaries.items()))
+
+
+def contributing_tests(record):
+    return sorted(set(record.get('tests', []) + ([record['test']] if record.get('test') else [])))
+
+
+def merge_input_records(previous, incoming):
+    for field in ['analysis', 'input']:
+        if previous[field] != incoming[field]:
+            raise ValueError(f'input identity collision: {field}')
+    tests = sorted(set(contributing_tests(previous) + contributing_tests(incoming)))
+    if not tests:
+        raise ValueError('input has no contributing tests')
+    merged = {key: value for key, value in incoming.items() if key != 'result'}
+    merged.update(test=tests[0], tests=tests)
+    return merged
+
+
+def failure_inventory(text, failed):
+    names = set(re.findall(r'^test (\S+) \.\.\. FAILED$', text, re.MULTILINE))
+    for footer in re.findall(r'^failures:\n((?:[ \t]*\n|[ \t]+\S+\n)+)', text, re.MULTILINE):
+        names.update(line.strip() for line in footer.splitlines() if line.strip())
+    if names and len(names) != failed:
+        raise ValueError(f'failure inventory has {len(names)} names for {failed} failures')
+    if failed and not names:
+        return dict(failed_tests=None, failed_tests_unavailable='Log has a failure count but no test names')
+    return dict(failed_tests=sorted(names))
+
+
 def check_suite(log, status, allow_failures=False):
     text = Path(log).read_text()
     summaries = re.findall(r'test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;', text)
@@ -22,7 +70,7 @@ def check_suite(log, status, allow_failures=False):
         raise ValueError(f'{log}: no executed tests ({ignored} ignored)')
     if status != (101 if failed else 0) or failed and not allow_failures:
         raise ValueError(f'{log}: test command failed with status {status}, {failed} failures')
-    return dict(passed=passed, failed=failed, ignored=ignored, executed=passed + failed)
+    return dict(passed=passed, failed=failed, ignored=ignored, executed=passed + failed, **failure_inventory(text, failed))
 
 
 def check_replay(source, target, additional=None):

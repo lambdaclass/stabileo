@@ -21,7 +21,9 @@ printf '%s %s %s status=%s\n' "$endpoint" "$binary" "$filter" "${status:-0}"
 done
 done
 python3 - <<'PY'
-import pathlib,json
+import pathlib,json,sys
+sys.path.insert(0, "/root/audit/soundness-2026-11-11")
+from audit_evidence import merge_input_records
 area=pathlib.Path('/root/audit/soundness-2026-11-11')
 target=area/'fixed-inputs'
 target.mkdir(exist_ok=True)
@@ -32,7 +34,7 @@ for endpoint in ['base','repo']:
   d=json.loads(p.read_text());d.pop('result',None)
   destination=target/p.name
   if destination.exists():
-   previous=json.loads(destination.read_text());assert previous['analysis']==d['analysis'] and previous['input']==d['input'], f'input identity collision: {p.name}'
+   d=merge_input_records(json.loads(destination.read_text()),d)
   destination.write_text(json.dumps(d))
 print('union models',len(list(target.glob('*.json'))),flush=True)
 PY
@@ -44,6 +46,6 @@ AUDIT_FIXED_FROM="$area/fixed-inputs" AUDIT_FIXED_TO="$replay_target" nice -n 19
 python3 "$area/audit_evidence.py" check-suite "$area/$endpoint-fixed-replay.log" 0
 python3 "$area/audit_evidence.py" check-replay "$area/fixed-inputs" "$replay_target"
 cp "$replay_target"/*.json "$area/$endpoint-fixed-native/"
-printf '%s frozen replay status=%s\n' "$endpoint" "${status:-0}"
+printf '%s frozen replay status=0\n' "$endpoint"
 done
 nice -n 19 nix develop --command python3 "$area/compare.py" native

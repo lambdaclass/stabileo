@@ -18,13 +18,43 @@ wrappers += [('guyan_reduce_2d', 'reduction', 'input: &dedaliano_engine::solver:
 helper='use dedaliano_engine::solver::{modal::{ModalResult,ModalResult3D},buckling::{BucklingResult,BucklingResult3D},pdelta::{PDeltaResult,PDeltaResult3D},arc_length::{ArcLengthInput,ArcLengthResult}};\nuse dedaliano_engine::types::*;\nuse std::hash::{Hash, Hasher};\n'
 helper+='''
 fn record<T: serde::Serialize>(kind: &str, input: serde_json::Value, result: &Result<T, String>) {
+    fn engineering_result(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(fields) => {
+                fields.retain(|key, _| !["timings", "elapsedMs", "elapsed", "solveTimeMs", "solverRunMeta"].contains(&key.as_str()));
+                for child in fields.values_mut() { engineering_result(child); }
+            }
+            serde_json::Value::Array(items) => { for child in items { engineering_result(child); } }
+            _ => {}
+        }
+    }
     if let Ok(out) = std::env::var("AUDIT_NATIVE_OUT") {
         std::fs::create_dir_all(&out).unwrap();
         let text = serde_json::to_string(&input).unwrap();
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         text.hash(&mut hash);
         let path = format!("{out}/{kind}-{:016x}.json", hash.finish());
-        std::fs::write(path, serde_json::to_vec(&serde_json::json!({"analysis":kind,"test":std::thread::current().name(),"input":input,"result":result})).unwrap()).unwrap();
+        static CAPTURE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = CAPTURE_LOCK.lock().unwrap();
+        let result = serde_json::to_value(result).unwrap();
+        let mut tests = std::collections::BTreeSet::new();
+        if std::path::Path::new(&path).exists() {
+            let previous: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            assert_eq!(previous["analysis"], kind);
+            assert_eq!(previous["input"], input);
+            let mut before = previous["result"].clone();
+            let mut after = result.clone();
+            engineering_result(&mut before);
+            engineering_result(&mut after);
+            assert_eq!(before, after);
+            if let Some(names) = previous["tests"].as_array() {
+                tests.extend(names.iter().map(|name| name.as_str().unwrap().to_owned()));
+            }
+            if let Some(name) = previous["test"].as_str() { tests.insert(name.to_owned()); }
+        }
+        tests.insert(std::thread::current().name().unwrap().to_owned());
+        let test = tests.first().unwrap();
+        std::fs::write(path, serde_json::to_vec(&serde_json::json!({"analysis":kind,"test":test,"tests":tests,"input":input,"result":result})).unwrap()).unwrap();
     }
 }
 '''

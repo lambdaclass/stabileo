@@ -19,7 +19,9 @@ printf '%s %s status=%s\n' "$endpoint" "$filter" "${status:-0}"
 done
 done
 python3 - <<'PY'
-import pathlib,json
+import pathlib,json,sys
+sys.path.insert(0, "/root/audit/soundness-2026-11-11")
+from audit_evidence import merge_input_records
 area=pathlib.Path('/root/audit/soundness-2026-11-11');target=area/'extra-inputs';target.mkdir(exist_ok=True)
 assert not list(target.glob('*.json')), 'input manifest must start empty'
 for endpoint in ['base','repo']:
@@ -28,11 +30,12 @@ for endpoint in ['base','repo']:
   d=json.loads(p.read_text());d.pop('result',None)
   existing=area/'fixed-inputs'/p.name
   if existing.exists():
-   previous=json.loads(existing.read_text());assert previous['analysis']==d['analysis'] and previous['input']==d['input'], f'input identity collision: {p.name}'
+   previous=json.loads(existing.read_text());merged=merge_input_records(previous,d)
+   assert merged['tests']==merge_input_records(previous,previous)['tests'], f'new provenance for existing replay input: {p.name}; recapture the full manifest before replay'
    continue
   destination=target/p.name
   if destination.exists():
-   previous=json.loads(destination.read_text());assert previous['analysis']==d['analysis'] and previous['input']==d['input'], f'input identity collision: {p.name}'
+   d=merge_input_records(json.loads(destination.read_text()),d)
   destination.write_text(json.dumps(d))
 print('extra frozen models',len(list(target.glob('*.json'))),flush=True)
 PY

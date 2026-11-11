@@ -1,5 +1,5 @@
 import { beforeAll, it, expect } from 'vitest';
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import * as engine from '../../engine/wasm-solver';
 import { EXAMPLES } from '../../../components/examples/catalog';
 import { defaults, refusedOutcome } from '../../../components/examples/define';
@@ -13,7 +13,7 @@ const generated = EXAMPLES.flatMap(e => {
     { id: e.id, name: `site-${e.id}-${p.key}-max`, values: { ...base, [p.key]: p.max } },
   ])];
 });
-const cases: typeof generated = supplied && existsSync(supplied) ? JSON.parse(readFileSync(supplied, 'utf8')) : generated;
+const cases: typeof generated = supplied === undefined ? generated : JSON.parse(readFileSync(supplied, 'utf8'));
 beforeAll(async () => {
   await engine.initSolver();
   mkdirSync(root, { recursive: true });

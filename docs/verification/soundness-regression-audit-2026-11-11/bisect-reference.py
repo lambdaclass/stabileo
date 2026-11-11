@@ -1,4 +1,4 @@
-from audit_evidence import first_boundary
+from audit_evidence import contributing_tests, engineering_signature, first_boundary, quantity_boundaries
 import pathlib,json,subprocess
 area=pathlib.Path('/root/audit/soundness-2026-11-11');repo=area/'repo';work=area/'reference-bisect';target=area/'target-reference-bisect'
 def git(*a,cwd=repo):return subprocess.check_output(['git',*a],cwd=cwd,text=True).strip()
@@ -7,9 +7,9 @@ if not work.exists():subprocess.run(['git','worktree','add','--detach',str(work)
 records={}
 for f in (area/'base-fixed-native').glob('solve_3d-*.json'):
  r=json.loads(f.read_text())
- if r.get('test')=='macneal_harder::browser_cases' and 'Ok' in r['result']:records[f.name]=r
+ if 'macneal_harder::browser_cases' in contributing_tests(r) and 'Ok' in r['result']:records[f.name]=r
 cache={}
-def signature(out):return out['displacements']
+def signature(out):return engineering_signature(out)
 def evaluate(i):
  if i in cache:return cache[i]
  sha=revs[i];subprocess.run(['git','checkout','--detach',sha],cwd=work,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
@@ -24,5 +24,5 @@ for f,r in records.items():
  boundary=first_boundary(revs,evaluate,lambda result: signature(result[f]))
  if boundary is None:continue
  lo,hi=boundary
- out.append(dict(model=f,first_change=revs[hi],parent=revs[lo],subject=git('show','-s','--format=%s',revs[hi]),before=evaluate(lo)[f],after=evaluate(hi)[f]));print('FIRST CHANGE',f,out[-1]['subject'],flush=True)
+ out.append(dict(model=f,first_change=revs[hi],parent=revs[lo],subject=git('show','-s','--format=%s',revs[hi]),quantity_transitions=quantity_boundaries(revs,evaluate,lambda result: result[f]),before=evaluate(lo)[f],after=evaluate(hi)[f]));print('FIRST CHANGE',f,out[-1]['subject'],flush=True)
 (area/'reference-bisection.json').write_text(json.dumps(out))

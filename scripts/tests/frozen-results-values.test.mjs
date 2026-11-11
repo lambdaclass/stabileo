@@ -7,6 +7,13 @@ import { decide } from '../../web/scripts/results-snapshot/gate.mjs';
 const evidence = JSON.parse(readFileSync(new URL('../../docs/verification/soundness-regression-audit-2026-11-11/arc-bisection.json', import.meta.url)));
 const entry = JSON.parse(readFileSync(new URL('../../web/src/lib/provenance/result-changes/arc-length-reference-norm.json', import.meta.url)));
 const baseRegistry = { schema: 1, numbered: [], unnumbered: [] };
+const expectedModels = [
+  'solve_arc_length-0006e86e35791232.json',
+  'solve_arc_length-0015ab84c3baa36f.json',
+  'solve_arc_length-022317310499426d.json',
+];
+assert.equal(evidence.length, expectedModels.length, 'arc evidence case count');
+assert.deepEqual(evidence.map(c => c.model).sort(), expectedModels, 'arc evidence case identities');
 for (const c of evidence) {
   test(`${c.test}: its actual parent/merge outputs require the arc entry`, () => {
     const file = `web/results-frozen/${c.model}`;

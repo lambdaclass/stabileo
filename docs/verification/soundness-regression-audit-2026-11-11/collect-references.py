@@ -1,3 +1,4 @@
+from audit_evidence import contributing_tests
 import pathlib,json,re,collections,gzip
 p=pathlib.Path('/root/audit/soundness-2026-11-11');endpoints={};rawlogs={}
 for endpoint in ['base','repo']:
@@ -24,13 +25,14 @@ for f in (p/'base-fixed-native').glob('*.json'):
  elif r['analysis']=='solve_3d':
   vals.extend(d.get(k,0) for d in value['displacements'] for k in ['ux','uy','uz'])
  else:continue
- for v in vals:
-  for x in [v,-v,1000*v,-1000*v]:models[(test,x)].append(f.name)
+ for test in contributing_tests(r):
+  for v in vals:
+   for x in [v,-v,1000*v,-1000*v]:models[(test,x)].append(f.name)
 rows=[];unmatched=[]
 for key,a in endpoints['base'].items():
  b=endpoints['repo'].get(key)
  if b is None:unmatched.append(dict(key=key,before=a));continue
- ae=abs(a['actual']-a['reference']);be=abs(b['actual']-b['reference']);r=dict(id=key[0]+':'+str(key[1]),test=a['test'],observation=key[1],before_site=a['site'],after_site=b['site'],before=a['actual'],after=b['actual'],reference=b['reference'],before_reference=a['reference'],same_reference=a['reference']==b['reference'],before_error=ae,after_error=be,farther=b['actual']!=a['actual'] and be>ae,models=list(dict.fromkeys(models.get((a['test'],a['actual']),[]))),attribution='Source review pending first-parent boundary',pr=None)
+ same_reference=a['reference']==b['reference'];ae=abs(a['actual']-a['reference']) if same_reference else None;be=abs(b['actual']-b['reference']) if same_reference else None;r=dict(id=key[0]+':'+str(key[1]),test=a['test'],observation=key[1],before_site=a['site'],after_site=b['site'],before=a['actual'],after=b['actual'],reference=b['reference'],before_reference=a['reference'],same_reference=a['reference']==b['reference'],before_error=ae,after_error=be,farther=(b['actual']!=a['actual'] and be>ae) if same_reference else None,models=list(dict.fromkeys(models.get((a['test'],a['actual']),[]))),attribution='Source review pending first-parent boundary',pr=None)
  rows.append(r)
 result=dict(rows=rows,farther=[r for r in rows if r['farther']],unmatched=unmatched,unmatched_after=[k for k in endpoints['repo'] if k not in endpoints['base']])
 (p/'reference-comparisons.json').write_text(json.dumps(result,indent=2))

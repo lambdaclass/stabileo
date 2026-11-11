@@ -132,12 +132,13 @@
     ],
     "suspected_entries": 2835,
     "reference_observations": 348,
-    "farther_reference_observations": 33,
+    "farther_reference_observations": 30,
     "frozen_reference_observations": 176,
     "frozen_farther_reference_observations": 53,
     "static_displacement_bisections": 138,
     "round_2_additional_native_models": 51,
-    "round_2_executed_native_tests": 32
+    "round_2_executed_native_tests": 32,
+    "incomparable_reference_observations": 13
   },
   "verdict": "No newly introduced silent wrong engineering answer confirmed within the pinned interval. Existing missing arc-length reactions are known wrong under #1949. Adjacent-boundary attribution does not establish earliest introduction.",
   "explanations": {
@@ -295740,16 +295741,17 @@
         "reference": 0.0012194364550111374,
         "before_reference": 0.001219436455099418,
         "same_reference": false,
-        "before_error": 0.0004744927143034355,
-        "after_error": 0.0004744927142117119,
-        "farther": false,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [],
         "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
         "pr": 1753,
         "category": "engineering_reference",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "self convergence"
+        "reference_kind": "self convergence",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_hypar:1",
@@ -295762,16 +295764,17 @@
         "reference": 0.0012194364550111374,
         "before_reference": 0.001219436455099418,
         "same_reference": false,
-        "before_error": 8.160220623941753e-05,
-        "after_error": 8.160220615123222e-05,
-        "farther": false,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [],
         "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
         "pr": 1753,
         "category": "engineering_reference",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "self convergence"
+        "reference_kind": "self convergence",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_hypar:2",
@@ -295784,16 +295787,17 @@
         "reference": 0.0012194364550111374,
         "before_reference": 0.001219436455099418,
         "same_reference": false,
-        "before_error": 0.0,
-        "after_error": 0.0,
-        "farther": false,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [],
         "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
         "pr": 1753,
         "category": "engineering_reference",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "self convergence"
+        "reference_kind": "self convergence",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_hypar:3",
@@ -295806,16 +295810,17 @@
         "reference": 0.0012194364550111374,
         "before_reference": 0.001219436455099418,
         "same_reference": false,
-        "before_error": 8.160220623941753e-05,
-        "after_error": 8.160220615123222e-05,
-        "farther": false,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [],
         "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
         "pr": 1753,
         "category": "engineering_reference",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "self convergence"
+        "reference_kind": "self convergence",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:0",
@@ -296162,9 +296167,9 @@
         "reference": 2.8216536206608546e-07,
         "before_reference": 2.821653620677993e-07,
         "same_reference": false,
-        "before_error": 4.65109892137395e-10,
-        "after_error": 4.6510989385126027e-10,
-        "farther": false,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [
           "solve_3d-8c86fc3c9a42de15.json",
           "solve_3d-ad4bcc7de66fb3e9.json",
@@ -296176,7 +296181,8 @@
         "category": "engineering_reference",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "self convergence"
+        "reference_kind": "self convergence",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
@@ -296189,9 +296195,9 @@
         "reference": 2.8216536206608546e-07,
         "before_reference": 2.821653620677993e-07,
         "same_reference": false,
-        "before_error": 2.7748644182444145e-11,
-        "after_error": 2.7748645896309435e-11,
-        "farther": false,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [
           "solve_3d-26783e873325fde8.json",
           "solve_3d-cc3431e9332c03ef.json",
@@ -296203,7 +296209,8 @@
         "category": "engineering_reference",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "self convergence"
+        "reference_kind": "self convergence",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
@@ -296216,9 +296223,9 @@
         "reference": 2.8216536206608546e-07,
         "before_reference": 2.821653620677993e-07,
         "same_reference": false,
-        "before_error": 0.0,
-        "after_error": 0.0,
-        "farther": false,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [
           "solve_3d-c7886b5c64807661.json",
           "solve_3d-1ddef2d9d9bcf406.json",
@@ -296231,7 +296238,8 @@
           "77294fe006d716bf2e1900a85b3818906cf2fd33"
         ],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "self convergence"
+        "reference_kind": "self convergence",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
@@ -296244,9 +296252,9 @@
         "reference": 2.8216536206608546e-07,
         "before_reference": 2.821653620677993e-07,
         "same_reference": false,
-        "before_error": 2.7748644182444145e-11,
-        "after_error": 2.7748645896309435e-11,
-        "farther": false,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [
           "solve_3d-26783e873325fde8.json",
           "solve_3d-cc3431e9332c03ef.json",
@@ -296258,7 +296266,8 @@
         "category": "engineering_reference",
         "first_parent_merges": [],
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "self convergence"
+        "reference_kind": "self convergence",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "benchmarks::shell_benchmark::benchmark_raasch_hook:0",
@@ -299106,9 +299115,9 @@
         "reference": 224.99999934269107,
         "before_reference": 224.99999934269124,
         "same_reference": false,
-        "before_error": 1.5347723092418164e-11,
-        "after_error": 1.5518253349000588e-11,
-        "farther": false,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [
           "solve_arc_length-84c74a48a769e1db.json"
         ],
@@ -299116,7 +299125,8 @@
         "pr": 1885,
         "category": "engineering_reference",
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "source formula or published target",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "research_benchmarks::riks_shallow_frame_energy_reference:9",
@@ -299290,9 +299300,9 @@
         "reference": 424.9999986534001,
         "before_reference": 424.9999986534003,
         "same_reference": false,
-        "before_error": 4.490630090003833e-12,
-        "after_error": 4.604316927725449e-12,
-        "farther": true,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [
           "solve_arc_length-6ee6d55800398053.json"
         ],
@@ -299300,7 +299310,8 @@
         "pr": 1885,
         "category": "engineering_reference",
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "source formula or published target",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "research_benchmarks::riks_shallow_frame_energy_reference:17",
@@ -299313,9 +299324,9 @@
         "reference": 449.9999985592734,
         "before_reference": 449.99999855927365,
         "same_reference": false,
-        "before_error": 7.332801033044234e-12,
-        "after_error": 7.503331289626658e-12,
-        "farther": true,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [
           "solve_arc_length-9f29abe002698460.json"
         ],
@@ -299323,7 +299334,8 @@
         "pr": 1885,
         "category": "engineering_reference",
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "source formula or published target",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "research_benchmarks::riks_shallow_frame_energy_reference:18",
@@ -299382,9 +299394,9 @@
         "reference": 524.9999982653844,
         "before_reference": 524.9999982653846,
         "same_reference": false,
-        "before_error": 1.3983481039758772e-11,
-        "after_error": 1.3869794202037156e-11,
-        "farther": false,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [
           "solve_arc_length-6ef36c2e110a708b.json"
         ],
@@ -299392,7 +299404,8 @@
         "pr": 1885,
         "category": "engineering_reference",
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "source formula or published target",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "research_benchmarks::riks_shallow_frame_energy_reference:21",
@@ -299405,9 +299418,9 @@
         "reference": 549.9999981634254,
         "before_reference": 549.9999981634256,
         "same_reference": false,
-        "before_error": 3.069544618483633e-12,
-        "after_error": 3.183231456205249e-12,
-        "farther": true,
+        "before_error": null,
+        "after_error": null,
+        "farther": null,
         "models": [
           "solve_arc_length-3157721979e8dcc4.json"
         ],
@@ -299415,7 +299428,8 @@
         "pr": 1885,
         "category": "engineering_reference",
         "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
+        "reference_kind": "source formula or published target",
+        "comparison_status": "incomparable: endpoint references differ"
       },
       {
         "id": "research_benchmarks::riks_shallow_frame_energy_reference:22",
@@ -303824,52 +303838,6 @@
         "reference_kind": "source formula or published target"
       },
       {
-        "id": "research_benchmarks::riks_shallow_frame_energy_reference:16",
-        "test": "research_benchmarks::riks_shallow_frame_energy_reference",
-        "observation": 16,
-        "before_site": "research_benchmarks",
-        "after_site": "research_benchmarks",
-        "before": 424.9999986534048,
-        "after": 424.9999986534047,
-        "reference": 424.9999986534001,
-        "before_reference": 424.9999986534003,
-        "same_reference": false,
-        "before_error": 4.490630090003833e-12,
-        "after_error": 4.604316927725449e-12,
-        "farther": true,
-        "models": [
-          "solve_arc_length-6ee6d55800398053.json"
-        ],
-        "attribution": "Adjacent first-parent transition for the corresponding arc-length benchmark family; exact full field evidence in native-fields.json.gz.",
-        "pr": 1885,
-        "category": "engineering_reference",
-        "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
-      },
-      {
-        "id": "research_benchmarks::riks_shallow_frame_energy_reference:17",
-        "test": "research_benchmarks::riks_shallow_frame_energy_reference",
-        "observation": 17,
-        "before_site": "research_benchmarks",
-        "after_site": "research_benchmarks",
-        "before": 449.999998559281,
-        "after": 449.9999985592809,
-        "reference": 449.9999985592734,
-        "before_reference": 449.99999855927365,
-        "same_reference": false,
-        "before_error": 7.332801033044234e-12,
-        "after_error": 7.503331289626658e-12,
-        "farther": true,
-        "models": [
-          "solve_arc_length-9f29abe002698460.json"
-        ],
-        "attribution": "Adjacent first-parent transition for the corresponding arc-length benchmark family; exact full field evidence in native-fields.json.gz.",
-        "pr": 1885,
-        "category": "engineering_reference",
-        "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
-      },
-      {
         "id": "research_benchmarks::riks_shallow_frame_energy_reference:18",
         "test": "research_benchmarks::riks_shallow_frame_energy_reference",
         "observation": 18,
@@ -303908,29 +303876,6 @@
         "farther": true,
         "models": [
           "solve_arc_length-a244889702dc024c.json"
-        ],
-        "attribution": "Adjacent first-parent transition for the corresponding arc-length benchmark family; exact full field evidence in native-fields.json.gz.",
-        "pr": 1885,
-        "category": "engineering_reference",
-        "comparison_mode": "as-shipped test observation",
-        "reference_kind": "source formula or published target"
-      },
-      {
-        "id": "research_benchmarks::riks_shallow_frame_energy_reference:21",
-        "test": "research_benchmarks::riks_shallow_frame_energy_reference",
-        "observation": 21,
-        "before_site": "research_benchmarks",
-        "after_site": "research_benchmarks",
-        "before": 549.9999981634287,
-        "after": 549.9999981634286,
-        "reference": 549.9999981634254,
-        "before_reference": 549.9999981634256,
-        "same_reference": false,
-        "before_error": 3.069544618483633e-12,
-        "after_error": 3.183231456205249e-12,
-        "farther": true,
-        "models": [
-          "solve_arc_length-3157721979e8dcc4.json"
         ],
         "attribution": "Adjacent first-parent transition for the corresponding arc-length benchmark family; exact full field evidence in native-fields.json.gz.",
         "pr": 1885,
@@ -315986,16 +315931,6 @@
           "The exact finite-input overflow and negative-inertia models through real WASM exports."
         ],
         "test_evidence": [
-          {
-            "file": "engine/tests/fuzz_regressions.rs",
-            "name": "issue_1760_plastic_input_finishes_in_a_fresh_process",
-            "line": 210
-          },
-          {
-            "file": "engine/tests/fuzz_regressions.rs",
-            "name": "issue_1760_plastic_input_in_a_fresh_process",
-            "line": 216
-          },
           {
             "file": "engine/tests/fuzz_regressions.rs",
             "name": "issue_1759_buckling_rejects_negative_truss_inertia",
@@ -335090,8 +335025,8 @@
     },
     {
       "file": "annotate-references.py",
-      "bytes": 3216,
-      "sha256": "afeb7b69c451402d4241247d80123d030128317f89ac36972705bf98c9958e8f"
+      "bytes": 3276,
+      "sha256": "30e237e8b0e2fa508539b342034d359c1d96b0e2f9fc716557a9d3c3e3822c5d"
     },
     {
       "file": "arc-bisection.json",
@@ -335100,8 +335035,8 @@
     },
     {
       "file": "audit_evidence.py",
-      "bytes": 2848,
-      "sha256": "824436994d8daa16327bc0878d9995cb9176945eeca3d14ae2bd1596ca167143"
+      "bytes": 5075,
+      "sha256": "7533b49c183426f9604e2b1200a29379b02f379ee710b9900490554de0ac3c36"
     },
     {
       "file": "base-r3-fixed-replay.log",
@@ -335120,18 +335055,18 @@
     },
     {
       "file": "bisect-all-static.py",
-      "bytes": 2390,
-      "sha256": "ff8be572f45518877c6e90dbeb61f0de78a9df4f7ebc38872ed156c915488370"
+      "bytes": 2521,
+      "sha256": "4f2b5f20abf93d18fea452c5e5ef86309da179e319c16e6ea0c93788bb9e39bb"
     },
     {
       "file": "bisect-arc.py",
-      "bytes": 2715,
-      "sha256": "3846dd84e1852c31a3e13b37cf37067e6690127ce27101604e232db321e9fa87"
+      "bytes": 2793,
+      "sha256": "a4a229e300c708d90094585aab3f7745757945deea25fbc3aaa16739180ab764"
     },
     {
       "file": "bisect-reference.py",
-      "bytes": 2215,
-      "sha256": "426fc92408ccd7ab43ce2ff024da415028bb1dbab3fc15225b1b27c80d4ac222"
+      "bytes": 2376,
+      "sha256": "b7157ded272a8c3635e93f0406cebb2ecda8a32c6783a9444e8055408c3f198c"
     },
     {
       "file": "bisect-refusals.py",
@@ -335150,13 +335085,13 @@
     },
     {
       "file": "collect-references.py",
-      "bytes": 2852,
-      "sha256": "2bd2733fa66399f292ec1028973b1abd944352745a867442327ba976f44bb64c"
+      "bytes": 3068,
+      "sha256": "0e85283a65d37c1dd34ad5db1c102ea827dace48f8e2f6f26719196e67bb8727"
     },
     {
       "file": "compare.py",
-      "bytes": 3310,
-      "sha256": "85ab85cb60e83b6bdfbeb246de31762f2c67bc6d4755a73296d541c18da4967b"
+      "bytes": 3391,
+      "sha256": "d23fa8f8af9b80ea164e970ba0079bf805b3b265d8ba897bc5e537675379dab3"
     },
     {
       "file": "coverage-frontiers.json",
@@ -335170,13 +335105,13 @@
     },
     {
       "file": "finish-analysis.py",
-      "bytes": 3829,
-      "sha256": "cfb25fedefe46da3708f7dbbf836172e7a4df2b62c5da9a695c110f0948b4ca8"
+      "bytes": 3931,
+      "sha256": "8209fc495a3c7138452464078c3f5e8db1df47584f834f6c43a8c3860893c115"
     },
     {
       "file": "finish-corpus.sh",
-      "bytes": 3381,
-      "sha256": "8e94c3d0ab7f822ad51b53eae318b17c9a925f48299281a1fd5750b756d80437"
+      "bytes": 3483,
+      "sha256": "31d4d863ffc1a2c1a82e7268e7eb32903a23613cf78d5861a2e53b36b1b0bb7a"
     },
     {
       "file": "fixed-models.json.gz",
@@ -335185,8 +335120,8 @@
     },
     {
       "file": "frozen-references.py",
-      "bytes": 8027,
-      "sha256": "985dd738dbca2241e6b1f7f1f84a779e248e9f6f58848cd9f9edb692e241b496"
+      "bytes": 8179,
+      "sha256": "07b5c4202b4c3289815dac0a53c1cd5530176ac06162f64db6fda12d532b416b"
     },
     {
       "file": "harmonic-fix-a9d72cbe6.log",
@@ -335210,8 +335145,8 @@
     },
     {
       "file": "instrument.py",
-      "bytes": 7143,
-      "sha256": "7df2d11a24e844770fa1b2dae54e4d430224f0a5d3536821eb878e9a7562733c"
+      "bytes": 8757,
+      "sha256": "f9f7645614b37239bd9cf2179512e2870ba048a9d14fbb52798a833709788355"
     },
     {
       "file": "manifest.json",
@@ -335285,8 +335220,8 @@
     },
     {
       "file": "reference-comparisons.json",
-      "bytes": 570145,
-      "sha256": "c400fd5814c6498600ca183010708557aae31a69c560345c35275f66897e6027"
+      "bytes": 567731,
+      "sha256": "89f55b78ae536d9096e177ab97fd2f4939e58b8a40cd5c9f1ca4c289d9675bc6"
     },
     {
       "file": "reference-probe-logs.json.gz",
@@ -335350,18 +335285,18 @@
     },
     {
       "file": "run-complete-native.sh",
-      "bytes": 3366,
-      "sha256": "2e372598cd95ed774a7ca45537b376cad6df7f9d3c4d7c9f0224dbc4af41c3f9"
+      "bytes": 3356,
+      "sha256": "5b325f4ba4a298b3086886217f8457a8f73fa181c2f66bc6f63df052c148643c"
     },
     {
       "file": "run-evidence.json.gz",
-      "bytes": 373552,
-      "sha256": "b68ae5179be72149e9ea0294668061bca2c69f17623daeca8ff85e9f3f429063"
+      "bytes": 373814,
+      "sha256": "a0b15ee22438c5550e6c15c75ed66ffbd55d8dca9c2a23ddd2cc440ef70773aa"
     },
     {
       "file": "run-summary.json",
-      "bytes": 15379,
-      "sha256": "6a92287005180246f1355c4d148d2970f64f65670385b91e03deb6b2ed6b9f08"
+      "bytes": 19749,
+      "sha256": "00cbc76025c0e7e3e3c6a2cc6d4e216128e464c46ea378c1d99a85c2f86a2512"
     },
     {
       "file": "site-gallery-diff.json",
@@ -335370,8 +335305,8 @@
     },
     {
       "file": "site-gallery.test.ts",
-      "bytes": 1659,
-      "sha256": "a32e9bb2bc37b6c675f20b5a95b10bb5859560dddd1574fb7bac2b29f83280d1"
+      "bytes": 1637,
+      "sha256": "1abfdd1567cf67555a0510f2d25e0012259e70f19910076a778b67cfd50301a6"
     },
     {
       "file": "ssi-probe.rs",
@@ -335402,6 +335337,11 @@
       "file": "web-fixture-identity.json",
       "bytes": 26714,
       "sha256": "654b00ec57aa64f6b0d48abc7d80d9c5ada19ac477cf40208e7ab329558a3ef8"
+    },
+    {
+      "file": "full-output-boundary-proof.json",
+      "bytes": 64141,
+      "sha256": "2c33f41b4cb7d212da2ebbe9cc67b5b94de675e79c59b95df5f26c0325a65566"
     }
   ],
   "round_2_evidence": {
@@ -335488,7 +335428,7 @@
       "status": "known wrong; expected-failure support-reaction check, not accepted output"
     }
   ],
-  "bisection_scope": "Historical bisection artifacts establish the recorded adjacent transitions, not the earliest change: monotonicity was unverified. Corrected scripts scan revisions in order. A full history rerun was excluded by the targeted-only, no-heavy-runs constraint.",
+  "bisection_scope": "Historical bisection artifacts establish the recorded adjacent transitions, not the earliest change: monotonicity was unverified. Corrected scripts scan revisions in order. A full history rerun was excluded by the targeted-only, no-heavy-runs constraint. Static signatures now include every output field except timing and build provenance. Rechecking the archived full outputs preserves all 142 archived adjacent comparisons (138 static plus 4 reference, with overlapping models); their original displacement-selected search cannot establish earliest full-output attribution. See full-output-boundary-proof.json. New scans also report quantity_transitions independently for each engineering quantity, preventing an earlier displacement boundary from attributing a later force change.",
   "followup_remediation": {
     "pr": 1946,
     "entries": [
@@ -335497,5 +335437,11 @@
       "gallery-slab-hard-walls.json"
     ],
     "scope": "Added in this PR after the pinned comparison; historical registration findings remain accurate for those endpoints."
+  },
+  "round_3_evidence": {
+    "comparable_as_shipped_farther": 30,
+    "incomparable_as_shipped_observations": 13,
+    "archived_adjacent_full_output_comparisons": 142,
+    "lost_legacy_provenance": "Original captures retained only the last contributing test. The historical suite corpus was not rerun; missing aliases cannot be reconstructed from those files. New captures and input unions retain every contributing test."
   }
 }

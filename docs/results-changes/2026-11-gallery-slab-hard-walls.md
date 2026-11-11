@@ -45,3 +45,9 @@ omitted registration because the bundled-example scope rejected it. The new
 exact gallery capture brings its frozen outcome into the same registration
 gate. Saved models retain their original inputs and receive no recheck notice
 for this demo correction. No solver result or safety advisory is changed here.
+
+The exact wall-gallery freeze is recorded with the pinned Node 22 runtime.
+Round 3 corrects its displayed reference from `24.339803852876386` mm to
+`24.339803852876383` mm, matching both that runtime and the audit archive above.
+Every other frozen field is unchanged. This repairs the capture; the formula,
+engine output, registration scope and exact equality assertion are unchanged.

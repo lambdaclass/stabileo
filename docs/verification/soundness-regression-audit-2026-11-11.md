@@ -6,7 +6,7 @@ No newly introduced silent wrong engineering answer confirmed within the pinned 
 
 ## Findings first
 
-Seven frozen shell inputs now refuse. Six SSI reaction outputs and 2760 arc-length inputs change without a matching registry entry. One public-gallery boundary changes both its model and reference without a matching registration. The literal distance check flags 53 frozen-input reference observations and 33 as-shipped test observations; exact before/after values are retained, including changes below printed precision. These are suspected findings, not new safety advisories. The missing registrations describe the pinned endpoints; follow-up remediation in this PR adds the three result-change write-ups and registry entries.
+Seven frozen shell inputs now refuse. Six SSI reaction outputs and 2760 arc-length inputs change without a matching registry entry. One public-gallery boundary changes both its model and reference without a matching registration. The literal distance check flags 53 frozen-input reference observations and 30 comparable as-shipped test observations; 13 further as-shipped observations have differing endpoint references and are incomparable; exact before/after values are retained, including changes below printed precision. These are suspected findings, not new safety advisories. The missing registrations describe the pinned endpoints; follow-up remediation in this PR adds the three result-change write-ups and registry entries.
 
 | Corpus | Compared | Changed | New refusals |
 | --- | --- | --- | --- |
@@ -15,7 +15,7 @@ Seven frozen shell inputs now refuse. Six SSI reaction outputs and 2760 arc-leng
 | Parameterized public gallery | 86 | 62 | 0 |
 | Published acceptance references | 105 | 0 | 0 |
 
-Round 2 reran the corrected `three_d::three_d_corotational::` and `three_d::three_d_buckling::` selections on `stabileo-ci-1`: **9 and 7 tests pass per endpoint**, respectively. The old zero-test log entries are invalid evidence and are marked superseded in `run-summary.json`. The additional 51 inputs were frozen and replayed completely at both endpoints; all are unchanged. Thus the corpus grows from 3720 to 3771 and the unchanged count from 351 to 402, with no new drift or refusal finding. All six MacNeal frame observations now use their actual 2D frame input and signed component (`ry` for observation 5); each frozen value exactly reproduces its source observation. Their prior shell-model/PR #1753 attribution is removed. The 176 frozen comparisons, 53 frozen distance flags and 33 as-shipped flags are unchanged.
+Round 2 reran the corrected `three_d::three_d_corotational::` and `three_d::three_d_buckling::` selections on `stabileo-ci-1`: **9 and 7 tests pass per endpoint**, respectively. The old zero-test log entries are invalid evidence and are marked superseded in `run-summary.json`. The additional 51 inputs were frozen and replayed completely at both endpoints; all are unchanged. Thus the corpus grows from 3720 to 3771 and the unchanged count from 351 to 402, with no new drift or refusal finding. All six MacNeal frame observations now use their actual 2D frame input and signed component (`ry` for observation 5); each frozen value exactly reproduces its source observation. Their prior shell-model/PR #1753 attribution is removed. The 176 frozen comparisons, 53 frozen distance flags and 30 comparable as-shipped flags are unchanged.
 
 The two frozen arch outputs `solve_arc_length-0015ab84c3baa36f.json` and `solve_arc_length-022317310499426d.json` omit support reactions. They are **known wrong**, linked to [#1949](https://github.com/lambdaclass/stabileo/issues/1949), with expected-failure reaction checks. Their archived empty lists are defect evidence, not accepted engineering answers; the solver fix belongs to #1949.
 
@@ -112,7 +112,7 @@ There are 176 primary reference comparisons on identical frozen inputs. The 53 i
 | solve_3d-94e9dddefab49b9b.json / scordelis-lo https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm:uz | -0.30447690527156496 | -0.30447690527170584 | -0.3024 | #1753 |
 | solve_3d-94e9dddefab49b9b.json / scordelis-lo https://doc.comsol.com/6.4/doc/com.comsol.help.models.sme.scordelis_lo_roof/scordelis_lo_roof.html:uz | -0.30447690527156496 | -0.30447690527170584 | -0.302 | #1753 |
 
-The following table separately retains all as-shipped test observations that move farther. Model variants and test-builder arithmetic can differ; do not substitute this table for the identical-input comparison above. Adjacent arc-length benchmark-family transitions reproduce PR #1885; earliest attribution is unverified. A geometric-volume sum in a test builder is labelled as an input metric and excluded from engine findings.
+The following table separately retains all 30 comparable as-shipped test observations that move farther. Thirteen observations with different endpoint targets are marked incomparable in the JSON and excluded from this distance table. Model variants and test-builder arithmetic can differ; do not substitute this table for the identical-input comparison above. Adjacent arc-length benchmark-family transitions reproduce PR #1885; earliest attribution is unverified. A geometric-volume sum in a test builder is labelled as an input metric and excluded from engine findings.
 
 | Observation / model | Before | After | Reference | First-parent attribution |
 | --- | --- | --- | --- | --- |
@@ -139,11 +139,8 @@ The following table separately retains all as-shipped test observations that mov
 | research_benchmarks::macneal_regular_out:0 | 0.42348564363974367 | 0.4234856436387048 | 0.4321 | 1753 |
 | research_benchmarks::riks_shallow_frame_energy_reference:9 | 249.99999926237768 | 249.99999926237763 | 249.99999926240244 | 1885 |
 | research_benchmarks::riks_shallow_frame_energy_reference:12 | 324.99999901169497 | 324.9999990116949 | 324.99999901171566 | 1885 |
-| research_benchmarks::riks_shallow_frame_energy_reference:16 | 424.9999986534048 | 424.9999986534047 | 424.9999986534001 | 1885 |
-| research_benchmarks::riks_shallow_frame_energy_reference:17 | 449.999998559281 | 449.9999985592809 | 449.9999985592734 | 1885 |
 | research_benchmarks::riks_shallow_frame_energy_reference:18 | 474.9999984632594 | 474.9999984632593 | 474.9999984632738 | 1885 |
 | research_benchmarks::riks_shallow_frame_energy_reference:19 | 499.99999836530196 | 499.99999836530185 | 499.9999983653129 | 1885 |
-| research_benchmarks::riks_shallow_frame_energy_reference:21 | 549.9999981634287 | 549.9999981634286 | 549.9999981634254 | 1885 |
 | research_benchmarks::riks_shallow_toggle:2 | 95.99023590534156 | 95.99023590534158 | 95.98504891452458 | 1885 |
 | macneal:mitc4-regular-out:0 | 0.42348564363974367 | 0.4234856436387048 | 0.4321 | 1753 |
 | macneal:mitc4-regular-in:0 | 0.10707215715302801 | 0.10707215714712653 | 0.1081 | 1753 |
@@ -200,7 +197,7 @@ There are 88 first-parent commits in the interval; 49 merges touch `engine/` or 
 | #1878 | Bound support angles and share stable periodic normalization. Shared: Assembly, constraints, kinematics and independent certificate assembly. | engine/tests/support_rule.rs::issue_1780_absurd_angle_with_ky_refuses_counter_assembly_rank_disagreement; engine/tests/support_rule.rs::issue_1780_multi_turn_support_matches_reduced_angle_exactly | Actual WASM boundary values through each advanced export, as distinct from shared native support-kernel tests. |
 | #1783 | Recover moving interior peaks and 3D axial point loads consistently, including patch/jump endpoints. Shared: Dense/sparse assembly, combinations, diagrams/stations, geometric stiffness, independent reassembly and moving envelopes. | engine/tests/certify_plastic_3d.rs::axial_point_loads_are_refused_by_the_3d_plastic_certificate; engine/tests/feature_matrix.rs::issue_1782_moving_3d_reference_includes_interior_forces | A real WASM explicit axial point load at both supported endpoints with reversed 3D connectivity. |
 | #1780 | Share one support rule across dimensions and analyses. Shared: Rigid/spring conflicts, free settlements, inclined normals, DOF numbering, certification and nonlinear entry points. | engine/tests/certify_end_to_end.rs::issue_1780_stable_3d_elastic_supports_explicitly_release_the_spring_dof; engine/tests/core/kinematic.rs::issue_1780_inclined_2d_normal_and_global_y_spring_are_independent | The complete original-issue model-by-advanced-export matrix through actual WASM; native macro tests are broader than the WASM evidence. |
-| #1784 | Refuse non-finite buckling quantities and prepared/multi-case results. Shared: 2D/3D buckling, loads on trusses, case results and combination-only overflow. | engine/tests/fuzz_regressions.rs::issue_1760_plastic_input_finishes_in_a_fresh_process; engine/tests/fuzz_regressions.rs::issue_1760_plastic_input_in_a_fresh_process | The exact finite-input overflow and negative-inertia models through real WASM exports. |
+| #1784 | Refuse non-finite buckling quantities and prepared/multi-case results. Shared: 2D/3D buckling, loads on trusses, case results and combination-only overflow. | engine/tests/fuzz_regressions.rs::issue_1759_buckling_rejects_negative_truss_inertia; engine/tests/fuzz_regressions.rs::issue_1761_multi_case_overflow_is_refused | The exact finite-input overflow and negative-inertia models through real WASM exports. |
 | #1771 | Move net-area chain and web-line calculations into the engine. Shared: AISC/CIRSOC tension connections, missing geometry and unsafe/unevaluated results. | engine/tests/metamorphic/tension_net_area.rs::metamorphic_pr_net_area_equal_legs; engine/tests/metamorphic/tension_net_area.rs::metamorphic_pr_net_area_back_to_back_pair_doubles | No specific gap identified in this review. |
 | #1776 | Extend fixed-end-force and thermal references; production arithmetic is unchanged. Shared: Frame load/release kernels and independent symbolic references. | engine/src/element/fef.rs::test_expand_fef_12_to_14_follows_the_warping_dof_layout | No specific gap identified in this review. |
 | #1769 | Type the warping and combination result boundary. Shared: 2D/3D result serialization, bimoments, grouped stations, diagrams and web unit readers. | engine/tests/core/units_boundary_results.rs::units_the_warping_displacement_is_a_twist_rate_with_the_same_text; engine/tests/core/units_boundary_results.rs::units_combined_results_serialize_to_the_legacy_text | No specific gap identified in this review. |
@@ -615,31 +612,31 @@ Use `make shell` in remote scratch checkouts at the pinned revisions. The suppli
 | [acceptance-comparison.json](soundness-regression-audit-2026-11-11/acceptance-comparison.json) | 116,498 bytes; SHA-256 `06f9e750f40e6daef4336a6f6d91708596cc0425a3fd9b47959a6740dbf8e88a` |
 | [all-static-bisection-summary.json](soundness-regression-audit-2026-11-11/all-static-bisection-summary.json) | 58,239 bytes; SHA-256 `5bb3fc438ebae25907cb88ded4aba789f765955a44ed0310980e4042d7e59c15` |
 | [all-static-bisection.json.gz](soundness-regression-audit-2026-11-11/all-static-bisection.json.gz) | 15,447,730 bytes; SHA-256 `5f42511eb1b09a802def345a19448e77b55a7af71f84e4987ba11202e129efa8` |
-| [annotate-references.py](soundness-regression-audit-2026-11-11/annotate-references.py) | 3,216 bytes; SHA-256 `afeb7b69c451402d4241247d80123d030128317f89ac36972705bf98c9958e8f` |
+| [annotate-references.py](soundness-regression-audit-2026-11-11/annotate-references.py) | 3,276 bytes; SHA-256 `30e237e8b0e2fa508539b342034d359c1d96b0e2f9fc716557a9d3c3e3822c5d` |
 | [arc-bisection.json](soundness-regression-audit-2026-11-11/arc-bisection.json) | 180,280 bytes; SHA-256 `245d8f6d1633d22ba0851a9e0176e94e09e98eca496acd6d30629f3f1bd967fd` |
-| [audit_evidence.py](soundness-regression-audit-2026-11-11/audit_evidence.py) | 2,848 bytes; SHA-256 `824436994d8daa16327bc0878d9995cb9176945eeca3d14ae2bd1596ca167143` |
+| [audit_evidence.py](soundness-regression-audit-2026-11-11/audit_evidence.py) | 5,075 bytes; SHA-256 `7533b49c183426f9604e2b1200a29379b02f379ee710b9900490554de0ac3c36` |
 | [base-r3-fixed-replay.log](soundness-regression-audit-2026-11-11/base-r3-fixed-replay.log) | 12,675 bytes; SHA-256 `d52b3db157167442f897975d2678eb16a564f4d0463ee06827b8545e018df9b6` |
 | [base-r3-validation-three_d__three_d_buckling__.log](soundness-regression-audit-2026-11-11/base-r3-validation-three_d__three_d_buckling__.log) | 146,222 bytes; SHA-256 `e1aa1b9fb16c7bac1ad63f3d188a33e033f1ba3e34445e0408b98ae901700cc4` |
 | [base-r3-validation-three_d__three_d_corotational__.log](soundness-regression-audit-2026-11-11/base-r3-validation-three_d__three_d_corotational__.log) | 146,724 bytes; SHA-256 `22fce2e36adaf6d198eda2f4571fbab0c03ff1318be8b6ccd9a274b1dfde8060` |
-| [bisect-all-static.py](soundness-regression-audit-2026-11-11/bisect-all-static.py) | 2,390 bytes; SHA-256 `ff8be572f45518877c6e90dbeb61f0de78a9df4f7ebc38872ed156c915488370` |
-| [bisect-arc.py](soundness-regression-audit-2026-11-11/bisect-arc.py) | 2,715 bytes; SHA-256 `3846dd84e1852c31a3e13b37cf37067e6690127ce27101604e232db321e9fa87` |
-| [bisect-reference.py](soundness-regression-audit-2026-11-11/bisect-reference.py) | 2,215 bytes; SHA-256 `426fc92408ccd7ab43ce2ff024da415028bb1dbab3fc15225b1b27c80d4ac222` |
+| [bisect-all-static.py](soundness-regression-audit-2026-11-11/bisect-all-static.py) | 2,521 bytes; SHA-256 `4f2b5f20abf93d18fea452c5e5ef86309da179e319c16e6ea0c93788bb9e39bb` |
+| [bisect-arc.py](soundness-regression-audit-2026-11-11/bisect-arc.py) | 2,793 bytes; SHA-256 `a4a229e300c708d90094585aab3f7745757945deea25fbc3aaa16739180ab764` |
+| [bisect-reference.py](soundness-regression-audit-2026-11-11/bisect-reference.py) | 2,376 bytes; SHA-256 `b7157ded272a8c3635e93f0406cebb2ecda8a32c6783a9444e8055408c3f198c` |
 | [bisect-refusals.py](soundness-regression-audit-2026-11-11/bisect-refusals.py) | 2,644 bytes; SHA-256 `170b717eebd1c2bb0296734484be6a05e3b2b94b12847002f9a5e55297991ae2` |
 | [capture.test.ts](soundness-regression-audit-2026-11-11/capture.test.ts) | 2,127 bytes; SHA-256 `5063c7fc987b7a0bb10d6e6ae5248169e955124dcd2cb28b8faf199db4afa3b3` |
 | [codeaster-tests.log](soundness-regression-audit-2026-11-11/codeaster-tests.log) | 111 bytes; SHA-256 `fc523972b6a1714a1d54810e5e0468e39c4bd3e3d5232a86ffd2e808fc829bd9` |
-| [collect-references.py](soundness-regression-audit-2026-11-11/collect-references.py) | 2,852 bytes; SHA-256 `2bd2733fa66399f292ec1028973b1abd944352745a867442327ba976f44bb64c` |
-| [compare.py](soundness-regression-audit-2026-11-11/compare.py) | 3,310 bytes; SHA-256 `85ab85cb60e83b6bdfbeb246de31762f2c67bc6d4755a73296d541c18da4967b` |
+| [collect-references.py](soundness-regression-audit-2026-11-11/collect-references.py) | 3,068 bytes; SHA-256 `0e85283a65d37c1dd34ad5db1c102ea827dace48f8e2f6f26719196e67bb8727` |
+| [compare.py](soundness-regression-audit-2026-11-11/compare.py) | 3,391 bytes; SHA-256 `d23fa8f8af9b80ea164e970ba0079bf805b3b265d8ba897bc5e537675379dab3` |
 | [coverage-frontiers.json](soundness-regression-audit-2026-11-11/coverage-frontiers.json) | 1,945 bytes; SHA-256 `91a07c579488ee7cfff0ba8ad8dbe59621fc4e9b628abd4800a4129e62910bf5` |
 | [diagnostic-drift-samples.json](soundness-regression-audit-2026-11-11/diagnostic-drift-samples.json) | 3,234 bytes; SHA-256 `590e481b522bd8ea79d9d3b0dea892c5d71163e8e3741261b8b64af70bc9b9f3` |
-| [finish-analysis.py](soundness-regression-audit-2026-11-11/finish-analysis.py) | 3,829 bytes; SHA-256 `cfb25fedefe46da3708f7dbbf836172e7a4df2b62c5da9a695c110f0948b4ca8` |
-| [finish-corpus.sh](soundness-regression-audit-2026-11-11/finish-corpus.sh) | 3,381 bytes; SHA-256 `8e94c3d0ab7f822ad51b53eae318b17c9a925f48299281a1fd5750b756d80437` |
+| [finish-analysis.py](soundness-regression-audit-2026-11-11/finish-analysis.py) | 3,931 bytes; SHA-256 `8209fc495a3c7138452464078c3f5e8db1df47584f834f6c43a8c3860893c115` |
+| [finish-corpus.sh](soundness-regression-audit-2026-11-11/finish-corpus.sh) | 3,483 bytes; SHA-256 `31d4d863ffc1a2c1a82e7268e7eb32903a23613cf78d5861a2e53b36b1b0bb7a` |
 | [fixed-models.json.gz](soundness-regression-audit-2026-11-11/fixed-models.json.gz) | 1,829,811 bytes; SHA-256 `a64a01d0648e272e78bdd7dbcff6db3c13ddcdaadfce2bcd0a4eda35379debff` |
-| [frozen-references.py](soundness-regression-audit-2026-11-11/frozen-references.py) | 8,027 bytes; SHA-256 `985dd738dbca2241e6b1f7f1f84a779e248e9f6f58848cd9f9edb692e241b496` |
+| [frozen-references.py](soundness-regression-audit-2026-11-11/frozen-references.py) | 8,179 bytes; SHA-256 `07b5c4202b4c3289815dac0a53c1cd5530176ac06162f64db6fda12d532b416b` |
 | [harmonic-fix-a9d72cbe6.log](soundness-regression-audit-2026-11-11/harmonic-fix-a9d72cbe6.log) | 11,528 bytes; SHA-256 `6b8e588a46632c4aaab23fb1d186753b44d7b624d3a43bb8e200463568d22c4a` |
 | [harmonic-fix-a9d72cbe6^1.log](soundness-regression-audit-2026-11-11/harmonic-fix-a9d72cbe6^1.log) | 12,731 bytes; SHA-256 `7bc248f701332dbbc4406f0a31700a522b2dd8610902b7338d8c7a64d6fc8a71` |
 | [health-tests.log](soundness-regression-audit-2026-11-11/health-tests.log) | 1,366 bytes; SHA-256 `c979720a422210b36e19bb697927b02ec49d1a52a05fa42992ec7852846a0421` |
 | [instrument-lib.py](soundness-regression-audit-2026-11-11/instrument-lib.py) | 1,395 bytes; SHA-256 `9dd9e1a8a006d0b727cde40afd2eb7cd646c0a3c3da6e96fe29121b0312c9ecb` |
-| [instrument.py](soundness-regression-audit-2026-11-11/instrument.py) | 7,143 bytes; SHA-256 `7df2d11a24e844770fa1b2dae54e4d430224f0a5d3536821eb878e9a7562733c` |
+| [instrument.py](soundness-regression-audit-2026-11-11/instrument.py) | 8,757 bytes; SHA-256 `f9f7645614b37239bd9cf2179512e2870ba048a9d14fbb52798a833709788355` |
 | [manifest.json](soundness-regression-audit-2026-11-11/manifest.json) | 18,683 bytes; SHA-256 `89320c081df5cf525aca17f8edd09307ae7bf07ec576a3fed5b317891798ea2b` |
 | [native-fields.json.gz](soundness-regression-audit-2026-11-11/native-fields.json.gz) | 47,629,879 bytes; SHA-256 `e6b268d6a62d37743548ab7bfeee5f456fa721371c7e04a7ec5c52083adb222f` |
 | [new-warning-counts.json](soundness-regression-audit-2026-11-11/new-warning-counts.json) | 2 bytes; SHA-256 `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945` |
@@ -654,7 +651,7 @@ Use `make shell` in remote scratch checkouts at the pinned revisions. The suppli
 | [probe-units.sh](soundness-regression-audit-2026-11-11/probe-units.sh) | 1,008 bytes; SHA-256 `8a30a6ab0686a43a08c9ef3cb79a33b387033f1711d560171bbe4fc1775d0c80` |
 | [r3-additional-native.json.gz](soundness-regression-audit-2026-11-11/r3-additional-native.json.gz) | 106,741 bytes; SHA-256 `945ac27130c6981d73e5e055997cddcf000b2e444dd0dd693e1b206f2cdcd116` |
 | [reference-bisection.json](soundness-regression-audit-2026-11-11/reference-bisection.json) | 82,714 bytes; SHA-256 `4ac4e474b558c36d0d71f10368775044cbae5e819a3265f22b2b6bddd7d26428` |
-| [reference-comparisons.json](soundness-regression-audit-2026-11-11/reference-comparisons.json) | 570,145 bytes; SHA-256 `c400fd5814c6498600ca183010708557aae31a69c560345c35275f66897e6027` |
+| [reference-comparisons.json](soundness-regression-audit-2026-11-11/reference-comparisons.json) | 567,731 bytes; SHA-256 `89f55b78ae536d9096e177ab97fd2f4939e58b8a40cd5c9f1ca4c289d9675bc6` |
 | [reference-probe-logs.json.gz](soundness-regression-audit-2026-11-11/reference-probe-logs.json.gz) | 84,964 bytes; SHA-256 `7a0f8e0331d1c79c31d02e2ab523a5c80c5c1ca442af9251a250f9a25c8c8e9c` |
 | [reference-warnings.json](soundness-regression-audit-2026-11-11/reference-warnings.json) | 323,571 bytes; SHA-256 `760e9315fcdb5be060604494e4524708848250d5ac64106fb7974072ffa74275` |
 | [refusal-bisection.json](soundness-regression-audit-2026-11-11/refusal-bisection.json) | 1,252,214 bytes; SHA-256 `4d37e180cb814b05c9d2a89d83dc220b017c3c6d75ee623c2fc82dd8f4f24a56` |
@@ -667,11 +664,11 @@ Use `make shell` in remote scratch checkouts at the pinned revisions. The suppli
 | [repo-r3-validation-three_d__three_d_buckling__.log](soundness-regression-audit-2026-11-11/repo-r3-validation-three_d__three_d_buckling__.log) | 147,054 bytes; SHA-256 `2cefad0f94dd8ca4375e6979c002744d1c0b7f74576745b4e51854a9fb8e9634` |
 | [repo-r3-validation-three_d__three_d_corotational__.log](soundness-regression-audit-2026-11-11/repo-r3-validation-three_d__three_d_corotational__.log) | 147,556 bytes; SHA-256 `86a576e0532cd1c1c6e40b9b30ee4278edb04a9f1ed4a1e73903b9b33896d263` |
 | [round-2-integrity.log](soundness-regression-audit-2026-11-11/round-2-integrity.log) | 472 bytes; SHA-256 `3044c5706d563dcf2b766f90936636013e3d7c54363f43cb632715df0e07e68e` |
-| [run-complete-native.sh](soundness-regression-audit-2026-11-11/run-complete-native.sh) | 3,366 bytes; SHA-256 `2e372598cd95ed774a7ca45537b376cad6df7f9d3c4d7c9f0224dbc4af41c3f9` |
-| [run-evidence.json.gz](soundness-regression-audit-2026-11-11/run-evidence.json.gz) | 373,552 bytes; SHA-256 `b68ae5179be72149e9ea0294668061bca2c69f17623daeca8ff85e9f3f429063` |
-| [run-summary.json](soundness-regression-audit-2026-11-11/run-summary.json) | 15,379 bytes; SHA-256 `6a92287005180246f1355c4d148d2970f64f65670385b91e03deb6b2ed6b9f08` |
+| [run-complete-native.sh](soundness-regression-audit-2026-11-11/run-complete-native.sh) | 3,356 bytes; SHA-256 `5b325f4ba4a298b3086886217f8457a8f73fa181c2f66bc6f63df052c148643c` |
+| [run-evidence.json.gz](soundness-regression-audit-2026-11-11/run-evidence.json.gz) | 373,814 bytes; SHA-256 `a0b15ee22438c5550e6c15c75ed66ffbd55d8dca9c2a23ddd2cc440ef70773aa` |
+| [run-summary.json](soundness-regression-audit-2026-11-11/run-summary.json) | 19,749 bytes; SHA-256 `00cbc76025c0e7e3e3c6a2cc6d4e216128e464c46ea378c1d99a85c2f86a2512` |
 | [site-gallery-diff.json](soundness-regression-audit-2026-11-11/site-gallery-diff.json) | 444,992 bytes; SHA-256 `6e87a522893bb462749f83411f4ca75b531721c8664673843975304877411449` |
-| [site-gallery.test.ts](soundness-regression-audit-2026-11-11/site-gallery.test.ts) | 1,659 bytes; SHA-256 `a32e9bb2bc37b6c675f20b5a95b10bb5859560dddd1574fb7bac2b29f83280d1` |
+| [site-gallery.test.ts](soundness-regression-audit-2026-11-11/site-gallery.test.ts) | 1,637 bytes; SHA-256 `1abfdd1567cf67555a0510f2d25e0012259e70f19910076a778b67cfd50301a6` |
 | [ssi-probe.rs](soundness-regression-audit-2026-11-11/ssi-probe.rs) | 769 bytes; SHA-256 `8fad51b78bbba51cf6a3546958465518be09b05681dc20defb6fc282afcbcd1f` |
 | [tooling-parent-controls.log](soundness-regression-audit-2026-11-11/tooling-parent-controls.log) | 17,288 bytes; SHA-256 `565e5b692de9ce26912b58530778429c361e4a3510a703434adf206367217132` |
 | [units994-fix-245807d67.log](soundness-regression-audit-2026-11-11/units994-fix-245807d67.log) | 11,383 bytes; SHA-256 `124dc78ed2e5cedfe13fca613b8537075ee4a41bec83a21c7e85411d33c2ce33` |
@@ -695,3 +692,5 @@ Use `make shell` in remote scratch checkouts at the pinned revisions. The suppli
 - Historical bisection artifacts establish the recorded adjacent transitions, not the earliest change: monotonicity was unverified. Corrected scripts scan revisions in order. A full history rerun was excluded by the targeted-only, no-heavy-runs constraint.
 
 The coordinator should decide whether the free-drilling refusals need independent reference models, whether below-resolution reference-distance increases warrant action, and whether the three follow-up registrations describe the exposure accurately. No newly silent wrong engineering answer has been established on origin/main or a release, so this audit creates no advisory. Engine refactors are outside the requested audit scope; no claim is made that runtime recurrence has become impossible.
+
+Round 3 evidence checks retain all 142 archived adjacent static/reference comparisons (including overlapping models) when comparing every output except timing and build provenance; see [full-output-boundary-proof.json](soundness-regression-audit-2026-11-11/full-output-boundary-proof.json). These displacement-selected archives do not identify the earliest full-output change or attribute later reaction, force or stress changes. New captures retain all contributing test names, but the old overwritten aliases cannot be recovered without a new suite capture. The historical suites were not rerun. The structured failure inventory now retains all 66 named failures across the 12 failing logs and agrees with each recorded summary.

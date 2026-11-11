@@ -1,6 +1,7 @@
 import json
 import pathlib
 import sys
+from audit_evidence import contributing_tests
 
 
 def partial(a,b):
@@ -39,7 +40,7 @@ def main(p):
   elif 'riks_' in r['test']:
    r['pr']=1885;r['attribution']='Observed adjacent first-parent transition for the corresponding arc-length benchmark family; exact full field evidence in native-fields.json.gz.'
    if not r['models']:
-    r['models']=[max(((m['input'][0]['maxSteps'],f) for f,m in models.items() if m['analysis']=='solve_arc_length' and m['test']==r['test']),default=(None,None))[1]]
+    r['models']=[max(((m['input'][0]['maxSteps'],f) for f,m in models.items() if m['analysis']=='solve_arc_length' and r['test'] in contributing_tests(m)),default=(None,None))[1]]
   elif r['category']=='engineering_reference':
    r.setdefault('pr',None);r.setdefault('attribution','Boundary attribution requires separate evidence.')
   if 'raasch_hook' in r['test']:r['existing_caveat']='Large reference error predates audit interval. Both current raw outputs carry LIN-SMALL-DISPLACEMENT; MITC4 also carries SH-MITC4-CONVERGENCE. See reference-warnings.json.'

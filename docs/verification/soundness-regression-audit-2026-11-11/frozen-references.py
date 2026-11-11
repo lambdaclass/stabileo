@@ -1,3 +1,4 @@
+from audit_evidence import contributing_tests
 import json,pathlib,collections,sys
 import importlib.util
 spec=importlib.util.spec_from_file_location('annotate_references',pathlib.Path(__file__).with_name('annotate-references.py'));annotation=importlib.util.module_from_spec(spec);spec.loader.exec_module(annotation);macneal_case=annotation.macneal_case
@@ -9,7 +10,7 @@ for r in d['rows']:
  if r['category']!='engineering_reference' or 'riks_' in r['test']:continue
  test=r['test'].split('::')[-1]
  if not r['models'] and test in fallback and r['observation'] in fallback[test]:
-  count=fallback[test][r['observation']];r['models']=[f for f,m in models.items() if m['test']==r['test'] and len(m['input'][0]['nodes'])==count];r['model_provenance']='Source mesh parameter and node count; full model variants retained.'
+  count=fallback[test][r['observation']];r['models']=[f for f,m in models.items() if r['test'] in contributing_tests(m) and len(m['input'][0]['nodes'])==count];r['model_provenance']='Source mesh parameter and node count; full model variants retained.'
  if not r['models'] and test=='benchmark_curved_shell_hemisphere_8x8' and r['observation']==2:
   r['models']=[f for f,m in models.items() if m['analysis']=='solve_3d' and len(m['input'][0]['nodes'])==81 and len(m['input'][0].get('curvedShells',{}))==64 and m['input'][0]['nodes'].get('1',{}).get('x')==10.0]
  for file in r['models']:
@@ -47,20 +48,22 @@ def append(file,m,component,reference,source,node=None,reactions=False,absolute=
  def measure(v):return sum(x[component] for x in v['reactions']) if reactions else (abs(next(x for x in v['displacements'] if x['nodeId']==node)[component]) if absolute else next(x for x in v['displacements'] if x['nodeId']==node)[component])
  av,bv=measure(a),measure(b);ref=reference
  rows.append(dict(id=source+':'+component,model=file,test=m['test'],selector=dict(node=node,component=component,reaction_sum=reactions,absolute=absolute and not reactions),before=av,after=bv,reference=ref,before_error=abs(av-ref),after_error=abs(bv-ref),farther=av!=bv and abs(bv-ref)>abs(av-ref),same_input=True,reference_source=source))
-for file,m in models.items():
- if m['analysis']!='solve_3d' or 'Ok' not in m['result']:continue
- test=m['test'];model=m['input'][0]
- if test=='benchmark_protocol::benchmark_protocol_roof':
-  ymax=max(n['y'] for n in model['nodes'].values());node=next(n['id'] for n in model['nodes'].values() if n['x']==0 and n['y']==ymax)
-  spec=json.loads((p/'repo/engine/tests/benchmarks/spec/scordelis-lo.json').read_text())
-  for ref in spec['references']:append(file,m,'uz',ref['value'],'scordelis-lo '+ref['citation'],node=node,absolute=False)
- elif test.endswith('validation_vm41_3d_l_frame_out_of_plane'):
-  tip=max(n['id'] for n in model['nodes'].values());l=max(n['x'] for n in model['nodes'].values());h=max(n['z'] for n in model['nodes'].values());mat=model['materials']['1'];sec=model['sections']['1'];e=mat['e']*1000;g=e/(2*(1+mat['nu']));force=next(x['data']['fy'] for x in model['loads'] if x['type']=='nodal');ref=force*l**3/(3*e*sec['iz'])+force*h**3/(3*e*sec['iz'])+force*h**2*l/(g*sec['j']);append(file,m,'uy',ref,'VM41 bending plus torsion, test source',node=tip)
- elif test.endswith('validation_nafems_r0031_3d_beam_bending'):
-  tip=max(n['id'] for n in model['nodes'].values());l=max(n['x'] for n in model['nodes'].values());e=model['materials']['1']['e']*1000;sec=model['sections']['1'];force=next(x['data'] for x in model['loads'] if x['type']=='nodal')
-  refs={'ux':force['fx']*l/(e*sec['a']),'uy':abs(force['fy'])*l**3/(3*e*sec['iz']),'uz':force['fz']*l**3/(3*e*sec['iy']),'rz':abs(force['fy'])*l**2/(2*e*sec['iz']),'ry':force['fz']*l**2/(2*e*sec['iy'])}
-  for component,ref in refs.items():append(file,m,component,ref,'NAFEMS R0031 cantilever, test source',node=tip,absolute=component!='ux')
-  for component in ['fx','fy','fz']:append(file,m,component,-force[component],'NAFEMS R0031 global equilibrium, test source',reactions=True)
+for file,original in models.items():
+ for test in contributing_tests(original):
+  m={**original,'test':test}
+  if m['analysis']!='solve_3d' or 'Ok' not in m['result']:continue
+  test=m['test'];model=m['input'][0]
+  if test=='benchmark_protocol::benchmark_protocol_roof':
+   ymax=max(n['y'] for n in model['nodes'].values());node=next(n['id'] for n in model['nodes'].values() if n['x']==0 and n['y']==ymax)
+   spec=json.loads((p/'repo/engine/tests/benchmarks/spec/scordelis-lo.json').read_text())
+   for ref in spec['references']:append(file,m,'uz',ref['value'],'scordelis-lo '+ref['citation'],node=node,absolute=False)
+  elif test.endswith('validation_vm41_3d_l_frame_out_of_plane'):
+   tip=max(n['id'] for n in model['nodes'].values());l=max(n['x'] for n in model['nodes'].values());h=max(n['z'] for n in model['nodes'].values());mat=model['materials']['1'];sec=model['sections']['1'];e=mat['e']*1000;g=e/(2*(1+mat['nu']));force=next(x['data']['fy'] for x in model['loads'] if x['type']=='nodal');ref=force*l**3/(3*e*sec['iz'])+force*h**3/(3*e*sec['iz'])+force*h**2*l/(g*sec['j']);append(file,m,'uy',ref,'VM41 bending plus torsion, test source',node=tip)
+  elif test.endswith('validation_nafems_r0031_3d_beam_bending'):
+   tip=max(n['id'] for n in model['nodes'].values());l=max(n['x'] for n in model['nodes'].values());e=model['materials']['1']['e']*1000;sec=model['sections']['1'];force=next(x['data'] for x in model['loads'] if x['type']=='nodal')
+   refs={'ux':force['fx']*l/(e*sec['a']),'uy':abs(force['fy'])*l**3/(3*e*sec['iz']),'uz':force['fz']*l**3/(3*e*sec['iy']),'rz':abs(force['fy'])*l**2/(2*e*sec['iz']),'ry':force['fz']*l**2/(2*e*sec['iy'])}
+   for component,ref in refs.items():append(file,m,component,ref,'NAFEMS R0031 cantilever, test source',node=tip,absolute=component!='ux')
+   for component in ['fx','fy','fz']:append(file,m,component,-force[component],'NAFEMS R0031 global equilibrium, test source',reactions=True)
 sources={r['id']:r for r in d['rows']}
 for row in rows:
  source=sources.get(row['id'],{})

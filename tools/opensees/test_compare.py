@@ -674,7 +674,15 @@ class NumericFieldAudit(unittest.TestCase):
                     bad = compare(actual, expected)
                     self.assertTrue(any(b[0] == field and b[2] in ((component, "missing") if mutation == "delete" else (component,)) for b in bad), (issue, entry, side, mutation, bad))
 
-    @unittest.skip('known wrong result: #1946')
+    def test_buckling_axial_projection_keeps_valid_linear_reference_comparable(self):
+        reference = dict(dim=3, disp={3: [1.0] * 6}, reac={1: [2.0] * 6}, forces={1: dict(nStart=3.0, nEnd=3.0)})
+        actual = copy.deepcopy(reference)
+        actual["forces"][1]["vyStart"] = 4.0
+        self.assertEqual(C.compare(column(), C.axial_result(actual), C.axial_result(reference), 1e-6)[0], [])
+        actual["forces"][1]["nEnd"] = -3.0
+        bad = C.compare(column(), C.axial_result(actual), C.axial_result(reference), 1e-6)[0]
+        self.assertTrue(any(row[0] == "force" and row[2] == "nEnd" for row in bad))
+
     def test_signed_missing_and_nonfinite_components_on_both_sides(self):
         for dimension in (2, 3):
             displacement = ("ux", "uz", "ry") if dimension == 2 else ("ux", "uy", "uz", "rx", "ry", "rz")

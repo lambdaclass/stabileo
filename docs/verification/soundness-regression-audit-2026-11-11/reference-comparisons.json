@@ -735,16 +735,17 @@
       "reference": 0.0012194364550111374,
       "before_reference": 0.001219436455099418,
       "same_reference": false,
-      "before_error": 0.0004744927143034355,
-      "after_error": 0.0004744927142117119,
-      "farther": false,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [],
       "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
       "pr": 1753,
       "category": "engineering_reference",
       "first_parent_merges": [],
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "self convergence"
+      "reference_kind": "self convergence",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "benchmarks::shell_benchmark::benchmark_q9_hypar:1",
@@ -757,16 +758,17 @@
       "reference": 0.0012194364550111374,
       "before_reference": 0.001219436455099418,
       "same_reference": false,
-      "before_error": 8.160220623941753e-05,
-      "after_error": 8.160220615123222e-05,
-      "farther": false,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [],
       "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
       "pr": 1753,
       "category": "engineering_reference",
       "first_parent_merges": [],
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "self convergence"
+      "reference_kind": "self convergence",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "benchmarks::shell_benchmark::benchmark_q9_hypar:2",
@@ -779,16 +781,17 @@
       "reference": 0.0012194364550111374,
       "before_reference": 0.001219436455099418,
       "same_reference": false,
-      "before_error": 0.0,
-      "after_error": 0.0,
-      "farther": false,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [],
       "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
       "pr": 1753,
       "category": "engineering_reference",
       "first_parent_merges": [],
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "self convergence"
+      "reference_kind": "self convergence",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "benchmarks::shell_benchmark::benchmark_q9_hypar:3",
@@ -801,16 +804,17 @@
       "reference": 0.0012194364550111374,
       "before_reference": 0.001219436455099418,
       "same_reference": false,
-      "before_error": 8.160220623941753e-05,
-      "after_error": 8.160220615123222e-05,
-      "farther": false,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [],
       "attribution": "Associated frozen models have archived adjacent displacement transitions; source test observations remain separate.",
       "pr": 1753,
       "category": "engineering_reference",
       "first_parent_merges": [],
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "self convergence"
+      "reference_kind": "self convergence",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "benchmarks::shell_benchmark::benchmark_q9_navier_plate:0",
@@ -1157,9 +1161,9 @@
       "reference": 2.8216536206608546e-07,
       "before_reference": 2.821653620677993e-07,
       "same_reference": false,
-      "before_error": 4.65109892137395e-10,
-      "after_error": 4.6510989385126027e-10,
-      "farther": false,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [
         "solve_3d-8c86fc3c9a42de15.json",
         "solve_3d-ad4bcc7de66fb3e9.json",
@@ -1171,7 +1175,8 @@
       "category": "engineering_reference",
       "first_parent_merges": [],
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "self convergence"
+      "reference_kind": "self convergence",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:1",
@@ -1184,9 +1189,9 @@
       "reference": 2.8216536206608546e-07,
       "before_reference": 2.821653620677993e-07,
       "same_reference": false,
-      "before_error": 2.7748644182444145e-11,
-      "after_error": 2.7748645896309435e-11,
-      "farther": false,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [
         "solve_3d-26783e873325fde8.json",
         "solve_3d-cc3431e9332c03ef.json",
@@ -1198,7 +1203,8 @@
       "category": "engineering_reference",
       "first_parent_merges": [],
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "self convergence"
+      "reference_kind": "self convergence",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:2",
@@ -1211,9 +1217,9 @@
       "reference": 2.8216536206608546e-07,
       "before_reference": 2.821653620677993e-07,
       "same_reference": false,
-      "before_error": 0.0,
-      "after_error": 0.0,
-      "farther": false,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [
         "solve_3d-c7886b5c64807661.json",
         "solve_3d-1ddef2d9d9bcf406.json",
@@ -1226,7 +1232,8 @@
         "77294fe006d716bf2e1900a85b3818906cf2fd33"
       ],
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "self convergence"
+      "reference_kind": "self convergence",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap:3",
@@ -1239,9 +1246,9 @@
       "reference": 2.8216536206608546e-07,
       "before_reference": 2.821653620677993e-07,
       "same_reference": false,
-      "before_error": 2.7748644182444145e-11,
-      "after_error": 2.7748645896309435e-11,
-      "farther": false,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [
         "solve_3d-26783e873325fde8.json",
         "solve_3d-cc3431e9332c03ef.json",
@@ -1253,7 +1260,8 @@
       "category": "engineering_reference",
       "first_parent_merges": [],
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "self convergence"
+      "reference_kind": "self convergence",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "benchmarks::shell_benchmark::benchmark_raasch_hook:0",
@@ -4101,9 +4109,9 @@
       "reference": 224.99999934269107,
       "before_reference": 224.99999934269124,
       "same_reference": false,
-      "before_error": 1.5347723092418164e-11,
-      "after_error": 1.5518253349000588e-11,
-      "farther": false,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [
         "solve_arc_length-84c74a48a769e1db.json"
       ],
@@ -4111,7 +4119,8 @@
       "pr": 1885,
       "category": "engineering_reference",
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "source formula or published target"
+      "reference_kind": "source formula or published target",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "research_benchmarks::riks_shallow_frame_energy_reference:9",
@@ -4285,9 +4294,9 @@
       "reference": 424.9999986534001,
       "before_reference": 424.9999986534003,
       "same_reference": false,
-      "before_error": 4.490630090003833e-12,
-      "after_error": 4.604316927725449e-12,
-      "farther": true,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [
         "solve_arc_length-6ee6d55800398053.json"
       ],
@@ -4295,7 +4304,8 @@
       "pr": 1885,
       "category": "engineering_reference",
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "source formula or published target"
+      "reference_kind": "source formula or published target",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "research_benchmarks::riks_shallow_frame_energy_reference:17",
@@ -4308,9 +4318,9 @@
       "reference": 449.9999985592734,
       "before_reference": 449.99999855927365,
       "same_reference": false,
-      "before_error": 7.332801033044234e-12,
-      "after_error": 7.503331289626658e-12,
-      "farther": true,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [
         "solve_arc_length-9f29abe002698460.json"
       ],
@@ -4318,7 +4328,8 @@
       "pr": 1885,
       "category": "engineering_reference",
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "source formula or published target"
+      "reference_kind": "source formula or published target",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "research_benchmarks::riks_shallow_frame_energy_reference:18",
@@ -4377,9 +4388,9 @@
       "reference": 524.9999982653844,
       "before_reference": 524.9999982653846,
       "same_reference": false,
-      "before_error": 1.3983481039758772e-11,
-      "after_error": 1.3869794202037156e-11,
-      "farther": false,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [
         "solve_arc_length-6ef36c2e110a708b.json"
       ],
@@ -4387,7 +4398,8 @@
       "pr": 1885,
       "category": "engineering_reference",
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "source formula or published target"
+      "reference_kind": "source formula or published target",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "research_benchmarks::riks_shallow_frame_energy_reference:21",
@@ -4400,9 +4412,9 @@
       "reference": 549.9999981634254,
       "before_reference": 549.9999981634256,
       "same_reference": false,
-      "before_error": 3.069544618483633e-12,
-      "after_error": 3.183231456205249e-12,
-      "farther": true,
+      "before_error": null,
+      "after_error": null,
+      "farther": null,
       "models": [
         "solve_arc_length-3157721979e8dcc4.json"
       ],
@@ -4410,7 +4422,8 @@
       "pr": 1885,
       "category": "engineering_reference",
       "comparison_mode": "as-shipped test observation",
-      "reference_kind": "source formula or published target"
+      "reference_kind": "source formula or published target",
+      "comparison_status": "incomparable: endpoint references differ"
     },
     {
       "id": "research_benchmarks::riks_shallow_frame_energy_reference:22",
@@ -8819,52 +8832,6 @@
       "reference_kind": "source formula or published target"
     },
     {
-      "id": "research_benchmarks::riks_shallow_frame_energy_reference:16",
-      "test": "research_benchmarks::riks_shallow_frame_energy_reference",
-      "observation": 16,
-      "before_site": "research_benchmarks",
-      "after_site": "research_benchmarks",
-      "before": 424.9999986534048,
-      "after": 424.9999986534047,
-      "reference": 424.9999986534001,
-      "before_reference": 424.9999986534003,
-      "same_reference": false,
-      "before_error": 4.490630090003833e-12,
-      "after_error": 4.604316927725449e-12,
-      "farther": true,
-      "models": [
-        "solve_arc_length-6ee6d55800398053.json"
-      ],
-      "attribution": "Adjacent first-parent transition for the corresponding arc-length benchmark family; exact full field evidence in native-fields.json.gz.",
-      "pr": 1885,
-      "category": "engineering_reference",
-      "comparison_mode": "as-shipped test observation",
-      "reference_kind": "source formula or published target"
-    },
-    {
-      "id": "research_benchmarks::riks_shallow_frame_energy_reference:17",
-      "test": "research_benchmarks::riks_shallow_frame_energy_reference",
-      "observation": 17,
-      "before_site": "research_benchmarks",
-      "after_site": "research_benchmarks",
-      "before": 449.999998559281,
-      "after": 449.9999985592809,
-      "reference": 449.9999985592734,
-      "before_reference": 449.99999855927365,
-      "same_reference": false,
-      "before_error": 7.332801033044234e-12,
-      "after_error": 7.503331289626658e-12,
-      "farther": true,
-      "models": [
-        "solve_arc_length-9f29abe002698460.json"
-      ],
-      "attribution": "Adjacent first-parent transition for the corresponding arc-length benchmark family; exact full field evidence in native-fields.json.gz.",
-      "pr": 1885,
-      "category": "engineering_reference",
-      "comparison_mode": "as-shipped test observation",
-      "reference_kind": "source formula or published target"
-    },
-    {
       "id": "research_benchmarks::riks_shallow_frame_energy_reference:18",
       "test": "research_benchmarks::riks_shallow_frame_energy_reference",
       "observation": 18,
@@ -8903,29 +8870,6 @@
       "farther": true,
       "models": [
         "solve_arc_length-a244889702dc024c.json"
-      ],
-      "attribution": "Adjacent first-parent transition for the corresponding arc-length benchmark family; exact full field evidence in native-fields.json.gz.",
-      "pr": 1885,
-      "category": "engineering_reference",
-      "comparison_mode": "as-shipped test observation",
-      "reference_kind": "source formula or published target"
-    },
-    {
-      "id": "research_benchmarks::riks_shallow_frame_energy_reference:21",
-      "test": "research_benchmarks::riks_shallow_frame_energy_reference",
-      "observation": 21,
-      "before_site": "research_benchmarks",
-      "after_site": "research_benchmarks",
-      "before": 549.9999981634287,
-      "after": 549.9999981634286,
-      "reference": 549.9999981634254,
-      "before_reference": 549.9999981634256,
-      "same_reference": false,
-      "before_error": 3.069544618483633e-12,
-      "after_error": 3.183231456205249e-12,
-      "farther": true,
-      "models": [
-        "solve_arc_length-3157721979e8dcc4.json"
       ],
       "attribution": "Adjacent first-parent transition for the corresponding arc-length benchmark family; exact full field evidence in native-fields.json.gz.",
       "pr": 1885,
