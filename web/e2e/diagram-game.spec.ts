@@ -59,6 +59,10 @@ test('@smoke diagram game: a round that shows one diagram and asks which of four
   await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'true');
   await expect(page.getByTestId(`dg-why-${right}`)).toHaveText('Esta estructura da el diagrama de arriba.');
   for (const i of [0, 1, 2, 3].filter((i) => i !== right)) await expect(page.getByTestId(`dg-option-${i}`).locator('.curve').first()).toBeVisible();
+  const other = right === 0 ? 1 : 0;
+  await page.getByTestId(`dg-option-${other}`).click();
+  await expect(page.getByTestId('dg-reason')).toHaveText(`${other + 1}Esta da otro diagrama, que ahora está dibujado encima.`);
+  await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'true');
 });
 
 const call = (page: Page, f: string, ...args: unknown[]) =>

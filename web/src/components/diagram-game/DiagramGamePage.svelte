@@ -324,7 +324,7 @@
                   </p>
                   {#if toast}<p class="toast" data-testid="dg-streak-toast">{tg('streakToast', { n: toast })}</p>{/if}
                 {/if}
-                {#if told !== null && (!cardText || told === picked)}
+                {#if told !== null}
                   <p class="reason" data-testid="dg-reason"><span class="tag-n">{told + 1}</span>{explain(told)}</p>
                 {:else if !cardText}
                   <p class="reason tap">{tg('tapWhy')}</p>
