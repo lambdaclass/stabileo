@@ -2103,6 +2103,7 @@ const pt: Translations = {
   "knownIssue.FR-5": "As barras com empenamento compartilham um único grau de liberdade de empenamento em cada ligação. A transmissão total do empenamento pode restringir em excesso a ligação real; verifique seu detalhamento e a restrição ao empenamento de forma independente.",
   "analysisValidity.cable": "Resultados retidos: os cabos {elements} exigem análise de cabos para trabalhar apenas à tração. Esta análise os trata como barras que podem resistir à compressão.",
   "analysisValidity.contact": "Resultados retidos: o contato congelado {elements} não satisfaz as condições de apoio, abertura e ausência de tração dentro da tolerância de contato. Revise o modelo de contato ou as configurações de iteração e resolva novamente.",
+  "analysisValidity.member": "Resultados retidos: o membro unidirecional congelado {elements} tem forças axiais incompatíveis com seu comportamento dentro da tolerância de contato escalada. Revise o modelo de contato ou as configurações de iteração e resolva novamente.",
   "analysisValidity.contactTolerance": "Resultados retidos: a tolerância de contato deve ser finita e positiva. Defina uma tolerância de contato positiva e resolva novamente.",
   "knownIssue.SP-14": "Fora da análise de cabos, os cabos podem resistir à compressão como barras. Verifique as trações e use a análise de cabos para o afrouxamento.",
   "knownIssue.NL-13": "A análise de contato pode congelar um contato oscilante e declarar convergência. Verifique o estado de contato e o equilíbrio.",

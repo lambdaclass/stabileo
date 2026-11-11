@@ -46,9 +46,37 @@ pub(crate) fn check_frozen_contact(id: usize, gap: f64, force_over_stiffness: f6
     Ok(())
 }
 
+pub(crate) fn check_frozen_member(id: usize, behavior: &str, forces: [f64; 2], stiffness: f64, tolerance: f64) -> Result<(), String> {
+    let sign = if behavior == "tension_only" { -1.0 } else { 1.0 };
+    if !stiffness.is_finite() || stiffness <= 0.0 || forces.iter().any(|force| !force.is_finite() || sign * force / stiffness > tolerance) {
+        return Err(refusal(
+            DiagnosticCode::ContactStateInvalid, vec![id], "element_behavior",
+            "Results withheld: a frozen one-way member has non-finite assembled axial forces or an axial-force sign incompatible with its behaviour within the contact tolerance. Revise the contact model or iteration settings and solve again.",
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn frozen_member_rejects_invalid_forces_and_stiffness() {
+        for behavior in ["tension_only", "compression_only"] {
+            let sign = if behavior == "tension_only" { 1.0 } else { -1.0 };
+            for forces in [[sign, -sign], [-sign, sign]] {
+                assert!(check_frozen_member(2, behavior, forces, 1000.0, 1e-10).is_err());
+            }
+            assert!(check_frozen_member(2, behavior, [sign; 2], 1000.0, 1e-10).is_ok());
+            for forces in [[f64::NAN, 0.0], [0.0, f64::INFINITY], [f64::NEG_INFINITY, 0.0]] {
+                assert!(check_frozen_member(2, behavior, forces, 1000.0, 1e-10).is_err());
+            }
+            for stiffness in [0.0, -1000.0, f64::NAN, f64::INFINITY] {
+                assert!(check_frozen_member(2, behavior, [0.0; 2], stiffness, 1e-10).is_err());
+            }
+        }
+    }
 
     #[test]
     fn frozen_penetration_requires_assembled_compression() {

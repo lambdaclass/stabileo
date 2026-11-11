@@ -49,7 +49,7 @@ on that branch: a test that now passes means the finding is fixed.
 | Issue | Finding | Note | Demonstration |
 |---|---|---|---|
 | [#417](https://github.com/lambdaclass/stabileo/issues/417) | SP-14 linear solver lets a cable carry compression with no diagnostic | fixed: cable elements require cable analysis | `linear_solver_does_not_report_cable_compression_silently` and its 3D twin pass |
-| [#432](https://github.com/lambdaclass/stabileo/issues/432) | NL-13 contact reports converged after freezing a chattering gap | fixed: invalid frozen states refused after final solve | `nl_contact_chattering_gap_is_refused_2d/3d` pass |
+| [#432](https://github.com/lambdaclass/stabileo/issues/432) | NL-13 contact reports converged after freezing a chattering gap | fixed: invalid frozen gaps, surface pairs and one-way members refused after final solve; member history retained across AL passes | `nl_contact_chattering_gap_is_refused_2d/3d`, `nl_contact_frozen_tension_only_compression_refuses_2d/3d`, `nl_contact_frozen_compression_only_tension_refuses_2d/3d` pass |
 | [#433](https://github.com/lambdaclass/stabileo/issues/433) | NL-17 fiber solver reports an unconverged iterate on failure | must refuse or report the last converged step | none; to add |
 | [#420](https://github.com/lambdaclass/stabileo/issues/420) | SP-18 fiber solvers return no reactions | missing output | `fiber_solver_reports_reactions` fails |
 | [#419](https://github.com/lambdaclass/stabileo/issues/419) | SP-17 3D connector axes discontinuous in direction, not orientable | results jump across a direction; promote to A if a connector's stiffness differs by axis | `connector_3d_axes_are_continuous_in_direction` fails |

@@ -290,3 +290,17 @@ it('translates invalid contact tolerance in six locales', async () => {
   }
   setLocale('en');
 });
+
+it('translates frozen one-way member refusals with the member ID in six locales', async () => {
+  for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+    setLocale(loc);
+    await ensureLocale(loc);
+    const error = JSON.stringify({ structuredDiagnostics: [{ code: 'contact_state_invalid', phase: 'element_behavior', severity: 'error', elementIds: [2], message: 'ENGINE' }] });
+    const template = dictFor(loc)['analysisValidity.member'];
+    expect(template).toContain('{elements}');
+    const translated = template.replace('{elements}', '2');
+    expect(knownIssueRefusal(error)).toBe(translated);
+    expect(errorText(error, 'fallback')).toBe(translated);
+  }
+  setLocale('en');
+});

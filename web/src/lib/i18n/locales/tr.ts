@@ -14412,6 +14412,7 @@ const tr: Translations = {
   "knownIssue.FR-5": "Çarpılmalı çubuklar, bir düğümde tek bir çarpılma serbestlik derecesini paylaşır. Çarpılmanın tam aktarılması gerçek birleşimi aşırı kısıtlayabilir; birleşim detaylarını ve çarpılma kısıtlamasını bağımsız olarak doğrulayın",
   "analysisValidity.cable": "Sonuçlar sunulmuyor: {elements} kablo elemanlarının yalnızca çekme taşıması için kablo analizi gerekir. Bu analiz kabloları basınç taşıyabilen çubuklar olarak ele alır.",
   "analysisValidity.contact": "Sonuçlar sunulmuyor: sabitlenmiş {elements} teması, temas toleransı içinde basınç, açıklık ve çekme taşımama koşullarını sağlamıyor. Temas modelini veya yineleme ayarlarını düzenleyip yeniden çözün.",
+  "analysisValidity.member": "Sonuçlar sunulmuyor: durumu sabitlenen tek yönlü {elements} elemanının eksenel kuvvetleri, ölçekli temas toleransı içinde davranışıyla uyumlu değil. Temas modelini veya yineleme ayarlarını düzenleyip yeniden çözün.",
   "analysisValidity.contactTolerance": "Sonuçlar sunulmuyor: temas toleransı sonlu ve pozitif olmalıdır. Pozitif bir temas toleransı belirleyip yeniden çözün.",
   "knownIssue.SP-14": "Kablo analizi dışında kablo elemanları, kafes çubukları gibi basınç taşıyabilir. Kablo çekme kuvvetlerini doğrulayın ve gevşemeyi değerlendirmek için yalnızca çekme taşıyan kablo analizi kullanın",
   "knownIssue.NL-13": "Temas analizi, salınımlı bir temas boşluğunu sabitleyip yine de yakınsama bildirebilir. Temas durumunu ve dengeyi bağımsız olarak doğrulayın",

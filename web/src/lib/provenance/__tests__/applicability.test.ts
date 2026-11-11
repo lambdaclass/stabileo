@@ -512,3 +512,14 @@ it('classifies native cables as axial members and contacts without frame claims 
     expect(features.has('trussMembers'), type).toBe(type === 'cable');
   }
 });
+
+it('scopes frozen member validation to one-way behaviour even without gaps (#1921)', () => {
+  const id = 'frozen-one-way-members';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const behaviour of ['tensionOnly', 'compressionOnly']) {
+      expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss', { behaviour })] }))).toContain(id);
+    }
+    expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss')] }))).not.toContain(id);
+    expect(ids(model({ analysisMode, elements: [member(1, 1, 'frame')] }))).not.toContain(id);
+  }
+});

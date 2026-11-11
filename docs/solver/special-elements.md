@@ -526,4 +526,7 @@ members and directs the user to cable analysis; the web translates it in all six
 These analysis paths also refuse tensile and unloaded cable cases: a two-way bar calculation does
 not establish that the cable remains taut under load combinations or dynamic response. Explicit
 truss members remain two-way bars. For tension-only members in contact analysis, use a truss with
-an explicit `tension_only` behaviour. The dedicated cable solver keeps its tension-only formulation.
+an explicit `tension_only` behaviour. Contact member states obey `max_flips`; a frozen member's
+final recovered axial end forces must respect its one-way sign within the contact tolerance
+scaled by $EA/L$, or the solve refuses with `contact_state_invalid`. The dedicated cable solver
+keeps its tension-only formulation.

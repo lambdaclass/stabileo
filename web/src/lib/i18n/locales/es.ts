@@ -3991,6 +3991,7 @@ const es: Record<string, string> = {
   "knownIssue.FR-5": "Las barras con alabeo comparten un único grado de libertad de alabeo en cada unión. La transmisión total del alabeo puede restringir en exceso la unión real; verificá su detalle y la restricción al alabeo de forma independiente.",
   "analysisValidity.cable": "Resultados retenidos: los cables {elements} requieren análisis de cables para trabajar solo a tracción. Este análisis los trata como barras que pueden resistir compresión.",
   "analysisValidity.contact": "Resultados retenidos: el contacto congelado {elements} no cumple las condiciones de apoyo, apertura y ausencia de tracción dentro de la tolerancia de contacto. Revisá el modelo de contacto o la configuración de iteración y volvé a resolver.",
+  "analysisValidity.member": "Resultados retenidos: el miembro unidireccional congelado {elements} tiene fuerzas axiales incompatibles con su comportamiento dentro de la tolerancia de contacto escalada. Revisá el modelo de contacto o la configuración de iteración y volvé a resolver.",
   "analysisValidity.contactTolerance": "Resultados retenidos: la tolerancia de contacto debe ser finita y positiva. Definí una tolerancia de contacto positiva y volvé a resolver.",
   "knownIssue.SP-14": "Fuera del análisis de cables, los cables pueden resistir compresión como barras. Verificá las tracciones y usá el análisis de cables para el destensado.",
   "knownIssue.NL-13": "El análisis de contacto puede congelar un contacto oscilante y declarar convergencia. Verificá el estado de contacto y el equilibrio.",

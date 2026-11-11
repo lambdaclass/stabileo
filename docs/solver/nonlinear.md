@@ -460,13 +460,18 @@ from that solution, and the passes repeat until no status changes.
 - **Uplift supports (2D).** This is an outer loop that swaps the support type: a support with a
   tensile reaction lifts off, and a lifted node that comes back below its seat bears again. In 3D
   uplift supports are refused.
-- **Chattering.** After `max_flips` changes the status of a gap or pair is frozen. Both dimensions
-  validate every frozen gap, and 2D every frozen surface pair, after the final solve without damping.
+- **Chattering.** After `max_flips` changes the status of a gap, surface pair or one-way member
+  is frozen. Both dimensions validate every frozen gap, and 2D every frozen surface pair, after the final solve without damping.
   Open contacts must not penetrate or carry force. Active contacts may carry compression with
   penalty penetration; tensile force divided by penalty stiffness must be within `tolerance`
   (default $10^{-10}$ m). A separated contact cannot carry compression above the same scaled tolerance.
   Invalid states are refused with `contact_state_invalid`. Freezing is remembered across
   augmented-Lagrangian passes. Valid frozen states may converge and retain oscillation diagnostics.
+  Frozen tension-only and compression-only members are also remembered across these passes.
+  After the final solve, both recovered axial end forces must have the permitted sign within
+  `tolerance` multiplied by the member's axial stiffness $EA/L$. Non-finite forces or stiffness,
+  non-positive stiffness and forces exceeding that limit return `contact_state_invalid`, naming
+  the member in phase `element_behavior`. Empty gap and surface lists do not bypass this check.
   Optional damping adds $c(u-u_\text{prev})$ to oscillating gaps during iteration only.
 
 ---
@@ -696,7 +701,10 @@ Neither is called by any solver. They are library utilities, tested only in
   with a structured, translated error. A state within the contact tolerance may converge.
 - *Tests.* `nl_contact_chattering_gap_is_refused_2d/3d`,
   `nl_contact_frozen_gap_within_tolerance_can_converge_2d/3d`,
-  `nl_contact_frozen_open_gap_cannot_penetrate`, `nl_contact_frozen_surface_pair_cannot_penetrate`.
+  `nl_contact_frozen_open_gap_cannot_penetrate`, `nl_contact_frozen_surface_pair_cannot_penetrate`,
+  `nl_contact_frozen_tension_only_compression_refuses_2d/3d`,
+  `nl_contact_frozen_compression_only_tension_refuses_2d/3d`, and the one-way scaled-tolerance
+  and AL-history controls. Member flip limits are enforced as well as gap and pair limits.
 
 **NL-14. Co-rotational member loads are dead loads in the initial frame. DOCUMENTED-CHOICE.**
 

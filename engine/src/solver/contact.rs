@@ -19,7 +19,7 @@
 /// Contact damping adds velocity-proportional forces to stabilize
 /// open/close oscillations during iteration.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
@@ -813,7 +813,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
         g
     };
     // Axial force of a member from global displacements.
-    let axial = |eid: usize, u: &[f64]| -> f64 {
+    let axial = |eid: usize, u: &[f64]| -> (f64, f64) {
         let elem = elem_by_id[&eid];
         let ni = node_by_id[&elem.node_i];
         let nj = node_by_id[&elem.node_j];
@@ -821,7 +821,8 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
         let l = (dx * dx + dz * dz).sqrt();
         let get = |node: usize, d: usize| dof_num.global_dof(node, d).map(|g| u[g]).unwrap_or(0.0);
         let delta = ((get(elem.node_j, 0) - get(elem.node_i, 0)) * dx + (get(elem.node_j, 1) - get(elem.node_i, 1)) * dz) / l;
-        mat_by_id[&elem.material_id].e * 1000.0 * sec_by_id[&elem.section_id].a / l * delta
+        let stiffness = mat_by_id[&elem.material_id].e * 1000.0 * sec_by_id[&elem.section_id].a / l;
+        (stiffness * delta, stiffness)
     };
 
     let mut st = ContactState2D {
@@ -838,6 +839,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
     let mut frozen_gaps = vec![false; input.gap_elements.len()];
     let mut frozen_pairs = vec![false; input.node_to_surface_pairs.len()];
     let mut elem_flips: HashMap<usize, usize> = HashMap::new();
+    let mut frozen_elements = HashSet::new();
 
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
     let mut conditioning = None;
@@ -869,16 +871,21 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
 
             let mut any_change = false;
             for &(eid, behavior) in &behaviors {
-                let nforce = axial(eid, &u_global);
+                let (nforce, _) = axial(eid, &u_global);
                 let new = match behavior {
                     "tension_only" if nforce < -1e-10 => ContactStatus::Inactive,
                     "compression_only" if nforce > 1e-10 => ContactStatus::Inactive,
                     _ => ContactStatus::Active,
                 };
                 if st.elem[&eid] != new {
-                    any_change = true;
-                    *elem_flips.entry(eid).or_insert(0) += 1;
-                    st.elem.insert(eid, new);
+                    let flips = elem_flips.entry(eid).or_insert(0);
+                    *flips += 1;
+                    if *flips <= max_flips {
+                        any_change = true;
+                        st.elem.insert(eid, new);
+                    } else {
+                        frozen_elements.insert(eid);
+                    }
                 }
             }
             for (gi, gap) in input.gap_elements.iter().enumerate() {
@@ -1070,6 +1077,17 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
             }
         }
     }
+    for &(eid, behavior) in behaviors.iter().filter(|(eid, _)| frozen_elements.contains(eid)) {
+        let (_, stiffness) = axial(eid, &u_global);
+        let force = element_forces.iter().find(|ef| ef.element_id == eid)
+            .ok_or_else(|| super::validity::refusal(
+                DiagnosticCode::ContactStateInvalid, vec![eid], "element_behavior",
+                "Results withheld: a frozen one-way member has no assembled axial forces. Revise the contact model or iteration settings and solve again.",
+            ))?;
+        super::validity::check_frozen_member(eid, behavior, [force.n_start, force.n_end], stiffness, tolerance)?;
+        let earlier = if elem_flips.get(&eid).copied().unwrap_or(0) <= max_flips { " in an earlier augmented-Lagrangian pass" } else { "" };
+        diagnostics.push(format!("Element {eid} ({behavior}) status was frozen{earlier}."));
+    }
     element_forces.sort_by_key(|ef| ef.element_id);
     let results = AnalysisResults {
         displacements: linear::build_displacements_2d(&dof_num, &u_global),
@@ -1092,7 +1110,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
                 element_id: eid,
                 behavior: behavior.to_string(),
                 status: if active { "active".into() } else { "inactive".into() },
-                force: if active { axial(eid, &u_global) } else { 0.0 },
+                force: if active { axial(eid, &u_global).0 } else { 0.0 },
             }
         })
         .collect();
@@ -1345,14 +1363,15 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
         }
         g
     };
-    let axial = |eid: usize, u: &[f64]| -> f64 {
+    let axial = |eid: usize, u: &[f64]| -> (f64, f64) {
         let elem = elem_by_id[&eid];
         let (ni, nj) = (node_by_id[&elem.node_i], node_by_id[&elem.node_j]);
         let d = [nj.x - ni.x, nj.y - ni.y, nj.z - ni.z];
         let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
         let get = |node: usize, k: usize| dof_num.global_dof(node, k).map(|g| u[g]).unwrap_or(0.0);
         let delta: f64 = (0..3).map(|k| (get(elem.node_j, k) - get(elem.node_i, k)) * d[k]).sum::<f64>() / l;
-        mat_by_id[&elem.material_id].e * 1000.0 * sec_by_id[&elem.section_id].a / l * delta
+        let stiffness = mat_by_id[&elem.material_id].e * 1000.0 * sec_by_id[&elem.section_id].a / l;
+        (stiffness * delta, stiffness)
     };
     let rel = |gap: &GapElement, dir: usize, u: &[f64]| -> f64 {
         let get = |node: usize| dof_num.global_dof(node, dir).map(|g| u[g]).unwrap_or(0.0);
@@ -1365,6 +1384,7 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
 
     let mut elem_status: HashMap<usize, ContactStatus> = behaviors.iter().map(|&(id, _)| (id, ContactStatus::Active)).collect();
     let mut elem_flips: HashMap<usize, usize> = HashMap::new();
+    let mut frozen_elements = HashSet::new();
     let ng = input.gap_elements.len();
     let mut gap_status = vec![ContactStatus::Inactive; ng];
     let mut gap_flips = vec![0usize; ng];
@@ -1439,16 +1459,21 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
 
             let mut any_change = false;
             for &(eid, behavior) in &behaviors {
-                let nforce = axial(eid, &u_global);
+                let (nforce, _) = axial(eid, &u_global);
                 let new = match behavior {
                     "tension_only" if nforce < -1e-10 => ContactStatus::Inactive,
                     "compression_only" if nforce > 1e-10 => ContactStatus::Inactive,
                     _ => ContactStatus::Active,
                 };
                 if elem_status[&eid] != new {
-                    any_change = true;
-                    *elem_flips.entry(eid).or_insert(0) += 1;
-                    elem_status.insert(eid, new);
+                    let flips = elem_flips.entry(eid).or_insert(0);
+                    *flips += 1;
+                    if *flips <= max_flips {
+                        any_change = true;
+                        elem_status.insert(eid, new);
+                    } else {
+                        frozen_elements.insert(eid);
+                    }
                 }
             }
             for (gi, gap) in input.gap_elements.iter().enumerate() {
@@ -1564,6 +1589,17 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
             }
         }
     }
+    for &(eid, behavior) in behaviors.iter().filter(|(eid, _)| frozen_elements.contains(eid)) {
+        let (_, stiffness) = axial(eid, &u_global);
+        let force = element_forces.iter().find(|ef| ef.element_id == eid)
+            .ok_or_else(|| super::validity::refusal(
+                DiagnosticCode::ContactStateInvalid, vec![eid], "element_behavior",
+                "Results withheld: a frozen one-way member has no assembled axial forces. Revise the contact model or iteration settings and solve again.",
+            ))?;
+        super::validity::check_frozen_member(eid, behavior, [force.n_start, force.n_end], stiffness, tolerance)?;
+        let earlier = if elem_flips.get(&eid).copied().unwrap_or(0) <= max_flips { " in an earlier augmented-Lagrangian pass" } else { "" };
+        diagnostics.push(format!("Element {eid} ({behavior}) status was frozen{earlier}."));
+    }
     element_forces.sort_by_key(|ef| ef.element_id);
 
     let results = AnalysisResults3D {
@@ -1591,7 +1627,7 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
                 element_id: eid,
                 behavior: behavior.to_string(),
                 status: if active { "active".into() } else { "inactive".into() },
-                force: if active { axial(eid, &u_global) } else { 0.0 },
+                force: if active { axial(eid, &u_global).0 } else { 0.0 },
             }
         })
         .collect();
