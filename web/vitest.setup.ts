@@ -1,5 +1,3 @@
-import { afterEach } from 'vitest';
-import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 // The store starts with the public pages' entries; tests read every key.
 import './src/lib/i18n/full-dictionaries';
 import './src/lib/course/course-dictionaries';
@@ -138,5 +136,3 @@ if (!hasCanonicalGeometryExport() || !hasSectionFieldExport()) {
     console.warn(msg);
   }
 }
-
-afterEach(async () => { await yieldToEventLoop(); });

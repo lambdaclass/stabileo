@@ -7,7 +7,6 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class CiAggregate(unittest.TestCase):
-    @unittest.skip('known wrong result: #1935')
     def test_vitest_targets_honour_optional_worker_cap(self):
         for target in ['test.web.unit', 'test.web.timing']:
             for workers in ['', '1', '2']:
@@ -20,7 +19,6 @@ class CiAggregate(unittest.TestCase):
                     caps = re.findall(r'--maxWorkers(?:=| +)([^ "\n]+)', result.stdout)
                     self.assertEqual(caps, [workers] if workers else [])
 
-    @unittest.skip('known wrong result: #1935')
     def test_ci_vitest_jobs_limit_workers(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         for job in ['web-unit', 'timing-budgets']:
@@ -31,7 +29,6 @@ class CiAggregate(unittest.TestCase):
                 self.assertIsNotNone(job_env, f'{job} must limit Vitest workers')
                 self.assertRegex(job_env[1], r"(?m)^      VITEST_WORKERS: '2'$")
 
-    @unittest.skip('known wrong result: #1935')
     def test_vitest_setup_does_not_drain_deferred_work_after_each_test(self):
         setup = (ROOT / 'web/vitest.setup.ts').read_text()
         self.assertEqual(re.findall(r'\bafterEach\s*\(', setup), [])
