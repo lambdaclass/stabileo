@@ -1,0 +1,5 @@
+### Fixed
+
+#### Harmonic response resolves omitted modes beyond the dense ceiling (2026-11-10)
+
+**BREAKING (results):** Harmonic analysis now solves frequencies outside the existing modal truncation range with a full sparse solve when the dense system would exceed its ceiling. In the main replay, the sweep warned about two uncorrected frequencies; the 8.079% complex response error at 15.756339366097638 Hz and the wrong points near 15.9 and 16.07 Hz were outside that warning’s source list. The UI displays the warning once per sweep. A small global residual admitted those inaccurate responses. Both dense and sparse harmonic solves also scale columns by stiffness, inertia and damping contributions so structural-scale undamped resonance refuses rather than returning huge finite amplitudes from roundoff pivots. The truncation and residual thresholds remain unchanged in 2D and 3D; excessive sparse fill or a singular solve returns an error. Re-check harmonic responses above 3000 independent free DOFs near or above omitted modes. See [the results-change write-up](../docs/results-changes/2026-11-harmonic-omitted-modes.md) and #1434.

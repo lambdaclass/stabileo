@@ -154,6 +154,10 @@ fn compare(d: &Dense, res: &HarmonicResult, damping: (f64, f64)) -> Result<Repor
 /// equal the direct complex solve before either is used to judge the engine.
 #[test]
 fn reference_paths_agree_on_the_frames() {
+    reference_check(|_, _| {});
+}
+
+fn reference_check(perturb: impl Fn(&mut f64, &mut f64)) {
     let spec = FrameSpec::two_storey();
     let s = frame_2d(&spec);
     let roof = plane_frame(&spec).roof[0];
@@ -173,6 +177,7 @@ fn reference_paths_agree_on_the_frames() {
             si -= p * ai / m2;
         }
         let (floor, _, _) = allowances(&sp, d.n, w, damping, false, umax);
+        perturb(&mut sr, &mut si);
         r.close(&format!("Re at {f} Hz"), Length::from_m(sr), re, floor);
         r.close(&format!("Im at {f} Hz"), Length::from_m(si), im, floor);
     }
@@ -184,6 +189,10 @@ fn sweep(f_max_hz: f64, n: usize) -> Vec<f64> {
 }
 
 pub fn harmonic_2d(solver: SolverInput, node: usize, dof: &str, frequencies: Vec<f64>) -> Result<Report, String> {
+    harmonic_2d_with(solver, node, dof, frequencies, |_| {})
+}
+
+fn harmonic_2d_with(solver: SolverInput, node: usize, dof: &str, frequencies: Vec<f64>, perturb: impl FnOnce(&mut HarmonicResult)) -> Result<Report, String> {
     let h = HarmonicInput {
         solver,
         densities: steel_densities(),
@@ -192,11 +201,16 @@ pub fn harmonic_2d(solver: SolverInput, node: usize, dof: &str, frequencies: Vec
         response_node_id: node,
         response_dof: dof.into(),
     };
-    let (res, damping) = solve_harmonic_2d_with_damping(&h)?;
+    let (mut res, damping) = solve_harmonic_2d_with_damping(&h)?;
+    perturb(&mut res);
     compare(&dense_2d(&h)?, &res, damping)
 }
 
 pub fn harmonic_3d(solver: SolverInput3D, densities: HashMap<String, f64>, node: usize, dof: &str, frequencies: Vec<f64>) -> Result<Report, String> {
+    harmonic_3d_with(solver, densities, node, dof, frequencies, |_| {})
+}
+
+fn harmonic_3d_with(solver: SolverInput3D, densities: HashMap<String, f64>, node: usize, dof: &str, frequencies: Vec<f64>, perturb: impl FnOnce(&mut HarmonicResult)) -> Result<Report, String> {
     let h = HarmonicInput3D {
         solver,
         densities,
@@ -205,7 +219,8 @@ pub fn harmonic_3d(solver: SolverInput3D, densities: HashMap<String, f64>, node:
         response_node_id: node,
         response_dof: dof.into(),
     };
-    let (res, damping) = solve_harmonic_3d_with_damping(&h)?;
+    let (mut res, damping) = solve_harmonic_3d_with_damping(&h)?;
+    perturb(&mut res);
     compare(&dense_3d(&h)?, &res, damping)
 }
 
@@ -273,21 +288,29 @@ fn around_the_first_omitted_mode(d: &Dense, kept: usize) -> Result<Vec<f64>, Str
 /// Near and above the first omitted mode, on a well-conditioned frame, the engine
 /// sums the kept modes alone and only warns.
 fn above_the_kept_modes_2d() -> Result<Report, String> {
+    above_the_kept_modes_2d_with(|_| {})
+}
+
+fn above_the_kept_modes_2d_with(perturb: impl FnOnce(&mut HarmonicResult)) -> Result<Report, String> {
     let spec = FrameSpec::two_storey();
     let roof = plane_frame(&spec).roof[0];
     let h = HarmonicInput { solver: frame_2d(&spec), densities: steel_densities(), frequencies: vec![0.0], damping_ratio: 0.05, response_node_id: roof, response_dof: "x".into() };
     let kept = solve_harmonic_2d(&HarmonicInput { frequencies: vec![1e6], ..h.clone() })?.modes_used;
     let freqs = around_the_first_omitted_mode(&dense_2d(&h)?, kept)?;
-    harmonic_2d(h.solver, roof, "x", freqs)
+    harmonic_2d_with(h.solver, roof, "x", freqs, perturb)
 }
 
 fn above_the_kept_modes_3d() -> Result<Report, String> {
+    above_the_kept_modes_3d_with(|_| {})
+}
+
+fn above_the_kept_modes_3d_with(perturb: impl FnOnce(&mut HarmonicResult)) -> Result<Report, String> {
     let spec = FrameSpec { subdivisions: 1, ..FrameSpec::two_storey() };
     let roof = plane_frame(&spec).roof[0];
     let h = HarmonicInput3D { solver: space_frame_3d(&spec, 5.0), densities: steel_densities(), frequencies: vec![0.0], damping_ratio: 0.05, response_node_id: roof, response_dof: "x".into() };
     let kept = solve_harmonic_3d(&HarmonicInput3D { frequencies: vec![1e6], ..h.clone() })?.modes_used;
     let freqs = around_the_first_omitted_mode(&dense_3d(&h)?, kept)?;
-    harmonic_3d(h.solver, steel_densities(), roof, "x", freqs)
+    harmonic_3d_with(h.solver, steel_densities(), roof, "x", freqs, perturb)
 }
 
 #[test]
@@ -304,6 +327,10 @@ fn harmonic_3d_above_the_kept_modes_matches_direct() {
 /// the amplitude is the static displacement to round-off (κ(K) < 1e7 on these frames).
 #[test]
 fn harmonic_at_zero_frequency_is_the_static_solution() {
+    harmonic_zero_check(|v| v);
+}
+
+fn harmonic_zero_check(perturb: impl Fn(f64) -> f64) {
     let spec = FrameSpec::two_storey();
     let s = frame_2d(&spec);
     let roof = plane_frame(&spec).roof[0];
@@ -313,6 +340,7 @@ fn harmonic_at_zero_frequency_is_the_static_solution() {
     for (dof, want) in [("x", u.ux), ("y", u.uz)] {
         let h = HarmonicInput { solver: s.clone(), densities: steel_densities(), frequencies: vec![0.0], damping_ratio: 0.05, response_node_id: roof, response_dof: dof.into() };
         let got = solve_harmonic_2d(&h).unwrap().response_points[0].real;
+        let got = perturb(got);
         r.close(&format!("2D roof {dof}"), Length::from_m(got), Length::from_m(want), Length::from_m(1e-9 * u.ux.abs().max(u.uz.abs())));
     }
     let s3 = space_frame_3d(&FrameSpec { subdivisions: 1, ..spec }, 5.0);
@@ -322,6 +350,7 @@ fn harmonic_at_zero_frequency_is_the_static_solution() {
     for (dof, want) in [("x", u.ux), ("y", u.uy), ("z", u.uz)] {
         let h = HarmonicInput3D { solver: s3.clone(), densities: steel_densities(), frequencies: vec![0.0], damping_ratio: 0.05, response_node_id: roof, response_dof: dof.into() };
         let got = solve_harmonic_3d(&h).unwrap().response_points[0].real;
+        let got = perturb(got);
         r.close(&format!("3D roof {dof}"), Length::from_m(got), Length::from_m(want), Length::from_m(1e-9 * scale));
     }
     agree("harmonic at 0 Hz vs linear static", Ok(r));
@@ -369,6 +398,10 @@ fn quasi_static_bound(t1: f64, dt: f64, ramp: f64, hold: f64, xi: f64) -> f64 {
 
 #[test]
 fn time_history_slow_ramp_settles_on_the_static_solution() {
+    slow_ramp_check(|v| v);
+}
+
+fn slow_ramp_check(perturb: impl Fn(f64) -> f64) {
     use dedaliano_engine::solver::time_integration::solve_time_history_2d;
     let spec = FrameSpec::two_storey();
     let mut s = frame_2d(&spec);
@@ -419,7 +452,7 @@ fn time_history_slow_ramp_settles_on_the_static_solution() {
         let st = stat.displacements.iter().find(|d| d.node_id == h.node_id).unwrap();
         for (local, name, got, want) in [(0, "ux", *h.ux.last().unwrap(), st.ux), (1, "uz", *h.uz.last().unwrap(), st.uz)] {
             if dof.map[&(h.node_id, local)] < n {
-                r.close(&format!("node {} {name}", h.node_id), Length::from_m(got), Length::from_m(want), share(h.node_id, local) * rel);
+                r.close(&format!("node {} {name}", h.node_id), Length::from_m(perturb(got)), Length::from_m(want), share(h.node_id, local) * rel);
             }
         }
     }
@@ -430,10 +463,162 @@ fn time_history_slow_ramp_settles_on_the_static_solution() {
 /// accepted under the residual threshold was off by up to 60 % (#1434).
 #[test]
 fn harmonic_2d_beam_above_the_kept_modes_matches_direct() {
+    beam_above_kept_check(|_| {});
+}
+
+fn beam_above_kept_check(perturb: impl FnOnce(&mut HarmonicResult)) {
     let n = 8;
     let nodes = (0..=n).map(|i| (i + 1, i as f64 * 1.25, 0.0)).collect();
     let elems = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
     let solver = crate::common::make_input(nodes, vec![(1, 200_000.0, 0.3)], vec![(1, 0.05, 1e-4)], elems, vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -10.0, my: 0.0 })]);
-    agree("2D beam harmonic above the kept modes vs direct", harmonic_2d(solver, 4, "y", (1..=40).map(|i| i as f64 * 250.0).collect()));
+    agree("2D beam harmonic above the kept modes vs direct", harmonic_2d_with(solver, 4, "y", (1..=40).map(|i| i as f64 * 250.0).collect(), perturb));
+}
+
+#[test]
+fn seeded_failure_harmonic_real_and_imaginary() {
+    let spec = FrameSpec { subdivisions: 1, ..FrameSpec::two_storey() };
+    let roof = plane_frame(&spec).roof[0];
+    let s2 = frame_2d(&spec);
+    let s3 = space_frame_3d(&spec, 5.0);
+    for dim in [2, 3] {
+        let frequencies = vec![0.0, 0.5 * if dim == 2 { fundamental_hz_2d(&s2) } else { fundamental_hz_3d(&s3, &steel_densities()) }];
+        let check = |field: Option<bool>| {
+            let perturb = |r: &mut HarmonicResult| {
+                if let Some(real) = field {
+                    for p in &mut r.response_points {
+                        if real { p.real *= -1.0; } else { p.imag *= -1.0; }
+                    }
+                }
+            };
+            if dim == 2 { harmonic_2d_with(s2.clone(), roof, "x", frequencies.clone(), perturb) }
+            else { harmonic_3d_with(s3.clone(), steel_densities(), roof, "x", frequencies.clone(), perturb) }
+        };
+        check(None).unwrap().into_result().unwrap();
+        for real in [false, true] {
+            assert!(check(Some(real)).unwrap().into_result().is_err(), "{dim}D harmonic real={real} sign fault escaped");
+        }
+    }
+}
+
+#[test]
+fn seeded_failure_independent_harmonic_references() {
+    reference_paths_agree_on_the_frames();
+    rejects_seeded(|| reference_check(|re, _| *re *= -1.0));
+    rejects_seeded(|| reference_check(|_, im| *im *= -1.0));
+    harmonic_at_zero_frequency_is_the_static_solution();
+    rejects_seeded(|| harmonic_zero_check(|v| -v));
+}
+
+#[test]
+fn seeded_failure_harmonic_above_kept_modes() {
+    above_the_kept_modes_2d().unwrap().into_result().unwrap();
+    above_the_kept_modes_3d().unwrap().into_result().unwrap();
+    let perturb = |r: &mut HarmonicResult| r.response_points.iter_mut().for_each(|p| { p.real *= -1.0; p.imag *= -1.0; });
+    assert!(above_the_kept_modes_2d_with(perturb).unwrap().into_result().is_err());
+    assert!(above_the_kept_modes_3d_with(perturb).unwrap().into_result().is_err());
+    harmonic_2d_beam_above_the_kept_modes_matches_direct();
+    rejects_seeded(|| beam_above_kept_check(perturb));
+}
+
+#[test]
+fn seeded_failure_time_history_static_limit() {
+    time_history_slow_ramp_settles_on_the_static_solution();
+    rejects_seeded(|| slow_ramp_check(|v| -v));
+}
+
+fn omitted_spring_frequencies() -> Vec<f64> {
+    [0.99, 1.0, 1.01, 1.5, 2.0, 3.0].map(|r| r * 100.0 / (2.0 * PI)).to_vec()
+}
+
+fn compare_omitted_spring(result: &HarmonicResult, damping: (f64, f64)) {
+    let requested = omitted_spring_frequencies();
+    assert_eq!(result.response_points.len(), requested.len());
+    assert_eq!(result.response_points.iter().map(|p| p.frequency).collect::<Vec<_>>(), requested);
+    assert_eq!(result.method, HarmonicMethod::Direct);
+    assert!(result.warnings.is_empty(), "{:?}", result.warnings);
+    let mut peak = (0.0f64, 0.0f64);
+    let d = Dense { k: vec![1.0, 0.0, 0.0, 10000.0], m: vec![1.0, 0.0, 0.0, 1.0], f: vec![1.0, 1e-4], n: 2, target: 1 };
+    for pt in &result.response_points {
+        let (re, im, _) = direct(&d, damping, pt.omega).unwrap();
+        let amplitude = re.in_m().hypot(im.in_m());
+        if amplitude > peak.1 { peak = (pt.frequency, amplitude); }
+        let ar = 10000.0 - pt.omega.powi(2);
+        let ai = pt.omega * (damping.0 + damping.1 * 10000.0);
+        let closed = (1e-4 * ar / (ar * ar + ai * ai), -1e-4 * ai / (ar * ar + ai * ai));
+        let tol = 1e-12 * re.in_m().hypot(im.in_m());
+        assert!((re.in_m() - closed.0).hypot(im.in_m() - closed.1) <= tol);
+        assert!((pt.real - re.in_m()).hypot(pt.imag - im.in_m()) <= tol,
+            "{} Hz: engine ({:e}, {:e}), direct/closed ({:e}, {:e}), method {:?}, warnings {:?}",
+            pt.frequency, pt.real, pt.imag, re.in_m(), im.in_m(), result.method, result.warnings);
+    }
+    assert_eq!(result.peak_frequency, peak.0);
+    assert!((result.peak_amplitude - peak.1).abs() <= 1e-12 * peak.1);
+    assert!(!result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("HARM-TRUNCATION")));
+}
+
+#[test]
+fn harmonic_2d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form() {
+    let n = 3001;
+    let mut solver = crate::common::make_input(
+        (1..=n).map(|i| (i, i as f64, 0.0)).collect(), vec![], vec![], vec![],
+        (1..=n).map(|i| (i, i, "guidedX")).collect(),
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 1.0, fz: 0.0, my: 0.0 }),
+             SolverLoad::Nodal(SolverNodalLoad { node_id: 100, fx: 1e-4, fz: 0.0, my: 0.0 })]);
+    for i in 1..=n {
+        solver.supports.get_mut(&i.to_string()).unwrap().kx = Some((i * i) as f64);
+        solver.masses.nodal.push(NodalMass { node_id: i, mass: 1.0, mass_x: None, mass_z: None, rotary_inertia: 0.0 });
+    }
+    let h = HarmonicInput { solver, densities: HashMap::new(), frequencies: omitted_spring_frequencies(), damping_ratio: 0.05, response_node_id: 100, response_dof: "x".into() };
+    let (result, damping) = solve_harmonic_2d_with_damping(&h).unwrap();
+    assert_eq!(result.n_dof, n);
+    compare_omitted_spring(&result, damping);
+}
+
+#[test]
+fn harmonic_3d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form() {
+    let n = 3001;
+    let mut solver = crate::common::make_3d_input(
+        (1..=n).map(|i| (i, i as f64, 0.0, 0.0)).collect(), vec![], vec![], vec![],
+        (1..=n).map(|i| (i, vec![false, true, true, true, true, true])).collect(),
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 1, fx: 1.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }),
+             SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 100, fx: 1e-4, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })]);
+    for i in 1..=n {
+        solver.supports.get_mut(&i.to_string()).unwrap().kx = Some((i * i) as f64);
+        solver.masses.nodal.push(NodalMass3D { node_id: i, mass: 1.0, mass_x: None, mass_y: None, mass_z: None, ixx: 0.0, iyy: 0.0, izz: 0.0 });
+    }
+    let h = HarmonicInput3D { solver, densities: HashMap::new(), frequencies: omitted_spring_frequencies(), damping_ratio: 0.05, response_node_id: 100, response_dof: "x".into() };
+    let (result, damping) = solve_harmonic_3d_with_damping(&h).unwrap();
+    assert_eq!(result.n_dof, n);
+    compare_omitted_spring(&result, damping);
+}
+
+#[test]
+fn omitted_spring_comparison_rejects_incomplete_direct_responses() {
+    let damping = (0.0, 1.0);
+    let d = Dense { k: vec![1.0, 0.0, 0.0, 10000.0], m: vec![1.0, 0.0, 0.0, 1.0], f: vec![1.0, 1e-4], n: 2, target: 1 };
+    let points: Vec<HarmonicResponsePoint> = omitted_spring_frequencies().into_iter().map(|frequency| {
+        let omega = 2.0 * PI * frequency;
+        let (re, im, _) = direct(&d, damping, omega).unwrap();
+        HarmonicResponsePoint { frequency, omega, real: re.in_m(), imag: im.in_m(), amplitude: re.in_m().hypot(im.in_m()), phase: im.in_m().atan2(re.in_m()) }
+    }).collect();
+    let peak = points.iter().max_by(|a, b| a.amplitude.total_cmp(&b.amplitude)).unwrap();
+    let result = HarmonicResult {
+        structured_diagnostics: Vec::new(), response_points: points.clone(),
+        peak_frequency: peak.frequency, peak_amplitude: peak.amplitude, method: HarmonicMethod::Direct,
+        modes_used: 0, n_dof: 3001, truncation_ratio: None, max_modal_residual: None,
+        direct_frequencies: Vec::new(), warnings: Vec::new(),
+    };
+    compare_omitted_spring(&result, damping);
+    let mut empty = result.clone();
+    empty.response_points.clear();
+    empty.peak_frequency = 0.0;
+    empty.peak_amplitude = 0.0;
+    let mut missing = result.clone();
+    missing.response_points.pop();
+    let mut reordered = result.clone();
+    reordered.response_points.reverse();
+    for invalid in [empty, missing, reordered] {
+        assert!(std::panic::catch_unwind(|| compare_omitted_spring(&invalid, damping)).is_err());
+    }
 }

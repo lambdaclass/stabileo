@@ -16,6 +16,10 @@ const body: PostBody = {
       "k": "note",
       "t": "10 Kasım 2026 itibarıyla durum: SA-2026-001 ile 020 arası 0.3.0 sürümünde, SA-2026-021 ile 024 arası 0.4.0 sürümünde ve SA-2026-025 ile 047 arası 0.5.0 sürümünde düzeltildi (SA-2026-040 için önlem alındı: kontrol eksik olarak işaretlenir); SA-2026-044 hariç: #758 kapanana kadar 2D plastik göçme hesabı reddedilmeye devam eder. SA-2026-048, 0.5.0 sürümünden sonra düzeltildi ve 8 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 ve SA-2026-053, 0.5.0 sürümünden sonra düzeltildi ve 9 Kasım 2026 tarihinden beri stabileo.com üzerinde yayında. Bunları yayımlamak, sonuçları nasıl doğruladığımızın bir parçasıdır; hâlâ açık oldukları anlamına gelmez. Bir uyarı, değişikliğin var olmasıyla değil, düzeltme stabileo.com'da yayına girdiğinde düzeltilmiş sayılır. Bir uyarı açık olduğu sürece önerilen geçici çözümü uygulayın ve imzalamadan önce etkilenen sonucu elle kontrol edin. SA-2026-055 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-056 — Taslak: çözülmedi; hiçbir düzeltme birleştirilmedi veya yayımlanmadı. SA-2026-057 — Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı. SA-2026-059 — PR #1921 ile düzeltildi, sürüm yayını bekleniyor."
     },
+    {
+      "k": "note",
+      "t": "SA-2026-058 — PR #1922 ile düzeltildi, sürüm yayını bekleniyor."
+    },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -361,6 +365,12 @@ const body: PostBody = {
           "Plastik sertifika gösterimi sertifikalı aralığın dışındaki katsayıları içeride olarak gösterebiliyordu; kesin mekanizma çıkarımı PR #1888’in düzeltme öncesi derlemelerinde kaynak sınırı retlerini kaybediyordu",
           "Orta",
           "Taslak: düzeltme henüz birleştirilmedi veya yayınlanmadı"
+        ],
+        [
+          "SA-2026-058",
+          "3000’den fazla bağımsız serbestlik derecesine sahip büyük 2D/3D harmonik modeller, q ≤ 1/16 aralığı dışında atlanan modların hatalı yanıtlarını kesme uyarısının kapsamadığı frekanslarda koruyabiliyordu (hedef yanıtında ölçülen karmaşık bağıl hata: %8,079)",
+          "Yüksek",
+          "PR #1922 ile düzeltildi, sürüm yayını bekleniyor"
         ],
         [
           "SA-2026-059",

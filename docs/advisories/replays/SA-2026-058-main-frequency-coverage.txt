@@ -1,0 +1,59 @@
+Replay commit: 52619652ecb9d801af1868b34936518965c92d69 (origin/main)
+Production arithmetic unchanged; diagnostic-only eprintln before unbounded attaches HARM-TRUNCATION.
+The reproducer prints every returned value, then asserts the independent direct/closed-form reference.
+It checks the full frequency list and point count before comparing, with the original 1e-12 relative tolerance.
+The failure is the complex response assertion, not a method or warning expectation.
+Command through make shell:
+CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_TARGET_DIR="$PWD/target" make -C .review-main test.engine.targeted TEST=differential FILTER=above_dense_ceiling
+
+Accuracy checks retained after printing all values (for each response point):
+  let tol = 1e-12 * re.in_m().hypot(im.in_m());
+  assert!((re.in_m() - closed.0).hypot(im.in_m() - closed.1) <= tol);
+  assert!((pt.real - re.in_m()).hypot(pt.imag - im.in_m()) <= tol, ...);
+The first assertion verifies the independent direct reference against the scalar closed form.
+The second assertion fails on main as logged below.
+
+uncorrected is populated only for q >= 0.5 when statics is Some.
+The warning and HARM-TRUNCATION use that same list. Indices are zero based.
+UI: web/src/components/advanced/HarmonicCertificate.svelte renders each result.warnings entry once, outside the response-point display. No per-frequency markers.
+
+running 2 tests
+MAIN COVERAGE n=3001 static_correction=true uncorrected=[31.830988618379067, 47.7464829275686] indices=[4, 5] q=[0.2842365967994213, 0.2873482367696632, 0.2904580917853441, 0.44126178890406786, 0.5933624380479658, 0.895534388835324]
+MAIN REPLAY method=ModalStatic warnings=["static correction not applied at 2 frequencies (up to 47.7465 Hz) near or above the omitted modes (lowest omitted ω² ≥ 1.0000e4): modal truncation error there is not bounded"] diagnostics=[StructuredDiagnostic { code: KnownIssue, severity: Warning, message: "Harmonic response by modal superposition at frequencies near or above the first omitted mode: the omitted modes are not corrected there, and amplitude and phase can be wrong by large factors. Do not use these frequencies for design; independently verify them with a direct solve (known issue #1434, HARM-TRUNCATION)", element_ids: [], node_ids: [], dof_indices: [], phase: Some("HARM-TRUNCATION"), value: Some(1434.0), threshold: None, element_kind: None }]
+MAIN REPLAY frequency=15.756339366097638 real=1.5508399464958143e-10 imag=-3.2325425313764277e-9
+MAIN REPLAY frequency=15.915494309189533 real=1.3604915411160763e-10 imag=-3.206341217069281e-9
+MAIN REPLAY frequency=16.07464925228143 real=1.1750764315245893e-10 imag=-3.1805014173203087e-9
+MAIN REPLAY frequency=23.8732414637843 real=-4.143491124260377e-10 imag=-2.2555621301775227e-9
+MAIN REPLAY frequency=31.830988618379067 real=-1.7879528000754075e-25 imag=-8.939987933791747e-29
+MAIN REPLAY frequency=47.7464829275686 real=-7.946347624362474e-26 imag=-2.648812182017515e-29
+
+thread 'modal_vs_direct::harmonic_2d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form' (10037) panicked at engine/tests/differential/modal_vs_direct.rs:463:9:
+15.756339366097638 Hz: engine (1.5508399464958143e-10, -3.2325425313764277e-9), direct/closed (1.8265674322904892e-11, -3.029586965358748e-9), method ModalStatic, warnings ["static correction not applied at 2 frequencies (up to 47.7465 Hz) near or above the omitted modes (lowest omitted ω² ≥ 1.0000e4): modal truncation error there is not bounded"]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test modal_vs_direct::harmonic_2d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form ... FAILED
+MAIN COVERAGE n=3001 static_correction=true uncorrected=[31.830988618379067, 47.7464829275686] indices=[4, 5] q=[0.2842365967994213, 0.2873482367696632, 0.2904580917853441, 0.44126178890406786, 0.5933624380479658, 0.895534388835324]
+MAIN REPLAY method=ModalStatic warnings=["static correction not applied at 2 frequencies (up to 47.7465 Hz) near or above the omitted modes (lowest omitted ω² ≥ 1.0000e4): modal truncation error there is not bounded"] diagnostics=[StructuredDiagnostic { code: KnownIssue, severity: Warning, message: "Harmonic response by modal superposition at frequencies near or above the first omitted mode: the omitted modes are not corrected there, and amplitude and phase can be wrong by large factors. Do not use these frequencies for design; independently verify them with a direct solve (known issue #1434, HARM-TRUNCATION)", element_ids: [], node_ids: [], dof_indices: [], phase: Some("HARM-TRUNCATION"), value: Some(1434.0), threshold: None, element_kind: None }, StructuredDiagnostic { code: KnownIssue, severity: Warning, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis (known issue #759, MD-ORTHOGONALITY)", element_ids: [], node_ids: [], dof_indices: [], phase: Some("MD-ORTHOGONALITY"), value: Some(759.0), threshold: None, element_kind: None }]
+MAIN REPLAY frequency=15.756339366097638 real=1.5508399464958143e-10 imag=-3.2325425313764277e-9
+MAIN REPLAY frequency=15.915494309189533 real=1.3604915411160763e-10 imag=-3.206341217069281e-9
+MAIN REPLAY frequency=16.07464925228143 real=1.1750764315245893e-10 imag=-3.1805014173203087e-9
+MAIN REPLAY frequency=23.8732414637843 real=-4.143491124260377e-10 imag=-2.2555621301775227e-9
+MAIN REPLAY frequency=31.830988618379067 real=-1.7879528000754075e-25 imag=-8.939987933791747e-29
+MAIN REPLAY frequency=47.7464829275686 real=-7.946347624362474e-26 imag=-2.648812182017515e-29
+
+thread 'modal_vs_direct::harmonic_3d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form' (10038) panicked at engine/tests/differential/modal_vs_direct.rs:463:9:
+15.756339366097638 Hz: engine (1.5508399464958143e-10, -3.2325425313764277e-9), direct/closed (1.8265674322904892e-11, -3.029586965358748e-9), method ModalStatic, warnings ["static correction not applied at 2 frequencies (up to 47.7465 Hz) near or above the omitted modes (lowest omitted ω² ≥ 1.0000e4): modal truncation error there is not bounded"]
+test modal_vs_direct::harmonic_3d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form ... FAILED
+
+failures:
+
+failures:
+    modal_vs_direct::harmonic_2d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form
+    modal_vs_direct::harmonic_3d_above_dense_ceiling_omitted_mode_matches_direct_and_closed_form
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 35 filtered out; finished in 11.19s
+
+error: test failed, to rerun pass `-p dedaliano-engine --test differential`
+make[1]: *** [Makefile:201: test.engine.targeted] Error 101
+make[1]: Leaving directory '/home/unbalancedparen/projects/stabileo-wt/harmonic-1434/.review-main'
+
+Command exit: make 2 (cargo test 101); both accuracy assertions failed.

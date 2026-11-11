@@ -178,6 +178,7 @@ fn metamorphic_nightly_3d() {
 #[test]
 #[ignore]
 fn metamorphic_replay() {
+    if seeded_failures::replay() { return; }
     let Ok(path) = std::env::var("NIGHTLY_MODEL") else { return };
     let text = std::fs::read_to_string(path).unwrap();
     let metadata: serde_json::Value = serde_json::from_str(&text).unwrap();
@@ -212,6 +213,10 @@ fn metamorphic_replay() {
             }
         }
     }
+    finish_replay(&t);
+}
+
+fn finish_replay(t: &Tally) {
     let results = t.replay_results();
     std::fs::write(std::env::var("NIGHTLY_RESULTS").unwrap(), serde_json::to_vec(&results).unwrap()).unwrap();
     assert!(t.failures().is_empty(), "metamorphic violations: {results}");
@@ -229,3 +234,5 @@ fn save_failing_model<T: serde::Serialize>(name: &str, index: usize, model: &T, 
 }
 
 mod harmonic_coverage;
+
+mod seeded_failures;
