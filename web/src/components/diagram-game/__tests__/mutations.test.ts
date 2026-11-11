@@ -13,6 +13,8 @@ function solved(id: string, values: Record<string, number> = {}): Solved {
   return solveGame(resolveGameModel(t.model, v))!;
 }
 
+const add2 = (a: [number, number], b: [number, number]): [number, number] => [a[0] - b[0], a[1] - b[1]];
+
 const CASES: Record<Tag, [string, DiagramKind, Record<string, number>?]> = {
   loadMoved: ['ss-point', 'M', { f: 0.25 }],
   loadFlipped: ['ss-combined', 'V'],
@@ -161,6 +163,33 @@ describe('what the mutations claim', () => {
     const deepest = (x: typeof correct) => [0.25, 0.75].map((t) => Math.abs(x.traces[0]!.at(t)[1]));
     expect(deepest(correct)[0]).toBeGreaterThan(deepest(correct)[1]!);
     expect(deepest(d)[1]).toBeCloseTo(deepest(correct)[0]!, 6);
+  });
+
+  it('a missing jump leaves no spike at a joint or at the station of the jump', () => {
+    for (const [id, kind] of [['overhang', 'V'], ['overhang-tip', 'V'], ['continuous', 'V'], ['ss-point', 'V'], ['ss-couple', 'M']] as const) {
+      const s = solved(id, id === 'ss-point' ? { f: 0.5 } : {});
+      const correct = diagramOf(s, kind);
+      const ref = Math.max(...correct.traces.flatMap((tr) => [0, 0.25, 0.5, 0.75, 1].map((t) => Math.hypot(...tr.at(t)))));
+      for (let seed = 1; seed <= 6; seed++) {
+        const d = mutate('jumpMissing', { solved: s, correct, kind, next: rng(seed) });
+        if (!d) continue;
+        d.traces.forEach((tr, e) => {
+          const stations = [0, ...correct.traces[e]!.breaks, 1];
+          for (const b of stations) {
+            if (tr.breaks.includes(b)) continue;
+            const lo = Math.max(0, b - 1e-4), hi = Math.min(1, b + 1e-4);
+            expect(Math.hypot(...add2(tr.at(lo), tr.at(hi))), `${id} seed ${seed} member ${e} at ${b}`).toBeLessThan(0.02 * ref);
+            expect(Math.hypot(...add2(tr.at(b), tr.at(hi))), `${id} seed ${seed} member ${e} exactly at ${b}`).toBeLessThan(0.02 * ref);
+          }
+        });
+      }
+    }
+  });
+
+  it('a spring support is refused rather than solved as a pin', () => {
+    const s = solved('ss-point');
+    const model = { ...s.model, supports: [{ node: 0, type: 'spring' as const }, s.model.supports[1]!] };
+    expect(solveGame(model)).toBeNull();
   });
 
   it('a mutated structure that is a mechanism yields no distractor', () => {

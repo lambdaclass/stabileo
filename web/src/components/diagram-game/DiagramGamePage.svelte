@@ -8,7 +8,7 @@
   import { applyPageMeta, restorePageMeta, stabileoSoftware, breadcrumbs } from '../../lib/page-meta';
   import { initSolver } from '../../lib/engine/wasm-solver';
   import { seedFrom } from '../edu/exercise-params';
-  import { buildRound, type Round, type RoundType } from './round';
+  import { dealRound, type Round, type RoundType } from './round';
   import { answer, newGame, nextRound, readBest, recordBest, timeBonus, TIME_BONUS_WINDOW_MS, type GameState } from './scoring';
   import { cue, readSound, writeSound, type Cue } from './sfx';
   import { marked, tg, tagText, type Key } from './strings';
@@ -85,17 +85,33 @@
     play('tick');
   }
 
+  /** Only a test build takes a seed from the address: elsewhere a known seed would replay known answers. */
   function seedFromAddress(): number {
-    const raw = new URLSearchParams(location.search).get('seed');
+    const raw = import.meta.env.VITE_E2E === '1' ? new URLSearchParams(location.search).get('seed') : null;
     return raw && /^\d+$/.test(raw) ? Number(raw) >>> 0 : Math.floor(Math.random() * 2 ** 32);
   }
 
+  let prepared: { key: string; round: Round } | null = null;
+  const roundKey = (s: GameState) => `${gameSeed}:${s.level}:${s.round}`;
+
   function deal(state: GameState, seed = seedFrom(`${gameSeed}:${state.round}`)) {
-    round = buildRound(state.level, seed);
+    round = prepared?.key === `${roundKey(state)}:${seed}` ? prepared.round : dealRound(state.level, seed);
+    prepared = null;
     picked = null;
     inspected = null;
     shownAt = performance.now();
     now = shownAt;
+  }
+
+  /** Builds the next round while the verdict is read, so Next does not wait on the solver. */
+  function prepare(state: GameState) {
+    const next = nextRound(state);
+    if (next === state) return;
+    const seed = seedFrom(`${gameSeed}:${next.round}`);
+    setTimeout(() => {
+      if (game !== state) return;
+      try { prepared = { key: `${roundKey(next)}:${seed}`, round: dealRound(next.level, seed) }; } catch { prepared = null; }
+    }, 120);
   }
 
   async function start() {
@@ -119,10 +135,12 @@
     }
   }
 
-  /** Either request can be refused (iPhone Safari has neither); the game then plays as the phone is held. */
+  /** Either request can be refused, or missing (iPhone Safari has neither); the game then plays as the phone is held. */
   async function startFullscreen() {
-    await root?.requestFullscreen().catch(() => {});
-    await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape').catch(() => {});
+    await Promise.resolve()
+      .then(() => root?.requestFullscreen?.())
+      .then(() => (globalThis.screen?.orientation as (ScreenOrientation & { lock?: (o: string) => Promise<void> }) | undefined)?.lock?.('landscape'))
+      .catch(() => undefined);
     await start();
   }
 
@@ -154,6 +172,7 @@
       play(game.phase === 'over' ? 'over' : 'wrong');
       navigator.vibrate?.(90);
     }
+    if (game.phase === 'answered') prepare(game);
     if (game.phase === 'over') {
       const before = readBest();
       best = recordBest(game.score);
@@ -165,7 +184,13 @@
   function proceed() {
     if (!game || game.phase !== 'answered') return;
     const state = nextRound(game);
-    deal(state);
+    try {
+      deal(state);
+    } catch {
+      failed = true;
+      quit();
+      return;
+    }
     game = state;
     banner = null;
     queueMicrotask(() => heading?.focus());

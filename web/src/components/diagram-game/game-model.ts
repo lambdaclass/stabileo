@@ -82,9 +82,10 @@ export function toSolverInput(m: GameModel): SolverInput {
     id: e + 1, type: m.allTruss ? 'truss' : 'frame', nodeI: i + 1, nodeJ: j + 1, materialId: 1, sectionId: 1,
     hingeStart: !m.allTruss && flags[e]![0], hingeEnd: !m.allTruss && flags[e]![1],
   }]));
-  const supports: SolverInput['supports'] = new Map(m.supports.map((s, k) => [k + 1, {
-    id: k + 1, nodeId: s.node + 1, type: s.type === 'rollerY' ? 'rollerZ' : s.type === 'rollerZ' ? 'rollerZ' : s.type === 'spring' ? 'pinned' : s.type,
-  }]));
+  const supports: SolverInput['supports'] = new Map(m.supports.map((s, k) => {
+    if (s.type === 'spring') throw new Error('the game has no spring supports: a spring would solve as some other structure');
+    return [k + 1, { id: k + 1, nodeId: s.node + 1, type: s.type === 'rollerY' || s.type === 'rollerZ' ? 'rollerZ' : s.type }];
+  }));
   const loads: SolverLoad[] = [];
   for (const l of m.nodalLoads ?? []) loads.push({ type: 'nodal', data: { nodeId: l.node + 1, fx: l.fx ?? 0, fz: l.fy ?? 0, my: l.mz ?? 0 } });
   for (const l of m.distributedLoads ?? []) {

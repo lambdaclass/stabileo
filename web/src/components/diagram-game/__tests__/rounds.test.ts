@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { drawVariant } from '../../edu/exercise-params';
 import { resolveGameModel, solveGame } from '../game-model';
 import { apparentGap, diagramOf, negated, sampleDiagram, shapeDistance, peak } from '../traces';
-import { buildRound } from '../round';
+import { buildRound, dealRound } from '../round';
 import { LEVELS } from '../levels';
 import { figure } from '../figure';
 import { MAX_LEVEL } from '../scoring';
@@ -72,6 +72,7 @@ describe('rounds', () => {
             for (const o of r.options) expect(o.model).toBeDefined();
             expect(new Set(r.options.map((o) => JSON.stringify(o.model))).size).toBe(r.options.length);
             for (const o of r.options) expect(shapeDistance(diagramOf(solveGame(o.model!)!, r.kind!), o.diagram)).toBeLessThan(1e-9);
+            for (const o of r.options) expect(['loadScaled', 'rollerTurned']).not.toContain(o.tag);
           }
         }
         for (const o of r.options) expect(peak(sampleDiagram(o.diagram))).toBeGreaterThan(0);
@@ -100,6 +101,20 @@ describe('rounds', () => {
       const tags = SEEDS.flatMap((seed) => buildRound(l, seed).options.map((o) => o.tag));
       expect(tags, `level ${l + 1}`).toContain('wrongKind');
     }
+  });
+
+  it('a seed that cannot make a round moves on to derived seeds and then to lower levels, so play never stops', () => {
+    const tried: Array<[number, number]> = [];
+    const flaky = (level: number, seed: number) => {
+      tried.push([level, seed]);
+      if (tried.length < 11) throw new Error('no round');
+      return buildRound(level, seed);
+    };
+    const r = dealRound(3, 77, flaky);
+    expect(r.level).toBe(2);
+    expect(new Set(tried.filter(([l]) => l === 3).map(([, s]) => s)).size).toBe(8);
+    const pick = ({ type, template, answer, model }: ReturnType<typeof buildRound>) => ({ type, template, answer, model });
+    expect(pick(dealRound(3, 77))).toEqual(pick(buildRound(3, 77)));
   });
 
   it('the scoring ceiling is the last level', () => {

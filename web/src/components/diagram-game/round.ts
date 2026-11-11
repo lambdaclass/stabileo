@@ -31,6 +31,8 @@ export interface Round {
 }
 
 const ATTEMPTS = 40;
+/** Changes a structure drawing cannot show: arrows are drawn one size whatever the load, so a rescaled load looks the same. */
+const UNSEEN_IN_DRAWING: Tag[] = ['loadScaled', 'rollerTurned'];
 
 function shuffle<T>(items: T[], next: () => number): T[] {
   const out = [...items];
@@ -73,7 +75,7 @@ export function distractors(solved: Solved, kind: DiagramKind, level: Level, cou
 export function otherStructures(solved: Solved, kind: DiagramKind, level: Level, count: number, next: () => number): Option[] {
   const correct = diagramOf(solved, kind);
   const m = solved.model;
-  const tags = [...new Set([...level.tags.filter(isPhysical), ...PHYSICAL_TAGS.filter((t) => t !== 'rollerTurned')])];
+  const tags = [...new Set([...level.tags.filter(isPhysical), ...PHYSICAL_TAGS])].filter((t) => !UNSEEN_IN_DRAWING.includes(t));
   const accepted: Option[] = [];
   for (const tag of tagOrder(tags, next)) {
     if (accepted.length === count) break;
@@ -133,4 +135,18 @@ export function buildRound(levelIndex: number, seed: number): Round {
     if (round) return { ...round, seed };
   }
   throw new Error(`no round for level ${levelIndex + 1} from seed ${seed}`);
+}
+
+/** A round for play: a seed that cannot make one moves on to derived seeds, then to the levels below, so Next never fails. */
+export function dealRound(levelIndex: number, seed: number, build: (level: number, seed: number) => Round = buildRound): Round {
+  for (let level = levelIndex; level >= 0; level--) {
+    for (let k = 0; k < 8; k++) {
+      try {
+        return build(level, k === 0 ? seed : seedFrom(`${seed}:deal:${k}`));
+      } catch {
+        continue;
+      }
+    }
+  }
+  throw new Error(`no round from seed ${seed}`);
 }

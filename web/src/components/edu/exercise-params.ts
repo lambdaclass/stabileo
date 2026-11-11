@@ -48,7 +48,8 @@ export function rangeValues(r: ParamRange): number[] {
   if (!(r.step > 0) || !(r.max >= r.min) || !Number.isFinite(r.min) || !Number.isFinite(r.max)) return [];
   const n = Math.floor((r.max - r.min) / r.step + 1e-9);
   if (n > 10_000) return [];
-  const decimals = Math.min(10, (String(r.step).split('.')[1] ?? '').length);
+  const [mantissa, exponent] = String(r.step).toLowerCase().split('e');
+  const decimals = Math.min(10, Math.max(0, (mantissa!.split('.')[1] ?? '').length - Number(exponent ?? 0)));
   const out: number[] = [];
   for (let i = 0; i <= n; i++) out.push(Number((r.min + i * r.step).toFixed(decimals)));
   return out;
@@ -140,7 +141,8 @@ export function evalExpr(e: Expr, values: Record<string, number>): number {
 
 export function exprNames(e: Expr): string[] {
   if (typeof e === 'number') return [];
-  return [...new Set(e.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? [])].filter((n) => !/^e\d/i.test(n));
+  const withoutNumbers = e.replace(/(?<![A-Za-z0-9_.])(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/gi, ' ');
+  return [...new Set(withoutNumbers.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? [])];
 }
 export interface ParametricModelSpec {
   nodes: Array<[Expr, Expr]>;

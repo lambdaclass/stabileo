@@ -280,7 +280,7 @@ const MATH: Record<MathTag, (ctx: MutationContext) => Diagram | null> = {
       kind: correct.kind,
       traces: correct.traces.map((tr, e) => !after.has(e) ? tr : ({
         breaks: e === jump.e ? tr.breaks.filter((b) => b !== jump.b) : tr.breaks,
-        at: (t) => (e !== jump.e || t > jump.b ? add(tr.at(t), jump.jump, -1) : tr.at(t)),
+        at: (t) => (e !== jump.e || jump.b === 0 || t > jump.b ? add(tr.at(t), jump.jump, -1) : tr.at(Math.min(t, jump.b - EPS))),
       })),
     };
   },

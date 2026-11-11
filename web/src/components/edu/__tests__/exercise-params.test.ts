@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  defaultVariant, drawVariant, evalExpr, ExprError, lintParams, rangeValues, resolveModel, seedFrom,
+  defaultVariant, drawVariant, evalExpr, exprNames, ExprError, lintParams, rangeValues, resolveModel, seedFrom,
   type ExerciseParams, type ParametricModelSpec,
 } from '../exercise-params';
 
@@ -21,6 +21,7 @@ describe('exercise params', () => {
     expect(rangeValues({ min: 0, max: 0.3, step: 0.1 })).toEqual([0, 0.1, 0.2, 0.3]);
     expect(rangeValues({ min: 1, max: 0, step: 1 })).toEqual([]);
     expect(rangeValues({ min: 0, max: 1, step: 0 })).toEqual([]);
+    expect(rangeValues({ min: 0, max: 3e-7, step: 1e-7 })).toEqual([0, 1e-7, 2e-7, 3e-7]);
   });
 
   it('gives the same variant for the same seed and different ones across a class', () => {
@@ -81,5 +82,10 @@ describe('exercise params', () => {
   it('starts from the middle of each range', () => {
     expect(defaultVariant(params).values).toEqual({ L: 6, q: 6, M: 0.1 });
     expect(defaultVariant(params).supports).toEqual({ 0: 'pinned' });
+  });
+
+  it('reads numbers in scientific notation as numbers, never their exponent as a parameter', () => {
+    expect(exprNames('1e-5*L2 + 2E+3/q + x1')).toEqual(['L2', 'q', 'x1']);
+    expect(lintParams({ nodes: [[0, 0], ['1e-3*L', 0]], elements: [[0, 1]], supports: [] }, { values: { L: { min: 1, max: 2, step: 1 } } })).toEqual([]);
   });
 });
