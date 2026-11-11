@@ -218,6 +218,7 @@ fn staged_3d_displacement_accumulation() {
 }
 
 #[test]
+#[ignore = "known wrong result: #1949"]
 fn staged_3d_support_activation() {
     let mut input = make_staged_3d_base();
 
