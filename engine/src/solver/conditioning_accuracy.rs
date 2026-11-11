@@ -344,7 +344,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1753"]
     fn force_loaded_soft_springs_pass_recovered_moment_balance_in_small_length_units() {
         let input: SolverInput = serde_json::from_value(serde_json::json!({
             "nodes":{"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":3.0,"z":0.0},"3":{"id":3,"x":3.0,"z":2.0}},
@@ -362,6 +361,36 @@ mod tests {
         let result = super::super::linear::solve_2d(&rotated).unwrap();
         let end = result.element_forces.iter().find(|f| f.element_id == 2).unwrap();
         assert!(end.m_end.abs() <= CONDITIONAL_ACCURACY * 2e-6);
+    }
+
+    #[test]
+    fn sparse_balance_assemblies_omit_artificial_rotation_and_warping_springs() {
+        let mut input = beam(false);
+        let dof = DofNumbering::build_2d(&input);
+        input.elements.clear();
+        let assemble = || assembly::assemble_sparse_2d_ex(&input, &dof, true).k_full.unwrap().diagonal();
+        let legacy = assemble();
+        let physical = assembly::without_artificial_stiffness(assemble);
+        let i = dof.global_dof(2, 2).unwrap();
+        assert!(legacy[i] > 0.0);
+        assert_eq!(physical[i], 0.0);
+        for warping in [false, true] {
+            let mut input = beam3(false);
+            if warping { input.sections.get_mut("1").unwrap().cw = Some(1e-6); }
+            let dof = DofNumbering::build_3d(&input);
+            input.elements.clear();
+            let sequential = || assembly::assemble_sparse_3d(&input, &dof, true).k_full.unwrap().diagonal();
+            let parallel = || super::super::sparse_assembly::assemble_stiffness_sparse_3d_parallel(&input, &dof, true).k_full.unwrap().diagonal();
+            let legacy = parallel();
+            let physical = assembly::without_artificial_stiffness(parallel);
+            let sequential_physical = assembly::without_artificial_stiffness(sequential);
+            for local in 3..dof.dofs_per_node {
+                let i = dof.global_dof(2, local).unwrap();
+                assert!(legacy[i] > 0.0);
+                assert_eq!(physical[i], 0.0);
+                assert_eq!(sequential_physical[i], 0.0);
+            }
+        }
     }
 
 }

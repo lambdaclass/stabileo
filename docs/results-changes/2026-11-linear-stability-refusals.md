@@ -848,13 +848,13 @@ their accuracy assertions.
 
 C08 coverage now requires designated solvable copies to compare successfully and
 validates refusal reasons per model. A refusal is counted only as a refusal, never
-as a successful comparison. The conditional #1653 original now refuses: the measured
+as a successful comparison. At ec317826f the conditional #1653 original refused: the measured
 recovered moment imbalance is `-0.022353893839215055`, exceeding the dimensionally
 matching limit `0.0063107435265496396`; the previous force-based scale hid it.
-This is an intended admission change, not a changed reference or relaxed assertion.
+The CI follow-up below identifies artificial spring torque in the sparse balance remainder as the cause of this false refusal.
 The existing #993 ignored regression remains deferred and unchanged.
 
-The final loaded C08 run requires at least 381 successful comparisons across all
+The ec317826f loaded C08 run required at least 381 successful comparisons across all
 23 designated reference models, including the `1000/1000` unit copy of #1653.
 It records 381 solved copies, two split outcomes, and a worst unchanged comparison
 of `1.8623288718840833e-7`. #1653 changes from 18 solved / 1 refused to 1 solved /
@@ -869,3 +869,66 @@ influence and provenance web tests. The single requested slab slider sweep passe
 all 300 samples with zero refusals: 61.210 seconds in the test, 71.19 seconds wall
 time. Native compilation ran concurrently, so this measurement does not establish
 an isolated performance comparison.
+
+
+## CI follow-up: sparse balance without artificial springs
+
+The soft-spring regression in `stability::stable_frames_soft_springs_and_anisotropic_members_stay_stable_in_every_frame`
+failed at ec317826f in the `0.001/1000` unit copy, rotated by `0.37` radians.
+Its stability verdict passed the separate limits, but recovered moment balance at
+node 2 was `-8.000288776482453e-10` against a roundoff allowance of
+`3.2285752797987664e-10`. No nodal moment was applied, so the forcing contribution
+to that moment limit was zero. The loaded-tip balance was also nonzero:
+`-8.00000465938818e-10`, exactly the artificial spring torque on its returned
+rotation `-0.00800000465938818` with artificial stiffness `1e-7`.
+
+This was not a defect in the dimensional scales. Balance recovery clears the members
+and reassembles the remaining support, connector and shell stiffness under
+`without_artificial_stiffness`. The sparse assemblers computed artificial stiffness
+with their own literals instead of consulting that suppression guard. Clearing the
+members made their rotations look orphaned; the sparse remainder gained springs that
+were absent from the physical model. Those fictitious torques were then counted as
+recovered imbalance. Sparse assembly now uses the same guarded stiffness helper as
+dense assembly, including all-hinged nodes, orphan rotations and floating warping DOFs.
+Its default behavior outside the suppression guard is unchanged.
+
+The original soft-spring test is unchanged and passes every existing analytic
+displacement and endpoint-force assertion in all five unit copies. A new ignored
+reproducer failed before the fix and now passes without its ignore. The added guard
+regression verifies zero artificial rotational and warping diagonals in suppressed
+2D, sequential 3D and parallel 3D reassembly while retaining positive diagonals in
+default assembly. All twelve conditional balance unit tests pass, including the
+round-6 large-moment, restrained-force, constraint and independent bimoment checks.
+No accuracy constant, tolerance, numerical baseline or assertion was loosened.
+
+The loaded C08 comparison now requires and achieves 400 successful comparisons with
+zero split outcomes. #1653 changes from 1 solved / 18 refused to 19 solved / 0 refused;
+#993 changes from 12 solved / 1 refused to 13 solved / 0 refused. The per-model success
+minimums are strengthened, and their former conditioning-refusal exceptions are
+removed. Every solved copy still passes the independent physical reference and all
+other solved-copy comparisons with the unchanged worst error
+`1.8623288718840833e-7`. These static outcomes do not close the recorded non-static
+issues or activate the deferred ignored #993 reproducer.
+
+The independent point-load oracle now divides transverse point-load interpolation by
+`1 + phi` only for frames. Truss linear shapes already sum to one. The new truss case
+has nonzero shear area and checks the sum of applied transverse forces against its
+specified resultant `3` at the existing 90-digit precision: before the fix it was
+`2.76073619631901840490797546012269938650306748466257668711656441717791411042944785276073619`;
+after the fix it is `3`. All five analytic oracle checks pass. Regenerating all 23
+stored references changes no serialized value: those inputs do not exercise a truss
+point load with nonzero shear area.
+
+The known-spectrum regression checks both full-spectrum and sparse fast-bound sizes
+in three numberings. The true condition number is `3`; the full-spectrum upper bound
+remains `3 × (1 + 0.003)`. The sparse fast bound is checked against its documented factor
+`sqrt(RESOLVABLE) / 3`, with four machine epsilons for the endpoint division. The separate
+full sparse-spectrum regression retains the same tight upper bound: the certification
+multiplier `1.001 / 0.999` is less than `1.003`. Release notes now
+consistently state that accepted 3D solves retain conservative raw-diagonal warnings;
+failed positive definiteness still refuses rather than returning a warning result.
+
+The conditional balance check is absent from inspected origin/main
+`855e79a5c610cba5b7b45aac44380ec054476e1a`. This follow-up fixes an unmerged-branch false
+refusal and establishes no new silently wrong main or released result. Existing
+SA-2026-054 evidence above remains separate; no advisory is added here.

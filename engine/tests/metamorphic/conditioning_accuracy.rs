@@ -145,15 +145,13 @@ fn compare(a: &Resp, b: &Resp, reference: &Resp, force: f64, length: f64) -> f64
     worst
 }
 
-fn expected_refusal(name: &str, what: &str, e: &str) -> bool {
+fn expected_refusal(name: &str, e: &str) -> bool {
     let conditioning = e.starts_with("the structure is a mechanism or so close to one")
         && e.contains("the matrix exceeds a conditioning limit or the recovered response fails its accuracy check");
     let mechanism = e.starts_with("the structure is a mechanism at nodes ")
         && e.contains("a node can move freely in a direction no member, support or spring stiffens");
     let indefinite = e.starts_with("the stiffness matrix is not positive definite although the stability test found the structure stable:");
     match name {
-        "issue-993" => what == "units 25/0.01" && conditioning,
-        "issue-1653" => what != "units 1000/1000" && conditioning,
         "issue-1029" | "issue-973" => conditioning || indefinite,
         "issue-1083" | "issue-1091" | "issue-1353" | "issue-1355" | "issue-1362" => conditioning,
         "issue-1008" | "issue-1095" | "issue-1103" | "issue-1112" | "issue-1359" | "issue-1648" | "issue-1651" | "issue-964" | "issue-966" | "issue-967" => mechanism,
@@ -171,8 +169,8 @@ const SOLVABLE: &[(&str, usize)] = &[
     ("issue-1102", 19), ("issue-1115", 18), ("issue-1116", 19), ("issue-1117", 18),
     ("issue-1118", 12), ("issue-1193", 18), ("issue-1216", 19), ("issue-1265", 13),
     ("issue-1351", 18), ("issue-1357", 15), ("issue-1635", 18), ("issue-1647", 19),
-    ("issue-1653", 1), ("issue-954", 19), ("issue-956", 19), ("issue-960", 19),
-    ("issue-972", 18), ("issue-993", 12), ("issue-994", 13),
+    ("issue-1653", 19), ("issue-954", 19), ("issue-956", 19), ("issue-960", 19),
+    ("issue-972", 18), ("issue-993", 13), ("issue-994", 13),
 ];
 
 #[test]
@@ -224,8 +222,8 @@ fn every_loaded_c08_copy_agrees_with_its_physical_reference_and_other_solved_cop
                     solved.push(actual); outcomes.push(true); compared += 1;
                 },
                 Err(e) => {
-                    assert!(expected_refusal(&name, &what, &e), "{name} {what}: unexpected refusal: {e}");
-                    assert!(required.is_none() || name == "issue-993" && what == "units 25/0.01" || name == "issue-1653" && what != "units 1000/1000", "{name} {what}: designated solvable copy refused: {e}");
+                    assert!(expected_refusal(&name, &e), "{name} {what}: unexpected refusal: {e}");
+                    assert!(required.is_none(), "{name} {what}: designated solvable copy refused: {e}");
                     println!("REFUSED {name} {what}: {e}"); outcomes.push(false);
                 },
             }
@@ -244,6 +242,6 @@ fn every_loaded_c08_copy_agrees_with_its_physical_reference_and_other_solved_cop
     assert_eq!(designated, SOLVABLE.len());
     let required: usize = SOLVABLE.iter().map(|&(_, count)| count).sum();
     assert!(compared >= required, "{compared} successful comparisons, require {required}");
-    let originals = SOLVABLE.iter().filter(|&&(name, _)| name != "issue-1653").count();
+    let originals = SOLVABLE.len();
     assert!(tested >= required - originals, "{tested} transformed copies compared");
 }

@@ -36,7 +36,7 @@ thread_local! {
     static ARTIFICIAL_STIFFNESS: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
 }
 
-fn artificial_stiffness(max_diag: f64) -> f64 {
+pub(super) fn artificial_stiffness(max_diag: f64) -> f64 {
     if !ARTIFICIAL_STIFFNESS.with(|a| a.get()) {
         return 0.0;
     }

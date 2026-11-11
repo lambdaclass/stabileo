@@ -1,0 +1,4 @@
+### BREAKING (results)
+#### Keep artificial springs out of conditional recovered-force balance (2026-11-11)
+
+Sparse assembly now honors artificial-stiffness suppression, including orphan rotations and floating warping DOFs. Conditional balance reassembly no longer invents rotational spring torques when members are removed, so accurate soft-spring answers can pass the unchanged dimensional accuracy checks. Large moments and restrained forces still cannot mask a recovered free-force imbalance. Correct the independent truss point-load reference to preserve its applied resultant with nonzero shear area; the 23 regenerated stored references are unchanged. Retain tight spectrum bounds and reconcile the release notes with conservative raw-diagonal warnings on accepted 3D solves. See [the CI follow-up evidence](../docs/results-changes/2026-11-linear-stability-refusals.md#ci-follow-up-sparse-balance-without-artificial-springs).

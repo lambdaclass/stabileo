@@ -120,7 +120,7 @@ passes both the anisotropy product and constraint-rounding product limits, and e
 dropped rotation has empty off-node coupling. Otherwise the full spectrum path runs.
 `Stability.kappa` is a condition-number upper bound on either sparse path; its
 contract does not require the interval to be tight. Up to `FULL_SPECTRUM`, it is the
-full eigenvalue ratio.
+full eigenvalue ratio. For the test matrix with eigenvalues `0.5`, `1` and `1.5`, the tight path retains the upper limit `3 × (1 + 0.003)`; the fast bound is `sqrt(RESOLVABLE)`, a factor `sqrt(RESOLVABLE) / 3` above its true condition number, checked with four machine epsilons for the endpoint division. The separate full sparse-spectrum regression retains the same tight upper limit. Its `0.003` budget contains the certification multiplier `1.001 / 0.999`, which is less than `1.003`; dense Jacobi must fit the same budget.
 
 The wider bound cannot activate conditional accuracy checks: its product with
 anisotropy is already at or below `RESOLVABLE`, and any tighter certified ratio would
@@ -233,7 +233,7 @@ inflate those scales. The forcing scale includes both applied loads and `K u_p`,
 `u_p` contains prescribed restrained displacements and their constrained free-slave
 particular solution. The balance limit for each kind is `1e-4` times that forcing scale
 plus `64 N ε` times the corresponding roundoff scale, with `N` the original DOF count.
-The roundoff scale is the largest checked component of `|K| |u| + |F|`; constraint
+Sparse assembly honors the artificial-stiffness suppression guard, so the member-free remainder used for this check contains only physical support, connector and shell stiffness. Removing members must not add orphan-rotation springs to the balance. The roundoff scale is the largest checked component of `|K| |u| + |F|`; constraint
 reduction uses `|C|ᵀ` for this magnitude bound and `Cᵀ` for residuals and forcing.
 There is no absolute load floor. Settlement-only models can therefore retain nonzero
 internal forces without requiring an exactly zero floating-point balance. A nonfinite
@@ -313,12 +313,14 @@ Before the final dimensional-balance correction, the deterministic probe had 398
 reference/pair comparisons pass; the largest measured comparison is
 `1.8623288718840833e-7`.
 
-After dimensional balance scaling, the loaded probe requires and achieves 381
-successful comparisons across 23 designated reference models. #1653 solves only
-its `1000/1000` unit copy and refuses the other 18 for conditioning; #993 retains
-12 solved copies and the same unit refusal. All refusal reasons are checked and
-refusals do not count as successful comparisons. The worst comparison above is
-unchanged; see [the final-round evidence](../results-changes/2026-11-linear-stability-refusals.md#final-round-prepared-model-edits-and-dimensional-balance).
+After sparse balance reassembly stopped adding artificial springs, the loaded probe
+requires and achieves 400 successful comparisons across 23 designated reference models.
+All 19 supported #1653 copies and all 13 supported #993 copies solve and compare
+successfully. The dimensional accuracy scales and all comparison limits are unchanged.
+All refusal reasons are checked and refusals do not count as successful comparisons.
+The worst comparison above is unchanged; see [the CI follow-up evidence](../results-changes/2026-11-linear-stability-refusals.md#ci-follow-up-sparse-balance-without-artificial-springs).
+The earlier dimensional-balance implementation had falsely refused 18 #1653 copies
+and one #993 copy because its sparse remainder assembly inserted artificial springs.
 
 Newly admitted matrices #973, #993, #1029/#1041, #1115, #1357 and #1653 remain references,
 not closing claims for their recorded non-static analyses. The original #993 refusal

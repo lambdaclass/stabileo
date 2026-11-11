@@ -20,7 +20,6 @@ def model(support):
 
 
 class ReferenceTests(unittest.TestCase):
-    @unittest.skip('known wrong result: #1753')
     def test_truss_point_force_resultant_with_nonzero_shear_area(self):
         with localcontext() as context:
             context.prec = 90

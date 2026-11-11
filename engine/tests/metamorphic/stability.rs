@@ -477,7 +477,7 @@ fn coupled_identity(order: &[usize]) -> Stability {
     let m = order.len();
     let mut k = vec![0.0; m * m];
     for i in 0..m { k[i * m + i] = 1.0; }
-    let (a, b) = (order[0], order[101]);
+    let (a, b) = (order[0], order[101.min(m - 1)]);
     k[a * m + b] = -0.5;
     k[b * m + a] = -0.5;
     analyze_dense(&k, m, &(0..m).map(|i| t(i, DofKind::Translation)).collect::<Vec<_>>())
@@ -485,16 +485,23 @@ fn coupled_identity(order: &[usize]) -> Stability {
 
 #[test]
 fn a_mode_with_equal_components_on_its_two_coupled_dofs_certifies_in_any_numbering() {
-    let m = stability::DENSE_SPECTRUM + 1;
-    let identity: Vec<usize> = (0..m).collect();
-    let reversed: Vec<usize> = (0..m).rev().collect();
-    let shuffled: Vec<usize> = (0..m).map(|i| (i * 37 + 11) % m).collect();
-    for order in [identity, reversed, shuffled] {
-        let s = coupled_identity(&order);
-        assert_eq!(s.verdict, Verdict::Stable, "{s:?}");
-        assert!(s.kappa.is_finite() && s.kappa >= 3.0, "{}", s.kappa);
-        assert!(!s.needs_accuracy_check(), "{s:?}");
-        assert!(s.kappa * s.anisotropy <= stability::RESOLVABLE, "{s:?}");
+    for m in [stability::FULL_SPECTRUM, stability::DENSE_SPECTRUM + 1] {
+        let identity: Vec<usize> = (0..m).collect();
+        let reversed: Vec<usize> = (0..m).rev().collect();
+        let shuffled: Vec<usize> = (0..m).map(|i| (i * 37 + 11) % m).collect();
+        for order in [identity, reversed, shuffled] {
+            let s = coupled_identity(&order);
+            assert_eq!(s.verdict, Verdict::Stable, "{s:?}");
+            assert!(s.kappa.is_finite() && s.kappa >= 3.0, "{}", s.kappa);
+            if m <= stability::FULL_SPECTRUM {
+                assert!(s.kappa <= 3.0 * (1.0 + 3e-3), "{}", s.kappa);
+            } else {
+                let fast_bound_factor = stability::RESOLVABLE.sqrt() / 3.0;
+                assert!(s.kappa <= 3.0 * fast_bound_factor * (1.0 + 4.0 * f64::EPSILON), "{}", s.kappa);
+            }
+            assert!(!s.needs_accuracy_check(), "{s:?}");
+            assert!(s.kappa * s.anisotropy <= stability::RESOLVABLE, "{s:?}");
+        }
     }
 }
 

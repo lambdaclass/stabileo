@@ -134,7 +134,7 @@ def reference(s,dim):
                     rotation=[[-6*x/L**2+6*x*x/L**3], [1+phi-(4+phi)*x/L+3*x*x/L**2], [6*x/L**2-6*x*x/L**3], [-(2-phi)*x/L+3*x*x/L**2]]
                     for j,poly in enumerate(shapes):
                         value=transverse*sum(dec(v)*x**t for t,v in enumerate(poly)) + moment*rotation[j][0]*(sign if dim==3 else 1)
-                        fl[idx[j]]+=value/(1+phi)*(sign if j%2 else 1)
+                        fl[idx[j]]+=value/(1+phi if e['type']=='frame' else 1)*(sign if j%2 else 1)
                 px=dec(d.get('px'));fl[0]+=px*(1-x/L);fl[off]+=px*x/L
                 continue
             if typ!='distributed': raise ValueError('load '+typ)
