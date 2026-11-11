@@ -269,6 +269,99 @@ else flock -n {lock} echo retried; fi
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))
 
 
+@unittest.skip("known wrong result: apt DNS outage, job 130632471024")
+class BrowserDepsOutage(unittest.TestCase):
+    def module(self):
+        spec = importlib.util.spec_from_file_location('browser_deps', ROOT / '.github/scripts/browser-deps.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_apt_transport_errors_are_infrastructure(self):
+        for line in ("Temporary failure resolving 'azure.archive.ubuntu.com'", 'E: Failed to fetch http://archive.ubuntu.com/ubuntu/a.deb'):
+            with self.subTest(line=line), tempfile.TemporaryDirectory() as directory:
+                log = Path(directory) / 'log'
+                log.write_text(line)
+                self.assertEqual(subprocess.run([str(WRAPPER), '--matches', str(log)]).returncode, 0)
+
+    def test_package_plan_is_normalized_and_unrecognized_output_is_refused(self):
+        module = self.module()
+        self.assertEqual(module.packages("sudo -- sh -c 'apt-get update && apt-get install -y --no-install-recommends libb liba libb'"), ['liba', 'libb'])
+        for plan in ('', 'apt-get update', 'apt-get install -y', 'apt-get install -y liba; echo bad'):
+            with self.subTest(plan=plan), self.assertRaises(ValueError):
+                module.packages(plan)
+
+    def test_fallback_splits_security_suites_and_preserves_signatures(self):
+        module = self.module()
+        original = 'Types: deb\nURIs: mirror+file:/etc/apt/apt-mirrors.txt\nSuites: noble noble-updates noble-security\nComponents: main universe\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+        fallback = module.rewrite_sources(original, '.sources')
+        self.assertIn('URIs: http://archive.ubuntu.com/ubuntu', fallback)
+        self.assertIn('URIs: http://security.ubuntu.com/ubuntu', fallback)
+        self.assertIn('Suites: noble noble-updates', fallback)
+        self.assertIn('Suites: noble-security', fallback)
+        self.assertEqual(fallback.count('Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg'), 2)
+        legacy = 'deb [signed-by=/key] http://azure.archive.ubuntu.com/ubuntu noble-security main\n'
+        self.assertEqual(module.rewrite_sources(legacy, '.list'), legacy.replace('azure.archive', 'security'))
+        other = 'deb https://packages.example.com/ubuntu noble main\n'
+        self.assertEqual(module.rewrite_sources(other, '.list'), other)
+
+    def test_warm_install_uses_local_debs_without_update_or_dns(self):
+        from unittest.mock import patch
+        module = self.module()
+        with tempfile.TemporaryDirectory() as directory:
+            deb = Path(directory) / 'liba.deb'
+            deb.touch()
+            with patch.object(module.subprocess, 'run') as run, patch.object(module.socket, 'getaddrinfo', side_effect=AssertionError('DNS on warm run')):
+                run.return_value.returncode = 0
+                module.install(['liba'], Path(directory))
+                self.assertEqual(run.call_count, 1)
+                command = run.call_args.args[0]
+                self.assertIn('--no-download', command)
+                self.assertIn(str(deb), command)
+                self.assertIn('liba', command)
+                self.assertNotIn('update', command)
+
+    def test_cold_install_falls_back_only_for_unresolvable_azure(self):
+        from unittest.mock import patch
+        import socket
+        module = self.module()
+        for resolves in (True, False):
+            with self.subTest(resolves=resolves), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'sources.list.d').mkdir()
+                source = root / 'sources.list.d/ubuntu.sources'
+                original = 'Types: deb\nURIs: http://azure.archive.ubuntu.com/ubuntu\nSuites: noble noble-security\nComponents: main\n'
+                source.write_text(original)
+                calls = []
+                def run(command, **kwargs):
+                    calls.append(command)
+                    if 'update' in command:
+                        option = next(x for x in command if x.startswith('Dir::Etc::sourceparts='))
+                        scoped = Path(option.split('=', 1)[1]) / 'ubuntu.sources'
+                        self.assertEqual('azure.archive' in scoped.read_text(), resolves)
+                    return subprocess.CompletedProcess(command, 1 if '--no-download' in command else 0)
+                with patch.object(module.subprocess, 'run', side_effect=run), patch.object(module.socket, 'getaddrinfo', side_effect=None if resolves else socket.gaierror()):
+                    module.install(['liba'], root / 'debs', root)
+                self.assertEqual(len(calls), 3)
+                self.assertEqual(source.read_text(), original)
+                self.assertIn('APT::Update::Error-Mode=any', calls[1])
+
+    def test_failed_update_never_continues_to_install(self):
+        from unittest.mock import patch
+        module = self.module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'sources.list.d').mkdir()
+            def run(command, **kwargs):
+                if kwargs.get('check'):
+                    raise subprocess.CalledProcessError(100, command)
+                return subprocess.CompletedProcess(command, 1)
+            with patch.object(module.subprocess, 'run', side_effect=run) as mocked:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    module.install(['liba'], root / 'debs', root)
+                self.assertEqual(mocked.call_count, 2)
+
+
 class BrowserDeps(unittest.TestCase):
     def test_every_browser_package_install_goes_through_the_cached_action(self):
         text = (ROOT / '.github/workflows/ci.yml').read_text()
