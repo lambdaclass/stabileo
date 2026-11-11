@@ -34,7 +34,7 @@
  * split: the part matching the defect is an `it.fails` naming it (so the suite
  * turns red the day it is fixed and the split can go), the rest must pass.
  */
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { modelStore, resultsStore, historyStore, uiStore } from '../../store';
 import type { Load } from '../../store/model.svelte';
@@ -56,13 +56,14 @@ import { transverseSign, resultsToDrawnAxes } from '../transverse-sign-2d';
 import { whatIf } from '../../store/whatif.svelte';
 import { t } from '../../i18n';
 import type { AnalysisResults, ElementForces, SolverInput, SolverLoad } from '../types';
-import { generate, FAMILIES, rng, type GenMeta, type Family } from './helpers/random-models-2d';
+import { generate, FAMILIES, rng, type GenMeta } from './helpers/random-models-2d';
 import { runPDelta2D } from '../second-order/run-pdelta';
 import { runBuckling2D } from '../second-order/run-buckling';
 import { DEFAULT_SETTINGS } from '../second-order/settings';
 
 // ── Size of the sweep ────────────────────────────────────────────────
 const SEEDS_PER_FAMILY = 50;
+const MODELS_PER_CHUNK = 25;
 /** One model in this many also gets the scaled modal runs and the what-if session. */
 const SAMPLE_EVERY = 3;
 
@@ -800,11 +801,22 @@ function loadKinds(): string {
   return [...ks].sort().join('+');
 }
 
-function checkWhatIf(label: string, meta: GenMeta, base: AnalysisResults) {
-  const k = 2.5;
+async function withWhatIf<T>(fn: () => T): Promise<T> {
+  const liveCalc = uiStore.liveCalc;
   vi.useFakeTimers();
   try {
+    uiStore.liveCalc = true;
     whatIf.open();
+    return await fn();
+  } finally {
+    vi.useRealTimers();
+    try { await whatIf.close(); } finally { uiStore.liveCalc = liveCalc; }
+  }
+}
+
+async function checkWhatIf(label: string, meta: GenMeta, base: AnalysisResults) {
+  const k = 2.5;
+  await withWhatIf(() => {
     const n = modelStore.model.loads.length;
     if (!meta.settlement) {
       ran('whatif-loads');
@@ -831,15 +843,12 @@ function checkWhatIf(label: string, meta: GenMeta, base: AnalysisResults) {
       vi.advanceTimersByTime(200);
       compareScaled('whatif-stiffness', label, base, modelStore.solve(), 1 / 3, 1, 'A and I ×3');
     }
-  } finally {
-    whatIf.abandon();
-    vi.useRealTimers();
-  }
+  });
 }
 
 // ── The per-model audit ─────────────────────────────────────────────
 
-function auditModel(meta: GenMeta) {
+async function auditModel(meta: GenMeta) {
   const label = meta.label;
   const r = rng(meta.seed * 7 + 13);
   const input = modelStore.buildSolverInput(false);
@@ -871,7 +880,7 @@ function auditModel(meta: GenMeta) {
   else checkNoLoadsPlastic(label);
   checkInfluence(label, meta, r);
   checkMoving(label, input, r);
-  if (sample) checkWhatIf(label, meta, res);
+  if (sample) await checkWhatIf(label, meta, res);
 }
 
 // ── Known defects, by the findings they produce ─────────────────────
@@ -923,23 +932,33 @@ beforeAll(async () => {
   for (const k of ['log', 'warn', 'error', 'info'] as const) quiet.push(vi.spyOn(console, k).mockImplementation(() => {}));
 });
 afterAll(() => { quiet.forEach((s) => s.mockRestore()); });
+afterEach(async () => {
+  vi.useRealTimers();
+  await whatIf.close();
+});
 
 const familyCounts: Record<string, number> = {};
 
 describe('advanced 2D functions on generated models', () => {
-  beforeAll(async () => {
-    for (const fam of FAMILIES) {
-      for (let seed = 1; seed <= SEEDS_PER_FAMILY; seed++) {
-        // The complete sweep exceeded Vitest's 60 s RPC budget in CI. Let the worker
-        // receive progress acknowledgements between models, including before the first.
-        // A resolved Promise only drains microtasks; setImmediate reaches the I/O phase.
-        await yieldToEventLoop();
-        historyStore.clear();
-        const meta = generate(fam as Family, seed);
-        familyCounts[fam] = (familyCounts[fam] ?? 0) + 1;
-        try { auditModel(meta); } catch (e) { fail('unhandled', `${meta.label}: ${String((e as Error)?.stack ?? e).slice(0, 400)}`); }
-      }
+  const chunks = FAMILIES.flatMap((family) =>
+    Array.from({ length: Math.ceil(SEEDS_PER_FAMILY / MODELS_PER_CHUNK) }, (_, i) => ({
+      family,
+      first: i * MODELS_PER_CHUNK + 1,
+      last: Math.min((i + 1) * MODELS_PER_CHUNK, SEEDS_PER_FAMILY),
+    })),
+  );
+  it.each(chunks)('sweep: $family seeds $first–$last', async ({ family, first, last }) => {
+    const started = performance.now();
+    const previous = familyCounts[family] ?? 0;
+    for (let seed = first; seed <= last; seed++) {
+      await yieldToEventLoop();
+      historyStore.clear();
+      const meta = generate(family, seed);
+      familyCounts[family] = (familyCounts[family] ?? 0) + 1;
+      try { await auditModel(meta); } catch (e) { fail('unhandled', `${meta.label}: ${String((e as Error)?.stack ?? e).slice(0, 400)}`); }
     }
+    expect(familyCounts[family] - previous).toBe(last - first + 1);
+    process.stdout.write(`[advanced-sweep-2d] ${family} seeds ${first}–${last}: ${((performance.now() - started) / 1000).toFixed(3)} s\n`);
   }, 300_000);
 
   it('writes the findings to $SWEEP_DUMP when it is set', async () => {
@@ -1419,19 +1438,17 @@ describe('hand-built: textbook values', () => {
   });
 
   // D6, fixed, kept as a regression check. It was: a point moment on a member, scaled by the what-if load slider.
-  it('what-if: a point moment on a member scales with its slider (D6)', () => {
+  it('what-if: a point moment on a member scales with its slider (D6)', async () => {
     build(() => { const a = N(0, 0), b = N(6, 0); const e = E(a, b); modelStore.addSupport(a, 'pinned'); modelStore.addSupport(b, 'rollerX'); modelStore.addPointLoadOnElement(e, 2, 0, { my: 20 }); });
     const base = solved();
-    vi.useFakeTimers();
-    try {
-      whatIf.open();
+    await withWhatIf(() => {
       whatIf.setLoadFactor(0, 2);
       vi.advanceTimersByTime(200);
       const r = solved();
       expect(r.reactions[0].rz).toBeCloseTo(2 * base.reactions[0].rz, 9);
-    } finally { whatIf.abandon(); vi.useRealTimers(); }
+    });
   });
-  it.skip.each(['reset', 'setAll'] as const)('what-if: an abort in %s restores the model and closes the session (known wrong result: #1921)', async (method) => {
+  it.each(['reset', 'setAll'] as const)('what-if: an abort in %s restores the model and closes the session', async (method) => {
     const meta = generate('frame', 3);
     meta.thermal = false;
     meta.settlement = false;
@@ -1472,13 +1489,10 @@ describe('hand-built: textbook values', () => {
   it('what-if: leaving restores the model as it was', async () => {
     build(() => { const n = [N(0, 0), N(0, 4), N(6, 4), N(6, 0)]; E(n[0], n[1]); const b = E(n[1], n[2]); E(n[2], n[3]); modelStore.addSupport(n[0], 'fixed'); modelStore.addSupport(n[3], 'pinned'); modelStore.addDistributedLoad(b, -12); modelStore.addNodalLoad(n[1], 8, 0, 0); });
     const base = solved();
-    vi.useFakeTimers();
-    try {
-      whatIf.open();
+    await withWhatIf(() => {
       whatIf.setAll('e', 3); whatIf.setLoadFactor(0, 0.5); whatIf.setSupportType(2, 'fixed');
       vi.advanceTimersByTime(200);
-    } finally { vi.useRealTimers(); }
-    await whatIf.close();
+    });
     const after = solved();
     for (const d of after.displacements) {
       const b = base.displacements.find((x) => x.nodeId === d.nodeId)!;
