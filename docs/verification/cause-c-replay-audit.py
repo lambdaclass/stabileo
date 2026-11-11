@@ -1,5 +1,7 @@
 import argparse
 import collections
+import hashlib
+import math
 import json
 import pathlib
 import re
@@ -128,6 +130,157 @@ if args.regenerate:
 remaining = sum(owner[flag_name] is not expected for _, owner, expected in flag_checks)
 print(f'Flags: {remaining} mismatches after' if args.regenerate else f'Flags: {remaining} current mismatches')
 check(remaining == 0, 'derived warning flags disagree with retained diagnostic provenance')
+
+def audit_candidates():
+    archive = root / 'docs/verification/candidate-replay-2026-11-11.json'
+    report = root / 'docs/verification/candidate-replay-2026-11-11.md'
+    candidate = json.loads(archive.read_text())
+    doc = report.read_text()
+    fixture_path = 'engine/tests/fixtures/candidate-replay.json'
+    fixtures = json.loads((root / fixture_path).read_text())
+    source = (root / 'engine/tests/metamorphic/candidate_replay.rs').read_text()
+    registration = (root / 'engine/tests/metamorphic/main.rs').read_text()
+    entries = candidate['issues']
+    numbers = [i['issue'] for i in entries]
+    skipped = [i['issue'] for i in candidate['skipped_issues']]
+    snapshot = [i['number'] for i in candidate['issue_snapshot']]
+    classes = {'FIXED-REFUSED', 'FIXED-CORRECT', 'STILL-WRONG', 'FALSE-REFUSAL', 'CANNOT-REPRODUCE', 'NEEDS-INFO'}
+    causes = set('ABCDEFGH') | {'harness'}
+    check(len(numbers) == len(set(numbers)) == candidate['replayed_issue_count'] == 94, 'candidate: issue inventory')
+    check(len(skipped) == len(set(skipped)) == candidate['skipped_issue_count'] == 14, 'candidate: exclusions')
+    check(len(snapshot) == len(set(snapshot)) == candidate['open_issue_count'] == 108, 'candidate: open-label snapshot')
+    check(set(numbers).isdisjoint(skipped) and set(numbers) | set(skipped) == set(snapshot), 'candidate: snapshot partition')
+    check(set(skipped) == set(snapshot) & issues.keys(), 'candidate: cause-C exclusions differ')
+    for old in candidate['skipped_issues']:
+        check(old['prior_class'] == issues[old['issue']]['class'], f"candidate: stale prior class #{old['issue']}")
+    check(all(i['class'] in classes and i['cause'] in causes for i in entries), 'candidate: unknown class/cause')
+    check({c: sum(i['class'] == c for i in entries) for c in classes} == candidate['classification_counts'], 'candidate: class counts')
+    check({c: sum(i['cause'] == c for i in entries) for c in causes} == candidate['cause_counts'], 'candidate: cause counts')
+    check(dict(collections.Counter(i['cause_status'] for i in entries)) == candidate['cause_status_counts'], 'candidate: cause certainty counts')
+    check(candidate['tested_main'] in doc and candidate['branch_base'] in doc, 'candidate: missing tested revisions')
+    check('mod candidate_replay;' in registration, 'candidate: unregistered active test module')
+    check('#[ignore' not in source, 'candidate: regression module has ignored tests')
+    fixture_keys = set()
+
+    def model_ref(owner):
+        reference = owner['input_ref']
+        path, key = reference.split('#', 1)
+        check(path == fixture_path and key in fixtures, f'candidate: missing fixture {reference}')
+        if key in fixtures:
+            actual = hashlib.sha256(json.dumps(fixtures[key], sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+            check(actual == owner['input_sha256'], f'candidate: input hash {key}')
+            fixture_keys.add(key)
+        return key
+
+    def finite(value, path='candidate'):
+        if isinstance(value, float):
+            check(math.isfinite(value), f'{path}: nonfinite retained evidence')
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                finite(item, f'{path}.{key}')
+        elif isinstance(value, list):
+            for k, item in enumerate(value):
+                finite(item, f'{path}[{k}]')
+
+    finite(candidate)
+    finite(fixtures, 'fixtures')
+    fixed = set()
+    cell_count = 0
+    inline_count = 0
+    energy_count = 0
+    verified_energy_count = 0
+    by_number = {i['issue']: i for i in entries}
+    parents = candidate['historical_parent_checks']
+    support_parent = next(p for p in parents if p['revision'] == '4f9b69cad12cb4bed43703bb7e52366ff77c70dd')
+    conditioning_parent = next(p for p in parents if p['revision'] == 'cb671ed319d14ee4d4505a3c43fe233b9607cd27')
+    for entry in entries:
+        n = entry['issue']
+        table = [line for line in doc.splitlines() if line.startswith(f'| [#{n}](')]
+        check(len(table) == 1, f'candidate #{n}: table row count')
+        if len(table) == 1:
+            cells = table[0].split(' | ')
+            check(cells[2] == entry['class'], f'candidate #{n}: table class')
+            tag = entry['cause'] + ('?' if entry['cause_status'] == 'provisional' else '')
+            check(cells[3] == tag, f'candidate #{n}: table cause')
+            check(cells[4] == entry['evidence'], f'candidate #{n}: table evidence')
+            check(cells[5] == f"`{candidate['tested_main']}` |", f'candidate #{n}: table SHA')
+        check(bool(entry['cause_basis']) and entry['cause_status'] in ('confirmed', 'provisional'), f'candidate #{n}: unsupported cause status')
+        check(entry['classification_scope'] == 'reported body witness', f'candidate #{n}: classification scope changed')
+        body = None
+        for w in entry['witnesses']:
+            inline_count += 1
+            model_ref(w)
+            if w['source'] == 'body':
+                check(body is None, f'candidate #{n}: duplicate body witness')
+                body = w
+            base = w['observed'].get('base')
+            if base is not None:
+                calls = base['diagnostic_calls']
+                expected = any(derived(ds) for ds in calls) if calls else None
+                check(base['near_mechanism_warning'] is expected, f"candidate {w['key']}: derived warning provenance")
+                relations = w['observed']['relations']
+                check(len(relations) == 1, f"candidate {w['key']}: selected cell count")
+                cell_count += 1
+                if relations:
+                    r = relations[0]
+                    check(w['test'] == f"metamorphic/{r['analysis']}/{r['invariant']}", f"candidate {w['key']}: relation scope")
+                    check(w['seed'] is not None, f"candidate {w['key']}: missing reported seed")
+                    check(not (r['pass'] and r['inconclusive']), f"candidate {w['key']}: inconclusive pass")
+            if 'energy_followup' in w:
+                energy_count += 1
+                e = w['energy_followup']
+                model_ref(e)
+                difference = abs(e['external_work'] - e['reported_internal_work'] - e['omitted_inclined_spring_work'])
+                check(difference == e['corrected_difference'], f"candidate {w['key']}: energy arithmetic")
+                if e['omitted_inclined_spring_work'] > 0.0:
+                    verified_energy_count += 1
+                    check(difference <= e['tolerance'], f"candidate {w['key']}: unsupported omitted-work explanation")
+        if entry['class'].startswith('FIXED-'):
+            fixed.add(n)
+            check(body is not None and body['observed']['base']['status'] == 'refused', f'candidate #{n}: fixed-refusal evidence')
+            functions = re.findall(rf'fn (issue_{n}_[a-zA-Z0-9_]+)\(', source)
+            check(len(functions) == 1 and bool(entry['regression']), f'candidate #{n}: missing active regression')
+            check(any(name.startswith(f'issue_{n}_') and status == 'FAILED' for name, status in support_parent['tests'].items()), f'candidate #{n}: test did not fail on main parent')
+        elif body and body['observed'].get('base') and entry['class'] == 'CANNOT-REPRODUCE':
+            rs = body['observed']['relations']
+            check(any(r['pass'] for r in rs) and not any(r['failures'] or r['refused'] or r['same_refusal'] or r['inconclusive'] for r in rs), f'candidate #{n}: passing relation claim')
+        if body and body['observed'].get('relations') and entry['class'] == 'STILL-WRONG':
+            check(any(r['failures'] for r in body['observed']['relations']), f'candidate #{n}: missing reproduced discrepancy')
+    check(len(fixed) == 28, 'candidate: refusal regression count')
+    check(len(re.findall(r'^#\[test\]', source, re.M)) == 29, 'candidate: active test count')
+    check(sum(v == 'FAILED' for v in support_parent['tests'].values()) == 28, 'candidate: support-parent failures')
+    check(sum(v == 'FAILED' for v in conditioning_parent['tests'].values()) == 15, 'candidate: conditioning-parent failures')
+    check(inline_count == 197 and cell_count == 182, 'candidate: inline/cell inventory')
+    check(energy_count == 19 and verified_energy_count == 18, 'candidate: energy coverage')
+    artifact = candidate['artifact_1775']
+    check(artifact['metadata']['id'] == 13621790862 and not artifact['metadata']['expired'], 'candidate: #1775 artifact provenance')
+    check(len(artifact['witnesses']) == 8, 'candidate: #1775 model count')
+    for w in artifact['witnesses']:
+        model_ref(w)
+        check(w['native']['status'] == 'solved' and w['tolerance'] == 1e-6, f"candidate {w['key']}: differential scope")
+    for r in candidate['staged_followups']:
+        model_ref(r)
+        check(r['native_staged']['displacements'] == r['public_wasm_staged']['displacements'], f"candidate #{r['issue']} {r['side']}: native/WASM discrepancy")
+        check(r['native_staged']['diagnostics'] == r['public_wasm_staged']['diagnostics'], f"candidate #{r['issue']} {r['side']}: warning discrepancy")
+        check(max(r['reference_comparison'].values()) <= r['reference_tolerance'] == 1e-6, f"candidate #{r['issue']} {r['side']}: independent reference check")
+    check(len(candidate['staged_followups']) == 4, 'candidate: staged follow-up coverage')
+    silent = next(r for r in candidate['staged_followups'] if r['issue'] == 1846 and r['side'] == 'transformed')
+    staged_d = next(x for x in silent['native_staged']['displacements'] if x['nodeId'] == 2)
+    linear_d = next(x for x in silent['regular_linear']['displacements'] if x['nodeId'] == 2)
+    check(abs(staged_d['rx'] - linear_d['rx']) > 1.689e-8, 'candidate: #1846 silent discrepancy missing')
+    check(not silent['native_staged']['diagnostics'] and not silent['public_wasm_staged']['diagnostics'], 'candidate: #1846 silence contradicts diagnostics')
+    check(candidate['advisory_escalation']['issue'] == 1846 and candidate['advisory_escalation']['main_silently_wrong'], 'candidate: missing coordinator escalation')
+    check(fixture_keys == fixtures.keys(), 'candidate: orphan/missing fixture references')
+    check(sum(c['embedded_model_count'] for i in candidate['source_inventory'] for c in i['comments']) == sum(w['source'] != 'body' for i in entries for w in i['witnesses']), 'candidate: comment inventory')
+    for klass, count in candidate['classification_counts'].items():
+        check(f'| {klass} | {count} |' in doc, f'candidate: {klass} count table')
+    for cause, count in candidate['cause_counts'].items():
+        check(f'| {cause} | {count} |' in doc, f'candidate: cause {cause} count table')
+    print(f"Candidate archive: {len(entries)} issues, {inline_count} inline witnesses, {cell_count} selected cells, {len(fixed)} historical-parent regressions")
+
+
+audit_candidates()
+
 print(f'{checks} summary/model/flag checks; {len(errors)} mismatches')
 for error in errors:
     print(error)
