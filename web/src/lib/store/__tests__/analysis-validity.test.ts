@@ -21,6 +21,7 @@
  * the load path.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
+import { setImmediate } from 'node:timers';
 import { historyStore, modelStore, resultsStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { designRunStore } from '../design-run.svelte';
@@ -158,8 +159,14 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
   const r = new Map<number, Readings>();
   const paths = new Map<number, ReturnType<typeof currentFloorPaths>>();
   let before: Readings | null = null;
+  const progress: boolean[] = [];
   beforeAll(() => {
+    let delivered = false;
+    setImmediate(() => { delivered = true; });
     for (const m of MESHES) {
+      progress.push(delivered);
+      delivered = false;
+      setImmediate(() => { delivered = true; });
       building(m, { columnSide: 0.4 });
       r.set(m, read(designAndDocument()));
       paths.set(m, currentFloorPaths());
@@ -172,6 +179,10 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
     }
     if (PRINT) { for (const [m, x] of r) console.log(`MESH ${m}: ${JSON.stringify(x)}`); console.log(`BEFORE 6: ${JSON.stringify(before)}`); }
   }, 300_000);
+
+  it.skip('known wrong result: #1935 — services worker callbacks between mesh solves in the shared hook', () => {
+    expect(progress).toEqual(MESHES.map(() => true));
+  });
 
   it('every beam and column on a point joint: the floors send 100 to 15 % of their slab straight into the columns, a share of the mesh', () => {
     // level: share, % of the floor's slab load, worst combination.
