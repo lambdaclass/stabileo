@@ -135,6 +135,7 @@ const steelTr: Translations = {
   'generator.assume.webPinned': 'Dikmeler ve diyagonaller iki ucu mafsallı.',
   'generator.assume.webContinuous': 'Dikmeler ve diyagonaller sürekli.',
   'generator.assume.raftersContinuous': 'Çatı kirişleri mahyada sürekli.',
+  'generator.assume.planarRestraints': 'Düzlem model: panel düğümleri düzlem dışında tutulur; mesnetler burulmayı da tutar.',
   'generator.assume.supportsSimple': 'Basit mesnetli: bir sabit mafsallı ve bir kayıcı mesnet.',
   'generator.assume.baseFixed': 'Ankastre tabanlar.',
   'generator.assume.baseChordsPinned': 'Her başlık kendi ankrajına mafsallı bağlanır.',

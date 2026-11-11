@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { prepareLoadSession2D, prepareLoadSession3D, solve, solve3D, setPreparedLoadSessionsEnabled } from '../wasm-solver';
 import { LoadSession2D, LoadSession3D } from '../../wasm/dedaliano_engine.js';
 import { solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
+import { computePoints } from '../influence-service';
 import { buildPath3D, sweepMovingLoad3D } from '../moving-loads-3d';
 import type { SolverInput, SolverLoad } from '../types';
 import type { SolverInput3D, SolverLoad3D } from '../types-3d';
@@ -76,4 +77,27 @@ it('2D constrained sessions retain constraint forces and prescribed coupling', (
       expect(numeric(session.solve(loads))).toEqual(numeric(solve({ ...input, loads })));
     }
   } finally { session.free(); }
+});
+
+it('#1753 influence positions share one native load session and retain every ordinate', () => {
+  const input = beam2();
+  const target = { kind: 'section', elementId: 1, t: 0.37 } as const;
+  for (const quantity of ['N', 'V', 'M'] as const) {
+    const direction = { x: 1, z: -1 };
+    setPreparedLoadSessionsEnabled(false);
+    const reference = computePoints(input, quantity, target, 20, direction, 'horizontal');
+    setPreparedLoadSessionsEnabled(true);
+    const run = vi.spyOn(LoadSession2D.prototype, 'solve');
+    const free = vi.spyOn(LoadSession2D.prototype, 'free');
+    expect(computePoints(input, quantity, target, 20, direction, 'horizontal')).toEqual(reference);
+    expect(run.mock.calls.length).toBeGreaterThan(1);
+    expect(free).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  }
+});
+it('#1753 influence load sessions are freed when a position refuses', () => {
+  vi.spyOn(LoadSession2D.prototype, 'solve').mockImplementationOnce(() => { throw new Error('position refused'); });
+  const free = vi.spyOn(LoadSession2D.prototype, 'free');
+  expect(() => computePoints(beam2(), 'N', { kind: 'section', elementId: 1, t: 0.5 }, 20, { x: 1, z: 0 }, 'horizontal')).toThrow('position refused');
+  expect(free).toHaveBeenCalledTimes(1);
 });

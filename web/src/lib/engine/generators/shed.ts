@@ -168,11 +168,9 @@ export const DEFAULT_SHED_PARAMS: ShedParams = Object.freeze({
   roof: true,
   truss: { ...DEFAULT_TRUSS_PARAMS, kind: 'trapezoidal' } as Omit<TrussParams, 'spanM'>,
   purlins: true,
-  // Off, both of them, so the shed a user gets by pressing Generate is exactly the one PR21
-  // measured and pinned. Bracing is an addition to that model, not a change to it.
-  wallBracing: false,
-  roofBracing: false,
-  trussBracing: false,
+  wallBracing: true,
+  roofBracing: true,
+  trussBracing: true,
   bracingBays: 'end' as const,
   fixedBase: true,
 });
@@ -459,6 +457,7 @@ export function generateShed(params: Partial<ShedParams> = {}): ShedTopology {
    * is recorded by the columns' own assumptions (`baseFixed` / `baseChordsPinned`).
    */
   b.assumptions.delete('generator.assume.supportsSimple');
+  b.assumptions.delete('generator.assume.planarRestraints');
 
   // ── Beams ──
   //

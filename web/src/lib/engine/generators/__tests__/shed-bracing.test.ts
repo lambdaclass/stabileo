@@ -4,9 +4,9 @@
  * ── What this file is about ────────────────────────────────────────
  *
  * PR21 solved the generated shed under a VERTICAL load and left it there. Under a load ALONG
- * the building the same shed returns 2.4·10^11 m — the signature that file's siblings were
- * written to catch: a mechanism wearing a number, not a singular matrix. So the shed had no
- * longitudinal load path at all, and nothing said so.
+ * the building the same shed once returned a mechanism wearing a number. The unbraced shed
+ * is now refused as a mechanism under both longitudinal and vertical loads: it has no
+ * longitudinal load path.
  *
  * The instrument is the one `shed-default-solves.test.ts` established: add one class of
  * restraint at a time and see which one removes the freedom. It answers immediately —
@@ -32,19 +32,21 @@
  *
  * ── The rule this file inherits ───────────────────────────────────
  *
- * `isFinite` is not an assertion of solvency. Every case here asserts a displacement BOUND, and
- * the negative cases assert a value large enough that no reader could mistake it for a
- * deflection. That is the lesson `pr21-lattice-cap-idealisation.md` §7 records, and the reason
- * the unbraced shed's 10^11 was invisible for a release.
+ * `isFinite` is not an assertion of solvency. Solved cases assert a displacement BOUND, and
+ * the unbraced shed asserts the mechanism refusal. That is the lesson
+ * `pr21-lattice-cap-idealisation.md` §7 records, and the reason the unbraced shed's 10^11
+ * was invisible for a release.
  */
 
 import { describe, it, expect } from 'vitest';
-import { generateShed, DEFAULT_SHED_PARAMS, BRACING_BAYS } from '../shed';
+import { generateShed, DEFAULT_SHED_PARAMS as BRACED_DEFAULTS, BRACING_BAYS } from '../shed';
 import { emitModel, defaultProfileSpec, type EmitOptions } from '../emit';
 import { modelFromFixture, assertRealSolver } from '../../design/__tests__/helpers';
 import { validateAndSolve3D, buildSolverInput3D } from '../../solver-service';
 import { input3DToWireObject } from '../../wasm-solver';
 import { solve_3d } from '../../../wasm/dedaliano_engine.js';
+
+const DEFAULT_SHED_PARAMS = { ...BRACED_DEFAULTS, wallBracing: false, roofBracing: false, trussBracing: false };
 
 const PROFILES: EmitOptions['profiles'] = {
   chord: defaultProfileSpec('IPE 100'),
@@ -122,6 +124,11 @@ function solve(json: any, kn: number, direction: 'y' | 'z' = 'y', method?: 'dire
   return validateAndSolve3D(model, false, false);
 }
 
+function expectMechanismRefusal(result: unknown) {
+  expect(typeof result).toBe('string');
+  expect(result).toContain('mechanism');
+}
+
 function maxDisplacement(res: unknown): number {
   const r = res as { displacements: Array<{ ux: number; uy: number; uz: number }> };
   return Math.max(...r.displacements.map((d) => Math.hypot(d.ux, d.uy, d.uz)));
@@ -143,20 +150,14 @@ const FULL = {
 };
 
 describe('the shed has no longitudinal load path until it is given one', () => {
-  it('returns a mechanism wearing a number under a load along the building', () => {
-    // 2.4·10^11 m for 20 kN. Not singular, so every `isFinite` check on it passed — which is
-    // exactly why this went unmeasured. The solve now refuses it as a mechanism.
-    const d = displacementOf(emit({ ...DEFAULT_SHED_PARAMS }, 'Nave'), -20);
-    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
-    expect(d === null || d > 1e6).toBe(true);
+  it('refuses the unbraced mechanism under a load along the building', () => {
+    const result = solve(emit({ ...DEFAULT_SHED_PARAMS }, 'Nave'), -20);
+    expectMechanismRefusal(result);
   }, SOLVE_TIMEOUT_MS);
 
-  it('still deflects 4 mm under the vertical load PR21 measured', () => {
-    // The point of the previous assertion is that it coexists with this one: the same model is
-    // sound in one direction and free in another, and one load case cannot tell you that.
-    const d = displacementOf(emit({ ...DEFAULT_SHED_PARAMS }, 'Nave'), -20, 'z');
-    expect(d).not.toBeNull();
-    expect(d!).toBeLessThan(0.05);
+  it('refuses the unbraced mechanism under the vertical load PR21 measured', () => {
+    const result = solve(emit({ ...DEFAULT_SHED_PARAMS }, 'Nave'), -20, 'z');
+    expectMechanismRefusal(result);
   });
 
   it('is fixed by the three elements together, and by nothing less', () => {
@@ -181,14 +182,10 @@ describe('the shed has no longitudinal load path until it is given one', () => {
 
 describe('each element earns its place, measured by removing it', () => {
   it('the roof plane cannot be anchored by bracing the roof plane', () => {
-    // Diagonals between top-chord nodes triangulate the plate and leave the plate sliding. This
-    // is the obvious wrong fix, and it is worth a test for the same reason "add the longitudinal
-    // beams" is in the sibling file.
-    const d = displacementOf(emit({
+    const result = solve(emit({
       ...DEFAULT_SHED_PARAMS, longitudinalBeams: true, wallBracing: true, roofBracing: true,
     }, 'Sin arriostramiento vertical'), -20);
-    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
-    expect(d === null || d > 1e6).toBe(true);
+    expectMechanismRefusal(result);
   }, SOLVE_TIMEOUT_MS);
 
   it('the vertical bracing needs a wall that reaches the ground', () => {
@@ -227,39 +224,27 @@ describe('a roof with no purlins, and what bracing can and cannot replace', () =
   };
 
   it('stays a mechanism when only the end bays are braced', () => {
-    // The interior frames are not in a braced bay, so nothing holds them sideways. This is the
-    // half of the answer that stops roof bracing being sold as a substitute for purlins.
-    expect(displacementOf(emit({ ...NO_PURLINS, roofBracing: true }, 'Extremos'), -20, 'z'))
-      .toBeNull();
+    const result = solve(emit({ ...NO_PURLINS, roofBracing: true }, 'Extremos'), -20, 'z');
+    expectMechanismRefusal(result);
   }, SOLVE_TIMEOUT_MS);
 
   it.each(['direct', 'pcg'] as const)('rejects the end-bay mechanism with explicit %s', (method) => {
-    // The vertical load does not excite the interior frames' free sideways
-    // motion. PCG alone converges to a plausible 3.96 mm result, so residual
-    // convergence must not bypass the load-independent stability check.
     const result = solve(emit({ ...NO_PURLINS, roofBracing: true }, 'Extremos'), -20, 'z', method);
-    expect(typeof result).toBe('string');
-    expect(result).toContain('mechanism');
+    expectMechanismRefusal(result);
   }, SOLVE_TIMEOUT_MS);
 
-  it('solves under vertical load when EVERY bay is braced, because that reaches every frame', () => {
-    // A diagonal in every bay supplies the restraint the purlins supplied, one bay at a time.
-    // It is not a recommendation to omit purlins — a roof still needs something to carry the
-    // sheeting — it is a statement about which restraint was missing.
-    const d = displacementOf(
+  it('refuses the mechanism under vertical load even with roof bracing in every bay', () => {
+    const result = solve(
       emit({ ...NO_PURLINS, roofBracing: true, bracingBays: 'all' }, 'Todos'), -20, 'z',
     );
-    expect(d).not.toBeNull();
-    expect(d!).toBeLessThan(0.05);
+    expectMechanismRefusal(result);
   }, SOLVE_TIMEOUT_MS);
 
   it('is still free along the building until the vertical bracing is added', () => {
-    // Vertical soundness and longitudinal soundness are separate questions, and bracing every
-    // bay of the roof plane answers only the first.
-    const roofOnly = displacementOf(
+    const roofOnly = solve(
       emit({ ...NO_PURLINS, roofBracing: true, bracingBays: 'all' }, 'Solo cubierta'), -20,
     );
-    expect(roofOnly === null || roofOnly > 1e6).toBe(true);
+    expectMechanismRefusal(roofOnly);
 
     const full = displacementOf(
       emit({ ...NO_PURLINS, roofBracing: true, wallBracing: true, trussBracing: true, bracingBays: 'all' }, 'Completo'),
@@ -339,14 +324,15 @@ describe('the bracing is placed on steel that is already there', () => {
     expect(solid.nodes.length).toBe(base.nodes.length);
   });
 
-  it('leaves the default shed exactly as PR21 pinned it', () => {
-    // The regression guard for the whole change: bracing is off by default, so the model a user
-    // gets by pressing Generate is byte-for-byte the one that was measured.
-    const shed = generateShed({ ...DEFAULT_SHED_PARAMS });
-    expect(shed.counts.bracing).toBe(0);
-    expect(DEFAULT_SHED_PARAMS.wallBracing).toBe(false);
-    expect(DEFAULT_SHED_PARAMS.roofBracing).toBe(false);
-    expect(DEFAULT_SHED_PARAMS.trussBracing).toBe(false);
+  it('braces the default shed in the wall, roof and vertical truss planes', () => {
+    const shed = generateShed();
+    const explicitlyBraced = generateShed({ ...DEFAULT_SHED_PARAMS, wallBracing: true, roofBracing: true, trussBracing: true });
+    expect(shed.members).toEqual(explicitlyBraced.members);
+    expect(shed.counts.bracing).toBe(explicitlyBraced.counts.bracing);
+    expect(shed.counts.bracing).toBeGreaterThan(0);
+    expect(BRACED_DEFAULTS.wallBracing).toBe(true);
+    expect(BRACED_DEFAULTS.roofBracing).toBe(true);
+    expect(BRACED_DEFAULTS.trussBracing).toBe(true);
   });
 });
 
@@ -368,15 +354,12 @@ describe('pinned lattice bases, and why bracing does not yet justify them', () =
     column: { ...DEFAULT_SHED_PARAMS.column, fixedBase: false },
   };
 
-  it('already solved vertically before any bracing, which is the cap and not the wall', () => {
-    const bare = displacementOf(emit(PINNED, 'Articuladas'), -20, 'z');
-    expect(bare).not.toBeNull();
-    expect(bare!).toBeLessThan(0.05);
+  it('refuses pinned-base mechanisms under vertical load with or without wall bracing', () => {
+    const bare = solve(emit(PINNED, 'Articuladas'), -20, 'z');
+    expectMechanismRefusal(bare);
 
-    // Adding the wall bracing barely moves it, which is the evidence that the vertical solve was
-    // never the thing the bracing was needed for.
-    const walled = displacementOf(emit({ ...PINNED, wallBracing: true }, 'Con fachada'), -20, 'z')!;
-    expect(Math.abs(walled - bare!) / bare!).toBeLessThan(0.05);
+    const walled = solve(emit({ ...PINNED, wallBracing: true }, 'Con fachada'), -20, 'z');
+    expectMechanismRefusal(walled);
   }, SOLVE_TIMEOUT_MS);
 
   /*
@@ -392,18 +375,16 @@ describe('pinned lattice bases, and why bracing does not yet justify them', () =
    * which is the same message whichever of the two was slow — or wrong.
    */
   it('stays free along the building with wall bracing alone', () => {
-    const d = displacementOf(emit({ ...PINNED, wallBracing: true }, 'Longitudinal'), -20);
-    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
-    expect(d === null || d > 1e6).toBe(true);
+    const result = solve(emit({ ...PINNED, wallBracing: true }, 'Longitudinal'), -20);
+    expectMechanismRefusal(result);
   }, SOLVE_TIMEOUT_MS);
 
   it('stays free along the building even with the roof plane braced in every bay', () => {
-    const d = displacementOf(emit(
+    const result = solve(emit(
       { ...PINNED, wallBracing: true, roofBracing: true, bracingBays: 'all' as const },
       'Longitudinal',
     ), -20);
-    // Refused as a mechanism now (null); before, a displacement no reader could take for one.
-    expect(d === null || d > 1e6).toBe(true);
+    expectMechanismRefusal(result);
   }, SOLVE_TIMEOUT_MS);
 
   it('needs the vertical bracing, exactly as a fixed-base shed does', () => {

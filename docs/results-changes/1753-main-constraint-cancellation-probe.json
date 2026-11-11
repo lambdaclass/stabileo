@@ -1,0 +1,160 @@
+{
+  "mainCommit": "8f4c3ee6c07c661c090865f7390d10b78162786f",
+  "regression": "engine/tests/known_issues.rs::issue_1753_an_independent_load_cannot_mask_constraint_cancellation",
+  "analyticalAxialDisplacement": "1/3",
+  "measuredRelativeAxialError": -0.25,
+  "minimalExampleRefusal": "REFUSE: self-check static_balance: 1.429e-1 exceeds 1.000e-3",
+  "withIndependentLoadResult": {
+    "displacements": [
+      {
+        "nodeId": 1,
+        "ux": 0.25,
+        "uy": 0.0,
+        "uz": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0
+      },
+      {
+        "nodeId": 2,
+        "ux": 0.25,
+        "uy": 0.0,
+        "uz": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0
+      },
+      {
+        "nodeId": 3,
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0,
+        "rx": 0.0,
+        "ry": 0.0,
+        "rz": 0.0
+      }
+    ],
+    "reactions": [
+      {
+        "nodeId": 1,
+        "fx": -0.75,
+        "fy": 0.0,
+        "fz": 0.0,
+        "mx": 0.0,
+        "my": 0.0,
+        "mz": 0.0
+      },
+      {
+        "nodeId": 2,
+        "fx": 0.0,
+        "fy": 0.0,
+        "fz": 0.0,
+        "mx": 0.0,
+        "my": 0.0,
+        "mz": 0.0
+      },
+      {
+        "nodeId": 3,
+        "fx": 0.0,
+        "fy": 0.0,
+        "fz": -1000000.0,
+        "mx": 0.0,
+        "my": 0.0,
+        "mz": 0.0
+      }
+    ],
+    "elementForces": [
+      {
+        "elementId": 1,
+        "length": 1.0,
+        "nStart": -0.0,
+        "nEnd": 0.0,
+        "vyStart": 0.0,
+        "vyEnd": -0.0,
+        "vzStart": 0.0,
+        "vzEnd": -0.0,
+        "mxStart": 0.0,
+        "mxEnd": -0.0,
+        "myStart": 0.0,
+        "myEnd": -0.0,
+        "mzStart": 0.0,
+        "mzEnd": -0.0,
+        "releaseMyStart": false,
+        "releaseMyEnd": false,
+        "releaseMzStart": false,
+        "releaseMzEnd": false,
+        "releaseTStart": false,
+        "releaseTEnd": false,
+        "qYI": 0.0,
+        "qYJ": 0.0,
+        "distributedLoadsY": [],
+        "pointLoadsY": [],
+        "qZI": 0.0,
+        "qZJ": 0.0,
+        "distributedLoadsZ": [],
+        "pointLoadsZ": []
+      }
+    ],
+    "constraintForces": [
+      {
+        "nodeId": 2,
+        "dof": "ux",
+        "force": -1.0
+      }
+    ],
+    "structuredDiagnostics": [
+      {
+        "code": "sparse_cholesky",
+        "severity": "info",
+        "message": "Constrained 3D Sparse Cholesky (2 free DOFs, 1 independent)",
+        "phase": "solve"
+      },
+      {
+        "code": "residual_ok",
+        "severity": "info",
+        "message": "Constrained 3D residual 0.00e0",
+        "phase": "solve",
+        "value": 0.0,
+        "threshold": 1e-06
+      },
+      {
+        "code": "residual_ok",
+        "severity": "info",
+        "message": "PASS: self-check static_residual: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+        "phase": "self_check:static_residual",
+        "value": 0.0,
+        "threshold": 1e-06
+      },
+      {
+        "code": "residual_ok",
+        "severity": "info",
+        "message": "PASS: self-check static_balance: 1.250e-7 (warning at 1.000e-6, refusal at 1.000e-3)",
+        "phase": "self_check:static_balance",
+        "value": 1.2499989062509567e-07,
+        "threshold": 1e-06
+      }
+    ],
+    "equilibrium": {
+      "relativeResidual": 0.0,
+      "residualOk": true,
+      "appliedForceSum": [
+        1.0,
+        0.0,
+        1000000.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reactionForceSum": [
+        0.0,
+        0.0,
+        -1000000.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "maxImbalance": 1.0,
+      "equilibriumOk": false
+    }
+  }
+}

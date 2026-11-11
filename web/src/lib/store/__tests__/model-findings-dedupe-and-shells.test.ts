@@ -54,7 +54,7 @@ beforeAll(async () => { await initSolver(); });
 describe('checkModel vs engine gate dedupe', () => {
   it('an unsupported isolated node never produces results (engine throws; solver-service rejects earlier)', () => {
     const inp = input3D([[1, 0, 0, 0], [2, 5, 0, 0], [3, 0, 5, 0]], [[1, 1, 2]], [1]);
-    expect(() => solve3D(inp)).toThrow(/Singular/);
+    expect(() => solve3D(inp)).toThrow(/^the structure is a mechanism at nodes \[3\]:/);
   });
 
   it('control: a rigidLink-only node is NOT flagged disconnected by the gate (no false positive)', () => {

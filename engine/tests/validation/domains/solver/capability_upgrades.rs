@@ -685,7 +685,8 @@ fn capability_vm44_roark_circular_ring() {
 
     // Supports: fix rigid body without over-constraining the ring.
     // Fix all translations at bottom node, fix X and Z at top node
-    // (top is free to move in Y to measure diametral deflection).
+    // (top is free to move in Y to measure diametral deflection), and the
+    // bottom's rotation about Y, the line through both supports.
     let mut sups_map = HashMap::new();
     sups_map.insert(
         "1".to_string(),
@@ -695,7 +696,7 @@ fn capability_vm44_roark_circular_ring() {
             ry: true,
             rz: true,
             rrx: false,
-            rry: false,
+            rry: true,
             rrz: false,
             kx: None,
             ky: None,

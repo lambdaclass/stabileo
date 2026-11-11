@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "État au 10 novembre 2026 : SA-2026-001 à 020 sont corrigés dans la version 0.3.0, SA-2026-021 à 024 dans la version 0.4.0 et SA-2026-025 à 047 dans la version 0.5.0 (SA-2026-040 contenu : la vérification est marquée comme incomplète), sauf SA-2026-044 : le calcul de ruine plastique 2D reste refusé tant que #758 est ouvert. SA-2026-048 a été corrigé après la version 0.5.0 et est en ligne sur stabileo.com depuis le 8 novembre 2026. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 et SA-2026-053 ont été corrigés après la version 0.5.0 et sont en ligne sur stabileo.com depuis le 9 novembre 2026. Les publier fait partie de notre manière de vérifier les résultats ; ce n'est pas le signe qu'ils sont encore ouverts. Un avis est considéré comme corrigé lorsque la correction est en ligne sur stabileo.com, et non lorsque la modification existe. Tant qu'un avis est ouvert, appliquez sa solution de contournement et vérifiez à la main le résultat concerné avant de signer. SA-2026-055 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-056 — Brouillon : non résolu ; aucun correctif intégré ni déployé. SA-2026-057 — Brouillon : correction pas encore fusionnée ni publiée."
+      "t": "État au 10 novembre 2026 : SA-2026-001 à 020 sont corrigés dans la version 0.3.0, SA-2026-021 à 024 dans la version 0.4.0 et SA-2026-025 à 047 dans la version 0.5.0 (SA-2026-040 contenu : la vérification est marquée comme incomplète), sauf SA-2026-044 : le calcul de ruine plastique 2D reste refusé tant que #758 est ouvert. SA-2026-048 a été corrigé après la version 0.5.0 et est en ligne sur stabileo.com depuis le 8 novembre 2026. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 et SA-2026-053 ont été corrigés après la version 0.5.0 et sont en ligne sur stabileo.com depuis le 9 novembre 2026. Les publier fait partie de notre manière de vérifier les résultats ; ce n'est pas le signe qu'ils sont encore ouverts. Un avis est considéré comme corrigé lorsque la correction est en ligne sur stabileo.com, et non lorsque la modification existe. Tant qu'un avis est ouvert, appliquez sa solution de contournement et vérifiez à la main le résultat concerné avant de signer. SA-2026-054 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-055 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-056 — Brouillon : non résolu ; aucun correctif intégré ni déployé. SA-2026-057 — Brouillon : correction pas encore fusionnée ni publiée."
     },
     {
       "k": "note",
@@ -352,6 +352,12 @@ const body: PostBody = {
           "Charges mobiles 2D et 3D : les charges ponctuelles aux extrémités incluaient dans les enveloppes des efforts extérieurs à la barre, ajoutant des extrema axiaux et tranchants parasites et surestimant la sollicitation ; aucune limite de versions publiées n’est affirmée",
           "Faible",
           "Corrigé après 0.5.0 ; sur stabileo.com depuis le 9 novembre 2026"
+        ],
+        [
+          "SA-2026-054",
+          "L’analyse linéaire pouvait renvoyer sans avertissement des résultats inexacts dus à une rigidité non résoluble ou à des composantes de charge omises par PCG",
+          "Élevée",
+          "Brouillon : correction pas encore fusionnée ni publiée"
         ],
         ["SA-2026-055", "P-Delta en 2D et 3D pouvait sous-estimer l’amplification et indiquer la stabilité lorsque l’effort normal variait sous des charges réparties ou ponctuelles le long d’une barre de portique", "Élevée", "Brouillon : correction pas encore fusionnée ni publiée"],
         [

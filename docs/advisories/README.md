@@ -25,6 +25,8 @@ merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
 `support-spring-conflicts-refused`, `non-finite-analysis-results`, `moving-loads-3d`,
 `moving-axial-patch-boundaries` and `moving-load-endpoint-forces`, respectively.
 
+**SA-2026-054 is a draft**: its fix (#1753) is prepared locally and has not been merged or deployed.
+
 | ID | Summary | Severity | Issue | Fix | Fixed in | Status |
 |---|---|---|---|---|---|---|
 | [SA-2026-001](SA-2026-001-loads-combinations.md) | Load combinations and generated loads (CIRSOC 101/102/103) unconservative | High | — | #292 | 0.2.0 | Published 2026-10-21 |
@@ -80,6 +82,7 @@ merged 2026-11-09 09:27:10 UTC). Their re-check registry entries are
 | [SA-2026-051](SA-2026-051-moving-loads-3d.md) | 3D moving-load envelopes missed interior peaks and lost the axial component of axle weight | High | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
 | [SA-2026-052](SA-2026-052-moving-axial-patch-boundaries.md) | 2D/3D moving-load axial envelopes missed peaks at distributed-load boundaries | High | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
 | [SA-2026-053](SA-2026-053-moving-load-endpoint-forces.md) | Moving-load envelopes included exterior force limits at endpoint point loads | Low | [#1782](https://github.com/lambdaclass/stabileo/issues/1782) | #1783 | After 0.5.0; live on stabileo.com since 2026-11-09 | Published 2026-11-09 |
+| [SA-2026-054](SA-2026-054-unresolved-linear-stiffness.md) | Linear analysis could silently return results beyond its stiffness bound or miss a PCG load component | High | #762, #1496 | #1753 | Pending merge and deployment; prepared locally after 0.5.0 | Draft |
 | [SA-2026-055](SA-2026-055-pdelta-span-axial.md) | P-Delta understated amplification when compression varied under axial span loads | High | [#1329](https://github.com/lambdaclass/stabileo/issues/1329) | Local fix | Not released | Draft 2026-11-10; fix not yet merged or deployed |
 | [SA-2026-056](SA-2026-056-constrained-shell-dynamic-invariance.md) | Constrained frame and shell dynamic results change under equivalent descriptions | High | Sweep seed 2026110200131 | — | Unfixed | Recorded 2026-11-10 |
 | [SA-2026-057](SA-2026-057-plastic-interval-and-resource-refusals.md) | Plastic interval displays admitted outside factors; exact mechanism extraction discarded resource refusals in pre-fix PR #1888 builds | Medium | — (review of #1888) | [#1888](https://github.com/lambdaclass/stabileo/pull/1888) | Fix not yet merged or deployed | Draft 2026-11-10 |

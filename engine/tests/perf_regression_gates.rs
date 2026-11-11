@@ -197,7 +197,7 @@ fn make_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
             SolverSupport3D {
                 node_id: n,
                 rx: false,
-                ry: false,
+                ry: n == grid[nx][0],
                 rz: true,
                 rrx: false,
                 rry: false,

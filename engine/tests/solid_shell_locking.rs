@@ -256,7 +256,8 @@ fn thick_plate_converges_to_mindlin() {
 /// thickness): the 3D elasticity solution has ε_zz = −ν/(1 − ν)·ε_xx (plane strain) or
 /// −ν·ε_xx (free lateral faces), linear in z. The trilinear element alone cannot carry it
 /// and is too stiff by (1 − ν)²/(1 − 2ν) resp. ~1/(1 − ν²); with the EAS thickness mode
-/// the tip deflection is exact for every t/L.
+/// the tip deflection is exact at t/L = 0.1 and 0.01. At t/L = 1e-3 the one-layer stiffness
+/// (thickness stretch against bending, condition ~ h·L³/t⁴) is refused as unresolvable.
 #[test]
 fn pure_bending_strip_is_exact_with_poisson() {
     let (l, b, nx) = (1.0, 0.1, 8);
@@ -290,6 +291,11 @@ fn pure_bending_strip_is_exact_with_poisson() {
                 m.input.loads.push(nodal(bot, [f, 0.0, 0.0]));
                 m.input.loads.push(nodal(top, [-f, 0.0, 0.0]));
             }
+            if t < 0.01 {
+                let refused = linear::solve_3d(&m.input).map(|_| ()).expect_err("t/L = 1e-3 keeps too few digits to be solved");
+                assert!(refused.starts_with("the structure is a mechanism or so close to one"), "t/L = {t}: {refused}");
+                continue;
+            }
             let r = solve(&m);
             let w_tip = 0.5 * (mid(&r, &m, nx, 0)[2] + mid(&r, &m, nx, 1)[2]);
             let e = E_PLATE * 1000.0;
@@ -298,12 +304,7 @@ fn pure_bending_strip_is_exact_with_poisson() {
             let exact = mmt * l * l / (2.0 * ei);
             let ratio = w_tip / exact;
             eprintln!("pure bending t/L = {t}, plane strain {plane_strain}: w/w_exact = {ratio:.9}");
-            // Exact up to round-off. The global stiffness of a one-layer solid shell has a
-            // condition number ~ h·L³/t⁴ (thickness stretch E·h²/t against bending E·t³/L²),
-            // ~1e11 at t/L = 1e-3, where the round-off reaches ~2e-4 (it was ~1.5e-5 before the
-            // EAS mode, on a locked answer of 0.816).
-            let tol = if t >= 0.01 { 1e-6 } else { 1e-3 };
-            assert!((ratio - 1.0).abs() < tol, "t/L = {t}, plane strain {plane_strain}: w/w_exact = {ratio:.8}");
+            assert!((ratio - 1.0).abs() < 1e-6, "t/L = {t}, plane strain {plane_strain}: w/w_exact = {ratio:.8}");
         }
     }
 }

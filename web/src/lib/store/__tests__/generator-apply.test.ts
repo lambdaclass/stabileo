@@ -25,6 +25,7 @@ const PROFILES: EmitOptions['profiles'] = {
   column: defaultProfileSpec('HEB 160'),
   beam: defaultProfileSpec('IPE 200'),
   purlin: defaultProfileSpec('UPN 100'),
+  bracing: defaultProfileSpec('L 50x50x5'),
 };
 
 const AT = '2026-08-12T00:00:00.000Z';

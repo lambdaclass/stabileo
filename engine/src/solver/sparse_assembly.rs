@@ -254,7 +254,7 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
     // Artificial rotational stiffness
     let mut artificial_dofs = Vec::new();
     if dof_num.dofs_per_node >= 3 {
-        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+        let artificial_k = super::assembly::artificial_stiffness(max_diag);
         let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
         let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
         for elem in crate::ordered::values(&input.elements) {
@@ -495,7 +495,7 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
     // elements are hinged at that node — prevents singular matrix.
     let mut artificial_dofs = Vec::new();
     if dof_num.dofs_per_node >= 3 {
-        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+        let artificial_k = super::assembly::artificial_stiffness(max_diag);
 
         let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
         let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
@@ -586,7 +586,7 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
     // missed cancellation between elements — e.g. hinges forming around a
     // node in plastic analysis — leaving the DOF bare and the solve garbage.)
     if dof_num.dofs_per_node >= 3 {
-        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+        let artificial_k = super::assembly::artificial_stiffness(max_diag);
         let already: std::collections::HashSet<usize> = artificial_dofs.iter().copied().collect();
         let tied = super::assembly::rotation_tied_nodes_2d(input);
         let diag = k_full.diagonal();
@@ -853,7 +853,7 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
     // Artificial rotational stiffness (sequential)
     let mut artificial_dofs = Vec::new();
     if dof_num.dofs_per_node >= 3 {
-        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+        let artificial_k = super::assembly::artificial_stiffness(max_diag);
         let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
         let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
         for elem in crate::ordered::values(&input.elements) {
@@ -1339,14 +1339,14 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
     // Artificial stiffness at floating warping DOFs
     let mut artificial_dofs_3d = Vec::new();
     {
-        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+        let artificial_k = super::assembly::artificial_stiffness(max_diag);
         for d in super::assembly::orphan_rotation_dofs_3d(input, dof_num, |d| diag_vals[d]) {
             trip_rows.push(d); trip_cols.push(d); trip_vals.push(artificial_k);
             artificial_dofs_3d.push(d);
         }
     }
     if dof_num.dofs_per_node >= 7 {
-        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+        let artificial_k = super::assembly::artificial_stiffness(max_diag);
         for &node_id in &dof_num.node_order {
             if let Some(&d) = dof_num.map.get(&(node_id, 6)) {
                 if d < nf && diag_vals[d].abs() < 1e-20 {

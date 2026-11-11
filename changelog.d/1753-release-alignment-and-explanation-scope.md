@@ -1,0 +1,4 @@
+### Fixed
+#### Refuse negative rotations outside the released direction and preserve legacy regression detection (2026-11-10)
+
+A permitted release now replaces a slightly negative rotational mode only when it spans that eigenvector within the projection rounding bound. An unrelated release leaves the negative mode unresolved and the solve refuses. Aligned releases remain accepted. The linear-stability notice still covers every linear result with stiffness elements, but explains only solve outcomes generally. Exact before/after response fingerprints restrict the documented bridge small-component changes; fabricated displacement, reaction and member-force errors remain unexplained. No tolerance, historical baseline or assertion is loosened. See [the results-change evidence](../docs/results-changes/2026-11-linear-stability-refusals.md#final-two-fixes-release-alignment-and-exact-numerical-explanations).

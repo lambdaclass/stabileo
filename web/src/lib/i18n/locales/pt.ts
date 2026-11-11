@@ -2085,7 +2085,6 @@ const pt: Translations = {
   "knownIssue.LIN-SECOND-ORDER-UNBOUNDED": "Há barras comprimidas e não foi possível limitar a carga crítica a partir das barras isoladas, por isso não se sabe se os efeitos de segunda ordem amplificam estes deslocamentos e momentos lineares em mais de 10 %. Execute uma análise P-Delta ou de segunda ordem antes de usar estes momentos no dimensionamento",
   "containment.more": "Mais",
   "containment.less": "Menos",
-  "knownIssue.ORPHAN-SOFT-ROTATION": "Um giro de nó com rigidez real, mas muito pequena em relação a outro giro do mesmo nó, foi retido por uma mola artificial, então esse giro e os esforços que ele transmite podem ser muito menores que os reais. Não use este resultado para projeto até este aviso desaparecer.",
   "knownIssue.CERT-MECHANISM": "Um certificado no nível do sistema montado pode certificar uma rotação artificial ou sem rigidez. Verifique os mecanismos de forma independente; um limite de erro algébrico pequeno não demonstra a estabilidade estrutural.",
   "knownIssue.PD-SPAN-AXIAL": "O P-Delta monta a rigidez geométrica de cada barra com seu esforço axial médio, então uma compressão que varia ao longo da barra por cargas axiais no vão pode subestimar a amplificação de segunda ordem. Subdivida as barras carregadas e verifique se os resultados convergem.",
   "knownIssue.SH-MITC4-DISTORTION.warning": "Elementos MITC4 distorcidos podem travar em flexão de membrana. Verifique a convergência da malha; resultados com flexão de membrana significativa são bloqueados.",

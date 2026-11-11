@@ -212,14 +212,6 @@ fn validate_solver_options(input_opts: &Option<SolverOptions>, diags: &mut Vec<S
     }
 }
 
-fn pcg_stability_fallback_diagnostic() -> SolverDiagnostic {
-    SolverDiagnostic {
-        category: "fallback".into(),
-        message: "Unshifted Cholesky could not verify structural stability; using the direct solver chain instead of PCG".into(),
-        severity: "warning".into(),
-    }
-}
-
 /// Outcome of a verified PCG solve.
 struct PcgOutcome {    u: Vec<f64>,
     iterations: usize,
@@ -346,6 +338,15 @@ fn try_pcg_solve(
         // Recompute the true relative residual — never trust the iteration's
         // internal estimate.
         let ku = k_ff.sym_mat_vec(&res.x);
+        let mut row_scale: Vec<f64> = f_f.iter().map(|v| v.abs()).collect();
+        for j in 0..k_ff.n {
+            for p in k_ff.col_ptr[j]..k_ff.col_ptr[j + 1] {
+                let (i, value) = (k_ff.row_idx[p], k_ff.values[p]);
+                row_scale[i] += (value * res.x[j]).abs();
+                if i != j { row_scale[j] += (value * res.x[i]).abs(); }
+            }
+        }
+        let row_resolved = (0..k_ff.n).all(|i| (ku[i] - f_f[i]).abs() <= 1e-6 * row_scale[i]);
         let mut res2 = 0.0f64;
         let mut f2 = 0.0f64;
         for i in 0..k_ff.n {
@@ -355,7 +356,7 @@ fn try_pcg_solve(
         }
         let rel = res2.sqrt() / f2.sqrt().max(1e-30);
 
-        if res.converged && rel <= 1e-6 {
+        if res.converged && rel <= 1e-6 && row_resolved {
             let precond_name: &'static str = match pre.name() {
                 "identity" => "none",
                 other => other,
@@ -369,8 +370,8 @@ fn try_pcg_solve(
         }
 
         last_failure = format!(
-            "PCG with '{}' preconditioner did not converge (converged={}, true rel residual {:.2e} after {} iterations)",
-            pre.name(), res.converged, rel, res.iterations
+            "PCG with '{}' preconditioner did not converge (converged={}, true rel residual {:.2e}, row residuals resolved={} after {} iterations)",
+            pre.name(), res.converged, rel, row_resolved, res.iterations
         );
         if idx + 1 < chain.len() {
             diags.push(SolverDiagnostic {
@@ -451,8 +452,6 @@ fn solve_2d_inner(input: &SolverInput) -> Result<AnalysisResults, String> {
 enum FactorizedKff {
     /// Dense in-place Cholesky factor L (lower triangle) of K_ff.
     DenseCholesky(Vec<f64>),
-    /// Dense in-place LU factors of K_ff with row permutation.
-    DenseLu { lu: Vec<f64>, piv: Vec<usize> },
     /// Sparse Cholesky factorization of K_ff.
     SparseCholesky(NumericCholesky),
 }
@@ -473,7 +472,7 @@ pub struct PreparedStatic2D<'a> {
     nr: usize,
     u_r: Vec<f64>,
     pre_solve_diags: Vec<StructuredDiagnostic>,
-    artificial_dofs: Vec<usize>,
+    stability: super::stability::Stability,
     inclined_transforms_2d: Vec<InclinedTransformData2D>,
     path: PreparedPath2D,
 }
@@ -491,150 +490,35 @@ enum PreparedPath2D {
     /// explicit "pcg" or Auto above ITERATIVE_THRESHOLD); the direct chain
     /// supplies a cached stability check and fallback.
     Pcg(Box<PreparedPcg2D>),
-    /// Sparse Cholesky failed even with diagonal-shift regularization:
-    /// dense LU of the dense K_ff (legacy fallback semantics).
-    SparseDenseLu(Box<PreparedSparseDenseLu2D>),
 }
 
-/// Factorized form of the free-free stiffness block plus everything the
-/// per-load-set solve reuses (boxed to keep `PreparedPath2D` small).
 struct PreparedSolve2D {
-    /// Dense nf×nf K_ff (residual checks).
     k_ff: Vec<f64>,
-    /// nr×nf reaction coupling block.
     k_rf: Vec<f64>,
-    /// nf — K_fr · u_r (prescribed-displacement coupling).
     k_fr_ur: Vec<f64>,
-    /// nr — K_rr · u_r.
     k_rr_ur: Vec<f64>,
     factor: FactorizedKff,
     used_sparse: bool,
-    cholesky_failed: bool,
-    cond_report: super::conditioning::ConditioningReport,
 }
 
-/// Sparse (triplet-assembled) factorized form for nf >= SPARSE_THRESHOLD,
-/// mirroring the 3D sparse path.
 struct PreparedSparse2D {
     k_ff: CscMatrix,
-    /// Full n×n K (reactions via sym_mat_vec, cross-block for prescribed DOFs).
     k_full: CscMatrix,
     num: NumericCholesky,
-    /// True when K_ff needed a diagonal shift to factor.
-    regularized: bool,
-    max_perturbation: f64,
-    /// nf — K_fr · u_r (zeros when no prescribed DOFs).
     kfr_ur: Vec<f64>,
-    cond_report: super::conditioning::ConditioningReport,
 }
 
-/// Iterative PCG form of the triplet-assembled K_ff (nf >= SPARSE_THRESHOLD).
-/// The PCG preconditioner chain is built per solve (cheap next to assembly);
-/// the direct chain (unregularized sparse Cholesky, then dense LU — same
-/// semantics as `PreparedPath2D::Sparse` → `SparseDenseLu`) also supplies the
-/// load-independent stability check, cached across all load cases.
 struct PreparedPcg2D {
     k_ff: CscMatrix,
-    /// Full n×n K (reactions via sym_mat_vec, cross-block for prescribed DOFs).
     k_full: CscMatrix,
-    /// nf — K_fr · u_r (zeros when no prescribed DOFs).
     kfr_ur: Vec<f64>,
-    cond_report: super::conditioning::ConditioningReport,
     opts: ResolvedSolverOptions,
-    /// Option-parsing warnings, re-emitted with each per-case solve.
     solver_diags_base: Vec<SolverDiagnostic>,
-    /// Lazily-factored direct fallback (shared across load cases).
-    direct: std::cell::OnceCell<PcgDirectFallback2D>,
+    direct: std::cell::OnceCell<Option<NumericCholesky>>,
 }
 
-/// Direct fallback for the 2D PCG path: sparse Cholesky WITHOUT diagonal-shift
-/// regularization (2D legacy semantics — a shifted factor "succeeds" on
-/// genuine mechanisms, where the legacy contract is the dense-LU error), then
-/// dense LU of the (unshifted) K_ff.
-struct PcgDirectFallback2D {
-    /// None when the unregularized factorization failed (mechanism candidate).
-    num: Option<NumericCholesky>,
-    /// Lazily-factored dense LU of K_ff; `None` (inside) = K_ff is singular.
-    dense_lu: std::cell::OnceCell<Option<(Vec<f64>, Vec<usize>)>>,
-}
 
-/// Dense-LU fallback when sparse Cholesky fails with every diagonal shift
-/// (same behavior as the legacy dense-K_ff LU fallback).
-struct PreparedSparseDenseLu2D {
-    /// Dense nf×nf K_ff (residual checks).
-    k_ff: Vec<f64>,
-    /// nr×nf reaction coupling block.
-    k_rf: Vec<f64>,
-    /// nf — K_fr · u_r.
-    k_fr_ur: Vec<f64>,
-    /// nr — K_rr · u_r.
-    k_rr_ur: Vec<f64>,
-    lu: Vec<f64>,
-    piv: Vec<usize>,
-    cond_report: super::conditioning::ConditioningReport,
-}
 
-/// Conditioning report from the diagonal of a sparse (CSC, lower triangle)
-/// K_ff, mirroring `conditioning::check_conditioning` on the dense matrix.
-fn sparse_conditioning_2d(k_ff: &CscMatrix, nf: usize) -> super::conditioning::ConditioningReport {
-    let mut diag = vec![0.0f64; nf];
-    for (j, dj) in diag.iter_mut().enumerate() {
-        for p in k_ff.col_ptr[j]..k_ff.col_ptr[j + 1] {
-            if k_ff.row_idx[p] == j {
-                *dj = k_ff.values[p];
-                break;
-            }
-        }
-    }
-
-    let mut max_diag = 0.0f64;
-    for &d in &diag {
-        max_diag = max_diag.max(d.abs());
-    }
-    let threshold = if max_diag > 0.0 { max_diag * 1e-12 } else { f64::EPSILON };
-
-    let mut min_nonzero_diag = f64::MAX;
-    let mut near_zero_dofs = Vec::new();
-    for (i, &dv) in diag.iter().enumerate() {
-        let d = dv.abs();
-        if d <= threshold {
-            near_zero_dofs.push(i);
-        } else if d < min_nonzero_diag {
-            min_nonzero_diag = d;
-        }
-    }
-
-    let diagonal_ratio = if min_nonzero_diag < f64::MAX && min_nonzero_diag > 0.0 {
-        max_diag / min_nonzero_diag
-    } else {
-        0.0
-    };
-
-    let mut warnings = Vec::new();
-    if !near_zero_dofs.is_empty() {
-        warnings.push(format!(
-            "{} near-zero diagonal(s) detected at DOFs: {:?}",
-            near_zero_dofs.len(),
-            &near_zero_dofs[..near_zero_dofs.len().min(10)]
-        ));
-    }
-    if diagonal_ratio > 1e12 {
-        warnings.push(format!(
-            "Extremely high diagonal ratio {:.2e} — matrix is likely ill-conditioned",
-            diagonal_ratio
-        ));
-    } else if diagonal_ratio > 1e8 {
-        warnings.push(format!(
-            "High diagonal ratio {:.2e} — potential conditioning issues",
-            diagonal_ratio
-        ));
-    }
-    if max_diag == 0.0 {
-        warnings.push("All diagonal entries are zero — singular matrix".to_string());
-    }
-
-    super::conditioning::ConditioningReport { diagonal_ratio, near_zero_dofs, warnings }
-}
 
 /// Prepare a 2D structure for one or more static solves: numbering, assembly,
 /// and factorization of the free-free stiffness block happen exactly once here.
@@ -773,7 +657,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
             nr,
             u_r,
             pre_solve_diags,
-            artificial_dofs: stiff.artificial_dofs,
+            stability: super::stability::Stability::stable(),
             inclined_transforms_2d: stiff.inclined_transforms_2d,
             path: PreparedPath2D::FullyRestrained { ku_full },
         });
@@ -781,25 +665,22 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
 
     // ── Triplet sparse path: large models (nf >= 64) ──
     if !force_dense && nf >= SPARSE_THRESHOLD {
-        let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d_typed(input, &dof_num, &properties);
+        let stiff = super::assembly::without_artificial_stiffness(|| super::sparse_assembly::assemble_stiffness_sparse_2d_typed(input, &dof_num, &properties));
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_with_coupling(&stiff.k_ff, &free_tags(&dof_num, true), &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default()) };
+        if let Some(refusal) = stability.refusal() { return Err(refusal); }
+        let k_ff = stability.pin_sparse(&stiff.k_ff);
 
-        // Conditioning report from the CSC diagonal (same thresholds as dense)
-        let cond_report = sparse_conditioning_2d(&stiff.k_ff, nf);
-
-        // Solver options (PCG dispatch): explicit "pcg" or Auto above the
-        // iterative threshold. The first solve factors unshifted K_ff to
-        // check stability; subsequent cases reuse that check and fallback.
         let mut pcg_diags_base: Vec<SolverDiagnostic> = Vec::new();
         let solver_opts = resolve_solver_options(&input.solver_options, nf, &mut pcg_diags_base);
         let use_pcg = solver_opts.method == SolverMethod::Pcg
             || (solver_opts.method == SolverMethod::Auto && nf >= ITERATIVE_THRESHOLD);
+        let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
+        let kfr_ur = if has_prescribed {
+            stiff.k_full.sparse_cross_block_matvec(&u_r, nf)
+        } else {
+            vec![0.0; nf]
+        };
         if use_pcg {
-            let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
-            let kfr_ur = if has_prescribed {
-                stiff.k_full.sparse_cross_block_matvec(&u_r, nf)
-            } else {
-                vec![0.0; nf]
-            };
             return Ok(PreparedStatic2D {
                 rotation_demand: crate::known_issues::RotationDemand2D::new(input),
                 known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
@@ -811,13 +692,12 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
                 nr,
                 u_r,
                 pre_solve_diags,
-                artificial_dofs: stiff.artificial_dofs,
+                stability,
                 inclined_transforms_2d: stiff.inclined_transforms_2d,
                 path: PreparedPath2D::Pcg(Box::new(PreparedPcg2D {
-                    k_ff: stiff.k_ff,
+                    k_ff,
                     k_full: stiff.k_full,
                     kfr_ur,
-                    cond_report,
                     opts: solver_opts,
                     solver_diags_base: pcg_diags_base,
                     direct: std::cell::OnceCell::new(),
@@ -825,147 +705,54 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
             });
         }
 
-        // Symbolic + numeric sparse Cholesky. NO diagonal-shift regularization
-        // on the 2D path: the legacy 2D solver never regularized, and a shifted
-        // factor "succeeds" on genuine mechanisms (e.g. hinge chains in plastic
-        // analysis), returning a garbage perturbed solution where the legacy
-        // contract is an error. On failure we fall to the legacy dense LU of
-        // the ORIGINAL K_ff below, which reports "Singular stiffness matrix"
-        // for mechanisms exactly as before. (The 3D path keeps its shift
-        // ladder — shell drilling DOFs need it.)
-        let sym = std::rc::Rc::new(symbolic_cholesky(&stiff.k_ff));
-        let num = numeric_cholesky(&sym, &stiff.k_ff)
-            .map(|num| (num, false, 0.0));
-
-        let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
-
-        match num {
-            Some((num, regularized, max_perturbation)) => {
-                pre_solve_diags.extend(super::definiteness::sparse_pivot_check(&num, &stiff.k_ff));
-                // Prescribed-displacement coupling F_f −= K_fr · u_r (K-only)
-                let kfr_ur = if has_prescribed {
-                    stiff.k_full.sparse_cross_block_matvec(&u_r, nf)
-                } else {
-                    vec![0.0; nf]
-                };
-                return Ok(PreparedStatic2D {
-                    rotation_demand: crate::known_issues::RotationDemand2D::new(input),
-                    known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
-                    properties,
-                    input: Cow::Borrowed(input),
-                    dof_num,
-                    n,
-                    nf,
-                    nr,
-                    u_r,
-                    pre_solve_diags,
-                    artificial_dofs: stiff.artificial_dofs,
-                    inclined_transforms_2d: stiff.inclined_transforms_2d,
-                    path: PreparedPath2D::Sparse(Box::new(PreparedSparse2D {
-                        k_ff: stiff.k_ff,
-                        k_full: stiff.k_full,
-                        num,
-                        regularized,
-                        max_perturbation,
-                        kfr_ur,
-                        cond_report,
-                    })),
-                });
-            }
-            None => {
-                pre_solve_diags.push(super::definiteness::not_positive_definite("sparse Cholesky failed; solved by dense LU"));
-                // All shifts failed — dense LU of the dense K_ff (same
-                // behavior as the legacy dense-K_ff LU fallback; K-only decision)
-                let stiff_d = assemble_stiffness_2d_typed(input, &dof_num, &properties);
-                let free_idx: Vec<usize> = (0..nf).collect();
-                let rest_idx: Vec<usize> = (nf..n).collect();
-                let k_ff = extract_submatrix(&stiff_d.k, n, &free_idx, &free_idx);
-                let k_fr = extract_submatrix(&stiff_d.k, n, &free_idx, &rest_idx);
-                let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
-                let k_rf = extract_submatrix(&stiff_d.k, n, &rest_idx, &free_idx);
-                let k_rr = extract_submatrix(&stiff_d.k, n, &rest_idx, &rest_idx);
-                let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
-                let cond_report = super::conditioning::check_conditioning(&k_ff, nf);
-                let mut lu = k_ff.clone();
-                let piv = lu_factor(&mut lu, nf)
-                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
-                return Ok(PreparedStatic2D {
-                    rotation_demand: crate::known_issues::RotationDemand2D::new(input),
-                    known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
-                    properties,
-                    input: Cow::Borrowed(input),
-                    dof_num,
-                    n,
-                    nf,
-                    nr,
-                    u_r,
-                    pre_solve_diags,
-                    artificial_dofs: stiff_d.artificial_dofs,
-                    inclined_transforms_2d: stiff_d.inclined_transforms_2d,
-                    path: PreparedPath2D::SparseDenseLu(Box::new(PreparedSparseDenseLu2D {
-                        k_ff,
-                        k_rf,
-                        k_fr_ur,
-                        k_rr_ur,
-                        lu,
-                        piv,
-                        cond_report,
-                    })),
-                });
-            }
-        }
+        let sym = std::rc::Rc::new(symbolic_cholesky(&k_ff));
+        let num = numeric_cholesky(&sym, &k_ff).ok_or_else(not_positive_definite)?;
+        return Ok(PreparedStatic2D {
+            rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+            known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
+            properties,
+            input: Cow::Borrowed(input),
+            dof_num,
+            n,
+            nf,
+            nr,
+            u_r,
+            pre_solve_diags,
+            stability,
+            inclined_transforms_2d: stiff.inclined_transforms_2d,
+            path: PreparedPath2D::Sparse(Box::new(PreparedSparse2D {
+                k_ff,
+                k_full: stiff.k_full,
+                num,
+                kfr_ur,
+            })),
+        });
     }
 
-    // ── Dense path: small models (nf < 64), or the legacy dense reference ──
-    let stiff = assemble_stiffness_2d_typed(input, &dof_num, &properties);
+    let stiff = super::assembly::without_artificial_stiffness(|| assemble_stiffness_2d_typed(input, &dof_num, &properties));
 
-    // Extract Kff and reaction coupling blocks; precompute the
-    // prescribed-displacement coupling terms (all load-independent)
     let free_idx: Vec<usize> = (0..nf).collect();
     let rest_idx: Vec<usize> = (nf..n).collect();
-    let k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
+    let mut k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
     let k_fr = extract_submatrix(&stiff.k, n, &free_idx, &rest_idx);
     let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
     let k_rf = extract_submatrix(&stiff.k, n, &rest_idx, &free_idx);
     let k_rr = extract_submatrix(&stiff.k, n, &rest_idx, &rest_idx);
     let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
 
-    // Dense conditioning check
-    let cond_report = super::conditioning::check_conditioning(&k_ff, nf);
+    let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense_with_coupling(&k_ff, nf, &free_tags(&dof_num, true), &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default()) };
+    if let Some(refusal) = stability.refusal() { return Err(refusal); }
+    stability.pin_dense(&mut k_ff, nf);
 
-    // Factor K_ff once. The Cholesky/LU success decisions depend only on K,
-    // so the path chosen here is the one each per-case solve would take.
-    let (factor, used_sparse, cholesky_failed) = if nf >= SPARSE_THRESHOLD {
-        // Sparse path
+    let (factor, used_sparse) = if nf >= SPARSE_THRESHOLD {
         let k_ff_sparse = CscMatrix::from_dense_symmetric(&k_ff, nf);
         let sym = Rc::new(symbolic_cholesky(&k_ff_sparse));
-        match numeric_cholesky(&sym, &k_ff_sparse) {
-            Some(num) => {
-                pre_solve_diags.extend(super::definiteness::sparse_pivot_check(&num, &k_ff_sparse));
-                (FactorizedKff::SparseCholesky(num), true, false)
-            }
-            None => {
-                let mut k_work = k_ff.clone();
-                let piv = lu_factor(&mut k_work, nf)
-                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
-                (FactorizedKff::DenseLu { lu: k_work, piv }, false, true)
-            }
-        }
+        (FactorizedKff::SparseCholesky(numeric_cholesky(&sym, &k_ff_sparse).ok_or_else(not_positive_definite)?), true)
     } else {
         let mut k_work = k_ff.clone();
-        if cholesky_decompose(&mut k_work, nf) {
-            pre_solve_diags.extend(super::definiteness::dense_pivot_check(&k_work, &k_ff, nf));
-            (FactorizedKff::DenseCholesky(k_work), false, false)
-        } else {
-            let mut k_work = k_ff.clone();
-            let piv = lu_factor(&mut k_work, nf)
-                .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
-            (FactorizedKff::DenseLu { lu: k_work, piv }, false, true)
-        }
+        if !cholesky_decompose(&mut k_work, nf) { return Err(not_positive_definite()); }
+        (FactorizedKff::DenseCholesky(k_work), false)
     };
-    if cholesky_failed {
-        pre_solve_diags.push(super::definiteness::not_positive_definite("Cholesky failed; solved by dense LU"));
-    }
 
     Ok(PreparedStatic2D {
         rotation_demand: crate::known_issues::RotationDemand2D::new(input),
@@ -978,12 +765,23 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
         nr,
         u_r,
         pre_solve_diags,
-        artificial_dofs: stiff.artificial_dofs,
+        stability,
         inclined_transforms_2d: stiff.inclined_transforms_2d,
         path: PreparedPath2D::Solve(Box::new(PreparedSolve2D {
-            k_ff, k_rf, k_fr_ur, k_rr_ur, factor, used_sparse, cholesky_failed, cond_report,
+            k_ff, k_rf, k_fr_ur, k_rr_ur, factor, used_sparse,
         })),
     })
+}
+
+pub(crate) fn free_tags(dof_num: &DofNumbering, two_d: bool) -> Vec<super::stability::DofTag> {
+    let mut tags = super::stability::tags(dof_num, two_d);
+    tags.truncate(dof_num.n_free);
+    tags
+}
+
+pub(crate) fn not_positive_definite() -> String {
+    "the structure cannot be solved reliably: \
+     stiffness factorization accuracy is unresolved after the stability check; no result is returned".to_string()
 }
 
 impl PreparedStatic2D<'_> {
@@ -1000,7 +798,7 @@ impl PreparedStatic2D<'_> {
             nr: self.nr,
             u_r: self.u_r,
             pre_solve_diags: self.pre_solve_diags,
-            artificial_dofs: self.artificial_dofs,
+            stability: self.stability,
             inclined_transforms_2d: self.inclined_transforms_2d,
             path: self.path,
         }
@@ -1024,9 +822,6 @@ impl PreparedStatic2D<'_> {
         let (second, ratio) = crate::known_issues::second_order_2d(&self.input, loads, &r);
         crate::known_issues::attach(&mut r.structured_diagnostics, second);
         r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
-        if self.an_artificial_spring_carries_load(&r) {
-            crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("ORPHAN-SOFT-ROTATION")]);
-        }
         crate::known_issues::refuse(&r.structured_diagnostics)?;
         let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
             if r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ExcessiveDisplacement) {
@@ -1034,13 +829,9 @@ impl PreparedStatic2D<'_> {
             } else { error }
         })?;
         r.structured_diagnostics.push(residual);
+        super::conditioning_accuracy::member_balance_2d(&self.input, loads, &self.dof_num, &self.stability, &r, None)?;
         super::self_checks::static_2d(&mut r, &[])?;
         Ok(r)
-    }
-
-    fn an_artificial_spring_carries_load(&self, r: &AnalysisResults) -> bool {
-        if self.artificial_dofs.is_empty() { return false; }
-        r.displacements.iter().any(|d| d.ry != 0.0 && self.dof_num.map.get(&(d.node_id, 2)).is_some_and(|i| self.artificial_dofs.contains(i)))
     }
 
     pub(super) fn check_returned_displacements(&self, loads: &[SolverLoad], r: &AnalysisResults) -> Result<StructuredDiagnostic, String> {
@@ -1068,17 +859,12 @@ impl PreparedStatic2D<'_> {
                 for (f, coupling) in f.iter_mut().zip(&p.kfr_ur) { *f -= coupling; }
                 p.k_ff.sym_mat_vec(&u[..nf])
             },
-            PreparedPath2D::SparseDenseLu(p) => {
-                for (f, coupling) in f.iter_mut().zip(&p.k_fr_ur) { *f -= coupling; }
-                mat_vec_rect(&p.k_ff, &u[..nf], nf, nf)
-            },
         };
         let diagonal = match &self.path {
             PreparedPath2D::FullyRestrained { .. } => vec![],
             PreparedPath2D::Solve(p) => (0..nf).map(|i| p.k_ff[i*nf+i]).collect(),
             PreparedPath2D::Sparse(p) => p.k_ff.diagonal(),
             PreparedPath2D::Pcg(p) => p.k_ff.diagonal(),
-            PreparedPath2D::SparseDenseLu(p) => (0..nf).map(|i| p.k_ff[i*nf+i]).collect(),
         };
         let residual: Vec<_> = ku.iter().zip(&f).map(|(k,f)| k-f).collect();
         super::self_checks::residual_energy(&residual, &f, &diagonal)
@@ -1092,6 +878,9 @@ impl PreparedStatic2D<'_> {
         let dof_num = &self.dof_num;
         let (n, nf, nr) = (self.n, self.nf, self.nr);
         let f = assemble_load_vector_2d(input, loads, dof_num, &self.inclined_transforms_2d);
+        if let Some(node) = self.stability.load_on_free_rotation(&f[..nf]) {
+            return Err(moment_lost_2d(node, "no member, support or spring stiffens that rotation"));
+        }
 
         match &self.path {
             PreparedPath2D::FullyRestrained { ku_full } => {
@@ -1145,7 +934,7 @@ impl PreparedStatic2D<'_> {
 
             PreparedPath2D::Solve(p) => {
                 let PreparedSolve2D {
-                    k_ff, k_rf, k_fr_ur, k_rr_ur, factor, used_sparse, cholesky_failed, cond_report,
+                    k_ff, k_rf, k_fr_ur, k_rr_ur, factor, used_sparse,
                 } = &**p;
                 // F_f_modified = F_f − K_fr · u_r
                 let mut f_f: Vec<f64> = f[..nf].to_vec();
@@ -1160,11 +949,12 @@ impl PreparedStatic2D<'_> {
                         let y = forward_solve(l, &f_f, nf);
                         back_solve(l, &y, nf)
                     }
-                    FactorizedKff::DenseLu { lu, piv } => {
-                        lu_apply(lu, piv, &f_f, nf)
-                            .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?
-                    }
                 };
+
+                let u_f = conditional_dense_refinement(&self.stability, k_ff, &f_f, u_f, |rhs| match factor {
+                    FactorizedKff::SparseCholesky(num) => sparse_cholesky_solve(num, rhs),
+                    FactorizedKff::DenseCholesky(l) => back_solve(l, &forward_solve(l, rhs, nf), nf),
+                })?;
 
                 // Build full displacement vector
                 let mut u_full = vec![0.0; n];
@@ -1175,23 +965,12 @@ impl PreparedStatic2D<'_> {
                     u_full[nf + i] = self.u_r[i];
                 }
 
-                // Check artificial DOFs for mechanism (absurd rotations)
-                if !self.artificial_dofs.is_empty() {
-                    for &idx in &self.artificial_dofs {
-                        if idx < nf && u_f[idx].abs() > 100.0 {
-                            return Err(
-                                "Local mechanism detected: a node with all elements hinged has \
-                                 excessive rotation, indicating local instability.".to_string()
-                            );
-                        }
-                    }
-                }
-
                 // NaN/Inf guard: numerical blow-up means singular matrix
                 let has_nan_inf = u_f.iter().any(|v| v.is_nan() || v.is_infinite());
                 if has_nan_inf {
                     return Err("Singular stiffness matrix — structure is a mechanism".to_string());
                 }
+                self.stability.check_pins(&u_f, &f[..nf], &k_fr_ur)?;
 
                 // Compute reactions: R = K_rf · u_f + K_rr · u_r − F_r
                 let f_r: Vec<f64> = f[nf..].to_vec();
@@ -1244,15 +1023,6 @@ impl PreparedStatic2D<'_> {
                     format!("{} solver ({} free DOFs)", if *used_sparse { "Sparse Cholesky" } else { "Dense" }, nf),
                 ).with_phase("solve"));
 
-                // LU fallback warning
-                if *cholesky_failed {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::CholeskyFailedLuFallback,
-                        Severity::Warning,
-                        "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
-                    ).with_phase("solve"));
-                }
-
                 // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
                 let max_disp = dof_num.map.iter()
                     .filter(|&(&(_node, local_dof), &global)| local_dof < 2 && global < nf)
@@ -1283,29 +1053,7 @@ impl PreparedStatic2D<'_> {
                     ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
                 }
 
-                // Conditioning
-                let cond = cond_report.diagonal_ratio;
-                if cond > 1e12 {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::ExtremelyHighDiagonalRatio,
-                        Severity::Warning,
-                        format!("Extremely high diagonal ratio {:.2e}", cond),
-                    ).with_value(cond, 1e12).with_phase("conditioning"));
-                } else if cond > 1e8 {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::HighDiagonalRatio,
-                        Severity::Warning,
-                        format!("High diagonal ratio {:.2e}", cond),
-                    ).with_value(cond, 1e8).with_phase("conditioning"));
-                }
 
-                if !cond_report.near_zero_dofs.is_empty() {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::NearZeroDiagonal,
-                        Severity::Warning,
-                        format!("{} near-zero diagonal entries", cond_report.near_zero_dofs.len()),
-                    ).with_dofs(cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
-                }
 
                 // Residual
                 structured.push(if rel_residual < 1e-6 {
@@ -1352,30 +1100,9 @@ impl PreparedStatic2D<'_> {
                 }
 
                 // Triangular solve with the precomputed sparse Cholesky factor
-                let mut u = sparse_cholesky_solve(&p.num, &f_f);
+                let u = sparse_cholesky_solve(&p.num, &f_f);
+                let u = conditional_sparse_refinement(&self.stability, &p.k_ff, &f_f, u, |rhs| sparse_cholesky_solve(&p.num, rhs))?;
 
-                // Iterative refinement against the ORIGINAL K_ff to correct for
-                // the regularization shift (up to 5 residual correction steps).
-                if p.regularized {
-                    for _ in 0..5 {
-                        let ku = p.k_ff.sym_mat_vec(&u);
-                        let mut residual: Vec<f64> = vec![0.0; nf];
-                        let mut res2 = 0.0f64;
-                        let mut f2 = 0.0f64;
-                        for i in 0..nf {
-                            residual[i] = f_f[i] - ku[i];
-                            res2 += residual[i] * residual[i];
-                            f2 += f_f[i] * f_f[i];
-                        }
-                        if res2.sqrt() / f2.sqrt().max(1e-30) < 1e-10 {
-                            break;
-                        }
-                        let du = sparse_cholesky_solve(&p.num, &residual);
-                        for i in 0..nf {
-                            u[i] += du[i];
-                        }
-                    }
-                }
 
                 // Verify solution quality via residual check
                 let ku = p.k_ff.sym_mat_vec(&u);
@@ -1401,18 +1128,7 @@ impl PreparedStatic2D<'_> {
                 if has_nan_inf {
                     return Err("Singular stiffness matrix — structure is a mechanism".to_string());
                 }
-
-                // Check artificial DOFs for mechanism (absurd rotations)
-                if !self.artificial_dofs.is_empty() {
-                    for &idx in &self.artificial_dofs {
-                        if idx < nf && u_f[idx].abs() > 100.0 {
-                            return Err(
-                                "Local mechanism detected: a node with all elements hinged has \
-                                 excessive rotation, indicating local instability.".to_string()
-                            );
-                        }
-                    }
-                }
+                self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
 
                 // Build full displacement vector
                 let mut u_full = vec![0.0; n];
@@ -1454,15 +1170,6 @@ impl PreparedStatic2D<'_> {
                     format!("Sparse Cholesky solver ({} free DOFs)", nf),
                 ).with_phase("solve"));
 
-                // Diagonal regularization info
-                if p.regularized {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::DiagonalRegularization,
-                        Severity::Info,
-                        format!("Regularized K_ff with diagonal shift {:.2e}", p.max_perturbation),
-                    ).with_value(p.max_perturbation, 0.0).with_phase("factorization"));
-                }
-
                 // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
                 let max_disp = dof_num.map.iter()
                     .filter(|&(&(_node, local_dof), &global)| local_dof < 2 && global < nf)
@@ -1493,29 +1200,7 @@ impl PreparedStatic2D<'_> {
                     ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
                 }
 
-                // Conditioning
-                let cond = p.cond_report.diagonal_ratio;
-                if cond > 1e12 {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::ExtremelyHighDiagonalRatio,
-                        Severity::Warning,
-                        format!("Extremely high diagonal ratio {:.2e}", cond),
-                    ).with_value(cond, 1e12).with_phase("conditioning"));
-                } else if cond > 1e8 {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::HighDiagonalRatio,
-                        Severity::Warning,
-                        format!("High diagonal ratio {:.2e}", cond),
-                    ).with_value(cond, 1e8).with_phase("conditioning"));
-                }
 
-                if !p.cond_report.near_zero_dofs.is_empty() {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::NearZeroDiagonal,
-                        Severity::Warning,
-                        format!("{} near-zero diagonal entries", p.cond_report.near_zero_dofs.len()),
-                    ).with_dofs(p.cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
-                }
 
                 // Residual
                 structured.push(if rel_residual < 1e-6 {
@@ -1568,24 +1253,10 @@ impl PreparedStatic2D<'_> {
                 // per prepared structure, and reuse this factor for fallback.
                 let direct = p.direct.get_or_init(|| {
                     let sym = Rc::new(symbolic_cholesky(&p.k_ff));
-                    PcgDirectFallback2D {
-                        num: numeric_cholesky(&sym, &p.k_ff),
-                        dense_lu: std::cell::OnceCell::new(),
-                    }
-                });
-                let definiteness = match &direct.num {
-                    Some(num) => super::definiteness::sparse_pivot_check(num, &p.k_ff),
-                    None => Some(super::definiteness::not_positive_definite("sparse Cholesky failed; solved by dense LU")),
-                };
-                let pcg = if direct.num.is_some() {
-                    try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags)
-                } else {
-                    solver_diags.push(pcg_stability_fallback_diagnostic());
-                    None
-                };
+                    numeric_cholesky(&sym, &p.k_ff)
+                }).as_ref().ok_or_else(not_positive_definite)?;
+                let pcg = try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags);
 
-                // On failure, reuse unregularized sparse Cholesky or try LU.
-                let mut used_lu_fallback = false;
                 let (u_f, pcg_meta): (Vec<f64>, Option<(usize, &'static str)>) = match pcg {
                     Some(outcome) => {
                         solver_diags.push(SolverDiagnostic {
@@ -1599,48 +1270,22 @@ impl PreparedStatic2D<'_> {
                         (outcome.u, Some((outcome.iterations, outcome.preconditioner)))
                     }
                     None => {
-                        match &direct.num {
-                            Some(num) => {
-                                solver_diags.push(SolverDiagnostic {
-                                    category: "solver_path".into(),
-                                    message: format!("Sparse Cholesky solver ({} free DOFs)", nf),
-                                    severity: "info".into(),
-                                });
-                                (sparse_cholesky_solve(num, &f_f), None)
-                            }
-                            None => {
-                                used_lu_fallback = true;
-                                let lu = direct.dense_lu.get_or_init(|| {
-                                    let mut k_ff_d = p.k_ff.to_dense_symmetric();
-                                    lu_factor(&mut k_ff_d, nf).map(|piv| (k_ff_d, piv))
-                                });
-                                let u = match lu {
-                                    Some((a, piv)) => lu_apply(a, piv, &f_f, nf),
-                                    None => None,
-                                };
-                                (u.ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?, None)
-                            }
-                        }
+                        solver_diags.push(SolverDiagnostic {
+                            category: "solver_path".into(),
+                            message: format!("Sparse Cholesky solver ({} free DOFs)", nf),
+                            severity: "info".into(),
+                        });
+                        (sparse_cholesky_solve(direct, &f_f), None)
                     }
                 };
 
-                // NaN/Inf guard: numerical blow-up means singular matrix
+                let u_f = conditional_sparse_refinement(&self.stability, &p.k_ff, &f_f, u_f, |rhs| sparse_cholesky_solve(direct, rhs))?;
+
                 let has_nan_inf = u_f.iter().any(|v| v.is_nan() || v.is_infinite());
                 if has_nan_inf {
                     return Err("Singular stiffness matrix — structure is a mechanism".to_string());
                 }
-
-                // Check artificial DOFs for mechanism (absurd rotations)
-                if !self.artificial_dofs.is_empty() {
-                    for &idx in &self.artificial_dofs {
-                        if idx < nf && u_f[idx].abs() > 100.0 {
-                            return Err(
-                                "Local mechanism detected: a node with all elements hinged has \
-                                 excessive rotation, indicating local instability.".to_string()
-                            );
-                        }
-                    }
-                }
+                self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
 
                 // Build full displacement vector
                 let mut u_full = vec![0.0; n];
@@ -1687,7 +1332,6 @@ impl PreparedStatic2D<'_> {
                 // Build structured diagnostics — same contract as the other paths
                 let mut structured = Vec::new();
                 structured.extend(self.pre_solve_diags.iter().cloned());
-                structured.extend(definiteness);
 
                 // Solver path
                 if let Some((iters, pname)) = pcg_meta {
@@ -1702,19 +1346,11 @@ impl PreparedStatic2D<'_> {
                         Severity::Warning,
                         format!("PCG failed verification, fell back to direct solver ({} free DOFs)", nf),
                     ).with_phase("solve"));
-                    if used_lu_fallback {
-                        structured.push(StructuredDiagnostic::global(
-                            DiagnosticCode::CholeskyFailedLuFallback,
-                            Severity::Warning,
-                            "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
-                        ).with_phase("solve"));
-                    } else {
-                        structured.push(StructuredDiagnostic::global(
-                            DiagnosticCode::SparseCholesky,
-                            Severity::Info,
-                            format!("Sparse Cholesky solver ({} free DOFs)", nf),
-                        ).with_phase("solve"));
-                    }
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::SparseCholesky,
+                        Severity::Info,
+                        format!("Sparse Cholesky solver ({} free DOFs)", nf),
+                    ).with_phase("solve"));
                 }
 
                 // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
@@ -1747,29 +1383,7 @@ impl PreparedStatic2D<'_> {
                     ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
                 }
 
-                // Conditioning
-                let cond = p.cond_report.diagonal_ratio;
-                if cond > 1e12 {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::ExtremelyHighDiagonalRatio,
-                        Severity::Warning,
-                        format!("Extremely high diagonal ratio {:.2e}", cond),
-                    ).with_value(cond, 1e12).with_phase("conditioning"));
-                } else if cond > 1e8 {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::HighDiagonalRatio,
-                        Severity::Warning,
-                        format!("High diagonal ratio {:.2e}", cond),
-                    ).with_value(cond, 1e8).with_phase("conditioning"));
-                }
 
-                if !p.cond_report.near_zero_dofs.is_empty() {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::NearZeroDiagonal,
-                        Severity::Warning,
-                        format!("{} near-zero diagonal entries", p.cond_report.near_zero_dofs.len()),
-                    ).with_dofs(p.cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
-                }
 
                 // Residual
                 structured.push(if rel_residual < 1e-6 {
@@ -1788,8 +1402,6 @@ impl PreparedStatic2D<'_> {
 
                 let solver_path_2d = if let Some((_, pname)) = pcg_meta {
                     pcg_solver_path(pname)
-                } else if used_lu_fallback {
-                    "dense_lu"
                 } else {
                     "pcg_fallback_sparse_cholesky"
                 };
@@ -1814,189 +1426,87 @@ impl PreparedStatic2D<'_> {
                 Ok(results)
             }
 
-            PreparedPath2D::SparseDenseLu(p) => {
-                // F_f_modified = F_f − K_fr · u_r
-                let mut f_f: Vec<f64> = f[..nf].to_vec();
-                for (a, b) in f_f.iter_mut().zip(p.k_fr_ur.iter()) {
-                    *a -= b;
-                }
-
-                // Solve with the precomputed dense LU factors
-                let u_f = lu_apply(&p.lu, &p.piv, &f_f, nf)
-                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
-
-                // Build full displacement vector
-                let mut u_full = vec![0.0; n];
-                u_full[..nf].copy_from_slice(&u_f[..nf]);
-                u_full[nf..(nr + nf)].copy_from_slice(&self.u_r[..nr]);
-
-                // Check artificial DOFs for mechanism (absurd rotations)
-                if !self.artificial_dofs.is_empty() {
-                    for &idx in &self.artificial_dofs {
-                        if idx < nf && u_f[idx].abs() > 100.0 {
-                            return Err(
-                                "Local mechanism detected: a node with all elements hinged has \
-                                 excessive rotation, indicating local instability.".to_string()
-                            );
-                        }
-                    }
-                }
-
-                // NaN/Inf guard: numerical blow-up means singular matrix
-                let has_nan_inf = u_f.iter().any(|v| v.is_nan() || v.is_infinite());
-                if has_nan_inf {
-                    return Err("Singular stiffness matrix — structure is a mechanism".to_string());
-                }
-
-                // Compute reactions: R = K_rf · u_f + K_rr · u_r − F_r
-                let f_r: Vec<f64> = f[nf..].to_vec();
-                let k_rf_uf = mat_vec_rect(&p.k_rf, &u_f, nr, nf);
-                let mut reactions_vec = vec![0.0; nr];
-                for i in 0..nr {
-                    reactions_vec[i] = k_rf_uf[i] + p.k_rr_ur[i] - f_r[i];
-                }
-
-                // Reverse inclined transforms on displacements before building results
-                for it in &self.inclined_transforms_2d {
-                    reverse_inclined_transform_2d(&mut u_full, &it.dofs, &it.r);
-                }
-
-                // Build results
-                let displacements = build_displacements_2d(dof_num, &u_full);
-                let mut reactions = build_reactions_2d_inclined(
-                    input, dof_num, &reactions_vec, &f_r, nf, &u_full, &self.inclined_transforms_2d,
-                );
-                reactions.sort_by_key(|r| r.node_id);
-                let mut element_forces = compute_internal_forces_2d_typed(input, loads, dof_num, &u_full, &self.properties);
-                element_forces.sort_by_key(|ef| ef.element_id);
-
-                // Compute residual: ||K_ff · u_f − f_f|| / ||f_f||
-                let rel_residual = {
-                    let mut res2 = 0.0f64;
-                    let mut f2 = 0.0f64;
-                    for (i, &fi) in f_f.iter().enumerate() {
-                        let mut ku_i = 0.0;
-                        for (j, &uj) in u_f.iter().enumerate() {
-                            ku_i += p.k_ff[i * nf + j] * uj;
-                        }
-                        let r = ku_i - fi;
-                        res2 += r * r;
-                        f2 += fi * fi;
-                    }
-                    res2.sqrt() / f2.sqrt().max(1e-30)
-                };
-
-                let equilibrium = compute_equilibrium_summary_2d(&f, &reactions_vec, dof_num, rel_residual, &self.inclined_transforms_2d);
-
-                // Build structured diagnostics — same contract as the dense path
-                let mut structured = Vec::new();
-                structured.extend(self.pre_solve_diags.iter().cloned());
-
-                // Solver path
-                structured.push(StructuredDiagnostic::global(
-                    DiagnosticCode::DenseLu,
-                    Severity::Info,
-                    format!("Dense solver ({} free DOFs)", nf),
-                ).with_phase("solve"));
-
-                // LU fallback warning (sparse Cholesky failed with every shift)
-                structured.push(StructuredDiagnostic::global(
-                    DiagnosticCode::CholeskyFailedLuFallback,
-                    Severity::Warning,
-                    "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
-                ).with_phase("solve"));
-
-                // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
-                let max_disp = dof_num.map.iter()
-                    .filter(|&(&(_node, local_dof), &global)| local_dof < 2 && global < nf)
-                    .map(|(&_, &global)| u_f[global].abs())
-                    .fold(0.0f64, f64::max);
-                let char_length = {
-                    let mut min_x = f64::MAX;
-                    let mut max_x = f64::MIN;
-                    let mut min_z = f64::MAX;
-                    let mut max_z = f64::MIN;
-                    for node in crate::ordered::values(&input.nodes) {
-                        min_x = min_x.min(node.x);
-                        max_x = max_x.max(node.x);
-                        min_z = min_z.min(node.z);
-                        max_z = max_z.max(node.z);
-                    }
-                    let span = ((max_x - min_x).powi(2) + (max_z - min_z).powi(2)).sqrt();
-                    span.max(1.0)
-                };
-                if max_disp > 1000.0 * char_length {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::ExcessiveDisplacement,
-                        Severity::Warning,
-                        format!(
-                            "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
-                            max_disp, char_length
-                        ),
-                    ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
-                }
-
-                // Conditioning
-                let cond = p.cond_report.diagonal_ratio;
-                if cond > 1e12 {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::ExtremelyHighDiagonalRatio,
-                        Severity::Warning,
-                        format!("Extremely high diagonal ratio {:.2e}", cond),
-                    ).with_value(cond, 1e12).with_phase("conditioning"));
-                } else if cond > 1e8 {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::HighDiagonalRatio,
-                        Severity::Warning,
-                        format!("High diagonal ratio {:.2e}", cond),
-                    ).with_value(cond, 1e8).with_phase("conditioning"));
-                }
-
-                if !p.cond_report.near_zero_dofs.is_empty() {
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::NearZeroDiagonal,
-                        Severity::Warning,
-                        format!("{} near-zero diagonal entries", p.cond_report.near_zero_dofs.len()),
-                    ).with_dofs(p.cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
-                }
-
-                // Residual
-                structured.push(if rel_residual < 1e-6 {
-                    StructuredDiagnostic::global(
-                        DiagnosticCode::ResidualOk,
-                        Severity::Info,
-                        format!("Residual {:.2e} ({} free DOFs)", rel_residual, nf),
-                    ).with_value(rel_residual, 1e-6).with_phase("solve")
-                } else {
-                    StructuredDiagnostic::global(
-                        DiagnosticCode::ResidualHigh,
-                        Severity::Warning,
-                        format!("Residual {:.2e} exceeds tolerance ({} free DOFs)", rel_residual, nf),
-                    ).with_value(rel_residual, 1e-6).with_phase("solve")
-                });
-
-                let mut results = AnalysisResults {
-                    displacements,
-                    reactions,
-                    element_forces,
-                    constraint_forces: vec![],
-                    diagnostics: vec![],
-                    solver_diagnostics: vec![],
-                    structured_diagnostics: structured,
-                    equilibrium: Some(equilibrium),
-                    result_summary: None,
-                    solver_run_meta: Some(SolverRunMeta::new(
-                        "dense_lu",
-                        nf,
-                        input.elements.len(),
-                        input.nodes.len(),
-                    )),
-                };
-                results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_2d(&results));
-                Ok(results)
-            }
         }
     }
+}
+
+fn subtract_product(sum: &mut f64, low: &mut f64, a: f64, b: f64) {
+    let product = a*b;
+    let next = *sum-product;
+    *low += if sum.abs() >= product.abs() { (*sum-next)-product } else { (-product-next)+*sum };
+    *low -= a.mul_add(b, -product);
+    *sum = next;
+}
+
+
+pub(super) fn conditional_refinement(
+    stability: &super::stability::Stability, diagonal: &[f64], mut u: Vec<f64>,
+    solve: impl Fn(&[f64]) -> Vec<f64>, residual: impl Fn(&[f64]) -> Vec<f64>,
+) -> Result<Vec<f64>, String> {
+    if !stability.needs_accuracy_check() { return Ok(u); }
+    let correction = solve(&residual(&u));
+    let norm = |values: &[f64]| values.iter().zip(diagonal).map(|(v, d)| v.abs() * d.abs().sqrt()).fold(0.0f64, f64::max);
+    let (error, scale) = (norm(&correction), norm(&u));
+    let estimate = if error == 0.0 && scale == 0.0 { 0.0 } else { error / scale };
+    if u.iter().chain(&correction).any(|v| !v.is_finite()) || !estimate.is_finite() || estimate > super::stability::CONDITIONAL_ACCURACY {
+        return Err(stability.conditioning_refusal());
+    }
+    for (v, delta) in u.iter_mut().zip(correction) { *v += delta; }
+    if u.iter().any(|v| !v.is_finite()) { return Err(stability.conditioning_refusal()); }
+    Ok(u)
+}
+
+pub(super) fn conditional_dense_refinement(
+    stability: &super::stability::Stability, k: &[f64], f: &[f64], u: Vec<f64>,
+    solve: impl Fn(&[f64]) -> Vec<f64>,
+) -> Result<Vec<f64>, String> {
+    let n = f.len();
+    if !stability.needs_accuracy_check() { return Ok(u); }
+    conditional_refinement(stability, &(0..n).map(|i| k[i*n+i]).collect::<Vec<_>>(), u, solve, |u| {
+        (0..n).map(|i| {
+            let (mut hi, mut lo) = (f[i], 0.0);
+            for j in 0..n { subtract_product(&mut hi, &mut lo, k[i*n+j], u[j]); }
+            hi + lo
+        }).collect()
+    })
+}
+
+pub(super) fn conditional_sparse_refinement(
+    stability: &super::stability::Stability, k: &CscMatrix, f: &[f64], u: Vec<f64>,
+    solve: impl Fn(&[f64]) -> Vec<f64>,
+) -> Result<Vec<f64>, String> {
+    if !stability.needs_accuracy_check() { return Ok(u); }
+    conditional_refinement(stability, &k.diagonal(), u, solve, |u| compensated_sparse_residual(k, f, u))
+}
+
+fn compensated_sparse_residual(k: &CscMatrix, f: &[f64], u: &[f64]) -> Vec<f64> {
+    let (mut sum, mut low) = (f.to_vec(), vec![0.0; k.n]);
+    for j in 0..k.n {
+        for p in k.col_ptr[j]..k.col_ptr[j+1] {
+            let (i, value) = (k.row_idx[p], k.values[p]);
+            subtract_product(&mut sum[i], &mut low[i], value, u[j]);
+            if i != j { subtract_product(&mut sum[j], &mut low[j], value, u[i]); }
+        }
+    }
+    sum.into_iter().zip(low).map(|(hi, lo)| hi+lo).collect()
+}
+
+fn refined_static_solve(f: &[f64], solve: impl Fn(&[f64]) -> Vec<f64>, residual: impl Fn(&[f64]) -> Vec<f64>) -> Result<Vec<f64>, String> {
+    let mut u = solve(f);
+    for _ in 0..6 {
+        let correction = solve(&residual(&u));
+        assert_finite_3d(&u)?;
+        assert_finite_3d(&correction)?;
+        let error = correction.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+        let scale = u.iter().map(|v| v.abs()).fold(1.0f64, f64::max);
+        if error <= 8.0*f64::EPSILON*scale { return Ok(u); }
+        for (u, delta) in u.iter_mut().zip(correction) { *u += delta; }
+    }
+    Err("the structure is a mechanism or so close to one that its displacement accuracy cannot be resolved: compensated residual refinement of the static solve did not converge; add supports or members, or reduce extreme stiffness contrasts".into())
+}
+
+fn refined_sparse_solve(k: &CscMatrix, factor: &NumericCholesky, f: &[f64]) -> Result<Vec<f64>, String> {
+    refined_static_solve(f, |rhs| sparse_cholesky_solve(factor, rhs), |u| compensated_sparse_residual(k, f, u))
 }
 
 /// Reject a solved displacement vector that is not finite.
@@ -2068,9 +1578,7 @@ pub struct PreparedStatic3D {
     n_nodes: usize,
     u_r: Vec<f64>,
     pre_solve_diags: Vec<StructuredDiagnostic>,
-    /// Free DOFs held only by artificial stiffness (orphan rotations and
-    /// warping): a load on one would never reach the structure.
-    orphan_dofs: std::collections::HashSet<usize>,
+    stability: super::stability::Stability,
     path: PreparedPath3D,
 }
 
@@ -2082,8 +1590,6 @@ enum PreparedPath3D {
     /// above ITERATIVE_THRESHOLD); the direct chain is factored lazily if PCG
     /// fails verified convergence.
     Pcg(PcgPrepared3D),
-    /// Sparse Cholesky failed even with regularization: dense LU of K_ff.
-    SparseDenseLu(SparseDenseLuPrepared3D),
 }
 
 struct FullyRestrained3D {
@@ -2095,28 +1601,21 @@ struct FullyRestrained3D {
 
 struct DensePrepared3D {
     k_ff: Vec<f64>,
+    conditioning_warnings: Vec<SolverDiagnostic>,
     k_rf: Vec<f64>,
     k_fr_ur: Vec<f64>,
     k_rr_ur: Vec<f64>,
-    factor: FactorizedKff,
-    cholesky_failed: bool,
-    cond_report: super::conditioning::ConditioningReport,
+    factor: Vec<f64>,
     diagnostics: Vec<AssemblyDiagnostic>,
     inclined_transforms: Vec<InclinedTransformData>,
-    /// Conditioning warnings (emitted before the per-case solver-path message).
-    solver_diags_base: Vec<SolverDiagnostic>,
 }
 
 struct SparsePrepared3D {
     k_ff: CscMatrix,
     k_full: CscMatrix,
     num: NumericCholesky,
-    /// True when K_ff needed a diagonal shift to factor (drilling stabilization).
-    regularized: bool,
-    max_perturbation: f64,
     /// nf — K_fr · u_r from the sparse full-K (zeros when no prescribed DOFs).
     kfr_ur: Vec<f64>,
-    cond: f64,
     nnz_kff: usize,
     nnz_l: usize,
     diagnostics: Vec<AssemblyDiagnostic>,
@@ -2134,43 +1633,15 @@ struct SparsePrepared3D {
     dense_lu: std::cell::OnceCell<Option<(Vec<f64>, Vec<usize>)>>,
 }
 
-struct SparseDenseLuPrepared3D {
-    k_full: CscMatrix,
-    lu: Vec<f64>,
-    piv: Vec<usize>,
-    /// nf — K_fr · u_r from the dense assembly (LU right-hand-side coupling).
-    k_fr_ur: Vec<f64>,
-    cond: f64,
-    nnz_kff: usize,
-    nnz_l: usize,
-    diagnostics: Vec<AssemblyDiagnostic>,
-    /// Sparse-path transforms (reactions/postprocessing).
-    inclined_transforms: Vec<InclinedTransformData>,
-    /// Dense-path transforms (dense load-vector rebuild for the LU RHS).
-    dense_inclined_transforms: Vec<InclinedTransformData>,
-    solver_diags_base: Vec<SolverDiagnostic>,
-    assembly_us: u64,
-    conditioning_us: u64,
-    symbolic_us: u64,
-    numeric_us: u64,
-    dense_fb_us: u64,
-}
-
 /// Iterative PCG form of the triplet-assembled K_ff. The preconditioner chain
-/// is built per solve (cheap next to assembly); the direct chain (sparse
-/// Cholesky with the drilling-shift ladder, then dense LU on bad residual —
-/// same semantics as `SparsePrepared3D`) also supplies the load-independent
-/// stability check, cached across all load cases. A shifted factor cannot
-/// establish stability of the original matrix and must not authorize PCG.
+/// is built per solve; the direct chain (sparse Cholesky, then dense LU on bad
+/// residual) is factored lazily and shared across load cases.
 struct PcgPrepared3D {
     k_ff: CscMatrix,
     k_full: CscMatrix,
-    /// max_diag(K_ff) — scale for the fallback shift ladder.
-    max_diag_k: f64,
     opts: ResolvedSolverOptions,
     /// nf — K_fr · u_r from the sparse full-K (zeros when no prescribed DOFs).
     kfr_ur: Vec<f64>,
-    cond: f64,
     nnz_kff: usize,
     diagnostics: Vec<AssemblyDiagnostic>,
     inclined_transforms: Vec<InclinedTransformData>,
@@ -2182,12 +1653,9 @@ struct PcgPrepared3D {
     direct: std::cell::OnceCell<PcgDirectFallback3D>,
 }
 
-/// Direct fallback for the 3D PCG path: symbolic + numeric sparse Cholesky
-/// with the same diagonal-shift ladder as the sparse prepare path, then (per
-/// solve) residual verification with dense LU as the last resort.
 struct PcgDirectFallback3D {
-    /// None when even the shift ladder failed — dense LU is the only path.
-    num: Option<(NumericCholesky, bool, f64)>,
+    /// None when K_ff is not positive definite: the solve is refused.
+    num: Option<NumericCholesky>,
     nnz_l: usize,
     symbolic_us: u64,
     numeric_us: u64,
@@ -2333,7 +1801,7 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
             n_nodes,
             u_r,
             pre_solve_diags,
-            orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
+            stability: super::stability::Stability::stable(),
             path: PreparedPath3D::FullyRestrained(FullyRestrained3D {
                 ku_full,
                 diagnostics: stiff.diagnostics,
@@ -2343,45 +1811,32 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
     }
 
     if n >= SPARSE_THRESHOLD {
-        // ── Sparse path: O(nnz) assembly, no dense n×n matrix ──
         let t0 = now_micros();
-        let stiff = super::sparse_assembly::assemble_stiffness_sparse_3d_parallel(&input, &dof_num, true);
+        let mut stiff = super::assembly::without_artificial_stiffness(|| super::sparse_assembly::assemble_stiffness_sparse_3d_parallel(&input, &dof_num, true));
         let assembly_us = now_micros().saturating_sub(t0);
 
         let mut solver_diags_base: Vec<SolverDiagnostic> = Vec::new();
 
-        // Sparse diagonal conditioning check
         let t0 = now_micros();
-        let cond = sparse_diagonal_conditioning(&stiff.k_ff);
-        if cond > 1e12 {
-            solver_diags_base.push(SolverDiagnostic {
-                category: "conditioning".into(),
-                message: format!("Extremely high diagonal ratio {:.2e} — matrix is likely ill-conditioned", cond),
-                severity: "warning".into(),
-            });
-        } else if cond > 1e8 {
-            solver_diags_base.push(SolverDiagnostic {
-                category: "conditioning".into(),
-                message: format!("High diagonal ratio {:.2e} — potential conditioning issues", cond),
-                severity: "warning".into(),
-            });
-        }
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_with_coupling(&stiff.k_ff, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num), &super::stability::released_rotations_3d(&input, &dof_num)) };
+        if let Some(refusal) = stability.refusal() { return Err(refusal); }
+        stiff.k_ff = stability.pin_sparse(&stiff.k_ff);
+        let conditioning = super::conditioning::check_sparse_conditioning(&stiff.k_ff);
+        pre_solve_diags.extend(conditioning.structured_diagnostics());
+        solver_diags_base.extend(conditioning.legacy_diagnostics());
         let conditioning_us = now_micros().saturating_sub(t0);
 
-        // Solver options (PCG dispatch): explicit "pcg" or Auto above the
-        // iterative threshold. The first solve factors unshifted K_ff to
-        // check stability; subsequent cases reuse that check and fallback.
         let solver_opts = resolve_solver_options(&input.solver_options, nf, &mut solver_diags_base);
         let use_pcg = solver_opts.method == SolverMethod::Pcg
             || (solver_opts.method == SolverMethod::Auto && nf >= ITERATIVE_THRESHOLD);
+        let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
+        let kfr_ur = if has_prescribed {
+            stiff.k_full.as_ref().unwrap().sparse_cross_block_matvec(&u_r, nf)
+        } else {
+            vec![0.0; nf]
+        };
+        let nnz_kff = stiff.k_ff.col_ptr[nf];
         if use_pcg {
-            let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
-            let kfr_ur = if has_prescribed {
-                stiff.k_full.as_ref().unwrap().sparse_cross_block_matvec(&u_r, nf)
-            } else {
-                vec![0.0; nf]
-            };
-            let nnz_kff = stiff.k_ff.col_ptr[nf]; // total nnz in lower triangle
             return Ok(PreparedStatic3D {
                 membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
                 input,
@@ -2393,14 +1848,12 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
                 n_nodes,
                 u_r,
                 pre_solve_diags,
-                orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
+                stability,
                 path: PreparedPath3D::Pcg(PcgPrepared3D {
                     k_ff: stiff.k_ff,
                     k_full: stiff.k_full.unwrap(),
-                    max_diag_k: stiff.max_diag_k,
                     opts: solver_opts,
                     kfr_ur,
-                    cond,
                     nnz_kff,
                     diagnostics: stiff.diagnostics,
                     inclined_transforms: stiff.inclined_transforms,
@@ -2412,198 +1865,14 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
             });
         }
 
-        // Symbolic + numeric factorization of K_ff (split phases, K-only)
         let t0 = now_micros();
         let sym = Rc::new(symbolic_cholesky(&stiff.k_ff));
         let symbolic_us = now_micros().saturating_sub(t0);
-        let nnz_kff = stiff.k_ff.col_ptr[nf]; // total nnz in lower triangle
         let nnz_l = sym.l_nnz;
 
-        // Try strict Cholesky first; if it fails (shell drilling DOFs),
-        // regularize K_ff with a diagonal shift and retry.
         let t0 = now_micros();
-        let num_result = numeric_cholesky(&sym, &stiff.k_ff);
+        let num = numeric_cholesky(&sym, &stiff.k_ff).ok_or_else(not_positive_definite)?;
         let numeric_us = now_micros().saturating_sub(t0);
-
-        let num = if let Some(n) = num_result {
-            Some((n, false, 0.0))
-        } else {
-            // Regularize: clone K_ff and add a diagonal shift to make it SPD.
-            // Try increasing shifts until Cholesky succeeds.
-            let max_d = stiff.max_diag_k;
-            let mut factored = None;
-            let mut shift = 0.0;
-            for &alpha in &[1e-6, 1e-4, 1e-2, 1e-1, 1.0, 10.0] {
-                shift = alpha * max_d;
-                let mut k_reg = stiff.k_ff.clone();
-                for j in 0..nf {
-                    for p in k_reg.col_ptr[j]..k_reg.col_ptr[j + 1] {
-                        if k_reg.row_idx[p] == j {
-                            k_reg.values[p] += shift;
-                            break;
-                        }
-                    }
-                }
-                if let Some(n) = numeric_cholesky(&sym, &k_reg) {
-                    factored = Some(n);
-                    break;
-                }
-            }
-            factored.map(|n| (n, true, shift))
-        };
-
-        let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
-
-        match num {
-            Some((num, regularized, max_perturbation)) => {
-                if regularized {
-                    pre_solve_diags.push(super::definiteness::not_positive_definite(&format!(
-                        "Cholesky needed a diagonal shift of {max_perturbation:.2e}"
-                    )));
-                } else {
-                    pre_solve_diags.extend(super::definiteness::sparse_pivot_check(&num, &stiff.k_ff));
-                }
-                if regularized {
-                    solver_diags_base.push(SolverDiagnostic {
-                        category: "solver_path".into(),
-                        message: format!(
-                            "Regularized K_ff with diagonal shift {:.2e} (drilling DOF stabilization)",
-                            max_perturbation
-                        ),
-                        severity: "info".into(),
-                    });
-                }
-                // Prescribed-displacement coupling F_f −= K_fr · u_r (K-only)
-                let kfr_ur = if has_prescribed {
-                    stiff.k_full.as_ref().unwrap().sparse_cross_block_matvec(&u_r, nf)
-                } else {
-                    vec![0.0; nf]
-                };
-                Ok(PreparedStatic3D {
-                    membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
-                    input,
-                    dof_num,
-                    n,
-                    nf,
-                    nr,
-                    n_elements,
-                    n_nodes,
-                    u_r,
-                    pre_solve_diags,
-                    orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
-                    path: PreparedPath3D::Sparse(SparsePrepared3D {
-                        k_ff: stiff.k_ff,
-                        k_full: stiff.k_full.unwrap(),
-                        num,
-                        regularized,
-                        max_perturbation,
-                        kfr_ur,
-                        cond,
-                        nnz_kff,
-                        nnz_l,
-                        diagnostics: stiff.diagnostics,
-                        inclined_transforms: stiff.inclined_transforms,
-                        solver_diags_base,
-                        assembly_us,
-                        conditioning_us,
-                        symbolic_us,
-                        numeric_us,
-                        dense_lu: std::cell::OnceCell::new(),
-                    }),
-                })
-            }
-            None => {
-                pre_solve_diags.push(super::definiteness::not_positive_definite("sparse Cholesky failed even with a diagonal shift; solved by dense LU"));
-                // All shifts failed — fall back to dense LU (factorized once
-                // here; the factorization depends only on K, not the loads).
-                solver_diags_base.push(SolverDiagnostic {
-                    category: "fallback".into(),
-                    message: "Sparse Cholesky failed even with regularization, fell back to dense LU".into(),
-                    severity: "warning".into(),
-                });
-                let t0 = now_micros();
-                let stiff_d = assemble_stiffness_3d(&input, &dof_num);
-                let free_idx: Vec<usize> = (0..nf).collect();
-                let rest_idx: Vec<usize> = (nf..n).collect();
-                let k_fr_d = extract_submatrix(&stiff_d.k, n, &free_idx, &rest_idx);
-                let k_fr_ur = mat_vec_rect(&k_fr_d, &u_r, nf, nr);
-                let mut k_ff_d = extract_submatrix(&stiff_d.k, n, &free_idx, &free_idx);
-                let piv = lu_factor(&mut k_ff_d, nf)
-                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
-                let dense_fb_us = now_micros().saturating_sub(t0);
-                Ok(PreparedStatic3D {
-                    membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
-                    input,
-                    dof_num,
-                    n,
-                    nf,
-                    nr,
-                    n_elements,
-                    n_nodes,
-                    u_r,
-                    pre_solve_diags,
-                    orphan_dofs: stiff_d.artificial_dofs.iter().copied().collect(),
-                    path: PreparedPath3D::SparseDenseLu(SparseDenseLuPrepared3D {
-                        k_full: stiff.k_full.unwrap(),
-                        lu: k_ff_d,
-                        piv,
-                        k_fr_ur,
-                        cond,
-                        nnz_kff,
-                        nnz_l,
-                        diagnostics: stiff.diagnostics,
-                        inclined_transforms: stiff.inclined_transforms,
-                        dense_inclined_transforms: stiff_d.inclined_transforms,
-                        solver_diags_base,
-                        assembly_us,
-                        conditioning_us,
-                        symbolic_us,
-                        numeric_us,
-                        dense_fb_us,
-                    }),
-                })
-            }
-        }
-    } else {
-        // ── Dense path: small models (nf < 64) ──
-        let stiff = assemble_stiffness_3d(&input, &dof_num);
-
-        let free_idx: Vec<usize> = (0..nf).collect();
-        let rest_idx: Vec<usize> = (nf..n).collect();
-        let k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
-
-        // Dense conditioning check
-        let cond_report = super::conditioning::check_conditioning(&k_ff, nf);
-        let mut solver_diags_base: Vec<SolverDiagnostic> = Vec::new();
-        for w in &cond_report.warnings {
-            solver_diags_base.push(SolverDiagnostic {
-                category: "conditioning".into(),
-                message: w.clone(),
-                severity: "warning".into(),
-            });
-        }
-
-        // Prescribed-displacement coupling and reaction blocks (K-only)
-        let k_fr = extract_submatrix(&stiff.k, n, &free_idx, &rest_idx);
-        let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
-        let k_rf = extract_submatrix(&stiff.k, n, &rest_idx, &free_idx);
-        let k_rr = extract_submatrix(&stiff.k, n, &rest_idx, &rest_idx);
-        let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
-
-        // Factor K_ff once (Cholesky, LU on failure — K-only decision)
-        let (factor, cholesky_failed) = {
-            let mut k_work = k_ff.clone();
-            if cholesky_decompose(&mut k_work, nf) {
-                pre_solve_diags.extend(super::definiteness::dense_pivot_check(&k_work, &k_ff, nf));
-                (FactorizedKff::DenseCholesky(k_work), false)
-            } else {
-                let mut k_work = k_ff.clone();
-                let piv = lu_factor(&mut k_work, nf)
-                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
-                pre_solve_diags.push(super::definiteness::not_positive_definite("Cholesky failed; solved by dense LU"));
-                (FactorizedKff::DenseLu { lu: k_work, piv }, true)
-            }
-        };
 
         Ok(PreparedStatic3D {
             membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
@@ -2616,18 +1885,66 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
             n_nodes,
             u_r,
             pre_solve_diags,
-            orphan_dofs: stiff.artificial_dofs.iter().copied().collect(),
+            stability,
+            path: PreparedPath3D::Sparse(SparsePrepared3D {
+                k_ff: stiff.k_ff,
+                k_full: stiff.k_full.unwrap(),
+                num,
+                kfr_ur,
+                nnz_kff,
+                nnz_l,
+                diagnostics: stiff.diagnostics,
+                inclined_transforms: stiff.inclined_transforms,
+                solver_diags_base,
+                assembly_us,
+                conditioning_us,
+                symbolic_us,
+                numeric_us,
+                dense_lu: std::cell::OnceCell::new(),
+            }),
+        })
+    } else {
+        let stiff = super::assembly::without_artificial_stiffness(|| assemble_stiffness_3d(&input, &dof_num));
+
+        let free_idx: Vec<usize> = (0..nf).collect();
+        let rest_idx: Vec<usize> = (nf..n).collect();
+        let mut k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
+        let stability = if super::stability::assumed() { super::stability::Stability::stable() } else { super::stability::analyze_dense_with_coupling(&k_ff, nf, &free_tags(&dof_num, false), &super::stability::coupling_3d(&input, &dof_num), &super::stability::released_rotations_3d(&input, &dof_num)) };
+        if let Some(refusal) = stability.refusal() { return Err(refusal); }
+        stability.pin_dense(&mut k_ff, nf);
+        let conditioning = super::conditioning::check_conditioning(&k_ff, nf);
+        pre_solve_diags.extend(conditioning.structured_diagnostics());
+
+        let k_fr = extract_submatrix(&stiff.k, n, &free_idx, &rest_idx);
+        let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+        let k_rf = extract_submatrix(&stiff.k, n, &rest_idx, &free_idx);
+        let k_rr = extract_submatrix(&stiff.k, n, &rest_idx, &rest_idx);
+        let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
+
+        let mut factor = k_ff.clone();
+        if !cholesky_decompose(&mut factor, nf) { return Err(not_positive_definite()); }
+
+        Ok(PreparedStatic3D {
+            membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
+            input,
+            dof_num,
+            n,
+            nf,
+            nr,
+            n_elements,
+            n_nodes,
+            u_r,
+            pre_solve_diags,
+            stability,
             path: PreparedPath3D::Dense(DensePrepared3D {
+                conditioning_warnings: conditioning.legacy_diagnostics(),
                 k_ff,
                 k_rf,
                 k_fr_ur,
                 k_rr_ur,
                 factor,
-                cholesky_failed,
-                cond_report,
                 diagnostics: stiff.diagnostics,
                 inclined_transforms: stiff.inclined_transforms,
-                solver_diags_base,
             }),
         })
     }
@@ -2640,7 +1957,7 @@ impl PreparedStatic3D {
     pub fn solve_loads(&self, loads: &[SolverLoad3D]) -> Result<AnalysisResults3D, String> {
         // Per-case load validation (the structure was validated in prepare)
         validate_loads_3d(&self.input, loads)?;
-        self.refuse_loads_on_orphan_dofs(loads)?;
+        self.refuse_loads_on_free_rotations(loads)?;
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set (the model's are in the pre-solve diagnostics).
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_3d(loads));
@@ -2652,9 +1969,6 @@ impl PreparedStatic3D {
         let (second, ratio) = crate::known_issues::second_order_3d(&self.input, loads, &r);
         crate::known_issues::attach(&mut r.structured_diagnostics, second);
         r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
-        if self.an_artificial_spring_carries_load(&r) {
-            crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("ORPHAN-SOFT-ROTATION")]);
-        }
         crate::known_issues::refuse(&r.structured_diagnostics)?;
         self.membrane_guard.check(loads, &r)?;
         let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
@@ -2663,6 +1977,7 @@ impl PreparedStatic3D {
             } else { error }
         })?;
         r.structured_diagnostics.push(residual);
+        super::conditioning_accuracy::member_balance_3d(&self.input, loads, &self.dof_num, &self.stability, &r, None)?;
         super::self_checks::static_3d(&mut r, &[])?;
         Ok(r)
     }
@@ -2675,13 +1990,7 @@ impl PreparedStatic3D {
                 if let Some(&index) = self.dof_num.map.get(&(d.node_id, local)) { u[index] = value; }
             }
         }
-        let its = match &self.path {
-            PreparedPath3D::FullyRestrained(p) => &p.inclined_transforms,
-            PreparedPath3D::Dense(p) => &p.inclined_transforms,
-            PreparedPath3D::Sparse(p) => &p.inclined_transforms,
-            PreparedPath3D::Pcg(p) => &p.inclined_transforms,
-            PreparedPath3D::SparseDenseLu(p) => &p.inclined_transforms,
-        };
+        let its = self.inclined_transforms();
         for it in its { it.rotate(&mut u); }
         let mut f = super::sparse_assembly::assemble_load_vector_sparse_3d(&self.input, loads, &self.dof_num, its);
         f.truncate(nf);
@@ -2699,19 +2008,12 @@ impl PreparedStatic3D {
                 for (f, coupling) in f.iter_mut().zip(&p.kfr_ur) { *f -= coupling; }
                 p.k_ff.sym_mat_vec(&u[..nf])
             },
-            PreparedPath3D::SparseDenseLu(p) => {
-                let ku = p.k_full.sym_mat_vec(&u);
-                let residual: Vec<_> = ku[..nf].iter().zip(&f).map(|(k,f)| k-f).collect();
-                for (f, coupling) in f.iter_mut().zip(&p.k_fr_ur) { *f -= coupling; }
-                return super::self_checks::residual_energy(&residual, &f, &p.k_full.diagonal()[..nf]);
-            },
         };
         let diagonal = match &self.path {
             PreparedPath3D::FullyRestrained(_) => vec![],
             PreparedPath3D::Dense(p) => (0..nf).map(|i| p.k_ff[i*nf+i]).collect(),
             PreparedPath3D::Sparse(p) => p.k_ff.diagonal(),
             PreparedPath3D::Pcg(p) => p.k_ff.diagonal(),
-            PreparedPath3D::SparseDenseLu(p) => p.k_full.diagonal()[..nf].to_vec(),
         };
         let residual: Vec<_> = ku.iter().zip(&f).map(|(k,f)| k-f).collect();
         super::self_checks::residual_energy(&residual, &f, &diagonal)
@@ -2723,23 +2025,22 @@ impl PreparedStatic3D {
             PreparedPath3D::Dense(p) => self.solve_loads_dense(loads, p),
             PreparedPath3D::Sparse(p) => self.solve_loads_sparse(loads, p),
             PreparedPath3D::Pcg(p) => self.solve_loads_pcg(loads, p),
-            PreparedPath3D::SparseDenseLu(p) => self.solve_loads_sparse_dense_lu(loads, p),
         }
     }
 
-    fn refuse_loads_on_orphan_dofs(&self, loads: &[SolverLoad3D]) -> Result<(), String> {
-        refuse_loads_on_orphan_dofs_3d(&self.dof_num, &self.orphan_dofs, loads)
+    fn inclined_transforms(&self) -> &[InclinedTransformData] {
+        match &self.path {
+            PreparedPath3D::FullyRestrained(p) => &p.inclined_transforms,
+            PreparedPath3D::Dense(p) => &p.inclined_transforms,
+            PreparedPath3D::Sparse(p) => &p.inclined_transforms,
+            PreparedPath3D::Pcg(p) => &p.inclined_transforms,
+        }
     }
 
-    /// A truly orphan DOF has no coupling and no load, so it stays exactly at zero; one that
-    /// moves had real stiffness tying it to the structure, and the artificial spring held it.
-    fn an_artificial_spring_carries_load(&self, r: &AnalysisResults3D) -> bool {
-        if self.orphan_dofs.is_empty() { return false; }
-        r.displacements.iter().any(|d| {
-            [d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate().any(|(local, value)| {
-                value != 0.0 && self.dof_num.map.get(&(d.node_id, local + 3)).is_some_and(|i| self.orphan_dofs.contains(i))
-            })
-        })
+    fn refuse_loads_on_free_rotations(&self, loads: &[SolverLoad3D]) -> Result<(), String> {
+        if self.stability.free_rotations().next().is_none() { return Ok(()); }
+        let f = super::sparse_assembly::assemble_load_vector_sparse_3d(&self.input, loads, &self.dof_num, self.inclined_transforms());
+        refuse_loaded_free_rotation_3d(&self.stability, &self.dof_num, &f[..self.nf])
     }
 
     fn solve_loads_fully_restrained(
@@ -2818,17 +2119,9 @@ impl PreparedStatic3D {
         let mut f_f: Vec<f64> = f[..nf].to_vec();
         for i in 0..nf { f_f[i] -= p.k_fr_ur[i]; }
 
-        let u_f = match &p.factor {
-            FactorizedKff::DenseCholesky(l) => {
-                let y = forward_solve(l, &f_f, nf);
-                back_solve(l, &y, nf)
-            }
-            FactorizedKff::DenseLu { lu, piv } => {
-                lu_apply(lu, piv, &f_f, nf)
-                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?
-            }
-            FactorizedKff::SparseCholesky(_) => unreachable!("dense path holds dense factors"),
-        };
+        let u_f = back_solve(&p.factor, &forward_solve(&p.factor, &f_f, nf), nf);
+        let u_f = conditional_dense_refinement(&self.stability, &p.k_ff, &f_f, u_f,
+            |rhs| back_solve(&p.factor, &forward_solve(&p.factor, rhs, nf), nf))?;
 
         // NaN/Inf guard: numerical blow-up means singular matrix.
         // Matches the 2D paths. A factorization can report success and still yield
@@ -2837,8 +2130,9 @@ impl PreparedStatic3D {
         // guards solver INPUT, and `postprocess::combinations` has no finiteness handling,
         // so a NaN here would silently poison a combination or an envelope.
         assert_finite_3d(&u_f)?;
+        self.stability.check_pins(&u_f, &f[..nf], &p.k_fr_ur)?;
 
-        let mut solver_diags = p.solver_diags_base.clone();
+        let mut solver_diags = p.conditioning_warnings.clone();
         solver_diags.push(SolverDiagnostic {
             category: "solver_path".into(),
             message: format!("Dense solver ({} free DOFs)", nf),
@@ -2902,15 +2196,6 @@ impl PreparedStatic3D {
             format!("Dense solver ({} free DOFs)", nf),
         ).with_phase("solve"));
 
-        // LU fallback warning
-        if p.cholesky_failed {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::CholeskyFailedLuFallback,
-                Severity::Warning,
-                "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
-            ).with_phase("solve"));
-        }
-
         // Displacement sanity check — translational DOFs only
         let max_disp = dof_num.map.iter()
             .filter(|&(&(_node, local_dof), &global)| local_dof < 3 && global < nf)
@@ -2938,29 +2223,7 @@ impl PreparedStatic3D {
             ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
         }
 
-        // Conditioning
-        let cond = p.cond_report.diagonal_ratio;
-        if cond > 1e12 {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::ExtremelyHighDiagonalRatio,
-                Severity::Warning,
-                format!("Extremely high diagonal ratio {:.2e}", cond),
-            ).with_value(cond, 1e12).with_phase("conditioning"));
-        } else if cond > 1e8 {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::HighDiagonalRatio,
-                Severity::Warning,
-                format!("High diagonal ratio {:.2e}", cond),
-            ).with_value(cond, 1e8).with_phase("conditioning"));
-        }
 
-        if !p.cond_report.near_zero_dofs.is_empty() {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::NearZeroDiagonal,
-                Severity::Warning,
-                format!("{} near-zero diagonal entries", p.cond_report.near_zero_dofs.len()),
-            ).with_dofs(p.cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
-        }
 
         // Residual
         structured.push(if rel_residual < 1e-6 {
@@ -3039,30 +2302,8 @@ impl PreparedStatic3D {
 
         // Triangular solve with the precomputed sparse Cholesky factor
         let t0 = now_micros();
-        let mut u = sparse_cholesky_solve(&p.num, &f_f);
+        let u = refined_sparse_solve(&p.k_ff, &p.num, &f_f)?;
 
-        // Iterative refinement against the ORIGINAL K_ff to correct for
-        // the regularization shift. Up to 5 steps of residual correction.
-        if p.regularized {
-            for _ in 0..5 {
-                let ku = p.k_ff.sym_mat_vec(&u);
-                let mut residual: Vec<f64> = vec![0.0; nf];
-                let mut res2 = 0.0f64;
-                let mut f2 = 0.0f64;
-                for i in 0..nf {
-                    residual[i] = f_f[i] - ku[i];
-                    res2 += residual[i] * residual[i];
-                    f2 += f_f[i] * f_f[i];
-                }
-                if res2.sqrt() / f2.sqrt().max(1e-30) < 1e-10 {
-                    break;
-                }
-                let du = sparse_cholesky_solve(&p.num, &residual);
-                for i in 0..nf {
-                    u[i] += du[i];
-                }
-            }
-        }
         let s_us = now_micros().saturating_sub(t0);
 
         // Verify final solution quality via residual check.
@@ -3103,7 +2344,9 @@ impl PreparedStatic3D {
 
         // NaN/Inf guard — see `solve_loads_dense`. Placed after the branch so it covers
         // both the sparse Cholesky result and the dense LU fallback.
+        let u_f = conditional_sparse_refinement(&self.stability, &p.k_ff, &f_f, u_f, |rhs| sparse_cholesky_solve(&p.num, rhs))?;
         assert_finite_3d(&u_f)?;
+        self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
 
         // Build full displacement vector
         let mut u_full = vec![0.0; n];
@@ -3123,7 +2366,7 @@ impl PreparedStatic3D {
         // residual from the actual returned solution (ku is from u_full which uses
         // the dense solution). The old rel_residual describes the rejected sparse
         // attempt, not the final answer.
-        let rel_residual = if used_residual_fallback {
+        let rel_residual = if used_residual_fallback || self.stability.needs_accuracy_check() {
             let mut res2 = 0.0f64;
             let mut f2 = 0.0f64;
             for i in 0..nf {
@@ -3172,8 +2415,8 @@ impl PreparedStatic3D {
             n_free: nf,
             nnz_kff: p.nnz_kff,
             nnz_l: p.nnz_l,
-            pivot_perturbations: if p.regularized { nf } else { 0 },
-            max_perturbation: p.max_perturbation,
+            pivot_perturbations: 0,
+            max_perturbation: 0.0,
             pcg_iterations: None,
             pcg_final_residual: None,
         };
@@ -3204,30 +2447,6 @@ impl PreparedStatic3D {
             if fill_ratio > 20.0 { Severity::Warning } else { Severity::Info },
             format!("Sparse fill ratio: {:.1}x (nnz(K_ff)={}, nnz(L)={})", fill_ratio, p.nnz_kff, p.nnz_l),
         ).with_value(fill_ratio, 20.0).with_phase("factorization"));
-
-        // Conditioning diagnostics
-        if p.cond > 1e12 {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::ExtremelyHighDiagonalRatio,
-                Severity::Warning,
-                format!("Extremely high diagonal ratio {:.2e} — matrix is likely ill-conditioned", p.cond),
-            ).with_value(p.cond, 1e12).with_phase("conditioning"));
-        } else if p.cond > 1e8 {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::HighDiagonalRatio,
-                Severity::Warning,
-                format!("High diagonal ratio {:.2e} — potential conditioning issues", p.cond),
-            ).with_value(p.cond, 1e8).with_phase("conditioning"));
-        }
-
-        // Solver path diagnostic
-        if p.regularized {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::DiagonalRegularization,
-                Severity::Info,
-                format!("Regularized K_ff with diagonal shift {:.2e}", p.max_perturbation),
-            ).with_value(p.max_perturbation, 0.0).with_phase("factorization"));
-        }
 
         // Displacement sanity check — translational DOFs only
         let max_disp = dof_num.map.iter()
@@ -3298,44 +2517,14 @@ impl PreparedStatic3D {
         Ok(results)
     }
 
-    /// Factor the direct fallback chain for the PCG path (shared across load
-    /// cases): symbolic + numeric sparse Cholesky with the same drilling-shift
-    /// ladder as the sparse prepare path.
     fn pcg_direct_fallback_3d(p: &PcgPrepared3D) -> PcgDirectFallback3D {
-        let nf = p.k_ff.n;
         let t0 = now_micros();
         let sym = Rc::new(symbolic_cholesky(&p.k_ff));
         let symbolic_us = now_micros().saturating_sub(t0);
         let nnz_l = sym.l_nnz;
 
         let t0 = now_micros();
-        let num_result = numeric_cholesky(&sym, &p.k_ff);
-        let num = if num_result.is_some() {
-            num_result.map(|n| (n, false, 0.0))
-        } else {
-            // Regularize: clone K_ff and add a diagonal shift to make it SPD.
-            // Try increasing shifts until Cholesky succeeds (drilling DOFs).
-            let max_d = p.max_diag_k;
-            let mut factored = None;
-            let mut shift = 0.0;
-            for &alpha in &[1e-6, 1e-4, 1e-2, 1e-1, 1.0, 10.0] {
-                shift = alpha * max_d;
-                let mut k_reg = p.k_ff.clone();
-                for j in 0..nf {
-                    for q in k_reg.col_ptr[j]..k_reg.col_ptr[j + 1] {
-                        if k_reg.row_idx[q] == j {
-                            k_reg.values[q] += shift;
-                            break;
-                        }
-                    }
-                }
-                if let Some(n) = numeric_cholesky(&sym, &k_reg) {
-                    factored = Some(n);
-                    break;
-                }
-            }
-            factored.map(|n| (n, true, shift))
-        };
+        let num = numeric_cholesky(&sym, &p.k_ff);
         let numeric_us = now_micros().saturating_sub(t0);
 
         PcgDirectFallback3D {
@@ -3356,11 +2545,7 @@ impl PreparedStatic3D {
         // timer. Its symbolic/numeric timings are accounted for below, just
         // as on the direct prepared path (without counting them twice).
         let direct = p.direct.get_or_init(|| Self::pcg_direct_fallback_3d(p));
-        let definiteness = match &direct.num {
-            Some((num, false, _)) => super::definiteness::sparse_pivot_check(num, &p.k_ff),
-            Some((_, true, shift)) => Some(super::definiteness::not_positive_definite(&format!("Cholesky needed a diagonal shift of {shift:.2e}"))),
-            None => Some(super::definiteness::not_positive_definite("sparse Cholesky failed even with a diagonal shift; solved by dense LU")),
-        };
+        let num = direct.num.as_ref().ok_or_else(not_positive_definite)?;
         let t_total = now_micros();
         let input = &self.input;
         let dof_num = &self.dof_num;
@@ -3379,20 +2564,13 @@ impl PreparedStatic3D {
         // Iterative solve with verified convergence; the preconditioner chain
         // degrades on the TRUE relative residual (≤ 1e-6).
         let t0 = now_micros();
-        let pcg = if matches!(&direct.num, Some((_, false, _))) {
-            try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags)
-        } else {
-            solver_diags.push(pcg_stability_fallback_diagnostic());
-            None
-        };
+        let pcg = try_pcg_solve(&p.k_ff, &f_f, &p.opts, &mut solver_diags);
         let pcg_us = now_micros().saturating_sub(t0);
 
         let mut used_residual_fallback = false;
         let direct_symbolic_us = direct.symbolic_us;
         let direct_numeric_us = direct.numeric_us;
         let direct_nnz_l = direct.nnz_l;
-        let mut direct_regularized = false;
-        let mut direct_max_perturbation = 0.0f64;
 
         // Solve Kff · u_f = f_f
         let (u_f, solve_us, residual_us, rel_residual, pcg_meta): (Vec<f64>, u64, u64, f64, Option<(usize, f64, &'static str)>) =
@@ -3429,60 +2607,10 @@ impl PreparedStatic3D {
                     }
                 };
 
-                match &direct.num {
-                    None => {
-                        // All shifts failed — fall back to dense LU
-                        solver_diags.push(SolverDiagnostic {
-                            category: "fallback".into(),
-                            message: "Sparse Cholesky failed even with regularization, fell back to dense LU".into(),
-                            severity: "warning".into(),
-                        });
-                        used_residual_fallback = true;
+                {
+                    {
                         let t0 = now_micros();
-                        let u_fb = dense_lu(direct, &f_f)?;
-                        dense_fb_us = now_micros().saturating_sub(t0);
-                        // Residual is recomputed below from the returned solution.
-                        (u_fb, pcg_us, 0, f64::NAN, None)
-                    }
-                    Some((num, regularized, max_perturbation)) => {
-                        direct_regularized = *regularized;
-                        direct_max_perturbation = *max_perturbation;
-                        if *regularized {
-                            solver_diags.push(SolverDiagnostic {
-                                category: "solver_path".into(),
-                                message: format!(
-                                    "Regularized K_ff with diagonal shift {:.2e} (drilling DOF stabilization)",
-                                    max_perturbation
-                                ),
-                                severity: "info".into(),
-                            });
-                        }
-
-                        let t0 = now_micros();
-                        let mut u = sparse_cholesky_solve(num, &f_f);
-
-                        // Iterative refinement against the ORIGINAL K_ff to correct for
-                        // the regularization shift. Up to 5 steps of residual correction.
-                        if *regularized {
-                            for _ in 0..5 {
-                                let ku = p.k_ff.sym_mat_vec(&u);
-                                let mut residual: Vec<f64> = vec![0.0; nf];
-                                let mut res2 = 0.0f64;
-                                let mut f2 = 0.0f64;
-                                for i in 0..nf {
-                                    residual[i] = f_f[i] - ku[i];
-                                    res2 += residual[i] * residual[i];
-                                    f2 += f_f[i] * f_f[i];
-                                }
-                                if res2.sqrt() / f2.sqrt().max(1e-30) < 1e-10 {
-                                    break;
-                                }
-                                let du = sparse_cholesky_solve(num, &residual);
-                                for i in 0..nf {
-                                    u[i] += du[i];
-                                }
-                            }
-                        }
+                        let u = refined_sparse_solve(&p.k_ff, num, &f_f)?;
                         let s_us = now_micros().saturating_sub(t0);
 
                         // Verify final solution quality via residual check.
@@ -3524,7 +2652,9 @@ impl PreparedStatic3D {
             };
         // NaN/Inf guard — see `solve_loads_dense`. Covers the PCG result and
         // both direct fallbacks.
+        let u_f = conditional_sparse_refinement(&self.stability, &p.k_ff, &f_f, u_f, |rhs| sparse_cholesky_solve(num, rhs))?;
         assert_finite_3d(&u_f)?;
+        self.stability.check_pins(&u_f, &f[..nf], &p.kfr_ur)?;
 
         // Build full displacement vector
         let mut u_full = vec![0.0; n];
@@ -3543,7 +2673,7 @@ impl PreparedStatic3D {
         // If we fell back to dense LU (bad residual), recompute the residual
         // from the actual returned solution — the branch-local rel_residual
         // (NaN) described the rejected sparse attempt, not the final answer.
-        let rel_residual = if used_residual_fallback {
+        let rel_residual = if used_residual_fallback || self.stability.needs_accuracy_check() {
             let mut res2 = 0.0f64;
             let mut f2 = 0.0f64;
             for i in 0..nf {
@@ -3592,8 +2722,8 @@ impl PreparedStatic3D {
             n_free: nf,
             nnz_kff: p.nnz_kff,
             nnz_l: direct_nnz_l,
-            pivot_perturbations: if direct_regularized { nf } else { 0 },
-            max_perturbation: direct_max_perturbation,
+            pivot_perturbations: 0,
+            max_perturbation: 0.0,
             pcg_iterations: pcg_meta.map(|m| m.0),
             pcg_final_residual: pcg_meta.map(|m| m.1),
         };
@@ -3601,7 +2731,6 @@ impl PreparedStatic3D {
         // Build structured diagnostics (enum-based, machine-matchable)
         let mut structured = Vec::new();
         structured.extend(self.pre_solve_diags.iter().cloned());
-        structured.extend(definiteness);
 
         // Solver path — report the actual solver that produced the returned result
         if let Some((iters, _, pname)) = pcg_meta {
@@ -3639,30 +2768,6 @@ impl PreparedStatic3D {
                 if fill_ratio > 20.0 { Severity::Warning } else { Severity::Info },
                 format!("Sparse fill ratio: {:.1}x (nnz(K_ff)={}, nnz(L)={})", fill_ratio, p.nnz_kff, direct_nnz_l),
             ).with_value(fill_ratio, 20.0).with_phase("factorization"));
-        }
-
-        // Conditioning diagnostics
-        if p.cond > 1e12 {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::ExtremelyHighDiagonalRatio,
-                Severity::Warning,
-                format!("Extremely high diagonal ratio {:.2e} — matrix is likely ill-conditioned", p.cond),
-            ).with_value(p.cond, 1e12).with_phase("conditioning"));
-        } else if p.cond > 1e8 {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::HighDiagonalRatio,
-                Severity::Warning,
-                format!("High diagonal ratio {:.2e} — potential conditioning issues", p.cond),
-            ).with_value(p.cond, 1e8).with_phase("conditioning"));
-        }
-
-        // Solver path diagnostic
-        if direct_regularized {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::DiagonalRegularization,
-                Severity::Info,
-                format!("Regularized K_ff with diagonal shift {:.2e}", direct_max_perturbation),
-            ).with_value(direct_max_perturbation, 0.0).with_phase("factorization"));
         }
 
         // Displacement sanity check — translational DOFs only
@@ -3744,196 +2849,6 @@ impl PreparedStatic3D {
         };
         results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_3d(&results));
         Ok(results)
-    }
-
-    fn solve_loads_sparse_dense_lu(
-        &self,
-        loads: &[SolverLoad3D],
-        p: &SparseDenseLuPrepared3D,
-    ) -> Result<AnalysisResults3D, String> {
-        let t_total = now_micros();
-        let input = &self.input;
-        let dof_num = &self.dof_num;
-        let (n, nf, nr) = (self.n, self.nf, self.nr);
-
-        // Dense f for the LU right-hand side (matches the old dense fallback),
-        // sparse f for reactions/equilibrium/residual (matches the old asm.f usage)
-        let f_d = assemble_load_vector_3d_dense(input, loads, dof_num, &p.dense_inclined_transforms);
-        let f = super::sparse_assembly::assemble_load_vector_sparse_3d(input, loads, dof_num, &p.inclined_transforms);
-
-        let mut f_work: Vec<f64> = f_d[..nf].to_vec();
-        for i in 0..nf { f_work[i] -= p.k_fr_ur[i]; }
-        let t0 = now_micros();
-        let u_fb = lu_apply(&p.lu, &p.piv, &f_work, nf)
-            .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
-        // NaN/Inf guard — see `solve_loads_dense`.
-        assert_finite_3d(&u_fb)?;
-        let dense_fb_us = p.dense_fb_us + now_micros().saturating_sub(t0);
-
-        let total_us = (p.assembly_us + p.conditioning_us + p.symbolic_us + p.numeric_us)
-            + now_micros().saturating_sub(t_total);
-        let timings = SolveTimings {
-            assembly_ms: micros_to_ms(p.assembly_us),
-            conditioning_ms: micros_to_ms(p.conditioning_us),
-            symbolic_ms: micros_to_ms(p.symbolic_us),
-            numeric_ms: micros_to_ms(p.numeric_us),
-            solve_ms: 0.0,
-            residual_ms: 0.0,
-            dense_fallback_ms: micros_to_ms(dense_fb_us),
-            reactions_ms: 0.0,
-            stress_recovery_ms: 0.0,
-            total_ms: micros_to_ms(total_us),
-            n_free: nf, nnz_kff: p.nnz_kff, nnz_l: p.nnz_l,
-            pivot_perturbations: 0, max_perturbation: 0.0,
-            pcg_iterations: None,
-            pcg_final_residual: None,
-        };
-
-        // Build full solution
-        let mut u_full = vec![0.0; n];
-        u_full[..nf].copy_from_slice(&u_fb);
-        for i in 0..nr { u_full[nf + i] = self.u_r[i]; }
-        let ku_full = p.k_full.sym_mat_vec(&u_full);
-        let mut reactions_vec = vec![0.0; nr];
-        let f_r: Vec<f64> = f[nf..].to_vec();
-        for i in 0..nr { reactions_vec[i] = ku_full[nf + i] - f_r[i]; }
-        for it in &p.inclined_transforms {
-            reverse_inclined_transform(&mut u_full, &it.dofs, &it.r);
-        }
-        let displacements = build_displacements_3d(dof_num, &u_full);
-        let mut reactions = build_reactions_3d_inclined(
-            input, dof_num, &reactions_vec, &f_r, nf, &u_full, &p.inclined_transforms,
-        );
-        reactions.sort_by_key(|r| r.node_id);
-        let mut element_forces = compute_internal_forces_3d_with_loads(input, loads, dof_num, &u_full);
-        element_forces.sort_by_key(|ef| ef.element_id);
-        let plate_stresses = compute_plate_stresses(input, dof_num, &u_full, Some(loads));
-        let quad_stresses = compute_quad_stresses(input, dof_num, &u_full, Some(loads));
-
-        // Compute actual residual: ||K·u − F||_free / ||F||_free
-        let rel_residual = {
-            let mut res2 = 0.0f64;
-            let mut f2 = 0.0f64;
-            for i in 0..nf {
-                let r = ku_full[i] - f[i];
-                res2 += r * r;
-                f2 += f[i] * f[i];
-            }
-            res2.sqrt() / f2.sqrt().max(1e-30)
-        };
-
-        let equilibrium = compute_equilibrium_summary_3d(&f, &reactions_vec, dof_num, rel_residual, &p.inclined_transforms);
-
-        // Build structured diagnostics for fallback path
-        let mut structured = Vec::new();
-        structured.extend(self.pre_solve_diags.iter().cloned());
-        structured.push(StructuredDiagnostic::global(
-            DiagnosticCode::SparseFallbackDenseLu,
-            Severity::Warning,
-            format!("Sparse Cholesky failed, fell back to dense LU ({} free DOFs)", nf),
-        ).with_phase("solve"));
-
-        // LU fallback stability warning
-        structured.push(StructuredDiagnostic::global(
-            DiagnosticCode::CholeskyFailedLuFallback,
-            Severity::Warning,
-            "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
-        ).with_phase("solve"));
-
-        // Displacement sanity check — translational DOFs only
-        let max_disp = dof_num.map.iter()
-            .filter(|&(&(_node, local_dof), &global)| local_dof < 3 && global < nf)
-            .map(|(&_, &global)| u_fb[global].abs())
-            .fold(0.0f64, f64::max);
-        let char_length = {
-            let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
-            let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
-            let (mut mn_z, mut mx_z) = (f64::MAX, f64::MIN);
-            for node in crate::ordered::values(&input.nodes) {
-                mn_x = mn_x.min(node.x); mx_x = mx_x.max(node.x);
-                mn_y = mn_y.min(node.y); mx_y = mx_y.max(node.y);
-                mn_z = mn_z.min(node.z); mx_z = mx_z.max(node.z);
-            }
-            ((mx_x - mn_x).powi(2) + (mx_y - mn_y).powi(2) + (mx_z - mn_z).powi(2)).sqrt().max(1.0)
-        };
-        if max_disp > 1000.0 * char_length {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::ExcessiveDisplacement,
-                Severity::Warning,
-                format!(
-                    "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
-                    max_disp, char_length
-                ),
-            ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
-        }
-
-        if p.cond > 1e12 {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::ExtremelyHighDiagonalRatio,
-                Severity::Warning,
-                format!("Extremely high diagonal ratio {:.2e}", p.cond),
-            ).with_value(p.cond, 1e12).with_phase("conditioning"));
-        } else if p.cond > 1e8 {
-            structured.push(StructuredDiagnostic::global(
-                DiagnosticCode::HighDiagonalRatio,
-                Severity::Warning,
-                format!("High diagonal ratio {:.2e}", p.cond),
-            ).with_value(p.cond, 1e8).with_phase("conditioning"));
-        }
-
-        // Residual diagnostic with actual computed value
-        structured.push(if rel_residual < 1e-6 {
-            StructuredDiagnostic::global(
-                DiagnosticCode::ResidualOk,
-                Severity::Info,
-                format!("Dense LU fallback ({} free DOFs, residual {:.2e})", nf, rel_residual),
-            ).with_value(rel_residual, 1e-6).with_phase("solve")
-        } else {
-            StructuredDiagnostic::global(
-                DiagnosticCode::ResidualHigh,
-                Severity::Warning,
-                format!("Dense LU fallback residual {:.2e} exceeds tolerance", rel_residual),
-            ).with_value(rel_residual, 1e-6).with_phase("solve")
-        });
-
-        let solver_diags = p.solver_diags_base.clone();
-
-        let mut results = AnalysisResults3D {
-            displacements, reactions, element_forces, plate_stresses, quad_stresses,
-            quad_nodal_stresses: compute_quad_nodal_stresses(input, dof_num, &u_full, Some(loads)),
-            constraint_forces: vec![], diagnostics: p.diagnostics.clone(),
-            solver_diagnostics: solver_diags, structured_diagnostics: structured, equilibrium: Some(equilibrium), timings: Some(timings), result_summary: None,
-            solver_run_meta: Some(SolverRunMeta::new(
-                "sparse_fallback_dense_lu", nf, self.n_elements, self.n_nodes,
-            )),
-        };
-        results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_3d(&results));
-        Ok(results)
-    }
-}
-
-/// Compute diagonal conditioning ratio for a sparse CSC matrix.
-/// Returns max(diag) / min(nonzero diag), or 0 if degenerate.
-fn sparse_diagonal_conditioning(k: &CscMatrix) -> f64 {
-    let n = k.n;
-    let mut max_diag = 0.0f64;
-    let mut min_nonzero_diag = f64::MAX;
-
-    for j in 0..n {
-        for p in k.col_ptr[j]..k.col_ptr[j + 1] {
-            if k.row_idx[p] == j {
-                let d = k.values[p].abs();
-                if d > max_diag { max_diag = d; }
-                if d > 1e-30 && d < min_nonzero_diag { min_nonzero_diag = d; }
-                break;
-            }
-        }
-    }
-
-    if min_nonzero_diag < f64::MAX && min_nonzero_diag > 0.0 {
-        max_diag / min_nonzero_diag
-    } else {
-        0.0
     }
 }
 
@@ -5294,6 +4209,17 @@ pub(crate) fn refuse_loads_on_orphan_dofs_3d(
     Ok(())
 }
 
+fn refuse_loaded_free_rotation_3d(stability: &super::stability::Stability, dof: &DofNumbering, f: &[f64]) -> Result<(), String> {
+    let Some(node) = stability.load_on_free_rotation(f) else { return Ok(()); };
+    let directions: Vec<_> = stability.free_rotations().filter(|d| d.node == node).map(|d| {
+        d.dofs.iter().zip(&d.direction).map(|(&index, value)| {
+            let local = dof.entries_by_dof().into_iter().find(|(_, i)| *i == index).unwrap().0.1;
+            format!("{}={value:.6e}", ["ux", "uy", "uz", "rx", "ry", "rz", "warping"][local])
+        }).collect::<Vec<_>>().join(", ")
+    }).collect();
+    Err(moment_lost_3d(node, &format!("a loaded released rotation or unstiffened rotational/warping direction is present; free directions [{}] have no resolvable stiffness", directions.join("; "))))
+}
+
 fn moment_lost_3d(node: usize, why: &str) -> String {
     format!(
         "Nodal moment at node {node} is not supported: {why}, so the moment would not reach the structure. \
@@ -6610,5 +5536,48 @@ pub(super) fn compute_equilibrium_summary_2d(
         reaction_force_sum: rxn.to_vec(),
         max_imbalance,
         equilibrium_ok,
+    }
+}
+
+#[cfg(test)]
+mod conditioning_1753_audit {
+    #[test]
+    fn issue_1753_unconfirmed_factorization_failure_reports_accuracy() {
+        let error = super::not_positive_definite();
+        assert!(error.contains("factorization") && error.contains("accuracy"), "{error}");
+        assert!(!error.contains("negative") && !error.contains("unstable"), "{error}");
+    }
+
+    #[test]
+    fn issue_1465_loaded_release_names_the_node_and_rotation() {
+        let input: crate::types::SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/buckling-1465-loaded-release.json")).unwrap();
+        let linear = super::solve_3d(&input).unwrap_err();
+        let session = crate::load_session::LoadSession3D::from_input(input.clone()).and_then(|session| session.solve_loads(&input.loads)).unwrap_err();
+        assert_eq!(session, linear);
+        for error in [linear, crate::solver::buckling::solve_buckling_3d(&input, 1).unwrap_err()] {
+            assert!(error.contains("node 2") && error.contains("loaded released rotation") && error.contains("rx=") && error.contains("ry=") && error.contains("rz="), "{error}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod conditional_accuracy_tests {
+    use super::*;
+
+    #[test]
+    fn conditional_correction_checks_both_sides_of_the_accuracy_limit() {
+        let mut stability = super::super::stability::Stability::stable();
+        stability.kappa = 1e8;
+        stability.anisotropy = 1e5;
+        for factor in [1.0 - 1e-4, 1.0 + 1e-4] {
+            let rhs = [1.0 + super::super::stability::CONDITIONAL_ACCURACY * factor];
+            let dense = conditional_dense_refinement(&stability, &[1.0], &rhs, vec![1.0], |r| r.to_vec());
+            assert_eq!(dense.is_ok(), factor < 1.0);
+            if let Ok(u) = dense { assert_eq!(u, rhs); }
+            let sparse = conditional_sparse_refinement(&stability, &CscMatrix::from_dense_symmetric(&[1.0], 1), &rhs, vec![1.0], |r| r.to_vec());
+            assert_eq!(sparse.is_ok(), factor < 1.0);
+        }
+        assert_eq!(conditional_dense_refinement(&stability, &[1.0], &[0.0], vec![0.0], |r| r.to_vec()).unwrap(), [0.0]);
+        assert!(conditional_dense_refinement(&stability, &[1.0], &[f64::NAN], vec![1.0], |r| r.to_vec()).is_err());
     }
 }

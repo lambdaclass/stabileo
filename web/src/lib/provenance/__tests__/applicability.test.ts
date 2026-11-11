@@ -26,6 +26,19 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('scopes generator stability guidance to recorded generated structures', () => {
+    const ordinary = model({ elements: [member(1, 1, 'frame')] });
+    const generated = { ...ordinary, groups: [[1, { kind: 'generated' }]] } as FeatureSnapshot;
+    expect(modelFeatures(generated)).toContain('generatedStructures');
+    expect(ids(generated)).toContain('generated-structure-stability');
+    expect(ids(ordinary)).not.toContain('generated-structure-stability');
+    expect(ids({ ...ordinary, groups: [[1, { kind: 'floorLoad' }]] })).not.toContain('generated-structure-stability');
+    expect(ids({ ...generated, elements: [] })).not.toContain('generated-structure-stability');
+    expect(ids({ ...generated, analysisMode: '2d' })).not.toContain('generated-structure-stability');
+    const current = stampSolve('linear', null);
+    expect(ids(generated, current)).not.toContain('generated-structure-stability');
+  });
+
   it('shows one complete harmonic correction notice for PR #1922', () => {
     const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!;
     const snapshot = model({ elements: [member(1, 1, 'frame')] });
@@ -331,7 +344,7 @@ describe('which registered changes concern a model', () => {
     }
   });
 
-  it('an empty model is concerned by nothing', () => {
+  it('unknown analysis history without stiffness elements has no linear result to re-check', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
 

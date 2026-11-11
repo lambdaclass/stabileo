@@ -249,7 +249,7 @@ fn validation_3d_truss_six_member_axial_only() {
 // Reference: Timoshenko & Young, "Theory of Structures", 2nd Ed., Ch. 2
 
 #[test]
-fn validation_3d_truss_bridge_symmetric_forces() {
+fn validation_3d_truss_cross_braced_bridge_with_two_pins_matches_compatibility() {
     // Two-chord (top and bottom) parallel truss in XZ plane, y=-1 and y=+1
     // Bottom nodes: B1..B4 (y=0, z=0), Top nodes T1..T4 (y=0, z=2)
     // Span 6 m (3 panels), height 2 m, width 2 m (y direction)
@@ -298,12 +298,19 @@ fn validation_3d_truss_bridge_symmetric_forces() {
     for i in 0..4 { elems.push((eid, "truss", i + 1, i + 5, 1, 1)); eid += 1; }
     // Portal braces top (connecting left/right top)
     for i in 0..4 { elems.push((eid, "truss", i + 9, i + 13, 1, 1)); eid += 1; }
+    for (a, b) in [(1, 6), (5, 2), (9, 14), (13, 10)] {
+        for i in 0..3 { elems.push((eid, "truss", i + a, i + b, 1, 1)); eid += 1; }
+    }
+    for i in 0..4 {
+        elems.push((eid, "truss", i + 1, i + 13, 1, 1)); eid += 1;
+        elems.push((eid, "truss", i + 5, i + 9, 1, 1)); eid += 1;
+    }
 
     // Supports at bottom corners: nodes 1, 4 (left) and 5, 8 (right)
     let sups = vec![
         (1,  vec![true, true, true, false, false, false]),  // node 1 pinned
         (4,  vec![false, false, true, false, false, false]), // node 4 roller z
-        (5,  vec![false, true, true, false, false, false]),  // node 5 roller yz
+        (5,  vec![true, true, true, false, false, false]),
         (8,  vec![false, false, true, false, false, false]), // node 8 roller z
     ];
 
@@ -326,19 +333,50 @@ fn validation_3d_truss_bridge_symmetric_forces() {
         vec![(1, A, IY_T, IZ_T, J_T)],
         elems, sups, loads,
     );
+    for retain_braces in [false, true] {
+        let mut original = input.clone();
+        if !retain_braces { original.elements.retain(|_, e| e.id <= 34); }
+        original.supports.values_mut().find(|s| s.node_id == 5).unwrap().rx = false;
+        let motion = |n: &SolverNode3D| [-(n.y + yw), n.x, 0.0];
+        for element in original.elements.values() {
+            let a = &original.nodes[&element.node_i.to_string()];
+            let b = &original.nodes[&element.node_j.to_string()];
+            let (ua, ub) = (motion(a), motion(b));
+            let extension = [b.x - a.x, b.y - a.y, b.z - a.z].iter().enumerate()
+                .map(|(i, v)| v * (ub[i] - ua[i])).sum::<f64>();
+            assert_eq!(extension, 0.0, "rigid yaw stretches member {}", element.id);
+        }
+        for support in original.supports.values() {
+            let u = motion(&original.nodes[&support.node_id.to_string()]);
+            for (axis, held) in [support.rx, support.ry, support.rz].iter().enumerate() {
+                if *held { assert_eq!(u[axis], 0.0); }
+            }
+        }
+        assert_ne!(motion(&original.nodes["5"]), [0.0; 3]);
+        let error = linear::solve_3d(&original).expect_err("the longitudinal roller leaves a genuine rigid yaw mode");
+        assert!(error.starts_with("the structure is a mechanism"), "{error}");
+    }
     let results = linear::solve_3d(&input).unwrap();
-
-    // Vertical equilibrium
+    let reference: serde_json::Value = serde_json::from_str(include_str!("../../../../docs/results-changes/1753-truss-reference.json")).unwrap();
+    let forces = reference["forces"].as_array().unwrap();
+    assert_eq!(results.element_forces.len(), forces.len());
+    for (id, force) in forces.iter().enumerate() {
+        let expected: f64 = force.as_str().unwrap().parse().unwrap();
+        let actual = results.element_forces.iter().find(|ef| ef.element_id == id + 1).unwrap();
+        assert_close_abs(actual.n_start, expected, 0.01, 1e-6, "braced bridge: independent axial compatibility");
+    }
+    for (node, fx, fy, fz) in [(1, 0.0, 1.6274824297717988, 20.0 / 3.0), (4, 0.0, 0.0, 10.0 / 3.0),
+        (5, 0.0, -1.6274824297717988, 20.0 / 3.0), (8, 0.0, 0.0, 10.0 / 3.0)] {
+        let actual = results.reactions.iter().find(|r| r.node_id == node).unwrap();
+        for (value, expected) in [(actual.fx, fx), (actual.fy, fy), (actual.fz, fz)] {
+            assert_close_abs(value, expected, 0.01, 1e-6, "braced bridge: independent support reactions");
+        }
+    }
     let sum_rz: f64 = results.reactions.iter().map(|r| r.fz).sum();
-    assert_close(sum_rz, 2.0 * p, 0.01, "3D bridge: ΣRz = 2P");
-
-    // Symmetry: bottom chord force in left span (elem 1) = right span (elem 4)
-    let ef_left = results.element_forces.iter().find(|ef| ef.element_id == 1).unwrap();
-    let ef_right = results.element_forces.iter().find(|ef| ef.element_id == 4).unwrap();
-    assert_close_abs(
-        ef_left.n_start.abs(), ef_right.n_start.abs(), 0.01, 1e-6,
-        "3D bridge: symmetric chord forces"
-    );
+    assert_close(sum_rz, 2.0 * p, 0.01, "3D bridge: vertical equilibrium");
+    let left = results.element_forces.iter().find(|ef| ef.element_id == 1).unwrap();
+    let right = results.element_forces.iter().find(|ef| ef.element_id == 4).unwrap();
+    assert_close_abs(left.n_start, right.n_start, 0.01, 1e-6, "3D bridge: signed symmetric chord forces");
 }
 
 // ================================================================

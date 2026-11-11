@@ -97,6 +97,18 @@ describe('result-change registry', () => {
     expect(validateRegistry(good, new Set(FEATURE_IDS))).toEqual([]);
   });
 
+  it('accepts a scoped numerical quantity only with complete response fingerprints', () => {
+    const entry = { ...RESULT_CHANGES.changes[0], resultsVersion: RESULT_CHANGES.currentResultsVersion };
+    const scope = { quantity: 'displacements.rz', before: 'a'.repeat(64), after: 'b'.repeat(64) };
+    const check = (q: unknown) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, quantities: [q] } as typeof entry] }, new Set(FEATURE_IDS));
+    expect(check(scope)).toEqual([]);
+    for (const q of [null, {}, { ...scope, before: '' }, { ...scope, after: 'bad' },
+      { ...scope, quantity: undefined }, { ...scope, quantity: null }, { ...scope, quantity: true },
+      { ...scope, quantity: '*' }, { ...scope, quantity: 'solve.ok' }, { ...scope, quantity: 'a.b.c' }]) {
+      expect(check(q).some((p) => p.includes('quantities must be')), JSON.stringify(q)).toBe(true);
+    }
+  });
+
   it('slugs headings the way GitHub anchors them', () => {
     expect(githubSlug('CIRSOC 301 steel checks in the engine, re-checked and certified (2026-10-17)'))
       .toBe('cirsoc-301-steel-checks-in-the-engine-re-checked-and-certified-2026-10-17');

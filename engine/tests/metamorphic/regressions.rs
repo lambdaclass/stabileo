@@ -1317,19 +1317,41 @@ fn only_the_near_mechanism_warning_excuses_a_refused_copy() {
     assert!(matches!(crate::checks2::transformed_failure("did not converge".into(), NearMechanism(true)), crate::tally::Verdict::Fail(_)), "strict mode excuses nothing");
 }
 
-/// #983: a near-mechanism whose transformed copies are refused while the
-/// original solves under NUM-INVARIANCE and stiffness_not_positive_definite.
 #[test]
-fn a_copy_refused_beside_a_near_mechanism_original_is_not_a_violation() {
+fn issue_983_free_truss_ends_are_refused_consistently() {
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-983.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
     assert!(!crate::generated::strict());
-    let original = linear::solve_2d(&s).unwrap();
-    assert_eq!(crate::response::NearMechanism::of(&original.structured_diagnostics), crate::response::NearMechanism(true));
+    assert!(s.constraints.is_empty());
+    let dof = dedaliano_engine::solver::dof::DofNumbering::build_2d(&s);
+    let assembly = dedaliano_engine::solver::assembly::assemble_2d(&s, &dof);
+    let n = dof.n_total;
+    let matrix_norm = assembly.k.chunks_exact(n).map(|row| row.iter().map(|v| v.abs()).sum::<f64>()).fold(0.0f64, f64::max);
+    for node in [3, 4] {
+        assert!(!s.supports.values().any(|support| support.node_id == node));
+        let incident: Vec<_> = s.elements.values().filter(|e| e.node_i == node || e.node_j == node).collect();
+        assert_eq!(incident.len(), 1);
+        let e = incident[0];
+        assert_eq!(e.elem_type, "truss");
+        let other = if e.node_i == node { e.node_j } else { e.node_i };
+        let (a, b) = (&s.nodes[&node.to_string()], &s.nodes[&other.to_string()]);
+        let (dx, dz) = (b.x-a.x, b.z-a.z);
+        let length = dx.hypot(dz);
+        let mut mode = vec![0.0; n];
+        mode[dof.map[&(node, 0)]] = -dz/length;
+        mode[dof.map[&(node, 1)]] = dx/length;
+        let action = assembly.k.chunks_exact(n).map(|row| row.iter().zip(&mode).map(|(k, u)| k*u).sum::<f64>().abs()).fold(0.0f64, f64::max);
+        let relative = action/matrix_norm;
+        eprintln!("issue-983 node {node}: transverse null direction, normalized stiffness action {relative:.17e}");
+        assert!(relative < 1e-14, "node {node}: {relative:.17e}");
+    }
+    let original = linear::solve_2d(&s).expect_err("unsupported truss ends must be refused");
+    assert!(original.starts_with("the structure is a mechanism"), "{original}");
     let t = crate::tally::Tally::default();
     let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| a.name == "creep & shrinkage (t = t0)").collect();
     let case = Case2::new("issue-983", s);
-    assert_eq!((anas[0].run)(&case).unwrap().2, crate::response::NearMechanism(true));
+    let error = (anas[0].run)(&case).expect_err("creep must refuse the same mechanism");
+    assert!(error.starts_with("the structure is a mechanism"), "{error}");
     crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: 2026110601678 }, &case, &anas, &["relabel", "units"]);
     let cells = t.cells.lock().unwrap();
     for inv in ["relabel", "units"] {
