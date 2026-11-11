@@ -19,6 +19,8 @@
   import { modelStore } from '../../lib/store';
   import { sketchTruth } from './sketch-truth';
   import { TOLERANCE, withinTolerance } from './exercise-marking';
+  import FreeBodyStep from './FreeBodyStep.svelte';
+  import { freeBodyKeys, freeBodyLabel, freeBodyTruth, freeBodyUnit, parseFreeBodyKey } from './free-body-step';
 
   // Cubic included: a linearly varying load makes the moment cubic, and the
   // answer has to be on the list for the question to be answerable.
@@ -124,6 +126,16 @@
   // Solver insight for educational display
   const timings = $derived<SolveTimings | undefined>(eduStore.results?.timings);
 
+  const freeBody = $derived(exercise.freeBody);
+  const fbKeys = $derived(freeBody ? freeBodyKeys(freeBody.bars) : []);
+  const blankRecord = <T,>(make: (key: string) => T) =>
+    Object.fromEntries((exercise.freeBody ? freeBodyKeys(exercise.freeBody.bars) : []).map((k) => [k, make(k)]));
+  let fbAnswers = $state<Record<string, string>>(blankRecord((k) => savedText(k)));
+  let fbVerif = $state<Record<string, VerifState>>(blankRecord(() => 'pending' as VerifState));
+  let fbRevealed = $state<Record<string, boolean>>(blankRecord(() => false));
+  const fbTruth = $derived(freeBody ? freeBodyTruth(freeBody.model, freeBody.bars, eduStore.results?.elementForces) : null);
+  const freeBodyComplete = $derived(fbKeys.every((k) => fbVerif[k] === 'correct'));
+
   // ─── Step completion ───────────────────────────────────────
   const kinematicComplete = $derived(
     !exercise.kinematicQuestion || (
@@ -145,35 +157,34 @@
   const step3Complete = $derived(
     charVerif.every(s => s === 'correct')
   );
-  const allCorrect = $derived(step1Complete && step2Complete && step3Complete);
+  const allCorrect = $derived(step1Complete && freeBodyComplete && step2Complete && step3Complete);
 
   // ─── Which step is on screen ───────────────────────────────
-  //
-  // One at a time. The three steps are a sequence — you cannot check a shear
-  // diagram before you know the reactions — and showing them stacked made a
-  // beam exercise a page of thirty inputs that all look equally urgent.
-  let activeStep = $state(1);
+  type StepId = 'reactions' | 'freeBody' | 'diagrams' | 'values' | 'handin';
+  let activeStep = $state<StepId>('reactions');
 
-  const STEPS = $derived([
-    { n: 1, label: t('edu.reactions'), done: step1Complete, prevDone: false },
-    { n: 2, label: t('edu.diagrams'), done: step2Complete, prevDone: step1Complete },
-    { n: 3, label: t('edu.values'), done: step3Complete, prevDone: step2Complete },
-  ]);
+  const STEPS = $derived.by(() => {
+    const list: Array<{ id: StepId; label: string; done: boolean }> = [
+      { id: 'reactions', label: t('edu.reactions'), done: step1Complete },
+      ...(freeBody ? [{ id: 'freeBody' as const, label: t('edu.fb.step'), done: freeBodyComplete }] : []),
+      { id: 'diagrams', label: t('edu.diagrams'), done: step2Complete },
+      { id: 'values', label: t('edu.values'), done: step3Complete },
+      ...(exam ? [] : [{ id: 'handin' as const, label: t('edu.handin.title'), done: false }]),
+    ];
+    return list.map((step, k) => ({ ...step, n: k + 1, prevDone: k > 0 && list[k - 1]!.done }));
+  });
 
-  /*
-   * Finishing a step moves the student on, once.
-   *
-   * Tracked per step rather than off the completion flag alone: a student who
-   * goes back to step 1 after finishing it must not be thrown forward again on
-   * the next keystroke.
-   */
-  let advancedFrom = $state<Set<number>>(new Set());
+  /** A step's heading carries its place in this exercise's sequence, which shifts when the free-body step is there. */
+  const stepTitle = (key: string, id: StepId) => t(key).replace(/\d+/, String(STEPS.find((st) => st.id === id)?.n ?? ''));
+
+  /** Finishing a step moves the student on once, so going back to a finished step does not throw them forward again. */
+  let advancedFrom = $state<Set<StepId>>(new Set());
   $effect(() => {
-    const done = [step1Complete, step2Complete, step3Complete];
-    const i = activeStep - 1;
-    if (exam || !done[i] || advancedFrom.has(activeStep) || activeStep === 3) return;
+    const k = STEPS.findIndex((st) => st.id === activeStep);
+    const step = STEPS[k], next = STEPS[k + 1];
+    if (exam || !step?.done || !next || advancedFrom.has(activeStep)) return;
     advancedFrom = new Set([...advancedFrom, activeStep]);
-    activeStep = activeStep + 1;
+    activeStep = next.id;
   });
 
   // ─── Handing it in ─────────────────────────────────────────
@@ -213,6 +224,19 @@
           label: t('edu.hyperstaticDegree'),
           answer: kinematicDegreeAnswer,
           outcome: kinematicDegreeVerif,
+        });
+      }
+    }
+    if (freeBody) {
+      for (const key of fbKeys) {
+        const k = parseFreeBodyKey(key)!;
+        out.push({
+          key,
+          label: freeBodyLabel(freeBody.bars, key),
+          answer: fbAnswers[key] ?? '',
+          unit: freeBodyUnit(k.dof),
+          outcome: fbVerif[key] ?? 'pending',
+          revealed: fbRevealed[key] ?? false,
         });
       }
     }
@@ -509,30 +533,18 @@
   a spec and for anyone debugging a verdict that will not appear.
 -->
 <div class="exercise-view" data-solved={eduStore.results ? 'yes' : 'no'}>
-  <!--
-    The stepper is navigation, not decoration.
-    \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-    It always drew three numbered dots and a tick for each finished step, and
-    then the panel showed all three steps stacked in one scroll anyway. So it
-    told the student where they were in something they could already see all
-    of, which is the one thing a progress indicator should not do.
-
-    Now it moves. One step is on screen at a time, the dots switch between
-    them, and a finished step stays reachable \u2014 a student rereading their
-    reactions while answering the diagrams is doing structural analysis, not
-    going backwards.
-  -->
-  <div class="progress-bar" role="tablist">
-    {#each STEPS as s (s.n)}
+  <div class="progress-bar" class:many={STEPS.length > 4} role="tablist">
+    {#each STEPS as s (s.id)}
       {#if s.n > 1}<div class="progress-line" class:done={s.prevDone && !exam}></div>{/if}
       <button
         class="progress-step"
         class:done={s.done && !exam}
-        class:current={activeStep === s.n}
+        class:current={activeStep === s.id}
         role="tab"
-        aria-selected={activeStep === s.n}
-        onclick={() => (activeStep = s.n)}
-        data-testid="edu-step-{s.n}"
+        aria-selected={activeStep === s.id}
+        title={s.label}
+        onclick={() => (activeStep = s.id)}
+        data-testid="edu-step-{s.id}"
       >
         <span class="step-check">{s.done && !exam ? '\u2713' : s.n}</span>
         <span class="step-label">{s.label}</span>
@@ -584,12 +596,13 @@
   {/if}
 
   <!-- Step 1: Reactions -->
-  {#if activeStep === 1}
+  {#if activeStep === 'reactions'}
   <section class="step-section" class:completed={step1Complete && !exam}>
     <h3 class="step-title">
-      {t('edu.step1Title')}
+      {stepTitle('edu.step1Title', 'reactions')}
       {#if step1Complete && !exam}<span class="step-done">✓</span>{/if}
     </h3>
+    <p class="step-info sign-legend">{t('edu.signs')}</p>
 
     {#each exercise.supports as sup, i}
       <div class="support-row">
@@ -668,11 +681,30 @@
   </section>
   {/if}
 
-  <!-- Step 2: Diagram questions -->
-  {#if activeStep === 2}
+  {#if activeStep === 'freeBody' && freeBody}
+  <section class="step-section" class:completed={freeBodyComplete && !exam}>
+    <h3 class="step-title">
+      {stepTitle('edu.fb.title', 'freeBody')}
+      {#if freeBodyComplete && !exam}<span class="step-done">✓</span>{/if}
+    </h3>
+    <FreeBodyStep
+      model={freeBody.model}
+      bars={freeBody.bars}
+      truth={fbTruth}
+      bind:answers={fbAnswers}
+      bind:verif={fbVerif}
+      bind:revealed={fbRevealed}
+      {exam}
+      {canReveal}
+      complete={freeBodyComplete}
+    />
+  </section>
+  {/if}
+
+  {#if activeStep === 'diagrams'}
   <section class="step-section" class:completed={step2Complete && !exam}>
     <h3 class="step-title">
-      {t('edu.step2Title')}
+      {stepTitle('edu.step2Title', 'diagrams')}
       {#if step2Complete && !exam}<span class="step-done">✓</span>{/if}
     </h3>
 
@@ -812,10 +844,10 @@
   {/if}
 
   <!-- Step 3: Characteristic values -->
-  {#if activeStep === 3}
+  {#if activeStep === 'values'}
   <section class="step-section" class:completed={step3Complete && !exam}>
     <h3 class="step-title">
-      {t('edu.step3Title')}
+      {stepTitle('edu.step3Title', 'values')}
       {#if step3Complete && !exam}<span class="step-done">✓</span>{/if}
     </h3>
 
@@ -867,18 +899,8 @@
     </div>
   {/if}
 
-  <!--
-    Handing it in.
-    ──────────────
-    Available from the first answer, not only once everything is right: a
-    student who ran out of time hands in what they have, and a teacher marking
-    partial work needs it. The name field is optional because the app has no
-    accounts and pretending otherwise would be a lie about what this is.
-  -->
-  {#if !exam}
+  {#if !exam && activeStep === 'handin'}
   <section class="handin" data-testid="edu-handin">
-    <!-- Its own class: handing in is not one of the three steps, and a
-         selector for "the step you are on" must not also match it. -->
     <h3 class="handin-title">{t('edu.handin.title')}</h3>
     <label class="handin-name">
       {t('edu.handin.name')}
@@ -926,6 +948,7 @@
     padding: 12px 14px;
     overflow-y: auto;
     flex: 1;
+    container-type: inline-size;
   }
 
   /* ─── The stepper ───────────────────────────────────────────────────
@@ -987,14 +1010,20 @@
   .step-label {
     font-size: 0.65rem;
     color: var(--st-text-3);
+    white-space: nowrap;
     transition: color 0.2s;
+  }
+
+  @container (max-width: 480px) {
+    .progress-bar.many .progress-step:not(.current) .step-label { display: none; }
   }
 
   .progress-step.done .step-label { color: var(--st-ok); }
   .progress-step.current .step-label { color: var(--st-text); font-weight: 600; }
 
   .progress-line {
-    width: 30px;
+    flex: 0 1 30px;
+    min-width: 10px;
     height: 2px;
     background: var(--st-hair);
     margin: 0 6px;
@@ -1458,11 +1487,7 @@
     border-bottom: 1px solid var(--st-hair);
   }
 
-  .handin {
-    margin-top: 22px;
-    padding-top: 14px;
-    border-top: 1px solid var(--st-hair);
-  }
+  .handin { margin-top: 4px; }
 
   .handin-name {
     display: flex;

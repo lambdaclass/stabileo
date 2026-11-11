@@ -4,6 +4,7 @@ import type { EduExerciseSpec, ResolvedExerciseSpec } from './exercise-spec';
 import { fromSubmissionFile, type Submission, type SubmittedAnswer } from './exercise-submission';
 import { remarkSubmission, type RemarkedAnswer } from './exercise-marking';
 import { variantOf } from './exercise-variant';
+import { exerciseBars, freeBodyKeys, freeBodyLabel, freeBodyUnit } from './free-body-step';
 import { t } from '../../lib/i18n';
 
 /** The exercise as an assignment stores it: the same envelope as an exercise file. */
@@ -36,6 +37,7 @@ export function questionKeys(ex: ResolvedExerciseSpec): string[] {
     keys.push('k');
     if (ex.kinematicQuestion.classification === 'hyperstatic') keys.push('kd');
   }
+  keys.push(...freeBodyKeys(exerciseBars(ex)));
   (ex.diagramShapeQuestions ?? []).forEach((_, i) => keys.push(`s:${i}`));
   ex.diagramQuestions.forEach((_, i) => keys.push(`d:${i}`));
   (ex.diagramSketchQuestions ?? []).forEach((_, i) => keys.push(`sk:${i}`));
@@ -55,6 +57,7 @@ export function questionLabel(ex: ResolvedExerciseSpec, key: string): string {
     case 'd': return ex.diagramQuestions[n]?.question ?? key;
     case 'sk': return `${t('edu.sketch.span')} ${ex.diagramSketchQuestions?.[n]?.diagram ?? ''}`;
     case 'c': return ex.characteristics[n]?.label ?? key;
+    case 'fb': return freeBodyLabel(exerciseBars(ex), key);
     default: return key;
   }
 }
@@ -64,6 +67,7 @@ const unitOf = (ex: ResolvedExerciseSpec, key: string): string | undefined => {
   if (kind === 'r') return dof === 'M' ? 'kN·m' : 'kN';
   if (kind === 'd') return ex.diagramQuestions[Number(i)]?.unit;
   if (kind === 'c') return ex.characteristics[Number(i)]?.unit;
+  if (kind === 'fb') return freeBodyUnit(key.endsWith(':M') ? 'M' : 'Fx');
   return undefined;
 };
 

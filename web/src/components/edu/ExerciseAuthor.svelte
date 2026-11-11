@@ -32,6 +32,7 @@
   import { paramTargets, parametrize, suggestBinding, type ParamBinding, type ParamTarget } from './exercise-param-authoring';
   import { checkResolved, describeVariant, isParametric, lintVariants, reactionDofsFor, supportTypeName, variantOf, type VariantLint } from './exercise-variant';
   import type { ModelSpec } from './exercise-spec';
+  import { freeBodyBars } from './free-body-step';
   import type { SupportType } from '../../lib/store/ui.svelte';
 
   interface Props {
@@ -276,6 +277,8 @@
 
   /** Practice lets a stuck student see the value; an assessment does not. */
   let allowReveal = $state(editing?.allowReveal !== false);
+  let askFreeBody = $state(editing?.freeBody !== false);
+  const hasBars = $derived(!!captured?.spec && freeBodyBars(captured.spec).length > 0);
   const addGiven = () => (givens = [...givens, { label: '', value: '' }]);
 
   /** Everything declared, assembled into one exercise. */
@@ -314,6 +317,7 @@
       diagramShapeQuestions: shapeQs.length ? shapeQs : undefined,
       diagramSketchQuestions: sketchQs.length ? sketchQs : undefined,
       allowReveal,
+      ...(askFreeBody ? {} : { freeBody: false }),
       sectionData: givens.filter((g) => g.label.trim()).length ? givens.filter((g) => g.label.trim()) : undefined,
     };
   });
@@ -671,6 +675,16 @@
           {t('edu.author.allowReveal')}
         </label>
       </div>
+
+      {#if hasBars}
+        <div class="qgroup">
+          <span class="qlabel">{t('edu.fb.step')}</span>
+          <label class="chk wide">
+            <input type="checkbox" bind:checked={askFreeBody} data-testid="author-free-body" />
+            {t('edu.author.freeBody')}
+          </label>
+        </div>
+      {/if}
 
       <div class="qgroup">
         <span class="qlabel">{t('edu.author.reactions')}</span>

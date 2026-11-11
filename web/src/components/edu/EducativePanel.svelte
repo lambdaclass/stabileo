@@ -10,7 +10,7 @@
   import { eduStore } from './edu-store.svelte';
   import ExerciseAuthor from './ExerciseAuthor.svelte';
   import { buildFromSpec, type EduExerciseSpec } from './exercise-spec';
-  import { isParametric, studentSeed, variantOf } from './exercise-variant';
+  import { isParametric, previewText, studentSeed, variantOf } from './exercise-variant';
   import type { Variant } from './exercise-params';
   import { getExerciseSpecs } from './exercise-data';
   import { loadLibrary, removeFromLibrary, saveToLibrary, fromShareLink } from './exercise-library';
@@ -281,7 +281,7 @@
     <div class="edu-exercise-container" data-testid="edu-variant-gate">
       <div class="edu-topbar">
         <button class="edu-back-btn" onclick={goBack}>{t('edu.back')}</button>
-        <span class="edu-exercise-name">{spec.title}</span>
+        <span class="edu-exercise-name">{previewText(spec.title, spec.params)}</span>
       </div>
       <form class="edu-gate" onsubmit={(e) => { e.preventDefault(); startWithLegajo(); }}>
         <h3 class="section-title">{t('edu.params.gateTitle')}</h3>
@@ -323,12 +323,12 @@
               {#each section.exercises as ex}
                 <button class="exercise-card" onclick={() => openSpec(ex)}>
                   <div class="exercise-header">
-                    <span class="exercise-title">{ex.title}</span>
+                    <span class="exercise-title">{previewText(ex.title, ex.params)}</span>
                     <span class="difficulty difficulty-{ex.difficulty}">
                       {t('edu.' + ex.difficulty)}
                     </span>
                   </div>
-                  <p class="exercise-desc">{ex.description}</p>
+                  <p class="exercise-desc">{previewText(ex.description, ex.params)}</p>
                 </button>
               {/each}
             </div>
@@ -348,10 +348,10 @@
               <div class="exercise-card-wrap">
                 <button class="exercise-card" onclick={() => openSpec(spec)}>
                   <div class="exercise-header">
-                    <span class="exercise-title">{spec.title}</span>
+                    <span class="exercise-title">{previewText(spec.title, spec.params)}</span>
                     <span class="difficulty difficulty-{spec.difficulty}">{t('edu.' + spec.difficulty)}</span>
                   </div>
-                  <p class="exercise-desc">{spec.description}</p>
+                  <p class="exercise-desc">{previewText(spec.description, spec.params)}</p>
                 </button>
                 <div class="card-actions">
                   <button class="card-act" onclick={() => editExercise(spec)}>{t('edu.author.edit')}</button>

@@ -1,6 +1,7 @@
 import { t, tp } from '../../lib/i18n';
 import type { AnswerSpec, ResolvedExerciseSpec } from './exercise-spec';
 import { formatParam } from './exercise-variant';
+import { barName, endElement, exerciseBars, parseFreeBodyKey } from './free-body-step';
 
 const FORCES = ['moment', 'shear', 'axial'] as const;
 const MEASURES = ['sigmaMax', 'sigmaMin', 'tauMax', 'vonMises'] as const;
@@ -46,6 +47,11 @@ export function explainAnswer(ex: ResolvedExerciseSpec, key: string): string {
     case 'sk': {
       const q = ex.diagramSketchQuestions?.[n];
       return q ? tp('exam.explain.sketch', { diagram: q.diagram, member: (q.elementIndex ?? 0) + 1 }) : '';
+    }
+    case 'fb': {
+      const k = parseFreeBodyKey(key);
+      const bar = k && exerciseBars(ex)[k.bar];
+      return k && bar ? tp('exam.explain.freeBody', { bar: barName(bar, k.bar), node: endElement(bar, k.end).node + 1, dof: k.dof }) : '';
     }
     default: return '';
   }

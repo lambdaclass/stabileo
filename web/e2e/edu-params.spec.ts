@@ -78,12 +78,14 @@ async function solveAndHandIn(page: Page, legajo: string): Promise<{ code: strin
   const values = pinnedB ? ['0', String(5 * L), '0', String(5 * L)] : ['0', String(5 * L), String(5 * L)];
   for (const [i, value] of values.entries()) await fields.nth(i).fill(value);
   await page.locator('.verify-btn').first().click();
-  await expect(page.getByTestId('edu-step-1')).toHaveClass(/done/);
+  await expect(page.getByTestId('edu-step-reactions')).toHaveClass(/done/);
 
-  await page.getByTestId('edu-step-3').click();
+  await page.getByTestId('edu-step-values').click();
   await page.locator('.char-input input').first().fill(String(1.25 * L * L));
   await page.locator('.verify-btn').last().click();
-  await expect(page.getByTestId('edu-step-3')).toHaveClass(/done/);
+  await expect(page.getByTestId('edu-step-values')).toHaveClass(/done/);
+
+  await page.getByTestId('edu-step-handin').click();
 
   await page.locator('.handin-name input').fill(`Student ${legajo}`);
   await page.getByTestId('edu-handin-code').click();

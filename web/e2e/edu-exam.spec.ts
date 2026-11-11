@@ -234,7 +234,7 @@ test.describe('@smoke Education — homework and exams with an account', () => {
     await fields.nth(0).fill('0');
     await fields.nth(1).fill(String(5 * L));
     await fields.nth(2).fill(String(5 * L + 7));
-    await student.getByTestId('edu-step-3').click();
+    await student.getByTestId('edu-step-values').click();
     await student.locator('.char-input input').first().fill(String(1.25 * L * L));
     await expect(student.getByTestId('exam-save-state')).toHaveAttribute('data-state', 'saved', { timeout: 15_000 });
 

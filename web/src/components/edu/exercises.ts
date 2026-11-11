@@ -7,7 +7,8 @@
 import { t } from '../../lib/i18n';
 import type { ElementForces } from '../../lib/engine/types';
 import type { Variant } from './exercise-params';
-import type { EduExerciseAPI } from './exercise-spec';
+import type { EduExerciseAPI, ModelSpec } from './exercise-spec';
+import { exerciseBars, type FreeBodyBar } from './free-body-step';
 
 export type { EduExerciseAPI };
 
@@ -84,6 +85,8 @@ export interface EduExercise {
   diagramSketchQuestions?: DiagramSketchQuestion[];
   /** Whether "show me the answer" is offered. Absent means yes. */
   allowReveal?: boolean;
+  /** The structure and its bars, when the exercise asks for free-body diagrams. */
+  freeBody?: { model: ModelSpec; bars: FreeBodyBar[] };
   /** Section data to display as given info (strength/advanced exercises) */
   sectionData?: SectionDataItem[];
   variant?: Variant;
@@ -111,6 +114,7 @@ export function toExercise(spec: ResolvedExerciseSpec, who: { legajo?: string } 
     if (built.stress || !spec.model.profile) ctx = built;
     return built;
   };
+  const bars = exerciseBars(spec);
   return {
     id: spec.id,
     title: spec.title,
@@ -137,6 +141,7 @@ export function toExercise(spec: ResolvedExerciseSpec, who: { legajo?: string } 
     })),
     diagramSketchQuestions: spec.diagramSketchQuestions,
     allowReveal: spec.allowReveal,
+    ...(bars.length ? { freeBody: { model: spec.model, bars } } : {}),
     sectionData: spec.sectionData,
     variant: spec.variant,
     seed: spec.seed,
