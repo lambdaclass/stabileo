@@ -117,6 +117,11 @@ export interface SeismicCodeInputs {
 
 export interface LoadPlanInput {
   regulations: ProjectRegulations;
+  /**
+   * What a code other than CIRSOC asks for, by the adapter id of its module (its wind speed and
+   * terrain, its spectrum, its snow load…): each module reads and types its own entry.
+   */
+  codeInputs?: Readonly<Record<string, unknown>>;
   model: LoadModelData;
   /** Superimposed dead components, kPa. */
   dead: DeadComponent[];
@@ -669,7 +674,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
 
   // ── Dead ──
   const deadTotal = input.dead.reduce((s, d) => s + d.q, 0);
-  refs.push(R101('3.1.1', 'definición de cargas permanentes'));
+  if (codes.basis.family === 'cirsoc') refs.push(R101('3.1.1', 'definición de cargas permanentes'));
 
   // ── Live: Table 4.1 then §4.7.2 ──
   const occ: OccupancyEntry | undefined = codes.loads.occupancy(input.occupancyKey);
@@ -703,7 +708,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
 
   let liveDesign = lo;
   if (input.applyLiveReduction) {
-    const red = codes.loads.reduce({
+    const red = codes.loads.reduce({ occupancyKey: input.occupancyKey,
       loKNm2: lo, tributaryAreaM2, elementKind: input.reductionElementKind,
       floorsSupported: input.floorsSupported,
       // Structured, not sniffed from the label: `garaje_camiones` is a garage but not a
@@ -781,7 +786,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, widthSpans(m, input.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength]));
   const reducedFor = (entry: OccupancyEntry, loKNm2: number, _uniform: number, areas: Map<number, number>) => (elementId: number): number => {
     if (!input.applyLiveReduction) return loKNm2;
-    return codes.loads.reduce({
+    return codes.loads.reduce({ occupancyKey: input.occupancyKey,
       loKNm2, tributaryAreaM2: (panelMode ? areas.get(elementId) : widthArea.get(elementId)) ?? 0, elementKind: input.reductionElementKind,
       floorsSupported: input.floorsSupported,
       passengerGarage: entry.assemblyKind === 'passengerGarage', publicAssembly: entry.assemblyKind === 'publicAssembly',
@@ -803,7 +808,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   let roofOccupancy: OccupancyEntry | undefined;
   if (input.roof) {
     const r = input.roof;
-    if (r.weight) roofWeight = r.weight;
+    const ownRoofLive = !!codes.loads.roofLive;
+    if (r.weight || ownRoofLive) roofWeight = r.weight ?? 'heavy';
     else {
       const w = roofWeightOf(input.model, layout, r.dead);
       roofWeight = w.weight;
@@ -823,9 +829,9 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       }
       const rlo = roofOcc.uniformKNm2;
       roofOccupancy = roofOcc;
-      refs.push(...roofOcc.refs, clause('cirsoc-101', '2025', '4.8.2', 'cubiertas para propósitos especiales'));
+      refs.push(...roofOcc.refs, ...(ownRoofLive ? [] : [clause('cirsoc-101', '2025', '4.8.2', 'cubiertas para propósitos especiales')]));
       const uniform = input.applyLiveReduction
-        ? codes.loads.reduce({ loKNm2: rlo, tributaryAreaM2, elementKind: input.reductionElementKind, floorsSupported: 1,
+        ? codes.loads.reduce({ occupancyKey: roofOcc.key, loKNm2: rlo, tributaryAreaM2, elementKind: input.reductionElementKind, floorsSupported: 1,
             passengerGarage: roofOcc.assemblyKind === 'passengerGarage', publicAssembly: roofOcc.assemblyKind === 'publicAssembly',
             noReduction: roofOcc.noReduction === true }).lKNm2
         : rlo;
@@ -837,7 +843,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     }
   }
   const area = planAreaLoads({
-    layout, tributaryWidth: input.tributaryWidth,
+    layout, tributaryWidth: input.tributaryWidth, ...(codes.loads.roofLive ? { roofLive: (r) => codes.loads.roofLive!(r) } : {}),
     floor: { dead: deadTotal, lo: floorLo, liveOf }, roof: roofLoads, patterns: input.patterns, model: input.model,
   });
   derivation.push(...area.derivation);
@@ -901,6 +907,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * the table rather than assumed. A typed value still wins over both, and the 0,25
    * fallback is what it always was: an assumption, and reported as one.
    */
+  const inpres = codes.seismic?.adapterId === 'inpres103-2018';
   const codeF1 = input.seismic?.code
     ? codes.seismic?.liveInMass(input.seismic.code.occupancy)
     : undefined;
@@ -908,11 +915,11 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     && input.seismic?.liveParticipation !== undefined
     ? fromProject(input.seismic.liveParticipation)
     : codeF1 !== undefined
-      ? fromCode(codeF1, [clause('inpres-cirsoc-103-i', '2018', 'Tabla 3.3',
-          'factor de simultaneidad para sobrecargas')])
+      ? fromCode(codeF1, inpres ? [clause('inpres-cirsoc-103-i', '2018', 'Tabla 3.3',
+          'factor de simultaneidad para sobrecargas')] : [])
       : assumed(0.25, msg('loadPlan.assumption.liveParticipation', { fraction: 0.25 }),
-          [clause('inpres-cirsoc-103-i', '2018', '3.6', 'acciones gravitatorias para la acción sísmica')]);
-  if (participation.origin === 'assumed' && input.seismic?.enabled) {
+          inpres ? [clause('inpres-cirsoc-103-i', '2018', '3.6', 'acciones gravitatorias para la acción sísmica')] : []);
+  if (participation.origin === 'assumed' && input.seismic?.enabled && inpres) {
     assumptions.push(participation.assumption!);
   }
 
@@ -995,7 +1002,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * otherwise (`seismic.snowRetaining`).
    */
   let seismicF2: number | undefined;
-  if (snowPlanned && input.seismic?.enabled) {
+  if (snowPlanned && input.seismic?.enabled && inpres) {
     const retains = input.seismic.snowRetaining ?? sink.snowRetains ?? true;
     seismicF2 = retains ? SIMULTANEITY_F2.retaining : SIMULTANEITY_F2.other;
     const balanced = cases.findIndex((c) => c.type === 'S' && (c.nameKey === 'snow.case.balanced' || c.nameKey === 'snow.case.balancedShaped'));
@@ -1100,12 +1107,12 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     if (input.projectCombinations) {
       combinations = [...input.projectCombinations];
     } else if (set !== 'service') {
-      const strength = codes.basis.strength(ci);
+      const strength = codes.basis.strength(ci, input);
       combinations = strength.combinations;
       derivation.push(...strength.notes);
       refs.push(...strength.refs);
     }
-    if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...codes.basis.service(ci)];
+    if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...codes.basis.service(ci, input)];
     // The seismic code's vertical component, when it asks for one (INPRES-CIRSOC 103 §3.5.2).
     if (input.seismic?.enabled && input.seismic.vertical && codes.seismic?.vertical) combinations = codes.seismic.vertical(combinations, seismicDetail, sink);
     // Each combination says which code, edition and rule wrote it, and what for.

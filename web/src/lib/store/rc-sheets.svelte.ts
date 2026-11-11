@@ -1,4 +1,6 @@
 import { modelStore } from './model.svelte';
+import { loadFamilyOfRegulations, type LoadFamilyChoice } from '../codes/families/stacks';
+import { regulationsStore } from './regulations.svelte';
 import { rulesFor } from '../rc-sheets/codes';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
@@ -65,13 +67,14 @@ export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>
   save({ ...d, adopted });
 }
 
+const FROM_LOAD_FAMILY: Record<LoadFamilyChoice, SheetCode> = { cirsoc: 'cirsoc201-2025', eurocode: 'en1992-1-1', uk: 'bs-en1992-1-1', us: 'aci318-19', turkey: 'ts500-2000' };
 const FROM_PROJECT: Record<string, SheetCode> = { aci318: 'aci318-19', ec2: 'en1992-1-1', 'ec2-uk': 'bs-en1992-1-1' };
 
 /** The code the sheets design to: the one chosen for them, else the project's concrete code. */
 export function sheetCode(): SheetCode {
   const own = rcSheetsData().code;
   if (own && SHEET_CODES[own]) return own;
-  return FROM_PROJECT[designData().foreignCodes?.concrete ?? ''] ?? 'cirsoc201-2025';
+  return FROM_PROJECT[designData().foreignCodes?.concrete ?? ''] ?? FROM_LOAD_FAMILY[loadFamilyOfRegulations(regulationsStore.roles) ?? 'cirsoc'];
 }
 
 export function setSheetCode(code: SheetCode): void {

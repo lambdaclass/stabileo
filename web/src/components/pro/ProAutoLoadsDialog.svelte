@@ -40,6 +40,10 @@
   import { regionNodes, regionMembers, type ActionRegion } from '../../lib/model/loads/region-nodes';
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { loadCodeFor } from '../../lib/codes/families';
+  import { codeInputStatus } from './load-codes/nav-status';
+  import type { ImposedLoadCode } from '../../lib/codes/families/load-codes';
+  import { FAMILY_STACKS, LOAD_FAMILY_CHOICES, loadFamilyOfRegulations, type LoadFamilyChoice } from '../../lib/codes/families/stacks';
+  import { CODE_INPUTS } from './load-codes/registry';
   import { defaultBeta, isBuildingKind, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
   import { applyLoadPlan, loadStateForPlan } from '../../lib/store/apply-load-plan';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
@@ -111,7 +115,10 @@
 
   // ─── Live load config ──────────────────
   let selectedOccupancy = $state(start.selectedOccupancy);
-  const occupancyEntry = $derived(OCCUPANCY_TABLE_2025.find(o => o.key === selectedOccupancy));
+  const loadsCode = $derived(loadCodeFor(regulationsStore.binding('loads')?.adapterId) as ImposedLoadCode | undefined);
+  const occupancyTable = $derived(loadsCode?.occupancies?.() ?? OCCUPANCY_TABLE_2025);
+  const occupancyEntry = $derived(occupancyTable.find(o => o.key === selectedOccupancy));
+  $effect(() => { if (occupancyTable.length && !occupancyTable.some((o) => o.key === selectedOccupancy)) selectedOccupancy = occupancyTable[0]!.key; });
   const occupancyQ = $derived(occupancyEntry?.uniformKNm2 ?? 0);
   /*
    * §4.3.2 — the partition live load ("sobrecarga de repartición"), 0,75 kN/m² of floor at least.
@@ -397,9 +404,23 @@
     };
   }
 
+  /** Each non-CIRSOC code's own inputs, by adapter (`load-codes/registry.ts`). */
+  let codeInputs = $state<Record<string, unknown>>({});
+  const codeAdapter = (role: 'wind' | 'snow' | 'seismic') => regulationsStore.binding(role)?.adapterId ?? '';
+  const family = $derived(loadFamilyOfRegulations(regulationsStore.roles) ?? 'cirsoc');
+  let familyError = $state<string | null>(null);
+  function chooseFamily(f: LoadFamilyChoice) {
+    familyError = null;
+    const r = regulationsStore.requestStack(FAMILY_STACKS[f]);
+    if (r.kind === 'refused') familyError = r.problems.map((p) => te(p)).join(' · ');
+    else restoreFromRoles();
+    plan = null; delta = null;
+  }
+
   function planInput(): LoadPlanInput {
     return {
       regulations: regulationsStore.roles,
+      codeInputs: $state.snapshot(codeInputs),
       model: modelSlice(),
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
       occupancyKey: selectedOccupancy,
@@ -455,7 +476,7 @@
         },
         liveParticipation: null,
         directions: { x: seismicDirectionX, y: seismicDirectionZ },
-        vertical: seismicMethod.vertical, torsion: seismicMethod.torsion, diagonal: seismicMethod.diagonal,
+        vertical: CODE_INPUTS[codeAdapter('seismic')] ? true : seismicMethod.vertical, torsion: seismicMethod.torsion, diagonal: seismicMethod.diagonal,
       } : undefined,
       generateCombinations: genCombos,
       combinationSet: comboSet,
@@ -496,6 +517,10 @@
     if (snowCfg.enabled) {
       regulationsStore.configureRole('snow', { ...$state.snapshot(snowCfg) }, true);
     }
+    for (const role of ['wind', 'snow', 'seismic'] as const) {
+      const id = codeAdapter(role);
+      if (CODE_INPUTS[id] && codeInputs[id] !== undefined) regulationsStore.configureRole(role, { codeInput: $state.snapshot(codeInputs[id]) }, true);
+    }
     if (enableSeismic) {
       regulationsStore.configureRole('seismic', {
         zone: seismicZone, site: siteClass, destinationGroup, systemKey,
@@ -515,6 +540,13 @@
    * time, and the modal frequencies of a previous preview belong to the model as it was then.
    */
   function restoreFromRoles() {
+    const ci: Record<string, unknown> = {};
+    for (const role of ['wind', 'snow', 'seismic'] as const) {
+      const b = regulationsStore.binding(role);
+      const saved = (b?.settings as { codeInput?: unknown } | undefined)?.codeInput;
+      if (b?.adapterId && saved !== undefined) ci[b.adapterId] = JSON.parse(JSON.stringify(saved));
+    }
+    codeInputs = ci;
     const m = autoLoadsMemory(regulationsStore.roles, { wind: windAvailable, seismic: seismicAvailable });
     genCombos = m.genCombos; comboSet = m.comboSet; comboSource = m.comboSource;
     bothSenses = m.bothSenses; patternsInCompanions = m.patternsInCompanions;
@@ -661,9 +693,17 @@
 
   // ─── The navigation: each section, and what it comes to ─────────
   const snowNow = $derived(snowCfg.enabled ? snowPreview(snowCfg, snowRoof) : null);
-  const lrNow = $derived(roofCfg.enabled && roofCfg.use === 'maintenance' ? roofLrRange(roofCfg, totalDead, snowRoof?.slopeDeg ?? windRoofSlope, autoRoofWeight) : null);
+  const lrNow = $derived(roofCfg.enabled && roofCfg.use === 'maintenance' ? roofLrRange(roofCfg, totalDead, snowRoof?.slopeDeg ?? windRoofSlope, autoRoofWeight, loadsCode) : null);
   const specialOn = $derived([special.thermal.on && 'T', special.soil.on && 'H', special.fluid.on && 'F'].filter(Boolean) as string[]);
   const f2 = (v: number) => v.toFixed(2);
+  /** Wind and seismic beside their section, from the code's own inputs when it has them; null when it has them and they are still empty. */
+  function navOf(role: 'wind' | 'seismic', cirsoc: () => string): string | null {
+    const id = codeAdapter(role);
+    if (!CODE_INPUTS[id]) return cirsoc();
+    const s = codeInputStatus(role, codeInputs[id]);
+    if (!s) return null;
+    return s.kind === 'speed' ? `${s.symbol} ${+toQ(s.value, 'speed').toFixed(1)} ${unitQ('speed')}` : `${s.symbol} ${+s.value.toFixed(3)}`;
+  }
   interface NavItem { id: Section; symbol?: string; labelKey: string; status: string | null; on: boolean }
   const navGroups = $derived<Array<{ titleKey: string; items: NavItem[] }>>([
     { titleKey: 'autoLoad.nav.basis', items: [
@@ -674,11 +714,11 @@
       { id: 'dead', symbol: 'D', labelKey: 'autoLoad.nav.dead', on: true, status: aq(totalDead) },
       { id: 'live', symbol: 'L', labelKey: 'autoLoad.nav.live', on: true, status: aq(occupancyQ + partitionAllowance.qKNm2) },
       { id: 'roof', symbol: 'Lr', labelKey: 'autoLoad.roof.title', on: roofCfg.enabled,
-        status: !roofCfg.enabled ? null : lrNow ? `${f2(toQ(lrNow.lo, "areaLoad"))}–${f2(toQ(lrNow.hi, "areaLoad"))}` : t('autoLoad.roof.occupancyShort') },
-      { id: 'wind', symbol: 'W', labelKey: 'autoLoad.wind', on: enableWind, status: enableWind ? `V ${+toQ(windV, 'speed').toFixed(1)} ${unitQ('speed')}` : null },
+        status: !roofCfg.enabled ? null : lrNow ? (Math.abs(lrNow.hi - lrNow.lo) > 1e-9 ? `${f2(toQ(lrNow.lo, "areaLoad"))}–` : '') + f2(toQ(lrNow.hi, "areaLoad")) : t('autoLoad.roof.occupancyShort') },
+      { id: 'wind', symbol: 'W', labelKey: 'autoLoad.wind', on: enableWind, status: enableWind ? navOf('wind', () => `V ${+toQ(windV, 'speed').toFixed(1)} ${unitQ('speed')}`) : null },
       { id: 'snow', symbol: 'S', labelKey: 'autoLoad.snow', on: snowCfg.enabled,
         status: snowNow && !snowNow.refused ? aq(snowNow.ps) : null },
-      { id: 'seismic', symbol: 'E', labelKey: 'autoLoad.seismic', on: enableSeismic, status: enableSeismic ? tp('autoLoad.nav.zone', { z: seismicZone }) : null },
+      { id: 'seismic', symbol: 'E', labelKey: 'autoLoad.seismic', on: enableSeismic, status: enableSeismic ? navOf('seismic', () => tp('autoLoad.nav.zone', { z: seismicZone })) : null },
       { id: 'special', symbol: 'T·H·F', labelKey: 'autoLoad.nav.special', on: specialOn.length > 0, status: specialOn.length ? specialOn.join(', ') : null },
     ] },
     { titleKey: 'autoLoad.nav.output', items: [
@@ -705,6 +745,12 @@
   <div class="al-dialog" onclick={(e) => e.stopPropagation()}>
     <div class="al-header">
       <h2>{t('autoLoad.title')}</h2>
+      <label class="al-family" title={t('autoLoad.familyHint')}><span>{t('autoLoad.family')}</span>
+        <select value={family} onchange={(e) => chooseFamily(e.currentTarget.value as LoadFamilyChoice)} data-testid="al-family">
+          {#each LOAD_FAMILY_CHOICES as f (f)}<option value={f}>{t(`autoLoad.familyName.${f}`)}</option>{/each}
+        </select>
+      </label>
+      {#if familyError}<span class="al-warn" data-testid="al-family-error">{familyError}</span>{/if}
       <button class="al-close" onclick={onclose} aria-label={t('report.cancel')}>&times;</button>
     </div>
 
@@ -881,9 +927,9 @@
             </div>
             <div class="al-pane-scroll" data-testid="al-live-section">
               <div class="al-pane-body">
-                <label class="al-field"><span class="al-label">{t('loads.cirsoc101.occupancy')}</span>
+                <label class="al-field"><span class="al-label">{t('autoLoad.occupancy')}</span>
                   <select bind:value={selectedOccupancy} data-testid="al-occupancy">
-                    {#each OCCUPANCY_TABLE_2025 as occ}
+                    {#each occupancyTable as occ}
                       <option value={occ.key}>{t(occ.labelKey)}{occ.uniformKNm2 !== null ? ` · ${aq(occ.uniformKNm2)}` : ''}</option>
                     {/each}
                   </select>
@@ -941,11 +987,11 @@
               <label class="al-check al-head-toggle"><input type="checkbox" bind:checked={roofCfg.enabled} data-testid="al-roof" />
                 <span class="al-pane-title"><span class="al-head-sym">Lr</span>{t('autoLoad.roof.title')}</span></label>
               <span class="al-sec-code">{codeHead('loads', 'roof')}</span>
-              {#if lrNow}<span class="al-sec-value" data-testid="al-roof-lr">Lr {toQ(lrNow.lo, 'areaLoad').toFixed(2)}–{aq(lrNow.hi)}</span>{/if}
+              {#if lrNow}<span class="al-sec-value" data-testid="al-roof-lr">Lr {Math.abs(lrNow.hi - lrNow.lo) > 1e-9 ? `${toQ(lrNow.lo, 'areaLoad').toFixed(2)}–` : ''}{aq(lrNow.hi)}</span>{/if}
             </div>
             <div class="al-pane-scroll">
               {#if roofCfg.enabled}
-                <ProRoofLoadSection bind:config={roofCfg} floorDead={totalDead} modelSlopeDeg={snowRoof?.slopeDeg ?? windRoofSlope} autoWeight={autoRoofWeight} />
+                <ProRoofLoadSection bind:config={roofCfg} floorDead={totalDead} modelSlopeDeg={snowRoof?.slopeDeg ?? windRoofSlope} autoWeight={autoRoofWeight} code={loadsCode} />
               {:else}
                 <div class="al-pane-body"><p class="al-hint">{t('autoLoad.roof.off')}</p></div>
               {/if}
@@ -965,6 +1011,7 @@
                 {:else if !enableWind}
                   <p class="al-hint">{t('autoLoad.wind.off')}</p>
                 {:else}
+                {#if CODE_INPUTS[codeAdapter('wind')]}{@render codeInput('wind')}{:else}
                   <div class="al-sub">
                     <span class="al-sub-title">{t('autoLoad.wind.siteTitle')}</span>
                     <!-- Both editions are named; one without its text is shown and cannot be chosen. -->
@@ -1042,6 +1089,7 @@
                       roofHint={snowCfg.roofKind === 'mono' ? 'monoslope' : snowCfg.roofKind === 'multiple' ? 'sawtooth' : 'gable'} />
                   {/if}
                 {/if}
+                {/if}
               </div>
             </div>
 
@@ -1057,6 +1105,8 @@
                 <div class="al-pane-body"><p class="al-warn">{t('autoLoad.snowNeedsRole')}</p></div>
               {:else if !snowCfg.enabled}
                 <div class="al-pane-body" data-testid="al-snow-section"><p class="al-hint">{t('autoLoad.snow.off')}</p></div>
+              {:else if CODE_INPUTS[codeAdapter('snow')]}
+                <div class="al-pane-body" data-testid="al-snow-section">{@render codeInput('snow')}</div>
               {:else}
                 <ProSnowSection bind:config={snowCfg} roof={snowRoof} />
                 <ProActionRegion bind:region={snowRegion} testid="al-snow-roof" />
@@ -1078,6 +1128,8 @@
                   {@render bindHere('seismic')}
                 {:else if !enableSeismic}
                   <p class="al-hint">{t('autoLoad.seismic.off')}</p>
+                {:else if CODE_INPUTS[codeAdapter('seismic')]}
+                  {@render codeInput('seismic')}
                 {:else}
                   <div class="al-sub">
                     <span class="al-sub-title">{t('autoLoad.seismic.siteTitle')}</span>
@@ -1231,6 +1283,12 @@
 </div>
 {/if}
 
+{#snippet codeInput(role: 'wind' | 'snow' | 'seismic')}
+  {@const id = codeAdapter(role)}
+  {@const C = CODE_INPUTS[id]}
+  {#if C}<div data-testid={`al-code-input-${role}`}><C value={codeInputs[id]} onchange={(v: unknown) => { codeInputs = { ...codeInputs, [id]: v }; plan = null; }} /></div>{/if}
+{/snippet}
+
 {#snippet bindHere(role: 'wind' | 'seismic')}
   <div class="al-row" data-testid={`al-bind-${role}`}>
     <label class="al-field"><span class="al-label">{t('autoLoad.bindHere')}</span>
@@ -1266,6 +1324,8 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     font-family: var(--st-sans); font-size: 0.72rem; color-scheme: dark;
   }
+  .al-family { display: inline-flex; gap: 6px; align-items: center; margin-left: auto; margin-right: 12px; font-size: 0.78rem; color: var(--st-text-2); }
+  .al-family select { font: inherit; padding: 3px 6px; background: var(--st-surface); color: var(--st-text); border: 1px solid var(--st-hair-strong); border-radius: 4px; }
   .al-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 10px; border-bottom: 1px solid var(--st-hair); }
   .al-header h2 { margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--st-text); }
   .al-close { background: none; border: none; color: var(--st-text-3); font-size: 1.2rem; line-height: 1; cursor: pointer; }

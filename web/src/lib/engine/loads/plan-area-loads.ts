@@ -34,6 +34,8 @@ export interface RoofLoads {
 
 export interface AreaLoadsInput {
   layout: GravityLayout;
+  /** The loads code's roof Lr for maintenance. Absent: CIRSOC 101 §4.8.1. */
+  roofLive?: typeof roofLiveLoad;
   tributaryWidth: number;
   floor: { dead: number; lo: number; liveOf: (elementId: number) => number };
   roof?: RoofLoads;
@@ -99,14 +101,15 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   if (roof?.use === 'maintenance') {
     let first: EngineMessage | null = null;
     for (const id of layout.roof) {
-      const r = roofLiveLoad({ weight: roof.weight, atM2: layout.roofAreaOf.get(id) ?? 0, slopePercent: roof.slopePercent });
+      const r = (i.roofLive ?? roofLiveLoad)({ weight: roof.weight, atM2: layout.roofAreaOf.get(id) ?? 0, slopePercent: roof.slopePercent });
       lrOf.set(id, r.lr);
       first ??= r.reason;
       if (out.refs.length === 0) out.refs.push(...r.refs);
     }
     if (lrOf.size > 0) {
       const ls = [...lrOf.values()];
-      out.derivation.push(msg('loadPlan.derivation.roofLive', {
+      if (i.roofLive) out.derivation.push(first!);
+      else out.derivation.push(msg('loadPlan.derivation.roofLive', {
         weight: msg(`loads.cirsoc101.roofWeight.${roof.weight}`), n: ls.length, min: round(Math.min(...ls), 3), max: round(Math.max(...ls), 3), slope: round(roof.slopePercent, 1),
       }));
     }
@@ -161,7 +164,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   const lrQ = (id: number, atRoof: boolean) => (atRoof ? lrOf.get(id) ?? 0 : 0);
   if (roof?.use === 'maintenance') {
     // A slab of shells is not a member with a tributary area: R1 = 1 there, the largest Lr.
-    const shellLr = roofLiveLoad({ weight: roof.weight, atM2: 0, slopePercent: roof.slopePercent }).lr;
+    const shellLr = (i.roofLive ?? roofLiveLoad)({ weight: roof.weight, atM2: 0, slopePercent: roof.slopePercent }).lr;
     put('Lr', lrQ, (id) => (isRoofQuad(id) ? shellLr : 0), true);
   }
   const mode = i.patterns === true ? 'checkerboard' : i.patterns === false || i.patterns === undefined ? 'none' : i.patterns;
