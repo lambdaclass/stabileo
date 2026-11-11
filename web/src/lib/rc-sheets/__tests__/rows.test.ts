@@ -153,6 +153,19 @@ describe('seismic provisions', () => {
     const col: ColumnDemand = { key: 'column:1:0', name: 'C1', b: 0.4, h: 0.4, length: 3, lu: 2.7, psiTop: 1.5, psiBot: 0.2, cases: [{ combo: 'U', pu: 1400, mxTop: 80, mxBot: -40, myTop: 25, myBot: -10, vx: 40, vy: 12 }] };
     const r = columnRow(col, { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [12, 16, 20, 25], seismic: { overstrength: 1.25 } }, undefined, f);
     for (const l of ['rcSheets.v.seisColSo', 'rcSheets.v.seisColAsh', 'rcSheets.v.seisColDim', 'rcSheets.v.seisColRho']) expect(ok(r, l)).toBe(true);
+    expect(r.confinement!.lo).toBeCloseTo(0.45, 9);
+    expect(r.confinement!.so).toBeGreaterThanOrEqual(r.adopted.tieSpacing - 1e-9);
+  });
+
+  it('a column on a storey below laps its bars as a tension splice under chapter 18 (§18.7.4.3), in compression without it', () => {
+    const col: ColumnDemand = { key: 'column:1:1', name: 'C1', b: 0.4, h: 0.4, length: 3, lu: 2.7, psiTop: 1.5, psiBot: 1.5, cases: [{ combo: 'U', pu: 1400, mxTop: 80, mxBot: -40, myTop: 25, myBot: -10, vx: 40, vy: 12 }] };
+    const ctx = { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [12, 16, 20, 25] };
+    const seis = columnRow(col, { ...ctx, seismic: { overstrength: 1.25 } }, undefined, f, { fromBelow: true });
+    const plain = columnRow(col, ctx, undefined, f, { fromBelow: true });
+    expect(seis.lap!.tension).toBe(true);
+    expect(plain.lap!.tension).toBe(false);
+    expect(seis.verifications.some((v) => v.label === 'rcSheets.v.colSpliceT')).toBe(true);
+    expect(columnRow(col, ctx, undefined, f).lap).toBeUndefined();
   });
 });
 

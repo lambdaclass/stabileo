@@ -196,6 +196,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: { x: ct.x, y: ct.y }, rhoOk, shearX, shearY },
     verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
+    ...(stack.fromBelow ? { lap: { length: splice, tension } } : {}),
   };
 }
 

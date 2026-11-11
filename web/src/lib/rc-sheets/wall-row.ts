@@ -1,6 +1,7 @@
 import { checkWallInPlaneShear, maxWallSpacing, minimumWallRatios, minimumWallThickness, PHI_WALL_SHEAR } from '../engine/detailing/wall-design';
 import { wallInPlane, wallOutOfPlane } from '../engine/detailing/wall-member';
 import { shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
+import { deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
 import { barArea, roundDown } from './bars';
 import type { Fmt } from './format';
 import { check, ratioOf, type CheckLine, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, type WallAdopted } from './types';
@@ -40,6 +41,9 @@ export interface WallRow {
   status: RowStatus;
   generous: boolean;
   steps: StepGroup[];
+  /** Clear cover to the horizontal bars, m, and the tension lap of a horizontal bar, m: what the end U-bars overlap it by. */
+  cover: number;
+  hLap: number;
 }
 
 const rhoOf = (m: { diameter: number; spacing: number }, curtains: number, t: number) => (m.spacing > 0 ? curtains * barArea(m.diameter) * 1e-4 / (m.spacing * t) : 0);
@@ -181,6 +185,8 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     proposed, adopted: ad, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, verifications, combos,
     utilization: Math.max(0, ...ev.pm, ...ev.shear, ...ev.out),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
+    cover: c.cover,
+    hLap: deriveLap(deriveDevelopment({ diameterMm: ad.horizontal.diameter, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, edition: EDITION }), { edition: EDITION }).lapM,
   };
 }
 

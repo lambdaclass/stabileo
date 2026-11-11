@@ -226,6 +226,7 @@ export function makeColumnRow(set: Ec2Set) {
       proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : first.iterations,
       checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: ct, rhoOk, shearX, shearY },
       verifications, combos, status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
+      ...(stack.fromBelow ? { lap: { length: lap } } : {}),
     };
   };
 }

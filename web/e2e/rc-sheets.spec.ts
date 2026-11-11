@@ -15,8 +15,15 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await solveModel(page);
 
   await page.getByTestId('pr-stage-analyse').click();
+  // The panel says what it is building before the rows hold the page: recorded as it shows, for it can come and go between two looks.
+  await page.evaluate(() => {
+    const w = window as unknown as { building: string[] };
+    w.building = [];
+    new MutationObserver(() => { const b = document.querySelector('[data-testid="rc-building"]'); if (b) w.building.push(b.textContent ?? ''); }).observe(document.body, { childList: true, subtree: true });
+  });
   await page.getByTestId('pr-cmd-rcSheets').click();
   await expect(page.getByTestId('rc-sheets-panel')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { building: string[] }).building.some((x) => x.includes('combinaciones')))).toBe(true);
   // The physical elements are already read; the walls, one element a storey, are meshed for the sheets.
   await expect(page.getByTestId('rc-recognize')).toHaveCount(0);
   await page.getByTestId('rc-mesh-walls').click();
@@ -31,6 +38,16 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await page.getByTestId('rc-open-beam').click();
   const ws = page.getByTestId('rc-sheets-workspace');
   await expect(ws).toBeVisible();
+  // The close button stays at the top right of the header however its controls wrap, and the table scrolls inside with the panels' scrollbars.
+  for (const width of [1440, 1000, 760]) {
+    await page.setViewportSize({ width, height: 900 });
+    const head = (await ws.locator('.rcw-head').boundingBox())!, close = (await ws.getByTestId('rc-close').boundingBox())!;
+    expect(close.y - head.y).toBeLessThan(14);
+    expect(head.x + head.width - (close.x + close.width)).toBeLessThan(16);
+  }
+  await expect(ws).toHaveClass(/st-panel-scrollbars/);
+  expect(await ws.locator('.rcw-body').evaluate((b) => b.scrollWidth > b.clientWidth)).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 900 });
   await expect(ws.getByTestId('rc-code').getByTestId('rc-code-select')).toHaveValue('cirsoc201-2025');
   const first = ws.getByTestId('rc-row').first();
   await expect(first).toContainText('Verifica');
@@ -58,8 +75,26 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await ws.getByTestId('rc-row').first().click();
   await expect(ws.getByTestId('rc-section')).toHaveCount(1);
   await expect(ws.getByTestId('rc-section').locator('circle').first()).toBeVisible();
+  // The storey in elevation: one tie each spacing from half a spacing above the floor, through the joint above.
+  const elev = ws.getByTestId('rc-column-elevation');
+  await expect(elev).toBeVisible();
+  expect(await elev.getByTestId('rc-elev-tie').count()).toBeGreaterThan(15);
+  await expect(elev.getByTestId('rc-elev-zone')).toHaveCount(2);
+  await expect(elev).toContainText('§25.7.2.1');
   await ws.getByTestId('rc-tab-slab').click();
   await expect(ws.getByTestId('rc-table-slab')).toBeVisible();
+  // A slab's four layers, each switched off and on by itself.
+  await ws.getByTestId('rc-row').first().click();
+  const slabFig = ws.getByTestId('rc-slab-layers');
+  for (const f of ['bottomX', 'bottomY', 'topX', 'topY']) {
+    const present = await slabFig.getByTestId(`rc-slab-layer-${f}`).isEnabled();
+    await expect(slabFig.getByTestId(`rc-slab-plan-${f}`)).toHaveCount(present ? 1 : 0);
+  }
+  await slabFig.getByTestId('rc-slab-layer-bottomY').uncheck();
+  await expect(slabFig.getByTestId('rc-slab-plan-bottomY')).toHaveCount(0);
+  await expect(slabFig.getByTestId('rc-slab-plan-bottomX')).toHaveCount(1);
+  await slabFig.getByTestId('rc-slab-layer-bottomY').check();
+  await expect(slabFig.getByTestId('rc-slab-plan-bottomY')).toHaveCount(1);
   await ws.getByTestId('rc-tab-wall').click();
   await expect(ws.getByTestId('rc-table-wall')).toBeVisible();
   // The example's core stands on the corner column alone: its ground-floor walls rest on one node each.
@@ -69,6 +104,15 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await ground.first().click();
   await expect(ws.getByTestId('rc-checks').first()).toContainText('La base del tabique apoya en toda su longitud');
   await expect(ws.getByTestId('rc-row').filter({ hasText: 'N1' }).first()).toContainText('Verifica');
+  // A wall's bars: the verticals and the horizontals, the U-bars that close its edges, each kind switched by itself.
+  await ws.getByTestId('rc-row').filter({ hasText: 'N1' }).first().click();
+  const wallFig = ws.getByTestId('rc-wall-detail');
+  await expect(wallFig).toBeVisible();
+  await expect(wallFig.getByTestId('rc-wall-plan-ends').locator('path')).toHaveCount(2);
+  await expect(wallFig).toContainText(/Horquillas en los bordes|Una sola cortina: las horizontales terminan con gancho/);
+  await wallFig.getByTestId('rc-wall-layer-vertical').uncheck();
+  await expect(wallFig.getByTestId('rc-wall-elev-vertical')).toHaveCount(0);
+  await expect(wallFig.getByTestId('rc-wall-elev-horizontal')).toHaveCount(1);
 
   // The code is switched from the sheets themselves: every family is designed again to it, and the choice is the project's.
   const picker = ws.getByTestId('rc-code').getByTestId('rc-code-select');

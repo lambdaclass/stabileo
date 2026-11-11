@@ -3,7 +3,7 @@ import { barArea, roundDown } from '../bars';
 import type { Fmt } from '../format';
 import { wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
 import { check, ratioOf, type CheckLine, type ComboTable, type Step, type StepGroup, type WallAdopted } from '../types';
-import { toConfirm as U, ts500Mat, vcrOf, vmaxOf, type Ts500Mat } from './basis';
+import { lapOf, toConfirm as U, ts500Mat, vcrOf, vmaxOf, type Ts500Mat } from './basis';
 import { axialLimits, capacityAt, type RectSection } from './biaxial';
 import { stripCapacity } from './section';
 import { materialSteps } from './steps';
@@ -140,6 +140,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     req: { rhoL: RHO_MIN, rhoT: Math.max(RHO_MIN, ev.rhoTShear), sMaxV: S_MAX, sMaxH: S_MAX, curtains, boundary: proposed.boundary ? `${proposed.boundary.count} Ø${proposed.boundary.diameter}` : '—' },
     proposed, adopted: ad, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, verifications, combos,
     utilization: Math.max(0, ...ev.pm, ...ev.shear, ...ev.out),
+    cover: c.cover, hLap: lapOf(t, ad.horizontal.diameter, false, 1),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };
 }

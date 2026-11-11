@@ -792,4 +792,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'writeLoad.shell.direction',
   'writeLoad.sketch.plan',
   'xls.col.supportType',
+  'rcSheets.slabFig.plan',
 ];

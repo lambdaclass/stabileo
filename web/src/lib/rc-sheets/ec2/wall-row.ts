@@ -5,7 +5,7 @@ import { barArea, roundDown } from '../bars';
 import type { Fmt } from '../format';
 import { wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
 import { check, ratioOf, type CheckLine, type ComboTable, type StepGroup, type WallAdopted } from '../types';
-import { matOf, momentCapacity, shearCapacity, type Ec2Set, type Layer, type Mat } from './basis';
+import { lapLength, matOf, momentCapacity, shearCapacity, type Ec2Set, type Layer, type Mat } from './basis';
 
 const KPA = 1000;
 const MAX_ITERATIONS = 12;
@@ -180,6 +180,7 @@ export function makeWallRow(set: Ec2Set) {
       proposed, adopted: ad, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, verifications, combos,
       utilization: Math.max(0, ...ev.pm, ...ev.shear, ...outU),
       status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
+      cover: c.cover, hLap: lapLength(m, ad.horizontal.diameter, true),
     };
   };
 }

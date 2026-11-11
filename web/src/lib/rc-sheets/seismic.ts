@@ -59,7 +59,7 @@ export function columnSeismic(
   d: { b: number; h: number; lu: number; cases: Array<{ pu: number; vx?: number; vy?: number }> },
   c: { mat: { fc: number; fy: number }; cover: number; overstrength: number },
   a: ColumnAdopted, bars: Array<{ x: number; y: number; area: number }>, ct: { x: number; y: number }, fmt: Fmt,
-): { checks: CheckLine[]; steps: Step[]; so: number } {
+): { checks: CheckLine[]; steps: Step[]; so: number; lo: number } {
   const minDim = Math.min(d.b, d.h), Ag = d.b * d.h;
   const area = bars.reduce((s, b) => s + b.area, 0);
   const rho = area / Ag;
@@ -75,7 +75,7 @@ export function columnSeismic(
   const shX = columnCapacityShear({ b: d.b, h: d.h, d: d.h - c.cover - 0.02, fc: c.mat.fc, fyt: c.mat.fy, mpr: [mprX, mprX], lu: d.lu, vu: vx, pu: puMax, ties: ties(2 + ct.x) });
   const shY = columnCapacityShear({ b: d.h, h: d.b, d: d.b - c.cover - 0.02, fc: c.mat.fc, fyt: c.mat.fy, mpr: [mprY, mprY], lu: d.lu, vu: vy, pu: puMax, ties: ties(2 + ct.y) });
   return {
-    so: conf.so,
+    so: conf.so, lo: conf.lo,
     checks: [
       check('rcSheets.v.seisColDim', minDim >= 0.3 - 1e-9 && minDim / Math.max(d.b, d.h) >= 0.4 - 1e-9, { clause: '§18.7.2.1', demand: `${fmt(d.b * 100, 0)} × ${fmt(d.h * 100, 0)} cm`, capacity: '≥ 30 cm; ≥ 0.4' }),
       check('rcSheets.v.seisColRho', rho >= 0.01 - 1e-9 && rho <= 0.06 + 1e-9, { clause: '§18.7.4.1', demand: `${fmt(rho * 100, 2)} %`, capacity: '1 … 6 %' }),

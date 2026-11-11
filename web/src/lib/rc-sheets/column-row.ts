@@ -34,6 +34,8 @@ export interface ColumnDemand {
   psiTop: number; psiBot: number;
   cases: ColumnCase[];
   nodes?: { bottom: number; top: number };
+  /** Depth of the deepest beam framing in at each end, m; 0 where none does. */
+  joints?: { bottom: number; top: number };
 }
 
 export interface ColumnContext {
@@ -66,6 +68,10 @@ export interface ColumnRow {
   status: RowStatus;
   generous: boolean;
   steps: StepGroup[];
+  /** The splice of the bars from the storey below, just above its floor. */
+  lap?: { length: number; tension?: boolean };
+  /** Chapter 18: the length lo from each joint face and the hoop spacing so in it. */
+  confinement?: { lo: number; so: number };
 }
 
 const coverToBar = (c: ColumnContext, tie: number, dia: number) => c.cover + tie / 1000 + dia / 2000;
@@ -145,7 +151,7 @@ export function bracedFaceBars(side: number, n: number, dia: number, cornerDia: 
 
 const crossties = (side: number, n: number, dia: number, cornerDia: number, c: ColumnContext, tie: number): number => bracedFaceBars(side, n, dia, cornerDia, c, tie).length;
 
-const tieDiaFor = (longDia: number): number => (longDia <= 16 ? 6 : longDia <= 25 ? 8 : 10);
+export const tieDiaFor = (longDia: number): number => (longDia <= 16 ? 6 : longDia <= 25 ? 8 : 10);
 
 
 
@@ -253,7 +259,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
   const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
   const generous = area > 1.2 * ast + 1e-6 && ast > lo0 + 1e-6;
-  const splice = columnSplice(c, longest, d.cases.some((cs) => (cs.puMin ?? cs.pu) < 0.1 * c.mat.fc * 1000 * Ag));
+  const splice = columnSplice(c, longest, !!c.seismic || d.cases.some((cs) => (cs.puMin ?? cs.pu) < 0.1 * c.mat.fc * 1000 * Ag));
   const seis = c.seismic ? columnSeismic(d, { ...c, overstrength: c.seismic.overstrength }, a, columnBars(d, a, c), ct, fmt) : null;
 
   const verifications: CheckLine[] = [
@@ -329,6 +335,8 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: ct, rhoOk, shearX, shearY },
     verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
+    ...(stack.fromBelow ? { lap: splice } : {}),
+    ...(seis ? { confinement: { lo: seis.lo, so: seis.so } } : {}),
   };
 }
 

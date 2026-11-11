@@ -581,4 +581,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'writeLoad.sameAsI',
   'xls.col.supportType',
   'xls.tpl.optionalMark',
+  'rcSheets.wallFig.horizontal',
 ];

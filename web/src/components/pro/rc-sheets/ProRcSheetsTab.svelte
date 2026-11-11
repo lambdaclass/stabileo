@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { t, tp, i18n } from '../../../lib/i18n';
+  import { t, tp } from '../../../lib/i18n';
   import { modelStore, resultsStore } from '../../../lib/store';
-  import { buildSheetRows, downloadRcSheets, meshWallsForSheets, rcSheetsData, setRcOption, setTorsionMode, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
+  import { downloadRcSheets, meshWallsForSheets, rcSheetsData, setRcOption, setTorsionMode, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { physicalGroups } from '../../../lib/store/physical';
   import { plateSurfaceOf } from '../../../lib/model/physical/plate';
   import { runGlobalSolve } from '../../../lib/engine/live-calc';
-  import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
+  import { liveSheetRows, sheetSize } from '../../../lib/store/rc-sheets-view.svelte';
   import { SHEET_FAMILIES, type SheetFamily, type TorsionMode } from '../../../lib/rc-sheets/types';
   import RcSheetsWorkspace from './RcSheetsWorkspace.svelte';
   import RcCodePicker from './RcCodePicker.svelte';
@@ -19,10 +19,8 @@
 
   const solved = $derived(!!resultsStore.results3D);
   const hasPhysical = $derived.by(() => { void modelStore.model.groups; return modelStore.elements.size === 0 ? physicalGroups().length > 0 : physicalGroups().some((g) => !plateSurfaceOf(g)); });
-  const rows = $derived.by(() => {
-    void resultsStore.perCombo3D; void resultsStore.results3D; void modelStore.designData; void modelStore.model.groups;
-    return solved && hasPhysical ? buildSheetRows(makeFmt(decimalFor(i18n.locale))) : null;
-  });
+  const view = liveSheetRows(() => solved && hasPhysical);
+  const rows = $derived(view.rows);
   const torsion = $derived.by(() => { void modelStore.designData; return rcSheetsData().torsion; });
   const options = $derived.by(() => { void modelStore.designData; const d = rcSheetsData(); return { faces: d.faces === true, flange: d.flange === true, seismic: d.seismic === true }; });
   const stat = (list: SheetRow[]) => ({ n: list.length, ok: list.filter((r) => r.status !== 'fail').length, fail: list.filter((r) => r.status === 'fail').length });
@@ -44,7 +42,10 @@
     <p class="rcp-note">{t('rcSheets.solveFirst')}</p>
   {:else if !hasPhysical}
     <p class="rcp-note">{t('rcSheets.noPhysical')}</p>
-  {:else if rows}
+  {:else if !rows}
+    {@const z = sheetSize()}
+    <p class="rcp-basis" role="status" data-testid="rc-building">{tp('rcSheets.building', { combos: z.combos, members: z.members, shells: z.shells })}</p>
+  {:else}
     {#if wallsToMesh > 0}
       <p class="rcp-basis warn">{tp('rcSheets.wallsToMesh', { n: wallsToMesh })}</p>
       <button type="button" class="rcs-btn" onclick={meshWalls} disabled={solving} data-testid="rc-mesh-walls">{t('rcSheets.meshWalls')}</button>

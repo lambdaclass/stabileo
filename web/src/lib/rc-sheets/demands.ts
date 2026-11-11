@@ -289,7 +289,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       }
       out.push({
         key: `column:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(zOf(m.nodes.get(nBot))) : g.level,
-        b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop },
+        b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: deepest(nBot), top: deepest(nTop) },
       });
     });
   }
