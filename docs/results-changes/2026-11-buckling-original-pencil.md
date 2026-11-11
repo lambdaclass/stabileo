@@ -191,3 +191,28 @@ The curvature-patterned-arch evidence is regenerated for the corrected engine
 factors, with every reference, validation tolerance and passed assertion retained.
 No advisory is added or numbered. The previously recorded silent origin/main
 2D error remains for the coordinator's advisory decision.
+
+PR #1939 fifth review: teaching buckling's additional geometric-work cutoff used
+100 epsilon times the largest positive reciprocal eigenvalue. It discarded the
+exact second mode of K = I2, G = diag(1, 1e-14), returning only factor 1 instead
+of factors 1 and 1e14. Both eigenpairs pass the existing per-mode eigenvalue
+error check. This cutoff was introduced on the unmerged branch; replaying the
+origin/main teaching solver at b91b94b7345b7ea45902bd241c9f8839e238bc08
+retains both factors for the exact and scaled diagonal pencils.
+
+The shared generalizedEigen path now reuses each candidate's existing
+residual-and-rounding error bound to check its refined reciprocal work
+(phi^T G phi)/(phi^T K phi). A mode must pass the same error bound before and
+after original-work refinement. The global-spectrum cutoff is removed;
+non-positive geometric work is still excluded. No error-bound constant,
+certificate tolerance or native solver behavior changes.
+
+Regressions cover the supplied pencil, independently scaling K and G by
+2^-60, 1 and 2^60, with and without a coordinate transform. Weak work
+below, at and above the removed cutoff is retained when resolved. Zero and
+negative work remain excluded and ordinary positive modes retain their answers.
+Two independent columns with compression ratio 1e-14 exercise both consistent
+and string matrices through linearBuckling and teachingBuckling, with axial
+rigidity enabled and disabled; all requested modes match the isolated-column
+spectra. These are synthetic regression inputs. This review closes only the
+mode-loss blocker; #818 remains partially addressed.

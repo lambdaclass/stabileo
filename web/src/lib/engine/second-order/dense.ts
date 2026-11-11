@@ -280,10 +280,11 @@ export function generalizedEigen(originalK: Mat, originalG: Mat, transform?: Mat
   const { values, vectors } = symmetricEigen(C);
   const out: Array<{ lambda: number; vector: number[] }> = [];
   let invalid = false;
-  const maxMu = Math.max(0,...values);
   values.forEach((mu, k) => {
-    if (!(mu > eigenErrorBound(C, mu, vectors.map((r) => r[k])))) return;
-    const vector = triSolve(L, vectors.map((r) => r[k]), true);
+    const eigenvector = vectors.map((r) => r[k]);
+    const error = eigenErrorBound(C, mu, eigenvector);
+    if (!(mu > error)) return;
+    const vector = triSolve(L, eigenvector, true);
     const scale = Math.max(...vector.map(Math.abs));
     if (!(scale > 0 && Number.isFinite(scale))) { invalid = true; return; }
     const q = vector.map(v => v/scale);
@@ -294,7 +295,7 @@ export function generalizedEigen(originalK: Mat, originalG: Mat, transform?: Mat
     }) : q.map(v => [v,0]);
     const stiffness = compensatedWork(originalK, phi), geometric = compensatedWork(originalG, phi);
     if (!(stiffness > 0 && Number.isFinite(stiffness) && Number.isFinite(geometric))) { invalid = true; return; }
-    if (geometric <= 100*Number.EPSILON*maxMu*stiffness) return;
+    if (!(geometric > 0 && geometric/stiffness > error)) return;
     const lambda = stiffness/geometric;
     if (!Number.isFinite(lambda)) { invalid = true; return; }
     out.push({ lambda, vector });

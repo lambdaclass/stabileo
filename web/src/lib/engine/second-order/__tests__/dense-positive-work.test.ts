@@ -10,7 +10,7 @@ const pencils = scales.flatMap(k => scales.flatMap(g => [false, true].map(projec
 }))));
 const transform = (projected: boolean): Mat | undefined => projected ? [[2, 0], [0, 0.5]] : undefined;
 
-it.skip.each(pencils)('known wrong result: #818: resolved positive work survives $label', ({ k, g, projected }) => {
+it.each(pencils)('known wrong result: #818: resolved positive work survives $label', ({ k, g, projected }) => {
   for (const weak of [1e-14, 50 * Number.EPSILON, 100 * Number.EPSILON, 200 * Number.EPSILON]) {
     const K = [[k, 0], [0, k]], G = [[g, 0], [0, g * weak]];
     const modes = generalizedEigen(K, G, transform(projected));
@@ -41,7 +41,7 @@ it.each(pencils)('non-positive work stays excluded and ordinary modes survive $l
   }
 });
 
-it.skip.each(['consistent', 'string'] as const)('known wrong result: #818: %s buckling returns both separated column spectra', method => {
+it.each(['consistent', 'string'] as const)('known wrong result: #818: %s buckling returns both separated column spectra', method => {
   for (const axialRigid of [false, true]) {
     const isolated = column('fixed', null, 5, 100);
     const opts = { method, axialRigid };
