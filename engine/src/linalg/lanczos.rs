@@ -1055,6 +1055,56 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #818"]
+    fn buckling_818_sparse_boundary_uses_original_factors() {
+        for (s, gap) in [(1e7, 1e-10), (1e8, 1e-9), (1e11, 1e-8)] {
+            let n = 201;
+            let mut a = vec![0.0; n*n];
+            let mut b = vec![0.0; n*n];
+            for i in 0..n { a[i*n+i] = 4.0 + i as f64; b[i*n+i] = 1.0; }
+            a[0] = s+1.0; a[1] = s; a[n] = s; a[n+1] = s+1.0;
+            a[2*n+2] = 1.0 + gap;
+            let a = CscMatrix::from_dense_symmetric(&a,n);
+            let b = CscMatrix::from_dense_symmetric(&b,n);
+            for count in [1,2] {
+                let result = lanczos_buckling_eigen_sparse(&a,&b,count).expect("valid sparse pencil");
+                let factor = 1.0/result.values.iter().copied().fold(0.0f64,f64::max);
+                assert!((factor-1.0).abs() < 1e-12, "s={s}, gap={gap}, k={count}: {factor}");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #818"]
+    fn buckling_818_sparse_refinement_prevents_false_refusal() {
+        let n = 201;
+        for s in [1e10, 1e11] {
+            let mut a = vec![0.0; n*n];
+            let mut b = vec![0.0; n*n];
+            for i in 0..n { a[i*n+i] = 4.0 + i as f64; b[i*n+i] = 1.0; }
+            a[0] = s+1.0; a[1] = s; a[n] = s; a[n+1] = s+1.0;
+            let result = lanczos_buckling_eigen_sparse(&CscMatrix::from_dense_symmetric(&a,n),&CscMatrix::from_dense_symmetric(&b,n),1).expect("valid sparse pencil");
+            assert!((1.0/result.values[0]-1.0).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn buckling_818_indefinite_original_pencil() {
+        for n in [2,200,201] {
+            for magnitude in [1e7,1e8] {
+                let mut a = vec![0.0; n*n];
+                let mut b = vec![0.0; n*n];
+                for i in 0..n { a[i*n+i] = 1.0; b[i*n+i] = -2.0-i as f64; }
+                b[0] = (1.0-magnitude)/2.0; b[n+1] = b[0];
+                b[1] = (1.0+magnitude)/2.0; b[n] = b[1];
+                let result = lanczos_buckling_eigen_sparse(&CscMatrix::from_dense_symmetric(&a,n),&CscMatrix::from_dense_symmetric(&b,n),1).unwrap();
+                let mu = result.values.iter().copied().fold(0.0f64,f64::max);
+                assert!((1.0/mu-1.0).abs() < 1e-12, "n={n}, magnitude={magnitude}: {}",1.0/mu);
+            }
+        }
+    }
+
+    #[test]
     fn original_buckling_work_rejects_invalid_modes() {
         let b = CscMatrix::from_dense_symmetric(&[1.0],1);
         for (stiffness, vector) in [(1.0,0.0), (1.0,f64::NAN), (1.0,f64::INFINITY), (0.0,1.0), (-1.0,1.0), (f64::INFINITY,1.0)] {

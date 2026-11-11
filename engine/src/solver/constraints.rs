@@ -2770,6 +2770,26 @@ impl FreeConstraintSystem {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    #[ignore = "known wrong result: #818"]
+    fn buckling_818_constraint_work_uses_original_pencil() {
+        use crate::linalg::sparse::CscMatrix;
+        let s = 1e12;
+        let t = 1.0 + 2.0f64.powi(-20);
+        let k = CscMatrix::from_dense_symmetric(&[s+1.0,-s,-s,s],2);
+        let b = CscMatrix::from_dense_symmetric(&[1.0,0.0,0.0,0.0],2);
+        let ct = ConstraintTransform {
+            c: SparseTransform::from_rows(2,1,vec![vec![(0,1.0)],vec![(0,t)]]),
+            n_independent: 1, n_total: 2, independent_dofs: vec![0], dependent_dofs: std::collections::HashSet::from([1]),
+        };
+        for dimensions in [2,3] {
+            let cs = FreeConstraintSystem::from_transform(&ct,2,dimensions);
+            let result = crate::linalg::lanczos::lanczos_buckling_eigen_sparse(&cs.reduce_matrix_sparse(&k),&cs.reduce_matrix_sparse(&b),1).unwrap();
+            let expected = 1.0 + s*(t-1.0).powi(2);
+            assert!((1.0/result.values[0]/expected-1.0).abs() < 1e-12, "{dimensions}D: {} vs {expected}",1.0/result.values[0]);
+        }
+    }
     use super::*;
 
     #[test]
