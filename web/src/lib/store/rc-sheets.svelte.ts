@@ -4,7 +4,7 @@ import { regulationsStore } from './regulations.svelte';
 import { rulesFor } from '../rc-sheets/codes';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
-import { clearPlateMesh, physicalPlates, plateShellKeys, plateStatus, setPlateMeshSpec } from './physical-plates';
+import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateShellKeys, plateStatus, setPlateMeshSpec, type PlateMeshPlan } from './physical-plates';
 import { designData, patchOwnDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
@@ -210,18 +210,21 @@ export function wallsToMeshForSheets(): number[] {
   }).map((p) => p.id);
 }
 
-/** Those walls given a mesh of `WALL_MESH_SIZE` at most, which the next solve puts in. One undo step; how many. */
+/** Those walls meshed now at `WALL_MESH_SIZE` at most, whatever "mesh before analysis" says. One undo step; how many. */
 export function meshWallsForSheets(): number {
   const ids = wallsToMeshForSheets();
   if (!ids.length) return 0;
+  let meshed = 0;
   modelStore.batch(() => {
     for (const id of ids) {
       const e = physicalPlates().find((p) => p.id === id);
       if (e && e.surface.mesh.size > WALL_MESH_SIZE) setPlateMeshSpec([id], { size: WALL_MESH_SIZE });
       if (plateShellKeys(id).length === 1) clearPlateMesh(id);
     }
+    const plans = ids.map((id) => planPlateMesh(id)).filter((p): p is PlateMeshPlan => !!p && p.localLoads === 0);
+    meshed = applyPlateMeshes(plans).plates;
   });
-  return ids.length;
+  return meshed;
 }
 
 export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {

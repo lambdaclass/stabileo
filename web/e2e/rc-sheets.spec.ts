@@ -11,6 +11,7 @@ test.use({ appLocale: 'es' });
 
 test('@slow the reinforcement sheets design beams, columns, slabs and walls of a solved building', async ({ pro: page }) => {
   await loadModel(page, 'pro-edificio-7p');
+  await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
   await solveModel(page);
 
   await page.getByTestId('pr-stage-analyse').click();

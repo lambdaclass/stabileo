@@ -9,6 +9,7 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements, physicalGroups } from '../physical';
 import { clearPlateMesh, physicalPlates, plateStatus, preparePlatesForAnalysis } from '../physical-plates';
 import { ensurePhysicalModel } from '../plates-from-shells';
+import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.members.quads?.length ?? 0;
 import { buildSheetRows, rcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
@@ -280,8 +281,7 @@ describe('reinforcement sheets from a solved model', () => {
     ensurePhysicalModel();
     expect(meshWallsForSheets()).toBe(1);
     const wall = physicalGroups().find((g) => g.physical.kind === 'wall')!;
-    expect(plateStatus(wall.id)).toBe('unmeshed');
-    expect(preparePlatesForAnalysis()).toMatchObject({ ok: true, meshed: 1 });
+    expect(plateStatus(wall.id)).toBe('current');
     expect((physicalGroups().find((g) => g.id === wall.id)!.members.quads ?? []).length).toBeGreaterThan(4);
     const bottom = [...modelStore.nodes.values()].filter((p) => Math.abs(p.z ?? 0) < 1e-9);
     expect(bottom.length).toBeGreaterThan(2);
@@ -309,8 +309,7 @@ describe('reinforcement sheets from a solved model', () => {
     modelStore.addNodalLoad3D(c, 0, 0, -100, 0, 0, 0, D);
     modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
     ensurePhysicalModel();
-    meshWallsForSheets();
-    expect(preparePlatesForAnalysis()).toMatchObject({ ok: true, meshed: 1 });
+    expect(meshWallsForSheets()).toBe(1);
     solve();
     const row = buildSheetRows().wall[0]!;
     const base = row.verifications.find((v) => v.label === 'rcSheets.v.wallBase')!;
@@ -351,12 +350,17 @@ describe('reinforcement sheets from a solved model', () => {
     expect(meshWallsForSheets()).toBe(1);
     expect(historyStore.undoCount).toBe(undo + 1);
     expect(physicalPlates().find((p) => p.id === bareId)!.surface.mesh.size).toBe(WALL_MESH_SIZE);
-    expect(plateStatus(bareId)).toBe('unmeshed');
+    expect(plateStatus(bareId)).toBe('current');
+    expect(modelEntryShells(bareId)).toBeGreaterThan(1);
     expect(plateStatus(loadedId)).toBe('current');
     expect(modelStore.loads.filter((l) => l.type === 'surface3d' && (l.data as { quadId: number }).quadId === loaded)).toHaveLength(1);
-    expect(preparePlatesForAnalysis()).toMatchObject({ ok: true, meshed: 1 });
-    expect(modelEntryShells(bareId)).toBeGreaterThan(1);
     expect(wallsToMeshForSheets()).toEqual([]);
+    meshBeforeAnalysis.value = false;
+    try {
+      expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
+    } finally {
+      meshBeforeAnalysis.value = true;
+    }
   });
 
   it('checks punching where a flat slab sits on a column', () => {
