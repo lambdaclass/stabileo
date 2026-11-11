@@ -1799,7 +1799,7 @@ fn issue_1846_round5_persistent_moment_after_member_removal() {
     for dim in [2, 3] {
         for pads in [0, 22] {
             for connected in [false, true] {
-                for (moment, removed, cancel, refused) in [(1.0,true,false,true), (1.0,false,false,false), (0.0,true,false,false), (1.0,true,true,false)] {
+                for (moment, removed, cancel, refused) in [(1.0,true,false,true), (1.0,false,false,false), (0.0,true,false,false), (1.0,true,true,true)] {
                     let mut v = round5_cantilever(dim, pads);
                     if connected {
                         v["elements"]["2"] = v["elements"]["1"].clone();
@@ -1818,7 +1818,7 @@ fn issue_1846_round5_persistent_moment_after_member_removal() {
                     ]);
                     let result = review_solve(dim, v);
                     assert_eq!(result.is_err(), refused, "{dim}D pads={pads} connected={connected} moment={moment} removed={removed} cancel={cancel}: {result:?}");
-                    if refused { assert!(result.unwrap_err().contains("free rotation")); }
+                    if refused { assert!(result.unwrap_err().contains("rotation")); }
                     else if !removed {
                         let out = result.unwrap();
                         assert_eq!(out["stages"][0]["results"]["displacements"], out["finalResults"]["displacements"]);

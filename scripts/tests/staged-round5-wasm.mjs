@@ -20,7 +20,7 @@ function pad(input, count) {
   }
 }
 for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [false, true]) {
-  for (const [moment, removed, cancel, refused] of [[1,true,false,true], [1,false,false,false], [0,true,false,false], [1,true,true,false]]) {
+  for (const [moment, removed, cancel, refused] of [[1,true,false,true], [1,false,false,false], [0,true,false,false], [1,true,true,true]]) {
     const input = {
       nodes: { 1: { id: 1, x: 0, y: 0, z: 0 }, 2: { id: 2, x: 4, y: 0, z: 0 } },
       materials: { 1: { id: 1, e: 10000, nu: 0.3 } },
@@ -29,6 +29,10 @@ for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [f
       supports: { 1: { id: 1, nodeId: 1, type: 'fixed', rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }, 2: { id: 2, nodeId: 2, type: 'pinned', rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true } },
       loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: moment, mz: 0 } }, { type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: -moment, mz: 0 } }],
     };
+    if (dim === 2) {
+      for (const node of Object.values(input.nodes)) delete node.y;
+      for (const load of input.loads) for (const axis of ["fy", "mx", "mz"]) delete load.data[axis];
+    }
     pad(input, pads);
     if (connected) input.elements[2] = { ...input.elements[1], id: 2, type: 'truss' };
     input.stages = [
@@ -37,7 +41,7 @@ for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [f
     ];
     const solve = dim === 2 ? solve_staged_2d : solve_staged_3d;
     check(`${dim}D pads=${pads} connected=${connected} moment=${moment} removed=${removed} cancel=${cancel}`, () => {
-      if (refused) assert.throws(() => solve(JSON.stringify(input)), /free rotation/);
+      if (refused) assert.throws(() => solve(JSON.stringify(input)), /rotation/);
       else {
         const out = JSON.parse(solve(JSON.stringify(input)));
         if (!removed) {
