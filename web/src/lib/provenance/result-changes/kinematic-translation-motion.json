@@ -1,0 +1,39 @@
+{
+  "id": "kinematic-translation-motion",
+  "date": "2026-11-11",
+  "prs": [
+    1943
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "members",
+      "constraints",
+      "springs"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Kinematic checks distinguish rigid-arm mechanisms from elastic refusals",
+    "es": "La cinemática distingue mecanismos de brazos rígidos y rechazos elásticos",
+    "pt": "A cinemática distingue mecanismos de braços rígidos e recusas elásticas",
+    "de": "Kinematische Prüfung trennt Starrarmmechanismen und elastische Ablehnungen",
+    "fr": "La cinématique distingue mécanismes à bras rigides et refus élastiques",
+    "tr": "Kinematik denetimler rijit kol mekanizmalarını elastik retlerden ayırır"
+  },
+  "explanation": {
+    "en": "Free rotations moving constrained translations now appear in mechanism metadata. Elastic numerical refusals reach the regular solver instead of the plastic soft-spring fallback; rigid-plastic analysis can normalize stiffness first. Dormant staged pins use active stiffness to avoid spurious conditioning warnings. Re-run affected constrained and staged models and review plastic solve status (#1846, PR #1943).",
+    "es": "Los giros libres que mueven traslaciones restringidas ahora aparecen como mecanismos. Los rechazos numéricos elásticos llegan al cálculo lineal y no al reemplazo plástico con resortes blandos; el análisis rígido-plástico puede normalizar primero la rigidez. Los GDL inactivos por etapas usan la rigidez activa para evitar advertencias espurias. Volvé a calcular modelos restringidos y por etapas y revisá el estado del cálculo plástico (#1846, PR #1943).",
+    "pt": "Rotações livres que movem translações vinculadas agora aparecem como mecanismos. Recusas numéricas elásticas chegam ao cálculo linear em vez da alternativa plástica com molas suaves; a análise rígido-plástica pode normalizar a rigidez primeiro. Graus inativos por etapas usam a rigidez ativa para evitar avisos indevidos. Recalcule modelos vinculados e por etapas e revise o estado do cálculo plástico (#1846, PR #1943).",
+    "de": "Freie Drehungen, die gebundene Verschiebungen bewegen, erscheinen nun als Mechanismen. Elastische numerische Ablehnungen erreichen den linearen Löser statt des plastischen Ersatzes mit weichen Federn; die Starrplastik kann zuerst die Steifigkeit normieren. Inaktive Bauphasenfreiheitsgrade verwenden aktive Steifigkeit gegen falsche Warnungen. Berechnen Sie betroffene Modelle neu und prüfen Sie den plastischen Lösungsstatus (#1846, PR #1943).",
+    "fr": "Les rotations libres qui déplacent des translations liées apparaissent comme mécanismes. Les refus numériques élastiques atteignent le solveur linéaire au lieu du recours plastique aux ressorts souples ; le calcul rigide-plastique peut normaliser la rigidité avant résolution. Les degrés inactifs utilisent la rigidité active pour éviter de fausses alertes. Recalculez les modèles concernés et vérifiez le statut du calcul plastique (#1846, PR #1943).",
+    "tr": "Bağlı ötelemeleri hareket ettiren serbest dönmeler artık mekanizma bilgilerinde yer alır. Elastik sayısal retler plastik yumuşak yay yoluna değil doğrusal çözücüye ulaşır; rijit-plastik analiz önce rijitliği normalleştirebilir. Etkin olmayan aşama serbestlikleri hatalı uyarıları önlemek için etkin rijitliği kullanır. İlgili modelleri yeniden çözün ve plastik çözüm durumunu inceleyin (#1846, PR #1943)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-kinematic-translation-motion.md",
+    "heading": "Kinematic checks distinguish rigid-arm mechanisms from elastic refusals (2026-11-11)"
+  }
+}

@@ -486,8 +486,14 @@ fn unit_moment_scale(r: &AnalysisResults3D) -> f64 {
 /// forces are then the unique ones, the free modes being strain-free, and
 /// the springs carry nothing); otherwise the state is a collapse mechanism.
 fn carry(input: &SolverInput3D) -> Result<Option<AnalysisResults3D>, String> {
+    let elastic = super::super::stability::of_3d(input)?;
+    if elastic.verdict == super::super::stability::Verdict::Singular
+        && elastic.reason != super::super::stability::Reason::Conditioning
+    {
+        return Err(elastic.refusal().unwrap());
+    }
     if super::super::kinematic::analyze_kinematics_3d(input).is_solvable {
-        return crate::known_issues::optional_solve(super::super::linear::solve_3d(input));
+        return super::super::linear::solve_3d(input).map(Some);
     }
     if !input.constraints.is_empty() || !input.connectors.is_empty() {
         return Err("plastic 3D cannot certify a soft-spring hinge state with constraints or connectors: the member-force balance check does not include their forces".into());

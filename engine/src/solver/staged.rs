@@ -127,9 +127,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
     let mut stage_results = Vec::new();
     let mut cumulative_diagnostics = Vec::new();
 
-    // Sparse symbolic Cholesky cache, reused across stages where the active
-    // set keeps the same sparsity pattern (the fingerprinted cache rebuilds
-    // it when a stage changes the pattern). Used only when ns >= SPARSE_THRESHOLD.
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
     let use_sparse = ns >= super::linear::SPARSE_THRESHOLD;
@@ -394,7 +391,9 @@ fn solve_stage_free(
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     let pinned = stability.pin_sparse(&reduced);
     let (mut rows, mut cols, mut vals) = full_triplets(&pinned);
-    for &d in &inactive { rows.push(d); cols.push(d); vals.push(1.0); }
+    let active_scale = pinned.diagonal().into_iter().fold(0.0f64, f64::max);
+    let inactive_scale = if active_scale > 0.0 { active_scale } else { 1.0 };
+    for &d in &inactive { rows.push(d); cols.push(d); vals.push(inactive_scale); }
     let pinned = CscMatrix::from_triplets(pinned.n, &rows, &cols, &vals);
     if let Some(node) = stability.load_on_free_rotation(&applied) {
         return Err(format!("Nodal moment at node {node} is not supported: a free rotation would carry load"));
@@ -697,9 +696,6 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
     let mut stage_results = Vec::new();
     let mut cumulative_diagnostics = Vec::new();
 
-    // Sparse symbolic Cholesky cache, reused across stages where the active
-    // set keeps the same sparsity pattern (the fingerprinted cache rebuilds
-    // it when a stage changes the pattern). Used only when ns >= SPARSE_THRESHOLD.
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
     let use_sparse = n >= super::linear::SPARSE_THRESHOLD;

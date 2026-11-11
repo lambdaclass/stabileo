@@ -261,7 +261,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0 && matches!(physical_stability.reason, super::stability::Reason::Resolved | super::stability::Reason::Conditioning);
+    let is_solvable = mechanism_modes == 0 && physical_stability.verdict != super::stability::Verdict::Mechanism;
     let classification = if degree > 0 && is_solvable {
         "hyperstatic"
     } else if degree == 0 && is_solvable {
@@ -290,7 +290,7 @@ const KINEMATIC_SPARSE_THRESHOLD: usize = 64;
 
 fn mechanism_pivots(k: &[f64], n: usize, stability: &super::stability::Stability) -> Vec<usize> {
     let (_, mut pivots) = lu_rank(k, n, 1e-10);
-    for direction in stability.free.iter().filter(|f| f.kind == super::stability::DofKind::Translation) {
+    for direction in stability.mechanism_directions() {
         if direction.dofs.iter().zip(&direction.direction).any(|(d, v)| *v != 0.0 && pivots.contains(d)) { continue; }
         if let Some((i, _)) = direction.direction.iter().enumerate().max_by(|(_, a), (_, b)| a.abs().total_cmp(&b.abs())) {
             pivots.push(direction.dofs[i]);
@@ -312,7 +312,7 @@ fn fast_solvable_2d(
     let (physical, stability) = super::stability::analyze_free_stiffness(
         &sasm.k_ff, dof_num, true, None, &super::stability::coupling_2d(input, dof_num), &super::stability::ReleasedRotations::default(),
     );
-    if !matches!(stability.reason, super::stability::Reason::Resolved | super::stability::Reason::Conditioning) { return None; }
+    if stability.verdict == super::stability::Verdict::Mechanism { return None; }
     let pinned = stability.pin_sparse(&physical);
     let k = &pinned;
     let mut symbolic = None;
@@ -544,7 +544,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0 && matches!(physical_stability.reason, super::stability::Reason::Resolved | super::stability::Reason::Conditioning);
+    let is_solvable = mechanism_modes == 0 && physical_stability.verdict != super::stability::Verdict::Mechanism;
     let classification = if degree > 0 && is_solvable {
         "hyperstatic"
     } else if degree == 0 && is_solvable {

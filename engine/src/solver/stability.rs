@@ -28,6 +28,7 @@ pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, Coup
 pub struct FreeDirection {
     pub node: usize,
     pub kind: DofKind,
+    pub moves_translation: bool,
     pub dofs: Vec<usize>,
     pub direction: Vec<f64>,
     pub scale: f64,
@@ -152,7 +153,11 @@ impl Stability {
     }
 
     pub fn free_rotations(&self) -> impl Iterator<Item = &FreeDirection> {
-        self.free.iter().filter(|f| f.kind != DofKind::Translation)
+        self.free.iter().filter(|f| !f.moves_translation)
+    }
+
+    pub fn mechanism_directions(&self) -> impl Iterator<Item = &FreeDirection> {
+        self.free.iter().filter(|f| f.moves_translation)
     }
 
     pub fn refusal(&self) -> Option<String> {
@@ -650,7 +655,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
                             None => {},
                         }
                     }
-                    free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v, scale: if top > 0.0 { top } else { 1.0 }, coupling: Vec::new() });
+                    free.push(FreeDirection { node: *node, kind: *kind, moves_translation: *kind == DofKind::Translation, dofs: dofs.clone(), direction: v, scale: if top > 0.0 { top } else { 1.0 }, coupling: Vec::new() });
                     own.push((mu[c], top.max(0.0), size));
                 } else {
                     let scale = mu[c].sqrt();
@@ -663,7 +668,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
         }
     }
     let mut translation_free: Vec<usize> = free.iter().filter(|f| f.kind == DofKind::Translation).map(|f| f.node).collect();
-    let (moving, undecided) = swinging(&free, moves_translation);
+    let (moving, undecided) = swinging(&mut free, moves_translation);
     translation_free.extend(moving);
     if translation_free.is_empty() && !undecided.is_empty() {
         return Stability { verdict: Verdict::Singular, reason: Reason::SwingAtRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: undecided };
@@ -820,13 +825,15 @@ fn coupled_free(k: &CscMatrix, free: &mut [FreeDirection], own: &[(f64, f64, usi
     if !condensed.is_finite() || condensed * kappa > COUPLED { nodes } else { Vec::new() }
 }
 
-fn swinging(free: &[FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> (Vec<usize>, Vec<usize>) {
+fn swinging(free: &mut [FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> (Vec<usize>, Vec<usize>) {
     let (mut moving, mut undecided) = (Vec::new(), Vec::new());
     if moves_translation.is_empty() { return (moving, undecided); }
-    let mut by_group: BTreeMap<(usize, DofKind), Vec<&FreeDirection>> = BTreeMap::new();
-    for f in free.iter().filter(|f| f.kind != DofKind::Translation) { by_group.entry((f.node, f.kind)).or_default().push(f); }
+    let mut by_group: BTreeMap<(usize, DofKind), Vec<usize>> = BTreeMap::new();
+    for (i, f) in free.iter().enumerate().filter(|(_, f)| f.kind != DofKind::Translation) {
+        by_group.entry((f.node, f.kind)).or_default().push(i);
+    }
     for ((node, _), dirs) in by_group {
-        let dofs = &dirs[0].dofs;
+        let dofs = &free[dirs[0]].dofs;
         let arm = dofs.iter().flat_map(|&d| moves_translation[d].iter()).fold(0.0f64, |m, &(_, x)| m.max(x.abs()));
         if arm == 0.0 { continue; }
         if !arm.is_finite() {
@@ -834,14 +841,20 @@ fn swinging(free: &[FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> 
             continue;
         }
         let mut rows: BTreeMap<usize, Vec<f64>> = BTreeMap::new();
-        for (c, f) in dirs.iter().enumerate() {
+        for (c, &i) in dirs.iter().enumerate() {
+            let f = &free[i];
             for (&d, &v) in f.dofs.iter().zip(&f.direction) {
                 for &(r, x) in &moves_translation[d] { rows.entry(r).or_insert_with(|| vec![0.0; dirs.len()])[c] += (x / arm) * v; }
             }
         }
         let motion = top_singular((0..dirs.len()).map(|c| rows.values().map(|m| m[c]).collect()).collect());
         if motion == 0.0 { continue; }
-        if motion > ROUNDING * dofs.len() as f64 * f64::EPSILON { moving.push(node) } else { undecided.push(node) }
+        if motion > ROUNDING * dofs.len() as f64 * f64::EPSILON {
+            moving.push(node);
+            for (c, &i) in dirs.iter().enumerate() {
+                free[i].moves_translation = rows.values().any(|m| m[c] != 0.0);
+            }
+        } else { undecided.push(node); }
     }
     (moving, undecided)
 }

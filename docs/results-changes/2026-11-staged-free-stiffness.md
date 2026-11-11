@@ -6,10 +6,12 @@ Staged construction in 2D and 3D now separates physical stiffness from inactive
 solve pins. A reduced free DOF is dormant only when its stiffness column and
 both incremental and directly applied reduced loads are zero, and no nonzero
 constraint coefficient maps it to an active member or shell node. Dormant DOFs
-are excluded from stability checks and assigned a unit solve diagonal afterward.
+are excluded from stability checks and assigned a solve diagonal scaled to active stiffness afterward.
 The physical matrix used for reactions is never modified by this treatment.
-Unloaded future stories and partial constraints solve; loads on unconstructed
-members are refused. An unconnected settled support has zero stiffness reaction.
+Unloaded future stories and partial constraints solve. Nonzero reduced loads
+on free inactive DOFs are refused; this is not complete stage-load validation.
+Member loads applied before erection and constrained nodal loads that reduce
+to zero remain pre-existing limitations outside this round’s repair scope. An unconnected settled support has zero stiffness reaction.
 Real springs retain their physical response.
 
 Stage solves require SPD Cholesky, use the regular linear refinement routines

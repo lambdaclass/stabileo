@@ -97,6 +97,10 @@ for (const [label, input, linearSolve, stagedSolve] of cases) {
   const stages = [{ name: 'all', elementsAdded: Object.values(input.elements).map(e => e.id), supportsAdded: Object.values(input.supports).map(s => s.nodeId), loadIndices: input.loads.map((_, i) => i) }];
   const linear = linearSolve(input);
   const staged = JSON.parse(stagedSolve(JSON.stringify({ ...input, stages }))).finalResults;
+  const expectedNodes = Object.keys(input.nodes).map(Number).sort((a, b) => a - b);
+  for (const [side, result] of [['linear', linear], ['staged', staged]]) {
+    assert.deepEqual(Array.from(result.displacements, d => d.nodeId).sort((a, b) => a - b), expectedNodes, `${label}: ${side} node set`);
+  }
   for (const a of linear.displacements) {
     const b = staged.displacements.find(b => b.nodeId === a.nodeId);
     assert.ok(b, `${label}: missing staged node ${a.nodeId}`);

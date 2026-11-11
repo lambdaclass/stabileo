@@ -1319,7 +1319,6 @@ fn round3_model(name: &str, pads: usize) -> serde_json::Value {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round3_swinging_rotations_report_mechanisms() {
     use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
     for dim in [2, 3] {
@@ -1375,7 +1374,6 @@ fn issue_1846_round3_swinging_rotations_report_mechanisms() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round3_elastic_refusals_do_not_become_kinematic_mechanisms() {
     use dedaliano_engine::solver::{kinematic::*, stability};
     for dim in [2, 3] {
@@ -1419,7 +1417,6 @@ fn issue_1846_round3_elastic_refusals_do_not_become_kinematic_mechanisms() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round3_limit_analysis_normalizes_elastic_contrast() {
     for soft in [true, false] {
         let mut v = round3_model("soft2", 0);
@@ -1439,7 +1436,6 @@ fn issue_1846_round3_limit_analysis_normalizes_elastic_contrast() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round3_plastic_preserves_coupled_soft_refusal() {
     for pads in [1, 22] {
         for soft in [true, false] {
@@ -1463,7 +1459,6 @@ fn issue_1846_round3_plastic_preserves_coupled_soft_refusal() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round3_dormant_pins_do_not_create_conditioning_warnings() {
     for dim in [2, 3] {
         for pads in [0, 22] {
@@ -1519,7 +1514,6 @@ fn issue_1846_round3_plastic_2d_retains_existing_refusal() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_round3_zero_arm_is_a_harmless_free_rotation() {
     use dedaliano_engine::solver::kinematic::*;
     for dim in [2, 3] {
