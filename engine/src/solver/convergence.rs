@@ -996,4 +996,88 @@ mod tests {
             }
         }
     }
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn r5_point_categories_follow_admissible_constraint_rows() {
+        let mut s = input();
+        s.constraints = serde_json::from_value(serde_json::json!([
+            {"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[2]}
+        ]))
+        .unwrap();
+        let mut spatial: SolverInput3D = serde_json::from_str(include_str!("../../tests/metamorphic_corpus/feature_matrix/3d-constraint--rigid-link--offset-beam-with.json")).unwrap();
+        spatial.constraints = serde_json::from_value(serde_json::json!([
+            {"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[3]}
+        ]))
+        .unwrap();
+        for dimensions in [2, 3] {
+            let mut d = DofNumbering::build_2d(&s);
+            d.map = [((2, 0), 0), ((2, dimensions), 1), ((1, dimensions), 2)]
+                .into_iter()
+                .collect();
+            d.n_free = 2;
+            d.n_total = 3;
+            let cs = if dimensions == 2 {
+                FreeConstraintSystem::build_2d(&s, &d).unwrap().unwrap()
+            } else {
+                FreeConstraintSystem::build_3d(&spatial, &d)
+                    .unwrap()
+                    .unwrap()
+            };
+            assert_eq!(cs.c_ff.row_ptr[1], cs.c_ff.row_ptr[2]);
+            for rotational_stiffness in [0.0, 1e-100, 400.0] {
+                let k = CscMatrix::from_triplets(
+                    3,
+                    &[0, 1, 2],
+                    &[0, 1, 2],
+                    &[100.0, rotational_stiffness, 400.0],
+                );
+                let metric = EquilibriumMetric::with_stiffness(
+                    [[1.0, 0.0, 0.0]; 2].into_iter(),
+                    dimensions,
+                    &d,
+                    Some(&cs),
+                    Some((&k, &[])),
+                    &[0.0],
+                    &[],
+                )
+                .unwrap();
+                assert_eq!(metric.weights, vec![1.0; 3]);
+                for factor in [0.5, 2.0] {
+                    assert_eq!(
+                        metric.relative_residual(
+                            &[factor * 1e-10, 1.0, 0.0],
+                            &[1.0, 0.0, 0.0],
+                            None,
+                            Some(&cs)
+                        ) < 1e-10,
+                        factor < 1.0
+                    );
+                }
+                assert_eq!(
+                    metric.relative_residual(&[0.0; 3], &[1.0, 0.0, 0.0], None, Some(&cs)),
+                    0.0
+                );
+                let unconstrained = EquilibriumMetric::with_stiffness(
+                    [[0.0; 3]; 2].into_iter(),
+                    dimensions,
+                    &d,
+                    None,
+                    Some((&k, &[])),
+                    &[0.0],
+                    &[],
+                );
+                assert_eq!(unconstrained.is_ok(), rotational_stiffness > 0.0);
+                assert!(EquilibriumMetric::with_stiffness(
+                    [[0.0; 3]; 2].into_iter(),
+                    dimensions,
+                    &d,
+                    Some(&cs),
+                    Some((&k, &[])),
+                    &[0.01],
+                    &[],
+                )
+                .is_ok());
+            }
+        }
+    }
 }

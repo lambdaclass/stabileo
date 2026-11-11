@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
@@ -24,6 +25,33 @@ function checkComponents(actual, expected, all) {
     }
   }
 }
+function checkLoadedCantilever(tip, solver, dimension) {
+      const node = solver.nodes['2'];
+      const load = solver.loads[0].data;
+      const distance = dimension === 2 ? Math.hypot(node.x, node.z) : Math.hypot(node.x, node.y, node.z);
+      const force = dimension === 2 ? Math.hypot(load.fx, load.fz) : Math.hypot(load.fx, load.fy, load.fz);
+      const expected = force * distance / (1000 * solver.materials['1'].e * solver.sections['1'].a);
+      const displacement = dimension === 2 ? Math.hypot(tip.ux, tip.uz) : Math.hypot(tip.ux, tip.uy, tip.uz);
+      assert.ok(Math.abs(displacement / expected - 1) < 1e-10, `${dimension}D axial response: got ${displacement}, expected ${expected}, tip ${JSON.stringify(tip)}, load ${JSON.stringify(load)}`);
+}
+for (const dimension of [2, 3]) {
+  for (const sign of [-1, 1]) {
+    for (const response of ['reversed', 'transverse']) {
+      test(`loaded cantilever rejects ${response} response, ${dimension}D, sign ${sign}`, { skip: process.env.RUN_KNOWN_WRONG_761 ? false : 'known wrong result: #761' }, () => {
+        const solver = {
+          nodes: { 2: { x: 2, y: 0, z: 0 } },
+          loads: [{ data: { fx: sign, fy: 0, fz: 0 } }],
+          materials: { 1: { e: 200000 } },
+          sections: { 1: { a: 0.01 } },
+        };
+        const expected = sign * solver.nodes[2].x / (1000 * solver.materials[1].e * solver.sections[1].a);
+        checkLoadedCantilever({ ux: expected, uy: 0, uz: 0 }, solver, dimension);
+        const tip = response === 'reversed' ? { ux: -expected, uy: 0, uz: 0 } : { ux: 0, uy: 0, uz: expected };
+        assert.throws(() => checkLoadedCantilever(tip, solver, dimension), /response|ux/);
+      });
+    }
+  }
+}
 for (const tip of [{ ux: -1e-20, uz: 0 }, { ux: 0, uz: 1e-20 }]) {
   assert.throws(() => checkAxial(tip, { nodes: { 2: { x: 1, z: 0 } } }, 1e-20));
 }
@@ -35,6 +63,7 @@ for (const test of cases) {
       const input = JSON.stringify(test.input);
       if (/^solve_[23]d$/.test(test.api)) return JSON.stringify({ converged: true, results: engine[test.api](test.input) });
       if (test.api.startsWith('solve_constrained')) return JSON.stringify({ converged: true, results: JSON.parse(engine[test.api](input)) });
+      if (test.api.startsWith('certify_pdelta')) return JSON.stringify(JSON.parse(engine[test.api](input, test.maxIter ?? 1, 1e-10)).results);
       if (test.api.startsWith('solve_corotational')) return engine[test.api](input, test.maxIter ?? 2, 1e-10, 1);
       if (test.api.startsWith('solve_pdelta')) return engine[test.api](input, test.maxIter ?? 1, 1e-10);
       return engine[test.api](input);
@@ -141,13 +170,7 @@ for (const test of cases) {
     }
     if (test.name === 'loaded cantilever' && test.converged) {
       const tip = result.results.displacements.find((d) => d.nodeId === 2);
-      const node = solver.nodes['2'];
-      const load = solver.loads[0].data;
-      const distance = dimension === 2 ? Math.hypot(node.x, node.z) : Math.hypot(node.x, node.y, node.z);
-      const force = dimension === 2 ? Math.hypot(load.fx, load.fz) : Math.hypot(load.fx, load.fy, load.fz);
-      const expected = force * distance / (1000 * solver.materials['1'].e * solver.sections['1'].a);
-      const displacement = dimension === 2 ? Math.hypot(tip.ux, tip.uz) : Math.hypot(tip.ux, tip.uy, tip.uz);
-      assert.ok(Math.abs(displacement / expected - 1) < 1e-10, `${test.name}, ${dimension}D axial response: got ${displacement}, expected ${expected}, tip ${JSON.stringify(tip)}, load ${JSON.stringify(load)}`);
+      checkLoadedCantilever(tip, solver, dimension);
     }
     checked++;
   }

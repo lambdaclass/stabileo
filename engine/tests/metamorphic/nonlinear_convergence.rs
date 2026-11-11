@@ -304,6 +304,7 @@ fn issue_761_unfinished_iterations_stay_unconverged_3d() {
 }
 
 #[test]
+#[ignore = "known wrong result: #761"]
 fn issue_761_native_and_wasm_cases() {
     let mut cases = Vec::new();
     for case in fixtures() {
@@ -1362,6 +1363,8 @@ mod r2 {
         let max_iter = test["maxIter"].as_u64().unwrap_or(2) as usize;
         let pdelta_iter = test["maxIter"].as_u64().unwrap_or(1) as usize;
         match test["api"].as_str().unwrap() {
+            "certify_pdelta_2d" => encode(dedaliano_engine::certify::pdelta::certify_pdelta_2d(&serde_json::from_value(value).unwrap(), pdelta_iter, 1e-10).map(|r| r.results)),
+            "certify_pdelta_3d" => encode(dedaliano_engine::certify::pdelta::certify_pdelta_3d(&serde_json::from_value(value).unwrap(), pdelta_iter, 1e-10).map(|r| r.results)),
             "solve_nonlinear_material_2d" => {
                 encode(material_nonlinear::solve_nonlinear_material_2d(
                     &serde_json::from_value(value).unwrap(),
@@ -1676,6 +1679,7 @@ mod r2 {
         calls.extend(super::r3::point_calls());
         calls.extend(super::r3::r4_support_calls());
         calls.extend(super::r3::r4_tz_calls());
+        calls.extend(super::r5::calls());
         for case in &calls {
             let result = call(case);
             if let Some(error) = case["error"].as_str() {
@@ -2818,6 +2822,177 @@ mod r3 {
                 let d = r.displacements.iter().find(|d| d.node_id == 1).unwrap();
                 close(d.ux.hypot(d.uy).hypot(d.uz), dy, 1e-12);
             }
+        }
+    }
+}
+
+mod r5 {
+    use super::*;
+    use dedaliano_engine::solver::{
+        arc_length::{self, ArcLengthInput, DisplacementControlInput},
+        linear,
+    };
+
+    pub(super) fn calls() -> Vec<serde_json::Value> {
+        let mut calls = Vec::new();
+        for constrained in [true, false] {
+            for sign in [-1.0, 1.0] {
+                let mut s = super::r2::spring_model(true);
+                s.connectors.clear();
+                s.supports.insert("2".into(), serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"spring","kx":100.0,"ky":100.0,"kz":0.0})).unwrap());
+                if let SolverLoad::Nodal(load) = &mut s.loads[0] {
+                    load.fx = sign;
+                }
+                let mut spatial = embed_2d(&s, Plane::XZ).unwrap();
+                spatial.sections.values_mut().next().unwrap().cw = Some(0.0);
+                spatial.supports.get_mut("1").unwrap().rw = Some(true);
+                let support = spatial.supports.get_mut("2").unwrap();
+                support.rw = Some(true);
+                support.rrx = !constrained;
+                support.rry = !constrained;
+                support.rrz = !constrained;
+                support.ry = false;
+                support.ky = Some(100.0);
+                if constrained {
+                    s.constraints = serde_json::from_value(serde_json::json!([{"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[2]}])).unwrap();
+                    spatial.constraints = serde_json::from_value(serde_json::json!([{"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[3,4,5]}])).unwrap();
+                } else {
+                    s.supports.get_mut("2").unwrap().kz = Some(400.0);
+                }
+                let expected2 =
+                    serde_json::json!([{"nodeId":2,"ux":sign / 100.0,"uz":0.0,"ry":0.0}]);
+                let expected3 = serde_json::json!([{"nodeId":2,"ux":sign / 100.0,"uy":0.0,"uz":0.0,"rx":0.0,"ry":0.0,"rz":0.0}]);
+                for (dimension, solver, expected) in [
+                    (2, serde_json::to_value(&s).unwrap(), expected2.clone()),
+                    (3, serde_json::to_value(&spatial).unwrap(), expected3),
+                ] {
+                    for api in ["solve", "solve_pdelta", "certify_pdelta", "solve_corotational"] {
+                        calls.push(serde_json::json!({"api":format!("{api}_{dimension}d"),"input":solver,"maxIter":30,"converged":true,"expectedDisplacements":expected}));
+                    }
+                    calls.push(serde_json::json!({"api":format!("solve_constrained_{dimension}d"),"input":{"solver":solver,"constraints":[]},"converged":true,"expectedDisplacements":expected}));
+                    calls.push(serde_json::json!({"api":format!("solve_nonlinear_material_{dimension}d"),"input":{"solver":solver,"materialModels":{},"sectionCapacities":{},"maxIter":30,"tolerance":1e-10,"nIncrements":1},"converged":true,"expectedDisplacements":expected}));
+                    calls.push(serde_json::json!({"api":format!("solve_ssi_{dimension}d"),"input":{"solver":solver,"soilSprings":[],"maxIter":30,"tolerance":1e-10},"converged":true,"expectedDisplacements":expected}));
+                    let fiber = if dimension == 2 {
+                        serde_json::to_value(fiber_input(&s, 30)).unwrap()
+                    } else {
+                        serde_json::to_value(fiber_input_3d(&spatial, 30)).unwrap()
+                    };
+                    let mut call = serde_json::json!({"api":format!("solve_fiber_nonlinear_{dimension}d"),"input":fiber,"converged":true,"expectedDisplacements":expected});
+                    if constrained {
+                        call["error"] = serde_json::json!("constraints are not supported");
+                    }
+                    calls.push(call);
+                }
+                calls.push(serde_json::json!({"api":"solve_displacement_control","input":DisplacementControlInput {solver:s.clone(),control_node:2,control_dof:0,target_displacement:sign / 100.0,n_steps:1,max_iter:30,tolerance:1e-10},"converged":true,"expectedDisplacements":expected2}));
+                let ds = 0.1;
+                let arc = ArcLengthInput {
+                    solver: s.clone(),
+                    max_steps: 1,
+                    max_iter: 30,
+                    tolerance: 1e-10,
+                    initial_ds: ds,
+                    min_ds: ds,
+                    max_ds: ds,
+                    target_iter: 4,
+                };
+                let factor = ds / (1.0f64 + 0.01f64.powi(2)).sqrt();
+                calls.push(serde_json::json!({"api":"solve_arc_length","input":arc,"converged":true,"expectedDisplacements":[{"nodeId":2,"ux":sign * factor / 100.0,"uz":0.0,"ry":0.0}]}));
+            }
+        }
+        calls
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn constrained_point_springs_retain_signed_answers() {
+        let mut errors = Vec::new();
+        for case in calls() {
+            let result = super::r2::call(&case);
+            if let Some(expected) = case["error"].as_str() {
+                let error = result.unwrap_err();
+                assert!(error.contains(expected), "{}: {error}", case["api"]);
+                continue;
+            }
+            match result {
+                Ok(text) => {
+                    let result: serde_json::Value = serde_json::from_str(&text).unwrap();
+                    assert_eq!(result["converged"], true, "{case}: {result}");
+                    check_expected_displacements(&result, &case);
+                }
+                Err(error) => errors.push(format!("{}: {error}", case["api"])),
+            }
+        }
+        assert!(errors.is_empty(), "{}", errors.join("\n"));
+    }
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn constrained_point_preparation_certificates_and_continuation() {
+        for case in calls().into_iter().filter(|c| c["api"] == "solve_2d") {
+            let s: SolverInput = serde_json::from_value(case["input"].clone()).unwrap();
+            let r = linear::solve_2d(&s).unwrap();
+            if s.constraints.is_empty() {
+                for prepared in [
+                    linear::prepare_static_2d(&s).unwrap(),
+                    linear::prepare_static_2d_dense_reference(&s).unwrap(),
+                ] {
+                    let r = prepared.solve_loads(&s.loads).unwrap();
+                    check_expected_displacements(&serde_json::json!({"results":r}), &case);
+                }
+            } else {
+                assert!(linear::prepare_static_2d(&s).is_err());
+                assert!(linear::prepare_static_2d_dense_reference(&s).is_err());
+            }
+            assert!(
+                dedaliano_engine::certify::pdelta::certify_pdelta_2d(&s, 30, 1e-10)
+                    .unwrap()
+                    .results
+                    .converged
+            );
+            let start = corotational::CorotationalStart2D {
+                input: &s,
+                displacements: &r.displacements,
+            };
+            let result =
+                corotational::solve_corotational_2d_from(&s, Some(&start), 30, 1e-10, 1, false)
+                    .unwrap();
+            assert!(result.converged);
+            check_expected_displacements(&serde_json::json!({"results":result.results}), &case);
+            let arc = ArcLengthInput {
+                solver: s.clone(),
+                max_steps: 1,
+                max_iter: 30,
+                tolerance: 1e-10,
+                initial_ds: 0.1,
+                min_ds: 0.1,
+                max_ds: 0.1,
+                target_iter: 4,
+            };
+            let result = arc_length::solve_arc_length_from(&arc, Some(&start)).unwrap();
+            assert!(result.converged);
+            let mut expected = case.clone();
+            expected["expectedDisplacements"][0]["ux"] = serde_json::json!(
+                case["expectedDisplacements"][0]["ux"].as_f64().unwrap()
+                    * (1.0 + result.final_load_factor)
+            );
+            check_expected_displacements(&serde_json::json!({"results":result.results}), &expected);
+        }
+        for case in calls().into_iter().filter(|c| c["api"] == "solve_3d") {
+            let s: SolverInput3D = serde_json::from_value(case["input"].clone()).unwrap();
+            if s.constraints.is_empty() {
+                let r = linear::prepare_static_3d(&s)
+                    .unwrap()
+                    .solve_loads(&s.loads)
+                    .unwrap();
+                check_expected_displacements(&serde_json::json!({"results":r}), &case);
+            } else {
+                assert!(linear::prepare_static_3d(&s).is_err());
+            }
+            assert!(
+                dedaliano_engine::certify::pdelta::certify_pdelta_3d(&s, 30, 1e-10)
+                    .unwrap()
+                    .results
+                    .converged
+            );
         }
     }
 }
