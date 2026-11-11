@@ -12,10 +12,10 @@ parser.add_argument('--regenerate', action='store_true')
 parser.add_argument('--self-test', action='store_true')
 args = parser.parse_args()
 def silent_staged_discrepancy(observed):
-    base = observed['base']
-    return (base['status'] == 'solved'
-            and base['diagnostic_calls'] == [[]]
-            and base['near_mechanism_warning'] is False
+    return (all(observed.get(side, {}).get('status') == 'solved'
+                and bool(observed[side].get('diagnostic_calls'))
+                and all(calls == [] for calls in observed[side]['diagnostic_calls'])
+                for side in ('base', 'transformed'))
             and any(r['analysis'].startswith('staged (') and r['invariant'] == 'units'
                     and r['failures'] for r in observed['relations']))
 
@@ -33,7 +33,14 @@ class SilentWitnessTests(unittest.TestCase):
         self.assertFalse(silent_staged_discrepancy(observed))
 
     def test_both_copies_silent_with_discrepancy(self):
-        self.assertTrue(silent_staged_discrepancy(self.observation()))
+        observed = self.observation()
+        observed['transformed']['diagnostic_calls'] = [[], []]
+        self.assertTrue(silent_staged_discrepancy(observed))
+
+    def test_absent_transformed_copy_is_not_silence(self):
+        observed = self.observation()
+        del observed['transformed']
+        self.assertFalse(silent_staged_discrepancy(observed))
 
     def test_missing_diagnostics_are_not_silence(self):
         for side in ('base', 'transformed'):
@@ -335,7 +342,12 @@ def audit_candidates():
         check(key in entry['evidence'] and key in doc and key in candidate['advisory_escalation']['evidence'], f'candidate: unlinked escalation witness {key}')
         if len(matches) == 1:
             observed = matches[0]['observed']
-            check(silent_staged_discrepancy(observed), f'candidate: escalation silence/discrepancy unsupported for {key}')
+            check(observed['base']['status'] == 'solved' and observed['base']['diagnostic_calls'] == [[]] and observed['base']['near_mechanism_warning'] is False, f'candidate: escalation base evidence unsupported for {key}')
+            check(any(r['analysis'].startswith('staged (') and r['invariant'] == 'units' and r['failures'] for r in observed['relations']), f'candidate: escalation discrepancy missing for {key}')
+            transformed = observed.get('transformed', {})
+            check(transformed.get('status') == 'solved' and any(d.get('severity') == 'warning' and d.get('phase') == 'NUM-INVARIANCE' for calls in transformed.get('diagnostic_calls', []) for d in calls), f'candidate: transformed warning unsupported for {key}')
+    established_silent = {w['key'] for entry in entries for w in entry['witnesses'] if w['key'] in related and silent_staged_discrepancy(w['observed'])}
+    check(set(candidate['advisory_escalation']['related_silent_witnesses']) == established_silent, 'candidate: related silent-witness claims contradict both-copy diagnostics')
     check(fixture_keys == fixtures.keys(), 'candidate: orphan/missing fixture references')
     check(sum(c['embedded_model_count'] for i in candidate['source_inventory'] for c in i['comments']) == sum(w['source'] != 'body' for i in entries for w in i['witnesses']), 'candidate: comment inventory')
     for klass, count in candidate['classification_counts'].items():

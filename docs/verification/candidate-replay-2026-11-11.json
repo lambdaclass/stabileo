@@ -8079,7 +8079,7 @@
       "cause": "E",
       "cause_status": "confirmed",
       "cause_basis": "Staged 3D duplicates an obsolete orphan-rotation regularizer: any released local bending axis marks the whole node hinged, then compares global rotational diagonals to max_diag*1e-10 across mixed translation/rotation units. The regular linear path does not add this stiffness.",
-      "evidence": "`M(1846)`: replay: rotation r@n2[0]: got 1.6535440385e-1, expected 3.5590640526e1, &#124;diff&#124; 3.543e1 > tol 1.689e-8 (scale 2.825e5, rel 5.98e-14). `U`: independent regular-linear/OpenSees checks agree for both exact unit copies; staged 3D adds artificial rotational stiffness. See retained native and public WASM follow-ups. 1 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments. Comment `1846-6760758840-0` is a silent staged-3D witness linked to the #1846 coordinator escalation; its outcome is separate from this body classification.",
+      "evidence": "`M(1846)`: replay: rotation r@n2[0]: got 1.6535440385e-1, expected 3.5590640526e1, &#124;diff&#124; 3.543e1 > tol 1.689e-8 (scale 2.825e5, rel 5.98e-14). `U`: independent regular-linear/OpenSees checks agree for both exact unit copies; staged 3D adds artificial rotational stiffness. See retained native and public WASM follow-ups. 1 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments. Comment `1846-6760758840-0` is a staged-3D discrepancy with a warned transformed unit copy, linked to the #1846 coordinator escalation; its outcome is separate from this body classification.",
       "regression": null,
       "witnesses": [
         {
@@ -8328,6 +8328,21 @@
                 }
               ],
               "load_factors": null
+            },
+            "transformed": {
+              "status": "solved",
+              "diagnostic_calls": [
+                [
+                  {
+                    "code": "known_issue",
+                    "severity": "warning",
+                    "message": "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design (known issue #762, NUM-INVARIANCE)",
+                    "phase": "NUM-INVARIANCE",
+                    "value": 762.0
+                  }
+                ]
+              ],
+              "provenance": "Round 2 native replay at b9020323ac1abf5a6b1c722d247b445f63cb91ba engine state: exact input_ref and seed, Case3 name replay, invariant prefix rotation/mirror/relabel/reversal/units; selected units failure exactly matches retained relation. Final staged diagnostics captured for the units copy."
             }
           }
         }
@@ -30284,7 +30299,7 @@
       "cause": "C",
       "cause_status": "provisional",
       "cause_basis": "Numerical conditioning/roundoff candidate; a failed relation alone does not isolate the implementation defect.",
-      "evidence": "`M(1085)`: fuzz_rich_2d/20800: translation u@n2[0]: got -6.2243228429e-9, expected 1.2811682145e-15, &#124;diff&#124; 6.224e-9 > tol 1.437e-11 (scale 7.399e-3, rel 1.94e-9). 8 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments. Comment `1085-6760749658-0` is a silent staged-3D witness linked to the #1846 coordinator escalation; its outcome is separate from this body classification.",
+      "evidence": "`M(1085)`: fuzz_rich_2d/20800: translation u@n2[0]: got -6.2243228429e-9, expected 1.2811682145e-15, &#124;diff&#124; 6.224e-9 > tol 1.437e-11 (scale 7.399e-3, rel 1.94e-9). 8 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments. Comment `1085-6760749658-0` is a staged-3D discrepancy with a warned transformed unit copy, linked to the #1846 coordinator escalation; its outcome is separate from this body classification.",
       "regression": null,
       "witnesses": [
         {
@@ -31467,6 +31482,21 @@
                 }
               ],
               "load_factors": null
+            },
+            "transformed": {
+              "status": "solved",
+              "diagnostic_calls": [
+                [
+                  {
+                    "code": "known_issue",
+                    "severity": "warning",
+                    "message": "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design (known issue #762, NUM-INVARIANCE)",
+                    "phase": "NUM-INVARIANCE",
+                    "value": 762.0
+                  }
+                ]
+              ],
+              "provenance": "Round 2 native replay at b9020323ac1abf5a6b1c722d247b445f63cb91ba engine state: exact input_ref and seed, Case3 name replay, invariant prefix rotation/mirror/relabel/reversal/units; selected units failure exactly matches retained relation. Final staged diagnostics captured for the units copy."
             }
           }
         }
@@ -32073,7 +32103,7 @@
       "cause": "C",
       "cause_status": "provisional",
       "cause_basis": "Numerical conditioning/roundoff candidate; a failed relation alone does not isolate the implementation defect.",
-      "evidence": "`M(1011)`: Fiber-nonlinear analysis: the state at load factor 1 is not in equilibrium (relative residual 5.838e-17, imbalance 9.468e2); no result is returned. Refusal alone does not establish whether the requested well-posed answer is available; an independent dynamic/nonlinear reference is missing. 2 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments. Comment `1011-6730900141-0` is a silent staged-3D witness linked to the #1846 coordinator escalation; its outcome is separate from this body classification.",
+      "evidence": "`M(1011)`: Fiber-nonlinear analysis: the state at load factor 1 is not in equilibrium (relative residual 5.838e-17, imbalance 9.468e2); no result is returned. Refusal alone does not establish whether the requested well-posed answer is available; an independent dynamic/nonlinear reference is missing. 2 embedded model-bearing comment(s) recorded separately; body class does not resolve the comments. Comment `1011-6730900141-0` is a staged-3D discrepancy with a warned transformed unit copy, linked to the #1846 coordinator escalation; its outcome is separate from this body classification.",
       "regression": null,
       "witnesses": [
         {
@@ -32309,6 +32339,21 @@
                 }
               ],
               "load_factors": null
+            },
+            "transformed": {
+              "status": "solved",
+              "diagnostic_calls": [
+                [
+                  {
+                    "code": "known_issue",
+                    "severity": "warning",
+                    "message": "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design (known issue #762, NUM-INVARIANCE)",
+                    "phase": "NUM-INVARIANCE",
+                    "value": 762.0
+                  }
+                ]
+              ],
+              "provenance": "Round 2 native replay at b9020323ac1abf5a6b1c722d247b445f63cb91ba engine state: exact input_ref and seed, Case3 name replay, invariant prefix rotation/mirror/relabel/reversal/units; selected units failure exactly matches retained relation. Final staged diagnostics captured for the units copy."
             }
           }
         },
@@ -39356,6 +39401,7 @@
     ],
     "issue": 1846,
     "main_silently_wrong": true,
-    "evidence": "Both exact #1846 body unit copies agree in independent regular linear/OpenSees solves. Scaled staged native and public WASM return the wrong unique rotation with no final structured diagnostics. The same staged regularizer defect also reaches comment witnesses 1085-6760749658-0 (multi-member 3D translations, without rotational supports), 1011-6730900141-0 (two-stage translations, releaseMzEnd), and 1846-6760758840-0 (rotation, releaseMzEnd); each archives diagnostic_calls: [[]] and near_mechanism_warning: false. A node whose incident members each release My or Mz can retain physical stiffness on other rotational axes; treating it as an all-axis hinge inserts artificial rotational restraints, redistributing translations and member forces across connected frames. Dense and sparse staged paths duplicate this unit-mixed rule. Member-force corruption is an implication of changed frame kinematics, not a separately archived force-reference comparison. No advisory authored; coordinator chooses applicability and number."
+    "evidence": "Both exact #1846 body unit copies agree in independent regular linear/OpenSees solves. Scaled staged native and public WASM return the wrong unique rotation with no final structured diagnostics. The same staged regularizer defect also reaches comment witnesses 1085-6760749658-0 (multi-member 3D translations, without rotational supports), 1011-6730900141-0 (two-stage translations, releaseMzEnd), and 1846-6760758840-0 (rotation, releaseMzEnd); each base archives diagnostic_calls: [[]] and near_mechanism_warning: false, but each transformed unit copy emits a NUM-INVARIANCE warning, confirmed by exact round-2 native replay. These comment discrepancies do not independently establish a silently wrong answer; the warning-free copy has not independently been shown wrong. A node whose incident members each release My or Mz can retain physical stiffness on other rotational axes; treating it as an all-axis hinge inserts artificial rotational restraints, redistributing translations and member forces across connected frames. Dense and sparse staged paths duplicate this unit-mixed rule. Member-force corruption is an implication of changed frame kinematics, not a separately archived force-reference comparison. No advisory authored; coordinator chooses applicability and number.",
+    "related_silent_witnesses": []
   }
 }
