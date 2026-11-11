@@ -295,13 +295,50 @@ fn issue_1122_correct_buckling_control_keeps_all_requested_modes_in_order() {
     ];
     assert_eq!(result.modes.len(), expected.len());
     for (mode, reference) in result.modes.iter().zip(expected) {
-        let normalized_error = (mode.load_factor - reference).abs()
-            / reference.abs()
-            / (reference / expected[0]).abs().max(1.0);
+        let normalized_error = buckling_relative_error(mode.load_factor, reference, expected[0]);
         assert!(
             normalized_error <= 1e-6,
             "{} versus {reference}: {normalized_error}",
             mode.load_factor
         );
+    }
+}
+
+fn buckling_relative_error(actual: f64, reference: f64, first_reference: f64) -> f64 {
+    (actual - reference).abs() / reference.abs() / (reference / first_reference).abs().max(1.0)
+}
+
+mod review_checks {
+    use super::buckling_relative_error;
+
+    #[test]
+    #[ignore = "known wrong result: #1941"]
+    fn silent_witness_audit_rejects_warned_transformed_copy() {
+        let status = std::process::Command::new("python3")
+            .arg(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../docs/verification/cause-c-replay-audit.py"
+            ))
+            .arg("--self-test")
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1941"]
+    fn buckling_budget_is_relative_to_each_mode() {
+        for reference in [1.0, 2.0, 4.0, 42.0] {
+            for sign in [-1.0, 1.0] {
+                assert!(
+                    buckling_relative_error(reference * (1.0 + sign * 2e-6), reference, 1.0) > 1e-6
+                );
+                assert!(
+                    buckling_relative_error(reference * (1.0 + sign * 0.5e-6), reference, 1.0)
+                        <= 1e-6
+                );
+                assert_eq!(buckling_relative_error(reference, reference, 1.0), 0.0);
+            }
+        }
     }
 }

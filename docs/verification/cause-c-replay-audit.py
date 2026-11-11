@@ -5,10 +5,59 @@ import math
 import json
 import pathlib
 import re
+import unittest
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--regenerate', action='store_true')
+parser.add_argument('--self-test', action='store_true')
 args = parser.parse_args()
+def silent_staged_discrepancy(observed):
+    base = observed['base']
+    return (base['status'] == 'solved'
+            and base['diagnostic_calls'] == [[]]
+            and base['near_mechanism_warning'] is False
+            and any(r['analysis'].startswith('staged (') and r['invariant'] == 'units'
+                    and r['failures'] for r in observed['relations']))
+
+
+class SilentWitnessTests(unittest.TestCase):
+    def observation(self):
+        return {'base': {'status': 'solved', 'diagnostic_calls': [[]], 'near_mechanism_warning': False},
+                'transformed': {'status': 'solved', 'diagnostic_calls': [[]]},
+                'relations': [{'analysis': 'staged (one stage)', 'invariant': 'units',
+                               'failures': ['wrong transformed result']} ]}
+
+    def test_correct_silent_base_wrong_warned_transformed_is_not_silent_wrong(self):
+        observed = self.observation()
+        observed['transformed']['diagnostic_calls'] = [[{'severity': 'warning'}]]
+        self.assertFalse(silent_staged_discrepancy(observed))
+
+    def test_both_copies_silent_with_discrepancy(self):
+        self.assertTrue(silent_staged_discrepancy(self.observation()))
+
+    def test_missing_diagnostics_are_not_silence(self):
+        for side in ('base', 'transformed'):
+            for calls in (None, [], [[], [{'severity': 'warning'}]]):
+                with self.subTest(side=side, calls=calls):
+                    observed = self.observation()
+                    observed[side]['diagnostic_calls'] = calls
+                    self.assertFalse(silent_staged_discrepancy(observed))
+
+    def test_refused_or_correct_copies_do_not_establish_wrong_result(self):
+        for side in ('base', 'transformed'):
+            observed = self.observation()
+            observed[side]['status'] = 'refused'
+            self.assertFalse(silent_staged_discrepancy(observed))
+        observed = self.observation()
+        observed['relations'][0]['failures'] = []
+        self.assertFalse(silent_staged_discrepancy(observed))
+
+
+if args.self_test:
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(SilentWitnessTests)
+    raise SystemExit(not unittest.TextTestRunner().run(suite).wasSuccessful())
+
+
 root = pathlib.Path(__file__).resolve().parents[2]
 data = json.loads((root / 'docs/verification/cause-c-replay-2026-11-11.json').read_text())
 markdown = (root / 'docs/verification/cause-c-replay-2026-11-11.md').read_text()
@@ -286,8 +335,7 @@ def audit_candidates():
         check(key in entry['evidence'] and key in doc and key in candidate['advisory_escalation']['evidence'], f'candidate: unlinked escalation witness {key}')
         if len(matches) == 1:
             observed = matches[0]['observed']
-            check(observed['base']['status'] == 'solved' and observed['base']['diagnostic_calls'] == [[]] and observed['base']['near_mechanism_warning'] is False, f'candidate: escalation silence unsupported for {key}')
-            check(any(r['analysis'].startswith('staged (') and r['invariant'] == 'units' and r['failures'] for r in observed['relations']), f'candidate: escalation discrepancy missing for {key}')
+            check(silent_staged_discrepancy(observed), f'candidate: escalation silence/discrepancy unsupported for {key}')
     check(fixture_keys == fixtures.keys(), 'candidate: orphan/missing fixture references')
     check(sum(c['embedded_model_count'] for i in candidate['source_inventory'] for c in i['comments']) == sum(w['source'] != 'body' for i in entries for w in i['witnesses']), 'candidate: comment inventory')
     for klass, count in candidate['classification_counts'].items():
