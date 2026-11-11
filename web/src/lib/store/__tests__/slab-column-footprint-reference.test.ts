@@ -86,7 +86,7 @@ const r1 = (v: number) => Math.round(v * 10) / 10;
 
 interface Floor { slab: number; beamsWeight: number; J: number; faces: number; nodes: number }
 interface BeamAtFaces { V: [number, number]; M: [number, number] }
-interface Reading { applied: number; reactions: number; floors: Map<number, Floor>; beams: Map<string, BeamAtFaces>; links: number }
+interface Reading { applied: number; reactions: number; floors: Map<number, Floor>; beams: Map<string, BeamAtFaces>; links: number; joint: ReturnType<typeof currentSlabColumnJoint> }
 
 /** The nearest column axis point to a node, and how far it is from it (plan, Chebyshev). */
 function axisOf(p: { x: number; y: number }) {
@@ -154,7 +154,7 @@ function read(mesh: number, o: { footprint?: boolean; beamStiffness?: number } =
       if (foot.z > 0) fl(foot.z).J -= foot.n;
     }
   }
-  return { applied, reactions, floors, beams, links: modelStore.model.constraints.length };
+  return { applied, reactions, floors, beams, links: modelStore.model.constraints.length, joint: currentSlabColumnJoint() };
 }
 
 /** The beams' weight inside the column sections, a floor: 14 ends × 0,20 m × 1,2 · 25 · 0,10 kN/m. */
@@ -245,15 +245,11 @@ describe('the slab-column joint on the span building: one node against the colum
     for (const s of [...p1, tributary]) { expect(s).toBeGreaterThan(1.0); expect(s).toBeGreaterThan(0.53); }
   }, 60_000);
 
-  it('the indicator: one node is a point joint on both floors, the tied sections are represented', async () => {
-    read(0.2);
-    const node = currentSlabColumnJoint();
+  it('the indicator: one node is a point joint on both floors, the tied sections are represented', () => {
+    const node = x.get('node')!.joint;
     expect(node.verdict).toBe('pointJoint');
     expect([...new Set(node.pointJoints.map((m) => m.params?.level))].sort()).toEqual([3, 6]);
-    resultsStore.clear();
-    await yieldToEventLoop();
-    read(0.2, { footprint: true });
-    expect(currentSlabColumnJoint().verdict).toBe('sectionRepresented');
+    expect(x.get('section')!.joint.verdict).toBe('sectionRepresented');
   }, 60_000);
 });
 

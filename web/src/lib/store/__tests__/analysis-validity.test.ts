@@ -20,8 +20,9 @@
  * building's own beams, so passing a mesh for sending less than 1 % straight was no evidence of
  * the load path.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { setImmediate } from 'node:timers';
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { historyStore, modelStore, resultsStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { designRunStore } from '../design-run.svelte';
@@ -45,6 +46,8 @@ beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
   expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
 });
+
+afterEach(() => { resultsStore.clear(); });
 
 const PRINT = !!process.env.SPAN_TRACE_PRINT;
 const tr = (k: string, p?: Record<string, string | number>) => (p ? `${k}${JSON.stringify(p)}` : k);
@@ -160,10 +163,12 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
   const paths = new Map<number, ReturnType<typeof currentFloorPaths>>();
   let before: Readings | null = null;
   const progress: boolean[] = [];
-  beforeAll(() => {
+  beforeAll(async () => {
     let delivered = false;
     setImmediate(() => { delivered = true; });
     for (const m of MESHES) {
+      resultsStore.clear();
+      await yieldToEventLoop();
       progress.push(delivered);
       delivered = false;
       setImmediate(() => { delivered = true; });
@@ -177,10 +182,12 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
       detailingStore.generate({});
       before = read(detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' })!);
     }
+    resultsStore.clear();
+    await yieldToEventLoop();
     if (PRINT) { for (const [m, x] of r) console.log(`MESH ${m}: ${JSON.stringify(x)}`); console.log(`BEFORE 6: ${JSON.stringify(before)}`); }
   }, 300_000);
 
-  it.skip('known wrong result: #1935 — services worker callbacks between mesh solves in the shared hook', () => {
+  it('services worker callbacks between mesh solves in the shared hook', () => {
     expect(progress).toEqual(MESHES.map(() => true));
   });
 
@@ -251,8 +258,9 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
 });
 
 describe('the span building with each column\'s section tied to the slab (0,2 m): represented, nothing held for the joint', () => {
-  it('no point joint, no notice, no memoria row, no IFC property, no open issue; the document is not held by it', () => {
+  it('no point joint, no notice, no memoria row, no IFC property, no open issue; the document is not held by it', async () => {
     building(0.2, { columnSide: 0.4, footprint: true });
+    await yieldToEventLoop();
     const doc = designAndDocument();
     const x = read(doc);
     if (PRINT) console.log(`TIED: ${JSON.stringify(x)}`);
@@ -264,7 +272,7 @@ describe('the span building with each column\'s section tied to the slab (0,2 m)
 });
 
 describe('qa-8: no slab, the indicator does not apply and nothing changes', () => {
-  it('not applicable on every member, and the document reads what it read', () => {
+  it('not applicable on every member, and the document reads what it read', async () => {
     modelStore.clear(); resultsStore.clear(); verificationStore.clear(); historyStore.clear(); detailingStore.clear();
     designRunStore.resetMarks();
     modelStore.restore({
@@ -275,6 +283,7 @@ describe('qa-8: no slab, the indicator does not apply and nothing changes', () =
     } as never);
     const combo = solveCombinations3D(modelStore.model as never, modelStore.model.loadCases, modelStore.model.combinations, true, false);
     if (typeof combo === 'string' || !combo) throw new Error(`solve: ${combo}`);
+    await yieldToEventLoop();
     resultsStore.setResults3D(validateAndSolve3D(modelStore.model as never, true, false) as never);
     resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
     const doc = designAndDocument();

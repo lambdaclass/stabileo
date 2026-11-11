@@ -13,8 +13,9 @@
  * the member loop's last member, inside the settle.
  */
 import { describe, it, expect } from 'vitest';
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
-import { runDesign } from '../candidate-search';
+import { runDesign, runDesignSteps } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 import { rebarHash } from '../rebar-hash';
 import { detailableReinforcement, type DesignRunSummary } from '../outcome';
@@ -25,7 +26,7 @@ const verdicts = (s: DesignRunSummary) => [...s.outcomes.values()]
   .sort();
 
 describe('the settle after the member loop', () => {
-  it('is not cut by the run\'s clock: a cap that falls inside it changes no verdict', () => {
+  it('is not cut by the run\'s clock: a cap that falls inside it changes no verdict', async () => {
     const solved = solveFixture(frame);
     const counter = () => { let n = 0; return { clock: () => ++n, now: () => n }; };
 
@@ -43,7 +44,13 @@ describe('the settle after the member loop', () => {
 
     // The same run with the cap just past the loop's end.
     const b = counter();
-    const capped = runDesign(cirsoc201Adapter, solved.contexts.values(), { clock: b.clock, maxRunMs: loopEnd + 1 });
+    const steps = runDesignSteps(cirsoc201Adapter, solved.contexts.values(), { clock: b.clock, maxRunMs: loopEnd + 1 });
+    let step = steps.next();
+    while (!step.done) {
+      await yieldToEventLoop();
+      step = steps.next();
+    }
+    const capped = step.value;
     expect(capped.aborted).toBe(false);
     expect(capped.notReached).toBe(0);
     expect(verdicts(capped)).toEqual(verdicts(complete));

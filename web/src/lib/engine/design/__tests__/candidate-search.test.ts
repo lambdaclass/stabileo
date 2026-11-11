@@ -4,8 +4,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import qa8 from '../../../templates/fixtures/rc-design-qa-8.json';
-import { designMember, runDesign, isPassingVerdict, BEAM_BUDGET, COLUMN_BUDGET, budgetFor } from '../candidate-search';
+import { designMember, runDesign, runDesignSteps, isPassingVerdict, BEAM_BUDGET, COLUMN_BUDGET, budgetFor } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 import { unsupportedAdapters } from '../adapters/unsupported-adapter';
 import { listDesignCodes, getDesignCode } from '../code-adapter';
@@ -361,4 +362,37 @@ describe('design-code adapter conformance (parameterised over the registry)', ()
       });
     });
   }
+});
+
+describe('resumable design runs', () => {
+  it('returns the same complete outcomes and summary as a synchronous run', async () => {
+    const sync = runDesign(cirsoc201Adapter, solved.contexts.values(), { clock: () => 0 });
+    const progress: number[] = [];
+    const steps = runDesignSteps(cirsoc201Adapter, solved.contexts.values(), {
+      clock: () => 0, progressEvery: 1, onProgress: (p) => { progress.push(p.done); },
+    });
+    let step = steps.next();
+    expect(step.done).toBe(false);
+    expect(progress).toEqual([1]);
+    let turns = 0;
+    while (!step.done) {
+      await yieldToEventLoop();
+      turns++;
+      step = steps.next();
+    }
+    expect(turns).toBeGreaterThan(solved.contexts.size);
+    expect(step.value).toEqual(sync);
+  });
+
+  it('reports cancellation between members without claiming the unreached members', () => {
+    const signal = { aborted: false };
+    const steps = runDesignSteps(cirsoc201Adapter, solved.contexts.values(), { signal });
+    expect(steps.next().done).toBe(false);
+    signal.aborted = true;
+    let step = steps.next();
+    while (!step.done) step = steps.next();
+    expect(step.value.aborted).toBe(true);
+    expect(step.value.total).toBe(1);
+    expect(step.value.notReached).toBe(solved.contexts.size - 1);
+  });
 });
