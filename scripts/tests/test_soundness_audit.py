@@ -55,7 +55,7 @@ class References(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('annotation', AUDIT / 'annotate-references.py')
         annotation = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(annotation)
-        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             area = Path(directory)
             (area / 'base/engine/tests/benchmarks').mkdir(parents=True)
             (area / 'base/engine/tests/benchmarks/macneal_harder.json').write_text('{"cases": []}')
@@ -100,7 +100,7 @@ class References(unittest.TestCase):
 
 class History(unittest.TestCase):
     def run_history(self, filename, values, provenance=None, extra_models=None):
-        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             area = Path(directory)
             for sub in ['repo', 'base-fixed-native', 'all-static-bisect', 'arc-bisect', 'reference-bisect', 'bisect-probe', 'target-arc-bisect/release/examples']:
                 (area / sub).mkdir(parents=True)
@@ -187,7 +187,7 @@ class History(unittest.TestCase):
 
 class Shells(unittest.TestCase):
     def run_script(self, filename, failure):
-        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             area = Path(directory)
             for sub in ['repo', 'base', 'bin', 'repo/engine/tests/metamorphic_corpus/nightly']:
                 (area / sub).mkdir(parents=True, exist_ok=True)
@@ -253,7 +253,7 @@ class EvidenceChecks(unittest.TestCase):
 
     def test_suite_counts_both_sides_of_execution_and_failure_limits(self):
         from audit_evidence import check_suite
-        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             log = Path(directory) / 'suite.log'
             for passed, failed, ignored, status, allow, valid in [
                 (0, 0, 0, 0, False, False), (0, 0, 7, 0, False, False),
@@ -275,7 +275,7 @@ class EvidenceChecks(unittest.TestCase):
 
     def test_replay_requires_exact_manifest_inputs_and_results(self):
         from audit_evidence import check_replay
-        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             source, target = Path(directory) / 'input', Path(directory) / 'output'
             source.mkdir()
             target.mkdir()
@@ -344,7 +344,7 @@ class FinalReview(unittest.TestCase):
             self.assertEqual(result, [])
 
     def test_capture_preserves_every_contributing_test(self):
-        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             area = Path(directory)
             (area / 'engine/tests').mkdir(parents=True)
             source = (AUDIT / 'instrument.py').read_text()
@@ -371,7 +371,7 @@ fn main() {
 }
 ''')
             output = area / 'capture'
-            result = subprocess.run(['cargo', 'run', '--offline', '--quiet', '--manifest-path', str(area / 'Cargo.toml'), '--target-dir', str(ROOT / '.audit-input/r3-capture-target')], env={**os.environ, 'AUDIT_NATIVE_OUT': str(output)}, capture_output=True, text=True)
+            result = subprocess.run(['cargo', 'run', '--quiet', '--manifest-path', str(area / 'Cargo.toml'), '--target-dir', str(ROOT / 'target/audit-provenance-control')], env={**os.environ, 'AUDIT_NATIVE_OUT': str(output)}, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             records = list(output.glob('*.json'))
             self.assertEqual(len(records), 5)
@@ -390,7 +390,7 @@ fn main() {
                 merge_input_records(first, invalid)
 
     def test_reference_collection_uses_all_provenance_and_refuses_changed_targets(self):
-        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             area = Path(directory)
             (area / 'base-fixed-native').mkdir()
             model = dict(analysis='solve_3d', test='first', tests=['first', 'second'], input=[{}], result={'Ok': {'displacements': [{'ux': 1}]}})
@@ -413,7 +413,7 @@ fn main() {
             self.assertEqual((row['before_error'], row['after_error']), (0, 1))
 
     def test_secondary_provenance_reaches_acceptance_and_frozen_reference_consumers(self):
-        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             area = Path(directory)
             for folder in ['base-fixed-native', 'repo-fixed-native', 'base-site-gallery', 'repo-site-gallery',
                            'base/engine/tests/benchmarks', 'repo/engine/tests/benchmarks/spec', 'repo/engine/tests/acceptance/models']:
@@ -442,7 +442,7 @@ fn main() {
 
     def test_suite_failure_inventory_matches_the_recorded_count(self):
         from audit_evidence import check_suite
-        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             log = Path(directory) / 'suite.log'
             log.write_text('test a::wrong ... FAILED\ntest b::wrong ... FAILED\nfailures:\n    a::wrong\n    b::wrong\ntest result: FAILED. 0 passed; 2 failed; 0 ignored;')
             result = check_suite(log, 101, True)
@@ -479,7 +479,7 @@ fn main() {
         source = (AUDIT / 'site-gallery.test.ts').read_text()
         line = next(line for line in source.splitlines() if line.startswith('const cases:'))
         line = line.replace('const cases: typeof generated', 'const cases')
-        with tempfile.TemporaryDirectory(dir=ROOT / '.audit-input') as directory:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             manifest = Path(directory) / 'manifest.json'
             for supplied, present, valid in [(None, False, True), (str(manifest), True, True), (str(manifest), False, False), ('', False, False)]:
                 if present:
