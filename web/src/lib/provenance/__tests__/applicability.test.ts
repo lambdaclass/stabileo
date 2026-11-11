@@ -553,3 +553,9 @@ it('known wrong result: #818: original-pencil notice covers every buckling struc
     expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
   }
 });
+
+it.skip('known wrong result: #818: the buckling notice excludes a truss-only model with unknown analysis history', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'buckling-original-pencil')!;
+  expect(ids(model({ elements: [member(1, 1, 'truss')] }), unknownStamp())).not.toContain(entry.id);
+  expect(ids(model({ elements: [member(1, 1, 'frame')] }), unknownStamp())).toContain(entry.id);
+});

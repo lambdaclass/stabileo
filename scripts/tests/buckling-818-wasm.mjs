@@ -1,3 +1,4 @@
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
@@ -43,3 +44,17 @@ for (const { dimension, input, kind } of [...fixture('buckling-818-constrained.j
   if (expected !== null) assert.ok(Math.abs(raw.modes[0].loadFactor / expected - 1) < 1e-12);
 }
 console.log('buckling #818: WASM brackets, containment, constrained frames, inclined frame and shell passed');
+
+for (const { dimension, input } of fixture('buckling-818-constrained-sparse.json')) {
+  test(`known wrong result: #818: ${dimension}D constrained sparse completeness`, { skip: true }, () => {
+    const json = JSON.stringify(input);
+    for (const count of [1, 2]) {
+      const raw = JSON.parse(engine[`solve_buckling_${dimension}d`](json, count));
+      const certified = JSON.parse(engine[`certify_buckling_${dimension}d`](json, count));
+      assert.ok(Math.abs(raw.modes[0].loadFactor / 47.57901233095258 - 1) < 1e-12);
+      assert.equal(raw.modes.length, count);
+      assert.deepEqual(certified.results, raw);
+      assert.deepEqual(JSON.parse(engine[`certify_buckling_result_${dimension}d`](json, JSON.stringify(raw))), certified);
+    }
+  });
+}

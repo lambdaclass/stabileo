@@ -1030,3 +1030,48 @@ fn buckling_818_structural_original_quotients() {
         assert!((factor/expected-1.0).abs()<1e-12, "{} {}D",case["kind"],case["dimension"]);
     }
 }
+
+fn constrained_sparse_buckling_818(dimension: u64) {
+    use dedaliano_engine::certify::buckling::*;
+    use dedaliano_engine::solver::buckling::*;
+    let fixtures: serde_json::Value = serde_json::from_str(include_str!("fixtures/buckling-818-constrained-sparse.json")).unwrap();
+    let bases: serde_json::Value = serde_json::from_str(include_str!("fixtures/buckling-818-constrained.json")).unwrap();
+    let json = fixtures.as_array().unwrap().iter().find(|c| c["dimension"]==dimension).unwrap()["input"].to_string();
+    let base = bases.as_array().unwrap().iter().find(|c| c["dimension"]==dimension).unwrap()["input"].to_string();
+    for count in [1,2] {
+        let (expected,raw,certified,certificate,supplied,wire,checked) = if dimension==2 {
+            let input = serde_json::from_str(&json).unwrap();
+            let sys = buckling_system_2d(&input).unwrap();
+            assert_eq!(dedaliano_engine::solver::constraints::FreeConstraintSystem::build_2d(&input,&sys.dof_num).unwrap().unwrap().n_free_indep,201);
+            let result = solve_buckling_2d(&input,count).expect("resolved sparse 2D constrained model");
+            (solve_buckling_2d(&serde_json::from_str(&base).unwrap(),1).unwrap().modes[0].load_factor,
+             serde_json::to_value(&result).unwrap(),serde_json::to_value(certify_buckling_2d(&input,count).unwrap()).unwrap(),
+             buckling_certificate_2d(&input,count).unwrap(),serde_json::to_value(certify_buckling_result_2d(&input,result).unwrap()).unwrap(),
+             dedaliano_engine::solve_buckling_2d(&json,count).unwrap(),dedaliano_engine::certify_buckling_2d(&json,count).unwrap())
+        } else {
+            let input = serde_json::from_str(&json).unwrap();
+            let sys = buckling_system_3d(&input).unwrap();
+            assert_eq!(dedaliano_engine::solver::constraints::FreeConstraintSystem::build_3d(&input,&sys.dof_num).unwrap().unwrap().n_free_indep,201);
+            let result = solve_buckling_3d(&input,count).expect("resolved sparse 3D constrained model");
+            (solve_buckling_3d(&serde_json::from_str(&base).unwrap(),1).unwrap().modes[0].load_factor,
+             serde_json::to_value(&result).unwrap(),serde_json::to_value(certify_buckling_3d(&input,count).unwrap()).unwrap(),
+             buckling_certificate_3d(&input,count).unwrap(),serde_json::to_value(certify_buckling_result_3d(&input,result).unwrap()).unwrap(),
+             dedaliano_engine::solve_buckling_3d(&json,count).unwrap(),dedaliano_engine::certify_buckling_3d(&json,count).unwrap())
+        };
+        let factor = raw["modes"][0]["loadFactor"].as_f64().unwrap();
+        assert!((factor/expected-1.0).abs()<1e-12,"{dimension}D k={count}: {factor} vs {expected}");
+        assert_eq!(certified["results"],raw);
+        assert_eq!(supplied,certified);
+        assert_eq!(serde_json::to_value(certificate).unwrap(),certified["certificate"]);
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&wire).unwrap(),raw);
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&checked).unwrap(),certified);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #818"]
+fn buckling_818_constrained_sparse_2d() { constrained_sparse_buckling_818(2); }
+
+#[test]
+#[ignore = "known wrong result: #818"]
+fn buckling_818_constrained_sparse_3d() { constrained_sparse_buckling_818(3); }
