@@ -1779,3 +1779,28 @@ fn audit_issue_960_published_model() {
 fn audit_issue_954_published_model() {
     holds(954, 20757, &[("linear (PCG)", "relabel")]);
 }
+
+#[test]
+fn audit_issue_994_harmonic_oracle_rejects_a_planted_physical_response() {
+    holds(994, 20758, &[("harmonic", "units")]);
+    let Model::D2(c) = model(994) else { panic!("2D") };
+    let a = ana2("harmonic");
+    let cond = crate::checks2::with_eigen_2d(conditioning::of_2d(&c.s).unwrap(), &c);
+    let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond);
+    let expected = (a.run)(&c).unwrap();
+    let mut got = expected.clone();
+    let cmp = |g: &Resp| crate::checks2::judge_split(g, &expected, rel, rel, |g, e, rel| {
+        compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel,
+            crate::checks2::load_floor_2d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond))
+    });
+    assert!(matches!(cmp(&got), Verdict::Pass(_)));
+    let statics = dedaliano_engine::solver::linear::solve_2d(&c.s).unwrap();
+    let length = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.z, 0.0]));
+    let physical = statics.displacements.iter().fold(0.0f64, |m, d| {
+        m.max(d.ux.abs()).max(d.uz.abs()).max(d.ry.abs() * length)
+    });
+    assert!(physical.is_finite() && physical > 0.0);
+    let node = got.0.iter().find(|i| i.tag == "H_re0").unwrap().node;
+    nudge(&mut got, "H_re0", node, 0, physical);
+    assert!(matches!(cmp(&got), Verdict::Fail(_)), "a planted physical harmonic response passed");
+}

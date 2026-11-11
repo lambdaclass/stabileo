@@ -1,0 +1,976 @@
+[
+  {
+    "name": "2d-simply-supported",
+    "workspace": "2d",
+    "source": {
+      "example": "simply-supported"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-cantilever-point",
+    "workspace": "2d",
+    "source": {
+      "example": "cantilever-point"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-continuous-beam-unequal",
+    "workspace": "2d",
+    "source": {
+      "example": "continuous-beam-unequal"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-portal-frame",
+    "workspace": "2d",
+    "source": {
+      "example": "portal-frame"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-two-story-frame",
+    "workspace": "2d",
+    "source": {
+      "example": "two-story-frame"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-multi-section-frame",
+    "workspace": "2d",
+    "source": {
+      "example": "multi-section-frame"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-warren-truss",
+    "workspace": "2d",
+    "source": {
+      "example": "warren-truss"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-howe-truss",
+    "workspace": "2d",
+    "source": {
+      "example": "howe-truss"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-gerber-beam",
+    "workspace": "2d",
+    "source": {
+      "example": "gerber-beam"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-three-hinge-arch",
+    "workspace": "2d",
+    "source": {
+      "example": "three-hinge-arch"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-spring-support",
+    "workspace": "2d",
+    "source": {
+      "example": "spring-support"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-thermal",
+    "workspace": "2d",
+    "source": {
+      "example": "thermal"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-settlement",
+    "workspace": "2d",
+    "source": {
+      "example": "settlement"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-frame-cirsoc-dl",
+    "workspace": "2d",
+    "source": {
+      "example": "frame-cirsoc-dl"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-building-3story-dlw",
+    "workspace": "2d",
+    "source": {
+      "example": "building-3story-dlw"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-frame-seismic",
+    "workspace": "2d",
+    "source": {
+      "example": "frame-seismic"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-hidden-mechanism",
+    "workspace": "2d",
+    "source": {
+      "example": "hidden-mechanism"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "3d-portal-frame",
+    "workspace": "3d",
+    "source": {
+      "example": "3d-portal-frame"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "3d-space-truss",
+    "workspace": "3d",
+    "source": {
+      "example": "3d-space-truss"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "3d-torsion-beam",
+    "workspace": "3d",
+    "source": {
+      "example": "3d-torsion-beam"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "3d-cantilever-load",
+    "workspace": "3d",
+    "source": {
+      "example": "3d-cantilever-load"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "3d-grid-slab",
+    "workspace": "3d",
+    "source": {
+      "example": "3d-grid-slab"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "3d-tower",
+    "workspace": "3d",
+    "source": {
+      "example": "3d-tower"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "3d-hinged-arch",
+    "workspace": "3d",
+    "source": {
+      "example": "hinged-arch-3d"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "3d-building",
+    "workspace": "3d",
+    "source": {
+      "example": "3d-building"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "2d-in-3d-portal-frame",
+    "workspace": "3d",
+    "source": {
+      "example": "portal-frame"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "pro-3d-portal-frame",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-portal-frame"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "advanced": [
+      "pdelta",
+      "modal",
+      "spectral",
+      "buckling"
+    ]
+  },
+  {
+    "name": "pro-3d-tower",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-tower"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "advanced": [
+      "pdelta",
+      "modal",
+      "buckling"
+    ]
+  },
+  {
+    "name": "pro-deep-beam-shell",
+    "workspace": "pro",
+    "source": {
+      "example": "deep-beam-shell"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "pro-rc-qa-diagnostic-shells",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-qa-diagnostic-shells"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "pro-mat-foundation",
+    "workspace": "pro",
+    "source": {
+      "example": "mat-foundation"
+    },
+    "group": "basic",
+    "covers": "audit"
+  },
+  {
+    "name": "design-rc-design-qa-8",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-design-qa-8"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "design": true
+  },
+  {
+    "name": "design-rc-design-qa-row2",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-design-qa-row2"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "design": true
+  },
+  {
+    "name": "design-rc-design-qa-seismic",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-design-qa-seismic"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "design": true
+  },
+  {
+    "name": "design-rc-beam-flexure",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-beam-flexure"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "design": true
+  },
+  {
+    "name": "design-rc-qa-diagnostic",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-qa-diagnostic"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "design": true
+  },
+  {
+    "name": "design-steel-3d-portal-frame",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-portal-frame"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "design": true
+  },
+  {
+    "name": "design-steel-3d-tower",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-tower"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "design": true
+  },
+  {
+    "name": "design-steel-pipe-rack",
+    "workspace": "pro",
+    "source": {
+      "example": "pipe-rack"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "design": true
+  },
+  {
+    "name": "design-footing-rc-footing-cad-poc",
+    "workspace": "pro",
+    "source": {
+      "ded": "src/lib/export/__fixtures__/rc-footing-cad-poc.ded.json"
+    },
+    "group": "basic",
+    "covers": "audit",
+    "design": true
+  },
+  {
+    "name": "gallery-simply-supported",
+    "workspace": "2d",
+    "source": {
+      "example": "simply-supported"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-cantilever",
+    "workspace": "2d",
+    "source": {
+      "example": "cantilever"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-cantilever-point",
+    "workspace": "2d",
+    "source": {
+      "example": "cantilever-point"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-continuous-beam",
+    "workspace": "2d",
+    "source": {
+      "example": "continuous-beam"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-continuous-beam-unequal",
+    "workspace": "2d",
+    "source": {
+      "example": "continuous-beam-unequal"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-portal-frame",
+    "workspace": "2d",
+    "source": {
+      "example": "portal-frame"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-portal-frame-braced",
+    "workspace": "2d",
+    "source": {
+      "example": "portal-frame-braced"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-portal-second-order",
+    "workspace": "2d",
+    "source": {
+      "example": "portal-second-order"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-two-story-frame",
+    "workspace": "2d",
+    "source": {
+      "example": "two-story-frame"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-multi-section-frame",
+    "workspace": "2d",
+    "source": {
+      "example": "multi-section-frame"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-color-map-demo",
+    "workspace": "2d",
+    "source": {
+      "example": "color-map-demo"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-truss",
+    "workspace": "2d",
+    "source": {
+      "example": "truss"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-warren-truss",
+    "workspace": "2d",
+    "source": {
+      "example": "warren-truss"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-howe-truss",
+    "workspace": "2d",
+    "source": {
+      "example": "howe-truss"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-point-loads",
+    "workspace": "2d",
+    "source": {
+      "example": "point-loads"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-spring-support",
+    "workspace": "2d",
+    "source": {
+      "example": "spring-support"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-thermal",
+    "workspace": "2d",
+    "source": {
+      "example": "thermal"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-settlement",
+    "workspace": "2d",
+    "source": {
+      "example": "settlement"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-three-hinge-arch",
+    "workspace": "2d",
+    "source": {
+      "example": "three-hinge-arch"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-gerber-beam",
+    "workspace": "2d",
+    "source": {
+      "example": "gerber-beam"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-bridge-moving-load",
+    "workspace": "2d",
+    "source": {
+      "example": "bridge-moving-load"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-bridge-highway",
+    "workspace": "2d",
+    "source": {
+      "example": "bridge-highway"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-frame-cirsoc-dl",
+    "workspace": "2d",
+    "source": {
+      "example": "frame-cirsoc-dl"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-building-3story-dlw",
+    "workspace": "2d",
+    "source": {
+      "example": "building-3story-dlw"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-frame-seismic",
+    "workspace": "2d",
+    "source": {
+      "example": "frame-seismic"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-hidden-mechanism",
+    "workspace": "2d",
+    "source": {
+      "example": "hidden-mechanism"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-deep-beam-bar",
+    "workspace": "2d",
+    "source": {
+      "example": "deep-beam-bar"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-dynamics-column-mass",
+    "workspace": "2d",
+    "source": {
+      "example": "dynamics-column-mass"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-dynamics-shear-building",
+    "workspace": "2d",
+    "source": {
+      "example": "dynamics-shear-building"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-3d-portal-frame",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-portal-frame"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-3d-space-truss",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-space-truss"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-3d-cantilever-load",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-cantilever-load"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-3d-grid-slab",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-grid-slab"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-3d-tower",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-tower"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-3d-torsion-beam",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-torsion-beam"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-torsion-tube",
+    "workspace": "pro",
+    "source": {
+      "example": "torsion-tube"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-rc-beam-flexure",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-beam-flexure"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-deep-beam-shell",
+    "workspace": "pro",
+    "source": {
+      "example": "deep-beam-shell"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-3d-nave-industrial",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-nave-industrial"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-3d-building",
+    "workspace": "pro",
+    "source": {
+      "example": "3d-building"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-pro-edificio-7p",
+    "workspace": "pro",
+    "source": {
+      "example": "pro-edificio-7p"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-rc-qa-diagnostic",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-qa-diagnostic"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-rc-qa-diagnostic-shells",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-qa-diagnostic-shells"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-torre-irregular-con-retiros",
+    "workspace": "pro",
+    "source": {
+      "example": "torre-irregular-con-retiros"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-rc-design-frame",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-design-frame"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-rc-design-qa-8",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-design-qa-8"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-rc-design-qa-seismic",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-design-qa-seismic"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-rc-design-qa-row2",
+    "workspace": "pro",
+    "source": {
+      "example": "rc-design-qa-row2"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-cad-arch-structure-dxf",
+    "workspace": "pro",
+    "source": {
+      "example": "cad-arch-structure-dxf"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-cad-arch-only-dxf",
+    "workspace": "pro",
+    "source": {
+      "example": "cad-arch-only-dxf"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-pipe-rack",
+    "workspace": "pro",
+    "source": {
+      "example": "pipe-rack"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-mat-foundation",
+    "workspace": "pro",
+    "source": {
+      "example": "mat-foundation"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-suspension-bridge",
+    "workspace": "pro",
+    "source": {
+      "example": "suspension-bridge"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-cable-stayed-bridge",
+    "workspace": "pro",
+    "source": {
+      "example": "cable-stayed-bridge"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-offshore-platform",
+    "workspace": "pro",
+    "source": {
+      "example": "offshore-platform"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-full-stadium",
+    "workspace": "pro",
+    "source": {
+      "example": "full-stadium"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-xl-diagrid-tower",
+    "workspace": "pro",
+    "source": {
+      "example": "xl-diagrid-tower"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-geodesic-dome",
+    "workspace": "pro",
+    "source": {
+      "example": "geodesic-dome"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-la-bombonera",
+    "workspace": "pro",
+    "source": {
+      "example": "la-bombonera"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-space-frame",
+    "workspace": "pro",
+    "source": {
+      "example": "space-frame"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-grid-beams",
+    "workspace": "pro",
+    "source": {
+      "example": "grid-beams"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-tower-3d-2",
+    "workspace": "pro",
+    "source": {
+      "example": "tower-3d-2"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-tower-3d-4",
+    "workspace": "pro",
+    "source": {
+      "example": "tower-3d-4"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-hinged-arch-3d",
+    "workspace": "pro",
+    "source": {
+      "example": "hinged-arch-3d"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-cable-stayed-bridge-small",
+    "workspace": "pro",
+    "source": {
+      "example": "cable-stayed-bridge-small"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  },
+  {
+    "name": "gallery-stadium-canopy",
+    "workspace": "pro",
+    "source": {
+      "example": "stadium-canopy"
+    },
+    "group": "basic",
+    "covers": "gallery"
+  }
+]
