@@ -1069,9 +1069,7 @@ fn constrained_sparse_buckling_818(dimension: u64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #818"]
 fn buckling_818_constrained_sparse_2d() { constrained_sparse_buckling_818(2); }
 
 #[test]
-#[ignore = "known wrong result: #818"]
 fn buckling_818_constrained_sparse_3d() { constrained_sparse_buckling_818(3); }

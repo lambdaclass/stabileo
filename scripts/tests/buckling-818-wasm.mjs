@@ -46,7 +46,7 @@ for (const { dimension, input, kind } of [...fixture('buckling-818-constrained.j
 console.log('buckling #818: WASM brackets, containment, constrained frames, inclined frame and shell passed');
 
 for (const { dimension, input } of fixture('buckling-818-constrained-sparse.json')) {
-  test(`known wrong result: #818: ${dimension}D constrained sparse completeness`, { skip: true }, () => {
+  test(`known wrong result: #818: ${dimension}D constrained sparse completeness`, () => {
     const json = JSON.stringify(input);
     for (const count of [1, 2]) {
       const raw = JSON.parse(engine[`solve_buckling_${dimension}d`](json, count));

@@ -204,7 +204,7 @@ fn has_round_off_member(mean_n: &HashMap<usize, f64>, noise: &HashMap<usize, f64
 pub(super) fn buckling_eigen(k: &CscMatrix, b: &CscMatrix, cs: Option<&FreeConstraintSystem>, count: usize) -> (Option<crate::linalg::EigenResult>, Option<StructuredDiagnostic>) {
     let reduced = cs.map(|cs| (cs.reduce_matrix_sparse(k),cs.reduce_matrix_sparse(b)));
     let (a_solve,b_solve) = reduced.as_ref().map(|(a,b)| (a,b)).unwrap_or((k,b));
-    let pencil = crate::linalg::lanczos::BucklingPencil { k, b, transform: cs.map(|cs| &cs.c_ff) };
+    let pencil = crate::linalg::lanczos::BucklingPencil { k, b, transform: cs.map(|cs| cs.c_ff.buckling_transform()) };
     crate::known_issues::with_sparse_factor_conditioning(a_solve, |observe| {
         crate::linalg::lanczos::lanczos_buckling_eigen_sparse_mapped_observed(a_solve,b_solve,count,&pencil,observe)
     })

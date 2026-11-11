@@ -55,6 +55,13 @@ pub struct SparseTransform {
 }
 
 impl SparseTransform {
+    pub(crate) fn buckling_transform(&self) -> crate::linalg::lanczos::BucklingTransform<'_> {
+        crate::linalg::lanczos::BucklingTransform {
+            n_rows: self.n_rows, n_cols: self.n_cols,
+            row_ptr: &self.row_ptr, col_idx: &self.col_idx, vals: &self.vals,
+        }
+    }
+
     /// Build from per-row (column, value) lists. Rows must be sorted by column
     /// and free of duplicate columns.
     ///
@@ -2772,7 +2779,6 @@ impl FreeConstraintSystem {
 mod tests {
 
     #[test]
-    #[ignore = "known wrong result: #818"]
     fn buckling_818_constrained_sparse_completeness_uses_original_pencil() {
         use crate::linalg::sparse::CscMatrix;
         for n in [200, 201, 202] {

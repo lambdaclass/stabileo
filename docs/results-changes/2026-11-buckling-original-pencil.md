@@ -102,3 +102,38 @@ The silent 2D result is recorded for the coordinator's advisory decision; no
 advisory or number is assigned here. The corrected factors in both dimensions
 are 47.57901233095258. Disabling refinement locally restores the wrong factor
 and fails the structural regression by more than relative 1e-6.
+
+PR #1939 third review: original constrained factors must be compared with counts
+from the same original constrained pencil. The previous branch counted the
+rounded reduced K and N spectra. Padding the stiff-tie fixtures with 99 uncoupled
+columns gives 201 independent degrees of freedom. The original factor remains
+47.57901233095258; the rounded reduced factor is 47.579661853206964. On the previous
+branch both padded fixtures refuse completeness, even though the mode is recovered.
+
+Sparse selection now takes a BucklingPencil context for both factors and inertia,
+rather than a factor-only callback. It accumulates each entry of C^T(K-sigma N)C
+from original matrix entries, retaining multiplication and summation remainders
+through the shift and congruence before rounding the completed entry. It does not
+subtract two already rounded reduced matrices. The positive-spectrum upper bound
+also uses compensated original geometric work. The original LDL inertia guard
+and its shift margins remain unchanged; unresolved inertia still refuses. Modal
+selection retains its existing matrices and reciprocal-factor behavior.
+
+A borrowed CSR transform view removes the linalg dependency on solver constraint
+types. The existing Kani dependency-closure assertion now passes without expanding
+its input list or weakening the assertion. The two supplied-result certification
+exports are registered with the existing invariance tracking issue #1497.
+
+The new minimal constrained family covers 200, 201 and 202 independent degrees of
+freedom, both signs of the tie perturbation, both dimension contexts and requests
+for one or two modes. Both padded structural fixtures exercise native raw,
+certified, certificate-only and supplied-result APIs, JSON wrappers and actual
+WASM exports. Shift tests compare the congruence with exact-rational arithmetic,
+check inertia on both sides of the critical factor, and retain singular refusal.
+The unmodified legacy-project judge must still reject a wrong linear truss member
+force. The registry now requires `ranBuckling`, a feature emitted only when the solve
+stamp records a buckling run, as well as structural elements and buckling analysis.
+A legacy linear truss with unknown history is not excused by this change. An
+explicit buckling run on a truss still receives the notice. Unknown or unrecorded
+analysis history alone does not satisfy this entry; other notices and advisories
+retain their existing conservative history rules.
