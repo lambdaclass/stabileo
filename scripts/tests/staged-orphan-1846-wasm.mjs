@@ -305,7 +305,7 @@ for (const dimension of [2, 3]) {
           ? { type: kind, masterNode: 1, slaveNodes: [2], plane: 'XZ' }
           : { type: kind, masterNode: 1, slaveNode: 2, dofs: [], releases: [] }];
         if (held) Object.assign(input.supports[1], { type: 'fixed', rrx: true, rry: true, rrz: true });
-        const result = kinematics(input);
+        const result = JSON.parse(kinematics(JSON.stringify(input)));
         assert.equal(result.isSolvable, held);
         if (held) {
           assert.equal(result.mechanismModes, 0);
@@ -321,7 +321,7 @@ for (const dimension of [2, 3]) {
     for (const soft of [false, true]) {
       const input = round3Model(`soft${dimension}`, pads);
       if (!soft) input.sections[1][dimension === 2 ? 'iz' : 'iy'] = 0.001;
-      const result = kinematics(input);
+      const result = JSON.parse(kinematics(JSON.stringify(input)));
       assert.equal(result.isSolvable, true, JSON.stringify(result));
       assert.equal(result.mechanismModes, 0);
       if (soft) assert.throws(() => linear(input), dimension === 2 ? /constraint reduction/ : /coupled/);
