@@ -48,6 +48,27 @@ pub(crate) fn calls() -> Vec<Value> {
             calls.push(json!({"api":"solve_ssi_3d","input":spatial,"converged":rigid,"pileCapacity":capacity}));
         }
     }
+    let point = json!({"nodes":{"1":{"id":1,"x":0.0,"z":0.0}},
+        "materials":{},"sections":{},"elements":{},
+        "supports":{"1":{"id":1,"nodeId":1,"type":"spring","kx":1e16,"ky":1.0,"kz":1.0}},
+        "loads":[{"type":"nodal","data":{"nodeId":1,"fx":1e16,"fz":0.0,"my":0.0}}]});
+    let point: SolverInput = serde_json::from_value(point).unwrap();
+    calls.push(json!({"api":"solve_2d","input":point,"converged":true,"expectedDisplacements":[{"nodeId":1,"ux":1.0,"uz":0.0,"ry":0.0}]}));
+    for plane in Plane::ALL {
+        let expected = if plane == Plane::YZ { json!({"nodeId":1,"ux":0.0,"uy":1.0,"uz":0.0}) } else { json!({"nodeId":1,"ux":1.0,"uy":0.0,"uz":0.0}) };
+        calls.push(json!({"api":"solve_3d","input":embed_2d(&point,plane).unwrap(),"converged":true,"expectedDisplacements":[expected]}));
+    }
+    for tolerance in [1e-20, 1e-15] {
+        for soil in [false, true] {
+            let springs: Vec<dedaliano_engine::solver::ssi::SoilSpring> = if soil { serde_json::from_value(json!([{"nodeId":1,"direction":0,"tributaryLength":1.0,"curve":{"type":"custom","points":[[0.0,0.0],[2.0,2.0]]}}])).unwrap() } else { vec![] };
+            let input = SSIInput { solver:point.clone(), soil_springs:springs.clone(), max_iter:5, tolerance };
+            calls.push(json!({"api":"solve_ssi_2d","input":input,"converged":!soil || tolerance>1e-16,"smallSoilBalance":true,"expectedDisplacements":[{"nodeId":1,"ux":1.0,"uz":0.0,"ry":0.0}]}));
+            for plane in Plane::ALL {
+                let spatial = SSIInput3D { solver:embed_2d(&point, plane).unwrap(), soil_springs:springs.iter().map(|s| dedaliano_engine::solver::ssi::SoilSpring { direction:if plane == Plane::YZ { 1 } else { 0 }, ..s.clone() }).collect(), max_iter:5, tolerance };
+                calls.push(json!({"api":"solve_ssi_3d","input":spatial,"converged":!soil || tolerance>1e-16,"smallSoilBalance":true,"expectedDisplacements":[if plane == Plane::YZ { json!({"nodeId":1,"ux":0.0,"uy":1.0,"uz":0.0}) } else { json!({"nodeId":1,"ux":1.0,"uy":0.0,"uz":0.0}) }]}));
+            }
+        }
+    }
     calls
 }
 
@@ -67,6 +88,7 @@ fn strict_equilibrium_survives_numbering_and_constraints() {
             "solve_pdelta_3d" => dedaliano_engine::solve_pdelta_3d(&text, max_iter, 1e-12).unwrap(),
             "solve_ssi_2d" => dedaliano_engine::solve_ssi_2d(&text).unwrap(),
             "solve_ssi_3d" => dedaliano_engine::solve_ssi_3d(&text).unwrap(),
+            "solve_2d" => { assert!(!linear::solve_2d(&serde_json::from_str(&text).unwrap()).unwrap().displacements.is_empty()); continue; },
             "solve_3d" => { assert!(!linear::solve_3d(&serde_json::from_str(&text).unwrap()).unwrap().displacements.is_empty()); continue; },
             _ => panic!("unknown API"),
         };
@@ -86,4 +108,21 @@ pub(crate) fn check_capacity(r: &Value, c: &Value) {
     let springs = r["springResults"].as_array().unwrap();
     close(-springs[..11].iter().map(|s| s["reaction"].as_f64().unwrap()).sum::<f64>(), capacity["shaft"].as_f64().unwrap());
     close(-springs[11]["reaction"].as_f64().unwrap(), capacity["tip"].as_f64().unwrap());
+}
+
+#[test]
+#[ignore = "known wrong result: #761"]
+fn small_soil_force_cannot_disappear_between_structure_and_applied_load() {
+    let calls: Vec<_> = calls().into_iter().filter(|c| c["smallSoilBalance"] == true).collect();
+    if let Ok(path) = std::env::var("RED_CI_CASES") {
+        std::fs::write(path, serde_json::to_vec(&calls).unwrap()).unwrap();
+    }
+    for c in calls {
+        let text = c["input"].to_string();
+        let result = if c["api"] == "solve_ssi_2d" {
+            dedaliano_engine::solve_ssi_2d(&text).unwrap()
+        } else { dedaliano_engine::solve_ssi_3d(&text).unwrap() };
+        let r:Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(r["converged"], c["converged"], "{c}");
+    }
 }
