@@ -68,3 +68,6 @@ pub(crate) mod conditioning_accuracy;
 
 #[cfg(test)]
 mod web_mechanism_regressions;
+
+#[cfg(test)]
+mod frozen_shell_refusals;
