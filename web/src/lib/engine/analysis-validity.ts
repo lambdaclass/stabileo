@@ -3,7 +3,7 @@ export function requireCableAnalysis(elements: Iterable<{ id: number; type: stri
   if (elementIds.length === 0) return;
   const d = {
     code: 'cable_analysis_required', severity: 'error', elementIds,
-    message: 'Results withheld: cable elements require cable analysis to enforce tension-only behaviour.',
+    message: 'Results withheld: cable elements require cable analysis to enforce tension-only behavior.',
   };
   throw new Error(JSON.stringify({ message: d.message, structuredDiagnostics: [d] }));
 }

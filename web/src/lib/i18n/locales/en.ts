@@ -3998,7 +3998,7 @@ const en: Record<string, string> = {
   "knownIssue.FR-5": "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently",
   "analysisValidity.cable": "Results withheld: cable elements {elements} require cable analysis to enforce tension-only behavior. This analysis treats cables as bars that can carry compression.",
   "analysisValidity.contact": "Results withheld: frozen contact {elements} does not satisfy the bearing, opening and no-tension conditions within the contact tolerance. Revise the contact model or iteration settings and solve again.",
-  "analysisValidity.member": "Results withheld: frozen one-way member {elements} has invalid axial forces for its behaviour within the scaled contact tolerance. Revise the contact model or iteration settings and solve again.",
+  "analysisValidity.member": "Results withheld: frozen one-way member {elements} has invalid axial forces for its behavior within the scaled contact tolerance. Revise the contact model or iteration settings and solve again.",
   "analysisValidity.contactTolerance": "Results withheld: contact tolerance must be finite and positive. Set a positive contact tolerance and solve again.",
   "knownIssue.SP-14": "Outside the cable analysis, cable elements can carry compression as truss bars. Verify cable tensions and use a tension-only cable analysis for slackening",
   "knownIssue.NL-13": "Contact analysis can freeze a chattering gap while reporting convergence. Verify the contact state and equilibrium independently",
