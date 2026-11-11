@@ -1431,6 +1431,44 @@ describe('hand-built: textbook values', () => {
       expect(r.reactions[0].rz).toBeCloseTo(2 * base.reactions[0].rz, 9);
     } finally { whatIf.abandon(); vi.useRealTimers(); }
   });
+  it.skip.each(['reset', 'setAll'] as const)('what-if: an abort in %s restores the model and closes the session (known wrong result: #1921)', async (method) => {
+    const meta = generate('frame', 3);
+    meta.thermal = false;
+    meta.settlement = false;
+    meta.springs = false;
+    const base = solved();
+    const snapshot = modelStore.snapshot();
+    const liveCalc = uiStore.liveCalc;
+    const savedRuns = new Map(runs);
+    const savedFindings = new Map([...findings].map(([key, values]) => [key, [...values]]));
+    const abort = new Error('injected mid-what-if abort');
+    const original = whatIf[method].bind(whatIf);
+    const interrupt = vi.spyOn(whatIf, method).mockImplementation((...args: unknown[]) => {
+      if (method !== 'reset') Reflect.apply(original, whatIf, args);
+      vi.advanceTimersByTime(200);
+      throw abort;
+    });
+    try {
+      let caught: unknown;
+      try { await checkWhatIf(meta.label, meta, base); } catch (e) { caught = e; }
+      expect(caught).toBe(abort);
+      expect(whatIf.active).toBe(false);
+      expect(uiStore.liveCalc).toBe(liveCalc);
+      expect(vi.isFakeTimers()).toBe(false);
+      expect(modelStore.snapshot()).toEqual(snapshot);
+      expect(solved().displacements).toEqual(base.displacements);
+      expect(uiStore.showWhatIf).toBe(false);
+    } finally {
+      interrupt.mockRestore();
+      vi.useRealTimers();
+      await whatIf.close();
+      modelStore.restore(snapshot);
+      runs.clear();
+      savedRuns.forEach((value, key) => runs.set(key, value));
+      findings.clear();
+      savedFindings.forEach((value, key) => findings.set(key, value));
+    }
+  });
   it('what-if: leaving restores the model as it was', async () => {
     build(() => { const n = [N(0, 0), N(0, 4), N(6, 4), N(6, 0)]; E(n[0], n[1]); const b = E(n[1], n[2]); E(n[2], n[3]); modelStore.addSupport(n[0], 'fixed'); modelStore.addSupport(n[3], 'pinned'); modelStore.addDistributedLoad(b, -12); modelStore.addNodalLoad(n[1], 8, 0, 0); });
     const base = solved();
