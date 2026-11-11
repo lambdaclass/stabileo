@@ -5,6 +5,7 @@
  * arguments so it never reads from Svelte stores directly.
  */
 
+import { along } from '../axes/display';
 import { drawMomentSymbol } from '../canvas/draw-loads';
 import type { LabelCollector } from '../canvas/label-layout';
 import { addMemberTags } from '../canvas/member-tags';
@@ -132,16 +133,17 @@ export function drawAxes(
   // Corner axis indicator (bottom-left)
   const cx = 40, cy = height - AXES_GIZMO_BASE, len = AXES_GIZMO_ARM;
   ctx.lineWidth = 2;
-  // X axis (red, right)
-  ctx.strokeStyle = '#e5482a';
-  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + len, cy); ctx.stroke();
-  ctx.fillStyle = '#e5482a'; ctx.font = '11px sans-serif';
-  ctx.fillText('X', cx + len + 3, cy + 4);
-  // Z axis (blue, up)
-  ctx.strokeStyle = '#4488ff';
-  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - len); ctx.stroke();
-  ctx.fillStyle = '#4488ff';
-  ctx.fillText('Z', cx - 4, cy - len - 5);
+  const colors: Record<string, string> = { X: '#e5482a', Y: '#44cc44', Z: '#4488ff' };
+  const h = along(0), v = along(2);
+  ctx.font = '11px sans-serif';
+  ctx.strokeStyle = colors[h.name];
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + h.sign * len, cy); ctx.stroke();
+  ctx.fillStyle = colors[h.name];
+  ctx.fillText(h.name, h.sign > 0 ? cx + len + 3 : cx - len - 11, cy + 4);
+  ctx.strokeStyle = colors[v.name];
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - v.sign * len); ctx.stroke();
+  ctx.fillStyle = colors[v.name];
+  ctx.fillText(v.name, cx - 4, v.sign > 0 ? cy - len - 5 : cy + len + 11);
 }
 
 // ── Nodes ────────────────────────────────────────────────────────────

@@ -6,16 +6,18 @@
     type AxesChoice, type Handedness, type SignedAxis,
   } from '../../lib/axes/frame';
   import AxesFigure from './AxesFigure.svelte';
+  import { uiStore } from '../../lib/store';
 
   const SIGNED: SignedAxis[] = ['+X', '-X', '+Y', '-Y', '+Z', '-Z'];
   const PRESETS: Array<{ key: string; choice: AxesChoice }> = [
     { key: 'axes.presetZUp', choice: DEFAULT_AXES },
-    { key: 'axes.presetYUp', choice: { up: '+Y', right: '+X', hand: 'right', localHand: 'right' } },
+    { key: 'axes.presetYUp', choice: { up: '+Y', right: '+X', hand: 'right' } },
   ];
 
   const choice = $derived(axesStore.choice);
   const frame = $derived(axesStore.frame);
   const plane = $derived(plane2D(frame));
+  const localHand = $derived<Handedness>(uiStore.axisConvention3D === 'leftHand' ? 'left' : 'right');
   const rightOptions = $derived(SIGNED.filter((s) => s[1] !== choice.up[1]));
 
   const pretty = (s: SignedAxis) => (s[0] === '-' ? `−${s[1]}` : s[1]);
@@ -96,13 +98,13 @@
         <div class="ax-local-row">
           <div class="ax-options" role="radiogroup">
             {#each ['right', 'left'] as const as h}
-              <button type="button" role="radio" aria-checked={choice.localHand === h} class="ax-opt wide" class:on={choice.localHand === h} data-testid="axes-local-{h}" onclick={() => set({ localHand: h })}>
+              <button type="button" role="radio" aria-checked={localHand === h} class="ax-opt wide" class:on={localHand === h} data-testid="axes-local-{h}" onclick={() => { uiStore.axisConvention3D = h === 'left' ? 'leftHand' : 'rightHand'; }}>
                 <span>{t(h === 'right' ? 'axes.handRight' : 'axes.handLeft')}</span>
                 <small>{h === 'right' ? 'ex × ey = ez' : 'ex × ey = −ez'}</small>
               </button>
             {/each}
           </div>
-          <div class="ax-local-fig"><AxesFigure {frame} kind="local" /></div>
+          <div class="ax-local-fig"><AxesFigure {frame} kind="local" leftLocal={localHand === 'left'} /></div>
         </div>
         <p class="ax-note">{t('axes.localNote')}</p>
       </section>
@@ -146,7 +148,7 @@
   .ax-opt.wide { display: flex; flex-direction: column; align-items: flex-start; min-width: 120px; font-weight: 500; }
   .ax-opt small { color: var(--st-text-2); font-size: 0.72rem; }
   .ax-figures { background: var(--st-surface-2); border-radius: var(--st-radius); padding: 8px; }
-  .ax-plane { display: grid; grid-template-columns: 120px 1fr; gap: 8px; align-items: center; }
+  .ax-plane { display: grid; grid-template-columns: 170px 1fr; gap: 8px; align-items: center; }
   .ax-local { margin-top: 16px; border-top: 1px solid var(--st-border); padding-top: 12px; }
   .ax-local h3 { margin: 0 0 8px; font-size: 0.85rem; font-weight: 600; }
   .ax-local-row { display: grid; grid-template-columns: auto 200px; gap: 16px; align-items: center; }

@@ -23,7 +23,7 @@ describe('global axes frame', () => {
   });
 
   it('names Y up with X to the right as a right-handed frame whose Z points at the viewer', () => {
-    const f = makeFrame({ up: '+Y', right: '+X', hand: 'right', localHand: 'right' });
+    const f = makeFrame({ up: '+Y', right: '+X', hand: 'right' });
     expect(toUser(f, [0, 0, 3])).toEqual([0, 3, 0]);
     expect(toUser(f, [0, 1, 0])).toEqual([0, 0, -1]);
     expect(gravityLabel(f)).toBe('−Y');
@@ -67,7 +67,7 @@ describe('global axes frame', () => {
   });
 
   it('rejects a choice with the same axis up and to the right', () => {
-    expect(validChoice({ up: '+Z', right: '-Z', hand: 'right', localHand: 'right' })).toBe(false);
-    expect(validChoice({ up: '+Z', right: '+Y', hand: 'left', localHand: 'right' })).toBe(true);
+    expect(validChoice({ up: '+Z', right: '-Z', hand: 'right' })).toBe(false);
+    expect(validChoice({ up: '+Z', right: '+Y', hand: 'left' })).toBe(true);
   });
 });

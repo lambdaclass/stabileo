@@ -8,12 +8,11 @@ export interface AxesChoice {
   up: SignedAxis;
   right: SignedAxis;
   hand: Handedness;
-  localHand: Handedness;
 }
 
 export const AXIS_NAMES: readonly AxisName[] = ['X', 'Y', 'Z'];
 
-export const DEFAULT_AXES: AxesChoice = { up: '+Z', right: '+X', hand: 'right', localHand: 'right' };
+export const DEFAULT_AXES: AxesChoice = { up: '+Z', right: '+X', hand: 'right' };
 
 export interface AxesFrame {
   readonly choice: AxesChoice;
@@ -42,7 +41,7 @@ export function validChoice(c: Partial<AxesChoice> | null | undefined): c is Axe
   if (!c || typeof c !== 'object') return false;
   const ok = (s: unknown) => typeof s === 'string' && /^[+-][XYZ]$/.test(s);
   const hand = (h: unknown) => h === 'right' || h === 'left';
-  return ok(c.up) && ok(c.right) && c.up![1] !== c.right![1] && hand(c.hand) && hand(c.localHand);
+  return ok(c.up) && ok(c.right) && c.up![1] !== c.right![1] && hand(c.hand);
 }
 
 export function makeFrame(choice: AxesChoice): AxesFrame {
@@ -120,7 +119,7 @@ export function allChoices(): AxesChoice[] {
   for (const up of ['+X', '-X', '+Y', '-Y', '+Z', '-Z'] as SignedAxis[]) {
     for (const right of ['+X', '-X', '+Y', '-Y', '+Z', '-Z'] as SignedAxis[]) {
       if (right[1] === up[1]) continue;
-      for (const hand of ['right', 'left'] as Handedness[]) out.push({ up, right, hand, localHand: 'right' });
+      for (const hand of ['right', 'left'] as Handedness[]) out.push({ up, right, hand });
     }
   }
   return out;

@@ -28,6 +28,7 @@ import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { stationTs, type StationSpec } from './station-forces';
 import { evaluateDiagramAt } from './diagrams-3d';
+import { userRot, userVec } from '../axes/display';
 
 export type TableKind = 'displacements' | 'reactions' | 'forces';
 
@@ -100,11 +101,11 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
   const keep = (id: number) => !opts.entities || opts.entities.has(id);
   const fin = (v: number[]) => (opts.resultant ? withResultants(kind, v) : v);
   if (kind === 'displacements') {
-    for (const d of r.displacements) if (keep(d.nodeId)) visit(d.nodeId, undefined, undefined, fin([d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]));
+    for (const d of r.displacements) if (keep(d.nodeId)) visit(d.nodeId, undefined, undefined, fin([...userVec(d.ux, d.uy, d.uz), ...userRot(d.rx, d.ry, d.rz)]));
     return;
   }
   if (kind === 'reactions') {
-    for (const x of r.reactions) if (keep(x.nodeId)) visit(x.nodeId, undefined, undefined, fin([x.fx, x.fy, x.fz, x.mx, x.my, x.mz]));
+    for (const x of r.reactions) if (keep(x.nodeId)) visit(x.nodeId, undefined, undefined, fin([...userVec(x.fx, x.fy, x.fz), ...userRot(x.mx, x.my, x.mz)]));
     return;
   }
   const spec = opts.stations ?? 2;

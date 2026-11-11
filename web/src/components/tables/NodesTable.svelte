@@ -2,7 +2,7 @@
   import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { TWO_D_HORIZONTAL_AXIS_LABEL, TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
+  import { coordLabels, modelCoords, shownCoords } from '../../lib/axes/display';
   import { unitQ } from '../../lib/store/display-units.svelte';
   import UnitInput from '../UnitInput.svelte';
 
@@ -12,29 +12,21 @@
   let newNodeY = $state(0);
   let newNodeZ = $state(0);
 
+  const is3D = $derived(uiStore.is3DWorkspace);
+  const labels = $derived(coordLabels(is3D));
+
   // The fields show the chosen unit system (UnitInput), so these take SI metres.
-  function updateNodeX(id: number, x: number) {
-    if (!Number.isFinite(x)) return;
+  function updateCoord(id: number, axis: number, value: number) {
+    if (!Number.isFinite(value)) return;
     const node = modelStore.getNode(id);
-    if (!node || node.x === x) return;
+    if (!node) return;
+    const shown = shownCoords(node, is3D);
+    if (shown[axis] === value) return;
+    shown[axis] = value;
+    const m = modelCoords(shown, is3D);
     historyStore.pushState();
-    modelStore.updateNode(id, x, node.y);
-    resultsStore.clear();
-  }
-
-  function updateNodeY(id: number, y: number) {
-    if (!Number.isFinite(y)) return;
-    const node = modelStore.getNode(id);
-    if (!node || node.y === y) return;
-    historyStore.pushState();
-    modelStore.updateNode(id, node.x, y);
-    resultsStore.clear();
-  }
-
-  function updateNodeZ(id: number, z: number) {
-    if (!Number.isFinite(z)) return;
-    historyStore.pushState();
-    modelStore.updateNodeZ(id, z);
+    if (is3D) modelStore.updateNode(id, m.x, m.y, m.z);
+    else modelStore.updateNode(id, m.x, m.y);
     resultsStore.clear();
   }
 
@@ -45,10 +37,11 @@
   function addNode() {
     // Welded, so a row typed on top of an existing node reuses it instead of
     // stacking a twin. No pushState: the mutation pushes its own undo step.
-    if (uiStore.is3DWorkspace) {
-      modelStore.addNodeWelded(newNodeX, newNodeY, newNodeZ);
+    const m = modelCoords([newNodeX, newNodeY, newNodeZ], is3D);
+    if (is3D) {
+      modelStore.addNodeWelded(m.x, m.y, m.z);
     } else {
-      modelStore.addNodeWelded(newNodeX, newNodeY);
+      modelStore.addNodeWelded(m.x, m.y);
     }
     resultsStore.clear();
   }
@@ -57,18 +50,16 @@
 {#if nodesArr.length > 0}
   <table>
     <thead>
-      <tr><th>ID</th><th>{TWO_D_HORIZONTAL_AXIS_LABEL} ({unitQ('length')})</th><th>{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} ({unitQ('length')})</th>{#if uiStore.is3DWorkspace}<th>Z ({unitQ('length')})</th>{/if}<th></th></tr>
+      <tr><th>ID</th>{#each labels as l}<th>{l} ({unitQ('length')})</th>{/each}<th></th></tr>
     </thead>
     <tbody>
       {#each nodesArr as node}
         <tr class:row-sel={rowSelected('node', node.id)} onclick={(e) => selectRow(e, 'node', node.id)}
           ondblclick={(e) => frameRow(e, 'node', node.id)} onfocusin={(e) => focusRow(e, 'node', node.id)}>
           <td class="id-cell">{node.id}</td>
-          <td><UnitInput value={node.x} qty="length" unit={false} step="0.001" onchange={(v) => updateNodeX(node.id, v)} /></td>
-          <td><UnitInput value={node.y} qty="length" unit={false} step="0.001" onchange={(v) => updateNodeY(node.id, v)} /></td>
-          {#if uiStore.is3DWorkspace}
-            <td><UnitInput value={node.z ?? 0} qty="length" unit={false} step="0.001" onchange={(v) => updateNodeZ(node.id, v)} /></td>
-          {/if}
+          {#each shownCoords(node, is3D) as c, i}
+            <td><UnitInput value={c} qty="length" unit={false} step="0.001" onchange={(v) => updateCoord(node.id, i, v)} /></td>
+          {/each}
           <td><button class="del" onclick={() => deleteNode(node.id)}>&#10005;</button></td>
         </tr>
       {/each}
@@ -77,12 +68,12 @@
 {/if}
 <div class="table-footer">
   <div class="add-row">
-    <span class="add-label">{TWO_D_HORIZONTAL_AXIS_LABEL}:</span>
+    <span class="add-label">{labels[0]}:</span>
     <UnitInput value={newNodeX} qty="length" unit={false} step="0.5" inputClass="add-input" onchange={(v) => (newNodeX = v)} />
-    <span class="add-label">{uiStore.is3DWorkspace ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL}:</span>
+    <span class="add-label">{labels[1]}:</span>
     <UnitInput value={newNodeY} qty="length" unit={false} step="0.5" inputClass="add-input" onchange={(v) => (newNodeY = v)} />
     {#if uiStore.is3DWorkspace}
-      <span class="add-label">Z:</span>
+      <span class="add-label">{labels[2]}:</span>
       <UnitInput value={newNodeZ} qty="length" unit={false} step="0.5" inputClass="add-input" onchange={(v) => (newNodeZ = v)} />
     {/if}
     <button class="add-btn" onclick={addNode}>{t('table.addNode')}</button>

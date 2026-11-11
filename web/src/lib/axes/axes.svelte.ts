@@ -33,7 +33,6 @@ export const axesStore = {
     writeStored(choice);
   },
   get frame(): AxesFrame { return frame; },
-  get leftLocal(): boolean { return choice.localHand === 'left'; },
   get pickerOpen(): boolean { return pickerOpen; },
   set pickerOpen(v: boolean) { pickerOpen = v; },
   reset(): void { this.choice = DEFAULT_AXES; },

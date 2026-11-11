@@ -17,6 +17,8 @@
   import * as THREE from 'three';
   import '../styles/viewer-chrome.css';
   import { drawAxisGizmoOn } from '../lib/viewport3d/axis-gizmo';
+  import { axesStore } from '../lib/axes/axes.svelte';
+  import { along, modelLoad3D, twoD } from '../lib/axes/display';
   import { createViewerScene, createViewerPerspectiveCamera, createViewerOrthographicCamera, createViewerRenderer, createViewerControls, applyDefaultNavigation, addViewerLights } from '../lib/viewport3d/scene-setup';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
@@ -2004,6 +2006,7 @@
     if (gizmoCanvas) gizmoCanvas.style.display = show ? 'block' : 'none';
     invalidate();
   });
+  $effect(() => { void axesStore.frame; invalidate(); });
 
   // Reactive clipping plane: invalidate when clipping settings change
   $effect(() => {
@@ -2618,11 +2621,8 @@
     const a = stationOnRay({ I: a0, J: b0, L: a0.distanceTo(b0) }, raycaster.ray);
     modelStore.batch(() => {
       const id = modelStore.addPointLoadOnElement3D(elemId, a, 0, 0, uiStore.activeLoadCaseId);
-      modelStore.updateLoad(id, {
-        frame: 'global',
-        px: dir === 'fx' ? val : 0, py: dir === 'fy' ? val : 0, pz: dir === 'fz' ? val : 0,
-        mx: dir === 'mx' ? val : 0, my: dir === 'my' ? val : 0, mz: dir === 'mz' ? val : 0,
-      });
+      const m = modelLoad3D(dir, val);
+      modelStore.updateLoad(id, { frame: 'global', px: m.fx, py: m.fy, pz: m.fz, mx: m.mx, my: m.my, mz: m.mz });
     });
     uiStore.toast(t('viewport3d.pointLoadOnMemberApplied').replace('{id}', String(elemId)), 'success');
     return true;
@@ -2651,20 +2651,15 @@
         const dir = uiStore.nodalLoadDir3D;
         const val = uiStore.loadValue;
         if (val === 0) { uiStore.toast(t('drawBar.loadIsZero'), 'info'); return; }
-        const fx = dir === 'fx' ? val : 0;
-        const fy = dir === 'fy' ? val : 0;
-        const fz = dir === 'fz' ? val : 0;
-        const mx = dir === 'mx' ? val : 0;
-        const my = dir === 'my' ? val : 0;
-        const mz = dir === 'mz' ? val : 0;
+        const { fx, fy, fz, mx, my, mz } = modelLoad3D(dir, val);
         modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, uiStore.activeLoadCaseId);
       } else {
         // 2D nodal load
         const dir = uiStore.nodalLoadDir;
         const val = uiStore.loadValue;
-        const fx = dir === 'fx' ? val : 0;
-        const fz = dir === 'fz' ? val : 0;
-        const my = dir === 'my' ? val : 0;
+        const fx = dir === 'fx' ? twoD.fromX(val) : 0;
+        const fz = dir === 'fz' ? twoD.fromZ(val) : 0;
+        const my = dir === 'my' ? twoD.fromRot(val) : 0;
         modelStore.addNodalLoad(nodeId, fx, fz, my, uiStore.activeLoadCaseId);
       }
       uiStore.toast(t('viewport3d.pointLoadApplied').replace('{id}', String(nodeId)), 'success');
@@ -2683,7 +2678,8 @@
         const L = loadedLength(modelStore.model as never, elemId);
         const st = toolStretch(uiStore.distLoadPartial, uiStore.distLoadFrom, uiStore.distLoadTo, L);
         if (!st.ok) { uiStore.toast(t('float.distStretchRefused').replace('{id}', String(elemId)).replace('{L}', fixedQuantity(L, 'length', 2, uiStore.unitSystem)), 'error'); return; }
-        modelStore.addDistributedLoad3D(elemId, uiStore.loadValueY3D, uiStore.loadValueYJ3D, uiStore.loadValueZ, uiStore.loadValueZJ, st.a, st.b, uiStore.activeLoadCaseId, frame);
+        const sy = uiStore.distLoadFrame3D === 'global' ? along(1).sign : 1, sz = uiStore.distLoadFrame3D === 'global' ? along(2).sign : 1;
+        modelStore.addDistributedLoad3D(elemId, sy * uiStore.loadValueY3D, sy * uiStore.loadValueYJ3D, sz * uiStore.loadValueZ, sz * uiStore.loadValueZJ, st.a, st.b, uiStore.activeLoadCaseId, frame);
       } else {
         const L = modelStore.getElementLength(elemId);
         const st = toolStretch(uiStore.distLoadPartial, uiStore.distLoadFrom, uiStore.distLoadTo, L);
@@ -4692,6 +4688,9 @@
     width="80"
     height="80"
   ></canvas>
+  {#if uiStore.showAxes3D}
+    <button type="button" class="axis-gizmo-hit" title={t('axes.open')} aria-label={t('axes.open')} data-testid="axes-open-3d" onclick={() => { axesStore.pickerOpen = true; }}></button>
+  {/if}
 
   <!-- Shell contour legend (visible only while a shell contour map is active) -->
   <ShellContourLegend />
@@ -5000,4 +4999,18 @@
     flex: none;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
   }
+  .axis-gizmo-hit {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    width: 80px;
+    height: 80px;
+    z-index: 11;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--st-radius);
+    background: transparent;
+    cursor: pointer;
+  }
+  .axis-gizmo-hit:hover, .axis-gizmo-hit:focus-visible { border-color: var(--st-interactive); }
 </style>

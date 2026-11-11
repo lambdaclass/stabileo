@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { userRot, userVec } from '../../lib/axes/display';
   import { shellStressInputs } from '../../lib/store/shell-contour';
   import { downloadResultText } from '../../lib/export/provenance-attach';
   import { resultCaseName } from '../../lib/engine/settlement-case';
@@ -800,12 +801,8 @@
               {#each results.reactions as r}
                 <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(r.nodeId, false); }} style="cursor:pointer">
                   <td class="col-id">{r.nodeId}</td>
-                  <td class="col-num">{fmtQ(r.fx, 'force')}</td>
-                  <td class="col-num">{fmtQ(r.fy, 'force')}</td>
-                  <td class="col-num">{fmtQ(r.fz, 'force')}</td>
-                  <td class="col-num">{fmtQ(r.mx, 'moment')}</td>
-                  <td class="col-num">{fmtQ(r.my, 'moment')}</td>
-                  <td class="col-num">{fmtQ(r.mz, 'moment')}</td>
+                  {#each userVec(r.fx, r.fy, r.fz) as c}<td class="col-num">{fmtQ(c, 'force')}</td>{/each}
+                  {#each userRot(r.mx, r.my, r.mz) as c}<td class="col-num">{fmtQ(c, 'moment')}</td>{/each}
                 </tr>
               {/each}
             </tbody>
@@ -881,12 +878,8 @@
               {#each results.displacements as d}
                 <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(d.nodeId, false); }} style="cursor:pointer">
                   <td class="col-id">{d.nodeId}</td>
-                  <td class="col-num">{fmtQ(d.ux, 'displacement')}</td>
-                  <td class="col-num">{fmtQ(d.uy, 'displacement')}</td>
-                  <td class="col-num">{fmtQ(d.uz, 'displacement')}</td>
-                  <td class="col-num">{fmtQ(d.rx, 'rotation')}</td>
-                  <td class="col-num">{fmtQ(d.ry, 'rotation')}</td>
-                  <td class="col-num">{fmtQ(d.rz, 'rotation')}</td>
+                  {#each userVec(d.ux, d.uy, d.uz) as c}<td class="col-num">{fmtQ(c, 'displacement')}</td>{/each}
+                  {#each userRot(d.rx, d.ry, d.rz) as c}<td class="col-num">{fmtQ(c, 'rotation')}</td>{/each}
                 </tr>
               {/each}
             </tbody>

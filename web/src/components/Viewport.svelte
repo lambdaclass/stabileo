@@ -18,7 +18,9 @@
   import { viewVisibility, isLoadHidden } from '../lib/store/view-state.svelte';
   import { scaleCanvasText } from '../lib/canvas/text-scale';
   import HiddenItemsChip from './viewport/HiddenItemsChip.svelte';
-  import { TWO_D_VERTICAL_AXIS_LABEL, TWO_D_DISPLACEMENT_LABELS, get2DDisplayDisplacementVertical, get2DDisplayedVertical } from '../lib/geometry/coordinate-system';
+  import { TWO_D_DISPLACEMENT_LABELS, get2DDisplayDisplacementVertical, get2DDisplayedVertical } from '../lib/geometry/coordinate-system';
+  import { planeFlipped, twoD } from '../lib/axes/display';
+  import { axesStore } from '../lib/axes/axes.svelte';
   import { projectNode, to2D, to3D } from '../lib/geometry/plane-projection';
   import { placementStore } from '../lib/store/placement.svelte';
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
@@ -214,6 +216,7 @@
     return dmax > 1e-12 && span > 0 ? (0.05 * span) / dmax : user;
   }
 
+  $effect(() => { void axesStore.frame; invalidate(); });
   function invalidate() {
     if (!needsRedraw) {
       needsRedraw = true;
@@ -1589,7 +1592,7 @@
       const hoverNode = findNearestNode(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight));
       if (hoverNode) {
         const lines: string[] = [t('viewport.nodeTooltip').replace('{id}', String(hoverNode.id))];
-        lines.push(`(${fmtCoord(hoverNode.x)}, ${fmtCoord(get2DDisplayedVertical(hoverNode))}) ${unitQ('length')} [X, ${TWO_D_VERTICAL_AXIS_LABEL}]`);
+        lines.push(`(${fmtCoord(twoD.x(hoverNode.x))}, ${fmtCoord(twoD.z(get2DDisplayedVertical(hoverNode)))}) ${unitQ('length')} [${twoD.horizontal}, ${twoD.vertical}]`);
         // Show displacement if results exist
         if (resultsStore.results) {
           const d = resultsStore.getDisplacement(hoverNode.id);
@@ -1600,7 +1603,7 @@
           if (r) {
             const rb = forceReactionBound(certificateStore.reactionBound<ReactionBound2D>(false, hoverNode.id));
             const pm = rb === null ? '' : ` ± ${formatBound(toQ(rb, 'force'))}`;
-            lines.push(`R: ${fmtQ(r.rx, 'force')}; ${fmtQ(r.rz, 'force')}${pm} ${unitQ('force')}`);
+            lines.push(`R: ${fmtQ(twoD.x(r.rx), 'force')}; ${fmtQ(twoD.z(r.rz), 'force')}${pm} ${unitQ('force')}`);
           }
         }
         drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);
@@ -2137,9 +2140,9 @@
         if (nearNode) {
           const v = uiStore.loadValue;
           const dir = uiStore.nodalLoadDir;
-          const fx = dir === 'fx' ? v : 0;
-          const fz = dir === 'fz' ? v : 0;
-          const my = dir === 'my' ? v : 0;
+          const fx = dir === 'fx' ? twoD.fromX(v) : 0;
+          const fz = dir === 'fz' ? twoD.fromZ(v) : 0;
+          const my = dir === 'my' ? twoD.fromRot(v) : 0;
           modelStore.addNodalLoad(nearNode.id, fx, fz, my, activeCaseId);
         } else {
           // No node nearby — try element for PointLoadOnElement
@@ -2166,14 +2169,15 @@
                * the global vertical or the perpendicular; My is a couple, the
                * same in any axes.
                */
-              const userAngle = uiStore.loadAngle;
+              const userAngle = uiStore.loadIsGlobal && planeFlipped() ? -uiStore.loadAngle : uiStore.loadAngle;
               if (dir === 'my') {
-                modelStore.addPointLoadOnElement(nearElem.id, a, 0, { mz: v || undefined, caseId: activeCaseId });
+                modelStore.addPointLoadOnElement(nearElem.id, a, 0, { mz: twoD.fromRot(v) || undefined, caseId: activeCaseId });
               } else if (dir === 'fx' && !uiStore.loadIsGlobal) {
                 modelStore.addPointLoadOnElement(nearElem.id, a, 0, { px: v || undefined, caseId: activeCaseId });
               } else {
                 const angle = (dir === 'fx' ? 90 : 0) + userAngle;
-                modelStore.addPointLoadOnElement(nearElem.id, a, v, {
+                const p = !uiStore.loadIsGlobal ? v : dir === 'fx' ? twoD.fromX(v) : twoD.fromZ(v);
+                modelStore.addPointLoadOnElement(nearElem.id, a, p, {
                   angle: angle !== 0 ? angle : undefined, isGlobal: uiStore.loadIsGlobal ? true : undefined, caseId: activeCaseId,
                 });
               }
@@ -2526,9 +2530,9 @@
                 diagramHover = {
                   elementId: nearElem.id, t, value: totalDisp, worldX: wx, worldY: wy,
                   lines: [
-                    `ux: ${displacementText(ux / 1000, 3, uiStore.unitSystem)}`,
-                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${displacementText(uz / 1000, 3, uiStore.unitSystem)}`,
-                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${ry.toFixed(4)} rad`,
+                    `${TWO_D_DISPLACEMENT_LABELS.horizontal}: ${displacementText(twoD.x(ux) / 1000, 3, uiStore.unitSystem)}`,
+                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${displacementText(twoD.z(uz) / 1000, 3, uiStore.unitSystem)}`,
+                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${twoD.rot(ry).toFixed(4)} rad`,
                   ],
                 };
               } else {
@@ -3309,6 +3313,9 @@
     }}
     style="cursor: {getCursor()}"
   ></canvas>
+  {#if uiStore.showAxes}
+    <button type="button" class="axes-hit-2d" title={t('axes.open')} aria-label={t('axes.open')} data-testid="axes-open-2d" onclick={() => { axesStore.pickerOpen = true; }}></button>
+  {/if}
 
   <div class="viewport-controls" style="top: {uiStore.floatingToolsTopOffset}px">
     <!-- Pointer mode first: it is the control used most, and it took this slot
@@ -3383,4 +3390,18 @@
     background: var(--st-surface-3);
     color: var(--st-text);
   }
+  .axes-hit-2d {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    width: 76px;
+    height: 76px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--st-radius);
+    background: transparent;
+    cursor: pointer;
+    z-index: 2;
+  }
+  .axes-hit-2d:hover, .axes-hit-2d:focus-visible { border-color: var(--st-interactive); }
 </style>

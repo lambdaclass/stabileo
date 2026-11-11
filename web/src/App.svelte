@@ -325,6 +325,7 @@
   import StressPickHint from './components/stress/StressPickHint.svelte';
   import ColourScaleLegend from './components/ColourScaleLegend.svelte';
   import SwitchTo2DDialog from './components/SwitchTo2DDialog.svelte';
+  import AxesPicker from './components/axes/AxesPicker.svelte';
   import RecheckNotice from './components/RecheckNotice.svelte';
   import WorkspaceSaveNotice from './components/WorkspaceSaveNotice.svelte';
   import { prepareExportProvenance, pngWithProvenance } from './lib/export/provenance-attach';
@@ -2350,6 +2351,7 @@
   viewport-scoped act.
 -->
 <SwitchTo2DDialog bind:open={uiStore.switchTo2DPrompt} />
+<AxesPicker />
 
 <!--
   The re-check notice for a project last solved with an older version, and the banner that keeps

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { along, twoD } from '../lib/axes/display';
   import '../styles/viewer-chrome.css';
   import { displayUnits } from '../lib/store/display-units.svelte';
   import { uiStore, modelStore } from '../lib/store';
@@ -64,6 +65,11 @@
     const s = toDisplay(v, 'length', uiStore.unitSystem).toFixed(d);
     return Number(s) === 0 ? (0).toFixed(d) : s;
   }
+  const pointer = $derived.by(() => {
+    if (!uiStore.is3DWorkspace) return [{ name: twoD.horizontal, value: twoD.x(uiStore.worldX) }, { name: twoD.vertical, value: twoD.z(uiStore.worldY) }];
+    const a = along(0), b = along(1);
+    return [{ name: a.name, value: a.sign * uiStore.worldX }, { name: b.name, value: b.sign * uiStore.worldY }].sort((p, q) => p.name.localeCompare(q.name));
+  });
 </script>
 
 <!--
@@ -89,7 +95,7 @@
   <div class="status-item">
     <span class="status-label">{t('status.pos')}:</span>
     <span class="status-value">
-      ({len(uiStore.worldX)}, {len(uiStore.worldY)}) {unitLabel('length', uiStore.unitSystem)}
+      ({pointer.map((c) => `${c.name} ${len(c.value)}`).join(', ')}) {unitLabel('length', uiStore.unitSystem)}
     </span>
   </div>
   {#if !uiStore.is3DWorkspace}
