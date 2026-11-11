@@ -134,9 +134,14 @@ impl EquilibriumMetric {
                 .then(a[1].total_cmp(&b[1]))
                 .then(a[2].total_cmp(&b[2]))
         });
+        let anchor = points[0];
+        let offsets: Vec<[f64; 3]> = points
+            .iter()
+            .map(|p| std::array::from_fn(|i| p[i] - anchor[i]))
+            .collect();
         let origin: [f64; 3] =
-            std::array::from_fn(|i| points.iter().map(|p| p[i] / points.len() as f64).sum());
-        let length = points
+            std::array::from_fn(|i| offsets.iter().map(|p| p[i] / offsets.len() as f64).sum());
+        let length = offsets
             .iter()
             .map(|p| {
                 (p[0] - origin[0])
@@ -362,6 +367,7 @@ impl EquilibriumMetric {
         external: &[f64],
         prescribed: &[f64],
         start_external: &[f64],
+        start_internal: &[f64],
         cs: Option<&FreeConstraintSystem>,
     ) -> f64 {
         if residual
@@ -369,16 +375,19 @@ impl EquilibriumMetric {
             .chain(external)
             .chain(prescribed)
             .chain(start_external)
+            .chain(start_internal)
             .any(|v| !v.is_finite())
         {
             return f64::INFINITY;
         }
         let applied = self.free_norm(external, cs);
-        let reference = if applied > 0.0 {
-            applied
+        let active = applied.max(self.support_reference(prescribed, cs));
+        let reference = if active > 0.0 {
+            active
         } else {
-            self.support_reference(prescribed, cs)
+            self.support_force
                 .max(self.free_norm(start_external, cs))
+                .max(self.free_norm(start_internal, cs))
         };
         Self::residual_ratio(self.free_norm(residual, cs), reference)
     }
@@ -491,11 +500,8 @@ impl EquilibriumMetric {
         }
         let r = self.free_norm(residual, cs);
         let applied = self.free_norm(external, cs);
-        let reference = if applied > 0.0 {
-            applied
-        } else {
-            support_factor.map_or(0.0, |factor| factor.abs() * self.support_force)
-        };
+        let support = support_factor.map_or(0.0, |factor| factor.abs() * self.support_force);
+        let reference = applied.max(support);
         Self::residual_ratio(r, reference)
     }
 }
@@ -698,7 +704,9 @@ mod tests {
         let s = input();
         let d = DofNumbering::build_2d(&s);
         let mut m = EquilibriumMetric::for_2d(&s, &d, None).unwrap();
-        m.support_force = 1e20;
+        let k = CscMatrix::from_triplets(d.n_total, &[d.n_free], &[d.n_free], &[1e20]);
+        m.set_support_force(&k, &[1.0], &d, None);
+        assert_eq!(m.support_force, 0.0);
         let mut f = vec![0.0; d.n_total];
         f[0] = 0.01;
         assert_eq!(m.relative_residual(&f, &f, Some(1.0), None), 1.0);
@@ -915,7 +923,6 @@ mod tests {
         }
     }
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r4_coincident_extent_is_exact_under_translation() {
         let mut d = DofNumbering::build_2d(&input());
         for dimensions in [2, 3] {
@@ -924,11 +931,24 @@ mod tests {
             d.n_total = 2;
             let k = CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[1.0, 1.0]);
             for point in [[0.0; 3], [1.0, 0.0, 0.0], [17.0, -31.0, 0.37]] {
-                assert_eq!(EquilibriumMetric::length(&[point; 6]).unwrap(), 0.0);
-                let m = EquilibriumMetric::with_stiffness([point; 6].into_iter(), dimensions, &d, None, Some((&k, &[])), &[], &[]).unwrap();
+                let m = EquilibriumMetric::with_stiffness(
+                    [point; 6].into_iter(),
+                    dimensions,
+                    &d,
+                    None,
+                    Some((&k, &[])),
+                    &[],
+                    &[],
+                )
+                .unwrap();
                 assert!(m.relative_residual(&[1.0, 0.0], &[1.0, 1.0], None, None) > 0.5);
+                assert_eq!(EquilibriumMetric::length(&[point; 6]).unwrap(), 0.0);
                 for factor in [0.5, 2.0] {
-                    assert_eq!(m.relative_residual(&[factor * 1e-10, 0.0], &[1.0, 0.0], None, None) < 1e-10, factor < 1.0);
+                    assert_eq!(
+                        m.relative_residual(&[factor * 1e-10, 0.0], &[1.0, 0.0], None, None)
+                            < 1e-10,
+                        factor < 1.0
+                    );
                 }
                 assert_eq!(m.relative_residual(&[0.0; 2], &[1.0; 2], None, None), 0.0);
             }
@@ -936,7 +956,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r4_support_reference_is_continuous_and_survives_unloading() {
         let d = DofNumbering::build_2d(&input());
         let mut m = EquilibriumMetric::for_2d(&input(), &d, None).unwrap();
@@ -948,11 +967,33 @@ mod tests {
             for factor in [0.5, 2.0] {
                 let mut residual = external.clone();
                 residual[0] = factor * 1e-10 * 100.0;
-                assert_eq!(m.relative_residual(&residual, &external, Some(1.0), None) < 1e-10, factor < 1.0);
-                assert_eq!(m.continuation_residual(&residual, &external, &[1.0], &vec![0.0; d.n_total], None) < 1e-10, factor < 1.0);
-                assert_eq!(m.continuation_residual(&residual, &vec![0.0; d.n_total], &[0.0], &vec![0.0; d.n_total], None) < 1e-10, factor < 1.0);
+                assert_eq!(
+                    m.relative_residual(&residual, &external, Some(1.0), None) < 1e-10,
+                    factor < 1.0
+                );
+                assert_eq!(
+                    m.continuation_residual(
+                        &residual,
+                        &external,
+                        &[1.0],
+                        &vec![0.0; d.n_total],
+                        &vec![0.0; d.n_total],
+                        None
+                    ) < 1e-10,
+                    factor < 1.0
+                );
+                assert_eq!(
+                    m.continuation_residual(
+                        &residual,
+                        &vec![0.0; d.n_total],
+                        &[0.0],
+                        &vec![0.0; d.n_total],
+                        &vec![0.0; d.n_total],
+                        None
+                    ) < 1e-10,
+                    factor < 1.0
+                );
             }
         }
     }
-
 }

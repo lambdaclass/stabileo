@@ -5,8 +5,9 @@ PR #1940, issue #761, round 3.
 Continuation from a loaded or settled state now uses the active restrained
 positions to construct its support-to-free force reference. Unloading to zero
 external force retains the starting admissible external load as a fallback.
-Nonzero external loads still supply their own reference; restrained reactions
-cannot hide a free residual.
+Round 4 combines active support-to-free forcing with admissible external force
+and retains a starting internal-force fallback at fully unloaded steps; see
+[the reference correction](2026-11-continuous-settlement-reference.md).
 
 Planar corotational chord angles use relative displacements directly. Spatial
 natural rotations use rotation-matrix increments throughout composition and
@@ -39,7 +40,7 @@ Arc-length retains the stricter admissible equilibrium and reference-load
 checks, but its supplied step length again uses the existing unweighted path
 parameterization. The unchanged Ferrari–Sigmund Roorda replay is reproduced;
 no replay values, acceptance tolerances or step adaptation rules were relaxed.
-The displacement-control response cutoff remains a separate false-refusal issue.
+Round 4 also removes the displacement-control response cutoff.
 
 Saved-result notices include shells, curved shells, connectors and springs.
 Three-dimensional support curves imply SSI even when their static workflow

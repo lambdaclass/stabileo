@@ -304,7 +304,6 @@ fn issue_761_unfinished_iterations_stay_unconverged_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #761"]
 fn issue_761_native_and_wasm_cases() {
     let mut cases = Vec::new();
     for case in fixtures() {
@@ -404,8 +403,8 @@ fn issue_761_native_and_wasm_cases() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap();
-    let expected = tip.ux.hypot(tip.uy).hypot(tip.uz);
-    cases.push(serde_json::json!({"name":"sub ULP spatial load","dimension":3,"solver":tiny,"converged":true,"expectedAxialDisplacement":expected}));
+    let expected = vec![tip];
+    cases.push(serde_json::json!({"name":"sub ULP spatial load","dimension":3,"solver":tiny,"converged":true,"expectedDisplacements":expected}));
     cases.extend(r2::point_cases());
     check_export_cases(cases);
     r2::check_export_calls();
@@ -518,6 +517,7 @@ fn check_export_cases_for(cases: Vec<serde_json::Value>, analysis: Option<usize>
 }
 
 fn check_axial_displacement(r: &serde_json::Value, case: &serde_json::Value) {
+    check_expected_displacements(r, case);
     if let Some(expected) = case["expectedAxialDisplacement"].as_f64() {
         let tip = r["results"]["displacements"]
             .as_array()
@@ -526,35 +526,73 @@ fn check_axial_displacement(r: &serde_json::Value, case: &serde_json::Value) {
             .find(|d| d["nodeId"] == 2)
             .unwrap();
         let node = &case["solver"]["nodes"]["2"];
-        let chord = [node["x"].as_f64().unwrap(), node["y"].as_f64().unwrap_or(0.0), node["z"].as_f64().unwrap()];
+        let chord = [
+            node["x"].as_f64().unwrap(),
+            node["y"].as_f64().unwrap_or(0.0),
+            node["z"].as_f64().unwrap(),
+        ];
         let length = chord.into_iter().fold(0.0f64, f64::hypot);
-        let axis = chord.map(|v| v / length);
-        let u = [tip["ux"].as_f64().unwrap(), tip["uy"].as_f64().unwrap_or(0.0), tip["uz"].as_f64().unwrap()];
+        let axis = if let Some(a) = case["expectedAxis"].as_array() {
+            std::array::from_fn(|i| a[i].as_f64().unwrap())
+        } else {
+            chord.map(|v| v / length)
+        };
+        let u = [
+            tip["ux"].as_f64().unwrap(),
+            tip["uy"].as_f64().unwrap_or(0.0),
+            tip["uz"].as_f64().unwrap(),
+        ];
         let axial: f64 = u.iter().zip(axis).map(|(u, a)| u * a).sum();
         crate::common::assert_close(axial, expected, 1e-10, "signed axial displacement");
         let transverse = (0..3).fold(0.0f64, |n, i| n.hypot(u[i] - axial * axis[i]));
-        assert!(transverse <= expected.abs() * 1e-10, "transverse={transverse}, expected axial={expected}");
+        assert!(
+            transverse <= expected.abs() * 1e-10,
+            "transverse={transverse}, expected axial={expected}"
+        );
     }
 }
 
 fn check_expected_displacements(result: &serde_json::Value, case: &serde_json::Value) {
     let expected = case["expectedDisplacements"].as_array();
     for keys in [["ux", "uy", "uz"], ["rx", "ry", "rz"]] {
-        let scale = expected.into_iter().flatten().flat_map(|d| keys.iter().filter_map(move |k| d[*k].as_f64())).fold(0.0f64, |n, v| n.max(v.abs()));
+        let scale = expected
+            .into_iter()
+            .flatten()
+            .flat_map(|d| keys.iter().filter_map(move |k| d[*k].as_f64()))
+            .fold(0.0f64, |n, v| n.max(v.abs()));
         for e in expected.into_iter().flatten() {
-            let actual = result["results"]["displacements"].as_array().unwrap().iter().find(|a| a["nodeId"] == e["nodeId"]).unwrap();
+            let actual = result["results"]["displacements"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["nodeId"] == e["nodeId"])
+                .unwrap();
             for key in keys {
                 if let Some(value) = e[key].as_f64() {
                     let a = actual[key].as_f64().unwrap();
                     let reference = if value == 0.0 { scale } else { value.abs() };
-                    assert!(a.is_finite() && (a - value).abs() <= 1e-10 * reference, "{} {key}: {a} != {value}", case["api"]);
+                    assert!(
+                        a.is_finite() && (a - value).abs() <= 1e-10 * reference,
+                        "{} {key}: {a} != {value}",
+                        case["api"]
+                    );
                 }
             }
         }
     }
     if let Some(target) = case["expectedControl"].as_f64() {
-        let tip = result["results"]["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 2).unwrap();
-        crate::common::assert_close(tip["ux"].as_f64().unwrap(), target, 1e-10, "signed controlled displacement");
+        let tip = result["results"]["displacements"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["nodeId"] == 2)
+            .unwrap();
+        crate::common::assert_close(
+            tip["ux"].as_f64().unwrap(),
+            target,
+            1e-10,
+            "signed controlled displacement",
+        );
     }
 }
 
@@ -565,6 +603,10 @@ fn r4_displacement_checks_reject_sign_direction_and_zero_component_errors() {
         let r = serde_json::json!({"results":{"displacements":[{"nodeId":2,"ux":ux,"uz":uz}]}});
         assert!(std::panic::catch_unwind(|| check_axial_displacement(&r, &case)).is_err());
     }
+}
+
+#[test]
+fn r4_displacement_checks_reject_spurious_expected_zero_components() {
     let case = serde_json::json!({"expectedDisplacements":[{"nodeId":1,"ux":0.0,"uz":0.0},{"nodeId":2,"ux":1e-20,"uz":0.0}]});
     let r = serde_json::json!({"results":{"displacements":[{"nodeId":1,"ux":1e-25,"uz":0.0},{"nodeId":2,"ux":1e-20,"uz":0.0}]}});
     assert!(std::panic::catch_unwind(|| check_expected_displacements(&r, &case)).is_err());
@@ -1007,8 +1049,8 @@ mod r2 {
         let mut cases = Vec::new();
         for connector in [false, true] {
             let s = spring_model(connector);
-            cases.push(serde_json::json!({"name":"point spring","dimension":2,"solver":s,"converged":true,"expectedAxialDisplacement":0.01}));
-            cases.push(serde_json::json!({"name":"point spring","dimension":3,"solver":point_3d(&s),"converged":true,"expectedAxialDisplacement":0.01}));
+            cases.push(serde_json::json!({"name":"point spring","dimension":2,"solver":s,"converged":true,"expectedAxialDisplacement":0.01,"expectedAxis":[1.0,0.0,0.0]}));
+            cases.push(serde_json::json!({"name":"point spring","dimension":3,"solver":point_3d(&s),"converged":true,"expectedAxialDisplacement":0.01,"expectedAxis":[1.0,0.0,0.0]}));
         }
         cases
     }
@@ -2069,32 +2111,27 @@ mod r3 {
             )
             .displacements;
             let mut mirrored = dedaliano_engine::metamorphic::mirror::mirror_3d(&s, 0, [0.0; 3]).unwrap();
-            mirrored.left_hand = Some(true);
             let reflected: Vec<_> = expected.iter().map(|d| serde_json::json!({"nodeId":d.node_id,"ux":-d.ux,"uy":d.uy,"uz":d.uz,"rx":d.rx,"ry":-d.ry,"rz":-d.rz})).collect();
             calls.push(serde_json::json!({"api":"solve_corotational_3d","input":mirrored,"maxIter":60,"converged":true,"expectedDisplacements":reflected}));
+            mirrored.left_hand = Some(true);
+            calls.push(serde_json::json!({"api":"solve_corotational_3d","input":mirrored,"maxIter":60,"error":"leftHand"}));
             calls.push(serde_json::json!({"api":"solve_corotational_3d","input":s,"maxIter":60,"converged":true,"expectedDisplacements":expected}));
         }
         calls
     }
 
     fn invoke(c: &serde_json::Value) -> serde_json::Value {
-        let text = serde_json::to_string(&c["input"]).unwrap();
-        let result = match c["api"].as_str().unwrap() {
-            "solve_corotational_2d" => dedaliano_engine::solve_corotational_2d(&text, 60, 1e-10, 1),
-            "solve_corotational_3d" => dedaliano_engine::solve_corotational_3d(&text, 60, 1e-10, 1),
-            "solve_arc_length" => dedaliano_engine::solve_arc_length(&text),
-            "solve_displacement_control" => dedaliano_engine::solve_displacement_control(&text),
-            "solve_ssi_2d" => dedaliano_engine::solve_ssi_2d(&text),
-            "solve_ssi_3d" => dedaliano_engine::solve_ssi_3d(&text),
-            _ => unreachable!(),
-        };
-        serde_json::from_str(&result.unwrap()).unwrap()
+        let result = super::r2::call(c).unwrap_or_else(|error| panic!("{c}: {error}"));
+        serde_json::from_str(&result).unwrap()
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn rotated_chords_keep_precision_through_all_paths() {
         for c in precision_calls() {
+            if let Some(error) = c["error"].as_str() {
+                assert!(super::r2::call(&c).unwrap_err().contains(error));
+                continue;
+            }
             let r = invoke(&c);
             assert_eq!(r["converged"], c["converged"], "{}", c);
             check_expected_displacements(&r, &c);
@@ -2148,7 +2185,6 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r4_tz_initial_segment_is_bounded_and_continuous() {
         use dedaliano_engine::solver::soil_curves::tz_curve;
         let z_ult = 0.01f64;
@@ -2156,7 +2192,19 @@ mod r3 {
         let z0 = 1e-6 * z_ult;
         let k0 = tz_curve(t_ult, z_ult, 0.0).1;
         for sign in [-1.0, 1.0] {
-            for z in [0.0, f64::from_bits(1), 1e-20, 0.5e-15, 1e-15, 2e-15, z0 * 0.5, z0, z0 * (1.0 + 1e-10), z_ult, z_ult * 2.0] {
+            for z in [
+                0.0,
+                f64::from_bits(1),
+                1e-20,
+                0.5e-15,
+                1e-15,
+                2e-15,
+                z0 * 0.5,
+                z0,
+                z0 * (1.0 + 1e-10),
+                z_ult,
+                z_ult * 2.0,
+            ] {
                 let (t, k) = tz_curve(t_ult, z_ult, sign * z);
                 assert!(t.is_finite() && k.is_finite());
                 if z <= z0 {
@@ -2170,23 +2218,33 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r4_modified_newton_releases_settlement_and_support() {
         let mut s = cantilever();
         s.loads.clear();
         s.nodes.get_mut("2").unwrap().z = 1.0;
         s.supports.get_mut("1").unwrap().dry = Some(0.01);
-        s.supports.insert("2".into(), serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"rollerX"})).unwrap());
+        s.supports.insert(
+            "2".into(),
+            serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"rollerX"})).unwrap(),
+        );
         let initial = corotational::solve_corotational_2d(&s, 60, 1e-10, 4, false).unwrap();
         assert!(initial.converged);
-        let start = corotational::CorotationalStart2D { input: &s, displacements: &initial.results.displacements };
+        let start = corotational::CorotationalStart2D {
+            input: &s,
+            displacements: &initial.results.displacements,
+        };
         for remove in [false, true] {
             let mut target = s.clone();
             target.supports.get_mut("1").unwrap().dry = None;
-            if remove { target.supports.remove("2"); }
-            let r = corotational::solve_corotational_2d_from(&target, Some(&start), 20, 1e-10, 1, true).unwrap();
+            if remove {
+                target.supports.remove("2");
+            }
+            let r = corotational::solve_corotational_2d_from(&target, Some(&start), 20, 1e-10, 1, true)
+                .unwrap();
             assert!(r.converged, "remove={remove}");
-            for d in r.results.displacements { assert!(d.ux.abs().max(d.uz.abs()).max(d.ry.abs()) < 1e-12); }
+            for d in r.results.displacements {
+                assert!(d.ux.abs().max(d.uz.abs()).max(d.ry.abs()) < 1e-12);
+            }
         }
     }
 
@@ -2194,14 +2252,32 @@ mod r3 {
         let mut calls = Vec::new();
         for tiny in [0.0, 1e-14, -1e-14] {
             let mut base = cantilever();
-            base.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id:2, fx:tiny, fz:-500.0, my:0.0 })];
+            base.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+                node_id: 2,
+                fx: tiny,
+                fz: -500.0,
+                my: 0.0,
+            })];
             base.supports.get_mut("1").unwrap().dry = Some(1e-5);
             base.supports.get_mut("1").unwrap().dx = Some(1e-5);
-            base.supports.insert("2".into(), serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"rollerX"})).unwrap());
+            base.supports.insert(
+                "2".into(),
+                serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"rollerX"}))
+                    .unwrap(),
+            );
             for angle in [0.0, 0.37] {
                 let solver = transform_2d(&base, &Iso2::rotation(angle)).unwrap();
-                for api in ["solve_2d", "solve_pdelta_2d", "solve_corotational_2d", "solve_nonlinear_material_2d"] {
-                    let input = if api.contains("material") { serde_json::json!({"solver":solver,"materialModels":{},"sectionCapacities":{},"maxIter":60,"tolerance":1e-10,"nIncrements":1}) } else { serde_json::to_value(&solver).unwrap() };
+                for api in [
+                    "solve_2d",
+                    "solve_pdelta_2d",
+                    "solve_corotational_2d",
+                    "solve_nonlinear_material_2d",
+                ] {
+                    let input = if api.contains("material") {
+                        serde_json::json!({"solver":solver,"materialModels":{},"sectionCapacities":{},"maxIter":60,"tolerance":1e-10,"nIncrements":1})
+                    } else {
+                        serde_json::to_value(&solver).unwrap()
+                    };
                     calls.push(serde_json::json!({"api":api,"input":input,"maxIter":60,"converged":true,"nonzeroTip":true}));
                 }
                 calls.push(serde_json::json!({"api":"solve_arc_length","input":arc(solver,1e-6),"converged":true,"nonzeroTip":true}));
@@ -2219,7 +2295,11 @@ mod r3 {
                 }
                 let solver = transform_3d(&spatial, &Iso3::from_euler(0.37, -0.21, 0.13)).unwrap();
                 for api in ["solve_3d", "solve_pdelta_3d", "solve_nonlinear_material_3d"] {
-                    let input = if api.contains("material") { serde_json::json!({"solver":solver,"materialModels":{},"sectionCapacities":{},"maxIter":60,"tolerance":1e-10,"nIncrements":1}) } else { serde_json::to_value(&solver).unwrap() };
+                    let input = if api.contains("material") {
+                        serde_json::json!({"solver":solver,"materialModels":{},"sectionCapacities":{},"maxIter":60,"tolerance":1e-10,"nIncrements":1})
+                    } else {
+                        serde_json::to_value(&solver).unwrap()
+                    };
                     calls.push(serde_json::json!({"api":api,"input":input,"maxIter":60,"converged":true,"nonzeroTip":true}));
                 }
             }
@@ -2228,13 +2308,24 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r4_settlement_reference_handles_tiny_and_rotated_normal_loads() {
         for case in r4_support_calls() {
             let r: serde_json::Value = serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
             assert_eq!(r["converged"], true, "{case}: {r}");
-            let tip = r["results"]["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 2).unwrap();
-            assert!(tip["ux"].as_f64().unwrap().hypot(tip["uy"].as_f64().unwrap_or(0.0)).hypot(tip["uz"].as_f64().unwrap()) > 0.0);
+            let tip = r["results"]["displacements"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|d| d["nodeId"] == 2)
+                .unwrap();
+            assert!(
+                tip["ux"]
+                    .as_f64()
+                    .unwrap()
+                    .hypot(tip["uy"].as_f64().unwrap_or(0.0))
+                    .hypot(tip["uz"].as_f64().unwrap())
+                    > 0.0
+            );
         }
     }
 
@@ -2248,9 +2339,26 @@ mod r3 {
             for sign in [-1.0, 1.0] {
                 let mut s = cantilever();
                 let k = 1000.0 * s.materials["1"].e * s.sections["1"].a / s.nodes["2"].x;
-                let t = if z <= z0 { k0 * z } else { t_ult * (z / z_ult).sqrt() };
-                s.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id:2, fx:sign * (k * z + t), fz:0.0, my:0.0 })];
-                let spring = SoilSpring { node_id:2, direction:0, tributary_length:1.0, curve:serde_json::from_value(serde_json::json!({"type":"tz","t_ult":t_ult,"z_ult":z_ult,"perimeter":1.0})).unwrap() };
+                let t = if z <= z0 {
+                    k0 * z
+                } else {
+                    t_ult * (z / z_ult).sqrt()
+                };
+                s.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+                    node_id: 2,
+                    fx: sign * (k * z + t),
+                    fz: 0.0,
+                    my: 0.0,
+                })];
+                let spring = SoilSpring {
+                    node_id: 2,
+                    direction: 0,
+                    tributary_length: 1.0,
+                    curve: serde_json::from_value(
+                        serde_json::json!({"type":"tz","t_ult":t_ult,"z_ult":z_ult,"perimeter":1.0}),
+                    )
+                    .unwrap(),
+                };
                 calls.push(serde_json::json!({"api":"solve_ssi_2d","input":SSIInput { solver:s.clone(), soil_springs:vec![spring.clone()], max_iter:60, tolerance:1e-10 },"converged":true,"expectedDisplacements":[{"nodeId":2,"ux":sign*z,"uz":0.0,"ry":0.0}]}));
                 for plane in Plane::ALL {
                     let mut spring = spring.clone();
@@ -2264,7 +2372,6 @@ mod r3 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r4_tz_small_axial_responses_match_initial_stiffness() {
         for case in r4_tz_calls() {
             let r: serde_json::Value = serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();

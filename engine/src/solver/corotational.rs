@@ -41,6 +41,26 @@ fn corot_local_y_ref(
     (Some(ey[0]), Some(ey[1]), Some(ey[2]))
 }
 
+pub(crate) fn continuation_internal_2d(
+    input: &SolverInput,
+    dofs: &DofNumbering,
+    u: &[f64],
+    its: &[assembly::InclinedTransformData2D],
+    artificial: &[(usize, f64)],
+) -> Vec<f64> {
+    let global = assembly::to_global(u, dofs.n_total, its);
+    let mut internal = vec![0.0; dofs.n_total];
+    let mut rows = Vec::new();
+    let mut cols = Vec::new();
+    let mut values = Vec::new();
+    assemble_corotational_triplets_2d(input, dofs, &global, &mut internal, &mut rows, &mut cols, &mut values);
+    add_spring_contributions(input, dofs, &global, &mut internal, artificial, &mut |_, _, _| {});
+    for it in its {
+        assembly::rotate_inclined_f_2d(&mut internal, &it.dofs, &it.r);
+    }
+    internal
+}
+
 pub(crate) fn chord_rotation(dx0: f64, dz0: f64, dux: f64, duz: f64) -> f64 {
     dx0.mul_add(duz, -dz0 * dux)
         .atan2(dx0 * dx0 + dz0 * dz0 + dx0 * dux + dz0 * duz)
@@ -142,6 +162,12 @@ pub fn solve_corotational_2d_from(
     let metric = super::convergence::EquilibriumMetric::for_2d_with_state(
         input, &dof_num, cs.as_ref(), Some(&support_extent), &[],
     )?;
+
+    let start_internal = if start.is_some() {
+        continuation_internal_2d(input, &dof_num, &u_full, &asm.inclined_transforms_2d, &art)
+    } else {
+        vec![0.0; n]
+    };
 
     let mut total_iterations = 0;
     let mut converged = true;
@@ -246,7 +272,7 @@ pub fn solve_corotational_2d_from(
 
             // Reduce residual and check convergence on independent DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
-            let rel_error = metric.continuation_residual(&residual,&f_ext,&active_supports,&f_base,cs.as_ref());
+            let rel_error = metric.continuation_residual(&residual,&f_ext,&active_supports,&f_base,&start_internal,cs.as_ref());
 
             if rel_error < tolerance && support_step.is_none() {
                 nr_converged = true;
@@ -3048,31 +3074,27 @@ mod infinitesimal_rotation_regressions {
         let ex = [1.0, 0.0, 0.0];
         let ey = [0.0, 1.0, 0.0];
         for handedness in [-1.0, 1.0] {
-        let ez = [0.0, 0.0, handedness];
-        for value in [
-            0.5 * f64::EPSILON,
-            f64::EPSILON,
-            f64::from_bits(f64::EPSILON.to_bits() + 1),
-            2.0 * f64::EPSILON,
-        ] {
-            for t in [value, -value] {
-                let (_, ti, tj, _) =
-                    natural_rotations_3d((&ex, &ey, &ez), [0.0, t, 0.0], [0.0; 3], [0.0; 3]);
-                assert!((ti[1] / t - handedness).abs() <= 8.0 * f64::EPSILON);
-                assert!(tj
-                    .into_iter()
-                    .all(|v| v.abs() <= 8.0 * f64::EPSILON * t.abs()));
-                let (_, ti, tj, _) = natural_rotations_3d(
-                    (&ex, &ey, &ez),
-                    [0.0; 3],
-                    [0.0; 3],
-                    [0.0, t, 0.0],
-                );
-                for theta in [ti, tj] {
-                    assert!((theta[2] / t + 1.0).abs() <= 8.0 * f64::EPSILON);
+            let ez = [0.0, 0.0, handedness];
+            for value in [
+                0.5 * f64::EPSILON,
+                f64::EPSILON,
+                f64::from_bits(f64::EPSILON.to_bits() + 1),
+                2.0 * f64::EPSILON,
+            ] {
+                for t in [value, -value] {
+                    let (_, ti, tj, _) =
+                        natural_rotations_3d((&ex, &ey, &ez), [0.0, t, 0.0], [0.0; 3], [0.0; 3]);
+                    assert!((ti[1] / t - handedness).abs() <= 8.0 * f64::EPSILON);
+                    assert!(tj
+                        .into_iter()
+                        .all(|v| v.abs() <= 8.0 * f64::EPSILON * t.abs()));
+                    let (_, ti, tj, _) =
+                        natural_rotations_3d((&ex, &ey, &ez), [0.0; 3], [0.0; 3], [0.0, t, 0.0]);
+                    for theta in [ti, tj] {
+                        assert!((theta[2] / t + 1.0).abs() <= 8.0 * f64::EPSILON);
+                    }
                 }
             }
         }
     }
-}
 }

@@ -191,6 +191,11 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
     let metric = super::convergence::EquilibriumMetric::for_2d_with_state(
         &input.solver, &dof_num, cs.as_ref(), Some(&support_extent), &[],
     )?;
+    let start_internal = if start.is_some() {
+        super::corotational::continuation_internal_2d(&input.solver, &dof_num, &u_full, &its, &art)
+    } else {
+        vec![0.0; n]
+    };
     let f_ref_norm = metric.free_norm(&f_ref, cs.as_ref());
     if f_ref_norm == 0.0 && !moves_supports {
         return Err("Zero reference load".into());
@@ -290,7 +295,7 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
 
             // Check convergence on independent (reduced) DOFs
             let applied: Vec<f64> = (0..n).map(|i| f_start_full[i] + lambda * f_ref_full[i]).collect();
-            if metric.continuation_residual(&residual,&applied,&u_full[nf..],&f_start_full,cs.as_ref()) < input.tolerance {
+            if metric.continuation_residual(&residual,&applied,&u_full[nf..],&f_start_full,&start_internal,cs.as_ref()) < input.tolerance {
                 step_converged = true;
                 break;
             }
@@ -614,8 +619,9 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
             // Determine δλ from displacement constraint:
             // (u[ctrl] + δu_r[ctrl] + δλ * δu_t[ctrl]) = target_disp
             // δλ = (target_disp - u[ctrl] - δu_r[ctrl]) / δu_t[ctrl]
-            let d_lambda = if du_t[ctrl].abs() > 1e-15 {
-                (disp_error - du_r[ctrl]) / du_t[ctrl]
+            let step = (disp_error - du_r[ctrl]) / du_t[ctrl];
+            let d_lambda = if du_t[ctrl] != 0.0 && step.is_finite() {
+                step
             } else {
                 0.0
             };

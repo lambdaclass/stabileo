@@ -369,9 +369,10 @@ pub const WELCH_REESE_ABSCISSAE: [f64; 11] = [0.0, 0.001, 0.003, 0.01, 0.03, 0.1
 pub fn tz_curve(t_ult: f64, z_ult: f64, z: f64) -> (f64, f64) {
     let curve = |za: f64| if za < z_ult { t_ult * (za / z_ult).sqrt() } else { t_ult };
     let z_abs = z.abs();
-    if z_abs == 0.0 {
-        let z0 = 1e-6 * z_ult;
-        return (0.0, curve(z0) / z0);
+    let z0 = 1e-6 * z_ult;
+    if z_abs <= z0 {
+        let k = curve(z0) / z0;
+        return (k * z, k);
     }
     let t = curve(z_abs);
     (t * z.signum(), t / z_abs)

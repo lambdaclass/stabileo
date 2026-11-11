@@ -4,10 +4,10 @@ import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const cases = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-function checkAxial(tip, solver, expected) {
+function checkAxial(tip, solver, expected, suppliedAxis) {
   const node = solver.nodes['2'];
   const chord = [node.x, node.y ?? 0, node.z];
-  const axis = chord.map(v => v / Math.hypot(...chord));
+  const axis = suppliedAxis ?? chord.map(v => v / Math.hypot(...chord));
   const u = [tip.ux, tip.uy ?? 0, tip.uz];
   const axial = u.reduce((sum, v, i) => sum + v * axis[i], 0);
   assert.ok(Math.abs(axial / expected - 1) < 1e-10, 'signed axial response');
@@ -133,7 +133,11 @@ for (const test of cases) {
     assert.equal(result.converged, test.converged, `${test.name}, ${dimension}D`);
     if (test.expectedAxialDisplacement !== undefined) {
       const tip = result.results.displacements.find((d) => d.nodeId === 2);
-      checkAxial(tip, solver, test.expectedAxialDisplacement);
+      checkAxial(tip, solver, test.expectedAxialDisplacement, test.expectedAxis);
+    }
+    for (const expected of test.expectedDisplacements ?? []) {
+      const actual = result.results.displacements.find(d => d.nodeId === expected.nodeId);
+      checkComponents(actual, expected, test.expectedDisplacements);
     }
     if (test.name === 'loaded cantilever' && test.converged) {
       const tip = result.results.displacements.find((d) => d.nodeId === 2);
