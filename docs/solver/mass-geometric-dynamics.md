@@ -596,6 +596,16 @@ $|r_1|/|(K^{-1}\mathbf f)_t|$.
 $\begin{bmatrix}K-\omega^2M&-\omega C\\\omega C&K-\omega^2M\end{bmatrix}\begin{bmatrix}\mathbf u_r\\\mathbf u_i\end{bmatrix}=\begin{bmatrix}\mathbf f\\0\end{bmatrix}$
 by dense LU (capped at $2n\le6000$).
 
+Both dense and sparse direct paths check numerical singularity after factorization
+and before solving for the load. For the existing binary column-scaled real block
+matrix $A$, every LU pivot must satisfy $|U_{jj}|/\|A\|_\infty\ge10^{-12}$;
+non-finite ratios refuse. This fixed numerical limit is independent of the load.
+The original absolute pivot cutoff also remains. Accepted factors still require
+two compensated residual refinements and convergence within each connected dynamic
+component at the existing harmonic residual tolerance. The pivot criterion is a
+numerical refusal policy, not a condition-number or forward-error certificate.
+See [the results-change evidence](../results-changes/2026-11-harmonic-load-independent-singularity.md).
+
 Prescribed support displacements are refused (they are not in the load vector).
 
 Tests: `tests/integration/harmonic.rs`, `tests/certify_nonlinear.rs` (`certify_harmonic_*`,

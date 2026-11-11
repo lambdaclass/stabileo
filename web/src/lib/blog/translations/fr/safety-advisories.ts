@@ -16,6 +16,10 @@ const body: PostBody = {
       "k": "note",
       "t": "État au 10 novembre 2026 : SA-2026-001 à 020 sont corrigés dans la version 0.3.0, SA-2026-021 à 024 dans la version 0.4.0 et SA-2026-025 à 047 dans la version 0.5.0 (SA-2026-040 contenu : la vérification est marquée comme incomplète), sauf SA-2026-044 : le calcul de ruine plastique 2D reste refusé tant que #758 est ouvert. SA-2026-048 a été corrigé après la version 0.5.0 et est en ligne sur stabileo.com depuis le 8 novembre 2026. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 et SA-2026-053 ont été corrigés après la version 0.5.0 et sont en ligne sur stabileo.com depuis le 9 novembre 2026. Les publier fait partie de notre manière de vérifier les résultats ; ce n'est pas le signe qu'ils sont encore ouverts. Un avis est considéré comme corrigé lorsque la correction est en ligne sur stabileo.com, et non lorsque la modification existe. Tant qu'un avis est ouvert, appliquez sa solution de contournement et vérifiez à la main le résultat concerné avant de signer. SA-2026-055 — Brouillon : correction pas encore fusionnée ni publiée. SA-2026-056 — Brouillon : non résolu ; aucun correctif intégré ni déployé. SA-2026-057 — Brouillon : correction pas encore fusionnée ni publiée."
     },
+    {
+      "k": "note",
+      "t": "SA-2026-058 — Corrigé dans PR #1922, publication en attente."
+    },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -361,6 +365,12 @@ const body: PostBody = {
           "L’affichage du certificat plastique pouvait classer dans l’intervalle certifié un facteur situé en dehors ; l’extraction exacte des mécanismes écartait les refus liés aux ressources dans les versions de PR #1888 avant correction",
           "Moyenne",
           "Brouillon : correction pas encore fusionnée ni publiée"
+        ],
+        [
+          "SA-2026-058",
+          "Les modèles harmoniques 2D/3D dépassant 3000 degrés de liberté indépendants libres pouvaient conserver des réponses inexactes des modes omis hors de q ≤ 1/16 à des fréquences hors de la portée de l’avertissement de troncature (erreur complexe mesurée de 8,079 % sur la réponse cible)",
+          "Élevée",
+          "Corrigé dans PR #1922, publication en attente"
         ],
       ]
     },
