@@ -15,7 +15,9 @@ function pad(input, count) {
     const b = a + 1;
     input.nodes[a] = { ...input.nodes[1], id: a };
     input.nodes[b] = { ...input.nodes[1], id: b, x: input.nodes[1].x + 4 };
-    input.elements[a] = { ...input.elements[1], id: a, nodeI: a, nodeJ: b, hingeEnd: false, releaseMyEnd: false, releaseMzEnd: false, releaseTEnd: false };
+    input.elements[a] = { ...input.elements[1], id: a, nodeI: a, nodeJ: b };
+    if ('y' in input.nodes[1]) Object.assign(input.elements[a], { releaseMyEnd: false, releaseMzEnd: false, releaseTEnd: false });
+    else input.elements[a].hingeEnd = false;
     input.supports[a] = { ...input.supports[1], id: a, nodeId: a };
   }
 }
