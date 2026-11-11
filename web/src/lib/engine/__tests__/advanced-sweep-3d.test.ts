@@ -647,8 +647,9 @@ describe('closed forms: cantilever frequencies (modal 3D)', () => {
     a1.forEach((x: number, i: number) => expect(a4[i] / x).toBeCloseTo(2, 6));
   });
 
-  it('E × 4 → f × 2 on random space frames too', () => {
+  it('E × 4 → f × 2 on random space frames too', async () => {
     for (let seed = 1; seed <= 10; seed++) {
+      await yieldToEventLoop();
       buildRandom(seed % 2 ? 'skew-frame' : 'pitched-nave', seed);
       const f = solveModal3D(input3D()!, densities()).modes.map((x: { frequency: number }) => x.frequency);
       for (const mat of [...modelStore.materials.values()]) modelStore.updateMaterial(mat.id, { e: mat.e * 4 });
@@ -687,9 +688,10 @@ describe('closed forms: B2 on sway frames against the buckling factor', () => {
     return input3D()!;
   }
 
-  it.each([1.6, 2, 3, 5, 10])('λ1 = %s: B2 within 25 % of 1/(1 − 1/λ1) on 12 sway frames', (target) => {
+  it.each([1.6, 2, 3, 5, 10])('λ1 = %s: B2 within 25 % of 1/(1 − 1/λ1) on 12 sway frames', async (target) => {
     const bad: string[] = [];
     for (let seed = 1; seed <= 12; seed++) {
+      await yieldToEventLoop();
       const input = swayFrame(seed, target);
       const l1 = solveBuckling3D(input).modes[0].loadFactor;
       const p = solvePDelta3D(input, 50, 1e-7);
@@ -699,9 +701,10 @@ describe('closed forms: B2 on sway frames against the buckling factor', () => {
     expect(bad).toEqual([]);
   });
 
-  it('λ1 = 0.8: P-Δ reports instability on every one of 12 sway frames', () => {
+  it('λ1 = 0.8: P-Δ reports instability on every one of 12 sway frames', async () => {
     const bad: string[] = [];
     for (let seed = 1; seed <= 12; seed++) {
+      await yieldToEventLoop();
       const p = solvePDelta3D(swayFrame(seed, 0.8));
       if (p.converged && p.isStable) bad.push(`seed ${seed}: stable, B2=${p.b2Factor}`);
     }
@@ -823,6 +826,7 @@ describe('what-if 3D', () => {
   it('every load × k → displacements and reactions × k; E × k → displacements ÷ k; close() restores (nodal + distributed loads)', async () => {
     const bad: string[] = [];
     for (const fam of FAMS) for (let seed = 1; seed <= 4; seed++) {
+      await yieldToEventLoop();
       buildRandom(fam, seed);
       // Keep only nodal and distributed loads here; point loads on members are D2 below.
       modelStore.model.loads = modelStore.model.loads.filter((l) => l.type !== 'pointOnElement3d');

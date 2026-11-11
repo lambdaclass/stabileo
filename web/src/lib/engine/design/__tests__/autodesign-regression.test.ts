@@ -56,19 +56,25 @@
  * member-by-member comparison). A check added: no member lost a certificate.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
 import qa8 from '../../../templates/fixtures/rc-design-qa-8.json';
-import { runDesign, designMember } from '../candidate-search';
+import { runDesign, runDesignSteps, designMember } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 import { UTIL_FAIL_THRESHOLD } from '../outcome';
 import { buildCriticalSectionMap } from '../member-context';
 import { computeBeamCriticalSections } from '../../station-design-forces';
 import { solveFixture, directionOf, modelFromFixture, assertRealSolver } from './helpers';
 
-describe('flagship 408-member RC frame designs completely', () => {
-  const solved = solveFixture(frame);
+let solved: ReturnType<typeof solveFixture>;
+beforeAll(async () => {
+  await yieldToEventLoop();
+  solved = solveFixture(frame);
+  await yieldToEventLoop();
+});
 
+describe('flagship 408-member RC frame designs completely', () => {
   it('has 408 members, 5 combinations, and no orientation issues after the fixture fix', () => {
     assertRealSolver();
     expect(solved.contexts.size).toBe(408);
@@ -175,9 +181,10 @@ describe('flagship 408-member RC frame designs completely', () => {
     for (const pair of byDir.COL) expect(pair).toMatch(/^M[yz]\/V[yz]$/);
   });
 
-  it('every certificate records an axis that actually carries the demand', () => {
+  it('every certificate records an axis that actually carries the demand', async () => {
     for (const [, ctx] of solved.contexts) {
       const o = designMember(cirsoc201Adapter, ctx);
+      await yieldToEventLoop();
       if (o.outcome !== 'VERIFIED') continue;
       expect(o.certificate!.checkedAxes).toContain(ctx.axes.flexure);
     }
@@ -194,7 +201,7 @@ describe('flagship 408-member RC frame designs completely', () => {
 });
 
 describe('honest refusal when the model is broken', () => {
-  it('refuses to certify Y-beams when gravity is authored in the horizontal component', () => {
+  it('refuses to certify Y-beams when gravity is authored in the horizontal component', async () => {
     // Re-introduce the exact original fixture defect.
     const broken = JSON.parse(JSON.stringify(frame));
     const fm = modelFromFixture(broken);
@@ -210,9 +217,16 @@ describe('honest refusal when the model is broken', () => {
     expect(moved).toBe(240);
 
     const solved = solveFixture(broken);
+    await yieldToEventLoop();
     expect(solved.orientationSuspect.size).toBe(120);
 
-    const s = runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 });
+    const steps = runDesignSteps(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 });
+    let step = steps.next();
+    while (!step.done) {
+      await yieldToEventLoop();
+      step = steps.next();
+    }
+    const s = step.value;
     // Not one of the suspect members may be certified.
     for (const id of solved.orientationSuspect) {
       const o = s.outcomes.get(id)!;
@@ -260,8 +274,6 @@ describe('honest refusal when the model is broken', () => {
 });
 
 describe('performance budgets (audited)', () => {
-  const solved = solveFixture(frame);
-
   it('critical sections are memoised: one pass over the model, not per row', () => {
     // The pre-PR15 path called computeBeamCriticalSections per row per keystroke, so
     // it scanned every element twice per beam end → O(N·E).

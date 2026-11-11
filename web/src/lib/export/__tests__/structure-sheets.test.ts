@@ -6,6 +6,7 @@
  * what stops a level plan quietly gathering two storeys.
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { modelStore } from '../../store/model.svelte';
 import { resultsStore } from '../../store/results.svelte';
 import { detailingStore } from '../../store/detailing.svelte';
@@ -38,9 +39,14 @@ async function build7p(variant?: Variant) {
   if (variant) applyVariant(variant);
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
+  await yieldToEventLoop();
   resultsStore.setCombinationResults3D(r.perCase as never, r.perCombo as never, r.envelope as never);
-  designRunStore.designFamilies(['column', 'beam', 'slab', 'wall'],
+  designRunStore.designFamilies(['column', 'beam'],
     { verifierId: 'cirsoc201.provided.v2.2025' });
+  await yieldToEventLoop();
+  designRunStore.designFamilies(['slab', 'wall'],
+    { verifierId: 'cirsoc201.provided.v2.2025' });
+  await yieldToEventLoop();
   const doc = detailingStore.buildDocument({ author: 's', at: '2026-08-09T00:00:00Z' })!;
   const { members } = membersFromModel({
     elementIds: [...modelStore.model.elements.keys()],
@@ -68,6 +74,8 @@ async function build7p(variant?: Variant) {
     assembly: doc.assemblies[0].source as DetailingAssembly,
     clauses: doc.refs,
   });
+  resultsStore.clear();
+  await yieldToEventLoop();
 }
 
 let prepared: { scene: SceneModel; title: ReturnType<typeof buildTitleBlock>; statusOf: typeof statusOf };

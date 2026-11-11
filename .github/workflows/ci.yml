@@ -1313,6 +1313,8 @@ jobs:
   # with the build.
   web-unit:
     name: Web Unit (${{ matrix.shard }}/8)
+    env:
+      VITEST_WORKERS: '2'
     permissions:
       contents: read
       actions: write
@@ -1990,6 +1992,7 @@ jobs:
       e2e: ${{ steps.e2e.outcome }}
     env:
       E2E_PREBUILT: '1'
+      VITEST_WORKERS: '2'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
