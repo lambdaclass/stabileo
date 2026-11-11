@@ -625,7 +625,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
                 let mut v = vec![0.0; b];
                 for (r, &i) in component.iter().enumerate() { v[i] = vecs[r * size + c]; }
                 if top <= 0.0 || mu[c] <= LOCAL_FREE * top {
-                    if mu[c] < 0.0 && *kind != DofKind::Translation && !releases.permits(*node, dofs, &v) {
+                    if *kind != DofKind::Translation && !releases.permits(*node, dofs, &v) {
                         let canonical = (mu.iter().filter(|&&x| x <= LOCAL_FREE * top).count() == 1).then(|| {
                             releases.directions.iter().filter(|(n, _)| n == node).find_map(|(_, direction)| {
                                 let mut candidate = vec![0.0; b];
@@ -646,7 +646,8 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
                         }).flatten();
                         match canonical {
                             Some(direction) => v = direction,
-                            None => unresolved_negative.push(*node),
+                            None if mu[c] < 0.0 => unresolved_negative.push(*node),
+                            None => {},
                         }
                     }
                     free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v, scale: if top > 0.0 { top } else { 1.0 }, coupling: Vec::new() });
@@ -682,7 +683,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
     }
     let m = columns.len();
     if m == 0 {
-        let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, 1.0);
+        let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, 1.0, releases);
         if !coupled.is_empty() {
             return Stability { verdict: Verdict::Singular, reason: Reason::CoupledSoftDirection, kappa: f64::INFINITY, anisotropy, free, mode_nodes: coupled };
         }
@@ -691,7 +692,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
     let s = scaled(k, &groups, &group_of, &columns);
     let symbolic = (m > FULL_SPECTRUM).then(|| Rc::new(symbolic_cholesky(&s)));
     if let Some(kappa) = symbolic.as_ref().and_then(|sym| fast_sparse_bound(&s, sym, anisotropy, amplification)) {
-        let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, kappa);
+        let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, kappa, releases);
         if coupled.is_empty() && free.iter().all(|direction| direction.coupling.is_empty()) {
             return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa, anisotropy, free, mode_nodes: Vec::new() };
         }
@@ -706,7 +707,7 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
     }
     let verdict = if kappa * anisotropy <= RESOLVABLE || (kappa <= RESOLVABLE && anisotropy <= MAX_ANISOTROPY) { Verdict::Stable } else { Verdict::Singular };
     if verdict == Verdict::Stable {
-        let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, kappa);
+        let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, kappa, releases);
         if !coupled.is_empty() {
             return Stability { verdict: Verdict::Singular, reason: Reason::CoupledSoftDirection, kappa, anisotropy, free, mode_nodes: coupled };
         }
@@ -722,7 +723,7 @@ fn non_finite() -> Stability {
     Stability { verdict: Verdict::Singular, reason: Reason::NonFinite, kappa: f64::NAN, anisotropy: f64::NAN, free: Vec::new(), mode_nodes: Vec::new() }
 }
 
-fn coupled_free(k: &CscMatrix, free: &mut [FreeDirection], own: &[(f64, f64, usize)], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], kappa: f64) -> Vec<usize> {
+fn coupled_free(k: &CscMatrix, free: &mut [FreeDirection], own: &[(f64, f64, usize)], columns: &[Column], groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], kappa: f64, releases: &ReleasedRotations) -> Vec<usize> {
     let dropped: Vec<usize> = (0..free.len()).filter(|&j| free[j].kind != DofKind::Translation).collect();
     let mut columns_of: Vec<Vec<usize>> = vec![Vec::new(); groups.len()];
     for (c, col) in columns.iter().enumerate() { columns_of[col.group].push(c); }
@@ -748,18 +749,23 @@ fn coupled_free(k: &CscMatrix, free: &mut [FreeDirection], own: &[(f64, f64, usi
         }
         let (mut c, mut x) = (BTreeMap::new(), BTreeMap::new());
         let mut outside = Vec::new();
+        let released = releases.permits(f.node, &f.dofs, &f.direction);
+        let mut spectral_coupling = false;
         for (d, &val) in ku.iter().enumerate() {
             let (h, l) = group_of[d];
             if val == 0.0 || h == g { continue; }
-            if magnitude[d].is_finite() && val.abs() <= ROUNDING * f.dofs.len() as f64 * f64::EPSILON * magnitude[d] { continue; }
+            let rounding = magnitude[d].is_finite() && val.abs() <= ROUNDING * f.dofs.len() as f64 * f64::EPSILON * magnitude[d];
+            if rounding && released { continue; }
             outside.push((d, val));
+            if rounding { continue; }
+            spectral_coupling = true;
             for &col in &columns_of[h] { *c.entry(col).or_insert(0.0) += columns[col].w[l] * val; }
             for &r in &dropped_of[h] { *x.entry(r).or_insert(0.0) += free[dropped[r]].direction[l] * val; }
         }
         let (mu, top, b) = own[j];
-        if outside.is_empty() { continue; }
         let node = f.node;
         free[j].coupling = outside;
+        if !spectral_coupling { continue; }
         if mu <= ROUNDING * b as f64 * f64::EPSILON * top {
             refused.push(node);
             continue;
@@ -1205,13 +1211,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1931"]
     fn issue_1931_dense_indirect_load_on_unresolved_rotation_is_refused() {
         indirectly_loaded_unresolved_rotation(false);
     }
 
     #[test]
-    #[ignore = "known wrong result: #1931"]
     fn issue_1931_sparse_indirect_load_on_unresolved_rotation_is_refused() {
         indirectly_loaded_unresolved_rotation(true);
     }
