@@ -164,7 +164,7 @@ function diagramShapes(m: GameModel, d: Diagram, S: number): { shapes: Shape[]; 
 /** `bare` draws only the members and the diagram: supports, hinges and loads would give away which structure it came from. */
 export function figure(m: GameModel, d: Diagram | null, bare = false): Figure {
   const { box, S } = size(m);
-  const pad = 0.3 * S;
+  const pad = 0.27 * S;
   const sym = 0.07 * S;
   const shapes: Shape[] = [];
   const drawn = d ? diagramShapes(m, d, S) : { shapes: [], labels: [] };
@@ -180,4 +180,10 @@ export function figure(m: GameModel, d: Diagram | null, bare = false): Figure {
   }
   for (const l of loadShapes(m, S)) shapes.push({ d: l, ink: 'load' });
   return { viewBox, shapes, labels, unit: S };
+}
+
+/** Width over height of the drawing `figure` makes of this model. */
+export function figureAspect(m: GameModel): number {
+  const [, , w, h] = figure(m, null, true).viewBox.split(' ').map(Number);
+  return w! / h!;
 }

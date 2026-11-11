@@ -107,6 +107,13 @@
     .heart { width: .95rem; height: .95rem; }
     .quit { margin-left: -.35rem; }
   }
+  @media (max-height: 540px) and (orientation: landscape) {
+    .hud { padding-block: .15rem; flex-wrap: nowrap; gap: .4rem .9rem; }
+    .k, .best { display: none; }
+    .sound { width: 34px; height: 34px; }
+    .big { font-size: 1.2rem; }
+    .badge { min-width: 1.5rem; height: 1.5rem; font-size: .8rem; }
+  }
   @media (max-width: 440px) { .pips { display: none; } .mult svg { display: none; } }
   @media (prefers-reduced-motion: reduce) { .bump, .heart.lost { animation: none; } .pip, .heart { transition: none; } }
 </style>

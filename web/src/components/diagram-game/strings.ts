@@ -100,6 +100,7 @@ const en = {
   'rotate.full': 'Play full screen',
   'quit': 'Leave the game',
   'pickHint': 'Pick an option with a tap, a click or its number key.',
+  tapWhy: 'Tap an option to see why.',
 };
 
 export type Key = keyof typeof en;
@@ -204,6 +205,7 @@ const es: Record<Key, string> = {
   'rotate.full': 'Jugar en pantalla completa',
   'quit': 'Salir del juego',
   'pickHint': 'Elegí una opción con un toque, un clic o su número.',
+  tapWhy: 'Tocá una opción para ver por qué.',
 };
 
 const pt: Record<Key, string> = {
@@ -306,6 +308,7 @@ const pt: Record<Key, string> = {
   'rotate.full': 'Jogar em tela cheia',
   'quit': 'Sair do jogo',
   'pickHint': 'Escolha uma opção com um toque, um clique ou o seu número.',
+  tapWhy: 'Toque uma opção para ver por quê.',
 };
 
 const de: Record<Key, string> = {
@@ -408,6 +411,7 @@ const de: Record<Key, string> = {
   'rotate.full': 'Im Vollbild spielen',
   'quit': 'Spiel verlassen',
   'pickHint': 'Wähle eine Option per Tippen, Klick oder mit ihrer Zifferntaste.',
+  tapWhy: 'Tippe auf eine Option, um zu sehen, warum.',
 };
 
 const fr: Record<Key, string> = {
@@ -510,6 +514,7 @@ const fr: Record<Key, string> = {
   'rotate.full': 'Jouer en plein écran',
   'quit': 'Quitter la partie',
   'pickHint': 'Choisis une option d’un toucher, d’un clic ou avec sa touche numérique.',
+  tapWhy: 'Touche une option pour voir pourquoi.',
 };
 
 const tr: Record<Key, string> = {
@@ -612,6 +617,7 @@ const tr: Record<Key, string> = {
   'rotate.full': 'Tam ekran oyna',
   'quit': 'Oyundan çık',
   'pickHint': 'Bir seçeneği dokunarak, tıklayarak ya da numara tuşuyla seç.',
+  tapWhy: 'Nedenini görmek için bir seçeneğe dokun.',
 };
 
 export const gameStrings: Record<string, Record<Key, string>> = { en, es, pt, de, fr, tr };

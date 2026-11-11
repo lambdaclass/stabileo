@@ -64,7 +64,7 @@ test('@smoke diagram game: a round that shows one diagram and asks which of four
 const call = (page: Page, f: string, ...args: unknown[]) =>
   page.evaluate(([name, rest]) => (window as unknown as { __diagramGame: Record<string, (...a: unknown[]) => unknown> }).__diagramGame[name as string]!(...(rest as unknown[])), [f, args] as const);
 
-async function fitsOneScreen(page: Page, what: string) {
+async function fitsOneScreen(page: Page, what: string, minDrawing: number) {
   const m = await page.evaluate(() => {
     const scroller = document.querySelector('.landing')!;
     const inside = (el: Element | null) => {
@@ -73,7 +73,16 @@ async function fitsOneScreen(page: Page, what: string) {
       return r.top >= -1 && r.left >= -1 && r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1;
     };
     const parts = ['.hud', '[data-testid="dg-question"]', '.problem-figure', '[data-testid="dg-next"]', '[data-testid="dg-again"]', ...[0, 1, 2, 3].map((i) => `[data-testid="dg-option-${i}"]`)];
+    const drawn = [0, 1, 2, 3].flatMap((i) => {
+      const svg = document.querySelector(`[data-testid="dg-option-${i}"] svg`);
+      if (!svg) return [];
+      const boxes = [...svg.querySelectorAll('path')].map((p) => p.getBoundingClientRect()).filter((r) => r.width + r.height > 0);
+      const w = Math.max(...boxes.map((r) => r.right)) - Math.min(...boxes.map((r) => r.left));
+      const h = Math.max(...boxes.map((r) => r.bottom)) - Math.min(...boxes.map((r) => r.top));
+      return [Math.max(w, h)];
+    });
     return {
+      smallest: Math.min(...drawn),
       down: scroller.scrollHeight - scroller.clientHeight,
       side: Math.max(scroller.scrollWidth - scroller.clientWidth, document.documentElement.scrollWidth - innerWidth),
       outside: parts.filter((sel) => !inside(document.querySelector(sel))),
@@ -82,42 +91,43 @@ async function fitsOneScreen(page: Page, what: string) {
   expect(m.down, `${what}: vertical scroll`).toBeLessThanOrEqual(0);
   expect(m.side, `${what}: horizontal scroll`).toBeLessThanOrEqual(0);
   expect(m.outside, `${what}: off screen`).toEqual([]);
+  expect(m.smallest, `${what}: the smallest option drawing, in px`).toBeGreaterThanOrEqual(minDrawing);
 }
 
-async function playThrough(page: Page, label: string) {
+async function playThrough(page: Page, label: string, minDrawing: number) {
   await page.goto('/es/diagram-game/?e2e=1&seed=31');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
-  await fitsOneScreen(page, `${label} first round`);
+  await fitsOneScreen(page, `${label} first round`, minDrawing);
   await page.getByTestId(`dg-option-${(await correctIndex(page))!}`).click();
   await expect(page.getByTestId('dg-next')).toBeVisible();
-  await fitsOneScreen(page, `${label} answered`);
-  for (const [level, type] of [[3, 'which'], [4, 'odd'], [5, 'pick']] as const) {
+  await fitsOneScreen(page, `${label} answered`, minDrawing);
+  for (const [level, type, template] of [[3, 'which', undefined], [4, 'odd', 'column-lateral'], [5, 'pick', undefined]] as const) {
     await call(page, 'level', level);
-    expect(await call(page, 'find', type)).toBe(true);
-    await fitsOneScreen(page, `${label} level ${level + 1} ${type}`);
+    expect(await call(page, 'find', type, template)).toBe(true);
+    await fitsOneScreen(page, `${label} level ${level + 1} ${type}`, minDrawing);
     await page.keyboard.press(String((((await correctIndex(page))! + 1) % 3) + 1));
     await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'false');
-    await fitsOneScreen(page, `${label} level ${level + 1} ${type} answered wrong`);
+    await fitsOneScreen(page, `${label} level ${level + 1} ${type} answered wrong`, minDrawing);
   }
   await expect(page.getByTestId('dg-again')).toBeVisible();
-  await fitsOneScreen(page, `${label} game over`);
+  await fitsOneScreen(page, `${label} game over`, 0);
 }
 
-for (const [label, width, height] of [['wide screen', 1440, 900], ['laptop', 1280, 680], ['tablet portrait', 768, 1024]] as const) {
+for (const [label, width, height, minDrawing] of [['wide screen', 1440, 900, 150], ['laptop', 1280, 680, 110], ['tablet portrait', 768, 1024, 150]] as const) {
   test(`@smoke diagram game fits one screen on a ${label}, with no scroll either way, through every kind of round`, async ({ page }) => {
     await page.setViewportSize({ width, height });
-    await playThrough(page, label);
+    await playThrough(page, label, minDrawing);
   });
 }
 
 test.describe('on a phone', () => {
   test.use({ hasTouch: true, isMobile: true });
 
-  for (const [label, width, height] of [['portrait', 390, 664], ['small portrait', 360, 600], ['landscape', 844, 340], ['small landscape', 667, 300]] as const) {
+  for (const [label, width, height, minDrawing] of [['portrait', 390, 664, 90], ['small portrait', 360, 600, 75], ['landscape', 844, 340, 90], ['small landscape', 667, 300, 70]] as const) {
     test(`@smoke diagram game fits one screen on a phone in ${label}, with no scroll either way`, async ({ page }) => {
       await page.setViewportSize({ width, height });
-      await playThrough(page, label);
+      await playThrough(page, label, minDrawing);
     });
   }
 

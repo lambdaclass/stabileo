@@ -12,6 +12,8 @@
   import { answer, newGame, nextRound, readBest, recordBest, timeBonus, TIME_BONUS_WINDOW_MS, type GameState } from './scoring';
   import { cue, readSound, writeSound, type Cue } from './sfx';
   import { marked, tg, tagText, type Key } from './strings';
+  import { arrange } from './layout';
+  import { figureAspect } from './figure';
   import type { DiagramKind } from './traces';
   import '../landing/landing.css';
 
@@ -34,6 +36,9 @@
   let banner = $state<number | null>(null);
   let toast = $state<number | null>(null);
   let portraitPhone = $state(false);
+  let inspected = $state<number | null>(null);
+  let boardWidth = $state(0);
+  let boardHeight = $state(0);
   let canFullscreen = $state(false);
   let shownAt = 0;
   let now = $state(0);
@@ -88,6 +93,7 @@
   function deal(state: GameState, seed = seedFrom(`${gameSeed}:${state.round}`)) {
     round = buildRound(state.level, seed);
     picked = null;
+    inspected = null;
     shownAt = performance.now();
     now = shownAt;
   }
@@ -134,6 +140,7 @@
   }
 
   function choose(i: number) {
+    if (game?.phase === 'answered' || game?.phase === 'over') { inspected = i; return; }
     if (!game || !round || game.phase !== 'playing') return;
     const streak = game.streak;
     picked = i;
@@ -166,7 +173,7 @@
 
   function onKey(e: KeyboardEvent) {
     if (e.altKey || e.ctrlKey || e.metaKey || !game || !round) return;
-    if (game.phase === 'playing' && /^[1-9]$/.test(e.key) && Number(e.key) <= round.options.length) {
+    if (game.phase !== 'over' && /^[1-9]$/.test(e.key) && Number(e.key) <= round.options.length) {
       e.preventDefault();
       choose(Number(e.key) - 1);
     } else if (game.phase === 'answered' && (e.key === 'Enter' || e.key === 'n') && !(e.target instanceof HTMLButtonElement)) {
@@ -180,13 +187,13 @@
       answer: () => round?.answer ?? null,
       type: () => round?.type ?? null,
       level: (n: number) => { if (!game) return; const s: GameState = { ...game, level: n, round: game.round + 1, phase: 'playing', last: null }; deal(s); game = s; },
-      find: (type: RoundType) => {
+      find: (type: RoundType, template?: string) => {
         if (!game) return false;
-        for (let k = 0; k < 200; k++) {
+        for (let k = 0; k < 400; k++) {
           const s: GameState = { ...game, round: game.round + 1, phase: 'playing', last: null };
           deal(s);
           game = s;
-          if (round?.type === type) return true;
+          if (round?.type === type && (!template || round.template === template)) return true;
         }
         return false;
       },
@@ -205,6 +212,18 @@
     return round!.type === 'odd' ? tg('is.consistent') : tg('is.correct');
   };
   const kindName = (k: DiagramKind) => `${tg(`kind.${k}` as Key)} (${SYMBOL[k]})`;
+  const layout = $derived(round && boardWidth > 0 && boardHeight > 0 ? arrange({
+    width: boardWidth, height: boardHeight, options: round.options.length, aspect: figureAspect(round.model),
+    gap: 10, cardChromeX: 20, cardChromeY: round.type === 'odd' ? 46 : 23, problemChrome: 16, textHeight: 38, textMinWidth: 220,
+    structureInCards: round.type !== 'which',
+  }) : null);
+  const rows = $derived(layout && round ? Math.ceil(round.options.length / layout.columns) : 1);
+  const boardStyle = $derived(!layout ? '' : layout.problem === 'none' ? 'grid-template: minmax(0, 1fr) / minmax(0, 1fr);' : layout.problem === 'top'
+    ? `grid-template-rows: minmax(0, ${layout.split}fr) minmax(0, ${1 - layout.split}fr); grid-template-columns: minmax(0, 1fr);`
+    : `grid-template-columns: minmax(0, ${layout.split}fr) minmax(0, ${1 - layout.split}fr); grid-template-rows: minmax(0, 1fr);`);
+  const spare = $derived(layout && round ? layout.columns * rows - round.options.length : 0);
+  const cardText = $derived(layout?.text ?? true);
+  const told = $derived(game && game.phase !== 'playing' && round ? inspected ?? (game.last?.correct ? null : picked) : null);
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -249,8 +268,8 @@
             {question?.before}{#if question?.term && round.kind}<span class="term" style:color={INK[round.kind]} data-testid="dg-term">{question.term} ({SYMBOL[round.kind]})</span>{/if}{question?.after}
           </h2>
 
-          <div class="board" class:four={round.options.length === 4}>
-            <div class="problem-figure" class:shown={round.type === 'which'} style:--dg-ink={round.kind ? INK[round.kind] : null}>
+          <div class="board" bind:clientWidth={boardWidth} bind:clientHeight={boardHeight} style={boardStyle} data-problem={layout?.problem} data-columns={layout?.columns}>
+            <div class="problem-figure" class:shown={round.type === 'which'} hidden={layout?.problem === 'none'} style:--dg-ink={round.kind ? INK[round.kind] : null}>
               {#if round.type === 'which'}
                 <StructureFigure model={round.model} diagram={round.shown} bare label={tg('shown')} />
               {:else}
@@ -258,7 +277,7 @@
               {/if}
             </div>
 
-            <ol class="options" style:--n={round.options.length} data-testid="dg-options" data-round-type={round.type}>
+            <ol class="options" style:--cols={layout?.columns ?? round.options.length} style:--rows={rows} style:--spare={spare + 1} data-testid="dg-options" data-round-type={round.type}>
               {#each round.options as option, i (`${game.round}:${i}`)}
                 {@const kind = kindOf(i)}
                 {@const revealed = game.phase !== 'playing'}
@@ -266,20 +285,20 @@
                 <li>
                   <button type="button" class="option" style:--dg-ink={INK[kind]}
                     class:is-answer={revealed && i === round.answer} class:is-wrong-pick={revealed && picked === i && i !== round.answer}
-                    class:is-faded={revealed && i !== round.answer && picked !== i} class:won
+                    class:is-faded={revealed && i !== round.answer && picked !== i && inspected !== i} class:won class:inspected={revealed && inspected === i}
                     aria-pressed={picked === i}
                     aria-label={`${tg('option', { n: i + 1 })}: ${round.type === 'which' ? tg('structure') : kindName(kind)}`}
                     onclick={() => choose(i)} data-testid={`dg-option-${i}`}>
                     <span class="num" aria-hidden="true">{i + 1}</span>
-                    {#if round.type === 'odd'}<span class="kind">{kindName(kind)}</span>{/if}
+                    {#if round.type === 'odd'}<span class="kind">{(layout?.cardWidth ?? 999) >= 170 ? kindName(kind) : SYMBOL[kind]}</span>{/if}
                     <span class="option-figure">
                       {#if round.type === 'which'}
                         <StructureFigure model={option.model!} diagram={revealed ? option.diagram : null} faintLoads={revealed} label={tg('structure')} />
                       {:else}
-                        <StructureFigure model={round.model} diagram={option.diagram} faintLoads label={kindName(kind)} />
+                        <StructureFigure model={round.model} diagram={option.diagram} faintLoads={layout?.problem !== 'none'} label={kindName(kind)} />
                       {/if}
                     </span>
-                    {#if revealed}<span class="why" data-testid={`dg-why-${i}`} data-tag={option.tag ?? ''} title={explain(i)}>{explain(i)}</span>{/if}
+                    {#if revealed && cardText}<span class="why" data-testid={`dg-why-${i}`} data-tag={option.tag ?? ''} title={explain(i)}>{explain(i)}</span>{/if}
                     {#if won}
                       <span class="burst" aria-hidden="true">{#each SPARKS as k (k)}<i style:--a={`${(360 * k) / SPARKS.length}deg`} style:--d={`${3 + (k % 3)}rem`}></i>{/each}</span>
                       <span class="float-pts" aria-hidden="true">+{game.last?.points}</span>
@@ -304,8 +323,11 @@
                     {#if game.last.speed > 0}<span class="fast">{tg('pts.speed', { n: game.last.speed })}</span>{/if}
                   </p>
                   {#if toast}<p class="toast" data-testid="dg-streak-toast">{tg('streakToast', { n: toast })}</p>{/if}
-                {:else if picked !== null}
-                  <p class="reason" data-testid="dg-reason">{explain(picked)}</p>
+                {/if}
+                {#if told !== null && (!cardText || told === picked)}
+                  <p class="reason" data-testid="dg-reason"><span class="tag-n">{told + 1}</span>{explain(told)}</p>
+                {:else if !cardText}
+                  <p class="reason tap">{tg('tapWhy')}</p>
                 {/if}
               </div>
               {#if game.phase === 'answered'}<button type="button" class="btn btn-primary next" onclick={proceed} data-testid="dg-next">{tg('next')}</button>{/if}
@@ -367,12 +389,15 @@
   .question { font: 500 clamp(1rem, 2.4vw, 1.3rem)/1.25 var(--lp-display); margin: 0; outline: none; }
   .term { font-weight: 700; }
 
-  .board { min-height: 0; display: grid; grid-template-rows: minmax(0, .75fr) minmax(0, 1.5fr); gap: .55rem; }
-  .problem-figure { min-height: 0; border: 1px solid var(--st-hair); border-radius: var(--st-radius-lg); background: var(--st-surface); padding: .4rem; }
+  .board { min-height: 0; min-width: 0; display: grid; grid-template-rows: minmax(0, .3fr) minmax(0, .7fr); gap: 10px; }
+  .problem-figure { min-height: 0; min-width: 0; box-sizing: border-box; border: 2px solid var(--st-hair); border-radius: var(--st-radius-lg); background: var(--st-surface); padding: 6px; }
   .problem-figure.shown { border: 2px solid var(--dg-ink); }
-  .options { list-style: none; margin: 0; padding: 0; min-height: 0; display: grid; gap: .6rem; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
-  .options li { min-height: 0; display: flex; }
-  .option { position: relative; display: flex; flex-direction: column; gap: .3rem; width: 100%; min-height: 0; padding: .45rem .5rem .5rem; text-align: left;
+  .problem-figure[hidden] { display: none; }
+  .options { list-style: none; margin: 0; padding: 0; min-height: 0; min-width: 0; display: grid; gap: 10px;
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); }
+  .options li { min-height: 0; min-width: 0; display: flex; }
+  .options li:last-child { grid-column: span var(--spare); }
+  .option { position: relative; display: flex; flex-direction: column; gap: 5px; width: 100%; min-height: 0; box-sizing: border-box; padding: 7px 8px 8px; text-align: left;
     background: var(--st-surface-2); color: var(--st-text); border: 2px solid var(--st-hair-strong); border-radius: var(--st-radius-lg); cursor: pointer;
     font: inherit; box-shadow: 0 4px 0 var(--st-hair-strong); margin-bottom: 4px; overflow: hidden;
     transition: transform .08s, box-shadow .08s, border-color .15s, background .15s, opacity .2s; }
@@ -383,13 +408,14 @@
   .option.won { animation: pop .45s cubic-bezier(.3, 1.6, .5, 1); background: color-mix(in srgb, var(--st-ok) 10%, var(--st-surface-2)); overflow: visible; }
   .option.is-wrong-pick { border-color: var(--st-danger); box-shadow: 0 4px 0 var(--st-danger); animation: shake .4s; }
   .option.is-faded { opacity: .6; }
+  .option.inspected { outline: 2px dashed var(--st-text-3); outline-offset: 2px; }
   .num { position: absolute; top: .35rem; left: .4rem; display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 999px;
     background: var(--st-surface-3); font: 700 .72rem var(--st-mono); color: var(--st-text-2); z-index: 1; }
   .is-answer .num { background: var(--st-ok); color: var(--st-surface); }
   .is-wrong-pick .num { background: var(--st-danger); color: var(--st-surface); }
-  .kind { align-self: center; font: 700 .75rem var(--st-mono); color: var(--dg-ink); }
+  .kind { align-self: center; max-width: 100%; height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 .75em/18px var(--st-mono); color: var(--dg-ink); }
   .option-figure { display: block; flex: 1 1 0; min-height: 0; }
-  .why { flex: none; font-size: .8rem; line-height: 1.3; color: var(--st-text-2); display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .why { flex: none; height: 2.6em; font-size: .8em; line-height: 1.3; color: var(--st-text-2); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .is-answer .why { color: var(--st-text); }
   .burst { position: absolute; left: 50%; top: 45%; width: 0; height: 0; pointer-events: none; }
   .burst i { position: absolute; width: .5rem; height: .5rem; border-radius: 2px; background: var(--st-ok); animation: spark .7s ease-out forwards; transform: rotate(var(--a)) translateX(0); }
@@ -405,7 +431,9 @@
   .headline { font: 700 1.15rem var(--lp-display); }
   .result.ok { color: var(--st-ok); }
   .points { font: 800 1.35rem var(--st-mono); animation: pop .45s cubic-bezier(.3, 1.6, .5, 1); }
-  .reason { color: var(--st-text-2); font-size: .9rem; flex: 1 1 16rem; }
+  .reason { color: var(--st-text-2); font-size: .9em; line-height: 1.35; flex: 1 1 16rem; }
+  .reason.tap { color: var(--st-text-3); }
+  .tag-n { display: inline-grid; place-items: center; width: 1.4em; height: 1.4em; margin-right: .4em; border-radius: 999px; background: var(--st-surface-3); font: 700 .8em var(--st-mono); vertical-align: .1em; }
   .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
   .chips span { padding: .1rem .5rem; border-radius: 999px; border: 1px solid var(--st-hair-strong); color: var(--st-text-2); font: .78rem var(--st-mono); }
   .chips .hot { border-color: var(--st-warn); color: var(--st-warn); }
@@ -422,33 +450,23 @@
   .levelup span { font-size: .95rem; }
 
   @media (orientation: portrait) and (max-width: 760px) {
-    .board { grid-template-rows: minmax(0, .55fr) minmax(0, 2fr); }
-    .options { grid-template-columns: minmax(0, 1fr); }
-    .board.four .options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .why { font-size: .74rem; }
-    .board.four .why { -webkit-line-clamp: 2; line-clamp: 2; }
-    .board:not(.four) .option:has(.why) { flex-direction: row; align-items: center; gap: .5rem; }
-    .board:not(.four) .option:has(.why) .option-figure { align-self: stretch; }
-    .board:not(.four) .why { flex: 0 0 46%; -webkit-line-clamp: 5; line-clamp: 5; }
-    .hint, .reason { display: none; }
+    .hint { display: none; }
     .bar { min-height: 44px; }
     .dg-intro > :global(*) { order: 4; }
     .dg-intro h1 { order: 0; }
     .dg-start { order: 1; }
     .rotate { order: 2; padding: .6rem; gap: .6rem; }
-    .lead { order: 3; }
     .rotate svg { width: 2.25rem; height: 2.25rem; }
+    .lead { order: 3; }
   }
   @media (max-height: 540px) and (orientation: landscape) {
-    .board { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) minmax(0, 2.8fr); }
     .play { gap: .3rem; }
     .question { font-size: 1rem; }
-    .why { font-size: .72rem; -webkit-line-clamp: 2; line-clamp: 2; }
     .hint { display: none; }
     .bar { min-height: 44px; }
     .headline { font-size: 1rem; }
     .points { font-size: 1.1rem; }
-    .reason { font-size: .8rem; }
+    .reason { font-size: .82em; }
   }
 
   @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
