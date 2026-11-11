@@ -59,6 +59,16 @@ describe('the changelog', () => {
     }
   });
 
+  it.skip.each(LOCALES)('known wrong result: #1057 retains the unresolved warped-shell warning in %s', (locale) => {
+    const entry = CHANGELOG.find((e) => e.date === '2026-11-06')!;
+    const warning = entry.i18n[locale].items.find((item) => item.includes('#1057'));
+    expect(warning, locale).toBeDefined();
+    expect(entry.areas[entry.i18n[locale].items.indexOf(warning!)]).toBe('engine');
+    for (const detail of ['MITC4', 'MITC9', '90°', '#1074']) expect(warning, locale).toContain(detail);
+    expect(warning, locale).toMatch(/30\s*%|%30/);
+    expect(warning, locale).toMatch(/2[.,]4/);
+  });
+
   it('follows the editorial style: no dashes as asides and no angle quotes', () => {
     const text = JSON.stringify(CHANGELOG);
     expect(text).not.toMatch(/—/);
