@@ -339,17 +339,9 @@ fn seeded_failure_reaches_nightly_findings() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap();
-    let out = root
-        .join("target")
-        .join(format!("seeded-failure-nightly-{}", std::process::id()));
-    struct Cleanup(std::path::PathBuf);
-    impl Drop for Cleanup {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
+    let scratch = tempfile::tempdir().unwrap();
+    let out = scratch.path().join("nightly");
     assert!(!out.exists());
-    let _cleanup = Cleanup(out.clone());
     for (fault, code) in [("control", 0), ("sign", 1)] {
         let destination = out.join(fault);
         let output = std::process::Command::new("python3")
@@ -474,11 +466,9 @@ fn seeded_failure_inverse_load_scaling() {
 }
 
 #[test]
-#[ignore = "known wrong result: #N"]
 fn seeded_failure_replay_reaches_numerical_assertion() {
-    let destination = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap().join("target")
-        .join(format!("seeded-replay-assertion-{}.json", std::process::id()));
+    let scratch = tempfile::tempdir().unwrap();
+    let destination = scratch.path().join("replay-results.json");
     for (fault, code) in [("control", 0), ("sign", 101)] {
         let output = replay_output(&destination, fault);
         assert_eq!(output.status.code(), Some(code), "{output:?}");
@@ -505,7 +495,6 @@ fn replay_output(destination: &std::path::Path, fault: &str) -> std::process::Ou
 }
 
 #[test]
-#[ignore = "known wrong result: #N"]
 fn seeded_failure_replay_write_error_names_destination() {
     let scratch = tempfile::tempdir().unwrap();
     for destination in [scratch.path().join("missing/results.json"), scratch.path().to_owned()] {
