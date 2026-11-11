@@ -42,3 +42,11 @@ explain a changed displacement or a non-SSI result. This registration changes
 no solver output and creates no advisory. The old missing-reaction defect is
 already corrected on main; advisory decisions about historical versions remain
 with the coordinator.
+
+The v0.4.0 deep-beam shell's solve stamp predates tracking SSI runs, so its
+re-check list includes this notice under the conservative history policy.
+Replaying that exact saved shell through 3D SSI without soil springs produces
+nonempty, nonzero support reactions; before PR #1675 the 3D SSI result always
+returned an empty reaction list. The linear solve is unaffected. The legacy
+corpus judge shares the snapshot gate's analysis-condition check, so this SSI
+notice cannot explain a corrupted linear reaction, displacement or member force.

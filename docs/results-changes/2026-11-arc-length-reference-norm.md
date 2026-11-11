@@ -62,3 +62,10 @@ The frozen loaded-arch outputs `solve_arc_length-0015ab84c3baa36f.json` and
 known-wrong evidence linked to [#1949](https://github.com/lambdaclass/stabileo/issues/1949),
 with expected-failure reaction checks. This arithmetic registration does not accept
 those missing reactions as correct or fix that separate defect.
+
+The legacy corpus judge checks the analysis of each compared field as well as
+model applicability. A conservative notice for unknown analysis history cannot
+explain a change to `base`, `case` or `combo` linear results: those fields must
+satisfy the entry's `when` with `analysis:linear`. The judge and snapshot gate
+share this analysis-condition check. In particular, the unchanged v0.2.0 truss
+linear solve remains unchanged, and a fabricated member force stays unexplained.

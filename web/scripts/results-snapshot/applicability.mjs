@@ -6,10 +6,21 @@ export function conditionHolds(w, features) {
   return conditionGroups(w).every((g) => g.some((f) => features.has(f)));
 }
 
+function resultAnalysis(path) {
+  const family = path.split('.')[0];
+  return /^(pdelta|modal|spectral|buckling|nonlinear|ssi)$/.test(family) ? family : 'linear';
+}
+
+export function conditionAllowsResult(w, path) {
+  const feature = `analysis:${resultAnalysis(path)}`;
+  return conditionGroups(w).every(g => g.some(f => !f.startsWith('analysis:') || f === feature));
+}
+
 export function fieldCovered(entry, path, features) {
   if (!Array.isArray(features) || !entry.when || typeof entry.when !== 'object' || Array.isArray(entry.when) || !Array.isArray(entry.quantities)) return false;
   const family = path.split('.')[0];
-  const analysis = /^(pdelta|modal|spectral|buckling|nonlinear|ssi)$/.test(family) ? family : 'linear';
+  const analysis = resultAnalysis(path);
+  if (family !== 'design' && !conditionAllowsResult(entry.when, path)) return false;
   if (family !== 'design' && !features.includes(`analysis:${analysis}`)) return false;
   const fieldFeatures = new Set(features.filter((f) => !f.startsWith('analysis:')));
   if (family !== 'design') fieldFeatures.add(`analysis:${analysis}`);

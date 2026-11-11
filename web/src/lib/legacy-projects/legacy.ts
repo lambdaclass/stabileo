@@ -37,6 +37,7 @@ import { resultValues, type Values } from './capture-results';
 // @ts-expect-error plain JavaScript shared with the results snapshot gate (no declaration file)
 import { compareValues, formatCaseReport, parseSnapshot, storeNumber } from '../../../scripts/results-snapshot/compare.mjs';
 import { compareLegacy } from './vector-floor';
+import { conditionAllowsResult } from '../../../scripts/results-snapshot/applicability.mjs';
 
 export type Workspace = '2d' | '3d' | 'pro';
 
@@ -403,7 +404,8 @@ export function resultFingerprint(values: Values): string {
  * file must open as the same model whatever the solver does. `*` covers a result set's values,
  * not whether the solve refuses, raises an error or finds a combination unstable.
  */
-export function declaresMove(change: Pick<ResultChange, 'quantities'>, path: string, results?: { before: string; after: string }): boolean {
+export function declaresMove(change: Pick<ResultChange, 'quantities' | 'when'>, path: string, results?: { before: string; after: string }): boolean {
+  if (!conditionAllowsResult(change.when ?? {}, path)) return false;
   const declared = (change.quantities ?? []).flatMap((q) => typeof q === 'string' ? [q]
     : results?.before && results.after && q.before === results.before && q.after === results.after ? [q.quantity] : []);
   if (path === 'solve.ok' || path === 'unstableCombinations') return declared.includes(path);

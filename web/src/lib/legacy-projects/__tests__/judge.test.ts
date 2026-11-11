@@ -2,7 +2,9 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import * as applicability from '../../provenance/applicability';
 import refinementEvidence from '../../../../../docs/results-changes/1753-refinement-corpus-evidence.json';
-import { initSolver } from '../../engine/wasm-solver';
+import declaredQuantities from 'virtual:result-change-quantities';
+import frozenInputs from '../../results-snapshot/frozen-inputs.json';
+import { initSolver, solveSSI3D } from '../../engine/wasm-solver';
 import type { ResultChange } from '../../provenance/registry';
 import { RESULT_CHANGES } from '../../provenance/full-registry';
 import {
@@ -59,10 +61,16 @@ describe('which values a registered change declares it moves', () => {
 });
 
 describe('analysis-specific result changes', () => {
-  it.skip('known wrong result: #1885 nonlinear and SSI notices cannot explain linear results', () => {
+  it('nonlinear and SSI notices cannot explain linear results', () => {
     for (const id of ['arc-length-reference-norm', 'ssi-support-reactions']) {
-      const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+      const registered = RESULT_CHANGES.changes.find(c => c.id === id)!;
+      const entry = { ...registered, quantities: declaredQuantities[id]!.filter((q): q is string => typeof q === 'string') };
+      expect(entry.quantities).toBeDefined();
       const field = id === 'ssi-support-reactions' ? 'reactions[n1].rz' : 'elementForces[e1].nStart';
+      const analysis = id === 'ssi-support-reactions' ? 'ssi' : 'nonlinear';
+      for (const dimension of ['plane2D', 'space3D']) {
+        expect(fieldCovered(entry, `${analysis}.results.${field}`, [dimension, 'members', `analysis:${analysis}`])).toBe(id === 'ssi-support-reactions' || dimension === 'plane2D');
+      }
       for (const prefix of ['base', 'case[2]', 'combo[1]']) {
         const path = `${prefix}.${field}`;
         expect(declaresMove(entry, path), `${id}: ${path}`).toBe(false);
@@ -72,15 +80,20 @@ describe('analysis-specific result changes', () => {
     }
   });
 
-  it.skip('known wrong result: #1885 analysis conditions agree with the snapshot gate', () => {
+  it('analysis conditions agree with the snapshot gate', () => {
     for (const analysis of ['linear', 'pdelta', 'modal', 'buckling', 'spectral', 'timeHistory', 'plastic', 'nonlinear', 'harmonic', 'ssi']) {
-      const entry = { ...change(analysis, ['reactions']), when: { all: [`analysis:${analysis}`] } };
+      const entry = { ...change(analysis), quantities: ['reactions'], when: { all: [`analysis:${analysis}`] } };
       const features = ['plane2D', 'space3D', 'members', `analysis:${analysis}`];
       for (const prefix of ['base', 'case[2]', 'combo[1]']) {
         const path = `${prefix}.reactions[n1].rz`;
         expect(declaresMove(entry, path), analysis).toBe(analysis === 'linear');
         expect(declaresMove(entry, path), analysis).toBe(fieldCovered(entry, path, features));
       }
+    }
+    for (const when of [{ any: ['analysis:nonlinear', 'analysis:ssi'] }, { allOf: [['analysis:nonlinear', 'analysis:ssi']] }]) {
+      const scoped = { ...change('advanced-only', ['reactions', 'solve.ok']), when };
+      expect(declaresMove(scoped, 'base.reactions[n1].rz')).toBe(false);
+      expect(declaresMove(scoped, 'solve.ok')).toBe(false);
     }
     for (const when of [{ any: ['analysis:linear', 'analysis:nonlinear'] }, { allOf: [['analysis:linear', 'analysis:ssi']] }]) {
       expect(declaresMove({ ...change('either', ['reactions']), when }, 'base.reactions[n1].rz')).toBe(true);
@@ -229,6 +242,19 @@ describe('against real corpus files', () => {
     expect(v.report).toContain('base.elementForces[e1].nStart');
   }, 120_000);
 
+  it('the legacy deep-beam shell has SSI support reactions even without soil springs', async () => {
+    const opened = await openAndSolve(readCorpusText('v0.4.0/deep-beam-shell.ded'));
+    expect(opened.changes.map(c => c.id)).toContain('ssi-support-reactions');
+    const solver = modelStore.buildSolverInput3D(true);
+    expect(solver).not.toBeNull();
+    const control = frozenInputs.find(c => c.analysis === 'solve_ssi_3d')!;
+    const response = solveSSI3D({ ...control.input[0], solver });
+    expect(response.converged).toBe(true);
+    expect(response.results.reactions.length).toBeGreaterThan(0);
+    expect(response.results.reactions.some((r: Record<string, unknown>) =>
+      Object.entries(r).some(([key, value]) => key !== 'nodeId' && typeof value === 'number' && value !== 0))).toBe(true);
+  });
+
   for (const mainFirst of [false, true]) {
     it(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'main-first order' : 'checkout order'})`, async () => {
       const registry = mainFirst ? {
@@ -249,11 +275,11 @@ describe('against real corpus files', () => {
           'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
           'harmonic-modal-residual-checked',
-          'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
+          'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling', 'ssi-support-reactions',
         ].map(id => registry.changes.find(c => c.id === id)!)
           .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
           .map(c => c.id));
-        if (mainFirst) expect(opened.changes.slice(-3).map(c => c.id)).toEqual(['harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling']);
+        if (mainFirst) expect(opened.changes.slice(-4).map(c => c.id)).toEqual(['harmonic-omitted-modes', 'ssi-support-reactions', 'linear-stability-refusals', 'linear-pin-coupling']);
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
         const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;
