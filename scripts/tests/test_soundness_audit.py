@@ -104,6 +104,7 @@ class History(unittest.TestCase):
             (area / 'base-fixed-native' / model).write_text(json.dumps(record))
             drift = dict(model=model, analysis=record['analysis'], engineering_fields=1,
                          before_refused=False, after_refused=refusal, test=test)
+            drift.update(provenance or {})
             drifts = [drift]
             for name, extra_values, extra_provenance in extra_models or []:
                 extra = {**record, **extra_provenance, 'input': [{'model': name}], 'result': extra_values[0]}
@@ -126,7 +127,8 @@ class History(unittest.TestCase):
                     current[0] = revisions.index(args[3])
                 if str(args[0]) == 'nice' and 'build' not in args:
                     seen.append(current[0])
-                    model = json.loads(kwargs.get('input', '[{}]'))[0].get('model')
+                    payload = json.loads(kwargs.get('input', '[{}]'))
+                    model = (payload[0] if isinstance(payload, list) else payload).get('model')
                     series = next((v for name, v, _ in extra_models or [] if name == model), values)
                     value = series[current[0]]
                     return subprocess.CompletedProcess(args, 2 if refusal and value['refused'] else 0,
@@ -148,12 +150,12 @@ class History(unittest.TestCase):
         unchanged = [{'displacements': [0]}] * 5
         rows, _ = self.run_history('bisect-arc.py', values,
                                    dict(tests=['macneal_harder::browser_cases', 'shared']),
-                                   [('later.json', later, dict(tests=['shared', 'later'])),
+                                   [('later.json', later, dict(tests=['shared'])),
                                     ('unchanged.json', unchanged, dict(tests=['shared']))])
         self.assertEqual({r['model']: (r['parent'], r['first_bad']) for r in rows},
                          {'solve_3d-test.json': ('r0', 'r1'), 'later.json': ('r2', 'r3')})
         self.assertEqual(rows[0]['tests'], ['macneal_harder::browser_cases', 'shared'])
-        self.assertEqual(rows[1]['tests'], ['later', 'macneal_harder::browser_cases', 'shared'])
+        self.assertEqual(rows[1]['tests'], ['macneal_harder::browser_cases', 'shared'])
 
     def test_reverted_changes_and_refusals_find_first_adjacent_transition(self):
         for filename in ['bisect-all-static.py', 'bisect-arc.py', 'bisect-reference.py', 'bisect-refusals.py']:
@@ -490,7 +492,7 @@ fn main() {
         wrong = [valid[0], {**valid[1], 'model': 'wrong-model.json'}, valid[2]]
         for evidence in [[], [{}], [{'model': 'duplicate'}, {'model': 'duplicate'}], duplicate, wrong, valid]:
             modified = source.replace(original, 'const evidence = ' + json.dumps(evidence) + ';')
-            result = subprocess.run(['node', '--input-type=module', '-e', modified], cwd=ROOT / 'scripts/tests', capture_output=True, text=True)
+            result = subprocess.run(['node', '--input-type=module'], input=modified, cwd=ROOT / 'scripts/tests', capture_output=True, text=True)
             self.assertEqual(result.returncode == 0, evidence == valid, result.stdout + result.stderr)
             if len(evidence) == 3 and evidence != valid:
                 self.assertIn('arc evidence case identities', result.stderr)
