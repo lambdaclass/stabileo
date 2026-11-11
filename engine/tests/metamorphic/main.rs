@@ -238,3 +238,4 @@ mod harmonic_coverage;
 mod seeded_failures;
 
 mod nonlinear_convergence;
+mod cause_c_replay;
