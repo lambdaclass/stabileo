@@ -304,7 +304,6 @@ fn issue_761_unfinished_iterations_stay_unconverged_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #761"]
 fn issue_761_native_and_wasm_cases() {
     let mut cases = Vec::new();
     for case in fixtures() {
@@ -2903,7 +2902,6 @@ mod r5 {
     }
 
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn constrained_point_springs_retain_signed_answers() {
         let mut errors = Vec::new();
         for case in calls() {
@@ -2925,7 +2923,6 @@ mod r5 {
         assert!(errors.is_empty(), "{}", errors.join("\n"));
     }
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn constrained_point_preparation_certificates_and_continuation() {
         for case in calls().into_iter().filter(|c| c["api"] == "solve_2d") {
             let s: SolverInput = serde_json::from_value(case["input"].clone()).unwrap();

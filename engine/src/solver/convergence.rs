@@ -186,11 +186,20 @@ impl EquilibriumMetric {
                     2
                 }
             };
+            let driven = |i: usize| {
+                if i < dofs.n_free {
+                    cs.is_none_or(|cs| {
+                        cs.c_ff.vals[cs.c_ff.row_ptr[i]..cs.c_ff.row_ptr[i + 1]]
+                            .iter()
+                            .any(|v| *v != 0.0)
+                    })
+                } else {
+                    prescribed.get(i - dofs.n_free).is_some_and(|v| *v != 0.0)
+                }
+            };
             let active: std::collections::BTreeSet<_> = entries
                 .iter()
-                .filter(|(_, i)| {
-                    *i < dofs.n_free || prescribed.get(*i - dofs.n_free).is_some_and(|v| *v != 0.0)
-                })
+                .filter(|(_, i)| driven(*i))
                 .map(|((_, local), _)| power(*local))
                 .collect();
             length = if active.len() > 1 {
@@ -199,9 +208,7 @@ impl EquilibriumMetric {
                 let diagonal = k.diagonal();
                 let mut traces = [0.0f64; 3];
                 for ((_, local), i) in entries {
-                    let driven = i < dofs.n_free
-                        || prescribed.get(i - dofs.n_free).is_some_and(|v| *v != 0.0);
-                    if driven {
+                    if driven(i) {
                         if !artificial.contains(&i) {
                             traces[power(local)] += diagonal[i];
                         }
@@ -997,7 +1004,6 @@ mod tests {
         }
     }
     #[test]
-    #[ignore = "known wrong result: #761"]
     fn r5_point_categories_follow_admissible_constraint_rows() {
         let mut s = input();
         s.constraints = serde_json::from_value(serde_json::json!([
