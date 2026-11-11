@@ -18,7 +18,7 @@ function pad(input, count) {
     input.elements[a] = { ...input.elements[1], id: a, nodeI: a, nodeJ: b };
     if ('y' in input.nodes[1]) Object.assign(input.elements[a], { releaseMyEnd: false, releaseMzEnd: false, releaseTEnd: false });
     else input.elements[a].hingeEnd = false;
-    input.supports[a] = { ...input.supports[1], id: a, nodeId: a };
+    input.supports[a] = { ...input.supports[1], id: a, nodeId: a, type: 'fixed', rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
   }
 }
 for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [false, true]) {
