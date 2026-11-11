@@ -238,6 +238,17 @@ fn make_ss_plate_3d_n(n: usize) -> SolverInput3D {
             normal_x: None, normal_y: None, normal_z: None, is_inclined: None,
         },
     );
+    supports.insert(
+        (sid + 1).to_string(),
+        SolverSupport3D {
+            node_id: grid[nx][0],
+            rx: false, ry: true, rz: true, rrx: false, rry: false, rrz: false,
+            kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
+            rw: None, kw: None,
+            normal_x: None, normal_y: None, normal_z: None, is_inclined: None,
+        },
+    );
 
     let n_quads = quads.len();
     let loads: Vec<SolverLoad3D> = (1..=n_quads)

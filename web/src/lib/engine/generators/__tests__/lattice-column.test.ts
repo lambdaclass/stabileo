@@ -119,13 +119,19 @@ describe('generateLatticeColumn — lacing', () => {
 });
 
 describe('generateLatticeColumn — supports', () => {
-  it('lands both chords on the ground, pinned by default', () => {
+  it('lands both chords on the ground, fixed by default', () => {
     const t = generateLatticeColumn(P());
     expect(t.supports).toHaveLength(2);
     for (const s of t.supports) {
       expect(t.nodes[s.node].z).toBeCloseTo(0, 12);
-      expect(s.type).toBe('pinned');
+      expect(s.type).toBe('fixed');
     }
+    expect(t.assumptions).toContain('generator.assume.baseFixed');
+  });
+
+  it('keeps an explicitly requested pinned base', () => {
+    const t = generateLatticeColumn(P({ fixedBase: false }));
+    expect(t.supports.map((s) => s.type)).toEqual(['pinned', 'pinned']);
     expect(t.assumptions).toContain('generator.assume.baseChordsPinned');
   });
 

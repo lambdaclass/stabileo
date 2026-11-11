@@ -791,7 +791,8 @@ function eigen3D<R>(input: SolverInput3D, run: (i: SolverInput3D) => R): { resul
 // ─── Solver functions ───────────────────────────────────────────
 
 /** Solve 2D linear static analysis via WASM. JsValue in/out — no JSON round trip. */
-export function solve(input: SolverInput): AnalysisResultsWire {
+export function solve(input: SolverInput, session?: ReturnType<typeof prepareLoadSession2D>): AnalysisResultsWire {
+  if (session) return resultsFromWasm(session.solveInput(input));
   if (!wasmReady || !wasmSolve2d) throw new Error('WASM solver not initialized. Call initSolver() first.');
   const wire = input2DToWireObject(input);
   assertFiniteWire(wire);
@@ -846,9 +847,21 @@ function loadSession<L, R>(Constructor: LoadSessionConstructor | null, wire: () 
   };
 }
 export function prepareLoadSession2D(input: SolverInput) {
-  return loadSession<import('./types').SolverLoad, AnalysisResults>(loadSession2D,
-    () => input2DToWireObject({ ...input, loads: [] }),
+  const model = plainDeepCopy(input2DToWireObject({ ...input, loads: [] }));
+  assertFiniteWire(model);
+  const snapshot = JSON.stringify(model);
+  const session = loadSession<import('./types').SolverLoad, AnalysisResults>(loadSession2D,
+    () => model,
     loads => solve({ ...input, loads }), result => result);
+  return {
+    ...session,
+    solveInput(candidate: SolverInput): AnalysisResults {
+      const wire = input2DToWireObject({ ...candidate, loads: [] });
+      assertFiniteWire(wire);
+      const sameModel = JSON.stringify(wire) === snapshot;
+      return sameModel ? session.solve(candidate.loads) : solve(candidate);
+    },
+  };
 }
 export function prepareLoadSession3D(input: SolverInput3D) {
   return loadSession<import('./types-3d').SolverLoad3D, AnalysisResults3D>(loadSession3D,

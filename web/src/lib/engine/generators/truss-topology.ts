@@ -224,7 +224,7 @@ export interface GenSupport {
    * `forkPinned` and `forkRollerX` also hold the member's twist at the bearing: what a beam
    * needs when every node of it lies on one line, and nothing else stops it spinning about it.
    */
-  type: 'pinned' | 'rollerX' | 'fixed' | 'forkPinned' | 'forkRollerX';
+  type: 'pinned' | 'rollerX' | 'fixed' | 'forkPinned' | 'forkRollerX' | 'outOfPlane';
 }
 
 export interface Topology {
@@ -744,6 +744,10 @@ function finish(
     const b = nodes[m.b];
     totalLengthM += Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
   }
+  const bearings = new Set(supports.map((s) => s.node));
+  supports = supports.map((s) => ({ ...s, type: s.type === 'pinned' ? 'forkPinned' : s.type === 'rollerX' ? 'forkRollerX' : s.type }));
+  supports.push(...nodes.filter((n) => !bearings.has(n.i)).map((n) => ({ node: n.i, type: 'outOfPlane' as const })));
+  assumptions.push('generator.assume.planarRestraints');
   return {
     nodes,
     members,

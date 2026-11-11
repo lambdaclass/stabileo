@@ -129,21 +129,18 @@ describe('emitModel — what lands in the model is what the preview said', () =>
     }
   });
 
-  it('emits supports in the 3-D vocabulary, with a roller that actually holds the truss up', () => {
-    expect(g.json.supports).toHaveLength(2);
-    expect(g.json.supports.map((s) => s.type).sort()).toEqual(['custom3d', 'pinned3d']);
-
-    // The roller had to be spelled out. `rollerXZ` reads like "rolls along the span" and is
-    // the opposite: `{ rx: false, ry: true, rz: false }`, where the flags mean RESTRAINED —
-    // free in X AND in Z. The first version emitted it, and every generated truss was
-    // standing on a bearing that did not carry vertical load. The solver reported a
-    // mechanism, correctly. A truss bearing slides along the span and is held laterally and
-    // vertically, which is what this asserts.
-    const roller = g.json.supports.find((s) => s.type === 'custom3d')!;
-    expect(roller.dofRestraints).toEqual({
-      tx: false, ty: true, tz: true, rx: false, ry: false, rz: false,
-    });
-    expect(roller.dofFrame).toBe('global');
+  it('emits fork bearings and explicit out-of-plane panel restraints', () => {
+    expect(g.json.supports).toHaveLength(t.nodes.length);
+    expect(g.json.supports.every((s) => s.type === 'custom3d')).toBe(true);
+    const at = (node: number) => g.json.supports.find((s) => s.nodeId === node + 1)!;
+    const pin = t.supports.find((s) => s.type === 'forkPinned')!;
+    const roller = t.supports.find((s) => s.type === 'forkRollerX')!;
+    expect(at(pin.node).dofRestraints).toEqual({ tx: true, ty: true, tz: true, rx: true, ry: false, rz: false });
+    expect(at(roller.node).dofRestraints).toEqual({ tx: false, ty: true, tz: true, rx: true, ry: false, rz: false });
+    for (const s of t.supports.filter((s) => s.type === 'outOfPlane')) {
+      expect(at(s.node).dofRestraints).toEqual({ tx: false, ty: true, tz: false, rx: true, ry: false, rz: true });
+      expect(at(s.node).dofFrame).toBe('global');
+    }
   });
 
   it('emits no loads, no combinations and no claim of having been designed', () => {

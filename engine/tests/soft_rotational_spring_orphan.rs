@@ -85,11 +85,11 @@ fn tiny_rotational_spring_beside_stiff_ones_at_a_released_node_3d() {
         "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fy": 0, "fz": 0, "mx": M, "my": M, "mz": M}}]
     });
     let input: SolverInput3D = serde_json::from_value(v).unwrap();
-    match certify_linear_3d_full(&input) {
-        Err(e) => assert!(e.starts_with("Nodal moment at node 2 is not supported"), "{e}"),
-        Ok(out) => {
-            let d = out.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-            panic!("expected the moment on the locked rotation to be refused, got {:?} with rotations {:?}", out.certificate, (d.rx, d.ry, d.rz));
-        }
+    let out = certify_linear_3d_full(&input).unwrap();
+    assert!(matches!(out.certificate, Certificate::Certified { .. }), "{:?}", out.certificate);
+    let d = out.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    for (rotation, stiffness) in [d.rx, d.ry, d.rz].into_iter().zip(k) {
+        let exact = M / stiffness;
+        assert!((rotation - exact).abs() <= 1e-9 * exact, "rotation {rotation}, exact M/k = {exact}");
     }
 }

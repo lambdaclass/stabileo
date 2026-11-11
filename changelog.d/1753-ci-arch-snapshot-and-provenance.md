@@ -1,0 +1,4 @@
+### BREAKING (results)
+#### Refresh the three-hinged arch warnings and scope linear stability explanations (2026-11-10)
+
+Regenerate the three-hinged arch snapshot to remove its obsolete conditioning warnings. Its numerical values are unchanged and are verified against closed-form equilibrium and an independent Decimal displacement reference. Apply the linear-stability re-check notice to every saved linear result whose model contains members, shells, connectors or springs, including ordinary trusses and deep-beam shells, consistently with SA-2026-054. Numerical changes are explained only by the registered complete-response fingerprints; model features cannot explain an arbitrary wrong force or displacement. See [the results-change evidence](../docs/results-changes/2026-11-linear-stability-refusals.md#ci-follow-up-arch-warnings-and-registry-applicability).

@@ -269,3 +269,32 @@ Static residuals retain the independent inverse/load reference and the existing 
 This changes verification allowances only. Production engine outputs do not change, so no results-change registry entry or new user advisory is added. Existing SA-2026-056 findings and retained issue outcomes remain in force. No tolerance, coverage snapshot, expected failing cell or assertion is loosened. The generated dynamic mirror rows continue to require all 128 comparisons.
 
 Validation of the final code: the targeted release selection passed all 113 active tests in `analysis_accuracy`, `nightly_tolerances`, `betti`, `generated_fast`, the generated #1892 mirror lock, and `metamorphic_pr_3d`; 203 unselected or pre-existing ignored tests were skipped. Both generated dimensions retained 128 passing time-history and harmonic mirror comparisons, with zero failures, refusals, unrepresentable or inconclusive cases in those rows. `make lint.engine`, `make check.changelog`, and `git diff --check` passed. No full suite or heavy seed sweep was run.
+
+## PR #1753 retained-cell transition
+
+The six-seed targeted replay at `6d2ba890a` stops at seed `2026110200115`:
+its 3D `linear (PCG) / units` comparison now passes. This is the intended effect
+of #1753's component residual verification and refinement, documented in
+[the linear results change](../results-changes/2026-11-linear-stability-refusals.md).
+The comparison, conditioning budget, PCG reference certificate and input are unchanged.
+The replay also completes a numerical relabel comparison on this seed. Neither is
+a refusal or an inconclusive comparison.
+
+The retained-cell inventory still contains this exact seed, analysis and invariant.
+Its assertion now requires one numerical pass, zero failures, and zero refusals,
+inconclusive, unrepresentable or not-applicable outcomes. The dedicated
+`issue_1753_retained_pcg_units_inventory_accepts_verified_comparisons` regression
+locks both relabel and units, with the original invariant order. An unexpected
+failure or disappearance remains an error; the cell has not been removed. The
+other retained entries keep their existing failure assertions. In particular,
+seed `2026110200131` still fails its six harmonic/time-history relabel, rotation
+and units cells under the already documented SA-2026-056 finding. No correction of
+that finding is claimed. The earlier retained-failure table describes the state
+before #1753; only the PCG row transitions here.
+
+The ignored reproducer in commit A fails on the stale inventory assertion even
+though the unchanged numerical comparison has passed. Commit B updates that
+inventory and activates the reproducer. This follow-up changes no production
+solver arithmetic or result, and adds no results-change registry allowance.
+The heavy 200-seed sweep and its historical coverage snapshot are not rerun or
+rewritten for this targeted CI repair.

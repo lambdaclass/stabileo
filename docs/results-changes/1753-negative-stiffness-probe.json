@@ -1,0 +1,198 @@
+{
+  "main_commit": "87e1c9a1b",
+  "matrix": [
+    [
+      1e+20,
+      1
+    ],
+    [
+      1,
+      -1
+    ]
+  ],
+  "inputs": {
+    "2d": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 1,
+          "z": 1e-20
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 1,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 1,
+          "iz": 1
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "hingeStart": true,
+          "hingeEnd": true
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "type": "fixed",
+          "id": 1
+        },
+        "2": {
+          "id": 2,
+          "nodeId": 2,
+          "type": "spring",
+          "kz": 1
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 2,
+            "fx": 1,
+            "fz": 0,
+            "my": 0
+          }
+        }
+      ],
+      "connectors": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "kAxial": 1e+20,
+          "kShear": -1
+        }
+      }
+    },
+    "3d": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 1,
+          "y": 1e-20,
+          "z": 0
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 1,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 1,
+          "iy": 1,
+          "iz": 1,
+          "j": 1
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "type": "frame",
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "releaseMyStart": true,
+          "releaseMyEnd": true,
+          "releaseMzStart": true,
+          "releaseMzEnd": true,
+          "releaseTStart": true,
+          "releaseTEnd": true
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        },
+        "2": {
+          "nodeId": 2,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": false,
+          "rry": false,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 2,
+            "fx": 0,
+            "fy": 0,
+            "fz": 0,
+            "mx": 1,
+            "my": 0,
+            "mz": 0
+          }
+        }
+      ],
+      "connectors": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "kMoment": 1e+20,
+          "kBendZ": -1
+        }
+      }
+    }
+  },
+  "main": {
+    "2d": "model 2d: Ok(AnalysisResults { displacements: [Displacement { node_id: 1, ux: 0.0, uz: 0.0, ry: 0.0 }, Displacement { node_id: 2, ux: 1e-20, uz: 7.499999999999999e-21, ry: -5e-21 }], reactions: [Reaction { node_id: 1, rx: -1.0, rz: -3.76158192263132e-37, my: 5e-21 }, Reaction { node_id: 2, rx: -0.0, rz: -0.0, my: 5e-21 }], element_forces: [ElementForces { element_id: 1, n_start: 9.999999999999999e-18, n_end: 9.999999999999999e-18, v_start: 0.0, v_end: -0.0, m_start: 0.0, m_end: -0.0, length: 1.0, q_i: 0.0, q_j: 0.0, point_loads: [], distributed_loads: [], distributed_loads_x: [], hinge_start: true, hinge_end: true }], constraint_forces: [], diagnostics: [], solver_diagnostics: [], structured_diagnostics: [StructuredDiagnostic { code: StiffnessNotPositiveDefinite, severity: Warning, message: \"Stiffness matrix is singular or indefinite (Cholesky failed; solved by dense LU): the structure is a mechanism, nearly one, or unstable, and the results may be meaningless\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"factorization\"), value: None, threshold: None, element_kind: None }, StructuredDiagnostic { code: DenseLu, severity: Info, message: \"Dense solver (3 free DOFs)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"solve\"), value: None, threshold: None, element_kind: None }, StructuredDiagnostic { code: CholeskyFailedLuFallback, severity: Warning, message: \"Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"solve\"), value: None, threshold: None, element_kind: None }, StructuredDiagnostic { code: NearZeroDiagonal, severity: Warning, message: \"2 near-zero diagonal entries\", element_ids: [], node_ids: [], dof_indices: [1, 2], phase: Some(\"conditioning\"), value: None, threshold: None, element_kind: None }, StructuredDiagnostic { code: ResidualOk, severity: Info, message: \"Residual 3.76e-37 (3 free DOFs)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"solve\"), value: Some(3.76158192263132e-37), threshold: Some(1e-6), element_kind: None }, StructuredDiagnostic { code: KnownIssue, severity: Warning, message: \"Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design (known issue #762, NUM-INVARIANCE)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"NUM-INVARIANCE\"), value: Some(762.0), threshold: None, element_kind: None }, StructuredDiagnostic { code: ResidualOk, severity: Info, message: \"PASS: self-check static_residual: 3.762e-27 (warning at 1.000e-6, refusal at 1.000e-3)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"self_check:static_residual\"), value: Some(3.76158192263132e-27), threshold: Some(1e-6), element_kind: None }, StructuredDiagnostic { code: ResidualOk, severity: Info, message: \"PASS: self-check static_balance: 1.881e-37 (warning at 1.000e-6, refusal at 1.000e-3)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"self_check:static_balance\"), value: Some(1.88079096131566e-37), threshold: Some(1e-6), element_kind: None }], equilibrium: Some(EquilibriumSummary { applied_force_components: [1.0, 0.0, 0.0, 0.0], relative_residual: 3.76158192263132e-37, residual_ok: true, applied_force_sum: [1.0, 0.0, 0.0], reaction_force_sum: [-1.0, -3.76158192263132e-37, 5e-21], max_imbalance: 3.76158192263132e-37, equilibrium_ok: true }), result_summary: Some(ResultSummary { displacement_x: Some(ResultExtreme { max_value: 1e-20, max_id: 2, min_value: 0.0, min_id: 1 }), displacement_y: None, displacement_z: Some(ResultExtreme { max_value: 7.499999999999999e-21, max_id: 2, min_value: 0.0, min_id: 1 }), rotation: Some(ResultExtreme { max_value: 0.0, max_id: 1, min_value: -5e-21, min_id: 2 }), displacement_resultant: Some(ResultExtreme { max_value: 1.25e-20, max_id: 2, min_value: 0.0, min_id: 1 }), reaction_resultant: Some(ResultExtreme { max_value: 1.0, max_id: 1, min_value: 0.0, min_id: 2 }), second_order_ratio: Some(0.0), member_chords: Some([MemberChord { element_id: 1, chord: [1e-20, 0.0, 7.499999999999999e-21] }]), member_spans: Some([MemberSpan { element_id: 1, nodes: [1, 2], length: 1.0, axes: [[1.0, 0.0, 1e-20], [-1e-20, 0.0, 1.0], [0.0, 1.0, 0.0]], ei: [1000.0, 0.0], shear_flexibility: [0.0, 0.0], curvature: Some([0.0, 0.0]) }]) }), solver_run_meta: Some(SolverRunMeta { engine_version: \"0.5.0\", build_timestamp: \"unknown\", build_sha: \"dev\", solver_path: \"dense_lu\", n_free_dofs: 3, n_elements: 1, n_nodes: 2 }) })",
+    "3d": "model 3d: Ok(AnalysisResults3D { displacements: [Displacement3D { node_id: 1, ux: 0.0, uy: 0.0, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None }, Displacement3D { node_id: 2, ux: 0.0, uy: 0.0, uz: 0.0, rx: 1.0000000000000001e-20, ry: -1.0000000000999999e-30, rz: 0.0, warping: None }], reactions: [Reaction3D { node_id: 1, fx: 0.0, fy: 0.0, fz: 0.0, mx: -1.0, my: -1.0000000001000001e-20, mz: 0.0, bimoment: None }, Reaction3D { node_id: 2, fx: 0.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bimoment: None }], element_forces: [ElementForces3D { element_id: 1, length: 1.0, n_start: -0.0, n_end: 0.0, vy_start: 0.0, vy_end: -0.0, vz_start: 0.0, vz_end: -0.0, mx_start: 0.0, mx_end: -0.0, my_start: 0.0, my_end: -0.0, mz_start: 0.0, mz_end: -0.0, release_my_start: true, release_my_end: true, release_mz_start: true, release_mz_end: true, release_t_start: true, release_t_end: true, q_yi: 0.0, q_yj: 0.0, distributed_loads_y: [], point_loads_y: [], q_zi: 0.0, q_zj: 0.0, distributed_loads_z: [], distributed_loads_x: [], point_loads_x: [], point_loads_z: [], bimoment_start: None, bimoment_end: None }], plate_stresses: [], quad_stresses: [], quad_nodal_stresses: [], constraint_forces: [], diagnostics: [], solver_diagnostics: [SolverDiagnostic { category: \"conditioning\", message: \"High diagonal ratio 1.00e10 — potential conditioning issues\", severity: \"warning\" }, SolverDiagnostic { category: \"solver_path\", message: \"Dense solver (2 free DOFs)\", severity: \"info\" }], timings: None, structured_diagnostics: [StructuredDiagnostic { code: KnownIssue, severity: Warning, message: \"Anisotropic connector transverse axes are not user-orientable and can change abruptly with direction. Independently verify the spring directions before using these results (known issue #419, SP-17)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"SP-17\"), value: Some(419.0), threshold: None, element_kind: None }, StructuredDiagnostic { code: DenseLu, severity: Info, message: \"Dense solver (2 free DOFs)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"solve\"), value: None, threshold: None, element_kind: None }, StructuredDiagnostic { code: HighDiagonalRatio, severity: Warning, message: \"High diagonal ratio 1.00e10\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"conditioning\"), value: Some(10000000001.0), threshold: Some(100000000.0), element_kind: None }, StructuredDiagnostic { code: ResidualOk, severity: Info, message: \"Dense solver residual 1.50e-36 (2 free DOFs)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"solve\"), value: Some(1.504632769052528e-36), threshold: Some(1e-6), element_kind: None }, StructuredDiagnostic { code: KnownIssue, severity: Warning, message: \"Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design (known issue #762, NUM-INVARIANCE)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"NUM-INVARIANCE\"), value: Some(762.0), threshold: None, element_kind: None }, StructuredDiagnostic { code: KnownIssue, severity: Warning, message: \"A node rotation with real but very small stiffness, compared with another rotation at the same node, was held by an artificial spring, so that rotation and the forces it carries can be far too small. Do not use this result for design until this warning clears (known issue #1496, ORPHAN-SOFT-ROTATION)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"ORPHAN-SOFT-ROTATION\"), value: Some(1496.0), threshold: None, element_kind: None }, StructuredDiagnostic { code: ResidualOk, severity: Info, message: \"PASS: self-check static_residual: 1.505e-31 (warning at 1.000e-6, refusal at 1.000e-3)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"self_check:static_residual\"), value: Some(1.5046327691277596e-31), threshold: Some(1e-6), element_kind: None }, StructuredDiagnostic { code: ResidualOk, severity: Info, message: \"PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)\", element_ids: [], node_ids: [], dof_indices: [], phase: Some(\"self_check:static_balance\"), value: Some(0.0), threshold: Some(1e-6), element_kind: None }], equilibrium: Some(EquilibriumSummary { applied_force_components: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], relative_residual: 1.504632769052528e-36, residual_ok: true, applied_force_sum: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0], reaction_force_sum: [0.0, 0.0, 0.0, -1.0, -1.0000000001000001e-20, 0.0], max_imbalance: 0.0, equilibrium_ok: true }), result_summary: Some(ResultSummary { displacement_x: Some(ResultExtreme { max_value: 0.0, max_id: 1, min_value: 0.0, min_id: 1 }), displacement_y: Some(ResultExtreme { max_value: 0.0, max_id: 1, min_value: 0.0, min_id: 1 }), displacement_z: Some(ResultExtreme { max_value: 0.0, max_id: 1, min_value: 0.0, min_id: 1 }), rotation: None, displacement_resultant: Some(ResultExtreme { max_value: 0.0, max_id: 1, min_value: 0.0, min_id: 1 }), reaction_resultant: Some(ResultExtreme { max_value: 0.0, max_id: 1, min_value: 0.0, min_id: 1 }), second_order_ratio: Some(0.0), member_chords: Some([MemberChord { element_id: 1, chord: [0.0, 0.0, 0.0] }]), member_spans: Some([MemberSpan { element_id: 1, nodes: [1, 2], length: 1.0, axes: [[1.0, 1e-20, 0.0], [-1e-20, 1.0, 0.0], [0.0, -0.0, 1.0]], ei: [1000.0, 1000.0], shear_flexibility: [0.0, 0.0], curvature: Some([0.0, 0.0]) }]) }), solver_run_meta: Some(SolverRunMeta { engine_version: \"0.5.0\", build_timestamp: \"unknown\", build_sha: \"dev\", solver_path: \"dense_lu\", n_free_dofs: 2, n_elements: 1, n_nodes: 2 }) })"
+  },
+  "fixed": {
+    "2d": "model 2d: Err(\"the stiffness matrix is not positive semidefinite at nodes [2]: the structure has a direction of negative stiffness (a negative spring or a negative member property, say), so it is unstable; check the springs and member properties there\")",
+    "3d": "model 3d: Err(\"the stiffness matrix is not positive semidefinite at nodes [2]: the structure has a direction of negative stiffness (a negative spring or a negative member property, say), so it is unstable; check the springs and member properties there\")"
+  },
+  "main_matrix": [
+    "matrix true: Stability { verdict: Mechanism, reason: FreeTranslation, kappa: inf, anisotropy: 1.0, free: [FreeDirection { node: 2, kind: Translation, dofs: [0, 1], direction: [0.0, 1.0] }], mode_nodes: [2] }",
+    "matrix false: Stability { verdict: Stable, reason: Resolved, kappa: 1.0, anisotropy: 1.0, free: [FreeDirection { node: 2, kind: Rotation, dofs: [0, 1], direction: [0.0, 1.0] }], mode_nodes: [] }"
+  ],
+  "independent_3d_reference": {
+    "method": "Decimal, 80 digits, exact 2x2 physical rotational block and force [1, 0]",
+    "determinant": "-100000000000000000001",
+    "rx": "9.9999999999999999999000000000000000000009999999999999999999900000000000000000001E-21",
+    "ry": "9.9999999999999999999000000000000000000009999999999999999999900000000000000000001E-21",
+    "interpretation": "Algebraic equilibrium only; the negative determinant proves instability and requires refusal."
+  }
+}

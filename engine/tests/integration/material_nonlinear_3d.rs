@@ -497,5 +497,7 @@ fn a_bimoment_on_a_warping_dof_no_member_holds_is_refused_as_the_linear_path_doe
     }));
     let linear = solve_3d(&input.solver).unwrap_err();
     let nonlinear = solve_nonlinear_material_3d(&input).unwrap_err();
-    assert_eq!(nonlinear, linear);
+    for refused in [&linear, &nonlinear] {
+        assert!(refused.starts_with("Nodal moment at node 1 is not supported: "), "{refused}");
+    }
 }

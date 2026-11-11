@@ -13,7 +13,7 @@
     "3": {"id": 3, "name": null, "a": 0.0014308832410869939, "iy": 0.0000039434683920711424, "iz": 4.701676784888907e-7, "j": 0.000023786584588677693, "cw": null, "asY": null, "asZ": null, "shearCenterY": null, "shearCenterZ": null}
   },
   "elements": {
-    "1": {"id": 1, "type": "frame", "nodeI": 2, "nodeJ": 1, "materialId": 1, "sectionId": 1, "releaseMyStart": false, "releaseMyEnd": false, "releaseMzStart": true, "releaseMzEnd": false, "releaseTStart": false, "releaseTEnd": false, "localYx": null, "localYy": null, "localYz": null, "rollAngle": null}
+    "1": {"id": 1, "type": "frame", "nodeI": 2, "nodeJ": 1, "materialId": 1, "sectionId": 1, "releaseMyStart": false, "releaseMyEnd": false, "releaseMzStart": false, "releaseMzEnd": false, "releaseTStart": false, "releaseTEnd": false, "localYx": null, "localYy": null, "localYz": null, "rollAngle": null}
   },
   "supports": {
     "1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true, "kx": null, "ky": null, "kz": null, "krx": null, "kry": null, "krz": null, "dx": null, "dy": null, "dz": null, "drx": null, "dry": null, "drz": null, "rw": null, "kw": null, "normalX": null, "normalY": null, "normalZ": null, "isInclined": null}

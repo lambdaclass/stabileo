@@ -154,6 +154,7 @@ const steelPt: Record<string, string> = {
   'generator.assume.webPinned': 'Montantes e diagonais birrotulados.',
   'generator.assume.webContinuous': 'Montantes e diagonais contínuos.',
   'generator.assume.raftersContinuous': 'Caibros contínuos através da cumeeira.',
+  'generator.assume.planarRestraints': 'Modelo plano: os nós dos painéis são restringidos fora do plano; os apoios também restringem a torção.',
   'generator.assume.supportsSimple': 'Apoios simples: um fixo e um móvel.',
   'generator.assume.baseFixed': 'Bases engastadas.',
   'generator.assume.baseChordsPinned': 'Cada banzo apoia rotulado em sua própria ancoragem.',

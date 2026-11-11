@@ -37,7 +37,7 @@ export const FEATURE_IDS = [
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear',
-  'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
+  'generatedStructures', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
   'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -252,6 +252,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (s.designData?.loadBasis) f.add('generatedLoads');
   if (values(s.groups).some((g) => g?.kind === 'floorLoad')) f.add('areaDeadLoads');
+  if (values(s.groups).some((g) => g?.kind === 'generated')) f.add('generatedStructures');
 
   const types = new Set(cases.map((c) => c.type));
   if (types.has('E') || cases.some((c) => c.spectral) || s.massSource) f.add('seismic');

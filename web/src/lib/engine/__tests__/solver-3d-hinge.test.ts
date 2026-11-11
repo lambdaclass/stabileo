@@ -1,15 +1,3 @@
-// 3D Hinge Reproducer (Bug B)
-//
-// The 3D solver treats `hinge_start`/`hinge_end` as releasing BOTH bending
-// rotations (θy and θz) at the hinged end. A real physical pin hinge releases
-// only ONE rotation (around the pin axis). On hinged 3D arches loaded in their
-// own plane, the over-release leaves the out-of-plane bending DOF unconstrained
-// at every interior hinge, producing a rigid-body flapping mode → singular Kff.
-//
-// These tests reproduce the failing fixtures (Three-Hinge Arch, Arco Articulado
-// 3D). They MUST currently fail with "Singular stiffness matrix"; after the
-// per-axis release contract lands, they must solve.
-
 import { describe, it, expect } from 'vitest';
 import { solve3D } from '../wasm-solver';
 import type {
@@ -48,12 +36,7 @@ function assertSuccess(result: AnalysisResults3D | string): asserts result is An
 
 describe('3D hinge over-release (Bug B)', () => {
 
-  // Arch in X-Z plane (y=0): semicircle-like polyline with a parabolic profile.
-  // Fixed supports at both ends. Two interior hinges (at nodes 4 and 10) — the
-  // pin axes are perpendicular to the arch plane, i.e. the global Y axis.
-  // Release should be applied to local Mz (rotation about local z = vertical
-  // pin axis ≈ global Y for an X-aligned element). Loads are vertical (-Z).
-  it('Arco Articulado 3D — two-internal-hinge arch in XZ must solve, not flag mechanism', () => {
+  it.each(['My', 'Mz'] as const)('two-internal-hinge XZ arch with %s releases solves only for pins about global Y', (axis) => {
     const arch = [
       { id: 1, x: 0, y: 0, z: 0 },
       { id: 2, x: 1, y: 0, z: 1.2222 },
@@ -69,13 +52,10 @@ describe('3D hinge over-release (Bug B)', () => {
       { id: 12, x: 11, y: 0, z: 1.2222 },
       { id: 13, x: 12, y: 0, z: 0 },
     ];
-    // Pin axis is global Y (perpendicular to the X-Z arch plane). Under the
-    // standard local-axis convention this is local z, so release ONLY Mz at
-    // the hinge — not both bending rotations.
     const baseElem = (id: number, i: number, j: number, hs = false, he = false): SolverElement3D => ({
       id, type: 'frame', nodeI: i, nodeJ: j, materialId: 1, sectionId: 1,
-      releaseMyStart: false, releaseMyEnd: false,
-      releaseMzStart: hs, releaseMzEnd: he,
+      releaseMyStart: axis === 'My' && hs, releaseMyEnd: axis === 'My' && he,
+      releaseMzStart: axis === 'Mz' && hs, releaseMzEnd: axis === 'Mz' && he,
       releaseTStart: false, releaseTEnd: false,
     });
     const elements: SolverElement3D[] = [
@@ -99,12 +79,27 @@ describe('3D hinge over-release (Bug B)', () => {
     ];
 
     const input = buildInput(arch, elements, supports, loads);
+    if (axis === 'Mz') {
+      expect(() => solve3D(input)).toThrow(/mechanism/);
+      return;
+    }
     const result = solve3D(input);
     assertSuccess(result);
-
-    // Equilibrium sanity: ΣFz of reactions = +5 kN/m × 1 m of element 1 (1 m projected length on x ≈ 1m)
-    // Just check the solver returns a reaction array (no throw).
-    expect(result.reactions.length).toBeGreaterThan(0);
+    const applied = [0, 0, 0];
+    for (const load of loads) {
+      if (load.type !== 'distributed') throw new Error('expected distributed load');
+      const el = input.elements.get(load.data.elementId)!;
+      const a = input.nodes.get(el.nodeI)!, b = input.nodes.get(el.nodeJ)!;
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const q = (load.data.qZI + load.data.qZJ) / 2;
+      applied[0] -= q * dz;
+      applied[2] += q * dx;
+    }
+    const scale = Math.max(...applied.map(Math.abs));
+    for (const [axis, key] of ['fx', 'fy', 'fz'].entries()) {
+      const reaction = result.reactions.reduce((sum, r) => sum + r[key as 'fx' | 'fy' | 'fz'], 0);
+      expect(Math.abs(reaction + applied[axis]!) / scale).toBeLessThan(1e-4);
+    }
   });
 
   // Three-Hinge Arch shape but loaded in 3D mode. Two members, one interior

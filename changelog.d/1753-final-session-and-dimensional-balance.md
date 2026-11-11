@@ -1,0 +1,4 @@
+### BREAKING (results)
+#### Invalidate edited prepared stiffness and check dimensionally matching recovered forces (2026-11-11)
+
+Prepared 2D solves compare a complete structural wire snapshot before reusing stiffness, including in-place geometry, member-property and spring edits. Conditional linear admission checks forces, moments and bimoments separately in the constraint-reduced free equations, excludes restrained loads from forcing scales, and includes settlement forcing and roundoff. Require designated C08 copies to solve and compare successfully, validate every refusal reason, and regenerate the independent Decimal references with explicit native-to-physical support conversion. Align the stability documentation and re-check scope with SA-2026-054. See [the final-round evidence](../docs/results-changes/2026-11-linear-stability-refusals.md#final-round-prepared-model-edits-and-dimensional-balance).

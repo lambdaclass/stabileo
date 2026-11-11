@@ -349,6 +349,8 @@ fn sparse_3d_parity_quad_pressure() {
     }
     // Pin one corner to prevent rigid body motion in XY plane
     supports.insert(sid.to_string(), sup3d(x0[0], true, true, true, false, false, false));
+    sid += 1;
+    supports.insert(sid.to_string(), sup3d(xlx[0], false, true, true, false, false, false));
 
     // Pressure on all quads
     let loads: Vec<SolverLoad3D> = (1..=16).map(|eid| {
@@ -441,6 +443,8 @@ fn sparse_3d_parity_quad_thermal() {
         sid += 1;
     }
     supports.insert(sid.to_string(), sup3d(x0[0], true, true, true, false, false, false));
+    sid += 1;
+    supports.insert(sid.to_string(), sup3d(xlx[0], false, true, true, false, false, false));
 
     let loads: Vec<SolverLoad3D> = (1..=16).map(|eid| {
         SolverLoad3D::QuadThermal(SolverPlateThermalLoad {
