@@ -329,6 +329,8 @@ export interface EduExerciseSpec {
    * meaning by being read with a newer app.
    */
   allowReveal?: boolean;
+  /** Whether a structure of two or more bars asks for each bar's free-body diagram. Absent means yes. */
+  freeBody?: boolean;
 }
 
 /** One variant of an exercise, with nothing left to resolve but what needs the solve. */

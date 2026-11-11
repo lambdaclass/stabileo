@@ -8,7 +8,7 @@ import { resolveDefaultSection } from '../../lib/store/canonical-sections';
 import { errorText } from '../../lib/utils/error-text';
 import { i18n, t, tp } from '../../lib/i18n';
 import {
-  defaultVariant, drawVariant, lintParams, modelExprs, resolveModel, seedFrom, supportCombos,
+  defaultVariant, drawVariant, lintParams, modelExprs, rangeValues, resolveModel, seedFrom, supportCombos,
   type ExerciseParams, type Variant,
 } from './exercise-params';
 import {
@@ -54,6 +54,18 @@ export function fillText(text: string, values: Record<string, number>): string {
   if (!text.includes('{')) return text;
   return text.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (m, name: string) =>
     name in values ? formatParam(values[name]!) : m);
+}
+
+/** A statement as the exercise list shows it, before any student has a variant: each parameter reads as its range. */
+export function previewText(text: string, params: ExerciseParams | undefined): string {
+  if (!params || !text.includes('{')) return text;
+  return text.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (m, name: string) => {
+    const r = Object.prototype.hasOwnProperty.call(params.values, name) ? params.values[name] : undefined;
+    if (!r) return m;
+    const vs = rangeValues(r);
+    const lo = vs[0] ?? r.min, hi = vs[vs.length - 1] ?? r.max;
+    return lo === hi ? formatParam(lo) : `${formatParam(lo)}–${formatParam(hi)}`;
+  });
 }
 
 function chosenVariant(params: ExerciseParams | undefined, which: number | Variant | undefined): Variant {
