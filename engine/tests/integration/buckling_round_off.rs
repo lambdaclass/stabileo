@@ -856,3 +856,94 @@ fn unconstrained_shared_free_warping_propagates_round_off_only_until_compression
         }
     }
 }
+
+fn member_coupling_witness(patch: &serde_json::Value, second_column: f64) -> SolverInput3D {
+    let mut wire: serde_json::Value = serde_json::from_str(include_str!("../fixtures/buckling-shared-free-warping.json")).unwrap();
+    for (collection, entries) in patch.as_object().unwrap() {
+        for (id, fields) in entries.as_object().unwrap() {
+            if wire[collection].get(id).is_none() {
+                wire[collection][id] = serde_json::json!({});
+            }
+            for (key, value) in fields.as_object().unwrap() {
+                wire[collection][id][key] = value.clone();
+            }
+        }
+    }
+    if second_column > 0.0 {
+        wire["nodes"]["4"] = serde_json::json!({"id": 4, "x": 20.0, "y": 0.0, "z": 0.0});
+        wire["nodes"]["5"] = serde_json::json!({"id": 5, "x": 20.0, "y": 0.0, "z": 10.0});
+        let mut section = wire["sections"]["1"].clone();
+        section["id"] = 3.into();
+        section["cw"] = serde_json::Value::Null;
+        for axis in ["iy", "iz"] {
+            section[axis] = (section[axis].as_f64().unwrap() * 10.0 / 4e-8 * second_column).into();
+        }
+        wire["sections"]["3"] = section;
+        wire["elements"]["3"] = serde_json::json!({"id": 3, "type": "frame", "nodeI": 4, "nodeJ": 5, "materialId": 1, "sectionId": 3});
+        let mut base = wire["supports"]["1"].clone();
+        base["nodeId"] = 4.into();
+        base["rw"] = true.into();
+        wire["supports"]["4"] = base;
+        let mut tip = wire["supports"]["2"].clone();
+        tip["nodeId"] = 5.into();
+        wire["supports"]["5"] = tip;
+        let mut load = wire["loads"][0].clone();
+        load["data"]["nodeId"] = 5.into();
+        load["data"]["fz"] = (-10.0).into();
+        wire["loads"].as_array_mut().unwrap().push(load);
+    }
+    serde_json::from_value(wire).unwrap()
+}
+
+fn check_member_coupling_witnesses(second_column: f64) {
+    let cases: serde_json::Value = serde_json::from_str(include_str!("../fixtures/buckling-member-coupling-cases.json")).unwrap();
+    let mut failures = Vec::new();
+    for case in cases.as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let input = member_coupling_witness(&case["patch"], second_column);
+        let expected = one_element_cantilever_factor(input.materials["1"].e * 1000.0 * input.sections["1"].iy, 10.0, 4e-8);
+        for (api, result) in [
+            ("plain", solve_buckling_3d(&input, 4)),
+            ("certificate", certify_buckling_3d(&input, 4).map(|r| r.results)),
+        ] {
+            match result {
+                Err(error) => failures.push(format!("{name} {api}: {error}")),
+                Ok(result) => {
+                    let factor = result.modes[0].load_factor;
+                    let governing = if second_column > 0.0 { expected * second_column.min(1.0) } else { expected };
+                    println!("{name} {api} second={second_column}: factor {factor}, expected {expected}, elements {:?}", result.element_data.iter().map(|e| e.element_id).collect::<Vec<_>>());
+                    if (factor / governing - 1.0).abs() >= 1e-6 {
+                        failures.push(format!("{name} {api}: factor {factor}, expected {expected}"));
+                    }
+                    if !result.element_data.iter().any(|e| e.element_id == 1) {
+                        failures.push(format!("{name} {api}: column 1 omitted"));
+                    }
+                    if second_column > 0.0 {
+                        if result.modes.len() < 2 || (result.modes[1].load_factor / (expected * second_column.max(1.0)) - 1.0).abs() >= 1e-6 {
+                            failures.push(format!("{name} {api}: second column mode missing or wrong"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+#[ignore = "known wrong result: #1947"]
+fn issue_1947_inactive_member_dofs_do_not_refuse_resolved_compression() {
+    check_member_coupling_witnesses(0.0);
+}
+
+#[test]
+#[ignore = "known wrong result: #1947"]
+fn issue_1947_inactive_member_dofs_preserve_governing_and_second_modes() {
+    check_member_coupling_witnesses(0.4);
+}
+
+#[test]
+#[ignore = "known wrong result: #1947"]
+fn issue_1947_inactive_member_dofs_preserve_nearby_governing_mode() {
+    check_member_coupling_witnesses(1.005);
+}

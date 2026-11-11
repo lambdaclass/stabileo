@@ -1,0 +1,73 @@
+[
+  {
+    "name": "cw-none",
+    "patch": {
+      "sections": {
+        "2": {
+          "cw": null
+        }
+      }
+    }
+  },
+  {
+    "name": "cw-zero",
+    "patch": {
+      "sections": {
+        "2": {
+          "cw": 0.0
+        }
+      }
+    }
+  },
+  {
+    "name": "truss",
+    "patch": {
+      "elements": {
+        "2": {
+          "type": "truss"
+        }
+      }
+    }
+  },
+  {
+    "name": "release-t-start",
+    "patch": {
+      "elements": {
+        "2": {
+          "releaseTStart": true
+        }
+      }
+    }
+  },
+  {
+    "name": "release-t-end",
+    "patch": {
+      "elements": {
+        "2": {
+          "releaseTEnd": true
+        }
+      }
+    }
+  },
+  {
+    "name": "unused-warping",
+    "patch": {
+      "sections": {
+        "1": {
+          "cw": null
+        },
+        "2": {
+          "cw": null
+        },
+        "9": {
+          "id": 9,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001,
+          "cw": 1e-20
+        }
+      }
+    }
+  }
+]

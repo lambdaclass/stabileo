@@ -319,3 +319,43 @@ it('an omitted round-off stub with a free-rotation MPC preserves the resolved co
     }
   }
 });
+
+const memberCouplingCases = JSON.parse(readFileSync('../engine/tests/fixtures/buckling-member-coupling-cases.json', 'utf8')) as { name: string; patch: Record<string, Record<string, Record<string, unknown>>> }[];
+it.skip.each(memberCouplingCases.flatMap((c) => [0, .4, 1.005].map((ratio) => ({ ...c, ratio }))))('inactive member DOFs preserve resolved buckling modes: $name ratio $ratio (#1947)', async ({ patch, ratio }) => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const expected = ((5.2 - Math.sqrt(19.84)) / 0.3) * (200000 * 1000 * 1e-12) / 100 / 4e-8;
+  {
+    const secondColumn = ratio > 0;
+    const wire = JSON.parse(readFileSync('../engine/tests/fixtures/buckling-shared-free-warping.json', 'utf8'));
+    for (const [collection, entries] of Object.entries(patch)) {
+      for (const [id, fields] of Object.entries(entries)) {
+        Object.assign(wire[collection][id] ??= {}, fields);
+      }
+    }
+    if (secondColumn) {
+      wire.nodes[4] = { id: 4, x: 20, y: 0, z: 0 };
+      wire.nodes[5] = { id: 5, x: 20, y: 0, z: 10 };
+      wire.sections[3] = { ...wire.sections[1], id: 3, cw: null,
+        iy: wire.sections[1].iy * 10 / 4e-8 * ratio, iz: wire.sections[1].iz * 10 / 4e-8 * ratio };
+      wire.elements[3] = { id: 3, type: 'frame', nodeI: 4, nodeJ: 5, materialId: 1, sectionId: 3 };
+      wire.supports[4] = { ...wire.supports[1], nodeId: 4, rw: true };
+      wire.supports[5] = { ...wire.supports[2], nodeId: 5 };
+      wire.loads.push({ ...wire.loads[0], data: { ...wire.loads[0].data, nodeId: 5, fz: -10 } });
+    }
+    for (const solve of [native.solve_buckling_3d, native.certify_buckling_3d]) {
+      const response = JSON.parse(solve(JSON.stringify(wire), 4));
+      const result = response.results ?? response;
+      expect(Math.abs(result.modes[0].loadFactor / (expected * (secondColumn ? Math.min(1, ratio) : 1)) - 1)).toBeLessThan(1e-6);
+      expect(result.elementData.some((element: { elementId: number }) => element.elementId === 1)).toBe(true);
+      if (secondColumn) {
+        expect(result.modes.length).toBeGreaterThanOrEqual(2);
+        expect(Math.abs(result.modes[1].loadFactor / (expected * Math.max(1, ratio)) - 1)).toBeLessThan(1e-6);
+        const amplitude = (nodeId: number) => {
+          const d = result.modes[0].displacements.find((d: { nodeId: number }) => d.nodeId === nodeId);
+          return Math.hypot(d.ux, d.uy, d.uz);
+        };
+        expect(amplitude(ratio < 1 ? 2 : 5)).toBeLessThan(amplitude(ratio < 1 ? 5 : 2) * 1e-6);
+      }
+    }
+  }
+});

@@ -31,8 +31,21 @@ it.each(['2d', '3d'])('notifies constrained buckling in %s and excludes recorded
   const snapshot = model(mode, true);
   expect(changes(snapshot, stamp(['buckling']))).toContain(id);
   expect(changes(snapshot, stamp(['buckling'], entry.resultsVersion))).not.toContain(id);
-  for (const analysis of ANALYSIS_KINDS.filter((kind) => kind !== 'buckling')) {
+  for (const analysis of ANALYSIS_KINDS.filter((kind) => kind !== 'buckling' && kind !== 'pdelta')) {
     expect(changes(snapshot, stamp([analysis])), analysis).not.toContain(id);
   }
   expect(changes({ ...snapshot, elements: [] }, stamp(['buckling']))).not.toContain(id);
+});
+
+it.skip.each(['2d', '3d'])('notifies saved P-Delta and mixed linear/P-Delta results in %s (#1947)', (mode) => {
+  for (const constrained of [false, true]) {
+    const snapshot = model(mode, constrained);
+    for (const analyses of [['pdelta'], ['linear', 'pdelta']] as AnalysisKind[][]) {
+      expect(modelFeatures(snapshot, { analysesRun: analyses, analysesRecorded: [...ANALYSIS_KINDS] }).has('analysis:buckling')).toBe(false);
+      expect(changes(snapshot, stamp(analyses))).toContain(id);
+      expect(changes(snapshot, stamp(analyses, entry.resultsVersion))).not.toContain(id);
+      expect(changes({ ...snapshot, elements: [] }, stamp(analyses))).not.toContain(id);
+    }
+  }
+  expect(entry.quantities).toEqual(expect.arrayContaining(['b2Factor', 'isStable', 'secondOrder']));
 });
