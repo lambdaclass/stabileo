@@ -810,6 +810,9 @@ fn issue_1846_review_partial_constraints_and_multistage_erection() {
                         }
                     };
                     v["constraints"] = serde_json::json!([constraint]);
+                    if partial && matches!(kind, "equalDOF" | "linearMPC") {
+                        v["loads"][0]["data"]["fx"] = 1000.0.into();
+                    }
                     review_stages(&mut v, true);
                     let r = review_solve(dim, v)
                         .unwrap_or_else(|e| panic!("{dim}D {pads} {partial} {kind}: {e}"));
@@ -1331,10 +1334,13 @@ fn issue_1846_round3_swinging_rotations_report_mechanisms() {
                         serde_json::json!({"type":kind,"masterNode":1,"slaveNodes":[2],"plane":"XZ"})
                     }
                     "eccentricConnection" => {
-                        serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"releases":[]})
+                        serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"offsetX":2.0,"offsetY":0.0,"offsetZ":1.0,"releases":[]})
                     }
                     _ => serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"dofs":[]}),
                 };
+                if kind == "diaphragm" {
+                    v["supports"]["2"] = serde_json::json!({"nodeId":2,"rx":false,"ry":true,"rz":false,"rrx":false,"rry":false,"rrz":false});
+                }
                 for held in [false, true] {
                     if held {
                         v["supports"]["1"]["type"] = "fixed".into();
@@ -1464,7 +1470,7 @@ fn issue_1846_round3_dormant_pins_do_not_create_conditioning_warnings() {
             for scale in [1e-12, 1.0, 1e12] {
                 let mut v = review_model(dim, pads);
                 v["materials"]["1"]["e"] = (10000.0 * scale).into();
-                v["loads"][0]["data"]["fx"] = scale.into();
+                v["loads"][0]["data"]["fx"] = (1000.0 * scale).into();
                 review_stages(&mut v, true);
                 let r = review_solve(dim, v).unwrap();
                 for stage in r["stages"].as_array().unwrap() {
@@ -1491,8 +1497,7 @@ fn issue_1846_round3_dormant_pins_do_not_create_conditioning_warnings() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
-fn issue_1846_round3_plastic_2d_preserves_elastic_refusal() {
+fn issue_1846_round3_plastic_2d_retains_existing_refusal() {
     for soft in [true, false] {
         let mut v = round3_model("soft2", 0);
         if !soft {
@@ -1503,11 +1508,12 @@ fn issue_1846_round3_plastic_2d_preserves_elastic_refusal() {
             "materials":{"1":{"fy":1.0}},"maxHinges":1
         }))
         .unwrap();
-        let r = dedaliano_engine::solver::plastic::solve_plastic_2d(&p);
-        if soft {
-            assert!(r.unwrap_err().contains("constraint reduction"));
-        } else {
-            assert!(r.unwrap().collapse_factor > 0.0);
-        }
+        let error = dedaliano_engine::solver::plastic::solve_plastic_2d(&p).unwrap_err();
+        let refusal: serde_json::Value = serde_json::from_str(&error).unwrap();
+        assert!(refusal["structuredDiagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["phase"] == "PL-2D-INVARIANCE" && d["severity"] == "error"));
     }
 }

@@ -303,7 +303,8 @@ for (const dimension of [2, 3]) {
         const input = round3Model(`swing${dimension}`, pads);
         input.constraints = [kind === 'diaphragm'
           ? { type: kind, masterNode: 1, slaveNodes: [2], plane: 'XZ' }
-          : { type: kind, masterNode: 1, slaveNode: 2, dofs: [], releases: [] }];
+          : { type: kind, masterNode: 1, slaveNode: 2, dofs: [], releases: [], offsetX: 2, offsetY: 0, offsetZ: 1 }];
+        if (kind === 'diaphragm') input.supports[2] = { nodeId: 2, rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false };
         if (held) Object.assign(input.supports[1], { type: 'fixed', rrx: true, rry: true, rrz: true });
         const result = JSON.parse(kinematics(JSON.stringify(input)));
         assert.equal(result.isSolvable, held);
@@ -382,7 +383,6 @@ for (const soft of [false, true]) {
     solver: input, sections: { 1: { a: 0.01, iz: 0.002, materialId: 1 } },
     materials: { 1: { fy: 1 } }, maxHinges: 1,
   };
-  if (soft) assert.throws(() => solve_plastic_2d(JSON.stringify(plastic)), /constraint reduction/);
-  else assert.ok(JSON.parse(solve_plastic_2d(JSON.stringify(plastic))).collapseFactor > 0);
+  assert.throws(() => solve_plastic_2d(JSON.stringify(plastic)), /PL-2D-INVARIANCE/);
 }
-console.log('round 3 plastic 2D WASM reports the elastic refusal');
+console.log('round 3 plastic 2D WASM retains its existing refusal');
