@@ -747,3 +747,23 @@ mod convergence_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod residual_precision_regressions {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn dense_and_sparse_soil_equilibrium_preserve_cancelled_terms() {
+        let large = 2.0_f64.powi(54);
+        for scale in [2.0_f64.powi(-64), 1.0, 2.0_f64.powi(64)] {
+            let k: Vec<_> = [large, 1.0, -large, 1.0, 2.0, 0.0, -large, 0.0, large]
+                .into_iter().map(|v| v * scale).collect();
+            let expected = [scale, 3.0 * scale, 0.0];
+            let sparse = CscMatrix::from_dense_symmetric(&k, 3);
+            for ku in [dense_ku(&k, 3, &[1.0; 3]), sparse_ku(&sparse, 3, &[1.0; 3])] {
+                assert_eq!(ku, expected);
+            }
+        }
+    }
+}

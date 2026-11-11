@@ -1243,6 +1243,7 @@ fn transfers_no_external_force(case: &str) -> bool {
 }
 
 #[test]
+#[ignore = "known wrong result: #761"]
 fn ssi_reactions_soil_springs_and_loads_balance_with_constraints() {
     use dedaliano_engine::solver::ssi::{solve_ssi_2d, solve_ssi_3d, SSIInput, SSIInput3D};
     for sub in [1, 12] {

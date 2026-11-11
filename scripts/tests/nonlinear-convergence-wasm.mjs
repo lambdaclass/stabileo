@@ -67,7 +67,7 @@ function invokeCase(test) {
   if (test.api.startsWith('solve_constrained')) return JSON.stringify({ converged: true, results: JSON.parse(engine[test.api](input)) });
   if (test.api.startsWith('certify_pdelta')) return JSON.stringify(JSON.parse(engine[test.api](input, test.maxIter ?? 1, 1e-10)).results);
   if (test.api.startsWith('solve_corotational')) return engine[test.api](input, test.maxIter ?? 2, 1e-10, 1);
-  if (test.api.startsWith('solve_pdelta')) return engine[test.api](input, test.maxIter ?? 1, 1e-10);
+  if (test.api.startsWith('solve_pdelta')) return engine[test.api](input, test.maxIter ?? 1, test.tolerance ?? 1e-10);
   return engine[test.api](input);
 }
 

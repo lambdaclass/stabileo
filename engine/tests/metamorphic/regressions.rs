@@ -1377,3 +1377,14 @@ fn linear_agreement_pairs_a_quad_and_a_quad9_with_the_same_id() {
         assert!(cell.fails.is_empty() && cell.pass > 0, "{a}: {cell:?}");
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #761"]
+fn pdelta_shell_self_weight_converges_after_relabeling() {
+    let c = crate::corpus::cases_3d(crate::corpus::Tier::Pr, 20261018)
+        .into_iter().find(|c| c.name == "feature_matrix/3d-shell-self-weight-mitc4-strip-equiv").unwrap();
+    let a = crate::ana3::rows().into_iter().find(|a| a.name == "P-Delta").unwrap();
+    let tally = crate::tally::Tally::default();
+    crate::checks3::check_case(&crate::checks3::Ctx { tally: &tally, rng_seed: 20261018 }, &c, &[a], &["rotation", "mirror", "relabel"]);
+    assert!(tally.failures().is_empty(), "{}", tally.failures().join("\n"));
+}

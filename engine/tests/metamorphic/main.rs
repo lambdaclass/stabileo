@@ -239,3 +239,5 @@ mod seeded_failures;
 
 mod nonlinear_convergence;
 mod cause_c_replay;
+
+mod red_ci;

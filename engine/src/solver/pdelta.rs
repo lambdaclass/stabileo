@@ -930,3 +930,25 @@ mod convergence_regressions {
         }
     }
 }
+
+#[cfg(test)]
+mod residual_precision_regressions {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #761"]
+    fn both_storage_paths_keep_balanced_and_unbalanced_residuals() {
+        let large = 2.0_f64.powi(54);
+        for scale in [2.0_f64.powi(-64), 1.0, 2.0_f64.powi(64)] {
+            let k: Vec<_> = [large, 1.0, -large, 1.0, 2.0, 0.0, -large, 0.0, large]
+                .into_iter().map(|v| v * scale).collect();
+            for tangent in [Tangent3D::Sparse(CscMatrix::from_dense_symmetric(&k, 3)), Tangent3D::Dense(k)] {
+                for load in [0.0, 1.0, 2.0] {
+                    let f = [load * scale, 3.0 * scale, 0.0];
+                    let residual = tangent.all_residual(3, &f, &[1.0; 3]);
+                    assert_eq!(residual, [(1.0 - load) * scale, 0.0, 0.0]);
+                }
+            }
+        }
+    }
+}
