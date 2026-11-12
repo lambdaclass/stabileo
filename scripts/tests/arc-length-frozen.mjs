@@ -21,6 +21,17 @@ for (const suffix of ['0015ab84c3baa36f', '022317310499426d']) {
   for (const { data: l } of input.solver.loads) add(l.nodeId, l.fx * r.finalLoadFactor, l.fz * r.finalLoadFactor, l.my * r.finalLoadFactor);
   for (const a of r.results.reactions) add(a.nodeId, a.rx, a.rz, a.my);
   sum.forEach((v, i) => assert.ok(Math.abs(v) < 1e-6, `${name} equilibrium component ${i}: ${v}`));
+  for (const f of r.results.elementForces) {
+    const e = Object.values(input.solver.elements).find(e => e.id === f.elementId);
+    const at = id => {
+      const n = input.solver.nodes[id], d = r.results.displacements.find(d => d.nodeId === id);
+      return [n.x + d.ux, n.z + d.uz];
+    };
+    const a = at(e.nodeI), b = at(e.nodeJ), length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    assert.ok(Math.abs(f.length - length) < 1e-12);
+    assert.ok(Math.abs(f.vStart - f.vEnd) < 1e-9);
+    assert.ok(Math.abs(f.mEnd - f.mStart + f.vStart * length) < 1e-9, `${name} member ${f.elementId}: ${JSON.stringify(f)}`);
+  }
   const snapshot = { format: 1, features: ['plane2D', 'members', 'analysis:nonlinear', 'pathAnalysis'], values: freezeValues(r, 'nonlinear') };
   const file = new URL(`../../web/results-frozen/${name}`, import.meta.url);
   if (process.argv.includes('--update')) {

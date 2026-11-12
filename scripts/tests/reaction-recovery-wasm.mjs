@@ -317,4 +317,34 @@ for (const dim of [2, 3]) {
     console.log(`PASS stiffness-free staged ${dim}D one free DOF remains unavailable`);
   } catch (error) { failed = true; console.error(`FAIL stiffness-free staged ${dim}D one free DOF: ${error}`); }
 }
+
+for (const dim of [2, 3]) {
+  for (const segments of [0, 1, 21, 22]) {
+    for (const motion of [0, 0.0013, -0.0013]) {
+      try {
+        const m = model(dim, false), n = Math.max(1, segments);
+        const node = {...m.nodes[0]}, elem = {...m.elements[1]};
+        m.nodes = {}; m.elements = {}; m.loads = [];
+        m.supports[0].dx = motion;
+        for (let i = 0; i <= n; i++) {
+          m.nodes[i] = {...node, id:i, x:3*i/n};
+          if (segments && i) m.elements[i] = {...elem, id:i, nodeI:i-1, nodeJ:i};
+        }
+        if (segments) m.loads = [{type:'nodal',data:{nodeId:n,fx:0,fy:0,fz:-10,mx:0,my:0,mz:0}}];
+        const slave = segments ? n+1 : 1;
+        if (segments) m.nodes[slave] = {...m.nodes[n], id:slave};
+        m.constraints = [{type:'equalDOF',masterNode:segments ? n : 0,slaveNode:slave,dofs:Array.from({length:dim === 2 ? 3 : 6},(_,i)=>i)}];
+        m.stages = [{name:'artificial tie',elementsAdded:Array.from({length:segments},(_,i)=>i+1),supportsAdded:[0],loadIndices:segments ? [0] : []}];
+        const output = JSON.parse(engine[`solve_staged_${dim}d`](JSON.stringify(m)));
+        for (const r of [output.finalResults, output.stages[0].results]) {
+          const warned = (r.structuredDiagnostics ?? []).some(d=>d.code === 'result_quantity_unavailable' && d.phase === 'stageResults');
+          assert.equal(warned, segments === 0);
+          for (const cf of r.constraintForces ?? []) assert.equal(cf.force, 0, JSON.stringify(cf));
+          if (!segments) for (const a of r.reactions) for (const k of dim === 2 ? ['rx','rz','my'] : ['fx','fy','fz','mx','my','mz']) assert.equal(a[k],0);
+        }
+        console.log(`PASS staged physical residual ${dim}D segments=${segments} motion=${motion}`);
+      } catch (error) { failed=true; console.error(`FAIL staged physical residual ${dim}D segments=${segments} motion=${motion}: ${error}`); }
+    }
+  }
+}
 if (failed) process.exitCode = 1;
