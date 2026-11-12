@@ -7,7 +7,7 @@
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
-  import { axesKey, modelVec } from '../../lib/axes/display';
+  import { axesKey } from '../../lib/axes/display';
   import { nodeMoveArgs3D, nodeShown3D, standingPlane } from '../../lib/axes/node-coords';
   import { findCoincidentNode } from '../../lib/engine/mesh-weld';
   import { addNodeRow } from '../../lib/actions/node-rows';
@@ -74,7 +74,7 @@
     const uy = parseNumber(row.y);
     const uz = row.z.trim() === '' ? 0 : parseNumber(row.z);
     if (ux === null || uy === null || uz === null) return;
-    const [x, y, z] = row.id === null ? modelVec(ux, uy, uz) : nodeMoveArgs3D([ux, uy, uz]);
+    const [x, y, z] = nodeMoveArgs3D([ux, uy, uz]);
 
     if (row.id === null) {
       // New node — or the one already at these coordinates, whose name stays (`addNodeRow`).
@@ -161,7 +161,7 @@
         pasteError = t('pro.pasteInvalidNum').replace('{n}', String(i + 1));
         return;
       }
-      points.push(modelVec(x, y, z));
+      points.push(nodeMoveArgs3D([x, y, z]));
     }
 
     // The effect reads the canonical coordinates of reused nodes, once per id. One undo step,
@@ -218,7 +218,7 @@
     wError = null;
     // Welded, as the table's rows and the paste are: the coordinates of an existing node
     // select it rather than stacking a twin that looks joined and analyses as a cut.
-    const [x, y, z] = modelVec(wX ?? 0, wY ?? 0, wZ ?? 0);
+    const [x, y, z] = nodeMoveArgs3D([wX ?? 0, wY ?? 0, wZ ?? 0]);
     const id = modelStore.addNodeWelded(x, y, z);
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');

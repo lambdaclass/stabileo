@@ -1280,6 +1280,7 @@ const es: Record<string, string> = {
   'config.rightHand': 'Terna derecha',
   'config.leftHand': 'Terna izquierda',
   'axes.title': 'Ejes',
+  'axes.ilSignReversed': 'Con tus ejes ese sentido se invierte: lo positivo apunta al contrario.',
   'axes.lede': 'Elegí cómo se llaman y hacia dónde apuntan los ejes globales. Cambia lo que ves y lo que escribís; el modelo y los resultados son los mismos.',
   'axes.presetZUp': 'Z hacia arriba (como hasta ahora)',
   'axes.presetYUp': 'Y hacia arriba',

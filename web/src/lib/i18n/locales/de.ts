@@ -1272,6 +1272,7 @@ const de: Translations = {
   'config.rightHand': 'Rechte-Hand-Regel',
   'config.leftHand': 'Linke-Hand-Regel',
   'axes.title': 'Achsen',
+  'axes.ilSignReversed': 'In Ihren Achsen kehrt sich dieser Sinn um: positiv zeigt in die Gegenrichtung.',
   'axes.lede': 'Legen Sie fest, wie die globalen Achsen heißen und wohin sie zeigen. Das ändert, was Sie sehen und eingeben; Modell und Ergebnisse bleiben gleich.',
   'axes.presetZUp': 'Z nach oben (wie bisher)',
   'axes.presetYUp': 'Y nach oben',

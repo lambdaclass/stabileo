@@ -2613,7 +2613,7 @@
   function handleMouseUp(e?: MouseEvent) {
     isPanning = false;
     if (e) {
-      const onGizmo = releaseOnGizmo(e);
+      const onGizmo = releaseOnGizmo(e, axesHit2D);
       if (onGizmo === 'click') { axesStore.pickerOpen = true; return; }
       if (onGizmo === 'drag') return;
     }

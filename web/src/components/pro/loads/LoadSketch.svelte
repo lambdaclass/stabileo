@@ -53,7 +53,7 @@
   import { viewportCanvas } from '../../../lib/utils/viewport-canvas';
   import { portal } from '../../../lib/utils/portal';
   import type { Quantity } from '../../../lib/utils/units';
-  import { modelAxisOf, modelVec, signedModelName } from '../../../lib/axes/display';
+  import { axisLetter, modelAxisOf, modelVec, signedModelName } from '../../../lib/axes/display';
 
   let { v }: { v: SketchInput } = $props();
   const id = `ls${++seq}`;
@@ -502,7 +502,8 @@
       {#if sgn(pfModel[1])}{@render arrow([P0[0], P0[1] + sgn(pfModel[1]) * 30], [P0[0], P0[1] + sgn(pfModel[1]) * 4])}{/if}
       <circle cx={P0[0] + 14} cy={P0[1] - 14} r="5" class="ls-zsym" />
       {#if sgn(pfModel[2]) >= 0}<circle cx={P0[0] + 14} cy={P0[1] - 14} r="1.4" class="ls-pt" />{:else}<path d="M{P0[0] + 10.5},{P0[1] - 17.5} l7,7 m0,-7 l-7,7" class="ls-load ls-thin" />{/if}
-      {#each ['x', 'y', 'z'] as const as c, i (c)}<text x="132" y={44 + 12 * i} class="ls-v">{lbl(`F${c}`, s.pf[`f${c}`], 'force')}</text>{/each}
+      <!-- The arrows are drawn along the model's axes, so each line names the axis it draws, in the user's letters. -->
+      {#each [0, 1, 2] as const as k (k)}<text x="132" y={44 + 12 * k} class="ls-v">{lbl(`F${axisLetter(k)}`, s.pf[`f${axisLetter(k)}` as 'fx'], 'force')}</text>{/each}
       <text x="30" y="124" class="ls-t">{t('writeLoad.point')} {pt3(s.at)}</text>
       <text x="4" y="12" class="ls-t">{t('writeLoad.sketch.shared')}</text>
       <line x1="10" y1="118" x2="22" y2="118" class="ls-axis" marker-end="url(#{A}-a)" /><text x="24" y="121" class="ls-ax">{planName(0)}</text>

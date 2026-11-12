@@ -1272,6 +1272,7 @@ const fr: Translations = {
   'config.rightHand': 'Règle de la main droite',
   'config.leftHand': 'Règle de la main gauche',
   'axes.title': 'Axes',
+  'axes.ilSignReversed': 'Dans vos axes, ce sens s’inverse : le positif pointe dans l’autre sens.',
   'axes.lede': 'Choisissez le nom des axes globaux et leur orientation. Cela change ce que vous voyez et ce que vous saisissez ; le modèle et les résultats restent les mêmes.',
   'axes.presetZUp': 'Z vers le haut (comme avant)',
   'axes.presetYUp': 'Y vers le haut',

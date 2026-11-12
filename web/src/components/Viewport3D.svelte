@@ -18,9 +18,9 @@
   import '../styles/viewer-chrome.css';
   import { drawAxisGizmoOn } from '../lib/viewport3d/axis-gizmo';
   import { axesStore } from '../lib/axes/axes.svelte';
-  import { pressOnGizmo, releaseOnGizmo } from '../lib/axes/gizmo-press';
-  import { XYZ, along, modelAxisOf, modelLoad3D, modelVec, planeGlobalAngle, twoD } from '../lib/axes/display';
-  import { nodeShown3D } from '../lib/axes/node-coords';
+  import { forgetGizmoPress, pressOnGizmo, releaseOnGizmo } from '../lib/axes/gizmo-press';
+  import { XYZ, along, modelAxisOf, modelLoad3D, planeGlobalAngle, twoD } from '../lib/axes/display';
+  import { nodeMoveArgs3D, nodeShown3D } from '../lib/axes/node-coords';
   import { supportTypeShown } from '../lib/axes/user-names';
   import { createViewerScene, createViewerPerspectiveCamera, createViewerOrthographicCamera, createViewerRenderer, createViewerControls, applyDefaultNavigation, addViewerLights } from '../lib/viewport3d/scene-setup';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -316,7 +316,7 @@
     // Welded: typing the coordinates of an existing node selects it rather than
     // stacking a twin on it.
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-    const id = modelStore.addNodeWelded(...modelVec(x, y, z));
+    const id = modelStore.addNodeWelded(...nodeMoveArgs3D([x, y, z]));
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(coordX)).replace('{y}', String(coordY)).replace('{z}', String(coordZ)), 'success');
     showCoordDialog = false;
@@ -2602,8 +2602,9 @@
       const opts: { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; drz?: number } = {};
       opts.angle = uiStore.supportIsGlobal ? planeGlobalAngle(uiStore.supportAngle) + 0 : uiStore.supportAngle;
       opts.isGlobal = uiStore.supportIsGlobal;
-      const plain = type === 'fixed' || type === 'pinned';
-      if (uiStore.supportDx !== 0) opts.dx = plain ? twoD.fromX(uiStore.supportDx) : uiStore.supportDx;
+      // A roller's dx is along the direction it restrains, not a global axis; the rest are global.
+      const roller = type === 'rollerX' || type === 'rollerZ' || type === 'rollerY';
+      if (uiStore.supportDx !== 0) opts.dx = roller ? uiStore.supportDx : twoD.fromX(uiStore.supportDx);
       if (uiStore.supportDy !== 0) opts.dy = twoD.fromZ(uiStore.supportDy);
       if (uiStore.supportDrz !== 0) opts.drz = twoD.fromRot(uiStore.supportDrz);
       const supId = modelStore.addSupport(nodeId, type as any, springs, opts);
@@ -2884,7 +2885,7 @@
   // ─── Main mouse up handler ─────────────────────────────────
   function handleMouseUp(e: MouseEvent) {
     if (e.button !== 0) return;
-    const onGizmo = releaseOnGizmo(e);
+    const onGizmo = releaseOnGizmo(e, axesHit3D);
     if (onGizmo === 'click') { axesStore.pickerOpen = true; return; }
     if (onGizmo === 'drag') return;
 
@@ -3845,6 +3846,7 @@
   }
 
   function handleMouseLeave() {
+    forgetGizmoPress(axesHit3D);
     drawFeedback.setTarget(null);
     nodeHint = null;
     stretchHint = null;

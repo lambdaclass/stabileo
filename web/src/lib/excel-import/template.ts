@@ -117,7 +117,7 @@ function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number
   const num = (v: string | number | undefined) => (typeof v === 'number' ? v : 0);
   const h = userAxisAlong(f, 0), v = userAxisAlong(f, 2);
   const lower = (a: { name: string }) => a.name.toLowerCase();
-  return sheet.examples.map((example) => {
+  return sheet.examples.flatMap((example) => {
     const row = [...example];
     if (sheet.name === 'Nodes') {
       const [x, z] = [num(example[at('x')]), num(example[at('z')])];
@@ -139,13 +139,12 @@ function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number
     } else if (sheet.name === 'Loads' && example[0] === 'distributed3d' && example[at('dir')] !== 'local') {
       const I = toUser(f, [0, num(example[at('qi')]), num(example[at('qzi')])]);
       const J = toUser(f, [0, num(example[at('qj')]), num(example[at('qzj')])]);
-      if (I[0] !== 0 || J[0] !== 0) row[at('dir')] = 'local';
-      else {
-        row[at('qi')] = I[1]! + 0; row[at('qzi')] = I[2]! + 0;
-        row[at('qj')] = J[1]! + 0; row[at('qzj')] = J[2]! + 0;
-      }
+      // The sheet has no column along the user's X: an example that needs one is left out, not turned local.
+      if (I[0] !== 0 || J[0] !== 0) return [];
+      row[at('qi')] = I[1]! + 0; row[at('qzi')] = I[2]! + 0;
+      row[at('qj')] = J[1]! + 0; row[at('qzj')] = J[2]! + 0;
     }
-    return row;
+    return [row];
   });
 }
 

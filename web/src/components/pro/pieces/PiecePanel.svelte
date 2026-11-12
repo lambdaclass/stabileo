@@ -44,7 +44,7 @@
     addCurveLoad({ arcId: arc.id, caseId: loadCase, q: loadQ, dir: DIRS[loadDir]! });
   }
   const DIR_AXIS: Record<string, [0 | 1 | 2, 1 | -1]> = { gravity: [2, -1], x: [0, 1], y: [1, 1], z: [2, 1] };
-  const dirText = (k: string) => t(`pieces.dir.${k}`).replace(/[+−][XYZ]/, signedModelName(...DIR_AXIS[k]!));
+  const dirText = (k: string) => t(`pieces.dir.${k}`).replace(/[+−-][XYZ]/, signedModelName(...DIR_AXIS[k]!));
   const dirLabel = (d: [number, number, number]) => {
     const k = Object.entries(DIRS).find(([, v]) => v.every((x, i) => Math.abs(x - d[i]!) < 1e-9))?.[0];
     return k ? dirText(k) : `(${d.map((v) => v.toFixed(2)).join(', ')})`;

@@ -79,3 +79,29 @@ describe('member joints in the model code', () => {
     expect(transformSnapshot(u, choice, 'toModel').elements).toEqual(snap.elements);
   });
 });
+
+describe('second review', () => {
+  it('every 3D node creation goes through the same inverse as an edit, so a standing plane keeps its height in y', () => {
+    for (const file of ['components/pro/ProNodesTab.svelte', 'components/tables/NodesTable.svelte', 'components/Viewport3D.svelte']) {
+      const src = read(file);
+      expect(src, file).toMatch(/nodeMoveArgs3D/);
+      expect(src, file).not.toMatch(/addNodeWelded\(\.\.\.modelVec/);
+      expect(src, file).not.toMatch(/points\.push\(modelVec/);
+    }
+  });
+
+  it('a projected member load is read on the user axes wherever it is shown, like a global one', () => {
+    for (const file of ['components/tables/LoadsTable.svelte', 'components/floating-tools/SelectedEntityPanel.svelte']) {
+      expect(read(file), file).toMatch(/frame === 'projected' \? along|frame === 'global' \|\| \w+\.frame === 'projected'/);
+    }
+  });
+
+  it('the influence sign sentence says the sense is reversed when the user axis behind it is', async () => {
+    const { ilSignReversed } = await import('../user-names');
+    axesStore.choice = { up: '+Z', right: '+X', hand: 'right' };
+    expect(['Rz', 'uz', 'My'].some(ilSignReversed)).toBe(false);
+    axesStore.choice = { up: '-Y', right: '+X', hand: 'right' };
+    expect(ilSignReversed('Rz')).toBe(true);
+    expect(ilSignReversed('Rx')).toBe(false);
+  });
+});

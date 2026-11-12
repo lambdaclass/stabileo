@@ -40,7 +40,7 @@
     // stacking a twin. No pushState: the mutation pushes its own undo step.
     const m = modelCoords([newNodeX, newNodeY, newNodeZ], is3D);
     if (is3D) {
-      modelStore.addNodeWelded(m.x, m.y, m.z);
+      modelStore.addNodeWelded(...nodeMoveArgs3D([newNodeX, newNodeY, newNodeZ]));
     } else {
       modelStore.addNodeWelded(m.x, m.y);
     }

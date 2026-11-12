@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { axisName, signedModelName } from '../../lib/axes/display';
+  import { along, axisName, signedModelName } from '../../lib/axes/display';
   import { axisNamesIn, planNamesIn } from '../../lib/axes/typed-frame';
   import KnownIssueResult from "../KnownIssueResult.svelte";
   import { knownIssueResultDisposition } from '../../lib/engine/known-issues';
@@ -1142,9 +1142,9 @@
                   {#if modalConstrained}
                     <td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td>
                   {:else}
-                  <td class="col-num">{fmtNum(mode.participationX ?? 0)}</td>
-                  <td class="col-num">{fmtNum(mode.participationY ?? 0)}</td>
-                  <td class="col-num">{fmtNum(mode.participationZ ?? 0)}</td>
+                  <td class="col-num">{fmtNum(along(0).sign * (mode.participationX ?? 0) + 0)}</td>
+                  <td class="col-num">{fmtNum(along(1).sign * (mode.participationY ?? 0) + 0)}</td>
+                  <td class="col-num">{fmtNum(along(2).sign * (mode.participationZ ?? 0) + 0)}</td>
                   <td class="col-num" class:cum-warn={modalCum.x[i] < 0.9} class:cum-ok={modalCum.x[i] >= 0.9}>{(modalCum.x[i] * 100).toFixed(1)}%</td>
                   <td class="col-num" class:cum-warn={modalCum.y[i] < 0.9} class:cum-ok={modalCum.y[i] >= 0.9}>{(modalCum.y[i] * 100).toFixed(1)}%</td>
                   {/if}

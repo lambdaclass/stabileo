@@ -64,6 +64,9 @@ export function ilShown(q: string): { symbol: string; sign: number } {
   }
 }
 
+/** The sign sentence of these says up or counterclockwise: with the user's axis reversed it reads backwards. */
+export const ilSignReversed = (q: string): boolean => ['Rz', 'Ry', 'uz', 'My', 'Mz'].includes(q) && ilShown(q).sign === -1;
+
 export function ilText(q: string, text: string): string {
   const shown = ilShown(q);
   return shown.symbol === q || q === 'ry' ? text : relabelAxes(text.replace(new RegExp(`(?<![A-Za-z])${q}(?![A-Za-z])`, 'g'), shown.symbol));

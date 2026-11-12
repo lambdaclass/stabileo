@@ -1287,6 +1287,7 @@ const en: Record<string, string> = {
   'config.rightHand': 'Right-hand rule',
   'config.leftHand': 'Left-hand rule',
   'axes.title': 'Axes',
+  'axes.ilSignReversed': 'In your axes that sense is reversed: positive points the other way.',
   'axes.lede': 'Choose what the global axes are called and where they point. It changes what you see and what you type; the model and the results stay the same.',
   'axes.presetZUp': 'Z up (as before)',
   'axes.presetYUp': 'Y up',

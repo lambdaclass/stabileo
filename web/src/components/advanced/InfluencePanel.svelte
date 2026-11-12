@@ -4,7 +4,7 @@
    * the section's position (typed, or 0, L/2, L), what the line says, how to load it, and the
    * step-by-step explanation.
    */
-  import { ilShown, ilText, relabelAxes } from '../../lib/axes/user-names';
+  import { ilShown, ilSignReversed, ilText, relabelAxes } from '../../lib/axes/user-names';
   import { t, tp } from '../../lib/i18n';
   import { resultsStore, modelStore, uiStore } from '../../lib/store';
   import UnitInput from '../UnitInput.svelte';
@@ -128,7 +128,7 @@
         <dt>η<sub>{t('course.influence.panel.minSub')}</sub></dt><dd>{numText(peaks.min.v, 4)} {ordinateUnit(q)} <span class="ilp-sub">{peaks.min.where}</span></dd>
       </dl>
     {/if}
-    <p class="ilp-sign">{ilText(q, t(`course.influence.doc.sign.${q}`))}</p>
+    <p class="ilp-sign">{ilText(q, t(`course.influence.doc.sign.${q}`))}{ilSignReversed(q) ? ` ${t('axes.ilSignReversed')}` : ''}</p>
 
     {#if unit}<InfluenceLoading {il} {unit} loadedIds={loaded} />{/if}
 

@@ -386,6 +386,7 @@ function supportToModel(f: AxesFrame, s: Record<string, number>, flat: boolean):
     const h = userAxisAlong(f, 0).sign, v = userAxisAlong(f, 2).sign;
     if (s.dx !== undefined) s.dx = h * s.dx + 0;
     for (const k of ['dy', 'dz']) if (s[k] !== undefined) s[k] = v * s[k]! + 0;
+    if (s.angle !== undefined) s.angle = h * v * s.angle + 0;
     return;
   }
   const permute = (keys: readonly [string, string, string]) => {

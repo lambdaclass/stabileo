@@ -18,7 +18,16 @@
     return { name: AXIS_NAMES[i], color: COLORS[i], tip, label: project(row, row[1] !== 0 ? 84 : 76) };
   }));
 
+  // The drawing's box grows to take an axis pointing down, back or left, its head and its letter.
+  const spaceBox = $derived.by(() => {
+    const xs = [0, 240, ...spaceAxes.flatMap((a) => [a.tip.x - 8, a.label.x - 8, a.label.x + 12])];
+    const ys = [0, 168, ...spaceAxes.flatMap((a) => [a.tip.y + 8, a.label.y + 6, a.label.y - 12])];
+    const x0 = Math.min(...xs), y0 = Math.min(...ys);
+    return `${x0} ${y0} ${Math.max(...xs) - x0} ${Math.max(...ys) - y0}`;
+  });
+
   const plane = $derived(plane2D(frame));
+  const planeBox = $derived(`0 0 200 ${plane.vertical.sign < 0 ? 186 : 150}`);
   const towardViewer = $derived(plane.normal.sign < 0);
   const ccw = $derived(towardViewer === (frame.det === 1));
 
@@ -26,7 +35,7 @@
 </script>
 
 {#if kind === 'space'}
-  <svg class="axes-fig" viewBox="0 0 240 168" role="img" aria-label={t('axes.figSpaceAria')}>
+  <svg class="axes-fig" viewBox={spaceBox} role="img" aria-label={t('axes.figSpaceAria')}>
     <defs>
       {#each COLORS as c, i}
         <marker id="ax-head-{i}" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill={c} /></marker>
@@ -44,7 +53,7 @@
     <circle cx={O.x} cy={O.y} r="2.6" class="origin" />
   </svg>
 {:else if kind === 'plane'}
-  <svg class="axes-fig" viewBox="0 0 200 150" role="img" aria-label={t('axes.figPlaneAria')}>
+  <svg class="axes-fig" viewBox={planeBox} role="img" aria-label={t('axes.figPlaneAria')}>
     <defs>
       <marker id="pl-head-h" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill={COLORS[AXIS_NAMES.indexOf(plane.horizontal.name)]} /></marker>
       <marker id="pl-head-v" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill={COLORS[AXIS_NAMES.indexOf(plane.vertical.name)]} /></marker>

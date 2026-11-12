@@ -996,6 +996,7 @@ const pt: Translations = {
   'config.hideLoadsWithDiagram': 'Ocultar cargas com diagrama',
   'config.leftHand': 'Regra da mão esquerda',
   'axes.title': 'Eixos',
+  'axes.ilSignReversed': 'Nos seus eixos esse sentido se inverte: o positivo aponta para o lado oposto.',
   'axes.lede': 'Escolha como os eixos globais se chamam e para onde apontam. Muda o que você vê e o que você digita; o modelo e os resultados continuam os mesmos.',
   'axes.presetZUp': 'Z para cima (como até agora)',
   'axes.presetYUp': 'Y para cima',

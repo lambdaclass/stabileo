@@ -27,11 +27,13 @@ afterEach(() => axesStore.reset());
 function comparable(loads: Array<{ type: string; data: Record<string, unknown> }>) {
   return loads.map((l) => {
     const data = { ...l.data };
+    delete data.id;
     if (l.type === 'nodal') delete data.fy;
-    if (l.type === 'distributed3d') delete data.frame;
     return { type: l.type, data };
   });
 }
+const others = (loads: ReturnType<typeof comparable>) => loads.filter((l) => l.type !== 'distributed3d');
+const spatial = (loads: ReturnType<typeof comparable>) => loads.filter((l) => l.type === 'distributed3d');
 
 describe('a workbook in the user axes', () => {
   it('the template written in any of the 48 frames imports to the same model as the default one', () => {
@@ -42,7 +44,10 @@ describe('a workbook in the user axes', () => {
       expect(r.problems, JSON.stringify(c)).toEqual([]);
       expect(r.unknownSheets).toEqual([]);
       expect(r.model.nodes, JSON.stringify(c)).toEqual(plain.model.nodes);
-      expect(comparable(r.model.loads), JSON.stringify(c)).toEqual(comparable(plain.model.loads));
+      const mine = comparable(r.model.loads), theirs = comparable(plain.model.loads);
+      expect(others(mine), JSON.stringify(c)).toEqual(others(theirs));
+      // A global member load that needs a column along the user's X is left out of the template, never turned local.
+      for (const l of spatial(mine)) expect(spatial(theirs), JSON.stringify(c)).toContainEqual(l);
       expect(r.model.supports).toEqual(plain.model.supports);
     }
   });
@@ -100,6 +105,17 @@ describe('a workbook in the user axes', () => {
     expect(load.fz).toBe(-10);
     const f = makeFrame({ up: '-Y', right: '+X', hand: 'right' });
     expect(load.my).toBe(pseudoToModel(f, [0, 0, 2])[1] + 0);
+  });
+
+  it('reads a flat model\'s global support angle in the user axes: a mirrored vertical turns it the other way', () => {
+    const sheets: Record<string, unknown[][]> = {
+      [AXES_SHEET]: [['up', 'right', 'hand'], ['-Y', '+X', 'right']],
+      Nodes: [headers('Nodes'), rowOf('Nodes', { id: 1, x: 2, y: -3 }), rowOf('Nodes', { id: 2, x: 0, y: 0 })],
+      Supports: [headers('Supports'), rowOf('Supports', { node: 2, type: 'rollerX', angle: 30 })],
+    };
+    const r = parseWorkbook(sheets);
+    expect(r.problems).toEqual([]);
+    expect((r.model.supports[0] as { angle?: number }).angle).toBe(-30);
   });
 
   it('refuses a frame it cannot read and falls back to the model axes', () => {

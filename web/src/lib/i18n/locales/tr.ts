@@ -1281,6 +1281,7 @@ const tr: Translations = {
   'config.rightHand': 'Sağ el kuralı',
   'config.leftHand': 'Sol el kuralı',
   'axes.title': 'Eksenler',
+  'axes.ilSignReversed': 'Eksenlerinizde bu yön terstir: pozitif ters yönü gösterir.',
   'axes.lede': 'Global eksenlerin adını ve yönünü seçin. Bu, gördüğünüzü ve yazdığınızı değiştirir; model ve sonuçlar aynı kalır.',
   'axes.presetZUp': 'Z yukarı (şimdiye kadarki gibi)',
   'axes.presetYUp': 'Y yukarı',

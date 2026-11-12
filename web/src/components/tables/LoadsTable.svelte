@@ -162,13 +162,13 @@
             <span class="load-field">b<UnitInput value={d.b ?? modelStore.getElementLength(d.elementId)} qty="length" onchange={(v) => updateLoadField(d.id, 'b', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
           {:else if load.type === 'distributed3d'}
             {@const d = load.data as DistributedLoad3D}
-            {@const qa = (k: 0 | 1 | 2) => globalAxis(d.frame === 'global', k)}
+            {@const qa = (k: 0 | 1 | 2) => globalAxis(d.frame === 'global' || d.frame === 'projected', k)}
             {#each [[1, 'qYI', d.qYI], [1, 'qYJ', d.qYJ], [2, 'qZI', d.qZI], [2, 'qZJ', d.qZJ]] as const as [k, f, q] (f)}
               <span class="load-field">q{qa(k).name}{f[2]}<UnitInput value={qa(k).sign * q} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, f, String(qa(k).sign * v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
             {/each}
             <!-- qX loads the member in every frame (along X, or along the member): never hidden while
                  it is not zero. The axes the components are read on, unless the member's own. -->
-            {#if d.frame === 'global' || d.qXI || d.qXJ}
+            {#if d.frame === 'global' || d.frame === 'projected' || d.qXI || d.qXJ}
               {#each [['qXI', d.qXI ?? 0], ['qXJ', d.qXJ ?? 0]] as const as [f, q] (f)}
                 <span class="load-field">q{qa(0).name}{f[2]}<UnitInput value={qa(0).sign * q} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, f, String(qa(0).sign * v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
               {/each}
@@ -183,8 +183,8 @@
           {:else if load.type === 'pointOnElement3d'}
             <!-- It fell into the plane branch below and showed an empty P. -->
             {@const d = load.data as PointLoadOnElement3D}
-            {@const pa = (k: 1 | 2) => globalAxis(d.frame === 'global', k)}
-            {#each [[1, 'py', d.py], [2, 'pz', d.pz]] as const as [k, f, p] (f)}
+            {@const pa = (k: 0 | 1 | 2) => globalAxis(d.frame === 'global', k)}
+            {#each [...(d.frame === 'global' || d.px ? [[0, 'px', d.px ?? 0]] as const : []), [1, 'py', d.py], [2, 'pz', d.pz]] as const as [k, f, p] (f)}
               <span class="load-field">P{pa(k).name.toLowerCase()}<UnitInput value={pa(k).sign * p} qty="force" onchange={(v) => updateLoadField(d.id, f, String(pa(k).sign * v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
             {/each}
             <span class="load-field">a<UnitInput value={d.a} qty="length" onchange={(v) => updateLoadField(d.id, 'a', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
