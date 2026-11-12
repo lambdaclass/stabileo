@@ -1038,3 +1038,7 @@ test.engine.prescribed-master-2008:
 
 test.engine.prescribed-master-2008-wasm: wasm
 	$(NIX_RUN) node scripts/tests/prescribed-master-2008-wasm.mjs
+
+.PHONY: test.engine.prescribed-master-2008-internals
+test.engine.prescribed-master-2008-internals:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib solver::constraints::tests -- --nocapture

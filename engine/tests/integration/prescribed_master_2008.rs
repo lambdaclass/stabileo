@@ -32,6 +32,18 @@ fn run(case: &Value, path: &str) -> Result<Value, String> {
             "material" => serde_json::to_value(solver::material_nonlinear::solve_nonlinear_material_2d(&serde_json::from_value(wrapper).unwrap())?),
             "corotational" => serde_json::to_value(solver::corotational::solve_corotational_2d(&input,50,1e-10,3,false)?),
             "arc" => serde_json::to_value(solver::arc_length::solve_arc_length(&serde_json::from_value(wrapper).unwrap())?),
+            "corotational_from" | "arc_from" => {
+                let mut initial = input.clone();
+                initial.loads.clear();
+                for support in initial.supports.values_mut() { support.dx = None; support.dz = None; support.dry = None; }
+                let displacements: Vec<Displacement> = initial.nodes.values().map(|n| Displacement { node_id:n.id, ux:0.0, uz:0.0, ry:0.0 }).collect();
+                let start = solver::corotational::CorotationalStart2D { input:&initial, displacements:&displacements };
+                if path == "corotational_from" {
+                    serde_json::to_value(solver::corotational::solve_corotational_2d_from(&input,Some(&start),50,1e-10,3,false)?)
+                } else {
+                    serde_json::to_value(solver::arc_length::solve_arc_length_from(&serde_json::from_value(wrapper).unwrap(),Some(&start))?)
+                }
+            },
             "pdelta" => serde_json::to_value(solver::pdelta::solve_pdelta_2d(&input,50,1e-10)?),
             _ => unreachable!(),
         }
@@ -83,6 +95,13 @@ fn matrix(path: &str, dim: i64, zero: bool) {
     let mut replay = Vec::new();
     for (index, case) in cases().iter().enumerate().filter(|(_,c)| c["dim"] == dim && (c["motion"] == 0.0) == zero) {
         let result = run(case,path);
+        if matches!(path,"corotational" | "arc") {
+            let from_path = format!("{path}_from");
+            let continued = run(case,&from_path);
+            if let Err(error) = continued.as_ref().map_err(Clone::clone).and_then(|r| check(case,r,path)) {
+                failures.push(format!("case {index} {from_path}: {error}"));
+            }
+        }
         if zero {
             let baseline: Value = serde_json::from_str(include_str!("../fixtures/prescribed-master-2008-zero.json")).unwrap();
             assert_eq!(numeric_bits(result.as_ref().unwrap()).to_string(),baseline[format!("{path}:{index}")].as_str().unwrap(),"zero motion bits {path}:{index}");
@@ -100,7 +119,6 @@ fn matrix(path: &str, dim: i64, zero: bool) {
 macro_rules! regression {
     ($name:ident, $path:literal, $dim:literal) => {
         #[test]
-        #[ignore = "known wrong result: #2008"]
         fn $name() { matrix($path,$dim,false); }
     };
 }
@@ -126,21 +144,34 @@ fn controls() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2008"]
 fn unsupported_motion_is_refused() {
     let mut failures = Vec::new();
-    for dim in [2,3] {
-        for motion in [-0.0013,-1e-16,f64::MIN_POSITIVE,0.0,1e-16,0.0013] {
-            let mut case = cases().into_iter().find(|c| c["dim"] == dim && c["fillers"] == 1 && c["rotation"] == false).unwrap();
-            case["model"]["supports"]["2"]["dz"] = json!(motion);
-            let wrapper = json!({"solver":case["model"],"densities":{"1":7850.0},"timeStep":0.001,"nSteps":2});
-            let result = if dim == 2 {
-                solver::time_integration::solve_time_history_2d(&serde_json::from_value(wrapper).unwrap()).map(|_| ())
-            } else {
-                solver::time_integration::solve_time_history_3d(&serde_json::from_value(wrapper).unwrap()).map(|_| ())
-            };
-            if motion == 0.0 { assert!(result.is_ok(),"{result:?}"); }
-            else if !result.as_ref().is_err_and(|e| e.contains("prescribed support displacements")) { failures.push(format!("time history {dim}D motion {motion}: {result:?}")); }
+    for (dim,rotation) in [(2,false),(2,true),(3,false),(3,true)] {
+        for motion in [-0.0013,-1e-16,f64::from_bits(1),0.0,1e-16,0.0013] {
+            let mut case = cases().into_iter().find(|c| c["dim"] == dim && c["fillers"] == 1 && c["rotation"] == rotation).unwrap();
+            case["model"]["supports"]["2"][if rotation { "dry" } else { "dz" }] = json!(motion);
+            for method in ["newmark","hht"] {
+                let wrapper = json!({"solver":case["model"],"densities":{"1":7850.0},"timeStep":0.001,"nSteps":2,"method":method,"alpha":if method == "hht" { Some(-0.1) } else { None }});
+                for entry in ["solve","traced","certified"] {
+                    let result = if dim == 2 {
+                        let input = serde_json::from_value(wrapper.clone()).unwrap();
+                        match entry {
+                            "solve" => solver::time_integration::solve_time_history_2d(&input).map(|_| ()),
+                            "traced" => solver::time_integration::solve_time_history_2d_traced(&input).map(|_| ()),
+                            _ => dedaliano_engine::certify::dynamics::certify_time_history_2d(&input).map(|_| ()),
+                        }
+                    } else {
+                        let input = serde_json::from_value(wrapper.clone()).unwrap();
+                        match entry {
+                            "solve" => solver::time_integration::solve_time_history_3d(&input).map(|_| ()),
+                            "traced" => solver::time_integration::solve_time_history_3d_traced(&input).map(|_| ()),
+                            _ => dedaliano_engine::certify::dynamics::certify_time_history_3d(&input).map(|_| ()),
+                        }
+                    };
+                    if motion == 0.0 { assert!(result.is_ok(),"{result:?}"); }
+                    else if !result.as_ref().is_err_and(|e| e.contains("prescribed support displacements")) { failures.push(format!("time history {entry} {method} {dim}D motion {motion}: {result:?}")); }
+                }
+            }
             case["model"]["elements"]["3"] = case["model"]["elements"]["2"].clone();
             case["model"]["elements"]["3"]["id"] = json!(3);
             case["model"]["elements"]["3"]["type"] = json!("cable");

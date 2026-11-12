@@ -7,7 +7,7 @@ use super::geometric_stiffness::{
     emit_buckling_geometric_stiffness_2d, emit_buckling_geometric_stiffness_3d, geometric_stiffness_terms_2d, geometric_stiffness_terms_3d,
     span_axial_geometric_stiffness_2d, span_axial_geometric_stiffness_3d, GeometricState, KgTriplets,
 };
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 
 /// Buckling analysis result.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -379,7 +379,7 @@ pub fn solve_buckling_2d(
     for &(lambda, idx) in mode_pairs.iter().take(num_modes) {
         let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
         let phi_f = if let Some(ref cs) = cs {
-            cs.expand_solution(&phi_s)
+            cs.expand_solution(&phi_s, MasterMotion::Homogeneous)
         } else {
             phi_s
         };
@@ -687,7 +687,7 @@ pub fn solve_buckling_3d(
     for &(lambda, idx) in mode_pairs.iter().take(num_modes) {
         let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
         let phi_f = if let Some(ref cs) = cs {
-            cs.expand_solution(&phi_s)
+            cs.expand_solution(&phi_s, MasterMotion::Homogeneous)
         } else {
             phi_s
         };

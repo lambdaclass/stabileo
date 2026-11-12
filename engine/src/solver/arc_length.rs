@@ -13,7 +13,7 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::{self, InclinedFrame, InclinedTransformData2D};
 use super::corotational::{add_spring_contributions, assemble_corotational_public, assemble_corotational_triplets_2d};
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::linear::SPARSE_THRESHOLD;
 use super::sparse_tangent::{
     cached_symbolic, tangent_free_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
@@ -186,6 +186,9 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
     let u_r_start: Vec<f64> = u_full[nf..].to_vec();
     let du_support = super::linear::prescribed_displacements_2d(&input.solver, &dof_num);
     let moves_supports = du_support.iter().any(|&v| v != 0.0);
+    let mut support_direction = vec![0.0; n];
+    support_direction[nf..].copy_from_slice(&du_support);
+    if let Some(ref cs) = cs { cs.impose_motion(&mut support_direction); }
     let support_extent: Vec<_> = u_r_start.iter().zip(&du_support)
         .map(|(a,b)|a.abs()+b.abs()).collect();
     let metric = super::convergence::EquilibriumMetric::for_2d_with_state(
@@ -215,15 +218,12 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
         if moves_supports {
             if sparse {
                 for ((&i, &j), &v) in asm_t.trip_rows.iter().zip(&asm_t.trip_cols).zip(&asm_t.trip_vals) {
-                    if i >= nf && j < nf {
-                        g[j] -= v * du_support[i - nf];
-                    } else if j >= nf && i < nf {
-                        g[i] -= v * du_support[j - nf];
-                    }
+                    if i < nf { g[i] -= v * support_direction[j]; }
+                    if i != j && j < nf { g[j] -= v * support_direction[i]; }
                 }
             } else {
                 for (i, gi) in g.iter_mut().enumerate() {
-                    *gi -= (0..n - nf).map(|r| asm_t.k_t[i * n + nf + r] * du_support[r]).sum::<f64>();
+                    *gi -= (0..n).map(|j| asm_t.k_t[i * n + j] * support_direction[j]).sum::<f64>();
                 }
             }
         }
@@ -252,7 +252,7 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
             let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
             solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?
         };
-        let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s) } else { du_hat_s };
+        let du_hat = if let Some(ref cs) = cs { cs.expand_solution(&du_hat_s, MasterMotion::Prescribed(&du_support)) } else { du_hat_s };
 
         // Determine Δλ from arc-length constraint
         // ||Δu||² + Δλ² × ||f_ref||² = Δs²
@@ -307,8 +307,8 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
             let tangent = factor_assembled(&asm_t, n, nf, ns, &cs, &mut sparse_sym_cache)?;
             let du_r_s = solve_with_tangent(&tangent, &residual_s, ns)?;
             let du_t_s = solve_with_tangent(&tangent, &reduce(&reference(&asm_t)), ns)?;
-            let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s) } else { du_r_s };
-            let du_t = if let Some(ref cs) = cs { cs.expand_solution(&du_t_s) } else { du_t_s };
+            let du_r = if let Some(ref cs) = cs { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
+            let du_t = if let Some(ref cs) = cs { cs.expand_solution(&du_t_s, MasterMotion::Prescribed(&du_support)) } else { du_t_s };
 
             // Arc-length constraint: quadratic equation for δλ
             // a*δλ² + b*δλ + c = 0
@@ -613,8 +613,8 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
             let tangent = factor_assembled(&asm_t, n, nf, ns_dc, &cs_dc, &mut sparse_sym_cache)?;
             let du_r_s = solve_with_tangent(&tangent, &residual_s, ns_dc)?;
             let du_t_s = solve_with_tangent(&tangent, &f_ref_s_dc, ns_dc)?;
-            let du_r = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_r_s) } else { du_r_s };
-            let du_t = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_t_s) } else { du_t_s };
+            let du_r = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_r_s, MasterMotion::Homogeneous) } else { du_r_s };
+            let du_t = if let Some(ref cs) = cs_dc { cs.expand_solution(&du_t_s, MasterMotion::Homogeneous) } else { du_t_s };
 
             // Determine δλ from displacement constraint:
             // (u[ctrl] + δu_r[ctrl] + δλ * δu_t[ctrl]) = target_disp

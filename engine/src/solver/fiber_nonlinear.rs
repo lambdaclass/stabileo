@@ -14,7 +14,7 @@ use crate::element::fiber_beam::*;
 use crate::element::{frame_transform_2d, compute_local_axes_3d, frame_transform_3d, Hinge3D};
 use super::dof::DofNumbering;
 use super::assembly::{self, InclinedFrame};
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_sparse_triplets, solve_tangent_sparse_diagnosed};
 
 /// Fiber nonlinear analysis input.
@@ -451,7 +451,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
             };
 
             let delta_u_f = if let Some(ref cs) = cs {
-                cs.expand_solution(&delta_u_indep)
+                cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
             } else {
                 delta_u_indep
             };
@@ -1302,7 +1302,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
             };
 
             let delta_u_f = if let Some(ref cs) = cs {
-                cs.expand_solution(&delta_u_indep)
+                cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
             } else {
                 delta_u_indep
             };

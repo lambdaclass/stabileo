@@ -5,7 +5,7 @@ use crate::element::*;
 use super::dof::DofNumbering;
 use super::assembly;
 use super::linear::{compute_plate_stresses, compute_quad_stresses};
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::{
     solve_tangent_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
@@ -154,6 +154,9 @@ fn solve_nonlinear_material_2d_inner(
         for i in 0..nr {
             u_full[nf + i] = load_factor * u_r[i];
         }
+        if u_r.iter().any(|&v| v != 0.0) {
+            if let Some(ref cs) = cs { cs.impose_motion(&mut u_full); }
+        }
 
         // Newton-Raphson inner loop.
         let mut converged_increment = false;
@@ -254,7 +257,7 @@ fn solve_nonlinear_material_2d_inner(
                 solve_system(k_s, rhs_s, ns)?
             };
             let delta_u_f = if let Some(ref cs) = cs {
-                cs.expand_solution(&delta_u_indep)
+                cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
             } else {
                 delta_u_indep
             };
@@ -1064,6 +1067,9 @@ fn solve_nonlinear_material_3d_inner(
         for i in 0..nr {
             u_full[nf + i] = load_factor * u_r[i];
         }
+        if u_r.iter().any(|&v| v != 0.0) {
+            if let Some(ref cs) = cs { cs.impose_motion(&mut u_full); }
+        }
 
         let mut converged_increment = false;
 
@@ -1155,7 +1161,7 @@ fn solve_nonlinear_material_3d_inner(
                 solve_system(k_s, rhs_s, ns)?
             };
             let delta_u_f = match &cs {
-                Some(cs) => cs.expand_solution(&delta_u_indep),
+                Some(cs) => cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous),
                 None => delta_u_indep,
             };
 

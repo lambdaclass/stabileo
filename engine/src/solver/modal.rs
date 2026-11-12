@@ -5,7 +5,7 @@ use super::dof::DofNumbering;
 use super::assembly::*;
 use super::linear::SPARSE_THRESHOLD;
 use super::mass_matrix::*;
-use super::constraints::FreeConstraintSystem;
+use super::constraints::{FreeConstraintSystem, MasterMotion};
 
 /// Modal analysis result.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -217,7 +217,7 @@ pub fn solve_modal_2d(
             Some(m_csc) => m_csc.sym_mat_vec(x),
             None => mat_vec_sub(&m_solve, x, ns),
         };
-        let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf].to_vec();
+        let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi, MasterMotion::Homogeneous))[..nf].to_vec();
         let shape = |phi: &[f64]| to_global(&free(phi), n, &its);
         let eigen = |k: usize| match (&k_check_sparse, &m_csc_opt) {
             (Some(kk), Some(mm)) => lanczos_generalized_eigen_sparse(kk, mm, k, 0.0),
@@ -294,7 +294,7 @@ pub fn solve_modal_2d(
 
         // Expand eigenvector back to full free DOFs
         let phi_f = if let Some(ref cs) = cs {
-            cs.expand_solution(&phi_s)
+            cs.expand_solution(&phi_s, MasterMotion::Homogeneous)
         } else {
             phi_s
         };
@@ -614,7 +614,7 @@ pub fn solve_modal_3d(
     let (result, null_modes) = {
         let k_abs = |x: &[f64]| abs_mat_vec_sparse(k_solve, x);
         let m_mul = |x: &[f64]| m_solve.sym_mat_vec(x);
-        let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf].to_vec();
+        let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi, MasterMotion::Homogeneous))[..nf].to_vec();
         let shape = |phi: &[f64]| to_global(&free(phi), n, its);
         let eigen = |k: usize| lanczos_generalized_eigen_sparse(k_solve, m_solve, k, 0.0);
         let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"], &k_abs);
@@ -667,7 +667,7 @@ pub fn solve_modal_3d(
         cum_mrz += mrz;
 
         let phi_f = if let Some(ref cs) = cs {
-            cs.expand_solution(&phi_s)
+            cs.expand_solution(&phi_s, MasterMotion::Homogeneous)
         } else {
             phi_s
         };

@@ -29,7 +29,7 @@ for (const [index, c] of cases.entries()) {
       else if (path === 'arc') result = JSON.parse(engine.solve_arc_length(JSON.stringify(wrapper)));
       else if (path === 'corotational') result = JSON.parse(engine[`${name}_${c.dim}d`](JSON.stringify(c.model),50,1e-10,3));
       else result = JSON.parse(engine[`${name}_${c.dim}d`](JSON.stringify(path === 'staged' ? c.model : wrapper)));
-      replay.push({index,path,result});
+      replay.push({index,path,result,bits:numericBits(result)});
       if (c.motion === 0) assert.equal(numericBits(result),zero[`${path}:${index}`],`zero motion bits ${path}:${index}`);
       assert.notEqual(result.converged,false);
       const factor = path === 'arc' ? result.finalLoadFactor : 1;
@@ -44,14 +44,14 @@ for (const [index, c] of cases.entries()) {
     } catch (e) { failures.push(`case ${index} ${path}: ${e}`); }
   }
 }
-for (const dim of [2,3]) for (const motion of [-0.0013,-1e-16,Number.MIN_VALUE,0,1e-16,0.0013]) {
-  const c = structuredClone(cases.find(c => c.dim===dim && !c.rotation && c.fillers===1));
-  c.model.supports[2].dz = motion;
-  for (const method of ['newmark','hht']) {
+for (const dim of [2,3]) for (const rotation of [false,true]) for (const motion of [-0.0013,-1e-16,Number.MIN_VALUE,0,1e-16,0.0013]) {
+  const c = structuredClone(cases.find(c => c.dim===dim && c.rotation===rotation && c.fillers===1));
+  c.model.supports[2][rotation ? 'dry' : 'dz'] = motion;
+  for (const method of ['newmark','hht']) for (const entry of ['solve_time_history','certify_time_history']) {
     const wrapper = {solver:c.model,densities:{1:7850},timeStep:0.001,nSteps:2,method,alpha:method === 'hht' ? -0.1 : null};
     try {
-      if (motion === 0) JSON.parse(engine[`solve_time_history_${dim}d`](JSON.stringify(wrapper)));
-      else assert.throws(() => engine[`solve_time_history_${dim}d`](JSON.stringify(wrapper)),/prescribed support displacements/);
+      if (motion === 0) JSON.parse(engine[`${entry}_${dim}d`](JSON.stringify(wrapper)));
+      else assert.throws(() => engine[`${entry}_${dim}d`](JSON.stringify(wrapper)),/prescribed support displacements/);
     } catch (e) { failures.push(`time ${dim} ${motion}: ${e}`); }
   }
   c.model.elements[3]={...c.model.elements[2],id:3,type:'cable'};
