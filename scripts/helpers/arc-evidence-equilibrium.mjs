@@ -84,9 +84,9 @@ export async function regenerateAfterResults() {
     record.after = {refused: output.refused, converged: output.converged, finalLoadFactor: output.finalLoadFactor, reactions: r.reactions ?? r.peakReactions, constraintForces: r.constraintForces, elementForces: r.elementForces, displacements: r.displacements, equilibrium: r.equilibrium, notices};
   }
   delete replay.fixedSourceCommit;
-  replay.fixedSourceParentCommit = '1deb0d21c703e59e50dc76b050f06eeb6d3af28d';
+  replay.fixedSourceParentCommit = 'd18f09bc4662b0e3886a248639ac3e69e736e0ab';
   replay.fixedSource = 'Final engine sources in the signed commit containing this replay; fixedSourceParentCommit identifies its parent.';
-  replay.engineBuild.fixed = 'make wasm from the final round 8 engine sources; re-run every recorded exact argument using scripts/tests/arc-evidence-equilibrium.mjs --update';
+  replay.engineBuild.fixed = 'make wasm from the final round 9 engine sources; re-run every recorded exact argument using scripts/helpers/arc-evidence-equilibrium.mjs --update';
   replay.engineBuild.fixedWasmSha256 = createHash('sha256').update(wasm).digest('hex');
   writeFileSync(file, JSON.stringify(replay, null, 2) + '\n');
 }

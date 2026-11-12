@@ -65,7 +65,7 @@ values as well as a live solve. Each representation must contain both members,
 have finite values, return all expected node IDs, report the chord reconstructed
 from displacements, and satisfy unloaded-member shear and moment equilibrium.
 Negative controls reintroduce the original shear and remove members. Run
-`make shell`, then `node scripts/tests/arc-evidence-equilibrium.mjs --update`
+`make shell`, then `node scripts/helpers/arc-evidence-equilibrium.mjs --update`
 after `make wasm` to regenerate the replay. No baseline or tolerance is relaxed.
 
 The existing main capture still documents silently inconsistent arch shears

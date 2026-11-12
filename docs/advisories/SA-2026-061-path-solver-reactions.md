@@ -119,6 +119,28 @@ deployment is claimed. Release records: [0.2.0](../releases/v0.2.0.md),
 [0.3.0](../releases/v0.3.0.md), [0.4.0](../releases/v0.4.0.md),
 [0.5.0](../releases/v0.5.0.md).
 
+## Rotated member loads (round 9)
+
+Corotational 2D/3D recovery also combined reference-frame fixed-end actions
+with final-frame elastic actions. A transverse dead member load therefore
+omitted its axial projection after chord rotation and reported the unprojected
+shear. Spatial fixed-end moments likewise require the final frame. Planar path
+solvers and native continuation share the affected recovery.
+
+The `round9NativeReplay` section of the existing
+[replay evidence](replays/SA-2026-061.json) retains exact inputs and complete
+native outputs from origin/main `144296aadc772a13ec768a58ecb5e387aecb787e`.
+Both small-rotation cantilevers converge without warnings or diagnostics but
+report nonzero axial force at their unloaded free tip. The large-rotation 3D
+accuracy warning therefore does not contain this class. This is a verified
+current-main boundary; no additional release boundary is claimed here.
+
+The fix transforms fixed-end force and moment vectors to the final member frame
+before combining them with elastic actions. Review member forces under member
+loads whenever the chord or spatial member frame rotates. See the
+[round-9 write-up](../results-changes/2026-11-corotational-member-load-frame.md)
+and re-check entry `corotational-member-load-frame`.
+
 ## How to tell if your results are affected
 
 Identify the analysis method and the engine/build that produced the saved

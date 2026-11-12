@@ -1665,7 +1665,30 @@ fn loaded_chord_tip_equilibrium(dim: usize, kind: &str) {
     } else {
         json!([{"type":"distributed","data":{"elementId":1,"qYI":0.0,"qYJ":0.0,"qZI":-2.0,"qZJ":-2.0}}])
     };
-    let (r, factor) = if kind == "displacement" {
+    let (r, factor) = if kind == "continued_corotational" || kind == "continued_arc" {
+        let solver: SolverInput = serde_json::from_value(m.clone()).unwrap();
+        let base = corotational::solve_corotational_2d(&solver, 40, 1e-9, 2, false).unwrap();
+        assert!(base.converged);
+        let start = corotational::CorotationalStart2D {
+            input: &solver,
+            displacements: &base.results.displacements,
+        };
+        if kind == "continued_corotational" {
+            let result =
+                corotational::solve_corotational_2d_from(&solver, Some(&start), 40, 1e-9, 2, false)
+                    .unwrap();
+            assert!(result.converged);
+            (serde_json::to_value(result.results).unwrap(), 1.0)
+        } else {
+            let input = serde_json::from_value(json!({"solver":m,"maxSteps":3,"maxIter":40,"tolerance":1e-9,"initialDs":0.1,"minDs":1e-8,"maxDs":0.1,"targetIter":5})).unwrap();
+            let result = arc_length::solve_arc_length_from(&input, Some(&start)).unwrap();
+            assert!(result.converged);
+            (
+                serde_json::to_value(result.results).unwrap(),
+                1.0 + result.final_load_factor,
+            )
+        }
+    } else if kind == "displacement" {
         let i = serde_json::from_value(json!({"solver":m,"controlNode":1,"controlDof":1,"targetDisplacement":-1.0,"nSteps":10,"maxIter":40,"tolerance":1e-9})).unwrap();
         let result = arc_length::solve_displacement_control(&i).unwrap();
         assert!(result.converged);
@@ -1715,7 +1738,26 @@ fn loaded_chord_tip_equilibrium(dim: usize, kind: &str) {
         (f["nStart"].as_f64().unwrap() - expected_n).abs() < 1e-6,
         "{kind} {dim}D reaction reference: {f}"
     );
+    let (v_start, v_end, m_start, m_end, sign) = if dim == 2 {
+        ("vStart", "vEnd", "mStart", "mEnd", 1.0)
+    } else {
+        ("vzStart", "vzEnd", "myStart", "myEnd", -1.0)
+    };
+    let value = |key: &str| f[key].as_f64().unwrap();
+    let expected_v =
+        (-z * reaction[fx].as_f64().unwrap() + x * reaction[fz].as_f64().unwrap()) / length;
+    assert!((value(v_start) - expected_v).abs() < 1e-6);
+    assert!((value(m_start) - reaction["my"].as_f64().unwrap()).abs() < 1e-6);
     let q = -2.0 * factor;
+    let transverse = q * 3.0 * x / length;
+    assert!((value(v_end) - value(v_start) - transverse).abs() < 1e-6);
+    assert!(
+        (sign * (value(m_end) - value(m_start))
+            + value(v_start) * length
+            + transverse * length / 2.0)
+            .abs()
+            < 1e-6
+    );
     assert!(
         (f["nEnd"].as_f64().unwrap() - f["nStart"].as_f64().unwrap() + q * 3.0 * z / length).abs()
             < 1e-6
@@ -1723,25 +1765,25 @@ fn loaded_chord_tip_equilibrium(dim: usize, kind: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r9_loaded_chord_native_2d() {
-    loaded_chord_tip_equilibrium(2, "corotational");
+    for kind in ["corotational", "continued_corotational"] {
+        loaded_chord_tip_equilibrium(2, kind);
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r9_loaded_chord_arc() {
-    loaded_chord_tip_equilibrium(2, "arc");
+    for kind in ["arc", "continued_arc"] {
+        loaded_chord_tip_equilibrium(2, kind);
+    }
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r9_loaded_chord_displacement() {
     loaded_chord_tip_equilibrium(2, "displacement");
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r9_loaded_chord_native_3d() {
     loaded_chord_tip_equilibrium(3, "corotational");
 }

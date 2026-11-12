@@ -601,3 +601,76 @@ impl PhysicalForces {
         &self.0
     }
 }
+
+#[cfg(test)]
+mod r8_tests {
+    use super::super::corotational::{add_spring_contributions, build_final_results};
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn issue_1952_r8_stabilized_released_slave_recovery() {
+        let mut failures = Vec::new();
+        for motion in [0.0, 0.0013, -0.0013] {
+            let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                "../../tests/fixtures/reaction-recovery-2d.json"
+            ))
+            .unwrap();
+            m["elements"]["1"]["hingeEnd"] = json!(true);
+            m["nodes"]["2"] = m["nodes"]["0"].clone();
+            m["nodes"]["2"]["id"] = json!(2);
+            m["supports"]["2"] = json!({"id":2,"nodeId":2,"type":"fixed","dry":motion});
+            m["constraints"] = json!([{"type":"equalDOF","masterNode":2,"slaveNode":1,"dofs":[2]}]);
+            m["loads"] = json!([]);
+            let input: SolverInput = serde_json::from_value(m).unwrap();
+            let dofs = DofNumbering::build_2d(&input);
+            let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
+            let slave = dofs.global_dof(1, 2).unwrap();
+            let mut u = vec![0.0; dofs.n_total];
+            u[slave] = motion;
+            u[dofs.global_dof(2, 2).unwrap()] = motion;
+            for k in [1e-6, 1.0, 1e6] {
+                let mut artificial = vec![0.0; dofs.n_total];
+                add_spring_contributions(
+                    &input,
+                    &dofs,
+                    &u,
+                    &mut artificial,
+                    &[(slave, k)],
+                    &mut |_, _, _| {},
+                );
+                assert_eq!(artificial[slave], k * motion);
+                let contaminated = RecoveredForces::from_residual(&artificial, &dofs, cs.as_ref());
+                let contaminated_reactions =
+                    contaminated.reactions_2d(&input, &dofs, &u, &[]).unwrap();
+                let master = contaminated_reactions
+                    .iter()
+                    .find(|r| r.node_id == 2)
+                    .unwrap();
+                assert_eq!(master.my, k * motion);
+
+                let result = build_final_results(&input, &dofs, &u, &cs, &[]).unwrap();
+                assert_eq!(result.displacements.len(), 3);
+                assert_eq!(result.reactions.len(), 2);
+                assert_eq!(result.element_forces.len(), 1);
+                if result
+                    .reactions
+                    .iter()
+                    .any(|r| [r.rx, r.rz, r.my].iter().any(|&v| v != 0.0))
+                    || result.constraint_forces.iter().any(|f| f.force != 0.0)
+                {
+                    failures.push(format!(
+                        "motion={motion} k={k}: {}",
+                        serde_json::to_value(&result).unwrap()
+                    ));
+                }
+                let f = &result.element_forces[0];
+                assert_eq!(
+                    [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end],
+                    [0.0; 6]
+                );
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+}

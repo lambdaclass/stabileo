@@ -6,8 +6,8 @@
   "engineBuild": {
     "main": "make wasm with origin/main production sources temporarily substituted in this worktree; STABILEO_GIT_COMMIT set to originMain; sources and original WASM restored in finally",
     "mainWasmSha256": "33fef82618cd15294a5dfc133d99c3f3b1df97662a0bd421ba322f0217d9499b",
-    "fixed": "make wasm from the final round 8 engine sources; re-run every recorded exact argument using scripts/tests/arc-evidence-equilibrium.mjs --update",
-    "fixedWasmSha256": "45782a9b02c06bed9dc308f39b65726fdba11a914affe6584d5099942dd89053"
+    "fixed": "make wasm from the final round 9 engine sources; re-run every recorded exact argument using scripts/helpers/arc-evidence-equilibrium.mjs --update",
+    "fixedWasmSha256": "0e8185991eb3c9e22309449788ecb6b12ae5f7d97a9adc279c5df0f9449d4ef3"
   },
   "scope": [
     "WASM records contain exact positional arguments and selected returned fields. All warning/diagnostic fields throughout each response are retained in notices, including empty arrays. Unlisted output fields are not claimed equal.",
@@ -7015,6 +7015,427 @@
       "after": "passed against full linear member-force reference, both with and without constraints"
     }
   },
-  "fixedSourceParentCommit": "1deb0d21c703e59e50dc76b050f06eeb6d3af28d",
-  "fixedSource": "Final engine sources in the signed commit containing this replay; fixedSourceParentCommit identifies its parent."
+  "fixedSourceParentCommit": "d18f09bc4662b0e3886a248639ac3e69e736e0ab",
+  "fixedSource": "Final engine sources in the signed commit containing this replay; fixedSourceParentCommit identifies its parent.",
+  "round9NativeReplay": {
+    "originMain": "144296aadc772a13ec768a58ecb5e387aecb787e",
+    "build": "All origin/main engine/src production sources temporarily substituted in this worktree; public native solve_corotational_2d/3d with max_iter=40, tolerance=1e-9, n_increments=2, modified_nr=false; restored in finally. Full returned outputs retained.",
+    "records": [
+      {
+        "dim": 2,
+        "solver": {
+          "constraints": [],
+          "elements": {
+            "1": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 1,
+              "materialId": 1,
+              "nodeI": 0,
+              "nodeJ": 1,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "loads": [
+            {
+              "data": {
+                "elementId": 1,
+                "qI": -0.02,
+                "qJ": -0.02
+              },
+              "type": "distributed"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 200,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "0": {
+              "id": 0,
+              "x": 0,
+              "z": 0
+            },
+            "1": {
+              "id": 1,
+              "x": 3,
+              "z": 0
+            }
+          },
+          "sections": {
+            "1": {
+              "a": 0.01,
+              "id": 1,
+              "iz": 0.0001
+            }
+          },
+          "supports": {
+            "0": {
+              "id": 0,
+              "nodeId": 0,
+              "type": "fixed"
+            }
+          }
+        },
+        "before": {
+          "converged": true,
+          "iterations": 6,
+          "loadFactor": 1,
+          "loadIncrements": 2,
+          "maxDisplacement": 0.01012491926404085,
+          "results": {
+            "displacements": [
+              {
+                "nodeId": 0,
+                "ry": 0,
+                "ux": 0,
+                "uz": 0
+              },
+              {
+                "nodeId": 1,
+                "ry": -0.004499961905987375,
+                "ux": -0.000016933791444335682,
+                "uz": -0.010124905103261602
+              }
+            ],
+            "elementForces": [
+              {
+                "distributedLoads": [
+                  {
+                    "a": 0,
+                    "b": 3,
+                    "qI": -0.02,
+                    "qJ": -0.02
+                  }
+                ],
+                "elementId": 1,
+                "hingeEnd": false,
+                "hingeStart": false,
+                "length": 3.0000001518735693,
+                "mEnd": 6.238100314082118e-13,
+                "mStart": 0.08999949207920785,
+                "nEnd": 0.00010124904602953949,
+                "nStart": 0.00010124904602953949,
+                "pointLoads": [],
+                "qI": -0.02,
+                "qJ": -0.02,
+                "vEnd": -1.6930713864909963e-7,
+                "vStart": 0.05999983069286135
+              }
+            ],
+            "reactions": [
+              {
+                "my": 0.08999949207920785,
+                "nodeId": 0,
+                "rx": -1.8740149948341667e-14,
+                "rz": 0.060000000030776025
+              }
+            ]
+          }
+        },
+        "afterWasm": {
+          "results": {
+            "displacements": [
+              {
+                "nodeId": 0,
+                "ux": 0,
+                "uz": 0,
+                "ry": 0
+              },
+              {
+                "nodeId": 1,
+                "ux": -0.000016933791444335685,
+                "uz": -0.010124905103261604,
+                "ry": -0.004499961905987376
+              }
+            ],
+            "reactions": [
+              {
+                "nodeId": 0,
+                "rx": -1.8741579739956632e-14,
+                "rz": 0.06000000003077603,
+                "my": 0.08999949207920788
+              }
+            ],
+            "elementForces": [
+              {
+                "elementId": 1,
+                "nStart": 0.00020249809193647236,
+                "nEnd": 1.2260963186579155e-13,
+                "vStart": 0.059999658317492835,
+                "vEnd": 3.0775802045690526e-11,
+                "mStart": 0.08999949207920788,
+                "mEnd": 6.23796153620404e-13,
+                "length": 3.0000001518735693,
+                "qI": -0.02,
+                "qJ": -0.02,
+                "pointLoads": [],
+                "distributedLoads": [
+                  {
+                    "qI": -0.02,
+                    "qJ": -0.02,
+                    "a": 0,
+                    "b": 3
+                  }
+                ],
+                "hingeStart": false,
+                "hingeEnd": false
+              }
+            ]
+          },
+          "iterations": 6,
+          "converged": true,
+          "loadIncrements": 2,
+          "loadFactor": 1,
+          "maxDisplacement": 0.010124919264040853
+        }
+      },
+      {
+        "dim": 3,
+        "solver": {
+          "constraints": [],
+          "elements": {
+            "1": {
+              "id": 1,
+              "materialId": 1,
+              "nodeI": 0,
+              "nodeJ": 1,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "loads": [
+            {
+              "data": {
+                "elementId": 1,
+                "qYI": 0,
+                "qYJ": 0,
+                "qZI": -0.02,
+                "qZJ": -0.02
+              },
+              "type": "distributed"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 200,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "0": {
+              "id": 0,
+              "x": 0,
+              "y": 0,
+              "z": 0
+            },
+            "1": {
+              "id": 1,
+              "x": 3,
+              "y": 0,
+              "z": 0
+            }
+          },
+          "sections": {
+            "1": {
+              "a": 0.01,
+              "id": 1,
+              "iy": 0.0001,
+              "iz": 0.0001,
+              "j": 0.0001
+            }
+          },
+          "supports": {
+            "0": {
+              "nodeId": 0,
+              "rrx": true,
+              "rry": true,
+              "rrz": true,
+              "rx": true,
+              "ry": true,
+              "rz": true
+            }
+          }
+        },
+        "before": {
+          "converged": true,
+          "iterations": 10,
+          "loadFactor": 1,
+          "loadIncrements": 2,
+          "maxDisplacement": 0.010124919250052893,
+          "results": {
+            "displacements": [
+              {
+                "nodeId": 0,
+                "rx": 0,
+                "ry": 0,
+                "rz": 0,
+                "ux": 0,
+                "uy": 0,
+                "uz": 0
+              },
+              {
+                "nodeId": 1,
+                "rx": 0,
+                "ry": 0.004499961898969994,
+                "rz": 0,
+                "ux": -0.000016933791397519527,
+                "uy": 0,
+                "uz": -0.010124905089273703
+              }
+            ],
+            "elementForces": [
+              {
+                "distributedLoadsY": [
+                  {
+                    "a": 0,
+                    "b": 3,
+                    "qI": 0,
+                    "qJ": 0
+                  }
+                ],
+                "distributedLoadsZ": [
+                  {
+                    "a": 0,
+                    "b": 3,
+                    "qI": -0.02,
+                    "qJ": -0.02
+                  }
+                ],
+                "elementId": 1,
+                "length": 3.000000151873569,
+                "mxEnd": 0,
+                "mxStart": 0,
+                "myEnd": 1.3877787807814457e-17,
+                "myStart": -0.08999949198626661,
+                "mzEnd": 0,
+                "mzStart": 0,
+                "nEnd": 0.00010124904576765498,
+                "nStart": 0.00010124904576765498,
+                "pointLoadsY": [],
+                "pointLoadsZ": [],
+                "qYI": 0,
+                "qYJ": 0,
+                "qZI": -0.02,
+                "qZJ": -0.02,
+                "releaseMyEnd": false,
+                "releaseMyStart": false,
+                "releaseMzEnd": false,
+                "releaseMzStart": false,
+                "releaseTEnd": false,
+                "releaseTStart": false,
+                "vyEnd": 0,
+                "vyStart": 0,
+                "vzEnd": -1.7085663816043817e-7,
+                "vzStart": 0.05999982914336184
+              }
+            ],
+            "reactions": [
+              {
+                "fx": -5.929501681323224e-16,
+                "fy": 0,
+                "fz": 0.06000000000000285,
+                "mx": 0,
+                "my": -0.08999949198626661,
+                "mz": 0,
+                "nodeId": 0
+              }
+            ]
+          }
+        },
+        "afterWasm": {
+          "results": {
+            "displacements": [
+              {
+                "nodeId": 0,
+                "ux": 0,
+                "uy": 0,
+                "uz": 0,
+                "rx": 0,
+                "ry": 0,
+                "rz": 0
+              },
+              {
+                "nodeId": 1,
+                "ux": -0.000016933791397519527,
+                "uy": 0,
+                "uz": -0.010124905089273703,
+                "rx": 0,
+                "ry": 0.004499961898969994,
+                "rz": 0
+              }
+            ],
+            "reactions": [
+              {
+                "nodeId": 0,
+                "fx": -5.929501681323224e-16,
+                "fy": 0,
+                "fz": 0.06000000000000285,
+                "mx": 0,
+                "my": -0.08999949198626661,
+                "mz": 0
+              }
+            ],
+            "elementForces": [
+              {
+                "elementId": 1,
+                "length": 3.000000151873569,
+                "nStart": 0.00020249809153470737,
+                "nEnd": 6.025995674674434e-16,
+                "vyStart": 0,
+                "vyEnd": 0,
+                "vzStart": 0.059999658286720825,
+                "vzEnd": 2.851885394505871e-15,
+                "mxStart": 0,
+                "mxEnd": 0,
+                "myStart": -0.08999949198626661,
+                "myEnd": 1.3877787807814457e-17,
+                "mzStart": 0,
+                "mzEnd": 0,
+                "releaseMyStart": false,
+                "releaseMyEnd": false,
+                "releaseMzStart": false,
+                "releaseMzEnd": false,
+                "releaseTStart": false,
+                "releaseTEnd": false,
+                "qYI": 0,
+                "qYJ": 0,
+                "distributedLoadsY": [
+                  {
+                    "qI": 0,
+                    "qJ": 0,
+                    "a": 0,
+                    "b": 3
+                  }
+                ],
+                "pointLoadsY": [],
+                "qZI": -0.02,
+                "qZJ": -0.02,
+                "distributedLoadsZ": [
+                  {
+                    "qI": -0.02,
+                    "qJ": -0.02,
+                    "a": 0,
+                    "b": 3
+                  }
+                ],
+                "pointLoadsZ": []
+              }
+            ]
+          },
+          "iterations": 10,
+          "converged": true,
+          "loadIncrements": 2,
+          "loadFactor": 1,
+          "maxDisplacement": 0.010124919250052893
+        }
+      }
+    ],
+    "afterBuild": "Fixed WASM built by make wasm from final round 9 production sources; same public options. The before field is the full native output; afterWasm is the full WASM output. Final WASM hash is engineBuild.fixedWasmSha256."
+  }
 }

@@ -597,10 +597,9 @@ fn validation_staged_ext_4_sequential_loading() {
 // The stage 3 incremental deflection (cantilever) should be larger
 // than the stage 1 deflection (two-span beam) for the same load.
 
-#[test]
-fn validation_staged_ext_5_prop_removal() {
+fn prop_removal_input() -> StagedInput {
     let l = 5.0;
-    let p = -100.0; // kN at node 2
+    let p = -100.0;
 
     let nodes = make_nodes(&[
         (1, 0.0, 0.0),
@@ -656,6 +655,12 @@ fn validation_staged_ext_5_prop_removal() {
         constraints: vec![],
     };
 
+    staged_input
+}
+
+#[test]
+fn validation_staged_ext_5_prop_removal() {
+    let staged_input = prop_removal_input();
     assert_support_refusal(&staged_input, &[3]);
     let first = solve_2d(&reference_input(&staged_input, &[1, 2, 3], &[1, 2], &[1, 2], &[0])).unwrap();
     let increment = solve_2d(&reference_input(&staged_input, &[1, 2], &[1], &[1], &[1])).unwrap();
@@ -663,13 +668,17 @@ fn validation_staged_ext_5_prop_removal() {
     supported.stages[1].supports_removed.clear();
     let actual = solve_staged_2d(&supported).unwrap();
     assert_eq!(actual.stages.len(), 3);
-    for i in [0, 1] {
-        assert_stage_displacements(&actual.stages[i].results, &[&first], &[1,2,3]);
-        assert_horizontal_stage_forces(&supported, &actual.stages[i].results, &[0]);
+    assert_stage_displacements(&actual.stages[0].results, &[&first], &[1,2,3]);
+    assert_horizontal_stage_forces(&supported, &actual.stages[0].results, &[0]);
+    let mut load_increment = actual.stages[2].results.clone();
+    for d in &mut load_increment.displacements {
+        let before = actual.stages[1].results.displacements.iter().find(|b| b.node_id == d.node_id).unwrap();
+        d.ux -= before.ux;
+        d.uz -= before.uz;
+        d.ry -= before.ry;
     }
-    assert_stage_displacements(&actual.stages[2].results, &[&first, &increment], &[1,2,3]);
-    assert_stage_displacements(&actual.final_results, &[&first, &increment], &[1,2,3]);
-    assert_horizontal_stage_forces(&supported, &actual.stages[2].results, &[0, 1]);
+    assert_stage_displacements(&load_increment, &[&increment], &[1,2,3]);
+    assert_stage_displacements(&actual.final_results, &[&actual.stages[2].results], &[1,2,3]);
     assert_eq!(actual.stages[0].results.element_forces.len(), 2);
     for r in [&actual.stages[1].results, &actual.stages[2].results, &actual.final_results] {
         assert_eq!(r.element_forces.len(), 1);
@@ -678,6 +687,17 @@ fn validation_staged_ext_5_prop_removal() {
     let at = |r: &AnalysisResults| r.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
     assert!((at(&actual.stages[2].results) - at(&actual.stages[1].results)).abs() > at(&actual.stages[0].results).abs());
 
+}
+
+#[test]
+#[ignore = "known wrong result: #1996"]
+fn issue_1996_loaded_member_removal_redistributes_released_forces() {
+    let mut supported = prop_removal_input();
+    supported.stages[1].supports_removed.clear();
+    let redistributed = solve_2d(&reference_input(&supported, &[1,2], &[1], &[1], &[0])).unwrap();
+    let actual = solve_staged_2d(&supported).unwrap();
+    assert_eq!(actual.stages.len(), 3);
+    assert_stage_displacements(&actual.stages[1].results, &[&redistributed], &[1,2,3]);
 }
 
 // ================================================================

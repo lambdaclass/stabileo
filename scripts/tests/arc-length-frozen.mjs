@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { checkStoredEvidence } from './arc-evidence-equilibrium.mjs';
+import { checkStoredEvidence } from '../helpers/arc-evidence-equilibrium.mjs';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 import { compareFrozen, freezeValues } from '../../web/scripts/results-snapshot/frozen.mjs';

@@ -862,6 +862,26 @@ fn wrap_angle(a: f64) -> f64 {
     if r <= -std::f64::consts::PI { r + two_pi } else { r }
 }
 
+fn fixed_end_actions_in_final_frame<const N: usize>(
+    actions: [f64; N],
+    reference: Axes3,
+    final_axes: Axes3,
+) -> [f64; N] {
+    assert_eq!(N % 3, 0);
+    let reference = [reference.0, reference.1, reference.2];
+    let final_axes = [final_axes.0, final_axes.1, final_axes.2];
+    let mut result = [0.0; N];
+    for offset in (0..N).step_by(3) {
+        for i in 0..3 {
+            for j in 0..3 {
+                let projection: f64 = (0..3).map(|k| final_axes[i][k] * reference[j][k]).sum();
+                result[offset + i] += projection * actions[offset + j];
+            }
+        }
+    }
+    result
+}
+
 /// Subtract fixed-end forces (FEF) from element loads in local coordinates.
 fn subtract_element_fef(
     input: &SolverInput,
@@ -869,7 +889,7 @@ fn subtract_element_fef(
     l: f64,
     e: f64,
     nu: f64,
-    _iz: f64,
+    member_chords: ([f64; 2], [f64; 2]),
     f_local: &mut [f64; 6],
     sec: &SolverSection,
 ) {
@@ -882,6 +902,7 @@ fn subtract_element_fef(
         0.0
     };
 
+    let mut reference_actions = [0.0; 6];
     for load in &input.loads {
         match load {
             SolverLoad::Distributed(dl) if dl.element_id == elem.id => {
@@ -897,7 +918,7 @@ fn subtract_element_fef(
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
-                    f_local[i] -= fef[i];
+                    reference_actions[i] += fef[i];
                 }
             }
             SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
@@ -907,30 +928,43 @@ fn subtract_element_fef(
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
-                    f_local[i] -= fef[i];
+                    reference_actions[i] += fef[i];
                 }
             }
             SolverLoad::Thermal(tl) if tl.element_id == elem.id => {
                 let alpha = tl.alpha();
                 let h = tl.depth(sec.a, sec.iz);
-                let mut fef = fef_thermal_2d(
-                    e, sec.a, sec.iz, l,
-                    tl.dt_uniform, tl.dt_gradient, alpha, h,
-                );
+                let mut fef =
+                    fef_thermal_2d(e, sec.a, sec.iz, l, tl.dt_uniform, tl.dt_gradient, alpha, h);
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
                 for i in 0..6 {
-                    f_local[i] -= fef[i];
+                    reference_actions[i] += fef[i];
                 }
             }
             SolverLoad::AxialDistributed(al) if al.element_id == elem.id => {
-                let fef = crate::element::fef_axial_distributed_2d(al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l), l);
+                let fef = crate::element::fef_axial_distributed_2d(
+                    al.q_i,
+                    al.q_j,
+                    al.a.unwrap_or(0.0),
+                    al.b.unwrap_or(l),
+                    l,
+                );
                 for i in 0..6 {
-                    f_local[i] -= fef[i];
+                    reference_actions[i] += fef[i];
                 }
             }
             _ => {}
         }
+    }
+    let ([c0, s0], [cn, sn]) = member_chords;
+    let actions = fixed_end_actions_in_final_frame(
+        reference_actions,
+        ([c0, s0, 0.0], [-s0, c0, 0.0], [0.0, 0.0, 1.0]),
+        ([cn, sn, 0.0], [-sn, cn, 0.0], [0.0, 0.0, 1.0]),
+    );
+    for i in 0..6 {
+        f_local[i] -= actions[i];
     }
 }
 
@@ -1211,7 +1245,7 @@ pub fn compute_corotational_forces(
             let mut f_local = corotational_frame_end_forces(&k_local, &d_local, l_n);
 
             // Subtract FEF for output (element forces = K*u - FEF)
-            subtract_element_fef(input, elem, l0, e, mat.nu, sec.iz, &mut f_local, sec);
+            subtract_element_fef(input, elem, l0, e, mat.nu, ([dx0 / l0, dy0 / l0], [dx_n / l_n, dy_n / l_n]), &mut f_local, sec);
 
             // Collect load metadata
             let (mut total_qi, mut total_qj) = (0.0, 0.0);
@@ -2235,19 +2269,88 @@ fn compute_corotational_forces_3d(
             .into_iter()
             .map(|f| (f.element_id, f))
             .collect();
+    let elements: std::collections::HashMap<_, _> = crate::ordered::values(&input.elements)
+        .map(|e| (e.id, e))
+        .collect();
+    let nodes: std::collections::HashMap<_, _> = crate::ordered::values(&input.nodes)
+        .map(|n| (n.id, n))
+        .collect();
     elastic_corotational_forces_3d(input, dof_num, u_full, left_hand)
         .into_iter()
         .map(|el| match fixed_end.get(&el.element_id) {
-            Some(fe) => ElementForces3D {
-                length: el.length,
-                n_start: fe.n_start + el.n_start, n_end: fe.n_end + el.n_end,
-                vy_start: fe.vy_start + el.vy_start, vy_end: fe.vy_end + el.vy_end,
-                vz_start: fe.vz_start + el.vz_start, vz_end: fe.vz_end + el.vz_end,
-                mx_start: fe.mx_start + el.mx_start, mx_end: fe.mx_end + el.mx_end,
-                my_start: fe.my_start + el.my_start, my_end: fe.my_end + el.my_end,
-                mz_start: fe.mz_start + el.mz_start, mz_end: fe.mz_end + el.mz_end,
-                ..fe.clone()
-            },
+            Some(fe) => {
+                let elem = elements[&el.element_id];
+                let ni = nodes[&elem.node_i];
+                let nj = nodes[&elem.node_j];
+                let at = |node, k| dof_num.global_dof(node, k).map_or(0.0, |d| u_full[d]);
+                let chord = [nj.x - ni.x, nj.y - ni.y, nj.z - ni.z];
+                let current = [0, 1, 2].map(|k| chord[k] + at(elem.node_j, k) - at(elem.node_i, k));
+                let norm = current.iter().map(|v| v * v).sum::<f64>().sqrt();
+                let (yx, yy, yz) = corot_local_y_ref(
+                    ni.x,
+                    ni.y,
+                    ni.z,
+                    nj.x,
+                    nj.y,
+                    nj.z,
+                    elem.local_yx,
+                    elem.local_yy,
+                    elem.local_yz,
+                );
+                let reference = compute_local_axes_3d(
+                    ni.x,
+                    ni.y,
+                    ni.z,
+                    nj.x,
+                    nj.y,
+                    nj.z,
+                    yx,
+                    yy,
+                    yz,
+                    elem.roll_angle,
+                    left_hand,
+                );
+                let (final_axes, _, _, _) = natural_rotations_3d(
+                    current.map(|v| v / norm),
+                    (&reference.0, &reference.1, &reference.2),
+                    [3, 4, 5].map(|k| at(elem.node_i, k)),
+                    [3, 4, 5].map(|k| at(elem.node_j, k)),
+                );
+                let actions = fixed_end_actions_in_final_frame(
+                    [
+                        -fe.n_start,
+                        fe.vy_start,
+                        fe.vz_start,
+                        fe.mx_start,
+                        fe.my_start,
+                        fe.mz_start,
+                        fe.n_end,
+                        -fe.vy_end,
+                        -fe.vz_end,
+                        -fe.mx_end,
+                        -fe.my_end,
+                        -fe.mz_end,
+                    ],
+                    reference,
+                    final_axes,
+                );
+                ElementForces3D {
+                    length: el.length,
+                    n_start: el.n_start - actions[0],
+                    n_end: el.n_end + actions[6],
+                    vy_start: el.vy_start + actions[1],
+                    vy_end: el.vy_end - actions[7],
+                    vz_start: el.vz_start + actions[2],
+                    vz_end: el.vz_end - actions[8],
+                    mx_start: el.mx_start + actions[3],
+                    mx_end: el.mx_end - actions[9],
+                    my_start: el.my_start + actions[4],
+                    my_end: el.my_end - actions[10],
+                    mz_start: el.mz_start + actions[5],
+                    mz_end: el.mz_end - actions[11],
+                    ..fe.clone()
+                }
+            }
             None => el,
         })
         .collect()
@@ -2842,69 +2945,6 @@ mod tests {
 }
 
 #[cfg(test)]
-mod r8_tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn issue_1952_r8_stabilized_released_slave_recovery() {
-        let mut failures = Vec::new();
-        for motion in [0.0, 0.0013, -0.0013] {
-            let mut m: serde_json::Value = serde_json::from_str(include_str!(
-                "../../tests/fixtures/reaction-recovery-2d.json"
-            ))
-            .unwrap();
-            m["elements"]["1"]["hingeEnd"] = json!(true);
-            m["nodes"]["2"] = m["nodes"]["0"].clone();
-            m["nodes"]["2"]["id"] = json!(2);
-            m["supports"]["2"] = json!({"id":2,"nodeId":2,"type":"fixed","dry":motion});
-            m["constraints"] = json!([{"type":"equalDOF","masterNode":2,"slaveNode":1,"dofs":[2]}]);
-            m["loads"] = json!([]);
-            let input: SolverInput = serde_json::from_value(m).unwrap();
-            let dofs = DofNumbering::build_2d(&input);
-            let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
-            let slave = dofs.global_dof(1, 2).unwrap();
-            let mut u = vec![0.0; dofs.n_total];
-            u[slave] = motion;
-            u[dofs.global_dof(2, 2).unwrap()] = motion;
-            for k in [1e-6, 1.0, 1e6] {
-                let mut artificial = vec![0.0; dofs.n_total];
-                add_spring_contributions(
-                    &input,
-                    &dofs,
-                    &u,
-                    &mut artificial,
-                    &[(slave, k)],
-                    &mut |_, _, _| {},
-                );
-                assert_eq!(artificial[slave], k * motion);
-                let result = build_final_results(&input, &dofs, &u, &cs, &[]).unwrap();
-                assert_eq!(result.displacements.len(), 3);
-                assert_eq!(result.reactions.len(), 2);
-                assert_eq!(result.element_forces.len(), 1);
-                if result
-                    .reactions
-                    .iter()
-                    .any(|r| [r.rx, r.rz, r.my].iter().any(|&v| v != 0.0))
-                    || result.constraint_forces.iter().any(|f| f.force != 0.0)
-                {
-                    failures.push(format!(
-                        "motion={motion} k={k}: {}",
-                        serde_json::to_value(&result).unwrap()
-                    ));
-                }
-                let f = &result.element_forces[0];
-                assert_eq!(
-                    [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end],
-                    [0.0; 6]
-                );
-            }
-        }
-        assert!(failures.is_empty(), "{}", failures.join("\n"));
-    }
-}
-
-#[cfg(test)]
 mod r9_tests {
     use super::*;
     use serde_json::json;
@@ -2917,7 +2957,6 @@ mod r9_tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn issue_1952_r9_reference_load_in_final_frame_2d() {
         for alpha in [-1.0_f64, -1e-8, 0.0, 1e-8, 1.0] {
             for hinge in [false, true] {
@@ -2969,7 +3008,6 @@ mod r9_tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn issue_1952_r9_reference_load_in_final_frame_3d() {
         for alpha in [-1.0_f64, -1e-8, 0.0, 1e-8, 1.0] {
             for axis in [1, 2] {

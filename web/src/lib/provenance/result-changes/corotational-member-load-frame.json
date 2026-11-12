@@ -1,0 +1,42 @@
+{
+  "id": "corotational-member-load-frame",
+  "date": "2026-11-12",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members"
+      ],
+      [
+        "analysis:nonlinear",
+        "pathAnalysis"
+      ]
+    ]
+  },
+  "quantities": [
+    "nonlinear.elementForces"
+  ],
+  "title": {
+    "en": "Member loads follow the final member frame",
+    "es": "Las cargas siguen el sistema final del miembro",
+    "pt": "As cargas seguem o sistema final do membro",
+    "de": "Stablasten folgen dem endgültigen Stabkoordinatensystem",
+    "fr": "Les charges suivent le repère final de la barre",
+    "tr": "Eleman yükleri son eleman eksenlerini izler"
+  },
+  "explanation": {
+    "en": "Corotational 2D/3D and planar path solvers now rotate fixed-end forces and moments from reference coordinates before combining them with elastic end actions. Re-check member forces under member loads when the chord or spatial frame rotates (#1952; SA-2026-061).",
+    "es": "Los solvers corrotacionales 2D/3D y de trayectoria plana transforman fuerzas y momentos de empotramiento al sistema final antes de sumarlos a las acciones elásticas. Revisá los esfuerzos bajo cargas de miembro cuando gira su cuerda o sistema espacial (#1952; SA-2026-061).",
+    "pt": "Os solvers corrotacionais 2D/3D e de trajetória plana transformam forças e momentos de engastamento para o sistema final antes de combiná-los com as ações elásticas. Revise os esforços sob cargas de membro quando sua corda ou sistema espacial gira (#1952; SA-2026-061).",
+    "de": "Korotationale 2D/3D- und ebene Pfadlöser transformieren Einspannkräfte und -momente vor der Kombination mit elastischen Endkräften in das endgültige Stabkoordinatensystem. Stabkräfte bei gedrehter Sehne oder räumlichem System erneut prüfen (#1952; SA-2026-061).",
+    "fr": "Les solveurs corotationnels 2D/3D et de cheminement plan transforment les efforts et moments d’encastrement dans le repère final avant de les combiner aux actions élastiques. Revérifiez les efforts sous charges de barre lorsque sa corde ou son repère spatial tourne (#1952 ; SA-2026-061).",
+    "tr": "Eş dönel 2B/3B ve düzlemsel yol çözücüleri, ankastrelik kuvvetlerini ve momentlerini elastik uç etkileriyle birleştirmeden önce son eleman eksenlerine dönüştürür. Kiriş doğrultusu veya uzaysal eksenleri döndüğünde eleman yükleri altındaki kuvvetleri yeniden denetleyin (#1952; SA-2026-061)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-corotational-member-load-frame.md",
+    "heading": "Member load actions follow the final member frame (2026-11-12)"
+  }
+}
