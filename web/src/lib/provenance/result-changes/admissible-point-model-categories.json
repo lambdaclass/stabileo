@@ -1,0 +1,46 @@
+{
+  "id": "admissible-point-model-categories",
+  "date": "2026-11-11",
+  "prs": [
+    1940
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "constraints"
+      ],
+      [
+        "springs"
+      ],
+      [
+        "analysis:pdelta",
+        "analysis:nonlinear",
+        "analysis:ssi"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Constrained point models use admissible motion categories",
+    "es": "Los modelos puntuales restringidos usan los movimientos admisibles",
+    "pt": "Modelos pontuais com vínculos usam os movimentos admissíveis",
+    "de": "Gekoppelte Punktmodelle verwenden zulässige Bewegungen",
+    "fr": "Les modèles ponctuels contraints utilisent les mouvements admissibles",
+    "tr": "Kısıtlı nokta modelleri izin verilen hareketleri kullanır"
+  },
+  "explanation": {
+    "en": "Re-run refused coincident spring models: rotations eliminated by constraints no longer require a rotational stiffness scale (#761, PR #1940).",
+    "es": "Repita los modelos coincidentes con resortes rechazados: las rotaciones eliminadas por restricciones ya no requieren una escala de rigidez rotacional (#761, PR #1940).",
+    "pt": "Refaça modelos coincidentes com molas que foram recusados: rotações eliminadas por vínculos não exigem mais uma escala de rigidez rotacional (#761, PR #1940).",
+    "de": "Abgelehnte koinzidente Federmodelle neu berechnen: durch Kopplungen eliminierte Rotationen benötigen keine Rotationssteifigkeitsskala mehr (#761, PR #1940).",
+    "fr": "Relancer les modèles coïncidents à ressorts refusés : les rotations éliminées par les contraintes ne nécessitent plus une échelle de rigidité en rotation (#761, PR #1940).",
+    "tr": "Reddedilen çakışık yay modellerini yeniden hesaplayın: kısıtlarla kaldırılan dönmeler artık dönme rijitliği ölçeği gerektirmez (#761, PR #1940)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-admissible-point-categories.md",
+    "heading": "Constrained point models use admissible DOF categories (2026-11-11)"
+  }
+}

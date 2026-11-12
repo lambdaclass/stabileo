@@ -478,8 +478,7 @@ fn issue_1088_pdelta_plane_convergence() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1100"]
-fn issue_1100_nonlinear_mirror_convergence() {
+fn issue_1100_supported_nonlinear_mirrors_complete_comparisons() {
     holds(1100, 20759, &[("P-Delta", "mirror"), ("fiber nonlinear", "mirror")]);
 }
 
@@ -1465,8 +1464,7 @@ fn issue_1085_staged_settlement_is_applied_once_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #971"]
-fn issue_971_pdelta_units_convergence_remains_unresolved() {
+fn issue_971_pdelta_unit_changes_preserve_converged_response() {
     holds(971, 2026103104672, &[("P-Delta", "units")]);
 }
 
@@ -1651,4 +1649,14 @@ fn issue_1753_retained_pcg_units_inventory_accepts_verified_comparisons() {
         }
     }
     assert_retained_analysis_failures(seed, "d3", &t);
+}
+
+#[test]
+fn issue_1100_nonlinear_mirror_convergence() {
+    issue_1100_supported_nonlinear_mirrors_complete_comparisons();
+}
+
+#[test]
+fn issue_971_pdelta_units_convergence_remains_unresolved() {
+    issue_971_pdelta_unit_changes_preserve_converged_response();
 }

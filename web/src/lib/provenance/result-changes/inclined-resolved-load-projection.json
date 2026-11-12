@@ -1,0 +1,46 @@
+{
+  "id": "inclined-resolved-load-projection",
+  "date": "2026-11-11",
+  "prs": [
+    1940
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "inclinedSupports"
+    ],
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "curvedShells",
+        "connectors",
+        "springs"
+      ]
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Inclined supports retain resolved free loads",
+    "es": "Los apoyos inclinados conservan las cargas libres resolubles",
+    "pt": "Apoios inclinados preservam cargas livres resolvíveis",
+    "de": "Geneigte Auflager erhalten auflösbare freie Lasten",
+    "fr": "Les appuis inclinés conservent les charges libres résolubles",
+    "tr": "Eğik mesnetler çözülebilir serbest yükleri korur"
+  },
+  "explanation": {
+    "en": "Applied loads at inclined supports now use compensated projection in linear and nonlinear analyses. A small representable tangential load beside a large restrained load must retain its nonzero response. Nonlinear convergence no longer discards free residuals using the restrained load magnitude; fiber corrections project applied and internal forces before subtracting them. Re-run affected inclined-support analyses (#761, PR #1940).",
+    "es": "Las cargas en apoyos inclinados usan ahora proyección compensada en análisis lineales y no lineales. Una carga tangencial pequeña y representable junto a una carga restringida grande conserva su respuesta no nula. La convergencia no lineal ya no descarta residuos libres según la carga restringida; las correcciones de fibras proyectan las fuerzas antes de restarlas. Repita los análisis afectados (#761, PR #1940).",
+    "pt": "Cargas em apoios inclinados usam projeção compensada nas análises lineares e não lineares. Uma pequena carga tangencial representável ao lado de uma grande carga restrita preserva sua resposta não nula. A convergência não linear deixa de descartar resíduos livres pela magnitude da carga restrita; as correções de fibras projetam as forças antes da subtração. Refaça as análises afetadas (#761, PR #1940).",
+    "de": "Lasten an geneigten Auflagern werden in linearen und nichtlinearen Analysen kompensiert projiziert. Eine kleine darstellbare Tangentiallast neben einer großen gehaltenen Last behält ihre Antwort ungleich null. Die nichtlineare Konvergenz verwirft freie Residuen nicht mehr anhand der gehaltenen Last; Faserkorrekturen projizieren Kräfte vor der Subtraktion. Betroffene Analysen erneut ausführen (#761, PR #1940).",
+    "fr": "Les charges aux appuis inclinés utilisent une projection compensée en analyse linéaire et non linéaire. Une petite charge tangentielle représentable voisine d’une grande charge retenue conserve sa réponse non nulle. La convergence ne supprime plus les résidus libres selon la charge retenue ; les corrections de fibres projettent les forces avant soustraction. Relancer les analyses concernées (#761, PR #1940).",
+    "tr": "Eğik mesnetlerdeki yükler doğrusal ve doğrusal olmayan analizlerde telafili izdüşüm kullanır. Büyük bir kısıtlı yükün yanındaki küçük, gösterilebilir teğetsel yük sıfır olmayan yanıtını korur. Yakınsama, kısıtlı yük büyüklüğüne göre serbest artıkları silmez; lif düzeltmeleri kuvvetleri çıkarmadan önce izdüşürür. Etkilenen analizleri yeniden çalıştırın (#761, PR #1940)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-inclined-load-projection.md",
+    "heading": "Inclined supports retain representable free loads (2026-11-11)"
+  }
+}
