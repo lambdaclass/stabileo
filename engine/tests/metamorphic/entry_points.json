@@ -91,6 +91,24 @@
       "planes": {"tracked": 1497},
       "prepared": {"tracked": 1497}
     }},
+    "certify_buckling_result_2d": {"scope": "solve", "calls": "buckling::certify_buckling_result_2d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
+    "certify_buckling_result_3d": {"scope": "solve", "calls": "buckling::certify_buckling_result_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
     "certify_cfs_members": {"scope": "design"},
     "certify_cirsoc201_members": {"scope": "design"},
     "certify_cirsoc301_members": {"scope": "design"},

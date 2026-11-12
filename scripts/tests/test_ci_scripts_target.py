@@ -24,6 +24,16 @@ class CiScriptsTarget(unittest.TestCase):
         self.assertIn('scripts/tests/test_ci_scripts_target.py', tests)
         self.assertEqual([t for t in tests if not re.search(rf'(^|\s){re.escape(t)}(\s|$)', commands, re.M)], [])
 
+    def test_mjs_tests_have_targets_and_buckling_runs_in_ci(self):
+        makefile = (ROOT / 'Makefile').read_text()
+        workflows = '\n'.join(p.read_text() for p in (ROOT / '.github/workflows').glob('*.yml'))
+        targets = re.findall(r'\bmake ([\w.-]+)', workflows)
+        commands = workflows + ''.join(recipe(makefile, target) for target in targets)
+        self.assertIn('scripts/tests/buckling-818-wasm.mjs', commands)
+        commands += makefile
+        tests = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / 'scripts/tests').glob('*.mjs'))
+        self.assertEqual([t for t in tests if not re.search(rf'(^|\s){re.escape(t)}(\s|$)', commands, re.M)], [])
+
     def test_a_file_named_only_inside_another_path_does_not_count(self):
         makefile = 'test.ci-scripts: test.a\n\tpython3 scripts/tests/test_x.py.bak\ntest.a:\n\tnode --test scripts/tests/y.test.cjs\n'
         commands = recipe(makefile, 'test.ci-scripts')

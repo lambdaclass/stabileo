@@ -265,6 +265,23 @@ pub fn certify_buckling_2d(json: &str, num_modes: usize) -> Result<String, JsVal
     to_json(&results)
 }
 
+#[wasm_bindgen]
+pub fn certify_buckling_result_2d(json: &str, results_json: &str) -> Result<String, JsValue> {
+    let input = serde_json::from_str(json).map_err(|e| JsValue::from_str(&format!("Parse error: {e}")))?;
+    let results = serde_json::from_str(results_json).map_err(|e| JsValue::from_str(&format!("Parse error: {e}")))?;
+    let out = certify::buckling::certify_buckling_result_2d(&input, results).map_err(|e| JsValue::from_str(&e))?;
+    to_json(&out)
+}
+
+#[wasm_bindgen]
+pub fn certify_buckling_result_3d(json: &str, results_json: &str) -> Result<String, JsValue> {
+    let input = serde_json::from_str(json).map_err(|e| JsValue::from_str(&format!("Parse error: {e}")))?;
+    let results = serde_json::from_str(results_json).map_err(|e| JsValue::from_str(&format!("Parse error: {e}")))?;
+    let out = certify::buckling::certify_buckling_result_3d(&input, results).map_err(|e| JsValue::from_str(&e))?;
+    to_json(&out)
+}
+
+
 /// Solve 2D modal analysis. JSON in → JSON out.
 /// densities_json: { "materialId": density_kg_m3, ... }
 #[wasm_bindgen]

@@ -878,6 +878,11 @@ evidence.research.feher:
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate -- --write
 	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("$(FEHER_DIR)/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
 
+.PHONY: test.engine.buckling-818-wasm
+
+test.engine.buckling-818-wasm: wasm
+	$(NIX_RUN) node scripts/tests/buckling-818-wasm.mjs
+
 .PHONY: test.engine.frozen-shell-refusals
 test.engine.frozen-shell-refusals: wasm
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib frozen_shell_refusals -- --nocapture
