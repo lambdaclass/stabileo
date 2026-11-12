@@ -1656,3 +1656,92 @@ r8_slave_test!(
     2
 );
 r8_slave_test!(issue_1952_r8_continued_arc, "continued_arc", 2);
+
+fn loaded_chord_tip_equilibrium(dim: usize, kind: &str) {
+    let mut m = model(dim, false);
+    m["materials"]["1"]["e"] = json!(200.0);
+    m["loads"] = if dim == 2 {
+        json!([{"type":"distributed","data":{"elementId":1,"qI":-2.0,"qJ":-2.0}}])
+    } else {
+        json!([{"type":"distributed","data":{"elementId":1,"qYI":0.0,"qYJ":0.0,"qZI":-2.0,"qZJ":-2.0}}])
+    };
+    let (r, factor) = if kind == "displacement" {
+        let i = serde_json::from_value(json!({"solver":m,"controlNode":1,"controlDof":1,"targetDisplacement":-1.0,"nSteps":10,"maxIter":40,"tolerance":1e-9})).unwrap();
+        let result = arc_length::solve_displacement_control(&i).unwrap();
+        assert!(result.converged);
+        (
+            serde_json::to_value(result.results).unwrap(),
+            result.final_load_factor,
+        )
+    } else {
+        run(kind, dim, &m)
+    };
+    assert!(factor.is_finite() && factor > 0.0);
+    let forces = r["elementForces"].as_array().unwrap();
+    assert_eq!(forces.len(), 1);
+    let f = &forces[0];
+    let d = r["displacements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["nodeId"] == 1)
+        .unwrap();
+    let x = 3.0 + d["ux"].as_f64().unwrap();
+    let z = d["uz"].as_f64().unwrap();
+    let length = x.hypot(z);
+    assert!(z.abs() > 1e-4, "{kind} must rotate the loaded chord");
+    assert!((f["length"].as_f64().unwrap() - length).abs() < 1e-9);
+    let end_keys: &[&str] = if dim == 2 {
+        &["nEnd", "vEnd", "mEnd"]
+    } else {
+        &["nEnd", "vyEnd", "vzEnd", "mxEnd", "myEnd", "mzEnd"]
+    };
+    for key in end_keys {
+        assert!(
+            f[key].as_f64().unwrap().abs() < 1e-6,
+            "{kind} {dim}D free tip {key}: {f}"
+        );
+    }
+    let reaction = r["reactions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["nodeId"] == 0)
+        .unwrap();
+    let (fx, fz) = if dim == 2 { ("rx", "rz") } else { ("fx", "fz") };
+    let expected_n =
+        -(x * reaction[fx].as_f64().unwrap() + z * reaction[fz].as_f64().unwrap()) / length;
+    assert!(
+        (f["nStart"].as_f64().unwrap() - expected_n).abs() < 1e-6,
+        "{kind} {dim}D reaction reference: {f}"
+    );
+    let q = -2.0 * factor;
+    assert!(
+        (f["nEnd"].as_f64().unwrap() - f["nStart"].as_f64().unwrap() + q * 3.0 * z / length).abs()
+            < 1e-6
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r9_loaded_chord_native_2d() {
+    loaded_chord_tip_equilibrium(2, "corotational");
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r9_loaded_chord_arc() {
+    loaded_chord_tip_equilibrium(2, "arc");
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r9_loaded_chord_displacement() {
+    loaded_chord_tip_equilibrium(2, "displacement");
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r9_loaded_chord_native_3d() {
+    loaded_chord_tip_equilibrium(3, "corotational");
+}

@@ -2903,3 +2903,144 @@ mod r8_tests {
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 }
+
+#[cfg(test)]
+mod r9_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn close(actual: f64, expected: f64) {
+        assert!(
+            actual.is_finite() && (actual - expected).abs() < 1e-9,
+            "{actual} != {expected}"
+        );
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn issue_1952_r9_reference_load_in_final_frame_2d() {
+        for alpha in [-1.0_f64, -1e-8, 0.0, 1e-8, 1.0] {
+            for hinge in [false, true] {
+                for load in [
+                    json!({"type":"distributed","data":{"elementId":1,"qI":-2.0,"qJ":-2.0}}),
+                    json!({"type":"distributed","data":{"elementId":1,"qI":-2.0,"qJ":-1.0,"a":0.4,"b":2.6}}),
+                    json!({"type":"pointOnElement","data":{"elementId":1,"p":-2.0,"px":1.0,"a":1.2}}),
+                    json!({"type":"axialDistributed","data":{"elementId":1,"qI":1.0,"qJ":2.0}}),
+                ] {
+                    let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                        "../../tests/fixtures/reaction-recovery-2d.json"
+                    ))
+                    .unwrap();
+                    m["loads"] = json!([load]);
+                    m["elements"]["1"]["hingeEnd"] = json!(hinge);
+                    let input: SolverInput = serde_json::from_value(m).unwrap();
+                    let dofs = DofNumbering::build_2d(&input);
+                    let zero = vec![0.0; dofs.n_total];
+                    let reference = super::super::linear::compute_internal_forces_2d_with_loads(
+                        &input,
+                        &input.loads,
+                        &dofs,
+                        &zero,
+                    );
+                    assert_eq!(reference.len(), 1);
+                    let fe = &reference[0];
+                    let mut u = zero;
+                    u[dofs.global_dof(1, 0).unwrap()] = 3.0 * (alpha.cos() - 1.0);
+                    u[dofs.global_dof(1, 1).unwrap()] = 3.0 * alpha.sin();
+                    for node in [0, 1] {
+                        u[dofs.global_dof(node, 2).unwrap()] = alpha;
+                    }
+                    let result = compute_corotational_forces(&input, &dofs, &u);
+                    assert_eq!(result.len(), 1);
+                    let f = &result[0];
+                    for (n, v, rn, rv) in [
+                        (f.n_start, f.v_start, fe.n_start, fe.v_start),
+                        (f.n_end, f.v_end, fe.n_end, fe.v_end),
+                    ] {
+                        close(n, alpha.cos() * rn - alpha.sin() * rv);
+                        close(v, alpha.sin() * rn + alpha.cos() * rv);
+                    }
+                    close(f.m_start, fe.m_start);
+                    close(f.m_end, fe.m_end);
+                    close(f.length, 3.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn issue_1952_r9_reference_load_in_final_frame_3d() {
+        for alpha in [-1.0_f64, -1e-8, 0.0, 1e-8, 1.0] {
+            for axis in [1, 2] {
+                let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                    "../../tests/fixtures/reaction-recovery-3d.json"
+                ))
+                .unwrap();
+                m["elements"]["1"]["localYx"] = json!(0.0);
+                m["elements"]["1"]["localYy"] = json!(1.0);
+                m["elements"]["1"]["localYz"] = json!(0.0);
+                m["loads"] = json!([{"type":"distributed","data":{"elementId":1,"qYI":-2.0,"qYJ":-2.0,"qZI":-3.0,"qZJ":-3.0}}]);
+                let input: SolverInput3D = serde_json::from_value(m).unwrap();
+                let dofs = DofNumbering::build_3d(&input);
+                let zero = vec![0.0; dofs.n_total];
+                let reference = super::super::linear::compute_internal_forces_3d_with_loads(
+                    &input,
+                    &input.loads,
+                    &dofs,
+                    &zero,
+                );
+                assert_eq!(reference.len(), 1);
+                let fe = &reference[0];
+                let mut u = zero;
+                u[dofs.global_dof(1, 0).unwrap()] = 3.0 * (alpha.cos() - 1.0);
+                let transverse = if axis == 1 { 2 } else { 1 };
+                let sign = if axis == 1 { -1.0 } else { 1.0 };
+                u[dofs.global_dof(1, transverse).unwrap()] = sign * 3.0 * alpha.sin();
+                for node in [0, 1] {
+                    u[dofs.global_dof(node, 3 + axis).unwrap()] = alpha;
+                }
+                let result = compute_corotational_forces_3d(&input, &dofs, &u, false);
+                assert_eq!(result.len(), 1);
+                let f = &result[0];
+                let turn = |a: [f64; 3]| {
+                    if axis == 1 {
+                        [
+                            alpha.cos() * a[0] - alpha.sin() * a[2],
+                            a[1],
+                            alpha.sin() * a[0] + alpha.cos() * a[2],
+                        ]
+                    } else {
+                        [
+                            alpha.cos() * a[0] + alpha.sin() * a[1],
+                            -alpha.sin() * a[0] + alpha.cos() * a[1],
+                            a[2],
+                        ]
+                    }
+                };
+                for (a, b) in [
+                    (
+                        [-f.n_start, f.vy_start, f.vz_start],
+                        [-fe.n_start, fe.vy_start, fe.vz_start],
+                    ),
+                    (
+                        [f.n_end, -f.vy_end, -f.vz_end],
+                        [fe.n_end, -fe.vy_end, -fe.vz_end],
+                    ),
+                    (
+                        [f.mx_start, f.my_start, f.mz_start],
+                        [fe.mx_start, fe.my_start, fe.mz_start],
+                    ),
+                    (
+                        [-f.mx_end, -f.my_end, -f.mz_end],
+                        [-fe.mx_end, -fe.my_end, -fe.mz_end],
+                    ),
+                ] {
+                    for (v, expected) in a.into_iter().zip(turn(b)) {
+                        close(v, expected);
+                    }
+                }
+            }
+        }
+    }
+}
