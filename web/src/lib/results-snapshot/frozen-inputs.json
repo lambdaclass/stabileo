@@ -1,0 +1,3411 @@
+[
+  {
+    "model": "solve_ssi_2d-c703b27bda5f4eb8.json",
+    "analysis": "solve_ssi_2d",
+    "input": [
+      {
+        "maxIter": 50,
+        "soilSprings": [
+          {
+            "curve": {
+              "perimeter": 1.8849555921538759,
+              "t_ult": 60.0,
+              "type": "tz",
+              "z_ult": 0.008
+            },
+            "direction": 1,
+            "nodeId": 2,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.8849555921538759,
+              "t_ult": 60.0,
+              "type": "tz",
+              "z_ult": 0.008
+            },
+            "direction": 1,
+            "nodeId": 3,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.8849555921538759,
+              "t_ult": 60.0,
+              "type": "tz",
+              "z_ult": 0.008
+            },
+            "direction": 1,
+            "nodeId": 4,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.8849555921538759,
+              "t_ult": 60.0,
+              "type": "tz",
+              "z_ult": 0.008
+            },
+            "direction": 1,
+            "nodeId": 5,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.8849555921538759,
+              "t_ult": 60.0,
+              "type": "tz",
+              "z_ult": 0.008
+            },
+            "direction": 1,
+            "nodeId": 6,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.8849555921538759,
+              "t_ult": 60.0,
+              "type": "tz",
+              "z_ult": 0.008
+            },
+            "direction": 1,
+            "nodeId": 7,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.8849555921538759,
+              "t_ult": 60.0,
+              "type": "tz",
+              "z_ult": 0.008
+            },
+            "direction": 1,
+            "nodeId": 8,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.8849555921538759,
+              "t_ult": 60.0,
+              "type": "tz",
+              "z_ult": 0.008
+            },
+            "direction": 1,
+            "nodeId": 9,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.8849555921538759,
+              "t_ult": 60.0,
+              "type": "tz",
+              "z_ult": 0.008
+            },
+            "direction": 1,
+            "nodeId": 10,
+            "tributaryLength": 1.0
+          }
+        ],
+        "solver": {
+          "connectors": {},
+          "constraints": [],
+          "elements": {
+            "1": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 1,
+              "materialId": 1,
+              "nodeI": 1,
+              "nodeJ": 2,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "10": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 10,
+              "materialId": 1,
+              "nodeI": 10,
+              "nodeJ": 11,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "2": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 2,
+              "materialId": 1,
+              "nodeI": 2,
+              "nodeJ": 3,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "3": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 3,
+              "materialId": 1,
+              "nodeI": 3,
+              "nodeJ": 4,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "4": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 4,
+              "materialId": 1,
+              "nodeI": 4,
+              "nodeJ": 5,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "5": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 5,
+              "materialId": 1,
+              "nodeI": 5,
+              "nodeJ": 6,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "6": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 6,
+              "materialId": 1,
+              "nodeI": 6,
+              "nodeJ": 7,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "7": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 7,
+              "materialId": 1,
+              "nodeI": 7,
+              "nodeJ": 8,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "8": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 8,
+              "materialId": 1,
+              "nodeI": 8,
+              "nodeJ": 9,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "9": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 9,
+              "materialId": 1,
+              "nodeI": 9,
+              "nodeJ": 10,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "loads": [
+            {
+              "data": {
+                "fx": 0.0,
+                "fz": -300.0,
+                "my": 0.0,
+                "nodeId": 1
+              },
+              "type": "nodal"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 30000.0,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "1": {
+              "id": 1,
+              "x": 0.0,
+              "z": -0.0
+            },
+            "10": {
+              "id": 10,
+              "x": 0.0,
+              "z": -9.0
+            },
+            "11": {
+              "id": 11,
+              "x": 0.0,
+              "z": -10.0
+            },
+            "2": {
+              "id": 2,
+              "x": 0.0,
+              "z": -1.0
+            },
+            "3": {
+              "id": 3,
+              "x": 0.0,
+              "z": -2.0
+            },
+            "4": {
+              "id": 4,
+              "x": 0.0,
+              "z": -3.0
+            },
+            "5": {
+              "id": 5,
+              "x": 0.0,
+              "z": -4.0
+            },
+            "6": {
+              "id": 6,
+              "x": 0.0,
+              "z": -5.0
+            },
+            "7": {
+              "id": 7,
+              "x": 0.0,
+              "z": -6.0
+            },
+            "8": {
+              "id": 8,
+              "x": 0.0,
+              "z": -7.0
+            },
+            "9": {
+              "id": 9,
+              "x": 0.0,
+              "z": -8.0
+            }
+          },
+          "sections": {
+            "1": {
+              "a": 0.2827433388230814,
+              "asY": null,
+              "id": 1,
+              "iz": 0.0063617251235193305
+            }
+          },
+          "solverOptions": null,
+          "supports": {
+            "1": {
+              "angle": null,
+              "dry": null,
+              "dx": null,
+              "dz": null,
+              "id": 1,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 11,
+              "type": "pinned"
+            }
+          }
+        },
+        "tolerance": 0.0001
+      }
+    ],
+    "test": "benchmarks::ssi_benchmark::benchmark_ssi_vertical_pile_capacity"
+  },
+  {
+    "model": "solve_ssi_2d-1e44a77f97d2f732.json",
+    "analysis": "solve_ssi_2d",
+    "input": [
+      {
+        "maxIter": 200,
+        "soilSprings": [
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 1.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 2,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 2.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 3,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 3.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 4,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 4.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 5,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 5.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 6,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 6.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 7,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 7.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 8,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 8.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 9,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 9.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 10,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 10.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 11,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 11.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 12,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 12.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 13,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 13.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 14,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 14.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 15,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 15.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 16,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 16.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 17,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 17.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 18,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 18.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 19,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 19.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 20,
+            "tributaryLength": 1.0
+          }
+        ],
+        "solver": {
+          "connectors": {},
+          "constraints": [],
+          "elements": {
+            "1": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 1,
+              "materialId": 1,
+              "nodeI": 1,
+              "nodeJ": 2,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "10": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 10,
+              "materialId": 1,
+              "nodeI": 10,
+              "nodeJ": 11,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "11": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 11,
+              "materialId": 1,
+              "nodeI": 11,
+              "nodeJ": 12,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "12": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 12,
+              "materialId": 1,
+              "nodeI": 12,
+              "nodeJ": 13,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "13": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 13,
+              "materialId": 1,
+              "nodeI": 13,
+              "nodeJ": 14,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "14": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 14,
+              "materialId": 1,
+              "nodeI": 14,
+              "nodeJ": 15,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "15": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 15,
+              "materialId": 1,
+              "nodeI": 15,
+              "nodeJ": 16,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "16": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 16,
+              "materialId": 1,
+              "nodeI": 16,
+              "nodeJ": 17,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "17": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 17,
+              "materialId": 1,
+              "nodeI": 17,
+              "nodeJ": 18,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "18": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 18,
+              "materialId": 1,
+              "nodeI": 18,
+              "nodeJ": 19,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "19": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 19,
+              "materialId": 1,
+              "nodeI": 19,
+              "nodeJ": 20,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "2": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 2,
+              "materialId": 1,
+              "nodeI": 2,
+              "nodeJ": 3,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "20": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 20,
+              "materialId": 1,
+              "nodeI": 20,
+              "nodeJ": 21,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "3": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 3,
+              "materialId": 1,
+              "nodeI": 3,
+              "nodeJ": 4,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "4": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 4,
+              "materialId": 1,
+              "nodeI": 4,
+              "nodeJ": 5,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "5": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 5,
+              "materialId": 1,
+              "nodeI": 5,
+              "nodeJ": 6,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "6": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 6,
+              "materialId": 1,
+              "nodeI": 6,
+              "nodeJ": 7,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "7": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 7,
+              "materialId": 1,
+              "nodeI": 7,
+              "nodeJ": 8,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "8": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 8,
+              "materialId": 1,
+              "nodeI": 8,
+              "nodeJ": 9,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "9": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 9,
+              "materialId": 1,
+              "nodeI": 9,
+              "nodeJ": 10,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "loads": [
+            {
+              "data": {
+                "fx": 200.0,
+                "fz": 0.0,
+                "my": 0.0,
+                "nodeId": 1
+              },
+              "type": "nodal"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 10185.916357881302,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "1": {
+              "id": 1,
+              "x": 0.0,
+              "z": -0.0
+            },
+            "10": {
+              "id": 10,
+              "x": 0.0,
+              "z": -9.0
+            },
+            "11": {
+              "id": 11,
+              "x": 0.0,
+              "z": -10.0
+            },
+            "12": {
+              "id": 12,
+              "x": 0.0,
+              "z": -11.0
+            },
+            "13": {
+              "id": 13,
+              "x": 0.0,
+              "z": -12.0
+            },
+            "14": {
+              "id": 14,
+              "x": 0.0,
+              "z": -13.0
+            },
+            "15": {
+              "id": 15,
+              "x": 0.0,
+              "z": -14.0
+            },
+            "16": {
+              "id": 16,
+              "x": 0.0,
+              "z": -15.0
+            },
+            "17": {
+              "id": 17,
+              "x": 0.0,
+              "z": -16.0
+            },
+            "18": {
+              "id": 18,
+              "x": 0.0,
+              "z": -17.0
+            },
+            "19": {
+              "id": 19,
+              "x": 0.0,
+              "z": -18.0
+            },
+            "2": {
+              "id": 2,
+              "x": 0.0,
+              "z": -1.0
+            },
+            "20": {
+              "id": 20,
+              "x": 0.0,
+              "z": -19.0
+            },
+            "21": {
+              "id": 21,
+              "x": 0.0,
+              "z": -20.0
+            },
+            "3": {
+              "id": 3,
+              "x": 0.0,
+              "z": -2.0
+            },
+            "4": {
+              "id": 4,
+              "x": 0.0,
+              "z": -3.0
+            },
+            "5": {
+              "id": 5,
+              "x": 0.0,
+              "z": -4.0
+            },
+            "6": {
+              "id": 6,
+              "x": 0.0,
+              "z": -5.0
+            },
+            "7": {
+              "id": 7,
+              "x": 0.0,
+              "z": -6.0
+            },
+            "8": {
+              "id": 8,
+              "x": 0.0,
+              "z": -7.0
+            },
+            "9": {
+              "id": 9,
+              "x": 0.0,
+              "z": -8.0
+            }
+          },
+          "sections": {
+            "1": {
+              "a": 0.7853981633974483,
+              "asY": null,
+              "id": 1,
+              "iz": 0.04908738521234052
+            }
+          },
+          "solverOptions": null,
+          "supports": {
+            "1": {
+              "angle": null,
+              "dry": null,
+              "dx": null,
+              "dz": null,
+              "id": 1,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 21,
+              "type": "pinned"
+            }
+          }
+        },
+        "tolerance": 0.0001
+      }
+    ],
+    "test": "benchmarks::ssi_benchmark::ssi_sparse_path_parity_with_dense"
+  },
+  {
+    "model": "solve_ssi_2d-9d1d31be49ba5639.json",
+    "analysis": "solve_ssi_2d",
+    "input": [
+      {
+        "maxIter": 50,
+        "soilSprings": [
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 1.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 2,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 2.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 3,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 3.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 4,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 4.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 5,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 5.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 6,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 6.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 7,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 7.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 8,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 8.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 9,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 9.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 10,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 10.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 11,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 11.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 12,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 12.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 13,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 13.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 14,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 14.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 15,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 15.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 16,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 16.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 17,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 17.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 18,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 18.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 19,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 19.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 20,
+            "tributaryLength": 1.0
+          }
+        ],
+        "solver": {
+          "connectors": {},
+          "constraints": [],
+          "elements": {
+            "1": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 1,
+              "materialId": 1,
+              "nodeI": 1,
+              "nodeJ": 2,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "10": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 10,
+              "materialId": 1,
+              "nodeI": 10,
+              "nodeJ": 11,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "11": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 11,
+              "materialId": 1,
+              "nodeI": 11,
+              "nodeJ": 12,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "12": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 12,
+              "materialId": 1,
+              "nodeI": 12,
+              "nodeJ": 13,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "13": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 13,
+              "materialId": 1,
+              "nodeI": 13,
+              "nodeJ": 14,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "14": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 14,
+              "materialId": 1,
+              "nodeI": 14,
+              "nodeJ": 15,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "15": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 15,
+              "materialId": 1,
+              "nodeI": 15,
+              "nodeJ": 16,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "16": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 16,
+              "materialId": 1,
+              "nodeI": 16,
+              "nodeJ": 17,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "17": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 17,
+              "materialId": 1,
+              "nodeI": 17,
+              "nodeJ": 18,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "18": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 18,
+              "materialId": 1,
+              "nodeI": 18,
+              "nodeJ": 19,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "19": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 19,
+              "materialId": 1,
+              "nodeI": 19,
+              "nodeJ": 20,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "2": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 2,
+              "materialId": 1,
+              "nodeI": 2,
+              "nodeJ": 3,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "20": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 20,
+              "materialId": 1,
+              "nodeI": 20,
+              "nodeJ": 21,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "3": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 3,
+              "materialId": 1,
+              "nodeI": 3,
+              "nodeJ": 4,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "4": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 4,
+              "materialId": 1,
+              "nodeI": 4,
+              "nodeJ": 5,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "5": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 5,
+              "materialId": 1,
+              "nodeI": 5,
+              "nodeJ": 6,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "6": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 6,
+              "materialId": 1,
+              "nodeI": 6,
+              "nodeJ": 7,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "7": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 7,
+              "materialId": 1,
+              "nodeI": 7,
+              "nodeJ": 8,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "8": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 8,
+              "materialId": 1,
+              "nodeI": 8,
+              "nodeJ": 9,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "9": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 9,
+              "materialId": 1,
+              "nodeI": 9,
+              "nodeJ": 10,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "loads": [
+            {
+              "data": {
+                "fx": 200.0,
+                "fz": 0.0,
+                "my": 0.0,
+                "nodeId": 1
+              },
+              "type": "nodal"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 10185.916357881302,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "1": {
+              "id": 1,
+              "x": 0.0,
+              "z": -0.0
+            },
+            "10": {
+              "id": 10,
+              "x": 0.0,
+              "z": -9.0
+            },
+            "11": {
+              "id": 11,
+              "x": 0.0,
+              "z": -10.0
+            },
+            "12": {
+              "id": 12,
+              "x": 0.0,
+              "z": -11.0
+            },
+            "13": {
+              "id": 13,
+              "x": 0.0,
+              "z": -12.0
+            },
+            "14": {
+              "id": 14,
+              "x": 0.0,
+              "z": -13.0
+            },
+            "15": {
+              "id": 15,
+              "x": 0.0,
+              "z": -14.0
+            },
+            "16": {
+              "id": 16,
+              "x": 0.0,
+              "z": -15.0
+            },
+            "17": {
+              "id": 17,
+              "x": 0.0,
+              "z": -16.0
+            },
+            "18": {
+              "id": 18,
+              "x": 0.0,
+              "z": -17.0
+            },
+            "19": {
+              "id": 19,
+              "x": 0.0,
+              "z": -18.0
+            },
+            "2": {
+              "id": 2,
+              "x": 0.0,
+              "z": -1.0
+            },
+            "20": {
+              "id": 20,
+              "x": 0.0,
+              "z": -19.0
+            },
+            "21": {
+              "id": 21,
+              "x": 0.0,
+              "z": -20.0
+            },
+            "3": {
+              "id": 3,
+              "x": 0.0,
+              "z": -2.0
+            },
+            "4": {
+              "id": 4,
+              "x": 0.0,
+              "z": -3.0
+            },
+            "5": {
+              "id": 5,
+              "x": 0.0,
+              "z": -4.0
+            },
+            "6": {
+              "id": 6,
+              "x": 0.0,
+              "z": -5.0
+            },
+            "7": {
+              "id": 7,
+              "x": 0.0,
+              "z": -6.0
+            },
+            "8": {
+              "id": 8,
+              "x": 0.0,
+              "z": -7.0
+            },
+            "9": {
+              "id": 9,
+              "x": 0.0,
+              "z": -8.0
+            }
+          },
+          "sections": {
+            "1": {
+              "a": 0.7853981633974483,
+              "asY": null,
+              "id": 1,
+              "iz": 0.04908738521234052
+            }
+          },
+          "solverOptions": null,
+          "supports": {
+            "1": {
+              "angle": null,
+              "dry": null,
+              "dx": null,
+              "dz": null,
+              "id": 1,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 21,
+              "type": "pinned"
+            }
+          }
+        },
+        "tolerance": 0.0001
+      }
+    ],
+    "test": "benchmarks::ssi_benchmark::benchmark_ssi_soft_clay_lateral_pile"
+  },
+  {
+    "model": "solve_ssi_2d-169f627ba8e7f8cf.json",
+    "analysis": "solve_ssi_2d",
+    "input": [
+      {
+        "maxIter": 50,
+        "soilSprings": [
+          {
+            "curve": {
+              "perimeter": 1.5707963267948966,
+              "t_ult": 80.0,
+              "type": "tz",
+              "z_ult": 0.005
+            },
+            "direction": 1,
+            "nodeId": 2,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.5707963267948966,
+              "t_ult": 80.0,
+              "type": "tz",
+              "z_ult": 0.005
+            },
+            "direction": 1,
+            "nodeId": 3,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.5707963267948966,
+              "t_ult": 80.0,
+              "type": "tz",
+              "z_ult": 0.005
+            },
+            "direction": 1,
+            "nodeId": 4,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.5707963267948966,
+              "t_ult": 80.0,
+              "type": "tz",
+              "z_ult": 0.005
+            },
+            "direction": 1,
+            "nodeId": 5,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.5707963267948966,
+              "t_ult": 80.0,
+              "type": "tz",
+              "z_ult": 0.005
+            },
+            "direction": 1,
+            "nodeId": 6,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.5707963267948966,
+              "t_ult": 80.0,
+              "type": "tz",
+              "z_ult": 0.005
+            },
+            "direction": 1,
+            "nodeId": 7,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.5707963267948966,
+              "t_ult": 80.0,
+              "type": "tz",
+              "z_ult": 0.005
+            },
+            "direction": 1,
+            "nodeId": 8,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.5707963267948966,
+              "t_ult": 80.0,
+              "type": "tz",
+              "z_ult": 0.005
+            },
+            "direction": 1,
+            "nodeId": 9,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "perimeter": 1.5707963267948966,
+              "t_ult": 80.0,
+              "type": "tz",
+              "z_ult": 0.005
+            },
+            "direction": 1,
+            "nodeId": 10,
+            "tributaryLength": 1.0
+          }
+        ],
+        "solver": {
+          "connectors": {},
+          "constraints": [],
+          "elements": {
+            "1": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 1,
+              "materialId": 1,
+              "nodeI": 1,
+              "nodeJ": 2,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "10": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 10,
+              "materialId": 1,
+              "nodeI": 10,
+              "nodeJ": 11,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "2": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 2,
+              "materialId": 1,
+              "nodeI": 2,
+              "nodeJ": 3,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "3": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 3,
+              "materialId": 1,
+              "nodeI": 3,
+              "nodeJ": 4,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "4": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 4,
+              "materialId": 1,
+              "nodeI": 4,
+              "nodeJ": 5,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "5": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 5,
+              "materialId": 1,
+              "nodeI": 5,
+              "nodeJ": 6,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "6": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 6,
+              "materialId": 1,
+              "nodeI": 6,
+              "nodeJ": 7,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "7": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 7,
+              "materialId": 1,
+              "nodeI": 7,
+              "nodeJ": 8,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "8": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 8,
+              "materialId": 1,
+              "nodeI": 8,
+              "nodeJ": 9,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "9": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 9,
+              "materialId": 1,
+              "nodeI": 9,
+              "nodeJ": 10,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "loads": [
+            {
+              "data": {
+                "fx": 0.0,
+                "fz": -500.0,
+                "my": 0.0,
+                "nodeId": 1
+              },
+              "type": "nodal"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 200000.0,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "1": {
+              "id": 1,
+              "x": 0.0,
+              "z": -0.0
+            },
+            "10": {
+              "id": 10,
+              "x": 0.0,
+              "z": -9.0
+            },
+            "11": {
+              "id": 11,
+              "x": 0.0,
+              "z": -10.0
+            },
+            "2": {
+              "id": 2,
+              "x": 0.0,
+              "z": -1.0
+            },
+            "3": {
+              "id": 3,
+              "x": 0.0,
+              "z": -2.0
+            },
+            "4": {
+              "id": 4,
+              "x": 0.0,
+              "z": -3.0
+            },
+            "5": {
+              "id": 5,
+              "x": 0.0,
+              "z": -4.0
+            },
+            "6": {
+              "id": 6,
+              "x": 0.0,
+              "z": -5.0
+            },
+            "7": {
+              "id": 7,
+              "x": 0.0,
+              "z": -6.0
+            },
+            "8": {
+              "id": 8,
+              "x": 0.0,
+              "z": -7.0
+            },
+            "9": {
+              "id": 9,
+              "x": 0.0,
+              "z": -8.0
+            }
+          },
+          "sections": {
+            "1": {
+              "a": 0.19634954084936207,
+              "asY": null,
+              "id": 1,
+              "iz": 0.0030679615757712823
+            }
+          },
+          "solverOptions": null,
+          "supports": {
+            "1": {
+              "angle": null,
+              "dry": null,
+              "dx": null,
+              "dz": null,
+              "id": 1,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 11,
+              "type": "pinned"
+            }
+          }
+        },
+        "tolerance": 0.0001
+      }
+    ],
+    "test": "benchmarks::ssi_benchmark::benchmark_ssi_tz_shaft_friction"
+  },
+  {
+    "model": "solve_ssi_2d-67ebce54f921280e.json",
+    "analysis": "solve_ssi_2d",
+    "input": [
+      {
+        "maxIter": 200,
+        "soilSprings": [
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 0.8333333333333334,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 2,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 1.6666666666666667,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 3,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 2.5,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 4,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 3.3333333333333335,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 5,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 4.166666666666667,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 6,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 5.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 7,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 5.833333333333334,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 8,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 6.666666666666667,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 9,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 7.5,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 10,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 8.333333333333334,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 11,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 9.166666666666668,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 12,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 10.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 13,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 10.833333333333334,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 14,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 11.666666666666668,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 15,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 12.5,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 16,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 13.333333333333334,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 17,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 14.166666666666668,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 18,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 15.0,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 19,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 15.833333333333334,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 20,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 16.666666666666668,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 21,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 17.5,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 22,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 18.333333333333336,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 23,
+            "tributaryLength": 0.8333333333333334
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 19.166666666666668,
+              "eps_50": 0.01,
+              "gamma_eff": 9.0,
+              "j": 0.5,
+              "su": 50.0,
+              "type": "py_soft_clay"
+            },
+            "direction": 0,
+            "nodeId": 24,
+            "tributaryLength": 0.8333333333333334
+          }
+        ],
+        "solver": {
+          "connectors": {},
+          "constraints": [],
+          "elements": {
+            "1": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 1,
+              "materialId": 1,
+              "nodeI": 1,
+              "nodeJ": 2,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "10": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 10,
+              "materialId": 1,
+              "nodeI": 10,
+              "nodeJ": 11,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "11": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 11,
+              "materialId": 1,
+              "nodeI": 11,
+              "nodeJ": 12,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "12": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 12,
+              "materialId": 1,
+              "nodeI": 12,
+              "nodeJ": 13,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "13": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 13,
+              "materialId": 1,
+              "nodeI": 13,
+              "nodeJ": 14,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "14": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 14,
+              "materialId": 1,
+              "nodeI": 14,
+              "nodeJ": 15,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "15": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 15,
+              "materialId": 1,
+              "nodeI": 15,
+              "nodeJ": 16,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "16": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 16,
+              "materialId": 1,
+              "nodeI": 16,
+              "nodeJ": 17,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "17": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 17,
+              "materialId": 1,
+              "nodeI": 17,
+              "nodeJ": 18,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "18": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 18,
+              "materialId": 1,
+              "nodeI": 18,
+              "nodeJ": 19,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "19": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 19,
+              "materialId": 1,
+              "nodeI": 19,
+              "nodeJ": 20,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "2": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 2,
+              "materialId": 1,
+              "nodeI": 2,
+              "nodeJ": 3,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "20": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 20,
+              "materialId": 1,
+              "nodeI": 20,
+              "nodeJ": 21,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "21": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 21,
+              "materialId": 1,
+              "nodeI": 21,
+              "nodeJ": 22,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "22": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 22,
+              "materialId": 1,
+              "nodeI": 22,
+              "nodeJ": 23,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "23": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 23,
+              "materialId": 1,
+              "nodeI": 23,
+              "nodeJ": 24,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "24": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 24,
+              "materialId": 1,
+              "nodeI": 24,
+              "nodeJ": 25,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "3": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 3,
+              "materialId": 1,
+              "nodeI": 3,
+              "nodeJ": 4,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "4": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 4,
+              "materialId": 1,
+              "nodeI": 4,
+              "nodeJ": 5,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "5": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 5,
+              "materialId": 1,
+              "nodeI": 5,
+              "nodeJ": 6,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "6": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 6,
+              "materialId": 1,
+              "nodeI": 6,
+              "nodeJ": 7,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "7": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 7,
+              "materialId": 1,
+              "nodeI": 7,
+              "nodeJ": 8,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "8": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 8,
+              "materialId": 1,
+              "nodeI": 8,
+              "nodeJ": 9,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "9": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 9,
+              "materialId": 1,
+              "nodeI": 9,
+              "nodeJ": 10,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "loads": [
+            {
+              "data": {
+                "fx": 200.0,
+                "fz": 0.0,
+                "my": 0.0,
+                "nodeId": 1
+              },
+              "type": "nodal"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 10185.916357881302,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "1": {
+              "id": 1,
+              "x": 0.0,
+              "z": -0.0
+            },
+            "10": {
+              "id": 10,
+              "x": 0.0,
+              "z": -7.5
+            },
+            "11": {
+              "id": 11,
+              "x": 0.0,
+              "z": -8.333333333333334
+            },
+            "12": {
+              "id": 12,
+              "x": 0.0,
+              "z": -9.166666666666668
+            },
+            "13": {
+              "id": 13,
+              "x": 0.0,
+              "z": -10.0
+            },
+            "14": {
+              "id": 14,
+              "x": 0.0,
+              "z": -10.833333333333334
+            },
+            "15": {
+              "id": 15,
+              "x": 0.0,
+              "z": -11.666666666666668
+            },
+            "16": {
+              "id": 16,
+              "x": 0.0,
+              "z": -12.5
+            },
+            "17": {
+              "id": 17,
+              "x": 0.0,
+              "z": -13.333333333333334
+            },
+            "18": {
+              "id": 18,
+              "x": 0.0,
+              "z": -14.166666666666668
+            },
+            "19": {
+              "id": 19,
+              "x": 0.0,
+              "z": -15.0
+            },
+            "2": {
+              "id": 2,
+              "x": 0.0,
+              "z": -0.8333333333333334
+            },
+            "20": {
+              "id": 20,
+              "x": 0.0,
+              "z": -15.833333333333334
+            },
+            "21": {
+              "id": 21,
+              "x": 0.0,
+              "z": -16.666666666666668
+            },
+            "22": {
+              "id": 22,
+              "x": 0.0,
+              "z": -17.5
+            },
+            "23": {
+              "id": 23,
+              "x": 0.0,
+              "z": -18.333333333333336
+            },
+            "24": {
+              "id": 24,
+              "x": 0.0,
+              "z": -19.166666666666668
+            },
+            "25": {
+              "id": 25,
+              "x": 0.0,
+              "z": -20.0
+            },
+            "3": {
+              "id": 3,
+              "x": 0.0,
+              "z": -1.6666666666666667
+            },
+            "4": {
+              "id": 4,
+              "x": 0.0,
+              "z": -2.5
+            },
+            "5": {
+              "id": 5,
+              "x": 0.0,
+              "z": -3.3333333333333335
+            },
+            "6": {
+              "id": 6,
+              "x": 0.0,
+              "z": -4.166666666666667
+            },
+            "7": {
+              "id": 7,
+              "x": 0.0,
+              "z": -5.0
+            },
+            "8": {
+              "id": 8,
+              "x": 0.0,
+              "z": -5.833333333333334
+            },
+            "9": {
+              "id": 9,
+              "x": 0.0,
+              "z": -6.666666666666667
+            }
+          },
+          "sections": {
+            "1": {
+              "a": 0.7853981633974483,
+              "asY": null,
+              "id": 1,
+              "iz": 0.04908738521234052
+            }
+          },
+          "solverOptions": null,
+          "supports": {
+            "1": {
+              "angle": null,
+              "dry": null,
+              "dx": null,
+              "dz": null,
+              "id": 1,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 25,
+              "type": "pinned"
+            }
+          }
+        },
+        "tolerance": 0.0001
+      }
+    ],
+    "test": "benchmarks::ssi_benchmark::ssi_sparse_path_parity_with_dense"
+  },
+  {
+    "model": "solve_ssi_2d-05d0301923fe0235.json",
+    "analysis": "solve_ssi_2d",
+    "input": [
+      {
+        "maxIter": 50,
+        "soilSprings": [
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 1.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 2,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 2.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 3,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 3.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 4,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 4.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 5,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 5.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 6,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 6.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 7,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 7.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 8,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 8.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 9,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 9.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 10,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 10.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 11,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 11.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 12,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 12.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 13,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 13.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 14,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 14.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 15,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 15.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 16,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 16.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 17,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 17.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 18,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 18.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 19,
+            "tributaryLength": 1.0
+          },
+          {
+            "curve": {
+              "d": 1.0,
+              "depth": 19.0,
+              "gamma_eff": 10.0,
+              "loading": "static",
+              "phi": 35.0,
+              "type": "py_sand"
+            },
+            "direction": 0,
+            "nodeId": 20,
+            "tributaryLength": 1.0
+          }
+        ],
+        "solver": {
+          "connectors": {},
+          "constraints": [],
+          "elements": {
+            "1": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 1,
+              "materialId": 1,
+              "nodeI": 1,
+              "nodeJ": 2,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "10": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 10,
+              "materialId": 1,
+              "nodeI": 10,
+              "nodeJ": 11,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "11": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 11,
+              "materialId": 1,
+              "nodeI": 11,
+              "nodeJ": 12,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "12": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 12,
+              "materialId": 1,
+              "nodeI": 12,
+              "nodeJ": 13,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "13": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 13,
+              "materialId": 1,
+              "nodeI": 13,
+              "nodeJ": 14,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "14": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 14,
+              "materialId": 1,
+              "nodeI": 14,
+              "nodeJ": 15,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "15": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 15,
+              "materialId": 1,
+              "nodeI": 15,
+              "nodeJ": 16,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "16": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 16,
+              "materialId": 1,
+              "nodeI": 16,
+              "nodeJ": 17,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "17": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 17,
+              "materialId": 1,
+              "nodeI": 17,
+              "nodeJ": 18,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "18": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 18,
+              "materialId": 1,
+              "nodeI": 18,
+              "nodeJ": 19,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "19": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 19,
+              "materialId": 1,
+              "nodeI": 19,
+              "nodeJ": 20,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "2": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 2,
+              "materialId": 1,
+              "nodeI": 2,
+              "nodeJ": 3,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "20": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 20,
+              "materialId": 1,
+              "nodeI": 20,
+              "nodeJ": 21,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "3": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 3,
+              "materialId": 1,
+              "nodeI": 3,
+              "nodeJ": 4,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "4": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 4,
+              "materialId": 1,
+              "nodeI": 4,
+              "nodeJ": 5,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "5": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 5,
+              "materialId": 1,
+              "nodeI": 5,
+              "nodeJ": 6,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "6": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 6,
+              "materialId": 1,
+              "nodeI": 6,
+              "nodeJ": 7,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "7": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 7,
+              "materialId": 1,
+              "nodeI": 7,
+              "nodeJ": 8,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "8": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 8,
+              "materialId": 1,
+              "nodeI": 8,
+              "nodeJ": 9,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "9": {
+              "hingeEnd": false,
+              "hingeStart": false,
+              "id": 9,
+              "materialId": 1,
+              "nodeI": 9,
+              "nodeJ": 10,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "loads": [
+            {
+              "data": {
+                "fx": 200.0,
+                "fz": 0.0,
+                "my": 0.0,
+                "nodeId": 1
+              },
+              "type": "nodal"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 10185.916357881302,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "1": {
+              "id": 1,
+              "x": 0.0,
+              "z": -0.0
+            },
+            "10": {
+              "id": 10,
+              "x": 0.0,
+              "z": -9.0
+            },
+            "11": {
+              "id": 11,
+              "x": 0.0,
+              "z": -10.0
+            },
+            "12": {
+              "id": 12,
+              "x": 0.0,
+              "z": -11.0
+            },
+            "13": {
+              "id": 13,
+              "x": 0.0,
+              "z": -12.0
+            },
+            "14": {
+              "id": 14,
+              "x": 0.0,
+              "z": -13.0
+            },
+            "15": {
+              "id": 15,
+              "x": 0.0,
+              "z": -14.0
+            },
+            "16": {
+              "id": 16,
+              "x": 0.0,
+              "z": -15.0
+            },
+            "17": {
+              "id": 17,
+              "x": 0.0,
+              "z": -16.0
+            },
+            "18": {
+              "id": 18,
+              "x": 0.0,
+              "z": -17.0
+            },
+            "19": {
+              "id": 19,
+              "x": 0.0,
+              "z": -18.0
+            },
+            "2": {
+              "id": 2,
+              "x": 0.0,
+              "z": -1.0
+            },
+            "20": {
+              "id": 20,
+              "x": 0.0,
+              "z": -19.0
+            },
+            "21": {
+              "id": 21,
+              "x": 0.0,
+              "z": -20.0
+            },
+            "3": {
+              "id": 3,
+              "x": 0.0,
+              "z": -2.0
+            },
+            "4": {
+              "id": 4,
+              "x": 0.0,
+              "z": -3.0
+            },
+            "5": {
+              "id": 5,
+              "x": 0.0,
+              "z": -4.0
+            },
+            "6": {
+              "id": 6,
+              "x": 0.0,
+              "z": -5.0
+            },
+            "7": {
+              "id": 7,
+              "x": 0.0,
+              "z": -6.0
+            },
+            "8": {
+              "id": 8,
+              "x": 0.0,
+              "z": -7.0
+            },
+            "9": {
+              "id": 9,
+              "x": 0.0,
+              "z": -8.0
+            }
+          },
+          "sections": {
+            "1": {
+              "a": 0.7853981633974483,
+              "asY": null,
+              "id": 1,
+              "iz": 0.04908738521234052
+            }
+          },
+          "solverOptions": null,
+          "supports": {
+            "1": {
+              "angle": null,
+              "dry": null,
+              "dx": null,
+              "dz": null,
+              "id": 1,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 21,
+              "type": "pinned"
+            }
+          }
+        },
+        "tolerance": 0.0001
+      }
+    ],
+    "test": "benchmarks::ssi_benchmark::benchmark_ssi_sand_py_pile"
+  },
+  {
+    "model": "ssi-3d-no-soil.json",
+    "analysis": "solve_ssi_3d",
+    "input": [
+      {
+        "solver": {
+          "connectors": {},
+          "constraints": [],
+          "curvedBeams": [],
+          "curvedShells": {},
+          "elements": {
+            "1": {
+              "id": 1,
+              "localYx": null,
+              "localYy": null,
+              "localYz": null,
+              "materialId": 1,
+              "nodeI": 1,
+              "nodeJ": 2,
+              "releaseMyEnd": false,
+              "releaseMyStart": false,
+              "releaseMzEnd": false,
+              "releaseMzStart": false,
+              "releaseTEnd": false,
+              "releaseTStart": false,
+              "rollAngle": null,
+              "sectionId": 1,
+              "type": "frame"
+            },
+            "2": {
+              "id": 2,
+              "localYx": null,
+              "localYy": null,
+              "localYz": null,
+              "materialId": 1,
+              "nodeI": 2,
+              "nodeJ": 3,
+              "releaseMyEnd": false,
+              "releaseMyStart": false,
+              "releaseMzEnd": false,
+              "releaseMzStart": false,
+              "releaseTEnd": false,
+              "releaseTStart": false,
+              "rollAngle": null,
+              "sectionId": 1,
+              "type": "frame"
+            }
+          },
+          "leftHand": null,
+          "loads": [
+            {
+              "data": {
+                "bw": null,
+                "fx": 0.0,
+                "fy": -10.0,
+                "fz": 0.0,
+                "mx": 0.0,
+                "my": 0.0,
+                "mz": 0.0,
+                "nodeId": 3
+              },
+              "type": "nodal"
+            }
+          ],
+          "materials": {
+            "1": {
+              "e": 200000.0,
+              "id": 1,
+              "nu": 0.3
+            }
+          },
+          "nodes": {
+            "1": {
+              "id": 1,
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "2": {
+              "id": 2,
+              "x": 4.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "3": {
+              "id": 3,
+              "x": 4.0,
+              "y": 0.0,
+              "z": 4.0
+            }
+          },
+          "plates": {},
+          "quad9s": {},
+          "quads": {},
+          "sections": {
+            "1": {
+              "a": 0.01,
+              "asY": null,
+              "asZ": null,
+              "cw": null,
+              "id": 1,
+              "iy": 0.0001,
+              "iz": 0.0001,
+              "j": 5e-05,
+              "name": null,
+              "shearCenterY": null,
+              "shearCenterZ": null
+            }
+          },
+          "solidShells": {},
+          "solverOptions": null,
+          "supports": {
+            "1": {
+              "drx": null,
+              "dry": null,
+              "drz": null,
+              "dx": null,
+              "dy": null,
+              "dz": null,
+              "isInclined": null,
+              "krx": null,
+              "kry": null,
+              "krz": null,
+              "kw": null,
+              "kx": null,
+              "ky": null,
+              "kz": null,
+              "nodeId": 1,
+              "normalX": null,
+              "normalY": null,
+              "normalZ": null,
+              "rrx": true,
+              "rry": true,
+              "rrz": true,
+              "rw": null,
+              "rx": true,
+              "ry": true,
+              "rz": true
+            }
+          }
+        },
+        "soilSprings": [],
+        "maxIter": 50,
+        "tolerance": 1e-12
+      }
+    ],
+    "test": "three_d::three_d_frame_benchmarks::validation_3d_l_shaped_frame"
+  }
+]

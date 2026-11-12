@@ -1,6 +1,5 @@
 /** Old project files' results comparison (#718): the snapshot gate's rule plus a round-off zero for reaction forces. */
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues } from '../../../../scripts/results-snapshot/compare.mjs';
 import { compareLegacy, familyOf, VECTOR_ATOL } from '../vector-floor';
 

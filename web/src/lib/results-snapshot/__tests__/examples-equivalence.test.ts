@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import { initSolver } from '../../engine/wasm-solver';
 import { CORPUS } from '../corpus';
 import { sameAsBefore } from '../equivalence';
-// @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { parseSnapshot } from '../../../../scripts/results-snapshot/compare.mjs';
 
 const LIST = process.env.EXAMPLES_EQUIVALENCE;

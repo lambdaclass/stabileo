@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { recheckStore, createRecheckStore } from '../recheck.svelte';
 import { RESULTS_VERSION } from '../../provenance/registry';
-import { RESULT_CHANGES } from '../../provenance/full-registry';
+import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../../provenance/full-registry';
 import { resultsStore } from '../results.svelte';
 import '../index';
 
@@ -328,6 +328,8 @@ describe('edited projects with older provenance', () => {
     }
   });
 
+  describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
+    const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
   it('a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {
     const module = await import('../../provenance/applicability');
     const precedingRegistry = {
@@ -344,14 +346,25 @@ describe('edited projects with older provenance', () => {
     store.openProject(snapshot, 'pro');
     combined.openProject(snapshot, 'pro');
     await vi.waitFor(() => expect(store.pending || combined.pending).toBe(false));
+    if (includeSSI) {
     expect(combined.assessment?.changes.map(c => c.id).sort()).toEqual([
       ...store.assessment!.changes.map(c => c.id), 'kinematic-translation-motion',
     ].sort());
+    } else {
+    expect(combined.assessment?.changes.map(c => c.id).sort()).toEqual([
+      ...store.assessment!.changes.map(c => c.id), 'kinematic-translation-motion', 'ssi-support-reactions',
+    ].sort());
+    }
     expect(combined.noticeOpen).toBe(true);
     expect(combined.stale).toBe(true);
+    if (includeSSI) {
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions']);
+    } else {
     expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
+    }
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
+  });
   });
 
   const openingNoticeIds = (registry = RESULT_CHANGES) => [
@@ -359,10 +372,13 @@ describe('edited projects with older provenance', () => {
     'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
     'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
     'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
+    ...(registry.changes.some(c => c.id === 'ssi-support-reactions') ? ['ssi-support-reactions'] : []),
   ].map(id => registry.changes.find(c => c.id === id)!)
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     .map(c => c.id);
 
+  describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
+    const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
   it.each([false, true])('#1753: connector-only opening notices follow main-first merge order (shared pending version: %s)', async (sharedVersion) => {
     const module = await import('../../provenance/applicability');
     const mergedRegistry = {
@@ -389,8 +405,17 @@ describe('edited projects with older provenance', () => {
       .map(id => mergedRegistry.changes.find(c => c.id === id)!)
       .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
       .map(c => c.id);
+    if (includeSSI) {
+      const combinedTail = [...tail, 'ssi-support-reactions']
+        .map(id => mergedRegistry.changes.find(c => c.id === id)!)
+        .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+        .map(c => c.id);
+      expect(expected.slice(-10)).toEqual([...combinedTail, 'linear-stability-refusals', 'linear-pin-coupling']);
+    } else {
     expect(expected.slice(-9)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
+    }
     expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
+  });
   });
 
   it('clears an acknowledged linear notice before adding shells, saving and reopening without a solve', async () => {

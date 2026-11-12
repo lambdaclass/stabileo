@@ -1,0 +1,376 @@
+{
+  "reference_logs_sha256": "7a0f8e0331d1c79c31d02e2ab523a5c80c5c1ca442af9251a250f9a25c8c8e9c",
+  "checks": {
+    "collect-references.py": {
+      "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/collect-references.py .audit-input/final/replay",
+      "status": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 17, in <module>\n    endpoints[endpoint]=measurement_index(rows)\n                        ~~~~~~~~~~~~~~~~~^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 27, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n"
+    },
+    "finish-analysis.py": {
+      "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py .audit-input/final/replay",
+      "status": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 12, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n"
+    }
+  },
+  "reference_identity_inventory": {
+    "base": {
+      "observations": 338,
+      "duplicate_site_groups": [
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8",
+          "site": "shell:6724",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_plate_bending_navier_convergence",
+          "site": "shell:423",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_hemisphere_rt_sweep",
+          "site": "shell:5445",
+          "count": 4
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_hypar",
+          "site": "shell:5100",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_navier_plate",
+          "site": "shell:4610",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_pinched_hemisphere",
+          "site": "shell:4853",
+          "count": 2
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_raasch_hook",
+          "site": "shell:5322",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo",
+          "site": "shell:4706",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+          "site": "shell:4996",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_raasch_hook",
+          "site": "shell:3680",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_scordelis_lo_convergence",
+          "site": "shell:230",
+          "count": 4
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_shell_buckling_convergence",
+          "site": "shell:1212",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence",
+          "site": "shell:3386",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_ss_navier_plate",
+          "site": "shell:5715",
+          "count": 2
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_ss_pinched_hemisphere",
+          "site": "shell:5924",
+          "count": 2
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo",
+          "site": "shell:5812",
+          "count": 2
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_ss_twisted_beam",
+          "site": "shell:6030",
+          "count": 2
+        },
+        {
+          "test": "benchmarks::shell_benchmark::research_cylinder_corrected_convergence",
+          "site": "shell:7358",
+          "count": 4
+        },
+        {
+          "test": "navier_plate::navier_plate_shared_cases",
+          "site": "navier_plate",
+          "count": 30
+        },
+        {
+          "test": "research_benchmarks::arches::production_modes_and_published_threshold",
+          "site": "research_benchmarks",
+          "count": 2
+        },
+        {
+          "test": "research_benchmarks::fairclough_frame_equilibrium",
+          "site": "research_benchmarks",
+          "count": 2
+        },
+        {
+          "test": "research_benchmarks::macneal_frame_shear_and_moment",
+          "site": "research_benchmarks",
+          "count": 6
+        },
+        {
+          "test": "research_benchmarks::mattiasson_1",
+          "site": "research_benchmarks",
+          "count": 6
+        },
+        {
+          "test": "research_benchmarks::mattiasson_10",
+          "site": "research_benchmarks",
+          "count": 6
+        },
+        {
+          "test": "research_benchmarks::mattiasson_2",
+          "site": "research_benchmarks",
+          "count": 6
+        },
+        {
+          "test": "research_benchmarks::mattiasson_5",
+          "site": "research_benchmarks",
+          "count": 6
+        },
+        {
+          "test": "research_benchmarks::mattiasson_load_step_independence",
+          "site": "research_benchmarks",
+          "count": 4
+        },
+        {
+          "test": "research_benchmarks::mattiasson_original_area_extensible",
+          "site": "research_benchmarks",
+          "count": 8
+        },
+        {
+          "test": "research_benchmarks::riks_shallow_frame_energy_reference",
+          "site": "research_benchmarks",
+          "count": 160
+        },
+        {
+          "test": "research_benchmarks::riks_shallow_toggle",
+          "site": "research_benchmarks",
+          "count": 4
+        },
+        {
+          "test": "research_benchmarks::riks_von_mises_truss",
+          "site": "research_benchmarks",
+          "count": 2
+        },
+        {
+          "test": "research_benchmarks::signed_response_checks_reject_reversals",
+          "site": "research_benchmarks",
+          "count": 10
+        }
+      ]
+    },
+    "repo": {
+      "observations": 344,
+      "duplicate_site_groups": [
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8",
+          "site": "shell:6726",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_plate_bending_navier_convergence",
+          "site": "shell:423",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_hemisphere_rt_sweep",
+          "site": "shell:5447",
+          "count": 4
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_hypar",
+          "site": "shell:5102",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_navier_plate",
+          "site": "shell:4612",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_pinched_hemisphere",
+          "site": "shell:4855",
+          "count": 2
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_raasch_hook",
+          "site": "shell:5324",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_scordelis_lo",
+          "site": "shell:4708",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_q9_spherical_cap",
+          "site": "shell:4998",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_raasch_hook",
+          "site": "shell:3682",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_scordelis_lo_convergence",
+          "site": "shell:230",
+          "count": 4
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_shell_buckling_convergence",
+          "site": "shell:1212",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_shell_thermal_gradient_convergence",
+          "site": "shell:3388",
+          "count": 3
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_ss_navier_plate",
+          "site": "shell:5717",
+          "count": 2
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_ss_pinched_hemisphere",
+          "site": "shell:5926",
+          "count": 2
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_ss_scordelis_lo",
+          "site": "shell:5814",
+          "count": 2
+        },
+        {
+          "test": "benchmarks::shell_benchmark::benchmark_ss_twisted_beam",
+          "site": "shell:6032",
+          "count": 2
+        },
+        {
+          "test": "benchmarks::shell_benchmark::research_cylinder_corrected_convergence",
+          "site": "shell:7360",
+          "count": 4
+        },
+        {
+          "test": "navier_plate::navier_case_accuracy_bounds",
+          "site": "navier_plate",
+          "count": 6
+        },
+        {
+          "test": "navier_plate::navier_plate_shared_cases",
+          "site": "navier_plate",
+          "count": 30
+        },
+        {
+          "test": "research_benchmarks::arches::production_modes_and_published_threshold",
+          "site": "research_benchmarks",
+          "count": 2
+        },
+        {
+          "test": "research_benchmarks::fairclough_frame_equilibrium",
+          "site": "research_benchmarks",
+          "count": 2
+        },
+        {
+          "test": "research_benchmarks::macneal_frame_shear_and_moment",
+          "site": "research_benchmarks",
+          "count": 6
+        },
+        {
+          "test": "research_benchmarks::mattiasson_1",
+          "site": "research_benchmarks",
+          "count": 6
+        },
+        {
+          "test": "research_benchmarks::mattiasson_10",
+          "site": "research_benchmarks",
+          "count": 6
+        },
+        {
+          "test": "research_benchmarks::mattiasson_2",
+          "site": "research_benchmarks",
+          "count": 6
+        },
+        {
+          "test": "research_benchmarks::mattiasson_5",
+          "site": "research_benchmarks",
+          "count": 6
+        },
+        {
+          "test": "research_benchmarks::mattiasson_load_step_independence",
+          "site": "research_benchmarks",
+          "count": 4
+        },
+        {
+          "test": "research_benchmarks::mattiasson_original_area_extensible",
+          "site": "research_benchmarks",
+          "count": 8
+        },
+        {
+          "test": "research_benchmarks::riks_shallow_frame_energy_reference",
+          "site": "research_benchmarks",
+          "count": 160
+        },
+        {
+          "test": "research_benchmarks::riks_shallow_toggle",
+          "site": "research_benchmarks",
+          "count": 4
+        },
+        {
+          "test": "research_benchmarks::riks_von_mises_truss",
+          "site": "research_benchmarks",
+          "count": 2
+        },
+        {
+          "test": "research_benchmarks::signed_response_checks_reject_reversals",
+          "site": "research_benchmarks",
+          "count": 10
+        }
+      ]
+    }
+  },
+  "gallery": {
+    "status": "not reverified",
+    "reason": "Raw baseline/head gallery captures and their manifests are absent from the worktree archives; site-gallery-diff.json alone cannot establish endpoint completeness."
+  },
+  "extra_replay": {
+    "status": "controlled shell replay only",
+    "command": "python3 -B scripts/tests/test_soundness_audit.py EndpointIdentity.test_extra_replay_reports_its_own_status_and_stops_on_failure",
+    "statuses": [
+      0,
+      7
+    ],
+    "earlier_suite_status": 101,
+    "actual_engine_replay": "Not run: historical scratch checkouts are absent and full/heavy runs are prohibited."
+  },
+  "conclusion_changes": [
+    "The historical as-shipped reference comparison batch is rejected; its 30 distance flags and 13 differing-target pairs are not validated conclusions. Explicit identities and a fresh capture are needed.",
+    "The historical 86-case gallery summary is retained as archived evidence; endpoint completeness cannot be reverified from the saved diff."
+  ],
+  "unchanged": [
+    "No new silent wrong engine result is confirmed by these tooling checks.",
+    "Frozen-input comparisons retain their explicit selectors and archived endpoint results; no engine output, numerical baseline or tolerance changed."
+  ]
+}

@@ -498,6 +498,7 @@ test.nightly-scripts:
 	python3 -B -I tools/opensees/test_compare.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
+	$(NIX_RUN) node --test scripts/tests/production-health.test.mjs
 	$(NIX_RUN) node --test scripts/tests/slow-e2e-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/timing-budget-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
@@ -541,8 +542,10 @@ test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-w
 	python3 -B -I scripts/tests/test_issue_reproducers.py
 	python3 -B -I scripts/tests/test_verification_metrics.py
 	python3 -B -I scripts/tests/test_ci_scripts_target.py
+	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 	python3 -B -I scripts/tests/test_benchmark_gate.py
 	$(NIX_RUN) node scripts/tests/snapshot-applicability.mjs
+	$(NIX_RUN) node --test scripts/tests/frozen-results-gate.test.mjs scripts/tests/frozen-results-values.test.mjs
 	python3 -B -I scripts/tests/test_invariance_gate.py
 	python3 -B -I scripts/tests/test_engine_wall_clock_gate.py
 	python3 -B -I scripts/tests/test_timing_budgets_gate.py
@@ -890,6 +893,9 @@ test.engine.reactions-wasm: wasm
 .PHONY: test.engine.reactions-frozen
 test.engine.reactions-frozen: wasm
 	$(NIX_RUN) node scripts/tests/arc-length-frozen.mjs $(if $(UPDATE),--update)
+.PHONY: test.audit.evidence
+test.audit.evidence:
+	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 
 .PHONY: test.engine.staged-orphan-wasm
 test.engine.staged-orphan-wasm: wasm scripts/tests/staged-history-containment.mjs

@@ -1,22 +1,21 @@
-import stagedHistoryChange from '../../provenance/result-changes/staged-history-forces-unavailable.json';
-import reactionRecoveryChange from '../../provenance/result-changes/arc-length-reactions.json';
-import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
-import declaredQuantities from 'virtual:result-change-quantities';
 /** The verdicts of the legacy-projects test (#718), and the negative tests that prove they fail. */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import * as applicability from '../../provenance/applicability';
 import refinementEvidence from '../../../../../docs/results-changes/1753-refinement-corpus-evidence.json';
-import { initSolver } from '../../engine/wasm-solver';
+import declaredQuantities from 'virtual:result-change-quantities';
+import frozenInputs from '../../results-snapshot/frozen-inputs.json';
+import { initSolver, solveSSI3D } from '../../engine/wasm-solver';
 import type { ResultChange } from '../../provenance/registry';
-import { RESULT_CHANGES } from '../../provenance/full-registry';
+import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../../provenance/full-registry';
 import {
   againstExample, captureExample, currentFixtureBlob, declaresMove, fingerprintDifference, judge, modelFingerprint, migrationMessage, openAndSolve, openSession,
   readCorpusText, readManifest, readResults, resultFingerprint, savedFixture, unexplainedMessage,
 } from '../legacy';
 import type { Values } from '../capture-results';
+import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import { modelStore } from '../../store/model.svelte';
 
-const change = (id: string, quantities?: ResultChange['quantities']): ResultChange => ({ ...RESULT_CHANGES.changes[0], id, resultsVersion: 1, quantities });
+const change = (id: string, quantities?: ResultChange['quantities']): ResultChange => ({ ...RESULT_CHANGES.changes[0], id, resultsVersion: 1, when: {}, quantities });
 const designOnly = change('design-only');
 const shellStresses = change('shell-stresses', ['quadStresses.sigmaXx', 'quadStresses.sigmaYy']);
 const everything = change('everything', ['*']);
@@ -61,103 +60,48 @@ describe('which values a registered change declares it moves', () => {
   });
 });
 
-describe('analysis-scoped reaction quantities (#1952)', () => {
-  it('known wrong result: #1952: path declarations cannot excuse static values through either gate', () => {
-    const metadata = RESULT_CHANGES.changes.find(c => c.id === 'arc-length-reactions')!;
-    const entry = { ...metadata, quantities: declaredQuantities[metadata.id] };
-    for (const dimension of ['space2D', 'space3D']) {
-      const features = ['members', dimension, 'pathAnalysis', 'analysis:linear', 'analysis:nonlinear', 'analysis:pdelta'];
-      for (const family of ['base', 'case[1]', 'combo[1]', 'envelope.maxAbs', 'pdelta.results']) {
-        for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart', 'displacements[n1].uz']) {
-          const path = `${family}.${quantity}`;
-          expect(fieldCovered(reactionRecoveryChange, path, features), `${dimension} ${path}`).toBe(false);
-          expect(declaresMove(entry, path), `${dimension} ${path}`).toBe(false);
-        }
+describe('analysis-specific result changes', () => {
+  it('nonlinear and SSI notices cannot explain linear results', () => {
+    for (const id of ['arc-length-reference-norm', 'ssi-support-reactions']) {
+      const registered = RESULT_CHANGES.changes.find(c => c.id === id)!;
+      const entry = { ...registered, quantities: declaredQuantities[id]!.filter((q): q is string => typeof q === 'string') };
+      expect(entry.quantities).toBeDefined();
+      const field = id === 'ssi-support-reactions' ? 'reactions[n1].rz' : 'elementForces[e1].nStart';
+      const analysis = id === 'ssi-support-reactions' ? 'ssi' : 'nonlinear';
+      for (const dimension of ['plane2D', 'space3D']) {
+        expect(fieldCovered(entry, `${analysis}.results.${field}`, [dimension, 'members', `analysis:${analysis}`])).toBe(id === 'ssi-support-reactions' || dimension === 'plane2D');
       }
-      for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart']) {
-        expect(fieldCovered(reactionRecoveryChange, `nonlinear.results.${quantity}`, features)).toBe(true);
-        expect(fieldCovered(reactionRecoveryChange, `nonlinear.results.${quantity}`, features.filter(f => f !== 'analysis:nonlinear'))).toBe(false);
-        expect(fieldCovered(reactionRecoveryChange, `nonlinear.results.${quantity}`, ['members', dimension, 'analysis:linear'])).toBe(false);
+      for (const prefix of ['base', 'case[2]', 'combo[1]']) {
+        const path = `${prefix}.${field}`;
+        expect(declaresMove(entry, path), `${id}: ${path}`).toBe(false);
+        expect(judge(id, reference, moved({ [path]: 99 }), [entry]).kind).toBe('unexplained');
       }
-      expect(fieldCovered(reactionRecoveryChange, 'pdelta.results.equilibrium.equilibriumOk', features)).toBe(true);
+      expect(judge(id, reference, reference, [entry]).kind).toBe('same');
     }
   });
 
-  it('known wrong result: #1952: exported quantities cannot explain fabricated static corpus values', () => {
-    const metadata = RESULT_CHANGES.changes.find(c => c.id === 'arc-length-reactions')!;
-    const entry = { ...metadata, quantities: declaredQuantities[metadata.id] };
-    for (const family of ['base', 'case[1]', 'combo[1]']) {
-      for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart']) {
-        const path = `${family}.${quantity}`;
-        const before = { 'solve.ok': true, [path]: 1 };
-        expect(judge('unrelated static output', before, { ...before, [path]: 2 }, [entry]).kind, path).toBe('unexplained');
-        expect(judge('unchanged static output', before, before, [entry]).kind, path).toBe('same');
+  it('analysis conditions agree with the snapshot gate', () => {
+    for (const analysis of ['linear', 'pdelta', 'modal', 'buckling', 'spectral', 'timeHistory', 'plastic', 'nonlinear', 'harmonic', 'ssi']) {
+      const entry = { ...change(analysis), quantities: ['reactions'], when: { all: [`analysis:${analysis}`] } };
+      const features = ['plane2D', 'space3D', 'members', `analysis:${analysis}`];
+      for (const prefix of ['base', 'case[2]', 'combo[1]']) {
+        const path = `${prefix}.reactions[n1].rz`;
+        expect(declaresMove(entry, path), analysis).toBe(analysis === 'linear');
+        expect(declaresMove(entry, path), analysis).toBe(fieldCovered(entry, path, features));
       }
     }
-  });
-});
-
-describe('staged history quantity scope (#1952)', () => {
-  it('known wrong result: #1952: staged fields require path context through the snapshot gate', () => {
-    for (const dimension of ['plane2D', 'space3D']) {
-      for (const structure of ['members', 'shells']) {
-        for (const path of ['stages[0].results.reactions.length', 'finalResults.elementForces.length']) {
-          const features = [dimension, structure, 'analysis:linear', 'analysis:nonlinear'];
-          expect(fieldCovered(stagedHistoryChange, path, features), path).toBe(false);
-          expect(fieldCovered(stagedHistoryChange, path, [...features, 'pathAnalysis']), path).toBe(true);
-        }
-      }
+    for (const when of [{ any: ['analysis:nonlinear', 'analysis:ssi'] }, { allOf: [['analysis:nonlinear', 'analysis:ssi']] }]) {
+      const scoped = { ...change('advanced-only', ['reactions', 'solve.ok']), when };
+      expect(declaresMove(scoped, 'base.reactions[n1].rz')).toBe(false);
+      expect(declaresMove(scoped, 'solve.ok')).toBe(false);
     }
-  });
-
-  it('known wrong result: #1952: staged declarations cannot authorize other analysis collections', () => {
-    const metadata = RESULT_CHANGES.changes.find(c => c.id === stagedHistoryChange.id)!;
-    const exported = { ...metadata, quantities: declaredQuantities[metadata.id] };
-    for (const dimension of ['plane2D', 'space3D']) {
-      for (const structure of ['members', 'shells']) {
-        const features = [dimension, structure, 'pathAnalysis', 'analysis:linear', 'analysis:nonlinear', 'analysis:pdelta'];
-        for (const family of ['base', 'case[1]', 'combo[1]', 'envelope.maxAbs', 'pdelta.results', 'nonlinear.results']) {
-          for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart', 'constraintForces[0].force', 'plateStresses[e1].sigmaXx', 'quadStresses[e1].sigmaXx', 'quadNodalStresses[0].sigmaXx', 'structuredDiagnostics[0].message', 'displacements[n1].uz']) {
-            const path = `${family}.${quantity}`;
-            expect(fieldCovered(stagedHistoryChange, path, features), path).toBe(false);
-            expect(declaresMove(exported, path), path).toBe(false);
-          }
-        }
-        for (const path of ['stages[0].results.reactions.length', 'stages[1].results.structuredDiagnostics[0].message', 'finalResults.elementForces.length']) {
-          expect(fieldCovered(stagedHistoryChange, path, features), path).toBe(true);
-          expect(fieldCovered(stagedHistoryChange, path, [dimension, 'analysis:linear']), path).toBe(false);
-        }
-      }
+    for (const when of [{ any: ['analysis:linear', 'analysis:nonlinear'] }, { allOf: [['analysis:linear', 'analysis:ssi']] }]) {
+      expect(declaresMove({ ...change('either', ['reactions']), when }, 'base.reactions[n1].rz')).toBe(true);
     }
-  });
-
-  it('known wrong result: #1952: staged notices cannot explain fabricated static answers', () => {
-    const metadata = RESULT_CHANGES.changes.find(c => c.id === stagedHistoryChange.id)!;
-    const exported = { ...metadata, quantities: declaredQuantities[metadata.id] };
-    for (const family of ['base', 'case[1]', 'combo[1]', 'envelope.maxAbs']) {
-      for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart', 'quadStresses[e1].sigmaXx']) {
-        const path = `${family}.${quantity}`;
-        const before = { 'solve.ok': true, [path]: 1 };
-        expect(judge('changed static result', before, { ...before, [path]: 2 }, [exported]).kind, path).toBe('unexplained');
-        expect(judge('unchanged static result', before, before, [exported]).kind, path).toBe('same');
-      }
-    }
-    expect(judge('linear refusal', { 'solve.ok': true }, { 'solve.ok': false }, [exported]).kind).toBe('unexplained');
   });
 });
 
 describe('judge', () => {
-  it('reaction recovery does not explain fabricated static values or linear refusals (#1949)', () => {
-    const metadata = RESULT_CHANGES.changes.find((c) => c.id === 'arc-length-reactions')!;
-    const entry = { ...metadata, quantities: declaredQuantities[metadata.id] };
-    for (const path of ['base.reactions[n1].rz', 'base.elementForces[e1].mStart', 'base.displacements[n1].uz']) {
-      expect(declaresMove(entry, path), path).toBe(false);
-      expect(judge('unrelated linear value', reference, moved({ [path]: 99 }), [entry]).kind, path).toBe('unexplained');
-    }
-    expect(declaresMove(entry, 'solve.ok')).toBe(false);
-    expect(judge('unrelated linear refusal', reference, { 'model.nodes': 4, 'solve.ok': false }, [entry]).kind).toBe('unexplained');
-  });
-
   it('takes round-off in a component statics makes zero as the same result', () => {
     expect(judge('noise', reference, moved({ 'base.reactions[n1].rx': 7.105427358e-14 }), []).kind).toBe('same');
   });
@@ -299,6 +243,21 @@ describe('against real corpus files', () => {
     expect(v.report).toContain('base.elementForces[e1].nStart');
   }, 120_000);
 
+  it('the legacy deep-beam shell has SSI support reactions even without soil springs', async () => {
+    const opened = await openAndSolve(readCorpusText('v0.4.0/deep-beam-shell.ded'));
+    expect(opened.changes.map(c => c.id)).toContain('ssi-support-reactions');
+    const solver = modelStore.buildSolverInput3D(true);
+    expect(solver).not.toBeNull();
+    const control = frozenInputs.find(c => c.analysis === 'solve_ssi_3d')!;
+    const response = solveSSI3D({ ...control.input[0], solver });
+    expect(response.converged).toBe(true);
+    expect(response.results.reactions.length).toBeGreaterThan(0);
+    expect(response.results.reactions.some((r: Record<string, unknown>) =>
+      Object.entries(r).some(([key, value]) => key !== 'nodeId' && typeof value === 'number' && value !== 0))).toBe(true);
+  });
+
+  describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
+    const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
   for (const [mainFirst, sharedVersion] of [[false, false], [true, false], [true, true]]) {
     it(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'main-first order' : 'checkout order'}${sharedVersion ? ', shared pending version' : ''})`, async () => {
       const registry = mainFirst ? {
@@ -325,12 +284,13 @@ describe('against real corpus files', () => {
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
           'harmonic-modal-residual-checked', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
+          ...(includeSSI ? ['ssi-support-reactions'] : []),
         ]));
-
-        function assertMainNoticeOrder(opened: { changes: ResultChange[] }) {
+        if (includeSSI) {
+        if (mainFirst) expect(opened.changes.slice(-9).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        } else {
         if (mainFirst) expect(opened.changes.slice(-8).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         }
-        assertMainNoticeOrder(opened);
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
         const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;
@@ -344,6 +304,7 @@ describe('against real corpus files', () => {
       }
     }, 120_000);
   }
+  });
 
   it('the numerical evidence fingerprints the unchanged historical corpus files', () => {
     for (const entry of refinementEvidence.cases) {

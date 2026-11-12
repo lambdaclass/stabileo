@@ -17,7 +17,6 @@ import { modelStore } from '../../store/model.svelte';
 import { CORPUS } from '../corpus';
 import { capture, openedFeatures } from '../capture';
 import { snapshotFile } from '../run-group';
-// @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, formatCaseReport, mergeValues, parseSnapshot, serialiseSnapshot } from '../../../../scripts/results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { decide } from '../../../../scripts/results-snapshot/gate.mjs';

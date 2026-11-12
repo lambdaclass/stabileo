@@ -1,0 +1,558 @@
+[
+  {
+    "log": "base-complete-solver-lee_frame__.log",
+    "results": [
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 276 filtered out; finished in 2.66s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-lib-unrefused_oracles__neal_plastic_extended__.log",
+    "results": [
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 923 filtered out; finished in 0.19s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-shells-macneal_harder__.log",
+    "results": [
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 136 filtered out; finished in 0.02s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-lib-unrefused_oracles__neal_plastic_extended__.log",
+    "results": [
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 829 filtered out; finished in 0.08s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-validation-navier_plate__.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4779 filtered out; finished in 0.87s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-solver-lee_frame__.log",
+    "results": [
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 304 filtered out; finished in 4.61s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-shells-macneal_harder__.log",
+    "results": [
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 136 filtered out; finished in 0.01s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-solver-dadeppo_arch__.log",
+    "results": [
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 275 filtered out; finished in 4.87s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-validation-three_d__buckling_benchmarks.log",
+    "results": [
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4780 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": [],
+    "executed": 0,
+    "evidence_status": "invalid empty selection; superseded by round 2 targeted rerun",
+    "superseded_by": "base-r3-validation-three_d__three_d_buckling__.log"
+  },
+  {
+    "log": "repo-complete-validation-three_d__buckling_benchmarks.log",
+    "results": [
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4792 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": [],
+    "executed": 0,
+    "evidence_status": "invalid empty selection; superseded by round 2 targeted rerun",
+    "superseded_by": "repo-r3-validation-three_d__three_d_buckling__.log"
+  },
+  {
+    "log": "repo-complete-validation-benchmarks__.log",
+    "results": [
+      "test result: ok. 327 passed; 0 failed; 9 ignored; 0 measured; 4456 filtered out; finished in 18.99s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-solver-dadeppo_arch__.log",
+    "results": [
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 303 filtered out; finished in 6.76s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-gates-acceptance__.log",
+    "results": [
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 131 filtered out; finished in 0.17s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-lib-unrefused_oracles__constraints_benchmark__.log",
+    "results": [
+      "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 920 filtered out; finished in 0.01s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-lib-unrefused_oracles__plastic_collapse_extended__.log",
+    "results": [
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 923 filtered out; finished in 0.11s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-validation-benchmarks__.log",
+    "results": [
+      "test result: ok. 326 passed; 0 failed; 9 ignored; 0 measured; 4445 filtered out; finished in 12.56s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-validation-research_benchmarks__.log",
+    "results": [
+      "test result: ok. 20 passed; 0 failed; 5 ignored; 0 measured; 4767 filtered out; finished in 10.74s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-solver-cqc_1981__.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 278 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-lib-unrefused_oracles__plastic_mechanisms__.log",
+    "results": [
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 923 filtered out; finished in 0.21s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-lib-unrefused_oracles__plastic_mechanisms__.log",
+    "results": [
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 829 filtered out; finished in 0.02s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-lib-unrefused_oracles__plastic_collapse__.log",
+    "results": [
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 829 filtered out; finished in 0.03s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-solver-cqc_1981__.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 306 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-validation-benchmark_protocol__.log",
+    "results": [
+      "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 4780 filtered out; finished in 5.12s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-validation-research_benchmarks__.log",
+    "results": [
+      "test result: ok. 20 passed; 0 failed; 5 ignored; 0 measured; 4755 filtered out; finished in 10.02s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-gates-acceptance__.log",
+    "results": [
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.10s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-integration-newmark_1959__.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 364 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-integration-newmark_1959__.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 405 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-validation-three_d__corotational_benchmarks.log",
+    "results": [
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4780 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": [],
+    "executed": 0,
+    "evidence_status": "invalid empty selection; superseded by round 2 targeted rerun",
+    "superseded_by": "base-r3-validation-three_d__three_d_corotational__.log"
+  },
+  {
+    "log": "repo-complete-validation-navier_plate__.log",
+    "results": [
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 4790 filtered out; finished in 1.90s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-lib-unrefused_oracles__plastic_collapse_extended__.log",
+    "results": [
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 829 filtered out; finished in 0.06s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-lib-unrefused_oracles__plastic_collapse__.log",
+    "results": [
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 923 filtered out; finished in 0.06s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-lib-unrefused_oracles__constraints_benchmark__.log",
+    "results": [
+      "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 826 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-complete-validation-three_d__corotational_benchmarks.log",
+    "results": [
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4792 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": [],
+    "executed": 0,
+    "evidence_status": "invalid empty selection; superseded by round 2 targeted rerun",
+    "superseded_by": "repo-r3-validation-three_d__three_d_corotational__.log"
+  },
+  {
+    "log": "repo-complete-integration-plastic_collapse_benchmark__.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 405 filtered out; finished in 0.01s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-integration-plastic_collapse_benchmark__.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 364 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-complete-validation-benchmark_protocol__.log",
+    "results": [
+      "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 4768 filtered out; finished in 4.74s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-finish-research_benchmarks__macneal_trapezoidal.log",
+    "results": [
+      "test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 4778 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": [
+      "research_benchmarks::macneal_trapezoidal_in",
+      "research_benchmarks::macneal_trapezoidal_out"
+    ]
+  },
+  {
+    "log": "repo-finish-research_benchmarks__macneal_parallelogram.log",
+    "results": [
+      "test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 4790 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": [
+      "research_benchmarks::macneal_parallelogram_in",
+      "research_benchmarks::macneal_parallelogram_out"
+    ]
+  },
+  {
+    "log": "repo-finish-research_benchmarks__macneal_trapezoidal.log",
+    "results": [
+      "test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 4790 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": [
+      "research_benchmarks::macneal_trapezoidal_in",
+      "research_benchmarks::macneal_trapezoidal_out"
+    ]
+  },
+  {
+    "log": "base-finish-research_benchmarks__buckling_818_exact_reference.log",
+    "results": [
+      "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4779 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": [
+      "research_benchmarks::buckling_818_exact_reference"
+    ]
+  },
+  {
+    "log": "base-finish-research_benchmarks__macneal_parallelogram.log",
+    "results": [
+      "test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 4778 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": [
+      "research_benchmarks::macneal_parallelogram_in",
+      "research_benchmarks::macneal_parallelogram_out"
+    ]
+  },
+  {
+    "log": "base-finish-benchmarks__reduction_benchmark__.log",
+    "results": [
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 4773 filtered out; finished in 0.02s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-finish-benchmarks__reduction_benchmark__.log",
+    "results": [
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 4785 filtered out; finished in 0.03s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-finish-benchmarks__shell_benchmark__research_cylinder.log",
+    "results": [
+      "test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 4788 filtered out; finished in 0.56s"
+    ],
+    "failed_tests": [
+      "benchmarks::shell_benchmark::research_cylinder_12",
+      "benchmarks::shell_benchmark::research_cylinder_16",
+      "benchmarks::shell_benchmark::research_cylinder_6",
+      "benchmarks::shell_benchmark::research_cylinder_8"
+    ]
+  },
+  {
+    "log": "base-finish-benchmarks__shell_benchmark__research_cylinder.log",
+    "results": [
+      "test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 4776 filtered out; finished in 0.24s"
+    ],
+    "failed_tests": [
+      "benchmarks::shell_benchmark::research_cylinder_12",
+      "benchmarks::shell_benchmark::research_cylinder_16",
+      "benchmarks::shell_benchmark::research_cylinder_6",
+      "benchmarks::shell_benchmark::research_cylinder_8"
+    ]
+  },
+  {
+    "log": "repo-finish-research_benchmarks__buckling_818_exact_reference.log",
+    "results": [
+      "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4791 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": [
+      "research_benchmarks::buckling_818_exact_reference"
+    ]
+  },
+  {
+    "log": "base-fixed-replay.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 18.71s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-fixed-replay.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 930 filtered out; finished in 31.09s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "repo-extra-replay.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 930 filtered out; finished in 0.01s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-extra-replay.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 0.01s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "added-all-current.log",
+    "results": [
+      "test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 344 filtered out; finished in 0.47s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "added-all-parent.log",
+    "results": [
+      "test result: FAILED. 0 passed; 27 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.06s"
+    ],
+    "failed_tests": [
+      "audit_missing_regressions::audit_issue_1009_published_model",
+      "audit_missing_regressions::audit_issue_1102_published_model",
+      "audit_missing_regressions::audit_issue_1115_published_model",
+      "audit_missing_regressions::audit_issue_1117_published_model",
+      "audit_missing_regressions::audit_issue_1118_published_model",
+      "audit_missing_regressions::audit_issue_1196_published_model",
+      "audit_missing_regressions::audit_issue_1205_published_model",
+      "audit_missing_regressions::audit_issue_1207_published_model",
+      "audit_missing_regressions::audit_issue_1208_published_model",
+      "audit_missing_regressions::audit_issue_1210_published_model",
+      "audit_missing_regressions::audit_issue_1212_published_model",
+      "audit_missing_regressions::audit_issue_1216_published_model",
+      "audit_missing_regressions::audit_issue_1265_published_model",
+      "audit_missing_regressions::audit_issue_1269_published_model",
+      "audit_missing_regressions::audit_issue_1270_published_model",
+      "audit_missing_regressions::audit_issue_1271_published_model",
+      "audit_missing_regressions::audit_issue_1272_published_model",
+      "audit_missing_regressions::audit_issue_1277_published_model",
+      "audit_missing_regressions::audit_issue_1279_published_model",
+      "audit_missing_regressions::audit_issue_1280_published_model",
+      "audit_missing_regressions::audit_issue_1360_published_model",
+      "audit_missing_regressions::audit_issue_1361_published_model",
+      "audit_missing_regressions::audit_issue_954_published_model",
+      "audit_missing_regressions::audit_issue_960_published_model",
+      "audit_missing_regressions::audit_issue_969_published_model",
+      "audit_missing_regressions::audit_issue_993_published_model",
+      "audit_missing_regressions::audit_issue_994_published_model"
+    ]
+  },
+  {
+    "log": "coverage-frontier-probe-5397407e1^1.log",
+    "results": [
+      "test result: FAILED. 18 passed; 9 failed; 0 ignored; 0 measured; 77 filtered out; finished in 0.07s"
+    ],
+    "failed_tests": [
+      "audit_missing_regressions::audit_issue_1102_published_model",
+      "audit_missing_regressions::audit_issue_1117_published_model",
+      "audit_missing_regressions::audit_issue_1216_published_model",
+      "audit_missing_regressions::audit_issue_1265_published_model",
+      "audit_missing_regressions::audit_issue_1360_published_model",
+      "audit_missing_regressions::audit_issue_1361_published_model",
+      "audit_missing_regressions::audit_issue_954_published_model",
+      "audit_missing_regressions::audit_issue_993_published_model",
+      "audit_missing_regressions::audit_issue_994_published_model"
+    ]
+  },
+  {
+    "log": "coverage-frontier-fix1285.log",
+    "results": [
+      "test result: FAILED. 18 passed; 9 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.07s"
+    ],
+    "failed_tests": [
+      "audit_missing_regressions::audit_issue_1102_published_model",
+      "audit_missing_regressions::audit_issue_1117_published_model",
+      "audit_missing_regressions::audit_issue_1216_published_model",
+      "audit_missing_regressions::audit_issue_1265_published_model",
+      "audit_missing_regressions::audit_issue_1360_published_model",
+      "audit_missing_regressions::audit_issue_1361_published_model",
+      "audit_missing_regressions::audit_issue_954_published_model",
+      "audit_missing_regressions::audit_issue_993_published_model",
+      "audit_missing_regressions::audit_issue_994_published_model"
+    ]
+  },
+  {
+    "log": "coverage-frontier-probe-5397407e1.log",
+    "results": [
+      "test result: FAILED. 24 passed; 3 failed; 0 ignored; 0 measured; 77 filtered out; finished in 0.07s"
+    ],
+    "failed_tests": [
+      "audit_missing_regressions::audit_issue_1117_published_model",
+      "audit_missing_regressions::audit_issue_1216_published_model",
+      "audit_missing_regressions::audit_issue_994_published_model"
+    ]
+  },
+  {
+    "log": "coverage-frontier-probe-d59aacb0f.log",
+    "results": [
+      "test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 98 filtered out; finished in 0.07s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "ssi-probe-d2a75e111^1.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 278 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "ssi-probe-d2a75e111.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 284 filtered out; finished in 0.00s"
+    ],
+    "failed_tests": []
+  },
+  {
+    "log": "base-r3-fixed-replay.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 1.57s"
+    ],
+    "failed_tests": [],
+    "executed": 1,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  },
+  {
+    "log": "base-r3-validation-three_d__three_d_buckling__.log",
+    "results": [
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 4773 filtered out; finished in 0.02s"
+    ],
+    "failed_tests": [],
+    "executed": 7,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  },
+  {
+    "log": "base-r3-validation-three_d__three_d_corotational__.log",
+    "results": [
+      "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 4771 filtered out; finished in 2.51s"
+    ],
+    "failed_tests": [],
+    "executed": 9,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  },
+  {
+    "log": "repo-r3-fixed-replay.log",
+    "results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 930 filtered out; finished in 1.54s"
+    ],
+    "failed_tests": [],
+    "executed": 1,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  },
+  {
+    "log": "repo-r3-validation-three_d__three_d_buckling__.log",
+    "results": [
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 4785 filtered out; finished in 0.05s"
+    ],
+    "failed_tests": [],
+    "executed": 7,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  },
+  {
+    "log": "repo-r3-validation-three_d__three_d_corotational__.log",
+    "results": [
+      "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 4783 filtered out; finished in 2.65s"
+    ],
+    "failed_tests": [],
+    "executed": 9,
+    "round": 2,
+    "host": "stabileo-ci-1"
+  }
+]

@@ -1,0 +1,289 @@
+warning: Git tree '/root/audit/soundness-2026-11-11/base' is dirty
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /root/audit/soundness-2026-11-11/base/engine/Cargo.toml
+workspace: /root/audit/soundness-2026-11-11/base/Cargo.toml
+warning: unused import: `dedaliano_engine::solver::plastic`
+ --> engine/src/../tests/unrefused/../core/plastic.rs:2:5
+  |
+2 | use dedaliano_engine::solver::plastic;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `solve_plastic_2d_unrefused` and `solve_plastic_2d`
+  --> engine/src/../tests/unrefused/../certify_plastic.rs:14:41
+   |
+14 | use dedaliano_engine::solver::plastic::{solve_plastic_2d, solve_plastic_2d_unrefused};
+   |                                         ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear::solve_2d`, `solve_plastic_2d_unrefused`, and `solve_plastic_2d`
+  --> engine/src/../tests/unrefused/../axial_span_rebase.rs:12:32
+   |
+12 | use dedaliano_engine::solver::{linear::solve_2d, plastic::{solve_plastic_2d, solve_plastic_2d_unrefused}};
+   |                                ^^^^^^^^^^^^^^^^            ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling`, `corotational`, `linear`, and `plastic`
+ --> engine/src/../tests/unrefused/../feature_matrix_regressions.rs:9:32
+  |
+9 | use dedaliano_engine::solver::{buckling, corotational, linear, material_nonlinear, plastic, staged};
+  |                                ^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^                      ^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/src/../tests/unrefused/../validation/benchmarks/constraints_benchmark.rs:10:5
+   |
+10 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::corotational`
+  --> engine/src/../tests/unrefused/../validation/benchmarks/constraints_benchmark.rs:11:5
+   |
+11 | use dedaliano_engine::solver::corotational;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::plastic`
+  --> engine/src/../tests/unrefused/../validation/benchmarks/constraints_benchmark.rs:12:5
+   |
+12 | use dedaliano_engine::solver::plastic;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::plastic`
+ --> engine/src/../tests/unrefused/../validation/domains/nonlinear/plastic_collapse.rs:7:5
+  |
+7 | use dedaliano_engine::solver::plastic;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::plastic`
+ --> engine/src/../tests/unrefused/../validation/domains/nonlinear/plastic_collapse_extended.rs:8:5
+  |
+8 | use dedaliano_engine::solver::plastic;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::plastic`
+  --> engine/src/../tests/unrefused/../validation/domains/nonlinear/plastic_mechanisms.rs:18:5
+   |
+18 | use dedaliano_engine::solver::plastic;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `linear`
+  --> engine/src/../tests/unrefused/../validation/domains/nonlinear/pushover_extended.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{linear, plastic};
+   |                                ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::plastic`
+  --> engine/src/../tests/unrefused/../validation/textbooks/neal_plastic_extended.rs:16:5
+   |
+16 | use dedaliano_engine::solver::plastic;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: value assigned to `rx` is never read
+    --> engine/src/solver/linear.rs:3993:22
+     |
+3993 |         let mut rx = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+4046 |             rx = vals[0];
+     |             ------------ `rx` is overwritten here before the previous value is read
+     |
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `rz` is never read
+    --> engine/src/solver/linear.rs:3994:22
+     |
+3994 |         let mut rz = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+4047 |             rz = vals[1];
+     |             ------------ `rz` is overwritten here before the previous value is read
+
+warning: value assigned to `my` is never read
+    --> engine/src/solver/linear.rs:3995:22
+     |
+3995 |         let mut my = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+4048 |             my = vals[2];
+     |             ------------ `my` is overwritten here before the previous value is read
+
+warning: variable does not need to be mutable
+    --> engine/src/solver/pre_solve_gates.rs:1200:9
+     |
+1200 |     let mut link = |p: &mut Vec<usize>, nodes: &[usize]| -> bool {
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> engine/src/../tests/unrefused/../certify_plastic.rs:400:13
+    |
+400 |         let mut id = |x: f64, z: f64, nodes: &mut Vec<(usize, f64, f64)>| {
+    |             ----^^
+    |             |
+    |             help: remove this `mut`
+
+warning: function `not` is never used
+   --> engine/src/postprocess/cirsoc201_check.rs:194:4
+    |
+194 | fn not(t: Tri) -> Tri {
+    |    ^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `c_norm` and `n_params` are never read
+   --> engine/src/certify/reassembly/system.rs:360:9
+    |
+355 | pub struct E2eBound {
+    |            -------- fields in this struct
+...
+360 |     pub c_norm: f64,
+    |         ^^^^^^
+...
+365 |     pub n_params: usize,
+    |         ^^^^^^^^
+
+warning: field `rot` is never read
+   --> engine/src/metamorphic/transform.rs:183:12
+    |
+183 |     Both { rot: bool },
+    |     ----   ^^^
+    |     |
+    |     field in this variant
+
+warning: function `solve_modal_2d` is never used
+  --> engine/src/../tests/unrefused/../audit_capture_lib.rs:28:8
+   |
+28 | pub fn solve_modal_2d(input: &SolverInput, densities: &std::collections::HashMap<String, f64>, num_modes: usize) -> Result<ModalResu...
+   |        ^^^^^^^^^^^^^^
+
+warning: function `solve_modal_3d` is never used
+  --> engine/src/../tests/unrefused/../audit_capture_lib.rs:34:8
+   |
+34 | pub fn solve_modal_3d(input: &SolverInput3D, densities: &std::collections::HashMap<String, f64>, num_modes: usize) -> Result<ModalRe...
+   |        ^^^^^^^^^^^^^^
+
+warning: function `solve_buckling_3d` is never used
+  --> engine/src/../tests/unrefused/../audit_capture_lib.rs:46:8
+   |
+46 | pub fn solve_buckling_3d(input: &SolverInput3D, num_modes: usize) -> Result<BucklingResult3D, String> {
+   |        ^^^^^^^^^^^^^^^^^
+
+warning: function `solve_pdelta_2d` is never used
+  --> engine/src/../tests/unrefused/../audit_capture_lib.rs:52:8
+   |
+52 | pub fn solve_pdelta_2d(input: &SolverInput, max_iter: usize, tolerance: f64) -> Result<PDeltaResult, String> {
+   |        ^^^^^^^^^^^^^^^
+
+warning: function `solve_pdelta_3d` is never used
+  --> engine/src/../tests/unrefused/../audit_capture_lib.rs:58:8
+   |
+58 | pub fn solve_pdelta_3d(input: &SolverInput3D, max_iter: usize, tolerance: f64) -> Result<PDeltaResult3D, String> {
+   |        ^^^^^^^^^^^^^^^
+
+warning: function `solve_arc_length` is never used
+  --> engine/src/../tests/unrefused/../audit_capture_lib.rs:76:8
+   |
+76 | pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, String> {
+   |        ^^^^^^^^^^^^^^^^
+
+warning: function `solve_contact_2d` is never used
+  --> engine/src/../tests/unrefused/../audit_capture_lib.rs:82:8
+   |
+82 | pub fn solve_contact_2d(input: &dedaliano_engine::solver::contact::ContactInput) -> Result<dedaliano_engine::solver::contact::Contac...
+   |        ^^^^^^^^^^^^^^^^
+
+warning: function `solve_contact_3d` is never used
+  --> engine/src/../tests/unrefused/../audit_capture_lib.rs:88:8
+   |
+88 | pub fn solve_contact_3d(input: &dedaliano_engine::solver::contact::ContactInput3D) -> Result<dedaliano_engine::solver::contact::Cont...
+   |        ^^^^^^^^^^^^^^^^
+
+warning: function `solve_creep_shrinkage_2d` is never used
+  --> engine/src/../tests/unrefused/../audit_capture_lib.rs:94:8
+   |
+94 | pub fn solve_creep_shrinkage_2d(input: &dedaliano_engine::solver::creep_shrinkage::CreepShrinkageInput) -> Result<dedaliano_engine::...
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `solve_fiber_nonlinear_3d` is never used
+   --> engine/src/../tests/unrefused/../audit_capture_lib.rs:106:8
+    |
+106 | pub fn solve_fiber_nonlinear_3d(input: &dedaliano_engine::solver::fiber_nonlinear::FiberNonlinearInput3D) -> Result<dedaliano_engin...
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `solve_nonlinear_material_2d` is never used
+   --> engine/src/../tests/unrefused/../audit_capture_lib.rs:112:8
+    |
+112 | pub fn solve_nonlinear_material_2d(input: &dedaliano_engine::types::NonlinearMaterialInput) -> Result<dedaliano_engine::types::Nonl...
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `solve_moving_loads_2d` is never used
+   --> engine/src/../tests/unrefused/../audit_capture_lib.rs:118:8
+    |
+118 | pub fn solve_moving_loads_2d(input: &dedaliano_engine::types::MovingLoadInput) -> Result<dedaliano_engine::solver::moving_loads::Mo...
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `solve_plastic_3d` is never used
+   --> engine/src/../tests/unrefused/../audit_capture_lib.rs:130:8
+    |
+130 | pub fn solve_plastic_3d(input: &dedaliano_engine::types::PlasticInput3D) -> Result<dedaliano_engine::solver::plastic::PlasticResult...
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `solve_spectral_3d` is never used
+   --> engine/src/../tests/unrefused/../audit_capture_lib.rs:136:8
+    |
+136 | pub fn solve_spectral_3d(input: &dedaliano_engine::types::SpectralInput3D) -> Result<dedaliano_engine::solver::spectral::SpectralRe...
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: function `solve_ssi_2d` is never used
+   --> engine/src/../tests/unrefused/../audit_capture_lib.rs:142:8
+    |
+142 | pub fn solve_ssi_2d(input: &dedaliano_engine::solver::ssi::SSIInput) -> Result<dedaliano_engine::solver::ssi::SSIResult, String> {
+    |        ^^^^^^^^^^^^
+
+warning: function `solve_time_history_3d` is never used
+   --> engine/src/../tests/unrefused/../audit_capture_lib.rs:148:8
+    |
+148 | pub fn solve_time_history_3d(input: &dedaliano_engine::types::TimeHistoryInput3D) -> Result<dedaliano_engine::types::TimeHistoryRes...
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `solve_winkler_2d` is never used
+   --> engine/src/../tests/unrefused/../audit_capture_lib.rs:154:8
+    |
+154 | pub fn solve_winkler_2d(input: &dedaliano_engine::solver::winkler::WinklerInput) -> Result<dedaliano_engine::types::AnalysisResults...
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `guyan_reduce_2d` is never used
+   --> engine/src/../tests/unrefused/../audit_capture_lib.rs:160:8
+    |
+160 | pub fn guyan_reduce_2d(input: &dedaliano_engine::solver::reduction::GuyanInput) -> Result<dedaliano_engine::solver::reduction::Guya...
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `craig_bampton_2d` is never used
+   --> engine/src/../tests/unrefused/../audit_capture_lib.rs:166:8
+    |
+166 | pub fn craig_bampton_2d(input: &dedaliano_engine::solver::reduction::CraigBamptonInput) -> Result<dedaliano_engine::solver::reducti...
+    |        ^^^^^^^^^^^^^^^^
+
+warning: variable `bA` should have a snake case name
+   --> engine/src/certify/reassembly/system.rs:180:14
+    |
+180 |     for (bi, bA) in blocks.iter().enumerate() {
+    |              ^^ help: convert the identifier to snake case: `b_a`
+    |
+    = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: variable `bB` should have a snake case name
+   --> engine/src/certify/reassembly/system.rs:181:18
+    |
+181 |         for (bj, bB) in blocks.iter().enumerate() {
+    |                  ^^ help: convert the identifier to snake case: `b_b`
+
+warning: `dedaliano-engine` (lib test) generated 41 warnings (run `cargo fix --lib -p dedaliano-engine --tests` to apply 14 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.06s
+     Running unittests src/lib.rs (/root/audit/soundness-2026-11-11/target-base/release/deps/dedaliano_engine-54cec07dc8c148e2)
+
+running 1 test
+test unrefused_oracles::audit_capture_lib::audit_replay_fixed_corpus ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 1.57s

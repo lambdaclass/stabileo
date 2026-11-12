@@ -23,6 +23,7 @@
  * registry entry fails (`scripts/__tests__/results-snapshot-gate.test.ts`). `main` is the CLI
  * CI runs: `node scripts/results-snapshot/gate.mjs --base <sha>`.
  */
+import { compareFrozen, FROZEN_DIR } from './frozen.mjs';
 import { fieldCovered } from './applicability.mjs';
 import { pathToFileURL } from 'node:url';
 import { compareValues, formatCaseReport, parseSnapshot, FORMAT, FORMAT_ADDITIONS } from './compare.mjs';
@@ -89,8 +90,9 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
   for (const s of snapshots) {
     if (s.base === null) continue; // a new case: coverage, not a change
     if (s.head === null) { changed.push({ file: s.file, paths: Object.keys(s.base.values ?? {}), report: `✗ ${s.file}: snapshot deleted` }); continue; }
-    const diff = compareValues(s.base.values ?? {}, s.head.values ?? {});
-    const added = diff.added.filter((path) => !newlyRecorded(path, s.base.format ?? 1, s.head.format ?? 1, format, formatAdditions));
+    const exact = s.file.startsWith(`${FROZEN_DIR}/`);
+    const diff = (exact ? compareFrozen : compareValues)(s.base.values ?? {}, s.head.values ?? {});
+    const added = diff.added.filter((path) => (exact || !newlyRecorded(path, s.base.format ?? 1, s.head.format ?? 1, format, formatAdditions)));
     const counted = { ...diff, added };
     if (counted.changed.length || counted.removed.length || counted.added.length) {
       changed.push({ file: s.file, paths: [...counted.changed.map((c) => c.path), ...counted.removed, ...counted.added], report: formatCaseReport(s.file, counted) });
@@ -165,16 +167,20 @@ async function main(argv) {
     try { return git('-C', root, 'show', `${rev}:${path}`); } catch { return null; }
   };
   const snapshot = (text) => (text === null ? null : parseSnapshot(text));
-  const touched = git('-C', root, 'diff', '--name-status', '--no-renames', base, 'HEAD', '--', SNAPSHOT_DIR, FRAGMENT_DIR)
+  const touched = git('-C', root, 'diff', '--name-status', '--no-renames', base, 'HEAD', '--', SNAPSHOT_DIR, FROZEN_DIR, FRAGMENT_DIR)
     .split('\n').filter(Boolean).map((l) => { const [status, file] = l.split('\t'); return { status, file }; });
-  const snapshots = touched.filter((t) => t.file.startsWith(`${SNAPSHOT_DIR}/`) && t.file.endsWith('.json'))
+  const snapshots = touched.filter((t) => (t.file.startsWith(`${SNAPSHOT_DIR}/`) || t.file.startsWith(`${FROZEN_DIR}/`)) && t.file.endsWith('.json'))
     .map((t) => ({ file: t.file, base: snapshot(at(base, t.file)), head: snapshot(at('HEAD', t.file)) }));
   const fragments = touched.filter((t) => t.file.startsWith(`${FRAGMENT_DIR}/`) && t.status !== 'D' && t.file.endsWith('.md'))
     .map((t) => ({ file: t.file, text: at('HEAD', t.file) ?? '' }));
   const changedFixtures = git('-C', root, 'diff', '--name-only', '--no-renames', base, 'HEAD', '--', FIXTURE_DIR)
     .split('\n').filter((f) => f.endsWith('.json')).filter((f) => modelInputs(at(base, f)) !== modelInputs(at('HEAD', f)))
     .map((f) => f.slice(FIXTURE_DIR.length + 1, -'.json'.length));
-  const caseFeatures = snapshots.some((s) => s.base !== null) ? await readCaseFeatures(snapshots.filter((s) => s.base !== null).map((s) => s.file), base, at, root) : {};
+  const opened = snapshots.filter(s => s.base !== null && !s.file.startsWith(`${FROZEN_DIR}/`));
+  const caseFeatures = opened.length ? await readCaseFeatures(opened.map(s => s.file), base, at, root) : {};
+  for (const s of snapshots.filter(s => s.file.startsWith(`${FROZEN_DIR}/`))) {
+    caseFeatures[s.file] = (s.head ?? s.base)?.features;
+  }
   const r = decide({ caseFeatures, snapshots, baseRegistry: readSourcesAt(base, root), headRegistry: readSourcesAt('HEAD', root), fragments, changedFixtures, caseExample: corpusExamples(at('HEAD', CORPUS)) });
   (r.ok ? console.log : console.error)(r.report);
   if (!r.ok) return 1;

@@ -61,3 +61,39 @@ entry's area). `solve.ok` must be explicit for a change in solve success or refu
 fields require a design entry. Missing model context or undeclared fields fail closed. Multiple
 applicable entries can cover different fields. An examples-scoped entry covers only its listed
 examples and still requires the two-engine equivalence proof, even alongside engine entries.
+
+## Exact frozen outputs
+
+`web/results-frozen/` complements the rounded web snapshots. Its small WASM
+corpus replays the six audited SSI inputs, three bisected arc-length inputs,
+a 3D SSI control and the two public slab support selections. The results CI
+project executes `frozen-engine.test.ts`; an output change fails that test until
+its baseline is deliberately updated. To update only this corpus, run through
+`make shell`:
+
+```sh
+cd web
+RESULTS_FROZEN_UPDATE=1 npx vitest run --project results src/lib/results-snapshot/__tests__/frozen-engine.test.ts
+```
+
+Then `make check.results-snapshot-gate BASE=<base>` compares committed frozen
+outputs exactly and requires an applicable new entry and a results fragment.
+`freezeValues` records full-precision numeric leaves, path steps and collection
+lengths, including empty lists. Only timing fields and build provenance are
+excluded. `compareFrozen` is shared by the execution test and registration
+gate. A snapshot format bump cannot exempt new frozen output fields.
+
+The older corpus lacks SSI, arc-length and generated gallery solves. It also
+rounds numbers, compares within a tolerance and preserves old spellings within
+that tolerance when regenerating. That is why it missed the audited classes;
+the exact corpus does not use those exceptions. It is intentionally small and
+does not claim to freeze every supported analysis or parameter combination.
+
+A generated gallery can use an explicit context feature, such as
+`gallery:slab-on-columns:walls`, in `when`. Only its gallery capture supplies
+that feature: it is never inferred by `modelFeatures` for saved projects. It
+cannot excuse saved-model engine changes or a different gallery selection.
+The bundled-example scope and its two-engine equivalence proof remain as
+specified above. Retrospective entries identify the original PR in `prs`; their
+new results version is the registration merge's version, not a rewritten
+historical stamp.
