@@ -48,7 +48,7 @@ function stations(forced: number[], size: number): number[] {
   for (let i = 0; i < s.length; i++) {
     out.push(s[i]!);
     if (i + 1 === s.length) break;
-    const gap = s[i + 1]! - s[i]!, n = Math.max(1, Math.round(gap / size));
+    const gap = s[i + 1]! - s[i]!, n = Math.max(1, Math.ceil(gap / size - 1e-9));
     for (let k = 1; k < n; k++) out.push(s[i]! + (gap * k) / n);
   }
   return out;

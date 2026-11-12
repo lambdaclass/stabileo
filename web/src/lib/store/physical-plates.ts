@@ -36,7 +36,8 @@ import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef, syncDefinedLoads } from './defined-loads';
 import { constraintNodes } from '../engine/steel/unbraced-length';
 import { meshBeforeAnalysis } from './mesh-policy.svelte';
-import { endMeshProgress, nextFrame, setMeshProgress } from './mesh-progress.svelte';
+import { endMeshProgress, meshProgress, nextFrame, setMeshProgress } from './mesh-progress.svelte';
+import { historyStore } from './history.svelte';
 export { meshBeforeAnalysis };
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
 import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes, type ColumnFootprint, type FootprintCells } from '../model/building/column-footprints';
@@ -266,7 +267,7 @@ export function platesNeedingMesh(opts: { coarse?: boolean } = {}): number[] {
   return physicalPlates().filter((p) => { const s = plateStatus(p.id); return s === 'unmeshed' || s === 'stale' || (coarse && s === 'current' && coarseAsModelled(p)); }).map((p) => p.id);
 }
 
-let coarseMemo: { version: number; map: Map<number, boolean> } | null = null;
+let coarseMemo: { version: number; groups: unknown; loads: unknown; map: Map<number, boolean> } | null = null;
 /**
  * Shells that came with the model and are coarser than the plate's mesh size, such as one shell
  * for a whole bay: no mesher's mesh, and what "mesh before analysis" meshes. A fine mesh that came
@@ -274,7 +275,9 @@ let coarseMemo: { version: number; map: Map<number, boolean> } | null = null;
  */
 export function coarseAsModelled(e: PlateEntry): boolean {
   if (!e.surface.meshed?.original) return false;
-  if (!coarseMemo || coarseMemo.version !== modelStore.modelVersion) coarseMemo = { version: modelStore.modelVersion, map: new Map() };
+  if (!coarseMemo || coarseMemo.version !== modelStore.modelVersion || coarseMemo.groups !== modelStore.model.groups || coarseMemo.loads !== modelStore.loads) {
+    coarseMemo = { version: modelStore.modelVersion, groups: modelStore.model.groups, loads: modelStore.loads, map: new Map() };
+  }
   const hit = coarseMemo.map.get(e.id);
   if (hit !== undefined) return hit;
   const limit = 1.5 * specOf(e).size;
@@ -580,7 +583,8 @@ export function shellAreaLoads(): Map<string, Array<{ id: number; caseId: number
     if (l.type !== 'surface3d') continue;
     const d = l.data as SurfaceLoad3D;
     const key = `${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`;
-    (out.get(key) ?? out.set(key, []).get(key)!).push({ id: d.id, caseId: d.caseId ?? -1, q: plain(d) ? d.q : NaN });
+    // A load without a case is in case 1, as everywhere loads are read (`load-ops.ts`).
+    (out.get(key) ?? out.set(key, []).get(key)!).push({ id: d.id, caseId: d.caseId ?? 1, q: plain(d) ? d.q : NaN });
   }
   return out;
 }
@@ -761,7 +765,8 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
   modelStore.batch(() => {
     untieNodes(owned);
     const spread = new Set(e.surface.meshed?.supported ?? []);
-    for (const sp of [...modelStore.supports.values()]) if (spread.has(sp.nodeId) && owned.has(sp.nodeId)) modelStore.removeSupport(sp.id);
+    // The foundation springs on the mesh's own nodes go with it, or they would hold those nodes in the model.
+    for (const sp of [...modelStore.supports.values()]) if (owned.has(sp.nodeId) && (spread.has(sp.nodeId) || (e.surface.springs && isSpring(sp as never)))) modelStore.removeSupport(sp.id);
     for (const q of e.group.members.quads ?? []) if (modelStore.quads.has(q)) modelStore.removeQuad(q);
     for (const p of e.group.members.plates ?? []) if (modelStore.plates.has(p)) modelStore.removePlate(p);
     // The members the mesh cut, whole again where the cut node is the mesh's and holds nothing else.
@@ -795,6 +800,8 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
   for (const p of plans) if (!p.mesh) report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });
   const current = ok.length ? physicalPlates().filter((e) => plateStatus(e.id) === 'current').map((e) => e.id) : [];
   const meshed: number[] = [];
+  // Nodes that had the plate's support spread to them: one kept by the new mesh gets it back.
+  const spreadBefore = new Map<number, number[]>();
   let lifted = 0;
   const begin = () => {
     const byShell = shellAreaLoads();
@@ -812,10 +819,7 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
       const e = plateEntry(planned.id);
       if (!e) continue;
       report.droppedLocalLoads += planned.localLoads;
-      if (e.surface.springs) {
-        const owned = new Set(plateLoops(e.group).owned);
-        for (const sp of [...modelStore.supports.values()]) if (owned.has(sp.nodeId) && isSpring(sp as never)) modelStore.removeSupport(sp.id);
-      }
+      spreadBefore.set(planned.id, e.surface.meshed?.supported ?? []);
       report.keptNodes += clearPlateMesh(planned.id).keptNodes;
     }
   };
@@ -833,7 +837,8 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     if (fp) tieFootprints(new Set(r.nodeIds), fp.columns);
     const g = modelStore.model.groups.get(p.id)!;
     const loops = plateLoops(g);
-    const supported = supportSides(loops.outer, created);
+    const inMesh = new Set(r.nodeIds);
+    const supported = supportSides(loops.outer, [...created, ...(spreadBefore.get(p.id) ?? []).filter((n) => inMesh.has(n) && modelStore.nodes.has(n))]);
     modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
     if (e.surface.curved) for (const q of r.quads) modelStore.setQuadCurved(q, true);
     if (e.surface.offset) {
@@ -875,12 +880,22 @@ export async function applyPlateMeshesAsync(plans: readonly PlateMeshPlan[], onP
   onProgress?.(0, total);
   await nextFrame();
   modelStore.batch(() => run.begin());
+  // An edit or an undo between frames puts another step on top: the slices left would land in
+  // it and plan against a model they were not planned for, so the run stops there.
+  const step = historyStore.lastStep;
+  const interrupted = () => {
+    if (historyStore.lastStep === step) return false;
+    for (const p of run.ok.slice(done)) run.report.refused.push({ id: p.id, reason: 'interrupted' });
+    return true;
+  };
   while (done < total) {
     await nextFrame();
+    if (interrupted()) return run.report;
     const t0 = performance.now();
     modelStore.amendLastStep(() => { while (done < total && (performance.now() - t0 < sliceMs || done === 0)) run.meshOne(run.ok[done++]!); });
     onProgress?.(done, total);
   }
+  if (interrupted()) return run.report;
   modelStore.amendLastStep(() => run.finish());
   return run.report;
 }
@@ -985,6 +1000,8 @@ export function preparePlatesForAnalysis(): PlatePreparation {
 
 /** The same, with a frame between plates so the page can show `meshProgress`: what an analysis the user asked for runs. */
 export async function preparePlatesForAnalysisAsync(): Promise<PlatePreparation> {
+  // A mesh the plates' dialog started is let finish: two runs would write the model at once.
+  while (meshProgress.now) await nextFrame();
   // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
   const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
   if (!need.length) return { ok: true, meshed: 0, cells: 0 };

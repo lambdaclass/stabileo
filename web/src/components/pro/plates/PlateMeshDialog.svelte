@@ -28,14 +28,16 @@
 
   // The settings it opens with: the first plate's own. Later changes to `ids` do not reset them.
   const first = untrack(() => plateEntry(ids[0]!)?.surface.mesh);
-  // A plate made from shells keeps their size as its own, which for a whole bay is far coarser than any mesh one would ask for.
-  const opening = first && first.size <= 1 ? first.size : DEFAULT_PLATE_MESH.size;
+  // A plate made from shells keeps their size as its own, which for a whole bay is far coarser than any mesh one would ask for;
+  // a size someone chose is kept whatever it is.
+  const fromShells = untrack(() => !!plateEntry(ids[0]!)?.surface.meshed?.original);
+  const opening = first && (first.size <= 1 || !fromShells) ? first.size : DEFAULT_PLATE_MESH.size;
   let size = $state(opening);
   let element = $state<'quad' | 'tri'>(first?.element ?? 'quad');
   let followMembers = $state(first?.followMembers ?? true);
   // A grid of rectangles or squares of the sides given, along the plate's first side or global X.
   let pattern = $state<'free' | 'rect' | 'square'>(first?.pattern ?? 'free');
-  let sizeV = $state(first?.sizeV && first.sizeV <= 1 ? first.sizeV : opening);
+  let sizeV = $state(first?.sizeV && (first.sizeV <= 1 || !fromShells) ? first.sizeV : opening);
   let orient = $state<'plate' | 'globalX'>(first?.orient ?? 'plate');
   const gridOn = $derived(element === 'quad' && pattern !== 'free');
   let plans = $state<PlateMeshPlan[] | null>(null);

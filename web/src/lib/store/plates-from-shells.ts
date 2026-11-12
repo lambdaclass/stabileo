@@ -216,6 +216,15 @@ export function looseShells(): string[] {
   return [...[...modelStore.quads.keys()].map((q) => `q${q}`), ...[...modelStore.plates.keys()].map((p) => `p${p}`)].filter((k) => !held.has(k));
 }
 
+function shellLoadCount(keys: readonly string[]): number {
+  const on = new Set(keys);
+  return modelStore.loads.filter((l) => {
+    if (l.type !== 'surface3d' && l.type !== 'thermalQuad3d') return false;
+    const d = l.data as { quadId: number; on?: string };
+    return on.has(`${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`);
+  }).length;
+}
+
 /**
  * Slabs placed to be meshed by the solve, as projects before plates kept them (`meshAtSolve`): each
  * made the plate it is, waiting for its mesh or with the one the solve gave it. Returns how many.
@@ -228,7 +237,9 @@ export function platesFromMeshAtSolve(): number {
       const d = physicalDataOf(g) as (PhysicalData & { meshAtSolve?: { size: number; meshed: boolean } }) | null;
       if (!d?.meshAtSolve) continue;
       const keys = [...(g.members.quads ?? []).map((q) => `q${q}`), ...(g.members.plates ?? []).map((p) => `p${p}`)];
-      if (platesFromShells(keys, { keepMesh: d.meshAtSolve.meshed, size: d.meshAtSolve.size }).length) n++;
+      // A load the plate cannot take over (varying, partial, thermal) keeps the slab's own shells, so it is not lost.
+      const keepMesh = d.meshAtSolve.meshed || shellLoadCount(keys) > uniformLoads(keys, shellAreaLoads()).gone.length;
+      if (platesFromShells(keys, { keepMesh, size: d.meshAtSolve.size }).length) n++;
       else { const { meshAtSolve: _m, ...rest } = d; modelStore.setGroupData(g.id, rest as unknown as Record<string, unknown>); }
     }
   });
@@ -243,7 +254,8 @@ export function platesFromMeshAtSolve(): number {
 export function ensurePlates(): number {
   // Explore restores the model exactly as it was when it closes: nothing is read into it meanwhile.
   if (whatIf.active) return 0;
-  let n = platesFromMeshAtSolve();
+  let n = 0;
+  modelStore.withoutUndo(() => { n = platesFromMeshAtSolve(); });
   if (uiStore.analysisMode !== 'pro') return n;
   const loose = looseShells();
   if (loose.length) modelStore.withoutUndo(() => { n += platesFromShells(loose, { inferred: true }).length; });

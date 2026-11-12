@@ -71,7 +71,7 @@ const JOINT_LIMITS = new Set(['anchorage', 'congestion']);
 /** Solve the model as the «Calculate» button does, without the toasts: the plates meshed, the defined loads, the combinations. */
 export function solveForDesign(): boolean {
   ensurePhysicalModel();
-  preparePlatesForAnalysis();
+  if (!preparePlatesForAnalysis().ok) return false;
   syncDefinedLoadsForAnalysis();
   const isPro = uiStore.analysisMode === 'pro';
   const left = uiStore.axisConvention3D === 'leftHand';

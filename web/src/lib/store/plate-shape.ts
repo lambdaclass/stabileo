@@ -234,7 +234,9 @@ export function closePlateHole(id: number, k: number): PlateShapeProblem | null 
   let problem: PlateShapeProblem | null = null;
   modelStore.batch(() => {
     problem = setPlateLoops(id, loops.outer, loops.holes.filter((_, i) => i !== k), (e.surface.arcMids ?? []).filter((x) => x < loops.outer.length));
-    if (!problem) remeshIfMeshed(id);
+    if (problem) return;
+    remeshIfMeshed(id);
+    for (const n of loops.holes[k]!) if (modelStore.nodes.has(n) && onlyThisPlate(n, -1)) modelStore.removeNode(n);
   });
   return problem;
 }

@@ -874,27 +874,40 @@ export function syncLoads(ctx: SceneSyncContext): void {
 
   // A plate drawn as its piece shows a plain area load once, over its outline, not once per mesh element.
   const pieceOf = new Map<string, number>();
-  const pieceLoads = new Map<string, { plate: number; q: number; color: number; ids: number[] }>();
+  const shellsOf = new Map<number, number>();
+  const pieceLoads = new Map<string, { plate: number; q: number; color: number; ids: number[]; shells: Set<string> }>();
+  const pieceKey = (load: (typeof loads)[number]): { k: string; shell: string; plate: number } | null => {
+    if (!pieceOf.size || load.type !== 'surface3d') return null;
+    const d = load.data;
+    const shell = `${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`;
+    const plate = pieceOf.get(shell);
+    if (plate === undefined || d.frame || d.qNodes || d.vary || d.region || !isLoadDrawn(load as never, drawView)) return null;
+    return { k: `${plate}:${d.caseId ?? 0}:${d.q}`, shell, plate };
+  };
   if (platesAsPieces()) {
     for (const p of physicalPlates()) {
       const keys = [...(p.group.members.quads ?? []).map((q) => `q${q}`), ...(p.group.members.plates ?? []).map((q) => `p${q}`)];
-      if (keys.length > 1) for (const k of keys) pieceOf.set(k, p.id);
+      if (keys.length > 1) {
+        for (const k of keys) pieceOf.set(k, p.id);
+        shellsOf.set(p.id, keys.length);
+      }
     }
+    for (const load of loads) {
+      const at = pieceKey(load);
+      if (!at || load.type !== 'surface3d') continue;
+      const e = pieceLoads.get(at.k) ?? pieceLoads.set(at.k, { plate: at.plate, q: load.data.q, color: getCaseColor(load.data.caseId), ids: [], shells: new Set() }).get(at.k)!;
+      e.ids.push(load.data.id);
+      e.shells.add(at.shell);
+    }
+    // Only a load on every shell of the plate is the plate's load; one on part of it is drawn where it is.
+    for (const [k, e] of pieceLoads) if (e.shells.size < shellsOf.get(e.plate)!) pieceLoads.delete(k);
   }
 
   for (let i = 0; i < loads.length; i++) {
     const load = loads[i];
     const caseId: number | undefined = load.data.caseId;
-    if (pieceOf.size && load.type === 'surface3d') {
-      const d = load.data;
-      const plate = pieceOf.get(`${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`);
-      if (plate !== undefined && !d.frame && !d.qNodes && !d.vary && !d.region && isLoadDrawn(load as never, drawView)) {
-        const k = `${plate}:${caseId ?? 0}:${d.q}`;
-        const e = pieceLoads.get(k) ?? pieceLoads.set(k, { plate, q: d.q, color: getCaseColor(caseId), ids: [] }).get(k)!;
-        e.ids.push(d.id);
-        continue;
-      }
-    }
+    const at = pieceKey(load);
+    if (at && pieceLoads.has(at.k)) continue;
 
     // Not a load case left unticked, nor one on what the view hides.
     if (!isLoadDrawn(load as never, drawView)) continue;

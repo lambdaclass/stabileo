@@ -70,8 +70,12 @@
     const asked = floorLoadRequest.target;
     if (asked) { targetKey = asked; floorLoadRequest.target = null; }
   });
+  // Only a new selection moves the target: the list is rebuilt on every model change, and a target picked by hand stays.
+  let lastPicked = '';
   $effect(() => {
-    void pickedPlates;
+    const picked = pickedPlates.join(',');
+    if (picked === lastPicked) return;
+    lastPicked = picked;
     if (pickedPlates.length > 1) targetKey = 'plates';
     else if (pickedPlates.length === 1) targetKey = `g:${pickedPlates[0]}`;
   });

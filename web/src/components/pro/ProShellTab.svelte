@@ -14,6 +14,7 @@
   import WriteCard from './WriteCard.svelte';
   import Icon from '../ribbon/Icon.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import { fromDisplay } from '../../lib/utils/units';
 
   /* The two creators' state is gone with them — see the note on `newNodeIds`.
      Three corners make a triangle and four make a quad, so one set serves. */
@@ -162,9 +163,10 @@
   let circle = $state(false);
   let circleCenter = $state('0; 0; 0'), circleRadius = $state(3);
   let circleHole = $state(false), holeCenter = $state('0; 0; 0'), holeRadius = $state(0.5);
+  /** A point typed as "x; y; z" in the display units, decimal comma or point, in SI. */
   const point = (s: string): [number, number, number] | null => {
-    const v = s.split(/[;\s]+/).filter(Boolean).map(Number);
-    return v.length === 3 && v.every(Number.isFinite) ? [v[0]!, v[1]!, v[2]!] : null;
+    const v = s.split(/[;\s]+/).filter(Boolean).map((x) => Number(x.replace(',', '.')));
+    return v.length === 3 && v.every(Number.isFinite) ? (v.map((x) => fromDisplay(x, 'length', uiStore.unitSystem)) as [number, number, number]) : null;
   };
   function cornersAs(v: 3 | 4 | 'outline') { circle = false; drawState.plateCorners = v; }
 
@@ -193,7 +195,9 @@
     if (ids.length < cornerBoxes) { newError = t('pro.shellNeedNodes'); return; }
     const r = addShellOnCorners(ids, drawState.plateMaterialId, drawState.plateThickness);
     if ('error' in r) { newError = t(r.error); return; }
-    const [plate] = platesFromShells([r.key]);
+    // The plate it is made into belongs to the same undo step as the shell.
+    let plate: number | undefined;
+    modelStore.amendLastStep(() => { [plate] = platesFromShells([r.key]); });
     if (plate !== undefined) { uiStore.selectMode = 'shells'; uiStore.selectPlates([plate]); } else uiStore.selectShell(r.key, false);
     /* The recommendation follows the corners, so clearing them clears it. */
     newNodeIds = ['', '', '', ''];
