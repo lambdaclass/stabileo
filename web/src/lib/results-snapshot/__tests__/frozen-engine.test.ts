@@ -58,11 +58,13 @@ for (const c of inputs) {
     });
 
     it(`both solvers balance the input loads for ${c.model}`, () => {
-      const solver = c.input[0].solver;
+      const input = c.input[0];
+      if (!('soilSprings' in input)) throw new Error('SSI input must contain soil springs');
+      const solver = input.solver;
       const nodes = solver.nodes as Record<string, { x: number; y: number; z: number }>;
       const supports = Object.values(solver.supports);
       expect(supports).toHaveLength(1);
-      expect(c.input[0].soilSprings).toEqual([]);
+      expect(input.soilSprings).toEqual([]);
       const nodeId = supports[0].nodeId;
       const origin = nodes[nodeId];
       const expected: Reaction3D = { nodeId, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 };

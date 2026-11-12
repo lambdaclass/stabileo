@@ -7,7 +7,6 @@
  * snapshot gate, whose builds are bit-for-bit reproducible. Only reaction forces, the one quantity
  * the releases need it for; never another node's reaction.
  */
-// @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues } from '../../../scripts/results-snapshot/compare.mjs';
 import type { Values } from './capture-results';
 

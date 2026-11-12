@@ -15,7 +15,6 @@
  * `perCase3D`, `perCombo3D`). Keep it that way: a getter added later reads `undefined` in an
  * older version and the two sides stop being comparable.
  */
-// @ts-expect-error plain JavaScript shared with the results snapshot gate (no declaration file)
 import { flatten } from '../../../scripts/results-snapshot/compare.mjs';
 
 export type Values = Record<string, number | string | boolean | null>;

@@ -36,8 +36,7 @@ import { conditionHolds } from '../provenance/applicability';
 import type { ResultChange } from '../provenance/registry';
 import declaredQuantities from 'virtual:result-change-quantities';
 import { resultValues, type Values } from './capture-results';
-// @ts-expect-error plain JavaScript shared with the results snapshot gate (no declaration file)
-import { compareValues, formatCaseReport, parseSnapshot, storeNumber } from '../../../scripts/results-snapshot/compare.mjs';
+import { compareValues, formatCaseReport, parseSnapshot, storeNumber, type SnapshotDiff } from '../../../scripts/results-snapshot/compare.mjs';
 import { compareLegacy } from './vector-floor';
 import { conditionAllowsResult } from '../../../scripts/results-snapshot/applicability.mjs';
 
@@ -351,9 +350,9 @@ export async function againstExample(
 
 /** What differs between two model fingerprints, for a person, or null when they are the same model. */
 export function fingerprintDifference(name: string, reference: Values, current: Values): string | null {
-  const diff = compareValues(reference, current) as Diff;
+  const diff = compareValues(reference, current);
   if (!diff.differs && diff.added.length === 0) return null;
-  const lines = [formatCaseReport(name, diff) as string];
+  const lines = [formatCaseReport(name, diff)];
   for (const p of diff.added) lines.push(`    ${p}: only in the migrated file, ${JSON.stringify(current[p])}`);
   lines.push('', 'The file, opened by the current code, is another model than the example it was saved from (the same code opened both). No registered result change explains it: the migration reads the old file wrongly. Fix the migration, not the corpus.');
   return lines.join('\n');
@@ -436,12 +435,7 @@ export interface Verdict {
   notes: string[];
 }
 
-interface Diff {
-  changed: Array<{ path: string }>;
-  removed: string[];
-  added: string[];
-  differs: boolean;
-}
+type Diff = SnapshotDiff<unknown>;
 
 const OUTSIDE_RESULTS = /^(model\.|solve\.ok$)/;
 
@@ -450,7 +444,7 @@ function outsideResults(v: Values): Values {
 }
 
 function report(name: string, diff: Diff, solve: Verdict['solve'], current: Values): string {
-  const lines = [formatCaseReport(name, diff) as string];
+  const lines = [formatCaseReport(name, diff)];
   for (const p of diff.added) lines.push(`    ${p}: newly produced, ${JSON.stringify(current[p])}`);
   if (solve === 'now refuses') lines.push(`    the solve now refuses (${JSON.stringify(current['solve.refusal'] ?? '')}); no result value is compared`);
   if (solve === 'now solves') lines.push('    the solve refused then and solves now; no result value is compared');
