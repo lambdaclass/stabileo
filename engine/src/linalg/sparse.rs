@@ -337,6 +337,15 @@ impl CscMatrix {
     }
 
     /// Build CSC from dense symmetric matrix (lower triangle), skipping zeros.
+    pub(crate) fn from_dense_symmetric_exact(dense: &[f64], n: usize) -> Self {
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for j in 0..n { for i in j..n {
+            let v = dense[i * n + j];
+            if v != 0.0 { rows.push(i); cols.push(j); vals.push(v); }
+        } }
+        Self::from_triplets(n, &rows, &cols, &vals)
+    }
+
     pub fn from_dense_symmetric(dense: &[f64], n: usize) -> Self {
         let mut rows = Vec::new();
         let mut cols = Vec::new();
