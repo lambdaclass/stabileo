@@ -65,3 +65,5 @@
   .tools h1 { font-size: 1.5rem; }
   .tools .lead { display: none; }
 }
+.tools .tool-results > div[aria-live] { transition: opacity .15s; }
+.tools .tool-results.stale > div[aria-live] { opacity: .55; transition: opacity .2s .3s; }

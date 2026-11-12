@@ -118,6 +118,15 @@ describe('beam and frame playground', () => {
 });
 
 describe('slab on columns', () => {
+  it('marks the largest deflection at the node that has it, on columns and on walls', () => {
+    for (const extra of [{}, { supports: 1 }, { bays: 3, spacing: 9, thickness: 0.15 }] as Values[]) {
+      const view = run(slab, extra).views.deflection;
+      const top = view.values.reduce((best, v, k) => (v > view.values[best] ? k : best), 0);
+      expect(view.peak!.value).toBe(view.values[top]);
+      expect(view.peak!.at).toEqual([view.xy[2 * top], view.xy[2 * top + 1]]);
+      expect(view.peak!.at.every(Number.isFinite)).toBe(true);
+    }
+  });
   it('agrees with the Navier series with its shear term for a plate on walls', () => {
     const out = run(slab, { supports: 1, bays: 1, spacing: 8, thickness: 0.2, load: 10 });
     const reference = mindlinCentre(8, 0.2, 10) * 1000;

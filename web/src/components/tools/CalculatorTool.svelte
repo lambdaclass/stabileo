@@ -13,6 +13,7 @@
   import { type Warning } from './validity';
   import { solverMessages } from './solver-messages';
   import { liveSolver } from './live-solve';
+  import { widen, type Span } from './slider';
   import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
   import type { calculate } from './solve';
 
@@ -26,7 +27,8 @@
   const column = $derived(id === 'column-buckling');
   const title = $derived(t(`tools.${id}`));
   const units = { moment: 'kN·m', shear: 'kN', deflection: 'm' };
-  const fields = [['length', 'length', 'm', 0.1, 100, [0.5, 30, 0.1]], ['e', 'modulus', 'MPa', 1, 1000000, null], ['i', 'inertia', 'm⁴', 1e-10, 10, null]] as const;
+  const fields = [['length', 'length', 'm', 0.1, 100, true], ['e', 'modulus', 'MPa', 1, 1000000, false], ['i', 'inertia', 'm⁴', 1e-10, 10, false]] as const;
+  let spans = $state<Record<'length' | 'load', Span>>({ length: [0.5, 30, 0.1], load: [1, 100, 1] });
   const ends = [[0.5, 'fixedFixed'], [0.7, 'fixedPinned'], [1, 'pinnedPinned'], [2, 'fixedFree']] as const;
 
   const solver = liveSolver(
@@ -56,6 +58,7 @@
   $effect(() => {
     const values = { ...p };
     untrack(() => {
+      spans = { length: widen(spans.length, values.length), load: widen(spans.load, values.load) };
       const ready = result ? null : prerenderedResult<Result>(id, values);
       if (ready) { result = ready; void link(ready); return; }
       stale = true;
@@ -107,7 +110,7 @@
           <ParamRow id={key} name={t(`tools.${label}`)} {unit}>
             <input id={key} data-testid={key} type="number" bind:value={p[key]} {min} {max} step="any" required />
           </ParamRow>
-          {#if slider}<input type="range" data-testid={`slider-${key}`} aria-label={t(`tools.${label}`)} min={slider[0]} max={slider[1]} step={slider[2]} bind:value={p[key]} />{/if}
+          {#if slider}{#key spans.length.join()}<input type="range" data-testid={`slider-${key}`} aria-label={t(`tools.${label}`)} min={spans.length[0]} max={spans.length[1]} step={spans.length[2]} bind:value={p.length} />{/key}{/if}
         {/each}
         {#if column}
           <ParamRow id="ends" name={t('tools.ends')} unit={`K=${p.k}`}>
@@ -120,7 +123,7 @@
           <ParamRow id="load" name={t('tools.load')} unit={p.uniform ? 'kN/m' : 'kN'}>
             <input id="load" data-testid="load" type="number" bind:value={p.load} min="0.000001" max="1000000" step="any" required />
           </ParamRow>
-          <input type="range" data-testid="slider-load" aria-label={t('tools.load')} min="1" max="100" step="1" bind:value={p.load} />
+          {#key spans.load.join()}<input type="range" data-testid="slider-load" aria-label={t('tools.load')} min={spans.load[0]} max={spans.load[1]} step={spans.load[2]} bind:value={p.load} />{/key}
           {#if !p.uniform}
             <ParamRow id="position" name={t('tools.position')} unit="m"><input id="position" data-testid="position" type="number" bind:value={p.position} min="0" max={p.length} step="any" required /></ParamRow>
             <input type="range" data-testid="slider-position" aria-label={t('tools.position')} min="0" max={p.length} step={p.length / 100} bind:value={p.position} />
@@ -133,7 +136,7 @@
   </div>
   <div class="tool-main">
     {#if figures.length}<FigureBoard {figures} stale={stale || !!error} label={t('tools.figures')} />{/if}
-    <article class="tool-results rs-prose">
+    <article class="tool-results rs-prose" class:stale aria-busy={stale} data-testid="tool-results">
       <div aria-live="polite">
         {#if result && !error}
           {#each result.warnings as w, k (k)}<p class="warning" role="alert" data-testid="validity-warning">{warning(w)}</p>{/each}
@@ -171,7 +174,7 @@
       <p>{t('tools.referenceBooks')}</p>
       <details><summary>{t('tools.technical')}</summary>
         <p>{t('tools.solverNote')}</p>
-        {#if result}<p>{t('tools.dofs')}: {result.model.nodes.size * 3}</p><p>{t('tools.residualNote')}: <Sci value={Math.hypot(result.linear.reactions.reduce((sum, r) => sum + r.rx, 0) - (column ? 1 : 0), result.linear.reactions.reduce((sum, r) => sum + r.rz, 0) - (column ? 0 : p.load * (p.uniform ? p.length : 1)))} unit="kN" /></p>{/if}
+        {#if result}<p>{t('tools.dofs')}: {result.model.nodes.size * 3}</p><p>{t('tools.residualNote')}: <Sci value={result.residual} unit="kN" /></p>{/if}
       </details>
     </article>
   </div>

@@ -123,7 +123,57 @@ for (const { id } of TOOLS.filter(tool => tool.kind !== 'page')) test(`@smoke to
     const peak = page.getByTestId(`peak-${key}`);
     await expect(peak).toBeVisible();
     expect(Number.isFinite(Number(await peak.getAttribute('data-value')))).toBe(true);
+    if (id === 'beam-natural-frequency' && key.startsWith('mode')) continue;
+    const dot = figure.locator('[data-testid=chart-point], [data-testid=sketch-peak]');
+    await expect(dot).toHaveCount(1);
+    const [cx, cy] = (await dot.evaluate(el => [Number(el.getAttribute('cx')), Number(el.getAttribute('cy'))]));
+    const svg = (await dot.evaluate(el => { const r = el.ownerSVGElement!.getBoundingClientRect(); return [r.width, r.height]; }));
+    expect(cx >= 0 && cx <= svg[0] && cy >= 0 && cy <= svg[1], `${key} dot at ${cx},${cy} in ${svg}`).toBe(true);
   }
+});
+
+test('@smoke tools a value typed past a slider\'s span stays, and the slider grows to hold it', async ({ page }) => {
+  await page.goto('/en/tools/simply-supported-beam/?e2e=1');
+  await expect(page.getByTestId('peak-moment')).toBeVisible();
+  await page.getByTestId('load').fill('200');
+  await page.getByTestId('length').fill('50');
+  await expect.poll(() => peak(page, 'moment')).toBeCloseTo(200 * 50 ** 2 / 8, 6);
+  await page.getByTestId('e').fill('150000');
+  await expect.poll(() => peak(page, 'deflection')).toBeCloseTo(5 * 200 * 50 ** 4 / (384 * 150000e3 * 0.00008), 3);
+  await expect(page.getByTestId('load')).toHaveValue('200');
+  await expect(page.getByTestId('length')).toHaveValue('50');
+  near(await peak(page, 'moment'), 200 * 50 ** 2 / 8, 1e-9);
+  for (const [key, value] of [['load', '200'], ['length', '50']]) {
+    const slider = page.getByTestId(`slider-${key}`);
+    await expect(slider).toHaveValue(value);
+    expect(Number(await slider.getAttribute('max'))).toBeGreaterThanOrEqual(Number(value));
+  }
+  await slide(page, 'slider-load', 100);
+  await expect.poll(() => peak(page, 'moment')).toBeCloseTo(100 * 50 ** 2 / 8, 6);
+  await page.goto('/en/tools/portal-frame/?e2e=1');
+  await expect(page.getByTestId('peak-moment')).toBeVisible();
+  await page.getByTestId('height').fill('40');
+  await page.getByTestId('load').fill('500');
+  await page.getByTestId('e').fill('150000');
+  await expect(page.getByTestId('agreement')).toBeVisible();
+  await expect(page.getByTestId('height')).toHaveValue('40');
+  await expect(page.getByTestId('load')).toHaveValue('500');
+  await expect(page.getByTestId('slider-height')).toHaveValue('40');
+});
+
+test('@smoke tools the parameter column stays below the header while the results scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/en/tools/portal-frame/?e2e=1');
+  await expect(page.getByTestId('peak-moment')).toBeVisible();
+  const box = await page.evaluate(async () => {
+    document.querySelector('.landing')!.scrollTo({ top: 900, behavior: 'instant' });
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const side = document.querySelector('.tool-side')!.getBoundingClientRect();
+    return { top: side.top, bottom: side.bottom, nav: document.querySelector('nav.site-header')!.getBoundingClientRect().bottom, scrolled: document.querySelector('.landing')!.scrollTop };
+  });
+  expect(box.scrolled).toBeGreaterThan(0);
+  expect(box.top).toBeGreaterThanOrEqual(box.nav);
+  expect(box.bottom).toBeLessThanOrEqual(720);
 });
 
 const slide = (page: Page, testId: string, to: number) => page.getByTestId(testId).evaluate((el: HTMLInputElement, v) => { el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true })); }, to);
