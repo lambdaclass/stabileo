@@ -3082,3 +3082,208 @@ mod r9_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod r10_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn close(actual: f64, expected: f64) {
+        assert!(
+            actual.is_finite() && (actual - expected).abs() < 1e-9,
+            "{actual} != {expected}"
+        );
+    }
+
+    fn thermal_2d(uniform: bool) {
+        for alpha in [0.0_f64, -1e-8, 1e-8, -1.0, 1.0] {
+            for hinge in [false, true] {
+                for load in [json!({"type":"thermal","data":{"elementId":1,"dtUniform":if uniform {20.0} else {0.0},"dtGradient":if uniform {0.0} else {15.0},"alpha":0.00001,"depth":0.2}})] {
+                    let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                        "../../tests/fixtures/reaction-recovery-2d.json"
+                    ))
+                    .unwrap();
+                    m["loads"] = json!([load]);
+                    m["elements"]["1"]["hingeEnd"] = json!(hinge);
+                    let input: SolverInput = serde_json::from_value(m).unwrap();
+                    let dofs = DofNumbering::build_2d(&input);
+                    let zero = vec![0.0; dofs.n_total];
+                    let reference = super::super::linear::compute_internal_forces_2d_with_loads(
+                        &input,
+                        &input.loads,
+                        &dofs,
+                        &zero,
+                    );
+                    assert_eq!(reference.len(), 1);
+                    let fe = &reference[0];
+                    if uniform {
+                        close(fe.n_start, -input.materials["1"].e * 1000.0 * input.sections["1"].a * 0.00001 * 20.0);
+                    } else {
+                        assert!(fe.m_start.abs() + fe.m_end.abs() > 0.0);
+                    }
+                    let mut u = zero;
+                    u[dofs.global_dof(1, 0).unwrap()] = 3.0 * (alpha.cos() - 1.0);
+                    u[dofs.global_dof(1, 1).unwrap()] = 3.0 * alpha.sin();
+                    for node in [0, 1] {
+                        u[dofs.global_dof(node, 2).unwrap()] = alpha;
+                    }
+                    let result = compute_corotational_forces(&input, &dofs, &u);
+                    assert_eq!(result.len(), 1);
+                    let f = &result[0];
+                    for (n, v, rn, rv) in [
+                        (f.n_start, f.v_start, fe.n_start, fe.v_start),
+                        (f.n_end, f.v_end, fe.n_end, fe.v_end),
+                    ] {
+                        close(n, rn);
+                        close(v, rv);
+                    }
+                    close(f.m_start, fe.m_start);
+                    close(f.m_end, fe.m_end);
+                    close(f.length, 3.0);
+                    let mut mechanical = input.clone();
+                    mechanical.loads = serde_json::from_value(json!([{"type":"distributed","data":{"elementId":1,"qI":-2.0,"qJ":-2.0}}])).unwrap();
+                    let mut mixed = input.clone();
+                    mixed.loads.extend(mechanical.loads.clone());
+                    let dead = compute_corotational_forces(&mechanical, &dofs, &u);
+                    let combined = compute_corotational_forces(&mixed, &dofs, &u);
+                    let d = &dead[0];
+                    let c = &combined[0];
+                    for (actual, thermal, mechanical) in [
+                        (c.n_start, fe.n_start, d.n_start), (c.n_end, fe.n_end, d.n_end),
+                        (c.v_start, fe.v_start, d.v_start), (c.v_end, fe.v_end, d.v_end),
+                        (c.m_start, fe.m_start, d.m_start), (c.m_end, fe.m_end, d.m_end),
+                    ] {
+                        close(actual, thermal + mechanical);
+                    }
+                }
+            }
+        }
+    }
+
+    fn thermal_3d(uniform: bool) {
+        for alpha in [0.0_f64, -1e-8, 1e-8, -1.0, 1.0] {
+            for axis in [1, 2] {
+                let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                    "../../tests/fixtures/reaction-recovery-3d.json"
+                ))
+                .unwrap();
+                m["elements"]["1"]["localYx"] = json!(0.0);
+                m["elements"]["1"]["localYy"] = json!(1.0);
+                m["elements"]["1"]["localYz"] = json!(0.0);
+                m["loads"] = json!([{"type":"thermal","data":{"elementId":1,"dtUniform":if uniform {20.0} else {0.0},"dtGradientY":if uniform {0.0} else {15.0},"dtGradientZ":if uniform {0.0} else {-10.0},"alpha":0.00001,"depthY":0.2,"depthZ":0.3}}]);
+                let input: SolverInput3D = serde_json::from_value(m).unwrap();
+                let dofs = DofNumbering::build_3d(&input);
+                let zero = vec![0.0; dofs.n_total];
+                let reference = super::super::linear::compute_internal_forces_3d_with_loads(
+                    &input,
+                    &input.loads,
+                    &dofs,
+                    &zero,
+                );
+                assert_eq!(reference.len(), 1);
+                let fe = &reference[0];
+                if uniform {
+                    close(fe.n_start, -input.materials["1"].e * 1000.0 * input.sections["1"].a * 0.00001 * 20.0);
+                } else {
+                    assert!(fe.my_start.abs() + fe.mz_start.abs() > 0.0);
+                }
+                let mut u = zero;
+                u[dofs.global_dof(1, 0).unwrap()] = 3.0 * (alpha.cos() - 1.0);
+                let transverse = if axis == 1 { 2 } else { 1 };
+                let sign = if axis == 1 { -1.0 } else { 1.0 };
+                u[dofs.global_dof(1, transverse).unwrap()] = sign * 3.0 * alpha.sin();
+                for node in [0, 1] {
+                    u[dofs.global_dof(node, 3 + axis).unwrap()] = alpha;
+                }
+                let result = compute_corotational_forces_3d(&input, &dofs, &u, false);
+                assert_eq!(result.len(), 1);
+                let f = &result[0];
+                let mut mechanical = input.clone();
+                mechanical.loads = serde_json::from_value(json!([{"type":"distributed","data":{"elementId":1,"qYI":-2.0,"qYJ":-2.0,"qZI":-3.0,"qZJ":-3.0}}])).unwrap();
+                let mut mixed = input.clone();
+                mixed.loads.extend(mechanical.loads.clone());
+                let dead = compute_corotational_forces_3d(&mechanical, &dofs, &u, false);
+                let combined = compute_corotational_forces_3d(&mixed, &dofs, &u, false);
+                let d = &dead[0];
+                let c = &combined[0];
+                for (actual, thermal, mechanical) in [
+                    (c.n_start, fe.n_start, d.n_start), (c.n_end, fe.n_end, d.n_end),
+                    (c.vy_start, fe.vy_start, d.vy_start), (c.vy_end, fe.vy_end, d.vy_end),
+                    (c.vz_start, fe.vz_start, d.vz_start), (c.vz_end, fe.vz_end, d.vz_end),
+                    (c.mx_start, fe.mx_start, d.mx_start), (c.mx_end, fe.mx_end, d.mx_end),
+                    (c.my_start, fe.my_start, d.my_start), (c.my_end, fe.my_end, d.my_end),
+                    (c.mz_start, fe.mz_start, d.mz_start), (c.mz_end, fe.mz_end, d.mz_end),
+                ] {
+                    close(actual, thermal + mechanical);
+                }
+                for (a, b) in [
+                    (
+                        [-f.n_start, f.vy_start, f.vz_start],
+                        [-fe.n_start, fe.vy_start, fe.vz_start],
+                    ),
+                    (
+                        [f.n_end, -f.vy_end, -f.vz_end],
+                        [fe.n_end, -fe.vy_end, -fe.vz_end],
+                    ),
+                    (
+                        [f.mx_start, f.my_start, f.mz_start],
+                        [fe.mx_start, fe.my_start, fe.mz_start],
+                    ),
+                    (
+                        [-f.mx_end, -f.my_end, -f.mz_end],
+                        [-fe.mx_end, -fe.my_end, -fe.mz_end],
+                    ),
+                ] {
+                    for (v, expected) in a.into_iter().zip(b) {
+                        close(v, expected);
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn issue_1952_r10_uniform_thermal_follows_member_2d() {
+        thermal_2d(true);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn issue_1952_r10_gradient_thermal_follows_member_2d() {
+        thermal_2d(false);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn issue_1952_r10_uniform_thermal_follows_member_3d() {
+        thermal_3d(true);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn issue_1952_r10_gradient_thermal_follows_member_3d() {
+        thermal_3d(false);
+    }
+
+    #[test]
+    fn issue_1952_r10_native_thermal_refusals_unchanged() {
+        use super::super::arc_length::*;
+        for dt in [-20.0, 0.0, 20.0] {
+            let mut m: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-2d.json")).unwrap();
+            m["loads"] = json!([{"type":"thermal","data":{"elementId":1,"dtUniform":dt,"dtGradient":dt,"alpha":0.00001,"depth":0.2}}]);
+            let input: SolverInput = serde_json::from_value(m.clone()).unwrap();
+            let start = CorotationalStart2D { input: &input, displacements: &[] };
+            assert!(solve_corotational_2d(&input, 40, 1e-9, 2, false).unwrap_err().contains("thermal loads"));
+            assert!(solve_corotational_2d_from(&input, Some(&start), 40, 1e-9, 2, false).unwrap_err().contains("thermal loads"));
+            let arc: ArcLengthInput = serde_json::from_value(json!({"solver":m})).unwrap();
+            assert!(solve_arc_length(&arc).unwrap_err().contains("thermal loads"));
+            assert!(solve_arc_length_from(&arc, Some(&start)).unwrap_err().contains("thermal loads"));
+            let disp: DisplacementControlInput = serde_json::from_value(json!({"solver":m,"controlNode":1,"controlDof":1,"targetDisplacement":-0.01})).unwrap();
+            assert!(solve_displacement_control(&disp).unwrap_err().contains("thermal loads"));
+            let mut m: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
+            m["loads"] = json!([{"type":"thermal","data":{"elementId":1,"dtUniform":dt,"dtGradientY":dt,"dtGradientZ":dt,"alpha":0.00001,"depthY":0.2,"depthZ":0.3}}]);
+            let input: SolverInput3D = serde_json::from_value(m).unwrap();
+            assert!(solve_corotational_3d(&input, 40, 1e-9, 2, false).unwrap_err().contains("thermal loads"));
+        }
+    }
+}

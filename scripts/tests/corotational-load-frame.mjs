@@ -49,3 +49,18 @@ for (const dim of [2,3]) {
   }
 }
 if (failed) process.exitCode = 1;
+
+for (const dim of [2,3]) {
+  for (const dt of [-20,0,20]) {
+    const m = JSON.parse(readFileSync(new URL(`../../engine/tests/fixtures/reaction-recovery-${dim}d.json`,import.meta.url)));
+    m.loads = [{type:'thermal',data:dim === 2
+      ? {elementId:1,dtUniform:dt,dtGradient:dt,alpha:0.00001,depth:0.2}
+      : {elementId:1,dtUniform:dt,dtGradientY:dt,dtGradientZ:dt,alpha:0.00001,depthY:0.2,depthZ:0.3}}];
+    assert.throws(() => engine[`solve_corotational_${dim}d`](JSON.stringify(m),40,1e-9,2), /thermal loads/);
+    if (dim === 2) {
+      assert.throws(() => engine.solve_arc_length(JSON.stringify({solver:m})), /thermal loads/);
+      assert.throws(() => engine.solve_displacement_control(JSON.stringify({solver:m,controlNode:1,controlDof:1,targetDisplacement:-0.01})), /thermal loads/);
+    }
+    console.log(`PASS ${dim}D thermal refusal ${dt}`);
+  }
+}
