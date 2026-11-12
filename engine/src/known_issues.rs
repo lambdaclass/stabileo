@@ -659,25 +659,39 @@ const SPAN_STATIONS: usize = 64;
 
 /// The real roots in (0, 1) of the cubic `c[0] + c[1]·t + c[2]·t² + c[3]·t³`: the interval is
 /// split where the cubic turns, so each piece holds at most one root.
-fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
+fn cubic_roots_in_unit(c: [f64; 4]) -> ([f64; 3], usize) {
     let size = c.iter().map(|v| v.abs()).filter(|v| v.is_finite() && *v > 0.0).fold(0.0, f64::max);
     let c = if size > 0.0 { c.map(|v| v / size) } else { c };
     let p = |t: f64| ((c[3] * t + c[2]) * t + c[1]) * t + c[0];
     let (qa, qb, qc) = (3.0 * c[3], 2.0 * c[2], c[1]);
-    let mut cuts = vec![0.0, 1.0];
+    // The ends and the turning points, at most four; kept in [0, 1] and sorted. Fixed arrays: this
+    // runs for every window of every member of every load case.
+    let mut candidates = [0.0, 1.0, 0.0, 0.0];
+    let mut n_candidates = 2;
     let disc = qb * qb - 4.0 * qa * qc;
     if disc >= 0.0 {
         let q = -0.5 * (qb + qb.signum() * disc.sqrt());
         if q != 0.0 {
-            cuts.extend([q / qa, qc / q]);
+            candidates[2] = q / qa;
+            candidates[3] = qc / q;
+            n_candidates = 4;
         } else if qa != 0.0 {
-            cuts.push(0.0);
+            candidates[2] = 0.0;
+            n_candidates = 3;
         }
     }
-    cuts.retain(|t| (0.0..=1.0).contains(t));
-    cuts.sort_by(f64::total_cmp);
-    let mut roots = Vec::new();
-    for w in cuts.windows(2) {
+    let mut cuts = [0.0; 4];
+    let mut n_cuts = 0;
+    for &t in &candidates[..n_candidates] {
+        if (0.0..=1.0).contains(&t) {
+            cuts[n_cuts] = t;
+            n_cuts += 1;
+        }
+    }
+    cuts[..n_cuts].sort_by(f64::total_cmp);
+    let mut roots = [0.0; 3];
+    let mut n_roots = 0;
+    for w in cuts[..n_cuts].windows(2) {
         let (mut lo, mut hi) = (w[0], w[1]);
         let (plo, phi) = (p(lo), p(hi));
         if !(plo * phi <= 0.0) || plo == phi {
@@ -685,11 +699,22 @@ fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
         }
         for _ in 0..80 {
             let mid = 0.5 * (lo + hi);
+            // Adjacent doubles: the midpoint is an end, and every further step would leave the
+            // interval as it is.
+            if mid == lo || mid == hi { break; }
             if (p(mid) <= 0.0) == (plo <= 0.0) { lo = mid } else { hi = mid }
         }
-        roots.push(0.5 * (lo + hi));
+        roots[n_roots] = 0.5 * (lo + hi);
+        n_roots += 1;
     }
-    roots
+    (roots, n_roots)
+}
+
+/// The roots of [`cubic_roots_in_unit`] as a list, for the tests' assertions.
+#[cfg(test)]
+fn cubic_roots(c: [f64; 4]) -> Vec<f64> {
+    let (roots, n) = cubic_roots_in_unit(c);
+    roots[..n].to_vec()
 }
 
 /// The largest rotation along a member, its bending planes' section rotations ψ and axis slopes
@@ -699,8 +724,27 @@ fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
 /// extreme, are found exactly, and the slope is taken on both sides of a point load. The section rotation vector and
 /// the axis slope vector are bounded apart, each by the norm of its parts' largest magnitudes on
 /// the interval, and the interval's value is the larger bound.
+#[cfg(test)]
 fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64)) -> f64 {
-    let mut stations: Vec<f64> = (0..=SPAN_STATIONS).map(|k| l * k as f64 / SPAN_STATIONS as f64).chain(planes.iter().flat_map(|p| p.breaks().iter().copied())).collect();
+    span_rotation_bound(l, planes, twist, SPAN_STATIONS)
+}
+
+/// Whether [`largest_span_rotation`] is beyond the small-displacement limit, decided first with
+/// one window per load interval. Between load positions each plane's EI·ψ' is a cubic and its
+/// shear a quadratic, so that window's maxima are the exact maxima of its functions: with one
+/// plane and no twist the one-window value is the exact largest rotation, and with several it
+/// bounds the [`SPAN_STATIONS`]-window value from above (a window's maxima can only shrink when
+/// it is split). A value within the limit therefore settles the member; only a 3D member beyond
+/// the coarse bound is measured with the finer windows. Each load case of a combination ran the
+/// finer measure on every member, 64 windows of two cubics each, at 15 times the cost of its solve.
+fn span_rotation_beyond(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64)) -> bool {
+    if !beyond_small_displacement(span_rotation_bound(l, planes, twist, 1)) { return false; }
+    if planes.len() == 1 && twist == (0.0, 0.0) { return true; }
+    beyond_small_displacement(span_rotation_bound(l, planes, twist, SPAN_STATIONS))
+}
+
+fn span_rotation_bound(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64), stations: usize) -> f64 {
+    let mut stations: Vec<f64> = (0..=stations).map(|k| l * k as f64 / stations as f64).chain(planes.iter().flat_map(|p| p.breaks().iter().copied())).collect();
     stations.sort_by(f64::total_cmp);
     stations.dedup();
     let nodes: [f64; 4] = std::array::from_fn(|k| 0.5 * (1.0 - ((2 * k + 1) as f64 * std::f64::consts::PI / 8.0).cos()));
@@ -713,7 +757,8 @@ fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRot
             let m = nodes.map(|t| p.moment(a + (b - a) * t));
             let mut c = [0.0; 4];
             for (k, &tk) in nodes.iter().enumerate() {
-                let others: Vec<f64> = nodes.iter().enumerate().filter(|&(j, _)| j != k).map(|(_, &t)| t).collect();
+                let mut others = [0.0; 3];
+                for (o, (_, &t)) in nodes.iter().enumerate().filter(|&(j, _)| j != k).enumerate() { others[o] = t; }
                 let scale = m[k] / others.iter().map(|&t| tk - t).product::<f64>();
                 let (r0, r1, r2) = (others[0], others[1], others[2]);
                 c[0] -= scale * r0 * r1 * r2;
@@ -734,12 +779,18 @@ fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRot
                 let psi = p.at(a + h * t);
                 (psi.abs(), (psi - f * (s[0] + (s[1] + s[2] * t) * t)).abs())
             };
-            let mut at = vec![0.0, 1.0];
-            at.extend(cubic_roots_in_unit(c));
+            // The window's ends and the zeros of the two cubics: at most eight points.
+            let mut at = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+            let mut n_at = 2;
+            let (roots, n) = cubic_roots_in_unit(c);
+            at[n_at..n_at + n].copy_from_slice(&roots[..n]);
+            n_at += n;
             if f != 0.0 {
-                at.extend(cubic_roots_in_unit([c[0] / ei - f * s[1] / h, c[1] / ei - 2.0 * f * s[2] / h, c[2] / ei, c[3] / ei]));
+                let (roots, n) = cubic_roots_in_unit([c[0] / ei - f * s[1] / h, c[1] / ei - 2.0 * f * s[2] / h, c[2] / ei, c[3] / ei]);
+                at[n_at..n_at + n].copy_from_slice(&roots[..n]);
+                n_at += n;
             }
-            let (section, axis) = at.into_iter().map(turn).fold((0.0, 0.0), |(s, x), (ps, px)| (nan_max(s, ps), nan_max(x, px)));
+            let (section, axis) = at[..n_at].iter().copied().map(turn).fold((0.0, 0.0), |(s, x), (ps, px)| (nan_max(s, ps), nan_max(x, px)));
             sections += section * section;
             axes += axis * axis;
         }
@@ -754,6 +805,7 @@ fn nan_max(x: f64, y: f64) -> f64 {
 
 fn member_spans_2d(input: &SolverInput, loads: &[SolverLoad]) -> Vec<MemberSpan> {
     let at: std::collections::HashMap<usize, &SolverNode> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let any_thermal = loads.iter().any(|l| matches!(l, SolverLoad::Thermal(_)));
     let mut out = Vec::new();
     for e in crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame") {
         let (Some(a), Some(b)) = (at.get(&e.node_i), at.get(&e.node_j)) else { continue };
@@ -765,10 +817,13 @@ fn member_spans_2d(input: &SolverInput, loads: &[SolverLoad]) -> Vec<MemberSpan>
         }
         let (cos, sin) = ((b.x - a.x) / length, (b.z - a.z) / length);
         let shear = sec.as_y.filter(|&s| s > 0.0).map_or(0.0, |s| 2.0 * (1.0 + mat.nu) / (e_mod * s));
-        let curvature = loads.iter().map(|l| match l {
+        // Without a thermal load the sum over every load is a sum of zeros: the sum's identity
+        // when there is no load, else +0,0 (the identity plus a positive zero), without reading the
+        // whole load set once per member.
+        let curvature = if any_thermal { loads.iter().map(|l| match l {
             SolverLoad::Thermal(t) if t.element_id == e.id => THERMAL_CURVATURE_2D * t.alpha() * t.dt_gradient / t.depth(sec.a, sec.iz),
             _ => 0.0,
-        }).sum();
+        }).sum() } else if loads.is_empty() { std::iter::empty::<f64>().sum() } else { 0.0 };
         out.push(MemberSpan { element_id: e.id, nodes: [e.node_i, e.node_j], length, axes: [[cos, 0.0, sin], [-sin, 0.0, cos], [0.0, 1.0, 0.0]], ei: [e_mod * sec.iz, 0.0], shear_flexibility: [shear, 0.0], curvature: Some([curvature, 0.0]) });
     }
     out
@@ -776,6 +831,7 @@ fn member_spans_2d(input: &SolverInput, loads: &[SolverLoad]) -> Vec<MemberSpan>
 
 fn member_spans_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Vec<MemberSpan> {
     let at: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let any_thermal = loads.iter().any(|l| matches!(l, SolverLoad3D::Thermal(_)));
     let left_hand = input.left_hand.unwrap_or(false);
     let mut out = Vec::new();
     for e in crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame") {
@@ -789,7 +845,7 @@ fn member_spans_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Vec<MemberS
         let (ex, ey, ez) = crate::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z, e.local_yx, e.local_yy, e.local_yz, e.roll_angle, left_hand);
         let shear = |area: Option<f64>| area.filter(|&s| s > 0.0).map_or(0.0, |s| 1.0 / (g * s));
         let mut curvature = [0.0; 2];
-        for l in loads {
+        for l in if any_thermal { loads } else { &[] } {
             if let SolverLoad3D::Thermal(t) = l {
                 if t.element_id == e.id {
                     curvature[0] += THERMAL_CURVATURE_3D[0] * t.alpha() * t.dt_gradient_y / t.depth_y(sec.a, sec.iz);
@@ -812,7 +868,7 @@ fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
 /// Frame members whose section rotation inside the span exceeds [`SMALL_DISPLACEMENT_LIMIT`]:
 /// a member held at both ends can turn far between them under a span load.
 pub(crate) fn span_rotations_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<usize> {
-    span_planes_2d(spans, r).into_iter().filter(|(_, length, plane)| beyond_small_displacement(largest_span_rotation(*length, std::slice::from_ref(plane), (0.0, 0.0)))).map(|(id, _, _)| id).collect()
+    span_planes_2d(spans, r).into_iter().filter(|(_, length, plane)| span_rotation_beyond(*length, std::slice::from_ref(plane), (0.0, 0.0))).map(|(id, _, _)| id).collect()
 }
 
 fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64, crate::postprocess::diagrams::SpanRotation)> {
@@ -838,7 +894,7 @@ fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64,
 /// [`span_rotations_2d`] in 3D: both bending planes, in the axes the app's 3D deformed shape uses, and the
 /// twist, judged together as the norm of the rotation vector.
 pub(crate) fn span_rotations_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<usize> {
-    span_planes_3d(spans, r).into_iter().filter(|(_, length, planes, twist)| beyond_small_displacement(largest_span_rotation(*length, planes, *twist))).map(|(id, ..)| id).collect()
+    span_planes_3d(spans, r).into_iter().filter(|(_, length, planes, twist)| span_rotation_beyond(*length, planes, *twist)).map(|(id, ..)| id).collect()
 }
 
 type SpanPlanes3D = (usize, f64, [crate::postprocess::diagrams::SpanRotation; 2], (f64, f64));
@@ -1091,11 +1147,12 @@ fn compression(n_start: f64, n_end: f64, span: Option<&f64>) -> f64 {
 
 /// [`second_order`] for a 2D result.
 pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Vec<StructuredDiagnostic>, f64) {
+    let lengths: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, f.length)).collect();
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         let (id, total) = match load {
             SolverLoad::PointOnElement(p) => (p.element_id, p.px.unwrap_or(0.0).abs()),
-            SolverLoad::AxialDistributed(q) => (q.element_id, q.q_i.abs().max(q.q_j.abs()) * span_length(q.a, q.b, r.element_forces.iter().find(|f| f.element_id == q.element_id).map(|f| f.length))),
+            SolverLoad::AxialDistributed(q) => (q.element_id, q.q_i.abs().max(q.q_j.abs()) * span_length(q.a, q.b, lengths.get(&q.element_id).copied())),
             _ => continue,
         };
         *span.entry(id).or_default() += total;
@@ -1120,10 +1177,11 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
 
 /// [`second_order`] for a 3D result: I_min is the lesser of Iy and Iz.
 pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &AnalysisResults3D) -> (Vec<StructuredDiagnostic>, f64) {
+    let lengths: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, f.length)).collect();
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         if let SolverLoad3D::Distributed(q) = load {
-            let length = r.element_forces.iter().find(|f| f.element_id == q.element_id).map(|f| f.length);
+            let length = lengths.get(&q.element_id).copied();
             *span.entry(q.element_id).or_default() += q.q_xi.abs().max(q.q_xj.abs()) * span_length(q.a, q.b, length);
         }
     }
@@ -1513,9 +1571,9 @@ mod span_tests {
     #[test]
     fn cubic_roots_in_the_unit_interval_do_not_depend_on_the_cubic_scale_1506() {
         for scale in [1e-200, 1e200, -1e-200, -1e200] {
-            let pair = cubic_roots_in_unit([0.16, -1.0, 1.0, 0.0].map(|v| v * scale));
+            let pair = cubic_roots([0.16, -1.0, 1.0, 0.0].map(|v| v * scale));
             assert!(pair.len() == 2 && (pair[0] - 0.2).abs() < 1e-12 && (pair[1] - 0.8).abs() < 1e-12, "{scale:e}: {pair:?}");
-            let three = cubic_roots_in_unit([-0.18, 1.46, -3.2, 2.0].map(|v| v * scale));
+            let three = cubic_roots([-0.18, 1.46, -3.2, 2.0].map(|v| v * scale));
             assert!(three.len() == 3 && three.iter().zip([0.2, 0.5, 0.9]).all(|(r, e)| (r - e).abs() < 1e-12), "{scale:e}: {three:?}");
         }
     }
@@ -1809,27 +1867,27 @@ mod span_tests {
 
     #[test]
     fn cubic_roots_without_a_quadratic_term_are_found_1569() {
-        let roots = cubic_roots_in_unit([0.1, -0.75, 0.0, 1.0]);
+        let roots = cubic_roots([0.1, -0.75, 0.0, 1.0]);
         assert_eq!(roots.len(), 2, "{roots:?}");
         for r in roots {
             assert!((0.1 - 0.75 * r + r * r * r).abs() < 1e-12, "{r}");
         }
-        let pair = cubic_roots_in_unit([-0.16, 0.84, 0.0, -1.0]);
+        let pair = cubic_roots([-0.16, 0.84, 0.0, -1.0]);
         assert!(pair.len() == 2 && (pair[0] - 0.2).abs() < 1e-12 && (pair[1] - 0.8).abs() < 1e-12, "{pair:?}");
     }
 
     #[test]
     fn cubic_roots_in_the_unit_interval_include_both_of_a_close_pair_1506() {
-        let roots = cubic_roots_in_unit([-0.18, 1.46, -3.2, 2.0]);
+        let roots = cubic_roots([-0.18, 1.46, -3.2, 2.0]);
         let expected = [0.2, 0.5, 0.9];
         assert_eq!(roots.len(), 3, "{roots:?}");
         for (r, e) in roots.iter().zip(expected) {
             assert!((r - e).abs() < 1e-12, "{roots:?}");
         }
-        let pair = cubic_roots_in_unit([0.24, -1.0, 1.0, 0.0]);
+        let pair = cubic_roots([0.24, -1.0, 1.0, 0.0]);
         assert!(pair.len() == 2 && (pair[0] - 0.4).abs() < 1e-12 && (pair[1] - 0.6).abs() < 1e-12, "{pair:?}");
         for tiny in [1e-16, -1e-16, 1e-300, 1e-8] {
-            let nearly = cubic_roots_in_unit([0.16, -1.0, 1.0, tiny]);
+            let nearly = cubic_roots([0.16, -1.0, 1.0, tiny]);
             assert!(nearly.len() == 2 && (nearly[0] - 0.2).abs() < 1e-7 && (nearly[1] - 0.8).abs() < 1e-7, "{tiny:e}: {nearly:?}");
         }
     }
@@ -1838,7 +1896,7 @@ mod span_tests {
     fn cubic_roots_in_the_unit_interval_without_a_square_term_1506() {
         for c2 in [0.0, -0.0] {
             let c = [0.2, -0.75, c2, 1.0];
-            let roots = cubic_roots_in_unit(c);
+            let roots = cubic_roots(c);
             assert_eq!(roots.len(), 2, "{c2:?}: {roots:?}");
             assert!(roots[0] > 0.0 && roots[0] < 0.5 && roots[1] > 0.5 && roots[1] < 1.0, "{c2:?}: {roots:?}");
             for t in roots {
