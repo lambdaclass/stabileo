@@ -316,3 +316,91 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
         }
     }
 }
+
+fn round7_inclined(pads: usize, angle: f64) -> StagedInput {
+    let mut input: StagedInput = serde_json::from_value(
+        serde_json::from_str::<serde_json::Value>(include_str!("../../tests/fixtures/staged-round7.json")).unwrap()["inclined"].clone()
+    ).unwrap();
+    input.supports.get_mut("2").unwrap().angle = Some(angle);
+    for i in 0..pads {
+        let a = 100 + 2 * i;
+        let b = a + 1;
+        input.nodes.insert(a.to_string(), SolverNode { id: a, x: 10.0, z: 0.0 });
+        input.nodes.insert(b.to_string(), SolverNode { id: b, x: 14.0, z: 0.0 });
+        let mut e = input.elements["1"].clone();
+        e.id = a; e.node_i = a; e.node_j = b;
+        input.elements.insert(a.to_string(), e);
+        let mut sup = input.supports["1"].clone();
+        sup.id = a; sup.node_id = a;
+        input.supports.insert(a.to_string(), sup);
+        input.stages[0].elements_added.push(a);
+        input.stages[0].supports_added.push(a);
+    }
+    input
+}
+
+fn round7_close(got: f64, expected: f64) {
+    assert!(got.is_finite() && expected.is_finite());
+    assert!((got - expected).abs() <= 1e-10 * expected.abs().max(1.0), "got={got}, expected={expected}");
+}
+
+#[test]
+#[ignore = "known wrong result: #1943"]
+fn staged_round7_inclined_global_axes_reference() {
+    for pads in [0, 20, 21] {
+        for angle in [0.0_f64, 0.6, -0.6] {
+            let input = round7_inclined(pads, angle);
+            assert!(solve_staged_2d(&input).unwrap_err().contains("Inclined supports are not yet supported"));
+            let result = solve_staged_2d_contained(&input).unwrap();
+            let (sin, cos) = angle.sin_cos();
+            let kx = 10000.0 * 0.01 / 4.0;
+            let kz = 3.0 * 10000.0 * 0.001 / 4.0_f64.powi(3);
+            for (index, stage) in result.stages.iter().enumerate() {
+                let fz = -(index as f64 + 1.0);
+                let tangent_u = fz * sin / (kx * cos * cos + kz * sin * sin);
+                let ux = tangent_u * cos;
+                let uz = tangent_u * sin;
+                let tip = stage.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                round7_close(tip.ux, ux);
+                round7_close(tip.uz, uz);
+                round7_close(tip.ry, 3.0 * uz / 8.0);
+                let support = stage.results.reactions.iter().find(|r| r.node_id == 2).unwrap();
+                round7_close(support.rx, kx * ux);
+                round7_close(support.rz, kz * uz - fz);
+                let base = stage.results.reactions.iter().find(|r| r.node_id == 1).unwrap();
+                round7_close(base.rx, -kx * ux);
+                round7_close(base.rz, -kz * uz);
+                round7_close(base.my, 4.0 * kz * uz);
+                let force = stage.results.element_forces.iter().find(|f| f.element_id == 1).unwrap();
+                round7_close(force.n_start, kx * ux);
+                round7_close(force.n_end, kx * ux);
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1943"]
+fn staged_round7_inclined_disconnected_tangent_load() {
+    for pads in [0, 20, 21] {
+        for angle in [0.0_f64, 0.6, -0.6] {
+            for fz in [-1.0, 0.0, 1.0] {
+                let mut input = round7_inclined(pads, angle);
+                input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz, my: 0.0 })];
+                input.stages[0].load_indices.clear();
+                input.stages[1].elements_removed = vec![1];
+                input.stages[1].load_indices = vec![0];
+                let result = solve_staged_2d_contained(&input);
+                if angle != 0.0 && fz != 0.0 {
+                    let error = result.unwrap_err();
+                    assert!(error.contains("translation") || error.contains("mechanism"), "{error}");
+                } else {
+                    let result = result.unwrap();
+                    let r = result.final_results.reactions.iter().find(|r| r.node_id == 2).unwrap();
+                    round7_close(r.rx, 0.0);
+                    round7_close(r.rz, -fz);
+                }
+            }
+        }
+    }
+}

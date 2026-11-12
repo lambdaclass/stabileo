@@ -1,0 +1,353 @@
+{
+  "2": {
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 0,
+        "z": 0
+      },
+      "2": {
+        "id": 2,
+        "x": 0,
+        "z": 1
+      },
+      "3": {
+        "id": 3,
+        "x": 0,
+        "z": -1
+      },
+      "4": {
+        "id": 4,
+        "x": -1,
+        "z": -1
+      },
+      "5": {
+        "id": 5,
+        "x": 10,
+        "z": 0
+      },
+      "6": {
+        "id": 6,
+        "x": 11,
+        "z": 0
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 1,
+        "nu": 0.3
+      },
+      "2": {
+        "id": 2,
+        "e": 1000000000000.0,
+        "nu": 0.3
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 1,
+        "iy": 1,
+        "iz": 1,
+        "j": 1
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "truss",
+        "nodeI": 4,
+        "nodeJ": 3,
+        "materialId": 1,
+        "sectionId": 1
+      },
+      "2": {
+        "id": 2,
+        "type": "frame",
+        "nodeI": 5,
+        "nodeJ": 6,
+        "materialId": 2,
+        "sectionId": 1
+      }
+    },
+    "supports": {
+      "1": {
+        "id": 1,
+        "nodeId": 1,
+        "type": "rollerX"
+      },
+      "2": {
+        "id": 2,
+        "nodeId": 2,
+        "type": "spring",
+        "kx": 1
+      },
+      "4": {
+        "id": 4,
+        "nodeId": 4,
+        "type": "fixed"
+      },
+      "5": {
+        "id": 5,
+        "nodeId": 5,
+        "type": "fixed"
+      },
+      "6": {
+        "id": 6,
+        "nodeId": 6,
+        "type": "guidedX"
+      }
+    },
+    "loads": [],
+    "constraints": [
+      {
+        "type": "rigidLink",
+        "masterNode": 1,
+        "slaveNode": 2,
+        "dofs": []
+      },
+      {
+        "type": "rigidLink",
+        "masterNode": 1,
+        "slaveNode": 3,
+        "dofs": []
+      }
+    ]
+  },
+  "3": {
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 0,
+        "z": 0,
+        "y": 0
+      },
+      "2": {
+        "id": 2,
+        "x": 0,
+        "z": 1,
+        "y": 0
+      },
+      "3": {
+        "id": 3,
+        "x": 0,
+        "z": -1,
+        "y": 0
+      },
+      "4": {
+        "id": 4,
+        "x": -1,
+        "z": -1,
+        "y": 0
+      },
+      "5": {
+        "id": 5,
+        "x": 10,
+        "z": 0,
+        "y": 0
+      },
+      "6": {
+        "id": 6,
+        "x": 11,
+        "z": 0,
+        "y": 0
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 1,
+        "nu": 0.3
+      },
+      "2": {
+        "id": 2,
+        "e": 1000000000000.0,
+        "nu": 0.3
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 1,
+        "iy": 1,
+        "iz": 1,
+        "j": 1
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "truss",
+        "nodeI": 4,
+        "nodeJ": 3,
+        "materialId": 1,
+        "sectionId": 1
+      },
+      "2": {
+        "id": 2,
+        "type": "frame",
+        "nodeI": 5,
+        "nodeJ": 6,
+        "materialId": 2,
+        "sectionId": 1
+      }
+    },
+    "supports": {
+      "1": {
+        "id": 1,
+        "nodeId": 1,
+        "type": "rollerX",
+        "rx": false,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": false,
+        "rrz": true
+      },
+      "2": {
+        "id": 2,
+        "nodeId": 2,
+        "type": "spring",
+        "rx": false,
+        "ry": false,
+        "rz": false,
+        "rrx": false,
+        "rry": false,
+        "rrz": false,
+        "kx": 1
+      },
+      "4": {
+        "id": 4,
+        "nodeId": 4,
+        "type": "fixed",
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "5": {
+        "id": 5,
+        "nodeId": 5,
+        "type": "fixed",
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      },
+      "6": {
+        "id": 6,
+        "nodeId": 6,
+        "type": "guidedX",
+        "rx": false,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      }
+    },
+    "loads": [],
+    "constraints": [
+      {
+        "type": "rigidLink",
+        "masterNode": 1,
+        "slaveNode": 2,
+        "dofs": []
+      },
+      {
+        "type": "rigidLink",
+        "masterNode": 1,
+        "slaveNode": 3,
+        "dofs": []
+      }
+    ]
+  },
+  "inclined": {
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 0,
+        "z": 0
+      },
+      "2": {
+        "id": 2,
+        "x": 4,
+        "z": 0
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 10000,
+        "nu": 0.3
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 0.01,
+        "iz": 0.001
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 1,
+        "nodeJ": 2,
+        "materialId": 1,
+        "sectionId": 1
+      }
+    },
+    "supports": {
+      "1": {
+        "id": 1,
+        "nodeId": 1,
+        "type": "fixed"
+      },
+      "2": {
+        "id": 2,
+        "nodeId": 2,
+        "type": "inclinedRoller",
+        "angle": 0.6
+      }
+    },
+    "loads": [
+      {
+        "type": "nodal",
+        "data": {
+          "nodeId": 2,
+          "fx": 0,
+          "fz": -1,
+          "my": 0
+        }
+      }
+    ],
+    "stages": [
+      {
+        "name": "first",
+        "elementsAdded": [
+          1
+        ],
+        "supportsAdded": [
+          1,
+          2
+        ],
+        "loadIndices": [
+          0
+        ]
+      },
+      {
+        "name": "second",
+        "loadIndices": [
+          0
+        ]
+      }
+    ]
+  }
+}

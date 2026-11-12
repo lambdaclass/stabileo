@@ -956,3 +956,15 @@ test.engine.staged-final-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs
+
+.PHONY: test.engine.staged-round7 test.engine.staged-round7-wasm test.staged-round7-assertions
+
+test.engine.staged-round7:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_round7 -- --nocapture $(if $(IGNORED),--ignored)
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1943_round7 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round7-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round7-wasm.mjs
+
+test.staged-round7-assertions:
+	$(NIX_RUN) node --test scripts/tests/staged-round7-reactions.test.mjs
