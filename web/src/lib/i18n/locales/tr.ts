@@ -10949,7 +10949,6 @@ const tr: Translations = {
   'combos.rules.service': 'Kullanılabilirlik',
   'combos.rules.remove': 'Kuralı kaldır',
   'combos.rules.add': 'Kural ekle',
-  'combos.rules.seed': 'CIRSOC 101\'den başla',
   'combos.rules.generate': 'Kurallardan oluştur',
   'combos.rules.sub': 'Proje kuralları, modelin durumları üzerinde',
   'combos.rules.export': 'Şablon olarak kaydet',
@@ -11096,7 +11095,6 @@ const tr: Translations = {
   'autoLoad.comboSourceProjectEmpty': 'Projenin henüz kuralı yok; aşağıda yazılır.',
   'autoLoad.seismicBothSenses': 'Deprem her iki yönde (±)',
   'autoLoad.seismicBothSensesHint': 'Her deprem durumu ters işaretle de girer. Rüzgarın kendi seçeneği, her yönün ayrı bir durum olduğu rüzgar bölümündedir.',
-  'combos.rules.none': 'Henüz kural yok. Bir kural ekleyin veya CIRSOC 101\'den başlayın.',
   'combos.empty': 'Kombinasyon yok. Durumlardan oluşturun veya bir tane ekleyin.',
   'combos.remove': 'Kombinasyonu kaldır',
   'combos.add': 'Yeni kombinasyon',
@@ -15442,7 +15440,6 @@ const tr: Translations = {
   "loads.tr.wind.shapeTower": "Kule tipi yapı, C = 1,6",
   "loads.tr.wind.title": "TS 498'e göre rüzgar yükü (Madde 11)",
   "rcSheets.building": "Donatı tabloları hazırlanıyor: {combos} kombinasyonun {members} çubuk ve {shells} plak elemanındaki iç kuvvetleri…",
-  "rcSheets.updating": "Güncelleniyor…",
   "rcSheets.elev.title": "{name} · kat görünüşü",
   "rcSheets.elev.end": "Uç bölge",
   "rcSheets.elev.middle": "Orta bölge",
@@ -15575,6 +15572,14 @@ const tr: Translations = {
   "combos.rules.seedCode": "{code} ile başla",
   "combos.rules.noneCode": "Henüz kural yok. Bir kural ekleyin veya {code} ile başlayın.",
   "autoLoad.noFamilySeismic": "Bu yönetmelik ailesi hiçbir deprem yönetmeliği bağlamaz.",
+  "rcSheets.design": "Donatıları boyutlandır",
+  "rcSheets.designHint": "Tablolar tüm elemanların donatısını tek seferde boyutlandırır; büyük bir binada bu biraz zaman alır. Siz istemeden hiçbir şey boyutlandırılmaz.",
+  "rcSheets.stale": "Donatılar boyutlandırıldıktan sonra model, sonuçlar veya tasarım verileri değişti: bu tablolar güncel değil.",
+  "rcSheets.staleShort": "Güncel değil",
+  "rcSheets.redesign": "Yeniden boyutlandır",
+  "rcSheets.progressTitle": "Donatılar boyutlandırılıyor",
+  "rcSheets.progressDemands": "İç kuvvetler okunuyor: {total} gruptan {done}",
+  "rcSheets.progressDesign": "{total} elemandan {done} tanesi boyutlandırıldı",
 };
 
 export default tr;

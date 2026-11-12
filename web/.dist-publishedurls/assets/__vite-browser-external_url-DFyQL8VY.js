@@ -1,0 +1,1 @@
+new Proxy({},{get(o,e){throw new Error(`Module "url" has been externalized for browser compatibility. Cannot access "url.${e}" in client code.  See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.`)}});

@@ -10940,7 +10940,6 @@ const fr: Translations = {
   'combos.rules.service': 'Service',
   'combos.rules.remove': 'Supprimer la règle',
   'combos.rules.add': 'Ajouter une règle',
-  'combos.rules.seed': 'Partir de CIRSOC 101',
   'combos.rules.generate': 'Générer à partir des règles',
   'combos.rules.sub': 'Règles du projet, sur les cas du modèle',
   'combos.rules.export': 'Enregistrer comme modèle',
@@ -11087,7 +11086,6 @@ const fr: Translations = {
   'autoLoad.comboSourceProjectEmpty': 'Le projet n\'a pas encore de règles ; elles s\'écrivent ci-dessous.',
   'autoLoad.seismicBothSenses': 'Séisme dans les deux sens (±)',
   'autoLoad.seismicBothSensesHint': 'Chaque cas sismique entre aussi avec le signe opposé. Le vent a sa propre option dans le bloc vent, où chaque sens est un cas à part.',
-  'combos.rules.none': 'Aucune règle pour l\'instant. Ajoutez-en une ou partez de CIRSOC 101.',
   'combos.empty': 'Aucune combinaison. Générez-les à partir des cas ou ajoutez-en une.',
   'combos.remove': 'Supprimer la combinaison',
   'combos.add': 'Nouvelle combinaison',
@@ -15442,7 +15440,6 @@ const fr: Translations = {
   "loads.tr.wind.shapeTower": "Bâtiment de type tour, C = 1,6",
   "loads.tr.wind.title": "Vent selon la TS 498 (Madde 11)",
   "rcSheets.building": "Construction des feuilles : efforts de {combos} combinaisons sur {members} barres et {shells} éléments de plaque…",
-  "rcSheets.updating": "Mise à jour…",
   "rcSheets.elev.title": "{name} · élévation de l'étage",
   "rcSheets.elev.end": "Extrémité",
   "rcSheets.elev.middle": "Partie courante",
@@ -15575,6 +15572,14 @@ const fr: Translations = {
   "combos.rules.seedCode": "Partir de {code}",
   "combos.rules.noneCode": "Aucune règle pour l’instant. Ajoutez-en une ou partez de {code}.",
   "autoLoad.noFamilySeismic": "Cette famille de normes ne lie aucune norme sismique.",
+  "rcSheets.design": "Dimensionner les armatures",
+  "rcSheets.designHint": "Les feuilles dimensionnent les armatures de tous les éléments à la fois, ce qui prend un moment sur un grand bâtiment. Rien n’est dimensionné tant que vous ne le demandez pas.",
+  "rcSheets.stale": "Le modèle, les résultats ou les données de calcul ont changé après le dimensionnement des armatures : ces feuilles ne sont plus à jour.",
+  "rcSheets.staleShort": "Pas à jour",
+  "rcSheets.redesign": "Redimensionner",
+  "rcSheets.progressTitle": "Dimensionnement des armatures",
+  "rcSheets.progressDemands": "Lecture des efforts : {done} familles sur {total}",
+  "rcSheets.progressDesign": "{done} éléments dimensionnés sur {total}",
 };
 
 export default fr;

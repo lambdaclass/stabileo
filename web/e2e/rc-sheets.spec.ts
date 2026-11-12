@@ -29,11 +29,17 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   });
   await page.getByTestId('pr-cmd-rcSheets').click();
   await expect(page.getByTestId('rc-sheets-panel')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { building: string[] }).building.some((x) => x.includes('combinaciones')))).toBe(true);
+  // Opening the sheets designs nothing: they wait for the button.
+  await expect(page.getByTestId('rc-design')).toBeVisible();
+  await expect(page.getByTestId('rc-open-beam')).toHaveCount(0);
   // The physical elements are already read; the walls, one element a storey, are meshed for the sheets.
   await expect(page.getByTestId('rc-recognize')).toHaveCount(0);
   await page.getByTestId('rc-mesh-walls').click();
   await expect(page.getByTestId('rc-mesh-walls')).toHaveCount(0, { timeout: 120_000 });
+  await expect(page.getByTestId('rc-design')).toBeEnabled({ timeout: 120_000 });
+  await page.getByTestId('rc-design').click();
+  // It says what it is designing, with a bar of members done, before the rows hold the page.
+  await expect.poll(() => page.evaluate(() => (window as unknown as { building: string[] }).building.some((x) => x.includes('combinaciones')))).toBe(true);
 
   await expect(page.getByTestId('rc-open-beam')).toBeEnabled({ timeout: 60_000 });
   await expect(page.getByTestId('rc-open-column')).toBeEnabled();
@@ -134,10 +140,13 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(wallFig.getByTestId('rc-wall-elev-vertical')).toHaveCount(0);
   await expect(wallFig.getByTestId('rc-wall-elev-horizontal')).toHaveCount(1);
 
-  // The code is switched from the sheets themselves: every family is designed again to it, and the choice is the project's.
+  // The code is switched from the sheets themselves: the rows say they are out of date, and every family is designed again to it on asking; the choice is the project's.
   const picker = ws.getByTestId('rc-code').getByTestId('rc-code-select');
   for (const [code, clause] of [['en1992-1-1', '9.2.1.3, 6.1'], ['bs-en1992-1-1', '9.2.1.3, 6.1'], ['ts500-2000', '7.1, 7.3'], ['aci318-19', '§9.7.3, §22.2']] as const) {
     await picker.selectOption(code);
+    await expect(ws.getByTestId('rc-stale')).toBeVisible();
+    await ws.getByTestId('rc-redesign').click();
+    await expect(ws.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
     await ws.getByTestId('rc-tab-beam').click();
     await expect(ws.getByTestId('rc-row').first()).toBeVisible();
     await ws.getByTestId('rc-row').first().click();
@@ -150,6 +159,8 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
 
   // The project's denser column ends, the design's own setting, drawn in the elevation.
   await page.getByTestId('rc-opt-end-zones').check();
+  await page.getByTestId('rc-redesign').click();
+  await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
   await page.getByTestId('rc-open-column').click();
   await ws.getByTestId('rc-row').first().click();
   await expect(ws.locator('[data-testid="rc-elev-zone"][data-kind="end"]')).toHaveCount(2);

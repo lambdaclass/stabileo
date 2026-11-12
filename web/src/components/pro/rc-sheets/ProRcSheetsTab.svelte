@@ -6,7 +6,8 @@
   import { uiStore } from '../../../lib/store/ui.svelte';
   import { plateSurfaceOf } from '../../../lib/model/physical/plate';
   import { runGlobalSolve } from '../../../lib/engine/live-calc';
-  import { liveSheetRows, sheetSize } from '../../../lib/store/rc-sheets-view.svelte';
+  import { designSheets, followSheetEdits, sheetSize, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
+  import RcSheetsProgress from './RcSheetsProgress.svelte';
   import { SHEET_FAMILIES, type SheetFamily, type TorsionMode } from '../../../lib/rc-sheets/types';
   import RcSheetsWorkspace from './RcSheetsWorkspace.svelte';
   import RcCodePicker from './RcCodePicker.svelte';
@@ -21,8 +22,9 @@
 
   const solved = $derived(!!resultsStore.results3D);
   const hasPhysical = $derived.by(() => { void modelStore.model.groups; return modelStore.elements.size === 0 ? physicalGroups().length > 0 : physicalGroups().some((g) => !plateSurfaceOf(g)); });
-  const view = liveSheetRows(() => solved && hasPhysical);
-  const rows = $derived(view.rows);
+  followSheetEdits();
+  const rows = $derived(solved && hasPhysical ? sheetsRun.rows : null);
+  const stale = $derived(sheetsStale());
   const torsion = $derived.by(() => { void modelStore.designData; return rcSheetsData().torsion; });
   const options = $derived.by(() => { void modelStore.designData; const d = rcSheetsData(); return { faces: d.faces === true, flange: d.flange === true, seismic: d.seismic === true, endZones: designData().columnEndZones === true }; });
   const stat = (list: SheetRow[]) => ({ n: list.length, ok: list.filter((r) => r.status !== 'fail').length, fail: list.filter((r) => r.status === 'fail').length });
@@ -46,13 +48,26 @@
     <p class="rcp-note">{t('rcSheets.solveFirst')}</p>
   {:else if !hasPhysical}
     <p class="rcp-note">{t('rcSheets.noPhysical')}</p>
-  {:else if !rows}
+  {:else if sheetsRun.progress}
     {@const z = sheetSize()}
     <p class="rcp-basis" role="status" data-testid="rc-building">{tp('rcSheets.building', { combos: z.combos, members: z.members, shells: z.shells })}</p>
+    <RcSheetsProgress progress={sheetsRun.progress} />
+  {:else if !rows}
+    {#if wallsToMesh > 0}
+      <p class="rcp-basis warn">{tp('rcSheets.wallsToMesh', { n: wallsToMesh })}</p>
+      <button type="button" class="rcs-btn" onclick={meshWalls} disabled={solving} data-testid="rc-mesh-walls">{t('rcSheets.meshWalls')}</button>
+    {/if}
+    <div data-testid="rc-panel-code"><RcCodePicker /></div>
+    <p class="rcp-note">{t('rcSheets.designHint')}</p>
+    <button type="button" class="rcs-btn primary" onclick={designSheets} disabled={solving} data-testid="rc-design">{t('rcSheets.design')}</button>
   {:else}
     {#if wallsToMesh > 0}
       <p class="rcp-basis warn">{tp('rcSheets.wallsToMesh', { n: wallsToMesh })}</p>
       <button type="button" class="rcs-btn" onclick={meshWalls} disabled={solving} data-testid="rc-mesh-walls">{t('rcSheets.meshWalls')}</button>
+    {/if}
+    {#if stale}
+      <p class="rcp-basis warn" data-testid="rc-stale">{t('rcSheets.stale')}</p>
+      <button type="button" class="rcs-btn primary" onclick={designSheets} data-testid="rc-redesign">{t('rcSheets.redesign')}</button>
     {/if}
     <div data-testid="rc-panel-code"><RcCodePicker /></div>
     <p class="rcp-note">{t('rcSheets.codeHint')}</p>

@@ -10940,7 +10940,6 @@ const de: Translations = {
   'combos.rules.service': 'Gebrauchstauglichkeit',
   'combos.rules.remove': 'Regel entfernen',
   'combos.rules.add': 'Regel hinzufügen',
-  'combos.rules.seed': 'Mit CIRSOC 101 beginnen',
   'combos.rules.generate': 'Aus den Regeln erzeugen',
   'combos.rules.sub': 'Projektregeln, über die Lastfälle des Modells',
   'combos.rules.export': 'Als Vorlage speichern',
@@ -11087,7 +11086,6 @@ const de: Translations = {
   'autoLoad.comboSourceProjectEmpty': 'Das Projekt hat noch keine Regeln; sie werden unten geschrieben.',
   'autoLoad.seismicBothSenses': 'Erdbeben in beiden Richtungen (±)',
   'autoLoad.seismicBothSensesHint': 'Jeder Erdbebenlastfall geht auch mit umgekehrtem Vorzeichen ein. Wind hat eine eigene Option im Windblock, in dem jede Richtung ein eigener Lastfall ist.',
-  'combos.rules.none': 'Noch keine Regeln. Fügen Sie eine hinzu oder beginnen Sie mit CIRSOC 101.',
   'combos.empty': 'Keine Kombinationen. Erzeugen Sie sie aus den Lastfällen oder fügen Sie eine hinzu.',
   'combos.remove': 'Kombination entfernen',
   'combos.add': 'Neue Kombination',
@@ -15442,7 +15440,6 @@ const de: Translations = {
   "loads.tr.wind.shapeTower": "Turmartiges Gebäude, C = 1,6",
   "loads.tr.wind.title": "Wind nach TS 498 (Madde 11)",
   "rcSheets.building": "Bewehrungstabellen werden erstellt: Schnittgrößen aus {combos} Kombinationen an {members} Stäben und {shells} Plattenelementen…",
-  "rcSheets.updating": "Wird aktualisiert…",
   "rcSheets.elev.title": "{name} · Ansicht des Geschosses",
   "rcSheets.elev.end": "Ende",
   "rcSheets.elev.middle": "Mitte",
@@ -15575,6 +15572,14 @@ const de: Translations = {
   "combos.rules.seedCode": "Mit {code} beginnen",
   "combos.rules.noneCode": "Noch keine Regeln. Eine hinzufügen oder mit {code} beginnen.",
   "autoLoad.noFamilySeismic": "Diese Normenfamilie bindet keine Erdbebennorm.",
+  "rcSheets.design": "Bewehrung bemessen",
+  "rcSheets.designHint": "Die Listen bemessen die Bewehrung aller Bauteile auf einmal, was bei einem großen Gebäude eine Weile dauert. Bemessen wird erst, wenn Sie es anstoßen.",
+  "rcSheets.stale": "Modell, Ergebnisse oder Bemessungsdaten haben sich nach der Bemessung geändert: diese Listen sind veraltet.",
+  "rcSheets.staleShort": "Veraltet",
+  "rcSheets.redesign": "Neu bemessen",
+  "rcSheets.progressTitle": "Bewehrung wird bemessen",
+  "rcSheets.progressDemands": "Schnittgrößen werden gelesen: {done} von {total} Gruppen",
+  "rcSheets.progressDesign": "{done} von {total} Bauteilen bemessen",
 };
 
 export default de;

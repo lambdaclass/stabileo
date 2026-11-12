@@ -1,7 +1,8 @@
 <script lang="ts">
   import { t, tp, i18n } from '../../../lib/i18n';
   import { adoptAll, downloadRcSheets, type SheetRow, type SheetRows } from '../../../lib/store/rc-sheets.svelte';
-  import { liveSheetRows, sheetSize } from '../../../lib/store/rc-sheets-view.svelte';
+  import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
+  import RcSheetsProgress from './RcSheetsProgress.svelte';
   import { uiStore } from '../../../lib/store';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { groupsArea, groupsLabel, meshArea, meshLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
@@ -35,11 +36,12 @@
 
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], wall: [], punching: [], code: '', basis: 'combinations', combos: 0 };
-  const view = liveSheetRows(() => true);
+  followSheetEdits();
+  const stale = $derived(sheetsStale());
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
   const slabCover = $derived.by(() => { void modelStore.designData; return designData().covers.slab; });
   const endZones = $derived.by(() => { void modelStore.designData; return designData().columnEndZones === true; });
-  const rows = $derived(view.rows ?? EMPTY);
+  const rows = $derived(sheetsRun.rows ?? EMPTY);
   const basisText = $derived(rows.basis === 'combinations' ? tp('rcSheets.basis.combinations', { n: rows.combos }) : t(`rcSheets.basis.${rows.basis}`));
   const spansOf = (l: LineLayout) => rows.beam.filter((r) => r.demand.line?.group === l.group);
   const lineStatus = (l: LineLayout) => (l.status === 'fail' || spansOf(l).some((r) => r.status === 'fail') ? 'fail' : spansOf(l).some((r) => r.status === 'warn') ? 'warn' : 'ok');
@@ -69,7 +71,7 @@
     <strong class="rcw-name">{t('rcSheets.title')}</strong>
     <span class="rcw-code" data-testid="rc-code"><RcCodePicker compact /></span>
     <span class="rcw-dim rcw-basis">{basisText}</span>
-    {#if view.building && view.rows}<span class="rcw-dim" role="status" data-testid="rc-updating">{t('rcSheets.updating')}</span>{/if}
+    {#if stale && !sheetsRun.progress}<span class="rcw-dim rcw-stale" data-testid="rc-stale">{t('rcSheets.staleShort')}</span><button type="button" class="rcs-btn" onclick={designSheets} data-testid="rc-redesign">{t('rcSheets.redesign')}</button>{/if}
     <div class="rcw-tabs" role="tablist">
       {#each SHEET_FAMILIES as f (f)}
         <button type="button" role="tab" aria-selected={family === f} class:on={family === f} data-testid={`rc-tab-${f}`} onclick={() => { family = f; level = ''; openKey = null; }}>
@@ -92,9 +94,11 @@
   </header>
 
   <div class="rcw-body">
-    {#if !view.rows}
-      {@const z = sheetSize()}
-      <p class="rcw-empty" role="status" data-testid="rc-building">{tp('rcSheets.building', { combos: z.combos, members: z.members, shells: z.shells })}</p>
+    {#if sheetsRun.progress}
+      <div class="rcw-empty"><RcSheetsProgress progress={sheetsRun.progress} /></div>
+    {:else if !sheetsRun.rows}
+      <p class="rcw-empty" data-testid="rc-not-designed">{t('rcSheets.designHint')}</p>
+      <button type="button" class="rcs-btn primary" onclick={designSheets} data-testid="rc-design">{t('rcSheets.design')}</button>
     {:else if !all.length}
       <p class="rcw-empty" data-testid="rc-empty">{t(rows.basis === 'none' ? 'rcSheets.solveFirst' : `rcSheets.empty.${family}`)}</p>
     {:else}
@@ -227,6 +231,7 @@
   @container (max-width: 940px) { .rcw-tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin; } }
   .rcw-head strong { font-family: var(--st-display); font-size: 0.9rem; }
   .rcw-dim { font-size: 0.72rem; color: var(--st-text-3); }
+  .rcw-stale { color: var(--st-warn); }
   .rcw-code { font-size: 0.72rem; font-weight: 600; border: 1px solid var(--st-hair); border-radius: 4px; padding: 1px 6px; color: var(--st-text); }
   details { margin: 4px 0 8px; }
   summary { cursor: pointer; font-size: 0.72rem; font-weight: 600; color: var(--st-text-2); margin-bottom: 4px; }
