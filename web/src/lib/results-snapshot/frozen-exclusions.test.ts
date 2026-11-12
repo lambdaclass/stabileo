@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import { expect, it } from 'vitest';
-import exclusions from '../frozen-exclusions.json';
-import inputs from '../frozen-inputs.json';
-import { assertFrozenModelAllowed } from '../../../../scripts/results-snapshot/frozen.mjs';
+import exclusions from './frozen-exclusions.json';
+import inputs from './frozen-inputs.json';
+import { assertFrozenModelAllowed } from '../../../scripts/results-snapshot/frozen.mjs';
 
-const dir = new URL('../../../../results-frozen/', import.meta.url);
+const dir = new URL('../../../results-frozen/', import.meta.url);
 
 for (const [issue, models] of Object.entries(exclusions)) {
   for (const model of models) {

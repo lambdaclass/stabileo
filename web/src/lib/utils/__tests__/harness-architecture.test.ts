@@ -164,7 +164,7 @@ describe('Vitest harness architecture', () => {
     ].sort());
   });
 
-  it.skip('known wrong result: #1946: frozen exclusion policy checks run in the unit pass', () => {
+  it('frozen exclusion policy checks run in the unit pass (#1946)', () => {
     const file = 'src/lib/results-snapshot/frozen-exclusions.test.ts';
     expect(files).toContain(file);
     expect(inResultsPass(file)).toBe(false);
