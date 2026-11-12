@@ -994,7 +994,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
         const vertical = num(row.cells[`f${v.name.toLowerCase()}`]) ?? num(row.cells[`f${nrm.name.toLowerCase()}`]) ?? 0;
         Object.assign(data, {
           fx: h.sign * n(`f${h.name.toLowerCase()}`) + 0, fy: 0, fz: v.sign * vertical + 0,
-          my: frame.det * nrm.sign * n(`m${nrm.name.toLowerCase()}`) + 0,
+          my: h.sign * v.sign * n(`m${nrm.name.toLowerCase()}`) + 0,
         });
       }
     } else if (wantsNode) {

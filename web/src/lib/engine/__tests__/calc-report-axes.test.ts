@@ -25,11 +25,12 @@ const cells = (html: string, heading: RegExp) => {
 };
 
 describe('the calculation report in the user axes', () => {
+  // A plane rotation turns from +h toward +v: with Y down, a counterclockwise couple reads negative.
   it('names and signs a plane model by the user\'s horizontal, vertical and normal', () => {
     axesStore.choice = MIRROR;
     const html = generateCalcReportHtml(data());
     expect(cells(html, /id="sec-reactions"/)).toEqual(expect.arrayContaining(['Rx (kN)', 'Ry (kN)', 'Mz (kN·m)']));
-    expect(html).toMatch(/<td>1<\/td><td class="num">1(\.0+)?<\/td><td class="num">-6(\.0+)?<\/td><td class="num">2(\.0+)?<\/td>/);
+    expect(html).toMatch(/<td>1<\/td><td class="num">1(\.0+)?<\/td><td class="num">-6(\.0+)?<\/td><td class="num">-2(\.0+)?<\/td>/);
     expect(cells(html, /id="sec-displacements"/)).toEqual(expect.arrayContaining(['θz (rad)']));
   });
 
@@ -44,7 +45,7 @@ describe('the calculation report in the user axes', () => {
     expect(loadComponentsText('distributed3d', { frame: 'global', qYI: 0, qYJ: 0, qZI: -5, qZJ: -5 })).toContain('qY=-5 → -5');
     expect(loadComponentsText('distributed3d', { qYI: 0, qYJ: 0, qZI: -5, qZJ: -5 })).toContain('qz=-5 → -5');
     axesStore.choice = MIRROR;
-    expect(loadComponentsText('nodal', { fx: 3, fz: -10, my: 1 })).toBe('Fx=3 kN, Fy=10 kN, Mz=1 kN·m');
-    expect(pointOnElementText({ a: 1, p: -5, my: 2 }, { global: 'g', perpendicular: 'p' } as never)).toContain('Mz=2');
+    expect(loadComponentsText('nodal', { fx: 3, fz: -10, my: 1 })).toBe('Fx=3 kN, Fy=10 kN, Mz=-1 kN·m');
+    expect(pointOnElementText({ a: 1, p: -5, my: 2 }, { global: 'g', perpendicular: 'p' } as never)).toContain('Mz=-2');
   });
 });

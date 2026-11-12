@@ -11,11 +11,13 @@
   import type { Snippet } from 'svelte';
   import { t, tp } from '../../lib/i18n';
   import Prose from './Prose.svelte';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { axesStatement, planeStatement } from '../../lib/axes/statement';
 
   let {
     title, subtitle, step, first = 1, last, onGo, stepTitle, tabTitle,
     tabTestid = () => 'steps-tab', headingTestid, prevTestid = 'steps-prev', nextTestid = 'steps-next',
-    top, tabsEnd, children, showNav = true, narrow = $bindable(false),
+    top, tabsEnd, children, showNav = true, narrow = $bindable(false), space = false,
   }: {
     title: string; subtitle?: string; step: number; first?: 0 | 1; last: number; onGo: (k: number) => void;
     /** The heading of the step on screen; none for the set-up. */
@@ -24,6 +26,8 @@
     tabTestid?: (k: number) => string; headingTestid?: string; prevTestid?: string; nextTestid?: string;
     /** Between the title and the tabs: assumptions, warnings. */
     top?: Snippet;
+    /** A space structure: the statement of the user's axes is the 3D one. */
+    space?: boolean;
     /** At the end of the tab row: a switch for the explanations. */
     tabsEnd?: Snippet;
     children: Snippet;
@@ -50,6 +54,7 @@
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); go(step - 1); }
   }
   const tabs = $derived(Array.from({ length: last - first + 1 }, (_, k) => k + first));
+  const axesNote = $derived(axesStore.frame.identity ? '' : space ? axesStatement(t, axesStore.choice) : planeStatement(t, axesStore.choice));
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -60,6 +65,7 @@
 </div>
 
 {#if top}{@render top()}{/if}
+{#if axesNote}<p class="sf-axes" data-testid="steps-axes-frame">{axesNote}</p>{/if}
 
 {#if showNav}
   <nav class="sf-nav" aria-label={title}>
@@ -107,6 +113,7 @@
   }
   .sf-nav-end :global(.sf-toggle:hover:not(:disabled)), .sf-nav-end :global(.sf-toggle.on) { border-color: var(--st-accent); color: var(--st-accent); }
   .sf-nav-end :global(.sf-toggle:disabled) { opacity: 0.35; cursor: default; }
+  .sf-axes { margin: 0 0.75rem 0.3rem; font-size: 0.72rem; color: var(--st-text-2); line-height: 1.35; }
   .sf-body { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: 0.3rem 0.75rem 0.8rem; min-height: 0; }
   .sf-step { margin: 0.5rem 0 0.4rem; font-size: 0.92rem; color: var(--st-text); line-height: 1.35; }
   .sf-num { display: inline-block; padding: 0.05rem 0.45rem; margin-right: 0.3rem; border-radius: 3px; background: color-mix(in srgb, var(--st-accent) 85%, #000); color: #fff; font-size: 0.72rem; font-weight: 600; }

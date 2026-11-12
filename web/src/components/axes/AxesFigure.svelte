@@ -29,7 +29,7 @@
   const plane = $derived(plane2D(frame));
   const planeBox = $derived(`0 0 200 ${plane.vertical.sign < 0 ? 186 : 150}`);
   const towardViewer = $derived(plane.normal.sign < 0);
-  const ccw = $derived(towardViewer === (frame.det === 1));
+  const ccw = $derived(plane.horizontal.sign * plane.vertical.sign > 0);
 
   const localY = $derived(leftLocal ? -1 : 1);
 </script>

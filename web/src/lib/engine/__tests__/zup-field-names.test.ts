@@ -88,10 +88,10 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     const selectedEntityPanel = readFileSync(new URL('../../../components/floating-tools/SelectedEntityPanel.svelte', import.meta.url), 'utf8');
 
     expect(toolLoadOptions).toMatch(/float\.loadForceYGlobal/);
-    expect(toolLoadOptions).toContain("title={t('float.loadGlobalYDir')}>{twoD.vertical}</button>");
+    expect(toolLoadOptions).toContain("title={planeLettersShown(t('float.loadGlobalYDir'))}>{twoD.vertical}</button>");
     expect(toolLoadOptions).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
 
-    expect(selectedEntityPanel).toContain("title={t('float.loadGlobalYDir')}>{twoD.vertical}</button>");
+    expect(selectedEntityPanel).toContain("title={planeLettersShown(t('float.loadGlobalYDir'))}>{twoD.vertical}</button>");
     expect(selectedEntityPanel).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
   });
 

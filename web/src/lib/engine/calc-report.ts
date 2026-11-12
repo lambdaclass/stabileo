@@ -20,6 +20,8 @@ import { formatValue, toDisplay, unitLabel, type Quantity, type UnitSystem } fro
 import { extraDecimals, smallDisplacement } from '../utils/unit-format';
 import type { KinematicReport } from './kinematic-report';
 import { supportTypeShown } from '../axes/user-names';
+import { axesStore } from '../axes/axes.svelte';
+import { axesStatement } from '../axes/statement';
 import {
   EXTRA_CSS, figureCounter, forceTable2D, forceTable3D, kinematicsSectionHtml, solveErrorHtml,
   type CalcReportContent, type ReportFigure,
@@ -621,6 +623,7 @@ export function generateCalcReportHtml(data: CalcReportData): string {
   html.push(buildTOC(sections));
   html.push('<div class="page">');
   html.push(buildReportMetadata(data));
+  if (!axesStore.frame.identity) html.push(`<p style="font-size:10px;color:#666">${esc(axesStatement(t, axesStore.choice))}</p>`);
   if (data.resultProvenance) html.push(provenanceBlockHtml(data.resultProvenance.record, data.resultProvenance.labels));
   html.push('</div>');
   parts.forEach((p, i) => html.push(p.html(String(i + 1))));

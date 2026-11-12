@@ -145,3 +145,13 @@ export function supportTypeIn(f: AxesFrame, type: string): string {
 export function planeLettersIn(f: AxesFrame, text: string): string {
   return text.replace(/(?<![A-Za-z])([XYZ])(?![A-Za-z])/g, (l) => userAxisAlong(f, l === 'X' ? 0 : 2).name);
 }
+
+export function relabelComponentsWith(f: AxesFrame, text: string): string {
+  return text.replace(/(?<![A-Za-z])(F|R|M|u|d|θ|δ|r)([xyz])(?![A-Za-z])/g, (_, p: string, l: string) => `${p}${userLetterIn(f, l).toLowerCase()}`);
+}
+
+/** A 2D rotation is positive from +h toward +v, as in the default frame: so moments of the user's coordinates, h·Fv − v·Fh, balance. */
+export function planeSigns(f: AxesFrame): { h: AxisName; v: AxisName; n: AxisName; sx: Sign; sz: Sign; sr: Sign } {
+  const h = userAxisAlong(f, 0), v = userAxisAlong(f, 2), n = userAxisAlong(f, 1);
+  return { h: h.name, v: v.name, n: n.name, sx: h.sign, sz: v.sign, sr: (h.sign * v.sign) as Sign };
+}

@@ -103,8 +103,8 @@ describe('a workbook in the user axes', () => {
     const load = r.model.loads[0]!.data as Record<string, number>;
     expect(load.fx).toBe(5);
     expect(load.fz).toBe(-10);
-    const f = makeFrame({ up: '-Y', right: '+X', hand: 'right' });
-    expect(load.my).toBe(pseudoToModel(f, [0, 0, 2])[1] + 0);
+    // A plane couple turns from +h toward +v: with the vertical reversed, a positive one is clockwise.
+    expect(load.my).toBe(-2);
   });
 
   it('reads a flat model\'s global support angle in the user axes: a mirrored vertical turns it the other way', () => {

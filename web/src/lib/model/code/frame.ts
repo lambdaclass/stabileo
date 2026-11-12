@@ -34,7 +34,7 @@ function permute(f: AxesFrame, way: Way, o: Obj, keys: readonly [string, string,
 }
 
 function plane(f: AxesFrame) {
-  return { h: userAxisAlong(f, 0).sign, v: userAxisAlong(f, 2).sign, r: f.det * userAxisAlong(f, 1).sign };
+  return { h: userAxisAlong(f, 0).sign, v: userAxisAlong(f, 2).sign, r: userAxisAlong(f, 0).sign * userAxisAlong(f, 2).sign };
 }
 
 function planeGlobal(d: Obj, keys: readonly string[], p: { h: number; v: number }): void {

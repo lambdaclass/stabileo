@@ -14,6 +14,9 @@ import { withPresentation } from '../../pro/report-export';
 import { teAt } from '../../i18n/engine-text';
 import { initSolver } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
+import { parseDxf } from '../../dxf/parser';
+import { mapDxfToModel } from '../../dxf/mapper';
+import { shownCoords } from '../display';
 
 afterEach(() => axesStore.reset());
 
@@ -155,5 +158,22 @@ describe('the PRO report keeps its presentation', () => {
     expect(row(lying)).toEqual([4, 3, 0]);
     uiStore.viewportPresentation3D = uiStore.viewportPresentation3D === 'native3d' ? 'upright2dIn3d' : 'native3d';
     expect(row(generateReportHtml(buildProReportData({ config: { ...config(), uprightPlane: true }, t })!))).toEqual([4, 0, 3]);
+  });
+});
+
+describe('imports keep their file\'s convention and then read in the user axes', () => {
+  const dxf = ['0', 'SECTION', '2', 'ENTITIES',
+    '0', 'LINE', '8', 'BARRAS', '10', '0', '20', '0', '30', '0', '11', '4', '21', '3', '31', '0',
+    '0', 'ENDSEC', '0', 'EOF'].join('\n');
+
+  it('a DXF drawing (x across, y up) maps to the same model under any frame, shown in the user\'s plane names', () => {
+    const before = mapDxfToModel(parseDxf(dxf), { unit: 'm', snapTolerance: 0.01 });
+    axesStore.choice = Y_UP;
+    const after = mapDxfToModel(parseDxf(dxf), { unit: 'm', snapTolerance: 0.01 });
+    expect(after.nodes).toEqual(before.nodes);
+    const top = after.nodes.find((n) => n.x === 4)!;
+    expect(shownCoords({ x: top.x, y: top.y }, false)).toEqual([4, 3]);
+    axesStore.choice = MIRRORED;
+    expect(shownCoords({ x: top.x, y: top.y }, false)).toEqual([-4, -3]);
   });
 });

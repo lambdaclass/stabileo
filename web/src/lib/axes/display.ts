@@ -50,10 +50,10 @@ export const twoD = {
   get normal(): AxisName { return axisName(1); },
   x: (modelX: number): number => along(0).sign * modelX,
   z: (modelVertical: number): number => along(2).sign * modelVertical,
-  rot: (modelRotY: number): number => frame().det * along(1).sign * modelRotY,
+  rot: (modelRotY: number): number => along(0).sign * along(2).sign * modelRotY,
   fromX: (shown: number): number => along(0).sign * shown,
   fromZ: (shown: number): number => along(2).sign * shown,
-  fromRot: (shown: number): number => frame().det * along(1).sign * shown,
+  fromRot: (shown: number): number => along(0).sign * along(2).sign * shown,
 };
 
 export function coordLabels(is3D: boolean): string[] {

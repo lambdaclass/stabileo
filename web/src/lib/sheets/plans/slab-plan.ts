@@ -13,6 +13,10 @@ import { drawTable } from './table';
 import type { Tr } from './details';
 import { bandAngle, bandBars, bandOutline } from '../../engine/detailing/slab-bands';
 import type { SlabBand, SlabPanelReinforcement } from '../../design-contract/reinforcement';
+import { axisName } from '../../axes/display';
+
+/** A layer's direction, the plan axis in the user's name. */
+const layerShown = (tr: (key: string) => string, layer: SlabLayer): string => tr(`plan.slab.layer.${layer}`).replace(/(?<![A-Za-z])[xy](?![A-Za-z])/, (l) => axisName(l === 'x' ? 0 : 1).toLowerCase());
 
 export type SlabLayer = 'bottomX' | 'bottomY' | 'topX' | 'topY';
 export const SLAB_LAYERS: readonly SlabLayer[] = ['bottomX', 'bottomY', 'topX', 'topY'];
@@ -122,7 +126,7 @@ export function slabLayerPlan(level: string, layer: SlabLayer, panels: readonly 
   const baseText = meshes.size ? [...meshes].map(([m, ps]) => `${m} (${ps.join(', ')})`).join(' · ') : tr('plan.slab.noBase');
   out.push({ kind: 'text', layer: 'RC-TEXT', at: { x: box.x0, y: box.y1 + 8 * s }, text: tr('plan.slab.base', { mesh: baseText }), height: 2.6 });
   const all = boxOf([...pts, { x: box.x0 - 20 * s, y: box.y0 - 20 * s }, { x: box.x1 + 20 * s, y: box.y1 + 20 * s }]);
-  const title = tr('plan.slab.title', { level, layer: tr(`plan.slab.layer.${layer}`) });
+  const title = tr('plan.slab.title', { level, layer: layerShown(tr, layer) });
   return { key: `slab-${level}-${layer}`, title, primitives: out, width: all.x1 - all.x0, height: all.y1 - all.y0, origin: { x: all.x0, y: all.y0 }, scale: s };
 }
 
@@ -130,7 +134,7 @@ export function slabLayerPlan(level: string, layer: SlabLayer, panels: readonly 
 export function slabBreakdown(level: string, marks: readonly SlabMark[], tr: Tr, fmt: (v: number, d: number) => string): DrawingInput | null {
   if (!marks.length) return null;
   const kg = (d: number) => (Math.PI * (d / 2000) ** 2) * 7850;
-  const rows = marks.map((m) => [m.mark, tr(`plan.slab.layer.${m.layer}`), m.panel, String(m.count), `Ø${m.diameter}`, fmt(m.length, 2), String(m.hooks), fmt(m.count * m.length, 1), fmt(m.count * m.length * kg(m.diameter), 1)]);
+  const rows = marks.map((m) => [m.mark, layerShown(tr, m.layer), m.panel, String(m.count), `Ø${m.diameter}`, fmt(m.length, 2), String(m.hooks), fmt(m.count * m.length, 1), fmt(m.count * m.length * kg(m.diameter), 1)]);
   const total = marks.reduce((s, m) => s + m.count * m.length * kg(m.diameter), 0);
   rows.push([tr('plan.slab.total'), '', '', '', '', '', '', '', fmt(total, 1)]);
   const t = drawTable({
