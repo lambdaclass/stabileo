@@ -223,9 +223,9 @@ impl PDeltaSystem2D {
         }
     }
 
-    fn tangent(&self, input: &SolverInput, dofs: &DofNumbering, u: &[f64]) -> Tangent3D {
+    fn tangent(&self, input: &SolverInput, dofs: &DofNumbering, u: &[f64]) -> PDeltaTangent {
         match self {
-            Self::Dense(a) => Tangent3D::Dense(k_with_geometric_2d(input, dofs, a, u)),
+            Self::Dense(a) => PDeltaTangent::Dense(k_with_geometric_2d(input, dofs, a, u)),
             Self::Sparse(a) => {
                 let mut rows = Vec::new();
                 let mut cols = Vec::new();
@@ -245,7 +245,7 @@ impl PDeltaSystem2D {
                 }
                 let mut k = CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
                 k.drop_below_threshold(1e-30);
-                Tangent3D::Sparse(k)
+                PDeltaTangent::Sparse(k)
             }
         }
     }
@@ -294,8 +294,7 @@ pub fn solve_pdelta_2d_on(
     for iter in 0..max_iter {
         state.iterations = iter + 1;
         let tangent = system.tangent(input, dof_num, &state.u);
-        let rhs = tangent.rhs(n, nf, f, &state.u);
-        let Some((u, indefinite)) = tangent.free_block(n, nf).solve(&rhs, nf, &cs, &mut symbolic) else {
+        let Some((u, indefinite)) = tangent.correct_equilibrium(n, nf, f, &state.u, &cs, &mut symbolic) else {
             return Ok(PDeltaResult {
                 results: linear_results.clone(), linear_results,
                 iterations: state.iterations, converged: false, is_stable: false, b2_factor: f64::INFINITY,
@@ -409,12 +408,33 @@ pub struct PDeltaResult3D {
 
 /// Full tangent in the assembly frame. Keeping restrained rows sparse preserves
 /// settlements and reactions without allocating a dense n_total × n_total matrix.
-enum Tangent3D {
+enum PDeltaTangent {
     Dense(Vec<f64>),
     Sparse(CscMatrix),
 }
 
-impl Tangent3D {
+impl PDeltaTangent {
+    fn correct_equilibrium(
+        &self,
+        n: usize,
+        nf: usize,
+        f: &[f64],
+        previous: &[f64],
+        cs: &Option<FreeConstraintSystem>,
+        cache: &mut Option<SparseSymbolicCache>,
+    ) -> Option<(Vec<f64>, bool)> {
+        let rhs: Vec<_> = self.all_residual(n, f, previous)[..nf]
+            .iter()
+            .map(|r| -r)
+            .collect();
+        let (increment, indefinite) = self.free_block(n, nf).solve(&rhs, nf, cs, cache)?;
+        let mut next = previous.to_vec();
+        for (u, du) in next[..nf].iter_mut().zip(increment) {
+            *u += du;
+        }
+        Some((next, indefinite))
+    }
+
     fn free_block(&self, n: usize, nf: usize) -> Self {
         match self {
             Self::Dense(k) => {
@@ -502,9 +522,9 @@ impl PDeltaSystem3D {
         }
     }
 
-    fn tangent(&self, input: &SolverInput3D, dofs: &DofNumbering, u: &[f64]) -> Tangent3D {
+    fn tangent(&self, input: &SolverInput3D, dofs: &DofNumbering, u: &[f64]) -> PDeltaTangent {
         match self {
-            Self::Dense(a) => Tangent3D::Dense(k_with_geometric_3d(input, dofs, a, u)),
+            Self::Dense(a) => PDeltaTangent::Dense(k_with_geometric_3d(input, dofs, a, u)),
             Self::Sparse(a) => {
                 let mut rows = Vec::new();
                 let mut cols = Vec::new();
@@ -524,7 +544,7 @@ impl PDeltaSystem3D {
                 }
                 let mut k = CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
                 k.drop_below_threshold(1e-30);
-                Tangent3D::Sparse(k)
+                PDeltaTangent::Sparse(k)
             }
         }
     }
@@ -559,8 +579,7 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     for iter in 0..max_iter {
         state.iterations = iter + 1;
         let tangent = system.tangent(input, dof_num, &state.u);
-        let rhs = tangent.rhs(n, nf, f, &state.u);
-        let Some((u, indefinite)) = tangent.free_block(n, nf).solve(&rhs, nf, &cs, &mut symbolic) else {
+        let Some((u, indefinite)) = tangent.correct_equilibrium(n, nf, f, &state.u, &cs, &mut symbolic) else {
             return Ok(PDeltaResult3D { results: linear_results.clone(), linear_results, iterations: state.iterations,
                 converged: false, is_stable: false, b2_factor: f64::INFINITY });
         };
@@ -847,6 +866,44 @@ mod convergence_regressions {
     };
 
     #[test]
+    fn issue_1940_rotated_strips_converge_with_both_storage_paths() {
+        for (name, text) in [
+            ("3d-plate--dkt-triangle--strip-cantilever------0-equiv", include_str!("../../tests/metamorphic_corpus/feature_matrix/3d-plate--dkt-triangle--strip-cantilever------0-equiv.json")),
+            ("3d-plate--dkt-triangle--strip-cantilever------0-with", include_str!("../../tests/metamorphic_corpus/feature_matrix/3d-plate--dkt-triangle--strip-cantilever------0-with.json")),
+            ("3d-quad-shell--mitc4--strip-cantilever------0-with", include_str!("../../tests/metamorphic_corpus/feature_matrix/3d-quad-shell--mitc4--strip-cantilever------0-with.json")),
+        ] {
+            let base: SolverInput3D = serde_json::from_str(text).unwrap();
+            let hash = |s: &str| s.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3));
+            let mut rng = crate::metamorphic::Rng::new(20261018 ^ hash(&format!("feature_matrix/{name}")) ^ hash("P-Delta") ^ 0x3d);
+            let translation = std::array::from_fn(|_| rng.range(-40.0, 40.0));
+            let iso = if rng.f64() < 0.6 { Iso3::random(&mut rng) } else { Iso3::axis_permutation(1 + rng.below(23)) }.translated(translation);
+            let rotated = transform_3d(&base, &iso).unwrap();
+            for input in [base, rotated] {
+                let dofs = DofNumbering::build_3d(&input);
+                let mut solutions = Vec::new();
+                for sparse in [false, true] {
+                    let cs = FreeConstraintSystem::build_3d(&input, &dofs).unwrap();
+                    let result = solve_pdelta_3d_on(&input, &dofs, cs, sparse, 100, 1e-12).unwrap();
+                    assert!(result.converged, "{name}, sparse={sparse}");
+                    solutions.push(dofs.displacement_vector_3d(&result.results.displacements));
+                }
+                let metric = super::super::convergence::EquilibriumMetric::for_3d(&input, &dofs, None).unwrap();
+                assert!(metric.relative_increment(&solutions[0], &solutions[1]) < 1e-10);
+            }
+        }
+        let mut base: SolverInput = serde_json::from_str(include_str!("../../tests/fixtures/cantilever-input.json")).unwrap();
+        base.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: -1.0, fz: -0.25, my: 0.0 })];
+        for iso in [Iso2::rotation(0.0), Iso2::rotation(0.731)] {
+            let input = transform_2d(&base, &iso).unwrap();
+            let dofs = DofNumbering::build_2d(&input);
+            for sparse in [false, true] {
+                let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
+                assert!(solve_pdelta_2d_on(&input, &dofs, cs, sparse, 100, 1e-12).unwrap().converged);
+            }
+        }
+    }
+
+    #[test]
     fn support_only_loads_converge_on_both_storage_paths_in_both_dimensions() {
         for text in [
             include_str!("../../tests/fixtures/random-29-input.json"),
@@ -901,7 +958,7 @@ mod residual_precision_regressions {
         for scale in [2.0_f64.powi(-64), 1.0, 2.0_f64.powi(64)] {
             let k: Vec<_> = [large, 1.0, -large, 1.0, 2.0, 0.0, -large, 0.0, large]
                 .into_iter().map(|v| v * scale).collect();
-            for tangent in [Tangent3D::Sparse(CscMatrix::from_dense_symmetric(&k, 3)), Tangent3D::Dense(k)] {
+            for tangent in [PDeltaTangent::Sparse(CscMatrix::from_dense_symmetric(&k, 3)), PDeltaTangent::Dense(k)] {
                 for load in [0.0, 1.0, 2.0, 1.0 - 0.5e-12, 1.0 + 0.5e-12, 1.0 - 2e-12, 1.0 + 2e-12] {
                     let f = [load * scale, 3.0 * scale, 0.0];
                     let residual = tangent.all_residual(3, &f, &[1.0; 3]);

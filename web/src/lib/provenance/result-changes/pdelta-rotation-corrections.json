@@ -1,0 +1,39 @@
+{
+  "id": "pdelta-rotation-corrections",
+  "date": "2026-11-12",
+  "prs": [
+    1940
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "analysis:pdelta"
+      ]
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "P-Delta uses equilibrium corrections under rotation",
+    "es": "P-Delta usa correcciones de equilibrio tras rotaciones",
+    "pt": "P-Delta usa correções de equilíbrio após rotações",
+    "de": "P-Delta verwendet Gleichgewichtskorrekturen bei Drehungen",
+    "fr": "P-Delta utilise des corrections d’équilibre après rotation",
+    "tr": "P-Delta dönüş altında denge düzeltmelerini kullanır"
+  },
+  "explanation": {
+    "en": "Residual-driven displacement corrections prevent false P-Delta nonconvergence after rotation without changing tolerances. Convergence, displacements, forces and reactions may change. Re-run P-Delta analyses (PR #1940).",
+    "es": "Las correcciones de desplazamiento basadas en el residuo evitan falsas faltas de convergencia P-Delta tras rotaciones sin cambiar tolerancias. Pueden cambiar convergencia, desplazamientos, esfuerzos y reacciones. Repita los análisis P-Delta (PR #1940).",
+    "pt": "Correções de deslocamento baseadas no resíduo evitam falsas falhas de convergência P-Delta após rotações sem alterar tolerâncias. Convergência, deslocamentos, esforços e reações podem mudar. Refaça as análises P-Delta (PR #1940).",
+    "de": "Verschiebungskorrekturen aus dem Residuum verhindern falsche P-Delta-Konvergenzfehler nach Drehungen ohne geänderte Toleranzen. Konvergenz, Verschiebungen, Kräfte und Reaktionen können sich ändern. P-Delta-Analysen erneut ausführen (PR #1940).",
+    "fr": "Les corrections de déplacement fondées sur le résidu évitent les faux défauts de convergence P-Delta après rotation sans modifier les tolérances. Convergence, déplacements, efforts et réactions peuvent changer. Relancer les analyses P-Delta (PR #1940).",
+    "tr": "Artığa dayalı yer değiştirme düzeltmeleri, toleransları değiştirmeden dönüşten sonra hatalı P-Delta yakınsamama durumlarını önler. Yakınsama, yer değiştirmeler, kuvvetler ve tepkiler değişebilir. P-Delta analizlerini yeniden çalıştırın (PR #1940)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-pdelta-rotation-corrections.md",
+    "heading": "P-Delta uses equilibrium corrections under rotation (2026-11-12)"
+  }
+}
