@@ -108,7 +108,6 @@ class References(unittest.TestCase):
 
 
 class RoundNine(unittest.TestCase):
-    @unittest.skip('known wrong result: #1946')
     def test_loaded_arc_frozen_entry_discloses_main_defect_and_replacement(self):
         model = 'solve_arc_length-0006e86e35791232.json'
         data = json.loads((ROOT / 'web/results-frozen' / model).read_text())
