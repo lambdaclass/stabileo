@@ -1986,6 +1986,124 @@ fn issue_1846_round5_persistent_moment_after_member_removal() {
     }
 }
 
+fn round8_history(axis: [f64; 3], pads: usize, constrained: bool, residual: f64) -> StagedInput3D {
+    let mut v: serde_json::Value = serde_json::from_str(include_str!("../fixtures/staged-round8.json")).unwrap();
+    for (field, coordinate) in ["x", "y", "z"].into_iter().zip(axis) {
+        v["nodes"]["2"][field] = coordinate.into();
+    }
+    for (field, coordinate) in ["mx", "my", "mz"].into_iter().zip(axis) {
+        v["loads"][0]["data"][field] = (coordinate / 4.0).into();
+        v["loads"][1]["data"][field] = ((-1.0 + residual) * coordinate / 4.0).into();
+    }
+    if constrained {
+        v["nodes"]["3"] = v["nodes"]["2"].clone();
+        v["nodes"]["3"]["id"] = 3.into();
+        v["supports"]["3"] = v["supports"]["2"].clone();
+        v["supports"]["3"]["nodeId"] = 3.into();
+        v["constraints"] = serde_json::json!([{"type":"equalDOF","masterNode":2,"slaveNode":3,"dofs":[3,4,5]}]);
+        for load in v["loads"].as_array_mut().unwrap() {
+            load["data"]["nodeId"] = 3.into();
+        }
+    }
+    let mut solver: SolverInput3D = serde_json::from_value(v.clone()).unwrap();
+    pad_3d(&mut solver, pads);
+    assert_eq!(DofNumbering::build_3d(&solver).n_total >= SPARSE_THRESHOLD, pads >= if constrained { 4 } else { 5 });
+    let mut input: StagedInput3D = serde_json::from_value(v).unwrap();
+    input.nodes = solver.nodes;
+    input.elements = solver.elements;
+    input.supports = solver.supports;
+    input.stages[0].elements_added = input.elements.values().map(|e| e.id).collect();
+    input.stages[0].supports_added = input.supports.values().map(|s| s.node_id).collect();
+    input
+}
+
+#[test]
+#[ignore = "known wrong result: #1943"]
+fn issue_1943_round8_oblique_cancelled_moment_after_member_removal() {
+    for pads in [0, 4, 5] {
+        for constrained in [false, true] {
+            for axis in [[4.0_f64, 4.0, 0.0], [4.0, -4.0, 0.0], [0.0, 4.0, 4.0], [4.0, 0.0, 4.0], [4.0, 0.0, 0.0]] {
+                for residual in [0.0, f64::EPSILON, -f64::EPSILON] {
+                    let input = round8_history(axis, pads, constrained, residual);
+                    let length = axis.iter().map(|x| x * x).sum::<f64>().sqrt();
+                    let shear = input.materials["1"].e * 1000.0 / (2.0 * (1.0 + input.materials["1"].nu));
+                    let expected: Vec<_> = axis.iter().map(|x| x / 4.0 * length / (shear * input.sections["1"].j)).collect();
+                    let out = solve_staged_3d(&input);
+                    if residual != 0.0 {
+                        assert!(out.unwrap_err().contains("rotation"), "axis={axis:?} pads={pads} residual={residual}");
+                        continue;
+                    }
+                    let out = out.unwrap_or_else(|e| panic!("axis={axis:?} pads={pads} constrained={constrained}: {e}"));
+                    for stage in &out.stages {
+                        let tip = stage.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                        for (got, expected) in [tip.rx, tip.ry, tip.rz].into_iter().zip(&expected) {
+                            assert!(got.is_finite() && (got - expected).abs() <= 1e-10, "axis={axis:?} pads={pads}: {tip:?}, expected={expected}");
+                        }
+                    }
+                    let result = serde_json::to_value(&out.final_results).unwrap();
+                    let mut actual: Vec<_> = result["elementForces"].as_array().unwrap().iter().map(|e| e["elementId"].as_u64().unwrap()).collect();
+                    actual.sort_unstable();
+                    let mut expected: Vec<_> = input.elements.values().filter(|e| e.id != 1).map(|e| e.id as u64).collect();
+                    expected.sort_unstable();
+                    assert_eq!(actual, expected);
+                    let mut actual: Vec<_> = result["reactions"].as_array().unwrap().iter().map(|r| r["nodeId"].as_u64().unwrap()).collect();
+                    let mut expected: Vec<_> = input.supports.values().map(|s| s.node_id as u64).collect();
+                    actual.sort_unstable();
+                    expected.sort_unstable();
+                    assert_eq!(actual, expected);
+                    for (group, fields) in [
+                        ("reactions", &["fx", "fy", "fz", "mx", "my", "mz"][..]),
+                        ("elementForces", &["nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd", "mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd"][..]),
+                    ] {
+                        for row in result[group].as_array().unwrap() {
+                            for &field in fields {
+                                let x = row[field].as_f64().unwrap();
+                                assert!(x.is_finite() && x.abs() <= 1e-10, "{row:?}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1943"]
+fn issue_1943_round8_supported_moment_keeps_its_incremental_response() {
+    for pads in [0, 4, 5] {
+        for constrained in [false, true] {
+            let mut input = round8_history([4.0, 4.0, 0.0], pads, constrained, 0.0);
+            let mut load = input.loads[1].clone();
+            let SolverLoad3D::Nodal(ref mut moment) = load else { unreachable!() };
+            moment.mx = -1.0;
+            moment.my = 1.0;
+            input.loads.push(load.clone());
+            input.stages[1].load_indices.push(2);
+            let mut reference: SolverInput3D = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+            reference.elements.remove("1");
+            reference.loads = vec![load];
+            let reference = solve_3d(&reference).unwrap();
+            let out = solve_staged_3d(&input).unwrap();
+            let first = &out.stages[0].results;
+            assert!(reference.displacements.iter().find(|d| d.node_id == 2).unwrap().rx.abs() > 0.0);
+            for tip in &reference.displacements {
+                let a = first.displacements.iter().find(|d| d.node_id == tip.node_id).unwrap();
+                let b = out.final_results.displacements.iter().find(|d| d.node_id == tip.node_id).unwrap();
+                for (a, b, expected) in [(a.rx,b.rx,tip.rx), (a.ry,b.ry,tip.ry), (a.rz,b.rz,tip.rz)] {
+                    assert!(b.is_finite() && (b - a - expected).abs() <= 1e-10, "{tip:?}");
+                }
+            }
+            for reaction in &reference.reactions {
+                let got = out.final_results.reactions.iter().find(|r| r.node_id == reaction.node_id).unwrap();
+                for (a,b) in [(got.fx,reaction.fx),(got.fy,reaction.fy),(got.fz,reaction.fz),(got.mx,reaction.mx),(got.my,reaction.my),(got.mz,reaction.mz)] {
+                    assert!(a.is_finite() && (a - b).abs() <= 1e-10, "{got:?}, {reaction:?}");
+                }
+            }
+        }
+    }
+}
+
 #[test]
 fn issue_1846_round5_rigid_arm_rotation_subspace() {
     use dedaliano_engine::solver::kinematic::analyze_kinematics_3d;

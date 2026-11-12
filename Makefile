@@ -968,3 +968,16 @@ test.engine.staged-round7-wasm: wasm
 
 test.staged-round7-assertions:
 	$(NIX_RUN) node --test scripts/tests/staged-round7-reactions.test.mjs
+
+.PHONY: test.engine.staged-round8 test.engine.staged-round8-internal
+
+test.engine.staged-round8-internal:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib staged_round8 -- --nocapture $(if $(IGNORED),--ignored)
+
+test.engine.staged-round8:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1943_round8 -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.staged-round8-wasm
+
+test.engine.staged-round8-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round8-wasm.mjs

@@ -317,6 +317,31 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
     }
 }
 
+#[test]
+#[ignore = "known wrong result: #1943"]
+fn staged_round8_multiple_null_rotations_keep_supported_loads() {
+    let input: SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/staged-round8.json")).unwrap();
+    let dof = DofNumbering::build_3d(&input);
+    assert_eq!(dof.n_free, 3);
+    for sparse in [false, true] {
+        for (matrix, increment, expected) in [
+            (vec![1.0,-1.0,0.0,-1.0,1.0,0.0,0.0,0.0,2.0], vec![-1.0,-1.0,0.0], vec![0.0,0.0,0.0]),
+            (vec![1.0,-1.0,0.0,-1.0,1.0,0.0,0.0,0.0,2.0], vec![0.0,-2.0,2.0], vec![0.5,-0.5,1.0]),
+            (vec![1.0;9], vec![1.0,-1.0,0.0], vec![0.0,0.0,0.0]),
+            (vec![1.0;9], vec![2.0,0.0,1.0], vec![1.0/3.0;3]),
+        ] {
+            let k = CscMatrix::from_dense_symmetric_exact(&matrix, 3);
+            let applied = k.sym_mat_vec(&expected);
+            let u = solve_stage_free(
+                &k, &dof, None, false, &HashSet::from([1,2]), &[],
+                &super::super::stability::ReleasedRotations::default(),
+                &increment, &applied, sparse, &mut None, &mut None,
+            ).unwrap();
+            close(&u, &expected);
+        }
+    }
+}
+
 fn round7_inclined(pads: usize, angle: f64) -> StagedInput {
     let mut input: StagedInput = serde_json::from_value(
         serde_json::from_str::<serde_json::Value>(include_str!("../../tests/fixtures/staged-round7.json")).unwrap()["inclined"].clone()
