@@ -67,6 +67,23 @@ for (const id of ['beam-frame', 'outrigger', 'tower']) test(`@smoke an old /exam
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://stabileo.com/en/tools/${id}/`);
 });
 
+test('@smoke a model tool marks its numbers as previous while a new solve is pending, then shows the new ones', async ({ page }) => {
+  await page.goto('/en/tools/beam-frame/?e2e=1');
+  await expect(page.getByTestId('readout-maxMoment')).toBeVisible({ timeout: 30000 });
+  await expect(page.getByTestId('tool-results')).toHaveAttribute('aria-busy', 'false');
+  const pending = await page.getByTestId('param-span').evaluate(async (el: HTMLInputElement) => {
+    el.value = '8';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 40));
+    const results = document.querySelector('[data-testid=tool-results]')!;
+    return { busy: results.getAttribute('aria-busy'), stale: results.classList.contains('stale'), shown: document.querySelectorAll('[data-testid^=readout-]').length, figures: document.querySelector('[data-testid=figures]')!.getAttribute('aria-busy') };
+  });
+  expect(pending).toEqual({ busy: 'true', stale: true, shown: 3, figures: 'true' });
+  await expect.poll(() => value(page, 'readout-maxMoment')).toBeCloseTo(80, 6);
+  await expect(page.getByTestId('tool-results')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.getByTestId('tool-results')).not.toHaveClass(/\bstale\b/);
+});
+
 test('@smoke model tools solve a point load on a support with the zero closed-form solution', async ({ page }) => {
   await page.goto('/en/tools/beam-frame/?load=0&point=50&position=0&e2e=1');
   await expect(page.getByTestId('refusal')).toHaveCount(0);

@@ -9,7 +9,8 @@
  import { publicI18n } from '../../lib/i18n/store.svelte';
  import { type Warning } from './validity';
  import { solverMessages } from './solver-messages';
- import { liveSolver } from './live-solve';
+ import { liveSolver, SOLVE_DELAY } from './live-solve';
+ import { widen, type Span } from './slider';
  import { DEFAULT_BATCH, validateBatch, type BatchId, type BatchParameters } from './batch';
  import type { BatchResult } from './batch-solve';
  import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
@@ -21,7 +22,7 @@
  const number=(n:number,digits=6)=>new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:digits}).format(n);
  const warning=(w:Warning)=>Object.entries(w.values??{}).reduce((text,[k,v])=>text.replace(`{${k}}`,typeof v==='number'?new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:3,notation:v>=1e5?'scientific':'standard'}).format(v):v),t(w.key));
  const largest=(r:BatchResult)=>Math.max(...r.comparisons.map(c=>Math.abs(c.engine-c.reference)));
- const sliders:Partial<Record<Field,[number,number,number]>>={length:[1,30,.1],height:[1,15,.1],horizontal:[0,100,1],load:[0,100,1],mass:[10,2000,10]};
+ let sliders=$state<Partial<Record<Field,Span>>>({length:[1,30,.1],height:[1,15,.1],horizontal:[0,100,1],load:[0,100,1],mass:[10,2000,10]});
  const fields=$derived(([
   ['e','tools.modulus','MPa',1,1e6],['i','tools.inertia','m⁴',1e-10,10],['area','tools.batch.area','m²',1e-6,10],
   ...(id!=='continuous-beam'&&id!=='truss-2d'?[['length','tools.length','m',.1,100]]:[]),
@@ -30,19 +31,21 @@
   ...(id==='beam-natural-frequency'?[['mass','tools.batch.mass','kg/m',.001,1e6]]:[]),
   ...(id==='influence-line'?[['position','tools.batch.section','m',.000001,p.length*p.count-.000001]]:[])
  ] as [Field,string,string,number,number][]).filter(([key])=>id!=='truss-2d'||key!=='i'));
- const slider=(key:Field):[number,number,number]|undefined=>key==='position'?[p.length*p.count/100,p.length*p.count*.99,p.length*p.count/100]:sliders[key];
+ const slider=(key:Field):Span|undefined=>key==='position'?[p.length*p.count/100,p.length*p.count*.99,p.length*p.count/100]:sliders[key];
  const solver=liveSolver(
   async(values:BatchParameters)=>{validateBatch(id,values);const {calculateBatch}=await import('./batch-solve');return calculateBatch(id,values);},
   (outcome,values,superseded)=>{
    stale=superseded;
    if(!outcome.ok){const e=outcome.error;error=t(e instanceof Error&&e.message.startsWith('tools.')?e.message:'tools.failed');stale=true;return;}
    error='';result=outcome.value;recordPrerenderedResult(id,values,outcome.value);void link(outcome.value,values);
-  });
+  },
+  {delay:()=>id==='influence-line'||id==='beam-natural-frequency'?SOLVE_DELAY:0});
  onDestroy(()=>solver.stop());
  async function link(answer:BatchResult,values:BatchParameters){const {editorUrl}=await import('./share');if(result===answer)href=editorUrl(answer.model,t(`tools.${id}`),id==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
  $effect(()=>{
   const values={...p};
   untrack(()=>{
+   sliders=Object.fromEntries(Object.entries(sliders).map(([key,span])=>[key,widen(span,values[key as Field])]));
    const ready=result?null:prerenderedResult<BatchResult>(id,values);
    if(ready){result=ready;void link(ready,values);return;}
    stale=true;solver.request(values);
@@ -55,7 +58,7 @@
  <div class="tool-side">
   <header class="tool-intro"><p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p><h1>{t(`tools.${id}`)}</h1><p class="lead">{t(`tools.${id}.subtitle`)}</p></header>
   <section class="tool-inputs" aria-labelledby="tool-parameters"><h2 id="tool-parameters">{t('tools.parameters')}</h2><form onsubmit={event=>event.preventDefault()} onfocusin={warmSolver} onpointerdown={warmSolver}>
-  {#each fields as [key,label,unit,min,max] (key)}{@const range=slider(key)}<ParamRow id={key} name={t(label)} {unit}><input id={key} data-testid={key} type="number" bind:value={p[key]} {min} {max} step="any" required/></ParamRow>{#if range}<input type="range" data-testid={`slider-${key}`} aria-label={t(label)} min={range[0]} max={range[1]} step={range[2]} bind:value={p[key]}/>{/if}{/each}
+  {#each fields as [key,label,unit,min,max] (key)}{@const range=slider(key)}<ParamRow id={key} name={t(label)} {unit}><input id={key} data-testid={key} type="number" bind:value={p[key]} {min} {max} step="any" required/></ParamRow>{#if range}{#key range.join()}<input type="range" data-testid={`slider-${key}`} aria-label={t(label)} min={range[0]} max={range[1]} step={range[2]} bind:value={p[key]}/>{/key}{/if}{/each}
   {#if id==='continuous-beam'}
    <p>{t('tools.batch.listNote')}</p><label for="spans">{t('tools.batch.spans')} (m; 0.1–100)</label><input id="spans" bind:value={p.spans} />
    <label for="loads">{t('tools.batch.loads')} (kN/m; 0–10⁶)</label><input id="loads" bind:value={p.loads}/>
@@ -75,7 +78,7 @@
  </div>
  <div class="tool-main">
   {#if figures.length}<FigureBoard {figures} stale={stale||!!error} label={t('tools.figures')}/>{/if}
-  <article class="tool-results rs-prose">
+  <article class="tool-results rs-prose" class:stale aria-busy={stale} data-testid="tool-results">
   <div aria-live="polite">
   {#if result && !error}
    {#each result.warnings as w}<p class="warning" role="alert" data-testid="validity-warning">{warning(w)}</p>{/each}

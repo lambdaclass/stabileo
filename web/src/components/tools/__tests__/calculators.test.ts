@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { inflateSync } from 'fflate';
 import { TOOL_IDS, EXAMPLE, formula, format, workedExamples, buildModel, valid } from '../calculators';
-import { calculate } from '../solve';
+import { calculate, forceResidual } from '../solve';
 import { editorUrl } from '../share';
 import { toolPaths } from '../registry';
 
@@ -45,4 +45,17 @@ it('prerender captures the same worked-example formatter and routes', () => {
   const page = readFileSync(new URL('../CalculatorTool.svelte', import.meta.url), 'utf8');
   expect(page).toContain('data-value={format(formula(id, example).value)}');
   for (const id of TOOL_IDS) expect(toolPaths()).toContain(`/tools/${id}`);
+});
+
+it('states the equilibrium residual of the model it solved, from that model alone', async () => {
+  for (const id of TOOL_IDS) for (const p of workedExamples(id)) {
+    const answer = await calculate(id, p);
+    const applied = id === 'column-buckling' ? [1, 0] : [0, p.load * (p.uniform ? p.length : 1)];
+    const expected = Math.hypot(answer.linear.reactions.reduce((s, r) => s + r.rx, 0) - applied[0], answer.linear.reactions.reduce((s, r) => s + r.rz, 0) - applied[1]);
+    expect(answer.residual).toBeCloseTo(expected, 12);
+    expect(answer.residual).toBeLessThan(1e-6 * Math.max(1, p.load * p.length));
+  }
+  const shown = await calculate('simply-supported-beam', { ...EXAMPLE, load: 10 });
+  expect(forceResidual(shown.model, shown.linear.reactions)).toBe(shown.residual);
+  expect(forceResidual(shown.model, shown.linear.reactions.map(r => ({ ...r, rz: r.rz + 1 })))).toBeCloseTo(2, 9);
 });

@@ -11,7 +11,8 @@
   import { readValues, writeValues, mergeQuery, referenceGap, type Outcome, type Values } from '../examples/define';
   import { editorHref } from '../examples/editor';
   import { te } from '../examples/strings';
-  import { liveSolver } from './live-solve';
+  import { liveSolver, SOLVE_DELAY } from './live-solve';
+  import { workerChannel } from './worker-channel';
 
   let { id }: { id: string } = $props();
   const example = $derived(findExample(id)!);
@@ -19,37 +20,20 @@
   let outcome = $state.raw<Outcome | null>(null);
   let stale = $state(false);
   let copied = $state(false);
-  let worker: Worker | null = null;
-  let sequence = 0;
-  const pending = new Map<number, (outcome: Outcome) => void>();
-
-  function post(tool: string, snapshot: Values): Promise<Outcome> {
-    if (!worker) {
-      worker = new Worker(new URL('../examples/run.worker.ts', import.meta.url), { type: 'module' });
-      worker.onmessage = ({ data }: MessageEvent<{ token: number; outcome: Outcome }>) => {
-        pending.get(data.token)?.(data.outcome);
-        pending.delete(data.token);
-      };
-      worker.onerror = (event) => {
-        for (const resolve of pending.values()) resolve({ status: 'refused', code: 'engine', reason: event.message });
-        pending.clear();
-      };
-    }
-    const token = ++sequence;
-    return new Promise(resolve => {
-      pending.set(token, resolve);
-      worker!.postMessage({ id: tool, values: snapshot, token });
-    });
-  }
+  const channel = workerChannel<{ id: string; values: Values }, Outcome>(
+    () => new Worker(new URL('../examples/run.worker.ts', import.meta.url), { type: 'module' }),
+    (reason) => ({ status: 'refused', code: 'engine', reason }),
+  );
   const solver = liveSolver(
-    ({ tool, snapshot }: { tool: string; snapshot: Values }) => post(tool, snapshot),
+    ({ tool, snapshot }: { tool: string; snapshot: Values }) => channel.post({ id: tool, values: snapshot }),
     (answer, input, superseded) => {
       if (input.tool !== id) return;
       outcome = answer.ok ? answer.value : { status: 'refused', code: 'engine', reason: String(answer.error) };
       stale = superseded;
     },
+    { delay: SOLVE_DELAY },
   );
-  onDestroy(() => { solver.stop(); worker?.terminate(); });
+  onDestroy(() => { solver.stop(); channel.close(); });
 
   $effect(() => {
     const current = example;
@@ -152,7 +136,7 @@
     {:else}
       <div class="placeholder" aria-busy="true"></div>
     {/if}
-    <article class="tool-results rs-prose">
+    <article class="tool-results rs-prose" class:stale aria-busy={stale} data-testid="tool-results">
       <h2>{te('results')}</h2>
       <div aria-live="polite">
         {#if outcome?.status === 'refused'}
