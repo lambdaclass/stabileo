@@ -15535,6 +15535,7 @@ const fr: Translations = {
   "loads.ec.ui.vertical": "Composante verticale (§4.3.3.5.2)",
   "loads.ec.ui.verticalAbove": "avg = {avg} g dépasse 0,25 g : la composante verticale est exigée pour les éléments horizontaux de 20 m de portée ou plus, les consoles de plus de 5 m, les éléments horizontaux précontraints, les poutres supportant des poteaux et les structures à isolation à la base. Elle est générée sur toute la structure.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g ne dépasse pas 0,25 g : le §4.3.3.5.2 n’exige pas la composante verticale.",
+  "loads.asce7.snow.derivation.psSurface": "Versant à {slope}° : Cs = {cs}, charge équilibrée {p} kN/m² (éq. 7.4-1, §7.3.4).",
 };
 
 export default fr;

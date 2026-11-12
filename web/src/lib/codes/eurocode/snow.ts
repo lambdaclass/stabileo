@@ -1,6 +1,6 @@
 import { msg, round } from '../message';
 import { roofMembers } from '../../engine/loads/wind-cases';
-import { roofGeometry, surfaceSlopes } from '../../engine/loads/snow-loads';
+import { roofGeometry, snowSlopes } from '../../engine/loads/snow-loads';
 import { SNOW_PATTERNS } from '../../engine/loads/load-plan-snow';
 import { widthSpans, type GravityLayout } from '../../engine/loads/plan-gravity';
 import type { LoadPlanInput, PlannedDistributed, PlannedNodal, PlanSink } from '../../engine/loads/load-plan';
@@ -41,7 +41,8 @@ export function planEcSnow(family: EcFamily, input: LoadPlanInput, sink: PlanSin
   const chosen = input.snow?.roof ? new Set(input.snow.roof) : undefined;
   const roof = roofMembers(input.model, chosen);
   if (!geometry || roof.length === 0) { unsupportedKeys.push(msg(chosen ? 'snow.note.emptyRegion' : 'snow.note.noRoof')); return false; }
-  const slopes = surfaceSlopes(input.model);
+  // μ1 by the slope of each surface (`snowSlopes`): a panel the slope of the roof over it, flat when none.
+  const slopes = snowSlopes(input.model, layout);
   const ce = EXPOSURE_CE[ci.exposure], ct = ci.ct;
   const nodes = input.model.nodes;
   const span = (() => {
@@ -56,15 +57,15 @@ export function planEcSnow(family: EcFamily, input: LoadPlanInput, sink: PlanSin
     if (Math.abs(c - geometry.ridge) <= 1e-3 * Math.max(span, 1)) return 0;
     return c < geometry.ridge ? 1 : 2;
   };
-  const slopeOf = (id: number) => slopes.get(id) ?? geometry.slopeDeg;
-  const muOf = (id: number) => (ci.slidingPrevented ? Math.max(mu1(slopeOf(id)), 0.8) : mu1(slopeOf(id)));
+  const slopeOf = (id: number, panel?: number) => slopes.of(id, panel);
+  const muOf = (id: number, panel?: number) => (ci.slidingPrevented ? Math.max(mu1(slopeOf(id, panel)), 0.8) : mu1(slopeOf(id, panel)));
   const sloped = roof.filter((m) => slopeOf(m.id) > 1);
   const duo = ci.roof === 'duopitch' && sloped.some((m) => sideOf(m.id) === 1) && sloped.some((m) => sideOf(m.id) === 2);
   if (ci.roof === 'duopitch' && !duo) derivation.push(msg('loads.ec.snow.duoAsMono'));
-  const sOf = (id: number, arr: Arrangement) => {
+  const sOf = (id: number, arr: Arrangement, panel?: number) => {
     const [k1, k2] = FACTORS[arr], side = sideOf(id);
     const k = side === 1 ? k1 : side === 2 ? k2 : (k1 + k2) / 2;
-    return roofSnowLoad(k * muOf(id), ce, ct, sk);
+    return roofSnowLoad(k * muOf(id, panel), ce, ct, sk);
   };
 
   refs.push(
@@ -73,12 +74,14 @@ export function planEcSnow(family: EcFamily, input: LoadPlanInput, sink: PlanSin
   );
   derivation.push(msg('loads.ec.snow.basis', { sk: round(sk, 3), ce, ct, roof: msg(duo ? 'loads.ec.snowRoof.duopitch' : 'loads.ec.snowRoof.monopitch') }));
   const seen = new Set<number>();
-  for (const m of roof) {
-    const a = round(slopeOf(m.id), 1);
-    if (seen.has(a)) continue;
+  const surface = (id: number, panel?: number) => {
+    const a = round(slopeOf(id, panel), 1);
+    if (seen.has(a)) return;
     seen.add(a);
-    derivation.push(msg('loads.ec.snow.surface', { slope: a, mu: round(muOf(m.id), 3), s: round(roofSnowLoad(muOf(m.id), ce, ct, sk), 3) }));
-  }
+    derivation.push(msg('loads.ec.snow.surface', { slope: a, mu: round(muOf(id, panel), 3), s: round(roofSnowLoad(muOf(id, panel), ce, ct, sk), 3) }));
+  };
+  for (const m of roof) surface(m.id);
+  if (layout) for (const pc of layout.pieces) if (pc.roof) surface(pc.elementId, pc.panel);
   unsupportedKeys.push(msg('loads.ec.snow.notCovered'));
 
   const roofIds = new Set(roof.map((m) => m.id));
@@ -91,7 +94,7 @@ export function planEcSnow(family: EcFamily, input: LoadPlanInput, sink: PlanSin
       const mine = (id: number, onRoof: boolean) => (chosen ? chosen.has(id) && (onRoof || !layout.roof.has(id)) : onRoof);
       for (const pc of layout.pieces) {
         if (!mine(pc.elementId, pc.roof)) continue;
-        const s = sOf(pc.elementId, arr);
+        const s = sOf(pc.elementId, arr, pc.panel);
         if (s > 0) d.push({ elementId: pc.elementId, caseType: 'S', caseIndex: index, q: -s * pc.wI, qJ: -s * pc.wJ, ...(pc.a !== undefined ? { a: pc.a, b: pc.b } : {}), frame: 'projected' });
       }
       for (const w of layout.widthMembers) {
@@ -104,7 +107,7 @@ export function planEcSnow(family: EcFamily, input: LoadPlanInput, sink: PlanSin
       }
       for (const pt of layout.points) {
         if (!mine(pt.elementId, pt.roof)) continue;
-        const s = sOf(pt.elementId, arr);
+        const s = sOf(pt.elementId, arr, pt.panel);
         if (s > 0) n.push({ nodeId: pt.nodeId, caseType: 'S', caseIndex: index, fx: 0, fy: 0, fz: -s * pt.w, carrier: pt.elementId });
       }
     } else {

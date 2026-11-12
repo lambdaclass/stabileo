@@ -15535,6 +15535,7 @@ const de: Translations = {
   "loads.ec.ui.vertical": "Vertikale Komponente (§4.3.3.5.2)",
   "loads.ec.ui.verticalAbove": "avg = {avg} g liegt über 0,25 g: die vertikale Komponente ist für horizontale Bauteile mit 20 m Spannweite oder mehr, Kragarme über 5 m, vorgespannte horizontale Bauteile, Träger, die Stützen tragen, und basisisolierte Tragwerke erforderlich. Sie wird auf dem ganzen Tragwerk erzeugt.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g liegt nicht über 0,25 g: §4.3.3.5.2 verlangt keine vertikale Komponente.",
+  "loads.asce7.snow.derivation.psSurface": "Dachfläche mit {slope}°: Cs = {cs}, ausgeglichene Last {p} kN/m² (Gl. 7.4-1, §7.3.4).",
 };
 
 export default de;

@@ -15695,5 +15695,6 @@ const en: Record<string, string> = {
   "loads.ec.ui.vertical": "Vertical component (§4.3.3.5.2)",
   "loads.ec.ui.verticalAbove": "avg = {avg} g is over 0.25 g: the vertical component is required for horizontal members spanning 20 m or more, cantilevers longer than 5 m, prestressed horizontal components, beams supporting columns and base-isolated structures. It is generated on the whole structure.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g is not over 0.25 g: §4.3.3.5.2 does not require the vertical component.",
+  "loads.asce7.snow.derivation.psSurface": "Roof surface at {slope}°: Cs = {cs}, balanced load {p} kN/m² (Eq. 7.4-1, §7.3.4).",
 };
 export default en;

@@ -2,7 +2,7 @@ import { msg, round } from '../message';
 import type { LoadPlanInput, PlanSink } from '../../engine/loads/load-plan';
 import type { GravityLayout } from '../../engine/loads/plan-gravity';
 import { roofMembers } from '../../engine/loads/wind-cases';
-import { surfaceSlopes } from '../../engine/loads/snow-loads';
+import { snowSlopes } from '../../engine/loads/snow-loads';
 import { snowInputOf, type SnowZone } from './inputs';
 import { TS498 } from './refs';
 
@@ -43,11 +43,14 @@ export function planTs498Snow(input: LoadPlanInput, sink: PlanSink, layout?: Gra
   const { pk0, row } = groundSnow(si.zone, si.altitudeM!);
   sink.refs.push(TS498('8', 'kar yükü'), TS498('Çizelge 4', 'zati kar yükü'), TS498('7', 'kar yükü hesap değeri'), TS498('Çizelge 3', 'çatı eğimine bağlı azaltma değeri'));
   sink.derivation.push(msg('loads.tr.snow.derivation.pk0', { zone: si.zone, altitude: si.altitudeM!, row, pk0: round(pk0, 3) }));
-  const slopes = si.roofSlopeDeg === undefined ? surfaceSlopes(input.model) : null;
-  const slopeOf = (id: number, panel: boolean) => si.roofSlopeDeg ?? (panel ? 0 : slopes!.get(id) ?? 0);
-  const pk = (id: number, panel = false) => pk0 * slopeFactor(slopeOf(id, panel), si.slidingPrevented);
+  // Çizelge 3 by the slope of each surface (`snowSlopes`): a panel the slope of the roof over it.
+  const slopes = si.roofSlopeDeg === undefined ? snowSlopes(input.model, layout) : null;
+  const slopeOf = (id: number, panel?: number) => si.roofSlopeDeg ?? slopes!.of(id, panel);
+  const pk = (id: number, panel?: number) => pk0 * slopeFactor(slopeOf(id, panel), si.slidingPrevented);
   const seen = new Map<number, number>();
-  for (const id of ids) { const a = round(slopeOf(id, false), 1); if (!seen.has(a)) seen.set(a, slopeFactor(a, si.slidingPrevented)); }
+  const note = (a0: number) => { const a = round(a0, 1); if (!seen.has(a)) seen.set(a, slopeFactor(a, si.slidingPrevented)); };
+  for (const id of ids) note(slopeOf(id));
+  if (layout) for (const pc of layout.pieces) if (pc.roof) note(slopeOf(pc.elementId, pc.panel));
   for (const [a, m] of [...seen].sort((x, y) => x[0] - y[0])) sink.derivation.push(msg('loads.tr.snow.derivation.pk', { alpha: a, m: round(m, 3), pk: round(pk0 * m, 3) }));
 
   const index = sink.cases.length;
@@ -57,12 +60,12 @@ export function planTs498Snow(input: LoadPlanInput, sink: PlanSink, layout?: Gra
   if (layout) {
     for (const pc of layout.pieces) {
       if (chosen ? !(ids.has(pc.elementId) && (pc.roof || !layout.roof.has(pc.elementId))) : !pc.roof) continue;
-      const p = pk(pc.elementId, true);
+      const p = pk(pc.elementId, pc.panel);
       sink.distributed.push({ elementId: pc.elementId, caseType: 'S', caseIndex: index, q: -p * pc.wI, qJ: -p * pc.wJ, ...(pc.a !== undefined ? { a: pc.a, b: pc.b } : {}), frame: 'projected' });
     }
     for (const pt of layout.points) {
       if (chosen ? !ids.has(pt.elementId) : !pt.roof) continue;
-      sink.nodal.push({ nodeId: pt.nodeId, caseType: 'S', caseIndex: index, fx: 0, fy: 0, fz: -pk(pt.elementId, true) * pt.w, carrier: pt.elementId });
+      sink.nodal.push({ nodeId: pt.nodeId, caseType: 'S', caseIndex: index, fx: 0, fy: 0, fz: -pk(pt.elementId, pt.panel) * pt.w, carrier: pt.elementId });
     }
     for (const w of layout.widthMembers) {
       if (!(chosen ? ids.has(w.elementId) : layout.roof.has(w.elementId))) continue;

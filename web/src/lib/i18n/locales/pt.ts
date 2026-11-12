@@ -15336,5 +15336,6 @@ const pt: Translations = {
   "loads.ec.ui.vertical": "Componente vertical (§4.3.3.5.2)",
   "loads.ec.ui.verticalAbove": "avg = {avg} g excede 0,25 g: a componente vertical é exigida em elementos horizontais com vão de 20 m ou mais, balanços com mais de 5 m, elementos horizontais protendidos, vigas que apoiam pilares e estruturas com isolamento de base. É gerada sobre toda a estrutura.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g não excede 0,25 g: a §4.3.3.5.2 não exige a componente vertical.",
+  "loads.asce7.snow.derivation.psSurface": "Superfície de cobertura a {slope}°: Cs = {cs}, carga equilibrada {p} kN/m² (eq. 7.4-1, §7.3.4).",
 };
 export default pt;

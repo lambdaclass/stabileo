@@ -15684,5 +15684,6 @@ const es: Record<string, string> = {
   "loads.ec.ui.vertical": "Componente vertical (§4.3.3.5.2)",
   "loads.ec.ui.verticalAbove": "avg = {avg} g supera 0,25 g: la componente vertical se exige en elementos horizontales de 20 m de luz o más, voladizos de más de 5 m, elementos horizontales pretensados, vigas que reciben columnas y estructuras con aislamiento de base. Se genera sobre toda la estructura.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g no supera 0,25 g: la §4.3.3.5.2 no exige la componente vertical.",
+  "loads.asce7.snow.derivation.psSurface": "Superficie de cubierta a {slope}°: Cs = {cs}, carga equilibrada {p} kN/m² (ec. 7.4-1, §7.3.4).",
 };
 export default es;

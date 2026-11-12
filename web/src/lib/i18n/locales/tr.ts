@@ -15535,6 +15535,7 @@ const tr: Translations = {
   "loads.ec.ui.vertical": "Düşey bileşen (§4.3.3.5.2)",
   "loads.ec.ui.verticalAbove": "avg = {avg} g, 0,25 g'yi aşıyor: düşey bileşen 20 m ve üzeri açıklıklı yatay elemanlar, 5 m'den uzun konsollar, öngerilmeli yatay elemanlar, kolon taşıyan kirişler ve taban yalıtımlı yapılar için gereklidir. Tüm taşıyıcı sistem için üretilir.",
   "loads.ec.ui.verticalBelowHint": "avg = {avg} g, 0,25 g'yi aşmıyor: §4.3.3.5.2 düşey bileşeni gerektirmez.",
+  "loads.asce7.snow.derivation.psSurface": "{slope}° eğimli çatı yüzeyi: Cs = {cs}, dengeli yük {p} kN/m² (Denk. 7.4-1, §7.3.4).",
 };
 
 export default tr;
