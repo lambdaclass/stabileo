@@ -287,7 +287,6 @@ fn staged_round4_sparse_cumulative_prestress_reactions_keep_inclined_basis() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1943"]
 fn staged_final_zero_stiffness_uses_accumulated_load() {
     let mut input = model(None);
     input.supports.get_mut("2").unwrap().support_type = "pinned".into();
@@ -296,11 +295,12 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
     for sparse in [false, true] {
         for connected in [HashSet::new(), HashSet::from([2])] {
             for stiffness in [0.0, 1e-30, 1.0] {
-                let k = CscMatrix::from_triplets(1, &[0], &[0], &[stiffness]);
+                let force_scale = 1e30;
+                let k = CscMatrix::from_triplets(1, &[0], &[0], &[stiffness * force_scale]);
                 let solve = |increment: f64, applied: f64| solve_stage_free(
                     &k, &dof, None, true, &connected, &[],
                     &super::super::stability::ReleasedRotations::default(),
-                    &[increment], &[applied], sparse, &mut None, &mut None,
+                    &[increment * force_scale], &[applied * force_scale], sparse, &mut None, &mut None,
                 );
                 let u = solve(-1.0, 0.0).unwrap();
                 close(&u, &[if stiffness == 0.0 { 0.0 } else { -1.0 / stiffness }]);

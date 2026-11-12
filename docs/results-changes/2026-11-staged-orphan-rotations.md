@@ -35,7 +35,9 @@ rotation. No stability threshold changes.
 Only unloaded reduced DOFs with an exactly zero stiffness column and no motion
 at an active member or shell node receive inactive stage treatment. Constraints
 are projected per DOF; they never activate an entire node. Inactive DOFs are
-excluded from stability analysis, then assigned a unit solve diagonal. Physical
+excluded from stability analysis, then assigned a solve diagonal scaled to the
+largest active stiffness, with a unit fallback only when no active stiffness
+remains. Physical
 stiffness and support reactions contain no inactive artificial springs. Older
 serial and parallel 2D triplet assemblers use the existing per-node rotational
 check instead of hinge counts. Kinematic analysis uses the same physical

@@ -34,6 +34,13 @@ function model(dim, copies, factor, linked) {
 }
 
 function reference(result, input, dim) {
+  for (const [group, key, expected] of [
+    ['displacements', 'nodeId', Object.values(input.nodes).map(n => n.id)],
+    ['reactions', 'nodeId', Object.values(input.supports).map(s => s.nodeId)],
+    ['elementForces', 'elementId', Object.values(input.elements).map(e => e.id)],
+  ]) {
+    assert.deepEqual(result[group]?.map(item => item[key]).sort((a, b) => a - b), expected.sort((a, b) => a - b), `${group} IDs`);
+  }
   const dz = input.supports[1].dz;
   const a = input.nodes[1];
   const b = input.nodes[2];

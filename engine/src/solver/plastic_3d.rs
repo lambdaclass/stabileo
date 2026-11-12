@@ -493,19 +493,10 @@ enum CarryState {
 /// the springs carry nothing); otherwise the state is a collapse mechanism.
 fn carry(input: &SolverInput3D, state: CarryState) -> Result<Option<AnalysisResults3D>, String> {
     if matches!(state, CarryState::InitialElastic) {
-        let elastic = super::super::stability::of_3d(input)?;
-        if elastic.verdict == super::super::stability::Verdict::Singular
-            && elastic.reason != super::super::stability::Reason::Conditioning
-        {
-            return Err(elastic.refusal().unwrap());
-        }
+        return super::super::linear::solve_3d(input).map(Some);
     }
     if super::super::kinematic::analyze_kinematics_3d(input).is_solvable {
-        let solved = super::super::linear::solve_3d(input);
-        return match state {
-            CarryState::InitialElastic => solved.map(Some),
-            CarryState::Hinged => crate::known_issues::optional_solve(solved),
-        };
+        return crate::known_issues::optional_solve(super::super::linear::solve_3d(input));
     }
     if !input.constraints.is_empty() || !input.connectors.is_empty() {
         return Err("plastic 3D cannot certify a soft-spring hinge state with constraints or connectors: the member-force balance check does not include their forces".into());
@@ -1425,7 +1416,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #1943"]
     fn staged_final_initial_conditioning_and_rank_boundaries() {
         use crate::solver::stability::{Reason, Verdict};
         for (inertia, verdict, reason, solvable) in [

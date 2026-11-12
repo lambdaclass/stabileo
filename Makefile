@@ -948,5 +948,6 @@ test.engine.staged-final:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_1943_final -- --nocapture $(if $(IGNORED),--ignored)
 
 test.engine.staged-final-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-round5-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-settlement-1085-wasm.mjs

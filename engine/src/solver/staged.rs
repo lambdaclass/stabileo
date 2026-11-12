@@ -384,10 +384,14 @@ fn solve_stage_free(
     cache: &mut Option<SparseSymbolicCache>,
     conditioning: &mut Option<StructuredDiagnostic>,
 ) -> Result<Vec<f64>, String> {
-    let f = constraints.map_or_else(|| f.to_vec(), |c| c.reduce_vector(f));
+    let mut f = constraints.map_or_else(|| f.to_vec(), |c| c.reduce_vector(f));
     let cumulative_applied = constraints.map_or_else(|| cumulative_applied.to_vec(), |c| c.reduce_vector(cumulative_applied));
     let reduced = constraints.map_or_else(|| k.clone(), |c| c.reduce_matrix_sparse(k));
-    let inactive = inactive_dofs(&reduced, dof, two_d, constraints, connected, &f, &cumulative_applied);
+    let stiff = stiffness_columns(&reduced);
+    for (j, increment) in f.iter_mut().enumerate() {
+        if !stiff[j] { *increment = cumulative_applied[j]; }
+    }
+    let inactive = inactive_dofs(&stiff, dof, two_d, constraints, connected, &f, &cumulative_applied);
     let (reduced, stability) = super::stability::analyze_free_stiffness_excluding(k, dof, two_d, constraints, coupling, releases, &inactive);
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     let pinned = stability.pin_sparse(&reduced);
@@ -417,16 +421,20 @@ fn solve_stage_free(
     Ok(u)
 }
 
-fn inactive_dofs(
-    k: &CscMatrix, dof: &DofNumbering, two_d: bool, constraints: Option<&FreeConstraintSystem>,
-    connected: &HashSet<usize>, f: &[f64], applied: &[f64],
-) -> Vec<usize> {
-    let tags = super::stability::tags(dof, two_d);
+fn stiffness_columns(k: &CscMatrix) -> Vec<bool> {
     let mut stiff = vec![false; k.n];
     for j in 0..k.n { for p in k.col_ptr[j]..k.col_ptr[j + 1] {
         if k.values[p] != 0.0 { stiff[j] = true; stiff[k.row_idx[p]] = true; }
     } }
-    (0..k.n).filter(|&j| {
+    stiff
+}
+
+fn inactive_dofs(
+    stiff: &[bool], dof: &DofNumbering, two_d: bool, constraints: Option<&FreeConstraintSystem>,
+    connected: &HashSet<usize>, f: &[f64], applied: &[f64],
+) -> Vec<usize> {
+    let tags = super::stability::tags(dof, two_d);
+    (0..stiff.len()).filter(|&j| {
         let active = if let Some(c) = constraints {
             (c.c_ff.col_ptr[j]..c.c_ff.col_ptr[j + 1]).any(|p| c.c_ff.csc_vals[p] != 0.0 && connected.contains(&tags[c.c_ff.row_idx[p]].node))
         } else { connected.contains(&tags[j].node) };

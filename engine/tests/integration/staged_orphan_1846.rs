@@ -1898,16 +1898,18 @@ fn round5_cantilever(dim: usize, pads: usize) -> serde_json::Value {
 }
 
 #[test]
-#[ignore = "known wrong result: #1943"]
 fn issue_1846_round5_persistent_moment_after_member_removal() {
     for dim in [2, 3] {
         for pads in [0, 22] {
             for connected in [false, true] {
-                for (moment, removed, cancel, refused) in [
-                    (1.0, true, false, true),
-                    (1.0, false, false, false),
-                    (0.0, true, false, false),
-                    (1.0, true, true, false),
+                for (moment, removed, cancel, residual, refused) in [
+                    (1.0, true, false, 0.0, true),
+                    (-1.0, true, false, 0.0, true),
+                    (1.0, false, false, 0.0, false),
+                    (0.0, true, false, 0.0, false),
+                    (1.0, true, true, 0.0, false),
+                    (1.0, true, true, f64::EPSILON, true),
+                    (1.0, true, true, -f64::EPSILON, true),
                 ] {
                     let mut v = round5_cantilever(dim, pads);
                     if connected {
@@ -1917,7 +1919,7 @@ fn issue_1846_round5_persistent_moment_after_member_removal() {
                     }
                     v["loads"][0]["data"]["my"] = moment.into();
                     let mut opposite = v["loads"][0].clone();
-                    opposite["data"]["my"] = (-moment).into();
+                    opposite["data"]["my"] = (-moment + residual).into();
                     v["loads"].as_array_mut().unwrap().push(opposite);
                     let elements: Vec<_> = v["elements"]
                         .as_object()
@@ -1936,7 +1938,7 @@ fn issue_1846_round5_persistent_moment_after_member_removal() {
                         {"name":"removal","elementsRemoved":if removed {vec![1]} else {vec![]},"loadIndices":if cancel {vec![1]} else {vec![]}}
                     ]);
                     let result = review_solve(dim, v);
-                    assert_eq!(result.is_err(), refused, "{dim}D pads={pads} connected={connected} moment={moment} removed={removed} cancel={cancel}: {result:?}");
+                    assert_eq!(result.is_err(), refused, "{dim}D pads={pads} connected={connected} moment={moment} removed={removed} cancel={cancel} residual={residual}: {result:?}");
                     if refused {
                         assert!(result.unwrap_err().contains("rotation"));
                     } else if removed {
@@ -2031,7 +2033,6 @@ fn issue_1846_round5_rigid_arm_rotation_subspace() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1943"]
 fn issue_1943_final_initial_conditioning_reaches_every_plastic_entry() {
     for inertia in [1e-14, 0.001] {
         for pads in [0, 10, 11] {
