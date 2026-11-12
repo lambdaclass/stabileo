@@ -36,7 +36,8 @@ defmodule StabileoMarketing.SignUpsTest do
     assert [job] = all_enqueued(worker: MetaConversionSender)
     assert [event] = job.args["events"]
     assert event["event_name"] == "CompleteRegistration"
-    assert event["event_id"] == account.id
+    assert event["event_id"] == Base.encode16(:crypto.hash(:sha256, account.id), case: :lower)
+    refute inspect(job.args) =~ account.id
     assert event["action_source"] == "website"
     assert event["event_source_url"] == "http://localhost:4000/app"
     assert event["user_data"]["em"] == Base.encode16(:crypto.hash(:sha256, "ads1@gmail.com"), case: :lower)
@@ -81,5 +82,31 @@ defmodule StabileoMarketing.SignUpsTest do
     assert {:ok, _} = sign_up("ads4@gmail.com", %{"attribution" => %{"consent" => true, "fbp" => "fb.1." <> <<0>>}})
     assert [job] = all_enqueued(worker: MetaConversionSender)
     refute Map.has_key?(hd(job.args["events"])["user_data"], "fbp")
+  end
+
+  test "an unreadable page is left out of the event instead of failing the sign-up" do
+    configure(%{"meta_pixel_id" => "123456789", "meta_capi_access_token" => "EAAB-token-0123456789"})
+    user = %{"email" => "ads6@gmail.com", "email_verified" => true, "name" => "Ada", "sub" => "g-ads6"}
+    {:ok, code} = UserOAuth.sign_in(user, UserOAuth.challenge(@verifier))
+    {:ok, %{signup_token: token}} = UserOAuth.exchange(code, @verifier)
+
+    assert {:ok, _} =
+             UserOAuth.register(
+               token,
+               %{"accept_terms" => true, "source" => %{"page" => "/app" <> <<0xFF>>}, "attribution" => %{"consent" => true}},
+               %{ip_address: "203.0.113.9", user_agent: "Mozilla/5.0 test"}
+             )
+
+    assert Repo.get_by(Account, email: "ads6@gmail.com")
+    assert [job] = all_enqueued(worker: MetaConversionSender)
+    event = hd(job.args["events"])
+    assert event["event_source_url"] == "http://localhost:4000/"
+  end
+
+  test "a pixel id that is not a number is treated as not configured" do
+    configure(%{"meta_pixel_id" => "123/../../me", "meta_capi_access_token" => "EAAB-token-0123456789"})
+    assert StabileoMarketing.Conversions.credentials() == {:error, :not_configured}
+    assert {:ok, _} = sign_up("ads7@gmail.com", %{"attribution" => %{"consent" => true}})
+    assert all_enqueued(worker: MetaConversionSender) == []
   end
 end

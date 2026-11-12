@@ -1,13 +1,13 @@
 <script lang="ts">
   import './ad-consent-i18n';
-  import { tPublic as t, i18n } from '../i18n/store.svelte';
+  import { tPublic as t, publicI18n } from '../i18n/store.svelte';
   import { legalHref, PRIVACY_PATH } from '../legal/legal';
   import { adConsent } from './ad-consent.svelte';
 </script>
 
 {#if adConsent.asking}
   <div class="ac" role="region" aria-label={t('adConsent.label')} data-testid="ad-consent">
-    <p>{t('adConsent.text')} <a href={legalHref(PRIVACY_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('adConsent.privacy')}</a></p>
+    <p>{t('adConsent.text')} <a href={legalHref(PRIVACY_PATH, publicI18n.locale)} target="_blank" rel="noopener noreferrer">{t('adConsent.privacy')}</a></p>
     <div class="actions">
       <button class="btn" onclick={() => adConsent.decide('denied')} data-testid="ad-consent-decline">{t('adConsent.decline')}</button>
       <button class="btn primary" onclick={() => adConsent.decide('granted')} data-testid="ad-consent-accept">{t('adConsent.accept')}</button>

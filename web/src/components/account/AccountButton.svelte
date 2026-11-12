@@ -63,7 +63,7 @@
   </button>
 {/if}
 
-<AuthDialog bind:open={authOpen} startIn={placement === 'link' ? 'register' : 'login'} {placement} />
+<AuthDialog bind:open={authOpen} {placement} />
 <ProfileDialog bind:open={profileOpen} />
 
 <style>

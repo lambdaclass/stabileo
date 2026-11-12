@@ -36,7 +36,7 @@ defmodule StabileoMarketing.ActivityTest do
 
     assert [job] = all_enqueued(worker: MetaConversionSender)
     assert hd(job.args["events"])["event_name"] == "FirstSave"
-    assert hd(job.args["events"])["event_id"] == "first_save-#{account.id}"
+    assert hd(job.args["events"])["event_id"] == "first_save-" <> Base.encode16(:crypto.hash(:sha256, account.id), case: :lower)
   end
 
   test "FirstSave stays off Meta without advertising consent", %{account: account, token: token} do

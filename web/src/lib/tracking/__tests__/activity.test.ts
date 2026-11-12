@@ -81,3 +81,38 @@ describe('the first analysis', () => {
     expect(sent.at(-1)!.body).toMatchObject({ milestones: ['first_analysis'] });
   });
 });
+
+describe('what is already recorded', () => {
+  it('a milestone the backend recorded is not sent again from this browser', async () => {
+    auth.isAuthenticated = true;
+    auth.account = { id: 'acc-5' };
+    answer = { recorded: ['first_export'] };
+    milestone('first_export');
+    await reportActivity();
+    expect(store.get('stb-milestones:acc-5')).toBe('["first_export"]');
+
+    const calls = sent.length;
+    milestone('first_export');
+    await reportActivity();
+    expect(sent).toHaveLength(calls);
+  });
+
+  it('a skip the app asked for expires if its solve never finishes', async () => {
+    const { analysisFinished, skipNextAnalysis } = await import('../activity.svelte');
+    auth.isAuthenticated = true;
+    auth.account = { id: 'acc-6' };
+    answer = { recorded: ['first_analysis'] };
+    skipNextAnalysis(0);
+    analysisFinished(true, 31_000);
+    await reportActivity();
+    expect(sent.at(-1)!.body).toMatchObject({ milestones: ['first_analysis'] });
+  });
+});
+
+describe('the day', () => {
+  it('is the Buenos Aires day, not the UTC one', async () => {
+    const { today } = await import('../activity.svelte');
+    expect(today(Date.UTC(2026, 10, 5, 2, 59))).toBe('2026-11-04');
+    expect(today(Date.UTC(2026, 10, 5, 3, 0))).toBe('2026-11-05');
+  });
+});

@@ -47,5 +47,12 @@ defmodule StabileoMarketing.Controllers.AdminTest do
       body = admin_request(:get, "/acquisition", %{"from" => "2026-11-05", "to" => "2026-11-01"}, token) |> json_body(422)
       assert body["details"]["period"] == ["must be from and to dates, or days from 1 to 366"]
     end
+
+    test "422, not a crash, for a period given as lists or maps", %{token: token} do
+      for params <- [%{"from" => ["2026-11-01"], "to" => "2026-11-05"}, %{"days" => %{"n" => "7"}}, %{"days" => ["7"]}] do
+        body = admin_request(:get, "/acquisition", params, token) |> json_body(422)
+        assert body["details"]["period"] == ["must be from and to dates, or days from 1 to 366"]
+      end
+    end
   end
 end

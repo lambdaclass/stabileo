@@ -59,7 +59,8 @@ export function noteArrival(win: Pick<Window, 'location'> & { document: Pick<Doc
 
 /** Only with advertising consent. A direct arrival leaves the stored visit alone. */
 export function captureVisit(win: Pick<Window, 'location'> & { document: Pick<Document, 'cookie' | 'referrer'> } = window): Visit {
-  const visit = visitFrom(win.location.search, win.document.referrer, win.location);
+  const current = visitFrom(win.location.search, win.document.referrer, win.location);
+  const visit = Object.keys(current).length > 0 ? current : arrival;
   if (Object.keys(visit).length === 0) return readVisit(win.document);
   const secure = win.location.protocol === 'https:' ? '; Secure' : '';
   try {
@@ -77,10 +78,11 @@ export function signupSource(trigger: string, consented: boolean, doc: Pick<Docu
 
 const AD_COOKIE = /^(stb_visit|_fbp|_fbc|_ga\w*|_gcl_\w+)$/;
 
-export function clearAdCookies(doc: Pick<Document, 'cookie'> = document, host = location.hostname): void {
+export function clearAdCookies(doc: Pick<Document, 'cookie'> = document, host = location.hostname, secure = location.protocol === 'https:'): void {
   const domains = ['', `; domain=${host}`, `; domain=.${host.replace(/^www\./, '')}`];
+  const flags = secure ? ['', '; Secure', '; SameSite=Lax; Secure', '; SameSite=None; Secure'] : [''];
   for (const name of doc.cookie.split('; ').map((c) => c.split('=')[0])) {
     if (!AD_COOKIE.test(name)) continue;
-    for (const domain of domains) doc.cookie = `${name}=; path=/; max-age=0${domain}`;
+    for (const domain of domains) for (const flag of flags) doc.cookie = `${name}=; path=/; max-age=0${domain}${flag}`;
   }
 }

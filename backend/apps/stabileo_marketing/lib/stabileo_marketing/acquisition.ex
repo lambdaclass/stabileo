@@ -1,8 +1,8 @@
 defmodule StabileoMarketing.Acquisition do
   @moduledoc """
   Campaign, ad set and ad are the ads' `utm_campaign`, `utm_term` and `utm_content`, as the
-  URL parameters in Settings → Advertising set them. Coming back counts only accounts at least
-  7 days old.
+  URL parameters in Settings → Advertising set them. Coming back counts only accounts whose
+  first 7 days have all ended.
   """
 
   import Ecto.Query
@@ -58,7 +58,7 @@ defmodule StabileoMarketing.Acquisition do
           saved: Map.has_key?(reached, "first_save"),
           exported: Map.has_key?(reached, "first_export"),
           hours_to_save: hours(account.at, reached["first_save"]),
-          eligible: Date.diff(today, signup_day) >= 7,
+          eligible: Date.diff(today, signup_day) > 7,
           returned:
             Enum.any?(Map.get(days, account.id, []), fn day ->
               Date.diff(day, signup_day) in 1..7
@@ -80,12 +80,17 @@ defmodule StabileoMarketing.Acquisition do
         end)
         |> Enum.sort_by(&{-&1.accounts, &1.campaign})
         |> Enum.take(@top_campaigns),
-      daily:
-        Enum.map(range, fn date ->
-          today_rows = Enum.filter(rows, &(Days.local_date(&1.at) == date))
-          %{date: date, accounts: length(today_rows), by_channel: Enum.frequencies_by(today_rows, & &1.channel)}
-        end)
+      daily: daily(range, rows)
     }
+  end
+
+  defp daily(range, rows) do
+    by_date = Enum.group_by(rows, &Days.local_date(&1.at))
+
+    Enum.map(range, fn date ->
+      day_rows = Map.get(by_date, date, [])
+      %{date: date, accounts: length(day_rows), by_channel: Enum.frequencies_by(day_rows, & &1.channel)}
+    end)
   end
 
   defp ad_sets(rows) do

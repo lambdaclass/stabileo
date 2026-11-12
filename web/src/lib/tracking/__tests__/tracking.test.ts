@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 let accountsOn = true;
 vi.mock('../../features', () => ({ accounts: () => accountsOn }));
 
-const { startTracking, tracking, resetTrackingForTests } = await import('../tracking');
+const { startTracking, tracking, resetTrackingForTests, hashedId } = await import('../tracking');
 const { adConsent } = await import('../ad-consent.svelte');
 
 type Win = Record<string, unknown> & { fbq?: { queue: unknown[] }; dataLayer?: Record<string, unknown>[] };
@@ -94,26 +94,29 @@ describe('tracking', () => {
     expect(win.dataLayer!.at(-1)).toMatchObject({ event: 'page_view', page_path: '/es/register/' });
   });
 
-  it('names the click apart from the conversion, and sends the account id as the event id', async () => {
+  it('names the click apart from the conversion, and sends the SHA-256 of the account id as the event id', async () => {
     const { win } = stubBrowser();
     document.cookie = 'stb_visit=' + encodeURIComponent(JSON.stringify({ utm_campaign: 'c1' }));
     await startConsented();
     win.fbq!.queue.length = 0;
 
     tracking.signUpClick('register.hero');
-    tracking.completeRegistration('acc-1');
-    tracking.firstSave('acc-1');
+    await tracking.completeRegistration('acc-1');
+    await tracking.firstSave('acc-1');
     await new Promise((r) => setTimeout(r, 0));
+    const h = await hashedId('acc-1');
+    expect(h).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify([win.fbq!.queue, win.dataLayer])).not.toContain('acc-1');
 
     expect(win.fbq!.queue).toEqual([
       ['trackCustom', 'SignUpClick', { placement: 'register.hero' }],
-      ['track', 'CompleteRegistration', {}, { eventID: 'acc-1' }],
-      ['trackCustom', 'FirstSave', {}, { eventID: 'first_save-acc-1' }],
+      ['track', 'CompleteRegistration', {}, { eventID: h }],
+      ['trackCustom', 'FirstSave', {}, { eventID: `first_save-${h}` }],
     ]);
     expect(win.dataLayer!.slice(-3)).toEqual([
       { event: 'sign_up_click', placement: 'register.hero', utm_campaign: 'c1' },
-      { event: 'sign_up', event_id: 'acc-1', utm_campaign: 'c1' },
-      { event: 'first_save', event_id: 'first_save-acc-1', utm_campaign: 'c1' },
+      { event: 'sign_up', event_id: h, utm_campaign: 'c1' },
+      { event: 'first_save', event_id: `first_save-${h}`, utm_campaign: 'c1' },
     ]);
   });
 
@@ -145,15 +148,52 @@ describe('tracking', () => {
     const { win } = stubBrowser({ framed: true });
     (win.top as Record<string, unknown>).stbTrackingRelay = relay;
     await startTracking(async () => ids);
-    tracking.completeRegistration('acc-2');
-    expect(relay).toHaveBeenCalledWith({ pixel: ['track', 'CompleteRegistration', {}, { eventID: 'acc-2' }], gtm: { event: 'sign_up', event_id: 'acc-2' } });
+    await tracking.completeRegistration('acc-2');
+    const h = await hashedId('acc-2');
+    expect(relay).toHaveBeenCalledWith({ pixel: ['track', 'CompleteRegistration', {}, { eventID: h }], gtm: { event: 'sign_up', event_id: h } });
+  });
+
+  it('without Web Crypto (a page served over plain http) the conversion is skipped, never thrown', async () => {
+    const { win } = stubBrowser();
+    await startConsented();
+    const before = win.fbq!.queue.length;
+    vi.stubGlobal('crypto', {});
+    await expect(tracking.completeRegistration('acc-7')).resolves.toBeUndefined();
+    await expect(tracking.firstSave('acc-7')).resolves.toBeUndefined();
+    expect(win.fbq!.queue).toHaveLength(before);
+  });
+
+  it('an in-page anchor is not a shared model: the page view still goes out', async () => {
+    const { win } = stubBrowser({ hash: '#pricing' });
+    await startConsented();
+    expect(win.fbq!.queue.at(-1)).toEqual(['track', 'PageView']);
+  });
+
+  it('reopening the choice after accepting keeps the trackers until the person declines, which clears and reloads', async () => {
+    const { win } = stubBrowser();
+    const reload = vi.fn();
+    (win.location as Record<string, unknown>).reload = reload;
+    await startConsented();
+
+    adConsent.reopen();
+    expect(adConsent.asking).toBe(true);
+    expect(adConsent.granted).toBe(true);
+    await tracking.completeRegistration('acc-4');
+    expect((win.fbq!.queue.at(-1) as unknown[]).slice(0, 2)).toEqual(['track', 'CompleteRegistration']);
+
+    adConsent.decide('denied');
+    expect(adConsent.asking).toBe(false);
+    expect(reload).toHaveBeenCalledOnce();
+    const before = win.fbq!.queue.length;
+    await tracking.completeRegistration('acc-4');
+    expect(win.fbq!.queue).toHaveLength(before);
   });
 
   it('a pixel that throws never reaches the caller', async () => {
     const { win } = stubBrowser();
     await startConsented();
     win.fbq = (() => { throw new Error('blocked'); }) as never;
-    expect(() => tracking.completeRegistration('acc-3')).not.toThrow();
+    await expect(tracking.completeRegistration('acc-3')).resolves.toBeUndefined();
     await new Promise((r) => setTimeout(r, 0));
   });
 });

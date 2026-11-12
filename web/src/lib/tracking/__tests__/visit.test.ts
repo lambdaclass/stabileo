@@ -62,9 +62,17 @@ describe('the visit cookie', () => {
 
   it('declining clears the advertising cookies and keeps the rest', () => {
     const written: string[] = [];
-    const doc = { get cookie() { return 'stb_visit=x; _fbp=fb.1; _ga_ABC=1; _gcl_au=1; theme=dark'; }, set cookie(v: string) { written.push(v.split('=')[0]); } };
-    clearAdCookies(doc as unknown as Document, 'stabileo.com');
-    expect(new Set(written)).toEqual(new Set(['stb_visit', '_fbp', '_ga_ABC', '_gcl_au']));
+    const doc = { get cookie() { return 'stb_visit=x; _fbp=fb.1; _ga_ABC=1; _gcl_au=1; theme=dark'; }, set cookie(v: string) { written.push(v); } };
+    clearAdCookies(doc as unknown as Document, 'stabileo.com', false);
+    expect(new Set(written.map((w) => w.split('=')[0]))).toEqual(new Set(['stb_visit', '_fbp', '_ga_ABC', '_gcl_au']));
+  });
+
+  it('on https the clearing also matches cookies written Secure, which a plain expiry leaves alive', () => {
+    const written: string[] = [];
+    const doc = { get cookie() { return '_fbp=fb.1'; }, set cookie(v: string) { written.push(v); } };
+    clearAdCookies(doc as unknown as Document, 'stabileo.com', true);
+    expect(written).toContain('_fbp=; path=/; max-age=0; domain=.stabileo.com; SameSite=None; Secure');
+    expect(written).toContain('_fbp=; path=/; max-age=0');
   });
 
   it('a broken cookie reads as nothing', () => {

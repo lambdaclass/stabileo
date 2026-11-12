@@ -37,6 +37,15 @@ defmodule StabileoMarketing.AcquisitionTest do
              Enum.find(report.campaigns, &(&1.campaign == "123"))
   end
 
+  test "an account counts for coming back only once its seven days have all ended" do
+    signed_up(%{})
+    today = Days.today()
+    range = Date.range(today, today)
+
+    assert Acquisition.report(range, Date.add(today, 7)).totals.return_eligible == 0
+    assert Acquisition.report(range, Date.add(today, 8)).totals.return_eligible == 1
+  end
+
   test "days are Buenos Aires days" do
     assert Days.local_date(~U[2026-11-05 02:59:59Z]) == ~D[2026-11-04]
     assert Days.local_date(~U[2026-11-05 03:00:00Z]) == ~D[2026-11-05]

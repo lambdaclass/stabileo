@@ -98,10 +98,10 @@ test.describe('the ads sign-up page', () => {
     expect(queue).toEqual(expect.arrayContaining([
       ['set', 'autoConfig', false, '123456789'],
       ['trackCustom', 'SignUpClick', { placement: 'hero' }],
-      ['track', 'CompleteRegistration', {}, { eventID: ACCOUNT.id }],
+      ['track', 'CompleteRegistration', {}, { eventID: createHash('sha256').update(ACCOUNT.id).digest('hex') }],
     ]));
     const layer = await page.evaluate(() => (window as unknown as { dataLayer?: Record<string, unknown>[] }).dataLayer ?? []);
-    expect(layer).toEqual(expect.arrayContaining([expect.objectContaining({ event: 'sign_up', event_id: ACCOUNT.id, utm_campaign: '120210' })]));
+    expect(layer).toEqual(expect.arrayContaining([expect.objectContaining({ event: 'sign_up', event_id: createHash('sha256').update(ACCOUNT.id).digest('hex'), utm_campaign: '120210' })]));
     expect(backend.trackers.some((u) => u.includes('fbevents.js'))).toBe(true);
   });
 

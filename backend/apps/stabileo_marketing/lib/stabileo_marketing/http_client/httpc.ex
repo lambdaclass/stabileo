@@ -58,6 +58,7 @@ defmodule StabileoMarketing.HttpClient.Httpc do
     [
       timeout: @timeout,
       connect_timeout: 10_000,
+      autoredirect: false,
       ssl: [
         verify: :verify_peer,
         cacerts: :public_key.cacerts_get(),

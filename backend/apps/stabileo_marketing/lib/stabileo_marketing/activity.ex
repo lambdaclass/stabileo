@@ -23,17 +23,21 @@ defmodule StabileoMarketing.Activity do
       conflict_target: [:account_id, :day]
     )
 
-    recorded =
-      kinds
-      |> List.wrap()
-      |> Enum.filter(&(&1 in AccountMilestone.kinds()))
-      |> Enum.uniq()
-      |> Enum.filter(&new_milestone?(account, &1, now))
+    Repo.transaction(fn ->
+      recorded =
+        kinds
+        |> List.wrap()
+        |> Enum.filter(&(&1 in AccountMilestone.kinds()))
+        |> Enum.uniq()
+        |> Enum.filter(&new_milestone?(account, &1, now))
 
-    if "first_save" in recorded,
-      do: Conversions.enqueue_first_save(account, attribution, page, metadata)
+      with true <- "first_save" in recorded,
+           {:error, reason} <- Conversions.enqueue_first_save(account, attribution, page, metadata) do
+        Repo.rollback(reason)
+      end
 
-    {:ok, recorded}
+      recorded
+    end)
   end
 
   defp new_milestone?(account, kind, now) do

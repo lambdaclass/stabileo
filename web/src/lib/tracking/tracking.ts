@@ -87,7 +87,7 @@ function load(ids: TrackingIds): void {
     if (ids.meta_pixel_id) {
       loadPixel(ids.meta_pixel_id);
       // The pixel reports location.href, and a shared model lives in its fragment.
-      if (!location.hash) window.fbq?.('track', 'PageView');
+      if (!sharedModel()) window.fbq?.('track', 'PageView');
     }
     if (ids.gtm_container_id) {
       loadGtm(ids.gtm_container_id);
@@ -96,6 +96,13 @@ function load(ids: TrackingIds): void {
   });
 }
 
+export async function hashedId(id: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(id));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+const sharedModel = (): boolean => /^#(data=|embed=|code=)/.test(location.hash);
+
 function utms(): Record<string, string> {
   const visit = readVisit();
   return Object.fromEntries(Object.entries(visit).filter(([key]) => key.startsWith('utm_')));
@@ -103,9 +110,9 @@ function utms(): Record<string, string> {
 
 async function send(e: Emission): Promise<void> {
   const ids = await (ready ?? Promise.resolve(null));
-  if (!ids || !loaded || location.hash) return;
+  if (!ids || !loaded || !adConsent.granted) return;
   safe(() => {
-    if (ids.meta_pixel_id) window.fbq?.(...e.pixel);
+    if (ids.meta_pixel_id && !sharedModel()) window.fbq?.(...e.pixel);
     if (ids.gtm_container_id) window.dataLayer?.push({ ...e.gtm, ...utms() });
   });
 }
@@ -126,14 +133,18 @@ export const tracking = {
   registrationStep(step: 'terms') {
     emit({ pixel: ['trackCustom', 'RegistrationStep', { step }], gtm: { event: 'sign_up_step', step } });
   },
-  completeRegistration(accountId: string) {
-    emit({ pixel: ['track', 'CompleteRegistration', {}, { eventID: accountId }], gtm: { event: 'sign_up', event_id: accountId } });
+  async completeRegistration(accountId: string) {
+    const eventID = await hashedId(accountId).catch(() => null);
+    if (!eventID) return;
+    emit({ pixel: ['track', 'CompleteRegistration', {}, { eventID }], gtm: { event: 'sign_up', event_id: eventID } });
   },
   login() {
     emit({ pixel: ['trackCustom', 'Login'], gtm: { event: 'login' } });
   },
-  firstSave(accountId: string) {
-    const eventID = `first_save-${accountId}`;
+  async firstSave(accountId: string) {
+    const hash = await hashedId(accountId).catch(() => null);
+    if (!hash) return;
+    const eventID = `first_save-${hash}`;
     emit({ pixel: ['trackCustom', 'FirstSave', {}, { eventID }], gtm: { event: 'first_save', event_id: eventID } });
   },
 };

@@ -1,6 +1,6 @@
 defmodule StabileoMarketing.Conversions do
   @moduledoc """
-  Each `event_id` is the one the pixel sends (the account's id, `first_save-<account id>`), so
+  Each `event_id` is the one the pixel sends (the SHA-256 of the account's id, `first_save-<that hash>`), so
   Meta counts the event once. Nothing is queued without `"consent" => true` in `attribution`:
   the browser sends it only after the person accepted advertising cookies.
   """
@@ -23,20 +23,23 @@ defmodule StabileoMarketing.Conversions do
 
   def enqueue_sign_up(%Account{} = account, attribution, page, metadata) do
     enqueue(attribution, fn ->
-      event("CompleteRegistration", account.id, page, user_data(account, attribution, metadata))
+      event("CompleteRegistration", hash(account.id), page, user_data(account, attribution, metadata))
     end)
   end
 
   def enqueue_first_save(%Account{} = account, attribution, page, metadata) do
     enqueue(attribution, fn ->
-      event("FirstSave", "first_save-#{account.id}", page, user_data(account, attribution, metadata))
+      event("FirstSave", "first_save-#{hash(account.id)}", page, user_data(account, attribution, metadata))
     end)
   end
 
   def credentials do
     case {Configs.meta_pixel_id(), Configs.meta_capi_access_token()} do
-      {pixel_id, token} when is_binary(pixel_id) and is_binary(token) -> {:ok, pixel_id, token}
-      _ -> {:error, :not_configured}
+      {pixel_id, token} when is_binary(pixel_id) and is_binary(token) ->
+        if pixel_id =~ ~r/\A\d+\z/, do: {:ok, pixel_id, token}, else: {:error, :not_configured}
+
+      _ ->
+        {:error, :not_configured}
     end
   end
 
@@ -65,15 +68,15 @@ defmodule StabileoMarketing.Conversions do
     |> Map.merge(%{
       em: account.email |> String.trim() |> String.downcase() |> hash(),
       external_id: hash(account.id),
-      client_ip_address: metadata[:ip_address],
-      client_user_agent: metadata[:user_agent]
+      client_ip_address: text(metadata[:ip_address]),
+      client_user_agent: text(metadata[:user_agent])
     })
   end
 
   defp page_url(page) when is_binary(page) do
     base = Application.get_env(:stabileo_auth, :app_frontend_url) || ""
 
-    if String.starts_with?(page, "/") and String.length(page) <= 512,
+    if text(page) == page and String.starts_with?(page, "/") and String.length(page) <= 512,
       do: base <> page,
       else: base <> "/"
   end
@@ -82,6 +85,12 @@ defmodule StabileoMarketing.Conversions do
 
   defp cookie(value) when is_binary(value), do: if(value =~ @pixel_cookie, do: value)
   defp cookie(_value), do: nil
+
+  defp text(value) when is_binary(value) do
+    if String.valid?(value) and not String.contains?(value, <<0>>), do: value
+  end
+
+  defp text(_value), do: nil
 
   defp hash(value) when value in [nil, ""], do: nil
   defp hash(value), do: Base.encode16(:crypto.hash(:sha256, value), case: :lower)

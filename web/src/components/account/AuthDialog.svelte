@@ -99,7 +99,7 @@
         source: signupSource(placement, adConsent.granted),
         attribution: adAttribution(),
       });
-      tracking.completeRegistration(account.id);
+      await tracking.completeRegistration(account.id);
       if (usage) usageConsent.set('granted');
       close();
     } catch (err) {

@@ -47,7 +47,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each rows as { label, row } (label)}
+          {#each rows as { label, row }, i (i)}
             <tr>
               <td>{label}</td>
               <td class="ins-mono">{count(row.accounts)}</td>

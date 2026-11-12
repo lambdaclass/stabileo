@@ -22,7 +22,7 @@ export const adConsent = {
   get state() { return state; },
   get granted() { return state === 'granted'; },
   get available() { return available; },
-  get asking() { return asking && state === null; },
+  get asking() { return asking; },
 
   offer(grant: () => void): void {
     available = true;
@@ -50,7 +50,6 @@ export const adConsent = {
 
   reopen(): void {
     if (!available) return;
-    state = null;
     asking = true;
   },
 

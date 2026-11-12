@@ -111,7 +111,7 @@
         source: signupSource(`register.${step.placement}`, adConsent.granted),
         attribution: adAttribution(),
       });
-      tracking.completeRegistration(account.id);
+      await tracking.completeRegistration(account.id);
       if (askedUsage) usageConsent.set(usage ? 'granted' : 'denied');
       step = { kind: 'idle' };
       toEditor();
