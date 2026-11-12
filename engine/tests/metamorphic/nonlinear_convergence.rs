@@ -1363,8 +1363,22 @@ mod r2 {
         let pdelta_iter = test["maxIter"].as_u64().unwrap_or(1) as usize;
         let pdelta_tolerance = test["tolerance"].as_f64().unwrap_or(1e-10);
         match test["api"].as_str().unwrap() {
-            "certify_pdelta_2d" => encode(dedaliano_engine::certify::pdelta::certify_pdelta_2d(&serde_json::from_value(value).unwrap(), pdelta_iter, 1e-10).map(|r| r.results)),
-            "certify_pdelta_3d" => encode(dedaliano_engine::certify::pdelta::certify_pdelta_3d(&serde_json::from_value(value).unwrap(), pdelta_iter, 1e-10).map(|r| r.results)),
+            "certify_pdelta_2d" => encode(
+                dedaliano_engine::certify::pdelta::certify_pdelta_2d(
+                    &serde_json::from_value(value).unwrap(),
+                    pdelta_iter,
+                    1e-10,
+                )
+                .map(|r| r.results),
+            ),
+            "certify_pdelta_3d" => encode(
+                dedaliano_engine::certify::pdelta::certify_pdelta_3d(
+                    &serde_json::from_value(value).unwrap(),
+                    pdelta_iter,
+                    1e-10,
+                )
+                .map(|r| r.results),
+            ),
             "solve_nonlinear_material_2d" => {
                 encode(material_nonlinear::solve_nonlinear_material_2d(
                     &serde_json::from_value(value).unwrap(),
@@ -1649,19 +1663,9 @@ mod r2 {
                 Iso2::mirror_line(1.293),
             ] {
                 let solver = transform_2d(&base.s, &iso).unwrap();
-                let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(&solver);
-                let assembly = dedaliano_engine::solver::assembly::assemble_2d(&solver, &dofs);
-                let tangent = dofs.global_dof(2, 0).unwrap();
-                let normal = dofs.global_dof(2, 1).unwrap();
-                let mut axis = vec![0.0; dofs.n_total];
-                axis[tangent] = 1.0;
-                for it in &assembly.inclined_transforms_2d {
-                    dedaliano_engine::solver::assembly::reverse_inclined_transform_2d(
-                        &mut axis, &it.dofs, &it.r,
-                    );
-                }
-                let mut case = serde_json::json!({"api":"solve_arc_length","input":ArcLengthInput { solver:solver.clone(),max_steps:1,max_iter:100,tolerance:1e-10,initial_ds:0.1,min_ds:0.1,max_ds:0.1,target_iter:4 },"allowRefusal":true,"arcWitness":{"dx":solver.nodes["2"].x-solver.nodes["1"].x,"dz":solver.nodes["2"].z-solver.nodes["1"].z,"e":solver.materials["1"].e,"a":solver.sections["1"].a,"tx":axis[tangent],"tz":axis[normal],"force":assembly.f[tangent]}});
-                if assembly.f[..dofs.n_free].iter().all(|f| *f == 0.0) {
+                let witness = arc_witness(&solver);
+                let mut case = serde_json::json!({"api":"solve_arc_length","input":ArcLengthInput { solver:solver.clone(),max_steps:1,max_iter:100,tolerance:1e-10,initial_ds:0.1,min_ds:0.1,max_ds:0.1,target_iter:4 },"allowRefusal":true,"arcWitness":witness});
+                if case["arcWitness"]["forceNormSquared"] == 0.0 {
                     case["error"] = serde_json::json!("Zero reference load");
                 }
                 calls.push(case);
@@ -1746,6 +1750,98 @@ mod r2 {
             cases.extend(calls);
             std::fs::write(path, serde_json::to_vec(&cases).unwrap()).unwrap();
         }
+    }
+
+    fn arc_witness(solver: &SolverInput) -> serde_json::Value {
+        let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(solver);
+        let assembly = dedaliano_engine::solver::assembly::assemble_2d(solver, &dofs);
+        let tangent = dofs.global_dof(2, 0).unwrap();
+        let normal = dofs.global_dof(2, 1).unwrap();
+        let mut axis = vec![0.0; dofs.n_total];
+        axis[tangent] = 1.0;
+        for it in &assembly.inclined_transforms_2d {
+            dedaliano_engine::solver::assembly::reverse_inclined_transform_2d(
+                &mut axis, &it.dofs, &it.r,
+            );
+        }
+        let mut free_dofs = Vec::new();
+        for node in solver.nodes.values() {
+            for component in 0..3 {
+                let index = dofs.global_dof(node.id, component).unwrap();
+                if index >= dofs.n_free {
+                    continue;
+                }
+                let mut basis = vec![0.0; dofs.n_total];
+                basis[index] = 1.0;
+                for it in &assembly.inclined_transforms_2d {
+                    dedaliano_engine::solver::assembly::reverse_inclined_transform_2d(
+                        &mut basis, &it.dofs, &it.r,
+                    );
+                }
+                free_dofs.push(serde_json::json!({"nodeId":node.id,
+                    "ux":basis[dofs.global_dof(node.id,0).unwrap()],
+                    "uz":basis[dofs.global_dof(node.id,1).unwrap()],
+                    "ry":basis[dofs.global_dof(node.id,2).unwrap()]}));
+            }
+        }
+        serde_json::json!({"dx":solver.nodes["2"].x-solver.nodes["1"].x,
+            "dz":solver.nodes["2"].z-solver.nodes["1"].z,
+            "e":solver.materials["1"].e,"a":solver.sections["1"].a,
+            "tx":axis[tangent],"tz":axis[normal],"force":assembly.f[tangent],
+            "forceNormSquared":assembly.f[..dofs.n_free].iter().map(|v|v*v).sum::<f64>(),
+            "freeDofs":free_dofs,"ds":0.1})
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1940"]
+    fn r7_arc_witness_rejects_no_op_and_wrong_arc_length() {
+        let mut accepted = Vec::new();
+        let mut correct = 0;
+        for fixture in fixtures() {
+            for iso in [
+                Iso2::rotation(0.0),
+                Iso2::rotation(0.731),
+                Iso2::mirror_line(1.293),
+            ] {
+                let solver = transform_2d(&fixture.s, &iso).unwrap();
+                let w = arc_witness(&solver);
+                let zero = serde_json::json!({"converged":true,"finalLoadFactor":0.0,
+                    "results":{"displacements":solver.nodes.values().map(|n|
+                        serde_json::json!({"nodeId":n.id,"ux":0.0,"uz":0.0,"ry":0.0})).collect::<Vec<_>>()}});
+                if std::panic::catch_unwind(|| check_arc_witness(&zero, &w)).is_ok() {
+                    accepted.push(format!("{}: no-op", fixture.name));
+                }
+                let input = ArcLengthInput {
+                    solver,
+                    max_steps: 1,
+                    max_iter: 100,
+                    tolerance: 1e-10,
+                    initial_ds: 0.1,
+                    min_ds: 0.1,
+                    max_ds: 0.1,
+                    target_iter: 4,
+                };
+                if let Ok(result) = arc_length::solve_arc_length(&input) {
+                    if result.converged {
+                        let r = serde_json::to_value(result).unwrap();
+                        check_arc_witness(&r, &w);
+                        correct += 1;
+                        for ratio in [0.5, 2.0] {
+                            let mut wrong = w.clone();
+                            wrong["ds"] = serde_json::json!(w["ds"].as_f64().unwrap() * ratio);
+                            if std::panic::catch_unwind(|| check_arc_witness(&r, &wrong)).is_ok() {
+                                accepted.push(format!("{}: ds ratio {ratio}", fixture.name));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(correct > 0);
+        assert!(
+            accepted.is_empty(),
+            "accepted fabricated arc results: {accepted:?}"
+        );
     }
 
     fn check_arc_witness(result: &serde_json::Value, w: &serde_json::Value) {
@@ -2123,7 +2219,8 @@ mod r3 {
                 &dedaliano_engine::metamorphic::transform::Iso3::from_euler(0.731, -0.417, 1.293),
             )
             .displacements;
-            let mut mirrored = dedaliano_engine::metamorphic::mirror::mirror_3d(&s, 0, [0.0; 3]).unwrap();
+            let mut mirrored =
+                dedaliano_engine::metamorphic::mirror::mirror_3d(&s, 0, [0.0; 3]).unwrap();
             let reflected: Vec<_> = expected.iter().map(|d| serde_json::json!({"nodeId":d.node_id,"ux":-d.ux,"uy":d.uy,"uz":d.uz,"rx":d.rx,"ry":-d.ry,"rz":-d.rz})).collect();
             calls.push(serde_json::json!({"api":"solve_corotational_3d","input":mirrored,"maxIter":60,"converged":true,"expectedDisplacements":reflected}));
             mirrored.left_hand = Some(true);
@@ -2238,7 +2335,8 @@ mod r3 {
         s.supports.get_mut("1").unwrap().dry = Some(0.01);
         s.supports.insert(
             "2".into(),
-            serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"rollerX"})).unwrap(),
+            serde_json::from_value(serde_json::json!({"id":2,"nodeId":2,"type":"rollerX"}))
+                .unwrap(),
         );
         let initial = corotational::solve_corotational_2d(&s, 60, 1e-10, 4, false).unwrap();
         assert!(initial.converged);
@@ -2252,8 +2350,9 @@ mod r3 {
             if remove {
                 target.supports.remove("2");
             }
-            let r = corotational::solve_corotational_2d_from(&target, Some(&start), 20, 1e-10, 1, true)
-                .unwrap();
+            let r =
+                corotational::solve_corotational_2d_from(&target, Some(&start), 20, 1e-10, 1, true)
+                    .unwrap();
             assert!(r.converged, "remove={remove}");
             for d in r.results.displacements {
                 assert!(d.ux.abs().max(d.uz.abs()).max(d.ry.abs()) < 1e-12);
@@ -2544,7 +2643,8 @@ mod r3 {
     #[test]
     fn r4_tz_small_axial_responses_match_initial_stiffness() {
         for case in r4_tz_calls() {
-            let r: serde_json::Value = serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
+            let r: serde_json::Value =
+                serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
             assert_eq!(r["converged"], true, "{case}: {r}");
             check_expected_displacements(&r, &case);
         }
@@ -3032,7 +3132,12 @@ mod r5 {
                     (2, serde_json::to_value(&s).unwrap(), expected2.clone()),
                     (3, serde_json::to_value(&spatial).unwrap(), expected3),
                 ] {
-                    for api in ["solve", "solve_pdelta", "certify_pdelta", "solve_corotational"] {
+                    for api in [
+                        "solve",
+                        "solve_pdelta",
+                        "certify_pdelta",
+                        "solve_corotational",
+                    ] {
                         calls.push(serde_json::json!({"api":format!("{api}_{dimension}d"),"input":solver,"maxIter":30,"converged":true,"expectedDisplacements":expected}));
                     }
                     calls.push(serde_json::json!({"api":format!("solve_constrained_{dimension}d"),"input":{"solver":solver,"constraints":[]},"converged":true,"expectedDisplacements":expected}));
@@ -3205,7 +3310,10 @@ mod r6 {
     fn r6_rotated_pure_axial_settlement_does_not_invent_bending() {
         for case in axial_calls() {
             if case["error"].is_string() {
-                assert!(super::r2::call(&case).unwrap_err().to_lowercase().contains("prescribed"));
+                assert!(super::r2::call(&case)
+                    .unwrap_err()
+                    .to_lowercase()
+                    .contains("prescribed"));
                 continue;
             }
             let result: serde_json::Value =

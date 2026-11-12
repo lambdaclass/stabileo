@@ -135,37 +135,135 @@ fn strict_equilibrium_survives_numbering_and_constraints() {
         std::fs::write(path, serde_json::to_vec(&calls).unwrap()).unwrap();
     }
     for c in calls {
-        let api = c["api"].as_str().unwrap();
-        let text = c["input"].to_string();
-        let max_iter = c["maxIter"].as_u64().unwrap_or(0) as usize;
-        let result = match api {
-            "solve_pdelta_2d" => dedaliano_engine::solve_pdelta_2d(&text, max_iter, 1e-12).unwrap(),
-            "solve_pdelta_3d" => dedaliano_engine::solve_pdelta_3d(&text, max_iter, 1e-12).unwrap(),
-            "solve_ssi_2d" => dedaliano_engine::solve_ssi_2d(&text).unwrap(),
-            "solve_ssi_3d" => dedaliano_engine::solve_ssi_3d(&text).unwrap(),
-            "solve_2d" => {
-                assert!(!linear::solve_2d(&serde_json::from_str(&text).unwrap())
-                    .unwrap()
-                    .displacements
-                    .is_empty());
-                continue;
-            }
-            "solve_3d" => {
-                assert!(!linear::solve_3d(&serde_json::from_str(&text).unwrap())
-                    .unwrap()
-                    .displacements
-                    .is_empty());
-                continue;
-            }
-            _ => panic!("unknown API"),
-        };
-        let r: Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(
-            r["converged"], c["converged"],
-            "{api}, budget {max_iter}, {text}"
-        );
-        check_capacity(&r, &c);
+        check_result(&native_result(&c), &c);
     }
+}
+
+fn native_result(c: &Value) -> Value {
+    let api = c["api"].as_str().unwrap();
+    let text = c["input"].to_string();
+    let max_iter = c["maxIter"].as_u64().unwrap_or(0) as usize;
+    let result = match api {
+        "solve_pdelta_2d" => dedaliano_engine::solve_pdelta_2d(&text, max_iter, 1e-12).unwrap(),
+        "solve_pdelta_3d" => dedaliano_engine::solve_pdelta_3d(&text, max_iter, 1e-12).unwrap(),
+        "solve_ssi_2d" => dedaliano_engine::solve_ssi_2d(&text).unwrap(),
+        "solve_ssi_3d" => dedaliano_engine::solve_ssi_3d(&text).unwrap(),
+        "solve_2d" => {
+            return json!({"converged":true,"results":linear::solve_2d(&serde_json::from_str(&text).unwrap()).unwrap()})
+        }
+        "solve_3d" => {
+            return json!({"converged":true,"results":linear::solve_3d(&serde_json::from_str(&text).unwrap()).unwrap()})
+        }
+        _ => panic!("unknown API"),
+    };
+    serde_json::from_str(&result).unwrap()
+}
+
+fn check_result(r: &Value, c: &Value) {
+    if c["api"] == "solve_2d" || c["api"] == "solve_3d" {
+        assert!(!r["results"]["displacements"].as_array().unwrap().is_empty());
+        return;
+    }
+    assert_eq!(r["converged"], c["converged"], "{c}");
+    check_capacity(r, c);
+}
+
+#[test]
+#[ignore = "known wrong result: #1940"]
+fn r7_native_displacement_checks_reject_zero_answers_and_bad_node_coverage() {
+    let mut accepted = Vec::new();
+    let mut checked = 0;
+    for c in calls()
+        .into_iter()
+        .filter(|c| c["expectedDisplacements"].is_array())
+    {
+        let actual = native_result(&c);
+        check_result(&actual, &c);
+        checked += 1;
+        for mutation in [
+            "zero",
+            "missing",
+            "duplicate",
+            "extra",
+            "reversed",
+            "spurious-zero",
+        ] {
+            let mut wrong = actual.clone();
+            let ds = wrong["results"]["displacements"].as_array_mut().unwrap();
+            match mutation {
+                "missing" => {
+                    ds.pop();
+                }
+                "duplicate" => ds.push(ds[0].clone()),
+                "extra" => {
+                    let mut extra = ds[0].clone();
+                    extra["nodeId"] = json!(usize::MAX);
+                    ds.push(extra);
+                }
+                _ => {
+                    for d in ds {
+                        for key in ["ux", "uy", "uz", "rx", "ry", "rz"] {
+                            if let Some(value) = d[key].as_f64() {
+                                d[key] = json!(match mutation {
+                                    "zero" => 0.0,
+                                    "reversed" => -value,
+                                    _ =>
+                                        if value == 0.0 {
+                                            1.0
+                                        } else {
+                                            value
+                                        },
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            if std::panic::catch_unwind(|| check_result(&wrong, &c)).is_ok() {
+                accepted.push(format!("{} {mutation}", c["api"]));
+            }
+        }
+    }
+    assert!(checked > 0);
+    assert!(
+        accepted.is_empty(),
+        "accepted fabricated displacements: {accepted:?}"
+    );
+}
+
+#[test]
+#[ignore = "known wrong result: #1940"]
+fn r7_subset_test_cannot_replace_the_exported_corpus() {
+    let path = std::env::temp_dir().join(format!("stabileo-r7-{}.json", std::process::id()));
+    let executable = std::env::current_exe().unwrap();
+    for names in [
+        vec![
+            "red_ci::strict_equilibrium_survives_numbering_and_constraints",
+            "red_ci::export_native_and_wasm_cases",
+            "red_ci::small_soil_force_cannot_disappear_between_structure_and_applied_load",
+        ],
+        vec!["red_ci::small_soil_force_cannot_disappear_between_structure_and_applied_load"],
+    ] {
+        let output = std::process::Command::new(&executable)
+            .args(names)
+            .args(["--test-threads=2"])
+            .env("RED_CI_CASES", &path)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+    }
+    let exported: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    std::fs::remove_file(path).unwrap();
+    assert!(
+        exported == json!(calls()),
+        "exported {} of {} cases",
+        exported.as_array().unwrap().len(),
+        calls().len()
+    );
 }
 
 pub(crate) fn check_capacity(r: &Value, c: &Value) {

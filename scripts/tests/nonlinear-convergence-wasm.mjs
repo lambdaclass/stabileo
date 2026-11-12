@@ -25,6 +25,50 @@ function checkComponents(actual, expected, all) {
     }
   }
 }
+function checkArcWitness(result, w) {
+        const base = result.results.displacements.find(d => d.nodeId === 1);
+        const tip = result.results.displacements.find(d => d.nodeId === 2);
+        const ux = tip.ux - base.ux, uz = tip.uz - base.uz;
+        const l0 = Math.hypot(w.dx, w.dz), ln = Math.hypot(w.dx + ux, w.dz + uz);
+        const axial = 1000 * w.e * w.a * (2 * w.dx * ux + 2 * w.dz * uz + ux * ux + uz * uz) / (l0 * (ln + l0));
+        const projected = axial * ((w.dx + ux) * w.tx + (w.dz + uz) * w.tz) / ln;
+        assert.ok(Number.isFinite(result.finalLoadFactor));
+        assert.ok(Math.abs(projected / (result.finalLoadFactor * w.force) - 1) < 1e-10);
+}
+function checkExpectedDisplacements(result, fixture) {
+  for (const expected of fixture.expectedDisplacements ?? []) {
+    const actual = result.results.displacements.find(d => d.nodeId === expected.nodeId);
+    checkComponents(actual, expected, fixture.expectedDisplacements);
+  }
+}
+for (const fixture of cases.filter(c => c.arcWitness && !c.error)) {
+  test(`r7 arc constraint ${fixture.arcWitness.dx}, ${fixture.arcWitness.dz}`, { skip: !process.env.RUN_KNOWN_WRONG_1940 }, () => {
+    const result = JSON.parse(invokeCase(fixture));
+    if (!result.converged) return;
+    checkArcWitness(result, fixture.arcWitness);
+    const zero = structuredClone(result);
+    zero.finalLoadFactor = 0;
+    for (const d of zero.results.displacements) {
+      for (const key of ['ux', 'uz', 'ry']) d[key] = 0;
+    }
+    assert.throws(() => checkArcWitness(zero, fixture.arcWitness));
+    for (const ratio of [0.5, 2]) {
+      assert.throws(() => checkArcWitness(result, { ...fixture.arcWitness, ds: fixture.arcWitness.ds * ratio }));
+    }
+  });
+}
+test('r7 displacement checker rejects zero answers and extra nodes', { skip: !process.env.RUN_KNOWN_WRONG_1940 }, () => {
+  const fixture = { expectedDisplacements: [{ nodeId: 1, ux: 1, uz: 0, ry: 0 }], requireNodeCoverage: true, input: { nodes: { 1: { id: 1 } } } };
+  const result = { results: { displacements: structuredClone(fixture.expectedDisplacements) } };
+  checkExpectedDisplacements(result, fixture);
+  const zero = { results: { displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }] } };
+  assert.throws(() => checkExpectedDisplacements(zero, fixture));
+  for (const nodeId of [1, 2]) {
+    const extra = structuredClone(result);
+    extra.results.displacements.push({ nodeId, ux: 0, uz: 0, ry: 0 });
+    assert.throws(() => checkExpectedDisplacements(extra, fixture));
+  }
+});
 function checkLoadedCantilever(tip, solver, dimension) {
   const node = solver.nodes['2'];
   const load = solver.loads[0].data;
@@ -146,15 +190,7 @@ for (const test of cases) {
     try { result = JSON.parse(invoke()); } catch (error) { if (test.unconvergedOrError || test.allowRefusal) { checked++; continue; } throw error; }
     if (test.allowRefusal) {
       if (result.converged) {
-        const w = test.arcWitness;
-        const base = result.results.displacements.find(d => d.nodeId === 1);
-        const tip = result.results.displacements.find(d => d.nodeId === 2);
-        const ux = tip.ux - base.ux, uz = tip.uz - base.uz;
-        const l0 = Math.hypot(w.dx, w.dz), ln = Math.hypot(w.dx + ux, w.dz + uz);
-        const axial = 1000 * w.e * w.a * (2 * w.dx * ux + 2 * w.dz * uz + ux * ux + uz * uz) / (l0 * (ln + l0));
-        const projected = axial * ((w.dx + ux) * w.tx + (w.dz + uz) * w.tz) / ln;
-        assert.ok(Number.isFinite(result.finalLoadFactor));
-        assert.ok(Math.abs(projected / (result.finalLoadFactor * w.force) - 1) < 1e-10);
+        checkArcWitness(result, test.arcWitness);
       }
       checked++; continue;
     }
@@ -180,10 +216,7 @@ for (const test of cases) {
       assert.equal(baseline.converged, true);
       checkSettlementResponse(result, baseline, test);
     }
-    for (const expected of test.expectedDisplacements ?? []) {
-      const actual = result.results.displacements.find(d => d.nodeId === expected.nodeId);
-      checkComponents(actual, expected, test.expectedDisplacements);
-    }
+    checkExpectedDisplacements(result, test);
     if (test.expectedControl !== undefined) {
       const tip = result.results.displacements.find(d => d.nodeId === 2);
       assert.ok(Math.abs(tip.ux / test.expectedControl - 1) < 1e-10, 'signed controlled displacement');
@@ -254,10 +287,7 @@ for (const test of cases) {
       const tip = result.results.displacements.find((d) => d.nodeId === 2);
       checkAxial(tip, solver, test.expectedAxialDisplacement, test.expectedAxis);
     }
-    for (const expected of test.expectedDisplacements ?? []) {
-      const actual = result.results.displacements.find(d => d.nodeId === expected.nodeId);
-      checkComponents(actual, expected, test.expectedDisplacements);
-    }
+    checkExpectedDisplacements(result, test);
     if (test.name === 'loaded cantilever' && test.converged) {
       const tip = result.results.displacements.find((d) => d.nodeId === 2);
       checkLoadedCantilever(tip, solver, dimension);
