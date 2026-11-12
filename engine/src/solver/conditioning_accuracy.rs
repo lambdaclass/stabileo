@@ -2,6 +2,25 @@ use super::assembly::InclinedFrame;
 use super::{assembly, dof::DofNumbering, stability::{Stability, CONDITIONAL_ACCURACY}};
 use crate::types::*;
 
+struct IdIndex<'a, T> {
+    values: std::collections::HashMap<usize, &'a T>,
+    refusal: String,
+}
+
+impl<'a, T> IdIndex<'a, T> {
+    fn new(values: impl Iterator<Item = &'a T>, id: impl Fn(&T) -> usize, stability: &Stability) -> Result<Self, String> {
+        let mut index = Self { values: std::collections::HashMap::new(), refusal: crate::refusal::coded(DiagnosticCode::ResidualHigh, &stability.conditioning_refusal()) };
+        for value in values {
+            if index.values.insert(id(value), value).is_some() { return Err(index.refusal); }
+        }
+        Ok(index)
+    }
+
+    fn get(&self, id: usize) -> Result<&'a T, String> {
+        self.values.get(&id).copied().ok_or_else(|| self.refusal.clone())
+    }
+}
+
 fn check(stability: &Stability, balance: &[f64], applied: &[f64], prescribed: &[f64], roundoff: &[f64], kinds: &[super::stability::DofKind], terms: usize) -> Result<(), String> {
     let mut scales = [0.0f64; 3];
     let mut rounding = [0.0f64; 3];
@@ -72,10 +91,12 @@ pub(super) fn member_balance_2d(input: &SolverInput, loads: &[SolverLoad], dof: 
             if let Some(i) = dof.global_dof(d.node_id, local) { u[i] = value; }
         }
     }
+    let members = IdIndex::new(input.elements.values(), |e| e.id, stability)?;
+    let nodes = IdIndex::new(input.nodes.values(), |n| n.id, stability)?;
     let mut ends = vec![0.0; dof.n_total];
     for f in &r.element_forces {
-        let e = &input.elements[&f.element_id.to_string()];
-        let (a, b) = (&input.nodes[&e.node_i.to_string()], &input.nodes[&e.node_j.to_string()]);
+        let e = members.get(f.element_id)?;
+        let (a, b) = (nodes.get(e.node_i)?, nodes.get(e.node_j)?);
         let (dx, dz) = (b.x - a.x, b.z - a.z);
         let length = dx.hypot(dz);
         let (c, s) = (dx / length, dz / length);
@@ -108,10 +129,12 @@ pub(super) fn member_balance_3d(input: &SolverInput3D, loads: &[SolverLoad3D], d
             if let Some(i) = dof.global_dof(d.node_id, local) { u[i] = value; }
         }
     }
+    let members = IdIndex::new(input.elements.values(), |e| e.id, stability)?;
+    let nodes = IdIndex::new(input.nodes.values(), |n| n.id, stability)?;
     let mut ends = vec![0.0; dof.n_total];
     for f in &r.element_forces {
-        let e = &input.elements[&f.element_id.to_string()];
-        let (a, b) = (&input.nodes[&e.node_i.to_string()], &input.nodes[&e.node_j.to_string()]);
+        let e = members.get(f.element_id)?;
+        let (a, b) = (nodes.get(e.node_i)?, nodes.get(e.node_j)?);
         let (ex, ey, ez) = crate::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z,
             e.local_yx, e.local_yy, e.local_yz, e.roll_angle, input.left_hand.unwrap_or(false));
         for (node, force, moment, bimoment) in [
@@ -391,6 +414,186 @@ mod tests {
                 assert_eq!(sequential_physical[i], 0.0);
             }
         }
+    }
+
+    #[test]
+    fn nightly_plastic_input_and_minimum_never_panic() {
+        let raw = include_bytes!("../../tests/fixtures/plastic-1953-nightly.bin");
+        let original: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
+        let minimum: PlasticInput3D = serde_json::from_str(include_str!("../../tests/fixtures/plastic-1953-min.json")).unwrap();
+        for input in [original, minimum] {
+            let mut canonical = input.solver.clone();
+            canonical.elements = canonical.elements.into_values().map(|e| (e.id.to_string(), e)).collect();
+            let expected = super::super::linear::solve_3d(&canonical).unwrap();
+            let actual = super::super::linear::solve_3d(&input.solver).unwrap();
+            assert_eq!(serde_json::to_value(&actual.element_forces).unwrap(), serde_json::to_value(&expected.element_forces).unwrap());
+            let result = super::super::plastic::solve_plastic_3d(&input).unwrap();
+            assert!(result.collapse_factor > 0.0);
+            assert!(result.is_mechanism);
+            assert!(result.warnings.iter().any(|w| w.contains("biaxial")));
+            let mut canonical_input = input.clone();
+            canonical_input.solver = canonical;
+            let reference = super::super::plastic::solve_plastic_3d(&canonical_input).unwrap();
+            assert_eq!(result.collapse_factor, reference.collapse_factor);
+        }
+    }
+
+    #[test]
+    fn balance_uses_member_and_node_ids_from_the_solved_model() {
+        for altered in [false, true] {
+            let mut input = beam(true);
+            if altered {
+                input.sections.get_mut("1").unwrap().iz *= 2.0;
+                input.elements.get_mut("1").unwrap().hinge_end = true;
+            }
+            let result = super::super::linear::solve_2d(&input).unwrap();
+            input.elements = input.elements.into_values().map(|e| (format!("member-{}", e.id), e)).collect();
+            input.nodes = input.nodes.into_values().map(|n| (format!("node-{}", n.id), n)).collect();
+            let dof = DofNumbering::build_2d(&input);
+            member_balance_2d(&input, &input.loads, &dof, &conditional(), &result, None).unwrap();
+            let mut input = beam3(true);
+            if altered {
+                input.sections.get_mut("1").unwrap().iy *= 2.0;
+                input.elements.get_mut("1").unwrap().release_my_end = true;
+            }
+            let result = super::super::linear::solve_3d(&input).unwrap();
+            input.elements = input.elements.into_values().map(|e| (format!("member-{}", e.id), e)).collect();
+            input.nodes = input.nodes.into_values().map(|n| (format!("node-{}", n.id), n)).collect();
+            let dof = DofNumbering::build_3d(&input);
+            member_balance_3d(&input, &input.loads, &dof, &conditional(), &result, None).unwrap();
+        }
+    }
+
+    #[test]
+    fn missing_recovered_members_return_the_structured_conditioning_refusal() {
+        let input = beam(true);
+        let mut result = super::super::linear::solve_2d(&input).unwrap();
+        result.element_forces[0].element_id = usize::MAX;
+        let dof = DofNumbering::build_2d(&input);
+        let error = member_balance_2d(&input, &input.loads, &dof, &conditional(), &result, None).unwrap_err();
+        assert_eq!(error, crate::refusal::coded(DiagnosticCode::ResidualHigh, &conditional().conditioning_refusal()));
+        let refusal: serde_json::Value = serde_json::from_str(&error).unwrap();
+        assert_eq!(refusal["structuredDiagnostics"][0]["code"], "residual_high");
+        assert_eq!(refusal["structuredDiagnostics"][0]["severity"], "error");
+        assert!(crate::known_issues::optional_solve::<()>(Err(error.clone())).is_err());
+        let input = beam3(true);
+        let mut result = super::super::linear::solve_3d(&input).unwrap();
+        result.element_forces[0].element_id = usize::MAX;
+        let dof = DofNumbering::build_3d(&input);
+        assert_eq!(member_balance_3d(&input, &input.loads, &dof, &conditional(), &result, None).unwrap_err(), error);
+    }
+
+    #[test]
+    fn conditional_rekeyed_models_reach_direct_prepared_typed_and_constraint_paths() {
+        let sources: serde_json::Value = serde_json::from_str(include_str!("../../../docs/results-changes/1753-loaded-c08-inputs.json")).unwrap();
+        let plane: SolverInput = serde_json::from_value(sources["issue-1653"]["input"].clone()).unwrap();
+        for substituted in [false, true] {
+            let mut input = plane.clone();
+            if substituted { for section in input.sections.values_mut() { section.iz *= 2.0; } }
+            assert!(super::super::stability::of_2d(&input).unwrap().needs_accuracy_check());
+            let reference = super::super::linear::solve_2d(&input).unwrap();
+            input.elements = input.elements.into_values().map(|e| (format!("member-{}", e.id), e)).collect();
+            let actual = super::super::linear::solve_2d(&input).unwrap();
+            assert_eq!(serde_json::to_value(&actual.element_forces).unwrap(), serde_json::to_value(&reference.element_forces).unwrap());
+            let typed: crate::types::units::ElasticInput2D = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+            let typed_result = super::super::linear::solve_2d_typed(&typed).unwrap();
+            assert_eq!(serde_json::to_value(&typed_result.element_forces).unwrap(), serde_json::to_value(&reference.element_forces).unwrap());
+            let prepared = super::super::linear::prepare_static_2d(&input).unwrap();
+            let prepared_result = prepared.solve_loads(&input.loads).unwrap();
+            assert_eq!(serde_json::to_value(&prepared_result.element_forces).unwrap(), serde_json::to_value(&reference.element_forces).unwrap());
+            let dense = super::super::linear::prepare_static_2d_dense_reference(&input).unwrap();
+            dense.solve_loads(&input.loads).unwrap();
+        }
+        for space in [false, true] {
+            for substituted in [false, true] {
+                if !space {
+                    let mut input = beam(true);
+                    if substituted { input.sections.get_mut("1").unwrap().a *= 2.0; }
+                    input.constraints = serde_json::from_value(serde_json::json!([{"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[1]}])).unwrap();
+                    input.elements = input.elements.into_values().map(|e| (format!("member-{}", e.id), e)).collect();
+                    let dof = DofNumbering::build_2d(&input);
+                    let fcs = super::super::constraints::FreeConstraintSystem::build_2d(&input, &dof).unwrap();
+                    let constrained = super::super::constraints::ConstrainedInput { solver: input.clone(), constraints: input.constraints.clone() };
+                    let dense = super::super::constraints::solve_constrained_2d_dense(&constrained, &dof).unwrap();
+                    let sparse = super::super::constraints::solve_constrained_2d_sparse(&constrained, &dof).unwrap().unwrap();
+                    for mut result in [dense, sparse] {
+                        member_balance_2d(&input, &input.loads, &dof, &conditional(), &result, fcs.as_ref()).unwrap();
+                        result.element_forces.iter_mut().find(|f| f.element_id == 1).unwrap().m_end += 1.0;
+                        assert!(member_balance_2d(&input, &input.loads, &dof, &conditional(), &result, fcs.as_ref()).is_err());
+                    }
+                } else {
+                    let mut input = beam3(true);
+                    if substituted { input.sections.get_mut("1").unwrap().a *= 2.0; }
+                    input.constraints = serde_json::from_value(serde_json::json!([{"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[1]}])).unwrap();
+                    input.elements = input.elements.into_values().map(|e| (format!("member-{}", e.id), e)).collect();
+                    let dof = DofNumbering::build_3d(&input);
+                    let fcs = super::super::constraints::FreeConstraintSystem::build_3d(&input, &dof).unwrap();
+                    let mut result = super::super::linear::solve_3d(&input).unwrap();
+                    member_balance_3d(&input, &input.loads, &dof, &conditional(), &result, fcs.as_ref()).unwrap();
+                    result.element_forces.iter_mut().find(|f| f.element_id == 1).unwrap().my_end += 1.0;
+                    assert!(member_balance_3d(&input, &input.loads, &dof, &conditional(), &result, fcs.as_ref()).is_err());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn plastic_and_second_order_entries_preserve_their_model_identity() {
+        let sources: serde_json::Value = serde_json::from_str(include_str!("../../../docs/results-changes/1753-loaded-c08-inputs.json")).unwrap();
+        let plane: SolverInput = serde_json::from_value(sources["issue-1653"]["input"].clone()).unwrap();
+        let fixture: PlasticInput3D = serde_json::from_str(include_str!("../../tests/fixtures/plastic-1953-min.json")).unwrap();
+        let mut space = fixture.solver.clone();
+        space.elements = space.elements.into_values().map(|e| (e.id.to_string(), e)).collect();
+        let mut rekeyed_plane = plane.clone();
+        rekeyed_plane.elements = rekeyed_plane.elements.into_values().map(|e| (format!("member-{}", e.id), e)).collect();
+        let mut sections = serde_json::Map::new();
+        let mut overrides = serde_json::Map::new();
+        for (key, section) in &plane.sections {
+            let material = plane.elements.values().find(|e| e.section_id == section.id).unwrap().material_id;
+            sections.insert(key.clone(), serde_json::json!({"a":section.a,"iz":section.iz,"materialId":material}));
+            overrides.insert(key.clone(), serde_json::json!(1.0));
+        }
+        let make_plastic = |solver: &SolverInput| -> PlasticInput {
+            serde_json::from_value(serde_json::json!({"solver":solver,"sections":sections,"materials":fixture.materials,"mpOverrides":overrides,"maxHinges":1})).unwrap()
+        };
+        let canonical = make_plastic(&plane);
+        let rekeyed = make_plastic(&rekeyed_plane);
+        let blocked = super::super::plastic::solve_plastic_2d(&rekeyed).unwrap_err();
+        assert!(crate::known_issues::is_refusal(&blocked));
+        assert!(blocked.contains("PL-2D-INVARIANCE"));
+        let expected = super::super::plastic::solve_plastic_2d_unrefused(&canonical).unwrap();
+        let actual = super::super::plastic::solve_plastic_2d_unrefused(&rekeyed).unwrap();
+        assert_eq!(actual.collapse_factor, expected.collapse_factor);
+        let mut expected = super::super::pdelta::solve_pdelta_2d(&plane, 4, CONDITIONAL_ACCURACY).unwrap();
+        let mut actual = super::super::pdelta::solve_pdelta_2d(&rekeyed_plane, 4, CONDITIONAL_ACCURACY).unwrap();
+        actual.results.element_forces.sort_by_key(|f| f.element_id);
+        expected.results.element_forces.sort_by_key(|f| f.element_id);
+        assert_eq!(serde_json::to_value(&actual.results.element_forces).unwrap(), serde_json::to_value(&expected.results.element_forces).unwrap());
+        let prepared = super::super::linear::prepare_static_3d(&fixture.solver).unwrap();
+        let result = prepared.solve_loads(&fixture.solver.loads).unwrap();
+        let reference = super::super::linear::solve_3d(&space).unwrap();
+        assert_eq!(serde_json::to_value(result.element_forces).unwrap(), serde_json::to_value(reference.element_forces).unwrap());
+        let mut expected = super::super::pdelta::solve_pdelta_3d(&space, 4, CONDITIONAL_ACCURACY).unwrap();
+        let mut actual = super::super::pdelta::solve_pdelta_3d(&fixture.solver, 4, CONDITIONAL_ACCURACY).unwrap();
+        actual.results.element_forces.sort_by_key(|f| f.element_id);
+        expected.results.element_forces.sort_by_key(|f| f.element_id);
+        assert_eq!(serde_json::to_value(actual.results.element_forces).unwrap(), serde_json::to_value(expected.results.element_forces).unwrap());
+    }
+
+    #[test]
+    fn colliding_object_keys_cannot_substitute_another_members_geometry() {
+        let mut plane = beam(true);
+        plane.loads = serde_json::from_value(serde_json::json!([{"type":"nodal","data":{"nodeId":2,"fx":0.0,"fz":1.0,"my":0.0}}])).unwrap();
+        let result = super::super::linear::solve_2d(&plane).unwrap();
+        let dof = DofNumbering::build_2d(&plane);
+        plane.elements = plane.elements.into_values().map(|e| ((3 - e.id).to_string(), e)).collect();
+        member_balance_2d(&plane, &plane.loads, &dof, &conditional(), &result, None).unwrap();
+        let mut space = beam3(true);
+        space.loads = serde_json::from_value(serde_json::json!([{"type":"nodal","data":{"nodeId":2,"fx":0.0,"fy":1.0,"fz":1.0,"mx":0.0,"my":0.0,"mz":0.0}}])).unwrap();
+        let result = super::super::linear::solve_3d(&space).unwrap();
+        let dof = DofNumbering::build_3d(&space);
+        space.elements = space.elements.into_values().map(|e| ((3 - e.id).to_string(), e)).collect();
+        member_balance_3d(&space, &space.loads, &dof, &conditional(), &result, None).unwrap();
     }
 
 }

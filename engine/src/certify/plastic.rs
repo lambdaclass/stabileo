@@ -836,6 +836,7 @@ enum Loc {
     NoHinge,
 }
 
+#[derive(Clone)]
 struct Sample {
     e: usize,
     t: Q,
@@ -1146,7 +1147,13 @@ struct LpSolution {
 }
 
 /// Solve max λ s.t. |m_k(λ, z)| ≤ Mp_k at the samples (through its dual).
-fn solve_lp(samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Option<LpSolution> {
+fn solve_lp(model: &PlasticModel, samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Result<Option<LpSolution>, String> {
+    let halfspaces = samples.len().saturating_mul(2);
+    lp_work(model).check_candidate(eq.null.len(), halfspaces)?;
+    Ok(solve_lp_unchecked(samples, ef, eq))
+}
+
+fn solve_lp_unchecked(samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Option<LpSolution> {
     let r = eq.null.len();
     let k = samples.len();
     if k == 0 {
@@ -1512,26 +1519,26 @@ pub struct PlasticCandidates {
 /// Find and check a static field and a mechanism for the model. `solver` (if
 /// given) contributes its final state as a second static candidate.
 pub fn plastic_candidates(model: &PlasticModel, solver: Option<&PlasticResult>) -> Result<PlasticCandidates, String> {
-    lp_work(model).check_engine_budget()?;
+    lp_work(model).initial().check_engine_budget()?;
     let eq = equilibrium_system(model)?;
-    lp_work(model).check_candidate_workspace(eq.null.len())?;
     let eqf = EqF {
         xp: eq.xp.iter().map(to_f64).collect(),
         null: eq.null.iter().map(|v| v.iter().map(to_f64).collect()).collect(),
     };
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
     let mut samples = initial_samples(model, &ef, INITIAL_INTERVALS);
-    let mut lp = solve_lp(&samples, &ef, &eqf).ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
+    let mut lp = solve_lp(model, &samples, &ef, &eqf)?.ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
     for _ in 0..REFINEMENT_PASSES {
         let x = field_f64(&eqf, lp.lambda, &lp.z);
         let extra = cutting_samples(model, &ef, &x, lp.lambda, &samples);
         if extra.is_empty() {
             break;
         }
-        samples.extend(extra);
-        match solve_lp(&samples, &ef, &eqf) {
-            Some(s) => lp = s,
-            None => break,
+        let mut refined = samples.clone();
+        refined.extend(extra);
+        match solve_lp(model, &refined, &ef, &eqf) {
+            Ok(Some(next)) => { lp = next; samples = refined; }
+            Ok(None) | Err(_) => break,
         }
     }
 
