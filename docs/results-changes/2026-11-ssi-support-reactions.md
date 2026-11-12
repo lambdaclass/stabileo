@@ -50,3 +50,12 @@ nonempty, nonzero support reactions; before PR #1675 the 3D SSI result always
 returned an empty reaction list. The linear solve is unaffected. The legacy
 corpus judge shares the snapshot gate's analysis-condition check, so this SSI
 notice cannot explain a corrupted linear reaction, displacement or member force.
+
+The live audit-only frozen outputs were regenerated after merging main at
+`581495d9c` (#1940). The historical adjacent-parent measurements above remain
+archived evidence; the committed live snapshots now include main's registered
+[nonlinear equilibrium arithmetic](2026-11-nonlinear-equilibrium-arithmetic.md).
+The exact SSI-versus-linear reaction assertion remains active as a separate
+test and currently fails on that engine. Separating it allows the complete
+frozen corpus and its inventory to be checked independently. This snapshot
+refresh changes no engine code or comparison tolerance.

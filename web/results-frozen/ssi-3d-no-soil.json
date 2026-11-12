@@ -89,7 +89,7 @@
     "ssi.results.elementForces[1].vzStart": 0,
     "ssi.results.reactions.length": 1,
     "ssi.results.reactions[0].fx": 0,
-    "ssi.results.reactions[0].fy": 9.999999999999936,
+    "ssi.results.reactions[0].fy": 9.99999999999994,
     "ssi.results.reactions[0].fz": 0,
     "ssi.results.reactions[0].mx": -39.99999999999988,
     "ssi.results.reactions[0].my": 0,

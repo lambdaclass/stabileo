@@ -33,7 +33,6 @@ def partial():
 
 
 class FrozenArtifacts(unittest.TestCase):
-    @unittest.skip('known wrong result: #1946')
     def test_frozen_outputs_and_inputs_have_no_defect_annotations(self):
         files = sorted((ROOT / 'web/results-frozen').glob('*.json'))
         self.assertTrue(files)
@@ -116,10 +115,15 @@ class References(unittest.TestCase):
                         self.assertEqual(row['category'], 'engineering_reference')
 
     def test_empty_arch_reactions_are_known_wrong(self):
+        report = json.loads(AUDIT.with_suffix('.json').read_text())
         for model in ['0015ab84c3baa36f', '022317310499426d']:
-            data = json.loads((ROOT / f'web/results-frozen/solve_arc_length-{model}.json').read_text())
-            self.assertEqual(data.get('knownWrong', [{}])[0].get('issue'), 'https://github.com/lambdaclass/stabileo/issues/1949')
-            self.assertEqual(data['knownWrong'][0]['path'], 'nonlinear.results.reactions')
+            name = f'solve_arc_length-{model}.json'
+            entries = [entry for entry in report['known_wrong_frozen_outputs'] if entry['model'] == name]
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0]['issue'], 'https://github.com/lambdaclass/stabileo/issues/1949')
+            self.assertEqual(entries[0]['path'], 'nonlinear.results.reactions')
+            data = json.loads((ROOT / 'web/results-frozen' / name).read_text())
+            self.assertEqual(data['values']['nonlinear.results.reactions.length'], 0)
 
 
 class RoundNine(unittest.TestCase):

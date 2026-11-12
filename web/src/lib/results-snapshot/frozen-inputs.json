@@ -425,14 +425,7 @@
         "tolerance": 1e-08
       }
     ],
-    "test": "research_benchmarks::riks_von_mises_truss",
-    "knownWrong": [
-      {
-        "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
-        "path": "nonlinear.results.reactions",
-        "reason": "Loaded converged arch omits support reactions; preserved as defect evidence, not an accepted engineering answer."
-      }
-    ]
+    "test": "research_benchmarks::riks_von_mises_truss"
   },
   {
     "model": "solve_ssi_2d-1e44a77f97d2f732.json",
@@ -2987,14 +2980,7 @@
         "tolerance": 1e-10
       }
     ],
-    "test": "research_benchmarks::riks_shallow_frame_energy_reference",
-    "knownWrong": [
-      {
-        "issue": "https://github.com/lambdaclass/stabileo/issues/1949",
-        "path": "nonlinear.results.reactions",
-        "reason": "Loaded converged arch omits support reactions; preserved as defect evidence, not an accepted engineering answer."
-      }
-    ]
+    "test": "research_benchmarks::riks_shallow_frame_energy_reference"
   },
   {
     "model": "solve_ssi_2d-05d0301923fe0235.json",

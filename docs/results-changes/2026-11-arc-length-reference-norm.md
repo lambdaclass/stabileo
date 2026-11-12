@@ -69,3 +69,10 @@ explain a change to `base`, `case` or `combo` linear results: those fields must
 satisfy the entry's `when` with `analysis:linear`. The judge and snapshot gate
 share this analysis-condition check. In particular, the unchanged v0.2.0 truss
 linear solve remains unchanged, and a fabricated member force stays unexplained.
+
+The live audit-only frozen outputs were regenerated after merging main at
+`581495d9c` (#1940). The historical adjacent-parent measurements above remain
+archived evidence; the committed live snapshots now include main's registered
+[nonlinear equilibrium arithmetic](2026-11-nonlinear-equilibrium-arithmetic.md).
+The #1949 disclosure remains in the audit report, outside the frozen files.
+This snapshot refresh changes no engine code or comparison tolerance.
