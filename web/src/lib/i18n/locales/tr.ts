@@ -15498,6 +15498,7 @@ const tr: Translations = {
   "rcSheets.s.wallBoundaryHoops": "Uç bölgesi etriyeleri",
   "rcSheets.elev.n.ruleHolds": "Uçlar arasında orta bölgenin kuralı uçlarla aynı aralığı veriyor; bu yüzden orta bölge açılmıyor.",
   "rcSheets.adoptAllShort": "Benimse",
+  "rcSheets.exportShort": "Excel",
 };
 
 export default tr;

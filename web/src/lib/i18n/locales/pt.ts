@@ -15299,5 +15299,6 @@ const pt: Translations = {
   "rcSheets.s.wallBoundaryHoops": "Estribos do elemento de borda",
   "rcSheets.elev.n.ruleHolds": "Entre as extremidades, a regra do centro dá o mesmo espaçamento das extremidades, por isso o centro não se abre.",
   "rcSheets.adoptAllShort": "Adotar",
+  "rcSheets.exportShort": "Excel",
 };
 export default pt;

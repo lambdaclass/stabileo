@@ -15498,6 +15498,7 @@ const de: Translations = {
   "rcSheets.s.wallBoundaryHoops": "Bügel des Randglieds",
   "rcSheets.elev.n.ruleHolds": "Zwischen den Enden ergibt die Regel der Mitte denselben Abstand wie an den Enden, daher öffnet sich die Mitte nicht.",
   "rcSheets.adoptAllShort": "Übernehmen",
+  "rcSheets.exportShort": "Excel",
 };
 
 export default de;

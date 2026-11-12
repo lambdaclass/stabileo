@@ -385,4 +385,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'writeLoad.sketch.plan',
   'xls.col.supportType',
   'rcSheets.slabFig.plan',
+  'rcSheets.exportShort',
 ];
