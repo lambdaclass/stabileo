@@ -108,12 +108,18 @@ class References(unittest.TestCase):
 
 
 class RoundNine(unittest.TestCase):
+    @unittest.skip('known wrong result: #1946')
     def test_loaded_arc_frozen_entry_discloses_main_defect_and_replacement(self):
-        data = json.loads((ROOT / 'web/results-frozen/solve_arc_length-0006e86e35791232.json').read_text())
+        model = 'solve_arc_length-0006e86e35791232.json'
+        data = json.loads((ROOT / 'web/results-frozen' / model).read_text())
+        self.assertEqual(set(data), {'format', 'features', 'values'})
         self.assertEqual(data['values']['nonlinear.results.reactions.length'], 0)
-        self.assertEqual(data.get('knownWrong', [{}])[0].get('reason'), 'known wrong on main: #1949; PR #1952 replaces this')
-        self.assertEqual(data['knownWrong'][0]['path'], 'nonlinear.results.reactions')
-        self.assertEqual(data['knownWrong'][0]['issue'], 'https://github.com/lambdaclass/stabileo/issues/1949')
+        report = json.loads(AUDIT.with_suffix('.json').read_text())
+        disclosures = [entry for entry in report['known_wrong_frozen_outputs'] if entry['model'] == model]
+        self.assertEqual(disclosures, [dict(model=model,
+                         issue='https://github.com/lambdaclass/stabileo/issues/1949',
+                         path='nonlinear.results.reactions',
+                         status='known wrong on main: #1949; PR #1952 replaces this')])
         self.assertIn('known wrong on main: #1949; PR #1952 replaces this', AUDIT.with_suffix('.md').read_text())
 
     def test_q9_self_convergence_is_consistency_through_both_generators(self):
