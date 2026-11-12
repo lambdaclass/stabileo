@@ -163,6 +163,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
         return Err(CONSTRAINTS_REFUSED.to_string());
     }
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_2d(&input.solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Reference load vector
@@ -304,28 +305,11 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
             }
 
             // Residual
-            let mut residual = vec![0.0; n];
-            for i in 0..n {
-                residual[i] = f_ext[i] - f_int[i];
-            }
-            let residual = assembly::to_inclined_free(residual, &its, nf);
+            let residual = assembly::inclined_residual(&f_ext, &f_int, &its);
 
             // Check convergence on independent (reduced) DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
-            let r_check = if let Some(ref cs) = cs {
-                cs.reduce_vector(&r_f)
-            } else {
-                r_f.clone()
-            };
-            let f_ext_f: Vec<f64> = assembly::to_inclined_free(f_ext.clone(), &its, nf);
-            let f_check = if let Some(ref cs) = cs {
-                cs.reduce_vector(&f_ext_f)
-            } else {
-                f_ext_f
-            };
-            let r_norm: f64 = r_check.iter().map(|v| v * v).sum::<f64>().sqrt();
-            let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
-            let rel_error = if f_norm > 1e-30 { r_norm / f_norm } else { r_norm };
+            let rel_error = metric.global_residual(&f_ext, &f_int, &its, cs.as_ref(), false);
 
             inc_residual = rel_error;
             let mut stable_dense = None;
@@ -564,7 +548,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
     }
 
     let (reactions, balance) = fiber_reactions_and_equilibrium_2d(
-        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, &art, cs.as_ref(),
+        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, &art, cs.as_ref(), &metric,
     );
     if !balance.summary.residual_ok || !balance.gate {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
@@ -1087,6 +1071,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
         return Err(CONSTRAINTS_REFUSED.to_string());
     }
     let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
+    let metric = super::convergence::EquilibriumMetric::for_3d(&input.solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Global-axes iteration, steps solved in the inclined-support frames (see 2D).
@@ -1206,28 +1191,11 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
             }
 
             // Residual
-            let mut residual = vec![0.0; n];
-            for i in 0..n {
-                residual[i] = f_ext[i] - f_int[i];
-            }
-            let residual = assembly::to_inclined_free(residual, &its, nf);
+            let residual = assembly::inclined_residual(&f_ext, &f_int, &its);
 
             // Check convergence on independent (reduced) DOFs
             let r_f: Vec<f64> = residual[..nf].to_vec();
-            let r_check = if let Some(ref cs) = cs {
-                cs.reduce_vector(&r_f)
-            } else {
-                r_f.clone()
-            };
-            let f_ext_f: Vec<f64> = assembly::to_inclined_free(f_ext.clone(), &its, nf);
-            let f_check = if let Some(ref cs) = cs {
-                cs.reduce_vector(&f_ext_f)
-            } else {
-                f_ext_f
-            };
-            let r_norm: f64 = r_check.iter().map(|v| v * v).sum::<f64>().sqrt();
-            let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
-            let rel_error = if f_norm > 1e-30 { r_norm / f_norm } else { r_norm };
+            let rel_error = metric.global_residual(&f_ext, &f_int, &its, cs.as_ref(), false);
 
             inc_residual = rel_error;
             if rel_error < input.tolerance {
@@ -1397,7 +1365,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
     }
 
     let (reactions, balance) = fiber_reactions_and_equilibrium_3d(
-        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, cs.as_ref(),
+        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, cs.as_ref(), &metric,
     );
     if !balance.summary.residual_ok || !balance.gate {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
@@ -1651,24 +1619,6 @@ fn not_in_equilibrium(load_factor: f64, eq: &EquilibriumSummary) -> String {
     )
 }
 
-fn relative_free_residual<T: InclinedFrame>(
-    f_ext: &[f64],
-    f_int: &[f64],
-    its: &[T],
-    nf: usize,
-    cs: Option<&FreeConstraintSystem>,
-) -> f64 {
-    let r: Vec<f64> = f_ext.iter().zip(f_int).map(|(e, i)| e - i).collect();
-    let r_f = assembly::to_inclined_free(r, its, nf);
-    let f_f = assembly::to_inclined_free(f_ext.to_vec(), its, nf);
-    let (r_c, f_c) = match cs {
-        Some(c) => (c.reduce_vector(&r_f), c.reduce_vector(&f_f)),
-        None => (r_f, f_f),
-    };
-    let r_norm = r_c.iter().map(|v| v * v).sum::<f64>().sqrt();
-    let f_norm = f_c.iter().map(|v| v * v).sum::<f64>().sqrt();
-    if f_norm > 1e-30 { r_norm / f_norm } else { r_norm }
-}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct NodalWrench {
@@ -1791,6 +1741,7 @@ fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
     its: &[T],
     art: &[(usize, f64)],
     cs: Option<&FreeConstraintSystem>,
+    metric: &super::convergence::EquilibriumMetric,
 ) -> (Vec<Reaction>, WrenchBalance) {
     let n = dof_num.n_total;
     let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
@@ -1800,7 +1751,7 @@ fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
     assemble_fiber_elements(&input.solver, &input.fiber_sections, dof_num, u_full, &mut probe, n_ip, &mut f_int, &mut ignore);
     assemble_elastic_elements(&input.solver, &input.fiber_sections, dof_num, u_full, &mut f_int, &mut ignore);
     add_springs(&input.solver, dof_num, u_full, &mut f_int, art, &mut ignore);
-    let rel_residual = relative_free_residual(&f_ext, &f_int, its, dof_num.n_free, cs);
+    let rel_residual = metric.global_residual(&f_ext, &f_int, its, cs, false);
     let support_force = support_forces(&f_int, &f_ext, assembly::support_spring_entries_2d(&input.solver, dof_num), u_full, its, dof_num.n_free);
     let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
     let position = |node: usize| {
@@ -1839,6 +1790,7 @@ fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
     load_factor: f64,
     its: &[T],
     cs: Option<&FreeConstraintSystem>,
+    metric: &super::convergence::EquilibriumMetric,
 ) -> (Vec<Reaction3D>, WrenchBalance) {
     let n = dof_num.n_total;
     let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
@@ -1848,7 +1800,7 @@ fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
     assemble_fiber_elements_3d(&input.solver, &input.fiber_sections, dof_num, u_full, &mut probe, n_ip, &mut f_int, &mut ignore);
     assemble_elastic_elements_3d(&input.solver, &input.fiber_sections, dof_num, u_full, &mut f_int, &mut ignore);
     add_springs_3d(&input.solver, dof_num, u_full, &mut f_int, &mut ignore);
-    let rel_residual = relative_free_residual(&f_ext, &f_int, its, dof_num.n_free, cs);
+    let rel_residual = metric.global_residual(&f_ext, &f_int, its, cs, false);
     let support_force = support_forces(&f_int, &f_ext, assembly::support_spring_entries_3d(&input.solver, dof_num), u_full, its, dof_num.n_free);
     let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
     let position = |node: usize| {
