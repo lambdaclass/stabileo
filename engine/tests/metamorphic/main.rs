@@ -236,3 +236,7 @@ fn save_failing_model<T: serde::Serialize>(name: &str, index: usize, model: &T, 
 mod harmonic_coverage;
 
 mod seeded_failures;
+
+mod cause_c_replay;
+
+mod candidate_replay;
