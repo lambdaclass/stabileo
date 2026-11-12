@@ -50,6 +50,8 @@ import {
 } from '../geometry/coordinate-system';
 import { coordLabels, shownCoords, twoD, userRot, userVec } from '../axes/display';
 import { nodeShown3D } from '../axes/node-coords';
+import { axesStore } from '../axes/axes.svelte';
+import { axesStatement } from '../axes/statement';
 
 interface ExcelExportOptions {
   filename?: string;
@@ -143,6 +145,7 @@ function createSummarySheet(): Xlsx.WorkSheet {
   data.push([`${t('excel.structuralAnalysis')} ${is3D ? '3D' : '2D'} - ${t('excel.summary')}`]);
   // The re-check status first (STALE or current); the full record is the Provenance sheet.
   if (status) data.push([status[0], status[1]]);
+  if (!axesStore.frame.identity) data.push([axesStatement(t, axesStore.choice)]);
   data.push([]);
 
   if (solveError) {
@@ -185,8 +188,9 @@ function createSummarySheet(): Xlsx.WorkSheet {
 
     let sumFx = 0, sumFy = 0, sumFz = 0, sumMx2 = 0, sumMy2 = 0, sumMz2 = 0;
     for (const r of r3d.reactions) {
-      sumFx += r.fx; sumFy += r.fy; sumFz += r.fz;
-      sumMx2 += r.mx; sumMy2 += r.my; sumMz2 += r.mz;
+      const [fx, fy, fz] = userVec(r.fx, r.fy, r.fz), [mx, my, mz] = userRot(r.mx, r.my, r.mz);
+      sumFx += fx; sumFy += fy; sumFz += fz;
+      sumMx2 += mx; sumMy2 += my; sumMz2 += mz;
     }
     data.push([t('excel.equilibriumCheck')]);
     data.push(['ΣFx', sumFx.toFixed(4), 'kN']);

@@ -21,7 +21,7 @@ import { materialize, safeText, type StreamedSheet, type WorkbookPart, type Work
 import { getShellEnvelopeKernel, SHELL_ENVELOPE_KEYS } from '../engine/shell-combination-kernel';
 import { EngineUnavailableError } from '../engine/engine-unavailable';
 import type { ShellEnvelopeKey, ShellEnvelopeSource } from '../engine/types-3d';
-import type { AxesChoice, AxesFrame } from '../axes/frame';
+import type { AxesChoice } from '../axes/frame';
 import { rotToUser, tensorToUser, vecToUser, workbookFrame } from './workbook-frame';
 
 /** A result source; standalone solves and envelope views use id 0, not a load-case id. */

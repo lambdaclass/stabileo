@@ -33,6 +33,8 @@ import {
   TWO_D_REACTION_LABELS,
 } from '../geometry/coordinate-system';
 import { twoD, userRot, userVec } from '../axes/display';
+import { axesStore } from '../axes/axes.svelte';
+import { axesStatement } from '../axes/statement';
 
 // ─── File Format ────────────────────────────────────────────────
 
@@ -757,6 +759,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
   // Which build produced these numbers from which model and settings (`provenance/result-provenance.ts`).
   // The status row comes first and says STALE when the results predate registered changes.
   for (const [k, v] of provenanceTextLines(record ?? currentResultProvenance(), provenanceLabels())) lines.push(`# ${k}: ${v}`);
+  if (!axesStore.frame.identity) lines.push(`# ${axesStatement(t, axesStore.choice)}`);
   lines.push('');
   if (!r3d && !r2d) {
     lines.push(`# ${t('excel.solveFailed')}`);
