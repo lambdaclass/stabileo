@@ -13,6 +13,7 @@ use super::assembly::{AssemblyResult, assemble_2d, assemble_3d};
 use super::linear::{
     build_displacements_2d,
     build_displacements_3d,
+    build_reactions_2d_inclined,
     compute_internal_forces_2d,
     compute_plate_stresses,
 };
@@ -203,6 +204,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         // linear-agreement check: two load stages gave twice the settlement).
         let du_r: Vec<f64> = u_r.iter().zip(&prev_u_r).map(|(a, b)| a - b).collect();
         // Extract Kff, Ff and apply F_f_modified = F_f - K_fr * du_r.
+        let mut k_full_csc: Option<CscMatrix> = None;
         let mut k_ff_dense: Option<Vec<f64>> = None;
         let f_f: Vec<f64>;
         if let Some(ref t) = asm_trips {
@@ -213,6 +215,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
                 ff[i] -= k_fr_ur[i];
             }
             f_f = ff;
+            k_full_csc = Some(k_full);
         } else {
             let asm = asm_dense.as_ref().unwrap();
             let free_idx: Vec<usize> = (0..nf).collect();
@@ -275,14 +278,15 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         }
         prev_u_r = u_r.clone();
 
-        let reactions_vec = PhysicalStageResidual::assemble(|| {
-            if let Some(ref t) = asm_trips {
-                let k_full = CscMatrix::from_triplets(n, &t.rows, &t.cols, &t.vals);
-                t.cumulative_reactions(&k_full, &cumulative_solver_input, stage, &dof_num, &cumulative_u)
-            } else {
-                let asm = assemble_staged_2d(&cumulative_solver_input, &dof_num, stage);
-                compute_stage_reactions_vec(&asm, n, nf, nr, &cumulative_u, &u_r)
-            }
+        let reactions_vec = PhysicalStageResidual::assemble(|| if let Some(ref k_full) = k_full_csc {
+            asm_trips.as_ref().unwrap().cumulative_reactions(
+                k_full, &cumulative_solver_input, stage, &dof_num, &cumulative_u,
+            )
+        } else {
+            let cumulative_asm = assemble_staged_2d(
+                &cumulative_solver_input, &dof_num, stage,
+            );
+            compute_stage_reactions_vec(&cumulative_asm, n, nf, nr, &cumulative_u, &u_r)
         });
 
         // Build results for this stage
@@ -727,7 +731,10 @@ fn build_results_from_u(
     let mut element_forces = compute_internal_forces_2d(input, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
     let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
-    let reactions = recovered.reactions_2d(input, dof_num, u, inclined_transforms)?;
+    let reactions_vec = recovered.checked_restrained_2d(input, dof_num)?;
+    let nf = dof_num.n_free;
+    let mut reactions = build_reactions_2d_inclined(input, dof_num, reactions_vec, &[], nf, u, inclined_transforms);
+    reactions.sort_by_key(|r| r.node_id);
 
     let prescribed = super::linear::prescribed_displacements_2d(input, dof_num);
     let determined = state_is_directly_prescribed(u, dof_num.n_free, &prescribed);

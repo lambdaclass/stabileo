@@ -328,7 +328,7 @@ describe('against real corpus files', () => {
         ]));
 
         function assertMainNoticeOrder(opened: { changes: ResultChange[] }) {
-          if (mainFirst) expect(opened.changes.slice(-8).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-8).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         }
         assertMainNoticeOrder(opened);
         const then = readResults(`v0.4.0/${entry.results}`);

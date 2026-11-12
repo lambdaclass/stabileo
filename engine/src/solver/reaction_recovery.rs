@@ -72,6 +72,17 @@ impl RecoveredForces {
         Self::from_residual(&residual.as_slice(), dofs, cs)
     }
 
+    pub(super) fn checked_restrained_2d(
+        &self,
+        input: &SolverInput,
+        dofs: &DofNumbering,
+    ) -> Result<&[f64], String> {
+        check_restraints(dofs, crate::ordered::values(&input.supports).flat_map(|s| {
+            super::support::support_dofs_2d(s).into_iter().enumerate().filter_map(move |(k, d)| d.restrained.then_some((s.node_id, k)))
+        }))?;
+        Ok(&self.restrained)
+    }
+
     pub(super) fn reactions_2d(
         &self,
         input: &SolverInput,
@@ -79,13 +90,11 @@ impl RecoveredForces {
         u_global: &[f64],
         its: &[InclinedTransformData2D],
     ) -> Result<Vec<Reaction>, String> {
-        check_restraints(dofs, crate::ordered::values(&input.supports).flat_map(|s| {
-            super::support::support_dofs_2d(s).into_iter().enumerate().filter_map(move |(k, d)| d.restrained.then_some((s.node_id, k)))
-        }))?;
+        let restrained = self.checked_restrained_2d(input, dofs)?;
         let mut r = linear::build_reactions_2d_inclined(
             input,
             dofs,
-            &self.restrained,
+            restrained,
             &[],
             dofs.n_free,
             u_global,
