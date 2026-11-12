@@ -125,15 +125,33 @@ pub(crate) fn calls() -> Vec<Value> {
             }
         }
     }
+    for case in &mut calls {
+        case["requireNodeCoverage"] = json!(true);
+        if case["api"].as_str().unwrap().ends_with("3d") {
+            if let Some(expected) = case["expectedDisplacements"].as_array_mut() {
+                for d in expected {
+                    for key in ["rx", "ry", "rz"] {
+                        if d.get(key).is_none() {
+                            d[key] = json!(0.0);
+                        }
+                    }
+                }
+            }
+        }
+    }
     calls
+}
+
+#[test]
+fn export_native_and_wasm_cases() {
+    if let Ok(path) = std::env::var("RED_CI_CASES") {
+        std::fs::write(path, serde_json::to_vec(&calls()).unwrap()).unwrap();
+    }
 }
 
 #[test]
 fn strict_equilibrium_survives_numbering_and_constraints() {
     let calls = calls();
-    if let Ok(path) = std::env::var("RED_CI_CASES") {
-        std::fs::write(path, serde_json::to_vec(&calls).unwrap()).unwrap();
-    }
     for c in calls {
         check_result(&native_result(&c), &c);
     }
@@ -159,17 +177,13 @@ fn native_result(c: &Value) -> Value {
     serde_json::from_str(&result).unwrap()
 }
 
-fn check_result(r: &Value, c: &Value) {
-    if c["api"] == "solve_2d" || c["api"] == "solve_3d" {
-        assert!(!r["results"]["displacements"].as_array().unwrap().is_empty());
-        return;
-    }
-    assert_eq!(r["converged"], c["converged"], "{c}");
+pub(crate) fn check_result(r: &Value, c: &Value) {
+    assert_eq!(r["converged"], c["converged"], "{} convergence", c["api"]);
+    crate::nonlinear_convergence::check_expected_displacements(r, c);
     check_capacity(r, c);
 }
 
 #[test]
-#[ignore = "known wrong result: #1940"]
 fn r7_native_displacement_checks_reject_zero_answers_and_bad_node_coverage() {
     let mut accepted = Vec::new();
     let mut checked = 0;
@@ -232,9 +246,9 @@ fn r7_native_displacement_checks_reject_zero_answers_and_bad_node_coverage() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1940"]
 fn r7_subset_test_cannot_replace_the_exported_corpus() {
-    let path = std::env::temp_dir().join(format!("stabileo-r7-{}.json", std::process::id()));
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("../.r7-corpus-{}.json", std::process::id()));
     let executable = std::env::current_exe().unwrap();
     for names in [
         vec![
@@ -305,9 +319,6 @@ fn small_soil_force_cannot_disappear_between_structure_and_applied_load() {
         .into_iter()
         .filter(|c| c["smallSoilBalance"] == true)
         .collect();
-    if let Ok(path) = std::env::var("RED_CI_CASES") {
-        std::fs::write(path, serde_json::to_vec(&calls).unwrap()).unwrap();
-    }
     let mut failures = Vec::new();
     for c in calls {
         let text = c["input"].to_string();
@@ -320,6 +331,7 @@ fn small_soil_force_cannot_disappear_between_structure_and_applied_load() {
         if r["converged"] != c["converged"] {
             failures.push(json!({"api":c["api"],"tolerance":c["input"]["tolerance"],"expected":c["converged"],"actual":r["converged"]}));
         }
+        check_result(&r, &c);
     }
     assert!(failures.is_empty(), "{}", json!(failures));
 }

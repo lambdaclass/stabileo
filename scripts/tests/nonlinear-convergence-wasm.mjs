@@ -15,10 +15,10 @@ function checkAxial(tip, solver, expected, suppliedAxis) {
   assert.ok(Math.hypot(...u.map((v, i) => v - axial * axis[i])) <= 1e-10 * Math.abs(expected), 'transverse response');
 }
 function checkComponents(actual, expected, all) {
-  for (const keys of [['ux', 'uy', 'uz'], ['rx', 'ry', 'rz']]) {
+  for (const keys of [['ux', 'uy', 'uz'], ['rx', 'ry', 'rz'], ['warping']]) {
     const scale = Math.max(0, ...all.flatMap(d => keys.map(k => Math.abs(d[k] ?? 0))));
     for (const key of keys) {
-      if (expected[key] !== undefined) {
+      if (typeof expected[key] === 'number') {
         const value = expected[key];
         assert.ok(Number.isFinite(actual[key]) && Math.abs(actual[key] - value) <= 1e-10 * (value === 0 ? scale : Math.abs(value)), key);
       }
@@ -26,23 +26,38 @@ function checkComponents(actual, expected, all) {
   }
 }
 function checkArcWitness(result, w) {
-        const base = result.results.displacements.find(d => d.nodeId === 1);
-        const tip = result.results.displacements.find(d => d.nodeId === 2);
-        const ux = tip.ux - base.ux, uz = tip.uz - base.uz;
-        const l0 = Math.hypot(w.dx, w.dz), ln = Math.hypot(w.dx + ux, w.dz + uz);
-        const axial = 1000 * w.e * w.a * (2 * w.dx * ux + 2 * w.dz * uz + ux * ux + uz * uz) / (l0 * (ln + l0));
-        const projected = axial * ((w.dx + ux) * w.tx + (w.dz + uz) * w.tz) / ln;
-        assert.ok(Number.isFinite(result.finalLoadFactor));
-        assert.ok(Math.abs(projected / (result.finalLoadFactor * w.force) - 1) < 1e-10);
+  const base = result.results.displacements.find(d => d.nodeId === 1);
+  const tip = result.results.displacements.find(d => d.nodeId === 2);
+  const ux = tip.ux - base.ux, uz = tip.uz - base.uz;
+  const l0 = Math.hypot(w.dx, w.dz), ln = Math.hypot(w.dx + ux, w.dz + uz);
+  const axial = 1000 * w.e * w.a * (2 * w.dx * ux + 2 * w.dz * uz + ux * ux + uz * uz) / (l0 * (ln + l0));
+  const projected = axial * ((w.dx + ux) * w.tx + (w.dz + uz) * w.tz) / ln;
+  assert.ok(Number.isFinite(result.finalLoadFactor));
+  const freeNormSquared = w.freeDofs.reduce((sum, basis) => {
+    const d = result.results.displacements.find(d => d.nodeId === basis.nodeId);
+    return sum + ['ux', 'uz', 'ry'].reduce((value, key) => value + basis[key] * d[key], 0) ** 2;
+  }, 0);
+  const arcSquared = freeNormSquared + result.finalLoadFactor ** 2 * w.forceNormSquared;
+  const dsSquared = w.ds ** 2;
+  assert.ok(Number.isFinite(dsSquared) && dsSquared > 0);
+  assert.ok(Number.isFinite(arcSquared) && Math.abs(arcSquared - dsSquared) <= 1e-10 * dsSquared, 'prescribed arc-length constraint');
+
+  assert.ok(Math.abs(projected / (result.finalLoadFactor * w.force) - 1) < 1e-10);
 }
 function checkExpectedDisplacements(result, fixture) {
+  if (fixture.requireNodeCoverage) {
+    const solver = fixture.input.solver ?? fixture.input;
+    const expectedNodes = Object.values(solver.nodes).map(node => node.id).sort((a, b) => a - b);
+    assert.deepEqual(result.results.displacements.map(d => d.nodeId).sort((a, b) => a - b), expectedNodes, 'displacement node coverage');
+    if (fixture.expectedDisplacements) assert.deepEqual(fixture.expectedDisplacements.map(d => d.nodeId).sort((a, b) => a - b), expectedNodes, 'reference node coverage');
+  }
   for (const expected of fixture.expectedDisplacements ?? []) {
     const actual = result.results.displacements.find(d => d.nodeId === expected.nodeId);
     checkComponents(actual, expected, fixture.expectedDisplacements);
   }
 }
 for (const fixture of cases.filter(c => c.arcWitness && !c.error)) {
-  test(`r7 arc constraint ${fixture.arcWitness.dx}, ${fixture.arcWitness.dz}`, { skip: !process.env.RUN_KNOWN_WRONG_1940 }, () => {
+  test(`r7 arc constraint ${fixture.arcWitness.dx}, ${fixture.arcWitness.dz}`, () => {
     const result = JSON.parse(invokeCase(fixture));
     if (!result.converged) return;
     checkArcWitness(result, fixture.arcWitness);
@@ -57,7 +72,7 @@ for (const fixture of cases.filter(c => c.arcWitness && !c.error)) {
     }
   });
 }
-test('r7 displacement checker rejects zero answers and extra nodes', { skip: !process.env.RUN_KNOWN_WRONG_1940 }, () => {
+test('r7 displacement checker rejects zero answers and extra nodes', () => {
   const fixture = { expectedDisplacements: [{ nodeId: 1, ux: 1, uz: 0, ry: 0 }], requireNodeCoverage: true, input: { nodes: { 1: { id: 1 } } } };
   const result = { results: { displacements: structuredClone(fixture.expectedDisplacements) } };
   checkExpectedDisplacements(result, fixture);
@@ -69,6 +84,27 @@ test('r7 displacement checker rejects zero answers and extra nodes', { skip: !pr
     assert.throws(() => checkExpectedDisplacements(extra, fixture));
   }
 });
+for (const fixture of cases.filter(c => c.requireNodeCoverage && c.expectedDisplacements)) {
+  test(`r7 ${fixture.api} displacement mutations ${JSON.stringify(fixture.expectedDisplacements)}`, () => {
+    const result = JSON.parse(invokeCase(fixture));
+    checkExpectedDisplacements(result, fixture);
+    for (const mutation of ['zero', 'missing', 'duplicate', 'extra', 'reversed', 'spurious-zero']) {
+      const wrong = structuredClone(result);
+      const ds = wrong.results.displacements;
+      if (mutation === 'missing') ds.pop();
+      else if (mutation === 'duplicate') ds.push(structuredClone(ds[0]));
+      else if (mutation === 'extra') ds.push({ ...ds[0], nodeId: Number.MAX_SAFE_INTEGER });
+      else {
+        for (const d of ds) {
+          for (const key of ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']) {
+            if (typeof d[key] === 'number') d[key] = mutation === 'zero' ? 0 : mutation === 'reversed' ? -d[key] : d[key] === 0 ? 1 : d[key];
+          }
+        }
+      }
+      assert.throws(() => checkExpectedDisplacements(wrong, fixture), mutation);
+    }
+  });
+}
 function checkLoadedCantilever(tip, solver, dimension) {
   const node = solver.nodes['2'];
   const load = solver.loads[0].data;

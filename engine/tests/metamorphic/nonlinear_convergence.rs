@@ -552,9 +552,43 @@ fn check_axial_displacement(r: &serde_json::Value, case: &serde_json::Value) {
     }
 }
 
-fn check_expected_displacements(result: &serde_json::Value, case: &serde_json::Value) {
+pub(crate) fn check_expected_displacements(result: &serde_json::Value, case: &serde_json::Value) {
+    if case["requireNodeCoverage"] == true {
+        let input = &case["input"];
+        let solver = input.get("solver").unwrap_or(input);
+        let mut expected_nodes: Vec<_> = solver["nodes"]
+            .as_object()
+            .unwrap()
+            .values()
+            .map(|node| node["id"].as_u64().unwrap())
+            .collect();
+        let actual = result["results"]["displacements"].as_array().unwrap();
+        let mut actual_nodes: Vec<_> = actual
+            .iter()
+            .map(|d| d["nodeId"].as_u64().unwrap())
+            .collect();
+        expected_nodes.sort_unstable();
+        actual_nodes.sort_unstable();
+        assert_eq!(
+            actual_nodes, expected_nodes,
+            "{} displacement node coverage",
+            case["api"]
+        );
+        if let Some(expected) = case["expectedDisplacements"].as_array() {
+            let mut reference_nodes: Vec<_> = expected
+                .iter()
+                .map(|d| d["nodeId"].as_u64().unwrap())
+                .collect();
+            reference_nodes.sort_unstable();
+            assert_eq!(reference_nodes, expected_nodes, "reference node coverage");
+        }
+    }
     let expected = case["expectedDisplacements"].as_array();
-    for keys in [["ux", "uy", "uz"], ["rx", "ry", "rz"]] {
+    for keys in [
+        &["ux", "uy", "uz"][..],
+        &["rx", "ry", "rz"][..],
+        &["warping"][..],
+    ] {
         let scale = expected
             .into_iter()
             .flatten()
@@ -568,8 +602,8 @@ fn check_expected_displacements(result: &serde_json::Value, case: &serde_json::V
                 .find(|a| a["nodeId"] == e["nodeId"])
                 .unwrap();
             for key in keys {
-                if let Some(value) = e[key].as_f64() {
-                    let a = actual[key].as_f64().unwrap();
+                if let Some(value) = e[*key].as_f64() {
+                    let a = actual[*key].as_f64().unwrap();
                     let reference = if value == 0.0 { scale } else { value.abs() };
                     assert!(
                         a.is_finite() && (a - value).abs() <= 1e-10 * reference,
@@ -1663,8 +1697,9 @@ mod r2 {
                 Iso2::mirror_line(1.293),
             ] {
                 let solver = transform_2d(&base.s, &iso).unwrap();
-                let witness = arc_witness(&solver);
-                let mut case = serde_json::json!({"api":"solve_arc_length","input":ArcLengthInput { solver:solver.clone(),max_steps:1,max_iter:100,tolerance:1e-10,initial_ds:0.1,min_ds:0.1,max_ds:0.1,target_iter:4 },"allowRefusal":true,"arcWitness":witness});
+                let input = support_arc_input(solver.clone());
+                let witness = arc_witness(&input);
+                let mut case = serde_json::json!({"api":"solve_arc_length","input":input,"allowRefusal":true,"arcWitness":witness});
                 if case["arcWitness"]["forceNormSquared"] == 0.0 {
                     case["error"] = serde_json::json!("Zero reference load");
                 }
@@ -1742,6 +1777,9 @@ mod r2 {
             if case["zeroBending"] == true {
                 super::r6::check_zero_bending(&result);
             }
+            if case["requireNodeCoverage"] == true {
+                crate::red_ci::check_result(&result, case);
+            }
             check_expected_displacements(&result, &case);
         }
         if let Ok(path) = std::env::var("NONLINEAR_CONVERGENCE_CASES") {
@@ -1752,7 +1790,29 @@ mod r2 {
         }
     }
 
-    fn arc_witness(solver: &SolverInput) -> serde_json::Value {
+    fn support_arc_input(solver: SolverInput) -> ArcLengthInput {
+        ArcLengthInput {
+            solver,
+            max_steps: 1,
+            max_iter: 100,
+            tolerance: 1e-10,
+            initial_ds: 0.1,
+            min_ds: 0.1,
+            max_ds: 0.1,
+            target_iter: 4,
+        }
+    }
+
+    fn arc_witness(input: &ArcLengthInput) -> serde_json::Value {
+        assert_eq!(input.max_steps, 1);
+        assert_eq!(input.initial_ds, input.min_ds);
+        assert_eq!(input.initial_ds, input.max_ds);
+        let solver = &input.solver;
+        assert!(solver.constraints.is_empty());
+        assert!(solver
+            .supports
+            .values()
+            .all(|s| [s.dx, s.dz, s.dry].into_iter().flatten().all(|v| v == 0.0)));
         let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(solver);
         let assembly = dedaliano_engine::solver::assembly::assemble_2d(solver, &dofs);
         let tangent = dofs.global_dof(2, 0).unwrap();
@@ -1789,11 +1849,10 @@ mod r2 {
             "e":solver.materials["1"].e,"a":solver.sections["1"].a,
             "tx":axis[tangent],"tz":axis[normal],"force":assembly.f[tangent],
             "forceNormSquared":assembly.f[..dofs.n_free].iter().map(|v|v*v).sum::<f64>(),
-            "freeDofs":free_dofs,"ds":0.1})
+            "freeDofs":free_dofs,"ds":input.initial_ds})
     }
 
     #[test]
-    #[ignore = "known wrong result: #1940"]
     fn r7_arc_witness_rejects_no_op_and_wrong_arc_length() {
         let mut accepted = Vec::new();
         let mut correct = 0;
@@ -1804,23 +1863,14 @@ mod r2 {
                 Iso2::mirror_line(1.293),
             ] {
                 let solver = transform_2d(&fixture.s, &iso).unwrap();
-                let w = arc_witness(&solver);
+                let input = support_arc_input(solver.clone());
+                let w = arc_witness(&input);
                 let zero = serde_json::json!({"converged":true,"finalLoadFactor":0.0,
                     "results":{"displacements":solver.nodes.values().map(|n|
                         serde_json::json!({"nodeId":n.id,"ux":0.0,"uz":0.0,"ry":0.0})).collect::<Vec<_>>()}});
                 if std::panic::catch_unwind(|| check_arc_witness(&zero, &w)).is_ok() {
                     accepted.push(format!("{}: no-op", fixture.name));
                 }
-                let input = ArcLengthInput {
-                    solver,
-                    max_steps: 1,
-                    max_iter: 100,
-                    tolerance: 1e-10,
-                    initial_ds: 0.1,
-                    min_ds: 0.1,
-                    max_ds: 0.1,
-                    target_iter: 4,
-                };
                 if let Ok(result) = arc_length::solve_arc_length(&input) {
                     if result.converged {
                         let r = serde_json::to_value(result).unwrap();
@@ -1860,6 +1910,26 @@ mod r2 {
         let projected = axial * ((dx + ux) * get("tx") + (dz + uz) * get("tz")) / ln;
         let factor = result["finalLoadFactor"].as_f64().unwrap();
         assert!(factor.is_finite());
+        let free_norm_squared = w["freeDofs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|basis| {
+                let displacement = d.iter().find(|d| d["nodeId"] == basis["nodeId"]).unwrap();
+                ["ux", "uz", "ry"]
+                    .iter()
+                    .map(|key| basis[*key].as_f64().unwrap() * displacement[*key].as_f64().unwrap())
+                    .sum::<f64>()
+                    .powi(2)
+            })
+            .sum::<f64>();
+        let arc_squared = free_norm_squared + factor * factor * get("forceNormSquared");
+        let ds_squared = get("ds").powi(2);
+        assert!(ds_squared.is_finite() && ds_squared > 0.0);
+        assert!(
+            arc_squared.is_finite() && (arc_squared - ds_squared).abs() <= 1e-10 * ds_squared,
+            "prescribed arc-length constraint: {arc_squared} != {ds_squared}"
+        );
         crate::common::assert_close(
             projected,
             factor * get("force"),
@@ -1877,63 +1947,13 @@ mod r2 {
                 Iso2::mirror_line(1.293),
             ] {
                 let solver = transform_2d(&case.s, &iso).unwrap();
-                let input = ArcLengthInput {
-                    solver: solver.clone(),
-                    max_steps: 1,
-                    max_iter: 100,
-                    tolerance: 1e-10,
-                    initial_ds: 0.1,
-                    min_ds: 0.1,
-                    max_ds: 0.1,
-                    target_iter: 4,
-                };
+                let input = support_arc_input(solver);
                 let result = arc_length::solve_arc_length(&input);
                 if let Ok(result) = result {
                     if !result.converged {
                         continue;
                     }
-                    assert!(result.final_load_factor.is_finite());
-                    let base = result
-                        .results
-                        .displacements
-                        .iter()
-                        .find(|d| d.node_id == 1)
-                        .unwrap();
-                    let tip = result
-                        .results
-                        .displacements
-                        .iter()
-                        .find(|d| d.node_id == 2)
-                        .unwrap();
-                    let dx = solver.nodes["2"].x - solver.nodes["1"].x;
-                    let dz = solver.nodes["2"].z - solver.nodes["1"].z;
-                    let ux = tip.ux - base.ux;
-                    let uz = tip.uz - base.uz;
-                    let l0 = dx.hypot(dz);
-                    let ln = (dx + ux).hypot(dz + uz);
-                    let strain =
-                        (2.0 * dx * ux + 2.0 * dz * uz + ux * ux + uz * uz) / (l0 * (ln + l0));
-                    let axial = 1000.0 * solver.materials["1"].e * solver.sections["1"].a * strain;
-                    let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(&solver);
-                    let assembly = dedaliano_engine::solver::assembly::assemble_2d(&solver, &dofs);
-                    let tangent = dofs.global_dof(2, 0).unwrap();
-                    let mut axis = vec![0.0; dofs.n_total];
-                    axis[tangent] = 1.0;
-                    for it in &assembly.inclined_transforms_2d {
-                        dedaliano_engine::solver::assembly::reverse_inclined_transform_2d(
-                            &mut axis, &it.dofs, &it.r,
-                        );
-                    }
-                    let projected = axial
-                        * ((dx + ux) * axis[tangent]
-                            + (dz + uz) * axis[dofs.global_dof(2, 1).unwrap()])
-                        / ln;
-                    crate::common::assert_close(
-                        projected,
-                        result.final_load_factor * assembly.f[tangent],
-                        1e-10,
-                        &format!("{}: represented free load", case.name),
-                    );
+                    check_arc_witness(&serde_json::to_value(result).unwrap(), &arc_witness(&input));
                 }
             }
         }
