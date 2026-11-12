@@ -66,6 +66,9 @@ jobs:
             .github/scripts/production-health-alert.cjs
             .github/scripts/issue-assignees.cjs
             web/package.json
+            .github/actions/browser-deps
+            .github/scripts/browser-deps.py
+            .github/scripts/retry-infra.sh
             .nvmrc
           sparse-checkout-cone-mode: false
 
@@ -79,7 +82,14 @@ jobs:
         run: |
           version=$(node -p "require('./web/package.json').devDependencies['@playwright/test']")
           npm install --prefix "$RUNNER_TEMP/pw" --no-save --no-audit --no-fund "playwright@$version"
-          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install chromium
+
+      - name: Install Chromium system dependencies
+        uses: ./.github/actions/browser-deps
+        with:
+          browsers: chromium
+          playwright-directory: ${{ runner.temp }}/pw
+          use-nix: "false"
 
       - name: Check the sites
         id: check

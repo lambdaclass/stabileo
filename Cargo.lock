@@ -399,6 +399,7 @@ dependencies = [
  "serde_json",
  "spade",
  "syn 2.0.117",
+ "tempfile",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "web-sys",

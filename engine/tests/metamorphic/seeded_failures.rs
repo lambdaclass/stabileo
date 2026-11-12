@@ -339,17 +339,9 @@ fn seeded_failure_reaches_nightly_findings() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap();
-    let out = root
-        .join("target")
-        .join(format!("seeded-failure-nightly-{}", std::process::id()));
-    struct Cleanup(std::path::PathBuf);
-    impl Drop for Cleanup {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
+    let scratch = tempfile::tempdir().unwrap();
+    let out = scratch.path().join("nightly");
     assert!(!out.exists());
-    let _cleanup = Cleanup(out.clone());
     for (fault, code) in [("control", 0), ("sign", 1)] {
         let destination = out.join(fault);
         let output = std::process::Command::new("python3")
@@ -475,17 +467,10 @@ fn seeded_failure_inverse_load_scaling() {
 
 #[test]
 fn seeded_failure_replay_reaches_numerical_assertion() {
-    let destination = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap().join("target")
-        .join(format!("seeded-replay-assertion-{}.json", std::process::id()));
+    let scratch = tempfile::tempdir().unwrap();
+    let destination = scratch.path().join("replay-results.json");
     for (fault, code) in [("control", 0), ("sign", 101)] {
-        let output = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--ignored", "--exact", "metamorphic_replay", "--nocapture"])
-            .env("NIGHTLY_MODEL", concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-cantilever-input.json"))
-            .env("NIGHTLY_RESULTS", &destination)
-            .env("METAMORPHIC_SEED", "1919")
-            .env("STABILEO_SELFTEST_REPLAY", fault)
-            .output().unwrap();
+        let output = replay_output(&destination, fault);
         assert_eq!(output.status.code(), Some(code), "{output:?}");
         let result: serde_json::Value = serde_json::from_slice(&std::fs::read(&destination).unwrap()).unwrap();
         std::fs::remove_file(&destination).unwrap();
@@ -496,5 +481,27 @@ fn seeded_failure_replay_reaches_numerical_assertion() {
         } else {
             assert!(result["failures"].as_array().unwrap().is_empty(), "{result}");
         }
+    }
+}
+
+fn replay_output(destination: &std::path::Path, fault: &str) -> std::process::Output {
+    std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--ignored", "--exact", "metamorphic_replay", "--nocapture"])
+        .env("NIGHTLY_MODEL", concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-cantilever-input.json"))
+        .env("NIGHTLY_RESULTS", destination)
+        .env("METAMORPHIC_SEED", "1919")
+        .env("STABILEO_SELFTEST_REPLAY", fault)
+        .output().unwrap()
+}
+
+#[test]
+fn seeded_failure_replay_write_error_names_destination() {
+    let scratch = tempfile::tempdir().unwrap();
+    for destination in [scratch.path().join("missing/results.json"), scratch.path().to_owned()] {
+        let output = replay_output(&destination, "control");
+        assert_eq!(output.status.code(), Some(101), "{output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(&destination.display().to_string()), "write error omitted destination {}: {stderr}", destination.display());
+        assert!(!stderr.contains("metamorphic violations:"), "{stderr}");
     }
 }

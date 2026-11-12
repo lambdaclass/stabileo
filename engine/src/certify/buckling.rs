@@ -104,9 +104,8 @@ pub struct CertifiedBuckling3D {
 /// Solve 2D linear buckling and certify the first critical load factor. A factor above its
 /// certified upper bound is refused (BU-BOUND), not returned beside an uncertified certificate.
 pub fn certify_buckling_2d(input: &SolverInput, num_modes: usize) -> Result<CertifiedBuckling2D, String> {
-    let out = certified_buckling_2d(input, num_modes)?;
-    contain(&out.certificate)?;
-    Ok(out)
+    super::finite::check_input(input)?;
+    certify_buckling_result_2d(input, solve_buckling_2d(input, num_modes.max(1))?)
 }
 
 /// The certificate `certify_buckling_2d` judges, without its refusal; the factor stays withheld.
@@ -130,7 +129,19 @@ fn contain(certificate: &BucklingCertificate) -> Result<(), String> {
 fn certified_buckling_2d(input: &SolverInput, num_modes: usize) -> Result<CertifiedBuckling2D, String> {
     super::finite::check_input(input)?;
     let results = solve_buckling_2d(input, num_modes.max(1))?;
+    certificate_for_result_2d(input, results)
+}
+
+pub fn certify_buckling_result_2d(input: &SolverInput, results: BucklingResult) -> Result<CertifiedBuckling2D, String> {
+    let out = certificate_for_result_2d(input, results)?;
+    contain(&out.certificate)?;
+    Ok(out)
+}
+
+fn certificate_for_result_2d(input: &SolverInput, results: BucklingResult) -> Result<CertifiedBuckling2D, String> {
+    super::finite::check_input(input)?;
     super::finite::check_results(&results)?;
+    if results.modes.is_empty() { return Err("no buckling modes returned".into()); }
     let sys = buckling_system_2d(input)?;
     let mode = &results.modes[0];
     let certificate = match gather_u_2d(&sys.dof_num, &mode.displacements) {
@@ -161,9 +172,8 @@ fn certified_buckling_2d(input: &SolverInput, num_modes: usize) -> Result<Certif
 /// Solve 3D linear buckling and certify the first critical load factor. A factor above its
 /// certified upper bound is refused (BU-BOUND), not returned beside an uncertified certificate.
 pub fn certify_buckling_3d(input: &SolverInput3D, num_modes: usize) -> Result<CertifiedBuckling3D, String> {
-    let out = certified_buckling_3d(input, num_modes)?;
-    contain(&out.certificate)?;
-    Ok(out)
+    super::finite::check_input(input)?;
+    certify_buckling_result_3d(input, solve_buckling_3d(input, num_modes.max(1))?)
 }
 
 /// The certificate `certify_buckling_3d` judges, without its refusal; the factor stays withheld.
@@ -175,15 +185,25 @@ pub fn buckling_certificate_3d(input: &SolverInput3D, num_modes: usize) -> Resul
 fn certified_buckling_3d(input: &SolverInput3D, num_modes: usize) -> Result<CertifiedBuckling3D, String> {
     super::finite::check_input(input)?;
     let results = solve_buckling_3d(input, num_modes.max(1))?;
+    certificate_for_result_3d(input, results)
+}
+
+pub fn certify_buckling_result_3d(input: &SolverInput3D, results: BucklingResult3D) -> Result<CertifiedBuckling3D, String> {
+    let out = certificate_for_result_3d(input, results)?;
+    contain(&out.certificate)?;
+    Ok(out)
+}
+
+fn certificate_for_result_3d(input: &SolverInput3D, results: BucklingResult3D) -> Result<CertifiedBuckling3D, String> {
+    super::finite::check_input(input)?;
+    let expanded = (!input.curved_beams.is_empty()).then(|| crate::solver::linear::expand_curved_beams_3d(input));
+    let input = expanded.as_ref().unwrap_or(input);
     super::finite::check_results(&results)?;
+    if results.modes.is_empty() { return Err("no buckling modes returned".into()); }
     let sys = buckling_system_3d(input)?;
     let mode = &results.modes[0];
-    let certificate = match gather_u_3d(&sys.dof_num, &mode.displacements) {
-        Ok(mut phi) => {
-            // Global axes to the inclined-support frames of K and Kg.
-            for it in &sys.inclined_transforms {
-                rotate_inclined_f_3d(&mut phi, &it.dofs, &it.r);
-            }
+    let certificate = match gather_buckling_mode_3d(&sys, &mode.displacements) {
+        Ok(phi) => {
             let phi = &phi[..sys.dof_num.n_free];
             if input.constraints.is_empty() {
                 certify_critical_factor(&sys.k_ff, &sys.neg_kg_csc, mode.load_factor, phi)
@@ -200,6 +220,13 @@ fn certified_buckling_3d(input: &SolverInput3D, num_modes: usize) -> Result<Cert
     let mut certificate = certificate;
     super::finite::guard(&mut certificate);
     Ok(CertifiedBuckling3D { results, certificate })
+}
+
+pub fn gather_buckling_mode_3d(sys: &crate::solver::buckling::BucklingSystem3D, displacements: &[Displacement3D]) -> Result<Vec<f64>, super::linear::Certificate> {
+    let mut phi = gather_u_3d(&sys.dof_num, displacements)?;
+    for it in &sys.inclined_transforms { rotate_inclined_f_3d(&mut phi, &it.dofs, &it.r); }
+    phi.truncate(sys.dof_num.n_free);
+    Ok(phi)
 }
 
 /// The constrained pencil the solver reduces to, `Cᵀ K C φ_q = λ Cᵀ N C φ_q`,
@@ -399,6 +426,50 @@ impl Pencil<'_> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn containment_checks_every_certificate_kind_and_boundary() {
+        for certificate in [
+            BucklingCertificate::computed_above_upper(2.1,2.0),
+            BucklingCertificate::Certified { lambda_lower: 1.0, lambda_upper: Some(2.0), lambda_computed: 1.0f64.next_down() },
+            BucklingCertificate::Certified { lambda_lower: 1.0, lambda_upper: Some(2.0), lambda_computed: 2.0f64.next_up() },
+        ] {
+            assert!(contain(&certificate).unwrap_err().contains("BU-BOUND"), "{certificate:?}");
+        }
+        for certificate in [
+            BucklingCertificate::uncertified("no enclosure"),
+            BucklingCertificate::Certified { lambda_lower: 1.0, lambda_upper: Some(2.0), lambda_computed: 1.0 },
+            BucklingCertificate::Certified { lambda_lower: 1.0, lambda_upper: Some(2.0), lambda_computed: 2.0 },
+            BucklingCertificate::Certified { lambda_lower: 1.0, lambda_upper: None, lambda_computed: 2.0 },
+        ] { assert!(contain(&certificate).is_ok(), "{certificate:?}"); }
+    }
+
+    #[test]
+    fn supplied_results_use_the_public_containment_path() {
+        let cases: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/buckling-818-family.json")).unwrap();
+        for case in cases.as_array().unwrap().iter() {
+            let json = case["input"].to_string();
+            if case["dimension"] == 2 {
+                let input = serde_json::from_str(&json).unwrap();
+                let mut result = solve_buckling_2d(&input,1).unwrap();
+                assert!(certify_buckling_result_2d(&input,result.clone()).unwrap().certificate.is_certified());
+                let mut empty = result.clone();
+                empty.modes.clear();
+                assert!(certify_buckling_result_2d(&input,empty).unwrap_err().contains("no buckling modes"));
+                result.modes[0].load_factor *= 1.000001;
+                assert!(certify_buckling_result_2d(&input,result).unwrap_err().contains("BU-BOUND"));
+            } else {
+                let input = serde_json::from_str(&json).unwrap();
+                let mut result = solve_buckling_3d(&input,1).unwrap();
+                assert!(certify_buckling_result_3d(&input,result.clone()).unwrap().certificate.is_certified());
+                let mut empty = result.clone();
+                empty.modes.clear();
+                assert!(certify_buckling_result_3d(&input,empty).unwrap_err().contains("no buckling modes"));
+                result.modes[0].load_factor *= 1.000001;
+                assert!(certify_buckling_result_3d(&input,result).unwrap_err().contains("BU-BOUND"));
+            }
+        }
+    }
+
     use super::*;
 
     fn diag(d: &[f64]) -> CscMatrix {
@@ -461,6 +532,19 @@ mod tests {
         for factor in [3.0, 2.0 + 1e-12] {
             assert_refused_above_upper(certify_critical_factor(&k, &n, factor, &[0.0, 1.0, 0.0]), factor);
         }
+    }
+
+    #[test]
+    fn refined_factor_does_not_relax_the_upper_bound_boundary() {
+        let k = diag(&[4.0, 6.0, 10.0]);
+        let n = diag(&[1.0, 3.0, 1.0]);
+        let phi = [0.0, 1.0, 0.0];
+        let c = certify_critical_factor(&k, &n, 2.0, &phi);
+        let BucklingCertificate::Certified { lambda_upper: Some(upper), .. } = c else { panic!("{c:?}") };
+        for factor in [2.0 - 1e-12, 2.0, upper.next_down(), upper] {
+            assert!(certify_critical_factor(&k, &n, factor, &phi).is_certified(), "{factor}");
+        }
+        assert_refused_above_upper(certify_critical_factor(&k, &n, upper.next_up(), &phi), upper.next_up());
     }
 
     fn assert_refused_above_upper(c: BucklingCertificate, factor: f64) {

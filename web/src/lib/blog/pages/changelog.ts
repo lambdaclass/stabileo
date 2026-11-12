@@ -2,7 +2,7 @@ import type { StandingPage } from './cirsoc';
 
 export const changelogPage: StandingPage = {
   path: '/changelog',
-  updated: '2026-11-11',
+  updated: '2026-11-12',
   view: 'changelog',
   i18n: {
     es: {

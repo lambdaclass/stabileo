@@ -204,16 +204,14 @@ fn has_round_off_member(mean_n: &HashMap<usize, f64>, noise: &HashMap<usize, f64
     mean_n.iter().any(|(id, n)| noise.get(id).is_some_and(|&e| e > 0.0 && n.abs() <= e))
 }
 
+pub(super) fn buckling_eigen(k: &CscMatrix, b: &CscMatrix, cs: Option<&FreeConstraintSystem>, count: usize) -> (Option<crate::linalg::EigenResult>, Option<StructuredDiagnostic>) {
+    let pencil = crate::linalg::lanczos::BucklingPencil { k, b, transform: cs.map(|cs| cs.c_ff.buckling_transform()) };
+    let Some(solver) = pencil.solver() else { return (None,None); };
+    crate::known_issues::with_sparse_factor_conditioning(solver.stiffness(), |observe| solver.eigen_observed(count,observe))
+}
+
 fn critical_factor_bound(k: &CscMatrix, neg_kg: &CscMatrix, cs: Option<&FreeConstraintSystem>) -> Result<Option<f64>, String> {
-    let reduced;
-    let (k, neg_kg) = match cs {
-        Some(cs) => {
-            reduced = (cs.reduce_matrix_sparse(k), cs.reduce_matrix_sparse(neg_kg));
-            (&reduced.0, &reduced.1)
-        }
-        None => (k, neg_kg),
-    };
-    let result = crate::linalg::lanczos::lanczos_buckling_eigen_sparse(k, neg_kg, 1).ok_or_else(|| {
+    let result = buckling_eigen(k, neg_kg, cs, 1).0.ok_or_else(|| {
         "Buckling not determinable: the effect of the members whose axial force is within round-off could not be bounded".to_string()
     })?;
     let mu = result.values.iter().fold(0.0f64, |a, &mu| a.max(mu));
@@ -355,22 +353,12 @@ pub fn solve_buckling_2d(
     // 5. Solve generalized eigenvalue: (-Kg)·φ = μ·K·φ  (K is SPD), sparse
     // shift-invert Lanczos in both branches; with constraints, K and -Kg are
     // reduced as sparse triple products first.
-    let k_red;
-    let kg_red;
-    let (k_solve, kg_solve, ns): (&CscMatrix, &CscMatrix, usize) = if let Some(cs_ref) = cs.as_ref() {
-        k_red = cs_ref.reduce_matrix_sparse(&k_ff);
-        kg_red = cs_ref.reduce_matrix_sparse(&neg_kg_csc);
-        (&k_red, &kg_red, cs_ref.n_free_indep)
-    } else {
-        (&k_ff, &neg_kg_csc, nf)
-    };
+    let ns = cs.as_ref().map_or(nf, |cs| cs.n_free_indep);
     let mut structured_diagnostics = linear.structured_diagnostics.clone();
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Buckling));
-    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
-        crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
-    });
+    let (result, conditioning) = buckling_eigen(&k_ff, &neg_kg_csc, cs.as_ref(), num_modes);
     crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
-    let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
+    let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
@@ -674,22 +662,12 @@ pub fn solve_buckling_3d(
     // Solve eigenproblem: (-Kg)*φ = μ*K*φ, then λ = 1/μ. Sparse shift-invert
     // Lanczos in both branches; with constraints, K and -Kg are reduced as
     // sparse triple products first.
-    let k_red;
-    let kg_red;
-    let (k_solve, kg_solve, ns): (&CscMatrix, &CscMatrix, usize) = if let Some(cs_ref) = cs.as_ref() {
-        k_red = cs_ref.reduce_matrix_sparse(&k_ff);
-        kg_red = cs_ref.reduce_matrix_sparse(&neg_kg_csc);
-        (&k_red, &kg_red, cs_ref.n_free_indep)
-    } else {
-        (&k_ff, &neg_kg_csc, nf)
-    };
+    let ns = cs.as_ref().map_or(nf, |cs| cs.n_free_indep);
     let mut structured_diagnostics = linear.structured_diagnostics.clone();
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Buckling));
-    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
-        crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
-    });
+    let (result, conditioning) = buckling_eigen(&k_ff, &neg_kg_csc, cs.as_ref(), num_modes);
     crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
-    let result = result.ok_or_else(|| crate::refusal::eigen_decomposition_failed(&crate::linalg::lanczos::eigen_failure_message(k_solve.n)))?;
+    let result = result.ok_or_else(|| crate::refusal::eigen_decomposition_failed(&crate::linalg::lanczos::eigen_failure_message(ns)))?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
