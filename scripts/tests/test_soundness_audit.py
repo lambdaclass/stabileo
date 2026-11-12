@@ -16,7 +16,7 @@ AUDIT = ROOT / 'docs/verification/soundness-regression-audit-2026-11-11'
 def execute_audit_script(filename, area):
     source = (AUDIT / filename).read_text().replace('/root/audit/soundness-2026-11-11', str(area))
     namespace = {'__file__': str(AUDIT / filename), '__name__': 'audit_script'}
-    if filename in ['collect-references.py', 'frozen-references.py']:
+    if filename in ['collect-references.py', 'frozen-references.py', 'annotate-references.py']:
         exec(compile(source, str(AUDIT / filename), 'exec'), namespace)
         namespace['main'](area)
     else:
@@ -131,10 +131,11 @@ class RoundNine(unittest.TestCase):
                 stale = json.loads(json.dumps(selected))
                 for row in stale:
                     row['category'] = 'engineering_reference'
+                    row['models'] = []
                 (area / 'reference-comparisons.json').write_text(json.dumps({'rows': stale}))
                 execute_audit_script(script, area)
                 result = json.loads((area / 'reference-comparisons.json').read_text())
-                self.assertEqual(result['coverage_counts'], {'engineering_reference': 6, 'self_consistency': 8})
+                self.assertEqual(result.get('coverage_counts'), {'engineering_reference': 6, 'self_consistency': 8})
                 self.assertEqual(result.get('frozen_primary_comparisons', []), [])
                 for row in result['rows']:
                     if 'benchmark_q9_' in row['test']:
@@ -170,11 +171,11 @@ class RoundNine(unittest.TestCase):
                     result = self.gallery([a], [b])
                     self.assertEqual(result['drift'][0]['references'], [])
                     self.assertEqual(result['farther_from_reference'], [])
-                    self.assertEqual(result['changed_reference_targets'], [dict(case='site-control', quantity='control',
+                    self.assertEqual(result.get('changed_reference_targets', 'missing target-change inventory'), [dict(case='site-control', quantity='control',
                                      before_reference=a.get('reference'), after_reference=b.get('reference'))])
         for a, b in [([before], []), ([], [before])]:
             result = self.gallery(a, b)
-            self.assertEqual(len(result['changed_reference_targets']), 1)
+            self.assertEqual(len(result.get('changed_reference_targets', 'missing target-change inventory')), 1)
             self.assertEqual(result['drift'][0]['references'], [])
 
     @unittest.skip('known wrong result: #1946')
@@ -196,7 +197,7 @@ class RoundNine(unittest.TestCase):
         for a, b, farther in [(before, before, False), (before, after, True), (after, before, False)]:
             with self.subTest(a=a, b=b):
                 result = self.gallery(a, b)
-                self.assertEqual(result['changed_reference_targets'], [])
+                self.assertEqual(result.get('changed_reference_targets', 'missing target-change inventory'), [])
                 row = result['drift'][0]['references'][0]
                 self.assertEqual((row['before'], row['after'], row['reference']), (a[0]['value'], b[0]['value'], -2))
                 self.assertEqual((row['before_error'], row['after_error']), (abs(a[0]['value'] + 2), abs(b[0]['value'] + 2)))
