@@ -393,4 +393,60 @@ mod tests {
         }
     }
 
+    fn member_action_cases(kind: &str, which: usize, dimension: usize) {
+        for (index, load) in [
+            serde_json::json!({"type":"distributed","data":{"elementId":1,"qI":-3.0,"qJ":5.0,"a":0.5,"b":1.5}}),
+            serde_json::json!({"type":"pointOnElement","data":{"elementId":1,"p":-3.0,"px":5.0,"a":0.5}}),
+            serde_json::json!({"type":"axialDistributed","data":{"elementId":1,"qI":-3.0,"qJ":5.0,"a":0.5,"b":1.5}}),
+            serde_json::json!({"type":"thermal","data":{"elementId":1,"dtUniform":3.0,"dtGradient":0.0}}),
+        ].into_iter().enumerate() {
+            if which != index { continue; }
+            let mut input = beam(false);
+            input.elements.get_mut("1").unwrap().elem_type = kind.into();
+            input.loads = serde_json::from_value(serde_json::json!([load])).unwrap();
+            let mut r = super::super::linear::solve_2d(&input).unwrap();
+            let dof = DofNumbering::build_2d(&input);
+            if dimension == 2 {
+            member_balance_2d(&input, &input.loads, &dof, &conditional(), &r, None).unwrap();
+            r.element_forces.iter_mut().find(|f| f.element_id == 1).unwrap().n_end += 1.0;
+            assert_eq!(member_balance_2d(&input, &input.loads, &dof, &conditional(), &r, None).unwrap_err(), conditional().conditioning_refusal());
+            } else {
+            for plane in [crate::metamorphic::planes::Plane::XZ, crate::metamorphic::planes::Plane::XY, crate::metamorphic::planes::Plane::YZ] {
+                let input = crate::metamorphic::planes::embed_2d(&input, plane).unwrap();
+                let mut r = super::super::linear::solve_3d(&input).unwrap();
+                let dof = DofNumbering::build_3d(&input);
+                member_balance_3d(&input, &input.loads, &dof, &conditional(), &r, None).unwrap();
+                r.element_forces.iter_mut().find(|f| f.element_id == 1).unwrap().n_end += 1.0;
+                assert_eq!(member_balance_3d(&input, &input.loads, &dof, &conditional(), &r, None).unwrap_err(), conditional().conditioning_refusal());
+            }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1969"]
+    fn truss_distributed_actions_2d() { for kind in ["truss"] { member_action_cases(kind, 0, 2); } }
+
+    #[test]
+    #[ignore = "known wrong result: #1969"]
+    fn truss_distributed_actions_3d() { for kind in ["truss"] { member_action_cases(kind, 0, 3); } }
+
+    #[test]
+    #[ignore = "known wrong result: #1969"]
+    fn truss_point_actions_2d() { for kind in ["truss"] { member_action_cases(kind, 1, 2); } }
+
+    #[test]
+    #[ignore = "known wrong result: #1969"]
+    fn truss_point_actions_3d() { for kind in ["truss"] { member_action_cases(kind, 1, 3); } }
+
+    #[test]
+    fn axial_and_thermal_actions_still_balance() {
+        for kind in ["truss"] { for load in [2, 3] { for dimension in [2, 3] { member_action_cases(kind, load, dimension); } } }
+    }
+
+    #[test]
+    fn frame_member_actions_pass_but_corrupted_axial_forces_refuse() {
+        for load in 0..4 { for dimension in [2, 3] { member_action_cases("frame", load, dimension); } }
+    }
+
 }

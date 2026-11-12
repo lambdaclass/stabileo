@@ -887,3 +887,8 @@ test.engine.buckling-818-wasm: wasm
 test.engine.frozen-shell-refusals: wasm
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib frozen_shell_refusals -- --nocapture
 	$(NIX_RUN) node scripts/tests/frozen-shell-refusals-wasm.mjs
+
+.PHONY: test.engine.truss-balance-1969-wasm
+
+test.engine.truss-balance-1969-wasm: wasm
+	$(NIX_RUN) node scripts/tests/truss-balance-1969-wasm.mjs
