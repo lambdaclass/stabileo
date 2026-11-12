@@ -317,7 +317,7 @@ describe('edited projects with older provenance', () => {
     expect(store.stale).toBe(false);
   });
 
-  it.skip('known wrong result: #1952: opening ordinary linear frames excludes staged path corrections', async () => {
+  it('known wrong result: #1952: opening ordinary linear frames excludes staged path corrections', async () => {
     for (const analysisMode of ['2d', '3d', 'pro']) {
       const store = createRecheckStore();
       store.openProject({ ...frame(), analysisMode, solvedWith: { ...oldStamp(), resultsVersion: 30 } }, analysisMode);

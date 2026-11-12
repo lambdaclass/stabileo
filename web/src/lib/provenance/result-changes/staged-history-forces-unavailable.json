@@ -6,9 +6,14 @@
   ],
   "area": "analysis",
   "when": {
-    "any": [
-      "members",
-      "shells"
+    "allOf": [
+      [
+        "members",
+        "shells"
+      ],
+      [
+        "pathAnalysis"
+      ]
     ]
   },
   "quantities": [

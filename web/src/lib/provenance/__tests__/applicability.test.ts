@@ -831,7 +831,7 @@ it('known wrong result: #1952: merged path registry covers every changed frozen 
 describe('staged history path applicability (#1952)', () => {
   const entry = RESULT_CHANGES.changes.find(c => c.id === 'staged-history-forces-unavailable')!;
 
-  it.skip('known wrong result: #1952: ordinary frames and shells never acquire staged path notices', () => {
+  it('known wrong result: #1952: ordinary frames and shells never acquire staged path notices', () => {
     for (const analysisMode of ['2d', '3d', 'pro']) {
       for (const structure of [{ elements: [member(1, 1, 'frame')] }, { quads: [[1, {}]] as never }]) {
         const snapshot = model({ ...structure, analysisMode });

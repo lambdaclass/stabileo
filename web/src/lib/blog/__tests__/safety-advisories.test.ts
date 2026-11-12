@@ -1,3 +1,4 @@
+import mergedValueAudit from '../../../../../docs/results-changes/1952-main-merge-values.json';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { findPost } from '..';
@@ -38,7 +39,17 @@ describe('safety-advisories SA-2026-061', () => {
       expect(r.before.reactions).toEqual([]);
       expect(r.before.notices.every((n: { value: unknown[] }) => n.value.length === 0)).toBe(true);
       expect(r.after.reactions.length).toBeGreaterThan(0);
-      expect(r.after.finalLoadFactor).toBe(r.before.finalLoadFactor);
+      const audited = mergedValueAudit.artifacts
+        .filter(a => a.file === 'docs/advisories/replays/SA-2026-061.json' && a.record === id)
+        .flatMap(a => a.changes).filter(c => c.path === '$.finalLoadFactor');
+      if (id === 'displacement-member-loads') {
+        expect(audited).toHaveLength(1);
+        expect(r.before.finalLoadFactor).toBe(audited[0]!.before);
+        expect(r.after.finalLoadFactor).toBe(audited[0]!.after);
+      } else {
+        expect(audited).toEqual([]);
+        expect(r.after.finalLoadFactor).toBe(r.before.finalLoadFactor);
+      }
     }
     const control = record('linear-member-loads');
     expect(control.before.elementForces).toEqual(control.after.elementForces);

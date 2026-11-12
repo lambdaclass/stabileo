@@ -51,3 +51,10 @@ member forces and unbalanced removal reactions silently in both dimensions.
 The replay input/output pairs, source revision, exact commands and observed
 numbers are recorded in the untracked round-11 handoff and evidence files for
 the coordinator. No advisory was added or modified in this round.
+
+The staged history registry entry requires both members or shells and explicit
+`pathAnalysis` context. Structural elements alone do not imply a saved path
+analysis: ordinary linear frames and shells receive no staged history notice.
+This uses the existing path feature shared by path result registrations, while
+retaining the `stages` and `finalResults` quantity limits. The metadata correction
+changes no engine result and does not expand the P-Delta entry.

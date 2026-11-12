@@ -98,7 +98,7 @@ describe('analysis-scoped reaction quantities (#1952)', () => {
 });
 
 describe('staged history quantity scope (#1952)', () => {
-  it.skip('known wrong result: #1952: staged fields require path context through the snapshot gate', () => {
+  it('known wrong result: #1952: staged fields require path context through the snapshot gate', () => {
     for (const dimension of ['plane2D', 'space3D']) {
       for (const structure of ['members', 'shells']) {
         for (const path of ['stages[0].results.reactions.length', 'finalResults.elementForces.length']) {
@@ -323,15 +323,14 @@ describe('against real corpus files', () => {
         expect(opened.changes.map((c) => c.id)).toEqual(orderedIds([
           'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
-          'staged-history-forces-unavailable',
           'harmonic-modal-residual-checked', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
         ]));
 
-      function assertMainNoticeOrder(opened: { changes: ResultChange[] }) {
-        if (mainFirst) expect(opened.changes.slice(-8).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
-      }
-        assertMainNoticeOrder({ changes: opened.changes.filter(c => c.id !== 'staged-history-forces-unavailable') });
+        function assertMainNoticeOrder(opened: { changes: ResultChange[] }) {
+          if (mainFirst) expect(opened.changes.slice(-8).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        }
+        assertMainNoticeOrder(opened);
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
         const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;
