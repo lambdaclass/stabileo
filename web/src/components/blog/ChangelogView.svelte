@@ -105,6 +105,13 @@
                     <ul class="cl-items">
                       {#each g.items as item, i (i)}<li>{item}</li>{/each}
                     </ul>
+                    {#if g.area === 'engine' && entry.advisories}
+                      <p>
+                        {#each entry.advisories as advisory, i (advisory.id)}
+                          {#if i > 0} · {/if}<a href={advisory.href}>{advisory.id}</a>
+                        {/each}
+                      </p>
+                    {/if}
                   </div>
                 {/each}
                 {#if entry.shot}
