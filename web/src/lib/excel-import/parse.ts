@@ -426,8 +426,8 @@ function boxToModel(f: AxesFrame, region: MassWeight['region']): MassWeight['reg
     const range = region[keys[i]!];
     if (!range) return;
     const m = row.findIndex((c) => c !== 0);
-    const s = row[m]!;
-    const a = s * range[0] + 0, b = s * range[1] + 0;
+    const sign = row[m]!;
+    const a = sign * range[0] + 0, b = sign * range[1] + 0;
     out[keys[m]!] = a <= b ? [a, b] : [b, a];
   });
   return out;
