@@ -6,6 +6,7 @@ class MohrPanel {
   plane = $state<Mohr2DState>({ ...DEFAULT_2D });
   space = $state<Mohr3DState>({ ...DEFAULT_3D, s: { ...DEFAULT_3D.s } });
   fromModel = $state(false);
+  opener: { element: HTMLElement; testid?: string } | null = null;
 }
 
 export const mohrPanel = new MohrPanel();
@@ -15,6 +16,8 @@ export function openMohr(options: { kind?: MohrKind; plane?: Mohr2DState; space?
   if (options.space) mohrPanel.space = { ...options.space, s: { ...options.space.s } };
   mohrPanel.kind = options.kind ?? mohrPanel.kind;
   mohrPanel.fromModel = options.fromModel ?? false;
+  const active = typeof document === 'undefined' ? null : document.activeElement;
+  if (!mohrPanel.open) mohrPanel.opener = active instanceof HTMLElement && active !== document.body ? { element: active, testid: active.dataset.testid } : null;
   mohrPanel.open = true;
 }
 

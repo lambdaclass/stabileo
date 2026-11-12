@@ -1,4 +1,4 @@
-import { test, expect, loadModel } from './fixtures';
+import { test, expect, loadModel, pickLanguage } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -106,8 +106,12 @@ test('@smoke the 3D tool solves the presets, picks planes and opens the app with
   await expect(page.getByTestId('mohr3d-principal-label')).toHaveText('σ₁ = σ₂ = σ₃ = -60.00');
   await page.getByTestId('mohr3d-preset-general').click();
   await page.getByTestId('mohr3d-octahedral').click();
-  await expect(page.getByTestId('mohr3d-n')).toHaveText('(0.577; 0.577; 0.577)');
-  expect(await number(page, 'mohr3d-sn')).toBeCloseTo(46.67, 2);
+  await expect(page.getByTestId('mohr3d-octahedral')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('mohr3d-octahedral')).toHaveAttribute('title', /principal/);
+  await expect(page.getByTestId('mohr3d-sn')).toHaveText(await page.getByTestId('mohr3d-mean').textContent() ?? '');
+  const [p1, p2, p3] = [await number(page, 'mohr3d-s1'), await number(page, 'mohr3d-s2'), await number(page, 'mohr3d-s3')];
+  expect(await number(page, 'mohr3d-sn')).toBeCloseTo(70 / 3, 2);
+  expect(await number(page, 'mohr3d-tn')).toBeCloseTo(Math.sqrt((p1 - p2) ** 2 + (p2 - p3) ** 2 + (p3 - p1) ** 2) / 3, 1);
 
   const sphere = page.getByTestId('mohr3d-sphere');
   const box = (await sphere.boundingBox())!;
@@ -281,6 +285,54 @@ test('@smoke the case tiles load their tensor, mark the one that matches and mov
   await expect(page.getByTestId('mohr3d-xy')).toHaveValue('50');
 });
 
+test('@smoke switching the page language moves the Mohr labels and the number format with it', async ({ page }) => {
+  await page.goto('/es/tools/mohr-2d/');
+  const kicker = page.locator('[data-testid="mohr2d"] .mh-kicker').first();
+  await expect(kicker).toHaveText('Tensiones en el punto');
+  await expect(page.getByTestId('mohr2d-s1')).toHaveText('92,43');
+  await pickLanguage(page, 'nav-lang', 'en');
+  await expect(page).toHaveURL(/\/en\/tools\/mohr-2d\/$/);
+  await expect(kicker).toHaveText('Stress at the point');
+  await expect(page.getByTestId('mohr2d-s1')).toHaveText('92.43');
+  await pickLanguage(page, 'nav-lang', 'de');
+  await expect(kicker).toHaveText('Spannungen im Punkt');
+  await expect(page.getByTestId('mohr2d-s1')).toHaveText('92,43');
+});
+
+test('@smoke the 2θ arc still shows when the element turns a full 180°', async ({ page }) => {
+  for (const th of ['180', '-180', '90']) {
+    await page.goto(`/en/tools/mohr-2d/?th=${th}`);
+    const arc = page.locator('[data-testid="mohr2d-circle"] path.mh-arc').first();
+    const d = (await arc.getAttribute('d'))!;
+    expect(d.match(/A/g)).toHaveLength(2);
+    const size = await arc.evaluate((p) => { const b = (p as SVGPathElement).getBBox(); return Math.min(b.width, b.height); });
+    expect(size).toBeGreaterThan(20);
+  }
+});
+
+test('@smoke dragging a field label back to a valid value clears its error', async ({ page }) => {
+  await page.goto('/en/tools/mohr-2d/');
+  const field = page.getByTestId('mohr2d-sx');
+  await field.fill('abc');
+  await expect(field).toHaveAttribute('aria-invalid', 'true');
+  const label = (await page.locator('[data-testid="mohr2d"] .mh-field-label', { hasText: 'σx' }).boundingBox())!;
+  await page.mouse.move(label.x + label.width / 2, label.y + label.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(label.x + label.width / 2 + 31, label.y + label.height / 2, { steps: 4 });
+  await page.mouse.up();
+  await expect(field).toHaveAttribute('aria-invalid', 'false');
+  await expect(field).toHaveValue('85');
+  await expect(page.getByTestId('mohr2d-s1')).not.toHaveText('92.43');
+});
+
+test('@smoke the app dialog links to the public tool in the language the app is in', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('stabileo-lang', 'es'); localStorage.setItem('stabileo-lang-manual', '1'); } catch { return; } });
+  await page.goto('/app/basic?mohr=plane&sx=80&sy=20&txy=30&e2e=1');
+  await expect(page.getByTestId('mohr-dialog')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('mohr-public-link')).toHaveAttribute('href', /^\/es\/tools\/mohr-2d\/\?/);
+  await expect(page.locator('[data-testid="mohr-dialog"] .mh-kicker').first()).toHaveText('Tensiones en el punto');
+});
+
 test('@smoke a link written before stresses were kept in MPa still opens with the numbers it showed', async ({ page }) => {
   await page.goto('/en/tools/mohr-2d/?sx=100&sy=20&txy=30&u=kncm2');
   await expect(page.getByTestId('mohr2d-sx')).toHaveValue('100');
@@ -363,6 +415,21 @@ test('@smoke the advanced list opens the Mohr function, and the section analysis
   const dialog = page.getByTestId('mohr-dialog');
   await expect(dialog).toBeVisible();
   await expect(page.getByTestId('mohr-from-model')).toHaveCount(0);
+  await expect(page.getByTestId('mohr-close')).toBeFocused();
+  const inside = () => page.evaluate(() => !!document.activeElement?.closest('[data-testid="mohr-dialog"]'));
+  for (let i = 0; i < 45; i++) {
+    await page.keyboard.press('Tab');
+    expect(await inside()).toBe(true);
+  }
+  for (let i = 0; i < 12; i++) {
+    await page.keyboard.press('Shift+Tab');
+    expect(await inside()).toBe(true);
+  }
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByTestId('adv-mohr')).toBeFocused();
+  await page.getByTestId('adv-mohr').click();
+  await expect(dialog).toBeVisible();
   await page.getByTestId('mohr-close').click();
   await expect(dialog).toHaveCount(0);
 

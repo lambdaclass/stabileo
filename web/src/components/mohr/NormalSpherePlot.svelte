@@ -9,6 +9,7 @@
   import type { Unit } from '../../lib/mohr/state';
   import { tm, formatter } from './i18n';
   import type { Focus3D } from './focus';
+  import { frameCoalescer } from '../../lib/mohr/frame-coalescer';
 
   let { s, n, principal, settings, unit, onpick, alpha = $bindable(SPHERE_VIEW.alpha), beta = $bindable(SPHERE_VIEW.beta), focus = null, fit = false, digits = 2 }: {
     s: Tensor3; n: Vec3; principal: Principal3; settings: SphereSettings; unit: Unit; onpick: (n: Vec3) => void; alpha?: number; beta?: number; focus?: Focus3D; fit?: boolean; digits?: number;
@@ -48,16 +49,11 @@
     };
   }
   const k = $derived((0.45 * settings.length) / peak);
-  const arrows = $derived.by(() => {
-    const out: Arrow[] = [];
-    for (const m of samples) {
-      const t = traction(s, m);
-      const sn = dot(t, m);
-      const tip: Vec3 = [m[0] + k * t[0], m[1] + k * t[1], m[2] + k * t[2]];
-      out.push({ ...arrowPath(m, tip, 3.2), colour: divergingColor(sn, colourRange), z: dot(m, basis.c) });
-    }
-    return out.sort((a, b) => a.z - b.z);
-  });
+  const field = $derived(samples.map((m) => {
+    const t = traction(s, m);
+    return { m, tip: [m[0] + k * t[0], m[1] + k * t[1], m[2] + k * t[2]] as Vec3, colour: divergingColor(dot(t, m), colourRange) };
+  }));
+  const arrows = $derived(field.map((f): Arrow => ({ ...arrowPath(f.m, f.tip, 3.2), colour: f.colour, z: dot(f.m, basis.c) })).sort((a, b) => a.z - b.z));
   const back = $derived(arrows.filter((a) => a.z < 0));
   const front = $derived(arrows.filter((a) => a.z >= 0));
 
@@ -123,12 +119,17 @@
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
     drag.moved = true;
-    alpha -= dx * 0.5;
-    beta = Math.max(-89, Math.min(89, beta + dy * 0.5));
+    turn.add(dx, dy);
     drag.x = e.clientX; drag.y = e.clientY;
   }
+  const turn = frameCoalescer((dx, dy) => {
+    alpha -= dx * 0.5;
+    beta = Math.max(-89, Math.min(89, beta + dy * 0.5));
+  });
+  $effect(() => () => turn.cancel());
   function up(e: PointerEvent) {
     if (!drag || drag.id !== e.pointerId) return;
+    turn.flush();
     const click = !drag.moved;
     drag = null;
     if (!click) return;
@@ -154,7 +155,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 <div class="mh-plot-box" bind:clientWidth={cw} bind:clientHeight={ch}>
 <svg bind:this={svg} class="mh-plot mh-sphere" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="application" aria-label={tm('mohr.sphereLabel')} tabindex="0" data-testid="mohr3d-sphere"
-  onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)} onkeydown={key}>
+  onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={() => { turn.cancel(); drag = null; }} onkeydown={key}>
   <defs>
     <linearGradient id={`${uid}-bar`} x1="0" x2="1" y1="0" y2="0">
       <stop offset="0" stop-color={divergingColor(-1, 1)} />

@@ -98,6 +98,16 @@ export function thetaOnCircle(angle: number, angleX: number, tauDown: boolean, c
   return best;
 }
 
+/**
+ * An SVG arc of radius `r` from angle `from` through `sweep` radians (screen angles, y down), drawn in two halves
+ * so that a full turn, whose ends coincide, still shows.
+ */
+export function arcPath(cx: number, cy: number, r: number, from: number, sweep: number): string {
+  const at = (a: number) => `${(cx + r * Math.cos(a)).toFixed(2)} ${(cy + r * Math.sin(a)).toFixed(2)}`;
+  const flag = sweep > 0 ? 1 : 0;
+  return `M${at(from)} A${r} ${r} 0 0 ${flag} ${at(from + sweep / 2)} A${r} ${r} 0 0 ${flag} ${at(from + sweep)}`;
+}
+
 /** `theta` pulled onto the nearest of `targets` within `tolerance` degrees, measured around the circle. */
 export function snapAngle(theta: number, targets: number[], tolerance: number): number {
   let best = theta, gap = tolerance;

@@ -17,15 +17,36 @@
   const publicLink = $derived(`${publicHref(TOOL_PATH[mohrPanel.kind], publicI18n.locale)}?${encodeState(mohrPanel.kind, mohrPanel.kind === 'plane' ? mohrPanel.plane : mohrPanel.space)}`);
   const kinds: MohrKind[] = ['plane', 'space'];
 
-  $effect(() => { void tick().then(() => closeButton?.focus()); });
+  let dialog = $state<HTMLDivElement>();
+  const opener = mohrPanel.opener;
+  function returnTarget(): HTMLElement | null {
+    if (!opener) return null;
+    if (opener.element.isConnected) return opener.element;
+    return opener.testid ? document.querySelector<HTMLElement>(`[data-testid="${CSS.escape(opener.testid)}"]`) : null;
+  }
+  $effect(() => {
+    void tick().then(() => closeButton?.focus());
+    return () => { void tick().then(() => returnTarget()?.focus()); };
+  });
+
+  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+  function focusables(): HTMLElement[] {
+    return dialog ? [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.getClientRects().length > 0) : [];
+  }
   function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') { e.stopPropagation(); closeMohr(); }
+    if (e.key === 'Escape') { e.stopPropagation(); closeMohr(); return; }
+    if (e.key !== 'Tab') return;
+    const items = focusables();
+    if (items.length === 0) return;
+    const first = items[0], last = items[items.length - 1], active = document.activeElement;
+    if (e.shiftKey && (active === first || !dialog?.contains(active))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (active === last || !dialog?.contains(active))) { e.preventDefault(); first.focus(); }
   }
 </script>
 
 <div class="mh-overlay">
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-  <div class="mh-shell mh-dialog" class:fit={roomy.current} role="dialog" aria-modal="true" aria-labelledby="mh-dialog-title" tabindex="-1" onkeydown={onKey} data-testid="mohr-dialog" data-kind={mohrPanel.kind}>
+  <div bind:this={dialog} class="mh-shell mh-dialog" class:fit={roomy.current} role="dialog" aria-modal="true" aria-labelledby="mh-dialog-title" tabindex="-1" onkeydown={onKey} data-testid="mohr-dialog" data-kind={mohrPanel.kind}>
     <header class="mh-dialog-head">
       <h2 id="mh-dialog-title">{tm(mohrPanel.kind === 'plane' ? 'mohr.title2d' : 'mohr.title3d')}</h2>
       <div class="mh-toolbar">

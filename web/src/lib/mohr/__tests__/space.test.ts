@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PRESETS, principal3, invariants3, onPlane, normalFromAngles, anglesFromNormal, OCTAHEDRAL, sphereSamples, matrixOf, planeBasis, planeThroughCube, splitTraction, maxShearNormal, type Vec3, type Tensor3 } from '../space';
+import { PRESETS, principal3, invariants3, onPlane, normalFromAngles, anglesFromNormal, octahedralNormal, octahedralShear, sphereSamples, matrixOf, planeBasis, planeThroughCube, splitTraction, maxShearNormal, type Vec3, type Tensor3 } from '../space';
 
 const close = (a: number[], b: number[], digits = 9) => a.forEach((v, i) => expect(v).toBeCloseTo(b[i], digits));
 const r = Math.SQRT1_2;
@@ -104,15 +104,30 @@ describe('traction on a plane', () => {
     expect(p.tauN).toBeCloseTo(Math.hypot(10, 15), 12);
   });
 
-  it('the octahedral plane', () => {
-    const n = normalFromAngles(OCTAHEDRAL.phi, OCTAHEDRAL.theta);
-    close(n, [1 / Math.sqrt(3), 1 / Math.sqrt(3), 1 / Math.sqrt(3)], 12);
-    const p = onPlane(s, n);
-    expect(p.sigmaN).toBeCloseTo(140 / 3, 9);
-    expect(p.tauN).toBeCloseTo(52.6519, 3);
-    const principalOct = onPlane({ xx: 100, yy: 50, zz: -40, xy: 0, xz: 0, yz: 0 }, n);
-    expect(principalOct.sigmaN).toBeCloseTo(110 / 3, 9);
-    expect(principalOct.tauN).toBeCloseTo(Math.sqrt((50 ** 2 + 90 ** 2 + 140 ** 2)) / 3, 9);
+  it('the octahedral plane is taken on the principal axes: σn is the mean stress and τn the octahedral shear', () => {
+    const cases: Tensor3[] = [
+      s,
+      { xx: 100, yy: 50, zz: -40, xy: 0, xz: 0, yz: 0 },
+      { xx: -12, yy: 7, zz: 3, xy: -9, xz: 4, yz: 11 },
+      ...Object.values(PRESETS),
+      { xx: 30, yy: 30, zz: -10, xy: 0, xz: 0, yz: 0 },
+      { xx: 5, yy: 5, zz: 5, xy: 2, xz: 2, yz: 2 },
+      { xx: 0, yy: 0, zz: 0, xy: 0, xz: 0, yz: 0 },
+    ];
+    for (const t of cases) {
+      const p = principal3(t);
+      const n = octahedralNormal(p.directions);
+      expect(Math.hypot(...n)).toBeCloseTo(1, 12);
+      expect(n[2]).toBeGreaterThanOrEqual(0);
+      for (const d of p.directions) expect(Math.abs(d[0] * n[0] + d[1] * n[1] + d[2] * n[2])).toBeCloseTo(1 / Math.sqrt(3), 9);
+      const on = onPlane(t, n);
+      const scale = Math.max(1, ...Object.values(t).map(Math.abs));
+      expect(Math.abs(on.sigmaN - invariants3(t).mean)).toBeLessThan(1e-9 * scale);
+      expect(Math.abs(on.tauN - octahedralShear(p.values))).toBeLessThan(1e-7 * scale);
+    }
+    expect(onPlane(s, octahedralNormal(principal3(s).directions)).sigmaN).toBeCloseTo(70 / 3, 9);
+    expect(octahedralShear([100, 50, -40])).toBeCloseTo(Math.sqrt(50 ** 2 + 90 ** 2 + 140 ** 2) / 3, 12);
+    expect(octahedralShear([-60, -60, -60])).toBe(0);
   });
 
   it('the plane at φ = 30°, θ = 60°', () => {
@@ -156,7 +171,7 @@ describe('plane angles', () => {
 describe('the cutting plane on the element', () => {
   const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   it('a face plane cuts the cube in a square, the octahedral plane in a hexagon, all points on the plane and in order', () => {
-    for (const [n, count] of [[[1, 0, 0], 4], [[0, 0, 1], 4], [normalFromAngles(OCTAHEDRAL.phi, OCTAHEDRAL.theta), 6], [[r, r, 0], 4], [normalFromAngles(30, 60), 6]] as [Vec3, number][]) {
+    for (const [n, count] of [[[1, 0, 0], 4], [[0, 0, 1], 4], [[1 / Math.sqrt(3), 1 / Math.sqrt(3), 1 / Math.sqrt(3)], 6], [[r, r, 0], 4], [normalFromAngles(30, 60), 6]] as [Vec3, number][]) {
       const poly = planeThroughCube(n, 2);
       expect(poly).toHaveLength(count);
       for (const p of poly) {

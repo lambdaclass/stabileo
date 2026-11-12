@@ -1,6 +1,7 @@
 <script lang="ts">
   import { planeThroughCube, splitTraction, type Tensor3, type Vec3 } from '../../lib/mohr/space';
   import { tm } from './i18n';
+  import { frameCoalescer } from '../../lib/mohr/frame-coalescer';
 
   let { s, n, peak, alpha = $bindable(), beta = $bindable(), fit = false }: { s: Tensor3; n: Vec3; peak: number; alpha: number; beta: number; fit?: boolean } = $props();
 
@@ -89,15 +90,19 @@
   function down(e: PointerEvent) { drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; (e.currentTarget as Element).setPointerCapture?.(e.pointerId); }
   function move(e: PointerEvent) {
     if (!drag || drag.id !== e.pointerId) return;
-    alpha -= (e.clientX - drag.x) * 0.5;
-    beta = Math.max(-89, Math.min(89, beta + (e.clientY - drag.y) * 0.5));
+    turn.add(e.clientX - drag.x, e.clientY - drag.y);
     drag.x = e.clientX; drag.y = e.clientY;
   }
+  const turn = frameCoalescer((dx, dy) => {
+    alpha -= dx * 0.5;
+    beta = Math.max(-89, Math.min(89, beta + dy * 0.5));
+  });
+  $effect(() => () => turn.cancel());
 </script>
 
 <div class="mh-plot-box" bind:clientWidth={cw} bind:clientHeight={ch}>
 <svg class="mh-plot mh-sphere" viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={tm('mohr.cubeLabel')} data-testid="mohr3d-cube"
-  onpointerdown={down} onpointermove={move} onpointerup={() => (drag = null)} onpointercancel={() => (drag = null)}>
+  onpointerdown={down} onpointermove={move} onpointerup={() => { turn.flush(); drag = null; }} onpointercancel={() => { turn.cancel(); drag = null; }}>
   <path class="mh-cube-edge-back" d={edges.back} />
   {#each faces as f, i (i)}<polygon class="mh-cube-face" points={f} />{/each}
   <polygon class="mh-cut" points={cut} data-testid="mohr3d-cut" />

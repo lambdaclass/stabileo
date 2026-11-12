@@ -10,6 +10,6 @@
   <h3>{tm('mohr.conventions')}</h3>
   <p>{tm('mohr.sign')}</p>
   {#each [1, 2, 3, 4] as i (i)}<p>{tm(`mohr.help${kind === 'plane' ? 'Plane' : 'Space'}.${i}`)}</p>{/each}
-  {#if kind === 'plane'}<p>{tm('mohr.tauDownHelp')}</p>{:else}<p>{tm('mohr.anglesNote')}</p>{/if}
+  {#if kind === 'plane'}<p>{tm('mohr.tauDownHelp')}</p>{:else}<p>{tm('mohr.anglesNote')}</p><p>{tm('mohr.octahedralNote')}</p>{/if}
   <p>{tm('mohr.unitNote')}</p>
 </section>

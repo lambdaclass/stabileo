@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeMohrCircle, principalPlane, rotatePlane } from '../plane';
-import { thetaOnCircle, snapAngle, roundTo } from '../plot';
+import { thetaOnCircle, snapAngle, roundTo, arcPath } from '../plot';
 import { computeMohrCircle as fromSectionStress } from '../../engine/section-stress';
 
 describe('plane stress', () => {
@@ -95,5 +95,27 @@ describe('dragging X′ around the circle', () => {
     expect(snapAngle(18, [22.5], 2)).toBe(18);
     expect(snapAngle(-179.5, [180], 1)).toBe(180);
     expect(roundTo(12.3456, 0.5)).toBe(12.5);
+  });
+});
+
+describe('the 2θ arc', () => {
+  const points = (d: string) => [...d.matchAll(/(-?\d+\.\d+) (-?\d+\.\d+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  it('a full turn is two half arcs that meet where they started', () => {
+    for (const sweep of [2 * Math.PI, -2 * Math.PI]) {
+      const d = arcPath(100, 100, 30, 0.3, sweep);
+      expect(d.match(/A/g)).toHaveLength(2);
+      const [start, mid, end] = points(d);
+      expect(Math.hypot(end[0] - start[0], end[1] - start[1])).toBeLessThan(0.02);
+      expect(Math.hypot(mid[0] - start[0], mid[1] - start[1])).toBeCloseTo(60, 1);
+    }
+  });
+  it('a quarter turn ends a quarter of the way round, on the side the sweep says', () => {
+    const [start, mid, end] = points(arcPath(0, 0, 10, 0, Math.PI / 2));
+    expect(start).toEqual([10, 0]);
+    expect(end[0]).toBeCloseTo(0, 2);
+    expect(end[1]).toBeCloseTo(10, 2);
+    expect(mid[0]).toBeCloseTo(10 * Math.SQRT1_2, 2);
+    expect(arcPath(0, 0, 10, 0, -1)).toContain(' 0 0 0 ');
+    expect(arcPath(0, 0, 10, 0, 1)).toContain(' 0 0 1 ');
   });
 });

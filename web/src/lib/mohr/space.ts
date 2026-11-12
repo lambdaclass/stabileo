@@ -37,8 +37,6 @@ export function anglesFromNormal(n: Vec3): { phi: number; theta: number } {
   return { phi, theta };
 }
 
-export const OCTAHEDRAL = { phi: 45, theta: Math.acos(1 / Math.sqrt(3)) / DEG };
-
 export function traction(s: Tensor3, n: Vec3): Vec3 {
   return [
     s.xx * n[0] + s.xy * n[1] + s.xz * n[2],
@@ -92,6 +90,23 @@ export function splitTraction(s: Tensor3, n: Vec3): { t: Vec3; normal: Vec3; she
   const { t, sigmaN, tauN } = onPlane(s, n);
   const normal: Vec3 = [sigmaN * n[0], sigmaN * n[1], sigmaN * n[2]];
   return { t, normal, shear: [t[0] - normal[0], t[1] - normal[1], t[2] - normal[2]], sigmaN, tauN };
+}
+
+/**
+ * The normal of an octahedral plane: equally inclined to the three principal directions, so σn is the mean stress
+ * and τn the octahedral shear. Of the eight, the one with a non-negative z component is returned.
+ */
+export function octahedralNormal(directions: [Vec3, Vec3, Vec3]): Vec3 {
+  const [a, b, c] = directions;
+  const v: Vec3 = [a[0] + b[0] + c[0], a[1] + b[1] + c[1], a[2] + b[2] + c[2]];
+  const l = Math.hypot(...v) || 1;
+  const sign = v[2] < -1e-12 ? -1 : 1;
+  return [(sign * v[0]) / l, (sign * v[1]) / l, (sign * v[2]) / l];
+}
+
+/** τoct = √((σ1 − σ2)² + (σ2 − σ3)² + (σ3 − σ1)²) / 3. */
+export function octahedralShear([s1, s2, s3]: [number, number, number]): number {
+  return Math.sqrt((s1 - s2) ** 2 + (s2 - s3) ** 2 + (s3 - s1) ** 2) / 3;
 }
 
 /** The normal of a plane of maximum shear: halfway between the σ1 and σ3 directions. */

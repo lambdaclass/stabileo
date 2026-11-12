@@ -1,6 +1,6 @@
 <script lang="ts">
   import './mohr.css';
-  import { PRESETS, principal3, invariants3, onPlane, normalFromAngles, anglesFromNormal, maxShearNormal, OCTAHEDRAL, type PresetId, type Tensor3, type Vec3 } from '../../lib/mohr/space';
+  import { PRESETS, principal3, invariants3, onPlane, normalFromAngles, anglesFromNormal, maxShearNormal, octahedralNormal, type PresetId, type Tensor3, type Vec3 } from '../../lib/mohr/space';
   import { UNITS, UNIT_DIGITS, UNIT_STEP, PER_MPA, type Mohr3DState } from '../../lib/mohr/state';
   import { tm, formatter } from './i18n';
   import NumberField from './NumberField.svelte';
@@ -48,6 +48,8 @@
     { key: 'z', phi: 0, theta: 0 },
   ];
   const isAt = (phi: number, theta: number) => Math.abs(value.theta - theta) < 0.05 && (theta === 0 || Math.abs(value.phi - phi) < 0.05);
+  const octahedral = $derived(octahedralNormal(principal.directions));
+  const onOctahedral = $derived(Math.abs(n[0] * octahedral[0] + n[1] * octahedral[1] + n[2] * octahedral[2]) > 1 - 1e-7);
   const keys = ['s1', 's2', 's3'] as const;
   const hover = (f: Focus3D) => ({ onpointerenter: () => (focus = f), onpointerleave: () => (focus = null) });
 </script>
@@ -87,7 +89,7 @@
           {#each faces as f (f.key)}
             <button type="button" class="mh-chip" aria-pressed={isAt(f.phi, f.theta)} onclick={() => { value.phi = f.phi; value.theta = f.theta; }} data-testid={`mohr3d-face-${f.key}`}>{tm('mohr.face', { axis: f.key })}</button>
           {/each}
-          <button type="button" class="mh-chip" aria-pressed={isAt(OCTAHEDRAL.phi, OCTAHEDRAL.theta)} onclick={() => { value.phi = OCTAHEDRAL.phi; value.theta = OCTAHEDRAL.theta; }} data-testid="mohr3d-octahedral">{tm('mohr.octahedral')}</button>
+          <button type="button" class="mh-chip" aria-pressed={onOctahedral} title={tm('mohr.octahedralNote')} onclick={() => pick(octahedral, 4)} data-testid="mohr3d-octahedral">{tm('mohr.octahedral')}</button>
         </div>
         <dl class="mh-current" aria-label={tm('mohr.cutting')}>
           <dt><span class="mh-sym">n</span> <span class="mh-current-vec" data-testid="mohr3d-n">{vec(n)}</span></dt>

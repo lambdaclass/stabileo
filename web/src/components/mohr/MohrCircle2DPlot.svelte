@@ -1,6 +1,6 @@
 <script lang="ts">
   import { principalPlane, rotatePlane } from '../../lib/mohr/plane';
-  import { equalFrame, gutter, ticks, thetaOnCircle, snapAngle, roundTo } from '../../lib/mohr/plot';
+  import { equalFrame, gutter, ticks, thetaOnCircle, snapAngle, roundTo, arcPath } from '../../lib/mohr/plot';
   import { wrapAngle, unitScales, type Unit } from '../../lib/mohr/state';
   import { tm, formatter } from './i18n';
   import type { Focus2D } from './focus';
@@ -61,11 +61,10 @@
     const ra = Math.min(Math.max(rPx * 0.32, 22), rPx * 0.7);
     const a1 = angleX + delta, mid = angleX + delta / 2;
     const at = (a: number, rr = ra) => ({ x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a) });
-    const s = at(angleX), e = at(a1);
     const tick = (a: number) => { const i = at(a, ra - 5), o = at(a, ra + 5); return `M${i.x} ${i.y}L${o.x} ${o.y}`; };
     const label = at(mid, ra + 16);
     return {
-      d: `M${s.x} ${s.y} A${ra} ${ra} 0 ${Math.abs(delta) > Math.PI ? 1 : 0} ${delta > 0 ? 1 : 0} ${e.x} ${e.y}`,
+      d: arcPath(cx, cy, ra, angleX, delta),
       ticks: tick(angleX) + tick(a1),
       lx: label.x, ly: label.y + 4,
       anchor: Math.abs(Math.cos(mid)) < 0.35 ? 'middle' : Math.cos(mid) > 0 ? 'start' : 'end',

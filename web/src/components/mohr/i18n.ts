@@ -107,6 +107,7 @@ const en: Dict = {
   'mohr.presetShort.shear': 'Pure shear',
   'mohr.presetShort.hydrostatic': 'Hydrostatic',
   'mohr.howTo': 'How to pick a plane',
+  'mohr.octahedralNote': 'Octahedral: the plane equally inclined to the three principal directions, where σn is the mean stress and τn the octahedral shear.',
 };
 
 const es: Dict = {
@@ -214,6 +215,7 @@ const es: Dict = {
   'mohr.presetShort.shear': 'Corte puro',
   'mohr.presetShort.hydrostatic': 'Hidrostático',
   'mohr.howTo': 'Cómo elegir un plano',
+  'mohr.octahedralNote': 'Octaédrico: el plano igualmente inclinado respecto de las tres direcciones principales; ahí σn es la tensión media y τn el corte octaédrico.',
 };
 
 const pt: Dict = {
@@ -321,6 +323,7 @@ const pt: Dict = {
   'mohr.presetShort.shear': 'Cisalhamento',
   'mohr.presetShort.hydrostatic': 'Hidrostático',
   'mohr.howTo': 'Como escolher um plano',
+  'mohr.octahedralNote': 'Octaédrico: o plano igualmente inclinado em relação às três direções principais; nele σn é a tensão média e τn o cisalhamento octaédrico.',
 };
 
 const de: Dict = {
@@ -428,6 +431,7 @@ const de: Dict = {
   'mohr.presetShort.shear': 'Reiner Schub',
   'mohr.presetShort.hydrostatic': 'Hydrostatisch',
   'mohr.howTo': 'So wählen Sie eine Ebene',
+  'mohr.octahedralNote': 'Oktaeder: die Ebene, die gegen alle drei Hauptrichtungen gleich geneigt ist; dort ist σn die mittlere Spannung und τn die Oktaederschubspannung.',
 };
 
 const fr: Dict = {
@@ -535,6 +539,7 @@ const fr: Dict = {
   'mohr.presetShort.shear': 'Cisaillement',
   'mohr.presetShort.hydrostatic': 'Hydrostatique',
   'mohr.howTo': 'Choisir un plan',
+  'mohr.octahedralNote': 'Octaédrique : le plan également incliné sur les trois directions principales ; σn y vaut la contrainte moyenne et τn le cisaillement octaédrique.',
 };
 
 const tr: Dict = {
@@ -642,6 +647,7 @@ const tr: Dict = {
   'mohr.presetShort.shear': 'Saf kayma',
   'mohr.presetShort.hydrostatic': 'Hidrostatik',
   'mohr.howTo': 'Düzlem nasıl seçilir',
+  'mohr.octahedralNote': 'Oktahedral: üç asal doğrultuya eşit eğimli düzlem; burada σn ortalama gerilme, τn oktahedral kayma gerilmesidir.',
 };
 
 export const mohrTranslations: Record<string, Dict> = { en, es, pt, de, fr, tr };

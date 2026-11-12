@@ -55,6 +55,7 @@
     if (!scrub || scrub.id !== e.pointerId) return;
     const steps = Math.round((e.clientX - scrub.x) / 6);
     value = clamp(tidy(scrub.start + steps * step * factor(e))) / scale;
+    invalid = false;
     text = show(value);
   }
 </script>
