@@ -107,6 +107,102 @@ class References(unittest.TestCase):
             self.assertEqual(data['knownWrong'][0]['path'], 'nonlinear.results.reactions')
 
 
+class RoundNine(unittest.TestCase):
+    @unittest.skip('known wrong result: #1946')
+    def test_loaded_arc_frozen_entry_discloses_main_defect_and_replacement(self):
+        data = json.loads((ROOT / 'web/results-frozen/solve_arc_length-0006e86e35791232.json').read_text())
+        self.assertEqual(data['values']['nonlinear.results.reactions.length'], 0)
+        self.assertEqual(data.get('knownWrong', [{}])[0].get('reason'), 'known wrong on main: #1949; PR #1952 replaces this')
+        self.assertEqual(data['knownWrong'][0]['path'], 'nonlinear.results.reactions')
+        self.assertEqual(data['knownWrong'][0]['issue'], 'https://github.com/lambdaclass/stabileo/issues/1949')
+        self.assertIn('known wrong on main: #1949; PR #1952 replaces this', AUDIT.with_suffix('.md').read_text())
+
+    @unittest.skip('known wrong result: #1946')
+    def test_q9_self_convergence_is_consistency_through_both_generators(self):
+        data = json.loads((AUDIT / 'reference-comparisons.json').read_text())
+        selected = [r for r in data['rows'] if r['test'].split('::')[-1] in
+                    ['benchmark_q9_hypar', 'benchmark_q9_spherical_cap', 'mattiasson_10']]
+        self.assertEqual(len(selected), 14)
+        for script in ['annotate-references.py', 'frozen-references.py']:
+            with self.subTest(script=script), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                area = Path(directory)
+                (area / 'base/engine/tests/benchmarks').mkdir(parents=True)
+                (area / 'base/engine/tests/benchmarks/macneal_harder.json').write_text('{"cases": []}')
+                stale = json.loads(json.dumps(selected))
+                for row in stale:
+                    row['category'] = 'engineering_reference'
+                (area / 'reference-comparisons.json').write_text(json.dumps({'rows': stale}))
+                execute_audit_script(script, area)
+                result = json.loads((area / 'reference-comparisons.json').read_text())
+                self.assertEqual(result['coverage_counts'], {'engineering_reference': 6, 'self_consistency': 8})
+                self.assertEqual(result.get('frozen_primary_comparisons', []), [])
+                for row in result['rows']:
+                    if 'benchmark_q9_' in row['test']:
+                        self.assertEqual(row['category'], 'self_consistency')
+                        self.assertEqual(row['reference_kind'], 'self convergence')
+                        self.assertIsNone(row['pr'])
+        self.assertEqual(data['coverage_counts']['self_consistency'], 12)
+        self.assertEqual(data['coverage_counts']['engineering_reference'], 325)
+
+    def gallery(self, before, after):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            area = Path(directory)
+            for endpoint, readouts in [('base', before), ('repo', after)]:
+                folder = area / f'{endpoint}-site-gallery'
+                folder.mkdir()
+                capture = dict(parameters={}, model={}, outcome=dict(status='ok', readouts=readouts))
+                (folder / 'site-control.json').write_text(json.dumps(capture))
+            execute_audit_script('finish-analysis.py', area)
+            return json.loads((area / 'site-gallery-diff.json').read_text())
+
+    @unittest.skip('known wrong result: #1946')
+    def test_gallery_changes_of_target_are_explicit_and_never_compared(self):
+        before = dict(key='control', value=2, reference=dict(value=2, source='synthetic control'))
+        variants = [dict(value=3, source='synthetic control'), dict(value=2, source='other source'),
+                    dict(value=2, source='synthetic control', selector={'node': 2})]
+        for reference in variants + [None]:
+            for reverse in [False, True]:
+                with self.subTest(reference=reference, reverse=reverse):
+                    after = dict(key='control', value=3)
+                    if reference is not None:
+                        after['reference'] = reference
+                    a, b = (after, before) if reverse else (before, after)
+                    result = self.gallery([a], [b])
+                    self.assertEqual(result['drift'][0]['references'], [])
+                    self.assertEqual(result['farther_from_reference'], [])
+                    self.assertEqual(result['changed_reference_targets'], [dict(case='site-control', quantity='control',
+                                     before_reference=a.get('reference'), after_reference=b.get('reference'))])
+        for a, b in [([before], []), ([], [before])]:
+            result = self.gallery(a, b)
+            self.assertEqual(len(result['changed_reference_targets']), 1)
+            self.assertEqual(result['drift'][0]['references'], [])
+
+    @unittest.skip('known wrong result: #1946')
+    def test_gallery_rejects_ambiguous_or_invalid_reference_evidence(self):
+        readout = dict(key='control', value=2, reference=dict(value=2, source='synthetic control'))
+        for invalid in [[readout, readout], [dict(readout, reference={})],
+                        [dict(readout, reference=dict(value=float('nan'), source='control'))],
+                        [dict(readout, value=float('inf'))]]:
+            for reverse in [False, True]:
+                with self.subTest(invalid=invalid, reverse=reverse):
+                    with self.assertRaises(ValueError):
+                        self.gallery(invalid if reverse else [readout], [readout] if reverse else invalid)
+
+    @unittest.skip('known wrong result: #1946')
+    def test_gallery_matching_targets_keep_signed_nonzero_answers_and_errors(self):
+        reference = dict(value=-2, source='synthetic control', selector={'node': 1})
+        before = [dict(key='control', value=-2, reference=reference)]
+        after = [dict(key='control', value=-3, reference=reference)]
+        for a, b, farther in [(before, before, False), (before, after, True), (after, before, False)]:
+            with self.subTest(a=a, b=b):
+                result = self.gallery(a, b)
+                self.assertEqual(result['changed_reference_targets'], [])
+                row = result['drift'][0]['references'][0]
+                self.assertEqual((row['before'], row['after'], row['reference']), (a[0]['value'], b[0]['value'], -2))
+                self.assertEqual((row['before_error'], row['after_error']), (abs(a[0]['value'] + 2), abs(b[0]['value'] + 2)))
+                self.assertEqual(bool(result['farther_from_reference']), farther)
+
+
 class FrozenRefusals(unittest.TestCase):
     def fixture(self, area, analysis, test):
         for endpoint in ['base', 'repo']:
