@@ -1905,3 +1905,102 @@ fn r11_pdelta_physical_residual(dim: usize) {
 fn issue_1952_r11_pdelta_physical_residual_2d() { r11_pdelta_physical_residual(2); }
 #[test]
 fn issue_1952_r11_pdelta_physical_residual_3d() { r11_pdelta_physical_residual(3); }
+
+fn r12_spring_answer(r: &Value, m: &Value, dim: usize, spring: f64, displacement: f64, load: f64) {
+    let length = m["nodes"]["1"]["x"].as_f64().unwrap();
+    let e = m["materials"]["1"]["e"].as_f64().unwrap();
+    let inertia = m["sections"]["1"][if dim == 2 {"iz"} else {"iy"}].as_f64().unwrap();
+    let beam = 2.0 * 3.0 * e * 1000.0 * inertia / length.powi(3);
+    let tol = 1e-9 * load.abs().max(1e-12);
+    let root = r["reactions"].as_array().unwrap().iter().find(|v| v["nodeId"] == 0).unwrap();
+    let root_force = root[if dim == 2 {"rz"} else {"fz"}].as_f64().unwrap();
+    assert!((root_force + beam * displacement).abs() < tol, "hand beam reaction: expected {} got {root_force}: {r}", -beam * displacement);
+    let total: f64 = r["reactions"].as_array().unwrap().iter().map(|v| v[if dim == 2 {"rz"} else {"fz"}].as_f64().unwrap()).sum();
+    assert!((total + load).abs() < tol, "hand total reaction: expected {} got {total}: {r}", -load);
+    let force = &r["elementForces"][0];
+    assert!((force[if dim == 2 {"vStart"} else {"vzStart"}].as_f64().unwrap().abs() - (beam * displacement / 2.0).abs()).abs() < tol, "hand member shear: {r}");
+    assert!((force[if dim == 2 {"mStart"} else {"myStart"}].as_f64().unwrap().abs() - (beam * displacement * length / 2.0).abs()).abs() < tol * length, "hand member moment: {r}");
+    assert!((total - root_force + spring).abs() < tol, "hand spring reaction: {r}");
+    assert!((beam * displacement + spring - load).abs() < tol);
+}
+
+fn r12_spring_history(dim: usize, change: &str) {
+    let cases: Vec<Value> = serde_json::from_str(include_str!("../../../fixtures/staged-springs-r12.json")).unwrap();
+    let case = cases.into_iter().find(|c| c["dim"] == dim && c["change"] == change).unwrap();
+    for padding in [0, 8, 9, 10, 19, 20, 21, 22] {
+    for scale in [-1.0, -1e-12, 0.0, 1e-12, 1.0] {
+    for load_before_change in [true, false] {
+        let mut m = case["model"].clone();
+        let slave = m["nodes"]["2"].clone();
+        m["nodes"].as_object_mut().unwrap().remove("2");
+        r11_pad(&mut m, dim, padding);
+        m["nodes"]["2"] = slave;
+        let load = m["loads"][0]["data"]["fz"].as_f64().unwrap() * scale;
+        m["loads"][0]["data"]["fz"] = json!(load);
+        if !load_before_change {
+            m["stages"][0]["loadIndices"] = json!([]);
+            m["stages"][1]["loadIndices"] = json!([0]);
+        }
+        let output = if dim == 2 {
+            json!(staged::solve_staged_2d(&serde_json::from_value(m.clone()).unwrap()).unwrap())
+        } else {
+            json!(staged::solve_staged_3d(&serde_json::from_value(m.clone()).unwrap()).unwrap())
+        };
+        let length = m["nodes"]["1"]["x"].as_f64().unwrap();
+        let beam = 2.0 * 3.0 * 1000.0 * m["materials"]["1"]["e"].as_f64().unwrap() * m["sections"]["1"][if dim == 2 {"iz"} else {"iy"}].as_f64().unwrap() / length.powi(3);
+        let weak = m["supports"]["1"][if dim == 2 {"ky"} else {"kz"}].as_f64().unwrap();
+        let strong = m["supports"]["2"][if dim == 2 {"ky"} else {"kz"}].as_f64().unwrap();
+        let before = if change == "added" {0.0} else {weak};
+        let after = match change {"removed" => 0.0, "changed" => strong, _ => weak};
+        let first_load = if load_before_change {load} else {0.0};
+        r12_spring_answer(&output["stages"][0]["results"], &m, dim, before * first_load / (beam + before), first_load / (beam + before), first_load);
+        let unavailable = change != "unchanged" && load_before_change && load != 0.0;
+        let displacement = if !load_before_change {load / (beam + after)} else {
+            match change {
+                "added" => load / beam,
+                "removed" => load / beam,
+                "changed" => load / (beam + before) + before * load / ((beam + before) * (beam + after)),
+                _ => load / (beam + after),
+            }
+        };
+        for r in [&output["stages"][1]["results"], &output["stages"][2]["results"], &output["finalResults"]] {
+            let diagnostics = r["structuredDiagnostics"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+            if !r["reactions"].as_array().unwrap().is_empty() {
+                r12_spring_answer(r, &m, dim, load - beam * displacement, displacement, load);
+            }
+            if unavailable {
+                for phase in ["stageResults", "reactions", "elementForces", "constraintForces"] {
+                    assert!(diagnostics.iter().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == phase && d["severity"] == "warning"), "{dim}D {change}: {phase}: {r}");
+                }
+                for field in ["reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"] {
+                    assert!(r[field].as_array().map_or(true, Vec::is_empty), "{field}: {r}");
+                }
+            } else {
+                assert!(!diagnostics.iter().any(|d| d["code"] == "result_quantity_unavailable"), "{r}");
+                assert!(!r["reactions"].as_array().unwrap().is_empty());
+                assert_eq!(r["elementForces"].as_array().unwrap().len(), padding + 2);
+            }
+        }
+    }
+    }
+    }
+}
+
+macro_rules! r12_spring_test {
+    ($name:ident, $dim:expr, $change:expr) => {
+        #[test]
+        #[ignore = "known wrong result: #1952"]
+        fn $name() { r12_spring_history($dim, $change); }
+    };
+}
+r12_spring_test!(issue_1952_r12_spring_added_2d, 2, "added");
+r12_spring_test!(issue_1952_r12_spring_added_3d, 3, "added");
+r12_spring_test!(issue_1952_r12_spring_removed_2d, 2, "removed");
+r12_spring_test!(issue_1952_r12_spring_removed_3d, 3, "removed");
+r12_spring_test!(issue_1952_r12_spring_changed_2d, 2, "changed");
+r12_spring_test!(issue_1952_r12_spring_changed_3d, 3, "changed");
+
+#[test]
+fn issue_1952_r12_springs_unchanged_2d() { r12_spring_history(2, "unchanged"); }
+#[test]
+fn issue_1952_r12_springs_unchanged_3d() { r12_spring_history(3, "unchanged"); }

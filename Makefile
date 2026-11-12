@@ -918,6 +918,7 @@ test.engine.thermal-frame:
 .PHONY: test.engine.reactions-r11-wasm
 test.engine.reactions-r11-wasm: wasm
 	$(NIX_RUN) node scripts/tests/reaction-recovery-r11.mjs
+	$(NIX_RUN) node scripts/tests/staged-springs-r12.mjs
 
 .PHONY: test.engine.convergence-regressions-wasm
 test.engine.convergence-regressions-wasm: wasm
@@ -930,3 +931,7 @@ test.engine.pdelta-rotation-wasm: wasm
 	PLATE_CONVERGENCE_CASES=$(CURDIR)/.1940-plate-cases.json $(MAKE) test.engine.targeted TEST=metamorphic FILTER=plate_convergence::native_exports_and_wasm_cases_keep_answers_and_iteration_limits
 	$(NIX_RUN) node scripts/tests/pdelta-rotation-wasm.mjs $(CURDIR)/.1940-plate-cases.json
 	rm -f $(CURDIR)/.1940-plate-cases.json
+
+.PHONY: test.engine.staged-springs-r12-wasm
+test.engine.staged-springs-r12-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-springs-r12.mjs
