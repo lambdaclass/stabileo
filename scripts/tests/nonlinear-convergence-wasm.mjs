@@ -44,6 +44,26 @@ function checkArcWitness(result, w) {
 
   assert.ok(Math.abs(projected / (result.finalLoadFactor * w.force) - 1) < 1e-10);
 }
+function checkZeroBending(result, fixture) {
+  for (const force of result.results.elementForces) {
+    for (const key of ['vStart', 'vEnd', 'mStart', 'mEnd']) assert.ok(force[key] === 0, key);
+  }
+}
+for (const fixture of cases.filter(c => c.zeroBending)) {
+  test(`r8 zero bending rejects missing force results ${JSON.stringify(fixture.expectedDisplacements)}`, { skip: process.env.RUN_KNOWN_WRONG_1940 !== '1' }, () => {
+    const result = JSON.parse(invokeCase(fixture));
+    checkZeroBending(result, fixture);
+    for (const mutation of ['missing', 'duplicate', 'unexpected', 'vStart', 'vEnd', 'mStart', 'mEnd']) {
+      const wrong = structuredClone(result);
+      const forces = wrong.results.elementForces;
+      if (mutation === 'missing') forces.length = 0;
+      else if (mutation === 'duplicate') forces.push(structuredClone(forces[0]));
+      else if (mutation === 'unexpected') forces[0].elementId = Number.MAX_SAFE_INTEGER;
+      else forces[0][mutation] = 1;
+      assert.throws(() => checkZeroBending(wrong, fixture), mutation);
+    }
+  });
+}
 function checkExpectedDisplacements(result, fixture) {
   if (fixture.requireNodeCoverage) {
     const solver = fixture.input.solver ?? fixture.input;
@@ -242,11 +262,7 @@ for (const test of cases) {
       const tip = result.results.displacements.find(d => d.nodeId === 2);
       assert.ok(Math.hypot(tip.ux, tip.uy ?? 0, tip.uz) > 0);
     }
-    if (test.zeroBending) {
-      for (const force of result.results.elementForces) {
-        for (const key of ['vStart', 'vEnd', 'mStart', 'mEnd']) assert.ok(force[key] === 0, key);
-      }
-    }
+    if (test.zeroBending) checkZeroBending(result, test);
     if (test.settlementResponse) {
       const baseline = settlementOnlyResult(test, result);
       assert.equal(baseline.converged, true);

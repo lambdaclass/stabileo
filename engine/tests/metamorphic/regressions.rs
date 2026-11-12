@@ -1385,5 +1385,41 @@ fn pdelta_shell_self_weight_converges_after_relabeling() {
     let a = crate::ana3::rows().into_iter().find(|a| a.name == "P-Delta").unwrap();
     let tally = crate::tally::Tally::default();
     crate::checks3::check_case(&crate::checks3::Ctx { tally: &tally, rng_seed: 20261018 }, &c, &[a], &["rotation", "mirror", "relabel"]);
+    check_shell_invariants(&tally);
+}
+
+fn check_shell_invariants(tally: &crate::tally::Tally) {
     assert!(tally.failures().is_empty(), "{}", tally.failures().join("\n"));
+}
+
+#[test]
+#[ignore = "known wrong result: #1940"]
+fn r8_shell_invariants_reject_refused_and_skipped_comparisons() {
+    use crate::tally::{Tally, Verdict};
+    let mut accepted = Vec::new();
+    for invariant in ["rotation", "mirror", "relabel"] {
+        for verdict in [None, Some(Verdict::Refused("did not converge".into())),
+            Some(Verdict::SameRefusal), Some(Verdict::Ignored("#1940")),
+            Some(Verdict::NotApplicable), Some(Verdict::Unrepresentable("transform".into())),
+            Some(Verdict::Inconclusive(1.0)), Some(Verdict::Fail("wrong answer".into()))] {
+            let tally = Tally::default();
+            for other in ["rotation", "mirror", "relabel"] {
+                if other != invariant {
+                    tally.record("P-Delta", other, "shell", Verdict::Pass(0.0));
+                }
+            }
+            if let Some(v) = &verdict {
+                tally.record("P-Delta", invariant, "shell", v.clone());
+            }
+            if std::panic::catch_unwind(|| check_shell_invariants(&tally)).is_ok() {
+                accepted.push(format!("{invariant}: {verdict:?}"));
+            }
+        }
+    }
+    let tally = Tally::default();
+    for invariant in ["rotation", "mirror", "relabel"] {
+        tally.record("P-Delta", invariant, "shell", Verdict::Pass(0.0));
+    }
+    check_shell_invariants(&tally);
+    assert!(accepted.is_empty(), "accepted unchecked comparisons: {accepted:?}");
 }

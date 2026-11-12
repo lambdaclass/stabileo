@@ -1775,7 +1775,7 @@ mod r2 {
                 }
             }
             if case["zeroBending"] == true {
-                super::r6::check_zero_bending(&result);
+                super::r6::check_zero_bending(&result, case);
             }
             if case["requireNodeCoverage"] == true {
                 crate::red_ci::check_result(&result, case);
@@ -3214,6 +3214,77 @@ mod r5 {
         }
         assert!(errors.is_empty(), "{}", errors.join("\n"));
     }
+    fn check_continued_arc(
+        result: &serde_json::Value,
+        _input: &ArcLengthInput,
+        _start: &corotational::CorotationalStart2D<'_>,
+        case: &serde_json::Value,
+    ) {
+        assert_eq!(result["converged"], true);
+        let mut expected = case.clone();
+        expected["expectedDisplacements"][0]["ux"] = serde_json::json!(
+            case["expectedDisplacements"][0]["ux"].as_f64().unwrap()
+                * (1.0 + result["finalLoadFactor"].as_f64().unwrap())
+        );
+        check_expected_displacements(result, &expected);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1940"]
+    fn r8_continued_arc_rejects_unchanged_seed_and_wrong_step_length() {
+        let mut accepted = Vec::new();
+        for case in calls().into_iter().filter(|c| c["api"] == "solve_2d") {
+            let s: SolverInput = serde_json::from_value(case["input"].clone()).unwrap();
+            let seed = linear::solve_2d(&s).unwrap();
+            let start = corotational::CorotationalStart2D {
+                input: &s,
+                displacements: &seed.displacements,
+            };
+            let arc = ArcLengthInput {
+                solver: s.clone(),
+                max_steps: 1,
+                max_iter: 30,
+                tolerance: 1e-10,
+                initial_ds: 0.1,
+                min_ds: 0.1,
+                max_ds: 0.1,
+                target_iter: 4,
+            };
+            let result = serde_json::to_value(
+                arc_length::solve_arc_length_from(&arc, Some(&start)).unwrap(),
+            )
+            .unwrap();
+            check_continued_arc(&result, &arc, &start, &case);
+            let mut unchanged = result.clone();
+            unchanged["converged"] = serde_json::json!(true);
+            unchanged["finalLoadFactor"] = serde_json::json!(0.0);
+            unchanged["results"] = serde_json::to_value(&seed).unwrap();
+            if std::panic::catch_unwind(|| check_continued_arc(&unchanged, &arc, &start, &case))
+                .is_ok()
+            {
+                accepted.push(format!("{}: unchanged seed", case["expectedDisplacements"]));
+            }
+            for ratio in [0.5, 2.0] {
+                let mut wrong = arc.clone();
+                wrong.initial_ds *= ratio;
+                wrong.min_ds *= ratio;
+                wrong.max_ds *= ratio;
+                if std::panic::catch_unwind(|| check_continued_arc(&result, &wrong, &start, &case))
+                    .is_ok()
+                {
+                    accepted.push(format!(
+                        "{}: ds ratio {ratio}",
+                        case["expectedDisplacements"]
+                    ));
+                }
+            }
+        }
+        assert!(
+            accepted.is_empty(),
+            "accepted invalid continued arcs: {accepted:?}"
+        );
+    }
+
     #[test]
     fn constrained_point_preparation_certificates_and_continuation() {
         for case in calls().into_iter().filter(|c| c["api"] == "solve_2d") {
@@ -3257,13 +3328,7 @@ mod r5 {
                 target_iter: 4,
             };
             let result = arc_length::solve_arc_length_from(&arc, Some(&start)).unwrap();
-            assert!(result.converged);
-            let mut expected = case.clone();
-            expected["expectedDisplacements"][0]["ux"] = serde_json::json!(
-                case["expectedDisplacements"][0]["ux"].as_f64().unwrap()
-                    * (1.0 + result.final_load_factor)
-            );
-            check_expected_displacements(&serde_json::json!({"results":result.results}), &expected);
+            check_continued_arc(&serde_json::to_value(result).unwrap(), &arc, &start, &case);
         }
         for case in calls().into_iter().filter(|c| c["api"] == "solve_3d") {
             let s: SolverInput3D = serde_json::from_value(case["input"].clone()).unwrap();
@@ -3318,12 +3383,51 @@ mod r6 {
         calls
     }
 
-    pub(super) fn check_zero_bending(result: &serde_json::Value) {
+    pub(super) fn check_zero_bending(result: &serde_json::Value, _case: &serde_json::Value) {
         for forces in result["results"]["elementForces"].as_array().unwrap() {
             for key in ["vStart", "vEnd", "mStart", "mEnd"] {
                 assert_eq!(forces[key].as_f64().unwrap(), 0.0, "{key}: {result}");
             }
         }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1940"]
+    fn r8_zero_bending_rejects_missing_duplicate_and_unexpected_elements() {
+        let mut accepted = Vec::new();
+        for case in axial_calls()
+            .into_iter()
+            .filter(|c| c["zeroBending"] == true)
+        {
+            let result: serde_json::Value =
+                serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
+            check_zero_bending(&result, &case);
+            for mutation in [
+                "missing",
+                "duplicate",
+                "unexpected",
+                "vStart",
+                "vEnd",
+                "mStart",
+                "mEnd",
+            ] {
+                let mut wrong = result.clone();
+                let forces = wrong["results"]["elementForces"].as_array_mut().unwrap();
+                match mutation {
+                    "missing" => forces.clear(),
+                    "duplicate" => forces.push(forces[0].clone()),
+                    "unexpected" => forces[0]["elementId"] = serde_json::json!(usize::MAX),
+                    key => forces[0][key] = serde_json::json!(1.0),
+                }
+                if std::panic::catch_unwind(|| check_zero_bending(&wrong, &case)).is_ok() {
+                    accepted.push(format!("{}: {mutation}", case["expectedDisplacements"]));
+                }
+            }
+        }
+        assert!(
+            accepted.is_empty(),
+            "accepted invalid force coverage: {accepted:?}"
+        );
     }
 
     #[test]
@@ -3340,7 +3444,7 @@ mod r6 {
                 serde_json::from_str(&super::r2::call(&case).unwrap()).unwrap();
             assert_eq!(result["converged"], true);
             if case["zeroBending"] == true {
-                check_zero_bending(&result);
+                check_zero_bending(&result, &case);
                 let solver: SolverInput = serde_json::from_value(case["input"].clone()).unwrap();
                 let mut initial = solver.clone();
                 initial.supports.get_mut("2").unwrap().dx = None;
@@ -3374,7 +3478,7 @@ mod r6 {
                     )
                     .unwrap();
                     assert!(continued.converged);
-                    check_zero_bending(&serde_json::to_value(continued).unwrap());
+                    check_zero_bending(&serde_json::to_value(continued).unwrap(), &case);
                 }
             }
             check_expected_displacements(&result, &case);
