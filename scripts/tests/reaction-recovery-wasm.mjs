@@ -139,6 +139,43 @@ for (const kind of ['arc','displacement']) {
     console.log(`PASS ${kind} final member load factor`);
   } catch (error) { failed = true; console.error(`FAIL ${kind} final member load factor: ${error}`); }
 }
+for (const kind of ['arc', 'displacement', 'linear']) {
+  for (const loading of ['distributed', 'pointOnElement', 'both', 'none']) {
+    try {
+      const m = model(2, false);
+      for (const [id, x] of [[2, 0], [3, 3]]) {
+        m.nodes[id] = { id, x, z: 2 };
+        m.supports[id] = { id, nodeId: id, type: 'fixed' };
+      }
+      m.elements[2] = { ...m.elements[1], id: 2, nodeI: 2, nodeJ: 3 };
+      const qi = ['distributed', 'both'].includes(loading) ? -10 : 0;
+      const qj = ['distributed', 'both'].includes(loading) ? -4 : 0;
+      const p = ['pointOnElement', 'both'].includes(loading) ? -7 : 0;
+      m.loads.push({ type: 'distributed', data: { elementId: 2, qI: qi, qJ: qj } });
+      m.loads.push({ type: 'pointOnElement', data: { elementId: 2, a: 1, p } });
+      const [r, factor] = run(kind, 2, m);
+      assert.ok(Number.isFinite(factor) && factor > 0);
+      if (kind !== 'linear') assert.ok(Math.abs(factor - 1) > 0.1, `${kind}: ${factor}`);
+      const a = r.elementForces.find(f => f.elementId === 2);
+      const l = 3, t = 1 / 3;
+      const equivalent = [
+        l * (7 * qi + 3 * qj) / 20 + p * (1 - 3 * t*t + 2 * t*t*t),
+        l*l * (3 * qi + 2 * qj) / 60 + p * l * (t - 2 * t*t + t*t*t),
+        l * (3 * qi + 7 * qj) / 20 + p * (3 * t*t - 2 * t*t*t),
+        -l*l * (2 * qi + 3 * qj) / 60 + p * l * (-t*t + t*t*t),
+      ];
+      for (const [i, key] of ['vStart', 'mStart', 'vEnd', 'mEnd'].entries()) {
+        const expected = (i < 2 ? -1 : 1) * equivalent[i] * factor;
+        assert.ok(Math.abs(a[key] - expected) < 1e-9, `${kind} ${loading} ${key}: ${a[key]}, expected=${expected}, factor=${factor}`);
+      }
+      for (const id of [2, 3]) {
+        const d = r.displacements.find(d => d.nodeId === id);
+        for (const key of ['ux', 'uz', 'ry']) assert.equal(d[key], 0);
+      }
+      console.log(`PASS ${kind} ${loading} independently calculated member shears and moments factor=${factor}`);
+    } catch (error) { failed = true; console.error(`FAIL ${kind} ${loading} member shears and moments: ${error}`); }
+  }
+}
 for (const dim of [2,3]) {
   for (const kind of ['corotational','material']) {
     try {
@@ -200,6 +237,62 @@ for (const dim of [2,3]) {
       assert.ok(refusal?.structuredDiagnostics.some(d=>d.code === 'result_quantity_unavailable' && d.phase === 'reactions' && d.severity === 'error'));
       console.log(`PASS staged ${dim}D refuses support-mask mismatch remove=${remove}`);
     } catch(error) { failed=true; console.error(`FAIL staged ${dim}D support-mask mismatch remove=${remove}: ${error}`); }
+  }
+}
+for (const dim of process.env.STABILEO_RUN_KNOWN_WRONG_1952 === '1' ? [2, 3] : []) {
+  for (const segments of [2, 22]) {
+    for (const motion of [0, 0.0013, -0.0013]) {
+      for (const tied of [false, true]) {
+        try {
+          const m = model(dim, false);
+          const node = { ...m.nodes[0] }, elem = { ...m.elements[1] };
+          m.nodes = {}; m.elements = {}; m.loads = [];
+          m.supports[0].dx = motion;
+          m.supports[segments] = { ...m.supports[0], nodeId: segments, dx: 0, ...(dim === 2 ? { id: segments } : {}) };
+          for (let i = 0; i <= segments; i++) {
+            m.nodes[i] = { ...node, id: i, x: 3 * i / segments };
+            if (i > 0) m.elements[i] = { ...elem, id: i, nodeI: i - 1, nodeJ: i };
+          }
+          if (tied) {
+            m.nodes[segments + 1] = { ...node, id: segments + 1 };
+            m.constraints = [{ type: 'equalDOF', masterNode: 0, slaveNode: segments + 1, dofs: Array.from({ length: dim === 2 ? 3 : 6 }, (_, i) => i) }];
+          }
+          const [r] = run('pdelta', dim, m);
+          assert.equal(r.equilibrium.residualOk, true, JSON.stringify(r.equilibrium));
+          assert.equal(r.equilibrium.equilibriumOk, true, JSON.stringify(r.equilibrium));
+          assert.ok(!(r.structuredDiagnostics ?? []).some(d => d.code === 'result_quantity_unavailable'));
+          for (const d of r.displacements) assert.ok(Math.abs(d.ux - motion * (1 - m.nodes[d.nodeId].x / 3)) < 1e-12);
+          for (const a of r.reactions) {
+            const expected = (a.nodeId === 0 ? 1 : -1) * 200000 * 1000 * 0.01 * motion / 3;
+            assert.ok(Math.abs(a[dim === 2 ? 'rx' : 'fx'] - expected) < 1e-7);
+          }
+          console.log(`PASS settlement-only P-Delta ${dim}D segments=${segments} motion=${motion} tied=${tied}`);
+        } catch (error) { failed = true; console.error(`FAIL settlement-only P-Delta ${dim}D segments=${segments} motion=${motion} tied=${tied}: ${error}`); }
+      }
+    }
+  }
+  for (const inactiveMember of [false, true]) {
+    for (const motion of [0, 0.0001]) {
+      try {
+        const m = model(dim, false);
+        if (!inactiveMember) m.elements = {};
+        m.supports[1] = { ...m.supports[0], nodeId: 1, ...(dim === 2 ? { id: 1 } : {}) };
+        m.supports[0].dx = motion;
+        m.loads[0].data.fx = 3;
+        m.stages = [{ name: 'restrained only', supportsAdded: [0, 1], loadIndices: [0] }];
+        const output = JSON.parse(engine[`solve_staged_${dim}d`](JSON.stringify(m)));
+        for (const r of [output.finalResults, output.stages[0].results]) {
+          assert.ok(!(r.structuredDiagnostics ?? []).some(d => d.code === 'result_quantity_unavailable'));
+          assert.equal(r.reactions.length, 2);
+          for (const a of r.reactions) {
+            assert.equal(a[dim === 2 ? 'rx' : 'fx'], a.nodeId === 1 ? -3 : 0);
+            assert.equal(a[dim === 2 ? 'rz' : 'fz'], a.nodeId === 1 ? 10 : 0);
+          }
+          for (const d of r.displacements) assert.equal(d.ux, d.nodeId === 0 ? motion : 0);
+        }
+        console.log(`PASS fully restrained staged ${dim}D inactiveMember=${inactiveMember} motion=${motion}`);
+      } catch (error) { failed = true; console.error(`FAIL fully restrained staged ${dim}D inactiveMember=${inactiveMember} motion=${motion}: ${error}`); }
+    }
   }
 }
 if (failed) process.exitCode = 1;

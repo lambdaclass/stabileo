@@ -1,3 +1,5 @@
+import frozenArchA from '../../../../results-frozen/solve_arc_length-0015ab84c3baa36f.json';
+import frozenArchB from '../../../../results-frozen/solve_arc_length-022317310499426d.json';
 import reactionRecoveryChange from '../result-changes/arc-length-reactions.json';
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import { RESULT_CHANGES } from '../full-registry';
@@ -607,4 +609,21 @@ describe('reaction recovery saved-model scope (#1949)', () => {
       expect(ids(constrained)).toContain(change);
     }
   });
+});
+
+describe.skip('path reaction recovery registry regressions (#1952)', () => {
+  for (const [name, fixture] of [['0015ab84c3baa36f', frozenArchA], ['022317310499426d', frozenArchB]] as const) {
+    it(`covers the actual frozen path result ${name}`, () => {
+      expect(conditionHolds(reactionRecoveryChange.when, new Set([...fixture.features, 'pathAnalysis']))).toBe(true);
+      expect(fixture.features).toContain('pathAnalysis');
+      expect(conditionHolds(reactionRecoveryChange.when, new Set(fixture.features))).toBe(true);
+      for (const path of Object.keys(fixture.values).filter(p => p.includes('.reactions['))) {
+        expect(fieldCovered(reactionRecoveryChange, path, fixture.features), path).toBe(true);
+      }
+      expect(fieldCovered(reactionRecoveryChange, 'nonlinear.results.elementForces[0].mStart', fixture.features)).toBe(true);
+      expect(fieldCovered(reactionRecoveryChange, 'nonlinear.results.displacements[0].ux', fixture.features)).toBe(false);
+      expect(fieldCovered(reactionRecoveryChange, 'base.reactions[n1].rz', [...fixture.features, 'analysis:linear'])).toBe(false);
+      expect(conditionHolds(reactionRecoveryChange.when, new Set(fixture.features.filter(f => f !== 'pathAnalysis')))).toBe(false);
+    });
+  }
 });

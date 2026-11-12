@@ -959,7 +959,11 @@ fn guyan_member_forces(dim: usize) {
         let actual = reduced["elementForces"].as_array().unwrap();
         let expected = full["elementForces"].as_array().unwrap();
         assert_eq!(actual.len(), m["elements"].as_object().unwrap().len());
-        assert!(expected.iter().any(|f| f.as_object().unwrap().iter().any(|(k, v)| k.ends_with("Start") && v.as_f64().is_some_and(|v| v.abs() > 1.0))));
+        assert!(expected.iter().any(|f| f
+            .as_object()
+            .unwrap()
+            .iter()
+            .any(|(k, v)| k.ends_with("Start") && v.as_f64().is_some_and(|v| v.abs() > 1.0))));
         for (a, e) in actual.iter().zip(expected) {
             assert_eq!(a["elementId"], e["elementId"]);
             for (k, v) in e.as_object().unwrap() {
@@ -979,4 +983,247 @@ fn guyan_member_forces_2d_keeps_the_correct_answer() {
 #[test]
 fn issue_1949_guyan_member_forces_3d() {
     guyan_member_forces(3);
+}
+
+fn settlement_only_model(dim: usize, segments: usize, motion: f64, tied: bool) -> Value {
+    let mut m = model(dim, false);
+    let node = m["nodes"]["0"].clone();
+    let elem = m["elements"]["1"].clone();
+    m["nodes"] = json!({});
+    m["elements"] = json!({});
+    m["loads"] = json!([]);
+    m["supports"]["0"]["dx"] = json!(motion);
+    m["supports"][segments.to_string()] = m["supports"]["0"].clone();
+    m["supports"][segments.to_string()]["nodeId"] = json!(segments);
+    m["supports"][segments.to_string()]["dx"] = json!(0.0);
+    for i in 0..=segments {
+        let key = i.to_string();
+        m["nodes"][&key] = node.clone();
+        m["nodes"][&key]["id"] = json!(i);
+        m["nodes"][&key]["x"] = json!(3.0 * i as f64 / segments as f64);
+        if dim == 2 {
+            m["supports"][segments.to_string()]["id"] = json!(segments);
+        }
+        if i > 0 {
+            m["elements"][&key] = elem.clone();
+            m["elements"][&key]["id"] = json!(i);
+            m["elements"][&key]["nodeI"] = json!(i - 1);
+            m["elements"][&key]["nodeJ"] = json!(i);
+        }
+    }
+    if tied {
+        m["nodes"][(segments + 1).to_string()] = node;
+        m["nodes"][(segments + 1).to_string()]["id"] = json!(segments + 1);
+        m["constraints"] = json!([{"type":"equalDOF","masterNode":0,"slaveNode":segments+1,"dofs":(0..if dim == 2 {3} else {6}).collect::<Vec<_>>()}]);
+    }
+    m
+}
+
+fn settlement_only_pdelta(dim: usize) {
+    for segments in [22, 2] {
+        for motion in [0.0, 0.0013, -0.0013] {
+            for tied in [false, true] {
+                let m = settlement_only_model(dim, segments, motion, tied);
+                let (r, _) = run("pdelta", dim, &m);
+                assert_eq!(
+                    r["equilibrium"]["residualOk"], true,
+                    "{dim}D {segments} {motion} {tied}: {r}"
+                );
+                assert_eq!(r["equilibrium"]["equilibriumOk"], true, "{r}");
+                assert!(
+                    !r["structuredDiagnostics"].as_array().is_some_and(|ds| ds
+                        .iter()
+                        .any(|d| d["code"] == "result_quantity_unavailable")),
+                    "{r}"
+                );
+                let (linear, _) = run("linear", dim, &m);
+                for d in r["displacements"].as_array().unwrap() {
+                    let id = d["nodeId"].as_u64().unwrap() as usize;
+                    let x = num(&m["nodes"][id.to_string()], "x");
+                    assert!(
+                        (num(d, "ux") - motion * (1.0 - x / 3.0)).abs() < 1e-12,
+                        "{d}"
+                    );
+                }
+                for a in r["reactions"].as_array().unwrap() {
+                    let expected = if a["nodeId"] == 0 { 1.0 } else { -1.0 }
+                        * 200000.0
+                        * 1000.0
+                        * 0.01
+                        * motion
+                        / 3.0;
+                    assert!(
+                        (num(a, if dim == 2 { "rx" } else { "fx" }) - expected).abs() < 1e-7,
+                        "{a}"
+                    );
+                }
+                assert_eq!(
+                    r["reactions"].as_array().unwrap().len(),
+                    linear["reactions"].as_array().unwrap().len()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_settlement_only_pdelta_2d() {
+    settlement_only_pdelta(2);
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_settlement_only_pdelta_3d() {
+    settlement_only_pdelta(3);
+}
+
+fn fully_restrained_stages(dim: usize) {
+    for inactive_member in [false, true] {
+        for motion in [0.0, 0.0001] {
+            let mut m = model(dim, false);
+            if !inactive_member {
+                m["elements"] = json!({});
+            }
+            m["supports"]["1"] = m["supports"]["0"].clone();
+            m["supports"]["1"]["nodeId"] = json!(1);
+            if dim == 2 {
+                m["supports"]["1"]["id"] = json!(1);
+            }
+            m["supports"]["0"]["dx"] = json!(motion);
+            m["loads"][0]["data"]["fx"] = json!(3.0);
+            m["stages"] =
+                json!([{"name":"restrained only","supportsAdded":[0,1],"loadIndices":[0]}]);
+            let r = if dim == 2 {
+                serde_json::to_value(
+                    staged::solve_staged_2d(&serde_json::from_value(m.clone()).unwrap()).unwrap(),
+                )
+                .unwrap()
+            } else {
+                serde_json::to_value(
+                    staged::solve_staged_3d(&serde_json::from_value(m.clone()).unwrap()).unwrap(),
+                )
+                .unwrap()
+            };
+            for r in [&r["finalResults"], &r["stages"][0]["results"]] {
+                assert!(
+                    !r["structuredDiagnostics"].as_array().is_some_and(|ds| ds
+                        .iter()
+                        .any(|d| d["code"] == "result_quantity_unavailable")),
+                    "{r}"
+                );
+                assert_eq!(r["reactions"].as_array().unwrap().len(), 2);
+                for a in r["reactions"].as_array().unwrap() {
+                    let loaded = a["nodeId"] == 1;
+                    assert_eq!(
+                        num(a, if dim == 2 { "rx" } else { "fx" }),
+                        if loaded { -3.0 } else { 0.0 }
+                    );
+                    assert_eq!(
+                        num(a, if dim == 2 { "rz" } else { "fz" }),
+                        if loaded { 10.0 } else { 0.0 }
+                    );
+                }
+                for d in r["displacements"].as_array().unwrap() {
+                    assert_eq!(num(d, "ux"), if d["nodeId"] == 0 { motion } else { 0.0 });
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_fully_restrained_stages_2d() {
+    fully_restrained_stages(2);
+}
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_fully_restrained_stages_3d() {
+    fully_restrained_stages(3);
+}
+
+#[test]
+fn issue_1952_path_member_end_forces_use_final_factor() {
+    for kind in ["arc", "displacement", "linear"] {
+        for loading in ["distributed", "pointOnElement", "both", "none"] {
+            let mut m = model(2, false);
+            for (id, x) in [(2, 0.0), (3, 3.0)] {
+                m["nodes"][id.to_string()] = json!({"id":id,"x":x,"z":2.0});
+                m["supports"][id.to_string()] = json!({"id":id,"nodeId":id,"type":"fixed"});
+            }
+            m["elements"]["2"] =
+                json!({"id":2,"type":"frame","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1});
+            let (qi, qj, p) = (
+                if loading == "distributed" || loading == "both" {
+                    -10.0
+                } else {
+                    0.0
+                },
+                if loading == "distributed" || loading == "both" {
+                    -4.0
+                } else {
+                    0.0
+                },
+                if loading == "pointOnElement" || loading == "both" {
+                    -7.0
+                } else {
+                    0.0
+                },
+            );
+            m["loads"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"type":"distributed","data":{"elementId":2,"qI":qi,"qJ":qj}}));
+            m["loads"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"type":"pointOnElement","data":{"elementId":2,"a":1.0,"p":p}}));
+            let (r, factor) = run(kind, 2, &m);
+            assert!(factor.is_finite() && factor > 0.0);
+            if kind != "linear" {
+                assert!((factor - 1.0).abs() > 0.1, "{kind}: {factor}");
+            }
+            let a = r["elementForces"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f["elementId"] == 2)
+                .unwrap();
+            let (l, t) = (3.0_f64, 1.0_f64 / 3.0);
+            let equivalents = [
+                l * (7.0 * qi + 3.0 * qj) / 20.0 + p * (1.0 - 3.0 * t * t + 2.0 * t * t * t),
+                l * l * (3.0 * qi + 2.0 * qj) / 60.0 + p * l * (t - 2.0 * t * t + t * t * t),
+                l * (3.0 * qi + 7.0 * qj) / 20.0 + p * (3.0 * t * t - 2.0 * t * t * t),
+                -l * l * (2.0 * qi + 3.0 * qj) / 60.0 + p * l * (-t * t + t * t * t),
+            ];
+            for ((key, sign), expected) in [
+                ("vStart", -1.0),
+                ("mStart", -1.0),
+                ("vEnd", 1.0),
+                ("mEnd", 1.0),
+            ]
+            .into_iter()
+            .zip(equivalents)
+            {
+                assert!(
+                    (num(a, key) - sign * expected * factor).abs() < 1e-9,
+                    "{kind} {loading} {key}: {a}, factor={factor}, expected={}",
+                    sign * expected * factor
+                );
+            }
+            for id in [2, 3] {
+                let d = r["displacements"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|d| d["nodeId"] == id)
+                    .unwrap();
+                assert_eq!(num(d, "ux"), 0.0);
+                assert_eq!(num(d, "uz"), 0.0);
+                assert_eq!(num(d, "ry"), 0.0);
+            }
+        }
+    }
 }
