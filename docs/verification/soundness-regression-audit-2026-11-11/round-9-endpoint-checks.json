@@ -1,0 +1,55 @@
+{
+  "checks": {
+    "collect-references.py": {
+      "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/collect-references.py .audit-input/r9-replay",
+      "status": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 49, in <module>\n    main(pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path('/root/audit/soundness-2026-11-11'))\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/collect-references.py\", line 18, in main\n    endpoints[endpoint]=measurement_index(rows)\n                        ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 62, in measurement_index\n    raise ValueError(f'duplicate measurement identity: {key}; capture an explicit selector for every loop measurement')\nValueError: duplicate measurement identity: ('benchmarks::shell_benchmark::benchmark_curved_shell_hemisphere_8x8', 'shell:6724', 'null'); capture an explicit selector for every loop measurement\n"
+    },
+    "finish-analysis.py": {
+      "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py .audit-input/r9-replay",
+      "status": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/finish-analysis.py\", line 8, in <module>\n    for name in paired_endpoint_keys(*captures):\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"$WORKTREE/docs/verification/soundness-regression-audit-2026-11-11/audit_evidence.py\", line 13, in paired_endpoint_keys\n    raise ValueError(f'endpoint identity mismatch: missing baseline={missing_before}, missing head={missing_after}, empty={not names}')\nValueError: endpoint identity mismatch: missing baseline=[], missing head=[], empty=True\n"
+    },
+    "frozen-references.py": {
+      "command": "python3 -B docs/verification/soundness-regression-audit-2026-11-11/frozen-references.py .audit-input/r9-replay",
+      "status": 0,
+      "stdout": "shipped rows 48 farther 25 frozen primary 92 farther 53 unresolved 0 outcomes {'compared': 92, 'refused at head': 0}\nno farther model []\n",
+      "stderr": ""
+    }
+  },
+  "regenerated_frozen_measurements": 92,
+  "regenerated_frozen_models": 77,
+  "regenerated_farther": 53,
+  "coverage_counts": {
+    "checker_control": 10,
+    "engineering_reference": 325,
+    "self_consistency": 12,
+    "test_input_metric": 1
+  },
+  "frozen_reference_measurements": 161,
+  "frozen_farther": 53,
+  "reclassified_frozen_measurements": 15,
+  "scope": "Targeted audit scripts only. The same archived adjacent outputs and reference definitions used for review-endpoint-checks.json regenerate a subset of the pinned comparisons; every regenerated value, error, selector, reference, test and distance flag equals the stored record. Full pinned captures and raw gallery captures remain unavailable. No engine suite or full replay run.",
+  "gallery_changed_reference_targets": [
+    {
+      "case": "site-slab-on-columns-supports-max",
+      "quantity": "maxDeflection",
+      "before_reference": {
+        "value": 24.302769941419953,
+        "source": "Navier"
+      },
+      "after_reference": {
+        "value": 24.339803852876383,
+        "source": "Reissner\u2013Mindlin Navier series, \u03ba = 5/6 (Reddy 2007; Wang, Reddy & Lee 2000)"
+      },
+      "evidence": "Archived readout-index diff and recorded head reference; raw endpoint reference identities remain unverified."
+    }
+  ],
+  "conclusion_changes": [
+    "Eight Q9 observations are self-consistency evidence. Their fifteen spherical-cap frozen measurements move out of primary engineering-reference comparisons into self_consistency_comparisons. There are 161 primary comparisons; all 53 distance flags remain.",
+    "Archived gallery reference distances cannot be validated without both raw targets. No conclusion of zero movements farther from reference is supported; one changed target is explicit in the saved slab diff.",
+    "The loaded frozen arc entry is known wrong on main: #1949; PR #1952 replaces this. It is defect evidence, not an accepted reaction result."
+  ]
+}

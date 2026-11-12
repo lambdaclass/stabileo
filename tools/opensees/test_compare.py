@@ -623,5 +623,200 @@ class SupportContractReviewTest(unittest.TestCase):
             self.assertEqual(C.support_contract_errors(d, dim), [])
 
 
+
+class NumericFieldAudit(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        path = Path(__file__).resolve().parents[1] / "differential/codeaster/run.py"
+        spec = importlib.util.spec_from_file_location("audit_codeaster", path)
+        cls.aster = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.aster)
+
+    def field(self, issue, field, component, dimension=3, mutation="increase"):
+        import tempfile
+        model = column()
+        force_names = ("nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd", "mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd")
+        if dimension == 2:
+            force_names = ("nStart", "nEnd", "vStart", "vEnd", "mStart", "mEnd")
+        width = 3 if dimension == 2 else 6
+        reference = {"dim": dimension, "disp": {3: [float(i) for i in range(1, width + 1)]}, "reac": {1: [float(i) for i in range(2, width + 2)]}, "forces": {1: {k: float(i + 1) for i, k in enumerate(force_names)}}}
+        tolerance = 1e-6
+        directions = {"disp": ("ux", "uy", "uz", "rx", "ry", "rz"), "reac": ("fx", "fy", "fz", "mx", "my", "mz")}
+        if dimension == 2:
+            directions = {"disp": ("ux", "uz", "ry"), "reac": ("rx", "rz", "my")}
+        vector = reference[{"disp": "disp", "reac": "reac", "force": "forces"}[field]][3 if field == "disp" else 1]
+        index = component if field == "force" else directions[field].index(component)
+        for entry in ("opensees", "codeaster"):
+            def compare(actual, expected):
+                if entry == "opensees":
+                    return C.compare(model, actual, expected, tolerance)[0]
+                with tempfile.TemporaryDirectory() as tmp:
+                    output = Path(tmp) / "reference.json"
+                    output.write_text("{}")
+                    translated = dict(copy.deepcopy(expected), skip_reac=[])
+                    with output.open() as source, mock.patch.object(self.aster, "open", return_value=source, create=True), mock.patch.object(self.aster.to_aster, "postprocess", return_value=translated):
+                        return self.aster.compare_with_aster(model, actual, {"elements": []}, str(output), tolerance)[0]
+            with self.subTest(issue=issue, entry=entry):
+                self.assertEqual(compare(copy.deepcopy(reference), reference), [])
+                for side in ("actual", "reference"):
+                    actual, expected = copy.deepcopy(reference), copy.deepcopy(reference)
+                    changed = actual if side == "actual" else expected
+                    target = changed[{"disp": "disp", "reac": "reac", "force": "forces"}[field]][3 if field == "disp" else 1]
+                    if mutation == "increase":
+                        target[index] += 2.0 * max(abs(v) for v in vector.values()) if isinstance(vector, dict) else 2.0 * max(abs(v) for v in vector)
+                    elif mutation == "sign":
+                        target[index] = -target[index]
+                    elif mutation == "delete":
+                        del target[index]
+                    else:
+                        target[index] = float(mutation)
+                    bad = compare(actual, expected)
+                    self.assertTrue(any(b[0] == field and b[2] in ((component, "missing") if mutation == "delete" else (component,)) for b in bad), (issue, entry, side, mutation, bad))
+
+    def test_buckling_axial_projection_keeps_valid_linear_reference_comparable(self):
+        reference = dict(dim=3, disp={3: [1.0] * 6}, reac={1: [2.0] * 6}, forces={1: dict(nStart=3.0, nEnd=3.0)})
+        actual = copy.deepcopy(reference)
+        actual["forces"][1]["vyStart"] = 4.0
+        self.assertEqual(C.compare(column(), C.axial_result(actual), C.axial_result(reference), 1e-6)[0], [])
+        actual["forces"][1]["nEnd"] = -3.0
+        bad = C.compare(column(), C.axial_result(actual), C.axial_result(reference), 1e-6)[0]
+        self.assertTrue(any(row[0] == "force" and row[2] == "nEnd" for row in bad))
+
+    def test_signed_missing_and_nonfinite_components_on_both_sides(self):
+        for dimension in (2, 3):
+            displacement = ("ux", "uz", "ry") if dimension == 2 else ("ux", "uy", "uz", "rx", "ry", "rz")
+            reactions = ("rx", "rz", "my") if dimension == 2 else ("fx", "fy", "fz", "mx", "my", "mz")
+            forces = ("nStart", "nEnd", "vStart", "vEnd", "mStart", "mEnd") if dimension == 2 else ("nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd", "mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd")
+            for field, components in [("disp", displacement), ("reac", reactions), ("force", forces)]:
+                for component in components:
+                    for mutation in ("sign", "delete", "nan", "inf", "-inf"):
+                        with self.subTest(dimension=dimension, field=field, component=component, mutation=mutation):
+                            self.field(1946, field, component, dimension, mutation)
+
+    def test_planar_displacements_reactions_and_member_forces_reject_planted_errors(self):
+        for field, components in (("disp", ("ux", "uz", "ry")), ("reac", ("rx", "rz", "my")), ("force", ("nStart", "nEnd", "vStart", "vEnd", "mStart", "mEnd"))):
+            for component in components:
+                with self.subTest(field=field, component=component):
+                    self.field("planar control", field, component, dimension=2)
+
+    def test_issue_1256_reac_mx_planted_error(self):
+        self.field(1256, "reac", "mx")
+
+    def test_issue_1187_reac_my_planted_error(self):
+        self.field(1187, "reac", "my")
+
+    def test_issue_1186_force_mxEnd_planted_error(self):
+        self.field(1186, "force", "mxEnd")
+
+    def test_issue_1185_force_vzEnd_planted_error(self):
+        self.field(1185, "force", "vzEnd")
+
+    def test_issue_1184_force_vyEnd_planted_error(self):
+        self.field(1184, "force", "vyEnd")
+
+    def test_issue_1180_reac_fx_planted_error(self):
+        self.field(1180, "reac", "fx")
+
+    def test_issue_1174_force_mxStart_planted_error(self):
+        self.field(1174, "force", "mxStart")
+
+    def test_issue_1171_force_vyStart_planted_error(self):
+        self.field(1171, "force", "vyStart")
+
+    def test_issue_1168_reac_fy_planted_error(self):
+        self.field(1168, "reac", "fy")
+
+    def test_issue_1156_reac_fz_planted_error(self):
+        self.field(1156, "reac", "fz")
+
+    def test_issue_1155_force_nStart_planted_error(self):
+        self.field(1155, "force", "nStart")
+
+    def test_issue_1154_force_nEnd_planted_error(self):
+        self.field(1154, "force", "nEnd")
+
+    def test_issue_1153_disp_uy_planted_error(self):
+        self.field(1153, "disp", "uy")
+
+    def test_issue_1150_reac_mx_planted_error(self):
+        self.field(1150, "reac", "mx")
+
+    def test_issue_1149_force_vzStart_planted_error(self):
+        self.field(1149, "force", "vzStart")
+
+    def test_issue_1145_disp_uz_planted_error(self):
+        self.field(1145, "disp", "uz")
+
+    def test_issue_1137_disp_ux_planted_error(self):
+        self.field(1137, "disp", "ux")
+
+    def test_issue_1131_disp_rx_planted_error(self):
+        self.field(1131, "disp", "rx")
+
+    def test_issue_1127_disp_ry_planted_error(self):
+        self.field(1127, "disp", "ry")
+
+    def test_issue_1126_disp_rz_planted_error(self):
+        self.field(1126, "disp", "rz")
+
+    def test_issue_948_force_mxStart_planted_error(self):
+        self.field(948, "force", "mxStart")
+
+    def test_issue_947_force_mxEnd_planted_error(self):
+        self.field(947, "force", "mxEnd")
+
+    def test_issue_946_force_mzStart_planted_error(self):
+        self.field(946, "force", "mzStart")
+
+    def test_issue_945_force_mzEnd_planted_error(self):
+        self.field(945, "force", "mzEnd")
+
+    def test_issue_943_reac_fz_planted_error(self):
+        self.field(943, "reac", "fz")
+
+    def test_issue_942_reac_fy_planted_error(self):
+        self.field(942, "reac", "fy")
+
+    def test_issue_941_reac_fx_planted_error(self):
+        self.field(941, "reac", "fx")
+
+    def test_issue_934_disp_uz_planted_error(self):
+        self.field(934, "disp", "uz")
+
+    def test_issue_933_disp_uy_planted_error(self):
+        self.field(933, "disp", "uy")
+
+    def test_issue_926_reac_my_planted_error(self):
+        self.field(926, "reac", "my")
+
+    def test_issue_925_force_vyStart_planted_error(self):
+        self.field(925, "force", "vyStart")
+
+    def test_issue_924_force_vyEnd_planted_error(self):
+        self.field(924, "force", "vyEnd")
+
+    def test_issue_912_force_vzStart_planted_error(self):
+        self.field(912, "force", "vzStart")
+
+    def test_issue_911_force_vzEnd_planted_error(self):
+        self.field(911, "force", "vzEnd")
+
+    def test_issue_910_force_nStart_planted_error(self):
+        self.field(910, "force", "nStart")
+
+    def test_issue_909_force_myEnd_planted_error(self):
+        self.field(909, "force", "myEnd")
+
+    def test_issue_908_disp_rz_planted_error(self):
+        self.field(908, "disp", "rz")
+
+    def test_issue_907_disp_ry_planted_error(self):
+        self.field(907, "disp", "ry")
+
+    def test_issue_906_disp_rx_planted_error(self):
+        self.field(906, "disp", "rx")
+
+
 if __name__ == "__main__":
     unittest.main()

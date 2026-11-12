@@ -1512,6 +1512,11 @@ ILL_CONDITIONED = {"stiffness_not_positive_definite", "diagonal_regularization",
                    "extremely_high_diagonal_ratio", "residual_high", "near_zero_diagonal"}
 
 
+def axial_result(result):
+    return dict(result, forces={identity: {key: value for key, value in forces.items() if key.startswith("n")}
+                                for identity, forces in result["forces"].items()})
+
+
 def compare(model, sres, ores, tol):
     """Return list of (quantity, id, component, stabileo, opensees, err) above
     tol, and the max normalized error per group. Errors are normalized by the
@@ -1520,6 +1525,26 @@ def compare(model, sres, ores, tol):
     dim = ores["dim"]
     nt = 2 if dim == 2 else 3
     groups = {}
+    dn = ["ux", "uz", "ry"] if dim == 2 else ["ux", "uy", "uz", "rx", "ry", "rz"]
+    rn = ["rx", "rz", "my"] if dim == 2 else ["fx", "fy", "fz", "mx", "my", "mz"]
+    invalid = []
+    for side in (sres, ores):
+        for field, names in [("disp", dn), ("reac", rn)]:
+            for identity, values in side[field].items():
+                if len(values) != len(names):
+                    invalid.append((field, identity, "missing", None, None, math.inf))
+                for name, value in zip(names, values):
+                    if not isinstance(value, (int, float)) or not math.isfinite(value):
+                        invalid.append((field, identity, name, None, None, math.inf))
+        for identity, values in side["forces"].items():
+            for name, value in values.items():
+                if not isinstance(value, (int, float)) or not math.isfinite(value):
+                    invalid.append(("force", identity, name, None, None, math.inf))
+    for identity in sres["forces"].keys() & ores["forces"].keys():
+        for name in sres["forces"][identity].keys() ^ ores["forces"][identity].keys():
+            invalid.append(("force", identity, name, sres["forces"][identity].get(name), ores["forces"][identity].get(name), math.inf))
+    if invalid:
+        return invalid, {"invalid": math.inf}
 
     def scale(vals):
         return max([abs(v) for v in vals] + [1e-300])
@@ -1560,7 +1585,6 @@ def compare(model, sres, ores, tol):
             bad.append((q, i, comp, a, b, err))
 
     art = set(ores.get("art_rot", []))
-    dn = ["ux", "uz", "ry"] if dim == 2 else ["ux", "uy", "uz", "rx", "ry", "rz"]
     for nid, uo in ores["disp"].items():
         us = sres["disp"].get(nid)
         if us is None:
@@ -1571,7 +1595,6 @@ def compare(model, sres, ores, tol):
                 continue
             chk("disp_t" if k < nt else "disp_r", "disp", nid, name, us[k], uo[k],
                 sc["ut"] if k < nt else sc["ur"])
-    rn = ["rx", "rz", "my"] if dim == 2 else ["fx", "fy", "fz", "mx", "my", "mz"]
     for nid, ro_ in ores["reac"].items():
         rs = sres["reac"].get(nid)
         if rs is None:
@@ -2253,8 +2276,7 @@ def run_ext(name, job, binary, tol, dump_dir=None):
             # The linear solution Kg is built from: displacements and axial
             # forces (OpenSees' shears and moments include N*Kg*u by then).
             ol = dict(ores["linear"], reac={})
-            ol["forces"] = {i: {k: v for k, v in f.items() if k[0] == "n"} for i, f in ol["forces"].items()}
-            b2, g2 = compare(d, lin, ol, tol)
+            b2, g2 = compare(d, axial_result(lin), axial_result(ol), tol)
             bad += b2 or []
             groups.update({"lin_" + k: v for k, v in g2.items()})
             if converging and not b2:
