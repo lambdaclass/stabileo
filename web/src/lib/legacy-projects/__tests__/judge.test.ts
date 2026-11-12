@@ -1,3 +1,5 @@
+import reactionRecoveryChange from '../../provenance/result-changes/arc-length-reactions.json';
+import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import declaredQuantities from 'virtual:result-change-quantities';
 /** The verdicts of the legacy-projects test (#718), and the negative tests that prove they fail. */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
@@ -55,6 +57,42 @@ describe('which values a registered change declares it moves', () => {
     expect(declaresMove(change('r', ['reactions']), 'unstableCombinations')).toBe(false);
     expect(declaresMove(everything, 'model.nodes')).toBe(false);
     expect(declaresMove(refusals, 'base.reactions[n1].rz')).toBe(false);
+  });
+});
+
+describe('analysis-scoped reaction quantities (#1952)', () => {
+  it.skip('known wrong result: #1952: path declarations cannot excuse static values through either gate', () => {
+    const metadata = RESULT_CHANGES.changes.find(c => c.id === 'arc-length-reactions')!;
+    const entry = { ...metadata, quantities: declaredQuantities[metadata.id] };
+    for (const dimension of ['space2D', 'space3D']) {
+      const features = ['members', dimension, 'pathAnalysis', 'analysis:linear', 'analysis:nonlinear', 'analysis:pdelta'];
+      for (const family of ['base', 'case[1]', 'combo[1]', 'envelope.maxAbs', 'pdelta.results']) {
+        for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart', 'displacements[n1].uz']) {
+          const path = `${family}.${quantity}`;
+          expect(fieldCovered(reactionRecoveryChange, path, features), `${dimension} ${path}`).toBe(false);
+          expect(declaresMove(entry, path), `${dimension} ${path}`).toBe(false);
+        }
+      }
+      for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart']) {
+        expect(fieldCovered(reactionRecoveryChange, `nonlinear.results.${quantity}`, features)).toBe(true);
+        expect(fieldCovered(reactionRecoveryChange, `nonlinear.results.${quantity}`, features.filter(f => f !== 'analysis:nonlinear'))).toBe(false);
+        expect(fieldCovered(reactionRecoveryChange, `nonlinear.results.${quantity}`, ['members', dimension, 'analysis:linear'])).toBe(false);
+      }
+      expect(fieldCovered(reactionRecoveryChange, 'pdelta.results.equilibrium.equilibriumOk', features)).toBe(true);
+    }
+  });
+
+  it.skip('known wrong result: #1952: exported quantities cannot explain fabricated static corpus values', () => {
+    const metadata = RESULT_CHANGES.changes.find(c => c.id === 'arc-length-reactions')!;
+    const entry = { ...metadata, quantities: declaredQuantities[metadata.id] };
+    for (const family of ['base', 'case[1]', 'combo[1]']) {
+      for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart']) {
+        const path = `${family}.${quantity}`;
+        const before = { 'solve.ok': true, [path]: 1 };
+        expect(judge('unrelated static output', before, { ...before, [path]: 2 }, [entry]).kind, path).toBe('unexplained');
+        expect(judge('unchanged static output', before, before, [entry]).kind, path).toBe('same');
+      }
+    }
   });
 });
 
