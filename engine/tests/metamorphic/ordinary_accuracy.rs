@@ -62,7 +62,6 @@ fn kinds() -> Vec<(Kind, usize)> {
 }
 
 #[test]
-#[ignore = "known wrong result: #1991"]
 fn issue_1991_ordinary_ratios_match_the_original_budget() {
     for (kind, n) in kinds() {
         let mut expected = Resp::default();
@@ -96,7 +95,6 @@ fn issue_1991_ordinary_ratios_match_the_original_budget() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1991"]
 fn issue_1991_ordinary_budget_boundaries_are_not_additive() {
     for (kind, n) in kinds() {
         for combined_error in [0.5_f64, 1.0, 2.0] {
@@ -193,7 +191,6 @@ fn check_adapter(
 }
 
 #[test]
-#[ignore = "known wrong result: #1991"]
 fn issue_1991_ordinary_ratios_through_static_and_nonlinear_adapters() {
     let c = crate::case::Case2::new(
         "ordinary cantilever",
@@ -234,5 +231,58 @@ fn issue_1991_ordinary_ratios_through_static_and_nonlinear_adapters() {
                 crate::checks3::load_floor_3d(&c.s, cond.lchar),
             );
         }
+    }
+}
+
+#[test]
+fn component_budget_refuses_overflow_and_mismatched_results() {
+    let mut expected = Resp::default();
+    expected.push(
+        None,
+        None,
+        "boundary",
+        Kind::Local(Dim::NONE, false),
+        vec![0.0],
+    );
+    expected.0[0].error = f64::MAX / 4.0;
+    let mut got = expected.clone();
+    let compare = |got: &Resp, expected: &Resp| {
+        crate::analysis_accuracy::compare(got, expected, 1.0, 0.5, 0.0, [0.0; 2])
+    };
+    compare(&got, &expected).unwrap();
+    got.0[0].error = got.0[0].error.next_up();
+    expected.0[0].error = expected.0[0].error.next_up();
+    assert!(
+        compare(&got, &expected).is_err(),
+        "overflowing component scale passed"
+    );
+    for error in [-1.0, f64::NAN, f64::INFINITY] {
+        got.0[0].error = error;
+        assert!(compare(&got, &expected).is_err());
+    }
+    got.0[0].error = 0.0;
+    expected.0[0].error = 0.0;
+    got.0[0].tag = "wrong component".into();
+    assert!(compare(&got, &expected).is_err());
+    got.0.clear();
+    assert!(compare(&got, &expected).is_err());
+}
+
+#[test]
+fn ordinary_seeded_faults_are_rejected_by_both_budgets() {
+    for (kind, n) in kinds() {
+        let mut expected = Resp::default();
+        expected.push(None, None, "ordinary", kind.clone(), vec![1e6; n]);
+        expected.0[0].error = 1e-8;
+        let mut got = expected.clone();
+        got.0[0].v[0] += 1.0;
+        assert!(
+            legacy(&got, &expected, &expected, 1.0, 1e-9, 0.0, [0.0; 2]).is_err(),
+            "{kind:?}: original missed seeded fault"
+        );
+        assert!(
+            crate::analysis_accuracy::compare(&got, &expected, 1.0, 1e-9, 0.0, [0.0; 2]).is_err(),
+            "{kind:?}: current missed seeded fault"
+        );
     }
 }

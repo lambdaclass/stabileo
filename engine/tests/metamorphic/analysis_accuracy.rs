@@ -1,6 +1,6 @@
 use crate::response::{Dim, Kind, Resp};
 use dedaliano_engine::linalg::*;
-use dedaliano_engine::metamorphic::compare::{compare_compliant, Flat, Report};
+use dedaliano_engine::metamorphic::compare::{compare_compliant_bounded, Flat, Report};
 use dedaliano_engine::solver::{assembly, constraints::FreeConstraintSystem, dof::DofNumbering};
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
@@ -54,29 +54,15 @@ pub fn compare_scaled(
     if [&error.t, &error.r, &error.f, &error.m, &error.s, &error.x].iter().flat_map(|f| &f.vals).any(|v| !v.is_finite()) {
         return Err("unbounded combined analysis error certificate".into());
     }
-    let mut checked = got.flat();
-    let expected = expected.flat();
-    for (actual, reference, error) in [
-        (&mut checked.t, &expected.t, &error.t),
-        (&mut checked.r, &expected.r, &error.r),
-        (&mut checked.f, &expected.f, &error.f),
-        (&mut checked.m, &expected.m, &error.m),
-        (&mut checked.s, &expected.s, &error.s),
-        (&mut checked.x, &expected.x, &error.x),
-    ] {
-        for ((value, reference), error) in actual.vals.iter_mut().zip(&reference.vals).zip(&error.vals) {
-            let diff = *value - reference;
-            if diff.is_finite() { *value = reference + diff.signum() * (diff.abs() - error).max(0.0); }
-        }
-    }
-    let report = compare_compliant(
-        &checked,
-        &expected,
+    let report = compare_compliant_bounded(
+        &got.flat(),
+        &expected.flat(),
         &scale_source.flat(),
         lchar,
         rel,
         floor,
         compliance,
+        Some(&error),
     )?;
     if report.values == 0 && report.refusals == 0 {
         return Err("no result values were compared".into());
