@@ -3092,8 +3092,21 @@ mod infinitesimal_rotation_regressions {
         }
     }
 
-    #[test]
-    fn rotated_pure_axial_states_have_no_assembled_or_recovered_bending() {
+    fn check_recovered_axial_forces(
+        _input: &SolverInput,
+        forces: &[ElementForces],
+        extension: f64,
+    ) {
+        for force in forces {
+            assert_eq!(
+                [force.v_start, force.v_end, force.m_start, force.m_end],
+                [0.0; 4]
+            );
+            assert!(force.n_start.is_sign_positive() == extension.is_sign_positive());
+        }
+    }
+
+    fn check_rotated_pure_axial_states(mut check: impl FnMut(&SolverInput, &[ElementForces], f64)) {
         let a = 1.0 + 2.0f64.powi(-27);
         let b = 1.0 - 2.0f64.powi(-27);
         for extension in [-0.5 * b, b] {
@@ -3125,14 +3138,56 @@ mod infinitesimal_rotation_regressions {
             );
             assert_eq!(internal, triplet_internal);
             let forces = compute_corotational_forces(&input, &dofs, &u);
-            for force in forces {
-                assert_eq!(
-                    [force.v_start, force.v_end, force.m_start, force.m_end],
-                    [0.0; 4]
-                );
-                assert!(force.n_start.is_sign_positive() == extension.is_sign_positive());
-            }
+            check(&input, &forces, extension);
         }
+    }
+
+    #[test]
+    fn rotated_pure_axial_states_have_no_assembled_or_recovered_bending() {
+        check_rotated_pure_axial_states(check_recovered_axial_forces);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #1940"]
+    fn r9_recovered_axial_forces_reject_missing_duplicate_and_unexpected_elements() {
+        let mut accepted = Vec::new();
+        check_rotated_pure_axial_states(|input, forces, extension| {
+            check_recovered_axial_forces(input, forces, extension);
+            for mutation in [
+                "empty",
+                "duplicate",
+                "unexpected",
+                "v_start",
+                "v_end",
+                "m_start",
+                "m_end",
+                "axial_sign",
+            ] {
+                let mut wrong = forces.to_vec();
+                match mutation {
+                    "empty" => wrong.clear(),
+                    "duplicate" => wrong.push(wrong[0].clone()),
+                    "unexpected" => wrong[0].element_id = usize::MAX,
+                    "v_start" => wrong[0].v_start = 1.0,
+                    "v_end" => wrong[0].v_end = 1.0,
+                    "m_start" => wrong[0].m_start = 1.0,
+                    "m_end" => wrong[0].m_end = 1.0,
+                    "axial_sign" => wrong[0].n_start = -wrong[0].n_start,
+                    _ => unreachable!(),
+                }
+                if std::panic::catch_unwind(|| {
+                    check_recovered_axial_forces(input, &wrong, extension)
+                })
+                .is_ok()
+                {
+                    accepted.push((extension, mutation));
+                }
+            }
+        });
+        assert!(
+            accepted.is_empty(),
+            "accepted wrong recovered forces: {accepted:?}"
+        );
     }
 
     #[test]
