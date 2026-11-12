@@ -13834,6 +13834,8 @@ const de: Translations = {
   'building.slabs.meshedCount': '{n} Decken sind vernetzt.',
   'building.slabs.simplify': 'Netz entfernen',
   'building.slabs.simplified': '{n} Decken haben kein Netz mehr; die nächste Berechnung vernetzt sie wieder.',
+  'building.slabs.meshedAtSolve': '{n} Decken wurden für die Berechnung unterteilt ({shells} Schalen).',
+  'building.slabs.footprintsAtSolve': '{n} Decken wurden erneut unterteilt, sodass jede Stütze sie über ihren ganzen Querschnitt trägt.',
   'desk.tab.sheets': 'Pläne',
   'desk.tab.listings': 'Listen',
   'desk.tab.sheetsHint': 'Alle Zeichnungen des Projekts auf nummerierten Plänen, nach Art, zum Ansehen, Zusammenstellen und Exportieren',

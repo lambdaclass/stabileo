@@ -14037,6 +14037,8 @@ const en: Record<string, string> = {
   "building.slabs.meshedCount": "{n} slabs have a mesh.",
   "building.slabs.simplify": "Take their mesh out",
   "building.slabs.simplified": "{n} slabs have no mesh now; the next analysis meshes them again.",
+  "building.slabs.meshedAtSolve": "{n} slabs were subdivided for the analysis ({shells} shells).",
+  "building.slabs.footprintsAtSolve": "{n} slabs were subdivided again so that each column holds them over its whole section.",
   "desk.tab.sheets": "Drawings",
   "desk.tab.listings": "Listings",
   "desk.tab.sheetsHint": "Every drawing of the project on numbered sheets, by kind, to view, compose and export",

@@ -13,6 +13,7 @@ import { knownIssueRefusal } from './known-issues';
  * stays thin.
  */
 
+import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
 import { ensurePhysicalModel } from '../store/plates-from-shells';
 import { physicalPlates, platesNeedingMesh, preparePlatesForAnalysisAsync } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
@@ -266,6 +267,15 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   const stampBefore = recheckStore.capture();
   if (uiStore.is3DWorkspace) {
     ensurePhysicalModel();
+    // Basic 3D has no plates: a slab waiting for the analysis is meshed in place (`deferred-slabs.ts`).
+    if (uiStore.analysisMode !== 'pro') {
+      // A slab meshed before its columns' sections were represented is meshed again with them
+      // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.
+      const f = representFootprints();
+      if (f.slabs > 0) uiStore.toast(tp('building.slabs.footprintsAtSolve', { n: f.slabs }), 'info');
+      const m = meshDeferredSlabs();
+      if (m.slabs > 0) uiStore.toast(tp('building.slabs.meshedAtSolve', { n: m.slabs, shells: m.shells }), 'info');
+    }
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
     const p = await preparePlatesForAnalysisAsync();

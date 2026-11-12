@@ -212,28 +212,34 @@ export function adoptCurrentMesh(id: number, opts: { original?: boolean } = {}):
   });
 }
 
-/** A plain support (a type and nothing else) at both ends of an outline side holds the whole side: the mesh's nodes on it get it too. */
-function supportSides(outer: readonly number[], created: readonly number[]): number[] {
-  const plain = (n: number) => {
-    const sp = [...modelStore.supports.values()].find((x) => x.nodeId === n);
-    return sp && Object.keys(sp).every((k) => k === 'id' || k === 'nodeId' || k === 'type') ? sp.type : undefined;
-  };
+/** The type of a node's support when it is a plain one (a type and nothing else). */
+function plainSupport(n: number) {
+  const sp = [...modelStore.supports.values()].find((x) => x.nodeId === n);
+  return sp && Object.keys(sp).every((k) => k === 'id' || k === 'nodeId' || k === 'type') ? sp.type : undefined;
+}
+
+/**
+ * A plain support at both ends of an outline side holds the whole side: every node of the mesh on
+ * it that has no support of its own gets it too, the mesh's own and the user's alike.
+ */
+function supportSides(outer: readonly number[], meshNodes: readonly number[]): number[] {
+  const supportedNow = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
   const added: number[] = [];
   outer.forEach((a, i) => {
     const b = outer[(i + 1) % outer.length]!;
-    const type = plain(a);
-    if (!type || plain(b) !== type) return;
+    const type = plainSupport(a);
+    if (!type || plainSupport(b) !== type) return;
     const A = modelStore.nodes.get(a), B = modelStore.nodes.get(b);
     if (!A || !B) return;
     const d = [B.x - A.x, B.y - A.y, (B.z ?? 0) - (A.z ?? 0)], L2 = d[0]! ** 2 + d[1]! ** 2 + d[2]! ** 2;
     if (L2 < 1e-18) return;
-    for (const n of created) {
+    for (const n of meshNodes) {
       const P = modelStore.nodes.get(n);
-      if (!P || plain(n) !== undefined) continue;
+      if (!P || supportedNow.has(n)) continue;
       const w = [P.x - A.x, P.y - A.y, (P.z ?? 0) - (A.z ?? 0)];
       const t = (w[0]! * d[0]! + w[1]! * d[1]! + w[2]! * d[2]!) / L2;
       const off = Math.hypot(w[0]! - t * d[0]!, w[1]! - t * d[1]!, w[2]! - t * d[2]!);
-      if (t > 1e-6 && t < 1 - 1e-6 && off < 1e-6) { modelStore.addSupport(n, type); added.push(n); }
+      if (t > 1e-6 && t < 1 - 1e-6 && off < 1e-6) { modelStore.addSupport(n, type); added.push(n); supportedNow.add(n); }
     }
   });
   return added;
@@ -765,8 +771,12 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
   modelStore.batch(() => {
     untieNodes(owned);
     const spread = new Set(e.surface.meshed?.supported ?? []);
+    // A spread support was only given to a node without one, so it is taken back from the user's nodes too, unless edited since.
     // The foundation springs on the mesh's own nodes go with it, or they would hold those nodes in the model.
-    for (const sp of [...modelStore.supports.values()]) if (owned.has(sp.nodeId) && (spread.has(sp.nodeId) || (e.surface.springs && isSpring(sp as never)))) modelStore.removeSupport(sp.id);
+    for (const sp of [...modelStore.supports.values()]) {
+      if (spread.has(sp.nodeId) && plainSupport(sp.nodeId) !== undefined) modelStore.removeSupport(sp.id);
+      else if (owned.has(sp.nodeId) && e.surface.springs && isSpring(sp as never)) modelStore.removeSupport(sp.id);
+    }
     for (const q of e.group.members.quads ?? []) if (modelStore.quads.has(q)) modelStore.removeQuad(q);
     for (const p of e.group.members.plates ?? []) if (modelStore.plates.has(p)) modelStore.removePlate(p);
     // The members the mesh cut, whole again where the cut node is the mesh's and holds nothing else.
@@ -800,8 +810,6 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
   for (const p of plans) if (!p.mesh) report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });
   const current = ok.length ? physicalPlates().filter((e) => plateStatus(e.id) === 'current').map((e) => e.id) : [];
   const meshed: number[] = [];
-  // Nodes that had the plate's support spread to them: one kept by the new mesh gets it back.
-  const spreadBefore = new Map<number, number[]>();
   let lifted = 0;
   const begin = () => {
     const byShell = shellAreaLoads();
@@ -819,7 +827,6 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
       const e = plateEntry(planned.id);
       if (!e) continue;
       report.droppedLocalLoads += planned.localLoads;
-      spreadBefore.set(planned.id, e.surface.meshed?.supported ?? []);
       report.keptNodes += clearPlateMesh(planned.id).keptNodes;
     }
   };
@@ -837,8 +844,7 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     if (fp) tieFootprints(new Set(r.nodeIds), fp.columns);
     const g = modelStore.model.groups.get(p.id)!;
     const loops = plateLoops(g);
-    const inMesh = new Set(r.nodeIds);
-    const supported = supportSides(loops.outer, [...created, ...(spreadBefore.get(p.id) ?? []).filter((n) => inMesh.has(n) && modelStore.nodes.has(n))]);
+    const supported = supportSides(loops.outer, [...new Set(r.nodeIds)]);
     modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
     if (e.surface.curved) for (const q of r.quads) modelStore.setQuadCurved(q, true);
     if (e.surface.offset) {
