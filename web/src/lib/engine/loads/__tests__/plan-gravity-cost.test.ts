@@ -32,66 +32,49 @@ export function building(nx: number, ny: number, storeys: number, bay = 6, h = 3
   return { nodes, elements };
 }
 
-/**
- * How long this thread takes to do a fixed amount of the planner's kind of arithmetic: two
- * million point-to-segment distances. A budget in units of it holds on a slow runner and under
- * a loaded one, where a budget in milliseconds does not (the same test under the whole suite
- * ran two to four times slower than alone).
- */
-export function calibrationMs(): number {
-  const segs: Array<[number, number, number, number]> = [];
-  for (let k = 0; k < 20; k++) segs.push([k * 0.7, k * 0.3, k * 0.7 + 6 * Math.cos(k), k * 0.3 + 6 * Math.sin(k)]);
-  let near = 0;
-  const t = performance.now();
-  for (let i = 0; i < 100_000; i++) {
-    const px = (i % 977) * 0.061, py = (i % 613) * 0.097;
-    for (const [ax, ay, bx, by] of segs) {
-      const dx = bx - ax, dy = by - ay;
-      const L2 = dx * dx + dy * dy;
-      const s = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2));
-      const ex = px - (ax + s * dx), ey = py - (ay + s * dy);
-      if (ex * ex + ey * ey <= 0.01) near++;
-    }
-  }
-  if (near < 0) throw new Error('unreachable');
-  return performance.now() - t;
-}
-
-/** The median of `reps` timings of `run`, each paired with a calibration, as a ratio. */
-export function costInCalibrations(run: () => void, reps = 3): { ms: number; ratio: number } {
-  const pairs: Array<{ ms: number; ratio: number }> = [];
+/** The median of `reps` timings of `run`, in milliseconds, after `warm` runs. */
+export function medianMs(run: () => void, reps: number, warm = 2): number {
+  for (let i = 0; i < warm; i++) run();
+  const times: number[] = [];
   for (let i = 0; i < reps; i++) {
-    const unit = calibrationMs();
     const t = performance.now();
     run();
-    const ms = performance.now() - t;
-    pairs.push({ ms, ratio: ms / unit });
+    times.push(performance.now() - t);
   }
-  pairs.sort((a, b) => a.ratio - b.ratio);
-  return pairs[pairs.length >> 1]!;
+  times.sort((a, b) => a - b);
+  return times[times.length >> 1]!;
 }
 
 /**
  * The Auto Loads preview runs the gravity layout several times per click. In November 2026 the
- * headroom probe and the coverage lookup scanned every member of the model for every probe point,
- * and this 1730-member building took 190 ms (panels) and 290 ms (width) per layout on an idle
- * laptop, up from 26 ms. In calibrations that regression measures 4,8 and 9,5 (5,4 and 11 under a
- * loaded machine) against 2,0 and 3,5 (1,6 and 3,8) once fixed; each limit is the geometric mean
- * of the two, so a return of the regression fails it and the fixed cost has the same room.
+ * headroom probe and the coverage lookup read every roof member for every probe point of every
+ * panel or strip, so the layout grew with members × panels: a 4860-member building took 0,78 s
+ * (panels) and 1,5 s (width) on an idle laptop, against 0,22 s at the end of October, and 2,6 and
+ * 5,1 s at 9495 members. The cost is measured against the planner's own cost on a 204-member
+ * building, so the ratio tracks the runner, not the clock; a budget in milliseconds or in units of
+ * plain arithmetic ran two times slower on a CI runner than here. Measured, 4860 against 204
+ * members: October 36 (panels) and 61 (width), the regression 111 and 173, this code 43 and 46;
+ * each limit lets the regression fail by 1,5 and leaves this code 1,7 and 2,4 times its room.
  */
 describe('gravityLayout cost', () => {
-  const model = building(8, 6, 10);
-  expect(model.elements.size).toBe(1730);
+  const small = building(4, 3, 4);
+  const large = building(12, 10, 12);
+  expect(small.elements.size).toBe(204);
+  expect(large.elements.size).toBe(4860);
+  const ratio = (mode: 'panels' | 'width', tributaryWidth: number) => {
+    const opts = { mode, tributaryWidth } as const;
+    const unit = medianMs(() => { gravityLayout(small, opts); }, 5);
+    const ms = medianMs(() => { gravityLayout(large, opts); }, 3, 1);
+    return { unit, ms, ratio: ms / unit };
+  };
 
-  it('lays out a 1730-member building in panels mode within 3,2 calibrations', () => {
-    gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
-    const { ms, ratio } = costInCalibrations(() => { gravityLayout(model, { mode: 'panels', tributaryWidth: 1 }); });
-    expect(ratio, `panels mode took ${ms.toFixed(0)} ms, ${ratio.toFixed(1)} calibrations`).toBeLessThan(3.2);
-  });
+  it('lays out a 4860-member building in panels mode within 75 times a 204-member one', () => {
+    const { unit, ms, ratio: r } = ratio('panels', 1);
+    expect(r, `panels mode: ${ms.toFixed(0)} ms against ${unit.toFixed(1)} ms, ${r.toFixed(0)} times`).toBeLessThan(75);
+  }, 60_000);
 
-  it('lays out a 1730-member building in width mode within 6 calibrations', () => {
-    gravityLayout(model, { mode: 'width', tributaryWidth: 2 });
-    const { ms, ratio } = costInCalibrations(() => { gravityLayout(model, { mode: 'width', tributaryWidth: 2 }); });
-    expect(ratio, `width mode took ${ms.toFixed(0)} ms, ${ratio.toFixed(1)} calibrations`).toBeLessThan(6);
-  });
+  it('lays out a 4860-member building in width mode within 110 times a 204-member one', () => {
+    const { unit, ms, ratio: r } = ratio('width', 2);
+    expect(r, `width mode: ${ms.toFixed(0)} ms against ${unit.toFixed(1)} ms, ${r.toFixed(0)} times`).toBeLessThan(110);
+  }, 60_000);
 });

@@ -516,10 +516,11 @@ function notADeck(
   // Each roof member's box, widened by the 0,1 m `heightAbove` reads a member within: a probe
   // outside it is not over that member, so the projection runs for the few members near the probe.
   const roofBoxes = roofMembers.map(([a, b]) => boxAround([[a[0], a[1]], [b[0], b[1]]], 0.1));
+  const roofGrid = new BoxGrid(roofBoxes);
   const roofShells = carriers.filter((c) => c.nodes);
   const heightAbove = (p: [number, number], z: number): number => {
     let h = Infinity;
-    for (let k = 0; k < roofMembers.length; k++) {
+    for (const k of roofGrid.candidates(p)) {
       const [a, b] = roofMembers[k]!;
       if (!inBox(p, roofBoxes[k]!) || !nearSegment(p, [a[0], a[1]], [b[0], b[1]], 0.1)) continue;
       const L2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2;
@@ -542,7 +543,11 @@ function notADeck(
       const extent = poly.map(alongOf);
       const lo = Math.min(...extent) - 0.1, hi = Math.max(...extent) + 0.1;
       let below: [number, number] | null = null, above: [number, number] | null = null;
-      for (const [a, b] of roofMembers) {
+      // A member crossing the scan line between `lo` and `hi` meets that stretch of it, so only
+      // the members whose box meets the stretch's box are read, in their order.
+      const stretch = boxAround([[p[0] + lo * v[0], p[1] + lo * v[1]], [p[0] + hi * v[0], p[1] + hi * v[1]]], 1e-6);
+      for (const k of roofGrid.overlapping(stretch)) {
+        const [a, b] = roofMembers[k]!;
         if (Math.max(a[2], b[2]) <= z + TOL) continue;
         const da = across([a[0], a[1]]), db = across([b[0], b[1]]);
         if ((da > 1e-9 && db > 1e-9) || (da < -1e-9 && db < -1e-9) || Math.abs(da - db) <= 1e-12) continue;
@@ -1017,13 +1022,83 @@ function inBox(pt: readonly [number, number], box: Box): boolean {
   return pt[0] >= box.x0 && pt[0] <= box.x1 && pt[1] >= box.y0 && pt[1] <= box.y1;
 }
 
+/**
+ * The boxes of a level's panels or members on a uniform grid, so a point is tested against the
+ * few whose box covers its cell instead of against all of them. The cell is about the side of a
+ * box's share of the level's footprint; a box is listed in every cell it overlaps, so the
+ * candidates of a point are every box that contains it (and some that do not), and the tests run
+ * on them give the same answer as on the whole list. Without it the headroom probe and the
+ * coverage lookup were quadratic in the model: a 4860-member building took 0,8 s to plan.
+ */
+class BoxGrid {
+  private readonly cells = new Map<number, number[]>();
+  private readonly x0: number;
+  private readonly y0: number;
+  private readonly side: number;
+  private readonly nx: number;
+  private readonly ny: number;
+  private readonly seen: Uint32Array;
+  private stamp = 0;
+
+  constructor(boxes: readonly Box[]) {
+    this.seen = new Uint32Array(boxes.length);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const b of boxes) { x0 = Math.min(x0, b.x0); y0 = Math.min(y0, b.y0); x1 = Math.max(x1, b.x1); y1 = Math.max(y1, b.y1); }
+    const w = Math.max(x1 - x0, 1e-9), h = Math.max(y1 - y0, 1e-9);
+    this.side = Math.max(Math.sqrt((w * h) / Math.max(1, boxes.length)) * 2, Math.max(w, h) / 512, 1e-6);
+    this.x0 = x0; this.y0 = y0;
+    this.nx = boxes.length ? Math.floor(w / this.side) + 1 : 0;
+    this.ny = boxes.length ? Math.floor(h / this.side) + 1 : 0;
+    boxes.forEach((b, k) => {
+      const [i0, j0] = this.cell(b.x0, b.y0), [i1, j1] = this.cell(b.x1, b.y1);
+      for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+        const key = i * this.ny + j;
+        const list = this.cells.get(key);
+        if (list) list.push(k); else this.cells.set(key, [k]);
+      }
+    });
+  }
+
+  private cell(x: number, y: number): [number, number] {
+    return [
+      Math.min(this.nx - 1, Math.max(0, Math.floor((x - this.x0) / this.side))),
+      Math.min(this.ny - 1, Math.max(0, Math.floor((y - this.y0) / this.side))),
+    ];
+  }
+
+  /** The indices of the boxes that may contain `pt`; each is still tested with `inBox`. */
+  candidates(pt: readonly [number, number]): readonly number[] {
+    if (this.nx === 0 || pt[0] < this.x0 || pt[1] < this.y0 || pt[0] > this.x0 + this.nx * this.side || pt[1] > this.y0 + this.ny * this.side) return NONE;
+    const [i, j] = this.cell(pt[0], pt[1]);
+    return this.cells.get(i * this.ny + j) ?? NONE;
+  }
+
+  /** The indices of the boxes that may meet `box`, each once, in index order (so a scan over them chooses as a scan over all would). */
+  overlapping(box: Box): number[] {
+    if (this.nx === 0 || box.x1 < this.x0 || box.y1 < this.y0 || box.x0 > this.x0 + this.nx * this.side || box.y0 > this.y0 + this.ny * this.side) return [];
+    const [i0, j0] = this.cell(box.x0, box.y0), [i1, j1] = this.cell(box.x1, box.y1);
+    this.stamp++;
+    const out: number[] = [];
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+      const list = this.cells.get(i * this.ny + j);
+      if (!list) continue;
+      for (const k of list) if (this.seen[k] !== this.stamp) { this.seen[k] = this.stamp; out.push(k); }
+    }
+    return out.sort((a, b) => a - b);
+  }
+}
+const NONE: readonly number[] = [];
+
 /** How far above `zTop` the lowest panel, slab or beam over a plan point is (see the header); Infinity when none is. */
 function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<number, Array<Array<[number, number]>>>): (pt: [number, number], zTop: number) => number {
-  type Cover = { z: number; polys: Array<Array<[number, number]>>; segs: Array<[[number, number], [number, number]]>; polyBoxes: Box[]; segBoxes: Box[] };
+  type Cover = {
+    z: number; polys: Array<Array<[number, number]>>; segs: Array<[[number, number], [number, number]]>;
+    polyBoxes: Box[]; segBoxes: Box[]; polyGrid: BoxGrid; segGrid: BoxGrid;
+  };
   const covers: Cover[] = [];
   const coverAt = (z: number) => {
     let c = covers.find((x) => Math.abs(x.z - z) <= TOL);
-    if (!c) { c = { z, polys: [], segs: [], polyBoxes: [], segBoxes: [] }; covers.push(c); }
+    if (!c) { c = { z, polys: [], segs: [], polyBoxes: [], segBoxes: [], polyGrid: new BoxGrid([]), segGrid: new BoxGrid([]) }; covers.push(c); }
     return c;
   };
   for (const [z, polys] of panelsAt) coverAt(z).polys.push(...polys);
@@ -1044,10 +1119,12 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<n
   for (const c of covers) {
     c.polyBoxes = c.polys.map((poly) => boxAround(poly, 0.05));
     c.segBoxes = c.segs.map((seg) => boxAround(seg, 0.05));
+    c.polyGrid = new BoxGrid(c.polyBoxes);
+    c.segGrid = new BoxGrid(c.segBoxes);
   }
   return (pt, zTop) => covers.reduce((h, c) => (c.z > zTop + 0.05
-    && (c.polys.some((poly, k) => inBox(pt, c.polyBoxes[k]!) && inside(pt, poly))
-      || c.segs.some(([a, b], k) => inBox(pt, c.segBoxes[k]!) && nearSegment(pt, a, b, 0.05))) ? Math.min(h, c.z - zTop) : h), Infinity);
+    && (c.polyGrid.candidates(pt).some((k) => inBox(pt, c.polyBoxes[k]!) && inside(pt, c.polys[k]!))
+      || c.segGrid.candidates(pt).some((k) => inBox(pt, c.segBoxes[k]!) && nearSegment(pt, c.segs[k]![0], c.segs[k]![1], 0.05))) ? Math.min(h, c.z - zTop) : h), Infinity);
 }
 
 /**
