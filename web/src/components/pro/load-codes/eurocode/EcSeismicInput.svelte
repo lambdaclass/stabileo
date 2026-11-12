@@ -1,9 +1,9 @@
 <script lang="ts">
   import Hint from '../../Hint.svelte';
-  import { t } from '../../../../lib/i18n';
+  import { t, tp } from '../../../../lib/i18n';
   import type { CodeInputProps } from '../registry';
   import { SEISMIC_DEFAULTS, type EcSeismicInput, type GroundType, type ImportanceClass, type PeriodSystem } from '../../../../lib/codes/eurocode/inputs';
-  import { GAMMA_I, SPECTRUM, designSpectrum } from '../../../../lib/codes/eurocode/seismic';
+  import { AVG_THRESHOLD, GAMMA_I, SPECTRUM, designSpectrum, verticalOf } from '../../../../lib/codes/eurocode/seismic';
 
   let { value, onchange }: CodeInputProps<EcSeismicInput> = $props();
   const v = $derived<EcSeismicInput>({ ...SEISMIC_DEFAULTS, ...(value ?? {}) });
@@ -16,6 +16,9 @@
     const ag = (v.gammaI ?? GAMMA_I[v.importance!]) * v.agR!;
     return designSpectrum(p.TC, ag, p, v.q!);
   });
+
+  /** §4.3.3.5.2: on by default above avg = 0,25 g; the reader turns it off or on. */
+  const vertical = $derived(verticalOf(v));
 
   function set<K extends keyof EcSeismicInput>(k: K, x: EcSeismicInput[K]) { onchange({ ...(value ?? {}), [k]: x }); }
   const num = (e: Event) => {
@@ -63,6 +66,11 @@
     <label class="pk-check"><input type="checkbox" checked={v.directions?.y} onchange={(e) => dir('y', e.currentTarget.checked)} data-testid="ec-seismic-dir-y" />Y</label>
     <label class="pk-check"><input type="checkbox" checked={v.combine30} onchange={(e) => set('combine30', e.currentTarget.checked)} />{t('loads.ec.ui.combine30')}</label>
   </div>
+  <label class="pk-check"><input type="checkbox" checked={vertical?.on ?? false} disabled={!vertical}
+    onchange={(e) => set('vertical', e.currentTarget.checked)} data-testid="ec-seismic-vertical" />{t('loads.ec.ui.vertical')}</label>
+  {#if vertical}
+    <p class="pk-hint" data-testid="ec-seismic-vertical-note">{tp(vertical.avg > AVG_THRESHOLD ? 'loads.ec.ui.verticalAbove' : 'loads.ec.ui.verticalBelowHint', { avg: vertical.avg.toFixed(3) })}</p>
+  {/if}
   {#if plateau !== null}
     <p class="pk-hint">S<sub>d</sub>(T<sub>B</sub>…T<sub>C</sub>) = {plateau.toFixed(4)} g</p>
   {:else}

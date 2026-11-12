@@ -92,6 +92,12 @@ export interface SeismicCode extends CodeModule {
   liveInMass(occupancy: string): number | undefined;
   /** The combinations with the vertical component, when the code asks for it. */
   vertical?(combinations: LoadCombinationSpec[], detail: SeismicPlanDetail | undefined, sink: PlanSink): LoadCombinationSpec[];
+  /**
+   * The code decides itself whether the vertical component enters (TBDY always, ASCE 7 by SDS,
+   * EN 1998-1 by avg and its own input): `vertical` runs whatever the dialog's CIRSOC toggle says.
+   * Absent: the project's toggle decides (INPRES-CIRSOC 103 §3.5.2).
+   */
+  verticalByCode?: boolean;
   /** The dialog's starting values. */
   defaults: { zone: number; site: string; group: string };
 }

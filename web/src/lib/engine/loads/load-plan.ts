@@ -1113,8 +1113,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       refs.push(...strength.refs);
     }
     if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...codes.basis.service(ci, input)];
-    // The seismic code's vertical component, when it asks for one (INPRES-CIRSOC 103 §3.5.2).
-    if (input.seismic?.enabled && input.seismic.vertical && codes.seismic?.vertical) combinations = codes.seismic.vertical(combinations, seismicDetail, sink);
+    // The seismic code's vertical component: by the project's toggle (INPRES-CIRSOC 103 §3.5.2), or by the code's own rule.
+    if (input.seismic?.enabled && codes.seismic?.vertical && (codes.seismic.verticalByCode || input.seismic.vertical)) combinations = codes.seismic.vertical(combinations, seismicDetail, sink);
     // Each combination says which code, edition and rule wrote it, and what for.
     combinations = combinations.map((c) => withOrigin(c, codes.basis, !!input.projectCombinations));
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));

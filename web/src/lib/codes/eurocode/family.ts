@@ -4,7 +4,7 @@ import { categoryOfOccupancy, findEcOccupancy, occupancyTable, reduceImposed } f
 import { planContextOf } from './context';
 import { planEcWind } from './wind';
 import { planEcSnow } from './snow';
-import { planEcSeismic, psiE } from './seismic';
+import { ecVertical, planEcSeismic, psiE } from './seismic';
 import type { EcFamily } from './refs';
 import { ecRoofLive } from './roof-live';
 
@@ -58,6 +58,8 @@ export const EN1998_SEISMIC: SeismicCode = {
   sections: { spectrum: '3.2.2.5', method: '4.3.3.2' },
   plan: (input, levels, sink) => planEcSeismic(input, levels, sink),
   liveInMass: (occupancy) => (categoryOfOccupancy(occupancy) ? psiE(occupancy, false, 'correlated') : undefined),
+  vertical: (combinations, detail, sink) => ecVertical(combinations, detail, sink),
+  verticalByCode: true,
   defaults: { zone: 4, site: 'SD', group: 'B' },
 };
 

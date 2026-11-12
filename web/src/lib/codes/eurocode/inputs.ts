@@ -53,6 +53,11 @@ export interface EcSeismicInput {
   occupancy?: Occupancy;
   combine30?: boolean;
   directions?: Directions;
+  /**
+   * The vertical component (EN 1998-1 §4.3.3.5.2). Absent: on when avg > 0,25 g, the threshold
+   * of §4.3.3.5.2(1); the elements it applies to are the engineer's to judge.
+   */
+  vertical?: boolean;
 }
 
 export const WIND_ADAPTER: Readonly<Record<EcFamily, string>> = { eurocode: 'en1991-1-4', uk: 'en1991-1-4-uk' };

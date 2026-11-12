@@ -1,5 +1,6 @@
 import { fromProject, type ProvenancedValue } from '../regulation';
 import { msg, round } from '../message';
+import { combinationLabel, type LoadCombinationSpec } from '../cirsoc101/combinations';
 import { levelLoads } from '../../engine/loads/wind-cases';
 import { snowWeightByLevel, type LevelMass, type LoadPlanInput, type PlanSink, type SeismicPlanDetail } from '../../engine/loads/load-plan';
 import { EN1990, EN1998_1 } from './refs';
@@ -25,6 +26,25 @@ export const CT: Readonly<Record<PeriodSystem, number>> = { steelMrf: 0.085, con
 export const BETA = 0.2;
 export const ACCIDENTAL_E = 0.05;
 export const AVG_RATIO: Readonly<Record<1 | 2, number>> = { 1: 0.9, 2: 0.45 };
+/** §4.3.3.5.2(1): the vertical component is considered above this avg, in g. */
+export const AVG_THRESHOLD = 0.25;
+/** §3.2.2.5(6): the behaviour factor of the vertical component, at most 1,5. */
+export const Q_VERTICAL = 1.5;
+/** §4.3.3.5.2(4) with eq. 4.18–4.20: the other components at 0,30. */
+export const COMPONENT_SHARE = 0.3;
+
+/** avg in g (Table 3.4: avg/ag), and whether the vertical component is on, as typed or by the threshold. */
+export function verticalOf(ci: EcSeismicInput): { avg: number; on: boolean; byDefault: boolean } | null {
+  if (!(ci.agR! > 0)) return null;
+  const type = ci.spectrumType ?? SEISMIC_DEFAULTS.spectrumType;
+  const ag = (ci.gammaI ?? GAMMA_I[ci.importance ?? SEISMIC_DEFAULTS.importance]) * ci.agR!;
+  const avg = AVG_RATIO[type] * ag;
+  return { avg, on: ci.vertical ?? avg > AVG_THRESHOLD, byDefault: ci.vertical === undefined };
+}
+
+export interface EcSeismicDetail extends SeismicPlanDetail {
+  ec?: { avg: number; kv: number };
+}
 
 export function designSpectrum(T: number, ag: number, p: SpectrumParams, q: number): number {
   const { S, TB, TC, TD } = p;
@@ -114,7 +134,21 @@ export function planEcSeismic(input: LoadPlanInput, levels: LevelMass[], sink: P
     EN1998_1('3.2.2.5', 'design spectrum'), EN1998_1('4.2.5', 'importance factor'), EN1998_1('4.3.3.2.2', 'base shear, eq. 4.5'),
     EN1998_1('4.3.3.2.3', 'distribution, eq. 4.11'), EN1998_1('4.3.2', 'accidental torsion'), EN1998_1('4.3.3.3.3', 'torsional moments'),
   );
-  if (AVG_RATIO[ci.spectrumType] * ag > 0.25) unsupportedKeys.push(msg('loads.ec.seismic.vertical', { avg: round(AVG_RATIO[ci.spectrumType] * ag, 3) }));
+  // §4.3.3.5.2: the vertical component above avg = 0,25 g, for the elements it lists. The plateau
+  // of the vertical design spectrum (§3.2.2.5(5), S = 1, q ≤ 1,5) on the permanent load, as the
+  // period of those elements is not known here.
+  const avg = AVG_RATIO[ci.spectrumType] * ag;
+  const verticalOn = ci.vertical ?? avg > AVG_THRESHOLD;
+  const kv = verticalOn ? avg * 2.5 / Q_VERTICAL : 0;
+  if (verticalOn) {
+    refs.push(EN1998_1('4.3.3.5.2', 'vertical component'), EN1998_1('Table 3.4', 'vertical spectrum'), EN1998_1('3.2.2.5(6)', 'q for the vertical component'));
+    derivation.push(msg('loads.ec.seismic.verticalOn', { avg: round(avg, 3), kv: round(kv, 4), q: Q_VERTICAL }));
+    unsupportedKeys.push(msg('loads.ec.seismic.verticalWhole'));
+  } else if (avg > AVG_THRESHOLD) {
+    unsupportedKeys.push(msg('loads.ec.seismic.verticalOff', { avg: round(avg, 3) }));
+  } else {
+    derivation.push(msg('loads.ec.seismic.verticalBelow', { avg: round(avg, 3) }));
+  }
 
   const forces = storeyForces(Fb, elevated.map((l) => ({ z: l.elevation - base, w: l.weightKN })));
   const extent = (ids: number[], k: 'x' | 'y') => {
@@ -142,8 +176,31 @@ export function planEcSeismic(input: LoadPlanInput, levels: LevelMass[], sink: P
     }
   }
   derivation.push(msg(both ? 'loads.ec.seismic.cases30' : 'loads.ec.seismic.cases', { e: ACCIDENTAL_E * 100 }));
-  return {
-    seismicWeight: fromProject(W, 'kN'), baseShear: fromProject(Fb, 'kN'),
-    seismicDetail: { source: 'manual', c: Fb / W, t: T1 },
-  };
+  const detail: EcSeismicDetail = { source: 'manual', c: Fb / W, t: T1, ...(verticalOn ? { ec: { avg, kv } } : {}) };
+  return { seismicWeight: fromProject(W, 'kN'), baseShear: fromProject(Fb, 'kN'), seismicDetail: detail };
+}
+
+/**
+ * The vertical component in the seismic combinations (§4.3.3.5.2(4), eq. 4.18–4.20): EEdz on the
+ * permanent load as ± kv·G. With a horizontal component leading, D ± 0,30·kv; with the vertical
+ * leading, the horizontal case at 0,30 and D ± kv.
+ */
+export function ecVertical(combinations: LoadCombinationSpec[], detail: SeismicPlanDetail | undefined, sink: PlanSink): LoadCombinationSpec[] {
+  const ec = (detail as EcSeismicDetail | undefined)?.ec;
+  if (!ec || !(ec.kv > 0)) return combinations;
+  const out = combinations.flatMap((c): LoadCombinationSpec[] => {
+    const e = c.terms.find((t) => t.symbol === 'E' && t.factor !== 0);
+    if (!e || !c.terms.some((t) => t.symbol === 'D') || c.purpose === 'service') return [c];
+    const variants: Array<{ tag: string; eShare: number; dv: number }> = [
+      { tag: '+0.3Ez', eShare: 1, dv: COMPONENT_SHARE * ec.kv }, { tag: '-0.3Ez', eShare: 1, dv: -COMPONENT_SHARE * ec.kv },
+      { tag: '+Ez', eShare: COMPONENT_SHARE, dv: ec.kv }, { tag: '-Ez', eShare: COMPONENT_SHARE, dv: -ec.kv },
+    ];
+    return variants.map((v) => {
+      const terms = c.terms.map((t) => (t.symbol === 'D' ? { ...t, factor: +(t.factor + v.dv).toFixed(4) } : t.symbol === 'E' ? { ...t, factor: +(t.factor * v.eShare).toFixed(4) } : t));
+      return { ...c, id: `${c.id}${v.tag}`, terms, label: combinationLabel(terms) };
+    });
+  });
+  sink.refs.push(EN1998_1('4.3.3.5.1', 'eq. 4.18–4.20'));
+  sink.derivation.push(msg('loads.ec.seismic.verticalCombos', { kv: round(ec.kv, 4), share: COMPONENT_SHARE, kv3: round(COMPONENT_SHARE * ec.kv, 4) }));
+  return out;
 }

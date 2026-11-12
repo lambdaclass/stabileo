@@ -166,7 +166,6 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
     }
   }
 
-  if (!input.seismic.vertical) sink.unsupportedKeys.push(msg('loads.tr.seismic.note.verticalOff'));
   if (dtsGroup(dts) === 1) sink.unsupportedKeys.push(msg('loads.tr.seismic.note.verticalElements'));
   if (input.seismic.modal?.modes.length) sink.unsupportedKeys.push(msg('loads.tr.seismic.note.modalIgnored'));
   sink.unsupportedKeys.push(msg('loads.tr.seismic.note.base'));

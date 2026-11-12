@@ -45,6 +45,7 @@ export const TBDY_SEISMIC: SeismicCode = {
   plan: (input, levels, sink) => planTbdy(input, levels, sink),
   liveInMass: (use) => MASS_PARTICIPATION[use as MassUse],
   vertical: (combinations, detail, sink) => tbdyVertical(combinations, detail, sink),
+  verticalByCode: true,
   defaults: { zone: 4, site: 'SD', group: 'B' },
 };
 

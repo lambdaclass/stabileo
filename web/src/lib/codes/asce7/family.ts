@@ -43,6 +43,7 @@ export const ASCE7_SEISMIC: SeismicCode = {
   plan: (input, levels, sink) => planAsce7Seismic(input, levels, sink),
   liveInMass: (occupancy) => (STORAGE_OCCUPANCIES.has(occupancy) ? STORAGE_SHARE : 0),
   vertical: (combinations, detail, sink) => asce7Vertical(combinations, detail, sink),
+  verticalByCode: true,
   defaults: { zone: 4, site: 'SD', group: 'B' },
 };
 

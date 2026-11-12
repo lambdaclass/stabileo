@@ -86,7 +86,6 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
   const forces = verticalDistribution(elevated.map((l) => ({ h: l.elevation - base, w: l.weightKN })), V, kExp).map((f) => f * rho);
   derivation.push(msg('loads.asce7.seismic.derivation.baseShear', { w: round(W, 1), cs: round(cs.cs, 4), v: round(V, 1), k: round(kExp, 3), rho }));
   if (rho > 1 && 'ABC'.includes(sdc)) unsupportedKeys.push(msg('loads.asce7.seismic.note.rhoLowSdc', { sdc }));
-  if (!input.seismic.vertical && sds > 0.125) unsupportedKeys.push(msg('loads.asce7.seismic.note.evOff', { kv: round(0.2 * sds, 4) }));
   unsupportedKeys.push(msg('loads.asce7.seismic.note.notCovered'));
 
   const torsion = ci.torsion ?? SEISMIC_DEFAULTS.torsion;

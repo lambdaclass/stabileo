@@ -476,7 +476,8 @@
         },
         liveParticipation: null,
         directions: { x: seismicDirectionX, y: seismicDirectionZ },
-        vertical: CODE_INPUTS[codeAdapter('seismic')] ? true : seismicMethod.vertical, torsion: seismicMethod.torsion, diagonal: seismicMethod.diagonal,
+        // Read by INPRES-CIRSOC 103 alone: the other codes decide the vertical component themselves (`verticalByCode`).
+        vertical: seismicMethod.vertical, torsion: seismicMethod.torsion, diagonal: seismicMethod.diagonal,
       } : undefined,
       generateCombinations: genCombos,
       combinationSet: comboSet,
@@ -574,8 +575,11 @@
   async function handlePreview() {
     applyError = null;
     recordRoleConfiguration();
-    const windModes = enableWind && windDyn.n1Source === 'modal' && !windLowRise;
-    const seismicModes = enableSeismic && seismicMethod.method === 'modal';
+    // The modal frequency (CIRSOC 102 §1.9) and the modal method (INPRES-CIRSOC 103) are those codes' own:
+    // another family's code has its inputs and reads neither, nor CIRSOC 103's f1 for the masses.
+    const cirsocWind = !CODE_INPUTS[codeAdapter('wind')], cirsocSeismic = !CODE_INPUTS[codeAdapter('seismic')];
+    const windModes = enableWind && cirsocWind && windDyn.n1Source === 'modal' && !windLowRise;
+    const seismicModes = enableSeismic && cirsocSeismic && seismicMethod.method === 'modal';
     const total = 2 + (windModes ? 1 : 0) + (seismicModes ? 1 : 0);
     let at = 1;
     working = null;
