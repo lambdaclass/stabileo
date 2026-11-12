@@ -305,9 +305,6 @@ describe('against real corpus files', () => {
       const assess = applicability.assessProject;
       const mocked = vi.spyOn(applicability, 'assessProject').mockImplementation((snapshot, stamp, mode, _registry, features, loadsVersion) =>
         assess(snapshot, stamp, mode, registry, features, loadsVersion));
-      function assertMainNoticeOrder(opened: { changes: ResultChange[] }) {
-        if (mainFirst) expect(opened.changes.slice(-8).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
-      }
       try {
         const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'deep-beam-shell')!;
         const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`));
@@ -319,6 +316,9 @@ describe('against real corpus files', () => {
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
         ]));
 
+      function assertMainNoticeOrder(opened: { changes: ResultChange[] }) {
+        if (mainFirst) expect(opened.changes.slice(-8).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+      }
         assertMainNoticeOrder({ changes: opened.changes.filter(c => c.id !== 'staged-history-forces-unavailable') });
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
