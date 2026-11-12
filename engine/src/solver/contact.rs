@@ -263,10 +263,10 @@ pub struct NodeToSurfaceContactInfo {
 /// `k` (row-major m×m) and a load `f` (length m) on the model DOFs `dofs`.
 /// Built in global axes and rotated into the inclined-support frames K is
 /// numbered in before it is added.
-struct Correction {
-    dofs: Vec<usize>,
-    k: Vec<f64>,
-    f: Vec<f64>,
+pub(super) struct Correction {
+    pub(super) dofs: Vec<usize>,
+    pub(super) k: Vec<f64>,
+    pub(super) f: Vec<f64>,
 }
 
 impl Correction {
@@ -1040,20 +1040,8 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
     // Residual of the final state, R = K·u − f over all DOFs (frames of K):
     // the restrained part is the reactions, the free part the constraint
     // forces.
-    let mut residual = base.mul(&u);
-    for (r, f) in residual.iter_mut().zip(&f_base) {
-        *r -= f;
-    }
-    for c in &corr {
-        let m = c.dofs.len();
-        for a in 0..m {
-            residual[c.dofs[a]] -= c.f[a];
-            for b in 0..m {
-                residual[c.dofs[a]] += c.k[a * m + b] * u[c.dofs[b]];
-            }
-        }
-    }
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, &dof_num, cs.as_ref());
+    let physical = super::reaction_recovery::PhysicalForces::contact_2d(&input.solver, &dof_num, &u, &inactive, &corr);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_base, &dof_num, cs.as_ref());
     let reactions = recovered.reactions_2d(&input.solver, &dof_num, &u_global, &its)?;
     let constraint_forces = recovered.constraint_forces;
     // A deactivated member is not deformed by the structure; it carries only
@@ -1546,20 +1534,8 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
     }
 
     // R = K·u − f over all DOFs (frames of K): reactions and constraint forces.
-    let mut residual = base.mul(&u);
-    for (r, f) in residual.iter_mut().zip(&f_base) {
-        *r -= f;
-    }
-    for c in &corr {
-        let m = c.dofs.len();
-        for a in 0..m {
-            residual[c.dofs[a]] -= c.f[a];
-            for b in 0..m {
-                residual[c.dofs[a]] += c.k[a * m + b] * u[c.dofs[b]];
-            }
-        }
-    }
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, &dof_num, cs.as_ref());
+    let physical = super::reaction_recovery::PhysicalForces::contact_3d(input_solver, &dof_num, &u, &inactive, &corr);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_base, &dof_num, cs.as_ref());
     let reactions = recovered.reactions_3d(input_solver, &dof_num, &u_global, &its)?;
     let constraint_forces = recovered.constraint_forces;
     let mut element_forces = linear::compute_internal_forces_3d(input_solver, &dof_num, &u_global);

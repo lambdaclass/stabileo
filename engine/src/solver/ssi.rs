@@ -45,7 +45,7 @@ fn spring_triplets<T: InclinedFrame>(
 }
 
 /// K·[u_f; 0] − F over every DOF, K with the soil springs at the secants of the solve.
-fn residual<T: InclinedFrame>(
+pub(super) fn residual<T: InclinedFrame>(
     mut ku: Vec<f64>, springs: &[SoilSpring], spring_k: &[f64], dof_num: &DofNumbering, its: &[T],
     u_frame: &[f64], f_global: &[f64],
 ) -> Vec<f64> {
@@ -64,16 +64,6 @@ fn residual<T: InclinedFrame>(
         *r -= f;
     }
     ku
-}
-
-fn dense_ku(k: &[f64], n: usize, u_frame: &[f64]) -> Vec<f64> {
-    (0..n).map(|i| u_frame.iter().enumerate().map(|(j, u)| k[i * n + j] * u).sum()).collect()
-}
-
-fn sparse_ku(k_full: &crate::linalg::sparse::CscMatrix, n: usize, u_frame: &[f64]) -> Vec<f64> {
-    let mut u = u_frame.to_vec();
-    u.resize(n, 0.0);
-    k_full.sym_mat_vec(&u)
 }
 
 /// Soil spring attached to a node along a pile.
@@ -405,13 +395,10 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
         })
         .collect::<Result<_, String>>()?;
 
-    let ku = if let Some(ref s) = sparse_stiff {
-        sparse_ku(&s.k_full, n, &u_frame)
-    } else {
-        dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame)
-    };
-    let full_residual = residual(ku, &input.soil_springs, &solved_k, &dof_num, its, &u_frame, &f_global);
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&full_residual, &dof_num, cs.as_ref());
+    u_frame.resize(n, 0.0);
+    let physical = super::reaction_recovery::PhysicalForces::linear_2d(&input.solver, &dof_num, &u_frame)
+        .with_soil(&input.soil_springs, &solved_k, &dof_num, its, &u_frame);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_global, &dof_num, cs.as_ref());
     let reactions = recovered.reactions_2d(&input.solver, &dof_num, &u_full, its)?;
     let constraint_forces = recovered.constraint_forces;
 
@@ -647,13 +634,10 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         })
         .collect::<Result<_, String>>()?;
 
-    let ku = if let Some(ref s) = sparse_asm {
-        sparse_ku(s.k_full.as_ref().ok_or("SSI: sparse assembly without the full stiffness")?, n, &u_frame)
-    } else {
-        dense_ku(&dense_asm.as_ref().unwrap().k, n, &u_frame)
-    };
-    let full_residual = residual(ku, &input.soil_springs, &solved_k, &dof_num, its, &u_frame, &f_global);
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&full_residual, &dof_num, cs.as_ref());
+    u_frame.resize(n, 0.0);
+    let physical = super::reaction_recovery::PhysicalForces::linear_3d(&expanded_solver, &dof_num, &u_frame)
+        .with_soil(&input.soil_springs, &solved_k, &dof_num, its, &u_frame);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_global, &dof_num, cs.as_ref());
     let reactions = recovered.reactions_3d(&input.solver, &dof_num, &u_full, its)?;
     let constraint_forces = recovered.constraint_forces;
 

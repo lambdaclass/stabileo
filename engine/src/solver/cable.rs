@@ -62,8 +62,8 @@ pub struct CableElementResult {
 }
 
 /// Precomputed cable element geometry.
-struct CableGeom {
-    elem_id: usize,
+pub(super) struct CableGeom {
+    pub(super) elem_id: usize,
     node_i_id: usize,
     node_j_id: usize,
     l0: f64,
@@ -75,15 +75,15 @@ struct CableGeom {
     dy: f64,
     cos_a: f64,
     sin_a: f64,
-    ea: f64,
+    pub(super) ea: f64,
     /// Young's modulus, kN/m².
     e: f64,
     w: f64, // self-weight per unit length (kN/m)
 }
 
 /// 3D cable element geometry.
-struct CableGeom3D {
-    elem_id: usize,
+pub(super) struct CableGeom3D {
+    pub(super) elem_id: usize,
     node_i_id: usize,
     node_j_id: usize,
     l0: f64,
@@ -95,7 +95,7 @@ struct CableGeom3D {
     dy: f64,
     dz: f64,
     dir: [f64; 3],
-    ea: f64,
+    pub(super) ea: f64,
     /// Young's modulus, kN/m².
     e: f64,
     w: f64,
@@ -632,22 +632,9 @@ fn solve_cable_2d_inner(
     }
 
     // Build results
-    let ku = if let Some(ref s) = sparse_stiff {
-        s.k_full.sym_mat_vec(&u_full)
-    } else {
-        mat_vec(&dense_asm.as_ref().unwrap().k, &u_full, n)
-    };
-    let mut residual: Vec<f64> = ku.iter().zip(&f_global).map(|(i, f)| i - f).collect();
-    // The base block gives every cable the force EA·ε_lin of a full-E truss; the supports feel its
-    // tension T instead: add −c·(T − EA·ε_lin) at the restrained DOFs (c in the solver's frame).
-    let mut r_cable = vec![0.0; n];
-    for (ci, (dofs, coef)) in cables.iter().zip(&slots) {
-        add_along(&mut r_cable, dofs, coef, -(cable_tensions[&ci.elem_id] - ci.ea * cable_eps_lin[&ci.elem_id]));
-    }
-    for i in 0..n {
-        residual[i] += r_cable[i];
-    }
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, &dof_num, cs.as_ref());
+    let physical = super::reaction_recovery::PhysicalForces::linear_2d(input, &dof_num, &u_full)
+        .with_cables_2d(&cables, &slots, &cable_tensions, &cable_eps_lin);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_global, &dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_2d so cable analysis reports reactions and
@@ -1016,20 +1003,9 @@ fn solve_cable_3d_inner(
         }
     }
 
-    let ku = if let Some(ref s) = sparse_asm {
-        s.k_full.as_ref().expect("full stiffness assembled for reaction recovery").sym_mat_vec(&u_full)
-    } else {
-        mat_vec(&dense_asm.as_ref().unwrap().k, &u_full, n)
-    };
-    let mut residual: Vec<f64> = ku.iter().zip(&f_global).map(|(i, f)| i - f).collect();
-    let mut r_cable = vec![0.0; n];
-    for (ci, (dofs, coef)) in cables.iter().zip(&slots) {
-        add_along(&mut r_cable, dofs, coef, -(cable_tensions[&ci.elem_id] - ci.ea * cable_eps_lin[&ci.elem_id]));
-    }
-    for i in 0..n {
-        residual[i] += r_cable[i];
-    }
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, &dof_num, cs.as_ref());
+    let physical = super::reaction_recovery::PhysicalForces::linear_3d(input, &dof_num, &u_full)
+        .with_cables_3d(&cables, &slots, &cable_tensions, &cable_eps_lin);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_global, &dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_3d so cable analysis reports reactions and

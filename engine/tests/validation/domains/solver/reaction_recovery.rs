@@ -1493,68 +1493,130 @@ fn r8_released_slave_model(dim: usize, motion: f64) -> Value {
     m["supports"]["2"]["nodeId"] = json!(2);
     m["supports"]["2"]["dry"] = json!(motion);
     m["elements"]["1"][if dim == 2 { "hingeEnd" } else { "releaseMyEnd" }] = json!(true);
-    m["constraints"] = json!([{"type":"equalDOF","masterNode":2,"slaveNode":1,"dofs":[if dim == 2 {2} else {4}]}]);
+    m["constraints"] =
+        json!([{"type":"equalDOF","masterNode":2,"slaveNode":1,"dofs":[if dim == 2 {2} else {4}]}]);
     m
 }
 
 fn r8_released_slave(kind: &str, dim: usize) {
     let mut failures = Vec::new();
-    for motion in [0.0, 0.0013, -0.0013] {
-        let mut m = r8_released_slave_model(dim, motion);
-        if kind == "guyan" {
-            m["nodes"]["3"] = m["nodes"]["1"].clone();
-            m["nodes"]["3"]["id"] = json!(3);
-            m["nodes"]["3"]["x"] = json!(1.5);
-            m["elements"]["2"] = m["elements"]["1"].clone();
-            m["elements"]["1"]["nodeJ"] = json!(3);
-            m["elements"]["1"][if dim == 2 { "hingeEnd" } else { "releaseMyEnd" }] = json!(false);
-            m["elements"]["2"]["id"] = json!(2);
-            m["elements"]["2"]["nodeI"] = json!(3);
-        }
-        let o = options(&m);
-        let result = if dim == 2 {
-            let input: SolverInput = serde_json::from_value(m.clone()).unwrap();
-            match kind {
+    for segments in if kind == "guyan" {
+        vec![1]
+    } else {
+        vec![1, 21, 22]
+    } {
+        for motion in [0.0, 0.0013, -0.0013] {
+            let mut m = r8_released_slave_model(dim, motion);
+            if kind == "guyan" {
+                m["nodes"]["3"] = m["nodes"]["1"].clone();
+                m["nodes"]["3"]["id"] = json!(3);
+                m["nodes"]["3"]["x"] = json!(1.5);
+                m["elements"]["2"] = m["elements"]["1"].clone();
+                m["elements"]["1"]["nodeJ"] = json!(3);
+                m["elements"]["1"][if dim == 2 { "hingeEnd" } else { "releaseMyEnd" }] =
+                    json!(false);
+                m["elements"]["2"]["id"] = json!(2);
+                m["elements"]["2"]["nodeI"] = json!(3);
+            }
+            if segments > 1 {
+                let template = m["elements"]["1"].clone();
+                m["elements"] = json!({});
+                for i in 1..segments {
+                    let id = 10 + i;
+                    m["nodes"][id.to_string()] = m["nodes"]["1"].clone();
+                    m["nodes"][id.to_string()]["id"] = json!(id);
+                    m["nodes"][id.to_string()]["x"] = json!(3.0 * i as f64 / segments as f64);
+                }
+                for i in 0..segments {
+                    let id = i + 1;
+                    let mut e = template.clone();
+                    e["id"] = json!(id);
+                    e["nodeI"] = json!(if i == 0 { 0 } else { 10 + i });
+                    e["nodeJ"] = json!(if i + 1 == segments { 1 } else { 11 + i });
+                    e[if dim == 2 { "hingeEnd" } else { "releaseMyEnd" }] =
+                        json!(i + 1 == segments);
+                    m["elements"][id.to_string()] = e;
+                }
+            }
+            let o = options(&m);
+            let result = if dim == 2 {
+                let input: SolverInput = serde_json::from_value(m.clone()).unwrap();
+                match kind {
                 "linear" => linear::solve_2d(&input).map(|r| json!(r)),
                 "corotational" => corotational::solve_corotational_2d(&input,40,1e-9,2,false).map(|r| { assert!(r.converged); json!(r.results) }),
+                "continued_corotational" | "continued_arc" => {
+                    let mut base = input.clone();
+                    base.supports.get_mut("2").unwrap().dry = Some(0.0);
+                    let initial = corotational::solve_corotational_2d(&base,40,1e-9,2,false).unwrap();
+                    assert!(initial.converged);
+                    let start = corotational::CorotationalStart2D { input:&base, displacements:&initial.results.displacements };
+                    if kind == "continued_corotational" {
+                        corotational::solve_corotational_2d_from(&input,Some(&start),40,1e-9,2,false).map(|r| { assert!(r.converged); json!(r.results) })
+                    } else {
+                        let path = serde_json::from_value(json!({"solver":m,"maxSteps":3,"maxIter":40,"tolerance":1e-9,"initialDs":0.1,"minDs":1e-8,"maxDs":0.1,"targetIter":5})).unwrap();
+                        arc_length::solve_arc_length_from(&path,Some(&start)).map(|r| { assert!(r.converged); json!(r.results) })
+                    }
+                }
                 "material" => material_nonlinear::solve_nonlinear_material_2d(&serde_json::from_value(o).unwrap()).map(|r| { assert!(r.converged); json!(r.results) }),
                 "pdelta" => pdelta::solve_pdelta_2d(&input,40,1e-9).map(|r| { assert!(r.converged); json!(r.results) }),
                 "contact" => contact::solve_contact_2d(&serde_json::from_value(o).unwrap()).map(|r| { assert!(r.converged); json!(r.results) }),
                 "guyan" => reduction::guyan_reduce_2d(&serde_json::from_value(o).unwrap()).map(|r| json!(r)),
                 "arc" => arc_length::solve_arc_length(&serde_json::from_value(json!({"solver":m,"maxSteps":3,"maxIter":40,"tolerance":1e-9,"initialDs":0.1,"minDs":1e-8,"maxDs":0.1,"targetIter":5})).unwrap()).map(|r| { assert!(r.converged); json!(r.results) }),
                 "displacement" => arc_length::solve_displacement_control(&serde_json::from_value(json!({"solver":m,"controlNode":1,"controlDof":1,"targetDisplacement":-0.005,"nSteps":3,"maxIter":40,"tolerance":1e-9})).unwrap()).map(|r| { assert!(r.converged); json!(r.results) }),
-                "staged" => staged::solve_staged_2d(&serde_json::from_value({ let mut s=m.clone(); s["stages"]=json!([{"name":"released slave","elementsAdded":[1],"supportsAdded":[0,2],"loadIndices":[0]}]); s }).unwrap()).map(|r| json!(r.final_results)),
+                "staged" => staged::solve_staged_2d(&serde_json::from_value({ let mut s=m.clone(); s["stages"]=json!([{"name":"released slave","elementsAdded":(1..=segments).collect::<Vec<_>>(),"supportsAdded":[0,2],"loadIndices":[0]}]); s }).unwrap()).map(|r| json!(r.final_results)),
                 "time" => dedaliano_engine::solver::time_integration::solve_time_history_2d(&serde_json::from_value(json!({"solver":m,"densities":{"1":7850.0},"timeStep":0.01,"nSteps":3})).unwrap()).map(|r| json!({"reactions":r.peak_reactions,"structuredDiagnostics":r.structured_diagnostics})),
                 _ => unreachable!(),
             }
-        } else {
-            let input: SolverInput3D = serde_json::from_value(m.clone()).unwrap();
-            match kind {
+            } else {
+                let input: SolverInput3D = serde_json::from_value(m.clone()).unwrap();
+                match kind {
                 "linear" => linear::solve_3d(&input).map(|r| json!(r)),
                 "corotational" => corotational::solve_corotational_3d(&input,40,1e-9,2,false).map(|r| { assert!(r.converged); json!(r.results) }),
                 "material" => material_nonlinear::solve_nonlinear_material_3d(&serde_json::from_value(o).unwrap()).map(|r| { assert!(r.converged); json!(r.results) }),
                 "pdelta" => pdelta::solve_pdelta_3d(&input,40,1e-9).map(|r| { assert!(r.converged); json!(r.results) }),
                 "contact" => contact::solve_contact_3d(&serde_json::from_value(o).unwrap()).map(|r| { assert!(r.converged); json!(r.results) }),
                 "guyan" => reduction::guyan_reduce_3d(&serde_json::from_value(o).unwrap()).map(|r| json!(r)),
-                "staged" => staged::solve_staged_3d(&serde_json::from_value({ let mut s=m.clone(); s["stages"]=json!([{"name":"released slave","elementsAdded":[1],"supportsAdded":[0,2],"loadIndices":[0]}]); s }).unwrap()).map(|r| json!(r.final_results)),
+                "staged" => staged::solve_staged_3d(&serde_json::from_value({ let mut s=m.clone(); s["stages"]=json!([{"name":"released slave","elementsAdded":(1..=segments).collect::<Vec<_>>(),"supportsAdded":[0,2],"loadIndices":[0]}]); s }).unwrap()).map(|r| json!(r.final_results)),
                 "time" => dedaliano_engine::solver::time_integration::solve_time_history_3d(&serde_json::from_value(json!({"solver":m,"densities":{"1":7850.0},"timeStep":0.01,"nSteps":3})).unwrap()).map(|r| json!({"reactions":r.peak_reactions,"structuredDiagnostics":r.structured_diagnostics})),
                 _ => unreachable!(),
             }
-        };
-        match result {
-            Ok(r) => {
-                let master = r["reactions"].as_array().unwrap().iter().find(|r| r["nodeId"] == 2).unwrap();
-                if num(master,"my") != 0.0 { failures.push(format!("{kind} {dim}D motion={motion}: {r}")); }
-                for cf in r["constraintForces"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
-                    if num(cf,"force") != 0.0 { failures.push(format!("{kind} {dim}D motion={motion}: {cf}")); }
+            };
+            match result {
+                Ok(r) => {
+                    let master = r["reactions"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|r| r["nodeId"] == 2)
+                        .unwrap();
+                    if num(master, "my") != 0.0 {
+                        failures.push(format!("{kind} {dim}D motion={motion}: {r}"));
+                    }
+                    for cf in r["constraintForces"]
+                        .as_array()
+                        .map(Vec::as_slice)
+                        .unwrap_or(&[])
+                    {
+                        if num(cf, "force") != 0.0 {
+                            failures.push(format!("{kind} {dim}D motion={motion}: {cf}"));
+                        }
+                    }
+                    if kind == "time" {
+                        assert!(r["structuredDiagnostics"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .any(|d| d["code"] == "result_quantity_unavailable"));
+                    }
                 }
-                if kind == "time" {
-                    assert!(r["structuredDiagnostics"].as_array().unwrap().iter().any(|d| d["code"] == "result_quantity_unavailable"));
+                Err(e) => {
+                    assert!(
+                        motion != 0.0
+                            && ["guyan", "time", "corotational", "displacement"].contains(&kind),
+                        "{kind} {dim}D motion={motion}: {e}"
+                    );
+                    assert!(e.to_lowercase().contains("prescribed"), "{e}");
                 }
-            }
-            Err(e) => {
-                assert!(motion != 0.0 && ["guyan","time","corotational","displacement"].contains(&kind), "{kind} {dim}D motion={motion}: {e}");
-                assert!(e.to_lowercase().contains("prescribed"), "{e}");
             }
         }
     }
@@ -1564,24 +1626,33 @@ fn r8_released_slave(kind: &str, dim: usize) {
 macro_rules! r8_slave_test {
     ($name:ident, $kind:literal, $dim:literal) => {
         #[test]
-        fn $name() { r8_released_slave($kind, $dim); }
+        fn $name() {
+            r8_released_slave($kind, $dim);
+        }
     };
 }
-r8_slave_test!(issue_1952_r8_corotational_2d,"corotational",2);
-r8_slave_test!(issue_1952_r8_corotational_3d,"corotational",3);
-r8_slave_test!(issue_1952_r8_material_2d,"material",2);
-r8_slave_test!(issue_1952_r8_material_3d,"material",3);
-r8_slave_test!(issue_1952_r8_pdelta_2d,"pdelta",2);
-r8_slave_test!(issue_1952_r8_pdelta_3d,"pdelta",3);
-r8_slave_test!(issue_1952_r8_contact_2d,"contact",2);
-r8_slave_test!(issue_1952_r8_contact_3d,"contact",3);
-r8_slave_test!(issue_1952_r8_guyan_2d,"guyan",2);
-r8_slave_test!(issue_1952_r8_guyan_3d,"guyan",3);
-r8_slave_test!(issue_1952_r8_staged_2d,"staged",2);
-r8_slave_test!(issue_1952_r8_staged_3d,"staged",3);
-r8_slave_test!(issue_1952_r8_time_2d,"time",2);
-r8_slave_test!(issue_1952_r8_time_3d,"time",3);
-r8_slave_test!(issue_1952_r8_linear_2d,"linear",2);
-r8_slave_test!(issue_1952_r8_linear_3d,"linear",3);
-r8_slave_test!(issue_1952_r8_arc,"arc",2);
-r8_slave_test!(issue_1952_r8_displacement,"displacement",2);
+r8_slave_test!(issue_1952_r8_corotational_2d, "corotational", 2);
+r8_slave_test!(issue_1952_r8_corotational_3d, "corotational", 3);
+r8_slave_test!(issue_1952_r8_material_2d, "material", 2);
+r8_slave_test!(issue_1952_r8_material_3d, "material", 3);
+r8_slave_test!(issue_1952_r8_pdelta_2d, "pdelta", 2);
+r8_slave_test!(issue_1952_r8_pdelta_3d, "pdelta", 3);
+r8_slave_test!(issue_1952_r8_contact_2d, "contact", 2);
+r8_slave_test!(issue_1952_r8_contact_3d, "contact", 3);
+r8_slave_test!(issue_1952_r8_guyan_2d, "guyan", 2);
+r8_slave_test!(issue_1952_r8_guyan_3d, "guyan", 3);
+r8_slave_test!(issue_1952_r8_staged_2d, "staged", 2);
+r8_slave_test!(issue_1952_r8_staged_3d, "staged", 3);
+r8_slave_test!(issue_1952_r8_time_2d, "time", 2);
+r8_slave_test!(issue_1952_r8_time_3d, "time", 3);
+r8_slave_test!(issue_1952_r8_linear_2d, "linear", 2);
+r8_slave_test!(issue_1952_r8_linear_3d, "linear", 3);
+r8_slave_test!(issue_1952_r8_arc, "arc", 2);
+r8_slave_test!(issue_1952_r8_displacement, "displacement", 2);
+
+r8_slave_test!(
+    issue_1952_r8_continued_corotational,
+    "continued_corotational",
+    2
+);
+r8_slave_test!(issue_1952_r8_continued_arc, "continued_arc", 2);

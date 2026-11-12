@@ -1156,7 +1156,7 @@ fn find_peak_with_sign(values: &[f64]) -> f64 {
 fn compute_reactions_at_state(
     solver_input: &SolverInput,
     dof_num: &DofNumbering,
-    k_full: &CscMatrix,
+    _k_full: &CscMatrix,
     f_full: &[f64],
     u_free: &[f64],
     its: &[assembly::InclinedTransformData2D],
@@ -1165,7 +1165,7 @@ fn compute_reactions_at_state(
     let n = dof_num.n_total;
     let mut u_frame = u_free.to_vec();
     u_frame.resize(n, 0.0);
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&k_full.sym_mat_vec(&u_frame), f_full, dof_num, cs);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::linear_2d(solver_input, dof_num, &u_frame), f_full, dof_num, cs);
     let u_global = assembly::to_global(&u_frame, n, its);
     recovered.reactions_2d(solver_input, dof_num, &u_global, its)
 }
@@ -1739,7 +1739,7 @@ fn build_peak_displacements_3d(
 fn compute_reactions_at_state_3d(
     solver_input: &SolverInput3D,
     dof_num: &DofNumbering,
-    k_full: &CscMatrix,
+    _k_full: &CscMatrix,
     f_full: &[f64],
     u_free: &[f64],
     its: &[assembly::InclinedTransformData],
@@ -1748,7 +1748,7 @@ fn compute_reactions_at_state_3d(
     let n = dof_num.n_total;
     let mut u_frame = u_free.to_vec();
     u_frame.resize(n, 0.0);
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&k_full.sym_mat_vec(&u_frame), f_full, dof_num, cs);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::linear_3d(solver_input, dof_num, &u_frame), f_full, dof_num, cs);
     let u_global = assembly::to_global(&u_frame, n, its);
     recovered.reactions_3d(solver_input, dof_num, &u_global, its)
 }

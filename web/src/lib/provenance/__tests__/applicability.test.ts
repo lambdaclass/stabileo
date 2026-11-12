@@ -1,3 +1,4 @@
+import physicalRecoveryChange from '../result-changes/physical-reaction-force-boundary.json';
 import memberEquilibriumChange from '../result-changes/planar-corotational-member-equilibrium.json';
 import frozenArchA from '../../../../results-frozen/solve_arc_length-0015ab84c3baa36f.json';
 import frozenArchB from '../../../../results-frozen/solve_arc_length-022317310499426d.json';
@@ -677,6 +678,22 @@ describe('planar corotational member equilibrium scope (#1952)', () => {
       expect(fieldCovered(memberEquilibriumChange, 'nonlinear.results.elementForces[e1].vStart', fixture.features)).toBe(true);
       for (const path of ['base.elementForces[e1].vStart', 'nonlinear.results.reactions[n1].rz', 'nonlinear.results.displacements[n1].uz', 'solve.ok']) {
         expect(fieldCovered(memberEquilibriumChange, path, fixture.features), path).toBe(false);
+      }
+    }
+  });
+});
+
+
+describe('physical reaction recovery boundary', () => {
+  it('covers constrained nonlinear reactions in both dimensions', () => {
+    for (const dimension of ['plane2D','space3D']) {
+      const features = [dimension,'members','constraints','analysis:nonlinear'];
+      for (const path of ['nonlinear.results.reactions[n1].my','nonlinear.results.constraintForces[n1].force']) {
+        expect(fieldCovered(physicalRecoveryChange,path,features)).toBe(true);
+        expect(fieldCovered(physicalRecoveryChange,path,features.filter(f => f !== 'constraints'))).toBe(false);
+      }
+      for (const path of ['base.reactions[n1].my','nonlinear.results.elementForces[e1].mStart','nonlinear.results.displacements[n1].ry','solve.ok']) {
+        expect(fieldCovered(physicalRecoveryChange,path,[...features,'analysis:linear'])).toBe(false);
       }
     }
   });

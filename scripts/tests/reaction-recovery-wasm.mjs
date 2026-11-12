@@ -25,7 +25,7 @@ function run(kind, dim, m, extra = {}) {
   else if (kind === 'cable') raw = engine[`solve_cable_${dim}d`](JSON.stringify({solver: m, densities: {}}), 40, 1e-9);
   else if (kind === 'winkler') raw = engine[`solve_winkler_${dim}d`](JSON.stringify(o));
   else if (kind === 'guyan') raw = engine.guyan_reduce_2d(JSON.stringify(o));
-  else if (kind === 'staged') raw = engine[`solve_staged_${dim}d`](JSON.stringify({ ...m, stages: [{ name: 'loaded', elementsAdded: [1], supportsAdded: Object.values(m.supports).map(s => s.id ?? s.nodeId), loadIndices: m.loads.map((_, i) => i) }] }));
+  else if (kind === 'staged') raw = engine[`solve_staged_${dim}d`](JSON.stringify({ ...m, stages: [{ name: 'loaded', elementsAdded: Object.values(m.elements).map(e => e.id), supportsAdded: Object.values(m.supports).map(s => s.id ?? s.nodeId), loadIndices: m.loads.map((_, i) => i) }] }));
   else raw = engine[`solve_${({ material: 'nonlinear_material', fiber: 'fiber_nonlinear', contact: 'contact', ssi: 'ssi' })[kind]}_${dim}d`](JSON.stringify(o));
   const output = JSON.parse(raw);
   if ('converged' in output) assert.equal(output.converged, true);
@@ -364,7 +364,8 @@ for (const dim of [2, 3]) {
 if (failed) process.exitCode = 1;
 
 for (const dim of [2, 3]) {
-  for (const kind of ['linear', 'corotational', 'material', 'pdelta', 'contact', 'staged', ...(dim === 2 ? ['arc', 'displacement', 'guyan'] : [])]) {
+  for (const kind of ['linear', 'corotational', 'material', 'pdelta', 'contact', 'staged', 'time', ...(dim === 2 ? ['arc', 'displacement', 'guyan'] : [])]) {
+    for (const segments of (kind === 'guyan' ? [1] : [1,21,22])) {
     for (const motion of [0, 0.0013, -0.0013]) {
       const m = model(dim, false);
       m.nodes[2] = { ...m.nodes[0], id: 2 };
@@ -377,15 +378,28 @@ for (const dim of [2, 3]) {
         m.elements[1].nodeJ = 3;
         m.elements[1].hingeEnd = false;
       }
+      if (segments > 1) {
+        const template = m.elements[1];
+        m.elements = {};
+        for (let i=1; i<segments; i++) m.nodes[10+i] = {...m.nodes[1],id:10+i,x:3*i/segments};
+        for (let i=0; i<segments; i++) m.elements[i+1] = {...template,id:i+1,nodeI:i===0 ? 0 : 10+i,nodeJ:i+1===segments ? 1 : 11+i,[dim===2 ? 'hingeEnd' : 'releaseMyEnd']:i+1===segments};
+      }
       let r;
-      try { [r] = run(kind, dim, m); }
+      try {
+        if (kind === 'time') {
+          const out = JSON.parse(engine[`solve_time_history_${dim}d`](JSON.stringify({solver:m,densities:{'1':7850},timeStep:0.01,nSteps:3})));
+          assert.ok(out.structuredDiagnostics.some(d => d.code === 'result_quantity_unavailable'));
+          r = {reactions:out.peakReactions};
+        } else [r] = run(kind, dim, m);
+      }
       catch (e) {
-        assert.ok(motion !== 0 && ['guyan','corotational','displacement'].includes(kind), `${kind} ${dim}D: ${e}`);
+        assert.ok(motion !== 0 && ['guyan','corotational','displacement','time'].includes(kind), `${kind} ${dim}D: ${e}`);
         assert.match(String(e), /prescribed/i);
         continue;
       }
       assert.equal(r.reactions.find(r => r.nodeId === 2).my, 0, `${kind} ${dim}D motion=${motion}`);
       for (const cf of r.constraintForces ?? []) assert.equal(cf.force, 0);
+    }
     }
     console.log(`PASS released rotational slave ${kind} ${dim}D`);
   }

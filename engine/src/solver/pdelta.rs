@@ -342,7 +342,8 @@ pub fn solve_pdelta_2d_on(
     // Reactions and constraint forces of the system that was solved.
     let tangent = system.tangent(input, dof_num, &state.u);
     let residual = tangent.residual(n, nf, f, &state.u);
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, dof_num, cs.as_ref());
+    let physical = super::reaction_recovery::PhysicalForces::pdelta_2d(input, dof_num, &state.u, its);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, f, dof_num, cs.as_ref());
     let reactions = recovered.reactions_2d(input, dof_num, &u_global, its)?;
     let constraint_forces = recovered.constraint_forces;
 
@@ -628,7 +629,8 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     let b2 = stability_b2(state.indefinite, b2_factor(dof_num, 3, &to_global_3d(&u_prev, its), &u_global));
     let tangent = system.tangent(input, dof_num, &state.u);
     let residual = tangent.residual(n, nf, f, &state.u);
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&residual, dof_num, cs.as_ref());
+    let physical = super::reaction_recovery::PhysicalForces::pdelta_3d(input, dof_num, &state.u, its);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, f, dof_num, cs.as_ref());
     let reactions = recovered.reactions_3d(input, dof_num, &u_global, its)?;
     let constraint_forces = recovered.constraint_forces;
 

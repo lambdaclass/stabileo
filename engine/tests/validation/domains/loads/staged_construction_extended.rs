@@ -69,7 +69,11 @@ fn make_supports(sups: &[(usize, usize, &str)]) -> HashMap<String, SolverSupport
     map
 }
 
-fn assert_stage_displacements(actual: &AnalysisResults, increments: &[&AnalysisResults]) {
+fn assert_stage_displacements(actual: &AnalysisResults, increments: &[&AnalysisResults], expected_nodes: &[usize]) {
+    let actual_nodes: std::collections::BTreeSet<_> = actual.displacements.iter().map(|d| d.node_id).collect();
+    let expected_nodes: std::collections::BTreeSet<_> = expected_nodes.iter().copied().collect();
+    assert_eq!(actual_nodes, expected_nodes);
+    assert_eq!(actual.displacements.len(), expected_nodes.len());
     for d in &actual.displacements {
         let expected = increments
             .iter()
@@ -88,14 +92,11 @@ fn assert_stage_displacements(actual: &AnalysisResults, increments: &[&AnalysisR
 fn assert_horizontal_stage_forces(
     input: &StagedInput,
     actual: &AnalysisResults,
-    increments: &[&AnalysisResults],
     loads: &[usize],
 ) {
     let at = |id| {
-        increments
-            .iter()
-            .filter_map(|r| r.displacements.iter().find(|v| v.node_id == id))
-            .fold([0.0; 3], |a, v| [a[0] + v.ux, a[1] + v.uz, a[2] + v.ry])
+        let d = actual.displacements.iter().find(|d| d.node_id == id).unwrap();
+        [d.ux, d.uz, d.ry]
     };
     for f in &actual.element_forces {
         let e = input
@@ -214,13 +215,14 @@ fn validation_staged_ext_1_two_phase_beam() {
     supported.stages[1].supports_added.clear();
     let actual = solve_staged_2d(&supported).unwrap();
     assert_eq!(actual.stages.len(), 2);
-    assert_stage_displacements(&actual.stages[0].results, &[&first]);
-    assert_stage_displacements(&actual.stages[1].results, &[&first, &increment]);
+    assert_stage_displacements(&actual.stages[0].results, &[&first], &[1,2,3]);
+    assert_stage_displacements(&actual.stages[1].results, &[&first, &increment], &[1,2,3]);
+    assert_stage_displacements(&actual.final_results, &[&first, &increment], &[1,2,3]);
     assert_eq!(actual.stages[0].results.element_forces.len(), 1);
     assert_eq!(actual.stages[1].results.element_forces.len(), 2);
-    assert_horizontal_stage_forces(&supported, &actual.stages[0].results, &[&first], &[0]);
-    assert_horizontal_stage_forces(&supported, &actual.stages[1].results, &[&first, &increment], &[0, 1]);
-    assert_horizontal_stage_forces(&supported, &actual.final_results, &[&first, &increment], &[0, 1]);
+    assert_horizontal_stage_forces(&supported, &actual.stages[0].results, &[0]);
+    assert_horizontal_stage_forces(&supported, &actual.stages[1].results, &[0, 1]);
+    assert_horizontal_stage_forces(&supported, &actual.final_results, &[0, 1]);
     let expected = q * l.powi(4) / (8.0 * E * 1000.0 * IZ);
     let tip = actual.stages[0].results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     assert!((tip.uz - expected).abs() < 1e-10);
@@ -662,11 +664,12 @@ fn validation_staged_ext_5_prop_removal() {
     let actual = solve_staged_2d(&supported).unwrap();
     assert_eq!(actual.stages.len(), 3);
     for i in [0, 1] {
-        assert_stage_displacements(&actual.stages[i].results, &[&first]);
-        assert_horizontal_stage_forces(&supported, &actual.stages[i].results, &[&first], &[0]);
+        assert_stage_displacements(&actual.stages[i].results, &[&first], &[1,2,3]);
+        assert_horizontal_stage_forces(&supported, &actual.stages[i].results, &[0]);
     }
-    assert_stage_displacements(&actual.stages[2].results, &[&first, &increment]);
-    assert_horizontal_stage_forces(&supported, &actual.stages[2].results, &[&first, &increment], &[0, 1]);
+    assert_stage_displacements(&actual.stages[2].results, &[&first, &increment], &[1,2,3]);
+    assert_stage_displacements(&actual.final_results, &[&first, &increment], &[1,2,3]);
+    assert_horizontal_stage_forces(&supported, &actual.stages[2].results, &[0, 1]);
     assert_eq!(actual.stages[0].results.element_forces.len(), 2);
     for r in [&actual.stages[1].results, &actual.stages[2].results, &actual.final_results] {
         assert_eq!(r.element_forces.len(), 1);
@@ -1029,12 +1032,11 @@ fn validation_staged_ext_8_staged_vs_instantaneous() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r8_stage_displacement_assertion_rejects_missing_nodes() {
     let reference: AnalysisResults = serde_json::from_value(serde_json::json!({"displacements":[{"nodeId":1,"ux":0.0,"uz":0.0,"ry":0.0},{"nodeId":2,"ux":0.0,"uz":0.0,"ry":0.0}],"reactions":[],"elementForces":[]})).unwrap();
     for count in [0,1] {
         let mut incomplete = reference.clone();
         incomplete.displacements.truncate(count);
-        assert!(std::panic::catch_unwind(|| assert_stage_displacements(&incomplete, &[&reference])).is_err());
+        assert!(std::panic::catch_unwind(|| assert_stage_displacements(&incomplete, &[&reference], &[1,2])).is_err());
     }
 }

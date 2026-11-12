@@ -409,7 +409,7 @@ pub fn solve_corotational_2d_from(
     } else {
         input
     };
-    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs, &art, &asm.inclined_transforms_2d)?;
+    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs, &asm.inclined_transforms_2d)?;
     crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
     crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Corotational));
 
@@ -555,7 +555,7 @@ fn assemble_corotational(
     assemble_corotational_impl(input, dof_num, u_full, f_int, &mut |i, j, v| k_t[i * n + j] += v);
 }
 
-fn assemble_corotational_impl(
+pub(super) fn assemble_corotational_impl(
     input: &SolverInput, dof_num: &DofNumbering, u_full: &[f64], f_int: &mut [f64], scatter: &mut impl FnMut(usize, usize, f64),
 ) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode> =
@@ -948,14 +948,23 @@ pub(crate) fn add_spring_contributions(
     art: &[(usize, f64)],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
-    // Shared with the linear assembler (angle, rotational springs on any support).
-    for (i, j, k) in super::assembly::support_spring_entries_2d(input, dof_num) {
-        scatter(i, j, k);
-        f_int[i] += k * u_full[j];
-    }
+    add_physical_spring_contributions(input, dof_num, u_full, f_int, scatter);
     for &(d, k) in art {
         scatter(d, d, k);
         f_int[d] += k * u_full[d];
+    }
+}
+
+pub(super) fn add_physical_spring_contributions(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    f_int: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64),
+) {
+    for (i, j, k) in super::assembly::support_spring_entries_2d(input, dof_num) {
+        scatter(i, j, k);
+        f_int[i] += k * u_full[j];
     }
     crate::element::connector::corotational_connectors_2d(input, dof_num, u_full, f_int, scatter);
 }
@@ -1042,11 +1051,8 @@ pub(super) fn build_final_results(
     dof_num: &DofNumbering,
     u_full: &[f64],
     cs: &Option<FreeConstraintSystem>,
-    art: &[(usize, f64)],
     its: &[assembly::InclinedTransformData2D],
 ) -> Result<AnalysisResults, String> {
-    let n = dof_num.n_total;
-
     // Reactions: co-rotational internal forces at restrained DOFs minus external loads
     let f_applied = assembly::assemble_load_vector_2d(input, &input.loads, dof_num, its);
     // Reverse the inclined-support rotation to get TRUE global displacements
@@ -1061,14 +1067,8 @@ pub(super) fn build_final_results(
 
     let displacements = super::linear::build_displacements_2d(dof_num, &u_geom);
 
-    let mut f_int = vec![0.0; n];
-    let mut ignore = |_: usize, _: usize, _: f64| {};
-    assemble_corotational_impl(input, dof_num, &u_geom, &mut f_int, &mut ignore);
-    add_spring_contributions(input, dof_num, &u_geom, &mut f_int, art, &mut ignore);
-    for it in its {
-        assembly::rotate_inclined_f_2d(&mut f_int, &it.dofs, &it.r);
-    }
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&f_int, &f_applied, dof_num, cs.as_ref());
+    let physical = super::reaction_recovery::PhysicalForces::corotational_2d(input, dof_num, &u_geom, its);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_applied, dof_num, cs.as_ref());
     let reactions = recovered.reactions_2d(input, dof_num, &u_geom, its)?;
     let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_corotational_forces(input, dof_num, &u_geom);
@@ -1635,7 +1635,7 @@ fn assemble_corotational_triplets_3d(
     assemble_corotational_3d_impl(input, dof_num, u_full, f_int, &mut scatter, left_hand);
 }
 
-fn assemble_corotational_3d_impl(
+pub(super) fn assemble_corotational_3d_impl(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u_full: &[f64],
@@ -2126,7 +2126,7 @@ fn rotation_vector(r: &[[f64; 3]; 3]) -> [f64; 3] {
 
 /// Add spring and connector stiffness and internal forces (3D); `scatter`
 /// receives every entry, off-diagonal ones included (see the 2D twin).
-fn add_spring_contributions_3d(
+pub(super) fn add_spring_contributions_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u_full: &[f64],
@@ -2177,7 +2177,6 @@ fn build_final_results_3d(
     pre_solve_diags: Vec<StructuredDiagnostic>,
     its: &[assembly::InclinedTransformData],
 ) -> Result<AnalysisResults3D, String> {
-    let n = dof_num.n_total;
     let f_applied = assembly::assemble_load_vector_3d_dense(input, &input.loads, dof_num, its);
     // Reverse the inclined-support rotation to get TRUE global displacements
     // — see the 2D build_final_results for the full rationale.
@@ -2188,14 +2187,8 @@ fn build_final_results_3d(
 
     let displacements = super::linear::build_displacements_3d(dof_num, &u_geom);
 
-    let mut f_int = vec![0.0; n];
-    let mut ignore = |_: usize, _: usize, _: f64| {};
-    assemble_corotational_3d_impl(input, dof_num, &u_geom, &mut f_int, &mut ignore, left_hand);
-    add_spring_contributions_3d(input, dof_num, &u_geom, &mut f_int, &mut ignore);
-    for it in its {
-        assembly::rotate_inclined_f_triplets(&mut f_int, &it.dofs, &it.r);
-    }
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&f_int, &f_applied, dof_num, cs.as_ref());
+    let physical = super::reaction_recovery::PhysicalForces::corotational_3d(input, dof_num, &u_geom, left_hand, its);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_applied, dof_num, cs.as_ref());
     let reactions = recovered.reactions_3d(input, dof_num, &u_geom, its)?;
     let constraint_forces = recovered.constraint_forces;
     let mut element_forces = compute_corotational_forces_3d(input, dof_num, &u_geom, left_hand);
@@ -2854,24 +2847,59 @@ mod r8_tests {
     use serde_json::json;
 
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn issue_1952_r8_stabilized_released_slave_recovery() {
-        let mut m: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-2d.json")).unwrap();
-        m["elements"]["1"]["hingeEnd"] = json!(true);
-        m["supports"]["0"]["dry"] = json!(0.0013);
-        m["constraints"] = json!([{"type":"equalDOF","masterNode":0,"slaveNode":1,"dofs":[2]}]);
-        m["loads"] = json!([]);
-        let input: SolverInput = serde_json::from_value(m).unwrap();
-        let dofs = DofNumbering::build_2d(&input);
-        let cs = FreeConstraintSystem::build_2d(&input,&dofs).unwrap();
-        let slave = dofs.global_dof(1,2).unwrap();
-        let mut u = vec![0.0;dofs.n_total];
-        u[slave] = 0.0013;
-        u[dofs.global_dof(0,2).unwrap()] = 0.0013;
-        let physical = build_final_results(&input,&dofs,&u,&cs,&[],&[]).unwrap();
-        for k in [1e-6,1.0,1e6] {
-            let stabilized = build_final_results(&input,&dofs,&u,&cs,&[(slave,k)],&[]).unwrap();
-            assert_eq!(serde_json::to_value(stabilized).unwrap(),serde_json::to_value(&physical).unwrap());
+        let mut failures = Vec::new();
+        for motion in [0.0, 0.0013, -0.0013] {
+            let mut m: serde_json::Value = serde_json::from_str(include_str!(
+                "../../tests/fixtures/reaction-recovery-2d.json"
+            ))
+            .unwrap();
+            m["elements"]["1"]["hingeEnd"] = json!(true);
+            m["nodes"]["2"] = m["nodes"]["0"].clone();
+            m["nodes"]["2"]["id"] = json!(2);
+            m["supports"]["2"] = json!({"id":2,"nodeId":2,"type":"fixed","dry":motion});
+            m["constraints"] = json!([{"type":"equalDOF","masterNode":2,"slaveNode":1,"dofs":[2]}]);
+            m["loads"] = json!([]);
+            let input: SolverInput = serde_json::from_value(m).unwrap();
+            let dofs = DofNumbering::build_2d(&input);
+            let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
+            let slave = dofs.global_dof(1, 2).unwrap();
+            let mut u = vec![0.0; dofs.n_total];
+            u[slave] = motion;
+            u[dofs.global_dof(2, 2).unwrap()] = motion;
+            for k in [1e-6, 1.0, 1e6] {
+                let mut artificial = vec![0.0; dofs.n_total];
+                add_spring_contributions(
+                    &input,
+                    &dofs,
+                    &u,
+                    &mut artificial,
+                    &[(slave, k)],
+                    &mut |_, _, _| {},
+                );
+                assert_eq!(artificial[slave], k * motion);
+                let result = build_final_results(&input, &dofs, &u, &cs, &[]).unwrap();
+                assert_eq!(result.displacements.len(), 3);
+                assert_eq!(result.reactions.len(), 2);
+                assert_eq!(result.element_forces.len(), 1);
+                if result
+                    .reactions
+                    .iter()
+                    .any(|r| [r.rx, r.rz, r.my].iter().any(|&v| v != 0.0))
+                    || result.constraint_forces.iter().any(|f| f.force != 0.0)
+                {
+                    failures.push(format!(
+                        "motion={motion} k={k}: {}",
+                        serde_json::to_value(&result).unwrap()
+                    ));
+                }
+                let f = &result.element_forces[0];
+                assert_eq!(
+                    [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end],
+                    [0.0; 6]
+                );
+            }
         }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 }

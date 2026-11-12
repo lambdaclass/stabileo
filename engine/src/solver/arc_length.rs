@@ -395,7 +395,7 @@ fn solve_arc_length_contained(input: &ArcLengthInput, start: Option<&super::coro
     if let Some(start) = start {
         at_state.loads.extend(start.input.loads.clone());
     }
-    let results = super::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs, &art, &its)?;
+    let results = super::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs, &its)?;
 
     Ok(ArcLengthResult {
         results,
@@ -616,7 +616,7 @@ fn solve_displacement_control_contained(input: &DisplacementControlInput) -> Res
     }
 
     let at_state = super::corotational::scaled_loads_2d(&input.solver, lambda);
-    let results = super::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs_dc, &art, &its)?;
+    let results = super::corotational::build_final_results(&at_state, &dof_num, &u_full, &cs_dc, &its)?;
 
     Ok(DisplacementControlResult {
         results,

@@ -2,13 +2,12 @@
   "advisory": "SA-2026-061",
   "date": "2026-11-12",
   "originMain": "c11af4e36316a0c1251a7175cb4fe16660090778",
-  "fixedSourceCommit": "c67543c391e673d2eb5ff581a8b753644d6e05b3",
   "fixingPr": 1952,
   "engineBuild": {
     "main": "make wasm with origin/main production sources temporarily substituted in this worktree; STABILEO_GIT_COMMIT set to originMain; sources and original WASM restored in finally",
     "mainWasmSha256": "33fef82618cd15294a5dfc133d99c3f3b1df97662a0bd421ba322f0217d9499b",
-    "fixed": "Existing worktree WASM with the #1952 production engine fixes; re-run same exact arguments",
-    "fixedWasmSha256": "4796c4f5c3d792aa799daf0eb2498116021d74ef601637474dac0d6e392f488f"
+    "fixed": "make wasm from the final round 8 engine sources; re-run every recorded exact argument using scripts/tests/arc-evidence-equilibrium.mjs --update",
+    "fixedWasmSha256": "45782a9b02c06bed9dc308f39b65726fdba11a914affe6584d5099942dd89053"
   },
   "scope": [
     "WASM records contain exact positional arguments and selected returned fields. All warning/diagnostic fields throughout each response are retained in notices, including empty arrays. Unlisted output fields are not claimed equal.",
@@ -626,8 +625,8 @@
             "elementId": 1,
             "nStart": -2530.813415833356,
             "nEnd": -2530.813415833356,
-            "vStart": 0.00900512695715393,
-            "vEnd": 0.00900512695715393,
+            "vStart": 0.009120538867785025,
+            "vEnd": 0.009120538867785025,
             "mStart": 1.662558979376172e-14,
             "mEnd": -0.03246844698606487,
             "length": 3.5599263877668927,
@@ -642,8 +641,8 @@
             "elementId": 2,
             "nStart": -2530.813415833356,
             "nEnd": -2530.813415833356,
-            "vStart": -0.00900512695715393,
-            "vEnd": -0.00900512695715393,
+            "vStart": -0.009120538867785025,
+            "vEnd": -0.009120538867785025,
             "mStart": -0.03246844698606487,
             "mEnd": 1.662558979376172e-14,
             "length": 3.5599263877668927,
@@ -767,8 +766,8 @@
             "elementId": 1,
             "nStart": 98.03158556557143,
             "nEnd": 98.03158556557143,
-            "vStart": 1509.5406591099968,
-            "vEnd": 1509.5406591099968,
+            "vStart": 1509.466671404419,
+            "vEnd": 1509.466671404419,
             "mStart": -1.3642420526593924e-12,
             "mEnd": -3022.852814154214,
             "length": 2.0025965934986347,
@@ -783,8 +782,8 @@
             "elementId": 2,
             "nStart": 98.03158556557143,
             "nEnd": 98.03158556557143,
-            "vStart": -1509.5406591099968,
-            "vEnd": -1509.5406591099968,
+            "vStart": -1509.466671404419,
+            "vEnd": -1509.466671404419,
             "mStart": -3022.852814154214,
             "mEnd": -1.3642420526593924e-12,
             "length": 2.0025965934986347,
@@ -843,8 +842,8 @@
         "elementForces": [
           {
             "elementId": 1,
-            "nStart": 1.3499996564679102e-05,
-            "nEnd": 1.3499996564679102e-05,
+            "nStart": 0.000013499996564679102,
+            "nEnd": 0.000013499996564679102,
             "vStart": 0.29999996172953236,
             "vEnd": 0.29999996172953236,
             "mStart": 0.8999998851885971,
@@ -895,9 +894,9 @@
           },
           {
             "nodeId": 1,
-            "ux": -3.017249229683986e-09,
+            "ux": -3.017249229683986e-9,
             "uz": -0.00013499998273363832,
-            "ry": -6.749999138914478e-05
+            "ry": -0.00006749999138914478
           },
           {
             "nodeId": 1000,
@@ -940,10 +939,10 @@
         "elementForces": [
           {
             "elementId": 1,
-            "nStart": 1.3499996564679102e-05,
-            "nEnd": 1.3499996564679102e-05,
-            "vStart": 0.29999996172953236,
-            "vEnd": 0.29999996172953236,
+            "nStart": 0.000013499996564679102,
+            "nEnd": 0.000013499996564679102,
+            "vStart": 0.29999996172750737,
+            "vEnd": 0.29999996172750737,
             "mStart": 0.8999998851885971,
             "mEnd": 0,
             "length": 3.00000000002025,
@@ -992,9 +991,9 @@
           },
           {
             "nodeId": 1,
-            "ux": -3.017249229683986e-09,
+            "ux": -3.017249229683986e-9,
             "uz": -0.00013499998273363832,
-            "ry": -6.749999138914478e-05
+            "ry": -0.00006749999138914478
           },
           {
             "nodeId": 1000,
@@ -1088,7 +1087,7 @@
           },
           {
             "nodeId": 1,
-            "ux": -4.138891693161905e-06,
+            "ux": -0.000004138891693161905,
             "uz": -0.005,
             "ry": -0.002500001134260573
           },
@@ -1135,8 +1134,8 @@
             "elementId": 1,
             "nStart": 0.01851855229793475,
             "nEnd": 0.01851855229793475,
-            "vStart": 11.11111615227026,
-            "vEnd": 11.11111615227026,
+            "vStart": 11.111116049389368,
+            "vEnd": 11.111116049389368,
             "mStart": 33.33334845680921,
             "mEnd": -1.566746732351021e-12,
             "length": 3.0000000277778285,
@@ -1185,7 +1184,7 @@
           },
           {
             "nodeId": 1,
-            "ux": -4.138891693161905e-06,
+            "ux": -0.000004138891693161905,
             "uz": -0.005,
             "ry": -0.002500001134260573
           },
@@ -1451,7 +1450,7 @@
                 "message": "Residual 7.11e-16 (3 free DOFs)",
                 "phase": "solve",
                 "value": 7.105427357601002e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -1459,7 +1458,7 @@
                 "message": "PASS: self-check static_residual: 7.105e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_residual",
                 "value": 7.105427357601001e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -1467,7 +1466,7 @@
                 "message": "PASS: self-check static_balance: 8.327e-17 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_balance",
                 "value": 8.326672684688674e-17,
-                "threshold": 1e-06
+                "threshold": 0.000001
               }
             ]
           }
@@ -1598,7 +1597,7 @@
                 "message": "Residual 7.11e-16 (3 free DOFs)",
                 "phase": "solve",
                 "value": 7.105427357601002e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -1606,7 +1605,7 @@
                 "message": "PASS: self-check static_residual: 7.105e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_residual",
                 "value": 7.105427357601001e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -1614,7 +1613,7 @@
                 "message": "PASS: self-check static_balance: 8.327e-17 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_balance",
                 "value": 8.326672684688674e-17,
-                "threshold": 1e-06
+                "threshold": 0.000001
               }
             ]
           }
@@ -1807,7 +1806,7 @@
                 "message": "Constrained 2D residual 7.11e-16",
                 "phase": "solve",
                 "value": 7.105427357601002e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -1815,7 +1814,7 @@
                 "message": "PASS: self-check static_residual: 7.105e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_residual",
                 "value": 7.105427357601001e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -1823,7 +1822,7 @@
                 "message": "PASS: self-check static_balance: 1.448e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_balance",
                 "value": 1.448116988641509e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "known_issue",
@@ -1932,7 +1931,7 @@
                 "message": "Constrained 2D residual 7.11e-16",
                 "phase": "solve",
                 "value": 7.105427357601002e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -1940,7 +1939,7 @@
                 "message": "PASS: self-check static_residual: 7.105e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_residual",
                 "value": 7.105427357601001e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -1948,7 +1947,7 @@
                 "message": "PASS: self-check static_balance: 1.448e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_balance",
                 "value": 1.448116988641509e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "known_issue",
@@ -1969,7 +1968,7 @@
       "arguments": [
         "{\"nodes\":{\"0\":{\"id\":0,\"x\":0,\"z\":0},\"1\":{\"id\":1,\"x\":3,\"z\":0},\"2\":{\"id\":2,\"x\":0,\"z\":0}},\"materials\":{\"1\":{\"id\":1,\"e\":200000,\"nu\":0.3}},\"sections\":{\"1\":{\"id\":1,\"a\":0.01,\"iz\":0.0001}},\"elements\":{\"1\":{\"id\":1,\"type\":\"frame\",\"nodeI\":0,\"nodeJ\":1,\"materialId\":1,\"sectionId\":1,\"hingeStart\":false,\"hingeEnd\":false}},\"supports\":{\"0\":{\"id\":0,\"nodeId\":0,\"type\":\"fixed\"}},\"loads\":[{\"type\":\"nodal\",\"data\":{\"nodeId\":1,\"fx\":0,\"fz\":-10,\"my\":0}},{\"type\":\"nodal\",\"data\":{\"nodeId\":2,\"fx\":3,\"fz\":-10,\"my\":2}}],\"constraints\":[{\"type\":\"equalDOF\",\"masterNode\":0,\"slaveNode\":2,\"dofs\":[0,1,2]}]}",
         40,
-        1e-09,
+        1e-9,
         2
       ],
       "before": {
@@ -2026,7 +2025,7 @@
           },
           {
             "nodeId": 1,
-            "ux": -3.3524918832411185e-06,
+            "ux": -0.0000033524918832411185,
             "uz": -0.004499993317692123,
             "ry": -0.00224999748571848
           },
@@ -2084,8 +2083,8 @@
             "elementId": 1,
             "nStart": 0.014999977613625511,
             "nEnd": 0.014999977613625511,
-            "vStart": 9.999988825410284,
-            "vEnd": 9.999988825410284,
+            "vStart": 9.99998875041048,
+            "vEnd": 9.99998875041048,
             "mStart": 29.999966476238626,
             "mEnd": 7.773337529215496e-12,
             "length": 3.0000000224999663,
@@ -2106,7 +2105,7 @@
           },
           {
             "nodeId": 1,
-            "ux": -3.3524918832411185e-06,
+            "ux": -0.0000033524918832411185,
             "uz": -0.004499993317692123,
             "ry": -0.00224999748571848
           },
@@ -2336,7 +2335,7 @@
       "arguments": [
         "{\"nodes\":{\"0\":{\"id\":0,\"x\":0,\"z\":0},\"1\":{\"id\":1,\"x\":3,\"z\":0},\"2\":{\"id\":2,\"x\":0,\"z\":0}},\"materials\":{\"1\":{\"id\":1,\"e\":200000,\"nu\":0.3}},\"sections\":{\"1\":{\"id\":1,\"a\":0.01,\"iz\":0.0001}},\"elements\":{\"1\":{\"id\":1,\"type\":\"frame\",\"nodeI\":0,\"nodeJ\":1,\"materialId\":1,\"sectionId\":1,\"hingeStart\":false,\"hingeEnd\":false}},\"supports\":{\"0\":{\"id\":0,\"nodeId\":0,\"type\":\"fixed\"}},\"loads\":[{\"type\":\"nodal\",\"data\":{\"nodeId\":1,\"fx\":0,\"fz\":-10,\"my\":0}},{\"type\":\"nodal\",\"data\":{\"nodeId\":2,\"fx\":3,\"fz\":-10,\"my\":2}}],\"constraints\":[{\"type\":\"equalDOF\",\"masterNode\":0,\"slaveNode\":2,\"dofs\":[0,1,2]}]}",
         40,
-        1e-09
+        1e-9
       ],
       "before": {
         "converged": true,
@@ -2431,7 +2430,7 @@
                 "message": "Constrained 2D residual 7.11e-16",
                 "phase": "solve",
                 "value": 7.105427357601002e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -2439,7 +2438,7 @@
                 "message": "PASS: self-check static_residual: 7.105e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_residual",
                 "value": 7.105427357601001e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -2447,7 +2446,7 @@
                 "message": "PASS: self-check static_balance: 1.448e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_balance",
                 "value": 1.448116988641509e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "known_issue",
@@ -2569,7 +2568,7 @@
                 "message": "Constrained 2D residual 7.11e-16",
                 "phase": "solve",
                 "value": 7.105427357601002e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -2577,7 +2576,7 @@
                 "message": "PASS: self-check static_residual: 7.105e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_residual",
                 "value": 7.105427357601001e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -2585,7 +2584,7 @@
                 "message": "PASS: self-check static_balance: 1.448e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_balance",
                 "value": 1.448116988641509e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "known_issue",
@@ -2786,7 +2785,7 @@
       "arguments": [
         "{\"solver\":{\"nodes\":{\"0\":{\"id\":0,\"x\":0,\"z\":0},\"1\":{\"id\":1,\"x\":3,\"z\":0},\"2\":{\"id\":2,\"x\":0,\"z\":0}},\"materials\":{\"1\":{\"id\":1,\"e\":200000,\"nu\":0.3}},\"sections\":{\"1\":{\"id\":1,\"a\":0.01,\"iz\":0.0001}},\"elements\":{\"1\":{\"id\":1,\"type\":\"cable\",\"nodeI\":0,\"nodeJ\":1,\"materialId\":1,\"sectionId\":1,\"hingeStart\":false,\"hingeEnd\":false}},\"supports\":{\"0\":{\"id\":0,\"nodeId\":0,\"type\":\"fixed\"},\"1\":{\"id\":1,\"nodeId\":1,\"type\":\"rollerX\"}},\"loads\":[{\"type\":\"nodal\",\"data\":{\"nodeId\":1,\"fx\":10,\"fz\":0,\"my\":0}},{\"type\":\"nodal\",\"data\":{\"nodeId\":2,\"fx\":3,\"fz\":-10,\"my\":0}}],\"constraints\":[{\"type\":\"equalDOF\",\"masterNode\":0,\"slaveNode\":2,\"dofs\":[0,1]}]},\"densities\":{}}",
         40,
-        1e-09
+        1e-9
       ],
       "before": {
         "reactions": [
@@ -2842,7 +2841,7 @@
           },
           {
             "nodeId": 1,
-            "ux": 1.5000000000123779e-05,
+            "ux": 0.000015000000000123779,
             "uz": 0,
             "ry": 0
           },
@@ -2909,7 +2908,7 @@
           },
           {
             "nodeId": 1,
-            "ux": 1.5000000000123779e-05,
+            "ux": 0.000015000000000123779,
             "uz": 0,
             "ry": 0
           },
@@ -4029,7 +4028,30 @@
             "ry": 0
           }
         ],
-        "notices": []
+        "notices": [
+          {
+            "path": "$.stages.0.results.structuredDiagnostics",
+            "value": [
+              {
+                "code": "result_quantity_unavailable",
+                "severity": "warning",
+                "message": "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.",
+                "phase": "stageResults"
+              }
+            ]
+          },
+          {
+            "path": "$.finalResults.structuredDiagnostics",
+            "value": [
+              {
+                "code": "result_quantity_unavailable",
+                "severity": "warning",
+                "message": "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.",
+                "phase": "stageResults"
+              }
+            ]
+          }
+        ]
       },
       "reportedReactionField": "finalResults.reactions"
     },
@@ -4342,7 +4364,7 @@
                 "message": "Constrained 3D residual 7.11e-16",
                 "phase": "solve",
                 "value": 7.105427357601002e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -4350,7 +4372,7 @@
                 "message": "PASS: self-check static_residual: 7.105e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_residual",
                 "value": 7.105427357601001e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "known_issue",
@@ -4365,7 +4387,7 @@
                 "message": "PASS: self-check static_balance: 1.448e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_balance",
                 "value": 1.448116988641509e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               }
             ]
           }
@@ -4499,7 +4521,7 @@
                 "message": "Constrained 3D residual 7.11e-16",
                 "phase": "solve",
                 "value": 7.105427357601002e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -4507,7 +4529,7 @@
                 "message": "PASS: self-check static_residual: 7.105e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_residual",
                 "value": 7.105427357601001e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "known_issue",
@@ -4522,7 +4544,7 @@
                 "message": "PASS: self-check static_balance: 1.448e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_balance",
                 "value": 1.448116988641509e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               }
             ]
           }
@@ -4536,7 +4558,7 @@
       "arguments": [
         "{\"nodes\":{\"0\":{\"id\":0,\"x\":0,\"z\":0,\"y\":0},\"1\":{\"id\":1,\"x\":3,\"z\":0,\"y\":0},\"2\":{\"id\":2,\"x\":0,\"z\":0,\"y\":0}},\"materials\":{\"1\":{\"id\":1,\"e\":200000,\"nu\":0.3}},\"sections\":{\"1\":{\"id\":1,\"a\":0.01,\"iz\":0.0001,\"iy\":0.0001,\"j\":0.0001}},\"elements\":{\"1\":{\"id\":1,\"type\":\"frame\",\"nodeI\":0,\"nodeJ\":1,\"materialId\":1,\"sectionId\":1}},\"supports\":{\"0\":{\"nodeId\":0,\"rx\":true,\"ry\":true,\"rz\":true,\"rrx\":true,\"rry\":true,\"rrz\":true}},\"loads\":[{\"type\":\"nodal\",\"data\":{\"nodeId\":1,\"fx\":0,\"fz\":-10,\"my\":0,\"fy\":0,\"mx\":0,\"mz\":0}},{\"type\":\"nodal\",\"data\":{\"nodeId\":2,\"fx\":3,\"fz\":-10,\"my\":2,\"fy\":0,\"mx\":0,\"mz\":0}}],\"constraints\":[{\"type\":\"equalDOF\",\"masterNode\":0,\"slaveNode\":2,\"dofs\":[0,1,2,3,4,5]}]}",
         40,
-        1e-09,
+        1e-9,
         2
       ],
       "before": {
@@ -4544,7 +4566,7 @@
         "reactions": [
           {
             "nodeId": 0,
-            "fx": -4.162844189151138e-09,
+            "fx": -4.162844189151138e-9,
             "fy": 0,
             "fz": 10.000000000006667,
             "mx": 0,
@@ -4613,7 +4635,7 @@
           },
           {
             "nodeId": 1,
-            "ux": -3.3524918767380345e-06,
+            "ux": -0.0000033524918767380345,
             "uy": 0,
             "uz": -0.004499993317518524,
             "rx": 0,
@@ -4653,7 +4675,7 @@
                 ],
                 "phase": "pre_solve",
                 "value": 0,
-                "threshold": 3e-06
+                "threshold": 0.000003
               }
             ]
           }
@@ -4733,7 +4755,7 @@
           },
           {
             "nodeId": 1,
-            "ux": -3.3524918767380345e-06,
+            "ux": -0.0000033524918767380345,
             "uy": 0,
             "uz": -0.004499993317518524,
             "rx": 0,
@@ -4773,7 +4795,7 @@
                 ],
                 "phase": "pre_solve",
                 "value": 0,
-                "threshold": 3e-06
+                "threshold": 0.000003
               }
             ]
           }
@@ -4901,7 +4923,7 @@
                 ],
                 "phase": "pre_solve",
                 "value": 0,
-                "threshold": 3e-06
+                "threshold": 0.000003
               },
               {
                 "code": "known_issue",
@@ -5035,7 +5057,7 @@
                 ],
                 "phase": "pre_solve",
                 "value": 0,
-                "threshold": 3e-06
+                "threshold": 0.000003
               },
               {
                 "code": "known_issue",
@@ -5063,7 +5085,7 @@
       "arguments": [
         "{\"nodes\":{\"0\":{\"id\":0,\"x\":0,\"z\":0,\"y\":0},\"1\":{\"id\":1,\"x\":3,\"z\":0,\"y\":0},\"2\":{\"id\":2,\"x\":0,\"z\":0,\"y\":0}},\"materials\":{\"1\":{\"id\":1,\"e\":200000,\"nu\":0.3}},\"sections\":{\"1\":{\"id\":1,\"a\":0.01,\"iz\":0.0001,\"iy\":0.0001,\"j\":0.0001}},\"elements\":{\"1\":{\"id\":1,\"type\":\"frame\",\"nodeI\":0,\"nodeJ\":1,\"materialId\":1,\"sectionId\":1}},\"supports\":{\"0\":{\"nodeId\":0,\"rx\":true,\"ry\":true,\"rz\":true,\"rrx\":true,\"rry\":true,\"rrz\":true}},\"loads\":[{\"type\":\"nodal\",\"data\":{\"nodeId\":1,\"fx\":0,\"fz\":-10,\"my\":0,\"fy\":0,\"mx\":0,\"mz\":0}},{\"type\":\"nodal\",\"data\":{\"nodeId\":2,\"fx\":3,\"fz\":-10,\"my\":2,\"fy\":0,\"mx\":0,\"mz\":0}}],\"constraints\":[{\"type\":\"equalDOF\",\"masterNode\":0,\"slaveNode\":2,\"dofs\":[0,1,2,3,4,5]}]}",
         40,
-        1e-09
+        1e-9
       ],
       "before": {
         "converged": true,
@@ -5184,7 +5206,7 @@
                 "message": "Constrained 3D residual 7.11e-16",
                 "phase": "solve",
                 "value": 7.105427357601002e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -5192,7 +5214,7 @@
                 "message": "PASS: self-check static_residual: 7.105e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_residual",
                 "value": 7.105427357601001e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "known_issue",
@@ -5207,7 +5229,7 @@
                 "message": "PASS: self-check static_balance: 1.448e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_balance",
                 "value": 1.448116988641509e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               }
             ]
           }
@@ -5354,7 +5376,7 @@
                 "message": "Constrained 3D residual 7.11e-16",
                 "phase": "solve",
                 "value": 7.105427357601002e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "residual_ok",
@@ -5362,7 +5384,7 @@
                 "message": "PASS: self-check static_residual: 7.105e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_residual",
                 "value": 7.105427357601001e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               },
               {
                 "code": "known_issue",
@@ -5377,7 +5399,7 @@
                 "message": "PASS: self-check static_balance: 1.448e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
                 "phase": "self_check:static_balance",
                 "value": 1.448116988641509e-16,
-                "threshold": 1e-06
+                "threshold": 0.000001
               }
             ]
           }
@@ -5599,7 +5621,7 @@
       "arguments": [
         "{\"solver\":{\"nodes\":{\"0\":{\"id\":0,\"x\":0,\"z\":0,\"y\":0},\"1\":{\"id\":1,\"x\":3,\"z\":0,\"y\":0},\"2\":{\"id\":2,\"x\":0,\"z\":0,\"y\":0}},\"materials\":{\"1\":{\"id\":1,\"e\":200000,\"nu\":0.3}},\"sections\":{\"1\":{\"id\":1,\"a\":0.01,\"iz\":0.0001,\"iy\":0.0001,\"j\":0.0001}},\"elements\":{\"1\":{\"id\":1,\"type\":\"cable\",\"nodeI\":0,\"nodeJ\":1,\"materialId\":1,\"sectionId\":1}},\"supports\":{\"0\":{\"nodeId\":0,\"rx\":true,\"ry\":true,\"rz\":true,\"rrx\":true,\"rry\":true,\"rrz\":true},\"1\":{\"nodeId\":1,\"rx\":false,\"ry\":true,\"rz\":true,\"rrx\":true,\"rry\":true,\"rrz\":true}},\"loads\":[{\"type\":\"nodal\",\"data\":{\"nodeId\":1,\"fx\":10,\"fz\":0,\"my\":0,\"fy\":0,\"mx\":0,\"mz\":0}},{\"type\":\"nodal\",\"data\":{\"nodeId\":2,\"fx\":3,\"fz\":-10,\"my\":0,\"fy\":0,\"mx\":0,\"mz\":0}}],\"constraints\":[{\"type\":\"equalDOF\",\"masterNode\":0,\"slaveNode\":2,\"dofs\":[0,1,2]}]},\"densities\":{}}",
         40,
-        1e-09
+        1e-9
       ],
       "before": {
         "converged": true,
@@ -5679,7 +5701,7 @@
           },
           {
             "nodeId": 1,
-            "ux": 1.5000000000123779e-05,
+            "ux": 0.000015000000000123779,
             "uy": 0,
             "uz": 0,
             "rx": 0,
@@ -5776,7 +5798,7 @@
           },
           {
             "nodeId": 1,
-            "ux": 1.5000000000123779e-05,
+            "ux": 0.000015000000000123779,
             "uy": 0,
             "uz": 0,
             "rx": 0,
@@ -6285,7 +6307,7 @@
                 ],
                 "phase": "pre_solve",
                 "value": 0,
-                "threshold": 3e-06
+                "threshold": 0.000003
               }
             ]
           }
@@ -6404,7 +6426,7 @@
                 ],
                 "phase": "pre_solve",
                 "value": 0,
-                "threshold": 3e-06
+                "threshold": 0.000003
               }
             ]
           }
@@ -6789,7 +6811,30 @@
             "rz": 0
           }
         ],
-        "notices": []
+        "notices": [
+          {
+            "path": "$.stages.0.results.structuredDiagnostics",
+            "value": [
+              {
+                "code": "result_quantity_unavailable",
+                "severity": "warning",
+                "message": "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.",
+                "phase": "stageResults"
+              }
+            ]
+          },
+          {
+            "path": "$.finalResults.structuredDiagnostics",
+            "value": [
+              {
+                "code": "result_quantity_unavailable",
+                "severity": "warning",
+                "message": "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.",
+                "phase": "stageResults"
+              }
+            ]
+          }
+        ]
       },
       "reportedReactionField": "finalResults.reactions"
     },
@@ -6969,5 +7014,7 @@
       "expectedArrayLength": 2,
       "after": "passed against full linear member-force reference, both with and without constraints"
     }
-  }
+  },
+  "fixedSourceParentCommit": "1deb0d21c703e59e50dc76b050f06eeb6d3af28d",
+  "fixedSource": "Final engine sources in the signed commit containing this replay; fixedSourceParentCommit identifies its parent."
 }

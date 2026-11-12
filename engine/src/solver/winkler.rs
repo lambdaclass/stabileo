@@ -126,7 +126,7 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     for i in 0..nf { u_full[i] = u_f[i]; }
     for i in 0..nr { u_full[nf + i] = u_r[i]; }
 
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&mat_vec(&asm.k, &u_full, n), &asm.f, &dof_num, cs.as_ref());
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::winkler_2d(input, &dof_num, &u_full)?, &asm.f, &dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_2d so Winkler-foundation analysis reports
@@ -225,7 +225,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     for i in 0..nf { u_full[i] = u_f[i]; }
     for i in 0..nr { u_full[nf + i] = u_r[i]; }
 
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&mat_vec(&asm.k, &u_full, n), &asm.f, &dof_num, cs.as_ref());
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::winkler_3d(input, input_solver, &dof_num, &u_full)?, &asm.f, &dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_3d.
@@ -259,7 +259,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
 
 // ==================== Foundation Matrix Helpers ====================
 
-fn add_foundation_2d(
+pub(super) fn add_foundation_2d(
     k_global: &mut [f64], n: usize,
     spring: &FoundationSpring,
     node_by_id: &HashMap<usize, &SolverNode>,
@@ -305,7 +305,7 @@ fn add_foundation_2d(
     Ok(())
 }
 
-fn add_foundation_3d(
+pub(super) fn add_foundation_3d(
     k_global: &mut [f64], n: usize,
     spring: &FoundationSpring3D, input: &SolverInput3D,
     node_by_id: &HashMap<usize, &SolverNode3D>,

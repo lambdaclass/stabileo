@@ -12,19 +12,20 @@ pub(crate) struct RecoveredForces {
 }
 
 impl RecoveredForces {
-    pub fn from_internal(
-        internal: &[f64],
+    pub(super) fn from_physical(
+        internal: &PhysicalForces,
         applied: &[f64],
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
     ) -> Self {
+        let internal = &internal.0;
         assert_eq!(internal.len(), dofs.n_total);
         assert_eq!(applied.len(), dofs.n_total);
         let residual: Vec<f64> = internal.iter().zip(applied).map(|(i, e)| i - e).collect();
         Self::from_residual(&residual, dofs, cs)
     }
 
-    pub fn from_residual(
+    fn from_residual(
         residual: &[f64],
         dofs: &DofNumbering,
         cs: Option<&FreeConstraintSystem>,
@@ -42,7 +43,15 @@ impl RecoveredForces {
         }
     }
 
-    pub fn reactions_2d(
+    pub(super) fn from_stage(
+        residual: &super::staged::PhysicalStageResidual,
+        dofs: &DofNumbering,
+        cs: Option<&FreeConstraintSystem>,
+    ) -> Self {
+        Self::from_residual(&residual.as_slice(), dofs, cs)
+    }
+
+    pub(super) fn reactions_2d(
         &self,
         input: &SolverInput,
         dofs: &DofNumbering,
@@ -65,7 +74,7 @@ impl RecoveredForces {
         Ok(r)
     }
 
-    pub fn reactions_3d(
+    pub(super) fn reactions_3d(
         &self,
         input: &SolverInput3D,
         dofs: &DofNumbering,
@@ -202,4 +211,393 @@ fn check_restraints(dofs: &DofNumbering, required: impl Iterator<Item = (usize, 
     let mut diagnostic = unavailable("reactions", "Results withheld: active support restraints differ from the DOFs used by the solve. Reactions, displacements and member forces cannot be recovered for this model. Rebuild the analysis with the requested supports.").with_nodes(nodes);
     diagnostic.severity = Severity::Error;
     Err(serde_json::json!({"message":diagnostic.message,"structuredDiagnostics":[diagnostic]}).to_string())
+}
+
+pub(crate) struct PhysicalForces(Vec<f64>);
+
+impl PhysicalForces {
+    pub(super) fn linear_2d(input: &SolverInput, dofs: &DofNumbering, u: &[f64]) -> Self {
+        let a = super::assembly::physical_stiffness(|| {
+            super::sparse_assembly::assemble_stiffness_sparse_2d(input, dofs)
+        });
+        Self(a.k_full.sym_mat_vec(u))
+    }
+
+    pub(super) fn linear_3d(input: &SolverInput3D, dofs: &DofNumbering, u: &[f64]) -> Self {
+        let a = super::assembly::physical_stiffness(|| {
+            super::assembly::assemble_stiffness_sparse_3d(input, dofs, true)
+        });
+        Self(
+            a.k_full
+                .expect("physical full stiffness requested")
+                .sym_mat_vec(u),
+        )
+    }
+
+    pub(super) fn corotational_2d(
+        input: &SolverInput,
+        dofs: &DofNumbering,
+        u: &[f64],
+        its: &[InclinedTransformData2D],
+    ) -> Self {
+        let mut f = vec![0.0; dofs.n_total];
+        let mut discard = |_, _, _| {};
+        super::corotational::assemble_corotational_impl(input, dofs, u, &mut f, &mut discard);
+        super::corotational::add_physical_spring_contributions(
+            input,
+            dofs,
+            u,
+            &mut f,
+            &mut discard,
+        );
+        Self(super::assembly::to_inclined_free(f, its, dofs.n_total))
+    }
+
+    pub(super) fn corotational_3d(
+        input: &SolverInput3D,
+        dofs: &DofNumbering,
+        u: &[f64],
+        left_hand: bool,
+        its: &[InclinedTransformData],
+    ) -> Self {
+        let mut f = vec![0.0; dofs.n_total];
+        let mut discard = |_, _, _| {};
+        super::corotational::assemble_corotational_3d_impl(
+            input,
+            dofs,
+            u,
+            &mut f,
+            &mut discard,
+            left_hand,
+        );
+        super::corotational::add_spring_contributions_3d(input, dofs, u, &mut f, &mut discard);
+        Self(super::assembly::to_inclined_free(f, its, dofs.n_total))
+    }
+
+    pub(super) fn material_2d(
+        input: &SolverInput,
+        dofs: &DofNumbering,
+        states: &[(usize, super::material_nonlinear::ElementState)],
+        u: &[f64],
+        its: &[InclinedTransformData2D],
+    ) -> Self {
+        let mut k = super::material_nonlinear::assemble_tangent_stiffness(input, dofs, states, &[]);
+        let mut unused = vec![0.0; dofs.n_total];
+        for it in its {
+            super::assembly::apply_inclined_transform_2d(
+                &mut k,
+                &mut unused,
+                dofs.n_total,
+                &it.dofs,
+                &it.r,
+            );
+        }
+        Self(crate::linalg::mat_vec(&k, u, dofs.n_total))
+    }
+
+    pub(super) fn material_3d(
+        input: &SolverInput3D,
+        dofs: &DofNumbering,
+        states: &[(usize, super::material_nonlinear::ElementState3D)],
+        u: &[f64],
+        its: &[InclinedTransformData],
+    ) -> Self {
+        let mut k =
+            super::material_nonlinear::assemble_tangent_stiffness_3d(input, dofs, states, &[]);
+        let mut unused = vec![0.0; dofs.n_total];
+        for it in its {
+            super::assembly::apply_inclined_transform(
+                &mut k,
+                &mut unused,
+                dofs.n_total,
+                &it.dofs,
+                &it.r,
+            );
+        }
+        Self(crate::linalg::mat_vec(&k, u, dofs.n_total))
+    }
+
+    pub(super) fn pdelta_2d(
+        input: &SolverInput,
+        dofs: &DofNumbering,
+        u: &[f64],
+        its: &[InclinedTransformData2D],
+    ) -> Self {
+        let mut f = Self::linear_2d(input, dofs, u);
+        let global = super::assembly::to_global(u, dofs.n_total, its);
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        super::geometric_stiffness::emit_geometric_stiffness_2d(
+            input,
+            dofs,
+            &global,
+            &mut |i, j, v| {
+                if i >= j {
+                    rows.push(i);
+                    cols.push(j);
+                    vals.push(v);
+                }
+            },
+        );
+        for it in its {
+            super::assembly::apply_inclined_transform_triplets_2d(
+                &mut rows, &mut cols, &mut vals, &it.dofs, &it.r,
+            );
+        }
+        let k = crate::linalg::sparse::CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
+        for (a, b) in f.0.iter_mut().zip(k.sym_mat_vec(u)) {
+            *a += b;
+        }
+        f
+    }
+
+    pub(super) fn pdelta_3d(
+        input: &SolverInput3D,
+        dofs: &DofNumbering,
+        u: &[f64],
+        its: &[InclinedTransformData],
+    ) -> Self {
+        let mut f = Self::linear_3d(input, dofs, u);
+        let global = super::assembly::to_global(u, dofs.n_total, its);
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        super::geometric_stiffness::emit_geometric_stiffness_3d(
+            input,
+            dofs,
+            &global,
+            &mut |i, j, v| {
+                if i >= j {
+                    rows.push(i);
+                    cols.push(j);
+                    vals.push(v);
+                }
+            },
+        );
+        for it in its {
+            super::assembly::apply_inclined_transform_triplets_k(
+                &mut rows, &mut cols, &mut vals, &it.dofs, &it.r,
+            );
+        }
+        let k = crate::linalg::sparse::CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals);
+        for (a, b) in f.0.iter_mut().zip(k.sym_mat_vec(u)) {
+            *a += b;
+        }
+        f
+    }
+
+    pub(super) fn contact_2d(
+        input: &SolverInput,
+        dofs: &DofNumbering,
+        u: &[f64],
+        inactive: &[usize],
+        corrections: &[super::contact::Correction],
+    ) -> Self {
+        let mut model = input.clone();
+        model.elements.retain(|_, e| !inactive.contains(&e.id));
+        Self::linear_2d(&model, dofs, u).with_contact(u, corrections)
+    }
+
+    pub(super) fn contact_3d(
+        input: &SolverInput3D,
+        dofs: &DofNumbering,
+        u: &[f64],
+        inactive: &[usize],
+        corrections: &[super::contact::Correction],
+    ) -> Self {
+        let mut model = input.clone();
+        model.elements.retain(|_, e| !inactive.contains(&e.id));
+        Self::linear_3d(&model, dofs, u).with_contact(u, corrections)
+    }
+
+    fn with_contact(mut self, u: &[f64], corrections: &[super::contact::Correction]) -> Self {
+        for c in corrections {
+            let n = c.dofs.len();
+            for a in 0..n {
+                self.0[c.dofs[a]] -= c.f[a];
+                for b in 0..n {
+                    self.0[c.dofs[a]] += c.k[a * n + b] * u[c.dofs[b]];
+                }
+            }
+        }
+        self
+    }
+
+    pub(super) fn with_soil<T: super::assembly::InclinedFrame>(
+        self,
+        springs: &[super::ssi::SoilSpring],
+        spring_k: &[f64],
+        dofs: &DofNumbering,
+        its: &[T],
+        u: &[f64],
+    ) -> Self {
+        Self(super::ssi::residual(
+            self.0,
+            springs,
+            spring_k,
+            dofs,
+            its,
+            u,
+            &vec![0.0; dofs.n_total],
+        ))
+    }
+
+    pub(super) fn with_cables_2d(
+        mut self,
+        cables: &[super::cable::CableGeom],
+        slots: &[([usize; 4], [f64; 4])],
+        tensions: &std::collections::HashMap<usize, f64>,
+        strains: &std::collections::HashMap<usize, f64>,
+    ) -> Self {
+        for (c, (dofs, coefficients)) in cables.iter().zip(slots) {
+            for (&d, &coef) in dofs.iter().zip(coefficients) {
+                if d != usize::MAX {
+                    self.0[d] -= coef * (tensions[&c.elem_id] - c.ea * strains[&c.elem_id]);
+                }
+            }
+        }
+        self
+    }
+
+    pub(super) fn with_cables_3d(
+        mut self,
+        cables: &[super::cable::CableGeom3D],
+        slots: &[([usize; 6], [f64; 6])],
+        tensions: &std::collections::HashMap<usize, f64>,
+        strains: &std::collections::HashMap<usize, f64>,
+    ) -> Self {
+        for (c, (dofs, coefficients)) in cables.iter().zip(slots) {
+            for (&d, &coef) in dofs.iter().zip(coefficients) {
+                if d != usize::MAX {
+                    self.0[d] -= coef * (tensions[&c.elem_id] - c.ea * strains[&c.elem_id]);
+                }
+            }
+        }
+        self
+    }
+
+    pub(super) fn winkler_2d(
+        input: &super::winkler::WinklerInput,
+        dofs: &DofNumbering,
+        u: &[f64],
+    ) -> Result<Self, String> {
+        let mut a = super::assembly::physical_stiffness(|| {
+            super::assembly::assemble_2d(&input.solver, dofs)
+        });
+        let nodes = crate::ordered::values(&input.solver.nodes)
+            .map(|n| (n.id, n))
+            .collect();
+        let elements = crate::ordered::values(&input.solver.elements)
+            .map(|e| (e.id, e))
+            .collect();
+        for spring in &input.foundation_springs {
+            super::winkler::add_foundation_2d(
+                &mut a.k,
+                dofs.n_total,
+                spring,
+                &nodes,
+                &elements,
+                dofs,
+            )?;
+        }
+        Ok(Self(crate::linalg::mat_vec(&a.k, u, dofs.n_total)))
+    }
+
+    pub(super) fn winkler_3d(
+        input: &super::winkler::WinklerInput3D,
+        model: &SolverInput3D,
+        dofs: &DofNumbering,
+        u: &[f64],
+    ) -> Result<Self, String> {
+        let mut a =
+            super::assembly::physical_stiffness(|| super::assembly::assemble_3d(model, dofs));
+        let nodes = crate::ordered::values(&model.nodes)
+            .map(|n| (n.id, n))
+            .collect();
+        let elements = crate::ordered::values(&model.elements)
+            .map(|e| (e.id, e))
+            .collect();
+        for spring in &input.foundation_springs {
+            super::winkler::add_foundation_3d(
+                &mut a.k,
+                dofs.n_total,
+                spring,
+                model,
+                &nodes,
+                &elements,
+                dofs,
+            )?;
+        }
+        Ok(Self(crate::linalg::mat_vec(&a.k, u, dofs.n_total)))
+    }
+
+    pub(super) fn fiber_2d(
+        input: &super::fiber_nonlinear::FiberNonlinearInput,
+        dofs: &DofNumbering,
+        u: &[f64],
+        states: &std::collections::HashMap<usize, super::fiber_nonlinear::ElementFiberState>,
+        n_ip: usize,
+    ) -> Self {
+        let mut f = vec![0.0; dofs.n_total];
+        let mut probe = states.clone();
+        let mut discard = |_, _, _| {};
+        super::fiber_nonlinear::assemble_fiber_elements(
+            &input.solver,
+            &input.fiber_sections,
+            dofs,
+            u,
+            &mut probe,
+            n_ip,
+            &mut f,
+            &mut discard,
+        );
+        super::fiber_nonlinear::assemble_elastic_elements(
+            &input.solver,
+            &input.fiber_sections,
+            dofs,
+            u,
+            &mut f,
+            &mut discard,
+        );
+        super::fiber_nonlinear::add_springs(&input.solver, dofs, u, &mut f, &[], &mut discard);
+        Self(f)
+    }
+
+    pub(super) fn fiber_3d(
+        input: &super::fiber_nonlinear::FiberNonlinearInput3D,
+        dofs: &DofNumbering,
+        u: &[f64],
+        states: &std::collections::HashMap<usize, super::fiber_nonlinear::ElementFiberState>,
+        n_ip: usize,
+    ) -> Self {
+        let mut f = vec![0.0; dofs.n_total];
+        let mut probe = states.clone();
+        let mut discard = |_, _, _| {};
+        super::fiber_nonlinear::assemble_fiber_elements_3d(
+            &input.solver,
+            &input.fiber_sections,
+            dofs,
+            u,
+            &mut probe,
+            n_ip,
+            &mut f,
+            &mut discard,
+        );
+        super::fiber_nonlinear::assemble_elastic_elements_3d(
+            &input.solver,
+            &input.fiber_sections,
+            dofs,
+            u,
+            &mut f,
+            &mut discard,
+        );
+        super::fiber_nonlinear::add_springs_3d(&input.solver, dofs, u, &mut f, &mut discard);
+        Self(f)
+    }
+
+    pub(super) fn in_frame<T: super::assembly::InclinedFrame>(self, its: &[T]) -> Self {
+        let n = self.0.len();
+        Self(super::assembly::to_inclined_free(self.0, its, n))
+    }
+
+    pub(super) fn as_slice(&self) -> &[f64] {
+        &self.0
+    }
 }

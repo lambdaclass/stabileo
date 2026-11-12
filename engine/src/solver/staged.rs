@@ -870,11 +870,12 @@ fn artificial_dof(dofs: &DofNumbering, node: usize, local: usize) -> Option<usiz
     dofs.global_dof(node, local).filter(|&d| d < dofs.n_free)
 }
 
-struct PhysicalStageResidual(Vec<f64>);
+pub(super) struct PhysicalStageResidual(Vec<f64>);
 
 impl PhysicalStageResidual {
+    pub(super) fn as_slice(&self) -> &[f64] { &self.0 }
     fn assemble(recover: impl FnOnce() -> Vec<f64>) -> Self {
-        Self(super::assembly::without_artificial_stiffness(recover))
+        Self(super::assembly::physical_stiffness(recover))
     }
 }
 
@@ -893,7 +894,7 @@ fn build_results_from_u(
     let displacements = build_displacements_2d(dof_num, u);
     let mut element_forces = compute_internal_forces_2d(input, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&reactions_vec.0, dof_num, cs);
+    let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
     let reactions = recovered.reactions_2d(input, dof_num, u, &[])?;
 
     let prescribed = super::linear::prescribed_displacements_2d(input, dof_num);
@@ -1583,7 +1584,7 @@ fn build_results_from_u_3d(
     let displacements = build_displacements_3d(dof_num, u);
     let mut element_forces = super::linear::compute_internal_forces_3d_with_loads(cum_input, &cum_input.loads, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&reactions_vec.0, dof_num, cs);
+    let recovered = super::reaction_recovery::RecoveredForces::from_stage(reactions_vec, dof_num, cs);
     let reactions = recovered.reactions_3d(cum_input, dof_num, u, &[])?;
     let plate_stresses = compute_plate_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_stresses = super::linear::compute_quad_stresses(cum_input, dof_num, u, Some(&cum_input.loads));

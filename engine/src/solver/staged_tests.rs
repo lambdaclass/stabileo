@@ -65,8 +65,8 @@ fn settled_slave_residual(dim: usize) {
                         )
                     }
                 });
-                let recovered = crate::solver::reaction_recovery::RecoveredForces::from_residual(
-                    &residual,
+                let recovered = crate::solver::reaction_recovery::RecoveredForces::from_stage(
+                    &PhysicalStageResidual(residual),
                     &dofs,
                     cs.as_ref(),
                 );
@@ -112,8 +112,8 @@ fn settled_slave_residual(dim: usize) {
                         )
                     }
                 });
-                let recovered = crate::solver::reaction_recovery::RecoveredForces::from_residual(
-                    &residual,
+                let recovered = crate::solver::reaction_recovery::RecoveredForces::from_stage(
+                    &PhysicalStageResidual(residual),
                     &dofs,
                     cs.as_ref(),
                 );

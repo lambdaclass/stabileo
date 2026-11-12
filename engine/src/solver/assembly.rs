@@ -47,6 +47,10 @@ pub(crate) fn without_artificial_stiffness<T>(f: impl FnOnce() -> T) -> T {
     if super::stability::assumed() {
         return f();
     }
+    physical_stiffness(f)
+}
+
+pub(super) fn physical_stiffness<T>(f: impl FnOnce() -> T) -> T {
     struct Restore(bool);
     impl Drop for Restore {
         fn drop(&mut self) {

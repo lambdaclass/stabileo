@@ -386,7 +386,7 @@ fn guyan_reduce_2d_sparse(input: &GuyanInput, dof_num: &DofNumbering) -> Result<
 
     // Reactions (u_r = 0): R[i] = (K_full·u)[i] − F[i] for restrained DOFs,
     // computed in the rotated frame before reversing inclined transforms.
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&stiff.k_full.sym_mat_vec(&u_full), &f_global, dof_num, cs.as_ref());
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::linear_2d(&input.solver, dof_num, &u_full), &f_global, dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_2d so Guyan reduction reports reactions and
@@ -548,7 +548,7 @@ fn guyan_reduce_2d_dense(input: &GuyanInput, dof_num: &DofNumbering) -> Result<G
     for i in 0..nf { u_full[i] = u_f[i]; }
 
     // Compute reactions: R = K_rf * u_f + K_rr * u_r - F_r
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&mat_vec(&asm.k, &u_full, n), &asm.f, dof_num, cs.as_ref());
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::linear_2d(&input.solver, dof_num, &u_full), &asm.f, dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_2d so Guyan reduction reports reactions and
@@ -1248,8 +1248,7 @@ fn guyan_reduce_3d_contained(input: &GuyanInput3D) -> Result<GuyanResult3D, Stri
     // Compute reactions: R[i] = (K_full·u)[i] − F[i] for restrained DOFs,
     // via sparse sym_mat_vec instead of a dense nr×nf K_rf extraction.
     let sasm_full = assembly::assemble_sparse_3d(&input.solver, &dof_num, true);
-    let k_full = sasm_full.k_full.as_ref().expect("full stiffness assembled for reaction recovery");
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(&k_full.sym_mat_vec(&u_full), &sasm_full.f, &dof_num, cs.as_ref());
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(&super::reaction_recovery::PhysicalForces::linear_3d(&input.solver, &dof_num, &u_full), &sasm_full.f, &dof_num, cs.as_ref());
 
     // Reverse inclined transforms on displacements before building results —
     // mirrors linear::solve_3d. Reversing is a no-op when the vec is empty —

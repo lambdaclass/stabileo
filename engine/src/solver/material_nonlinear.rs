@@ -38,7 +38,7 @@ fn validate_material_models(models: &std::collections::HashMap<String, MaterialM
 
 /// Per-element state tracking for the nonlinear material analysis.
 #[derive(Clone)]
-struct ElementState {
+pub(super) struct ElementState {
     yielded_start: bool,
     yielded_end: bool,
     /// Hardening ratio: EI_effective = alpha * EI when yielded.
@@ -303,13 +303,9 @@ fn solve_nonlinear_material_2d_inner(
     // k_final has no u-dependence, so rotate it directly to match f_final's
     // (already-rotated, from f_total = asm.f.clone()) convention; the dummy
     // F output of apply_inclined_transform_2d is discarded.
-    let mut k_final = assemble_tangent_stiffness(solver, &dof_num, &states, &art);
-    let mut k_final_f_dummy = vec![0.0; n];
-    for it in &asm.inclined_transforms_2d {
-        assembly::apply_inclined_transform_2d(&mut k_final, &mut k_final_f_dummy, n, &it.dofs, &it.r);
-    }
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(
-        &mat_vec(&k_final, &u_full, n), &f_total, &dof_num, cs.as_ref(),
+    let physical = super::reaction_recovery::PhysicalForces::material_2d(solver, &dof_num, &states, &u_full, &asm.inclined_transforms_2d);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(
+        &physical, &f_total, &dof_num, cs.as_ref(),
     );
 
     // Reverse inclined transforms to get TRUE global displacements for
@@ -482,7 +478,7 @@ fn lookup_capacities(input: &NonlinearMaterialInput, elem: &SolverElement) -> (f
 // ---------------------------------------------------------------------------
 
 /// Dense (n×n) tangent — small models and the once-per-solve reaction pass.
-fn assemble_tangent_stiffness(
+pub(super) fn assemble_tangent_stiffness(
     solver: &SolverInput,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState)],
@@ -927,7 +923,7 @@ fn build_element_status(
 
 /// Per-element state tracking for 3D nonlinear material analysis.
 #[derive(Clone)]
-struct ElementState3D {
+pub(super) struct ElementState3D {
     yielded_start: bool,
     yielded_end: bool,
     alpha: f64,
@@ -1173,13 +1169,9 @@ fn solve_nonlinear_material_3d_inner(
     }
 
     // k_final has no u-dependence — rotate directly (dummy F discarded).
-    let mut k_final = assemble_tangent_stiffness_3d(solver, &dof_num, &states, &art);
-    let mut k_final_f_dummy = vec![0.0; n];
-    for it in &asm.inclined_transforms {
-        assembly::apply_inclined_transform(&mut k_final, &mut k_final_f_dummy, n, &it.dofs, &it.r);
-    }
-    let recovered = super::reaction_recovery::RecoveredForces::from_internal(
-        &mat_vec(&k_final, &u_full, n), &f_total, &dof_num, cs.as_ref(),
+    let physical = super::reaction_recovery::PhysicalForces::material_3d(solver, &dof_num, &states, &u_full, &asm.inclined_transforms);
+    let recovered = super::reaction_recovery::RecoveredForces::from_physical(
+        &physical, &f_total, &dof_num, cs.as_ref(),
     );
 
     // Reverse inclined transforms to get TRUE global displacements for
@@ -1268,7 +1260,7 @@ fn lookup_capacities_3d(input: &NonlinearMaterialInput3D, elem: &SolverElement3D
 // ---------------------------------------------------------------------------
 
 /// Dense (n×n) tangent — small models and the once-per-solve reaction pass.
-fn assemble_tangent_stiffness_3d(
+pub(super) fn assemble_tangent_stiffness_3d(
     solver: &SolverInput3D,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState3D)],
