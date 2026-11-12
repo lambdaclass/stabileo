@@ -1716,8 +1716,9 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
     }
     // Known issues of the model as given (an arch is only visible before its expansion); they
     // go with the pre-solve diagnostics into every result of this preparation.
-    crate::known_issues::refuse(&crate::known_issues::for_3d(input, analysis))?;
-    let known_model: Vec<_> = crate::known_issues::for_3d(input, analysis).into_iter().filter(|d| d.code == DiagnosticCode::KnownIssue).collect();
+    let known = crate::known_issues::for_3d(input, analysis);
+    crate::known_issues::refuse(&known)?;
+    let known_model: Vec<_> = known.into_iter().filter(|d| d.code == DiagnosticCode::KnownIssue).collect();
     // Expand curved beams into frame elements before solving
     let input = expand_curved_beams_3d(input);
     let n_nodes = input.nodes.len();

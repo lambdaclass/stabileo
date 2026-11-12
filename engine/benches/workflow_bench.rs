@@ -509,9 +509,12 @@ fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
     for i in 0..=nx { boundary.push(grid[i][0]); boundary.push(grid[i][ny]); }
     boundary.sort();
     boundary.dedup();
+    // Simply supported edges, one corner pinned in plane and the opposite corner of the first edge
+    // held in y, as the perf gate's plate: without the second in-plane restraint the plate turns
+    // rigidly about the pin and the stability verdict refuses it as a mechanism.
     for &n in &boundary {
         supports.insert(sid.to_string(), SolverSupport3D {
-            node_id: n, rx: false, ry: false, rz: true,
+            node_id: n, rx: false, ry: n == grid[nx][0], rz: true,
             rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
