@@ -515,5 +515,127 @@ fn main() {
         self.assertNotIn('issue_1760_plastic', row)
 
 
+@unittest.skip("known wrong result: #1946")
+class EndpointIdentity(unittest.TestCase):
+    def execute(self, filename, area):
+        source = (AUDIT / filename).read_text().replace('/root/audit/soundness-2026-11-11', str(area))
+        with patch.object(sys, 'argv', [filename]):
+            exec(compile(source, str(AUDIT / filename), 'exec'), {'__file__': str(AUDIT / filename)})
+
+    def gallery(self, area, before, after):
+        (area / 'compare.py').write_text((AUDIT / 'compare.py').read_text())
+        capture = dict(parameters={}, model={}, outcome=dict(status='ok', readouts=[]))
+        for endpoint, names in [('base', before), ('repo', after)]:
+            folder = area / f'{endpoint}-site-gallery'
+            folder.mkdir()
+            for name in names:
+                (folder / name).write_text(json.dumps(capture))
+
+    def test_missing_head_is_rejected_before_publishing(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            area = Path(directory)
+            self.gallery(area, ['site-control.json', 'site-missing.json'], ['site-control.json'])
+            with self.assertRaisesRegex(ValueError, 'site-missing.json'):
+                self.execute('finish-analysis.py', area)
+            self.assertFalse((area / 'site-gallery-diff.json').exists())
+
+    def test_missing_baseline_and_empty_gallery_are_rejected(self):
+        for before, after in [([], ['site-new.json']), ([], [])]:
+            with self.subTest(before=before, after=after), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                area = Path(directory)
+                self.gallery(area, before, after)
+                with self.assertRaises(ValueError):
+                    self.execute('finish-analysis.py', area)
+
+    def test_complete_gallery_retains_correct_answer(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            area = Path(directory)
+            self.gallery(area, ['site-control.json'], ['site-control.json'])
+            self.execute('finish-analysis.py', area)
+            result = json.loads((area / 'site-gallery-diff.json').read_text())
+            self.assertEqual(result['cases'], 1)
+            self.assertEqual(result['changed'], 0)
+            self.assertTrue(result['drift'][0]['same_model'])
+
+    def references(self, area, before, after):
+        for endpoint, rows in [('base', before), ('repo', after)]:
+            (area / f'{endpoint}-reference-test.log').write_text(''.join('AUDIT_REFERENCE=' + json.dumps(r) + '\n' for r in rows))
+
+    def measurement(self, site, value, selector=None):
+        row = dict(test='reference_test', site=site, actual=value, reference=1)
+        if selector is not None:
+            row['selector'] = selector
+        return row
+
+    def test_reordering_cannot_pair_different_sites(self):
+        a, b = self.measurement('tip', 1), self.measurement('support', 2)
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            area = Path(directory)
+            self.references(area, [a, b], [b, a])
+            self.execute('collect-references.py', area)
+            rows = json.loads((area / 'reference-comparisons.json').read_text())['rows']
+            self.assertEqual(len(rows), 2)
+            for row in rows:
+                self.assertEqual(row['before_site'], row['after_site'])
+                self.assertEqual(row['before'], row['after'])
+
+    def test_inserted_removed_and_changed_selectors_are_rejected(self):
+        a = self.measurement('tip', 1, {'node': 1, 'component': 'uz'})
+        b = self.measurement('tip', 2, {'node': 2, 'component': 'uz'})
+        for before, after in [([a], [b, a]), ([a, b], [a]), ([a], [b]), ([], []),
+                              ([a], [self.measurement('other-site', 1, a['selector'])])]:
+            with self.subTest(before=before, after=after), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                area = Path(directory)
+                self.references(area, before, after)
+                with self.assertRaises(ValueError):
+                    self.execute('collect-references.py', area)
+                self.assertFalse((area / 'reference-comparisons.json').exists())
+
+    def test_duplicate_identity_requires_explicit_selector(self):
+        a, b = self.measurement('loop', 1), self.measurement('loop', 2)
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            area = Path(directory)
+            self.references(area, [a, b], [a, b])
+            with self.assertRaisesRegex(ValueError, 'duplicate'):
+                self.execute('collect-references.py', area)
+
+    def test_explicit_selectors_pair_loop_measurements_after_reordering(self):
+        a = self.measurement('loop', 1, {'node': 1, 'component': 'uz'})
+        b = self.measurement('loop', 2, {'component': 'uz', 'node': 2})
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            area = Path(directory)
+            self.references(area, [a, b], [b, a])
+            self.execute('collect-references.py', area)
+            rows = json.loads((area / 'reference-comparisons.json').read_text())['rows']
+            self.assertEqual(len(rows), 2)
+            self.assertTrue(all(r['before'] == r['after'] for r in rows))
+
+    def test_extra_replay_reports_its_own_status_and_stops_on_failure(self):
+        source = (AUDIT / 'finish-corpus.sh').read_text()
+        source = source[source.index('unset AUDIT_NATIVE_OUT'):]
+        source = source[:source.index('nice -n 19 nix develop --command python3')]
+        for replay_status in [0, 7]:
+            with self.subTest(status=replay_status), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                area = Path(directory)
+                for endpoint in ['repo', 'base']:
+                    (area / endpoint).mkdir()
+                    (area / f'{endpoint}-fixed-native').mkdir()
+                prelude = f'''set -euo pipefail
+area={area}
+status=101
+nice() {{ printf '%s\\n' '{{}}' > "$AUDIT_FIXED_TO/model.json"; return {replay_status}; }}
+python3() {{ printf 'checked %s\\n' "$*"; }}
+'''
+                result = subprocess.run(['bash'], input=prelude + source, text=True, capture_output=True, cwd=ROOT)
+                self.assertEqual(result.returncode, replay_status, result.stderr)
+                self.assertIn(f'repo extra frozen replay status={replay_status}', result.stdout)
+                self.assertIn(f'checked {area}/audit_evidence.py check-suite {area}/repo-extra-replay.log {replay_status}', result.stdout)
+                if replay_status:
+                    self.assertNotIn('checked ' + str(area) + '/audit_evidence.py check-replay', result.stdout)
+                    self.assertNotIn('base extra frozen replay', result.stdout)
+                else:
+                    self.assertIn('base extra frozen replay status=0', result.stdout)
+
+
 if __name__ == '__main__':
     unittest.main()
