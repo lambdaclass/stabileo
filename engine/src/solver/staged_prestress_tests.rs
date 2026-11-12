@@ -220,24 +220,17 @@ fn round4_reaction_check(prestress_only: bool) {
                 }
                 let stage = stage(profile, force);
                 let dof = DofNumbering::build_2d(&input);
-                let sparse = assemble_staged_2d_triplets(&input, &dof, &stage);
                 let dense = assemble_staged_2d(&input, &dof, &stage);
-                let k_full =
-                    CscMatrix::from_triplets(dof.n_total, &sparse.rows, &sparse.cols, &sparse.vals);
                 let free: Vec<_> = (0..dof.n_free).collect();
                 let mut kff = extract_submatrix(&dense.k, dof.n_total, &free, &free);
                 let uf = cholesky_solve(&mut kff, &dense.f[..dof.n_free], dof.n_free).unwrap();
                 let mut u = vec![0.0; dof.n_total];
                 u[..dof.n_free].copy_from_slice(&uf);
-                let r = sparse.cumulative_reactions(&k_full, &input, &stage, &dof, &u);
-                let expected = compute_stage_reactions_vec(
-                    &dense,
-                    dof.n_total,
-                    dof.n_free,
-                    dof.n_total - dof.n_free,
-                    &u,
-                    &vec![0.0; dof.n_total - dof.n_free],
-                );
+                let r = physical_recovery::recover(
+                    physical_recovery::StageModel::Plane(&input, &stage), &dof, &u,
+                ).as_slice().to_vec();
+                let expected: Vec<_> = mat_vec(&dense.k, &u, dof.n_total).iter().zip(&dense.f)
+                    .map(|(ku, f)| ku - f).collect();
                 close(&r, &expected);
                 let independent = equivalent(&input, &stage);
                 let asm = super::super::assembly::without_artificial_stiffness(|| {

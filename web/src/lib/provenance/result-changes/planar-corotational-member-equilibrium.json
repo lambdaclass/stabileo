@@ -19,7 +19,7 @@
     ]
   },
   "quantities": [
-    "nonlinear.elementForces"
+    "elementForces"
   ],
   "title": {
     "en": "Planar member shear uses the final chord",

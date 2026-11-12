@@ -40,7 +40,7 @@ export function checkStoredEvidence() {
     assert.throws(() => assertMemberEquilibrium([], 'empty members'));
 
     const suffix = record.id.slice('frozen-arch-'.length);
-    const snapshot = JSON.parse(readFileSync(new URL(`../../web/results-frozen/solve_arc_length-${suffix}.json`, import.meta.url)));
+    const snapshot = JSON.parse(readFileSync(new URL(`../../docs/results-changes/fixtures/1952-arc-reactions/solve_arc_length-${suffix}.json`, import.meta.url)));
     const v = snapshot.values, prefix = 'nonlinear.results.elementForces';
     const forces = Array.from({ length: v[`${prefix}.length`] }, (_, i) => Object.fromEntries(['elementId', 'length', 'vStart', 'vEnd', 'mStart', 'mEnd'].map(k => [k, v[`${prefix}[${i}].${k}`]])));
     const displacements = Array.from({length: v['nonlinear.results.displacements.length']}, (_, i) => Object.fromEntries(['nodeId', 'ux', 'uz'].map(k => [k, v[`nonlinear.results.displacements[${i}].${k}`]])));

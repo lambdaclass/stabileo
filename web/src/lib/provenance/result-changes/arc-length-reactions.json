@@ -20,16 +20,14 @@
         "pathAnalysis"
       ],
       [
-        "analysis:pdelta",
-        "analysis:nonlinear",
-        "analysis:timeHistory"
+        "analysis:nonlinear"
       ]
     ]
   },
   "quantities": [
     "equilibrium",
-    "nonlinear.reactions",
-    "nonlinear.elementForces"
+    "reactions",
+    "elementForces"
   ],
   "title": {
     "en": "Support reactions follow the reported equilibrium state",

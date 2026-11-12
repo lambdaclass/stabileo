@@ -204,7 +204,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         // linear-agreement check: two load stages gave twice the settlement).
         let du_r: Vec<f64> = u_r.iter().zip(&prev_u_r).map(|(a, b)| a - b).collect();
         // Extract Kff, Ff and apply F_f_modified = F_f - K_fr * du_r.
-        let mut k_full_csc: Option<CscMatrix> = None;
         let mut k_ff_dense: Option<Vec<f64>> = None;
         let f_f: Vec<f64>;
         if let Some(ref t) = asm_trips {
@@ -215,7 +214,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
                 ff[i] -= k_fr_ur[i];
             }
             f_f = ff;
-            k_full_csc = Some(k_full);
         } else {
             let asm = asm_dense.as_ref().unwrap();
             let free_idx: Vec<usize> = (0..nf).collect();
@@ -278,16 +276,10 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         }
         prev_u_r = u_r.clone();
 
-        let reactions_vec = PhysicalStageResidual::assemble(|| if let Some(ref k_full) = k_full_csc {
-            asm_trips.as_ref().unwrap().cumulative_reactions(
-                k_full, &cumulative_solver_input, stage, &dof_num, &cumulative_u,
-            )
-        } else {
-            let cumulative_asm = assemble_staged_2d(
-                &cumulative_solver_input, &dof_num, stage,
-            );
-            compute_stage_reactions_vec(&cumulative_asm, n, nf, nr, &cumulative_u, &u_r)
-        });
+        let reactions_vec = physical_recovery::recover(
+            physical_recovery::StageModel::Plane(&cumulative_solver_input, stage),
+            &dof_num, &cumulative_u,
+        );
 
         // Build results for this stage
         stage_results.push(StageResult {
@@ -542,21 +534,6 @@ struct StagedTriplets2D {
     f: Vec<f64>,
 }
 
-impl StagedTriplets2D {
-    fn cumulative_reactions(
-        &self,
-        k_full: &CscMatrix,
-        input: &SolverInput,
-        stage: &ConstructionStage,
-        dof: &DofNumbering,
-        u: &[f64],
-    ) -> Vec<f64> {
-        let loads = stage_loads_2d(input, stage);
-        let f = super::assembly::assemble_load_vector_2d(input, &loads, dof, &self.inclined_transforms_2d);
-        compute_stage_reactions_sparse(k_full, &f, dof.n_free, dof.n_total - dof.n_free, u)
-    }
-}
-
 fn full_triplets(k: &CscMatrix) -> (Vec<usize>, Vec<usize>, Vec<f64>) {
     let mut rows = Vec::with_capacity(k.nnz());
     let mut cols = Vec::with_capacity(k.nnz());
@@ -583,14 +560,9 @@ fn assemble_staged_2d_triplets(
     StagedTriplets2D { inclined_transforms_2d: stiff.inclined_transforms_2d, k_ff: stiff.k_ff, rows, cols, vals, f }
 }
 
-pub(super) struct PhysicalStageResidual(Vec<f64>);
-
-impl PhysicalStageResidual {
-    pub(super) fn as_slice(&self) -> &[f64] { &self.0 }
-    fn assemble(recover: impl FnOnce() -> Vec<f64>) -> Self {
-        Self(super::assembly::physical_stiffness(recover))
-    }
-}
+#[path = "staged_physical.rs"]
+mod physical_recovery;
+pub(super) use physical_recovery::PhysicalStageResidual;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum StageForceRecovery {
@@ -760,30 +732,6 @@ fn build_results_from_u(
         results.structured_diagnostics.extend(recovery.diagnostics(&["stageResults", "reactions", "elementForces", "constraintForces"]));
     }
     Ok(results)
-}
-
-fn compute_stage_reactions_vec(
-    asm: &AssemblyResult,
-    n: usize,
-    _nf: usize,
-    _nr: usize,
-    u_full: &[f64],
-    _u_r: &[f64],
-) -> Vec<f64> {
-    mat_vec(&asm.k, u_full, n).iter().zip(&asm.f).map(|(ku, f)| ku - f).collect()
-}
-
-/// Sparse counterpart of `compute_stage_reactions_vec`: with the full-K CSC,
-/// (K·u)[r] − F_r is exactly K_rf·u_f + K_rr·u_r − F_r (u_full already holds
-/// the prescribed displacements at the restrained DOFs).
-fn compute_stage_reactions_sparse(
-    k_full: &CscMatrix,
-    f: &[f64],
-    _nf: usize,
-    _nr: usize,
-    u_full: &[f64],
-) -> Vec<f64> {
-    k_full.sym_mat_vec(u_full).iter().zip(f).map(|(ku, f)| ku - f).collect()
 }
 
 // ==================== 3D Staged Construction Analysis ====================
@@ -1026,15 +974,10 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         prev_u_r = u_r.clone();
 
         // Reactions (K·u − F_cumulative)_r with this stage's stiffness.
-        let reactions_vec = PhysicalStageResidual::assemble(|| if let Some(ref t) = asm_trips {
-            let k_full = CscMatrix::from_triplets(n, &t.rows, &t.cols, &t.vals);
-            let f_cum = super::sparse_assembly::assemble_load_vector_sparse_3d(&cum_input, &cum_input.loads, &dof_num, &[]);
-            compute_stage_reactions_sparse(&k_full, &f_cum, nf, nr, &cumulative_u)
-        } else {
-            let asm = asm_dense.as_ref().unwrap();
-            let f_cum = assemble_3d(&cum_input, &dof_num).f;
-            mat_vec(&asm.k, &cumulative_u, n).iter().zip(&f_cum).map(|(ku, f)| ku - f).collect()
-        });
+        let reactions_vec = physical_recovery::recover(
+            physical_recovery::StageModel::Space(&cum_input),
+            &dof_num, &cumulative_u,
+        );
 
         // Build results for this stage
         let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &reactions_vec, cs.as_ref(), recovery)?;

@@ -898,7 +898,7 @@ test.audit.evidence:
 	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 
 .PHONY: test.engine.staged-orphan-wasm
-test.engine.staged-orphan-wasm: wasm scripts/tests/staged-history-containment.mjs
+test.engine.staged-orphan-wasm: wasm scripts/tests/staged-history-containment.mjs test.engine.staged-physical-r14-wasm
 	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-orphan-1846-wasm.mjs
 	$(NIX_RUN) node scripts/tests/staged-round4-wasm.mjs

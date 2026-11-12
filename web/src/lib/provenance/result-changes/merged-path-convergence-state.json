@@ -19,8 +19,8 @@
     ]
   },
   "quantities": [
-    "nonlinear.displacements",
-    "nonlinear.steps"
+    "displacements",
+    "steps"
   ],
   "title": {
     "en": "Path states include the merged convergence corrections",

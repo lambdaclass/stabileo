@@ -2011,7 +2011,8 @@ fn issue_1952_r12_springs_unchanged_2d() { r12_spring_history(2, "unchanged"); }
 fn issue_1952_r12_springs_unchanged_3d() { r12_spring_history(3, "unchanged"); }
 
 fn r14_staged_physical(dim: usize) {
-    let fixtures: Value = serde_json::from_str(include_str!("../../../fixtures/staged-physical-r14.json")).unwrap();
+    let fixtures: Value =
+        serde_json::from_str(include_str!("../../../fixtures/staged-physical-r14.json")).unwrap();
     let mut replay = Vec::new();
     for independent in [if dim == 2 { 2 } else { 5 }, 63, 64, 65] {
         for motion in [-0.0013, 0.0, 0.0013] {
@@ -2025,7 +2026,11 @@ fn r14_staged_physical(dim: usize) {
                 let base = if dim == 2 { 2 } else { 5 };
                 for i in 0..independent - base {
                     let id = 100 + i;
-                    m["nodes"][id.to_string()] = if dim == 2 { json!({"id":id,"x":4.0+i as f64,"z":0.0}) } else { json!({"id":id,"x":4.0+i as f64,"y":0.0,"z":0.0}) };
+                    m["nodes"][id.to_string()] = if dim == 2 {
+                        json!({"id":id,"x":4.0+i as f64,"z":0.0})
+                    } else {
+                        json!({"id":id,"x":4.0+i as f64,"y":0.0,"z":0.0})
+                    };
                     let mut element = m["elements"]["1"].clone();
                     element["id"] = json!(id);
                     element["nodeJ"] = json!(id);
@@ -2036,47 +2041,138 @@ fn r14_staged_physical(dim: usize) {
                     } else {
                         json!({"nodeId":id,"rx":false,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true})
                     };
-                    m["stages"][0]["elementsAdded"].as_array_mut().unwrap().push(json!(id));
-                    m["stages"][0]["supportsAdded"].as_array_mut().unwrap().push(json!(id));
+                    m["stages"][0]["elementsAdded"]
+                        .as_array_mut()
+                        .unwrap()
+                        .push(json!(id));
+                    m["stages"][0]["supportsAdded"]
+                        .as_array_mut()
+                        .unwrap()
+                        .push(json!(id));
                 }
                 let result = if dim == 2 {
-                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_2d(&serde_json::from_value(m.clone()).unwrap());
-                    let cs = dedaliano_engine::solver::constraints::FreeConstraintSystem::build_2d(&serde_json::from_value(m.clone()).unwrap(), &dof).unwrap().unwrap();
+                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_2d(
+                        &serde_json::from_value(m.clone()).unwrap(),
+                    );
+                    let cs = dedaliano_engine::solver::constraints::FreeConstraintSystem::build_2d(
+                        &serde_json::from_value(m.clone()).unwrap(),
+                        &dof,
+                    )
+                    .unwrap()
+                    .unwrap();
                     assert_eq!(cs.n_free_indep, independent);
-                    json!(staged::solve_staged_2d(&serde_json::from_value(m.clone()).unwrap()).unwrap())
+                    json!(
+                        staged::solve_staged_2d(&serde_json::from_value(m.clone()).unwrap())
+                            .unwrap()
+                    )
                 } else {
-                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_3d(&serde_json::from_value(m.clone()).unwrap());
-                    let cs = dedaliano_engine::solver::constraints::FreeConstraintSystem::build_3d(&serde_json::from_value(m.clone()).unwrap(), &dof).unwrap().unwrap();
+                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_3d(
+                        &serde_json::from_value(m.clone()).unwrap(),
+                    );
+                    let cs = dedaliano_engine::solver::constraints::FreeConstraintSystem::build_3d(
+                        &serde_json::from_value(m.clone()).unwrap(),
+                        &dof,
+                    )
+                    .unwrap()
+                    .unwrap();
                     assert_eq!(cs.n_free_indep, independent);
-                    json!(staged::solve_staged_3d(&serde_json::from_value(m.clone()).unwrap()).unwrap())
+                    json!(
+                        staged::solve_staged_3d(&serde_json::from_value(m.clone()).unwrap())
+                            .unwrap()
+                    )
                 };
                 let load = num(&m["loads"][0]["data"], "fz");
                 let length = num(&m["nodes"]["1"], "x");
-                let ei = num(&m["materials"]["1"], "e") * 1000.0 * num(&m["sections"]["1"], if dim == 2 { "iz" } else { "iy" });
-                for r in result["stages"].as_array().unwrap().iter().map(|s| &s["results"]).chain([&result["finalResults"]]) {
+                let ei = num(&m["materials"]["1"], "e")
+                    * 1000.0
+                    * num(&m["sections"]["1"], if dim == 2 { "iz" } else { "iy" });
+                for r in result["stages"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|s| &s["results"])
+                    .chain([&result["finalResults"]])
+                {
                     assert!(r["elementForces"].as_array().unwrap().len() > 0);
-                    assert!(!r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable"));
-                    let root = r["reactions"].as_array().unwrap().iter().find(|r| r["nodeId"] == 0).unwrap();
-                    assert!((num(root, if dim == 2 { "rz" } else { "fz" }) + load).abs() < 1e-9, "{dim}D ns={independent}: {root}");
-                    let expected = if dim == 2 { -load * length } else { load * length };
-                    assert!((num(root, "my") - expected).abs() < 1e-9, "{dim}D ns={independent}: {root}");
-                    let master = r["reactions"].as_array().unwrap().iter().find(|r| r["nodeId"] == 2).unwrap();
-                    for (key, value) in master.as_object().unwrap() { if key != "nodeId" { assert_eq!(value.as_f64().unwrap(), 0.0, "{dim}D ns={independent}: {master}"); } }
-                    for cf in r["constraintForces"].as_array().into_iter().flatten() { assert_eq!(num(cf, "force"), 0.0, "{dim}D ns={independent}: {cf}"); }
-                    let tip = r["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 1).unwrap();
-                    assert!((num(tip, "uz") - load * length.powi(3) / (3.0 * ei)).abs() < 1e-9, "{tip}");
-                    let master_displacement = r["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == 2).unwrap();
+                    assert!(!r["structuredDiagnostics"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .any(|d| d["code"] == "result_quantity_unavailable"));
+                    let root = r["reactions"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|r| r["nodeId"] == 0)
+                        .unwrap();
+                    assert!(
+                        (num(root, if dim == 2 { "rz" } else { "fz" }) + load).abs() < 1e-9,
+                        "{dim}D ns={independent}: {root}"
+                    );
+                    let expected = if dim == 2 {
+                        -load * length
+                    } else {
+                        load * length
+                    };
+                    assert!(
+                        (num(root, "my") - expected).abs() < 1e-9,
+                        "{dim}D ns={independent}: {root}"
+                    );
+                    let master = r["reactions"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|r| r["nodeId"] == 2)
+                        .unwrap();
+                    for (key, value) in master.as_object().unwrap() {
+                        if key != "nodeId" {
+                            assert_eq!(
+                                value.as_f64().unwrap(),
+                                0.0,
+                                "{dim}D ns={independent}: {master}"
+                            );
+                        }
+                    }
+                    for cf in r["constraintForces"].as_array().into_iter().flatten() {
+                        assert_eq!(num(cf, "force"), 0.0, "{dim}D ns={independent}: {cf}");
+                    }
+                    let tip = r["displacements"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|d| d["nodeId"] == 1)
+                        .unwrap();
+                    assert!(
+                        (num(tip, "uz") - load * length.powi(3) / (3.0 * ei)).abs() < 1e-9,
+                        "{tip}"
+                    );
+                    let master_displacement = r["displacements"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|d| d["nodeId"] == 2)
+                        .unwrap();
                     assert_eq!(num(master_displacement, "ry"), motion);
                 }
                 replay.push(json!({"dim":dim,"independent":independent,"motion":motion,"mpc":mpc,"model":m,"output":result}));
             }
         }
     }
-    if let Ok(prefix) = std::env::var("STABILEO_R14_CASES") { std::fs::write(format!("{prefix}-{dim}.json"), serde_json::to_vec(&replay).unwrap()).unwrap(); }
+    if let Ok(prefix) = std::env::var("STABILEO_R14_CASES") {
+        std::fs::write(
+            format!("{prefix}-{dim}.json"),
+            serde_json::to_vec(&replay).unwrap(),
+        )
+        .unwrap();
+    }
 }
 
 #[test]
-fn issue_1952_r14_staged_physical_2d() { r14_staged_physical(2); }
+fn issue_1952_r14_staged_physical_2d() {
+    r14_staged_physical(2);
+}
 
 #[test]
-fn issue_1952_r14_staged_physical_3d() { r14_staged_physical(3); }
+fn issue_1952_r14_staged_physical_3d() {
+    r14_staged_physical(3);
+}

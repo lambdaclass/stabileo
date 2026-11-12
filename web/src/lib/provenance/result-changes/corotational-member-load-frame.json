@@ -14,13 +14,12 @@
         "memberLoads"
       ],
       [
-        "analysis:nonlinear",
-        "pathAnalysis"
+        "analysis:nonlinear"
       ]
     ]
   },
   "quantities": [
-    "nonlinear.elementForces"
+    "elementForces"
   ],
   "title": {
     "en": "Member loads follow the final member frame",

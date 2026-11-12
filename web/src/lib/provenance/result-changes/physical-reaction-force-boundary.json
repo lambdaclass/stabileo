@@ -16,8 +16,8 @@
     ]
   },
   "quantities": [
-    "nonlinear.reactions",
-    "nonlinear.constraintForces"
+    "reactions",
+    "constraintForces"
   ],
   "title": {
     "en": "Reaction recovery excludes artificial stabilization",
