@@ -1,0 +1,46 @@
+TAP version 13
+# Subtest: \#720: the committed cantilever answer passes the deployed-result oracle
+ok 1 - \#720: the committed cantilever answer passes the deployed-result oracle
+  ---
+  duration_ms: 2.661735
+  type: 'test'
+  ...
+# Subtest: \#720: a planted wrong value in each published quantity fails and closes the page
+ok 2 - \#720: a planted wrong value in each published quantity fails and closes the page
+  ---
+  duration_ms: 0.937082
+  type: 'test'
+  ...
+# Subtest: \#720: a served WASM file with the wrong MIME type fails
+ok 3 - \#720: a served WASM file with the wrong MIME type fails
+  ---
+  duration_ms: 0.360708
+  type: 'test'
+  ...
+# Subtest: \#720: an HTML fallback without the application toolbar fails
+ok 4 - \#720: an HTML fallback without the application toolbar fails
+  ---
+  duration_ms: 0.198844
+  type: 'test'
+  ...
+# Subtest: \#720: both sides of the unchanged numerical tolerance are checked
+ok 5 - \#720: both sides of the unchanged numerical tolerance are checked
+  ---
+  duration_ms: 0.290046
+  type: 'test'
+  ...
+# Subtest: \#720: missing and non-finite quantities fail before a tolerance comparison
+ok 6 - \#720: missing and non-finite quantities fail before a tolerance comparison
+  ---
+  duration_ms: 0.141376
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 207.28429

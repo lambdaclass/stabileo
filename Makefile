@@ -498,6 +498,7 @@ test.nightly-scripts:
 	python3 -B -I tools/opensees/test_compare.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
+	$(NIX_RUN) node --test scripts/tests/production-health.test.mjs
 	$(NIX_RUN) node --test scripts/tests/slow-e2e-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/timing-budget-alert.test.cjs
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
@@ -541,8 +542,10 @@ test.ci-scripts: test.nightly-scripts check.cadence test.engine.plastic-budget-w
 	python3 -B -I scripts/tests/test_issue_reproducers.py
 	python3 -B -I scripts/tests/test_verification_metrics.py
 	python3 -B -I scripts/tests/test_ci_scripts_target.py
+	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 	python3 -B -I scripts/tests/test_benchmark_gate.py
 	$(NIX_RUN) node scripts/tests/snapshot-applicability.mjs
+	$(NIX_RUN) node --test scripts/tests/frozen-results-gate.test.mjs scripts/tests/frozen-results-values.test.mjs
 	python3 -B -I scripts/tests/test_invariance_gate.py
 	python3 -B -I scripts/tests/test_engine_wall_clock_gate.py
 	python3 -B -I scripts/tests/test_timing_budgets_gate.py
@@ -882,6 +885,10 @@ evidence.research.feher:
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(FEHER_DIR)/Cargo.toml --bin validate -- --write
 	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("$(FEHER_DIR)/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
 
+.PHONY: test.audit.evidence
+test.audit.evidence:
+	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
+
 .PHONY: test.engine.staged-orphan-wasm
 test.engine.staged-orphan-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
@@ -956,6 +963,17 @@ test.engine.frozen-shell-refusals: wasm
 	$(NIX_RUN) cargo test -p dedaliano-engine --lib frozen_shell_refusals -- --nocapture
 	$(NIX_RUN) node scripts/tests/frozen-shell-refusals-wasm.mjs
 
+.PHONY: test.engine.truss-balance-1969-wasm
+
+test.engine.truss-balance-1969-wasm: wasm
+	$(NIX_RUN) node scripts/tests/truss-balance-1969-wasm.mjs
+
+.PHONY: test.engine.candidate-1901-wasm
+
+test.engine.candidate-1901-wasm: wasm
+	CANDIDATE_1901_AUDIT=$(CURDIR)/.1901-audit.json $(NIX_RUN) node scripts/tests/candidate-1901-wasm.mjs
+	$(NIX_RUN) python3 docs/verification/candidate-1901-audit.py $(CURDIR)/.1901-audit.json
+	rm -f $(CURDIR)/.1901-audit.json
 .PHONY: test.engine.staged-settlement-1085-wasm
 
 test.engine.staged-settlement-1085-wasm: wasm
@@ -1013,3 +1031,7 @@ test.engine.pdelta-rotation-wasm: wasm
 .PHONY: test.engine.modal-mass-range-wasm
 test.engine.modal-mass-range-wasm: wasm
 	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-mass-range.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_MASS_RANGE_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER="modal_mass_range:: --release"; node scripts/tests/modal-mass-range-wasm.mjs "$$cases"'
+
+.PHONY: audit.1088
+audit.1088:
+	$(NIX_RUN) python3 -I docs/verification/issue-1088-rank.py

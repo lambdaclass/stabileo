@@ -1,0 +1,3791 @@
+warning: Git tree '/root/audit/soundness-2026-11-11/base' is dirty
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /root/audit/soundness-2026-11-11/base/engine/Cargo.toml
+workspace: /root/audit/soundness-2026-11-11/base/Cargo.toml
+warning: value assigned to `rx` is never read
+    --> engine/src/solver/linear.rs:3993:22
+     |
+3993 |         let mut rx = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+4046 |             rx = vals[0];
+     |             ------------ `rx` is overwritten here before the previous value is read
+     |
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `rz` is never read
+    --> engine/src/solver/linear.rs:3994:22
+     |
+3994 |         let mut rz = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+4047 |             rz = vals[1];
+     |             ------------ `rz` is overwritten here before the previous value is read
+
+warning: value assigned to `my` is never read
+    --> engine/src/solver/linear.rs:3995:22
+     |
+3995 |         let mut my = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+4048 |             my = vals[2];
+     |             ------------ `my` is overwritten here before the previous value is read
+
+warning: variable does not need to be mutable
+    --> engine/src/solver/pre_solve_gates.rs:1200:9
+     |
+1200 |     let mut link = |p: &mut Vec<usize>, nodes: &[usize]| -> bool {
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `not` is never used
+   --> engine/src/postprocess/cirsoc201_check.rs:194:4
+    |
+194 | fn not(t: Tri) -> Tri {
+    |    ^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `c_norm` and `n_params` are never read
+   --> engine/src/certify/reassembly/system.rs:360:9
+    |
+355 | pub struct E2eBound {
+    |            -------- fields in this struct
+...
+360 |     pub c_norm: f64,
+    |         ^^^^^^
+...
+365 |     pub n_params: usize,
+    |         ^^^^^^^^
+
+warning: field `rot` is never read
+   --> engine/src/metamorphic/transform.rs:183:12
+    |
+183 |     Both { rot: bool },
+    |     ----   ^^^
+    |     |
+    |     field in this variant
+
+warning: variable `bA` should have a snake case name
+   --> engine/src/certify/reassembly/system.rs:180:14
+    |
+180 |     for (bi, bA) in blocks.iter().enumerate() {
+    |              ^^ help: convert the identifier to snake case: `b_a`
+    |
+    = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: variable `bB` should have a snake case name
+   --> engine/src/certify/reassembly/system.rs:181:18
+    |
+181 |         for (bj, bB) in blocks.iter().enumerate() {
+    |                  ^^ help: convert the identifier to snake case: `b_b`
+
+warning: `dedaliano-engine` (lib) generated 9 warnings (run `cargo fix --lib -p dedaliano-engine` to apply 1 suggestion)
+warning: unused imports: `corotational`, `linear`, and `pdelta`
+  --> engine/tests/validation/acceptance.rs:37:32
+   |
+37 | use dedaliano_engine::solver::{linear, pdelta, corotational};
+   |                                ^^^^^^  ^^^^^^  ^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `self`
+  --> engine/tests/validation/acceptance.rs:38:44
+   |
+38 | use dedaliano_engine::solver::arc_length::{self, ArcLengthInput};
+   |                                            ^^^^
+
+warning: unused import: `self`
+  --> engine/tests/validation/acceptance.rs:40:49
+   |
+40 | use dedaliano_engine::solver::fiber_nonlinear::{self, FiberNonlinearInput, FiberNonlinearInput3D};
+   |                                                 ^^^^
+
+warning: unused import: `self`
+  --> engine/tests/validation/acceptance.rs:41:43
+   |
+41 | use dedaliano_engine::solver::reduction::{self, GuyanInput};
+   |                                           ^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/acceptance.rs:43:5
+   |
+43 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/benchmarks/ansys_vm.rs:7:5
+  |
+7 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling`, `linear`, `modal`, `moving_loads`, and `pdelta`
+  --> engine/tests/validation/benchmarks/ansys_vm_additional.rs:16:32
+   |
+16 | use dedaliano_engine::solver::{buckling, linear, modal, moving_loads, pdelta};
+   |                                ^^^^^^^^  ^^^^^^  ^^^^^  ^^^^^^^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/ansys_vm_additional_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `corotational`, `linear`, and `pdelta`
+  --> engine/tests/validation/benchmarks/ansys_vm_benchmarks.rs:16:32
+   |
+16 | use dedaliano_engine::solver::{corotational, linear, pdelta, winkler};
+   |                                ^^^^^^^^^^^^  ^^^^^^  ^^^^^^
+
+warning: unused imports: `buckling` and `linear`
+  --> engine/tests/validation/benchmarks/ansys_vm_benchmarks_extended.rs:17:32
+   |
+17 | use dedaliano_engine::solver::{buckling, linear};
+   |                                ^^^^^^^^  ^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+ --> engine/tests/validation/benchmarks/ansys_vm_extended.rs:8:32
+  |
+8 | use dedaliano_engine::solver::{linear, pdelta};
+  |                                ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/beam_shell_benchmark.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solve_contact_3d`
+   --> engine/tests/validation/benchmarks/contact_benchmark.rs:509:45
+    |
+509 |     use dedaliano_engine::solver::contact::{solve_contact_3d, ContactInput3D};
+    |                                             ^^^^^^^^^^^^^^^^
+
+warning: unused import: `solve_creep_shrinkage_2d`
+  --> engine/tests/validation/benchmarks/creep_shrinkage_benchmark.rs:19:5
+   |
+19 |     solve_creep_shrinkage_2d, ec2_creep_coefficient, ec2_shrinkage_strain,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/creep_shrinkage_benchmark.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `corotational` and `linear`
+  --> engine/tests/validation/benchmarks/corotational_benchmarks.rs:14:32
+   |
+14 | use dedaliano_engine::solver::{linear, corotational};
+   |                                ^^^^^^  ^^^^^^^^^^^^
+
+warning: unused imports: `corotational` and `linear`
+  --> engine/tests/validation/benchmarks/corotational_benchmarks_extended.rs:17:32
+   |
+17 | use dedaliano_engine::solver::{linear, corotational};
+   |                                ^^^^^^  ^^^^^^^^^^^^
+
+warning: unused import: `solve_fiber_nonlinear_3d`
+  --> engine/tests/validation/benchmarks/fiber_benchmark.rs:15:5
+   |
+15 |     solve_fiber_nonlinear_3d, FiberNonlinearInput3D,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::pdelta`
+  --> engine/tests/validation/benchmarks/imperfections_benchmark.rs:17:5
+   |
+17 | use dedaliano_engine::solver::pdelta;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/imperfections_benchmark.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::material_nonlinear`
+  --> engine/tests/validation/benchmarks/material_nonlinear_benchmarks.rs:18:5
+   |
+18 | use dedaliano_engine::solver::material_nonlinear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/nafems.rs:11:5
+   |
+11 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/benchmarks/nafems.rs:12:5
+   |
+12 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/nafems_additional.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/benchmarks/nafems_additional.rs:14:5
+   |
+14 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/nafems_benchmarks.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/benchmarks/nafems_benchmarks.rs:14:5
+   |
+14 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/nafems_extended.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/benchmarks/nafems_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/patch_tests.rs:15:5
+   |
+15 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/pdelta_benchmarks.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::pdelta`
+  --> engine/tests/validation/benchmarks/pdelta_benchmarks.rs:19:5
+   |
+19 | use dedaliano_engine::solver::pdelta;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/benchmarks/pdelta_benchmarks_extended.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/benchmarks/reduction_benchmark.rs:19:5
+   |
+19 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/scordelis_lo.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear`
+ --> engine/tests/validation/benchmarks/../../benchmarks/shell_obstacle_course.rs:1:24
+  |
+1 | use dedaliano_engine::{solver::linear, types::SolverInput3D};
+  |                        ^^^^^^^^^^^^^^
+
+warning: unused import: `linear`
+ --> engine/tests/validation/benchmarks/sparse_3d_benchmark.rs:5:42
+  |
+5 | use dedaliano_engine::solver::{assembly, linear};
+  |                                          ^^^^^^
+
+warning: unused import: `linear`
+  --> engine/tests/validation/benchmarks/sparse_3d_drilling_regression.rs:14:42
+   |
+14 | use dedaliano_engine::solver::{assembly, linear};
+   |                                          ^^^^^^
+
+warning: unused import: `linear`
+  --> engine/tests/validation/benchmarks/sparse_3d_parity.rs:11:42
+   |
+11 | use dedaliano_engine::solver::{assembly, linear};
+   |                                          ^^^^^^
+
+warning: unused import: `linear`
+  --> engine/tests/validation/benchmarks/sparse_benchmark.rs:16:32
+   |
+16 | use dedaliano_engine::solver::{linear, assembly, sparse_assembly, conditioning};
+   |                                ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/benchmarks/truss_benchmarks.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/commercial/robot_structural.rs:9:5
+  |
+9 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/commercial/rsa_crosscheck.rs:13:32
+   |
+13 | use dedaliano_engine::solver::{modal, spectral};
+   |                                ^^^^^
+
+warning: unused imports: `buckling`, `linear`, `modal`, and `pdelta`
+ --> engine/tests/validation/commercial/sap2000.rs:8:32
+  |
+8 | use dedaliano_engine::solver::{buckling, linear, modal, pdelta};
+  |                                ^^^^^^^^  ^^^^^^  ^^^^^  ^^^^^^
+
+warning: unused imports: `buckling`, `linear`, `modal`, and `pdelta`
+ --> engine/tests/validation/commercial/sap2000_additional.rs:9:32
+  |
+9 | use dedaliano_engine::solver::{buckling, linear, modal, pdelta};
+  |                                ^^^^^^^^  ^^^^^^  ^^^^^  ^^^^^^
+
+warning: unused imports: `buckling`, `linear`, `modal`, and `pdelta`
+ --> engine/tests/validation/commercial/sap2000_extended.rs:9:32
+  |
+9 | use dedaliano_engine::solver::{buckling, linear, modal, pdelta};
+  |                                ^^^^^^^^  ^^^^^^  ^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/commercial/staad_pro.rs:8:5
+  |
+8 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling` and `linear`
+  --> engine/tests/validation/commercial/strand7_lusas.rs:17:32
+   |
+17 | use dedaliano_engine::solver::{buckling, linear};
+   |                                ^^^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/approximate_analysis.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/approximate_analysis_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/approximate_methods.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear::*`
+  --> engine/tests/validation/domains/analysis_methods/approximate_methods_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear::*;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/carry_over_factors.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/carry_over_factors_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/castigliano.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/castigliano_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/contraflexure.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/contraflexure_extended.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/analysis_methods/determinate_vs_indeterminate.rs:9:5
+  |
+9 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/determinate_vs_indeterminate_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/energy_methods.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/energy_methods_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/flexibility_method.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/flexibility_method_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/force_method.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/force_method_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/analysis_methods/fundamental_theorems.rs:8:5
+  |
+8 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/fundamental_theorems_extended.rs:10:5
+   |
+10 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/hardy_cross.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/hardy_cross_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/indeterminacy_effects.rs:11:5
+   |
+11 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/indeterminacy_effects_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/influence_lines_extended.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/matrix_condensation.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/moment_area.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/moment_area_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/moment_distribution.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/moment_distribution_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/muller_breslau.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/point_of_contraflexure.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/point_of_contraflexure_extended.rs:29:5
+   |
+29 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/reciprocal_theorem.rs:30:5
+   |
+30 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/reciprocal_theorems.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/reciprocal_theorems_extended.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/slope_deflection.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/analysis_methods/slope_deflection_extended.rs:23:34
+   |
+23 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/slope_deflection_method.rs:30:5
+   |
+30 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/slope_deflection_method_extended.rs:25:5
+   |
+25 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/superposition.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/superposition_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/three_moment_equation.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/three_moment_equation_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/transfer_matrix.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/transfer_matrix_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/unit_load_deflections.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/unit_load_deflections_extended.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/virtual_work.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/virtual_work_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/work_energy_theorem.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/analysis_methods/work_energy_theorem_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/agricultural_structures_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/amusement_rides_extended.rs:21:34
+   |
+21 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `solve_2d` and `solve_3d`
+ --> engine/tests/validation/domains/applications/bridge_design_extended.rs:1:51
+  |
+1 | use dedaliano_engine::{types::*, solver::linear::{solve_2d, solve_3d}};
+  |                                                   ^^^^^^^^  ^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/applications/bridge_engineering_extended.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/domains/applications/bridge_engineering_extended.rs:24:5
+   |
+24 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::moving_loads`
+  --> engine/tests/validation/domains/applications/bridge_engineering_extended.rs:25:5
+   |
+25 | use dedaliano_engine::solver::moving_loads;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/applications/chimney_stack_design_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/applications/chimney_stack_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::pdelta`
+   --> engine/tests/validation/domains/applications/chimney_stack_extended.rs:622:9
+    |
+622 |     use dedaliano_engine::solver::pdelta;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/coastal_structures_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/cooling_tower_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/crane_structures_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/demolition_engineering_extended.rs:18:34
+   |
+18 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/elevator_escalator_extended.rs:15:34
+   |
+15 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/expansion_joints_extended.rs:21:34
+   |
+21 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/applications/fixed_end_moments.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/applications/fixed_end_moments_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/flood_hydraulics_extended.rs:23:34
+   |
+23 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/heritage_retrofit_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/high_rise_buildings_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::solve_2d`
+  --> engine/tests/validation/domains/applications/hydraulic_engineering_extended.rs:18:34
+   |
+18 | use dedaliano_engine::{types::*, solver::linear::solve_2d};
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/industrial_structures_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear::*`
+  --> engine/tests/validation/domains/applications/marine_offshore_extended.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear::*;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/nuclear_containment_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/parking_structures_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/piping_pressure_extended.rs:18:34
+   |
+18 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/power_transmission_extended.rs:20:34
+   |
+20 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::solve_2d`
+  --> engine/tests/validation/domains/applications/railway_structures_extended.rs:16:34
+   |
+16 | use dedaliano_engine::{types::*, solver::linear::solve_2d};
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/scaffolding_extended.rs:15:34
+   |
+15 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/sign_pole_structures_extended.rs:16:34
+   |
+16 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/silo_tank_extended.rs:16:34
+   |
+16 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/solar_panel_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/applications/sports_arena_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/applications/spring_supports.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/applications/spring_supports_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/applications/storage_rack_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/arches/arch_action.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/arches/arch_action_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/arches/arch_analysis_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/arches/arch_structures.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/arches/arch_structures_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::solve_2d`
+ --> engine/tests/validation/domains/arches/masonry_arches_extended.rs:1:34
+  |
+1 | use dedaliano_engine::{types::*, solver::linear::solve_2d};
+  |                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_column_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_column_interaction.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_column_interaction_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_deflections.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_deflections_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_fixed_end_forces.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_fixed_end_forces_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/beams/beam_formulas.rs:6:5
+  |
+6 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/beams/beam_formulas_extended.rs:6:5
+  |
+6 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_on_three_supports.rs:11:5
+   |
+11 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_on_three_supports_extended.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_rotation.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/beam_rotation_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/cantilever_variations.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/cantilever_variations_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/conjugate_beam.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/conjugate_beam_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/continuous_beam_analysis.rs:10:5
+   |
+10 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/continuous_beam_analysis_extended.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/continuous_beam_extended.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/continuous_beam_patterns.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/continuous_beam_patterns_extended.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/beams/continuous_beams.rs:4:5
+  |
+4 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/continuous_beams_extended.rs:10:5
+   |
+10 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/continuous_patterns.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/continuous_patterns_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/beams/curved_beams.rs:9:5
+  |
+9 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/curved_beams_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/gerber_beam.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/gerber_beam_extended.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/grillage.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/grillage_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/nonprismatic_members.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/overhanging_beam.rs:15:5
+   |
+15 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/overhanging_beam_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/propped_cantilever.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/propped_cantilever_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/shear_deformation.rs:25:5
+   |
+25 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/shear_deformation_extended.rs:30:5
+   |
+30 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/span_ratio_effects.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/span_ratio_effects_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/span_to_depth_effects.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/stepped_beam.rs:26:5
+   |
+26 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/beams/stepped_beam_extended.rs:28:5
+   |
+28 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_analysis_advanced_extended.rs:27:5
+   |
+27 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_extended.rs:27:5
+   |
+27 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_net_structures_extended.rs:15:5
+   |
+15 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_stayed_bridges_extended.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_stayed_extended.rs:26:5
+   |
+26 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `solve_2d` and `solve_3d`
+  --> engine/tests/validation/domains/cables/cable_stayed_extended2.rs:28:51
+   |
+28 | use dedaliano_engine::{types::*, solver::linear::{solve_2d, solve_3d}};
+   |                                                   ^^^^^^^^  ^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_structures_extended.rs:28:5
+   |
+28 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_suspension_analysis_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_truss_structures.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_truss_structures_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_truss_tension.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/cable_truss_tension_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/catenary_cable.rs:26:5
+   |
+26 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::solve_2d`
+  --> engine/tests/validation/domains/cables/catenary_cable_extended.rs:23:34
+   |
+23 | use dedaliano_engine::{types::*, solver::linear::solve_2d};
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/cables/prestress_extended.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/cables/suspension_bridges_extended.rs:28:34
+   |
+28 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/cables/tensile_structures_extended.rs:19:34
+   |
+19 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling`, `modal`, and `pdelta`
+  --> engine/tests/validation/domains/design/code_provisions.rs:13:32
+   |
+13 | use dedaliano_engine::solver::{buckling, modal, pdelta, spectral};
+   |                                ^^^^^^^^  ^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/design/code_provisions_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/domains/design/design_code_interaction.rs:21:32
+   |
+21 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/design/design_code_interaction_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling` and `linear`
+  --> engine/tests/validation/domains/design/eurocode_extended.rs:15:32
+   |
+15 | use dedaliano_engine::solver::{buckling, linear};
+   |                                ^^^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/design/regulatory_features.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/design/reliability_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/design/structural_health_monitoring_extended.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/design/structural_optimization_extended.rs:25:5
+   |
+25 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/dynamics/blast_impact_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/dynamics/blast_resistant_extended.rs:16:34
+   |
+16 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/domains/dynamics/damping_frequency.rs:20:5
+   |
+20 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/domains/dynamics/damping_frequency_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/domains/dynamics/dynamic_advanced.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{modal, time_integration};
+   |                                ^^^^^
+
+warning: unused imports: `linear` and `modal`
+  --> engine/tests/validation/domains/dynamics/dynamic_advanced_extended.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{linear, modal, time_integration};
+   |                                ^^^^^^  ^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/domains/dynamics/dynamic_integration.rs:18:42
+   |
+18 | use dedaliano_engine::solver::{harmonic, modal, time_integration};
+   |                                          ^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/domains/dynamics/dynamic_integration_extended.rs:18:42
+   |
+18 | use dedaliano_engine::solver::{harmonic, modal, time_integration};
+   |                                          ^^^^^
+
+warning: unused imports: `linear` and `modal`
+  --> engine/tests/validation/domains/dynamics/dynamic_mdof.rs:16:32
+   |
+16 | use dedaliano_engine::solver::{linear, time_integration, modal};
+   |                                ^^^^^^                    ^^^^^
+
+warning: unused imports: `linear` and `modal`
+  --> engine/tests/validation/domains/dynamics/dynamic_mdof_extended.rs:19:32
+   |
+19 | use dedaliano_engine::solver::{linear, modal};
+   |                                ^^^^^^  ^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/dynamics/earthquake_engineering_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/dynamics/fsi_extended.rs:16:34
+   |
+16 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/dynamics/impact_loading_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/domains/dynamics/modal_extended.rs:17:60
+   |
+17 | use dedaliano_engine::solver::{assembly, dof, mass_matrix, modal};
+   |                                                            ^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/domains/dynamics/modal_frequencies.rs:13:5
+   |
+13 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/domains/dynamics/modal_frequencies_extended.rs:10:5
+   |
+10 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/domains/dynamics/modal_properties.rs:14:60
+   |
+14 | use dedaliano_engine::solver::{assembly, dof, mass_matrix, modal};
+   |                                                            ^^^^^
+
+warning: unused imports: `linear` and `modal`
+  --> engine/tests/validation/domains/dynamics/seismic_design.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{linear, modal};
+   |                                ^^^^^^  ^^^^^
+
+warning: unused import: `solver::linear::solve_2d`
+  --> engine/tests/validation/domains/dynamics/seismic_design_extended.rs:18:34
+   |
+18 | use dedaliano_engine::{types::*, solver::linear::solve_2d};
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear`, `modal`, and `pdelta`
+  --> engine/tests/validation/domains/dynamics/seismic_extended.rs:20:32
+   |
+20 | use dedaliano_engine::solver::{linear, modal, pdelta};
+   |                                ^^^^^^  ^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/dynamics/seismic_isolation_extended.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `modal`
+ --> engine/tests/validation/domains/dynamics/spectral_response.rs:7:32
+  |
+7 | use dedaliano_engine::solver::{modal, spectral, ModalResult, SpectralResult};
+  |                                ^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/dynamics/structural_acoustics_extended.rs:23:34
+   |
+23 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `modal`
+  --> engine/tests/validation/domains/dynamics/structural_dynamics_extended.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{linear, modal};
+   |                                ^^^^^^  ^^^^^
+
+warning: unused import: `modal`
+ --> engine/tests/validation/domains/dynamics/time_history.rs:8:50
+  |
+8 | use dedaliano_engine::solver::{time_integration, modal};
+  |                                                  ^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/domains/dynamics/time_history_extended.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{modal, time_integration};
+   |                                ^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/dynamics/vibration_isolation_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/domains/dynamics/spectral_normalization.rs:24:32
+   |
+24 | use dedaliano_engine::solver::{modal, spectral};
+   |                                ^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/frame_behavior_classes.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/frame_classification.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/frame_deflection_patterns.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/frame_deflection_patterns_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/frame_drift_limits.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/frame_drift_limits_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/frame_joint_rigidity.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/frame_stiffness.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/frame_stiffness_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/frames/frames.rs:4:5
+  |
+4 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/frames_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/gable_frame.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/frames/gable_frame_extended.rs:19:34
+   |
+19 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/multi_bay_frames.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/multi_story_behavior.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear::*`
+  --> engine/tests/validation/domains/frames/multi_story_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear::*;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/multi_story_frame.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/multi_story_frames.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/multi_story_frames_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/multi_story_lateral.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/portal_cantilever_methods.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/portal_method_analysis.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/portal_method_analysis_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/space_frame_geometry.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear::*`
+  --> engine/tests/validation/domains/frames/vierendeel_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear::*;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/vierendeel_frame.rs:27:5
+   |
+27 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/vierendeel_frame_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/frames/vierendeel_frames.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/geotechnical/dam_engineering_extended.rs:15:5
+   |
+15 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/geotechnical/deep_excavation_extended.rs:27:34
+   |
+27 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/geotechnical/foundation_design_extended.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+   --> engine/tests/validation/domains/geotechnical/foundation_engineering_extended.rs:467:9
+    |
+467 |     use dedaliano_engine::solver::linear;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/geotechnical/foundation_interaction.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/geotechnical/geosynthetics_extended.rs:18:34
+   |
+18 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/geotechnical/retaining_walls_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/geotechnical/rock_mechanics_extended.rs:17:34
+   |
+17 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/geotechnical/soil_structure_extended.rs:25:5
+   |
+25 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/geotechnical/tunnel_lining_extended.rs:18:34
+   |
+18 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/geotechnical/water_retaining_extended.rs:19:34
+   |
+19 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/boundary_condition_effects.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/boundary_condition_effects_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/bridge_loads_extended.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/cirsoc_wind_extended.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/combinations.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/combinations_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/construction_staging_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/loads/crane_loading_extended.rs:14:34
+   |
+14 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/distributed_load_patterns.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/distributed_load_patterns_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/load_combination_effects.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/load_combination_effects_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/load_combination_envelope.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/load_combination_envelope_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/load_combination_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/load_path.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/load_path_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/loads/load_path_redundancy.rs:6:5
+  |
+6 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/loads/load_reversal_symmetry.rs:8:5
+  |
+8 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/load_types.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::moving_loads`
+  --> engine/tests/validation/domains/loads/moving_load_bridges.rs:20:5
+   |
+20 | use dedaliano_engine::solver::moving_loads;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `moving_loads`
+ --> engine/tests/validation/domains/loads/moving_loads.rs:9:32
+  |
+9 | use dedaliano_engine::solver::{linear, moving_loads};
+  |                                ^^^^^^  ^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `moving_loads`
+  --> engine/tests/validation/domains/loads/moving_loads_extended.rs:19:32
+   |
+19 | use dedaliano_engine::solver::{linear, moving_loads};
+   |                                ^^^^^^  ^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/partial_loads.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/prescribed_displacements.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/prescribed_displacements_extended.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/prescribed_settlement.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/pressure_loads.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/settlement_effects.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/settlement_effects_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/loads/snow_ice_loading_extended.rs:18:34
+   |
+18 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/support_settlement_effects.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/symmetry_antisymmetry.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/symmetry_antisymmetry_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/symmetry_loading.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/thermal_effects_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/loads/thermal_settlement.rs:7:5
+  |
+7 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/thermal_settlement_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/triangular_load.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/triangular_load_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/wind_engineering_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/wind_load_analysis.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/loads/wind_loading_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::types::*`
+  --> engine/tests/validation/domains/loads/wind_loading_extended.rs:15:5
+   |
+15 | use dedaliano_engine::types::*;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/materials/advanced_concrete_extended.rs:24:34
+   |
+24 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/aluminum_design_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/aluminum_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/cold_formed_extended.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/cold_formed_steel_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/composite_action.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/composite_action_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/composite_design_extended.rs:26:5
+   |
+26 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/composite_extended.rs:26:5
+   |
+26 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/composite_structures.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/composite_structures_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/concrete_constitutive_models_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::solve_2d`
+ --> engine/tests/validation/domains/materials/concrete_durability_extended.rs:1:34
+  |
+1 | use dedaliano_engine::{types::*, solver::linear::solve_2d};
+  |                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/concrete_mechanics_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::solve_2d`
+  --> engine/tests/validation/domains/materials/connection_design_extended.rs:18:34
+   |
+18 | use dedaliano_engine::{types::*, solver::linear::solve_2d};
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/connection_mechanics_extended.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/creep_shrinkage_extended.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/fire_resistance_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/fracture_mechanics_extended.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/glass_design_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/glass_structures_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/moment_connection.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `solve_2d` and `solve_3d`
+  --> engine/tests/validation/domains/materials/precast_concrete_extended.rs:16:51
+   |
+16 | use dedaliano_engine::{types::*, solver::linear::{solve_2d, solve_3d}};
+   |                                                   ^^^^^^^^  ^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/steel_design_extended.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/materials/steel_fiber_concrete_extended.rs:18:34
+   |
+18 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/materials/timber_design_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::solve_2d`
+  --> engine/tests/validation/domains/materials/timber_design_extended2.rs:16:34
+   |
+16 | use dedaliano_engine::{types::*, solver::linear::solve_2d};
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/element_stiffness_verification.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/element_stiffness_verification_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/flexibility_stiffness_duality.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/flexibility_stiffness_duality_extended.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/matrix_fundamentals_extended.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/matrix_methods_extended.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/matrix_stiffness_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/matrix_structural_analysis_extended.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/matrix_textbooks.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/member_stiffness.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/member_stiffness_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/stiffness_matrix.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/stiffness_matrix_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/stiffness_matrix_properties.rs:11:5
+   |
+11 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/stiffness_modification.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/domains/matrix_fem/stiffness_properties.rs:13:5
+   |
+13 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/stiffness_ratio_effects.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/matrix_fem/stiffness_ratio_effects_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `corotational` and `linear`
+  --> engine/tests/validation/domains/nonlinear/advanced_corotational.rs:13:32
+   |
+13 | use dedaliano_engine::solver::{corotational, linear};
+   |                                ^^^^^^^^^^^^  ^^^^^^
+
+warning: unused imports: `corotational` and `linear`
+  --> engine/tests/validation/domains/nonlinear/advanced_corotational_extended.rs:22:32
+   |
+22 | use dedaliano_engine::solver::{corotational, linear};
+   |                                ^^^^^^^^^^^^  ^^^^^^
+
+warning: unused imports: `corotational` and `pdelta`
+ --> engine/tests/validation/domains/nonlinear/corotational.rs:8:42
+  |
+8 | use dedaliano_engine::solver::{assembly, corotational, pdelta};
+  |                                          ^^^^^^^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::corotational`
+  --> engine/tests/validation/domains/nonlinear/corotational_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::corotational;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/equilibrium_path.rs:29:5
+   |
+29 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `corotational`, `linear`, and `pdelta`
+  --> engine/tests/validation/domains/nonlinear/equilibrium_path_extended.rs:19:32
+   |
+19 | use dedaliano_engine::solver::{linear, pdelta, corotational};
+   |                                ^^^^^^  ^^^^^^  ^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/domains/nonlinear/geometric_stiffness.rs:21:32
+   |
+21 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/domains/nonlinear/geometric_stiffness_extended.rs:19:32
+   |
+19 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused imports: `linear` and `material_nonlinear`
+ --> engine/tests/validation/domains/nonlinear/material_nonlinear.rs:7:32
+  |
+7 | use dedaliano_engine::solver::{linear, material_nonlinear};
+  |                                ^^^^^^  ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/moment_redistribution.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/moment_redistribution_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `corotational` and `linear`
+  --> engine/tests/validation/domains/nonlinear/nonlinear_extended.rs:19:32
+   |
+19 | use dedaliano_engine::solver::{corotational, linear};
+   |                                ^^^^^^^^^^^^  ^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/domains/nonlinear/pdelta_extended.rs:13:32
+   |
+13 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+ --> engine/tests/validation/domains/nonlinear/pdelta_stability.rs:6:32
+  |
+6 | use dedaliano_engine::solver::{linear, pdelta};
+  |                                ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/plastic_analysis_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/plastic_analysis_theorems_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/plastic_hinge_sequence.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/progressive_collapse_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/progressive_collapse_extended2.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/progressive_collapse_full.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `corotational`, `linear`, and `pdelta`
+  --> engine/tests/validation/domains/nonlinear/pushover.rs:13:32
+   |
+13 | use dedaliano_engine::solver::{linear, pdelta, corotational};
+   |                                ^^^^^^  ^^^^^^  ^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/domains/nonlinear/second_order_effects.rs:21:32
+   |
+21 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/domains/nonlinear/second_order_effects_extended.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/semirigid_connections.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/nonlinear/semirigid_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear::*`
+  --> engine/tests/validation/domains/plates_shells/laminate_plate_extended.rs:21:34
+   |
+21 | use dedaliano_engine::{types::*, solver::linear::*};
+   |                                  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/plates_shells/plate_girder_extended.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/plates_shells/plates.rs:11:5
+   |
+11 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/plates_shells/plates_extended.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/domains/plates_shells/plates_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/plates_shells/quad_shell.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/plates_shells/shell_real_cases.rs:8:5
+  |
+8 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/plates_shells/shell_theory_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/axial_force_effects.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/axial_force_effects_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/combined_loading.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/combined_loading_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/cross_section_effects.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/cross_section_effects_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/deflection_limits.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/deflection_limits_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/deflection_serviceability.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/deflection_serviceability_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/deformation_compatibility.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/deformation_compatibility_checks.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/deformation_compatibility_checks_extended.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/deformation_compatibility_extended.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/drift_verification.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/drift_verification_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/elastic_curve.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/elastic_curve_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/elastic_curve_shapes.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/elastic_curve_shapes_extended.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/element_local_forces.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/element_local_forces_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/force_displacement.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/force_displacement_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/force_equilibrium_detailed.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/force_equilibrium_detailed_extended.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/internal_forces.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/internal_forces_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/internal_releases.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/internal_releases_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/joint_equilibrium_checks.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/joint_equilibrium_checks_extended.rs:36:5
+   |
+36 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/moment_diagram_shapes.rs:10:5
+   |
+10 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/moment_diagram_shapes_extended.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/nodal_equilibrium.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/nodal_equilibrium_extended.rs:30:5
+   |
+30 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/reaction_checks.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/reaction_checks_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/reaction_force_patterns.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/reaction_force_patterns_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/reaction_patterns.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/relative_displacement.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/rigid_body_modes.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/rotation_slope_verification.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/rotation_slope_verification_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/serviceability_checks.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/serviceability_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/shear_force_diagrams.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/shear_force_diagrams_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/shear_force_verification.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/shear_lag.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/stress_analysis_extended.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/stress_analysis_extended2.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/stress_resultants.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/response/stress_resultants_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/response/warping_torsion.rs:7:5
+  |
+7 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+   --> engine/tests/validation/domains/response/warping_torsion.rs:393:9
+    |
+393 |     use dedaliano_engine::solver::modal;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `corotational`, `linear`, and `material_nonlinear`
+  --> engine/tests/validation/domains/solver/capability_upgrades.rs:13:32
+   |
+13 | use dedaliano_engine::solver::{corotational, linear, material_nonlinear};
+   |                                ^^^^^^^^^^^^  ^^^^^^  ^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `modal`
+  --> engine/tests/validation/domains/solver/convergence.rs:14:32
+   |
+14 | use dedaliano_engine::solver::{linear, modal, time_integration};
+   |                                ^^^^^^  ^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/convergence_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solve_fiber_nonlinear_2d`
+  --> engine/tests/validation/domains/solver/fiber_nonlinear.rs:14:5
+   |
+14 |     solve_fiber_nonlinear_2d, FiberNonlinearInput,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear::solve_2d`
+  --> engine/tests/validation/domains/solver/fiber_nonlinear.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear::solve_2d;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/finite_element_convergence_extended.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/solver/guided_y.rs:5:5
+  |
+5 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/domains/solver/harmonic_extended.rs:26:5
+   |
+26 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/imperfections.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/solver/inclined_supports_2d.rs:5:5
+  |
+5 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solve_corotational_2d`
+  --> engine/tests/validation/domains/solver/line_search.rs:16:35
+   |
+16 |     assemble_corotational_public, solve_corotational_2d,
+   |                                   ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/mesh_convergence.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/mixed_elements.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/numerical_methods_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/plate_convergence.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/domains/solver/plate_convergence.rs:18:5
+   |
+18 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/point_on_element.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/reduction.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/winkler_extended.rs:25:5
+   |
+25 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/solver/winkler_foundation.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+ --> engine/tests/validation/domains/stability/aisc_stability.rs:6:32
+  |
+6 | use dedaliano_engine::solver::{linear, pdelta};
+  |                                ^^^^^^  ^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/domains/stability/aisc_stability_extended.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/braced_frame.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/braced_frame_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/braced_frames.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/braced_frames_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::buckling`
+  --> engine/tests/validation/domains/stability/buckling_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::buckling;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::buckling`
+  --> engine/tests/validation/domains/stability/buckling_plate_shell_extended.rs:27:5
+   |
+27 | use dedaliano_engine::solver::buckling;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/column_buckling_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/domains/stability/column_buckling_modes.rs:28:32
+   |
+28 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::buckling`
+  --> engine/tests/validation/domains/stability/column_buckling_modes_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::buckling;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/domains/stability/column_curves.rs:17:32
+   |
+17 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::buckling`
+  --> engine/tests/validation/domains/stability/column_curves_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::buckling;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/effective_length.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::buckling`
+  --> engine/tests/validation/domains/stability/effective_length_extended.rs:13:5
+   |
+13 | use dedaliano_engine::solver::buckling;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::buckling`
+  --> engine/tests/validation/domains/stability/euler_buckling.rs:10:5
+   |
+10 | use dedaliano_engine::solver::buckling;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::buckling`
+  --> engine/tests/validation/domains/stability/euler_buckling_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::buckling;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling`, `linear`, and `pdelta`
+  --> engine/tests/validation/domains/stability/eurocode3_buckling.rs:10:32
+   |
+10 | use dedaliano_engine::solver::{buckling, linear, pdelta};
+   |                                ^^^^^^^^  ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::buckling`
+  --> engine/tests/validation/domains/stability/eurocode3_buckling_extended.rs:10:5
+   |
+10 | use dedaliano_engine::solver::buckling;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::buckling`
+  --> engine/tests/validation/domains/stability/lateral_torsional_buckling.rs:22:5
+   |
+22 | use dedaliano_engine::solver::buckling;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/lateral_torsional_buckling_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/moment_gradient.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/notional_loads.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling` and `linear`
+  --> engine/tests/validation/domains/stability/stability_design_extended.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{buckling, linear};
+   |                                ^^^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/stability_design_methods.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/sway_frames.rs:11:5
+   |
+11 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/stability/sway_frames_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/trusses/truss_behavior_fundamental.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/trusses/truss_method_of_joints.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/trusses/truss_method_of_joints_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/trusses/truss_methods.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/trusses/truss_methods_extended.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/domains/trusses/truss_topology.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/trusses/trusses.rs:4:5
+  |
+4 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/domains/trusses/trusses_extended.rs:6:5
+  |
+6 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling` and `linear`
+ --> engine/tests/validation/open_source/code_aster.rs:7:32
+  |
+7 | use dedaliano_engine::solver::{buckling, linear};
+  |                                ^^^^^^^^  ^^^^^^
+
+warning: unused imports: `linear`, `modal`, and `winkler`
+ --> engine/tests/validation/open_source/code_aster_additional.rs:9:32
+  |
+9 | use dedaliano_engine::solver::{linear, modal, winkler};
+  |                                ^^^^^^  ^^^^^  ^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/open_source/code_aster_additional_extended.rs:10:5
+   |
+10 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/open_source/code_aster_extended.rs:8:5
+  |
+8 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling`, `linear`, and `pdelta`
+  --> engine/tests/validation/open_source/mastan2_extended.rs:15:32
+   |
+15 | use dedaliano_engine::solver::{buckling, linear, pdelta};
+   |                                ^^^^^^^^  ^^^^^^  ^^^^^^
+
+warning: unused imports: `buckling`, `linear`, and `pdelta`
+  --> engine/tests/validation/open_source/mastan2_frames.rs:17:32
+   |
+17 | use dedaliano_engine::solver::{buckling, linear, pdelta};
+   |                                ^^^^^^^^  ^^^^^^  ^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/open_source/opensees_crosscheck.rs:13:32
+   |
+13 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused imports: `linear` and `modal`
+  --> engine/tests/validation/textbooks/bathe_convergence.rs:18:32
+   |
+18 | use dedaliano_engine::solver::{linear, modal};
+   |                                ^^^^^^  ^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/bathe_convergence_extended.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `modal`
+ --> engine/tests/validation/textbooks/biggs_extended.rs:8:32
+  |
+8 | use dedaliano_engine::solver::{modal, spectral, ModalResult, SpectralResult};
+  |                                ^^^^^
+
+warning: unused imports: `buckling`, `linear`, and `pdelta`
+  --> engine/tests/validation/textbooks/chen_lui_stability.rs:10:32
+   |
+10 | use dedaliano_engine::solver::{buckling, linear, pdelta};
+   |                                ^^^^^^^^  ^^^^^^  ^^^^^^
+
+warning: unused imports: `buckling`, `linear`, and `pdelta`
+  --> engine/tests/validation/textbooks/chen_lui_stability_extended.rs:17:32
+   |
+17 | use dedaliano_engine::solver::{buckling, linear, pdelta};
+   |                                ^^^^^^^^  ^^^^^^  ^^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/textbooks/chopra_dynamics.rs:13:32
+   |
+13 | use dedaliano_engine::solver::{modal, time_integration};
+   |                                ^^^^^
+
+warning: unused imports: `linear` and `modal`
+  --> engine/tests/validation/textbooks/chopra_dynamics_extended.rs:15:32
+   |
+15 | use dedaliano_engine::solver::{linear, modal, time_integration};
+   |                                ^^^^^^  ^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/textbooks/clough_penzien_dynamics.rs:17:32
+   |
+17 | use dedaliano_engine::solver::{modal, spectral, time_integration};
+   |                                ^^^^^
+
+warning: unused import: `modal`
+  --> engine/tests/validation/textbooks/clough_penzien_dynamics_extended.rs:17:42
+   |
+17 | use dedaliano_engine::solver::{harmonic, modal, spectral, time_integration};
+   |                                          ^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/ghali_neville_extended.rs:13:5
+   |
+13 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/hibbeler_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/hibbeler_problems.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/hibbeler_problems_extended.rs:14:5
+   |
+14 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/textbooks/kassimali_extended.rs:8:5
+  |
+8 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/kassimali_trusses.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/kassimali_trusses_extended.rs:20:5
+   |
+20 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling`, `linear`, and `pdelta`
+  --> engine/tests/validation/textbooks/mcguire_ziemian_extended.rs:12:32
+   |
+12 | use dedaliano_engine::solver::{buckling, linear, pdelta};
+   |                                ^^^^^^^^  ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/przemieniecki_3d.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/textbooks/przemieniecki_extended.rs:8:5
+  |
+8 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/roark_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/roark_formulas.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/timoshenko_solver.rs:27:5
+   |
+27 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/timoshenko_stability.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::pdelta`
+  --> engine/tests/validation/textbooks/timoshenko_stability.rs:19:5
+   |
+19 | use dedaliano_engine::solver::pdelta;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/textbooks/weaver_gere_extended.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_advanced_analysis.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling`, `linear`, and `modal`
+ --> engine/tests/validation/three_d/three_d_analysis.rs:7:32
+  |
+7 | use dedaliano_engine::solver::{linear, modal, buckling};
+  |                                ^^^^^^  ^^^^^  ^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_beam_bending.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_beam_bending_axes.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_biaxial_bending.rs:19:5
+   |
+19 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::buckling`
+  --> engine/tests/validation/three_d/three_d_buckling.rs:14:5
+   |
+14 | use dedaliano_engine::solver::buckling;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `modal`
+ --> engine/tests/validation/three_d/three_d_bugs.rs:9:32
+  |
+9 | use dedaliano_engine::solver::{linear, modal};
+  |                                ^^^^^^  ^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_cantilever_benchmarks.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_cantilever_loading.rs:22:5
+   |
+22 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_cantilever_verification.rs:23:5
+   |
+23 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_continuous_beam.rs:36:5
+   |
+36 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::corotational::solve_corotational_3d`
+ --> engine/tests/validation/three_d/three_d_corotational.rs:1:5
+  |
+1 | use dedaliano_engine::solver::corotational::solve_corotational_3d;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_distributed_loads.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `spectral`
+  --> engine/tests/validation/three_d/three_d_dynamic_extended.rs:19:67
+   |
+19 | use dedaliano_engine::solver::{assembly, dof, mass_matrix, modal, spectral};
+   |                                                                   ^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_equilibrium.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_equilibrium_checks.rs:24:5
+   |
+24 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_frame_analysis.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_frame_behavior.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_frame_benchmarks.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_frame_stability.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_frame_stiffness_properties.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_frames_extended.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_grid_structures.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+ --> engine/tests/validation/three_d/three_d_inclined_supports.rs:4:5
+  |
+4 | use dedaliano_engine::solver::linear;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+  --> engine/tests/validation/three_d/three_d_modal_dynamic.rs:18:5
+   |
+18 | use dedaliano_engine::solver::modal;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_moment_distribution.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_moment_relationships.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_moment_verification.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+  --> engine/tests/validation/three_d/three_d_pdelta.rs:15:32
+   |
+15 | use dedaliano_engine::solver::{linear, pdelta};
+   |                                ^^^^^^  ^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_skew_beam.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_space_frame_basic.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_space_truss.rs:21:5
+   |
+21 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_support_conditions.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_supports.rs:16:5
+   |
+16 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_torsion_basic.rs:17:5
+   |
+17 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_torsion_benchmarks.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_torsion_effects.rs:18:5
+   |
+18 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+  --> engine/tests/validation/three_d/three_d_truss_structures.rs:12:5
+   |
+12 | use dedaliano_engine::solver::linear;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solver::linear`
+ --> engine/tests/validation/../benchmarks/navier_plate.rs:1:24
+  |
+1 | use dedaliano_engine::{solver::linear, types::SolverInput3D};
+  |                        ^^^^^^^^^^^^^^
+
+warning: unused imports: `buckling`, `corotational`, `linear`, and `solve_arc_length`
+ --> engine/tests/validation/../research_benchmarks.rs:6:22
+  |
+6 |         arc_length::{solve_arc_length, ArcLengthInput},
+  |                      ^^^^^^^^^^^^^^^^
+7 |         buckling, corotational, linear,
+  |         ^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^
+
+warning: unused imports: `corotational` and `linear`
+ --> engine/tests/validation/../benchmarks/runner.rs:3:14
+  |
+3 |     solver::{corotational, linear},
+  |              ^^^^^^^^^^^^  ^^^^^^
+
+warning: value assigned to `nid` is never read
+   --> engine/tests/validation/benchmarks/beam_shell_benchmark.rs:222:5
+    |
+222 |     nid += 1;
+    |     ^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `l_vert`
+   --> engine/tests/validation/domains/cables/cable_analysis_advanced_extended.rs:875:9
+    |
+875 |     let l_vert: f64 = h; // = 8 m
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_l_vert`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `sigma2_safe`
+   --> engine/tests/validation/domains/plates_shells/laminate_plate_extended.rs:242:9
+    |
+242 |     let sigma2_safe: f64 = 0.0;
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_sigma2_safe`
+
+warning: unused variable: `h_m`
+   --> engine/tests/validation/domains/plates_shells/laminate_plate_extended.rs:369:9
+    |
+369 |     let h_m: f64 = total_h / 1000.0; // convert to m
+    |         ^^^ help: if this is intentional, prefix it with an underscore: `_h_m`
+
+warning: unused variable: `ei_eq_nm2`
+   --> engine/tests/validation/domains/plates_shells/laminate_plate_extended.rs:556:9
+    |
+556 |     let ei_eq_nm2: f64 = ei_eq_nmm2 * 1e-6;
+    |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ei_eq_nm2`
+
+warning: unused variable: `h_total`
+   --> engine/tests/validation/domains/plates_shells/laminate_plate_extended.rs:644:9
+    |
+644 |     let h_total: f64 = 4.0 * t;
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_h_total`
+
+warning: constant `REL_TOL_DISP` is never used
+  --> engine/tests/validation/../common/tolerance.rs:23:15
+   |
+23 |     pub const REL_TOL_DISP: f64 = 1e-6;
+   |               ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `REL_TOL_FORCE` is never used
+  --> engine/tests/validation/../common/tolerance.rs:24:15
+   |
+24 |     pub const REL_TOL_FORCE: f64 = 1e-4;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/validation/../common/tolerance.rs:25:15
+   |
+25 |     pub const ABS_TOL: f64 = 1e-8;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL` is never used
+  --> engine/tests/validation/../common/tolerance.rs:31:15
+   |
+31 |     pub const REL_TOL: f64 = 0.02;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_TIGHT` is never used
+  --> engine/tests/validation/../common/tolerance.rs:33:15
+   |
+33 |     pub const REL_TOL_TIGHT: f64 = 0.01;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `REL_TOL_LOOSE` is never used
+  --> engine/tests/validation/../common/tolerance.rs:35:15
+   |
+35 |     pub const REL_TOL_LOOSE: f64 = 0.05;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/validation/../common/tolerance.rs:37:15
+   |
+37 |     pub const ABS_TOL: f64 = 1e-6;
+   |               ^^^^^^^
+
+warning: constant `EQUILIBRIUM_ABS` is never used
+  --> engine/tests/validation/../common/tolerance.rs:39:15
+   |
+39 |     pub const EQUILIBRIUM_ABS: f64 = 1e-6;
+   |               ^^^^^^^^^^^^^^^
+
+warning: constant `REL_TOL` is never used
+  --> engine/tests/validation/../common/tolerance.rs:44:15
+   |
+44 |     pub const REL_TOL: f64 = 0.03;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_LOOSE` is never used
+  --> engine/tests/validation/../common/tolerance.rs:45:15
+   |
+45 |     pub const REL_TOL_LOOSE: f64 = 0.05;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/validation/../common/tolerance.rs:46:15
+   |
+46 |     pub const ABS_TOL: f64 = 1e-6;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL` is never used
+  --> engine/tests/validation/../common/tolerance.rs:51:15
+   |
+51 |     pub const REL_TOL: f64 = 0.08;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_LOOSE` is never used
+  --> engine/tests/validation/../common/tolerance.rs:52:15
+   |
+52 |     pub const REL_TOL_LOOSE: f64 = 0.10;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/validation/../common/tolerance.rs:53:15
+   |
+53 |     pub const ABS_TOL: f64 = 1e-3;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_FUNDAMENTAL` is never used
+  --> engine/tests/validation/../common/tolerance.rs:59:15
+   |
+59 |     pub const REL_TOL_FUNDAMENTAL: f64 = 0.02;
+   |               ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `REL_TOL_HIGHER` is never used
+  --> engine/tests/validation/../common/tolerance.rs:61:15
+   |
+61 |     pub const REL_TOL_HIGHER: f64 = 0.05;
+   |               ^^^^^^^^^^^^^^
+
+warning: constant `REL_TOL_BUCKLING` is never used
+  --> engine/tests/validation/../common/tolerance.rs:63:15
+   |
+63 |     pub const REL_TOL_BUCKLING: f64 = 0.08;
+   |               ^^^^^^^^^^^^^^^^
+
+warning: function `hemisphere_hole_solve` is never used
+    --> engine/tests/validation/benchmarks/shell_benchmark.rs:3907:4
+     |
+3907 | fn hemisphere_hole_solve(n_phi: usize, n_theta: usize) -> f64 {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pinched_hemisphere_reference` is never used
+    --> engine/tests/validation/benchmarks/shell_benchmark.rs:4295:4
+     |
+4295 | fn pinched_hemisphere_reference(rt_ratio: f64) -> f64 {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `solve_plastic_2d` is never used
+   --> engine/tests/validation/../audit_capture.rs:124:8
+    |
+124 | pub fn solve_plastic_2d(input: &dedaliano_engine::types::PlasticInput) -> Result<dedaliano_engine::solver::plastic::PlasticResult, ...
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `solve_plastic_3d` is never used
+   --> engine/tests/validation/../audit_capture.rs:130:8
+    |
+130 | pub fn solve_plastic_3d(input: &dedaliano_engine::types::PlasticInput3D) -> Result<dedaliano_engine::solver::plastic::PlasticResult...
+    |        ^^^^^^^^^^^^^^^^
+
+warning: `dedaliano-engine` (test "validation") generated 613 warnings (run `cargo fix --test "validation" -p dedaliano-engine` to apply 591 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.26s
+     Running tests/validation/main.rs (/root/audit/soundness-2026-11-11/target-base/release/deps/validation-7a26a4d28026c113)
+
+running 9 tests
+test three_d::three_d_corotational::a_helix_beyond_the_increments_reach_is_reported_unconverged_not_wrong ... ok
+test three_d::three_d_corotational::a_helix_from_a_non_coaxial_tip_moment_matches_the_exact_solution ... ok
+test three_d::three_d_corotational::a_helix_with_torsion_softer_than_bending_is_exact_or_reported_unconverged ... ok
+test three_d::three_d_corotational::a_helix_with_torsion_stiffer_than_bending_converges_to_the_exact_solution ... ok
+test three_d::three_d_corotational::a_member_turned_through_a_whole_turn_by_stiffer_springs_is_refused_before_it_wraps ... ok
+test three_d::three_d_corotational::both_ends_bent_the_same_way_past_half_a_turn_are_never_reported_converged ... ok
+test three_d::three_d_corotational::members_whose_ends_turn_past_0_02_rad_against_their_chord_carry_nl3 ... ok
+test three_d::three_d_corotational::one_element_twisted_up_to_0_8_pi_keeps_its_torsion_and_beyond_0_9_pi_is_refused ... ok
+test three_d::three_d_corotational::the_45_degree_bend_matches_simo_vu_quoc_and_cardona_geradin ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 4771 filtered out; finished in 2.51s

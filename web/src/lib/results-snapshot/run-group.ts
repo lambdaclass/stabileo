@@ -8,7 +8,6 @@ import { it, expect } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { CORPUS, type SnapshotCase } from './corpus';
 import { capture, containmentFindings, type Snapshot } from './capture';
-// @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, formatCaseReport, HOW_TO_REGISTER, serialiseSnapshot, parseSnapshot } from '../../../scripts/results-snapshot/compare.mjs';
 
 export const SNAPSHOT_DIR = new URL('../../../results-snapshots/', import.meta.url);

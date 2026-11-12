@@ -1,0 +1,384 @@
+nix develop
+warning: Git tree '/root/audit/soundness-2026-11-11/repo' is dirty
+warning: Git tree '/root/audit/soundness-2026-11-11/repo' is dirty
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /root/audit/soundness-2026-11-11/repo/engine/Cargo.toml
+workspace: /root/audit/soundness-2026-11-11/repo/Cargo.toml
+warning: unused import: `SolverInput3D`
+  --> engine/src/reproduce.rs:15:33
+   |
+15 | use crate::types::{SolverInput, SolverInput3D};
+   |                                 ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `rx` is never read
+    --> engine/src/solver/linear.rs:2901:22
+     |
+2901 |         let mut rx = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+2954 |             rx = vals[0];
+     |             ------------ `rx` is overwritten here before the previous value is read
+     |
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `rz` is never read
+    --> engine/src/solver/linear.rs:2902:22
+     |
+2902 |         let mut rz = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+2955 |             rz = vals[1];
+     |             ------------ `rz` is overwritten here before the previous value is read
+
+warning: value assigned to `my` is never read
+    --> engine/src/solver/linear.rs:2903:22
+     |
+2903 |         let mut my = 0.0;
+     |                      ^^^ this value is reassigned later and never used
+...
+2956 |             my = vals[2];
+     |             ------------ `my` is overwritten here before the previous value is read
+
+warning: variable does not need to be mutable
+    --> engine/src/solver/pre_solve_gates.rs:1193:9
+     |
+1193 |     let mut link = |p: &mut Vec<usize>, nodes: &[usize]| -> bool {
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `not` is never used
+   --> engine/src/postprocess/cirsoc201_check.rs:194:4
+    |
+194 | fn not(t: Tri) -> Tri {
+    |    ^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `c_norm` and `n_params` are never read
+   --> engine/src/certify/reassembly/system.rs:360:9
+    |
+355 | pub struct E2eBound {
+    |            -------- fields in this struct
+...
+360 |     pub c_norm: f64,
+    |         ^^^^^^
+...
+365 |     pub n_params: usize,
+    |         ^^^^^^^^
+
+warning: field `rot` is never read
+   --> engine/src/metamorphic/transform.rs:183:12
+    |
+183 |     Both { rot: bool },
+    |     ----   ^^^
+    |     |
+    |     field in this variant
+
+warning: variable `bA` should have a snake case name
+   --> engine/src/certify/reassembly/system.rs:180:14
+    |
+180 |     for (bi, bA) in blocks.iter().enumerate() {
+    |              ^^ help: convert the identifier to snake case: `b_a`
+    |
+    = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: variable `bB` should have a snake case name
+   --> engine/src/certify/reassembly/system.rs:181:18
+    |
+181 |         for (bj, bB) in blocks.iter().enumerate() {
+    |                  ^^ help: convert the identifier to snake case: `b_b`
+
+warning: `dedaliano-engine` (lib) generated 10 warnings (run `cargo fix --lib -p dedaliano-engine` to apply 2 suggestions)
+warning: unused import: `dedaliano_engine::solver::corotational`
+   --> engine/tests/metamorphic/generated.rs:356:9
+    |
+356 |     use dedaliano_engine::solver::corotational;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `linear` and `modal`
+   --> engine/tests/metamorphic/generated.rs:770:18
+    |
+770 |         solver::{linear, modal},
+    |                  ^^^^^^  ^^^^^
+
+warning: unused imports: `linear` and `modal`
+   --> engine/tests/metamorphic/generated.rs:824:18
+    |
+824 |         solver::{linear, modal},
+    |                  ^^^^^^  ^^^^^
+
+warning: unused import: `linear`
+   --> engine/tests/metamorphic/analysis_accuracy.rs:635:36
+    |
+635 |     use dedaliano_engine::solver::{linear, moving_loads};
+    |                                    ^^^^^^
+
+warning: unused import: `linear`
+   --> engine/tests/metamorphic/analysis_accuracy.rs:694:36
+    |
+694 |     use dedaliano_engine::solver::{linear, moving_loads};
+    |                                    ^^^^^^
+
+warning: unnecessary parentheses around closure body
+   --> engine/tests/metamorphic/analysis_accuracy.rs:714:25
+    |
+714 |             .filter(|i| (i.tag == "M" || i.tag == "My" || i.tag == "Mz"))
+    |                         ^                                              ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+714 -             .filter(|i| (i.tag == "M" || i.tag == "My" || i.tag == "Mz"))
+714 +             .filter(|i| i.tag == "M" || i.tag == "My" || i.tag == "Mz")
+    |
+
+warning: unused imports: `buckling`, `corotational`, `material_nonlinear`, `moving_loads`, `pdelta`, and `plastic`
+  --> engine/tests/metamorphic/ana2.rs:10:5
+   |
+10 |     buckling, cable, constraints, contact, corotational, creep_shrinkage, fiber_nonlinear, harmonic, kinematic, linear, load_cases,
+   |     ^^^^^^^^                               ^^^^^^^^^^^^
+11 |     material_nonlinear, modal, moving_loads, pdelta, plastic, spectral, ssi, staged, time_integration, winkler,
+   |     ^^^^^^^^^^^^^^^^^^         ^^^^^^^^^^^^  ^^^^^^  ^^^^^^^
+
+warning: unused import: `rect`
+ --> engine/tests/metamorphic/ana3.rs:3:25
+  |
+3 | use crate::ana2::{conv, rect, Law};
+  |                         ^^^^
+
+warning: unused imports: `buckling`, `corotational`, `linear`, `pdelta`, `plastic`, and `spectral`
+  --> engine/tests/metamorphic/ana3.rs:10:5
+   |
+10 |     buckling, cable, constraints, contact, corotational, creep_shrinkage, fiber_nonlinear, harmonic, kinematic, linear, load_cases,
+   |     ^^^^^^^^                               ^^^^^^^^^^^^                                                         ^^^^^^
+11 |     material_nonlinear, modal, moving_loads, pdelta, plastic, spectral, ssi, staged, time_integration, winkler,
+   |                                              ^^^^^^  ^^^^^^^  ^^^^^^^^
+
+warning: unused import: `Dim`
+ --> engine/tests/metamorphic/checks2.rs:5:23
+  |
+5 | use crate::response::{Dim, Kind, Resp};
+  |                       ^^^
+
+warning: unused import: `dedaliano_engine::solver::linear`
+   --> engine/tests/metamorphic/checks2.rs:804:9
+    |
+804 |     use dedaliano_engine::solver::linear;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `dedaliano_engine::solver::modal`
+   --> engine/tests/metamorphic/checks2.rs:862:9
+    |
+862 |     use dedaliano_engine::solver::modal;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `self`
+  --> engine/tests/metamorphic/modal_checks.rs:19:39
+   |
+19 | use dedaliano_engine::solver::modal::{self, ModalResult, ModalResult3D};
+   |                                       ^^^^
+
+warning: unused import: `Verdict`
+ --> engine/tests/metamorphic/quick.rs:5:27
+  |
+5 | use crate::tally::{Tally, Verdict};
+  |                           ^^^^^^^
+
+warning: unused imports: `linear` and `pdelta`
+   --> engine/tests/metamorphic/quick.rs:512:36
+    |
+512 |     use dedaliano_engine::solver::{linear, pdelta};
+    |                                    ^^^^^^  ^^^^^^
+
+warning: unused imports: `corotational`, `moving_loads`, and `spectral`
+ --> engine/tests/metamorphic/regressions.rs:9:45
+  |
+9 | use dedaliano_engine::solver::{constraints, corotational, kinematic, linear, load_cases, moving_loads, plastic, spectral, staged, win...
+  |                                             ^^^^^^^^^^^^                                 ^^^^^^^^^^^^           ^^^^^^^^
+
+warning: unused import: `linear`
+  --> engine/tests/metamorphic/linear_identities.rs:10:32
+   |
+10 | use dedaliano_engine::solver::{linear, load_cases};
+   |                                ^^^^^^
+
+warning: unused imports: `corotational`, `modal`, and `pdelta`
+ --> engine/tests/metamorphic/completeness.rs:7:34
+  |
+7 |     cable, constraints, contact, corotational, fiber_nonlinear, linear, load_cases, material_nonlinear, modal, pdelta, ssi, staged, w...
+  |                                  ^^^^^^^^^^^^                                                           ^^^^^  ^^^^^^
+
+warning: unused imports: `solve_2d` and `solve_3d`
+   --> engine/tests/metamorphic/stability.rs:733:44
+    |
+733 |     use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
+    |                                            ^^^^^^^^  ^^^^^^^^
+
+warning: unused imports: `linear` and `types::*`
+ --> engine/tests/metamorphic/conditioning_accuracy.rs:3:52
+  |
+3 | use dedaliano_engine::{solver::{dof::DofNumbering, linear}, types::*};
+  |                                                    ^^^^^^   ^^^^^^^^
+
+warning: constant `REL_TOL_DISP` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:23:15
+   |
+23 |     pub const REL_TOL_DISP: f64 = 1e-6;
+   |               ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `REL_TOL_FORCE` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:24:15
+   |
+24 |     pub const REL_TOL_FORCE: f64 = 1e-4;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:25:15
+   |
+25 |     pub const ABS_TOL: f64 = 1e-8;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:31:15
+   |
+31 |     pub const REL_TOL: f64 = 0.02;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_TIGHT` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:33:15
+   |
+33 |     pub const REL_TOL_TIGHT: f64 = 0.01;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `REL_TOL_LOOSE` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:35:15
+   |
+35 |     pub const REL_TOL_LOOSE: f64 = 0.05;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:37:15
+   |
+37 |     pub const ABS_TOL: f64 = 1e-6;
+   |               ^^^^^^^
+
+warning: constant `EQUILIBRIUM_ABS` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:39:15
+   |
+39 |     pub const EQUILIBRIUM_ABS: f64 = 1e-6;
+   |               ^^^^^^^^^^^^^^^
+
+warning: constant `REL_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:44:15
+   |
+44 |     pub const REL_TOL: f64 = 0.03;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_LOOSE` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:45:15
+   |
+45 |     pub const REL_TOL_LOOSE: f64 = 0.05;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:46:15
+   |
+46 |     pub const ABS_TOL: f64 = 1e-6;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:51:15
+   |
+51 |     pub const REL_TOL: f64 = 0.08;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_LOOSE` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:52:15
+   |
+52 |     pub const REL_TOL_LOOSE: f64 = 0.10;
+   |               ^^^^^^^^^^^^^
+
+warning: constant `ABS_TOL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:53:15
+   |
+53 |     pub const ABS_TOL: f64 = 1e-3;
+   |               ^^^^^^^
+
+warning: constant `REL_TOL_FUNDAMENTAL` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:59:15
+   |
+59 |     pub const REL_TOL_FUNDAMENTAL: f64 = 0.02;
+   |               ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `REL_TOL_HIGHER` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:61:15
+   |
+61 |     pub const REL_TOL_HIGHER: f64 = 0.05;
+   |               ^^^^^^^^^^^^^^
+
+warning: constant `REL_TOL_BUCKLING` is never used
+  --> engine/tests/metamorphic/../common/tolerance.rs:63:15
+   |
+63 |     pub const REL_TOL_BUCKLING: f64 = 0.08;
+   |               ^^^^^^^^^^^^^^^^
+
+warning: field `natural` is never read
+  --> engine/tests/metamorphic/dynamic_accuracy.rs:10:9
+   |
+ 7 | pub struct Accuracy {
+   |            -------- field in this struct
+...
+10 |     pub natural: f64,
+   |         ^^^^^^^
+
+warning: field `0` is never read
+  --> engine/tests/metamorphic/tally.rs:18:18
+   |
+18 |     Inconclusive(f64),
+   |     ------------ ^^^
+   |     |
+   |     field in this variant
+   |
+   = note: `Verdict` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+help: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   |
+18 -     Inconclusive(f64),
+18 +     Inconclusive(()),
+   |
+
+warning: function `solve_arc_length` is never used
+  --> engine/tests/metamorphic/../audit_capture.rs:76:8
+   |
+76 | pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, String> {
+   |        ^^^^^^^^^^^^^^^^
+
+warning: function `guyan_reduce_2d` is never used
+   --> engine/tests/metamorphic/../audit_capture.rs:160:8
+    |
+160 | pub fn guyan_reduce_2d(input: &dedaliano_engine::solver::reduction::GuyanInput) -> Result<dedaliano_engine::solver::reduction::Guya...
+    |        ^^^^^^^^^^^^^^^
+
+
+running 1 test
+test completeness::tests::a_shell_reported_under_another_family_fails ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 370 filtered out; finished in 0.02s
+
+warning: function `craig_bampton_2d` is never used
+   --> engine/tests/metamorphic/../audit_capture.rs:166:8
+    |
+166 | pub fn craig_bampton_2d(input: &dedaliano_engine::solver::reduction::CraigBamptonInput) -> Result<dedaliano_engine::solver::reducti...
+    |        ^^^^^^^^^^^^^^^^
+
+warning: `dedaliano-engine` (test "metamorphic") generated 42 warnings (run `cargo fix --test "metamorphic" -p dedaliano-engine` to apply 20 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.06s
+     Running tests/metamorphic/main.rs (/root/audit/soundness-2026-11-11/target-oracle-controls/release/deps/metamorphic-c1f2328328e2d3c0)

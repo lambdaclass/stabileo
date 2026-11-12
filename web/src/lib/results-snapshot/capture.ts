@@ -44,7 +44,6 @@ import { isBlocked, spectrumPoints, RISK_FACTOR } from '../codes/cirsoc103/spect
 import { findBehaviour, R_ELASTIC } from '../codes/cirsoc103/behaviour';
 import { setLocale } from '../i18n';
 import { errorText } from '../utils/error-text';
-// @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { flatten, FORMAT, DEFAULT_SKIP } from '../../../scripts/results-snapshot/compare.mjs';
 import type { SnapshotCase } from './corpus';
 import { governingCombos } from './governing-ties';

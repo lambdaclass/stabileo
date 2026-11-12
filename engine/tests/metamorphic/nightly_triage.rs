@@ -219,7 +219,6 @@ fn issue_1965_rotation_preserves_the_two_finite_modes_of_rank_two_mass() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1969; false refusal for transverse truss member actions"]
 fn issue_1969_transverse_truss_member_loads_reach_the_balance_check() {
     let input: SolverInput = serde_json::from_value(witness("1969")).unwrap();
     let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
@@ -276,7 +275,6 @@ fn issue_1969_equivalent_nodal_actions_return_an_answer() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1969; false refusal for transverse truss member actions"]
 fn issue_1969_transverse_truss_actions_survive_a_3d_embedding() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
     let original: SolverInput = serde_json::from_value(witness("1969")).unwrap();

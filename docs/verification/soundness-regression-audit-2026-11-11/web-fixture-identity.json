@@ -1,0 +1,744 @@
+[
+  {
+    "case": "2d-simply-supported",
+    "source": "web/src/lib/templates/fixtures/simply-supported.json",
+    "before": "cc60b39cf492a73c513ce1c27d1be81561111323",
+    "after": "cc60b39cf492a73c513ce1c27d1be81561111323",
+    "identical": true
+  },
+  {
+    "case": "2d-cantilever-point",
+    "source": "web/src/lib/templates/fixtures/cantilever-point.json",
+    "before": "f0cb23685a6301a8f61f5ab2a7a14ae546df57b9",
+    "after": "f0cb23685a6301a8f61f5ab2a7a14ae546df57b9",
+    "identical": true
+  },
+  {
+    "case": "2d-continuous-beam-unequal",
+    "source": "web/src/lib/templates/fixtures/continuous-beam-unequal.json",
+    "before": "4ae45912f4a4dc8b6e0401b2709ffec790d96437",
+    "after": "4ae45912f4a4dc8b6e0401b2709ffec790d96437",
+    "identical": true
+  },
+  {
+    "case": "2d-portal-frame",
+    "source": "web/src/lib/templates/fixtures/portal-frame.json",
+    "before": "497e19f5a57a1460326354d0396ab3f7180d32d1",
+    "after": "497e19f5a57a1460326354d0396ab3f7180d32d1",
+    "identical": true
+  },
+  {
+    "case": "2d-two-story-frame",
+    "source": "web/src/lib/templates/fixtures/two-story-frame.json",
+    "before": "cae7bf3c3fc142d96c8982382e8d32eba874fd07",
+    "after": "cae7bf3c3fc142d96c8982382e8d32eba874fd07",
+    "identical": true
+  },
+  {
+    "case": "2d-multi-section-frame",
+    "source": "web/src/lib/templates/fixtures/multi-section-frame.json",
+    "before": "5b68c664f6054b55ec5771199fd28594ad422b98",
+    "after": "5b68c664f6054b55ec5771199fd28594ad422b98",
+    "identical": true
+  },
+  {
+    "case": "2d-warren-truss",
+    "source": "web/src/lib/templates/fixtures/warren-truss.json",
+    "before": "115d29d774474e36716623443c36c7c60a0dd735",
+    "after": "115d29d774474e36716623443c36c7c60a0dd735",
+    "identical": true
+  },
+  {
+    "case": "2d-howe-truss",
+    "source": "web/src/lib/templates/fixtures/howe-truss.json",
+    "before": "0be93b45eb16defc36c37c2202a3132fae7c6e6a",
+    "after": "0be93b45eb16defc36c37c2202a3132fae7c6e6a",
+    "identical": true
+  },
+  {
+    "case": "2d-gerber-beam",
+    "source": "web/src/lib/templates/fixtures/gerber-beam.json",
+    "before": "8a180420baf1c85ce5c5f0dcf593dfcf56ca3a60",
+    "after": "8a180420baf1c85ce5c5f0dcf593dfcf56ca3a60",
+    "identical": true
+  },
+  {
+    "case": "2d-three-hinge-arch",
+    "source": "web/src/lib/templates/fixtures/three-hinge-arch.json",
+    "before": "1b001fad79deb6117bbc6de4a49a9cf4b8aa9002",
+    "after": "1b001fad79deb6117bbc6de4a49a9cf4b8aa9002",
+    "identical": true
+  },
+  {
+    "case": "2d-spring-support",
+    "source": "web/src/lib/templates/fixtures/spring-support.json",
+    "before": "5dcde4973855f14a08ee747f97817650e83491bc",
+    "after": "5dcde4973855f14a08ee747f97817650e83491bc",
+    "identical": true
+  },
+  {
+    "case": "2d-thermal",
+    "source": "web/src/lib/templates/fixtures/thermal.json",
+    "before": "d86c6cae604d96490809fc8edbc106690cfa956f",
+    "after": "d86c6cae604d96490809fc8edbc106690cfa956f",
+    "identical": true
+  },
+  {
+    "case": "2d-settlement",
+    "source": "web/src/lib/templates/fixtures/settlement.json",
+    "before": "5dff12bd023fb904854a088296ce3ed2d108dd90",
+    "after": "5dff12bd023fb904854a088296ce3ed2d108dd90",
+    "identical": true
+  },
+  {
+    "case": "2d-frame-cirsoc-dl",
+    "source": "web/src/lib/templates/fixtures/frame-cirsoc-dl.json",
+    "before": "870f0019e8231bdbec740e299477b7ca4b281e09",
+    "after": "870f0019e8231bdbec740e299477b7ca4b281e09",
+    "identical": true
+  },
+  {
+    "case": "2d-building-3story-dlw",
+    "source": "web/src/lib/templates/fixtures/building-3story-dlw.json",
+    "before": "0afe2f7a8d77a15619a3e678555a655c98fda0bc",
+    "after": "0afe2f7a8d77a15619a3e678555a655c98fda0bc",
+    "identical": true
+  },
+  {
+    "case": "2d-frame-seismic",
+    "source": "web/src/lib/templates/fixtures/frame-seismic.json",
+    "before": "9c6b18d7c4e8bbad0d4a630fe3273ed7cc23ac79",
+    "after": "9c6b18d7c4e8bbad0d4a630fe3273ed7cc23ac79",
+    "identical": true
+  },
+  {
+    "case": "2d-hidden-mechanism",
+    "source": "web/src/lib/templates/fixtures/hidden-mechanism.json",
+    "before": "6955d73aaa3312df9be10e3426ac2f8a13f24fc6",
+    "after": "6955d73aaa3312df9be10e3426ac2f8a13f24fc6",
+    "identical": true
+  },
+  {
+    "case": "3d-portal-frame",
+    "source": "web/src/lib/templates/fixtures/3d-portal-frame.json",
+    "before": "b4f3dd1c8dbddf25da3bf341680d462aa9e8deeb",
+    "after": "b4f3dd1c8dbddf25da3bf341680d462aa9e8deeb",
+    "identical": true
+  },
+  {
+    "case": "3d-space-truss",
+    "source": "web/src/lib/templates/fixtures/3d-space-truss.json",
+    "before": "680f9a9534605343510fdcdf04ba0121cf64334b",
+    "after": "680f9a9534605343510fdcdf04ba0121cf64334b",
+    "identical": true
+  },
+  {
+    "case": "3d-torsion-beam",
+    "source": "web/src/lib/templates/fixtures/3d-torsion-beam.json",
+    "before": "fa66dfabfea9df16f8aa49c87c562307798bf403",
+    "after": "fa66dfabfea9df16f8aa49c87c562307798bf403",
+    "identical": true
+  },
+  {
+    "case": "3d-cantilever-load",
+    "source": "web/src/lib/templates/fixtures/3d-cantilever-load.json",
+    "before": "edb85bd1132d7b55e856ec12fb121ba02039a3f1",
+    "after": "edb85bd1132d7b55e856ec12fb121ba02039a3f1",
+    "identical": true
+  },
+  {
+    "case": "3d-grid-slab",
+    "source": "web/src/lib/templates/fixtures/3d-grid-slab.json",
+    "before": "4e4be74c5b4abda63773c90c0c8b62a3b524812a",
+    "after": "4e4be74c5b4abda63773c90c0c8b62a3b524812a",
+    "identical": true
+  },
+  {
+    "case": "3d-tower",
+    "source": "web/src/lib/templates/fixtures/3d-tower.json",
+    "before": "13ce44a90a7f880dfdea521cb052385866b14dab",
+    "after": "13ce44a90a7f880dfdea521cb052385866b14dab",
+    "identical": true
+  },
+  {
+    "case": "3d-hinged-arch",
+    "source": "web/src/lib/templates/fixtures/hinged-arch-3d.json",
+    "before": "8d3d296aca56ae56a7644e60b5a86cc20a0c1480",
+    "after": "8d3d296aca56ae56a7644e60b5a86cc20a0c1480",
+    "identical": true
+  },
+  {
+    "case": "3d-building",
+    "source": "web/src/lib/templates/fixtures/3d-building.json",
+    "before": "316085a3e740a8f6485be698f0713268f55b913e",
+    "after": "316085a3e740a8f6485be698f0713268f55b913e",
+    "identical": true
+  },
+  {
+    "case": "2d-in-3d-portal-frame",
+    "source": "web/src/lib/templates/fixtures/portal-frame.json",
+    "before": "497e19f5a57a1460326354d0396ab3f7180d32d1",
+    "after": "497e19f5a57a1460326354d0396ab3f7180d32d1",
+    "identical": true
+  },
+  {
+    "case": "pro-3d-portal-frame",
+    "source": "web/src/lib/templates/fixtures/3d-portal-frame.json",
+    "before": "b4f3dd1c8dbddf25da3bf341680d462aa9e8deeb",
+    "after": "b4f3dd1c8dbddf25da3bf341680d462aa9e8deeb",
+    "identical": true
+  },
+  {
+    "case": "pro-3d-tower",
+    "source": "web/src/lib/templates/fixtures/3d-tower.json",
+    "before": "13ce44a90a7f880dfdea521cb052385866b14dab",
+    "after": "13ce44a90a7f880dfdea521cb052385866b14dab",
+    "identical": true
+  },
+  {
+    "case": "pro-deep-beam-shell",
+    "source": "web/src/lib/templates/fixtures/deep-beam-shell.json",
+    "before": "2953f9890191dcfdb974ae5736c3e9a76512fa75",
+    "after": "2953f9890191dcfdb974ae5736c3e9a76512fa75",
+    "identical": true
+  },
+  {
+    "case": "pro-rc-qa-diagnostic-shells",
+    "source": "web/src/lib/templates/fixtures/rc-qa-diagnostic-shells.json",
+    "before": "f0a8ba1e6e4280712e89e235409949a7fd679810",
+    "after": "f0a8ba1e6e4280712e89e235409949a7fd679810",
+    "identical": true
+  },
+  {
+    "case": "pro-mat-foundation",
+    "source": "web/src/lib/templates/fixtures/mat-foundation.json",
+    "before": "55d27cd26be944efbb49081d1dc2355a3c66cb04",
+    "after": "55d27cd26be944efbb49081d1dc2355a3c66cb04",
+    "identical": true
+  },
+  {
+    "case": "design-rc-design-qa-8",
+    "source": "web/src/lib/templates/fixtures/rc-design-qa-8.json",
+    "before": "1e9f9f3e0ebdc651752a954c6ae58e3a24920ea1",
+    "after": "1e9f9f3e0ebdc651752a954c6ae58e3a24920ea1",
+    "identical": true
+  },
+  {
+    "case": "design-rc-design-qa-row2",
+    "source": "web/src/lib/templates/fixtures/rc-design-qa-row2.json",
+    "before": "fdd12602d30318fb628466f164782394ec9730c5",
+    "after": "fdd12602d30318fb628466f164782394ec9730c5",
+    "identical": true
+  },
+  {
+    "case": "design-rc-design-qa-seismic",
+    "source": "web/src/lib/templates/fixtures/rc-design-qa-seismic.json",
+    "before": "512ec3f70f9bbe3fda780d063a7211ca412fdc41",
+    "after": "512ec3f70f9bbe3fda780d063a7211ca412fdc41",
+    "identical": true
+  },
+  {
+    "case": "design-rc-beam-flexure",
+    "source": "web/src/lib/templates/fixtures/rc-beam-flexure.json",
+    "before": "3075dfc4f8abf2702a6d020691a5bdcf947abbc5",
+    "after": "3075dfc4f8abf2702a6d020691a5bdcf947abbc5",
+    "identical": true
+  },
+  {
+    "case": "design-rc-qa-diagnostic",
+    "source": "web/src/lib/templates/fixtures/rc-qa-diagnostic.json",
+    "before": "e491c6e74cdc248112991f5772c820dbe3464604",
+    "after": "e491c6e74cdc248112991f5772c820dbe3464604",
+    "identical": true
+  },
+  {
+    "case": "design-steel-3d-portal-frame",
+    "source": "web/src/lib/templates/fixtures/3d-portal-frame.json",
+    "before": "b4f3dd1c8dbddf25da3bf341680d462aa9e8deeb",
+    "after": "b4f3dd1c8dbddf25da3bf341680d462aa9e8deeb",
+    "identical": true
+  },
+  {
+    "case": "design-steel-3d-tower",
+    "source": "web/src/lib/templates/fixtures/3d-tower.json",
+    "before": "13ce44a90a7f880dfdea521cb052385866b14dab",
+    "after": "13ce44a90a7f880dfdea521cb052385866b14dab",
+    "identical": true
+  },
+  {
+    "case": "design-steel-pipe-rack",
+    "source": "web/src/lib/templates/fixtures/pipe-rack.json",
+    "before": "935f1f80c8dea48842a092392d580d4153ebfb9b",
+    "after": "935f1f80c8dea48842a092392d580d4153ebfb9b",
+    "identical": true
+  },
+  {
+    "case": "design-footing-rc-footing-cad-poc",
+    "source": "web/src/lib/export/__fixtures__/rc-footing-cad-poc.ded.json",
+    "before": "4fc6bd1578aea385590635088a5840ac8c439222",
+    "after": "4fc6bd1578aea385590635088a5840ac8c439222",
+    "identical": true
+  },
+  {
+    "case": "gallery-simply-supported",
+    "source": "web/src/lib/templates/fixtures/simply-supported.json",
+    "before": "cc60b39cf492a73c513ce1c27d1be81561111323",
+    "after": "cc60b39cf492a73c513ce1c27d1be81561111323",
+    "identical": true
+  },
+  {
+    "case": "gallery-cantilever",
+    "source": "web/src/lib/templates/fixtures/cantilever.json",
+    "before": "6cbf2c164277a78655a8f5abfe15d172508ff694",
+    "after": "6cbf2c164277a78655a8f5abfe15d172508ff694",
+    "identical": true
+  },
+  {
+    "case": "gallery-cantilever-point",
+    "source": "web/src/lib/templates/fixtures/cantilever-point.json",
+    "before": "f0cb23685a6301a8f61f5ab2a7a14ae546df57b9",
+    "after": "f0cb23685a6301a8f61f5ab2a7a14ae546df57b9",
+    "identical": true
+  },
+  {
+    "case": "gallery-continuous-beam",
+    "source": "web/src/lib/templates/fixtures/continuous-beam.json",
+    "before": "c05dd8d286c70d98d6304689a1dc3d84d9a71941",
+    "after": "c05dd8d286c70d98d6304689a1dc3d84d9a71941",
+    "identical": true
+  },
+  {
+    "case": "gallery-continuous-beam-unequal",
+    "source": "web/src/lib/templates/fixtures/continuous-beam-unequal.json",
+    "before": "4ae45912f4a4dc8b6e0401b2709ffec790d96437",
+    "after": "4ae45912f4a4dc8b6e0401b2709ffec790d96437",
+    "identical": true
+  },
+  {
+    "case": "gallery-portal-frame",
+    "source": "web/src/lib/templates/fixtures/portal-frame.json",
+    "before": "497e19f5a57a1460326354d0396ab3f7180d32d1",
+    "after": "497e19f5a57a1460326354d0396ab3f7180d32d1",
+    "identical": true
+  },
+  {
+    "case": "gallery-portal-frame-braced",
+    "source": "web/src/lib/templates/fixtures/portal-frame-braced.json",
+    "before": "6e615edbe984ec2c5f4ea8bdd4c41cb77979ca50",
+    "after": "6e615edbe984ec2c5f4ea8bdd4c41cb77979ca50",
+    "identical": true
+  },
+  {
+    "case": "gallery-portal-second-order",
+    "source": "web/src/lib/templates/fixtures/portal-second-order.json",
+    "before": "c87033a0d156c512fb574221482d6b81245a1cd1",
+    "after": "c87033a0d156c512fb574221482d6b81245a1cd1",
+    "identical": true
+  },
+  {
+    "case": "gallery-two-story-frame",
+    "source": "web/src/lib/templates/fixtures/two-story-frame.json",
+    "before": "cae7bf3c3fc142d96c8982382e8d32eba874fd07",
+    "after": "cae7bf3c3fc142d96c8982382e8d32eba874fd07",
+    "identical": true
+  },
+  {
+    "case": "gallery-multi-section-frame",
+    "source": "web/src/lib/templates/fixtures/multi-section-frame.json",
+    "before": "5b68c664f6054b55ec5771199fd28594ad422b98",
+    "after": "5b68c664f6054b55ec5771199fd28594ad422b98",
+    "identical": true
+  },
+  {
+    "case": "gallery-color-map-demo",
+    "source": "web/src/lib/templates/fixtures/color-map-demo.json",
+    "before": "a71e9d867c9ee45ce90b6129f94fb99b5ded73d9",
+    "after": "a71e9d867c9ee45ce90b6129f94fb99b5ded73d9",
+    "identical": true
+  },
+  {
+    "case": "gallery-truss",
+    "source": "web/src/lib/templates/fixtures/truss.json",
+    "before": "2887efa9e791bed1972759f5bfa59917bf2296f9",
+    "after": "2887efa9e791bed1972759f5bfa59917bf2296f9",
+    "identical": true
+  },
+  {
+    "case": "gallery-warren-truss",
+    "source": "web/src/lib/templates/fixtures/warren-truss.json",
+    "before": "115d29d774474e36716623443c36c7c60a0dd735",
+    "after": "115d29d774474e36716623443c36c7c60a0dd735",
+    "identical": true
+  },
+  {
+    "case": "gallery-howe-truss",
+    "source": "web/src/lib/templates/fixtures/howe-truss.json",
+    "before": "0be93b45eb16defc36c37c2202a3132fae7c6e6a",
+    "after": "0be93b45eb16defc36c37c2202a3132fae7c6e6a",
+    "identical": true
+  },
+  {
+    "case": "gallery-point-loads",
+    "source": "web/src/lib/templates/fixtures/point-loads.json",
+    "before": "8566f5de046bd6ce3041edd51602febb7feb7cab",
+    "after": "8566f5de046bd6ce3041edd51602febb7feb7cab",
+    "identical": true
+  },
+  {
+    "case": "gallery-spring-support",
+    "source": "web/src/lib/templates/fixtures/spring-support.json",
+    "before": "5dcde4973855f14a08ee747f97817650e83491bc",
+    "after": "5dcde4973855f14a08ee747f97817650e83491bc",
+    "identical": true
+  },
+  {
+    "case": "gallery-thermal",
+    "source": "web/src/lib/templates/fixtures/thermal.json",
+    "before": "d86c6cae604d96490809fc8edbc106690cfa956f",
+    "after": "d86c6cae604d96490809fc8edbc106690cfa956f",
+    "identical": true
+  },
+  {
+    "case": "gallery-settlement",
+    "source": "web/src/lib/templates/fixtures/settlement.json",
+    "before": "5dff12bd023fb904854a088296ce3ed2d108dd90",
+    "after": "5dff12bd023fb904854a088296ce3ed2d108dd90",
+    "identical": true
+  },
+  {
+    "case": "gallery-three-hinge-arch",
+    "source": "web/src/lib/templates/fixtures/three-hinge-arch.json",
+    "before": "1b001fad79deb6117bbc6de4a49a9cf4b8aa9002",
+    "after": "1b001fad79deb6117bbc6de4a49a9cf4b8aa9002",
+    "identical": true
+  },
+  {
+    "case": "gallery-gerber-beam",
+    "source": "web/src/lib/templates/fixtures/gerber-beam.json",
+    "before": "8a180420baf1c85ce5c5f0dcf593dfcf56ca3a60",
+    "after": "8a180420baf1c85ce5c5f0dcf593dfcf56ca3a60",
+    "identical": true
+  },
+  {
+    "case": "gallery-bridge-moving-load",
+    "source": "web/src/lib/templates/fixtures/bridge-moving-load.json",
+    "before": "0bd80481e17f45bce1923ade05d36b23e5a93c4e",
+    "after": "0bd80481e17f45bce1923ade05d36b23e5a93c4e",
+    "identical": true
+  },
+  {
+    "case": "gallery-bridge-highway",
+    "source": "web/src/lib/templates/fixtures/bridge-highway.json",
+    "before": "1dada27e623ef8374058a48f4de84e46f3105bbf",
+    "after": "1dada27e623ef8374058a48f4de84e46f3105bbf",
+    "identical": true
+  },
+  {
+    "case": "gallery-frame-cirsoc-dl",
+    "source": "web/src/lib/templates/fixtures/frame-cirsoc-dl.json",
+    "before": "870f0019e8231bdbec740e299477b7ca4b281e09",
+    "after": "870f0019e8231bdbec740e299477b7ca4b281e09",
+    "identical": true
+  },
+  {
+    "case": "gallery-building-3story-dlw",
+    "source": "web/src/lib/templates/fixtures/building-3story-dlw.json",
+    "before": "0afe2f7a8d77a15619a3e678555a655c98fda0bc",
+    "after": "0afe2f7a8d77a15619a3e678555a655c98fda0bc",
+    "identical": true
+  },
+  {
+    "case": "gallery-frame-seismic",
+    "source": "web/src/lib/templates/fixtures/frame-seismic.json",
+    "before": "9c6b18d7c4e8bbad0d4a630fe3273ed7cc23ac79",
+    "after": "9c6b18d7c4e8bbad0d4a630fe3273ed7cc23ac79",
+    "identical": true
+  },
+  {
+    "case": "gallery-hidden-mechanism",
+    "source": "web/src/lib/templates/fixtures/hidden-mechanism.json",
+    "before": "6955d73aaa3312df9be10e3426ac2f8a13f24fc6",
+    "after": "6955d73aaa3312df9be10e3426ac2f8a13f24fc6",
+    "identical": true
+  },
+  {
+    "case": "gallery-deep-beam-bar",
+    "source": "web/src/lib/templates/fixtures/deep-beam-bar.json",
+    "before": "30eb766559e4d8749e1899b85a864b26271d1ff5",
+    "after": "30eb766559e4d8749e1899b85a864b26271d1ff5",
+    "identical": true
+  },
+  {
+    "case": "gallery-dynamics-column-mass",
+    "source": "web/src/lib/templates/fixtures/dynamics-column-mass.json",
+    "before": "4d5dc10456c31b3997cc50caba803745f537ecb6",
+    "after": "4d5dc10456c31b3997cc50caba803745f537ecb6",
+    "identical": true
+  },
+  {
+    "case": "gallery-dynamics-shear-building",
+    "source": "web/src/lib/templates/fixtures/dynamics-shear-building.json",
+    "before": "9c60d6902089c3868fe938007e700e52502efb15",
+    "after": "9c60d6902089c3868fe938007e700e52502efb15",
+    "identical": true
+  },
+  {
+    "case": "gallery-3d-portal-frame",
+    "source": "web/src/lib/templates/fixtures/3d-portal-frame.json",
+    "before": "b4f3dd1c8dbddf25da3bf341680d462aa9e8deeb",
+    "after": "b4f3dd1c8dbddf25da3bf341680d462aa9e8deeb",
+    "identical": true
+  },
+  {
+    "case": "gallery-3d-space-truss",
+    "source": "web/src/lib/templates/fixtures/3d-space-truss.json",
+    "before": "680f9a9534605343510fdcdf04ba0121cf64334b",
+    "after": "680f9a9534605343510fdcdf04ba0121cf64334b",
+    "identical": true
+  },
+  {
+    "case": "gallery-3d-cantilever-load",
+    "source": "web/src/lib/templates/fixtures/3d-cantilever-load.json",
+    "before": "edb85bd1132d7b55e856ec12fb121ba02039a3f1",
+    "after": "edb85bd1132d7b55e856ec12fb121ba02039a3f1",
+    "identical": true
+  },
+  {
+    "case": "gallery-3d-grid-slab",
+    "source": "web/src/lib/templates/fixtures/3d-grid-slab.json",
+    "before": "4e4be74c5b4abda63773c90c0c8b62a3b524812a",
+    "after": "4e4be74c5b4abda63773c90c0c8b62a3b524812a",
+    "identical": true
+  },
+  {
+    "case": "gallery-3d-tower",
+    "source": "web/src/lib/templates/fixtures/3d-tower.json",
+    "before": "13ce44a90a7f880dfdea521cb052385866b14dab",
+    "after": "13ce44a90a7f880dfdea521cb052385866b14dab",
+    "identical": true
+  },
+  {
+    "case": "gallery-3d-torsion-beam",
+    "source": "web/src/lib/templates/fixtures/3d-torsion-beam.json",
+    "before": "fa66dfabfea9df16f8aa49c87c562307798bf403",
+    "after": "fa66dfabfea9df16f8aa49c87c562307798bf403",
+    "identical": true
+  },
+  {
+    "case": "gallery-torsion-tube",
+    "source": "web/src/lib/templates/fixtures/torsion-tube.json",
+    "before": "d868056e0f13e6df1336b11cddd88607ba285f35",
+    "after": "d868056e0f13e6df1336b11cddd88607ba285f35",
+    "identical": true
+  },
+  {
+    "case": "gallery-rc-beam-flexure",
+    "source": "web/src/lib/templates/fixtures/rc-beam-flexure.json",
+    "before": "3075dfc4f8abf2702a6d020691a5bdcf947abbc5",
+    "after": "3075dfc4f8abf2702a6d020691a5bdcf947abbc5",
+    "identical": true
+  },
+  {
+    "case": "gallery-deep-beam-shell",
+    "source": "web/src/lib/templates/fixtures/deep-beam-shell.json",
+    "before": "2953f9890191dcfdb974ae5736c3e9a76512fa75",
+    "after": "2953f9890191dcfdb974ae5736c3e9a76512fa75",
+    "identical": true
+  },
+  {
+    "case": "gallery-3d-nave-industrial",
+    "source": "web/src/lib/templates/fixtures/3d-nave-industrial.json",
+    "before": "e4a03a001618c64e820193864e80059b87c6fe93",
+    "after": "e4a03a001618c64e820193864e80059b87c6fe93",
+    "identical": true
+  },
+  {
+    "case": "gallery-3d-building",
+    "source": "web/src/lib/templates/fixtures/3d-building.json",
+    "before": "316085a3e740a8f6485be698f0713268f55b913e",
+    "after": "316085a3e740a8f6485be698f0713268f55b913e",
+    "identical": true
+  },
+  {
+    "case": "gallery-pro-edificio-7p",
+    "source": "web/src/lib/templates/fixtures/pro-edificio-7p.json",
+    "before": "b7b3468d045905ef9a36452d9b9bbc2f819b0c58",
+    "after": "b7b3468d045905ef9a36452d9b9bbc2f819b0c58",
+    "identical": true
+  },
+  {
+    "case": "gallery-rc-qa-diagnostic",
+    "source": "web/src/lib/templates/fixtures/rc-qa-diagnostic.json",
+    "before": "e491c6e74cdc248112991f5772c820dbe3464604",
+    "after": "e491c6e74cdc248112991f5772c820dbe3464604",
+    "identical": true
+  },
+  {
+    "case": "gallery-rc-qa-diagnostic-shells",
+    "source": "web/src/lib/templates/fixtures/rc-qa-diagnostic-shells.json",
+    "before": "f0a8ba1e6e4280712e89e235409949a7fd679810",
+    "after": "f0a8ba1e6e4280712e89e235409949a7fd679810",
+    "identical": true
+  },
+  {
+    "case": "gallery-torre-irregular-con-retiros",
+    "source": "web/src/lib/templates/fixtures/torre-irregular-con-retiros.json",
+    "before": "0deb7b226d5c065600af1c74b0b24764f46e8c89",
+    "after": "0deb7b226d5c065600af1c74b0b24764f46e8c89",
+    "identical": true
+  },
+  {
+    "case": "gallery-rc-design-frame",
+    "source": "web/src/lib/templates/fixtures/rc-design-frame.json",
+    "before": "f7f64ec37afbb2b6bf37e256e7479c87199967f5",
+    "after": "f7f64ec37afbb2b6bf37e256e7479c87199967f5",
+    "identical": true
+  },
+  {
+    "case": "gallery-rc-design-qa-8",
+    "source": "web/src/lib/templates/fixtures/rc-design-qa-8.json",
+    "before": "1e9f9f3e0ebdc651752a954c6ae58e3a24920ea1",
+    "after": "1e9f9f3e0ebdc651752a954c6ae58e3a24920ea1",
+    "identical": true
+  },
+  {
+    "case": "gallery-rc-design-qa-seismic",
+    "source": "web/src/lib/templates/fixtures/rc-design-qa-seismic.json",
+    "before": "512ec3f70f9bbe3fda780d063a7211ca412fdc41",
+    "after": "512ec3f70f9bbe3fda780d063a7211ca412fdc41",
+    "identical": true
+  },
+  {
+    "case": "gallery-rc-design-qa-row2",
+    "source": "web/src/lib/templates/fixtures/rc-design-qa-row2.json",
+    "before": "fdd12602d30318fb628466f164782394ec9730c5",
+    "after": "fdd12602d30318fb628466f164782394ec9730c5",
+    "identical": true
+  },
+  {
+    "case": "gallery-cad-arch-structure-dxf",
+    "source": "web/src/lib/templates/fixtures/cad-arch-structure-dxf.json",
+    "before": "a62c0d1efa764c87baf574d2f277eeb08c5b9d69",
+    "after": "a62c0d1efa764c87baf574d2f277eeb08c5b9d69",
+    "identical": true
+  },
+  {
+    "case": "gallery-cad-arch-only-dxf",
+    "source": "web/src/lib/templates/fixtures/cad-arch-only-dxf.json",
+    "before": "6fff2670e525270bbcc47ac255c5d85620f8a5bc",
+    "after": "6fff2670e525270bbcc47ac255c5d85620f8a5bc",
+    "identical": true
+  },
+  {
+    "case": "gallery-pipe-rack",
+    "source": "web/src/lib/templates/fixtures/pipe-rack.json",
+    "before": "935f1f80c8dea48842a092392d580d4153ebfb9b",
+    "after": "935f1f80c8dea48842a092392d580d4153ebfb9b",
+    "identical": true
+  },
+  {
+    "case": "gallery-mat-foundation",
+    "source": "web/src/lib/templates/fixtures/mat-foundation.json",
+    "before": "55d27cd26be944efbb49081d1dc2355a3c66cb04",
+    "after": "55d27cd26be944efbb49081d1dc2355a3c66cb04",
+    "identical": true
+  },
+  {
+    "case": "gallery-suspension-bridge",
+    "source": "web/src/lib/templates/fixtures/suspension-bridge.json",
+    "before": "b7d6c55f83df9caf71d3888d79580025286a90d6",
+    "after": "b7d6c55f83df9caf71d3888d79580025286a90d6",
+    "identical": true
+  },
+  {
+    "case": "gallery-cable-stayed-bridge",
+    "source": "web/src/lib/templates/fixtures/cable-stayed-bridge.json",
+    "before": "cb7e039c67a22b9ba62a09bd4b37c2c9b37a0c8f",
+    "after": "cb7e039c67a22b9ba62a09bd4b37c2c9b37a0c8f",
+    "identical": true
+  },
+  {
+    "case": "gallery-offshore-platform",
+    "source": "web/src/lib/templates/fixtures/offshore-platform.json",
+    "before": "ddbda272d4203b94c1e7022736ac6da00aea1526",
+    "after": "ddbda272d4203b94c1e7022736ac6da00aea1526",
+    "identical": true
+  },
+  {
+    "case": "gallery-full-stadium",
+    "source": "web/src/lib/templates/fixtures/full-stadium.json",
+    "before": "801267eb02d51a5dc6c045503790745a26252869",
+    "after": "801267eb02d51a5dc6c045503790745a26252869",
+    "identical": true
+  },
+  {
+    "case": "gallery-xl-diagrid-tower",
+    "source": "web/src/lib/templates/fixtures/xl-diagrid-tower.json",
+    "before": "bf6df489917a26af6af1f38b9695979b45a88a87",
+    "after": "bf6df489917a26af6af1f38b9695979b45a88a87",
+    "identical": true
+  },
+  {
+    "case": "gallery-geodesic-dome",
+    "source": "web/src/lib/templates/fixtures/geodesic-dome.json",
+    "before": "1f9403dbfa30154b57b8cc728950772059655b1d",
+    "after": "1f9403dbfa30154b57b8cc728950772059655b1d",
+    "identical": true
+  },
+  {
+    "case": "gallery-la-bombonera",
+    "source": "web/src/lib/templates/fixtures/la-bombonera.json",
+    "before": "5439be026c27638b99860c0472d3dba43e40d143",
+    "after": "5439be026c27638b99860c0472d3dba43e40d143",
+    "identical": true
+  },
+  {
+    "case": "gallery-space-frame",
+    "source": "web/src/lib/templates/fixtures/space-frame.json",
+    "before": "a77c8a8996260ef6070e03958c5f26ebbaf08776",
+    "after": "a77c8a8996260ef6070e03958c5f26ebbaf08776",
+    "identical": true
+  },
+  {
+    "case": "gallery-grid-beams",
+    "source": "web/src/lib/templates/fixtures/grid-beams.json",
+    "before": "18d67ea24fff5f27931076690585c1b6608f8939",
+    "after": "18d67ea24fff5f27931076690585c1b6608f8939",
+    "identical": true
+  },
+  {
+    "case": "gallery-tower-3d-2",
+    "source": "web/src/lib/templates/fixtures/tower-3d-2.json",
+    "before": "a2b36f702848f060ce705a99d398e11de7e76b8a",
+    "after": "a2b36f702848f060ce705a99d398e11de7e76b8a",
+    "identical": true
+  },
+  {
+    "case": "gallery-tower-3d-4",
+    "source": "web/src/lib/templates/fixtures/tower-3d-4.json",
+    "before": "bca7742d5f3dc43eec198b90e5ee30cc363ed08c",
+    "after": "bca7742d5f3dc43eec198b90e5ee30cc363ed08c",
+    "identical": true
+  },
+  {
+    "case": "gallery-hinged-arch-3d",
+    "source": "web/src/lib/templates/fixtures/hinged-arch-3d.json",
+    "before": "8d3d296aca56ae56a7644e60b5a86cc20a0c1480",
+    "after": "8d3d296aca56ae56a7644e60b5a86cc20a0c1480",
+    "identical": true
+  },
+  {
+    "case": "gallery-cable-stayed-bridge-small",
+    "source": "web/src/lib/templates/fixtures/cable-stayed-bridge-small.json",
+    "before": "136dd76c37a81b19a4fd61b2e773572eed12ddb9",
+    "after": "136dd76c37a81b19a4fd61b2e773572eed12ddb9",
+    "identical": true
+  },
+  {
+    "case": "gallery-stadium-canopy",
+    "source": "web/src/lib/templates/fixtures/stadium-canopy.json",
+    "before": "1bd5fbb4383b232c8f21027fdb94e13265cce118",
+    "after": "1bd5fbb4383b232c8f21027fdb94e13265cce118",
+    "identical": true
+  }
+]

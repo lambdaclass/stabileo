@@ -24,6 +24,7 @@ mod stiffness;
 mod generated;
 mod safety_cases;
 mod analysis_accuracy;
+mod ordinary_accuracy;
 mod ana2;
 mod ana3;
 mod case;
@@ -251,3 +252,5 @@ mod red_ci;
 
 mod candidate_replay;
 mod nightly_triage;
+
+mod nightly_harness;

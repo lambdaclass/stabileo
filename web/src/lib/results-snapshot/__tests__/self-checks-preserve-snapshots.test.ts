@@ -4,7 +4,6 @@ import { initSolver } from '../../engine/wasm-solver';
 import { CORPUS } from '../corpus';
 import { capture } from '../capture';
 import { snapshotFile } from '../run-group';
-// @ts-expect-error shared JavaScript snapshot comparison
 import { compareValues, parseSnapshot, formatCaseReport } from '../../../../scripts/results-snapshot/compare.mjs';
 
 beforeAll(async () => { await initSolver(); });

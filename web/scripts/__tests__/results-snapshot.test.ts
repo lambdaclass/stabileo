@@ -5,7 +5,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import spanAxial from '../../src/lib/provenance/result-changes/pdelta-span-axial.json';
-// @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { decide, isBreakingResultsFragment, newlyRecorded, corpusExamples, modelInputs, proveEquivalence, headEngineServesBase } from '../results-snapshot/gate.mjs';
