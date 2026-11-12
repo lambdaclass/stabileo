@@ -59,6 +59,12 @@ Tighten free-rotation load and pin rounding bounds to their contributing project
 
 Sparse assembly now honors artificial-stiffness suppression, including orphan rotations and floating warping DOFs. Conditional balance reassembly no longer invents rotational spring torques when members are removed, so accurate soft-spring answers can pass the unchanged dimensional accuracy checks. Large moments and restrained forces still cannot mask a recovered free-force imbalance. Correct the independent truss point-load reference to preserve its applied resultant with nonzero shear area; the 23 regenerated stored references are unchanged. Retain tight spectrum bounds and reconcile the release notes with conservative raw-diagonal warnings on accepted 3D solves. See [the CI follow-up evidence](docs/results-changes/2026-11-linear-stability-refusals.md#ci-follow-up-sparse-balance-without-artificial-springs).
 
+#### Buckling round-off bounds follow actual constraint coupling (2026-11-11)
+
+2D and 3D buckling now propagate axial-force round-off bounds only through connected stiffness, member and constraint-transform DOFs. A constraint wholly inside a separate structure no longer makes that structure's large forces suppress a resolved column compression. Native and WASM buckling, the omitted-member check and the certificate entry points use the same bounds. Genuinely coupled round-off compressions still refuse at the unchanged thresholds. See [the results-change evidence](docs/results-changes/2026-11-buckling-component-round-off.md).
+
+Unconstrained 3D members sharing a free warping DOF also share their round-off bounds, including when all six ordinary joint DOFs are restrained. Compression within that coupled uncertainty can newly be refused. Only members that actually transmit warping join through that DOF; non-warping sections, trusses and torsion releases preserve independent column modes and factors. An unrelated warping section cannot join their bounds. The results-change notice covers member buckling and web P-Delta without requiring constraints, including saved P-Delta B2 factors, stability and second-order metadata.
+
 #### 3D inclined supports count restraints in a common frame (2026-11-08)
 
 The 3D kinematic degree now counts the rank of the inclined normal and positive global-axis spring directions together. PR [#1780](https://github.com/lambdaclass/stabileo/pull/1780) had combined the local normal slot with the global-X spring slot, undercounting independent directions and sometimes counting coincident directions twice. A normal `(0, 0, 1)` and a positive `kx` contribute two translational restraints. The exact reproducer and 48 direction combinations derive their expected counts geometrically. See [the results change](docs/results-changes/2026-11-inclined-3d-restraint-directions.md). This branch correction is not released or deployed.
@@ -225,9 +231,25 @@ The blog announces 0.5.0 in English, Spanish and Portuguese: the twenty-three ad
 0.4.0, twenty-two of them fixed, the results version of each, the other changes that move results, what is warned or refused until its fix
 lands, and what else is new. Its numbers follow `docs/releases/v0.5.0.md`.
 
+#### Replay the remaining open wrong-result candidates on current main
+
+Record all 94 candidates outside the existing cause-C replay, with exact body/comment inputs, targeted native and public WASM observations, independent references and explicit unresolved evidence. Add 28 exact-model refusal regressions and an independent buckling control; prove the refusal tests fail on historical main parents. Extend the replay audit to check both archives and record the silently wrong staged-analysis witness for coordinator review. Engine results, oracles and tolerances are unchanged.
+
+#### Conditioning issue replay after the linear stability and pin-coupling fixes (2026-11-11)
+
+Record targeted native replays of the first 30 open cause:C issues, including supplied nightly comment models, and list the remaining 35 for the next batch. Add seven exact-model refusal regressions; retain the existing absolute-reference regression for the corrected soft-axis cantilever. The report distinguishes confirmed refusals and correct answers from false refusals, contradicted raw limit-analysis bounds, and missing reference evidence. Engine results and tolerances are unchanged.
+
+#### Complete the remaining conditioning issue replays (2026-11-11)
+
+Classify the remaining 35 cause:C issues using targeted native witnesses, add thirteen permanent refusal regressions, and record unresolved warned results, false refusals and oracle defects. Compact both batches' JSON evidence into input references, key observations and verdicts. Engine results and tolerances are unchanged.
+
 #### Combination-only overflow regression coverage (2026-11-08)
 
 Added 2D and 3D multi-case regressions for prepared and settlement-triggered per-case solves where every individual case returns finite results, but the combination overflows (#1761). The prepared regressions also verify the aggregate non-finite-result guard for an overflowing combined second-order ratio with finite displacements, reactions and member forces. Engine behavior is unchanged.
+
+#### Verify the seven frozen shell refusals from the regression audit (2026-11-11)
+
+Preserve all seven frozen models, prove their physical in-plane rigid rotation, and compare their displacements with two restrained references. Add targeted native dense/sparse and real WASM checks. The static refusals are correct; engine results and benchmark expectations are unchanged. Record the separate staged-construction coverage gap in [the verification report](docs/verification/1753-frozen-shell-refusals.md).
 
 #### One stability verdict that does not depend on units, orientation or numbering (2026-11-08)
 
@@ -277,9 +299,17 @@ Merge main into PR #1921, retaining both branches’ advisory listings in number
 
 Merge main into the fibre load-control branch, retaining both parents' advisory records, status notes in all six blog languages, result-change registry entries, write-ups and changelog fragments. List advisory summaries in number order. The merge retains main's P-Delta correction alongside the branch's fibre load-control refinement.
 
+#### Tighten candidate replay evidence and diagnostic assertions
+
+Link the silent multi-member and multi-stage comment witnesses to the existing #1846 coordinator escalation. Record exact regression symbols and audit historical test inventories, qualify unretained warning evidence, and assert every expected structured diagnostic field, including messages for all 13 support-conflict regressions. Engine results and tolerances are unchanged.
+
 #### Changelogs and soundness priorities through November 11 (2026-11-11)
 
 The website changelog summarizes the weeks ending November 6 and November 11 in all six public languages. The roadmap records merged soundness work, current issue counts by cause, the replay and regression audits, and the bug-first order of the remaining work. `make changelog.unreleased` refreshes CHANGELOG.md from the current fragments without removing them; releases still consume the fragments.
+
+#### Changelogs and soundness priorities through November 12 (2026-11-12)
+
+Extend the current website changelog week in all six public languages with component-local buckling bounds, saved buckling/P-Delta rechecks, candidate replay evidence and the seven justified shell refusals. Refresh the file changelog from fragments and the roadmap from merged work and open PRs, keeping silent-result fixes ahead of false refusals and recording deferred follow-ups. Engine results are unchanged by this documentation update.
 
 #### Heavy dispatches get their own runners, and Runner Pools watches the engine pool (2026-11-08)
 
@@ -750,6 +780,10 @@ axial stiffness. Recovered axial force sign checks remain in place. Invalid stat
 return `contact_state_invalid` without results (#1932, follow-up to #1921).
 See the [results-change write-up](docs/results-changes/2026-11-frozen-inactive-one-way-members.md).
 
+#### Retain the unresolved warped-shell warning in the website changelog (2026-11-11)
+
+The November 6 entry again warns in all six public languages about the MITC4/MITC9 warped-shell formulation defect tracked by [#1057](https://github.com/lambdaclass/stabileo/issues/1057). It distinguishes the warnings and refusals merged in [#1074](https://github.com/lambdaclass/stabileo/pull/1074) from the formulation correction, which remains outstanding. Engine behavior is unchanged.
+
 #### Reject self-certified buckling and time-history comparison allowances (2026-11-10)
 
 Buckling comparison budgets check the matching reciprocal interval and zero crossings independently of the returned factor. Time-history defects must satisfy an independent load-based accuracy ceiling. Betti checks reject invalid projected bounds directly, and an absent zero-load item contributes zero error. The 3D harmonic and forced time-history mirror checks now compare representable models and record refusals and unrepresentable transforms for the rest. The retained dynamic wrong-result advisory is SA-2026-056 and appears as a pending draft in all six blog languages. No engine results or fixed comparison tolerances change.
@@ -765,6 +799,26 @@ Metamorphic comparisons account for true linear residuals, damping and resonance
 #### Reject self-certified invariance errors and exercise public dynamic entry points (2026-11-10)
 
 Metamorphic PCG residual allowances now require an independent accuracy ceiling. Negative buckling factors use the absolute reciprocal radius, and intervals crossing zero grant no finite allowance. Dynamic adapters compare public solver results and verify diagnostic results before using their error data. Regressions lock retained failures, every documented #1763 relation, and successful 3D moving-load comparisons with planted errors. No engine results change.
+
+#### Enforce both-copy silence evidence and per-mode replay accuracy
+
+Require diagnostics for both compared staged unit copies before establishing a silent discrepancy. Retain transformed warnings for three related comments and withdraw their unsupported silence claims. Compare each buckling control mode directly against the unchanged relative-error budget, with negative and boundary self-tests. Engine results and issue body classifications are unchanged.
+
+#### Derive replay warning flags from retained diagnostics
+
+Correct the three stale #1101 comment 5 near-mechanism flags and mark flags without matching retained diagnostics as unverifiable. Retain a reproducible audit/regeneration script and clarify warning provenance in the replay table. Engine results and issue classifications are unchanged.
+
+#### Correct conditioning replay evidence summaries
+
+Record both selected #761 fiber convergence refusals alongside the P-Delta false refusals, and include the archived #1530 comment refusal in the JSON summary to match the report table. Issue classifications and engine results are unchanged.
+
+#### Install browser system dependencies from cached packages before contacting apt mirrors
+
+Key the existing browser .deb cache on Playwright's actual package list and the runner image and architecture. Try installation with cached .debs and downloads disabled before updating apt. If Azure's Ubuntu mirror cannot resolve, use temporary apt sources pointing to archive.ubuntu.com and security.ubuntu.com for this dependency step. Retry apt DNS and fetch failures as infrastructure failures. Preserve the tested browsers, test assertions and timeout budgets.
+
+#### Share browser system dependency installation across workflows
+
+Route deployment, performance and production health browser packages through the same cached installer as Determinism and E2E. Support standalone pinned Playwright installations without requiring Nix. Verify the Linux package planning contract against a recording from lockfile-pinned Playwright 1.60.0, including refusal when the expected apt simulation is absent.
 
 #### Results Snapshot keeps the full registry history in the merge queue (2026-11-10)
 
@@ -797,6 +851,10 @@ Modal analysis now checks the Frobenius norm of the normalized mass Gram matrix 
 #### Translate the Fehér cut-strip research summary into Spanish and Portuguese (2026-11-10)
 
 The Fehér 2026 cut-strip entry now shows Spanish and Portuguese translations of its current English summary instead of falling back to English. The translations preserve the initially flat strip, vertical clamps, midpoint loading and variable bending stiffness of the elastica model.
+
+#### Reject nonfinite frozen shell test responses (#1948)
+
+Require finite reference, solver and dense-solution components before reducing displacement errors or norms. Share the native comparison check across the restrained controls and dense/sparse test, add NaN and infinity regressions, and move the test helpers into `engine/tests`. Production engine results are unchanged.
 
 #### Certify both harmonic damping anchors and retain spectral checks without a residual (2026-11-10)
 
@@ -896,6 +954,10 @@ The measured `/en/research/` footprint falls from 2,019,882 to 1,994,323 bytes, 
 #### Results-pass inventory includes snapshot gate applicability checks (2026-11-10)
 
 The harness architecture check now expects `applicability-context.test.ts` in the results pass because it checks snapshot gate behaviour against the results corpus. The exact file-list assertion remains enforced. No engine results or numerical tolerances change.
+
+#### Create unique scratch directories for harness self-tests (2026-11-11)
+
+The seeded replay and nightly findings self-tests now create unique temporary directories and clean them up on exit, including assertion failures. They run when `CARGO_TARGET_DIR` points elsewhere and the repository's `target/` directory does not exist. Replay output write errors identify the destination path. No engine results or numerical assertions change.
 
 #### Support-angle validation and rotation consistency (2026-11-09)
 
