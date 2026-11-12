@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { checkStoredEvidence } from './arc-evidence-equilibrium.mjs';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 import { compareFrozen, freezeValues } from '../../web/scripts/results-snapshot/frozen.mjs';
@@ -42,3 +43,5 @@ for (const suffix of ['0015ab84c3baa36f', '022317310499426d']) {
   assert.equal(compareFrozen(snapshot.values, freezeValues(r, 'nonlinear')).differs, false);
   console.log(`PASS ${name}: reactions and every serialized field`);
 }
+
+checkStoredEvidence();

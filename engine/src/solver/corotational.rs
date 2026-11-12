@@ -2847,3 +2847,31 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod r8_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    #[ignore = "known wrong result: #1952"]
+    fn issue_1952_r8_stabilized_released_slave_recovery() {
+        let mut m: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-2d.json")).unwrap();
+        m["elements"]["1"]["hingeEnd"] = json!(true);
+        m["supports"]["0"]["dry"] = json!(0.0013);
+        m["constraints"] = json!([{"type":"equalDOF","masterNode":0,"slaveNode":1,"dofs":[2]}]);
+        m["loads"] = json!([]);
+        let input: SolverInput = serde_json::from_value(m).unwrap();
+        let dofs = DofNumbering::build_2d(&input);
+        let cs = FreeConstraintSystem::build_2d(&input,&dofs).unwrap();
+        let slave = dofs.global_dof(1,2).unwrap();
+        let mut u = vec![0.0;dofs.n_total];
+        u[slave] = 0.0013;
+        u[dofs.global_dof(0,2).unwrap()] = 0.0013;
+        let physical = build_final_results(&input,&dofs,&u,&cs,&[],&[]).unwrap();
+        for k in [1e-6,1.0,1e6] {
+            let stabilized = build_final_results(&input,&dofs,&u,&cs,&[(slave,k)],&[]).unwrap();
+            assert_eq!(serde_json::to_value(stabilized).unwrap(),serde_json::to_value(&physical).unwrap());
+        }
+    }
+}

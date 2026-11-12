@@ -1027,3 +1027,14 @@ fn validation_staged_ext_8_staged_vs_instantaneous() {
             &format!("Node {} mz", sr.node_id));
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1952"]
+fn issue_1952_r8_stage_displacement_assertion_rejects_missing_nodes() {
+    let reference: AnalysisResults = serde_json::from_value(serde_json::json!({"displacements":[{"nodeId":1,"ux":0.0,"uz":0.0,"ry":0.0},{"nodeId":2,"ux":0.0,"uz":0.0,"ry":0.0}],"reactions":[],"elementForces":[]})).unwrap();
+    for count in [0,1] {
+        let mut incomplete = reference.clone();
+        incomplete.displacements.truncate(count);
+        assert!(std::panic::catch_unwind(|| assert_stage_displacements(&incomplete, &[&reference])).is_err());
+    }
+}
