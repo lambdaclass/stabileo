@@ -179,7 +179,7 @@ fn issue_1964_linear_certificate_accepts_record_ids_independent_of_map_keys() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1965; false refusal at the modal basis rounding bound"]
+#[ignore = "known wrong result: #1965"]
 fn issue_1965_rotation_preserves_the_two_finite_modes_of_rank_two_mass() {
     let value = witness("1965");
     let original: SolverInput = serde_json::from_value(value.clone()).unwrap();
@@ -195,6 +195,26 @@ fn issue_1965_rotation_preserves_the_two_finite_modes_of_rank_two_mass() {
         &modal_eigenvalues(&base.results),
         cond,
     );
+    for (answer, reference) in [
+        (&base, [229973.5106775624807203244627724831574865, 6243695.142236023281772709849489862244977]),
+        (&result, [229973.5106775600935160982784968364555173, 6243695.142236013914171040611438743782218]),
+    ] {
+        let certify::modal::ModalCertificate::Certified { modes, complete_modes, .. } = &answer.certificate else { panic!("{:?}", answer.certificate) };
+        assert_eq!(*complete_modes, 2);
+        assert_eq!(modes.len(), 2);
+        for (mode, lambda) in modes.iter().zip(reference) {
+            assert!(mode.omega2_lower <= lambda && lambda <= mode.omega2_upper, "{mode:?} excludes {lambda}");
+        }
+        assert_rank_two_modes_match(&modal_eigenvalues(&answer.results), &reference, cond);
+    }
+    use dedaliano_engine::metamorphic::transform::{transform_2d, Iso2};
+    for angle in [0.0, std::f64::consts::FRAC_PI_2, std::f64::consts::PI, 3.0*std::f64::consts::FRAC_PI_2] {
+        let model = transform_2d(&original, &Iso2::rotation(angle)).unwrap();
+        let raw = dedaliano_engine::solver::modal::solve_modal_2d(&model, &densities, 6).unwrap();
+        let checked = certify::modal::certify_modal_2d(&model, &densities, 6).unwrap();
+        assert_rank_two_modes_match(&modal_eigenvalues(&raw), &modal_eigenvalues(&base.results), cond);
+        assert_eq!(modal_eigenvalues(&raw), modal_eigenvalues(&checked.results));
+    }
     finite(&base);
     finite(&result);
 }
