@@ -826,3 +826,37 @@ it('known wrong result: #1952: merged path registry covers every changed frozen 
   }
   expect(fieldCovered(mergedPathChange, 'nonlinear.steps[0].controlDisplacement', ['members', 'analysis:nonlinear'])).toBe(false);
 });
+
+
+describe('staged history path applicability (#1952)', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'staged-history-forces-unavailable')!;
+
+  it.skip('known wrong result: #1952: ordinary frames and shells never acquire staged path notices', () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      for (const structure of [{ elements: [member(1, 1, 'frame')] }, { quads: [[1, {}]] as never }]) {
+        const snapshot = model({ ...structure, analysisMode });
+        for (const analysis of ['linear', 'nonlinear', 'pdelta'] as const) {
+          const stamp = { ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1 };
+          const { recorded: _recorded, ...legacy } = stamp;
+          for (const provenance of [null, stamp, legacy]) {
+            expect(ids(snapshot, provenance), `${analysisMode} ${analysis}`).not.toContain(entry.id);
+          }
+        }
+      }
+    }
+  });
+
+  it('retains explicit path coverage in both dimensions at the version boundary', () => {
+    for (const dimension of ['plane2D', 'space3D']) {
+      for (const structure of ['members', 'shells']) {
+        const features = new Set([dimension, structure, 'pathAnalysis', 'analysis:linear', 'analysis:nonlinear']);
+        expect(conditionHolds(entry.when ?? {}, features)).toBe(true);
+        const snapshot = model();
+        const stamp = { ...stampSolve('nonlinear', null), resultsVersion: entry.resultsVersion - 1 };
+        expect(assessProject(snapshot, stamp, undefined, RESULT_CHANGES, features).changes.map(c => c.id)).toContain(entry.id);
+        expect(assessProject(snapshot, { ...stamp, resultsVersion: entry.resultsVersion }, undefined, RESULT_CHANGES, features).changes.map(c => c.id)).not.toContain(entry.id);
+        expect(conditionHolds(entry.when ?? {}, new Set([dimension, 'pathAnalysis']))).toBe(false);
+      }
+    }
+  });
+});

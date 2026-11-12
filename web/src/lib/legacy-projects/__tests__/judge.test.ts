@@ -98,12 +98,24 @@ describe('analysis-scoped reaction quantities (#1952)', () => {
 });
 
 describe('staged history quantity scope (#1952)', () => {
+  it.skip('known wrong result: #1952: staged fields require path context through the snapshot gate', () => {
+    for (const dimension of ['plane2D', 'space3D']) {
+      for (const structure of ['members', 'shells']) {
+        for (const path of ['stages[0].results.reactions.length', 'finalResults.elementForces.length']) {
+          const features = [dimension, structure, 'analysis:linear', 'analysis:nonlinear'];
+          expect(fieldCovered(stagedHistoryChange, path, features), path).toBe(false);
+          expect(fieldCovered(stagedHistoryChange, path, [...features, 'pathAnalysis']), path).toBe(true);
+        }
+      }
+    }
+  });
+
   it('known wrong result: #1952: staged declarations cannot authorize other analysis collections', () => {
     const metadata = RESULT_CHANGES.changes.find(c => c.id === stagedHistoryChange.id)!;
     const exported = { ...metadata, quantities: declaredQuantities[metadata.id] };
     for (const dimension of ['plane2D', 'space3D']) {
       for (const structure of ['members', 'shells']) {
-        const features = [dimension, structure, 'analysis:linear', 'analysis:nonlinear', 'analysis:pdelta'];
+        const features = [dimension, structure, 'pathAnalysis', 'analysis:linear', 'analysis:nonlinear', 'analysis:pdelta'];
         for (const family of ['base', 'case[1]', 'combo[1]', 'envelope.maxAbs', 'pdelta.results', 'nonlinear.results']) {
           for (const quantity of ['reactions[n1].rz', 'elementForces[e1].mStart', 'constraintForces[0].force', 'plateStresses[e1].sigmaXx', 'quadStresses[e1].sigmaXx', 'quadNodalStresses[0].sigmaXx', 'structuredDiagnostics[0].message', 'displacements[n1].uz']) {
             const path = `${family}.${quantity}`;

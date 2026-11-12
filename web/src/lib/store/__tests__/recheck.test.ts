@@ -317,6 +317,17 @@ describe('edited projects with older provenance', () => {
     expect(store.stale).toBe(false);
   });
 
+  it.skip('known wrong result: #1952: opening ordinary linear frames excludes staged path corrections', async () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      const store = createRecheckStore();
+      store.openProject({ ...frame(), analysisMode, solvedWith: { ...oldStamp(), resultsVersion: 30 } }, analysisMode);
+      await vi.waitFor(() => expect(store.pending).toBe(false));
+      expect(store.assessment?.changes.map(c => c.id)).not.toContain('staged-history-forces-unavailable');
+      expect(store.noticeOpen).toBe(true);
+      expect(store.stale).toBe(true);
+    }
+  });
+
   it('a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {
     const store = createRecheckStore();
     store.openProject({ ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } }, 'pro');
