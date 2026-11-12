@@ -57,3 +57,12 @@ solutions agree with the independent reference. #1901's closure stays valid.
 See [the reference and replay evidence](../verification/candidate-1901-after-truss-balance.md).
 The review changes no engine results or limits and needs no additional registry
 entry beyond `truss-member-load-balance`.
+
+After merging main `581495d9c`, main's physical nonlinear convergence check
+supersedes the preceding pre-merge convergence measurements for #1901. Every
+loaded #1901 orientation now returns explicit P-Delta nonconvergence; independent
+Decimal residual evaluation confirms the last iterates do not satisfy the
+requested equilibrium tolerance. Original and embedded linear reference checks
+remain passing. The verification note documents the audit and exact unloaded
+controls. This test correction adds no engine change beyond main's existing
+`nonlinear-physical-convergence` and associated registry entries.

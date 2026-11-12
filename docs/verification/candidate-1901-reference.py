@@ -27,10 +27,10 @@ def solve(a, b):
     return x
 
 
-def reference(precision):
+def reference(precision, input_model=None, audit_displacements=None, iteration_tolerance=D('1e-12')):
     with localcontext() as context:
         context.prec = precision
-        s = json.loads(Path('engine/tests/fixtures/candidate-replay.json').read_text(), parse_float=D)['1901-body-0']
+        s = input_model if input_model is not None else json.loads(Path('engine/tests/fixtures/candidate-replay.json').read_text(), parse_float=D)['1901-body-0']
         assert not s['constraints'] and not s['connectors']
         assert all(not e['hingeStart'] and not e['hingeEnd'] for e in s['elements'].values())
         assert all(section.get('asY') is None for section in s['sections'].values())
@@ -95,10 +95,7 @@ def reference(precision):
             for i, v in zip(free, solution):
                 result[i] = v
             return result
-        linear = full_solve(k)
-        u = linear[:]
-        converged = False
-        for iteration in range(100):
+        def tangent_at(u):
             tangent = [row[:] for row in k]
             for length, ea, transform, axial, shapes, geom in members.values():
                 local_u = [sum((t * v for t, v in zip(row, u)), D(0)) for row in transform]
@@ -106,14 +103,36 @@ def reference(precision):
                 for i in range(n):
                     for j in range(n):
                         tangent[i][j] += force * sum((transform[a][i] * geom[a][b] * transform[b][j] for a in range(6) for b in range(6) if transform[a][i] and transform[b][j]), D(0))
-            v = full_solve(tangent)
+            return tangent
+        linear = full_solve(k)
+        u = linear[:]
+        converged = False
+        for iteration in range(100):
+            v = full_solve(tangent_at(u))
             norm = sum((v[i] ** 2 for i in free), D(0)).sqrt()
             diff = sum(((v[i] - u[i]) ** 2 for i in free), D(0)).sqrt()
             u = v
             relative = diff / norm
-            if relative < D('1e-12'):
+            if relative < iteration_tolerance:
                 converged = True
                 break
+        if audit_displacements is not None:
+            assert len(audit_displacements) == len(nodes)
+            assert {d['nodeId'] for d in audit_displacements} == set(index)
+            assert all(D(d[field]).is_finite() for d in audit_displacements for field in ['ux', 'uz', 'ry'])
+            evaluated = [D(0)] * n
+            for d in audit_displacements:
+                for j, field in enumerate(['ux', 'uz', 'ry']):
+                    evaluated[index[d['nodeId']] + j] = D(d[field])
+            tangent = tangent_at(evaluated)
+            residual = [sum((tangent[i][j] * evaluated[j] for j in range(n)), D(0)) - f[i] for i in range(n)]
+            center = [sum((node[field] for node in nodes), D(0)) / len(nodes) for field in ['x', 'z']]
+            length = max(sum(((node[field] - center[j]) ** 2 for j, field in enumerate(['x', 'z'])), D(0)).sqrt() for node in nodes)
+            def dual_norm(values):
+                return sum(((values[i] / (length if i % 3 == 2 else D(1))) ** 2 for i in free), D(0)).sqrt()
+            relative_residual = dual_norm(residual) / dual_norm(f)
+            error = max(abs(evaluated[i] - u[i]) / max(D(1), abs(u[i])) for i in free)
+            return {'relativeResidual': str(relative_residual), 'relativeDisplacementError': str(error)}
         return {'precision': precision, 'linear': [{'nodeId': node['id'], **{name: str(linear[index[node['id']] + j]) for j, name in enumerate(['ux', 'uz', 'ry'])}} for node in nodes], 'pdelta': {'iterations': iteration + 1, 'converged': converged, 'relativeUpdate': str(relative), 'displacements': [{'nodeId': node['id'], **{name: str(u[index[node['id']] + j]) for j, name in enumerate(['ux', 'uz', 'ry'])}} for node in nodes]}}
 
 

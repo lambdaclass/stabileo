@@ -77,3 +77,42 @@ check, as recorded by the archived replay and confirmed by restoring its
 conditional-balance implementation for the final reference regression. This
 is a false refusal, not evidence of a silent wrong result on main or a release.
 No advisory is added.
+
+## Main merge at `581495d9c`
+
+The preceding measurements describe the pre-merge branch. Main's #1940 changes
+now require physical equilibrium as well as a small relative increment for
+P-Delta. After merging, the original, rotated and XZ/XY/YZ #1901 models all
+exhaust 100 iterations with `converged = false` and `isStable = false`. Native
+analysis adapters also reject every orientation and planar entry point with
+`did not converge`. Linear comparisons for the original and three embeddings
+retain the same reference artifact and `1e-8` comparison budget.
+
+The earlier requirement for convergence of the rotated and embedded nonlinear
+models is superseded by explicit refusal checks. This is supported by an
+independent numerical check, not just by recording the new engine flags.
+`make test.engine.candidate-1901-wasm` exports all five actual nonlinear results
+and audits them with `candidate-1901-audit.py`. The audit reuses the Decimal
+strain-energy and load assembly, rebuilds geometric stiffness at each reported
+iterate, and computes the free-force residual with moments divided by the
+centroidal model length. It imports no production engine matrices or kernels.
+The spatial results are projected into their original 2D plane; the rotated
+case uses its actual rounded input coordinates directly.
+
+In the merged WASM replay, the independent relative residuals range from
+`2.3572e-5` to `7.4719e-5`, above the requested `1e-12`. Componentwise nonlinear
+displacement errors range from `1.5565e-5` to `3.8934e-5`, above the existing
+`1e-8` reference budget. These are rejected iterates, not accepted answers.
+The audit requires both failures explicitly. Its positive reference continues
+the Decimal iteration to a stricter `1e-45` relative update, then independently
+requires residual below `1e-12`. Zero and reversed displacement mutations must
+fail that residual criterion. The original reference JSON remains byte-identical;
+its update-based stopping rule alone is not used as proof of physical convergence.
+
+Native and WASM unloaded versions of the same structure still converge in one
+iteration and return exactly zero displacement. Main's loaded independent
+cantilever, rotation and supported-load regression targets also remain passing.
+No nonlinear answer is asserted for the loaded #1901 witnesses, no convergence
+or accuracy limit is relaxed, and no engine implementation is changed by this
+merge resolution. The rotated linear result is checked against the standalone
+linear call; it is not newly claimed to satisfy the unrotated reference budget.

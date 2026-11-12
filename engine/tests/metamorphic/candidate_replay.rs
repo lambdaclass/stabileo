@@ -398,17 +398,26 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
     )
     .unwrap();
     let nonlinear = pdelta::solve_pdelta_2d(&rotated, 100, 1e-12).unwrap();
-    assert!(nonlinear.converged);
-    for d in &nonlinear.results.displacements {
-        displacement_1901(
-            d.node_id,
-            [
-                angle.cos() * d.ux + angle.sin() * d.uz,
-                -angle.sin() * d.ux + angle.cos() * d.uz,
-                d.ry,
-            ],
-            &reference["pdelta"]["displacements"],
-        );
+    assert!(!nonlinear.converged && !nonlinear.is_stable);
+    assert_eq!(nonlinear.iterations, 100);
+    let adapter2 = ana2::rows()
+        .into_iter()
+        .find(|a| a.name == "P-Delta")
+        .unwrap();
+    assert_eq!(
+        (adapter2.run)(&Case2::new("1901 rotated", rotated.clone())).unwrap_err(),
+        "did not converge"
+    );
+    for model in [&solver, &rotated] {
+        let mut unloaded = model.clone();
+        unloaded.loads.clear();
+        let control = pdelta::solve_pdelta_2d(&unloaded, 100, 1e-12).unwrap();
+        assert!(control.converged && control.is_stable);
+        assert_eq!(control.iterations, 1);
+        for d in &control.results.displacements {
+            assert_eq!([d.ux, d.uz, d.ry], [0.0; 3]);
+        }
+        (adapter2.run)(&Case2::new("1901 unloaded", unloaded)).unwrap();
     }
     let embeddings: Value =
         serde_json::from_str(include_str!("../fixtures/candidate-1901-embeddings.json")).unwrap();
@@ -444,19 +453,30 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
             }
         }
         let nonlinear = pdelta::solve_pdelta_3d(&embedded, 100, 1e-12).unwrap();
-        assert!(nonlinear.converged);
-        for d in &nonlinear.results.displacements {
-            let project = |a: [f64; 3], b: [f64; 3]| a.into_iter().zip(b).map(|(a, b)| a * b).sum();
-            displacement_1901(
-                d.node_id,
-                [
-                    project([d.ux, d.uy, d.uz], plane.e1()),
-                    project([d.ux, d.uy, d.uz], plane.e2()),
-                    project([d.rx, d.ry, d.rz], plane.normal()),
-                ],
-                &reference["pdelta"]["displacements"],
-            );
+        assert!(!nonlinear.converged && !nonlinear.is_stable);
+        assert_eq!(nonlinear.iterations, 100);
+        let adapter3 = ana3::rows()
+            .into_iter()
+            .find(|a| a.name == "P-Delta")
+            .unwrap();
+        assert_eq!(
+            (adapter3.run)(&Case3::new("1901 embedded", embedded.clone())).unwrap_err(),
+            "did not converge"
+        );
+        let case2 = Case2::new("1901 planar", solver.clone());
+        assert_eq!(
+            (adapter2.planar.unwrap())(&case2, plane, &embedded).unwrap_err(),
+            "did not converge"
+        );
+        let mut unloaded = embedded.clone();
+        unloaded.loads.clear();
+        let control = pdelta::solve_pdelta_3d(&unloaded, 100, 1e-12).unwrap();
+        assert!(control.converged && control.is_stable);
+        assert_eq!(control.iterations, 1);
+        for d in &control.results.displacements {
+            assert_eq!([d.ux, d.uy, d.uz, d.rx, d.ry, d.rz], [0.0; 6]);
         }
+        (adapter3.run)(&Case3::new("1901 unloaded embedded", unloaded)).unwrap();
     }
     refused(1901, "P-Delta", "did not converge", None);
 }
