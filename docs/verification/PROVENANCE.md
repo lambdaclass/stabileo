@@ -32,7 +32,11 @@ the source files, fingerprints and measured quantities in the change's evidence.
 No comparison tolerance or historical corpus value is changed by this mechanism.
 
 Feature ids are defined in `web/src/lib/provenance/model-features.ts`, read from the saved
-snapshot. When in doubt a feature counts as present: a false "present" shows one notice too many,
+snapshot. The `stagedConstruction` feature requires nonempty
+`designData.site.phases`. Manually entered advanced-panel stages and their results
+are transient and do not replace saved base results. Staged-only numerical
+entries name `stages` and `finalResults`, so they cannot excuse changes to base
+linear forces or displacements. When in doubt a feature counts as present: a false "present" shows one notice too many,
 a false "absent" hides a change that moved the engineer's numbers. In particular, a steel code
 not bound to another code counts as CIRSOC 301, an unbound concrete code as CIRSOC 201, and
 analyses a project's stamp does not record count as run. A stamp lists the analyses it knows

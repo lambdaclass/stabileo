@@ -1,0 +1,728 @@
+{
+  "date": "2026-11-11",
+  "tested_main": "85c002b3a378a076fe118d75fcb665b5099dba46",
+  "source": "Supplied read-only candidate-replay/docs/verification/candidate-replay-2026-11-11.json, staged_followups for #1846; independent observations retained unchanged.",
+  "fixture": "engine/tests/fixtures/staged-orphan-1846.json",
+  "observations": [
+    {
+      "issue": 1846,
+      "side": "original",
+      "input_ref": "engine/tests/fixtures/candidate-replay.json#staged:1846:original",
+      "input_sha256": "849d6bb7726819e78b6837d9053f180ceb6a58c229128dcc10965d11130d1e14",
+      "native_staged": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "rx": 35.59064052615643,
+            "ry": 0.0,
+            "rz": -1.195295539594349,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          }
+        ],
+        "diagnostics": []
+      },
+      "public_wasm_staged": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ux": 0,
+            "uy": 0,
+            "uz": 0,
+            "rx": 0,
+            "ry": 0,
+            "rz": 0
+          },
+          {
+            "nodeId": 2,
+            "ux": 0,
+            "uy": 0,
+            "uz": 0,
+            "rx": 35.59064052615643,
+            "ry": 0,
+            "rz": -1.195295539594349
+          }
+        ],
+        "diagnostics": []
+      },
+      "regular_linear": {
+        "status": "solved",
+        "diagnostics": [
+          {
+            "code": "dense_lu",
+            "severity": "info",
+            "message": "Dense solver (2 free DOFs)",
+            "phase": "solve"
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "Dense solver residual 1.90e-16 (2 free DOFs)",
+            "phase": "solve",
+            "value": 1.899624673373767e-16,
+            "threshold": 1e-06
+          },
+          {
+            "code": "known_issue",
+            "severity": "warning",
+            "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 \u2212 cos \u03b8 \u2248 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+            "elementIds": [
+              1
+            ],
+            "nodeIds": [
+              2
+            ],
+            "phase": "LIN-SMALL-DISPLACEMENT",
+            "value": 1446.0,
+            "threshold": 0.1,
+            "elementKind": "frame"
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_residual: 1.621e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_residual",
+            "value": 1.6209515150085103e-16,
+            "threshold": 1e-06
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_balance: 9.993e-18 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_balance",
+            "value": 9.99269977041172e-18,
+            "threshold": 1e-06
+          }
+        ],
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0,
+            "rx": 35.59064052615643,
+            "ry": 0.0,
+            "rz": -1.195295539594349
+          }
+        ],
+        "load_factors": null
+      },
+      "opensees": {
+        "displacements": {
+          "1": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "2": [
+            0.0,
+            0.0,
+            0.0,
+            35.59064052615686,
+            0.0,
+            -1.195295539594668
+          ]
+        },
+        "kappa": 1253.0264747915269
+      },
+      "reference_comparison": {
+        "disp_t": 0.0,
+        "disp_r": 1.2178231759979615e-14,
+        "reac_f": 1.7605242914236054e-13,
+        "reac_m": 4.327662842900303e-17,
+        "force_f": 1.762688890543157e-13,
+        "force_m": 3.205676179926151e-17
+      },
+      "reference_tolerance": 1e-06
+    },
+    {
+      "issue": 1846,
+      "side": "transformed",
+      "input_ref": "engine/tests/fixtures/candidate-replay.json#staged:1846:transformed",
+      "input_sha256": "1743948e3411b1bc016f527b39d308fc83606246c2d2932e24a6db91696a0a96",
+      "native_staged": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "rx": 0.16535440385032843,
+            "ry": 0.0,
+            "rz": -0.010728277534928964,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0
+          }
+        ],
+        "diagnostics": []
+      },
+      "public_wasm_staged": {
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ux": 0,
+            "uy": 0,
+            "uz": 0,
+            "rx": 0,
+            "ry": 0,
+            "rz": 0
+          },
+          {
+            "nodeId": 2,
+            "ux": 0,
+            "uy": 0,
+            "uz": 0,
+            "rx": 0.16535440385032843,
+            "ry": 0,
+            "rz": -0.010728277534928964
+          }
+        ],
+        "diagnostics": []
+      },
+      "regular_linear": {
+        "status": "solved",
+        "diagnostics": [
+          {
+            "code": "dense_lu",
+            "severity": "info",
+            "message": "Dense solver (2 free DOFs)",
+            "phase": "solve"
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "Dense solver residual 3.52e-16 (2 free DOFs)",
+            "phase": "solve",
+            "value": 3.523796721521939e-16,
+            "threshold": 1e-06
+          },
+          {
+            "code": "known_issue",
+            "severity": "warning",
+            "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 \u2212 cos \u03b8 \u2248 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+            "elementIds": [
+              1
+            ],
+            "nodeIds": [
+              2
+            ],
+            "phase": "LIN-SMALL-DISPLACEMENT",
+            "value": 1446.0,
+            "threshold": 0.1,
+            "elementKind": "frame"
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_residual: 4.809e-17 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_residual",
+            "value": 4.8094557942468385e-17,
+            "threshold": 1e-06
+          },
+          {
+            "code": "residual_ok",
+            "severity": "info",
+            "message": "PASS: self-check static_balance: 9.984e-18 (warning at 1.000e-6, refusal at 1.000e-3)",
+            "phase": "self_check:static_balance",
+            "value": 9.984464311653777e-18,
+            "threshold": 1e-06
+          }
+        ],
+        "displacements": [
+          {
+            "nodeId": 1,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0,
+            "rx": 0.0,
+            "ry": 0.0,
+            "rz": 0.0
+          },
+          {
+            "nodeId": 2,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0,
+            "rx": 35.590640526156434,
+            "ry": 0.0,
+            "rz": -1.195295539594351
+          }
+        ],
+        "load_factors": null
+      },
+      "opensees": {
+        "displacements": {
+          "1": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "2": [
+            0.0,
+            0.0,
+            0.0,
+            35.59064055794726,
+            0.0,
+            -1.1952955419833164
+          ]
+        },
+        "kappa": 1253.0264747915694
+      },
+      "reference_comparison": {
+        "disp_t": 0.0,
+        "disp_r": 8.932355662425042e-10,
+        "reac_f": 2.835652498561509e-13,
+        "reac_m": 5.328795855962257e-15,
+        "force_f": 2.8391411291396315e-13,
+        "force_m": 5.175485397063669e-15
+      },
+      "reference_tolerance": 1e-06
+    }
+  ],
+  "comment_witnesses": [
+    {
+      "key": "1846-6760758840-0",
+      "source": "https://github.com/lambdaclass/stabileo/issues/1846#issuecomment-6760758840",
+      "test": "metamorphic/staged (one stage)/units",
+      "seed": 2026111001689,
+      "input_ref": "engine/tests/fixtures/candidate-replay.json#1846-6760758840-0",
+      "input_sha256": "d308f5dab86937b8513bd301e607cca488a7bc1ba87c1d1523978ecee8971355",
+      "reported_details": [
+        "[\"replay: rotation r@n2[1]: got 1.3690211093e0, expected 2.5827800947e1, |diff| 2.446e1 > tol 1.179e-5 (scale 1.266e5, rel 9.31e-11)\"]"
+      ],
+      "observed": {
+        "base": {
+          "refusals": [],
+          "status": "solved",
+          "diagnostic_calls": [
+            []
+          ],
+          "near_mechanism_warning": false
+        },
+        "relations": [
+          {
+            "analysis": "staged (one stage)",
+            "failures": [
+              "replay: rotation r@n2[1]: got 1.3690211093e0, expected 2.5827800947e1, |diff| 2.446e1 > tol 3.580e-5 (scale 3.843e5, rel 9.31e-11)"
+            ],
+            "inconclusive": 0,
+            "invariant": "units",
+            "not_applicable": 0,
+            "notes": {},
+            "pass": 0,
+            "refused": 0,
+            "same_refusal": 0,
+            "unrepresentable": 0,
+            "worst": 0.0
+          }
+        ],
+        "independent_linear": {
+          "status": "solved",
+          "diagnostics": [
+            {
+              "code": "dense_lu",
+              "message": "Dense solver (6 free DOFs)",
+              "phase": "solve",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "message": "Dense solver residual 1.31e-15 (6 free DOFs)",
+              "phase": "solve",
+              "severity": "info",
+              "threshold": 1e-06,
+              "value": 1.3137772553994887e-15
+            },
+            {
+              "code": "known_issue",
+              "elementIds": [
+                1,
+                2
+              ],
+              "elementKind": "frame",
+              "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 \u2212 cos \u03b8 \u2248 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+              "nodeIds": [
+                2,
+                3
+              ],
+              "phase": "LIN-SMALL-DISPLACEMENT",
+              "severity": "warning",
+              "threshold": 0.1,
+              "value": 1446.0
+            },
+            {
+              "code": "known_issue",
+              "elementIds": [
+                2
+              ],
+              "elementKind": "frame",
+              "message": "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER)",
+              "phase": "LIN-SECOND-ORDER",
+              "severity": "warning",
+              "threshold": 0.07483,
+              "value": 1551.0
+            },
+            {
+              "code": "known_issue",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "severity": "warning",
+              "threshold": 0.07483,
+              "value": 1551.0
+            },
+            {
+              "code": "residual_ok",
+              "message": "PASS: self-check static_residual: 9.142e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "severity": "info",
+              "threshold": 1e-06,
+              "value": 9.142373140539516e-16
+            },
+            {
+              "code": "residual_ok",
+              "message": "PASS: self-check static_balance: 3.012e-16 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "severity": "info",
+              "threshold": 1e-06,
+              "value": 3.0120542308500283e-16
+            }
+          ],
+          "displacements": [
+            {
+              "nodeId": 1,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 2,
+              "rx": 0.0,
+              "ry": 25.827800947280622,
+              "rz": 0.0,
+              "ux": 0.21923551584108744,
+              "uy": 0.13059503905355802,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 3,
+              "rx": 384315.14005034853,
+              "ry": 0.0,
+              "rz": -8570.775773837955,
+              "ux": 0.0,
+              "uy": 0.046070516662243745,
+              "uz": 0.0
+            }
+          ],
+          "load_factors": null
+        }
+      },
+      "retained_input_ref": "engine/tests/fixtures/staged-review-comments.json#1846-6760758840-0"
+    },
+    {
+      "key": "1085-6760749658-0",
+      "source": "https://github.com/lambdaclass/stabileo/issues/1085#issuecomment-6760749658",
+      "test": "metamorphic/staged (one stage)/units",
+      "seed": 2026111004317,
+      "input_ref": "engine/tests/fixtures/candidate-replay.json#1085-6760749658-0",
+      "input_sha256": "b1c7572a93684a6dd5121dc55d4db60283b2aa89ccb2c0c4ed9d6778d41e5e56",
+      "reported_details": [
+        "[\"replay: translation u@n2[0]: got -7.6610907897e2, expected -5.7124491761e2, |diff| 1.949e2 > tol 2.321e1 (scale 2.688e4, rel 8.64e-4)\"]"
+      ],
+      "observed": {
+        "base": {
+          "refusals": [],
+          "status": "solved",
+          "diagnostic_calls": [
+            []
+          ],
+          "near_mechanism_warning": false
+        },
+        "relations": [
+          {
+            "analysis": "staged (one stage)",
+            "failures": [
+              "replay: translation u@n2[0]: got 1.6002586398e1, expected 1.5917273251e1, |diff| 8.531e-2 > tol 8.279e-2 (scale 9.586e1, rel 8.64e-4)"
+            ],
+            "inconclusive": 0,
+            "invariant": "units",
+            "not_applicable": 0,
+            "notes": {},
+            "pass": 0,
+            "refused": 0,
+            "same_refusal": 0,
+            "unrepresentable": 0,
+            "worst": 0.0
+          }
+        ],
+        "independent_linear": {
+          "status": "solved",
+          "diagnostics": [
+            {
+              "code": "dense_lu",
+              "message": "Dense solver (24 free DOFs)",
+              "phase": "solve",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "message": "Dense solver residual 1.30e-8 (24 free DOFs)",
+              "phase": "solve",
+              "severity": "info",
+              "threshold": 1e-06,
+              "value": 1.295611359879205e-08
+            },
+            {
+              "code": "known_issue",
+              "elementIds": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "elementKind": "frame",
+              "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 \u2212 cos \u03b8 \u2248 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+              "nodeIds": [
+                2,
+                3,
+                4,
+                5
+              ],
+              "phase": "LIN-SMALL-DISPLACEMENT",
+              "severity": "warning",
+              "threshold": 0.1,
+              "value": 1446.0
+            },
+            {
+              "code": "known_issue",
+              "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
+              "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+              "severity": "warning",
+              "threshold": 0.07483,
+              "value": 1551.0
+            },
+            {
+              "code": "residual_ok",
+              "message": "PASS: self-check static_residual: 1.612e-9 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "severity": "info",
+              "threshold": 1e-06,
+              "value": 1.6120639820255468e-09
+            },
+            {
+              "code": "residual_ok",
+              "message": "PASS: self-check static_balance: 4.322e-10 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "severity": "info",
+              "threshold": 1e-06,
+              "value": 4.3219261520619307e-10
+            }
+          ],
+          "displacements": [
+            {
+              "nodeId": 1,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 2,
+              "rx": -192.1124152399427,
+              "ry": 230.5316682823679,
+              "rz": -1565.611544078314,
+              "ux": 15917.280201965756,
+              "uy": -47654.302264001606,
+              "uz": -8970.206821845628
+            },
+            {
+              "nodeId": 3,
+              "rx": -192.11241358971162,
+              "ry": 230.5316680659587,
+              "rz": -1565.611556441404,
+              "ux": -23538.11373883804,
+              "uy": 33780.55659053752,
+              "uz": 7862.31134564431
+            },
+            {
+              "nodeId": 4,
+              "rx": -192.11240282007083,
+              "ry": 230.53166181639222,
+              "rz": -1565.6115568358687,
+              "ux": -52329.30388622897,
+              "uy": 38017.70935645404,
+              "uz": 12019.116956679341
+            },
+            {
+              "nodeId": 5,
+              "rx": -192.11241519084246,
+              "ry": 230.53166868046412,
+              "rz": -1565.6115626245748,
+              "ux": -56370.477057953445,
+              "uy": -46027.00977149249,
+              "uz": 139.66341094246036
+            }
+          ],
+          "load_factors": null
+        }
+      },
+      "retained_input_ref": "engine/tests/fixtures/staged-review-comments.json#1085-6760749658-0"
+    },
+    {
+      "key": "1011-6730900141-0",
+      "source": "https://github.com/lambdaclass/stabileo/issues/1011#issuecomment-6730900141",
+      "test": "metamorphic/staged (loads in two stages)/units",
+      "seed": 2026110904387,
+      "input_ref": "engine/tests/fixtures/candidate-replay.json#1011-6730900141-0",
+      "input_sha256": "15fd49248c7cd976f5100652b5d73234cd3f338cc50854e3d2c425f1a85316b9",
+      "reported_details": [
+        "[\"replay: translation u@n2[1]: got 5.6428048354e-4, expected 5.6439080867e-4, |diff| 1.103e-7 > tol 3.366e-13 (scale 8.899e0, rel 3.78e-14)\"]"
+      ],
+      "observed": {
+        "base": {
+          "refusals": [],
+          "status": "solved",
+          "diagnostic_calls": [
+            []
+          ],
+          "near_mechanism_warning": false
+        },
+        "relations": [
+          {
+            "analysis": "staged (loads in two stages)",
+            "failures": [
+              "replay: translation u@n2[1]: got 3.0537584520e-4, expected 3.0537546770e-4, |diff| 3.775e-10 > tol 4.380e-15 (scale 1.158e-1, rel 3.78e-14)"
+            ],
+            "inconclusive": 0,
+            "invariant": "units",
+            "not_applicable": 0,
+            "notes": {},
+            "pass": 0,
+            "refused": 0,
+            "same_refusal": 0,
+            "unrepresentable": 0,
+            "worst": 0.0
+          }
+        ],
+        "independent_linear": {
+          "status": "solved",
+          "diagnostics": [
+            {
+              "code": "dense_lu",
+              "message": "Dense solver (3 free DOFs)",
+              "phase": "solve",
+              "severity": "info"
+            },
+            {
+              "code": "residual_ok",
+              "message": "Dense solver residual 1.09e-17 (3 free DOFs)",
+              "phase": "solve",
+              "severity": "info",
+              "threshold": 1e-06,
+              "value": 1.0852713745909599e-17
+            },
+            {
+              "code": "known_issue",
+              "elementIds": [
+                1
+              ],
+              "elementKind": "frame",
+              "message": "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 \u2212 cos \u03b8 \u2248 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis (known issue #1446, LIN-SMALL-DISPLACEMENT)",
+              "nodeIds": [
+                2
+              ],
+              "phase": "LIN-SMALL-DISPLACEMENT",
+              "severity": "warning",
+              "threshold": 0.1,
+              "value": 1446.0
+            },
+            {
+              "code": "residual_ok",
+              "message": "PASS: self-check static_residual: 2.012e-17 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_residual",
+              "severity": "info",
+              "threshold": 1e-06,
+              "value": 2.01166648533602e-17
+            },
+            {
+              "code": "residual_ok",
+              "message": "PASS: self-check static_balance: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
+              "phase": "self_check:static_balance",
+              "severity": "info",
+              "threshold": 1e-06,
+              "value": 0.0
+            }
+          ],
+          "displacements": [
+            {
+              "nodeId": 1,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 2,
+              "rx": 0.0,
+              "ry": -1.2927341856487562,
+              "rz": 0.3399501259666016,
+              "ux": 0.0,
+              "uy": 0.30537546769811874,
+              "uz": 0.0
+            }
+          ],
+          "load_factors": null
+        }
+      },
+      "retained_input_ref": "engine/tests/fixtures/staged-review-comments.json#1011-6730900141-0"
+    }
+  ],
+  "comment_witness_source": {
+    "tested_main": "85c002b3a378a076fe118d75fcb665b5099dba46",
+    "archive": "candidate-replay/docs/verification/candidate-replay-2026-11-11.json",
+    "fixture": "engine/tests/fixtures/staged-review-comments.json",
+    "scope": "Multi-member translations and member actions, plus multiple load stages; issue bodies are distinct witnesses."
+  }
+}

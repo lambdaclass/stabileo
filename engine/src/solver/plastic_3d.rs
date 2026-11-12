@@ -470,6 +470,12 @@ fn unit_moment_scale(r: &AnalysisResults3D) -> f64 {
         .fold(0.0f64, |a, ef| a.max(ef.my_start.abs()).max(ef.my_end.abs()).max(ef.mz_start.abs()).max(ef.mz_end.abs()))
 }
 
+#[derive(Clone, Copy)]
+enum CarryState {
+    InitialElastic,
+    Hinged,
+}
+
 /// The unit-load solution of the current state, or `None` when it is a
 /// collapse mechanism. A 3D hinge frees both bending rotations, which can
 /// leave mechanisms the loads do no work on (a planar frame loaded in its
@@ -485,7 +491,10 @@ fn unit_moment_scale(r: &AnalysisResults3D) -> f64 {
 /// member: they do iff the loads do no work on the free modes (the member
 /// forces are then the unique ones, the free modes being strain-free, and
 /// the springs carry nothing); otherwise the state is a collapse mechanism.
-fn carry(input: &SolverInput3D) -> Result<Option<AnalysisResults3D>, String> {
+fn carry(input: &SolverInput3D, state: CarryState) -> Result<Option<AnalysisResults3D>, String> {
+    if matches!(state, CarryState::InitialElastic) {
+        return super::super::linear::solve_3d(input).map(Some);
+    }
     if super::super::kinematic::analyze_kinematics_3d(input).is_solvable {
         return crate::known_issues::optional_solve(super::super::linear::solve_3d(input));
     }
@@ -687,7 +696,7 @@ fn rotation_coupled_nodes(input: &SolverInput3D) -> HashSet<usize> {
 }
 
 fn mechanism(input: &SolverInput3D) -> Result<bool, String> {
-    Ok(carry(input)?.is_none())
+    Ok(carry(input, CarryState::Hinged)?.is_none())
 }
 
 /// Solve 3D plastic analysis (event-to-event incremental method).
@@ -842,7 +851,8 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
         let entry_records = all_hinges.clone();
         let results = loop {
             let fresh = visited.insert(hinges.iter().map(|h| h.active).collect());
-            let state = carry(&current_input)?;
+            let carry_state = if step == 0 { CarryState::InitialElastic } else { CarryState::Hinged };
+            let state = carry(&current_input, carry_state)?;
             if state.is_none() {
                 if !fresh {
                     break None;
@@ -882,7 +892,7 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
                     }
                     let (mi, t) = (hinges[hi].member, hinges[hi].t);
                     set_hinge(&mut current_input, &members[mi], t, false);
-                    if let Some(r) = carry(&current_input)? {
+                    if let Some(r) = carry(&current_input, CarryState::Hinged)? {
                         let by_id: HashMap<usize, &ElementForces3D> = r.element_forces.iter().map(|ef| (ef.element_id, ef)).collect();
                         let m = &members[mi];
                         let mu = m.diagram(m.unit_vals(&by_id), 1.0, &current_input).at(t);
@@ -1406,6 +1416,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn staged_final_initial_conditioning_and_rank_boundaries() {
+        use crate::solver::stability::{Reason, Verdict};
+        for (inertia, verdict, reason, solvable) in [
+            (0.001, Verdict::Stable, Reason::Resolved, true),
+            (1e-13, Verdict::Stable, Reason::Resolved, false),
+            (1e-14, Verdict::Singular, Reason::Conditioning, false),
+            (1e-15, Verdict::Mechanism, Reason::FreeTranslation, false),
+        ] {
+            let mut p: PlasticInput3D = serde_json::from_str(include_str!("../../tests/fixtures/final-review-plastic-conditioning.json")).unwrap();
+            p.solver.sections.get_mut("1").unwrap().iy = inertia;
+            p.solver.sections.get_mut("1").unwrap().iz = inertia;
+            let stability = crate::solver::stability::of_3d(&p.solver).unwrap();
+            assert_eq!((stability.verdict, stability.reason), (verdict, reason), "{inertia}: {stability:?}");
+            assert_eq!(crate::solver::kinematic::analyze_kinematics_3d(&p.solver).is_solvable, solvable);
+            let result = carry(&p.solver, CarryState::InitialElastic);
+            match crate::solver::linear::solve_3d(&p.solver) {
+                Ok(expected) => assert_eq!(serde_json::to_value(result.unwrap().unwrap()).unwrap(), serde_json::to_value(expected).unwrap(), "inertia={inertia}"),
+                Err(expected) => assert_eq!(result.unwrap_err(), expected, "inertia={inertia}"),
+            }
+        }
+    }
+
+    #[test]
     fn issue_1753_balance_cannot_certify_constraints_or_connectors() {
         let base: PlasticInput3D = serde_json::from_str(include_str!("../../../verify/samples/plastic-3d-portal.input.json")).unwrap();
         let results = crate::solver::linear::solve_3d(&base.solver).unwrap();
@@ -1425,9 +1458,75 @@ mod tests {
                 e.release_t_end = true;
             }
             assert!(!crate::solver::kinematic::analyze_kinematics_3d(&model).is_solvable);
-            let error = carry(&model).unwrap_err();
+            let error = carry(&model, CarryState::Hinged).unwrap_err();
             assert!(error.starts_with("plastic 3D cannot certify a soft-spring hinge state with constraints or connectors"), "{error}");
         }
+    }
+
+    #[test]
+    fn staged_round4_hinge_states_are_collapse_not_elastic_refusals() {
+        let p: PlasticInput3D = serde_json::from_str(include_str!(
+            "../../tests/fixtures/staged-round4-plastic.json"
+        ))
+        .unwrap();
+        let mut failures = Vec::new();
+        for (torsion, oblique) in [1e-5, 1e-11, 1e-13, 1e-15, 1e-17]
+            .into_iter()
+            .flat_map(|j| [0, 1, 2].map(|b| (j, b)))
+        {
+            let mut model = p.solver.clone();
+            if oblique > 0 {
+                model.nodes.get_mut("3").unwrap().y = 4.0;
+                model.nodes.get_mut("4").unwrap().y = 4.0;
+            }
+            if oblique == 2 {
+                model.nodes.get_mut("3").unwrap().z = 5.0;
+            }
+            model.sections.get_mut("1").unwrap().j = torsion;
+            let initial = crate::solver::stability::of_3d(&model).unwrap();
+            assert_eq!(
+                initial.verdict,
+                crate::solver::stability::Verdict::Stable,
+                "{initial:?}"
+            );
+            let e = model.elements.get_mut("1").unwrap();
+            e.release_my_end = true;
+            e.release_mz_end = true;
+            let hinged = crate::solver::stability::of_3d(&model).unwrap();
+            let result = carry(&model, CarryState::Hinged);
+            eprintln!(
+                "torsion={torsion}, oblique={oblique}, hinged={hinged:?}, carry={:?}",
+                result.as_ref().map(|x| x.is_some())
+            );
+            let carries = oblique == 0 || torsion >= 1e-11;
+            if !matches!(result, Ok(ref r) if r.is_some() == carries) {
+                failures.push((torsion, oblique));
+            }
+        }
+        assert!(failures.is_empty(), "{failures:?}");
+    }
+
+    #[test]
+    fn staged_round4_hinge_induced_coupled_soft_state() {
+        let p: PlasticInput3D = serde_json::from_str(include_str!(
+            "../../tests/fixtures/staged-round4-soft-hinge.json"
+        ))
+        .unwrap();
+        let mut model = p.solver;
+        assert_eq!(
+            crate::solver::stability::of_3d(&model).unwrap().verdict,
+            crate::solver::stability::Verdict::Stable
+        );
+        let e = model.elements.get_mut("2").unwrap();
+        e.release_my_end = true;
+        e.release_mz_end = true;
+        let hinged = crate::solver::stability::of_3d(&model).unwrap();
+        assert_eq!(
+            hinged.reason,
+            crate::solver::stability::Reason::CoupledSoftDirection,
+            "{hinged:?}"
+        );
+        assert!(carry(&model, CarryState::Hinged).unwrap().is_none());
     }
 
     #[test]
@@ -1494,4 +1593,42 @@ fn load_moment_scale_3d(input: &SolverInput3D) -> f64 {
         _ => 0.0,
     }).sum();
     f * l
+}
+
+#[cfg(test)]
+mod staged_round7_entry_tests {
+    use super::*;
+
+    #[test]
+    fn staged_round7_constrained_spring_hinged_carry() {
+        let models: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/staged-round7.json")).unwrap();
+        for spring in [1.0, 0.0] {
+            let mut input: SolverInput3D = serde_json::from_value(models["3"].clone()).unwrap();
+            input.supports.get_mut("2").unwrap().kx = Some(spring);
+            input.loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: 1,
+                fx: 1.0,
+                fy: 0.0,
+                fz: 0.0,
+                mx: 0.0,
+                my: 0.0,
+                mz: 0.0,
+                bw: None,
+            })];
+            let result = carry(&input, CarryState::Hinged);
+            if spring == 0.0 {
+                assert!(result.unwrap_err().contains("constraints or connectors"));
+            } else {
+                let result = result.unwrap().unwrap();
+                let master = result
+                    .displacements
+                    .iter()
+                    .find(|d| d.node_id == 1)
+                    .unwrap();
+                assert!((master.ux - 0.5).abs() <= 1e-12);
+                assert!(master.ry.abs() <= 1e-12);
+            }
+        }
+    }
 }
