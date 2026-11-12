@@ -49,7 +49,7 @@ import {
   get2DDisplayedVertical,
 } from '../geometry/coordinate-system';
 import { coordLabels, shownCoords, twoD, userRot, userVec } from '../axes/display';
-import { nodeShown3D } from '../axes/node-coords';
+import { nodeShown3D, standingPlane } from '../axes/node-coords';
 import { axesStore } from '../axes/axes.svelte';
 import { axesStatement } from '../axes/statement';
 
@@ -345,10 +345,11 @@ function createNodesSheet(): Xlsx.WorkSheet {
 
   const data: (string | number)[][] = [headers];
 
+  const upright = is3D && standingPlane();
   for (const node of modelStore.nodes.values()) {
     const row: (string | number)[] = [
       node.id,
-      ...(is3D ? nodeShown3D(node) : shownCoords({ x: node.x, y: get2DDisplayedVertical(node) }, false)).map((c) => Number(c.toFixed(4))),
+      ...(is3D ? nodeShown3D(node, upright) : shownCoords({ x: node.x, y: get2DDisplayedVertical(node) }, false)).map((c) => Number(c.toFixed(4))),
     ];
 
     if (hasResults && is3D && r3d) {

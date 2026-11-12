@@ -18,7 +18,7 @@
   import '../styles/viewer-chrome.css';
   import { drawAxisGizmoOn } from '../lib/viewport3d/axis-gizmo';
   import { axesStore } from '../lib/axes/axes.svelte';
-  import { along, modelAxisOf, modelLoad3D, modelVec, twoD, XYZ } from '../lib/axes/display';
+  import { XYZ, along, modelAxisOf, modelLoad3D, modelVec, planeGlobalAngle, twoD } from '../lib/axes/display';
   import { nodeShown3D } from '../lib/axes/node-coords';
   import { supportTypeShown } from '../lib/axes/user-names';
   import { createViewerScene, createViewerPerspectiveCamera, createViewerOrthographicCamera, createViewerRenderer, createViewerControls, applyDefaultNavigation, addViewerLights } from '../lib/viewport3d/scene-setup';
@@ -2598,7 +2598,7 @@
         springs = { kx: uiStore.springKx, ky: uiStore.springKy, kz: uiStore.springKz };
       }
       const opts: { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; drz?: number } = {};
-      opts.angle = uiStore.supportAngle;
+      opts.angle = uiStore.supportIsGlobal ? planeGlobalAngle(uiStore.supportAngle) + 0 : uiStore.supportAngle;
       opts.isGlobal = uiStore.supportIsGlobal;
       const plain = type === 'fixed' || type === 'pinned';
       if (uiStore.supportDx !== 0) opts.dx = plain ? twoD.fromX(uiStore.supportDx) : uiStore.supportDx;

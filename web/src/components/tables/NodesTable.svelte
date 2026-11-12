@@ -3,7 +3,7 @@
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { coordLabels, modelCoords, shownCoords } from '../../lib/axes/display';
-  import { nodeMoveArgs3D, nodeShown3D } from '../../lib/axes/node-coords';
+  import { nodeMoveArgs3D, nodeShown3D, standingPlane } from '../../lib/axes/node-coords';
   import { unitQ } from '../../lib/store/display-units.svelte';
   import UnitInput from '../UnitInput.svelte';
 
@@ -15,6 +15,7 @@
 
   const is3D = $derived(uiStore.is3DWorkspace);
   const labels = $derived(coordLabels(is3D));
+  const upright = $derived(is3D && standingPlane());
 
   // The fields show the chosen unit system (UnitInput), so these take SI metres.
   function updateCoord(id: number, axis: number, value: number) {
@@ -57,7 +58,7 @@
         <tr class:row-sel={rowSelected('node', node.id)} onclick={(e) => selectRow(e, 'node', node.id)}
           ondblclick={(e) => frameRow(e, 'node', node.id)} onfocusin={(e) => focusRow(e, 'node', node.id)}>
           <td class="id-cell">{node.id}</td>
-          {#each is3D ? nodeShown3D(node) : shownCoords(node, false) as c, i}
+          {#each is3D ? nodeShown3D(node, upright) : shownCoords(node, false) as c, i}
             <td><UnitInput value={c} qty="length" unit={false} step="0.001" onchange={(v) => updateCoord(node.id, i, v)} /></td>
           {/each}
           <td><button class="del" onclick={() => deleteNode(node.id)}>&#10005;</button></td>

@@ -257,7 +257,7 @@
       <button class="ft-opt-btn ft-coord-btn" class:active={!dl.isGlobal} onclick={() => updateLoadField(dl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
-        <input type="number" step="5" value={dl.isGlobal ? planeGlobalAngle(dl.angle ?? 0) + 0 : dl.angle ?? 0} onchange={(e) => updateLoadField(dl.id, 'angle', String(dl.isGlobal ? planeGlobalAngle(Number(e.currentTarget.value)) : e.currentTarget.value))} />
+        <input type="number" step="5" value={dl.isGlobal ? planeGlobalAngle(dl.angle ?? 0) + 0 : dl.angle ?? 0} onchange={(e) => updateLoadField(dl.id, 'angle', String(dl.isGlobal ? planeGlobalAngle(parseFloat(e.currentTarget.value)) : e.currentTarget.value))} />
         <span class="ft-unit">°</span>
       </label>
     {:else if selectedLoad.type === 'pointOnElement'}
@@ -288,7 +288,7 @@
       <button class="ft-opt-btn ft-coord-btn" class:active={!pl.isGlobal} onclick={() => updateLoadField(pl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
-        <input type="number" step="5" value={pl.isGlobal ? planeGlobalAngle(pl.angle ?? 0) + 0 : pl.angle ?? 0} onchange={(e) => updateLoadField(pl.id, 'angle', String(pl.isGlobal ? planeGlobalAngle(Number(e.currentTarget.value)) : e.currentTarget.value))} />
+        <input type="number" step="5" value={pl.isGlobal ? planeGlobalAngle(pl.angle ?? 0) + 0 : pl.angle ?? 0} onchange={(e) => updateLoadField(pl.id, 'angle', String(pl.isGlobal ? planeGlobalAngle(parseFloat(e.currentTarget.value)) : e.currentTarget.value))} />
         <span class="ft-unit">°</span>
       </label>
     {:else if selectedLoad.type === 'thermal'}
@@ -433,7 +433,7 @@
       </label>
       <label class="ft-input-group" title={t('float.supportAngle')}>
         <span>α:</span>
-        <input type="number" step="5" value={selectedSup.angle ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', e.currentTarget.value)} />
+        <input type="number" step="5" value={selectedSup.isGlobal === false ? selectedSup.angle ?? 0 : planeGlobalAngle(selectedSup.angle ?? 0) + 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', selectedSup.isGlobal === false ? e.currentTarget.value : String(planeGlobalAngle(parseFloat(e.currentTarget.value))))} />
         <span class="ft-unit">°</span>
       </label>
     {:else if selectedSup.type === 'spring'}
@@ -457,7 +457,7 @@
         title={t('float.supportLocalAxes')}>{t('prop.localAxesShort')}</button>
       <label class="ft-input-group" title={t('float.supportAngle')}>
         <span>α:</span>
-        <input type="number" step="5" value={selectedSup.angle ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', e.currentTarget.value)} />
+        <input type="number" step="5" value={selectedSup.isGlobal === false ? selectedSup.angle ?? 0 : planeGlobalAngle(selectedSup.angle ?? 0) + 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', selectedSup.isGlobal === false ? e.currentTarget.value : String(planeGlobalAngle(parseFloat(e.currentTarget.value))))} />
         <span class="ft-unit">°</span>
       </label>
     {:else if selectedSup.type === 'fixed' || selectedSup.type === 'pinned'}
@@ -480,7 +480,7 @@
       {/if}
       <label class="ft-input-group" title={t('float.supportAngleVisual')}>
         <span>α:</span>
-        <input type="number" step="5" value={selectedSup.angle ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', e.currentTarget.value)} />
+        <input type="number" step="5" value={selectedSup.isGlobal === false ? selectedSup.angle ?? 0 : planeGlobalAngle(selectedSup.angle ?? 0) + 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', selectedSup.isGlobal === false ? e.currentTarget.value : String(planeGlobalAngle(parseFloat(e.currentTarget.value))))} />
         <span class="ft-unit">°</span>
       </label>
     {/if}

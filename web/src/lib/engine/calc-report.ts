@@ -13,7 +13,7 @@ import type { AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import { releaseLabel } from '../export/excel';
 import { t, tp, i18n } from '../i18n';
 import { coordLabels, shownCoords, twoD, userRot, userVec } from '../axes/display';
-import { nodeShown3D } from '../axes/node-coords';
+import { nodeShown3D, standingPlane } from '../axes/node-coords';
 import { TWO_D_DISPLACEMENT_LABELS, TWO_D_REACTION_LABELS } from '../geometry/coordinate-system';
 import { modelFigureSvg } from './report/model-figure';
 import { formatValue, toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
@@ -291,9 +291,10 @@ function buildModelSection(data: CalcReportData, num = '1', fig?: ReturnType<typ
   const ul = U.u('length');
   h.push(`<table><tr><th>ID</th>${coordLabels(data.is3D).map((l) => `<th>${l} (${ul})</th>`).join('')}</tr>`);
   const showNodes = condensed ? [...data.nodes.slice(0, 20), null, ...data.nodes.slice(-5)] : data.nodes;
+  const upright = data.is3D && standingPlane();
   for (const n of showNodes) {
     if (!n) { h.push(`<tr><td colspan="${data.is3D ? 4 : 3}" style="text-align:center;color:#888">${esc(tp('calcReport.moreNodes', { n: nodeCount - 25 }))}</td></tr>`); continue; }
-    const c = data.is3D ? nodeShown3D(n) : shownCoords(n, false);
+    const c = data.is3D ? nodeShown3D(n, upright) : shownCoords(n, false);
     h.push(`<tr><td>${n.id}</td>${c.map((v) => `<td class="num">${U.q(v + 0, 'length', 3)}</td>`).join('')}</tr>`);
   }
   h.push('</table>');

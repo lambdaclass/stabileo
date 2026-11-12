@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { axesKey } from '../../lib/axes/display';
+  import { untrack } from 'svelte';
   import Hint from './Hint.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
@@ -50,6 +52,14 @@
   let dMaster = $state('');
   let dSlaves = $state('');
   let dPlane = $state<'XY' | 'XZ' | 'YZ'>(userPlane('XY'));
+
+  let shownAxes = axesKey();
+  $effect(() => {
+    const k = axesKey();
+    if (k === shownAxes) return;
+    shownAxes = k;
+    untrack(() => { dPlane = userPlane('XY'); });
+  });
 
   // Equal DOF state
   let eqMaster = $state('');

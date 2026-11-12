@@ -1,11 +1,12 @@
 <script lang="ts" module>
+  import { untrack } from 'svelte';
   import type { TargetSpec as Spec } from '../../../lib/model/loads/load-targets';
   /** A target, or the selected members taken as one physical member. */
   export type PickedSpec = Spec | { by: 'chain' };
 </script>
 
 <script lang="ts">
-  import { axisName, modelAxisOf } from '../../../lib/axes/display';
+  import { axesKey, axisName, modelAxisOf } from '../../../lib/axes/display';
   /**
    * What a load or a support goes on, the same choice everywhere (`model/loads/load-targets.ts`):
    * the selection, ids, a group, a range of coordinates, a section, a kind of member, for a member
@@ -47,6 +48,14 @@
   let idsText = $state('');
   let groupId = $state<number | null>(null);
   let axis = $state<'X' | 'Y' | 'Z'>(axisName(2));
+
+  let shownAxes = axesKey();
+  $effect(() => {
+    const k = axesKey();
+    if (k === shownAxes) return;
+    shownAxes = k;
+    untrack(() => { axis = axisName(2); });
+  });
   let min = $state(0);
   let max = $state(0);
   let sectionId = $state<number | null>(null);

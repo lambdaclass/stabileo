@@ -1021,7 +1021,14 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
          * no sign of which happened.
          */
         const dir = str(row.cells.dir).toLowerCase();
-        if (dir === 'global') data.isGlobal = true;
+        if (dir === 'global') {
+          data.isGlobal = true;
+          if (!frame.identity) {
+            const sv = userAxisAlong(frame, 2).sign;
+            if (typeof data.qI === 'number') data.qI = sv * data.qI + 0;
+            if (typeof data.qJ === 'number') data.qJ = sv * data.qJ + 0;
+          }
+        }
         else if (dir !== '' && dir !== 'local') {
           problems.push({
             sheet: 'Loads', row: row.n, column: 'dir',

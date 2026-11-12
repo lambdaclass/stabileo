@@ -8,7 +8,7 @@
  */
 
 import { toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
-import { twoD, userRot, userVec } from '../axes/display';
+import { planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec } from '../axes/display';
 
 /** Four significant figures, and never «-0». */
 export function reportNumber(v: number): string {
@@ -56,8 +56,11 @@ export interface MemberLoadWords { global: string }
 
 /** «, θ=30°» when the load is turned from its base direction, and the axes when they are global. */
 function direction(d: { angle?: number; isGlobal?: boolean }, words: MemberLoadWords): string {
-  return (nonZero(d.angle) ? `, θ=${reportNumber(d.angle)}°` : '') + (d.isGlobal ? `, ${words.global}` : '');
+  const angle = d.isGlobal && d.angle !== undefined ? planeGlobalAngle(d.angle) + 0 : d.angle;
+  return (nonZero(angle) ? `, θ=${reportNumber(angle)}°` : '') + (d.isGlobal ? `, ${words.global}` : '');
 }
+
+const shownGlobal = (v: number | undefined, isGlobal?: boolean) => (v !== undefined && isGlobal ? planeGlobalValue(v) + 0 : v);
 
 /**
  * A 2D line load: both ends, its range when partial, its angle and its axes. The angle and the
@@ -69,7 +72,7 @@ export function distributedText(
   us: UnitSystem = 'SI',
 ): string {
   const q = (v: number) => val(v, 'distributedLoad', us);
-  return `q=${q(d.qI)} → ${q(d.qJ ?? d.qI)} ${unitLabel('distributedLoad', us)}${range(d, us)}${direction(d, words)}`;
+  return `q=${q(shownGlobal(d.qI, d.isGlobal)!)} → ${q(shownGlobal(d.qJ ?? d.qI, d.isGlobal)!)} ${unitLabel('distributedLoad', us)}${range(d, us)}${direction(d, words)}`;
 }
 
 /**
@@ -83,7 +86,7 @@ export function pointOnElementText(
   us: UnitSystem = 'SI',
 ): string {
   const couple = d.my ?? d.mz;
-  const comps = named([['P', d.p, 'force'], ['Px', d.px, 'force'], [`M${twoD.normal.toLowerCase()}`, couple === undefined ? undefined : twoD.rot(couple) + 0, 'moment']], us);
+  const comps = named([['P', shownGlobal(d.p, d.isGlobal), 'force'], ['Px', d.px, 'force'], [`M${twoD.normal.toLowerCase()}`, couple === undefined ? undefined : twoD.rot(couple) + 0, 'moment']], us);
   return comps.length ? `${comps.join(', ')}, a=${val(d.a, 'length', us)} ${unitLabel('length', us)}${direction(d, words)}` : '';
 }
 

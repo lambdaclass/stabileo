@@ -2085,7 +2085,7 @@
           const springAngle = uiStore.supportAngle;
           const springIsGlobal = uiStore.supportIsGlobal;
           const springOpts: { angle?: number; isGlobal?: boolean } = {};
-          if (springAngle !== 0) springOpts.angle = springAngle;
+          if (springAngle !== 0) springOpts.angle = springIsGlobal ? planeGlobalAngle(springAngle) + 0 : springAngle;
           if (!springIsGlobal) springOpts.isGlobal = false;
           modelStore.addSupport(nearNode.id, 'spring', {
             kx: uiStore.springKx,
@@ -2100,7 +2100,7 @@
           const angle = uiStore.supportAngle;
           const isGlobal = uiStore.supportIsGlobal;
           const opts: { angle?: number; isGlobal?: boolean } = {};
-          if (angle !== 0) opts.angle = angle;
+          if (angle !== 0) opts.angle = isGlobal ? planeGlobalAngle(angle) + 0 : angle;
           if (!isGlobal) opts.isGlobal = false;
           const rollerId = modelStore.addSupport(nearNode.id, rollerType, undefined, (opts.angle !== undefined || opts.isGlobal !== undefined) ? opts : undefined);
           // Apply prescribed displacement di (always in restrained direction, stored as dx)
@@ -2113,7 +2113,7 @@
           // fixed or pinned
           const angle = uiStore.supportAngle;
           const opts: { angle?: number } = {};
-          if (angle !== 0) opts.angle = angle;
+          if (angle !== 0) opts.angle = planeGlobalAngle(angle) + 0;
           const supId = modelStore.addSupport(nearNode.id, uiStore.supportType as any, undefined, opts.angle !== undefined ? opts : undefined);
           // Apply prescribed displacements if any are non-zero
           const presc: Record<string, number> = {};

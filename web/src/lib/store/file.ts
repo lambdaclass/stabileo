@@ -794,7 +794,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
   } else if (r2d) {
     // 2D Displacements
     lines.push(`# ${t('file.displacements')}`);
-    lines.push(`${t('file.node')},${TWO_D_DISPLACEMENT_LABELS.horizontal} (m),${TWO_D_DISPLACEMENT_LABELS.vertical} (m),${TWO_D_DISPLACEMENT_LABELS.rotation} (rad)`);
+    lines.push(`${t('file.node')},${TWO_D_DISPLACEMENT_LABELS.horizontal} (m),${TWO_D_DISPLACEMENT_LABELS.vertical} (m),r${twoD.normal.toLowerCase()} (rad)`);
     for (const d of r2d.displacements) {
       lines.push(`${d.nodeId},${twoD.x(d.ux)},${twoD.z(get2DDisplayDisplacementVertical(d))},${twoD.rot(get2DDisplayRotation(d))}`);
     }

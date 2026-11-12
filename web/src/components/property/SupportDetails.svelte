@@ -2,7 +2,7 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
-  import { modelIndexOfUser, twoD, XYZ } from '../../lib/axes/display';
+  import { XYZ, modelIndexOfUser, planeGlobalAngle, twoD } from '../../lib/axes/display';
 
   let { supId, sup }: { supId: number; sup: any } = $props();
 
@@ -104,7 +104,7 @@
     </div>
     <div class="property-row">
       <span>α:</span>
-      <input type="number" step="5" value={sup.angle ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'angle', e.currentTarget.value)} />
+      <input type="number" step="5" value={sup.isGlobal === false ? sup.angle ?? 0 : planeGlobalAngle(sup.angle ?? 0) + 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'angle', sup.isGlobal === false ? e.currentTarget.value : String(planeGlobalAngle(parseFloat(e.currentTarget.value))))} />
       <span>°</span>
     </div>
   {:else if sup.type === 'spring'}
@@ -132,7 +132,7 @@
     </div>
     <div class="property-row">
       <span>α:</span>
-      <input type="number" step="5" value={sup.angle ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'angle', e.currentTarget.value)} />
+      <input type="number" step="5" value={sup.isGlobal === false ? sup.angle ?? 0 : planeGlobalAngle(sup.angle ?? 0) + 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'angle', sup.isGlobal === false ? e.currentTarget.value : String(planeGlobalAngle(parseFloat(e.currentTarget.value))))} />
       <span>°</span>
     </div>
   {:else}
@@ -158,7 +158,7 @@
     {/if}
     <div class="property-row" title={t('prop.visualAngleTitle')}>
       <span>α:</span>
-      <input type="number" step="5" value={sup.angle ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'angle', e.currentTarget.value)} />
+      <input type="number" step="5" value={sup.isGlobal === false ? sup.angle ?? 0 : planeGlobalAngle(sup.angle ?? 0) + 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'angle', sup.isGlobal === false ? e.currentTarget.value : String(planeGlobalAngle(parseFloat(e.currentTarget.value))))} />
       <span>°</span>
     </div>
   {/if}

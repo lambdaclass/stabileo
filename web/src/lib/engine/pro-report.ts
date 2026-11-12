@@ -1,4 +1,5 @@
 import { knownIssueResultDisposition, type knownIssueDisposition } from './known-issues';
+import { standingPlane } from '../axes/node-coords';
 import { ContainmentExportError } from './containment-error';
 import { finiteSpectrumWarning } from './finite-spectrum-warning';
 // PRO Report Generator — HTML-based report with KaTeX math rendering
@@ -406,8 +407,9 @@ export function generateReportHtml(data: ReportData): string {
     // The name column only when some node has one.
     const named = nodes.some((n) => n.name);
     html.push(`<table><thead><tr><th>ID</th>${named ? `<th>${escHtml(tr('pro.thName'))}</th>` : ''}<th>${km('X')} (m)</th><th>${km('Y')} (m)</th><th>${km('Z')} (m)</th></tr></thead><tbody>`);
+    const upright = standingPlane();
     for (const n of nodes) {
-      const [x, y, z] = vec(n.x, n.y, n.z ?? 0);
+      const [x, y, z] = upright ? vec(n.x, 0, n.y) : vec(n.x, n.y, n.z ?? 0);
       html.push(`<tr><td>${n.id}</td>${named ? `<td>${escHtml(n.name ?? '')}</td>` : ''}<td class="num">${fmtNum(x!, 3)}</td><td class="num">${fmtNum(y!, 3)}</td><td class="num">${fmtNum(z!, 3)}</td></tr>`);
     }
     html.push(`</tbody></table>`);

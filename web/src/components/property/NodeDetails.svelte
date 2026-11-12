@@ -149,17 +149,17 @@
         {#each nodalLoads as nl}
           <div class="property-row">
             <span>{TWO_D_NODAL_LOAD_LABELS.horizontal}:</span>
-            <input type="number" step="1" value={twoD.x(nl.fx)} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fx', String(twoD.fromX(Number(e.currentTarget.value))))} />
+            <input type="number" step="1" value={twoD.x(nl.fx)} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fx', String(twoD.fromX(parseFloat(e.currentTarget.value))))} />
             <span>kN</span>
           </div>
           <div class="property-row">
             <span>{TWO_D_NODAL_LOAD_LABELS.vertical}:</span>
-            <input type="number" step="1" value={twoD.z(get2DDisplayNodalLoadVertical(nl))} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fz', String(twoD.fromZ(Number(e.currentTarget.value))))} />
+            <input type="number" step="1" value={twoD.z(get2DDisplayNodalLoadVertical(nl))} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fz', String(twoD.fromZ(parseFloat(e.currentTarget.value))))} />
             <span>kN</span>
           </div>
           <div class="property-row">
             <span>{TWO_D_NODAL_LOAD_LABELS.moment}:</span>
-            <input type="number" step="1" value={twoD.rot(get2DDisplayNodalLoadMoment(nl))} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'my', String(twoD.fromRot(Number(e.currentTarget.value))))} />
+            <input type="number" step="1" value={twoD.rot(get2DDisplayNodalLoadMoment(nl))} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'my', String(twoD.fromRot(parseFloat(e.currentTarget.value))))} />
             <span>kN·m</span>
           </div>
         {/each}

@@ -28,7 +28,7 @@
   import LoadSketch, { type SketchInput } from './LoadSketch.svelte';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import ProShellLoadForm from './ProShellLoadForm.svelte';
-  import { along, axisName, modelAxisOf, userVec } from '../../../lib/axes/display';
+  import { along, axesKey, axisName, modelAxisOf, userVec } from '../../../lib/axes/display';
   import { gravityFactorIn, typedFrame } from '../../../lib/axes/typed-frame';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
 
@@ -122,6 +122,14 @@
   // ── Self-weight ──
   let swDir = $state<SwAxis>(axisName(2));
   let swFactor = $state(along(2).sign > 0 ? '-1' : '1');
+
+  let shownAxes = axesKey();
+  $effect(() => {
+    const k = axesKey();
+    if (k === shownAxes) return;
+    shownAxes = k;
+    untrack(() => { swDir = axisName(2); swFactor = along(2).sign > 0 ? '-1' : '1'; hydroAxis = axisName(2); });
+  });
 
   let error = $state<string | null>(null);
   let done = $state<string | null>(null);

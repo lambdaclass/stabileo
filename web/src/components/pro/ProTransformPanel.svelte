@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { axesKey } from '../../lib/axes/display';
+  import { untrack } from 'svelte';
   import Hint from './Hint.svelte';
   /**
    * Repeat, polar repeat, mirror, rotate and move — one panel over one edit layer.
@@ -38,6 +40,14 @@
   let point = $state<Vec3>([0, 0, 0]);
   let axis = $state<'X' | 'Y' | 'Z' | 'custom'>(axisName(2));
   let axisCustom = $state<Vec3>(userVec(0, 0, 1));
+
+  let shownAxes = axesKey();
+  $effect(() => {
+    const k = axesKey();
+    if (k === shownAxes) return;
+    shownAxes = k;
+    untrack(() => { d = userVec(0, 0, 3); axis = axisName(2); axisCustom = userVec(0, 0, 1); });
+  });
   let angle = $state(90);
   let asCopy = $state(true);
   let withLoads = $state(true);

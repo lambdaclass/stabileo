@@ -134,6 +134,8 @@ function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number
       const M = pseudoToUser(f, [num(example[at('mx')]), num(example[at('my')]), num(example[at('mz')])]);
       ['fx', 'fy', 'fz'].forEach((k, i) => { row[at(k)] = F[i]! + 0; });
       ['mx', 'my', 'mz'].forEach((k, i) => { row[at(k)] = M[i]! + 0; });
+    } else if (sheet.name === 'Loads' && example[0] === 'distributed' && String(example[at('dir')]).toLowerCase() === 'global') {
+      for (const k of ['qi', 'qj']) if (example[at(k)] !== '') row[at(k)] = v.sign * num(example[at(k)]) + 0;
     } else if (sheet.name === 'Loads' && example[0] === 'distributed3d' && example[at('dir')] !== 'local') {
       const I = toUser(f, [0, num(example[at('qi')]), num(example[at('qzi')])]);
       const J = toUser(f, [0, num(example[at('qj')]), num(example[at('qzj')])]);

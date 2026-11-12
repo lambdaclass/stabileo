@@ -155,32 +155,6 @@
               <span class="load-field">M{a}<UnitInput value={mu[i]} qty="moment" onchange={(v) => updateUserComponent(d.id, ['mx', 'my', 'mz'], true, m, i, v)} unit={false} /><span class="lf-unit">{unitQ('moment')}</span></span>
             {/each}
           {:else if load.type === 'distributed'}
-            {t('table.elemLabel')} {(load.data as DistributedLoad).elementId}
-          {:else if load.type === 'distributed3d'}
-            {t('table.elemLabel')} {(load.data as DistributedLoad3D).elementId}
-          {:else if load.type === 'thermal'}
-            {t('table.elemLabel')} {(load.data as ThermalLoad).elementId}
-          {:else if load.type === 'pointOnElement3d'}
-            {t('table.elemLabel')} {(load.data as PointLoadOnElement3D).elementId}
-          {:else}
-            {t('table.elemLabel')} {(load.data as PointLoadOnElement).elementId}
-          {/if}
-        </td>
-        <td class="load-values">
-          {#if load.type === 'nodal'}
-            {@const d = load.data as NodalLoad}
-            <span class="load-field">{TWO_D_NODAL_LOAD_LABELS.horizontal}<UnitInput value={twoD.x(d.fx)} qty="force" onchange={(v) => updateLoadField(d.id, 'fx', String(twoD.fromX(v)))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
-            <span class="load-field">{TWO_D_NODAL_LOAD_LABELS.vertical}<UnitInput value={twoD.z(get2DDisplayNodalLoadVertical(d))} qty="force" onchange={(v) => updateLoadField(d.id, 'fz', String(twoD.fromZ(v)))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
-            <span class="load-field">{TWO_D_NODAL_LOAD_LABELS.moment}<UnitInput value={twoD.rot(get2DDisplayNodalLoadMoment(d))} qty="moment" onchange={(v) => updateLoadField(d.id, 'my', String(twoD.fromRot(v)))} unit={false} /><span class="lf-unit">{unitQ('moment')}</span></span>
-          {:else if load.type === 'nodal3d'}
-            {@const d = load.data as NodalLoad3D}
-            <span class="load-field">Fx<UnitInput value={d.fx} qty="force" onchange={(v) => updateLoadField(d.id, 'fx', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
-            <span class="load-field">Fy<UnitInput value={d.fy} qty="force" onchange={(v) => updateLoadField(d.id, 'fy', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
-            <span class="load-field">Fz<UnitInput value={d.fz} qty="force" onchange={(v) => updateLoadField(d.id, 'fz', String(v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
-            <span class="load-field">Mx<UnitInput value={d.mx} qty="moment" onchange={(v) => updateLoadField(d.id, 'mx', String(v))} unit={false} /><span class="lf-unit">{unitQ('moment')}</span></span>
-            <span class="load-field">My<UnitInput value={d.my} qty="moment" onchange={(v) => updateLoadField(d.id, 'my', String(v))} unit={false} /><span class="lf-unit">{unitQ('moment')}</span></span>
-            <span class="load-field">Mz<UnitInput value={d.mz} qty="moment" onchange={(v) => updateLoadField(d.id, 'mz', String(v))} unit={false} /><span class="lf-unit">{unitQ('moment')}</span></span>
-          {:else if load.type === 'distributed'}
             {@const d = load.data as DistributedLoad}
             <span class="load-field">qI<UnitInput value={d.isGlobal ? planeGlobalValue(d.qI) : d.qI} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qI', String(d.isGlobal ? planeGlobalValue(v) : v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
             <span class="load-field">qJ<UnitInput value={d.isGlobal ? planeGlobalValue(d.qJ) : d.qJ} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, 'qJ', String(d.isGlobal ? planeGlobalValue(v) : v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>

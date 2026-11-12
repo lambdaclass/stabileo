@@ -153,6 +153,13 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
   if (space) {
     for (const [, e] of (s.elements ?? []) as Array<[number, Obj]>) {
       mapTriple(f, way, e, ['localYx', 'localYy', 'localYz']);
+      for (const key of ['jointI', 'jointJ']) {
+        const dof = (e[key] as Obj | undefined)?.dof;
+        if (!Array.isArray(dof) || dof.length !== 6) continue;
+        const out = [...dof];
+        for (let d = 0; d < 6; d++) out[mapDof(f, way, d).dof] = dof[d];
+        (e[key] as Obj).dof = out;
+      }
       const o = e.offset as Obj | undefined;
       if (o && o.frame === 'global') { vecXYZ(f, way, o.i); vecXYZ(f, way, o.j); }
     }
@@ -165,6 +172,7 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
     for (const c of (s.constraints ?? []) as Obj[]) if (c && typeof c === 'object') transformConstraint(f, way, c);
   }
   for (const [, sp] of (s.supports ?? []) as Array<[number, Obj]>) {
+    if (!space && sp.isGlobal !== false && typeof sp.angle === 'number') sp.angle = p.h * p.v * sp.angle + 0;
     if (!space) {
       if (sp.dx !== undefined) sp.dx = p.h * sp.dx + 0;
       for (const k of ['dz', 'dy']) if (sp[k] !== undefined) sp[k] = p.v * sp[k] + 0;
@@ -191,4 +199,4 @@ export function frameLine(choice: AxesChoice): string {
   return `frame up=${JSON.stringify(choice.up)} right=${JSON.stringify(choice.right)} hand=${JSON.stringify(choice.hand)}`;
 }
 
-export const FRAME_NOTE = '# Coordinates, global loads, supports, member orientations and offsets and constraints are in the axes of the frame line; support type names, footings and the project settings lines keep the model\'s axes.';
+export const FRAME_NOTE = '# Coordinates, global loads, supports, member orientations, joints and offsets and constraints are in the axes of the frame line; support type names, member-axis support angles, footings and the project settings lines keep the model\'s axes.';

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   /**
    * The values of a load on shells, for the write card: an area load with its direction, its field
    * and its extent; a fluid to a level; a force at a point. `build` turns them into the model's
@@ -17,7 +18,7 @@
   import { buildShellLoads, type ShellLoadFields } from '../../../lib/model/loads/shell-load-form';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
   import type { WriteOutcome, WriteRefusal } from '../../../lib/model/loads/write-load';
-  import { twoD } from '../../../lib/axes/display';
+  import { axesKey, twoD } from '../../../lib/axes/display';
   import { gravityNameIn, typedFrame, verticalCoordIn, verticalNameIn } from '../../../lib/axes/typed-frame';
 
   interface Props {
@@ -38,6 +39,14 @@
   let va = $state<{ axis: 'X' | 'Y' | 'Z'; c1: N; q1: N; c2: N; q2: N }>({ axis: twoD.vertical, c1: null, q1: null, c2: null, q2: null });
   let partial = $state(false);
   let rect = $state<{ plane: 'XY' | 'XZ' | 'YZ'; u1: N; v1: N; u2: N; v2: N }>({ plane: ({ Z: 'XY', Y: 'XZ', X: 'YZ' } as const)[twoD.vertical], u1: null, v1: null, u2: null, v2: null });
+
+  let shownAxes = axesKey();
+  $effect(() => {
+    const k = axesKey();
+    if (k === shownAxes) return;
+    shownAxes = k;
+    untrack(() => { dirAxis = twoD.vertical; va = { ...va, axis: twoD.vertical }; rect = { ...rect, plane: ({ Z: 'XY', Y: 'XZ', X: 'YZ' } as const)[twoD.vertical] }; });
+  });
   // ── Fluid ──
   let gamma = $state<N>(10);
   let level = $state<N>(null);
