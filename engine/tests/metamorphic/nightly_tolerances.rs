@@ -1454,14 +1454,12 @@ fn issue_1114_consistent_support_units_rotation_remains_unresolved() {
 mod staged_settlement_1085;
 
 #[test]
-#[ignore = "known wrong result: #1085"]
 fn issue_1085_staged_settlement_is_applied_once_2d() {
     staged_settlement_1085::check(2);
     holds(1085, 20759, &[("staged (loads in two stages)", "linear agreement")]);
 }
 
 #[test]
-#[ignore = "known wrong result: #1085"]
 fn issue_1085_staged_settlement_is_applied_once_3d() {
     staged_settlement_1085::check(3);
 }
