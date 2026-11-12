@@ -5,11 +5,12 @@
  * arguments so it never reads from Svelte stores directly.
  */
 
-import { along } from '../axes/display';
+import { along, twoD } from '../axes/display';
 import { drawMomentSymbol } from '../canvas/draw-loads';
 import type { LabelCollector } from '../canvas/label-layout';
 import { addMemberTags } from '../canvas/member-tags';
 import {
+  TWO_D_DISPLACEMENT_LABELS,
   TWO_D_NODAL_LOAD_LABELS,
   TWO_D_REACTION_LABELS,
   get2DDisplayMoment,
@@ -591,7 +592,7 @@ export function drawPrescribedDisp(
     ctx.fill();
     // Label
     ctx.textAlign = dir > 0 ? 'left' : 'right';
-    ctx.fillText(`\u03B4x=${displacementText(sup.dx!, 1, canvasUnitSystem())}`, endX + dir * 3, ay);
+    ctx.fillText(`\u03B4${twoD.horizontal.toLowerCase()}=${displacementText(twoD.x(sup.dx!), 1, canvasUnitSystem())}`, endX + dir * 3, ay);
   }
 
   // dz: displayed vertical arrow in the 2D XZ presentation
@@ -615,7 +616,7 @@ export function drawPrescribedDisp(
     // Label
     ctx.textAlign = 'left';
     ctx.textBaseline = dir > 0 ? 'top' : 'bottom';
-    ctx.fillText(`\u03B4z=${displacementText(dz!, 1, canvasUnitSystem())}`, ax + 5, endY);
+    ctx.fillText(`\u03B4${twoD.vertical.toLowerCase()}=${displacementText(twoD.z(dz!), 1, canvasUnitSystem())}`, ax + 5, endY);
     ctx.textBaseline = 'middle';
   }
 
@@ -645,7 +646,7 @@ export function drawPrescribedDisp(
     ctx.fill();
     // Label
     ctx.textAlign = 'right';
-    ctx.fillText(`\u03B4\u03B8y=${(dry! * 1000).toFixed(2)}mrad`, cx - 3, cy);
+    ctx.fillText(`\u03B4${TWO_D_DISPLACEMENT_LABELS.rotation}=${(twoD.rot(dry!) * 1000).toFixed(2)}mrad`, cx - 3, cy);
   }
 }
 

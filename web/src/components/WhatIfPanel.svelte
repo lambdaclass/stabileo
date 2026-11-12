@@ -16,6 +16,8 @@
    * component's: see whatif.svelte.ts for why, and for how it recomputes.
    */
   let { docked = false }: { docked?: boolean } = $props();
+  import { twoD } from '../lib/axes/display';
+  import { userVecParts } from '../lib/axes/user-names';
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { whatIf, type MemberFactors } from '../lib/store/whatif.svelte';
   import { showDiagram } from '../lib/store/view-mode';
@@ -25,7 +27,7 @@
   import { fmtQ, unitQ } from '../lib/store/display-units.svelte';
   import type { Quantity } from '../lib/utils/units';
   import {
-    TWO_D_INTERNAL_FORCE_LABELS as F2D, get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical,
+    TWO_D_INTERNAL_FORCE_LABELS as F2D, TWO_D_NODAL_LOAD_LABELS, get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical,
   } from '../lib/geometry/coordinate-system';
   import EndConditionSelect from './EndConditionSelect.svelte';
 
@@ -119,9 +121,9 @@
     if (l.type === 'nodal') {
       const d = l.data as { fx: number; fz?: number; fy?: number; my?: number; mz?: number };
       const parts: string[] = [];
-      if (d.fx) parts.push(`Fx=${F(d.fx)}`);
-      if (get2DDisplayNodalLoadVertical(d)) parts.push(`Fz=${F(get2DDisplayNodalLoadVertical(d))}`);
-      if (get2DDisplayNodalLoadMoment(d)) parts.push(`My=${M(get2DDisplayNodalLoadMoment(d))}`);
+      if (d.fx) parts.push(`${TWO_D_NODAL_LOAD_LABELS.horizontal}=${F(twoD.x(d.fx))}`);
+      if (get2DDisplayNodalLoadVertical(d)) parts.push(`${TWO_D_NODAL_LOAD_LABELS.vertical}=${F(twoD.z(get2DDisplayNodalLoadVertical(d)))}`);
+      if (get2DDisplayNodalLoadMoment(d)) parts.push(`${TWO_D_NODAL_LOAD_LABELS.moment}=${M(twoD.rot(get2DDisplayNodalLoadMoment(d)))}`);
       return parts.join(', ') || t('whatif.nodalFallback').replace('{n}', String(i + 1));
     }
     if (l.type === 'distributed') {
@@ -135,19 +137,15 @@
       const parts: string[] = [];
       if (d.p) parts.push(`P=${F(d.p)}`);
       if (d.px) parts.push(`Px=${F(d.px)}`);
-      if (m) parts.push(`My=${M(m)}`);
+      if (m) parts.push(`${TWO_D_NODAL_LOAD_LABELS.moment}=${M(twoD.rot(m))}`);
       return `${parts.join(', ') || 'P=0'} (B${d.elementId})`;
     }
     if (l.type === 'thermal') return t('whatif.thermal');
     if (l.type === 'nodal3d') {
       const d = l.data as { nodeId: number; fx: number; fy: number; fz: number; mx?: number; my?: number; mz?: number };
       const parts: string[] = [];
-      if (d.fx) parts.push(`Fx=${F(d.fx)}`);
-      if (d.fy) parts.push(`Fy=${F(d.fy)}`);
-      if (d.fz) parts.push(`Fz=${F(d.fz)}`);
-      if (d.mx) parts.push(`Mx=${M(d.mx)}`);
-      if (d.my) parts.push(`My=${M(d.my)}`);
-      if (d.mz) parts.push(`Mz=${M(d.mz)}`);
+      for (const c of userVecParts('F', [d.fx, d.fy, d.fz])) if (c.value) parts.push(`${c.name}=${F(c.value)}`);
+      for (const c of userVecParts('M', [d.mx ?? 0, d.my ?? 0, d.mz ?? 0], true)) if (c.value) parts.push(`${c.name}=${M(c.value)}`);
       return parts.join(', ') || `N${d.nodeId}`;
     }
     if (l.type === 'distributed3d') {
@@ -155,9 +153,13 @@
       return `q (B${d.elementId})`;
     }
     if (l.type === 'pointOnElement3d') {
-      const d = l.data as { elementId: number; px?: number; py: number; pz: number; mx?: number; my?: number; mz?: number };
+      const d = l.data as { elementId: number; frame?: string; px?: number; py: number; pz: number; mx?: number; my?: number; mz?: number };
       const parts: string[] = [];
-      for (const k of ['px', 'py', 'pz', 'mx', 'my', 'mz'] as const) if (d[k]) parts.push(`${k[0]!.toUpperCase()}${k[1]}=${k[0] === 'm' ? M(d[k]!) : F(d[k]!)}`);
+      const global = d.frame === 'global';
+      const forces = global ? userVecParts('P', [d.px ?? 0, d.py, d.pz]) : (['x', 'y', 'z'] as const).map((a) => ({ name: `P${a}`, value: d[`p${a}`] ?? 0 }));
+      const moments = global ? userVecParts('M', [d.mx ?? 0, d.my ?? 0, d.mz ?? 0], true) : (['x', 'y', 'z'] as const).map((a) => ({ name: `M${a}`, value: d[`m${a}`] ?? 0 }));
+      for (const c of forces) if (c.value) parts.push(`${c.name}=${F(c.value)}`);
+      for (const c of moments) if (c.value) parts.push(`${c.name}=${M(c.value)}`);
       return `${parts.join(', ') || 'P=0'} (B${d.elementId})`;
     }
     if (l.type === 'prestress3d') return `${t('loads.prestress')} P=${F(l.data.force as number)} (B${l.data.elementId})`;

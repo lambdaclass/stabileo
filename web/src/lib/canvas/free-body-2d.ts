@@ -4,6 +4,18 @@
  */
 import { computeDespieceVectors, type DespieceBasis, type DespieceElement, type DespieceElementForces, type DespieceNode, type DespieceReaction } from './draw-despiece';
 import { freeBodyKeeps, type FBAction, type FBEnd, type FBSupport } from './free-body';
+import { TWO_D_NODAL_LOAD_LABELS, TWO_D_REACTION_LABELS } from '../geometry/coordinate-system';
+
+function shownName(component: string): string {
+  switch (component) {
+    case 'Fx': return TWO_D_NODAL_LOAD_LABELS.horizontal;
+    case 'Fz': return TWO_D_NODAL_LOAD_LABELS.vertical;
+    case 'Rx': return TWO_D_REACTION_LABELS.horizontal;
+    case 'Rz': return TWO_D_REACTION_LABELS.vertical;
+    case 'My': return TWO_D_REACTION_LABELS.moment;
+    default: return component;
+  }
+}
 
 export function freeBodyActions2D(args: {
   elements: DespieceElement[];
@@ -47,7 +59,7 @@ export function freeBodyActions2D(args: {
     const base = { own: own.get(ownKey(v))!, model: model[v.side === 'reaction' ? 'reaction' : 'member'] };
     if (!freeBodyKeeps(v.value, v.glyph, share, base, v.side === 'reaction' ? 0 : lever(v))) continue;
     const a: FBAction = {
-      name: v.component ?? '', kind: v.glyph, magnitude: Math.abs(v.value), color: v.color,
+      name: shownName(v.component ?? ''), kind: v.glyph, magnitude: Math.abs(v.value), color: v.color,
       dir: { x: v.dirx ?? 0, y: v.diry ?? 0 }, ccw: v.ccw,
     };
     if (v.side === 'reaction') {

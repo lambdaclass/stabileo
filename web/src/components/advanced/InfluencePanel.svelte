@@ -4,6 +4,7 @@
    * the section's position (typed, or 0, L/2, L), what the line says, how to load it, and the
    * step-by-step explanation.
    */
+  import { ilShown, ilText, relabelAxes } from '../../lib/axes/user-names';
   import { t, tp } from '../../lib/i18n';
   import { resultsStore, modelStore, uiStore } from '../../lib/store';
   import UnitInput from '../UnitInput.svelte';
@@ -55,7 +56,9 @@
       const len = a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
       return tp('course.influence.panel.atLoad', { e: p.elementId, x: `${fmtQ(p.t * len, 'length')} ${unitQ('length')}` });
     };
-    return { max: { v: ex.max.value, where: where(ex.max) }, min: { v: ex.min.value, where: where(ex.min) } };
+    const hi = { v: ex.max.value, where: where(ex.max) }, lo = { v: ex.min.value, where: where(ex.min) };
+    const s = ilShown(q).sign;
+    return s > 0 ? { max: hi, min: lo } : { max: { v: -lo.v, where: lo.where }, min: { v: -hi.v, where: hi.where } };
   });
 
   const loaded = $derived(unit && il ? loadedMembers(unit, il.direction ?? 'vertical') : []);
@@ -69,7 +72,7 @@
           <span class="ilp-label">{t(group.labelKey)}</span>
           <div class="ilp-snaps">
             {#each group.quantities as qq}
-              <button class:on={uiStore.ilQuantity === qq.id} onclick={() => setInfluenceQuantity(qq.id)} data-testid={`ilp-q-${qq.id}`}>{t(qq.labelKey)}</button>
+              <button class:on={uiStore.ilQuantity === qq.id} onclick={() => setInfluenceQuantity(qq.id)} data-testid={`ilp-q-${qq.id}`}>{ilText(qq.id, t(qq.labelKey))}</button>
             {/each}
           </div>
         </div>
@@ -78,7 +81,7 @@
         <span class="ilp-label">{t('float.ilUnitLoad')}</span>
         <div class="ilp-snaps">
           {#each IL_DIRECTIONS as d (d.id)}
-            <button class:on={uiStore.ilDirection === d.id} title={t(d.tip)} onclick={() => setInfluenceDirection(d.id)} data-testid={`ilp-dir-${d.id}`}>{t(d.key)}</button>
+            <button class:on={uiStore.ilDirection === d.id} title={relabelAxes(t(d.tip))} onclick={() => setInfluenceDirection(d.id)} data-testid={`ilp-dir-${d.id}`}>{t(d.key)}</button>
           {/each}
         </div>
       </div>
@@ -90,7 +93,7 @@
     <button class="ilp-btn" onclick={() => openInfluenceExplanation([])} data-testid="il-explain">{t('course.influence.panel.explain')}</button>
   {:else}
     <div class="ilp-what" data-testid="il-what">
-      <strong>{t(`course.influence.name.${q}`)}</strong>
+      <strong>{ilText(q, t(`course.influence.name.${q}`))}</strong>
       <span>{il.targetElementId !== undefined ? tp('course.influence.panel.onMember', { e: il.targetElementId }) : tp('course.influence.panel.onNode', { n: il.targetNodeId ?? '' })}</span>
     </div>
 
@@ -125,7 +128,7 @@
         <dt>η<sub>{t('course.influence.panel.minSub')}</sub></dt><dd>{numText(peaks.min.v, 4)} {ordinateUnit(q)} <span class="ilp-sub">{peaks.min.where}</span></dd>
       </dl>
     {/if}
-    <p class="ilp-sign">{t(`course.influence.doc.sign.${q}`)}</p>
+    <p class="ilp-sign">{ilText(q, t(`course.influence.doc.sign.${q}`))}</p>
 
     {#if unit}<InfluenceLoading {il} {unit} loadedIds={loaded} />{/if}
 

@@ -4,7 +4,15 @@
   import { t } from '../../lib/i18n';
   import UnitInput from '../UnitInput.svelte';
   import { unitQ } from '../../lib/store/display-units.svelte';
-  import { planeLevelAxis } from '../../lib/geometry/coordinate-system';
+  import { planeLevelAxis, type WorkingPlane3D } from '../../lib/geometry/coordinate-system';
+  import { along, XYZ } from '../../lib/axes/display';
+  import { modelDofIndex, planeName, relabelAxes } from '../../lib/axes/user-names';
+
+  const slideText = (key: string) => (uiStore.jointAxis === 'global' ? relabelAxes(t(key)) : t(key));
+  const level = $derived(along(XYZ.indexOf(planeLevelAxis(uiStore.workingPlane)) as 0 | 1 | 2));
+  const PLANES: Array<{ id: WorkingPlane3D; tip: string }> = [
+    { id: 'XY', tip: 'float.nodePlaneXY' }, { id: 'XZ', tip: 'float.nodePlaneXZ' }, { id: 'YZ', tip: 'float.nodePlaneYZ' },
+  ];
 </script>
 
 <button
@@ -28,18 +36,18 @@
     <span class="jg">○</span> {t('float.jointHinge')}
   </button>
   <button class="ft-opt-btn glyph" class:active={uiStore.jointType === 'slideX'}
-    onclick={() => uiStore.jointType = 'slideX'} title={t('float.jointSlideXHint')}>
-    <span class="jg">↔</span> {t('float.jointSlideX')}
+    onclick={() => uiStore.jointType = 'slideX'} title={slideText('float.jointSlideXHint')}>
+    <span class="jg">↔</span> {slideText('float.jointSlideX')}
   </button>
   <button class="ft-opt-btn glyph" class:active={uiStore.jointType === 'slideZ'}
-    onclick={() => uiStore.jointType = 'slideZ'} title={t('float.jointSlideZHint')}>
-    <span class="jg">↕</span> {t('float.jointSlideZ')}
+    onclick={() => uiStore.jointType = 'slideZ'} title={slideText('float.jointSlideZHint')}>
+    <span class="jg">↕</span> {slideText('float.jointSlideZ')}
   </button>
   {#if uiStore.jointType !== 'hinge'}
     <span class="ft-sep">|</span>
     <span style="font-size:0.65rem;color:#888;">{t('float.jointAxis')}</span>
     <button class="ft-opt-btn" class:active={uiStore.jointAxis === 'global'}
-      onclick={() => uiStore.jointAxis = 'global'} title={t('float.jointAxisGlobalHint')}>{t('float.jointAxisGlobal')}</button>
+      onclick={() => uiStore.jointAxis = 'global'} title={relabelAxes(t('float.jointAxisGlobalHint'))}>{t('float.jointAxisGlobal')}</button>
     <button class="ft-opt-btn" class:active={uiStore.jointAxis === 'local'}
       onclick={() => uiStore.jointAxis = 'local'} title={t('float.jointAxisLocalHint')}>{t('float.jointAxisLocal')}</button>
   {/if}
@@ -48,8 +56,8 @@
   <span class="ft-sep">|</span>
   <span style="font-size:0.65rem;color:#888;" title={t('float.joint3dRelease')}>{t('float.joint3dRelease')}</span>
   {#each ['dx', 'dy', 'dz', 'θx', 'θy', 'θz'] as label, i}
-    <button class="ft-opt-btn glyph" class:active={uiStore.jointDof3d[i]}
-      onclick={() => uiStore.toggleJointDof3d(i)} title={t('float.joint3dDofHint')}>{label}</button>
+    <button class="ft-opt-btn glyph" class:active={uiStore.jointDof3d[modelDofIndex(i)]}
+      onclick={() => uiStore.toggleJointDof3d(modelDofIndex(i))} title={t('float.joint3dDofHint')}>{label}</button>
   {/each}
 {/if}
 
@@ -57,13 +65,13 @@
   <!-- Node-creation working plane + level (3D only; not a joint control) -->
   <span class="ft-sep">|</span>
   <span style="font-size:0.65rem;color:#888;">{t('float.nodePlane')}</span>
-  <button class="ft-opt-btn" class:active={uiStore.workingPlane==='XY'} onclick={() => uiStore.workingPlane='XY'} title={t('float.nodePlaneXY')}>XY</button>
-  <button class="ft-opt-btn" class:active={uiStore.workingPlane==='XZ'} onclick={() => uiStore.workingPlane='XZ'} title={t('float.nodePlaneXZ')}>XZ</button>
-  <button class="ft-opt-btn" class:active={uiStore.workingPlane==='YZ'} onclick={() => uiStore.workingPlane='YZ'} title={t('float.nodePlaneYZ')}>YZ</button>
+  {#each PLANES as p (p.id)}
+    <button class="ft-opt-btn" class:active={uiStore.workingPlane === p.id} onclick={() => uiStore.workingPlane = p.id} title={relabelAxes(t(p.tip))}>{planeName(p.id)}</button>
+  {/each}
   <span class="ft-sep">|</span>
   <label class="ft-input-group" title={t('float.nodeLevelTooltip')}>
-    <span>{t('float.nodeLevel').replace('{axis}', planeLevelAxis(uiStore.workingPlane).toUpperCase())}</span>
-    <UnitInput value={uiStore.nodeCreateZ} qty="length" onchange={(v) => (uiStore.nodeCreateZ = v)} unit={false} live />
+    <span>{t('float.nodeLevel').replace('{axis}', level.name)}</span>
+    <UnitInput value={level.sign * uiStore.nodeCreateZ} qty="length" onchange={(v) => (uiStore.nodeCreateZ = level.sign * v)} unit={false} live />
     <span class="ft-unit">{unitQ('length')}</span>
   </label>
 {/if}

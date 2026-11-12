@@ -2,6 +2,7 @@
 // computeStaticDegree is pure counting math (no solver dependency).
 // analyzeKinematics delegates to the WASM engine for the heavy LU rank analysis.
 
+import { shownDof } from '../axes/user-names';
 import type { SolverInput } from './types';
 import { analyzeKinematics as wasmAnalyzeKinematics, isWasmReady } from './wasm-solver';
 import { t, tp } from '../i18n';
@@ -279,7 +280,7 @@ export function localizeKinematicDiagnosis(r: {
   const nodeList = nodes.slice(0, 8).join(', ');
   const dofList = r.unconstrainedDofs
     .slice(0, 8)
-    .map((d) => `${t('kin.nodeLC')} ${d.nodeId} (${DOF_LABEL_KEY[d.dof] ? t(DOF_LABEL_KEY[d.dof]) : d.dof})`)
+    .map((d) => `${t('kin.nodeLC')} ${d.nodeId} (${DOF_LABEL_KEY[shownDof(d.dof)] ? t(DOF_LABEL_KEY[shownDof(d.dof)]) : d.dof})`)
     .join('; ');
   const ms = r.mechanismModes > 1 ? 's' : '';
   if (nodes.length <= 3) {

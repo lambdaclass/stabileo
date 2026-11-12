@@ -18,7 +18,9 @@
   import '../styles/viewer-chrome.css';
   import { drawAxisGizmoOn } from '../lib/viewport3d/axis-gizmo';
   import { axesStore } from '../lib/axes/axes.svelte';
-  import { along, modelLoad3D, twoD } from '../lib/axes/display';
+  import { along, modelAxisOf, modelLoad3D, modelVec, twoD, XYZ } from '../lib/axes/display';
+  import { nodeShown3D } from '../lib/axes/node-coords';
+  import { supportTypeShown } from '../lib/axes/user-names';
   import { createViewerScene, createViewerPerspectiveCamera, createViewerOrthographicCamera, createViewerRenderer, createViewerControls, applyDefaultNavigation, addViewerLights } from '../lib/viewport3d/scene-setup';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
@@ -296,6 +298,7 @@
   let coordX = $state('0');
   let coordY = $state('0');
   let coordZ = $state('0');
+  const clipSign = $derived(along(XYZ.indexOf(uiStore.clippingAxis) as 0 | 1 | 2).sign);
 
   function openCoordDialog() {
     coordX = '0'; coordY = '0'; coordZ = '0';
@@ -312,7 +315,7 @@
     // Welded: typing the coordinates of an existing node selects it rather than
     // stacking a twin on it.
     // No pushState here: the mutation below pushes its own undo step, and a second one made the first Ctrl+Z a no-op.
-    const id = modelStore.addNodeWelded(x, y, z);
+    const id = modelStore.addNodeWelded(...modelVec(x, y, z));
     uiStore.selectNode(id, false);
     uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(coordX)).replace('{y}', String(coordY)).replace('{z}', String(coordZ)), 'success');
     showCoordDialog = false;
@@ -3749,14 +3752,15 @@
         const n = modelStore.nodes.get(newHover.id);
         // In the chosen units, as the status bar shows the cursor: the hover read metres beside feet.
         // To the millimetre (`fmtCoord`): automatic precision read x = 150.25 m as «150.3».
-        if (n) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id))
-          .replace('{x}', `${fmtCoord(n.x)}`).replace('{y}', `${fmtCoord(n.y)}`).replace('{z}', `${fmtCoord(n.z ?? 0)} ${unitQ('length')}`);
+        const shown = n ? nodeShown3D(n) : null;
+        if (n && shown) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id))
+          .replace('{x}', `${fmtCoord(shown[0])}`).replace('{y}', `${fmtCoord(shown[1])}`).replace('{z}', `${fmtCoord(shown[2])} ${unitQ('length')}`);
       } else if (newHover.type === 'element') {
         const el = modelStore.elements.get(newHover.id);
         if (el) tooltipText = `Elem ${el.id} [${el.type}] ${el.nodeI}→${el.nodeJ}`;
       } else if (newHover.type === 'support') {
         const s = modelStore.supports.get(newHover.id);
-        if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', s.type);
+        if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', supportTypeShown(s.type));
       } else if (newHover.type === 'plate' || newHover.type === 'quad') {
         const sh = newHover.type === 'plate' ? modelStore.plates.get(newHover.id) : modelStore.quads.get(newHover.id);
         if (sh) tooltipText = `${newHover.type === 'plate' ? 'Plate' : 'Quad'} ${newHover.id} · t=${sh.thickness}m`;
@@ -4541,11 +4545,12 @@
   {#if uiStore.clippingEnabled}
     <div class="clip-controls" style="top: {uiStore.floatingToolsTopOffset}px; left: {uiStore.showFloatingTools ? 12 : 48}px">
       <div class="clip-axis-btns">
-        {#each ['x', 'y', 'z'] as ax}
+        {#each ['X', 'Y', 'Z'] as const as ax}
+          {@const k = modelAxisOf(ax)}
           <button
-            class:active-ax={uiStore.clippingAxis === ax}
-            onclick={() => { uiStore.clippingAxis = ax as 'x' | 'y' | 'z'; }}
-          >{ax.toUpperCase()}</button>
+            class:active-ax={uiStore.clippingAxis === XYZ[k.index]}
+            onclick={() => { uiStore.clippingAxis = XYZ[k.index]; }}
+          >{ax}</button>
         {/each}
       </div>
       <input
@@ -4553,11 +4558,11 @@
         min="-30"
         max="30"
         step="0.1"
-        value={uiStore.clippingPosition}
-        oninput={(e) => { uiStore.clippingPosition = +e.currentTarget.value; }}
+        value={clipSign * uiStore.clippingPosition}
+        oninput={(e) => { uiStore.clippingPosition = clipSign * +e.currentTarget.value; }}
         class="clip-slider"
       />
-      <span class="clip-val">{uiStore.clippingPosition.toFixed(1)}</span>
+      <span class="clip-val">{(clipSign * uiStore.clippingPosition).toFixed(1)}</span>
     </div>
   {/if}
 
