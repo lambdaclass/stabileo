@@ -430,6 +430,9 @@ export const SHEETS: SheetSpec[] = [
   },
 ];
 
+/** The axes the coordinates, global loads and supports are written in; absent, the model's own. */
+export const AXES_SHEET = 'Axes';
+
 /** The sheet a reader sees first. Not data — prose, in their language. */
 export const INSTRUCTIONS_SHEET = 'Instrucciones';
 

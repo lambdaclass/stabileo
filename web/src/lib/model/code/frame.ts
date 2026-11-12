@@ -9,10 +9,17 @@ type Way = 'toUser' | 'toModel';
 const vec = (f: AxesFrame, way: Way, v: Vec3) => (way === 'toUser' ? toUser(f, v) : toModel(f, v));
 const rot = (f: AxesFrame, way: Way, v: Vec3) => (way === 'toUser' ? pseudoToUser(f, v) : pseudoToModel(f, v));
 
-function mapTriple(o: Obj, keys: readonly [string, string, string], fn: (v: Vec3) => Vec3): void {
+function mapTriple(f: AxesFrame, way: Way, o: Obj, keys: readonly [string, string, string], kind: 'vec' | 'rot' = 'vec'): void {
   if (!keys.some((k) => o[k] !== undefined)) return;
-  const out = fn([o[keys[0]] ?? 0, o[keys[1]] ?? 0, o[keys[2]] ?? 0]);
-  keys.forEach((k, i) => { if (o[k] !== undefined || out[i] !== 0) o[k] = out[i] + 0; });
+  const v: Vec3 = [o[keys[0]] ?? 0, o[keys[1]] ?? 0, o[keys[2]] ?? 0];
+  const out = kind === 'vec' ? vec(f, way, v) : rot(f, way, v);
+  const had = keys.map((k) => o[k] !== undefined);
+  const has = [...had];
+  f.rows.forEach((row, i) => {
+    const m = row.findIndex((c) => c !== 0);
+    if (way === 'toUser') has[i] = had[m]!; else has[m] = had[i]!;
+  });
+  keys.forEach((k, i) => { if (has[i] || out[i] !== 0) o[k] = out[i]! + 0; else delete o[k]; });
 }
 
 function permute(f: AxesFrame, way: Way, o: Obj, keys: readonly [string, string, string]): void {
@@ -31,6 +38,64 @@ function plane(f: AxesFrame) {
 }
 
 const SPACE_MODES = new Set(['3d', 'pro']);
+
+const AXIS = ['X', 'Y', 'Z'] as const;
+
+function vecList(f: AxesFrame, way: Way, list: unknown): void {
+  if (!Array.isArray(list)) return;
+  list.forEach((p, i) => { if (Array.isArray(p) && p.length === 3) list[i] = vec(f, way, p as unknown as Vec3).map((x) => x + 0); });
+}
+
+function vecArray(f: AxesFrame, way: Way, o: Obj, key: string): void {
+  const v = o[key];
+  if (Array.isArray(v) && v.length === 3) o[key] = vec(f, way, v as unknown as Vec3).map((x) => x + 0);
+}
+
+function vecXYZ(f: AxesFrame, way: Way, o: unknown): void {
+  if (o && typeof o === 'object') mapTriple(f, way, o as Obj, ['x', 'y', 'z']);
+}
+
+function axisMap(f: AxesFrame, way: Way): { index: number[]; sign: number[] } {
+  const index = [0, 1, 2], sign = [1, 1, 1];
+  f.rows.forEach((row, i) => {
+    const m = row.findIndex((c) => c !== 0);
+    if (way === 'toUser') { index[m] = i; sign[m] = row[m]!; } else { index[i] = m; sign[i] = row[m]!; }
+  });
+  return { index, sign };
+}
+
+function mapDof(f: AxesFrame, way: Way, dof: number): { dof: number; sign: number } {
+  if (!Number.isInteger(dof) || dof < 0 || dof > 5) return { dof, sign: 1 };
+  const { index, sign } = axisMap(f, way);
+  const k = dof % 3, rot = dof >= 3;
+  return { dof: index[k]! + (rot ? 3 : 0), sign: sign[k]! * (rot ? f.det : 1) };
+}
+
+function transformConstraint(f: AxesFrame, way: Way, c: Obj): void {
+  const dofs = (key: string) => {
+    if (Array.isArray(c[key])) c[key] = (c[key] as unknown[]).map((d) => (typeof d === 'number' ? mapDof(f, way, d).dof : d));
+  };
+  if (c.type === 'rigidLink' || c.type === 'equalDOF') dofs('dofs');
+  else if (c.type === 'linearMPC' && Array.isArray(c.terms)) {
+    for (const t of c.terms as Obj[]) {
+      if (typeof t.dof !== 'number') continue;
+      const m = mapDof(f, way, t.dof);
+      t.dof = m.dof;
+      if (typeof t.coefficient === 'number') t.coefficient = m.sign * t.coefficient + 0;
+    }
+  } else if (c.type === 'diaphragm' && typeof c.plane === 'string' && /^[XYZ]{2}$/.test(c.plane)) {
+    const { index } = axisMap(f, way);
+    c.plane = [...c.plane].map((a) => AXIS[index[AXIS.indexOf(a as 'X')]!]).sort().join('');
+  } else if (c.type === 'eccentricConnection') {
+    mapTriple(f, way, c, ['offsetX', 'offsetY', 'offsetZ']);
+    const r = c.releases;
+    if (Array.isArray(r) && r.length === 6) {
+      const out = [...r];
+      for (let d = 0; d < 6; d++) out[mapDof(f, way, d).dof] = r[d];
+      c.releases = out;
+    }
+  }
+}
 
 export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, way: Way): T {
   const f = makeFrame(choice);
@@ -53,18 +118,43 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
       for (const k of ['fz', 'fy']) if (d[k] !== undefined) d[k] = p.v * d[k] + 0;
       for (const k of ['my', 'mz']) if (d[k] !== undefined) d[k] = p.r * d[k] + 0;
     } else if (l.type === 'nodal3d' || (l.type === 'nodal' && space)) {
-      mapTriple(d, ['fx', 'fy', 'fz'], (v) => vec(f, way, v));
-      mapTriple(d, ['mx', 'my', 'mz'], (v) => rot(f, way, v));
+      mapTriple(f, way, d, ['fx', 'fy', 'fz']);
+      mapTriple(f, way, d, ['mx', 'my', 'mz'], 'rot');
     } else if (l.type === 'distributed3d' && (d.frame === 'global' || d.frame === 'projected')) {
-      mapTriple(d, ['qXI', 'qYI', 'qZI'], (v) => vec(f, way, v));
-      mapTriple(d, ['qXJ', 'qYJ', 'qZJ'], (v) => vec(f, way, v));
+      mapTriple(f, way, d, ['qXI', 'qYI', 'qZI']);
+      mapTriple(f, way, d, ['qXJ', 'qYJ', 'qZJ']);
     } else if (l.type === 'pointOnElement3d' && d.frame === 'global') {
-      mapTriple(d, ['px', 'py', 'pz'], (v) => vec(f, way, v));
-      mapTriple(d, ['mx', 'my', 'mz'], (v) => rot(f, way, v));
+      mapTriple(f, way, d, ['px', 'py', 'pz']);
+      mapTriple(f, way, d, ['mx', 'my', 'mz'], 'rot');
     } else if (l.type === 'displacement3d') {
-      mapTriple(d, ['dx', 'dy', 'dz'], (v) => vec(f, way, v));
-      mapTriple(d, ['drx', 'dry', 'drz'], (v) => rot(f, way, v));
+      mapTriple(f, way, d, ['dx', 'dy', 'dz']);
+      mapTriple(f, way, d, ['drx', 'dry', 'drz'], 'rot');
+    } else if (l.type === 'surface3d') {
+      if (d.frame === 'global' || d.frame === 'projected') vecArray(f, way, d, 'dir');
+      if (d.vary && typeof d.vary === 'object') vecArray(f, way, d.vary as Obj, 'dir');
+      const region = d.region as Obj | undefined;
+      if (region && typeof region === 'object') {
+        vecArray(f, way, region, 'normal');
+        vecList(f, way, region.points);
+        if (Array.isArray(region.holes)) for (const h of region.holes) vecList(f, way, h);
+      }
+    } else if (l.type === 'pointOnElement' && !space) {
+      for (const k of ['my', 'mz']) if (d[k] !== undefined) d[k] = p.r * d[k] + 0;
     }
+  }
+  if (space) {
+    for (const [, e] of (s.elements ?? []) as Array<[number, Obj]>) {
+      mapTriple(f, way, e, ['localYx', 'localYy', 'localYz']);
+      const o = e.offset as Obj | undefined;
+      if (o && o.frame === 'global') { vecXYZ(f, way, o.i); vecXYZ(f, way, o.j); }
+    }
+    for (const key of ['quads', 'plates']) {
+      for (const [, q] of (s[key] ?? []) as Array<[number, Obj]>) {
+        const o = q.offset as Obj | undefined;
+        if (o && o.frame === 'global') vecXYZ(f, way, o);
+      }
+    }
+    for (const c of (s.constraints ?? []) as Obj[]) if (c && typeof c === 'object') transformConstraint(f, way, c);
   }
   for (const [, sp] of (s.supports ?? []) as Array<[number, Obj]>) {
     if (!space) {
@@ -81,9 +171,10 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
     }
     permute(f, way, sp, ['kx', 'ky', 'kz']);
     permute(f, way, sp, ['krx', 'kry', 'krz']);
-    mapTriple(sp, ['dx', 'dy', 'dz'], (v) => vec(f, way, v));
-    mapTriple(sp, ['drx', 'dry', 'drz'], (v) => rot(f, way, v));
-    mapTriple(sp, ['normalX', 'normalY', 'normalZ'], (v) => vec(f, way, v));
+    if (sp.curves && typeof sp.curves === 'object') permute(f, way, sp.curves as Obj, ['x', 'y', 'z']);
+    mapTriple(f, way, sp, ['dx', 'dy', 'dz']);
+    mapTriple(f, way, sp, ['drx', 'dry', 'drz'], 'rot');
+    mapTriple(f, way, sp, ['normalX', 'normalY', 'normalZ']);
   }
   return s as T;
 }
@@ -92,4 +183,4 @@ export function frameLine(choice: AxesChoice): string {
   return `frame up=${JSON.stringify(choice.up)} right=${JSON.stringify(choice.right)} hand=${JSON.stringify(choice.hand)}`;
 }
 
-export const FRAME_NOTE = '# Coordinates, global loads and supports are in the axes of the frame line; support type names keep the model\'s axes.';
+export const FRAME_NOTE = '# Coordinates, global loads, supports, member orientations and offsets and constraints are in the axes of the frame line; support type names, plane-model load angles, footings and the project settings lines keep the model\'s axes.';

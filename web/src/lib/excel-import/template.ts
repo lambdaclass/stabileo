@@ -26,7 +26,10 @@
 import { loadXlsxModule } from '../export/excel';
 import { t } from '../i18n';
 import { uiStore } from '../store';
-import { SHEETS, INSTRUCTIONS_SHEET, headerFor, LOAD_TYPES } from './schema';
+import { SHEETS, INSTRUCTIONS_SHEET, AXES_SHEET, headerFor, LOAD_TYPES } from './schema';
+import { axesStore } from '../axes/axes.svelte';
+import { makeFrame, pseudoToUser, toUser, userAxisAlong, type AxesChoice, type AxesFrame } from '../axes/frame';
+import type { SheetSpec } from './schema';
 
 /** Column widths, so a header is readable without dragging anything. */
 function widthsFor(headers: string[]): Array<{ wch: number }> {
@@ -90,7 +93,7 @@ function instructionRows(): Array<Array<string | number>> {
  * deal with the load failing and a second failure path here would be a second
  * place to report the same thing.
  */
-export function buildTemplateWorkbook(XLSX: NonNullable<Awaited<ReturnType<typeof loadXlsxModule>>>) {
+export function buildTemplateWorkbook(XLSX: NonNullable<Awaited<ReturnType<typeof loadXlsxModule>>>, axes: AxesChoice | null = axesStore.frame.identity ? null : axesStore.choice) {
   const wb = XLSX.utils.book_new();
 
   const help = XLSX.utils.aoa_to_sheet(instructionRows());
@@ -99,14 +102,52 @@ export function buildTemplateWorkbook(XLSX: NonNullable<Awaited<ReturnType<typeo
 
   for (const sheet of SHEETS) {
     const headers = sheet.columns.map(headerFor);
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...sheet.examples]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...(axes ? examplesIn(sheet, makeFrame(axes)) : sheet.examples)]);
     ws['!cols'] = widthsFor(headers);
     /* The header row stays put while a long Loads sheet is scrolled. */
     ws['!freeze'] = { xSplit: 0, ySplit: 1 };
     XLSX.utils.book_append_sheet(wb, ws, sheet.name);
   }
+  if (axes) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(axesRows(axes)), AXES_SHEET);
   return wb;
 }
+
+function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number>> {
+  const at = (key: string) => sheet.columns.findIndex((c) => c.key === key);
+  const num = (v: string | number | undefined) => (typeof v === 'number' ? v : 0);
+  const h = userAxisAlong(f, 0), v = userAxisAlong(f, 2);
+  const lower = (a: { name: string }) => a.name.toLowerCase();
+  return sheet.examples.map((example) => {
+    const row = [...example];
+    if (sheet.name === 'Nodes') {
+      const [x, z] = [num(example[at('x')]), num(example[at('z')])];
+      for (const k of ['x', 'y', 'z']) row[at(k)] = '';
+      row[at(lower(h))] = h.sign * x + 0;
+      row[at(lower(v))] = v.sign * z + 0;
+    } else if (sheet.name === 'Loads' && example[0] === 'nodal') {
+      const fx = num(example[at('fx')]), fz = num(example[at('fz')]) || num(example[at('fy')]);
+      for (const k of ['fx', 'fy', 'fz']) row[at(k)] = '';
+      row[at(`f${lower(h)}`)] = h.sign * fx + 0;
+      row[at(`f${lower(v)}`)] = v.sign * fz + 0;
+    } else if (sheet.name === 'Loads' && example[0] === 'nodal3d') {
+      const F = toUser(f, [num(example[at('fx')]), num(example[at('fy')]), num(example[at('fz')])]);
+      const M = pseudoToUser(f, [num(example[at('mx')]), num(example[at('my')]), num(example[at('mz')])]);
+      ['fx', 'fy', 'fz'].forEach((k, i) => { row[at(k)] = F[i]! + 0; });
+      ['mx', 'my', 'mz'].forEach((k, i) => { row[at(k)] = M[i]! + 0; });
+    } else if (sheet.name === 'Loads' && example[0] === 'distributed3d' && example[at('dir')] !== 'local') {
+      const I = toUser(f, [0, num(example[at('qi')]), num(example[at('qzi')])]);
+      const J = toUser(f, [0, num(example[at('qj')]), num(example[at('qzj')])]);
+      if (I[0] !== 0 || J[0] !== 0) row[at('dir')] = 'local';
+      else {
+        row[at('qi')] = I[1]! + 0; row[at('qzi')] = I[2]! + 0;
+        row[at('qj')] = J[1]! + 0; row[at('qzj')] = J[2]! + 0;
+      }
+    }
+    return row;
+  });
+}
+
+export const axesRows = (axes: AxesChoice): Array<Array<string>> => [['up', 'right', 'hand'], [axes.up, axes.right, axes.hand]];
 
 export async function downloadTemplate(): Promise<boolean> {
   const XLSX = await loadXlsxModule();
