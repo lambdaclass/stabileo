@@ -76,7 +76,7 @@ function run() {
 }
 
 describe('seeded slider sweep execution', () => {
-  it.fails('keeps each test to at most 25 complete example analyses (#1958)', () => {
+  it('keeps each test to at most 25 complete example analyses (#1958)', () => {
     const { counts, failures } = run();
     expect(failures).toEqual([]);
     expect(counts.length).toBeGreaterThan(0);
@@ -91,13 +91,13 @@ describe('seeded slider sweep execution', () => {
       return [id, createHash('sha256').update(JSON.stringify(samples)).digest('hex')];
     }));
     expect(coverage).toEqual({
-      "beam-frame": "6797b5fac44959dae72df4e222dbd58f7a91ef69b1090eaa18c9ee455d156d29",
-      "slab-on-columns": "816e09b1d8018d7bcc6d8c23757296d88693d2fe0e11bce45bdf00cf7dbdcbc8",
-      "earthquake-frame": "913e225f883407ce64cadddd52becdcb9d5ba4031215d59556d093aa84d621f2",
-      "rc-column": "86d2411c7f930e69f1d638aa8daf9a3c695454c541e8616f81f49e641280cc80",
-      "outrigger": "aff042d58523a034fbfd219243550a36af483633e1b2132b7222bd1404895bdd",
-      "tower": "6602d215fe90914b7d51e803c5e9bd5cb8481fa96b3877a76d9f05687cb8e7c7"
-});
+      'beam-frame': '6797b5fac44959dae72df4e222dbd58f7a91ef69b1090eaa18c9ee455d156d29',
+      'slab-on-columns': '816e09b1d8018d7bcc6d8c23757296d88693d2fe0e11bce45bdf00cf7dbdcbc8',
+      'earthquake-frame': '913e225f883407ce64cadddd52becdcb9d5ba4031215d59556d093aa84d621f2',
+      'rc-column': '86d2411c7f930e69f1d638aa8daf9a3c695454c541e8616f81f49e641280cc80',
+      'outrigger': 'aff042d58523a034fbfd219243550a36af483633e1b2132b7222bd1404895bdd',
+      'tower': '6602d215fe90914b7d51e803c5e9bd5cb8481fa96b3877a76d9f05687cb8e7c7'
+    });
   });
 
   it.each([59, 60])('keeps the strict aggregate refusal limit with %i refusals out of 300', refused => {

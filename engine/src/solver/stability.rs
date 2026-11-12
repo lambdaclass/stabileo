@@ -325,6 +325,7 @@ fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f6
                 let theta = (m[q * n + q] - m[p * n + p]) / (2.0 * apq);
                 let t = theta.signum() / (theta.abs() + theta.hypot(1.0));
                 let t = if theta == 0.0 { 1.0 } else { t };
+                if t == 0.0 { continue; }
                 #[cfg(test)]
                 if t == 0.0 { tests::IDENTITY_ROTATIONS.with(|count| count.set(count.get() + 1)); }
                 let c = 1.0 / (t * t + 1.0).sqrt();
@@ -1283,7 +1284,6 @@ mod tests {
         assert!(lanczos_top(&|x| matrix.sym_mat_vec(x), 2, seed, &|top| certified_top(&matrix, &Rc::new(symbolic_cholesky(&matrix)), top)).is_none());
     }
     #[test]
-    #[ignore = "known wrong result: #1958"]
     fn issue_1958_identity_jacobi_rotations_do_no_matrix_work() {
         let tiny = f64::MIN_POSITIVE * f64::EPSILON * 16.0;
         let matrix = [1.0, tiny, 0.0, tiny, 2.0, 0.25, 0.0, 0.25, 3.0];
