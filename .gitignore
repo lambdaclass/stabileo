@@ -93,3 +93,5 @@ __pycache__/
 .env.prod
 web/.result-change-order.json
 .handoff.md
+
+.handoff-r7.md

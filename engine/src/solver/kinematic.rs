@@ -290,35 +290,73 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
 /// of solvability before the dense one.
 const KINEMATIC_SPARSE_THRESHOLD: usize = 64;
 
-fn normalize_springs<'a>(springs: impl Iterator<Item = &'a mut Option<f64>>, scale: f64) {
-    for spring in springs {
-        if spring.is_some_and(|k| k > 0.0) { *spring = Some(scale); }
+fn spring_rank_scales(k: &CscMatrix, cs: Option<&FreeConstraintSystem>) -> Vec<f64> {
+    fn root(parent: &mut [usize], mut i: usize) -> usize {
+        while parent[i] != i { parent[i] = parent[parent[i]]; i = parent[i]; }
+        i
+    }
+    let mut parent: Vec<_> = (0..k.n).collect();
+    if let Some(cs) = cs {
+        for (a, b) in cs.coupled_free_dofs() {
+            let a = root(&mut parent, a);
+            let b = root(&mut parent, b);
+            parent[a.max(b)] = a.min(b);
+        }
+    }
+    let mut scales = vec![0.0_f64; k.n];
+    for (i, diagonal) in k.diagonal().into_iter().enumerate() {
+        let group = root(&mut parent, i);
+        scales[group] = scales[group].max(diagonal);
+    }
+    (0..k.n).map(|i| {
+        let scale = scales[root(&mut parent, i)];
+        if scale > 0.0 { scale } else { 1.0 }
+    }).collect()
+}
+
+fn normalize_rank_springs<const N: usize>(
+    springs: [&mut Option<f64>; N], node: usize, dof: &DofNumbering, scales: Option<&[f64]>,
+) {
+    for (local, spring) in springs.into_iter().enumerate() {
+        if spring.is_some_and(|k| k > 0.0) {
+            *spring = Some(scales.map_or(0.0, |scales| {
+                dof.map.get(&(node, local)).filter(|&&i| i < dof.n_free).map_or(1.0, |&i| scales[i])
+            }));
+        }
     }
 }
 
 fn rank_springs_2d(input: &SolverInput) -> Option<SolverInput> {
     if !input.supports.values().any(|s| [s.kx,s.ky,s.kz].into_iter().any(|k| k.is_some_and(|v| v > 0.0))) { return None; }
     let dof = DofNumbering::build_2d(input);
+    let cs = FreeConstraintSystem::build_2d(input, &dof).ok()?;
     let mut rank = input.clone();
-    normalize_springs(rank.supports.values_mut().flat_map(|s| [&mut s.kx, &mut s.ky, &mut s.kz]), 0.0);
+    for s in rank.supports.values_mut() {
+        normalize_rank_springs([&mut s.kx, &mut s.ky, &mut s.kz], s.node_id, &dof, None);
+    }
     let asm = super::assembly::without_artificial_stiffness(|| assemble_sparse_2d(&rank, &dof));
-    let scale = asm.k_ff.diagonal().into_iter().fold(0.0_f64, f64::max);
-    let scale = if scale > 0.0 { scale } else { 1.0 };
+    let scales = spring_rank_scales(&asm.k_ff, cs.as_ref());
     rank.supports = input.supports.clone();
-    normalize_springs(rank.supports.values_mut().flat_map(|s| [&mut s.kx, &mut s.ky, &mut s.kz]), scale);
+    for s in rank.supports.values_mut() {
+        normalize_rank_springs([&mut s.kx, &mut s.ky, &mut s.kz], s.node_id, &dof, Some(&scales));
+    }
     Some(rank)
 }
 
 fn rank_springs_3d(input: &SolverInput3D) -> Option<SolverInput3D> {
     if !input.supports.values().any(|s| [s.kx,s.ky,s.kz,s.krx,s.kry,s.krz,s.kw].into_iter().any(|k| k.is_some_and(|v| v > 0.0))) { return None; }
     let dof = DofNumbering::build_3d(input);
+    let cs = FreeConstraintSystem::build_3d(input, &dof).ok()?;
     let mut rank = input.clone();
-    normalize_springs(rank.supports.values_mut().flat_map(|s| [&mut s.kx, &mut s.ky, &mut s.kz, &mut s.krx, &mut s.kry, &mut s.krz, &mut s.kw]), 0.0);
+    for s in rank.supports.values_mut() {
+        normalize_rank_springs([&mut s.kx, &mut s.ky, &mut s.kz, &mut s.krx, &mut s.kry, &mut s.krz, &mut s.kw], s.node_id, &dof, None);
+    }
     let asm = super::assembly::without_artificial_stiffness(|| assemble_sparse_3d(&rank, &dof, false));
-    let scale = asm.k_ff.diagonal().into_iter().fold(0.0_f64, f64::max);
-    let scale = if scale > 0.0 { scale } else { 1.0 };
+    let scales = spring_rank_scales(&asm.k_ff, cs.as_ref());
     rank.supports = input.supports.clone();
-    normalize_springs(rank.supports.values_mut().flat_map(|s| [&mut s.kx, &mut s.ky, &mut s.kz, &mut s.krx, &mut s.kry, &mut s.krz, &mut s.kw]), scale);
+    for s in rank.supports.values_mut() {
+        normalize_rank_springs([&mut s.kx, &mut s.ky, &mut s.kz, &mut s.krx, &mut s.kry, &mut s.krz, &mut s.kw], s.node_id, &dof, Some(&scales));
+    }
     Some(rank)
 }
 

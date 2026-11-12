@@ -2075,14 +2075,17 @@ fn issue_1943_final_initial_conditioning_reaches_every_plastic_entry() {
 }
 
 fn round7_zero_reactions(rows: &serde_json::Value, expected: &[serde_json::Value], fields: &[&str]) {
-    let _ = expected;
+    let mut actual: Vec<_> = rows.as_array().unwrap().iter().map(|r| r["nodeId"].as_u64().unwrap()).collect();
+    let mut expected: Vec<_> = expected.iter().map(|id| id.as_u64().unwrap()).collect();
+    actual.sort_unstable();
+    expected.sort_unstable();
+    assert_eq!(actual, expected);
     for row in rows.as_array().unwrap() {
         for field in fields { assert_eq!(row[field].as_f64().unwrap(), 0.0); }
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1943"]
 fn issue_1943_round7_cancellation_rejects_missing_reaction_rows() {
     for dim in [2, 3] {
         let fields = if dim == 2 { vec!["rx", "rz", "my"] } else { vec!["fx", "fy", "fz", "mx", "my", "mz"] };

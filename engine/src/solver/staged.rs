@@ -13,7 +13,7 @@ use super::assembly::{AssemblyResult, assemble_2d, assemble_3d};
 use super::linear::{
     build_displacements_2d,
     build_displacements_3d,
-    build_reactions_2d,
+    build_reactions_2d_inclined,
     compute_internal_forces_2d,
     compute_plate_stresses,
 };
@@ -71,6 +71,18 @@ pub fn parse_staged_3d(json: &str) -> Result<StagedInput3D, String> {
 /// 5. Accumulate displacements
 /// 6. Compute element forces using cumulative displacements
 pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, String> {
+    if input.stages.is_empty() {
+        return Err("No construction stages defined".into());
+    }
+
+    let has_inclined = crate::ordered::values(&input.supports).any(|s| {
+        s.support_type == "inclinedRoller"
+    });
+    if has_inclined {
+        return Err("Inclined supports are not yet supported in staged construction analysis \
+                    (reactions would be reported in the rotated support frame)".to_string());
+    }
+
     let mut r = solve_staged_2d_contained(input)?;
     let mut diagnostics = crate::known_issues::for_2d(&staged_to_full_solver_input(input), crate::known_issues::Analysis::Linear);
     for stage in &mut r.stages {
@@ -83,24 +95,6 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
 }
 
 fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResults, String> {
-    if input.stages.is_empty() {
-        return Err("No construction stages defined".into());
-    }
-
-    // Staged construction's custom assembly (assemble_stage_2d, below) hardcodes
-    // inclined_transforms_2d: vec![] — it never rotates K/F for inclined
-    // supports. This means the solve would silently treat an inclined roller
-    // as a flat roller (wrong boundary condition and wrong stiffness), not
-    // just mis-report results. Reject explicitly until that assembly carries
-    // transforms.
-    let has_inclined = crate::ordered::values(&input.supports).any(|s| {
-        s.support_type == "inclinedRoller"
-    });
-    if has_inclined {
-        return Err("Inclined supports are not yet supported in staged construction analysis \
-                    (reactions would be reported in the rotated support frame)".to_string());
-    }
-
     // Build DOF numbering from the full structure (all nodes, all elements)
     let full_solver_input = staged_to_full_solver_input(input);
     super::linear::validate_input_2d(&full_solver_input)?;
@@ -243,8 +237,13 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             ..stage_solver_input.clone()
         };
         let cumulative_stage_loads = stage_loads_2d(&cumulative_solver_input, stage);
+        let inclined_transforms = if let Some(ref t) = asm_trips {
+            &t.inclined_transforms_2d
+        } else {
+            &asm_dense.as_ref().unwrap().inclined_transforms_2d
+        };
         let applied = super::assembly::assemble_load_vector_2d(
-            &cumulative_solver_input, &cumulative_stage_loads, &dof_num, &[],
+            &cumulative_solver_input, &cumulative_stage_loads, &dof_num, inclined_transforms,
         );
         let mut conditioning = None;
         let u_s_inc = solve_stage_free(
@@ -294,6 +293,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
                 &cumulative_solver_input,
                 &reactions_vec,
                 nf,
+                inclined_transforms,
             ),
         });
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, conditioning.into_iter().collect());
@@ -558,11 +558,17 @@ fn build_results_from_u(
     input: &SolverInput,
     reactions_vec: &[f64],
     nf: usize,
+    inclined_transforms: &[super::assembly::InclinedTransformData2D],
 ) -> AnalysisResults {
+    let mut global_u = u.to_vec();
+    for it in inclined_transforms {
+        super::assembly::reverse_inclined_transform_2d(&mut global_u, &it.dofs, &it.r);
+    }
+    let u = global_u.as_slice();
     let displacements = build_displacements_2d(dof_num, u);
     let mut element_forces = compute_internal_forces_2d(input, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
-    let mut reactions = build_reactions_2d(input, dof_num, reactions_vec, &[], nf, u);
+    let mut reactions = build_reactions_2d_inclined(input, dof_num, reactions_vec, &[], nf, u, inclined_transforms);
     reactions.sort_by_key(|r| r.node_id);
 
     AnalysisResults {

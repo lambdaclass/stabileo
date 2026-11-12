@@ -345,7 +345,6 @@ fn round7_close(got: f64, expected: f64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1943"]
 fn staged_round7_inclined_global_axes_reference() {
     for pads in [0, 20, 21] {
         for angle in [0.0_f64, 0.6, -0.6] {
@@ -353,12 +352,13 @@ fn staged_round7_inclined_global_axes_reference() {
             assert!(solve_staged_2d(&input).unwrap_err().contains("Inclined supports are not yet supported"));
             let result = solve_staged_2d_contained(&input).unwrap();
             let (sin, cos) = angle.sin_cos();
-            let kx = 10000.0 * 0.01 / 4.0;
-            let kz = 3.0 * 10000.0 * 0.001 / 4.0_f64.powi(3);
+            let e = input.materials["1"].e * 1000.0;
+            let kx = e * input.sections["1"].a / 4.0;
+            let kz = 3.0 * e * input.sections["1"].iz / 4.0_f64.powi(3);
             for (index, stage) in result.stages.iter().enumerate() {
                 let fz = -(index as f64 + 1.0);
                 let tangent_u = fz * sin / (kx * cos * cos + kz * sin * sin);
-                let ux = tangent_u * cos;
+                let ux = -tangent_u * cos;
                 let uz = tangent_u * sin;
                 let tip = stage.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
                 round7_close(tip.ux, ux);
@@ -370,7 +370,7 @@ fn staged_round7_inclined_global_axes_reference() {
                 let base = stage.results.reactions.iter().find(|r| r.node_id == 1).unwrap();
                 round7_close(base.rx, -kx * ux);
                 round7_close(base.rz, -kz * uz);
-                round7_close(base.my, 4.0 * kz * uz);
+                round7_close(base.my, -4.0 * kz * uz);
                 let force = stage.results.element_forces.iter().find(|f| f.element_id == 1).unwrap();
                 round7_close(force.n_start, kx * ux);
                 round7_close(force.n_end, kx * ux);
@@ -380,11 +380,10 @@ fn staged_round7_inclined_global_axes_reference() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1943"]
 fn staged_round7_inclined_disconnected_tangent_load() {
     for pads in [0, 20, 21] {
         for angle in [0.0_f64, 0.6, -0.6] {
-            for fz in [-1.0, 0.0, 1.0] {
+            for fz in [-1.0, -f64::EPSILON, 0.0, f64::EPSILON, 1.0] {
                 let mut input = round7_inclined(pads, angle);
                 input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz, my: 0.0 })];
                 input.stages[0].load_indices.clear();

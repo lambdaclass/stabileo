@@ -1594,3 +1594,41 @@ fn load_moment_scale_3d(input: &SolverInput3D) -> f64 {
     }).sum();
     f * l
 }
+
+#[cfg(test)]
+mod staged_round7_entry_tests {
+    use super::*;
+
+    #[test]
+    fn staged_round7_constrained_spring_hinged_carry() {
+        let models: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/staged-round7.json")).unwrap();
+        for spring in [1.0, 0.0] {
+            let mut input: SolverInput3D = serde_json::from_value(models["3"].clone()).unwrap();
+            input.supports.get_mut("2").unwrap().kx = Some(spring);
+            input.loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: 1,
+                fx: 1.0,
+                fy: 0.0,
+                fz: 0.0,
+                mx: 0.0,
+                my: 0.0,
+                mz: 0.0,
+                bw: None,
+            })];
+            let result = carry(&input, CarryState::Hinged);
+            if spring == 0.0 {
+                assert!(result.unwrap_err().contains("constraints or connectors"));
+            } else {
+                let result = result.unwrap().unwrap();
+                let master = result
+                    .displacements
+                    .iter()
+                    .find(|d| d.node_id == 1)
+                    .unwrap();
+                assert!((master.ux - 0.5).abs() <= 1e-12);
+                assert!(master.ry.abs() <= 1e-12);
+            }
+        }
+    }
+}
