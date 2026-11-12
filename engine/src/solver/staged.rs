@@ -206,11 +206,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         // linear-agreement check: two load stages gave twice the settlement).
         let du_r: Vec<f64> = u_r.iter().zip(&prev_u_r).map(|(a, b)| a - b).collect();
         // Extract Kff, Ff and apply F_f_modified = F_f - K_fr * du_r.
-        // Sparse path: the full-K CSC (built once from the stage triplets)
-        // provides the K_fr·u_r cross-block matvec and is reused for the
-        // reaction computation at the end of the stage; the free×free CSC
-        // for the solve is filtered from the same triplets further below.
-        let mut k_full_csc: Option<CscMatrix> = None;
         let mut k_ff_dense: Option<Vec<f64>> = None;
         let f_f: Vec<f64>;
         let max_diag: f64;
@@ -223,7 +218,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             }
             max_diag = t.diag[..nf].iter().fold(0.0f64, |m, v| m.max(v.abs()));
             f_f = ff;
-            k_full_csc = Some(k_full);
         } else {
             let asm = asm_dense.as_ref().unwrap();
             let free_idx: Vec<usize> = (0..nf).collect();
@@ -243,13 +237,16 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         }
 
         let residual_at = |cum: &SolverInput, u: &[f64]| {
-            if let Some(ref k_full) = k_full_csc {
-                let asm = assemble_staged_2d_triplets(cum, &dof_num, input, &active_elements, stage);
-                compute_stage_reactions_sparse(k_full, &asm.f, nf, nr, u)
-            } else {
-                let asm = assemble_staged_2d(cum, &dof_num, input, &active_elements, stage);
-                compute_stage_reactions_vec(&asm, n, nf, nr, u, &u[nf..])
-            }
+            PhysicalStageResidual::assemble(|| {
+                if use_sparse {
+                    let asm = assemble_staged_2d_triplets(cum, &dof_num, input, &active_elements, stage);
+                    let k = CscMatrix::from_triplets(n, &asm.rows, &asm.cols, &asm.vals);
+                    compute_stage_reactions_sparse(&k, &asm.f, nf, nr, u)
+                } else {
+                    let asm = assemble_staged_2d(cum, &dof_num, input, &active_elements, stage);
+                    compute_stage_reactions_vec(&asm, n, nf, nr, u, &u[nf..])
+                }
+            })
         };
 
         // Check if K_ff has any non-zero diagonal (structure might be a mechanism at this stage)
@@ -336,9 +333,6 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             ..stage_solver_input.clone()
         };
 
-        // Reassemble with cumulative loads for correct reaction F_r.
-        // Sparse path: K is load-independent, so the stage's full-K CSC is
-        // also the cumulative one — only the force vector is reassembled.
         let reactions_vec = residual_at(&cumulative_solver_input, &cumulative_u);
 
         // Build results for this stage
@@ -567,7 +561,7 @@ fn assemble_staged_2d(
     // Add artificial stiffness for disconnected nodes and fully-hinged nodes.
     // In staged analysis, some nodes may not be connected to any active element.
     let mut artificial_dofs = Vec::new();
-    let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+    let artificial_k = super::assembly::artificial_stiffness(max_diag);
 
     // Collect nodes connected to active elements
     let mut connected_nodes = HashSet::new();
@@ -813,7 +807,7 @@ fn assemble_staged_2d_triplets(
 
     // Add artificial stiffness for disconnected nodes and fully-hinged nodes.
     // In staged analysis, some nodes may not be connected to any active element.
-    let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+    let artificial_k = super::assembly::artificial_stiffness(max_diag);
 
     // Collect nodes connected to active elements
     let mut connected_nodes = HashSet::new();
@@ -876,10 +870,16 @@ fn artificial_dof(dofs: &DofNumbering, node: usize, local: usize) -> Option<usiz
     dofs.global_dof(node, local).filter(|&d| d < dofs.n_free)
 }
 
-fn state_is_determined(u: &[f64], n_free: usize, prescribed: &[f64], cs: Option<&FreeConstraintSystem>) -> bool {
-    u[n_free..] == *prescribed && cs.map_or(n_free == 0, |cs| {
-        cs.n_free_indep == 0 && cs.prescribed_free(prescribed) == u[..n_free]
-    })
+struct PhysicalStageResidual(Vec<f64>);
+
+impl PhysicalStageResidual {
+    fn assemble(recover: impl FnOnce() -> Vec<f64>) -> Self {
+        Self(super::assembly::without_artificial_stiffness(recover))
+    }
+}
+
+fn state_is_directly_prescribed(u: &[f64], n_free: usize, prescribed: &[f64]) -> bool {
+    n_free == 0 && u == prescribed
 }
 
 /// Build AnalysisResults from cumulative displacements.
@@ -887,17 +887,17 @@ fn build_results_from_u(
     u: &[f64],
     dof_num: &DofNumbering,
     input: &SolverInput,
-    reactions_vec: &[f64],
+    reactions_vec: &PhysicalStageResidual,
     cs: Option<&FreeConstraintSystem>,
 ) -> Result<AnalysisResults, String> {
     let displacements = build_displacements_2d(dof_num, u);
     let mut element_forces = compute_internal_forces_2d(input, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(reactions_vec, dof_num, cs);
+    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&reactions_vec.0, dof_num, cs);
     let reactions = recovered.reactions_2d(input, dof_num, u, &[])?;
 
     let prescribed = super::linear::prescribed_displacements_2d(input, dof_num);
-    let determined = state_is_determined(u, dof_num.n_free, &prescribed, cs);
+    let determined = state_is_directly_prescribed(u, dof_num.n_free, &prescribed);
     let structured_diagnostics = if !determined && input.elements.is_empty() && super::assembly::support_spring_entries_2d(input, dof_num).is_empty() {
         vec![super::reaction_recovery::unavailable("stageResults", "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.")]
     } else { vec![] };
@@ -1151,13 +1151,16 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         }
 
         let residual_at = |cum: &SolverInput3D, u: &[f64]| {
-            let f = super::assembly::assemble_load_vector_3d_dense(cum, &cum.loads, &dof_num, &[]);
-            if let Some(ref t) = asm_trips {
-                let k_full = CscMatrix::from_triplets(n, &t.rows, &t.cols, &t.vals);
-                compute_stage_reactions_sparse(&k_full, &f, nf, nr, u)
-            } else {
-                mat_vec(&asm_dense.as_ref().unwrap().k, u, n).iter().zip(&f).map(|(ku, f)| ku - f).collect()
-            }
+            PhysicalStageResidual::assemble(|| {
+                if use_sparse {
+                    let asm = assemble_staged_3d_triplets(cum, &full_input, &dof_num);
+                    let k = CscMatrix::from_triplets(n, &asm.rows, &asm.cols, &asm.vals);
+                    compute_stage_reactions_sparse(&k, &asm.f, nf, nr, u)
+                } else {
+                    let asm = assemble_3d(cum, &dof_num);
+                    compute_stage_reactions_vec(&asm, n, nf, nr, u, &u[nf..])
+                }
+            })
         };
 
         // Check if K_ff has any non-zero diagonal
@@ -1386,7 +1389,7 @@ fn add_artificial_stiffness_3d(
     for i in 0..n {
         max_diag = max_diag.max(asm.k[i * n + i].abs());
     }
-    let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+    let artificial_k = super::assembly::artificial_stiffness(max_diag);
 
     // Collect nodes connected to active elements
     let mut connected_nodes = HashSet::new();
@@ -1494,7 +1497,7 @@ fn assemble_staged_3d_triplets(
     for &v in &diag {
         max_diag = max_diag.max(v.abs());
     }
-    let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+    let artificial_k = super::assembly::artificial_stiffness(max_diag);
 
     // Collect nodes connected to active elements
     let mut connected_nodes = HashSet::new();
@@ -1574,20 +1577,20 @@ fn build_results_from_u_3d(
     u: &[f64],
     dof_num: &DofNumbering,
     cum_input: &SolverInput3D,
-    reactions_vec: &[f64],
+    reactions_vec: &PhysicalStageResidual,
     cs: Option<&FreeConstraintSystem>,
 ) -> Result<AnalysisResults3D, String> {
     let displacements = build_displacements_3d(dof_num, u);
     let mut element_forces = super::linear::compute_internal_forces_3d_with_loads(cum_input, &cum_input.loads, dof_num, u);
     element_forces.sort_by_key(|ef| ef.element_id);
-    let recovered = super::reaction_recovery::RecoveredForces::from_residual(reactions_vec, dof_num, cs);
+    let recovered = super::reaction_recovery::RecoveredForces::from_residual(&reactions_vec.0, dof_num, cs);
     let reactions = recovered.reactions_3d(cum_input, dof_num, u, &[])?;
     let plate_stresses = compute_plate_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_stresses = super::linear::compute_quad_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
     let quad_nodal_stresses = super::linear::compute_quad_nodal_stresses(cum_input, dof_num, u, Some(&cum_input.loads));
 
     let prescribed = super::linear::prescribed_displacements_3d(cum_input, dof_num);
-    let determined = state_is_determined(u, dof_num.n_free, &prescribed, cs);
+    let determined = state_is_directly_prescribed(u, dof_num.n_free, &prescribed);
     let structured_diagnostics = if !determined && cum_input.elements.is_empty() && super::assembly::support_spring_entries_3d(cum_input, dof_num).is_empty() && cum_input.plates.is_empty() && cum_input.quads.is_empty() && cum_input.quad9s.is_empty() {
         vec![super::reaction_recovery::unavailable("stageResults", "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.")]
     } else { vec![] };

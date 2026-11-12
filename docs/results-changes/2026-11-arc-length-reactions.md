@@ -32,9 +32,10 @@ DOFs actually used by the solve. A mismatch returns a structured error instead
 of reporting reactions, displacements and member forces for different supports.
 This catches staged support activation/removal with incompatible global DOF
 numbering. Per-stage renumbering and construction history have not been rebuilt.
-Undetermined stages without active physical stiffness explicitly mark their
-state unavailable as an equilibrium solution. Fully determined constraint-only
-stages recover their actual reactions and retain their valid answers. Staged
+Stages with free DOFs and no active physical stiffness explicitly mark their
+state unavailable as an equilibrium solution, including constraint-determined
+states. Constraint-only force recovery excludes stabilization; this warning
+does not certify their displacements as a physical equilibrium solution. Staged
 final results require an actual stage result; there is no empty-result fallback.
 
 P-Delta still uses its existing small-strain second-order model. The recovered
@@ -113,12 +114,14 @@ Constraints tied to settled masters also retain their imposed displacement.
 The requested residual and wrench tolerances are unchanged.
 
 Staged analysis accepts models with no free DOFs. Both result builders use one
-state-determinacy check covering direct restraints and constraint-determined
-free DOFs, including agreement with the actual prescribed state. Fully
+state-determinacy check for directly restrained DOFs, including agreement with
+the actual prescribed state. Constraint-determined free DOFs without physical
+stiffness retain the unavailable-state warning. Fully
 restrained stages apply prescribed displacements even when there is no active
 stiffness. Artificial stabilization is restricted to free DOFs through one
-shared lookup, so a restrained disconnected node cannot acquire an artificial
-support reaction. Loaded fixed nodes without elements recover the negative of
+shared lookup, and force recovery reassembles the physical stiffness without stabilization,
+so neither restrained nodes nor transferred constraint forces acquire an
+artificial support reaction. Loaded fixed nodes without elements recover the negative of
 their applied loads. Undetermined stiffness-free stages retain their existing
 warning or mechanism refusal, and incompatible support histories remain refused.
 

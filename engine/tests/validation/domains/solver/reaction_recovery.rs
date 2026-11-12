@@ -250,6 +250,9 @@ fn check_equilibrium(kind: &str, dim: usize, m: &Value) {
 }
 
 fn assert_equilibrium(kind: &str, dim: usize, m: &Value, r: &Value, factor: f64) {
+    if dim == 2 && matches!(kind, "arc" | "displacement" | "corotational") {
+        unloaded_member_equilibrium(m, r);
+    }
     assert!(factor.is_finite() && factor > 0.0);
     assert_eq!(
         r["reactions"].as_array().unwrap().len(),
@@ -896,7 +899,7 @@ fn staged_constraints_only(dim: usize) {
         };
         let r = &r["finalResults"];
         assert_equilibrium("staged", dim, &m, r, 1.0);
-        assert!(!r["structuredDiagnostics"].as_array().is_some_and(|ds| ds
+        assert!(r["structuredDiagnostics"].as_array().is_some_and(|ds| ds
             .iter()
             .any(|d| d["code"] == "result_quantity_unavailable")));
     }
@@ -1299,7 +1302,6 @@ fn issue_1952_stiffness_free_one_free_dof_remains_unavailable() {
         }
     }
 }
-
 fn staged_artificial_ties(dim: usize) {
     for segments in [0, 21, 22] {
         for motion in [0.0, 0.0013, -0.0013] {
@@ -1316,20 +1318,46 @@ fn staged_artificial_ties(dim: usize) {
             }
             m["stages"] = json!([{"name":"settled master","elementsAdded":(1..=segments).collect::<Vec<_>>(),"supportsAdded":if segments == 0 {vec![0]} else {vec![0,segments]},"loadIndices":[]}]);
             let output = if dim == 2 {
-                serde_json::to_value(staged::solve_staged_2d(&serde_json::from_value(m.clone()).unwrap()).unwrap()).unwrap()
+                serde_json::to_value(
+                    staged::solve_staged_2d(&serde_json::from_value(m.clone()).unwrap()).unwrap(),
+                )
+                .unwrap()
             } else {
-                serde_json::to_value(staged::solve_staged_3d(&serde_json::from_value(m.clone()).unwrap()).unwrap()).unwrap()
+                serde_json::to_value(
+                    staged::solve_staged_3d(&serde_json::from_value(m.clone()).unwrap()).unwrap(),
+                )
+                .unwrap()
             };
             for r in [&output["finalResults"], &output["stages"][0]["results"]] {
-                let warned = r["structuredDiagnostics"].as_array().is_some_and(|ds| ds.iter().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == "stageResults"));
-                assert_eq!(warned, segments == 0, "{dim}D segments={segments} motion={motion}: {r}");
-                for cf in r["constraintForces"].as_array().unwrap() {
-                    assert_eq!(num(cf, "force"), 0.0, "{dim}D segments={segments} motion={motion}: {cf}");
+                let warned = r["structuredDiagnostics"].as_array().is_some_and(|ds| {
+                    ds.iter().any(|d| {
+                        d["code"] == "result_quantity_unavailable" && d["phase"] == "stageResults"
+                    })
+                });
+                assert_eq!(
+                    warned,
+                    segments == 0,
+                    "{dim}D segments={segments} motion={motion}: {r}"
+                );
+                for cf in r["constraintForces"]
+                    .as_array()
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[])
+                {
+                    assert_eq!(
+                        num(cf, "force"),
+                        0.0,
+                        "{dim}D segments={segments} motion={motion}: {cf}"
+                    );
                 }
                 if segments == 0 {
                     for a in r["reactions"].as_array().unwrap() {
-                        for k in if dim == 2 {vec!["rx","rz","my"]} else {vec!["fx","fy","fz","mx","my","mz"]} {
-                            assert_eq!(num(a,k),0.0,"{a}");
+                        for k in if dim == 2 {
+                            vec!["rx", "rz", "my"]
+                        } else {
+                            vec!["fx", "fy", "fz", "mx", "my", "mz"]
+                        } {
+                            assert_eq!(num(a, k), 0.0, "{a}");
                         }
                     }
                 }
@@ -1339,38 +1367,67 @@ fn staged_artificial_ties(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
-fn issue_1952_r7_artificial_ties_2d() { staged_artificial_ties(2); }
+fn issue_1952_r7_artificial_ties_2d() {
+    staged_artificial_ties(2);
+}
 
 #[test]
-#[ignore = "known wrong result: #1952"]
-fn issue_1952_r7_artificial_ties_3d() { staged_artificial_ties(3); }
+fn issue_1952_r7_artificial_ties_3d() {
+    staged_artificial_ties(3);
+}
 
 fn unloaded_member_equilibrium(m: &Value, r: &Value) {
     for f in r["elementForces"].as_array().unwrap() {
-        let e = m["elements"].as_object().unwrap().values().find(|e| e["id"] == f["elementId"]).unwrap();
-        if e["type"] != "frame" || m["loads"].as_array().unwrap().iter().any(|l| l["data"]["elementId"] == e["id"]) { continue; }
+        let e = m["elements"]
+            .as_object()
+            .unwrap()
+            .values()
+            .find(|e| e["id"] == f["elementId"])
+            .unwrap();
+        if e["type"] != "frame"
+            || m["loads"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|l| l["data"]["elementId"] == e["id"])
+        {
+            continue;
+        }
         let position = |node: &Value| {
             let n = &m["nodes"][node.as_u64().unwrap().to_string()];
-            let d = r["displacements"].as_array().unwrap().iter().find(|d| d["nodeId"] == *node).unwrap();
-            [num(n,"x") + num(d,"ux"), num(n,"z") + num(d,"uz")]
+            let d = r["displacements"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|d| d["nodeId"] == *node)
+                .unwrap();
+            [num(n, "x") + num(d, "ux"), num(n, "z") + num(d, "uz")]
         };
-        let a = position(&e["nodeI"]); let b = position(&e["nodeJ"]);
-        let l = (b[0]-a[0]).hypot(b[1]-a[1]);
-        assert!((num(f,"length")-l).abs() < 1e-12, "{f}");
-        assert!((num(f,"vStart")-num(f,"vEnd")).abs() < 1e-9, "{f}");
-        assert!((num(f,"mEnd")-num(f,"mStart") + num(f,"vStart")*l).abs() < 1e-9, "{f}");
+        let a = position(&e["nodeI"]);
+        let b = position(&e["nodeJ"]);
+        let l = (b[0] - a[0]).hypot(b[1] - a[1]);
+        assert!((num(f, "length") - l).abs() < 1e-12, "{f}");
+        assert!((num(f, "vStart") - num(f, "vEnd")).abs() < 1e-9, "{f}");
+        assert!(
+            (num(f, "mEnd") - num(f, "mStart") + num(f, "vStart") * l).abs() < 1e-9,
+            "{f}"
+        );
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r7_final_member_geometry() {
-    for fixture in [include_str!("../../../fixtures/solve_arc_length-0015ab84c3baa36f.json"), include_str!("../../../fixtures/solve_arc_length-022317310499426d.json")] {
+    for fixture in [
+        include_str!("../../../fixtures/solve_arc_length-0015ab84c3baa36f.json"),
+        include_str!("../../../fixtures/solve_arc_length-022317310499426d.json"),
+    ] {
         let i: arc_length::ArcLengthInput = serde_json::from_str(fixture).unwrap();
         let r = arc_length::solve_arc_length(&i).unwrap();
         assert!(r.converged);
-        unloaded_member_equilibrium(&serde_json::to_value(i.solver).unwrap(), &serde_json::to_value(r.results).unwrap());
+        unloaded_member_equilibrium(
+            &serde_json::to_value(i.solver).unwrap(),
+            &serde_json::to_value(r.results).unwrap(),
+        );
     }
     for kind in ["arc", "displacement", "corotational"] {
         let m = model(2, false);
@@ -1382,29 +1439,47 @@ fn issue_1952_r7_final_member_geometry() {
 fn staged_disconnected_force(dim: usize) {
     for segments in [1, 21, 22] {
         let mut m = settlement_only_model(dim, segments, 0.0, false);
-        m["supports"].as_object_mut().unwrap().remove(&segments.to_string());
+        m["supports"]
+            .as_object_mut()
+            .unwrap()
+            .remove(&segments.to_string());
         let slave = segments + 1;
         m["nodes"][slave.to_string()] = m["nodes"][segments.to_string()].clone();
         m["nodes"][slave.to_string()]["id"] = json!(slave);
         m["constraints"] = json!([{"type":"equalDOF","masterNode":segments,"slaveNode":slave,"dofs":(0..if dim==2 {3} else {6}).collect::<Vec<_>>()}]);
-        let mut load = model(dim,false)["loads"][0].clone();
+        let mut load = model(dim, false)["loads"][0].clone();
         load["data"]["nodeId"] = json!(segments);
         m["loads"] = json!([load]);
         m["stages"] = json!([{"name":"loaded master","elementsAdded":(1..=segments).collect::<Vec<_>>(),"supportsAdded":[0],"loadIndices":[0]}]);
-        let r = if dim == 2 { serde_json::to_value(staged::solve_staged_2d(&serde_json::from_value(m).unwrap()).unwrap()).unwrap() }
-        else { serde_json::to_value(staged::solve_staged_3d(&serde_json::from_value(m).unwrap()).unwrap()).unwrap() };
+        let r = if dim == 2 {
+            serde_json::to_value(
+                staged::solve_staged_2d(&serde_json::from_value(m).unwrap()).unwrap(),
+            )
+            .unwrap()
+        } else {
+            serde_json::to_value(
+                staged::solve_staged_3d(&serde_json::from_value(m).unwrap()).unwrap(),
+            )
+            .unwrap()
+        };
         for r in [&r["finalResults"], &r["stages"][0]["results"]] {
-            for cf in r["constraintForces"].as_array().unwrap() {
-                assert_eq!(num(cf,"force"), 0.0, "{dim}D segments={segments}: {cf}");
+            for cf in r["constraintForces"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or(&[])
+            {
+                assert_eq!(num(cf, "force"), 0.0, "{dim}D segments={segments}: {cf}");
             }
         }
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
-fn issue_1952_r7_disconnected_force_2d() { staged_disconnected_force(2); }
+fn issue_1952_r7_disconnected_force_2d() {
+    staged_disconnected_force(2);
+}
 
 #[test]
-#[ignore = "known wrong result: #1952"]
-fn issue_1952_r7_disconnected_force_3d() { staged_disconnected_force(3); }
+fn issue_1952_r7_disconnected_force_3d() {
+    staged_disconnected_force(3);
+}

@@ -140,13 +140,11 @@ fn settled_slave_residual(dim: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r7_settled_slave_residual_2d() {
     settled_slave_residual(2);
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn issue_1952_r7_settled_slave_residual_3d() {
     settled_slave_residual(3);
 }

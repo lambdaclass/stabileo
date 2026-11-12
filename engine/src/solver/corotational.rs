@@ -777,14 +777,8 @@ fn assemble_frame_corotational(
         }
     }
 
-    // Natural internal forces: q = K_nat * d_natural
-    let d_natural = [d_axial, theta_i, theta_j];
-    let mut q = [0.0; 3]; // [N, Mi, Mj]
-    for i in 0..3 {
-        for j in 0..3 {
-            q[i] += k_nat[i][j] * d_natural[j];
-        }
-    }
+    let f_local = corotational_frame_end_forces(&k_local, &[0.0, 0.0, theta_i, d_axial, 0.0, theta_j], l_n);
+    let q = [f_local[3], f_local[2], f_local[5]];
 
     // Global internal forces: f_int = B^T * q
     let ndof = 6;
@@ -1093,6 +1087,15 @@ pub(super) fn build_final_results(
     })
 }
 
+fn corotational_frame_end_forces(k_local: &[f64], d_local: &[f64; 6], length: f64) -> [f64; 6] {
+    let at = |i: usize| (0..6).map(|j| k_local[i * 6 + j] * d_local[j]).sum::<f64>();
+    let n = at(3);
+    let mi = at(2);
+    let mj = at(5);
+    let shear = (mi + mj) / length;
+    [-n, shear, mi, n, -shear, mj]
+}
+
 /// Compute element internal forces using the co-rotational formulation.
 pub fn compute_corotational_forces(
     input: &SolverInput,
@@ -1205,13 +1208,7 @@ pub fn compute_corotational_forces(
                 timoshenko_phi(e, sec.iz, shear_rigidity_2d(mat, sec), l0),
             );
 
-            // f_local = K_local * d_local
-            let mut f_local = [0.0; 6];
-            for i in 0..6 {
-                for j in 0..6 {
-                    f_local[i] += k_local[i * 6 + j] * d_local[j];
-                }
-            }
+            let mut f_local = corotational_frame_end_forces(&k_local, &d_local, l_n);
 
             // Subtract FEF for output (element forces = K*u - FEF)
             subtract_element_fef(input, elem, l0, e, mat.nu, sec.iz, &mut f_local, sec);

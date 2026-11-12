@@ -53,6 +53,20 @@ function equilibrium(kind, dim, m) {
     return;
   }
   const [r, factor] = run(kind, dim, m);
+  if (dim === 2 && ['arc', 'displacement', 'corotational'].includes(kind)) {
+    for (const f of r.elementForces) {
+      const e = Object.values(m.elements).find(e => e.id === f.elementId);
+      if (e.type !== 'frame' || m.loads.some(l => l.data.elementId === e.id)) continue;
+      const at = id => {
+        const n = m.nodes[id], d = r.displacements.find(d => d.nodeId === id);
+        return [n.x + d.ux, n.z + d.uz];
+      };
+      const a = at(e.nodeI), b = at(e.nodeJ), l = Math.hypot(b[0]-a[0],b[1]-a[1]);
+      assert.ok(Math.abs(f.length-l) < 1e-12);
+      assert.ok(Math.abs(f.vStart-f.vEnd) < 1e-9);
+      assert.ok(Math.abs(f.mEnd-f.mStart+f.vStart*l) < 1e-9, `${kind}: ${JSON.stringify(f)}`);
+    }
+  }
   assert.ok(Number.isFinite(factor) && factor > 0);
   assert.equal(r.reactions.length, Object.keys(m.supports).length);
   const balance = Array(6).fill(0);
@@ -230,7 +244,7 @@ for (const dim of [2,3]) {
       assert.ok(Math.abs((dim === 2 ? a.rx : a.fx) + m.loads[0].data.fx) < 1e-6);
       assert.ok(Math.abs((dim === 2 ? a.rz : a.fz) + m.loads[0].data.fz) < 1e-6);
       assert.ok(Math.abs((dim === 2 ? a.my : -a.my) + 3 * m.loads[0].data.fz) < 1e-6);
-      assert.ok(!(r.structuredDiagnostics ?? []).some(d=>d.code === 'result_quantity_unavailable'));
+      assert.ok((r.structuredDiagnostics ?? []).some(d=>d.code === 'result_quantity_unavailable' && d.phase === 'stageResults'));
       console.log(`PASS staged ${dim}D constrained ${memberType} without elastic stiffness`);
     } catch (error) { failed=true; console.error(`FAIL staged ${dim}D constrained ${memberType}: ${error}`); }
   }
@@ -330,7 +344,7 @@ for (const dim of [2, 3]) {
           m.nodes[i] = {...node, id:i, x:3*i/n};
           if (segments && i) m.elements[i] = {...elem, id:i, nodeI:i-1, nodeJ:i};
         }
-        if (segments) m.loads = [{type:'nodal',data:{nodeId:n,fx:0,fy:0,fz:-10,mx:0,my:0,mz:0}}];
+        if (segments) m.loads = [{type:'nodal',data:dim === 2 ? {nodeId:n,fx:0,fz:-10,my:0} : {nodeId:n,fx:0,fy:0,fz:-10,mx:0,my:0,mz:0}}];
         const slave = segments ? n+1 : 1;
         if (segments) m.nodes[slave] = {...m.nodes[n], id:slave};
         m.constraints = [{type:'equalDOF',masterNode:segments ? n : 0,slaveNode:slave,dofs:Array.from({length:dim === 2 ? 3 : 6},(_,i)=>i)}];

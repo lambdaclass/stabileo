@@ -1,3 +1,4 @@
+import memberEquilibriumChange from '../result-changes/planar-corotational-member-equilibrium.json';
 import frozenArchA from '../../../../results-frozen/solve_arc_length-0015ab84c3baa36f.json';
 import frozenArchB from '../../../../results-frozen/solve_arc_length-022317310499426d.json';
 import reactionRecoveryChange from '../result-changes/arc-length-reactions.json';
@@ -657,4 +658,26 @@ it('known wrong result: #818: a buckling notice cannot excuse linear result chan
   for (const path of ['solve.ok', 'base.elementForces[e1].nStart', 'base.displacements[n1].ux', 'base.reactions[n1].rz']) {
     expect(declaresMove({ quantities: undefined, ...bucklingChange }, path), path).toBe(false);
   }
+});
+
+describe('planar corotational member equilibrium scope (#1952)', () => {
+  const id = 'planar-corotational-member-equilibrium';
+  const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+  it('covers planar nonlinear members and excludes linear and spatial controls', () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      for (const analysis of ['linear', 'nonlinear'] as const) {
+        const stamp = { ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1 };
+        const snapshot = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+        expect(ids(snapshot, stamp).includes(id)).toBe(analysisMode === '2d' && analysis === 'nonlinear');
+      }
+    }
+  });
+  it('covers both frozen arches and only the changed nonlinear force family', () => {
+    for (const fixture of [frozenArchA, frozenArchB]) {
+      expect(fieldCovered(memberEquilibriumChange, 'nonlinear.results.elementForces[e1].vStart', fixture.features)).toBe(true);
+      for (const path of ['base.elementForces[e1].vStart', 'nonlinear.results.reactions[n1].rz', 'nonlinear.results.displacements[n1].uz', 'solve.ok']) {
+        expect(fieldCovered(memberEquilibriumChange, path, fixture.features), path).toBe(false);
+      }
+    }
+  });
 });
