@@ -78,7 +78,10 @@ web/src/components/pro/ProConnectionsTab.svelte: {#if fieldProblem && (!fieldPro
 web/src/components/pro/ProConnectionsTab.svelte: {#if fieldProblem && fieldProblem.field.startsWith('w-')}
 web/src/components/pro/ProConnectionsTab.svelte: {#if fieldProblem && fieldProblem.field.startsWith('b-')}
 web/src/components/pro/ProOtherCodesPanel.svelte: return c.reason.startsWith('otherCodes.') ? t(c.reason).replace('{combo}', c.combo ?? '') : c.reason;
-web/src/components/tools/BatchTool.svelte: catch(e) {if(token===revision)error=t(e instanceof Error&&e.message.startsWith('tools.')?e.message:'tools.failed');}
+web/src/components/tools/BatchTool.svelte: if(!outcome.ok){const e=outcome.error;error=t(e instanceof Error&&e.message.startsWith('tools.')?e.message:'tools.failed');stale=true;return;}
+web/src/components/tools/CalculatorTool.svelte: error = t(outcome.error instanceof Error && outcome.error.message === 'tools.invalid' ? 'tools.invalid' : 'tools.failed');
+web/src/components/tools/ModelTool.svelte: {#if outcome?.status === 'ok' && outcome.notes.includes('editorFrameOnly')}<p class="fine" data-testid="editor-note">{te('note.editorFrameOnly')}</p>{/if}
+web/src/components/tools/ModelTool.svelte: {#if outcome.notes.includes('elasticShear')}<p class="fine" data-testid="elastic-shear-note">{te('note.elasticShear')}</p>{/if}
 web/src/lib/cad/diagnostics.ts: .filter((w) => w.message.startsWith('beamEndsFloating:'))
 web/src/lib/cad/parse.ts: if (doc.warnings.includes('parseError')) return 'parseError';
 web/src/lib/engine/codes/argentina/cirsoc301.ts: if (legacy && r.notEvaluatedMessage?.key.startsWith('c301.refuse.end')) {
