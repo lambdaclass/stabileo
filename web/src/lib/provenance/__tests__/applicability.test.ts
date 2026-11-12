@@ -1,3 +1,5 @@
+import mergedPathChange from '../result-changes/merged-path-convergence-state.json';
+import mergedValueAudit from '../../../../../docs/results-changes/1952-main-merge-values.json';
 import physicalRecoveryChange from '../result-changes/physical-reaction-force-boundary.json';
 import memberEquilibriumChange from '../result-changes/planar-corotational-member-equilibrium.json';
 import frozenArchA from '../../../../results-frozen/solve_arc_length-0015ab84c3baa36f.json';
@@ -807,4 +809,20 @@ describe('physical reaction recovery boundary', () => {
       }
     }
   });
+});
+
+it.skip('known wrong result: #1952: merged path registry covers every changed frozen value without authorizing static output', () => {
+  const entries = [mergedPathChange, reactionRecoveryChange];
+  for (const artifact of mergedValueAudit.artifacts.filter(a => a.file.startsWith('web/results-frozen/'))) {
+    const fixture = artifact.file.includes('0015ab84c3baa36f') ? frozenArchA : frozenArchB;
+    expect(artifact.changes.length).toBeGreaterThan(0);
+    for (const { path } of artifact.changes) {
+      const field = path.replace(/^\$\./, '');
+      expect(entries.some(entry => fieldCovered(entry, field, fixture.features)), field).toBe(true);
+    }
+  }
+  for (const path of ['base.displacements[n1].uz', 'base.reactions[n1].rz', 'pdelta.results.displacements[n1].uz', 'nonlinear.results.reactions[0].rz']) {
+    expect(fieldCovered(mergedPathChange, path, ['members', 'pathAnalysis', 'analysis:linear', 'analysis:pdelta', 'analysis:nonlinear']), path).toBe(false);
+  }
+  expect(fieldCovered(mergedPathChange, 'nonlinear.steps[0].controlDisplacement', ['members', 'analysis:nonlinear'])).toBe(false);
 });
