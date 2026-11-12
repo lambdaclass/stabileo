@@ -369,7 +369,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect(status.t).toContain(`SA-2026-060 — ${draftStatus}.`);
   });
 
-  it.skip.each<[PublicLocale, string, string]>([
+  it.each<[PublicLocale, string, string]>([
     ['en', 'High', 'Draft: local fix awaiting review and release'],
     ['es', 'Alta', 'Borrador: corrección local pendiente de revisión y publicación'],
     ['pt', 'Alta', 'Rascunho: correção local aguardando revisão e lançamento'],

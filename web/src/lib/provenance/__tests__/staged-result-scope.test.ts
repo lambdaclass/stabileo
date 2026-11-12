@@ -67,7 +67,7 @@ describe('staged result-change scope', () => {
 
 
 describe('initial plastic refusal and stage cancellation notice', () => {
-  it.skip.each(['2d', '3d', 'pro'])('known wrong result: #1943 — scopes %s results by saved analysis and construction history', analysisMode => {
+  it.each(['2d', '3d', 'pro'])('known wrong result: #1943 — scopes %s results by saved analysis and construction history', analysisMode => {
     for (const analysesRun of [null, ['linear'], ['plastic']]) {
       for (const phases of [undefined, [], [{ id: 'first' }]]) {
         const snapshot = frame(analysisMode, phases);

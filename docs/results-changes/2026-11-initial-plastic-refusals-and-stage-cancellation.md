@@ -48,8 +48,13 @@ Real positive stiffness still gives its incremental response.
 Re-run affected 3D plastic analyses and staged member-removal histories. Plastic
 collapse factors previously returned for refused initial states may now be
 withheld. Valid unloaded stage histories can now succeed. Forces, reactions,
-stage results and solve status can change. The registry conservatively selects
-models with members or saved construction phases.
+stage results and solve status can change. The registry selects 3D member
+models with recorded or unknown plastic-analysis history, or models with saved
+construction phases. A saved frame known to have
+only linear results is unaffected by this entry: neither changed solver path is
+used for its regular linear result. Unstamped 3D member results remain selected
+conservatively. See [SA-2026-062](../advisories/SA-2026-062-plastic-conditioning-zero-collapse.md)
+for the initial plastic-state defect and retained main replay.
 
 The settlement WASM reference also now requires exact node IDs for displacements
 and reactions and exact element IDs for member forces. Duplicate, missing,
