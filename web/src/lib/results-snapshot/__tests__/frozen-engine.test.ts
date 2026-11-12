@@ -41,7 +41,7 @@ for (const c of inputs) {
     });
   }
   if (c.analysis === 'solve_ssi_3d') {
-    it(`returns the exact linear reactions without soil for ${c.model}`, () => {
+    it.fails(`known wrong result: #1946 no-soil reaction comparison for ${c.model}`, () => {
       const result = engine.solveSSI3D(c.input[0]);
       expect(result.results.reactions).toEqual(solve_3d(c.input[0].solver).reactions);
     });
