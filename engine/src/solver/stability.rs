@@ -383,7 +383,7 @@ fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f6
     (values, eigenvectors)
 }
 
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default)]
 pub(crate) struct ReleasedRotations {
     pub rows: Vec<Vec<(usize, f64)>>,
     nodes: std::collections::BTreeSet<usize>,
@@ -566,64 +566,7 @@ pub(crate) fn analyze_coupled(k: &CscMatrix, tags: &[DofTag], moves_translation:
     analyze_coupled_with_rounding(k, tags, moves_translation, coupling, None, &ReleasedRotations::default())
 }
 
-/// The last verdict and the question it answered. The app prepares a model twice per edit, for
-/// the single solve and then for its combinations, and asks the same stiffness, tags, coupling and
-/// releases both times; the second answer is the first one, read back, with no factorization or
-/// spectrum. The question is kept whole and compared entry by entry, so a different model, however
-/// slightly, is analyzed afresh; the matrix values are compared as bits (a non-finite entry never
-/// matches and is refused again).
-struct Remembered {
-    n: usize,
-    col_ptr: Vec<usize>,
-    row_idx: Vec<usize>,
-    values: Vec<u64>,
-    tags: Vec<DofTag>,
-    coupling: Vec<(usize, usize)>,
-    releases: ReleasedRotations,
-    verdict: Stability,
-}
-
-impl Remembered {
-    fn answers(&self, k: &CscMatrix, tags: &[DofTag], coupling: &[(usize, usize)], releases: &ReleasedRotations) -> bool {
-        self.n == k.n && self.col_ptr == k.col_ptr && self.row_idx == k.row_idx
-            && self.values.len() == k.values.len() && self.values.iter().zip(&k.values).all(|(a, b)| *a == b.to_bits())
-            && self.tags == tags && self.coupling == coupling && self.releases == *releases
-    }
-}
-
-/// Only a stiffness up to this many stored entries is remembered: the copy lives beside the model
-/// for the rest of the session.
-const REMEMBERED_NONZEROS: usize = 2_000_000;
-
-thread_local! {
-    static REMEMBERED: std::cell::RefCell<Option<Remembered>> = const { std::cell::RefCell::new(None) };
-}
-
-#[cfg(test)]
-pub(super) fn forget_verdicts() {
-    REMEMBERED.with(|r| *r.borrow_mut() = None);
-}
-
 pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>], coupling: &[(usize, usize)], rounding: Option<&CscMatrix>, releases: &ReleasedRotations) -> Stability {
-    let remember = rounding.is_none() && moves_translation.is_empty() && k.values.len() <= REMEMBERED_NONZEROS;
-    if remember {
-        let known = REMEMBERED.with(|r| r.borrow().as_ref().filter(|m| m.answers(k, tags, coupling, releases)).map(|m| m.verdict.clone()));
-        if let Some(verdict) = known { return verdict; }
-    }
-    let verdict = analyze_coupled_uncached(k, tags, moves_translation, coupling, rounding, releases);
-    if remember {
-        let remembered = Remembered {
-            n: k.n, col_ptr: k.col_ptr.clone(), row_idx: k.row_idx.clone(), values: k.values.iter().map(|v| v.to_bits()).collect(),
-            tags: tags.to_vec(), coupling: coupling.to_vec(), releases: releases.clone(), verdict: verdict.clone(),
-        };
-        REMEMBERED.with(|r| *r.borrow_mut() = Some(remembered));
-    }
-    verdict
-}
-
-fn analyze_coupled_uncached(k: &CscMatrix, tags: &[DofTag], moves_translation: &[Vec<(usize, f64)>], coupling: &[(usize, usize)], rounding: Option<&CscMatrix>, releases: &ReleasedRotations) -> Stability {
-    #[cfg(test)]
-    tests::ANALYSES.with(|count| count.set(count.get() + 1));
     let n = k.n;
     if k.values.iter().any(|v| !v.is_finite()) {
         return non_finite();
@@ -1253,7 +1196,6 @@ mod tests {
         pub(super) static LANCZOS_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static IDENTITY_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVECTOR_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-        pub(super) static ANALYSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static SWEEPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     }
     use super::*;
@@ -1310,34 +1252,11 @@ mod tests {
         let assembled = crate::solver::assembly::assemble_sparse_2d(&input, &dof);
         let tags = tags(&dof, true);
         assert_eq!(dof.n_free, 60);
-        forget_verdicts();
         SWEEPS.with(|count| count.set(0));
         let verdict = analyze(&assembled.k_ff, &tags[..dof.n_free]);
         let sweeps = SWEEPS.with(|count| count.get());
         assert_eq!(verdict.verdict, Verdict::Stable, "{:?}", verdict.reason);
         assert!(sweeps <= 16, "the spectrum of the 60-DOF frame took {sweeps} Jacobi sweeps");
-    }
-
-    #[test]
-    fn the_same_stiffness_asked_again_reuses_its_verdict() {
-        // The app prepares a model twice per edit (the single solve, then the combinations):
-        // the same K_ff, tags, coupling and releases must not be analyzed twice.
-        let dense: Vec<f64> = (0..6).flat_map(|i| (0..6).map(move |j| if i == j { 4.0 + i as f64 } else if (i as isize - j as isize).abs() == 1 { -1.0 } else { 0.0 })).collect();
-        let matrix = CscMatrix::from_dense_symmetric(&dense, 6);
-        let tags: Vec<_> = (0..6).map(|i| DofTag { node: i / 3, kind: if i % 3 == 2 { DofKind::Rotation } else { DofKind::Translation } }).collect();
-        forget_verdicts();
-        ANALYSES.with(|count| count.set(0));
-        let first = analyze(&matrix, &tags);
-        let second = analyze(&matrix, &tags);
-        assert_eq!(first.verdict, second.verdict);
-        assert_eq!(first.kappa.to_bits(), second.kappa.to_bits());
-        assert_eq!(first.anisotropy.to_bits(), second.anisotropy.to_bits());
-        assert_eq!(ANALYSES.with(|count| count.get()), 1, "the second ask must come from the cache");
-        // A different matrix is a different question.
-        let mut other = dense.clone();
-        other[0] = 5.0;
-        analyze(&CscMatrix::from_dense_symmetric(&other, 6), &tags);
-        assert_eq!(ANALYSES.with(|count| count.get()), 2);
     }
 
     #[test]
@@ -1594,7 +1513,6 @@ mod tests {
     fn issue_1753_fast_accepted_spectrum_avoids_unused_eigenvector_rotations() {
         let matrix = CscMatrix::from_dense_symmetric(&[2.0, 1.0, 0.0, 1.0, 2.0, 1.0, 0.0, 1.0, 2.0], 3);
         let tags: Vec<_> = (0..3).map(|node| DofTag { node, kind: DofKind::Translation }).collect();
-        forget_verdicts();
             EIGENVECTOR_ROTATIONS.with(|count| count.set(0));
         let result = analyze(&matrix, &tags);
         assert_eq!(result.verdict, Verdict::Stable);
@@ -1649,7 +1567,6 @@ mod tests {
             }
             let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
             let tags: Vec<_> = (0..n).map(|node| DofTag { node, kind: DofKind::Translation }).collect();
-            forget_verdicts();
             LANCZOS_RUNS.with(|count| count.set(0));
             let result = analyze(&matrix, &tags);
             assert_eq!(result.verdict, Verdict::Stable);
@@ -1683,7 +1600,6 @@ mod tests {
             cols.push(order[0].min(order[101]));
             values.push(-0.5);
             let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
-            forget_verdicts();
             LANCZOS_RUNS.with(|count| count.set(0));
             let (kappa, _, indefinite) = spectrum(&matrix, 1.0, 1.0, None);
             assert!(!indefinite);
@@ -1732,7 +1648,6 @@ mod tests {
             node: if i < 2 { 0 } else { i },
             kind: if i < 2 { DofKind::Rotation } else { DofKind::Translation },
         }).collect();
-        forget_verdicts();
             LANCZOS_RUNS.with(|count| count.set(0));
         let result = analyze_with_coupling(&matrix, &tags, &[(0, 1)], &ReleasedRotations::default());
         assert_eq!(result.verdict, Verdict::Stable);
