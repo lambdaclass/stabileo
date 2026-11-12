@@ -20,6 +20,10 @@ const body: PostBody = {
       "k": "note",
       "t": "SA-2026-058 — PR #1922 ile düzeltildi, sürüm yayını bekleniyor."
     },
+    {
+      "k": "note",
+      "t": "SA-2026-061 — PR #1952 içinde düzeltildi, yayın bekleniyor."
+    },
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -383,6 +387,12 @@ const body: PostBody = {
           "Gelişmiş web analizleri kablolara uyarı vermeden basınç direnci atayabiliyordu (P-Delta yeniden üretimi: −4,599884347090908 kN); kablolu modellerin gelişmiş analiz, doğrudan analiz ve öğretici sihirbaz sonuçlarını yeniden kontrol edin",
           "Yüksek",
           "PR #1921 ile düzeltildi, sürüm yayını bekleniyor"
+        ],
+        [
+          "SA-2026-061",
+          "Yay uzunluğu ve yer değiştirme kontrolü tepkileri atlıyor ve ölçeklenmemiş eleman yüklerini kullanıyordu; 2D/3D kısıt, Guyan, aşamalı ve zaman tanım alanı sonuçlarındaki eksiklikler de incelenmelidir. Etkilenen sonuçları yeniden hesaplayın veya bağımsız doğrulayın; 0.2.0–0.5.0 ve etkilenen sonraki main derlemeleri.",
+          "Yüksek",
+          "PR #1952 içinde düzeltildi, yayın bekleniyor"
         ],
       ]
     },

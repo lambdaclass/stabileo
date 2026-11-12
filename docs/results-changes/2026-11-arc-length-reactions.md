@@ -1,6 +1,8 @@
 # Recover reactions from the reported equilibrium state (2026-11-11)
 
-Issue #1949. Registry entry `arc-length-reactions`.
+Issue #1949; PR #1952. Registry entry `arc-length-reactions`.
+Safety advisory [SA-2026-061](../advisories/SA-2026-061-path-solver-reactions.md)
+records the affected release boundaries, main replay and re-check guidance.
 
 Arc-length and displacement control previously returned an empty reaction array
 for converged loaded models. Their member-force recovery also used the reference
@@ -75,7 +77,7 @@ factors, force and moment balance, restrained masters, rigid-arm offsets,
 inclined supports in supported solvers, both sparse/dense path-following paths,
 nonlinear constraint forces, unavailable quantities, and correct control inputs.
 The handoff records parent failures, final results and the origin/main evidence
-for the coordinator's advisory decision. No advisory is assigned here.
+for the coordinator's advisory decision. SA-2026-061 now records that decision.
 
 
 ## Saved-project applicability and quantity declarations
