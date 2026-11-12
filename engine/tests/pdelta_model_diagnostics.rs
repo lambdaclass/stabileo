@@ -60,25 +60,27 @@ fn relative_residual(
     u: &[f64],
     scales: &[f64],
 ) -> f64 {
-    let residual_squared: f64 = (0..scales.len()).map(|i| {
-        let internal: f64 = u.iter().enumerate().map(|(j, v)| {
-            (elastic[i * u.len() + j] + geometric[i * u.len() + j]) * v
-        }).sum();
-        (internal - f[i]).powi(2)
-    }).sum();
-    residual_squared.sqrt() / f[..scales.len()].iter().map(|v| v * v).sum::<f64>().sqrt()
+    let norm = |values: &[f64]| {
+        values.iter().zip(scales).fold(0.0_f64, |n, (v, scale)| n.hypot(v / scale))
+    };
+    let residual: Vec<_> = (0..scales.len()).map(|i| {
+        let action = |k: &[f64]| {
+            u.iter().enumerate().map(|(j, v)| k[i * u.len() + j] * v).sum::<f64>()
+        };
+        action(elastic) + action(geometric) - f[i]
+    }).collect();
+    norm(&residual) / norm(f)
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn residual_oracle_scales_moments_to_forces() {
     let elastic = [2.0, 0.0, 0.0, 8.0];
     let geometric = [0.0; 4];
     assert_eq!(relative_residual(&elastic, &geometric, &[1.0, 8.0], &[1.0; 2], &[1.0, 4.0]), 1.0 / 1.0_f64.hypot(2.0));
+    assert_eq!(relative_residual(&elastic, &geometric, &[1.0, 8.0], &[0.5, 1.5], &[1.0, 4.0]), 1.0 / 1.0_f64.hypot(2.0));
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn residual_oracle_keeps_elastic_and_geometric_actions_separate() {
     let large = 2.0_f64.powi(53);
     let elastic = [large, 1.0, 1.0, 0.0];
@@ -112,7 +114,6 @@ fn assert_final_equilibrium(
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn pdelta_2d_does_not_claim_linear_residual_ok() {
     // Slender fixed-base portal (h=4 m, w=6 m, E=200 GPa, I=1e-4 m^4) with a
     // lateral load and heavy gravity so the sway is amplified ~1.8x.
@@ -175,7 +176,6 @@ fn pdelta_2d_does_not_claim_linear_residual_ok() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn pdelta_3d_does_not_claim_linear_residual_ok() {
     // 4 m cantilever column along Z, 4 elements, axial P ~0.44 Pcr + lateral.
     let n = 4;
