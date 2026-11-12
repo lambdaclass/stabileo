@@ -6,7 +6,7 @@ import declaredQuantities from 'virtual:result-change-quantities';
 import frozenInputs from '../../results-snapshot/frozen-inputs.json';
 import { initSolver, solveSSI3D } from '../../engine/wasm-solver';
 import type { ResultChange } from '../../provenance/registry';
-import { RESULT_CHANGES } from '../../provenance/full-registry';
+import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../../provenance/full-registry';
 import {
   againstExample, captureExample, currentFixtureBlob, declaresMove, fingerprintDifference, judge, modelFingerprint, migrationMessage, openAndSolve, openSession,
   readCorpusText, readManifest, readResults, resultFingerprint, savedFixture, unexplainedMessage,
@@ -256,19 +256,20 @@ describe('against real corpus files', () => {
       Object.entries(r).some(([key, value]) => key !== 'nodeId' && typeof value === 'number' && value !== 0))).toBe(true);
   });
 
-  for (const [mainFirst, sharedVersion, includeSSI] of [[false, false, false], [false, false, true], [true, false, false], [true, false, true], [true, true, false], [true, true, true]]) {
-    it(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'main-first order' : 'checkout order'}${sharedVersion ? ', shared pending version' : ''}, SSI notice registered: ${includeSSI})`, async () => {
-      const baseRegistry = includeSSI ? RESULT_CHANGES : { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
+  describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
+    const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
+  for (const [mainFirst, sharedVersion] of [[false, false], [true, false], [true, true]]) {
+    it(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'main-first order' : 'checkout order'}${sharedVersion ? ', shared pending version' : ''})`, async () => {
       const registry = mainFirst ? {
-        ...baseRegistry,
+        ...RESULT_CHANGES,
         currentResultsVersion: RESULT_CHANGES.currentResultsVersion + 2,
-        changes: baseRegistry.changes.map(c => sharedVersion && c.prs.includes(1940)
+        changes: RESULT_CHANGES.changes.map(c => sharedVersion && c.prs.includes(1940)
           ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion }
           : c.id === 'linear-stability-refusals'
           ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 1 }
           : c.id === 'linear-pin-coupling'
             ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 2 } : c),
-      } : baseRegistry;
+      } : RESULT_CHANGES;
       const orderedIds = (ids: string[]) => ids.map(id => registry.changes.find(c => c.id === id)!)
         .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
         .map(c => c.id);
@@ -303,6 +304,7 @@ describe('against real corpus files', () => {
       }
     }, 120_000);
   }
+  });
 
   it('the numerical evidence fingerprints the unchanged historical corpus files', () => {
     for (const entry of refinementEvidence.cases) {

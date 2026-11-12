@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { recheckStore, createRecheckStore } from '../recheck.svelte';
 import { RESULTS_VERSION } from '../../provenance/registry';
-import { RESULT_CHANGES } from '../../provenance/full-registry';
+import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../../provenance/full-registry';
 import { resultsStore } from '../results.svelte';
 import '../index';
 
@@ -317,9 +317,11 @@ describe('edited projects with older provenance', () => {
     expect(store.stale).toBe(false);
   });
 
-  it.each([false, true])('a frame solved before the containment diagnostics opens with exactly that notice and the ones after it (SSI notice registered: %s)', async (includeSSI) => {
+  describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
+    const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
+  it('a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {
     const module = await import('../../provenance/applicability');
-    const registry = includeSSI ? RESULT_CHANGES : { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
+    const registry = RESULT_CHANGES;
     const store = createRecheckStore(async () => ({
       ...module,
       assessProject: (...args: Parameters<typeof module.assessProject>) =>
@@ -335,6 +337,7 @@ describe('edited projects with older provenance', () => {
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
   });
+  });
 
   const openingNoticeIds = (registry = RESULT_CHANGES) => [
     'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
@@ -346,12 +349,14 @@ describe('edited projects with older provenance', () => {
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     .map(c => c.id);
 
-  it.each([[false, false], [false, true], [true, false], [true, true]])('#1753: connector-only opening notices follow main-first merge order (shared pending version: %s, SSI notice registered: %s)', async (sharedVersion, includeSSI) => {
+  describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
+    const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
+  it.each([false, true])('#1753: connector-only opening notices follow main-first merge order (shared pending version: %s)', async (sharedVersion) => {
     const module = await import('../../provenance/applicability');
     const mergedRegistry = {
       ...RESULT_CHANGES,
       currentResultsVersion: RESULT_CHANGES.currentResultsVersion + 2,
-      changes: RESULT_CHANGES.changes.filter(c => includeSSI || c.id !== 'ssi-support-reactions').map(c => sharedVersion && c.prs.includes(1940)
+      changes: RESULT_CHANGES.changes.map(c => sharedVersion && c.prs.includes(1940)
         ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion }
         : c.id === 'linear-stability-refusals'
         ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 1 }
@@ -382,6 +387,7 @@ describe('edited projects with older provenance', () => {
     expect(expected.slice(-9)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
     }
     expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
+  });
   });
 
   it('clears an acknowledged linear notice before adding shells, saving and reopening without a solve', async () => {
