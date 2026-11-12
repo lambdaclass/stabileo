@@ -860,3 +860,21 @@ describe('staged history path applicability (#1952)', () => {
     }
   });
 });
+
+it('scopes staged spring history changes to springs with explicit path context', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'staged-support-spring-history')!;
+  for (const dimension of ['plane2D', 'space3D']) {
+    for (const analysis of ['analysis:linear', 'analysis:nonlinear', 'analysis:pdelta']) {
+      for (const path of [false, true]) {
+        for (const springs of [false, true]) {
+          const features = new Set([dimension, 'members', analysis, ...(path ? ['pathAnalysis'] : []), ...(springs ? ['springs'] : [])]);
+          expect(conditionHolds(entry.when ?? {}, features)).toBe(path && springs);
+          for (const current of [false, true]) {
+            const stamp = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - (current ? 0 : 1) };
+            expect(assessProject(model(), stamp, undefined, RESULT_CHANGES, features).changes.some(c => c.id === entry.id)).toBe(path && springs && !current);
+          }
+        }
+      }
+    }
+  }
+});

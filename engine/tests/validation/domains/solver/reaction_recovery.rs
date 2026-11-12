@@ -1927,6 +1927,7 @@ fn r12_spring_answer(r: &Value, m: &Value, dim: usize, spring: f64, displacement
 fn r12_spring_history(dim: usize, change: &str) {
     let cases: Vec<Value> = serde_json::from_str(include_str!("../../../fixtures/staged-springs-r12.json")).unwrap();
     let case = cases.into_iter().find(|c| c["dim"] == dim && c["change"] == change).unwrap();
+    for spring_scale in [0.0, 1e-12, 1.0] {
     for padding in [0, 8, 9, 10, 19, 20, 21, 22] {
     for scale in [-1.0, -1e-12, 0.0, 1e-12, 1.0] {
     for load_before_change in [true, false] {
@@ -1935,6 +1936,10 @@ fn r12_spring_history(dim: usize, change: &str) {
         m["nodes"].as_object_mut().unwrap().remove("2");
         r11_pad(&mut m, dim, padding);
         m["nodes"]["2"] = slave;
+        for id in ["1", "2"] {
+            let key = if dim == 2 {"ky"} else {"kz"};
+            m["supports"][id][key] = json!(m["supports"][id][key].as_f64().unwrap() * spring_scale);
+        }
         let load = m["loads"][0]["data"]["fz"].as_f64().unwrap() * scale;
         m["loads"][0]["data"]["fz"] = json!(load);
         if !load_before_change {
@@ -1954,7 +1959,7 @@ fn r12_spring_history(dim: usize, change: &str) {
         let after = match change {"removed" => 0.0, "changed" => strong, _ => weak};
         let first_load = if load_before_change {load} else {0.0};
         r12_spring_answer(&output["stages"][0]["results"], &m, dim, before * first_load / (beam + before), first_load / (beam + before), first_load);
-        let unavailable = change != "unchanged" && load_before_change && load != 0.0;
+        let unavailable = change != "unchanged" && spring_scale != 0.0 && load_before_change && load != 0.0;
         let displacement = if !load_before_change {load / (beam + after)} else {
             match change {
                 "added" => load / beam,
@@ -1984,12 +1989,12 @@ fn r12_spring_history(dim: usize, change: &str) {
     }
     }
     }
+    }
 }
 
 macro_rules! r12_spring_test {
     ($name:ident, $dim:expr, $change:expr) => {
         #[test]
-        #[ignore = "known wrong result: #1952"]
         fn $name() { r12_spring_history($dim, $change); }
     };
 }

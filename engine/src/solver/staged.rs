@@ -182,7 +182,11 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         };
 
         let recovery = recovery_history.advance(
-            active_elements.iter().copied().map(StageComponent::Member),
+            StageStiffnessFingerprint::from_assembly(
+                stage_stiffness_contributors_2d(&stage_solver_input),
+                n, asm_dense.as_ref(),
+                asm_trips.as_ref().map(|a| (a.rows.as_slice(), a.cols.as_slice(), a.vals.as_slice())),
+            ),
             &cumulative_u,
             stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end].iter().any(|v| *v != 0.0))),
             asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),
@@ -894,16 +898,87 @@ enum StageForceRecovery {
     UnavailableHistory,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-enum StageComponent {
+#[derive(PartialEq, Eq, Hash)]
+enum StageStiffnessEntry {
     Member(usize),
     Plate(usize),
     Quad(usize),
+    Support(String),
+    Restraint(usize, usize),
+    Coefficient(usize, usize, u64),
+}
+
+fn stage_support_contributors<const N: usize>(
+    supports: impl Iterator<Item = (String, usize, [super::support::SupportDof; N])>,
+) -> Vec<StageStiffnessEntry> {
+    let mut entries = Vec::new();
+    for (key, node, dofs) in supports {
+        if !dofs.iter().any(|d| d.restrained || d.spring.is_some_and(|k| k > 0.0)) { continue; }
+        entries.push(StageStiffnessEntry::Support(key));
+        entries.extend(dofs.into_iter().enumerate().filter_map(|(i, d)| {
+            d.restrained.then_some(StageStiffnessEntry::Restraint(node, i))
+        }));
+    }
+    entries
+}
+
+fn stage_stiffness_contributors_2d(input: &SolverInput) -> Vec<StageStiffnessEntry> {
+    let mut entries = stage_support_contributors(crate::ordered::entries(&input.supports).map(|(key, s)| {
+        (key.clone(), s.node_id, super::support::support_dofs_2d(s))
+    }));
+    entries.extend(crate::ordered::values(&input.elements).map(|e| StageStiffnessEntry::Member(e.id)));
+    entries
+}
+
+fn stage_stiffness_contributors_3d(input: &SolverInput3D) -> Vec<StageStiffnessEntry> {
+    let mut entries = stage_support_contributors(crate::ordered::entries(&input.supports).map(|(key, s)| {
+        (key.clone(), s.node_id, super::support::support_dofs_3d(s))
+    }));
+    entries.extend(crate::ordered::values(&input.elements).map(|e| StageStiffnessEntry::Member(e.id)));
+    entries.extend(crate::ordered::values(&input.plates).map(|e| StageStiffnessEntry::Plate(e.id)));
+    entries.extend(crate::ordered::values(&input.quads).map(|e| StageStiffnessEntry::Quad(e.id)));
+    entries
+}
+
+#[derive(Default, PartialEq, Eq)]
+struct StageStiffnessFingerprint(HashSet<StageStiffnessEntry>);
+
+impl StageStiffnessFingerprint {
+    fn from_assembly(
+        contributors: Vec<StageStiffnessEntry>,
+        n: usize,
+        dense: Option<&AssemblyResult>,
+        triplets: Option<(&[usize], &[usize], &[f64])>,
+    ) -> Self {
+        let mut entries: HashSet<_> = contributors.into_iter().collect();
+        if let Some(a) = dense {
+            assert!(triplets.is_none());
+            for j in 0..n {
+                for i in j..n {
+                    let k = a.k[i * n + j];
+                    if k != 0.0 {
+                        entries.insert(StageStiffnessEntry::Coefficient(i, j, k.to_bits()));
+                    }
+                }
+            }
+        } else {
+            let (rows, cols, vals) = triplets.expect("stage stiffness assembly");
+            let k = CscMatrix::from_triplets(n, rows, cols, vals);
+            for j in 0..n {
+                for at in k.col_ptr[j]..k.col_ptr[j + 1] {
+                    if k.values[at] != 0.0 {
+                        entries.insert(StageStiffnessEntry::Coefficient(k.row_idx[at], j, k.values[at].to_bits()));
+                    }
+                }
+            }
+        }
+        Self(entries)
+    }
 }
 
 #[derive(Default)]
 struct StageRecoveryHistory {
-    active: HashSet<StageComponent>,
+    stiffness: StageStiffnessFingerprint,
     loaded: bool,
     unavailable: bool,
 }
@@ -911,15 +986,14 @@ struct StageRecoveryHistory {
 impl StageRecoveryHistory {
     fn advance(
         &mut self,
-        active: impl Iterator<Item = StageComponent>,
+        stiffness: StageStiffnessFingerprint,
         previous_u: &[f64],
         previous_forces: bool,
         stage_load: &[f64],
     ) -> StageForceRecovery {
-        let active: HashSet<_> = active.collect();
-        self.unavailable |= active != self.active && (self.loaded || previous_forces || previous_u.iter().any(|v| *v != 0.0));
+        self.unavailable |= stiffness != self.stiffness && (self.loaded || previous_forces || previous_u.iter().any(|v| *v != 0.0));
         self.loaded |= stage_load.iter().any(|v| *v != 0.0);
-        self.active = active;
+        self.stiffness = stiffness;
         if self.unavailable { StageForceRecovery::UnavailableHistory } else { StageForceRecovery::CumulativeElastic }
     }
 }
@@ -929,7 +1003,7 @@ impl StageForceRecovery {
         if self == Self::CumulativeElastic { return vec![]; }
         phases.iter().map(|phase| super::reaction_recovery::unavailable(
             phase,
-            "Stage equilibrium results are unavailable: the active stiffness changed after earlier loading or displacement. Recovery does not track strain since member activation or redistribute forces released by removal. Reactions and member forces are withheld; retained cumulative displacements are incremental history only, not a certified equilibrium solution. Later stages remain unavailable.",
+            "Stage equilibrium results are unavailable: the active stiffness changed after earlier loading or displacement. Recovery does not track member or support-spring deformation since activation or redistribute forces released by removal. Reactions and member forces are withheld; retained cumulative displacements are incremental history only, not a certified equilibrium solution. Later stages remain unavailable.",
         )).collect()
     }
 }
@@ -1160,9 +1234,11 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         };
 
         let recovery = recovery_history.advance(
-            active_elements.iter().copied().map(StageComponent::Member)
-                .chain(active_plates.iter().copied().map(StageComponent::Plate))
-                .chain(active_quads.iter().copied().map(StageComponent::Quad)),
+            StageStiffnessFingerprint::from_assembly(
+                stage_stiffness_contributors_3d(&stage_input),
+                n, asm_dense.as_ref(),
+                asm_trips.as_ref().map(|a| (a.rows.as_slice(), a.cols.as_slice(), a.vals.as_slice())),
+            ),
             &cumulative_u,
             stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end].iter().any(|v| *v != 0.0))),
             asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),

@@ -19,6 +19,7 @@ function answer(r, m, dim, beam, u, load) {
 }
 
 for (const c of cases) {
+  for (const springScale of [0, 1e-12, 1]) {
   for (const padding of [0, 8, 9, 10, 19, 20, 21, 22]) {
     for (const scale of [-1, -1e-12, 0, 1e-12, 1]) {
       for (const prior of [true, false]) {
@@ -29,18 +30,19 @@ for (const c of cases) {
           m.elements[id] = {...m.elements[1], id, nodeI: i === 0 ? 0 : id - 1, nodeJ: id};
           m.stages[0].elementsAdded.push(id);
         }
+        for (const id of [1, 2]) m.supports[id][dim === 2 ? 'ky' : 'kz'] *= springScale;
         const load = m.loads[0].data.fz *= scale;
         if (!prior) { m.stages[0].loadIndices = []; m.stages[1].loadIndices = [0]; }
         try {
           const output = JSON.parse(engine[`solve_staged_${dim}d`](JSON.stringify(m)));
-          if (!padding && scale === 1 && prior) replay.push({...c, model: m, output});
+          if (!padding && scale === 1 && prior && springScale === 1) replay.push({...c, model: m, output});
           const beam = 2 * 3 * m.materials[1].e * 1000 * m.sections[1][dim === 2 ? 'iz' : 'iy'] / m.nodes[1].x ** 3;
           const weak = m.supports[1][dim === 2 ? 'ky' : 'kz'], strong = m.supports[2][dim === 2 ? 'ky' : 'kz'];
           const before = c.change === 'added' ? 0 : weak, after = c.change === 'removed' ? 0 : c.change === 'changed' ? strong : weak;
           const firstLoad = prior ? load : 0;
           answer(output.stages[0].results, m, dim, beam, firstLoad / (beam + before), firstLoad);
           const u = !prior ? load / (beam + after) : c.change === 'added' || c.change === 'removed' ? load / beam : c.change === 'changed' ? load / (beam + before) + before * load / ((beam + before) * (beam + after)) : load / (beam + after);
-          const unavailable = c.change !== 'unchanged' && prior && load !== 0;
+          const unavailable = c.change !== 'unchanged' && springScale !== 0 && prior && load !== 0;
           for (const r of [output.stages[1].results, output.stages[2].results, output.finalResults]) {
             if (r.reactions.length) answer(r, m, dim, beam, u, load);
             if (unavailable) {
@@ -57,11 +59,12 @@ for (const c of cases) {
           checks++;
         } catch (e) {
           failures++;
-          if (!padding) console.error(`FAIL ${c.name} scale=${scale} prior=${prior}: ${e}`);
+          if (!padding) console.error(`FAIL ${c.name} scale=${scale} springScale=${springScale} prior=${prior}: ${e}`);
         }
       }
     }
   }
+}
 }
 if (process.env.STABILEO_R12_REPLAY) writeFileSync(process.env.STABILEO_R12_REPLAY, JSON.stringify(replay, null, 2) + '\n');
 console.log(`${checks} passed, ${failures} failed`);
