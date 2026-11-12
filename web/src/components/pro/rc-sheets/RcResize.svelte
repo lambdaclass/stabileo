@@ -43,7 +43,7 @@
         {#if h.to === null}
           {tp(`rcSheets.resize.none.${h.what}`, { from: cm(h.from) })}
         {:else}
-          {tp(`rcSheets.resize.${h.direction}.${h.what}`, { from: cm(h.from), to: cm(h.to) })}
+          {tp(`rcSheets.resize.${h.direction}.${h.what}`, { from: cm(h.from), to: cm(h.to), a: cm(h.to.slice(0, 1)), b: cm(h.to.slice(1, 2)) })}
         {/if}
       </span>
     {/each}

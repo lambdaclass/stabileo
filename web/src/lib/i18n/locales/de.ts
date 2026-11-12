@@ -15517,15 +15517,19 @@ const de: Translations = {
   "rcSheets.resize.grow.slabH": "Nachweis erfüllt mit {to} cm Dicke (jetzt {from} cm).",
   "rcSheets.resize.grow.wallT": "Nachweis erfüllt mit {to} cm Dicke (jetzt {from} cm).",
   "rcSheets.resize.grow.punchSlab": "Nachweis erfüllt mit {to} cm Plattendicke (jetzt {from} cm),",
-  "rcSheets.resize.grow.punchColumn": "oder mit einer Stütze von {to} cm (jetzt {from} cm).",
+  "rcSheets.resize.grow.punchColumn": "oder mit einer Stütze von {to} cm (jetzt {from} cm),",
   "rcSheets.resize.none.beamH": "Auch mit doppelter Höhe ({from} cm jetzt) nicht erfüllt: eine andere Lösung ist nötig.",
   "rcSheets.resize.none.column": "Auch mit doppeltem Querschnitt ({from} cm jetzt) nicht erfüllt: eine andere Lösung ist nötig.",
   "rcSheets.resize.none.slabH": "Auch mit doppelter Dicke ({from} cm jetzt) nicht erfüllt: eine andere Lösung ist nötig (Unterzüge, Stützenkopfverstärkungen).",
   "rcSheets.resize.none.wallT": "Auch mit doppelter Dicke ({from} cm jetzt) nicht erfüllt: eine andere Lösung ist nötig.",
   "rcSheets.resize.none.punchSlab": "Auch mit doppelter Plattendicke ({from} cm jetzt) nicht erfüllt,",
-  "rcSheets.resize.none.punchColumn": "auch nicht mit doppelt so großer Stütze ({from} cm jetzt): Stützenkopfverstärkung, eine weitere Stütze oder Unterzüge sind nötig.",
+  "rcSheets.resize.none.punchColumn": "auch nicht mit doppelt so großer Stütze ({from} cm jetzt),",
   "rcSheets.resize.shrink.column": "Mit Reserve: erfüllt auch mit {to} cm (jetzt {from} cm).",
   "rcSheets.resize.shrink.wallT": "Mit Reserve: erfüllt auch mit {to} cm Dicke (jetzt {from} cm).",
+  "rcSheets.resize.grow.punchCapital": "oder mit einem Stützenkopf von {to} cm Auskragung je Seite und mindestens dieser Höhe,",
+  "rcSheets.resize.grow.punchDrop": "oder mit einer Stützenkopfverstärkung {a} cm unter der Platte, die {b} cm über die Stützenseite reicht.",
+  "rcSheets.resize.none.punchCapital": "auch nicht mit einem Stützenkopf bis 1 m Auskragung,",
+  "rcSheets.resize.none.punchDrop": "auch nicht mit einer Verstärkung so dick wie die Platte: eine weitere Stütze oder Unterzüge sind nötig.",
 };
 
 export default de;

@@ -15517,15 +15517,19 @@ const tr: Translations = {
   "rcSheets.resize.grow.slabH": "{to} cm kalınlıkla sağlar (şu an {from} cm).",
   "rcSheets.resize.grow.wallT": "{to} cm kalınlıkla sağlar (şu an {from} cm).",
   "rcSheets.resize.grow.punchSlab": "{to} cm döşemeyle sağlar (şu an {from} cm),",
-  "rcSheets.resize.grow.punchColumn": "ya da {to} cm kolonla (şu an {from} cm).",
+  "rcSheets.resize.grow.punchColumn": "ya da {to} cm kolonla (şu an {from} cm),",
   "rcSheets.resize.none.beamH": "İki kat yükseklikle bile sağlamıyor (şu an {from} cm): başka bir çözüm gerekir.",
   "rcSheets.resize.none.column": "İki kat kesitle bile sağlamıyor (şu an {from} cm): başka bir çözüm gerekir.",
   "rcSheets.resize.none.slabH": "İki kat kalınlıkla bile sağlamıyor (şu an {from} cm): başka bir çözüm gerekir (kirişler, başlıklar).",
   "rcSheets.resize.none.wallT": "İki kat kalınlıkla bile sağlamıyor (şu an {from} cm): başka bir çözüm gerekir.",
   "rcSheets.resize.none.punchSlab": "İki kat kalın döşemeyle bile sağlamıyor (şu an {from} cm),",
-  "rcSheets.resize.none.punchColumn": "iki kat büyük kolonla da (şu an {from} cm): başlık, ek kolon veya kirişler gerekir.",
+  "rcSheets.resize.none.punchColumn": "iki kat büyük kolonla da (şu an {from} cm),",
   "rcSheets.resize.shrink.column": "Payı var: {to} cm ile de sağlardı (şu an {from} cm).",
   "rcSheets.resize.shrink.wallT": "Payı var: {to} cm kalınlıkla da sağlardı (şu an {from} cm).",
+  "rcSheets.resize.grow.punchCapital": "ya da her yanda {to} cm çıkıntılı ve en az o kadar yüksek bir başlıkla,",
+  "rcSheets.resize.grow.punchDrop": "ya da döşemenin {a} cm altına inen ve kolon yüzünden {b} cm uzanan bir tablayla.",
+  "rcSheets.resize.none.punchCapital": "1 m'ye kadar çıkıntılı başlıkla da,",
+  "rcSheets.resize.none.punchDrop": "döşeme kalınlığında bir tablayla da sağlamıyor: başka bir kolon veya kirişler gerekir.",
 };
 
 export default tr;

@@ -13,8 +13,12 @@ import type { BeamRow } from '../rc-sheets/beam-row';
 import type { ColumnRow } from '../rc-sheets/column-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
 
-export type ResizeWhat = 'beamH' | 'column' | 'slabH' | 'wallT' | 'punchSlab' | 'punchColumn';
-/** `to` null: not even at the limit searched (twice the size). Lengths in m. */
+export type ResizeWhat = 'beamH' | 'column' | 'slabH' | 'wallT' | 'punchSlab' | 'punchColumn' | 'punchCapital' | 'punchDrop';
+/**
+ * `to` null: not even at the limit searched (twice the size). Lengths in m. A capital's `to` is its
+ * projection beyond the column face; a drop panel's, its depth under the slab and its extent from
+ * the column face.
+ */
 export interface ResizeHint { what: ResizeWhat; direction: 'grow' | 'shrink'; from: number[]; to: number[] | null }
 
 const passes = (r: SheetRow) => r.status !== 'fail';
@@ -80,12 +84,37 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
     case 'punching': {
       if (!fail) return [];
       const d = row.demand;
+      const asColumn = (a: number) => ({ ...d, joint: { ...d.joint, b: d.joint.b + 2 * a, h: d.joint.h + 2 * a } });
       return [
         { what: 'punchSlab', direction: 'grow', from: [d.thickness], to: grow(row.key, [d.thickness], 0.01, [2 * d.thickness], ([t]) => ({ ...d, thickness: t })) },
         { what: 'punchColumn', direction: 'grow', from: [d.joint.b, d.joint.h], to: grow(row.key, [d.joint.b, d.joint.h], 0.05, [2 * d.joint.b, 2 * d.joint.h], ([b, h]) => ({ ...d, joint: { ...d.joint, b, h } })) },
+        // The critical section from the capital's edge (§22.6.4.1), the capital within 45°: as deep as it projects.
+        { what: 'punchCapital', direction: 'grow', from: [0], to: grow(row.key, [0], 0.05, [1], ([a]) => asColumn(a)) },
+        { what: 'punchDrop', direction: 'grow', from: [0, 0], to: dropPanel(row.key, d) },
       ];
     }
   }
+}
+
+/**
+ * The least drop panel (shear cap) a punching joint verifies with: its depth under the slab, from
+ * h/4 (§8.2.4(a)), so that the section at the column holds with slab and drop together; and its
+ * extent from the column face, at least that depth (§8.2.5), so that the section at d/2 beyond its
+ * edge holds with the slab alone (§22.6.4.1). Null when no depth up to h or extent up to 1.5 m does.
+ */
+function dropPanel(key: string, d: import('../rc-sheets/punching-row').PunchingDemand): number[] | null {
+  const redesign = redesignerOf(key);
+  if (!redesign) return null;
+  const h = d.thickness;
+  let depth: number | null = null;
+  for (let x = Math.max(0.05, Math.ceil((h / 4) * 100) / 100); x <= h + 1e-9; x = round(x + 0.01)) {
+    if (passes(redesign({ ...d, thickness: round(h + x) } as never))) { depth = x; break; }
+  }
+  if (depth === null) return null;
+  for (let e = Math.max(depth, 0.1); e <= 1.5 + 1e-9; e = round(e + 0.05)) {
+    if (passes(redesign({ ...d, joint: { ...d.joint, b: d.joint.b + 2 * e, h: d.joint.h + 2 * e } } as never))) return [depth, round(e)];
+  }
+  return null;
 }
 
 /** A continuous beam's depth: the deepest any of its failing spans needs. */

@@ -435,7 +435,13 @@ describe('reinforcement sheets from a solved model', () => {
     const c = flatPlate(0.12, 0.2, 12);
     const p = buildSheetRows().punching[0]!;
     expect(p.status).toBe('fail');
-    const [slabHint, colHint] = resizeHints(p);
+    const [slabHint, colHint, capital, drop] = resizeHints(p);
+    // A capital: the critical section from its edge; a drop panel: from h/4 deep, reaching at least as far as it is deep.
+    expect(capital).toMatchObject({ what: 'punchCapital', direction: 'grow' });
+    expect(capital!.to![0]!).toBeGreaterThan(0);
+    expect(drop).toMatchObject({ what: 'punchDrop' });
+    expect(drop!.to![0]!).toBeGreaterThanOrEqual(0.03 - 1e-9);
+    expect(drop!.to![1]!).toBeGreaterThanOrEqual(drop!.to![0]! - 1e-9);
     expect(slabHint).toMatchObject({ what: 'punchSlab', direction: 'grow', from: [0.12] });
     expect(slabHint!.to![0]!).toBeGreaterThan(0.12);
     // A column twice as large may not do: the hint then says so (to: null) rather than naming a size.

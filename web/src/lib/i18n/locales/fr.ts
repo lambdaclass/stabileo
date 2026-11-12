@@ -15517,15 +15517,19 @@ const fr: Translations = {
   "rcSheets.resize.grow.slabH": "Vérifie avec {to} cm d'épaisseur (actuellement {from} cm).",
   "rcSheets.resize.grow.wallT": "Vérifie avec {to} cm d'épaisseur (actuellement {from} cm).",
   "rcSheets.resize.grow.punchSlab": "Vérifie avec une dalle de {to} cm (actuellement {from} cm),",
-  "rcSheets.resize.grow.punchColumn": "ou avec un poteau de {to} cm (actuellement {from} cm).",
+  "rcSheets.resize.grow.punchColumn": "ou avec un poteau de {to} cm (actuellement {from} cm),",
   "rcSheets.resize.none.beamH": "Pas même avec le double de hauteur ({from} cm actuellement) : il faut une autre solution.",
   "rcSheets.resize.none.column": "Pas même avec le double de section ({from} cm actuellement) : il faut une autre solution.",
   "rcSheets.resize.none.slabH": "Pas même avec le double d'épaisseur ({from} cm actuellement) : il faut une autre solution (poutres, chapiteaux).",
   "rcSheets.resize.none.wallT": "Pas même avec le double d'épaisseur ({from} cm actuellement) : il faut une autre solution.",
   "rcSheets.resize.none.punchSlab": "Pas même avec une dalle deux fois plus épaisse ({from} cm actuellement),",
-  "rcSheets.resize.none.punchColumn": "ni avec un poteau deux fois plus grand ({from} cm actuellement) : il faut un chapiteau, un autre poteau ou des poutres.",
+  "rcSheets.resize.none.punchColumn": "ni avec un poteau deux fois plus grand ({from} cm actuellement),",
   "rcSheets.resize.shrink.column": "Avec de la marge : vérifierait avec {to} cm (actuellement {from} cm).",
   "rcSheets.resize.shrink.wallT": "Avec de la marge : vérifierait avec {to} cm d'épaisseur (actuellement {from} cm).",
+  "rcSheets.resize.grow.punchCapital": "ou avec un chapiteau de {to} cm de débord par côté, et au moins aussi haut,",
+  "rcSheets.resize.grow.punchDrop": "ou avec une retombée de {a} cm sous la dalle s'étendant à {b} cm de la face du poteau.",
+  "rcSheets.resize.none.punchCapital": "ni avec un chapiteau jusqu'à 1 m de débord,",
+  "rcSheets.resize.none.punchDrop": "ni avec une retombée aussi épaisse que la dalle : il faut un autre poteau ou des poutres.",
 };
 
 export default fr;
