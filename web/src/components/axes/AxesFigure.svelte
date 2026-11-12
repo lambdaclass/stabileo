@@ -26,7 +26,7 @@
 </script>
 
 {#if kind === 'space'}
-  <svg class="axes-fig" viewBox="0 0 240 190" role="img" aria-label={t('axes.figSpaceAria')}>
+  <svg class="axes-fig" viewBox="0 0 240 168" role="img" aria-label={t('axes.figSpaceAria')}>
     <defs>
       {#each COLORS as c, i}
         <marker id="ax-head-{i}" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill={c} /></marker>
