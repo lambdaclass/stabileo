@@ -104,6 +104,68 @@ class References(unittest.TestCase):
             self.assertEqual(data['knownWrong'][0]['path'], 'nonlinear.results.reactions')
 
 
+class FrozenRefusals(unittest.TestCase):
+    def fixture(self, area, analysis, test):
+        for endpoint in ['base', 'repo']:
+            (area / f'{endpoint}-fixed-native').mkdir()
+        (area / 'base/engine/tests/benchmarks').mkdir(parents=True)
+        (area / 'base/engine/tests/benchmarks/macneal_harder.json').write_text('{"cases": []}')
+        (area / 'repo/engine/tests/benchmarks/spec').mkdir(parents=True)
+        (area / 'repo/engine/tests/benchmarks/spec/scordelis-lo.json').write_text(json.dumps({
+            'references': [{'value': 1, 'citation': 'synthetic control'}]}))
+        model = dict(nodes={'1': dict(id=1, x=0, y=0, z=0), '2': dict(id=2, x=1, y=1, z=1)},
+                     materials={'1': dict(e=1, nu=0)}, sections={'1': dict(a=1, iy=1, iz=1, j=1)},
+                     loads=[dict(type='nodal', data=dict(fx=1, fy=1, fz=1))])
+        result = dict(displacements=[dict(nodeId=n, ux=1, uy=1, uz=1, ry=1, rz=1) for n in [1, 2]],
+                      reactions=[dict(fx=-1, fy=-1, fz=-1)])
+        record = dict(analysis=analysis, test=test, input=[model], result={'Ok': result})
+        (area / 'base-fixed-native/model.json').write_text(json.dumps(record))
+        generic = test == 'synthetic_reference'
+        row = dict(id='control', test=test, observation=0, category='engineering_reference',
+                   models=['model.json'], before=1, after=1, reference=1, farther=False)
+        (area / 'reference-comparisons.json').write_text(json.dumps({'rows': [row] if generic else []}))
+        return record
+
+    @unittest.skip('known wrong result: #1946')
+    def test_head_refusal_retains_each_successful_reference_measurement(self):
+        entries = [(analysis, 'synthetic_reference', 1) for analysis in
+                   ['solve_2d', 'solve_3d', 'solve_corotational_2d', 'solve_corotational_3d']]
+        entries += [('solve_3d', test, count) for test, count in [
+            ('benchmark_protocol::benchmark_protocol_roof', 1),
+            ('validation_vm41_3d_l_frame_out_of_plane', 1),
+            ('validation_nafems_r0031_3d_beam_bending', 8)]]
+        for analysis, test, count in entries:
+            for refused in [False, True]:
+                with self.subTest(analysis=analysis, test=test, refused=refused), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                    area = Path(directory)
+                    record = self.fixture(area, analysis, test)
+                    head = {**record, 'result': {'Err': 'synthetic refusal'}} if refused else record
+                    (area / 'repo-fixed-native/model.json').write_text(json.dumps(head))
+                    execute_audit_script('frozen-references.py', area)
+                    data = json.loads((area / 'reference-comparisons.json').read_text())
+                    rows = data['frozen_primary_comparisons']
+                    self.assertEqual(len(rows), count)
+                    status = 'refused at head' if refused else 'compared'
+                    self.assertEqual(data['frozen_outcome_counts'], {status: count})
+                    self.assertEqual(data['frozen_farther'], [])
+                    self.assertEqual(data['unresolved_frozen_measurements'], [])
+                    for row in rows:
+                        self.assertEqual(row['status'], status)
+                        self.assertEqual(row['model'], 'model.json')
+                        self.assertIsNotNone(row['before'])
+                        self.assertIsNotNone(row['before_error'])
+                        self.assertTrue(row['same_input'])
+                        if refused:
+                            self.assertIsNone(row['after'])
+                            self.assertIsNone(row['after_error'])
+                            self.assertIsNone(row['farther'])
+                            self.assertEqual(row['head_result'], head['result'])
+                        else:
+                            self.assertEqual(row['before'], row['after'])
+                            self.assertEqual(row['before_error'], row['after_error'])
+                            self.assertFalse(row['farther'])
+
+
 class History(unittest.TestCase):
     def run_history(self, filename, values, provenance=None, extra_models=None):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
@@ -394,6 +456,30 @@ fn main() {
         for invalid in [dict(second, input=[{'different': True}]), dict(second, analysis='solve_3d')]:
             with self.assertRaises(ValueError):
                 merge_input_records(first, invalid)
+
+    @unittest.skip('known wrong result: #1946')
+    def test_reference_executor_preserves_runner_arguments(self):
+        read_text = Path.read_text
+        for arguments in [[], ['--verbose'], ['scripts/tests/test_soundness_audit.py']]:
+            argv = ['unittest', *arguments]
+            with self.subTest(arguments=arguments), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                area = Path(directory)
+                for endpoint in ['base', 'repo']:
+                    row = dict(test='control', site='tip', actual=1, reference=1)
+                    (area / f'{endpoint}-reference-test.log').write_text('AUDIT_REFERENCE=' + json.dumps(row))
+
+                def source(path, *args, **kwargs):
+                    text = read_text(path, *args, **kwargs)
+                    if path == AUDIT / 'collect-references.py':
+                        text = f'import sys\nassert sys.argv == {argv!r}, sys.argv\n' + text
+                    return text
+
+                with patch.object(sys, 'argv', argv), patch.object(Path, 'read_text', source):
+                    execute_audit_script('collect-references.py', area)
+                    self.assertEqual(sys.argv, argv)
+                result = json.loads((area / 'reference-comparisons.json').read_text())
+                self.assertEqual(len(result['rows']), 1)
+                self.assertEqual(result['rows'][0]['before'], result['rows'][0]['after'])
 
     def test_reference_collection_is_independent_of_runner_arguments(self):
         for arguments in [[], ['--verbose'], ['scripts/tests/test_soundness_audit.py']]:
