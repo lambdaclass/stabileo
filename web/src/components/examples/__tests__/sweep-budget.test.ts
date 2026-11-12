@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EXAMPLES } from '../catalog';
 import type { Outcome, Values } from '../define';
 
-type Registered = { name: string; body: () => void };
+type Hook = { body: () => void; timeout?: number };
+type Registered = Hook & { name: string; hooks: Hook[] };
 const registered: Registered[] = [];
 const seen = new Map<string, Values[]>();
 let outcome: (index: number) => Outcome;
@@ -22,22 +23,28 @@ function clean(): Outcome {
   };
 }
 
-beforeAll(async () => {
+beforeEach(async () => {
+  vi.resetModules();
+  registered.length = 0;
   let suite = '';
+  let hooks: Hook[] = [];
   const collect = (name: string, body: () => void) => {
     const parent = suite;
+    const parentHooks = hooks;
     suite = `${parent} ${name}`;
-    try { body(); } finally { suite = parent; }
+    hooks = [...parentHooks];
+    try { body(); } finally { suite = parent; hooks = parentHooks; }
   };
   vi.doMock('vitest', () => ({
     expect, afterAll: () => {},
+    beforeAll: (body: () => void, timeout?: number) => hooks.push({ body, timeout }),
     describe: Object.assign(collect, {
       each: (rows: (readonly [string, unknown])[]) => (name: string, body: (id: string, example: unknown) => void) => {
         for (const row of rows) collect(name.replace('%s', row[0]), () => body(...row));
       },
     }),
-    it: (name: string, body: () => void) => {
-      if (name.includes('seeded sample')) registered.push({ name: `${suite} ${name}`, body });
+    it: (name: string, body: () => void, timeout?: number) => {
+      if (name.includes('seeded sample')) registered.push({ name: `${suite} ${name}`, body, timeout, hooks });
     },
   }));
   vi.doMock('../catalog', () => ({
@@ -64,10 +71,18 @@ beforeEach(() => {
   outcome = clean;
 });
 
-function run() {
+function run(tests = registered) {
   const counts: number[] = [];
   const failures: { name: string; error: unknown }[] = [];
-  for (const test of registered) {
+  const completed = new Set<Hook>();
+  for (const test of tests) {
+    for (const hook of test.hooks) {
+      if (completed.has(hook)) continue;
+      const before = [...seen.values()].reduce((sum, samples) => sum + samples.length, 0);
+      hook.body();
+      completed.add(hook);
+      counts.push([...seen.values()].reduce((sum, samples) => sum + samples.length, 0) - before);
+    }
     const before = [...seen.values()].reduce((sum, samples) => sum + samples.length, 0);
     try { test.body(); } catch (error) { failures.push({ name: test.name, error }); }
     counts.push([...seen.values()].reduce((sum, samples) => sum + samples.length, 0) - before);
@@ -81,6 +96,10 @@ describe('seeded slider sweep execution', () => {
     expect(failures).toEqual([]);
     expect(counts.length).toBeGreaterThan(0);
     expect(Math.max(...counts)).toBeLessThanOrEqual(25);
+    for (const test of registered) {
+      expect(test.timeout).toBe(120000);
+      for (const hook of test.hooks) expect(hook.timeout).toBe(120000);
+    }
   });
 
   it('visits the original 300 seeded inputs of every example exactly once and in order', () => {
@@ -117,6 +136,30 @@ describe('seeded slider sweep execution', () => {
     const { failures } = run();
     expect(failures).toHaveLength(EXAMPLES.length);
     for (const failure of failures) expect((failure.error as { actual: unknown }).actual).toEqual([expect.stringContaining('non-finite value')]);
+    for (const samples of seen.values()) expect(samples).toHaveLength(300);
+  });
+});
+
+describe.skip('known wrong result: #1960', () => {
+  it.each(['alone', 'first', 'reversed'] as const)('checks complete refusal counts with the aggregate %s', order => {
+    const aggregates = registered.filter(test => test.name.includes('refuses less than'));
+    const chunks = registered.filter(test => !test.name.includes('refuses less than'));
+    const tests = order === 'alone' ? aggregates : order === 'first' ? [...aggregates, ...chunks] : [...registered].reverse();
+    const { counts, failures } = run(tests);
+    expect(failures).toEqual([]);
+    expect(Math.max(...counts)).toBeLessThanOrEqual(25);
+    expect([...seen.keys()].sort()).toEqual(EXAMPLES.map(example => example.id).sort());
+    for (const samples of seen.values()) expect(samples).toHaveLength(300);
+  });
+
+  it.each([59, 60])('enforces the refusal boundary alone with %i refusals', refused => {
+    outcome = index => index < refused ? { status: 'refused', code: 'noLoad' } : clean();
+    const { failures } = run(registered.filter(test => test.name.includes('refuses less than')));
+    expect(failures).toHaveLength(refused === 59 ? 0 : EXAMPLES.length);
+    for (const failure of failures) {
+      expect(failure.name).toContain('refuses less than 20%');
+      expect((failure.error as { actual: unknown }).actual).toBe(60 / 300);
+    }
     for (const samples of seen.values()) expect(samples).toHaveLength(300);
   });
 });
