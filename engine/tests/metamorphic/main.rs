@@ -221,7 +221,9 @@ fn metamorphic_replay() {
 
 fn finish_replay(t: &Tally) {
     let results = t.replay_results();
-    std::fs::write(std::env::var("NIGHTLY_RESULTS").unwrap(), serde_json::to_vec(&results).unwrap()).unwrap();
+    let path = std::env::var("NIGHTLY_RESULTS").unwrap();
+    std::fs::write(&path, serde_json::to_vec(&results).unwrap())
+        .unwrap_or_else(|error| panic!("failed to write replay results to {path}: {error}"));
     assert!(t.failures().is_empty(), "metamorphic violations: {results}");
 }
 

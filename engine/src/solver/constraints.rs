@@ -55,6 +55,13 @@ pub struct SparseTransform {
 }
 
 impl SparseTransform {
+    pub(crate) fn buckling_transform(&self) -> crate::linalg::lanczos::BucklingTransform<'_> {
+        crate::linalg::lanczos::BucklingTransform {
+            n_rows: self.n_rows, n_cols: self.n_cols,
+            row_ptr: &self.row_ptr, col_idx: &self.col_idx, vals: &self.vals,
+        }
+    }
+
     /// Build from per-row (column, value) lists. Rows must be sorted by column
     /// and free of duplicate columns.
     ///
@@ -2653,6 +2660,123 @@ impl FreeConstraintSystem {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn buckling_818_coupled_constraints_preserve_eigenvectors() {
+        use crate::linalg::sparse::CscMatrix;
+        use num_rational::BigRational;
+        use num_traits::{ToPrimitive, Zero};
+        for n in [2, 200, 201, 202] {
+            for delta in [-2.0f64.powi(-27), 2.0f64.powi(-27)] {
+                let size = n+1;
+                let stiff = 1e13;
+                let mut k = vec![0.0; size*size];
+                let mut b = vec![0.0; size*size];
+                k[0] = stiff+0.002; k[1] = -stiff; k[size] = -stiff;
+                k[size+1] = stiff+0.001; k[2] = -0.001; k[2*size] = -0.001; k[2*size+2] = 0.003;
+                b[0] = 1.0; b[2*size+2] = 1.0;
+                for i in 3..size { k[i*size+i] = 10.0+i as f64; b[i*size+i] = 1.0; }
+                let c = [1.0,1.0+delta];
+                let mut a = BigRational::zero();
+                for i in 0..2 { for j in 0..2 {
+                    a += BigRational::from_float(c[i]).unwrap()*BigRational::from_float(k[i*size+j]).unwrap()*BigRational::from_float(c[j]).unwrap();
+                }}
+                let a = a.to_f64().unwrap();
+                let d = k[2*size+2]; let off = k[2];
+                let root = ((a-d).powi(2)+4.0*off*off).sqrt();
+                let expected = [(a+d-root)/2.0, (a+d+root)/2.0];
+                let k = CscMatrix::from_dense_symmetric(&k,size);
+                let b = CscMatrix::from_dense_symmetric(&b,size);
+                let ct = ConstraintTransform {
+                    c: SparseTransform::from_rows(size,n,(0..size).map(|i| match i { 0 => vec![(0,1.0)], 1 => vec![(0,c[1])], _ => vec![(i-1,1.0)] }).collect()),
+                    n_independent: n, n_total: size, independent_dofs: (0..size).filter(|&i| i!=1).collect(), dependent_dofs: [1].into_iter().collect(),
+                };
+                for dimensions in [2,3] {
+                    let cs = FreeConstraintSystem::from_transform(&ct,size,dimensions);
+                    let result = crate::solver::buckling::buckling_eigen(&k,&b,Some(&cs),2).0.expect("coupled constrained modes");
+                    let mut factors: Vec<_> = result.values.iter().filter(|&&mu| mu>0.0).map(|mu| 1.0/mu).collect();
+                    factors.sort_by(f64::total_cmp);
+                    for i in 0..2 { assert!((factors[i]/expected[i]-1.0).abs()<1e-12,"{dimensions}D n={n} delta={delta} mode={i}: {} vs {}",factors[i],expected[i]); }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn buckling_818_constraint_rounding_cannot_erase_positive_stiffness() {
+        use crate::linalg::sparse::CscMatrix;
+        for n in [1,200,201] {
+            let size = n+1;
+            let stiff = 2e13;
+            let delta = 2.0f64.powi(-27);
+            let mut k = vec![0.0;size*size]; let mut b = k.clone();
+            k[0] = stiff+0.001; k[1] = -stiff; k[size] = -stiff; k[size+1] = stiff+0.001; b[0] = 1.0;
+            for i in 2..size { k[i*size+i] = 10.0+i as f64; b[i*size+i] = 1.0; }
+            let expected = 2.0*(k[0]-stiff)+(k[0]-stiff)*2.0*delta+k[size+1]*delta*delta;
+            let k = CscMatrix::from_dense_symmetric(&k,size); let b = CscMatrix::from_dense_symmetric(&b,size);
+            let ct = ConstraintTransform {
+                c: SparseTransform::from_rows(size,n,(0..size).map(|i| match i { 0 => vec![(0,1.0)], 1 => vec![(0,1.0+delta)], _ => vec![(i-1,1.0)] }).collect()),
+                n_independent: n,n_total: size,independent_dofs: (0..size).filter(|&i| i!=1).collect(),dependent_dofs: [1].into_iter().collect(),
+            };
+            for dimensions in [2,3] {
+                let cs = FreeConstraintSystem::from_transform(&ct,size,dimensions);
+                let result = crate::solver::buckling::buckling_eigen(&k,&b,Some(&cs),1).0.expect("positive constrained stiffness");
+                let factor = 1.0/result.values.iter().copied().fold(0.0f64,f64::max);
+                assert!((factor/expected-1.0).abs()<1e-12,"{dimensions}D n={n}: {factor} vs {expected}");
+            }
+        }
+    }
+
+    #[test]
+    fn buckling_818_constrained_sparse_completeness_uses_original_pencil() {
+        use crate::linalg::sparse::CscMatrix;
+        for n in [200, 201, 202] {
+            for delta in [-2.0f64.powi(-20), 2.0f64.powi(-20)] {
+                let s = 1e12;
+                let mut k = vec![0.0; (n+1)*(n+1)];
+                let mut b = vec![0.0; k.len()];
+                k[0] = s+1.0; k[1] = -s; k[n+1] = -s; k[n+2] = s;
+                b[0] = 1.0;
+                for i in 2..=n { k[i*(n+1)+i] = 10.0+i as f64; b[i*(n+1)+i] = 1.0; }
+                let k = CscMatrix::from_dense_symmetric(&k,n+1);
+                let b = CscMatrix::from_dense_symmetric(&b,n+1);
+                let ct = ConstraintTransform {
+                    c: SparseTransform::from_rows(n+1,n,(0..=n).map(|i| match i {
+                        0 => vec![(0,1.0)], 1 => vec![(0,1.0+delta)], _ => vec![(i-1,1.0)],
+                    }).collect()),
+                    n_independent: n, n_total: n+1, independent_dofs: (0..=n).filter(|&i| i!=1).collect(), dependent_dofs: [1].into_iter().collect(),
+                };
+                for dimensions in [2,3] {
+                    let cs = FreeConstraintSystem::from_transform(&ct,n+1,dimensions);
+                    for count in [1,2] {
+                        let result = crate::solver::buckling::buckling_eigen(&k,&b,Some(&cs),count).0.expect("resolved constrained pencil");
+                        let factor = 1.0/result.values.iter().copied().fold(0.0f64,f64::max);
+                        let expected = 1.0+s*delta*delta;
+                        assert!((factor/expected-1.0).abs() < 1e-12, "{dimensions}D n={n} delta={delta}: {factor} vs {expected}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn buckling_818_constraint_work_uses_original_pencil() {
+        use crate::linalg::sparse::CscMatrix;
+        let s = 1e12;
+        let t = 1.0 + 2.0f64.powi(-20);
+        let k = CscMatrix::from_dense_symmetric(&[s+1.0,-s,-s,s],2);
+        let b = CscMatrix::from_dense_symmetric(&[1.0,0.0,0.0,0.0],2);
+        let ct = ConstraintTransform {
+            c: SparseTransform::from_rows(2,1,vec![vec![(0,1.0)],vec![(0,t)]]),
+            n_independent: 1, n_total: 2, independent_dofs: vec![0], dependent_dofs: std::collections::HashSet::from([1]),
+        };
+        for dimensions in [2,3] {
+            let cs = FreeConstraintSystem::from_transform(&ct,2,dimensions);
+            let result = crate::solver::buckling::buckling_eigen(&k,&b,Some(&cs),1).0.unwrap();
+            let expected = 1.0 + s*(t-1.0).powi(2);
+            assert!((1.0/result.values[0]/expected-1.0).abs() < 1e-12, "{dimensions}D: {} vs {expected}",1.0/result.values[0]);
+        }
+    }
     use super::*;
 
     #[test]
