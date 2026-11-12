@@ -249,3 +249,4 @@ mod translation_rank;
 mod red_ci;
 
 mod candidate_replay;
+mod nightly_triage;
