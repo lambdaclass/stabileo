@@ -513,11 +513,15 @@ function notADeck(
     if (Number.isFinite(coverAbove([(a.x + b.x) / 2, (a.y + b.y) / 2], Math.max(a.z ?? 0, b.z ?? 0)))) continue;
     roofMembers.push([[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]]);
   }
+  // Each roof member's box, widened by the 0,1 m `heightAbove` reads a member within: a probe
+  // outside it is not over that member, so the projection runs for the few members near the probe.
+  const roofBoxes = roofMembers.map(([a, b]) => boxAround([[a[0], a[1]], [b[0], b[1]]], 0.1));
   const roofShells = carriers.filter((c) => c.nodes);
   const heightAbove = (p: [number, number], z: number): number => {
     let h = Infinity;
-    for (const [a, b] of roofMembers) {
-      if (!nearSegment(p, [a[0], a[1]], [b[0], b[1]], 0.1)) continue;
+    for (let k = 0; k < roofMembers.length; k++) {
+      const [a, b] = roofMembers[k]!;
+      if (!inBox(p, roofBoxes[k]!) || !nearSegment(p, [a[0], a[1]], [b[0], b[1]], 0.1)) continue;
       const L2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2;
       const t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / L2)) : 0;
       const dz = a[2] + t * (b[2] - a[2]) - z;
@@ -992,19 +996,34 @@ function inside(pt: [number, number], poly: Array<[number, number]>, tol = 0.05)
 }
 
 function nearSegment(p: [number, number], a: [number, number], b: [number, number], tol: number): boolean {
+  // A point outside the segment's box widened by `tol` is farther than `tol` from it: the box test
+  // answers most calls without the projection. The distance is compared squared, without a root.
+  if (p[0] < Math.min(a[0], b[0]) - tol || p[0] > Math.max(a[0], b[0]) + tol
+    || p[1] < Math.min(a[1], b[1]) - tol || p[1] > Math.max(a[1], b[1]) + tol) return false;
   const dx = b[0] - a[0], dy = b[1] - a[1];
   const L2 = dx * dx + dy * dy;
   const t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2)) : 0;
-  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy)) <= tol;
+  const ex = p[0] - (a[0] + t * dx), ey = p[1] - (a[1] + t * dy);
+  return ex * ex + ey * ey <= tol * tol;
+}
+
+/** The box around `pts`, widened by `tol`, and whether `pt` is in such a box. */
+function boxAround(pts: ReadonlyArray<readonly [number, number]>, tol: number): Box {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of pts) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  return { x0: x0 - tol, y0: y0 - tol, x1: x1 + tol, y1: y1 + tol };
+}
+function inBox(pt: readonly [number, number], box: Box): boolean {
+  return pt[0] >= box.x0 && pt[0] <= box.x1 && pt[1] >= box.y0 && pt[1] <= box.y1;
 }
 
 /** How far above `zTop` the lowest panel, slab or beam over a plan point is (see the header); Infinity when none is. */
 function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<number, Array<Array<[number, number]>>>): (pt: [number, number], zTop: number) => number {
-  type Cover = { z: number; polys: Array<Array<[number, number]>>; segs: Array<[[number, number], [number, number]]> };
+  type Cover = { z: number; polys: Array<Array<[number, number]>>; segs: Array<[[number, number], [number, number]]>; polyBoxes: Box[]; segBoxes: Box[] };
   const covers: Cover[] = [];
   const coverAt = (z: number) => {
     let c = covers.find((x) => Math.abs(x.z - z) <= TOL);
-    if (!c) { c = { z, polys: [], segs: [] }; covers.push(c); }
+    if (!c) { c = { z, polys: [], segs: [], polyBoxes: [], segBoxes: [] }; covers.push(c); }
     return c;
   };
   for (const [z, polys] of panelsAt) coverAt(z).polys.push(...polys);
@@ -1018,8 +1037,17 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<n
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     coverAt(Math.min(a.z ?? 0, b.z ?? 0)).segs.push([[a.x, a.y], [b.x, b.y]]);
   }
+  // The boxes of a level's panels and members, widened by the tolerances `inside` and `nearSegment`
+  // use (0,05 m): a point outside a box is outside that panel or off that member, so a level is
+  // searched only where it has geometry near the point. The verdict is the same as testing every
+  // panel and member; only the work changes (a 1730-member building asked this 10⁵ times).
+  for (const c of covers) {
+    c.polyBoxes = c.polys.map((poly) => boxAround(poly, 0.05));
+    c.segBoxes = c.segs.map((seg) => boxAround(seg, 0.05));
+  }
   return (pt, zTop) => covers.reduce((h, c) => (c.z > zTop + 0.05
-    && (c.polys.some((poly) => inside(pt, poly)) || c.segs.some(([a, b]) => nearSegment(pt, a, b, 0.05))) ? Math.min(h, c.z - zTop) : h), Infinity);
+    && (c.polys.some((poly, k) => inBox(pt, c.polyBoxes[k]!) && inside(pt, poly))
+      || c.segs.some(([a, b], k) => inBox(pt, c.segBoxes[k]!) && nearSegment(pt, a, b, 0.05))) ? Math.min(h, c.z - zTop) : h), Infinity);
 }
 
 /**
