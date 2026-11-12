@@ -46,7 +46,7 @@ const notices = (model: FeatureSnapshot, stamp: SolveStamp | null) =>
 const before = (kind: Parameters<typeof stampSolve>[0]) => ({ ...stampSolve(kind, null), resultsVersion: version - 1 });
 
 describe('P-Delta correction applicability boundaries #1940', () => {
-  it.skip('known wrong result: #1940 excludes models without stiffness even with unknown or P-Delta history', () => {
+  it('excludes models without stiffness even with unknown or P-Delta history', () => {
     for (const analysisMode of ['2d', '3d', 'pro']) {
       for (const model of [
         { analysisMode, elements: [], supports: [], loadCases: [] },
