@@ -8,6 +8,7 @@ use crate::types::*;
 
 pub(crate) struct RecoveredForces {
     restrained: Vec<f64>,
+    free_residual: Vec<f64>,
     pub constraint_forces: Vec<ConstraintForce>,
 }
 
@@ -39,8 +40,13 @@ impl RecoveredForces {
         });
         Self {
             restrained,
+            free_residual: residual[..dofs.n_free].to_vec(),
             constraint_forces,
         }
+    }
+
+    pub(super) fn free_residual(&self) -> &[f64] {
+        &self.free_residual
     }
 
     pub(super) fn from_stage(

@@ -12,6 +12,18 @@ use dedaliano_engine::solver::staged::solve_staged_3d;
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
+fn assert_history_unavailable(r: &AnalysisResults3D) {
+    for phase in ["stageResults", "reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"] {
+        assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ResultQuantityUnavailable && d.phase.as_deref() == Some(phase) && d.severity == Severity::Warning));
+    }
+    assert!(r.reactions.is_empty());
+    assert!(r.element_forces.is_empty());
+    assert!(r.constraint_forces.is_empty());
+    assert!(r.plate_stresses.is_empty());
+    assert!(r.quad_stresses.is_empty());
+    assert!(r.quad_nodal_stresses.is_empty());
+}
+
 /// Helper: create a basic 3D staged input with 3 nodes in a line along X.
 /// Node 1 at origin (fixed), Node 2 at (3,0,0), Node 3 at (6,0,0).
 /// Two frame elements: elem 1 (1→2), elem 2 (2→3).
@@ -455,13 +467,9 @@ fn staged_3d_multistory_erection() {
     assert!(ux_s2 > ux_s1, "Story 2 top should deflect more: s1={}, s2={}", ux_s1, ux_s2);
     assert!(ux_s3 > ux_s2, "Story 3 top should deflect most: s2={}, s3={}", ux_s2, ux_s3);
 
-    // All 3 elements should have forces in the final stage
-    assert_eq!(result.final_results.element_forces.len(), 3);
-
-    // Base reaction should resist total lateral force (5+10+15 = 30 kN)
-    let r1 = result.final_results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!((r1.fx + 30.0).abs() < 1.0,
-        "Base reaction should ~= -30 kN: {}", r1.fx);
+    assert_history_unavailable(&result.stages[1].results);
+    assert_history_unavailable(&result.stages[2].results);
+    assert_history_unavailable(&result.final_results);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -568,6 +576,8 @@ fn staged_3d_slab_stiffens_only_the_stage_that_owns_it() {
     });
 
     let res = solve_staged_3d(&input).unwrap();
+    assert_history_unavailable(&res.stages[1].results);
+    assert_history_unavailable(&res.final_results);
     assert_eq!(res.stages.len(), 2);
 
     let drift = |s: &StageResult3D| s.results.displacements.iter()
@@ -654,6 +664,8 @@ fn staged_3d_plates_reach_the_stage_that_owns_them() {
     });
 
     let res = solve_staged_3d(&input).unwrap();
+    assert_history_unavailable(&res.stages[1].results);
+    assert_history_unavailable(&res.final_results);
     let drift = |s: &StageResult3D| s.results.displacements.iter()
         .find(|d| d.node_id == 3).map(|d| d.ux.abs()).unwrap_or(0.0);
 
@@ -692,6 +704,8 @@ fn staged_3d_a_removed_slab_stops_stiffening() {
     });
 
     let res = solve_staged_3d(&input).unwrap();
+    assert_history_unavailable(&res.stages[1].results);
+    assert_history_unavailable(&res.final_results);
     let drift = |s: &StageResult3D| s.results.displacements.iter()
         .find(|d| d.node_id == 3).map(|d| d.ux.abs()).unwrap_or(0.0);
 

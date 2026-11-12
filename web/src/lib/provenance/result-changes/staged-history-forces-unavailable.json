@@ -1,0 +1,45 @@
+{
+  "id": "staged-history-forces-unavailable",
+  "date": "2026-11-12",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "members",
+      "shells"
+    ]
+  },
+  "quantities": [
+    "stages",
+    "finalResults",
+    "reactions",
+    "elementForces",
+    "constraintForces",
+    "plateStresses",
+    "quadStresses",
+    "quadNodalStresses",
+    "structuredDiagnostics"
+  ],
+  "title": {
+    "en": "Staged history forces are withheld when recovery is unsupported",
+    "es": "Se retienen los esfuerzos por etapas sin recuperación válida",
+    "pt": "Esforços por etapas sem recuperação válida são retidos",
+    "de": "Bauphasenkräfte ohne unterstützte Ermittlung werden zurückgehalten",
+    "fr": "Les efforts par phases sans récupération prise en charge sont retenus",
+    "tr": "Desteklenmeyen aşama geçmişi kuvvetleri sunulmaz"
+  },
+  "explanation": {
+    "en": "Changing active members or shells after earlier loading or motion now withholds reactions, member and constraint forces, and shell stresses with structured unavailability warnings. Later stages stay unavailable. Retained incremental displacements are not certified equilibrium results. Unloaded topology changes and unchanged stiffness retain their answers. Re-check saved staged results (#1952, #1996).",
+    "es": "Cambiar miembros o láminas activos tras cargas o movimientos previos retiene reacciones, esfuerzos y tensiones con avisos estructurados. Las etapas posteriores siguen sin resultados disponibles. Los desplazamientos incrementales no certifican equilibrio. Se conservan los resultados sin cambios de rigidez o con cambios antes de cargar. Revisá los resultados por etapas (#1952, #1996).",
+    "pt": "Alterar membros ou cascas ativos após cargas ou movimentos retém reações, esforços e tensões com avisos estruturados. Etapas posteriores permanecem indisponíveis. Deslocamentos incrementais não certificam equilíbrio. Resultados sem mudança de rigidez ou com mudança antes de carregar são mantidos. Reveja resultados por etapas (#1952, #1996).",
+    "de": "Änderungen aktiver Stäbe oder Schalen nach Belastung oder Bewegung unterdrücken Reaktionen, Kräfte und Spannungen mit strukturierten Hinweisen. Spätere Phasen bleiben unverfügbar. Inkrementelle Verschiebungen bestätigen kein Gleichgewicht. Änderungen vor Belastung und unveränderte Steifigkeit behalten ihre Ergebnisse. Prüfen Sie gespeicherte Bauphasenergebnisse (#1952, #1996).",
+    "fr": "Modifier les barres ou coques actives après chargement ou mouvement retient réactions, efforts et contraintes avec avertissements structurés. Les phases suivantes restent indisponibles. Les déplacements incrémentaux ne certifient pas l’équilibre. Les changements avant chargement et la rigidité inchangée conservent leurs résultats. Revérifiez les résultats par phases (#1952, #1996).",
+    "tr": "Önceki yük veya hareketten sonra etkin eleman ya da kabuk değişince tepkiler, kuvvetler ve gerilmeler yapılandırılmış uyarılarla sunulmaz. Sonraki aşamalar da kullanılamaz. Artımlı yer değiştirmeler dengeyi doğrulamaz. Yüksüz topoloji değişiklikleri ve değişmeyen rijitlik sonuçlarını korur. Kayıtlı aşamalı sonuçları yeniden denetleyin (#1952, #1996)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-pdelta-and-staged-history-certification.md",
+    "heading": "Physical P-Delta residuals and staged history containment (2026-11-12)"
+  }
+}

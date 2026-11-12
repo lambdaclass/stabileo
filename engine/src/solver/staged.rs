@@ -119,11 +119,12 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
 
     // Track cumulative state
     let mut cumulative_u = vec![0.0; n];
+    let mut recovery_history = StageRecoveryHistory::default();
     let mut prev_u_r = vec![0.0; n - dof_num.n_free];
     let mut active_elements: HashSet<usize> = HashSet::new();
     let mut active_supports: HashSet<usize> = HashSet::new();
     let mut cumulative_loads: Vec<SolverLoad> = Vec::new();
-    let mut stage_results = Vec::new();
+    let mut stage_results: Vec<StageResult> = Vec::new();
     let mut cumulative_diagnostics = Vec::new();
 
     // Sparse symbolic Cholesky cache, reused across stages where the active
@@ -180,6 +181,12 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             None
         };
 
+        let recovery = recovery_history.advance(
+            active_elements.iter().copied().map(StageComponent::Member),
+            &cumulative_u,
+            stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end].iter().any(|v| *v != 0.0))),
+            asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),
+        );
         // Build prescribed displacement vector
         let mut u_r = vec![0.0; nr];
         for sup in crate::ordered::values(&stage_solver_input.supports) {
@@ -270,6 +277,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
                     &cumulative_solver_input,
                     &residual_at(&cumulative_solver_input, &cumulative_u),
                     cs.as_ref(),
+                    recovery,
                 )?,
             });
             continue;
@@ -345,6 +353,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
                 &cumulative_solver_input,
                 &reactions_vec,
                 cs.as_ref(),
+                recovery,
             )?,
         });
         crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, conditioning.into_iter().collect());
@@ -879,6 +888,52 @@ impl PhysicalStageResidual {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StageForceRecovery {
+    CumulativeElastic,
+    UnavailableHistory,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum StageComponent {
+    Member(usize),
+    Plate(usize),
+    Quad(usize),
+}
+
+#[derive(Default)]
+struct StageRecoveryHistory {
+    active: HashSet<StageComponent>,
+    loaded: bool,
+    unavailable: bool,
+}
+
+impl StageRecoveryHistory {
+    fn advance(
+        &mut self,
+        active: impl Iterator<Item = StageComponent>,
+        previous_u: &[f64],
+        previous_forces: bool,
+        stage_load: &[f64],
+    ) -> StageForceRecovery {
+        let active: HashSet<_> = active.collect();
+        self.unavailable |= active != self.active && (self.loaded || previous_forces || previous_u.iter().any(|v| *v != 0.0));
+        self.loaded |= stage_load.iter().any(|v| *v != 0.0);
+        self.active = active;
+        if self.unavailable { StageForceRecovery::UnavailableHistory } else { StageForceRecovery::CumulativeElastic }
+    }
+}
+
+impl StageForceRecovery {
+    fn diagnostics(self, phases: &[&str]) -> Vec<StructuredDiagnostic> {
+        if self == Self::CumulativeElastic { return vec![]; }
+        phases.iter().map(|phase| super::reaction_recovery::unavailable(
+            phase,
+            "Stage equilibrium results are unavailable: the active stiffness changed after earlier loading or displacement. Recovery does not track strain since member activation or redistribute forces released by removal. Reactions and member forces are withheld; retained cumulative displacements are incremental history only, not a certified equilibrium solution. Later stages remain unavailable.",
+        )).collect()
+    }
+}
+
 fn state_is_directly_prescribed(u: &[f64], n_free: usize, prescribed: &[f64]) -> bool {
     n_free == 0 && u == prescribed
 }
@@ -890,6 +945,7 @@ fn build_results_from_u(
     input: &SolverInput,
     reactions_vec: &PhysicalStageResidual,
     cs: Option<&FreeConstraintSystem>,
+    recovery: StageForceRecovery,
 ) -> Result<AnalysisResults, String> {
     let displacements = build_displacements_2d(dof_num, u);
     let mut element_forces = compute_internal_forces_2d(input, dof_num, u);
@@ -903,7 +959,7 @@ fn build_results_from_u(
         vec![super::reaction_recovery::unavailable("stageResults", "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.")]
     } else { vec![] };
 
-    Ok(AnalysisResults {
+    let mut results = AnalysisResults {
         displacements,
         reactions,
         element_forces,
@@ -913,7 +969,14 @@ fn build_results_from_u(
         structured_diagnostics,
         equilibrium: None,
         result_summary: None, solver_run_meta: None,
-    })
+    };
+    if recovery == StageForceRecovery::UnavailableHistory {
+        results.reactions.clear();
+        results.element_forces.clear();
+        results.constraint_forces.clear();
+        results.structured_diagnostics.extend(recovery.diagnostics(&["stageResults", "reactions", "elementForces", "constraintForces"]));
+    }
+    Ok(results)
 }
 
 fn compute_stage_reactions_vec(
@@ -1021,6 +1084,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
 
     // Track cumulative state
     let mut cumulative_u = vec![0.0; n];
+    let mut recovery_history = StageRecoveryHistory::default();
     let mut prev_u_r = vec![0.0; n - dof_num.n_free];
     let mut active_elements: HashSet<usize> = HashSet::new();
     let mut active_supports: HashSet<usize> = HashSet::new(); // node_ids
@@ -1028,7 +1092,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
     // may share a number with an element.
     let mut active_plates: HashSet<usize> = HashSet::new();
     let mut active_quads: HashSet<usize> = HashSet::new();
-    let mut stage_results = Vec::new();
+    let mut stage_results: Vec<StageResult3D> = Vec::new();
     let mut cumulative_diagnostics = Vec::new();
 
     // Sparse symbolic Cholesky cache, reused across stages where the active
@@ -1095,6 +1159,14 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
             None
         };
 
+        let recovery = recovery_history.advance(
+            active_elements.iter().copied().map(StageComponent::Member)
+                .chain(active_plates.iter().copied().map(StageComponent::Plate))
+                .chain(active_quads.iter().copied().map(StageComponent::Quad)),
+            &cumulative_u,
+            stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end].iter().any(|v| *v != 0.0))),
+            asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),
+        );
         // Build prescribed displacement vector
         let mut u_r = vec![0.0; nr];
         for sup in crate::ordered::values(&stage_input.supports) {
@@ -1171,7 +1243,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         }
         if max_diag < 1e-30 {
             let cum_input = SolverInput3D { loads: cumulative_loads.clone(), ..stage_input.clone() };
-            let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &residual_at(&cum_input, &cumulative_u), cs.as_ref())?;
+            let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &residual_at(&cum_input, &cumulative_u), cs.as_ref(), recovery)?;
             crate::known_issues::membrane_bending_3d(&cum_input, &cum_input.loads, &results)?;
             stage_results.push(StageResult3D {
                 stage_name: stage.name.clone(),
@@ -1237,7 +1309,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         let reactions_vec = residual_at(&cum_input, &cumulative_u);
 
         // Build results for this stage
-        let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &reactions_vec, cs.as_ref())?;
+        let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &reactions_vec, cs.as_ref(), recovery)?;
         crate::known_issues::membrane_bending_3d(&cum_input, &cum_input.loads, &results)?;
         stage_results.push(StageResult3D {
             stage_name: stage.name.clone(),
@@ -1580,6 +1652,7 @@ fn build_results_from_u_3d(
     cum_input: &SolverInput3D,
     reactions_vec: &PhysicalStageResidual,
     cs: Option<&FreeConstraintSystem>,
+    recovery: StageForceRecovery,
 ) -> Result<AnalysisResults3D, String> {
     let displacements = build_displacements_3d(dof_num, u);
     let mut element_forces = super::linear::compute_internal_forces_3d_with_loads(cum_input, &cum_input.loads, dof_num, u);
@@ -1596,7 +1669,7 @@ fn build_results_from_u_3d(
         vec![super::reaction_recovery::unavailable("stageResults", "This stage has no active physical stiffness. Its displacements and forces are unavailable as an equilibrium solution; artificial stiffness may carry the state.")]
     } else { vec![] };
 
-    Ok(AnalysisResults3D {
+    let mut results = AnalysisResults3D {
         displacements,
         reactions,
         element_forces,
@@ -1610,5 +1683,15 @@ fn build_results_from_u_3d(
         equilibrium: None,
         timings: None,
         result_summary: None, solver_run_meta: None,
-    })
+    };
+    if recovery == StageForceRecovery::UnavailableHistory {
+        results.reactions.clear();
+        results.element_forces.clear();
+        results.constraint_forces.clear();
+        results.plate_stresses.clear();
+        results.quad_stresses.clear();
+        results.quad_nodal_stresses.clear();
+        results.structured_diagnostics.extend(recovery.diagnostics(&["stageResults", "reactions", "elementForces", "constraintForces", "plateStresses", "quadStresses", "quadNodalStresses"]));
+    }
+    Ok(results)
 }

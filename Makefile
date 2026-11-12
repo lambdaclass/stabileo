@@ -881,6 +881,7 @@ evidence.research.feher:
 .PHONY: test.engine.reactions-wasm
 test.engine.reactions-wasm: wasm
 	$(NIX_RUN) node scripts/tests/reaction-recovery-wasm.mjs
+	$(NIX_RUN) node scripts/tests/reaction-recovery-r11.mjs
 
 .PHONY: test.engine.reactions-frozen
 test.engine.reactions-frozen: wasm

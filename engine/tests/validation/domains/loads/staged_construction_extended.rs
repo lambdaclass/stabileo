@@ -167,7 +167,6 @@ fn assert_horizontal_stage_forces(
 // the continuous-beam (fixed-roller) solution.
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn validation_staged_ext_1_two_phase_beam() {
     let l = 5.0; // each span
     let q = -10.0; // kN/m downward
@@ -252,7 +251,6 @@ fn validation_staged_ext_1_two_phase_beam() {
 // Verify the final reactions balance: sum(Ry) = -2P.
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn validation_staged_ext_2_support_addition() {
     let l = 5.0; // each element
     let p = -60.0; // kN at node 2
@@ -667,7 +665,6 @@ fn prop_removal_input() -> StagedInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #1996"]
 fn validation_staged_ext_5_prop_removal() {
     let staged_input = prop_removal_input();
     assert_support_refusal(&staged_input, &[3]);
@@ -721,7 +718,6 @@ fn issue_1996_loaded_member_removal_redistributes_released_forces() {
 // and the final state has non-zero lateral drift from stage 2 load.
 
 #[test]
-#[ignore = "known wrong result: #1952"]
 fn validation_staged_ext_6_frame_erection() {
     let h = 5.0;
     let w = 8.0;

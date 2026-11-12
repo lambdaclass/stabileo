@@ -451,17 +451,16 @@ fn recover_pdelta_forces(
     cs: Option<&FreeConstraintSystem>,
 ) -> (super::reaction_recovery::RecoveredForces, f64) {
     let recovered = super::reaction_recovery::RecoveredForces::from_physical(physical, f, dofs, cs);
-    let residual = tangent.residual(dofs.n_total, dofs.n_free, f, u);
     let equations = tangent.free_equations(dofs.n_total, dofs.n_free, f, u, cs);
-    let relative = equations.relative_residual(&residual[..dofs.n_free], cs);
+    let relative = equations.relative_residual(&recovered, cs);
     (recovered, relative)
 }
 
 impl FreeEquations {
-    fn relative_residual(&self, residual: &[f64], cs: Option<&FreeConstraintSystem>) -> f64 {
+    fn relative_residual(&self, recovered: &super::reaction_recovery::RecoveredForces, cs: Option<&FreeConstraintSystem>) -> f64 {
         let reduced = |v: &[f64]| cs.map_or_else(|| v.to_vec(), |cs| cs.reduce_vector(v));
         let norm = |v: &[f64]| v.iter().map(|v| v*v).sum::<f64>().sqrt();
-        norm(&reduced(residual)) / norm(&reduced(&self.rhs)).max(1e-30)
+        norm(&reduced(recovered.free_residual())) / norm(&reduced(&self.rhs)).max(1e-30)
     }
 }
 
@@ -721,11 +720,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn issue_1952_r11_physical_residual_dense_sparse_2d() { r11_physical_residual(2); }
 
     #[test]
-    #[ignore = "known wrong result: #1952"]
     fn issue_1952_r11_physical_residual_dense_sparse_3d() { r11_physical_residual(3); }
 
     /// A building of `bays`×`bays` bays and `storeys` storeys, fixed at the base, with gravity on
