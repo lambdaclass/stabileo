@@ -88,7 +88,7 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     const selectedEntityPanel = readFileSync(new URL('../../../components/floating-tools/SelectedEntityPanel.svelte', import.meta.url), 'utf8');
 
     expect(toolLoadOptions).toMatch(/float\.loadForceYGlobal/);
-    expect(toolLoadOptions).toContain('>Z</button>');
+    expect(toolLoadOptions).toContain("title={t('float.loadGlobalYDir')}>{twoD.vertical}</button>");
     expect(toolLoadOptions).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
 
     expect(selectedEntityPanel).toContain("title={t('float.loadGlobalYDir')}>{twoD.vertical}</button>");
@@ -120,7 +120,7 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     }
 
     expect(drawLoads, 'draw-loads.ts should accept canonical 2D point moments as my').toContain('load.my ?? load.mz');
-    expect(drawLoads, 'draw-loads.ts should label 2D point moments as My').toContain('My=');
+    expect(drawLoads, 'draw-loads.ts should label 2D point moments as My').toContain('${TWO_D_NODAL_LOAD_LABELS.moment}=');
   });
 
   it('manual solve buttons should validate 2D results via shared Z-up helpers', () => {
