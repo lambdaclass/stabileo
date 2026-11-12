@@ -13,37 +13,50 @@ that catch them, the verification safety net and release safety), then other bug
 measurable exit criteria, and the metrics behind them are regenerated on the
 [verification dashboard](../verification/DASHBOARD.md).
 
-As of **2026-11-12**, confirmed silent-result fixes come first:
-[#1949](https://github.com/lambdaclass/stabileo/issues/1949) (reactions and final-state forces,
-[#1952](https://github.com/lambdaclass/stabileo/pull/1952)) and
-[#1846](https://github.com/lambdaclass/stabileo/issues/1846) + [#1085](https://github.com/lambdaclass/stabileo/issues/1085)
-(staged analysis, [#1943](https://github.com/lambdaclass/stabileo/pull/1943)). Nonlinear convergence
-[#761](https://github.com/lambdaclass/stabileo/issues/761) + [#1100](https://github.com/lambdaclass/stabileo/issues/1100)
-is in [#1940](https://github.com/lambdaclass/stabileo/pull/1940), with
-[#971](https://github.com/lambdaclass/stabileo/issues/971) pending verification; buckling accuracy
-[#818](https://github.com/lambdaclass/stabileo/issues/818) is in [#1939](https://github.com/lambdaclass/stabileo/pull/1939).
-These fixes remain unmerged. [#1756](https://github.com/lambdaclass/stabileo/issues/1756) is done in
-[#1947](https://github.com/lambdaclass/stabileo/pull/1947).
+As of **2026-11-12 evening**, [#1846](https://github.com/lambdaclass/stabileo/issues/1846)
+and [#1085](https://github.com/lambdaclass/stabileo/issues/1085) are done in
+[#1943](https://github.com/lambdaclass/stabileo/pull/1943): staged analysis shares linear
+free-rotation handling. Re-run affected staged analyses and derived checks; see
+[SA-2026-060](../advisories/SA-2026-060-staged-orphan-rotations.md). The same PR propagates
+initial elastic refusals in 3D plastic analysis
+([SA-2026-062](../advisories/SA-2026-062-plastic-conditioning-zero-collapse.md)).
+Nonlinear convergence #761, #1100 and #971 is fixed in
+[#1940](https://github.com/lambdaclass/stabileo/pull/1940); original-pencil buckling recovery
+has merged in [#1939](https://github.com/lambdaclass/stabileo/pull/1939). The original #818
+unresolved-compression witness still refuses; its loaded follow-up certifies.
+Plastic #1953/#1954 and crash duplicates #1962–#1964 are done in
+[#1957](https://github.com/lambdaclass/stabileo/pull/1957), #1760 is done in
+[#2003](https://github.com/lambdaclass/stabileo/pull/2003), and outrigger sweep #1958 is done in
+[#1960](https://github.com/lambdaclass/stabileo/pull/1960). Merged work is on main, not a new release.
 
-The candidate replay [#1941](https://github.com/lambdaclass/stabileo/pull/1941) and seven shell-refusal
-checks [#1948](https://github.com/lambdaclass/stabileo/pull/1948) have merged; unresolved replay
-witnesses and the regression audit [#1946](https://github.com/lambdaclass/stabileo/pull/1946) continue.
-New nightly failures [#1953](https://github.com/lambdaclass/stabileo/issues/1953)/[#1954](https://github.com/lambdaclass/stabileo/issues/1954)
-are in [#1957](https://github.com/lambdaclass/stabileo/pull/1957); the outrigger sweep timeout
-[#1958](https://github.com/lambdaclass/stabileo/issues/1958) also remains open. Conservative false-refusal
-follow-ups [#1951](https://github.com/lambdaclass/stabileo/issues/1951) and
-[#1956](https://github.com/lambdaclass/stabileo/issues/1956) are deferred behind confirmed wrong results.
-Next: [#1040](https://github.com/lambdaclass/stabileo/issues/1040), [#972](https://github.com/lambdaclass/stabileo/issues/972),
-[#1453](https://github.com/lambdaclass/stabileo/issues/1453), [#742](https://github.com/lambdaclass/stabileo/issues/742),
-then causes H, B, G, D, F and harness checks, before 2D/3D unification
-([#1781](https://github.com/lambdaclass/stabileo/pull/1781)). The product roadmap dates its historical
-cause-count snapshot separately from these priorities; the dashboard has its own generation date.
+In flight: [#1949](https://github.com/lambdaclass/stabileo/issues/1949) in
+[#1952](https://github.com/lambdaclass/stabileo/pull/1952), covering final-state reactions,
+member forces and support-spring staged history; truss member-load refusal
+[#1969](https://github.com/lambdaclass/stabileo/issues/1969) in
+[#1992](https://github.com/lambdaclass/stabileo/pull/1992); harness symmetry and reversal work in
+[#1991](https://github.com/lambdaclass/stabileo/pull/1991); and the regression audit in
+[#1946](https://github.com/lambdaclass/stabileo/pull/1946). Next is the modal false refusal
+[#1965](https://github.com/lambdaclass/stabileo/issues/1965).
+The [November 12 triage](../verification/nightly-triage-2026-11-12.md)
+([#1989](https://github.com/lambdaclass/stabileo/pull/1989)) found no new silent wrong results;
+false refusals and harness defects remain distinct from corrected engine results.
+
+Deferred: [#1996](https://github.com/lambdaclass/stabileo/issues/1996), staged removal of a loaded
+member, awaits an owner decision on redistribution or explicit refusal/warning. Review follow-ups
+[#1997](https://github.com/lambdaclass/stabileo/issues/1997),
+[#1998](https://github.com/lambdaclass/stabileo/issues/1998),
+[#1999](https://github.com/lambdaclass/stabileo/issues/1999),
+[#2000](https://github.com/lambdaclass/stabileo/issues/2000),
+[#2001](https://github.com/lambdaclass/stabileo/issues/2001) and
+[#2002](https://github.com/lambdaclass/stabileo/issues/2002) remain tracked, along with conservative
+false-refusal follow-ups #1951 and #1956. The product roadmap keeps the subsequent investigation
+order and dates its historical cause-count snapshot separately; the dashboard has its own generation date.
 
 ## Documents
 
 | Document | Answers | Status | Owner |
 |---|---|---|---|
-| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-12): merged buckling and replay work, in-flight fixes, deferred refusals and regression audit | Federico Carrone |
+| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-12 evening): merged staged, nonlinear, buckling and plastic work; in-flight reactions, refusals, harness and audit; deferred owner decision and review follow-ups | Federico Carrone |
 | [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, numerical methods, long-term solver sequence (Steps 1–14+) | Long-term sequence current; its "Where we are" and "Wave 1" sections predate v0.2.0 (see the note at its top) | Diego K (last editor) |
 | [../../research/DESIGN.md](../../research/DESIGN.md) | Stabileo Research: what it is, its rules, the engine-benchmarks track and the ordered paper queue (summary in PRODUCT_ROADMAP "Stabileo Research") | Current (2026-10-29) | Federico Carrone |
 | [AI_ROADMAP.md](AI_ROADMAP.md) | AI capabilities, their order, prerequisites and safety rules | Current as of 2026-10-07 | Diego K (last editor) |
