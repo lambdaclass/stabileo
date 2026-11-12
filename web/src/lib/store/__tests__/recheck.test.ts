@@ -318,10 +318,27 @@ describe('edited projects with older provenance', () => {
   });
 
   it('a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {
-    const store = createRecheckStore();
-    store.openProject({ ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } }, 'pro');
-    await vi.waitFor(() => expect(store.pending).toBe(false));
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
+    const module = await import('../../provenance/applicability');
+    const precedingRegistry = {
+      ...RESULT_CHANGES,
+      changes: RESULT_CHANGES.changes.filter(c => c.id !== 'kinematic-translation-motion'),
+    };
+    const store = createRecheckStore(async () => ({
+      ...module,
+      assessProject: (...args: Parameters<typeof module.assessProject>) =>
+        module.assessProject(args[0], args[1], args[2], precedingRegistry, args[4], args[5]),
+    }));
+    const combined = createRecheckStore();
+    const snapshot = { ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 30 } };
+    store.openProject(snapshot, 'pro');
+    combined.openProject(snapshot, 'pro');
+    await vi.waitFor(() => expect(store.pending || combined.pending).toBe(false));
+    expect(combined.assessment?.changes.map(c => c.id).sort()).toEqual([
+      ...store.assessment!.changes.map(c => c.id), 'kinematic-translation-motion',
+    ].sort());
+    expect(combined.noticeOpen).toBe(true);
+    expect(combined.stale).toBe(true);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['fail-closed-ratios', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'soft-rotation-not-orphan', 'span-check-shear-thermal']);
     expect(store.noticeOpen).toBe(true);
     expect(store.stale).toBe(true);
   });
@@ -330,17 +347,19 @@ describe('edited projects with older provenance', () => {
     'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
     'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
     'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
-    'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling',
+    'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
   ].map(id => registry.changes.find(c => c.id === id)!)
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     .map(c => c.id);
 
-  it('#1753: connector-only opening notices follow main-first merge order', async () => {
+  it.each([false, true])('#1753: connector-only opening notices follow main-first merge order (shared pending version: %s)', async (sharedVersion) => {
     const module = await import('../../provenance/applicability');
     const mergedRegistry = {
       ...RESULT_CHANGES,
       currentResultsVersion: RESULT_CHANGES.currentResultsVersion + 2,
-      changes: RESULT_CHANGES.changes.map(c => c.id === 'linear-stability-refusals'
+      changes: RESULT_CHANGES.changes.map(c => sharedVersion && c.prs.includes(1940)
+        ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion }
+        : c.id === 'linear-stability-refusals'
         ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 1 }
         : c.id === 'linear-pin-coupling'
           ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 2 } : c),
@@ -355,7 +374,11 @@ describe('edited projects with older provenance', () => {
     await vi.waitFor(() => expect(store.pending).toBe(false));
     const received = store.assessment?.changes.map(c => c.id);
     const expected = openingNoticeIds(mergedRegistry);
-    expect(expected.slice(-4)).toEqual(['connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling']);
+    const tail = ['connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
+      .map(id => mergedRegistry.changes.find(c => c.id === id)!)
+      .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+      .map(c => c.id);
+    expect(expected.slice(-9)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
     expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
   });
 

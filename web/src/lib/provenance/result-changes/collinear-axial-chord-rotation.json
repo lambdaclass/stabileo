@@ -1,0 +1,39 @@
+{
+  "id": "collinear-axial-chord-rotation",
+  "date": "2026-11-11",
+  "prs": [
+    1940
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "plane2D",
+      "frameMembers",
+      "analysis:nonlinear"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Pure axial motion retains zero chord rotation",
+    "es": "El movimiento axial puro conserva el giro de cuerda nulo",
+    "pt": "Movimento axial puro mantém rotação de corda nula",
+    "de": "Reine Axialbewegung behält eine Sehnendrehung von null",
+    "fr": "Le mouvement axial pur conserve une rotation de corde nulle",
+    "tr": "Saf eksenel hareket sıfır kiriş doğrultusu dönmesini korur"
+  },
+  "explanation": {
+    "en": "Re-run 2D corotational and continuation analyses of frame members. Compensating both products of the chord cross product prevents exactly collinear axial motion from injecting artificial bending. This corrects an unmerged PR #1940 implementation; convergence tolerances are unchanged (#761).",
+    "es": "Repita los análisis corrotacionales y de continuación 2D de barras de pórtico. Compensar ambos productos del producto vectorial de la cuerda evita que un movimiento axial exactamente colineal introduzca flexión artificial. Corrige una implementación no integrada del PR #1940; las tolerancias de convergencia no cambian (#761).",
+    "pt": "Refaça análises corrotacionais e de continuação 2D de barras de pórtico. Compensar ambos os produtos do produto vetorial da corda impede que movimento axial exatamente colinear introduza flexão artificial. Corrige uma implementação não integrada do PR #1940; as tolerâncias de convergência não mudam (#761).",
+    "de": "2D-korotatorische und Fortsetzungsanalysen von Rahmenstäben erneut berechnen. Die Kompensation beider Produkte des Sehnenkreuzprodukts verhindert künstliche Biegung bei exakt kollinearer Axialbewegung. Dies korrigiert eine noch nicht integrierte Implementierung aus PR #1940; Konvergenztoleranzen bleiben unverändert (#761).",
+    "fr": "Relancer les analyses corotationnelles et de continuation 2D des barres de portique. Compenser les deux produits du produit vectoriel de la corde empêche une translation axiale exactement colinéaire de créer une flexion artificielle. Cela corrige une implémentation non intégrée de la PR #1940 ; les tolérances de convergence restent inchangées (#761).",
+    "tr": "Çerçeve elemanlarının 2B eşdönüşlü ve devam analizlerini yeniden çalıştırın. Kiriş doğrultusunun vektörel çarpımındaki her iki çarpımın dengelenmesi, tam eşdoğrusal eksenel hareketin yapay eğilme üretmesini önler. Bu, henüz birleştirilmemiş PR #1940 uygulamasını düzeltir; yakınsama toleransları değişmez (#761)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-collinear-axial-chord.md",
+    "heading": "Pure axial motion retains zero chord rotation (2026-11-11)"
+  }
+}

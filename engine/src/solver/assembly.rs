@@ -28,7 +28,7 @@ pub struct AssemblyResult {
 /// co-rotational, arc-length, displacement-control, material- and
 /// fiber-nonlinear analyses refused a model the linear solver answers.
 pub fn artificial_stiffness_entries(asm: &AssemblyResult) -> Vec<(usize, f64)> {
-    let k = if asm.max_diag_k > 0.0 { asm.max_diag_k * 1e-10 } else { 1e-6 };
+    let k = artificial_stiffness(asm.max_diag_k);
     asm.artificial_dofs.iter().map(|&d| (d, k)).collect()
 }
 
@@ -79,8 +79,13 @@ pub(crate) fn orphan_rotation_dofs_3d(input: &SolverInput3D, dof_num: &DofNumber
     if dof_num.dofs_per_node < 6 {
         return Vec::new();
     }
+    let tied = constraint_nodes(&input.constraints);
+    orphan_rotation_dofs(dof_num, 3..6, |node| tied.contains(&node), diag)
+}
+
+pub(crate) fn constraint_nodes(constraints: &[Constraint]) -> std::collections::HashSet<usize> {
     let mut tied: std::collections::HashSet<usize> = std::collections::HashSet::new();
-    for c in &input.constraints {
+    for c in constraints {
         match c {
             Constraint::RigidLink(r) => { tied.insert(r.master_node); tied.insert(r.slave_node); }
             Constraint::Diaphragm(d) => { tied.insert(d.master_node); tied.extend(d.slave_nodes.iter().copied()); }
@@ -89,7 +94,7 @@ pub(crate) fn orphan_rotation_dofs_3d(input: &SolverInput3D, dof_num: &DofNumber
             Constraint::EccentricConnection(e) => { tied.insert(e.master_node); tied.insert(e.slave_node); }
         }
     }
-    orphan_rotation_dofs(dof_num, 3..6, |node| tied.contains(&node), diag)
+    tied
 }
 
 /// Free rotation DOFs whose diagonal is zero, or at round-off of the largest
@@ -107,6 +112,14 @@ pub(crate) fn orphan_rotation_dofs(dof_num: &DofNumbering, locals: std::ops::Ran
         out.extend(rots.into_iter().filter(|&d| d < dof_num.n_free && diag(d).abs() <= 1e-12 * scale));
     }
     out
+}
+
+pub(crate) fn orphan_rotation_dofs_2d(input: &SolverInput, dof_num: &DofNumbering, diag: impl Fn(usize) -> f64) -> Vec<usize> {
+    if dof_num.dofs_per_node < 3 {
+        return Vec::new();
+    }
+    let tied = rotation_tied_nodes_2d(input);
+    orphan_rotation_dofs(dof_num, 2..3, |node| tied.contains(&node), diag)
 }
 
 /// Data needed to reverse the inclined support rotation after solving (3D).
@@ -320,7 +333,7 @@ pub(crate) fn refuse_connector_arm_mechanism_2d(input: &SolverInput) -> Result<(
         if !e.hinge_end { held.insert(e.node_j); }
     }
     for s in crate::ordered::values(&input.supports) {
-        if super::dof::is_dof_restrained_2d(s, 2) || (s.support_type == "spring" && support_dofs_2d(s)[2].spring.unwrap_or(0.0) != 0.0) {
+        if super::dof::is_dof_restrained_2d(s, 2) || support_dofs_2d(s)[2].spring.is_some_and(|k| k > 0.0) {
             held.insert(s.node_id);
         }
     }
@@ -464,19 +477,33 @@ fn rotate_inclined_k_2d(k: &mut [f64], n: usize, dofs: &[usize; 2], r: &[[f64; 2
     }
 }
 
+pub(crate) fn compensated_dot<const D: usize>(a: &[f64; D], b: &[f64; D]) -> f64 {
+    let mut sum = 0.0f64;
+    let mut correction = 0.0;
+    for (&a, &b) in a.iter().zip(b) {
+        let product = a * b;
+        let next = sum + product;
+        correction += if sum.abs() >= product.abs() {
+            (sum - next) + product
+        } else {
+            (product - next) + sum
+        };
+        correction += a.mul_add(b, -product);
+        sum = next;
+    }
+    sum + correction
+}
+
+fn rotate_inclined_vector<const D: usize>(f: &mut [f64], dofs: &[usize; D], r: &[[f64; D]; D]) {
+    let values = std::array::from_fn(|i| f[dofs[i]]);
+    for (i, row) in r.iter().enumerate() {
+        f[dofs[i]] = compensated_dot(row, &values);
+    }
+}
+
 /// Rotate force vector at the given DOFs: F[dofs] = R * F[dofs_orig] (2D inclined support).
 pub fn rotate_inclined_f_2d(f: &mut [f64], dofs: &[usize; 2], r: &[[f64; 2]; 2]) {
-    let mut fv = [0.0; 2];
-    for a in 0..2 {
-        fv[a] = f[dofs[a]];
-    }
-    for a in 0..2 {
-        let mut sum = 0.0;
-        for b in 0..2 {
-            sum += r[a][b] * fv[b];
-        }
-        f[dofs[a]] = sum;
-    }
+    rotate_inclined_vector(f, dofs, r);
 }
 
 /// Apply 2D inclined support rotation to K and F at the given translational DOFs.
@@ -493,17 +520,8 @@ pub(crate) fn apply_inclined_transform_2d(k: &mut [f64], f: &mut [f64], n: usize
 
 /// Reverse 2D inclined rotation on displacement vector: u_global = R^T * u_rotated
 pub fn reverse_inclined_transform_2d(u: &mut [f64], dofs: &[usize; 2], r: &[[f64; 2]; 2]) {
-    let mut vals = [0.0; 2];
-    for a in 0..2 {
-        vals[a] = u[dofs[a]];
-    }
-    for a in 0..2 {
-        let mut sum = 0.0;
-        for b in 0..2 {
-            sum += r[b][a] * vals[b]; // R^T[a][b] = R[b][a]
-        }
-        u[dofs[a]] = sum;
-    }
+    let rt = std::array::from_fn(|i| std::array::from_fn(|j| r[j][i]));
+    rotate_inclined_vector(u, dofs, &rt);
 }
 
 /// Build rotation matrix that maps global to local frame where ê₁ = normal.
@@ -563,17 +581,7 @@ fn rotate_inclined_k_3d(k: &mut [f64], n: usize, dofs: &[usize; 3], r: &[[f64; 3
 
 /// Rotate force vector at the given DOFs: F[dofs] = R * F[dofs_orig] (3D inclined support).
 pub fn rotate_inclined_f_3d(f: &mut [f64], dofs: &[usize; 3], r: &[[f64; 3]; 3]) {
-    let mut fv = [0.0; 3];
-    for a in 0..3 {
-        fv[a] = f[dofs[a]];
-    }
-    for a in 0..3 {
-        let mut sum = 0.0;
-        for b in 0..3 {
-            sum += r[a][b] * fv[b];
-        }
-        f[dofs[a]] = sum;
-    }
+    rotate_inclined_vector(f, dofs, r);
 }
 
 /// Apply 3D inclined support rotation to K and F at the given translational DOFs.
@@ -588,17 +596,8 @@ pub(crate) fn apply_inclined_transform(k: &mut [f64], f: &mut [f64], n: usize,
 
 /// Reverse inclined rotation on displacement vector: u_global = R^T * u_rotated
 pub fn reverse_inclined_transform(u: &mut [f64], dofs: &[usize; 3], r: &[[f64; 3]; 3]) {
-    let mut vals = [0.0; 3];
-    for a in 0..3 {
-        vals[a] = u[dofs[a]];
-    }
-    for a in 0..3 {
-        let mut sum = 0.0;
-        for b in 0..3 {
-            sum += r[b][a] * vals[b]; // R^T[a][b] = R[b][a]
-        }
-        u[dofs[a]] = sum;
-    }
+    let rt = std::array::from_fn(|i| std::array::from_fn(|j| r[j][i]));
+    rotate_inclined_vector(u, dofs, &rt);
 }
 
 /// Stiffness-only assembly result for 2D (K with inclined support transforms applied).
@@ -766,61 +765,10 @@ pub(crate) fn assemble_stiffness_2d_typed(
         max_diag = max_diag.max(k_global[i * n + i].abs());
     }
 
-    // Add artificial rotational stiffness at nodes where ALL connected frame
-    // elements are hinged at that node — prevents singular matrix.
-    let mut artificial_dofs = Vec::new();
-    if dof_num.dofs_per_node >= 3 {
-        let artificial_k = artificial_stiffness(max_diag);
-
-        let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-        for elem in crate::ordered::values(&input.elements) {
-            if elem.elem_type != "frame" { continue; }
-            *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
-            *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
-            if elem.hinge_start {
-                *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
-            }
-            if elem.hinge_end {
-                *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
-            }
-        }
-
-        // Nodes with rotational restraint from supports
-        let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
-        for sup in crate::ordered::values(&input.supports) {
-            if crate::solver::support::support_dofs_2d(sup)[2].restrained {
-                rot_restrained.insert(sup.node_id);
-            }
-            if sup.support_type == "spring" {
-                if support_dofs_2d(sup)[2].spring.unwrap_or(0.0) > 0.0 {
-                    rot_restrained.insert(sup.node_id);
-                }
-            }
-        }
-        let tied = rotation_tied_nodes_2d(input);
-        rot_restrained.extend(tied.iter().copied());
-
-        for (&node_id, &hinges) in crate::ordered::entries(&node_hinge_count) {
-            let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
-            if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
-                if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
-                    if idx < dof_num.n_free {
-                        k_global[idx * n + idx] += artificial_k;
-                        artificial_dofs.push(idx);
-                    }
-                }
-            }
-        }
-
-        let already: std::collections::HashSet<usize> = artificial_dofs.iter().copied().collect();
-        let mut orphans = orphan_rotation_dofs(dof_num, 2..3, |node| tied.contains(&node), |d| k_global[d * n + d]);
-        orphans.sort_unstable();
-        for i in orphans {
-            if already.contains(&i) { continue; }
-            k_global[i * n + i] += artificial_k;
-            artificial_dofs.push(i);
-        }
+    let artificial_dofs = orphan_rotation_dofs_2d(input, dof_num, |d| k_global[d * n + d]);
+    let artificial_k = artificial_stiffness(max_diag);
+    for &d in &artificial_dofs {
+        k_global[d * n + d] += artificial_k;
     }
 
     // Apply 2D inclined support transformations (stiffness only; the force
@@ -2379,10 +2327,7 @@ pub fn apply_inclined_transform_triplets(
 
 /// Rotate force vector at inclined-support DOFs: F'[dofs[a]] = sum_b R[a][b] * F[dofs[b]].
 pub fn rotate_inclined_f_triplets(f_global: &mut [f64], dofs: &[usize; 3], r: &[[f64; 3]; 3]) {
-    let fv = [f_global[dofs[0]], f_global[dofs[1]], f_global[dofs[2]]];
-    for a in 0..3 {
-        f_global[dofs[a]] = r[a][0] * fv[0] + r[a][1] * fv[1] + r[a][2] * fv[2];
-    }
+    rotate_inclined_vector(f_global, dofs, r);
 }
 
 /// One inclined-support rotation, plane (`InclinedTransformData2D`) or
@@ -2464,6 +2409,20 @@ pub(crate) fn to_inclined_free<T: InclinedFrame>(mut v: Vec<f64>, its: &[T], nf:
     }
     v.truncate(nf);
     v
+}
+
+pub(crate) fn inclined_residual<T: InclinedFrame>(
+    external: &[f64],
+    internal: &[f64],
+    its: &[T],
+) -> Vec<f64> {
+    let mut external = external.to_vec();
+    let mut internal = internal.to_vec();
+    for it in its {
+        it.rotate(&mut external);
+        it.rotate(&mut internal);
+    }
+    external.iter().zip(internal).map(|(a, b)| a - b).collect()
 }
 
 /// A free-DOF vector in the inclined-support frames (a mode shape, a state)

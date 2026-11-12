@@ -836,6 +836,7 @@ enum Loc {
     NoHinge,
 }
 
+#[derive(Clone)]
 struct Sample {
     e: usize,
     t: Q,
@@ -981,6 +982,21 @@ fn dense_solve(mut bm: Vec<Vec<f64>>, mut r: Vec<Vec<f64>>) -> Option<Vec<Vec<f6
     Some(r)
 }
 
+#[derive(Clone, Copy)]
+enum SimplexPhase { Feasibility, Objective }
+
+impl SimplexPhase {
+    fn cost(self, j: usize, n: usize) -> u8 {
+        #[cfg(test)]
+        tests::COST_EVALUATIONS.with(|count| count.set(count.get() + 1));
+        u8::from(match self { Self::Feasibility => j >= n, Self::Objective => j < n })
+    }
+
+    fn allows(self, j: usize, n: usize) -> bool {
+        match self { Self::Feasibility => true, Self::Objective => j < n }
+    }
+}
+
 /// Dense tableau simplex: min Σ μ s.t. A μ = b (b ≥ 0), μ ≥ 0. Returns the
 /// basic solution μ and the dual y (Aᵀ y ≤ 1, maximizing bᵀ y). Heuristic
 /// (f64): the tableau is rebuilt from the original data every few pivots and
@@ -1027,7 +1043,14 @@ pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Ve
             }
         }
     };
-    let run = |tab: &mut Vec<Vec<f64>>, basis: &mut Vec<usize>, cost: &dyn Fn(usize) -> f64, allow: &dyn Fn(usize) -> bool| -> bool {
+    let run = |tab: &mut Vec<Vec<f64>>, basis: &mut Vec<usize>, phase: SimplexPhase| -> bool {
+        #[cfg(test)]
+        tests::PHASE_WIDTH.with(|count| count.set(count.get() + n + p));
+        let costs: Vec<u8> = (0..n + p).map(|j| phase.cost(j, n)).collect();
+        let allowed: Vec<bool> = (0..n + p).map(|j| phase.allows(j, n)).collect();
+        let mut basis_costs: Vec<f64> = basis.iter().map(|&j| f64::from(costs[j])).collect();
+        let mut basic = vec![false; n + p];
+        for &j in basis.iter() { basic[j] = true; }
         let max_iter = super::plastic_budget::SIMPLEX_PIVOTS_PER_COLUMN * (n + p);
         let mut degenerate = 0;
         let mut since = 0;
@@ -1041,10 +1064,10 @@ pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Ve
             }
             let mut best: Option<(usize, f64)> = None;
             for j in 0..n + p {
-                if !allow(j) || basis.contains(&j) {
+                if !allowed[j] || basic[j] {
                     continue;
                 }
-                let rc = cost(j) - basis.iter().zip(tab.iter()).map(|(&bi, row)| cost(bi) * row[j]).sum::<f64>();
+                let rc = f64::from(costs[j]) - basis_costs.iter().zip(tab.iter()).map(|(&cost, row)| cost * row[j]).sum::<f64>();
                 if rc < -1e-10 {
                     let better = match best {
                         None => true,
@@ -1090,13 +1113,16 @@ pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Ve
             let Some(ir) = row else { return false };
             degenerate = if tab[ir][w - 1].abs() < 1e-14 { degenerate + 1 } else { 0 };
             pivot(tab, ir, jc);
+            basic[basis[ir]] = false;
+            basic[jc] = true;
+            basis_costs[ir] = f64::from(costs[jc]);
             basis[ir] = jc;
             since += 1;
         }
         false
     };
     // Phase 1
-    if !run(&mut tab, &mut basis, &|j| if j >= n { 1.0 } else { 0.0 }, &|_| true) {
+    if !run(&mut tab, &mut basis, SimplexPhase::Feasibility) {
         return None;
     }
     let infeas: f64 = (0..p).filter(|&i| basis[i] >= n).map(|i| tab[i][w - 1]).sum();
@@ -1122,7 +1148,7 @@ pub(crate) fn simplex_min_sum(a: &[Vec<f64>], b: &[f64]) -> Option<(Vec<f64>, Ve
     }
     tab = reinvert(&basis)?;
     // Phase 2 (artificial columns kept to read B⁻¹, never re-enter)
-    if !run(&mut tab, &mut basis, &|j| if j >= n { 0.0 } else { 1.0 }, &|j| j < n) {
+    if !run(&mut tab, &mut basis, SimplexPhase::Objective) {
         return None;
     }
     let mut mu = vec![0.0; n];
@@ -1146,7 +1172,13 @@ struct LpSolution {
 }
 
 /// Solve max λ s.t. |m_k(λ, z)| ≤ Mp_k at the samples (through its dual).
-fn solve_lp(samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Option<LpSolution> {
+fn solve_lp(model: &PlasticModel, samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Result<Option<LpSolution>, String> {
+    let halfspaces = samples.len().saturating_mul(2);
+    lp_work(model).check_candidate(eq.null.len(), halfspaces)?;
+    Ok(solve_lp_unchecked(samples, ef, eq))
+}
+
+fn solve_lp_unchecked(samples: &[Sample], ef: &[ElemF], eq: &EqF) -> Option<LpSolution> {
     let r = eq.null.len();
     let k = samples.len();
     if k == 0 {
@@ -1512,26 +1544,26 @@ pub struct PlasticCandidates {
 /// Find and check a static field and a mechanism for the model. `solver` (if
 /// given) contributes its final state as a second static candidate.
 pub fn plastic_candidates(model: &PlasticModel, solver: Option<&PlasticResult>) -> Result<PlasticCandidates, String> {
-    lp_work(model).check_engine_budget()?;
+    lp_work(model).initial().check_engine_budget()?;
     let eq = equilibrium_system(model)?;
-    lp_work(model).check_candidate_workspace(eq.null.len())?;
     let eqf = EqF {
         xp: eq.xp.iter().map(to_f64).collect(),
         null: eq.null.iter().map(|v| v.iter().map(to_f64).collect()).collect(),
     };
     let ef: Vec<ElemF> = model.elems.iter().map(elem_f64).collect();
     let mut samples = initial_samples(model, &ef, INITIAL_INTERVALS);
-    let mut lp = solve_lp(&samples, &ef, &eqf).ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
+    let mut lp = solve_lp(model, &samples, &ef, &eqf)?.ok_or("limit-analysis LP failed (collapse factor unbounded or LP breakdown)")?;
     for _ in 0..REFINEMENT_PASSES {
         let x = field_f64(&eqf, lp.lambda, &lp.z);
         let extra = cutting_samples(model, &ef, &x, lp.lambda, &samples);
         if extra.is_empty() {
             break;
         }
-        samples.extend(extra);
-        match solve_lp(&samples, &ef, &eqf) {
-            Some(s) => lp = s,
-            None => break,
+        let mut refined = samples.clone();
+        refined.extend(extra);
+        match solve_lp(model, &refined, &ef, &eqf) {
+            Ok(Some(next)) => { lp = next; samples = refined; }
+            Ok(None) | Err(_) => break,
         }
     }
 
@@ -1768,6 +1800,45 @@ fn certify_plastic_2d_body(input: &PlasticInput) -> Result<CertifiedPlastic2D, S
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    thread_local! {
+        pub(super) static COST_EVALUATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+        pub(super) static PHASE_WIDTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
+
+    fn assert_phase_cost_work(f: impl FnOnce()) {
+        COST_EVALUATIONS.with(|count| count.set(0));
+        PHASE_WIDTH.with(|count| count.set(0));
+        f();
+        let calls = COST_EVALUATIONS.with(|count| count.get());
+        let width = PHASE_WIDTH.with(|count| count.get());
+        println!("phase costs: {calls} evaluations, {width} phase columns");
+        assert!(width > 0);
+        assert!(calls <= width, "phase costs evaluated {calls} times for {width} phase columns");
+    }
+
+    #[test]
+    fn phase_cost_work_is_linear_for_issue_1760() {
+        let bytes = include_bytes!("../../fuzz/corpus-regressions/plastic-lp-budget/issue-1760.bin");
+        let input = serde_json::from_slice(&bytes[2..]).unwrap();
+        assert_phase_cost_work(|| {
+            let certificate = super::super::plastic_3d::certify_collapse_3d(&input, None);
+            assert!(certificate.certified, "{certificate:?}");
+        });
+    }
+
+    #[test]
+    fn phase_cost_work_is_linear_for_feasible_degenerate_and_refused_lps() {
+        for (a, b, accepted) in [
+            (vec![vec![1.0, 2.0, 3.0]], vec![6.0], true),
+            (vec![vec![1.0, 1.0, 0.0], vec![0.0, 0.0, 1.0]], vec![0.0, 1.0], true),
+            (vec![vec![-1.0, -2.0]], vec![1.0], false),
+        ] {
+            assert_phase_cost_work(|| {
+                assert_eq!(simplex_min_sum(&a, &b).is_some(), accepted);
+            });
+        }
+    }
 
     #[test]
     fn mechanism_resource_refusal_is_preserved() {

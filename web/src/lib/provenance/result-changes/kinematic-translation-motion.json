@@ -1,0 +1,53 @@
+{
+  "id": "kinematic-translation-motion",
+  "date": "2026-11-11",
+  "prs": [
+    1943
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "members",
+      "constraints",
+      "springs",
+      "eccentricities",
+      "stagedConstruction"
+    ]
+  },
+  "quantities": [
+    "stages",
+    "finalResults",
+    "mechanismModes",
+    "mechanismNodes",
+    "unconstrainedDofs",
+    "isSolvable",
+    "classification",
+    "diagnosis",
+    "collapseFactor",
+    "steps",
+    "hinges",
+    "isMechanism",
+    "warnings",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Kinematic checks distinguish rigid-arm mechanisms from elastic refusals",
+    "es": "La cinemática distingue mecanismos de brazos rígidos y rechazos elásticos",
+    "pt": "A cinemática distingue mecanismos de braços rígidos e recusas elásticas",
+    "de": "Kinematische Prüfung trennt Starrarmmechanismen und elastische Ablehnungen",
+    "fr": "La cinématique distingue mécanismes à bras rigides et refus élastiques",
+    "tr": "Kinematik denetimler rijit kol mekanizmalarını elastik retlerden ayırır"
+  },
+  "explanation": {
+    "en": "Free rotations moving constrained translations now appear in mechanism metadata. Initial elastic numerical refusals reach the regular solver instead of the plastic soft-spring fallback; rigid-plastic analysis can normalize stiffness first. Dormant staged pins use active stiffness to avoid spurious conditioning warnings. Re-run affected constrained and staged models and review plastic solve status (#1846, PR #1943). Translational stiffness at eigenvalue rounding cannot hide oblique truss mechanisms (#1095, #1103).",
+    "es": "Los giros libres que mueven traslaciones restringidas ahora aparecen como mecanismos. Los rechazos numéricos del estado elástico inicial llegan al cálculo lineal y no al reemplazo plástico con resortes blandos; el análisis rígido-plástico puede normalizar primero la rigidez. Los GDL inactivos por etapas usan la rigidez activa para evitar advertencias espurias. Volvé a calcular modelos restringidos y por etapas y revisá el estado del cálculo plástico (#1846, PR #1943). La rigidez traslacional al nivel del redondeo de autovalores no puede ocultar mecanismos de barras oblicuas (#1095, #1103).",
+    "pt": "Rotações livres que movem translações vinculadas agora aparecem como mecanismos. Recusas numéricas do estado elástico inicial chegam ao cálculo linear em vez da alternativa plástica com molas suaves; a análise rígido-plástica pode normalizar a rigidez primeiro. Graus inativos por etapas usam a rigidez ativa para evitar avisos indevidos. Recalcule modelos vinculados e por etapas e revise o estado do cálculo plástico (#1846, PR #1943). A rigidez translacional no nível do arredondamento dos autovalores não pode ocultar mecanismos de barras oblíquas (#1095, #1103).",
+    "de": "Freie Drehungen, die gebundene Verschiebungen bewegen, erscheinen nun als Mechanismen. Numerische Ablehnungen des elastischen Anfangszustands erreichen den linearen Löser statt des plastischen Ersatzes mit weichen Federn; die Starrplastik kann zuerst die Steifigkeit normieren. Inaktive Bauphasenfreiheitsgrade verwenden aktive Steifigkeit gegen falsche Warnungen. Berechnen Sie betroffene Modelle neu und prüfen Sie den plastischen Lösungsstatus (#1846, PR #1943). Translationssteifigkeit in der Größenordnung der Eigenwertrundung kann Mechanismen schräger Fachwerkstäbe nicht verbergen (#1095, #1103).",
+    "fr": "Les rotations libres qui déplacent des translations liées apparaissent comme mécanismes. Les refus numériques de l’état élastique initial atteignent le solveur linéaire au lieu du recours plastique aux ressorts souples ; le calcul rigide-plastique peut normaliser la rigidité avant résolution. Les degrés inactifs utilisent la rigidité active pour éviter de fausses alertes. Recalculez les modèles concernés et vérifiez le statut du calcul plastique (#1846, PR #1943). Une rigidité de translation au niveau de l’arrondi des valeurs propres ne peut masquer les mécanismes des barres obliques (#1095, #1103).",
+    "tr": "Bağlı ötelemeleri hareket ettiren serbest dönmeler artık mekanizma bilgilerinde yer alır. Başlangıç elastik durumundaki sayısal retler plastik yumuşak yay yoluna değil doğrusal çözücüye ulaşır; rijit-plastik analiz önce rijitliği normalleştirebilir. Etkin olmayan aşama serbestlikleri hatalı uyarıları önlemek için etkin rijitliği kullanır. İlgili modelleri yeniden çözün ve plastik çözüm durumunu inceleyin (#1846, PR #1943). Özdeğer yuvarlama düzeyindeki öteleme rijitliği eğik çubuk mekanizmalarını gizleyemez (#1095, #1103)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-kinematic-translation-motion.md",
+    "heading": "Kinematic checks distinguish rigid-arm mechanisms from elastic refusals (2026-11-11)"
+  }
+}

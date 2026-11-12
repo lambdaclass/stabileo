@@ -48,3 +48,7 @@ mod winkler;
 mod newmark_1959;
 #[path = "../benchmarks/plastic_collapse.rs"]
 mod plastic_collapse_benchmark;
+
+mod staged_orphan_1846;
+
+mod staged_round7;

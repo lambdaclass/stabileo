@@ -28,6 +28,7 @@ pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, Coup
 pub struct FreeDirection {
     pub node: usize,
     pub kind: DofKind,
+    pub moves_translation: bool,
     pub dofs: Vec<usize>,
     pub direction: Vec<f64>,
     pub scale: f64,
@@ -152,7 +153,11 @@ impl Stability {
     }
 
     pub fn free_rotations(&self) -> impl Iterator<Item = &FreeDirection> {
-        self.free.iter().filter(|f| f.kind != DofKind::Translation)
+        self.free.iter().filter(|f| !f.moves_translation)
+    }
+
+    pub fn mechanism_directions(&self) -> impl Iterator<Item = &FreeDirection> {
+        self.free.iter().filter(|f| f.moves_translation)
     }
 
     pub fn refusal(&self) -> Option<String> {
@@ -373,7 +378,7 @@ pub(crate) struct ReleasedRotations {
 }
 
 impl ReleasedRotations {
-    fn permits(&self, node: usize, dofs: &[usize], direction: &[f64]) -> bool {
+    pub(crate) fn permits(&self, node: usize, dofs: &[usize], direction: &[f64]) -> bool {
         self.nodes.contains(&node) && self.rows.iter().all(|row| {
             let (value, magnitude) = row.iter().fold((0.0f64, 0.0f64), |(sum, size), &(i, a)| {
                 let product = dofs.iter().position(|&d| d == i).map_or(0.0, |j| a * direction[j]);
@@ -624,10 +629,11 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
             if mu.first().is_some_and(|&low| low < -ROUNDING * size as f64 * f64::EPSILON * top.abs()) || top < 0.0 {
                 return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa: f64::NAN, anisotropy, free, mode_nodes: vec![*node] };
             }
+            let resolved_translation = |value: f64| *kind == DofKind::Translation && value > ROUNDING * size as f64 * f64::EPSILON * top;
             for c in 0..size {
                 let mut v = vec![0.0; b];
                 for (r, &i) in component.iter().enumerate() { v[i] = vecs[r * size + c]; }
-                if top <= 0.0 || mu[c] <= LOCAL_FREE * top {
+                if (top <= 0.0 || mu[c] <= LOCAL_FREE * top) && !resolved_translation(mu[c]) {
                     if *kind != DofKind::Translation && !releases.permits(*node, dofs, &v) {
                         let canonical = (mu.iter().filter(|&&x| x <= LOCAL_FREE * top).count() == 1).then(|| {
                             releases.directions.iter().filter(|(n, _)| n == node).find_map(|(_, direction)| {
@@ -653,20 +659,20 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
                             None => {},
                         }
                     }
-                    free.push(FreeDirection { node: *node, kind: *kind, dofs: dofs.clone(), direction: v, scale: if top > 0.0 { top } else { 1.0 }, coupling: Vec::new() });
+                    free.push(FreeDirection { node: *node, kind: *kind, moves_translation: *kind == DofKind::Translation, dofs: dofs.clone(), direction: v, scale: if top > 0.0 { top } else { 1.0 }, coupling: Vec::new() });
                     own.push((mu[c], top.max(0.0), size));
                 } else {
                     let scale = mu[c].sqrt();
                     columns.push(Column { group: g, w: v.iter().map(|x| x / scale).collect() });
                 }
             }
-            if let Some(&lowest) = mu.iter().find(|&&x| x > LOCAL_FREE * top) {
+            if let Some(&lowest) = mu.iter().find(|&&x| x > LOCAL_FREE * top || resolved_translation(x)) {
                 anisotropy = anisotropy.max(top / lowest);
             }
         }
     }
     let mut translation_free: Vec<usize> = free.iter().filter(|f| f.kind == DofKind::Translation).map(|f| f.node).collect();
-    let (moving, undecided) = swinging(&free, moves_translation);
+    let (moving, undecided) = swinging(&mut free, moves_translation);
     translation_free.extend(moving);
     if translation_free.is_empty() && !undecided.is_empty() {
         return Stability { verdict: Verdict::Singular, reason: Reason::SwingAtRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: undecided };
@@ -823,13 +829,15 @@ fn coupled_free(k: &CscMatrix, free: &mut [FreeDirection], own: &[(f64, f64, usi
     if !condensed.is_finite() || condensed * kappa > COUPLED { nodes } else { Vec::new() }
 }
 
-fn swinging(free: &[FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> (Vec<usize>, Vec<usize>) {
+fn swinging(free: &mut [FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> (Vec<usize>, Vec<usize>) {
     let (mut moving, mut undecided) = (Vec::new(), Vec::new());
     if moves_translation.is_empty() { return (moving, undecided); }
-    let mut by_group: BTreeMap<(usize, DofKind), Vec<&FreeDirection>> = BTreeMap::new();
-    for f in free.iter().filter(|f| f.kind != DofKind::Translation) { by_group.entry((f.node, f.kind)).or_default().push(f); }
+    let mut by_group: BTreeMap<(usize, DofKind), Vec<usize>> = BTreeMap::new();
+    for (i, f) in free.iter().enumerate().filter(|(_, f)| f.kind != DofKind::Translation) {
+        by_group.entry((f.node, f.kind)).or_default().push(i);
+    }
     for ((node, _), dirs) in by_group {
-        let dofs = &dirs[0].dofs;
+        let dofs = free[dirs[0]].dofs.clone();
         let arm = dofs.iter().flat_map(|&d| moves_translation[d].iter()).fold(0.0f64, |m, &(_, x)| m.max(x.abs()));
         if arm == 0.0 { continue; }
         if !arm.is_finite() {
@@ -837,28 +845,54 @@ fn swinging(free: &[FreeDirection], moves_translation: &[Vec<(usize, f64)>]) -> 
             continue;
         }
         let mut rows: BTreeMap<usize, Vec<f64>> = BTreeMap::new();
-        for (c, f) in dirs.iter().enumerate() {
+        for (c, &i) in dirs.iter().enumerate() {
+            let f = &free[i];
             for (&d, &v) in f.dofs.iter().zip(&f.direction) {
                 for &(r, x) in &moves_translation[d] { rows.entry(r).or_insert_with(|| vec![0.0; dirs.len()])[c] += (x / arm) * v; }
             }
         }
-        let motion = top_singular((0..dirs.len()).map(|c| rows.values().map(|m| m[c]).collect()).collect());
-        if motion == 0.0 { continue; }
-        if motion > ROUNDING * dofs.len() as f64 * f64::EPSILON { moving.push(node) } else { undecided.push(node) }
+        let tolerance = ROUNDING * dofs.len() as f64 * f64::EPSILON;
+        let mut basis: Vec<Vec<f64>> = Vec::new();
+        let mut remaining: Vec<Vec<f64>> = rows.into_values().collect();
+        loop {
+            for row in &mut remaining {
+                for _ in 0..2 {
+                    for direction in &basis {
+                        let projection = dot(row, direction);
+                        for (x, v) in row.iter_mut().zip(direction) { *x -= projection * v; }
+                    }
+                }
+            }
+            let Some((pivot, length)) = remaining.iter().enumerate().map(|(i, row)| (i, norm(row))).max_by(|a, b| a.1.total_cmp(&b.1)) else { break; };
+            if length <= tolerance { break; }
+            let row = remaining.swap_remove(pivot);
+            basis.push(row.into_iter().map(|v| v / length).collect());
+        }
+        if basis.is_empty() {
+            if remaining.iter().flatten().any(|&v| v != 0.0) { undecided.push(node); }
+            continue;
+        }
+        moving.push(node);
+        let moving_count = basis.len();
+        for axis in 0..dirs.len() {
+            let mut candidate = vec![0.0; dirs.len()];
+            candidate[axis] = 1.0;
+            for _ in 0..2 {
+                for direction in &basis {
+                    let projection = dot(&candidate, direction);
+                    for (x, v) in candidate.iter_mut().zip(direction) { *x -= projection * v; }
+                }
+            }
+            let length = norm(&candidate);
+            if length > tolerance { basis.push(candidate.into_iter().map(|v| v / length).collect()); }
+        }
+        let original: Vec<_> = dirs.iter().map(|&i| free[i].clone()).collect();
+        for (c, &i) in dirs.iter().enumerate() {
+            free[i].direction = (0..dofs.len()).map(|r| original.iter().zip(&basis[c]).map(|(f,w)| f.direction[r] * w).sum()).collect();
+            free[i].moves_translation = c < moving_count;
+        }
     }
     (moving, undecided)
-}
-
-fn top_singular(columns: Vec<Vec<f64>>) -> f64 {
-    let scale = columns.iter().flatten().fold(0.0f64, |m, x| m.max(x.abs()));
-    if scale == 0.0 { return 0.0; }
-    let n = columns.len();
-    let mut gram = vec![0.0; n * n];
-    for a in 0..n {
-        for b in 0..n { gram[a * n + b] = columns[a].iter().zip(&columns[b]).map(|(x, y)| (x / scale) * (y / scale)).sum(); }
-    }
-    let (mu, _) = sym_eigen_small(&gram, n);
-    mu.last().copied().unwrap_or(0.0).max(0.0).sqrt() * scale
 }
 
 fn scaled(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> CscMatrix {
@@ -1042,6 +1076,79 @@ fn rounding_amplification(bound: &CscMatrix, columns: &[Column], free: &[FreeDir
     projected.sym_mat_vec(&vec![1.0; weights.len()]).into_iter().fold(0.0, f64::max)
 }
 
+pub(crate) fn analyze_excluding(
+    k: &CscMatrix, tags: &[DofTag], moves: &[Vec<(usize, f64)>],
+    coupling: &[(usize, usize)], rounding: Option<&CscMatrix>, releases: &ReleasedRotations,
+    inactive: &[usize],
+) -> Stability {
+    if inactive.is_empty() { return analyze_coupled_with_rounding(k, tags, moves, coupling, rounding, releases); }
+    let mut excluded = vec![false; k.n];
+    for &i in inactive { excluded[i] = true; }
+    let kept: Vec<_> = (0..k.n).filter(|&i| !excluded[i]).collect();
+    let mut map = vec![None; k.n];
+    for (j, &i) in kept.iter().enumerate() { map[i] = Some(j); }
+    let rows = map.iter().map(|j| j.map_or_else(Vec::new, |j| vec![(j, 1.0)])).collect();
+    let selection = super::constraints::SparseTransform::from_rows(k.n, kept.len(), rows);
+    let matrix = selection.reduce_sparse(k);
+    let bound = rounding.map(|r| selection.reduce_sparse(r));
+    let tags: Vec<_> = kept.iter().map(|&i| tags[i]).collect();
+    let moves: Vec<_> = if moves.is_empty() { Vec::new() } else { kept.iter().map(|&i| moves[i].clone()).collect() };
+    let coupling: Vec<_> = coupling.iter().filter_map(|&(i, j)| Some((map.get(i).copied().flatten()?, map.get(j).copied().flatten()?))).collect();
+    let remap = |row: &Vec<(usize, f64)>| row.iter().filter_map(|&(i, v)| map.get(i).copied().flatten().map(|j| (j, v))).collect();
+    let releases = ReleasedRotations {
+        rows: releases.rows.iter().map(remap).collect(), nodes: releases.nodes.clone(),
+        directions: releases.directions.iter().map(|(node, row)| (*node, remap(row))).collect(),
+    };
+    let mut result = analyze_coupled_with_rounding(&matrix, &tags, &moves, &coupling, bound.as_ref(), &releases);
+    for f in &mut result.free {
+        for d in &mut f.dofs { *d = kept[*d]; }
+        for (d, _) in &mut f.coupling { *d = kept[*d]; }
+    }
+    result
+}
+
+pub(crate) fn analyze_free_stiffness(
+    k: &CscMatrix,
+    dof: &DofNumbering,
+    two_d: bool,
+    constraints: Option<&crate::solver::constraints::FreeConstraintSystem>,
+    coupling: &[(usize, usize)],
+    releases: &ReleasedRotations,
+) -> (CscMatrix, Stability) {
+    analyze_free_stiffness_excluding(k, dof, two_d, constraints, coupling, releases, &[])
+}
+
+pub(crate) fn analyze_free_stiffness_excluding(
+    k: &CscMatrix, dof: &DofNumbering, two_d: bool,
+    constraints: Option<&crate::solver::constraints::FreeConstraintSystem>,
+    coupling: &[(usize, usize)], releases: &ReleasedRotations, inactive: &[usize],
+) -> (CscMatrix, Stability) {
+    let reduced = constraints.map_or_else(|| k.clone(), |c| c.reduce_matrix_sparse(k));
+    let stability = if assumed() {
+        Stability::stable()
+    } else if let Some(c) = constraints {
+        c.stability_excluding(&reduced, dof, k, coupling, releases, inactive)
+    } else {
+        let mut free_tags = tags(dof, two_d);
+        free_tags.truncate(dof.n_free);
+        analyze_excluding(k, &free_tags, &[], coupling, None, releases, inactive)
+    };
+    (reduced, stability)
+}
+
+pub(crate) fn prepare_free_stiffness(
+    k: &CscMatrix,
+    dof: &DofNumbering,
+    two_d: bool,
+    constraints: Option<&crate::solver::constraints::FreeConstraintSystem>,
+    coupling: &[(usize, usize)],
+    releases: &ReleasedRotations,
+) -> Result<(CscMatrix, Stability), String> {
+    let (reduced, stability) = analyze_free_stiffness(k, dof, two_d, constraints, coupling, releases);
+    if let Some(refusal) = stability.refusal() { return Err(refusal); }
+    Ok((stability.pin_sparse(&reduced), stability))
+}
+
 fn of_assembled(k: &[f64], dof: &DofNumbering, two_d: bool, fcs: Option<crate::solver::constraints::FreeConstraintSystem>, coupling: &[(usize, usize)], releases: &ReleasedRotations) -> Stability {
     let nf = dof.n_free;
     let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
@@ -1052,10 +1159,7 @@ fn of_assembled(k: &[f64], dof: &DofNumbering, two_d: bool, fcs: Option<crate::s
         }
     }
     let k = CscMatrix::from_triplets(nf, &rows, &cols, &values);
-    match fcs {
-        Some(fcs) => fcs.stability(&fcs.reduce_matrix_sparse(&k), dof, &k, coupling, releases),
-        None => analyze_with_coupling(&k, &tags(dof, two_d), coupling, releases),
-    }
+    analyze_free_stiffness(&k, dof, two_d, fcs.as_ref(), coupling, releases).1
 }
 
 pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
@@ -1081,6 +1185,30 @@ mod tests {
         pub(super) static EIGENVECTOR_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     }
     use super::*;
+
+    #[test]
+    fn translational_rank_requires_stiffness_above_eigenvalue_rounding() {
+        for n in [2, 3] {
+            let tags = vec![DofTag { node: 3, kind: DofKind::Translation }; n];
+            for factor in [0.0, 0.5, 2.0] {
+                let gap = factor * ROUNDING * 2.0 * f64::EPSILON * 2.0;
+                let mut k = vec![0.0; n * n];
+                k[0] = 1.0;
+                k[1] = 1.0 - gap;
+                k[n] = 1.0 - gap;
+                k[n + 1] = 1.0;
+                if n == 3 { k[8] = 1.0; }
+                let result = analyze_dense(&k, n, &tags);
+                assert_eq!(result.reason, if factor <= 0.5 { Reason::FreeTranslation } else { Reason::Conditioning }, "{n} {factor}: {result:?}");
+                assert_eq!(result.mode_nodes, vec![3]);
+            }
+            for spring in [1e-30, 1.0, 1e20] {
+                let mut k = vec![0.0; n * n];
+                for i in 0..n { k[i * n + i] = spring; }
+                assert!(analyze_dense(&k, n, &tags).is_stable());
+            }
+        }
+    }
 
     fn negative_node_block(two_d: bool, diagonal: f64, off_diagonal: f64) -> Stability {
         let n = if two_d { 3 } else { 6 };
@@ -1452,6 +1580,42 @@ mod tests {
         assert_eq!(result.verdict, Verdict::Stable);
         assert!(result.free.iter().any(|direction| !direction.coupling.is_empty()));
         assert!(LANCZOS_RUNS.with(|count| count.get()) > 0);
+    }
+
+    #[test]
+    fn staged_round5_rotation_subspace_and_rounding_boundary() {
+        for angle in [0.0_f64, 0.3, 1.2] {
+            let (s, c) = angle.sin_cos();
+            let mut free: Vec<_> = [vec![c,s], vec![-s,c]].into_iter().map(|direction| FreeDirection {
+                node: 1, kind: DofKind::Rotation, moves_translation: false,
+                dofs: vec![0,1], direction, scale: 1.0, coupling: Vec::new(),
+            }).collect();
+            let (moving, undecided) = swinging(&mut free, &[vec![(0,1.0)],vec![(0,2.0)]]);
+            assert_eq!(moving, vec![1]);
+            assert!(undecided.is_empty());
+            assert_eq!(free.iter().filter(|f| f.moves_translation).count(), 1);
+            let harmless = free.iter().find(|f| !f.moves_translation).unwrap();
+            assert!((harmless.direction[0] + 2.0 * harmless.direction[1]).abs() <= ROUNDING * f64::EPSILON);
+        }
+        let tolerance = ROUNDING * 3.0 * f64::EPSILON;
+        for factor in [0.0, 0.25, 2.0] {
+            let alpha = factor * tolerance;
+            let tags = vec![DofTag { node: 1, kind: DofKind::Rotation }; 3];
+            let k = vec![1.0,0.0,0.0, 0.0,0.0,0.0, 0.0,0.0,0.0];
+            let motion = vec![vec![(0,1.0)],vec![(0,alpha)],vec![(0,2.0*alpha)]];
+            let result = analyze_dense_constrained(&k, 3, &tags, &motion);
+            if factor == 0.0 {
+                assert_eq!(result.verdict, Verdict::Stable);
+                assert_eq!(result.free_rotations().count(), 2);
+            } else if factor < 1.0 {
+                assert_eq!(result.verdict, Verdict::Singular);
+                assert_eq!(result.reason, Reason::SwingAtRounding);
+            } else {
+                assert_eq!(result.verdict, Verdict::Mechanism);
+                assert_eq!(result.free_rotations().count(), 1);
+                assert_eq!(result.mechanism_directions().count(), 1);
+            }
+        }
     }
 
 }

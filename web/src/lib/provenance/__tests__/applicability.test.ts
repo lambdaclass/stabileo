@@ -28,6 +28,30 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('also rechecks unreleased members and constraint-only snapshots for staged solve checks', () => {
+    const designData = { site: { phases: [{ id: 'first' }] } };
+    const ordinary = model({ designData, elements: [member(1, 1, 'frame')] });
+    const constrained = model({ designData, constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }] });
+    for (const snapshot of [ordinary, constrained]) {
+      expect(modelFeatures(snapshot)).not.toContain('hinges');
+      expect(ids(snapshot)).toContain('staged-free-stiffness');
+      expect(ids(snapshot, stampSolve('linear', null))).not.toContain('staged-free-stiffness');
+    }
+  });
+
+  it('rechecks staged spring and mixed member models without requiring end releases', () => {
+    const designData = { site: { phases: [{ id: 'first' }] } };
+    const ordinary = model({ designData, elements: [member(1, 1, 'frame')] });
+    const spring = model({ designData, elements: [member(1, 1, 'frame')], supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never });
+    const mixed = model({ designData, elements: [member(1, 1, 'frame'), member(2, 1, 'truss')] });
+    for (const snapshot of [spring, mixed]) {
+      expect(modelFeatures(snapshot)).not.toContain('hinges');
+      expect(ids(snapshot)).toContain('staged-orphan-rotations');
+    }
+    expect(ids(ordinary)).not.toContain('staged-orphan-rotations');
+    expect(ids(spring, stampSolve('linear', null))).not.toContain('staged-orphan-rotations');
+  });
+
   it('scopes generator stability guidance to recorded generated structures', () => {
     const ordinary = model({ elements: [member(1, 1, 'frame')] });
     const generated = { ...ordinary, groups: [[1, { kind: 'generated' }]] } as FeatureSnapshot;
@@ -346,6 +370,56 @@ describe('which registered changes concern a model', () => {
     }
   });
 
+  it('scopes compensated load projection to inclined structural supports', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'inclined-resolved-load-projection')!;
+    for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+      expect(conditionHolds(entry.when ?? {}, new Set([structure, 'inclinedSupports']))).toBe(true);
+      expect(conditionHolds(entry.when ?? {}, new Set([structure]))).toBe(false);
+    }
+    expect(conditionHolds(entry.when ?? {}, new Set(['inclinedSupports']))).toBe(false);
+  });
+
+  it('scopes compensated equilibrium to P-Delta and SSI with structural stiffness', () => {
+    const change = 'nonlinear-equilibrium-arithmetic';
+    const entry = RESULT_CHANGES.changes.find(c => c.id === change)!;
+    for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+      for (const analysis of ['analysis:pdelta', 'analysis:ssi']) {
+        expect(conditionHolds(entry.when ?? {}, new Set([structure, analysis]))).toBe(true);
+        expect(conditionHolds(entry.when ?? {}, new Set([analysis]))).toBe(false);
+      }
+      for (const analysis of ['analysis:linear', 'analysis:modal', 'analysis:nonlinear']) {
+        expect(conditionHolds(entry.when ?? {}, new Set([structure, analysis]))).toBe(false);
+      }
+    }
+  });
+
+  it('scopes supported and soil equilibrium to structural nonlinear or SSI histories', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'nonlinear-supported-and-soil-equilibrium')!;
+    for (const structure of ['members', 'connectors', 'springs']) {
+      for (const analysis of ['analysis:pdelta', 'analysis:nonlinear', 'analysis:ssi']) {
+        expect(conditionHolds(entry.when ?? {}, new Set([structure, analysis]))).toBe(true);
+        expect(conditionHolds(entry.when ?? {}, new Set([analysis]))).toBe(false);
+      }
+      expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:linear']))).toBe(false);
+    }
+  });
+
+  it('scopes nonlinear physical convergence to structural nonlinear analyses', () => {
+    const change = 'nonlinear-physical-convergence';
+    const entry = RESULT_CHANGES.changes.find(c => c.id === change)!;
+    const before = entry.resultsVersion - 1;
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    for (const kind of ['pdelta', 'nonlinear'] as const) {
+      const stamp = { ...stampSolve(kind, null), resultsVersion: before };
+      expect(ids(frame, stamp)).toContain(change);
+      expect(ids(model(), stamp)).not.toContain(change);
+      expect(ids(frame, { ...stamp, resultsVersion: entry.resultsVersion })).not.toContain(change);
+    }
+    expect(ids(frame, { ...stampSolve('linear', null), resultsVersion: before })).not.toContain(change);
+    expect(ids(frame)).toContain(change);
+    expect(ids(model())).not.toContain(change);
+  });
+
   it('unknown analysis history without stiffness elements has no linear result to re-check', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
@@ -537,6 +611,81 @@ it('scopes frozen member validation to one-way behaviour even without gaps (#192
     expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss')] }))).not.toContain(id);
     expect(ids(model({ analysisMode, elements: [member(1, 1, 'frame')] }))).not.toContain(id);
   }
+});
+
+it('rechecks kinematic motion and dormant stiffness changes in both dimensions', () => {
+  const id = 'kinematic-translation-motion';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const snapshot of [
+      model({ analysisMode, elements: [member(1, 1, 'frame')] }),
+      model({ analysisMode, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: [] }] }),
+      model({ analysisMode, supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never }),
+    ]) {
+      expect(ids(snapshot)).toContain(id);
+      expect(ids(snapshot, stampSolve('linear', null))).not.toContain(id);
+    }
+    expect(ids(model({ analysisMode }))).not.toContain(id);
+  }
+});
+
+describe('round 3 nonlinear stale-result coverage', () => {
+  it('#761 — covers shell and point nonlinear histories', () => {
+    for (const id of ['nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium']) {
+      const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+      for (const feature of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+        for (const analysis of (id === 'nonlinear-physical-convergence' ? ['analysis:pdelta', 'analysis:nonlinear'] : ['analysis:pdelta', 'analysis:nonlinear', 'analysis:ssi'])) {
+          expect(conditionHolds(entry.when ?? {}, new Set([feature, analysis])), `${id} ${feature} ${analysis}`).toBe(true);
+        }
+      }
+    }
+  });
+  it('#761 — assesses saved shell and point results with complete histories', () => {
+    const shapes = [
+      { plates: [[1, {}]] }, { quads: [[1, { curved: true }]] }, { solidShells: [[1, {}]] },
+      { connectors: [[1, { kShear: 1 }]] }, { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] },
+    ] as Partial<FeatureSnapshot>[];
+    for (const shape of shapes) {
+      for (const kind of ['pdelta', 'nonlinear', 'ssi'] as const) {
+        const snapshot = model(shape);
+        const entry = RESULT_CHANGES.changes.find(c => c.id === 'nonlinear-supported-and-soil-equilibrium')!;
+        const stamp = { ...stampSolve(kind, null), resultsVersion: entry.resultsVersion - 1 };
+        expect(ids(snapshot, stamp)).toContain(entry.id);
+        expect(ids(snapshot, { ...stamp, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
+      }
+    }
+  });
+  it('#761 — infers SSI from 3D support curves despite linear stamps', () => {
+    const snapshot = model({ supports: [[1, { nodeId: 1, type: 'spring3d', curves: { x: [[0, 0], [1, 1]] } }]] as never });
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'nonlinear-supported-and-soil-equilibrium')!;
+    const stamp = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 };
+    expect(ids(snapshot, stamp)).toContain(entry.id);
+    expect(ids({ ...snapshot, analysisMode: '2d' }, stamp)).not.toContain(entry.id);
+    expect(ids({ ...snapshot, supports: [] }, stamp)).not.toContain(entry.id);
+    expect(ids(snapshot, { ...stamp, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
+  });
+});
+
+it('#761 round 4 flags saved linear displacement3d results', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'prescribed-and-inclined-equilibrium')!;
+  const snapshot = model({ elements: [member(1, 1, 'frame')], loads: [{ id: 1, type: 'displacement3d', data: { nodeId: 1, dx: 5e-16 } }] as never });
+  const stamp = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 };
+  expect(modelFeatures(snapshot)).toContain('caseDisplacements');
+  expect(ids(snapshot, stamp)).toContain(entry.id);
+  expect(ids({ ...snapshot, loads: [] }, stamp)).not.toContain(entry.id);
+  expect(ids(snapshot, stampSolve('linear', null))).not.toContain(entry.id);
+});
+
+it('#761 scopes the collinear chord correction to nonlinear 2D frames', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'collinear-axial-chord-rotation')!;
+  expect(entry.scope).toBeUndefined();
+  expect(entry.when).toBeDefined();
+  expect(conditionHolds(entry.when!, new Set(['plane2D', 'frameMembers', 'analysis:nonlinear']))).toBe(true);
+  for (const features of [
+    ['plane2D', 'frameMembers', 'analysis:linear'],
+    ['space3D', 'frameMembers', 'analysis:nonlinear'],
+    ['plane2D', 'connectors', 'analysis:nonlinear'],
+    ['plane2D', 'trussMembers', 'analysis:nonlinear'],
+  ]) expect(conditionHolds(entry.when!, new Set(features))).toBe(false);
 });
 
 it('known wrong result: #818: original-pencil notice covers unknown and partial histories', () => {

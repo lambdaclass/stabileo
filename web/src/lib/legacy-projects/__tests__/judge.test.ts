@@ -193,36 +193,40 @@ describe('against real corpus files', () => {
     expect(judge('truss', then, opened.values, opened.changes).kind).toBe('same');
     const wrong = { ...then, 'base.elementForces[e1].nStart': (then['base.elementForces[e1].nStart'] as number) * 1.01 };
     expect(opened.changes.map((c) => c.id)).toContain('linear-stability-refusals');
+    expect(opened.changes.map((c) => c.id)).toEqual(expect.arrayContaining(['nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium']));
     const v = judge('truss, wrong force', wrong, opened.values, opened.changes);
     expect(v.kind).toBe('unexplained');
     expect(v.report).toContain('base.elementForces[e1].nStart');
   }, 120_000);
 
-  for (const mainFirst of [false, true]) {
-    it(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'main-first order' : 'checkout order'})`, async () => {
+  for (const [mainFirst, sharedVersion] of [[false, false], [true, false], [true, true]]) {
+    it(`NEGATIVE: v0.4.0 deep-beam-shell: with the linear re-check notice, only stresses are explained (${mainFirst ? 'main-first order' : 'checkout order'}${sharedVersion ? ', shared pending version' : ''})`, async () => {
       const registry = mainFirst ? {
         ...RESULT_CHANGES,
         currentResultsVersion: RESULT_CHANGES.currentResultsVersion + 2,
-        changes: RESULT_CHANGES.changes.map(c => c.id === 'linear-stability-refusals'
+        changes: RESULT_CHANGES.changes.map(c => sharedVersion && c.prs.includes(1940)
+          ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion }
+          : c.id === 'linear-stability-refusals'
           ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 1 }
           : c.id === 'linear-pin-coupling'
             ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion + 2 } : c),
       } : RESULT_CHANGES;
+      const orderedIds = (ids: string[]) => ids.map(id => registry.changes.find(c => c.id === id)!)
+        .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+        .map(c => c.id);
       const assess = applicability.assessProject;
       const mocked = vi.spyOn(applicability, 'assessProject').mockImplementation((snapshot, stamp, mode, _registry, features, loadsVersion) =>
         assess(snapshot, stamp, mode, registry, features, loadsVersion));
       try {
         const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'deep-beam-shell')!;
         const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`));
-        expect(opened.changes.map((c) => c.id)).toEqual([
+        expect(opened.changes.map((c) => c.id)).toEqual(orderedIds([
           'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
-          'harmonic-modal-residual-checked',
+          'harmonic-modal-residual-checked', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
-        ].map(id => registry.changes.find(c => c.id === id)!)
-          .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
-          .map(c => c.id));
-        if (mainFirst) expect(opened.changes.slice(-3).map(c => c.id)).toEqual(['harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling']);
+        ]));
+        if (mainFirst) expect(opened.changes.slice(-8).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
         const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;
