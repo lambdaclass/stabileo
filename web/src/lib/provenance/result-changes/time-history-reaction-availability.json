@@ -1,0 +1,45 @@
+{
+  "id": "time-history-reaction-availability",
+  "date": "2026-11-12",
+  "prs": [
+    1952
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "springs",
+        "constraints"
+      ],
+      [
+        "analysis:timeHistory"
+      ]
+    ]
+  },
+  "quantities": [
+    "peakReactions",
+    "structuredDiagnostics"
+  ],
+  "title": {
+    "en": "Time-history reactions explicitly report unavailable total forces",
+    "es": "Las reacciones dinámicas indican fuerzas totales no disponibles",
+    "pt": "As reações dinâmicas indicam forças totais indisponíveis",
+    "de": "Zeitverlaufsreaktionen melden nicht verfügbare Gesamtkräfte",
+    "fr": "Les réactions temporelles signalent les forces totales indisponibles",
+    "tr": "Zaman tanım alanı tepkileri mevcut olmayan toplam kuvvetleri bildirir"
+  },
+  "explanation": {
+    "en": "Re-check configured or recorded time-history results. The legacy peakReactions estimate omits inertia, damping and time-dependent support loading; it is not a total reaction or a reaction envelope. Results now explicitly diagnose unavailable total dynamic reactions and member forces, and retain spring-only support entries (#1952; SA-2026-061).",
+    "es": "Revisá los resultados de historias temporales configuradas o registradas. La estimación peakReactions omite inercia, amortiguamiento y cargas de apoyo variables; no es una reacción total ni una envolvente. Ahora se diagnostican las reacciones dinámicas totales y los esfuerzos de miembros no disponibles, y se conservan las entradas de apoyos con solo resortes (#1952; SA-2026-061).",
+    "pt": "Reveja os resultados de históricos temporais configurados ou registrados. A estimativa peakReactions omite inércia, amortecimento e cargas de apoio variáveis; não é uma reação total nem uma envoltória. Agora são diagnosticadas as reações dinâmicas totais e forças de membros indisponíveis, mantendo as entradas de apoios apenas com molas (#1952; SA-2026-061).",
+    "de": "Prüfen Sie konfigurierte oder aufgezeichnete Zeitverlaufsergebnisse erneut. Die Schätzung peakReactions lässt Trägheit, Dämpfung und zeitabhängige Auflagerlasten aus; sie ist weder Gesamtreaktion noch Hüllkurve. Nicht verfügbare gesamte dynamische Reaktionen und Stabkräfte werden nun gemeldet; reine Federauflager behalten ihre Einträge (#1952; SA-2026-061).",
+    "fr": "Revérifiez les résultats temporels configurés ou enregistrés. L’estimation peakReactions omet inertie, amortissement et charges d’appui variables ; ce n’est ni une réaction totale ni une enveloppe. Les réactions dynamiques totales et efforts de barre indisponibles sont désormais signalés, et les entrées des appuis à ressort seuls sont conservées (#1952 ; SA-2026-061).",
+    "tr": "Yapılandırılmış veya kaydedilmiş zaman tanım alanı sonuçlarını yeniden denetleyin. Eski peakReactions tahmini atalet, sönüm ve zamana bağlı mesnet yüklerini içermez; toplam tepki veya tepki zarfı değildir. Mevcut olmayan toplam dinamik tepkiler ve eleman kuvvetleri artık açıkça bildirilir; yalnız yay içeren mesnet kayıtları korunur (#1952; SA-2026-061)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-arc-length-reactions.md",
+    "heading": "PR-wide re-check coverage (2026-11-12)"
+  }
+}

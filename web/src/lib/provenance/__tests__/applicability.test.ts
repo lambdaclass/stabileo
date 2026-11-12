@@ -667,7 +667,7 @@ describe('reaction recovery saved-model scope (#1949)', () => {
   const covered = (path: string, features: string[]) => entries.some((c) =>
     fieldCovered({ ...c, quantities: declaredQuantities[c.id]?.filter((q): q is string => typeof q === 'string') }, path, features));
 
-  it.skip('known wrong result: #1952: PR entries cover P-Delta equilibrium fields without covering unrelated static output', () => {
+  it('known wrong result: #1952: PR entries cover P-Delta equilibrium fields without covering unrelated static output', () => {
     for (const dimension of ['plane2D', 'space3D']) {
       for (const structure of [['members', 'frameMembers'], ['members', 'trussMembers'], ['shells'], ['springs'], ['constraints']]) {
         const features = [...structure, dimension, 'analysis:linear', 'analysis:pdelta'];
@@ -679,7 +679,7 @@ describe('reaction recovery saved-model scope (#1949)', () => {
     }
   });
 
-  it.skip.each(['2d', '3d', 'pro'])('known wrong result: #1952: PR notices cover affected saved %s results', (analysisMode) => {
+  it.each(['2d', '3d', 'pro'])('known wrong result: #1952: PR notices cover affected saved %s results', (analysisMode) => {
     for (const structure of [
       { elements: [member(1, 1, 'frame')] },
       { elements: [member(1, 1, 'truss')] },
@@ -709,7 +709,7 @@ describe('reaction recovery saved-model scope (#1949)', () => {
     }
   });
 
-  it.skip.each(['2d', '3d', 'pro'])('known wrong result: #1952: configured and recorded %s time histories get a PR notice', (analysisMode) => {
+  it.each(['2d', '3d', 'pro'])('known wrong result: #1952: configured and recorded %s time histories get a PR notice', (analysisMode) => {
     for (const structure of [
       { elements: [member(1, 1, 'frame')] },
       { elements: [member(1, 1, 'truss')] },

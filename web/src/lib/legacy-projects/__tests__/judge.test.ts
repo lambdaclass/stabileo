@@ -284,12 +284,13 @@ describe('against real corpus files', () => {
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
           'harmonic-modal-residual-checked', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
+          'time-history-reaction-availability',
           ...(includeSSI ? ['ssi-support-reactions'] : []),
         ]));
         if (includeSSI) {
-        if (mainFirst) expect(opened.changes.slice(-9).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-10).map(c => c.id)).toEqual(orderedIds(['time-history-reaction-availability', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         } else {
-        if (mainFirst) expect(opened.changes.slice(-8).map(c => c.id)).toEqual(orderedIds(['harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-9).map(c => c.id)).toEqual(orderedIds(['time-history-reaction-availability', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         }
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;

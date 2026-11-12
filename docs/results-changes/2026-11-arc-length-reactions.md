@@ -83,9 +83,11 @@ for the coordinator's advisory decision. SA-2026-061 now records that decision.
 
 ## Saved-project applicability and quantity declarations
 
-The notice requires members, shells, springs or constraints, plus an affected
-analysis context: P-Delta, a configured time history, constraints with a
-nonlinear or time-history context, or an explicitly identified path analysis.
+The PR’s notices jointly cover members, shells, springs or constraints with an
+affected analysis context. `pdelta-physical-residual-certification` covers
+P-Delta equilibrium diagnostics; `time-history-reaction-availability` covers
+configured or recorded time histories. `arc-length-reactions` covers nonlinear
+recovery with constraints or an explicitly identified path analysis.
 The frozen arc-length fixtures carry `pathAnalysis` alongside
 `analysis:nonlinear`. This marker identifies arc-length/displacement-control
 results without treating every unconstrained corotational saved project as
@@ -152,8 +154,9 @@ field's analysis family. The legacy corpus judge captures linear result sets;
 its collection matcher cannot treat either qualified name as a static
 `reactions` or `elementForces` declaration. This retains coverage for the two
 frozen arc-length results while preventing the notice for an unknown saved
-analysis history from excusing fabricated static forces. `equilibrium` remains
-declared for the added P-Delta diagnostic fields. No engine value changes.
+analysis history from excusing fabricated static forces. `pdelta-physical-residual-certification` declares the added P-Delta equilibrium
+diagnostic fields. The arc entry’s nonlinear condition cannot authorize those
+P-Delta fields. No engine value changes.
 
 ## Restore live frozen coverage after the main merge (2026-11-12)
 
@@ -180,3 +183,31 @@ displaced geometry. Its existing tolerances and member equilibrium assertions
 are retained. Per-case restoration regressions require each original input,
 its complete set of reactions, the path-analysis feature and exclusion-policy
 acceptance, so another named-case deletion cannot silently remove coverage.
+
+## PR-wide re-check coverage (2026-11-12)
+
+The applicability regressions assess the union of PR #1952 entries. Each affected
+saved result must receive a notice regardless of which entry supplies it.
+P-Delta equilibrium coverage includes frame and truss members, shells, springs
+and constraint-only contexts in both dimensions. Constrained nonlinear recovery
+and both retained planar path fixtures remain covered. The dedicated P-Delta
+entry supplies its equilibrium fields; the arc entry retains its nonlinear
+condition and cannot explain static reactions or member forces.
+
+A dedicated `time-history-reaction-availability` entry closes the missing notice
+for configured and recorded time histories. It uses the shared feature extractor’s
+`analysis:timeHistory` context: an explicit time-history configuration implies
+that context even when a saved stamp records only the linear analysis. Old,
+unknown and current stamps still pass through the same registry/version filter.
+The notice requires recoverable structure, excludes known static-only results
+without dynamic configuration, and declares only peak reactions and diagnostics.
+It describes the existing unavailable-total-force diagnostic; it does not claim
+that total dynamic reactions are now recovered.
+
+The parent registry fails seven enabled regression cases: non-frame P-Delta
+field coverage and configured/recorded dynamics across 2D, 3D and PRO. Boundary
+controls retain no notice for empty configured models or current stamps, and
+no field coverage for unrelated static values, displacements or generic solve
+status. The newer reaction-change-scope guard remains unchanged. This follow-up
+changes notice coverage only; no engine results, tolerances or frozen baselines
+change and no new advisory is introduced.

@@ -8,7 +8,10 @@
   "when": {
     "allOf": [
       [
-        "frameMembers"
+        "members",
+        "shells",
+        "springs",
+        "constraints"
       ],
       [
         "analysis:pdelta"
