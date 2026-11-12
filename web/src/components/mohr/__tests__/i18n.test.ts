@@ -6,7 +6,11 @@ import { MOHR_IDS } from '../../tools/mohr-tools';
 import { hubTranslations as mohrToolTranslations } from '../../tools/hub-i18n';
 import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 
-const SAME_AS_ENGLISH = ['pt mohr.face', 'fr mohr.face', 'fr mohr.conventions', 'fr mohr.compression', 'de mohr.sym', 'fr mohr.sym'];
+const SAME_AS_ENGLISH = [
+  'pt mohr.face', 'fr mohr.face', 'fr mohr.conventions', 'fr mohr.compression', 'de mohr.sym', 'fr mohr.sym',
+  ...['es', 'pt', 'fr'].flatMap((l) => ['uniaxial', 'biaxial', 'triaxial'].map((id) => `${l} mohr.presetShort.${id}`)),
+  'es mohr.presetShort.general',
+];
 
 const names = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -39,7 +43,10 @@ describe('Mohr tool strings', () => {
     }
     expect(used.size).toBeGreaterThan(30);
     for (const key of used) expect(mohrTranslations.en[key], key).toBeTruthy();
-    for (const id of ['general', 'uniaxial', 'biaxial', 'triaxial', 'shear', 'hydrostatic']) expect(mohrTranslations.en[`mohr.preset.${id}`]).toBeTruthy();
+    for (const id of ['general', 'uniaxial', 'biaxial', 'triaxial', 'shear', 'hydrostatic']) {
+      expect(mohrTranslations.en[`mohr.preset.${id}`]).toBeTruthy();
+      expect(mohrTranslations.en[`mohr.presetShort.${id}`]).toBeTruthy();
+    }
     for (const kind of ['Plane', 'Space']) for (const i of [1, 2, 3, 4]) expect(mohrTranslations.en[`mohr.help${kind}.${i}`]).toBeTruthy();
   });
 

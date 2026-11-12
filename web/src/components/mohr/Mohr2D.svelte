@@ -104,7 +104,7 @@
     </dl>
 
     <div class="mh-board mh-board-2d">
-      <PlotCard title={tm('mohr.circle')} file="mohr-circle" testid="mohr2d-circle-card" hero>
+      <PlotCard title={tm('mohr.circle')} testid="mohr2d-circle-card" hero>
         {#snippet tools()}
           <label class="mh-switch" title={tm('mohr.tauDownHelp')}><input type="checkbox" role="switch" bind:checked={value.tauDown} data-testid="mohr2d-taudown" /> <span>{tm('mohr.tauDown')}</span></label>
           <MohrMenu label={tm('mohr.conventions')} wide>
@@ -114,7 +114,7 @@
         {/snippet}
         <MohrCircle2DPlot sx={shown.sx} sy={shown.sy} txy={shown.txy} bind:theta={value.theta} tauDown={value.tauDown} unit={value.unit} bind:focus {fit} {digits} />
       </PlotCard>
-      <PlotCard title={tm('mohr.element')} file="stress-element" testid="mohr2d-element-card">
+      <PlotCard title={tm('mohr.element')} testid="mohr2d-element-card">
         <StressElementPlot sx={shown.sx} sy={shown.sy} txy={shown.txy} bind:theta={value.theta} bind:focus {fit} {digits} />
       </PlotCard>
     </div>

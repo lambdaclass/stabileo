@@ -9,9 +9,9 @@
   let text = $state('');
   let focused = $state(false);
   let invalid = $state(false);
-  let shownScale = scale;
+  let shownScale: number | undefined;
   $effect(() => {
-    const v = value, unitChanged = scale !== shownScale;
+    const v = value, unitChanged = shownScale !== undefined && scale !== shownScale;
     void places;
     shownScale = scale;
     if (!focused || unitChanged) { text = show(v); invalid = false; }

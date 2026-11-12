@@ -16,6 +16,14 @@ async function noHorizontalScroll(page: Page) {
   expect(await page.evaluate(() => [...document.querySelectorAll('.landing')].every((l) => l.scrollWidth <= l.clientWidth))).toBe(true);
 }
 
+async function noDownloads(page: Page, root: string) {
+  const tool = page.getByTestId(root);
+  await expect(tool).toBeVisible();
+  await expect(tool.locator('[data-testid$="-export"]')).toHaveCount(0);
+  await expect(tool.getByRole('button', { name: /download|descargar|svg|png/i })).toHaveCount(0);
+  await expect(tool.locator('summary', { hasText: /svg|png/i })).toHaveCount(0);
+}
+
 test('@smoke the 2D Mohr tool computes, keeps its state in a link and opens the app with it', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const app = watchAppChunk(page);
@@ -26,6 +34,7 @@ test('@smoke the 2D Mohr tool computes, keeps its state in a link and opens the 
   expect(await number(page, 'mohr2d-tmax')).toBeCloseTo(42.43, 2);
   expect(await number(page, 'mohr2d-theta1')).toBeCloseTo(22.5, 2);
   await expect(page.getByTestId('mohr2d-circle')).toHaveAttribute('aria-label', /Mohr circle/);
+  await noDownloads(page, 'mohr2d');
 
   await page.getByTestId('mohr2d-sx').fill('100');
   await expect(page.getByTestId('mohr2d-s1')).not.toHaveText('92.43');
@@ -81,8 +90,9 @@ test('@smoke the 3D tool solves the presets, picks planes and opens the app with
   expect(await number(page, 'mohr3d-s1')).toBeCloseTo(92.53, 2);
   expect(await number(page, 'mohr3d-s3')).toBeCloseTo(-37.10, 2);
   expect(await number(page, 'mohr3d-vm')).toBeCloseTo(113.03, 2);
+  await noDownloads(page, 'mohr3d');
 
-  await page.getByTestId('mohr3d-preset').selectOption('shear');
+  await page.getByTestId('mohr3d-preset-shear').click();
   await expect(page.getByTestId('mohr3d-s1')).toHaveText('50.00');
   await expect(page.getByTestId('mohr3d-s2')).toHaveText('0.00');
   await expect(page.getByTestId('mohr3d-s3')).toHaveText('-50.00');
@@ -91,10 +101,10 @@ test('@smoke the 3D tool solves the presets, picks planes and opens the app with
   await expect(page.getByTestId('mohr3d-sn')).toHaveText('0.00');
   await expect(page.getByTestId('mohr3d-tn')).toHaveText('50.00');
 
-  await page.getByTestId('mohr3d-preset').selectOption('hydrostatic');
+  await page.getByTestId('mohr3d-preset-hydrostatic').click();
   await expect(page.getByTestId('mohr3d-principal-label')).toHaveCount(1);
   await expect(page.getByTestId('mohr3d-principal-label')).toHaveText('σ₁ = σ₂ = σ₃ = -60.00');
-  await page.getByTestId('mohr3d-preset').selectOption('general');
+  await page.getByTestId('mohr3d-preset-general').click();
   await page.getByTestId('mohr3d-octahedral').click();
   await expect(page.getByTestId('mohr3d-n')).toHaveText('(0.577; 0.577; 0.577)');
   expect(await number(page, 'mohr3d-sn')).toBeCloseTo(46.67, 2);
@@ -118,6 +128,7 @@ test('@smoke the 3D tool solves the presets, picks planes and opens the app with
   const dialog = page.getByTestId('mohr-dialog');
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   await expect(dialog).toHaveAttribute('data-kind', 'space');
+  await noDownloads(page, 'mohr-dialog');
   expect(await fieldValue(page, 'mohr3d-xy')).toBe('12.5');
   expect(await fieldValue(page, 'mohr3d-zz')).toBe('-30');
   await expect(page.getByTestId('mohr3d-n')).toHaveText(n!);
@@ -195,7 +206,7 @@ test('@smoke the 3D circles cut along a principal plane and a plane of maximum s
   await expect(page.getByTestId('mohr3d-tn')).toHaveText('64.81');
   expect(await number(page, 'mohr3d-sn')).toBeCloseTo((92.53 - 37.10) / 2, 1);
 
-  await page.getByTestId('mohr3d-preset').selectOption('hydrostatic');
+  await page.getByTestId('mohr3d-preset-hydrostatic').click();
   await expect(page.getByTestId('mohr3d-tn')).toHaveText('0.00');
   expect(await page.locator('[data-testid="mohr3d"] svg').evaluateAll((svgs) => svgs.every((s) => !s.outerHTML.includes('NaN')))).toBe(true);
 });
@@ -237,6 +248,37 @@ test('@smoke changing the unit converts every field and result, keeps the drawin
   await page.getByTestId('mohr3d-unit').selectOption('MPa');
   await expect(page.getByTestId('mohr3d-xx')).toHaveValue('80');
   await expect(page.getByTestId('mohr3d-s1')).toHaveText('92.53');
+});
+
+test('@smoke the case tiles load their tensor, mark the one that matches and move with the arrow keys', async ({ page }) => {
+  await page.goto('/en/tools/mohr-3d/');
+  const group = page.getByTestId('mohr3d-preset');
+  await expect(group).toHaveAttribute('role', 'radiogroup');
+  await expect(page.getByTestId('mohr3d-preset-general')).toHaveAttribute('aria-checked', 'true');
+  await expect(group.locator('[aria-checked="true"]')).toHaveCount(1);
+
+  await page.getByTestId('mohr3d-preset-uniaxial').click();
+  await expect(page.getByTestId('mohr3d-preset-uniaxial')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('mohr3d-preset-general')).toHaveAttribute('aria-checked', 'false');
+  for (const [id, v] of [['xx', '100'], ['yy', '0'], ['zz', '0'], ['xy', '0'], ['xz', '0'], ['yz', '0']]) await expect(page.getByTestId(`mohr3d-${id}`)).toHaveValue(v);
+  await expect(page.getByTestId('mohr3d-s1')).toHaveText('100.00');
+  await expect(page.getByTestId('mohr3d-tmax')).toHaveText('50.00');
+  await expect(page.getByTestId('mohr3d-preset-uniaxial')).toHaveAttribute('title', 'Uniaxial tension');
+
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('mohr3d-preset-biaxial')).toBeFocused();
+  await expect(page.getByTestId('mohr3d-preset-biaxial')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('mohr3d-yy')).toHaveValue('100');
+  await page.keyboard.press('End');
+  await expect(page.getByTestId('mohr3d-preset-hydrostatic')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('mohr3d-s3')).toHaveText('-60.00');
+  await expect(page.getByTestId('mohr3d-preset-hydrostatic')).toHaveAttribute('tabindex', '0');
+
+  await page.getByTestId('mohr3d-xx').fill('-55');
+  await expect(group.locator('[aria-checked="true"]')).toHaveCount(0);
+  await page.getByTestId('mohr3d-preset-shear').click();
+  await expect(page.getByTestId('mohr3d-preset-shear')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('mohr3d-xy')).toHaveValue('50');
 });
 
 test('@smoke a link written before stresses were kept in MPa still opens with the numbers it showed', async ({ page }) => {

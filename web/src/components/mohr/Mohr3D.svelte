@@ -1,6 +1,6 @@
 <script lang="ts">
   import './mohr.css';
-  import { PRESETS, PRESET_IDS, principal3, invariants3, onPlane, normalFromAngles, anglesFromNormal, maxShearNormal, OCTAHEDRAL, type PresetId, type Tensor3, type Vec3 } from '../../lib/mohr/space';
+  import { PRESETS, principal3, invariants3, onPlane, normalFromAngles, anglesFromNormal, maxShearNormal, OCTAHEDRAL, type PresetId, type Tensor3, type Vec3 } from '../../lib/mohr/space';
   import { UNITS, UNIT_DIGITS, UNIT_STEP, PER_MPA, type Mohr3DState } from '../../lib/mohr/state';
   import { tm, formatter } from './i18n';
   import NumberField from './NumberField.svelte';
@@ -10,6 +10,7 @@
   import PlaneCubePlot from './PlaneCubePlot.svelte';
   import MohrCircles3DPlot from './MohrCircles3DPlot.svelte';
   import MohrLegend from './MohrLegend.svelte';
+  import PresetPicker from './PresetPicker.svelte';
   import MohrIcon from './MohrIcon.svelte';
   import type { Focus3D } from './focus';
 
@@ -33,11 +34,8 @@
   let alpha = $state(SPHERE_VIEW.alpha), beta = $state(SPHERE_VIEW.beta);
   let focus = $state<Focus3D>(null);
 
-  let preset = $state('');
-  function applyPreset(id: string) {
-    if (!(PRESET_IDS as string[]).includes(id)) return;
-    value.s = { ...PRESETS[id as PresetId] };
-    preset = '';
+  function applyPreset(id: PresetId) {
+    value.s = { ...PRESETS[id] };
   }
   function pick(v: Vec3, places = 1) {
     const a = anglesFromNormal(v);
@@ -63,6 +61,7 @@
           {#each UNITS as u (u)}<option value={u}>{u}</option>{/each}
         </select>
       </div>
+      <PresetPicker value={value.s} onpick={applyPreset} />
       <div class="mh-tensor" role="group" aria-label={tm('mohr.stressTensor')}>
         <NumberField label="σx" bind:value={value.s.xx} scale={k} places={digits + 1} {step} testid="mohr3d-xx" />
         <NumberField label="τxy" bind:value={value.s.xy} scale={k} places={digits + 1} {step} testid="mohr3d-xy" shear />
@@ -72,13 +71,6 @@
         <NumberField label="τyz" bind:value={value.s.yz} scale={k} places={digits + 1} {step} testid="mohr3d-yz" shear />
         <span class="mh-tensor-gap" aria-hidden="true"></span>
         <NumberField label="σz" bind:value={value.s.zz} scale={k} places={digits + 1} {step} testid="mohr3d-zz" />
-      </div>
-      <div class="mh-row">
-        <label for={`${uid}-preset`}>{tm('mohr.preset')}</label>
-        <select id={`${uid}-preset`} class="mh-select" bind:value={preset} onchange={() => applyPreset(preset)} data-testid="mohr3d-preset">
-          <option value="">{tm('mohr.choose')}</option>
-          {#each PRESET_IDS as id (id)}<option value={id}>{tm(`mohr.preset.${id}`)}</option>{/each}
-        </select>
       </div>
 
       <div class="mh-block">
@@ -103,7 +95,6 @@
           <dd><span class="mh-sym">τ<sub>n</sub></span><span class="mh-current-num" data-testid="mohr3d-tn">{fmt(plane.tauN)}</span></dd>
         </dl>
       </div>
-      <p class="mh-note mh-hint">{tm('mohr.pickTip')}</p>
     </section>
 
     <dl class="mh-readout" aria-label={tm('mohr.principalDirections')}>
@@ -126,8 +117,12 @@
     </dl>
 
     <div class="mh-board mh-board-3d">
-      <PlotCard title={tm('mohr.sphere')} file="stress-sphere" testid="mohr3d-sphere-card" hero>
+      <PlotCard title={tm('mohr.sphere')} testid="mohr3d-sphere-card" hero>
         {#snippet tools()}
+          <MohrMenu label={tm('mohr.howTo')} wide>
+            {#snippet summary()}?{/snippet}
+            <p class="mh-menu-text">{tm('mohr.pickTip')}</p>
+          </MohrMenu>
           <button type="button" class="mh-btn mh-btn-ghost" onclick={() => { alpha = SPHERE_VIEW.alpha; beta = SPHERE_VIEW.beta; }} aria-label={tm('mohr.resetView')} title={tm('mohr.resetView')}><MohrIcon name="reset" /></button>
           <MohrMenu label={tm('mohr.viewSettings')} wide testid="mohr3d-settings">
             {#snippet summary()}<MohrIcon name="sliders" />{/snippet}
@@ -147,10 +142,10 @@
         {/snippet}
         <NormalSpherePlot s={shown} {n} {principal} {settings} unit={value.unit} onpick={pick} bind:alpha bind:beta {focus} {fit} {digits} />
       </PlotCard>
-      <PlotCard title={tm('mohr.cube')} file="cutting-plane" testid="mohr3d-cube-card">
+      <PlotCard title={tm('mohr.cube')} testid="mohr3d-cube-card">
         <PlaneCubePlot s={shown} {n} {peak} bind:alpha bind:beta {fit} />
       </PlotCard>
-      <PlotCard title={tm('mohr.circles3d')} file="mohr-circles" testid="mohr3d-circles-card">
+      <PlotCard title={tm('mohr.circles3d')} testid="mohr3d-circles-card">
         <MohrCircles3DPlot values={principal.values} sigmaN={plane.sigmaN} tauN={plane.tauN} unit={value.unit} bind:focus {fit} {digits}
           onprincipal={(i) => pick(principal.directions[i], 4)} onmaxshear={() => pick(maxShearNormal(principal.directions), 4)} />
       </PlotCard>
