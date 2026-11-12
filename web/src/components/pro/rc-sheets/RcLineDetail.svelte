@@ -9,10 +9,11 @@
   import RcCombos from './RcCombos.svelte';
   import RcSteps from './RcSteps.svelte';
   import RcSectionSvg from './RcSectionSvg.svelte';
+  import RcResize from './RcResize.svelte';
   import { beamSection } from '../../../lib/rc-sheets/drawing';
   import { groupsLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
 
-  let { line, spans }: { line: LineLayout; spans: BeamRow[] } = $props();
+  let { line, spans, onleave = () => {} }: { line: LineLayout; spans: BeamRow[]; onleave?: () => void } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   let open = $state<string | null>(null);
   const MARKS_KEY = 'stabileo-rc-marks';
@@ -44,6 +45,7 @@
   });
 </script>
 
+<RcResize row={line} {spans} {onleave} />
 <RcLineEditor {line} />
 <label class="rcd-marks"><input type="checkbox" checked={showMarks} onchange={(e) => setMarks(e.currentTarget.checked)} data-testid="rc-marks-toggle" /> {t('rcSheets.line.showMarks')}</label>
 <RcLineSvg {line} marks={showMarks} />

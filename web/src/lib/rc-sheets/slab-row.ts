@@ -64,9 +64,29 @@ export function slabRow(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | un
   };
 
   const guessDia = c.diameters.includes(10) ? 10 : c.diameters.find((x) => x >= 8) ?? 10;
-  const pre = Object.fromEntries(SLAB_FACES.map((f) => [f, reqOf(f, guessDia, guessDia)])) as Record<SlabFace, ReturnType<typeof reqOf>>;
-  const meshFor = (f: SlabFace): MeshBars => (pre[f].asReq > 0 ? proposeMesh(pre[f].asReq, pre[f].sMax, c.diameters) : { dia: 0, spacing: 0 });
-  const proposed: SlabAdopted = { bottomX: meshFor('bottomX'), bottomY: meshFor('bottomY'), topX: meshFor('topX'), topY: meshFor('topY') };
+  // The depths follow the bars chosen: propose with a guessed diameter, then again with the diameters
+  // the proposal took, until it settles, then close the spacing of any face still short.
+  const reqWith = (p: SlabAdopted | null) => Object.fromEntries(SLAB_FACES.map((f) => {
+    const side = f.startsWith('bottom') ? 'bottom' : 'top';
+    return [f, reqOf(f, p?.[`${side}X` as SlabFace].dia || guessDia, p?.[`${side}Y` as SlabFace].dia || guessDia)];
+  })) as Record<SlabFace, ReturnType<typeof reqOf>>;
+  const meshesFor = (pre: Record<SlabFace, ReturnType<typeof reqOf>>): SlabAdopted =>
+    Object.fromEntries(SLAB_FACES.map((f) => [f, pre[f].asReq > 0 ? proposeMesh(pre[f].asReq, pre[f].sMax, c.diameters) : { dia: 0, spacing: 0 }])) as unknown as SlabAdopted;
+  let proposed = meshesFor(reqWith(null));
+  for (let k = 0; k < 4; k++) {
+    const next = meshesFor(reqWith(proposed));
+    if (SLAB_FACES.every((f) => next[f].dia === proposed[f].dia && Math.abs(next[f].spacing - proposed[f].spacing) < 1e-9)) break;
+    proposed = next;
+  }
+  for (let k = 0; k < 8; k++) {
+    const req = reqWith(proposed);
+    const short = SLAB_FACES.filter((f) => req[f].mu > 1e-6 && proposed[f].dia > 0 && stripCapacity(meshArea(proposed[f]), d.h, req[f].d, c.mat.fc, c.mat.fy, EDITION) < req[f].mu - 1e-6);
+    if (!short.length) break;
+    for (const f of short) {
+      const m = proposed[f];
+      proposed = { ...proposed, [f]: m.spacing > 0.075 + 1e-9 ? { dia: m.dia, spacing: Math.round((m.spacing - 0.025) * 1000) / 1000 } : { dia: c.diameters.find((x) => x > m.dia) ?? m.dia, spacing: m.spacing } };
+    }
+  }
   const a = adopted ?? proposed;
 
   const faces = {} as Record<SlabFace, SlabFaceResult>;

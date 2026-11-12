@@ -11,8 +11,9 @@ import { clearPlateMesh, physicalPlates, plateStatus, preparePlatesForAnalysis }
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.members.quads?.length ?? 0;
-import { buildSheetRows, setSheetCode, rcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
+import { buildSheetRows, redesignerOf, setSheetCode, rcSheetsData, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
+import { goToRow, resizeHints, lineResizeHint } from '../rc-sheets-resize';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -205,6 +206,7 @@ describe('reinforcement sheets from a solved model', () => {
     const rows = buildSheetRows();
     expect(rows.slab).toHaveLength(1);
     const s = rows.slab[0]!;
+    console.log('DBG', JSON.stringify(s.verifications.map((v) => [v.label, v.ok, v.demand, v.capacity])), rows.punching.length, rows.punching[0]?.status);
     expect(s.demand.m.bottomX.value).toBeGreaterThan(6);
     expect(s.demand.m.bottomX.value).toBeCloseTo(s.demand.m.bottomY.value, 6);
     expect(s.demand.m.topX.value).toBeGreaterThan(0);
@@ -400,6 +402,71 @@ describe('reinforcement sheets from a solved model', () => {
       expect(f.offset).toBeCloseTo(factor * f.d, 9);
     }
     setSheetCode('cirsoc201-2025');
+  });
+
+  /** A 6 × 6 m flat slab on its four corners and one central column of side `c`, mesh 0.5 m, q of D. */
+  function flatPlate(h: number, c: number, q: number) {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    const col = modelStore.addSection({ name: 'C', a: c * c, iy: c ** 4 / 12, iz: c ** 4 / 12, j: 0.1406 * c ** 4, b: c, h: c, shape: 'rect' } as never);
+    const N = 12, id: number[][] = [];
+    for (let i = 0; i <= N; i++) { id.push([]); for (let j = 0; j <= N; j++) id[i]!.push(modelStore.addNode(-3 + i * 0.5, -3 + j * 0.5, 3)); }
+    const D = modelStore.model.loadCases.find((k) => k.type === 'D')!.id;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) modelStore.addSurfaceLoad3D(modelStore.addQuad([id[i]![j]!, id[i + 1]![j]!, id[i + 1]![j + 1]!, id[i]![j + 1]!], conc, h), q, D);
+    for (let i = 0; i <= N; i += N) for (let j = 0; j <= N; j += N) modelStore.addSupport(id[i]![j]!, 'pinned3d');
+    const base = modelStore.addNode(0, 0, 0);
+    const e = modelStore.addElement(base, id[6]![6]!, 'frame');
+    modelStore.updateElementSection(e, col); modelStore.updateElementMaterial(e, conc);
+    modelStore.addSupport(base, 'fixed3d');
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    ensurePhysicalModel();
+    solve();
+    return e;
+  }
+
+  it('reads a flat slab\'s one-way shear from d beyond the column, and proposes slab meshes that verify on the depths their own bars leave', () => {
+    flatPlate(0.14, 0.3, 8);
+    const s = buildSheetRows().slab[0]!;
+    // The shells round the column carry the two-way shear punching checks; one-way shear reads past them.
+    expect(s.verifications.find((v) => v.label === 'rcSheets.v.slabShearX')!.ok).toBe(true);
+    expect(s.verifications.filter((v) => v.label.startsWith('rcSheets.v.slab.')).every((v) => v.ok)).toBe(true);
+  });
+
+  it('says what a failing punching joint would need, the slab or the column, and takes the reader to it', () => {
+    const c = flatPlate(0.12, 0.2, 12);
+    const p = buildSheetRows().punching[0]!;
+    expect(p.status).toBe('fail');
+    const [slabHint, colHint] = resizeHints(p);
+    expect(slabHint).toMatchObject({ what: 'punchSlab', direction: 'grow', from: [0.12] });
+    expect(slabHint!.to![0]!).toBeGreaterThan(0.12);
+    // A column twice as large may not do: the hint then says so (to: null) rather than naming a size.
+    expect(colHint).toMatchObject({ what: 'punchColumn', from: [0.2, 0.2] });
+    expect(colHint!.to === null || colHint!.to[0]! > 0.2).toBe(true);
+    expect(goToRow(p, 'members')).toBe(true);
+    expect([...uiStore.selectedElements]).toEqual([c]);
+    expect(uiStore.proActiveTab).toBe('elements');
+    expect(goToRow(p, 'plates')).toBe(true);
+    expect(uiStore.selectedPlates.size).toBe(1);
+    expect(uiStore.proActiveTab).toBe('shells');
+  });
+
+  it('gives a beam too shallow the depth it needs, never more than the one that holds, and a column with room the smaller section that still holds', () => {
+    frame();
+    solve();
+    const rows = buildSheetRows();
+    const ok = rows.beam[0]!;
+    expect(resizeHints(ok)).toEqual([]);
+    const shallow = redesignerOf(ok.key)!({ ...ok.demand, h: 0.25 } as never) as typeof ok;
+    expect(shallow.status).toBe('fail');
+    const [hint] = resizeHints(shallow);
+    expect(hint).toMatchObject({ what: 'beamH', direction: 'grow', from: [0.25] });
+    expect(hint!.to![0]!).toBeGreaterThan(0.25);
+    expect(hint!.to![0]!).toBeLessThanOrEqual(0.6 + 1e-9);
+    expect(redesignerOf(ok.key)!({ ...ok.demand, h: hint!.to![0]! - 0.05 } as never).status).toBe('fail');
+    const col = rows.column[0]!;
+    const [smaller] = resizeHints(col);
+    expect(smaller).toMatchObject({ what: 'column', direction: 'shrink', from: [0.4, 0.4] });
+    expect(smaller!.to![0]!).toBeLessThan(0.4);
+    expect(lineResizeHint(rows.beam)).toBeNull();
   });
 
   it('cuts a column into storeys at the flat slabs it carries, as at beams, and checks punching at each', () => {

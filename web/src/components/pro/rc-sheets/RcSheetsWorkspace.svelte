@@ -22,6 +22,7 @@
   import RcSlabLayers from './RcSlabLayers.svelte';
   import RcWallDetail from './RcWallDetail.svelte';
   import RcPunchingSvg from './RcPunchingSvg.svelte';
+  import RcResize from './RcResize.svelte';
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
   import { modelStore } from '../../../lib/store';
@@ -173,8 +174,9 @@
               <tr class="detail">
                 <td colspan="13">
                   {#if r.family === 'line'}
-                    <RcLineDetail line={r} spans={spansOf(r)} />
+                    <RcLineDetail line={r} spans={spansOf(r)} onleave={onclose} />
                   {:else}
+                  <RcResize row={r} onleave={onclose} />
                   {#if r.family !== 'punching'}<RcRowEditor row={r} />{/if}
                   {#if r.family === 'column'}
                     <div class="rcw-secs">

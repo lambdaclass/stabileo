@@ -307,6 +307,50 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
   return out;
 }
 
+/**
+ * The columns and point supports a slab rests on, each with its reach c/2 + d: within it the shear
+ * is two-way and punching checks it (§22.6); one-way shear is read from d beyond the face.
+ */
+function slabPosts(m: DemandInput, keys: ReadonlySet<string>, h: number): Array<{ p: Pt; r: number }> {
+  const nodesOfKey = (k: string) => (k[0] === 'q' ? m.shells.quads?.get(Number(k.slice(1)))?.nodes : m.shells.plates?.get(Number(k.slice(1)))?.nodes) ?? [];
+  const inSlab = new Set([...keys].flatMap(nodesOfKey));
+  const posts: Array<{ p: Pt; r: number }> = [];
+  const d = Math.max(0.05, h - 0.03);
+  for (const e of m.elements.values()) {
+    if (!isVertical(m, e)) continue;
+    for (const n of [e.nodeI, e.nodeJ]) {
+      const p = m.nodes.get(n);
+      const sec = m.sections.get(e.sectionId);
+      if (p && inSlab.has(n)) posts.push({ p, r: Math.max(sec?.b ?? 0.3, sec?.h ?? 0.3) / 2 + d });
+    }
+  }
+  for (const n of m.supportNodes) { const p = m.nodes.get(n); if (p && inSlab.has(n)) posts.push({ p, r: 0.15 + d }); }
+  return posts;
+}
+
+/**
+ * A slab on posts checked in one-way shear as a wide beam (§22.5, §8.4.3.2): the shear across a
+ * whole cut of the panel, averaged along it, on every cut farther than c/2 + d from the posts.
+ * Its largest |qx| and |qy|, kN/m; null for a slab with no posts, which reads its elements' peak.
+ */
+function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly number[] }>, centre: ReadonlyMap<string, { x: number; y: number }>, posts: ReadonlyArray<{ p: Pt; r: number }>): { qx: number; qy: number } | null {
+  if (!posts.length) return null;
+  const cut = (axis: 'x' | 'y', comp: 0 | 1) => {
+    const bins = new Map<number, { sum: number; n: number }>();
+    for (const r of rows) {
+      const c = centre.get(r.key);
+      if (!c) continue;
+      const at = Math.round(c[axis] * 1000) / 1000;
+      if (posts.some(({ p, r: reach }) => Math.abs(at - p[axis]) < reach)) continue;
+      const b = bins.get(at) ?? { sum: 0, n: 0 };
+      b.sum += Math.abs(r.q[comp]!); b.n++;
+      bins.set(at, b);
+    }
+    return Math.max(0, ...[...bins.values()].map((b) => b.sum / b.n));
+  };
+  return { qx: cut('x', 0), qy: cut('y', 1) };
+}
+
 export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => number | null): SlabDemand[] {
   const out: SlabDemand[] = [];
   const quadNodes = (id: number) => m.shells.quads?.get(id)?.nodes ?? [];
@@ -330,11 +374,17 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     if (!horizontal && g.kind !== 'slab') continue;
     const h = thickness(g);
     if (!h) continue;
+    const posts = slabPosts(m, keys, h);
+    const centre = new Map([...keys].map((k) => {
+      const pts = (k[0] === 'q' ? quadNodes(Number(k.slice(1))) : plateNodes(Number(k.slice(1)))).map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p);
+      return [k, { x: pts.reduce((a, p) => a + p.x, 0) / Math.max(pts.length, 1), y: pts.reduce((a, p) => a + p.y, 0) / Math.max(pts.length, 1) }] as const;
+    }));
     const best: Record<SlabFace, Signed> = { bottomX: { value: 0 }, bottomY: { value: 0 }, topX: { value: 0 }, topY: { value: 0 } };
     const q = { x: { value: 0 } as Signed, y: { value: 0 } as Signed };
     const combos: SlabComboForces[] = [];
     for (const set of m.sets) {
       const c: SlabComboForces = { combo: set.name, bottomX: 0, bottomY: 0, topX: 0, topY: 0, qx: 0, qy: 0 };
+      const shears: Array<{ key: string; q: readonly number[] }> = [];
       for (const row of shellRowsIn(set, m.shells, keys)) {
         const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
         if (!keys.has(key) || !row.global) continue;
@@ -346,8 +396,10 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
           if (wa[f] > best[f].value) best[f] = { value: wa[f], source: { combo: set.name } };
         }
         const sh = row.global.shear;
-        if (sh) { c.qx = Math.max(c.qx, Math.abs(sh[0])); c.qy = Math.max(c.qy, Math.abs(sh[1])); }
+        if (sh) { shears.push({ key, q: sh }); c.qx = Math.max(c.qx, Math.abs(sh[0])); c.qy = Math.max(c.qy, Math.abs(sh[1])); }
       }
+      const wide = wideBeamShear(shears, centre, posts);
+      if (wide) { c.qx = wide.qx; c.qy = wide.qy; }
       if (c.qx > q.x.value) q.x = { value: c.qx, source: { combo: set.name } };
       if (c.qy > q.y.value) q.y = { value: c.qy, source: { combo: set.name } };
       combos.push(c);

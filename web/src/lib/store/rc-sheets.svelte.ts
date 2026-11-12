@@ -234,6 +234,11 @@ export function meshWallsForSheets(): number {
   return meshed;
 }
 
+/** A row designed again from its demand with other dimensions, its context as the last build had it; by row key. */
+export type Redesign = (demand: never) => SheetRow;
+const redesigners = new Map<string, Redesign>();
+export const redesignerOf = (key: string): Redesign | undefined => redesigners.get(key);
+
 export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   const { sets, basis, dead } = designSets();
   const code = sheetCode();
@@ -279,8 +284,10 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
     const sortedRows = [...rows].sort((p, q) => (p.demand.line?.index ?? 0) - (q.demand.line?.index ?? 0));
     sortedRows.forEach((r, k) => { const sa = layout.spanAdopted[k]; if (sa) derived.set(r.key, sa); });
   }
+  redesigners.clear();
   const beam = dem.beams.map((d) => {
     const ctx = beamCtx(d);
+    redesigners.set(d.key, ((x: typeof d) => rules.beamRow(x, ctx, undefined, fmt)) as Redesign);
     const own = data.adopted[d.key] as BeamAdopted | undefined;
     let a = own ?? derived.get(d.key);
     let row = cached(d, [code, ctx, a, dec], () => rules.beamRow(d, ctx, a, fmt));
@@ -306,6 +313,7 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
       fromBelow: true, offset: Math.max(prev.b - d.b, prev.h - d.h) / 2,
     } : {};
     const row = cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack));
+    redesigners.set(d.key, ((x: typeof d) => rules.columnRow(x, ctx, undefined, fmt, prev ? { fromBelow: true } : {})) as Redesign);
     below.set(g, row);
     return row;
   });
@@ -313,16 +321,19 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: [6, 8, 10, 12, 16] };
     const a = data.adopted[d.key] as SlabAdopted | undefined;
+    redesigners.set(d.key, ((x: typeof d) => rules.slabRow(x, ctx, undefined, fmt)) as Redesign);
     return cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt));
   });
   const wall = dem.walls.map((d) => {
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...(seismic ? { seismic } : {}) };
     const a = data.adopted[d.key] as WallAdopted | undefined;
+    redesigners.set(d.key, ((x: typeof d) => rules.wallRow(x, ctx, undefined, fmt)) as Redesign);
     return cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt));
   });
   const punching = dem.punching.map((d) => {
     const ctx = { fc: fcOfElement(d.joint.columnElementId), fy, cover: dd.covers.slab, topBarDia: 12 };
+    redesigners.set(d.key, ((x: typeof d) => rules.punchingRow(x, ctx, fmt)) as Redesign);
     return cached(d, [code, ctx, dec], () => rules.punchingRow(d, ctx, fmt));
   });
   const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, { fc: (r) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), beamFc: (b) => fcOfElement(groupOf(b.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() }) : column;

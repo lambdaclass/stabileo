@@ -154,4 +154,12 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await ws.getByTestId('rc-row').first().click();
   await expect(ws.locator('[data-testid="rc-elev-zone"][data-kind="end"]')).toHaveCount(2);
   await expect(ws.getByTestId('rc-elev-note')).toContainText('el proyecto lo pide');
+
+  // From a row to its element: the window closes, the storey's members are selected and the Members tab is open, to change their section there.
+  await expect(ws.getByTestId('rc-resize')).toBeVisible();
+  await expect(ws.getByTestId('rc-resize-searching')).toHaveCount(0, { timeout: 20_000 });
+  await ws.getByTestId('rc-goto-members').click();
+  await expect(ws).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.__stabileo.selection().length)).toBeGreaterThan(0);
+  await expect(page.getByTestId('pro-panel-title')).toHaveText('Barras');
 });
