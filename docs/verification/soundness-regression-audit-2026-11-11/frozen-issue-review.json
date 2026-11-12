@@ -182,15 +182,15 @@
     },
     {
       "model": "solve_arc_length-0015ab84c3baa36f.json",
-      "disposition": "excluded",
+      "disposition": "retained",
       "issue": 1949,
-      "reason": "Converged arc-length response has restrained translations and no recovered support reactions. Inputs and outputs are excluded from the live frozen set; historical bisection captures remain defect evidence. PR #1952 restores corrected outputs."
+      "reason": "PR #1952 restores this exact input with corrected support reactions from the branch engine; independent force and moment balance at the final load factor and exact serialized output are checked. Historical empty reactions remain defect evidence for #1949."
     },
     {
       "model": "solve_arc_length-022317310499426d.json",
-      "disposition": "excluded",
+      "disposition": "retained",
       "issue": 1949,
-      "reason": "Converged arc-length response has restrained translations and no recovered support reactions. Inputs and outputs are excluded from the live frozen set; historical bisection captures remain defect evidence. PR #1952 restores corrected outputs."
+      "reason": "PR #1952 restores this exact input with corrected support reactions from the branch engine; independent force and moment balance at the final load factor and exact serialized output are checked. Historical empty reactions remain defect evidence for #1949."
     },
     {
       "model": "solve_ssi_2d-05d0301923fe0235.json",

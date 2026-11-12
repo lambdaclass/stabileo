@@ -45,11 +45,12 @@ This refactor does not repair staged prescribed-master displacement expansion,
 which is recorded separately in the round-14 handoff. It makes no claim that
 the public staged examples reproduce fictitious stabilization forces on main.
 
-The branch's two corrected arch references are preserved byte for byte under
-`docs/results-changes/fixtures/1952-arc-reactions/`. Existing live/replay/exact
-reference assertions read that location. They are separate regression evidence,
-not additions to main's frozen corpus; the three audit exclusions remain
-unchanged. The merge does not drop their full-precision assertions.
+The merge preserved the branch's two corrected arch references byte for byte
+under `docs/results-changes/fixtures/1952-arc-reactions/`. The subsequent
+[#1952 frozen-coverage restoration](2026-11-arc-length-reactions.md#restore-live-frozen-coverage-after-the-main-merge-2026-11-12)
+regenerates both cases in the live frozen corpus and removes their two named
+exclusions. The independent live comparison now reads `web/results-frozen/`;
+the historical references and their replay assertions remain available.
 
 Pending nonlinear entries now use main's collection-name declarations under
 explicit `analysis:nonlinear` conditions. The separate P-Delta entry retains

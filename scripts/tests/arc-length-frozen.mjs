@@ -34,9 +34,9 @@ for (const suffix of ['0015ab84c3baa36f', '022317310499426d']) {
     assert.ok(Math.abs(f.mEnd - f.mStart + f.vStart * length) < 1e-9, `${name} member ${f.elementId}: ${JSON.stringify(f)}`);
   }
   const snapshot = { format: 1, features: ['plane2D', 'members', 'analysis:nonlinear', 'pathAnalysis'], values: freezeValues(r, 'nonlinear') };
-  const file = new URL(`../../docs/results-changes/fixtures/1952-arc-reactions/${name}`, import.meta.url);
+  const file = new URL(`../../web/results-frozen/${name}`, import.meta.url);
   if (process.argv.includes('--update')) {
-    mkdirSync(new URL('../../docs/results-changes/fixtures/1952-arc-reactions/', import.meta.url), { recursive: true });
+    mkdirSync(new URL('../../web/results-frozen/', import.meta.url), { recursive: true });
     writeFileSync(file, JSON.stringify(snapshot, null, 2) + '\n');
   }
   assert.deepEqual(JSON.parse(readFileSync(file)), snapshot);

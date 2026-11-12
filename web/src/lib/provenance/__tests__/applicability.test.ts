@@ -703,7 +703,7 @@ describe('path reaction recovery registry regressions (#1952)', () => {
       expect(fieldCovered(reactionRecoveryChange, 'nonlinear.results.elementForces[0].mStart', fixture.features)).toBe(true);
       expect(fieldCovered(reactionRecoveryChange, 'nonlinear.results.displacements[0].ux', fixture.features)).toBe(false);
       expect(fieldCovered(reactionRecoveryChange, 'base.reactions[n1].rz', [...fixture.features, 'analysis:linear'])).toBe(false);
-      expect(conditionHolds(reactionRecoveryChange.when, new Set(fixture.features.filter(f => f !== 'pathAnalysis')))).toBe(false);
+      expect(conditionHolds(reactionRecoveryChange.when, new Set(fixture.features.filter((f: string) => f !== 'pathAnalysis')))).toBe(false);
     });
   }
 });

@@ -154,3 +154,29 @@ its collection matcher cannot treat either qualified name as a static
 frozen arc-length results while preventing the notice for an unknown saved
 analysis history from excusing fabricated static forces. `equilibrium` remains
 declared for the added P-Delta diagnostic fields. No engine value changes.
+
+## Restore live frozen coverage after the main merge (2026-11-12)
+
+The #1946 merge removed both corrected arch fixtures from the live frozen
+corpus along with their inputs. Restore `solve_arc_length-0015ab84c3baa36f.json`
+and `solve_arc_length-022317310499426d.json` using the exact native fixture
+inputs and `RESULTS_FROZEN_UPDATE=1 make test.web.results` from this branch's
+WASM engine. Their capture includes `pathAnalysis`; the existing
+`arc-length-reactions` registration covers these recovered reactions and member
+forces. This follow-up changes no engine implementation or numerical tolerance.
+
+Remove only these two names from the #1949 exclusion inventory. The third case,
+`solve_arc_length-0006e86e35791232.json`, remains excluded. Historical audit
+captures and the earlier corrected regression evidence are preserved. Update
+the live inventory review to distinguish the restored outputs from archived
+empty reactions.
+
+The shared frozen-corpus test executes every restored input, checks every
+serialized field exactly and requires the output inventory to match the
+executed corpus. The independent `make test.engine.reactions-frozen` check
+reads these same live frozen outputs, sums reactions and input nodal loads
+scaled by the final load factor, and checks force and moment balance on the
+displaced geometry. Its existing tolerances and member equilibrium assertions
+are retained. Per-case restoration regressions require each original input,
+its complete set of reactions, the path-analysis feature and exclusion-policy
+acceptance, so another named-case deletion cannot silently remove coverage.

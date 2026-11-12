@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import exclusions from './frozen-exclusions.json';
 import inputs from './frozen-inputs.json';
@@ -38,7 +39,7 @@ it('keeps the exclusion inventory nonempty and unambiguous', () => {
 });
 
 for (const model of ['solve_arc_length-0015ab84c3baa36f.json', 'solve_arc_length-022317310499426d.json']) {
-  it.skip(`known wrong result: #1952 restores corrected frozen coverage for ${model}`, () => {
+  it(`restores corrected frozen coverage (#1952) for ${model}`, () => {
     const entry = inputs.find(input => input.model === model);
     expect(entry, model).toBeDefined();
     expect(entry?.analysis).toBe('solve_arc_length');
