@@ -28,9 +28,9 @@ components; 3–5 are moment components about the centre of the deformed nodal
 bounding box, including each force lever arm. Applied sums use the physical
 assembled load vector. Reaction sums use recovered physical support forces.
 `residualOk` checks the physical free residual; `equilibriumOk` reports the
-existing global force and moment check. Both are required for P-Delta reaction
-availability. Neither flag certifies a
-stabilized residual as physical equilibrium. Small nonzero reaction components
+existing global force and moment check. Either flag being false adds a
+structured reaction-unavailability diagnostic. Neither flag certifies a stabilized
+residual as physical equilibrium. Small nonzero reaction components
 and moment differences are retained as produced, without rounding them to zero.
 
 | Equilibrium field | Portal frame | Tower | Meaning |
