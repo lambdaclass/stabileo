@@ -389,6 +389,12 @@ fn main() {
             with self.assertRaises(ValueError):
                 merge_input_records(first, invalid)
 
+    @unittest.skip('known wrong result: #1946')
+    def test_reference_collection_is_independent_of_runner_arguments(self):
+        for arguments in [[], ['--verbose'], ['scripts/tests/test_soundness_audit.py']]:
+            with self.subTest(arguments=arguments), patch.object(sys, 'argv', ['unittest', *arguments]):
+                self.test_reference_collection_uses_all_provenance_and_refuses_changed_targets()
+
     def test_reference_collection_uses_all_provenance_and_refuses_changed_targets(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             area = Path(directory)
@@ -596,6 +602,17 @@ class EndpointIdentity(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         self.execute('collect-references.py', area)
                     self.assertFalse((area / 'reference-comparisons.json').exists())
+
+    def test_empty_reference_endpoints_are_rejected_before_publishing(self):
+        for source in [None, 'reference', 'shells']:
+            with self.subTest(source=source), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                area = Path(directory)
+                if source is not None:
+                    self.references(area, [], [], source)
+                with self.assertRaisesRegex(ValueError, 'endpoint identity mismatch:.*empty=True'):
+                    self.execute('collect-references.py', area)
+                self.assertFalse((area / 'reference-comparisons.json').exists())
+                self.assertFalse((area / 'reference-probe-logs.json.gz').exists())
 
     def test_duplicate_identity_requires_explicit_selector(self):
         a, b = self.measurement('loop', 1), self.measurement('loop', 2)
