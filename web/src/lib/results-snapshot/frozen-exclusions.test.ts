@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import exclusions from './frozen-exclusions.json';
 import inputs from './frozen-inputs.json';
@@ -36,3 +36,19 @@ it('keeps the exclusion inventory nonempty and unambiguous', () => {
     expect(names.length).toBeGreaterThan(0);
   }
 });
+
+for (const model of ['solve_arc_length-0015ab84c3baa36f.json', 'solve_arc_length-022317310499426d.json']) {
+  it.skip(`known wrong result: #1952 restores corrected frozen coverage for ${model}`, () => {
+    const entry = inputs.find(input => input.model === model);
+    expect(entry, model).toBeDefined();
+    expect(entry?.analysis).toBe('solve_arc_length');
+    const original = JSON.parse(readFileSync(new URL(`../../../../engine/tests/fixtures/${model}`, import.meta.url), 'utf8'));
+    expect(entry?.input).toEqual([original]);
+    expect(() => assertFrozenModelAllowed(model, exclusions)).not.toThrow();
+    const output = JSON.parse(readFileSync(new URL(model, dir), 'utf8'));
+    expect(output.features).toEqual(['plane2D', 'members', 'analysis:nonlinear', 'pathAnalysis']);
+    expect(output.values['nonlinear.converged']).toBe(true);
+    expect(output.values['nonlinear.results.reactions.length']).toBe(Object.keys(original.solver.supports).length);
+    expect(output.values['nonlinear.results.reactions.length']).toBeGreaterThan(0);
+  });
+}
