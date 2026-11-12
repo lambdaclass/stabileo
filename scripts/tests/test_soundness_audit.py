@@ -32,6 +32,21 @@ def partial():
     return namespace['partial']
 
 
+class FrozenArtifacts(unittest.TestCase):
+    @unittest.skip('known wrong result: #1946')
+    def test_frozen_outputs_and_inputs_have_no_defect_annotations(self):
+        files = sorted((ROOT / 'web/results-frozen').glob('*.json'))
+        self.assertTrue(files)
+        for file in files:
+            with self.subTest(file=file.name):
+                self.assertEqual(set(json.loads(file.read_text())), {'format', 'features', 'values'})
+        inputs = json.loads((ROOT / 'web/src/lib/results-snapshot/frozen-inputs.json').read_text())
+        self.assertTrue(inputs)
+        for entry in inputs:
+            with self.subTest(model=entry['model']):
+                self.assertEqual(set(entry), {'model', 'analysis', 'input', 'test'})
+
+
 class References(unittest.TestCase):
     def test_present_fields_and_extra_fields(self):
         match = partial()
