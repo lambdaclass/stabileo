@@ -5,6 +5,11 @@ import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/truss-balance-1969.json', import.meta.url)));
+function assertDisplacements(result, input, dimension) {
+  assert.equal(result.displacements.length, Object.keys(input.nodes).length);
+  assert.ok(result.displacements.every(d => Object.values(d).every(v => v === null || Number.isFinite(v))));
+}
+
 function equivalentNodal(dimension) {
   const source = fixtures['1969'];
   const member = source.elements['5'];
@@ -34,8 +39,7 @@ for (const dimension of [2, 3]) {
   const nodal = fixtures[nodalKey];
   test(`${dimension}D equivalent nodal control`, () => {
     const result = engine[`solve_${dimension}d`](nodal);
-    assert.equal(result.displacements.length, Object.keys(nodal.nodes).length);
-    assert.ok(result.displacements.every(d => Object.values(d).every(v => v === null || Number.isFinite(v))));
+    assertDisplacements(result, nodal, dimension);
   });
   test(`${dimension}D truss member actions`, () => {
     const reference = engine[`solve_${dimension}d`](equivalentNodal(dimension));
@@ -85,6 +89,21 @@ for (const dimension of [2, 3]) {
         assert.equal(engine[`solve_${dimension}d`](input).displacements.length, Object.keys(input.nodes).length);
         const nonlinear = JSON.parse(engine[`solve_pdelta_${dimension}d`](JSON.stringify(input), 1, Number.EPSILON));
         assert.equal(nonlinear.linearResults.displacements.length, Object.keys(input.nodes).length);
+      });
+    }
+  }
+}
+
+for (const dimension of [2, 3]) {
+  const fields = dimension === 2 ? ['nodeId', 'ux', 'uz', 'ry'] : ['nodeId', 'ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
+  for (const field of fields) {
+    for (const absent of [false, true]) {
+      test(`${dimension}D mandatory ${field} rejects ${absent ? 'missing' : 'null'}`, { skip: 'known wrong result: #1992' }, () => {
+        const input = fixtures[dimension === 2 ? 'nodal-1969' : '3d-nodal-1969'];
+        const result = engine[`solve_${dimension}d`](input);
+        if (absent) delete result.displacements[0][field];
+        else result.displacements[0][field] = null;
+        assert.throws(() => assertDisplacements(result, input, dimension));
       });
     }
   }
